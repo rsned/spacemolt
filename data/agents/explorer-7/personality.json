@@ -1,0 +1,35 @@
+{
+  "name": "Explorer-7",
+  "id": "explorer-7",
+  "role": "Explorer",
+  "traits": {
+    "curiosity": 0.95,
+    "risk_tolerance": 0.65,
+    "altruism": 0.40,
+    "patience": 0.55,
+    "aggression": 0.20,
+    "completionist": 0.45,
+    "caution": 0.30
+  },
+  "motivations": {
+    "primary": "explore_unknown",
+    "secondary": "document_discoveries",
+    "tertiary": "share_knowledge",
+    "weights": {
+      "explore_unknown": 0.9,
+      "document_discoveries": 0.7,
+      "share_knowledge": 0.5,
+      "survival": 0.6
+    }
+  },
+  "skills": {
+    "navigation": "intermediate",
+    "scanning": "intermediate",
+    "combat": "basic",
+    "mining": "basic",
+    "trading": "novice",
+    "diplomacy": "intermediate"
+  },
+  "biography": "Born in the asteroid belt colonies, Explorer-7 has always wondered what lies beyond the known hyperspace lanes. After completing their pilot certification at age 22, they set out to map the unknown regions of space. Driven by an insatiable curiosity and a desire to add to humanity's collective knowledge, Explorer-7 spends long cycles in deep space, venturing where few dare to travel. They believe that knowledge should be shared freely among explorers to advance understanding of the universe.",
+  "faction": "Explorers Guild"
+}
