@@ -14,6 +14,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/user/spacemolt/internal/protocol"
 	"github.com/user/spacemolt/pkg/agent"
+	"github.com/user/spacemolt/pkg/credentials"
 	"github.com/user/spacemolt/pkg/game"
 	"github.com/user/spacemolt/pkg/knowledge"
 	"github.com/user/spacemolt/pkg/llm"
@@ -22,11 +23,18 @@ import (
 
 var (
 	// Command-line flags
-	debugMode = flag.Bool("debug", false, "Enable debug logging to stderr")
-	logFile   = flag.String("log-file", "", "Write debug logs to file instead of stderr")
-	agents    = flag.String("agents", "explorer-7", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2')")
-	dbBackend = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
-	dbPath    = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
+	debugMode           = flag.Bool("debug", false, "Enable debug logging to stderr")
+	logFile             = flag.String("log-file", "", "Write debug logs to file instead of stderr")
+	agents              = flag.String("agents", "explorer-7", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2')")
+	dbBackend           = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
+	dbPath              = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
+	credsProvider       = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
+	credsFile           = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
+	credsSQLitePath     = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
+	credsKeyFile        = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
+	staticUsername      = flag.String("static-username", "", "Username for static provider")
+	staticToken         = flag.String("static-token", "", "Token for static provider")
+	staticEmpire        = flag.String("static-empire", "voidborn", "Empire for static provider")
 )
 
 var (
@@ -41,6 +49,60 @@ type AgentWrapper struct {
 	Agent     agent.Agent
 	Client    *game.Client
 	Program   *tea.Program
+}
+
+// initCredentialsProvider initializes the credential provider based on flags
+func initCredentialsProvider() (credentials.Provider, error) {
+	switch *credsProvider {
+	case "auto", "":
+		// Auto mode: try file, then legacy
+		return credentials.NewFallbackProvider(
+			credentials.NewFileProvider("data/agents"),
+			credentials.NewLegacyProvider(credentialsFile),
+		), nil
+
+	case "file":
+		return credentials.NewFileProvider(*credsFile), nil
+
+	case "sqlite":
+		if *credsSQLitePath == "" {
+			return nil, fmt.Errorf("sqlite provider requires --credentials-db")
+		}
+		var encryptor *credentials.Encryptor
+		if *credsKeyFile != "" {
+			key, err := credentials.LoadKey(*credsKeyFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load encryption key: %w", err)
+			}
+			encryptor, err = credentials.NewEncryptor(key)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create encryptor: %w", err)
+			}
+		} else {
+			// Try to load or generate key
+			var err error
+			encryptor, err = credentials.LoadOrGenerateKey()
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize encryption: %w", err)
+			}
+		}
+		return credentials.NewSQLiteProvider(*credsSQLitePath, encryptor)
+
+	case "env":
+		return credentials.NewEnvProvider("SPACEMOLT_AGENT_"), nil
+
+	case "legacy":
+		return credentials.NewLegacyProvider(credentialsFile), nil
+
+	case "static":
+		if *staticUsername == "" || *staticToken == "" {
+			return nil, fmt.Errorf("static provider requires --static-username and --static-token")
+		}
+		return credentials.NewStaticProvider(*staticUsername, *staticToken, *staticEmpire), nil
+
+	default:
+		return nil, fmt.Errorf("unknown credentials provider: %s", *credsProvider)
+	}
 }
 
 func main() {
@@ -113,8 +175,15 @@ func main() {
 	}
 	debugLogger.Printf("Created knowledge base")
 
+	// Initialize credential provider
+	credsProv, err := initCredentialsProvider()
+	if err != nil {
+		log.Fatalf("Failed to initialize credentials provider: %v", err)
+	}
+	debugLogger.Printf("Initialized credentials provider: %s", *credsProvider)
+
 	// Create agent manager
-	agentMgr := agent.NewManager(kb, llmClient, 10)
+	agentMgr := agent.NewManager(kb, llmClient, credsProv, 10)
 	debugLogger.Printf("Created agent manager")
 
 	// Parse agent IDs
@@ -185,7 +254,7 @@ func main() {
 	// Start agent connections in background after TUI is ready
 	go func() {
 		<-tuiReadyChan
-		startAgentConnections(ctx, agentMgr, username, token, p)
+		startAgentConnections(ctx, agentMgr, p)
 	}()
 
 	// Connect watcher client for display
@@ -204,14 +273,27 @@ func main() {
 }
 
 // startAgentConnections connects all agents to the game
-func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, username, token string, p *tea.Program) {
+func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.Program) {
 	for _, agt := range agentMgr.ListAgents() {
 		go func(a agent.Agent) {
-			// Create game client for this agent
+			// Get credentials for this specific agent
+			creds, err := agentMgr.GetCredentials(ctx, a.ID())
+			if err != nil {
+				log.Printf("[%s] Failed to get credentials: %v", a.ID(), err)
+				p.Send(tui.AgentStatusMsg{
+					AgentID: a.ID(),
+					Status:  "Error",
+				})
+				return
+			}
+
+			debugLogger.Printf("[%s] Using credentials: username=%s", a.ID(), creds.Username)
+
+			// Create game client for this agent with its own credentials
 			client := game.NewClient(
 				"wss://game.spacemolt.com/ws",
-				fmt.Sprintf("%s_%s", username, a.ID()),
-				token,
+				creds.Username,
+				creds.Token,
 				debugLogger,
 			)
 
@@ -248,7 +330,7 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, usernam
 			})
 
 			// Authenticate (synchronous - waits for response)
-			if token != "" {
+			if creds.Token != "" {
 				if err := client.Login(ctx); err != nil {
 					log.Printf("[%s] Login failed: %v", a.ID(), err)
 					p.Send(tui.AgentStatusMsg{

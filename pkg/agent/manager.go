@@ -5,32 +5,40 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/user/spacemolt/pkg/credentials"
 	"github.com/user/spacemolt/pkg/knowledge"
 	"github.com/user/spacemolt/pkg/llm"
 )
 
 // Manager manages multiple agents
 type Manager struct {
-	agents   map[string]Agent
-	kb       knowledge.Base
-	llm      *llm.Client
-	mu       sync.RWMutex
+	agents         map[string]Agent
+	kb             knowledge.Base
+	llm            *llm.Client
+	credsProvider  credentials.Provider
+	mu             sync.RWMutex
 
 	// Configuration
 	maxAgents int
 }
 
 // NewManager creates a new agent manager
-func NewManager(kb knowledge.Base, llmClient *llm.Client, maxAgents int) *Manager {
+func NewManager(
+	kb knowledge.Base,
+	llmClient *llm.Client,
+	credsProvider credentials.Provider,
+	maxAgents int,
+) *Manager {
 	if maxAgents <= 0 {
 		maxAgents = 10 // Default max
 	}
 
 	return &Manager{
-		agents:   make(map[string]Agent),
-		kb:       kb,
-		llm:      llmClient,
-		maxAgents: maxAgents,
+		agents:        make(map[string]Agent),
+		kb:            kb,
+		llm:           llmClient,
+		credsProvider: credsProvider,
+		maxAgents:     maxAgents,
 	}
 }
 
@@ -46,6 +54,12 @@ func (m *Manager) SpawnAgent(ctx context.Context, personality Personality) (Agen
 	// Check if agent already exists
 	if _, exists := m.agents[personality.ID]; exists {
 		return nil, fmt.Errorf("agent %s already exists", personality.ID)
+	}
+
+	// Validate credentials exist for this agent
+	_, err := m.credsProvider.GetCredentials(ctx, personality.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credentials for agent %s: %w", personality.ID, err)
 	}
 
 	// Create agent memory
@@ -153,4 +167,9 @@ func (m *Manager) GetStatus() map[string]Status {
 		statuses[id] = agent.Status()
 	}
 	return statuses
+}
+
+// GetCredentials retrieves credentials for an agent
+func (m *Manager) GetCredentials(ctx context.Context, agentID string) (*credentials.Credentials, error) {
+	return m.credsProvider.GetCredentials(ctx, agentID)
 }
