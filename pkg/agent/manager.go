@@ -12,7 +12,7 @@ import (
 // Manager manages multiple agents
 type Manager struct {
 	agents   map[string]Agent
-	kb       *knowledge.MemoryKB
+	kb       knowledge.Base
 	llm      *llm.Client
 	mu       sync.RWMutex
 
@@ -21,7 +21,7 @@ type Manager struct {
 }
 
 // NewManager creates a new agent manager
-func NewManager(kb *knowledge.MemoryKB, llmClient *llm.Client, maxAgents int) *Manager {
+func NewManager(kb knowledge.Base, llmClient *llm.Client, maxAgents int) *Manager {
 	if maxAgents <= 0 {
 		maxAgents = 10 // Default max
 	}
