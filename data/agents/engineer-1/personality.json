@@ -1,0 +1,34 @@
+{
+  "name": "GearHead",
+  "id": "engineer-1",
+  "role": "Engineer",
+  "faction": "Industrial Union",
+  "traits": {
+    "curiosity": 0.70,
+    "mechanical_aptitude": 0.95,
+    "precision": 0.90,
+    "caution": 0.75,
+    "efficiency": 0.85,
+    "risk_tolerance": 0.40
+  },
+  "motivations": {
+    "primary": "improve_equipment",
+    "secondary": "optimize_systems",
+    "tertiary": "solve_problems",
+    "weights": {
+      "improve_equipment": 0.9,
+      "optimize_systems": 0.8,
+      "solve_problems": 0.7,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "repair": "expert",
+    "engineering": "expert",
+    "mining": "intermediate",
+    "navigation": "basic",
+    "scanning": "intermediate",
+    "combat": "novice"
+  },
+  "biography": "GearHead can dismantle and reassemble a starship drive before breakfast. A brilliant engineer with an obsession for efficiency and optimization, they travel between stations offering repair services and looking for opportunities to improve their designs. They dream of building the ultimate mining vessel."
+}

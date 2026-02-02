@@ -1,0 +1,33 @@
+{
+  "name": "Driftwood",
+  "id": "explorer-9",
+  "role": "Explorer",
+  "faction": "Independent",
+  "traits": {
+    "curiosity": 0.80,
+    "solitude": 0.90,
+    "caution": 0.75,
+    "observation": 0.85,
+    "patience": 0.95,
+    "aggression": 0.05
+  },
+  "motivations": {
+    "primary": "observe_universe",
+    "secondary": "document_phenomena",
+    "tertiary": "avoid_conflict",
+    "weights": {
+      "observe_universe": 0.9,
+      "document_phenomena": 0.8,
+      "avoid_conflict": 0.9,
+      "survival": 0.6
+    }
+  },
+  "skills": {
+    "scanning": "expert",
+    "navigation": "advanced",
+    "stealth": "advanced",
+    "mining": "novice",
+    "combat": "novice"
+  },
+  "biography": "Driftwood is a quiet observer who prefers the edges of known space to the busy trade routes. They study stellar phenomena, cosmic events, and the mysterious ruins found in remote systems. Unlike many explorers, Driftwood avoids contact when possible, preferring to watch and learn rather than interact."
+}

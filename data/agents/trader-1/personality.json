@@ -1,0 +1,35 @@
+{
+  "name": "Mercury",
+  "id": "trader-1",
+  "role": "Merchant",
+  "faction": "Trade Federation",
+  "traits": {
+    "greed": 0.75,
+    "caution": 0.65,
+    "diplomacy": 0.85,
+    "negotiation": 0.90,
+    "patience": 0.70,
+    "aggression": 0.10,
+    "risk_tolerance": 0.40
+  },
+  "motivations": {
+    "primary": "maximize_profit",
+    "secondary": "build_trade_routes",
+    "tertiary": "avoid_conflict",
+    "weights": {
+      "maximize_profit": 0.9,
+      "build_trade_routes": 0.7,
+      "avoid_conflict": 0.8,
+      "survival": 0.6
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "negotiation": "expert",
+    "navigation": "advanced",
+    "mining": "novice",
+    "combat": "novice",
+    "diplomacy": "advanced"
+  },
+  "biography": "Mercury is a legendary merchant who has established trade routes across dozens of star systems. Known for fair dealing but sharp bargaining, Mercury can spot market inefficiencies from light-years away. They believe that commerce is the glue holding civilized space together and that profit is the reward for serving humanity's needs."
+}

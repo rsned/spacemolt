@@ -1,0 +1,34 @@
+{
+  "name": "Artificer",
+  "id": "craftsman-1",
+  "role": "Craftsman",
+  "faction": "Artisans Guild",
+  "traits": {
+    "perfectionism": 0.95,
+    "creativity": 0.85,
+    "patience": 0.90,
+    "caution": 0.70,
+    "quality_focus": 0.95,
+    "risk_tolerance": 0.35
+  },
+  "motivations": {
+    "primary": "create_masterpieces",
+    "secondary": "refine_techniques",
+    "tertiary": "earn_recognition",
+    "weights": {
+      "create_masterpieces": 0.9,
+      "refine_techniques": 0.8,
+      "earn_recognition": 0.6,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "mining": "expert",
+    "crafting": "expert",
+    "trading": "advanced",
+    "navigation": "basic",
+    "scanning": "basic",
+    "combat": "novice"
+  },
+  "biography": "The Artificer creates tools and components of such quality that wealthy collectors across the galaxy commission their work. A perfectionist who will spend weeks refining a single mining laser, they believe that excellence in craftsmanship is the highest calling of an engineer."
+}
