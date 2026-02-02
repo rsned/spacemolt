@@ -56,10 +56,14 @@ type WatcherModel struct {
 	// Agent tracking
 	agents          []AgentInfo
 	selectedAgentID string
+
+	// Ready signal - closed when TUI is initialized and ready
+	readyChan chan struct{}
 }
 
 // NewWatcherModel creates a new watcher TUI model
-func NewWatcherModel(state *game.State) WatcherModel {
+// The readyChan will be closed when the TUI is initialized and ready for use
+func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
 	return WatcherModel{
 		gameState: state,
 		logPanel: logPanelModel{
@@ -83,12 +87,17 @@ func NewWatcherModel(state *game.State) WatcherModel {
 			selected:    0,
 			showDetails: false,
 		},
-		agents: []AgentInfo{},
+		agents:    []AgentInfo{},
+		readyChan: readyChan,
 	}
 }
 
 // Init initializes the TUI model
 func (m WatcherModel) Init() tea.Cmd {
+	// Signal that the TUI is now initialized and ready
+	if m.readyChan != nil {
+		close(m.readyChan)
+	}
 	return tickEvery(time.Second)
 }
 
