@@ -26,6 +26,8 @@ var (
 	debugMode = flag.Bool("debug", false, "Enable debug logging to stderr")
 	logFile   = flag.String("log-file", "", "Write debug logs to file instead of stderr")
 	agents    = flag.String("agents", "explorer-7", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2')")
+	dbBackend = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
+	dbPath    = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
 )
 
 var (
@@ -88,7 +90,28 @@ func main() {
 	}
 
 	// Create knowledge base
-	kb := knowledge.NewMemoryKB()
+	var kb knowledge.Base
+	switch *dbBackend {
+	case "sqlite":
+		sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
+			DBPath:       *dbPath,
+			WAL:          true,
+			MaxOpenConns: 25,
+			MaxIdleConns: 5,
+			BusyTimeout:  5 * time.Second,
+		})
+		if err != nil {
+			log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+		}
+		kb = sqliteKB
+		debugLogger.Printf("Created SQLite knowledge base at %s", *dbPath)
+		defer func() { _ = kb.Close() }()
+	case "memory":
+		kb = knowledge.NewMemoryKB()
+		debugLogger.Printf("Created in-memory knowledge base")
+	default:
+		log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
+	}
 	debugLogger.Printf("Created knowledge base")
 
 	// Create agent manager

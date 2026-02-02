@@ -211,12 +211,12 @@ func (a *BaseAgent) Status() Status {
 
 // KBMemory implements the Memory interface using the knowledge base
 type KBMemory struct {
-	kb      *knowledge.MemoryKB
+	kb      knowledge.Base
 	agentID string
 }
 
 // NewKBMemory creates a new memory backed by the knowledge base
-func NewKBMemory(kb *knowledge.MemoryKB, agentID string) *KBMemory {
+func NewKBMemory(kb knowledge.Base, agentID string) *KBMemory {
 	return &KBMemory{
 		kb:      kb,
 		agentID: agentID,

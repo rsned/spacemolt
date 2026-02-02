@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -12,14 +13,22 @@ import (
 	"github.com/user/spacemolt/pkg/llm"
 )
 
+var (
+	dbBackend = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
+	dbPath    = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
+)
+
 func main() {
-	if len(os.Args) < 2 {
+	flag.Parse()
+
+	args := flag.Args()
+	if len(args) < 1 {
 		fmt.Println("Usage: agent <personality.json>")
 		fmt.Println("Example: agent data/agents/explorer-7/personality.json")
 		os.Exit(1)
 	}
 
-	personalityPath := os.Args[1]
+	personalityPath := args[0]
 
 	fmt.Println("=== Spacemolt Agent Test ===")
 	fmt.Printf("Loading personality from: %s\n", personalityPath)
@@ -37,8 +46,28 @@ func main() {
 	fmt.Printf("  Primary motivation: %s\n", personality.Motivations.Primary)
 
 	// Create knowledge base
-	kb := knowledge.NewMemoryKB()
-	fmt.Println("✓ Created in-memory knowledge base")
+	var kb knowledge.Base
+	switch *dbBackend {
+	case "sqlite":
+		sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
+			DBPath:       *dbPath,
+			WAL:          true,
+			MaxOpenConns: 25,
+			MaxIdleConns: 5,
+			BusyTimeout:  5 * time.Second,
+		})
+		if err != nil {
+			log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+		}
+		kb = sqliteKB
+		fmt.Printf("✓ Created SQLite knowledge base at %s\n", *dbPath)
+		defer func() { _ = kb.Close() }()
+	case "memory":
+		kb = knowledge.NewMemoryKB()
+		fmt.Println("✓ Created in-memory knowledge base")
+	default:
+		log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
+	}
 
 	// Create LLM client
 	llmClient := llm.New(llm.Config{
