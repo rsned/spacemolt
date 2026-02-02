@@ -117,6 +117,26 @@ const (
 	AgentStateStopped
 )
 
+// String returns the string representation of AgentState
+func (s AgentState) String() string {
+	switch s {
+	case AgentStateIdle:
+		return "Idle"
+	case AgentStateDeciding:
+		return "Deciding"
+	case AgentStateActing:
+		return "Acting"
+	case AgentStateWaiting:
+		return "Waiting"
+	case AgentStateError:
+		return "Error"
+	case AgentStateStopped:
+		return "Stopped"
+	default:
+		return "Unknown"
+	}
+}
+
 // Memory stores agent knowledge
 type Memory interface {
 	// Knowledge access
