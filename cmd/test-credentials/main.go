@@ -11,14 +11,17 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Phase 1 Credential Provider Test ===\n")
+	fmt.Println("=== Phase 1 Credential Provider Test ===")
+	fmt.Println()
 
 	ctx := context.Background()
 	tmpDir, err := os.MkdirTemp("", "spacemolt-credentials-test-*")
 	if err != nil {
 		log.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	fmt.Printf("Testing in: %s\n\n", tmpDir)
 
@@ -88,11 +91,11 @@ func main() {
 
 	// Test 5: EnvProvider
 	fmt.Println("\n5. Testing EnvProvider...")
-	os.Setenv("SPACEMOLT_AGENT_MINER_2_USERNAME", "miner-2")
-	os.Setenv("SPACEMOLT_AGENT_MINER_2_TOKEN", "miner-token-123")
+	_ = os.Setenv("SPACEMOLT_AGENT_MINER_2_USERNAME", "miner-2")
+	_ = os.Setenv("SPACEMOLT_AGENT_MINER_2_TOKEN", "miner-token-123")
 	defer func() {
-		os.Unsetenv("SPACEMOLT_AGENT_MINER_2_USERNAME")
-		os.Unsetenv("SPACEMOLT_AGENT_MINER_2_TOKEN")
+		_ = os.Unsetenv("SPACEMOLT_AGENT_MINER_2_USERNAME")
+		_ = os.Unsetenv("SPACEMOLT_AGENT_MINER_2_TOKEN")
 	}()
 
 	envProvider := credentials.NewEnvProvider("")
@@ -138,7 +141,77 @@ func main() {
 	fmt.Printf("   ✓ File permissions: 0600 (secure)\n")
 
 	fmt.Println("\n=== All Phase 1 Tests Passed ===")
-	fmt.Println("\nReady to proceed with Phase 2: SQLite encryption")
+	fmt.Println("\n=== Phase 2: SQLite Encryption Test ===")
+	fmt.Println()
+
+	// Test 9: SQLiteProvider with encryption
+	fmt.Println("9. Testing SQLiteProvider with encryption...")
+	dbPath := filepath.Join(tmpDir, "test-credentials.db")
+
+	// Create encryptor with test key
+	testKey := make([]byte, 32)
+	for i := range testKey {
+		testKey[i] = byte(i)
+	}
+	encryptor, err := credentials.NewEncryptor(testKey)
+	if err != nil {
+		log.Fatalf("Failed to create encryptor: %v", err)
+	}
+
+	sqliteProvider, err := credentials.NewSQLiteProvider(dbPath, encryptor)
+	if err != nil {
+		log.Fatalf("Failed to create SQLiteProvider: %v", err)
+	}
+	defer func() {
+		_ = sqliteProvider.Close()
+	}()
+
+	// Store credentials (should be encrypted)
+	err = sqliteProvider.StoreCredentials(ctx, "agent-1", &credentials.Credentials{
+		Username: "agent-1-user",
+		Token:     "super-secret-token-12345",
+		Empire:    "voidborn",
+	})
+	if err != nil {
+		log.Fatalf("SQLiteProvider StoreCredentials failed: %v", err)
+	}
+	fmt.Printf("   ✓ SQLiteProvider: stored encrypted credentials\n")
+
+	// Retrieve credentials (should be decrypted)
+	retrieved, err = sqliteProvider.GetCredentials(ctx, "agent-1")
+	if err != nil {
+		log.Fatalf("SQLiteProvider GetCredentials failed: %v", err)
+	}
+	if retrieved.Token != "super-secret-token-12345" {
+		log.Fatalf("Token mismatch: expected 'super-secret-token-12345', got '%s'", retrieved.Token)
+	}
+	fmt.Printf("   ✓ SQLiteProvider: retrieved and decrypted credentials (username=%s)\n", retrieved.Username)
+
+	// Test 10: ListAgents
+	fmt.Println("\n10. Testing SQLiteProvider ListAgents...")
+	agents, err = sqliteProvider.ListAgents(ctx)
+	if err != nil {
+		log.Fatalf("SQLiteProvider ListAgents failed: %v", err)
+	}
+	if len(agents) != 1 || agents[0] != "agent-1" {
+		log.Fatalf("Expected ['agent-1'], got %v", agents)
+	}
+	fmt.Printf("   ✓ ListAgents: found %d agent(s)\n", len(agents))
+
+	// Test 12: RemoveCredentials
+	fmt.Println("\n12. Testing SQLiteProvider RemoveCredentials...")
+	err = sqliteProvider.RemoveCredentials(ctx, "agent-1")
+	if err != nil {
+		log.Fatalf("SQLiteProvider RemoveCredentials failed: %v", err)
+	}
+	_, err = sqliteProvider.GetCredentials(ctx, "agent-1")
+	if !credentials.IsErrCredentialsNotFound(err) {
+		log.Fatal("Expected ErrCredentialsNotFound after removal")
+	}
+	fmt.Printf("   ✓ RemoveCredentials: successfully removed credentials\n")
+
+	fmt.Println("\n=== All Phase 2 Tests Passed ===")
+	fmt.Println("\n🎉 Multi-Agent Authentication System - Phase 1 & 2 Complete!")
 }
 
 // mockProvider is a test provider for fallback testing

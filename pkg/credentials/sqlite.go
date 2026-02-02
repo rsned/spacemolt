@@ -12,28 +12,28 @@ import (
 // SQLiteProvider loads credentials from a SQLite database
 //
 // This provider stores credentials in the agent_credentials table,
-// with encrypted tokens for security.
-//
-// NOTE: Phase 1 implementation without encryption.
-// Phase 2 will add AES-256-GCM encryption.
+// with encrypted tokens for security using AES-256-GCM.
 type SQLiteProvider struct {
-	db    *sql.DB
-	mu    sync.RWMutex
-	ready bool
+	db        *sql.DB
+	encryptor *Encryptor
+	mu        sync.RWMutex
+	ready     bool
 }
 
 // NewSQLiteProvider creates a new SQLite credential provider
 //
 // The database must have the agent_credentials table created.
 // See knowledge/sqlite_migrations.go for schema.
-func NewSQLiteProvider(dbPath string) (*SQLiteProvider, error) {
+// The encryptor is used to encrypt/decrypt tokens in the database.
+func NewSQLiteProvider(dbPath string, encryptor *Encryptor) (*SQLiteProvider, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	provider := &SQLiteProvider{
-		db: db,
+		db:        db,
+		encryptor: encryptor,
 	}
 
 	// Verify table exists
@@ -48,9 +48,11 @@ func NewSQLiteProvider(dbPath string) (*SQLiteProvider, error) {
 // NewSQLiteProviderWithDB creates a provider using an existing DB connection
 //
 // Useful when sharing a database connection with the knowledge base.
-func NewSQLiteProviderWithDB(db *sql.DB) *SQLiteProvider {
+// The encryptor is used to encrypt/decrypt tokens in the database.
+func NewSQLiteProviderWithDB(db *sql.DB, encryptor *Encryptor) *SQLiteProvider {
 	return &SQLiteProvider{
-		db: db,
+		db:        db,
+		encryptor: encryptor,
 	}
 }
 
@@ -108,12 +110,16 @@ func (p *SQLiteProvider) GetCredentials(ctx context.Context, agentID string) (*C
 		return nil, fmt.Errorf("%w: database not initialized", ErrProviderUnavailable)
 	}
 
-	var username, token, empire string
+	if p.encryptor == nil {
+		return nil, fmt.Errorf("%w: encryptor not configured", ErrProviderUnavailable)
+	}
+
+	var username, encryptedToken, empire string
 	err := p.db.QueryRowContext(ctx, `
-		SELECT username, token, empire
+		SELECT username, token, empires
 		FROM agent_credentials
 		WHERE agent_id = ?
-	`, agentID).Scan(&username, &token, &empire)
+	`, agentID).Scan(&username, &encryptedToken, &empire)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("%w: agent %s", ErrCredentialsNotFound, agentID)
@@ -121,6 +127,12 @@ func (p *SQLiteProvider) GetCredentials(ctx context.Context, agentID string) (*C
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query credentials: %w", err)
+	}
+
+	// Decrypt the token
+	token, err := p.encryptor.Decrypt(encryptedToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt token: %w", err)
 	}
 
 	return &Credentials{
@@ -139,22 +151,32 @@ func (p *SQLiteProvider) StoreCredentials(ctx context.Context, agentID string, c
 		return fmt.Errorf("%w: database not initialized", ErrProviderUnavailable)
 	}
 
+	if p.encryptor == nil {
+		return fmt.Errorf("%w: encryptor not configured", ErrProviderUnavailable)
+	}
+
 	// Set default empire
 	empires := creds.Empire
 	if empires == "" {
 		empires = "voidborn"
 	}
 
+	// Encrypt the token before storing
+	encryptedToken, err := p.encryptor.Encrypt(creds.Token)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt token: %w", err)
+	}
+
 	// Insert or replace credentials
-	_, err := p.db.ExecContext(ctx, `
-		INSERT INTO agent_credentials (agent_id, username, token, empire, created_at, last_used)
+	_, err = p.db.ExecContext(ctx, `
+		INSERT INTO agent_credentials (agent_id, username, token, empires, created_at, last_used)
 		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
 		ON CONFLICT(agent_id) DO UPDATE SET
 			username = excluded.username,
 			token = excluded.token,
 			empires = excluded.empires,
 			last_used = datetime('now')
-	`, agentID, creds.Username, creds.Token, empires)
+	`, agentID, creds.Username, encryptedToken, empires)
 
 	if err != nil {
 		return fmt.Errorf("failed to store credentials: %w", err)
