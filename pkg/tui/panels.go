@@ -32,13 +32,22 @@ type statusPanelModel struct {
 	compactMode  bool
 }
 
+// agentPanelModel represents the agent list panel
+type agentPanelModel struct {
+	agents      []string
+	selected    int
+	showDetails bool
+}
+
 // panelLayout holds the calculated dimensions for each panel
 type panelLayout struct {
-	logWidth    int
-	logHeight   int
-	mapWidth    int
-	mapHeight   int
-	statusWidth int
+	agentWidth   int
+	agentHeight  int
+	logWidth     int
+	logHeight    int
+	mapWidth     int
+	mapHeight    int
+	statusWidth  int
 	statusHeight int
 }
 

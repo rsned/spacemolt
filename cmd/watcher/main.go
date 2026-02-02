@@ -14,7 +14,10 @@ import (
 	"github.com/coder/websocket"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/user/spacemolt/internal/protocol"
+	"github.com/user/spacemolt/pkg/agent"
 	"github.com/user/spacemolt/pkg/game"
+	"github.com/user/spacemolt/pkg/knowledge"
+	"github.com/user/spacemolt/pkg/llm"
 	"github.com/user/spacemolt/pkg/tui"
 )
 
@@ -22,6 +25,7 @@ var (
 	// Command-line flags
 	debugMode = flag.Bool("debug", false, "Enable debug logging to stderr")
 	logFile   = flag.String("log-file", "", "Write debug logs to file instead of stderr")
+	agents    = flag.String("agents", "explorer-7", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2')")
 )
 
 var (
@@ -30,6 +34,13 @@ var (
 )
 
 var credentialsFile = ".spacemolt-credentials.json"
+
+// AgentWrapper wraps an agent with its game client
+type AgentWrapper struct {
+	Agent     agent.Agent
+	Client    *game.Client
+	Program   *tea.Program
+}
 
 func main() {
 	flag.Parse()
@@ -60,22 +71,64 @@ func main() {
 		}
 	}
 
-	// Connect to WebSocket
-	url := "wss://game.spacemolt.com/ws"
+	// Create LLM client
+	llmClient := llm.New(llm.Config{
+		BaseURL: "http://localhost:11434",
+		Model:   "llama3.2",
+		Timeout: 60 * time.Second,
+	})
+	debugLogger.Printf("Created LLM client")
 
-	ws, _, err := websocket.Dial(ctx, url, nil)
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+	// Test LLM connection
+	if err := llmClient.TestConnection(ctx); err != nil {
+		log.Printf("Warning: Could not connect to Ollama: %v", err)
+		log.Printf("Agents will not be able to make decisions without Ollama running")
+	} else {
+		debugLogger.Printf("Connected to Ollama successfully")
 	}
-	defer func() {
-		_ = ws.Close(websocket.StatusNormalClosure, "")
-	}()
 
-	// Game state
+	// Create knowledge base
+	kb := knowledge.NewMemoryKB()
+	debugLogger.Printf("Created knowledge base")
+
+	// Create agent manager
+	agentMgr := agent.NewManager(kb, llmClient, 10)
+	debugLogger.Printf("Created agent manager")
+
+	// Parse agent IDs
+	agentIDs := strings.Split(*agents, ",")
+	debugLogger.Printf("Spawning agents: %v", agentIDs)
+
+	// Spawn agents
+	for _, agentID := range agentIDs {
+		agentID = strings.TrimSpace(agentID)
+		if agentID == "" {
+			continue
+		}
+
+		// Load personality
+		personalityPath := fmt.Sprintf("data/agents/%s/personality.json", agentID)
+		personality, err := agent.LoadPersonalityJSON(personalityPath)
+		if err != nil {
+			log.Printf("Failed to load personality for %s: %v", agentID, err)
+			continue
+		}
+
+		// Spawn agent
+		agt, err := agentMgr.SpawnAgent(ctx, personality)
+		if err != nil {
+			log.Printf("Failed to spawn agent %s: %v", agentID, err)
+			continue
+		}
+
+		debugLogger.Printf("Spawned agent: %s (%s)", agt.Name(), agt.ID())
+	}
+
+	// Create watcher game state and TUI
 	state := &game.State{
 		Doc:         true,
-		MaxCargo:    10, // Default cargo capacity
-		CurrentTick: 0,  // Will be updated from server
+		MaxCargo:    10,
+		CurrentTick: 0,
 		System: game.SystemData{
 			POIs:        []game.POI{},
 			Connections: []string{},
@@ -84,24 +137,229 @@ func main() {
 		Token:    token,
 	}
 
-	// Create TUI model
 	model := tui.NewWatcherModel(state)
+
+	// Add agents to TUI
+	for _, agt := range agentMgr.ListAgents() {
+		status := agt.Status()
+		model.AddAgent(tui.AgentInfo{
+			ID:     agt.ID(),
+			Name:   agt.Name(),
+			Role:   agt.Personality().Role,
+			Status: status.State.String(),
+			Action: status.CurrentAction,
+		})
+	}
 
 	// Start Bubbletea program
 	p := tea.NewProgram(
 		model,
-		tea.WithAltScreen(),       // Use alternate screen buffer
-		tea.WithMouseCellMotion(), // Enable mouse support
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
 	)
 
-	// Start WebSocket listener in goroutine
-	go wsListener(ctx, ws, state, p)
+	// Start agent connections in background
+	go startAgentConnections(ctx, agentMgr, username, token, p)
+
+	// Connect watcher client for display
+	go startWatcherClient(ctx, state, p)
+
+	// Run the TUI
+	if _, err := p.Run(); err != nil {
+		log.Printf("Alas, there's been an error: %v", err)
+	}
+
+	// Cleanup
+	debugLogger.Printf("Stopping all agents...")
+	if err := agentMgr.StopAll(); err != nil {
+		log.Printf("Error stopping agents: %v", err)
+	}
+}
+
+// startAgentConnections connects all agents to the game
+func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, username, token string, p *tea.Program) {
+	// Wait a bit for TUI to initialize
+	time.Sleep(2 * time.Second)
+
+	for _, agt := range agentMgr.ListAgents() {
+		go func(a agent.Agent) {
+			// Create game client for this agent
+			client := game.NewClient(
+				"wss://game.spacemolt.com/ws",
+				fmt.Sprintf("%s_%s", username, a.ID()),
+				token,
+				debugLogger,
+			)
+
+			// Connect
+			if err := client.Connect(ctx); err != nil {
+				log.Printf("[%s] Failed to connect: %v", a.ID(), err)
+				p.Send(tui.AgentStatusMsg{
+					AgentID: a.ID(),
+					Status:  "Error",
+				})
+				return
+			}
+
+			// Set message handler
+			client.SetHandler(&agentMessageHandler{
+				agent:  a,
+				program: p,
+				client: client,
+			})
+
+			// Login or register
+			time.Sleep(500 * time.Millisecond)
+			if token != "" {
+				if err := client.Login(ctx); err != nil {
+					log.Printf("[%s] Login failed: %v", a.ID(), err)
+				}
+			} else {
+				if err := client.Register(ctx, "voidborn"); err != nil {
+					log.Printf("[%s] Registration failed: %v", a.ID(), err)
+				}
+			}
+
+			// Request system info
+			time.Sleep(1 * time.Second)
+			if err := client.GetSystem(ctx); err != nil {
+				log.Printf("[%s] Failed to get system: %v", a.ID(), err)
+			}
+
+			// Start agent decision loop
+			runAgentLoop(ctx, a, client, p)
+		}(agt)
+	}
+}
+
+// runAgentLoop runs the autonomous agent decision loop
+func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, p *tea.Program) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		// Wait for next tick
+		<-ticker.C
+
+		// Get current state
+		state := client.GetState()
+
+		// Make decision
+		p.Send(tui.AgentStatusMsg{
+			AgentID: agt.ID(),
+			Status:  "Deciding",
+		})
+
+		decision, err := agt.Decide(ctx, state)
+		if err != nil {
+			log.Printf("[%s] Decision failed: %v", agt.ID(), err)
+			p.Send(tui.AgentStatusMsg{
+				AgentID: agt.ID(),
+				Status:  "Error",
+			})
+			continue
+		}
+
+		log.Printf("[%s] Decided: %s (%.2f confidence) - %s", agt.ID(), decision.Action, decision.Confidence, decision.Reasoning)
+
+		// Execute action
+		p.Send(tui.AgentStatusMsg{
+			AgentID: agt.ID(),
+			Status:  "Acting",
+		})
+
+		if err := executeAction(ctx, client, decision); err != nil {
+			log.Printf("[%s] Action failed: %v", agt.ID(), err)
+
+			// Learn from failure
+			if err := agt.Learn(agent.ActionResult{
+				Success: false,
+				Message: err.Error(),
+				Error:   err,
+			}); err != nil {
+				log.Printf("[%s] Failed to learn from failure: %v", agt.ID(), err)
+			}
+
+			p.Send(tui.AgentStatusMsg{
+				AgentID: agt.ID(),
+				Status:  "Error",
+			})
+			continue
+		}
+
+		// Learn from success
+		if err := agt.Learn(agent.ActionResult{
+			Success:  true,
+			Message:  fmt.Sprintf("Executed %s", decision.Action),
+			NewState: state,
+		}); err != nil {
+			log.Printf("[%s] Failed to learn from success: %v", agt.ID(), err)
+		}
+
+		p.Send(tui.AgentStatusMsg{
+			AgentID: agt.ID(),
+			Status:  "Idle",
+		})
+	}
+}
+
+// executeAction executes a decision through the game client
+func executeAction(ctx context.Context, client *game.Client, decision agent.Decision) error {
+	switch decision.Action {
+	case "undock":
+		return client.Undock(ctx)
+	case "dock":
+		return client.Dock(ctx)
+	case "travel":
+		if decision.Target != "" {
+			return client.Travel(ctx, decision.Target)
+		}
+		return fmt.Errorf("travel requires target")
+	case "jump":
+		if decision.Target != "" {
+			return client.Jump(ctx, decision.Target)
+		}
+		return fmt.Errorf("jump requires target")
+	case "mine":
+		return client.Mine(ctx)
+	case "scan":
+		return client.Scan(ctx)
+	case "wait":
+		return nil
+	case "get_system":
+		return client.GetSystem(ctx)
+	case "get_status":
+		return client.GetStatus(ctx)
+	default:
+		return fmt.Errorf("unknown action: %s", decision.Action)
+	}
+}
+
+// startWatcherClient connects a client for the watcher display
+func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) {
+	time.Sleep(500 * time.Millisecond)
+
+	url := "wss://game.spacemolt.com/ws"
+
+	ws, _, err := websocket.Dial(ctx, url, nil)
+	if err != nil {
+		log.Printf("Watcher client failed to connect: %v", err)
+		return
+	}
+	defer func() {
+		_ = ws.Close(websocket.StatusNormalClosure, "")
+	}()
 
 	// Login or register
 	time.Sleep(500 * time.Millisecond)
 
 	if state.Username != "" && state.Token != "" {
-		// Try to login first
 		loginMsg := protocol.Message{
 			Type: protocol.TypeLoggedIn,
 			Payload: map[string]any{
@@ -112,8 +370,7 @@ func main() {
 		}
 		sendMessage(ctx, ws, loginMsg)
 	} else {
-		// Register new account
-		state.Username = fmt.Sprintf("CosmicLobster_%d", time.Now().Unix())
+		state.Username = fmt.Sprintf("Watcher_%d", time.Now().Unix())
 		registerMsg := protocol.Message{
 			Type: protocol.TypeRegistered,
 			Payload: map[string]any{
@@ -125,21 +382,17 @@ func main() {
 		sendMessage(ctx, ws, registerMsg)
 	}
 
-	// Wait for login/register to complete
 	time.Sleep(3 * time.Second)
-
-	// Request system info after login
 	sendMessage(ctx, ws, protocol.Message{Type: "get_system", Timestamp: time.Now().UnixMilli()})
 
-	// Run the TUI
-	if _, err := p.Run(); err != nil {
-		log.Printf("Alas, there's been an error: %v", err)
-	}
-}
-
-// wsListener handles incoming WebSocket messages and forwards them to the TUI
-func wsListener(ctx context.Context, ws *websocket.Conn, state *game.State, p *tea.Program) {
+	// Listen for messages
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		_, data, err := ws.Read(ctx)
 		if err != nil {
 			p.Send(tui.WsMsg{Type: "error", Payload: map[string]any{"error": err.Error()}})
@@ -151,15 +404,44 @@ func wsListener(ctx context.Context, ws *websocket.Conn, state *game.State, p *t
 			continue
 		}
 
-		// Update state directly for tracking
 		handleResponse(resp, state)
-
-		// Send to TUI for display
 		p.Send(tui.WsMsg{
 			Type:    resp.Type,
 			Payload: resp.Payload,
 		})
 	}
+}
+
+// agentMessageHandler handles game messages for an agent
+type agentMessageHandler struct {
+	agent  agent.Agent
+	program *tea.Program
+	client *game.Client
+}
+
+func (h *agentMessageHandler) OnConnected(state *game.State) {
+	log.Printf("[%s] Connected", h.agent.ID())
+}
+
+func (h *agentMessageHandler) OnMessage(resp protocol.Response) {
+	// State is automatically updated by the client
+	// Log significant events
+	switch resp.Type {
+	case "ok":
+		if action, ok := resp.Payload["action"].(string); ok {
+			log.Printf("[%s] Action completed: %s", h.agent.ID(), action)
+		}
+	case "error":
+		log.Printf("[%s] Error: %v", h.agent.ID(), resp.Payload)
+	}
+}
+
+func (h *agentMessageHandler) OnDisconnected(err error) {
+	log.Printf("[%s] Disconnected: %v", h.agent.ID(), err)
+	h.program.Send(tui.AgentStatusMsg{
+		AgentID: h.agent.ID(),
+		Status:  "Error",
+	})
 }
 
 func sendMessage(ctx context.Context, ws *websocket.Conn, msg protocol.Message) {
@@ -173,63 +455,17 @@ func sendMessage(ctx context.Context, ws *websocket.Conn, msg protocol.Message) 
 	}
 }
 
-// updateShipState extracts ship data from a payload map and updates state.
-// Must be called while state.Mu is held.
-func updateShipState(state *game.State, ship map[string]any, logPrefix string) {
-	if fuel, ok := ship["fuel"].(float64); ok {
-		state.Fuel = fuel
-	}
-	if maxFuel, ok := ship["max_fuel"].(float64); ok {
-		state.MaxFuel = maxFuel
-	}
-	if hull, ok := ship["hull"].(float64); ok {
-		state.Hull = hull
-	}
-	if maxHull, ok := ship["max_hull"].(float64); ok {
-		state.MaxHull = maxHull
-	}
-	// cargo_capacity may be int, int64, or float64 depending on JSON decoding
-	if maxCargo, ok := ship["cargo_capacity"].(float64); ok {
-		state.MaxCargo = int(maxCargo)
-		debugLogger.Printf("%s cargo_capacity from float64: %d", logPrefix, state.MaxCargo)
-	} else if maxCargo, ok := ship["cargo_capacity"].(int64); ok {
-		state.MaxCargo = int(maxCargo)
-		debugLogger.Printf("%s cargo_capacity from int64: %d", logPrefix, state.MaxCargo)
-	} else if maxCargo, ok := ship["cargo_capacity"].(int); ok {
-		state.MaxCargo = maxCargo
-		debugLogger.Printf("%s cargo_capacity from int: %d", logPrefix, state.MaxCargo)
-	} else if logPrefix != "" {
-		var shipKeys []string
-		for k := range ship {
-			shipKeys = append(shipKeys, k)
-		}
-		debugLogger.Printf("%s cargo_capacity not found, ship keys: %v", logPrefix, shipKeys)
-	}
-	if cargo, ok := ship["cargo"].([]any); ok {
-		state.Cargo = state.Cargo[:0] // Clear existing cargo
-		for _, c := range cargo {
-			if item, ok := c.(map[string]any); ok {
-				state.Cargo = append(state.Cargo, item)
-			}
-		}
-		debugLogger.Printf("%s cargo: %d items", logPrefix, len(state.Cargo))
-	}
-}
-
+// handleResponse updates state from server responses
+// This is a simplified version that updates the watcher's state
 func handleResponse(resp protocol.Response, state *game.State) {
 	state.Mu.Lock()
 	defer state.Mu.Unlock()
 
-	// Log all message types and their payload keys for debugging
-	var keys []string
-	for k := range resp.Payload {
-		keys = append(keys, k)
-	}
-	debugLogger.Printf("[%s] payload keys: %v", resp.Type, keys)
-
 	switch resp.Type {
 	case protocol.TypeWelcome:
-		// Welcome message - no special handling needed
+		if tick, ok := resp.Payload["current_tick"].(float64); ok {
+			state.CurrentTick = int64(tick)
+		}
 
 	case protocol.TypeRegistered:
 		if token, ok := resp.Payload["token"].(string); ok {
@@ -238,13 +474,6 @@ func handleResponse(resp protocol.Response, state *game.State) {
 		}
 
 	case protocol.TypeLoggedIn:
-		// Log all payload keys to see what's available
-		var keys []string
-		for k := range resp.Payload {
-			keys = append(keys, k)
-		}
-		debugLogger.Printf("logged_in payload keys: %v", keys)
-
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
 			if pUsername, ok := player["username"].(string); ok {
 				state.Username = pUsername
@@ -254,9 +483,7 @@ func handleResponse(resp protocol.Response, state *game.State) {
 				state.System.ShipPOI = currentPoi
 			}
 		}
-		// Check for ship data in logged_in response
 		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			debugLogger.Printf("logged_in contains ship data")
 			updateShipState(state, ship, "logged_in")
 		}
 		if system, ok := resp.Payload["system"].(map[string]any); ok {
@@ -264,32 +491,12 @@ func handleResponse(resp protocol.Response, state *game.State) {
 				state.CurrentSystem = sysName
 			}
 		}
-		// Save credentials on successful login
 		saveCredentials(state.Username, state.Token)
 
-	case protocol.TypeError:
-		// Parse error message to detect implied state changes
-		if errMsg, ok := resp.Payload["message"].(string); ok {
-			// Check for errors implying undocked state
-			if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
-				if state.Doc {
-					state.Doc = false
-				}
-			}
-			// Check for errors implying docked state
-			if containsIgnoreCase(errMsg, []string{"already docked", "already at station"}) {
-				if !state.Doc {
-					state.Doc = true
-				}
-			}
-		}
-
 	case protocol.TypeOK:
-		// Handle player data (credits) in ok responses
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
 			if credits, ok := player["credits"].(float64); ok {
 				state.Credits = credits
-				debugLogger.Printf("ok credits updated: %.0f", state.Credits)
 			}
 			if currentPoi, ok := player["current_poi"].(string); ok {
 				state.CurrentPOI = currentPoi
@@ -297,7 +504,6 @@ func handleResponse(resp protocol.Response, state *game.State) {
 			}
 		}
 
-		// Parse system data if present
 		if poisData, ok := resp.Payload["pois"].([]any); ok {
 			state.System.POIs = state.System.POIs[:0]
 			for _, p := range poisData {
@@ -356,9 +562,7 @@ func handleResponse(resp protocol.Response, state *game.State) {
 			}
 		}
 
-		// Handle ship data in ok responses (e.g., after mining, trading, etc.)
 		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			debugLogger.Printf("ok response contains ship data")
 			updateShipState(state, ship, "ok")
 		}
 
@@ -381,12 +585,10 @@ func handleResponse(resp protocol.Response, state *game.State) {
 		state.Doc = false
 
 	case protocol.TypeStateUpdate:
-		// Update tick count
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			state.CurrentTick = int64(tick)
 		}
 
-		// Update state from payload
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
 			if currentPoi, ok := player["current_poi"].(string); ok {
 				state.CurrentPOI = currentPoi
@@ -400,40 +602,46 @@ func handleResponse(resp protocol.Response, state *game.State) {
 			updateShipState(state, ship, "state_update")
 		}
 
-	case protocol.TypeChatMessage:
-		// Chat messages are handled by TUI
-
-	case protocol.TypePOI:
-		// POI data handled by TUI
-
-	case protocol.TypeSystem:
-		// System data handled by TUI
-
 	case protocol.TypeMining:
-		// Mining updates - handle ship data (cargo, fuel, etc.)
 		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			debugLogger.Printf("mining response contains ship data")
 			updateShipState(state, ship, "mining")
 		}
-		// Also check for player data (credits may change when selling)
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
 			if credits, ok := player["credits"].(float64); ok {
 				state.Credits = credits
-				debugLogger.Printf("mining credits updated: %.0f", state.Credits)
 			}
 		}
 	}
 }
 
-// containsIgnoreCase checks if any of the substrings exist in the text (case-insensitive)
-func containsIgnoreCase(text string, substrings []string) bool {
-	lower := strings.ToLower(text)
-	for _, s := range substrings {
-		if strings.Contains(lower, strings.ToLower(s)) {
-			return true
+func updateShipState(state *game.State, ship map[string]any, logPrefix string) {
+	if fuel, ok := ship["fuel"].(float64); ok {
+		state.Fuel = fuel
+	}
+	if maxFuel, ok := ship["max_fuel"].(float64); ok {
+		state.MaxFuel = maxFuel
+	}
+	if hull, ok := ship["hull"].(float64); ok {
+		state.Hull = hull
+	}
+	if maxHull, ok := ship["max_hull"].(float64); ok {
+		state.MaxHull = maxHull
+	}
+	if maxCargo, ok := ship["cargo_capacity"].(float64); ok {
+		state.MaxCargo = int(maxCargo)
+	} else if maxCargo, ok := ship["cargo_capacity"].(int64); ok {
+		state.MaxCargo = int(maxCargo)
+	} else if maxCargo, ok := ship["cargo_capacity"].(int); ok {
+		state.MaxCargo = maxCargo
+	}
+	if cargo, ok := ship["cargo"].([]any); ok {
+		state.Cargo = state.Cargo[:0]
+		for _, c := range cargo {
+			if item, ok := c.(map[string]any); ok {
+				state.Cargo = append(state.Cargo, item)
+			}
 		}
 	}
-	return false
 }
 
 func saveCredentials(username, token string) {
