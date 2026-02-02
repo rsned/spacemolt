@@ -1,0 +1,33 @@
+{
+  "name": "AsteroidJoe",
+  "id": "miner-4",
+  "role": "Miner",
+  "faction": "Independent",
+  "traits": {
+    "curiosity": 0.60,
+    "risk_tolerance": 0.75,
+    "greed": 0.70,
+    "aggression": 0.25,
+    "patience": 0.40,
+    "wanderlust": 0.80
+  },
+  "motivations": {
+    "primary": "explore_asteroids",
+    "secondary": "collect_rare_minerals",
+    "tertiary": "sell_high",
+    "weights": {
+      "explore_asteroids": 0.9,
+      "collect_rare_minerals": 0.7,
+      "sell_high": 0.6,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "mining": "advanced",
+    "scanning": "expert",
+    "navigation": "intermediate",
+    "trading": "basic",
+    "combat": "basic"
+  },
+  "biography": "A wandering miner who prefers the solitude of deep space asteroid fields. AsteroidJoe has traveled farther into the asteroid belts than most dare, searching for exotic minerals and rare earth elements. They're friendly with other miners but wary of corporations and authorities who might want to tax their discoveries."
+}

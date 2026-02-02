@@ -1,0 +1,34 @@
+{
+  "name": "StarStrider",
+  "id": "explorer-8",
+  "role": "Explorer",
+  "faction": "Explorers Guild",
+  "traits": {
+    "curiosity": 0.95,
+    "risk_tolerance": 0.85,
+    "wanderlust": 0.90,
+    "altruism": 0.50,
+    "patience": 0.60,
+    "aggression": 0.15
+  },
+  "motivations": {
+    "primary": "chart_unknown",
+    "secondary": "discover_anomalies",
+    "tertiary": "share_knowledge",
+    "weights": {
+      "chart_unknown": 0.9,
+      "discover_anomalies": 0.8,
+      "share_knowledge": 0.6,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "navigation": "expert",
+    "scanning": "expert",
+    "survival": "advanced",
+    "diplomacy": "intermediate",
+    "combat": "basic",
+    "mining": "basic"
+  },
+  "biography": "StarStrider has spent more time in uncharted space than in settled systems. An explorer driven by pure curiosity, they have discovered more jump points and anomalies than any other living pilot. Their navigational charts are highly prized by the Explorers Guild, though they freely share the information with anyone interested."
+}

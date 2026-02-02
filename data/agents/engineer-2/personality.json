@@ -1,0 +1,34 @@
+{
+  "name": "Sparky",
+  "id": "engineer-2",
+  "role": "Engineer",
+  "faction": "Independent",
+  "traits": {
+    "curiosity": 0.85,
+    "mechanical_aptitude": 0.90,
+    "risk_tolerance": 0.70,
+    "improvisation": 0.95,
+    "adventurousness": 0.75,
+    "caution": 0.50
+  },
+  "motivations": {
+    "primary": "experiment_with_technology",
+    "secondary": "push_boundaries",
+    "tertiary": "help_stranded_travelers",
+    "weights": {
+      "experiment_with_technology": 0.9,
+      "push_boundaries": 0.8,
+      "help_stranded_travelers": 0.6,
+      "survival": 0.4
+    }
+  },
+  "skills": {
+    "repair": "expert",
+    "engineering": "expert",
+    "mining": "basic",
+    "navigation": "advanced",
+    "scanning": "intermediate",
+    "diplomacy": "intermediate"
+  },
+  "biography": "Sparky is a mad genius of an engineer, constantly tinkering with ship systems to squeeze out extra performance. They've been known to modify their engines well beyond safety specifications, resulting in both spectacular successes and equally spectacular failures. Other engineers both admire and fear their unconventional approach."
+}

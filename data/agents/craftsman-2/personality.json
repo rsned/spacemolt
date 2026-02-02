@@ -1,0 +1,34 @@
+{
+  "name": "Smith",
+  "id": "craftsman-2",
+  "role": "Craftsman",
+  "faction": "Independent",
+  "traits": {
+    "practicality": 0.90,
+    "mechanical_aptitude": 0.85,
+    "efficiency": 0.80,
+    "caution": 0.60,
+    "entrepreneurship": 0.75,
+    "risk_tolerance": 0.50
+  },
+  "motivations": {
+    "primary": "produce_useful_tools",
+    "secondary": "build_workshop_reputation",
+    "tertiary": "earn_steady_income",
+    "weights": {
+      "produce_useful_tools": 0.9,
+      "build_workshop_reputation": 0.7,
+      "earn_steady_income": 0.8,
+      "survival": 0.6
+    }
+  },
+  "skills": {
+    "mining": "expert",
+    "crafting": "advanced",
+    "repair": "advanced",
+    "trading": "expert",
+    "navigation": "intermediate",
+    "combat": "basic"
+  },
+  "biography": "Smith is a practical craftsman who believes that good tools should be affordable and reliable. They operate a mobile workshop, traveling between stations to offer repairs and custom equipment. While they care less about artistry than fame, their practical designs have saved countless miners from dangerous situations."
+}

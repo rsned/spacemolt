@@ -1,0 +1,33 @@
+{
+  "name": "CalicoJack",
+  "id": "pirate-2",
+  "role": "Swashbuckler",
+  "faction": "Rogue Fleet",
+  "traits": {
+    "aggression": 0.70,
+    "charm": 0.85,
+    "cunning": 0.80,
+    "risk_tolerance": 0.85,
+    "adventurousness": 0.90,
+    "greed": 0.60
+  },
+  "motivations": {
+    "primary": "seek_thrills",
+    "secondary": "challenge_authority",
+    "tertiary": "live_free",
+    "weights": {
+      "seek_thrills": 0.9,
+      "challenge_authority": 0.7,
+      "live_free": 0.8,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "combat": "advanced",
+    "navigation": "expert",
+    "diplomacy": "basic",
+    "scavenging": "expert",
+    "stealth": "intermediate"
+  },
+  "biography": "CalicoJack is as charming as they are dangerous. A swashbuckler who sees piracy as a grand adventure rather than a career, they're known for their daring raids and even more daring escapes. Jack claims to be in it for the freedom of the void, but their rivals suspect they just can't resist the thrill of a heist."
+}

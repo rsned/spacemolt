@@ -1,0 +1,33 @@
+{
+  "name": "DeepCore",
+  "id": "miner-3",
+  "role": "Miner",
+  "faction": "Mining Guild",
+  "traits": {
+    "greed": 0.85,
+    "caution": 0.70,
+    "patience": 0.90,
+    "aggression": 0.15,
+    "efficiency": 0.80,
+    "risk_tolerance": 0.35
+  },
+  "motivations": {
+    "primary": "maximize_profits",
+    "secondary": "find_rich_deposits",
+    "tertiary": "avoid_hazards",
+    "weights": {
+      "maximize_profits": 0.9,
+      "find_rich_deposits": 0.8,
+      "avoid_hazards": 0.6,
+      "survival": 0.7
+    }
+  },
+  "skills": {
+    "mining": "expert",
+    "trading": "intermediate",
+    "navigation": "basic",
+    "scanning": "intermediate",
+    "combat": "novice"
+  },
+  "biography": "DeepCore spent 15 years working in the asteroid belt's most dangerous mining operations before becoming an independent contractor. They know every trick for extracting maximum value from asteroids and stations, and they have a sixth sense for finding the richest deposits. Their motto: 'There's gold in them rocks if you know where to look.'"
+}

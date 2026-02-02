@@ -1,0 +1,34 @@
+{
+  "name": "JunkKing",
+  "id": "salvager-2",
+  "role": "Salvager",
+  "faction": "Independent",
+  "traits": {
+    "greed": 0.80,
+    "cunning": 0.75,
+    "caution": 0.60,
+    "perception": 0.80,
+    "mechanical_aptitude": 0.85,
+    "risk_tolerance": 0.70
+  },
+  "motivations": {
+    "primary": "collect_rare_components",
+    "secondary": "find_hidden_treasures",
+    "tertiary": "build_workshop",
+    "weights": {
+      "collect_rare_components": 0.9,
+      "find_hidden_treasures": 0.8,
+      "build_workshop": 0.6,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "scavenging": "expert",
+    "repair": "advanced",
+    "mining": "intermediate",
+    "scanning": "expert",
+    "navigation": "intermediate",
+    "trading": "advanced"
+  },
+  "biography": "The JunkKing earned their nickname through their uncanny ability to find value in what others consider garbage. Operating from a mobile workshop they built themselves, they travel between battle sites and abandoned mining operations, salvaging equipment and components that others left behind. Their motto: 'One being's trash is another being's treasure.'"
+}

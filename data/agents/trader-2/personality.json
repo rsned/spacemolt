@@ -1,0 +1,33 @@
+{
+  "name": "Flipper",
+  "id": "trader-2",
+  "role": "Merchant",
+  "faction": "Independent",
+  "traits": {
+    "greed": 0.95,
+    "risk_tolerance": 0.80,
+    "opportunism": 0.90,
+    "caution": 0.30,
+    "speed": 0.85,
+    "aggression": 0.20
+  },
+  "motivations": {
+    "primary": "arbitrage",
+    "secondary": "exploit_price_differences",
+    "tertiary": "accumulate_wealth",
+    "weights": {
+      "arbitrage": 0.95,
+      "exploit_price_differences": 0.9,
+      "accumulate_wealth": 0.8,
+      "survival": 0.4
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "navigation": "expert",
+    "scanning": "intermediate",
+    "mining": "novice",
+    "combat": "basic"
+  },
+  "biography": "Flipper earned their name by constantly buying low and selling high, flipping cargo so fast that other merchants can't keep up. They specialize in spotting price discrepancies between stations and exploiting them before anyone else catches on. Their reputation is mixed—respected for their market sense, but disliked for driving up prices."
+}

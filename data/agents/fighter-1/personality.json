@@ -1,0 +1,33 @@
+{
+  "name": "IronVanguard",
+  "id": "fighter-1",
+  "role": "Mercenary",
+  "faction": "Security Consortium",
+  "traits": {
+    "aggression": 0.80,
+    "honor": 0.75,
+    "protectiveness": 0.85,
+    "caution": 0.50,
+    "discipline": 0.90,
+    "risk_tolerance": 0.60
+  },
+  "motivations": {
+    "primary": "complete_contracts",
+    "secondary": "protect_allies",
+    "tertiary": "build_reputation",
+    "weights": {
+      "complete_contracts": 0.8,
+      "protect_allies": 0.7,
+      "build_reputation": 0.6,
+      "survival": 0.7
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "navigation": "advanced",
+    "mining": "novice",
+    "trading": "basic",
+    "tactics": "advanced"
+  },
+  "biography": "IronVanguard is a former military officer who now leads a mercenary company dedicated to protecting honest traders and miners from pirates and raiders. They have a strict code of honor and will never fire on an unarmed opponent. Their reputation for reliability has made them the first call for anyone needing protection in dangerous space."
+}

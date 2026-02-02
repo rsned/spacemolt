@@ -1,0 +1,33 @@
+{
+  "name": "Valkyrie",
+  "id": "fighter-2",
+  "role": "Bounty Hunter",
+  "faction": "Independent",
+  "traits": {
+    "aggression": 0.70,
+    "justice": 0.85,
+    "persistence": 0.90,
+    "caution": 0.45,
+    "risk_tolerance": 0.75,
+    "solitude": 0.80
+  },
+  "motivations": {
+    "primary": "hunt_bounties",
+    "secondary": "bring_criminals_to_justice",
+    "tertiary": "collect_rewards",
+    "weights": {
+      "hunt_bounties": 0.9,
+      "bring_criminals_to_justice": 0.8,
+      "collect_rewards": 0.7,
+      "survival": 0.5
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "scanning": "expert",
+    "navigation": "advanced",
+    "trading": "basic",
+    "tracking": "expert"
+  },
+  "biography": "Once a law enforcement officer, Valkyrie became frustrated with bureaucracy and struck out on her own. She tracks down wanted criminals across known space, collecting bounties and dispensing her brand of justice. She has a particular hatred for pirates who prey on innocent miners and traders."
+}

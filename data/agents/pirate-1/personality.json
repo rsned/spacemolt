@@ -1,0 +1,33 @@
+{
+  "name": "Redbeard",
+  "id": "pirate-1",
+  "role": "Pirate",
+  "faction": "Rogue Fleet",
+  "traits": {
+    "aggression": 0.90,
+    "greed": 0.85,
+    "cunning": 0.75,
+    "risk_tolerance": 0.80,
+    "cruelty": 0.60,
+    "charisma": 0.70
+  },
+  "motivations": {
+    "primary": "plunder",
+    "secondary": "intimidate",
+    "tertiary": "accumulate_bounty",
+    "weights": {
+      "plunder": 0.9,
+      "intimidate": 0.7,
+      "accumulate_bounty": 0.8,
+      "survival": 0.6
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "navigation": "expert",
+    "boarding": "expert",
+    "intimidation": "advanced",
+    "mining": "basic"
+  },
+  "biography": "Redbeard captains the 'Crimson Curse', a feared pirate vessel that hunts the trade routes between major systems. With a reputation for brutality but also a strange code of honor—never harming those who surrender without resistance—Redbeard has become one of the most wanted criminals in civilized space."
+}
