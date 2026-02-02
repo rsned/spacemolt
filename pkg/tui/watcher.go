@@ -32,9 +32,9 @@ type MultiAgentWatcherModel struct {
 }
 
 // NewMultiAgentWatcherModel creates a new multi-agent watcher model
-func NewMultiAgentWatcherModel(state *game.State) MultiAgentWatcherModel {
+func NewMultiAgentWatcherModel(state *game.State, readyChan chan struct{}) MultiAgentWatcherModel {
 	return MultiAgentWatcherModel{
-		WatcherModel: NewWatcherModel(state),
+		WatcherModel: NewWatcherModel(state, readyChan),
 		// agentPanel:    NewAgentPanelModel(),
 	}
 }

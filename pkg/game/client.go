@@ -24,6 +24,10 @@ type Client struct {
 	stopCh      chan struct{}
 	connected   bool
 	debugLogger *log.Logger
+
+	// Ready synchronization - closed when first message is received
+	readyChan chan struct{}
+	readyOnce sync.Once
 }
 
 // MessageHandler handles incoming game messages
@@ -55,6 +59,7 @@ func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
 			InCombat: false,
 		},
 		stopCh:      make(chan struct{}),
+		readyChan:   make(chan struct{}),
 		debugLogger: debugLogger,
 	}
 }
@@ -246,6 +251,11 @@ func (c *Client) listen(ctx context.Context) {
 			c.debugLogger.Printf("Failed to parse message: %v", err)
 			continue
 		}
+
+		// Signal ready on first successful message
+		c.readyOnce.Do(func() {
+			close(c.readyChan)
+		})
 
 		c.debugLogger.Printf("[RECV] %s", resp.Type)
 
@@ -796,4 +806,10 @@ func (c *Client) IsConnected() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.connected
+}
+
+// Ready returns a channel that is closed when the WebSocket connection is ready
+// (i.e., when the first message has been received from the server)
+func (c *Client) Ready() <-chan struct{} {
+	return c.readyChan
 }

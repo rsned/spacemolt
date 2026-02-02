@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -160,7 +161,9 @@ func main() {
 		Token:    token,
 	}
 
-	model := tui.NewWatcherModel(state)
+	// Create ready channel for TUI initialization synchronization
+	tuiReadyChan := make(chan struct{})
+	model := tui.NewWatcherModel(state, tuiReadyChan)
 
 	// Add agents to TUI
 	for _, agt := range agentMgr.ListAgents() {
@@ -181,8 +184,11 @@ func main() {
 		tea.WithMouseCellMotion(),
 	)
 
-	// Start agent connections in background
-	go startAgentConnections(ctx, agentMgr, username, token, p)
+	// Start agent connections in background after TUI is ready
+	go func() {
+		<-tuiReadyChan
+		startAgentConnections(ctx, agentMgr, username, token, p)
+	}()
 
 	// Connect watcher client for display
 	go startWatcherClient(ctx, state, p)
@@ -201,10 +207,6 @@ func main() {
 
 // startAgentConnections connects all agents to the game
 func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, username, token string, p *tea.Program) {
-	// TODO: Replace with proper synchronization for TUI initialization.
-	// 2 seconds is an arbitrary wait for the UI to be ready.
-	time.Sleep(2 * time.Second)
-
 	for _, agt := range agentMgr.ListAgents() {
 		go func(a agent.Agent) {
 			// Create game client for this agent
@@ -225,17 +227,32 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, usernam
 				return
 			}
 
-			// Set message handler
-			client.SetHandler(&agentMessageHandler{
-				agent:  a,
-				program: p,
-				client: client,
-			})
+			// Wait for connection to be ready (first message received)
+			select {
+			case <-client.Ready():
+				// Connection is ready, proceed with authentication
+			case <-time.After(10 * time.Second):
+				log.Printf("[%s] Timeout waiting for connection ready", a.ID())
+				p.Send(tui.AgentStatusMsg{
+					AgentID: a.ID(),
+					Status:  "Error",
+				})
+				return
+			case <-ctx.Done():
+				return
+			}
 
-			// Login or register
-			// TODO: Replace with proper connection ready state checking.
-			// 500ms is an arbitrary delay before authentication.
-			time.Sleep(500 * time.Millisecond)
+			// Create channel to wait for auth completion
+			authDone := make(chan bool, 1)
+			origHandler := &agentMessageHandler{
+				agent:    a,
+				program:  p,
+				client:   client,
+				authDone: authDone,
+			}
+			client.SetHandler(origHandler)
+
+			// Send authentication
 			if token != "" {
 				if err := client.Login(ctx); err != nil {
 					log.Printf("[%s] Login failed: %v", a.ID(), err)
@@ -246,10 +263,29 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, usernam
 				}
 			}
 
+			// Wait for authentication response
+			select {
+			case success := <-authDone:
+				if !success {
+					log.Printf("[%s] Authentication failed", a.ID())
+					p.Send(tui.AgentStatusMsg{
+						AgentID: a.ID(),
+						Status:  "Error",
+					})
+					return
+				}
+			case <-time.After(10 * time.Second):
+				log.Printf("[%s] Timeout waiting for authentication", a.ID())
+				p.Send(tui.AgentStatusMsg{
+					AgentID: a.ID(),
+					Status:  "Error",
+				})
+				return
+			case <-ctx.Done():
+				return
+			}
+
 			// Request system info
-			// TODO: Replace with acknowledgment of successful authentication.
-			// 1 second is an arbitrary delay before requesting system info.
-			time.Sleep(1 * time.Second)
 			if err := client.GetSystem(ctx); err != nil {
 				log.Printf("[%s] Failed to get system: %v", a.ID(), err)
 			}
@@ -371,10 +407,6 @@ func executeAction(ctx context.Context, client *game.Client, decision agent.Deci
 
 // startWatcherClient connects a client for the watcher display
 func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) {
-	// TODO: Replace with channel-based waiting for server response.
-	// Current sleep is a pragmatic workaround for WebSocket handshake timing.
-	time.Sleep(500 * time.Millisecond)
-
 	url := "wss://game.spacemolt.com/ws"
 
 	ws, _, err := websocket.Dial(ctx, url, nil)
@@ -386,11 +418,61 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 		_ = ws.Close(websocket.StatusNormalClosure, "")
 	}()
 
-	// Login or register
-	// TODO: Replace with proper WebSocket connection ready state.
-	// 500ms is an arbitrary delay before authentication.
-	time.Sleep(500 * time.Millisecond)
+	// Create ready channel for WebSocket connection
+	readyChan := make(chan struct{})
+	authDoneChan := make(chan struct{})
+	var readyOnce, authOnce sync.Once
 
+	// Start message listener in background
+	messageChan := make(chan protocol.Response, 10)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			_, data, err := ws.Read(ctx)
+			if err != nil {
+				p.Send(tui.WsMsg{Type: "error", Payload: map[string]any{"error": err.Error()}})
+				return
+			}
+
+			var resp protocol.Response
+			if err := json.Unmarshal(data, &resp); err != nil {
+				continue
+			}
+
+			// Signal ready on first message
+			readyOnce.Do(func() {
+				close(readyChan)
+			})
+
+			// Signal auth done on login/register response
+			if resp.Type == protocol.TypeLoggedIn || resp.Type == protocol.TypeRegistered {
+				authOnce.Do(func() {
+					close(authDoneChan)
+				})
+			}
+
+			// Forward message to processing
+			messageChan <- resp
+		}
+	}()
+
+	// Wait for connection to be ready
+	select {
+	case <-readyChan:
+		// Connection ready, proceed
+	case <-time.After(10 * time.Second):
+		log.Printf("Watcher: Timeout waiting for connection ready")
+		return
+	case <-ctx.Done():
+		return
+	}
+
+	// Send authentication
 	if state.Username != "" && state.Token != "" {
 		loginMsg := protocol.Message{
 			Type: protocol.TypeLoggedIn,
@@ -414,43 +496,42 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 		sendMessage(ctx, ws, registerMsg)
 	}
 
-	// TODO: Replace with proper async waiting for authentication response.
-	// 3 seconds is an arbitrary buffer for slow connections.
-	time.Sleep(3 * time.Second)
+	// Wait for authentication response
+	select {
+	case <-authDoneChan:
+		// Authentication successful, proceed
+	case <-time.After(10 * time.Second):
+		log.Printf("Watcher: Timeout waiting for authentication response")
+		return
+	case <-ctx.Done():
+		return
+	}
+
+	// Request system info
 	sendMessage(ctx, ws, protocol.Message{Type: "get_system", Timestamp: time.Now().UnixMilli()})
 
-	// Listen for messages
+	// Process messages
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case resp := <-messageChan:
+			handleResponse(resp, state)
+			p.Send(tui.WsMsg{
+				Type:    resp.Type,
+				Payload: resp.Payload,
+			})
 		}
-
-		_, data, err := ws.Read(ctx)
-		if err != nil {
-			p.Send(tui.WsMsg{Type: "error", Payload: map[string]any{"error": err.Error()}})
-			return
-		}
-
-		var resp protocol.Response
-		if err := json.Unmarshal(data, &resp); err != nil {
-			continue
-		}
-
-		handleResponse(resp, state)
-		p.Send(tui.WsMsg{
-			Type:    resp.Type,
-			Payload: resp.Payload,
-		})
 	}
 }
 
 // agentMessageHandler handles game messages for an agent
 type agentMessageHandler struct {
-	agent  agent.Agent
-	program *tea.Program
-	client *game.Client
+	agent    agent.Agent
+	program  *tea.Program
+	client   *game.Client
+	authDone chan bool
+	authOnce sync.Once
 }
 
 func (h *agentMessageHandler) OnConnected(state *game.State) {
@@ -458,6 +539,27 @@ func (h *agentMessageHandler) OnConnected(state *game.State) {
 }
 
 func (h *agentMessageHandler) OnMessage(resp protocol.Response) {
+	// Check for authentication response
+	if h.authDone != nil {
+		switch resp.Type {
+		case protocol.TypeLoggedIn, protocol.TypeRegistered:
+			h.authOnce.Do(func() {
+				h.authDone <- true
+			})
+		case protocol.TypeError:
+			// Check if this is an auth error
+			if msg, ok := resp.Payload["message"].(string); ok {
+				if strings.Contains(strings.ToLower(msg), "auth") ||
+					strings.Contains(strings.ToLower(msg), "login") ||
+					strings.Contains(strings.ToLower(msg), "token") {
+					h.authOnce.Do(func() {
+						h.authDone <- false
+					})
+				}
+			}
+		}
+	}
+
 	// State is automatically updated by the client
 	// Log significant events
 	switch resp.Type {
