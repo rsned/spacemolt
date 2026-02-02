@@ -37,11 +37,11 @@ func renderMap(sysData game.SystemData, halfGridRows, halfGridCols int) string {
 	var maxAbsX, maxAbsY float64
 	firstPOI := true
 	for _, poi := range sysData.POIs {
-		absX := poi.X
+		absX := poi.Position.X
 		if absX < 0 {
 			absX = -absX
 		}
-		absY := poi.Y
+		absY := poi.Position.Y
 		if absY < 0 {
 			absY = -absY
 		}
@@ -127,7 +127,7 @@ func renderMap(sysData game.SystemData, halfGridRows, halfGridCols int) string {
 
 	// Render POIs by priority
 	for _, poi := range sysData.POIs {
-		gridX, gridY := worldToGrid(poi.X, poi.Y)
+		gridX, gridY := worldToGrid(poi.Position.X, poi.Position.Y)
 
 		currentPriority := priority[poi.Type]
 		existingAtPos := grid[gridY][gridX]
@@ -151,16 +151,18 @@ func renderMap(sysData game.SystemData, halfGridRows, halfGridCols int) string {
 	}
 
 	// Find and render ship position
-	shipX, shipY := -1.0, -1.0
+	var shipX, shipY float64
+	shipFound := false
 	for _, poi := range sysData.POIs {
 		if poi.ID == sysData.ShipPOI {
-			shipX, shipY = poi.X, poi.Y
+			shipX, shipY = poi.Position.X, poi.Position.Y
+			shipFound = true
 			break
 		}
 	}
 
 	// Render ship
-	if shipX >= 0 {
+	if shipFound {
 		gridShipX, gridShipY := worldToGrid(shipX, shipY)
 		grid[gridShipY][gridShipX] = '@'
 	}

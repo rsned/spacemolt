@@ -116,86 +116,21 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 
 // parseDecision extracts structured decision from LLM text response
 func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
-	// Try to extract JSON from the response
-	// Look for JSON blocks in the text
-	response := &DecisionResponse{}
-
-	// Simple parsing - look for patterns
-	// In production, this would be more robust
-
-	// Extract action
-	if err := extractField(text, "action", &response.Action); err != nil {
-		return nil, fmt.Errorf("failed to extract action: %w", err)
+	// Find JSON block in response
+	start := strings.Index(text, "{")
+	end := strings.LastIndex(text, "}")
+	if start == -1 || end == -1 || end <= start {
+		return nil, fmt.Errorf("no JSON block found in response")
 	}
 
-	// Extract target if present
-	_ = extractField(text, "target", &response.Target)
+	jsonStr := text[start : end+1]
 
-	// Extract reasoning
-	if err := extractField(text, "reasoning", &response.Reasoning); err != nil {
-		response.Reasoning = text // Fallback to full text
+	var decision DecisionResponse
+	if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
+		return nil, fmt.Errorf("failed to parse decision JSON: %w", err)
 	}
 
-	// Extract confidence
-	var confidenceStr string
-	if err := extractField(text, "confidence", &confidenceStr); err == nil {
-		_, _ = fmt.Sscanf(confidenceStr, "%f", &response.Confidence)
-	} else {
-		response.Confidence = 0.5 // Default confidence
-	}
-
-	return response, nil
-}
-
-// extractField extracts a field value from text
-func extractField(text, field string, target *string) error {
-	// For now, just do simple string search
-	// This is simplified - would use regex in production
-	search := fmt.Sprintf(`"%s":`, field)
-	idx := findAfter(text, search, `"`)
-	if idx != "" {
-		*target = idx
-		return nil
-	}
-
-	// Try without quotes
-	search = fmt.Sprintf(`%s:`, field)
-	idx = findAfter(text, search, ` `)
-	if idx != "" {
-		// Extract until comma or newline
-		for i, c := range idx {
-			if c == ',' || c == '\n' || c == '}' {
-				*target = idx[:i]
-				return nil
-			}
-		}
-		*target = idx
-		return nil
-	}
-
-	return fmt.Errorf("field %s not found", field)
-}
-
-// findAfter finds text after a marker until a delimiter
-func findAfter(text, marker, delimiter string) string {
-	idx := strings.Index(text, marker)
-	if idx == -1 {
-		return ""
-	}
-
-	// Start after marker
-	start := idx + len(marker)
-	for start < len(text) && (text[start] == ' ' || text[start] == '\t') {
-		start++
-	}
-
-	// Find end delimiter
-	end := strings.Index(text[start:], delimiter)
-	if end == -1 {
-		return ""
-	}
-
-	return text[start : start+end]
+	return &decision, nil
 }
 
 // BuildDecisionPrompt creates a prompt for the LLM

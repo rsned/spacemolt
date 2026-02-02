@@ -51,6 +51,8 @@ func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
 				POIs:        []POI{},
 				Connections: []string{},
 			},
+			Nearby:   []NearbyPlayer{},
+			InCombat: false,
 		},
 		stopCh:      make(chan struct{}),
 		debugLogger: debugLogger,
@@ -116,7 +118,7 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 
 	msg := protocol.Message{
-		Type: protocol.TypeLoggedIn,
+		Type: "login",
 		Payload: map[string]any{
 			"username": c.username,
 			"token":    c.token,
@@ -130,7 +132,7 @@ func (c *Client) Login(ctx context.Context) error {
 // Register creates a new account
 func (c *Client) Register(ctx context.Context, empire string) error {
 	msg := protocol.Message{
-		Type: protocol.TypeRegistered,
+		Type: "register",
 		Payload: map[string]any{
 			"username": c.username,
 			"empire":   empire,
@@ -262,13 +264,6 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	c.state.Mu.Lock()
 	defer c.state.Mu.Unlock()
 
-	// Log all message types and their payload keys for debugging
-	var keys []string
-	for k := range resp.Payload {
-		keys = append(keys, k)
-	}
-	c.debugLogger.Printf("[%s] payload keys: %v", resp.Type, keys)
-
 	switch resp.Type {
 	case protocol.TypeWelcome:
 		if tick, ok := resp.Payload["current_tick"].(float64); ok {
@@ -282,123 +277,23 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 
 	case protocol.TypeLoggedIn:
-		if player, ok := resp.Payload["player"].(map[string]any); ok {
-			if pUsername, ok := player["username"].(string); ok {
-				c.state.Username = pUsername
-			}
-			if currentPoi, ok := player["current_poi"].(string); ok {
-				c.state.CurrentPOI = currentPoi
-				c.state.System.ShipPOI = currentPoi
-			}
-		}
-		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			updateShipState(c.state, ship, "logged_in")
-		}
-		if system, ok := resp.Payload["system"].(map[string]any); ok {
-			if sysName, ok := system["name"].(string); ok {
-				c.state.CurrentSystem = sysName
-			}
-		}
+		c.parsePlayerData(resp.Payload)
+		c.parseShipData(resp.Payload)
+		c.parseSystemData(resp.Payload)
 
 	case protocol.TypeError:
-		// Parse error message to detect implied state changes
-		if errMsg, ok := resp.Payload["message"].(string); ok {
-			if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
-				c.state.Doc = false
-			}
-			if containsIgnoreCase(errMsg, []string{"already docked", "already at station"}) {
-				c.state.Doc = true
-			}
-		}
+		c.parseErrorState(resp.Payload)
 
 	case protocol.TypeOK:
-		if player, ok := resp.Payload["player"].(map[string]any); ok {
-			if credits, ok := player["credits"].(float64); ok {
-				c.state.Credits = credits
-			}
-			if currentPoi, ok := player["current_poi"].(string); ok {
-				c.state.CurrentPOI = currentPoi
-				c.state.System.ShipPOI = currentPoi
-			}
-		}
-
-		// Parse system data
-		if poisData, ok := resp.Payload["pois"].([]any); ok {
-			c.state.System.POIs = c.state.System.POIs[:0]
-			for _, p := range poisData {
-				if poi, ok := p.(map[string]any); ok {
-					poiObj := POI{}
-					if id, ok := poi["id"].(string); ok {
-						poiObj.ID = id
-					}
-					if name, ok := poi["name"].(string); ok {
-						poiObj.Name = name
-					}
-					if poiType, ok := poi["type"].(string); ok {
-						poiObj.Type = poiType
-					}
-					if desc, ok := poi["description"].(string); ok {
-						poiObj.Description = desc
-					}
-					if sysID, ok := poi["system_id"].(string); ok {
-						poiObj.SystemID = sysID
-					}
-					if pos, ok := poi["position"].(map[string]any); ok {
-						if x, ok := pos["x"].(float64); ok {
-							poiObj.X = x
-						}
-						if y, ok := pos["y"].(float64); ok {
-							poiObj.Y = y
-						}
-					}
-					if resources, ok := poi["resources"].([]any); ok {
-						for _, r := range resources {
-							if res, ok := r.(map[string]any); ok {
-								poiObj.Resources = append(poiObj.Resources, res)
-							}
-						}
-					}
-					c.state.System.POIs = append(c.state.System.POIs, poiObj)
-				}
-			}
-			c.state.LastMapUpdate = time.Now()
-		}
-
-		if sysData, ok := resp.Payload["system"].(map[string]any); ok {
-			if name, ok := sysData["name"].(string); ok {
-				c.state.System.Name = name
-			}
-			if desc, ok := sysData["description"].(string); ok {
-				c.state.System.Description = desc
-			}
-			if connections, ok := sysData["connections"].([]any); ok {
-				c.state.System.Connections = c.state.System.Connections[:0]
-				for _, conn := range connections {
-					if connStr, ok := conn.(string); ok {
-						c.state.System.Connections = append(c.state.System.Connections, connStr)
-					}
-				}
-			}
-		}
-
-		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			updateShipState(c.state, ship, "ok")
-		}
-
-		if action, ok := resp.Payload["action"].(string); ok {
-			switch action {
-			case "undock":
-				c.state.Doc = false
-			case "dock":
-				c.state.Doc = true
-			case "travel":
-				c.state.Traveling = false
-			}
-		}
+		c.parsePlayerData(resp.Payload)
+		c.parseShipData(resp.Payload)
+		c.parseSystemData(resp.Payload)
+		c.parseTravelAction(resp.Payload)
 
 	case protocol.TypeDocked:
 		c.state.Doc = true
 		c.state.Traveling = false
+		c.state.TravelProgress = nil
 
 	case protocol.TypeUndocked:
 		c.state.Doc = false
@@ -407,59 +302,443 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
+		c.parsePlayerData(resp.Payload)
+		c.parseShipData(resp.Payload)
+		c.parseTravelProgress(resp.Payload)
+		c.parseNearbyPlayers(resp.Payload)
 
-		if player, ok := resp.Payload["player"].(map[string]any); ok {
-			if currentPoi, ok := player["current_poi"].(string); ok {
-				c.state.CurrentPOI = currentPoi
-				c.state.System.ShipPOI = currentPoi
+	case protocol.TypeTick:
+		if tick, ok := resp.Payload["tick"].(float64); ok {
+			c.state.CurrentTick = int64(tick)
+		}
+	}
+}
+
+// parsePlayerData extracts player information from payload
+func (c *Client) parsePlayerData(payload map[string]any) {
+	if playerData, ok := payload["player"].(map[string]any); ok {
+		// Parse basic fields
+		if id, ok := playerData["id"].(string); ok {
+			c.state.Player.ID = id
+		}
+		if username, ok := playerData["username"].(string); ok {
+			c.state.Player.Username = username
+			c.state.Username = username
+		}
+		if empire, ok := playerData["empire"].(string); ok {
+			c.state.Player.Empire = empire
+		}
+		if credits, ok := playerData["credits"].(float64); ok {
+			c.state.Player.Credits = credits
+			c.state.Credits = credits
+		}
+		if currentSystem, ok := playerData["current_system"].(string); ok {
+			c.state.Player.CurrentSystem = currentSystem
+			c.state.CurrentSystem = currentSystem
+		}
+		if currentPoi, ok := playerData["current_poi"].(string); ok {
+			c.state.Player.CurrentPOI = currentPoi
+			c.state.CurrentPOI = currentPoi
+			c.state.System.ShipPOI = currentPoi
+		}
+		if currentShipID, ok := playerData["current_ship_id"].(string); ok {
+			c.state.Player.CurrentShipID = currentShipID
+		}
+		if homeBase, ok := playerData["home_base"].(string); ok {
+			c.state.Player.HomeBase = homeBase
+		}
+		if dockedAtBase, ok := playerData["docked_at_base"].(string); ok {
+			c.state.Player.DockedAtBase = dockedAtBase
+		}
+		if factionID, ok := playerData["faction_id"].(string); ok {
+			c.state.Player.FactionID = factionID
+		}
+		if factionRank, ok := playerData["faction_rank"].(string); ok {
+			c.state.Player.FactionRank = factionRank
+		}
+		if statusMessage, ok := playerData["status_message"].(string); ok {
+			c.state.Player.StatusMessage = statusMessage
+		}
+		if clanTag, ok := playerData["clan_tag"].(string); ok {
+			c.state.Player.ClanTag = clanTag
+		}
+		if primaryColor, ok := playerData["primary_color"].(string); ok {
+			c.state.Player.PrimaryColor = primaryColor
+		}
+		if secondaryColor, ok := playerData["secondary_color"].(string); ok {
+			c.state.Player.SecondaryColor = secondaryColor
+		}
+		if anonymous, ok := playerData["anonymous"].(bool); ok {
+			c.state.Player.Anonymous = anonymous
+		}
+
+		// Parse skills
+		if skills, ok := playerData["skills"].(map[string]any); ok {
+			c.state.Player.Skills = make(map[string]Skill)
+			for skillID, skillData := range skills {
+				if skillMap, ok := skillData.(map[string]any); ok {
+					skill := Skill{}
+					if level, ok := skillMap["level"].(float64); ok {
+						skill.Level = int(level)
+					}
+					if xp, ok := skillMap["xp"].(float64); ok {
+						skill.XP = xp
+					}
+					c.state.Player.Skills[skillID] = skill
+				}
 			}
-			if credits, ok := player["credits"].(float64); ok {
-				c.state.Credits = credits
+		}
+
+		// Parse stats
+		if stats, ok := playerData["stats"].(map[string]any); ok {
+			c.parsePlayerStats(stats)
+		}
+	}
+}
+
+// parsePlayerStats extracts player statistics
+func (c *Client) parsePlayerStats(stats map[string]any) {
+	if shipsDestroyed, ok := stats["ships_destroyed"].(float64); ok {
+		c.state.Player.Stats.ShipsDestroyed = int(shipsDestroyed)
+	}
+	if timesDestroyed, ok := stats["times_destroyed"].(float64); ok {
+		c.state.Player.Stats.TimesDestroyed = int(timesDestroyed)
+	}
+	if oreMined, ok := stats["ore_mined"].(float64); ok {
+		c.state.Player.Stats.OreMined = oreMined
+	}
+	if creditsEarned, ok := stats["credits_earned"].(float64); ok {
+		c.state.Player.Stats.CreditsEarned = creditsEarned
+	}
+	if creditsSpent, ok := stats["credits_spent"].(float64); ok {
+		c.state.Player.Stats.CreditsSpent = creditsSpent
+	}
+	if tradesCompleted, ok := stats["trades_completed"].(float64); ok {
+		c.state.Player.Stats.TradesCompleted = int(tradesCompleted)
+	}
+	if systemsDiscovered, ok := stats["systems_discovered"].(float64); ok {
+		c.state.Player.Stats.SystemsDiscovered = int(systemsDiscovered)
+	}
+	if itemsCrafted, ok := stats["items_crafted"].(float64); ok {
+		c.state.Player.Stats.ItemsCrafted = int(itemsCrafted)
+	}
+	if missionsCompleted, ok := stats["missions_completed"].(float64); ok {
+		c.state.Player.Stats.MissionsCompleted = int(missionsCompleted)
+	}
+}
+
+// parseShipData extracts ship information from payload
+func (c *Client) parseShipData(payload map[string]any) {
+	if shipData, ok := payload["ship"].(map[string]any); ok {
+		// Parse basic fields
+		if id, ok := shipData["id"].(string); ok {
+			c.state.Ship.ID = id
+		}
+		if ownerID, ok := shipData["owner_id"].(string); ok {
+			c.state.Ship.OwnerID = ownerID
+		}
+		if classID, ok := shipData["class_id"].(string); ok {
+			c.state.Ship.ClassID = classID
+		}
+		if name, ok := shipData["name"].(string); ok {
+			c.state.Ship.Name = name
+		}
+
+		// Parse hull
+		if hull, ok := shipData["hull"].(float64); ok {
+			c.state.Ship.Hull = hull
+			c.state.Hull = hull
+		}
+		if maxHull, ok := shipData["max_hull"].(float64); ok {
+			c.state.Ship.MaxHull = maxHull
+			c.state.MaxHull = maxHull
+		}
+
+		// Parse shield
+		if shield, ok := shipData["shield"].(float64); ok {
+			c.state.Ship.Shield = shield
+		}
+		if maxShield, ok := shipData["max_shield"].(float64); ok {
+			c.state.Ship.MaxShield = maxShield
+		}
+		if shieldRecharge, ok := shipData["shield_recharge"].(float64); ok {
+			c.state.Ship.ShieldRecharge = shieldRecharge
+		}
+
+		// Parse other stats
+		if armor, ok := shipData["armor"].(float64); ok {
+			c.state.Ship.Armor = armor
+		}
+		if speed, ok := shipData["speed"].(float64); ok {
+			c.state.Ship.Speed = speed
+		}
+
+		// Parse fuel
+		if fuel, ok := shipData["fuel"].(float64); ok {
+			c.state.Ship.Fuel = fuel
+			c.state.Fuel = fuel
+		}
+		if maxFuel, ok := shipData["max_fuel"].(float64); ok {
+			c.state.Ship.MaxFuel = maxFuel
+			c.state.MaxFuel = maxFuel
+		}
+
+		// Parse cargo
+		if cargoUsed, ok := shipData["cargo_used"].(float64); ok {
+			c.state.Ship.CargoUsed = cargoUsed
+		}
+		if cargoCapacity, ok := shipData["cargo_capacity"].(float64); ok {
+			c.state.Ship.CargoCapacity = cargoCapacity
+			c.state.MaxCargo = int(cargoCapacity)
+		}
+
+		// Parse CPU and power
+		if cpuUsed, ok := shipData["cpu_used"].(float64); ok {
+			c.state.Ship.CPUUsed = cpuUsed
+		}
+		if cpuCapacity, ok := shipData["cpu_capacity"].(float64); ok {
+			c.state.Ship.CPUCapacity = cpuCapacity
+		}
+		if powerUsed, ok := shipData["power_used"].(float64); ok {
+			c.state.Ship.PowerUsed = powerUsed
+		}
+		if powerCapacity, ok := shipData["power_capacity"].(float64); ok {
+			c.state.Ship.PowerCapacity = powerCapacity
+		}
+
+		// Parse modules
+		if modules, ok := shipData["modules"].([]any); ok {
+			c.state.Ship.Modules = make([]string, 0, len(modules))
+			for _, m := range modules {
+				if moduleID, ok := m.(string); ok {
+					c.state.Ship.Modules = append(c.state.Ship.Modules, moduleID)
+				}
 			}
 		}
 
-		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			updateShipState(c.state, ship, "state_update")
-		}
-
-	case protocol.TypeMining:
-		if ship, ok := resp.Payload["ship"].(map[string]any); ok {
-			updateShipState(c.state, ship, "mining")
-		}
-		if player, ok := resp.Payload["player"].(map[string]any); ok {
-			if credits, ok := player["credits"].(float64); ok {
-				c.state.Credits = credits
+		// Parse cargo items
+		if cargo, ok := shipData["cargo"].([]any); ok {
+			c.state.Ship.Cargo = make([]CargoItem, 0, len(cargo))
+			c.state.Cargo = c.state.Cargo[:0]
+			for _, item := range cargo {
+				if itemMap, ok := item.(map[string]any); ok {
+					cargoItem := CargoItem{}
+					if itemID, ok := itemMap["item_id"].(string); ok {
+						cargoItem.ItemID = itemID
+					}
+					if quantity, ok := itemMap["quantity"].(float64); ok {
+						cargoItem.Quantity = quantity
+					}
+					c.state.Ship.Cargo = append(c.state.Ship.Cargo, cargoItem)
+					c.state.Cargo = append(c.state.Cargo, itemMap)
+				}
 			}
 		}
 	}
 }
 
-// updateShipState extracts ship data from a payload map and updates state
-func updateShipState(state *State, ship map[string]any, logPrefix string) {
-	if fuel, ok := ship["fuel"].(float64); ok {
-		state.Fuel = fuel
+// parseSystemData extracts system information from payload
+func (c *Client) parseSystemData(payload map[string]any) {
+	// Check for direct system object
+	if systemData, ok := payload["system"].(map[string]any); ok {
+		c.parseSystemObject(systemData)
 	}
-	if maxFuel, ok := ship["max_fuel"].(float64); ok {
-		state.MaxFuel = maxFuel
+
+	// Check for POIs array
+	if poisData, ok := payload["pois"].([]any); ok {
+		c.state.System.POIs = c.state.System.POIs[:0]
+		for _, p := range poisData {
+			if poi, ok := p.(map[string]any); ok {
+				poiObj := POI{}
+				if id, ok := poi["id"].(string); ok {
+					poiObj.ID = id
+				}
+				if name, ok := poi["name"].(string); ok {
+					poiObj.Name = name
+				}
+				if poiType, ok := poi["type"].(string); ok {
+					poiObj.Type = poiType
+				}
+				if desc, ok := poi["description"].(string); ok {
+					poiObj.Description = desc
+				}
+				if sysID, ok := poi["system_id"].(string); ok {
+					poiObj.SystemID = sysID
+				}
+				if baseID, ok := poi["base_id"].(string); ok {
+					poiObj.BaseID = baseID
+				}
+				if pos, ok := poi["position"].(map[string]any); ok {
+					if x, ok := pos["x"].(float64); ok {
+						poiObj.Position.X = x
+					}
+					if y, ok := pos["y"].(float64); ok {
+						poiObj.Position.Y = y
+					}
+				}
+				if resources, ok := poi["resources"].([]any); ok {
+					for _, r := range resources {
+						if res, ok := r.(map[string]any); ok {
+							resObj := POIResource{}
+							if resourceID, ok := res["resource_id"].(string); ok {
+								resObj.ResourceID = resourceID
+							}
+							if richness, ok := res["richness"].(float64); ok {
+								resObj.Richness = richness
+							}
+							if remaining, ok := res["remaining"].(float64); ok {
+								resObj.Remaining = remaining
+							}
+							poiObj.Resources = append(poiObj.Resources, resObj)
+						}
+					}
+				}
+				c.state.System.POIs = append(c.state.System.POIs, poiObj)
+			}
+		}
+		c.state.LastMapUpdate = time.Now()
 	}
-	if hull, ok := ship["hull"].(float64); ok {
-		state.Hull = hull
+}
+
+// parseSystemObject parses a system object
+func (c *Client) parseSystemObject(systemData map[string]any) {
+	if id, ok := systemData["id"].(string); ok {
+		c.state.System.ID = id
 	}
-	if maxHull, ok := ship["max_hull"].(float64); ok {
-		state.MaxHull = maxHull
+	if name, ok := systemData["name"].(string); ok {
+		c.state.System.Name = name
+		c.state.CurrentSystem = name
 	}
-	if maxCargo, ok := ship["cargo_capacity"].(float64); ok {
-		state.MaxCargo = int(maxCargo)
-	} else if maxCargo, ok := ship["cargo_capacity"].(int64); ok {
-		state.MaxCargo = int(maxCargo)
-	} else if maxCargo, ok := ship["cargo_capacity"].(int); ok {
-		state.MaxCargo = maxCargo
+	if desc, ok := systemData["description"].(string); ok {
+		c.state.System.Description = desc
 	}
-	if cargo, ok := ship["cargo"].([]any); ok {
-		state.Cargo = state.Cargo[:0]
-		for _, c := range cargo {
-			if item, ok := c.(map[string]any); ok {
-				state.Cargo = append(state.Cargo, item)
+	if empire, ok := systemData["empire"].(string); ok {
+		c.state.System.Empire = empire
+	}
+	if policeLevel, ok := systemData["police_level"].(float64); ok {
+		c.state.System.PoliceLevel = int(policeLevel)
+	}
+	if discovered, ok := systemData["discovered"].(bool); ok {
+		c.state.System.Discovered = discovered
+	}
+	if discoveredBy, ok := systemData["discovered_by"].(string); ok {
+		c.state.System.DiscoveredBy = discoveredBy
+	}
+	if position, ok := systemData["position"].(map[string]any); ok {
+		if x, ok := position["x"].(float64); ok {
+			c.state.System.Position.X = x
+		}
+		if y, ok := position["y"].(float64); ok {
+			c.state.System.Position.Y = y
+		}
+	}
+	if connections, ok := systemData["connections"].([]any); ok {
+		c.state.System.Connections = c.state.System.Connections[:0]
+		for _, conn := range connections {
+			if connStr, ok := conn.(string); ok {
+				c.state.System.Connections = append(c.state.System.Connections, connStr)
+			}
+		}
+	}
+}
+
+// parseErrorState extracts state changes from error messages
+func (c *Client) parseErrorState(payload map[string]any) {
+	if errMsg, ok := payload["message"].(string); ok {
+		if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
+			c.state.Doc = false
+		}
+		if containsIgnoreCase(errMsg, []string{"already docked", "already at station"}) {
+			c.state.Doc = true
+		}
+	}
+}
+
+// parseTravelAction extracts travel state from action responses
+func (c *Client) parseTravelAction(payload map[string]any) {
+	if action, ok := payload["action"].(string); ok {
+		switch action {
+		case "undock":
+			c.state.Doc = false
+		case "dock":
+			c.state.Doc = true
+		case "travel", "jump":
+			// Travel initiated, will get progress in state_update
+			c.state.Traveling = true
+		}
+	}
+}
+
+// parseTravelProgress extracts travel progress from state_update
+func (c *Client) parseTravelProgress(payload map[string]any) {
+	if progress, ok := payload["travel_progress"].(float64); ok {
+		if c.state.TravelProgress == nil {
+			c.state.TravelProgress = &TravelProgress{}
+		}
+		c.state.TravelProgress.Progress = progress
+		c.state.Traveling = true
+
+		if destination, ok := payload["travel_destination"].(string); ok {
+			c.state.TravelProgress.Destination = destination
+		}
+		if travelType, ok := payload["travel_type"].(string); ok {
+			c.state.TravelProgress.Type = travelType
+		}
+		if arrivalTick, ok := payload["travel_arrival_tick"].(float64); ok {
+			c.state.TravelProgress.ArrivalTick = int64(arrivalTick)
+		}
+	} else {
+		// No travel progress means we're not traveling
+		c.state.Traveling = false
+		c.state.TravelProgress = nil
+	}
+}
+
+// parseNearbyPlayers extracts nearby player list from state_update
+func (c *Client) parseNearbyPlayers(payload map[string]any) {
+	if inCombat, ok := payload["in_combat"].(bool); ok {
+		c.state.InCombat = inCombat
+	}
+
+	if nearbyData, ok := payload["nearby"].([]any); ok {
+		c.state.Nearby = c.state.Nearby[:0]
+		for _, n := range nearbyData {
+			if nearbyMap, ok := n.(map[string]any); ok {
+				nearby := NearbyPlayer{}
+				if playerID, ok := nearbyMap["player_id"].(string); ok {
+					nearby.PlayerID = playerID
+				}
+				if username, ok := nearbyMap["username"].(string); ok {
+					nearby.Username = username
+				}
+				if shipClass, ok := nearbyMap["ship_class"].(string); ok {
+					nearby.ShipClass = shipClass
+				}
+				if factionID, ok := nearbyMap["faction_id"].(string); ok {
+					nearby.FactionID = factionID
+				}
+				if factionTag, ok := nearbyMap["faction_tag"].(string); ok {
+					nearby.FactionTag = factionTag
+				}
+				if statusMessage, ok := nearbyMap["status_message"].(string); ok {
+					nearby.StatusMessage = statusMessage
+				}
+				if clanTag, ok := nearbyMap["clan_tag"].(string); ok {
+					nearby.ClanTag = clanTag
+				}
+				if primaryColor, ok := nearbyMap["primary_color"].(string); ok {
+					nearby.PrimaryColor = primaryColor
+				}
+				if secondaryColor, ok := nearbyMap["secondary_color"].(string); ok {
+					nearby.SecondaryColor = secondaryColor
+				}
+				if anonymous, ok := nearbyMap["anonymous"].(bool); ok {
+					nearby.Anonymous = anonymous
+				}
+				if inCombat, ok := nearbyMap["in_combat"].(bool); ok {
+					nearby.InCombat = inCombat
+				}
+				c.state.Nearby = append(c.state.Nearby, nearby)
 			}
 		}
 	}
@@ -467,13 +746,15 @@ func updateShipState(state *State, ship map[string]any, logPrefix string) {
 
 // containsIgnoreCase checks if any of the substrings exist in the text (case-insensitive)
 func containsIgnoreCase(text string, substrings []string) bool {
-	for _, substr := range substrings {
-		if len(text) >= len(substr) {
-			for i := 0; i <= len(text)-len(substr); i++ {
+	lower := text
+	for _, s := range substrings {
+		if len(lower) >= len(s) {
+			// Simple case-insensitive check
+			for i := 0; i <= len(lower)-len(s); i++ {
 				match := true
-				for j := 0; j < len(substr); j++ {
-					c1 := text[i+j]
-					c2 := substr[j]
+				for j := 0; j < len(s); j++ {
+					c1 := lower[i+j]
+					c2 := s[j]
 					if c1 >= 'A' && c1 <= 'Z' {
 						c1 += 32
 					}

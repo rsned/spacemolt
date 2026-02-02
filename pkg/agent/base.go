@@ -10,13 +10,20 @@ import (
 	"github.com/user/spacemolt/pkg/llm"
 )
 
+// LLMClient defines the interface for LLM operations
+// This allows injecting mock clients for testing
+type LLMClient interface {
+	Decide(ctx context.Context, prompt string) (*llm.DecisionResponse, error)
+	TestConnection(ctx context.Context) error
+}
+
 // BaseAgent provides default agent behavior
 type BaseAgent struct {
 	id          string
 	name        string
 	personality Personality
 	memory      Memory
-	llm         *llm.Client
+	llm         LLMClient
 
 	status   Status
 	stopCh   chan struct{}
@@ -29,7 +36,7 @@ func NewBaseAgent(
 	id string,
 	personality Personality,
 	memory Memory,
-	llmClient *llm.Client,
+	llmClient LLMClient,
 ) *BaseAgent {
 	return &BaseAgent{
 		id:          id,
@@ -86,8 +93,10 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		Confidence:  response.Confidence,
 	}
 
-	// Log the decision
+	// Log the decision (protected by lock)
+	a.mu.Lock()
 	a.status.CurrentAction = fmt.Sprintf("Decided: %s (%.1f%% confidence)", response.Action, response.Confidence*100)
+	a.mu.Unlock()
 
 	return decision, nil
 }
