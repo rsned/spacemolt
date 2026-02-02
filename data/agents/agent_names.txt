@@ -1,0 +1,221 @@
+# Agent Names Database
+# This file contains the full names for existing agents and name pools for future agents.
+
+# ===============================================================================
+# EXISTING AGENTS - UPDATED FULL NAMES
+# ===============================================================================
+
+## MINERS
+miner-2:    Orion 'Orky' Olander
+miner-3:    Derrick 'DeepCore' Driller
+miner-4:    Jacob 'AsteroidJoe' Jackson
+
+## PIRATES
+pirate-1:   Roger 'Redbeard' Robbins
+pirate-2:   Julian 'CalicoJack' Jett
+
+## TRADERS/MERCHANTS
+trader-1:   Marcus 'Mercury' Mercer
+trader-2:   Felix 'Flipper' Fletcher
+
+## EXPLORERS
+explorer-7: Eugene 'Explorer-7' Edwards
+explorer-8: Stella 'StarStrider' Sterling
+explorer-9: Diana 'Driftwood' Dawson
+
+## CRAFTSMEN
+craftsman-1:    Arthur 'Artificer' Artisan
+craftsman-2:    Samuel 'Smith' Sterling
+
+## ENGINEERS
+engineer-1: Gavin 'GearHead' Garrison
+engineer-2: Silas 'Sparky' Sparks
+
+## FIGHTERS
+fighter-1:  Isabella 'IronVanguard' Vance
+fighter-2:  Victoria 'Valkyrie' Vane
+
+## SALVAGERS
+salvager-1: Scott 'Scrapper' Sullivan
+salvager-2: Jaxon 'JunkKing' Jarvis
+
+
+# ===============================================================================
+# FUTURE AGENT NAME POOLS (20 names per role)
+# ===============================================================================
+
+## MINERS
+01. Magnus 'Magma' Miller
+02. Barnaby 'Bedrock' Burke
+03. Quincy 'Quarry' Quaid
+04. Oliver 'Ore' Opals
+05. Silas 'Strike' Stone
+06. Victor 'Vein' Vincent
+07. Garrett 'Goldrush' Graham
+08. Preston 'Pickaxe' Porter
+09. Theodore 'Tunnel' Tucker
+10. Franklin 'Fault' Fowler
+11. Reginald 'Rocks' Reynolds
+12. Dudley 'Drill' Dawson
+13. Clifford 'Core' Carpenter
+14. Sterling 'Shale' Sheridan
+15. Maxwell 'Mineral' Miller
+16. Bradley 'Bore' Baxter
+17. Emerson 'Excavate' Edwards
+18. Spencer 'Spike' Sullivan
+19. Lawrence 'Lode' Lawson
+20. Horatio 'Hardrock' Hamilton
+
+## PIRATES
+01. Barnaby 'Barnacle' Blackwood
+02. Silas 'Skullcracker' Swift
+03. Captain 'Cutlass' Cross
+04. Rocco 'Razor' Redgrave
+05. Vinnie 'Void' Vane
+06. Scurvy 'Seadog' Sanders
+07. Ransom 'Rogue' Reynolds
+08. Blade 'Buccaneer' Blackwell
+09. Jett 'Jolly' Jackman
+10. Morgan 'Marauder' Moore
+11. Caspian 'Cannonball' Cross
+12. Dread 'Dog' Driscoll
+13. Wreck 'Rapscallion' Rhodes
+14. Flint 'Freebooter' Flynn
+15. Stormy 'Scourge' Sullivan
+16. Rogue 'Rapier' Radcliffe
+17. Hawkeye 'Harpoon' Harrison
+18. Bane 'Buccaneer' Blackwater
+19. Cursed 'Corsair' Caldwell
+20. Rascal 'Raider' Redstone
+
+## TRADERS/MERCHANTS
+01. Bartholomew 'Barter' Banks
+02. Sterling 'Silver' Solomon
+03. Preston 'Profit' Price
+04. Cornelius 'Commerce' Cole
+05. Maxwell 'Market' Miller
+06. Victor 'Value' Vanderbilt
+07. Reginald 'Revenue' Reynolds
+08. Emerson 'Exchange' Edwards
+09. Franklin 'Fortune' Fitzgerald
+10. Harrison 'Haggle' Hamilton
+11. Clarence 'Cargo' Collins
+12. Montgomery 'Merchant' Miller
+13. Percival 'Profit' Palmer
+14. Alistair 'Appraise' Abernathy
+15. Sterling 'Stock' Stratham
+16. Theodore 'Trade' Templeton
+17. Wellington 'Wealth' Westwood
+18. Benedict 'Bargain' Baxter
+19. Sebastian 'Sale' Sinclair
+20. Fabian 'Funds' Fairfax
+
+## EXPLORERS
+01. Atlas 'Astro' Anderson
+02. Cosmo 'Cosmic' Chandler
+03. Orion 'Nebula' North
+04. Stella 'Starlight' Sterling
+05. Nova 'Navigator' Nash
+06. Zenith 'Zone' Zimmer
+07. Apollo 'Astra' Archer
+08. Aurora 'Astral' Ames
+09. Cosmos 'Compass' Conway
+10. Venture 'Void' Vincent
+11. Pathfinder 'Pilot' Pierce
+12. Quest 'Quasar' Quinn
+13. Horizons 'Hero' Hayes
+14. Frontier 'Far' Fletcher
+15. Odyssey 'Orbit' Owen
+16. Discover 'Deep' Denver
+17. Journey 'Jump' Jones
+18. Pioneer 'Probe' Palmer
+19. Survey 'Sector' Stevens
+20. Scout 'Space' Sullivan
+
+## CRAFTSMEN
+01. Artisan 'Ace' Anderson
+02. Bentley 'Blueprint' Burke
+03. Chisel 'Craftsman' Cole
+04. Dexter 'Design' Davis
+05. Emerson 'Erect' Edwards
+06. Fabian 'Forge' Fowler
+07. Garrison 'Gear' Grant
+08. Harrison 'Handiwork' Hayes
+09. Jasper 'Joint' Jackson
+10. Kingston 'Kit' King
+11. Lawson 'Lathe' Lawson
+12. Mason 'Make' Miller
+13. Nelson 'Nail' Nelson
+14. Preston 'Plan' Porter
+15. Quincy 'Quality' Quinn
+16. Russell 'Rivet' Rogers
+17. Sheldon 'Shape' Sheridan
+18. Tucker 'Tool' Tucker
+19. Vision 'Volt' Vance
+20. Winston 'Woodwork' Webb
+
+## ENGINEERS
+01. Circuit 'Current' Carter
+02. Dynamo 'Drive' Davis
+03. Fission 'Fuse' Fletcher
+04. Generator 'Grid' Graham
+05. Hydraulic 'Hose' Hayes
+06. Ignition 'Spark' Stevens
+07. Junction 'Joint' Jackson
+08. Kinetic 'Kernel' King
+09. Logic 'Link' Lewis
+10. Motor 'Mech' Miller
+11. Network 'Node' Nelson
+12. Ohm 'Output' Owens
+13. Pixel 'Power' Palmer
+14. Quantum 'Query' Quinn
+15. Reactor 'Rotor' Reed
+16. Signal 'Switch' Saunders
+17. Terminal 'Tech' Taylor
+18. Vector 'Volt' Vincent
+19. Watt 'Wire' Webb
+20. Zeon 'Zone' Zimmer
+
+## FIGHTERS
+01. Blade 'Battler' Blackwood
+02. Clash 'Combat' Coleman
+03. Defender 'Duel' Dawson
+04. Enforcer 'Edge' Edwards
+05. Fortress 'Fight' Fisher
+06. Guardian 'Gladiator' Grant
+07. Hunter 'Hit' Hayes
+08. Ironclad 'Impact' Ingram
+09. Justice 'Jab' Johnson
+10. Knight 'Knockout' Keller
+11. Legion 'Lash' Larson
+12. Maverick 'Might' Miller
+13. Nemesis 'Neutralize' Nelson
+14. Onslaught 'Strike' Owens
+15. Phoenix 'Punch' Porter
+16. Quake 'Quick' Quinn
+17. Rampart 'Rumble' Reed
+18. Striker 'Smash' Stevens
+19. Titan 'Takedown' Tucker
+20. Victor 'Vanguard' Vance
+
+## SALVAGERS
+01. Barrel 'Bin' Baxter
+02. Cache 'Collect' Collins
+03. Debris 'Dig' Davis
+04. Fragment 'Find' Fletcher
+05. Gadget 'Gather' Grant
+06. Heap 'Hunt' Henderson
+07. Iron 'Inspect' Ingram
+08. Junk 'Jackpot' Jackson
+09. Keeper 'Kitsch' Kelly
+10. Looter 'Lucky' Lewis
+11. Memory 'Mine' Miller
+12. Nuts 'Novelty' Nelson
+13. Parts 'Pick' Parker
+14. Quarry 'Quest' Quinn
+15. Relic 'Rescue' Rogers
+16. Scrap 'Score' Stevens
+17. Trash 'Treasure' Thomas
+18. Used 'Utility' Underwood
+19. Vintage 'Value' Vincent
+20. Wreck 'Wealth' Webb
