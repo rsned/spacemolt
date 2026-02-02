@@ -141,18 +141,10 @@ func (c *Client) Login(ctx context.Context) error {
 		return fmt.Errorf("failed to send login: %w", err)
 	}
 
-	// Wait for login response
-	resp, err := c.waitForResponse(ctx, protocol.TypeLoggedIn, 10*time.Second)
+	// Wait for login response (success or error)
+	_, err := c.waitForAuthResponse(ctx, protocol.TypeLoggedIn, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
-	}
-
-	// Check if login was successful
-	if resp.Type == protocol.TypeError {
-		if msg, ok := resp.Payload["message"].(string); ok {
-			return fmt.Errorf("login error: %s", msg)
-		}
-		return fmt.Errorf("login failed with unknown error")
 	}
 
 	return nil
@@ -174,28 +166,13 @@ func (c *Client) Register(ctx context.Context, empire string) error {
 		return fmt.Errorf("failed to send register: %w", err)
 	}
 
-	// Wait for register response
-	resp, err := c.waitForResponse(ctx, protocol.TypeRegistered, 10*time.Second)
+	// Wait for register response (success or error)
+	_, err := c.waitForAuthResponse(ctx, protocol.TypeRegistered, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
-	// Check if registration was successful
-	if resp.Type == protocol.TypeError {
-		if msg, ok := resp.Payload["message"].(string); ok {
-			return fmt.Errorf("registration error: %s", msg)
-		}
-		return fmt.Errorf("registration failed with unknown error")
-	}
-
-	// Update token from response
-	if token, ok := resp.Payload["token"].(string); ok {
-		c.mu.Lock()
-		c.token = token
-		c.state.Token = token
-		c.mu.Unlock()
-	}
-
+	// Token is updated by handleResponse() when the response is processed
 	return nil
 }
 
@@ -895,6 +872,39 @@ func (c *Client) waitForResponse(ctx context.Context, messageType string, timeou
 		return resp, nil
 	case <-time.After(timeout):
 		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", messageType)
+	case <-ctx.Done():
+		return protocol.Response{}, ctx.Err()
+	}
+}
+
+// waitForAuthResponse waits for either a success response or an error response
+// This is used for authentication operations that can return either success or error
+func (c *Client) waitForAuthResponse(ctx context.Context, successType string, timeout time.Duration) (protocol.Response, error) {
+	successChan := make(chan protocol.Response, 1)
+	errorChan := make(chan protocol.Response, 1)
+
+	c.waiterMu.Lock()
+	c.waiters[successType] = successChan
+	c.waiters[protocol.TypeError] = errorChan
+	c.waiterMu.Unlock()
+
+	defer func() {
+		c.waiterMu.Lock()
+		delete(c.waiters, successType)
+		delete(c.waiters, protocol.TypeError)
+		c.waiterMu.Unlock()
+	}()
+
+	select {
+	case resp := <-successChan:
+		return resp, nil
+	case resp := <-errorChan:
+		if msg, ok := resp.Payload["message"].(string); ok {
+			return resp, fmt.Errorf("%s", msg)
+		}
+		return resp, fmt.Errorf("operation failed")
+	case <-time.After(timeout):
+		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", successType)
 	case <-ctx.Done():
 		return protocol.Response{}, ctx.Err()
 	}
