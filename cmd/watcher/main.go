@@ -9,10 +9,8 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/coder/websocket"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/user/spacemolt/internal/protocol"
 	"github.com/user/spacemolt/pkg/agent"
@@ -242,47 +240,32 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, usernam
 				return
 			}
 
-			// Create channel to wait for auth completion
-			authDone := make(chan bool, 1)
-			origHandler := &agentMessageHandler{
-				agent:    a,
-				program:  p,
-				client:   client,
-				authDone: authDone,
-			}
-			client.SetHandler(origHandler)
+			// Set message handler
+			client.SetHandler(&agentMessageHandler{
+				agent:   a,
+				program: p,
+				client:  client,
+			})
 
-			// Send authentication
+			// Authenticate (synchronous - waits for response)
 			if token != "" {
 				if err := client.Login(ctx); err != nil {
 					log.Printf("[%s] Login failed: %v", a.ID(), err)
-				}
-			} else {
-				if err := client.Register(ctx, "voidborn"); err != nil {
-					log.Printf("[%s] Registration failed: %v", a.ID(), err)
-				}
-			}
-
-			// Wait for authentication response
-			select {
-			case success := <-authDone:
-				if !success {
-					log.Printf("[%s] Authentication failed", a.ID())
 					p.Send(tui.AgentStatusMsg{
 						AgentID: a.ID(),
 						Status:  "Error",
 					})
 					return
 				}
-			case <-time.After(10 * time.Second):
-				log.Printf("[%s] Timeout waiting for authentication", a.ID())
-				p.Send(tui.AgentStatusMsg{
-					AgentID: a.ID(),
-					Status:  "Error",
-				})
-				return
-			case <-ctx.Done():
-				return
+			} else {
+				if err := client.Register(ctx, "voidborn"); err != nil {
+					log.Printf("[%s] Registration failed: %v", a.ID(), err)
+					p.Send(tui.AgentStatusMsg{
+						AgentID: a.ID(),
+						Status:  "Error",
+					})
+					return
+				}
 			}
 
 			// Request system info
@@ -407,63 +390,29 @@ func executeAction(ctx context.Context, client *game.Client, decision agent.Deci
 
 // startWatcherClient connects a client for the watcher display
 func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) {
-	url := "wss://game.spacemolt.com/ws"
+	// Determine username for watcher
+	watcherUsername := state.Username
+	if watcherUsername == "" {
+		watcherUsername = fmt.Sprintf("Watcher_%d", time.Now().Unix())
+	}
 
-	ws, _, err := websocket.Dial(ctx, url, nil)
-	if err != nil {
+	// Create game client for watcher
+	client := game.NewClient(
+		"wss://game.spacemolt.com/ws",
+		watcherUsername,
+		state.Token,
+		debugLogger,
+	)
+
+	// Connect
+	if err := client.Connect(ctx); err != nil {
 		log.Printf("Watcher client failed to connect: %v", err)
 		return
 	}
-	defer func() {
-		_ = ws.Close(websocket.StatusNormalClosure, "")
-	}()
 
-	// Create ready channel for WebSocket connection
-	readyChan := make(chan struct{})
-	authDoneChan := make(chan struct{})
-	var readyOnce, authOnce sync.Once
-
-	// Start message listener in background
-	messageChan := make(chan protocol.Response, 10)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			_, data, err := ws.Read(ctx)
-			if err != nil {
-				p.Send(tui.WsMsg{Type: "error", Payload: map[string]any{"error": err.Error()}})
-				return
-			}
-
-			var resp protocol.Response
-			if err := json.Unmarshal(data, &resp); err != nil {
-				continue
-			}
-
-			// Signal ready on first message
-			readyOnce.Do(func() {
-				close(readyChan)
-			})
-
-			// Signal auth done on login/register response
-			if resp.Type == protocol.TypeLoggedIn || resp.Type == protocol.TypeRegistered {
-				authOnce.Do(func() {
-					close(authDoneChan)
-				})
-			}
-
-			// Forward message to processing
-			messageChan <- resp
-		}
-	}()
-
-	// Wait for connection to be ready
+	// Wait for connection ready
 	select {
-	case <-readyChan:
+	case <-client.Ready():
 		// Connection ready, proceed
 	case <-time.After(10 * time.Second):
 		log.Printf("Watcher: Timeout waiting for connection ready")
@@ -472,66 +421,46 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 		return
 	}
 
-	// Send authentication
-	if state.Username != "" && state.Token != "" {
-		loginMsg := protocol.Message{
-			Type: protocol.TypeLoggedIn,
-			Payload: map[string]any{
-				"username": state.Username,
-				"token":    state.Token,
-			},
-			Timestamp: time.Now().UnixMilli(),
-		}
-		sendMessage(ctx, ws, loginMsg)
-	} else {
-		state.Username = fmt.Sprintf("Watcher_%d", time.Now().Unix())
-		registerMsg := protocol.Message{
-			Type: protocol.TypeRegistered,
-			Payload: map[string]any{
-				"username": state.Username,
-				"empire":   "voidborn",
-			},
-			Timestamp: time.Now().UnixMilli(),
-		}
-		sendMessage(ctx, ws, registerMsg)
-	}
+	// Set message handler
+	client.SetHandler(&watcherMessageHandler{
+		state:   state,
+		program: p,
+	})
 
-	// Wait for authentication response
-	select {
-	case <-authDoneChan:
-		// Authentication successful, proceed
-	case <-time.After(10 * time.Second):
-		log.Printf("Watcher: Timeout waiting for authentication response")
-		return
-	case <-ctx.Done():
-		return
+	// Authenticate (synchronous - waits for response)
+	if state.Token != "" {
+		if err := client.Login(ctx); err != nil {
+			log.Printf("Watcher login failed: %v", err)
+			return
+		}
+	} else {
+		if err := client.Register(ctx, "voidborn"); err != nil {
+			log.Printf("Watcher registration failed: %v", err)
+			return
+		}
+		// Update state with new username and token
+		state.Mu.Lock()
+		state.Username = watcherUsername
+		state.Token = client.GetState().Token
+		state.Mu.Unlock()
 	}
 
 	// Request system info
-	sendMessage(ctx, ws, protocol.Message{Type: "get_system", Timestamp: time.Now().UnixMilli()})
-
-	// Process messages
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case resp := <-messageChan:
-			handleResponse(resp, state)
-			p.Send(tui.WsMsg{
-				Type:    resp.Type,
-				Payload: resp.Payload,
-			})
-		}
+	if err := client.GetSystem(ctx); err != nil {
+		log.Printf("Watcher: Failed to get system: %v", err)
 	}
+
+	// Keep connection alive and handle messages
+	// The handler will process messages as they arrive
+	<-ctx.Done()
+	_ = client.Close()
 }
 
 // agentMessageHandler handles game messages for an agent
 type agentMessageHandler struct {
-	agent    agent.Agent
-	program  *tea.Program
-	client   *game.Client
-	authDone chan bool
-	authOnce sync.Once
+	agent   agent.Agent
+	program *tea.Program
+	client  *game.Client
 }
 
 func (h *agentMessageHandler) OnConnected(state *game.State) {
@@ -539,27 +468,6 @@ func (h *agentMessageHandler) OnConnected(state *game.State) {
 }
 
 func (h *agentMessageHandler) OnMessage(resp protocol.Response) {
-	// Check for authentication response
-	if h.authDone != nil {
-		switch resp.Type {
-		case protocol.TypeLoggedIn, protocol.TypeRegistered:
-			h.authOnce.Do(func() {
-				h.authDone <- true
-			})
-		case protocol.TypeError:
-			// Check if this is an auth error
-			if msg, ok := resp.Payload["message"].(string); ok {
-				if strings.Contains(strings.ToLower(msg), "auth") ||
-					strings.Contains(strings.ToLower(msg), "login") ||
-					strings.Contains(strings.ToLower(msg), "token") {
-					h.authOnce.Do(func() {
-						h.authDone <- false
-					})
-				}
-			}
-		}
-	}
-
 	// State is automatically updated by the client
 	// Log significant events
 	switch resp.Type {
@@ -580,15 +488,33 @@ func (h *agentMessageHandler) OnDisconnected(err error) {
 	})
 }
 
-func sendMessage(ctx context.Context, ws *websocket.Conn, msg protocol.Message) {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Failed to marshal message: %v", err)
-		return
-	}
-	if err := ws.Write(ctx, websocket.MessageText, data); err != nil {
-		log.Printf("Failed to send message: %v", err)
-	}
+// watcherMessageHandler handles game messages for the watcher display
+type watcherMessageHandler struct {
+	state   *game.State
+	program *tea.Program
+}
+
+func (h *watcherMessageHandler) OnConnected(state *game.State) {
+	log.Printf("Watcher connected")
+}
+
+func (h *watcherMessageHandler) OnMessage(resp protocol.Response) {
+	// Update watcher state
+	handleResponse(resp, h.state)
+
+	// Send to TUI
+	h.program.Send(tui.WsMsg{
+		Type:    resp.Type,
+		Payload: resp.Payload,
+	})
+}
+
+func (h *watcherMessageHandler) OnDisconnected(err error) {
+	log.Printf("Watcher disconnected: %v", err)
+	h.program.Send(tui.WsMsg{
+		Type:    "error",
+		Payload: map[string]any{"error": err.Error()},
+	})
 }
 
 // handleResponse updates state from server responses
