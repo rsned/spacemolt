@@ -2,18 +2,27 @@ package protocol
 
 // Message types sent to/from the Spacemolt server
 const (
-	TypeWelcome       = "welcome"
-	TypeRegistered    = "registered"
-	TypeLoggedIn      = "logged_in"
-	TypeError         = "error"
-	TypeOK            = "ok"
-	TypeDocked        = "docked"
-	TypeUndocked      = "undocked"
-	TypeStateUpdate   = "state_update"
-	TypeChatMessage   = "chat_message"
-	TypePOI           = "poi"
-	TypeSystem        = "system"
-	TypeMining        = "mining"
+	// Connection and Authentication
+	TypeWelcome    = "welcome"
+	TypeRegistered = "registered"
+	TypeLoggedIn   = "logged_in"
+
+	// Action responses
+	TypeOK          = "ok"
+	TypeError       = "error"
+	TypeDocked      = "docked"
+	TypeUndocked    = "undocked"
+	TypeStateUpdate = "state_update"
+	TypeTick        = "tick"
+
+	// Game events
+	TypeChatMessage        = "chat_message"
+	TypeCombatUpdate       = "combat_update"
+	TypePlayerDied         = "player_died"
+	TypeMining             = "mining"
+	TypeMiningYield        = "mining_yield"
+	TypeScanResult         = "scan_result"
+	TypeTradeOfferReceived = "trade_offer_received"
 )
 
 // Message represents a message sent to the server

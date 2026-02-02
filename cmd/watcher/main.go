@@ -538,18 +538,31 @@ func handleResponse(resp protocol.Response, state *game.State) {
 					if sysID, ok := poi["system_id"].(string); ok {
 						poiObj.SystemID = sysID
 					}
+					if baseID, ok := poi["base_id"].(string); ok {
+						poiObj.BaseID = baseID
+					}
 					if pos, ok := poi["position"].(map[string]any); ok {
 						if x, ok := pos["x"].(float64); ok {
-							poiObj.X = x
+							poiObj.Position.X = x
 						}
 						if y, ok := pos["y"].(float64); ok {
-							poiObj.Y = y
+							poiObj.Position.Y = y
 						}
 					}
 					if resources, ok := poi["resources"].([]any); ok {
 						for _, r := range resources {
 							if res, ok := r.(map[string]any); ok {
-								poiObj.Resources = append(poiObj.Resources, res)
+								resObj := game.POIResource{}
+								if resourceID, ok := res["resource_id"].(string); ok {
+									resObj.ResourceID = resourceID
+								}
+								if richness, ok := res["richness"].(float64); ok {
+									resObj.Richness = richness
+								}
+								if remaining, ok := res["remaining"].(float64); ok {
+									resObj.Remaining = remaining
+								}
+								poiObj.Resources = append(poiObj.Resources, resObj)
 							}
 						}
 					}
