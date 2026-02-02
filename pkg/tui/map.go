@@ -151,16 +151,18 @@ func renderMap(sysData game.SystemData, halfGridRows, halfGridCols int) string {
 	}
 
 	// Find and render ship position
-	shipX, shipY := -1.0, -1.0
+	var shipX, shipY float64
+	shipFound := false
 	for _, poi := range sysData.POIs {
 		if poi.ID == sysData.ShipPOI {
 			shipX, shipY = poi.X, poi.Y
+			shipFound = true
 			break
 		}
 	}
 
 	// Render ship
-	if shipX >= 0 {
+	if shipFound {
 		gridShipX, gridShipY := worldToGrid(shipX, shipY)
 		grid[gridShipY][gridShipX] = '@'
 	}

@@ -178,7 +178,8 @@ func main() {
 
 // startAgentConnections connects all agents to the game
 func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, username, token string, p *tea.Program) {
-	// Wait a bit for TUI to initialize
+	// TODO: Replace with proper synchronization for TUI initialization.
+	// 2 seconds is an arbitrary wait for the UI to be ready.
 	time.Sleep(2 * time.Second)
 
 	for _, agt := range agentMgr.ListAgents() {
@@ -209,6 +210,8 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, usernam
 			})
 
 			// Login or register
+			// TODO: Replace with proper connection ready state checking.
+			// 500ms is an arbitrary delay before authentication.
 			time.Sleep(500 * time.Millisecond)
 			if token != "" {
 				if err := client.Login(ctx); err != nil {
@@ -221,6 +224,8 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, usernam
 			}
 
 			// Request system info
+			// TODO: Replace with acknowledgment of successful authentication.
+			// 1 second is an arbitrary delay before requesting system info.
 			time.Sleep(1 * time.Second)
 			if err := client.GetSystem(ctx); err != nil {
 				log.Printf("[%s] Failed to get system: %v", a.ID(), err)
@@ -343,6 +348,8 @@ func executeAction(ctx context.Context, client *game.Client, decision agent.Deci
 
 // startWatcherClient connects a client for the watcher display
 func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) {
+	// TODO: Replace with channel-based waiting for server response.
+	// Current sleep is a pragmatic workaround for WebSocket handshake timing.
 	time.Sleep(500 * time.Millisecond)
 
 	url := "wss://game.spacemolt.com/ws"
@@ -357,6 +364,8 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 	}()
 
 	// Login or register
+	// TODO: Replace with proper WebSocket connection ready state.
+	// 500ms is an arbitrary delay before authentication.
 	time.Sleep(500 * time.Millisecond)
 
 	if state.Username != "" && state.Token != "" {
@@ -382,6 +391,8 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 		sendMessage(ctx, ws, registerMsg)
 	}
 
+	// TODO: Replace with proper async waiting for authentication response.
+	// 3 seconds is an arbitrary buffer for slow connections.
 	time.Sleep(3 * time.Second)
 	sendMessage(ctx, ws, protocol.Message{Type: "get_system", Timestamp: time.Now().UnixMilli()})
 
@@ -458,8 +469,9 @@ func sendMessage(ctx context.Context, ws *websocket.Conn, msg protocol.Message) 
 // handleResponse updates state from server responses
 // This is a simplified version that updates the watcher's state
 func handleResponse(resp protocol.Response, state *game.State) {
+	var username, token string
+
 	state.Mu.Lock()
-	defer state.Mu.Unlock()
 
 	switch resp.Type {
 	case protocol.TypeWelcome:
@@ -468,9 +480,10 @@ func handleResponse(resp protocol.Response, state *game.State) {
 		}
 
 	case protocol.TypeRegistered:
-		if token, ok := resp.Payload["token"].(string); ok {
-			state.Token = token
-			saveCredentials(state.Username, token)
+		if tok, ok := resp.Payload["token"].(string); ok {
+			state.Token = tok
+			token = tok
+			username = state.Username
 		}
 
 	case protocol.TypeLoggedIn:
@@ -491,7 +504,8 @@ func handleResponse(resp protocol.Response, state *game.State) {
 				state.CurrentSystem = sysName
 			}
 		}
-		saveCredentials(state.Username, state.Token)
+		username = state.Username
+		token = state.Token
 
 	case protocol.TypeOK:
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
@@ -611,6 +625,13 @@ func handleResponse(resp protocol.Response, state *game.State) {
 				state.Credits = credits
 			}
 		}
+	}
+
+	state.Mu.Unlock()
+
+	// I/O outside the lock
+	if username != "" && token != "" {
+		saveCredentials(username, token)
 	}
 }
 

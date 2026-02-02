@@ -1,5 +1,7 @@
 # Spacemolt Multi-Agent System Design
 
+> **Note:** This design document represents the aspirational architecture and may not fully match the current implementation. For the actual code, please refer to the source files in `pkg/` and `cmd/`.
+
 ## Table of Contents
 1. [Overview](#overview)
 2. [Architecture](#architecture)
