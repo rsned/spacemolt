@@ -28,6 +28,10 @@ type Client struct {
 	// Ready synchronization - closed when first message is received
 	readyChan chan struct{}
 	readyOnce sync.Once
+
+	// Response waiting for synchronous operations
+	waiterMu sync.Mutex
+	waiters  map[string]chan protocol.Response
 }
 
 // MessageHandler handles incoming game messages
@@ -60,6 +64,7 @@ func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
 		},
 		stopCh:      make(chan struct{}),
 		readyChan:   make(chan struct{}),
+		waiters:     make(map[string]chan protocol.Response),
 		debugLogger: debugLogger,
 	}
 }
@@ -117,6 +122,7 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 }
 
 // Login authenticates with the server using stored credentials
+// This is a synchronous operation that waits for the server response
 func (c *Client) Login(ctx context.Context) error {
 	if c.token == "" {
 		return fmt.Errorf("no token available")
@@ -131,10 +137,29 @@ func (c *Client) Login(ctx context.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	return c.Send(ctx, msg)
+	if err := c.Send(ctx, msg); err != nil {
+		return fmt.Errorf("failed to send login: %w", err)
+	}
+
+	// Wait for login response
+	resp, err := c.waitForResponse(ctx, protocol.TypeLoggedIn, 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("login failed: %w", err)
+	}
+
+	// Check if login was successful
+	if resp.Type == protocol.TypeError {
+		if msg, ok := resp.Payload["message"].(string); ok {
+			return fmt.Errorf("login error: %s", msg)
+		}
+		return fmt.Errorf("login failed with unknown error")
+	}
+
+	return nil
 }
 
 // Register creates a new account
+// This is a synchronous operation that waits for the server response
 func (c *Client) Register(ctx context.Context, empire string) error {
 	msg := protocol.Message{
 		Type: "register",
@@ -145,7 +170,33 @@ func (c *Client) Register(ctx context.Context, empire string) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	return c.Send(ctx, msg)
+	if err := c.Send(ctx, msg); err != nil {
+		return fmt.Errorf("failed to send register: %w", err)
+	}
+
+	// Wait for register response
+	resp, err := c.waitForResponse(ctx, protocol.TypeRegistered, 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("registration failed: %w", err)
+	}
+
+	// Check if registration was successful
+	if resp.Type == protocol.TypeError {
+		if msg, ok := resp.Payload["message"].(string); ok {
+			return fmt.Errorf("registration error: %s", msg)
+		}
+		return fmt.Errorf("registration failed with unknown error")
+	}
+
+	// Update token from response
+	if token, ok := resp.Payload["token"].(string); ok {
+		c.mu.Lock()
+		c.token = token
+		c.state.Token = token
+		c.mu.Unlock()
+	}
+
+	return nil
 }
 
 // Undock undocks from the current station
@@ -258,6 +309,17 @@ func (c *Client) listen(ctx context.Context) {
 		})
 
 		c.debugLogger.Printf("[RECV] %s", resp.Type)
+
+		// Notify any waiters for this response type
+		c.waiterMu.Lock()
+		if ch, ok := c.waiters[resp.Type]; ok {
+			select {
+			case ch <- resp:
+			default:
+				// Channel full or closed, skip
+			}
+		}
+		c.waiterMu.Unlock()
 
 		// Update state
 		c.handleResponse(resp)
@@ -812,4 +874,28 @@ func (c *Client) IsConnected() bool {
 // (i.e., when the first message has been received from the server)
 func (c *Client) Ready() <-chan struct{} {
 	return c.readyChan
+}
+
+// waitForResponse waits for a response of a specific type with a timeout
+func (c *Client) waitForResponse(ctx context.Context, messageType string, timeout time.Duration) (protocol.Response, error) {
+	respChan := make(chan protocol.Response, 1)
+
+	c.waiterMu.Lock()
+	c.waiters[messageType] = respChan
+	c.waiterMu.Unlock()
+
+	defer func() {
+		c.waiterMu.Lock()
+		delete(c.waiters, messageType)
+		c.waiterMu.Unlock()
+	}()
+
+	select {
+	case resp := <-respChan:
+		return resp, nil
+	case <-time.After(timeout):
+		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", messageType)
+	case <-ctx.Done():
+		return protocol.Response{}, ctx.Err()
+	}
 }
