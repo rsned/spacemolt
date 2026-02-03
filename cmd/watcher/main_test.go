@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 func TestUpdateShipState_AllFields(t *testing.T) {

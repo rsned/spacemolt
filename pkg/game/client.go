@@ -1,15 +1,17 @@
 package game
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/user/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/internal/protocol"
 )
 
 // Client represents a WebSocket client for the Spacemolt game
@@ -48,9 +50,9 @@ func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
 	}
 
 	return &Client{
-		url:         url,
-		username:    username,
-		token:       token,
+		url:      url,
+		username: username,
+		token:    token,
 		state: &State{
 			Doc:         true,
 			MaxCargo:    10,
@@ -201,8 +203,8 @@ func (c *Client) Dock(ctx context.Context) error {
 // Travel travels to a POI within the current system
 func (c *Client) Travel(ctx context.Context, targetPOI string) error {
 	return c.Send(ctx, protocol.Message{
-		Type:     "travel",
-		Payload:  map[string]any{"target_poi": targetPOI},
+		Type:      "travel",
+		Payload:   map[string]any{"target_poi": targetPOI},
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -210,8 +212,8 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) error {
 // Jump jumps to another system
 func (c *Client) Jump(ctx context.Context, targetSystem string) error {
 	return c.Send(ctx, protocol.Message{
-		Type:     "jump",
-		Payload:  map[string]any{"target_system": targetSystem},
+		Type:      "jump",
+		Payload:   map[string]any{"target_system": targetSystem},
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -227,8 +229,8 @@ func (c *Client) Mine(ctx context.Context) error {
 // Scan scans the current area
 func (c *Client) Scan(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
-		Type:     "scan",
-		Payload:  map[string]any{"target_id": "area"},
+		Type:      "scan",
+		Payload:   map[string]any{"target_id": "area"},
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -280,36 +282,44 @@ func (c *Client) listen(ctx context.Context) {
 			return
 		}
 
-		var resp protocol.Response
-		if err := json.Unmarshal(data, &resp); err != nil {
-			c.debugLogger.Printf("Failed to parse message: %v", err)
-			continue
-		}
-
-		// Signal ready on first successful message
-		c.readyOnce.Do(func() {
-			close(c.readyChan)
-		})
-
-		c.debugLogger.Printf("[RECV] %s", resp.Type)
-
-		// Notify any waiters for this response type
-		c.waiterMu.Lock()
-		if ch, ok := c.waiters[resp.Type]; ok {
-			select {
-			case ch <- resp:
-			default:
-				// Channel full or closed, skip
+		// Use a decoder to handle multiple concatenated JSON objects
+		decoder := json.NewDecoder(bytes.NewReader(data))
+		for {
+			var resp protocol.Response
+			if err := decoder.Decode(&resp); err != nil {
+				if err == io.EOF {
+					// All JSON objects decoded
+					break
+				}
+				c.debugLogger.Printf("Failed to parse message: %+v, : %v", string(data), err)
+				break
 			}
-		}
-		c.waiterMu.Unlock()
 
-		// Update state
-		c.handleResponse(resp)
+			// Signal ready on first successful message
+			c.readyOnce.Do(func() {
+				close(c.readyChan)
+			})
 
-		// Notify handler
-		if c.handler != nil {
-			c.handler.OnMessage(resp)
+			c.debugLogger.Printf("[RECV] %s", resp.Type)
+
+			// Notify any waiters for this response type
+			c.waiterMu.Lock()
+			if ch, ok := c.waiters[resp.Type]; ok {
+				select {
+				case ch <- resp:
+				default:
+					// Channel full or closed, skip
+				}
+			}
+			c.waiterMu.Unlock()
+
+			// Update state
+			c.handleResponse(resp)
+
+			// Notify handler
+			if c.handler != nil {
+				c.handler.OnMessage(resp)
+			}
 		}
 	}
 }
