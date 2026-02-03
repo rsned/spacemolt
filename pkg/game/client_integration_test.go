@@ -585,7 +585,7 @@ func TestConcurrentClients(t *testing.T) {
 
 	ctx := context.Background()
 
-	for i := 0; i < numClients; i++ {
+	for i := range numClients {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
@@ -746,3 +746,108 @@ func TestIsConnected(t *testing.T) {
 		t.Error("Expected not connected after Close()")
 	}
 }
+
+// TestMultipleJSONObjectsInSingleMessage verifies handling of multiple
+// concatenated JSON objects in a single WebSocket message
+func TestMultipleJSONObjectsInSingleMessage(t *testing.T) {
+	ms := &mockServer{
+		connections:  make([]*websocket.Conn, 0),
+		sentMessages: make([]protocol.Message, 0),
+		handlers:     make(map[string]func(protocol.Message) protocol.Response),
+	}
+
+	ms.setupDefaultHandlers()
+	ms.server = httptest.NewServer(http.HandlerFunc(ms.handleWebSocket))
+	ms.url = "ws" + strings.TrimPrefix(ms.server.URL, "http")
+
+	// Override the connect handler to send multiple JSON objects
+	ms.handlers["connect"] = func(msg protocol.Message) protocol.Response {
+		return protocol.Response{
+			Type: protocol.TypeWelcome,
+			Payload: map[string]any{
+				"version":      "test-v1.0",
+				"current_tick": float64(1000),
+			},
+		}
+	}
+
+	// Track received messages
+	receivedCount := 0
+	var mu sync.Mutex
+
+	client := NewClient(ms.url, "testuser", "valid_token", nil)
+	client.SetHandler(&testMessageHandler{
+		onMessage: func(resp protocol.Response) {
+			mu.Lock()
+			receivedCount++
+			mu.Unlock()
+		},
+	})
+
+	ctx := context.Background()
+
+	if err := client.Connect(ctx); err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	defer client.Close()
+	defer ms.close()
+
+	// Wait for ready
+	select {
+	case <-client.Ready():
+		// Good
+	case <-time.After(2 * time.Second):
+		t.Fatal("Timeout waiting for ready")
+	}
+
+	// Now manually send multiple JSON objects in a single message
+	messages := []protocol.Response{
+		{Type: protocol.TypeTick, Payload: map[string]any{"tick": float64(1001)}},
+		{Type: protocol.TypeTick, Payload: map[string]any{"tick": float64(1002)}},
+		{Type: protocol.TypeTick, Payload: map[string]any{"tick": float64(1003)}},
+	}
+
+	// Concatenate all JSON objects into a single message
+	var concatenated []byte
+	for _, msg := range messages {
+		data, err := json.Marshal(msg)
+		if err != nil {
+			t.Fatalf("Failed to marshal message: %v", err)
+		}
+		concatenated = append(concatenated, data...)
+	}
+
+	ms.mu.Lock()
+	if len(ms.connections) > 0 {
+		conn := ms.connections[0]
+		if err := conn.Write(ctx, websocket.MessageText, concatenated); err != nil {
+			t.Fatalf("Failed to send concatenated message: %v", err)
+		}
+	}
+	ms.mu.Unlock()
+
+	// Wait a bit for messages to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify all three messages were received
+	mu.Lock()
+	finalCount := receivedCount
+	mu.Unlock()
+
+	if finalCount < 3 {
+		t.Errorf("Expected at least 3 messages received, got %d", finalCount)
+	}
+}
+
+// testMessageHandler is a simple handler for testing
+type testMessageHandler struct {
+	onMessage func(resp protocol.Response)
+}
+
+func (h *testMessageHandler) OnConnected(state *State) {}
+func (h *testMessageHandler) OnMessage(resp protocol.Response) {
+	if h.onMessage != nil {
+		h.onMessage(resp)
+	}
+}
+func (h *testMessageHandler) OnDisconnected(err error) {}
