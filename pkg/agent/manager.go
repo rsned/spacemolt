@@ -379,7 +379,13 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 	username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
 
 	// Register with game server
-	if err := client.Register(ctx, personality.Faction); err != nil {
+	// Note: As of v0.3.3+, only "solarian" empire is allowed for new registrations
+	// The personality.Faction field is for roleplay purposes only
+	empire := "solarian"
+	m.debugLogger.Printf("[%s] Registering with empire: %s (personality faction: %s)",
+		personality.ID, empire, personality.Faction)
+
+	if err := client.Register(ctx, empire); err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
@@ -393,14 +399,14 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 	creds := &credentials.Credentials{
 		Username: username,
 		Token:    state.Token,
-		Empire:   personality.Faction,
+		Empire:   empire, // Store the actual game empire, not personality faction
 	}
 
 	if err := m.saveCredentialsWithFallback(ctx, personality.ID, creds); err != nil {
 		m.debugLogger.Printf("[%s] Warning: failed to save credentials: %v", personality.ID, err)
 	}
 
-	m.debugLogger.Printf("[%s] ✓ Registered as %s", personality.ID, username)
+	m.debugLogger.Printf("[%s] ✓ Registered as %s (empire: %s)", personality.ID, username, empire)
 	return nil
 }
 
