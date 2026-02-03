@@ -2,24 +2,61 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/user/spacemolt/pkg/credentials"
+	"github.com/user/spacemolt/pkg/game"
 	"github.com/user/spacemolt/pkg/knowledge"
 	"github.com/user/spacemolt/pkg/llm"
 )
 
-// Manager manages multiple agents
+// Retry configuration constants
+const (
+	MaxConnectionRetries = 3
+	MaxLoginRetries      = 3
+)
+
+// Manager manages multiple agents with game connections
 type Manager struct {
-	agents         map[string]Agent
+	runners        map[string]*Runner
 	kb             knowledge.Base
 	llm            *llm.Client
 	credsProvider  credentials.Provider
 	mu             sync.RWMutex
 
 	// Configuration
-	maxAgents int
+	maxAgents      int
+	gameServerURL  string
+	agentsDataDir  string
+	runnerConfig   RunnerConfig
+	debugLogger    *log.Logger
+}
+
+// ManagerConfig holds configuration for the agent manager
+type ManagerConfig struct {
+	MaxAgents     int
+	GameServerURL string
+	AgentsDataDir string
+	RunnerConfig  RunnerConfig
+	DebugLogger   *log.Logger
+}
+
+// DefaultManagerConfig returns sensible defaults
+func DefaultManagerConfig() ManagerConfig {
+	return ManagerConfig{
+		MaxAgents:     10,
+		GameServerURL: "wss://game.spacemolt.com/ws",
+		AgentsDataDir: "data/agents",
+		RunnerConfig:  DefaultRunnerConfig(),
+		DebugLogger:   log.Default(),
+	}
 }
 
 // NewManager creates a new agent manager
@@ -27,39 +64,213 @@ func NewManager(
 	kb knowledge.Base,
 	llmClient *llm.Client,
 	credsProvider credentials.Provider,
-	maxAgents int,
+	config ManagerConfig,
 ) *Manager {
-	if maxAgents <= 0 {
-		maxAgents = 10 // Default max
+	if config.MaxAgents <= 0 {
+		config.MaxAgents = 10
+	}
+	if config.GameServerURL == "" {
+		config.GameServerURL = "wss://game.spacemolt.com/ws"
+	}
+	if config.AgentsDataDir == "" {
+		config.AgentsDataDir = "data/agents"
+	}
+	if config.DebugLogger == nil {
+		config.DebugLogger = log.Default()
 	}
 
 	return &Manager{
-		agents:        make(map[string]Agent),
+		runners:       make(map[string]*Runner),
 		kb:            kb,
 		llm:           llmClient,
 		credsProvider: credsProvider,
-		maxAgents:     maxAgents,
+		maxAgents:     config.MaxAgents,
+		gameServerURL: config.GameServerURL,
+		agentsDataDir: config.AgentsDataDir,
+		runnerConfig:  config.RunnerConfig,
+		debugLogger:   config.DebugLogger,
 	}
 }
 
-// SpawnAgent creates and starts a new agent
+// NewManagerLegacy creates a manager with legacy signature (for backwards compatibility)
+func NewManagerLegacy(
+	kb knowledge.Base,
+	llmClient *llm.Client,
+	credsProvider credentials.Provider,
+	maxAgents int,
+) *Manager {
+	config := DefaultManagerConfig()
+	config.MaxAgents = maxAgents
+	return NewManager(kb, llmClient, credsProvider, config)
+}
+
+// SpawnAgent creates and starts a new agent with game connection
+// This is a wrapper around SpawnAgentWithGame for backwards compatibility
 func (m *Manager) SpawnAgent(ctx context.Context, personality Personality) (Agent, error) {
+	runner, err := m.SpawnAgentWithGame(ctx, personality)
+	if err != nil {
+		return nil, err
+	}
+	return runner.GetAgent(), nil
+}
+
+// GetRunner retrieves a runner by ID
+func (m *Manager) GetRunner(id string) (*Runner, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	runner, ok := m.runners[id]
+	return runner, ok
+}
+
+// GetAgent retrieves an agent by ID
+func (m *Manager) GetAgent(id string) (Agent, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	runner, ok := m.runners[id]
+	if !ok {
+		return nil, false
+	}
+	return runner.GetAgent(), true
+}
+
+// ListRunners returns all runners
+func (m *Manager) ListRunners() []*Runner {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	runners := make([]*Runner, 0, len(m.runners))
+	for _, runner := range m.runners {
+		runners = append(runners, runner)
+	}
+	return runners
+}
+
+// ListAgents returns all agents
+func (m *Manager) ListAgents() []Agent {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	agents := make([]Agent, 0, len(m.runners))
+	for _, runner := range m.runners {
+		agents = append(agents, runner.GetAgent())
+	}
+	return agents
+}
+
+// StopAgent stops and removes an agent
+func (m *Manager) StopAgent(id string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if len(m.agents) >= m.maxAgents {
+	runner, ok := m.runners[id]
+	if !ok {
+		return fmt.Errorf("agent not found: %s", id)
+	}
+
+	if err := runner.Stop(); err != nil {
+		return fmt.Errorf("failed to stop agent: %w", err)
+	}
+
+	// Close game client
+	if err := runner.GetGameClient().Close(); err != nil {
+		m.debugLogger.Printf("[%s] Warning: failed to close game client: %v", id, err)
+	}
+
+	delete(m.runners, id)
+	return nil
+}
+
+// StopAll stops all agents
+func (m *Manager) StopAll() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var firstErr error
+	for id, runner := range m.runners {
+		if err := runner.Stop(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("failed to stop agent %s: %w", id, err)
+		}
+		// Close game client
+		if err := runner.GetGameClient().Close(); err != nil {
+			m.debugLogger.Printf("[%s] Warning: failed to close game client: %v", id, err)
+		}
+	}
+
+	m.runners = make(map[string]*Runner)
+	return firstErr
+}
+
+// AgentCount returns the number of active agents
+func (m *Manager) AgentCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.runners)
+}
+
+// GetStatus returns the status of all agents
+func (m *Manager) GetStatus() map[string]Status {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	statuses := make(map[string]Status, len(m.runners))
+	for id, runner := range m.runners {
+		statuses[id] = runner.GetAgent().Status()
+	}
+	return statuses
+}
+
+// GetCredentials retrieves credentials for an agent
+func (m *Manager) GetCredentials(ctx context.Context, agentID string) (*credentials.Credentials, error) {
+	return m.credsProvider.GetCredentials(ctx, agentID)
+}
+
+// SpawnAgentWithGame creates an agent with game connection and starts it
+func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personality) (*Runner, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.runners) >= m.maxAgents {
 		return nil, fmt.Errorf("max agents limit reached: %d", m.maxAgents)
 	}
 
-	// Check if agent already exists
-	if _, exists := m.agents[personality.ID]; exists {
+	if _, exists := m.runners[personality.ID]; exists {
 		return nil, fmt.Errorf("agent %s already exists", personality.ID)
 	}
 
-	// Validate credentials exist for this agent
-	_, err := m.credsProvider.GetCredentials(ctx, personality.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get credentials for agent %s: %w", personality.ID, err)
+	m.debugLogger.Printf("[%s] Spawning agent with game connection", personality.ID)
+
+	// Try to load credentials (provider first, then fallback)
+	creds, err := m.loadCredentialsWithFallback(ctx, personality.ID)
+	hasCredentials := err == nil
+
+	// Create game client
+	username := personality.ID
+	token := ""
+	if hasCredentials {
+		username = creds.Username
+		token = creds.Token
+	}
+
+	gameClient := game.NewClient(m.gameServerURL, username, token, m.debugLogger)
+
+	// Connect to game server with retries
+	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
+		return nil, fmt.Errorf("failed to connect to game server: %w", err)
+	}
+
+	// Authenticate (register or login)
+	if hasCredentials {
+		m.debugLogger.Printf("[%s] Logging in with existing credentials", personality.ID)
+		if err := m.loginWithRetry(ctx, gameClient, creds, personality.ID); err != nil {
+			return nil, fmt.Errorf("login failed: %w", err)
+		}
+	} else {
+		m.debugLogger.Printf("[%s] Registering new agent", personality.ID)
+		if err := m.registerAgent(ctx, gameClient, personality); err != nil {
+			return nil, fmt.Errorf("registration failed: %w", err)
+		}
 	}
 
 	// Create agent memory
@@ -80,96 +291,194 @@ func (m *Manager) SpawnAgent(ctx context.Context, personality Personality) (Agen
 		personality.Name,
 		personality.Role,
 		personality.Faction,
-		nil, // personality data
+		nil,
 	); err != nil {
-		return nil, fmt.Errorf("failed to register agent: %w", err)
+		m.debugLogger.Printf("[%s] Warning: failed to register in KB: %v", personality.ID, err)
 	}
 
-	// Start agent
-	if err := agent.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to start agent: %w", err)
+	// Create runner
+	runner := NewRunner(agent, gameClient, m.runnerConfig)
+
+	// Start runner
+	if err := runner.Start(ctx); err != nil {
+		_ = gameClient.Close()
+		return nil, fmt.Errorf("failed to start runner: %w", err)
 	}
 
-	m.agents[agent.ID()] = agent
+	m.runners[personality.ID] = runner
+	m.debugLogger.Printf("[%s] ✓ Agent spawned and running", personality.ID)
 
-	return agent, nil
+	return runner, nil
 }
 
-// GetAgent retrieves an agent by ID
-func (m *Manager) GetAgent(id string) (Agent, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+// connectWithRetry attempts to establish WebSocket connection with retries
+func (m *Manager) connectWithRetry(ctx context.Context, client *game.Client, agentID string) error {
+	var lastErr error
 
-	agent, ok := m.agents[id]
-	return agent, ok
-}
+	for attempt := 1; attempt <= MaxConnectionRetries; attempt++ {
+		if attempt > 1 {
+			backoff := time.Duration(1<<uint(attempt-1)) * 2 * time.Second
+			m.debugLogger.Printf("[%s] Connection retry %d/%d after %v",
+				agentID, attempt, MaxConnectionRetries, backoff)
+			time.Sleep(backoff)
+		}
 
-// ListAgents returns all agents
-func (m *Manager) ListAgents() []Agent {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+		if err := client.Connect(ctx); err != nil {
+			lastErr = err
+			m.debugLogger.Printf("[%s] Connection attempt %d failed: %v",
+				agentID, attempt, err)
+			continue
+		}
 
-	agents := make([]Agent, 0, len(m.agents))
-	for _, agent := range m.agents {
-		agents = append(agents, agent)
-	}
-	return agents
-}
-
-// StopAgent stops and removes an agent
-func (m *Manager) StopAgent(id string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	agent, ok := m.agents[id]
-	if !ok {
-		return fmt.Errorf("agent not found: %s", id)
-	}
-
-	if err := agent.Stop(); err != nil {
-		return fmt.Errorf("failed to stop agent: %w", err)
-	}
-
-	delete(m.agents, id)
-	return nil
-}
-
-// StopAll stops all agents
-func (m *Manager) StopAll() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var firstErr error
-	for id, agent := range m.agents {
-		if err := agent.Stop(); err != nil && firstErr == nil {
-			firstErr = fmt.Errorf("failed to stop agent %s: %w", id, err)
+		// Wait for ready signal
+		select {
+		case <-client.Ready():
+			m.debugLogger.Printf("[%s] ✓ Connected successfully", agentID)
+			return nil
+		case <-time.After(5 * time.Second):
+			lastErr = fmt.Errorf("connection ready timeout")
+			m.debugLogger.Printf("[%s] Connection ready timeout", agentID)
+			continue
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 
-	m.agents = make(map[string]Agent)
-	return firstErr
+	return fmt.Errorf("failed after %d attempts: %w", MaxConnectionRetries, lastErr)
 }
 
-// AgentCount returns the number of active agents
-func (m *Manager) AgentCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return len(m.agents)
-}
+// loginWithRetry attempts to authenticate with retries
+func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds *credentials.Credentials, agentID string) error {
+	var lastErr error
 
-// GetStatus returns the status of all agents
-func (m *Manager) GetStatus() map[string]Status {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	for attempt := 1; attempt <= MaxLoginRetries; attempt++ {
+		if attempt > 1 {
+			backoff := time.Duration(1<<uint(attempt-1)) * 2 * time.Second
+			m.debugLogger.Printf("[%s] Login retry %d/%d after %v",
+				agentID, attempt, MaxLoginRetries, backoff)
+			time.Sleep(backoff)
+		}
 
-	statuses := make(map[string]Status, len(m.agents))
-	for id, agent := range m.agents {
-		statuses[id] = agent.Status()
+		if err := client.Login(ctx); err != nil {
+			lastErr = err
+			m.debugLogger.Printf("[%s] Login attempt %d failed: %v",
+				agentID, attempt, err)
+			continue
+		}
+
+		m.debugLogger.Printf("[%s] ✓ Logged in successfully", agentID)
+		return nil
 	}
-	return statuses
+
+	return fmt.Errorf("login failed after %d attempts: %w", MaxLoginRetries, lastErr)
 }
 
-// GetCredentials retrieves credentials for an agent
-func (m *Manager) GetCredentials(ctx context.Context, agentID string) (*credentials.Credentials, error) {
-	return m.credsProvider.GetCredentials(ctx, agentID)
+// registerAgent registers a new agent and saves credentials
+func (m *Manager) registerAgent(ctx context.Context, client *game.Client, personality Personality) error {
+	// Generate username from personality
+	username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+
+	// Register with game server
+	if err := client.Register(ctx, personality.Faction); err != nil {
+		return fmt.Errorf("registration failed: %w", err)
+	}
+
+	// Get the token from state
+	state := client.GetState()
+	if state.Token == "" {
+		return fmt.Errorf("no token received after registration")
+	}
+
+	// Save credentials
+	creds := &credentials.Credentials{
+		Username: username,
+		Token:    state.Token,
+		Empire:   personality.Faction,
+	}
+
+	if err := m.saveCredentialsWithFallback(ctx, personality.ID, creds); err != nil {
+		m.debugLogger.Printf("[%s] Warning: failed to save credentials: %v", personality.ID, err)
+	}
+
+	m.debugLogger.Printf("[%s] ✓ Registered as %s", personality.ID, username)
+	return nil
+}
+
+// saveCredentialsWithFallback tries provider first, then falls back to file
+func (m *Manager) saveCredentialsWithFallback(ctx context.Context, agentID string, creds *credentials.Credentials) error {
+	// Try primary provider
+	if err := m.credsProvider.StoreCredentials(ctx, agentID, creds); err == nil {
+		m.debugLogger.Printf("[%s] ✓ Saved credentials via provider", agentID)
+		return nil
+	} else {
+		m.debugLogger.Printf("[%s] Provider storage failed: %v, trying fallback", agentID, err)
+	}
+
+	// Fallback: save to agent directory
+	agentDir := filepath.Join(m.agentsDataDir, agentID)
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		return fmt.Errorf("failed to create agent directory: %w", err)
+	}
+
+	credsPath := filepath.Join(agentDir, "credentials.json")
+	data, err := json.MarshalIndent(creds, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal credentials: %w", err)
+	}
+
+	if err := os.WriteFile(credsPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write credentials file: %w", err)
+	}
+
+	m.debugLogger.Printf("[%s] ✓ Saved credentials to %s", agentID, credsPath)
+	return nil
+}
+
+// loadCredentialsWithFallback tries provider first, then checks agent directory
+func (m *Manager) loadCredentialsWithFallback(ctx context.Context, agentID string) (*credentials.Credentials, error) {
+	// Try primary provider
+	creds, err := m.credsProvider.GetCredentials(ctx, agentID)
+	if err == nil {
+		return creds, nil
+	}
+
+	if !credentials.IsErrCredentialsNotFound(err) {
+		m.debugLogger.Printf("[%s] Provider error: %v, trying fallback", agentID, err)
+	}
+
+	// Fallback: check agent directory
+	credsPath := filepath.Join(m.agentsDataDir, agentID, "credentials.json")
+	data, err := os.ReadFile(credsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, credentials.ErrCredentialsNotFound
+		}
+		return nil, fmt.Errorf("failed to read credentials file: %w", err)
+	}
+
+	var fallbackCreds credentials.Credentials
+	if err := json.Unmarshal(data, &fallbackCreds); err != nil {
+		return nil, fmt.Errorf("failed to parse credentials file: %w", err)
+	}
+
+	m.debugLogger.Printf("[%s] ✓ Loaded credentials from %s", agentID, credsPath)
+	return &fallbackCreds, nil
+}
+
+// sanitizeUsername removes invalid characters from username
+func sanitizeUsername(s string) string {
+	// Replace spaces and special chars with underscores
+	s = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			return r
+		}
+		return '_'
+	}, s)
+
+	// Limit length
+	if len(s) > 32 {
+		s = s[:32]
+	}
+
+	return s
 }
