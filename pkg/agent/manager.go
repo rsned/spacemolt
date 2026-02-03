@@ -25,18 +25,18 @@ const (
 
 // Manager manages multiple agents with game connections
 type Manager struct {
-	runners        map[string]*Runner
-	kb             knowledge.Base
-	llm            *llm.Client
-	credsProvider  credentials.Provider
-	mu             sync.RWMutex
+	runners       map[string]*Runner
+	kb            knowledge.Base
+	llm           *llm.Client
+	credsProvider credentials.Provider
+	mu            sync.RWMutex
 
 	// Configuration
-	maxAgents      int
-	gameServerURL  string
-	agentsDataDir  string
-	runnerConfig   RunnerConfig
-	debugLogger    *log.Logger
+	maxAgents     int
+	gameServerURL string
+	agentsDataDir string
+	runnerConfig  RunnerConfig
+	debugLogger   *log.Logger
 }
 
 // ManagerConfig holds configuration for the agent manager
@@ -376,7 +376,8 @@ func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds
 // registerAgent registers a new agent and saves credentials
 func (m *Manager) registerAgent(ctx context.Context, client *game.Client, personality Personality) error {
 	// Generate username from personality
-	username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+	//username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+	username := sanitizeUsername(fmt.Sprintf("%s", personality.Name))
 
 	// Register with game server
 	// Note: As of v0.3.3+, only "solarian" empire is allowed for new registrations
