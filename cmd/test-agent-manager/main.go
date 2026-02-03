@@ -76,7 +76,7 @@ func main() {
 
 	// Test 4: Create agent manager with credential provider
 	fmt.Println("4. Creating agent manager...")
-	agentMgr := agent.NewManager(kb, llmClient, credsProvider, 10)
+	agentMgr := agent.NewManagerLegacy(kb, llmClient, credsProvider, 10)
 	fmt.Println("   ✓ Created agent manager with credential provider")
 	fmt.Println()
 
