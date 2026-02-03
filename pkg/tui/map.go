@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // renderMap creates a dynamic-sized grid representation of the system

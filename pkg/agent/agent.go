@@ -2,7 +2,7 @@ package agent
 
 import (
 	"context"
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // SystemKnowledge represents knowledge about a solar system

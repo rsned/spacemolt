@@ -1,4 +1,4 @@
-module github.com/user/spacemolt
+module github.com/rsned/spacemolt
 
 go 1.24.0
 

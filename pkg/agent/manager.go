@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/spacemolt/pkg/credentials"
-	"github.com/user/spacemolt/pkg/game"
-	"github.com/user/spacemolt/pkg/knowledge"
-	"github.com/user/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/credentials"
+  "github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/llm"
 )
 
 // Retry configuration constants

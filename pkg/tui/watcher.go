@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // AgentPanelModel represents the agent list panel for the watcher interface

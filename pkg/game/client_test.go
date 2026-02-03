@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/user/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/internal/protocol"
 )
 
 // TestClientReady_ClosesOnFirstMessage verifies that the Ready() channel

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // Runner wraps an agent with its game client and runs the play loop

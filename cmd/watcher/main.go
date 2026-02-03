@@ -12,13 +12,13 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/user/spacemolt/internal/protocol"
-	"github.com/user/spacemolt/pkg/agent"
-	"github.com/user/spacemolt/pkg/credentials"
-	"github.com/user/spacemolt/pkg/game"
-	"github.com/user/spacemolt/pkg/knowledge"
-	"github.com/user/spacemolt/pkg/llm"
-	"github.com/user/spacemolt/pkg/tui"
+	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/credentials"
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/tui"
 )
 
 var (
