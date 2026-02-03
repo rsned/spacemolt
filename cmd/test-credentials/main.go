@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/user/spacemolt/pkg/credentials"
+	"github.com/rsned/spacemolt/pkg/credentials"
 )
 
 func main() {

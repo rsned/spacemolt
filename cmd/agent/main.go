@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/user/spacemolt/pkg/agent"
-	"github.com/user/spacemolt/pkg/knowledge"
-	"github.com/user/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/llm"
 )
 
 var (

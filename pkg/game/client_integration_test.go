@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/user/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/internal/protocol"
 )
 
 // mockServer represents a mock WebSocket server for testing
