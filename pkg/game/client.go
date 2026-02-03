@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/user/spacemolt/internal/protocol"
 )
 
 // Client represents a WebSocket client for the Spacemolt game
@@ -283,15 +283,16 @@ func (c *Client) listen(ctx context.Context) {
 		}
 
 		// Use a decoder to handle multiple concatenated JSON objects
+		// The game server sometimes sends multiple JSON objects in a single message
 		decoder := json.NewDecoder(bytes.NewReader(data))
 		for {
 			var resp protocol.Response
 			if err := decoder.Decode(&resp); err != nil {
 				if err == io.EOF {
-					// All JSON objects decoded
+					// All JSON objects decoded successfully
 					break
 				}
-				c.debugLogger.Printf("Failed to parse message: %+v, : %v", string(data), err)
+				c.debugLogger.Printf("Failed to parse message: %v | data: %s", err, string(data))
 				break
 			}
 
@@ -316,7 +317,7 @@ func (c *Client) listen(ctx context.Context) {
 			// Update state
 			c.handleResponse(resp)
 
-			// Notify handler
+			// Notify handler for each decoded message
 			if c.handler != nil {
 				c.handler.OnMessage(resp)
 			}
@@ -336,6 +337,8 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 
 	case protocol.TypeRegistered:
+		payloadJSON, _ := json.Marshal(resp.Payload)
+		c.debugLogger.Printf("[RECVD] payload: %s", string(payloadJSON))
 		if token, ok := resp.Payload["token"].(string); ok {
 			c.state.Token = token
 			c.token = token // Save token
