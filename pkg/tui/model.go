@@ -12,6 +12,7 @@ import (
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
 type WsMsg struct {
+	AgentID string             // Agent that sent this message
 	Type    string
 	Payload map[string]any
 }
@@ -42,7 +43,10 @@ type AgentInfo struct {
 
 // WatcherModel is the main TUI model for the watcher interface
 type WatcherModel struct {
-	gameState       *game.State
+	// Multi-agent state tracking
+	agentStates     map[string]*game.State // agent ID -> game state
+	agentLogs       map[string][]string    // agent ID -> log lines
+
 	viewportWidth   int
 	viewportHeight  int
 	quitting        bool
@@ -56,6 +60,7 @@ type WatcherModel struct {
 	// Agent tracking
 	agents          []AgentInfo
 	selectedAgentID string
+	selectedIndex   int // Cache of selected agent index for performance
 
 	// Ready signal - closed when TUI is initialized and ready
 	readyChan chan struct{}
@@ -63,9 +68,11 @@ type WatcherModel struct {
 
 // NewWatcherModel creates a new watcher TUI model
 // The readyChan will be closed when the TUI is initialized and ready for use
+// Note: The state parameter is kept for backward compatibility but is now optional (can be nil)
 func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
-	return WatcherModel{
-		gameState: state,
+	model := WatcherModel{
+		agentStates: make(map[string]*game.State),
+		agentLogs:   make(map[string][]string),
 		logPanel: logPanelModel{
 			lines:        []string{},
 			maxLines:     100,
@@ -87,9 +94,18 @@ func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
 			selected:    0,
 			showDetails: false,
 		},
-		agents:    []AgentInfo{},
-		readyChan: readyChan,
+		agents:        []AgentInfo{},
+		selectedIndex: 0,
+		readyChan:     readyChan,
 	}
+
+	// If a state was provided (backward compatibility), use it for a default agent
+	if state != nil {
+		model.agentStates["default"] = state
+		model.agentLogs["default"] = []string{}
+	}
+
+	return model
 }
 
 // Init initializes the TUI model
@@ -121,23 +137,18 @@ func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.logPanel.scrollOffset--
 			}
 			return m, nil
-		case "tab":
-			// Cycle through agents
-			if len(m.agents) > 0 {
-				m.agentPanel.selected = (m.agentPanel.selected + 1) % len(m.agents)
-				if m.agentPanel.selected < len(m.agents) {
-					m.selectedAgentID = m.agents[m.agentPanel.selected].ID
-				}
-			}
+		case "tab", "n":
+			// Cycle to next agent
+			m.selectNextAgent()
 			return m, nil
-		case "shift+tab":
-			// Cycle backwards through agents
-			if len(m.agents) > 0 {
-				m.agentPanel.selected = (m.agentPanel.selected - 1 + len(m.agents)) % len(m.agents)
-				if m.agentPanel.selected < len(m.agents) {
-					m.selectedAgentID = m.agents[m.agentPanel.selected].ID
-				}
-			}
+		case "shift+tab", "p":
+			// Cycle to previous agent
+			m.selectPreviousAgent()
+			return m, nil
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			// Jump to specific agent (1-indexed)
+			idx := int(msg.String()[0] - '1')
+			m.selectAgentByIndex(idx)
 			return m, nil
 		}
 
@@ -284,9 +295,63 @@ func (m WatcherModel) renderAgentPanel(width, height int) string {
 // AddAgent adds an agent to the watcher
 func (m *WatcherModel) AddAgent(info AgentInfo) {
 	m.agents = append(m.agents, info)
+
+	// Initialize state and logs for this agent if not exists
+	if _, exists := m.agentStates[info.ID]; !exists {
+		m.agentStates[info.ID] = &game.State{
+			CurrentTick: 0,
+			System: game.SystemData{
+				POIs:        []game.POI{},
+				Connections: []string{},
+			},
+		}
+		m.agentLogs[info.ID] = []string{}
+	}
+
 	// Auto-select first agent
 	if len(m.agents) == 1 {
 		m.selectedAgentID = info.ID
+		m.selectedIndex = 0
+	}
+}
+
+// UpdateAgentState updates the game state for a specific agent
+func (m *WatcherModel) UpdateAgentState(agentID string, state *game.State) {
+	if state != nil {
+		m.agentStates[agentID] = state
+		// Mark panels for update
+		m.mapPanel.lastUpdate = time.Now()
+		m.statusPanel.lastUpdate = time.Now()
+	}
+}
+
+// GetCurrentState returns the game state for the currently selected agent
+func (m *WatcherModel) GetCurrentState() *game.State {
+	if m.selectedAgentID == "" {
+		return nil
+	}
+	return m.agentStates[m.selectedAgentID]
+}
+
+// AddLogForAgent adds a log line for a specific agent
+func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
+	logs, exists := m.agentLogs[agentID]
+	if !exists {
+		logs = []string{}
+	}
+
+	logs = append(logs, line)
+	if len(logs) > m.logPanel.maxLines {
+		logs = logs[1:]
+	}
+
+	m.agentLogs[agentID] = logs
+
+	// If this is the currently selected agent, update the log panel
+	if agentID == m.selectedAgentID {
+		m.logPanel.lines = logs
+		m.logPanel.lastUpdate = time.Now()
+		m.logPanel.cachedRender = ""
 	}
 }
 
@@ -300,6 +365,45 @@ func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
 	}
 }
 
+// selectNextAgent cycles to the next agent
+func (m *WatcherModel) selectNextAgent() {
+	if len(m.agents) == 0 {
+		return
+	}
+	m.selectedIndex = (m.selectedIndex + 1) % len(m.agents)
+	m.selectAgentByIndex(m.selectedIndex)
+}
+
+// selectPreviousAgent cycles to the previous agent
+func (m *WatcherModel) selectPreviousAgent() {
+	if len(m.agents) == 0 {
+		return
+	}
+	m.selectedIndex = (m.selectedIndex - 1 + len(m.agents)) % len(m.agents)
+	m.selectAgentByIndex(m.selectedIndex)
+}
+
+// selectAgentByIndex selects an agent by index (0-based)
+func (m *WatcherModel) selectAgentByIndex(idx int) {
+	if idx < 0 || idx >= len(m.agents) {
+		return
+	}
+	m.selectedIndex = idx
+	m.agentPanel.selected = idx
+	m.selectedAgentID = m.agents[idx].ID
+
+	// Switch to the selected agent's logs
+	if logs, exists := m.agentLogs[m.selectedAgentID]; exists {
+		m.logPanel.lines = logs
+		m.logPanel.scrollOffset = 0 // Reset scroll
+		m.logPanel.cachedRender = ""
+	}
+
+	// Force refresh of all panels
+	m.mapPanel.cachedRender = ""
+	m.statusPanel.cachedRender = ""
+}
+
 // handleWebSocketMessage processes WebSocket messages and updates the model
 func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 	// Add log message based on response type
@@ -309,9 +413,11 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 		if v, ok := resp.Payload["version"].(string); ok {
 			// Capture initial tick from welcome message
 			if tick, ok := resp.Payload["current_tick"].(float64); ok {
-				m.gameState.Mu.Lock()
-				m.gameState.CurrentTick = int64(tick)
-				m.gameState.Mu.Unlock()
+				if state := m.GetCurrentState(); state != nil {
+					state.Mu.Lock()
+					state.CurrentTick = int64(tick)
+					state.Mu.Unlock()
+				}
 			}
 			line = fmt.Sprintf("[CONNECTED] Server v%s | Tick: %v", v, resp.Payload["current_tick"])
 		}
@@ -340,14 +446,16 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 		// Status update - mark status panel for update
 		m.statusPanel.lastUpdate = time.Now()
 		// Also add compact status to log
-		m.gameState.Mu.Lock()
-		line = fmt.Sprintf("[Credits: %.0f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f]",
-			m.gameState.Credits, m.gameState.Fuel, m.gameState.MaxFuel,
-			m.gameState.Hull, m.gameState.MaxHull)
-		if len(m.gameState.Cargo) > 0 {
-			line += fmt.Sprintf(" | Cargo: %d items", len(m.gameState.Cargo))
+		if state := m.GetCurrentState(); state != nil {
+			state.Mu.Lock()
+			line = fmt.Sprintf("[Credits: %.0f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f]",
+				state.Credits, state.Fuel, state.MaxFuel,
+				state.Hull, state.MaxHull)
+			if len(state.Cargo) > 0 {
+				line += fmt.Sprintf(" | Cargo: %d items", len(state.Cargo))
+			}
+			state.Mu.Unlock()
 		}
-		m.gameState.Mu.Unlock()
 	case "chat_message":
 		if from, ok := resp.Payload["from"].(string); ok {
 			if msg, ok := resp.Payload["message"].(string); ok {
@@ -373,18 +481,34 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 	}
 
 	if line != "" {
-		m.gameState.Mu.Lock()
-		currentTick := m.gameState.CurrentTick
-		m.gameState.Mu.Unlock()
-
-		// Prefix line with tick count
-		line = fmt.Sprintf("[T:%d] %s", currentTick, line)
-
-		m.logPanel.lines = append(m.logPanel.lines, line)
-		if len(m.logPanel.lines) > m.logPanel.maxLines {
-			m.logPanel.lines = m.logPanel.lines[1:]
+		// Get tick from the agent's state
+		var currentTick int64
+		if resp.AgentID != "" {
+			if state, exists := m.agentStates[resp.AgentID]; exists && state != nil {
+				state.Mu.Lock()
+				currentTick = state.CurrentTick
+				state.Mu.Unlock()
+			}
 		}
-		m.logPanel.lastUpdate = time.Now()
-		m.logPanel.cachedRender = "" // Invalidate cache
+
+		// Prefix line with tick count and agent name (if multiple agents)
+		if len(m.agents) > 1 && resp.AgentID != "" {
+			// Find agent name
+			agentName := resp.AgentID
+			for _, agent := range m.agents {
+				if agent.ID == resp.AgentID {
+					agentName = agent.Name
+					break
+				}
+			}
+			line = fmt.Sprintf("[%s T:%d] %s", agentName, currentTick, line)
+		} else {
+			line = fmt.Sprintf("[T:%d] %s", currentTick, line)
+		}
+
+		// Add log to the specific agent
+		if resp.AgentID != "" {
+			m.AddLogForAgent(resp.AgentID, line)
+		}
 	}
 }

@@ -183,7 +183,7 @@ func main() {
 	debugLogger.Printf("Initialized credentials provider: %s", *credsProvider)
 
 	// Create agent manager
-	agentMgr := agent.NewManager(kb, llmClient, credsProv, 10)
+	agentMgr := agent.NewManagerLegacy(kb, llmClient, credsProv, 10)
 	debugLogger.Printf("Created agent manager")
 
 	// Parse agent IDs

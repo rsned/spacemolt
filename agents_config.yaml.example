@@ -1,0 +1,34 @@
+# Spacemolt Agent Server Configuration
+# Copy this file to agents_config.yaml and customize as needed
+
+server:
+  url: wss://game.spacemolt.com/ws
+
+knowledge_base:
+  backend: sqlite
+  path: data/spacemolt-kb.db
+
+credentials:
+  backend: file
+  path: data/credentials
+
+llm:
+  url: http://localhost:11434
+  model: llama3.2
+  timeout: 60s
+
+agents:
+  # Maximum number of concurrent agents
+  max_concurrent: 10
+
+  # How often agents make decisions (seconds)
+  decision_interval: 5s
+
+  # List of agent IDs to start
+  # Agent directories must exist in data/agents/<id>/
+  # with personality.json files
+  enabled:
+    - miner-2
+    - miner-3
+    - explorer-7
+    - trader-1

@@ -1,0 +1,12 @@
+bin/
+watcher
+# Data files
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Vim swap files
+*.swp
+*.swo
+*~

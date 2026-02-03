@@ -119,7 +119,13 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
-	c.debugLogger.Printf("[SENT] %s", msg.Type)
+	// Log with full payload for debugging
+	if len(msg.Payload) > 0 {
+		payloadJSON, _ := json.Marshal(msg.Payload)
+		c.debugLogger.Printf("[SENT] %s | payload: %s", msg.Type, string(payloadJSON))
+	} else {
+		c.debugLogger.Printf("[SENT] %s", msg.Type)
+	}
 	return nil
 }
 
