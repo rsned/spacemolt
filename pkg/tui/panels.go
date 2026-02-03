@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/user/spacemolt/pkg/game"
 )
 
 // Panel models
@@ -149,9 +150,16 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	sb.WriteString("\n\n")
 
 	// Get the map panel content
-	m.gameState.Mu.Lock()
-	content := renderMapPanel(m.gameState.System, m.gameState, halfGridRows, halfGridCols)
-	m.gameState.Mu.Unlock()
+	var content string
+	state := m.GetCurrentState()
+	if state == nil {
+		// No state available
+		content = lipgloss.NewStyle().Faint(true).Render("No agent selected")
+	} else {
+		state.Mu.Lock()
+		content = renderMapPanel(state.System, state, halfGridRows, halfGridCols)
+		state.Mu.Unlock()
+	}
 
 	sb.WriteString(content)
 
@@ -184,41 +192,45 @@ func (m *WatcherModel) renderStatusPanel(width, height int) string {
 	m.statusPanel.compactMode = width < 80
 
 	// Get status content
-	m.gameState.Mu.Lock()
-	content := m.buildStatusContent(width)
-	m.gameState.Mu.Unlock()
-
-	sb.WriteString(content)
+	state := m.GetCurrentState()
+	if state == nil {
+		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agent selected"))
+	} else {
+		state.Mu.Lock()
+		content := m.buildStatusContent(state, width)
+		state.Mu.Unlock()
+		sb.WriteString(content)
+	}
 
 	return style.Render(sb.String())
 }
 
 // buildStatusContent builds the appropriate status content based on mode
-func (m *WatcherModel) buildStatusContent(width int) string {
+func (m *WatcherModel) buildStatusContent(state *game.State, width int) string {
 	if m.statusPanel.compactMode {
-		return m.buildStatusCompact()
+		return m.buildStatusCompact(state)
 	}
-	return m.buildStatusFull()
+	return m.buildStatusFull(state)
 }
 
 // buildStatusFull builds a two-column status layout for wide screens
-func (m *WatcherModel) buildStatusFull() string {
+func (m *WatcherModel) buildStatusFull(state *game.State) string {
 	var leftCol, rightCol strings.Builder
 
 	// Left column: Player info and credits
 	leftCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Player"))
 	leftCol.WriteString("\n")
-	leftCol.WriteString(fmt.Sprintf("Name: %s\n", m.gameState.Username))
+	leftCol.WriteString(fmt.Sprintf("Name: %s\n", state.Username))
 	leftCol.WriteString("Empire: voidborn\n")
-	leftCol.WriteString(fmt.Sprintf("Credits: %.0f\n", m.gameState.Credits))
+	leftCol.WriteString(fmt.Sprintf("Credits: %.0f\n", state.Credits))
 
 	// Right column: Ship stats
 	rightCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Ship"))
 	rightCol.WriteString("\n")
 	rightCol.WriteString("Type: Prospector (starter_mining)\n")
-	rightCol.WriteString(fmt.Sprintf("Hull: %.0f/%.0f\n", m.gameState.Hull, m.gameState.MaxHull))
-	rightCol.WriteString(fmt.Sprintf("Fuel: %.0f/%.0f\n", m.gameState.Fuel, m.gameState.MaxFuel))
-	rightCol.WriteString(fmt.Sprintf("Cargo: %d/%d\n", len(m.gameState.Cargo), m.gameState.MaxCargo))
+	rightCol.WriteString(fmt.Sprintf("Hull: %.0f/%.0f\n", state.Hull, state.MaxHull))
+	rightCol.WriteString(fmt.Sprintf("Fuel: %.0f/%.0f\n", state.Fuel, state.MaxFuel))
+	rightCol.WriteString(fmt.Sprintf("Cargo: %d/%d\n", len(state.Cargo), state.MaxCargo))
 
 	// Combine columns with spacing
 	leftStyle := lipgloss.NewStyle().Width(30)
@@ -231,11 +243,11 @@ func (m *WatcherModel) buildStatusFull() string {
 	)
 
 	// Add cargo details if any
-	if len(m.gameState.Cargo) > 0 {
+	if len(state.Cargo) > 0 {
 		combined += "\n\n"
 		combined += lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Cargo Items:")
 		combined += "\n"
-		for _, item := range m.gameState.Cargo {
+		for _, item := range state.Cargo {
 			if name, ok := item["name"].(string); ok {
 				if quantity, ok := item["quantity"].(float64); ok {
 					combined += fmt.Sprintf("  - %s x%.0f\n", name, quantity)
@@ -250,15 +262,15 @@ func (m *WatcherModel) buildStatusFull() string {
 }
 
 // buildStatusCompact builds a single-line status layout for narrow screens
-func (m *WatcherModel) buildStatusCompact() string {
+func (m *WatcherModel) buildStatusCompact(state *game.State) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("%s | Credits: %.0f | Hull: %.0f/%.0f | Fuel: %.0f/%.0f | Cargo: %d/%d",
-		m.gameState.Username,
-		m.gameState.Credits,
-		m.gameState.Hull, m.gameState.MaxHull,
-		m.gameState.Fuel, m.gameState.MaxFuel,
-		len(m.gameState.Cargo), m.gameState.MaxCargo))
+		state.Username,
+		state.Credits,
+		state.Hull, state.MaxHull,
+		state.Fuel, state.MaxFuel,
+		len(state.Cargo), state.MaxCargo))
 
 	return sb.String()
 }

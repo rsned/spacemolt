@@ -2,13 +2,13 @@
 
 ## Current Status
 
-**Progress**: Phases 1-4 Complete ✅ | Phase 5 In Progress 🚧
+**Progress**: Phases 1-5 Complete ✅ | Phase 6 Planned ⏳
 
 - ✅ **Phase 1**: GameClient - WebSocket connection, auth, state management (33 tests)
 - ✅ **Phase 2**: AgentRunner - Play loop with tick awareness (12 tests)
 - ✅ **Phase 3**: Enhanced Manager - Game connections, registration/login, credential fallback (12 tests)
 - ✅ **Phase 4**: Agent Server - Main entry point with config, discovery, error handling (10 tests)
-- 🚧 **Phase 5**: Watcher Enhancement - Multi-agent TUI (Next)
+- ✅ **Phase 5**: Watcher Enhancement - Multi-agent TUI with state isolation and cycling
 - ⏳ **Phase 6**: Polish - Monitoring, metrics, recovery (Planned)
 
 **Total Tests**: 67 passing ✓
