@@ -13,13 +13,13 @@ import (
 
 const (
 	// Panel dimensions for 80x50 terminal target
-	// Top section: Log (30) + Map (50) = 80 wide, 30 tall
-	// Status: 80 wide, 10 tall
-	// Agents: 80 wide, 10 tall
-	logPanelWidth      = 30 // Action Log width in characters
-	logPanelHeight     = 30 // Action Log height in lines
-	statusPanelHeight  = 10 // Status panel height in lines
-	agentsPanelHeight  = 10 // Agents panel height in lines
+	// Top section: Log (28) + Map (52) = 80 wide, 28 tall
+	// Status: 80 wide, 10 tall total (8 content + 2 borders)
+	// Agents: 80 wide, 10 tall total (8 content + 2 borders)
+	logPanelWidth      = 28 // Action Log width in characters
+	logPanelHeight     = 28 // Action Log height in lines
+	statusPanelHeight  = 10 // Status panel: 8 content + 2 borders
+	agentsPanelHeight  = 10 // Agents panel: 8 content + 2 borders
 )
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
@@ -278,7 +278,7 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 		colWidth = 20
 	}
 
-	// Build two columns of agents
+	// Build two columns of agents (compact 2 lines each)
 	var leftCol, rightCol strings.Builder
 
 	for i, agent := range agents {
@@ -299,10 +299,11 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 			arrow = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ ")
 		}
 
-		// Format agent entry
-		entry := fmt.Sprintf("%s%s\n    %s\n",
+		// Compact format: name on one line, action on next (no extra newline)
+		entry := fmt.Sprintf("%s%s %s\n    %s",
 			arrow,
 			lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
+			lipgloss.NewStyle().Faint(true).Render("["+agent.Status+"]"),
 			agent.Action,
 		)
 
@@ -323,13 +324,22 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	rightStyle := lipgloss.NewStyle().Width(colWidth)
 	twoCols := lipgloss.JoinHorizontal(lipgloss.Top, leftStyle.Render(leftCol.String()), rightStyle.Render(rightCol.String()))
 
-	// Build bordered panel with title
-	var result strings.Builder
-	result.WriteString(RenderBorderedTitle("Agents", width))
-	result.WriteString(RenderBorderedContent(twoCols, width))
-	result.WriteString(RenderBorderBottom(width))
+	// Add hints below columns (compact, no extra newlines)
+	hintStyle := lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("245"))
+	hints := hintStyle.Render("Tab: Next | Shift+Tab: Prev | 1-9: Jump")
+	panelContent := twoCols + "\n" + hints
 
-	return result.String()
+	// Build panel with title and border using lipgloss
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	fullContent := titleStyle.Render("Agents\n") + panelContent
+
+	style := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Width(width).
+		Height(height)
+
+	return style.Render(fullContent)
 }
 
 // AddAgent adds an agent to the watcher
@@ -481,6 +491,46 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 	// Add log message based on response type
 	line := ""
 	switch resp.Type {
+	// Agent-server event types (from EventCallback)
+	case "decision":
+		if action, ok := resp.Payload["action"].(string); ok {
+			target := ""
+			if t, ok := resp.Payload["target"].(string); ok && t != "" {
+				target = fmt.Sprintf(" → %s", t)
+			}
+			confidence := ""
+			if c, ok := resp.Payload["confidence"].(float64); ok {
+				confidence = fmt.Sprintf(" (%.0f%%)", c*100)
+			}
+			line = fmt.Sprintf("[DECISION] %s%s%s", action, target, confidence)
+			if reasoning, ok := resp.Payload["reasoning"].(string); ok && reasoning != "" {
+				// Truncate reasoning if too long
+				if len(reasoning) > 60 {
+					reasoning = reasoning[:57] + "..."
+				}
+				line = fmt.Sprintf("[DECISION] %s%s%s: %s", action, target, confidence, reasoning)
+			}
+		}
+	case "action":
+		if action, ok := resp.Payload["action"].(string); ok {
+			target := ""
+			if t, ok := resp.Payload["target"].(string); ok && t != "" {
+				target = fmt.Sprintf(" → %s", t)
+			}
+			status := "executed"
+			if s, ok := resp.Payload["status"].(string); ok {
+				status = s
+			}
+			line = fmt.Sprintf("✓ [ACTION] %s%s (%s)", action, target, status)
+		}
+	case "error":
+		// Check if this is an agent error or game error
+		if errorMsg, ok := resp.Payload["error"].(string); ok {
+			line = fmt.Sprintf("✗ [ERROR] %s", errorMsg)
+		} else {
+			line = fmt.Sprintf("✗ [ERROR] %v", resp.Payload)
+		}
+	// Game server message types
 	case "welcome":
 		if v, ok := resp.Payload["version"].(string); ok {
 			// Capture initial tick from welcome message
@@ -495,8 +545,6 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 		}
 	case "logged_in":
 		line = "[LOGGED IN] Successfully authenticated"
-	case "error":
-		line = fmt.Sprintf("[ERROR] %v", resp.Payload)
 	case "ok":
 		if action, ok := resp.Payload["action"].(string); ok {
 			switch action {
@@ -505,9 +553,35 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 			case "dock":
 				line = "✓ Docked - safe at station"
 			case "travel":
-				line = "✓ Travel complete"
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("✓ Travel: %s", msg)
+				} else {
+					line = "✓ Travel complete"
+				}
+			case "jump":
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("✓ Jump: %s", msg)
+				} else {
+					line = "✓ Jump complete"
+				}
 			case "mine":
-				line = "⛏ Mining..."
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("⛏ Mining: %s", msg)
+				} else {
+					line = "⛏ Mining..."
+				}
+			case "scan":
+				line = "📡 Scan complete"
+			case "get_system":
+				line = "📊 System info retrieved"
+			case "get_status":
+				line = "📊 Status retrieved"
+			default:
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("✓ %s: %s", action, msg)
+				} else {
+					line = fmt.Sprintf("✓ %s", action)
+				}
 			}
 		}
 	case "docked":
@@ -517,16 +591,22 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 	case "state_update":
 		// Status update - mark status panel for update
 		m.statusPanel.lastUpdate = time.Now()
-		// Also add compact status to log
-		if state := m.GetCurrentState(); state != nil {
-			state.Mu.Lock()
-			line = fmt.Sprintf("[Credits: %.0f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f]",
-				state.Credits, state.Fuel, state.MaxFuel,
-				state.Hull, state.MaxHull)
-			if len(state.Cargo) > 0 {
-				line += fmt.Sprintf(" | Cargo: %d items", len(state.Cargo))
+
+		// Check for travel progress
+		if progress, ok := resp.Payload["travel_progress"].(float64); ok {
+			destination := "unknown"
+			if dest, ok := resp.Payload["travel_destination"].(string); ok {
+				destination = dest
 			}
-			state.Mu.Unlock()
+			travelType := "travel"
+			if tt, ok := resp.Payload["travel_type"].(string); ok {
+				travelType = tt
+			}
+			line = fmt.Sprintf("[TRAVEL] %s to %s: %.0f%%", travelType, destination, progress*100)
+		} else {
+			// Regular status update - only log occasionally or on significant changes
+			// Don't add to log for routine state updates to avoid spam
+			// The status panel will show this info anyway
 		}
 	case "chat_message":
 		if from, ok := resp.Payload["from"].(string); ok {
