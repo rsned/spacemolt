@@ -215,6 +215,8 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	if err := r.executeDecision(ctx, decision); err != nil {
 		// Record failure in agent learning
 		result := ActionResult{
+			Action:   decision.Action,
+			Target:   decision.Target,
 			Success:  false,
 			Message:  fmt.Sprintf("Action failed: %v", err),
 			NewState: r.gameClient.GetState(),
@@ -237,6 +239,8 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	// Record success in agent learning
 	result := ActionResult{
+		Action:   decision.Action,
+		Target:   decision.Target,
 		Success:  true,
 		Message:  fmt.Sprintf("%s: %s", decision.Action, decision.Reasoning),
 		NewState: r.gameClient.GetState(),
