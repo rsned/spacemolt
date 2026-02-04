@@ -266,9 +266,11 @@ func main() {
 	}
 
 	// Cleanup
-	debugLogger.Printf("Stopping all agents...")
-	if err := agentMgr.StopAll(); err != nil {
-		log.Printf("Error stopping agents: %v", err)
+	if agentMgr != nil {
+		debugLogger.Printf("Stopping all agents...")
+		if err := agentMgr.StopAll(); err != nil {
+			log.Printf("Error stopping agents: %v", err)
+		}
 	}
 }
 
