@@ -24,10 +24,10 @@ type Client struct {
 
 // Config holds LLM client configuration
 type Config struct {
-	BaseURL      string
-	Model        string
-	Timeout      time.Duration
-	PromptsDir   string
+	BaseURL       string
+	Model         string
+	Timeout       time.Duration
+	PromptsDir    string
 	PromptsConfig string
 }
 
@@ -179,12 +179,14 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 		return nil, fmt.Errorf("failed to parse decision JSON: %w", err)
 	}
 
-	// DEBUG: Log parsed fields
-	fmt.Printf("[LLM] Parsed DecisionResponse:\n")
-	fmt.Printf("  Action: '%s'\n", decision.Action)
-	fmt.Printf("  Target: '%s'\n", decision.Target)
-	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
-	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
+	/*
+		// DEBUG: Log parsed fields
+		fmt.Printf("[LLM] Parsed DecisionResponse:\n")
+		fmt.Printf("  Action: '%s'\n", decision.Action)
+		fmt.Printf("  Target: '%s'\n", decision.Target)
+		fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
+		fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
+	*/
 
 	return &decision, nil
 }
@@ -223,9 +225,12 @@ IMPORTANT: Respond with valid JSON containing exactly these fields:
 }
 
 EXAMPLES:
-- To travel to a POI: {"action": "travel", "target": "Sol-AsteroidField", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
+- To travel to a POI: {"action": "travel", "target": "sol_belt", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
+- To jump to system: {"action": "jump", "target": "alpha_centauri", "reasoning": "Exploring new system", "confidence": 0.85}
 - To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
 - To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
+
+CRITICAL: For "travel" action, use the EXACT POI ID from the available POIs list.
 
 Your decision:
 `, agentName, role,
