@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,9 +11,20 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+const (
+	// Panel dimensions for 80x50 terminal target
+	// Top section: Log (28) + Map (52) = 80 wide, 28 tall
+	// Status: 80 wide, 10 tall total (8 content + 2 borders)
+	// Agents: 80 wide, 10 tall total (8 content + 2 borders)
+	logPanelWidth      = 28 // Action Log width in characters
+	logPanelHeight     = 28 // Action Log height in lines
+	statusPanelHeight  = 10 // Status panel: 8 content + 2 borders
+	agentsPanelHeight  = 10 // Agents panel: 8 content + 2 borders
+)
+
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
 type WsMsg struct {
-	AgentID string             // Agent that sent this message
+	AgentID string // Agent that sent this message
 	Type    string
 	Payload map[string]any
 }
@@ -44,23 +56,28 @@ type AgentInfo struct {
 // WatcherModel is the main TUI model for the watcher interface
 type WatcherModel struct {
 	// Multi-agent state tracking
-	agentStates     map[string]*game.State // agent ID -> game state
-	agentLogs       map[string][]string    // agent ID -> log lines
+	agentStates map[string]*game.State // agent ID -> game state
+	agentLogs   map[string][]string    // agent ID -> log lines
+	mu          sync.RWMutex           // Protects agentStates, agentLogs, agents
 
-	viewportWidth   int
-	viewportHeight  int
-	quitting        bool
+	viewportWidth  int
+	viewportHeight int
+	quitting       bool
 
 	// Panel models
-	logPanel        logPanelModel
-	mapPanel        mapPanelModel
-	statusPanel     statusPanelModel
-	agentPanel      agentPanelModel
+	logPanel    logPanelModel
+	mapPanel    mapPanelModel
+	statusPanel statusPanelModel
+	agentPanel  agentPanelModel
 
 	// Agent tracking
 	agents          []AgentInfo
 	selectedAgentID string
 	selectedIndex   int // Cache of selected agent index for performance
+
+	// Remote mode support
+	remoteMode   bool
+	serverClient *AgentServerClient
 
 	// Ready signal - closed when TUI is initialized and ready
 	readyChan chan struct{}
@@ -109,7 +126,7 @@ func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
 }
 
 // Init initializes the TUI model
-func (m WatcherModel) Init() tea.Cmd {
+func (m *WatcherModel) Init() tea.Cmd {
 	// Signal that the TUI is now initialized and ready
 	if m.readyChan != nil {
 		close(m.readyChan)
@@ -118,7 +135,7 @@ func (m WatcherModel) Init() tea.Cmd {
 }
 
 // Update handles messages and updates the model
-func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -176,7 +193,7 @@ func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the TUI
-func (m WatcherModel) View() string {
+func (m *WatcherModel) View() string {
 	if m.quitting {
 		return "Goodbye!\n"
 	}
@@ -189,111 +206,145 @@ func (m WatcherModel) View() string {
 	mapContent := m.renderMapPanelFull(layout.mapWidth, layout.mapHeight)
 	statusContent := m.renderStatusPanel(layout.statusWidth, layout.statusHeight)
 
-	// Join agent and log horizontally (top-left section)
-	topLeft := lipgloss.JoinHorizontal(lipgloss.Top, agentContent, logContent)
+	// Join log and map horizontally (top section)
+	topSection := lipgloss.JoinHorizontal(lipgloss.Top, logContent, mapContent)
 
-	// Join topLeft and map horizontally (top row)
-	topRow := lipgloss.JoinHorizontal(lipgloss.Top, topLeft, mapContent)
-
-	// Join top row and status panel vertically
-	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topRow, statusContent)
+	// Join top section, status, and agents vertically (full layout)
+	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topSection, statusContent, agentContent)
 
 	return fullLayout
 }
 
 // calculateLayout computes the dimensions for each panel
-func (m WatcherModel) calculateLayout() panelLayout {
-	// Available space after accounting for borders and padding
-	availableHeight := m.viewportHeight - 4 // Reserve space for borders
+func (m *WatcherModel) calculateLayout() panelLayout {
+	// Fixed dimensions based on 80x50 terminal target
+	// Adjust proportionally if viewport differs
+	scaleX := float64(m.viewportWidth) / 80.0
+	scaleY := float64(m.viewportHeight) / 50.0
 
-	// Status panel gets bottom 30% (capped at 12 lines, minimum 6)
-	statusHeight := availableHeight * 30 / 100
+	// Calculate panel dimensions with scaling
+	agentsHeight := int(float64(agentsPanelHeight) * scaleY)
+	statusHeight := int(float64(statusPanelHeight) * scaleY)
+	logHeight := int(float64(logPanelHeight) * scaleY)
+	logWidth := int(float64(logPanelWidth) * scaleX)
+
+	// Map gets remaining width and height in top section
+	mapWidth := m.viewportWidth - logWidth
+	mapHeight := logHeight // Match log height
+
+	// Ensure minimum sizes
+	if agentsHeight < 6 {
+		agentsHeight = 6
+	}
 	if statusHeight < 6 {
 		statusHeight = 6
 	}
-	if statusHeight > 12 {
-		statusHeight = 12
+	if logHeight < 8 {
+		logHeight = 8
 	}
-
-	// Top row gets remaining space
-	topHeight := availableHeight - statusHeight
-
-	// Agent panel gets 25% of top row (or 20 chars minimum)
-	agentWidth := m.viewportWidth * 25 / 100
-	if agentWidth < 20 {
-		agentWidth = 20
-	}
-
-	// Log panel gets 35% of remaining top row
-	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
-	logWidth := remainingWidth * 40 / 100
 	if logWidth < 20 {
 		logWidth = 20
 	}
+	if mapWidth < 20 {
+		mapWidth = 20
+	}
 
-	// Map panel gets rest of top row
-	mapWidth := remainingWidth - logWidth - 2 // Account for borders
-
-	// All panels in top row share the same height
-	topPanelHeight := topHeight
+	// Agents and Status panels are full width
+	agentsWidth := m.viewportWidth
+	statusWidth := m.viewportWidth
 
 	return panelLayout{
-		agentWidth:   agentWidth,
-		agentHeight:  topPanelHeight,
+		agentWidth:   agentsWidth,
+		agentHeight:  agentsHeight,
 		logWidth:     logWidth,
-		logHeight:    topPanelHeight,
+		logHeight:    logHeight,
 		mapWidth:     mapWidth,
-		mapHeight:    topPanelHeight,
-		statusWidth:  m.viewportWidth,
+		mapHeight:    mapHeight,
+		statusWidth:  statusWidth,
 		statusHeight: statusHeight,
 	}
 }
 
-// renderAgentPanel renders the agent list panel
-func (m WatcherModel) renderAgentPanel(width, height int) string {
+// renderAgentPanel renders the agent list panel with 2-column layout
+func (m *WatcherModel) renderAgentPanel(width, height int) string {
+	m.mu.RLock()
+	agents := make([]AgentInfo, len(m.agents))
+	copy(agents, m.agents)
+	m.mu.RUnlock()
+
+	// Calculate column width (half of available width, minus padding)
+	colWidth := (width - 8) / 2 // Account for borders and padding
+	if colWidth < 20 {
+		colWidth = 20
+	}
+
+	// Build two columns of agents (compact 2 lines each)
+	var leftCol, rightCol strings.Builder
+
+	for i, agent := range agents {
+		// Determine status color
+		statusColor := "241" // gray for idle
+		switch agent.Status {
+		case "Acting":
+			statusColor = "226" // yellow for acting
+		case "Deciding":
+			statusColor = "217" // pink for deciding
+		case "Error":
+			statusColor = "160" // red for error
+		}
+
+		// Highlight selected agent
+		arrow := "  "
+		if i == m.agentPanel.selected {
+			arrow = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ ")
+		}
+
+		// Compact format: name on one line, action on next (no extra newline)
+		entry := fmt.Sprintf("%s%s %s\n    %s",
+			arrow,
+			lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
+			lipgloss.NewStyle().Faint(true).Render("["+agent.Status+"]"),
+			agent.Action,
+		)
+
+		// Distribute across columns
+		if i%2 == 0 {
+			leftCol.WriteString(entry)
+		} else {
+			rightCol.WriteString(entry)
+		}
+	}
+
+	if len(agents) == 0 {
+		leftCol.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
+	}
+
+	// Combine columns
+	leftStyle := lipgloss.NewStyle().Width(colWidth)
+	rightStyle := lipgloss.NewStyle().Width(colWidth)
+	twoCols := lipgloss.JoinHorizontal(lipgloss.Top, leftStyle.Render(leftCol.String()), rightStyle.Render(rightCol.String()))
+
+	// Add hints below columns (compact, no extra newlines)
+	hintStyle := lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("245"))
+	hints := hintStyle.Render("Tab: Next | Shift+Tab: Prev | 1-9: Jump")
+	panelContent := twoCols + "\n" + hints
+
+	// Build panel with title and border using lipgloss
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	fullContent := titleStyle.Render("Agents\n") + panelContent
+
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
 		Width(width).
 		Height(height)
 
-	var sb strings.Builder
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-	sb.WriteString(titleStyle.Render("Agents"))
-	sb.WriteString("\n\n")
-
-	if len(m.agents) == 0 {
-		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
-	} else {
-		for i, agent := range m.agents {
-			// Highlight selected agent
-			if i == m.agentPanel.selected {
-				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ "))
-			} else {
-				sb.WriteString("  ")
-			}
-
-			// Show agent name and status
-			statusColor := "241" // gray for idle
-			switch agent.Status {
-			case "Acting":
-				statusColor = "226" // yellow for acting
-			case "Deciding":
-				statusColor = "217" // pink for deciding
-			case "Error":
-				statusColor = "160" // red for error
-			}
-
-			sb.WriteString(fmt.Sprintf("%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name)))
-			sb.WriteString(fmt.Sprintf("    %s\n", agent.Action))
-		}
-	}
-
-	return style.Render(sb.String())
+	return style.Render(fullContent)
 }
 
 // AddAgent adds an agent to the watcher
 func (m *WatcherModel) AddAgent(info AgentInfo) {
+	m.mu.Lock()
 	m.agents = append(m.agents, info)
 
 	// Initialize state and logs for this agent if not exists
@@ -313,12 +364,15 @@ func (m *WatcherModel) AddAgent(info AgentInfo) {
 		m.selectedAgentID = info.ID
 		m.selectedIndex = 0
 	}
+	m.mu.Unlock()
 }
 
 // UpdateAgentState updates the game state for a specific agent
 func (m *WatcherModel) UpdateAgentState(agentID string, state *game.State) {
 	if state != nil {
+		m.mu.Lock()
 		m.agentStates[agentID] = state
+		m.mu.Unlock()
 		// Mark panels for update
 		m.mapPanel.lastUpdate = time.Now()
 		m.statusPanel.lastUpdate = time.Now()
@@ -330,14 +384,18 @@ func (m *WatcherModel) GetCurrentState() *game.State {
 	if m.selectedAgentID == "" {
 		return nil
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.agentStates[m.selectedAgentID]
 }
 
 // AddLogForAgent adds a log line for a specific agent
 func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
+	m.mu.Lock()
 	logs, exists := m.agentLogs[agentID]
 	if !exists {
 		logs = []string{}
+		m.agentLogs[agentID] = logs
 	}
 
 	logs = append(logs, line)
@@ -346,6 +404,7 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 	}
 
 	m.agentLogs[agentID] = logs
+	m.mu.Unlock()
 
 	// If this is the currently selected agent, update the log panel
 	if agentID == m.selectedAgentID {
@@ -357,6 +416,8 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 
 // updateAgentStatus updates an agent's status
 func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for i := range m.agents {
 		if m.agents[i].ID == agentID {
 			m.agents[i].Status = status
@@ -367,24 +428,34 @@ func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
 
 // selectNextAgent cycles to the next agent
 func (m *WatcherModel) selectNextAgent() {
+	m.mu.Lock()
 	if len(m.agents) == 0 {
+		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex + 1) % len(m.agents)
-	m.selectAgentByIndex(m.selectedIndex)
+	idx := m.selectedIndex
+	m.mu.Unlock()
+	m.selectAgentByIndex(idx)
 }
 
 // selectPreviousAgent cycles to the previous agent
 func (m *WatcherModel) selectPreviousAgent() {
+	m.mu.Lock()
 	if len(m.agents) == 0 {
+		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex - 1 + len(m.agents)) % len(m.agents)
-	m.selectAgentByIndex(m.selectedIndex)
+	idx := m.selectedIndex
+	m.mu.Unlock()
+	m.selectAgentByIndex(idx)
 }
 
 // selectAgentByIndex selects an agent by index (0-based)
 func (m *WatcherModel) selectAgentByIndex(idx int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if idx < 0 || idx >= len(m.agents) {
 		return
 	}
@@ -404,11 +475,62 @@ func (m *WatcherModel) selectAgentByIndex(idx int) {
 	m.statusPanel.cachedRender = ""
 }
 
+// SetRemoteMode configures the model for remote operation
+func (m *WatcherModel) SetRemoteMode(client *AgentServerClient) {
+	m.remoteMode = true
+	m.serverClient = client
+}
+
+// IsRemoteMode returns whether the model is in remote mode
+func (m *WatcherModel) IsRemoteMode() bool {
+	return m.remoteMode
+}
+
 // handleWebSocketMessage processes WebSocket messages and updates the model
 func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 	// Add log message based on response type
 	line := ""
 	switch resp.Type {
+	// Agent-server event types (from EventCallback)
+	case "decision":
+		if action, ok := resp.Payload["action"].(string); ok {
+			target := ""
+			if t, ok := resp.Payload["target"].(string); ok && t != "" {
+				target = fmt.Sprintf(" → %s", t)
+			}
+			confidence := ""
+			if c, ok := resp.Payload["confidence"].(float64); ok {
+				confidence = fmt.Sprintf(" (%.0f%%)", c*100)
+			}
+			line = fmt.Sprintf("[DECISION] %s%s%s", action, target, confidence)
+			if reasoning, ok := resp.Payload["reasoning"].(string); ok && reasoning != "" {
+				// Truncate reasoning if too long
+				if len(reasoning) > 60 {
+					reasoning = reasoning[:57] + "..."
+				}
+				line = fmt.Sprintf("[DECISION] %s%s%s: %s", action, target, confidence, reasoning)
+			}
+		}
+	case "action":
+		if action, ok := resp.Payload["action"].(string); ok {
+			target := ""
+			if t, ok := resp.Payload["target"].(string); ok && t != "" {
+				target = fmt.Sprintf(" → %s", t)
+			}
+			status := "executed"
+			if s, ok := resp.Payload["status"].(string); ok {
+				status = s
+			}
+			line = fmt.Sprintf("✓ [ACTION] %s%s (%s)", action, target, status)
+		}
+	case "error":
+		// Check if this is an agent error or game error
+		if errorMsg, ok := resp.Payload["error"].(string); ok {
+			line = fmt.Sprintf("✗ [ERROR] %s", errorMsg)
+		} else {
+			line = fmt.Sprintf("✗ [ERROR] %v", resp.Payload)
+		}
+	// Game server message types
 	case "welcome":
 		if v, ok := resp.Payload["version"].(string); ok {
 			// Capture initial tick from welcome message
@@ -423,8 +545,6 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 		}
 	case "logged_in":
 		line = "[LOGGED IN] Successfully authenticated"
-	case "error":
-		line = fmt.Sprintf("[ERROR] %v", resp.Payload)
 	case "ok":
 		if action, ok := resp.Payload["action"].(string); ok {
 			switch action {
@@ -433,9 +553,35 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 			case "dock":
 				line = "✓ Docked - safe at station"
 			case "travel":
-				line = "✓ Travel complete"
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("✓ Travel: %s", msg)
+				} else {
+					line = "✓ Travel complete"
+				}
+			case "jump":
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("✓ Jump: %s", msg)
+				} else {
+					line = "✓ Jump complete"
+				}
 			case "mine":
-				line = "⛏ Mining..."
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("⛏ Mining: %s", msg)
+				} else {
+					line = "⛏ Mining..."
+				}
+			case "scan":
+				line = "📡 Scan complete"
+			case "get_system":
+				line = "📊 System info retrieved"
+			case "get_status":
+				line = "📊 Status retrieved"
+			default:
+				if msg, ok := resp.Payload["message"].(string); ok {
+					line = fmt.Sprintf("✓ %s: %s", action, msg)
+				} else {
+					line = fmt.Sprintf("✓ %s", action)
+				}
 			}
 		}
 	case "docked":
@@ -445,16 +591,22 @@ func (m *WatcherModel) handleWebSocketMessage(resp WsMsg) {
 	case "state_update":
 		// Status update - mark status panel for update
 		m.statusPanel.lastUpdate = time.Now()
-		// Also add compact status to log
-		if state := m.GetCurrentState(); state != nil {
-			state.Mu.Lock()
-			line = fmt.Sprintf("[Credits: %.0f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f]",
-				state.Credits, state.Fuel, state.MaxFuel,
-				state.Hull, state.MaxHull)
-			if len(state.Cargo) > 0 {
-				line += fmt.Sprintf(" | Cargo: %d items", len(state.Cargo))
+
+		// Check for travel progress
+		if progress, ok := resp.Payload["travel_progress"].(float64); ok {
+			destination := "unknown"
+			if dest, ok := resp.Payload["travel_destination"].(string); ok {
+				destination = dest
 			}
-			state.Mu.Unlock()
+			travelType := "travel"
+			if tt, ok := resp.Payload["travel_type"].(string); ok {
+				travelType = tt
+			}
+			line = fmt.Sprintf("[TRAVEL] %s to %s: %.0f%%", travelType, destination, progress*100)
+		} else {
+			// Regular status update - only log occasionally or on significant changes
+			// Don't add to log for routine state updates to avoid spam
+			// The status panel will show this info anyway
 		}
 	case "chat_message":
 		if from, ok := resp.Payload["from"].(string); ok {
