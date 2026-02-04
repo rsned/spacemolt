@@ -10,6 +10,9 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+// EventCallback is called when events occur during agent execution
+type EventCallback func(agentID string, eventType string, data interface{})
+
 // Runner wraps an agent with its game client and runs the play loop
 type Runner struct {
 	agent      Agent
@@ -24,6 +27,12 @@ type Runner struct {
 	crashCount      int
 	stopCh          chan struct{}
 	stopOnce        sync.Once
+
+	// History tracking
+	history *History
+
+	// Event callback for streaming
+	eventCallback EventCallback
 
 	// Logging
 	logger *log.Logger
@@ -67,6 +76,7 @@ func NewRunner(agent Agent, gameClient game.GameClient, config RunnerConfig) *Ru
 		config:     config,
 		stopCh:     make(chan struct{}),
 		logger:     config.Logger,
+		history:    NewHistory(1000), // Track last 1000 actions
 	}
 }
 
@@ -201,6 +211,15 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		return fmt.Errorf("decision failed: %w", err)
 	}
 
+	// Emit decision event
+	r.emitEvent("decision", map[string]interface{}{
+		"action":     decision.Action,
+		"target":     decision.Target,
+		"confidence": decision.Confidence,
+		"reasoning":  decision.Reasoning,
+		"tick":       currentTick,
+	})
+
 	// Check if this is an action command (consumes tick)
 	isAction := isActionCommand(decision.Action)
 
@@ -213,6 +232,17 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	// Execute the decision
 	if err := r.executeDecision(ctx, decision); err != nil {
+		// Emit error event
+		r.emitEvent("error", map[string]interface{}{
+			"action":  decision.Action,
+			"target":  decision.Target,
+			"error":   err.Error(),
+			"tick":    currentTick,
+		})
+
+		// Record failure in history
+		r.recordAction(decision, "error", err)
+
 		// Record failure in agent learning
 		result := ActionResult{
 			Success:  false,
@@ -234,6 +264,17 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		r.lastActionTime = time.Now()
 		r.mu.Unlock()
 	}
+
+	// Emit success event
+	r.emitEvent("action", map[string]interface{}{
+		"action":  decision.Action,
+		"target":  decision.Target,
+		"status":  "success",
+		"tick":    currentTick,
+	})
+
+	// Record success in history
+	r.recordAction(decision, "success", nil)
 
 	// Record success in agent learning
 	result := ActionResult{
@@ -387,4 +428,52 @@ func (r *Runner) GetCrashCount() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.crashCount
+}
+
+// GetHistory returns the most recent N history entries
+func (r *Runner) GetHistory(limit int) []HistoryEntry {
+	return r.history.GetRecent(limit)
+}
+
+// SetEventCallback sets the callback function for streaming events
+func (r *Runner) SetEventCallback(cb EventCallback) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.eventCallback = cb
+}
+
+// emitEvent publishes an event if a callback is set
+func (r *Runner) emitEvent(eventType string, data interface{}) {
+	r.mu.RLock()
+	cb := r.eventCallback
+	r.mu.RUnlock()
+
+	if cb != nil {
+		cb(r.agent.ID(), eventType, data)
+	}
+}
+
+// recordAction adds an action to history
+func (r *Runner) recordAction(decision Decision, result string, err error) {
+	state := r.gameClient.GetState()
+	currentTick := int64(0)
+	if state != nil {
+		currentTick = state.GetTick()
+	}
+
+	entry := HistoryEntry{
+		Tick:       currentTick,
+		Timestamp:  time.Now(),
+		Action:     decision.Action,
+		Target:     decision.Target,
+		Confidence: decision.Confidence,
+		Result:     result,
+		Reasoning:  decision.Reasoning,
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	r.history.Add(entry)
 }

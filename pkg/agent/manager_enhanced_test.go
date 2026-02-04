@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/user/spacemolt/pkg/credentials"
-	"github.com/user/spacemolt/pkg/knowledge"
-	"github.com/user/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/credentials"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/llm"
 )
 
 func TestManager_SpawnAgentWithGame_Registration(t *testing.T) {
