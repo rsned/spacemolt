@@ -161,11 +161,14 @@ func main() {
 		debugLogger.Printf("Local mode: spawning agents %s", *agents)
 
 		// Create LLM client
-		llmClient := llm.New(llm.Config{
+		llmClient, err := llm.New(llm.Config{
 			BaseURL: "http://localhost:11434",
 			Model:   "llama3.2",
 			Timeout: 60 * time.Second,
 		})
+		if err != nil {
+			log.Fatalf("Failed to initialize LLM client: %v", err)
+		}
 		debugLogger.Printf("Created LLM client")
 
 		// Test LLM connection

@@ -9,24 +9,30 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/prompts"
 )
 
 // Client handles communication with Ollama
 type Client struct {
-	baseURL    string
-	model      string
-	httpClient *http.Client
+	baseURL       string
+	model         string
+	httpClient    *http.Client
+	promptManager *prompts.Manager
+	selector      *prompts.Selector
 }
 
 // Config holds LLM client configuration
 type Config struct {
-	BaseURL string
-	Model   string
-	Timeout time.Duration
+	BaseURL      string
+	Model        string
+	Timeout      time.Duration
+	PromptsDir   string
+	PromptsConfig string
 }
 
 // New creates a new Ollama client
-func New(cfg Config) *Client {
+func New(cfg Config) (*Client, error) {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "http://localhost:11434"
 	}
@@ -36,14 +42,50 @@ func New(cfg Config) *Client {
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
 	}
+	if cfg.PromptsDir == "" {
+		cfg.PromptsDir = "data/prompts/templates"
+	}
+	if cfg.PromptsConfig == "" {
+		cfg.PromptsConfig = "data/prompts/config.yaml"
+	}
+
+	// Initialize prompt manager
+	manager, err := prompts.NewManager(prompts.Config{
+		TemplatesDir: cfg.PromptsDir,
+		ConfigPath:   cfg.PromptsConfig,
+	})
+	if err != nil {
+		// Log warning but continue with nil manager (will use fallback prompts)
+		fmt.Printf("Warning: Failed to initialize prompt manager: %v\n", err)
+		fmt.Println("Continuing with hardcoded prompts as fallback")
+	}
+
+	// Load prompt configuration
+	var selector *prompts.Selector
+	if manager != nil {
+		promptCfg, err := prompts.LoadConfig(cfg.PromptsConfig)
+		if err != nil {
+			fmt.Printf("Warning: Failed to load prompt config: %v\n", err)
+		} else {
+			// Create registry
+			registry, err := prompts.NewRegistry(cfg.PromptsDir)
+			if err != nil {
+				fmt.Printf("Warning: Failed to create registry: %v\n", err)
+			} else {
+				selector = prompts.NewSelector(registry, promptCfg)
+			}
+		}
+	}
 
 	return &Client{
-		baseURL: cfg.BaseURL,
-		model:   cfg.Model,
+		baseURL:       cfg.BaseURL,
+		model:         cfg.Model,
+		promptManager: manager,
+		selector:      selector,
 		httpClient: &http.Client{
 			Timeout: cfg.Timeout,
 		},
-	}
+	}, nil
 }
 
 // DecisionRequest represents a request for an agent decision
@@ -189,6 +231,38 @@ Your decision:
 `, agentName, role,
 		state["location"], state["fuel"], state["hull"], state["cargo"], state["docked"],
 		role)
+}
+
+// RenderPrompt renders a prompt template with the given context
+func (c *Client) RenderPrompt(promptType string, role string, ctx *prompts.TemplateContext) (string, error) {
+	// If prompt manager is not available, return error
+	if c.promptManager == nil || c.selector == nil {
+		return "", fmt.Errorf("prompt manager not initialized")
+	}
+
+	// Select version
+	selCtx := prompts.SelectionContext{
+		PromptType: promptType,
+		Role:       role,
+	}
+
+	version, err := c.selector.SelectVersion(selCtx)
+	if err != nil {
+		return "", fmt.Errorf("failed to select version: %w", err)
+	}
+
+	// Render prompt
+	prompt, err := c.promptManager.RenderPrompt(promptType, version, ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to render prompt: %w", err)
+	}
+
+	return prompt, nil
+}
+
+// HasPromptManager returns whether the prompt manager is initialized
+func (c *Client) HasPromptManager() bool {
+	return c.promptManager != nil && c.selector != nil
 }
 
 // TestConnection tests if Ollama is reachable

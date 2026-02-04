@@ -33,7 +33,7 @@ func TestManager_SpawnAgentWithGame_Registration(t *testing.T) {
 
 	// Setup
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{BaseURL: "http://localhost:11434", Model: "llama3.2"})
+	llmClient, _ := llm.New(llm.Config{BaseURL: "http://localhost:11434", Model: "llama3.2"})
 	credsProvider := credentials.NewFileProvider(tmpDir)
 
 	config := DefaultManagerConfig()
@@ -57,7 +57,7 @@ func TestManager_SaveLoadCredentials(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(filepath.Join(tmpDir, "provider"))
 
 	config := DefaultManagerConfig()
@@ -99,7 +99,7 @@ func TestManager_LoadCredentials_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(tmpDir)
 
 	config := DefaultManagerConfig()
@@ -168,7 +168,7 @@ func TestManager_ManagerConfig(t *testing.T) {
 
 func TestManager_NewManagerLegacy(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(t.TempDir())
 
 	manager := NewManagerLegacy(kb, llmClient, credsProvider, 5)
@@ -188,7 +188,7 @@ func TestManager_NewManagerLegacy(t *testing.T) {
 
 func TestManager_GetRunner(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(t.TempDir())
 
 	config := DefaultManagerConfig()
@@ -203,7 +203,7 @@ func TestManager_GetRunner(t *testing.T) {
 
 func TestManager_ListRunners(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(t.TempDir())
 
 	config := DefaultManagerConfig()
@@ -218,7 +218,7 @@ func TestManager_ListRunners(t *testing.T) {
 
 func TestManager_AgentCount(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(t.TempDir())
 
 	config := DefaultManagerConfig()
@@ -256,7 +256,7 @@ func TestManager_CredentialsFallback(t *testing.T) {
 
 	// Now try to load with manager
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(filepath.Join(tmpDir, "provider"))
 
 	config := DefaultManagerConfig()
@@ -279,7 +279,7 @@ func TestManager_ConnectionRetry_Timeout(t *testing.T) {
 	// Actual retry testing requires a mock server
 
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(t.TempDir())
 
 	config := DefaultManagerConfig()
@@ -304,7 +304,7 @@ func TestManager_ConnectionRetry_Timeout(t *testing.T) {
 
 func TestManager_StopAll(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
-	llmClient := llm.New(llm.Config{})
+	llmClient, _ := llm.New(llm.Config{})
 	credsProvider := credentials.NewFileProvider(t.TempDir())
 
 	config := DefaultManagerConfig()

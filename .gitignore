@@ -1,7 +1,7 @@
 bin/
-watcher
 # Data files
 data/
+!data/prompts/
 *.db
 *.db-shm
 *.db-wal
