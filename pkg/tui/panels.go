@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // Panel models
@@ -43,11 +43,11 @@ type agentPanelModel struct {
 // panelLayout holds the calculated dimensions for each panel
 type panelLayout struct {
 	agentWidth   int
-	agentHeight  int
+	agentHeight  int // Fixed height at bottom (agentsPanelHeight, typically 6)
 	logWidth     int
-	logHeight    int
+	logHeight    int // Capped at maxLogPanelHeight (typically 12)
 	mapWidth     int
-	mapHeight    int
+	mapHeight    int // Dynamic: gets remaining vertical space in top section
 	statusWidth  int
 	statusHeight int
 }
@@ -109,7 +109,6 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 
 	// Calculate grid dimensions based on available space
 	const fixedLines = 8  // Title, header, legend, map borders
-	const borderWidth = 3  // Borders
 
 	// Calculate available grid rows (height)
 	availableGridRows := height - fixedLines
@@ -118,7 +117,9 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	}
 
 	// Calculate available grid columns (width)
-	availableGridCols := width - borderWidth
+	// Subtract: lipgloss border (2) + ASCII map borders (4 = left pipe + space + space + right pipe)
+	const totalBorderWidth = 6 // lipgloss border (2) + ASCII borders (4)
+	availableGridCols := width - totalBorderWidth
 	if availableGridCols < 10 {
 		availableGridCols = 10
 	}

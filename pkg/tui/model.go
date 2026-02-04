@@ -10,6 +10,14 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+const (
+	// Panel height constraints
+	minPanelHeight      = 4  // Minimum height for any panel (prevents collapse)
+	maxLogPanelHeight   = 12 // Maximum height for log panel
+	minMapPanelHeight   = 8  // Minimum height for map panel
+	agentsPanelHeight   = 6  // Fixed height for agents panel (full width at bottom)
+)
+
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
 type WsMsg struct {
 	AgentID string             // Agent that sent this message
@@ -61,6 +69,10 @@ type WatcherModel struct {
 	agents          []AgentInfo
 	selectedAgentID string
 	selectedIndex   int // Cache of selected agent index for performance
+
+	// Remote mode support
+	remoteMode   bool
+	serverClient *AgentServerClient
 
 	// Ready signal - closed when TUI is initialized and ready
 	readyChan chan struct{}
@@ -189,14 +201,11 @@ func (m WatcherModel) View() string {
 	mapContent := m.renderMapPanelFull(layout.mapWidth, layout.mapHeight)
 	statusContent := m.renderStatusPanel(layout.statusWidth, layout.statusHeight)
 
-	// Join agent and log horizontally (top-left section)
-	topLeft := lipgloss.JoinHorizontal(lipgloss.Top, agentContent, logContent)
+	// Join log and map horizontally (top section)
+	topSection := lipgloss.JoinHorizontal(lipgloss.Top, logContent, mapContent)
 
-	// Join topLeft and map horizontally (top row)
-	topRow := lipgloss.JoinHorizontal(lipgloss.Top, topLeft, mapContent)
-
-	// Join top row and status panel vertically
-	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topRow, statusContent)
+	// Join top section, status, and agents vertically (full layout)
+	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topSection, statusContent, agentContent)
 
 	return fullLayout
 }
@@ -206,7 +215,7 @@ func (m WatcherModel) calculateLayout() panelLayout {
 	// Available space after accounting for borders and padding
 	availableHeight := m.viewportHeight - 4 // Reserve space for borders
 
-	// Status panel gets bottom 30% (capped at 12 lines, minimum 6)
+	// Status panel gets fixed height (6-12 lines)
 	statusHeight := availableHeight * 30 / 100
 	if statusHeight < 6 {
 		statusHeight = 6
@@ -215,36 +224,56 @@ func (m WatcherModel) calculateLayout() panelLayout {
 		statusHeight = 12
 	}
 
-	// Top row gets remaining space
-	topHeight := availableHeight - statusHeight
+	// Agents panel gets fixed height at bottom
+	agentsHeight := agentsPanelHeight
 
-	// Agent panel gets 25% of top row (or 20 chars minimum)
-	agentWidth := m.viewportWidth * 25 / 100
-	if agentWidth < 20 {
-		agentWidth = 20
+	// Top section (Log + Map) gets all remaining space
+	topSectionHeight := availableHeight - statusHeight - agentsHeight
+
+	// Ensure top section has minimum height
+	if topSectionHeight < minMapPanelHeight+minPanelHeight {
+		// Reduce status panel to make room
+		statusHeight = 6
+		topSectionHeight = availableHeight - statusHeight - agentsHeight
 	}
 
-	// Log panel gets 35% of remaining top row
-	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
-	logWidth := remainingWidth * 40 / 100
+	// Distribute top section space between log and map
+	// Log panel gets max height cap
+	logHeight := maxLogPanelHeight
+	if logHeight > topSectionHeight-minMapPanelHeight {
+		logHeight = topSectionHeight - minMapPanelHeight
+	}
+	if logHeight < minPanelHeight {
+		logHeight = minPanelHeight
+	}
+
+	// Map panel gets remaining space in top section
+	mapHeight := topSectionHeight - logHeight
+
+	// Width calculations
+	// Agents panel: full width
+	agentsWidth := m.viewportWidth
+
+	// Status panel: full width
+	statusWidth := m.viewportWidth
+
+	// Log panel gets 40% of top section width
+	logWidth := m.viewportWidth * 40 / 100
 	if logWidth < 20 {
 		logWidth = 20
 	}
 
-	// Map panel gets rest of top row
-	mapWidth := remainingWidth - logWidth - 2 // Account for borders
-
-	// All panels in top row share the same height
-	topPanelHeight := topHeight
+	// Map panel gets remaining width
+	mapWidth := m.viewportWidth - logWidth - 2 // Account for borders
 
 	return panelLayout{
-		agentWidth:   agentWidth,
-		agentHeight:  topPanelHeight,
+		agentWidth:   agentsWidth,
+		agentHeight:  agentsHeight,
 		logWidth:     logWidth,
-		logHeight:    topPanelHeight,
+		logHeight:    logHeight,
 		mapWidth:     mapWidth,
-		mapHeight:    topPanelHeight,
-		statusWidth:  m.viewportWidth,
+		mapHeight:    mapHeight,
+		statusWidth:  statusWidth,
 		statusHeight: statusHeight,
 	}
 }
@@ -402,6 +431,17 @@ func (m *WatcherModel) selectAgentByIndex(idx int) {
 	// Force refresh of all panels
 	m.mapPanel.cachedRender = ""
 	m.statusPanel.cachedRender = ""
+}
+
+// SetRemoteMode configures the model for remote operation
+func (m *WatcherModel) SetRemoteMode(client *AgentServerClient) {
+	m.remoteMode = true
+	m.serverClient = client
+}
+
+// IsRemoteMode returns whether the model is in remote mode
+func (m *WatcherModel) IsRemoteMode() bool {
+	return m.remoteMode
 }
 
 // handleWebSocketMessage processes WebSocket messages and updates the model
