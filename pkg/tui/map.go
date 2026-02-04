@@ -172,21 +172,21 @@ func renderMap(sysData game.SystemData, halfGridRows, halfGridCols int) string {
 
 	// Build output string with borders and axis markers
 	var sb strings.Builder
-	// Top border: left border + axis space + map border
-	sb.WriteString("┌─" + strings.Repeat("─", mapCols) + "┐\n")
+	// Top border: left corner + dashes + right corner
+	sb.WriteString("┌" + strings.Repeat("─", mapCols+2) + "┐\n")
 
 	for y := 0; y < mapRows; y++ {
-		// Simplified Y-axis marker - just " │" for all rows
-		sb.WriteString(" │")
+		// Left border, content, right border
+		sb.WriteString("│ ")
 
 		for x := 0; x < mapCols; x++ {
 			sb.WriteRune(grid[y][x])
 		}
-		sb.WriteString("│\n")
+		sb.WriteString(" │\n")
 	}
 
 	// Bottom border with connector at center
-	sb.WriteString("└─" + strings.Repeat("─", centerGridXInt) + "┴" + strings.Repeat("─", mapCols-centerGridXInt-1) + "┘")
+	sb.WriteString("└" + strings.Repeat("─", centerGridXInt+1) + "┴" + strings.Repeat("─", mapCols-centerGridXInt+1) + "┘")
 
 	// System name and range on same line
 	if sysData.Name != "" {
