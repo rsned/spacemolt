@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,7 +15,7 @@ const (
 	// Panel height constraints
 	minPanelHeight    = 4  // Minimum height for any panel (prevents collapse)
 	maxLogPanelHeight = 20 // Maximum height for log panel
-	minMapPanelHeight = 20 // Minimum height for map panel
+	minMapPanelHeight = 30 // Minimum height for map panel
 	agentsPanelHeight = 6  // Fixed height for agents panel (full width at bottom)
 )
 
@@ -54,6 +55,7 @@ type WatcherModel struct {
 	// Multi-agent state tracking
 	agentStates map[string]*game.State // agent ID -> game state
 	agentLogs   map[string][]string    // agent ID -> log lines
+	mu          sync.RWMutex           // Protects agentStates, agentLogs, agents
 
 	viewportWidth  int
 	viewportHeight int
@@ -121,7 +123,7 @@ func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
 }
 
 // Init initializes the TUI model
-func (m WatcherModel) Init() tea.Cmd {
+func (m *WatcherModel) Init() tea.Cmd {
 	// Signal that the TUI is now initialized and ready
 	if m.readyChan != nil {
 		close(m.readyChan)
@@ -130,7 +132,7 @@ func (m WatcherModel) Init() tea.Cmd {
 }
 
 // Update handles messages and updates the model
-func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -188,7 +190,7 @@ func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the TUI
-func (m WatcherModel) View() string {
+func (m *WatcherModel) View() string {
 	if m.quitting {
 		return "Goodbye!\n"
 	}
@@ -211,7 +213,7 @@ func (m WatcherModel) View() string {
 }
 
 // calculateLayout computes the dimensions for each panel
-func (m WatcherModel) calculateLayout() panelLayout {
+func (m *WatcherModel) calculateLayout() panelLayout {
 	// Available space after accounting for borders and padding
 	availableHeight := m.viewportHeight - 4 // Reserve space for borders
 
@@ -231,7 +233,7 @@ func (m WatcherModel) calculateLayout() panelLayout {
 	topSectionHeight := availableHeight - statusHeight - agentsHeight
 
 	// Ensure top section has minimum height
-	if topSectionHeight < minMapPanelHeight+minPanelHeight {
+	if topSectionHeight < minMapPanelHeight {
 		// Reduce status panel to make room
 		statusHeight = 6
 		topSectionHeight = availableHeight - statusHeight - agentsHeight
@@ -240,15 +242,14 @@ func (m WatcherModel) calculateLayout() panelLayout {
 	// Distribute top section space between log and map
 	// Log panel gets max height cap
 	logHeight := maxLogPanelHeight
-	if logHeight > topSectionHeight-minMapPanelHeight {
-		logHeight = topSectionHeight - minMapPanelHeight
-	}
 	if logHeight < minPanelHeight {
 		logHeight = minPanelHeight
 	}
 
-	// Map panel gets remaining space in top section
-	mapHeight := topSectionHeight - logHeight
+	mapHeight := topSectionHeight
+	if mapHeight < minMapPanelHeight {
+		mapHeight = minMapPanelHeight
+	}
 
 	// Width calculations
 	// Agents panel: full width
@@ -257,8 +258,8 @@ func (m WatcherModel) calculateLayout() panelLayout {
 	// Status panel: full width
 	statusWidth := m.viewportWidth
 
-	// Log panel gets 20% of top section width with minimum of 20 characters.
-	logWidth := m.viewportWidth * 20 / 100
+	// Log panel gets 30% of top section width with minimum of 20 characters.
+	logWidth := m.viewportWidth * 30 / 100
 	if logWidth < 20 {
 		logWidth = 20
 	}
@@ -279,24 +280,18 @@ func (m WatcherModel) calculateLayout() panelLayout {
 }
 
 // renderAgentPanel renders the agent list panel
-func (m WatcherModel) renderAgentPanel(width, height int) string {
-	style := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Width(width).
-		Height(height)
-
+func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	var sb strings.Builder
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-	sb.WriteString(titleStyle.Render("Agents"))
-	sb.WriteString("\n")
 
-	if len(m.agents) == 0 {
-		sb.WriteString("\n")
+	m.mu.RLock()
+	agents := make([]AgentInfo, len(m.agents))
+	copy(agents, m.agents)
+	m.mu.RUnlock()
+
+	if len(agents) == 0 {
 		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
 	} else {
-		sb.WriteString("\n")
-		for i, agent := range m.agents {
+		for i, agent := range agents {
 			// Highlight selected agent
 			if i == m.agentPanel.selected {
 				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ "))
@@ -326,11 +321,18 @@ func (m WatcherModel) renderAgentPanel(width, height int) string {
 	sb.WriteString("\n")
 	sb.WriteString(hints)
 
-	return style.Render(sb.String())
+	// Build bordered panel with title
+	var result strings.Builder
+	result.WriteString(RenderBorderedTitle("Agents", width))
+	result.WriteString(RenderBorderedContent(sb.String(), width))
+	result.WriteString(RenderBorderBottom(width))
+
+	return result.String()
 }
 
 // AddAgent adds an agent to the watcher
 func (m *WatcherModel) AddAgent(info AgentInfo) {
+	m.mu.Lock()
 	m.agents = append(m.agents, info)
 
 	// Initialize state and logs for this agent if not exists
@@ -350,12 +352,15 @@ func (m *WatcherModel) AddAgent(info AgentInfo) {
 		m.selectedAgentID = info.ID
 		m.selectedIndex = 0
 	}
+	m.mu.Unlock()
 }
 
 // UpdateAgentState updates the game state for a specific agent
 func (m *WatcherModel) UpdateAgentState(agentID string, state *game.State) {
 	if state != nil {
+		m.mu.Lock()
 		m.agentStates[agentID] = state
+		m.mu.Unlock()
 		// Mark panels for update
 		m.mapPanel.lastUpdate = time.Now()
 		m.statusPanel.lastUpdate = time.Now()
@@ -367,14 +372,18 @@ func (m *WatcherModel) GetCurrentState() *game.State {
 	if m.selectedAgentID == "" {
 		return nil
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.agentStates[m.selectedAgentID]
 }
 
 // AddLogForAgent adds a log line for a specific agent
 func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
+	m.mu.Lock()
 	logs, exists := m.agentLogs[agentID]
 	if !exists {
 		logs = []string{}
+		m.agentLogs[agentID] = logs
 	}
 
 	logs = append(logs, line)
@@ -383,6 +392,7 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 	}
 
 	m.agentLogs[agentID] = logs
+	m.mu.Unlock()
 
 	// If this is the currently selected agent, update the log panel
 	if agentID == m.selectedAgentID {
@@ -394,6 +404,8 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 
 // updateAgentStatus updates an agent's status
 func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for i := range m.agents {
 		if m.agents[i].ID == agentID {
 			m.agents[i].Status = status
@@ -404,24 +416,34 @@ func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
 
 // selectNextAgent cycles to the next agent
 func (m *WatcherModel) selectNextAgent() {
+	m.mu.Lock()
 	if len(m.agents) == 0 {
+		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex + 1) % len(m.agents)
-	m.selectAgentByIndex(m.selectedIndex)
+	idx := m.selectedIndex
+	m.mu.Unlock()
+	m.selectAgentByIndex(idx)
 }
 
 // selectPreviousAgent cycles to the previous agent
 func (m *WatcherModel) selectPreviousAgent() {
+	m.mu.Lock()
 	if len(m.agents) == 0 {
+		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex - 1 + len(m.agents)) % len(m.agents)
-	m.selectAgentByIndex(m.selectedIndex)
+	idx := m.selectedIndex
+	m.mu.Unlock()
+	m.selectAgentByIndex(idx)
 }
 
 // selectAgentByIndex selects an agent by index (0-based)
 func (m *WatcherModel) selectAgentByIndex(idx int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if idx < 0 || idx >= len(m.agents) {
 		return
 	}
