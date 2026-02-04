@@ -3,11 +3,13 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/prompts"
 )
 
 // LLMClient defines the interface for LLM operations
@@ -103,6 +105,128 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 
 // buildDecisionPrompt creates a prompt for the LLM
 func (a *BaseAgent) buildDecisionPrompt(state *game.State) string {
+	// Try to use template system if LLM client supports it
+	if client, ok := a.llm.(*llm.Client); ok && client.HasPromptManager() {
+		// Build template context
+		ctx := a.buildTemplateContext(state)
+
+		// Render prompt using template
+		prompt, err := client.RenderPrompt("decision", a.personality.Role, ctx)
+		if err != nil {
+			fmt.Printf("[Agent %s] Warning: Failed to render template, using fallback: %v\n", a.id, err)
+			return a.buildFallbackPrompt(state)
+		}
+
+		return prompt
+	}
+
+	// Fallback to hardcoded prompt
+	return a.buildFallbackPrompt(state)
+}
+
+// buildTemplateContext creates a template context from agent state
+func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateContext {
+	// Build knowledge context
+	knowledge := a.buildKnowledgeContext(state)
+
+	// Build history context
+	history := a.buildHistoryContext()
+
+	// Build last feedback context
+	lastFeedback := a.buildFeedbackContext()
+
+	// Build personality map
+	personality := map[string]interface{}{
+		"traits":      a.personality.Traits,
+		"motivations": a.personality.Motivations,
+		"skills":      a.personality.Skills,
+	}
+
+	return prompts.NewTemplateContext(
+		a.id,
+		a.name,
+		a.personality.Role,
+		personality,
+		state,
+		knowledge,
+		history,
+		lastFeedback,
+	)
+}
+
+// buildKnowledgeContext builds knowledge context for templates
+func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeContext {
+	// Get known systems
+	systems := a.memory.KnownSystems()
+	systemInfos := make([]prompts.SystemInfo, len(systems))
+	for i, sys := range systems {
+		systemInfos[i] = prompts.SystemInfo{
+			ID:            sys.ID,
+			Name:          sys.Name,
+			SecurityLevel: sys.SecurityLevel,
+			Faction:       sys.Faction,
+			VisitCount:    sys.VisitCount,
+		}
+	}
+
+	// Get POIs in current system
+	poiInfos := make([]prompts.POIInfo, len(state.System.POIs))
+	for i, poi := range state.System.POIs {
+		poiInfos[i] = prompts.POIInfo{
+			ID:   poi.ID,
+			Name: poi.Name,
+			Type: poi.Type,
+			Position: fmt.Sprintf("(%.1f, %.1f)", poi.Position.X, poi.Position.Y),
+		}
+	}
+
+	return &prompts.KnowledgeContext{
+		KnownSystems: systemInfos,
+		POIsInSystem: poiInfos,
+		Connections:  state.System.Connections,
+	}
+}
+
+// buildHistoryContext builds history context for templates
+func (a *BaseAgent) buildHistoryContext() *prompts.HistoryContext {
+	experiences, _ := a.memory.GetRecentExperiences(5)
+	expRecords := make([]prompts.ExperienceRecord, len(experiences))
+	for i, exp := range experiences {
+		expRecords[i] = prompts.ExperienceRecord{
+			Time:        exp.Time,
+			Type:        exp.Type,
+			Description: exp.Description,
+			Outcome:     exp.Outcome,
+			Location:    exp.Location,
+		}
+	}
+
+	return &prompts.HistoryContext{
+		RecentExperiences: expRecords,
+	}
+}
+
+// buildFeedbackContext builds feedback context for templates
+func (a *BaseAgent) buildFeedbackContext() *prompts.FeedbackContext {
+	a.mu.RLock()
+	feedback := a.lastActionFeedback
+	a.mu.RUnlock()
+
+	if feedback == "" {
+		return nil
+	}
+
+	// Parse feedback (simple parsing for now)
+	success := strings.HasPrefix(feedback, "✓")
+
+	return &prompts.FeedbackContext{
+		Success: success,
+		Message: feedback,
+	}
+}
+
+// buildFallbackPrompt creates the fallback hardcoded prompt
+func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 	// Get current knowledge
 	systems := a.memory.KnownSystems()
 	knowledgeText := fmt.Sprintf("Known systems: %d\n", len(systems))

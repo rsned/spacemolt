@@ -89,8 +89,16 @@ func main() {
 	defer kb.Close()
 	log.Printf("✓ Knowledge base initialized (%s)", *dbBackend)
 
-	llmClient := initLLMClient(*llmURL, *llmModel)
+	llmClient, err := initLLMClient(*llmURL, *llmModel)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize LLM client: %v", err)
+	}
 	log.Printf("✓ LLM client initialized (%s @ %s)", *llmModel, *llmURL)
+	if llmClient.HasPromptManager() {
+		log.Println("✓ Prompt management system enabled")
+	} else {
+		log.Println("⚠ Prompt management system not available, using fallback prompts")
+	}
 
 	credsProvider, err := initCredentialsProvider(*credsBackend, *credsPath)
 	if err != nil {
@@ -284,11 +292,13 @@ func initKnowledgeBase(backend, dbPath string) (knowledge.Base, error) {
 }
 
 // initLLMClient creates the LLM client
-func initLLMClient(url, model string) *llm.Client {
+func initLLMClient(url, model string) (*llm.Client, error) {
 	return llm.New(llm.Config{
 		BaseURL: url,
 		Model:   model,
 		Timeout: 60 * time.Second,
+		PromptsDir: "data/prompts/templates",
+		PromptsConfig: "data/prompts/config.yaml",
 	})
 }
 
