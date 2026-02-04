@@ -69,7 +69,7 @@ func TestManager_SaveLoadCredentials(t *testing.T) {
 	// Test saving credentials
 	creds := &credentials.Credentials{
 		Username: "test-user",
-		Token:    "test-token-123",
+		Password:    "test-token-123",
 		Empire:   "voidborn",
 	}
 
@@ -87,8 +87,8 @@ func TestManager_SaveLoadCredentials(t *testing.T) {
 	if loadedCreds.Username != creds.Username {
 		t.Errorf("Username mismatch: expected %s, got %s", creds.Username, loadedCreds.Username)
 	}
-	if loadedCreds.Token != creds.Token {
-		t.Errorf("Token mismatch: expected %s, got %s", creds.Token, loadedCreds.Token)
+	if loadedCreds.Password != creds.Password {
+		t.Errorf("Token mismatch: expected %s, got %s", creds.Password, loadedCreds.Password)
 	}
 	if loadedCreds.Empire != creds.Empire {
 		t.Errorf("Empire mismatch: expected %s, got %s", creds.Empire, loadedCreds.Empire)
@@ -240,7 +240,7 @@ func TestManager_CredentialsFallback(t *testing.T) {
 
 	creds := credentials.Credentials{
 		Username: "manual-user",
-		Token:    "manual-token",
+		Password:    "manual-token",
 		Empire:   "voidborn",
 	}
 

@@ -18,7 +18,7 @@ var (
 	serverURL = flag.String("server", "ws://localhost:8080/ws", "WebSocket server URL")
 	username  = flag.String("username", "", "Agent username (required)")
 	empire    = flag.String("empire", "voidborn", "Empire/faction name")
-	saveToken = flag.Bool("save-token", false, "Save token to ~/.spacemolt/agents/<username>.token")
+	savePassword = flag.Bool("save-password", false, "Save password to ~/.spacemolt/agents/<username>.password")
 	verbose   = flag.Bool("v", false, "Enable verbose output")
 )
 
@@ -50,7 +50,7 @@ func main() {
 	client := game.NewClient(
 		*serverURL,
 		*username,
-		"", // No token for registration
+		"", // No password for registration
 		logger,
 	)
 
@@ -77,10 +77,10 @@ func main() {
 		log.Fatalf("Registration failed: %v", err)
 	}
 
-	// Get the token from client state (updated by Register)
-	receivedToken := client.GetState().Token
-	if receivedToken == "" {
-		log.Fatalf("Registration completed but no token received")
+	// Get the password from client state (updated by Register)
+	receivedPassword := client.GetState().Password
+	if receivedPassword == "" {
+		log.Fatalf("Registration completed but no password received")
 	}
 
 	// Success!
@@ -88,24 +88,24 @@ func main() {
 	fmt.Printf("\nAgent Details:\n")
 	fmt.Printf("  Username: %s\n", *username)
 	fmt.Printf("  Empire:   %s\n", *empire)
-	fmt.Printf("  Token:    %s\n", receivedToken)
+	fmt.Printf("  Password:    %s\n", receivedPassword)
 
-	// Save token if requested
-	if *saveToken {
-		if err := saveTokenFile(*username, receivedToken); err != nil {
-			log.Printf("Warning: failed to save token: %v", err)
+	// Save password if requested
+	if *savePassword {
+		if err := savePasswordFile(*username, receivedPassword); err != nil {
+			log.Printf("Warning: failed to save password: %v", err)
 		} else {
-			fmt.Printf("\nToken saved to ~/.spacemolt/agents/%s.token\n", *username)
+			fmt.Printf("\nPassword saved to ~/.spacemolt/agents/%s.password\n", *username)
 		}
 	}
 
 	// Display next steps
 	fmt.Printf("\nNext steps:\n")
-	fmt.Printf("  To login:  use this token with agent client\n")
-	fmt.Printf("  To play:   run: ./agent --username %s --token %s\n", *username, receivedToken)
+	fmt.Printf("  To login:  use this password with agent client\n")
+	fmt.Printf("  To play:   run: ./agent --username %s --password %s\n", *username, receivedPassword)
 }
 
-func saveTokenFile(username, token string) error {
+func savePasswordFile(username, password string) error {
 	// Create agents directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -117,10 +117,10 @@ func saveTokenFile(username, token string) error {
 		return fmt.Errorf("failed to create agents directory: %w", err)
 	}
 
-	// Write token file
-	tokenFile := fmt.Sprintf("%s/%s.token", agentsDir, username)
-	if err := os.WriteFile(tokenFile, []byte(token), 0600); err != nil {
-		return fmt.Errorf("failed to write token file: %w", err)
+	// Write password file
+	passwordFile := fmt.Sprintf("%s/%s.password", agentsDir, username)
+	if err := os.WriteFile(passwordFile, []byte(password), 0600); err != nil {
+		return fmt.Errorf("failed to write password file: %w", err)
 	}
 
 	return nil
