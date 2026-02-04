@@ -32,7 +32,8 @@ type Runner struct {
 // RunnerConfig holds configuration for the agent runner
 type RunnerConfig struct {
 	// DecisionInterval is how often the agent makes decisions
-	// Should be less than the action tick (e.g., 3-5 seconds for 10-second ticks)
+	// Should be aligned with game tick rate (11 seconds for 10-second ticks to avoid edge cases)
+	// Query commands can run anytime, but action commands are rate-limited by the server
 	DecisionInterval time.Duration
 
 	// MaxRetries is the maximum number of consecutive decision errors before stopping
@@ -48,9 +49,9 @@ type RunnerConfig struct {
 // DefaultRunnerConfig returns sensible defaults
 func DefaultRunnerConfig() RunnerConfig {
 	return RunnerConfig{
-		DecisionInterval: 5 * time.Second,  // Check every 5 seconds
+		DecisionInterval: 11 * time.Second, // Slightly more than 10-second game tick
 		MaxRetries:       10,                // Allow 10 consecutive failures
-		ActionTimeout:    2 * time.Second,   // Wait 2 seconds for action result
+		ActionTimeout:    5 * time.Second,   // Wait 5 seconds for action result
 		Logger:           log.Default(),
 	}
 }
