@@ -43,18 +43,18 @@ func main() {
 	agents := []struct {
 		id       string
 		username string
-		token    string
+		password string
 	}{
-		{"explorer-7", "explorer-7-user", "token-abc-123"},
-		{"miner-2", "miner-2-user", "token-def-456"},
-		{"trader-1", "trader-1-user", "token-ghi-789"},
+		{"explorer-7", "explorer-7-user", "password-abc-123"},
+		{"miner-2", "miner-2-user", "password-def-456"},
+		{"trader-1", "trader-1-user", "password-ghi-789"},
 	}
 
 	for _, a := range agents {
 		err := credsProvider.StoreCredentials(ctx, a.id, &credentials.Credentials{
 			Username: a.username,
-			Token:     a.token,
-			Empire:    "voidborn",
+			Password: a.password,
+			Empire:   "voidborn",
 		})
 		if err != nil {
 			log.Fatalf("Failed to store credentials for %s: %v", a.id, err)
@@ -110,9 +110,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to get credentials for %s: %v", a.id, err)
 		}
-		if creds.Username != a.username || creds.Token != a.token {
+		if creds.Username != a.username || creds.Password != a.password {
 			log.Fatalf("Credential mismatch for %s: expected %s/%s, got %s/%s",
-				a.id, a.username, a.token, creds.Username, creds.Token)
+				a.id, a.username, a.password, creds.Username, creds.Password)
 		}
 		fmt.Printf("   ✓ Verified credentials for %s: %s\n", a.id, creds.Username)
 	}
