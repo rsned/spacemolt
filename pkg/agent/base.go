@@ -28,7 +28,7 @@ type BaseAgent struct {
 	llm         LLMClient
 
 	status             Status
-	lastActionFeedback string // Feedback from the most recent action
+	lastActionResult *ActionResult // Result from the most recent action
 	stopCh             chan struct{}
 	stopOnce           sync.Once
 	mu                 sync.RWMutex
@@ -229,20 +229,34 @@ func (a *BaseAgent) buildHistoryContext() *prompts.HistoryContext {
 // buildFeedbackContext builds feedback context for templates
 func (a *BaseAgent) buildFeedbackContext() *prompts.FeedbackContext {
 	a.mu.RLock()
-	feedback := a.lastActionFeedback
+	result := a.lastActionResult
 	a.mu.RUnlock()
 
-	if feedback == "" {
+	if result == nil {
 		return nil
 	}
 
-	// Parse feedback (simple parsing for now)
-	success := strings.HasPrefix(feedback, "✓")
-
-	return &prompts.FeedbackContext{
-		Success: success,
-		Message: feedback,
+	feedback := &prompts.FeedbackContext{
+		Success: result.Success,
+		Action:  result.Action,
+		Target:  result.Target,
+		Message: result.Message,
 	}
+
+	if result.Error != nil {
+		feedback.Error = result.Error.Error()
+		// Try to categorize error type
+		errStr := result.Error.Error()
+		if strings.Contains(errStr, "timeout") {
+			feedback.ErrorType = "timeout"
+		} else if strings.Contains(errStr, "not found") || strings.Contains(errStr, "invalid") {
+			feedback.ErrorType = "validation"
+		} else {
+			feedback.ErrorType = "execution"
+		}
+	}
+
+	return feedback
 }
 
 // buildFallbackPrompt creates the fallback hardcoded prompt
@@ -291,16 +305,23 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 		"docked":   state.IsDocked(),
 	}
 
-	// Get last action feedback (protected by lock)
+	// Get last action result (protected by lock)
 	a.mu.RLock()
-	lastFeedback := a.lastActionFeedback
+	lastResult := a.lastActionResult
 	a.mu.RUnlock()
 
 	// Build feedback section
 	feedbackText := ""
-	if lastFeedback != "" {
-		feedbackText = "\nLAST ACTION FEEDBACK:\n" + lastFeedback + "\n"
-		feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
+	if lastResult != nil {
+		if lastResult.Success {
+			feedbackText = fmt.Sprintf("\nLAST ACTION FEEDBACK:\n✓ %s → %s: %s\n", lastResult.Action, lastResult.Target, lastResult.Message)
+		} else {
+			feedbackText = fmt.Sprintf("\nLAST ACTION FEEDBACK:\n✗ %s → %s FAILED: %s\n", lastResult.Action, lastResult.Target, lastResult.Message)
+			if lastResult.Error != nil {
+				feedbackText += fmt.Sprintf("ERROR: %s\n", lastResult.Error.Error())
+			}
+			feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
+		}
 	}
 
 	return llm.BuildDecisionPrompt(
@@ -334,19 +355,15 @@ func (a *BaseAgent) Learn(result ActionResult) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Store action feedback for next LLM prompt
+	// Store full action result for next LLM prompt
+	a.lastActionResult = &result
+
+	// Update agent status
 	if result.Success {
-		a.lastActionFeedback = fmt.Sprintf("✓ Last action succeeded: %s", result.Message)
 		a.status.State = AgentStateIdle
 		a.status.CurrentAction = "Ready"
 		a.status.Error = nil
 	} else {
-		// Include error details in feedback so LLM can learn from mistakes
-		errorMsg := "unknown error"
-		if result.Error != nil {
-			errorMsg = result.Error.Error()
-		}
-		a.lastActionFeedback = fmt.Sprintf("✗ Last action FAILED: %s\nError: %s", result.Message, errorMsg)
 		a.status.State = AgentStateError
 		a.status.Error = fmt.Errorf("action failed: %w", result.Error)
 	}

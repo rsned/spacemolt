@@ -91,6 +91,8 @@ type Decision struct {
 
 // ActionResult represents the result of taking an action
 type ActionResult struct {
+	Action      string  // The action that was taken
+	Target      string  // The target of the action (if any)
 	Success     bool
 	Message     string
 	NewState    *game.State
