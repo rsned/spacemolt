@@ -169,23 +169,34 @@ func renderMap(sysData game.SystemData, halfGridRows, halfGridCols int) string {
 
 	// Calculate center for border rendering
 	centerGridXInt := mapCols / 2
+	centerGridYInt := mapRows / 2
 
 	// Build output string with borders and axis markers
 	var sb strings.Builder
-	// Top border: left corner + dashes + right corner
-	sb.WriteString("┌" + strings.Repeat("─", mapCols+2) + "┐\n")
+	// Top border with connector at center (Y=0 axis line)
+	sb.WriteString("┌" + strings.Repeat("─", centerGridXInt+1) + "┬" + strings.Repeat("─", mapCols-centerGridXInt+1) + "┐\n")
 
 	for y := 0; y < mapRows; y++ {
-		// Left border, content, right border
-		sb.WriteString("│ ")
+		// Left border with connector at center row (X=0 axis line)
+		if y == centerGridYInt {
+			sb.WriteString("├ ")
+		} else {
+			sb.WriteString("│ ")
+		}
 
 		for x := 0; x < mapCols; x++ {
 			sb.WriteRune(grid[y][x])
 		}
-		sb.WriteString(" │\n")
+
+		// Right border with connector at center row (X=0 axis line)
+		if y == centerGridYInt {
+			sb.WriteString(" ┤\n")
+		} else {
+			sb.WriteString(" │\n")
+		}
 	}
 
-	// Bottom border with connector at center
+	// Bottom border with connector at center (Y=0 axis line)
 	sb.WriteString("└" + strings.Repeat("─", centerGridXInt+1) + "┴" + strings.Repeat("─", mapCols-centerGridXInt+1) + "┘")
 
 	// System name and range on same line
