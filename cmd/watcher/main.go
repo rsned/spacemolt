@@ -138,13 +138,17 @@ func main() {
 	}
 
 	// Check for existing credentials (local mode only)
-	var username, token string
+	var username, password string
 	if localMode {
 		if data, err := os.ReadFile(credentialsFile); err == nil {
 			var creds map[string]string
 			if err := json.Unmarshal(data, &creds); err == nil {
 				username = creds["username"]
-				token = creds["token"]
+				password = creds["password"]
+			// Backward compatibility: check for "token" field
+			if password == "" {
+				password = creds["token"]
+			}
 			}
 		}
 	}
@@ -291,7 +295,7 @@ func main() {
 				Connections: []string{},
 			},
 			Username: username,
-			Token:    token,
+			Password: password,
 		}
 
 		tempModel := tui.NewWatcherModel(state, tuiReadyChan)
@@ -370,7 +374,7 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.
 			client := game.NewClient(
 				"wss://game.spacemolt.com/ws",
 				creds.Username,
-				creds.Token,
+				creds.Password,
 				debugLogger,
 			)
 
@@ -407,7 +411,7 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.
 			})
 
 			// Authenticate (synchronous - waits for response)
-			if creds.Token != "" {
+			if creds.Password != "" {
 				if err := client.Login(ctx); err != nil {
 					log.Printf("[%s] Login failed: %v", a.ID(), err)
 					p.Send(tui.AgentStatusMsg{
@@ -559,7 +563,7 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 	client := game.NewClient(
 		"wss://game.spacemolt.com/ws",
 		watcherUsername,
-		state.Token,
+		state.Password,
 		debugLogger,
 	)
 
@@ -587,7 +591,7 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 	})
 
 	// Authenticate (synchronous - waits for response)
-	if state.Token != "" {
+	if state.Password != "" {
 		if err := client.Login(ctx); err != nil {
 			log.Printf("Watcher login failed: %v", err)
 			return
@@ -600,7 +604,7 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 		// Update state with new username and token
 		state.Mu.Lock()
 		state.Username = watcherUsername
-		state.Token = client.GetState().Token
+		state.Password = client.GetState().Password
 		state.Mu.Unlock()
 	}
 
@@ -679,7 +683,7 @@ func (h *watcherMessageHandler) OnDisconnected(err error) {
 // handleResponse updates state from server responses
 // This is a simplified version that updates the watcher's state
 func handleResponse(resp protocol.Response, state *game.State) {
-	var username, token string
+	var username, password string
 
 	state.Mu.Lock()
 
@@ -690,9 +694,15 @@ func handleResponse(resp protocol.Response, state *game.State) {
 		}
 
 	case protocol.TypeRegistered:
-		if tok, ok := resp.Payload["token"].(string); ok {
-			state.Token = tok
-			token = tok
+		// Support both 'password' (new API) and 'token' (legacy) for backward compatibility
+		if pass, ok := resp.Payload["password"].(string); ok {
+			state.Password = pass
+			password = pass
+			username = state.Username
+		} else if tok, ok := resp.Payload["token"].(string); ok {
+			// Legacy support
+			state.Password = tok
+			password = tok
 			username = state.Username
 		}
 
@@ -715,7 +725,7 @@ func handleResponse(resp protocol.Response, state *game.State) {
 			}
 		}
 		username = state.Username
-		token = state.Token
+		password = state.Password
 
 	case protocol.TypeOK:
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
@@ -853,8 +863,8 @@ func handleResponse(resp protocol.Response, state *game.State) {
 	state.Mu.Unlock()
 
 	// I/O outside the lock
-	if username != "" && token != "" {
-		saveCredentials(username, token)
+	if username != "" && password != "" {
+		saveCredentials(username, password)
 	}
 }
 
@@ -888,10 +898,10 @@ func updateShipState(state *game.State, ship map[string]any, logPrefix string) {
 	}
 }
 
-func saveCredentials(username, token string) {
+func saveCredentials(username, password string) {
 	creds := map[string]string{
 		"username": username,
-		"token":    token,
+		"password": password,
 	}
 	data, err := json.MarshalIndent(creds, "", "  ")
 	if err != nil {

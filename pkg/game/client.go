@@ -19,7 +19,7 @@ type Client struct {
 	conn        *websocket.Conn
 	url         string
 	username    string
-	token       string
+	password    string // Permanent password from registration
 	state       *State
 	mu          sync.RWMutex
 	handler     MessageHandler
@@ -44,7 +44,7 @@ type MessageHandler interface {
 }
 
 // NewClient creates a new game client
-func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
+func NewClient(url, username, password string, debugLogger *log.Logger) *Client {
 	if debugLogger == nil {
 		debugLogger = log.New(log.Writer(), "[GAME] ", log.LstdFlags)
 	}
@@ -52,7 +52,7 @@ func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
 	return &Client{
 		url:      url,
 		username: username,
-		token:    token,
+		password: password,
 		state: &State{
 			Doc:         true,
 			MaxCargo:    10,
@@ -84,7 +84,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.conn = ws
 	c.connected = true
 	c.state.Username = c.username
-	c.state.Token = c.token
+	c.state.Password = c.password
 
 	c.debugLogger.Printf("Connected to %s", c.url)
 
@@ -121,7 +121,8 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 
 	// Log with full payload for debugging
 	if len(msg.Payload) > 0 {
-		payloadJSON, _ := json.Marshal(msg.Payload)
+		//payloadJSON, _ := json.Marshal(msg.Payload)
+		payloadJSON, _ := json.Marshal(msg)
 		c.debugLogger.Printf("[SENT] %s | payload: %s", msg.Type, string(payloadJSON))
 	} else {
 		c.debugLogger.Printf("[SENT] %s", msg.Type)
@@ -132,15 +133,15 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 // Login authenticates with the server using stored credentials
 // This is a synchronous operation that waits for the server response
 func (c *Client) Login(ctx context.Context) error {
-	if c.token == "" {
-		return fmt.Errorf("no token available")
+	if c.password == "" {
+		return fmt.Errorf("no password available")
 	}
 
 	msg := protocol.Message{
 		Type: "login",
 		Payload: map[string]any{
 			"username": c.username,
-			"token":    c.token,
+			"password": c.password,
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
@@ -339,9 +340,14 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	case protocol.TypeRegistered:
 		payloadJSON, _ := json.Marshal(resp.Payload)
 		c.debugLogger.Printf("[RECVD] payload: %s", string(payloadJSON))
-		if token, ok := resp.Payload["token"].(string); ok {
-			c.state.Token = token
-			c.token = token // Save token
+		// Support both 'password' (new API) and 'token' (legacy) for backward compatibility
+		if password, ok := resp.Payload["password"].(string); ok {
+			c.state.Password = password
+			c.password = password
+		} else if token, ok := resp.Payload["token"].(string); ok {
+			// Legacy support: token field
+			c.state.Password = token
+			c.password = token
 		}
 
 	case protocol.TypeLoggedIn:
