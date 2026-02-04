@@ -45,7 +45,7 @@ var (
 
 	// Agent manager settings
 	maxAgents        = flag.Int("max-agents", 10, "Maximum number of concurrent agents")
-	decisionInterval = flag.Duration("decision-interval", 10*time.Second, "Decision interval for agents")
+	decisionInterval = flag.Duration("decision-interval", 11*time.Second, "Decision interval for agents (should be > game tick rate)")
 
 	// HTTP API settings
 	httpPort = flag.Int("http-port", 0, "Enable HTTP API on port (0 = disabled)")
