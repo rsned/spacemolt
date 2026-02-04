@@ -229,7 +229,7 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	logWidth := int(float64(logPanelWidth) * scaleX)
 
 	// Map gets remaining width and height in top section
-	mapWidth := m.viewportWidth - logWidth - 2 // Account for border spacing
+	mapWidth := m.viewportWidth - logWidth
 	mapHeight := logHeight // Match log height
 
 	// Ensure minimum sizes
