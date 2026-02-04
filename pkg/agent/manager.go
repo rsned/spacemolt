@@ -255,6 +255,11 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 
 	gameClient := game.NewClient(m.gameServerURL, username, password, m.debugLogger)
 
+	// Set up automatic reconnection handler
+	// Note: We pass nil as the wrapped handler since we don't need additional handling
+	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
+	gameClient.SetHandler(reconnectHandler)
+
 	// Connect to game server with retries
 	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
 		return nil, fmt.Errorf("failed to connect to game server: %w", err)
