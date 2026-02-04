@@ -252,8 +252,12 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 // executeDecision converts an agent decision to game commands
 func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
-	r.logger.Printf("[%s] Executing: %s (confidence: %.1f%%)",
-		r.agent.ID(), decision.Action, decision.Confidence*100)
+	// DEBUG: Log full decision details
+	r.logger.Printf("[%s] === Decision Execution Debug ===", r.agent.ID())
+	r.logger.Printf("[%s] Decision.Action: '%s'", r.agent.ID(), decision.Action)
+	r.logger.Printf("[%s] Decision.Target: '%s'", r.agent.ID(), decision.Target)
+	r.logger.Printf("[%s] Decision.Confidence: %.1f%%", r.agent.ID(), decision.Confidence*100)
+	r.logger.Printf("[%s] Decision.Reasoning: %s", r.agent.ID(), decision.Reasoning)
 
 	// Create context with timeout for the action
 	actionCtx, cancel := context.WithTimeout(ctx, r.config.ActionTimeout)
@@ -261,41 +265,52 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 
 	switch decision.Action {
 	case "undock":
+		r.logger.Printf("[%s] -> Calling gameClient.Undock()", r.agent.ID())
 		return r.gameClient.Undock(actionCtx)
 
 	case "dock":
+		r.logger.Printf("[%s] -> Calling gameClient.Dock()", r.agent.ID())
 		return r.gameClient.Dock(actionCtx)
 
 	case "travel":
 		if decision.Target == "" {
+			r.logger.Printf("[%s] ERROR: travel requires target POI but Target is empty", r.agent.ID())
 			return fmt.Errorf("travel requires target POI")
 		}
+		r.logger.Printf("[%s] -> Calling gameClient.Travel('%s')", r.agent.ID(), decision.Target)
 		return r.gameClient.Travel(actionCtx, decision.Target)
 
 	case "jump":
 		if decision.Target == "" {
+			r.logger.Printf("[%s] ERROR: jump requires target system but Target is empty", r.agent.ID())
 			return fmt.Errorf("jump requires target system")
 		}
+		r.logger.Printf("[%s] -> Calling gameClient.Jump('%s')", r.agent.ID(), decision.Target)
 		return r.gameClient.Jump(actionCtx, decision.Target)
 
 	case "mine":
+		r.logger.Printf("[%s] -> Calling gameClient.Mine()", r.agent.ID())
 		return r.gameClient.Mine(actionCtx)
 
 	case "scan":
+		r.logger.Printf("[%s] -> Calling gameClient.Scan()", r.agent.ID())
 		return r.gameClient.Scan(actionCtx)
 
 	case "get_status":
+		r.logger.Printf("[%s] -> Calling gameClient.GetStatus()", r.agent.ID())
 		return r.gameClient.GetStatus(actionCtx)
 
 	case "get_system":
+		r.logger.Printf("[%s] -> Calling gameClient.GetSystem()", r.agent.ID())
 		return r.gameClient.GetSystem(actionCtx)
 
 	case "wait":
 		// Deliberate wait - do nothing
-		r.logger.Printf("[%s] Waiting (deliberate)", r.agent.ID())
+		r.logger.Printf("[%s] -> Waiting (deliberate)", r.agent.ID())
 		return nil
 
 	default:
+		r.logger.Printf("[%s] ERROR: Unknown action: '%s' (does not match any case)", r.agent.ID(), decision.Action)
 		return fmt.Errorf("unknown action: %s", decision.Action)
 	}
 }
