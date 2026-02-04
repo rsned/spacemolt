@@ -12,11 +12,14 @@ import (
 )
 
 const (
-	// Panel height constraints
-	minPanelHeight    = 4  // Minimum height for any panel (prevents collapse)
-	maxLogPanelHeight = 20 // Maximum height for log panel
-	minMapPanelHeight = 30 // Minimum height for map panel
-	agentsPanelHeight = 6  // Fixed height for agents panel (full width at bottom)
+	// Panel dimensions for 80x50 terminal target
+	// Top section: Log (30) + Map (50) = 80 wide, 30 tall
+	// Status: 80 wide, 10 tall
+	// Agents: 80 wide, 10 tall
+	logPanelWidth      = 30 // Action Log width in characters
+	logPanelHeight     = 30 // Action Log height in lines
+	statusPanelHeight  = 10 // Status panel height in lines
+	agentsPanelHeight  = 10 // Agents panel height in lines
 )
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
@@ -214,58 +217,41 @@ func (m *WatcherModel) View() string {
 
 // calculateLayout computes the dimensions for each panel
 func (m *WatcherModel) calculateLayout() panelLayout {
-	// Available space after accounting for borders and padding
-	availableHeight := m.viewportHeight - 4 // Reserve space for borders
+	// Fixed dimensions based on 80x50 terminal target
+	// Adjust proportionally if viewport differs
+	scaleX := float64(m.viewportWidth) / 80.0
+	scaleY := float64(m.viewportHeight) / 50.0
 
-	// Status panel gets fixed height (6-12 lines)
-	statusHeight := availableHeight * 30 / 100
+	// Calculate panel dimensions with scaling
+	agentsHeight := int(float64(agentsPanelHeight) * scaleY)
+	statusHeight := int(float64(statusPanelHeight) * scaleY)
+	logHeight := int(float64(logPanelHeight) * scaleY)
+	logWidth := int(float64(logPanelWidth) * scaleX)
+
+	// Map gets remaining width and height in top section
+	mapWidth := m.viewportWidth - logWidth - 2 // Account for border spacing
+	mapHeight := logHeight // Match log height
+
+	// Ensure minimum sizes
+	if agentsHeight < 6 {
+		agentsHeight = 6
+	}
 	if statusHeight < 6 {
 		statusHeight = 6
 	}
-	if statusHeight > 12 {
-		statusHeight = 12
+	if logHeight < 8 {
+		logHeight = 8
 	}
-
-	// Agents panel gets fixed height at bottom
-	agentsHeight := agentsPanelHeight
-
-	// Top section (Log + Map) gets all remaining space
-	topSectionHeight := availableHeight - statusHeight - agentsHeight
-
-	// Ensure top section has minimum height
-	if topSectionHeight < minMapPanelHeight {
-		// Reduce status panel to make room
-		statusHeight = 6
-		topSectionHeight = availableHeight - statusHeight - agentsHeight
-	}
-
-	// Distribute top section space between log and map
-	// Log panel gets max height cap
-	logHeight := maxLogPanelHeight
-	if logHeight < minPanelHeight {
-		logHeight = minPanelHeight
-	}
-
-	mapHeight := topSectionHeight
-	if mapHeight < minMapPanelHeight {
-		mapHeight = minMapPanelHeight
-	}
-
-	// Width calculations
-	// Agents panel: full width
-	agentsWidth := m.viewportWidth
-
-	// Status panel: full width
-	statusWidth := m.viewportWidth
-
-	// Log panel gets 30% of top section width with minimum of 20 characters.
-	logWidth := m.viewportWidth * 30 / 100
 	if logWidth < 20 {
 		logWidth = 20
 	}
+	if mapWidth < 20 {
+		mapWidth = 20
+	}
 
-	// Map panel gets remaining width
-	mapWidth := m.viewportWidth - logWidth - 2 // Account for borders
+	// Agents and Status panels are full width
+	agentsWidth := m.viewportWidth
+	statusWidth := m.viewportWidth
 
 	return panelLayout{
 		agentWidth:   agentsWidth,
@@ -279,52 +265,68 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	}
 }
 
-// renderAgentPanel renders the agent list panel
+// renderAgentPanel renders the agent list panel with 2-column layout
 func (m *WatcherModel) renderAgentPanel(width, height int) string {
-	var sb strings.Builder
-
 	m.mu.RLock()
 	agents := make([]AgentInfo, len(m.agents))
 	copy(agents, m.agents)
 	m.mu.RUnlock()
 
-	if len(agents) == 0 {
-		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
-	} else {
-		for i, agent := range agents {
-			// Highlight selected agent
-			if i == m.agentPanel.selected {
-				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ "))
-			} else {
-				sb.WriteString("  ")
-			}
+	// Calculate column width (half of available width, minus padding)
+	colWidth := (width - 8) / 2 // Account for borders and padding
+	if colWidth < 20 {
+		colWidth = 20
+	}
 
-			// Show agent name and status
-			statusColor := "241" // gray for idle
-			switch agent.Status {
-			case "Acting":
-				statusColor = "226" // yellow for acting
-			case "Deciding":
-				statusColor = "217" // pink for deciding
-			case "Error":
-				statusColor = "160" // red for error
-			}
+	// Build two columns of agents
+	var leftCol, rightCol strings.Builder
 
-			sb.WriteString(fmt.Sprintf("%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name)))
-			sb.WriteString(fmt.Sprintf("    %s\n", agent.Action))
+	for i, agent := range agents {
+		// Determine status color
+		statusColor := "241" // gray for idle
+		switch agent.Status {
+		case "Acting":
+			statusColor = "226" // yellow for acting
+		case "Deciding":
+			statusColor = "217" // pink for deciding
+		case "Error":
+			statusColor = "160" // red for error
+		}
+
+		// Highlight selected agent
+		arrow := "  "
+		if i == m.agentPanel.selected {
+			arrow = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ ")
+		}
+
+		// Format agent entry
+		entry := fmt.Sprintf("%s%s\n    %s\n",
+			arrow,
+			lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
+			agent.Action,
+		)
+
+		// Distribute across columns
+		if i%2 == 0 {
+			leftCol.WriteString(entry)
+		} else {
+			rightCol.WriteString(entry)
 		}
 	}
 
-	// Add hot key hints at bottom
-	hintStyle := lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("245"))
-	hints := hintStyle.Render("Tab: Next | Shift+Tab: Prev | 1-9: Jump")
-	sb.WriteString("\n")
-	sb.WriteString(hints)
+	if len(agents) == 0 {
+		leftCol.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
+	}
+
+	// Combine columns
+	leftStyle := lipgloss.NewStyle().Width(colWidth)
+	rightStyle := lipgloss.NewStyle().Width(colWidth)
+	twoCols := lipgloss.JoinHorizontal(lipgloss.Top, leftStyle.Render(leftCol.String()), rightStyle.Render(rightCol.String()))
 
 	// Build bordered panel with title
 	var result strings.Builder
 	result.WriteString(RenderBorderedTitle("Agents", width))
-	result.WriteString(RenderBorderedContent(sb.String(), width))
+	result.WriteString(RenderBorderedContent(twoCols, width))
 	result.WriteString(RenderBorderBottom(width))
 
 	return result.String()

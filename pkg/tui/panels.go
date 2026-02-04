@@ -259,97 +259,78 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 // renderStatusPanel renders the full status panel with player and ship stats
 func (m *WatcherModel) renderStatusPanel(width, height int) string {
 	// Build content with status data
-	var sb strings.Builder
-
-	// Determine compact mode based on width
-	m.statusPanel.compactMode = width < 80
-
-	// Get status content
 	state := m.GetCurrentState()
 	if state == nil {
-		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agent selected"))
-	} else {
-		state.Mu.Lock()
-		content := m.buildStatusContent(state, width)
-		state.Mu.Unlock()
-		sb.WriteString(content)
+		content := lipgloss.NewStyle().Faint(true).Render("No agent selected")
+		// Build bordered panel with title
+		var result strings.Builder
+		result.WriteString(RenderBorderedTitle("Status", width))
+		result.WriteString(RenderBorderedContent(content, width))
+		result.WriteString(RenderBorderBottom(width))
+		return result.String()
 	}
+
+	state.Mu.Lock()
+	content := m.buildStatusFull(state)
+	state.Mu.Unlock()
 
 	// Build bordered panel with title
 	var result strings.Builder
 	result.WriteString(RenderBorderedTitle("Status", width))
-	result.WriteString(RenderBorderedContent(sb.String(), width))
+	result.WriteString(RenderBorderedContent(content, width))
 	result.WriteString(RenderBorderBottom(width))
 
 	return result.String()
 }
 
-// buildStatusContent builds the appropriate status content based on mode
-func (m *WatcherModel) buildStatusContent(state *game.State, width int) string {
-	if m.statusPanel.compactMode {
-		return m.buildStatusCompact(state)
-	}
-	return m.buildStatusFull(state)
-}
-
-// buildStatusFull builds a two-column status layout for wide screens
+// buildStatusFull builds a three-column status layout for wide screens
 func (m *WatcherModel) buildStatusFull(state *game.State) string {
-	var leftCol, rightCol strings.Builder
+	var leftCol, midCol, rightCol strings.Builder
 
-	// Left column: Player info and credits
+	// Column 1: Player info
 	leftCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Player"))
 	leftCol.WriteString("\n")
 	leftCol.WriteString(fmt.Sprintf("Name: %s\n", state.Username))
 	leftCol.WriteString("Empire: voidborn\n")
 	leftCol.WriteString(fmt.Sprintf("Credits: %.0f\n", state.Credits))
+	leftCol.WriteString("XP: 0\n") // Placeholder if XP field not in state
 
-	// Right column: Ship stats
-	rightCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Ship"))
+	// Column 2: Ship data
+	midCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Ship"))
+	midCol.WriteString("\n")
+	midCol.WriteString("Type: Prospector\n")
+	midCol.WriteString(fmt.Sprintf("Hull: %.0f/%.0f\n", state.Hull, state.MaxHull))
+	midCol.WriteString(fmt.Sprintf("Fuel: %.0f/%.0f\n", state.Fuel, state.MaxFuel))
+	midCol.WriteString(fmt.Sprintf("Cargo: %d/%d\n", len(state.Cargo), state.MaxCargo))
+
+	// Column 3: Cargo contents
+	rightCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Cargo"))
 	rightCol.WriteString("\n")
-	rightCol.WriteString("Type: Prospector (starter_mining)\n")
-	rightCol.WriteString(fmt.Sprintf("Hull: %.0f/%.0f\n", state.Hull, state.MaxHull))
-	rightCol.WriteString(fmt.Sprintf("Fuel: %.0f/%.0f\n", state.Fuel, state.MaxFuel))
-	rightCol.WriteString(fmt.Sprintf("Cargo: %d/%d\n", len(state.Cargo), state.MaxCargo))
-
-	// Combine columns with spacing
-	leftStyle := lipgloss.NewStyle().Width(30)
-	rightStyle := lipgloss.NewStyle().Width(30)
-	spacer := lipgloss.NewStyle().Width(4).Render("") // 4 spaces between columns
-	combined := lipgloss.JoinHorizontal(lipgloss.Top,
-		leftStyle.Render(leftCol.String()),
-		spacer,
-		rightStyle.Render(rightCol.String()),
-	)
-
-	// Add cargo details if any
 	if len(state.Cargo) > 0 {
-		combined += "\n\n"
-		combined += lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Cargo Items:")
-		combined += "\n"
 		for _, item := range state.Cargo {
 			if name, ok := item["name"].(string); ok {
 				if quantity, ok := item["quantity"].(float64); ok {
-					combined += fmt.Sprintf("  - %s x%.0f\n", name, quantity)
+					rightCol.WriteString(fmt.Sprintf("%s x%.0f\n", name, quantity))
 				} else {
-					combined += fmt.Sprintf("  - %s\n", name)
+					rightCol.WriteString(fmt.Sprintf("%s\n", name))
 				}
 			}
 		}
+	} else {
+		rightCol.WriteString(lipgloss.NewStyle().Faint(true).Render("Empty"))
 	}
 
-	return combined
-}
+	// Combine columns with spacing
+	leftStyle := lipgloss.NewStyle().Width(25)
+	midStyle := lipgloss.NewStyle().Width(25)
+	rightStyle := lipgloss.NewStyle().Width(30) // Slightly wider for cargo items
+	spacer := lipgloss.NewStyle().Width(2).Render("") // 2 spaces between columns
 
-// buildStatusCompact builds a single-line status layout for narrow screens
-func (m *WatcherModel) buildStatusCompact(state *game.State) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("%s | Credits: %.0f | Hull: %.0f/%.0f | Fuel: %.0f/%.0f | Cargo: %d/%d",
-		state.Username,
-		state.Credits,
-		state.Hull, state.MaxHull,
-		state.Fuel, state.MaxFuel,
-		len(state.Cargo), state.MaxCargo))
-
-	return sb.String()
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		leftStyle.Render(leftCol.String()),
+		spacer,
+		midStyle.Render(midCol.String()),
+		spacer,
+		rightStyle.Render(rightCol.String()),
+	)
 }
