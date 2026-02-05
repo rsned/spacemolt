@@ -9,6 +9,7 @@ bin/*
 /test-agent-manager
 /test-credentials
 /update-server-docs
+/view-learning
 /watcher
 
 ##############################
@@ -47,6 +48,7 @@ tokens
 ##############################
 watcher_ui*.txt
 asfdgasfafsadfasf
+notes/
 
 ##############################
 # Downloaded server docs (versioned externally)
