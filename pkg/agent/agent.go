@@ -35,7 +35,7 @@ type POIKnowledge struct {
 	Description string
 	Position    Position
 	Services    []string
-	Resources   []string
+	Resources   []ResourceInfo
 }
 
 // Agent represents an autonomous game-playing agent
@@ -174,6 +174,13 @@ type System struct {
 	DiscoveredBy  string
 }
 
+// ResourceInfo represents resource data at a POI
+type ResourceInfo struct {
+	ResourceID string
+	Richness   float64
+	Remaining  float64
+}
+
 // POI represents a POI for memory storage
 type POI struct {
 	ID            string
@@ -182,6 +189,6 @@ type POI struct {
 	Type          string
 	Position      Position
 	Services      []string
-	Resources     []string
+	Resources     []ResourceInfo
 	DiscoveredBy  string
 }
