@@ -90,7 +90,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize knowledge base: %v", err)
 	}
-	defer kb.Close()
+	defer kb.Close() //nolint:errcheck
 	log.Printf("✓ Knowledge base initialized (%s)", *dbBackend)
 
 	llmClient, err := initLLMClient(*llmURL, *llmModel)

@@ -52,7 +52,7 @@ func (c *AgentServerClient) ListAgents() ([]AgentInfoRemote, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch agents: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -75,7 +75,7 @@ func (c *AgentServerClient) GetState(agentID string) (*game.State, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch state: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -98,7 +98,7 @@ func (c *AgentServerClient) GetHistory(agentID string, limit int) ([]agent.Histo
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch history: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -137,7 +137,7 @@ func (c *AgentServerClient) StreamEvents(agentID string) (<-chan StreamEvent, er
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -153,7 +153,7 @@ func (c *AgentServerClient) StreamEvents(agentID string) (<-chan StreamEvent, er
 // readSSE parses Server-Sent Events from response body
 func (c *AgentServerClient) readSSE(body io.ReadCloser, eventCh chan<- StreamEvent) {
 	defer close(eventCh)
-	defer body.Close()
+	defer body.Close() //nolint:errcheck
 
 	scanner := bufio.NewScanner(body)
 	var currentEvent StreamEvent
@@ -202,7 +202,7 @@ func (c *AgentServerClient) Ping() error {
 	if err != nil {
 		return fmt.Errorf("server unreachable: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("server returned HTTP %d", resp.StatusCode)
