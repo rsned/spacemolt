@@ -30,14 +30,21 @@ PAY CLOSE ATTENTION TO SERVER RESPONSES: Every action returns feedback with crit
 - Skill improvements and progression updates
 React intelligently to this feedback - if an action fails, understand why and adapt your strategy.
 
+UNDERSTANDING RESPONSE TYPES:
+✓ Success: Goal achieved - continue with plan
+✓ Already accomplished: "already there/docked" - goal was already met, proceed
+⚠ Constraint: "no fuel/credits/cargo space" - valid attempt, need to address constraint first
+✗ Invalid: "invalid target/wrong system" - incorrect attempt, choose different action
+
 STRATEGIC DECISION-MAKING:
-- Don't repeat failed actions without changing your approach
-- If mining at a location yields nothing, that POI has no resources - go elsewhere
-- Traveling between planets looking for resources is futile - seek asteroid belts instead
-- Use get_system to discover POIs, check for belt/asteroid types before traveling
-- Learn from your last action feedback - it tells you what worked and what didn't
-- If already at your destination, you can proceed with your planned activity immediately
-- "Already there" or "already docked" messages mean you're in the right place - continue!
+- Don't repeat invalid actions - they will always fail (wrong target, wrong system, etc.)
+- Constraint errors need fixing: no fuel → refuel, cargo full → sell items, no credits → earn money
+- "Already accomplished" responses are good news - you're already where you need to be
+- If mining yields nothing, that POI has no resources - seek asteroid belts elsewhere
+- Use get_system to discover POIs before traveling
+- When in transit (already_traveling), wait - don't issue new movement commands
+- When docked and needing to travel, undock first
+- Learn from feedback patterns: repeated constraints suggest strategy adjustment needed
 
 CURRENT SITUATION:
 Location: {{.State.SystemName}} ({{.State.SystemID}})

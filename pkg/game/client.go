@@ -1114,25 +1114,74 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	case <-okChan:
 		return nil
 	case resp := <-errorChan:
-		// Check for "benign" error codes that should be treated as success
+		// Check error code and categorize response
 		if code, ok := resp.Payload["code"].(string); ok {
 			switch code {
+			// BENIGN: Goal already achieved (treat as success)
 			case "already_there":
-				// Agent is already at the destination - this is effectively success
-				c.debugLogger.Printf("Travel action succeeded: already at destination")
+				c.debugLogger.Printf("Already at destination (success)")
 				return nil
 			case "already_docked":
-				// Agent is already docked - this is effectively success
-				c.debugLogger.Printf("Dock action succeeded: already docked")
+				c.debugLogger.Printf("Already docked (success)")
 				return nil
 			case "not_docked":
-				// Trying to undock when not docked - treat as success (desired state achieved)
-				c.debugLogger.Printf("Undock action succeeded: already undocked")
+				// When trying to undock but already undocked
+				c.debugLogger.Printf("Already undocked (success)")
 				return nil
+
+			// INFORMATIONAL: Agent should adapt strategy but not fail
+			case "already_traveling", "already_jumping":
+				// Already in transit - wait for arrival
+				c.debugLogger.Printf("Already in transit: %s", code)
+				return fmt.Errorf("already in transit - wait for arrival")
+
+			case "docked":
+				// Must undock first before this action
+				c.debugLogger.Printf("Must undock before this action")
+				return fmt.Errorf("must undock first - currently docked at station")
+
+			case "no_fuel":
+				c.debugLogger.Printf("Insufficient fuel for action")
+				return fmt.Errorf("insufficient fuel - dock at station to refuel")
+
+			case "no_credits":
+				c.debugLogger.Printf("Insufficient credits")
+				return fmt.Errorf("insufficient credits - need to earn money first")
+
+			case "no_cargo_space":
+				c.debugLogger.Printf("Cargo hold full")
+				return fmt.Errorf("cargo hold full - dock at station to sell items")
+
+			case "missing_materials":
+				c.debugLogger.Printf("Missing crafting materials")
+				return fmt.Errorf("missing required materials for crafting")
+
+			case "cannot_craft":
+				c.debugLogger.Printf("Insufficient crafting skill")
+				return fmt.Errorf("insufficient skill level for this recipe")
+
+			case "no_cloak", "no_crafting_service":
+				c.debugLogger.Printf("Missing equipment/service: %s", code)
+				msg := resp.Payload["message"].(string)
+				return fmt.Errorf("%s", msg)
+
+			// ACTUAL ERRORS: Invalid attempts
+			case "rate_limited":
+				// This shouldn't happen with proper timing, but handle it
+				waitTime := "unknown"
+				if wait, ok := resp.Payload["wait_seconds"].(float64); ok {
+					waitTime = fmt.Sprintf("%.1fs", wait)
+				}
+				c.debugLogger.Printf("Rate limited - wait %s", waitTime)
+				return fmt.Errorf("rate limited - wait %s before next action", waitTime)
+
+			default:
+				// All other error codes - log and return as error
+				c.debugLogger.Printf("Action failed with code: %s", code)
 			}
 		}
 
-		// Extract error message from payload for actual errors
+		// Extract error message from payload
 		if msg, ok := resp.Payload["message"].(string); ok {
 			return fmt.Errorf("%s", msg)
 		}
