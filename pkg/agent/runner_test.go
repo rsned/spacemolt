@@ -48,6 +48,14 @@ func (m *mockAgent) Stop() error {
 	return nil
 }
 
+// Tactical Action Queue methods (stubs for testing)
+func (m *mockAgent) EnqueueActions(actions []PlannedAction) {}
+func (m *mockAgent) DequeueAction() (*PlannedAction, bool) { return nil, false }
+func (m *mockAgent) GetActionQueue() []PlannedAction       { return nil }
+func (m *mockAgent) ClearActionQueue(reason string)        {}
+func (m *mockAgent) SetUsingQueuedAction(using bool)       {}
+func (m *mockAgent) IsUsingQueuedAction() bool             { return false }
+
 // Mock game client for testing
 type mockGameClient struct {
 	state           *game.State
