@@ -54,6 +54,14 @@ type Agent interface {
 	Learn(result ActionResult) error
 	Memory() Memory
 
+	// Tactical Action Queue
+	EnqueueActions(actions []PlannedAction)
+	DequeueAction() (*PlannedAction, bool)
+	GetActionQueue() []PlannedAction
+	ClearActionQueue(reason string)
+	SetUsingQueuedAction(using bool)
+	IsUsingQueuedAction() bool
+
 	// Lifecycle
 	Start(ctx context.Context) error
 	Stop() error
@@ -80,13 +88,24 @@ type Motivations struct {
 	Weights   map[string]float64     `yaml:"weights,omitempty"`
 }
 
+// PlannedAction represents a future action in the tactical queue
+type PlannedAction struct {
+	Sequence   int               `json:"sequence"`              // 1-5, order in the plan
+	Action     string            `json:"action"`                // Action name (travel, mine, wait, etc.)
+	Target     string            `json:"target,omitempty"`      // Target for the action (POI ID, system name)
+	Parameters map[string]string `json:"parameters,omitempty"`  // Additional parameters
+	Reasoning  string            `json:"reasoning"`             // Why this step is needed
+	Condition  string            `json:"condition,omitempty"`   // Condition for execution ("after_arrival", "if_cargo_full")
+}
+
 // Decision represents a chosen action
 type Decision struct {
-	Action      string
-	Target      string
-	Reasoning   string
-	Confidence  float64
-	Alternatives []string
+	Action         string           `json:"action"`
+	Target         string           `json:"target,omitempty"`
+	Reasoning      string           `json:"reasoning"`
+	Confidence     float64          `json:"confidence,omitempty"`
+	Alternatives   []string         `json:"alternatives,omitempty"`
+	PlannedActions []PlannedAction  `json:"planned_actions,omitempty"` // NEW: 5-step tactical plan
 }
 
 // ActionResult represents the result of taking an action
