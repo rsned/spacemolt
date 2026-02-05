@@ -8,6 +8,7 @@ bin/*
 /register-agent
 /test-agent-manager
 /test-credentials
+/update-server-docs
 /watcher
 
 ##############################
@@ -46,6 +47,12 @@ tokens
 ##############################
 watcher_ui*.txt
 asfdgasfafsadfasf
+
+##############################
+# Downloaded server docs (versioned externally)
+##############################
+server_docs/*.md
+!server_docs/README.md
 
 ##############################
 # Docs for tracking tasks
