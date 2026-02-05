@@ -135,10 +135,36 @@ RECENT EXPERIENCES:
 {{end}}
 {{end}}
 
-Based on your role as a {{.Role}}, decide what to do next. You may only pick one action at a time.
+Based on your role as a {{.Role}}, decide what to do next.
+
+IMPORTANT - TACTICAL PLANNING:
+Along with your immediate action, provide a 5-step tactical plan. This plan will be executed
+automatically while waiting for your next decision, ensuring continuous operation even with
+LLM latency or throttling.
+
+Example for "need to mine resources":
+{
+  "action": "travel",
+  "target": "sol_belt",
+  "reasoning": "Need iron ore for wealth accumulation",
+  "planned_actions": [
+    {"sequence": 1, "action": "wait", "reasoning": "Let travel complete"},
+    {"sequence": 2, "action": "mine", "reasoning": "Collect iron ore"},
+    {"sequence": 3, "action": "mine", "reasoning": "Continue mining"},
+    {"sequence": 4, "action": "mine", "reasoning": "Fill cargo hold"},
+    {"sequence": 5, "action": "travel", "target": "sol_station", "reasoning": "Return to sell"}
+  ]
+}
+
+The plan will be cleared automatically if:
+- Combat starts (tactics must change)
+- Fuel drops below 20% (emergency refuel needed)
+- Hull drops below 30% (emergency repair needed)
+- Cargo becomes full (can't continue mining)
+- Any action fails (plan assumptions invalid)
 
 {{template "actions_list.tmpl"}}
 
 {{template "json_format.tmpl"}}
 
-Your decision:
+Your decision with 5-step tactical plan:

@@ -220,10 +220,38 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
 	}
 
-	// Agent makes decision
-	decision, err := r.agent.Decide(ctx, stateCopy)
-	if err != nil {
-		return fmt.Errorf("decision failed: %w", err)
+	// Try to use queued action first, fall back to LLM decision
+	var decision Decision
+	var err error
+	var fromQueue bool
+
+	if queuedAction, ok := r.agent.DequeueAction(); ok {
+		// Use queued action
+		fromQueue = true
+		r.logger.Printf("[%s] Using queued action [%d]: %s (queue has %d remaining)",
+			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, len(r.agent.GetActionQueue()))
+
+		decision = Decision{
+			Action:    queuedAction.Action,
+			Target:    queuedAction.Target,
+			Reasoning: fmt.Sprintf("[QUEUED #%d] %s", queuedAction.Sequence, queuedAction.Reasoning),
+		}
+
+		r.agent.SetUsingQueuedAction(true)
+	} else {
+		// No queued actions - get fresh LLM decision
+		decision, err = r.agent.Decide(ctx, stateCopy)
+		if err != nil {
+			return fmt.Errorf("decision failed: %w", err)
+		}
+
+		// Save any planned actions to the queue
+		if len(decision.PlannedActions) > 0 {
+			r.agent.EnqueueActions(decision.PlannedActions)
+			r.logger.Printf("[%s] Enqueued %d planned actions", r.agent.ID(), len(decision.PlannedActions))
+		}
+
+		r.agent.SetUsingQueuedAction(false)
 	}
 
 	// Emit decision event
@@ -232,6 +260,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		"target":     decision.Target,
 		"confidence": decision.Confidence,
 		"reasoning":  decision.Reasoning,
+		"fromQueue":  fromQueue,
 		"tick":       currentTick,
 	})
 
@@ -269,8 +298,16 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		}
 		_ = r.agent.Learn(result)
 
+		// Clear action queue on failures (plan assumptions invalid)
+		r.agent.ClearActionQueue("action_failed")
+
 		// Note: Failed actions don't consume tick, so we don't update lastActionTick
 		return fmt.Errorf("action execution failed: %w", err)
+	}
+
+	// Check if we should invalidate the queue based on state changes
+	if r.shouldInvalidateQueue(r.gameClient.GetState()) {
+		r.agent.ClearActionQueue("situation_changed")
 	}
 
 	// Update last action tick/time if this was an action command
@@ -594,4 +631,47 @@ func getSecurityLevel(policeLevel int) string {
 	default:
 		return "Unknown"
 	}
+}
+
+// shouldInvalidateQueue determines if the action queue should be cleared based on state changes
+func (r *Runner) shouldInvalidateQueue(state *game.State) bool {
+	if state == nil {
+		return false
+	}
+
+	// Skip invalidation if not using queued actions
+	if !r.agent.IsUsingQueuedAction() {
+		return false
+	}
+
+	// Clear queue on critical state changes:
+
+	// 1. Combat started - tactics changed
+	if state.InCombat {
+		r.logger.Printf("[%s] Queue invalidation: combat started", r.agent.ID())
+		return true
+	}
+
+	// 2. Low fuel - need emergency refuel
+	fuelPercent := (state.Fuel / state.MaxFuel) * 100
+	if fuelPercent < 20 {
+		r.logger.Printf("[%s] Queue invalidation: low fuel (%.1f%%)", r.agent.ID(), fuelPercent)
+		return true
+	}
+
+	// 3. Low hull - need emergency repair
+	hullPercent := (state.Hull / state.MaxHull) * 100
+	if hullPercent < 30 {
+		r.logger.Printf("[%s] Queue invalidation: low hull (%.1f%%)", r.agent.ID(), hullPercent)
+		return true
+	}
+
+	// 4. Cargo full - can't continue mining plans
+	cargoFull := len(state.Ship.Cargo) >= state.MaxCargo
+	if cargoFull {
+		r.logger.Printf("[%s] Queue invalidation: cargo full", r.agent.ID())
+		return true
+	}
+
+	return false
 }

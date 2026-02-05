@@ -31,6 +31,12 @@ type BaseAgent struct {
 	lastActionResult *ActionResult // Result from the most recent action
 	currentGoal      *Goal         // Current strategic goal
 	priority         Priority      // Current priorities and constraints
+
+	// Action queue for tactical planning
+	actionQueue       []PlannedAction
+	queueMu           sync.RWMutex
+	usingQueuedAction bool
+
 	stopCh           chan struct{}
 	stopOnce         sync.Once
 	mu               sync.RWMutex
@@ -713,4 +719,58 @@ func getDefaultFocusForRole(role string) string {
 	default:
 		return "general"
 	}
+}
+
+// ===== Action Queue Management =====
+
+// EnqueueActions adds planned actions to the queue
+func (a *BaseAgent) EnqueueActions(actions []PlannedAction) {
+	a.queueMu.Lock()
+	defer a.queueMu.Unlock()
+	a.actionQueue = actions
+}
+
+// DequeueAction removes and returns the next action from the queue
+func (a *BaseAgent) DequeueAction() (*PlannedAction, bool) {
+	a.queueMu.Lock()
+	defer a.queueMu.Unlock()
+
+	if len(a.actionQueue) == 0 {
+		return nil, false
+	}
+
+	action := a.actionQueue[0]
+	a.actionQueue = a.actionQueue[1:]
+	return &action, true
+}
+
+// GetActionQueue returns a copy of the current action queue
+func (a *BaseAgent) GetActionQueue() []PlannedAction {
+	a.queueMu.RLock()
+	defer a.queueMu.RUnlock()
+	return append([]PlannedAction{}, a.actionQueue...)
+}
+
+// ClearActionQueue clears the action queue with a reason
+func (a *BaseAgent) ClearActionQueue(reason string) {
+	a.queueMu.Lock()
+	defer a.queueMu.Unlock()
+	if len(a.actionQueue) > 0 {
+		fmt.Printf("[%s] Clearing action queue: %s (had %d actions)\n", a.id, reason, len(a.actionQueue))
+		a.actionQueue = nil
+	}
+}
+
+// SetUsingQueuedAction marks whether we're currently using a queued action
+func (a *BaseAgent) SetUsingQueuedAction(using bool) {
+	a.queueMu.Lock()
+	defer a.queueMu.Unlock()
+	a.usingQueuedAction = using
+}
+
+// IsUsingQueuedAction returns whether we're currently using a queued action
+func (a *BaseAgent) IsUsingQueuedAction() bool {
+	a.queueMu.RLock()
+	defer a.queueMu.RUnlock()
+	return a.usingQueuedAction
 }
