@@ -272,9 +272,8 @@ func main() {
 		debugLogger.Printf("Found %d agents on server", len(agentInfos))
 
 		// Create model with nil state (remote mode doesn't need watcher state)
-		tempModel := tui.NewWatcherModel(nil, tuiReadyChan)
-		tempModel.SetRemoteMode(serverClient)
-		model = &tempModel
+		model = tui.NewWatcherModel(nil, tuiReadyChan)
+		model.SetRemoteMode(serverClient)
 
 		// Add remote agents to TUI
 		for _, info := range agentInfos {
@@ -301,8 +300,7 @@ func main() {
 			Password: password,
 		}
 
-		tempModel := tui.NewWatcherModel(state, tuiReadyChan)
-		model = &tempModel
+		model = tui.NewWatcherModel(state, tuiReadyChan)
 
 		// Add local agents to TUI
 		for _, agt := range agentMgr.ListAgents() {

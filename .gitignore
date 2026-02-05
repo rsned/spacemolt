@@ -67,3 +67,4 @@ reviews/*.md
 # official spacemolt client
 #
 spacemolt-client-linux-x64
+test-agent

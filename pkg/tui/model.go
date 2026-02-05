@@ -86,8 +86,8 @@ type WatcherModel struct {
 // NewWatcherModel creates a new watcher TUI model
 // The readyChan will be closed when the TUI is initialized and ready for use
 // Note: The state parameter is kept for backward compatibility but is now optional (can be nil)
-func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
-	model := WatcherModel{
+func NewWatcherModel(state *game.State, readyChan chan struct{}) *WatcherModel {
+	model := &WatcherModel{
 		agentStates: make(map[string]*game.State),
 		agentLogs:   make(map[string][]string),
 		logPanel: logPanelModel{

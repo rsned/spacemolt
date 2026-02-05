@@ -438,7 +438,6 @@ func (c *Client) listen(ctx context.Context) {
 				// Filter out "nearby" field for state_update messages to reduce log clutter
 				payloadToLog := resp.Payload
 				if resp.Type == "state_update" {
-					continue
 					// Create a filtered copy without the "nearby" field
 					filtered := make(map[string]any)
 					for k, v := range resp.Payload {
