@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/credentials"
-  "github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/version"
 )
 
 // Retry configuration constants
@@ -260,6 +261,12 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 		return nil, fmt.Errorf("failed to connect to game server: %w", err)
 	}
 
+	// Check server version compatibility
+	if err := m.checkServerVersion(gameClient, personality.ID); err != nil {
+		_ = gameClient.Close()
+		return nil, fmt.Errorf("server version check failed: %w", err)
+	}
+
 	// Authenticate (register or login)
 	if hasCredentials {
 		m.debugLogger.Printf("[%s] Logging in with existing credentials", personality.ID)
@@ -345,6 +352,43 @@ func (m *Manager) connectWithRetry(ctx context.Context, client *game.Client, age
 	}
 
 	return fmt.Errorf("failed after %d attempts: %w", MaxConnectionRetries, lastErr)
+}
+
+// checkServerVersion validates server version against documented API version
+func (m *Manager) checkServerVersion(client *game.Client, agentID string) error {
+	state := client.GetState()
+	if state.ServerVersion == "" {
+		m.debugLogger.Printf("[%s] Warning: No server version in welcome message, skipping version check", agentID)
+		return nil
+	}
+
+	check, err := version.CheckVersion(state.ServerVersion)
+	if err != nil {
+		m.debugLogger.Printf("[%s] Warning: Version check failed: %v", agentID, err)
+		// Don't fail on version check errors, just log them
+		return nil
+	}
+
+	// Log version info
+	m.debugLogger.Printf("[%s] Server version: %s, API docs version: %s",
+		agentID, check.ServerVersion, check.ExpectedVersion)
+
+	// Handle major version mismatch (error)
+	if check.MajorMismatch {
+		m.debugLogger.Printf("[%s] %s", agentID, check.ErrorMessage)
+		fmt.Fprintf(os.Stderr, "\n[%s] VERSION MISMATCH ERROR:\n%s\n\n", agentID, check.ErrorMessage)
+		return fmt.Errorf("major version mismatch: server %s vs expected %s",
+			check.ServerVersion, check.ExpectedVersion)
+	}
+
+	// Handle minor version difference (warning)
+	if check.WarningMessage != "" {
+		banner := check.Banner()
+		m.debugLogger.Printf("[%s] %s", agentID, banner)
+		fmt.Fprint(os.Stderr, banner)
+	}
+
+	return nil
 }
 
 // loginWithRetry attempts to authenticate with retries

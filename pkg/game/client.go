@@ -334,6 +334,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if tick, ok := resp.Payload["current_tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
+		if version, ok := resp.Payload["version"].(string); ok {
+			c.state.ServerVersion = version
+			c.debugLogger.Printf("Server version: %s", version)
+		}
 
 	case protocol.TypeRegistered:
 		if token, ok := resp.Payload["token"].(string); ok {
