@@ -37,7 +37,8 @@ func New(cfg Config) (*Client, error) {
 		cfg.BaseURL = "http://localhost:11434"
 	}
 	if cfg.Model == "" {
-		cfg.Model = "llama3.2"
+		//cfg.Model = "llama3.2"
+		cfg.Model = "dolphin3"
 	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
@@ -153,7 +154,7 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 	}
 
 	// DEBUG: Log raw LLM response
-	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
+	//fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 
 	// Extract structured decision from text response
 	return c.parseDecision(ollamaResp.Response)
@@ -171,7 +172,7 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 	jsonStr := text[start : end+1]
 
 	// DEBUG: Log extracted JSON
-	fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
+	//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 
 	var decision DecisionResponse
 	if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {

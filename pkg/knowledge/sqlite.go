@@ -263,6 +263,47 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	return nil
 }
 
+// GetPOIs retrieves all POIs in a system
+func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT id, system_id, name, type, description, pos_x, pos_y, discovered_by
+		FROM pois
+		WHERE system_id = ?
+		ORDER BY name
+	`, systemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query POIs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var pois []POI
+	for rows.Next() {
+		var poi POI
+		var description string
+		err := rows.Scan(
+			&poi.ID,
+			&poi.SystemID,
+			&poi.Name,
+			&poi.Type,
+			&description,
+			&poi.Position.X,
+			&poi.Position.Y,
+			&poi.DiscoveredBy,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan POI: %w", err)
+		}
+		poi.Description = description
+		pois = append(pois, poi)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating POIs: %w", err)
+	}
+
+	return pois, nil
+}
+
 // AddExperience logs an agent experience
 func (kb *SQLiteKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	_, err := kb.db.ExecContext(ctx, `

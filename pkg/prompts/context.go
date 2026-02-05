@@ -13,6 +13,7 @@ type TemplateContext struct {
 	History      *HistoryContext
 	LastFeedback *FeedbackContext
 	System       *SystemContext
+	Goal         *GoalContext
 }
 
 // PersonalityContext contains agent personality information
@@ -23,6 +24,30 @@ type PersonalityContext struct {
 	Motivations  []string
 	Skills       []string
 	Background   string
+}
+
+// CargoItem represents an item in cargo
+type CargoItem struct {
+	Type     string
+	Quantity int
+}
+
+// NearbyPlayerInfo represents a nearby player
+type NearbyPlayerInfo struct {
+	Username   string
+	ShipClass  string
+	FactionTag string
+	InCombat   bool
+	ClanTag    string
+}
+
+// TravelProgressContext represents travel state
+type TravelProgressContext struct {
+	Progress    float64
+	Destination string
+	Type        string // "travel" or "jump"
+	ArrivalTick int64
+	ETA         int64 // Ticks remaining
 }
 
 // StateContext contains current game state information
@@ -43,12 +68,39 @@ type StateContext struct {
 	MaxCargo     int
 	Credits      float64
 	Tick         int64
-}
 
-// CargoItem represents an item in cargo
-type CargoItem struct {
-	Type     string
-	Quantity int
+	// Combat & Tactical
+	Shield         float64
+	MaxShield      float64
+	ShieldPercent  float64
+	ShieldRecharge float64
+	Armor          float64
+	InCombat       bool
+	NearbyPlayers  int
+	NearbyHostiles int
+	NearbyList     []NearbyPlayerInfo
+
+	// Ship Technical
+	CPUUsed       float64
+	CPUCapacity   float64
+	CPUPercent    float64
+	PowerUsed     float64
+	PowerCapacity float64
+	PowerPercent  float64
+	Speed         float64
+	ShipClass     string
+	Modules       []string
+
+	// Cargo Details
+	CargoUsed     float64
+	CargoPercent  float64
+
+	// Travel & Location
+	Traveling      bool
+	TravelProgress *TravelProgressContext
+	POIDescription string
+	SystemSecurity string
+	SystemEmpire   string
 }
 
 // KnowledgeContext contains what the agent knows
@@ -100,6 +152,18 @@ type ExperienceRecord struct {
 	Location    string
 }
 
+// GoalContext contains the agent's current goal and priorities
+type GoalContext struct {
+	Type        string   // Goal type: "wealth", "skill", "exploration", "resource", "reputation"
+	Target      string   // Specific target (e.g., "Mining_5", "10000_credits")
+	Progress    float64  // Progress towards goal (0.0 to 1.0)
+	Priority    int      // Priority level (1-10)
+	Reasoning   string   // Why this goal was set
+	Focus       string   // Current strategic focus
+	Constraints []string // Active constraints
+	Urgency     int      // Urgency level (1-10)
+}
+
 // FeedbackContext contains feedback from the last action
 type FeedbackContext struct {
 	Success   bool
@@ -136,6 +200,7 @@ func NewTemplateContext(
 	knowledge *KnowledgeContext,
 	history *HistoryContext,
 	lastFeedback *FeedbackContext,
+	goal *GoalContext,
 ) *TemplateContext {
 	return &TemplateContext{
 		AgentID:      agentID,
@@ -147,6 +212,7 @@ func NewTemplateContext(
 		History:      history,
 		LastFeedback: lastFeedback,
 		System:       buildSystemContext(state),
+		Goal:         goal,
 	}
 }
 
@@ -212,6 +278,58 @@ func buildStateContext(state *game.State) *StateContext {
 		MaxCargo:    state.MaxCargo,
 		Credits:     state.Credits,
 		Tick:        state.GetTick(),
+
+		// Combat & Tactical
+		Shield:         state.Ship.Shield,
+		MaxShield:      state.Ship.MaxShield,
+		ShieldRecharge: state.Ship.ShieldRecharge,
+		Armor:          state.Ship.Armor,
+		InCombat:       state.InCombat,
+		NearbyPlayers:  len(state.Nearby),
+
+		// Ship Technical
+		CPUUsed:       state.Ship.CPUUsed,
+		CPUCapacity:   state.Ship.CPUCapacity,
+		PowerUsed:     state.Ship.PowerUsed,
+		PowerCapacity: state.Ship.PowerCapacity,
+		Speed:         state.Ship.Speed,
+		ShipClass:     state.Ship.ClassID,
+		Modules:       state.Ship.Modules,
+
+		// Cargo Details
+		CargoUsed: state.Ship.CargoUsed,
+
+		// Travel & Location
+		Traveling:      state.Traveling,
+		SystemEmpire:   state.System.Empire,
+	}
+
+	// Calculate percentages
+	if sc.MaxShield > 0 {
+		sc.ShieldPercent = (sc.Shield / sc.MaxShield) * 100
+	}
+	if sc.CPUCapacity > 0 {
+		sc.CPUPercent = (sc.CPUUsed / sc.CPUCapacity) * 100
+	}
+	if sc.PowerCapacity > 0 {
+		sc.PowerPercent = (sc.PowerUsed / sc.PowerCapacity) * 100
+	}
+	if state.Ship.CargoCapacity > 0 {
+		sc.CargoPercent = (sc.CargoUsed / state.Ship.CargoCapacity) * 100
+	}
+
+	// Map security level
+	switch state.System.PoliceLevel {
+	case 0:
+		sc.SystemSecurity = "None"
+	case 1:
+		sc.SystemSecurity = "Low"
+	case 2:
+		sc.SystemSecurity = "Medium"
+	case 3:
+		sc.SystemSecurity = "High"
+	default:
+		sc.SystemSecurity = "Unknown"
 	}
 
 	// If docked, set the docked location
@@ -225,6 +343,48 @@ func buildStateContext(state *game.State) *StateContext {
 		sc.Cargo[i] = CargoItem{
 			Type:     item.ItemID,
 			Quantity: int(item.Quantity),
+		}
+	}
+
+	// Process nearby players
+	sc.NearbyList = make([]NearbyPlayerInfo, 0, len(state.Nearby))
+	nearbyHostiles := 0
+	for _, p := range state.Nearby {
+		sc.NearbyList = append(sc.NearbyList, NearbyPlayerInfo{
+			Username:   p.Username,
+			ShipClass:  p.ShipClass,
+			FactionTag: p.FactionTag,
+			InCombat:   p.InCombat,
+			ClanTag:    p.ClanTag,
+		})
+		// Count hostiles (in combat or different faction)
+		if p.InCombat {
+			nearbyHostiles++
+		}
+	}
+	sc.NearbyHostiles = nearbyHostiles
+
+	// Add travel progress if traveling
+	if state.Traveling && state.TravelProgress != nil {
+		tp := state.TravelProgress
+		eta := tp.ArrivalTick - state.CurrentTick
+		if eta < 0 {
+			eta = 0
+		}
+		sc.TravelProgress = &TravelProgressContext{
+			Progress:    tp.Progress,
+			Destination: tp.Destination,
+			Type:        tp.Type,
+			ArrivalTick: tp.ArrivalTick,
+			ETA:         eta,
+		}
+	}
+
+	// Find current POI description
+	for _, poi := range state.System.POIs {
+		if poi.ID == state.CurrentPOI {
+			sc.POIDescription = poi.Description
+			break
 		}
 	}
 

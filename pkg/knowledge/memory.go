@@ -124,6 +124,21 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 	return nil
 }
 
+// GetPOIs retrieves all POIs in a system
+func (kb *MemoryKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var result []POI
+	for _, poi := range kb.pois {
+		if poi.SystemID == systemID {
+			result = append(result, *poi)
+		}
+	}
+
+	return result, nil
+}
+
 // AddExperience logs an agent experience
 func (kb *MemoryKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	kb.mu.Lock()
