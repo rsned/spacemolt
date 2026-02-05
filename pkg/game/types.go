@@ -23,6 +23,7 @@ type Player struct {
 	PrimaryColor   string             `json:"primary_color,omitempty"`
 	SecondaryColor string             `json:"secondary_color,omitempty"`
 	Anonymous      bool               `json:"anonymous"`
+	IsCloaked      bool               `json:"is_cloaked"`
 	Skills         map[string]Skill   `json:"skills"`
 	Stats          PlayerStats        `json:"stats"`
 }
