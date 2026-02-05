@@ -1,0 +1,27 @@
+{{define "json_format.tmpl"}}
+IMPORTANT: Respond with ONLY valid JSON. Do NOT include comments or explanatory text.
+
+Required format:
+{
+  "action": "action_name",
+  "target": "target_if_needed",
+  "reasoning": "brief explanation",
+  "confidence": 0.85,
+  "planned_actions": [
+    {"sequence": 1, "action": "next_action", "reasoning": "why"},
+    {"sequence": 2, "action": "next_action", "reasoning": "why"}
+  ]
+}
+
+The planned_actions array should contain 1-5 steps. Each step needs sequence, action, and reasoning. Include target only if needed.
+
+EXAMPLES (copy this format exactly):
+{"action": "travel", "target": "sol_belt", "reasoning": "Going to mine iron", "confidence": 0.9, "planned_actions": [{"sequence": 1, "action": "wait", "reasoning": "Let travel complete"}, {"sequence": 2, "action": "mine", "reasoning": "Collect ore"}, {"sequence": 3, "action": "mine", "reasoning": "Fill cargo"}]}
+
+{"action": "undock", "reasoning": "Leaving station to explore", "confidence": 0.8, "planned_actions": [{"sequence": 1, "action": "travel", "target": "sol_belt", "reasoning": "Head to mining location"}]}
+
+CRITICAL:
+- Use EXACT POI IDs from the list above for "travel" actions
+- Use EXACT system names from connections for "jump" actions
+- NO comments, NO trailing commas, NO extra text - ONLY valid JSON
+{{end}}
