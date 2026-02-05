@@ -146,6 +146,7 @@ type State struct {
 	Mu             sync.Mutex
 	Username       string
 	Password       string // Permanent password from registration (64-char hex string)
+	ServerVersion  string // Server version from welcome message (e.g., "v0.43.6")
 	Doc            bool
 	CurrentSystem  string
 	CurrentPOI     string
