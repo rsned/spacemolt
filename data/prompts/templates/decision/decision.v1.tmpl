@@ -108,7 +108,8 @@ IMPORTANT: Learn from this feedback! If the last action failed, you must address
 {{if .Knowledge}}
 {{if .Knowledge.POIsInSystem}}
 AVAILABLE POIs IN CURRENT SYSTEM (use "travel" with EXACT ID):
-{{range .Knowledge.POIsInSystem}}  - ID: "{{.ID}}" - {{.Name}} ({{.Type}})
+{{range .Knowledge.POIsInSystem}}  - ID: "{{.ID}}" - {{.Name}} ({{.Type}}){{if .Resources}}
+    Resources: {{range $i, $r := .Resources}}{{if $i}}, {{end}}{{$r.ResourceID}} (richness: {{printf "%.0f" $r.Richness}}, remaining: {{printf "%.0f" $r.Remaining}}){{end}}{{end}}
 {{end}}
 IMPORTANT: Use the exact ID in quotes above as the target for "travel" action.
 {{else}}

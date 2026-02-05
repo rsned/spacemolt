@@ -547,6 +547,16 @@ func (m *KBMemory) KnownPOIs(systemID string) []POIKnowledge {
 
 	result := make([]POIKnowledge, len(pois))
 	for i, poi := range pois {
+		// Convert resources from knowledge.ResourceInfo to agent.ResourceInfo
+		resources := make([]ResourceInfo, len(poi.Resources))
+		for j, res := range poi.Resources {
+			resources[j] = ResourceInfo{
+				ResourceID: res.ResourceID,
+				Richness:   res.Richness,
+				Remaining:  res.Remaining,
+			}
+		}
+
 		result[i] = POIKnowledge{
 			ID:          poi.ID,
 			SystemID:    poi.SystemID,
@@ -555,7 +565,7 @@ func (m *KBMemory) KnownPOIs(systemID string) []POIKnowledge {
 			Description: poi.Description,
 			Position:    Position{X: poi.Position.X, Y: poi.Position.Y},
 			Services:    poi.Services,
-			Resources:   poi.Resources,
+			Resources:   resources,
 		}
 	}
 
@@ -584,12 +594,23 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys System) error {
 
 // RememberPOI stores a POI in memory
 func (m *KBMemory) RememberPOI(ctx context.Context, poi POI) error {
+	// Convert resources
+	resources := make([]knowledge.ResourceInfo, len(poi.Resources))
+	for i, res := range poi.Resources {
+		resources[i] = knowledge.ResourceInfo{
+			ResourceID: res.ResourceID,
+			Richness:   res.Richness,
+			Remaining:  res.Remaining,
+		}
+	}
+
 	kbPOI := knowledge.POI{
 		ID:           poi.ID,
 		SystemID:     poi.SystemID,
 		Name:         poi.Name,
 		Type:         poi.Type,
 		Position:     knowledge.Position{X: poi.Position.X, Y: poi.Position.Y},
+		Resources:    resources,
 		DiscoveredBy: poi.DiscoveredBy,
 	}
 

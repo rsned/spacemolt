@@ -546,10 +546,14 @@ func (r *Runner) saveSystemKnowledge(ctx context.Context) {
 
 	// Convert and save POI information
 	for _, gamePOI := range state.System.POIs {
-		// Extract resource types
-		resources := make([]string, 0, len(gamePOI.Resources))
+		// Extract full resource information
+		resources := make([]ResourceInfo, 0, len(gamePOI.Resources))
 		for _, res := range gamePOI.Resources {
-			resources = append(resources, res.ResourceID)
+			resources = append(resources, ResourceInfo{
+				ResourceID: res.ResourceID,
+				Richness:   res.Richness,
+				Remaining:  res.Remaining,
+			})
 		}
 
 		poi := POI{
