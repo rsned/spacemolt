@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/prompts"
@@ -154,7 +153,7 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 	}
 
 	// DEBUG: Log raw LLM response
-	//fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
+	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 
 	// Extract structured decision from text response
 	return c.parseDecision(ollamaResp.Response)
@@ -162,34 +161,57 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 
 // parseDecision extracts structured decision from LLM text response
 func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
-	// Find JSON block in response
-	start := strings.Index(text, "{")
-	end := strings.LastIndex(text, "}")
-	if start == -1 || end == -1 || end <= start {
+	// Find all complete JSON objects in the response
+	// LLMs sometimes return examples followed by the actual response
+	var jsonObjects []string
+	inObject := false
+	braceCount := 0
+	currentStart := -1
+
+	for i, ch := range text {
+		if ch == '{' {
+			if braceCount == 0 {
+				currentStart = i
+				inObject = true
+			}
+			braceCount++
+		} else if ch == '}' {
+			braceCount--
+			if braceCount == 0 && inObject {
+				jsonObjects = append(jsonObjects, text[currentStart:i+1])
+				inObject = false
+			}
+		}
+	}
+
+	if len(jsonObjects) == 0 {
 		return nil, fmt.Errorf("no JSON block found in response")
 	}
 
-	jsonStr := text[start : end+1]
+	// Try to parse JSON objects, preferring the last valid one
+	// (LLMs often put examples first, then the actual decision)
+	var lastError error
+	for i := len(jsonObjects) - 1; i >= 0; i-- {
+		jsonStr := jsonObjects[i]
 
-	// DEBUG: Log extracted JSON
-	//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
+		// DEBUG: Log extracted JSON
+		if i == len(jsonObjects)-1 {
+			fmt.Printf("[LLM] Found %d JSON object(s), using last one:\n%s\n", len(jsonObjects), jsonStr)
+		}
 
-	var decision DecisionResponse
-	if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
-		fmt.Printf("[LLM] ERROR: Failed to parse JSON: %v\n", err)
-		return nil, fmt.Errorf("failed to parse decision JSON: %w", err)
+		var decision DecisionResponse
+		if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
+			lastError = err
+			continue
+		}
+
+		// Successfully parsed
+		return &decision, nil
 	}
 
-	/*
-		// DEBUG: Log parsed fields
-		fmt.Printf("[LLM] Parsed DecisionResponse:\n")
-		fmt.Printf("  Action: '%s'\n", decision.Action)
-		fmt.Printf("  Target: '%s'\n", decision.Target)
-		fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
-		fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
-	*/
-
-	return &decision, nil
+	// All objects failed to parse
+	fmt.Printf("[LLM] ERROR: Failed to parse any JSON objects: %v\n", lastError)
+	return nil, fmt.Errorf("failed to parse decision JSON: %w", lastError)
 }
 
 // BuildDecisionPrompt creates a prompt for the LLM
