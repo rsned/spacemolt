@@ -438,6 +438,7 @@ func (c *Client) listen(ctx context.Context) {
 				// Filter out "nearby" field for state_update messages to reduce log clutter
 				payloadToLog := resp.Payload
 				if resp.Type == "state_update" {
+					continue
 					// Create a filtered copy without the "nearby" field
 					filtered := make(map[string]any)
 					for k, v := range resp.Payload {
@@ -451,6 +452,9 @@ func (c *Client) listen(ctx context.Context) {
 					payloadToLog = filtered
 				}
 				payloadJSON, _ := json.Marshal(payloadToLog)
+				if len(payloadJSON) > 255 {
+					payloadJSON = payloadJSON[:255]
+				}
 				c.debugLogger.Printf("Response Payload: %s", string(payloadJSON))
 			}
 			// Check for error message in payload
@@ -1110,7 +1114,25 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	case <-okChan:
 		return nil
 	case resp := <-errorChan:
-		// Extract error message from payload
+		// Check for "benign" error codes that should be treated as success
+		if code, ok := resp.Payload["code"].(string); ok {
+			switch code {
+			case "already_there":
+				// Agent is already at the destination - this is effectively success
+				c.debugLogger.Printf("Travel action succeeded: already at destination")
+				return nil
+			case "already_docked":
+				// Agent is already docked - this is effectively success
+				c.debugLogger.Printf("Dock action succeeded: already docked")
+				return nil
+			case "not_docked":
+				// Trying to undock when not docked - treat as success (desired state achieved)
+				c.debugLogger.Printf("Undock action succeeded: already undocked")
+				return nil
+			}
+		}
+
+		// Extract error message from payload for actual errors
 		if msg, ok := resp.Payload["message"].(string); ok {
 			return fmt.Errorf("%s", msg)
 		}
