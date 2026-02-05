@@ -25,7 +25,8 @@ var (
 	// Command-line flags
 	debugMode           = flag.Bool("debug", false, "Enable debug logging to stderr")
 	logFile             = flag.String("log-file", "", "Write debug logs to file instead of stderr")
-	agents              = flag.String("agents", "explorer-7", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2')")
+	agents              = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
+	agentServerURL      = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
 	dbBackend           = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
 	dbPath              = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
 	credsProvider       = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
@@ -124,124 +125,194 @@ func main() {
 
 	ctx := context.Background()
 
-	// Check for existing credentials
-	var username, token string
-	if data, err := os.ReadFile(credentialsFile); err == nil {
-		var creds map[string]string
-		if err := json.Unmarshal(data, &creds); err == nil {
-			username = creds["username"]
-			token = creds["token"]
+	// Determine operating mode
+	remoteMode := *agentServerURL != ""
+	localMode := *agents != ""
+
+	if !remoteMode && !localMode {
+		log.Fatal("Must provide either --agent-server-url (remote mode) or --agents (local mode)")
+	}
+
+	if remoteMode && localMode {
+		log.Fatal("Cannot use both --agent-server-url and --agents. Choose remote or local mode.")
+	}
+
+	// Check for existing credentials (local mode only)
+	var username, password string
+	if localMode {
+		if data, err := os.ReadFile(credentialsFile); err == nil {
+			var creds map[string]string
+			if err := json.Unmarshal(data, &creds); err == nil {
+				username = creds["username"]
+				password = creds["password"]
+			// Backward compatibility: check for "token" field
+			if password == "" {
+				password = creds["token"]
+			}
+			}
 		}
 	}
 
-	// Create LLM client
-	llmClient := llm.New(llm.Config{
-		BaseURL: "http://localhost:11434",
-		Model:   "llama3.2",
-		Timeout: 60 * time.Second,
-	})
-	debugLogger.Printf("Created LLM client")
-
-	// Test LLM connection
-	if err := llmClient.TestConnection(ctx); err != nil {
-		log.Printf("Warning: Could not connect to Ollama: %v", err)
-		log.Printf("Agents will not be able to make decisions without Ollama running")
-	} else {
-		debugLogger.Printf("Connected to Ollama successfully")
-	}
-
-	// Create knowledge base
+	// Local mode setup (spawn agents directly)
+	var agentMgr *agent.Manager
 	var kb knowledge.Base
-	switch *dbBackend {
-	case "sqlite":
-		sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
-			DBPath:       *dbPath,
-			WAL:          true,
-			MaxOpenConns: 25,
-			MaxIdleConns: 5,
-			BusyTimeout:  5 * time.Second,
+
+	if localMode {
+		debugLogger.Printf("Local mode: spawning agents %s", *agents)
+
+		// Create LLM client
+		llmClient, err := llm.New(llm.Config{
+			BaseURL: "http://localhost:11434",
+			Model:   "llama3.2",
+			Timeout: 60 * time.Second,
 		})
 		if err != nil {
-			log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+			log.Fatalf("Failed to initialize LLM client: %v", err)
 		}
-		kb = sqliteKB
-		debugLogger.Printf("Created SQLite knowledge base at %s", *dbPath)
-		defer func() { _ = kb.Close() }()
-	case "memory":
-		kb = knowledge.NewMemoryKB()
-		debugLogger.Printf("Created in-memory knowledge base")
-	default:
-		log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
-	}
-	debugLogger.Printf("Created knowledge base")
+		debugLogger.Printf("Created LLM client")
 
-	// Initialize credential provider
-	credsProv, err := initCredentialsProvider()
-	if err != nil {
-		log.Fatalf("Failed to initialize credentials provider: %v", err)
-	}
-	debugLogger.Printf("Initialized credentials provider: %s", *credsProvider)
-
-	// Create agent manager
-	agentMgr := agent.NewManagerLegacy(kb, llmClient, credsProv, 10)
-	debugLogger.Printf("Created agent manager")
-
-	// Parse agent IDs
-	agentIDs := strings.Split(*agents, ",")
-	debugLogger.Printf("Spawning agents: %v", agentIDs)
-
-	// Spawn agents
-	for _, agentID := range agentIDs {
-		agentID = strings.TrimSpace(agentID)
-		if agentID == "" {
-			continue
+		// Test LLM connection
+		if err := llmClient.TestConnection(ctx); err != nil {
+			log.Printf("Warning: Could not connect to Ollama: %v", err)
+			log.Printf("Agents will not be able to make decisions without Ollama running")
+		} else {
+			debugLogger.Printf("Connected to Ollama successfully")
 		}
 
-		// Load personality
-		personalityPath := fmt.Sprintf("data/agents/%s/personality.json", agentID)
-		personality, err := agent.LoadPersonalityJSON(personalityPath)
+		// Create knowledge base
+		switch *dbBackend {
+		case "sqlite":
+			sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
+				DBPath:       *dbPath,
+				WAL:          true,
+				MaxOpenConns: 25,
+				MaxIdleConns: 5,
+				BusyTimeout:  5 * time.Second,
+			})
+			if err != nil {
+				log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+			}
+			kb = sqliteKB
+			debugLogger.Printf("Created SQLite knowledge base at %s", *dbPath)
+			defer func() { _ = kb.Close() }()
+		case "memory":
+			kb = knowledge.NewMemoryKB()
+			debugLogger.Printf("Created in-memory knowledge base")
+		default:
+			log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
+		}
+		debugLogger.Printf("Created knowledge base")
+
+		// Initialize credential provider
+		credsProv, err := initCredentialsProvider()
 		if err != nil {
-			log.Printf("Failed to load personality for %s: %v", agentID, err)
-			continue
+			log.Fatalf("Failed to initialize credentials provider: %v", err)
 		}
+		debugLogger.Printf("Initialized credentials provider: %s", *credsProvider)
 
-		// Spawn agent
-		agt, err := agentMgr.SpawnAgent(ctx, personality)
-		if err != nil {
-			log.Printf("Failed to spawn agent %s: %v", agentID, err)
-			continue
+		// Create agent manager
+		agentMgr = agent.NewManagerLegacy(kb, llmClient, credsProv, 10)
+		debugLogger.Printf("Created agent manager")
+
+		// Parse agent IDs
+		agentIDs := strings.Split(*agents, ",")
+		debugLogger.Printf("Spawning agents: %v", agentIDs)
+
+		// Spawn agents
+		for _, agentID := range agentIDs {
+			agentID = strings.TrimSpace(agentID)
+			if agentID == "" {
+				continue
+			}
+
+			// Load personality
+			personalityPath := fmt.Sprintf("data/agents/%s/personality.json", agentID)
+			personality, err := agent.LoadPersonalityJSON(personalityPath)
+			if err != nil {
+				log.Printf("Failed to load personality for %s: %v", agentID, err)
+				continue
+			}
+
+			// Spawn agent
+			agt, err := agentMgr.SpawnAgent(ctx, personality)
+			if err != nil {
+				log.Printf("Failed to spawn agent %s: %v", agentID, err)
+				continue
+			}
+
+			debugLogger.Printf("Spawned agent: %s (%s)", agt.Name(), agt.ID())
 		}
-
-		debugLogger.Printf("Spawned agent: %s (%s)", agt.Name(), agt.ID())
 	}
 
-	// Create watcher game state and TUI
-	state := &game.State{
-		Doc:         true,
-		MaxCargo:    10,
-		CurrentTick: 0,
-		System: game.SystemData{
-			POIs:        []game.POI{},
-			Connections: []string{},
-		},
-		Username: username,
-		Token:    token,
-	}
-
-	// Create ready channel for TUI initialization synchronization
+	// Create TUI model
 	tuiReadyChan := make(chan struct{})
-	model := tui.NewWatcherModel(state, tuiReadyChan)
+	var model *tui.WatcherModel
+	var serverClient *tui.AgentServerClient
 
-	// Add agents to TUI
-	for _, agt := range agentMgr.ListAgents() {
-		status := agt.Status()
-		model.AddAgent(tui.AgentInfo{
-			ID:     agt.ID(),
-			Name:   agt.Name(),
-			Role:   agt.Personality().Role,
-			Status: status.State.String(),
-			Action: status.CurrentAction,
-		})
+	if remoteMode {
+		// Remote mode: connect to agent-server
+		debugLogger.Printf("Remote mode: connecting to %s", *agentServerURL)
+		serverClient = tui.NewAgentServerClient(*agentServerURL)
+
+		// Test connection
+		if err := serverClient.Ping(); err != nil {
+			log.Fatalf("Failed to connect to agent-server: %v", err)
+		}
+
+		// Fetch agent list
+		agentInfos, err := serverClient.ListAgents()
+		if err != nil {
+			log.Fatalf("Failed to fetch agents from server: %v", err)
+		}
+
+		if len(agentInfos) == 0 {
+			log.Fatal("No agents available on agent-server")
+		}
+
+		debugLogger.Printf("Found %d agents on server", len(agentInfos))
+
+		// Create model with nil state (remote mode doesn't need watcher state)
+		model = tui.NewWatcherModel(nil, tuiReadyChan)
+		model.SetRemoteMode(serverClient)
+
+		// Add remote agents to TUI
+		for _, info := range agentInfos {
+			model.AddAgent(tui.AgentInfo{
+				ID:     info.ID,
+				Name:   info.Name,
+				Role:   info.Role,
+				Status: info.Status,
+				Action: "",
+			})
+		}
+
+	} else {
+		// Local mode: create watcher state
+		state := &game.State{
+			Doc:         true,
+			MaxCargo:    10,
+			CurrentTick: 0,
+			System: game.SystemData{
+				POIs:        []game.POI{},
+				Connections: []string{},
+			},
+			Username: username,
+			Password: password,
+		}
+
+		model = tui.NewWatcherModel(state, tuiReadyChan)
+
+		// Add local agents to TUI
+		for _, agt := range agentMgr.ListAgents() {
+			status := agt.Status()
+			model.AddAgent(tui.AgentInfo{
+				ID:     agt.ID(),
+				Name:   agt.Name(),
+				Role:   agt.Personality().Role,
+				Status: status.State.String(),
+				Action: status.CurrentAction,
+			})
+		}
 	}
 
 	// Start Bubbletea program
@@ -251,14 +322,25 @@ func main() {
 		tea.WithMouseCellMotion(),
 	)
 
-	// Start agent connections in background after TUI is ready
-	go func() {
-		<-tuiReadyChan
-		startAgentConnections(ctx, agentMgr, p)
-	}()
+	if localMode {
+		// Local mode: start agent connections
+		go func() {
+			<-tuiReadyChan
+			startAgentConnections(ctx, agentMgr, p)
+		}()
 
-	// Connect watcher client for display
-	go startWatcherClient(ctx, state, p)
+		// Connect watcher client for display
+		state := model.GetCurrentState()
+		if state != nil {
+			go startWatcherClient(ctx, state, p)
+		}
+	} else {
+		// Remote mode: subscribe to SSE streams
+		go func() {
+			<-tuiReadyChan
+			startRemoteStreaming(ctx, serverClient, model, p)
+		}()
+	}
 
 	// Run the TUI
 	if _, err := p.Run(); err != nil {
@@ -266,9 +348,11 @@ func main() {
 	}
 
 	// Cleanup
-	debugLogger.Printf("Stopping all agents...")
-	if err := agentMgr.StopAll(); err != nil {
-		log.Printf("Error stopping agents: %v", err)
+	if agentMgr != nil {
+		debugLogger.Printf("Stopping all agents...")
+		if err := agentMgr.StopAll(); err != nil {
+			log.Printf("Error stopping agents: %v", err)
+		}
 	}
 }
 
@@ -293,7 +377,7 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.
 			client := game.NewClient(
 				"wss://game.spacemolt.com/ws",
 				creds.Username,
-				creds.Token,
+				creds.Password,
 				debugLogger,
 			)
 
@@ -330,7 +414,7 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.
 			})
 
 			// Authenticate (synchronous - waits for response)
-			if creds.Token != "" {
+			if creds.Password != "" {
 				if err := client.Login(ctx); err != nil {
 					log.Printf("[%s] Login failed: %v", a.ID(), err)
 					p.Send(tui.AgentStatusMsg{
@@ -482,7 +566,7 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 	client := game.NewClient(
 		"wss://game.spacemolt.com/ws",
 		watcherUsername,
-		state.Token,
+		state.Password,
 		debugLogger,
 	)
 
@@ -510,7 +594,7 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 	})
 
 	// Authenticate (synchronous - waits for response)
-	if state.Token != "" {
+	if state.Password != "" {
 		if err := client.Login(ctx); err != nil {
 			log.Printf("Watcher login failed: %v", err)
 			return
@@ -523,7 +607,7 @@ func startWatcherClient(ctx context.Context, state *game.State, p *tea.Program) 
 		// Update state with new username and token
 		state.Mu.Lock()
 		state.Username = watcherUsername
-		state.Token = client.GetState().Token
+		state.Password = client.GetState().Password
 		state.Mu.Unlock()
 	}
 
@@ -602,7 +686,7 @@ func (h *watcherMessageHandler) OnDisconnected(err error) {
 // handleResponse updates state from server responses
 // This is a simplified version that updates the watcher's state
 func handleResponse(resp protocol.Response, state *game.State) {
-	var username, token string
+	var username, password string
 
 	state.Mu.Lock()
 
@@ -613,9 +697,15 @@ func handleResponse(resp protocol.Response, state *game.State) {
 		}
 
 	case protocol.TypeRegistered:
-		if tok, ok := resp.Payload["token"].(string); ok {
-			state.Token = tok
-			token = tok
+		// Support both 'password' (new API) and 'token' (legacy) for backward compatibility
+		if pass, ok := resp.Payload["password"].(string); ok {
+			state.Password = pass
+			password = pass
+			username = state.Username
+		} else if tok, ok := resp.Payload["token"].(string); ok {
+			// Legacy support
+			state.Password = tok
+			password = tok
 			username = state.Username
 		}
 
@@ -638,7 +728,7 @@ func handleResponse(resp protocol.Response, state *game.State) {
 			}
 		}
 		username = state.Username
-		token = state.Token
+		password = state.Password
 
 	case protocol.TypeOK:
 		if player, ok := resp.Payload["player"].(map[string]any); ok {
@@ -776,8 +866,8 @@ func handleResponse(resp protocol.Response, state *game.State) {
 	state.Mu.Unlock()
 
 	// I/O outside the lock
-	if username != "" && token != "" {
-		saveCredentials(username, token)
+	if username != "" && password != "" {
+		saveCredentials(username, password)
 	}
 }
 
@@ -811,10 +901,10 @@ func updateShipState(state *game.State, ship map[string]any, logPrefix string) {
 	}
 }
 
-func saveCredentials(username, token string) {
+func saveCredentials(username, password string) {
 	creds := map[string]string{
 		"username": username,
-		"token":    token,
+		"password": password,
 	}
 	data, err := json.MarshalIndent(creds, "", "  ")
 	if err != nil {
@@ -823,5 +913,92 @@ func saveCredentials(username, token string) {
 	}
 	if err := os.WriteFile(credentialsFile, data, 0600); err != nil {
 		log.Printf("Failed to save credentials: %v", err)
+	}
+}
+
+// startRemoteStreaming subscribes to SSE streams for all remote agents
+func startRemoteStreaming(ctx context.Context, client *tui.AgentServerClient, model *tui.WatcherModel, p *tea.Program) {
+	// Get list of agents from model
+	agentInfos, err := client.ListAgents()
+	if err != nil {
+		log.Printf("Failed to list agents: %v", err)
+		return
+	}
+
+	// Subscribe to each agent's stream
+	for _, info := range agentInfos {
+		agentID := info.ID
+		go func(id string) {
+			debugLogger.Printf("[%s] Subscribing to event stream", id)
+
+			eventCh, err := client.StreamEvents(id)
+			if err != nil {
+				log.Printf("[%s] Failed to subscribe to stream: %v", id, err)
+				return
+			}
+
+			// Process events
+			for event := range eventCh {
+				// Convert SSE event to WsMsg for TUI
+				p.Send(tui.WsMsg{
+					AgentID: id,
+					Type:    event.Type,
+					Payload: event.Data,
+				})
+
+				// Update agent status if it's a status-changing event
+				if event.Type == "decision" {
+					p.Send(tui.AgentStatusMsg{
+						AgentID: id,
+						Status:  "Deciding",
+					})
+				} else if event.Type == "action" {
+					if status, ok := event.Data["status"].(string); ok && status == "success" {
+						p.Send(tui.AgentStatusMsg{
+							AgentID: id,
+							Status:  "Idle",
+						})
+					}
+				} else if event.Type == "error" {
+					p.Send(tui.AgentStatusMsg{
+						AgentID: id,
+						Status:  "Error",
+					})
+				}
+			}
+
+			debugLogger.Printf("[%s] Event stream closed", id)
+		}(agentID)
+
+		// Also poll state periodically for this agent
+		go func(id string) {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					state, err := client.GetState(id)
+					if err != nil {
+						debugLogger.Printf("[%s] Failed to fetch state: %v", id, err)
+						continue
+					}
+
+					// Update model state
+					model.UpdateAgentState(id, state)
+
+					// Trigger UI refresh
+					p.Send(tui.WsMsg{
+						AgentID: id,
+						Type:    "state_update",
+						Payload: map[string]any{
+							"tick": state.CurrentTick,
+						},
+					})
+				}
+			}
+		}(agentID)
 	}
 }
