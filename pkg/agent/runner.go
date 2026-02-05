@@ -202,9 +202,23 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	// Check if we can take an action this tick
 	r.mu.RLock()
 	lastActionTick := r.lastActionTick
+	lastActionTime := r.lastActionTime
 	r.mu.RUnlock()
 
-	canAct := currentTick > lastActionTick
+	// Can act if either:
+	// 1. The game tick has advanced (currentTick > lastActionTick)
+	// 2. OR 12+ seconds have elapsed (fallback in case state update is delayed)
+	timeSinceLastAction := time.Since(lastActionTime)
+	tickAdvanced := currentTick > lastActionTick
+	timeElapsed := timeSinceLastAction >= 12*time.Second || lastActionTime.IsZero()
+
+	canAct := tickAdvanced || timeElapsed
+
+	// Log throttling details for debugging
+	if !canAct {
+		r.logger.Printf("[%s] Throttle check: tick=%d, lastTick=%d, timeSince=%.1fs",
+			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
+	}
 
 	// Agent makes decision
 	decision, err := r.agent.Decide(ctx, stateCopy)
@@ -226,8 +240,8 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	// If it's an action command and we can't act yet, skip
 	if isAction && !canAct {
-		r.logger.Printf("[%s] Throttled: waiting for next tick (current: %d, last action: %d)",
-			r.agent.ID(), currentTick, lastActionTick)
+		r.logger.Printf("[%s] Throttled: waiting for next tick (current: %d, last: %d, elapsed: %.1fs)",
+			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
 		return nil
 	}
 
