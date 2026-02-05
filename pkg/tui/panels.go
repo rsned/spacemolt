@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // Panel models
@@ -43,73 +43,80 @@ type agentPanelModel struct {
 // panelLayout holds the calculated dimensions for each panel
 type panelLayout struct {
 	agentWidth   int
-	agentHeight  int
+	agentHeight  int // Fixed height at bottom (agentsPanelHeight, typically 6)
 	logWidth     int
-	logHeight    int
+	logHeight    int // Capped at maxLogPanelHeight (typically 12)
 	mapWidth     int
-	mapHeight    int
+	mapHeight    int // Dynamic: gets remaining vertical space in top section
 	statusWidth  int
 	statusHeight int
 }
 
 // renderLogPanel renders the full log panel with scrolling content
 func (m *WatcherModel) renderLogPanel(width, height int) string {
+	// Build content with log lines
+	var sb strings.Builder
+
+	// Calculate how many lines we can show (minus borders, title, and padding)
+	// Height breakdown: top border(1) + title line(1) + blank line(1) + content + bottom border(1) = total
+	// So content lines = height - 4
+	availableLines := height - 4
+
+	// If we have logs and they exceed available space, reserve 1 line for scroll indicator
+	hasLogs := len(m.logPanel.lines) > 0
+	logContentLines := availableLines
+	if hasLogs && len(m.logPanel.lines) > availableLines {
+		logContentLines = availableLines - 1 // Reserve 1 line for scroll indicator
+	}
+
+	// Determine which lines to show based on scroll offset
+	// scrollOffset 0 = show newest (bottom), higher values scroll up (show older)
+	startIdx := len(m.logPanel.lines) - logContentLines - m.logPanel.scrollOffset
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	endIdx := startIdx + logContentLines
+	if endIdx > len(m.logPanel.lines) {
+		endIdx = len(m.logPanel.lines)
+	}
+
+	// Render visible log lines
+	for i := startIdx; i < endIdx; i++ {
+		sb.WriteString(m.logPanel.lines[i])
+		sb.WriteString("\n")
+	}
+
+	// If no lines, show placeholder (uses 1 line)
+	if !hasLogs {
+		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("Log messages will appear here..."))
+	} else {
+		// Add scroll indicator on its own line if content is scrollable
+		if len(m.logPanel.lines) > availableLines {
+			if m.logPanel.scrollOffset > 0 {
+				sb.WriteString(lipgloss.NewStyle().Faint(true).Render("↑ (more above)"))
+			} else {
+				sb.WriteString(lipgloss.NewStyle().Faint(true).Render("↓ (scroll with ↑/↓ or j/k)"))
+			}
+		}
+	}
+
+	// Build panel with title and border using lipgloss
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	content := titleStyle.Render("Action Log\n") + sb.String()
+
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
 		Width(width).
 		Height(height)
 
-	// Build content with title and log lines
-	var sb strings.Builder
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-	sb.WriteString(titleStyle.Render("Action Log"))
-	sb.WriteString("\n")
-
-	// Calculate how many lines we can show (minus title and padding)
-	availableLines := height - 3 // Account for title and borders
-
-	// Determine which lines to show based on scroll offset
-	// scrollOffset 0 = show newest (bottom), higher values scroll up (show older)
-	startIdx := len(m.logPanel.lines) - availableLines - m.logPanel.scrollOffset
-	if startIdx < 0 {
-		startIdx = 0
-	}
-	endIdx := startIdx + availableLines
-	if endIdx > len(m.logPanel.lines) {
-		endIdx = len(m.logPanel.lines)
-	}
-
-	// Render visible lines
-	for i := startIdx; i < endIdx; i++ {
-		sb.WriteString(m.logPanel.lines[i])
-		sb.WriteString("\n")
-	}
-
-	// If no lines, show placeholder
-	if len(m.logPanel.lines) == 0 {
-		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("Log messages will appear here..."))
-	}
-
-	// Add scroll indicator if content is scrollable
-	if len(m.logPanel.lines) > availableLines {
-		if m.logPanel.scrollOffset > 0 {
-			sb.WriteString(lipgloss.NewStyle().Faint(true).Render("↑ (more above)"))
-		} else {
-			sb.WriteString(lipgloss.NewStyle().Faint(true).Render("↓ (scroll with ↑/↓ or j/k)"))
-		}
-	}
-
-	return style.Render(sb.String())
+	return style.Render(content)
 }
 
 // renderMapPanelFull renders the full map panel with system info, map, and legend
 func (m *WatcherModel) renderMapPanelFull(width, height int) string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-
 	// Calculate grid dimensions based on available space
-	const fixedLines = 8  // Title, header, legend, map borders
-	const borderWidth = 3  // Borders
+	const fixedLines = 9  // Title, header, legend, map borders
 
 	// Calculate available grid rows (height)
 	availableGridRows := height - fixedLines
@@ -118,7 +125,10 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	}
 
 	// Calculate available grid columns (width)
-	availableGridCols := width - borderWidth
+	// Subtract: lipgloss border (2) + ASCII map borders (5 = max width with connectors)
+	// Add extra padding to ensure map fits comfortably
+	const totalBorderWidth = 8 // lipgloss border (2) + ASCII borders max (5) + padding (1)
+	availableGridCols := width - totalBorderWidth
 	if availableGridCols < 10 {
 		availableGridCols = 10
 	}
@@ -144,10 +154,8 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 		halfGridCols = 5
 	}
 
-	// Build content with title and map data
+	// Build content with map data
 	var sb strings.Builder
-	sb.WriteString(titleStyle.Render("System Map"))
-	sb.WriteString("\n\n")
 
 	// Get the map panel content
 	var content string
@@ -163,114 +171,89 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 
 	sb.WriteString(content)
 
-	// Apply border style with constraints
+	// Build panel with title and border using lipgloss
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	panelContent := titleStyle.Render("System Map\n\n") + sb.String()
+
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
 		Width(width).
 		Height(height)
 
-	return style.Render(sb.String())
+	return style.Render(panelContent)
 }
 
 // renderStatusPanel renders the full status panel with player and ship stats
 func (m *WatcherModel) renderStatusPanel(width, height int) string {
+	// Build content with status data
+	state := m.GetCurrentState()
+	var content string
+
+	if state == nil {
+		content = lipgloss.NewStyle().Faint(true).Render("No agent selected")
+	} else {
+		state.Mu.Lock()
+		content = m.buildStatusFull(state)
+		state.Mu.Unlock()
+	}
+
+	// Build panel with title and border using lipgloss
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	panelContent := titleStyle.Render("Status\n\n") + content
+
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
 		Width(width).
 		Height(height)
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
-
-	// Build content with title and status data
-	var sb strings.Builder
-	sb.WriteString(titleStyle.Render("Status"))
-	sb.WriteString("\n\n")
-
-	// Determine compact mode based on width
-	m.statusPanel.compactMode = width < 80
-
-	// Get status content
-	state := m.GetCurrentState()
-	if state == nil {
-		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agent selected"))
-	} else {
-		state.Mu.Lock()
-		content := m.buildStatusContent(state, width)
-		state.Mu.Unlock()
-		sb.WriteString(content)
-	}
-
-	return style.Render(sb.String())
+	return style.Render(panelContent)
 }
 
-// buildStatusContent builds the appropriate status content based on mode
-func (m *WatcherModel) buildStatusContent(state *game.State, width int) string {
-	if m.statusPanel.compactMode {
-		return m.buildStatusCompact(state)
-	}
-	return m.buildStatusFull(state)
-}
-
-// buildStatusFull builds a two-column status layout for wide screens
+// buildStatusFull builds a three-column status layout for wide screens
 func (m *WatcherModel) buildStatusFull(state *game.State) string {
-	var leftCol, rightCol strings.Builder
+	var leftCol, midCol, rightCol strings.Builder
 
-	// Left column: Player info and credits
+	// Column 1: Player info (compact 4 lines)
 	leftCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Player"))
 	leftCol.WriteString("\n")
 	leftCol.WriteString(fmt.Sprintf("Name: %s\n", state.Username))
-	leftCol.WriteString("Empire: voidborn\n")
 	leftCol.WriteString(fmt.Sprintf("Credits: %.0f\n", state.Credits))
 
-	// Right column: Ship stats
-	rightCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Ship"))
+	// Column 2: Ship data (compact 4 lines)
+	midCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Ship"))
+	midCol.WriteString("\n")
+	midCol.WriteString(fmt.Sprintf("Hull: %.0f/%.0f\n", state.Hull, state.MaxHull))
+	midCol.WriteString(fmt.Sprintf("Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel))
+
+	// Column 3: Cargo (compact 1-2 lines)
+	rightCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Cargo"))
 	rightCol.WriteString("\n")
-	rightCol.WriteString("Type: Prospector (starter_mining)\n")
-	rightCol.WriteString(fmt.Sprintf("Hull: %.0f/%.0f\n", state.Hull, state.MaxHull))
-	rightCol.WriteString(fmt.Sprintf("Fuel: %.0f/%.0f\n", state.Fuel, state.MaxFuel))
-	rightCol.WriteString(fmt.Sprintf("Cargo: %d/%d\n", len(state.Cargo), state.MaxCargo))
-
-	// Combine columns with spacing
-	leftStyle := lipgloss.NewStyle().Width(30)
-	rightStyle := lipgloss.NewStyle().Width(30)
-	spacer := lipgloss.NewStyle().Width(4).Render("") // 4 spaces between columns
-	combined := lipgloss.JoinHorizontal(lipgloss.Top,
-		leftStyle.Render(leftCol.String()),
-		spacer,
-		rightStyle.Render(rightCol.String()),
-	)
-
-	// Add cargo details if any
 	if len(state.Cargo) > 0 {
-		combined += "\n\n"
-		combined += lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Cargo Items:")
-		combined += "\n"
 		for _, item := range state.Cargo {
 			if name, ok := item["name"].(string); ok {
 				if quantity, ok := item["quantity"].(float64); ok {
-					combined += fmt.Sprintf("  - %s x%.0f\n", name, quantity)
-				} else {
-					combined += fmt.Sprintf("  - %s\n", name)
+					rightCol.WriteString(fmt.Sprintf("%s x%.0f", name, quantity))
+					break // Only show first item
 				}
 			}
 		}
+	} else {
+		rightCol.WriteString("Empty")
 	}
 
-	return combined
-}
+	// Combine columns with spacing
+	leftStyle := lipgloss.NewStyle().Width(25)
+	midStyle := lipgloss.NewStyle().Width(25)
+	rightStyle := lipgloss.NewStyle().Width(30)
+	spacer := lipgloss.NewStyle().Width(2).Render("")
 
-// buildStatusCompact builds a single-line status layout for narrow screens
-func (m *WatcherModel) buildStatusCompact(state *game.State) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("%s | Credits: %.0f | Hull: %.0f/%.0f | Fuel: %.0f/%.0f | Cargo: %d/%d",
-		state.Username,
-		state.Credits,
-		state.Hull, state.MaxHull,
-		state.Fuel, state.MaxFuel,
-		len(state.Cargo), state.MaxCargo))
-
-	return sb.String()
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		leftStyle.Render(leftCol.String()),
+		spacer,
+		midStyle.Render(midCol.String()),
+		spacer,
+		rightStyle.Render(rightCol.String()),
+	)
 }

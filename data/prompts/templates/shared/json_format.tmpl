@@ -1,0 +1,17 @@
+{{define "json_format.tmpl"}}
+IMPORTANT: Respond with valid JSON containing exactly these fields:
+{
+  "action": "one_action_name",
+  "target": "target_id_or_name_if_required",
+  "reasoning": "your reasoning in 1-2 sentences",
+  "confidence": 0.85
+}
+
+EXAMPLES:
+- To travel to a POI: {"action": "travel", "target": "sol_belt", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
+- To jump to system: {"action": "jump", "target": "alpha_centauri", "reasoning": "Exploring new system", "confidence": 0.85}
+- To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
+- To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
+
+CRITICAL: For "travel" action, use the EXACT POI ID shown in the available POIs list above.  For "jump" action, use the EXACT SYSTEM ID shown in the connections list.  Travel and jump actions take multiple ticks to complete. After a choice for a travel or jump, you must wait until the "arrived" response has come through before choosing another non-query action such as "mine".
+{{end}}
