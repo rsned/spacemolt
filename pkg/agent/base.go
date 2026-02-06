@@ -141,6 +141,14 @@ func (a *BaseAgent) buildDecisionPrompt(state *game.State) string {
 
 // Learn updates the agent's memory based on action results
 func (a *BaseAgent) Learn(result ActionResult) error {
+	// DEBUG: Log what we're learning from
+	fmt.Printf("[Agent %s] Learning from action result: %s → %s (success=%v)\n",
+		a.id, result.Action, result.Target, result.Success)
+	fmt.Printf("[Agent %s]   Message: %s\n", a.id, result.Message)
+	if result.Error != nil {
+		fmt.Printf("[Agent %s]   Error: %v\n", a.id, result.Error)
+	}
+
 	// Log the experience
 	exp := Experience{
 		Time:        fmt.Sprintf("%d", result.NewState.GetTick()),

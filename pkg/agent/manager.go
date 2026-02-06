@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/credentials"
-  "github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/version"
 )
 
 // Retry configuration constants
@@ -25,18 +26,18 @@ const (
 
 // Manager manages multiple agents with game connections
 type Manager struct {
-	runners        map[string]*Runner
-	kb             knowledge.Base
-	llm            *llm.Client
-	credsProvider  credentials.Provider
-	mu             sync.RWMutex
+	runners       map[string]*Runner
+	kb            knowledge.Base
+	llm           *llm.Client
+	credsProvider credentials.Provider
+	mu            sync.RWMutex
 
 	// Configuration
-	maxAgents      int
-	gameServerURL  string
-	agentsDataDir  string
-	runnerConfig   RunnerConfig
-	debugLogger    *log.Logger
+	maxAgents     int
+	gameServerURL string
+	agentsDataDir string
+	runnerConfig  RunnerConfig
+	debugLogger   *log.Logger
 }
 
 // ManagerConfig holds configuration for the agent manager
@@ -247,17 +248,28 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 
 	// Create game client
 	username := personality.ID
-	token := ""
+	password := ""
 	if hasCredentials {
 		username = creds.Username
-		token = creds.Token
+		password = creds.Password
 	}
 
-	gameClient := game.NewClient(m.gameServerURL, username, token, m.debugLogger)
+	gameClient := game.NewClient(m.gameServerURL, username, password, m.debugLogger)
+
+	// Set up automatic reconnection handler
+	// Note: We pass nil as the wrapped handler since we don't need additional handling
+	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
+	gameClient.SetHandler(reconnectHandler)
 
 	// Connect to game server with retries
 	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
 		return nil, fmt.Errorf("failed to connect to game server: %w", err)
+	}
+
+	// Check server version compatibility
+	if err := m.checkServerVersion(gameClient, personality.ID); err != nil {
+		_ = gameClient.Close()
+		return nil, fmt.Errorf("server version check failed: %w", err)
 	}
 
 	// Authenticate (register or login)
@@ -347,6 +359,43 @@ func (m *Manager) connectWithRetry(ctx context.Context, client *game.Client, age
 	return fmt.Errorf("failed after %d attempts: %w", MaxConnectionRetries, lastErr)
 }
 
+// checkServerVersion validates server version against documented API version
+func (m *Manager) checkServerVersion(client *game.Client, agentID string) error {
+	state := client.GetState()
+	if state.ServerVersion == "" {
+		m.debugLogger.Printf("[%s] Warning: No server version in welcome message, skipping version check", agentID)
+		return nil
+	}
+
+	check, err := version.CheckVersion(state.ServerVersion)
+	if err != nil {
+		m.debugLogger.Printf("[%s] Warning: Version check failed: %v", agentID, err)
+		// Don't fail on version check errors, just log them
+		return nil
+	}
+
+	// Log version info
+	m.debugLogger.Printf("[%s] Server version: %s, API docs version: %s",
+		agentID, check.ServerVersion, check.ExpectedVersion)
+
+	// Handle major version mismatch (error)
+	if check.MajorMismatch {
+		m.debugLogger.Printf("[%s] %s", agentID, check.ErrorMessage)
+		fmt.Fprintf(os.Stderr, "\n[%s] VERSION MISMATCH ERROR:\n%s\n\n", agentID, check.ErrorMessage)
+		return fmt.Errorf("major version mismatch: server %s vs expected %s",
+			check.ServerVersion, check.ExpectedVersion)
+	}
+
+	// Handle minor version difference (warning)
+	if check.WarningMessage != "" {
+		banner := check.Banner()
+		m.debugLogger.Printf("[%s] %s", agentID, banner)
+		fmt.Fprint(os.Stderr, banner)
+	}
+
+	return nil
+}
+
 // loginWithRetry attempts to authenticate with retries
 func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds *credentials.Credentials, agentID string) error {
 	var lastErr error
@@ -376,7 +425,8 @@ func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds
 // registerAgent registers a new agent and saves credentials
 func (m *Manager) registerAgent(ctx context.Context, client *game.Client, personality Personality) error {
 	// Generate username from personality
-	username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+	//username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+	username := sanitizeUsername(personality.Name)
 
 	// Register with game server
 	// Note: As of v0.3.3+, only "solarian" empire is allowed for new registrations
@@ -389,16 +439,16 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
-	// Get the token from state
+	// Get the password from state
 	state := client.GetState()
-	if state.Token == "" {
-		return fmt.Errorf("no token received after registration")
+	if state.Password == "" {
+		return fmt.Errorf("no password received after registration")
 	}
 
 	// Save credentials
 	creds := &credentials.Credentials{
 		Username: username,
-		Token:    state.Token,
+		Password: state.Password,
 		Empire:   empire, // Store the actual game empire, not personality faction
 	}
 

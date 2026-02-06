@@ -393,3 +393,205 @@ func (kb *SQLiteKB) GetSystems() []System {
 
 	return systems
 }
+
+// StoreMarketSnapshot stores a market snapshot with its listings
+func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnapshot, agentID string) error {
+	tx, err := kb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Insert snapshot
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO market_snapshots (system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id)
+		VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
+	`, snapshot.SystemID, snapshot.SystemName, snapshot.StationID, snapshot.StationName, snapshot.GameTick, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to insert market snapshot: %w", err)
+	}
+
+	snapshotID, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get snapshot ID: %w", err)
+	}
+
+	// Insert listings
+	for _, listing := range snapshot.Listings {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO market_listings (snapshot_id, item_id, item_type, quantity, price_per_unit, total_price, listing_type, listed_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, snapshotID, listing.ItemID, listing.ItemType, listing.Quantity, listing.PricePerUnit, listing.TotalPrice, listing.Type, listing.ListedBy)
+		if err != nil {
+			return fmt.Errorf("failed to insert market listing: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetMarketSnapshots retrieves historical market snapshots
+func (kb *SQLiteKB) GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error) {
+	query := `
+		SELECT id, system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id
+		FROM market_snapshots
+		WHERE system_id = ? AND station_id = ?
+		ORDER BY captured_at DESC
+		LIMIT ?
+	`
+
+	rows, err := kb.db.QueryContext(ctx, query, systemID, stationID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query market snapshots: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var snapshots []MarketSnapshot
+	for rows.Next() {
+		var snap MarketSnapshot
+		var id int
+		var capturedAt string
+		var agentID sql.NullString
+
+		err := rows.Scan(&id, &snap.SystemID, &snap.SystemName, &snap.StationID, &snap.StationName, &snap.GameTick, &capturedAt, &agentID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan snapshot: %w", err)
+		}
+
+		snap.CapturedAt, err = time.Parse(time.RFC3339, capturedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse captured_at: %w", err)
+		}
+
+		// Get listings for this snapshot
+		listings, err := kb.getMarketListings(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get listings for snapshot %d: %w", id, err)
+		}
+		snap.Listings = listings
+
+		snapshots = append(snapshots, snap)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating snapshots: %w", err)
+	}
+
+	return snapshots, nil
+}
+
+// GetLatestMarketSnapshot retrieves the most recent market snapshot
+func (kb *SQLiteKB) GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*MarketSnapshot, error) {
+	query := `
+		SELECT id, system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id
+		FROM market_snapshots
+		WHERE system_id = ? AND station_id = ?
+		ORDER BY captured_at DESC
+		LIMIT 1
+	`
+
+	var snap MarketSnapshot
+	var id int
+	var capturedAt string
+	var agentID sql.NullString
+
+	err := kb.db.QueryRowContext(ctx, query, systemID, stationID).Scan(
+		&id, &snap.SystemID, &snap.SystemName, &snap.StationID, &snap.StationName, &snap.GameTick, &capturedAt, &agentID,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil // No snapshot found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query latest snapshot: %w", err)
+	}
+
+	snap.CapturedAt, err = time.Parse(time.RFC3339, capturedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse captured_at: %w", err)
+	}
+
+	// Get listings for this snapshot
+	listings, err := kb.getMarketListings(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get listings for snapshot %d: %w", id, err)
+	}
+	snap.Listings = listings
+
+	return &snap, nil
+}
+
+// GetMarketItems retrieves unique item IDs optionally filtered by type
+func (kb *SQLiteKB) GetMarketItems(ctx context.Context, itemType string) ([]string, error) {
+	query := `
+		SELECT DISTINCT item_id
+		FROM market_listings
+	`
+	args := []any{}
+
+	if itemType != "" {
+		query += " WHERE item_type = ?"
+		args = append(args, itemType)
+	}
+
+	query += " ORDER BY item_id"
+
+	rows, err := kb.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query market items: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var items []string
+	for rows.Next() {
+		var itemID string
+		if err := rows.Scan(&itemID); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		items = append(items, itemID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating items: %w", err)
+	}
+
+	return items, nil
+}
+
+// getMarketListings retrieves all listings for a snapshot
+func (kb *SQLiteKB) getMarketListings(ctx context.Context, snapshotID int) ([]MarketListing, error) {
+	query := `
+		SELECT item_id, item_type, quantity, price_per_unit, total_price, listing_type, listed_by
+		FROM market_listings
+		WHERE snapshot_id = ?
+		ORDER BY item_type, item_id
+	`
+
+	rows, err := kb.db.QueryContext(ctx, query, snapshotID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query listings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var listings []MarketListing
+	for rows.Next() {
+		var listing MarketListing
+		var listedBy sql.NullString
+
+		err := rows.Scan(&listing.ItemID, &listing.ItemType, &listing.Quantity, &listing.PricePerUnit, &listing.TotalPrice, &listing.Type, &listedBy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan listing: %w", err)
+		}
+
+		if listedBy.Valid {
+			listing.ListedBy = listedBy.String
+		}
+
+		listings = append(listings, listing)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating listings: %w", err)
+	}
+
+	return listings, nil
+}
