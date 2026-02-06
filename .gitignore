@@ -15,6 +15,10 @@ bin/*
 ##############################
 # Data files
 ##############################
+bin/
+# Data files
+data/
+!data/prompts/
 *.db
 *.db-shm
 *.db-wal
@@ -23,9 +27,7 @@ data/personality/
 data/agents2/
 !data/prompts/
 
-##############################
 # Vim swap files
-##############################
 *.swp
 *.swo
 *~
