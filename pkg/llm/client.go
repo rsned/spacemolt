@@ -90,11 +90,11 @@ func New(cfg Config) (*Client, error) {
 
 // DecisionRequest represents a request for an agent decision
 type DecisionRequest struct {
-	AgentName   string
-	Personality string
+	AgentName    string
+	Personality  string
 	CurrentState string
-	Knowledge   string
-	Experiences string
+	Knowledge    string
+	Experiences  string
 }
 
 // DecisionResponse represents the LLM's decision
@@ -152,6 +152,9 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// DEBUG: Log raw LLM response
+	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
+
 	// Extract structured decision from text response
 	return c.parseDecision(ollamaResp.Response)
 }
@@ -167,10 +170,21 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 
 	jsonStr := text[start : end+1]
 
+	// DEBUG: Log extracted JSON
+	fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
+
 	var decision DecisionResponse
 	if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
+		fmt.Printf("[LLM] ERROR: Failed to parse JSON: %v\n", err)
 		return nil, fmt.Errorf("failed to parse decision JSON: %w", err)
 	}
+
+	// DEBUG: Log parsed fields
+	fmt.Printf("[LLM] Parsed DecisionResponse:\n")
+	fmt.Printf("  Action: '%s'\n", decision.Action)
+	fmt.Printf("  Target: '%s'\n", decision.Target)
+	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
+	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 
 	return &decision, nil
 }
@@ -185,21 +199,38 @@ Location: %v
 Fuel: %v
 Hull: %v
 Cargo: %v
+Docked: %v
 
-Based on your role as a %s, decide what to do next.
+Based on your role as a %s, decide what to do next. You may only pick one action at a time.
 
-Respond in JSON format:
+AVAILABLE ACTIONS:
+- "undock" - Leave the current station (no target needed)
+- "dock" - Dock at the current POI (no target needed)
+- "travel" - Travel to a POI in the current system (requires target: POI ID)
+- "jump" - Jump to another system (requires target: system name)
+- "mine" - Mine resources at current location (no target needed)
+- "scan" - Scan the current area (no target needed)
+- "get_status" - Get player status (no target needed)
+- "get_system" - Get current system info (no target needed)
+- "wait" - Wait and do nothing (no target needed)
+
+IMPORTANT: Respond with valid JSON containing exactly these fields:
 {
-  "action": "undock|dock|travel|mine|scan|wait",
-  "target": "target_id_if_applicable",
+  "action": "one_action_name",
+  "target": "target_id_or_name_if_required",
   "reasoning": "your reasoning in 1-2 sentences",
-  "confidence": 0.0-1.0
+  "confidence": 0.85
 }
+
+EXAMPLES:
+- To travel to a POI: {"action": "travel", "target": "Sol-AsteroidField", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
+- To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
+- To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
 
 Your decision:
 `, agentName, role,
-	state["location"], state["fuel"], state["hull"], state["cargo"],
-	role)
+		state["location"], state["fuel"], state["hull"], state["cargo"], state["docked"],
+		role)
 }
 
 // RenderPrompt renders a prompt template with the given context

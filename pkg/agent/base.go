@@ -27,10 +27,11 @@ type BaseAgent struct {
 	memory      Memory
 	llm         LLMClient
 
-	status   Status
-	stopCh   chan struct{}
-	stopOnce sync.Once
-	mu       sync.RWMutex
+	status         Status
+	lastActionFeedback string // Feedback from the most recent action
+	stopCh         chan struct{}
+	stopOnce       sync.Once
+	mu             sync.RWMutex
 }
 
 // NewBaseAgent creates a new agent
@@ -88,12 +89,26 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		return Decision{}, err
 	}
 
+	// DEBUG: Log LLM response received by agent
+	fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
+	fmt.Printf("  Action: '%s'\n", response.Action)
+	fmt.Printf("  Target: '%s'\n", response.Target)
+	fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
+	fmt.Printf("  Confidence: %.2f\n", response.Confidence)
+
 	decision := Decision{
 		Action:      response.Action,
 		Target:      response.Target,
 		Reasoning:   response.Reasoning,
 		Confidence:  response.Confidence,
 	}
+
+	// DEBUG: Log Decision struct created
+	fmt.Printf("[Agent %s] Decision struct created:\n", a.id)
+	fmt.Printf("  Action: '%s'\n", decision.Action)
+	fmt.Printf("  Target: '%s'\n", decision.Target)
+	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
+	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 
 	// Log the decision (protected by lock)
 	a.mu.Lock()
@@ -241,6 +256,26 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 		expText += fmt.Sprintf("  - [%s] %s: %s\n", exp.Type, exp.Description, exp.Outcome)
 	}
 
+	// Build available POIs list from current system
+	poisText := "\nAVAILABLE POIs IN CURRENT SYSTEM:\n"
+	if len(state.System.POIs) > 0 {
+		for _, poi := range state.System.POIs {
+			poisText += fmt.Sprintf("  - %s (Type: %s, ID: %s)\n", poi.Name, poi.Type, poi.ID)
+		}
+	} else {
+		poisText += "  (No POIs discovered yet - use get_system to scan)\n"
+	}
+
+	// Build available connections
+	connectionsText := "\nAVAILABLE JUMP DESTINATIONS:\n"
+	if len(state.System.Connections) > 0 {
+		for _, conn := range state.System.Connections {
+			connectionsText += fmt.Sprintf("  - %s\n", conn)
+		}
+	} else {
+		connectionsText += "  (No connections known yet)\n"
+	}
+
 	// Build state info
 	stateInfo := map[string]interface{}{
 		"location": state.GetCurrentSystem(),
@@ -251,16 +286,28 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 		"docked":   state.IsDocked(),
 	}
 
+	// Get last action feedback (protected by lock)
+	a.mu.RLock()
+	lastFeedback := a.lastActionFeedback
+	a.mu.RUnlock()
+
+	// Build feedback section
+	feedbackText := ""
+	if lastFeedback != "" {
+		feedbackText = "\nLAST ACTION FEEDBACK:\n" + lastFeedback + "\n"
+		feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
+	}
+
 	return llm.BuildDecisionPrompt(
 		a.name,
 		a.personality.Role,
 		map[string]interface{}{
-			"traits":     a.personality.Traits,
+			"traits":      a.personality.Traits,
 			"motivations": a.personality.Motivations,
-			"skills":     a.personality.Skills,
+			"skills":      a.personality.Skills,
 		},
 		stateInfo,
-	) + "\n\n" + knowledgeText + "\n\n" + expText
+	) + feedbackText + "\n" + knowledgeText + "\n\n" + poisText + "\n" + connectionsText + "\n\n" + expText
 }
 
 // Learn updates the agent's memory based on action results
@@ -278,15 +325,23 @@ func (a *BaseAgent) Learn(result ActionResult) error {
 		return err
 	}
 
-	// Update status
+	// Update status and store feedback for next decision
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Store action feedback for next LLM prompt
 	if result.Success {
+		a.lastActionFeedback = fmt.Sprintf("✓ Last action succeeded: %s", result.Message)
 		a.status.State = AgentStateIdle
 		a.status.CurrentAction = "Ready"
 		a.status.Error = nil
 	} else {
+		// Include error details in feedback so LLM can learn from mistakes
+		errorMsg := "unknown error"
+		if result.Error != nil {
+			errorMsg = result.Error.Error()
+		}
+		a.lastActionFeedback = fmt.Sprintf("✗ Last action FAILED: %s\nError: %s", result.Message, errorMsg)
 		a.status.State = AgentStateError
 		a.status.Error = fmt.Errorf("action failed: %w", result.Error)
 	}

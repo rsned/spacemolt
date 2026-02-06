@@ -166,6 +166,42 @@ func main() {
 			Model:   "llama3.2",
 			Timeout: 60 * time.Second,
 		})
+		debugLogger.Printf("Created LLM client")
+
+		// Test LLM connection
+		if err := llmClient.TestConnection(ctx); err != nil {
+			log.Printf("Warning: Could not connect to Ollama: %v", err)
+			log.Printf("Agents will not be able to make decisions without Ollama running")
+		} else {
+			debugLogger.Printf("Connected to Ollama successfully")
+		}
+
+		// Create knowledge base
+		switch *dbBackend {
+		case "sqlite":
+			sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
+				DBPath:       *dbPath,
+				WAL:          true,
+				MaxOpenConns: 25,
+				MaxIdleConns: 5,
+				BusyTimeout:  5 * time.Second,
+			})
+			if err != nil {
+				log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+			}
+			kb = sqliteKB
+			debugLogger.Printf("Created SQLite knowledge base at %s", *dbPath)
+			defer func() { _ = kb.Close() }()
+		case "memory":
+			kb = knowledge.NewMemoryKB()
+			debugLogger.Printf("Created in-memory knowledge base")
+		default:
+			log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
+		}
+		debugLogger.Printf("Created knowledge base")
+
+		// Initialize credential provider
+		credsProv, err := initCredentialsProvider()
 		if err != nil {
 			log.Fatalf("Failed to initialize LLM client: %v", err)
 		}
