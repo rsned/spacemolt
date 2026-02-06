@@ -27,12 +27,12 @@ func main() {
 
 	// Test 1: StaticProvider
 	fmt.Println("1. Testing StaticProvider...")
-	staticProvider := credentials.NewStaticProvider("testuser", "testtoken", "voidborn")
+	staticProvider := credentials.NewStaticProvider("testuser", "testpassword", "voidborn")
 	creds, err := staticProvider.GetCredentials(ctx, "any-agent")
 	if err != nil {
 		log.Fatalf("StaticProvider failed: %v", err)
 	}
-	fmt.Printf("   ✓ StaticProvider: username=%s, token=%s\n", creds.Username, creds.Token)
+	fmt.Printf("   ✓ StaticProvider: username=%s, password=%s\n", creds.Username, creds.Password)
 
 	// Test 2: FileProvider
 	fmt.Println("\n2. Testing FileProvider...")
@@ -42,8 +42,8 @@ func main() {
 	// Store credentials
 	err = fileProvider.StoreCredentials(ctx, "explorer-7", &credentials.Credentials{
 		Username: "explorer-7",
-		Token:     "explorer-token-123",
-		Empire:    "voidborn",
+		Password: "explorer-password-123",
+		Empire:   "voidborn",
 	})
 	if err != nil {
 		log.Fatalf("FileProvider StoreCredentials failed: %v", err)
@@ -59,9 +59,9 @@ func main() {
 	// Test 3: FallbackProvider
 	fmt.Println("\n3. Testing FallbackProvider...")
 	fallback := credentials.NewFallbackProvider(
-		&mockProvider{exists: false},                                        // First: doesn't exist
-		fileProvider,                                                        // Second: file provider
-		credentials.NewStaticProvider("fallback", "fallback-token", "voidborn"), // Third: static
+		&mockProvider{exists: false},                                            // First: doesn't exist
+		fileProvider,                                                            // Second: file provider
+		credentials.NewStaticProvider("fallback", "fallback-password", "voidborn"), // Third: static
 	)
 
 	creds, err = fallback.GetCredentials(ctx, "explorer-7")
@@ -77,8 +77,8 @@ func main() {
 
 	err = legacyProvider.StoreCredentials(ctx, "agent-1", &credentials.Credentials{
 		Username: "legacyuser",
-		Token:     "legacy-token",
-		Empire:    "voidborn",
+		Password: "legacy-password",
+		Empire:   "voidborn",
 	})
 	if err != nil {
 		log.Fatalf("LegacyProvider StoreCredentials failed: %v", err)
@@ -169,8 +169,8 @@ func main() {
 	// Store credentials (should be encrypted)
 	err = sqliteProvider.StoreCredentials(ctx, "agent-1", &credentials.Credentials{
 		Username: "agent-1-user",
-		Token:     "super-secret-token-12345",
-		Empire:    "voidborn",
+		Password: "super-secret-password-12345",
+		Empire:   "voidborn",
 	})
 	if err != nil {
 		log.Fatalf("SQLiteProvider StoreCredentials failed: %v", err)
@@ -182,8 +182,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("SQLiteProvider GetCredentials failed: %v", err)
 	}
-	if retrieved.Token != "super-secret-token-12345" {
-		log.Fatalf("Token mismatch: expected 'super-secret-token-12345', got '%s'", retrieved.Token)
+	if retrieved.Password != "super-secret-password-12345" {
+		log.Fatalf("Password mismatch: expected 'super-secret-password-12345', got '%s'", retrieved.Password)
 	}
 	fmt.Printf("   ✓ SQLiteProvider: retrieved and decrypted credentials (username=%s)\n", retrieved.Username)
 
@@ -230,8 +230,8 @@ func (m *mockProvider) GetCredentials(ctx context.Context, agentID string) (*cre
 	}
 	return &credentials.Credentials{
 		Username: "mock-user",
-		Token:     "mock-token",
-		Empire:    "voidborn",
+		Password: "mock-password",
+		Empire:   "voidborn",
 	}, nil
 }
 
