@@ -109,7 +109,6 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 
 	// Calculate grid dimensions based on available space
 	const fixedLines = 8  // Title, header, legend, map borders
-	const borderWidth = 3  // Borders
 
 	// Calculate available grid rows (height)
 	availableGridRows := height - fixedLines
@@ -118,7 +117,9 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	}
 
 	// Calculate available grid columns (width)
-	availableGridCols := width - borderWidth
+	// Subtract: lipgloss border (2) + ASCII map borders (3 = space + left pipe + right pipe)
+	const totalBorderWidth = 5 // lipgloss border (2) + ASCII borders (3)
+	availableGridCols := width - totalBorderWidth
 	if availableGridCols < 10 {
 		availableGridCols = 10
 	}
