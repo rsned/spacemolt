@@ -13,10 +13,10 @@ import (
 
 const (
 	// Panel height constraints
-	minPanelHeight    = 4  // Minimum height for any panel (prevents collapse)
-	maxLogPanelHeight = 20 // Maximum height for log panel
-	minMapPanelHeight = 30 // Minimum height for map panel
-	agentsPanelHeight = 6  // Fixed height for agents panel (full width at bottom)
+	minPanelHeight      = 4  // Minimum height for any panel (prevents collapse)
+	maxLogPanelHeight   = 12 // Maximum height for log panel
+	minAgentPanelHeight = 6  // Minimum height for agent panel
+	minMapPanelHeight   = 8  // Minimum height for map panel
 )
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
@@ -55,7 +55,6 @@ type WatcherModel struct {
 	// Multi-agent state tracking
 	agentStates map[string]*game.State // agent ID -> game state
 	agentLogs   map[string][]string    // agent ID -> log lines
-	mu          sync.RWMutex           // Protects agentStates, agentLogs, agents
 
 	viewportWidth  int
 	viewportHeight int
@@ -233,7 +232,7 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	topSectionHeight := availableHeight - statusHeight - agentsHeight
 
 	// Ensure top section has minimum height
-	if topSectionHeight < minMapPanelHeight {
+	if topSectionHeight < minMapPanelHeight+minPanelHeight {
 		// Reduce status panel to make room
 		statusHeight = 6
 		topSectionHeight = availableHeight - statusHeight - agentsHeight
@@ -242,14 +241,15 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	// Distribute top section space between log and map
 	// Log panel gets max height cap
 	logHeight := maxLogPanelHeight
+	if logHeight > topSectionHeight-minMapPanelHeight {
+		logHeight = topSectionHeight - minMapPanelHeight
+	}
 	if logHeight < minPanelHeight {
 		logHeight = minPanelHeight
 	}
 
-	mapHeight := topSectionHeight
-	if mapHeight < minMapPanelHeight {
-		mapHeight = minMapPanelHeight
-	}
+	// Map panel gets remaining space in top section
+	mapHeight := topSectionHeight - logHeight
 
 	// Width calculations
 	// Agents panel: full width
@@ -258,23 +258,60 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	// Status panel: full width
 	statusWidth := m.viewportWidth
 
-	// Log panel gets 30% of top section width with minimum of 20 characters.
-	logWidth := m.viewportWidth * 30 / 100
+	// Log panel gets 20% of top section width with minimum of 20 characters.
+	logWidth := m.viewportWidth * 20 / 100
+	// Top row gets remaining space
+	topRowHeight := availableHeight - statusHeight
+
+	// Calculate minimum required height for top row panels
+	minTopRowHeight := minAgentPanelHeight + maxLogPanelHeight + minMapPanelHeight
+
+	// If top row is too small, reduce log panel max height
+	effectiveMaxLogHeight := maxLogPanelHeight
+	if topRowHeight < minTopRowHeight {
+		// Reduce log panel to fit, but never below minimum
+		effectiveMaxLogHeight = topRowHeight - minAgentPanelHeight - minMapPanelHeight
+		if effectiveMaxLogHeight < minPanelHeight {
+			effectiveMaxLogHeight = minPanelHeight
+		}
+	}
+
+	// Distribute top row space with constraints
+	// Start with minimum allocations
+	agentHeight := minAgentPanelHeight
+	logHeight := effectiveMaxLogHeight
+	mapHeight := minMapPanelHeight
+
+	// Calculate remaining space after minimum allocations
+	remainingSpace := topRowHeight - (agentHeight + logHeight + mapHeight)
+
+	// Expand map panel first (highest priority)
+	mapHeight += remainingSpace
+
+	// Width calculations
+	agentWidth := m.viewportWidth * 25 / 100
+	if agentWidth < 20 {
+		agentWidth = 20
+	}
+
+	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
+	logWidth := remainingWidth * 40 / 100
+
 	if logWidth < 20 {
 		logWidth = 20
 	}
 
-	// Map panel gets remaining width
-	mapWidth := m.viewportWidth - logWidth - 2 // Account for borders
+	mapWidth := remainingWidth - logWidth - 2 // Account for borders
 
 	return panelLayout{
-		agentWidth:   agentsWidth,
-		agentHeight:  agentsHeight,
+		agentWidth:   agentWidth,
+		agentHeight:  agentHeight,
+
 		logWidth:     logWidth,
 		logHeight:    logHeight,
 		mapWidth:     mapWidth,
 		mapHeight:    mapHeight,
-		statusWidth:  statusWidth,
+		statusWidth:  m.viewportWidth,
 		statusHeight: statusHeight,
 	}
 }
@@ -282,16 +319,16 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 // renderAgentPanel renders the agent list panel
 func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	var sb strings.Builder
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	sb.WriteString(titleStyle.Render("Agents"))
+	sb.WriteString("\n")
 
-	m.mu.RLock()
-	agents := make([]AgentInfo, len(m.agents))
-	copy(agents, m.agents)
-	m.mu.RUnlock()
-
-	if len(agents) == 0 {
+	if len(m.agents) == 0 {
+		sb.WriteString("\n")
 		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
 	} else {
-		for i, agent := range agents {
+		sb.WriteString("\n")
+		for i, agent := range m.agents {
 			// Highlight selected agent
 			if i == m.agentPanel.selected {
 				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ "))
@@ -321,13 +358,7 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	sb.WriteString("\n")
 	sb.WriteString(hints)
 
-	// Build bordered panel with title
-	var result strings.Builder
-	result.WriteString(RenderBorderedTitle("Agents", width))
-	result.WriteString(RenderBorderedContent(sb.String(), width))
-	result.WriteString(RenderBorderBottom(width))
-
-	return result.String()
+	return style.Render(sb.String())
 }
 
 // AddAgent adds an agent to the watcher
