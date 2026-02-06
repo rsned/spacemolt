@@ -26,10 +26,12 @@ type FileProvider struct {
 }
 
 // FileCredentials represents the JSON format of credential files
+// Supports both 'password' (new) and 'token' (legacy) for migration
 type FileCredentials struct {
 	Username string `json:"username"`
-	Token     string `json:"token"`
-	Empire    string `json:"empire"`
+	Password string `json:"password"`         // New field (v0.38.0+)
+	Token    string `json:"token,omitempty"`  // Legacy field for backward compatibility
+	Empire   string `json:"empire"`
 }
 
 // NewFileProvider creates a new file-based credential provider
@@ -63,9 +65,21 @@ func (p *FileProvider) GetCredentials(ctx context.Context, agentID string) (*Cre
 		return nil, fmt.Errorf("failed to parse credential file: %w", err)
 	}
 
+	// Auto-migrate: if token exists but password doesn't, copy token to password
+	password := fileCreds.Password
+	if password == "" && fileCreds.Token != "" {
+		password = fileCreds.Token
+		// Auto-save with new format
+		_ = p.StoreCredentials(ctx, agentID, &Credentials{
+			Username: fileCreds.Username,
+			Password: password,
+			Empire:   fileCreds.Empire,
+		})
+	}
+
 	// Validate
-	if fileCreds.Username == "" || fileCreds.Token == "" {
-		return nil, fmt.Errorf("%w: invalid credentials (missing username or token)", ErrCredentialsInvalid)
+	if fileCreds.Username == "" || password == "" {
+		return nil, fmt.Errorf("%w: invalid credentials (missing username or password)", ErrCredentialsInvalid)
 	}
 
 	// Set default empire if not specified
@@ -75,8 +89,8 @@ func (p *FileProvider) GetCredentials(ctx context.Context, agentID string) (*Cre
 
 	return &Credentials{
 		Username: fileCreds.Username,
-		Token:     fileCreds.Token,
-		Empire:    fileCreds.Empire,
+		Password: password,
+		Empire:   fileCreds.Empire,
 	}, nil
 }
 
@@ -90,11 +104,11 @@ func (p *FileProvider) StoreCredentials(ctx context.Context, agentID string, cre
 		return fmt.Errorf("failed to create agent directory: %w", err)
 	}
 
-	// Prepare file data
+	// Prepare file data (always write as 'password', not 'token')
 	fileCreds := FileCredentials{
 		Username: creds.Username,
-		Token:     creds.Token,
-		Empire:    creds.Empire,
+		Password: creds.Password,
+		Empire:   creds.Empire,
 	}
 
 	if fileCreds.Empire == "" {

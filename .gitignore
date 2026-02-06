@@ -1,19 +1,7 @@
-##############################
-# Compiled binaries
-##############################
-bin/*
-# Root-level compiled binaries
-/agent
-/agent-server
-/register-agent
-/test-agent-manager
-/test-credentials
-/update-server-docs
-/watcher
-
-##############################
+bin/
 # Data files
-##############################
+data/
+!data/prompts/
 *.db
 *.db-shm
 *.db-wal
@@ -22,46 +10,7 @@ data/personality/
 data/agents2/
 !data/prompts/
 
-##############################
 # Vim swap files
-##############################
 *.swp
 *.swo
 *~
-
-##############################
-# configs and credentials
-##############################
-.spacemolt-credentials.json
-agents_config.yaml
-tokens
-
-##############################
-# Logs and databases #
-##############################
-*.log
-*.sqlite
-
-##############################
-# Temp files
-##############################
-watcher_ui*.txt
-asfdgasfafsadfasf
-
-##############################
-# Downloaded server docs (versioned externally)
-##############################
-server_docs/*.md
-!server_docs/README.md
-
-##############################
-# Docs for tracking tasks
-##############################
-docs/*.md
-reviews/*.md
-
-
-#
-# official spacemolt client
-#
-spacemolt-client-linux-x64

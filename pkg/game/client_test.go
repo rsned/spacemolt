@@ -349,7 +349,7 @@ func TestRegister_TokenUpdate(t *testing.T) {
 	resp := protocol.Response{
 		Type: protocol.TypeRegistered,
 		Payload: map[string]any{
-			"token": testToken,
+			"password": testToken,
 		},
 	}
 
@@ -369,21 +369,29 @@ func TestRegister_TokenUpdate(t *testing.T) {
 		t.Fatalf("waitForResponse failed: %v", err)
 	}
 
+<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
+	// Simulate the password update that Register() does
+	if password, ok := receivedResp.Payload["password"].(string); ok {
+		client.mu.Lock()
+		client.password = password
+		client.state.Password = password
+=======
 	// Simulate the token update that Register() does
-	if token, ok := receivedResp.Payload["token"].(string); ok {
+	if token, ok := receivedResp.Payload["password"].(string); ok {
 		client.mu.Lock()
 		client.token = token
-		client.state.Token = token
+		client.state.Password = token
+>>>>>>> main
 		client.mu.Unlock()
 	}
 
-	// Verify token was saved
+	// Verify password was saved
 	client.mu.RLock()
-	if client.token != testToken {
-		t.Errorf("Expected client.token to be %s, got %s", testToken, client.token)
+	if client.password != testToken {
+		t.Errorf("Expected client.password to be %s, got %s", testToken, client.password)
 	}
-	if client.state.Token != testToken {
-		t.Errorf("Expected client.state.Token to be %s, got %s", testToken, client.state.Token)
+	if client.state.Password != testToken {
+		t.Errorf("Expected client.state.Password to be %s, got %s", testToken, client.state.Password)
 	}
 	client.mu.RUnlock()
 }
@@ -540,8 +548,8 @@ func TestClientInitialization(t *testing.T) {
 		t.Errorf("Expected username='testuser', got %s", client.username)
 	}
 
-	if client.token != "testtoken" {
-		t.Errorf("Expected token='testtoken', got %s", client.token)
+	if client.password != "testtoken" {
+		t.Errorf("Expected password='testtoken', got %s", client.password)
 	}
 
 	if client.readyChan == nil {
@@ -567,7 +575,7 @@ func TestJSON_RoundTrip(t *testing.T) {
 		Type: protocol.TypeLoggedIn,
 		Payload: map[string]any{
 			"username": "testuser",
-			"token":    "abc123",
+			"password":    "abc123",
 			"player": map[string]any{
 				"credits": float64(1000),
 			},
@@ -595,7 +603,7 @@ func TestJSON_RoundTrip(t *testing.T) {
 		t.Error("Username not preserved")
 	}
 
-	if decoded.Payload["token"] != "abc123" {
+	if decoded.Payload["password"] != "abc123" {
 		t.Error("Token not preserved")
 	}
 }

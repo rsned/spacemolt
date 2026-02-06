@@ -35,7 +35,7 @@ type POIKnowledge struct {
 	Description string
 	Position    Position
 	Services    []string
-	Resources   []string
+	Resources   []ResourceInfo
 }
 
 // Agent represents an autonomous game-playing agent
@@ -91,11 +91,29 @@ type Decision struct {
 
 // ActionResult represents the result of taking an action
 type ActionResult struct {
+	Action      string  // The action that was taken
+	Target      string  // The target of the action (if any)
 	Success     bool
 	Message     string
 	NewState    *game.State
 	Reward      float64 // For reinforcement learning
 	Error       error
+}
+
+// Goal represents a strategic objective for an agent
+type Goal struct {
+	Type      string  // Goal type: "wealth", "skill", "exploration", "resource", "reputation"
+	Target    string  // Specific target (e.g., "Mining_5", "10000_credits", "Sol", "iron")
+	Progress  float64 // Progress towards goal (0.0 to 1.0)
+	Priority  int     // Priority level (1-10, higher is more important)
+	Reasoning string  // Why this goal was set
+}
+
+// Priority represents the agent's current strategic focus and constraints
+type Priority struct {
+	Focus       string   // Current strategic focus (e.g., "mining", "trading", "exploring", "combat")
+	Constraints []string // Active constraints preventing certain actions (e.g., "low_fuel", "cargo_full", "no_credits")
+	Urgency     int      // Urgency level (1-10, higher means more urgent action needed)
 }
 
 // Status represents the current status of an agent
@@ -174,6 +192,13 @@ type System struct {
 	DiscoveredBy  string
 }
 
+// ResourceInfo represents resource data at a POI
+type ResourceInfo struct {
+	ResourceID string
+	Richness   float64
+	Remaining  float64
+}
+
 // POI represents a POI for memory storage
 type POI struct {
 	ID            string
@@ -182,6 +207,6 @@ type POI struct {
 	Type          string
 	Position      Position
 	Services      []string
-	Resources     []string
+	Resources     []ResourceInfo
 	DiscoveredBy  string
 }
