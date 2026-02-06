@@ -166,10 +166,13 @@ func main() {
 			Model:   "llama3.2",
 			Timeout: 60 * time.Second,
 		})
+		if err != nil {
+			log.Fatalf("Failed to create LLM client: %v", err)
+		}
 		debugLogger.Printf("Created LLM client")
 
 		// Test LLM connection
-		if err := llmClient.TestConnection(ctx); err != nil {
+		if err = llmClient.TestConnection(ctx); err != nil {
 			log.Printf("Warning: Could not connect to Ollama: %v", err)
 			log.Printf("Agents will not be able to make decisions without Ollama running")
 		} else {
@@ -214,37 +217,6 @@ func main() {
 		} else {
 			debugLogger.Printf("Connected to Ollama successfully")
 		}
-
-		// Create knowledge base
-		switch *dbBackend {
-		case "sqlite":
-			sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
-				DBPath:       *dbPath,
-				WAL:          true,
-				MaxOpenConns: 25,
-				MaxIdleConns: 5,
-				BusyTimeout:  5 * time.Second,
-			})
-			if err != nil {
-				log.Fatalf("Failed to create SQLite knowledge base: %v", err)
-			}
-			kb = sqliteKB
-			debugLogger.Printf("Created SQLite knowledge base at %s", *dbPath)
-			defer func() { _ = kb.Close() }()
-		case "memory":
-			kb = knowledge.NewMemoryKB()
-			debugLogger.Printf("Created in-memory knowledge base")
-		default:
-			log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
-		}
-		debugLogger.Printf("Created knowledge base")
-
-		// Initialize credential provider
-		credsProv, err := initCredentialsProvider()
-		if err != nil {
-			log.Fatalf("Failed to initialize credentials provider: %v", err)
-		}
-		debugLogger.Printf("Initialized credentials provider: %s", *credsProvider)
 
 		// Create agent manager
 		agentMgr = agent.NewManagerLegacy(kb, llmClient, credsProv, 10)
@@ -310,7 +282,7 @@ func main() {
 		// Create model with nil state (remote mode doesn't need watcher state)
 		tempModel := tui.NewWatcherModel(nil, tuiReadyChan)
 		tempModel.SetRemoteMode(serverClient)
-		model = &tempModel
+		model = tempModel
 
 		// Add remote agents to TUI
 		for _, info := range agentInfos {
@@ -338,7 +310,7 @@ func main() {
 		}
 
 		tempModel := tui.NewWatcherModel(state, tuiReadyChan)
-		model = &tempModel
+		model = tempModel
 
 		// Add local agents to TUI
 		for _, agt := range agentMgr.ListAgents() {
@@ -364,7 +336,7 @@ func main() {
 		// Local mode: start agent connections
 		go func() {
 			<-tuiReadyChan
-			startAgentConnections(ctx, agentMgr, p)
+			startAgentConnections(ctx, agentMgr, kb, p)
 		}()
 
 		// Connect watcher client for display

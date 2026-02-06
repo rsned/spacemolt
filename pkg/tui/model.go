@@ -235,31 +235,9 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	if topSectionHeight < minMapPanelHeight+minPanelHeight {
 		// Reduce status panel to make room
 		statusHeight = 6
-		topSectionHeight = availableHeight - statusHeight - agentsHeight
 	}
 
 	// Distribute top section space between log and map
-	// Log panel gets max height cap
-	logHeight := maxLogPanelHeight
-	if logHeight > topSectionHeight-minMapPanelHeight {
-		logHeight = topSectionHeight - minMapPanelHeight
-	}
-	if logHeight < minPanelHeight {
-		logHeight = minPanelHeight
-	}
-
-	// Map panel gets remaining space in top section
-	mapHeight := topSectionHeight - logHeight
-
-	// Width calculations
-	// Agents panel: full width
-	_ = m.viewportWidth
-
-	// Status panel: full width
-	_ = m.viewportWidth
-
-	// Log panel gets 20% of top section width with minimum of 20 characters.
-	logWidth := m.viewportWidth * 20 / 100
 	// Top row gets remaining space
 	topRowHeight := availableHeight - statusHeight
 
@@ -279,8 +257,8 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	// Distribute top row space with constraints
 	// Start with minimum allocations
 	agentHeight := minAgentPanelHeight
-	logHeight = effectiveMaxLogHeight
-	mapHeight = minMapPanelHeight
+	logHeight := effectiveMaxLogHeight
+	mapHeight := minMapPanelHeight
 
 	// Calculate remaining space after minimum allocations
 	remainingSpace := topRowHeight - (agentHeight + logHeight + mapHeight)
@@ -295,7 +273,7 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	}
 
 	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
-	logWidth = remainingWidth * 40 / 100
+	logWidth := remainingWidth * 40 / 100
 
 	if logWidth < 20 {
 		logWidth = 20
@@ -307,8 +285,8 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	}
 
 	return panelLayout{
-		agentWidth:   agentWidth,
-		agentHeight:  agentHeight,
+		agentWidth:  agentWidth,
+		agentHeight: agentHeight,
 
 		logWidth:     logWidth,
 		logHeight:    logHeight,

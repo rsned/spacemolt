@@ -33,13 +33,13 @@ func NewEvolver(manager *Manager, registry *Registry, metrics *MetricsCollector,
 
 // ImprovementSuggestion represents a suggested improvement to a prompt
 type ImprovementSuggestion struct {
-	PromptType    string
-	CurrentVersion int
-	NewVersion     int
-	Rationale      string
-	Changes        []string
+	PromptType       string
+	CurrentVersion   int
+	NewVersion       int
+	Rationale        string
+	Changes          []string
 	ExpectedBenefits []string
-	CreatedAt      time.Time
+	CreatedAt        time.Time
 }
 
 // AnalyzePrompt analyzes a prompt's metrics and suggests improvements
@@ -65,7 +65,7 @@ func (e *Evolver) AnalyzePrompt(promptType string, version int) (*ImprovementSug
 	nextVersion++
 
 	suggestion := &ImprovementSuggestion{
-		PromptType:    promptType,
+		PromptType:     promptType,
 		CurrentVersion: version,
 		NewVersion:     nextVersion,
 		Rationale:      response,

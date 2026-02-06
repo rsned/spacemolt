@@ -69,13 +69,13 @@ func CaptureMarketData(ctx context.Context, client *game.Client, kb knowledge.Ba
 	// Copy listings (convert from game.MarketListing to knowledge.MarketListing)
 	for i, l := range listings {
 		snapshot.Listings[i] = knowledge.MarketListing{
-			ItemID:      l.ItemID,
-			ItemType:    l.ItemType,
-			Quantity:    l.Quantity,
+			ItemID:       l.ItemID,
+			ItemType:     l.ItemType,
+			Quantity:     l.Quantity,
 			PricePerUnit: l.PricePerUnit,
-			TotalPrice:  l.TotalPrice,
-			Type:        l.Type,
-			ListedBy:    l.ListedBy,
+			TotalPrice:   l.TotalPrice,
+			Type:         l.Type,
+			ListedBy:     l.ListedBy,
 		}
 	}
 

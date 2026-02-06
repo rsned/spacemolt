@@ -202,13 +202,6 @@ func (m *WatcherModel) renderLogPanel(width, height int) string {
 		Height(height)
 
 	return style.Render(content)
-	// Build bordered panel with title
-	var result strings.Builder
-	result.WriteString(RenderBorderedTitle("Action Log", width))
-	result.WriteString(RenderBorderedContent(sb.String(), width))
-	result.WriteString(RenderBorderBottom(width))
-
-	return result.String()
 }
 
 // renderMapPanelFull renders the full map panel with system info, map, and legend

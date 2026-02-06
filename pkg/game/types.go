@@ -7,25 +7,25 @@ import (
 
 // Player represents a player in the game
 type Player struct {
-	ID             string             `json:"id"`
-	Username       string             `json:"username"`
-	Empire         string             `json:"empire"`
-	Credits        float64            `json:"credits"`
-	CurrentSystem  string             `json:"current_system"`
-	CurrentPOI     string             `json:"current_poi"`
-	CurrentShipID  string             `json:"current_ship_id"`
-	HomeBase       string             `json:"home_base"`
-	DockedAtBase   string             `json:"docked_at_base"`
-	FactionID      string             `json:"faction_id,omitempty"`
-	FactionRank    string             `json:"faction_rank,omitempty"`
-	StatusMessage  string             `json:"status_message,omitempty"`
-	ClanTag        string             `json:"clan_tag,omitempty"`
-	PrimaryColor   string             `json:"primary_color,omitempty"`
-	SecondaryColor string             `json:"secondary_color,omitempty"`
-	Anonymous      bool               `json:"anonymous"`
-	IsCloaked      bool               `json:"is_cloaked"`
-	Skills         map[string]Skill   `json:"skills"`
-	Stats          PlayerStats        `json:"stats"`
+	ID             string           `json:"id"`
+	Username       string           `json:"username"`
+	Empire         string           `json:"empire"`
+	Credits        float64          `json:"credits"`
+	CurrentSystem  string           `json:"current_system"`
+	CurrentPOI     string           `json:"current_poi"`
+	CurrentShipID  string           `json:"current_ship_id"`
+	HomeBase       string           `json:"home_base"`
+	DockedAtBase   string           `json:"docked_at_base"`
+	FactionID      string           `json:"faction_id,omitempty"`
+	FactionRank    string           `json:"faction_rank,omitempty"`
+	StatusMessage  string           `json:"status_message,omitempty"`
+	ClanTag        string           `json:"clan_tag,omitempty"`
+	PrimaryColor   string           `json:"primary_color,omitempty"`
+	SecondaryColor string           `json:"secondary_color,omitempty"`
+	Anonymous      bool             `json:"anonymous"`
+	IsCloaked      bool             `json:"is_cloaked"`
+	Skills         map[string]Skill `json:"skills"`
+	Stats          PlayerStats      `json:"stats"`
 }
 
 // Skill represents a player's skill level and XP
@@ -36,40 +36,40 @@ type Skill struct {
 
 // PlayerStats tracks player statistics
 type PlayerStats struct {
-	ShipsDestroyed   int     `json:"ships_destroyed"`
-	TimesDestroyed   int     `json:"times_destroyed"`
-	OreMined         float64 `json:"ore_mined"`
-	CreditsEarned    float64 `json:"credits_earned"`
-	CreditsSpent     float64 `json:"credits_spent"`
-	TradesCompleted  int     `json:"trades_completed"`
-	SystemsDiscovered int    `json:"systems_discovered"`
-	ItemsCrafted     int     `json:"items_crafted"`
-	MissionsCompleted int    `json:"missions_completed"`
+	ShipsDestroyed    int     `json:"ships_destroyed"`
+	TimesDestroyed    int     `json:"times_destroyed"`
+	OreMined          float64 `json:"ore_mined"`
+	CreditsEarned     float64 `json:"credits_earned"`
+	CreditsSpent      float64 `json:"credits_spent"`
+	TradesCompleted   int     `json:"trades_completed"`
+	SystemsDiscovered int     `json:"systems_discovered"`
+	ItemsCrafted      int     `json:"items_crafted"`
+	MissionsCompleted int     `json:"missions_completed"`
 }
 
 // Ship represents the player's ship
 type Ship struct {
-	ID             string            `json:"id"`
-	OwnerID        string            `json:"owner_id"`
-	ClassID        string            `json:"class_id"`
-	Name           string            `json:"name"`
-	Hull           float64           `json:"hull"`
-	MaxHull        float64           `json:"max_hull"`
-	Shield         float64           `json:"shield"`
-	MaxShield      float64           `json:"max_shield"`
-	ShieldRecharge float64           `json:"shield_recharge"`
-	Armor          float64           `json:"armor"`
-	Speed          float64           `json:"speed"`
-	Fuel           float64           `json:"fuel"`
-	MaxFuel        float64           `json:"max_fuel"`
-	CargoUsed      float64           `json:"cargo_used"`
-	CargoCapacity  float64           `json:"cargo_capacity"`
-	CPUUsed        float64           `json:"cpu_used"`
-	CPUCapacity    float64           `json:"cpu_capacity"`
-	PowerUsed      float64           `json:"power_used"`
-	PowerCapacity  float64           `json:"power_capacity"`
-	Modules        []string          `json:"modules"`
-	Cargo          []CargoItem       `json:"cargo"`
+	ID             string      `json:"id"`
+	OwnerID        string      `json:"owner_id"`
+	ClassID        string      `json:"class_id"`
+	Name           string      `json:"name"`
+	Hull           float64     `json:"hull"`
+	MaxHull        float64     `json:"max_hull"`
+	Shield         float64     `json:"shield"`
+	MaxShield      float64     `json:"max_shield"`
+	ShieldRecharge float64     `json:"shield_recharge"`
+	Armor          float64     `json:"armor"`
+	Speed          float64     `json:"speed"`
+	Fuel           float64     `json:"fuel"`
+	MaxFuel        float64     `json:"max_fuel"`
+	CargoUsed      float64     `json:"cargo_used"`
+	CargoCapacity  float64     `json:"cargo_capacity"`
+	CPUUsed        float64     `json:"cpu_used"`
+	CPUCapacity    float64     `json:"cpu_capacity"`
+	PowerUsed      float64     `json:"power_used"`
+	PowerCapacity  float64     `json:"power_capacity"`
+	Modules        []string    `json:"modules"`
+	Cargo          []CargoItem `json:"cargo"`
 }
 
 // CargoItem represents an item in the cargo hold
@@ -80,14 +80,14 @@ type CargoItem struct {
 
 // POI represents a Point of Interest in a system
 type POI struct {
-	ID          string         `json:"id"`
-	SystemID    string         `json:"system_id"`
-	Type        string         `json:"type"`
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Position    Position       `json:"position"`
-	Resources   []POIResource  `json:"resources"`
-	BaseID      string         `json:"base_id,omitempty"`
+	ID          string        `json:"id"`
+	SystemID    string        `json:"system_id"`
+	Type        string        `json:"type"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Position    Position      `json:"position"`
+	Resources   []POIResource `json:"resources"`
+	BaseID      string        `json:"base_id,omitempty"`
 }
 
 // Position represents 2D coordinates
@@ -105,40 +105,40 @@ type POIResource struct {
 
 // SystemData holds the current system information
 type SystemData struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Empire      string   `json:"empire"`
-	PoliceLevel int      `json:"police_level"`
-	POIs        []POI    `json:"pois"`
-	Connections []string `json:"connections"`
-	Discovered  bool     `json:"discovered"`
-	Position    Position `json:"position"`
-	DiscoveredBy string  `json:"discovered_by,omitempty"`
-	ShipPOI     string   // ID of the POI where the ship is located
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Empire       string   `json:"empire"`
+	PoliceLevel  int      `json:"police_level"`
+	POIs         []POI    `json:"pois"`
+	Connections  []string `json:"connections"`
+	Discovered   bool     `json:"discovered"`
+	Position     Position `json:"position"`
+	DiscoveredBy string   `json:"discovered_by,omitempty"`
+	ShipPOI      string   // ID of the POI where the ship is located
 }
 
 // NearbyPlayer represents another player at the same POI
 type NearbyPlayer struct {
-	PlayerID     string  `json:"player_id"`
-	Username     string  `json:"username"`
-	ShipClass    string  `json:"ship_class"`
-	FactionID    string  `json:"faction_id,omitempty"`
-	FactionTag   string  `json:"faction_tag,omitempty"`
-	StatusMessage string `json:"status_message,omitempty"`
-	ClanTag      string  `json:"clan_tag,omitempty"`
-	PrimaryColor string  `json:"primary_color,omitempty"`
+	PlayerID       string `json:"player_id"`
+	Username       string `json:"username"`
+	ShipClass      string `json:"ship_class"`
+	FactionID      string `json:"faction_id,omitempty"`
+	FactionTag     string `json:"faction_tag,omitempty"`
+	StatusMessage  string `json:"status_message,omitempty"`
+	ClanTag        string `json:"clan_tag,omitempty"`
+	PrimaryColor   string `json:"primary_color,omitempty"`
 	SecondaryColor string `json:"secondary_color,omitempty"`
-	Anonymous    bool    `json:"anonymous"`
-	InCombat     bool    `json:"in_combat"`
+	Anonymous      bool   `json:"anonymous"`
+	InCombat       bool   `json:"in_combat"`
 }
 
 // TravelProgress represents travel state when in transit
 type TravelProgress struct {
-	Progress         float64 `json:"travel_progress"`
-	Destination      string  `json:"travel_destination"`
-	Type             string  `json:"travel_type"` // "travel" or "jump"
-	ArrivalTick      int64   `json:"travel_arrival_tick"`
+	Progress    float64 `json:"travel_progress"`
+	Destination string  `json:"travel_destination"`
+	Type        string  `json:"travel_type"` // "travel" or "jump"
+	ArrivalTick int64   `json:"travel_arrival_tick"`
 }
 
 // State represents the current game state
@@ -154,26 +154,26 @@ type State struct {
 	ServerVersion  string          // Server API version
 
 	// Player data
-	Player         Player
-	Credits        float64
+	Player  Player
+	Credits float64
 
 	// Ship data
-	Ship           Ship
-	Fuel           float64
-	MaxFuel        float64
-	Hull           float64
-	MaxHull        float64
-	Cargo          []map[string]any // Legacy format, use Ship.Cargo
-	MaxCargo       int
+	Ship     Ship
+	Fuel     float64
+	MaxFuel  float64
+	Hull     float64
+	MaxHull  float64
+	Cargo    []map[string]any // Legacy format, use Ship.Cargo
+	MaxCargo int
 
 	// System data
-	System         SystemData
-	CurrentTick    int64
-	LastMapUpdate  time.Time
+	System        SystemData
+	CurrentTick   int64
+	LastMapUpdate time.Time
 
 	// Nearby players (from state_update)
-	Nearby         []NearbyPlayer
-	InCombat       bool
+	Nearby   []NearbyPlayer
+	InCombat bool
 }
 
 // Clone creates a deep copy of the state for safe concurrent access
@@ -292,13 +292,13 @@ func (s *State) GetNearbyPlayers() []NearbyPlayer {
 
 // MarketListing represents a single market listing
 type MarketListing struct {
-	ItemID      string  `json:"item_id"`
-	ItemType    string  `json:"item_type"`
-	Quantity    float64 `json:"quantity"`
+	ItemID       string  `json:"item_id"`
+	ItemType     string  `json:"item_type"`
+	Quantity     float64 `json:"quantity"`
 	PricePerUnit float64 `json:"price_per_unit"`
-	TotalPrice  float64 `json:"total_price"`
-	Type        string  `json:"type"` // 'buy' or 'sell'
-	ListedBy    string  `json:"listed_by,omitempty"`
+	TotalPrice   float64 `json:"total_price"`
+	Type         string  `json:"type"` // 'buy' or 'sell'
+	ListedBy     string  `json:"listed_by,omitempty"`
 }
 
 // MarketSnapshot represents a captured market state

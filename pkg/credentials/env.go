@@ -11,14 +11,16 @@ import (
 // EnvProvider loads credentials from environment variables
 //
 // Environment variable naming convention:
-//   SPACEMOLT_AGENT_<AGENT_ID>_USERNAME
-//   SPACEMOLT_AGENT_<AGENT_ID>_TOKEN
-//   SPACEMOLT_AGENT_<AGENT_ID>_EMPIRE
+//
+//	SPACEMOLT_AGENT_<AGENT_ID>_USERNAME
+//	SPACEMOLT_AGENT_<AGENT_ID>_TOKEN
+//	SPACEMOLT_AGENT_<AGENT_ID>_EMPIRE
 //
 // Example for agent "explorer-7":
-//   SPACEMOLT_AGENT_EXPLORER_7_USERNAME="explorer-7"
-//   SPACEMOLT_AGENT_EXPLORER_7_TOKEN="abc123"
-//   SPACEMOLT_AGENT_EXPLORER_7_EMPIRE="voidborn"
+//
+//	SPACEMOLT_AGENT_EXPLORER_7_USERNAME="explorer-7"
+//	SPACEMOLT_AGENT_EXPLORER_7_TOKEN="abc123"
+//	SPACEMOLT_AGENT_EXPLORER_7_EMPIRE="voidborn"
 //
 // Note: Agent ID is uppercased and hyphens are replaced with underscores
 // to create valid environment variable names.
