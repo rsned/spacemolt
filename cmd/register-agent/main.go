@@ -15,11 +15,11 @@ import (
 )
 
 var (
-	serverURL = flag.String("server", "ws://localhost:8080/ws", "WebSocket server URL")
-	username  = flag.String("username", "", "Agent username (required)")
-	empire    = flag.String("empire", "voidborn", "Empire/faction name")
+	serverURL    = flag.String("server", "wss://game.spacemolt.com/ws", "WebSocket server URL")
+	username     = flag.String("username", "", "Agent username (required)")
+	empire       = flag.String("empire", "solarian", "Empire/faction name")
 	savePassword = flag.Bool("save-password", false, "Save password to ~/.spacemolt/agents/<username>.password")
-	verbose   = flag.Bool("v", false, "Enable verbose output")
+	verbose      = flag.Bool("v", false, "Enable verbose output")
 )
 
 func main() {
