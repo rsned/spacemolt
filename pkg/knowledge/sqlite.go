@@ -252,9 +252,22 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
 
-	// Note: Services and Resources are stored as []string in the POI struct
-	// For a full implementation, we could serialize these to JSON or create junction tables
-	// For now, we skip storing these in the database as they're not critical for the MVP
+	// Delete existing resources for this POI
+	_, err = tx.ExecContext(ctx, `DELETE FROM poi_resources WHERE poi_id = ?`, poi.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old POI resources: %w", err)
+	}
+
+	// Insert resources
+	for _, res := range poi.Resources {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining)
+			VALUES (?, ?, ?, ?)
+		`, poi.ID, res.ResourceID, res.Richness, res.Remaining)
+		if err != nil {
+			return fmt.Errorf("failed to insert POI resource: %w", err)
+		}
+	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)

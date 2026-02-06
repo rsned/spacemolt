@@ -621,6 +621,16 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys System) error {
 
 // RememberPOI stores a POI in memory
 func (m *KBMemory) RememberPOI(ctx context.Context, poi POI) error {
+	// Convert resources
+	resources := make([]knowledge.ResourceInfo, len(poi.Resources))
+	for i, res := range poi.Resources {
+		resources[i] = knowledge.ResourceInfo{
+			ResourceID: res.ResourceID,
+			Richness:   res.Richness,
+			Remaining:  res.Remaining,
+		}
+	}
+
 	kbPOI := knowledge.POI{
 		ID:           poi.ID,
 		SystemID:     poi.SystemID,
