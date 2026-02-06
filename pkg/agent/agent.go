@@ -70,53 +70,53 @@ type Agent interface {
 
 // Personality defines an agent's traits and motivations
 type Personality struct {
-	Name        string            `yaml:"name"`
-	ID          string            `yaml:"id"`
-	Role        string            `yaml:"role"`
+	Name        string             `yaml:"name"`
+	ID          string             `yaml:"id"`
+	Role        string             `yaml:"role"`
 	Traits      map[string]float64 `yaml:"traits"`
-	Skills      map[string]string `yaml:"skills"`
-	Motivations Motivations       `yaml:"motivations"`
-	Biography   string            `yaml:"biography"`
-	Faction     string            `yaml:"faction,omitempty"`
+	Skills      map[string]string  `yaml:"skills"`
+	Motivations Motivations        `yaml:"motivations"`
+	Biography   string             `yaml:"biography"`
+	Faction     string             `yaml:"faction,omitempty"`
 }
 
 // Motivations drives agent behavior
 type Motivations struct {
-	Primary   string                 `yaml:"primary"`
-	Secondary string                 `yaml:"secondary"`
-	Tertiary  string                 `yaml:"tertiary"`
-	Weights   map[string]float64     `yaml:"weights,omitempty"`
+	Primary   string             `yaml:"primary"`
+	Secondary string             `yaml:"secondary"`
+	Tertiary  string             `yaml:"tertiary"`
+	Weights   map[string]float64 `yaml:"weights,omitempty"`
 }
 
 // PlannedAction represents a future action in the tactical queue
 type PlannedAction struct {
-	Sequence   int               `json:"sequence"`              // 1-5, order in the plan
-	Action     string            `json:"action"`                // Action name (travel, mine, wait, etc.)
-	Target     string            `json:"target,omitempty"`      // Target for the action (POI ID, system name)
-	Parameters map[string]string `json:"parameters,omitempty"`  // Additional parameters
-	Reasoning  string            `json:"reasoning"`             // Why this step is needed
-	Condition  string            `json:"condition,omitempty"`   // Condition for execution ("after_arrival", "if_cargo_full")
+	Sequence   int               `json:"sequence"`             // 1-5, order in the plan
+	Action     string            `json:"action"`               // Action name (travel, mine, wait, etc.)
+	Target     string            `json:"target,omitempty"`     // Target for the action (POI ID, system name)
+	Parameters map[string]string `json:"parameters,omitempty"` // Additional parameters
+	Reasoning  string            `json:"reasoning"`            // Why this step is needed
+	Condition  string            `json:"condition,omitempty"`  // Condition for execution ("after_arrival", "if_cargo_full")
 }
 
 // Decision represents a chosen action
 type Decision struct {
-	Action         string           `json:"action"`
-	Target         string           `json:"target,omitempty"`
-	Reasoning      string           `json:"reasoning"`
-	Confidence     float64          `json:"confidence,omitempty"`
-	Alternatives   []string         `json:"alternatives,omitempty"`
-	PlannedActions []PlannedAction  `json:"planned_actions,omitempty"` // NEW: 5-step tactical plan
+	Action         string          `json:"action"`
+	Target         string          `json:"target,omitempty"`
+	Reasoning      string          `json:"reasoning"`
+	Confidence     float64         `json:"confidence,omitempty"`
+	Alternatives   []string        `json:"alternatives,omitempty"`
+	PlannedActions []PlannedAction `json:"planned_actions,omitempty"` // NEW: 5-step tactical plan
 }
 
 // ActionResult represents the result of taking an action
 type ActionResult struct {
-	Action      string  // The action that was taken
-	Target      string  // The target of the action (if any)
-	Success     bool
-	Message     string
-	NewState    *game.State
-	Reward      float64 // For reinforcement learning
-	Error       error
+	Action   string // The action that was taken
+	Target   string // The target of the action (if any)
+	Success  bool
+	Message  string
+	NewState *game.State
+	Reward   float64 // For reinforcement learning
+	Error    error
 }
 
 // Goal represents a strategic objective for an agent
@@ -137,10 +137,10 @@ type Priority struct {
 
 // Status represents the current status of an agent
 type Status struct {
-	State       AgentState
+	State         AgentState
 	CurrentAction string
-	LastUpdate  string
-	Error       error
+	LastUpdate    string
+	Error         error
 }
 
 type AgentState int
@@ -220,12 +220,12 @@ type ResourceInfo struct {
 
 // POI represents a POI for memory storage
 type POI struct {
-	ID            string
-	SystemID      string
-	Name          string
-	Type          string
-	Position      Position
-	Services      []string
-	Resources     []ResourceInfo
-	DiscoveredBy  string
+	ID           string
+	SystemID     string
+	Name         string
+	Type         string
+	Position     Position
+	Services     []string
+	Resources    []ResourceInfo
+	DiscoveredBy string
 }

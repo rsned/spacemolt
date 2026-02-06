@@ -8,11 +8,35 @@ The Spacemolt Multi-Agent System transforms the single-client game into a platfo
 
 - **Explore** the universe independently using LLM-driven decision making
 - **Learn** from their experiences and build knowledge over time
-- **Collaborate** by sharing information with other agents
+- **Collaborate** by sharing information with other agents through a persistent knowledge base
 - **Play autonomously** while a human watcher observes via a TUI interface
-- **Persist** knowledge across sessions using SQLite storage
+- **Persist** all discoveries automatically to SQLite storage
 
-Each agent has a unique personality that drives their behavior, and they make decisions about what to do next based on their current situation, past experiences, and knowledge of the universe.
+Each agent has a unique personality that drives their behavior, and they make decisions about what to do next based on their current situation, past experiences, and cumulative knowledge of the universe.
+
+### Automatic Knowledge Persistence & Analytics
+
+All agent discoveries are automatically saved to a SQLite knowledge base with **advanced analytics**:
+- **Systems**: Names, positions, security levels, factions, connections
+- **POIs**: Stations, asteroid belts, planets with resources
+- **Resources**: Mining locations with richness, depletion tracking, and trend analysis
+- **Experiences**: Complete action history for learning
+- **Anomalies**: Automatic detection of rich deposits, depleting resources, and opportunities
+- **Routes**: Optimization through learning fuel costs and travel times
+- **Markets**: Price analytics and best buy/sell identification
+- **Danger Zones**: Hostile activity tracking and risk assessment
+
+**Documentation:**
+- [Knowledge Base Overview](docs/KNOWLEDGE_BASE.md)
+- [Enhanced Analytics Guide](docs/ENHANCED_ANALYTICS.md)
+- [Implementation Summary](docs/ENHANCEMENTS_SUMMARY.md)
+
+**Query Tools:**
+```bash
+./scripts/query-knowledge.sh systems          # View discovered systems
+./scripts/query-analytics.sh rich-deposits    # Find best mining spots
+./scripts/query-analytics.sh anomalies        # View detected opportunities
+```
 
 ## Quick Start
 
