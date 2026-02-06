@@ -369,11 +369,11 @@ func TestRegister_TokenUpdate(t *testing.T) {
 		t.Fatalf("waitForResponse failed: %v", err)
 	}
 
-	// Simulate the password update that Register() does
-	if password, ok := receivedResp.Payload["password"].(string); ok {
+	// Simulate the token update that Register() does
+	if token, ok := receivedResp.Payload["password"].(string); ok {
 		client.mu.Lock()
-		client.password = password
-		client.state.Password = password
+		client.token = token
+		client.state.Password = token
 		client.mu.Unlock()
 	}
 

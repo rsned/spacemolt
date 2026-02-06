@@ -220,20 +220,24 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
 	}
 
+	canAct := tickAdvanced || timeElapsed
+
+	// Log throttling details for debugging
+	if !canAct {
+		r.logger.Printf("[%s] Throttle check: tick=%d, lastTick=%d, timeSince=%.1fs",
+			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
+	}
+
 	// Try to use queued action first, fall back to LLM decision
 	var decision Decision
 	var err error
 	var fromQueue bool
 
-	// DEBUG: Check queue state before attempting dequeue
-	queueSize := len(r.agent.GetActionQueue())
-	r.logger.Printf("[%s] === Queue Status: %d actions in queue ===", r.agent.ID(), queueSize)
-
 	if queuedAction, ok := r.agent.DequeueAction(); ok {
 		// Use queued action
 		fromQueue = true
-		r.logger.Printf("[%s] ✓ Using queued action [%d]: %s → %s (queue has %d remaining)",
-			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, queuedAction.Target, len(r.agent.GetActionQueue()))
+		r.logger.Printf("[%s] Using queued action [%d]: %s (queue has %d remaining)",
+			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, len(r.agent.GetActionQueue()))
 
 		decision = Decision{
 			Action:    queuedAction.Action,
@@ -244,7 +248,6 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		r.agent.SetUsingQueuedAction(true)
 	} else {
 		// No queued actions - get fresh LLM decision
-		r.logger.Printf("[%s] Queue empty, consulting LLM for new decision", r.agent.ID())
 		decision, err = r.agent.Decide(ctx, stateCopy)
 		if err != nil {
 			return fmt.Errorf("decision failed: %w", err)
@@ -253,12 +256,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		// Save any planned actions to the queue
 		if len(decision.PlannedActions) > 0 {
 			r.agent.EnqueueActions(decision.PlannedActions)
-			r.logger.Printf("[%s] ✓ Enqueued %d planned actions:", r.agent.ID(), len(decision.PlannedActions))
-			for _, pa := range decision.PlannedActions {
-				r.logger.Printf("[%s]   [%d] %s → %s: %s", r.agent.ID(), pa.Sequence, pa.Action, pa.Target, pa.Reasoning)
-			}
-		} else {
-			r.logger.Printf("[%s] ⚠ LLM provided NO planned_actions in response", r.agent.ID())
+			r.logger.Printf("[%s] Enqueued %d planned actions", r.agent.ID(), len(decision.PlannedActions))
 		}
 
 		r.agent.SetUsingQueuedAction(false)
@@ -270,7 +268,6 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		"target":     decision.Target,
 		"confidence": decision.Confidence,
 		"reasoning":  decision.Reasoning,
-		"fromQueue":  fromQueue,
 		"tick":       currentTick,
 	})
 
@@ -317,11 +314,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	// Check if we should invalidate the queue based on state changes
 	if r.shouldInvalidateQueue(r.gameClient.GetState()) {
-		r.logger.Printf("[%s] ⚠ Clearing queue due to situation change", r.agent.ID())
 		r.agent.ClearActionQueue("situation_changed")
-	} else if r.agent.IsUsingQueuedAction() {
-		remainingActions := len(r.agent.GetActionQueue())
-		r.logger.Printf("[%s] ✓ Queue preserved: %d actions remaining", r.agent.ID(), remainingActions)
 	}
 
 	// Update last action tick/time if this was an action command
@@ -405,12 +398,7 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 
 	case "scan":
 		r.logger.Printf("[%s] -> Calling gameClient.Scan()", r.agent.ID())
-		err := r.gameClient.Scan(actionCtx)
-		if err == nil {
-			// Save POI knowledge after successful scan
-			r.saveSystemKnowledge(ctx)
-		}
-		return err
+		return r.gameClient.Scan(actionCtx)
 
 	case "get_status":
 		r.logger.Printf("[%s] -> Calling gameClient.GetStatus()", r.agent.ID())
@@ -418,12 +406,7 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 
 	case "get_system":
 		r.logger.Printf("[%s] -> Calling gameClient.GetSystem()", r.agent.ID())
-		err := r.gameClient.GetSystem(actionCtx)
-		if err == nil {
-			// Save system and POI knowledge after successful get_system
-			r.saveSystemKnowledge(ctx)
-		}
-		return err
+		return r.gameClient.GetSystem(actionCtx)
 
 	case "wait":
 		// Deliberate wait - do nothing
@@ -571,121 +554,4 @@ func (r *Runner) recordAction(decision Decision, result string, err error) {
 	}
 
 	r.history.Add(entry)
-}
-
-// saveSystemKnowledge saves the current system and POI information to agent memory
-func (r *Runner) saveSystemKnowledge(ctx context.Context) {
-	state := r.gameClient.GetState()
-	if state == nil {
-		return
-	}
-
-	// Convert and save system information
-	system := System{
-		ID:            state.System.ID,
-		Name:          state.System.Name,
-		Position:      Position{X: state.System.Position.X, Y: state.System.Position.Y},
-		SecurityLevel: getSecurityLevel(state.System.PoliceLevel),
-		Faction:       state.System.Empire,
-		Connections:   state.System.Connections,
-		DiscoveredBy:  r.agent.Name(),
-	}
-
-	if err := r.agent.Memory().RememberSystem(ctx, system); err != nil {
-		r.logger.Printf("[%s] Warning: failed to save system knowledge: %v", r.agent.ID(), err)
-	}
-
-	// Convert and save POI information
-	for _, gamePOI := range state.System.POIs {
-		// Extract full resource information
-		resources := make([]ResourceInfo, 0, len(gamePOI.Resources))
-		for _, res := range gamePOI.Resources {
-			resources = append(resources, ResourceInfo{
-				ResourceID: res.ResourceID,
-				Richness:   res.Richness,
-				Remaining:  res.Remaining,
-			})
-		}
-
-		poi := POI{
-			ID:           gamePOI.ID,
-			SystemID:     gamePOI.SystemID,
-			Name:         gamePOI.Name,
-			Type:         gamePOI.Type,
-			Position:     Position{X: gamePOI.Position.X, Y: gamePOI.Position.Y},
-			Services:     []string{}, // Services are not in current game state
-			Resources:    resources,
-			DiscoveredBy: r.agent.Name(),
-		}
-
-		if err := r.agent.Memory().RememberPOI(ctx, poi); err != nil {
-			r.logger.Printf("[%s] Warning: failed to save POI knowledge: %v", r.agent.ID(), err)
-		}
-	}
-
-	// Save connections
-	for _, conn := range state.System.Connections {
-		if err := r.agent.Memory().RememberConnection(ctx, state.System.ID, conn); err != nil {
-			r.logger.Printf("[%s] Warning: failed to save connection knowledge: %v", r.agent.ID(), err)
-		}
-	}
-}
-
-// getSecurityLevel converts police level to security level string
-func getSecurityLevel(policeLevel int) string {
-	switch policeLevel {
-	case 0:
-		return "None"
-	case 1:
-		return "Low"
-	case 2:
-		return "Medium"
-	case 3:
-		return "High"
-	default:
-		return "Unknown"
-	}
-}
-
-// shouldInvalidateQueue determines if the action queue should be cleared based on state changes
-func (r *Runner) shouldInvalidateQueue(state *game.State) bool {
-	if state == nil {
-		return false
-	}
-
-	// Skip invalidation if not using queued actions
-	if !r.agent.IsUsingQueuedAction() {
-		return false
-	}
-
-	// Clear queue on critical state changes:
-
-	// 1. Combat started - tactics changed
-	if state.InCombat {
-		r.logger.Printf("[%s] Queue invalidation: combat started", r.agent.ID())
-		return true
-	}
-
-	// 2. Low fuel - need emergency refuel
-	fuelPercent := (state.Fuel / state.MaxFuel) * 100
-	if fuelPercent < 20 {
-		r.logger.Printf("[%s] Queue invalidation: low fuel (%.1f%%)", r.agent.ID(), fuelPercent)
-		return true
-	}
-
-	// 3. Low hull - need emergency repair
-	hullPercent := (state.Hull / state.MaxHull) * 100
-	if hullPercent < 30 {
-		r.logger.Printf("[%s] Queue invalidation: low hull (%.1f%%)", r.agent.ID(), hullPercent)
-		return true
-	}
-
-	// 4. Cargo full - can't continue mining plans
-	cargoFull := len(state.Ship.Cargo) >= state.MaxCargo
-	if cargoFull {
-		r.logger.Printf("[%s] Queue invalidation: cargo full", r.agent.ID())
-		return true
-	}
-
-	return false
 }
