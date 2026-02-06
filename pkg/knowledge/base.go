@@ -27,6 +27,39 @@ type Base interface {
 	GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error)
 	GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*MarketSnapshot, error)
 	GetMarketItems(ctx context.Context, itemType string) ([]string, error)
+
+	// Enhanced analytics methods
+
+	// Resource depletion tracking
+	RecordResourceState(ctx context.Context, poiID, resourceID string, richness, remaining float64, gameTick int64, agentID string) error
+	GetResourceHistory(ctx context.Context, poiID, resourceID string, limit int) ([]ResourceHistory, error)
+	GetDepletingResources(ctx context.Context, threshold float64) ([]DepletingResource, error)
+
+	// Route optimization
+	RecordJourney(ctx context.Context, fromSystem, toSystem string, fuelCost, travelTime float64, agentID string) error
+	GetOptimalRoute(ctx context.Context, fromSystem, toSystem string) (*ConnectionMetrics, error)
+	FindCheapestRoute(ctx context.Context, fromSystem, toSystem string, maxHops int) ([]string, float64, error)
+
+	// Anomaly detection
+	RecordAnomaly(ctx context.Context, anomaly Anomaly) error
+	GetActiveAnomalies(ctx context.Context, systemID string) ([]Anomaly, error)
+	GetAnomaliesByType(ctx context.Context, anomalyType, severity string, limit int) ([]Anomaly, error)
+	ResolveAnomaly(ctx context.Context, anomalyID int64, status string) error
+
+	// Market price analytics
+	AnalyzePriceTrends(ctx context.Context, itemID, stationID string, windowHours int) (*PriceTrend, error)
+	FindBestPrices(ctx context.Context, itemID string, listingType string, limit int) ([]BestPrice, error)
+	GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error)
+
+	// Danger zone tracking
+	RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error
+	GetDangerZones(ctx context.Context, minDangerLevel int) ([]DangerZone, error)
+	GetSystemDanger(ctx context.Context, systemID string) (*DangerZone, error)
+
+	// Knowledge export/import
+	ExportKnowledge(ctx context.Context, description string, agentID string) (*KnowledgeExport, error)
+	ImportKnowledge(ctx context.Context, exportData string) error
+	ListExports(ctx context.Context) ([]KnowledgeExportMeta, error)
 }
 
 // MarketListing represents a single market listing
@@ -49,4 +82,126 @@ type MarketSnapshot struct {
 	GameTick    int64
 	Listings    []MarketListing
 	CapturedAt  time.Time
+}
+
+// ResourceHistory tracks resource depletion over time
+type ResourceHistory struct {
+	POIID      string
+	ResourceID string
+	Richness   float64
+	Remaining  float64
+	GameTick   int64
+	RecordedAt time.Time
+	AgentID    string
+}
+
+// DepletingResource identifies resources running low
+type DepletingResource struct {
+	POIID        string
+	POIName      string
+	SystemID     string
+	SystemName   string
+	ResourceID   string
+	CurrentRem   float64
+	PreviousRem  float64
+	DepletionRate float64 // per game tick
+	EstimatedLife int64   // ticks until exhausted
+}
+
+// ConnectionMetrics stores route optimization data
+type ConnectionMetrics struct {
+	FromSystem     string
+	ToSystem       string
+	TravelCount    int
+	AvgFuelCost    float64
+	AvgTravelTime  float64
+	LastTraveled   time.Time
+	TraveledBy     string
+}
+
+// Anomaly represents an unusual or noteworthy discovery
+type Anomaly struct {
+	ID          int64
+	Type        string // 'rich_deposit', 'hostile_zone', 'rare_resource', 'empty_station', 'price_anomaly'
+	Severity    string // 'info', 'warning', 'critical', 'opportunity'
+	SystemID    string
+	POIID       string
+	Description string
+	Details     string    // JSON with additional data
+	DetectedAt  time.Time
+	DetectedBy  string
+	Status      string // 'active', 'resolved', 'obsolete'
+}
+
+// PriceTrend represents aggregate price data over a time window
+type PriceTrend struct {
+	ItemID       string
+	ItemType     string
+	StationID    string
+	SystemID     string
+	ListingType  string // 'buy' or 'sell'
+	AvgPrice     float64
+	MinPrice     float64
+	MaxPrice     float64
+	CurrentPrice float64
+	PriceChange  float64 // percentage change
+	SampleCount  int
+	WindowStart  time.Time
+	WindowEnd    time.Time
+}
+
+// BestPrice identifies the best buy/sell opportunity for an item
+type BestPrice struct {
+	ItemID       string
+	StationID    string
+	StationName  string
+	SystemID     string
+	SystemName   string
+	Price        float64
+	Quantity     float64
+	ListingType  string
+	CapturedAt   time.Time
+}
+
+// PricePoint represents a single price observation
+type PricePoint struct {
+	Price      float64
+	Quantity   float64
+	GameTick   int64
+	CapturedAt time.Time
+}
+
+// DangerZone tracks hostile activity in a system
+type DangerZone struct {
+	SystemID           string
+	SystemName         string
+	DangerLevel        int       // 0-10 scale
+	HostileEncounters  int
+	PlayerKills        int
+	NPCKills           int
+	LastIncident       time.Time
+	LastUpdated        time.Time
+}
+
+// KnowledgeExport represents exported knowledge bundle
+type KnowledgeExport struct {
+	ID               string
+	CreatedAt        time.Time
+	CreatedBy        string
+	Description      string
+	SystemsCount     int
+	POIsCount        int
+	ExperiencesCount int
+	ExportData       string // JSON snapshot
+}
+
+// KnowledgeExportMeta is metadata about an export
+type KnowledgeExportMeta struct {
+	ID               string
+	CreatedAt        time.Time
+	CreatedBy        string
+	Description      string
+	SystemsCount     int
+	POIsCount        int
+	ExperiencesCount int
 }

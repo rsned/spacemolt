@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -359,4 +360,83 @@ func (kb *MemoryKB) GetMarketItems(ctx context.Context, itemType string) ([]stri
 		items = append(items, itemID)
 	}
 	return items, nil
+}
+
+// Enhanced analytics methods - stub implementations for in-memory KB
+// These return "not implemented" errors as the in-memory KB is for testing only
+
+func (kb *MemoryKB) RecordResourceState(ctx context.Context, poiID, resourceID string, richness, remaining float64, gameTick int64, agentID string) error {
+	return fmt.Errorf("RecordResourceState not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetResourceHistory(ctx context.Context, poiID, resourceID string, limit int) ([]ResourceHistory, error) {
+	return nil, fmt.Errorf("GetResourceHistory not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetDepletingResources(ctx context.Context, threshold float64) ([]DepletingResource, error) {
+	return nil, fmt.Errorf("GetDepletingResources not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) RecordJourney(ctx context.Context, fromSystem, toSystem string, fuelCost, travelTime float64, agentID string) error {
+	return fmt.Errorf("RecordJourney not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetOptimalRoute(ctx context.Context, fromSystem, toSystem string) (*ConnectionMetrics, error) {
+	return nil, fmt.Errorf("GetOptimalRoute not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) FindCheapestRoute(ctx context.Context, fromSystem, toSystem string, maxHops int) ([]string, float64, error) {
+	return nil, 0, fmt.Errorf("FindCheapestRoute not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) RecordAnomaly(ctx context.Context, anomaly Anomaly) error {
+	return fmt.Errorf("RecordAnomaly not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetActiveAnomalies(ctx context.Context, systemID string) ([]Anomaly, error) {
+	return nil, fmt.Errorf("GetActiveAnomalies not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetAnomaliesByType(ctx context.Context, anomalyType, severity string, limit int) ([]Anomaly, error) {
+	return nil, fmt.Errorf("GetAnomaliesByType not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status string) error {
+	return fmt.Errorf("ResolveAnomaly not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) AnalyzePriceTrends(ctx context.Context, itemID, stationID string, windowHours int) (*PriceTrend, error) {
+	return nil, fmt.Errorf("AnalyzePriceTrends not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) FindBestPrices(ctx context.Context, itemID string, listingType string, limit int) ([]BestPrice, error) {
+	return nil, fmt.Errorf("FindBestPrices not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error) {
+	return nil, fmt.Errorf("GetPriceHistory not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error {
+	return fmt.Errorf("RecordHostileEncounter not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetDangerZones(ctx context.Context, minDangerLevel int) ([]DangerZone, error) {
+	return nil, fmt.Errorf("GetDangerZones not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) GetSystemDanger(ctx context.Context, systemID string) (*DangerZone, error) {
+	return nil, fmt.Errorf("GetSystemDanger not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) ExportKnowledge(ctx context.Context, description string, agentID string) (*KnowledgeExport, error) {
+	return nil, fmt.Errorf("ExportKnowledge not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) ImportKnowledge(ctx context.Context, exportData string) error {
+	return fmt.Errorf("ImportKnowledge not implemented for in-memory KB")
+}
+
+func (kb *MemoryKB) ListExports(ctx context.Context) ([]KnowledgeExportMeta, error) {
+	return nil, fmt.Errorf("ListExports not implemented for in-memory KB")
 }

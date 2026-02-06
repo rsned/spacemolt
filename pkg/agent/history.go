@@ -22,7 +22,7 @@ type History struct {
 	mu      sync.RWMutex
 	entries []HistoryEntry
 	maxSize int
-	index   int // Current write position in ring buffer
+	index   int  // Current write position in ring buffer
 	full    bool // Whether buffer has wrapped around
 }
 

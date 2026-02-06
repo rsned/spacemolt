@@ -134,6 +134,105 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_item_id ON market_listings(item_i
 CREATE INDEX IF NOT EXISTS idx_market_listings_item_type ON market_listings(item_type);
 `,
 		},
+		{
+			version: 3,
+			name:    "enhanced_analytics",
+			sql: `
+-- Resource depletion tracking: monitors resource changes over time
+CREATE TABLE IF NOT EXISTS resource_history (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	poi_id TEXT NOT NULL,
+	resource_id TEXT NOT NULL,
+	richness REAL NOT NULL,
+	remaining REAL NOT NULL,
+	game_tick INTEGER NOT NULL,
+	recorded_at TEXT NOT NULL,
+	agent_id TEXT,
+	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- Connection metadata: for route optimization
+CREATE TABLE IF NOT EXISTS connection_metrics (
+	from_system TEXT NOT NULL,
+	to_system TEXT NOT NULL,
+	travel_count INTEGER DEFAULT 0,
+	avg_fuel_cost REAL,
+	avg_travel_time REAL, -- in game ticks
+	last_traveled TEXT,
+	traveled_by TEXT,
+	PRIMARY KEY (from_system, to_system),
+	FOREIGN KEY (from_system) REFERENCES systems(id) ON DELETE CASCADE,
+	FOREIGN KEY (to_system) REFERENCES systems(id) ON DELETE CASCADE
+);
+
+-- Anomalies: unusual discoveries worth noting
+CREATE TABLE IF NOT EXISTS anomalies (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	type TEXT NOT NULL, -- 'rich_deposit', 'hostile_zone', 'rare_resource', 'empty_station', etc.
+	severity TEXT NOT NULL, -- 'info', 'warning', 'critical', 'opportunity'
+	system_id TEXT,
+	poi_id TEXT,
+	description TEXT NOT NULL,
+	details TEXT, -- JSON with additional data
+	detected_at TEXT NOT NULL,
+	detected_by TEXT,
+	status TEXT DEFAULT 'active', -- 'active', 'resolved', 'obsolete'
+	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE,
+	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- Market price trends: aggregate price data for analysis
+CREATE TABLE IF NOT EXISTS price_trends (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	item_id TEXT NOT NULL,
+	item_type TEXT NOT NULL,
+	station_id TEXT NOT NULL,
+	system_id TEXT NOT NULL,
+	listing_type TEXT NOT NULL, -- 'buy' or 'sell'
+	avg_price REAL NOT NULL,
+	min_price REAL NOT NULL,
+	max_price REAL NOT NULL,
+	sample_count INTEGER NOT NULL,
+	window_start TEXT NOT NULL,
+	window_end TEXT NOT NULL,
+	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- System danger levels: track hostile encounters
+CREATE TABLE IF NOT EXISTS danger_zones (
+	system_id TEXT PRIMARY KEY,
+	danger_level INTEGER DEFAULT 0, -- 0-10 scale
+	hostile_encounters INTEGER DEFAULT 0,
+	player_kills INTEGER DEFAULT 0,
+	npc_kills INTEGER DEFAULT 0,
+	last_incident TEXT,
+	last_updated TEXT NOT NULL,
+	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
+);
+
+-- Knowledge exports: metadata for sharing discoveries
+CREATE TABLE IF NOT EXISTS knowledge_exports (
+	id TEXT PRIMARY KEY,
+	created_at TEXT NOT NULL,
+	created_by TEXT,
+	description TEXT,
+	systems_count INTEGER DEFAULT 0,
+	pois_count INTEGER DEFAULT 0,
+	experiences_count INTEGER DEFAULT 0,
+	export_data TEXT -- JSON snapshot
+);
+
+-- Indexes for enhanced queries
+CREATE INDEX IF NOT EXISTS idx_resource_history_poi_resource ON resource_history(poi_id, resource_id, game_tick DESC);
+CREATE INDEX IF NOT EXISTS idx_resource_history_tick ON resource_history(game_tick DESC);
+CREATE INDEX IF NOT EXISTS idx_anomalies_type_severity ON anomalies(type, severity, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_anomalies_system ON anomalies(system_id, status);
+CREATE INDEX IF NOT EXISTS idx_anomalies_poi ON anomalies(poi_id, status);
+CREATE INDEX IF NOT EXISTS idx_price_trends_item_station ON price_trends(item_id, station_id, window_end DESC);
+CREATE INDEX IF NOT EXISTS idx_connection_metrics_from ON connection_metrics(from_system, avg_fuel_cost ASC);
+CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level DESC);
+`,
+		},
 	}
 }
 
