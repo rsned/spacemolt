@@ -138,11 +138,6 @@ type panelLayout struct {
 	logHeight    int // Capped at maxLogPanelHeight (typically 12)
 	mapWidth     int
 	mapHeight    int // Dynamic: gets remaining vertical space in top section
-	agentHeight  int // May vary based on available space
-	logWidth     int
-	logHeight    int // Capped at maxLogPanelHeight (typically 12)
-	mapWidth     int
-	mapHeight    int // Gets priority for remaining space
 	statusWidth  int
 	statusHeight int
 }
@@ -163,8 +158,6 @@ func (m *WatcherModel) renderLogPanel(width, height int) string {
 	if hasLogs && len(m.logPanel.lines) > availableLines {
 		logContentLines = availableLines - 1 // Reserve 1 line for scroll indicator
 	}
-	// Calculate how many lines we can show (minus borders)
-	availableLines := height - 3 // Account for top border, bottom border, and padding
 
 	// Determine which lines to show based on scroll offset
 	// scrollOffset 0 = show newest (bottom), higher values scroll up (show older)
@@ -221,8 +214,7 @@ func (m *WatcherModel) renderLogPanel(width, height int) string {
 // renderMapPanelFull renders the full map panel with system info, map, and legend
 func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	// Calculate grid dimensions based on available space
-	const fixedLines = 9  // Title, header, legend, map borders
-	const fixedLines = 8  // Title, header, legend, map borders
+	const fixedLines = 9 // Title, header, legend, map borders
 
 	// Calculate available grid rows (height)
 	availableGridRows := height - fixedLines
@@ -287,15 +279,11 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 
 // renderStatusPanel renders the full status panel with player and ship stats
 func (m *WatcherModel) renderStatusPanel(width, height int) string {
-	// Build content with status data
-	var sb strings.Builder
-
 	// Determine compact mode based on width
 	m.statusPanel.compactMode = width < 80
 
 	// Get status content
 	state := m.GetCurrentState()
-	var content string
 
 	if state == nil {
 		content := lipgloss.NewStyle().Faint(true).Render("No agent selected")
@@ -307,14 +295,14 @@ func (m *WatcherModel) renderStatusPanel(width, height int) string {
 		return result.String()
 	}
 
-	// Build bordered panel with title
-	var result strings.Builder
-	result.WriteString(RenderBorderedTitle("Status", width))
-	result.WriteString(RenderBorderedContent(sb.String(), width))
-	result.WriteString(RenderBorderBottom(width))
-
-	return result.String()
-}
+	// Build status content based on width
+	var content string
+	if width < 120 {
+		// For smaller screens, use compact version of full status
+		content = m.buildStatusFull(state)
+	} else {
+		content = m.buildStatusFull(state)
+	}
 
 	// Build bordered panel with title
 	var result strings.Builder

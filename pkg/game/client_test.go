@@ -372,7 +372,7 @@ func TestRegister_TokenUpdate(t *testing.T) {
 	// Simulate the token update that Register() does
 	if token, ok := receivedResp.Payload["password"].(string); ok {
 		client.mu.Lock()
-		client.token = token
+		client.password = token
 		client.state.Password = token
 		client.mu.Unlock()
 	}
