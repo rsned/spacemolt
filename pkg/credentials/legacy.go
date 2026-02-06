@@ -28,8 +28,8 @@ type LegacyProvider struct {
 // Supports both 'password' (new) and 'token' (legacy) for migration
 type LegacyCredentials struct {
 	Username string `json:"username"`
-	Password string `json:"password"`         // New field (v0.38.0+)
-	Token    string `json:"token,omitempty"`  // Legacy field for backward compatibility
+	Password string `json:"password"`        // New field (v0.38.0+)
+	Token    string `json:"token,omitempty"` // Legacy field for backward compatibility
 }
 
 // NewLegacyProvider creates a provider that loads credentials from a file

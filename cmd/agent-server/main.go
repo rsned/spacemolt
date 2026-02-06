@@ -41,7 +41,7 @@ var (
 
 	// Credentials
 	credsBackend = flag.String("creds-backend", "file", "Credentials backend: file, sqlite, or keyring")
-	credsPath    = flag.String("creds-path", "data/credentials", "Path for credentials storage")
+	credsPath    = flag.String("creds-path", "data/agents", "Path for file-based credentials storage (deprecated: use --agents-dir)")
 
 	// Agent manager settings
 	maxAgents        = flag.Int("max-agents", 10, "Maximum number of concurrent agents")
@@ -62,6 +62,97 @@ type AgentsConfig struct {
 		DecisionInterval time.Duration `yaml:"decision_interval"`
 		Enabled          []string      `yaml:"enabled"`
 	} `yaml:"agents"`
+}
+
+// migrateCredentials migrates credentials from old location to new consolidated location
+// Old: data/credentials/AGENT_ID/credentials.json
+// New: data/agents/AGENT_ID/credentials.json
+func migrateCredentials(oldCredsPath, agentsDir string) error {
+	// Skip migration if paths are the same
+	if oldCredsPath == agentsDir {
+		return nil
+	}
+
+	// Check if old credentials directory exists
+	oldDir := oldCredsPath
+
+	// Only migrate if oldDir looks like a credentials directory (not an agents directory)
+	// We detect this by checking if it's named "credentials" or if user explicitly used it
+	if oldDir != "data/credentials" {
+		// For non-standard paths, check if the directory exists and has the old structure
+		// If it doesn't exist, skip migration silently
+		if _, err := os.Stat(oldDir); os.IsNotExist(err) {
+			return nil
+		}
+		// If it exists and is different from agentsDir, proceed with migration
+		// (useful for testing and custom configurations)
+	}
+
+	// Check if directory exists
+	if _, err := os.Stat(oldDir); os.IsNotExist(err) {
+		// No old credentials to migrate
+		return nil
+	}
+
+	log.Printf("Checking for credentials to migrate from %s to %s...", oldDir, agentsDir)
+
+	// Read old credentials directory
+	entries, err := os.ReadDir(oldDir)
+	if err != nil {
+		return fmt.Errorf("failed to read old credentials directory: %w", err)
+	}
+
+	migratedCount := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		agentID := entry.Name()
+		oldCredPath := filepath.Join(oldDir, agentID, "credentials.json")
+		newCredPath := filepath.Join(agentsDir, agentID, "credentials.json")
+
+		// Check if old credential file exists
+		if _, err := os.Stat(oldCredPath); os.IsNotExist(err) {
+			continue
+		}
+
+		// Check if new location already has credentials
+		if _, err := os.Stat(newCredPath); err == nil {
+			log.Printf("  [%s] Credentials already exist at new location, skipping", agentID)
+			continue
+		}
+
+		// Create new agent directory
+		newAgentDir := filepath.Join(agentsDir, agentID)
+		if err := os.MkdirAll(newAgentDir, 0755); err != nil {
+			log.Printf("  [%s] Failed to create directory: %v", agentID, err)
+			continue
+		}
+
+		// Read old credentials
+		data, err := os.ReadFile(oldCredPath)
+		if err != nil {
+			log.Printf("  [%s] Failed to read old credentials: %v", agentID, err)
+			continue
+		}
+
+		// Write to new location
+		if err := os.WriteFile(newCredPath, data, 0600); err != nil {
+			log.Printf("  [%s] Failed to write new credentials: %v", agentID, err)
+			continue
+		}
+
+		log.Printf("  ✓ [%s] Migrated credentials to %s", agentID, newCredPath)
+		migratedCount++
+	}
+
+	if migratedCount > 0 {
+		log.Printf("✓ Migrated %d agent credential(s) to new location", migratedCount)
+		log.Printf("  Old credentials in %s can be safely deleted", oldDir)
+	}
+
+	return nil
 }
 
 func main() {
@@ -104,7 +195,12 @@ func main() {
 		log.Println("⚠ Prompt management system not available, using fallback prompts")
 	}
 
-	credsProvider, err := initCredentialsProvider(*credsBackend, *credsPath)
+	// Migrate credentials from old location to new location
+	if err := migrateCredentials(*credsPath, *agentsDir); err != nil {
+		log.Printf("⚠ Warning: Credential migration had issues: %v", err)
+	}
+
+	credsProvider, err := initCredentialsProvider(*credsBackend, *agentsDir, *credsPath)
 	if err != nil {
 		log.Fatalf("❌ Failed to initialize credentials provider: %v", err)
 	}
@@ -336,19 +432,27 @@ func initKnowledgeBase(backend, dbPath string) (knowledge.Base, error) {
 // initLLMClient creates the LLM client
 func initLLMClient(url, model string) (*llm.Client, error) {
 	return llm.New(llm.Config{
-		BaseURL: url,
-		Model:   model,
-		Timeout: 60 * time.Second,
-		PromptsDir: "data/prompts/templates",
+		BaseURL:       url,
+		Model:         model,
+		Timeout:       60 * time.Second,
+		PromptsDir:    "data/prompts/templates",
 		PromptsConfig: "data/prompts/config.yaml",
 	})
 }
 
 // initCredentialsProvider creates the credentials provider based on backend type
-func initCredentialsProvider(backend, path string) (credentials.Provider, error) {
+func initCredentialsProvider(backend, agentsDir, credsPath string) (credentials.Provider, error) {
 	switch backend {
 	case "file":
-		return credentials.NewFileProvider(path), nil
+		// Use agentsDir for file-based credentials (consolidated structure)
+		// If user explicitly set --creds-path to something other than default, use that for backward compatibility
+		providerPath := agentsDir
+		if credsPath != "data/agents" && credsPath != "data/credentials" {
+			// User set a custom path, respect it
+			providerPath = credsPath
+			log.Printf("Warning: Using custom credentials path %s (consider using --agents-dir instead)", credsPath)
+		}
+		return credentials.NewFileProvider(providerPath), nil
 	case "sqlite":
 		encryptor, err := credentials.NewEncryptorFromPassphrase([]byte(os.Getenv("SPACEMOLT_PASSPHRASE")))
 		if err != nil {
@@ -356,7 +460,7 @@ func initCredentialsProvider(backend, path string) (credentials.Provider, error)
 			log.Println("Warning: Using default passphrase for credentials encryption")
 			encryptor, _ = credentials.NewEncryptorFromPassphrase([]byte("default-insecure-passphrase"))
 		}
-		return credentials.NewSQLiteProvider(path, encryptor)
+		return credentials.NewSQLiteProvider(credsPath, encryptor)
 	case "keyring":
 		return credentials.NewKeyringProvider("spacemolt"), nil
 	default:

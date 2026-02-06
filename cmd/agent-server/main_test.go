@@ -252,7 +252,7 @@ func TestInitCredentialsProvider(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Test file backend
-	provider, err := initCredentialsProvider("file", tmpDir)
+	provider, err := initCredentialsProvider("file", tmpDir, "data/agents")
 	if err != nil {
 		t.Fatalf("Failed to init file provider: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestInitCredentialsProvider(t *testing.T) {
 	}
 
 	// Test keyring backend
-	provider, err = initCredentialsProvider("keyring", "")
+	provider, err = initCredentialsProvider("keyring", "", "")
 	if err != nil {
 		t.Fatalf("Failed to init keyring provider: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestInitCredentialsProvider(t *testing.T) {
 	defer os.Unsetenv("SPACEMOLT_PASSPHRASE")
 
 	dbPath := filepath.Join(tmpDir, "creds.db")
-	provider, err = initCredentialsProvider("sqlite", dbPath)
+	provider, err = initCredentialsProvider("sqlite", tmpDir, dbPath)
 	if err != nil {
 		t.Fatalf("Failed to init sqlite provider: %v", err)
 	}
@@ -283,8 +283,69 @@ func TestInitCredentialsProvider(t *testing.T) {
 	}
 
 	// Test invalid backend
-	_, err = initCredentialsProvider("invalid", "")
+	_, err = initCredentialsProvider("invalid", "", "")
 	if err == nil {
 		t.Error("Expected error for invalid backend")
+	}
+}
+
+func TestMigrateCredentials(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create old credentials structure
+	oldCredsDir := filepath.Join(tmpDir, "credentials")
+	agentID := "test-agent"
+	oldAgentDir := filepath.Join(oldCredsDir, agentID)
+	if err := os.MkdirAll(oldAgentDir, 0755); err != nil {
+		t.Fatalf("Failed to create old agent dir: %v", err)
+	}
+
+	// Write old credentials
+	oldCredsPath := filepath.Join(oldAgentDir, "credentials.json")
+	credData := `{
+  "username": "test-user",
+  "password": "test-pass",
+  "empire": "voidborn"
+}`
+	if err := os.WriteFile(oldCredsPath, []byte(credData), 0600); err != nil {
+		t.Fatalf("Failed to write old credentials: %v", err)
+	}
+
+	// Create new agents directory
+	newAgentsDir := filepath.Join(tmpDir, "agents")
+
+	// Run migration
+	if err := migrateCredentials(oldCredsDir, newAgentsDir); err != nil {
+		t.Fatalf("Migration failed: %v", err)
+	}
+
+	// Verify credentials were migrated
+	newCredsPath := filepath.Join(newAgentsDir, agentID, "credentials.json")
+	if _, err := os.Stat(newCredsPath); os.IsNotExist(err) {
+		t.Error("Credentials were not migrated to new location")
+	}
+
+	// Verify content matches
+	newData, err := os.ReadFile(newCredsPath)
+	if err != nil {
+		t.Fatalf("Failed to read migrated credentials: %v", err)
+	}
+	if string(newData) != credData {
+		t.Errorf("Migrated credentials don't match. Got: %s, Want: %s", newData, credData)
+	}
+
+	// Test that re-running migration doesn't fail or duplicate
+	if err := migrateCredentials(oldCredsDir, newAgentsDir); err != nil {
+		t.Errorf("Second migration should not fail: %v", err)
+	}
+
+	// Test skip migration when paths are same
+	if err := migrateCredentials(newAgentsDir, newAgentsDir); err != nil {
+		t.Errorf("Migration with same paths should not fail: %v", err)
+	}
+
+	// Test migration with non-existent old directory
+	if err := migrateCredentials(filepath.Join(tmpDir, "nonexistent"), newAgentsDir); err != nil {
+		t.Errorf("Migration with non-existent old dir should not fail: %v", err)
 	}
 }
