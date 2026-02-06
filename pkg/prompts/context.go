@@ -103,6 +103,12 @@ type StateContext struct {
 	SystemEmpire   string
 }
 
+// CargoItem represents an item in cargo
+type CargoItem struct {
+	Type     string
+	Quantity int
+}
+
 // KnowledgeContext contains what the agent knows
 type KnowledgeContext struct {
 	KnownSystems     []SystemInfo

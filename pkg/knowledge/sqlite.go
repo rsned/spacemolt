@@ -314,45 +314,7 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 		return nil, fmt.Errorf("error iterating POIs: %w", err)
 	}
 
-	// For each POI, retrieve its resources
-	for i := range pois {
-		resources, err := kb.getPOIResources(ctx, pois[i].ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get resources for POI %s: %w", pois[i].ID, err)
-		}
-		pois[i].Resources = resources
-	}
-
 	return pois, nil
-}
-
-// getPOIResources retrieves resources for a specific POI
-func (kb *SQLiteKB) getPOIResources(ctx context.Context, poiID string) ([]ResourceInfo, error) {
-	rows, err := kb.db.QueryContext(ctx, `
-		SELECT resource_id, richness, remaining
-		FROM poi_resources
-		WHERE poi_id = ?
-		ORDER BY resource_id
-	`, poiID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query POI resources: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var resources []ResourceInfo
-	for rows.Next() {
-		var res ResourceInfo
-		if err := rows.Scan(&res.ResourceID, &res.Richness, &res.Remaining); err != nil {
-			return nil, fmt.Errorf("failed to scan resource: %w", err)
-		}
-		resources = append(resources, res)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating resources: %w", err)
-	}
-
-	return resources, nil
 }
 
 // AddExperience logs an agent experience

@@ -23,19 +23,19 @@ import (
 
 var (
 	// Command-line flags
-	debugMode       = flag.Bool("debug", false, "Enable debug logging to stderr")
-	logFile         = flag.String("log-file", "", "Write debug logs to file instead of stderr")
-	agents          = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
-	agentServerURL  = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
-	dbBackend       = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
-	dbPath          = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
-	credsProvider   = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
-	credsFile       = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
-	credsSQLitePath = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
-	credsKeyFile    = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
-	staticUsername  = flag.String("static-username", "", "Username for static provider")
-	staticToken     = flag.String("static-token", "", "Token for static provider")
-	staticEmpire    = flag.String("static-empire", "voidborn", "Empire for static provider")
+	debugMode           = flag.Bool("debug", false, "Enable debug logging to stderr")
+	logFile             = flag.String("log-file", "", "Write debug logs to file instead of stderr")
+	agents              = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
+	agentServerURL      = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
+	dbBackend           = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
+	dbPath              = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
+	credsProvider       = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
+	credsFile           = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
+	credsSQLitePath     = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
+	credsKeyFile        = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
+	staticUsername      = flag.String("static-username", "", "Username for static provider")
+	staticToken         = flag.String("static-token", "", "Token for static provider")
+	staticEmpire        = flag.String("static-empire", "voidborn", "Empire for static provider")
 )
 
 var (
@@ -145,10 +145,10 @@ func main() {
 			if err := json.Unmarshal(data, &creds); err == nil {
 				username = creds["username"]
 				password = creds["password"]
-				// Backward compatibility: check for "token" field
-				if password == "" {
-					password = creds["token"]
-				}
+			// Backward compatibility: check for "token" field
+			if password == "" {
+				password = creds["token"]
+			}
 			}
 		}
 	}
@@ -166,6 +166,42 @@ func main() {
 			Model:   "llama3.2",
 			Timeout: 60 * time.Second,
 		})
+		debugLogger.Printf("Created LLM client")
+
+		// Test LLM connection
+		if err := llmClient.TestConnection(ctx); err != nil {
+			log.Printf("Warning: Could not connect to Ollama: %v", err)
+			log.Printf("Agents will not be able to make decisions without Ollama running")
+		} else {
+			debugLogger.Printf("Connected to Ollama successfully")
+		}
+
+		// Create knowledge base
+		switch *dbBackend {
+		case "sqlite":
+			sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
+				DBPath:       *dbPath,
+				WAL:          true,
+				MaxOpenConns: 25,
+				MaxIdleConns: 5,
+				BusyTimeout:  5 * time.Second,
+			})
+			if err != nil {
+				log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+			}
+			kb = sqliteKB
+			debugLogger.Printf("Created SQLite knowledge base at %s", *dbPath)
+			defer func() { _ = kb.Close() }()
+		case "memory":
+			kb = knowledge.NewMemoryKB()
+			debugLogger.Printf("Created in-memory knowledge base")
+		default:
+			log.Fatalf("Unknown db-backend: %s (use 'sqlite' or 'memory')", *dbBackend)
+		}
+		debugLogger.Printf("Created knowledge base")
+
+		// Initialize credential provider
+		credsProv, err := initCredentialsProvider()
 		if err != nil {
 			log.Fatalf("Failed to initialize LLM client: %v", err)
 		}
@@ -272,8 +308,9 @@ func main() {
 		debugLogger.Printf("Found %d agents on server", len(agentInfos))
 
 		// Create model with nil state (remote mode doesn't need watcher state)
-		model = tui.NewWatcherModel(nil, tuiReadyChan)
-		model.SetRemoteMode(serverClient)
+		tempModel := tui.NewWatcherModel(nil, tuiReadyChan)
+		tempModel.SetRemoteMode(serverClient)
+		model = &tempModel
 
 		// Add remote agents to TUI
 		for _, info := range agentInfos {
@@ -300,7 +337,8 @@ func main() {
 			Password: password,
 		}
 
-		model = tui.NewWatcherModel(state, tuiReadyChan)
+		tempModel := tui.NewWatcherModel(state, tuiReadyChan)
+		model = &tempModel
 
 		// Add local agents to TUI
 		for _, agt := range agentMgr.ListAgents() {
@@ -326,7 +364,7 @@ func main() {
 		// Local mode: start agent connections
 		go func() {
 			<-tuiReadyChan
-			startAgentConnections(ctx, agentMgr, kb, p)
+			startAgentConnections(ctx, agentMgr, p)
 		}()
 
 		// Connect watcher client for display
@@ -959,20 +997,19 @@ func startRemoteStreaming(ctx context.Context, client *tui.AgentServerClient, mo
 				})
 
 				// Update agent status if it's a status-changing event
-				switch event.Type {
-				case "decision":
+				if event.Type == "decision" {
 					p.Send(tui.AgentStatusMsg{
 						AgentID: id,
 						Status:  "Deciding",
 					})
-				case "action":
+				} else if event.Type == "action" {
 					if status, ok := event.Data["status"].(string); ok && status == "success" {
 						p.Send(tui.AgentStatusMsg{
 							AgentID: id,
 							Status:  "Idle",
 						})
 					}
-				case "error":
+				} else if event.Type == "error" {
 					p.Send(tui.AgentStatusMsg{
 						AgentID: id,
 						Status:  "Error",

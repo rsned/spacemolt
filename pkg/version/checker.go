@@ -129,7 +129,7 @@ func extractVersionFromFile(path string) (SemVer, error) {
 	if err != nil {
 		return SemVer{}, err
 	}
-	defer func() { _ = file.Close() }() //nolint:errcheck
+	defer func() { _ = file.Close() }()
 
 	// Read first 10 lines looking for version
 	scanner := bufio.NewScanner(file)
