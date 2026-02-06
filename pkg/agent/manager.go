@@ -247,13 +247,13 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 
 	// Create game client
 	username := personality.ID
-	token := ""
+	password := ""
 	if hasCredentials {
 		username = creds.Username
-		token = creds.Token
+		password = creds.Password
 	}
 
-	gameClient := game.NewClient(m.gameServerURL, username, token, m.debugLogger)
+	gameClient := game.NewClient(m.gameServerURL, username, password, m.debugLogger)
 
 	// Connect to game server with retries
 	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
@@ -390,16 +390,16 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
-	// Get the token from state
+	// Get the password from state
 	state := client.GetState()
-	if state.Token == "" {
-		return fmt.Errorf("no token received after registration")
+	if state.Password == "" {
+		return fmt.Errorf("no password received after registration")
 	}
 
 	// Save credentials
 	creds := &credentials.Credentials{
 		Username: username,
-		Token:    state.Token,
+		Password: state.Password,
 		Empire:   empire, // Store the actual game empire, not personality faction
 	}
 

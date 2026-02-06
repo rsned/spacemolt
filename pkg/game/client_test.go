@@ -349,7 +349,7 @@ func TestRegister_TokenUpdate(t *testing.T) {
 	resp := protocol.Response{
 		Type: protocol.TypeRegistered,
 		Payload: map[string]any{
-			"token": testToken,
+			"password": testToken,
 		},
 	}
 
@@ -370,10 +370,10 @@ func TestRegister_TokenUpdate(t *testing.T) {
 	}
 
 	// Simulate the token update that Register() does
-	if token, ok := receivedResp.Payload["token"].(string); ok {
+	if token, ok := receivedResp.Payload["password"].(string); ok {
 		client.mu.Lock()
 		client.token = token
-		client.state.Token = token
+		client.state.Password = token
 		client.mu.Unlock()
 	}
 
@@ -382,8 +382,8 @@ func TestRegister_TokenUpdate(t *testing.T) {
 	if client.token != testToken {
 		t.Errorf("Expected client.token to be %s, got %s", testToken, client.token)
 	}
-	if client.state.Token != testToken {
-		t.Errorf("Expected client.state.Token to be %s, got %s", testToken, client.state.Token)
+	if client.state.Password != testToken {
+		t.Errorf("Expected client.state.Password to be %s, got %s", testToken, client.state.Password)
 	}
 	client.mu.RUnlock()
 }
@@ -567,7 +567,7 @@ func TestJSON_RoundTrip(t *testing.T) {
 		Type: protocol.TypeLoggedIn,
 		Payload: map[string]any{
 			"username": "testuser",
-			"token":    "abc123",
+			"password":    "abc123",
 			"player": map[string]any{
 				"credits": float64(1000),
 			},
@@ -595,7 +595,7 @@ func TestJSON_RoundTrip(t *testing.T) {
 		t.Error("Username not preserved")
 	}
 
-	if decoded.Payload["token"] != "abc123" {
+	if decoded.Payload["password"] != "abc123" {
 		t.Error("Token not preserved")
 	}
 }
