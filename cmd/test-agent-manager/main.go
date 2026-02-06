@@ -43,18 +43,18 @@ func main() {
 	agents := []struct {
 		id       string
 		username string
-		token    string
+		password string
 	}{
-		{"explorer-7", "explorer-7-user", "token-abc-123"},
-		{"miner-2", "miner-2-user", "token-def-456"},
-		{"trader-1", "trader-1-user", "token-ghi-789"},
+		{"explorer-7", "explorer-7-user", "password-abc-123"},
+		{"miner-2", "miner-2-user", "password-def-456"},
+		{"trader-1", "trader-1-user", "password-ghi-789"},
 	}
 
 	for _, a := range agents {
 		err := credsProvider.StoreCredentials(ctx, a.id, &credentials.Credentials{
 			Username: a.username,
-			Token:     a.token,
-			Empire:    "voidborn",
+			Password: a.password,
+			Empire:   "voidborn",
 		})
 		if err != nil {
 			log.Fatalf("Failed to store credentials for %s: %v", a.id, err)
@@ -65,13 +65,17 @@ func main() {
 
 	// Test 3: Create LLM client (will fail if Ollama not running, but that's OK)
 	fmt.Println("3. Creating LLM client...")
-	llmClient := llm.New(llm.Config{
+	llmClient, err := llm.New(llm.Config{
 		BaseURL: "http://localhost:11434",
 		Model:   "llama3.2",
 		Timeout: 5,
 	})
-	_ = llmClient.TestConnection(ctx) // Ignore errors
-	fmt.Println("   ✓ Created LLM client")
+	if err != nil {
+		fmt.Printf("   Warning: Failed to initialize LLM client: %v\n", err)
+	} else {
+		_ = llmClient.TestConnection(ctx) // Ignore errors
+		fmt.Println("   ✓ Created LLM client")
+	}
 	fmt.Println()
 
 	// Test 4: Create agent manager with credential provider
@@ -110,9 +114,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to get credentials for %s: %v", a.id, err)
 		}
-		if creds.Username != a.username || creds.Token != a.token {
+		if creds.Username != a.username || creds.Password != a.password {
 			log.Fatalf("Credential mismatch for %s: expected %s/%s, got %s/%s",
-				a.id, a.username, a.token, creds.Username, creds.Token)
+				a.id, a.username, a.password, creds.Username, creds.Password)
 		}
 		fmt.Printf("   ✓ Verified credentials for %s: %s\n", a.id, creds.Username)
 	}
