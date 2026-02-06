@@ -25,8 +25,8 @@ func IsErrCredentialsNotFound(err error) bool {
 // Credentials represents authentication credentials for an agent
 type Credentials struct {
 	Username string
-	Token     string
-	Empire    string // Faction/empire for registration (e.g., "voidborn")
+	Password string // Permanent password from registration (64-char hex string)
+	Empire   string // Faction/empire for registration (e.g., "voidborn")
 }
 
 // Provider provides credentials for agents
@@ -64,12 +64,12 @@ type StaticProvider struct {
 }
 
 // NewStaticProvider creates a provider that always returns the same credentials
-func NewStaticProvider(username, token, empire string) *StaticProvider {
+func NewStaticProvider(username, password, empire string) *StaticProvider {
 	return &StaticProvider{
 		creds: &Credentials{
 			Username: username,
-			Token:     token,
-			Empire:    empire,
+			Password: password,
+			Empire:   empire,
 		},
 	}
 }

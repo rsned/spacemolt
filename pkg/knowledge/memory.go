@@ -124,6 +124,21 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 	return nil
 }
 
+// GetPOIs retrieves all POIs in a system
+func (kb *MemoryKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var result []POI
+	for _, poi := range kb.pois {
+		if poi.SystemID == systemID {
+			result = append(result, *poi)
+		}
+	}
+
+	return result, nil
+}
+
 // AddExperience logs an agent experience
 func (kb *MemoryKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	kb.mu.Lock()
@@ -203,6 +218,13 @@ type System struct {
 	DiscoveredBy  string
 }
 
+// ResourceInfo represents resource data at a POI
+type ResourceInfo struct {
+	ResourceID string
+	Richness   float64
+	Remaining  float64
+}
+
 // POI represents knowledge about a Point of Interest
 type POI struct {
 	ID            string
@@ -212,7 +234,7 @@ type POI struct {
 	Description   string
 	Position      Position
 	Services      []string
-	Resources     []string
+	Resources     []ResourceInfo
 	DiscoveredBy  string
 }
 
