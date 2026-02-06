@@ -145,7 +145,7 @@ type TravelProgress struct {
 type State struct {
 	Mu             sync.Mutex
 	Username       string
-	Token          string
+	Password       string // Permanent password from registration (64-char hex string)
 	Doc            bool
 	CurrentSystem  string
 	CurrentPOI     string
@@ -199,7 +199,7 @@ func (s *State) Clone() *State {
 
 	cloned := &State{
 		Username:      s.Username,
-		Token:         s.Token,
+		Password:         s.Password,
 		Doc:           s.Doc,
 		CurrentSystem: s.CurrentSystem,
 		CurrentPOI:    s.CurrentPOI,
@@ -286,4 +286,26 @@ func (s *State) GetNearbyPlayers() []NearbyPlayer {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 	return s.Nearby
+}
+
+// MarketListing represents a single market listing
+type MarketListing struct {
+	ItemID      string  `json:"item_id"`
+	ItemType    string  `json:"item_type"`
+	Quantity    float64 `json:"quantity"`
+	PricePerUnit float64 `json:"price_per_unit"`
+	TotalPrice  float64 `json:"total_price"`
+	Type        string  `json:"type"` // 'buy' or 'sell'
+	ListedBy    string  `json:"listed_by,omitempty"`
+}
+
+// MarketSnapshot represents a captured market state
+type MarketSnapshot struct {
+	SystemID    string          `json:"system_id"`
+	SystemName  string          `json:"system_name"`
+	StationID   string          `json:"station_id"`
+	StationName string          `json:"station_name"`
+	GameTick    int64           `json:"game_tick"`
+	Listings    []MarketListing `json:"listings"`
+	CapturedAt  time.Time       `json:"captured_at"`
 }

@@ -14,6 +14,7 @@ const (
 	TypeUndocked    = "undocked"
 	TypeStateUpdate = "state_update"
 	TypeTick        = "tick"
+	TypeListings    = "listings"
 
 	// Game events
 	TypeChatMessage        = "chat_message"
