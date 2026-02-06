@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/prompts"
@@ -167,14 +166,43 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 
 // parseDecision extracts structured decision from LLM text response
 func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
-	// Find JSON block in response
-	start := strings.Index(text, "{")
-	end := strings.LastIndex(text, "}")
-	if start == -1 || end == -1 || end <= start {
+	// Find all complete JSON objects in the response
+	// LLMs sometimes return examples followed by the actual response
+	var jsonObjects []string
+	inObject := false
+	braceCount := 0
+	currentStart := -1
+
+	for i, ch := range text {
+		if ch == '{' {
+			if braceCount == 0 {
+				currentStart = i
+				inObject = true
+			}
+			braceCount++
+		} else if ch == '}' {
+			braceCount--
+			if braceCount == 0 && inObject {
+				jsonObjects = append(jsonObjects, text[currentStart:i+1])
+				inObject = false
+			}
+		}
+	}
+
+	if len(jsonObjects) == 0 {
 		return nil, fmt.Errorf("no JSON block found in response")
 	}
 
-	jsonStr := text[start : end+1]
+	// Try to parse JSON objects, preferring the last valid one
+	// (LLMs often put examples first, then the actual decision)
+	var lastError error
+	for i := len(jsonObjects) - 1; i >= 0; i-- {
+		jsonStr := jsonObjects[i]
+
+		// DEBUG: Log extracted JSON
+		if i == len(jsonObjects)-1 {
+			fmt.Printf("[LLM] Found %d JSON object(s), using last one:\n%s\n", len(jsonObjects), jsonStr)
+		}
 
 	// DEBUG: Log extracted JSON
 	//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
