@@ -12,10 +12,17 @@ import (
 
 const (
 	// Panel height constraints
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
 	minPanelHeight    = 4  // Minimum height for any panel (prevents collapse)
 	maxLogPanelHeight = 20 // Maximum height for log panel
 	minMapPanelHeight = 20 // Minimum height for map panel
 	agentsPanelHeight = 6  // Fixed height for agents panel (full width at bottom)
+=======
+	minPanelHeight      = 4  // Minimum height for any panel (prevents collapse)
+	maxLogPanelHeight   = 12 // Maximum height for log panel
+	minAgentPanelHeight = 6  // Minimum height for agent panel
+	minMapPanelHeight   = 8  // Minimum height for map panel
+>>>>>>> main
 )
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
@@ -224,6 +231,7 @@ func (m WatcherModel) calculateLayout() panelLayout {
 		statusHeight = 12
 	}
 
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
 	// Agents panel gets fixed height at bottom
 	agentsHeight := agentsPanelHeight
 
@@ -259,21 +267,71 @@ func (m WatcherModel) calculateLayout() panelLayout {
 
 	// Log panel gets 20% of top section width with minimum of 20 characters.
 	logWidth := m.viewportWidth * 20 / 100
+=======
+	// Top row gets remaining space
+	topRowHeight := availableHeight - statusHeight
+
+	// Calculate minimum required height for top row panels
+	minTopRowHeight := minAgentPanelHeight + maxLogPanelHeight + minMapPanelHeight
+
+	// If top row is too small, reduce log panel max height
+	effectiveMaxLogHeight := maxLogPanelHeight
+	if topRowHeight < minTopRowHeight {
+		// Reduce log panel to fit, but never below minimum
+		effectiveMaxLogHeight = topRowHeight - minAgentPanelHeight - minMapPanelHeight
+		if effectiveMaxLogHeight < minPanelHeight {
+			effectiveMaxLogHeight = minPanelHeight
+		}
+	}
+
+	// Distribute top row space with constraints
+	// Start with minimum allocations
+	agentHeight := minAgentPanelHeight
+	logHeight := effectiveMaxLogHeight
+	mapHeight := minMapPanelHeight
+
+	// Calculate remaining space after minimum allocations
+	remainingSpace := topRowHeight - (agentHeight + logHeight + mapHeight)
+
+	// Expand map panel first (highest priority)
+	mapHeight += remainingSpace
+
+	// Width calculations
+	agentWidth := m.viewportWidth * 25 / 100
+	if agentWidth < 20 {
+		agentWidth = 20
+	}
+
+	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
+	logWidth := remainingWidth * 40 / 100
+>>>>>>> main
 	if logWidth < 20 {
 		logWidth = 20
 	}
 
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
 	// Map panel gets remaining width
 	mapWidth := m.viewportWidth - logWidth - 2 // Account for borders
 
 	return panelLayout{
 		agentWidth:   agentsWidth,
 		agentHeight:  agentsHeight,
+=======
+	mapWidth := remainingWidth - logWidth - 2 // Account for borders
+
+	return panelLayout{
+		agentWidth:   agentWidth,
+		agentHeight:  agentHeight,
+>>>>>>> main
 		logWidth:     logWidth,
 		logHeight:    logHeight,
 		mapWidth:     mapWidth,
 		mapHeight:    mapHeight,
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
 		statusWidth:  statusWidth,
+=======
+		statusWidth:  m.viewportWidth,
+>>>>>>> main
 		statusHeight: statusHeight,
 	}
 }
