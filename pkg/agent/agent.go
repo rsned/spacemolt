@@ -35,7 +35,7 @@ type POIKnowledge struct {
 	Description string
 	Position    Position
 	Services    []string
-	Resources   []string
+	Resources   []ResourceInfo
 }
 
 // Agent represents an autonomous game-playing agent
@@ -53,6 +53,14 @@ type Agent interface {
 	// Learning
 	Learn(result ActionResult) error
 	Memory() Memory
+
+	// Tactical Action Queue
+	EnqueueActions(actions []PlannedAction)
+	DequeueAction() (*PlannedAction, bool)
+	GetActionQueue() []PlannedAction
+	ClearActionQueue(reason string)
+	SetUsingQueuedAction(using bool)
+	IsUsingQueuedAction() bool
 
 	// Lifecycle
 	Start(ctx context.Context) error
@@ -80,22 +88,51 @@ type Motivations struct {
 	Weights   map[string]float64     `yaml:"weights,omitempty"`
 }
 
+// PlannedAction represents a future action in the tactical queue
+type PlannedAction struct {
+	Sequence   int               `json:"sequence"`              // 1-5, order in the plan
+	Action     string            `json:"action"`                // Action name (travel, mine, wait, etc.)
+	Target     string            `json:"target,omitempty"`      // Target for the action (POI ID, system name)
+	Parameters map[string]string `json:"parameters,omitempty"`  // Additional parameters
+	Reasoning  string            `json:"reasoning"`             // Why this step is needed
+	Condition  string            `json:"condition,omitempty"`   // Condition for execution ("after_arrival", "if_cargo_full")
+}
+
 // Decision represents a chosen action
 type Decision struct {
-	Action      string
-	Target      string
-	Reasoning   string
-	Confidence  float64
-	Alternatives []string
+	Action         string           `json:"action"`
+	Target         string           `json:"target,omitempty"`
+	Reasoning      string           `json:"reasoning"`
+	Confidence     float64          `json:"confidence,omitempty"`
+	Alternatives   []string         `json:"alternatives,omitempty"`
+	PlannedActions []PlannedAction  `json:"planned_actions,omitempty"` // NEW: 5-step tactical plan
 }
 
 // ActionResult represents the result of taking an action
 type ActionResult struct {
+	Action      string  // The action that was taken
+	Target      string  // The target of the action (if any)
 	Success     bool
 	Message     string
 	NewState    *game.State
 	Reward      float64 // For reinforcement learning
 	Error       error
+}
+
+// Goal represents a strategic objective for an agent
+type Goal struct {
+	Type      string  // Goal type: "wealth", "skill", "exploration", "resource", "reputation"
+	Target    string  // Specific target (e.g., "Mining_5", "10000_credits", "Sol", "iron")
+	Progress  float64 // Progress towards goal (0.0 to 1.0)
+	Priority  int     // Priority level (1-10, higher is more important)
+	Reasoning string  // Why this goal was set
+}
+
+// Priority represents the agent's current strategic focus and constraints
+type Priority struct {
+	Focus       string   // Current strategic focus (e.g., "mining", "trading", "exploring", "combat")
+	Constraints []string // Active constraints preventing certain actions (e.g., "low_fuel", "cargo_full", "no_credits")
+	Urgency     int      // Urgency level (1-10, higher means more urgent action needed)
 }
 
 // Status represents the current status of an agent
@@ -174,6 +211,13 @@ type System struct {
 	DiscoveredBy  string
 }
 
+// ResourceInfo represents resource data at a POI
+type ResourceInfo struct {
+	ResourceID string
+	Richness   float64
+	Remaining  float64
+}
+
 // POI represents a POI for memory storage
 type POI struct {
 	ID            string
@@ -182,6 +226,6 @@ type POI struct {
 	Type          string
 	Position      Position
 	Services      []string
-	Resources     []string
+	Resources     []ResourceInfo
 	DiscoveredBy  string
 }
