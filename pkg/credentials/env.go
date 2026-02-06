@@ -40,19 +40,27 @@ func NewEnvProvider(prefix string) *EnvProvider {
 // GetCredentials retrieves credentials from environment variables for an agent
 func (p *EnvProvider) GetCredentials(ctx context.Context, agentID string) (*Credentials, error) {
 	usernameKey := p.envKey(agentID, "USERNAME")
-	tokenKey := p.envKey(agentID, "TOKEN")
+	passwordKey := p.envKey(agentID, "PASSWORD")
+	tokenKey := p.envKey(agentID, "TOKEN") // Legacy support
 	empireKey := p.envKey(agentID, "EMPIRE")
 
 	username := os.Getenv(usernameKey)
-	token := os.Getenv(tokenKey)
+	password := os.Getenv(passwordKey)
+
+	// Backward compatibility: check TOKEN if PASSWORD not set
+	if password == "" {
+		password = os.Getenv(tokenKey)
+	}
+
 	empire := os.Getenv(empireKey)
 
 	// Check if required fields are present
-	if username == "" || token == "" {
+	if username == "" || password == "" {
 		return nil, fmt.Errorf(
-			"%w: environment variables %s and %s not set",
+			"%w: environment variables %s and %s (or %s) not set",
 			ErrCredentialsNotFound,
 			usernameKey,
+			passwordKey,
 			tokenKey,
 		)
 	}
@@ -64,8 +72,8 @@ func (p *EnvProvider) GetCredentials(ctx context.Context, agentID string) (*Cred
 
 	return &Credentials{
 		Username: username,
-		Token:     token,
-		Empire:    empire,
+		Password: password,
+		Empire:   empire,
 	}, nil
 }
 
@@ -78,7 +86,7 @@ func (p *EnvProvider) StoreCredentials(ctx context.Context, agentID string, cred
 		"environment provider does not support storing credentials: "+
 			"set %s and %s environment variables instead",
 		p.envKey(agentID, "USERNAME"),
-		p.envKey(agentID, "TOKEN"),
+		p.envKey(agentID, "PASSWORD"),
 	)
 }
 

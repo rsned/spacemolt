@@ -65,13 +65,17 @@ func main() {
 
 	// Test 3: Create LLM client (will fail if Ollama not running, but that's OK)
 	fmt.Println("3. Creating LLM client...")
-	llmClient := llm.New(llm.Config{
+	llmClient, err := llm.New(llm.Config{
 		BaseURL: "http://localhost:11434",
 		Model:   "llama3.2",
 		Timeout: 5,
 	})
-	_ = llmClient.TestConnection(ctx) // Ignore errors
-	fmt.Println("   ✓ Created LLM client")
+	if err != nil {
+		fmt.Printf("   Warning: Failed to initialize LLM client: %v\n", err)
+	} else {
+		_ = llmClient.TestConnection(ctx) // Ignore errors
+		fmt.Println("   ✓ Created LLM client")
+	}
 	fmt.Println()
 
 	// Test 4: Create agent manager with credential provider

@@ -27,11 +27,19 @@ type BaseAgent struct {
 	memory      Memory
 	llm         LLMClient
 
+<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
 	status             Status
 	lastActionFeedback string // Feedback from the most recent action
 	stopCh             chan struct{}
 	stopOnce           sync.Once
 	mu                 sync.RWMutex
+=======
+	status         Status
+	lastActionFeedback string // Feedback from the most recent action
+	stopCh         chan struct{}
+	stopOnce       sync.Once
+	mu             sync.RWMutex
+>>>>>>> main
 }
 
 // NewBaseAgent creates a new agent
@@ -93,6 +101,7 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		return Decision{}, err
 	}
 
+<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
 	/*
 		// DEBUG: Log LLM response received by agent
 		fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
@@ -101,6 +110,15 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
 		fmt.Printf("  Confidence: %.2f\n", response.Confidence)
 	*/
+=======
+	// DEBUG: Log LLM response received by agent
+	fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
+	fmt.Printf("  Action: '%s'\n", response.Action)
+	fmt.Printf("  Target: '%s'\n", response.Target)
+	fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
+	fmt.Printf("  Confidence: %.2f\n", response.Confidence)
+
+>>>>>>> main
 	decision := Decision{
 		Action:     response.Action,
 		Target:     response.Target,
@@ -193,9 +211,15 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 	poiInfos := make([]prompts.POIInfo, len(state.System.POIs))
 	for i, poi := range state.System.POIs {
 		poiInfos[i] = prompts.POIInfo{
+<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
 			ID:       strings.ToLower(poi.ID),   // Ensure POI IDs are lowercase
 			Name:     strings.ToLower(poi.Name), // Ensure POI names are lowercase
 			Type:     poi.Type,
+=======
+			ID:   poi.ID,
+			Name: poi.Name,
+			Type: poi.Type,
+>>>>>>> main
 			Position: fmt.Sprintf("(%.1f, %.1f)", poi.Position.X, poi.Position.Y),
 		}
 	}

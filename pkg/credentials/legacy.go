@@ -25,9 +25,11 @@ type LegacyProvider struct {
 }
 
 // LegacyCredentials represents the JSON format of the legacy credentials file
+// Supports both 'password' (new) and 'token' (legacy) for migration
 type LegacyCredentials struct {
 	Username string `json:"username"`
-	Token     string `json:"token"`
+	Password string `json:"password"`         // New field (v0.38.0+)
+	Token    string `json:"token,omitempty"`  // Legacy field for backward compatibility
 }
 
 // NewLegacyProvider creates a provider that loads credentials from a file
@@ -72,16 +74,22 @@ func (p *LegacyProvider) loadCredentials() (*Credentials, error) {
 		return nil, fmt.Errorf("failed to parse credentials file: %w", err)
 	}
 
+	// Auto-migrate: if token exists but password doesn't, copy token to password
+	password := legacyCreds.Password
+	if password == "" && legacyCreds.Token != "" {
+		password = legacyCreds.Token
+	}
+
 	// Validate
-	if legacyCreds.Username == "" || legacyCreds.Token == "" {
-		return nil, fmt.Errorf("%w: invalid credentials (missing username or token)", ErrCredentialsInvalid)
+	if legacyCreds.Username == "" || password == "" {
+		return nil, fmt.Errorf("%w: invalid credentials (missing username or password)", ErrCredentialsInvalid)
 	}
 
 	p.mu.Lock()
 	p.creds = &Credentials{
 		Username: legacyCreds.Username,
-		Token:     legacyCreds.Token,
-		Empire:    "voidborn", // Default empire for legacy credentials
+		Password: password,
+		Empire:   "voidborn", // Default empire for legacy credentials
 	}
 	p.mu.Unlock()
 
@@ -101,8 +109,8 @@ func (p *LegacyProvider) GetCredentials(ctx context.Context, agentID string) (*C
 	// Return agent-specific credentials by appending agent ID to username
 	return &Credentials{
 		Username: fmt.Sprintf("%s_%s", creds.Username, agentID),
-		Token:     creds.Token,
-		Empire:    creds.Empire,
+		Password: creds.Password,
+		Empire:   creds.Empire,
 	}, nil
 }
 
@@ -114,7 +122,7 @@ func (p *LegacyProvider) StoreCredentials(ctx context.Context, agentID string, c
 	// For legacy provider, we ignore agentID and store a single credential set
 	legacyCreds := LegacyCredentials{
 		Username: creds.Username,
-		Token:     creds.Token,
+		Password: creds.Password,
 	}
 
 	data, err := json.MarshalIndent(legacyCreds, "", "  ")

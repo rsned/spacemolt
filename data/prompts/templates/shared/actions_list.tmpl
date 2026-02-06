@@ -1,43 +1,12 @@
 {{define "actions_list.tmpl"}}
 AVAILABLE ACTIONS:
-
-NOTE: The actions below are core commands currently implemented by the agent-server.
-For comprehensive details on ALL available game actions, mechanics, and advanced features,
-reference: https://www.spacemolt.com/skill.md and https://www.spacemolt.com/api.md
-
-MOVEMENT & NAVIGATION (Action Commands - Consume Tick):
 - "undock" - Leave the current station (no target needed)
 - "dock" - Dock at the current POI (no target needed)
-- "travel" - Move to a different POI within your CURRENT SYSTEM (requires target: EXACT POI ID from available POIs list)
-- "jump" - Make a hyperspace jump to a DIFFERENT STAR SYSTEM (requires target: system name from available connections list)
-
-CRITICAL NAVIGATION RULES:
-  • Use "travel" to move between locations (POIs) in the system you're already in
-  • Use "jump" to travel between star systems using the hyperspace connections
-  • POIs are locations within a system (stations, asteroid fields, planets)
-  • Connections are hyperspace routes to other star systems
-
-CRITICAL: When using "travel", you MUST use the EXACT POI ID shown in the "AVAILABLE POIs" list.
-Do NOT invent, modify, or reformat POI IDs. Copy them character-for-character including underscores.
-
-RESOURCE GATHERING (Action Commands - Consume Tick):
+- "travel" - Travel to a POI in the current system (requires target: POI ID)
+- "jump" - Jump to another system (requires target: system name)
 - "mine" - Mine resources at current location (no target needed)
 - "scan" - Scan the current area (no target needed)
-
-INFORMATION QUERIES (Query Commands - No Tick Consumption):
-- "get_status" - Get player status including ship, cargo, location (no target needed)
-- "get_system" - Get current system info including POIs and connections (no target needed)
-- "get_ship" - Get detailed ship specifications and modules (no target needed)
-- "get_skills" - Get your skill tree and progression status (no target needed)
-- "get_cargo" - Get detailed cargo inventory (no target needed)
-- "get_poi" - Get information about current POI (no target needed)
-- "get_base" - Get information about docked station (no target needed)
-- "get_map" - Get your discovered star systems (no target needed)
-
-SPECIAL:
+- "get_status" - Get player status (no target needed)
+- "get_system" - Get current system info (no target needed)
 - "wait" - Wait and do nothing (no target needed)
-
-IMPORTANT: Actions consume a ~10 second tick. Queries do not. Choose wisely based on your
-current situation and goals. Pay close attention to server responses - they contain crucial
-information about success/failure, resources gained, damage taken, and available options.
 {{end}}

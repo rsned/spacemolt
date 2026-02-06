@@ -144,7 +144,7 @@ type TravelProgress struct {
 type State struct {
 	Mu             sync.Mutex
 	Username       string
-	Token          string
+	Password       string // Permanent password from registration (64-char hex string)
 	Doc            bool
 	CurrentSystem  string
 	CurrentPOI     string
@@ -198,7 +198,7 @@ func (s *State) Clone() *State {
 
 	cloned := &State{
 		Username:      s.Username,
-		Token:         s.Token,
+		Password:         s.Password,
 		Doc:           s.Doc,
 		CurrentSystem: s.CurrentSystem,
 		CurrentPOI:    s.CurrentPOI,
