@@ -1,0 +1,26 @@
+global:
+  selection_strategy: stable
+  fallback_to_previous: true
+  collect_metrics: true
+
+prompts:
+  decision:
+    active_version: 1
+    role_overrides:
+      explorer: 1
+      miner: 1
+      trader: 1
+    fallback_version: 1
+
+  feedback:
+    active_version: 1
+    fallback_version: 1
+
+  analysis:
+    active_version: 1
+    fallback_version: 1
+
+metrics:
+  enabled: true
+  retention_days: 90
+  storage_path: data/prompts/metadata

@@ -13,6 +13,7 @@ type Base interface {
 	GetUnknownConnections(ctx context.Context, systemID string) ([]string, error)
 	RememberConnection(ctx context.Context, fromSystem, toSystem string) error
 	RememberPOI(ctx context.Context, poi POI) error
+	GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 	AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error
 	GetRecentExperiences(ctx context.Context, agentID string, limit int) ([]Experience, error)
 	RegisterAgent(ctx context.Context, agentID, name, role, faction string, personality []byte) error

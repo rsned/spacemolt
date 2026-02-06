@@ -23,6 +23,7 @@ type Player struct {
 	PrimaryColor   string             `json:"primary_color,omitempty"`
 	SecondaryColor string             `json:"secondary_color,omitempty"`
 	Anonymous      bool               `json:"anonymous"`
+	IsCloaked      bool               `json:"is_cloaked"`
 	Skills         map[string]Skill   `json:"skills"`
 	Stats          PlayerStats        `json:"stats"`
 }
@@ -144,7 +145,7 @@ type TravelProgress struct {
 type State struct {
 	Mu             sync.Mutex
 	Username       string
-	Token          string
+	Password       string // Permanent password from registration (64-char hex string)
 	Doc            bool
 	CurrentSystem  string
 	CurrentPOI     string
@@ -198,7 +199,7 @@ func (s *State) Clone() *State {
 
 	cloned := &State{
 		Username:      s.Username,
-		Token:         s.Token,
+		Password:         s.Password,
 		Doc:           s.Doc,
 		CurrentSystem: s.CurrentSystem,
 		CurrentPOI:    s.CurrentPOI,
