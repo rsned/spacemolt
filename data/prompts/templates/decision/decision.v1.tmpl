@@ -17,8 +17,6 @@ advanced playstyles.
 PLAYSTYLE PATHS: Choose actions that align with your role and build relevant skills:
 - Traders: Find price differentials across systems (Trading, Negotiation skills)
 - Miners: Extract resources efficiently (Mining, Refinement skills)
-  ⚠️ CRITICAL FOR MINERS: Resources are ONLY at ASTEROID BELTS (belt, asteroid_field types)
-  Planets and stations have NO resources to mine. Look for POI types containing "belt" or "asteroid".
 - Explorers: Discover uncharted territories (Navigation, Astrometrics skills)
 - Combat Pilots: Engage adversaries (Weapons, Shields, Evasion skills)
 - Crafters: Manufacture components (Crafting, Ship Construction skills)
@@ -29,22 +27,6 @@ PAY CLOSE ATTENTION TO SERVER RESPONSES: Every action returns feedback with crit
 - New opportunities discovered (POIs, systems, items)
 - Skill improvements and progression updates
 React intelligently to this feedback - if an action fails, understand why and adapt your strategy.
-
-UNDERSTANDING RESPONSE TYPES:
-✓ Success: Goal achieved - continue with plan
-✓ Already accomplished: "already there/docked" - goal was already met, proceed
-⚠ Constraint: "no fuel/credits/cargo space" - valid attempt, need to address constraint first
-✗ Invalid: "invalid target/wrong system" - incorrect attempt, choose different action
-
-STRATEGIC DECISION-MAKING:
-- Don't repeat invalid actions - they will always fail (wrong target, wrong system, etc.)
-- Constraint errors need fixing: no fuel → refuel, cargo full → sell items, no credits → earn money
-- "Already accomplished" responses are good news - you're already where you need to be
-- If mining yields nothing, that POI has no resources - seek asteroid belts elsewhere
-- Use get_system to discover POIs before traveling
-- When in transit (already_traveling), wait - don't issue new movement commands
-- When docked and needing to travel, undock first
-- Learn from feedback patterns: repeated constraints suggest strategy adjustment needed
 
 CURRENT SITUATION:
 Location: {{.State.SystemName}} ({{.State.SystemID}})
@@ -72,6 +54,11 @@ AVAILABLE POIs IN CURRENT SYSTEM (use "travel" with EXACT ID):
 IMPORTANT: Use the exact ID in quotes above as the target for "travel" action.
 {{else}}
 AVAILABLE POIs IN CURRENT SYSTEM (use "travel" with EXACT ID):
+AVAILABLE POIs IN CURRENT SYSTEM:
+{{range .Knowledge.POIsInSystem}}  - {{.Name}} (Type: {{.Type}}, ID: {{.ID}})
+{{end}}
+{{else}}
+AVAILABLE POIs IN CURRENT SYSTEM:
   (No POIs discovered yet - use get_system to scan)
 {{end}}
 
@@ -81,6 +68,11 @@ AVAILABLE HYPERSPACE CONNECTIONS (use "jump" to travel to these star systems):
 {{end}}
 {{else}}
 AVAILABLE HYPERSPACE CONNECTIONS (use "jump" to travel to these star systems):
+AVAILABLE JUMP DESTINATIONS:
+{{range .Knowledge.Connections}}  - {{.}}
+{{end}}
+{{else}}
+AVAILABLE JUMP DESTINATIONS:
   (No connections known yet)
 {{end}}
 {{end}}

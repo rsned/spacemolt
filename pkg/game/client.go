@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/user/spacemolt/internal/protocol"
 )
 
 // Client represents a WebSocket client for the Spacemolt game
@@ -438,7 +438,6 @@ func (c *Client) listen(ctx context.Context) {
 				// Filter out "nearby" field for state_update messages to reduce log clutter
 				payloadToLog := resp.Payload
 				if resp.Type == "state_update" {
-					continue
 					// Create a filtered copy without the "nearby" field
 					filtered := make(map[string]any)
 					for k, v := range resp.Payload {
@@ -452,9 +451,6 @@ func (c *Client) listen(ctx context.Context) {
 					payloadToLog = filtered
 				}
 				payloadJSON, _ := json.Marshal(payloadToLog)
-				if len(payloadJSON) > 255 {
-					payloadJSON = payloadJSON[:255]
-				}
 				c.debugLogger.Printf("Response Payload: %s", string(payloadJSON))
 			}
 			// Check for error message in payload
