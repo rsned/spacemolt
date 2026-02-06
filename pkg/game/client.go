@@ -31,6 +31,10 @@ type Client struct {
 	readyChan chan struct{}
 	readyOnce sync.Once
 
+	// Market listings data (from get_listings response)
+	latestListings []MarketListing
+	listingsMu     sync.RWMutex
+
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
@@ -128,10 +132,11 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 			Nearby:   []NearbyPlayer{},
 			InCombat: false,
 		},
-		stopCh:      make(chan struct{}),
-		readyChan:   make(chan struct{}),
-		waiters:     make(map[string]chan protocol.Response),
-		debugLogger: debugLogger,
+		stopCh:         make(chan struct{}),
+		readyChan:      make(chan struct{}),
+		waiters:        make(map[string]chan protocol.Response),
+		debugLogger:    debugLogger,
+		latestListings: make([]MarketListing, 0),
 	}
 }
 
@@ -380,6 +385,14 @@ func (c *Client) GetStatus(ctx context.Context) error {
 	})
 }
 
+// GetListings requests market listings for the current station
+func (c *Client) GetListings(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_listings",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
 // GetState returns the current game state
 func (c *Client) GetState() *State {
 	c.mu.RLock()
@@ -546,6 +559,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
+
+	case protocol.TypeListings:
+		c.parseListingsData(resp.Payload)
 	}
 }
 
@@ -1037,6 +1053,61 @@ func (c *Client) IsConnected() bool {
 // (i.e., when the first message has been received from the server)
 func (c *Client) Ready() <-chan struct{} {
 	return c.readyChan
+}
+
+// GetMarketListings returns the most recently fetched market listings
+func (c *Client) GetMarketListings() []MarketListing {
+	c.listingsMu.RLock()
+	defer c.listingsMu.RUnlock()
+
+	result := make([]MarketListing, len(c.latestListings))
+	copy(result, c.latestListings)
+	return result
+}
+
+// parseListingsData extracts market listings from a listings response
+func (c *Client) parseListingsData(payload map[string]any) {
+	// Clear previous listings
+	c.listingsMu.Lock()
+	c.latestListings = c.latestListings[:0]
+	c.listingsMu.Unlock()
+
+	// Parse listings array
+	if listingsData, ok := payload["listings"].([]any); ok {
+		c.listingsMu.Lock()
+		for _, l := range listingsData {
+			if listingMap, ok := l.(map[string]any); ok {
+				listing := MarketListing{}
+
+				if itemID, ok := listingMap["item_id"].(string); ok {
+					listing.ItemID = itemID
+				}
+				if itemType, ok := listingMap["item_type"].(string); ok {
+					listing.ItemType = itemType
+				}
+				if quantity, ok := listingMap["quantity"].(float64); ok {
+					listing.Quantity = quantity
+				}
+				if pricePerUnit, ok := listingMap["price_per_unit"].(float64); ok {
+					listing.PricePerUnit = pricePerUnit
+				}
+				if totalPrice, ok := listingMap["total_price"].(float64); ok {
+					listing.TotalPrice = totalPrice
+				}
+				if listingType, ok := listingMap["type"].(string); ok {
+					listing.Type = listingType
+				}
+				if listedBy, ok := listingMap["listed_by"].(string); ok {
+					listing.ListedBy = listedBy
+				}
+
+				c.latestListings = append(c.latestListings, listing)
+			}
+		}
+		c.listingsMu.Unlock()
+
+		c.debugLogger.Printf("Parsed %d market listings", len(c.latestListings))
+	}
 }
 
 // waitForResponse waits for a response of a specific type with a timeout

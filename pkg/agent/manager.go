@@ -426,7 +426,7 @@ func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds
 func (m *Manager) registerAgent(ctx context.Context, client *game.Client, personality Personality) error {
 	// Generate username from personality
 	//username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
-	username := sanitizeUsername(fmt.Sprintf("%s", personality.Name))
+	username := sanitizeUsername(personality.Name)
 
 	// Register with game server
 	// Note: As of v0.3.3+, only "solarian" empire is allowed for new registrations

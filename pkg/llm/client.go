@@ -169,13 +169,14 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 	currentStart := -1
 
 	for i, ch := range text {
-		if ch == '{' {
+		switch ch {
+		case '{':
 			if braceCount == 0 {
 				currentStart = i
 				inObject = true
 			}
 			braceCount++
-		} else if ch == '}' {
+		case '}':
 			braceCount--
 			if braceCount == 0 && inObject {
 				jsonObjects = append(jsonObjects, text[currentStart:i+1])

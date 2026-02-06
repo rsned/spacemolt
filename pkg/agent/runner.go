@@ -225,11 +225,15 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	var err error
 	var fromQueue bool
 
+	// DEBUG: Check queue state before attempting dequeue
+	queueSize := len(r.agent.GetActionQueue())
+	r.logger.Printf("[%s] === Queue Status: %d actions in queue ===", r.agent.ID(), queueSize)
+
 	if queuedAction, ok := r.agent.DequeueAction(); ok {
 		// Use queued action
 		fromQueue = true
-		r.logger.Printf("[%s] Using queued action [%d]: %s (queue has %d remaining)",
-			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, len(r.agent.GetActionQueue()))
+		r.logger.Printf("[%s] ✓ Using queued action [%d]: %s → %s (queue has %d remaining)",
+			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, queuedAction.Target, len(r.agent.GetActionQueue()))
 
 		decision = Decision{
 			Action:    queuedAction.Action,
@@ -240,6 +244,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		r.agent.SetUsingQueuedAction(true)
 	} else {
 		// No queued actions - get fresh LLM decision
+		r.logger.Printf("[%s] Queue empty, consulting LLM for new decision", r.agent.ID())
 		decision, err = r.agent.Decide(ctx, stateCopy)
 		if err != nil {
 			return fmt.Errorf("decision failed: %w", err)
@@ -248,7 +253,12 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		// Save any planned actions to the queue
 		if len(decision.PlannedActions) > 0 {
 			r.agent.EnqueueActions(decision.PlannedActions)
-			r.logger.Printf("[%s] Enqueued %d planned actions", r.agent.ID(), len(decision.PlannedActions))
+			r.logger.Printf("[%s] ✓ Enqueued %d planned actions:", r.agent.ID(), len(decision.PlannedActions))
+			for _, pa := range decision.PlannedActions {
+				r.logger.Printf("[%s]   [%d] %s → %s: %s", r.agent.ID(), pa.Sequence, pa.Action, pa.Target, pa.Reasoning)
+			}
+		} else {
+			r.logger.Printf("[%s] ⚠ LLM provided NO planned_actions in response", r.agent.ID())
 		}
 
 		r.agent.SetUsingQueuedAction(false)
@@ -307,7 +317,11 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	// Check if we should invalidate the queue based on state changes
 	if r.shouldInvalidateQueue(r.gameClient.GetState()) {
+		r.logger.Printf("[%s] ⚠ Clearing queue due to situation change", r.agent.ID())
 		r.agent.ClearActionQueue("situation_changed")
+	} else if r.agent.IsUsingQueuedAction() {
+		remainingActions := len(r.agent.GetActionQueue())
+		r.logger.Printf("[%s] ✓ Queue preserved: %d actions remaining", r.agent.ID(), remainingActions)
 	}
 
 	// Update last action tick/time if this was an action command

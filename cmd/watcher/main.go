@@ -23,19 +23,19 @@ import (
 
 var (
 	// Command-line flags
-	debugMode           = flag.Bool("debug", false, "Enable debug logging to stderr")
-	logFile             = flag.String("log-file", "", "Write debug logs to file instead of stderr")
-	agents              = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
-	agentServerURL      = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
-	dbBackend           = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
-	dbPath              = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
-	credsProvider       = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
-	credsFile           = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
-	credsSQLitePath     = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
-	credsKeyFile        = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
-	staticUsername      = flag.String("static-username", "", "Username for static provider")
-	staticToken         = flag.String("static-token", "", "Token for static provider")
-	staticEmpire        = flag.String("static-empire", "voidborn", "Empire for static provider")
+	debugMode       = flag.Bool("debug", false, "Enable debug logging to stderr")
+	logFile         = flag.String("log-file", "", "Write debug logs to file instead of stderr")
+	agents          = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
+	agentServerURL  = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
+	dbBackend       = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
+	dbPath          = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
+	credsProvider   = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
+	credsFile       = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
+	credsSQLitePath = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
+	credsKeyFile    = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
+	staticUsername  = flag.String("static-username", "", "Username for static provider")
+	staticToken     = flag.String("static-token", "", "Token for static provider")
+	staticEmpire    = flag.String("static-empire", "voidborn", "Empire for static provider")
 )
 
 var (
@@ -47,9 +47,9 @@ var credentialsFile = ".spacemolt-credentials.json"
 
 // AgentWrapper wraps an agent with its game client
 type AgentWrapper struct {
-	Agent     agent.Agent
-	Client    *game.Client
-	Program   *tea.Program
+	Agent   agent.Agent
+	Client  *game.Client
+	Program *tea.Program
 }
 
 // initCredentialsProvider initializes the credential provider based on flags
@@ -145,10 +145,10 @@ func main() {
 			if err := json.Unmarshal(data, &creds); err == nil {
 				username = creds["username"]
 				password = creds["password"]
-			// Backward compatibility: check for "token" field
-			if password == "" {
-				password = creds["token"]
-			}
+				// Backward compatibility: check for "token" field
+				if password == "" {
+					password = creds["token"]
+				}
 			}
 		}
 	}
@@ -326,7 +326,7 @@ func main() {
 		// Local mode: start agent connections
 		go func() {
 			<-tuiReadyChan
-			startAgentConnections(ctx, agentMgr, p)
+			startAgentConnections(ctx, agentMgr, kb, p)
 		}()
 
 		// Connect watcher client for display
@@ -357,7 +357,7 @@ func main() {
 }
 
 // startAgentConnections connects all agents to the game
-func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.Program) {
+func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, kb knowledge.Base, p *tea.Program) {
 	for _, agt := range agentMgr.ListAgents() {
 		go func(a agent.Agent) {
 			// Get credentials for this specific agent
@@ -440,13 +440,13 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.
 			}
 
 			// Start agent decision loop
-			runAgentLoop(ctx, a, client, p)
+			runAgentLoop(ctx, a, client, kb, p)
 		}(agt)
 	}
 }
 
 // runAgentLoop runs the autonomous agent decision loop
-func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, p *tea.Program) {
+func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, kb knowledge.Base, p *tea.Program) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -513,6 +513,18 @@ func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, p *
 			NewState: state,
 		}); err != nil {
 			log.Printf("[%s] Failed to learn from success: %v", agt.ID(), err)
+		}
+
+		// Check if we should capture market data
+		updatedState := client.GetState()
+		if agent.ShouldCaptureMarket(updatedState, agt.Status()) {
+			log.Printf("[%s] Capturing market data", agt.ID())
+			if err := agent.CaptureMarketData(ctx, client, kb, agt.ID()); err != nil {
+				log.Printf("[%s] Failed to capture market data: %v", agt.ID(), err)
+				// Don't fail the loop on market capture error
+			} else {
+				log.Printf("[%s] Market data captured successfully", agt.ID())
+			}
 		}
 
 		p.Send(tui.AgentStatusMsg{
@@ -947,19 +959,20 @@ func startRemoteStreaming(ctx context.Context, client *tui.AgentServerClient, mo
 				})
 
 				// Update agent status if it's a status-changing event
-				if event.Type == "decision" {
+				switch event.Type {
+				case "decision":
 					p.Send(tui.AgentStatusMsg{
 						AgentID: id,
 						Status:  "Deciding",
 					})
-				} else if event.Type == "action" {
+				case "action":
 					if status, ok := event.Data["status"].(string); ok && status == "success" {
 						p.Send(tui.AgentStatusMsg{
 							AgentID: id,
 							Status:  "Idle",
 						})
 					}
-				} else if event.Type == "error" {
+				case "error":
 					p.Send(tui.AgentStatusMsg{
 						AgentID: id,
 						Status:  "Error",
