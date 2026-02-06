@@ -354,12 +354,7 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 
 	case "scan":
 		r.logger.Printf("[%s] -> Calling gameClient.Scan()", r.agent.ID())
-		err := r.gameClient.Scan(actionCtx)
-		if err == nil {
-			// Save POI knowledge after successful scan
-			r.saveSystemKnowledge(ctx)
-		}
-		return err
+		return r.gameClient.Scan(actionCtx)
 
 	case "get_status":
 		r.logger.Printf("[%s] -> Calling gameClient.GetStatus()", r.agent.ID())
@@ -367,12 +362,7 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 
 	case "get_system":
 		r.logger.Printf("[%s] -> Calling gameClient.GetSystem()", r.agent.ID())
-		err := r.gameClient.GetSystem(actionCtx)
-		if err == nil {
-			// Save system and POI knowledge after successful get_system
-			r.saveSystemKnowledge(ctx)
-		}
-		return err
+		return r.gameClient.GetSystem(actionCtx)
 
 	case "wait":
 		// Deliberate wait - do nothing
@@ -520,74 +510,4 @@ func (r *Runner) recordAction(decision Decision, result string, err error) {
 	}
 
 	r.history.Add(entry)
-}
-
-// saveSystemKnowledge saves the current system and POI information to agent memory
-func (r *Runner) saveSystemKnowledge(ctx context.Context) {
-	state := r.gameClient.GetState()
-	if state == nil {
-		return
-	}
-
-	// Convert and save system information
-	system := System{
-		ID:            state.System.ID,
-		Name:          state.System.Name,
-		Position:      Position{X: state.System.Position.X, Y: state.System.Position.Y},
-		SecurityLevel: getSecurityLevel(state.System.PoliceLevel),
-		Faction:       state.System.Empire,
-		Connections:   state.System.Connections,
-		DiscoveredBy:  r.agent.Name(),
-	}
-
-	if err := r.agent.Memory().RememberSystem(ctx, system); err != nil {
-		r.logger.Printf("[%s] Warning: failed to save system knowledge: %v", r.agent.ID(), err)
-	}
-
-	// Convert and save POI information
-	for _, gamePOI := range state.System.POIs {
-		// Extract resource types
-		resources := make([]string, 0, len(gamePOI.Resources))
-		for _, res := range gamePOI.Resources {
-			resources = append(resources, res.ResourceID)
-		}
-
-		poi := POI{
-			ID:           gamePOI.ID,
-			SystemID:     gamePOI.SystemID,
-			Name:         gamePOI.Name,
-			Type:         gamePOI.Type,
-			Position:     Position{X: gamePOI.Position.X, Y: gamePOI.Position.Y},
-			Services:     []string{}, // Services are not in current game state
-			Resources:    resources,
-			DiscoveredBy: r.agent.Name(),
-		}
-
-		if err := r.agent.Memory().RememberPOI(ctx, poi); err != nil {
-			r.logger.Printf("[%s] Warning: failed to save POI knowledge: %v", r.agent.ID(), err)
-		}
-	}
-
-	// Save connections
-	for _, conn := range state.System.Connections {
-		if err := r.agent.Memory().RememberConnection(ctx, state.System.ID, conn); err != nil {
-			r.logger.Printf("[%s] Warning: failed to save connection knowledge: %v", r.agent.ID(), err)
-		}
-	}
-}
-
-// getSecurityLevel converts police level to security level string
-func getSecurityLevel(policeLevel int) string {
-	switch policeLevel {
-	case 0:
-		return "None"
-	case 1:
-		return "Low"
-	case 2:
-		return "Medium"
-	case 3:
-		return "High"
-	default:
-		return "Unknown"
-	}
 }
