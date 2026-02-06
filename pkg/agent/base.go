@@ -27,12 +27,20 @@ type BaseAgent struct {
 	memory      Memory
 	llm         LLMClient
 
-	status         Status
+	status             Status
 	lastActionFeedback string // Feedback from the most recent action
-	stopCh         chan struct{}
-	stopOnce       sync.Once
-	mu             sync.RWMutex
+	lastActionResult   *ActionResult
+	stopCh             chan struct{}
+	stopOnce           sync.Once
+	mu                 sync.RWMutex
 
+	// Strategic planning
+	currentGoal *Goal
+	priority    Priority
+
+	// Tactical action queue
+	actionQueue       []PlannedAction
+	usingQueuedAction bool
 }
 
 // NewBaseAgent creates a new agent
@@ -215,13 +223,9 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 	poiInfos := make([]prompts.POIInfo, len(state.System.POIs))
 	for i, poi := range state.System.POIs {
 		poiInfos[i] = prompts.POIInfo{
-			ID:       strings.ToLower(poi.ID),   // Ensure POI IDs are lowercase
-			Name:     strings.ToLower(poi.Name), // Ensure POI names are lowercase
+			ID:       poi.ID,
+			Name:     poi.Name,
 			Type:     poi.Type,
-			ID:   poi.ID,
-			Name: poi.Name,
-			Type: poi.Type,
-
 			Position: fmt.Sprintf("(%.1f, %.1f)", poi.Position.X, poi.Position.Y),
 		}
 	}
@@ -357,20 +361,6 @@ func (a *BaseAgent) detectConstraints(state *game.State) []string {
 	}
 
 	return constraints
-	feedback := a.lastActionFeedback
-	a.mu.RUnlock()
-
-	if feedback == "" {
-		return nil
-	}
-
-	// Parse feedback (simple parsing for now)
-	success := strings.HasPrefix(feedback, "✓")
-
-	return &prompts.FeedbackContext{
-		Success: success,
-		Message: feedback,
-	}
 }
 
 // buildFallbackPrompt creates the fallback hardcoded prompt
@@ -422,8 +412,6 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 	// Get last action result (protected by lock)
 	a.mu.RLock()
 	lastResult := a.lastActionResult
-	// Get last action feedback (protected by lock)
-	a.mu.RLock()
 	lastFeedback := a.lastActionFeedback
 	a.mu.RUnlock()
 
@@ -439,6 +427,7 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 			}
 			feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
 		}
+	}
 	if lastFeedback != "" {
 		feedbackText = "\nLAST ACTION FEEDBACK:\n" + lastFeedback + "\n"
 		feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
@@ -479,6 +468,14 @@ func (a *BaseAgent) Learn(result ActionResult) error {
 		return err
 	}
 
+	// Persist any discoveries to the knowledge base
+	if result.Success && result.NewState != nil {
+		if err := a.persistDiscoveries(result); err != nil {
+			fmt.Printf("[Agent %s] Warning: failed to persist discoveries: %v\n", a.id, err)
+			// Don't fail the learn operation just because persistence failed
+		}
+	}
+
 	// Update status and store feedback for next decision
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -505,6 +502,142 @@ func (a *BaseAgent) Learn(result ActionResult) error {
 	}
 
 	return nil
+}
+
+// persistDiscoveries extracts and saves discoveries from game state to knowledge base
+func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
+	ctx := context.Background()
+	state := result.NewState
+
+	if state == nil {
+		return nil // Nothing to persist
+	}
+
+	// Always persist the current system if we have data about it
+	if state.System.ID != "" && state.System.Name != "" {
+		sys := System{
+			ID:   state.System.ID,
+			Name: state.System.Name,
+			Position: Position{
+				X: state.System.Position.X,
+				Y: state.System.Position.Y,
+				Z: 0, // 2D game, Z is always 0
+			},
+			SecurityLevel: mapSecurityLevel(state.System.PoliceLevel),
+			Faction:       state.System.Empire,
+			Connections:   state.System.Connections,
+			DiscoveredBy:  a.id,
+		}
+
+		if err := a.memory.RememberSystem(ctx, sys); err != nil {
+			return fmt.Errorf("failed to remember system %s: %w", sys.ID, err)
+		}
+
+		fmt.Printf("[Agent %s] Persisted system: %s (%s)\n", a.id, sys.Name, sys.ID)
+	}
+
+	// Persist all connections from the current system
+	for _, connID := range state.System.Connections {
+		if err := a.memory.RememberConnection(ctx, state.System.ID, connID); err != nil {
+			fmt.Printf("[Agent %s] Warning: failed to remember connection %s -> %s: %v\n",
+				a.id, state.System.ID, connID, err)
+		}
+	}
+
+	// Persist all POIs discovered in the current system
+	for _, poi := range state.System.POIs {
+		// Convert POI resources
+		resources := make([]ResourceInfo, len(poi.Resources))
+		for i, res := range poi.Resources {
+			resources[i] = ResourceInfo{
+				ResourceID: res.ResourceID,
+				Richness:   res.Richness,
+				Remaining:  res.Remaining,
+			}
+		}
+
+		agentPOI := POI{
+			ID:       poi.ID,
+			SystemID: poi.SystemID,
+			Name:     poi.Name,
+			Type:     poi.Type,
+			Position: Position{
+				X: poi.Position.X,
+				Y: poi.Position.Y,
+				Z: 0,
+			},
+			Services:     []string{},
+			Resources:    resources,
+			DiscoveredBy: a.id,
+		}
+
+		if err := a.memory.RememberPOI(ctx, agentPOI); err != nil {
+			fmt.Printf("[Agent %s] Warning: failed to remember POI %s: %v\n",
+				a.id, poi.Name, err)
+		} else {
+			// Only log if there's something notable about the POI
+			if len(poi.Resources) > 0 || poi.Type == "station" || poi.Type == "base" {
+				fmt.Printf("[Agent %s] Persisted POI: %s (%s) type=%s\n",
+					a.id, poi.Name, poi.ID, poi.Type)
+			}
+
+			// Track resource history and detect anomalies if we have a KB memory
+			if kbMem, ok := a.memory.(*KBMemory); ok {
+				for _, res := range poi.Resources {
+					// Record resource state for depletion tracking
+					_ = kbMem.kb.RecordResourceState(ctx, poi.ID, res.ResourceID, res.Richness, res.Remaining, state.GetTick(), a.id)
+
+					// Detect anomalies - exceptionally rich deposits
+					if res.Richness >= 0.90 {
+						anomaly := knowledge.Anomaly{
+							Type:        "rich_deposit",
+							Severity:    "opportunity",
+							SystemID:    poi.SystemID,
+							POIID:       poi.ID,
+							Description: fmt.Sprintf("Exceptionally rich %s deposit (richness: %.2f)", res.ResourceID, res.Richness),
+							Details:     fmt.Sprintf(`{"resource":"%s","richness":%.2f,"remaining":%.0f}`, res.ResourceID, res.Richness, res.Remaining),
+							DetectedBy:  a.id,
+						}
+						_ = kbMem.kb.RecordAnomaly(ctx, anomaly)
+						fmt.Printf("[Agent %s] 💎 ANOMALY: Rich %s deposit at %s (richness: %.2f)\n",
+							a.id, res.ResourceID, poi.Name, res.Richness)
+					}
+
+					// Detect anomalies - depleting resources
+					if res.Remaining < 10000 && res.Remaining > 0 {
+						anomaly := knowledge.Anomaly{
+							Type:        "depleting_resource",
+							Severity:    "warning",
+							SystemID:    poi.SystemID,
+							POIID:       poi.ID,
+							Description: fmt.Sprintf("Resource %s running low (remaining: %.0f)", res.ResourceID, res.Remaining),
+							Details:     fmt.Sprintf(`{"resource":"%s","remaining":%.0f}`, res.ResourceID, res.Remaining),
+							DetectedBy:  a.id,
+						}
+						_ = kbMem.kb.RecordAnomaly(ctx, anomaly)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// mapSecurityLevel converts police level to security string
+func mapSecurityLevel(policeLevel int) string {
+	switch policeLevel {
+	case 0:
+		return "None"
+	case 1:
+		return "Low"
+	case 2:
+		return "Medium"
+	case 3:
+		return "High"
+	default:
+		return "Unknown"
+	}
 }
 
 // Memory returns the agent's memory
@@ -592,6 +725,16 @@ func (m *KBMemory) KnownPOIs(systemID string) []POIKnowledge {
 
 	result := make([]POIKnowledge, len(pois))
 	for i, poi := range pois {
+		// Convert resources from knowledge.ResourceInfo to agent.ResourceInfo
+		resources := make([]ResourceInfo, len(poi.Resources))
+		for j, res := range poi.Resources {
+			resources[j] = ResourceInfo{
+				ResourceID: res.ResourceID,
+				Richness:   res.Richness,
+				Remaining:  res.Remaining,
+			}
+		}
+
 		result[i] = POIKnowledge{
 			ID:          poi.ID,
 			SystemID:    poi.SystemID,
@@ -600,7 +743,7 @@ func (m *KBMemory) KnownPOIs(systemID string) []POIKnowledge {
 			Description: poi.Description,
 			Position:    Position{X: poi.Position.X, Y: poi.Position.Y},
 			Services:    poi.Services,
-			Resources:   poi.Resources,
+			Resources:   resources,
 		}
 	}
 
@@ -747,4 +890,54 @@ func getDefaultFocusForRole(role string) string {
 	default:
 		return "general"
 	}
+}
+
+// EnqueueActions adds a sequence of planned actions to the queue
+func (a *BaseAgent) EnqueueActions(actions []PlannedAction) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.actionQueue = append(a.actionQueue, actions...)
+}
+
+// DequeueAction removes and returns the next action from the queue
+func (a *BaseAgent) DequeueAction() (*PlannedAction, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.actionQueue) == 0 {
+		return nil, false
+	}
+	action := a.actionQueue[0]
+	a.actionQueue = a.actionQueue[1:]
+	return &action, true
+}
+
+// GetActionQueue returns a copy of the current action queue
+func (a *BaseAgent) GetActionQueue() []PlannedAction {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	result := make([]PlannedAction, len(a.actionQueue))
+	copy(result, a.actionQueue)
+	return result
+}
+
+// ClearActionQueue removes all actions from the queue
+func (a *BaseAgent) ClearActionQueue(reason string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.actionQueue = nil
+	a.usingQueuedAction = false
+}
+
+// SetUsingQueuedAction sets whether the agent is currently using a queued action
+func (a *BaseAgent) SetUsingQueuedAction(using bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.usingQueuedAction = using
+}
+
+// IsUsingQueuedAction returns whether the agent is currently using a queued action
+func (a *BaseAgent) IsUsingQueuedAction() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.usingQueuedAction
 }

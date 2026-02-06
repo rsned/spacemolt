@@ -151,6 +151,7 @@ type State struct {
 	CurrentPOI     string
 	Traveling      bool
 	TravelProgress *TravelProgress // nil when not traveling
+	ServerVersion  string          // Server API version
 
 	// Player data
 	Player         Player
@@ -199,11 +200,12 @@ func (s *State) Clone() *State {
 
 	cloned := &State{
 		Username:      s.Username,
-		Password:         s.Password,
+		Password:      s.Password,
 		Doc:           s.Doc,
 		CurrentSystem: s.CurrentSystem,
 		CurrentPOI:    s.CurrentPOI,
 		Traveling:     s.Traveling,
+		ServerVersion: s.ServerVersion,
 		Credits:       s.Credits,
 		Fuel:          s.Fuel,
 		MaxFuel:       s.MaxFuel,

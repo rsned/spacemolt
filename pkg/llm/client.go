@@ -27,10 +27,6 @@ type Config struct {
 	Model         string
 	Timeout       time.Duration
 	PromptsDir    string
-	BaseURL      string
-	Model        string
-	Timeout      time.Duration
-	PromptsDir   string
 	PromptsConfig string
 }
 
@@ -204,32 +200,28 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 			fmt.Printf("[LLM] Found %d JSON object(s), using last one:\n%s\n", len(jsonObjects), jsonStr)
 		}
 
-	// DEBUG: Log extracted JSON
-	//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
-	fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
+		// DEBUG: Log extracted JSON
+		//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
+		fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 
-	var decision DecisionResponse
-	if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
-		fmt.Printf("[LLM] ERROR: Failed to parse JSON: %v\n", err)
-		return nil, fmt.Errorf("failed to parse decision JSON: %w", err)
-	}
+		var decision DecisionResponse
+		if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
+			fmt.Printf("[LLM] ERROR: Failed to parse JSON: %v\n", err)
+			lastError = err
+			continue
+		}
 
-	/*
 		// DEBUG: Log parsed fields
 		fmt.Printf("[LLM] Parsed DecisionResponse:\n")
 		fmt.Printf("  Action: '%s'\n", decision.Action)
 		fmt.Printf("  Target: '%s'\n", decision.Target)
 		fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
 		fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
-	*/
-	// DEBUG: Log parsed fields
-	fmt.Printf("[LLM] Parsed DecisionResponse:\n")
-	fmt.Printf("  Action: '%s'\n", decision.Action)
-	fmt.Printf("  Target: '%s'\n", decision.Target)
-	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
-	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 
-	return &decision, nil
+		return &decision, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse any JSON object: %w", lastError)
 }
 
 // BuildDecisionPrompt creates a prompt for the LLM

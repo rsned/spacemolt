@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -226,6 +225,7 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	}
 
 	// Agents panel gets fixed height at bottom
+	const agentsPanelHeight = 6
 	agentsHeight := agentsPanelHeight
 
 	// Top section (Log + Map) gets all remaining space
@@ -253,10 +253,10 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 
 	// Width calculations
 	// Agents panel: full width
-	agentsWidth := m.viewportWidth
+	_ = m.viewportWidth
 
 	// Status panel: full width
-	statusWidth := m.viewportWidth
+	_ = m.viewportWidth
 
 	// Log panel gets 20% of top section width with minimum of 20 characters.
 	logWidth := m.viewportWidth * 20 / 100
@@ -279,8 +279,8 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	// Distribute top row space with constraints
 	// Start with minimum allocations
 	agentHeight := minAgentPanelHeight
-	logHeight := effectiveMaxLogHeight
-	mapHeight := minMapPanelHeight
+	logHeight = effectiveMaxLogHeight
+	mapHeight = minMapPanelHeight
 
 	// Calculate remaining space after minimum allocations
 	remainingSpace := topRowHeight - (agentHeight + logHeight + mapHeight)
@@ -295,16 +295,16 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	}
 
 	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
-	logWidth := remainingWidth * 40 / 100
+	logWidth = remainingWidth * 40 / 100
 
 	if logWidth < 20 {
 		logWidth = 20
 	}
+
+	mapWidth := remainingWidth - logWidth - 2 // Account for borders
 	if mapWidth < 20 {
 		mapWidth = 20
 	}
-
-	mapWidth := remainingWidth - logWidth - 2 // Account for borders
 
 	return panelLayout{
 		agentWidth:   agentWidth,
@@ -332,6 +332,19 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	} else {
 		sb.WriteString("\n")
 		for i, agent := range m.agents {
+			// Determine status color
+			var statusColor string
+			switch agent.Status {
+			case "Idle":
+				statusColor = "245"
+			case "Deciding", "Acting":
+				statusColor = "226" // Yellow
+			case "Error":
+				statusColor = "160" // Red
+			default:
+				statusColor = "86" // Green
+			}
+
 			// Highlight selected agent
 			if i == m.agentPanel.selected {
 				sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("→ "))
@@ -339,18 +352,12 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 				sb.WriteString("  ")
 			}
 
-		// Format agent entry
-		entry := fmt.Sprintf("%s%s\n    %s\n",
-			arrow,
-			lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
-			agent.Action,
-		)
-
-		// Distribute across columns
-		if i%2 == 0 {
-			leftCol.WriteString(entry)
-		} else {
-			rightCol.WriteString(entry)
+			// Format agent entry
+			entry := fmt.Sprintf("%s\n    %s\n",
+				lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
+				agent.Action,
+			)
+			sb.WriteString(entry)
 		}
 	}
 
@@ -360,12 +367,11 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	sb.WriteString("\n")
 	sb.WriteString(hints)
 
-	return style.Render(sb.String())
+	return sb.String()
 }
 
 // AddAgent adds an agent to the watcher
 func (m *WatcherModel) AddAgent(info AgentInfo) {
-	m.mu.Lock()
 	m.agents = append(m.agents, info)
 
 	// Initialize state and logs for this agent if not exists
@@ -385,15 +391,12 @@ func (m *WatcherModel) AddAgent(info AgentInfo) {
 		m.selectedAgentID = info.ID
 		m.selectedIndex = 0
 	}
-	m.mu.Unlock()
 }
 
 // UpdateAgentState updates the game state for a specific agent
 func (m *WatcherModel) UpdateAgentState(agentID string, state *game.State) {
 	if state != nil {
-		m.mu.Lock()
 		m.agentStates[agentID] = state
-		m.mu.Unlock()
 		// Mark panels for update
 		m.mapPanel.lastUpdate = time.Now()
 		m.statusPanel.lastUpdate = time.Now()
@@ -405,14 +408,11 @@ func (m *WatcherModel) GetCurrentState() *game.State {
 	if m.selectedAgentID == "" {
 		return nil
 	}
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 	return m.agentStates[m.selectedAgentID]
 }
 
 // AddLogForAgent adds a log line for a specific agent
 func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
-	m.mu.Lock()
 	logs, exists := m.agentLogs[agentID]
 	if !exists {
 		logs = []string{}
@@ -425,7 +425,6 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 	}
 
 	m.agentLogs[agentID] = logs
-	m.mu.Unlock()
 
 	// If this is the currently selected agent, update the log panel
 	if agentID == m.selectedAgentID {
@@ -437,8 +436,6 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 
 // updateAgentStatus updates an agent's status
 func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	for i := range m.agents {
 		if m.agents[i].ID == agentID {
 			m.agents[i].Status = status
@@ -449,34 +446,26 @@ func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
 
 // selectNextAgent cycles to the next agent
 func (m *WatcherModel) selectNextAgent() {
-	m.mu.Lock()
 	if len(m.agents) == 0 {
-		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex + 1) % len(m.agents)
 	idx := m.selectedIndex
-	m.mu.Unlock()
 	m.selectAgentByIndex(idx)
 }
 
 // selectPreviousAgent cycles to the previous agent
 func (m *WatcherModel) selectPreviousAgent() {
-	m.mu.Lock()
 	if len(m.agents) == 0 {
-		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex - 1 + len(m.agents)) % len(m.agents)
 	idx := m.selectedIndex
-	m.mu.Unlock()
 	m.selectAgentByIndex(idx)
 }
 
 // selectAgentByIndex selects an agent by index (0-based)
 func (m *WatcherModel) selectAgentByIndex(idx int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	if idx < 0 || idx >= len(m.agents) {
 		return
 	}

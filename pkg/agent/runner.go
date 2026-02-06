@@ -220,22 +220,12 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
 	}
 
-	canAct := tickAdvanced || timeElapsed
-
-	// Log throttling details for debugging
-	if !canAct {
-		r.logger.Printf("[%s] Throttle check: tick=%d, lastTick=%d, timeSince=%.1fs",
-			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
-	}
-
 	// Try to use queued action first, fall back to LLM decision
 	var decision Decision
 	var err error
-	var fromQueue bool
 
 	if queuedAction, ok := r.agent.DequeueAction(); ok {
 		// Use queued action
-		fromQueue = true
 		r.logger.Printf("[%s] Using queued action [%d]: %s (queue has %d remaining)",
 			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, len(r.agent.GetActionQueue()))
 
@@ -310,11 +300,6 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 		// Note: Failed actions don't consume tick, so we don't update lastActionTick
 		return fmt.Errorf("action execution failed: %w", err)
-	}
-
-	// Check if we should invalidate the queue based on state changes
-	if r.shouldInvalidateQueue(r.gameClient.GetState()) {
-		r.agent.ClearActionQueue("situation_changed")
 	}
 
 	// Update last action tick/time if this was an action command
