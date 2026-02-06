@@ -220,10 +220,46 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
 	}
 
-	// Agent makes decision
-	decision, err := r.agent.Decide(ctx, stateCopy)
-	if err != nil {
-		return fmt.Errorf("decision failed: %w", err)
+	canAct := tickAdvanced || timeElapsed
+
+	// Log throttling details for debugging
+	if !canAct {
+		r.logger.Printf("[%s] Throttle check: tick=%d, lastTick=%d, timeSince=%.1fs",
+			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
+	}
+
+	// Try to use queued action first, fall back to LLM decision
+	var decision Decision
+	var err error
+	var fromQueue bool
+
+	if queuedAction, ok := r.agent.DequeueAction(); ok {
+		// Use queued action
+		fromQueue = true
+		r.logger.Printf("[%s] Using queued action [%d]: %s (queue has %d remaining)",
+			r.agent.ID(), queuedAction.Sequence, queuedAction.Action, len(r.agent.GetActionQueue()))
+
+		decision = Decision{
+			Action:    queuedAction.Action,
+			Target:    queuedAction.Target,
+			Reasoning: fmt.Sprintf("[QUEUED #%d] %s", queuedAction.Sequence, queuedAction.Reasoning),
+		}
+
+		r.agent.SetUsingQueuedAction(true)
+	} else {
+		// No queued actions - get fresh LLM decision
+		decision, err = r.agent.Decide(ctx, stateCopy)
+		if err != nil {
+			return fmt.Errorf("decision failed: %w", err)
+		}
+
+		// Save any planned actions to the queue
+		if len(decision.PlannedActions) > 0 {
+			r.agent.EnqueueActions(decision.PlannedActions)
+			r.logger.Printf("[%s] Enqueued %d planned actions", r.agent.ID(), len(decision.PlannedActions))
+		}
+
+		r.agent.SetUsingQueuedAction(false)
 	}
 
 	// Emit decision event
@@ -269,8 +305,16 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		}
 		_ = r.agent.Learn(result)
 
+		// Clear action queue on failures (plan assumptions invalid)
+		r.agent.ClearActionQueue("action_failed")
+
 		// Note: Failed actions don't consume tick, so we don't update lastActionTick
 		return fmt.Errorf("action execution failed: %w", err)
+	}
+
+	// Check if we should invalidate the queue based on state changes
+	if r.shouldInvalidateQueue(r.gameClient.GetState()) {
+		r.agent.ClearActionQueue("situation_changed")
 	}
 
 	// Update last action tick/time if this was an action command
