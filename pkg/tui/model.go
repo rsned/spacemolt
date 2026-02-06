@@ -300,6 +300,9 @@ func (m *WatcherModel) calculateLayout() panelLayout {
 	if logWidth < 20 {
 		logWidth = 20
 	}
+	if mapWidth < 20 {
+		mapWidth = 20
+	}
 
 	mapWidth := remainingWidth - logWidth - 2 // Account for borders
 
@@ -336,19 +339,18 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 				sb.WriteString("  ")
 			}
 
-			// Show agent name and status
-			statusColor := "241" // gray for idle
-			switch agent.Status {
-			case "Acting":
-				statusColor = "226" // yellow for acting
-			case "Deciding":
-				statusColor = "217" // pink for deciding
-			case "Error":
-				statusColor = "160" // red for error
-			}
+		// Format agent entry
+		entry := fmt.Sprintf("%s%s\n    %s\n",
+			arrow,
+			lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
+			agent.Action,
+		)
 
-			sb.WriteString(fmt.Sprintf("%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name)))
-			sb.WriteString(fmt.Sprintf("    %s\n", agent.Action))
+		// Distribute across columns
+		if i%2 == 0 {
+			leftCol.WriteString(entry)
+		} else {
+			rightCol.WriteString(entry)
 		}
 	}
 
