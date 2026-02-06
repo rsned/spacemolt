@@ -43,11 +43,11 @@ type agentPanelModel struct {
 // panelLayout holds the calculated dimensions for each panel
 type panelLayout struct {
 	agentWidth   int
-	agentHeight  int // Fixed height at bottom (agentsPanelHeight, typically 6)
+	agentHeight  int // May vary based on available space
 	logWidth     int
 	logHeight    int // Capped at maxLogPanelHeight (typically 12)
 	mapWidth     int
-	mapHeight    int // Dynamic: gets remaining vertical space in top section
+	mapHeight    int // Gets priority for remaining space
 	statusWidth  int
 	statusHeight int
 }
@@ -117,8 +117,8 @@ func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	}
 
 	// Calculate available grid columns (width)
-	// Subtract: lipgloss border (2) + ASCII map borders (4 = left pipe + space + space + right pipe)
-	const totalBorderWidth = 6 // lipgloss border (2) + ASCII borders (4)
+	// Subtract: lipgloss border (2) + ASCII map borders (3 = space + left pipe + right pipe)
+	const totalBorderWidth = 5 // lipgloss border (2) + ASCII borders (3)
 	availableGridCols := width - totalBorderWidth
 	if availableGridCols < 10 {
 		availableGridCols = 10

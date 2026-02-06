@@ -14,8 +14,8 @@ const (
 	// Panel height constraints
 	minPanelHeight      = 4  // Minimum height for any panel (prevents collapse)
 	maxLogPanelHeight   = 12 // Maximum height for log panel
+	minAgentPanelHeight = 6  // Minimum height for agent panel
 	minMapPanelHeight   = 8  // Minimum height for map panel
-	agentsPanelHeight   = 6  // Fixed height for agents panel (full width at bottom)
 )
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
@@ -224,56 +224,56 @@ func (m WatcherModel) calculateLayout() panelLayout {
 		statusHeight = 12
 	}
 
-	// Agents panel gets fixed height at bottom
-	agentsHeight := agentsPanelHeight
+	// Top row gets remaining space
+	topRowHeight := availableHeight - statusHeight
 
-	// Top section (Log + Map) gets all remaining space
-	topSectionHeight := availableHeight - statusHeight - agentsHeight
+	// Calculate minimum required height for top row panels
+	minTopRowHeight := minAgentPanelHeight + maxLogPanelHeight + minMapPanelHeight
 
-	// Ensure top section has minimum height
-	if topSectionHeight < minMapPanelHeight+minPanelHeight {
-		// Reduce status panel to make room
-		statusHeight = 6
-		topSectionHeight = availableHeight - statusHeight - agentsHeight
+	// If top row is too small, reduce log panel max height
+	effectiveMaxLogHeight := maxLogPanelHeight
+	if topRowHeight < minTopRowHeight {
+		// Reduce log panel to fit, but never below minimum
+		effectiveMaxLogHeight = topRowHeight - minAgentPanelHeight - minMapPanelHeight
+		if effectiveMaxLogHeight < minPanelHeight {
+			effectiveMaxLogHeight = minPanelHeight
+		}
 	}
 
-	// Distribute top section space between log and map
-	// Log panel gets max height cap
-	logHeight := maxLogPanelHeight
-	if logHeight > topSectionHeight-minMapPanelHeight {
-		logHeight = topSectionHeight - minMapPanelHeight
-	}
-	if logHeight < minPanelHeight {
-		logHeight = minPanelHeight
-	}
+	// Distribute top row space with constraints
+	// Start with minimum allocations
+	agentHeight := minAgentPanelHeight
+	logHeight := effectiveMaxLogHeight
+	mapHeight := minMapPanelHeight
 
-	// Map panel gets remaining space in top section
-	mapHeight := topSectionHeight - logHeight
+	// Calculate remaining space after minimum allocations
+	remainingSpace := topRowHeight - (agentHeight + logHeight + mapHeight)
+
+	// Expand map panel first (highest priority)
+	mapHeight += remainingSpace
 
 	// Width calculations
-	// Agents panel: full width
-	agentsWidth := m.viewportWidth
+	agentWidth := m.viewportWidth * 25 / 100
+	if agentWidth < 20 {
+		agentWidth = 20
+	}
 
-	// Status panel: full width
-	statusWidth := m.viewportWidth
-
-	// Log panel gets 40% of top section width
-	logWidth := m.viewportWidth * 40 / 100
+	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
+	logWidth := remainingWidth * 40 / 100
 	if logWidth < 20 {
 		logWidth = 20
 	}
 
-	// Map panel gets remaining width
-	mapWidth := m.viewportWidth - logWidth - 2 // Account for borders
+	mapWidth := remainingWidth - logWidth - 2 // Account for borders
 
 	return panelLayout{
-		agentWidth:   agentsWidth,
-		agentHeight:  agentsHeight,
+		agentWidth:   agentWidth,
+		agentHeight:  agentHeight,
 		logWidth:     logWidth,
 		logHeight:    logHeight,
 		mapWidth:     mapWidth,
 		mapHeight:    mapHeight,
-		statusWidth:  statusWidth,
+		statusWidth:  m.viewportWidth,
 		statusHeight: statusHeight,
 	}
 }
