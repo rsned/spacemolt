@@ -23,8 +23,8 @@ func TestStaticProvider(t *testing.T) {
 		t.Errorf("Expected username 'testuser', got '%s'", creds.Username)
 	}
 
-	if creds.Token != "testtoken" {
-		t.Errorf("Expected token 'testtoken', got '%s'", creds.Token)
+	if creds.Password != "testtoken" {
+		t.Errorf("Expected token 'testtoken', got '%s'", creds.Password)
 	}
 
 	if creds.Empire != "voidborn" {
@@ -34,7 +34,7 @@ func TestStaticProvider(t *testing.T) {
 	// Test StoreCredentials (should be no-op)
 	err = provider.StoreCredentials(ctx, "agent-1", &Credentials{
 		Username: "newuser",
-		Token:     "newtoken",
+		Password:     "newtoken",
 		Empire:    "test",
 	})
 	if err != nil {
@@ -75,7 +75,7 @@ func TestFileProvider(t *testing.T) {
 	t.Run("Store and Retrieve Credentials", func(t *testing.T) {
 		creds := &Credentials{
 			Username: "test-agent",
-			Token:     "test-token-123",
+			Password:     "test-token-123",
 			Empire:    "voidborn",
 		}
 
@@ -107,8 +107,8 @@ func TestFileProvider(t *testing.T) {
 			t.Errorf("Expected username 'test-agent', got '%s'", retrieved.Username)
 		}
 
-		if retrieved.Token != "test-token-123" {
-			t.Errorf("Expected token 'test-token-123', got '%s'", retrieved.Token)
+		if retrieved.Password != "test-token-123" {
+			t.Errorf("Expected token 'test-token-123', got '%s'", retrieved.Password)
 		}
 
 		if retrieved.Empire != "voidborn" {
@@ -130,7 +130,7 @@ func TestFileProvider(t *testing.T) {
 	t.Run("Default Empire", func(t *testing.T) {
 		creds := &Credentials{
 			Username: "test-agent-2",
-			Token:     "test-token-456",
+			Password:     "test-token-456",
 			Empire:    "", // Empty empire should default to "voidborn"
 		}
 
@@ -153,7 +153,7 @@ func TestFileProvider(t *testing.T) {
 		// Add another agent
 		err := provider.StoreCredentials(ctx, "trader-1", &Credentials{
 			Username: "trader-1",
-			Token:     "token-789",
+			Password:     "token-789",
 			Empire:    "voidborn",
 		})
 		if err != nil {
@@ -227,7 +227,7 @@ func TestLegacyProvider(t *testing.T) {
 	t.Run("Store and Retrieve", func(t *testing.T) {
 		creds := &Credentials{
 			Username: "legacyuser",
-			Token:     "legacytoken",
+			Password:     "legacytoken",
 			Empire:    "voidborn",
 		}
 
@@ -262,7 +262,7 @@ func TestLegacyProvider(t *testing.T) {
 		}
 
 		// Tokens should be the same
-		if agent1Creds.Token != agent2Creds.Token {
+		if agent1Creds.Password != agent2Creds.Password {
 			t.Error("Tokens should be the same for all agents")
 		}
 	})
@@ -285,7 +285,7 @@ func TestLegacyProvider(t *testing.T) {
 		// Store credentials
 		_ = provider.StoreCredentials(ctx, "agent-1", &Credentials{
 			Username: "test",
-			Token:     "test",
+			Password:     "test",
 		})
 
 		agents, err := provider.ListAgents(ctx)
@@ -465,8 +465,8 @@ func TestEnvProvider(t *testing.T) {
 			t.Errorf("Expected username 'explorer-7', got '%s'", creds.Username)
 		}
 
-		if creds.Token != "explorer-token" {
-			t.Errorf("Expected token 'explorer-token', got '%s'", creds.Token)
+		if creds.Password != "explorer-token" {
+			t.Errorf("Expected token 'explorer-token', got '%s'", creds.Password)
 		}
 
 		if creds.Empire != "voidborn" {

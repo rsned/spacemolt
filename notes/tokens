@@ -1,0 +1,12 @@
+2026/02/03 09:20:16 [SENT] register | payload: {"empire":"solarian","username":"craftsman-2"}
+2026/02/03 09:20:16 [RECVD] payload: {"player_id":"633f56c2aa0d8ff5065d6ff95d388cd8","token":"0ce2f56d6f5f0fa9611a0d30a2fc1a16caed90c76cf77ce877465adf5fc6f403"}
+2026/02/03 09:20:17 [SENT] register | payload: {"empire":"solarian","username":"engineer-1"}
+2026/02/03 09:20:17 [RECVD] payload: {"player_id":"bd608893a465d05d72b2b40970a1b7b4","token":"0232826247ab43ce7bae176900f49dd0f0a5ae732d9852dd44022e3e8df21860"}
+
+✓ Connected successfully
+2026/02/03 14:46:23 [explorer-7] Registering new agent
+2026/02/03 14:46:23 [explorer-7] Registering with empire: solarian (personality faction: Explorers Guild)
+2026/02/03 14:46:23 [SENT] register | payload: {"empire":"solarian","username":"explorer-7"}
+2026/02/03 14:46:23 [RECV] registered
+2026/02/03 14:46:23 [RECVD] payload: {"password":"a8ca6bc0967c0fed93505a08f054f0729582c5622dc13c71c97c827d6d147a74","player_id":"08814e9622d3e776f022642f9e5827a4"}
+2026/02/03 14:46:23 [RECV] logged_in
