@@ -47,9 +47,9 @@ var credentialsFile = ".spacemolt-credentials.json"
 
 // AgentWrapper wraps an agent with its game client
 type AgentWrapper struct {
-	Agent     agent.Agent
-	Client    *game.Client
-	Program   *tea.Program
+	Agent   agent.Agent
+	Client  *game.Client
+	Program *tea.Program
 }
 
 // initCredentialsProvider initializes the credential provider based on flags
@@ -395,7 +395,7 @@ func main() {
 }
 
 // startAgentConnections connects all agents to the game
-func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.Program) {
+func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, kb knowledge.Base, p *tea.Program) {
 	for _, agt := range agentMgr.ListAgents() {
 		go func(a agent.Agent) {
 			// Get credentials for this specific agent
@@ -478,13 +478,13 @@ func startAgentConnections(ctx context.Context, agentMgr *agent.Manager, p *tea.
 			}
 
 			// Start agent decision loop
-			runAgentLoop(ctx, a, client, p)
+			runAgentLoop(ctx, a, client, kb, p)
 		}(agt)
 	}
 }
 
 // runAgentLoop runs the autonomous agent decision loop
-func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, p *tea.Program) {
+func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, kb knowledge.Base, p *tea.Program) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -551,6 +551,18 @@ func runAgentLoop(ctx context.Context, agt agent.Agent, client *game.Client, p *
 			NewState: state,
 		}); err != nil {
 			log.Printf("[%s] Failed to learn from success: %v", agt.ID(), err)
+		}
+
+		// Check if we should capture market data
+		updatedState := client.GetState()
+		if agent.ShouldCaptureMarket(updatedState, agt.Status()) {
+			log.Printf("[%s] Capturing market data", agt.ID())
+			if err := agent.CaptureMarketData(ctx, client, kb, agt.ID()); err != nil {
+				log.Printf("[%s] Failed to capture market data: %v", agt.ID(), err)
+				// Don't fail the loop on market capture error
+			} else {
+				log.Printf("[%s] Market data captured successfully", agt.ID())
+			}
 		}
 
 		p.Send(tui.AgentStatusMsg{

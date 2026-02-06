@@ -8,22 +8,26 @@ import (
 
 // MemoryKB is an in-memory knowledge base for MVP
 type MemoryKB struct {
-	mu            sync.RWMutex
-	systems       map[string]*System
-	pois          map[string]*POI
-	connections   map[string][]string // from_system -> []to_system
-	experiences   map[string][]Experience // agent_id -> experiences
-	agents        map[string]*AgentInfo
+	mu               sync.RWMutex
+	systems          map[string]*System
+	pois             map[string]*POI
+	connections      map[string][]string // from_system -> []to_system
+	experiences      map[string][]Experience // agent_id -> experiences
+	agents           map[string]*AgentInfo
+	marketSnapshots  []MarketSnapshot
+	marketItems      map[string]struct{} // set of unique item IDs
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
 func NewMemoryKB() *MemoryKB {
 	return &MemoryKB{
-		systems:     make(map[string]*System),
-		pois:        make(map[string]*POI),
-		connections: make(map[string][]string),
-		experiences: make(map[string][]Experience),
-		agents:      make(map[string]*AgentInfo),
+		systems:         make(map[string]*System),
+		pois:            make(map[string]*POI),
+		connections:     make(map[string][]string),
+		experiences:     make(map[string][]Experience),
+		agents:          make(map[string]*AgentInfo),
+		marketSnapshots: make([]MarketSnapshot, 0),
+		marketItems:     make(map[string]struct{}),
 	}
 }
 
@@ -261,4 +265,98 @@ type AgentInfo struct {
 	Role    string
 	Faction string
 	Status  string
+}
+
+// StoreMarketSnapshot stores a market snapshot with its listings
+func (kb *MemoryKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnapshot, agentID string) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	// Set capture time if not set
+	if snapshot.CapturedAt.IsZero() {
+		snapshot.CapturedAt = time.Now()
+	}
+
+	// Add snapshot to storage (keep most recent 1000)
+	kb.marketSnapshots = append(kb.marketSnapshots, snapshot)
+	if len(kb.marketSnapshots) > 1000 {
+		kb.marketSnapshots = kb.marketSnapshots[1:]
+	}
+
+	// Track unique items
+	for _, listing := range snapshot.Listings {
+		kb.marketItems[listing.ItemID] = struct{}{}
+	}
+
+	return nil
+}
+
+// GetMarketSnapshots retrieves historical market snapshots
+func (kb *MemoryKB) GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var result []MarketSnapshot
+	count := 0
+
+	// Iterate in reverse order (most recent first)
+	for i := len(kb.marketSnapshots) - 1; i >= 0; i-- {
+		snap := kb.marketSnapshots[i]
+		if snap.SystemID == systemID && snap.StationID == stationID {
+			result = append(result, snap)
+			count++
+			if count >= limit {
+				break
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// GetLatestMarketSnapshot retrieves the most recent market snapshot
+func (kb *MemoryKB) GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*MarketSnapshot, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	// Search in reverse order (most recent first)
+	for i := len(kb.marketSnapshots) - 1; i >= 0; i-- {
+		snap := kb.marketSnapshots[i]
+		if snap.SystemID == systemID && snap.StationID == stationID {
+			return &snap, nil
+		}
+	}
+
+	return nil, nil // Not found
+}
+
+// GetMarketItems retrieves unique item IDs optionally filtered by type
+func (kb *MemoryKB) GetMarketItems(ctx context.Context, itemType string) ([]string, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if itemType == "" {
+		// Return all unique items
+		items := make([]string, 0, len(kb.marketItems))
+		for itemID := range kb.marketItems {
+			items = append(items, itemID)
+		}
+		return items, nil
+	}
+
+	// Filter by type - need to scan snapshots
+	seen := make(map[string]struct{})
+	for _, snap := range kb.marketSnapshots {
+		for _, listing := range snap.Listings {
+			if listing.ItemType == itemType {
+				seen[listing.ItemID] = struct{}{}
+			}
+		}
+	}
+
+	items := make([]string, 0, len(seen))
+	for itemID := range seen {
+		items = append(items, itemID)
+	}
+	return items, nil
 }

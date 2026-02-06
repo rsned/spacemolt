@@ -95,6 +95,45 @@ CREATE INDEX IF NOT EXISTS idx_connections_from ON connections(from_system);
 CREATE INDEX IF NOT EXISTS idx_connections_to ON connections(to_system);
 `,
 		},
+		{
+			version: 2,
+			name:    "market_data",
+			sql: `
+-- Market snapshots table: stores captured market state
+CREATE TABLE IF NOT EXISTS market_snapshots (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	system_id TEXT NOT NULL,
+	system_name TEXT NOT NULL,
+	station_id TEXT NOT NULL,
+	station_name TEXT NOT NULL,
+	game_tick INTEGER NOT NULL,
+	captured_at TEXT NOT NULL,
+	agent_id TEXT,
+	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- Market listings table: individual listings in a snapshot
+CREATE TABLE IF NOT EXISTS market_listings (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	snapshot_id INTEGER NOT NULL,
+	item_id TEXT NOT NULL,
+	item_type TEXT NOT NULL,
+	quantity REAL NOT NULL,
+	price_per_unit REAL NOT NULL,
+	total_price REAL NOT NULL,
+	listing_type TEXT NOT NULL,
+	listed_by TEXT,
+	FOREIGN KEY (snapshot_id) REFERENCES market_snapshots(id) ON DELETE CASCADE
+);
+
+-- Indexes for efficient queries
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_system_station ON market_snapshots(system_id, station_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_captured_at ON market_snapshots(captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_listings_snapshot_id ON market_listings(snapshot_id);
+CREATE INDEX IF NOT EXISTS idx_market_listings_item_id ON market_listings(item_id);
+CREATE INDEX IF NOT EXISTS idx_market_listings_item_type ON market_listings(item_type);
+`,
+		},
 	}
 }
 
