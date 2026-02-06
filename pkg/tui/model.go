@@ -12,15 +12,22 @@ import (
 
 const (
 	// Panel height constraints
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
+	minPanelHeight    = 4  // Minimum height for any panel (prevents collapse)
+	maxLogPanelHeight = 20 // Maximum height for log panel
+	minMapPanelHeight = 20 // Minimum height for map panel
+	agentsPanelHeight = 6  // Fixed height for agents panel (full width at bottom)
+=======
 	minPanelHeight      = 4  // Minimum height for any panel (prevents collapse)
 	maxLogPanelHeight   = 12 // Maximum height for log panel
 	minAgentPanelHeight = 6  // Minimum height for agent panel
 	minMapPanelHeight   = 8  // Minimum height for map panel
+>>>>>>> main
 )
 
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
 type WsMsg struct {
-	AgentID string             // Agent that sent this message
+	AgentID string // Agent that sent this message
 	Type    string
 	Payload map[string]any
 }
@@ -52,18 +59,18 @@ type AgentInfo struct {
 // WatcherModel is the main TUI model for the watcher interface
 type WatcherModel struct {
 	// Multi-agent state tracking
-	agentStates     map[string]*game.State // agent ID -> game state
-	agentLogs       map[string][]string    // agent ID -> log lines
+	agentStates map[string]*game.State // agent ID -> game state
+	agentLogs   map[string][]string    // agent ID -> log lines
 
-	viewportWidth   int
-	viewportHeight  int
-	quitting        bool
+	viewportWidth  int
+	viewportHeight int
+	quitting       bool
 
 	// Panel models
-	logPanel        logPanelModel
-	mapPanel        mapPanelModel
-	statusPanel     statusPanelModel
-	agentPanel      agentPanelModel
+	logPanel    logPanelModel
+	mapPanel    mapPanelModel
+	statusPanel statusPanelModel
+	agentPanel  agentPanelModel
 
 	// Agent tracking
 	agents          []AgentInfo
@@ -224,6 +231,43 @@ func (m WatcherModel) calculateLayout() panelLayout {
 		statusHeight = 12
 	}
 
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
+	// Agents panel gets fixed height at bottom
+	agentsHeight := agentsPanelHeight
+
+	// Top section (Log + Map) gets all remaining space
+	topSectionHeight := availableHeight - statusHeight - agentsHeight
+
+	// Ensure top section has minimum height
+	if topSectionHeight < minMapPanelHeight+minPanelHeight {
+		// Reduce status panel to make room
+		statusHeight = 6
+		topSectionHeight = availableHeight - statusHeight - agentsHeight
+	}
+
+	// Distribute top section space between log and map
+	// Log panel gets max height cap
+	logHeight := maxLogPanelHeight
+	if logHeight > topSectionHeight-minMapPanelHeight {
+		logHeight = topSectionHeight - minMapPanelHeight
+	}
+	if logHeight < minPanelHeight {
+		logHeight = minPanelHeight
+	}
+
+	// Map panel gets remaining space in top section
+	mapHeight := topSectionHeight - logHeight
+
+	// Width calculations
+	// Agents panel: full width
+	agentsWidth := m.viewportWidth
+
+	// Status panel: full width
+	statusWidth := m.viewportWidth
+
+	// Log panel gets 20% of top section width with minimum of 20 characters.
+	logWidth := m.viewportWidth * 20 / 100
+=======
 	// Top row gets remaining space
 	topRowHeight := availableHeight - statusHeight
 
@@ -260,20 +304,34 @@ func (m WatcherModel) calculateLayout() panelLayout {
 
 	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
 	logWidth := remainingWidth * 40 / 100
+>>>>>>> main
 	if logWidth < 20 {
 		logWidth = 20
 	}
 
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
+	// Map panel gets remaining width
+	mapWidth := m.viewportWidth - logWidth - 2 // Account for borders
+
+	return panelLayout{
+		agentWidth:   agentsWidth,
+		agentHeight:  agentsHeight,
+=======
 	mapWidth := remainingWidth - logWidth - 2 // Account for borders
 
 	return panelLayout{
 		agentWidth:   agentWidth,
 		agentHeight:  agentHeight,
+>>>>>>> main
 		logWidth:     logWidth,
 		logHeight:    logHeight,
 		mapWidth:     mapWidth,
 		mapHeight:    mapHeight,
+<<<<<<< pr/add-hot-key-hints-to-agents-panel
+		statusWidth:  statusWidth,
+=======
 		statusWidth:  m.viewportWidth,
+>>>>>>> main
 		statusHeight: statusHeight,
 	}
 }
@@ -289,11 +347,13 @@ func (m WatcherModel) renderAgentPanel(width, height int) string {
 	var sb strings.Builder
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
 	sb.WriteString(titleStyle.Render("Agents"))
-	sb.WriteString("\n\n")
+	sb.WriteString("\n")
 
 	if len(m.agents) == 0 {
+		sb.WriteString("\n")
 		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
 	} else {
+		sb.WriteString("\n")
 		for i, agent := range m.agents {
 			// Highlight selected agent
 			if i == m.agentPanel.selected {
@@ -317,6 +377,12 @@ func (m WatcherModel) renderAgentPanel(width, height int) string {
 			sb.WriteString(fmt.Sprintf("    %s\n", agent.Action))
 		}
 	}
+
+	// Add hot key hints at bottom
+	hintStyle := lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("245"))
+	hints := hintStyle.Render("Tab: Next | Shift+Tab: Prev | 1-9: Jump")
+	sb.WriteString("\n")
+	sb.WriteString(hints)
 
 	return style.Render(sb.String())
 }
