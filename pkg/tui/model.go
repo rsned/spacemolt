@@ -201,14 +201,11 @@ func (m WatcherModel) View() string {
 	mapContent := m.renderMapPanelFull(layout.mapWidth, layout.mapHeight)
 	statusContent := m.renderStatusPanel(layout.statusWidth, layout.statusHeight)
 
-	// Join agent and log horizontally (top-left section)
-	topLeft := lipgloss.JoinHorizontal(lipgloss.Top, agentContent, logContent)
+	// Join log and map horizontally (top section)
+	topSection := lipgloss.JoinHorizontal(lipgloss.Top, logContent, mapContent)
 
-	// Join topLeft and map horizontally (top row)
-	topRow := lipgloss.JoinHorizontal(lipgloss.Top, topLeft, mapContent)
-
-	// Join top row and status panel vertically
-	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topRow, statusContent)
+	// Join top section, status, and agents vertically (full layout)
+	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topSection, statusContent, agentContent)
 
 	return fullLayout
 }
@@ -218,7 +215,7 @@ func (m WatcherModel) calculateLayout() panelLayout {
 	// Available space after accounting for borders and padding
 	availableHeight := m.viewportHeight - 4 // Reserve space for borders
 
-	// Status panel gets bottom 30% (capped at 12 lines, minimum 6)
+	// Status panel gets fixed height (6-12 lines)
 	statusHeight := availableHeight * 30 / 100
 	if statusHeight < 6 {
 		statusHeight = 6
