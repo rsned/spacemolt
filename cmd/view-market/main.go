@@ -59,12 +59,12 @@ type itemInfo struct {
 
 // priceEntry represents a price record for an item
 type priceEntry struct {
-	SystemName  string
-	StationName string
-	CapturedAt  string
-	ListingType string
+	SystemName   string
+	StationName  string
+	CapturedAt   string
+	ListingType  string
 	PricePerUnit float64
-	Quantity    float64
+	Quantity     float64
 }
 
 // arbitrageOpportunity represents a potential arbitrage opportunity
@@ -306,13 +306,13 @@ func cmdLatest(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 
 		if itemID.Valid {
 			listings = append(listings, knowledge.MarketListing{
-				ItemID:      itemID.String,
-				ItemType:    itemType.String,
-				Quantity:    quantity.Float64,
+				ItemID:       itemID.String,
+				ItemType:     itemType.String,
+				Quantity:     quantity.Float64,
 				PricePerUnit: pricePerUnit.Float64,
-				TotalPrice:  totalPrice.Float64,
-				Type:        listingType.String,
-				ListedBy:    listedBy.String,
+				TotalPrice:   totalPrice.Float64,
+				Type:         listingType.String,
+				ListedBy:     listedBy.String,
 			})
 		}
 	}

@@ -18,12 +18,12 @@ type TemplateContext struct {
 
 // PersonalityContext contains agent personality information
 type PersonalityContext struct {
-	Name         string
-	Role         string
-	Traits       []string
-	Motivations  []string
-	Skills       []string
-	Background   string
+	Name        string
+	Role        string
+	Traits      []string
+	Motivations []string
+	Skills      []string
+	Background  string
 }
 
 // CargoItem represents an item in cargo
@@ -52,22 +52,22 @@ type TravelProgressContext struct {
 
 // StateContext contains current game state information
 type StateContext struct {
-	SystemName   string
-	SystemID     string
-	Location     string // e.g., "Sol-Station-Alpha"
-	IsDocked     bool
-	DockedAt     string
-	Fuel         float64
-	MaxFuel      float64
-	FuelPercent  float64
-	Hull         float64
-	MaxHull      float64
-	HullPercent  float64
-	Cargo        []CargoItem
-	CargoCount   int
-	MaxCargo     int
-	Credits      float64
-	Tick         int64
+	SystemName  string
+	SystemID    string
+	Location    string // e.g., "Sol-Station-Alpha"
+	IsDocked    bool
+	DockedAt    string
+	Fuel        float64
+	MaxFuel     float64
+	FuelPercent float64
+	Hull        float64
+	MaxHull     float64
+	HullPercent float64
+	Cargo       []CargoItem
+	CargoCount  int
+	MaxCargo    int
+	Credits     float64
+	Tick        int64
 
 	// Combat & Tactical
 	Shield         float64
@@ -92,8 +92,8 @@ type StateContext struct {
 	Modules       []string
 
 	// Cargo Details
-	CargoUsed     float64
-	CargoPercent  float64
+	CargoUsed    float64
+	CargoPercent float64
 
 	// Travel & Location
 	Traveling      bool
@@ -105,9 +105,9 @@ type StateContext struct {
 
 // KnowledgeContext contains what the agent knows
 type KnowledgeContext struct {
-	KnownSystems     []SystemInfo
-	POIsInSystem     []POIInfo
-	Connections      []string
+	KnownSystems       []SystemInfo
+	POIsInSystem       []POIInfo
+	Connections        []string
 	UnknownConnections []string
 }
 
@@ -130,17 +130,17 @@ type POIInfo struct {
 
 // HistoryContext contains recent experiences
 type HistoryContext struct {
-	RecentActions    []ActionRecord
+	RecentActions     []ActionRecord
 	RecentExperiences []ExperienceRecord
 }
 
 // ActionRecord represents a past action
 type ActionRecord struct {
-	Action    string
-	Target    string
-	Success   bool
-	Message   string
-	Tick      int
+	Action  string
+	Target  string
+	Success bool
+	Message string
+	Tick    int
 }
 
 // ExperienceRecord represents a past experience
@@ -183,11 +183,11 @@ type SystemContext struct {
 
 // ActionInfo describes an available action
 type ActionInfo struct {
-	Name        string
-	Description string
+	Name           string
+	Description    string
 	RequiresTarget bool
-	TargetType  string // "poi_id", "system_name", "none"
-	Requirements string // e.g., "Must be docked", "Requires fuel > 10%"
+	TargetType     string // "poi_id", "system_name", "none"
+	Requirements   string // e.g., "Must be docked", "Requires fuel > 10%"
 }
 
 // NewTemplateContext creates a TemplateContext from game state and agent data
@@ -300,8 +300,8 @@ func buildStateContext(state *game.State) *StateContext {
 		CargoUsed: state.Ship.CargoUsed,
 
 		// Travel & Location
-		Traveling:      state.Traveling,
-		SystemEmpire:   state.System.Empire,
+		Traveling:    state.Traveling,
+		SystemEmpire: state.System.Empire,
 	}
 
 	// Calculate percentages

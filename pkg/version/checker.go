@@ -65,12 +65,12 @@ func (v SemVer) MinorDiff(other SemVer) int {
 
 // VersionCheck holds the result of a version compatibility check
 type VersionCheck struct {
-	ServerVersion    SemVer
-	ExpectedVersion  SemVer
-	MajorMismatch    bool
-	MinorDiff        int // Difference in minor versions (0 if major differs)
-	WarningMessage   string
-	ErrorMessage     string
+	ServerVersion   SemVer
+	ExpectedVersion SemVer
+	MajorMismatch   bool
+	MinorDiff       int // Difference in minor versions (0 if major differs)
+	WarningMessage  string
+	ErrorMessage    string
 }
 
 // Check returns true if versions are compatible (no major mismatch, minor diff <= 10)

@@ -66,8 +66,8 @@ func (ms *mockServer) setupDefaultHandlers() {
 				Payload: map[string]any{
 					"username": username,
 					"player": map[string]any{
-						"credits":       float64(1000),
-						"current_poi":   "test_station",
+						"credits":        float64(1000),
+						"current_poi":    "test_station",
 						"current_system": "test_system",
 					},
 					"ship": map[string]any{
@@ -105,7 +105,7 @@ func (ms *mockServer) setupDefaultHandlers() {
 		return protocol.Response{
 			Type: protocol.TypeRegistered,
 			Payload: map[string]any{
-				"password":    "new_token_" + username,
+				"password": "new_token_" + username,
 				"username": username,
 				"empire":   empire,
 			},

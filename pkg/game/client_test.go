@@ -391,9 +391,9 @@ func TestRegister_TokenUpdate(t *testing.T) {
 // TestWaiters_Cleanup verifies proper cleanup on various exit paths
 func TestWaiters_Cleanup(t *testing.T) {
 	tests := []struct {
-		name     string
-		setupFn  func(*Client, context.Context) error
-		wantErr  bool
+		name    string
+		setupFn func(*Client, context.Context) error
+		wantErr bool
 	}{
 		{
 			name: "success path",
@@ -567,7 +567,7 @@ func TestJSON_RoundTrip(t *testing.T) {
 		Type: protocol.TypeLoggedIn,
 		Payload: map[string]any{
 			"username": "testuser",
-			"password":    "abc123",
+			"password": "abc123",
 			"player": map[string]any{
 				"credits": float64(1000),
 			},

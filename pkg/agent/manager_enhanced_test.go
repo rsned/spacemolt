@@ -69,7 +69,7 @@ func TestManager_SaveLoadCredentials(t *testing.T) {
 	// Test saving credentials
 	creds := &credentials.Credentials{
 		Username: "test-user",
-		Password:    "test-token-123",
+		Password: "test-token-123",
 		Empire:   "voidborn",
 	}
 
@@ -240,7 +240,7 @@ func TestManager_CredentialsFallback(t *testing.T) {
 
 	creds := credentials.Credentials{
 		Username: "manual-user",
-		Password:    "manual-token",
+		Password: "manual-token",
 		Empire:   "voidborn",
 	}
 

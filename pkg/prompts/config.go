@@ -9,14 +9,14 @@ import (
 
 // ConfigYAML represents the prompts configuration file
 type ConfigYAML struct {
-	Global  GlobalConfig           `yaml:"global"`
+	Global  GlobalConfig            `yaml:"global"`
 	Prompts map[string]PromptConfig `yaml:"prompts"`
-	Metrics MetricsConfig          `yaml:"metrics"`
+	Metrics MetricsConfig           `yaml:"metrics"`
 }
 
 // GlobalConfig holds global configuration
 type GlobalConfig struct {
-	SelectionStrategy  string `yaml:"selection_strategy"`  // "stable", "latest", "role_based"
+	SelectionStrategy  string `yaml:"selection_strategy"` // "stable", "latest", "role_based"
 	FallbackToPrevious bool   `yaml:"fallback_to_previous"`
 	CollectMetrics     bool   `yaml:"collect_metrics"`
 }

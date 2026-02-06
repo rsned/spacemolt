@@ -20,13 +20,13 @@ type Runner struct {
 	config     RunnerConfig
 
 	// State
-	mu              sync.RWMutex
-	running         bool
-	lastActionTick  int64
-	lastActionTime  time.Time
-	crashCount      int
-	stopCh          chan struct{}
-	stopOnce        sync.Once
+	mu             sync.RWMutex
+	running        bool
+	lastActionTick int64
+	lastActionTime time.Time
+	crashCount     int
+	stopCh         chan struct{}
+	stopOnce       sync.Once
 
 	// History tracking
 	history *History
@@ -59,8 +59,8 @@ type RunnerConfig struct {
 func DefaultRunnerConfig() RunnerConfig {
 	return RunnerConfig{
 		DecisionInterval: 11 * time.Second, // Slightly more than 10-second game tick
-		MaxRetries:       10,                // Allow 10 consecutive failures
-		ActionTimeout:    5 * time.Second,   // Wait 5 seconds for action result
+		MaxRetries:       10,               // Allow 10 consecutive failures
+		ActionTimeout:    5 * time.Second,  // Wait 5 seconds for action result
 		Logger:           log.Default(),
 	}
 }
@@ -275,10 +275,10 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	if err := r.executeDecision(ctx, decision); err != nil {
 		// Emit error event
 		r.emitEvent("error", map[string]interface{}{
-			"action":  decision.Action,
-			"target":  decision.Target,
-			"error":   err.Error(),
-			"tick":    currentTick,
+			"action": decision.Action,
+			"target": decision.Target,
+			"error":  err.Error(),
+			"tick":   currentTick,
 		})
 
 		// Record failure in history
@@ -313,10 +313,10 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	// Emit success event
 	r.emitEvent("action", map[string]interface{}{
-		"action":  decision.Action,
-		"target":  decision.Target,
-		"status":  "success",
-		"tick":    currentTick,
+		"action": decision.Action,
+		"target": decision.Target,
+		"status": "success",
+		"tick":   currentTick,
 	})
 
 	// Record success in history
@@ -411,16 +411,16 @@ func isActionCommand(action string) bool {
 	// Query/info commands that do NOT consume ticks
 	queryCommands := map[string]bool{
 		// Player & Ship Info
-		"get_status":      true,
-		"get_ship":        true,
-		"get_skills":      true,
+		"get_status": true,
+		"get_ship":   true,
+		"get_skills": true,
 		// World Info
-		"get_system":      true,
-		"get_poi":         true,
-		"get_base":        true,
-		"get_map":         true,
-		"get_version":     true,
-		"get_base_cost":   true,
+		"get_system":    true,
+		"get_poi":       true,
+		"get_base":      true,
+		"get_map":       true,
+		"get_version":   true,
+		"get_base_cost": true,
 		// Market & Trading
 		"get_listings":    true,
 		"get_trades":      true,
@@ -429,7 +429,7 @@ func isActionCommand(action string) bool {
 		"get_recipes":     true,
 		"get_notes":       true,
 		// Raid Info
-		"raid_status":     true,
+		"raid_status": true,
 		// Forum Browsing
 		"forum_list":       true,
 		"forum_get_thread": true,

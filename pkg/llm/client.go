@@ -238,23 +238,6 @@ Docked: %v
 
 Based on your role as a %s, decide what to do next. You may only pick one action at a time.
 
-
-Based on your role as a %s, decide what to do next. You may only pick one action at a time.
-
-AVAILABLE ACTIONS:
-- "undock" - Leave the current station (no target needed)
-- "dock" - Dock at the current POI (no target needed)
-- "travel" - Travel to a POI in the current system (requires target: POI ID)
-- "jump" - Jump to another system (requires target: system name)
-- "mine" - Mine resources at current location (no target needed)
-- "scan" - Scan the current area (no target needed)
-- "get_status" - Get player status (no target needed)
-- "get_system" - Get current system info (no target needed)
-- "wait" - Wait and do nothing (no target needed)
-
-
-Based on your role as a %s, decide what to do next. You may only pick one action at a time.
-
 AVAILABLE ACTIONS:
 - "undock" - Leave the current station (no target needed)
 - "dock" - Dock at the current POI (no target needed)

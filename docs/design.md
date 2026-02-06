@@ -158,7 +158,7 @@ package agent
 
 import (
     "context"
-    "github.com/user/spacemolt/pkg/game"
+    "github.com/rsned/spacemolt/pkg/game"
 )
 
 // Agent represents an autonomous game-playing agent
@@ -236,9 +236,9 @@ package agent
 import (
     "context"
     "fmt"
-    "github.com/user/spacemolt/pkg/game"
-    "github.com/user/spacemolt/pkg/llm"
-    "github.com/user/spacemolt/pkg/knowledge"
+    "github.com/rsned/spacemolt/pkg/game"
+    "github.com/rsned/spacemolt/pkg/llm"
+    "github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // BaseAgent provides default agent behavior
@@ -624,7 +624,7 @@ package knowledge
 import (
     "context"
     "database/sql"
-    "github.com/user/spacemolt/pkg/game"
+    "github.com/rsned/spacemolt/pkg/game"
 )
 
 type KnowledgeBase struct {
@@ -713,8 +713,8 @@ package agent
 import (
     "context"
     "sync"
-    "github.com/user/spacemolt/pkg/game"
-    "github.com/user/spacemolt/pkg/knowledge"
+    "github.com/rsned/spacemolt/pkg/game"
+    "github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 type Manager struct {
