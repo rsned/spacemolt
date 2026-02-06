@@ -26,18 +26,18 @@ const (
 
 // Manager manages multiple agents with game connections
 type Manager struct {
-	runners        map[string]*Runner
-	kb             knowledge.Base
-	llm            *llm.Client
-	credsProvider  credentials.Provider
-	mu             sync.RWMutex
+	runners       map[string]*Runner
+	kb            knowledge.Base
+	llm           *llm.Client
+	credsProvider credentials.Provider
+	mu            sync.RWMutex
 
 	// Configuration
-	maxAgents      int
-	gameServerURL  string
-	agentsDataDir  string
-	runnerConfig   RunnerConfig
-	debugLogger    *log.Logger
+	maxAgents     int
+	gameServerURL string
+	agentsDataDir string
+	runnerConfig  RunnerConfig
+	debugLogger   *log.Logger
 }
 
 // ManagerConfig holds configuration for the agent manager
@@ -248,13 +248,18 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 
 	// Create game client
 	username := personality.ID
-	token := ""
+	password := ""
 	if hasCredentials {
 		username = creds.Username
-		token = creds.Token
+		password = creds.Password
 	}
 
-	gameClient := game.NewClient(m.gameServerURL, username, token, m.debugLogger)
+	gameClient := game.NewClient(m.gameServerURL, username, password, m.debugLogger)
+
+	// Set up automatic reconnection handler
+	// Note: We pass nil as the wrapped handler since we don't need additional handling
+	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
+	gameClient.SetHandler(reconnectHandler)
 
 	// Connect to game server with retries
 	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
@@ -420,7 +425,8 @@ func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds
 // registerAgent registers a new agent and saves credentials
 func (m *Manager) registerAgent(ctx context.Context, client *game.Client, personality Personality) error {
 	// Generate username from personality
-	username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+	//username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
+	username := sanitizeUsername(fmt.Sprintf("%s", personality.Name))
 
 	// Register with game server
 	// Note: As of v0.3.3+, only "solarian" empire is allowed for new registrations
@@ -433,16 +439,16 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 		return fmt.Errorf("registration failed: %w", err)
 	}
 
-	// Get the token from state
+	// Get the password from state
 	state := client.GetState()
-	if state.Token == "" {
-		return fmt.Errorf("no token received after registration")
+	if state.Password == "" {
+		return fmt.Errorf("no password received after registration")
 	}
 
 	// Save credentials
 	creds := &credentials.Credentials{
 		Username: username,
-		Token:    state.Token,
+		Password: state.Password,
 		Empire:   empire, // Store the actual game empire, not personality faction
 	}
 

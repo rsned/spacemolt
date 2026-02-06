@@ -252,15 +252,69 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
 
-	// Note: Services and Resources are stored as []string in the POI struct
-	// For a full implementation, we could serialize these to JSON or create junction tables
-	// For now, we skip storing these in the database as they're not critical for the MVP
+	// Delete existing resources for this POI
+	_, err = tx.ExecContext(ctx, `DELETE FROM poi_resources WHERE poi_id = ?`, poi.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old POI resources: %w", err)
+	}
+
+	// Insert resources
+	for _, res := range poi.Resources {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining)
+			VALUES (?, ?, ?, ?)
+		`, poi.ID, res.ResourceID, res.Richness, res.Remaining)
+		if err != nil {
+			return fmt.Errorf("failed to insert POI resource: %w", err)
+		}
+	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
+}
+
+// GetPOIs retrieves all POIs in a system
+func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT id, system_id, name, type, description, pos_x, pos_y, discovered_by
+		FROM pois
+		WHERE system_id = ?
+		ORDER BY name
+	`, systemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query POIs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var pois []POI
+	for rows.Next() {
+		var poi POI
+		var description string
+		err := rows.Scan(
+			&poi.ID,
+			&poi.SystemID,
+			&poi.Name,
+			&poi.Type,
+			&description,
+			&poi.Position.X,
+			&poi.Position.Y,
+			&poi.DiscoveredBy,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan POI: %w", err)
+		}
+		poi.Description = description
+		pois = append(pois, poi)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating POIs: %w", err)
+	}
+
+	return pois, nil
 }
 
 // AddExperience logs an agent experience
