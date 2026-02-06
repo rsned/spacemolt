@@ -219,14 +219,8 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 	defer s.streamManager.Unsubscribe(agentID, eventCh)
 
 	// Send initial connected event
-	if _, err := fmt.Fprintf(w, "event: connected\n"); err != nil {
-		s.logger.Printf("Failed to write SSE header: %v", err)
-		return
-	}
-	if _, err := fmt.Fprintf(w, "data: {\"agent_id\":\"%s\",\"status\":\"connected\"}\n\n", agentID); err != nil {
-		s.logger.Printf("Failed to write SSE data: %v", err)
-		return
-	}
+	fmt.Fprintf(w, "event: connected\n")
+	fmt.Fprintf(w, "data: {\"agent_id\":\"%s\",\"status\":\"connected\"}\n\n", agentID)
 	flusher.Flush()
 
 	// Stream events until client disconnects
@@ -249,14 +243,8 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 			}
 
 			// Send SSE event
-			if _, err := fmt.Fprintf(w, "event: %s\n", event.Type); err != nil {
-				s.logger.Printf("Failed to write SSE event type: %v", err)
-				return
-			}
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
-				s.logger.Printf("Failed to write SSE event data: %v", err)
-				return
-			}
+			fmt.Fprintf(w, "event: %s\n", event.Type)
+			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		}
 	}

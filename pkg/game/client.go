@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/user/spacemolt/internal/protocol"
 )
 
 // Client represents a WebSocket client for the Spacemolt game
@@ -19,7 +19,7 @@ type Client struct {
 	conn        *websocket.Conn
 	url         string
 	username    string
-	token       string
+	password    string // Permanent password from registration
 	state       *State
 	mu          sync.RWMutex
 	handler     MessageHandler
@@ -43,8 +43,72 @@ type MessageHandler interface {
 	OnDisconnected(err error)
 }
 
+// ReconnectingHandler wraps a MessageHandler and adds automatic reconnection
+type ReconnectingHandler struct {
+	client  *Client
+	handler MessageHandler
+	ctx     context.Context
+	logger  *log.Logger
+}
+
+// NewReconnectingHandler creates a handler that automatically reconnects on disconnect
+func NewReconnectingHandler(client *Client, handler MessageHandler, ctx context.Context, logger *log.Logger) *ReconnectingHandler {
+	return &ReconnectingHandler{
+		client:  client,
+		handler: handler,
+		ctx:     ctx,
+		logger:  logger,
+	}
+}
+
+func (r *ReconnectingHandler) OnConnected(state *State) {
+	if r.handler != nil {
+		r.handler.OnConnected(state)
+	}
+}
+
+func (r *ReconnectingHandler) OnMessage(resp protocol.Response) {
+	if r.handler != nil {
+		r.handler.OnMessage(resp)
+	}
+}
+
+func (r *ReconnectingHandler) OnDisconnected(err error) {
+	// Notify wrapped handler first
+	if r.handler != nil {
+		r.handler.OnDisconnected(err)
+	}
+
+	// Attempt reconnection in background
+	go r.attemptReconnection()
+}
+
+func (r *ReconnectingHandler) attemptReconnection() {
+	maxAttempts := 5
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if r.ctx.Err() != nil {
+			r.logger.Printf("Context cancelled, stopping reconnection attempts")
+			return
+		}
+
+		backoff := time.Duration(1<<uint(attempt)) * time.Second
+		r.logger.Printf("Reconnection attempt %d/%d after %v", attempt, maxAttempts, backoff)
+		time.Sleep(backoff)
+
+		if err := r.client.Reconnect(r.ctx); err != nil {
+			r.logger.Printf("Reconnection attempt %d failed: %v", attempt, err)
+			continue
+		}
+
+		r.logger.Printf("✓ Reconnected successfully")
+		return
+	}
+
+	r.logger.Printf("Failed to reconnect after %d attempts", maxAttempts)
+}
+
 // NewClient creates a new game client
-func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
+func NewClient(url, username, password string, debugLogger *log.Logger) *Client {
 	if debugLogger == nil {
 		debugLogger = log.New(log.Writer(), "[GAME] ", log.LstdFlags)
 	}
@@ -52,7 +116,7 @@ func NewClient(url, username, token string, debugLogger *log.Logger) *Client {
 	return &Client{
 		url:      url,
 		username: username,
-		token:    token,
+		password: password,
 		state: &State{
 			Doc:         true,
 			MaxCargo:    10,
@@ -81,16 +145,59 @@ func (c *Client) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
+	// Set a large read limit (10MB) to handle large state updates
+	// Default is 32KB which is too small for system info with many POIs
+	ws.SetReadLimit(10 * 1024 * 1024) // 10MB
+
 	c.conn = ws
 	c.connected = true
 	c.state.Username = c.username
-	c.state.Token = c.token
+	c.state.Password = c.password
 
-	c.debugLogger.Printf("Connected to %s", c.url)
+	c.debugLogger.Printf("Connected to %s (read limit: 10MB)", c.url)
 
 	// Start message listener
 	go c.listen(ctx)
 
+	return nil
+}
+
+// Disconnect closes the WebSocket connection
+func (c *Client) Disconnect() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn != nil {
+		c.connected = false
+		err := c.conn.Close(websocket.StatusNormalClosure, "client disconnect")
+		c.conn = nil
+		c.debugLogger.Printf("Disconnected from server")
+		return err
+	}
+	return nil
+}
+
+// Reconnect disconnects and reconnects to the server
+func (c *Client) Reconnect(ctx context.Context) error {
+	c.debugLogger.Printf("Attempting to reconnect...")
+
+	// Close existing connection if any
+	_ = c.Disconnect()
+
+	// Wait a moment before reconnecting
+	time.Sleep(2 * time.Second)
+
+	// Reconnect
+	if err := c.Connect(ctx); err != nil {
+		return fmt.Errorf("reconnect failed: %w", err)
+	}
+
+	// Re-authenticate
+	if err := c.Login(ctx); err != nil {
+		return fmt.Errorf("login after reconnect failed: %w", err)
+	}
+
+	c.debugLogger.Printf("Reconnected and logged in successfully")
 	return nil
 }
 
@@ -115,32 +222,36 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
+	// DEBUG: Log the message being sent
+	c.debugLogger.Printf("=== Game Client Send Debug ===")
+	c.debugLogger.Printf("Message Type: '%s'", msg.Type)
+	if len(msg.Payload) > 0 {
+		payloadJSON, _ := json.Marshal(msg.Payload)
+		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
+	}
+	c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
+
 	if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
+		c.debugLogger.Printf("ERROR sending to WebSocket: %v", err)
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
-	// Log with full payload for debugging
-	if len(msg.Payload) > 0 {
-		payloadJSON, _ := json.Marshal(msg.Payload)
-		c.debugLogger.Printf("[SENT] %s | payload: %s", msg.Type, string(payloadJSON))
-	} else {
-		c.debugLogger.Printf("[SENT] %s", msg.Type)
-	}
+	c.debugLogger.Printf("WebSocket write successful")
 	return nil
 }
 
 // Login authenticates with the server using stored credentials
 // This is a synchronous operation that waits for the server response
 func (c *Client) Login(ctx context.Context) error {
-	if c.token == "" {
-		return fmt.Errorf("no token available")
+	if c.password == "" {
+		return fmt.Errorf("no password available")
 	}
 
 	msg := protocol.Message{
 		Type: "login",
 		Payload: map[string]any{
 			"username": c.username,
-			"token":    c.token,
+			"password": c.password,
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
@@ -186,53 +297,71 @@ func (c *Client) Register(ctx context.Context, empire string) error {
 
 // Undock undocks from the current station
 func (c *Client) Undock(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "undock",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Dock docks at a station in the current system
 func (c *Client) Dock(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "dock",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Travel travels to a POI within the current system
 func (c *Client) Travel(ctx context.Context, targetPOI string) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "travel",
 		Payload:   map[string]any{"target_poi": targetPOI},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Jump jumps to another system
 func (c *Client) Jump(ctx context.Context, targetSystem string) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "jump",
 		Payload:   map[string]any{"target_system": targetSystem},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Mine mines resources at the current location
 func (c *Client) Mine(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "mine",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Scan scans the current area
 func (c *Client) Scan(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "scan",
 		Payload:   map[string]any{"target_id": "area"},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // GetSystem requests information about the current system
@@ -276,6 +405,7 @@ func (c *Client) listen(ctx context.Context) {
 			c.mu.Unlock()
 
 			c.debugLogger.Printf("Connection error: %v", err)
+			c.debugLogger.Printf("Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB")
 			if c.handler != nil {
 				c.handler.OnDisconnected(err)
 			}
@@ -283,15 +413,16 @@ func (c *Client) listen(ctx context.Context) {
 		}
 
 		// Use a decoder to handle multiple concatenated JSON objects
+		// The game server sometimes sends multiple JSON objects in a single message
 		decoder := json.NewDecoder(bytes.NewReader(data))
 		for {
 			var resp protocol.Response
 			if err := decoder.Decode(&resp); err != nil {
 				if err == io.EOF {
-					// All JSON objects decoded
+					// All JSON objects decoded successfully
 					break
 				}
-				c.debugLogger.Printf("Failed to parse message: %+v, : %v", string(data), err)
+				c.debugLogger.Printf("Failed to parse message: %v | data: %s", err, string(data))
 				break
 			}
 
@@ -300,7 +431,32 @@ func (c *Client) listen(ctx context.Context) {
 				close(c.readyChan)
 			})
 
-			c.debugLogger.Printf("[RECV] %s", resp.Type)
+			// DEBUG: Log received response with full details
+			c.debugLogger.Printf("=== Game Client Receive Debug ===")
+			c.debugLogger.Printf("Response Type: '%s'", resp.Type)
+			if len(resp.Payload) > 0 {
+				// Filter out "nearby" field for state_update messages to reduce log clutter
+				payloadToLog := resp.Payload
+				if resp.Type == "state_update" {
+					// Create a filtered copy without the "nearby" field
+					filtered := make(map[string]any)
+					for k, v := range resp.Payload {
+						if k != "nearby" {
+							filtered[k] = v
+						}
+					}
+					if _, hasNearby := resp.Payload["nearby"]; hasNearby {
+						filtered["nearby"] = "[filtered from debug log]"
+					}
+					payloadToLog = filtered
+				}
+				payloadJSON, _ := json.Marshal(payloadToLog)
+				c.debugLogger.Printf("Response Payload: %s", string(payloadJSON))
+			}
+			// Check for error message in payload
+			if msg, ok := resp.Payload["message"]; ok {
+				c.debugLogger.Printf("Response Message: '%v'", msg)
+			}
 
 			// Notify any waiters for this response type
 			c.waiterMu.Lock()
@@ -316,7 +472,7 @@ func (c *Client) listen(ctx context.Context) {
 			// Update state
 			c.handleResponse(resp)
 
-			// Notify handler
+			// Notify handler for each decoded message
 			if c.handler != nil {
 				c.handler.OnMessage(resp)
 			}
@@ -334,11 +490,22 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if tick, ok := resp.Payload["current_tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
+		if version, ok := resp.Payload["version"].(string); ok {
+			c.state.ServerVersion = version
+			c.debugLogger.Printf("Server version: %s", version)
+		}
 
 	case protocol.TypeRegistered:
-		if token, ok := resp.Payload["token"].(string); ok {
-			c.state.Token = token
-			c.token = token // Save token
+		payloadJSON, _ := json.Marshal(resp.Payload)
+		c.debugLogger.Printf("[RECVD] payload: %s", string(payloadJSON))
+		// Support both 'password' (new API) and 'token' (legacy) for backward compatibility
+		if password, ok := resp.Payload["password"].(string); ok {
+			c.state.Password = password
+			c.password = password
+		} else if token, ok := resp.Payload["token"].(string); ok {
+			// Legacy support: token field
+			c.state.Password = token
+			c.password = token
 		}
 
 	case protocol.TypeLoggedIn:
@@ -923,5 +1090,108 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", successType)
 	case <-ctx.Done():
 		return protocol.Response{}, ctx.Err()
+	}
+}
+
+// waitForActionResponse waits for either "ok" or "error" response for game actions
+func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
+	okChan := make(chan protocol.Response, 1)
+	errorChan := make(chan protocol.Response, 1)
+
+	c.waiterMu.Lock()
+	c.waiters[protocol.TypeOK] = okChan
+	c.waiters[protocol.TypeError] = errorChan
+	c.waiterMu.Unlock()
+
+	defer func() {
+		c.waiterMu.Lock()
+		delete(c.waiters, protocol.TypeOK)
+		delete(c.waiters, protocol.TypeError)
+		c.waiterMu.Unlock()
+	}()
+
+	select {
+	case <-okChan:
+		return nil
+	case resp := <-errorChan:
+		// Check error code and categorize response
+		if code, ok := resp.Payload["code"].(string); ok {
+			switch code {
+			// BENIGN: Goal already achieved (treat as success)
+			case "already_there":
+				c.debugLogger.Printf("Already at destination (success)")
+				return nil
+			case "already_docked":
+				c.debugLogger.Printf("Already docked (success)")
+				return nil
+			case "not_docked":
+				// When trying to undock but already undocked
+				c.debugLogger.Printf("Already undocked (success)")
+				return nil
+
+			// INFORMATIONAL: Agent should adapt strategy but not fail
+			case "already_traveling", "already_jumping":
+				// Already in transit - wait for arrival
+				c.debugLogger.Printf("Already in transit: %s", code)
+				return fmt.Errorf("already in transit - wait for arrival")
+
+			case "docked":
+				// Must undock first before this action
+				c.debugLogger.Printf("Must undock before this action")
+				return fmt.Errorf("must undock first - currently docked at station")
+
+			case "no_fuel":
+				c.debugLogger.Printf("Insufficient fuel for action")
+				return fmt.Errorf("insufficient fuel - dock at station to refuel")
+
+			case "no_credits":
+				c.debugLogger.Printf("Insufficient credits")
+				return fmt.Errorf("insufficient credits - need to earn money first")
+
+			case "no_cargo_space":
+				c.debugLogger.Printf("Cargo hold full")
+				return fmt.Errorf("cargo hold full - dock at station to sell items")
+
+			case "missing_materials":
+				c.debugLogger.Printf("Missing crafting materials")
+				return fmt.Errorf("missing required materials for crafting")
+
+			case "cannot_craft":
+				c.debugLogger.Printf("Insufficient crafting skill")
+				return fmt.Errorf("insufficient skill level for this recipe")
+
+			case "no_cloak", "no_crafting_service":
+				c.debugLogger.Printf("Missing equipment/service: %s", code)
+				msg := resp.Payload["message"].(string)
+				return fmt.Errorf("%s", msg)
+
+			// ACTUAL ERRORS: Invalid attempts
+			case "rate_limited":
+				// This shouldn't happen with proper timing, but handle it
+				waitTime := "unknown"
+				if wait, ok := resp.Payload["wait_seconds"].(float64); ok {
+					waitTime = fmt.Sprintf("%.1fs", wait)
+				}
+				c.debugLogger.Printf("Rate limited - wait %s", waitTime)
+				return fmt.Errorf("rate limited - wait %s before next action", waitTime)
+
+			default:
+				// All other error codes - log and return as error
+				c.debugLogger.Printf("Action failed with code: %s", code)
+			}
+		}
+
+		// Extract error message from payload
+		if msg, ok := resp.Payload["message"].(string); ok {
+			return fmt.Errorf("%s", msg)
+		}
+		if code, ok := resp.Payload["code"].(string); ok {
+			return fmt.Errorf("error: %s", code)
+		}
+		return fmt.Errorf("action failed")
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for action response")
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

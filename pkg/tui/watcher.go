@@ -23,7 +23,7 @@ func NewAgentPanelModel() AgentPanelModel {
 // MultiAgentWatcherModel extends WatcherModel with multi-agent support
 // This will be used in phase 3 when we have multiple agents
 type MultiAgentWatcherModel struct {
-	WatcherModel
+	*WatcherModel
 
 	// Additional fields for multi-agent support
 	// agentManager  *agent.Manager
@@ -32,8 +32,8 @@ type MultiAgentWatcherModel struct {
 }
 
 // NewMultiAgentWatcherModel creates a new multi-agent watcher model
-func NewMultiAgentWatcherModel(state *game.State, readyChan chan struct{}) MultiAgentWatcherModel {
-	return MultiAgentWatcherModel{
+func NewMultiAgentWatcherModel(state *game.State, readyChan chan struct{}) *MultiAgentWatcherModel {
+	return &MultiAgentWatcherModel{
 		WatcherModel: NewWatcherModel(state, readyChan),
 		// agentPanel:    NewAgentPanelModel(),
 	}
