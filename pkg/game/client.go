@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/user/spacemolt/internal/protocol"
 )
 
 // Client represents a WebSocket client for the Spacemolt game

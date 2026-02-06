@@ -62,6 +62,10 @@ type WatcherModel struct {
 	selectedAgentID string
 	selectedIndex   int // Cache of selected agent index for performance
 
+	// Remote mode support
+	remoteMode   bool
+	serverClient *AgentServerClient
+
 	// Ready signal - closed when TUI is initialized and ready
 	readyChan chan struct{}
 }
@@ -402,6 +406,17 @@ func (m *WatcherModel) selectAgentByIndex(idx int) {
 	// Force refresh of all panels
 	m.mapPanel.cachedRender = ""
 	m.statusPanel.cachedRender = ""
+}
+
+// SetRemoteMode configures the model for remote operation
+func (m *WatcherModel) SetRemoteMode(client *AgentServerClient) {
+	m.remoteMode = true
+	m.serverClient = client
+}
+
+// IsRemoteMode returns whether the model is in remote mode
+func (m *WatcherModel) IsRemoteMode() bool {
+	return m.remoteMode
 }
 
 // handleWebSocketMessage processes WebSocket messages and updates the model
