@@ -114,12 +114,12 @@ func (p *SQLiteProvider) GetCredentials(ctx context.Context, agentID string) (*C
 		return nil, fmt.Errorf("%w: encryptor not configured", ErrProviderUnavailable)
 	}
 
-	var username, encryptedToken, empire string
+	var username, encryptedPassword, empire string
 	err := p.db.QueryRowContext(ctx, `
-		SELECT username, token, empires
+		SELECT username, token, empire
 		FROM agent_credentials
 		WHERE agent_id = ?
-	`, agentID).Scan(&username, &encryptedToken, &empire)
+	`, agentID).Scan(&username, &encryptedPassword, &empire)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("%w: agent %s", ErrCredentialsNotFound, agentID)
@@ -129,16 +129,16 @@ func (p *SQLiteProvider) GetCredentials(ctx context.Context, agentID string) (*C
 		return nil, fmt.Errorf("failed to query credentials: %w", err)
 	}
 
-	// Decrypt the token
-	token, err := p.encryptor.Decrypt(encryptedToken)
+	// Decrypt the password (stored in 'token' column for backward compatibility)
+	password, err := p.encryptor.Decrypt(encryptedPassword)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt token: %w", err)
+		return nil, fmt.Errorf("failed to decrypt password: %w", err)
 	}
 
 	return &Credentials{
 		Username: username,
-		Token:     token,
-		Empire:    empire,
+		Password: password,
+		Empire:   empire,
 	}, nil
 }
 
@@ -156,27 +156,27 @@ func (p *SQLiteProvider) StoreCredentials(ctx context.Context, agentID string, c
 	}
 
 	// Set default empire
-	empires := creds.Empire
-	if empires == "" {
-		empires = "voidborn"
+	empire := creds.Empire
+	if empire == "" {
+		empire = "voidborn"
 	}
 
-	// Encrypt the token before storing
-	encryptedToken, err := p.encryptor.Encrypt(creds.Token)
+	// Encrypt the password before storing (in 'token' column for backward compatibility)
+	encryptedPassword, err := p.encryptor.Encrypt(creds.Password)
 	if err != nil {
-		return fmt.Errorf("failed to encrypt token: %w", err)
+		return fmt.Errorf("failed to encrypt password: %w", err)
 	}
 
 	// Insert or replace credentials
 	_, err = p.db.ExecContext(ctx, `
-		INSERT INTO agent_credentials (agent_id, username, token, empires, created_at, last_used)
+		INSERT INTO agent_credentials (agent_id, username, token, empire, created_at, last_used)
 		VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
 		ON CONFLICT(agent_id) DO UPDATE SET
 			username = excluded.username,
 			token = excluded.token,
-			empires = excluded.empires,
+			empire = excluded.empire,
 			last_used = datetime('now')
-	`, agentID, creds.Username, encryptedToken, empires)
+	`, agentID, creds.Username, encryptedPassword, empire)
 
 	if err != nil {
 		return fmt.Errorf("failed to store credentials: %w", err)

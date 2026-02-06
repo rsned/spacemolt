@@ -1,20 +1,14 @@
 {{define "json_format.tmpl"}}
-IMPORTANT: Respond with valid JSON containing these fields:
+IMPORTANT: Respond with valid JSON containing exactly these fields:
 {
   "action": "one_action_name",
   "target": "target_id_or_name_if_required",
   "reasoning": "your reasoning in 1-2 sentences",
-  "confidence": 0.85,
-  "planned_actions": [
-    {"sequence": 1, "action": "action_name", "target": "optional_target", "reasoning": "why this step"},
-    {"sequence": 2, "action": "action_name", "reasoning": "why this step"},
-    ... (up to 5 planned actions)
-  ]
+  "confidence": 0.85
 }
 
 EXAMPLES:
-- Mining sequence: {"action": "travel", "target": "sol_belt", "reasoning": "Going to mine iron", "confidence": 0.9, "planned_actions": [{"sequence": 1, "action": "wait", "reasoning": "Let travel complete"}, {"sequence": 2, "action": "mine", "reasoning": "Collect ore"}, {"sequence": 3, "action": "mine", "reasoning": "Fill cargo"}]}
-- Simple action: {"action": "undock", "target": "", "reasoning": "Leaving station", "confidence": 0.8, "planned_actions": [{"sequence": 1, "action": "travel", "target": "sol_belt", "reasoning": "Head to mining location"}]}
-
-CRITICAL: For "travel" action, use the EXACT POI ID shown in the available POIs list above.  For "jump" action, use the EXACT SYSTEM ID shown in the connections list.  Travel and jump actions take multiple ticks to complete. After a choice for a travel or jump, you must wait until the "arrived" response has come through before choosing another non-query action such as "mine".
+- To travel to a POI: {"action": "travel", "target": "Sol-AsteroidField", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
+- To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
+- To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
 {{end}}
