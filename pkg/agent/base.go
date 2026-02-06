@@ -27,13 +27,12 @@ type BaseAgent struct {
 	memory      Memory
 	llm         LLMClient
 
-	status           Status
-	lastActionResult *ActionResult // Result from the most recent action
-	currentGoal      *Goal         // Current strategic goal
-	priority         Priority      // Current priorities and constraints
-	stopCh           chan struct{}
-	stopOnce         sync.Once
-	mu               sync.RWMutex
+	status         Status
+	lastActionFeedback string // Feedback from the most recent action
+	stopCh         chan struct{}
+	stopOnce       sync.Once
+	mu             sync.RWMutex
+
 }
 
 // NewBaseAgent creates a new agent
@@ -92,8 +91,7 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 	prompt := a.buildDecisionPrompt(state)
 
 	fmt.Printf("[Agent %s]  LLM Prompt:\n", a.id)
-
-	//fmt.Printf("  %q\n", prompt)
+	fmt.Printf("  %q\n", prompt)
 	//	fmt.Printf("  State: %+v\n", state)
 
 	// Get LLM decision
@@ -114,6 +112,13 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
 		fmt.Printf("  Confidence: %.2f\n", response.Confidence)
 	*/
+	// DEBUG: Log LLM response received by agent
+	fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
+	fmt.Printf("  Action: '%s'\n", response.Action)
+	fmt.Printf("  Target: '%s'\n", response.Target)
+	fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
+	fmt.Printf("  Confidence: %.2f\n", response.Confidence)
+
 	decision := Decision{
 		Action:     response.Action,
 		Target:     response.Target,
@@ -213,6 +218,10 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 			ID:       strings.ToLower(poi.ID),   // Ensure POI IDs are lowercase
 			Name:     strings.ToLower(poi.Name), // Ensure POI names are lowercase
 			Type:     poi.Type,
+			ID:   poi.ID,
+			Name: poi.Name,
+			Type: poi.Type,
+
 			Position: fmt.Sprintf("(%.1f, %.1f)", poi.Position.X, poi.Position.Y),
 		}
 	}
@@ -348,6 +357,20 @@ func (a *BaseAgent) detectConstraints(state *game.State) []string {
 	}
 
 	return constraints
+	feedback := a.lastActionFeedback
+	a.mu.RUnlock()
+
+	if feedback == "" {
+		return nil
+	}
+
+	// Parse feedback (simple parsing for now)
+	success := strings.HasPrefix(feedback, "✓")
+
+	return &prompts.FeedbackContext{
+		Success: success,
+		Message: feedback,
+	}
 }
 
 // buildFallbackPrompt creates the fallback hardcoded prompt
@@ -399,6 +422,9 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 	// Get last action result (protected by lock)
 	a.mu.RLock()
 	lastResult := a.lastActionResult
+	// Get last action feedback (protected by lock)
+	a.mu.RLock()
+	lastFeedback := a.lastActionFeedback
 	a.mu.RUnlock()
 
 	// Build feedback section
@@ -413,6 +439,9 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 			}
 			feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
 		}
+	if lastFeedback != "" {
+		feedbackText = "\nLAST ACTION FEEDBACK:\n" + lastFeedback + "\n"
+		feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
 	}
 
 	return llm.BuildDecisionPrompt(
@@ -450,11 +479,19 @@ func (a *BaseAgent) Learn(result ActionResult) error {
 	a.lastActionResult = &result
 
 	// Update agent status
+	// Store action feedback for next LLM prompt
 	if result.Success {
+		a.lastActionFeedback = fmt.Sprintf("✓ Last action succeeded: %s", result.Message)
 		a.status.State = AgentStateIdle
 		a.status.CurrentAction = "Ready"
 		a.status.Error = nil
 	} else {
+		// Include error details in feedback so LLM can learn from mistakes
+		errorMsg := "unknown error"
+		if result.Error != nil {
+			errorMsg = result.Error.Error()
+		}
+		a.lastActionFeedback = fmt.Sprintf("✗ Last action FAILED: %s\nError: %s", result.Message, errorMsg)
 		a.status.State = AgentStateError
 		a.status.Error = fmt.Errorf("action failed: %w", result.Error)
 	}

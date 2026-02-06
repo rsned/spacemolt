@@ -28,6 +28,10 @@ type Config struct {
 	Model         string
 	Timeout       time.Duration
 	PromptsDir    string
+	BaseURL      string
+	Model        string
+	Timeout      time.Duration
+	PromptsDir   string
 	PromptsConfig string
 }
 
@@ -155,6 +159,7 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 
 	// DEBUG: Log raw LLM response
 	//fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
+	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 
 	// Extract structured decision from text response
 	return c.parseDecision(ollamaResp.Response)
@@ -173,6 +178,7 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 
 	// DEBUG: Log extracted JSON
 	//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
+	fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 
 	var decision DecisionResponse
 	if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
@@ -188,6 +194,12 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 		fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
 		fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 	*/
+	// DEBUG: Log parsed fields
+	fmt.Printf("[LLM] Parsed DecisionResponse:\n")
+	fmt.Printf("  Action: '%s'\n", decision.Action)
+	fmt.Printf("  Target: '%s'\n", decision.Target)
+	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
+	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 
 	return &decision, nil
 }
@@ -203,6 +215,23 @@ Fuel: %v
 Hull: %v
 Cargo: %v
 Docked: %v
+
+Based on your role as a %s, decide what to do next. You may only pick one action at a time.
+
+
+Based on your role as a %s, decide what to do next. You may only pick one action at a time.
+
+AVAILABLE ACTIONS:
+- "undock" - Leave the current station (no target needed)
+- "dock" - Dock at the current POI (no target needed)
+- "travel" - Travel to a POI in the current system (requires target: POI ID)
+- "jump" - Jump to another system (requires target: system name)
+- "mine" - Mine resources at current location (no target needed)
+- "scan" - Scan the current area (no target needed)
+- "get_status" - Get player status (no target needed)
+- "get_system" - Get current system info (no target needed)
+- "wait" - Wait and do nothing (no target needed)
+
 
 Based on your role as a %s, decide what to do next. You may only pick one action at a time.
 
@@ -232,6 +261,10 @@ EXAMPLES:
 - To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
 
 CRITICAL: For "travel" action, use the EXACT POI ID from the available POIs list.
+
+- To travel to a POI: {"action": "travel", "target": "Sol-AsteroidField", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
+- To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
+- To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
 
 Your decision:
 `, agentName, role,
