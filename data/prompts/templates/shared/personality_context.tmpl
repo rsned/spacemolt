@@ -1,0 +1,21 @@
+{{define "personality_context.tmpl"}}
+YOUR PERSONALITY:
+{{if .Traits}}
+Traits:
+{{range .Traits}}  - {{.}}
+{{end}}
+{{end}}
+{{if .Motivations}}
+Motivations:
+{{range .Motivations}}  - {{.}}
+{{end}}
+{{end}}
+{{if .Skills}}
+Skills:
+{{range .Skills}}  - {{.}}
+{{end}}
+{{end}}
+{{if .Background}}
+Background: {{.Background}}
+{{end}}
+{{end}}

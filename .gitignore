@@ -1,37 +1,16 @@
-##############################
-# Compiled binaries
-##############################
 bin/
-
-##############################
 # Data files
-##############################
 data/
+!data/prompts/
 *.db
 *.db-shm
 *.db-wal
+data/credentials/
+data/personality/
+data/agents2/
+!data/prompts/
 
-##############################
 # Vim swap files
-##############################
 *.swp
 *.swo
 *~
-
-##############################
-# agent login dev credentials
-##############################
-.spacemolt-credentials.json
-
-##############################
-# Logs and databases #
-##############################
-*.log
-*.sqlite
-
-##############################
-# Docs for tracking tasks
-##############################
-docs/*.md
-reviewd/*
-
