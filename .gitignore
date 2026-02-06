@@ -5,6 +5,10 @@ data/
 *.db
 *.db-shm
 *.db-wal
+data/credentials/
+data/personality/
+data/agents2/
+!data/prompts/
 
 # Vim swap files
 *.swp

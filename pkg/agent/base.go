@@ -42,7 +42,7 @@ func NewBaseAgent(
 	memory Memory,
 	llmClient LLMClient,
 ) *BaseAgent {
-	return &BaseAgent{
+	agent := &BaseAgent{
 		id:          id,
 		name:        personality.Name,
 		personality: personality,
@@ -51,6 +51,16 @@ func NewBaseAgent(
 		status:      Status{State: AgentStateIdle},
 		stopCh:      make(chan struct{}),
 	}
+
+	// Initialize default goal based on role
+	agent.currentGoal = initializeGoalForRole(personality.Role)
+	agent.priority = Priority{
+		Focus:       getDefaultFocusForRole(personality.Role),
+		Constraints: []string{},
+		Urgency:     5, // Medium urgency by default
+	}
+
+	return agent
 }
 
 // Name returns the agent's name
@@ -163,6 +173,9 @@ func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateCon
 	// Build last feedback context
 	lastFeedback := a.buildFeedbackContext()
 
+	// Build goal context
+	goalCtx := a.buildGoalContext(state)
+
 	// Build personality map
 	personality := map[string]interface{}{
 		"traits":      a.personality.Traits,
@@ -179,6 +192,7 @@ func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateCon
 		knowledge,
 		history,
 		lastFeedback,
+		goalCtx,
 	)
 }
 
@@ -201,6 +215,9 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 	poiInfos := make([]prompts.POIInfo, len(state.System.POIs))
 	for i, poi := range state.System.POIs {
 		poiInfos[i] = prompts.POIInfo{
+			ID:       strings.ToLower(poi.ID),   // Ensure POI IDs are lowercase
+			Name:     strings.ToLower(poi.Name), // Ensure POI names are lowercase
+			Type:     poi.Type,
 			ID:   poi.ID,
 			Name: poi.Name,
 			Type: poi.Type,
@@ -238,6 +255,108 @@ func (a *BaseAgent) buildHistoryContext() *prompts.HistoryContext {
 // buildFeedbackContext builds feedback context for templates
 func (a *BaseAgent) buildFeedbackContext() *prompts.FeedbackContext {
 	a.mu.RLock()
+	result := a.lastActionResult
+	a.mu.RUnlock()
+
+	if result == nil {
+		return nil
+	}
+
+	feedback := &prompts.FeedbackContext{
+		Success: result.Success,
+		Action:  result.Action,
+		Target:  result.Target,
+		Message: result.Message,
+	}
+
+	if result.Error != nil {
+		feedback.Error = result.Error.Error()
+		// Try to categorize error type
+		errStr := result.Error.Error()
+		if strings.Contains(errStr, "timeout") {
+			feedback.ErrorType = "timeout"
+		} else if strings.Contains(errStr, "not found") || strings.Contains(errStr, "invalid") {
+			feedback.ErrorType = "validation"
+		} else {
+			feedback.ErrorType = "execution"
+		}
+	}
+
+	return feedback
+}
+
+// buildGoalContext builds goal context for templates
+func (a *BaseAgent) buildGoalContext(state *game.State) *prompts.GoalContext {
+	a.mu.RLock()
+	goal := a.currentGoal
+	priority := a.priority
+	a.mu.RUnlock()
+
+	if goal == nil {
+		// Return nil if no goal is set
+		return nil
+	}
+
+	// Update constraints based on current state
+	constraints := a.detectConstraints(state)
+
+	return &prompts.GoalContext{
+		Type:        goal.Type,
+		Target:      goal.Target,
+		Progress:    goal.Progress,
+		Priority:    goal.Priority,
+		Reasoning:   goal.Reasoning,
+		Focus:       priority.Focus,
+		Constraints: constraints,
+		Urgency:     priority.Urgency,
+	}
+}
+
+// detectConstraints analyzes game state to identify active constraints
+func (a *BaseAgent) detectConstraints(state *game.State) []string {
+	var constraints []string
+
+	// Fuel constraints
+	if state.Fuel < 10 {
+		constraints = append(constraints, "critical_fuel")
+	} else if state.Fuel < state.MaxFuel*0.2 {
+		constraints = append(constraints, "low_fuel")
+	}
+
+	// Cargo constraints
+	cargoPercent := float64(len(state.Ship.Cargo)) / float64(state.MaxCargo)
+	if cargoPercent >= 1.0 {
+		constraints = append(constraints, "cargo_full")
+	} else if cargoPercent >= 0.9 {
+		constraints = append(constraints, "cargo_nearly_full")
+	}
+
+	// Credits constraints
+	if state.Credits < 100 {
+		constraints = append(constraints, "no_credits")
+	} else if state.Credits < 500 {
+		constraints = append(constraints, "low_credits")
+	}
+
+	// Hull constraints
+	hullPercent := state.Hull / state.MaxHull
+	if hullPercent < 0.3 {
+		constraints = append(constraints, "critical_hull")
+	} else if hullPercent < 0.5 {
+		constraints = append(constraints, "damaged_hull")
+	}
+
+	// Combat constraints
+	if state.InCombat {
+		constraints = append(constraints, "in_combat")
+	}
+
+	// Travel constraints
+	if state.Traveling {
+		constraints = append(constraints, "traveling")
+	}
+
+	return constraints
 	feedback := a.lastActionFeedback
 	a.mu.RUnlock()
 
@@ -300,6 +419,9 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 		"docked":   state.IsDocked(),
 	}
 
+	// Get last action result (protected by lock)
+	a.mu.RLock()
+	lastResult := a.lastActionResult
 	// Get last action feedback (protected by lock)
 	a.mu.RLock()
 	lastFeedback := a.lastActionFeedback
@@ -307,6 +429,16 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 
 	// Build feedback section
 	feedbackText := ""
+	if lastResult != nil {
+		if lastResult.Success {
+			feedbackText = fmt.Sprintf("\nLAST ACTION FEEDBACK:\n✓ %s → %s: %s\n", lastResult.Action, lastResult.Target, lastResult.Message)
+		} else {
+			feedbackText = fmt.Sprintf("\nLAST ACTION FEEDBACK:\n✗ %s → %s FAILED: %s\n", lastResult.Action, lastResult.Target, lastResult.Message)
+			if lastResult.Error != nil {
+				feedbackText += fmt.Sprintf("ERROR: %s\n", lastResult.Error.Error())
+			}
+			feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
+		}
 	if lastFeedback != "" {
 		feedbackText = "\nLAST ACTION FEEDBACK:\n" + lastFeedback + "\n"
 		feedbackText += "IMPORTANT: Learn from this feedback! If the last action failed, you must address the error.\n"
@@ -343,6 +475,10 @@ func (a *BaseAgent) Learn(result ActionResult) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	// Store full action result for next LLM prompt
+	a.lastActionResult = &result
+
+	// Update agent status
 	// Store action feedback for next LLM prompt
 	if result.Success {
 		a.lastActionFeedback = fmt.Sprintf("✓ Last action succeeded: %s", result.Message)
@@ -440,7 +576,27 @@ func (m *KBMemory) KnownSystems() []SystemKnowledge {
 // KnownPOIs returns POIs in a system
 func (m *KBMemory) KnownPOIs(systemID string) []POIKnowledge {
 	// Query the knowledge base
-	return []POIKnowledge{}
+	pois, err := m.kb.GetPOIs(context.Background(), systemID)
+	if err != nil {
+		// Log error but return empty slice
+		return []POIKnowledge{}
+	}
+
+	result := make([]POIKnowledge, len(pois))
+	for i, poi := range pois {
+		result[i] = POIKnowledge{
+			ID:          poi.ID,
+			SystemID:    poi.SystemID,
+			Name:        poi.Name,
+			Type:        poi.Type,
+			Description: poi.Description,
+			Position:    Position{X: poi.Position.X, Y: poi.Position.Y},
+			Services:    poi.Services,
+			Resources:   poi.Resources,
+		}
+	}
+
+	return result
 }
 
 // GetUnknownConnections finds unexplored connections
@@ -506,4 +662,71 @@ func (m *KBMemory) GetRecentExperiences(count int) ([]Experience, error) {
 	}
 
 	return result, nil
+}
+
+// initializeGoalForRole creates a default goal based on the agent's role
+func initializeGoalForRole(role string) *Goal {
+	roleLower := strings.ToLower(role)
+
+	switch {
+	case strings.Contains(roleLower, "miner"):
+		return &Goal{
+			Type:      "skill",
+			Target:    "Mining_5",
+			Progress:  0.0,
+			Priority:  8,
+			Reasoning: "Miners should develop mining skills to extract resources more efficiently",
+		}
+	case strings.Contains(roleLower, "trader"):
+		return &Goal{
+			Type:      "wealth",
+			Target:    "10000_credits",
+			Progress:  0.0,
+			Priority:  9,
+			Reasoning: "Traders should accumulate wealth through profitable trading",
+		}
+	case strings.Contains(roleLower, "explorer"):
+		return &Goal{
+			Type:      "exploration",
+			Target:    "discover_5_systems",
+			Progress:  0.0,
+			Priority:  8,
+			Reasoning: "Explorers should discover new systems and map the galaxy",
+		}
+	case strings.Contains(roleLower, "combat"):
+		return &Goal{
+			Type:      "skill",
+			Target:    "Combat_5",
+			Progress:  0.0,
+			Priority:  9,
+			Reasoning: "Combat pilots should develop combat skills for survival and victory",
+		}
+	default:
+		// Generic goal for undefined roles
+		return &Goal{
+			Type:      "wealth",
+			Target:    "5000_credits",
+			Progress:  0.0,
+			Priority:  5,
+			Reasoning: "Build wealth to upgrade ship and access better opportunities",
+		}
+	}
+}
+
+// getDefaultFocusForRole returns the default strategic focus for a role
+func getDefaultFocusForRole(role string) string {
+	roleLower := strings.ToLower(role)
+
+	switch {
+	case strings.Contains(roleLower, "miner"):
+		return "mining"
+	case strings.Contains(roleLower, "trader"):
+		return "trading"
+	case strings.Contains(roleLower, "explorer"):
+		return "exploring"
+	case strings.Contains(roleLower, "combat"):
+		return "combat"
+	default:
+		return "general"
+	}
 }

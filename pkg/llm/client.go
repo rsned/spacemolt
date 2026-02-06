@@ -24,17 +24,14 @@ type Client struct {
 
 // Config holds LLM client configuration
 type Config struct {
-<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
 	BaseURL       string
 	Model         string
 	Timeout       time.Duration
 	PromptsDir    string
-=======
 	BaseURL      string
 	Model        string
 	Timeout      time.Duration
 	PromptsDir   string
->>>>>>> main
 	PromptsConfig string
 }
 
@@ -44,7 +41,8 @@ func New(cfg Config) (*Client, error) {
 		cfg.BaseURL = "http://localhost:11434"
 	}
 	if cfg.Model == "" {
-		cfg.Model = "llama3.2"
+		//cfg.Model = "llama3.2"
+		cfg.Model = "dolphin3"
 	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
@@ -160,6 +158,7 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 	}
 
 	// DEBUG: Log raw LLM response
+	//fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 
 	// Extract structured decision from text response
@@ -178,6 +177,7 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 	jsonStr := text[start : end+1]
 
 	// DEBUG: Log extracted JSON
+	//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 	fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 
 	var decision DecisionResponse
@@ -186,7 +186,6 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 		return nil, fmt.Errorf("failed to parse decision JSON: %w", err)
 	}
 
-<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
 	/*
 		// DEBUG: Log parsed fields
 		fmt.Printf("[LLM] Parsed DecisionResponse:\n")
@@ -195,14 +194,12 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 		fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
 		fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 	*/
-=======
 	// DEBUG: Log parsed fields
 	fmt.Printf("[LLM] Parsed DecisionResponse:\n")
 	fmt.Printf("  Action: '%s'\n", decision.Action)
 	fmt.Printf("  Target: '%s'\n", decision.Target)
 	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
 	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
->>>>>>> main
 
 	return &decision, nil
 }
@@ -218,7 +215,9 @@ Fuel: %v
 Hull: %v
 Cargo: %v
 Docked: %v
-<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
+
+Based on your role as a %s, decide what to do next. You may only pick one action at a time.
+
 
 Based on your role as a %s, decide what to do next. You may only pick one action at a time.
 
@@ -233,7 +232,6 @@ AVAILABLE ACTIONS:
 - "get_system" - Get current system info (no target needed)
 - "wait" - Wait and do nothing (no target needed)
 
-=======
 
 Based on your role as a %s, decide what to do next. You may only pick one action at a time.
 
@@ -248,7 +246,6 @@ AVAILABLE ACTIONS:
 - "get_system" - Get current system info (no target needed)
 - "wait" - Wait and do nothing (no target needed)
 
->>>>>>> main
 IMPORTANT: Respond with valid JSON containing exactly these fields:
 {
   "action": "one_action_name",
@@ -258,7 +255,6 @@ IMPORTANT: Respond with valid JSON containing exactly these fields:
 }
 
 EXAMPLES:
-<<<<<<< pr/enhance-agent-prompts-with-game-mechanics-and-fix-
 - To travel to a POI: {"action": "travel", "target": "sol_belt", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
 - To jump to system: {"action": "jump", "target": "alpha_centauri", "reasoning": "Exploring new system", "confidence": 0.85}
 - To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
@@ -266,12 +262,10 @@ EXAMPLES:
 
 CRITICAL: For "travel" action, use the EXACT POI ID from the available POIs list.
 
-=======
 - To travel to a POI: {"action": "travel", "target": "Sol-AsteroidField", "reasoning": "Mining asteroids for resources", "confidence": 0.9}
 - To undock: {"action": "undock", "target": "", "reasoning": "Leaving station to explore", "confidence": 0.8}
 - To wait: {"action": "wait", "target": "", "reasoning": "Waiting for better opportunity", "confidence": 0.7}
 
->>>>>>> main
 Your decision:
 `, agentName, role,
 		state["location"], state["fuel"], state["hull"], state["cargo"], state["docked"],

@@ -100,6 +100,22 @@ type ActionResult struct {
 	Error       error
 }
 
+// Goal represents a strategic objective for an agent
+type Goal struct {
+	Type      string  // Goal type: "wealth", "skill", "exploration", "resource", "reputation"
+	Target    string  // Specific target (e.g., "Mining_5", "10000_credits", "Sol", "iron")
+	Progress  float64 // Progress towards goal (0.0 to 1.0)
+	Priority  int     // Priority level (1-10, higher is more important)
+	Reasoning string  // Why this goal was set
+}
+
+// Priority represents the agent's current strategic focus and constraints
+type Priority struct {
+	Focus       string   // Current strategic focus (e.g., "mining", "trading", "exploring", "combat")
+	Constraints []string // Active constraints preventing certain actions (e.g., "low_fuel", "cargo_full", "no_credits")
+	Urgency     int      // Urgency level (1-10, higher means more urgent action needed)
+}
+
 // Status represents the current status of an agent
 type Status struct {
 	State       AgentState

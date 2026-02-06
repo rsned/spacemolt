@@ -133,6 +133,11 @@ type agentPanelModel struct {
 // panelLayout holds the calculated dimensions for each panel
 type panelLayout struct {
 	agentWidth   int
+	agentHeight  int // Fixed height at bottom (agentsPanelHeight, typically 6)
+	logWidth     int
+	logHeight    int // Capped at maxLogPanelHeight (typically 12)
+	mapWidth     int
+	mapHeight    int // Dynamic: gets remaining vertical space in top section
 	agentHeight  int // May vary based on available space
 	logWidth     int
 	logHeight    int // Capped at maxLogPanelHeight (typically 12)
@@ -147,30 +152,42 @@ func (m *WatcherModel) renderLogPanel(width, height int) string {
 	// Build content with log lines
 	var sb strings.Builder
 
+	// Calculate how many lines we can show (minus borders, title, and padding)
+	// Height breakdown: top border(1) + title line(1) + blank line(1) + content + bottom border(1) = total
+	// So content lines = height - 4
+	availableLines := height - 4
+
+	// If we have logs and they exceed available space, reserve 1 line for scroll indicator
+	hasLogs := len(m.logPanel.lines) > 0
+	logContentLines := availableLines
+	if hasLogs && len(m.logPanel.lines) > availableLines {
+		logContentLines = availableLines - 1 // Reserve 1 line for scroll indicator
+	}
 	// Calculate how many lines we can show (minus borders)
 	availableLines := height - 3 // Account for top border, bottom border, and padding
 
 	// Determine which lines to show based on scroll offset
 	// scrollOffset 0 = show newest (bottom), higher values scroll up (show older)
-	startIdx := len(m.logPanel.lines) - availableLines - m.logPanel.scrollOffset
+	startIdx := len(m.logPanel.lines) - logContentLines - m.logPanel.scrollOffset
 	if startIdx < 0 {
 		startIdx = 0
 	}
-	endIdx := startIdx + availableLines
+	endIdx := startIdx + logContentLines
 	if endIdx > len(m.logPanel.lines) {
 		endIdx = len(m.logPanel.lines)
 	}
 
-	// Render visible lines
+	// Render visible log lines
 	for i := startIdx; i < endIdx; i++ {
 		sb.WriteString(m.logPanel.lines[i])
 		sb.WriteString("\n")
 	}
 
-	// If no lines, show placeholder
-	if len(m.logPanel.lines) == 0 {
+	// If no lines, show placeholder (uses 1 line)
+	if !hasLogs {
 		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("Log messages will appear here..."))
 	} else {
+		// Add scroll indicator on its own line if content is scrollable
 		// Add scroll indicator if content is scrollable
 		if len(m.logPanel.lines) > availableLines {
 			if m.logPanel.scrollOffset > 0 {
@@ -181,6 +198,17 @@ func (m *WatcherModel) renderLogPanel(width, height int) string {
 		}
 	}
 
+	// Build panel with title and border using lipgloss
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
+	content := titleStyle.Render("Action Log\n") + sb.String()
+
+	style := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Width(width).
+		Height(height)
+
+	return style.Render(content)
 	// Build bordered panel with title
 	var result strings.Builder
 	result.WriteString(RenderBorderedTitle("Action Log", width))
@@ -193,6 +221,7 @@ func (m *WatcherModel) renderLogPanel(width, height int) string {
 // renderMapPanelFull renders the full map panel with system info, map, and legend
 func (m *WatcherModel) renderMapPanelFull(width, height int) string {
 	// Calculate grid dimensions based on available space
+	const fixedLines = 9  // Title, header, legend, map borders
 	const fixedLines = 8  // Title, header, legend, map borders
 
 	// Calculate available grid rows (height)
@@ -266,6 +295,8 @@ func (m *WatcherModel) renderStatusPanel(width, height int) string {
 
 	// Get status content
 	state := m.GetCurrentState()
+	var content string
+
 	if state == nil {
 		content := lipgloss.NewStyle().Faint(true).Render("No agent selected")
 		// Build bordered panel with title
@@ -302,7 +333,6 @@ func (m *WatcherModel) buildStatusFull(state *game.State) string {
 	leftCol.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("86")).Render("Player"))
 	leftCol.WriteString("\n")
 	leftCol.WriteString(fmt.Sprintf("Name: %s\n", state.Username))
-	leftCol.WriteString("Empire: voidborn\n")
 	leftCol.WriteString(fmt.Sprintf("Credits: %.0f\n", state.Credits))
 	leftCol.WriteString("XP: 0\n") // Placeholder if XP field not in state
 
