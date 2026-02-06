@@ -239,7 +239,10 @@ func TestInitKnowledgeBase(t *testing.T) {
 }
 
 func TestInitLLMClient(t *testing.T) {
-	client := initLLMClient("http://localhost:11434", "llama3.2")
+	client, err := initLLMClient("http://localhost:11434", "llama3.2")
+	if err != nil {
+		t.Errorf("Failed to initialize LLM client: %v", err)
+	}
 	if client == nil {
 		t.Error("LLM client should not be nil")
 	}
