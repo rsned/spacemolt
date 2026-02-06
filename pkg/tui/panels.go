@@ -43,11 +43,11 @@ type agentPanelModel struct {
 // panelLayout holds the calculated dimensions for each panel
 type panelLayout struct {
 	agentWidth   int
-	agentHeight  int
+	agentHeight  int // May vary based on available space
 	logWidth     int
-	logHeight    int
+	logHeight    int // Capped at maxLogPanelHeight (typically 12)
 	mapWidth     int
-	mapHeight    int
+	mapHeight    int // Gets priority for remaining space
 	statusWidth  int
 	statusHeight int
 }
