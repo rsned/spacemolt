@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,9 +11,17 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+const (
+	// Panel height constraints
+	minPanelHeight      = 4  // Minimum height for any panel (prevents collapse)
+	maxLogPanelHeight   = 12 // Maximum height for log panel
+	minAgentPanelHeight = 6  // Minimum height for agent panel
+	minMapPanelHeight   = 8  // Minimum height for map panel
+)
+
 // WsMsg wraps protocol.Response for Bubbletea (exported for use in cmd/watcher)
 type WsMsg struct {
-	AgentID string             // Agent that sent this message
+	AgentID string // Agent that sent this message
 	Type    string
 	Payload map[string]any
 }
@@ -44,23 +53,27 @@ type AgentInfo struct {
 // WatcherModel is the main TUI model for the watcher interface
 type WatcherModel struct {
 	// Multi-agent state tracking
-	agentStates     map[string]*game.State // agent ID -> game state
-	agentLogs       map[string][]string    // agent ID -> log lines
+	agentStates map[string]*game.State // agent ID -> game state
+	agentLogs   map[string][]string    // agent ID -> log lines
 
-	viewportWidth   int
-	viewportHeight  int
-	quitting        bool
+	viewportWidth  int
+	viewportHeight int
+	quitting       bool
 
 	// Panel models
-	logPanel        logPanelModel
-	mapPanel        mapPanelModel
-	statusPanel     statusPanelModel
-	agentPanel      agentPanelModel
+	logPanel    logPanelModel
+	mapPanel    mapPanelModel
+	statusPanel statusPanelModel
+	agentPanel  agentPanelModel
 
 	// Agent tracking
 	agents          []AgentInfo
 	selectedAgentID string
 	selectedIndex   int // Cache of selected agent index for performance
+
+	// Remote mode support
+	remoteMode   bool
+	serverClient *AgentServerClient
 
 	// Ready signal - closed when TUI is initialized and ready
 	readyChan chan struct{}
@@ -109,7 +122,7 @@ func NewWatcherModel(state *game.State, readyChan chan struct{}) WatcherModel {
 }
 
 // Init initializes the TUI model
-func (m WatcherModel) Init() tea.Cmd {
+func (m *WatcherModel) Init() tea.Cmd {
 	// Signal that the TUI is now initialized and ready
 	if m.readyChan != nil {
 		close(m.readyChan)
@@ -118,7 +131,7 @@ func (m WatcherModel) Init() tea.Cmd {
 }
 
 // Update handles messages and updates the model
-func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -176,7 +189,7 @@ func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the TUI
-func (m WatcherModel) View() string {
+func (m *WatcherModel) View() string {
 	if m.quitting {
 		return "Goodbye!\n"
 	}
@@ -189,24 +202,21 @@ func (m WatcherModel) View() string {
 	mapContent := m.renderMapPanelFull(layout.mapWidth, layout.mapHeight)
 	statusContent := m.renderStatusPanel(layout.statusWidth, layout.statusHeight)
 
-	// Join agent and log horizontally (top-left section)
-	topLeft := lipgloss.JoinHorizontal(lipgloss.Top, agentContent, logContent)
+	// Join log and map horizontally (top section)
+	topSection := lipgloss.JoinHorizontal(lipgloss.Top, logContent, mapContent)
 
-	// Join topLeft and map horizontally (top row)
-	topRow := lipgloss.JoinHorizontal(lipgloss.Top, topLeft, mapContent)
-
-	// Join top row and status panel vertically
-	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topRow, statusContent)
+	// Join top section, status, and agents vertically (full layout)
+	fullLayout := lipgloss.JoinVertical(lipgloss.Left, topSection, statusContent, agentContent)
 
 	return fullLayout
 }
 
 // calculateLayout computes the dimensions for each panel
-func (m WatcherModel) calculateLayout() panelLayout {
+func (m *WatcherModel) calculateLayout() panelLayout {
 	// Available space after accounting for borders and padding
 	availableHeight := m.viewportHeight - 4 // Reserve space for borders
 
-	// Status panel gets bottom 30% (capped at 12 lines, minimum 6)
+	// Status panel gets fixed height (6-12 lines)
 	statusHeight := availableHeight * 30 / 100
 	if statusHeight < 6 {
 		statusHeight = 6
@@ -215,56 +225,112 @@ func (m WatcherModel) calculateLayout() panelLayout {
 		statusHeight = 12
 	}
 
-	// Top row gets remaining space
-	topHeight := availableHeight - statusHeight
+	// Agents panel gets fixed height at bottom
+	agentsHeight := agentsPanelHeight
 
-	// Agent panel gets 25% of top row (or 20 chars minimum)
+	// Top section (Log + Map) gets all remaining space
+	topSectionHeight := availableHeight - statusHeight - agentsHeight
+
+	// Ensure top section has minimum height
+	if topSectionHeight < minMapPanelHeight+minPanelHeight {
+		// Reduce status panel to make room
+		statusHeight = 6
+		topSectionHeight = availableHeight - statusHeight - agentsHeight
+	}
+
+	// Distribute top section space between log and map
+	// Log panel gets max height cap
+	logHeight := maxLogPanelHeight
+	if logHeight > topSectionHeight-minMapPanelHeight {
+		logHeight = topSectionHeight - minMapPanelHeight
+	}
+	if logHeight < minPanelHeight {
+		logHeight = minPanelHeight
+	}
+
+	// Map panel gets remaining space in top section
+	mapHeight := topSectionHeight - logHeight
+
+	// Width calculations
+	// Agents panel: full width
+	agentsWidth := m.viewportWidth
+
+	// Status panel: full width
+	statusWidth := m.viewportWidth
+
+	// Log panel gets 20% of top section width with minimum of 20 characters.
+	logWidth := m.viewportWidth * 20 / 100
+	// Top row gets remaining space
+	topRowHeight := availableHeight - statusHeight
+
+	// Calculate minimum required height for top row panels
+	minTopRowHeight := minAgentPanelHeight + maxLogPanelHeight + minMapPanelHeight
+
+	// If top row is too small, reduce log panel max height
+	effectiveMaxLogHeight := maxLogPanelHeight
+	if topRowHeight < minTopRowHeight {
+		// Reduce log panel to fit, but never below minimum
+		effectiveMaxLogHeight = topRowHeight - minAgentPanelHeight - minMapPanelHeight
+		if effectiveMaxLogHeight < minPanelHeight {
+			effectiveMaxLogHeight = minPanelHeight
+		}
+	}
+
+	// Distribute top row space with constraints
+	// Start with minimum allocations
+	agentHeight := minAgentPanelHeight
+	logHeight := effectiveMaxLogHeight
+	mapHeight := minMapPanelHeight
+
+	// Calculate remaining space after minimum allocations
+	remainingSpace := topRowHeight - (agentHeight + logHeight + mapHeight)
+
+	// Expand map panel first (highest priority)
+	mapHeight += remainingSpace
+
+	// Width calculations
 	agentWidth := m.viewportWidth * 25 / 100
 	if agentWidth < 20 {
 		agentWidth = 20
 	}
 
-	// Log panel gets 35% of remaining top row
 	remainingWidth := m.viewportWidth - agentWidth - 4 // Account for borders
 	logWidth := remainingWidth * 40 / 100
+
 	if logWidth < 20 {
 		logWidth = 20
 	}
+	if mapWidth < 20 {
+		mapWidth = 20
+	}
 
-	// Map panel gets rest of top row
 	mapWidth := remainingWidth - logWidth - 2 // Account for borders
-
-	// All panels in top row share the same height
-	topPanelHeight := topHeight
 
 	return panelLayout{
 		agentWidth:   agentWidth,
-		agentHeight:  topPanelHeight,
+		agentHeight:  agentHeight,
+
 		logWidth:     logWidth,
-		logHeight:    topPanelHeight,
+		logHeight:    logHeight,
 		mapWidth:     mapWidth,
-		mapHeight:    topPanelHeight,
+		mapHeight:    mapHeight,
 		statusWidth:  m.viewportWidth,
 		statusHeight: statusHeight,
 	}
 }
 
 // renderAgentPanel renders the agent list panel
-func (m WatcherModel) renderAgentPanel(width, height int) string {
-	style := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Width(width).
-		Height(height)
-
+func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	var sb strings.Builder
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("62"))
 	sb.WriteString(titleStyle.Render("Agents"))
-	sb.WriteString("\n\n")
+	sb.WriteString("\n")
 
 	if len(m.agents) == 0 {
+		sb.WriteString("\n")
 		sb.WriteString(lipgloss.NewStyle().Faint(true).Render("No agents active"))
 	} else {
+		sb.WriteString("\n")
 		for i, agent := range m.agents {
 			// Highlight selected agent
 			if i == m.agentPanel.selected {
@@ -273,27 +339,33 @@ func (m WatcherModel) renderAgentPanel(width, height int) string {
 				sb.WriteString("  ")
 			}
 
-			// Show agent name and status
-			statusColor := "241" // gray for idle
-			switch agent.Status {
-			case "Acting":
-				statusColor = "226" // yellow for acting
-			case "Deciding":
-				statusColor = "217" // pink for deciding
-			case "Error":
-				statusColor = "160" // red for error
-			}
+		// Format agent entry
+		entry := fmt.Sprintf("%s%s\n    %s\n",
+			arrow,
+			lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name),
+			agent.Action,
+		)
 
-			sb.WriteString(fmt.Sprintf("%s\n", lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(agent.Name)))
-			sb.WriteString(fmt.Sprintf("    %s\n", agent.Action))
+		// Distribute across columns
+		if i%2 == 0 {
+			leftCol.WriteString(entry)
+		} else {
+			rightCol.WriteString(entry)
 		}
 	}
+
+	// Add hot key hints at bottom
+	hintStyle := lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("245"))
+	hints := hintStyle.Render("Tab: Next | Shift+Tab: Prev | 1-9: Jump")
+	sb.WriteString("\n")
+	sb.WriteString(hints)
 
 	return style.Render(sb.String())
 }
 
 // AddAgent adds an agent to the watcher
 func (m *WatcherModel) AddAgent(info AgentInfo) {
+	m.mu.Lock()
 	m.agents = append(m.agents, info)
 
 	// Initialize state and logs for this agent if not exists
@@ -313,12 +385,15 @@ func (m *WatcherModel) AddAgent(info AgentInfo) {
 		m.selectedAgentID = info.ID
 		m.selectedIndex = 0
 	}
+	m.mu.Unlock()
 }
 
 // UpdateAgentState updates the game state for a specific agent
 func (m *WatcherModel) UpdateAgentState(agentID string, state *game.State) {
 	if state != nil {
+		m.mu.Lock()
 		m.agentStates[agentID] = state
+		m.mu.Unlock()
 		// Mark panels for update
 		m.mapPanel.lastUpdate = time.Now()
 		m.statusPanel.lastUpdate = time.Now()
@@ -330,14 +405,18 @@ func (m *WatcherModel) GetCurrentState() *game.State {
 	if m.selectedAgentID == "" {
 		return nil
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.agentStates[m.selectedAgentID]
 }
 
 // AddLogForAgent adds a log line for a specific agent
 func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
+	m.mu.Lock()
 	logs, exists := m.agentLogs[agentID]
 	if !exists {
 		logs = []string{}
+		m.agentLogs[agentID] = logs
 	}
 
 	logs = append(logs, line)
@@ -346,6 +425,7 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 	}
 
 	m.agentLogs[agentID] = logs
+	m.mu.Unlock()
 
 	// If this is the currently selected agent, update the log panel
 	if agentID == m.selectedAgentID {
@@ -357,6 +437,8 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 
 // updateAgentStatus updates an agent's status
 func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for i := range m.agents {
 		if m.agents[i].ID == agentID {
 			m.agents[i].Status = status
@@ -367,24 +449,34 @@ func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
 
 // selectNextAgent cycles to the next agent
 func (m *WatcherModel) selectNextAgent() {
+	m.mu.Lock()
 	if len(m.agents) == 0 {
+		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex + 1) % len(m.agents)
-	m.selectAgentByIndex(m.selectedIndex)
+	idx := m.selectedIndex
+	m.mu.Unlock()
+	m.selectAgentByIndex(idx)
 }
 
 // selectPreviousAgent cycles to the previous agent
 func (m *WatcherModel) selectPreviousAgent() {
+	m.mu.Lock()
 	if len(m.agents) == 0 {
+		m.mu.Unlock()
 		return
 	}
 	m.selectedIndex = (m.selectedIndex - 1 + len(m.agents)) % len(m.agents)
-	m.selectAgentByIndex(m.selectedIndex)
+	idx := m.selectedIndex
+	m.mu.Unlock()
+	m.selectAgentByIndex(idx)
 }
 
 // selectAgentByIndex selects an agent by index (0-based)
 func (m *WatcherModel) selectAgentByIndex(idx int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if idx < 0 || idx >= len(m.agents) {
 		return
 	}
@@ -402,6 +494,17 @@ func (m *WatcherModel) selectAgentByIndex(idx int) {
 	// Force refresh of all panels
 	m.mapPanel.cachedRender = ""
 	m.statusPanel.cachedRender = ""
+}
+
+// SetRemoteMode configures the model for remote operation
+func (m *WatcherModel) SetRemoteMode(client *AgentServerClient) {
+	m.remoteMode = true
+	m.serverClient = client
+}
+
+// IsRemoteMode returns whether the model is in remote mode
+func (m *WatcherModel) IsRemoteMode() bool {
+	return m.remoteMode
 }
 
 // handleWebSocketMessage processes WebSocket messages and updates the model

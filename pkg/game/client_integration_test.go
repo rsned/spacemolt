@@ -58,7 +58,7 @@ func (ms *mockServer) setupDefaultHandlers() {
 	// Login handler
 	ms.handlers["login"] = func(msg protocol.Message) protocol.Response {
 		username, _ := msg.Payload["username"].(string)
-		token, _ := msg.Payload["token"].(string)
+		token, _ := msg.Payload["password"].(string)
 
 		if token == "valid_token" {
 			return protocol.Response{
@@ -105,7 +105,7 @@ func (ms *mockServer) setupDefaultHandlers() {
 		return protocol.Response{
 			Type: protocol.TypeRegistered,
 			Payload: map[string]any{
-				"token":    "new_token_" + username,
+				"password":    "new_token_" + username,
 				"username": username,
 				"empire":   empire,
 			},
@@ -322,7 +322,7 @@ func TestRegister_Success(t *testing.T) {
 	// Verify token was saved in state
 	state := client.GetState()
 	state.Mu.Lock()
-	stateToken := state.Token
+	stateToken := state.Password
 	state.Mu.Unlock()
 
 	if stateToken != "new_token_newuser" {
