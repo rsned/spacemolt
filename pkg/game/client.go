@@ -43,6 +43,70 @@ type MessageHandler interface {
 	OnDisconnected(err error)
 }
 
+// ReconnectingHandler wraps a MessageHandler and adds automatic reconnection
+type ReconnectingHandler struct {
+	client  *Client
+	handler MessageHandler
+	ctx     context.Context
+	logger  *log.Logger
+}
+
+// NewReconnectingHandler creates a handler that automatically reconnects on disconnect
+func NewReconnectingHandler(client *Client, handler MessageHandler, ctx context.Context, logger *log.Logger) *ReconnectingHandler {
+	return &ReconnectingHandler{
+		client:  client,
+		handler: handler,
+		ctx:     ctx,
+		logger:  logger,
+	}
+}
+
+func (r *ReconnectingHandler) OnConnected(state *State) {
+	if r.handler != nil {
+		r.handler.OnConnected(state)
+	}
+}
+
+func (r *ReconnectingHandler) OnMessage(resp protocol.Response) {
+	if r.handler != nil {
+		r.handler.OnMessage(resp)
+	}
+}
+
+func (r *ReconnectingHandler) OnDisconnected(err error) {
+	// Notify wrapped handler first
+	if r.handler != nil {
+		r.handler.OnDisconnected(err)
+	}
+
+	// Attempt reconnection in background
+	go r.attemptReconnection()
+}
+
+func (r *ReconnectingHandler) attemptReconnection() {
+	maxAttempts := 5
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if r.ctx.Err() != nil {
+			r.logger.Printf("Context cancelled, stopping reconnection attempts")
+			return
+		}
+
+		backoff := time.Duration(1<<uint(attempt)) * time.Second
+		r.logger.Printf("Reconnection attempt %d/%d after %v", attempt, maxAttempts, backoff)
+		time.Sleep(backoff)
+
+		if err := r.client.Reconnect(r.ctx); err != nil {
+			r.logger.Printf("Reconnection attempt %d failed: %v", attempt, err)
+			continue
+		}
+
+		r.logger.Printf("✓ Reconnected successfully")
+		return
+	}
+
+	r.logger.Printf("Failed to reconnect after %d attempts", maxAttempts)
+}
+
 // NewClient creates a new game client
 func NewClient(url, username, password string, debugLogger *log.Logger) *Client {
 	if debugLogger == nil {
@@ -81,16 +145,59 @@ func (c *Client) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
+	// Set a large read limit (10MB) to handle large state updates
+	// Default is 32KB which is too small for system info with many POIs
+	ws.SetReadLimit(10 * 1024 * 1024) // 10MB
+
 	c.conn = ws
 	c.connected = true
 	c.state.Username = c.username
 	c.state.Password = c.password
 
-	c.debugLogger.Printf("Connected to %s", c.url)
+	c.debugLogger.Printf("Connected to %s (read limit: 10MB)", c.url)
 
 	// Start message listener
 	go c.listen(ctx)
 
+	return nil
+}
+
+// Disconnect closes the WebSocket connection
+func (c *Client) Disconnect() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn != nil {
+		c.connected = false
+		err := c.conn.Close(websocket.StatusNormalClosure, "client disconnect")
+		c.conn = nil
+		c.debugLogger.Printf("Disconnected from server")
+		return err
+	}
+	return nil
+}
+
+// Reconnect disconnects and reconnects to the server
+func (c *Client) Reconnect(ctx context.Context) error {
+	c.debugLogger.Printf("Attempting to reconnect...")
+
+	// Close existing connection if any
+	_ = c.Disconnect()
+
+	// Wait a moment before reconnecting
+	time.Sleep(2 * time.Second)
+
+	// Reconnect
+	if err := c.Connect(ctx); err != nil {
+		return fmt.Errorf("reconnect failed: %w", err)
+	}
+
+	// Re-authenticate
+	if err := c.Login(ctx); err != nil {
+		return fmt.Errorf("login after reconnect failed: %w", err)
+	}
+
+	c.debugLogger.Printf("Reconnected and logged in successfully")
 	return nil
 }
 
@@ -115,18 +222,21 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
+	// DEBUG: Log the message being sent
+	c.debugLogger.Printf("=== Game Client Send Debug ===")
+	c.debugLogger.Printf("Message Type: '%s'", msg.Type)
+	if len(msg.Payload) > 0 {
+		payloadJSON, _ := json.Marshal(msg.Payload)
+		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
+	}
+	c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
+
 	if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
+		c.debugLogger.Printf("ERROR sending to WebSocket: %v", err)
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
-	// Log with full payload for debugging
-	if len(msg.Payload) > 0 {
-		//payloadJSON, _ := json.Marshal(msg.Payload)
-		payloadJSON, _ := json.Marshal(msg)
-		c.debugLogger.Printf("[SENT] %s | payload: %s", msg.Type, string(payloadJSON))
-	} else {
-		c.debugLogger.Printf("[SENT] %s", msg.Type)
-	}
+	c.debugLogger.Printf("WebSocket write successful")
 	return nil
 }
 
@@ -187,53 +297,71 @@ func (c *Client) Register(ctx context.Context, empire string) error {
 
 // Undock undocks from the current station
 func (c *Client) Undock(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "undock",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Dock docks at a station in the current system
 func (c *Client) Dock(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "dock",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Travel travels to a POI within the current system
 func (c *Client) Travel(ctx context.Context, targetPOI string) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "travel",
 		Payload:   map[string]any{"target_poi": targetPOI},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Jump jumps to another system
 func (c *Client) Jump(ctx context.Context, targetSystem string) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "jump",
 		Payload:   map[string]any{"target_system": targetSystem},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Mine mines resources at the current location
 func (c *Client) Mine(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "mine",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // Scan scans the current area
 func (c *Client) Scan(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "scan",
 		Payload:   map[string]any{"target_id": "area"},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
 // GetSystem requests information about the current system
@@ -277,6 +405,7 @@ func (c *Client) listen(ctx context.Context) {
 			c.mu.Unlock()
 
 			c.debugLogger.Printf("Connection error: %v", err)
+			c.debugLogger.Printf("Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB")
 			if c.handler != nil {
 				c.handler.OnDisconnected(err)
 			}
@@ -302,7 +431,32 @@ func (c *Client) listen(ctx context.Context) {
 				close(c.readyChan)
 			})
 
-			c.debugLogger.Printf("[RECV] %s", resp.Type)
+			// DEBUG: Log received response with full details
+			c.debugLogger.Printf("=== Game Client Receive Debug ===")
+			c.debugLogger.Printf("Response Type: '%s'", resp.Type)
+			if len(resp.Payload) > 0 {
+				// Filter out "nearby" field for state_update messages to reduce log clutter
+				payloadToLog := resp.Payload
+				if resp.Type == "state_update" {
+					// Create a filtered copy without the "nearby" field
+					filtered := make(map[string]any)
+					for k, v := range resp.Payload {
+						if k != "nearby" {
+							filtered[k] = v
+						}
+					}
+					if _, hasNearby := resp.Payload["nearby"]; hasNearby {
+						filtered["nearby"] = "[filtered from debug log]"
+					}
+					payloadToLog = filtered
+				}
+				payloadJSON, _ := json.Marshal(payloadToLog)
+				c.debugLogger.Printf("Response Payload: %s", string(payloadJSON))
+			}
+			// Check for error message in payload
+			if msg, ok := resp.Payload["message"]; ok {
+				c.debugLogger.Printf("Response Message: '%v'", msg)
+			}
 
 			// Notify any waiters for this response type
 			c.waiterMu.Lock()
@@ -932,5 +1086,41 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", successType)
 	case <-ctx.Done():
 		return protocol.Response{}, ctx.Err()
+	}
+}
+
+// waitForActionResponse waits for either "ok" or "error" response for game actions
+func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
+	okChan := make(chan protocol.Response, 1)
+	errorChan := make(chan protocol.Response, 1)
+
+	c.waiterMu.Lock()
+	c.waiters[protocol.TypeOK] = okChan
+	c.waiters[protocol.TypeError] = errorChan
+	c.waiterMu.Unlock()
+
+	defer func() {
+		c.waiterMu.Lock()
+		delete(c.waiters, protocol.TypeOK)
+		delete(c.waiters, protocol.TypeError)
+		c.waiterMu.Unlock()
+	}()
+
+	select {
+	case <-okChan:
+		return nil
+	case resp := <-errorChan:
+		// Extract error message from payload
+		if msg, ok := resp.Payload["message"].(string); ok {
+			return fmt.Errorf("%s", msg)
+		}
+		if code, ok := resp.Payload["code"].(string); ok {
+			return fmt.Errorf("error: %s", code)
+		}
+		return fmt.Errorf("action failed")
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for action response")
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
