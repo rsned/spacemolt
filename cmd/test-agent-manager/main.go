@@ -137,11 +137,11 @@ func main() {
 	// Test 7: Spawn agent without credentials should fail
 	fmt.Println("7. Testing spawn failure without credentials...")
 	p := agent.Personality{
-		ID:       "no-creds-agent",
-		Name:     "No Creds",
-		Role:     "explorer",
-		Faction:  "voidborn",
-		Traits:   map[string]float64{"curiosity": 0.5},
+		ID:      "no-creds-agent",
+		Name:    "No Creds",
+		Role:    "explorer",
+		Faction: "voidborn",
+		Traits:  map[string]float64{"curiosity": 0.5},
 		Motivations: agent.Motivations{
 			Primary: "test",
 			Weights: map[string]float64{},

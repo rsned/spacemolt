@@ -18,11 +18,11 @@ type mockAgent struct {
 	stopCalled  bool
 }
 
-func (m *mockAgent) ID() string                   { return m.id }
-func (m *mockAgent) Name() string                 { return m.id }
-func (m *mockAgent) Personality() Personality     { return Personality{} }
-func (m *mockAgent) Memory() Memory               { return nil }
-func (m *mockAgent) Status() Status               { return Status{} }
+func (m *mockAgent) ID() string               { return m.id }
+func (m *mockAgent) Name() string             { return m.id }
+func (m *mockAgent) Personality() Personality { return Personality{} }
+func (m *mockAgent) Memory() Memory           { return nil }
+func (m *mockAgent) Status() Status           { return Status{} }
 
 func (m *mockAgent) Decide(ctx context.Context, state *game.State) (Decision, error) {
 	if m.decisionFn != nil {
@@ -50,11 +50,11 @@ func (m *mockAgent) Stop() error {
 
 // Tactical Action Queue methods (stubs for testing)
 func (m *mockAgent) EnqueueActions(actions []PlannedAction) {}
-func (m *mockAgent) DequeueAction() (*PlannedAction, bool) { return nil, false }
-func (m *mockAgent) GetActionQueue() []PlannedAction       { return nil }
-func (m *mockAgent) ClearActionQueue(reason string)        {}
-func (m *mockAgent) SetUsingQueuedAction(using bool)       {}
-func (m *mockAgent) IsUsingQueuedAction() bool             { return false }
+func (m *mockAgent) DequeueAction() (*PlannedAction, bool)  { return nil, false }
+func (m *mockAgent) GetActionQueue() []PlannedAction        { return nil }
+func (m *mockAgent) ClearActionQueue(reason string)         {}
+func (m *mockAgent) SetUsingQueuedAction(using bool)        {}
+func (m *mockAgent) IsUsingQueuedAction() bool              { return false }
 
 // Mock game client for testing
 type mockGameClient struct {
@@ -76,11 +76,11 @@ func (m *mockGameClient) GetState() *game.State {
 }
 
 // Connection methods
-func (m *mockGameClient) Connect(ctx context.Context) error   { return nil }
-func (m *mockGameClient) Close() error                        { return nil }
-func (m *mockGameClient) IsConnected() bool                   { return true }
-func (m *mockGameClient) Ready() <-chan struct{}              { ch := make(chan struct{}); close(ch); return ch }
-func (m *mockGameClient) Login(ctx context.Context) error     { return nil }
+func (m *mockGameClient) Connect(ctx context.Context) error                 { return nil }
+func (m *mockGameClient) Close() error                                      { return nil }
+func (m *mockGameClient) IsConnected() bool                                 { return true }
+func (m *mockGameClient) Ready() <-chan struct{}                            { ch := make(chan struct{}); close(ch); return ch }
+func (m *mockGameClient) Login(ctx context.Context) error                   { return nil }
 func (m *mockGameClient) Register(ctx context.Context, empire string) error { return nil }
 
 // Action methods

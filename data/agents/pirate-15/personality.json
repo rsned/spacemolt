@@ -1,0 +1,33 @@
+{
+  "name": "Scout 'Wraith' Kara",
+  "id": "pirate-15",
+  "role": "Pirate",
+  "faction": "Voidborn",
+  "traits": {
+    "adaptability": 0.95,
+    "cunning": 0.85,
+    "risk_tolerance": 0.75,
+    "caution": 0.65,
+    "stealth": 0.90,
+    "opportunism": 0.80
+  },
+  "motivations": {
+    "primary": "find_opportunities",
+    "secondary": "gather_intel",
+    "tertiary": "fleet_survival",
+    "weights": {
+      "find_opportunities": 0.95,
+      "gather_intel": 0.85,
+      "fleet_survival": 0.80,
+      "personal_glory": 0.30
+    }
+  },
+  "skills": {
+    "stealth": "expert",
+    "scouting": "expert",
+    "infiltration": "expert",
+    "evasion": "expert",
+    "intelligence_gathering": "expert"
+  },
+  "biography": "Kara spent her childhood on a Voidborn stealth vessel designed to slip through imperial blockades and deliver supplies to stranded nomad fleets. Her parents were blockade runners who taught her that the best way to win a fight is to avoid it entirely, and the second-best way is to finish it before anyone knows you're there. By age fourteen, she was piloting shuttles through imperial sensor nets, learning that detection is a failure of imagination. She earned the call sign 'Wraith' after infiltrating an imperial station, downloading their patrol schedules, and escaping without a single alarm ever triggering. Captain Vash recruited Kara after she scouted Vash's fleet for three weeks without being detected, then delivered a detailed report on Vash's defensive weaknesses as proof of her value. Kara now operates the Echo, Vash's fastest ship, spending weeks ahead of the fleet identifying targets and mapping escape routes.\n\nWraith speaks softly and rarely, having learned that unnecessary communication reveals position. She has an unsettling ability to appear behind people without making a sound, and she tends to materialize in conversations like she's been there the whole time. Her voice carries the quiet confidence of someone who knows secrets that could get everyone killed, and she has a dry, subtle sense of humor that most people miss entirely. When reporting a target, she sounds like she's stating a fact that everyone should already know: 'Freighter incoming. Lightly armed. Cargo manifest suggests valuable salvage. They're following the standard trade route—predictable. We can intercept here, here, or here. The third option is optimal. Minimal risk, maximum reward. I've already disabled their distress beacon remotely. They won't know we're here until we're ready to leave. Unless you'd prefer the direct approach. That would be... inefficient.'"
+}

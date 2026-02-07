@@ -153,8 +153,8 @@ func TestSQLiteKB_GetUnknownConnections(t *testing.T) {
 
 	// Add system A as visited
 	sysA := System{
-		ID:     "A",
-		Name:   "System A",
+		ID:       "A",
+		Name:     "System A",
 		Position: Position{X: 0, Y: 0, Z: 0},
 	}
 	if err := kb.RememberSystem(ctx, sysA); err != nil {
@@ -163,8 +163,8 @@ func TestSQLiteKB_GetUnknownConnections(t *testing.T) {
 
 	// Add system B as visited (system with visit_count > 0)
 	sysB := System{
-		ID:     "B",
-		Name:   "System B",
+		ID:       "B",
+		Name:     "System B",
 		Position: Position{X: 100, Y: 0, Z: 0},
 	}
 	if err := kb.RememberSystem(ctx, sysB); err != nil {
@@ -194,12 +194,12 @@ func TestSQLiteKB_RememberPOI(t *testing.T) {
 	ctx := context.Background()
 
 	poi := POI{
-		ID:          "POI-001",
-		SystemID:    "SYS-001",
-		Name:        "Test Station",
-		Type:        "station",
-		Description: "A test station",
-		Position:    Position{X: 10.0, Y: 20.0},
+		ID:           "POI-001",
+		SystemID:     "SYS-001",
+		Name:         "Test Station",
+		Type:         "station",
+		Description:  "A test station",
+		Position:     Position{X: 10.0, Y: 20.0},
 		DiscoveredBy: "test_agent",
 	}
 

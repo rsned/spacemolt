@@ -3,6 +3,7 @@ package knowledge
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -149,7 +150,7 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 		&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
 		&sys.SecurityLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // System not found
 	}
 	if err != nil {
@@ -552,7 +553,7 @@ func (kb *SQLiteKB) GetLatestMarketSnapshot(ctx context.Context, systemID, stati
 	err := kb.db.QueryRowContext(ctx, query, systemID, stationID).Scan(
 		&id, &snap.SystemID, &snap.SystemName, &snap.StationID, &snap.StationName, &snap.GameTick, &capturedAt, &agentID,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // No snapshot found
 	}
 	if err != nil {

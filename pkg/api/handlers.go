@@ -21,12 +21,12 @@ type AgentInfo struct {
 // AgentDetails extends AgentInfo with additional runtime information
 type AgentDetails struct {
 	AgentInfo
-	CurrentAction  string  `json:"current_action,omitempty"`
-	LastActionTick int64   `json:"last_action_tick"`
-	IsRunning      bool    `json:"is_running"`
-	HasCrashed     bool    `json:"has_crashed"`
-	CrashCount     int     `json:"crash_count"`
-	Faction        string  `json:"faction"`
+	CurrentAction  string `json:"current_action,omitempty"`
+	LastActionTick int64  `json:"last_action_tick"`
+	IsRunning      bool   `json:"is_running"`
+	HasCrashed     bool   `json:"has_crashed"`
+	CrashCount     int    `json:"crash_count"`
+	Faction        string `json:"faction"`
 }
 
 // handleListAgents returns list of all active agents

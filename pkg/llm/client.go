@@ -37,7 +37,7 @@ func New(cfg Config) (*Client, error) {
 	}
 	if cfg.Model == "" {
 		//cfg.Model = "llama3.2"
-		cfg.Model = "dolphin3"
+		cfg.Model = "qwen3:14b"
 	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
@@ -153,7 +153,6 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 	}
 
 	// DEBUG: Log raw LLM response
-	//fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 
 	// Extract structured decision from text response
@@ -201,7 +200,6 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 		}
 
 		// DEBUG: Log extracted JSON
-		//fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 		fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
 
 		var decision DecisionResponse

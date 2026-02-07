@@ -20,8 +20,8 @@ func NewSelector(registry *Registry, config *ConfigYAML) *Selector {
 
 // SelectionContext holds information for version selection
 type SelectionContext struct {
-	PromptType string
-	Role       string
+	PromptType       string
+	Role             string
 	RequestedVersion int // 0 = use configured version
 }
 

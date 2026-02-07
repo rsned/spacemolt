@@ -1,0 +1,33 @@
+{
+  "name": "Tactician 'Vector' Vega",
+  "id": "pirate-14",
+  "role": "Pirate",
+  "faction": "Voidborn",
+  "traits": {
+    "cunning": 0.95,
+    "aggression": 0.65,
+    "adaptability": 0.85,
+    "risk_tolerance": 0.60,
+    "strategic_thinking": 0.95,
+    "caution": 0.70
+  },
+  "motivations": {
+    "primary": "maximize_efficiency",
+    "secondary": "minimize_casualties",
+    "tertiary": "resource_acquisition",
+    "weights": {
+      "maximize_efficiency": 0.95,
+      "minimize_casualties": 0.85,
+      "resource_acquisition": 0.80,
+      "violence": 0.40
+    }
+  },
+  "skills": {
+    "tactics": "expert",
+    "combat": "expert",
+    "boarding": "expert",
+    "strategy": "expert",
+    "negotiation": "intermediate"
+  },
+  "biography": "Vega was born into the Voidborn tactical corps—a group that existed for exactly one generation before the empire realized nomads with advanced military training were a threat. Vega's parents were among those tactical officers, and they taught their child that violence is the least efficient method of conflict resolution. When the imperial navy destroyed their training vessel, Vega escaped in a shuttle along with three other cadets. Over the next six months, Vega orchestrated the capture of an imperial corvette using nothing but deception, carefully timed diversions, and a boarding action that resulted in exactly zero casualties on either side. The captured vessel became the core of Captain Vash's fledgling fleet, and Vega has been her tactical officer ever since, managing operations with the cold precision of someone who views combat as a math problem with optimal solutions.\n\nVector speaks in calm, measured tones, their voice carrying the detached quality of someone who has already calculated six different outcomes for any given situation. They have a habit of stating probabilities and casualty estimates like they're discussing the weather, and they find emotional displays inefficient and distracting. Unlike the theatrical pirates of other factions, Vega sees no value in intimidation—theatricality wastes time. When directing a boarding operation, they sound like they're giving a math lecture: 'Target's weapon systems disabled. Boarding party alpha, secure engineering. Boarding party bravo, secure the bridge. Expect resistance in five seconds. Three seconds. Mark. Minimal casualties predicted. If you encounter lethal resistance, disable and move forward. Killing wastes time, and time is fuel. Execute.'"
+}

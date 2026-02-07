@@ -23,19 +23,19 @@ import (
 
 var (
 	// Command-line flags
-	debugMode           = flag.Bool("debug", false, "Enable debug logging to stderr")
-	logFile             = flag.String("log-file", "", "Write debug logs to file instead of stderr")
-	agents              = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
-	agentServerURL      = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
-	dbBackend           = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
-	dbPath              = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
-	credsProvider       = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
-	credsFile           = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
-	credsSQLitePath     = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
-	credsKeyFile        = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
-	staticUsername      = flag.String("static-username", "", "Username for static provider")
-	staticToken         = flag.String("static-token", "", "Token for static provider")
-	staticEmpire        = flag.String("static-empire", "voidborn", "Empire for static provider")
+	debugMode       = flag.Bool("debug", false, "Enable debug logging to stderr")
+	logFile         = flag.String("log-file", "", "Write debug logs to file instead of stderr")
+	agents          = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
+	agentServerURL  = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
+	dbBackend       = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
+	dbPath          = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
+	credsProvider   = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
+	credsFile       = flag.String("credentials-file", "data/agents/*/credentials.json", "Glob pattern for file provider")
+	credsSQLitePath = flag.String("credentials-db", "", "Path to SQLite credentials database (for sqlite provider)")
+	credsKeyFile    = flag.String("credentials-key", "", "Path to encryption key file (for sqlite provider)")
+	staticUsername  = flag.String("static-username", "", "Username for static provider")
+	staticToken     = flag.String("static-token", "", "Token for static provider")
+	staticEmpire    = flag.String("static-empire", "voidborn", "Empire for static provider")
 )
 
 var (
@@ -145,10 +145,10 @@ func main() {
 			if err := json.Unmarshal(data, &creds); err == nil {
 				username = creds["username"]
 				password = creds["password"]
-			// Backward compatibility: check for "token" field
-			if password == "" {
-				password = creds["token"]
-			}
+				// Backward compatibility: check for "token" field
+				if password == "" {
+					password = creds["token"]
+				}
 			}
 		}
 	}

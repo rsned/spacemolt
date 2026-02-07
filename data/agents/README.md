@@ -4,7 +4,7 @@ This directory contains personality definitions for autonomous AI agents in the 
 
 ## Empire Distribution
 
-The system includes **80 unique agents** across 8 role types, with 10 agents per role evenly distributed among 5 empires:
+The system includes **85 unique agents** across 8 role types, with 10 agents per role for most types (15 for pirates) evenly distributed among 5 empires:
 
 - **Solarian Empire** - Formal, military-oriented society with emphasis on order and efficiency
 - **Voidborn** - Nomadic fleets adapted to deep space survival and resource scarcity
@@ -12,7 +12,7 @@ The system includes **80 unique agents** across 8 role types, with 10 agents per
 - **Outer Rim** - Frontier region of independent colonies, pirates, and survivors
 - **Nebula** - Mysterious empire focused on exploration and cosmic phenomena
 
-Each role type includes 2 agents from each empire, ensuring diverse gameplay experiences and different cultural perspectives on the same profession.
+Most role types include 2 agents from each empire, ensuring diverse gameplay experiences and different cultural perspectives on the same profession. The Pirate role includes 3 agents from each empire (15 total), organized into distinct crews with unique cultures and operational philosophies.
 
 ### Empire Characteristics
 
@@ -48,7 +48,7 @@ Each role type includes 2 agents from each empire, ensuring diverse gameplay exp
 
 ## Agent Types
 
-### Pirates (10 agents)
+### Pirates (15 agents)
 
 **Crimson Empire Crew (pirates 1-5):** A disciplined team of former imperial officers and aristocrats turned pirate
 - **pirate-1** - Roger 'Redbeard' Robbins - Disgraced naval officer with a code of honor
@@ -63,6 +63,13 @@ Each role type includes 2 agents from each empire, ensuring diverse gameplay exp
 - **pirate-8** - Scurvy 'Seadog' Sanders - Romantic enthusiast of classic pirate mythology
 - **pirate-9** - Ransom 'Rogue' Reynolds - Corporate accountant seeking revenge
 - **pirate-10** - Blade 'Buccaneer' Blackwell - Mercenary fueled by pure violence
+
+**Voidborn Fleet (pirates 11-15):** Nomadic survivors who view piracy as efficient resource acquisition
+- **pirate-11** - Captain 'Vortex' Vash - Calculated leader who navigated gravitational death traps
+- **pirate-12** - Navigator 'Drift' Dax - Gravitational anomaly expert and escape route specialist
+- **pirate-13** - Engineer 'Salvage' Soren - Survivalist who keeps patchwork ships flying
+- **pirate-14** - Tactician 'Vector' Vega - Cold strategist who minimizes violence as inefficiency
+- **pirate-15** - Scout 'Wraith' Kara - Stealth infiltrator who strikes without detection
 
 ### Miners (10 agents)
 - **miner-1** - Preston 'Pickaxe' Porter (Nebula) - Enthusiastic optimist who loves hard work
@@ -150,7 +157,7 @@ Each role type includes 2 agents from each empire, ensuring diverse gameplay exp
 
 ### Pirate Crew Dynamics
 
-The pirate agents are organized into two rival crews for more interesting role-play scenarios:
+The pirate agents are organized into three rival crews for more interesting role-play scenarios:
 
 **Crimson Empire Crew (Redbeard's Fleet)**
 - Led by Captain 'Cutlass' Cross with Roger 'Redbeard' Robbins as veteran support
@@ -164,12 +171,20 @@ The pirate agents are organized into two rival crews for more interesting role-p
 - Value freedom, revenge, and personal loyalty over honor
 - Speech patterns reflect rough frontier slang and cynical worldviews
 
+**Voidborn Fleet (Vortex's Squadron)**
+- Led by Captain 'Vortex' Vash with Navigator 'Drift' Dax as pathfinder
+- Nomadic fleet survivors who view piracy as efficient resource acquisition
+- Practical and calculated—violence is wasteful when stealth achieves better results
+- Speech patterns are clipped, technical, and efficiency-focused with minimal theatrics
+
 **Crew Interactions**
-When agents from both crews operate in the same space:
-- Crimson pirates may look down on Outer Rim pirates as undisciplined
-- Outer Rim pirates view Crimson pirates as hypocritical and pretentious
-- Both crews compete for targets, territory, and reputation
+When agents from different crews operate in the same space:
+- Crimson pirates look down on Outer Rim pirates as undisciplined and Voidborn as scavengers
+- Outer Rim pirates view Crimson pirates as hypocritical pretenders and Voidborn as overly mechanical
+- Voidborn pirates see both Crimson and Outer Rim as inefficient and wasteful of resources
+- All three crews compete for targets, territory, and reputation
 - Occasional temporary alliances against common enemies (imperial navy)
+- Voidborn may ally temporarily with anyone who offers resources; Crimson and Outer Rim are more predictable in their alliances
 
 This crew structure creates natural conflict, alliances, and role-play opportunities between agents with different backgrounds, philosophies, and methods.
 

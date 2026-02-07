@@ -136,7 +136,7 @@ func TestStateClone_TravelProgress(t *testing.T) {
 
 func TestStateClone_NilTravelProgress(t *testing.T) {
 	original := &State{
-		Traveling:     false,
+		Traveling:      false,
 		TravelProgress: nil,
 	}
 

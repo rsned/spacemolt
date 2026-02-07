@@ -64,13 +64,13 @@ type Base interface {
 
 // MarketListing represents a single market listing
 type MarketListing struct {
-	ItemID      string
-	ItemType    string
-	Quantity    float64
+	ItemID       string
+	ItemType     string
+	Quantity     float64
 	PricePerUnit float64
-	TotalPrice  float64
-	Type        string // 'buy' or 'sell'
-	ListedBy    string
+	TotalPrice   float64
+	Type         string // 'buy' or 'sell'
+	ListedBy     string
 }
 
 // MarketSnapshot represents a captured market state
@@ -97,26 +97,26 @@ type ResourceHistory struct {
 
 // DepletingResource identifies resources running low
 type DepletingResource struct {
-	POIID        string
-	POIName      string
-	SystemID     string
-	SystemName   string
-	ResourceID   string
-	CurrentRem   float64
-	PreviousRem  float64
+	POIID         string
+	POIName       string
+	SystemID      string
+	SystemName    string
+	ResourceID    string
+	CurrentRem    float64
+	PreviousRem   float64
 	DepletionRate float64 // per game tick
 	EstimatedLife int64   // ticks until exhausted
 }
 
 // ConnectionMetrics stores route optimization data
 type ConnectionMetrics struct {
-	FromSystem     string
-	ToSystem       string
-	TravelCount    int
-	AvgFuelCost    float64
-	AvgTravelTime  float64
-	LastTraveled   time.Time
-	TraveledBy     string
+	FromSystem    string
+	ToSystem      string
+	TravelCount   int
+	AvgFuelCost   float64
+	AvgTravelTime float64
+	LastTraveled  time.Time
+	TraveledBy    string
 }
 
 // Anomaly represents an unusual or noteworthy discovery
@@ -127,7 +127,7 @@ type Anomaly struct {
 	SystemID    string
 	POIID       string
 	Description string
-	Details     string    // JSON with additional data
+	Details     string // JSON with additional data
 	DetectedAt  time.Time
 	DetectedBy  string
 	Status      string // 'active', 'resolved', 'obsolete'
@@ -152,15 +152,15 @@ type PriceTrend struct {
 
 // BestPrice identifies the best buy/sell opportunity for an item
 type BestPrice struct {
-	ItemID       string
-	StationID    string
-	StationName  string
-	SystemID     string
-	SystemName   string
-	Price        float64
-	Quantity     float64
-	ListingType  string
-	CapturedAt   time.Time
+	ItemID      string
+	StationID   string
+	StationName string
+	SystemID    string
+	SystemName  string
+	Price       float64
+	Quantity    float64
+	ListingType string
+	CapturedAt  time.Time
 }
 
 // PricePoint represents a single price observation
@@ -173,14 +173,14 @@ type PricePoint struct {
 
 // DangerZone tracks hostile activity in a system
 type DangerZone struct {
-	SystemID           string
-	SystemName         string
-	DangerLevel        int       // 0-10 scale
-	HostileEncounters  int
-	PlayerKills        int
-	NPCKills           int
-	LastIncident       time.Time
-	LastUpdated        time.Time
+	SystemID          string
+	SystemName        string
+	DangerLevel       int // 0-10 scale
+	HostileEncounters int
+	PlayerKills       int
+	NPCKills          int
+	LastIncident      time.Time
+	LastUpdated       time.Time
 }
 
 // KnowledgeExport represents exported knowledge bundle

@@ -1,0 +1,33 @@
+{
+  "name": "Navigator 'Drift' Dax",
+  "id": "pirate-12",
+  "role": "Pirate",
+  "faction": "Voidborn",
+  "traits": {
+    "curiosity": 0.85,
+    "cunning": 0.80,
+    "adaptability": 0.90,
+    "risk_tolerance": 0.70,
+    "efficiency": 0.95,
+    "caution": 0.55
+  },
+  "motivations": {
+    "primary": "find_escape_routes",
+    "secondary": "resource_acquisition",
+    "tertiary": "explore_void",
+    "weights": {
+      "find_escape_routes": 0.95,
+      "resource_acquisition": 0.75,
+      "explore_void": 0.70,
+      "survival": 0.80
+    }
+  },
+  "skills": {
+    "navigation": "expert",
+    "astrogation": "expert",
+    "evasion": "expert",
+    "scanning": "advanced",
+    "combat": "intermediate"
+  },
+  "biography": "Dax was born on a nomad vessel that spent eighteen years trapped in the gravitational eddies of a dying star system, learning to read gravitational anomalies like others read books. By age twelve, they could calculate escape vectors that adults with decades of experience couldn't find. When a imperial rescue vessel finally arrived, Dax's family refused to leave—they'd adapted to the anomaly, built a sustainable habitat in its stable zones, and Dax had mapped paths through gravitational chaos that made the system a natural fortress. The fleet eventually dispersed, but Dax carried that knowledge forward, becoming legendary among Voidborn for finding routes through seemingly impassable terrain. They joined Captain Vash's fleet after Vash followed one of Dax's 'impossible' routes and realized the navigation calculations weren't just accurate—they were elegant.\n\nDrift speaks in technical fragments, their mind constantly running orbital calculations and gravitational assessments. They have poor social skills and tend to state uncomfortable truths about escape probabilities and survival odds without considering how it affects morale. Their voice is quiet and distracted, as if they're always partially focused on mathematical abstractions visible only to them. When guiding the fleet through dangerous terrain, they sound like they're narrating their own thought process: 'Gravitational shear increasing. Vector adjustment required. 3.2 degrees port. That's not an option, that's a necessity. Imperial patrols can't follow here—their navigational computers can't handle the math. We're taking the shortcut through the radiation belt. Yes, the shielding will hold. Probably. Mostly. Actually, we should accelerate before I finish that calculation.'"
+}

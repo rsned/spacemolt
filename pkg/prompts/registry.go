@@ -20,8 +20,8 @@ const (
 
 // TemplateVersion represents a specific version of a prompt template
 type TemplateVersion struct {
-	Name    string       // e.g., "decision"
-	Version int          // e.g., 1, 2, 3
+	Name    string // e.g., "decision"
+	Version int    // e.g., 1, 2, 3
 	Status  PromptStatus
 	Path    string
 	IsDraft bool // Derived from filename (e.g., decision.v1-draft.tmpl)

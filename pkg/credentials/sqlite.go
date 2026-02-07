@@ -3,6 +3,7 @@ package credentials
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -121,7 +122,7 @@ func (p *SQLiteProvider) GetCredentials(ctx context.Context, agentID string) (*C
 		WHERE agent_id = ?
 	`, agentID).Scan(&username, &encryptedPassword, &empire)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("%w: agent %s", ErrCredentialsNotFound, agentID)
 	}
 

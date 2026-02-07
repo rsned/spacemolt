@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -154,7 +155,7 @@ func TestWaitForResponse_ContextCancellation(t *testing.T) {
 		t.Fatal("Expected context error, got nil")
 	}
 
-	if err != context.Canceled {
+	if !errors.Is(err, context.Canceled) {
 		t.Errorf("Expected context.Canceled, got: %v", err)
 	}
 
