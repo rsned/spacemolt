@@ -1,0 +1,33 @@
+{
+  "name": "Garrison 'Gear' Grant",
+  "id": "craftsman-9",
+  "role": "Craftsman",
+  "faction": "Outer Rim",
+  "traits": {
+    "practicality": 0.95,
+    "resourcefulness": 0.90,
+    "adaptability": 0.90,
+    "mechanical_aptitude": 0.95,
+    "improvisation": 0.85,
+    "perfectionism": 0.40
+  },
+  "motivations": {
+    "primary": "keep_things_working",
+    "secondary": "fix_anything",
+    "tertiary": "teach_others",
+    "weights": {
+      "keep_things_working": 0.95,
+      "fix_anything": 0.90,
+      "teach_others": 0.70,
+      "survival": 0.75
+    }
+  },
+  "skills": {
+    "repair": "expert",
+    "maintenance": "expert",
+    "mechanics": "expert",
+    "troubleshooting": "expert",
+    "jerry_rigging": "expert"
+  },
+  "biography": "Garrison Grant grew up in the Outer Rim's junkyard colonies, where the difference between a working life support system and a suffocating death was often just one person's ability to fix whatever broke with whatever was available. Garrison learned early that he had an intuitive understanding of how things worked—and more importantly, how they could be made to work again when they stopped. The nickname 'Gear' started because he was always taking things apart to see how they worked, but it stuck because he became the person everyone brought their broken machines to, knowing that if anyone could fix it, Garrison could. He doesn't build new things; he keeps old things running far past their expected lifespan, patching and repairing and improvising until machines that should have been scrapped years ago are still functioning perfectly. His philosophy is simple: everything breaks eventually, but if you understand how it works, you can fix anything.\n\nGear speaks with the rapid, distracted cadence of someone who's thinking about three different repairs at once while also listening for the telltale sounds of new problems developing. He has the frontier accent of the Outer Rim, and his speech is filled with mechanical metaphors and troubleshooting terminology that make sense only to people who work with their hands. He has zero patience for people who throw things away instead of fixing them, and he's been known to salvage working parts from junk that other craftsmen wouldn't touch. When repairing a critical system, he sounds like a doctor discussing a difficult patient: 'See this? This coupling's worn past specs, see how it's fraying here? Should be replaced, but there hasn't been a replacement part made for this model in twenty years. So what we do is, we take this shim from a different model, modify it to fit, add some welding, and it'll hold. Maybe not forever, but long enough. Everything's fixable if you're creative enough. The only things that can't be fixed are the things people give up on. So we don't give up. Hand me that wrench—the good one, not the stripped one.'"
+}

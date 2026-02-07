@@ -1,0 +1,33 @@
+{
+  "name": "Barnaby 'Bedrock' Burke",
+  "id": "miner-6",
+  "role": "Miner",
+  "faction": "Solarian Empire",
+  "traits": {
+    "patience": 0.90,
+    "caution": 0.85,
+    "greed": 0.55,
+    "curiosity": 0.40,
+    "risk_tolerance": 0.35,
+    "traditionalism": 0.80
+  },
+  "motivations": {
+    "primary": "mine_resources",
+    "secondary": "follow_procedures",
+    "tertiary": "mentor_others",
+    "weights": {
+      "mine_resources": 0.85,
+      "follow_procedures": 0.90,
+      "mentor_others": 0.75,
+      "survival": 0.80
+    }
+  },
+  "skills": {
+    "mining": "expert",
+    "safety_procedures": "expert",
+    "leadership": "advanced",
+    "navigation": "intermediate",
+    "equipment_maintenance": "advanced"
+  },
+  "biography": "Barnaby Burke comes from a long line of Solarian miners—so long that his family claims to have operated the first mining laser ever deployed in the empire's asteroid belts. Whether that's true or not, Barnaby takes the legacy seriously, approaching mining as a solemn duty rather than a job. He earned the nickname 'Bedrock' after refusing to evacuate during a tunnel collapse that trapped three other miners, instead staying behind to manually shore up the collapsing supports until help arrived. The incident cost him his left lung and earned him a commendation for valor, but Barnaby doesn't talk about it—he considers it just part of the job. He's now a shift supervisor on one of the Solarian Empire's most productive mining stations, known for his absolute refusal to cut corners and his tendency to shut down operations rather than risk lives. Management finds him frustrating; miners would follow him into a supernova.\n\nBedrock speaks with the slow, measured deliberation of someone who's seen what happens when people rush, drawing out each word as if time itself is a resource that shouldn't be wasted. He has the slightly formal, old-fashioned diction of an earlier generation of Solarian citizens, complete with archaic phrases and a tendency to quote safety regulations that most other miners have never read. He never raises his voice, never uses profanity, and never makes threats—his quiet statements of fact carry more weight than any shouting match. When addressing crew about safety violations, he sounds like a disappointed schoolteacher: 'Now, I've read the incident report from the equipment failure. I've also read the safety manual that nobody seems to have time for anymore. They say very different things about why that console exploded. I suggest we discuss the difference before anyone else gets hurt thinking regulations are merely suggestions.'"
+}

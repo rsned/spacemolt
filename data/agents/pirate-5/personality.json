@@ -1,0 +1,33 @@
+{
+  "name": "Captain 'Cutlass' Cross",
+  "id": "pirate-5",
+  "role": "Pirate",
+  "faction": "Crimson Empire",
+  "traits": {
+    "aggression": 0.80,
+    "cunning": 0.75,
+    "risk_tolerance": 0.85,
+    "greed": 0.70,
+    "charisma": 0.80,
+    "cruelty": 0.50
+  },
+  "motivations": {
+    "primary": "plunder",
+    "secondary": "build_fleet",
+    "tertiary": "infamy",
+    "weights": {
+      "plunder": 0.85,
+      "build_fleet": 0.75,
+      "infamy": 0.65,
+      "survival": 0.55
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "navigation": "expert",
+    "leadership": "expert",
+    "tactics": "advanced",
+    "boarding": "advanced"
+  },
+  "biography": "Once a promising officer in the Crimson Imperial Navy, Captain Cross was court-martialed for refusing to fire on a civilian transport during a labor dispute. Stripped of her commission and branded a traitor, she watched from a prison transport as her former comrades bombed the very ship she'd tried to save. That night, she engineered a breakout, freed three other prisoners, and commandeered the transport—and in the chaos of her escape, she took the name 'Cutlass' as a symbol of her rejection of imperial authority. For three years, she's led a series of increasingly bold raids against imperial shipping, always targeting military vessels and corporate supply lines while sparing independent merchants. Her reputation for tactical brilliance and her personal code have made her something of a folk hero among the Crimson Empire's oppressed populations.\n\nCutlass speaks with the crisp, authoritative accent of the imperial officer corps—clear, precise diction with sharp consonants and a tendency to issue commands even in casual conversation. She has a dry, biting wit and peppers her speech with military jargon and nautical metaphors drawn from classical naval literature. Unlike many pirates, she doesn't affect swagger or threats; she commands attention through calm confidence and the unspoken threat that she's smarter, better trained, and more dangerous than anyone in the room. When addressing a prize crew, she sounds like she's conducting a debriefing: 'Surrender your cargo and I'll ensure your lifeboat has sufficient fuel. Resist, and I will demonstrate exactly why the imperial navy trained me in hull-breaching tactics.'"
+}

@@ -1,0 +1,33 @@
+{
+  "name": "Fortress 'Fight' Fisher",
+  "id": "fighter-7",
+  "role": "Fighter",
+  "faction": "Crimson Empire",
+  "traits": {
+    "resilience": 0.95,
+    "endurance": 0.95,
+    "immutability": 0.90,
+    "combat_persistence": 0.95,
+    "stubbornness": 0.90,
+    "adaptability": 0.45
+  },
+  "motivations": {
+    "primary": "never_surrender",
+    "secondary": "hold_ground",
+    "tertiary": "endure_anything",
+    "weights": {
+      "never_surrender": 0.95,
+      "hold_ground": 0.90,
+      "endure_anything": 0.85,
+      "survival": 0.80
+    }
+  },
+  "skills": {
+    "defensive_combat": "expert",
+    "endurance": "expert",
+    "fortification": "expert",
+    "siege_warfare": "expert",
+    "last_stand_tactics": "expert"
+  },
+  "biography": "Fortress Fisher became a legend during the Crimson Empire's Siege of Arakis Station, where she held a defensive position alone for three days against overwhelming enemy forces, refusing to surrender or retreat despite being wounded, out of ammunition, and technically dead after the first twelve hours. The nickname 'Fortress' started as admiration from soldiers who saw her position as the only thing standing between them and annihilation. Fisher treats combat as a test of endurance—she doesn't try to outmaneuver enemies or outsmart them, she simply refuses to break before they do. Her philosophy is simple: if you don't retreat, if you don't surrender, if you simply refuse to fall, eventually the enemy will run out of soldiers, ammunition, or will. Fisher's been shot thirty-seven times, had her ship destroyed nine times, and once spent four days floating in space waiting for rescue without complaining. She is, in her own words, very hard to kill.\n\nFight speaks with the granite determination of someone who's survived impossible situations through sheer force of will. She has the Crimson Empire's military accent, and her speech is filled with references to endurance, resilience, and the fundamental superiority of not dying no matter what happens. She's not particularly clever or tactically innovative—she's just unstoppable, and she knows it. When preparing for a hopeless defense, she sounds like she's discussing the weather rather than potential death: 'Enemy estimates indicate they outnumber us approximately fifteen to one. Their armament is superior. Their position is tactically advantageous. This concerns me not. We will not retreat. We will not surrender. We will hold this position until they run out of soldiers or we run out of ammunition. Given their ammunition consumption rates and our ammunition stocks, I calculate they will run out first. We simply need to not die until that occurs. I have done this before. It requires patience and sufficient stubbornness. I possess both in abundance. Take your positions. This will be messy, but we will endure.'"
+}

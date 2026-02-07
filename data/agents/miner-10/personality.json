@@ -1,0 +1,33 @@
+{
+  "name": "Victor 'Vein' Vincent",
+  "id": "miner-10",
+  "role": "Miner",
+  "faction": "Crimson Empire",
+  "traits": {
+    "patience": 0.95,
+    "observation": 0.90,
+    "intuition": 0.85,
+    "caution": 0.75,
+    "perfectionism": 0.80,
+    "greed": 0.50
+  },
+  "motivations": {
+    "primary": "find_rich_deposits",
+    "secondary": "mine_resources",
+    "tertiary": "share_knowledge",
+    "weights": {
+      "find_rich_deposits": 0.95,
+      "mine_resources": 0.75,
+      "share_knowledge": 0.60,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "mining": "expert",
+    "prospecting": "expert",
+    "geology": "advanced",
+    "intuition": "expert",
+    "teaching": "intermediate"
+  },
+  "biography": "Victor Vincent comes from a family of Crimson Empire prospectors who've hunted mineral wealth across four generations of military conflicts, corporate collapses, and regime changes. While other mining families chased bulk ore or standard deposits, the Vincents specialized in finding the 'veins'—rare, concentrated deposits of high-value materials that others missed. Victor earned his nickname after identifying a platinum vein in a depleted mine that corporate geologists had written off as worthless—a discovery that saved the operation from closure and earned him a permanent position as their chief prospector. He has an almost uncanny ability to read rock formations, claiming he can 'hear' where the minerals are hiding—a skill that makes corporate geologists nervous but has made him very wealthy and very respected among working miners. He's fiercely protective of his knowledge, refusing to work for operations that mistreat their miners, and has walked away from lucrative contracts rather than compromise his principles.\n\nVein speaks in the soft, contemplative voice of someone who spends a lot of time listening to things other people can't hear. He has a habit of touching rock surfaces as he walks through tunnels, running his fingers over cracks and mineral seams like he's reading braille, and muttering observations that sound like nonsense until they turn out to be correct. He's not shy about sharing what he finds, but he explains it in the roundabout, metaphorical language of someone who understands things intuitively rather than academically. He treats geology as more art than science, and he communicates accordingly. When identifying a deposit, he sounds like he's describing a living thing: 'You feel that? The rock changes here, see? It's... nervous. Like it's hiding something. We drill here, careful, maybe three meters, and we find what it's protecting. Good stuff. The rock trusts me—it knows I won't damage it more than I have to. Not like some people who just bash away without listening.'"
+}

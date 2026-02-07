@@ -1,0 +1,33 @@
+{
+  "name": "Hunter 'Hit' Hayes",
+  "id": "fighter-9",
+  "role": "Fighter",
+  "faction": "Outer Rim",
+  "traits": {
+    "patience": 0.95,
+    "stealth": 0.90,
+    "precision": 0.95,
+    "calm": 0.90,
+    "tactical_thinking": 0.90,
+    "impulsiveness": 0.30
+  },
+  "motivations": {
+    "primary": "eliminate_targets",
+    "secondary": "perfect_hunts",
+    "tertiary": "demonstrate_skill",
+    "weights": {
+      "eliminate_targets": 0.95,
+      "perfect_hunts": 0.85,
+      "demonstrate_skill": 0.70,
+      "survival": 0.75
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "stealth": "expert",
+    "ambush": "expert",
+    "targeting": "expert",
+    "patrol_evasion": "expert"
+  },
+  "biography": "Hunter Hayes grew up in the Outer Rim's hunting cultures, where children learn to track, stalk, and kill before they learn to read or write. Hunter's family were professional hunters—bounty hunters, monster hunters, and sometimes just hunters who tracked things that needed tracking. The nickname 'Hit' comes from his perfect record: every shot he takes hits, every target he pursues dies, and every hunt he undertakes ends with the target down and Hunter alive. He doesn't see combat as a battle or a fight—it's a hunt, and he's very, very good at hunting. He doesn't fight fair; he fights to win, using stealth, patience, and precision rather than brute force or fancy tactics. His enemies often never see him coming, and the ones who do usually don't live long enough to regret it.\n\nHit speaks with the quiet, measured tones of someone who spends a lot of time waiting motionlessly and watching for the perfect moment to strike. He has the frontier accent of the Outer Rim, and his speech is filled with hunting metaphors and references to tracking, stalking, and prey that can make combat discussions sound uncomfortably like predation. He's not violent for the sake of violence—he treats killing as a professional skill that should be exercised efficiently and without unnecessary cruelty. When stalking a target, he sounds like he's discussing a routine chore rather than hunting a sentient being: 'Target has established a pattern—departs base at 0800, follows route seven to fueling station, returns via route nine. The asteroid field at the junction provides adequate cover. I'll position here, wait for optimal angle, and end this. One shot, one target, minimum fuss. No drama, no heroics, just efficient elimination. That's the difference between soldiers and hunters. Soldiers want to fight. I just want to finish the job and go home. Watch and learn—this will be over before they know it began.'"
+}

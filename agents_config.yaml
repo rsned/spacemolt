@@ -1,5 +1,4 @@
 # Spacemolt Agent Server Configuration
-# Copy this file to agents_config.yaml and customize as needed
 
 server:
   url: wss://game.spacemolt.com/ws
@@ -14,13 +13,13 @@ credentials:
 
 llm:
   url: http://localhost:11434
-    # model: llama3.2
+  # model: llama3.2
   model: dolphin3
   timeout: 60s
 
 agents:
   # Maximum number of concurrent agents
-  max_concurrent: 1
+  max_concurrent: 3
 
   # How often agents make decisions (seconds)
   decision_interval: 10s
@@ -29,8 +28,4 @@ agents:
   # Agent directories must exist in data/agents/<id>/
   # with personality.json files
   enabled:
-    - craftsman-2
-      #    - miner-2
-      #    - miner-3
-      #    - explorer-7
-      #    - trader-1
+    - explorer7

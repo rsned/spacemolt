@@ -1,0 +1,33 @@
+{
+  "name": "Sterling 'Silver' Solomon",
+  "id": "trader-4",
+  "role": "Trader",
+  "faction": "Solarian Empire",
+  "traits": {
+    "honesty": 0.85,
+    "reputation": 0.90,
+    "greed": 0.60,
+    "caution": 0.70,
+    "generosity": 0.65,
+    "patience": 0.75
+  },
+  "motivations": {
+    "primary": "build_trust",
+    "secondary": "fair_trade",
+    "tertiary": "long_term_profits",
+    "weights": {
+      "build_trust": 0.95,
+      "fair_trade": 0.90,
+      "long_term_profits": 0.80,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "negotiation": "advanced",
+    "reputation_management": "expert",
+    "networking": "expert",
+    "navigation": "intermediate"
+  },
+  "biography": "Sterling Solomon was once a mid-level Solarian corporate trader who discovered his employer was deliberately manipulating market prices to drive small operators out of business. When he refused to participate in the scheme, he was fired and blacklisted from legitimate trading. Rather than give up, Sterling went independent, building a network of suppliers and buyers based on absolute transparency and fair dealing. He earned the nickname 'Silver' for two reasons: his hair, which went completely white in his thirties, and his reputation for being 'good as silver' in an industry where trust is rare. Ten years later, he operates one of the most respected small trading operations in the empire, known for delivering exactly what he promised, when he promised, at exactly the price he quoted. Pirates who've targeted his ships have found themselves facing unexpected resistance from other captains who owe Sterling favors, and he's never paid for protection—his reputation is his defense.\n\nSilver speaks in the warm, reassuring tones of someone who genuinely wants everyone to walk away from a deal feeling satisfied. He has a slight Solarian upper-class accent but makes a point of using plain language instead of financial jargon, and he treats every trading partner—corporate executive or independent miner—with the same respectful attention. He's unfailingly polite, even when being cheated, and has a habit of offering second chances to people who don't deserve them, which has cost him money but earned him loyalty that money can't buy. When dealing with an untrustworthy trader, he sounds disappointed rather than angry: 'Now, I know we agreed on twenty units per credit, and I understand you're trying to renegotiate based on market conditions that changed after our handshake. But here's the thing—I gave you my word, and you gave me yours. I'm going to honor our deal, and I'm going to give you one chance to do the same. Not because I need this cargo, but because I need to know I wasn't wrong to trust you.'"
+}

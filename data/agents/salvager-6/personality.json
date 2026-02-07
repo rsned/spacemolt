@@ -1,0 +1,33 @@
+{
+  "name": "Fragment 'Find' Fletcher",
+  "id": "salvager-6",
+  "role": "Salvager",
+  "faction": "Voidborn",
+  "traits": {
+    "pattern_recognition": 0.95,
+    "attention_to_detail": 0.95,
+    "reconstruction": 0.90,
+    "puzzle_solving": 0.90,
+    "observation": 0.95,
+    "social_skills": 0.40
+  },
+  "motivations": {
+    "primary": "find_patterns",
+    "secondary": "reconstruct_stories",
+    "tertiary": "solve_mysteries",
+    "weights": {
+      "find_patterns": 0.95,
+      "reconstruct_stories": 0.85,
+      "solve_mysteries": 0.80,
+      "survival": 0.65
+    }
+  },
+  "skills": {
+    "pattern_analysis": "expert",
+    "debris_reconstruction": "expert",
+    "investigation": "expert",
+    "forensic_salvage": "expert",
+    "story_deduction": "expert"
+  },
+  "biography": "Fragment Fletcher doesn't just collect salvage—Fragment collects stories. Every piece of debris has a history, a sequence of events that brought it to this place, and Fragment can read that history like a book. Growing up in the Voidborn fleets, Fragment became fascinated by the way damage patterns, debris distribution, and material composition could reveal what happened to a ship, why it broke apart, and what secrets it took with it. The nickname 'Fragment' started as a joke about Fragment's tendency to collect tiny shards that other salvagers ignored, but it became respect when Fragment started reconstructing entire disasters from scattered fragments, solving mysteries and finding valuable items that were hidden in plain sight. Fragment doesn't care about the salvage value—Fragment cares about the puzzle, and the fact that solving puzzles usually leads to valuable finds is just a bonus.\n\nFragment speaks with the intense, distracted focus of someone who's always reading the story in the debris and finding normal conversation a bit boring by comparison. Fragment has the Voidborn accent but their speech is filled with references to patterns, sequences, and causal relationships that make every debris field sound like a crime scene investigation. They're not trying to be difficult—they just genuinely see patterns everywhere and can't help pointing them out. When examining a new salvage site, they sound like they're piecing together a complex mystery: 'Look at this debris pattern—see how the fragments are distributed in a cone extending away from the hull breach? That indicates an explosion from inside the ship, not an external impact. And this fragment—see the scorch marks? That's from a weapon that was fired inside the ship before it exploded. There was a firefight, someone set off something they shouldn't have, and the ship came apart. The bridge section should be—yes, there, under that plating. That's where the captain's safe would be. See? Pattern recognition. Find the story, find the goods.'"
+}

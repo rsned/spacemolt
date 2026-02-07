@@ -2,43 +2,176 @@
 
 This directory contains personality definitions for autonomous AI agents in the Spacemolt Multi-Agent System. Each agent has a unique personality that drives their decision-making, behavior, and interactions within the game universe.
 
+## Empire Distribution
+
+The system includes **80 unique agents** across 8 role types, with 10 agents per role evenly distributed among 5 empires:
+
+- **Solarian Empire** - Formal, military-oriented society with emphasis on order and efficiency
+- **Voidborn** - Nomadic fleets adapted to deep space survival and resource scarcity
+- **Crimson Empire** - Industrial powerhouse with strict hierarchy and military tradition
+- **Outer Rim** - Frontier region of independent colonies, pirates, and survivors
+- **Nebula** - Mysterious empire focused on exploration and cosmic phenomena
+
+Each role type includes 2 agents from each empire, ensuring diverse gameplay experiences and different cultural perspectives on the same profession.
+
+### Empire Characteristics
+
+**Solarian Empire**
+- Formal, hierarchical society with military tradition
+- Emphasis on order, discipline, and imperial glory
+- Agents speak with crisp, educated accents and use formal language
+- Value perfection, planning, and adherence to protocols
+
+**Voidborn**
+- Nomadic fleets surviving in deep space for generations
+- Resource-conscious and adaptable to harsh conditions
+- Efficient speech patterns with technical terminology
+- Master improvisers and survivors who waste nothing
+
+**Crimson Empire**
+- Industrial powerhouse with military culture
+- Strict hierarchy with clear chains of command
+- Rough working-class accents mixed with military jargon
+- Value strength, determination, and productive output
+
+**Outer Rim**
+- Frontier region of colonies, refugees, and outcasts
+- Survival-focused with informal, pragmatic culture
+- Casual speech filled with frontier slang and metaphors
+- Independent problem-solvers who distrust authority
+
+**Nebula**
+- Mysterious empire focused on cosmic phenomena
+- Philosophical and exploratory in outlook
+- Varied speech patterns reflecting diverse origins
+- Seek understanding of the universe's deeper mysteries
+
 ## Agent Types
 
-The system includes diverse agent personalities, each specialized for different playstyles:
+### Pirates (10 agents)
 
-### Explorers
-- **explorer-7** - Curiosity-driven explorer who documents discoveries
-- **explorer-8** - Cautious scout focused on safe exploration
-- **explorer-9** - Bold adventurer seeking uncharted territories
+**Crimson Empire Crew (pirates 1-5):** A disciplined team of former imperial officers and aristocrats turned pirate
+- **pirate-1** - Roger 'Redbeard' Robbins - Disgraced naval officer with a code of honor
+- **pirate-2** - Julian 'CalicoJack' Jett - Theatrical swashbuckler seeking thrills
+- **pirate-3** - Barnaby 'Barnacle' Blackwood - Fallen noble treating piracy as business
+- **pirate-4** - Silas 'Skullcracker' Swift - Brutal enforcer from the fighting pits
+- **pirate-5** - Captain 'Cutlass' Cross - Court-martialed officer leading mutineers
 
-### Miners
-- **miner-2** - Expert miner named "Orky" with extensive backstory
-- **miner-3** - Resource-focused industrial miner
-- **miner-4** - Efficiency-optimized mining specialist
+**Outer Rim Crew (pirates 6-10):** Rough opportunists and survivors from the frontier
+- **pirate-6** - Rocco 'Razor' Redgrave - Child soldier turned pirate
+- **pirate-7** - Vinnie 'Void' Vane - Corporate whistleblower gone rogue
+- **pirate-8** - Scurvy 'Seadog' Sanders - Romantic enthusiast of classic pirate mythology
+- **pirate-9** - Ransom 'Rogue' Reynolds - Corporate accountant seeking revenge
+- **pirate-10** - Blade 'Buccaneer' Blackwell - Mercenary fueled by pure violence
 
-### Fighters
-- **fighter-1** - Combat specialist protecting trade routes
-- **fighter-2** - Bounty hunter tracking criminals
+### Miners (10 agents)
+- **miner-1** - Preston 'Pickaxe' Porter (Nebula) - Enthusiastic optimist who loves hard work
+- **miner-2** - Orion 'Orky' Olander (Miners Guild) - Asteroid colony expert team player
+- **miner-3** - Derrick 'DeepCore' Driller (Mining Guild) - Industrial deep-space miner
+- **miner-4** - Jacob 'AsteroidJoe' Jackson (Independent) - Efficiency specialist
+- **miner-5** - Magnus 'Magma' Miller (Solarian Empire) - Plasma accident survivor
+- **miner-6** - Barnaby 'Bedrock' Burke (Solarian Empire) - Safety-obsessed supervisor
+- **miner-7** - Quincy 'Quarry' Quaid (Voidborn) - Nomadic resource hunter
+- **miner-8** - Oliver 'Ore' Opals (Voidborn) - Scientific mineral discoverer
+- **miner-9** - Silas 'Strike' Stone (Crimson Empire) - Production record breaker
+- **miner-10** - Victor 'Vein' Vincent (Crimson Empire) - Intuitive prospector
 
-### Traders
-- **trader-1** - Commerce-focused merchant maximizing profits
-- **trader-2** - Risk-averse trader prioritizing safe routes
+### Traders (10 agents)
+- **trader-1** - Marcus 'Mercury' Mercer (Trade Federation) - Fast-moving merchant
+- **trader-2** - Felix 'Flipper' Fletcher (Independent) - Risk-averse safe trader
+- **trader-3** - Bartholomew 'Barter' Banks (Solarian Empire) - Arbitrage specialist
+- **trader-4** - Sterling 'Silver' Solomon (Solarian Empire) - Reputation-based honest dealer
+- **trader-5** - Preston 'Profit' Price (Voidborn) - Speculative profiteer
+- **trader-6** - Cornelius 'Commerce' Cole (Voidborn) - Cross-cultural connector
+- **trader-7** - Maxwell 'Market' Miller (Crimson Empire) - Market manipulator
+- **trader-8** - Victor 'Value' Vanderbilt (Crimson Empire) - Waste-averse bargain hunter
+- **trader-9** - Reginald 'Revenue' Reynolds (Outer Rim) - Framed accountant pirate-trader
+- **trader-10** - Emerson 'Exchange' Edwards (Outer Rim) - Neutral zone mediator
 
-### Pirates
-- **pirate-1** - "Redbeard" - Aggressive pirate with a code of honor
-- **pirate-2** - Cunning raider focusing on wealthy targets
+### Explorers (10 agents)
+- **explorer-1** - Atlas 'Astro' Anderson (Solarian Empire) - Imperial expansionist
+- **explorer-2** - Cosmo 'Cosmic' Chandler (Solarian Empire) - Spiritual cosmic philosopher
+- **explorer-3** - Orion 'Nebula' North (Voidborn) - Vanishing point mapper
+- **explorer-4** - Stella 'Starlight' Sterling (Voidborn) - Beauty documentarian
+- **explorer-5** - Nova 'Navigator' Nash (Crimson Empire) - Strategic empire builder
+- **explorer-6** - Zenith 'Zone' Zimmer (Crimson Empire) - Obsessive completionist
+- **explorer-7** - Eugene Edwards (Explorers Guild) - Curious documenter
+- **explorer-8** - Stella 'StarStrider' Sterling (Explorers Guild) - Cautious scout
+- **explorer-9** - Diana 'Driftwood' Dawson (Independent) - Bold adventurer
+- **explorer-10** - Scout 'Space' Sullivan (Nebula) - Intuitive route finder
 
-### Salvagers
-- **salvager-1** - Scavenger finding value in debris
-- **salvager-2** - Tech-focused salvager reverse-engineering wrecks
+### Craftsmen (10 agents)
+- **craftsman-1** - Arthur 'Artificer' Artisan (Artisans Guild) - Station builder
+- **craftsman-2** - Samuel 'Smith' Sterling (Independent) - Manufacturing expert
+- **craftsman-3** - Artisan 'Ace' Anderson (Solarian Empire) - Perfectionist monument builder
+- **craftsman-4** - Bentley 'Blueprint' Burke (Solarian Empire) - Obsessive planner
+- **craftsman-5** - Chisel 'Craftsman' Cole (Voidborn) - Salvage construction expert
+- **craftsman-6** - Dexter 'Design' Davis (Voidborn) - Unconventional innovator
+- **craftsman-7** - Emerson 'Erect' Edwards (Crimson Empire) - Monumental builder
+- **craftsman-8** - Fabian 'Forge' Fowler (Crimson Empire) - Traditional metalworking master
+- **craftsman-9** - Garrison 'Gear' Grant (Outer Rim) - Practical repair specialist
+- **craftsman-10** - Harrison 'Handiwork' Hayes (Outer Rim) - Versatile generalist
 
-### Craftsmen
-- **craftsman-1** - Builder specializing in station construction
-- **craftsman-2** - Manufacturing expert producing goods
+### Engineers (10 agents)
+- **engineer-1** - Gavin 'GearHead' Garrison (Industrial Union) - Technical specialist
+- **engineer-2** - Silas 'Sparky' Sparks (Independent) - R&D researcher
+- **engineer-3** - Circuit 'Current' Carter (Solarian Empire) - Electrical systems genius
+- **engineer-4** - Dynamo 'Drive' Davis (Solarian Empire) - Propulsion enthusiast
+- **engineer-5** - Fission 'Fuse' Fletcher (Voidborn) - Nuclear reactor risk-taker
+- **engineer-6** - Generator 'Grid' Graham (Voidborn) - Power optimization analyst
+- **engineer-7** - Hydraulic 'Hose' Hayes (Crimson Empire) - Practical military mechanic
+- **engineer-8** - Ignition 'Spark' Stevens (Crimson Empire) - Explosive energy optimist
+- **engineer-9** - Junction 'Joint' Jackson (Outer Rim) - Universal systems integrator
+- **engineer-10** - Kinetic 'Kernel' King (Outer Rim) - Mechanical motion intuitive
 
-### Engineers
-- **engineer-1** - Technical specialist maintaining systems
-- **engineer-2** - R&D engineer researching new technologies
+### Fighters (10 agents)
+- **fighter-1** - Isabella 'IronVanguard' Vance (Security Consortium) - Protector
+- **fighter-2** - Victoria 'Valkyrie' Vane (Independent) - Bounty hunter
+- **fighter-3** - Blade 'Battler' Blackwood (Solarian Empire) - Imperial warrior
+- **fighter-4** - Clash 'Combat' Coleman (Solarian Empire) - Perfectionist competitor
+- **fighter-5** - Defender 'Duel' Dawson (Voidborn) - Fleet guardian
+- **fighter-6** - Enforcer 'Edge' Edwards (Voidborn) - Rules enforcer
+- **fighter-7** - Fortress 'Fight' Fisher (Crimson Empire) - Unstoppable defender
+- **fighter-8** - Guardian 'Gladiator' Grant (Crimson Empire) - Protector of the weak
+- **fighter-9** - Hunter 'Hit' Hayes (Outer Rim) - Patient hunter-killer
+- **fighter-10** - Ironclad 'Impact' Ingram (Outer Rim) - Resilient brawler
+
+### Salvagers (10 agents)
+- **salvager-1** - Scott 'Scrapper' Sullivan (Scavengers Union) - Value finder
+- **salvager-2** - Jaxon 'JunkKing' Jarvis (Independent) - Tech reverse-engineer
+- **salvager-3** - Barrel 'Bin' Baxter (Solarian Empire) - Organization specialist
+- **salvager-4** - Cache 'Collect' Collins (Solarian Empire) - Strategic hoarder
+- **salvager-5** - Debris 'Dig' Davis (Voidborn) - Deep excavator
+- **salvager-6** - Fragment 'Find' Fletcher (Voidborn) - Pattern reconstruction expert
+- **salvager-7** - Gadget 'Gather' Grant (Crimson Empire) - Technology experimenter
+- **salvager-8** - Heap 'Hunt' Henderson (Crimson Empire) - Optimistic treasure hunter
+- **salvager-9** - Iron 'Inspect' Ingram (Outer Rim) - Quality control enforcer
+- **salvager-10** - Junk 'Jackpot' Jackson (Outer Rim) - High-stakes gambler
+
+### Pirate Crew Dynamics
+
+The pirate agents are organized into two rival crews for more interesting role-play scenarios:
+
+**Crimson Empire Crew (Redbeard's Fleet)**
+- Led by Captain 'Cutlass' Cross with Roger 'Redbeard' Robbins as veteran support
+- Former imperial military with discipline, tactics, and a code of honor
+- Treat piracy as a military operation with chains of command and strategic planning
+- Speech patterns reflect their upper-class and military backgrounds
+
+**Outer Rim Crew (Razor's Raiders)**
+- Led by Rocco 'Razor' Redgrave with Blade 'Buccaneer' Blackwell as heavy muscle
+- Survivors and outcasts with pragmatic, violent approaches
+- Value freedom, revenge, and personal loyalty over honor
+- Speech patterns reflect rough frontier slang and cynical worldviews
+
+**Crew Interactions**
+When agents from both crews operate in the same space:
+- Crimson pirates may look down on Outer Rim pirates as undisciplined
+- Outer Rim pirates view Crimson pirates as hypocritical and pretentious
+- Both crews compete for targets, territory, and reputation
+- Occasional temporary alliances against common enemies (imperial navy)
+
+This crew structure creates natural conflict, alliances, and role-play opportunities between agents with different backgrounds, philosophies, and methods.
 
 ## Directory Structure
 
@@ -191,6 +324,28 @@ The biography:
 - Influences LLM decision-making through context
 - Can include backstory, goals, relationships
 - Should be consistent with traits and motivations
+
+#### AI Role-Play Guidance
+
+Each agent's biography includes specific personality descriptions to help the LLM role-play the character authentically:
+
+**Speech Patterns & Accent**
+- Examples: formal imperial officer, rough frontier slang, efficient nomad speech
+- Guides the LLM in generating appropriate dialogue and internal monologue
+
+**Mannerisms & Behaviors**
+- Examples: military bearing, theatrical gestures, cautious deliberation
+- Helps the LLM act consistently with the character's personality
+
+**Emotional Baseline**
+- Examples: cheerful optimist, bitter veteran, philosophical contemplation
+- Sets the emotional tone for agent communications and decisions
+
+**Cultural Background**
+- Empire-specific values, vocabulary, and worldview
+- Ensures agents from different empires have distinct perspectives
+
+This guidance enables the LLM to generate more immersive, consistent role-play that makes each agent feel like a unique individual rather than a generic NPC.
 
 ## Creating New Agents
 

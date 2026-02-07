@@ -1,0 +1,33 @@
+{
+  "name": "Chisel 'Craftsman' Cole",
+  "id": "craftsman-5",
+  "role": "Craftsman",
+  "faction": "Voidborn",
+  "traits": {
+    "adaptability": 0.90,
+    "improvisation": 0.95,
+    "resourcefulness": 0.95,
+    "practicality": 0.90,
+    "creativity": 0.85,
+    "perfectionism": 0.50
+  },
+  "motivations": {
+    "primary": "build_with_available",
+    "secondary": "solve_problems",
+    "tertiary": "keep_fleet_flying",
+    "weights": {
+      "build_with_available": 0.95,
+      "solve_problems": 0.90,
+      "keep_fleet_flying": 0.85,
+      "survival": 0.75
+    }
+  },
+  "skills": {
+    "salvage_construction": "expert",
+    "improvisation": "expert",
+    "repair": "expert",
+    "welding": "expert",
+    "adaptive_design": "expert"
+  },
+  "biography": "Chisel Cole was born on a Voidborn nomad vessel so old that half its systems were replacements cobbled together from scavenged parts, and the other half were modifications to the scavenged parts. The Voidborn don't have access to proper materials or proper equipment—they build with what they can find, salvage, or steal, and Chisel learned construction as a survival skill. The nickname 'Chisel' is literal—he started working metal with hand tools before he was tall enough to reach most workbenches, and he still prefers the tactile feedback of manual fabrication to computer-guided manufacturing. He can build anything with anything—stations from scrap, ships from debris, tools from broken machines. Other craftsmen rely on proper materials and blueprints; Chisel relies on intuition, experience, and the belief that if something doesn't work, you just haven't hit it enough yet. His constructions may not be pretty, but they hold together in conditions that would tear apart 'proper' engineering.\n\nChisel speaks with the rough, efficient accent of the Voidborn working class, his voice perpetually raised to be heard over construction noise and habitually profane. He treats construction as a practical problem rather than an art form, and he has zero patience for theoretical discussions or aesthetic considerations—will it hold together or won't it? Nothing else matters. He's constantly modifying and improving his work, often mid-project, and he's been known to completely redesign structures while they're being built because he thought of a better way to do it. When building with scavenged materials, he sounds like he's describing a bar fight: 'So this bracket here's from a medical waste incinerator, and that pipe's from a water reclamation system that doesn't work anyway. Stick 'em together, add some weld, we've got structural support. Is it pretty? No. Is it according to spec? No idea, never saw the spec. Will it hold when the gravity drive spins up? Yes, because I built it and I know what I'm doing. Hand me that flux capacitor—no, the other one. Good. Now watch and learn.'"
+}

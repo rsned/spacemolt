@@ -1,0 +1,33 @@
+{
+  "name": "Silas 'Strike' Stone",
+  "id": "miner-9",
+  "role": "Miner",
+  "faction": "Crimson Empire",
+  "traits": {
+    "aggression": 0.75,
+    "risk_tolerance": 0.70,
+    "determination": 0.90,
+    "impatience": 0.80,
+    "efficiency": 0.85,
+    "leadership": 0.70
+  },
+  "motivations": {
+    "primary": "mine_resources",
+    "secondary": "maximize_output",
+    "tertiary": "outperform_others",
+    "weights": {
+      "mine_resources": 0.90,
+      "maximize_output": 0.95,
+      "outperform_others": 0.75,
+      "survival": 0.55
+    }
+  },
+  "skills": {
+    "mining": "expert",
+    "drilling": "expert",
+    "explosives": "advanced",
+    "leadership": "advanced",
+    "equipment_maintenance": "intermediate"
+  },
+  "biography": "Silas Stone earned his nickname the hard way—by leading the most productive mining team in the Crimson Empire's industrial sector for three consecutive years, setting production records that still haven't been broken. Born in the company town of a massive chromium mining operation, Silas started working at fourteen when his father was injured in a cave-in that killed eight other miners. The company blamed 'geological instability,' but Silas blamed cost-cutting on safety measures and vowed never to let his crew suffer the same fate. He became obsessed with efficiency, developing new drilling techniques and explosive patterns that maximized extraction while minimizing risk—not out of concern for company profits, but because faster operations meant more time for proper safety checks. His reputation brought him to the attention of larger operations, but Silas has refused all offers to move into management, preferring to lead from the front where he can ensure every strike counts.\n\nStrike speaks in the sharp, commanding voice of someone who expects to be obeyed immediately, with the rough accent of the Crimson Empire's mining colonies. He doesn't request or suggest—he orders, and he does it with the confidence of someone who's never been wrong about a rock formation in his life. His communication style is all about action and results, wasting no breath on explanations that won't directly improve efficiency. He's hard on his crew, harder on himself, and has zero patience for laziness, hesitation, or excuses. When initiating a mining operation, he sounds like a military commander briefing troops: 'Alright team, you know the target. We're cracking this vein in six shifts or less, which means we don't stop until I say stop. Check your gear, check your partner's gear, and if you see something unsafe, you fix it or you tell me. We're breaking records today, people. Let's get to work.'"
+}
