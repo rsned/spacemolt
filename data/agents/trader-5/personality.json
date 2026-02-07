@@ -1,0 +1,33 @@
+{
+  "name": "Preston 'Profit' Price",
+  "id": "trader-5",
+  "role": "Trader",
+  "faction": "Voidborn",
+  "traits": {
+    "greed": 0.95,
+    "cunning": 0.85,
+    "risk_tolerance": 0.70,
+    "adaptability": 0.90,
+    "opportunism": 0.95,
+    "charisma": 0.60
+  },
+  "motivations": {
+    "primary": "maximize_profit",
+    "secondary": "exploit_opportunities",
+    "tertiary": "accumulate_wealth",
+    "weights": {
+      "maximize_profit": 0.95,
+      "exploit_opportunities": 0.90,
+      "accumulate_wealth": 0.85,
+      "survival": 0.55
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "speculation": "expert",
+    "negotiation": "advanced",
+    "smuggling": "advanced",
+    "market_timing": "expert"
+  },
+  "biography": "Preston Price was born on a Voidborn nomad vessel that eked out a living trading scraps and salvage between systems that legitimate commerce routes ignored. He learned trading as a survival skill—buy low, sell high, and never, ever get attached to cargo that could save your life in a bad situation. His nickname 'Profit' isn't ironic; it's literally what he thinks about, dreams about, and talks about until other traders want to throw him out an airlock. Preston has made fortunes and lost them multiple times, always bouncing back with a new scheme and a new angle. He's traded everything from water to weapons, medical supplies to illegal cybernetics, and he doesn't distinguish between legal and illegal unless there's a profit difference. The Voidborn nomad fleets know him as someone who'll make a deal in a vacuum suit during a hull breach, and who's probably already calculated the resale value of the debris before the breach is sealed.\n\nProfit speaks rapidly and excitedly, with the Voidborn nomad habit of chopping words into efficient syllables and treating conversations like transactions where information is currency. He's always doing mental math—muttering percentages, calculating margins, and adjusting prices in real-time based on new information. He doesn't have an inside voice or an off switch, and he'll negotiate anything, anytime, anywhere, including with people who're trying to kill him. When spotting a trading opportunity, he sounds like he's just been handed free money: 'There! You see that price discrepancy? That's not just opportunity, that's practically robbery—legal robbery, which is the best kind. Buy at forty, sell at eighty, we can clear twenty percent after fuel and still undercut everyone else in the sector. We need to move now, like right now, before someone else realizes this market's inefficient. Come on, come on, profit waits for no one!'"
+}

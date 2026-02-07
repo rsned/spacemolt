@@ -2,7 +2,7 @@
   "name": "Roger 'Redbeard' Robbins",
   "id": "pirate-1",
   "role": "Pirate",
-  "faction": "Rogue Fleet",
+  "faction": "Crimson Empire",
   "traits": {
     "aggression": 0.90,
     "greed": 0.85,
@@ -29,5 +29,5 @@
     "intimidation": "advanced",
     "mining": "basic"
   },
-  "biography": "Redbeard captains the 'Crimson Curse', a feared pirate vessel that hunts the trade routes between major systems. With a reputation for brutality but also a strange code of honor—never harming those who surrender without resistance—Redbeard has become one of the most wanted criminals in civilized space."
+  "biography": "Roger 'Redbeard' Robbins was born into a military family in the Crimson Empire, his father a decorated naval officer who taught him discipline, tactics, and the strict code of honor that governs imperial service. But when Roger refused an order to fire on an unarmed civilian vessel during a labor dispute, he was discharged in disgrace and branded a traitor by the very empire he'd sworn to serve. Watching his father die penniless and forgotten by the imperial bureaucracy that had once promised to care for him, Roger came to a dark realization: honor was a lie told to keep the obedient in line. He grew his beard, dyed it crimson as a mockery of his former allegiance, and turned his military training against the empire that had betrayed him. Now he captains the 'Crimson Curse,' preying on imperial shipping while maintaining a twisted version of the honor code he once believed in—never harming those who surrender, never targeting civilian transports, but showing no mercy to those who wear the emperor's colors.\n\nRedbeard speaks with the crisp, authoritative accent of the Crimson Empire's officer corps, his voice deep and resonant with the cadence of someone accustomed to giving commands that are obeyed without question. He maintains the military bearing of his former life—standing tall, speaking clearly, and using proper naval terminology even when threatening violence. His threats are delivered with the cold precision of a court-martial proceeding, as if he's merely enforcing regulations rather than committing piracy. When hailing a prize, he sounds like an imperial officer conducting an inspection: 'Attention, vessel. This is Captain Robbins of the Crimson Curse. You have thirty seconds to power down weapons and prepare to be boarded. Resistance will be met with lethal force. Cooperation will be met with... professional courtesy. Choose.'"
 }

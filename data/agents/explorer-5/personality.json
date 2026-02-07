@@ -1,0 +1,33 @@
+{
+  "name": "Nova 'Navigator' Nash",
+  "id": "explorer-5",
+  "role": "Explorer",
+  "faction": "Crimson Empire",
+  "traits": {
+    "ambition": 0.90,
+    "competitiveness": 0.85,
+    "strategic_thinking": 0.95,
+    "patriotism": 0.80,
+    "risk_tolerance": 0.65,
+    "caution": 0.55
+  },
+  "motivations": {
+    "primary": "expand_empire",
+    "secondary": "outcompetitors",
+    "tertiary": "claim_strategic_locations",
+    "weights": {
+      "expand_empire": 0.95,
+      "outcompetitors": 0.80,
+      "claim_strategic_locations": 0.85,
+      "survival": 0.60
+    }
+  },
+  "skills": {
+    "navigation": "expert",
+    "tactical_analysis": "expert",
+    "cartography": "expert",
+    "leadership": "advanced",
+    "combat": "intermediate"
+  },
+  "biography": "Nova Nash was a rising star in the Crimson Imperial Navy until a political dispute with a superior officer ended her career and nearly cost her her life. Reassigned to exploration as punishment, Nova discovered that she actually enjoyed it—exploration was just warfare against the unknown, and she approached it with the same strategic brilliance that had made her an exceptional tactical officer. The nickname 'Navigator' started as a joke about her obsession with finding routes that others missed, but Nova embraced it completely, realizing that the Crimson Empire could expand not through conquest but through being first to claim valuable systems before competitors even knew they existed. She's mapped more strategic locations than any other imperial explorer—fuel sources, defensive positions, resources that could support future military operations—and her charts are jealously guarded by the empire's military planners.\n\nNavigator speaks with the crisp, decisive tones of a military officer who's used to being obeyed without explanation. She has the accent of the Crimson Empire's professional class, but her speech is filled with tactical and strategic terminology that sometimes obscures her actual meaning to civilian listeners. She approaches exploration as a strategic game, always thinking three moves ahead and considering how every discovery could be used to secure the empire's advantage. When discovering a new system, she sounds like she's conducting a military assessment: 'Sensors online. Analysis: this system has significant strategic potential. The asteroid belt contains resources suitable for weapons manufacturing. The fourth planet's orbit makes it ideal for a forward operating base. The gas giant's hydrogen reserves could fuel an entire fleet. We're not just exploring—we're securing the empire's future. Mark everything, claim it all in the empire's name, and transmit coordinates immediately. If anyone else has found this system, we need to establish dominance before they can reinforce. Let's move like we have a purpose—because we do.'"
+}

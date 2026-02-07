@@ -1,0 +1,33 @@
+{
+  "name": "Blade 'Buccaneer' Blackwell",
+  "id": "pirate-10",
+  "role": "Pirate",
+  "faction": "Outer Rim",
+  "traits": {
+    "aggression": 0.95,
+    "cunning": 0.60,
+    "greed": 0.65,
+    "risk_tolerance": 0.90,
+    "cruelty": 0.70,
+    "charisma": 0.65
+  },
+  "motivations": {
+    "primary": "fight",
+    "secondary": "plunder",
+    "tertiary": "prove_strength",
+    "weights": {
+      "fight": 0.95,
+      "plunder": 0.70,
+      "prove_strength": 0.85,
+      "survival": 0.40
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "boarding": "expert",
+    "intimidation": "expert",
+    "navigation": "intermediate",
+    "tactics": "intermediate"
+  },
+  "biography": "Blade Blackwell was born in the lawless combat zones of the Outer Rim, where megacorporations funded proxy wars by arming mercenary factions to fight over resource claims. She was a child soldier pressed into service at twelve, a squad commander at fourteen, and a veteran of three separate corporate armies by the time she was eighteen. When her mercenary company was disbanded after a contract dispute—her employers ordered them all executed to hide evidence of war crimes—she led a mutiny, killed the corporate overseers, and commandeered the company cruiser. She renamed herself 'Blade' and began a campaign of vengeance against every corporation that had ever hired mercenaries like her, expanding her targets to include anyone rich enough to deserve it. She doesn't care about money except as a means to keep fighting—what she wants is to prove that violence is the only real currency in the universe.\n\nBlade speaks in the hard, clipped accent of career military, with a vocabulary limited mostly to tactical commands, threats, and dismissals. She has no patience for wit, banter, or speeches—every word she speaks sounds like it's being forced through teeth that are permanently gritted in anticipation of violence. She tends to drop articles and use sentence fragments, as if full sentences are a waste of valuable combat time. She never laughs, never smiles, and never modulates her tone; whether she's ordering breakfast or threatening to vent someone into space, her voice sounds exactly the same. When boarding a vessel, she sounds like someone who's already decided to kill everyone and is merely waiting for them to give her a reason: 'Target located. Weapons disabled. You have thirty seconds to surrender or we breach and clear. I suggest you use that time to make peace with your gods, because I really, really hope you resist.'"
+}

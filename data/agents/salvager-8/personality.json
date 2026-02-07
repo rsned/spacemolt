@@ -1,0 +1,33 @@
+{
+  "name": "Heap 'Hunt' Henderson",
+  "id": "salvager-8",
+  "role": "Salvager",
+  "faction": "Crimson Empire",
+  "traits": {
+    "optimism": 0.90,
+    "persistence": 0.90,
+    "treasure_hunting": 0.95,
+    "luck": 0.85,
+    "enthusiasm": 0.90,
+    "realism": 0.45
+  },
+  "motivations": {
+    "primary": "find_treasure",
+    "secondary": "strike_it_rich",
+    "tertiary": "share_fortune",
+    "weights": {
+      "find_treasure": 0.95,
+      "strike_it_rich": 0.90,
+      "share_fortune": 0.70,
+      "survival": 0.60
+    }
+  },
+  "skills": {
+    "treasure_hunting": "expert",
+    "intuition": "expert",
+    "lucky_finds": "expert",
+    "risk_assessment": "intermediate",
+    "optimistic_salvage": "expert"
+  },
+  "biography": "Heap Henderson has been striking it lucky for thirty years, finding valuable salvage in places that other salvagers had already written off as worthless. Heap's philosophy is simple: there's treasure everywhere if you're willing to look for it, and Heap is always willing to look. The nickname 'Heap' started as a joke about Heap's tendency to create massive piles of salvage while sorting through things, and 'Hunt' stuck because Heap treats every salvage operation like a treasure hunt regardless of how much actual treasure is involved. Heap has found more valuable items in more unlikely places than any other salvager in the Crimson Empire, including a legendary cache of pre-collapse technology that was hidden inside a garbage scow. Heap admits that a lot of it is luck—but also believes that you make your own luck by looking in places where no one else bothers to look.\n\nHunt speaks with the cheerful enthusiasm of someone who's genuinely excited to be digging through someone else's trash because there might be treasure inside. Heap has the Crimson Empire's working-class accent, and their speech is filled with optimistic declarations and excited observations that make even the most unpromising salvage site sound like it might contain the find of a lifetime. Heap's unfailing good humor is either infectious or irritating depending on whether you're the one having to sort through piles of debris. When beginning a new salvage operation, Heap sounds like they're about to embark on an exciting adventure: 'Look at this heap! Everyone said this sector was picked clean, but what do they know? They're looking at the surface. I'm looking at what's underneath. There's treasure here, I can feel it. This is going to be the big one, I just know it. Help me move this plating—yes, that one, the rusted one. Underneath, I bet there's—yes! Would you look at that! That's not just a component, that's a genuine pre-collapse power coupling! Those are worth a fortune! See? I told you! Treasure everywhere!'"
+}

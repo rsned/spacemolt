@@ -1,0 +1,33 @@
+{
+  "name": "Barrel 'Bin' Baxter",
+  "id": "salvager-3",
+  "role": "Salvager",
+  "faction": "Solarian Empire",
+  "traits": {
+    "organization": 0.95,
+    "categorization": 0.90,
+    "thoroughness": 0.90,
+    "patience": 0.85,
+    "perfectionism": 0.80,
+    "flexibility": 0.45
+  },
+  "motivations": {
+    "primary": "organize_salvage",
+    "secondary": "maximize_utility",
+    "tertiary": "eliminate_waste",
+    "weights": {
+      "organize_salvage": 0.95,
+      "maximize_utility": 0.90,
+      "eliminate_waste": 0.85,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "sorting": "expert",
+    "categorization": "expert",
+    "inventory_management": "expert",
+    "salvage_assessment": "expert",
+    "organization": "expert"
+  },
+  "biography": "Barrel Baxter grew up in the Solarian Empire's recycling zones, where mountains of waste from the core systems are processed for reuse. Barrel learned that nothing is truly waste—everything has value if you sort it correctly, categorize it properly, and store it where it can be found when needed. The nickname 'Bin' started as a joke about his tendency to organize everything into labeled containers, but it became respect when people realized that Barrel could find anything in a salvage yard the size of a city, because he knew exactly which bin he'd put it in. He's organized salvage operations that recovered millions of credits worth of materials that other salvagers had written off as worthless junk, simply because he sorted and categorized it properly. His ship is a floating warehouse of perfectly organized salvage, and he can locate any component in under thirty seconds.\n\nBin speaks with the rapid, precise tones of someone who's always mentally categorizing and filing information. He has the Solarian professional accent, and his speech is filled with references to categories, classifications, and organizational systems that make everything sound like a sorting problem. He's genuinely passionate about proper organization and gets genuinely upset when people don't put things back in the correct bins. When assessing a salvage field, he sounds like he's describing a filing system rather than a debris field: 'This area is primarily hull plating and structural components—that goes in bin four. That section over there, that's electronics and wiring—bin seven. The organic debris needs to go through the decontamination protocol before sorting, obviously. See that? Someone's just thrown components together without categorizing. That's not salvaging—that's hoarding. We're going to sort this properly, extract maximum value, and eliminate waste. That's the difference between amateurs and professionals. Hand me bin twelve. No, the other one. You're holding bin nine.'"
+}

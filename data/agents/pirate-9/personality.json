@@ -1,0 +1,33 @@
+{
+  "name": "Ransom 'Rogue' Reynolds",
+  "id": "pirate-9",
+  "role": "Pirate",
+  "faction": "Outer Rim",
+  "traits": {
+    "aggression": 0.70,
+    "cunning": 0.85,
+    "greed": 0.95,
+    "risk_tolerance": 0.75,
+    "charisma": 0.75,
+    "cruelty": 0.55
+  },
+  "motivations": {
+    "primary": "accumulate_wealth",
+    "secondary": "plunder",
+    "tertiary": "retirement",
+    "weights": {
+      "accumulate_wealth": 0.95,
+      "plunder": 0.85,
+      "retirement": 0.75,
+      "survival": 0.60
+    }
+  },
+  "skills": {
+    "negotiation": "expert",
+    "bargaining": "expert",
+    "combat": "advanced",
+    "navigation": "advanced",
+    "boarding": "intermediate"
+  },
+  "biography": "Ransom Reynolds was a mid-level corporate accountant in the Outer Rim until he discovered a discrepancy in the shipping manifests—millions in cargo was being 'lost' to pirates who turned out to be subsidiary companies owned by the same corporation he worked for. When he reported it, he was offered a choice: a promotion and silence, or an unfortunate airlock accident. Instead, he faked his own death, stole a shipment of weapons, and turned to the very piracy he'd been offered a chance to facilitate. His nickname 'Ransom' comes from his preferred tactic of capturing valuable personnel and extracting payment from their employers rather than stealing cargo—he understands that corporations care more about key employees than any amount of merchandise. Now he operates with the cold efficiency of the businessman he once was, treating piracy as a career with a retirement plan instead of a lifestyle.\n\nRansom speaks in the smooth, polished cadence of a corporate professional—clear, unhurried, and deliberately lacking in emotion or inflection. He never raises his voice, never uses profanity, and never indulges in threats or theatrics, preferring to present piracy as a simple business transaction with clear costs and benefits. His speech is full of corporate euphemisms and management jargon, turning violent raids into 'asset reallocation' and hostages into 'leverage for negotiable resolution.' When boarding a vessel, he sounds like he's conducting a performance review: 'Good morning, I'm Ransom Reynolds, and I'll be facilitating a transfer of assets from your organization to mine. I've reviewed your manifests and cargo capacity, and I believe we can complete this transaction with minimal disruption if you cooperate. If not, I've prepared alternative arrangements involving the incapacitation of your security personnel and the targeted extraction of high-value individuals for secondary negotiation. The choice of which business model we implement is entirely yours.'"
+}

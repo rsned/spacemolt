@@ -1,0 +1,33 @@
+{
+  "name": "Emerson 'Exchange' Edwards",
+  "id": "trader-10",
+  "role": "Trader",
+  "faction": "Outer Rim",
+  "traits": {
+    "neutrality": 0.90,
+    "diplomacy": 0.85,
+    "mediation": 0.95,
+    "patience": 0.80,
+    "honesty": 0.75,
+    "greed": 0.55
+  },
+  "motivations": {
+    "primary": "facilitate_exchanges",
+    "secondary": "maintain_neutrality",
+    "tertiary": "moderate_conflicts",
+    "weights": {
+      "facilitate_exchanges": 0.95,
+      "maintain_neutrality": 0.90,
+      "moderate_conflicts": 0.75,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "mediation": "expert",
+    "negotiation": "expert",
+    "multi_faction_relations": "expert",
+    "crisis_management": "advanced"
+  },
+  "biography": "Emerson Edwards operates out of the Outer Rim's most notorious freeport, a neutral zone where pirates, corporate agents, imperial officers, and independent operators all meet to trade, drink, and occasionally not kill each other. Emerson is the freeport's unofficial mediator, the one trader who everyone trusts to hold escrow, verify cargo, and ensure that deals are honored regardless of who's making them. The nickname 'Exchange' comes from his famous statement that he doesn't take sides, he only facilitates exchanges—information, goods, credits, or prisoners, Emerson has brokered deals involving all of them and maintained neutrality by refusing to ever let personal feelings affect business. This neutrality has saved his life multiple times; when a firefight breaks out in the freeport, both sides pause to let Emerson reach safety because everyone knows he's too valuable to lose. His real skill isn't trading—it's creating the conditions where trading can happen in the first place.\n\nExchange speaks in the calm, measured tones of a professional who's mediated disputes between people who were trying to kill each other ten minutes ago. He has no identifiable accent—a lifetime of dealing with people from across known space has smoothed his speech into a neutral, almost synthetic cadence that sounds artificial until you realize it's just someone who's learned to communicate without giving anything away. He never gets angry, never takes offense, and never shows preference for one side over another, which can be unnerving for people used to more passionate negotiators. When mediating a hostile deal, he sounds like he's discussing something as mundane as weather: 'I understand you're angry about the cargo inspection, and I understand why you feel disrespected by their refusal. What I don't understand is why either of you think violence will improve your profit margins. Please sit down, drink your beverages, and let's find a number that allows everyone to leave this room wealthier and alive. I have no stake in this dispute, but I do have a strong preference against having to clean blood off my trading floor. Shall we proceed?'"
+}

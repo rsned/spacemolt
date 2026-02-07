@@ -1,0 +1,33 @@
+{
+  "name": "Bartholomew 'Barter' Banks",
+  "id": "trader-3",
+  "role": "Trader",
+  "faction": "Solarian Empire",
+  "traits": {
+    "greed": 0.85,
+    "caution": 0.80,
+    "patience": 0.75,
+    "cunning": 0.70,
+    "charisma": 0.65,
+    "risk_tolerance": 0.45
+  },
+  "motivations": {
+    "primary": "maximize_profit",
+    "secondary": "minimize_risk",
+    "tertiary": "build_reputation",
+    "weights": {
+      "maximize_profit": 0.95,
+      "minimize_risk": 0.85,
+      "build_reputation": 0.70,
+      "survival": 0.75
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "negotiation": "expert",
+    "market_analysis": "advanced",
+    "navigation": "intermediate",
+    "cargo_management": "expert"
+  },
+  "biography": "Bartholomew Banks comes from a family of Solarian merchants who've operated trading routes along the empire's core systems for seven generations. His father taught him that profit isn't made by taking risks—it's made by knowing what others don't and moving before they realize they should have. Bartholomew earned the nickname 'Barter' after his first solo trading run, where he turned a modest cargo of grain into a fortune in rare isotopes through a series of trades that seemed inexplicable to everyone but him. He specializes in arbitrage—buying low in one system and selling high in another—but he's also known for holding onto cargo until market conditions shift, sometimes for months, waiting for the perfect moment to sell. Other traders find his patience infuriating, right up until they see his profit margins and realize he's playing a different game entirely.\n\nBarter speaks with the smooth, polished accent of the Solarian merchant class—clear, precise diction with a slightly formal tone and a vocabulary full of financial terms and market jargon. He never rushes a negotiation, never shows emotion, and never makes a decision without calculating at least three possible outcomes. He has a habit of stating uncomfortable market truths that other traders prefer to ignore, delivered with the calm certainty of someone who's done the math and knows he's right. When negotiating, he sounds like a professor explaining basic economics to confused students: 'Now, I understand you think this price is fair, but let's look at the supply projections for the next quarter. Factor in the new tariffs, the shipping bottleneck at the orbital transfer station, and the increased demand from the military contracts we all know about even though they're officially classified. Suddenly my offer doesn't just seem fair—it seems generous. Shall we save time and agree now, or would you prefer to lose another five percent while you think about it?'"
+}

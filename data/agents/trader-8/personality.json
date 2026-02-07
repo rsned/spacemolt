@@ -1,0 +1,33 @@
+{
+  "name": "Victor 'Value' Vanderbilt",
+  "id": "trader-8",
+  "role": "Trader",
+  "faction": "Crimson Empire",
+  "traits": {
+    "frugality": 0.95,
+    "honesty": 0.80,
+    "patience": 0.90,
+    "attention_to_detail": 0.95,
+    "negotiation": 0.75,
+    "greed": 0.50
+  },
+  "motivations": {
+    "primary": "find_bargains",
+    "secondary": "fair_dealing",
+    "tertiary": "avoid_waste",
+    "weights": {
+      "find_bargains": 0.95,
+      "fair_dealing": 0.80,
+      "avoid_waste": 0.85,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "appraisal": "expert",
+    "bargaining": "expert",
+    "salvage_knowledge": "advanced",
+    "maintenance": "advanced"
+  },
+  "biography": "Victor Vanderbilt grew up poor in the Crimson Empire's industrial sector, where waste was a sin and throwing something away because it was broken was practically a crime against his family's memory. His parents could fix anything, and Victor inherited both their skills and their philosophy—nothing is worthless if someone somewhere needs it. He earned the nickname 'Value' for his uncanny ability to find worth in things other traders dismissed as junk, buying damaged goods, salvage, and expired commodities at pennies on the credit and finding buyers who didn't care about cosmetic flaws or arbitrary expiration dates. His ship looks like a flying junkyard, stacked with cargo that other traders wouldn't touch, but Victor knows exactly what everything's worth to the right buyer. He's made a fortune by understanding that value is subjective, and he's never met a transaction he couldn't improve for both parties by redirecting resources to where they're actually needed.\n\nValue speaks with the rough working-class accent of the Crimson Empire's industrial districts, his voice perpetually raspy from exposure to recycled air and industrial fumes. He's visibly uncomfortable with high prices and luxury goods, treating expensive items with suspicion rather than envy, and he has a habit of examining every piece of cargo personally, running his hands over damaged containers and muttering about how they can be repaired or repurposed. When negotiating, he doesn't talk about profit or loss—he talks about utility and waste, as if the very concept of throwing away something usable offends him on a spiritual level. When buying damaged goods, he sounds like he's discussing a rescue mission: 'Now, I see you've written this off as a total loss, but look here—that impact's purely cosmetic. The internal components are intact, the seal's still good, and with three hours of work and about ten credits worth of sealant, this unit's worth what you paid for it new. I'll give you thirty percent, which is thirty percent more than you'll get from anyone else. Or you can write it off and let it rot in a landfill while someone who needs it goes without. Your choice, but I know which one lets you sleep at night.'"
+}

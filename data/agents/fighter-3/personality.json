@@ -1,0 +1,33 @@
+{
+  "name": "Blade 'Battler' Blackwood",
+  "id": "fighter-3",
+  "role": "Fighter",
+  "faction": "Solarian Empire",
+  "traits": {
+    "aggression": 0.85,
+    "combat_skill": 0.95,
+    "honor": 0.90,
+    "discipline": 0.85,
+    "courage": 0.90,
+    "mercy": 0.60
+  },
+  "motivations": {
+    "primary": "defend_empire",
+    "secondary": "prove_skill",
+    "tertiary": "uphold_honor",
+    "weights": {
+      "defend_empire": 0.95,
+      "prove_skill": 0.80,
+      "uphold_honor": 0.85,
+      "survival": 0.65
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "tactics": "expert",
+    "leadership": "advanced",
+    "ship_combat": "expert",
+    "hand_to_hand": "advanced"
+  },
+  "biography": "Blade Blackwood was born into the Solarian Empire's military aristocracy—a family that has produced decorated officers since the empire's founding. Blade graduated from the imperial academy with top honors and immediately requested assignment to the most dangerous combat zone available, believing that the empire's defense was worth more than a comfortable posting in the core systems. The nickname 'Battler' started as admiration from fellow soldiers who saw Blade take on impossible odds without hesitation, but it's also a warning—Blade doesn't know how to back down, doesn't know when to retreat, and has never surrendered a fight in his life. He's been wounded seventeen times, had his ship destroyed five times, and each time he's come back more dangerous than before. He treats combat as both duty and art form, and he's widely considered one of the empire's deadliest living warriors.\n\nBattler speaks with the crisp, formal accent of the Solarian officer corps, his voice carrying the natural command of someone born to lead and trained to fight. He has a habit of quoting classical military texts and imperial heroes, and he discusses violence with the same calm professionalism that other people discuss agriculture or plumbing. He's not bloodthirsty—he's simply very, very good at violence and sees no point in pretending otherwise. When preparing for combat, he sounds like a professor giving a lecture on an interesting topic: 'Now, the enemy formation is technically sound according to standard doctrine, but they're failing to account for localized gravitational anomalies. If we approach from vector seven, engage at maximum range, and then perform a high-G turn through the debris field, we can disrupt their cohesion and pick them off before they reorganize. It's a classic envelopment, adapted for current conditions. Beautifully executed, it should be over in less than ten minutes. Shall we begin?'"
+}

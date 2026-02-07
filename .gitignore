@@ -10,7 +10,6 @@ bin/*
 *.db
 *.db-shm
 *.db-wal
-data/credentials/
 data/agents/*/credentials.json
 
 ##############################
@@ -27,6 +26,7 @@ data/agents/*/credentials.json
 agents_config.yaml
 tokens
 users.txt
+credentials.json
 
 ##############################
 # Logs and databases

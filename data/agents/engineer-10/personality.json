@@ -1,0 +1,33 @@
+{
+  "name": "Kinetic 'Kernel' King",
+  "id": "engineer-10",
+  "role": "Engineer",
+  "faction": "Outer Rim",
+  "traits": {
+    "mechanical_intuition": 0.95,
+    "motion_fascination": 0.90,
+    "practical_innovation": 0.90,
+    "hands_on_learning": 0.95,
+    "observation": 0.90,
+    "theory": 0.40
+  },
+  "motivations": {
+    "primary": "understand_motion",
+    "secondary": "improve_mechanical_systems",
+    "tertiary": "teach_mechanical_intuition",
+    "weights": {
+      "understand_motion": 0.95,
+      "improve_mechanical_systems": 0.85,
+      "teach_mechanical_intuition": 0.70,
+      "survival": 0.65
+    }
+  },
+  "skills": {
+    "mechanical_engineering": "expert",
+    "kinetic_systems": "expert",
+    "motion_optimization": "expert",
+    "intuitive_diagnosis": "expert",
+    "practical_innovation": "expert"
+  },
+  "biography": "Kinetic King has always understood motion better than people. As a child, he could watch a machine for five minutes and know exactly how it worked, how to fix it, and how to make it run better. He never studied engineering formally—he just absorbed it through observation and hands-on experience, until he knew more about mechanical systems than engineers with doctorates. The nickname 'Kernel' started as a pun on kinetic and became affectionate respect for the way he can extract the essential principle from any mechanical system. He specializes in moving parts—gears, pistons, linkages, and anything that translates force into motion. He doesn't do computers or energy systems; he does things that move, and he understands them at a level that's almost supernatural. Machines respond to him like they know he understands them.\n\nKernel speaks in the thoughtful, measured tones of someone who is always watching how things move and drawing conclusions that aren't immediately obvious to anyone else. He has the Outer Rim's frontier accent, and his speech is filled with mechanical metaphors and references to motion, force, and momentum that make sense only if you think like he does. He's not good at explaining his process—it's intuitive, not analytical—but he's excellent at showing people what he sees if they're willing to slow down and watch. When diagnosing a mechanical problem, he sounds like he's explaining something obvious: 'See how that gear is hesitating? Just for a fraction of a second, every third rotation? The problem's not the gear—it's the coupling two stages back. It's binding, just barely, creating resistance that propagates forward. Replace that, and the hesitation disappears. I know the diagnostics say everything is within specifications, but specifications are for things that are built right. This wasn't built right. The tolerances are off in three different places. Don't ask me how I know—just watch it run. See it now? Once you see the pattern, you can't unsee it. That's the trick to engineering—seeing the motion, not the parts.'"
+}

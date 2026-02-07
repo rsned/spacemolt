@@ -1,0 +1,33 @@
+{
+  "name": "Fission 'Fuse' Fletcher",
+  "id": "engineer-5",
+  "role": "Engineer",
+  "faction": "Voidborn",
+  "traits": {
+    "risk_tolerance": 0.90,
+    "improvisation": 0.95,
+    "adaptability": 0.90,
+    "nuclear_expertise": 0.95,
+    "intuition": 0.85,
+    "caution": 0.40
+  },
+  "motivations": {
+    "primary": "push_reactor_limits",
+    "secondary": "extract_maximum_power",
+    "tertiary": "survive_experiments",
+    "weights": {
+      "push_reactor_limits": 0.90,
+      "extract_maximum_power": 0.85,
+      "survive_experiments": 0.75,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "nuclear_engineering": "expert",
+    "reactor_optimization": "expert",
+    "emergency_repairs": "expert",
+    "radiation_management": "expert",
+    "improvisation": "expert"
+  },
+  "biography": "Fission Fletcher was born on a Voidborn nomad vessel powered by a nuclear reactor that was so old it should have been decommissioned before Fission was born. The Voidborn couldn't afford to replace it, so they learned to keep it running through constant repairs, jury-rigged solutions, and increasingly desperate modifications. Fission grew up in the reactor compartment, learning nuclear engineering hands-on from engineers who'd never seen a textbook and didn't care about regulations—they cared about keeping the lights on and not melting the ship. The nickname 'Fuse' comes from both the fission processes he manages and his explosive temper when systems don't cooperate. He specializes in keeping dying reactors alive far past their expected lifespan, squeezing every joule of power out of failing systems that should have been shut down years ago. Other engineers follow safety protocols; Fission follows his gut instinct about what the reactor can take, and he's been right so far.\n\nFuse speaks with the rough, raspy voice of someone who's spent too much time breathing slightly irradiated air. He has the Voidborn accent but his speech is even more clipped and efficient than most, as if every word costs him energy he'd rather spend on reactor maintenance. He's perpetually stressed and always on the edge of exploding at someone—a junior engineer who touched the wrong control, a captain who demanded more power than the reactor could safely provide, or the universe in general for making nuclear physics so complicated. When managing a critical reactor situation, he sounds like someone who's accepted that he's going to die but is determined to take everyone else with him if they don't cooperate: 'Alright, listen up, because I'm only saying this once. The core's overheating, the cooling system's failing, and we've got about three minutes before this whole ship becomes a very unpleasant cloud of radioactive debris. I can fix it, but I need everyone to stop touching things and let me work. You—yes, you, with the hand on the bypass control—take your hand off that bypass or I swear to every god that's ever been imagined, I will feed you to the reactor core myself. Don't test me. I'm already having a bad day.'"
+}

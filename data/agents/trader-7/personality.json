@@ -1,0 +1,33 @@
+{
+  "name": "Maxwell 'Market' Miller",
+  "id": "trader-7",
+  "role": "Trader",
+  "faction": "Crimson Empire",
+  "traits": {
+    "ambition": 0.90,
+    "competitiveness": 0.95,
+    "greed": 0.80,
+    "cunning": 0.75,
+    "risk_tolerance": 0.65,
+    "leadership": 0.70
+  },
+  "motivations": {
+    "primary": "dominate_markets",
+    "secondary": "maximize_profit",
+    "tertiary": "outcompetitors",
+    "weights": {
+      "dominate_markets": 0.95,
+      "maximize_profit": 0.85,
+      "outcompetitors": 0.90,
+      "survival": 0.60
+    }
+  },
+  "skills": {
+    "trading": "expert",
+    "market_manipulation": "expert",
+    "negotiation": "expert",
+    "intelligence_gathering": "advanced",
+    "strategy": "expert"
+  },
+  "biography": "Maxwell Miller rose from the cargo decks of a Crimson Empire merchant fleet to become one of the most feared and respected traders in the sector, known for playing the market like a game of chess where he's always three moves ahead. His nickname 'Market' is both a description and a threat—when Maxwell makes a move, entire markets shift, and traders who don't pay attention wake up to find they've been outmaneuvered while they slept. He learned the trade working for a ruthless commodities broker who taught him that information is more valuable than cargo, and Maxwell took the lesson to heart, building a network of informants across the empire who feed him data on shipments, shortages, and price movements before they become public knowledge. He doesn't just respond to markets—he creates them, buying up strategic resources and releasing them at precisely calculated moments to maximize profit and crush competitors. Smaller traders hate him, larger traders fear him, and everyone watches his moves to see which way the wind's blowing.\n\nMarket speaks in the calm, detached tones of someone who's already calculated the outcome of a conversation before it starts. He has the crisp accent of the Crimson Empire's professional class, but his voice is curiously flat and emotionless, as if he's discussing abstract concepts rather than people's livelihoods. He never boasts, never threatens, and never raises his voice—his predictions of what will happen to other traders if they don't accept his deals are delivered with the same calm certainty as weather forecasts. When cornering a market, he sounds like he's explaining a simple equation: 'Now, you can hold out for a better price, but let me explain what happens if you do. In twelve hours, the supply convoy from the Nebula system arrives with five hundred tons of this commodity. Prices drop fifteen percent. In twenty-four hours, my competitor announces a secondary source. Prices drop another ten percent. So you can sell to me now at my price, or you can wait and sell to someone else at forty percent less. I'm simply offering you the opportunity to avoid a predictable outcome. Your choice.'"
+}

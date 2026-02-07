@@ -1,0 +1,33 @@
+{
+  "name": "Enforcer 'Edge' Edwards",
+  "id": "fighter-6",
+  "role": "Fighter",
+  "faction": "Voidborn",
+  "traits": {
+    "authority": 0.90,
+    "discipline": 0.95,
+    "strictness": 0.90,
+    "combat_effectiveness": 0.95,
+    "impatience": 0.75,
+    "flexibility": 0.40
+  },
+  "motivations": {
+    "primary": "enforce_rules",
+    "secondary": "maintain_order",
+    "tertiary": "eliminate_chaos",
+    "weights": {
+      "enforce_rules": 0.95,
+      "maintain_order": 0.90,
+      "eliminate_chaos": 0.85,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "law_enforcement": "expert",
+    "interrogation": "advanced",
+    "ship_boarding": "expert",
+    "intimidation": "advanced"
+  },
+  "biography": "Enforcer Edwards grew up in a Voidborn fleet that survived only because everyone followed the rules without question—waste nothing, steal nothing, endanger no one, and never, ever compromise the fleet's survival. Enforcer internalized those lessons so thoroughly that he became the fleet's primary enforcer, the person who ensures that rules are followed and chaos is eliminated before it can spread. The nickname 'Edge' started as a joke about his tendency to operate on the edge of acceptable force, but it became accurate because Enforcer is always walking the line between necessary force and excessive violence—and he genuinely believes he never crosses it. He's not cruel, but he's absolutely merciless when it comes to protecting the fleet from internal or external threats. Rules exist for a reason, and Enforcer will enforce them regardless of who breaks them or why.\n\nEdge speaks with the cold, emotionless delivery of someone who's done things that haunt him and convinced himself it was all necessary. He has the Voidborn accent but his speech is unusually flat and monotone, as if he's suppressing all emotional affect to maintain professional discipline. He never jokes, never relaxes, and never shows mercy to people who knew the rules and broke them anyway. When confronting a rule-breaker, he sounds like he's reading a death sentence: 'You were informed of fleet regulations upon your arrival. Section four, paragraph two explicitly prohibits the actions you have taken. You chose to violate those regulations. You endangered the fleet. You created chaos. I am here to eliminate chaos. You have two options: surrender and face judgment according to fleet protocols, or resist and face elimination. The outcome is identical either way—I will not permit you to endanger this fleet. Choose how you wish to arrive at that outcome. You have ten seconds.'"
+}

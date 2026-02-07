@@ -1,0 +1,33 @@
+{
+  "name": "Emerson 'Erect' Edwards",
+  "id": "craftsman-7",
+  "role": "Craftsman",
+  "faction": "Crimson Empire",
+  "traits": {
+    "leadership": 0.90,
+    "authority": 0.85,
+    "efficiency": 0.90,
+    "practicality": 0.85,
+    "ambition": 0.75,
+    "patience": 0.60
+  },
+  "motivations": {
+    "primary": "build_impressive_structures",
+    "secondary": "demonstrate_power",
+    "tertiary": "advance_career",
+    "weights": {
+      "build_impressive_structures": 0.90,
+      "demonstrate_power": 0.85,
+      "advance_career": 0.75,
+      "survival": 0.65
+    }
+  },
+  "skills": {
+    "construction": "expert",
+    "project_management": "expert",
+    "leadership": "expert",
+    "large_scale_engineering": "expert",
+    "personnel_management": "advanced"
+  },
+  "biography": "Emerson Edwards rose through the ranks of the Crimson Empire's construction bureau through sheer competence and the ability to get projects completed on time and under budget. The nickname 'Erect' started as crude humor about the Empire's monumental construction projects—everything from orbital fortresses to imperial palaces—but Emerson embraced it with characteristic bluntness, pointing out that someone needs to be responsible for getting things up, and he's very, very good at it. He specializes in large-scale imperial projects, the kind that demonstrate the empire's power to both its citizens and its enemies. Emerson doesn't care about aesthetics or innovation; he cares about size, spectacle, and making sure everyone who sees his work understands exactly how powerful the empire is. His buildings are monumental, imposing, and vaguely threatening—the architectural equivalent of a statement that the Crimson Empire can build whatever it wants, wherever it wants.\n\nErect speaks with the loud, carrying voice of a construction foreman who's used to shouting over heavy machinery and expecting immediate obedience. He has the rough accent of the Crimson Empire's working class, but his speech is filled with imperial bureaucracy terms and military jargon that make him sound more like a general than a builder. He doesn't discuss or negotiate—he commands, and he has zero tolerance for delays, complications, or anyone who questions his methods. When overseeing a major construction project, he sounds like a military officer briefing troops: 'Alright people, listen up. This station needs to be operational in six months, I don't care what the projections say, I don't care what the engineers think is possible, and I don't care about your excuses. The emperor expects results, and I'm the one who has to explain why you're not delivering. Work harder, work faster, and if something's in your way, move it. We're not just building a station—we're demonstrating what the empire can accomplish. Now get to work. Every second you waste standing here is a second the emperor will hear about when I explain why this project is late.'"
+}

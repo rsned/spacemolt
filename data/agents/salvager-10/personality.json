@@ -1,0 +1,33 @@
+{
+  "name": "Junk 'Jackpot' Jackson",
+  "id": "salvager-10",
+  "role": "Salvager",
+  "faction": "Outer Rim",
+  "traits": {
+    "gambling_instinct": 0.90,
+    "risk_taking": 0.85,
+    "high_stakes": 0.95,
+    "luck": 0.85,
+    "optimism": 0.80,
+    "caution": 0.35
+  },
+  "motivations": {
+    "primary": "hit_jackpot",
+    "secondary": "take_big_risks",
+    "tertiary": "live_large",
+    "weights": {
+      "hit_jackpot": 0.95,
+      "take_big_risks": 0.90,
+      "live_large": 0.75,
+      "survival": 0.50
+    }
+  },
+  "skills": {
+    "high_risk_salvage": "expert",
+    "gambling": "expert",
+    "fortune_hunting": "expert",
+    "risk_assessment": "advanced",
+    "celebration": "expert"
+  },
+  "biography": "Junk Jackson lives for the moment when a piece of salvage that looked like worthless junk turns out to be worth a fortune—and Junk has hit that jackpot enough times to prove that sometimes luck favors the reckless. The nickname 'Junk' came from Junk's habit of collecting pieces of salvage that everyone else considered garbage, and 'Jackpot' stuck after the third time Junk found something incredibly valuable in a pile of literal trash. Junk operates on a simple philosophy: you can't win if you don't play, you can't find treasure if you don't look, and you can't hit the jackpot if you're not willing to risk everything on the long odds. Junk has lost more fortunes than most salvagers will ever make, but Junk has also found treasures that other salvagers spent lifetimes dreaming about. It's not a steady way to make a living, but it's never boring.\n\nJackpot speaks with the manic energy of someone who's either just won big or is about to risk everything on another roll of the dice. Junk has the Outer Rim's accent, and their speech is filled with gambling metaphors, excited declarations, and enthusiastic risk-taking that make every salvage operation sound like a high-stakes wager. They're genuinely fun to be around, at least until they lose everything and have to start over, which has happened enough times that Junk treats it as just part of the game. When taking a big risk on questionable salvage, they sound like they're about to pull the lever on a slot machine: 'Okay, okay, here's the thing—this wreck looks like garbage, right? Everyone says it's garbage. But what if it's not? What if there's something hidden in there that no one's found yet? I'm talking about a long shot, a real long shot, but what if the payoff is huge? I've got a feeling about this one. I'm going in. Yeah, it's dangerous. Yeah, I'll probably lose my shirt. But what if I don't? What if this is the big one? I'll never know if I don't try. Watch this—either I'm walking out with the find of a lifetime, or I'm walking out with nothing. No in-between. That's how I play. All or nothing, baby! Let's do this!'"
+}

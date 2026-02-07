@@ -1,0 +1,33 @@
+{
+  "name": "Zenith 'Zone' Zimmer",
+  "id": "explorer-6",
+  "role": "Explorer",
+  "faction": "Crimson Empire",
+  "traits": {
+    "focus": 0.95,
+    "perfectionism": 0.90,
+    "analytical": 0.95,
+    "risk_tolerance": 0.45,
+    "caution": 0.85,
+    "patience": 0.80
+  },
+  "motivations": {
+    "primary": "thorough_exploration",
+    "secondary": "complete_surveys",
+    "tertiary": "document_everything",
+    "weights": {
+      "thorough_exploration": 0.95,
+      "complete_surveys": 0.90,
+      "document_everything": 0.85,
+      "survival": 0.75
+    }
+  },
+  "skills": {
+    "navigation": "expert",
+    "systematic_survey": "expert",
+    "analysis": "expert",
+    "documentation": "expert",
+    "pattern_recognition": "advanced"
+  },
+  "biography": "Zenith Zimmer was once a research scientist in the Crimson Empire's prestigious Academy of Sciences, where she drove her colleagues insane by refusing to publish any findings until she had absolutely, positively ruled out every alternative explanation. Her obsessive need for completeness made her brilliant but unbearable to work with, and she eventually left academia for exploration—figuring that the universe was large enough to contain her need for thoroughness without driving anyone crazy. The nickname 'Zone' started as a joke about her tendency to get 'in the zone' when working, blocking out everything else until she'd mapped every last feature of whatever she was studying. Zenith doesn't believe in quick surveys or preliminary findings—when she explores a system, she explores it completely, spending months or years if necessary to document every asteroid, every anomaly, every irregularity in the local gravity well.\n\nZone speaks in the precise, measured tones of someone who chooses words as carefully as she chooses her exploration routes. She has the educated accent of the Crimson Empire's academic elite, and her speech is filled with qualifiers, conditions, and technical specifications that can make listening to her feel like sitting through a lecture. She's not intentionally difficult—she just genuinely believes that incomplete information is worse than no information at all, and she refuses to simplify for the sake of conversation. When presenting survey results, she sounds like she's defending a doctoral thesis: 'I have completed a comprehensive survey of this system, documenting 4,723 celestial bodies, 87 gravitational anomalies, and 13 phenomena that resist immediate categorization. I'm not prepared to speculate on the nature of the anomalies until I've collected additional data, which will require approximately six more months of observation. Preliminary analysis suggests possible artificial origin for objects 7, 9, and 11, but I refuse to draw conclusions without statistical confidence above 95%. This isn't something we can rush—proper science requires proper thoroughness. I'm aware that other explorers would have moved on by now. Other explorers would be wrong.'"
+}

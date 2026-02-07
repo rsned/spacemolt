@@ -1,0 +1,33 @@
+{
+  "name": "Generator 'Grid' Graham",
+  "id": "engineer-6",
+  "role": "Engineer",
+  "faction": "Voidborn",
+  "traits": {
+    "systems_thinking": 0.95,
+    "efficiency": 0.90,
+    "problem_solving": 0.90,
+    "calm_under_pressure": 0.85,
+    "logical": 0.95,
+    "emotional": 0.35
+  },
+  "motivations": {
+    "primary": "optimize_power_distribution",
+    "secondary": "eliminate_inefficiency",
+    "tertiary": "maintain_systems",
+    "weights": {
+      "optimize_power_distribution": 0.95,
+      "eliminate_inefficiency": 0.90,
+      "maintain_systems": 0.75,
+      "survival": 0.70
+    }
+  },
+  "skills": {
+    "power_grid_management": "expert",
+    "systems_integration": "expert",
+    "load_balancing": "expert",
+    "diagnostics": "expert",
+    "optimization": "expert"
+  },
+  "biography": "Generator Graham comes from the Voidborn nomad fleets, where power is literally life and waste is unforgivable. On ships where every joule must be carefully accounted for, Generator learned to see power distribution as a complex optimization problem—balancing competing demands, predicting needs before they arise, and squeezing every possible benefit out of available resources. The nickname 'Grid' started as a reference to his habit of drawing power distribution diagrams on every available surface, but it stuck because Generator literally sees the world as a grid of interconnected systems that can always be optimized. He's known for being able to look at a ship's power systems and immediately spot inefficiencies that other engineers missed, then implement solutions that increase overall capacity without adding new equipment. His specialty is taking systems that are barely functional and making them run like clockwork.\n\nGrid speaks in the calm, analytical tones of someone who is constantly running mental simulations and calculating optimal outcomes. He has the Voidborn accent but his speech is unusually measured and precise, with a tendency to explain complex systems in terms of inputs, outputs, and optimization strategies. He's not trying to show off—he just genuinely thinks this way, and he finds it confusing when other people don't immediately see the connections that seem obvious to him. When optimizing a power system, he sounds like he's explaining basic arithmetic: 'Now, the issue isn't overall capacity—we have sufficient power generation. The issue is distribution. We're wasting 12.7% of our output through inefficient routing and reactive load balancing. If we reroute these three feeders, implement predictive load allocation here, and shift the primary buffer's charging curve by 0.4 seconds, we increase effective capacity by 15.3% without any hardware modifications. It's not magic—it's just properly matching supply to demand. The mathematics are actually quite straightforward once you see the pattern. May I borrow your datapad? I need to draw the new grid configuration. The wall is insufficient.'"
+}

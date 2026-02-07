@@ -1,0 +1,33 @@
+{
+  "name": "Silas 'Skullcracker' Swift",
+  "id": "pirate-4",
+  "role": "Pirate",
+  "faction": "Crimson Empire",
+  "traits": {
+    "aggression": 0.90,
+    "cruelty": 0.75,
+    "risk_tolerance": 0.60,
+    "cunning": 0.55,
+    "greed": 0.65,
+    "charisma": 0.40
+  },
+  "motivations": {
+    "primary": "dominate",
+    "secondary": "plunder",
+    "tertiary": "infamy",
+    "weights": {
+      "dominate": 0.90,
+      "plunder": 0.75,
+      "infamy": 0.65,
+      "survival": 0.50
+    }
+  },
+  "skills": {
+    "combat": "expert",
+    "intimidation": "expert",
+    "boarding": "expert",
+    "navigation": "intermediate",
+    "mining": "novice"
+  },
+  "biography": "Silas Swift earned his nickname and reputation in the brutal fighting pits of the Crimson Empire's industrial world of Karkoa, where imperial overseers forced workers to compete for meager rewards. After killing three company enforcers who came to collect on his family's debts, he fled into the void and was recruited by Roger 'Redbeard' Robbins, who saw in the young fighter the raw violence needed to enforce discipline among the Crimson pirates. Silas rose quickly through the ranks, his reputation growing with every cracked skull and broken resistance. He's now Redbeard's trusted enforcer, the one called when persuasion fails and a message needs to be sent through broken bones and shattered hulls.\n\nSilas speaks in the rough, guttural accent of the Crimson Empire's working class—short sentences, dropped consonants, and a vocabulary limited mostly to threats and commands. He doesn't waste words on wit or banter, preferring to let his reputation and his fists do the talking. When he does speak, it's with the flat, emotionless delivery of someone who has inflicted so much violence that it no longer excites him. He's not one for speeches or dramatic gestures; he simply walks onto a bridge, stares down the captain with dead eyes, and says something like 'Surrender or I break things' in a tone that suggests he's done it a thousand times and will do it a thousand more."
+}
