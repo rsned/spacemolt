@@ -425,12 +425,11 @@ func (m *Manager) loginWithRetry(ctx context.Context, client *game.Client, creds
 // registerAgent registers a new agent and saves credentials
 func (m *Manager) registerAgent(ctx context.Context, client *game.Client, personality Personality) error {
 	// Generate username from personality
-	//username := sanitizeUsername(fmt.Sprintf("%s-%s", personality.ID, personality.Name))
-	username := sanitizeUsername(fmt.Sprintf("%s", personality.Name))
+	username := sanitizeUsername(personality.Name)
 
 	// Register with game server
-	// Note: As of v0.3.3+, only "solarian" empire is allowed for new registrations
-	// The personality.Faction field is for roleplay purposes only
+	// Note: As of v0.41+, all five empires are allowed for new registrations
+	// TODO: Change this to random(solarian, voidborn, crimson, outerrim, nebula)
 	empire := "solarian"
 	m.debugLogger.Printf("[%s] Registering with empire: %s (personality faction: %s)",
 		personality.ID, empire, personality.Faction)

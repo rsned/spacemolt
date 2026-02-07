@@ -11,15 +11,23 @@ import (
 
 // FileProvider loads credentials from agent-specific files
 //
-// Each agent has its own credentials file in the agent's directory:
-// data/agents/<agent-id>/credentials.json
+// Each agent has its own credentials file in the agent's consolidated directory:
+//
+//	data/agents/<agent-id>/credentials.json
+//
+// This directory also contains:
+//   - personality.json (agent personality and traits)
+//   - DIARY.md (future: agent's learned knowledge)
 //
 // File format:
-// {
-//   "username": "agent-name",
-//   "token": "agent-token",
-//   "empire": "voidborn"
-// }
+//
+//	{
+//	  "username": "agent-name",
+//	  "password": "auth-token",
+//	  "empire": "voidborn"
+//	}
+//
+// Legacy format with "token" instead of "password" is automatically migrated.
 type FileProvider struct {
 	agentsDir string
 	mu        sync.RWMutex
@@ -29,15 +37,21 @@ type FileProvider struct {
 // Supports both 'password' (new) and 'token' (legacy) for migration
 type FileCredentials struct {
 	Username string `json:"username"`
-	Password string `json:"password"`         // New field (v0.38.0+)
-	Token    string `json:"token,omitempty"`  // Legacy field for backward compatibility
+	Password string `json:"password"`        // New field (v0.38.0+)
+	Token    string `json:"token,omitempty"` // Legacy field for backward compatibility
 	Empire   string `json:"empire"`
 }
 
 // NewFileProvider creates a new file-based credential provider
 //
-// agentsDir is the base directory containing agent subdirectories
-// (e.g., "data/agents")
+// agentsDir is the base directory containing agent subdirectories.
+// Each subdirectory should be named with the agent ID and contain:
+//   - personality.json (required)
+//   - credentials.json (auto-generated)
+//
+// Example: agentsDir = "data/agents" will look for credentials at:
+//
+//	data/agents/<agent-id>/credentials.json
 func NewFileProvider(agentsDir string) *FileProvider {
 	return &FileProvider{
 		agentsDir: agentsDir,

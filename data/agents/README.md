@@ -40,6 +40,36 @@ The system includes diverse agent personalities, each specialized for different 
 - **engineer-1** - Technical specialist maintaining systems
 - **engineer-2** - R&D engineer researching new technologies
 
+## Directory Structure
+
+Each agent has its own directory under `data/agents/` containing all agent-specific data:
+
+```
+data/agents/
+└── my-agent/
+    ├── personality.json      # Agent personality and traits (required)
+    ├── credentials.json      # Game login credentials (auto-generated)
+    └── DIARY.md             # Agent's learned knowledge (future enhancement)
+```
+
+### Files
+
+- **personality.json** - Defines the agent's personality, traits, motivations, and skills (required)
+- **credentials.json** - Stores game server credentials (auto-generated during first connection)
+- **DIARY.md** - Future: Agent's accumulated knowledge, discovered resources, and NPC relationships
+
+The credentials file is automatically created when an agent registers with the game server. It has the following format:
+
+```json
+{
+  "username": "agent-name",
+  "password": "auth-token",
+  "empire": "voidborn"
+}
+```
+
+**Security Note**: Credential files have restricted permissions (0600) to protect sensitive data.
+
 ## Personality Structure
 
 Each agent is defined by a `personality.json` file with the following structure:

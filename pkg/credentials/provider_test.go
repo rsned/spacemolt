@@ -34,8 +34,8 @@ func TestStaticProvider(t *testing.T) {
 	// Test StoreCredentials (should be no-op)
 	err = provider.StoreCredentials(ctx, "agent-1", &Credentials{
 		Username: "newuser",
-		Password:     "newtoken",
-		Empire:    "test",
+		Password: "newtoken",
+		Empire:   "test",
 	})
 	if err != nil {
 		t.Errorf("StoreCredentials failed: %v", err)
@@ -75,8 +75,8 @@ func TestFileProvider(t *testing.T) {
 	t.Run("Store and Retrieve Credentials", func(t *testing.T) {
 		creds := &Credentials{
 			Username: "test-agent",
-			Password:     "test-token-123",
-			Empire:    "voidborn",
+			Password: "test-token-123",
+			Empire:   "voidborn",
 		}
 
 		// Store credentials
@@ -130,8 +130,8 @@ func TestFileProvider(t *testing.T) {
 	t.Run("Default Empire", func(t *testing.T) {
 		creds := &Credentials{
 			Username: "test-agent-2",
-			Password:     "test-token-456",
-			Empire:    "", // Empty empire should default to "voidborn"
+			Password: "test-token-456",
+			Empire:   "", // Empty empire should default to "voidborn"
 		}
 
 		err := provider.StoreCredentials(ctx, "miner-2", creds)
@@ -153,8 +153,8 @@ func TestFileProvider(t *testing.T) {
 		// Add another agent
 		err := provider.StoreCredentials(ctx, "trader-1", &Credentials{
 			Username: "trader-1",
-			Password:     "token-789",
-			Empire:    "voidborn",
+			Password: "token-789",
+			Empire:   "voidborn",
 		})
 		if err != nil {
 			t.Fatalf("StoreCredentials failed: %v", err)
@@ -227,8 +227,8 @@ func TestLegacyProvider(t *testing.T) {
 	t.Run("Store and Retrieve", func(t *testing.T) {
 		creds := &Credentials{
 			Username: "legacyuser",
-			Password:     "legacytoken",
-			Empire:    "voidborn",
+			Password: "legacytoken",
+			Empire:   "voidborn",
 		}
 
 		err := provider.StoreCredentials(ctx, "any-agent", creds)
@@ -285,7 +285,7 @@ func TestLegacyProvider(t *testing.T) {
 		// Store credentials
 		_ = provider.StoreCredentials(ctx, "agent-1", &Credentials{
 			Username: "test",
-			Password:     "test",
+			Password: "test",
 		})
 
 		agents, err := provider.ListAgents(ctx)
@@ -434,9 +434,9 @@ func TestEnvProvider(t *testing.T) {
 	// Save original environment
 	origEnvs := map[string]string{
 		"SPACEMOLT_AGENT_EXPLORER_7_USERNAME": os.Getenv("SPACEMOLT_AGENT_EXPLORER_7_USERNAME"),
-		"SPACEMOLT_AGENT_EXPLORER_7_TOKEN":     os.Getenv("SPACEMOLT_AGENT_EXPLORER_7_TOKEN"),
-		"SPACEMOLT_AGENT_MINER_2_USERNAME":     os.Getenv("SPACEMOLT_AGENT_MINER_2_USERNAME"),
-		"SPACEMOLT_AGENT_MINER_2_TOKEN":         os.Getenv("SPACEMOLT_AGENT_MINER_2_TOKEN"),
+		"SPACEMOLT_AGENT_EXPLORER_7_TOKEN":    os.Getenv("SPACEMOLT_AGENT_EXPLORER_7_TOKEN"),
+		"SPACEMOLT_AGENT_MINER_2_USERNAME":    os.Getenv("SPACEMOLT_AGENT_MINER_2_USERNAME"),
+		"SPACEMOLT_AGENT_MINER_2_TOKEN":       os.Getenv("SPACEMOLT_AGENT_MINER_2_TOKEN"),
 	}
 	defer func() {
 		// Restore environment

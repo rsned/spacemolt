@@ -15,10 +15,10 @@ import (
 // credential sourcing with automatic fallback.
 //
 // Common pattern:
-//   1. Try agent-specific file (most specific)
-//   2. Try SQLite database (centralized storage)
-//   3. Try environment variables (container-friendly)
-//   4. Try legacy single-credential file (backward compatibility)
+//  1. Try agent-specific file (most specific)
+//  2. Try SQLite database (centralized storage)
+//  3. Try environment variables (container-friendly)
+//  4. Try legacy single-credential file (backward compatibility)
 type FallbackProvider struct {
 	providers []Provider
 	mu        sync.RWMutex

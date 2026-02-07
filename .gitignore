@@ -11,6 +11,7 @@ bin/*
 *.db-shm
 *.db-wal
 data/credentials/
+data/agents/*/credentials.json
 
 ##############################
 # Vim swap files
