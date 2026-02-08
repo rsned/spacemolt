@@ -345,7 +345,7 @@ func (m *WatcherModel) buildStatusFull(state *game.State) string {
 	// Combine columns with spacing
 	leftStyle := lipgloss.NewStyle().Width(25)
 	midStyle := lipgloss.NewStyle().Width(25)
-	rightStyle := lipgloss.NewStyle().Width(30) // Slightly wider for cargo items
+	rightStyle := lipgloss.NewStyle().Width(30)       // Slightly wider for cargo items
 	spacer := lipgloss.NewStyle().Width(2).Render("") // 2 spaces between columns
 
 	return lipgloss.JoinHorizontal(lipgloss.Top,

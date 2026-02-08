@@ -9,12 +9,12 @@ import (
 func TestUpdateShipState_AllFields(t *testing.T) {
 	state := &game.State{}
 	ship := map[string]any{
-		"fuel":            75.5,
-		"max_fuel":        100.0,
-		"hull":            50.0,
-		"max_hull":        100.0,
-		"cargo_capacity":  float64(50),
-		"cargo":           []any{
+		"fuel":           75.5,
+		"max_fuel":       100.0,
+		"hull":           50.0,
+		"max_hull":       100.0,
+		"cargo_capacity": float64(50),
+		"cargo": []any{
 			map[string]any{"item": "iron", "qty": 10},
 			map[string]any{"item": "gold", "qty": 5},
 		},
@@ -64,9 +64,9 @@ func TestUpdateShipState_PartialFields(t *testing.T) {
 
 func TestUpdateShipState_CargoCapacityTypes(t *testing.T) {
 	tests := []struct {
-		name           string
-		cargoCapacity  any
-		expectedMax    int
+		name          string
+		cargoCapacity any
+		expectedMax   int
 	}{
 		{"float64", float64(50), 50},
 		{"int64", int64(75), 75},

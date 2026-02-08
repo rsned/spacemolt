@@ -59,8 +59,8 @@ func main() {
 	// Test 3: FallbackProvider
 	fmt.Println("\n3. Testing FallbackProvider...")
 	fallback := credentials.NewFallbackProvider(
-		&mockProvider{exists: false},                                            // First: doesn't exist
-		fileProvider,                                                            // Second: file provider
+		&mockProvider{exists: false}, // First: doesn't exist
+		fileProvider,                 // Second: file provider
 		credentials.NewStaticProvider("fallback", "fallback-password", "voidborn"), // Third: static
 	)
 

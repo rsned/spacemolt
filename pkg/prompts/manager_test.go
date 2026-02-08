@@ -36,8 +36,8 @@ func TestManager_RenderPrompt(t *testing.T) {
 		AgentName: "Test Agent",
 		Role:      "miner",
 		Personality: &PersonalityContext{
-			Name:  "Test",
-			Role:  "miner",
+			Name:   "Test",
+			Role:   "miner",
 			Traits: []string{"curious", "brave"},
 			Skills: []string{"mining", "combat"},
 		},

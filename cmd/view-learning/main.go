@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -722,7 +723,7 @@ func cmdSummary(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 	err := db.QueryRowContext(ctx,
 		"SELECT name, role, faction FROM agents WHERE id = ?",
 		agentID).Scan(&agentName, &agentRole, &agentFaction)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("agent not found: %s", agentID)
 	}
 	if err != nil {
@@ -772,7 +773,7 @@ func cmdSummary(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 	err = db.QueryRowContext(ctx,
 		"SELECT MAX(time) FROM experiences WHERE agent_id = ?",
 		agentID).Scan(&stats.LastActivity)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("failed to query last activity: %w", err)
 	}
 

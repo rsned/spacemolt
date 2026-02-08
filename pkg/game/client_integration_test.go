@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -707,7 +708,7 @@ func TestContextCancellation(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected error from canceled context")
 		}
-		if err != context.Canceled && !strings.Contains(err.Error(), "context canceled") {
+		if !errors.Is(err, context.Canceled) && !strings.Contains(err.Error(), "context canceled") {
 			t.Errorf("Expected context.Canceled, got: %v", err)
 		}
 	case <-time.After(1 * time.Second):

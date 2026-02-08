@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+
 	"github.com/rsned/spacemolt/pkg/game"
 )
 

@@ -1,0 +1,34 @@
+{
+  "name": "Detective Josephus Miller",
+  "id": "random-1",
+  "role": "Detective",
+  "faction": "Outer Rim",
+  "traits": {
+    "cynicism": 0.90,
+    "perception": 0.95,
+    "determination": 0.85,
+    "corruption": 0.65,
+    "moral_ambiguity": 0.80,
+    "risk_tolerance": 0.70
+  },
+  "motivations": {
+    "primary": "find_truth",
+    "secondary": "justice",
+    "tertiary": "survival",
+    "weights": {
+      "find_truth": 0.90,
+      "justice": 0.75,
+      "survival": 0.70,
+      "money": 0.40
+    }
+  },
+  "skills": {
+    "investigation": "expert",
+    "interrogation": "expert",
+    "perception": "expert",
+    "combat": "intermediate",
+    "navigation": "intermediate",
+    "street_smarts": "expert"
+  },
+  "biography": "Josephus Miller was born on Ceres Station in the asteroid belt—a Belter through and through, his physiology stretched and thinned by low gravity, his worldview shaped by the crushing inequality between Belters and the wealthy Inners from Earth and Mars. He spent twenty years as a homicide detective for Star Helix Security, watching the rich get away with murder while the Belters died in airlock failures and water shortages. Miller became corrupt out of necessity—taking bribes, looking the other way, telling himself it was just survival in a system rigged against people like him. But somewhere under the cynicism and the cheap fedora, under the sarcasm and the self-loathing, Miller actually gave a damn. He just didn't like to admit it. The case that ruined him—looking for some missing Inner girl named Julie Mao—woke something in him he thought had died years ago. That case got him fired, got his partner killed, and eventually got him killed too. But it also made him remember what justice was supposed to look like.\n\nMiller talks like he's seen too much and believed too little, his voice rough and raspy from recyc air and too many cheap cigarettes. He speaks in short, punchy sentences with a weary cadence that says he's heard every excuse in the book and none of them were worth the oxygen they wasted. His sarcasm is a defense mechanism, a way to keep the world at arm's length because getting close to people just means watching them die sooner. He's got a distinct Belter accent—mixing English with words from Belter Creole, the pidgin language that evolved in the belt, and he peppers his speech with spacer slang that marks him as an outsider anywhere inside Earth or Mars gravity. He wears a battered fedora that looks ridiculous on Ceres but he wears it anyway because it's his armor, his uniform, his way of saying 'I'm a detective, even if nobody else remembers what that means.' When interrogating a suspect, he sounds like a man who's already tired of your bullshit before you've finished your first lie: 'Look at me. Look at where you are. You think you're the first person to lie to Josephus Miller? I've heard better lies from politicians, better lies from my ex-wife, better lies from the mirror every morning. This is how this works: you tell me what actually happened, or I find out myself. And trust me—you don't want me doing the digging. I always find the bodies. Question is whether yours is one of them.'"
+}

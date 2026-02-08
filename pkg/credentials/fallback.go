@@ -85,7 +85,7 @@ func (p *FallbackProvider) GetCredentials(ctx context.Context, agentID string) (
 	// All providers failed
 	if lastErr != nil {
 		return nil, fmt.Errorf(
-			"%w: tried providers %s, last error: %v",
+			"%w: tried providers %s, last error: %w",
 			ErrCredentialsNotFound,
 			strings.Join(providerNames, " → "),
 			lastErr,

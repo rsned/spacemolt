@@ -9,14 +9,14 @@ import (
 
 // MemoryKB is an in-memory knowledge base for MVP
 type MemoryKB struct {
-	mu               sync.RWMutex
-	systems          map[string]*System
-	pois             map[string]*POI
-	connections      map[string][]string // from_system -> []to_system
-	experiences      map[string][]Experience // agent_id -> experiences
-	agents           map[string]*AgentInfo
-	marketSnapshots  []MarketSnapshot
-	marketItems      map[string]struct{} // set of unique item IDs
+	mu              sync.RWMutex
+	systems         map[string]*System
+	pois            map[string]*POI
+	connections     map[string][]string     // from_system -> []to_system
+	experiences     map[string][]Experience // agent_id -> experiences
+	agents          map[string]*AgentInfo
+	marketSnapshots []MarketSnapshot
+	marketItems     map[string]struct{} // set of unique item IDs
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -56,7 +56,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 			SecurityLevel: sys.SecurityLevel,
 			Faction:       sys.Faction,
 			Connections:   sys.Connections,
-			VisitCount:     1,
+			VisitCount:    1,
 			DiscoveredBy:  sys.DiscoveredBy,
 			LastVisited:   time.Now().Format(time.RFC3339),
 		}
@@ -116,13 +116,13 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 	defer kb.mu.Unlock()
 
 	kb.pois[poi.ID] = &POI{
-		ID:       poi.ID,
-		SystemID: poi.SystemID,
-		Name:     poi.Name,
-		Type:     poi.Type,
-		Position: poi.Position,
-		Services: poi.Services,
-		Resources: poi.Resources,
+		ID:           poi.ID,
+		SystemID:     poi.SystemID,
+		Name:         poi.Name,
+		Type:         poi.Type,
+		Position:     poi.Position,
+		Services:     poi.Services,
+		Resources:    poi.Resources,
 		DiscoveredBy: poi.DiscoveredBy,
 	}
 
@@ -186,11 +186,11 @@ func (kb *MemoryKB) RegisterAgent(ctx context.Context, agentID, name, role, fact
 	defer kb.mu.Unlock()
 
 	kb.agents[agentID] = &AgentInfo{
-		ID:     agentID,
-		Name:   name,
-		Role:   role,
+		ID:      agentID,
+		Name:    name,
+		Role:    role,
 		Faction: faction,
-		Status: "active",
+		Status:  "active",
 	}
 
 	return nil
@@ -232,15 +232,15 @@ type ResourceInfo struct {
 
 // POI represents knowledge about a Point of Interest
 type POI struct {
-	ID            string
-	SystemID      string
-	Name          string
-	Type          string
-	Description   string
-	Position      Position
-	Services      []string
-	Resources     []ResourceInfo
-	DiscoveredBy  string
+	ID           string
+	SystemID     string
+	Name         string
+	Type         string
+	Description  string
+	Position     Position
+	Services     []string
+	Resources    []ResourceInfo
+	DiscoveredBy string
 }
 
 // Position represents 3D coordinates

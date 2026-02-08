@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	docsDir   = "server_docs"
-	skillURL  = "https://www.spacemolt.com/skill.md"
-	apiURL    = "https://www.spacemolt.com/api.md"
+	docsDir  = "server_docs"
+	skillURL = "https://www.spacemolt.com/skill.md"
+	apiURL   = "https://www.spacemolt.com/api.md"
 )
 
 type doc struct {

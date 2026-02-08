@@ -585,7 +585,7 @@ func (kb *SQLiteKB) ImportKnowledge(ctx context.Context, exportData string) erro
 
 	// Import systems
 	if systemsData, ok := data["systems"].([]interface{}); ok {
-		for _, _ = range systemsData {
+		for range systemsData {
 			// TODO: Properly unmarshal and import system data
 			// For now, skip to avoid complexity
 		}
@@ -593,7 +593,7 @@ func (kb *SQLiteKB) ImportKnowledge(ctx context.Context, exportData string) erro
 
 	// Import POIs
 	if poisData, ok := data["pois"].([]interface{}); ok {
-		for _, _ = range poisData {
+		for range poisData {
 			// TODO: Properly unmarshal and import POI data
 		}
 	}
