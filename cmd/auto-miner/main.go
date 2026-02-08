@@ -339,6 +339,36 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 		// Check if we're on mining_enhanced and can upgrade to mining_barge
 		if state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "starter_mining" {
 			logger.Printf("🚀 MEGA UPGRADE TIME! You have %.2f credits - upgrading to Excavator!", availableCredits)
+
+			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
+			if len(state.Ship.Cargo) > 0 {
+				logger.Printf("📦 Selling all cargo before ship upgrade...")
+				if err := client.SellAll(ctx); err != nil {
+					logger.Printf("Failed to sell cargo: %v", err)
+				} else {
+					logger.Printf("✅ Cargo sold!")
+					time.Sleep(3 * time.Second)
+				}
+			}
+
+			// CRITICAL: Uninstall all utility slot modules (mining lasers) first!
+			logger.Printf("🔧 Uninstalling mining lasers before ship upgrade...")
+			for _, moduleID := range state.Ship.Modules {
+				// Uninstall mining lasers and other utility modules
+				uninstallMsg := protocol.Message{
+					Type: "uninstall_mod",
+					Payload: map[string]any{
+						"module_id": moduleID,
+					},
+				}
+				if err := client.Send(ctx, uninstallMsg); err != nil {
+					logger.Printf("Failed to uninstall module %s: %v", moduleID, err)
+				} else {
+					logger.Printf("✅ Uninstalled module: %s", moduleID)
+				}
+				time.Sleep(2 * time.Second)
+			}
+
 			logger.Printf("🚀 Purchasing mining_barge ship (Excavator)...")
 
 			// Buy the mining_barge ship using direct protocol message
@@ -388,6 +418,36 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 		// Check if we're still on the starter mining ship
 		if state.Ship.ClassID == "starter_mining" {
 			logger.Printf("🚀 SHIP UPGRADE TIME! You have %.2f credits - upgrading to Drillship!", availableCredits)
+
+			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
+			if len(state.Ship.Cargo) > 0 {
+				logger.Printf("📦 Selling all cargo before ship upgrade...")
+				if err := client.SellAll(ctx); err != nil {
+					logger.Printf("Failed to sell cargo: %v", err)
+				} else {
+					logger.Printf("✅ Cargo sold!")
+					time.Sleep(3 * time.Second)
+				}
+			}
+
+			// CRITICAL: Uninstall all utility slot modules (mining lasers) first!
+			logger.Printf("🔧 Uninstalling mining lasers before ship upgrade...")
+			for _, moduleID := range state.Ship.Modules {
+				// Uninstall mining lasers and other utility modules
+				uninstallMsg := protocol.Message{
+					Type: "uninstall_mod",
+					Payload: map[string]any{
+						"module_id": moduleID,
+					},
+				}
+				if err := client.Send(ctx, uninstallMsg); err != nil {
+					logger.Printf("Failed to uninstall module %s: %v", moduleID, err)
+				} else {
+					logger.Printf("✅ Uninstalled module: %s", moduleID)
+				}
+				time.Sleep(2 * time.Second)
+			}
+
 			logger.Printf("🚀 Purchasing mining_enhanced ship (Drillship)...")
 
 			// Buy the mining_enhanced ship using direct protocol message
