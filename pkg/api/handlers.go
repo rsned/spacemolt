@@ -206,11 +206,10 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 		return
 	}
 
-	// Set headers for SSE
+	// Set headers for SSE (CORS handled by middleware)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	agentID := runner.GetAgent().ID()
 

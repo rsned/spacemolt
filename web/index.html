@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpaceMolt Fleet Command</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="top-bar">
+    <div class="header-left">
+      <h1 class="logo">FLEET COMMAND</h1>
+      <span id="connection-status" class="status-dot disconnected"></span>
+    </div>
+    <div class="header-right">
+      <span id="agent-count">0 agents</span>
+      <span id="tick-display">Tick: --</span>
+      <button id="btn-refresh" class="btn-header" title="Refresh">&#x21bb;</button>
+    </div>
+  </header>
+
+  <!-- Fleet Overview (tile grid) -->
+  <main id="fleet-view" class="view active">
+    <div class="section-header">
+      <h2>FLEET OVERVIEW</h2>
+    </div>
+    <div id="agent-grid" class="agent-grid">
+      <!-- Agent tiles inserted dynamically -->
+    </div>
+  </main>
+
+  <!-- Agent Detail View -->
+  <main id="detail-view" class="view">
+    <div class="section-header">
+      <button id="btn-back" class="btn-back">&larr; Fleet</button>
+      <h2 id="detail-agent-name">Agent Detail</h2>
+      <div class="detail-badges">
+        <span id="detail-role" class="badge role"></span>
+        <span id="detail-status" class="badge status"></span>
+      </div>
+    </div>
+
+    <div class="detail-layout">
+      <!-- Left column: Ship graphic -->
+      <div class="detail-ship-col">
+        <div class="panel" id="ship-panel">
+          <h3 class="panel-title">SHIP STATUS</h3>
+          <div id="ship-graphic-container"></div>
+        </div>
+        <div class="panel" id="modules-panel">
+          <h3 class="panel-title">MODULES</h3>
+          <div id="modules-list" class="modules-list"></div>
+        </div>
+      </div>
+
+      <!-- Right column: Stats & info -->
+      <div class="detail-info-col">
+        <div class="panel" id="player-panel">
+          <h3 class="panel-title">PILOT DATA</h3>
+          <div id="player-stats" class="stat-grid"></div>
+        </div>
+        <div class="panel" id="location-panel">
+          <h3 class="panel-title">NAVIGATION</h3>
+          <div id="location-info" class="stat-grid"></div>
+        </div>
+        <div class="panel" id="cargo-panel">
+          <h3 class="panel-title">CARGO MANIFEST</h3>
+          <div id="cargo-list" class="cargo-list"></div>
+        </div>
+        <div class="panel" id="history-panel">
+          <h3 class="panel-title">ACTION LOG</h3>
+          <div id="action-log" class="action-log"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/ship-graphic.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
