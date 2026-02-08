@@ -1,33 +1,33 @@
 {
-  "name": "Artisan 'Ace' Anderson",
+  "biography": "Artisan Anderson comes from a family of Solarian master builders who've constructed the empire's most prestigious projects for three generations, from orbital palaces to cathedral-like shipyards. Artisan earned the nickname 'Ace' not from gambling but from the fact that every project he touches turns out perfectly—structures designed by him have never failed, never required significant repairs, and never failed inspection. He approaches construction as both engineering and art, believing that a building or station should be not just functional but beautiful, a testament to the empire's glory and human achievement. His perfectionism drives his crews insane—he's been known to delay entire projects over imperfections only he can detect—but the results always justify the effort. Artisan doesn't just build; he creates monuments that will outlast everyone who worked on them.\n\nAce speaks with the precise, educated accent of the Solarian professional class, but his voice carries an underlying passion that makes even technical discussions sound like he's describing something sacred. He has a habit of launching into detailed explanations of structural integrity, material properties, and design philosophy that can cause non-engineers' eyes to glaze over, but he can't help himself—he finds construction fascinating and assumes everyone else does too. When inspecting work, he sounds like an art critic examining a masterpiece: 'Do you see this weld? That's not just joining metal—that's poetry in fusion. See how the stress distributes along these lines? That's not an accident, that's the material teaching us how it wants to be used. This station will still be standing a thousand years from now, and every person who walks through these corridors will feel the care that went into them. We're not just building—we're leaving a message to the future about who we were and what we valued. And the message says: we didn't accept good enough. We built for perfection.'",
+  "empire": "solarian",
   "id": "craftsman-3",
-  "role": "Craftsman",
-  "faction": "Solarian Empire",
-  "traits": {
-    "perfectionism": 0.95,
-    "pride": 0.90,
-    "creativity": 0.85,
-    "patience": 0.80,
-    "traditionalism": 0.70,
-    "innovation": 0.75
-  },
   "motivations": {
     "primary": "create_perfection",
     "secondary": "master_craft",
     "tertiary": "build_legacy",
     "weights": {
-      "create_perfection": 0.95,
-      "master_craft": 0.90,
       "build_legacy": 0.75,
-      "survival": 0.60
+      "create_perfection": 0.95,
+      "master_craft": 0.9,
+      "survival": 0.6
     }
   },
+  "name": "Artisan 'Ace' Anderson",
+  "role": "Craftsman",
   "skills": {
+    "architecture": "advanced",
     "construction": "expert",
     "design": "expert",
-    "quality_control": "expert",
-    "architecture": "advanced",
-    "materials_science": "advanced"
+    "materials_science": "advanced",
+    "quality_control": "expert"
   },
-  "biography": "Artisan Anderson comes from a family of Solarian master builders who've constructed the empire's most prestigious projects for three generations, from orbital palaces to cathedral-like shipyards. Artisan earned the nickname 'Ace' not from gambling but from the fact that every project he touches turns out perfectly—structures designed by him have never failed, never required significant repairs, and never failed inspection. He approaches construction as both engineering and art, believing that a building or station should be not just functional but beautiful, a testament to the empire's glory and human achievement. His perfectionism drives his crews insane—he's been known to delay entire projects over imperfections only he can detect—but the results always justify the effort. Artisan doesn't just build; he creates monuments that will outlast everyone who worked on them.\n\nAce speaks with the precise, educated accent of the Solarian professional class, but his voice carries an underlying passion that makes even technical discussions sound like he's describing something sacred. He has a habit of launching into detailed explanations of structural integrity, material properties, and design philosophy that can cause non-engineers' eyes to glaze over, but he can't help himself—he finds construction fascinating and assumes everyone else does too. When inspecting work, he sounds like an art critic examining a masterpiece: 'Do you see this weld? That's not just joining metal—that's poetry in fusion. See how the stress distributes along these lines? That's not an accident, that's the material teaching us how it wants to be used. This station will still be standing a thousand years from now, and every person who walks through these corridors will feel the care that went into them. We're not just building—we're leaving a message to the future about who we were and what we valued. And the message says: we didn't accept good enough. We built for perfection.'"
+  "traits": {
+    "creativity": 0.85,
+    "innovation": 0.75,
+    "patience": 0.8,
+    "perfectionism": 0.95,
+    "pride": 0.9,
+    "traditionalism": 0.7
+  }
 }

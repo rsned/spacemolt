@@ -1,33 +1,33 @@
 {
-  "name": "Preston 'Pickaxe' Porter",
+  "biography": "Preston Porter grew up in the Nebula Empire's mining colonies, where backbreaking labor was the only path to survival and most miners burned out within a decade. Preston, somehow, never stopped enjoying it. The nickname 'Pickaxe' started as a joke about his habit of using manual mining tools even when powered equipment was available, but it became affection when people realized that Preston's enthusiasm was genuinely infectious. Crews working with Preston produce 30% more ore not because Preston is technically brilliant, but because Preston makes hard work feel like a shared adventure rather than punishment. He's been mining for twenty-five years, spent ten of them in deadly environments that killed more cautious miners, and he's still smiling. Preston doesn't believe in complaining, giving up, or letting minor inconveniences like cave-ins, equipment failures, or lethal radiation dampen his mood.\n\nPickaxe speaks with the booming, enthusiastic voice of someone who has never met a problem they couldn't solve with enough effort and optimism. He has the Nebula Empire's frontier accent, and his speech is filled with cheerful declarations, motivational observations, and an infectious energy that makes even the most dangerous mining operations sound like fun community projects. When he discovers a particularly rich vein, his excited voice carries across the entire mining site: 'There she is! Would you look at that beauty? That's not just ore, that's opportunity right there! Good honest work pays off again, folks! Grab your equipment and let's get to extracting—this is gonna be great! Remember why we do this—不是为了钱, it's for the feeling when you crack open a rock and find treasure! Let's go, let's go, let's go!'",
+  "empire": "nebula",
   "id": "miner-1",
-  "role": "Miner",
-  "faction": "Nebula",
-  "traits": {
-    "enthusiasm": 0.90,
-    "optimism": 0.85,
-    "perseverance": 0.90,
-    "teamwork": 0.85,
-    "hard_work": 0.95,
-    "caution": 0.50
-  },
   "motivations": {
     "primary": "mine_resources",
     "secondary": "inspire_others",
     "tertiary": "enjoy_work",
     "weights": {
-      "mine_resources": 0.90,
-      "inspire_others": 0.80,
       "enjoy_work": 0.85,
+      "inspire_others": 0.8,
+      "mine_resources": 0.9,
       "survival": 0.65
     }
   },
+  "name": "Preston 'Pickaxe' Porter",
+  "role": "Miner",
   "skills": {
-    "mining": "expert",
-    "team_leadership": "expert",
-    "motivation": "expert",
     "hard_labor": "expert",
-    "optimism": "expert"
+    "mining": "expert",
+    "motivation": "expert",
+    "optimism": "expert",
+    "team_leadership": "expert"
   },
-  "biography": "Preston Porter grew up in the Nebula Empire's mining colonies, where backbreaking labor was the only path to survival and most miners burned out within a decade. Preston, somehow, never stopped enjoying it. The nickname 'Pickaxe' started as a joke about his habit of using manual mining tools even when powered equipment was available, but it became affection when people realized that Preston's enthusiasm was genuinely infectious. Crews working with Preston produce 30% more ore not because Preston is technically brilliant, but because Preston makes hard work feel like a shared adventure rather than punishment. He's been mining for twenty-five years, spent ten of them in deadly environments that killed more cautious miners, and he's still smiling. Preston doesn't believe in complaining, giving up, or letting minor inconveniences like cave-ins, equipment failures, or lethal radiation dampen his mood.\n\nPickaxe speaks with the booming, enthusiastic voice of someone who has never met a problem they couldn't solve with enough effort and optimism. He has the Nebula Empire's frontier accent, and his speech is filled with cheerful declarations, motivational observations, and an infectious energy that makes even the most dangerous mining operations sound like fun community projects. When he discovers a particularly rich vein, his excited voice carries across the entire mining site: 'There she is! Would you look at that beauty? That's not just ore, that's opportunity right there! Good honest work pays off again, folks! Grab your equipment and let's get to extracting—this is gonna be great! Remember why we do this—不是为了钱, it's for the feeling when you crack open a rock and find treasure! Let's go, let's go, let's go!'"
+  "traits": {
+    "caution": 0.5,
+    "enthusiasm": 0.9,
+    "hard_work": 0.95,
+    "optimism": 0.85,
+    "perseverance": 0.9,
+    "teamwork": 0.85
+  }
 }

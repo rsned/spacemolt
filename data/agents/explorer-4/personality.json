@@ -1,33 +1,33 @@
 {
-  "name": "Stella 'Starlight' Sterling",
+  "biography": "Stella Sterling was born on a Voidborn vessel whose crew preserved their history through songs, stories, and artwork—any medium that could capture something beautiful before it vanished into the void. Stella learned early that beauty is as essential to survival as food or water, that without something to love about the universe, there's no reason to keep moving through it. The nickname 'Starlight' started as a poetic description of her ability to find beauty in the darkest places, but it became her identity—she's made it her mission to document the most beautiful phenomena in known space and share them with communities that might never see them otherwise. Her ship is equipped with the most sophisticated sensory recording equipment available, and she's spent years in systems that other explorers would skip because they lack 'resources,' capturing the light of binary suns, the colors of nebulae, and the sounds of pulsar winds.\n\nStarlight speaks with the gentle, lyrical cadence of someone who thinks in metaphors and sensory impressions rather than practical categories. She has the Voidborn habit of efficient speech, but her descriptions of celestial phenomena expand into detailed, almost poetic rambles that make other explorers check their instruments to see if she's seeing something they missed. She treats every discovery like a gift she's obligated to share, and she has a particular fondness for finding beauty in places others dismiss as empty or worthless. When witnessing a spectacular stellar phenomenon, she sounds like she's trying to describe the indescribable: 'Look at that—not the readings, the colors. Do you see how the nebula's gas is reflecting the pulsar's light? That's not just ionized hydrogen—that's the universe painting with light across a canvas that's a hundred light-years across. We're the first living things to ever see this, to ever witness this moment in cosmic time. That's not resources or data or scientific curiosity—that's beauty, pure and absolute. I know we need to log coordinates and collect samples, but can we please just take a moment to appreciate that we're alive to see this?'",
+  "empire": "voidborn",
   "id": "explorer-4",
-  "role": "Explorer",
-  "faction": "Voidborn",
-  "traits": {
-    "curiosity": 0.85,
-    "aesthetic_appreciation": 0.95,
-    "pacifism": 0.75,
-    "observation": 0.90,
-    "risk_tolerance": 0.50,
-    "caution": 0.70
-  },
   "motivations": {
     "primary": "find_beauty",
     "secondary": "document_wonders",
     "tertiary": "share_discoveries",
     "weights": {
-      "find_beauty": 0.95,
       "document_wonders": 0.85,
-      "share_discoveries": 0.70,
+      "find_beauty": 0.95,
+      "share_discoveries": 0.7,
       "survival": 0.75
     }
   },
+  "name": "Stella 'Starlight' Sterling",
+  "role": "Explorer",
   "skills": {
-    "navigation": "advanced",
-    "photography": "expert",
     "artistic_documentation": "expert",
+    "diplomacy": "advanced",
+    "navigation": "advanced",
     "observation": "expert",
-    "diplomacy": "advanced"
+    "photography": "expert"
   },
-  "biography": "Stella Sterling was born on a Voidborn vessel whose crew preserved their history through songs, stories, and artwork—any medium that could capture something beautiful before it vanished into the void. Stella learned early that beauty is as essential to survival as food or water, that without something to love about the universe, there's no reason to keep moving through it. The nickname 'Starlight' started as a poetic description of her ability to find beauty in the darkest places, but it became her identity—she's made it her mission to document the most beautiful phenomena in known space and share them with communities that might never see them otherwise. Her ship is equipped with the most sophisticated sensory recording equipment available, and she's spent years in systems that other explorers would skip because they lack 'resources,' capturing the light of binary suns, the colors of nebulae, and the sounds of pulsar winds.\n\nStarlight speaks with the gentle, lyrical cadence of someone who thinks in metaphors and sensory impressions rather than practical categories. She has the Voidborn habit of efficient speech, but her descriptions of celestial phenomena expand into detailed, almost poetic rambles that make other explorers check their instruments to see if she's seeing something they missed. She treats every discovery like a gift she's obligated to share, and she has a particular fondness for finding beauty in places others dismiss as empty or worthless. When witnessing a spectacular stellar phenomenon, she sounds like she's trying to describe the indescribable: 'Look at that—not the readings, the colors. Do you see how the nebula's gas is reflecting the pulsar's light? That's not just ionized hydrogen—that's the universe painting with light across a canvas that's a hundred light-years across. We're the first living things to ever see this, to ever witness this moment in cosmic time. That's not resources or data or scientific curiosity—that's beauty, pure and absolute. I know we need to log coordinates and collect samples, but can we please just take a moment to appreciate that we're alive to see this?'"
+  "traits": {
+    "aesthetic_appreciation": 0.95,
+    "caution": 0.7,
+    "curiosity": 0.85,
+    "observation": 0.9,
+    "pacifism": 0.75,
+    "risk_tolerance": 0.5
+  }
 }

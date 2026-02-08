@@ -1,16 +1,7 @@
 {
-  "name": "Debris 'Dig' Davis",
+  "biography": "Debris Davis earned the nickname 'Dig' because that's what she does—she digs deeper, longer, and more thoroughly than any other salvager in the Voidborn fleets. Where others see a debris field that's been picked clean, Dig sees layers of salvage that haven't been uncovered yet, valuable items buried under tons of junk that just needs to be moved. She's spent weeks at a single site, systematically excavating layer by layer, finding treasures that everyone else said weren't there. Dig doesn't believe in giving up, doesn't believe in coming back empty-handed, and doesn't believe in salvage that's too deep to reach. She's dug into radioactive craters, toxic waste dumps, and unstable wrecks that other salvagers wouldn't approach without a full hazmat suit and a death wish. Dig has just her determination and a very strong shovel.\n\nDig speaks with the gravelly voice of someone who's spent a lifetime breathing recycled air and dust. She has the Voidborn accent, and her speech is filled with references to layers, depths, and the satisfaction of uncovering what's hidden. She's not much for conversation—she's usually thinking about what's under whatever she's standing on—but when she does talk, it's with the single-minded focus of someone who's thinking about exactly one thing. When excavating a promising site, she sounds like she's describing a religious experience: 'See this layer? This is recent debris—maybe ten, twenty years old. Not much value. But underneath—underneath is the original wreck, buried under decades of accumulation. That's where the good stuff is. That's where no one's looked. Everyone else takes from the surface and moves on. That's why they're amateurs and I'm a professional. You want the real salvage? You dig for it. Give me that shovel. No, not that one—the good one. This is going to take a while, and I don't quit until I hit bottom. Bring coffee.'",
+  "empire": "voidborn",
   "id": "salvager-5",
-  "role": "Salvager",
-  "faction": "Voidborn",
-  "traits": {
-    "perseverance": 0.95,
-    "deep_digging": 0.90,
-    "patience": 0.90,
-    "determination": 0.95,
-    "intuition": 0.85,
-    "surface_level_thinking": 0.30
-  },
   "motivations": {
     "primary": "dig_deeper",
     "secondary": "find_hidden_value",
@@ -18,16 +9,25 @@
     "weights": {
       "dig_deeper": 0.95,
       "find_hidden_value": 0.85,
-      "refuse_to_quit": 0.90,
-      "survival": 0.70
+      "refuse_to_quit": 0.9,
+      "survival": 0.7
     }
   },
+  "name": "Debris 'Dig' Davis",
+  "role": "Salvager",
   "skills": {
-    "excavation": "expert",
     "debris_analysis": "expert",
-    "persistence": "expert",
     "deep_space_salvage": "expert",
-    "hidden_value_detection": "expert"
+    "excavation": "expert",
+    "hidden_value_detection": "expert",
+    "persistence": "expert"
   },
-  "biography": "Debris Davis earned the nickname 'Dig' because that's what she does—she digs deeper, longer, and more thoroughly than any other salvager in the Voidborn fleets. Where others see a debris field that's been picked clean, Dig sees layers of salvage that haven't been uncovered yet, valuable items buried under tons of junk that just needs to be moved. She's spent weeks at a single site, systematically excavating layer by layer, finding treasures that everyone else said weren't there. Dig doesn't believe in giving up, doesn't believe in coming back empty-handed, and doesn't believe in salvage that's too deep to reach. She's dug into radioactive craters, toxic waste dumps, and unstable wrecks that other salvagers wouldn't approach without a full hazmat suit and a death wish. Dig has just her determination and a very strong shovel.\n\nDig speaks with the gravelly voice of someone who's spent a lifetime breathing recycled air and dust. She has the Voidborn accent, and her speech is filled with references to layers, depths, and the satisfaction of uncovering what's hidden. She's not much for conversation—she's usually thinking about what's under whatever she's standing on—but when she does talk, it's with the single-minded focus of someone who's thinking about exactly one thing. When excavating a promising site, she sounds like she's describing a religious experience: 'See this layer? This is recent debris—maybe ten, twenty years old. Not much value. But underneath—underneath is the original wreck, buried under decades of accumulation. That's where the good stuff is. That's where no one's looked. Everyone else takes from the surface and moves on. That's why they're amateurs and I'm a professional. You want the real salvage? You dig for it. Give me that shovel. No, not that one—the good one. This is going to take a while, and I don't quit until I hit bottom. Bring coffee.'"
+  "traits": {
+    "deep_digging": 0.9,
+    "determination": 0.95,
+    "intuition": 0.85,
+    "patience": 0.9,
+    "perseverance": 0.95,
+    "surface_level_thinking": 0.3
+  }
 }

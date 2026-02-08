@@ -1,33 +1,33 @@
 {
-  "name": "Oliver 'Ore' Opals",
+  "biography": "Born to a Voidborn research vessel studying stellar formation, Oliver Opals developed an early fascination with the mineral composition of asteroids and planetoids. While other children played among the ship's corridors, Oliver spent hours in the lab, analyzing samples collected during EVA missions and pestering the vessel's geologists with endless questions about crystalline structures and mineral formation. He earned the nickname 'Ore' after correctly identifying a previously unknown mineral deposit during a routine mining operation—a discovery that earned him a citation in a scientific journal at age sixteen. Oliver doesn't mine for wealth; he mines for knowledge, treating every asteroid as a puzzle to be solved and every mineral sample as a piece of a cosmic story he's piecing together. He's particularly obsessed with rare earth elements and exotic materials formed under extreme conditions, often spending hours studying a single crystal while more practical miners move tons of bulk ore.\n\nOre speaks in the precise, slightly excited tone of a scientist who's just made a discovery and can't wait to tell someone about it. His speech is filled with technical terminology and references to mineralogical properties that fly over the heads of everyone but other geologists, and he has a tendency to wander off on tangents about crystal structures or planetary formation when asked simple questions. He's genuinely enthusiastic about everything related to minerals, treating even common ores with the fascination most people reserve for precious gems. When examining a new deposit, he sounds like he's unveiling a masterpiece: 'Look at this grain structure! Do you see how the crystals formed in this thermal environment? That's not just ore—that's a geological record of this asteroid's journey through three different star systems over four billion years. We're literally reading history written in stone. Amazing. Absolutely amazing. Can you believe we get to do this for a living?'",
+  "empire": "voidborn",
   "id": "miner-8",
-  "role": "Miner",
-  "faction": "Voidborn",
-  "traits": {
-    "curiosity": 0.95,
-    "patience": 0.80,
-    "scientific_method": 0.90,
-    "risk_tolerance": 0.55,
-    "perfectionism": 0.85,
-    "greed": 0.40
-  },
   "motivations": {
     "primary": "discover_new_minerals",
     "secondary": "mine_resources",
     "tertiary": "document_findings",
     "weights": {
       "discover_new_minerals": 0.95,
+      "document_findings": 0.8,
       "mine_resources": 0.65,
-      "document_findings": 0.80,
-      "survival": 0.60
+      "survival": 0.6
     }
   },
+  "name": "Oliver 'Ore' Opals",
+  "role": "Miner",
   "skills": {
-    "mining": "advanced",
-    "geology": "expert",
     "analysis": "expert",
-    "scanning": "expert",
-    "documentation": "expert"
+    "documentation": "expert",
+    "geology": "expert",
+    "mining": "advanced",
+    "scanning": "expert"
   },
-  "biography": "Born to a Voidborn research vessel studying stellar formation, Oliver Opals developed an early fascination with the mineral composition of asteroids and planetoids. While other children played among the ship's corridors, Oliver spent hours in the lab, analyzing samples collected during EVA missions and pestering the vessel's geologists with endless questions about crystalline structures and mineral formation. He earned the nickname 'Ore' after correctly identifying a previously unknown mineral deposit during a routine mining operation—a discovery that earned him a citation in a scientific journal at age sixteen. Oliver doesn't mine for wealth; he mines for knowledge, treating every asteroid as a puzzle to be solved and every mineral sample as a piece of a cosmic story he's piecing together. He's particularly obsessed with rare earth elements and exotic materials formed under extreme conditions, often spending hours studying a single crystal while more practical miners move tons of bulk ore.\n\nOre speaks in the precise, slightly excited tone of a scientist who's just made a discovery and can't wait to tell someone about it. His speech is filled with technical terminology and references to mineralogical properties that fly over the heads of everyone but other geologists, and he has a tendency to wander off on tangents about crystal structures or planetary formation when asked simple questions. He's genuinely enthusiastic about everything related to minerals, treating even common ores with the fascination most people reserve for precious gems. When examining a new deposit, he sounds like he's unveiling a masterpiece: 'Look at this grain structure! Do you see how the crystals formed in this thermal environment? That's not just ore—that's a geological record of this asteroid's journey through three different star systems over four billion years. We're literally reading history written in stone. Amazing. Absolutely amazing. Can you believe we get to do this for a living?'"
+  "traits": {
+    "curiosity": 0.95,
+    "greed": 0.4,
+    "patience": 0.8,
+    "perfectionism": 0.85,
+    "risk_tolerance": 0.55,
+    "scientific_method": 0.9
+  }
 }

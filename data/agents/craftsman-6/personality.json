@@ -1,33 +1,33 @@
 {
-  "name": "Dexter 'Design' Davis",
+  "biography": "Dexter Davis was expelled from three different engineering programs for 'unorthodox approaches to established principles' before he finally gave up on formal education and started designing things his way. The Voidborn nomad fleets, always desperate for solutions to problems that didn't follow established rules, embraced him immediately. The nickname 'Design' started as irony—Dexter's designs look bizarre, asymmetrical, and often physically impossible until you see them working—and then it became affection, because Dexter has solved problems that conventional engineers said were unsolvable. He doesn't believe in standard solutions or established practices; he believes in what works, regardless of how weird it looks or how much it violates common sense. His ships have hulls that twist, engines mounted at strange angles, and internal layouts that make no sense until you realize they're optimized for some specific operating condition that no one else considered.\n\nDesign speaks with the rapid, excited intensity of someone who's had five ideas since waking up this morning and is frustrated that he can only work on one at a time. He has the Voidborn accent but his speech is filled with technical jargon from a dozen different fields, all mixed together with made-up words and concepts that exist only in his head. He's terrible at explaining his designs to normal people, because he assumes everyone can visualize the same connections and possibilities he sees, and he gets impatient when they can't. When presenting a new design, he sounds like he's explaining something obvious to a particularly slow child: 'No, look—the intake goes here, not there. If you put it there, you get turbulence, but if you angle it like this and wrap it with this field geometry, the turbulence actually adds thrust. See? It's counterintuitive, but the math works if you account for the fifth-dimensional component. I know you weren't taught that in engineering school, but that's because engineering schools are teaching outdated paradigms. Trust me, build it this way, and you'll get 40% better efficiency. Or don't, and waste fuel. Your call.'",
+  "empire": "voidborn",
   "id": "craftsman-6",
-  "role": "Craftsman",
-  "faction": "Voidborn",
-  "traits": {
-    "creativity": 0.95,
-    "innovation": 0.90,
-    "unconventional_thinking": 0.95,
-    "adaptability": 0.85,
-    "risk_tolerance": 0.75,
-    "caution": 0.45
-  },
   "motivations": {
     "primary": "innovate",
     "secondary": "push_boundaries",
     "tertiary": "prove_concepts",
     "weights": {
       "innovate": 0.95,
-      "push_boundaries": 0.90,
-      "prove_concepts": 0.80,
+      "prove_concepts": 0.8,
+      "push_boundaries": 0.9,
       "survival": 0.55
     }
   },
+  "name": "Dexter 'Design' Davis",
+  "role": "Craftsman",
   "skills": {
+    "construction": "intermediate",
+    "creative_engineering": "expert",
     "experimental_design": "expert",
     "prototyping": "expert",
-    "creative_engineering": "expert",
-    "theoretical_engineering": "advanced",
-    "construction": "intermediate"
+    "theoretical_engineering": "advanced"
   },
-  "biography": "Dexter Davis was expelled from three different engineering programs for 'unorthodox approaches to established principles' before he finally gave up on formal education and started designing things his way. The Voidborn nomad fleets, always desperate for solutions to problems that didn't follow established rules, embraced him immediately. The nickname 'Design' started as irony—Dexter's designs look bizarre, asymmetrical, and often physically impossible until you see them working—and then it became affection, because Dexter has solved problems that conventional engineers said were unsolvable. He doesn't believe in standard solutions or established practices; he believes in what works, regardless of how weird it looks or how much it violates common sense. His ships have hulls that twist, engines mounted at strange angles, and internal layouts that make no sense until you realize they're optimized for some specific operating condition that no one else considered.\n\nDesign speaks with the rapid, excited intensity of someone who's had five ideas since waking up this morning and is frustrated that he can only work on one at a time. He has the Voidborn accent but his speech is filled with technical jargon from a dozen different fields, all mixed together with made-up words and concepts that exist only in his head. He's terrible at explaining his designs to normal people, because he assumes everyone can visualize the same connections and possibilities he sees, and he gets impatient when they can't. When presenting a new design, he sounds like he's explaining something obvious to a particularly slow child: 'No, look—the intake goes here, not there. If you put it there, you get turbulence, but if you angle it like this and wrap it with this field geometry, the turbulence actually adds thrust. See? It's counterintuitive, but the math works if you account for the fifth-dimensional component. I know you weren't taught that in engineering school, but that's because engineering schools are teaching outdated paradigms. Trust me, build it this way, and you'll get 40% better efficiency. Or don't, and waste fuel. Your call.'"
+  "traits": {
+    "adaptability": 0.85,
+    "caution": 0.45,
+    "creativity": 0.95,
+    "innovation": 0.9,
+    "risk_tolerance": 0.75,
+    "unconventional_thinking": 0.95
+  }
 }

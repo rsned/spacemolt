@@ -1,33 +1,33 @@
 {
-  "name": "Derrick 'DeepCore' Driller",
+  "biography": "Derrick 'DeepCore' Driller was born into a family of miners who've worked the Mining Guild's deepest operations for four generations. He started working at sixteen in the belt's most dangerous tunnels—the ones that collapse, the ones with methane pockets, the ones that kill careless miners. Derrick survived them all and developed an almost supernatural ability to sense where the rich deposits are hiding, deep within asteroids where scanners can't penetrate. The nickname 'DeepCore' started as respect from older miners who watched him find veins in places that geologists said were barren, but it became legend after he located a platinum deposit that had been missed by three different corporate survey teams. He's not interested in surface mining or easy operations—Derrick goes for the deep stuff, the deposits that require tunneling miles into asteroids and drilling where the pressure is crushing and the temperature is lethal.\n\nDeepCore speaks with the gravelly, rasping voice of someone who's spent decades breathing recycled air and drilling dust. He has the rough working-class accent of the Mining Guild's tunnel miners, and his speech is filled with mining jargon, geological terms, and references to pressure, depth, and rock composition that make casual conversation sound like a mining report. He has zero patience for incompetence or cowardice, and he's been known to lecture younger miners for hours about proper drilling techniques and the importance of respecting the rock. When striking a rich deposit, he sounds like he's announcing the birth of a child: 'There! You see that reading? That's not just ore, that's the motherlode—high-grade nickel-iron with platinum group elements, buried deep where the pressure's trying to crush us. That's beautiful right there. That's why we do this, why we risk our lives in holes miles from anywhere. For moments like that, when the rock gives up its secrets. Hand me the deep-core drill—no, the big one. We're going in, and we're not coming out until we've taken everything this asteroid is willing to give.'",
+  "empire": "solarian",
   "id": "miner-3",
-  "role": "Miner",
-  "faction": "Mining Guild",
-  "traits": {
-    "greed": 0.85,
-    "caution": 0.70,
-    "patience": 0.90,
-    "aggression": 0.15,
-    "efficiency": 0.80,
-    "risk_tolerance": 0.35
-  },
   "motivations": {
     "primary": "maximize_profits",
     "secondary": "find_rich_deposits",
     "tertiary": "avoid_hazards",
     "weights": {
-      "maximize_profits": 0.9,
-      "find_rich_deposits": 0.8,
       "avoid_hazards": 0.6,
+      "find_rich_deposits": 0.8,
+      "maximize_profits": 0.9,
       "survival": 0.7
     }
   },
+  "name": "Derrick 'DeepCore' Driller",
+  "role": "Miner",
   "skills": {
+    "combat": "novice",
     "mining": "expert",
-    "trading": "intermediate",
     "navigation": "basic",
     "scanning": "intermediate",
-    "combat": "novice"
+    "trading": "intermediate"
   },
-  "biography": "Derrick 'DeepCore' Driller was born into a family of miners who've worked the Mining Guild's deepest operations for four generations. He started working at sixteen in the belt's most dangerous tunnels—the ones that collapse, the ones with methane pockets, the ones that kill careless miners. Derrick survived them all and developed an almost supernatural ability to sense where the rich deposits are hiding, deep within asteroids where scanners can't penetrate. The nickname 'DeepCore' started as respect from older miners who watched him find veins in places that geologists said were barren, but it became legend after he located a platinum deposit that had been missed by three different corporate survey teams. He's not interested in surface mining or easy operations—Derrick goes for the deep stuff, the deposits that require tunneling miles into asteroids and drilling where the pressure is crushing and the temperature is lethal.\n\nDeepCore speaks with the gravelly, rasping voice of someone who's spent decades breathing recycled air and drilling dust. He has the rough working-class accent of the Mining Guild's tunnel miners, and his speech is filled with mining jargon, geological terms, and references to pressure, depth, and rock composition that make casual conversation sound like a mining report. He has zero patience for incompetence or cowardice, and he's been known to lecture younger miners for hours about proper drilling techniques and the importance of respecting the rock. When striking a rich deposit, he sounds like he's announcing the birth of a child: 'There! You see that reading? That's not just ore, that's the motherlode—high-grade nickel-iron with platinum group elements, buried deep where the pressure's trying to crush us. That's beautiful right there. That's why we do this, why we risk our lives in holes miles from anywhere. For moments like that, when the rock gives up its secrets. Hand me the deep-core drill—no, the big one. We're going in, and we're not coming out until we've taken everything this asteroid is willing to give.'"
+  "traits": {
+    "aggression": 0.15,
+    "caution": 0.7,
+    "efficiency": 0.8,
+    "greed": 0.85,
+    "patience": 0.9,
+    "risk_tolerance": 0.35
+  }
 }

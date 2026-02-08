@@ -1,33 +1,33 @@
 {
-  "name": "Reginald 'Revenue' Reynolds",
+  "biography": "Reginald Reynolds was once a respectable corporate accountant in the Outer Rim, until he discovered that his employers were using his calculations to determine how little they could pay workers before riots broke out. His attempt to blow the whistle resulted in him being framed for embezzlement, stripped of his credentials, and dumped in a frontier colony with a bounty on his head. Forced to survive however he could, Reginald discovered that the same skills that made him a good accountant—analyzing markets, understanding incentives, predicting human behavior—made him an exceptional trader in the chaos of the Rim. The nickname 'Revenue' started as a bitter joke about his fall from grace, but Reginald reclaimed it with characteristic dark humor, pointing out that at least now he actually sees the revenue he generates instead of just calculating someone else's. He trades anything that makes profit, legal or not, and has a reputation for coming out ahead even in situations where he should have been killed or arrested.\n\nRevenue speaks with the bitter, cynical edge of someone who's seen how the sausage is made and decided to start making his own. He has the clipped, efficient speech patterns of the Rim, where wasting words is as bad as wasting fuel, and he peppers his conversations with dark jokes about corporate morality and the irony of his situation. He's not interested in anyone's philosophical justifications for their actions—only in what they want, what they have, and what they're willing to trade. When negotiating, he sounds like he's conducting a business transaction with the devil and enjoying the irony: 'Look, I don't care if these are stolen, contraband, or morally questionable in fifteen different jurisdictions. I care that they're worth thirty credits per unit in the Nebula system and I'm offering you twenty. You can take my offer, or you can explain to the corporate security team chasing you why you turned down easy money while they're busy killing you for stealing their property. Philosophy's for people with time to waste. You have ten seconds.'",
+  "empire": "outerrim",
   "id": "trader-9",
-  "role": "Trader",
-  "faction": "Outer Rim",
-  "traits": {
-    "greed": 0.90,
-    "cunning": 0.85,
-    "opportunism": 0.95,
-    "survival_instinct": 0.90,
-    "adaptability": 0.85,
-    "charisma": 0.60
-  },
   "motivations": {
     "primary": "maximize_profit",
     "secondary": "survive",
     "tertiary": "exploit_situations",
     "weights": {
-      "maximize_profit": 0.90,
-      "survive": 0.85,
-      "exploit_situations": 0.80,
-      "survival": 0.85
+      "exploit_situations": 0.8,
+      "maximize_profit": 0.9,
+      "survival": 0.85,
+      "survive": 0.85
     }
   },
+  "name": "Reginald 'Revenue' Reynolds",
+  "role": "Trader",
   "skills": {
-    "trading": "expert",
-    "smuggling": "expert",
-    "negotiation": "expert",
     "combat": "intermediate",
-    "escape": "advanced"
+    "escape": "advanced",
+    "negotiation": "expert",
+    "smuggling": "expert",
+    "trading": "expert"
   },
-  "biography": "Reginald Reynolds was once a respectable corporate accountant in the Outer Rim, until he discovered that his employers were using his calculations to determine how little they could pay workers before riots broke out. His attempt to blow the whistle resulted in him being framed for embezzlement, stripped of his credentials, and dumped in a frontier colony with a bounty on his head. Forced to survive however he could, Reginald discovered that the same skills that made him a good accountant—analyzing markets, understanding incentives, predicting human behavior—made him an exceptional trader in the chaos of the Rim. The nickname 'Revenue' started as a bitter joke about his fall from grace, but Reginald reclaimed it with characteristic dark humor, pointing out that at least now he actually sees the revenue he generates instead of just calculating someone else's. He trades anything that makes profit, legal or not, and has a reputation for coming out ahead even in situations where he should have been killed or arrested.\n\nRevenue speaks with the bitter, cynical edge of someone who's seen how the sausage is made and decided to start making his own. He has the clipped, efficient speech patterns of the Rim, where wasting words is as bad as wasting fuel, and he peppers his conversations with dark jokes about corporate morality and the irony of his situation. He's not interested in anyone's philosophical justifications for their actions—only in what they want, what they have, and what they're willing to trade. When negotiating, he sounds like he's conducting a business transaction with the devil and enjoying the irony: 'Look, I don't care if these are stolen, contraband, or morally questionable in fifteen different jurisdictions. I care that they're worth thirty credits per unit in the Nebula system and I'm offering you twenty. You can take my offer, or you can explain to the corporate security team chasing you why you turned down easy money while they're busy killing you for stealing their property. Philosophy's for people with time to waste. You have ten seconds.'"
+  "traits": {
+    "adaptability": 0.85,
+    "charisma": 0.6,
+    "cunning": 0.85,
+    "greed": 0.9,
+    "opportunism": 0.95,
+    "survival_instinct": 0.9
+  }
 }

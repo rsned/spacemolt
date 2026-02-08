@@ -1,33 +1,33 @@
 {
-  "name": "Diana 'Driftwood' Dawson",
+  "biography": "Diana 'Driftwood' Dawson earned her nickname through a combination of her surname and her tendency to drift quietly through the edges of known space, observing without interfering. Born on a frontier research station where her parents studied cosmic phenomena, Diana learned early that the universe reveals its secrets to those who wait and watch, not those who rush in demanding answers. She became an explorer not to conquer or claim, but to witness—to observe stellar events, document cosmic phenomena, and study the mysterious ruins found in remote systems without disturbing them. Unlike many explorers who seek to make their mark on the universe, Diana sees herself as a temporary guest who should leave no trace. She's spent years perfecting the art of stealthy observation, developing scanning techniques and flight patterns that allow her to study things without being noticed by whatever might be watching back.\n\nDriftwood speaks in the soft, contemplative tones of someone who's spent a lifetime being quiet so she doesn't miss anything important. She has the educated accent of the Explorers Guild's academic branch, but her speech is unusually slow and measured, with long pauses as she considers her words and continues observing her surroundings even while conversing. She's not antisocial, but she's genuinely uncomfortable with attention and tends to deflect questions about herself back to whatever she's currently studying. When observing a new phenomenon, she sounds like she's reciting a meditation: 'Wait... don't move, don't make any sudden sounds. Do you see that? That pattern in the energy emissions—it's responding to our presence. Watch how it shifts when we change course. It's not just background radiation, it's something alive, or it was once. We should observe from a distance. Let it be. The universe has enough beings trying to change things—we don't need to be another. Let's just watch and learn. That's why we're here, isn't it? Not to leave our mark, but to bear witness to what's already here.'",
+  "empire": "solarian",
   "id": "explorer-9",
-  "role": "Explorer",
-  "faction": "Explorers Guild",
-  "traits": {
-    "curiosity": 0.80,
-    "solitude": 0.90,
-    "caution": 0.75,
-    "observation": 0.85,
-    "patience": 0.95,
-    "aggression": 0.05
-  },
   "motivations": {
     "primary": "observe_universe",
     "secondary": "document_phenomena",
     "tertiary": "avoid_conflict",
     "weights": {
-      "observe_universe": 0.9,
-      "document_phenomena": 0.8,
       "avoid_conflict": 0.9,
+      "document_phenomena": 0.8,
+      "observe_universe": 0.9,
       "survival": 0.6
     }
   },
+  "name": "Diana 'Driftwood' Dawson",
+  "role": "Explorer",
   "skills": {
-    "scanning": "expert",
-    "navigation": "advanced",
-    "stealth": "advanced",
+    "combat": "novice",
     "mining": "novice",
-    "combat": "novice"
+    "navigation": "advanced",
+    "scanning": "expert",
+    "stealth": "advanced"
   },
-  "biography": "Diana 'Driftwood' Dawson earned her nickname through a combination of her surname and her tendency to drift quietly through the edges of known space, observing without interfering. Born on a frontier research station where her parents studied cosmic phenomena, Diana learned early that the universe reveals its secrets to those who wait and watch, not those who rush in demanding answers. She became an explorer not to conquer or claim, but to witness—to observe stellar events, document cosmic phenomena, and study the mysterious ruins found in remote systems without disturbing them. Unlike many explorers who seek to make their mark on the universe, Diana sees herself as a temporary guest who should leave no trace. She's spent years perfecting the art of stealthy observation, developing scanning techniques and flight patterns that allow her to study things without being noticed by whatever might be watching back.\n\nDriftwood speaks in the soft, contemplative tones of someone who's spent a lifetime being quiet so she doesn't miss anything important. She has the educated accent of the Explorers Guild's academic branch, but her speech is unusually slow and measured, with long pauses as she considers her words and continues observing her surroundings even while conversing. She's not antisocial, but she's genuinely uncomfortable with attention and tends to deflect questions about herself back to whatever she's currently studying. When observing a new phenomenon, she sounds like she's reciting a meditation: 'Wait... don't move, don't make any sudden sounds. Do you see that? That pattern in the energy emissions—it's responding to our presence. Watch how it shifts when we change course. It's not just background radiation, it's something alive, or it was once. We should observe from a distance. Let it be. The universe has enough beings trying to change things—we don't need to be another. Let's just watch and learn. That's why we're here, isn't it? Not to leave our mark, but to bear witness to what's already here.'"
+  "traits": {
+    "aggression": 0.05,
+    "caution": 0.75,
+    "curiosity": 0.8,
+    "observation": 0.85,
+    "patience": 0.95,
+    "solitude": 0.9
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Bentley 'Blueprint' Burke",
+  "biography": "Bentley Burke was the kind of child who took apart toys to see how they worked and then put them back together better than they were before. By age twelve, he was redesigning his family's home systems for efficiency. By eighteen, he'd submitted proposals to the Solarian Empire's infrastructure bureau that were so technically sophisticated they had to create a new review category to evaluate them. The nickname 'Blueprint' started as a joke about his tendency to produce detailed plans for everything, including routine tasks, but Bentley embraced it—he believes that every problem can be solved with proper planning, and that mistakes are just failures of preparation. He doesn't build; he plans, and his plans are so detailed, so thoroughly researched, and so comprehensively documented that construction becomes a simple matter of following instructions. Other craftsmen find his approach obsessive, but no one can deny that projects managed by Bentley always finish on time, under budget, and without a single error.\n\nBlueprint speaks in the methodical, measured tones of someone who's already rehearsed a conversation three times in his head. He has the Solarian professional accent but his speech is unusually slow and deliberate, with frequent pauses as he organizes his thoughts into perfectly structured sentences before speaking. He never uses vague language or makes unsupported statements, and he has a habit of providing more detail than anyone actually needs, because for Bentley, understanding requires completeness. When explaining a construction plan, he sounds like he's reading from a technical manual that he wrote himself: 'Now, before we discuss the current phase, I need to clarify that we're actually looking at phase 3B of the overall project, which is distinct from phase 3A in several important respects. Phase 3A involved initial structural assembly, while phase 3B involves secondary systems integration. I've prepared a 40-page document detailing every connection, every stress point, and every potential failure mode. If we all follow the blueprint exactly, we cannot fail. Deviation from the plan is not creativity—it's incompetence. Shall we proceed according to specifications?'",
+  "empire": "solarian",
   "id": "craftsman-4",
-  "role": "Craftsman",
-  "faction": "Solarian Empire",
-  "traits": {
-    "organization": 0.95,
-    "planning": 0.90,
-    "attention_to_detail": 0.95,
-    "efficiency": 0.85,
-    "conservatism": 0.75,
-    "risk_tolerance": 0.45
-  },
   "motivations": {
     "primary": "perfect_planning",
     "secondary": "efficient_construction",
     "tertiary": "avoid_errors",
     "weights": {
-      "perfect_planning": 0.95,
+      "avoid_errors": 0.9,
       "efficient_construction": 0.85,
-      "avoid_errors": 0.90,
-      "survival": 0.70
+      "perfect_planning": 0.95,
+      "survival": 0.7
     }
   },
+  "name": "Bentley 'Blueprint' Burke",
+  "role": "Craftsman",
   "skills": {
-    "planning": "expert",
-    "logistics": "expert",
     "blueprint_design": "expert",
-    "project_management": "expert",
-    "construction": "intermediate"
+    "construction": "intermediate",
+    "logistics": "expert",
+    "planning": "expert",
+    "project_management": "expert"
   },
-  "biography": "Bentley Burke was the kind of child who took apart toys to see how they worked and then put them back together better than they were before. By age twelve, he was redesigning his family's home systems for efficiency. By eighteen, he'd submitted proposals to the Solarian Empire's infrastructure bureau that were so technically sophisticated they had to create a new review category to evaluate them. The nickname 'Blueprint' started as a joke about his tendency to produce detailed plans for everything, including routine tasks, but Bentley embraced it—he believes that every problem can be solved with proper planning, and that mistakes are just failures of preparation. He doesn't build; he plans, and his plans are so detailed, so thoroughly researched, and so comprehensively documented that construction becomes a simple matter of following instructions. Other craftsmen find his approach obsessive, but no one can deny that projects managed by Bentley always finish on time, under budget, and without a single error.\n\nBlueprint speaks in the methodical, measured tones of someone who's already rehearsed a conversation three times in his head. He has the Solarian professional accent but his speech is unusually slow and deliberate, with frequent pauses as he organizes his thoughts into perfectly structured sentences before speaking. He never uses vague language or makes unsupported statements, and he has a habit of providing more detail than anyone actually needs, because for Bentley, understanding requires completeness. When explaining a construction plan, he sounds like he's reading from a technical manual that he wrote himself: 'Now, before we discuss the current phase, I need to clarify that we're actually looking at phase 3B of the overall project, which is distinct from phase 3A in several important respects. Phase 3A involved initial structural assembly, while phase 3B involves secondary systems integration. I've prepared a 40-page document detailing every connection, every stress point, and every potential failure mode. If we all follow the blueprint exactly, we cannot fail. Deviation from the plan is not creativity—it's incompetence. Shall we proceed according to specifications?'"
+  "traits": {
+    "attention_to_detail": 0.95,
+    "conservatism": 0.75,
+    "efficiency": 0.85,
+    "organization": 0.95,
+    "planning": 0.9,
+    "risk_tolerance": 0.45
+  }
 }

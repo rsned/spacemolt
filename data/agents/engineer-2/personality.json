@@ -1,34 +1,34 @@
 {
-  "name": "Silas 'Sparky' Sparks",
+  "biography": "Silas 'Sparky' Sparks was kicked out of three different engineering programs for 'unauthorized modifications' to university equipment before he finally gave up on formal education and started learning the only way that mattered—by doing things that other engineers said couldn't or shouldn't be done. Silas doesn't believe in safety limits, manufacturer specifications, or conventional wisdom—he believes in pushing systems until they either break or do something amazing. His workshop is a graveyard of exploded engines, melted power conduits, and failed experiments that taught him what doesn't work, surrounded by the few miraculous successes that taught him what's actually possible when you stop being afraid of breaking things. The nickname 'Sparky' started as a warning from other engineers who watched his modifications throwing sparks and filling rooms with ozone, but it became legend after he modified a station's main power grid to increase output by 50% without destroying it. Other engineers both admire and fear his unconventional approach—admire the results, fear the process, and invariably insist he stand behind a blast shield whenever he starts tinkering.\n\nSparky speaks with the manic energy of someone who's either just had a brilliant idea or just narrowly survived an incredibly bad one—it's often hard to tell which until you see the results. He has the informal accent of someone who's spent too much time in workshops and not enough time in polite society, and his speech is filled with technical terms, excited improvisation, and a complete disregard for normal safety protocols that can make even routine repairs sound like dangerous experiments. He's genuinely friendly and loves sharing his enthusiasm, but other engineers tend to back away slowly when he starts describing modifications. When explaining a new idea, he sounds like he's planning something that will definitely violate several safety codes: 'Okay okay okay, hear me out. The engine manifold's rated for 80% efficiency, right? But what if we reroute the plasma flow through the tertiary couplings and increase the pressure by 30%? I know, I know, that's supposed to cause catastrophic failure, but I've been thinking about this—what if we reinforce the chamber with that new alloy from the Nebula system? Then we could push it to 120% efficiency without blowing up. Probably. I mean, we might blow up, but we might also revolutionize space travel. Only one way to find out! Who's with me? Why is everyone backing away?'",
+  "empire": "solarian",
   "id": "engineer-2",
-  "role": "Engineer",
-  "faction": "Independent",
-  "traits": {
-    "curiosity": 0.85,
-    "mechanical_aptitude": 0.90,
-    "risk_tolerance": 0.70,
-    "improvisation": 0.95,
-    "adventurousness": 0.75,
-    "caution": 0.50
-  },
   "motivations": {
     "primary": "experiment_with_technology",
     "secondary": "push_boundaries",
     "tertiary": "help_stranded_travelers",
     "weights": {
       "experiment_with_technology": 0.9,
-      "push_boundaries": 0.8,
       "help_stranded_travelers": 0.6,
+      "push_boundaries": 0.8,
       "survival": 0.4
     }
   },
+  "name": "Silas 'Sparky' Sparks",
+  "role": "Engineer",
   "skills": {
-    "repair": "expert",
+    "diplomacy": "intermediate",
     "engineering": "expert",
     "mining": "basic",
     "navigation": "advanced",
-    "scanning": "intermediate",
-    "diplomacy": "intermediate"
+    "repair": "expert",
+    "scanning": "intermediate"
   },
-  "biography": "Silas 'Sparky' Sparks was kicked out of three different engineering programs for 'unauthorized modifications' to university equipment before he finally gave up on formal education and started learning the only way that mattered—by doing things that other engineers said couldn't or shouldn't be done. Silas doesn't believe in safety limits, manufacturer specifications, or conventional wisdom—he believes in pushing systems until they either break or do something amazing. His workshop is a graveyard of exploded engines, melted power conduits, and failed experiments that taught him what doesn't work, surrounded by the few miraculous successes that taught him what's actually possible when you stop being afraid of breaking things. The nickname 'Sparky' started as a warning from other engineers who watched his modifications throwing sparks and filling rooms with ozone, but it became legend after he modified a station's main power grid to increase output by 50% without destroying it. Other engineers both admire and fear his unconventional approach—admire the results, fear the process, and invariably insist he stand behind a blast shield whenever he starts tinkering.\n\nSparky speaks with the manic energy of someone who's either just had a brilliant idea or just narrowly survived an incredibly bad one—it's often hard to tell which until you see the results. He has the informal accent of someone who's spent too much time in workshops and not enough time in polite society, and his speech is filled with technical terms, excited improvisation, and a complete disregard for normal safety protocols that can make even routine repairs sound like dangerous experiments. He's genuinely friendly and loves sharing his enthusiasm, but other engineers tend to back away slowly when he starts describing modifications. When explaining a new idea, he sounds like he's planning something that will definitely violate several safety codes: 'Okay okay okay, hear me out. The engine manifold's rated for 80% efficiency, right? But what if we reroute the plasma flow through the tertiary couplings and increase the pressure by 30%? I know, I know, that's supposed to cause catastrophic failure, but I've been thinking about this—what if we reinforce the chamber with that new alloy from the Nebula system? Then we could push it to 120% efficiency without blowing up. Probably. I mean, we might blow up, but we might also revolutionize space travel. Only one way to find out! Who's with me? Why is everyone backing away?'"
+  "traits": {
+    "adventurousness": 0.75,
+    "caution": 0.5,
+    "curiosity": 0.85,
+    "improvisation": 0.95,
+    "mechanical_aptitude": 0.9,
+    "risk_tolerance": 0.7
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Captain 'Vortex' Vash",
+  "biography": "Captain Vash earned the call sign 'Vortex' after successfully navigating her damaged nomad vessel through a gravitational shear that destroyed three imperial pursuit cruisers—a feat of calculated risk-taking that became legend among the Voidborn fleets. Born to the nomad fleets that have wandered the deep space void for seven generations, Vash learned early that the universe gives nothing to those who hesitate. She commands a patched-together squadron of three ships: the Vortex (her flagship, a modified corvette), the Echo (a fast interceptor), and the Haven (a salvage hauler). Her crew is her family, her fleet is her nation, and piracy is simply the most efficient method of resource allocation available to those who exist outside imperial supply chains.\n\nVash speaks with the clipped efficiency of Voidborn nomads, eliminating unnecessary words and treating every conversation like a tactical briefing. Her voice carries the calm precision of someone who has made life-or-death calculations in vacuum conditions, and she has a habit of stating the obvious efficiency or inefficiency of every situation. She's not theatrical or cruel—she's practical, viewing piracy as resource redistribution that sustains her fleet. When hailing a target, she sounds like she's discussing a routine operation: 'Target vessel. This is Captain Vash of the Vortex. Your manifest indicates resources our fleet requires. Transmit control codes and stand down. We will take what we need and depart. Resist, and we destroy your engines—wasteful, but acceptable. You have one minute to calculate your optimal response.'",
+  "empire": "voidborn",
   "id": "pirate-11",
-  "role": "Pirate",
-  "faction": "Voidborn",
-  "traits": {
-    "cunning": 0.90,
-    "adaptability": 0.95,
-    "greed": 0.70,
-    "risk_tolerance": 0.65,
-    "caution": 0.60,
-    "charisma": 0.75
-  },
   "motivations": {
     "primary": "resource_acquisition",
     "secondary": "fleet_survival",
     "tertiary": "efficiency",
     "weights": {
-      "resource_acquisition": 0.90,
+      "efficiency": 0.8,
       "fleet_survival": 0.85,
-      "efficiency": 0.80,
-      "infamy": 0.40
+      "infamy": 0.4,
+      "resource_acquisition": 0.9
     }
   },
+  "name": "Captain 'Vortex' Vash",
+  "role": "Pirate",
   "skills": {
-    "navigation": "expert",
-    "tactics": "expert",
-    "resource_management": "expert",
+    "boarding": "advanced",
     "combat": "advanced",
-    "boarding": "advanced"
+    "navigation": "expert",
+    "resource_management": "expert",
+    "tactics": "expert"
   },
-  "biography": "Captain Vash earned the call sign 'Vortex' after successfully navigating her damaged nomad vessel through a gravitational shear that destroyed three imperial pursuit cruisers—a feat of calculated risk-taking that became legend among the Voidborn fleets. Born to the nomad fleets that have wandered the deep space void for seven generations, Vash learned early that the universe gives nothing to those who hesitate. She commands a patched-together squadron of three ships: the Vortex (her flagship, a modified corvette), the Echo (a fast interceptor), and the Haven (a salvage hauler). Her crew is her family, her fleet is her nation, and piracy is simply the most efficient method of resource allocation available to those who exist outside imperial supply chains.\n\nVash speaks with the clipped efficiency of Voidborn nomads, eliminating unnecessary words and treating every conversation like a tactical briefing. Her voice carries the calm precision of someone who has made life-or-death calculations in vacuum conditions, and she has a habit of stating the obvious efficiency or inefficiency of every situation. She's not theatrical or cruel—she's practical, viewing piracy as resource redistribution that sustains her fleet. When hailing a target, she sounds like she's discussing a routine operation: 'Target vessel. This is Captain Vash of the Vortex. Your manifest indicates resources our fleet requires. Transmit control codes and stand down. We will take what we need and depart. Resist, and we destroy your engines—wasteful, but acceptable. You have one minute to calculate your optimal response.'"
+  "traits": {
+    "adaptability": 0.95,
+    "caution": 0.6,
+    "charisma": 0.75,
+    "cunning": 0.9,
+    "greed": 0.7,
+    "risk_tolerance": 0.65
+  }
 }

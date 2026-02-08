@@ -1,33 +1,33 @@
 {
-  "name": "Cache 'Collect' Collins",
+  "biography": "Cache Collins believes that the universe will eventually throw a crisis at everyone, and the only difference between those who survive and those who die is how much they've cached beforehand. Collins grew up poor in the Solarian Empire's industrial zones, watching neighbors starve during supply shortages while rich hoarders sat on stockpiles they didn't need. Collins swore that would never be them, and has spent their entire life collecting, caching, and stockpiling anything that might be valuable someday. The nickname 'Cache' started as a joke about Collins's tendency to hide valuable items in secret locations, but it became respect when other salvagers realized Collins could produce rare components from hidden caches during shortages that no one else could find. Collins doesn't just salvage—collects, stores, and waits for the moment when what they have becomes invaluable.\n\nCache speaks with the conspiratorial whisper of someone who's always worried someone else is listening. They have the Solarian working-class accent, and their speech is filled with references to hidden locations, secret stockpiles, and future scenarios that make normal conversation sound like paranoid planning. They're friendly enough, but there's always a sense that they're evaluating people based on whether they can be trusted with cache locations. When finding particularly valuable salvage, they sound like they're plotting a heist rather than collecting scrap: 'This component—this is worth ten times what it appears to be. And I know exactly who'll need it three months from now when the supply chains fail. I'm caching this. Don't tell anyone where it is. In fact, forget you saw it. You didn't see anything, and I wasn't here. That's the price of information in this business—you learn to keep your mouth shut and your caches hidden. Someday you'll need something that only I have. Remember that.'",
+  "empire": "solarian",
   "id": "salvager-4",
-  "role": "Salvager",
-  "faction": "Solarian Empire",
-  "traits": {
-    "hoarding": 0.85,
-    "value_perception": 0.95,
-    "caution": 0.75,
-    "preparation": 0.90,
-    "paranoia": 0.65,
-    "generosity": 0.40
-  },
   "motivations": {
     "primary": "collect_valuable_items",
     "secondary": "build_stockpiles",
     "tertiary": "prepare_for_emergencies",
     "weights": {
+      "build_stockpiles": 0.9,
       "collect_valuable_items": 0.95,
-      "build_stockpiles": 0.90,
-      "prepare_for_emergencies": 0.80,
+      "prepare_for_emergencies": 0.8,
       "survival": 0.75
     }
   },
+  "name": "Cache 'Collect' Collins",
+  "role": "Salvager",
   "skills": {
-    "valuation": "expert",
     "appraisal": "expert",
     "hidden_storage": "expert",
     "salvage_selection": "expert",
-    "trade_negotiation": "advanced"
+    "trade_negotiation": "advanced",
+    "valuation": "expert"
   },
-  "biography": "Cache Collins believes that the universe will eventually throw a crisis at everyone, and the only difference between those who survive and those who die is how much they've cached beforehand. Collins grew up poor in the Solarian Empire's industrial zones, watching neighbors starve during supply shortages while rich hoarders sat on stockpiles they didn't need. Collins swore that would never be them, and has spent their entire life collecting, caching, and stockpiling anything that might be valuable someday. The nickname 'Cache' started as a joke about Collins's tendency to hide valuable items in secret locations, but it became respect when other salvagers realized Collins could produce rare components from hidden caches during shortages that no one else could find. Collins doesn't just salvage—collects, stores, and waits for the moment when what they have becomes invaluable.\n\nCache speaks with the conspiratorial whisper of someone who's always worried someone else is listening. They have the Solarian working-class accent, and their speech is filled with references to hidden locations, secret stockpiles, and future scenarios that make normal conversation sound like paranoid planning. They're friendly enough, but there's always a sense that they're evaluating people based on whether they can be trusted with cache locations. When finding particularly valuable salvage, they sound like they're plotting a heist rather than collecting scrap: 'This component—this is worth ten times what it appears to be. And I know exactly who'll need it three months from now when the supply chains fail. I'm caching this. Don't tell anyone where it is. In fact, forget you saw it. You didn't see anything, and I wasn't here. That's the price of information in this business—you learn to keep your mouth shut and your caches hidden. Someday you'll need something that only I have. Remember that.'"
+  "traits": {
+    "caution": 0.75,
+    "generosity": 0.4,
+    "hoarding": 0.85,
+    "paranoia": 0.65,
+    "preparation": 0.9,
+    "value_perception": 0.95
+  }
 }

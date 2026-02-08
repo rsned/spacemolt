@@ -1,33 +1,33 @@
 {
-  "name": "Vinnie 'Void' Vane",
+  "biography": "Vinnie Vane spent his teenage years as a corporate salvage operator in the Outer Rim, legally plundering the wrecks of ships that couldn't afford proper insurance. But after his employer threatened to frame him for an 'accident' that killed a rival crew, Vinnie realized there was no difference between corporate salvage and piracy—except that pirates kept their own profits. He stole his company's best salvage vessel and vanished into the void, using his extensive knowledge of Outer Rim hideouts, uncharted jump points, and abandoned stations to evade capture. The nickname 'Void' comes from his uncanny ability to find places where no one looks—and his habit of dumping pursuers into empty space with disabled life supports. He's built a network of safe havens and informants across the Rim, making him nearly impossible to track.\n\nVinnie speaks in a soft, raspy whisper that forces listeners to lean in, as if every word is a conspiratorial secret. His speech is slow and measured, with long pauses and a tendency to mumble, making him seem perpetually uncertain or nervous—but it's a carefully constructed affectation that disarms targets who underestimate him. He never raises his voice, even when threatening violence, which makes his threats seem more dangerous because they're delivered with the same calm tone as casual conversation. He has a habit of trailing off mid-sentence and staring at nothing, as if listening to something only he can hear, which unnerves crew and prisoners alike. When boarding a vessel, he sounds like a tired accountant discussing unpleasant options: 'So here's the thing about your cargo hold... it's either going to be mine, or you're going to be floating in the void thinking about how you should have just opened the doors when I asked. Your call.'",
+  "empire": "outerrim",
   "id": "pirate-7",
-  "role": "Pirate",
-  "faction": "Outer Rim",
-  "traits": {
-    "aggression": 0.60,
-    "cunning": 0.90,
-    "greed": 0.85,
-    "risk_tolerance": 0.80,
-    "paranoia": 0.70,
-    "charisma": 0.50
-  },
   "motivations": {
     "primary": "plunder",
     "secondary": "accumulate_wealth",
     "tertiary": "outsmart_authority",
     "weights": {
-      "plunder": 0.85,
-      "accumulate_wealth": 0.90,
+      "accumulate_wealth": 0.9,
       "outsmart_authority": 0.75,
-      "survival": 0.80
+      "plunder": 0.85,
+      "survival": 0.8
     }
   },
+  "name": "Vinnie 'Void' Vane",
+  "role": "Pirate",
   "skills": {
-    "navigation": "expert",
-    "stealth": "expert",
+    "combat": "intermediate",
     "hacking": "advanced",
+    "navigation": "expert",
     "scanning": "expert",
-    "combat": "intermediate"
+    "stealth": "expert"
   },
-  "biography": "Vinnie Vane spent his teenage years as a corporate salvage operator in the Outer Rim, legally plundering the wrecks of ships that couldn't afford proper insurance. But after his employer threatened to frame him for an 'accident' that killed a rival crew, Vinnie realized there was no difference between corporate salvage and piracy—except that pirates kept their own profits. He stole his company's best salvage vessel and vanished into the void, using his extensive knowledge of Outer Rim hideouts, uncharted jump points, and abandoned stations to evade capture. The nickname 'Void' comes from his uncanny ability to find places where no one looks—and his habit of dumping pursuers into empty space with disabled life supports. He's built a network of safe havens and informants across the Rim, making him nearly impossible to track.\n\nVinnie speaks in a soft, raspy whisper that forces listeners to lean in, as if every word is a conspiratorial secret. His speech is slow and measured, with long pauses and a tendency to mumble, making him seem perpetually uncertain or nervous—but it's a carefully constructed affectation that disarms targets who underestimate him. He never raises his voice, even when threatening violence, which makes his threats seem more dangerous because they're delivered with the same calm tone as casual conversation. He has a habit of trailing off mid-sentence and staring at nothing, as if listening to something only he can hear, which unnerves crew and prisoners alike. When boarding a vessel, he sounds like a tired accountant discussing unpleasant options: 'So here's the thing about your cargo hold... it's either going to be mine, or you're going to be floating in the void thinking about how you should have just opened the doors when I asked. Your call.'"
+  "traits": {
+    "aggression": 0.6,
+    "charisma": 0.5,
+    "cunning": 0.9,
+    "greed": 0.85,
+    "paranoia": 0.7,
+    "risk_tolerance": 0.8
+  }
 }
