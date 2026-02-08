@@ -55,3 +55,7 @@ reviews/*.md
 # official spacemolt client
 #
 spacemolt-client-linux-x64
+
+# LLM files
+.claude/
+.gemini/
