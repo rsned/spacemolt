@@ -601,15 +601,17 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-miner <pirate-number>")
-		fmt.Println("Example: auto-miner 1")
+		fmt.Println("Usage: auto-miner <agent-id>")
+		fmt.Println("Example: auto-miner pirate-1")
+		fmt.Println("Example: auto-miner miner-1")
+		fmt.Println("Example: auto-miner craftsman-1")
 		os.Exit(1)
 	}
 
-	pirateNum := os.Args[1]
-	agentDir := fmt.Sprintf("data/agents/pirate-%s", pirateNum)
+	agentID := os.Args[1]
+	agentDir := fmt.Sprintf("data/agents/%s", agentID)
 
-	logger := log.New(os.Stdout, fmt.Sprintf("[PIRATE-%s] ", pirateNum), log.LstdFlags)
+	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
 	// Load credentials
 	creds, err := loadCredentials(agentDir)
@@ -618,10 +620,10 @@ func main() {
 	}
 
 	logger.Printf("🏴‍☠️ Starting autonomous mining & upgrade bot...")
-	logger.Printf("Pirate: %s | Empire: %s", creds.Username, creds.Empire)
+	logger.Printf("Agent: %s | Empire: %s", creds.Username, creds.Empire)
 
 	// Create game client
-	gameLogger := log.New(os.Stdout, fmt.Sprintf("[P%s-GAME] ", pirateNum), log.LstdFlags)
+	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", agentID), log.LstdFlags)
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
 
 	// Set up handler
