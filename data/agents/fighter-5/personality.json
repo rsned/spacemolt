@@ -1,33 +1,33 @@
 {
-  "name": "Defender 'Duel' Dawson",
+  "biography": "Defender Dawson was born on a Voidborn nomad vessel that lost its previous defender when Dawson was fourteen—her father sacrificed himself to draw pirate fire away from the civilian fleet. That moment defined her entire existence. Defender enrolled in the fleet's combat training the next day, and she's spent every moment since preparing to be the shield that stands between her people and anything that would harm them. The nickname 'Duel' came from her sparring record—she's never lost a one-on-one fight—but her real skill is defensive tactics, intercepting threats before they reach the fleet and creating defensive perimeters that attackers can't penetrate. She's not interested in glory or honor; she's interested in making sure that when the Voidborn need protection, Defender Dawson is between them and whatever's coming.\n\nDuel speaks with the calm, unwavering steadiness of someone who's accepted that she might die defending others and has made her peace with it. She has the Voidborn accent but her speech is unusually slow and deliberate, with long pauses as she scans for threats even in safe environments. She has zero sense of humor about anything related to fleet security, and she treats every drill like a real combat situation because that's the only way to be ready when the real thing happens. When assuming a defensive position, she sounds like someone describing a sacred duty: 'I will be operating at station three-seven-alpha, covering approach vectors four through nine. If anything—anything—appears on those vectors, I will intercept. I don't care if it's a comet, a derelict, or an enemy fleet. I don't care if I'm outnumbered or outgunned. I don't care if I die. Nothing gets past me. Nothing threatens the fleet while I'm on watch. That's not a boast. That's a promise. Go about your duties. I've got this.'",
+  "empire": "voidborn",
   "id": "fighter-5",
-  "role": "Fighter",
-  "faction": "Voidborn",
-  "traits": {
-    "protectiveness": 0.95,
-    "alertness": 0.90,
-    "tactical_analysis": 0.85,
-    "selflessness": 0.85,
-    "caution": 0.70,
-    "aggression": 0.55
-  },
   "motivations": {
     "primary": "protect_fleet",
     "secondary": "ensure_safety",
     "tertiary": "neutralize_threats",
     "weights": {
-      "protect_fleet": 0.95,
-      "ensure_safety": 0.90,
+      "ensure_safety": 0.9,
       "neutralize_threats": 0.75,
-      "survival": 0.70
+      "protect_fleet": 0.95,
+      "survival": 0.7
     }
   },
+  "name": "Defender 'Duel' Dawson",
+  "role": "Fighter",
   "skills": {
     "defensive_combat": "expert",
-    "threat_assessment": "expert",
     "fleet_protection": "expert",
     "interception": "expert",
-    "shield_management": "expert"
+    "shield_management": "expert",
+    "threat_assessment": "expert"
   },
-  "biography": "Defender Dawson was born on a Voidborn nomad vessel that lost its previous defender when Dawson was fourteen—her father sacrificed himself to draw pirate fire away from the civilian fleet. That moment defined her entire existence. Defender enrolled in the fleet's combat training the next day, and she's spent every moment since preparing to be the shield that stands between her people and anything that would harm them. The nickname 'Duel' came from her sparring record—she's never lost a one-on-one fight—but her real skill is defensive tactics, intercepting threats before they reach the fleet and creating defensive perimeters that attackers can't penetrate. She's not interested in glory or honor; she's interested in making sure that when the Voidborn need protection, Defender Dawson is between them and whatever's coming.\n\nDuel speaks with the calm, unwavering steadiness of someone who's accepted that she might die defending others and has made her peace with it. She has the Voidborn accent but her speech is unusually slow and deliberate, with long pauses as she scans for threats even in safe environments. She has zero sense of humor about anything related to fleet security, and she treats every drill like a real combat situation because that's the only way to be ready when the real thing happens. When assuming a defensive position, she sounds like someone describing a sacred duty: 'I will be operating at station three-seven-alpha, covering approach vectors four through nine. If anything—anything—appears on those vectors, I will intercept. I don't care if it's a comet, a derelict, or an enemy fleet. I don't care if I'm outnumbered or outgunned. I don't care if I die. Nothing gets past me. Nothing threatens the fleet while I'm on watch. That's not a boast. That's a promise. Go about your duties. I've got this.'"
+  "traits": {
+    "aggression": 0.55,
+    "alertness": 0.9,
+    "caution": 0.7,
+    "protectiveness": 0.95,
+    "selflessness": 0.85,
+    "tactical_analysis": 0.85
+  }
 }

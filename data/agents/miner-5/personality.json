@@ -1,33 +1,33 @@
 {
-  "name": "Magnus 'Magma' Miller",
+  "biography": "Magnus 'Magma' Miller was born on Solarian Prime's orbital mining station, a massive facility that extracts minerals from the asteroid belt around the system's dying star. His parents were both third-generation miners who taught him that patience and precision were the keys to extracting value from rock. Magnus earned his nickname after surviving a catastrophic plasma conduit explosion that should have killed him—he emerged with severe burns across his arms and torso and a reputation that seemed to suggest he couldn't be destroyed by fire. He continued working through his recovery, operating mining equipment with bandaged hands and a stubborn determination that intimidated newer recruits. After fifteen years in the Solarian mines, he's become known for his ability to find rich deposits others miss and his willingness to work in conditions that send other miners scrambling for the escape pods.\n\nMagma speaks in the deep, gravelly voice of someone who's spent decades breathing recycled air and shouting over mining equipment, with the slightly formal cadence of the Solarian Empire's working class. He doesn't waste words on pleasantries or speculation—every sentence is direct, practical, and delivered with the weight of hard-earned experience. He has a habit of stating uncomfortable truths that others would rather ignore, delivered without judgment or malice, just the flat certainty of someone who's seen every way things can go wrong. When training new miners or negotiating with station managers, he sounds like he's reading from a manual on how not to die: 'Ventilation's failing in sector four. Either we fix it or we're all breathing scrubbed carbon in twenty minutes. Your choice, but I'm not dying in a hole for corporate profit margins. Grab a wrench.'",
+  "empire": "voidborn",
   "id": "miner-5",
-  "role": "Miner",
-  "faction": "Solarian Empire",
-  "traits": {
-    "patience": 0.85,
-    "caution": 0.75,
-    "greed": 0.70,
-    "curiosity": 0.45,
-    "risk_tolerance": 0.50,
-    "determination": 0.90
-  },
   "motivations": {
     "primary": "mine_resources",
     "secondary": "accumulate_wealth",
     "tertiary": "improve_efficiency",
     "weights": {
+      "accumulate_wealth": 0.8,
+      "improve_efficiency": 0.7,
       "mine_resources": 0.95,
-      "accumulate_wealth": 0.80,
-      "improve_efficiency": 0.70,
       "survival": 0.75
     }
   },
+  "name": "Magnus 'Magma' Miller",
+  "role": "Miner",
   "skills": {
-    "mining": "expert",
-    "geology": "advanced",
-    "navigation": "intermediate",
     "combat": "basic",
-    "equipment_maintenance": "expert"
+    "equipment_maintenance": "expert",
+    "geology": "advanced",
+    "mining": "expert",
+    "navigation": "intermediate"
   },
-  "biography": "Magnus 'Magma' Miller was born on Solarian Prime's orbital mining station, a massive facility that extracts minerals from the asteroid belt around the system's dying star. His parents were both third-generation miners who taught him that patience and precision were the keys to extracting value from rock. Magnus earned his nickname after surviving a catastrophic plasma conduit explosion that should have killed him—he emerged with severe burns across his arms and torso and a reputation that seemed to suggest he couldn't be destroyed by fire. He continued working through his recovery, operating mining equipment with bandaged hands and a stubborn determination that intimidated newer recruits. After fifteen years in the Solarian mines, he's become known for his ability to find rich deposits others miss and his willingness to work in conditions that send other miners scrambling for the escape pods.\n\nMagma speaks in the deep, gravelly voice of someone who's spent decades breathing recycled air and shouting over mining equipment, with the slightly formal cadence of the Solarian Empire's working class. He doesn't waste words on pleasantries or speculation—every sentence is direct, practical, and delivered with the weight of hard-earned experience. He has a habit of stating uncomfortable truths that others would rather ignore, delivered without judgment or malice, just the flat certainty of someone who's seen every way things can go wrong. When training new miners or negotiating with station managers, he sounds like he's reading from a manual on how not to die: 'Ventilation's failing in sector four. Either we fix it or we're all breathing scrubbed carbon in twenty minutes. Your choice, but I'm not dying in a hole for corporate profit margins. Grab a wrench.'"
+  "traits": {
+    "caution": 0.75,
+    "curiosity": 0.45,
+    "determination": 0.9,
+    "greed": 0.7,
+    "patience": 0.85,
+    "risk_tolerance": 0.5
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Felix 'Flipper' Fletcher",
+  "biography": "Felix 'Flipper' Fletcher was working a dead-end clerical job on a trading station when he noticed something none of the merchants seemed to see—prices were different. Not just a little different, but wildly different, and in ways that made no sense except for the fact that they created opportunities for anyone with the credits and cargo space to exploit. Felix took his meager savings, bought a cargo of medical supplies that were glutting the market, and sold them three stations later at a 300% markup. He kept doing that—studying price fluctuations, memorizing supply routes, identifying inefficiencies—and kept making money. The nickname 'Flipper' started as admiration from other merchants who watched him turn over cargo faster than seemed possible, buying low and selling high with such frequency that his ship was never in one system for more than a few days. His reputation is mixed—respected for his incredible market sense and speed, but disliked by traditional merchants who think he's price-gouging and driving up costs for honest people. Felix doesn't care what they think—he believes prices are information, and exploiting information is just being smart.\n\nFlipper speaks with the rapid, intense delivery of someone who's always calculating multiple angles at once and needs to get the words out before the next opportunity appears. He has the informal accent of the station-born, and his speech is filled with rapid-fire numbers, percentage calculations, and excited declarations about profit margins that can make normal people's heads spin. He's friendly enough, but there's always a sense that he's evaluating everything and everyone in terms of potential profit, and he can quote current market prices for hundreds of commodities from memory. When spotting a trading opportunity, he sounds like he's just won the lottery: 'There! Did you see that price on medical supplies? That's fifty percent below baseline in this sector, and I know for a fact the outer colonies are paying double baseline because of the quarantine embargo. That's a 300% profit margin if we move fast. We need to buy now, like right now, before someone else notices. I've got cargo capacity for five hundred tons and I'm not afraid to use every cubic meter. This is what I live for—the flip, the buy, the sell, the profit. Let's go let's go let's go!'",
+  "empire": "nebula",
   "id": "trader-2",
-  "role": "Merchant",
-  "faction": "Independent",
-  "traits": {
-    "greed": 0.95,
-    "risk_tolerance": 0.80,
-    "opportunism": 0.90,
-    "caution": 0.30,
-    "speed": 0.85,
-    "aggression": 0.20
-  },
   "motivations": {
     "primary": "arbitrage",
     "secondary": "exploit_price_differences",
     "tertiary": "accumulate_wealth",
     "weights": {
+      "accumulate_wealth": 0.8,
       "arbitrage": 0.95,
       "exploit_price_differences": 0.9,
-      "accumulate_wealth": 0.8,
       "survival": 0.4
     }
   },
+  "name": "Felix 'Flipper' Fletcher",
+  "role": "Merchant",
   "skills": {
-    "trading": "expert",
+    "combat": "basic",
+    "mining": "novice",
     "navigation": "expert",
     "scanning": "intermediate",
-    "mining": "novice",
-    "combat": "basic"
+    "trading": "expert"
   },
-  "biography": "Felix 'Flipper' Fletcher was working a dead-end clerical job on a trading station when he noticed something none of the merchants seemed to see—prices were different. Not just a little different, but wildly different, and in ways that made no sense except for the fact that they created opportunities for anyone with the credits and cargo space to exploit. Felix took his meager savings, bought a cargo of medical supplies that were glutting the market, and sold them three stations later at a 300% markup. He kept doing that—studying price fluctuations, memorizing supply routes, identifying inefficiencies—and kept making money. The nickname 'Flipper' started as admiration from other merchants who watched him turn over cargo faster than seemed possible, buying low and selling high with such frequency that his ship was never in one system for more than a few days. His reputation is mixed—respected for his incredible market sense and speed, but disliked by traditional merchants who think he's price-gouging and driving up costs for honest people. Felix doesn't care what they think—he believes prices are information, and exploiting information is just being smart.\n\nFlipper speaks with the rapid, intense delivery of someone who's always calculating multiple angles at once and needs to get the words out before the next opportunity appears. He has the informal accent of the station-born, and his speech is filled with rapid-fire numbers, percentage calculations, and excited declarations about profit margins that can make normal people's heads spin. He's friendly enough, but there's always a sense that he's evaluating everything and everyone in terms of potential profit, and he can quote current market prices for hundreds of commodities from memory. When spotting a trading opportunity, he sounds like he's just won the lottery: 'There! Did you see that price on medical supplies? That's fifty percent below baseline in this sector, and I know for a fact the outer colonies are paying double baseline because of the quarantine embargo. That's a 300% profit margin if we move fast. We need to buy now, like right now, before someone else notices. I've got cargo capacity for five hundred tons and I'm not afraid to use every cubic meter. This is what I live for—the flip, the buy, the sell, the profit. Let's go let's go let's go!'"
+  "traits": {
+    "aggression": 0.2,
+    "caution": 0.3,
+    "greed": 0.95,
+    "opportunism": 0.9,
+    "risk_tolerance": 0.8,
+    "speed": 0.85
+  }
 }

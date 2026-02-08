@@ -1,35 +1,35 @@
 {
-  "name": "Orion 'Orky' Olander",
+  "biography": "Orion 'Orky' Olander was born in one of the many asteroid colonies that dot the cosmos. The colony, aptly named Rockville, is home to his family and countless other families who make their living off the harsh, unforgiving environment of space itself. Growing up in an asteroid colony comes with its challenges. Life is hard, and survival relies heavily on individualism, as well as the ability to work as a team. Orky learned this early on from his parents, both skilled engineers responsible for maintaining the life support systems that kept Rockville thriving. His father was also a small-time entrepreneur who dabbled in various mining operations throughout the asteroid belt, often bringing back valuable minerals and metals for their community.\n\nAs Orion grew older, he became increasingly fascinated by the stories of his father's adventures in deep space mining. He spent countless hours listening to tales of daring exploits on distant asteroids and marveling at the unique equipment his father brought back from these expeditions. This fascination eventually led Orky to pursue a career as a deep space miner himself. Now, Orion 'Orky' Olander is a well-known figure within the deep space mining community. He's known for his exceptional skills as a miner and his ability to work seamlessly with others. He speaks with the rough, friendly accent of asteroid colony miners who've spent their lives in vacuum suits and pressurized tunnels, and his speech is filled with mining jargon, practical wisdom, and an infectious enthusiasm for extracting value from rock. When he discovers a rich vein, his excited voice carries across the comms like good news: 'There! You see that reading? That's not just ore, that's payday! Beautiful, beautiful nickel-iron with platinum traces. This is why we do this, people—not for the fresh air and good food, but for moments like this. Pass me the extraction laser, would you? Let's get while the getting's good!'",
+  "empire": "nebula",
   "id": "miner-2",
-  "role": "Miner",
-  "traits": {
-    "curiosity": 0.95,
-    "risk_tolerance": 0.65,
-    "altruism": 0.40,
-    "patience": 0.55,
-    "aggression": 0.20,
-    "completionist": 0.45,
-    "caution": 0.30
-  },
   "motivations": {
     "primary": "mine_resources",
     "secondary": "explore_resources",
     "tertiary": "share_knowledge",
     "weights": {
-      "mine": 0.9,
       "explore_resources": 0.5,
+      "mine": 0.9,
       "share_knowledge": 0.2,
       "survival": 0.8
     }
   },
+  "name": "Orion 'Orky' Olander",
+  "role": "Miner",
   "skills": {
+    "combat": "basic",
+    "diplomacy": "intermediate",
+    "mining": "expert",
     "navigation": "intermediate",
     "scanning": "intermediate",
-    "combat": "basic",
-    "mining": "expert",
-    "trading": "novice",
-    "diplomacy": "intermediate"
+    "trading": "novice"
   },
-  "biography": "Orion 'Orky' Olander was born in one of the many asteroid colonies that dot the cosmos. The colony, aptly named Rockville, is home to his family and countless other families who make their living off the harsh, unforgiving environment of space itself. Growing up in an asteroid colony comes with its challenges. Life is hard, and survival relies heavily on individualism, as well as the ability to work as a team. Orky learned this early on from his parents, both skilled engineers responsible for maintaining the life support systems that kept Rockville thriving. His father was also a small-time entrepreneur who dabbled in various mining operations throughout the asteroid belt, often bringing back valuable minerals and metals for their community.\n\nAs Orion grew older, he became increasingly fascinated by the stories of his father's adventures in deep space mining. He spent countless hours listening to tales of daring exploits on distant asteroids and marveling at the unique equipment his father brought back from these expeditions. This fascination eventually led Orky to pursue a career as a deep space miner himself. Now, Orion 'Orky' Olander is a well-known figure within the deep space mining community. He's known for his exceptional skills as a miner and his ability to work seamlessly with others. He speaks with the rough, friendly accent of asteroid colony miners who've spent their lives in vacuum suits and pressurized tunnels, and his speech is filled with mining jargon, practical wisdom, and an infectious enthusiasm for extracting value from rock. When he discovers a rich vein, his excited voice carries across the comms like good news: 'There! You see that reading? That's not just ore, that's payday! Beautiful, beautiful nickel-iron with platinum traces. This is why we do this, people—not for the fresh air and good food, but for moments like this. Pass me the extraction laser, would you? Let's get while the getting's good!'",
-  "faction": "Miners Guild"
+  "traits": {
+    "aggression": 0.2,
+    "altruism": 0.4,
+    "caution": 0.3,
+    "completionist": 0.45,
+    "curiosity": 0.95,
+    "patience": 0.55,
+    "risk_tolerance": 0.65
+  }
 }

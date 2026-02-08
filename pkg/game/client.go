@@ -393,6 +393,117 @@ func (c *Client) GetListings(ctx context.Context) error {
 	})
 }
 
+// Sell sells items from cargo at the current station
+func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "sell",
+		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// SellAll sells all cargo items at the current station
+func (c *Client) SellAll(ctx context.Context) error {
+	state := c.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked to sell")
+	}
+
+	if len(state.Ship.Cargo) == 0 {
+		return nil // Nothing to sell
+	}
+
+	// Sell each item in cargo (but only ores/resources, not equipment)
+	for _, item := range state.Ship.Cargo {
+		if item.Quantity > 0 {
+			// Only sell ore and resources, not equipment/modules/weapons
+			// This prevents selling items we just bought as upgrades
+			if c.isOreOrResource(item.ItemID) {
+				if err := c.Sell(ctx, item.ItemID, item.Quantity); err != nil {
+					c.debugLogger.Printf("Failed to sell %s: %v", item.ItemID, err)
+					// Continue selling other items even if one fails
+				}
+				time.Sleep(1 * time.Second) // Small delay between sells
+			} else {
+				c.debugLogger.Printf("Skipping sale of equipment: %s (keeping for installation)", item.ItemID)
+			}
+		}
+	}
+
+	return nil
+}
+
+// isOreOrResource returns true if the item is ore or a resource (should be sold)
+func (c *Client) isOreOrResource(itemID string) bool {
+	// Ores and resources to sell
+	oreAndResourcePrefixes := []string{
+		"ore_",       // All ores (ore_iron, ore_copper, etc.)
+		"gas_",       // Gases
+		"crystal_",   // Crystals
+		"salvage_",   // Salvage materials
+		"scrap_",     // Scrap materials
+	}
+
+	for _, prefix := range oreAndResourcePrefixes {
+		if len(itemID) >= len(prefix) && itemID[:len(prefix)] == prefix {
+			return true
+		}
+	}
+
+	// Don't sell these - they're equipment
+	// mining_laser_*, weapon_*, shield_*, cargo_*, engine_*, module_*, etc.
+	return false
+}
+
+// Refuel refills the ship's fuel tank at the current station
+func (c *Client) Refuel(ctx context.Context) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "refuel",
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// Repair repairs the ship's hull at the current station
+func (c *Client) Repair(ctx context.Context) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "repair",
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// Buy purchases items or modules at the current station
+func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "buy",
+		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// Install installs a module from cargo onto the ship
+func (c *Client) Install(ctx context.Context, itemID string) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "install",
+		Payload:   map[string]any{"item_id": itemID},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
 // GetState returns the current game state
 func (c *Client) GetState() *State {
 	c.mu.RLock()
@@ -448,23 +559,15 @@ func (c *Client) listen(ctx context.Context) {
 			c.debugLogger.Printf("=== Game Client Receive Debug ===")
 			c.debugLogger.Printf("Response Type: '%s'", resp.Type)
 			if len(resp.Payload) > 0 {
-				// Filter out "nearby" field for state_update messages to reduce log clutter
-				payloadToLog := resp.Payload
-				if resp.Type == "state_update" {
-					// Create a filtered copy without the "nearby" field
-					filtered := make(map[string]any)
-					for k, v := range resp.Payload {
-						if k != "nearby" {
-							filtered[k] = v
-						}
-					}
-					if _, hasNearby := resp.Payload["nearby"]; hasNearby {
-						filtered["nearby"] = "[filtered from debug log]"
-					}
-					payloadToLog = filtered
+				payloadJSON, _ := json.Marshal(resp.Payload)
+				payloadStr := string(payloadJSON)
+
+				// Truncate state_update messages to reduce log clutter
+				if resp.Type == "state_update" && len(payloadStr) > 200 {
+					c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
+				} else {
+					c.debugLogger.Printf("Response Payload: %s", payloadStr)
 				}
-				payloadJSON, _ := json.Marshal(payloadToLog)
-				c.debugLogger.Printf("Response Payload: %s", string(payloadJSON))
 			}
 			// Check for error message in payload
 			if msg, ok := resp.Payload["message"]; ok {
@@ -534,6 +637,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parseShipData(resp.Payload)
 		c.parseSystemData(resp.Payload)
 		c.parseTravelAction(resp.Payload)
+		// get_listings returns type "ok" with listings in payload
+		if _, hasListings := resp.Payload["listings"]; hasListings {
+			c.parseListingsData(resp.Payload)
+		}
 
 	case protocol.TypeDocked:
 		c.state.Doc = true
@@ -1079,23 +1186,53 @@ func (c *Client) parseListingsData(payload map[string]any) {
 				if itemID, ok := listingMap["item_id"].(string); ok {
 					listing.ItemID = itemID
 				}
+				// Server response has item_type in some cases, otherwise infer from item_id
 				if itemType, ok := listingMap["item_type"].(string); ok {
 					listing.ItemType = itemType
+				} else if itemID, ok := listingMap["item_id"].(string); ok {
+					// Infer type from item_id prefix (ore_, weapon_, mining_, etc)
+					if len(itemID) > 0 {
+						if itemID[:4] == "ore_" {
+							listing.ItemType = "ore"
+						} else if len(itemID) > 7 && itemID[:7] == "weapon_" {
+							listing.ItemType = "weapon"
+						} else if len(itemID) > 7 && itemID[:7] == "mining_" {
+							listing.ItemType = "module"
+						} else if len(itemID) > 7 && itemID[:7] == "shield_" {
+							listing.ItemType = "shield"
+						} else if len(itemID) > 6 && itemID[:6] == "cargo_" {
+							listing.ItemType = "cargo"
+						} else {
+							listing.ItemType = "unknown"
+						}
+					}
 				}
 				if quantity, ok := listingMap["quantity"].(float64); ok {
 					listing.Quantity = quantity
 				}
+				// Server uses price_each instead of price_per_unit
 				if pricePerUnit, ok := listingMap["price_per_unit"].(float64); ok {
 					listing.PricePerUnit = pricePerUnit
+				} else if priceEach, ok := listingMap["price_each"].(float64); ok {
+					listing.PricePerUnit = priceEach
 				}
+				// Server uses total instead of total_price
 				if totalPrice, ok := listingMap["total_price"].(float64); ok {
 					listing.TotalPrice = totalPrice
+				} else if total, ok := listingMap["total"].(float64); ok {
+					listing.TotalPrice = total
 				}
+				// Listings from NPCs are always "sell" type
 				if listingType, ok := listingMap["type"].(string); ok {
 					listing.Type = listingType
+				} else {
+					listing.Type = "sell" // Default to sell for NPC listings
 				}
+				// Server uses seller instead of listed_by
 				if listedBy, ok := listingMap["listed_by"].(string); ok {
 					listing.ListedBy = listedBy
+				} else if seller, ok := listingMap["seller"].(string); ok {
+					listing.ListedBy = seller
 				}
 
 				c.latestListings = append(c.latestListings, listing)

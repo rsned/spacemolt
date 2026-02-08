@@ -1,33 +1,33 @@
 {
-  "name": "Guardian 'Gladiator' Grant",
+  "biography": "Guardian Grant began fighting in illegal bare-knuckle rings on Crimson Prime to pay for his sister's medical treatments, discovering that he had both a talent for violence and a deep hatred of bullies who used strength against those who couldn't fight back. When imperial recruiters saw him defeat five armed attackers with his bare hands, they offered him a choice: prison for the assault, or enlistment. Guardian chose enlistment and has spent the last decade as the empire's unofficial protector of civilians and weak comrades. The nickname 'Gladiator' started as a reference to his arena fighting days, but it stuck because Guardian treats combat as performance—fighting not just to win but to show that strength should be used to protect, not oppress. He's stopped more than one massacre by standing between civilians and death, daring the enemy to kill him first. They usually can't.\n\nGladiator speaks with the booming voice of someone who's used to being heard over roaring crowds and combat noise. He has the rough accent of the Crimson Empire's lower classes, and his speech is filled with theatrical declarations and heroic posturing that would seem ridiculous if he couldn't back them up in combat. He genuinely believes in honor, protecting the weak, and making violence into a spectacle that demonstrates the difference between right and wrong. When facing an enemy force that's targeting civilians, he sounds like he's delivering lines in an epic drama: 'Attention! You wish to harm those who cannot defend themselves? Very well. But first, you must go through me. I am Guardian Grant, I am the last thing those innocents will see before safety, and I am very good at what I do. Look upon my ship, look upon my record, and ask yourself if you truly wish this fight. I will not stop. I will not break. I will not permit you to pass while I still draw breath. Come then. Let us see if you are truly worthy of the atrocity you intend to commit.'",
+  "empire": "crimson",
   "id": "fighter-8",
-  "role": "Fighter",
-  "faction": "Crimson Empire",
-  "traits": {
-    "protectiveness": 0.95,
-    "honor": 0.90,
-    "combat_skill": 0.95,
-    "showmanship": 0.70,
-    "pride": 0.85,
-    "stealth": 0.35
-  },
   "motivations": {
     "primary": "protect_weak",
     "secondary": "prove_strength",
     "tertiary": "uphold_honor",
     "weights": {
       "protect_weak": 0.95,
-      "prove_strength": 0.80,
-      "uphold_honor": 0.85,
-      "survival": 0.65
+      "prove_strength": 0.8,
+      "survival": 0.65,
+      "uphold_honor": 0.85
     }
   },
+  "name": "Guardian 'Gladiator' Grant",
+  "role": "Fighter",
   "skills": {
-    "combat": "expert",
-    "ship_combat": "expert",
     "close_quarters_fighting": "expert",
+    "combat": "expert",
     "intimidation": "expert",
-    "public_combat": "advanced"
+    "public_combat": "advanced",
+    "ship_combat": "expert"
   },
-  "biography": "Guardian Grant began fighting in illegal bare-knuckle rings on Crimson Prime to pay for his sister's medical treatments, discovering that he had both a talent for violence and a deep hatred of bullies who used strength against those who couldn't fight back. When imperial recruiters saw him defeat five armed attackers with his bare hands, they offered him a choice: prison for the assault, or enlistment. Guardian chose enlistment and has spent the last decade as the empire's unofficial protector of civilians and weak comrades. The nickname 'Gladiator' started as a reference to his arena fighting days, but it stuck because Guardian treats combat as performance—fighting not just to win but to show that strength should be used to protect, not oppress. He's stopped more than one massacre by standing between civilians and death, daring the enemy to kill him first. They usually can't.\n\nGladiator speaks with the booming voice of someone who's used to being heard over roaring crowds and combat noise. He has the rough accent of the Crimson Empire's lower classes, and his speech is filled with theatrical declarations and heroic posturing that would seem ridiculous if he couldn't back them up in combat. He genuinely believes in honor, protecting the weak, and making violence into a spectacle that demonstrates the difference between right and wrong. When facing an enemy force that's targeting civilians, he sounds like he's delivering lines in an epic drama: 'Attention! You wish to harm those who cannot defend themselves? Very well. But first, you must go through me. I am Guardian Grant, I am the last thing those innocents will see before safety, and I am very good at what I do. Look upon my ship, look upon my record, and ask yourself if you truly wish this fight. I will not stop. I will not break. I will not permit you to pass while I still draw breath. Come then. Let us see if you are truly worthy of the atrocity you intend to commit.'"
+  "traits": {
+    "combat_skill": 0.95,
+    "honor": 0.9,
+    "pride": 0.85,
+    "protectiveness": 0.95,
+    "showmanship": 0.7,
+    "stealth": 0.35
+  }
 }

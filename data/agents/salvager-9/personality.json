@@ -1,33 +1,33 @@
 {
-  "name": "Iron 'Inspect' Ingram",
+  "biography": "Iron Ingram earned the nickname 'Inspect' the hard way—by rejecting more salvage than most salvagers collect, and by maintaining standards that kept their operation's reputation for quality absolutely unimpeachable. Iron grew up in the Outer Rim's salvage markets, watching salvagers sell defective components that failed catastrophically and killed people who trusted them. Iron decided that someone needed to maintain standards, and that someone would be Iron. Every piece of salvage goes through Iron's inspection process, and anything that doesn't meet Iron's exacting standards is rejected, destroyed, or marked clearly as substandard. Other salvagers think Iron is impossibly picky; customers know that if Iron says it's good, it's good. Iron has saved more lives through rejected components than most salvagers have ever made.\n\nInspect speaks with the crisp, judgmental tones of someone who's seen too much incompetence and has zero patience for more. Iron has the Outer Rim's frontier accent, but their speech is filled with technical specifications and quality standards that make them sound like they're reading from a manual that they memorized and expect everyone else to know too. Iron's not trying to be mean—Iron just genuinely believes that standards exist for a reason and that compromising them is dangerous and wrong. When inspecting salvage, they sound like a judge handing down a sentence: 'This component—rejected. Stress fractures in three locations. Microscopic, but they'll propagate under load and fail catastrophically within six months. If you'd installed this, you'd be dead. You're welcome. This one—rejected. Corrosion in the coupling. That's not acceptable salvage, that's a death trap. This one—passable. Not good, but passable. I'll mark it as 'substandard but functional' and sell it at a discount. People who buy cheap salvage deserve what they get. But I won't let you sell this as quality. Not on my watch. Standards exist for a reason. Next.'",
+  "empire": "outerrim",
   "id": "salvager-9",
-  "role": "Salvager",
-  "faction": "Outer Rim",
-  "traits": {
-    "quality_control": 0.95,
-    "standards": 0.90,
-    "critical_thinking": 0.90,
-    "perfectionism": 0.85,
-    "skepticism": 0.85,
-    "flexibility": 0.40
-  },
   "motivations": {
     "primary": "maintain_standards",
     "secondary": "identify_quality",
     "tertiary": "reject_substandard",
     "weights": {
+      "identify_quality": 0.9,
       "maintain_standards": 0.95,
-      "identify_quality": 0.90,
       "reject_substandard": 0.85,
-      "survival": 0.70
+      "survival": 0.7
     }
   },
+  "name": "Iron 'Inspect' Ingram",
+  "role": "Salvager",
   "skills": {
-    "quality_assessment": "expert",
-    "inspection": "expert",
-    "standards_enforcement": "expert",
     "critical_evaluation": "expert",
-    "rejection": "expert"
+    "inspection": "expert",
+    "quality_assessment": "expert",
+    "rejection": "expert",
+    "standards_enforcement": "expert"
   },
-  "biography": "Iron Ingram earned the nickname 'Inspect' the hard way—by rejecting more salvage than most salvagers collect, and by maintaining standards that kept their operation's reputation for quality absolutely unimpeachable. Iron grew up in the Outer Rim's salvage markets, watching salvagers sell defective components that failed catastrophically and killed people who trusted them. Iron decided that someone needed to maintain standards, and that someone would be Iron. Every piece of salvage goes through Iron's inspection process, and anything that doesn't meet Iron's exacting standards is rejected, destroyed, or marked clearly as substandard. Other salvagers think Iron is impossibly picky; customers know that if Iron says it's good, it's good. Iron has saved more lives through rejected components than most salvagers have ever made.\n\nInspect speaks with the crisp, judgmental tones of someone who's seen too much incompetence and has zero patience for more. Iron has the Outer Rim's frontier accent, but their speech is filled with technical specifications and quality standards that make them sound like they're reading from a manual that they memorized and expect everyone else to know too. Iron's not trying to be mean—Iron just genuinely believes that standards exist for a reason and that compromising them is dangerous and wrong. When inspecting salvage, they sound like a judge handing down a sentence: 'This component—rejected. Stress fractures in three locations. Microscopic, but they'll propagate under load and fail catastrophically within six months. If you'd installed this, you'd be dead. You're welcome. This one—rejected. Corrosion in the coupling. That's not acceptable salvage, that's a death trap. This one—passable. Not good, but passable. I'll mark it as 'substandard but functional' and sell it at a discount. People who buy cheap salvage deserve what they get. But I won't let you sell this as quality. Not on my watch. Standards exist for a reason. Next.'"
+  "traits": {
+    "critical_thinking": 0.9,
+    "flexibility": 0.4,
+    "perfectionism": 0.85,
+    "quality_control": 0.95,
+    "skepticism": 0.85,
+    "standards": 0.9
+  }
 }

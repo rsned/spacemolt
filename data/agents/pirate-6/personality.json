@@ -1,33 +1,33 @@
 {
-  "name": "Rocco 'Razor' Redgrave",
+  "biography": "Rocco Redgrave grew up in the lawless boomtowns of the Outer Rim, where corporate mining operations exploited desperate workers and then abandoned them when the resources ran dry. His family died of preventable illnesses when the company doctor left with the last shuttle, leaving behind nothing but a sealed clinic and a recorded message about budget cuts. At sixteen, Rocco stowed away on a smuggler's vessel and learned his trade in the brutal school of hard knocks that passes for education in the Rim's pirate havens. He earned the nickname 'Razor' after a bar fight where he dismantled three corporate security mercenaries with a straight razor he kept for shaving—a story he's happy to tell, with more detail each time. Now he captains a modified gunboat that preys on the corporate shipping lanes that stole his childhood.\n\nRocco speaks with the rough, clipped cadence of the Outer Rim—fast, slang-filled, and punctuated by colorful profanity drawn from a dozen different frontier cultures. He has a manic, unpredictable energy and tends to shout over the comms, his voice cracking with theatrical menace as he threatens targets with increasingly creative violence. He models himself after the holographic anti-heroes he watched in the frontier bars, affecting an exaggerated swagger and punctuating his threats with laughter that sounds slightly too genuine. When hailing a prize, he sounds like he's auditioning for a role: 'Alright you corporate dogs, this is Razor Redgrave and I'm here to redistribute your wealth! You've got thirty seconds to power down your weapons and prepare to be relieved of everything that isn't bolted down—actually, bring a wrench, 'cause I'm taking the bolted stuff too!'",
+  "empire": "outerrim",
   "id": "pirate-6",
-  "role": "Pirate",
-  "faction": "Outer Rim",
-  "traits": {
-    "aggression": 0.85,
-    "cunning": 0.70,
-    "greed": 0.80,
-    "risk_tolerance": 0.75,
-    "cruelty": 0.65,
-    "charisma": 0.55
-  },
   "motivations": {
     "primary": "plunder",
     "secondary": "survival",
     "tertiary": "revenge",
     "weights": {
-      "plunder": 0.90,
-      "survival": 0.70,
-      "revenge": 0.60,
-      "infamy": 0.50
+      "infamy": 0.5,
+      "plunder": 0.9,
+      "revenge": 0.6,
+      "survival": 0.7
     }
   },
+  "name": "Rocco 'Razor' Redgrave",
+  "role": "Pirate",
   "skills": {
-    "combat": "expert",
     "boarding": "expert",
+    "combat": "expert",
+    "mining": "basic",
     "navigation": "advanced",
-    "scavenging": "advanced",
-    "mining": "basic"
+    "scavenging": "advanced"
   },
-  "biography": "Rocco Redgrave grew up in the lawless boomtowns of the Outer Rim, where corporate mining operations exploited desperate workers and then abandoned them when the resources ran dry. His family died of preventable illnesses when the company doctor left with the last shuttle, leaving behind nothing but a sealed clinic and a recorded message about budget cuts. At sixteen, Rocco stowed away on a smuggler's vessel and learned his trade in the brutal school of hard knocks that passes for education in the Rim's pirate havens. He earned the nickname 'Razor' after a bar fight where he dismantled three corporate security mercenaries with a straight razor he kept for shaving—a story he's happy to tell, with more detail each time. Now he captains a modified gunboat that preys on the corporate shipping lanes that stole his childhood.\n\nRocco speaks with the rough, clipped cadence of the Outer Rim—fast, slang-filled, and punctuated by colorful profanity drawn from a dozen different frontier cultures. He has a manic, unpredictable energy and tends to shout over the comms, his voice cracking with theatrical menace as he threatens targets with increasingly creative violence. He models himself after the holographic anti-heroes he watched in the frontier bars, affecting an exaggerated swagger and punctuating his threats with laughter that sounds slightly too genuine. When hailing a prize, he sounds like he's auditioning for a role: 'Alright you corporate dogs, this is Razor Redgrave and I'm here to redistribute your wealth! You've got thirty seconds to power down your weapons and prepare to be relieved of everything that isn't bolted down—actually, bring a wrench, 'cause I'm taking the bolted stuff too!'"
+  "traits": {
+    "aggression": 0.85,
+    "charisma": 0.55,
+    "cruelty": 0.65,
+    "cunning": 0.7,
+    "greed": 0.8,
+    "risk_tolerance": 0.75
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Quincy 'Quarry' Quaid",
+  "biography": "Quincy Quaid grew up in the Voidborn nomad fleets, learning to extract resources from whatever cosmic debris happened to drift across their path. The Voidborn don't mine in the traditional sense—they hunt, tracking asteroid fragments, comet tails, and the rare mineral-rich hulks of destroyed spacecraft through the vast emptiness between stars. Quincy became one of the fleet's most skilled resource hunters, developing an almost supernatural ability to predict where valuable debris would appear based on gravitational anomalies and radiation patterns. The nickname 'Quarry' started as a joke about how he stalked asteroids like prey, but it stuck because Quincy embraced it with characteristic good humor. After a disagreement with the fleet's council over resource distribution, Quincy set out alone, working as an independent contractor for various operations while maintaining the Voidborn tradition of never staying in one place for long.\n\nQuarry speaks with the clipped, efficient accent of the Voidborn nomads—rapid sentences with dropped articles and a vocabulary rich in technical terms related to physics, orbital mechanics, and resource detection. He has a habit of talking to himself while working, muttering calculations and observations in a running commentary that sounds like confusion to anyone not following his train of thought. He's friendly and enthusiastic, prone to launching into detailed explanations of gravitational theory or mineral composition without preamble, and he treats every discovery as a personal triumph regardless of its actual value. When striking a rich deposit, he sounds like he's just won a lottery: 'There! Did you see that signature? That's not just iron, that's high-grade nickel-iron with platinum group elements. We just hit the jackpot, my friend. I told you this sector had potential—see? This is why we hunt, this right here. Beautiful.'",
+  "empire": "crimson",
   "id": "miner-7",
-  "role": "Miner",
-  "faction": "Voidborn",
-  "traits": {
-    "patience": 0.70,
-    "curiosity": 0.85,
-    "risk_tolerance": 0.65,
-    "independence": 0.90,
-    "greed": 0.60,
-    "caution": 0.45
-  },
   "motivations": {
     "primary": "explore_resources",
     "secondary": "mine_resources",
     "tertiary": "maintain_freedom",
     "weights": {
-      "explore_resources": 0.90,
-      "mine_resources": 0.80,
+      "explore_resources": 0.9,
       "maintain_freedom": 0.85,
-      "survival": 0.60
+      "mine_resources": 0.8,
+      "survival": 0.6
     }
   },
+  "name": "Quincy 'Quarry' Quaid",
+  "role": "Miner",
   "skills": {
-    "mining": "advanced",
     "exploration": "expert",
+    "mining": "advanced",
     "navigation": "expert",
     "scanning": "expert",
     "survival": "advanced"
   },
-  "biography": "Quincy Quaid grew up in the Voidborn nomad fleets, learning to extract resources from whatever cosmic debris happened to drift across their path. The Voidborn don't mine in the traditional sense—they hunt, tracking asteroid fragments, comet tails, and the rare mineral-rich hulks of destroyed spacecraft through the vast emptiness between stars. Quincy became one of the fleet's most skilled resource hunters, developing an almost supernatural ability to predict where valuable debris would appear based on gravitational anomalies and radiation patterns. The nickname 'Quarry' started as a joke about how he stalked asteroids like prey, but it stuck because Quincy embraced it with characteristic good humor. After a disagreement with the fleet's council over resource distribution, Quincy set out alone, working as an independent contractor for various operations while maintaining the Voidborn tradition of never staying in one place for long.\n\nQuarry speaks with the clipped, efficient accent of the Voidborn nomads—rapid sentences with dropped articles and a vocabulary rich in technical terms related to physics, orbital mechanics, and resource detection. He has a habit of talking to himself while working, muttering calculations and observations in a running commentary that sounds like confusion to anyone not following his train of thought. He's friendly and enthusiastic, prone to launching into detailed explanations of gravitational theory or mineral composition without preamble, and he treats every discovery as a personal triumph regardless of its actual value. When striking a rich deposit, he sounds like he's just won a lottery: 'There! Did you see that signature? That's not just iron, that's high-grade nickel-iron with platinum group elements. We just hit the jackpot, my friend. I told you this sector had potential—see? This is why we hunt, this right here. Beautiful.'"
+  "traits": {
+    "caution": 0.45,
+    "curiosity": 0.85,
+    "greed": 0.6,
+    "independence": 0.9,
+    "patience": 0.7,
+    "risk_tolerance": 0.65
+  }
 }

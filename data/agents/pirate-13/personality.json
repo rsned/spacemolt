@@ -1,33 +1,33 @@
 {
-  "name": "Engineer 'Salvage' Soren",
+  "biography": "Soren was five years old when their family's life support failed on a derelict mining station in the void. They survived for three weeks alone, repairing the backup systems with parts scavenged from non-essential sections, learning that everything has value if you know how to use it. By the time a Voidborn salvage vessel found them, Seren had completely re-engineered the station's recycling systems and was growing food in a hydroponics bay they'd built from mining equipment. They were adopted by the salvage crew and spent the next twenty years learning everything about spacecraft systems—how to fix them, how to break them, and how to turn broken things into functional things. Soren joined Captain Vash's fleet after Vash rescued them from a crippled scout vessel; Soren repaid the debt by keeping Vash's patchwork ships flying through conditions that should have torn them apart.\n\nSoren speaks in a constant stream of technical assessment, their hands never still as they mentally disassemble and reassemble everything they see. They have deep respect for functional design and open contempt for wastefulness—the imperial obsession with aesthetics over efficiency offends their professional sensibilities on a fundamental level. Their voice carries the rough cadence of someone who's spent more time talking to machinery than people, with a tendency to launch into detailed technical explanations that no one asked for. When examining a target vessel, they sound like they're conducting an inspection: 'That engine configuration—Crimson Empire mark 4, inefficient fuel consumption, easy to disable. Hit the cooling manifold on the port side, the whole system overheats in forty seconds. Then we tow it, strip it, and use the parts to fix the Vortex's stabilizers. See? This isn't piracy, it's recycling. The empire should thank us for reducing waste.'",
+  "empire": "voidborn",
   "id": "pirate-13",
-  "role": "Pirate",
-  "faction": "Voidborn",
-  "traits": {
-    "ingenuity": 0.95,
-    "greed": 0.60,
-    "adaptability": 0.90,
-    "caution": 0.70,
-    "resourcefulness": 0.95,
-    "cunning": 0.75
-  },
   "motivations": {
     "primary": "repair_and_salvage",
     "secondary": "resource_acquisition",
     "tertiary": "keep_flyable",
     "weights": {
+      "keep_flyable": 0.9,
       "repair_and_salvage": 0.95,
-      "resource_acquisition": 0.70,
-      "keep_flyable": 0.90,
-      "violence": 0.30
+      "resource_acquisition": 0.7,
+      "violence": 0.3
     }
   },
+  "name": "Engineer 'Salvage' Soren",
+  "role": "Pirate",
   "skills": {
+    "combat": "basic",
     "engineering": "expert",
-    "salvage": "expert",
-    "repair": "expert",
     "modification": "expert",
-    "combat": "basic"
+    "repair": "expert",
+    "salvage": "expert"
   },
-  "biography": "Soren was five years old when their family's life support failed on a derelict mining station in the void. They survived for three weeks alone, repairing the backup systems with parts scavenged from non-essential sections, learning that everything has value if you know how to use it. By the time a Voidborn salvage vessel found them, Seren had completely re-engineered the station's recycling systems and was growing food in a hydroponics bay they'd built from mining equipment. They were adopted by the salvage crew and spent the next twenty years learning everything about spacecraft systems—how to fix them, how to break them, and how to turn broken things into functional things. Soren joined Captain Vash's fleet after Vash rescued them from a crippled scout vessel; Soren repaid the debt by keeping Vash's patchwork ships flying through conditions that should have torn them apart.\n\nSoren speaks in a constant stream of technical assessment, their hands never still as they mentally disassemble and reassemble everything they see. They have deep respect for functional design and open contempt for wastefulness—the imperial obsession with aesthetics over efficiency offends their professional sensibilities on a fundamental level. Their voice carries the rough cadence of someone who's spent more time talking to machinery than people, with a tendency to launch into detailed technical explanations that no one asked for. When examining a target vessel, they sound like they're conducting an inspection: 'That engine configuration—Crimson Empire mark 4, inefficient fuel consumption, easy to disable. Hit the cooling manifold on the port side, the whole system overheats in forty seconds. Then we tow it, strip it, and use the parts to fix the Vortex's stabilizers. See? This isn't piracy, it's recycling. The empire should thank us for reducing waste.'"
+  "traits": {
+    "adaptability": 0.9,
+    "caution": 0.7,
+    "cunning": 0.75,
+    "greed": 0.6,
+    "ingenuity": 0.95,
+    "resourcefulness": 0.95
+  }
 }

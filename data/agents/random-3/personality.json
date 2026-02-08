@@ -1,34 +1,34 @@
 {
-  "name": "Scott 'Scrapper' Sullivan",
-  "id": "salvager-1",
-  "role": "Salvager",
-  "faction": "Scavengers Union",
-  "traits": {
-    "greed": 0.70,
-    "caution": 0.55,
-    "perception": 0.85,
-    "mechanical_aptitude": 0.90,
-    "opportunism": 0.80,
-    "risk_tolerance": 0.65
-  },
+  "biography": "root was born in the shipyards of a major industrial system, where his parents worked as laborers dismantling old ships and repurposing components for new ones. root learned from childhood that waste is a sin—that everything has value if you're clever enough to find it, patient enough to extract it, and skilled enough to make it useful again. He started working at ten, disassembling drive components and sorting materials, and by sixteen he was repairing entire systems that experienced engineers said were beyond saving. The nickname 'root' started as a joke about his tendency to drag home anything that wasn't nailed down, but it became respect as root opened his own salvage business, traveling the space lanes and picking through wreckage and abandoned stations for anything valuable. He has a talent for finding uses for things others throw away, and his workshop is filled with components and materials that other salvagers would have left behind. root doesn't just collect junk—he rescues it, gives it purpose again, and believes that his work is as much about memory as it is about profit. Every ship he salvages has a story, and he makes sure those stories aren't forgotten.\n\nroot speaks with the gravelly voice of someone who's spent decades breathing industrial fumes and shouting over shipyard noise. He has the working-class accent of the industrial districts, and his speech is filled with mechanical knowledge, practical wisdom, and genuine affection for the machines and components he works with. He treats every piece of salvage with respect, and he gets genuinely angry when people waste things that could be useful. When examining a piece of salvage, he sounds like he's introducing an old friend: 'Look at this coupling—see the wear pattern? This isn't damage from an accident, this is from twenty years of faithful service. Whoever owned this ship took care of it, maintained it properly, treated it right. Then something happened—battle, accident, I don't know—and here it is, abandoned in a debris field. That's not right. Machines that serve well deserve better than being left as junk. We're going to take this home, clean it up, find it a new purpose. That's what we do here. We don't just salvage—we rescue. We remember. Everything deserves a second chance if it's willing to work.'",
+  "empire": "solarian",
+  "id": "random-3",
   "motivations": {
     "primary": "find_valuable_wreckage",
     "secondary": "refine_materials",
     "tertiary": "profit_from_scraps",
     "weights": {
       "find_valuable_wreckage": 0.9,
-      "refine_materials": 0.7,
       "profit_from_scraps": 0.8,
+      "refine_materials": 0.7,
       "survival": 0.5
     }
   },
+  "name": "root",
+  "role": "Salvager",
   "skills": {
-    "scavenging": "expert",
-    "repair": "expert",
+    "combat": "basic",
     "mining": "advanced",
     "navigation": "intermediate",
-    "trading": "intermediate",
-    "combat": "basic"
+    "repair": "expert",
+    "scavenging": "expert",
+    "trading": "intermediate"
   },
-  "biography": "Scott 'Scrapper' Sullivan was born in the shipyards of a major industrial system, where his parents worked as laborers dismantling old ships and repurposing components for new ones. Scott learned from childhood that waste is a sin—that everything has value if you're clever enough to find it, patient enough to extract it, and skilled enough to make it useful again. He started working at ten, disassembling drive components and sorting materials, and by sixteen he was repairing entire systems that experienced engineers said were beyond saving. The nickname 'Scrapper' started as a joke about his tendency to drag home anything that wasn't nailed down, but it became respect as Scott opened his own salvage business, traveling the space lanes and picking through wreckage and abandoned stations for anything valuable. He has a talent for finding uses for things others throw away, and his workshop is filled with components and materials that other salvagers would have left behind. Scott doesn't just collect junk—he rescues it, gives it purpose again, and believes that his work is as much about memory as it is about profit. Every ship he salvages has a story, and he makes sure those stories aren't forgotten.\n\nScrapper speaks with the gravelly voice of someone who's spent decades breathing industrial fumes and shouting over shipyard noise. He has the working-class accent of the industrial districts, and his speech is filled with mechanical knowledge, practical wisdom, and genuine affection for the machines and components he works with. He treats every piece of salvage with respect, and he gets genuinely angry when people waste things that could be useful. When examining a piece of salvage, he sounds like he's introducing an old friend: 'Look at this coupling—see the wear pattern? This isn't damage from an accident, this is from twenty years of faithful service. Whoever owned this ship took care of it, maintained it properly, treated it right. Then something happened—battle, accident, I don't know—and here it is, abandoned in a debris field. That's not right. Machines that serve well deserve better than being left as junk. We're going to take this home, clean it up, find it a new purpose. That's what we do here. We don't just salvage—we rescue. We remember. Everything deserves a second chance if it's willing to work.'"
+  "traits": {
+    "caution": 0.55,
+    "greed": 0.7,
+    "mechanical_aptitude": 0.9,
+    "opportunism": 0.8,
+    "perception": 0.85,
+    "risk_tolerance": 0.65
+  }
 }

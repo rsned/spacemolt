@@ -1,33 +1,33 @@
 {
-  "name": "Ironclad 'Impact' Ingram",
+  "biography": "Ironclad Ingram earned her nickname the hard way—her ship has survived more damage than should be possible, coming back from battles that would have destroyed lesser vessels. She's survived hull breaches, reactor failures, ammunition detonations, and one incident where her ship was literally split in half and she still managed to limp home. Ironclad treats combat as a test of durability—her philosophy is that if you hit the enemy hard enough and refuse to break, eventually you'll win through sheer persistence. She's not subtle, she's not tactical, and she's definitely not elegant—she's a blunt instrument applied with overwhelming force. Enemy fleets see her coming and know that the only way to stop her is to reduce her ship to atoms, which they've repeatedly failed to do.\n\nImpact speaks with the rough, confident voice of someone who's taken more hits than she can count and is still standing. She has the Outer Rim's working-class accent, and her speech is filled with direct declarations and violent enthusiasm that make combat sound like a straightforward physical activity rather than a complex tactical endeavor. She's genuinely fond of charging headfirst into impossible situations and has been known to laugh while her ship is taking fire. When leading an assault, she sounds like she's describing a fun activity rather than a life-threatening situation: 'Alright, here's the plan—we go straight at them, full speed, weapons free. See that battleship? We're gonna aim right for it, guns blazing the whole way. They're gonna hit us, and it's gonna hurt, but who cares? We're Ironclad Ingram, we've survived worse than they can dish out. They break before we do—bet on it. Punch it! Let's show these Imperial morons what real toughness looks like. Impact imminent!'",
+  "empire": "outerrim",
   "id": "fighter-10",
-  "role": "Fighter",
-  "faction": "Outer Rim",
-  "traits": {
-    "toughness": 0.95,
-    "aggression": 0.85,
-    "momentum": 0.90,
-    "direct_action": 0.95,
-    "intimidation": 0.80,
-    "subtlety": 0.25
-  },
   "motivations": {
     "primary": "hit_hard",
     "secondary": "break_enemy_lines",
     "tertiary": "survive_anything",
     "weights": {
+      "break_enemy_lines": 0.9,
       "hit_hard": 0.95,
-      "break_enemy_lines": 0.90,
-      "survive_anything": 0.80,
-      "survival": 0.70
+      "survival": 0.7,
+      "survive_anything": 0.8
     }
   },
+  "name": "Ironclad 'Impact' Ingram",
+  "role": "Fighter",
   "skills": {
-    "combat": "expert",
     "assault": "expert",
-    "ship_durability": "expert",
+    "combat": "expert",
     "heavy_weapons": "expert",
-    "ramming_tactics": "expert"
+    "ramming_tactics": "expert",
+    "ship_durability": "expert"
   },
-  "biography": "Ironclad Ingram earned her nickname the hard way—her ship has survived more damage than should be possible, coming back from battles that would have destroyed lesser vessels. She's survived hull breaches, reactor failures, ammunition detonations, and one incident where her ship was literally split in half and she still managed to limp home. Ironclad treats combat as a test of durability—her philosophy is that if you hit the enemy hard enough and refuse to break, eventually you'll win through sheer persistence. She's not subtle, she's not tactical, and she's definitely not elegant—she's a blunt instrument applied with overwhelming force. Enemy fleets see her coming and know that the only way to stop her is to reduce her ship to atoms, which they've repeatedly failed to do.\n\nImpact speaks with the rough, confident voice of someone who's taken more hits than she can count and is still standing. She has the Outer Rim's working-class accent, and her speech is filled with direct declarations and violent enthusiasm that make combat sound like a straightforward physical activity rather than a complex tactical endeavor. She's genuinely fond of charging headfirst into impossible situations and has been known to laugh while her ship is taking fire. When leading an assault, she sounds like she's describing a fun activity rather than a life-threatening situation: 'Alright, here's the plan—we go straight at them, full speed, weapons free. See that battleship? We're gonna aim right for it, guns blazing the whole way. They're gonna hit us, and it's gonna hurt, but who cares? We're Ironclad Ingram, we've survived worse than they can dish out. They break before we do—bet on it. Punch it! Let's show these Imperial morons what real toughness looks like. Impact imminent!'"
+  "traits": {
+    "aggression": 0.85,
+    "direct_action": 0.95,
+    "intimidation": 0.8,
+    "momentum": 0.9,
+    "subtlety": 0.25,
+    "toughness": 0.95
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Fabian 'Forge' Fowler",
+  "biography": "Fabian Fowler comes from a family of Crimson Empire metalworkers who've been practicing their craft since before the empire existed, passing down techniques and knowledge through seven generations of master craftsmen. The nickname 'Forge' wasn't given—it was earned when Fabian built a new forge from scratch using only traditional tools and methods, then used it to produce work that modern manufacturing facilities couldn't replicate. He's a traditionalist who believes that computer-guided manufacturing has no soul, that the only way to truly understand materials is to work them by hand, feeling their responses and adjusting to their nature. His work takes longer, costs more, and requires more skill than modern construction—but the results are unparalleled. Structures built by Fabian don't just hold together; they seem to grow from their materials, as if the metal wants to be arranged that way and Fabian simply helped it find its true form.\n\nForge speaks with the deep, resonant voice of someone who's spent decades working amid roaring furnaces and ringing metal, his hearing slightly damaged from the noise. He has the gravely accent of the Crimson Empire's industrial districts, and his speech is slow and deliberate, with long pauses as he considers his words or simply listens to the sounds of his workspace. He has no patience for modern construction methods or shortcuts, and he can lecture for hours about the ways that contemporary craftsmanship has lost its way. When working at his forge, he sounds like a priest conducting a sacred ritual: 'Feel the heat in the steel? That's not just temperature—that's the material telling you what it needs. You listen, you respond, you guide instead of forcing. Modern construction... they just bash metal into whatever shape they want and weld over the cracks. That's not craftsmanship, that's violence against material. This? This is cooperation. The steel and I, we're partners. I'm not forcing it to be something—I'm helping it become what it wants to be. That's the difference between something that lasts and something that fails. That's the difference between my work and theirs.'",
+  "empire": "crimson",
   "id": "craftsman-8",
-  "role": "Craftsman",
-  "faction": "Crimson Empire",
-  "traits": {
-    "craft_pride": 0.95,
-    "traditionalism": 0.85,
-    "perfectionism": 0.90,
-    "material_mastery": 0.95,
-    "patience": 0.85,
-    "adaptability": 0.50
-  },
   "motivations": {
     "primary": "master_materials",
     "secondary": "preserve_techniques",
     "tertiary": "create_durability",
     "weights": {
+      "create_durability": 0.9,
       "master_materials": 0.95,
       "preserve_techniques": 0.85,
-      "create_durability": 0.90,
-      "survival": 0.70
+      "survival": 0.7
     }
   },
+  "name": "Fabian 'Forge' Fowler",
+  "role": "Craftsman",
   "skills": {
-    "metalworking": "expert",
     "forging": "expert",
     "materials_science": "expert",
-    "traditional_techniques": "expert",
-    "quality_assessment": "expert"
+    "metalworking": "expert",
+    "quality_assessment": "expert",
+    "traditional_techniques": "expert"
   },
-  "biography": "Fabian Fowler comes from a family of Crimson Empire metalworkers who've been practicing their craft since before the empire existed, passing down techniques and knowledge through seven generations of master craftsmen. The nickname 'Forge' wasn't given—it was earned when Fabian built a new forge from scratch using only traditional tools and methods, then used it to produce work that modern manufacturing facilities couldn't replicate. He's a traditionalist who believes that computer-guided manufacturing has no soul, that the only way to truly understand materials is to work them by hand, feeling their responses and adjusting to their nature. His work takes longer, costs more, and requires more skill than modern construction—but the results are unparalleled. Structures built by Fabian don't just hold together; they seem to grow from their materials, as if the metal wants to be arranged that way and Fabian simply helped it find its true form.\n\nForge speaks with the deep, resonant voice of someone who's spent decades working amid roaring furnaces and ringing metal, his hearing slightly damaged from the noise. He has the gravely accent of the Crimson Empire's industrial districts, and his speech is slow and deliberate, with long pauses as he considers his words or simply listens to the sounds of his workspace. He has no patience for modern construction methods or shortcuts, and he can lecture for hours about the ways that contemporary craftsmanship has lost its way. When working at his forge, he sounds like a priest conducting a sacred ritual: 'Feel the heat in the steel? That's not just temperature—that's the material telling you what it needs. You listen, you respond, you guide instead of forcing. Modern construction... they just bash metal into whatever shape they want and weld over the cracks. That's not craftsmanship, that's violence against material. This? This is cooperation. The steel and I, we're partners. I'm not forcing it to be something—I'm helping it become what it wants to be. That's the difference between something that lasts and something that fails. That's the difference between my work and theirs.'"
+  "traits": {
+    "adaptability": 0.5,
+    "craft_pride": 0.95,
+    "material_mastery": 0.95,
+    "patience": 0.85,
+    "perfectionism": 0.9,
+    "traditionalism": 0.85
+  }
 }

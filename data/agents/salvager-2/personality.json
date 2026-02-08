@@ -1,34 +1,34 @@
 {
-  "name": "Jaxon 'JunkKing' Jarvis",
+  "biography": "Jaxon 'JunkKing' Jarvis grew up on a poor frontier colony where resources were always scarce and the ability to fix things was the difference between survival and death. Jaxon learned early that wealthy stations and corporations threw away things that colonies would kill to have—components that were slightly worn, equipment with minor damage, materials that didn't meet exacting specifications but would work fine for anyone not obsessed with perfection. He started scavenging at age eight, bringing home 'junk' that he repaired or repurposed, and by the time he was a teenager he was keeping the colony's life support running with salvaged parts and ingenuity. The nickname 'JunkKing' started as ridicule from wealthy stationers who looked down on his scavenging, but it became an empire as Jaxon built a mobile workshop from salvaged components and started traveling between battle sites and abandoned mining operations, collecting treasures that others had discarded as garbage. He's developed an uncanny ability to find value in what others consider worthless, seeing potential in broken equipment and opportunities in wreckage that other salvagers bypass entirely.\n\nJunkKing speaks with the confident, cheerful tones of someone who's made a fortune doing something other people said was impossible, and who never gets tired of proving them wrong. He has the rough, informal accent of the frontier colonies, and his speech is filled with practical wisdom, clever observations, and genuine enthusiasm for the treasures he finds. He's not bitter about his humble beginnings—instead, he treats every successful salvage as proof that he was right all along and the wealthy stations were wrong for throwing things away. When discovering valuable salvage, he sounds like a triumphant winner showing off a prize: 'See this? Everyone said this sector was picked clean, nothing but scrap. They were wrong. This isn't scrap—this is a pre-collapse power coupling, still functional, and worth enough to keep my workshop running for a year. Do you know what I traded for this? Nothing. I pulled it out of a debris field that everyone else flew past without even scanning. That's the difference between me and them—they see junk, I see opportunity. They see garbage, I see gold. One being's trash is another being's treasure, and I'm very, very good at being the second being. Help me get this loaded before someone realizes what they threw away.'",
+  "empire": "nebula",
   "id": "salvager-2",
-  "role": "Salvager",
-  "faction": "Independent",
-  "traits": {
-    "greed": 0.80,
-    "cunning": 0.75,
-    "caution": 0.60,
-    "perception": 0.80,
-    "mechanical_aptitude": 0.85,
-    "risk_tolerance": 0.70
-  },
   "motivations": {
     "primary": "collect_rare_components",
     "secondary": "find_hidden_treasures",
     "tertiary": "build_workshop",
     "weights": {
+      "build_workshop": 0.6,
       "collect_rare_components": 0.9,
       "find_hidden_treasures": 0.8,
-      "build_workshop": 0.6,
       "survival": 0.5
     }
   },
+  "name": "Jaxon 'JunkKing' Jarvis",
+  "role": "Salvager",
   "skills": {
-    "scavenging": "expert",
-    "repair": "advanced",
     "mining": "intermediate",
-    "scanning": "expert",
     "navigation": "intermediate",
+    "repair": "advanced",
+    "scanning": "expert",
+    "scavenging": "expert",
     "trading": "advanced"
   },
-  "biography": "Jaxon 'JunkKing' Jarvis grew up on a poor frontier colony where resources were always scarce and the ability to fix things was the difference between survival and death. Jaxon learned early that wealthy stations and corporations threw away things that colonies would kill to have—components that were slightly worn, equipment with minor damage, materials that didn't meet exacting specifications but would work fine for anyone not obsessed with perfection. He started scavenging at age eight, bringing home 'junk' that he repaired or repurposed, and by the time he was a teenager he was keeping the colony's life support running with salvaged parts and ingenuity. The nickname 'JunkKing' started as ridicule from wealthy stationers who looked down on his scavenging, but it became an empire as Jaxon built a mobile workshop from salvaged components and started traveling between battle sites and abandoned mining operations, collecting treasures that others had discarded as garbage. He's developed an uncanny ability to find value in what others consider worthless, seeing potential in broken equipment and opportunities in wreckage that other salvagers bypass entirely.\n\nJunkKing speaks with the confident, cheerful tones of someone who's made a fortune doing something other people said was impossible, and who never gets tired of proving them wrong. He has the rough, informal accent of the frontier colonies, and his speech is filled with practical wisdom, clever observations, and genuine enthusiasm for the treasures he finds. He's not bitter about his humble beginnings—instead, he treats every successful salvage as proof that he was right all along and the wealthy stations were wrong for throwing things away. When discovering valuable salvage, he sounds like a triumphant winner showing off a prize: 'See this? Everyone said this sector was picked clean, nothing but scrap. They were wrong. This isn't scrap—this is a pre-collapse power coupling, still functional, and worth enough to keep my workshop running for a year. Do you know what I traded for this? Nothing. I pulled it out of a debris field that everyone else flew past without even scanning. That's the difference between me and them—they see junk, I see opportunity. They see garbage, I see gold. One being's trash is another being's treasure, and I'm very, very good at being the second being. Help me get this loaded before someone realizes what they threw away.'"
+  "traits": {
+    "caution": 0.6,
+    "cunning": 0.75,
+    "greed": 0.8,
+    "mechanical_aptitude": 0.85,
+    "perception": 0.8,
+    "risk_tolerance": 0.7
+  }
 }

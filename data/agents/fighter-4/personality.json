@@ -1,33 +1,33 @@
 {
-  "name": "Clash 'Combat' Coleman",
+  "biography": "Clash Coleman has always believed that there's no point in doing anything if you're not going to be the best at it, and combat is what she does best. She was recruited into the Solarian Empire's special forces after she single-handedly defeated three experienced instructors during her academy evaluation—an unprecedented achievement that earned her both a reputation and the nickname 'Clash,' because that's what she creates wherever she goes. Clash doesn't just want to win; she wants to dominate, to demonstrate that she's better than anyone else, and to prove that perfection is possible if you work hard enough. She keeps detailed records of every fighter she's faced, analyzing their techniques and developing counters, and she's made a study of combat across a dozen different martial traditions. Her crews fear her standards but worship her results—no one under Clash's command has ever lost a fair fight.\n\nClash speaks with the sharp, challenging tones of someone who's always competing, even in conversation. She has the Solarian elite accent but her speech is filled with competitive references and comparisons that make even casual interactions feel like contests she intends to win. She's friendly enough, but there's always an edge to her manner, as if she's evaluating everyone she meets as a potential opponent or a potential student. When facing a superior enemy force, she sounds like she's just been offered an exciting opportunity: 'They outnumber us three to one? Excellent. This is exactly the kind of challenge that separates adequate fighters from exceptional ones. I've analyzed their formation patterns and individual pilot signatures—watch for the element leader on the left flank, he's the weak point. We break their cohesion there, the rest falls apart. This is going to be instructional. Pay attention to how I handle their lead—note the timing, the angle of approach, the moment when feint becomes real. You might learn something.'",
+  "empire": "solarian",
   "id": "fighter-4",
-  "role": "Fighter",
-  "faction": "Solarian Empire",
-  "traits": {
-    "aggression": 0.90,
-    "competition": 0.95,
-    "martial_arts": 0.90,
-    "perfectionism": 0.85,
-    "pride": 0.90,
-    "patience": 0.45
-  },
   "motivations": {
     "primary": "be_the_best",
     "secondary": "prove_superiority",
     "tertiary": "perfect_technique",
     "weights": {
       "be_the_best": 0.95,
-      "prove_superiority": 0.90,
       "perfect_technique": 0.85,
-      "survival": 0.60
+      "prove_superiority": 0.9,
+      "survival": 0.6
     }
   },
+  "name": "Clash 'Combat' Coleman",
+  "role": "Fighter",
   "skills": {
     "combat": "expert",
     "martial_arts": "expert",
-    "strategy": "advanced",
+    "rivalry_management": "expert",
     "ship_combat": "expert",
-    "rivalry_management": "expert"
+    "strategy": "advanced"
   },
-  "biography": "Clash Coleman has always believed that there's no point in doing anything if you're not going to be the best at it, and combat is what she does best. She was recruited into the Solarian Empire's special forces after she single-handedly defeated three experienced instructors during her academy evaluation—an unprecedented achievement that earned her both a reputation and the nickname 'Clash,' because that's what she creates wherever she goes. Clash doesn't just want to win; she wants to dominate, to demonstrate that she's better than anyone else, and to prove that perfection is possible if you work hard enough. She keeps detailed records of every fighter she's faced, analyzing their techniques and developing counters, and she's made a study of combat across a dozen different martial traditions. Her crews fear her standards but worship her results—no one under Clash's command has ever lost a fair fight.\n\nClash speaks with the sharp, challenging tones of someone who's always competing, even in conversation. She has the Solarian elite accent but her speech is filled with competitive references and comparisons that make even casual interactions feel like contests she intends to win. She's friendly enough, but there's always an edge to her manner, as if she's evaluating everyone she meets as a potential opponent or a potential student. When facing a superior enemy force, she sounds like she's just been offered an exciting opportunity: 'They outnumber us three to one? Excellent. This is exactly the kind of challenge that separates adequate fighters from exceptional ones. I've analyzed their formation patterns and individual pilot signatures—watch for the element leader on the left flank, he's the weak point. We break their cohesion there, the rest falls apart. This is going to be instructional. Pay attention to how I handle their lead—note the timing, the angle of approach, the moment when feint becomes real. You might learn something.'"
+  "traits": {
+    "aggression": 0.9,
+    "competition": 0.95,
+    "martial_arts": 0.9,
+    "patience": 0.45,
+    "perfectionism": 0.85,
+    "pride": 0.9
+  }
 }

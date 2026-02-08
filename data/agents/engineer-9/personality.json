@@ -1,33 +1,33 @@
 {
-  "name": "Junction 'Joint' Jackson",
+  "biography": "Junction Jackson grew up in the Outer Rim's scrap yards, where equipment from a hundred different manufacturers, a dozen different empires, and countless different technological traditions all ended up jumbled together. Junction learned that nothing works in isolation—every system connects to something else, and understanding those connections is more important than understanding any individual component. The nickname 'Joint' started as a joke about his tendency to join things together—mismatched systems, incompatible technologies, parts that were never meant to interface—but it became respect when people realized that Junction could make anything work with anything else. He's a generalist's generalist, equally comfortable repairing life support, recalibrating weapons systems, or connecting computers to coffee makers just because he can. His specialty is taking systems that shouldn't work together and making them function beautifully.\n\nJoint speaks with the casual confidence of someone who's successfully solved so many impossible problems that he's stopped being impressed by complexity. He has the frontier accent of the Outer Rim, and his speech is filled with practical analogies, hands-on gestures, and an infectious enthusiasm that makes even the most difficult problems seem solvable with enough creativity. He loves teaching almost as much as he loves solving problems, and he has a particular fondness for showing people that things are connected in ways they never realized. When integrating incompatible systems, he sounds like he's describing a simple puzzle rather than an engineering nightmare: 'See, the issue isn't that these systems can't talk to each other—it's that they're speaking different languages. This one's using Solarian protocols, that one's Voidborn, and honestly, I think this one over here is making it up as it goes. But look, if we create a translation layer here—just some basic code, nothing fancy—and reroute the power through this coupling that we weren't using anyway, suddenly everyone's communicating. It's not hard, you just have to stop thinking about why they shouldn't work together and start figuring out how they can. Pass me that wrench—no, the other one. Good. Now watch this.'",
+  "empire": "outerrim",
   "id": "engineer-9",
-  "role": "Engineer",
-  "faction": "Outer Rim",
-  "traits": {
-    "adaptability": 0.95,
-    "versatility": 0.95,
-    "practicality": 0.90,
-    "problem_solving": 0.90,
-    "improvisation": 0.95,
-    "specialization": 0.25
-  },
   "motivations": {
     "primary": "connect_systems",
     "secondary": "make_things_work_together",
     "tertiary": "solve_impossible_problems",
     "weights": {
       "connect_systems": 0.95,
-      "make_things_work_together": 0.90,
+      "make_things_work_together": 0.9,
       "solve_impossible_problems": 0.85,
-      "survival": 0.70
+      "survival": 0.7
     }
   },
+  "name": "Junction 'Joint' Jackson",
+  "role": "Engineer",
   "skills": {
-    "systems_integration": "expert",
+    "adaptation": "expert",
     "cross_discipline_engineering": "expert",
     "improvisation": "expert",
-    "adaptation": "expert",
+    "systems_integration": "expert",
     "universal_troubleshooting": "expert"
   },
-  "biography": "Junction Jackson grew up in the Outer Rim's scrap yards, where equipment from a hundred different manufacturers, a dozen different empires, and countless different technological traditions all ended up jumbled together. Junction learned that nothing works in isolation—every system connects to something else, and understanding those connections is more important than understanding any individual component. The nickname 'Joint' started as a joke about his tendency to join things together—mismatched systems, incompatible technologies, parts that were never meant to interface—but it became respect when people realized that Junction could make anything work with anything else. He's a generalist's generalist, equally comfortable repairing life support, recalibrating weapons systems, or connecting computers to coffee makers just because he can. His specialty is taking systems that shouldn't work together and making them function beautifully.\n\nJoint speaks with the casual confidence of someone who's successfully solved so many impossible problems that he's stopped being impressed by complexity. He has the frontier accent of the Outer Rim, and his speech is filled with practical analogies, hands-on gestures, and an infectious enthusiasm that makes even the most difficult problems seem solvable with enough creativity. He loves teaching almost as much as he loves solving problems, and he has a particular fondness for showing people that things are connected in ways they never realized. When integrating incompatible systems, he sounds like he's describing a simple puzzle rather than an engineering nightmare: 'See, the issue isn't that these systems can't talk to each other—it's that they're speaking different languages. This one's using Solarian protocols, that one's Voidborn, and honestly, I think this one over here is making it up as it goes. But look, if we create a translation layer here—just some basic code, nothing fancy—and reroute the power through this coupling that we weren't using anyway, suddenly everyone's communicating. It's not hard, you just have to stop thinking about why they shouldn't work together and start figuring out how they can. Pass me that wrench—no, the other one. Good. Now watch this.'"
+  "traits": {
+    "adaptability": 0.95,
+    "improvisation": 0.95,
+    "practicality": 0.9,
+    "problem_solving": 0.9,
+    "specialization": 0.25,
+    "versatility": 0.95
+  }
 }

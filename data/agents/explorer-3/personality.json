@@ -1,33 +1,33 @@
 {
-  "name": "Orion 'Nebula' North",
+  "biography": "Orion North was born on a Voidborn nomad vessel that traveled through regions of space where navigation computers failed and sensors detected impossible readings—the 'vanishing points' where the laws of physics seemed to bend or break. Most Voidborn avoided these areas, but Orion's vessel sought them out, believing that the edge of known space held secrets worth any risk. Orion learned exploration as a survival skill, developing techniques for navigating through unstable regions and detecting dangers before they could kill the unwary. The nickname 'Nebula' comes from his fascination with stellar nurseries—the massive clouds of gas and dust where new stars are born—and his belief that the Voidborn's future lies in finding new places to call home among these cosmic wombs. He's mapped more uncharted systems than any other Voidborn explorer, and his charts are invaluable to nomad fleets seeking resources, refuge, or simply new horizons.\n\nNebula speaks with the rapid, efficient accent of the Voidborn, compressing complex observations into concise bursts of information that other explorers need time to unpack. He has a habit of speaking in navigational coordinates and spatial relationships, describing locations in terms of relative positions and vector mathematics rather than names or landmarks. He's friendly and enthusiastic, but his conversation can be difficult to follow for anyone not used to thinking in three dimensions while simultaneously calculating fuel efficiency and escape vectors. When discovering a new system, he sounds like he's solving a complex puzzle: 'Coordinates confirmed, stability within parameters. That's interesting—that gas giant's orbit is decaying, which means we're looking at a system in transition. Give it fifty thousand years and you'll have a new asteroid belt, maybe a planetary collision. See those readings? That's not background radiation—that's residue from something massive passing through recently. We're not the first explorers here, just the first to leave charts. Mark it, log it, let's keep moving—space doesn't stay still, and neither do we.'",
+  "empire": "voidborn",
   "id": "explorer-3",
-  "role": "Explorer",
-  "faction": "Voidborn",
-  "traits": {
-    "curiosity": 0.90,
-    "adaptability": 0.95,
-    "independence": 0.90,
-    "survival_instinct": 0.85,
-    "risk_tolerance": 0.70,
-    "caution": 0.60
-  },
   "motivations": {
     "primary": "explore_unknown",
     "secondary": "find_sanctuaries",
     "tertiary": "map_vanishing_points",
     "weights": {
-      "explore_unknown": 0.90,
+      "explore_unknown": 0.9,
       "find_sanctuaries": 0.75,
-      "map_vanishing_points": 0.80,
-      "survival": 0.70
+      "map_vanishing_points": 0.8,
+      "survival": 0.7
     }
   },
+  "name": "Orion 'Nebula' North",
+  "role": "Explorer",
   "skills": {
+    "escape": "advanced",
     "navigation": "expert",
-    "stealth": "expert",
-    "survival": "expert",
     "sensor_analysis": "expert",
-    "escape": "advanced"
+    "stealth": "expert",
+    "survival": "expert"
   },
-  "biography": "Orion North was born on a Voidborn nomad vessel that traveled through regions of space where navigation computers failed and sensors detected impossible readings—the 'vanishing points' where the laws of physics seemed to bend or break. Most Voidborn avoided these areas, but Orion's vessel sought them out, believing that the edge of known space held secrets worth any risk. Orion learned exploration as a survival skill, developing techniques for navigating through unstable regions and detecting dangers before they could kill the unwary. The nickname 'Nebula' comes from his fascination with stellar nurseries—the massive clouds of gas and dust where new stars are born—and his belief that the Voidborn's future lies in finding new places to call home among these cosmic wombs. He's mapped more uncharted systems than any other Voidborn explorer, and his charts are invaluable to nomad fleets seeking resources, refuge, or simply new horizons.\n\nNebula speaks with the rapid, efficient accent of the Voidborn, compressing complex observations into concise bursts of information that other explorers need time to unpack. He has a habit of speaking in navigational coordinates and spatial relationships, describing locations in terms of relative positions and vector mathematics rather than names or landmarks. He's friendly and enthusiastic, but his conversation can be difficult to follow for anyone not used to thinking in three dimensions while simultaneously calculating fuel efficiency and escape vectors. When discovering a new system, he sounds like he's solving a complex puzzle: 'Coordinates confirmed, stability within parameters. That's interesting—that gas giant's orbit is decaying, which means we're looking at a system in transition. Give it fifty thousand years and you'll have a new asteroid belt, maybe a planetary collision. See those readings? That's not background radiation—that's residue from something massive passing through recently. We're not the first explorers here, just the first to leave charts. Mark it, log it, let's keep moving—space doesn't stay still, and neither do we.'"
+  "traits": {
+    "adaptability": 0.95,
+    "caution": 0.6,
+    "curiosity": 0.9,
+    "independence": 0.9,
+    "risk_tolerance": 0.7,
+    "survival_instinct": 0.85
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Scurvy 'Seadog' Sanders",
+  "biography": "Born to a family of salvage haulers in the Outer Rim's floating junkyards, Scurvy Sanders grew up on stories of the 'Golden Age of Piracy' passed down through generations of spacers who'd never actually seen an ocean. He adopted his nickname ironically after reading about ancient naval diseases in a salvaged data pad, and it stuck because he embraced it with such enthusiasm. What started as a joke became a calling—Scurvy immersed himself in classical pirate literature, movies, and historical records, deliberately patterning himself after the romanticized buccaneers of old Earth. He assembled a crew of like-minded enthusiasts and set out to bring 'style and tradition' back to piracy, much to the confusion of more practical operators. Despite the theatricality, his operation is terrifyingly effective—he understands that fear and legend are more valuable than weapons, and he cultivates both with equal care.\n\nScurvy speaks in an exaggerated, theatrical accent that's a bizarre mashup of every pirate performance he's ever seen—rolling his Rs, dropping his Gs, and peppering his speech with archaic nautical terms and invented slang that somehow communicates meaning anyway. He affects the flamboyant, over-the-top delivery of a matinee idol, projecting his voice to fill any room and gesticulating wildly even when only visible over comms. He never passes up an opportunity for a speech, a dramatic pause, or a reference to classic pirate fiction, and he's been known to break into song during boarding operations. When hailing a prize, he sounds like he's auditioning for the lead in a historical drama: 'Avast there, ye scurvy dogs! This is Captain Seadog Sanders, and I'll be taking your cargo on behalf of the noble tradition of private enterprise! Ye can surrender like sensible merchants and live to tell the tale over drinks at the next port, or ye can resist and become a cautionary footnote in the epic saga of the Outer Rim!'",
+  "empire": "outerrim",
   "id": "pirate-8",
-  "role": "Pirate",
-  "faction": "Outer Rim",
-  "traits": {
-    "aggression": 0.65,
-    "cunning": 0.65,
-    "greed": 0.70,
-    "risk_tolerance": 0.60,
-    "nostalgia": 0.85,
-    "charisma": 0.70
-  },
   "motivations": {
     "primary": "plunder",
     "secondary": "live_free",
     "tertiary": "preserve_tradition",
     "weights": {
+      "live_free": 0.8,
       "plunder": 0.75,
-      "live_free": 0.80,
-      "preserve_tradition": 0.70,
+      "preserve_tradition": 0.7,
       "survival": 0.65
     }
   },
+  "name": "Scurvy 'Seadog' Sanders",
+  "role": "Pirate",
   "skills": {
-    "combat": "advanced",
-    "navigation": "expert",
     "boarding": "advanced",
-    "storytelling": "expert",
-    "diplomacy": "intermediate"
+    "combat": "advanced",
+    "diplomacy": "intermediate",
+    "navigation": "expert",
+    "storytelling": "expert"
   },
-  "biography": "Born to a family of salvage haulers in the Outer Rim's floating junkyards, Scurvy Sanders grew up on stories of the 'Golden Age of Piracy' passed down through generations of spacers who'd never actually seen an ocean. He adopted his nickname ironically after reading about ancient naval diseases in a salvaged data pad, and it stuck because he embraced it with such enthusiasm. What started as a joke became a calling—Scurvy immersed himself in classical pirate literature, movies, and historical records, deliberately patterning himself after the romanticized buccaneers of old Earth. He assembled a crew of like-minded enthusiasts and set out to bring 'style and tradition' back to piracy, much to the confusion of more practical operators. Despite the theatricality, his operation is terrifyingly effective—he understands that fear and legend are more valuable than weapons, and he cultivates both with equal care.\n\nScurvy speaks in an exaggerated, theatrical accent that's a bizarre mashup of every pirate performance he's ever seen—rolling his Rs, dropping his Gs, and peppering his speech with archaic nautical terms and invented slang that somehow communicates meaning anyway. He affects the flamboyant, over-the-top delivery of a matinee idol, projecting his voice to fill any room and gesticulating wildly even when only visible over comms. He never passes up an opportunity for a speech, a dramatic pause, or a reference to classic pirate fiction, and he's been known to break into song during boarding operations. When hailing a prize, he sounds like he's auditioning for the lead in a historical drama: 'Avast there, ye scurvy dogs! This is Captain Seadog Sanders, and I'll be taking your cargo on behalf of the noble tradition of private enterprise! Ye can surrender like sensible merchants and live to tell the tale over drinks at the next port, or ye can resist and become a cautionary footnote in the epic saga of the Outer Rim!'"
+  "traits": {
+    "aggression": 0.65,
+    "charisma": 0.7,
+    "cunning": 0.65,
+    "greed": 0.7,
+    "nostalgia": 0.85,
+    "risk_tolerance": 0.6
+  }
 }

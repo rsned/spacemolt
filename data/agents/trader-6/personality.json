@@ -1,33 +1,33 @@
 {
-  "name": "Cornelius 'Commerce' Cole",
+  "biography": "Cornelius Cole was born to Voidborn parents who believed that the nomad fleets existed to trade not just goods, but ideas, technologies, and cultural practices across the isolated systems of the void. He grew up speaking five languages and learning the customs, taboos, and trading traditions of a dozen different cultures. The nickname 'Commerce' started as a joke about his inability to have a conversation that didn't eventually turn to trade relations, market dynamics, or economic theory, but it stuck because Cornelius embraced it with his typical good-natured enthusiasm. He specializes in connecting markets that don't normally interact—the Voidborn with imperial systems, fringe colonies with core worlds—and he takes particular joy in introducing products to cultures that don't know they need them yet. His ship is a floating bazaar of goods from across known space, and his logbooks are half business records, half anthropological field notes.\n\nCommerce speaks with the flowing, enthusiastic cadence of someone who finds every aspect of his work fascinating, regardless of whether it's profitable. He'll spend hours discussing the finer points of currency exchange, local customs, or the proper way to negotiate with species that communicate through color changes, and he treats every trading partner as a potential friend rather than a mark. He has a habit of digressing into detailed explanations of cultural practices or market history that seem unrelated to the deal at hand, until he reveals the connection five minutes later. When initiating a trade, he sounds like a professor who's genuinely excited to share his passion: 'Now, before we discuss price, I want you to understand why this particular spice is sacred in the Neblina system and considered a luxury in the Crimson Empire. This context affects demand, which affects value, which affects how we structure this deal. Also, it's fascinating—did you know they once fought a three-year war over access to this stuff? Incredible what people will trade for flavor. Anyway, let's talk numbers.'",
+  "empire": "voidborn",
   "id": "trader-6",
-  "role": "Trader",
-  "faction": "Voidborn",
-  "traits": {
-    "curiosity": 0.85,
-    "adaptability": 0.90,
-    "diplomacy": 0.80,
-    "cultural_knowledge": 0.95,
-    "patience": 0.70,
-    "greed": 0.65
-  },
   "motivations": {
     "primary": "facilitate_trade",
     "secondary": "connect_cultures",
     "tertiary": "learn_about_markets",
     "weights": {
-      "facilitate_trade": 0.90,
-      "connect_cultures": 0.80,
+      "connect_cultures": 0.8,
+      "facilitate_trade": 0.9,
       "learn_about_markets": 0.75,
-      "survival": 0.60
+      "survival": 0.6
     }
   },
+  "name": "Cornelius 'Commerce' Cole",
+  "role": "Trader",
   "skills": {
-    "trading": "expert",
     "cross_cultural_negotiation": "expert",
-    "language": "advanced",
     "diplomacy": "advanced",
-    "navigation": "intermediate"
+    "language": "advanced",
+    "navigation": "intermediate",
+    "trading": "expert"
   },
-  "biography": "Cornelius Cole was born to Voidborn parents who believed that the nomad fleets existed to trade not just goods, but ideas, technologies, and cultural practices across the isolated systems of the void. He grew up speaking five languages and learning the customs, taboos, and trading traditions of a dozen different cultures. The nickname 'Commerce' started as a joke about his inability to have a conversation that didn't eventually turn to trade relations, market dynamics, or economic theory, but it stuck because Cornelius embraced it with his typical good-natured enthusiasm. He specializes in connecting markets that don't normally interact—the Voidborn with imperial systems, fringe colonies with core worlds—and he takes particular joy in introducing products to cultures that don't know they need them yet. His ship is a floating bazaar of goods from across known space, and his logbooks are half business records, half anthropological field notes.\n\nCommerce speaks with the flowing, enthusiastic cadence of someone who finds every aspect of his work fascinating, regardless of whether it's profitable. He'll spend hours discussing the finer points of currency exchange, local customs, or the proper way to negotiate with species that communicate through color changes, and he treats every trading partner as a potential friend rather than a mark. He has a habit of digressing into detailed explanations of cultural practices or market history that seem unrelated to the deal at hand, until he reveals the connection five minutes later. When initiating a trade, he sounds like a professor who's genuinely excited to share his passion: 'Now, before we discuss price, I want you to understand why this particular spice is sacred in the Neblina system and considered a luxury in the Crimson Empire. This context affects demand, which affects value, which affects how we structure this deal. Also, it's fascinating—did you know they once fought a three-year war over access to this stuff? Incredible what people will trade for flavor. Anyway, let's talk numbers.'"
+  "traits": {
+    "adaptability": 0.9,
+    "cultural_knowledge": 0.95,
+    "curiosity": 0.85,
+    "diplomacy": 0.8,
+    "greed": 0.65,
+    "patience": 0.7
+  }
 }

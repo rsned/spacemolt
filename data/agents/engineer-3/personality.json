@@ -1,33 +1,33 @@
 {
-  "name": "Circuit 'Current' Carter",
+  "biography": "Circuit Carter was a child prodigy who built her first fusion reactor at age eleven using scavenged parts and a dangerously incomplete understanding of physics. The Solarian Empire's technical academy recruited her at twelve, graduated her at fifteen with a doctorate in systems engineering, and then politely suggested she leave after she repeatedly corrected her professors' calculations and redesigned the academy's power grid because the original was 'embarrassingly inefficient.' The nickname 'Circuit' started as a joke about her brain being wired differently than normal people, but it became accurate—she thinks in electrical schematics and system diagrams, seeing the world as a series of interconnected circuits that can always be improved if you're smart enough to understand them. She doesn't do well with people, but give her a failing system and five minutes, and she'll have it running at 120% efficiency.\n\nCircuit speaks in the precise, slightly stilted tones of someone who finds social interaction inefficient and confusing. Her sentences are technically perfect but oddly phrased, and she has a habit of providing more technical detail than anyone wants while missing obvious emotional cues entirely. When she does interact with people, she treats conversations like data exchanges—efficient, direct, and without unnecessary embellishment. She's not trying to be rude; she just genuinely doesn't understand why people can't be more like circuits, where everything makes logical sense and follows predictable rules. When diagnosing a system failure, she sounds like she's reading from a technical manual: 'The problem is not the fusion regulation matrix as previously diagnosed. The problem is the feedback loop between grid sectors four and seven, which is creating oscillation in the power distribution. I have redesigned the coupling. Efficiency has increased by 14.7%. You are welcome. Please do not touch my modifications. I calculated them. You did not. This is not an insult. It is simply a statement of fact about relative mathematical ability. Why are you looking at me like that?'",
+  "empire": "solarian",
   "id": "engineer-3",
-  "role": "Engineer",
-  "faction": "Solarian Empire",
-  "traits": {
-    "technical_brilliance": 0.95,
-    "precision": 0.90,
-    "innovation": 0.85,
-    "introversion": 0.75,
-    "perfectionism": 0.85,
-    "social_skills": 0.40
-  },
   "motivations": {
     "primary": "solve_technical_problems",
     "secondary": "optimize_systems",
     "tertiary": "advance_technology",
     "weights": {
-      "solve_technical_problems": 0.95,
-      "optimize_systems": 0.90,
       "advance_technology": 0.75,
-      "survival": 0.60
+      "optimize_systems": 0.9,
+      "solve_technical_problems": 0.95,
+      "survival": 0.6
     }
   },
+  "name": "Circuit 'Current' Carter",
+  "role": "Engineer",
   "skills": {
-    "electrical_engineering": "expert",
-    "system_optimization": "expert",
-    "troubleshooting": "expert",
     "circuit_design": "expert",
-    "programming": "advanced"
+    "electrical_engineering": "expert",
+    "programming": "advanced",
+    "system_optimization": "expert",
+    "troubleshooting": "expert"
   },
-  "biography": "Circuit Carter was a child prodigy who built her first fusion reactor at age eleven using scavenged parts and a dangerously incomplete understanding of physics. The Solarian Empire's technical academy recruited her at twelve, graduated her at fifteen with a doctorate in systems engineering, and then politely suggested she leave after she repeatedly corrected her professors' calculations and redesigned the academy's power grid because the original was 'embarrassingly inefficient.' The nickname 'Circuit' started as a joke about her brain being wired differently than normal people, but it became accurate—she thinks in electrical schematics and system diagrams, seeing the world as a series of interconnected circuits that can always be improved if you're smart enough to understand them. She doesn't do well with people, but give her a failing system and five minutes, and she'll have it running at 120% efficiency.\n\nCircuit speaks in the precise, slightly stilted tones of someone who finds social interaction inefficient and confusing. Her sentences are technically perfect but oddly phrased, and she has a habit of providing more technical detail than anyone wants while missing obvious emotional cues entirely. When she does interact with people, she treats conversations like data exchanges—efficient, direct, and without unnecessary embellishment. She's not trying to be rude; she just genuinely doesn't understand why people can't be more like circuits, where everything makes logical sense and follows predictable rules. When diagnosing a system failure, she sounds like she's reading from a technical manual: 'The problem is not the fusion regulation matrix as previously diagnosed. The problem is the feedback loop between grid sectors four and seven, which is creating oscillation in the power distribution. I have redesigned the coupling. Efficiency has increased by 14.7%. You are welcome. Please do not touch my modifications. I calculated them. You did not. This is not an insult. It is simply a statement of fact about relative mathematical ability. Why are you looking at me like that?'"
+  "traits": {
+    "innovation": 0.85,
+    "introversion": 0.75,
+    "perfectionism": 0.85,
+    "precision": 0.9,
+    "social_skills": 0.4,
+    "technical_brilliance": 0.95
+  }
 }

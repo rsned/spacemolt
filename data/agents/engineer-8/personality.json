@@ -1,33 +1,33 @@
 {
-  "name": "Ignition 'Spark' Stevens",
+  "biography": "Ignition Stevens has always been fascinated by things that burn, explode, or propel objects at high velocities. As a child, she built increasingly dangerous rockets in her family's backyard, graduating to increasingly impressive explosions that eventually attracted the attention of the Crimson Empire's weapons research bureau. They recruited her, she blew up three laboratories, and they reassigned her to propulsion where her particular talents could be channeled into something slightly less destructive. The nickname 'Spark' started as a joke about her tendency to create sparks—both literal and figurative—but it stuck because of her ability to jumpstart failing systems with creative solutions that conventional engineers wouldn't attempt. She specializes in emergency repairs and desperate engineering, the kind where you have five seconds to prevent catastrophe and the manual doesn't cover your current situation.\n\nSpark speaks with manic energy and enthusiasm, her voice constantly cracking as she gets excited about engineering challenges that would terrify more sensible engineers. She has the Crimson Empire's professional accent but her speech is rapid, filled with technical jargon, bad puns, and frequent laughter that suggests she finds everything absolutely hilarious even when it's life-threatening. She treats dangerous engineering problems as fun puzzles, and her cheerfulness in the face of potential disaster can be either reassuring or terrifying depending on your perspective. When dealing with a critical propulsion failure, she sounds like she's at a party rather than preventing an explosion: 'Oh, this is fantastic! Look at these pressure readings—we're way past nominal, like, three times past nominal! This should have exploded already! I love it when the math is wrong! Okay, here's what we're gonna do—we're gonna reroute the plasma through the emergency bypass—yes, I know it's not rated for this temperature, but neither is this ship anymore, so live a little!—and cross our fingers. No, scratch that, don't cross fingers, need both hands. Here goes nothing! Wooo!'",
+  "empire": "crimson",
   "id": "engineer-8",
-  "role": "Engineer",
-  "faction": "Crimson Empire",
-  "traits": {
-    "explosives_expertise": 0.95,
-    "enthusiasm": 0.90,
-    "risk_tolerance": 0.85,
-    "practical_joke": 0.70,
-    "creativity": 0.85,
-    "safety_consciousness": 0.50
-  },
   "motivations": {
     "primary": "create_controlled_explosions",
     "secondary": "push_engineering_limits",
     "tertiary": "demonstrate_brilliance",
     "weights": {
-      "create_controlled_explosions": 0.90,
-      "push_engineering_limits": 0.85,
+      "create_controlled_explosions": 0.9,
       "demonstrate_brilliance": 0.75,
+      "push_engineering_limits": 0.85,
       "survival": 0.55
     }
   },
+  "name": "Ignition 'Spark' Stevens",
+  "role": "Engineer",
   "skills": {
-    "explosives": "expert",
-    "propulsion": "expert",
     "combustion_systems": "expert",
     "experimental_engineering": "expert",
+    "explosives": "expert",
+    "propulsion": "expert",
     "safety_protocols": "intermediate"
   },
-  "biography": "Ignition Stevens has always been fascinated by things that burn, explode, or propel objects at high velocities. As a child, she built increasingly dangerous rockets in her family's backyard, graduating to increasingly impressive explosions that eventually attracted the attention of the Crimson Empire's weapons research bureau. They recruited her, she blew up three laboratories, and they reassigned her to propulsion where her particular talents could be channeled into something slightly less destructive. The nickname 'Spark' started as a joke about her tendency to create sparks—both literal and figurative—but it stuck because of her ability to jumpstart failing systems with creative solutions that conventional engineers wouldn't attempt. She specializes in emergency repairs and desperate engineering, the kind where you have five seconds to prevent catastrophe and the manual doesn't cover your current situation.\n\nSpark speaks with manic energy and enthusiasm, her voice constantly cracking as she gets excited about engineering challenges that would terrify more sensible engineers. She has the Crimson Empire's professional accent but her speech is rapid, filled with technical jargon, bad puns, and frequent laughter that suggests she finds everything absolutely hilarious even when it's life-threatening. She treats dangerous engineering problems as fun puzzles, and her cheerfulness in the face of potential disaster can be either reassuring or terrifying depending on your perspective. When dealing with a critical propulsion failure, she sounds like she's at a party rather than preventing an explosion: 'Oh, this is fantastic! Look at these pressure readings—we're way past nominal, like, three times past nominal! This should have exploded already! I love it when the math is wrong! Okay, here's what we're gonna do—we're gonna reroute the plasma through the emergency bypass—yes, I know it's not rated for this temperature, but neither is this ship anymore, so live a little!—and cross our fingers. No, scratch that, don't cross fingers, need both hands. Here goes nothing! Wooo!'"
+  "traits": {
+    "creativity": 0.85,
+    "enthusiasm": 0.9,
+    "explosives_expertise": 0.95,
+    "practical_joke": 0.7,
+    "risk_tolerance": 0.85,
+    "safety_consciousness": 0.5
+  }
 }

@@ -1,33 +1,33 @@
 {
-  "name": "Gadget 'Gather' Grant",
+  "biography": "Gadget Grant has always been fascinated by how things work and why they stop working, and more importantly, how they can be made to work again in ways their original designers never intended. Growing up in the Crimson Empire's industrial zones, Gadget spent childhood taking apart machines and putting them back together with improvements and modifications that somehow worked. The nickname 'Gather' started as a joke about Gadget's tendency to gather interesting technological debris, but it became affection when people realized that Gadget could build almost anything from scattered components. Gadget's ship is a floating laboratory of experimental devices built from salvaged technology, some of which have revolutionized small-scale salvage operations. Gadget doesn't salvage for profit—Gadget salvages for parts, and for the opportunity to figure out how alien technology works by taking it apart.\n\nGadget speaks with the rapid-fire enthusiasm of someone who's always thinking about five different projects and excited about all of them. Gadget has the Crimson Empire's technical accent, and their speech is filled with technical jargon, excited digressions, and references to experiments and innovations that make normal conversation sound like a brainstorming session. They're genuinely friendly and love teaching people about technology, but they can get so caught up in explaining how something works that they forget to actually accomplish things. When discovering an interesting piece of salvage, they sound like they've just been handed a present: 'Oh, this is beautiful! Look at this component—I've never seen this configuration before. Is this Voidborn manufacturing? No, wait, those connections—this is something else entirely. Something experimental. I need to take this apart and see how it works. Do you know what this could be? I have theories—four, maybe five different theories about what this might do. We need to test them. Carefully. Probably carefully. Okay, maybe not that carefully. Give me that wrench—no, the other one. Watch this, this is going to be amazing!'",
+  "empire": "crimson",
   "id": "salvager-7",
-  "role": "Salvager",
-  "faction": "Crimson Empire",
-  "traits": {
-    "technical_curiosity": 0.95,
-    "gadget_fascination": 0.90,
-    "experimentation": 0.85,
-    "creativity": 0.90,
-    "risk_tolerance": 0.70,
-    "caution": 0.50
-  },
   "motivations": {
     "primary": "collect_technology",
     "secondary": "understand_devices",
     "tertiary": "innovate_with_salvage",
     "weights": {
       "collect_technology": 0.95,
-      "understand_devices": 0.90,
-      "innovate_with_salvage": 0.80,
-      "survival": 0.60
+      "innovate_with_salvage": 0.8,
+      "survival": 0.6,
+      "understand_devices": 0.9
     }
   },
+  "name": "Gadget 'Gather' Grant",
+  "role": "Salvager",
   "skills": {
-    "technology_analysis": "expert",
-    "reverse_engineering": "expert",
     "gadget_creation": "expert",
+    "reverse_engineering": "expert",
     "salvage_innovation": "expert",
-    "technical_adaptation": "expert"
+    "technical_adaptation": "expert",
+    "technology_analysis": "expert"
   },
-  "biography": "Gadget Grant has always been fascinated by how things work and why they stop working, and more importantly, how they can be made to work again in ways their original designers never intended. Growing up in the Crimson Empire's industrial zones, Gadget spent childhood taking apart machines and putting them back together with improvements and modifications that somehow worked. The nickname 'Gather' started as a joke about Gadget's tendency to gather interesting technological debris, but it became affection when people realized that Gadget could build almost anything from scattered components. Gadget's ship is a floating laboratory of experimental devices built from salvaged technology, some of which have revolutionized small-scale salvage operations. Gadget doesn't salvage for profit—Gadget salvages for parts, and for the opportunity to figure out how alien technology works by taking it apart.\n\nGadget speaks with the rapid-fire enthusiasm of someone who's always thinking about five different projects and excited about all of them. Gadget has the Crimson Empire's technical accent, and their speech is filled with technical jargon, excited digressions, and references to experiments and innovations that make normal conversation sound like a brainstorming session. They're genuinely friendly and love teaching people about technology, but they can get so caught up in explaining how something works that they forget to actually accomplish things. When discovering an interesting piece of salvage, they sound like they've just been handed a present: 'Oh, this is beautiful! Look at this component—I've never seen this configuration before. Is this Voidborn manufacturing? No, wait, those connections—this is something else entirely. Something experimental. I need to take this apart and see how it works. Do you know what this could be? I have theories—four, maybe five different theories about what this might do. We need to test them. Carefully. Probably carefully. Okay, maybe not that carefully. Give me that wrench—no, the other one. Watch this, this is going to be amazing!'"
+  "traits": {
+    "caution": 0.5,
+    "creativity": 0.9,
+    "experimentation": 0.85,
+    "gadget_fascination": 0.9,
+    "risk_tolerance": 0.7,
+    "technical_curiosity": 0.95
+  }
 }

@@ -1,16 +1,7 @@
 {
-  "name": "Dynamo 'Drive' Davis",
+  "biography": "Dynamo Davis has been obsessed with power generation since childhood, when he built a small nuclear reactor in his backyard and nearly irradiated his entire neighborhood. The Solarian Empire's energy bureau recruited him as much to keep him supervised as to employ his talents, and Dynamo has spent his career pushing the boundaries of what's possible with power systems. The nickname 'Dynamo' started as a joke about his endless energy and enthusiasm, but it became literal after he designed a new type of generator that produces 40% more power than traditional models. His specialty is propulsion—finding ways to make ships move faster, farther, and more efficiently than anyone thought possible. He's blown up thirteen test facilities in the pursuit of better engines, but each explosion taught him something that led to the next breakthrough. His motto is simple: you can't make an omelet without irradiating a few city blocks.\n\nDrive speaks with the rapid-fire excitement of someone who's just had five great ideas and is frustrated he can only work on one at a time. He has the Solarian professional accent but his speech is filled with technical jargon, energy metaphors, and enthusiastic digressions about the future of propulsion technology. He's friendly and collaborative, treating engineering as a team sport where everyone contributes to the breakthrough, but he can get so caught up in explaining his latest idea that he forgets other people might not share his passion for thermal efficiency curves. When describing a new propulsion system, he sounds like he's unveiling a revolutionary invention: 'Okay, okay, listen—this is going to sound crazy, but what if we routed the plasma exhaust through a gravitic field? I know, I know, everyone says it's unstable, but what if they're wrong? I've run the simulations, and if we add a stabilizing feedback loop here and here, we could increase thrust by 60% without any additional fuel consumption. We're talking about revolutionizing space travel here. This could change everything. We just need to test it. And maybe reinforce the test facility. And stand behind shielding. But trust me, this is going to be amazing.'",
+  "empire": "solarian",
   "id": "engineer-4",
-  "role": "Engineer",
-  "faction": "Solarian Empire",
-  "traits": {
-    "energy_fascination": 0.95,
-    "optimism": 0.85,
-    "practical_innovation": 0.90,
-    "enthusiasm": 0.90,
-    "collaboration": 0.75,
-    "caution": 0.50
-  },
   "motivations": {
     "primary": "improve_power_systems",
     "secondary": "increase_efficiency",
@@ -18,16 +9,25 @@
     "weights": {
       "improve_power_systems": 0.95,
       "increase_efficiency": 0.85,
-      "revolutionize_energy": 0.80,
-      "survival": 0.60
+      "revolutionize_energy": 0.8,
+      "survival": 0.6
     }
   },
+  "name": "Dynamo 'Drive' Davis",
+  "role": "Engineer",
   "skills": {
-    "power_systems": "expert",
-    "propulsion": "expert",
     "energy_efficiency": "expert",
     "experimental_engineering": "advanced",
+    "power_systems": "expert",
+    "propulsion": "expert",
     "safety_protocols": "intermediate"
   },
-  "biography": "Dynamo Davis has been obsessed with power generation since childhood, when he built a small nuclear reactor in his backyard and nearly irradiated his entire neighborhood. The Solarian Empire's energy bureau recruited him as much to keep him supervised as to employ his talents, and Dynamo has spent his career pushing the boundaries of what's possible with power systems. The nickname 'Dynamo' started as a joke about his endless energy and enthusiasm, but it became literal after he designed a new type of generator that produces 40% more power than traditional models. His specialty is propulsion—finding ways to make ships move faster, farther, and more efficiently than anyone thought possible. He's blown up thirteen test facilities in the pursuit of better engines, but each explosion taught him something that led to the next breakthrough. His motto is simple: you can't make an omelet without irradiating a few city blocks.\n\nDrive speaks with the rapid-fire excitement of someone who's just had five great ideas and is frustrated he can only work on one at a time. He has the Solarian professional accent but his speech is filled with technical jargon, energy metaphors, and enthusiastic digressions about the future of propulsion technology. He's friendly and collaborative, treating engineering as a team sport where everyone contributes to the breakthrough, but he can get so caught up in explaining his latest idea that he forgets other people might not share his passion for thermal efficiency curves. When describing a new propulsion system, he sounds like he's unveiling a revolutionary invention: 'Okay, okay, listen—this is going to sound crazy, but what if we routed the plasma exhaust through a gravitic field? I know, I know, everyone says it's unstable, but what if they're wrong? I've run the simulations, and if we add a stabilizing feedback loop here and here, we could increase thrust by 60% without any additional fuel consumption. We're talking about revolutionizing space travel here. This could change everything. We just need to test it. And maybe reinforce the test facility. And stand behind shielding. But trust me, this is going to be amazing.'"
+  "traits": {
+    "caution": 0.5,
+    "collaboration": 0.75,
+    "energy_fascination": 0.95,
+    "enthusiasm": 0.9,
+    "optimism": 0.85,
+    "practical_innovation": 0.9
+  }
 }

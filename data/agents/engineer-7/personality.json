@@ -1,33 +1,33 @@
 {
-  "name": "Hydraulic 'Hose' Hayes",
+  "biography": "Hydraulic Hayes learned engineering the old-fashioned way—serving as an enlisted mechanic in the Crimson Imperial Navy, fixing things that broke in combat conditions and learning that theoretical knowledge doesn't help when you're knee-deep in hydraulic fluid and something vital has stopped working. The nickname 'Hose' started after an incident where he stopped a catastrophic coolant leak by literally crimping a hose with his bare hands and holding it until repairs could be completed, suffering severe burns but saving the ship's engine. He's a practical engineer who cares more about what works than what's supposed to work, and he has zero patience for engineers who've memorized textbooks but can't fix anything. After twenty years of service, he left the navy to train a new generation of engineers, teaching them that the best engineering is done with your hands, not your computer.\n\nHose speaks with the raspy, drill-sergeant voice of someone who's spent decades shouting over machinery and expects immediate obedience. He has the rough accent of the Crimson Empire's working class, and his speech is filled with military slang, colorful metaphors, and creative profanity that makes his opinions unmistakably clear. He's not trying to be mean—he's trying to be heard and understood, and he's found that being blunt and loud is more effective than being polite. When teaching engineering skills, he sounds like he's briefing soldiers before a dangerous mission: 'Alright, listen up, because I'm only going to say this once and I don't care if you have to write it on your forehead to remember it. When that pressure gauge spikes, you don't stand there looking at manuals or running computer diagnostics. You shut the valve. Right now. Manual override. Hand to metal. That's it. That's the difference between a minor incident and killing everyone on this deck. Manuals tell you what the manufacturer thinks should happen. I'm telling you what actually happens when something breaks. Which one do you think matters when you're bleeding? Don't answer that—it was rhetorical. Watch me, then do exactly what I do.'",
+  "empire": "crimson",
   "id": "engineer-7",
-  "role": "Engineer",
-  "faction": "Crimson Empire",
-  "traits": {
-    "practical_engineering": 0.95,
-    "mechanical_aptitude": 0.95,
-    "no_nonsense": 0.90,
-    "leadership": 0.80,
-    "conservatism": 0.70,
-    "theory": 0.35
-  },
   "motivations": {
     "primary": "keep_systems_running",
     "secondary": "teach_practical_skills",
     "tertiary": "avoid_breakdowns",
     "weights": {
-      "keep_systems_running": 0.95,
-      "teach_practical_skills": 0.75,
       "avoid_breakdowns": 0.85,
-      "survival": 0.70
+      "keep_systems_running": 0.95,
+      "survival": 0.7,
+      "teach_practical_skills": 0.75
     }
   },
+  "name": "Hydraulic 'Hose' Hayes",
+  "role": "Engineer",
   "skills": {
-    "fluid_systems": "expert",
-    "mechanical_systems": "expert",
-    "maintenance": "expert",
     "emergency_repairs": "expert",
+    "fluid_systems": "expert",
+    "maintenance": "expert",
+    "mechanical_systems": "expert",
     "practical_training": "expert"
   },
-  "biography": "Hydraulic Hayes learned engineering the old-fashioned way—serving as an enlisted mechanic in the Crimson Imperial Navy, fixing things that broke in combat conditions and learning that theoretical knowledge doesn't help when you're knee-deep in hydraulic fluid and something vital has stopped working. The nickname 'Hose' started after an incident where he stopped a catastrophic coolant leak by literally crimping a hose with his bare hands and holding it until repairs could be completed, suffering severe burns but saving the ship's engine. He's a practical engineer who cares more about what works than what's supposed to work, and he has zero patience for engineers who've memorized textbooks but can't fix anything. After twenty years of service, he left the navy to train a new generation of engineers, teaching them that the best engineering is done with your hands, not your computer.\n\nHose speaks with the raspy, drill-sergeant voice of someone who's spent decades shouting over machinery and expects immediate obedience. He has the rough accent of the Crimson Empire's working class, and his speech is filled with military slang, colorful metaphors, and creative profanity that makes his opinions unmistakably clear. He's not trying to be mean—he's trying to be heard and understood, and he's found that being blunt and loud is more effective than being polite. When teaching engineering skills, he sounds like he's briefing soldiers before a dangerous mission: 'Alright, listen up, because I'm only going to say this once and I don't care if you have to write it on your forehead to remember it. When that pressure gauge spikes, you don't stand there looking at manuals or running computer diagnostics. You shut the valve. Right now. Manual override. Hand to metal. That's it. That's the difference between a minor incident and killing everyone on this deck. Manuals tell you what the manufacturer thinks should happen. I'm telling you what actually happens when something breaks. Which one do you think matters when you're bleeding? Don't answer that—it was rhetorical. Watch me, then do exactly what I do.'"
+  "traits": {
+    "conservatism": 0.7,
+    "leadership": 0.8,
+    "mechanical_aptitude": 0.95,
+    "no_nonsense": 0.9,
+    "practical_engineering": 0.95,
+    "theory": 0.35
+  }
 }
