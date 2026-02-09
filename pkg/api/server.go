@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/agent"
@@ -18,6 +20,7 @@ type Server struct {
 	server        *http.Server
 	port          int
 	logger        *log.Logger
+	webDir        string // Path to web UI static files (empty = disabled)
 }
 
 // NewServer creates a new HTTP API server
@@ -30,15 +33,18 @@ func NewServer(manager *agent.Manager, port int) *Server {
 		logger:        log.Default(),
 	}
 
+	// Auto-detect web UI directory
+	s.webDir = findWebDir()
+
 	// Register routes
 	s.registerRoutes()
 
-	// Create HTTP server
+	// Create HTTP server with CORS middleware
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      s.router,
+		Handler:      corsMiddleware(s.router),
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 0, // Disable for SSE streams
 		IdleTimeout:  60 * time.Second,
 	}
 
@@ -50,6 +56,13 @@ func (s *Server) registerRoutes() {
 	// Agent endpoints
 	s.router.HandleFunc("/api/agents", s.handleListAgents)
 	s.router.HandleFunc("/api/agents/", s.handleAgentRoute) // Handles /api/agents/{id}/*
+
+	// Serve web UI static files if available
+	if s.webDir != "" {
+		s.logger.Printf("Serving web UI from %s", s.webDir)
+		fs := http.FileServer(http.Dir(s.webDir))
+		s.router.Handle("/", fs)
+	}
 }
 
 // Start begins serving HTTP requests
@@ -67,4 +80,48 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // GetStreamManager returns the stream manager (for integration with runners)
 func (s *Server) GetStreamManager() *StreamManager {
 	return s.streamManager
+}
+
+// corsMiddleware adds CORS headers to all responses
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// findWebDir looks for the web/ directory relative to the executable or cwd
+func findWebDir() string {
+	// Check relative to current working directory
+	candidates := []string{"web", "../../web"}
+
+	// Also check relative to executable location
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "web"),
+			filepath.Join(exeDir, "..", "web"),
+			filepath.Join(exeDir, "..", "..", "web"),
+		)
+	}
+
+	for _, dir := range candidates {
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(absDir, "index.html")); err == nil && !info.IsDir() {
+			return absDir
+		}
+	}
+
+	return ""
 }
