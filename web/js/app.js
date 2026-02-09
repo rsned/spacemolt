@@ -38,16 +38,25 @@
     btnBack.addEventListener('click', showFleetView);
 
     // Check for hash-based routing
-    if (window.location.hash && window.location.hash.startsWith('#agent/')) {
-      var id = window.location.hash.substring(7);
-      if (id) {
-        selectedAgentID = id;
-        currentView = 'detail';
-      }
+    var hashAgent = getHashAgentID();
+    if (hashAgent) {
+      selectedAgentID = hashAgent;
+      currentView = 'detail';
+      // Toggle DOM visibility to match state
+      fleetView.classList.remove('active');
+      detailView.classList.add('active');
     }
 
     refreshFleet();
     startPolling();
+  }
+
+  function getHashAgentID() {
+    if (window.location.hash && window.location.hash.startsWith('#agent/')) {
+      var id = window.location.hash.substring(7);
+      return id || null;
+    }
+    return null;
   }
 
   // --- Polling ---
@@ -90,12 +99,15 @@
       if (currentView === 'fleet') {
         renderFleetGrid(data);
       } else if (currentView === 'detail' && selectedAgentID) {
-        var entry = agentDataMap[selectedAgentID];
-        if (entry) renderDetailView(entry);
+        // First load from hash - also fetch detail data
+        refreshDetail(selectedAgentID);
       }
     } catch (err) {
       connectionDot.className = 'status-dot disconnected';
-      console.error('Failed to refresh fleet:', err);
+      console.error('[Fleet] Failed to refresh:', err);
+      if (currentView === 'fleet') {
+        agentGrid.innerHTML = '<div class="empty-text">Connection failed - retrying...</div>';
+      }
     }
   }
 
@@ -142,37 +154,38 @@
     // Location
     var location = '--';
     if (state) {
-      location = state.CurrentSystem || state.System.Name || '--';
+      location = state.CurrentSystem || (state.System && state.System.Name) || '--';
       if (state.CurrentPOI) location += ' / ' + state.CurrentPOI;
     }
 
-    // Ship stats
+    // Ship stats - try nested Ship first, fall back to top-level
     var hullPct = 0, fuelPct = 0, cargoPct = 0;
     var hullText = '--', fuelText = '--', cargoText = '--';
     var credits = '--';
 
     if (state) {
       credits = formatCredits(state.Credits);
+      var ship = state.Ship;
 
-      if (state.Ship && state.Ship.max_hull > 0) {
-        hullPct = state.Ship.hull / state.Ship.max_hull;
-        hullText = Math.round(state.Ship.hull) + '/' + Math.round(state.Ship.max_hull);
+      if (ship && ship.max_hull > 0) {
+        hullPct = ship.hull / ship.max_hull;
+        hullText = Math.round(ship.hull) + '/' + Math.round(ship.max_hull);
       } else if (state.MaxHull > 0) {
         hullPct = state.Hull / state.MaxHull;
         hullText = Math.round(state.Hull) + '/' + Math.round(state.MaxHull);
       }
 
-      if (state.Ship && state.Ship.max_fuel > 0) {
-        fuelPct = state.Ship.fuel / state.Ship.max_fuel;
-        fuelText = Math.round(state.Ship.fuel) + '/' + Math.round(state.Ship.max_fuel);
+      if (ship && ship.max_fuel > 0) {
+        fuelPct = ship.fuel / ship.max_fuel;
+        fuelText = Math.round(ship.fuel) + '/' + Math.round(ship.max_fuel);
       } else if (state.MaxFuel > 0) {
         fuelPct = state.Fuel / state.MaxFuel;
         fuelText = Math.round(state.Fuel) + '/' + Math.round(state.MaxFuel);
       }
 
-      if (state.Ship && state.Ship.cargo_capacity > 0) {
-        cargoPct = state.Ship.cargo_used / state.Ship.cargo_capacity;
-        cargoText = Math.round(state.Ship.cargo_used) + '/' + Math.round(state.Ship.cargo_capacity);
+      if (ship && ship.cargo_capacity > 0) {
+        cargoPct = ship.cargo_used / ship.cargo_capacity;
+        cargoText = Math.round(ship.cargo_used) + '/' + Math.round(ship.cargo_capacity);
       }
     }
 
@@ -241,7 +254,11 @@
     fleetView.classList.remove('active');
     detailView.classList.add('active');
 
-    // Render with cached data first
+    // Show loading state immediately
+    detailAgentName.textContent = agentID;
+    shipGraphicContainer.innerHTML = '<div class="loading-text">Loading ship data...</div>';
+
+    // Render with cached data if available
     var cached = agentDataMap[agentID];
     if (cached) renderDetailView(cached);
 
@@ -251,19 +268,33 @@
 
   async function refreshDetail(agentID) {
     try {
-      var agent = await SpaceMoltAPI.getAgent(agentID);
-      var state = null;
-      try { state = await SpaceMoltAPI.getAgentState(agentID); } catch (_) {}
-      var history = [];
-      try { history = await SpaceMoltAPI.getAgentHistory(agentID, 30); } catch (_) {}
+      var results = await Promise.allSettled([
+        SpaceMoltAPI.getAgent(agentID),
+        SpaceMoltAPI.getAgentState(agentID),
+        SpaceMoltAPI.getAgentHistory(agentID, 30),
+      ]);
+
+      var agent = results[0].status === 'fulfilled' ? results[0].value : null;
+      var state = results[1].status === 'fulfilled' ? results[1].value : null;
+      var history = results[2].status === 'fulfilled' ? results[2].value : [];
+
+      if (results[1].status === 'rejected') {
+        console.warn('[Detail] State fetch failed for ' + agentID + ':', results[1].reason.message);
+      }
+
+      if (!agent) {
+        console.error('[Detail] Agent fetch failed for ' + agentID + ':', results[0].reason);
+        return;
+      }
 
       var data = { agent: agent, state: state, history: history };
       agentDataMap[agentID] = data;
+
       if (currentView === 'detail' && selectedAgentID === agentID) {
         renderDetailView(data);
       }
     } catch (err) {
-      console.error('Failed to refresh detail for', agentID, err);
+      console.error('[Detail] Refresh failed for ' + agentID + ':', err);
     }
   }
 
@@ -284,11 +315,21 @@
     detailStatus.textContent = statusText;
     detailStatus.className = statusClass;
 
-    // Ship graphic
-    if (state && state.Ship) {
-      ShipGraphic.render(shipGraphicContainer, state.Ship, state);
+    if (!state) {
+      shipGraphicContainer.innerHTML = '<div class="empty-text">Waiting for game state...</div>';
+      playerStats.innerHTML = '<div class="empty-text">No state data - agent may still be connecting</div>';
+      locationInfo.innerHTML = '';
+      cargoList.innerHTML = '';
+      renderActionLog(history);
+      return;
+    }
+
+    // Ship graphic - only render if ship has real data (max_hull > 0)
+    var ship = state.Ship;
+    if (ship && (ship.max_hull > 0 || ship.id)) {
+      ShipGraphic.render(shipGraphicContainer, ship, state);
     } else {
-      shipGraphicContainer.innerHTML = '<div class="empty-text">No ship data</div>';
+      shipGraphicContainer.innerHTML = '<div class="empty-text">No ship data available</div>';
     }
 
     // Modules
@@ -376,7 +417,7 @@
   function renderLocation(state) {
     var html = '';
 
-    html += statItem('System', state ? (state.CurrentSystem || state.System.Name || '--') : '--', 'highlight');
+    html += statItem('System', state ? (state.CurrentSystem || (state.System && state.System.Name) || '--') : '--', 'highlight');
     html += statItem('POI', state ? (state.CurrentPOI || '--') : '--');
     html += statItem('Docked', state ? (state.Doc ? 'Yes' : 'No') : '--');
 

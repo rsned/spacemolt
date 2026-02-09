@@ -18,9 +18,11 @@ const SpaceMoltAPI = (function () {
   }
 
   async function fetchJSON(path) {
-    const resp = await fetch(baseURL + path);
+    const resp = await fetch(baseURL + path, {
+      cache: 'no-store',  // Never use cached responses for API data
+    });
     if (!resp.ok) {
-      throw new Error(`API error: ${resp.status} ${resp.statusText}`);
+      throw new Error('API ' + resp.status + ': ' + path);
     }
     return resp.json();
   }
@@ -88,11 +90,12 @@ const SpaceMoltAPI = (function () {
           let state = null;
           try {
             state = await getAgentState(a.id);
-          } catch (_) {
-            // state may not be available yet
+          } catch (e) {
+            console.warn('[API] State unavailable for ' + a.id + ':', e.message);
           }
           return { agent: detail, state: state };
         } catch (err) {
+          console.warn('[API] Agent fetch failed for ' + a.id + ':', err.message);
           return { agent: a, state: null, error: err.message };
         }
       })
