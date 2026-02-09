@@ -643,6 +643,39 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 			state.Credits, state.Fuel, state.MaxFuel, state.Hull, state.MaxHull,
 			state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
+		// Get full system data to see POIs
+		if len(state.System.POIs) == 0 {
+			logger.Printf("Fetching system data...")
+			if err := client.GetSystem(ctx); err != nil {
+				logger.Printf("Failed to get system: %v", err)
+			}
+			time.Sleep(2 * time.Second)
+			state = client.GetState()
+		}
+
+		// Find a mining POI and station in the current system
+		var miningPOI string
+		var stationPOI string
+		for _, poi := range state.System.POIs {
+			if (poi.Type == "asteroid_belt" || poi.Type == "asteroid_field") && miningPOI == "" {
+				miningPOI = poi.ID
+			}
+			if poi.Type == "station" && stationPOI == "" {
+				stationPOI = poi.ID
+			}
+		}
+
+		if miningPOI == "" {
+			logger.Printf("⚠️  No mining POI found in current system %s!", state.System.Name)
+			return fmt.Errorf("no mining location in system %s", state.System.Name)
+		}
+		if stationPOI == "" {
+			logger.Printf("⚠️  No station found in current system %s!", state.System.Name)
+			return fmt.Errorf("no station in system %s", state.System.Name)
+		}
+
+		logger.Printf("📍 System: %s | Mining: %s | Station: %s", state.System.Name, miningPOI, stationPOI)
+
 		// Step 1: Undock if docked
 		if state.Doc {
 			logger.Printf("📤 Undocking from station...")
@@ -654,9 +687,9 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 
 		// Step 2: Travel to asteroid belt
 		state = client.GetState()
-		if state.CurrentPOI != "krynn_mines" && !state.Traveling {
-			logger.Printf("🚀 Traveling to War Materials asteroid belt...")
-			if err := client.Travel(ctx, "krynn_mines"); err != nil {
+		if state.CurrentPOI != miningPOI && !state.Traveling {
+			logger.Printf("🚀 Traveling to mining location %s...", miningPOI)
+			if err := client.Travel(ctx, miningPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)
@@ -706,10 +739,29 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 		logger.Printf("✓ Mined %d times this run", mineCount)
 
 		// Step 4: Travel back to station
+		// Get fresh system data to find station
+		if err := client.GetSystem(ctx); err != nil {
+			logger.Printf("Failed to get system: %v", err)
+		}
+		time.Sleep(2 * time.Second)
+
 		state = client.GetState()
-		if state.CurrentPOI != "krynn_citadel" && !state.Traveling {
-			logger.Printf("🚀 Returning to War Citadel...")
-			if err := client.Travel(ctx, "krynn_citadel"); err != nil {
+		stationPOI = ""
+		for _, poi := range state.System.POIs {
+			if poi.Type == "station" {
+				stationPOI = poi.ID
+				break
+			}
+		}
+
+		if stationPOI == "" {
+			logger.Printf("⚠️  No station found in current system!")
+			return fmt.Errorf("no station in system %s", state.System.Name)
+		}
+
+		if state.CurrentPOI != stationPOI && !state.Traveling {
+			logger.Printf("🚀 Returning to station %s...", stationPOI)
+			if err := client.Travel(ctx, stationPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)
