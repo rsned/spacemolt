@@ -155,7 +155,7 @@ func tryInstallAndSellExtras(client *game.Client, logger *log.Logger, ctx contex
 			continue
 		}
 
-		// Special handling for mining lasers - keep up to 4 (for mining_barge ship)
+		// Special handling for mining lasers - keep only what we can use
 		if item.ItemID == "mining_laser_1" || item.ItemID == "mining_laser_2" ||
 			item.ItemID == "mining_laser_3" || item.ItemID == "advanced_mining_laser" {
 			miningLasersInstalled := countModulesInstalled(state, item.ItemID)
@@ -164,9 +164,10 @@ func tryInstallAndSellExtras(client *game.Client, logger *log.Logger, ctx contex
 
 			// Determine max lasers based on ship
 			maxLasers := 2
-			if state.Ship.ClassID == "mining_enhanced" {
+			switch state.Ship.ClassID {
+			case "mining_enhanced":
 				maxLasers = 3
-			} else if state.Ship.ClassID == "mining_barge" {
+			case "mining_barge":
 				maxLasers = 4
 			}
 
@@ -184,7 +185,19 @@ func tryInstallAndSellExtras(client *game.Client, logger *log.Logger, ctx contex
 					}
 				}
 			}
-			// Never sell mining lasers - always keep them for potential use
+
+			// If we have MORE than max, sell the excess to free up cargo space
+			if totalMiningLasers > maxLasers && miningLasersInCargo > 0 {
+				excess := totalMiningLasers - maxLasers
+				logger.Printf("⚠️  Too many mining lasers! Have %d, can only use %d - selling %d excess",
+					totalMiningLasers, maxLasers, excess)
+				if err := client.Sell(ctx, item.ItemID, float64(excess)); err != nil {
+					logger.Printf("Failed to sell excess mining lasers: %v", err)
+				} else {
+					logger.Printf("✅ Sold %d excess mining laser(s) - freed up cargo space!", excess)
+					time.Sleep(1 * time.Second)
+				}
+			}
 			continue
 		}
 
@@ -233,18 +246,28 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 		return // Not enough to buy anything meaningful
 	}
 
-	// Ensure cargo space is available for purchases
+	// First, try to install any equipment already in cargo and sell extras
+	// This is CRITICAL - it sells excess mining lasers to free up cargo space
+	tryInstallAndSellExtras(client, logger, ctx)
+
+	// Refresh state after selling extras
+	time.Sleep(2 * time.Second)
+	state = client.GetState()
+	availableCredits = state.Credits - RESERVE_CREDITS
+
+	// Check if we can upgrade ship (ship upgrades sell cargo first, so allow even with full cargo)
+	canUpgradeShip := (state.Ship.ClassID == "starter_mining" && availableCredits >= TIER2_SHIP_THRESHOLD) ||
+		(state.Ship.ClassID == "mining_enhanced" && availableCredits >= TIER5_THRESHOLD)
+
+	// Ensure cargo space is available for purchases (except ship upgrades)
 	cargoUsed := state.Ship.CargoUsed
 	cargoCapacity := state.Ship.CargoCapacity
-	if cargoUsed >= cargoCapacity*0.5 {
+	if cargoUsed >= cargoCapacity*0.5 && !canUpgradeShip {
 		logger.Printf("⚠️  Cargo too full (%.1f/%.1f) - skipping upgrades until cargo is sold", cargoUsed, cargoCapacity)
 		return
 	}
 
 	logger.Printf("💰 Checking for upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
-
-	// First, try to install any equipment already in cargo and sell extras
-	tryInstallAndSellExtras(client, logger, ctx)
 
 	// Refresh state after installation attempts
 	time.Sleep(2 * time.Second)
@@ -336,8 +359,9 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 	// Tier 5: Ship upgrade to mining_barge + 4 mining lasers (5000+ credits) - ULTIMATE MINING SETUP!
 	if availableCredits >= TIER5_THRESHOLD && !purchased {
-		// Check if we're on mining_enhanced and can upgrade to mining_barge
-		if state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "starter_mining" {
+		// Only upgrade to mining_barge if we have mining_enhanced (proper progression)
+		// Don't upgrade if already have mining_barge or better
+		if state.Ship.ClassID == "mining_enhanced" {
 			logger.Printf("🚀 MEGA UPGRADE TIME! You have %.2f credits - upgrading to Excavator!", availableCredits)
 
 			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
@@ -535,9 +559,10 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 		// Determine max lasers based on ship class
 		maxLasers := 2 // starter_mining has 2 utility slots
-		if state.Ship.ClassID == "mining_enhanced" {
+		switch state.Ship.ClassID {
+		case "mining_enhanced":
 			maxLasers = 3 // Drillship has 3 utility slots
-		} else if state.Ship.ClassID == "mining_barge" {
+		case "mining_barge":
 			maxLasers = 4 // Excavator has 4 utility slots
 		}
 
