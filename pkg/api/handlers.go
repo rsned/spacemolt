@@ -12,10 +12,12 @@ import (
 
 // AgentInfo represents basic agent information
 type AgentInfo struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Role   string `json:"role"`
-	Status string `json:"status"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Role    string `json:"role"`
+	Status  string `json:"status"`
+	Empire  string `json:"empire,omitempty"`
+	Faction string `json:"faction,omitempty"`
 }
 
 // AgentDetails extends AgentInfo with additional runtime information
@@ -43,12 +45,22 @@ func (s *Server) handleListAgents(w http.ResponseWriter, r *http.Request) {
 	for _, runner := range runners {
 		agent := runner.GetAgent()
 		status := agent.Status()
+		personality := agent.Personality()
+		gameClient := runner.GetGameClient()
+		state := gameClient.GetState()
+
+		empire := ""
+		if state != nil {
+			empire = state.Player.Empire
+		}
 
 		agentInfos = append(agentInfos, AgentInfo{
-			ID:     agent.ID(),
-			Name:   agent.Name(),
-			Role:   agent.Personality().Role,
-			Status: status.State.String(),
+			ID:      agent.ID(),
+			Name:    agent.Name(),
+			Role:    personality.Role,
+			Status:  status.State.String(),
+			Empire:  empire,
+			Faction: personality.Faction,
 		})
 	}
 
@@ -110,13 +122,22 @@ func (s *Server) handleGetAgent(w http.ResponseWriter, r *http.Request, runner *
 	agent := runner.GetAgent()
 	status := agent.Status()
 	personality := agent.Personality()
+	gameClient := runner.GetGameClient()
+	state := gameClient.GetState()
+
+	empire := ""
+	if state != nil {
+		empire = state.Player.Empire
+	}
 
 	details := AgentDetails{
 		AgentInfo: AgentInfo{
-			ID:     agent.ID(),
-			Name:   agent.Name(),
-			Role:   personality.Role,
-			Status: status.State.String(),
+			ID:      agent.ID(),
+			Name:    agent.Name(),
+			Role:    personality.Role,
+			Status:  status.State.String(),
+			Empire:  empire,
+			Faction: personality.Faction,
 		},
 		CurrentAction:  status.CurrentAction,
 		LastActionTick: runner.GetLastActionTick(),

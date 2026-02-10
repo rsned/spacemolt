@@ -30,10 +30,12 @@ func NewAgentServerClient(baseURL string) *AgentServerClient {
 
 // AgentInfoRemote represents basic agent information from API
 type AgentInfoRemote struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Role   string `json:"role"`
-	Status string `json:"status"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Role    string `json:"role"`
+	Status  string `json:"status"`
+	Empire  string `json:"empire,omitempty"`
+	Faction string `json:"faction,omitempty"`
 }
 
 // StreamEvent represents an SSE event from the agent-server
