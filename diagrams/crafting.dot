@@ -1,0 +1,34 @@
+digraph "Crafting" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "electronics_crafting" [label="Electronics Crafting"];
+    "crafting_advanced" [label="Advanced Crafting"];
+    "module_crafting" [label="Module Crafting"];
+    "crafting_mastery" [label="Crafting Mastery"];
+    "blueprint_research" [label="Blueprint Research"];
+    "shield_crafting" [label="Shield Crafting"];
+    "weapon_crafting" [label="Weapon Crafting"];
+    "quality_control" [label="Quality Control"];
+    "ship_crafting" [label="Ship Construction"];
+    "crafting_basic" [label="Basic Crafting"];
+    "mass_production" [label="Mass Production"];
+
+    { rank=same; "crafting_basic"; }
+    { rank=same; "electronics_crafting"; "crafting_advanced"; "shield_crafting"; "weapon_crafting"; }
+    { rank=same; "module_crafting"; "crafting_mastery"; "blueprint_research"; "quality_control"; "ship_crafting"; }
+    { rank=same; "mass_production"; }
+
+    "crafting_advanced" -> "blueprint_research" [label="5"];
+    "crafting_basic" -> "weapon_crafting" [label="3"];
+    "crafting_advanced" -> "quality_control" [label="5"];
+    "crafting_advanced" -> "ship_crafting" [label="5"];
+    "crafting_advanced" -> "module_crafting" [label="3"];
+    "crafting_advanced" -> "crafting_mastery" [label="7"];
+    "crafting_advanced" -> "mass_production" [label="5"];
+    "blueprint_research" -> "mass_production" [label="3"];
+    "crafting_basic" -> "electronics_crafting" [label="3"];
+    "crafting_basic" -> "shield_crafting" [label="3"];
+    "crafting_basic" -> "crafting_advanced" [label="5"];
+}

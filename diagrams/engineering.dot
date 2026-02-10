@@ -1,0 +1,25 @@
+digraph "Engineering" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "rigging" [label="Rigging"];
+    "cpu_management" [label="CPU Management"];
+    "repair_systems" [label="Repair Systems"];
+    "damage_control" [label="Damage Control"];
+    "power_grid" [label="Power Grid Management"];
+    "capacitor_systems" [label="Capacitor Systems"];
+    "advanced_engineering" [label="Advanced Engineering"];
+    "engineering" [label="Engineering"];
+
+    { rank=same; "damage_control"; "engineering"; }
+    { rank=same; "cpu_management"; "repair_systems"; "power_grid"; "capacitor_systems"; "advanced_engineering"; }
+    { rank=same; "rigging"; }
+
+    "damage_control" -> "repair_systems" [label="5"];
+    "engineering" -> "power_grid" [label="3"];
+    "engineering" -> "capacitor_systems" [label="3"];
+    "engineering" -> "advanced_engineering" [label="5"];
+    "advanced_engineering" -> "rigging" [label="3"];
+    "engineering" -> "cpu_management" [label="3"];
+}
