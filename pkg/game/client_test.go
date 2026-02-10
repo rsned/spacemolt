@@ -332,11 +332,11 @@ func TestLogin_NoToken(t *testing.T) {
 
 	err := client.Login(ctx)
 	if err == nil {
-		t.Fatal("Expected error when logging in without token")
+		t.Fatal("Expected error when logging in without password")
 	}
 
-	if err.Error() != "no token available" {
-		t.Errorf("Expected 'no token available' error, got: %v", err)
+	if err.Error() != "no password available" {
+		t.Errorf("Expected 'no password available' error, got: %v", err)
 	}
 }
 
