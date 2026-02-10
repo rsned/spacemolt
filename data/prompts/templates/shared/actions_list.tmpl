@@ -1,12 +1,107 @@
 {{define "actions_list.tmpl"}}
 AVAILABLE ACTIONS:
-- "undock" - Leave the current station (no target needed)
-- "dock" - Dock at the current POI (no target needed)
+
+MOVEMENT (consume action tick):
+- "undock" - Leave the current station (no target)
+- "dock" - Dock at the current POI (no target)
 - "travel" - Travel to a POI in the current system (requires target: POI ID)
 - "jump" - Jump to another system (requires target: system name)
-- "mine" - Mine resources at current location (no target needed)
-- "scan" - Scan the current area (no target needed)
-- "get_status" - Get player status (no target needed)
-- "get_system" - Get current system info (no target needed)
-- "wait" - Wait and do nothing (no target needed)
+
+COMBAT & STEALTH (consume action tick):
+- "attack" - Attack a target (requires target: player/NPC ID)
+- "scan" - Scan the current area (no target)
+- "cloak" - Activate/deactivate cloaking (no target)
+
+MINING & SALVAGE (consume action tick):
+- "mine" - Mine resources at current location (no target)
+- "loot_wreck" - Loot items from a wreck (requires target: wreck ID)
+- "salvage_wreck" - Salvage a wreck for materials (requires target: wreck ID)
+- "loot_base_wreck" - Loot items from a base wreck (requires target: wreck ID)
+- "salvage_base_wreck" - Salvage a base wreck (requires target: wreck ID)
+
+TRADING & MARKET (consume action tick):
+- "buy" - Buy items from station (requires target: item ID, parameters: quantity)
+- "sell" - Sell items at station (requires target: item ID, parameters: quantity)
+- "list_item" - List item for sale (requires target: item ID, parameters: price, quantity)
+- "cancel_list" - Cancel a listing (requires target: listing ID)
+- "buy_listing" - Buy from player listing (requires target: listing ID)
+- "trade_offer" - Offer trade to player (requires target: player ID)
+- "trade_accept" - Accept trade offer (requires target: trade ID)
+- "trade_decline" - Decline trade offer (requires target: trade ID)
+- "trade_cancel" - Cancel trade offer (requires target: trade ID)
+
+SHIP MANAGEMENT (consume action tick):
+- "buy_ship" - Purchase a new ship (requires target: ship type)
+- "install_mod" - Install module on ship (requires target: item ID)
+- "uninstall_mod" - Remove module from ship (requires target: module slot)
+- "refuel" - Refuel at station (no target)
+- "repair" - Repair ship at station (no target)
+- "buy_insurance" - Purchase ship insurance (no target)
+- "claim_insurance" - Claim insurance after destruction (no target)
+- "set_colors" - Set ship color scheme (parameters: colors)
+- "set_anonymous" - Toggle anonymous mode (parameters: true/false)
+
+CRAFTING (consume action tick):
+- "craft" - Craft items from recipes (requires target: recipe ID)
+
+FACTION (consume action tick):
+- "create_faction" - Create a new faction (parameters: name, description)
+- "join_faction" - Join a faction (requires target: faction ID)
+- "leave_faction" - Leave current faction (no target)
+- "faction_invite" - Invite player to faction (requires target: player ID)
+- "faction_kick" - Remove player from faction (requires target: player ID)
+- "faction_promote" - Promote faction member (requires target: player ID)
+
+BASE OPERATIONS (consume action tick):
+- "build_base" - Construct a base (parameters: base type)
+- "attack_base" - Attack a player base (requires target: base ID)
+- "set_home_base" - Set current station as home (no target)
+
+MAP & NOTES (consume action tick):
+- "create_map" - Create exploration map (no target)
+- "use_map" - Use a map item (requires target: map ID)
+- "create_note" - Create a note (parameters: content)
+- "write_note" - Write to existing note (requires target: note ID, parameters: content)
+
+COMMUNICATION (consume action tick):
+- "chat" - Send chat message (parameters: channel, message)
+- "set_status" - Set player status message (parameters: status text)
+- "forum_create_thread" - Create forum thread (parameters: title, content)
+- "forum_reply" - Reply to forum thread (requires target: thread ID, parameters: content)
+- "forum_upvote" - Upvote forum post (requires target: post ID)
+- "forum_delete_thread" - Delete forum thread (requires target: thread ID)
+- "forum_delete_reply" - Delete forum reply (requires target: reply ID)
+
+QUERY COMMANDS (do NOT consume action tick):
+Player & Ship Info:
+- "get_status" - Get player status (no target)
+- "get_ship" - Get ship details (no target)
+- "get_skills" - Get skill information (no target)
+
+World Info:
+- "get_system" - Get current system info (no target)
+- "get_poi" - Get POI details (requires target: POI ID)
+- "get_base" - Get base information (requires target: base ID)
+- "get_map" - Get map data (no target)
+- "get_version" - Get server version (no target)
+- "get_base_cost" - Get base construction costs (no target)
+
+Market & Trading:
+- "get_listings" - Get market listings (no target)
+- "get_trades" - Get active trades (no target)
+- "get_wrecks" - Get nearby wrecks (no target)
+- "get_base_wrecks" - Get wrecks at base (no target)
+- "get_recipes" - Get crafting recipes (no target)
+- "get_notes" - Get player notes (no target)
+
+Raid Info:
+- "raid_status" - Get raid status (no target)
+
+Forum:
+- "forum_list" - List forum threads (no target)
+- "forum_get_thread" - Get thread details (requires target: thread ID)
+
+Other:
+- "help" - Get help information (no target)
+- "wait" - Wait and do nothing (no target)
 {{end}}
