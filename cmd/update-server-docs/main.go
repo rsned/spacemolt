@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	docsDir  = "server_docs"
-	skillURL = "https://www.spacemolt.com/skill.md"
-	apiURL   = "https://www.spacemolt.com/api.md"
+	docsDir     = "server_docs"
+	skillURL    = "https://www.spacemolt.com/skill.md"
+	apiURL      = "https://www.spacemolt.com/api.md"
+	openAPIURL  = "https://game.spacemolt.com/api/openapi.json"
 )
 
 type doc struct {
@@ -25,6 +26,7 @@ func main() {
 	docs := []doc{
 		{url: skillURL, baseName: "skill.md"},
 		{url: apiURL, baseName: "api.md"},
+		{url: openAPIURL, baseName: "openapi.json"},
 	}
 
 	// Ensure docs directory exists
@@ -52,8 +54,10 @@ func downloadAndLink(url, baseName, dateStamp string) error {
 		return fmt.Errorf("downloading: %w", err)
 	}
 
-	// Create the dated filename
-	datedName := fmt.Sprintf("%s.%s.md", strings.TrimSuffix(baseName, ".md"), dateStamp)
+	// Create the dated filename (preserve extension: .md or .json)
+	ext := filepath.Ext(baseName)
+	stem := strings.TrimSuffix(baseName, ext)
+	datedName := fmt.Sprintf("%s.%s%s", stem, dateStamp, ext)
 	datedPath := filepath.Join(docsDir, datedName)
 
 	// Check if file already exists and has same content
