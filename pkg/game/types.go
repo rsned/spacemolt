@@ -34,6 +34,14 @@ type Skill struct {
 	XP    float64 `json:"xp"`
 }
 
+// SkillDefinition holds static skill data from get_skills (e.g. xp_per_level).
+type SkillDefinition struct {
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	MaxLevel   int       `json:"max_level"`
+	XpPerLevel []float64 `json:"xp_per_level"` // XP required to reach level i+1 (index 0 = level 0->1)
+}
+
 // PlayerStats tracks player statistics
 type PlayerStats struct {
 	ShipsDestroyed    int     `json:"ships_destroyed"`
@@ -159,6 +167,11 @@ type State struct {
 	Credits float64
 	SkillXP map[string]float64 `json:"skill_xp"` // Current XP toward next level for each skill
 
+	// From get_skills response: XP required for next level per skill; nil if not yet loaded.
+	SkillNextLevelXP map[string]float64
+	// From get_skills response: skill definitions (xp_per_level, max_level, name); nil if not loaded.
+	SkillDefinitions map[string]SkillDefinition
+
 	// Ship data
 	Ship     Ship
 	Fuel     float64
@@ -187,6 +200,30 @@ type ModuleDefinition struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"` // "weapon", "defense", "utility", etc.
 	Description string `json:"description"`
+}
+
+// copyStringFloatMap returns a shallow copy of m; returns nil if m is nil.
+func copyStringFloatMap(m map[string]float64) map[string]float64 {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]float64, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// copySkillDefsMap returns a shallow copy of m; returns nil if m is nil.
+func copySkillDefsMap(m map[string]SkillDefinition) map[string]SkillDefinition {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]SkillDefinition, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 // Clone creates a deep copy of the state for safe concurrent access
@@ -236,9 +273,12 @@ func (s *State) Clone() *State {
 			Connections: connectionsCopy,
 			ShipPOI:     s.System.ShipPOI,
 		},
-		LastMapUpdate: s.LastMapUpdate,
-		Nearby:        nearbyCopy,
-		InCombat:      s.InCombat,
+		LastMapUpdate:    s.LastMapUpdate,
+		Nearby:           nearbyCopy,
+		InCombat:         s.InCombat,
+		SkillXP:          copyStringFloatMap(s.SkillXP),
+		SkillNextLevelXP: copyStringFloatMap(s.SkillNextLevelXP),
+		SkillDefinitions: copySkillDefsMap(s.SkillDefinitions),
 	}
 
 	// Clone travel progress if present
