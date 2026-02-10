@@ -18,6 +18,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/registry"
 	"github.com/rsned/spacemolt/pkg/tui"
 )
 
@@ -27,6 +28,7 @@ var (
 	logFile         = flag.String("log-file", "", "Write debug logs to file instead of stderr")
 	agents          = flag.String("agents", "", "Comma-separated list of agent IDs to spawn (e.g., 'explorer-7,miner-2') - local mode only")
 	agentServerURL  = flag.String("agent-server-url", "", "Agent-server HTTP API URL (e.g., http://localhost:8080) - remote mode")
+	registryURL     = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081) - auto-discovery mode")
 	dbBackend       = flag.String("db-backend", "sqlite", "Database backend: 'sqlite' or 'memory'")
 	dbPath          = flag.String("db-path", "spacemolt-knowledge.db", "Path to SQLite database file (only used with sqlite backend)")
 	credsProvider   = flag.String("credentials-provider", "auto", "Credentials provider: 'auto', 'file', 'sqlite', 'env', 'legacy', 'static'")
@@ -126,15 +128,28 @@ func main() {
 	ctx := context.Background()
 
 	// Determine operating mode
+	registryMode := *registryURL != ""
 	remoteMode := *agentServerURL != ""
 	localMode := *agents != ""
 
-	if !remoteMode && !localMode {
-		log.Fatal("Must provide either --agent-server-url (remote mode) or --agents (local mode)")
+	// Count how many modes are specified
+	modeCount := 0
+	if registryMode {
+		modeCount++
+	}
+	if remoteMode {
+		modeCount++
+	}
+	if localMode {
+		modeCount++
 	}
 
-	if remoteMode && localMode {
-		log.Fatal("Cannot use both --agent-server-url and --agents. Choose remote or local mode.")
+	if modeCount == 0 {
+		log.Fatal("Must provide one of: --registry-url (auto-discovery), --agent-server-url (remote mode), or --agents (local mode)")
+	}
+
+	if modeCount > 1 {
+		log.Fatal("Cannot use multiple mode flags together. Choose one mode.")
 	}
 
 	// Check for existing credentials (local mode only)
@@ -257,7 +272,39 @@ func main() {
 	var model *tui.WatcherModel
 	var serverClient *tui.AgentServerClient
 
-	if remoteMode {
+	if registryMode {
+		// Registry mode: auto-discover all tools
+		debugLogger.Printf("Registry mode: connecting to %s", *registryURL)
+		regClient := registry.NewWatcherClient(*registryURL)
+
+		// Test connection
+		if err := regClient.Ping(); err != nil {
+			log.Printf("Warning: Could not connect to registry: %v", err)
+			log.Printf("Will retry in background...")
+		}
+
+		// Fetch all tools from registry
+		tools, err := regClient.ListTools()
+		if err != nil {
+			log.Printf("Warning: Failed to fetch tools from registry: %v", err)
+			log.Printf("Starting with empty tool list...")
+			tools = []*registry.ToolRegistration{}
+		}
+
+		debugLogger.Printf("Found %d tool(s) from registry", len(tools))
+
+		// Create model
+		model = tui.NewWatcherModel(nil, tuiReadyChan)
+
+		// Add all discovered tools
+		for _, tool := range tools {
+			addToolFromRegistration(tool, model)
+		}
+
+		// Store regClient for later use
+		serverClient = nil // Will be set below
+
+	} else if remoteMode {
 		// Remote mode: connect to agent-server
 		debugLogger.Printf("Remote mode: connecting to %s", *agentServerURL)
 		serverClient = tui.NewAgentServerClient(*agentServerURL)
@@ -287,11 +334,13 @@ func main() {
 		// Add remote agents to TUI
 		for _, info := range agentInfos {
 			model.AddAgent(tui.AgentInfo{
-				ID:     info.ID,
-				Name:   info.Name,
-				Role:   info.Role,
-				Status: info.Status,
-				Action: "",
+				ID:      info.ID,
+				Name:    info.Name,
+				Role:    info.Role,
+				Status:  info.Status,
+				Action:  "",
+				Empire:  info.Empire,
+				Faction: info.Faction,
 			})
 		}
 
@@ -313,14 +362,26 @@ func main() {
 		model = tempModel
 
 		// Add local agents to TUI
-		for _, agt := range agentMgr.ListAgents() {
+		for _, runner := range agentMgr.ListRunners() {
+			agt := runner.GetAgent()
 			status := agt.Status()
+			personality := agt.Personality()
+			gameClient := runner.GetGameClient()
+			gameState := gameClient.GetState()
+
+			empire := ""
+			if gameState != nil {
+				empire = gameState.Player.Empire
+			}
+
 			model.AddAgent(tui.AgentInfo{
-				ID:     agt.ID(),
-				Name:   agt.Name(),
-				Role:   agt.Personality().Role,
-				Status: status.State.String(),
-				Action: status.CurrentAction,
+				ID:      agt.ID(),
+				Name:    agt.Name(),
+				Role:    personality.Role,
+				Status:  status.State.String(),
+				Action:  status.CurrentAction,
+				Empire:  empire,
+				Faction: personality.Faction,
 			})
 		}
 	}
@@ -344,11 +405,25 @@ func main() {
 		if state != nil {
 			go startWatcherClient(ctx, state, p)
 		}
-	} else {
+	} else if remoteMode {
 		// Remote mode: subscribe to SSE streams
 		go func() {
 			<-tuiReadyChan
 			startRemoteStreaming(ctx, serverClient, model, p)
+		}()
+	} else if registryMode {
+		// Registry mode: subscribe to status stream for real-time updates
+		go func() {
+			<-tuiReadyChan
+			regClient := registry.NewWatcherClient(*registryURL)
+			eventCh, err := regClient.StreamStatus()
+			if err != nil {
+				log.Printf("Warning: Could not subscribe to status stream: %v", err)
+				return
+			}
+
+			debugLogger.Printf("Subscribed to registry status stream")
+			handleRegistryEvents(eventCh, model, p)
 		}()
 	}
 
@@ -969,19 +1044,20 @@ func startRemoteStreaming(ctx context.Context, client *tui.AgentServerClient, mo
 				})
 
 				// Update agent status if it's a status-changing event
-				if event.Type == "decision" {
+				switch event.Type {
+				case "decision":
 					p.Send(tui.AgentStatusMsg{
 						AgentID: id,
 						Status:  "Deciding",
 					})
-				} else if event.Type == "action" {
+				case "action":
 					if status, ok := event.Data["status"].(string); ok && status == "success" {
 						p.Send(tui.AgentStatusMsg{
 							AgentID: id,
 							Status:  "Idle",
 						})
 					}
-				} else if event.Type == "error" {
+				case "error":
 					p.Send(tui.AgentStatusMsg{
 						AgentID: id,
 						Status:  "Error",
@@ -1022,5 +1098,155 @@ func startRemoteStreaming(ctx context.Context, client *tui.AgentServerClient, mo
 				}
 			}
 		}(agentID)
+	}
+}
+
+// addToolFromRegistration adds a tool from registry to the TUI
+func addToolFromRegistration(tool *registry.ToolRegistration, model *tui.WatcherModel) {
+	// Handle agent-server specially - it hosts multiple agents
+	if tool.ToolType == registry.ToolTypeAgentServer {
+		// Try to connect to agent-server and list its agents
+		if apiURL, ok := tool.Capabilities["http_api"].(string); ok && apiURL != "" {
+			debugLogger.Printf("Connecting to agent-server at %s", apiURL)
+			serverClient := tui.NewAgentServerClient(apiURL)
+			if agentInfos, err := serverClient.ListAgents(); err == nil {
+				for _, info := range agentInfos {
+					model.AddAgent(tui.AgentInfo{
+						ID:      info.ID,
+						Name:    info.Name,
+						Role:    info.Role,
+						Status:  info.Status,
+						Action:  tool.CurrentAction,
+						Empire:  info.Empire,
+						Faction: info.Faction,
+					})
+				}
+				debugLogger.Printf("Added %d agents from agent-server", len(agentInfos))
+			}
+		}
+		return
+	}
+
+	// Handle standalone tools (auto-explorer, auto-miner, etc.)
+	agentID := tool.AgentID
+	if agentID == "" {
+		agentID = tool.ToolID
+	}
+
+	agentName := tool.AgentName
+	if agentName == "" {
+		agentName = tool.ToolID
+	}
+
+	agentRole := tool.AgentRole
+	if agentRole == "" {
+		agentRole = string(tool.ToolType)
+	}
+
+	// Try to get Empire and Faction from metadata
+	empire := ""
+	faction := ""
+	if tool.Metadata != nil {
+		if e, ok := tool.Metadata["empire"].(string); ok {
+			empire = e
+		}
+		if f, ok := tool.Metadata["faction"].(string); ok {
+			faction = f
+		}
+	}
+
+	model.AddAgent(tui.AgentInfo{
+		ID:      agentID,
+		Name:    agentName,
+		Role:    agentRole,
+		Status:  tool.Status,
+		Action:  tool.CurrentAction,
+		Empire:  empire,
+		Faction: faction,
+	})
+
+	debugLogger.Printf("Added tool: %s (%s)", agentName, tool.ToolType)
+}
+
+// handleRegistryEvents processes SSE events from the registry
+func handleRegistryEvents(eventCh <-chan registry.Event, model *tui.WatcherModel, p *tea.Program) {
+	for event := range eventCh {
+		switch event.Type {
+		case "tool_registered":
+			// A new tool has registered
+			if toolData, ok := event.Data.(map[string]any); ok {
+				tool := &registry.ToolRegistration{}
+				if toolID, ok := toolData["tool_id"].(string); ok {
+					tool.ToolID = toolID
+				}
+				if toolType, ok := toolData["tool_type"].(string); ok {
+					tool.ToolType = registry.ToolType(toolType)
+				}
+				if pid, ok := toolData["pid"].(float64); ok {
+					tool.PID = int(pid)
+				}
+				if agentID, ok := toolData["agent_id"].(string); ok {
+					tool.AgentID = agentID
+				}
+				if agentName, ok := toolData["agent_name"].(string); ok {
+					tool.AgentName = agentName
+				}
+				if agentRole, ok := toolData["agent_role"].(string); ok {
+					tool.AgentRole = agentRole
+				}
+				if status, ok := toolData["status"].(string); ok {
+					tool.Status = status
+				}
+				if currentAction, ok := toolData["current_action"].(string); ok {
+					tool.CurrentAction = currentAction
+				}
+				if capabilities, ok := toolData["capabilities"].(map[string]any); ok {
+					tool.Capabilities = capabilities
+				}
+				if metadata, ok := toolData["metadata"].(map[string]any); ok {
+					tool.Metadata = metadata
+				}
+
+				addToolFromRegistration(tool, model)
+
+				// Send notification to TUI
+				p.Send(tui.WsMsg{
+					Type: "info",
+					Payload: map[string]any{
+						"message": fmt.Sprintf("Tool registered: %s", tool.AgentName),
+					},
+				})
+			}
+
+		case "tool_deregistered":
+			// A tool has shut down
+			// Note: For agent-server, we'd need to track which agents belonged to it
+			debugLogger.Printf("Tool deregistered: %v", event.Data)
+
+		case "tool_status_changed":
+			// A tool's status has changed
+			if toolData, ok := event.Data.(map[string]any); ok {
+				toolID, _ := toolData["tool_id"].(string)
+				status, _ := toolData["status"].(string)
+
+				p.Send(tui.AgentStatusMsg{
+					AgentID: toolID,
+					Status:  status,
+				})
+			}
+
+		case "tool_heartbeat":
+			// Heartbeat received - tool is alive
+			if toolData, ok := event.Data.(map[string]any); ok {
+				toolID, _ := toolData["tool_id"].(string)
+				health, _ := toolData["health"].(string)
+				if health != "healthy" {
+					p.Send(tui.AgentStatusMsg{
+						AgentID: toolID,
+						Status:  "Unhealthy",
+					})
+				}
+			}
+		}
 	}
 }
