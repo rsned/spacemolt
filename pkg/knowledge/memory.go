@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // MemoryKB is an in-memory knowledge base for MVP
@@ -17,6 +19,7 @@ type MemoryKB struct {
 	agents          map[string]*AgentInfo
 	marketSnapshots []MarketSnapshot
 	marketItems     map[string]struct{} // set of unique item IDs
+	shipListings    []ShipListings
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -29,6 +32,7 @@ func NewMemoryKB() *MemoryKB {
 		agents:          make(map[string]*AgentInfo),
 		marketSnapshots: make([]MarketSnapshot, 0),
 		marketItems:     make(map[string]struct{}),
+		shipListings:    make([]ShipListings, 0),
 	}
 }
 
@@ -44,10 +48,13 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 
 	if existing, ok := kb.systems[sys.ID]; ok {
 		existing.Name = sys.Name
+		existing.Position = sys.Position
 		existing.SecurityLevel = sys.SecurityLevel
 		existing.Faction = sys.Faction
 		existing.VisitCount++
 		existing.LastVisited = time.Now().Format(time.RFC3339)
+		// Update connections
+		existing.Connections = sys.Connections
 	} else {
 		kb.systems[sys.ID] = &System{
 			ID:            sys.ID,
@@ -121,6 +128,7 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 		Name:         poi.Name,
 		Type:         poi.Type,
 		Position:     poi.Position,
+		Description:  poi.Description,
 		Services:     poi.Services,
 		Resources:    poi.Resources,
 		DiscoveredBy: poi.DiscoveredBy,
@@ -210,10 +218,11 @@ func (kb *MemoryKB) GetSystems() []System {
 }
 
 // System represents knowledge about a solar system
+// Wraps game.SystemData with exploration metadata
 type System struct {
 	ID            string
 	Name          string
-	Position      Position
+	Position      game.Position
 	SecurityLevel string
 	Faction       string
 	Connections   []string
@@ -223,31 +232,18 @@ type System struct {
 	DiscoveredBy  string
 }
 
-// ResourceInfo represents resource data at a POI
-type ResourceInfo struct {
-	ResourceID string
-	Richness   float64
-	Remaining  float64
-}
-
 // POI represents knowledge about a Point of Interest
+// Extends game.POI with exploration metadata
 type POI struct {
 	ID           string
 	SystemID     string
 	Name         string
 	Type         string
 	Description  string
-	Position     Position
+	Position     game.Position
 	Services     []string
-	Resources    []ResourceInfo
+	Resources    []game.POIResource
 	DiscoveredBy string
-}
-
-// Position represents 3D coordinates
-type Position struct {
-	X float64
-	Y float64
-	Z float64
 }
 
 // Experience represents a significant event
@@ -439,4 +435,82 @@ func (kb *MemoryKB) ImportKnowledge(ctx context.Context, exportData string) erro
 
 func (kb *MemoryKB) ListExports(ctx context.Context) ([]KnowledgeExportMeta, error) {
 	return nil, fmt.Errorf("ListExports not implemented for in-memory KB")
+}
+
+// HasMarketSnapshotToday checks if a market snapshot was captured today for a station
+func (kb *MemoryKB) HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	today := time.Now().Format("2006-01-02")
+	for _, snap := range kb.marketSnapshots {
+		if snap.SystemID == systemID && snap.StationID == stationID && snap.CapturedAt.Format("2006-01-02") == today {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// StoreShipListings stores ship listings at a station
+func (kb *MemoryKB) StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	if listings.CapturedAt.IsZero() {
+		listings.CapturedAt = time.Now()
+	}
+
+	kb.shipListings = append(kb.shipListings, listings)
+	return nil
+}
+
+// GetShipListings retrieves historical ship listings
+func (kb *MemoryKB) GetShipListings(ctx context.Context, systemID, stationID string, limit int) ([]ShipListings, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var result []ShipListings
+	count := 0
+
+	for i := len(kb.shipListings) - 1; i >= 0; i-- {
+		listings := kb.shipListings[i]
+		if listings.SystemID == systemID && listings.StationID == stationID {
+			result = append(result, listings)
+			count++
+			if count >= limit {
+				break
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// GetLatestShipListings retrieves the most recent ship listings
+func (kb *MemoryKB) GetLatestShipListings(ctx context.Context, systemID, stationID string) (*ShipListings, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	for i := len(kb.shipListings) - 1; i >= 0; i-- {
+		listings := kb.shipListings[i]
+		if listings.SystemID == systemID && listings.StationID == stationID {
+			return &listings, nil
+		}
+	}
+
+	return nil, nil // Not found
+}
+
+// HasShipListingsToday checks if ship listings were captured today for a station
+func (kb *MemoryKB) HasShipListingsToday(ctx context.Context, systemID, stationID string) (bool, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	today := time.Now().Format("2006-01-02")
+	for _, listings := range kb.shipListings {
+		if listings.SystemID == systemID && listings.StationID == stationID && listings.CapturedAt.Format("2006-01-02") == today {
+			return true, nil
+		}
+	}
+	return false, nil
 }
