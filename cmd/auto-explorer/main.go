@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -12,9 +13,18 @@ import (
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/registry"
 )
 
 const gameServerURL = "wss://game.spacemolt.com/ws"
+
+// CLI flags
+var (
+	registryURL = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
+	dbBackend   = flag.String("db-backend", "sqlite", "Knowledge base backend: sqlite or memory")
+	dbPath      = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
+)
 
 // Phase 1 constants - Mining & upgrades
 const (
@@ -35,6 +45,7 @@ type ExplorationState struct {
 	PreviousSystem  string          // Previous system for escape routes
 	UnderAttack     bool            // Combat state flag
 	LastAttackTime  time.Time       // Time of last attack
+	AgentID         string          // Agent ID for knowledge base attribution
 }
 
 type Credentials struct {
@@ -46,6 +57,7 @@ type Credentials struct {
 type SimpleHandler struct {
 	client *game.Client
 	logger *log.Logger
+	kb     knowledge.Base
 }
 
 func (h *SimpleHandler) OnConnected(state *game.State) {
@@ -543,12 +555,50 @@ func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) e
 // PHASE 2: GALAXY EXPLORATION
 // ============================================================================
 
-func collectSystemData(client *game.Client, ctx context.Context, logger *log.Logger) error {
+func collectSystemData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, agentID string) error {
 	// Request system data
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("failed to get system: %w", err)
 	}
 	time.Sleep(2 * time.Second)
+
+	// Get current state
+	state := client.GetState()
+
+	// Check if we already have this system in the knowledge base
+	existingSystem, err := kb.GetSystem(ctx, state.System.ID)
+	if err != nil {
+		logger.Printf("⚠️  Error checking knowledge base for system: %v", err)
+	}
+
+	// Convert game state to knowledge.System
+	kbSystem := convertGameSystemToKnowledge(state.System, agentID)
+
+	// Compare with existing data (if any)
+	if existingSystem != nil {
+		diff := compareSystems(existingSystem, &kbSystem)
+		if len(diff) == 0 {
+			logger.Printf("✓ System %s (%s) unchanged in knowledge base", state.System.Name, state.System.ID)
+			// Still save to file for compatibility with existing workflows
+			return saveSystemToFile(client, logger, state)
+		}
+		logger.Printf("🆕 System changes detected: %s", strings.Join(diff, ", "))
+	}
+
+	// Remember the system in knowledge base
+	if err := kb.RememberSystem(ctx, kbSystem); err != nil {
+		logger.Printf("⚠️  Failed to save system to knowledge base: %v", err)
+	} else {
+		logger.Printf("💾 Saved system to knowledge base: %s", state.System.Name)
+	}
+
+	// Save to file for compatibility with existing workflows
+	return saveSystemToFile(client, logger, state)
+}
+
+// saveSystemToFile saves system data to file (legacy compatibility)
+func saveSystemToFile(client *game.Client, logger *log.Logger, state *game.State) error {
+	ctx := context.Background()
 
 	// Scan the system
 	if err := client.Scan(ctx); err != nil {
@@ -556,38 +606,64 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 	}
 	time.Sleep(3 * time.Second)
 
-	// Get current state with system data
-	state := client.GetState()
+	// Try to get raw JSON from server response
+	rawJSON := client.GetRawJSON("system")
+	var data []byte
+	var err error
 
-	// Build the system data structure matching sol.json format
-	systemData := map[string]any{
-		"pois": state.System.POIs,
-		"system": map[string]any{
-			"id":           state.System.ID,
-			"name":         state.System.Name,
-			"description":  state.System.Description,
-			"empire":       state.System.Empire,
-			"police_level": state.System.PoliceLevel,
-			"connections":  state.System.Connections,
-			"pois": func() []string {
-				poiIDs := make([]string, len(state.System.POIs))
-				for i, poi := range state.System.POIs {
-					poiIDs[i] = poi.ID
-				}
-				return poiIDs
-			}(),
-			"position": state.System.Position,
-		},
-	}
+	if rawJSON != nil {
+		// Use raw JSON from server - add metadata wrapper
+		wrapper := map[string]any{
+			"captured_at": time.Now().Format(time.RFC3339),
+			"game_tick":   state.CurrentTick,
+		}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(systemData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal system data: %w", err)
+		// Unmarshal server response
+		var serverData map[string]any
+		if err := json.Unmarshal(rawJSON, &serverData); err == nil {
+			for k, v := range serverData {
+				wrapper[k] = v
+			}
+		}
+
+		data, err = json.MarshalIndent(wrapper, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal system data: %w", err)
+		}
+	} else {
+		// Fall back to state-based approach if raw JSON not available
+		logger.Printf("⚠️  No raw system JSON available, using state data")
+		systemData := map[string]any{
+			"pois": state.System.POIs,
+			"system": map[string]any{
+				"id":           state.System.ID,
+				"name":         state.System.Name,
+				"description":  state.System.Description,
+				"empire":       state.System.Empire,
+				"police_level": state.System.PoliceLevel,
+				"connections":  state.System.Connections,
+				"pois": func() []string {
+					poiIDs := make([]string, len(state.System.POIs))
+					for i, poi := range state.System.POIs {
+						poiIDs[i] = poi.ID
+					}
+					return poiIDs
+				}(),
+				"position": state.System.Position,
+			},
+		}
+
+		data, err = json.MarshalIndent(systemData, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal system data: %w", err)
+		}
 	}
 
 	// Save to file
-	filename := sanitizeFilename(state.System.Name) + ".json"
+	timestamp := time.Now().Format("20060102") // YYYYMMDD
+	filename := fmt.Sprintf("%s.%s.json",
+		sanitizeFilename(state.System.Name),
+		timestamp)
 	filePath := filepath.Join("data", "server", "systems", filename)
 
 	// Ensure directory exists
@@ -599,8 +675,65 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		return fmt.Errorf("failed to write system data: %w", err)
 	}
 
-	logger.Printf("💾 Saved system data: %s", filePath)
+	logger.Printf("💾 Saved system data to file: %s", filePath)
 	return nil
+}
+
+// convertGameSystemToKnowledge converts a game system to knowledge.System
+func convertGameSystemToKnowledge(sys game.SystemData, discoveredBy string) knowledge.System {
+	kbSystem := knowledge.System{
+		ID:           sys.ID,
+		Name:         sys.Name,
+		PoliceLevel:  sys.PoliceLevel,
+		Faction:      sys.Empire,
+		Connections:  sys.Connections,
+		DiscoveredBy: discoveredBy,
+		Position: game.Position{
+			X: sys.Position.X,
+			Y: sys.Position.Y,
+			Z: 0, // Game Position only has X, Y - set Z to 0
+		},
+	}
+
+	return kbSystem
+}
+
+// compareSystems compares two systems and returns a list of differences (excluding resource counts)
+func compareSystems(existing, new *knowledge.System) []string {
+	var diffs []string
+
+	if existing.Name != new.Name {
+		diffs = append(diffs, fmt.Sprintf("name: %s -> %s", existing.Name, new.Name))
+	}
+	if existing.Faction != new.Faction {
+		diffs = append(diffs, fmt.Sprintf("faction: %s -> %s", existing.Faction, new.Faction))
+	}
+	if existing.PoliceLevel != new.PoliceLevel {
+		diffs = append(diffs, fmt.Sprintf("police: %d -> %d", existing.PoliceLevel, new.PoliceLevel))
+	}
+
+	// Compare connections
+	existingConnMap := make(map[string]bool)
+	for _, c := range existing.Connections {
+		existingConnMap[c] = true
+	}
+	newConnMap := make(map[string]bool)
+	for _, c := range new.Connections {
+		newConnMap[c] = true
+	}
+
+	for _, c := range new.Connections {
+		if !existingConnMap[c] {
+			diffs = append(diffs, fmt.Sprintf("new connection: %s", c))
+		}
+	}
+	for _, c := range existing.Connections {
+		if !newConnMap[c] {
+			diffs = append(diffs, fmt.Sprintf("removed connection: %s", c))
+		}
+	}
+
+	return diffs
 }
 
 func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Logger, systemName, systemID, baseID, baseName string) error {
@@ -610,29 +743,61 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 	}
 	time.Sleep(2 * time.Second)
 
-	listings := client.GetMarketListings()
+	// Try to get raw JSON from server response
+	rawJSON := client.GetRawJSON("listings")
+	var data []byte
+	var err error
 
-	// Create wrapper with metadata
-	timestamp := time.Now().Format("200601021504") // YYYYMMDDHHMM
-	wrapper := map[string]any{
-		"system":              systemID,
-		"system_name":         systemName,
-		"base":                baseID,
-		"base_name":           baseName,
-		"timestamp":           time.Now().Format(time.RFC3339),
-		"buy_price_modifier":  0,
-		"sell_price_modifier": 0,
-		"listings":            listings,
-	}
+	timestamp := time.Now().Format("20060102") // YYYYMMDD
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(wrapper, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal listings: %w", err)
+	if rawJSON != nil {
+		// Use raw JSON from server - add metadata wrapper
+		wrapper := map[string]any{
+			"system":              systemID,
+			"system_name":         systemName,
+			"base":                baseID,
+			"base_name":           baseName,
+			"timestamp":           time.Now().Format(time.RFC3339),
+			"buy_price_modifier":  0,
+			"sell_price_modifier": 0,
+		}
+
+		// Unmarshal server response
+		var serverData map[string]any
+		if err := json.Unmarshal(rawJSON, &serverData); err == nil {
+			for k, v := range serverData {
+				wrapper[k] = v
+			}
+		}
+
+		data, err = json.MarshalIndent(wrapper, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal listings: %w", err)
+		}
+	} else {
+		// Fall back to parsed data if raw JSON not available
+		logger.Printf("⚠️  No raw listings JSON available, using parsed data")
+		listings := client.GetMarketListings()
+
+		wrapper := map[string]any{
+			"system":              systemID,
+			"system_name":         systemName,
+			"base":                baseID,
+			"base_name":           baseName,
+			"timestamp":           time.Now().Format(time.RFC3339),
+			"buy_price_modifier":  0,
+			"sell_price_modifier": 0,
+			"listings":            listings,
+		}
+
+		data, err = json.MarshalIndent(wrapper, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal listings: %w", err)
+		}
 	}
 
 	// Save to file
-	filename := fmt.Sprintf("%s_%s_%s.json",
+	filename := fmt.Sprintf("%s.%s.%s.json",
 		sanitizeFilename(systemName),
 		sanitizeFilename(baseName),
 		timestamp)
@@ -652,7 +817,8 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 }
 
 // saveStationMarketData saves market listings and ship data from a station
-func saveStationMarketData(client *game.Client, ctx context.Context, logger *log.Logger, systemName, poiName, poiID string) error {
+// Saves raw JSON from server responses to avoid missing new fields
+func saveStationMarketData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
 	state := client.GetState()
 
 	// Create listings directory
@@ -661,85 +827,236 @@ func saveStationMarketData(client *game.Client, ctx context.Context, logger *log
 		return fmt.Errorf("failed to create listings directory: %w", err)
 	}
 
-	// Get market listings
-	logger.Printf("📊 Getting market listings from %s...", poiName)
-	if err := client.GetListings(ctx); err != nil {
-		logger.Printf("Failed to get listings: %v", err)
-	} else {
-		time.Sleep(2 * time.Second)
-		listings := client.GetMarketListings()
+	// Generate daily timestamp: YYYYMMDD
+	timestamp := time.Now().Format("20060102") // YYYYMMDD
 
-		// Create market data wrapper
-		marketData := map[string]any{
-			"system_id":   state.System.ID,
-			"system_name": systemName,
-			"poi_id":      poiID,
-			"poi_name":    poiName,
-			"timestamp":   time.Now().Format(time.RFC3339),
-			"game_tick":   state.CurrentTick,
-			"listings":    listings,
-		}
-
-		// Save market listings
-		marketFilename := fmt.Sprintf("%s.%s.market.listing.json", sanitizeFilename(systemName), sanitizeFilename(poiName))
-		marketPath := filepath.Join(listingsDir, marketFilename)
-
-		data, err := json.MarshalIndent(marketData, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal market data: %w", err)
-		}
-
-		if err := os.WriteFile(marketPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write market data: %w", err)
-		}
-		logger.Printf("💾 Saved market data: %s (%d listings)", marketPath, len(listings))
+	// Check if market listings were already captured today
+	hasMarketToday, err := kb.HasMarketSnapshotToday(ctx, state.System.ID, poiID)
+	if err != nil {
+		logger.Printf("⚠️  Error checking for today's market snapshot: %v", err)
 	}
 
-	// Get ship listings
-	logger.Printf("🚢 Getting ship listings from %s...", poiName)
-	if err := client.GetShips(ctx); err != nil {
-		logger.Printf("Failed to get ship listings: %v", err)
+	// Get market listings (only if not captured today)
+	if !hasMarketToday {
+		logger.Printf("📊 Getting market listings from %s...", poiName)
+		if err := client.GetListings(ctx); err != nil {
+			logger.Printf("Failed to get listings: %v", err)
+		} else {
+			time.Sleep(2 * time.Second)
+
+			// Get raw JSON from server response
+			rawJSON := client.GetRawJSON("listings")
+			if rawJSON != nil {
+				// Create wrapper with metadata
+				wrapper := map[string]any{
+					"system_id":   state.System.ID,
+					"system_name": systemName,
+					"poi_id":      poiID,
+					"poi_name":    poiName,
+					"timestamp":   time.Now().Format(time.RFC3339),
+					"game_tick":   state.CurrentTick,
+				}
+
+				// Unmarshal server response to merge with wrapper
+				var serverData map[string]any
+				if err := json.Unmarshal(rawJSON, &serverData); err == nil {
+					for k, v := range serverData {
+						wrapper[k] = v
+					}
+				}
+
+				// Save market listings with period separators: {SYSTEM}.{POI}.{TIMESTAMP}.market.listing.json
+				marketFilename := fmt.Sprintf("%s.%s.%s.market.listing.json", sanitizeFilename(systemName), sanitizeFilename(poiName), timestamp)
+				marketPath := filepath.Join(listingsDir, marketFilename)
+
+				data, err := json.MarshalIndent(wrapper, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal market data: %w", err)
+				}
+
+				if err := os.WriteFile(marketPath, data, 0644); err != nil {
+					return fmt.Errorf("failed to write market data: %w", err)
+				}
+				logger.Printf("💾 Saved market data to file: %s", marketPath)
+
+				// Also save to knowledge base
+				listings := client.GetMarketListings()
+				marketSnapshot := convertMarketListingsToKnowledge(state.System.ID, systemName, poiID, poiName, state.CurrentTick, listings)
+				if err := kb.StoreMarketSnapshot(ctx, marketSnapshot, agentID); err != nil {
+					logger.Printf("⚠️  Failed to save market snapshot to knowledge base: %v", err)
+				} else {
+					logger.Printf("💾 Saved market snapshot to knowledge base")
+				}
+			} else {
+				logger.Printf("⚠️  No raw market data available from server")
+			}
+		}
 	} else {
-		time.Sleep(2 * time.Second)
+		logger.Printf("✓ Market listings already captured today for %s", poiName)
+	}
 
-		// Get ship listings data
-		shipsData := client.GetShipListings()
+	// Check if ship listings were already captured today
+	hasShipsToday, err := kb.HasShipListingsToday(ctx, state.System.ID, poiID)
+	if err != nil {
+		logger.Printf("⚠️  Error checking for today's ship listings: %v", err)
+	}
 
-		// Create ship data wrapper with metadata
-		shipData := map[string]any{
-			"system_id":   state.System.ID,
-			"system_name": systemName,
-			"poi_id":      poiID,
-			"poi_name":    poiName,
-			"timestamp":   time.Now().Format(time.RFC3339),
-			"game_tick":   state.CurrentTick,
+	// Get ship listings (only if not captured today)
+	if !hasShipsToday {
+		logger.Printf("🚢 Getting ship listings from %s...", poiName)
+		if err := client.GetShips(ctx); err != nil {
+			logger.Printf("Failed to get ship listings: %v", err)
+		} else {
+			time.Sleep(2 * time.Second)
+
+			// Get raw JSON from server response
+			rawJSON := client.GetRawJSON("ships")
+			if rawJSON != nil {
+				// Create wrapper with metadata
+				wrapper := map[string]any{
+					"system_id":   state.System.ID,
+					"system_name": systemName,
+					"poi_id":      poiID,
+					"poi_name":    poiName,
+					"timestamp":   time.Now().Format(time.RFC3339),
+					"game_tick":   state.CurrentTick,
+				}
+
+				// Unmarshal server response to merge with wrapper
+				var serverData map[string]any
+				if err := json.Unmarshal(rawJSON, &serverData); err == nil {
+					for k, v := range serverData {
+						wrapper[k] = v
+					}
+				}
+
+				// Save ship listings with period separators: {SYSTEM}.{POI}.{TIMESTAMP}.ships.listing.json
+				shipFilename := fmt.Sprintf("%s.%s.%s.ships.listing.json", sanitizeFilename(systemName), sanitizeFilename(poiName), timestamp)
+				shipPath := filepath.Join(listingsDir, shipFilename)
+
+				data, err := json.MarshalIndent(wrapper, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal ship data: %w", err)
+				}
+
+				if err := os.WriteFile(shipPath, data, 0644); err != nil {
+					return fmt.Errorf("failed to write ship data: %w", err)
+				}
+				logger.Printf("💾 Saved ship data to file: %s", shipPath)
+
+				// Also save to knowledge base
+				// Extract ship listings from the response
+				ships := extractShipListings(serverData)
+				shipListings := convertShipListingsToKnowledge(state.System.ID, systemName, poiID, poiName, state.CurrentTick, ships)
+				if err := kb.StoreShipListings(ctx, shipListings, agentID); err != nil {
+					logger.Printf("⚠️  Failed to save ship listings to knowledge base: %v", err)
+				} else {
+					logger.Printf("💾 Saved ship listings to knowledge base")
+				}
+			} else {
+				logger.Printf("⚠️  No raw ship data available from server")
+			}
 		}
-
-		// Merge ships data into wrapper
-		for k, v := range shipsData {
-			shipData[k] = v
-		}
-
-		// Save ship listings
-		shipFilename := fmt.Sprintf("%s.%s.ships.listing.json", sanitizeFilename(systemName), sanitizeFilename(poiName))
-		shipPath := filepath.Join(listingsDir, shipFilename)
-
-		data, err := json.MarshalIndent(shipData, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal ship data: %w", err)
-		}
-
-		if err := os.WriteFile(shipPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write ship data: %w", err)
-		}
-		logger.Printf("💾 Saved ship data: %s", shipPath)
+	} else {
+		logger.Printf("✓ Ship listings already captured today for %s", poiName)
 	}
 
 	return nil
 }
 
+// convertMarketListingsToKnowledge converts game market listings to knowledge.MarketSnapshot
+func convertMarketListingsToKnowledge(systemID, systemName, stationID, stationName string, gameTick int64, gameListings []game.MarketListing) knowledge.MarketSnapshot {
+	listings := make([]knowledge.MarketListing, len(gameListings))
+	for i, l := range gameListings {
+		listings[i] = knowledge.MarketListing{
+			ItemID:       l.ItemID,
+			ItemType:     l.ItemType,
+			Quantity:     l.Quantity,
+			PricePerUnit: l.PricePerUnit,
+			TotalPrice:   l.TotalPrice,
+			Type:         l.Type,
+			ListedBy:     l.ListedBy,
+		}
+	}
+
+	return knowledge.MarketSnapshot{
+		SystemID:    systemID,
+		SystemName:  systemName,
+		StationID:   stationID,
+		StationName: stationName,
+		GameTick:    gameTick,
+		Listings:    listings,
+	}
+}
+
+// convertShipListingsToKnowledge converts ship listing data to knowledge.ShipListings
+func convertShipListingsToKnowledge(systemID, systemName, stationID, stationName string, gameTick int64, ships []knowledge.ShipListing) knowledge.ShipListings {
+	return knowledge.ShipListings{
+		SystemID:    systemID,
+		SystemName:  systemName,
+		StationID:   stationID,
+		StationName: stationName,
+		GameTick:    gameTick,
+		Listings:    ships,
+	}
+}
+
+// extractShipListings extracts ship listings from the server response data
+func extractShipListings(serverData map[string]any) []knowledge.ShipListing {
+	var ships []knowledge.ShipListing
+
+	// The server response format may vary - try to extract ships
+	shipsData, ok := serverData["ships"]
+	if !ok {
+		return ships
+	}
+
+	shipsArray, ok := shipsData.([]any)
+	if !ok {
+		return ships
+	}
+
+	for _, shipData := range shipsArray {
+		shipMap, ok := shipData.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		ship := knowledge.ShipListing{}
+
+		if id, ok := shipMap["id"].(string); ok {
+			ship.ShipClass = id
+		}
+		if name, ok := shipMap["name"].(string); ok {
+			ship.ShipName = name
+		}
+		if price, ok := shipMap["price"].(float64); ok {
+			ship.BasePrice = price
+		}
+		if desc, ok := shipMap["description"].(string); ok {
+			ship.Description = desc
+		}
+		if cargo, ok := shipMap["cargo_space"].(float64); ok {
+			ship.CargoSpace = int(cargo)
+		}
+		if modules, ok := shipMap["module_slots"].(float64); ok {
+			ship.ModuleSlots = int(modules)
+		}
+		if utility, ok := shipMap["utility_slots"].(float64); ok {
+			ship.UtilitySlots = int(utility)
+		}
+		if weapons, ok := shipMap["weapon_slots"].(float64); ok {
+			ship.WeaponSlots = int(weapons)
+		}
+
+		ships = append(ships, ship)
+	}
+
+	return ships
+}
+
 // exploreAllPOIs visits each POI in the current system, scans, and saves data
-func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
+func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base) error {
 	state := client.GetState()
 
 	// Initialize visited POIs for this system if needed
@@ -769,12 +1086,12 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			time.Sleep(3 * time.Second)
 		}
 
-		// Scan at POI
-		logger.Printf("🔍 Scanning at %s...", poi.Name)
-		if err := client.Scan(ctx); err != nil {
-			logger.Printf("Scan failed: %v", err)
+		// Get POI details
+		logger.Printf("🔍 Getting POI details at %s...", poi.Name)
+		if err := client.GetPOI(ctx); err != nil {
+			logger.Printf("Get POI failed: %v", err)
 		} else {
-			logger.Printf("✅ Scan complete at %s", poi.Name)
+			logger.Printf("✅ POI details retrieved at %s", poi.Name)
 		}
 		time.Sleep(3 * time.Second)
 
@@ -801,7 +1118,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			time.Sleep(3 * time.Second)
 
 			// Collect and save market/ship data
-			if err := saveStationMarketData(client, ctx, logger, state.System.Name, poi.Name, poi.ID); err != nil {
+			if err := saveStationMarketData(client, ctx, logger, kb, state.System.Name, poi.Name, poi.ID, expState.AgentID); err != nil {
 				logger.Printf("Failed to save station data: %v", err)
 			}
 
@@ -878,10 +1195,11 @@ func savePOIData(client *game.Client, logger *log.Logger, poiID string) error {
 		return fmt.Errorf("failed to marshal POI data: %w", err)
 	}
 
-	// Create filename: {SYSTEM_NAME}.{POI_NAME}.json
+	// Create filename: {SYSTEM_NAME}.{POI_NAME}.{TIMESTAMP}json
 	systemName := sanitizeFilename(state.System.Name)
 	poiName := sanitizeFilename(targetPOI.Name)
-	filename := fmt.Sprintf("%s.%s.json", systemName, poiName)
+	timestamp := time.Now().Format("20060102") // YYYYMMDD
+	filename := fmt.Sprintf("%s.%s.%s.json", systemName, poiName, timestamp)
 	filePath := filepath.Join("data", "server", "systems", filename)
 
 	// Ensure directory exists
@@ -927,7 +1245,7 @@ func saveCombatData(client *game.Client, logger *log.Logger, attackers []game.Ne
 
 	// Create filename: combat_{SYSTEM_NAME}_{TIMESTAMP}.json
 	systemName := sanitizeFilename(state.System.Name)
-	filename := fmt.Sprintf("combat_%s_%s.json", systemName, timestamp)
+	filename := fmt.Sprintf("combat.%s.%s.json", systemName, timestamp)
 	filePath := filepath.Join("data", "server", "combat_logs", filename)
 
 	// Ensure directory exists
@@ -948,10 +1266,21 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 	state := client.GetState()
 
 	// Check combat state
+	// Only consider it combat if actually in combat OR if there are hostile nearby players
 	if !state.InCombat && len(state.Nearby) == 0 {
 		if expState.UnderAttack {
 			// Just escaped combat
 			logger.Printf("✅ Successfully escaped combat!")
+			expState.UnderAttack = false
+		}
+		return false
+	}
+
+	// Additional check: only treat nearby players as combat if we're at a dangerous location
+	// or if they're actually hostile (for now, we'll only trigger on explicit InCombat=true)
+	if !state.InCombat {
+		if expState.UnderAttack {
+			logger.Printf("✅ Combat resolved - clearing attack state")
 			expState.UnderAttack = false
 		}
 		return false
@@ -975,40 +1304,78 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 	if expState.PreviousSystem != "" && expState.PreviousSystem != state.CurrentSystem {
 		logger.Printf("🚀 Attempting escape to previous system: %s", expState.PreviousSystem)
 
-		// Find jump gate to previous system
-		var targetPOI string
-		for _, poi := range state.System.POIs {
-			if poi.Type == "jump_gate" {
-				// Check if this gate connects to our escape route
-				// For now, use the first jump gate we find
-				targetPOI = poi.ID
+		// Check if previous system is directly connected
+		directlyConnected := false
+		for _, conn := range state.System.Connections {
+			if conn == expState.PreviousSystem {
+				directlyConnected = true
 				break
 			}
 		}
 
-		if targetPOI != "" {
-			// Travel to jump gate
-			if state.CurrentPOI != targetPOI {
-				logger.Printf("→ Heading to jump gate: %s", targetPOI)
-				if err := client.Travel(ctx, targetPOI); err != nil {
-					logger.Printf("Failed to travel to jump gate: %v", err)
+		var targetSystem string
+		if directlyConnected {
+			// Can jump directly to previous system
+			targetSystem = expState.PreviousSystem
+			logger.Printf("🚀 Direct escape to %s", targetSystem)
+		} else {
+			// Previous system not connected, find any connected system for escape
+			logger.Printf("⚠️  Previous system not connected, finding alternate escape route...")
+			for _, conn := range state.System.Connections {
+				if expState.VisitedSystems[conn] {
+					// Jump to a visited system we know has fuel/stations
+					targetSystem = conn
+					logger.Printf("🚀 Escaping to connected system: %s", targetSystem)
+					break
+				}
+			}
+
+			if targetSystem == "" {
+				// Last resort - any connected system
+				for _, conn := range state.System.Connections {
+					targetSystem = conn
+					logger.Printf("🚀 Escaping to any connected system: %s", targetSystem)
+					break
+				}
+			}
+		}
+
+		if targetSystem != "" {
+			// Find jump gate
+			var targetPOI string
+			for _, poi := range state.System.POIs {
+				if poi.Type == "jump_gate" {
+					targetPOI = poi.ID
+					break
+				}
+			}
+
+			if targetPOI != "" {
+				// Travel to jump gate
+				if state.CurrentPOI != targetPOI {
+					logger.Printf("→ Heading to jump gate: %s", targetPOI)
+					if err := client.Travel(ctx, targetPOI); err != nil {
+						logger.Printf("Failed to travel to jump gate: %v", err)
+						return true
+					}
+					time.Sleep(3 * time.Second)
+				}
+
+				// Jump to safety
+				logger.Printf("🌟 Jumping to safety: %s", targetSystem)
+				if err := client.Jump(ctx, targetSystem); err != nil {
+					logger.Printf("Failed to jump to safety: %v", err)
 					return true
 				}
-				time.Sleep(3 * time.Second)
-			}
 
-			// Jump to safety
-			logger.Printf("🚀 JUMPING TO SAFETY: %s", expState.PreviousSystem)
-			if err := client.Jump(ctx, expState.PreviousSystem); err != nil {
-				logger.Printf("Failed to jump to safety: %v", err)
-				return true
+				logger.Printf("✅ Escaped to %s!", targetSystem)
+				time.Sleep(5 * time.Second)
+				return false // Successfully escaped
+			} else {
+				logger.Printf("❌ No jump gate found! Unable to escape!")
 			}
-
-			logger.Printf("✅ Escaped to %s!", expState.PreviousSystem)
-			time.Sleep(5 * time.Second)
-			return false // Successfully escaped
 		} else {
-			logger.Printf("❌ No jump gate found! Unable to escape!")
+			logger.Printf("❌ No connected systems found! Trapped!")
 		}
 	}
 
@@ -1144,16 +1511,83 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 		return nil
 	}
 
-	// Backtrack to last known fuel station
+	// Backtrack to last known fuel station through visited systems
 	if expState.LastFuelStation != "" && expState.LastFuelStation != state.CurrentSystem {
-		logger.Printf("⚠️  Low fuel! Backtracking to %s for refuel", expState.LastFuelStation)
-		if err := client.Jump(ctx, expState.LastFuelStation); err != nil {
-			return fmt.Errorf("failed to jump to fuel station: %w", err)
-		}
-		time.Sleep(25 * time.Second)
+		logger.Printf("⚠️  Low fuel! Navigating back to %s for refuel", expState.LastFuelStation)
 
-		// Now refuel at that station
-		return findAndRefuel(client, ctx, logger, expState)
+		// First, check if current system has a jump gate
+		hasJumpGate := false
+		for _, poi := range state.System.POIs {
+			if poi.Type == "jump_gate" {
+				hasJumpGate = true
+				break
+			}
+		}
+
+		if !hasJumpGate {
+			logger.Printf("❌ No jump gate in current system %s! Cannot escape.", state.CurrentSystem)
+			logger.Printf("💡 Tip: If trapped without fuel, consider self-destructing to respawn at home")
+			return fmt.Errorf("no jump gate in current system %s", state.CurrentSystem)
+		}
+
+		// Try to find a path through connected systems
+		// Check if LastFuelStation is directly connected
+		directlyConnected := false
+		for _, conn := range state.System.Connections {
+			if conn == expState.LastFuelStation {
+				directlyConnected = true
+				break
+			}
+		}
+
+		if directlyConnected {
+			// Direct jump available
+			logger.Printf("🌟 Jumping directly to %s...", expState.LastFuelStation)
+			if err := client.Jump(ctx, expState.LastFuelStation); err != nil {
+				return fmt.Errorf("failed to jump to fuel station: %w", err)
+			}
+			time.Sleep(25 * time.Second)
+			return findAndRefuel(client, ctx, logger, expState)
+		}
+
+		// Not directly connected - need to find a path
+		logger.Printf("🔍 Fuel station not directly connected, finding route...")
+
+		// Check connected systems for ones with known stations
+		for _, conn := range state.System.Connections {
+			if expState.VisitedSystems[conn] {
+				// We've been here before, check if it has a station
+				logger.Printf("🌟 Jumping to %s (visited system toward fuel)...", conn)
+				if err := client.Jump(ctx, conn); err != nil {
+					if strings.Contains(err.Error(), "rate_limited") {
+						logger.Printf("Rate limited, waiting...")
+						time.Sleep(10 * time.Second)
+					}
+					// Try next connection
+					continue
+				}
+				time.Sleep(25 * time.Second)
+
+				// Recursively try to get fuel from this new system
+				return findAndRefuel(client, ctx, logger, expState)
+			}
+		}
+
+		// No visited connected systems - try any connected system
+		for _, conn := range state.System.Connections {
+			logger.Printf("🌟 Jumping to %s (exploring for fuel)...", conn)
+			if err := client.Jump(ctx, conn); err != nil {
+				if strings.Contains(err.Error(), "rate_limited") {
+					logger.Printf("Rate limited, waiting...")
+					time.Sleep(10 * time.Second)
+				}
+				continue
+			}
+			time.Sleep(25 * time.Second)
+			return findAndRefuel(client, ctx, logger, expState)
+		}
+
+		return fmt.Errorf("no accessible connected systems from %s", state.CurrentSystem)
 	}
 
 	logger.Printf("⚠️  WARNING: No fuel station available!")
@@ -1197,7 +1631,173 @@ func navigateToSystem(client *game.Client, ctx context.Context, logger *log.Logg
 	return nil
 }
 
-func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Context) error {
+// isDamaged checks if the ship is damaged below 50% hull
+func isDamaged(state *game.State) bool {
+	if state.Ship.MaxHull == 0 {
+		return false // Avoid division by zero
+	}
+	hullPercent := (state.Ship.Hull / state.Ship.MaxHull) * 100
+	return hullPercent < 50
+}
+
+// findNearestStation looks for a station in the current system or returns the last known fuel station
+func findNearestStation(state *game.State, lastFuelStation string) (string, string, string) {
+	// First check if current system has a station
+	for _, poi := range state.System.POIs {
+		if poi.Type == "station" {
+			return state.CurrentSystem, poi.ID, poi.Name
+		}
+	}
+
+	// If no station in current system, return the last known fuel station
+	if lastFuelStation != "" && lastFuelStation != state.CurrentSystem {
+		return lastFuelStation, "", "" // Will need to find station POI after jumping
+	}
+
+	// No station found
+	return "", "", ""
+}
+
+// repairShip travels to the nearest station and repairs the ship
+func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
+	state := client.GetState()
+
+	logger.Printf("⚠️  SHIP DAMAGED! Hull: %.0f/%.0f (%.1f%%), Armor: %.0f",
+		state.Ship.Hull,
+		state.Ship.MaxHull,
+		(state.Ship.Hull/state.Ship.MaxHull)*100,
+		state.Ship.Armor)
+
+	// Find nearest station
+	systemID, poiID, poiName := findNearestStation(state, expState.LastFuelStation)
+
+	if systemID == "" {
+		logger.Printf("❌ No station found! Attempting to return to home system: %s", expState.HomeSystem)
+		systemID = expState.HomeSystem
+	}
+
+	// If station is in different system, jump to it
+	if systemID != state.CurrentSystem {
+		logger.Printf("🚀 Traveling to system with station: %s", systemID)
+
+		// Find jump gate
+		var targetPOI string
+		for _, poi := range state.System.POIs {
+			if poi.Type == "jump_gate" {
+				targetPOI = poi.ID
+				break
+			}
+		}
+
+		if targetPOI == "" {
+			logger.Printf("⚠️  No jump gate in current system, cannot reach station")
+			return fmt.Errorf("no jump gate found in current system")
+		}
+
+		// Travel to jump gate if not there
+		if state.CurrentPOI != targetPOI && !state.Traveling {
+			if err := client.Travel(ctx, targetPOI); err != nil {
+				logger.Printf("Failed to travel to jump gate: %v", err)
+				time.Sleep(10 * time.Second) // Wait before retry
+				return err
+			}
+			time.Sleep(20 * time.Second)
+		}
+
+		// Wait for any ongoing travel to complete
+		if state.Traveling {
+			logger.Printf("⏳ Waiting for travel to complete...")
+			time.Sleep(20 * time.Second)
+		}
+
+		// Jump to station system
+		if err := client.Jump(ctx, systemID); err != nil {
+			logger.Printf("Failed to jump to %s: %v", systemID, err)
+			time.Sleep(10 * time.Second) // Wait before retry
+			return err
+		}
+		time.Sleep(25 * time.Second)
+
+		// Update state after jump
+		state = client.GetState()
+
+		// Find station in the new system
+		for _, poi := range state.System.POIs {
+			if poi.Type == "station" {
+				poiID = poi.ID
+				poiName = poi.Name
+				break
+			}
+		}
+
+		if poiID == "" {
+			logger.Printf("⚠️  No station found in system %s", systemID)
+			return fmt.Errorf("no station found in system %s", systemID)
+		}
+	} else {
+		// Already in the system with station, find it if poiID is empty
+		if poiID == "" {
+			for _, poi := range state.System.POIs {
+				if poi.Type == "station" {
+					poiID = poi.ID
+					poiName = poi.Name
+					break
+				}
+			}
+		}
+	}
+
+	// Travel to station if not already there
+	if state.CurrentPOI != poiID && !state.Traveling {
+		logger.Printf("🚀 Traveling to station: %s", poiName)
+		if err := client.Travel(ctx, poiID); err != nil {
+			logger.Printf("Failed to travel to station: %v", err)
+			time.Sleep(10 * time.Second)
+			return err
+		}
+		time.Sleep(20 * time.Second)
+	}
+
+	// Dock
+	logger.Printf("📥 Docking at %s...", poiName)
+	if err := client.Dock(ctx); err != nil && err.Error() != "Already docked (success)" {
+		logger.Printf("Failed to dock: %v", err)
+		time.Sleep(10 * time.Second)
+		return err
+	}
+	time.Sleep(15 * time.Second)
+
+	// Repair
+	logger.Printf("🔧 Repairing ship...")
+	if err := client.Repair(ctx); err != nil {
+		logger.Printf("Failed to repair: %v", err)
+		time.Sleep(10 * time.Second)
+		return err
+	}
+	time.Sleep(3 * time.Second)
+
+	// Check repair success
+	state = client.GetState()
+	logger.Printf("✅ Repaired! Hull: %.0f/%.0f (%.1f%%), Armor: %.0f",
+		state.Ship.Hull,
+		state.Ship.MaxHull,
+		(state.Ship.Hull/state.Ship.MaxHull)*100,
+		state.Ship.Armor)
+
+	// Update last fuel station
+	expState.LastFuelStation = systemID
+
+	// Undock before continuing
+	logger.Printf("📤 Undocking from %s...", poiName)
+	if err := client.Undock(ctx); err != nil {
+		logger.Printf("Failed to undock: %v", err)
+	}
+	time.Sleep(12 * time.Second)
+
+	return nil
+}
+
+func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Context, kb knowledge.Base, agentID string) error {
 	state := client.GetState()
 
 	// Initialize exploration state
@@ -1208,6 +1808,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		HomeSystem:      state.CurrentSystem,
 		LastFuelStation: state.CurrentSystem,
 		PreviousSystem:  "", // Will be set when we first jump
+		AgentID:         agentID,
 	}
 
 	logger.Printf("Starting DFS exploration from home system: %s", expState.HomeSystem)
@@ -1229,6 +1830,19 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			continue
 		}
 
+		// Check for damage and repair if necessary
+		if isDamaged(state) {
+			logger.Printf("💔 Ship damaged, seeking repairs...")
+			if err := repairShip(client, ctx, logger, expState); err != nil {
+				logger.Printf("Failed to repair: %v", err)
+				// Wait before retrying to avoid rate limiting
+				time.Sleep(10 * time.Second)
+				continue
+			}
+			// After repair, restart the loop to check state again
+			continue
+		}
+
 		// Mark current system as visited
 		if !expState.VisitedSystems[currentSystem] {
 			logger.Printf("📍 Exploring new system: %s", currentSystem)
@@ -1236,13 +1850,13 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			expState.VisitedPOIs = make(map[string]bool) // Reset POI visits for new system
 
 			// Collect system data
-			if err := collectSystemData(client, ctx, logger); err != nil {
+			if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
 				logger.Printf("Failed to collect system data: %v", err)
 			}
 
 			// Explore all POIs in this system
 			logger.Printf("🔍 Beginning comprehensive POI exploration...")
-			if err := exploreAllPOIs(client, ctx, logger, expState); err != nil {
+			if err := exploreAllPOIs(client, ctx, logger, expState, kb); err != nil {
 				logger.Printf("POI exploration failed: %v", err)
 			}
 
@@ -1309,16 +1923,23 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 // ============================================================================
 
 func main() {
-	if len(os.Args) < 2 {
+	flag.Parse()
+
+	// Get remaining args after flag parsing
+	args := flag.Args()
+	if len(args) < 1 {
 		fmt.Println("Usage: auto-explorer <explorer-number>")
 		fmt.Println("Example: auto-explorer 1")
+		fmt.Println("\nFlags:")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	explorerNum := os.Args[1]
-	agentDir := fmt.Sprintf("data/agents/explorer-%s", explorerNum)
+	// auto-explorer isnt limited to just explorer-%, anyone can do it.
+	explorer := args[0]
+	agentDir := fmt.Sprintf("data/agents/%s", explorer)
 
-	logger := log.New(os.Stdout, fmt.Sprintf("[EXPLORER-%s] ", explorerNum), log.LstdFlags)
+	logger := log.New(os.Stdout, fmt.Sprintf("[EXPLORER-%s] ", explorer), log.LstdFlags)
 
 	// Load credentials
 	creds, err := loadCredentials(agentDir)
@@ -1332,20 +1953,79 @@ func main() {
 	// Create context for lifecycle management
 	ctx := context.Background()
 
+	// Initialize knowledge base
+	kb, err := initKnowledgeBase(*dbBackend, *dbPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize knowledge base: %v", err)
+	}
+	defer kb.Close()
+	logger.Printf("✓ Knowledge base initialized (%s)", *dbBackend)
+
+	// Register with status registry if configured
+	var regClient *registry.Client
+	if *registryURL != "" {
+		toolID := fmt.Sprintf("auto-explorer-%s", explorer)
+		regClient = registry.NewClient(*registryURL, toolID)
+
+		reg := registry.ToolRegistration{
+			ToolID:    toolID,
+			ToolType:  registry.ToolTypeAutoExplorer,
+			PID:       os.Getpid(),
+			AgentID:   explorer,
+			AgentName: creds.Username,
+			AgentRole: "Explorer",
+			Status:    "starting",
+			Capabilities: map[string]any{
+				"state_file": fmt.Sprintf("data/agents/%s/state.json", explorer),
+			},
+			Metadata: map[string]any{
+				"empire": creds.Empire,
+			},
+		}
+
+		if err := regClient.Register(reg); err != nil {
+			logger.Printf("⚠ Warning: Failed to register with status registry: %v", err)
+			regClient = nil
+		} else {
+			logger.Printf("✓ Registered with status registry")
+			// Update status
+			regClient.UpdateStatus("starting", "Initializing")
+		}
+	}
+
 	// Create game client
-	gameLogger := log.New(os.Stdout, fmt.Sprintf("[E%s-GAME] ", explorerNum), log.LstdFlags)
+	gameLogger := log.New(os.Stdout, fmt.Sprintf("[E%s-GAME] ", explorer), log.LstdFlags)
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
 
 	// Set up handler with automatic reconnection
-	handler := &SimpleHandler{client: client, logger: logger}
+	handler := &SimpleHandler{client: client, logger: logger, kb: kb}
 	reconnectingHandler := game.NewReconnectingHandler(client, handler, ctx, logger)
 	client.SetHandler(reconnectingHandler)
+
+	// Start heartbeat for registry if registered
+	if regClient != nil {
+		regClient.StartHeartbeat(ctx, 5*time.Second, func() (status, action string) {
+			state := client.GetState()
+			if state == nil {
+				return "starting", "Connecting to game"
+			}
+			return "exploring", fmt.Sprintf("In %s (%.0f credits)", state.System.Name, state.Credits)
+		})
+	}
 
 	// Connect to game
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		client.Close()
+		// Deregister from registry
+		if regClient != nil {
+			if err := regClient.Deregister(); err != nil {
+				logger.Printf("Warning: Failed to deregister: %v", err)
+			}
+		}
+	}()
 
 	// Wait for connection
 	<-client.Ready()
@@ -1353,6 +2033,9 @@ func main() {
 
 	// Login
 	logger.Printf("Logging in...")
+	if regClient != nil {
+		regClient.UpdateStatus("connecting", "Logging in")
+	}
 	if err := client.Login(ctx); err != nil {
 		log.Fatalf("Failed to login: %v", err)
 	}
@@ -1363,15 +2046,27 @@ func main() {
 	state := client.GetState()
 	logger.Printf("✓ Ready! Credits: %.2f | Ship: %s", state.Credits, state.Ship.Name)
 
-	// PHASE 1: Mining & Upgrades
-	logger.Printf("")
-	logger.Printf("═══════════════════════════════════════════════")
-	logger.Printf("        PHASE 1: Mining & Upgrades")
-	logger.Printf("═══════════════════════════════════════════════")
-	logger.Printf("")
+	// Check if we need Phase 1 (mining & upgrades)
+	// Skip if already have a better ship than starter_mining (Prospector)
+	skipMiningPhase := state.Ship.ClassID != "starter_mining"
 
-	if err := miningPhase(client, logger, ctx); err != nil {
-		log.Fatalf("Mining phase error: %v", err)
+	if skipMiningPhase {
+		logger.Printf("")
+		logger.Printf("═══════════════════════════════════════════════")
+		logger.Printf("      Already have %s - skipping mining phase!", state.Ship.ClassID)
+		logger.Printf("═══════════════════════════════════════════════")
+		logger.Printf("")
+	} else {
+		// PHASE 1: Mining & Upgrades
+		logger.Printf("")
+		logger.Printf("═══════════════════════════════════════════════")
+		logger.Printf("        PHASE 1: Mining & Upgrades")
+		logger.Printf("═══════════════════════════════════════════════")
+		logger.Printf("")
+
+		if err := miningPhase(client, logger, ctx); err != nil {
+			log.Fatalf("Mining phase error: %v", err)
+		}
 	}
 
 	// PHASE 2: Galaxy Exploration
@@ -1381,7 +2076,25 @@ func main() {
 	logger.Printf("═══════════════════════════════════════════════")
 	logger.Printf("")
 
-	if err := explorationPhase(client, logger, ctx); err != nil {
+	if err := explorationPhase(client, logger, ctx, kb, explorer); err != nil {
 		log.Fatalf("Exploration phase error: %v", err)
+	}
+}
+
+// initKnowledgeBase creates the knowledge base based on backend type
+func initKnowledgeBase(backend, dbPath string) (knowledge.Base, error) {
+	switch backend {
+	case "sqlite":
+		return knowledge.NewSQLiteKB(knowledge.Config{
+			DBPath:       dbPath,
+			WAL:          true,
+			MaxOpenConns: 25,
+			MaxIdleConns: 5,
+			BusyTimeout:  5 * time.Second,
+		})
+	case "memory":
+		return knowledge.NewMemoryKB(), nil
+	default:
+		return nil, fmt.Errorf("unknown db-backend: %s (use 'sqlite' or 'memory')", backend)
 	}
 }
