@@ -128,10 +128,11 @@ type POI struct {
 	BaseID      string        `json:"base_id,omitempty"`
 }
 
-// Position represents 2D coordinates
+// Position represents 3D coordinates (Z is reserved for future use)
 type Position struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
+	Z float64 `json:"z,omitempty"` // Reserved for future 3D positioning
 }
 
 // POIResource represents a resource at a POI.

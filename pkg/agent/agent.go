@@ -6,39 +6,6 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
-// SystemKnowledge represents knowledge about a solar system
-type SystemKnowledge struct {
-	ID            string
-	Name          string
-	Position      Position
-	SecurityLevel string
-	Faction       string
-	Connections   []string
-	POIs          []string
-	LastVisited   string
-	VisitCount    int
-	DiscoveredBy  string
-}
-
-// Position represents 3D coordinates
-type Position struct {
-	X float64
-	Y float64
-	Z float64
-}
-
-// POIKnowledge represents knowledge about a Point of Interest
-type POIKnowledge struct {
-	ID          string
-	SystemID    string
-	Name        string
-	Type        string
-	Description string
-	Position    Position
-	Services    []string
-	Resources   []ResourceInfo
-}
-
 // Agent represents an autonomous game-playing agent
 type Agent interface {
 	// Identity
@@ -178,13 +145,13 @@ func (s AgentState) String() string {
 // Memory stores agent knowledge
 type Memory interface {
 	// Knowledge access
-	KnownSystems() []SystemKnowledge
-	KnownPOIs(systemID string) []POIKnowledge
+	KnownSystems() []game.SystemData
+	KnownPOIs(systemID string) []game.POI
 	GetUnknownConnections(systemID string) ([]string, error)
 
 	// Memory update
-	RememberSystem(ctx context.Context, system System) error
-	RememberPOI(ctx context.Context, poi POI) error
+	RememberSystem(ctx context.Context, system game.SystemData) error
+	RememberPOI(ctx context.Context, poi game.POI) error
 	RememberConnection(ctx context.Context, fromSystem, toSystem string) error
 
 	// Experience
@@ -201,32 +168,9 @@ type Experience struct {
 	Location    string
 }
 
-// System represents a system for memory storage
-type System struct {
-	ID            string
-	Name          string
-	Position      Position
-	SecurityLevel string
-	Faction       string
-	Connections   []string
-	DiscoveredBy  string
-}
-
 // ResourceInfo represents resource data at a POI
 type ResourceInfo struct {
 	ResourceID string
 	Richness   float64
 	Remaining  float64
-}
-
-// POI represents a POI for memory storage
-type POI struct {
-	ID           string
-	SystemID     string
-	Name         string
-	Type         string
-	Position     Position
-	Services     []string
-	Resources    []ResourceInfo
-	DiscoveredBy string
 }

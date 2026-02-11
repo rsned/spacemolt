@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // testDBPath is the path for the test database
@@ -35,7 +37,7 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 	sys := System{
 		ID:            "SYS-001",
 		Name:          "Test System",
-		Position:      Position{X: 100.0, Y: 200.0, Z: 300.0},
+		Position:      game.Position{X: 100.0, Y: 200.0, Z: 300.0},
 		SecurityLevel: "HIGH",
 		Faction:       "test_faction",
 		Connections:   []string{"SYS-002", "SYS-003"},
@@ -115,7 +117,7 @@ func TestSQLiteKB_RememberConnection(t *testing.T) {
 	sys := System{
 		ID:          "A",
 		Name:        "System A",
-		Position:    Position{X: 0, Y: 0, Z: 0},
+		Position:    game.Position{X: 0, Y: 0, Z: 0},
 		Connections: []string{"B"},
 	}
 
@@ -155,7 +157,7 @@ func TestSQLiteKB_GetUnknownConnections(t *testing.T) {
 	sysA := System{
 		ID:       "A",
 		Name:     "System A",
-		Position: Position{X: 0, Y: 0, Z: 0},
+		Position: game.Position{X: 0, Y: 0, Z: 0},
 	}
 	if err := kb.RememberSystem(ctx, sysA); err != nil {
 		t.Fatalf("RememberSystem A failed: %v", err)
@@ -165,7 +167,7 @@ func TestSQLiteKB_GetUnknownConnections(t *testing.T) {
 	sysB := System{
 		ID:       "B",
 		Name:     "System B",
-		Position: Position{X: 100, Y: 0, Z: 0},
+		Position: game.Position{X: 100, Y: 0, Z: 0},
 	}
 	if err := kb.RememberSystem(ctx, sysB); err != nil {
 		t.Fatalf("RememberSystem B failed: %v", err)
@@ -199,7 +201,7 @@ func TestSQLiteKB_RememberPOI(t *testing.T) {
 		Name:         "Test Station",
 		Type:         "station",
 		Description:  "A test station",
-		Position:     Position{X: 10.0, Y: 20.0},
+		Position:     game.Position{X: 10.0, Y: 20.0},
 		DiscoveredBy: "test_agent",
 	}
 
@@ -291,9 +293,9 @@ func TestSQLiteKB_GetSystems(t *testing.T) {
 
 	// Add some systems
 	systems := []System{
-		{ID: "A", Name: "System A", Position: Position{X: 0, Y: 0, Z: 0}, Connections: []string{"B"}},
-		{ID: "B", Name: "System B", Position: Position{X: 100, Y: 0, Z: 0}, Connections: []string{"A", "C"}},
-		{ID: "C", Name: "System C", Position: Position{X: 200, Y: 0, Z: 0}, Connections: []string{"B"}},
+		{ID: "A", Name: "System A", Position: game.Position{X: 0, Y: 0, Z: 0}, Connections: []string{"B"}},
+		{ID: "B", Name: "System B", Position: game.Position{X: 100, Y: 0, Z: 0}, Connections: []string{"A", "C"}},
+		{ID: "C", Name: "System C", Position: game.Position{X: 200, Y: 0, Z: 0}, Connections: []string{"B"}},
 	}
 
 	for _, sys := range systems {
@@ -344,7 +346,7 @@ func TestSQLiteKB_ConcurrentAccess(t *testing.T) {
 			sys := System{
 				ID:       sysID,
 				Name:     fmt.Sprintf("System %d", idx),
-				Position: Position{X: float64(idx), Y: 0, Z: 0},
+				Position: game.Position{X: float64(idx), Y: 0, Z: 0},
 			}
 			_ = kb.RememberSystem(ctx, sys)
 		}(i)
@@ -377,7 +379,7 @@ func BenchmarkSQLiteKB_RememberSystem(b *testing.B) {
 	sys := System{
 		ID:       "BENCH-001",
 		Name:     "Bench System",
-		Position: Position{X: 0, Y: 0, Z: 0},
+		Position: game.Position{X: 0, Y: 0, Z: 0},
 	}
 
 	b.ResetTimer()
@@ -395,7 +397,7 @@ func BenchmarkMemoryKB_RememberSystem(b *testing.B) {
 	sys := System{
 		ID:       "BENCH-001",
 		Name:     "Bench System",
-		Position: Position{X: 0, Y: 0, Z: 0},
+		Position: game.Position{X: 0, Y: 0, Z: 0},
 	}
 
 	b.ResetTimer()
@@ -439,7 +441,7 @@ func TestSQLiteKB_Persistence(t *testing.T) {
 	sys := System{
 		ID:       "PERSIST-001",
 		Name:     "Persistent System",
-		Position: Position{X: 42, Y: 42, Z: 42},
+		Position: game.Position{X: 42, Y: 42, Z: 42},
 	}
 
 	if err := kb1.RememberSystem(ctx, sys); err != nil {

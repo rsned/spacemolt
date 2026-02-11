@@ -27,6 +27,13 @@ type Base interface {
 	GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error)
 	GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*MarketSnapshot, error)
 	GetMarketItems(ctx context.Context, itemType string) ([]string, error)
+	HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error)
+
+	// Ship listings methods
+	StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error
+	GetShipListings(ctx context.Context, systemID, stationID string, limit int) ([]ShipListings, error)
+	GetLatestShipListings(ctx context.Context, systemID, stationID string) (*ShipListings, error)
+	HasShipListingsToday(ctx context.Context, systemID, stationID string) (bool, error)
 
 	// Enhanced analytics methods
 
@@ -81,6 +88,29 @@ type MarketSnapshot struct {
 	StationName string
 	GameTick    int64
 	Listings    []MarketListing
+	CapturedAt  time.Time
+}
+
+// ShipListing represents a single ship listing at a station
+type ShipListing struct {
+	ShipClass    string
+	ShipName     string
+	BasePrice    float64
+	Description  string
+	CargoSpace   int
+	ModuleSlots  int
+	UtilitySlots int
+	WeaponSlots  int
+}
+
+// ShipListings represents captured ship listings at a station
+type ShipListings struct {
+	SystemID    string
+	SystemName  string
+	StationID   string
+	StationName string
+	GameTick    int64
+	Listings    []ShipListing
 	CapturedAt  time.Time
 }
 
