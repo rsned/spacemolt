@@ -17,8 +17,6 @@ import (
 	"github.com/rsned/spacemolt/pkg/registry"
 )
 
-const gameServerURL = "wss://game.spacemolt.com/ws"
-
 // CLI flags
 var (
 	registryURL = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
@@ -48,23 +46,17 @@ type ExplorationState struct {
 	AgentID         string          // Agent ID for knowledge base attribution
 }
 
-type Credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Empire   string `json:"empire"`
-}
-
-type SimpleHandler struct {
+type explorerSimpleHandler struct {
 	client *game.Client
 	logger *log.Logger
 	kb     knowledge.Base
 }
 
-func (h *SimpleHandler) OnConnected(state *game.State) {
+func (h *explorerSimpleHandler) OnConnected(state *game.State) {
 	h.logger.Printf("✓ Connected! Credits: %.2f", state.Credits)
 }
 
-func (h *SimpleHandler) OnMessage(resp protocol.Response) {
+func (h *explorerSimpleHandler) OnMessage(resp protocol.Response) {
 	switch resp.Type {
 	case protocol.TypeOK:
 		if msg, ok := resp.Payload["message"].(string); ok {
@@ -77,25 +69,13 @@ func (h *SimpleHandler) OnMessage(resp protocol.Response) {
 	}
 }
 
-func (h *SimpleHandler) OnDisconnected(err error) {
+func (h *explorerSimpleHandler) OnDisconnected(err error) {
 	h.logger.Printf("Disconnected: %v", err)
 }
 
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
-
-func loadCredentials(agentDir string) (*Credentials, error) {
-	data, err := os.ReadFile(filepath.Join(agentDir, "credentials.json"))
-	if err != nil {
-		return nil, err
-	}
-	var creds Credentials
-	if err := json.Unmarshal(data, &creds); err != nil {
-		return nil, err
-	}
-	return &creds, nil
-}
 
 func sanitizeFilename(name string) string {
 	// Replace spaces and special chars with underscores
@@ -1953,12 +1933,11 @@ func main() {
 
 	// auto-explorer isnt limited to just explorer-%, anyone can do it.
 	explorer := args[0]
-	agentDir := fmt.Sprintf("data/agents/%s", explorer)
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[EXPLORER-%s] ", explorer), log.LstdFlags)
 
-	// Load credentials
-	creds, err := loadCredentials(agentDir)
+	// Load credentials using shared library function
+	creds, err := game.LoadCredentials(fmt.Sprintf("data/agents/%s", explorer))
 	if err != nil {
 		log.Fatalf("Failed to load credentials: %v", err)
 	}
@@ -2009,13 +1988,21 @@ func main() {
 		}
 	}
 
-	// Create game client
-	gameLogger := log.New(os.Stdout, fmt.Sprintf("[E%s-GAME] ", explorer), log.LstdFlags)
-	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
+	// Create game client using shared library function
+	// This handles: credential loading, client creation, connection, and login
+	client, creds, err := game.InitializeAgent(explorer, logger, ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize agent: %v", err)
+	}
+	defer client.Close()
 
-	// Set up handler with automatic reconnection
-	handler := &SimpleHandler{client: client, logger: logger, kb: kb}
-	reconnectingHandler := game.NewReconnectingHandler(client, handler, ctx, logger)
+	// Set up explorer-specific handler with knowledge base integration
+	explorerHandler := &explorerSimpleHandler{
+		client:  client,
+		logger: logger,
+		kb:     kb,
+	}
+	reconnectingHandler := game.NewReconnectingHandler(client, explorerHandler, ctx, logger)
 	client.SetHandler(reconnectingHandler)
 
 	// Start heartbeat for registry if registered

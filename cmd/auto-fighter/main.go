@@ -2,18 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
-
-const gameServerURL = "wss://game.spacemolt.com/ws"
 
 // Reserve credits (never spend below this)
 const (
@@ -22,51 +17,6 @@ const (
 	TIER2_THRESHOLD = 5000.0  // Shield upgrade threshold
 	TIER3_THRESHOLD = 10000.0 // Ship upgrade threshold
 )
-
-type Credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Empire   string `json:"empire"`
-}
-
-type SimpleHandler struct {
-	client *game.Client
-	logger *log.Logger
-}
-
-func (h *SimpleHandler) OnConnected(state *game.State) {
-	h.logger.Printf("✓ Connected! Credits: %.2f", state.Credits)
-}
-
-func (h *SimpleHandler) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			h.logger.Printf("✓ %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			h.logger.Printf("✗ %s", msg)
-		}
-	}
-}
-
-func (h *SimpleHandler) OnDisconnected(err error) {
-	h.logger.Printf("Disconnected: %v", err)
-}
-
-// loadCredentials loads agent credentials from a JSON file
-func loadCredentials(agentDir string) (*Credentials, error) {
-	data, err := os.ReadFile(filepath.Join(agentDir, "credentials.json"))
-	if err != nil {
-		return nil, err
-	}
-	var creds Credentials
-	if err := json.Unmarshal(data, &creds); err != nil {
-		return nil, err
-	}
-	return &creds, nil
-}
 
 // fighterLoop implements the main combat loop for the auto-fighter agent
 // Logic: Hunt pirates, loot wrecks, sell loot, upgrade equipment, repeat
@@ -441,53 +391,27 @@ func main() {
 	}
 
 	agentID := os.Args[1]
-	agentDir := fmt.Sprintf("data/agents/%s", agentID)
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
-
-	// Load credentials
-	creds, err := loadCredentials(agentDir)
-	if err != nil {
-		log.Fatalf("Failed to load credentials: %v", err)
-	}
-
-	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
-	logger.Printf("Agent: %s | Empire: %s", creds.Username, creds.Empire)
 
 	// Create context for lifecycle management
 	ctx := context.Background()
 
-	// Create game client
-	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", agentID), log.LstdFlags)
-	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
-
-	// Set up handler with automatic reconnection
-	handler := &SimpleHandler{client: client, logger: logger}
-	reconnectingHandler := game.NewReconnectingHandler(client, handler, ctx, logger)
-	client.SetHandler(reconnectingHandler)
-
-	// Connect to game
-	if err := client.Connect(ctx); err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+	// Initialize game client using shared library function
+	// This handles: credential loading, client creation, connection, and login
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize agent: %v", err)
 	}
 	defer client.Close()
 
-	// Wait for connection
-	<-client.Ready()
 	time.Sleep(1 * time.Second)
-
-	// Login
-	logger.Printf("Logging in...")
-	if err := client.Login(ctx); err != nil {
-		log.Fatalf("Failed to login: %v", err)
-	}
-
-	time.Sleep(2 * time.Second)
 
 	// Get initial state
 	state := client.GetState()
-	logger.Printf("✓ Ready! Credits: %.2f | Ship: %s | Cargo Capacity: %.0f",
-		state.Credits, state.Ship.Name, state.Ship.CargoCapacity)
+	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
+	logger.Printf("Agent: %s | Empire: %s | Credits: %.2f | Ship: %s | Cargo: %.0f/%.0f",
+		creds.Username, creds.Empire, state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
 	// Start autonomous combat loop with upgrades
 	logger.Printf("Starting autonomous combat + upgrade loop...")
