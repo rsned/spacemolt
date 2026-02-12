@@ -444,6 +444,80 @@ func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) erro
 	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
+// CreateBulkSellOrder creates multiple sell orders in a single API call (up to 50 items).
+// This is more efficient than calling Sell repeatedly for each item.
+// The orders parameter should be prepared using PrepareBulkSellOrder().
+//
+// Example:
+//
+//	orders, _ := game.PrepareBulkSellOrder(state.Ship.Cargo, []string{}, priceMap)
+//	if len(orders) > 0 {
+//	    err := client.CreateBulkSellOrder(ctx, orders)
+//	}
+func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder) error {
+	if len(orders) == 0 {
+		return nil // Nothing to sell
+	}
+
+	if len(orders) > 50 {
+		return fmt.Errorf("bulk sell order limited to 50 items, got %d", len(orders))
+	}
+
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "create_sell_order",
+		Payload:   map[string]any{"orders": orders},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// SellAllBulk sells all cargo items using the bulk create_sell_order API.
+// This is much faster than SellAll as it makes only one API call instead of N calls.
+// It fetches market listings to price items competitively, then creates sell orders.
+// Only sells ores and resources, not equipment.
+//
+// Parameters:
+//   - ctx: Context for cancellation
+//   - reservedItems: Optional list of item IDs to keep (not sell)
+//
+// Returns error if not docked or if API call fails.
+func (c *Client) SellAllBulk(ctx context.Context, reservedItems []string) error {
+	state := c.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked to sell")
+	}
+
+	if len(state.Ship.Cargo) == 0 {
+		return nil // Nothing to sell
+	}
+
+	// Get market listings for pricing
+	if err := c.GetListings(ctx); err != nil {
+		c.debugLogger.Printf("Warning: Failed to get market listings: %v (using default prices)", err)
+	}
+	time.Sleep(1 * time.Second) // Wait for listings response
+
+	listings := c.GetMarketListings()
+	priceMap := GetMarketPricesForCargo(state.Ship.Cargo, listings)
+
+	// Prepare bulk sell orders
+	orders, skippedCount := PrepareBulkSellOrder(state.Ship.Cargo, reservedItems, priceMap)
+
+	if len(orders) == 0 {
+		if skippedCount > 0 {
+			c.debugLogger.Printf("No items to sell (%d reserved/equipment items skipped)", skippedCount)
+		}
+		return nil
+	}
+
+	c.debugLogger.Printf("Creating bulk sell order for %d items (%d skipped)", len(orders), skippedCount)
+
+	// Create bulk sell order
+	return c.CreateBulkSellOrder(ctx, orders)
+}
+
 // SellAll sells all cargo items at the current station
 func (c *Client) SellAll(ctx context.Context) error {
 	state := c.GetState()
