@@ -128,6 +128,34 @@ func hasScanner(state *game.State) bool {
 	return false
 }
 
+func hasWeapons(state *game.State) bool {
+	for _, module := range state.Ship.Modules {
+		// Check for common weapon module prefixes
+		if strings.Contains(module, "laser") && !strings.Contains(module, "mining") {
+			return true
+		}
+		if strings.Contains(module, "cannon") || strings.Contains(module, "turret") ||
+			strings.Contains(module, "missile") || strings.Contains(module, "torpedo") {
+			return true
+		}
+	}
+	return false
+}
+
+func getHullPercentage(state *game.State) float64 {
+	if state.Ship.MaxHull == 0 {
+		return 100.0
+	}
+	return (state.Ship.Hull / state.Ship.MaxHull) * 100
+}
+
+func getShieldPercentage(state *game.State) float64 {
+	if state.Ship.MaxShield == 0 {
+		return 100.0
+	}
+	return (state.Ship.Shield / state.Ship.MaxShield) * 100
+}
+
 func needsRefuel(state *game.State) bool {
 	return state.Fuel < (state.MaxFuel * 0.3)
 }
@@ -1257,12 +1285,11 @@ func saveCombatData(client *game.Client, logger *log.Logger, attackers []game.Ne
 	return nil
 }
 
-// checkAndEvadeCombat checks if under attack and attempts escape
+// checkAndEvadeCombat checks if under attack and decides whether to fight or flee
 func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) (underAttack bool) {
 	state := client.GetState()
 
 	// Check combat state
-	// Only consider it combat if actually in combat OR if there are hostile nearby players
 	if !state.InCombat && len(state.Nearby) == 0 {
 		if expState.UnderAttack {
 			// Just escaped combat
@@ -1272,8 +1299,7 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 		return false
 	}
 
-	// Additional check: only treat nearby players as combat if we're at a dangerous location
-	// or if they're actually hostile (for now, we'll only trigger on explicit InCombat=true)
+	// Only trigger on explicit InCombat=true
 	if !state.InCombat {
 		if expState.UnderAttack {
 			logger.Printf("✅ Combat resolved - clearing attack state")
@@ -1296,27 +1322,116 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 		}
 	}
 
-	// Attempt escape if we have a previous system to return to
-	if expState.PreviousSystem != "" && expState.PreviousSystem != state.CurrentSystem {
-		logger.Printf("🚀 Attempting escape to previous system: %s", expState.PreviousSystem)
+	// Assess our situation
+	hullPct := getHullPercentage(state)
+	shieldPct := getShieldPercentage(state)
+	hasWeapon := hasWeapons(state)
 
-		// Check if previous system is directly connected
+	logger.Printf("⚔️  Combat Status: Hull: %.1f%%, Shield: %.1f%%, Weapons: %v", hullPct, shieldPct, hasWeapon)
+
+	// Decision: Fight or Flee
+	// Flee if:
+	// - Hull below 40% (critical damage)
+	// - No weapons installed
+	// - Hull below 70% AND shields depleted
+	shouldFlee := hullPct < 40.0 || !hasWeapon || (hullPct < 70.0 && shieldPct < 10.0)
+
+	if shouldFlee {
+		logger.Printf("🏃 FLEEING: Hull too low or no weapons - seeking safety!")
+		return attemptFleeToStation(client, ctx, logger, expState, state)
+	}
+
+	// We have weapons and reasonable health - FIGHT BACK!
+	logger.Printf("⚔️  FIGHTING BACK: Engaging attacker!")
+
+	// Find the attacker from nearby players
+	var attackerID string
+	for _, nearby := range state.Nearby {
+		if nearby.InCombat {
+			attackerID = nearby.PlayerID
+			logger.Printf("🎯 Targeting attacker: %s (Ship: %s)", nearby.Username, nearby.ShipClass)
+			break
+		}
+	}
+
+	if attackerID == "" && len(state.Nearby) > 0 {
+		// If we can't identify who's in combat, attack the first nearby player
+		attackerID = state.Nearby[0].PlayerID
+		logger.Printf("🎯 Targeting nearby player: %s", state.Nearby[0].Username)
+	}
+
+	if attackerID != "" {
+		// Attack!
+		if err := client.Attack(ctx, attackerID); err != nil {
+			logger.Printf("Failed to attack: %v", err)
+		} else {
+			logger.Printf("💥 Firing weapons at %s!", attackerID)
+		}
+		time.Sleep(3 * time.Second)
+	}
+
+	// Check if we should switch to fleeing after attacking
+	state = client.GetState()
+	hullPct = getHullPercentage(state)
+	if hullPct < 30.0 {
+		logger.Printf("⚠️  Hull critical (%.1f%%) - switching to flee mode!", hullPct)
+		return attemptFleeToStation(client, ctx, logger, expState, state)
+	}
+
+	return true // Still in combat
+}
+
+// attemptFleeToStation tries to escape combat and find a station to dock for repairs
+func attemptFleeToStation(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState, state *game.State) bool {
+	// Priority 1: Try to find a station in current system
+	var stationPOI string
+	for _, poi := range state.System.POIs {
+		if poi.Type == "station" {
+			stationPOI = poi.ID
+			logger.Printf("🏥 Station found in current system: %s", poi.Name)
+			break
+		}
+	}
+
+	if stationPOI != "" {
+		// Travel to station in current system
+		if state.CurrentPOI != stationPOI && !state.Traveling {
+			logger.Printf("→ Fleeing to station %s in current system...", stationPOI)
+			if err := client.Travel(ctx, stationPOI); err != nil {
+				logger.Printf("Failed to travel to station: %v", err)
+			} else {
+				time.Sleep(3 * time.Second)
+			}
+		}
+		return true // Still fleeing
+	}
+
+	// Priority 2: Jump to a system with a known station (LastFuelStation or previous system)
+	var targetSystem string
+	if expState.LastFuelStation != "" && expState.LastFuelStation != state.CurrentSystem {
+		targetSystem = expState.LastFuelStation
+		logger.Printf("🏥 Fleeing to known station system: %s", targetSystem)
+	} else if expState.PreviousSystem != "" && expState.PreviousSystem != state.CurrentSystem {
+		targetSystem = expState.PreviousSystem
+		logger.Printf("🚀 Fleeing to previous system: %s", targetSystem)
+	}
+
+	if targetSystem != "" {
+		logger.Printf("🚀 Attempting escape to: %s", targetSystem)
+
+		// Check if target system is directly connected
 		directlyConnected := false
 		for _, conn := range state.System.Connections {
-			if conn == expState.PreviousSystem {
+			if conn == targetSystem {
 				directlyConnected = true
 				break
 			}
 		}
 
-		var targetSystem string
-		if directlyConnected {
-			// Can jump directly to previous system
-			targetSystem = expState.PreviousSystem
-			logger.Printf("🚀 Direct escape to %s", targetSystem)
-		} else {
-			// Previous system not connected, find any connected system for escape
-			logger.Printf("⚠️  Previous system not connected, finding alternate escape route...")
+		if !directlyConnected {
+			// Target not connected, find any connected system for escape
+			logger.Printf("⚠️  Target system not connected, finding alternate escape route...")
+			targetSystem = ""
 			for _, conn := range state.System.Connections {
 				if expState.VisitedSystems[conn] {
 					// Jump to a visited system we know has fuel/stations

@@ -367,6 +367,18 @@ func (c *Client) Mine(ctx context.Context) error {
 	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
+// Attack attacks a target player or NPC
+func (c *Client) Attack(ctx context.Context, targetID string) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "attack",
+		Payload:   map[string]any{"target_id": targetID, "weapon_idx": 0},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
 // Scan scans the current area
 func (c *Client) Scan(ctx context.Context) error {
 	if err := c.Send(ctx, protocol.Message{
