@@ -1,0 +1,89 @@
+{{- if eq .Role "miner"}}**MINER ACTIONS:**
+{{- else if eq .Role "explorer"}}**EXPLORER ACTIONS:**
+{{- else if eq .Role "fighter"}}**FIGHTER ACTIONS:**
+{{- else if eq .Role "trader"}}**TRADER ACTIONS:**
+{{- else if eq .Role "pirate"}}**PIRATE ACTIONS:**
+{{- else if eq .Role "salvager"}}**SALVAGER ACTIONS:**
+{{- else if eq .Role "craftsman"}}**CRAFTER ACTIONS:**
+{{- else}}**GENERAL ACTIONS:**
+{{end}}
+
+**MOVEMENT & POSITIONING:**
+{{- if and (not .State.IsDocked) (not .State.Traveling)}• `travel poi_id=<ID>` - Travel to a POI in current system (requires fuel)
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `jump system_name=<NAME>` - Jump to connected star system (requires fuel, must be at jump gate)
+{{- if .State.IsDocked}}• `undock` - Leave current station
+{{end}}
+
+**RESOURCE GATHERING:**
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `mine` - Extract resources at current location (requires mining laser, must be at asteroid belt/field)
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `scan` - Scan current area (requires scanner module)
+{{end}}
+
+**COMBAT:**
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `attack target_id=<ID>` - Engage hostile player (requires weapons, must be at same POI)
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `cloak` - Activate cloaking device (requires cloak module)
+{{end}}
+
+**STATION INTERACTION:**
+{{- if .State.IsDocked}}• `dock` - Dock at current station (if not already docked)
+{{- if .State.IsDocked}}• `sell item_id=<ID> quantity=<N>` - Sell specific items (must be docked)
+{{- if .State.IsDocked}}• `sell_all` - Sell all cargo items at once (must be docked)
+{{- if .State.IsDocked}}• `buy item_id=<ID> quantity=<N>` - Purchase items from market (must be docked)
+{{- if .State.IsDocked}}• `get_listings` - Check market prices (must be docked)
+{{- if .State.IsDocked}}• `get_ships` - Check available ships (must be docked)
+{{- if .State.IsDocked}}• `buy_ship ship_class=<CLASS>` - Buy new ship (must be docked, old ship sold for 50% value)
+{{- if .State.IsDocked}}• `install module_id=<ID>` - Install module from cargo (must be docked)
+{{- if .State.IsDocked}}• `uninstall module_id=<ID>` - Remove module (must be docked)
+{{- if .State.IsDocked}}• `refuel` - Refill fuel tank (must be docked)
+{{- if .State.IsDocked}}• `repair` - Repair hull damage (must be docked)
+{{- if .State.IsDocked}}• `view_storage` - View station storage (must be docked)
+{{- if .State.IsDocked}}• `deposit_items item_id=<ID> quantity=<N>` - Store items in station (must be docked)
+{{- if .State.IsDocked}}• `withdraw_items item_id=<ID> quantity=<N>` - Retrieve items from storage (must be docked)
+{{- if .State.IsDocked}}• `deposit_credits amount=<N>` - Store credits at station (must be docked)
+{{- if .State.IsDocked}}• `withdraw_credits amount=<N>` - Retrieve credits from storage (must be docked)
+{{end}}
+
+**INFORMATION:**
+• `get_status` - Get your current status
+• `get_system` - Get current system details (POIs, connections)
+• `get_poi poi_id=<ID>` - Get detailed POI information
+• `get_nearby` - Get nearby players
+• `scan target_id=<ID>` - Scan target player (requires scanner)
+{{end}}
+
+**MARKET ORDERS (if available):**
+{{- if .State.IsDocked}}• `create_sell_order item_id=<ID> quantity=<N> price_each=<N>` - List items for sale (escrows credits)
+{{- if .State.IsDocked}}• `create_buy_order item_id=<ID> quantity=<N> price_each=<N>` - List wanted-to-buy (escrows credits)
+{{- if .State.IsDocked}}• `view_orders` - View your active orders
+{{- if .State.IsDocked}}• `cancel_order order_id=<ID>` - Cancel an order
+{{end}}
+
+**MARKET ARBITRAGE:**
+{{- if .State.IsDocked}}• `analyze_market item_id=<ID>` - Analyze market prices for an item across systems
+{{- if .State.IsDocked}}• `find_route target_system=<NAME>` - Find shortest route to destination
+{{end}}
+
+**WRECK SALVAGING:**
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `get_wrecks` - List ship wrecks at current POI
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `get_base_wrecks` - List base wrecks at current POI
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `loot_wreck wreck_id=<ID> item_id=<ID> quantity=<N>` - Loot specific item from wreck
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `salvage_wreck wreck_id=<ID>` - Destroy wreck for materials
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `loot_base_wreck` - Loot credits/items from base wreck
+{{- if and (not .State.IsDocked) (not .State.Traveling)}}• `salvage_base_wreck` - Destroy base wreck for materials
+{{end}}
+
+**PLAYER INTERACTION:**
+• `chat channel=<CH> content=<TEXT>` - Send chat message (channels: system, local, faction, private)
+• `send_gift recipient=<NAME> item_id=<ID> quantity=<N> credits=<N> message=<TEXT>` - Send items/credits to another player
+• `trade_offer target_id=<ID> items=<JSON> credits=<N>` - Offer trade to another player
+• `trade_accept trade_id=<ID>` - Accept trade offer
+• `trade_decline trade_id=<ID>` - Decline trade offer
+{{end}}
+
+**ADVANCED:**
+• `wait` - Do nothing this turn (save action, wait for situation to change)
+• `set_anonymous enable=<BOOL>` - Toggle anonymous mode
+• `set_status status=<TEXT> clan_tag=<TAG>` - Update your status
+• `captains_log_add entry=<TEXT>` - Add entry to your personal log
+• `captains_log_get index=<N>` - Retrieve log entry
+{{end}}
