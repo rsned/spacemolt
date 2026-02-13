@@ -1361,6 +1361,14 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 				logger.Printf("🌟 Jumping to safety: %s", targetSystem)
 				if err := client.Jump(ctx, targetSystem); err != nil {
 					logger.Printf("Failed to jump to safety: %v", err)
+
+					// Check if we escaped despite the error (e.g., after reconnection)
+					state = client.GetState()
+					if state.CurrentSystem == targetSystem {
+						logger.Printf("✅ Despite error, escaped to %s!", targetSystem)
+						time.Sleep(5 * time.Second)
+						return false // Successfully escaped
+					}
 					return true
 				}
 
@@ -1540,6 +1548,12 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 			// Direct jump available
 			logger.Printf("🌟 Jumping directly to %s...", expState.LastFuelStation)
 			if err := client.Jump(ctx, expState.LastFuelStation); err != nil {
+				// Check if we arrived despite the error (e.g., after reconnection)
+				state = client.GetState()
+				if state.CurrentSystem == expState.LastFuelStation {
+					logger.Printf("✓ Despite error, arrived at fuel station %s", expState.LastFuelStation)
+					return findAndRefuel(client, ctx, logger, expState)
+				}
 				return fmt.Errorf("failed to jump to fuel station: %w", err)
 			}
 			time.Sleep(25 * time.Second)
@@ -1559,6 +1573,12 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 						logger.Printf("Rate limited, waiting...")
 						time.Sleep(10 * time.Second)
 					}
+					// Check if we arrived despite the error (e.g., after reconnection)
+					state = client.GetState()
+					if state.CurrentSystem == conn {
+						logger.Printf("✓ Despite error, arrived at %s", conn)
+						return findAndRefuel(client, ctx, logger, expState)
+					}
 					// Try next connection
 					continue
 				}
@@ -1577,6 +1597,12 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 					logger.Printf("Rate limited, waiting...")
 					time.Sleep(10 * time.Second)
 				}
+				// Check if we arrived despite the error (e.g., after reconnection)
+				state = client.GetState()
+				if state.CurrentSystem == conn {
+					logger.Printf("✓ Despite error, arrived at %s", conn)
+					return findAndRefuel(client, ctx, logger, expState)
+				}
 				continue
 			}
 			time.Sleep(25 * time.Second)
@@ -1592,6 +1618,12 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 
 func navigateToSystem(client *game.Client, ctx context.Context, logger *log.Logger, targetSystem string, expState *ExplorationState) error {
 	state := client.GetState()
+
+	// Check if we're already at the target system (can happen after reconnection)
+	if state.CurrentSystem == targetSystem {
+		logger.Printf("✓ Already at target system %s (skipping jump)", targetSystem)
+		return nil
+	}
 
 	// Store current system as previous before jumping (for escape routes)
 	if state.CurrentSystem != expState.HomeSystem || expState.PreviousSystem == "" {
@@ -1710,12 +1742,18 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		if err := client.Jump(ctx, systemID); err != nil {
 			logger.Printf("Failed to jump to %s: %v", systemID, err)
 			time.Sleep(10 * time.Second) // Wait before retry
-			return err
-		}
-		time.Sleep(25 * time.Second)
 
-		// Update state after jump
-		state = client.GetState()
+			// Check if we arrived despite the error (e.g., after reconnection)
+			state = client.GetState()
+			if state.CurrentSystem != systemID {
+				return err
+			}
+			logger.Printf("✓ Despite error, arrived at %s", systemID)
+		} else {
+			time.Sleep(25 * time.Second)
+			// Update state after jump
+			state = client.GetState()
+		}
 
 		// Find station in the new system
 		for _, poi := range state.System.POIs {
@@ -1874,6 +1912,19 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			if err := navigateToSystem(client, ctx, logger, nextSystem, expState); err != nil {
 				logger.Printf("Navigation error: %v", err)
 				time.Sleep(10 * time.Second)
+
+				// After reconnection, check if we actually arrived at destination despite the error
+				state = client.GetState()
+				if state.CurrentSystem == nextSystem {
+					logger.Printf("✓ Despite error, we successfully arrived at %s", nextSystem)
+					// Don't retry - we're already there
+				} else {
+					logger.Printf("⚠️  Still in %s, failed to reach %s", state.CurrentSystem, nextSystem)
+					// Pop the system we just added to the stack since navigation failed
+					if len(expState.DFSStack) > 0 {
+						expState.DFSStack = expState.DFSStack[:len(expState.DFSStack)-1]
+					}
+				}
 			}
 		} else {
 			// All neighbors visited - backtrack
@@ -1907,6 +1958,17 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			if err := navigateToSystem(client, ctx, logger, backtrackSystem, expState); err != nil {
 				logger.Printf("Backtrack error: %v", err)
 				time.Sleep(10 * time.Second)
+
+				// After reconnection, check if we actually arrived at destination despite the error
+				state = client.GetState()
+				if state.CurrentSystem == backtrackSystem {
+					logger.Printf("✓ Despite error, we successfully backtracked to %s", backtrackSystem)
+					// Don't retry - we're already there
+				} else {
+					logger.Printf("⚠️  Still in %s, failed to reach %s", state.CurrentSystem, backtrackSystem)
+					// Put the system back on the stack since we failed to reach it
+					expState.DFSStack = append(expState.DFSStack, backtrackSystem)
+				}
 			}
 		}
 
@@ -1998,7 +2060,7 @@ func main() {
 
 	// Set up explorer-specific handler with knowledge base integration
 	explorerHandler := &explorerSimpleHandler{
-		client:  client,
+		client: client,
 		logger: logger,
 		kb:     kb,
 	}
