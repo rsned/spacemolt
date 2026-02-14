@@ -163,13 +163,53 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 }
 
 // Connect establishes a WebSocket connection to the game server
+// Implements retry logic with exponential backoff for rate limiting (429 errors)
 func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	ws, _, err := websocket.Dial(ctx, c.url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to connect: %w", err)
+	maxRetries := 5
+	baseDelay := 1 * time.Second
+
+	var ws *websocket.Conn
+	var err error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		ws, _, err = websocket.Dial(ctx, c.url, nil)
+		if err == nil {
+			// Success!
+			break
+		}
+
+		// Check if this is a 429 (rate limit) error
+		errMsg := err.Error()
+		isRateLimited := false
+		if len(errMsg) > 0 {
+			// Check for "429" in error message
+			for i := 0; i < len(errMsg)-2; i++ {
+				if errMsg[i:i+3] == "429" {
+					isRateLimited = true
+					break
+				}
+			}
+		}
+
+		// If this is the last attempt, or not a rate limit error, fail
+		if attempt >= maxRetries || !isRateLimited {
+			return fmt.Errorf("failed to connect: %w", err)
+		}
+
+		// Calculate exponential backoff delay
+		delay := baseDelay * time.Duration(1<<uint(attempt))
+		c.debugLogger.Printf("Rate limited (429), retrying in %v (attempt %d/%d)", delay, attempt+1, maxRetries)
+
+		// Wait before retrying (check for context cancellation)
+		select {
+		case <-time.After(delay):
+			// Continue to next retry
+		case <-ctx.Done():
+			return fmt.Errorf("connection cancelled: %w", ctx.Err())
+		}
 	}
 
 	// Set a large read limit (10MB) to handle large state updates
