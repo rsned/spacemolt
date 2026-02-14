@@ -159,15 +159,62 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 	}
 }
 
-func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) error {
+func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, totalCreditsEarned float64) {
+	state := client.GetState()
+
+	var notes []string
+	notes = append(notes, fmt.Sprintf("Mining runs completed: %d", miningRuns))
+	notes = append(notes, fmt.Sprintf("Total credits earned: %.2f", totalCreditsEarned))
+	notes = append(notes, fmt.Sprintf("Current credits: %.2f", state.Credits))
+	notes = append(notes, fmt.Sprintf("Ship: %s (%d modules)", state.Ship.Name, len(state.Ship.Modules)))
+	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
+	notes = append(notes, fmt.Sprintf("Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel))
+	notes = append(notes, fmt.Sprintf("Cargo: %.1f/%.1f", state.Ship.CargoUsed, state.Ship.CargoCapacity))
+
+	// Count mining lasers
+	numLasers := game.CountModulesInstalled(state, "mining_laser_1") +
+		game.CountModulesInstalled(state, "mining_laser_2") +
+		game.CountModulesInstalled(state, "mining_laser_3") +
+		game.CountModulesInstalled(state, "advanced_mining_laser")
+	notes = append(notes, fmt.Sprintf("Mining lasers: %d", numLasers))
+
+	currentGoal := fmt.Sprintf("Autonomous mining operations - collecting resources and upgrading ship")
+	if state.Doc {
+		currentGoal = "Docked at station - selling cargo, refueling, and checking for upgrades"
+	} else if state.Traveling {
+		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
+	} else if !state.Doc && state.Ship.CargoUsed > state.Ship.CargoCapacity*0.5 {
+		currentGoal = "Mining operations in progress - cargo filling up"
+	}
+
+	entry := &game.AgentLog{
+		AgentName:   state.Player.Username,
+		CurrentGoal: currentGoal,
+		Location:    fmt.Sprintf("System: %s, POI: %s", state.CurrentSystem, state.CurrentPOI),
+		Notes:       notes,
+	}
+
+	game.WriteCaptainsLog(agentID, entry)
+}
+
+func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {
 	miningRuns := 0
 	totalCreditsEarned := 0.0
 	startingCredits := client.GetState().Credits
+
+	// Captain's log ticker - update every 2 minutes
+	logTicker := time.NewTicker(2 * time.Minute)
+	defer logTicker.Stop()
+
+	// Initial captain's log entry
+	updateCaptainsLog(agentID, client, miningRuns, totalCreditsEarned)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-logTicker.C:
+			updateCaptainsLog(agentID, client, miningRuns, totalCreditsEarned)
 		default:
 		}
 
@@ -385,13 +432,16 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 			attemptUpgrades(client, logger, ctx)
 		}
 
-		// Status summary
+		// Status summary and captain's log update
 		state = client.GetState()
 		logger.Printf("═══ Run #%d Complete ═══", miningRuns)
 		logger.Printf("Current Credits: %.2f (started with %.2f, earned %.2f total)",
 			state.Credits, startingCredits, totalCreditsEarned)
 		logger.Printf("Ship: %s | Modules: %d", state.Ship.Name, len(state.Ship.Modules))
 		logger.Printf("Next run in 5 seconds...\n")
+
+		// Update captain's log after each run
+		updateCaptainsLog(agentID, client, miningRuns, totalCreditsEarned)
 
 		time.Sleep(5 * time.Second)
 	}
@@ -410,6 +460,23 @@ func main() {
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
+	// Check captain's log for previous mission
+	previousLog, err := game.ReadLatestCaptainsLog(agentID)
+	if err != nil {
+		logger.Printf("Failed to read captain's log: %v", err)
+	} else if previousLog != nil {
+		logger.Printf("📖 Captain's Log - Last Entry:")
+		logger.Printf("   Mission: %s", previousLog.CurrentGoal)
+		logger.Printf("   Location: %s", previousLog.Location)
+		logger.Printf("   Time: %s", previousLog.Timestamp.Format("2006-01-02 15:04"))
+		if len(previousLog.Notes) > 0 {
+			logger.Printf("   Last Status:")
+			for _, note := range previousLog.Notes {
+				logger.Printf("      - %s", note)
+			}
+		}
+	}
+
 	// Create context for lifecycle management
 	ctx := context.Background()
 
@@ -419,7 +486,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.Printf("Warning: Failed to close client: %v", err)
+		}
+	}()
 
 	time.Sleep(1 * time.Second)
 
@@ -438,7 +509,7 @@ func main() {
 	logger.Printf("  🚀 Upgrade ships progressively using MiningProgression tiers")
 	logger.Printf("")
 
-	if err := miningLoop(client, logger, ctx); err != nil {
+	if err := miningLoop(agentID, client, logger, ctx); err != nil {
 		log.Fatalf("Mining loop error: %v", err)
 	}
 }

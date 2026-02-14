@@ -18,19 +18,71 @@ const (
 	TIER3_THRESHOLD = 10000.0 // Ship upgrade threshold
 )
 
+func updateCaptainsLog(agentID string, client *game.Client, fighterRuns int, totalCreditsEarned float64) {
+	state := client.GetState()
+
+	var notes []string
+	notes = append(notes, fmt.Sprintf("Combat runs completed: %d", fighterRuns))
+	notes = append(notes, fmt.Sprintf("Total credits earned: %.2f", totalCreditsEarned))
+	notes = append(notes, fmt.Sprintf("Current credits: %.2f", state.Credits))
+	notes = append(notes, fmt.Sprintf("Ship: %s (%d modules)", state.Ship.Name, len(state.Ship.Modules)))
+	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
+	notes = append(notes, fmt.Sprintf("Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel))
+	notes = append(notes, fmt.Sprintf("Cargo: %.1f/%.1f", state.Ship.CargoUsed, state.Ship.CargoCapacity))
+
+	// Count weapons
+	weaponCount := 0
+	for _, module := range state.Ship.Modules {
+		if len(module) >= 7 && module[:7] == "weapon_" {
+			weaponCount++
+		}
+	}
+	notes = append(notes, fmt.Sprintf("Weapons installed: %d", weaponCount))
+
+	currentGoal := "Autonomous combat operations - hunting pirates and upgrading equipment"
+	if state.Doc {
+		currentGoal = "Docked at station - selling loot, refueling, and checking for upgrades"
+	} else if state.Traveling {
+		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
+	} else if state.InCombat {
+		currentGoal = "Engaged in combat with hostile target"
+	}
+
+	entry := &game.AgentLog{
+		AgentName:   state.Player.Username,
+		CurrentGoal: currentGoal,
+		Location:    fmt.Sprintf("System: %s, POI: %s", state.CurrentSystem, state.CurrentPOI),
+		Notes:       notes,
+	}
+
+	if err := game.WriteCaptainsLog(agentID, entry); err != nil {
+		// Log error but don't fail - captain's log is not critical
+		_ = err
+	}
+}
+
 // fighterLoop implements the main combat loop for the auto-fighter agent
 // Logic: Hunt pirates, loot wrecks, sell loot, upgrade equipment, repeat
-func fighterLoop(client *game.Client, logger *log.Logger, ctx context.Context) error {
+func fighterLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {
 	fighterRuns := 0
 	totalCreditsEarned := 0.0
 	startingCredits := client.GetState().Credits
 
 	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
 
+	// Captain's log ticker - update every 2 minutes
+	logTicker := time.NewTicker(2 * time.Minute)
+	defer logTicker.Stop()
+
+	// Initial captain's log entry
+	updateCaptainsLog(agentID, client, fighterRuns, totalCreditsEarned)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-logTicker.C:
+			updateCaptainsLog(agentID, client, fighterRuns, totalCreditsEarned)
 		default:
 		}
 
@@ -232,6 +284,9 @@ func fighterLoop(client *game.Client, logger *log.Logger, ctx context.Context) e
 			state.Credits, startingCredits, totalCreditsEarned)
 		logger.Printf("Ship: %s | Weapons: %d", state.Ship.Name, len(state.Ship.Modules))
 
+		// Update captain's log after each run
+		updateCaptainsLog(agentID, client, fighterRuns, totalCreditsEarned)
+
 		// Check if we should continue looping
 		// Continue if we have fuel and hull, and haven't reached a stopping point
 		if state.Fuel < 20 || state.Hull < state.MaxHull*0.3 {
@@ -394,6 +449,23 @@ func main() {
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
+	// Check captain's log for previous mission
+	previousLog, err := game.ReadLatestCaptainsLog(agentID)
+	if err != nil {
+		logger.Printf("Failed to read captain's log: %v", err)
+	} else if previousLog != nil {
+		logger.Printf("📖 Captain's Log - Last Entry:")
+		logger.Printf("   Mission: %s", previousLog.CurrentGoal)
+		logger.Printf("   Location: %s", previousLog.Location)
+		logger.Printf("   Time: %s", previousLog.Timestamp.Format("2006-01-02 15:04"))
+		if len(previousLog.Notes) > 0 {
+			logger.Printf("   Last Status:")
+			for _, note := range previousLog.Notes {
+				logger.Printf("      - %s", note)
+			}
+		}
+	}
+
 	// Create context for lifecycle management
 	ctx := context.Background()
 
@@ -403,7 +475,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.Printf("Warning: Failed to close client: %v", err)
+		}
+	}()
 
 	time.Sleep(1 * time.Second)
 
@@ -428,7 +504,7 @@ func main() {
 	logger.Printf("       Ultimate Fighter (%.0f credits) → 6 weapon slots", game.CombatProgression.Tiers[4].Threshold)
 	logger.Printf("")
 
-	if err := fighterLoop(client, logger, ctx); err != nil {
+	if err := fighterLoop(agentID, client, logger, ctx); err != nil {
 		log.Fatalf("Fighter loop error: %v", err)
 	}
 }

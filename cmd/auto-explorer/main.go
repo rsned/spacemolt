@@ -110,6 +110,56 @@ func sanitizeFilename(name string) string {
 	return result
 }
 
+func updateCaptainsLog(agentID string, client *game.Client, expState *ExplorationState) {
+	state := client.GetState()
+
+	var notes []string
+	if expState != nil {
+		notes = append(notes, fmt.Sprintf("Systems explored: %d", len(expState.VisitedSystems)))
+		notes = append(notes, fmt.Sprintf("Current system: %s", state.CurrentSystem))
+	}
+	notes = append(notes, fmt.Sprintf("Credits: %.2f", state.Credits))
+	notes = append(notes, fmt.Sprintf("Ship: %s", state.Ship.Name))
+	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
+	notes = append(notes, fmt.Sprintf("Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel))
+
+	// Count scanners
+	scannerCount := 0
+	for _, module := range state.Ship.Modules {
+		if strings.HasPrefix(module, "scanner") {
+			scannerCount++
+		}
+	}
+	if scannerCount > 0 {
+		notes = append(notes, fmt.Sprintf("Scanners: %d", scannerCount))
+	}
+
+	currentGoal := "Autonomous galaxy exploration - mapping systems and discovering POIs"
+	if expState != nil {
+		if state.Doc {
+			currentGoal = "Docked at station - refueling and collecting market data"
+		} else if state.Traveling {
+			currentGoal = fmt.Sprintf("Exploring: traveling to %s", state.TravelProgress.Destination)
+		} else if state.InCombat {
+			currentGoal = "Evading hostile contact during exploration"
+		} else if len(expState.DFSStack) > 0 {
+			currentGoal = fmt.Sprintf("Deep exploration (stack depth: %d)", len(expState.DFSStack))
+		}
+	}
+
+	entry := &game.AgentLog{
+		AgentName:   state.Player.Username,
+		CurrentGoal: currentGoal,
+		Location:    fmt.Sprintf("System: %s, POI: %s", state.CurrentSystem, state.CurrentPOI),
+		Notes:       notes,
+	}
+
+	if err := game.WriteCaptainsLog(agentID, entry); err != nil {
+		// Log error but don't fail - captain's log is not critical
+		_ = err
+	}
+}
+
 func hasMiningLaser(state *game.State) bool {
 	for _, module := range state.Ship.Modules {
 		if strings.HasPrefix(module, "mining_laser_") {
@@ -2055,10 +2105,19 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 
 	logger.Printf("Starting DFS exploration from home system: %s", expState.HomeSystem)
 
+	// Captain's log ticker - update every 2 minutes
+	logTicker := time.NewTicker(2 * time.Minute)
+	defer logTicker.Stop()
+
+	// Initial captain's log entry
+	updateCaptainsLog(agentID, client, expState)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-logTicker.C:
+			updateCaptainsLog(agentID, client, expState)
 		default:
 		}
 
@@ -2090,6 +2149,9 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			logger.Printf("📍 Exploring new system: %s", currentSystem)
 			expState.VisitedSystems[currentSystem] = true
 			expState.VisitedPOIs = make(map[string]bool) // Reset POI visits for new system
+
+			// Update captain's log for new system discovery
+			updateCaptainsLog(agentID, client, expState)
 
 			// Collect system data
 			if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
@@ -2266,6 +2328,23 @@ func main() {
 	explorer := args[0]
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[EXPLORER-%s] ", explorer), log.LstdFlags)
+
+	// Check captain's log for previous mission
+	previousLog, err := game.ReadLatestCaptainsLog(explorer)
+	if err != nil {
+		logger.Printf("Failed to read captain's log: %v", err)
+	} else if previousLog != nil {
+		logger.Printf("📖 Captain's Log - Last Entry:")
+		logger.Printf("   Mission: %s", previousLog.CurrentGoal)
+		logger.Printf("   Location: %s", previousLog.Location)
+		logger.Printf("   Time: %s", previousLog.Timestamp.Format("2006-01-02 15:04"))
+		if len(previousLog.Notes) > 0 {
+			logger.Printf("   Last Status:")
+			for _, note := range previousLog.Notes {
+				logger.Printf("      - %s", note)
+			}
+		}
+	}
 
 	// Load credentials using shared library function
 	creds, err := game.LoadCredentials(fmt.Sprintf("data/agents/%s", explorer))
