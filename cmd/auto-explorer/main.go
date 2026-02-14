@@ -53,7 +53,25 @@ type explorerSimpleHandler struct {
 }
 
 func (h *explorerSimpleHandler) OnConnected(state *game.State) {
-	h.logger.Printf("✓ Connected! Credits: %.2f", state.Credits)
+	h.logger.Printf("✓ Connected! Credits: %.2f | System: %s (%s)",
+		state.Credits, state.System.Name, state.CurrentSystem)
+
+	// CRITICAL: After reconnection, always refresh system data to verify our actual location
+	// This prevents the "cannot jump, system is not connected" problem where we think
+	// we're in one system but are actually in another after reconnection
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	h.logger.Printf("🔍 Refreshing system data after connection to verify location...")
+	if err := h.client.GetSystem(ctx); err != nil {
+		h.logger.Printf("⚠️  Failed to refresh system data after connection: %v", err)
+		// Continue anyway - state might still be useful
+	} else {
+		// Wait for state update
+		time.Sleep(2 * time.Second)
+		refreshedState := h.client.GetState()
+		h.logger.Printf("✓ Verified location: %s (%s)", refreshedState.System.Name, refreshedState.CurrentSystem)
+	}
 }
 
 func (h *explorerSimpleHandler) OnMessage(resp protocol.Response) {
@@ -90,24 +108,6 @@ func sanitizeFilename(name string) string {
 		}
 	}
 	return result
-}
-
-func isItemOwned(state *game.State, itemID string) bool {
-	// Check if installed on ship
-	for _, module := range state.Ship.Modules {
-		if module == itemID {
-			return true
-		}
-	}
-
-	// Check if in cargo
-	for _, item := range state.Ship.Cargo {
-		if item.ItemID == itemID && item.Quantity > 0 {
-			return true
-		}
-	}
-
-	return false
 }
 
 func hasMiningLaser(state *game.State) bool {
@@ -158,6 +158,86 @@ func getShieldPercentage(state *game.State) float64 {
 
 func needsRefuel(state *game.State) bool {
 	return state.Fuel < (state.MaxFuel * 0.3)
+}
+
+// checkForHiddenFindings scans POIs for hidden findings and prints details
+func checkForHiddenFindings(logger *log.Logger, state *game.State) {
+	hiddenCount := 0
+	for _, poi := range state.System.POIs {
+		// Check if this POI is hidden (newly discovered by survey)
+		// Hidden POIs have a Hidden field or were just revealed
+		if poi.Type == "deep_core_deposit" {
+			hiddenCount++
+			logger.Printf("🔍 ═══════════════════════════════════════════════")
+			logger.Printf("🔍 HIDDEN FINDING DISCOVERED!")
+			logger.Printf("🔍 ═══════════════════════════════════════════════")
+			logger.Printf("🔍 Type: %s", poi.Type)
+			logger.Printf("🔍 Name: %s", poi.Name)
+			logger.Printf("🔍 ID: %s", poi.ID)
+			logger.Printf("🔍 System: %s (%s)", state.System.Name, state.System.ID)
+			logger.Printf("🔍 Description: %s", poi.Description)
+			if len(poi.Resources) > 0 {
+				logger.Printf("🔍 Resources: %v", poi.Resources)
+			}
+			logger.Printf("🔍 Position: X=%.2f, Y=%.2f", poi.Position.X, poi.Position.Y)
+			logger.Printf("🔍 ═══════════════════════════════════════════════")
+
+			// Save hidden finding to a special file
+			saveSurveyFinding(logger, state, poi)
+		}
+	}
+
+	if hiddenCount > 0 {
+		logger.Printf("✨ Found %d hidden POI(s) in this survey!", hiddenCount)
+	}
+}
+
+// saveSurveyFinding saves a hidden POI finding to a special file for later reference
+func saveSurveyFinding(logger *log.Logger, state *game.State, poi game.POI) {
+	timestamp := time.Now().Format("20060102150405") // YYYYMMDDHHMMSS
+
+	findingData := map[string]any{
+		"timestamp":    time.Now().Format(time.RFC3339),
+		"game_tick":    state.CurrentTick,
+		"system_id":    state.System.ID,
+		"system_name":  state.System.Name,
+		"finding_type": "deep_core_deposit",
+		"poi": map[string]any{
+			"id":          poi.ID,
+			"name":        poi.Name,
+			"type":        poi.Type,
+			"description": poi.Description,
+			"position":    poi.Position,
+			"resources":   poi.Resources,
+			"base_id":     poi.BaseID,
+		},
+		"discovered_by": state.Username,
+	}
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(findingData, "", "  ")
+	if err != nil {
+		logger.Printf("⚠️  Failed to marshal survey finding: %v", err)
+		return
+	}
+
+	// Create filename: survey_finding_{SYSTEM_NAME}_{TIMESTAMP}.json
+	systemName := sanitizeFilename(state.System.Name)
+	filename := fmt.Sprintf("survey_finding.%s.%s.json", systemName, timestamp)
+	filePath := filepath.Join("data", "server", "survey_findings", filename)
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		logger.Printf("⚠️  Failed to create survey findings directory: %v", err)
+		return
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		logger.Printf("⚠️  Failed to write survey finding: %v", err)
+		return
+	}
+
+	logger.Printf("💾 Saved survey finding to: %s", filePath)
 }
 
 // ============================================================================
@@ -598,6 +678,19 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		logger.Printf("⚠️  Failed to save system to knowledge base: %v", err)
 	} else {
 		logger.Printf("💾 Saved system to knowledge base: %s", state.System.Name)
+	}
+
+	// Perform system survey to scan for hidden POIs (requires survey scanner module)
+	logger.Printf("🔭 Surveying system for hidden POIs...")
+	if err := client.SurveySystem(ctx); err != nil {
+		logger.Printf("⚠️  Survey failed (may not have survey scanner): %v", err)
+	} else {
+		logger.Printf("✓ Survey complete")
+		time.Sleep(3 * time.Second)
+
+		// Check for and report any hidden findings
+		state = client.GetState()
+		checkForHiddenFindings(logger, state)
 	}
 
 	// Save to file for compatibility with existing workflows
@@ -2025,19 +2118,51 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			logger.Printf("→ Moving to unvisited system: %s (Stack depth: %d)", nextSystem, len(expState.DFSStack))
 
 			if err := navigateToSystem(client, ctx, logger, nextSystem, expState); err != nil {
-				logger.Printf("Navigation error: %v", err)
-				time.Sleep(10 * time.Second)
+				errMsg := err.Error()
 
-				// After reconnection, check if we actually arrived at destination despite the error
-				state = client.GetState()
-				if state.CurrentSystem == nextSystem {
-					logger.Printf("✓ Despite error, we successfully arrived at %s", nextSystem)
-					// Don't retry - we're already there
-				} else {
+				// Handle "not connected" errors specially - need reconnection time
+				if strings.Contains(errMsg, "not connected") || strings.Contains(errMsg, "rate_limit") {
+					logger.Printf("⚠️  Connection error detected, waiting for reconnection...")
+					time.Sleep(20 * time.Second) // Longer wait for reconnection
+
+					// Refresh system data to verify actual location
+					logger.Printf("🔍 Refreshing system data after reconnection...")
+					if refreshErr := client.GetSystem(ctx); refreshErr != nil {
+						logger.Printf("⚠️  Failed to refresh system: %v", refreshErr)
+					} else {
+						time.Sleep(2 * time.Second)
+					}
+
+					// Check if we're actually connected now
+					state = client.GetState()
+					if state.CurrentSystem == nextSystem {
+						logger.Printf("✓ Successfully arrived at %s after reconnection", nextSystem)
+						// Don't retry - we're already there
+						continue
+					}
+
 					logger.Printf("⚠️  Still in %s, failed to reach %s", state.CurrentSystem, nextSystem)
-					// Pop the system we just added to the stack since navigation failed
+					// Pop system from stack and try different route
 					if len(expState.DFSStack) > 0 {
 						expState.DFSStack = expState.DFSStack[:len(expState.DFSStack)-1]
+					}
+					// Extra delay before trying again to avoid rate limiting
+					time.Sleep(10 * time.Second)
+				} else {
+					logger.Printf("Navigation error: %v", err)
+					time.Sleep(10 * time.Second)
+
+					// After reconnection, check if we actually arrived at destination despite the error
+					state = client.GetState()
+					if state.CurrentSystem == nextSystem {
+						logger.Printf("✓ Despite error, we successfully arrived at %s", nextSystem)
+						// Don't retry - we're already there
+					} else {
+						logger.Printf("⚠️  Still in %s, failed to reach %s", state.CurrentSystem, nextSystem)
+						// Pop the system we just added to the stack since navigation failed
+						if len(expState.DFSStack) > 0 {
+							expState.DFSStack = expState.DFSStack[:len(expState.DFSStack)-1]
+						}
 					}
 				}
 			}
@@ -2071,20 +2196,49 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			logger.Printf("← Backtracking to: %s (Stack depth: %d)", backtrackSystem, len(expState.DFSStack))
 
 			if err := navigateToSystem(client, ctx, logger, backtrackSystem, expState); err != nil {
-				logger.Printf("Backtrack error: %v", err)
-				time.Sleep(10 * time.Second)
+				errMsg := err.Error()
 
-				// After reconnection, check if we actually arrived at destination despite the error
-				state = client.GetState()
-				if state.CurrentSystem == backtrackSystem {
-					logger.Printf("✓ Despite error, we successfully backtracked to %s", backtrackSystem)
-					// Don't retry - we're already there
+				// Handle "not connected" errors specially - need reconnection time
+				if strings.Contains(errMsg, "not connected") || strings.Contains(errMsg, "rate_limit") {
+					logger.Printf("Connection error detected, waiting for reconnection...")
+					time.Sleep(20 * time.Second) // Longer wait for reconnection
+
+					// Refresh system data to verify actual location
+					logger.Printf("Refreshing system data after reconnection...")
+					if refreshErr := client.GetSystem(ctx); refreshErr != nil {
+						logger.Printf("Failed to refresh system: %v", refreshErr)
+					} else {
+						time.Sleep(2 * time.Second)
+					}
+
+					// Check if we're actually connected now
+					state = client.GetState()
+					if state.CurrentSystem == backtrackSystem {
+						logger.Printf("Successfully backtracked to %s after reconnection", backtrackSystem)
+						// Don't retry - we're already there
+						continue
+					}
+
+					logger.Printf("Still in %s, failed to reach %s", state.CurrentSystem, backtrackSystem)
+					// Don't put system back on stack - try different route
+					time.Sleep(10 * time.Second)
 				} else {
-					logger.Printf("⚠️  Still in %s, failed to reach %s", state.CurrentSystem, backtrackSystem)
-					// Put the system back on the stack since we failed to reach it
-					expState.DFSStack = append(expState.DFSStack, backtrackSystem)
+					logger.Printf("Backtrack error: %v", err)
+					time.Sleep(10 * time.Second)
+
+					// After reconnection, check if we actually arrived at destination despite error
+					state = client.GetState()
+					if state.CurrentSystem == backtrackSystem {
+						logger.Printf("Despite error, we successfully backtracked to %s", backtrackSystem)
+						// Don't retry - we're already there
+					} else {
+						logger.Printf("Still in %s, failed to reach %s", state.CurrentSystem, backtrackSystem)
+						// Put system back on stack since we failed to reach it
+						expState.DFSStack = append(expState.DFSStack, backtrackSystem)
+					}
 				}
 			}
+
 		}
 
 		time.Sleep(5 * time.Second)
@@ -2130,7 +2284,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize knowledge base: %v", err)
 	}
-	defer kb.Close()
+	defer func() {
+		if err := kb.Close(); err != nil {
+			logger.Printf("Warning: Failed to close knowledge base: %v", err)
+		}
+	}()
 	logger.Printf("✓ Knowledge base initialized (%s)", *dbBackend)
 
 	// Register with status registry if configured
@@ -2161,17 +2319,23 @@ func main() {
 		} else {
 			logger.Printf("✓ Registered with status registry")
 			// Update status
-			regClient.UpdateStatus("starting", "Initializing")
+			if err := regClient.UpdateStatus("starting", "Initializing"); err != nil {
+				logger.Printf("Warning: Failed to update status: %v", err)
+			}
 		}
 	}
 
 	// Create game client using shared library function
 	// This handles: credential loading, client creation, connection, and login
-	client, creds, err := game.InitializeAgent(explorer, logger, ctx)
+	client, _, err := game.InitializeAgent(explorer, logger, ctx)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.Printf("Warning: Failed to close client: %v", err)
+		}
+	}()
 
 	// Set up explorer-specific handler with knowledge base integration
 	explorerHandler := &explorerSimpleHandler{
@@ -2198,7 +2362,9 @@ func main() {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer func() {
-		client.Close()
+		if err := client.Close(); err != nil {
+			logger.Printf("Warning: Failed to close client: %v", err)
+		}
 		// Deregister from registry
 		if regClient != nil {
 			if err := regClient.Deregister(); err != nil {
@@ -2214,7 +2380,9 @@ func main() {
 	// Login
 	logger.Printf("Logging in...")
 	if regClient != nil {
-		regClient.UpdateStatus("connecting", "Logging in")
+		if err := regClient.UpdateStatus("connecting", "Logging in"); err != nil {
+			logger.Printf("Warning: Failed to update status: %v", err)
+		}
 	}
 	if err := client.Login(ctx); err != nil {
 		log.Fatalf("Failed to login: %v", err)
