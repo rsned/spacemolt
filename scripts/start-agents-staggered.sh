@@ -1,11 +1,38 @@
 #!/bin/bash
 
 # Staggered Agent Launcher - Starts agents in batches to avoid rate limiting
+#
+# Usage:
+#   ./start-agents-staggered.sh              # Start all agents with role-based binaries
+#   ./start-agents-staggered.sh --binary miner   # Start all agents with auto-miner
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
 mkdir -p logs
+
+# Extract role from agent name (e.g., "pirate-1" -> "pirate")
+get_agent_role() {
+    echo "$1" | sed 's/-[0-9]*$//'
+}
+
+# Get binary name for a role
+get_binary_for_role() {
+    local role=$1
+    echo "auto-${role}"
+}
+
+# Parse command line arguments
+FORCE_BINARY=""
+if [ "$1" == "--binary" ]; then
+    FORCE_BINARY="auto-${2#auto-}"  # Normalize: add "auto-" prefix if missing
+    if [ ! -f "bin/$FORCE_BINARY" ]; then
+        echo "❌ Binary not found: bin/$FORCE_BINARY"
+        exit 1
+    fi
+    echo "🔧 Override mode: Using $FORCE_BINARY for all agents"
+    echo ""
+fi
 
 echo "🚀 Starting 90 agents in batches to avoid rate limiting..."
 echo ""
@@ -40,15 +67,23 @@ for batch in "${BATCHES[@]}"; do
     echo "━━━ Batch $BATCH_NUM ━━━"
 
     for agent in $batch; do
-        # Check if already running
-        if pgrep -f "auto-miner $agent" > /dev/null; then
+        # Determine which binary to use
+        if [ -n "$FORCE_BINARY" ]; then
+            binary="$FORCE_BINARY"
+        else
+            role=$(get_agent_role "$agent")
+            binary=$(get_binary_for_role "$role")
+        fi
+
+        # Check if already running (check for any auto-* binary with this agent)
+        if pgrep -f "auto-.* $agent" > /dev/null; then
             echo "  ⚠️  $agent already running"
             continue
         fi
 
         # Start the agent
-        (cd "$SCRIPT_DIR" && ./bin/auto-miner $agent > logs/$agent.log 2>&1 &)
-        echo "  ✓ Started $agent"
+        (cd "$SCRIPT_DIR" && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
+        echo "  ✓ Started $agent with $binary"
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 
         # Small delay between starts in same batch
@@ -75,7 +110,7 @@ echo "Waiting 5 seconds for connections to establish..."
 sleep 5
 
 # Check final status
-RUNNING=$(pgrep -f "bin/auto-miner" | wc -l)
+RUNNING=$(pgrep -f "bin/auto-" | wc -l)
 echo "📊 Final Status: $RUNNING agents running"
 
 if [ $RUNNING -lt $TOTAL_STARTED ]; then

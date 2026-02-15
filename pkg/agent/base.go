@@ -213,9 +213,9 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 		systemInfos[i] = prompts.SystemInfo{
 			ID:            sys.ID,
 			Name:          sys.Name,
-			SecurityLevel: sys.SecurityLevel,
-			Faction:       sys.Faction,
-			VisitCount:    sys.VisitCount,
+			SecurityLevel: mapSecurityLevel(sys.PoliceLevel), // Convert int to string
+			Faction:       sys.Empire,
+			VisitCount:    0, // VisitCount is knowledge base metadata, not in game.SystemData
 		}
 	}
 
@@ -515,19 +515,10 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 
 	// Always persist the current system if we have data about it
 	if state.System.ID != "" && state.System.Name != "" {
-		sys := System{
-			ID:   state.System.ID,
-			Name: state.System.Name,
-			Position: Position{
-				X: state.System.Position.X,
-				Y: state.System.Position.Y,
-				Z: 0, // 2D game, Z is always 0
-			},
-			SecurityLevel: mapSecurityLevel(state.System.PoliceLevel),
-			Faction:       state.System.Empire,
-			Connections:   state.System.Connections,
-			DiscoveredBy:  a.id,
-		}
+		// The Memory interface now takes game.SystemData directly
+		// Add DiscoveredBy field for knowledge base tracking
+		sys := state.System
+		sys.DiscoveredBy = a.id
 
 		if err := a.memory.RememberSystem(ctx, sys); err != nil {
 			return fmt.Errorf("failed to remember system %s: %w", sys.ID, err)
@@ -546,32 +537,7 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 
 	// Persist all POIs discovered in the current system
 	for _, poi := range state.System.POIs {
-		// Convert POI resources
-		resources := make([]ResourceInfo, len(poi.Resources))
-		for i, res := range poi.Resources {
-			resources[i] = ResourceInfo{
-				ResourceID: res.ResourceID,
-				Richness:   res.Richness,
-				Remaining:  res.Remaining,
-			}
-		}
-
-		agentPOI := POI{
-			ID:       poi.ID,
-			SystemID: poi.SystemID,
-			Name:     poi.Name,
-			Type:     poi.Type,
-			Position: Position{
-				X: poi.Position.X,
-				Y: poi.Position.Y,
-				Z: 0,
-			},
-			Services:     []string{},
-			Resources:    resources,
-			DiscoveredBy: a.id,
-		}
-
-		if err := a.memory.RememberPOI(ctx, agentPOI); err != nil {
+		if err := a.memory.RememberPOI(ctx, poi); err != nil {
 			fmt.Printf("[Agent %s] Warning: failed to remember POI %s: %v\n",
 				a.id, poi.Name, err)
 		} else {
@@ -640,6 +606,22 @@ func mapSecurityLevel(policeLevel int) string {
 	}
 }
 
+// mapPoliceLevel converts security string to police level (inverse of mapSecurityLevel)
+func mapPoliceLevel(security string) int {
+	switch security {
+	case "None":
+		return 0
+	case "Low":
+		return 1
+	case "Medium":
+		return 2
+	case "High":
+		return 3
+	default:
+		return 0 // Default to no police
+	}
+}
+
 // Memory returns the agent's memory
 func (a *BaseAgent) Memory() Memory {
 	return a.memory
@@ -694,20 +676,21 @@ func NewKBMemory(kb knowledge.Base, agentID string) *KBMemory {
 }
 
 // KnownSystems returns all known systems
-func (m *KBMemory) KnownSystems() []SystemKnowledge {
-	systems := m.kb.GetSystems()
+func (m *KBMemory) KnownSystems() []game.SystemData {
+	kbSystems := m.kb.GetSystems()
 
-	result := make([]SystemKnowledge, len(systems))
-	for i, sys := range systems {
-		result[i] = SystemKnowledge{
-			ID:            sys.ID,
-			Name:          sys.Name,
-			Position:      Position{X: sys.Position.X, Y: sys.Position.Y, Z: sys.Position.Z},
-			SecurityLevel: sys.SecurityLevel,
-			Faction:       sys.Faction,
-			Connections:   sys.Connections,
-			VisitCount:    sys.VisitCount,
-			DiscoveredBy:  sys.DiscoveredBy,
+	result := make([]game.SystemData, len(kbSystems))
+	for i, sys := range kbSystems {
+		result[i] = game.SystemData{
+			ID:           sys.ID,
+			Name:         sys.Name,
+			Empire:       sys.Faction,
+			PoliceLevel:  mapPoliceLevel(sys.SecurityLevel),
+			POIs:         []game.POI{}, // Not stored in knowledge base
+			Connections:  sys.Connections,
+			Position:     sys.Position,
+			Discovered:   true,
+			DiscoveredBy: sys.DiscoveredBy,
 		}
 	}
 
@@ -715,34 +698,33 @@ func (m *KBMemory) KnownSystems() []SystemKnowledge {
 }
 
 // KnownPOIs returns POIs in a system
-func (m *KBMemory) KnownPOIs(systemID string) []POIKnowledge {
+func (m *KBMemory) KnownPOIs(systemID string) []game.POI {
 	// Query the knowledge base
-	pois, err := m.kb.GetPOIs(context.Background(), systemID)
+	kbPOIs, err := m.kb.GetPOIs(context.Background(), systemID)
 	if err != nil {
 		// Log error but return empty slice
-		return []POIKnowledge{}
+		return []game.POI{}
 	}
 
-	result := make([]POIKnowledge, len(pois))
-	for i, poi := range pois {
-		// Convert resources from knowledge.ResourceInfo to agent.ResourceInfo
-		resources := make([]ResourceInfo, len(poi.Resources))
+	result := make([]game.POI, len(kbPOIs))
+	for i, poi := range kbPOIs {
+		// Convert resources from knowledge.POI uses game.POIResource
+		resources := make([]game.POIResource, len(poi.Resources))
 		for j, res := range poi.Resources {
-			resources[j] = ResourceInfo{
+			resources[j] = game.POIResource{
 				ResourceID: res.ResourceID,
 				Richness:   res.Richness,
 				Remaining:  res.Remaining,
 			}
 		}
 
-		result[i] = POIKnowledge{
+		result[i] = game.POI{
 			ID:          poi.ID,
 			SystemID:    poi.SystemID,
 			Name:        poi.Name,
 			Type:        poi.Type,
 			Description: poi.Description,
-			Position:    Position{X: poi.Position.X, Y: poi.Position.Y},
-			Services:    poi.Services,
+			Position:    poi.Position,
 			Resources:   resources,
 		}
 	}
@@ -756,13 +738,13 @@ func (m *KBMemory) GetUnknownConnections(systemID string) ([]string, error) {
 }
 
 // RememberSystem stores a system in memory
-func (m *KBMemory) RememberSystem(ctx context.Context, sys System) error {
+func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) error {
 	kbSys := knowledge.System{
 		ID:            sys.ID,
 		Name:          sys.Name,
-		Position:      knowledge.Position{X: sys.Position.X, Y: sys.Position.Y, Z: sys.Position.Z},
-		SecurityLevel: sys.SecurityLevel,
-		Faction:       sys.Faction,
+		Position:      sys.Position,
+		SecurityLevel: mapSecurityLevel(sys.PoliceLevel),
+		Faction:       sys.Empire,
 		Connections:   sys.Connections,
 		DiscoveredBy:  sys.DiscoveredBy,
 	}
@@ -771,24 +753,17 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys System) error {
 }
 
 // RememberPOI stores a POI in memory
-func (m *KBMemory) RememberPOI(ctx context.Context, poi POI) error {
-	// Convert resources
-	resources := make([]knowledge.ResourceInfo, len(poi.Resources))
-	for i, res := range poi.Resources {
-		resources[i] = knowledge.ResourceInfo{
-			ResourceID: res.ResourceID,
-			Richness:   res.Richness,
-			Remaining:  res.Remaining,
-		}
-	}
-
+func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 	kbPOI := knowledge.POI{
 		ID:           poi.ID,
 		SystemID:     poi.SystemID,
 		Name:         poi.Name,
 		Type:         poi.Type,
-		Position:     knowledge.Position{X: poi.Position.X, Y: poi.Position.Y},
-		DiscoveredBy: poi.DiscoveredBy,
+		Description:  poi.Description,
+		Position:     poi.Position,
+		Resources:    poi.Resources, // game.POIResource is compatible
+		Services:     []string{},    // Not stored in game POI
+		DiscoveredBy: m.agentID,
 	}
 
 	return m.kb.RememberPOI(ctx, kbPOI)

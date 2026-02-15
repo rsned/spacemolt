@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -42,11 +43,13 @@ func tickEvery(d time.Duration) tea.Cmd {
 
 // AgentInfo represents information about an agent for the TUI
 type AgentInfo struct {
-	ID     string
-	Name   string
-	Role   string
-	Status string
-	Action string
+	ID      string
+	Name    string
+	Role    string
+	Status  string
+	Action  string
+	Empire  string
+	Faction string
 }
 
 // WatcherModel is the main TUI model for the watcher interface
@@ -175,7 +178,7 @@ func (m *WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AgentStatusMsg:
 		// Handle agent status update
-		m.updateAgentStatus(msg.AgentID, msg.Status)
+		m.UpdateAgentStatus(msg.AgentID, msg.Status)
 		return m, nil
 
 	case tea.WindowSizeMsg:
@@ -348,6 +351,30 @@ func (m *WatcherModel) renderAgentPanel(width, height int) string {
 	return sb.String()
 }
 
+// sortAgents sorts the agents list by Faction, then Empire, then Name
+func (m *WatcherModel) sortAgents() {
+	sort.Slice(m.agents, func(i, j int) bool {
+		// First sort by Faction
+		if m.agents[i].Faction != m.agents[j].Faction {
+			return m.agents[i].Faction < m.agents[j].Faction
+		}
+		// Then by Empire
+		if m.agents[i].Empire != m.agents[j].Empire {
+			return m.agents[i].Empire < m.agents[j].Empire
+		}
+		// Finally by Name
+		return m.agents[i].Name < m.agents[j].Name
+	})
+
+	// Update selectedIndex to match the new position of selectedAgentID
+	for i, agent := range m.agents {
+		if agent.ID == m.selectedAgentID {
+			m.selectedIndex = i
+			break
+		}
+	}
+}
+
 // AddAgent adds an agent to the watcher
 func (m *WatcherModel) AddAgent(info AgentInfo) {
 	m.agents = append(m.agents, info)
@@ -363,6 +390,9 @@ func (m *WatcherModel) AddAgent(info AgentInfo) {
 		}
 		m.agentLogs[info.ID] = []string{}
 	}
+
+	// Sort agents by Faction, Empire, Name
+	m.sortAgents()
 
 	// Auto-select first agent
 	if len(m.agents) == 1 {
@@ -412,8 +442,8 @@ func (m *WatcherModel) AddLogForAgent(agentID string, line string) {
 	}
 }
 
-// updateAgentStatus updates an agent's status
-func (m *WatcherModel) updateAgentStatus(agentID string, status string) {
+// UpdateAgentStatus updates an agent's status
+func (m *WatcherModel) UpdateAgentStatus(agentID string, status string) {
 	for i := range m.agents {
 		if m.agents[i].ID == agentID {
 			m.agents[i].Status = status

@@ -132,6 +132,31 @@ CREATE INDEX IF NOT EXISTS idx_market_snapshots_captured_at ON market_snapshots(
 CREATE INDEX IF NOT EXISTS idx_market_listings_snapshot_id ON market_listings(snapshot_id);
 CREATE INDEX IF NOT EXISTS idx_market_listings_item_id ON market_listings(item_id);
 CREATE INDEX IF NOT EXISTS idx_market_listings_item_type ON market_listings(item_type);
+
+-- Ship listings table: stores available ships at stations
+CREATE TABLE IF NOT EXISTS ship_listings (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	system_id TEXT NOT NULL,
+	system_name TEXT NOT NULL,
+	station_id TEXT NOT NULL,
+	station_name TEXT NOT NULL,
+	ship_class TEXT NOT NULL,
+	ship_name TEXT NOT NULL,
+	base_price REAL NOT NULL,
+	description TEXT,
+	cargo_space INTEGER,
+	module_slots INTEGER,
+	utility_slots INTEGER,
+	weapon_slots INTEGER,
+	game_tick INTEGER NOT NULL,
+	captured_at TEXT NOT NULL,
+	agent_id TEXT,
+	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- Indexes for ship listings
+CREATE INDEX IF NOT EXISTS idx_ship_listings_system_station ON ship_listings(system_id, station_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ship_listings_captured_at ON ship_listings(captured_at DESC);
 `,
 		},
 		{

@@ -141,13 +141,53 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 }
 
 // Connect establishes a WebSocket connection to the game server
+// Implements retry logic with exponential backoff for rate limiting (429 errors)
 func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	ws, _, err := websocket.Dial(ctx, c.url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to connect: %w", err)
+	maxRetries := 5
+	baseDelay := 1 * time.Second
+
+	var ws *websocket.Conn
+	var err error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		ws, _, err = websocket.Dial(ctx, c.url, nil)
+		if err == nil {
+			// Success!
+			break
+		}
+
+		// Check if this is a 429 (rate limit) error
+		errMsg := err.Error()
+		isRateLimited := false
+		if len(errMsg) > 0 {
+			// Check for "429" in error message
+			for i := 0; i < len(errMsg)-2; i++ {
+				if errMsg[i:i+3] == "429" {
+					isRateLimited = true
+					break
+				}
+			}
+		}
+
+		// If this is the last attempt, or not a rate limit error, fail
+		if attempt >= maxRetries || !isRateLimited {
+			return fmt.Errorf("failed to connect: %w", err)
+		}
+
+		// Calculate exponential backoff delay
+		delay := baseDelay * time.Duration(1<<uint(attempt))
+		c.debugLogger.Printf("Rate limited (429), retrying in %v (attempt %d/%d)", delay, attempt+1, maxRetries)
+
+		// Wait before retrying (check for context cancellation)
+		select {
+		case <-time.After(delay):
+			// Continue to next retry
+		case <-ctx.Done():
+			return fmt.Errorf("connection cancelled: %w", ctx.Err())
+		}
 	}
 
 	// Set a large read limit (10MB) to handle large state updates
@@ -405,6 +445,80 @@ func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) erro
 	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
+// CreateBulkSellOrder creates multiple sell orders in a single API call (up to 50 items).
+// This is more efficient than calling Sell repeatedly for each item.
+// The orders parameter should be prepared using PrepareBulkSellOrder().
+//
+// Example:
+//
+//	orders, _ := game.PrepareBulkSellOrder(state.Ship.Cargo, []string{}, priceMap)
+//	if len(orders) > 0 {
+//	    err := client.CreateBulkSellOrder(ctx, orders)
+//	}
+func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder) error {
+	if len(orders) == 0 {
+		return nil // Nothing to sell
+	}
+
+	if len(orders) > 50 {
+		return fmt.Errorf("bulk sell order limited to 50 items, got %d", len(orders))
+	}
+
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "create_sell_order",
+		Payload:   map[string]any{"orders": orders},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// SellAllBulk sells all cargo items using the bulk create_sell_order API.
+// This is much faster than SellAll as it makes only one API call instead of N calls.
+// It fetches market listings to price items competitively, then creates sell orders.
+// Only sells ores and resources, not equipment.
+//
+// Parameters:
+//   - ctx: Context for cancellation
+//   - reservedItems: Optional list of item IDs to keep (not sell)
+//
+// Returns error if not docked or if API call fails.
+func (c *Client) SellAllBulk(ctx context.Context, reservedItems []string) error {
+	state := c.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked to sell")
+	}
+
+	if len(state.Ship.Cargo) == 0 {
+		return nil // Nothing to sell
+	}
+
+	// Get market listings for pricing
+	if err := c.GetListings(ctx); err != nil {
+		c.debugLogger.Printf("Warning: Failed to get market listings: %v (using default prices)", err)
+	}
+	time.Sleep(1 * time.Second) // Wait for listings response
+
+	listings := c.GetMarketListings()
+	priceMap := GetMarketPricesForCargo(state.Ship.Cargo, listings)
+
+	// Prepare bulk sell orders
+	orders, skippedCount := PrepareBulkSellOrder(state.Ship.Cargo, reservedItems, priceMap)
+
+	if len(orders) == 0 {
+		if skippedCount > 0 {
+			c.debugLogger.Printf("No items to sell (%d reserved/equipment items skipped)", skippedCount)
+		}
+		return nil
+	}
+
+	c.debugLogger.Printf("Creating bulk sell order for %d items (%d skipped)", len(orders), skippedCount)
+
+	// Create bulk sell order
+	return c.CreateBulkSellOrder(ctx, orders)
+}
+
 // SellAll sells all cargo items at the current station
 func (c *Client) SellAll(ctx context.Context) error {
 	state := c.GetState()
@@ -440,11 +554,11 @@ func (c *Client) SellAll(ctx context.Context) error {
 func (c *Client) isOreOrResource(itemID string) bool {
 	// Ores and resources to sell
 	oreAndResourcePrefixes := []string{
-		"ore_",       // All ores (ore_iron, ore_copper, etc.)
-		"gas_",       // Gases
-		"crystal_",   // Crystals
-		"salvage_",   // Salvage materials
-		"scrap_",     // Scrap materials
+		"ore_",     // All ores (ore_iron, ore_copper, etc.)
+		"gas_",     // Gases
+		"crystal_", // Crystals
+		"salvage_", // Salvage materials
+		"scrap_",   // Scrap materials
 	}
 
 	for _, prefix := range oreAndResourcePrefixes {
@@ -731,15 +845,53 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 		if skills, ok := playerData["skills"].(map[string]any); ok {
 			c.state.Player.Skills = make(map[string]Skill)
 			for skillID, skillData := range skills {
-				if skillMap, ok := skillData.(map[string]any); ok {
-					skill := Skill{}
+				skill := Skill{}
+				// Skills can be either a number (level) or an object with level/xp
+				if level, ok := skillData.(float64); ok {
+					// Simple format: "skills":{"mining_basic":2}
+					skill.Level = int(level)
+				} else if skillMap, ok := skillData.(map[string]any); ok {
+					// Detailed format: "skills":{"mining_basic":{"level":2,"xp":100}}
 					if level, ok := skillMap["level"].(float64); ok {
 						skill.Level = int(level)
 					}
 					if xp, ok := skillMap["xp"].(float64); ok {
 						skill.XP = xp
 					}
-					c.state.Player.Skills[skillID] = skill
+				}
+				c.state.Player.Skills[skillID] = skill
+			}
+		}
+
+		// Parse skill_xp (current XP toward next level for each skill)
+		if skillXP, ok := playerData["skill_xp"].(map[string]any); ok {
+			c.state.SkillXP = make(map[string]float64)
+			for skillID, xp := range skillXP {
+				if xpVal, ok := xp.(float64); ok {
+					c.state.SkillXP[skillID] = xpVal
+				}
+			}
+		}
+
+		// Parse module definitions (map module ID to name/type)
+		if modules, ok := playerData["modules"].(map[string]any); ok {
+			c.state.ModuleDefinitions = make(map[string]ModuleDefinition)
+			for modID, modData := range modules {
+				if modMap, ok := modData.(map[string]any); ok {
+					modDef := ModuleDefinition{}
+					if id, ok := modMap["id"].(string); ok {
+						modDef.ID = id
+					}
+					if name, ok := modMap["name"].(string); ok {
+						modDef.Name = name
+					}
+					if modType, ok := modMap["type"].(string); ok {
+						modDef.Type = modType
+					}
+					if desc, ok := modMap["description"].(string); ok {
+						modDef.Description = desc
+					}
+					c.state.ModuleDefinitions[modID] = modDef
 				}
 			}
 		}
@@ -886,6 +1038,34 @@ func (c *Client) parseShipData(payload map[string]any) {
 					}
 					c.state.Ship.Cargo = append(c.state.Ship.Cargo, cargoItem)
 					c.state.Cargo = append(c.state.Cargo, itemMap)
+				}
+			}
+		}
+	}
+
+	// Parse module definitions from payload level (from get_ship response)
+	// These contain full module details: id, name, type, etc.
+	if modules, ok := payload["modules"].([]any); ok {
+		if c.state.ModuleDefinitions == nil {
+			c.state.ModuleDefinitions = make(map[string]ModuleDefinition)
+		}
+		for _, m := range modules {
+			if modMap, ok := m.(map[string]any); ok {
+				modDef := ModuleDefinition{}
+				if id, ok := modMap["id"].(string); ok {
+					modDef.ID = id
+				}
+				if name, ok := modMap["name"].(string); ok {
+					modDef.Name = name
+				}
+				if modType, ok := modMap["type"].(string); ok {
+					modDef.Type = modType
+				}
+				if desc, ok := modMap["description"].(string); ok {
+					modDef.Description = desc
+				}
+				if modDef.ID != "" {
+					c.state.ModuleDefinitions[modDef.ID] = modDef
 				}
 			}
 		}

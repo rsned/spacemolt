@@ -1,0 +1,4 @@
+Test template for {{.AgentName}}
+
+Role: {{.Role}}
+{{- if .State.IsDocked}}Docked: {{.State.DockedAt}}{{else}}Not docked{{end}}

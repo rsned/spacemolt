@@ -44,33 +44,81 @@ get_agents_by_type() {
     done
 }
 
+# Extract role from agent name (e.g., "pirate-1" -> "pirate")
+get_agent_role() {
+    echo "$1" | sed 's/-[0-9]*$//'
+}
+
+# Get binary name for a role
+get_binary_for_role() {
+    local role=$1
+    echo "auto-${role}"
+}
+
 case "$1" in
   start)
-    if [ -z "$2" ]; then
+    FORCE_BINARY=""
+    TYPE_FILTER=""
+
+    # Parse arguments
+    shift
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --binary)
+                FORCE_BINARY="$2"
+                shift 2
+                ;;
+            *)
+                TYPE_FILTER="$1"
+                shift
+                ;;
+        esac
+    done
+
+    # Validate forced binary if specified
+    if [ -n "$FORCE_BINARY" ]; then
+        FORCE_BINARY="auto-${FORCE_BINARY#auto-}"  # Normalize: add "auto-" prefix if missing
+        if [ ! -f "bin/$FORCE_BINARY" ]; then
+            echo "❌ Binary not found: bin/$FORCE_BINARY"
+            exit 1
+        fi
+        echo "🔧 Override mode: Using $FORCE_BINARY for all agents"
+    fi
+
+    # Determine which agents to start
+    if [ -z "$TYPE_FILTER" ]; then
         echo "🚀 Starting ALL $TOTAL_AGENTS agents..."
         AGENTS=$(get_all_agents)
     else
-        if [ -z "${AGENT_TYPES[$2]}" ]; then
-            echo "❌ Unknown agent type: $2"
+        if [ -z "${AGENT_TYPES[$TYPE_FILTER]}" ]; then
+            echo "❌ Unknown agent type: $TYPE_FILTER"
             echo "Valid types: ${!AGENT_TYPES[@]}"
             exit 1
         fi
-        echo "🚀 Starting all $2 agents..."
-        AGENTS=$(get_agents_by_type "$2")
+        echo "🚀 Starting all $TYPE_FILTER agents..."
+        AGENTS=$(get_agents_by_type "$TYPE_FILTER")
     fi
 
     mkdir -p logs
 
     STARTED=0
     for agent in $AGENTS; do
-        # Check if already running
-        if pgrep -f "auto-miner $agent" > /dev/null; then
+        # Determine which binary to use
+        if [ -n "$FORCE_BINARY" ]; then
+            binary="$FORCE_BINARY"
+        else
+            role=$(get_agent_role "$agent")
+            binary=$(get_binary_for_role "$role")
+        fi
+
+        # Check if already running (check for any auto-* binary with this agent)
+        if pgrep -f "auto-.* $agent" > /dev/null; then
             echo "  ⚠️  $agent already running, skipping"
             continue
         fi
 
-        (cd "$SCRIPT_DIR" && ./bin/auto-miner $agent > logs/$agent.log 2>&1 &)
-        echo "  ✓ Started $agent (PID: $!)"
+        (cd "$SCRIPT_DIR" && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
+        echo "  ✓ Started $agent with $binary (PID: $!)"
         STARTED=$((STARTED + 1))
 
         # Small delay to avoid overwhelming the connection
@@ -80,19 +128,19 @@ case "$1" in
     done
 
     sleep 2
-    RUNNING=$(pgrep -f "bin/auto-miner" | wc -l)
+    RUNNING=$(pgrep -f "bin/auto-" | wc -l)
     echo "✅ Started $STARTED agents, $RUNNING total running"
     ;;
 
   stop)
     echo "🛑 Stopping all agents..."
-    pkill -f "bin/auto-miner"
+    pkill -f "bin/auto-"
     sleep 2
 
     # Force kill if any still running
-    if pgrep -f "bin/auto-miner" > /dev/null; then
+    if pgrep -f "bin/auto-" > /dev/null; then
         echo "⚠️  Some agents still running, force killing..."
-        pkill -9 -f "bin/auto-miner"
+        pkill -9 -f "bin/auto-"
     fi
 
     echo "✅ All agents stopped"
@@ -102,11 +150,12 @@ case "$1" in
     echo "🔄 Restarting agents..."
     $0 stop
     sleep 3
-    $0 start "${@:2}"
+    shift
+    $0 start "$@"
     ;;
 
   status)
-    RUNNING=$(pgrep -f "bin/auto-miner" | wc -l)
+    RUNNING=$(pgrep -f "bin/auto-" | wc -l)
     echo "📊 Agent Status"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "Total agents configured: $TOTAL_AGENTS"
@@ -117,9 +166,9 @@ case "$1" in
         echo "❌ No agents running"
     else
         echo "Running agents:"
-        pgrep -f "bin/auto-miner" | while read pid; do
+        pgrep -f "bin/auto-" | while read pid; do
             cmdline=$(ps -p $pid -o args= 2>/dev/null)
-            agent=$(echo "$cmdline" | grep -oP 'auto-miner \K[^ ]+' || echo "unknown")
+            agent=$(echo "$cmdline" | grep -oP 'auto-[a-z]+ \K[^ ]+' || echo "unknown")
             echo "  ✓ $agent (PID: $pid)"
         done
     fi
@@ -129,8 +178,9 @@ case "$1" in
     for type in "${!AGENT_TYPES[@]}"; do
         count=${AGENT_TYPES[$type]}
         running=0
+        binary=$(get_binary_for_role "$type")
         for i in $(seq 1 $count); do
-            if pgrep -f "auto-miner $type-$i" > /dev/null; then
+            if pgrep -f "$binary $type-$i" > /dev/null; then
                 running=$((running + 1))
             fi
         done
@@ -160,6 +210,7 @@ case "$1" in
 
     for type in "${!AGENT_TYPES[@]}"; do
         count=${AGENT_TYPES[$type]}
+        binary=$(get_binary_for_role "$type")
         echo "═══ $type AGENTS ═══"
         running=0
         total_credits=0
@@ -169,7 +220,7 @@ case "$1" in
             agent="${type}-${i}"
 
             # Check if running
-            if pgrep -f "auto-miner $agent" > /dev/null; then
+            if pgrep -f "$binary $agent" > /dev/null; then
                 running=$((running + 1))
             fi
 
@@ -196,13 +247,13 @@ case "$1" in
     done
 
     echo "═══ FLEET TOTALS ═══"
-    total_running=$(pgrep -f "bin/auto-miner" | wc -l)
+    total_running=$(pgrep -f "bin/auto-" | wc -l)
     echo "Running: $total_running / $TOTAL_AGENTS agents"
     echo ""
     ;;
 
   credits)
-    echo "💰 CREDIT LEADERBOARD"
+    echo "💰 CREDIT LEADERBOARD (ALL AGENTS)"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     # Create temp file for sorting
@@ -221,7 +272,7 @@ case "$1" in
     done
 
     if [ -s "$tmpfile" ]; then
-        sort -rn "$tmpfile" | head -20 | while read line; do
+        sort -rn "$tmpfile" | while read line; do
             credits=$(echo "$line" | awk '{print $1}')
             agent=$(echo "$line" | awk '{print $2}')
             printf "  %-20s %12.0f credits\n" "$agent" $credits
@@ -270,19 +321,55 @@ case "$1" in
     ;;
 
   rebuild)
-    echo "🔨 Rebuilding auto-miner..."
-    go build -o bin/auto-miner cmd/auto-miner/main.go
-    if [ $? -eq 0 ]; then
-        echo "✅ Build successful"
-        echo ""
-        read -p "Restart agents with new version? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            $0 restart "${@:2}"
+    if [ -z "$2" ]; then
+        echo "🔨 Rebuilding all agent binaries..."
+        failed=0
+        for type in "${!AGENT_TYPES[@]}"; do
+            binary=$(get_binary_for_role "$type")
+            if [ -d "cmd/$binary" ]; then
+                echo "  Building $binary..."
+                go build -o "bin/$binary" "cmd/$binary/main.go"
+                if [ $? -ne 0 ]; then
+                    echo "  ❌ Build failed for $binary"
+                    failed=$((failed + 1))
+                fi
+            else
+                echo "  ⚠️  No cmd/$binary directory found, skipping"
+            fi
+        done
+
+        if [ $failed -eq 0 ]; then
+            echo "✅ All builds successful"
+            echo ""
+            read -p "Restart agents with new versions? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                $0 restart
+            fi
+        else
+            echo "❌ $failed build(s) failed"
+            exit 1
         fi
     else
-        echo "❌ Build failed"
-        exit 1
+        binary=$(get_binary_for_role "$2")
+        echo "🔨 Rebuilding $binary..."
+        if [ ! -d "cmd/$binary" ]; then
+            echo "❌ No cmd/$binary directory found"
+            exit 1
+        fi
+        go build -o "bin/$binary" "cmd/$binary/main.go"
+        if [ $? -eq 0 ]; then
+            echo "✅ Build successful"
+            echo ""
+            read -p "Restart $2 agents with new version? (y/n) " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                $0 restart "$2"
+            fi
+        else
+            echo "❌ Build failed"
+            exit 1
+        fi
     fi
     ;;
 
@@ -303,27 +390,29 @@ case "$1" in
     echo "Usage: $0 <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  start [type]   - Start all agents or specific type"
-    echo "  stop           - Stop all agents"
-    echo "  restart [type] - Restart all agents or specific type"
-    echo "  status         - Show running status of all agents"
-    echo "  watch [agent]  - Watch logs (all or specific agent)"
-    echo "  tail <agent>   - Watch specific agent log"
-    echo "  summary        - Show fleet summary"
-    echo "  credits        - Show credit leaderboard"
-    echo "  upgrades       - Show recent upgrades"
-    echo "  errors         - Show recent errors"
-    echo "  rebuild        - Rebuild auto-miner binary"
-    echo "  types          - List available agent types"
+    echo "  start [type] [--binary <name>]  - Start all agents or specific type"
+    echo "  stop                            - Stop all agents"
+    echo "  restart [type] [--binary <name>]- Restart all agents or specific type"
+    echo "  status                          - Show running status of all agents"
+    echo "  watch [agent]                   - Watch logs (all or specific agent)"
+    echo "  tail <agent>                    - Watch specific agent log"
+    echo "  summary                         - Show fleet summary"
+    echo "  credits                         - Show credit leaderboard"
+    echo "  upgrades                        - Show recent upgrades"
+    echo "  errors                          - Show recent errors"
+    echo "  rebuild [type]                  - Rebuild all binaries or specific type"
+    echo "  types                           - List available agent types"
     echo ""
     echo "Examples:"
-    echo "  $0 start                    # Start all 90 agents"
-    echo "  $0 start pirate             # Start only pirate agents"
-    echo "  $0 start miner              # Start only miner agents"
-    echo "  $0 status                   # Check fleet status"
-    echo "  $0 watch                    # Watch all logs"
-    echo "  $0 tail miner-1             # Watch specific agent"
-    echo "  $0 credits                  # See credit leaderboard"
+    echo "  $0 start                           # Start all agents (role-based binaries)"
+    echo "  $0 start pirate                    # Start only pirate agents with auto-pirate"
+    echo "  $0 start --binary miner            # Start ALL agents with auto-miner"
+    echo "  $0 start pirate --binary miner     # Start pirate agents with auto-miner"
+    echo "  $0 restart --binary explorer       # Restart all with auto-explorer"
+    echo "  $0 status                          # Check fleet status"
+    echo "  $0 watch                           # Watch all logs"
+    echo "  $0 tail miner-1                    # Watch specific agent"
+    echo "  $0 credits                         # See credit leaderboard"
     echo ""
     echo "Agent Types: ${!AGENT_TYPES[@]}"
     exit 1

@@ -155,7 +155,7 @@ func tryInstallAndSellExtras(client *game.Client, logger *log.Logger, ctx contex
 			continue
 		}
 
-		// Special handling for mining lasers - keep up to 4 (for mining_barge ship)
+		// Special handling for mining lasers - keep only what we can use
 		if item.ItemID == "mining_laser_1" || item.ItemID == "mining_laser_2" ||
 			item.ItemID == "mining_laser_3" || item.ItemID == "advanced_mining_laser" {
 			miningLasersInstalled := countModulesInstalled(state, item.ItemID)
@@ -164,9 +164,10 @@ func tryInstallAndSellExtras(client *game.Client, logger *log.Logger, ctx contex
 
 			// Determine max lasers based on ship
 			maxLasers := 2
-			if state.Ship.ClassID == "mining_enhanced" {
+			switch state.Ship.ClassID {
+			case "mining_enhanced":
 				maxLasers = 3
-			} else if state.Ship.ClassID == "mining_barge" {
+			case "mining_barge":
 				maxLasers = 4
 			}
 
@@ -184,7 +185,19 @@ func tryInstallAndSellExtras(client *game.Client, logger *log.Logger, ctx contex
 					}
 				}
 			}
-			// Never sell mining lasers - always keep them for potential use
+
+			// If we have MORE than max, sell the excess to free up cargo space
+			if totalMiningLasers > maxLasers && miningLasersInCargo > 0 {
+				excess := totalMiningLasers - maxLasers
+				logger.Printf("⚠️  Too many mining lasers! Have %d, can only use %d - selling %d excess",
+					totalMiningLasers, maxLasers, excess)
+				if err := client.Sell(ctx, item.ItemID, float64(excess)); err != nil {
+					logger.Printf("Failed to sell excess mining lasers: %v", err)
+				} else {
+					logger.Printf("✅ Sold %d excess mining laser(s) - freed up cargo space!", excess)
+					time.Sleep(1 * time.Second)
+				}
+			}
 			continue
 		}
 
@@ -233,18 +246,28 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 		return // Not enough to buy anything meaningful
 	}
 
-	// Ensure cargo space is available for purchases
+	// First, try to install any equipment already in cargo and sell extras
+	// This is CRITICAL - it sells excess mining lasers to free up cargo space
+	tryInstallAndSellExtras(client, logger, ctx)
+
+	// Refresh state after selling extras
+	time.Sleep(2 * time.Second)
+	state = client.GetState()
+	availableCredits = state.Credits - RESERVE_CREDITS
+
+	// Check if we can upgrade ship (ship upgrades sell cargo first, so allow even with full cargo)
+	canUpgradeShip := (state.Ship.ClassID == "starter_mining" && availableCredits >= TIER2_SHIP_THRESHOLD) ||
+		(state.Ship.ClassID == "mining_enhanced" && availableCredits >= TIER5_THRESHOLD)
+
+	// Ensure cargo space is available for purchases (except ship upgrades)
 	cargoUsed := state.Ship.CargoUsed
 	cargoCapacity := state.Ship.CargoCapacity
-	if cargoUsed >= cargoCapacity*0.5 {
+	if cargoUsed >= cargoCapacity*0.5 && !canUpgradeShip {
 		logger.Printf("⚠️  Cargo too full (%.1f/%.1f) - skipping upgrades until cargo is sold", cargoUsed, cargoCapacity)
 		return
 	}
 
 	logger.Printf("💰 Checking for upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
-
-	// First, try to install any equipment already in cargo and sell extras
-	tryInstallAndSellExtras(client, logger, ctx)
 
 	// Refresh state after installation attempts
 	time.Sleep(2 * time.Second)
@@ -336,17 +359,18 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 	// Tier 5: Ship upgrade to mining_barge + 4 mining lasers (5000+ credits) - ULTIMATE MINING SETUP!
 	if availableCredits >= TIER5_THRESHOLD && !purchased {
-		// Check if we're on mining_enhanced and can upgrade to mining_barge
-		if state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "starter_mining" {
+		// Only upgrade to mining_barge if we have mining_enhanced (proper progression)
+		// Don't upgrade if already have mining_barge or better
+		if state.Ship.ClassID == "mining_enhanced" {
 			logger.Printf("🚀 MEGA UPGRADE TIME! You have %.2f credits - upgrading to Excavator!", availableCredits)
 
 			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
 			if len(state.Ship.Cargo) > 0 {
-				logger.Printf("📦 Selling all cargo before ship upgrade...")
-				if err := client.SellAll(ctx); err != nil {
+				logger.Printf("📦 Selling all cargo in bulk before ship upgrade...")
+				if err := client.SellAllBulk(ctx, nil); err != nil {
 					logger.Printf("Failed to sell cargo: %v", err)
 				} else {
-					logger.Printf("✅ Cargo sold!")
+					logger.Printf("✅ Cargo sold in bulk!")
 					time.Sleep(3 * time.Second)
 				}
 			}
@@ -421,11 +445,11 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
 			if len(state.Ship.Cargo) > 0 {
-				logger.Printf("📦 Selling all cargo before ship upgrade...")
-				if err := client.SellAll(ctx); err != nil {
+				logger.Printf("📦 Selling all cargo in bulk before ship upgrade...")
+				if err := client.SellAllBulk(ctx, nil); err != nil {
 					logger.Printf("Failed to sell cargo: %v", err)
 				} else {
-					logger.Printf("✅ Cargo sold!")
+					logger.Printf("✅ Cargo sold in bulk!")
 					time.Sleep(3 * time.Second)
 				}
 			}
@@ -535,9 +559,10 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 		// Determine max lasers based on ship class
 		maxLasers := 2 // starter_mining has 2 utility slots
-		if state.Ship.ClassID == "mining_enhanced" {
+		switch state.Ship.ClassID {
+		case "mining_enhanced":
 			maxLasers = 3 // Drillship has 3 utility slots
-		} else if state.Ship.ClassID == "mining_barge" {
+		case "mining_barge":
 			maxLasers = 4 // Excavator has 4 utility slots
 		}
 
@@ -618,6 +643,39 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 			state.Credits, state.Fuel, state.MaxFuel, state.Hull, state.MaxHull,
 			state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
+		// Get full system data to see POIs
+		if len(state.System.POIs) == 0 {
+			logger.Printf("Fetching system data...")
+			if err := client.GetSystem(ctx); err != nil {
+				logger.Printf("Failed to get system: %v", err)
+			}
+			time.Sleep(2 * time.Second)
+			state = client.GetState()
+		}
+
+		// Find a mining POI and station in the current system
+		var miningPOI string
+		var stationPOI string
+		for _, poi := range state.System.POIs {
+			if (poi.Type == "asteroid_belt" || poi.Type == "asteroid_field") && miningPOI == "" {
+				miningPOI = poi.ID
+			}
+			if poi.Type == "station" && stationPOI == "" {
+				stationPOI = poi.ID
+			}
+		}
+
+		if miningPOI == "" {
+			logger.Printf("⚠️  No mining POI found in current system %s!", state.System.Name)
+			return fmt.Errorf("no mining location in system %s", state.System.Name)
+		}
+		if stationPOI == "" {
+			logger.Printf("⚠️  No station found in current system %s!", state.System.Name)
+			return fmt.Errorf("no station in system %s", state.System.Name)
+		}
+
+		logger.Printf("📍 System: %s | Mining: %s | Station: %s", state.System.Name, miningPOI, stationPOI)
+
 		// Step 1: Undock if docked
 		if state.Doc {
 			logger.Printf("📤 Undocking from station...")
@@ -629,9 +687,9 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 
 		// Step 2: Travel to asteroid belt
 		state = client.GetState()
-		if state.CurrentPOI != "krynn_mines" && !state.Traveling {
-			logger.Printf("🚀 Traveling to War Materials asteroid belt...")
-			if err := client.Travel(ctx, "krynn_mines"); err != nil {
+		if state.CurrentPOI != miningPOI && !state.Traveling {
+			logger.Printf("🚀 Traveling to mining location %s...", miningPOI)
+			if err := client.Travel(ctx, miningPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)
@@ -681,10 +739,29 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 		logger.Printf("✓ Mined %d times this run", mineCount)
 
 		// Step 4: Travel back to station
+		// Get fresh system data to find station
+		if err := client.GetSystem(ctx); err != nil {
+			logger.Printf("Failed to get system: %v", err)
+		}
+		time.Sleep(2 * time.Second)
+
 		state = client.GetState()
-		if state.CurrentPOI != "krynn_citadel" && !state.Traveling {
-			logger.Printf("🚀 Returning to War Citadel...")
-			if err := client.Travel(ctx, "krynn_citadel"); err != nil {
+		stationPOI = ""
+		for _, poi := range state.System.POIs {
+			if poi.Type == "station" {
+				stationPOI = poi.ID
+				break
+			}
+		}
+
+		if stationPOI == "" {
+			logger.Printf("⚠️  No station found in current system!")
+			return fmt.Errorf("no station in system %s", state.System.Name)
+		}
+
+		if state.CurrentPOI != stationPOI && !state.Traveling {
+			logger.Printf("🚀 Returning to station %s...", stationPOI)
+			if err := client.Travel(ctx, stationPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)
@@ -710,14 +787,14 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 		if !state.Doc {
 			logger.Printf("⚠️  Not docked! Skipping sell. Current POI: %s", state.CurrentPOI)
 		} else if len(state.Ship.Cargo) > 0 {
-			logger.Printf("💰 Selling %d different items...", len(state.Ship.Cargo))
+			logger.Printf("💰 Selling %d different items in bulk...", len(state.Ship.Cargo))
 
 			// List what we're selling
 			for _, item := range state.Ship.Cargo {
 				logger.Printf("   - %s x%.0f", item.ItemID, item.Quantity)
 			}
 
-			if err := client.SellAll(ctx); err != nil {
+			if err := client.SellAllBulk(ctx, nil); err != nil {
 				logger.Printf("Sell error: %v", err)
 			} else {
 				// Wait longer for state update
@@ -726,11 +803,11 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 				creditsEarned := state.Credits - creditsBefore
 				totalCreditsEarned += creditsEarned
 				if creditsEarned > 0 {
-					logger.Printf("✅ Sold cargo! Earned %.2f credits (Total: %.2f)",
+					logger.Printf("✅ Sold cargo in bulk! Earned %.2f credits (Total: %.2f)",
 						creditsEarned, totalCreditsEarned)
 				} else {
 					// State might not have updated yet, but sell likely succeeded
-					logger.Printf("✓ Sell command completed (check next state update for credits)")
+					logger.Printf("✓ Bulk sell command completed (check next state update for credits)")
 				}
 			}
 		}
