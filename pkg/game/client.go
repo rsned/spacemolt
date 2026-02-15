@@ -39,6 +39,10 @@ type Client struct {
 	latestShips map[string]any
 	shipsMu     sync.RWMutex
 
+	// Raw JSON payloads from server responses (for saving complete server data)
+	latestRawJSON map[string][]byte
+	rawJSONMu     sync.RWMutex
+
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
@@ -142,6 +146,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		debugLogger:    debugLogger,
 		latestListings: make([]MarketListing, 0),
 		latestShips:    make(map[string]any),
+		latestRawJSON:  make(map[string][]byte),
 	}
 }
 
@@ -279,14 +284,14 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		payloadJSON, _ := json.Marshal(msg.Payload)
 		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
 	}
-	c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
+	//c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
 
 	if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
 		c.debugLogger.Printf("ERROR sending to WebSocket: %v", err)
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
-	c.debugLogger.Printf("WebSocket write successful")
+	//c.debugLogger.Printf("WebSocket write successful")
 	return nil
 }
 
@@ -418,6 +423,14 @@ func (c *Client) Scan(ctx context.Context) error {
 func (c *Client) GetSystem(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
 		Type:      "get_system",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
+// GetPOI requests information about the current POI
+func (c *Client) GetPOI(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_poi",
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -566,7 +579,7 @@ func (c *Client) SellAll(ctx context.Context) error {
 					c.debugLogger.Printf("Failed to sell %s: %v", item.ItemID, err)
 					// Continue selling other items even if one fails
 				}
-				time.Sleep(1 * time.Second) // Small delay between sells
+				time.Sleep(10 * time.Second) // Wait between sells to respect game tick rate
 			} else {
 				c.debugLogger.Printf("Skipping sale of equipment: %s (keeping for installation)", item.ItemID)
 			}
@@ -703,7 +716,8 @@ func (c *Client) listen(ctx context.Context) {
 				payloadStr := string(payloadJSON)
 
 				// Truncate state_update messages to reduce log clutter
-				if resp.Type == "state_update" && len(payloadStr) > 200 {
+				//if resp.Type == "state_update" && len(payloadStr) > 200 {
+				if len(payloadStr) > 200 {
 					c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
 				} else {
 					c.debugLogger.Printf("Response Payload: %s", payloadStr)
@@ -740,6 +754,9 @@ func (c *Client) listen(ctx context.Context) {
 func (c *Client) handleResponse(resp protocol.Response) {
 	c.state.Mu.Lock()
 	defer c.state.Mu.Unlock()
+
+	// Store raw JSON for key response types
+	c.storeRawJSON(resp)
 
 	switch resp.Type {
 	case protocol.TypeWelcome:
@@ -814,6 +831,50 @@ func (c *Client) handleResponse(resp protocol.Response) {
 
 	case protocol.TypeListings:
 		c.parseListingsData(resp.Payload)
+
+	case protocol.TypePirateWarning:
+		c.debugLogger.Printf("⚠️  PIRATE ATTACK: %v", resp.Payload)
+		c.state.InCombat = true
+		if pirateName, ok := resp.Payload["pirate_name"].(string); ok {
+			c.state.PirateName = pirateName
+		}
+		if pirateTier, ok := resp.Payload["pirate_tier"].(string); ok {
+			c.state.PirateTier = pirateTier
+		}
+		if pirateID, ok := resp.Payload["pirate_id"].(string); ok {
+			c.state.PirateID = pirateID
+		}
+
+	case protocol.TypePirateCombat:
+		if pirateName, ok := resp.Payload["pirate_name"].(string); ok {
+			if damage, ok := resp.Payload["damage"].(float64); ok {
+				c.debugLogger.Printf("⚔️  PIRATE COMBAT: %s dealt %v %v damage",
+					pirateName,
+					resp.Payload["damage_type"],
+					damage)
+				c.state.LastDamage = damage
+			}
+			c.state.PirateName = pirateName
+		}
+		if pirateTier, ok := resp.Payload["pirate_tier"].(string); ok {
+			c.state.PirateTier = pirateTier
+		}
+		if pirateID, ok := resp.Payload["pirate_id"].(string); ok {
+			c.state.PirateID = pirateID
+		}
+		if yourHull, ok := resp.Payload["your_hull"].(float64); ok {
+			c.state.Hull = yourHull
+		}
+		if yourShield, ok := resp.Payload["your_shield"].(float64); ok {
+			c.state.Ship.Shield = yourShield
+		}
+		c.state.InCombat = true
+
+	case protocol.TypePoliceWarning:
+		c.debugLogger.Printf("⚠️  POLICE WARNING: %v", resp.Payload)
+
+	case protocol.TypePoliceCombat:
+		c.debugLogger.Printf("⚔️  POLICE COMBAT: %v", resp.Payload)
 	}
 }
 
@@ -1096,6 +1157,17 @@ func (c *Client) parseShipData(payload map[string]any) {
 		}
 		if powerCapacity, ok := shipData["power_capacity"].(float64); ok {
 			c.state.Ship.PowerCapacity = powerCapacity
+		}
+
+		// Parse slot counts
+		if v, ok := shipData["weapon_slots"].(float64); ok {
+			c.state.Ship.WeaponSlots = int(v)
+		}
+		if v, ok := shipData["defense_slots"].(float64); ok {
+			c.state.Ship.DefenseSlots = int(v)
+		}
+		if v, ok := shipData["utility_slots"].(float64); ok {
+			c.state.Ship.UtilitySlots = int(v)
 		}
 
 		// Parse modules
@@ -1432,6 +1504,61 @@ func (c *Client) GetMarketListings() []MarketListing {
 	result := make([]MarketListing, len(c.latestListings))
 	copy(result, c.latestListings)
 	return result
+}
+
+// storeRawJSON stores raw JSON payloads for key response types
+func (c *Client) storeRawJSON(resp protocol.Response) {
+	// Only store specific response types that are useful for data collection
+	var storeKey string
+	var shouldStore bool
+
+	switch resp.Type {
+	case protocol.TypeOK:
+		// Check for specific payload keys to identify response types
+		if _, hasListings := resp.Payload["listings"]; hasListings {
+			storeKey = "listings"
+			shouldStore = true
+		}
+		if _, hasShips := resp.Payload["ships"]; hasShips {
+			storeKey = "ships"
+			shouldStore = true
+		}
+		// Only store as "system" if it has pois (full get_system response)
+		// Jump responses also have "system" field but lack pois/position/police_level
+		if _, hasPOIs := resp.Payload["pois"]; hasPOIs {
+			storeKey = "system"
+			shouldStore = true
+		}
+	}
+
+	if shouldStore {
+		c.rawJSONMu.Lock()
+		defer c.rawJSONMu.Unlock()
+
+		// Marshal the entire response to JSON
+		jsonData, err := json.Marshal(resp.Payload)
+		if err != nil {
+			c.debugLogger.Printf("Failed to marshal raw JSON for %s: %v", storeKey, err)
+			return
+		}
+
+		c.latestRawJSON[storeKey] = jsonData
+		c.debugLogger.Printf("Stored raw JSON for %s (%d bytes)", storeKey, len(jsonData))
+	}
+}
+
+// GetRawJSON retrieves the raw JSON payload for a given key
+func (c *Client) GetRawJSON(key string) []byte {
+	c.rawJSONMu.RLock()
+	defer c.rawJSONMu.RUnlock()
+
+	if data, ok := c.latestRawJSON[key]; ok {
+		// Return a copy to prevent external modification
+		result := make([]byte, len(data))
+		copy(result, data)
+		return result
+	}
+	return nil
 }
 
 // parseListingsData extracts market listings from a listings response

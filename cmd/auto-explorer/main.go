@@ -815,7 +815,23 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			time.Sleep(3 * time.Second)
 		}
 
-		// Save POI-specific data
+		// Save POI-specific data to knowledge base
+		kbPOI := knowledge.POI{
+			ID:           poi.ID,
+			SystemID:     state.System.ID,
+			Name:         poi.Name,
+			Type:         poi.Type,
+			Description:  poi.Description,
+			Position:     poi.Position,
+			Services:     []string{}, // Not available in game.POI
+			Resources:    poi.Resources,
+			DiscoveredBy: expState.AgentID,
+		}
+		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
+			logger.Printf("Failed to save POI to knowledge base: %v", err)
+		}
+
+		// Save POI-specific data to file
 		if err := savePOIData(client, logger, poi.ID); err != nil {
 			logger.Printf("Failed to save POI data: %v", err)
 		}
