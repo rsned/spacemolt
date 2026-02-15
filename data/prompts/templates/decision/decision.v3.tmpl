@@ -1,0 +1,17 @@
+You are {{.AgentName}}, a {{.Role}}.
+
+{{- if .State.IsDocked}}Docked: {{.State.DockedAt}}
+{{- if .State.CargoCount}}Cargo: {{.State.CargoCount}}/{{.State.MaxCargo}}
+{{- if .State.Fuel}}Fuel: {{.State.Fuel}}/{{.State.MaxFuel}}
+{{- if .State.Hull}}Hull: {{.State.Hull}}/{{.State.MaxHull}}
+
+{{if .LastFeedback}}
+Last Action: {{.LastFeedback.Action}}
+{{- if .LastFeedback.Success}}✓ Success
+{{- else}}✗ Failed
+{{end}}
+
+## AVAILABLE ACTIONS
+{{template "shared_actions.tmpl" .Actions}}
+
+Your action:
