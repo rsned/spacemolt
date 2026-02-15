@@ -342,11 +342,11 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
 			if len(state.Ship.Cargo) > 0 {
-				logger.Printf("📦 Selling all cargo before ship upgrade...")
-				if err := client.SellAll(ctx); err != nil {
+				logger.Printf("📦 Selling all cargo in bulk before ship upgrade...")
+				if err := client.SellAllBulk(ctx, nil); err != nil {
 					logger.Printf("Failed to sell cargo: %v", err)
 				} else {
-					logger.Printf("✅ Cargo sold!")
+					logger.Printf("✅ Cargo sold in bulk!")
 					time.Sleep(3 * time.Second)
 				}
 			}
@@ -421,11 +421,11 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
 			if len(state.Ship.Cargo) > 0 {
-				logger.Printf("📦 Selling all cargo before ship upgrade...")
-				if err := client.SellAll(ctx); err != nil {
+				logger.Printf("📦 Selling all cargo in bulk before ship upgrade...")
+				if err := client.SellAllBulk(ctx, nil); err != nil {
 					logger.Printf("Failed to sell cargo: %v", err)
 				} else {
-					logger.Printf("✅ Cargo sold!")
+					logger.Printf("✅ Cargo sold in bulk!")
 					time.Sleep(3 * time.Second)
 				}
 			}
@@ -762,14 +762,14 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 		if !state.Doc {
 			logger.Printf("⚠️  Not docked! Skipping sell. Current POI: %s", state.CurrentPOI)
 		} else if len(state.Ship.Cargo) > 0 {
-			logger.Printf("💰 Selling %d different items...", len(state.Ship.Cargo))
+			logger.Printf("💰 Selling %d different items in bulk...", len(state.Ship.Cargo))
 
 			// List what we're selling
 			for _, item := range state.Ship.Cargo {
 				logger.Printf("   - %s x%.0f", item.ItemID, item.Quantity)
 			}
 
-			if err := client.SellAll(ctx); err != nil {
+			if err := client.SellAllBulk(ctx, nil); err != nil {
 				logger.Printf("Sell error: %v", err)
 			} else {
 				// Wait longer for state update
@@ -778,11 +778,11 @@ func miningLoop(client *game.Client, logger *log.Logger, ctx context.Context) er
 				creditsEarned := state.Credits - creditsBefore
 				totalCreditsEarned += creditsEarned
 				if creditsEarned > 0 {
-					logger.Printf("✅ Sold cargo! Earned %.2f credits (Total: %.2f)",
+					logger.Printf("✅ Sold cargo in bulk! Earned %.2f credits (Total: %.2f)",
 						creditsEarned, totalCreditsEarned)
 				} else {
 					// State might not have updated yet, but sell likely succeeded
-					logger.Printf("✓ Sell command completed (check next state update for credits)")
+					logger.Printf("✓ Bulk sell command completed (check next state update for credits)")
 				}
 			}
 		}
