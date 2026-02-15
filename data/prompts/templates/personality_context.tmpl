@@ -1,0 +1,11 @@
+{{- if .Personality.Name}}**PERSONALITY:** {{.Personality.Name}}{{end}}
+{{- if .Personality.Role}}**ROLE:** {{.Personality.Role}}{{end}}
+{{- if .Personality.Background}}**BACKGROUND:** {{.Personality.Background}}{{end}}
+{{- if .Personality.Traits}}**TRAITS:**{{range .Personality.Traits}}    • {{.}}{{end}}
+{{end}}
+{{- if .Personality.Motivations}}**MOTIVATIONS:**{{range .Personality.Motivations}}    • {{.}}{{end}}
+{{end}}
+{{- if .Personality.Skills}}**SKILLS:**{{range .Personality.Skills}}    • {{.}}{{end}}
+{{end}}
+{{- if .Personality.Background}}**BACKGROUND STORY:** {{.Personality.Background}}{{end}}
+{{end}}
