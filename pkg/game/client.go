@@ -35,6 +35,10 @@ type Client struct {
 	latestListings []MarketListing
 	listingsMu     sync.RWMutex
 
+	// Ship listings data (from get_ships response)
+	latestShips map[string]any
+	shipsMu     sync.RWMutex
+
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
@@ -137,6 +141,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		waiters:        make(map[string]chan protocol.Response),
 		debugLogger:    debugLogger,
 		latestListings: make([]MarketListing, 0),
+		latestShips:    make(map[string]any),
 	}
 }
 
@@ -431,6 +436,27 @@ func (c *Client) GetListings(ctx context.Context) error {
 		Type:      "get_listings",
 		Timestamp: time.Now().UnixMilli(),
 	})
+}
+
+// GetShips requests ship listings from the current station
+func (c *Client) GetShips(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_ships",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
+// GetShipListings returns the most recently fetched ship listings
+func (c *Client) GetShipListings() map[string]any {
+	c.shipsMu.RLock()
+	defer c.shipsMu.RUnlock()
+
+	// Return a copy of the ships data
+	result := make(map[string]any)
+	for k, v := range c.latestShips {
+		result[k] = v
+	}
+	return result
 }
 
 // Sell sells items from cargo at the current station
@@ -755,6 +781,14 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			c.parseListingsData(resp.Payload)
 		}
+		// get_ships returns type "ok" with ships in payload
+		if _, hasShips := resp.Payload["ships"]; hasShips {
+			c.parseShipsData(resp.Payload)
+		}
+		// get_skills returns type "ok" with player_skills and skills in payload
+		if _, hasSkills := resp.Payload["skills"]; hasSkills {
+			c.parseSkillsData(resp.Payload)
+		}
 
 	case protocol.TypeDocked:
 		c.state.Doc = true
@@ -931,6 +965,57 @@ func (c *Client) parsePlayerStats(stats map[string]any) {
 	}
 	if missionsCompleted, ok := stats["missions_completed"].(float64); ok {
 		c.state.Player.Stats.MissionsCompleted = int(missionsCompleted)
+	}
+}
+
+// parseSkillsData extracts skill definitions and next-level XP from get_skills response payload.
+func (c *Client) parseSkillsData(payload map[string]any) {
+	// player_skills: array of { skill_id, current_xp, next_level_xp, level, ... }
+	if playerSkills, ok := payload["player_skills"].([]any); ok {
+		if c.state.SkillNextLevelXP == nil {
+			c.state.SkillNextLevelXP = make(map[string]float64)
+		}
+		for _, item := range playerSkills {
+			entry, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			skillID, _ := entry["skill_id"].(string)
+			if skillID == "" {
+				continue
+			}
+			if nextXP, ok := entry["next_level_xp"].(float64); ok {
+				c.state.SkillNextLevelXP[skillID] = nextXP
+			}
+		}
+	}
+	// skills: map skill_id -> { xp_per_level: [...], max_level, name, id }
+	if skillsMap, ok := payload["skills"].(map[string]any); ok {
+		if c.state.SkillDefinitions == nil {
+			c.state.SkillDefinitions = make(map[string]SkillDefinition)
+		}
+		for skillID, defAny := range skillsMap {
+			defMap, ok := defAny.(map[string]any)
+			if !ok {
+				continue
+			}
+			def := SkillDefinition{ID: skillID}
+			if name, ok := defMap["name"].(string); ok {
+				def.Name = name
+			}
+			if maxLevel, ok := defMap["max_level"].(float64); ok {
+				def.MaxLevel = int(maxLevel)
+			}
+			if xpArr, ok := defMap["xp_per_level"].([]any); ok {
+				def.XpPerLevel = make([]float64, 0, len(xpArr))
+				for _, v := range xpArr {
+					if f, ok := v.(float64); ok {
+						def.XpPerLevel = append(def.XpPerLevel, f)
+					}
+				}
+			}
+			c.state.SkillDefinitions[skillID] = def
+		}
 	}
 }
 
@@ -1421,6 +1506,20 @@ func (c *Client) parseListingsData(payload map[string]any) {
 		c.listingsMu.Unlock()
 
 		c.debugLogger.Printf("Parsed %d market listings", len(c.latestListings))
+	}
+}
+
+// parseShipsData extracts ship listings from a get_ships response
+func (c *Client) parseShipsData(payload map[string]any) {
+	c.shipsMu.Lock()
+	defer c.shipsMu.Unlock()
+
+	// Store the entire ships payload
+	// The response typically contains ships data which can be an array or map
+	if ships, ok := payload["ships"]; ok {
+		c.latestShips = make(map[string]any)
+		c.latestShips["ships"] = ships
+		c.debugLogger.Printf("Parsed ship listings data")
 	}
 }
 

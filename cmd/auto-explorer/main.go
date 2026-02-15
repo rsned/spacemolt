@@ -651,6 +651,93 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 	return nil
 }
 
+// saveStationMarketData saves market listings and ship data from a station
+func saveStationMarketData(client *game.Client, ctx context.Context, logger *log.Logger, systemName, poiName, poiID string) error {
+	state := client.GetState()
+
+	// Create listings directory
+	listingsDir := filepath.Join("data", "server", "listings")
+	if err := os.MkdirAll(listingsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create listings directory: %w", err)
+	}
+
+	// Get market listings
+	logger.Printf("📊 Getting market listings from %s...", poiName)
+	if err := client.GetListings(ctx); err != nil {
+		logger.Printf("Failed to get listings: %v", err)
+	} else {
+		time.Sleep(2 * time.Second)
+		listings := client.GetMarketListings()
+
+		// Create market data wrapper
+		marketData := map[string]any{
+			"system_id":   state.System.ID,
+			"system_name": systemName,
+			"poi_id":      poiID,
+			"poi_name":    poiName,
+			"timestamp":   time.Now().Format(time.RFC3339),
+			"game_tick":   state.CurrentTick,
+			"listings":    listings,
+		}
+
+		// Save market listings
+		marketFilename := fmt.Sprintf("%s.%s.market.listing.json", sanitizeFilename(systemName), sanitizeFilename(poiName))
+		marketPath := filepath.Join(listingsDir, marketFilename)
+
+		data, err := json.MarshalIndent(marketData, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal market data: %w", err)
+		}
+
+		if err := os.WriteFile(marketPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write market data: %w", err)
+		}
+		logger.Printf("💾 Saved market data: %s (%d listings)", marketPath, len(listings))
+	}
+
+	// Get ship listings
+	logger.Printf("🚢 Getting ship listings from %s...", poiName)
+	if err := client.GetShips(ctx); err != nil {
+		logger.Printf("Failed to get ship listings: %v", err)
+	} else {
+		time.Sleep(2 * time.Second)
+
+		// Get ship listings data
+		shipsData := client.GetShipListings()
+
+		// Create ship data wrapper with metadata
+		shipData := map[string]any{
+			"system_id":   state.System.ID,
+			"system_name": systemName,
+			"poi_id":      poiID,
+			"poi_name":    poiName,
+			"timestamp":   time.Now().Format(time.RFC3339),
+			"game_tick":   state.CurrentTick,
+		}
+
+		// Merge ships data into wrapper
+		for k, v := range shipsData {
+			shipData[k] = v
+		}
+
+		// Save ship listings
+		shipFilename := fmt.Sprintf("%s.%s.ships.listing.json", sanitizeFilename(systemName), sanitizeFilename(poiName))
+		shipPath := filepath.Join(listingsDir, shipFilename)
+
+		data, err := json.MarshalIndent(shipData, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal ship data: %w", err)
+		}
+
+		if err := os.WriteFile(shipPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write ship data: %w", err)
+		}
+		logger.Printf("💾 Saved ship data: %s", shipPath)
+	}
+
+	return nil
+}
+
 // exploreAllPOIs visits each POI in the current system, scans, and saves data
 func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
 	state := client.GetState()
@@ -695,6 +782,37 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 		state = client.GetState()
 		if len(state.Nearby) > 0 {
 			logger.Printf("⚠️  %d nearby players/ships detected at %s", len(state.Nearby), poi.Name)
+		}
+
+		// Handle station-specific actions
+		if poi.Type == "station" {
+			logger.Printf("🏪 Station detected! Docking to collect market and ship data...")
+
+			// Dock at the station
+			if err := client.Dock(ctx); err != nil {
+				if err.Error() != "Already docked (success)" {
+					logger.Printf("Failed to dock: %v", err)
+				} else {
+					logger.Printf("✅ Already docked at %s", poi.Name)
+				}
+			} else {
+				logger.Printf("✅ Docked at %s", poi.Name)
+			}
+			time.Sleep(3 * time.Second)
+
+			// Collect and save market/ship data
+			if err := saveStationMarketData(client, ctx, logger, state.System.Name, poi.Name, poi.ID); err != nil {
+				logger.Printf("Failed to save station data: %v", err)
+			}
+
+			// Undock before continuing exploration
+			logger.Printf("📤 Undocking from %s...", poi.Name)
+			if err := client.Undock(ctx); err != nil {
+				logger.Printf("Failed to undock: %v", err)
+			} else {
+				logger.Printf("✅ Undocked from %s", poi.Name)
+			}
+			time.Sleep(3 * time.Second)
 		}
 
 		// Save POI-specific data
