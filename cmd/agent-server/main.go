@@ -19,6 +19,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/registry"
 )
 
 // CLI flags
@@ -33,7 +34,7 @@ var (
 
 	// Knowledge base
 	dbBackend = flag.String("db-backend", "sqlite", "Knowledge base backend: sqlite or memory")
-	dbPath    = flag.String("db-path", "data/spacemolt-kb.db", "Path to SQLite database")
+	dbPath    = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
 
 	// LLM configuration
 	llmURL   = flag.String("llm-url", "http://localhost:11434", "LLM server URL (Ollama)")
@@ -49,6 +50,9 @@ var (
 
 	// HTTP API settings
 	httpPort = flag.Int("http-port", 0, "Enable HTTP API on port (0 = disabled)")
+
+	// Status registry settings
+	registryURL = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 )
 
 // AgentsConfig represents the configuration file structure
@@ -295,6 +299,50 @@ func main() {
 		}()
 	}
 
+	// 7.5. Optionally register with status registry
+	var regClient *registry.Client
+	if *registryURL != "" {
+		toolID := "agent-server-main"
+		regClient = registry.NewClient(*registryURL, toolID)
+
+		// Prepare capabilities
+		capabilities := map[string]interface{}{
+			"http_api": fmt.Sprintf("http://localhost:%d", *httpPort),
+		}
+		if *httpPort == 0 {
+			capabilities["http_api"] = nil
+		}
+
+		// Register with registry
+		reg := registry.ToolRegistration{
+			ToolID:       toolID,
+			ToolType:     registry.ToolTypeAgentServer,
+			PID:          os.Getpid(),
+			Status:       "running",
+			Capabilities: capabilities,
+			Metadata: map[string]interface{}{
+				"agents_count":      successCount,
+				"total_agents":      totalAgents,
+				"failed_agents":     failedAgents,
+				"server_url":        *serverURL,
+				"decision_interval": *decisionInterval,
+			},
+		}
+
+		if err := regClient.Register(reg); err != nil {
+			log.Printf("⚠ Warning: Failed to register with status registry: %v", err)
+			regClient = nil
+		} else {
+			log.Printf("✓ Registered with status registry: %s", *registryURL)
+
+			// Start heartbeat goroutine
+			regClient.StartHeartbeat(ctx, 5*time.Second, func() (status, action string) {
+				runners := mgr.ListRunners()
+				return "running", fmt.Sprintf("Managing %d agents", len(runners))
+			})
+		}
+	}
+
 	log.Println("\nPress Ctrl+C to stop all agents and exit")
 
 	// 8. Set up signal handling for graceful shutdown
@@ -311,6 +359,15 @@ func main() {
 		defer cancel()
 		if err := apiServer.Shutdown(shutdownCtx); err != nil {
 			log.Printf("Warning: HTTP shutdown error: %v", err)
+		}
+	}
+
+	// 10.5. Deregister from status registry
+	if regClient != nil {
+		if err := regClient.Deregister(); err != nil {
+			log.Printf("Warning: Failed to deregister from status registry: %v", err)
+		} else {
+			log.Printf("✓ Deregistered from status registry")
 		}
 	}
 

@@ -59,3 +59,9 @@ spacemolt-client-linux-x64
 # LLM files
 .claude/
 .gemini/
+
+# Data directories (runtime/generated data)
+data/server/
+data/crafting/
+data/credentials/
+data/mcp/
