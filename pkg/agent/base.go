@@ -211,11 +211,11 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 	systemInfos := make([]prompts.SystemInfo, len(systems))
 	for i, sys := range systems {
 		systemInfos[i] = prompts.SystemInfo{
-			ID:            sys.ID,
-			Name:          sys.Name,
-			SecurityLevel: mapSecurityLevel(sys.PoliceLevel), // Convert int to string
-			Faction:       sys.Empire,
-			VisitCount:    0, // VisitCount is knowledge base metadata, not in game.SystemData
+			ID:          sys.ID,
+			Name:        sys.Name,
+			PoliceLevel: sys.PoliceLevel,
+			Faction:     sys.Empire,
+			VisitCount:  0, // VisitCount is knowledge base metadata, not in game.SystemData
 		}
 	}
 
@@ -590,38 +590,6 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 	return nil
 }
 
-// mapSecurityLevel converts police level to security string
-func mapSecurityLevel(policeLevel int) string {
-	switch policeLevel {
-	case 0:
-		return "None"
-	case 1:
-		return "Low"
-	case 2:
-		return "Medium"
-	case 3:
-		return "High"
-	default:
-		return "Unknown"
-	}
-}
-
-// mapPoliceLevel converts security string to police level (inverse of mapSecurityLevel)
-func mapPoliceLevel(security string) int {
-	switch security {
-	case "None":
-		return 0
-	case "Low":
-		return 1
-	case "Medium":
-		return 2
-	case "High":
-		return 3
-	default:
-		return 0 // Default to no police
-	}
-}
-
 // Memory returns the agent's memory
 func (a *BaseAgent) Memory() Memory {
 	return a.memory
@@ -685,7 +653,7 @@ func (m *KBMemory) KnownSystems() []game.SystemData {
 			ID:           sys.ID,
 			Name:         sys.Name,
 			Empire:       sys.Faction,
-			PoliceLevel:  mapPoliceLevel(sys.SecurityLevel),
+			PoliceLevel:  sys.PoliceLevel,
 			POIs:         []game.POI{}, // Not stored in knowledge base
 			Connections:  sys.Connections,
 			Position:     sys.Position,
@@ -740,13 +708,13 @@ func (m *KBMemory) GetUnknownConnections(systemID string) ([]string, error) {
 // RememberSystem stores a system in memory
 func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) error {
 	kbSys := knowledge.System{
-		ID:            sys.ID,
-		Name:          sys.Name,
-		Position:      sys.Position,
-		SecurityLevel: mapSecurityLevel(sys.PoliceLevel),
-		Faction:       sys.Empire,
-		Connections:   sys.Connections,
-		DiscoveredBy:  sys.DiscoveredBy,
+		ID:           sys.ID,
+		Name:         sys.Name,
+		Position:     sys.Position,
+		PoliceLevel:  sys.PoliceLevel,
+		Faction:      sys.Empire,
+		Connections:  sys.Connections,
+		DiscoveredBy: sys.DiscoveredBy,
 	}
 
 	return m.kb.RememberSystem(ctx, kbSys)

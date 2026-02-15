@@ -1,0 +1,155 @@
+package game
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
+	"github.com/rsned/spacemolt/internal/protocol"
+)
+
+const (
+	// DefaultGameServerURL is the default WebSocket endpoint for the game
+	DefaultGameServerURL = "wss://game.spacemolt.com/ws"
+)
+
+// Credentials holds agent authentication information loaded from credentials.json
+type Credentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Empire   string `json:"empire"`
+}
+
+// SimpleHandler is a basic message handler for agents
+// It logs connection lifecycle events and message responses
+type SimpleHandler struct {
+	Client *Client
+	Logger *log.Logger
+}
+
+// OnConnected logs successful connection events
+func (h *SimpleHandler) OnConnected(state *State) {
+	h.Logger.Printf("Connected successfully! Credits: %.2f", state.Credits)
+}
+
+// OnMessage logs informational and error messages from server
+func (h *SimpleHandler) OnMessage(resp protocol.Response) {
+	switch resp.Type {
+	case protocol.TypeOK:
+		if msg, ok := resp.Payload["message"].(string); ok {
+			h.Logger.Printf("OK: %s", msg)
+		}
+	case protocol.TypeError:
+		if msg, ok := resp.Payload["message"].(string); ok {
+			h.Logger.Printf("Error: %s", msg)
+		}
+	}
+}
+
+// OnDisconnected logs disconnection events
+func (h *SimpleHandler) OnDisconnected(err error) {
+	h.Logger.Printf("Disconnected: %v", err)
+}
+
+// LoadCredentials reads and parses credentials.json from an agent directory
+// The file must exist at: data/agents/{agentID}/credentials.json
+func LoadCredentials(agentDir string) (*Credentials, error) {
+	data, err := os.ReadFile(filepath.Join(agentDir, "credentials.json"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read credentials.json: %w", err)
+	}
+
+	var creds Credentials
+	if err := json.Unmarshal(data, &creds); err != nil {
+		return nil, fmt.Errorf("failed to parse credentials.json: %w", err)
+	}
+
+	// Validate required fields
+	if creds.Username == "" {
+		return nil, fmt.Errorf("username is required in credentials.json")
+	}
+	if creds.Password == "" {
+		return nil, fmt.Errorf("password is required in credentials.json")
+	}
+	if creds.Empire == "" {
+		return nil, fmt.Errorf("empire is required in credentials.json")
+	}
+
+	return &creds, nil
+}
+
+// InitializeAgent creates and initializes a game client for an autonomous agent
+// It handles the complete setup flow: load credentials, create client, set up handlers,
+// connect to server, wait for ready, and authenticate.
+//
+// Parameters:
+//   - agentID: The agent identifier (used for logger prefix and credential path)
+//   - logger: A logger instance for agent-specific logging
+//   - ctx: Context for lifecycle management
+//
+// Returns:
+//   - *Client: Fully initialized and authenticated game client
+//   - *Credentials: The loaded credentials (for reference if needed)
+//   - error: Any error during initialization
+//
+// Example usage:
+//
+//	client, creds, err := game.InitializeAgent("miner-1", logger, ctx)
+//	if err != nil {
+//	    log.Fatalf("Failed to initialize agent: %v", err)
+//	}
+//	defer client.Close()
+//
+//	// Now use the client for autonomous operations...
+func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context) (*Client, *Credentials, error) {
+	// Step 1: Load credentials from agent directory
+	agentDir := filepath.Join("data", "agents", agentID)
+	creds, err := LoadCredentials(agentDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load credentials for %s: %w", agentID, err)
+	}
+
+	logger.Printf("Agent: %s | Empire: %s", creds.Username, creds.Empire)
+
+	// Step 2: Create game client with dedicated game logger
+	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", agentID), log.LstdFlags)
+	client := NewClient(DefaultGameServerURL, creds.Username, creds.Password, gameLogger)
+
+	// Step 3: Set up message handler with automatic reconnection
+	handler := &SimpleHandler{
+		Client: client,
+		Logger: logger,
+	}
+	reconnectingHandler := NewReconnectingHandler(client, handler, ctx, logger)
+	client.SetHandler(reconnectingHandler)
+
+	// Step 4: Connect to game server
+	logger.Printf("Connecting to game server...")
+	if err := client.Connect(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to connect to game server: %w", err)
+	}
+
+	// Step 5: Wait for connection to be ready (first message received)
+	logger.Printf("Waiting for connection ready...")
+	<-client.Ready()
+
+	// Step 6: Authenticate with credentials
+	logger.Printf("Logging in...")
+	if err := client.Login(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to login: %w", err)
+	}
+
+	// Step 7: Get initial state to confirm successful login
+	state := client.GetState()
+	if state.Player.ID == "" {
+		return nil, nil, fmt.Errorf("login appeared to succeed but player data is missing")
+	}
+
+	logger.Printf("Ready! Credits: %.2f | Ship: %s | Cargo: %.0f/%.0f",
+		state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
+
+	return client, creds, nil
+}

@@ -35,13 +35,13 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 	ctx := context.Background()
 
 	sys := System{
-		ID:            "SYS-001",
-		Name:          "Test System",
-		Position:      game.Position{X: 100.0, Y: 200.0, Z: 300.0},
-		SecurityLevel: "HIGH",
-		Faction:       "test_faction",
-		Connections:   []string{"SYS-002", "SYS-003"},
-		DiscoveredBy:  "test_agent",
+		ID:           "SYS-001",
+		Name:         "Test System",
+		Position:     game.Position{X: 100.0, Y: 200.0, Z: 300.0},
+		PoliceLevel:  3,
+		Faction:      "test_faction",
+		Connections:  []string{"SYS-002", "SYS-003"},
+		DiscoveredBy: "test_agent",
 	}
 
 	if err := kb.RememberSystem(ctx, sys); err != nil {
