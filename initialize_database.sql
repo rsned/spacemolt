@@ -5,8 +5,10 @@
 -- Use this to initialize a fresh database:
 --   sqlite3 spacemolt-knowledge.db < initialize_database.sql
 --
--- Schema Version: 3
+-- Schema Version: 4
 -- Last Updated: 2025-02-11
+--
+-- Migration v3->v4: Changed security_level (TEXT) to police_level (INTEGER)
 
 -- ============================================================================
 -- CORE TABLES
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS systems (
 	pos_x REAL NOT NULL,
 	pos_y REAL NOT NULL,
 	pos_z REAL NOT NULL,
-	security_level TEXT,
+	police_level INTEGER DEFAULT 0,
 	faction TEXT,
 	visit_count INTEGER DEFAULT 0,
 	last_visited TEXT,
@@ -260,5 +262,5 @@ CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level D
 -- INITIAL MIGRATION RECORD
 -- ============================================================================
 
--- Record that schema version 3 has been applied
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
+-- Record that schema version 4 has been applied
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (4, datetime('now'));

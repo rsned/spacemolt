@@ -479,34 +479,34 @@ func cmdSystems(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 	defer func() { _ = rows.Close() }()
 
 	var systems []struct {
-		ID            string
-		Name          string
-		PosX, PosY    float64
-		PosZ          float64
-		SecurityLevel string
-		Faction       string
-		VisitCount    int
-		LastVisited   sql.NullString
-		DiscoveredBy  sql.NullString
-		Connections   sql.NullString
+		ID           string
+		Name         string
+		PosX, PosY   float64
+		PosZ         float64
+		PoliceLevel  int
+		Faction      string
+		VisitCount   int
+		LastVisited  sql.NullString
+		DiscoveredBy sql.NullString
+		Connections  sql.NullString
 	}
 
 	for rows.Next() {
 		var s struct {
-			ID            string
-			Name          string
-			PosX, PosY    float64
-			PosZ          float64
-			SecurityLevel string
-			Faction       string
-			VisitCount    int
-			LastVisited   sql.NullString
-			DiscoveredBy  sql.NullString
-			Connections   sql.NullString
+			ID           string
+			Name         string
+			PosX, PosY   float64
+			PosZ         float64
+			PoliceLevel  int
+			Faction      string
+			VisitCount   int
+			LastVisited  sql.NullString
+			DiscoveredBy sql.NullString
+			Connections  sql.NullString
 		}
 
 		if err := rows.Scan(&s.ID, &s.Name, &s.PosX, &s.PosY, &s.PosZ,
-			&s.SecurityLevel, &s.Faction, &s.VisitCount,
+			&s.PoliceLevel, &s.Faction, &s.VisitCount,
 			&s.LastVisited, &s.DiscoveredBy, &s.Connections); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
@@ -530,16 +530,16 @@ func cmdSystems(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 
 // outputSystemsTable displays systems in table format
 func outputSystemsTable(systems []struct {
-	ID            string
-	Name          string
-	PosX, PosY    float64
-	PosZ          float64
-	SecurityLevel string
-	Faction       string
-	VisitCount    int
-	LastVisited   sql.NullString
-	DiscoveredBy  sql.NullString
-	Connections   sql.NullString
+	ID           string
+	Name         string
+	PosX, PosY   float64
+	PosZ         float64
+	PoliceLevel  int
+	Faction      string
+	VisitCount   int
+	LastVisited  sql.NullString
+	DiscoveredBy sql.NullString
+	Connections  sql.NullString
 }) {
 	fmt.Println(headerStyle.Render("Discovered Systems"))
 	fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
@@ -558,11 +558,11 @@ func outputSystemsTable(systems []struct {
 			labelStyle.Render("Position:"),
 			s.PosX, s.PosY, s.PosZ)
 
-		// Security level
-		if s.SecurityLevel != "" {
+		// Police level
+		if s.PoliceLevel > 0 {
 			fmt.Printf("  %s %s\n",
-				labelStyle.Render("Security:"),
-				valueStyle.Render(s.SecurityLevel))
+				labelStyle.Render("Police:"),
+				valueStyle.Render(fmt.Sprintf("%d", s.PoliceLevel)))
 		}
 
 		// Faction

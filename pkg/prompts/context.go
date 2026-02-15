@@ -113,11 +113,11 @@ type KnowledgeContext struct {
 
 // SystemInfo represents knowledge about a system
 type SystemInfo struct {
-	ID            string
-	Name          string
-	SecurityLevel string
-	Faction       string
-	VisitCount    int
+	ID          string
+	Name        string
+	PoliceLevel int
+	Faction     string
+	VisitCount  int
 }
 
 // POIInfo represents knowledge about a point of interest
