@@ -39,6 +39,10 @@ const (
 	TypePoliceSpawn   = "police_spawn"
 	TypePoliceCombat  = "police_combat"
 
+	// Pirate system events
+	TypePirateWarning = "pirate_warning"
+	TypePirateCombat  = "pirate_combat"
+
 	// Drone system events
 	TypeDroneUpdate    = "drone_update"
 	TypeDroneDestroyed = "drone_destroyed"

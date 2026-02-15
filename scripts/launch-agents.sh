@@ -4,6 +4,7 @@
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
+START_DIR="$SCRIPT_DIR/../"
 
 # Define all agent types and their counts
 declare -A AGENT_TYPES
@@ -78,8 +79,8 @@ case "$1" in
     # Validate forced binary if specified
     if [ -n "$FORCE_BINARY" ]; then
         FORCE_BINARY="auto-${FORCE_BINARY#auto-}"  # Normalize: add "auto-" prefix if missing
-        if [ ! -f "bin/$FORCE_BINARY" ]; then
-            echo "❌ Binary not found: bin/$FORCE_BINARY"
+        if [ ! -f "../bin/$FORCE_BINARY" ]; then
+            echo "❌ Binary not found: ../bin/$FORCE_BINARY"
             exit 1
         fi
         echo "🔧 Override mode: Using $FORCE_BINARY for all agents"
@@ -117,7 +118,7 @@ case "$1" in
             continue
         fi
 
-        (cd "$SCRIPT_DIR" && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
+        (cd "$START_DIR" && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
         echo "  ✓ Started $agent with $binary (PID: $!)"
         STARTED=$((STARTED + 1))
 
