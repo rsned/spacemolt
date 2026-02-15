@@ -129,6 +129,28 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           })}
         </g>
 
+        {/* Orbital paths for planets and POIs */}
+        {pois
+          .filter((poi) => poi.type !== 'sun')
+          .map((poi) => {
+            const radius = Math.sqrt(poi.x * poi.x + poi.y * poi.y);
+            const orbitRadius = radius * scale;
+
+            return (
+              <circle
+                key={`orbit-${poi.id}`}
+                cx={centerX}
+                cy={centerY}
+                r={orbitRadius}
+                fill="none"
+                stroke="#6b7280"
+                strokeWidth="1"
+                strokeDasharray="4,4"
+                opacity="0.8"
+              />
+            );
+          })}
+
         {pois.map((poi) => {
           // Center on (0,0) and flip Y axis
           const x = poi.x * scale + centerX;
@@ -143,7 +165,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="50"
+                    r="25"
                     fill="none"
                     stroke="#fbbf24"
                     strokeWidth="1"
@@ -153,10 +175,8 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="40"
-                    fill="none"
-                    stroke="#fbbf24"
-                    strokeWidth="2"
+                    r="30"
+                    fill="#fbbf24"
                     opacity="0.5"
                   />
                 </>
@@ -248,11 +268,11 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
         {jumpGates.map((gate) => {
           // Convert angle to radians (0° = North/Up, clockwise)
           const angleRad = (gate.angle - 90) * (Math.PI / 180);
-          // Position jump gates at the edge of the visible area (80% of max radius)
+          // Position jump gates outside the farthest orbit
           const maxDistance = Math.sqrt(
             Math.max(...pois.map((poi) => poi.x * poi.x + poi.y * poi.y))
           );
-          const gateRadius = maxDistance * 0.85;
+          const gateRadius = maxDistance * 1.15;
           const gateX = centerX + Math.cos(angleRad) * gateRadius * scale;
           const gateY = centerY + Math.sin(angleRad) * gateRadius * scale;
 
