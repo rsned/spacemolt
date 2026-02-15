@@ -328,7 +328,7 @@ func main() {
     agentsFlag     := flag.String("agents", "", "Comma-separated agent IDs (e.g., miner-2,explorer-7)")
     agentsDir      := flag.String("agents-dir", "data/agents", "Directory with agent personalities")
     dbBackend      := flag.String("db-backend", "sqlite", "Knowledge base: sqlite or memory")
-    dbPath         := flag.String("db-path", "spacemolt-kb.db", "SQLite database path")
+    dbPath         := flag.String("db-path", "spacemolt-knowledge.db", "SQLite database path")
     credsBackend   := flag.String("creds-backend", "file", "Credentials: file, sqlite, or keyring")
     credsPath      := flag.String("creds-path", "data/credentials", "Credentials storage path")
     llmURL         := flag.String("llm-url", "http://localhost:11434", "Ollama URL")
@@ -798,7 +798,7 @@ server:
 
 knowledge_base:
   backend: sqlite
-  path: data/spacemolt-kb.db
+  path: data/spacemolt-knowledge.db
 
 credentials:
   backend: file

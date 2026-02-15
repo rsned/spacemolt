@@ -37,8 +37,10 @@ func New(cfg Config) (*Client, error) {
 	}
 	if cfg.Model == "" {
 		//cfg.Model = "llama3.2"
+		//cfg.Model = "dolphin3"
 		cfg.Model = "qwen3:14b"
 	}
+	cfg.Model = "dolphin3"
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
 	}
@@ -113,7 +115,8 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 		"stream": false,
 		"options": map[string]interface{}{
 			"temperature": 0.7,
-			"num_predict": 500,
+			"num_predict": 4096,
+			"num_ctx":     16384,
 		},
 	}
 
@@ -148,6 +151,8 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 		Response string `json:"response"`
 		Done     bool   `json:"done"`
 	}
+
+	fmt.Printf("[LLM]AAA: %+v\n\n\n", string(respBody))
 	if err := json.Unmarshal(respBody, &ollamaResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}

@@ -26,7 +26,7 @@ get_binary_for_role() {
 FORCE_BINARY=""
 if [ "$1" == "--binary" ]; then
     FORCE_BINARY="auto-${2#auto-}"  # Normalize: add "auto-" prefix if missing
-    if [ ! -f "bin/$FORCE_BINARY" ]; then
+    if [ ! -f "../bin/$FORCE_BINARY" ]; then
         echo "❌ Binary not found: bin/$FORCE_BINARY"
         exit 1
     fi
@@ -82,7 +82,7 @@ for batch in "${BATCHES[@]}"; do
         fi
 
         # Start the agent
-        (cd "$SCRIPT_DIR" && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
+        (cd "$SCRIPT_DIR" && ../bin/$binary $agent > logs/$agent.log 2>&1 &)
         echo "  ✓ Started $agent with $binary"
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 

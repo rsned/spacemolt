@@ -811,14 +811,15 @@ func (c *Client) listen(ctx context.Context) {
 
 // handleResponse updates the game state based on server responses
 func (c *Client) handleResponse(resp protocol.Response) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Store raw JSON for key response types
+	// Store raw JSON for key response types (has its own locking)
 	c.storeRawJSON(resp)
+
+	// Use fine-grained locking - only lock when actually updating state
+	// This prevents GetState() from being blocked for long periods
 
 	switch resp.Type {
 	case protocol.TypeWelcome:
+		c.mu.Lock()
 		if tick, ok := resp.Payload["current_tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
@@ -826,6 +827,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.state.ServerVersion = version
 			c.debugLogger.Printf("Server version: %s", version)
 		}
+		c.mu.Unlock()
 
 	case protocol.TypeRegistered:
 		payloadJSON, _ := json.Marshal(resp.Payload)
