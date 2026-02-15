@@ -28,9 +28,13 @@ const (
 // Exploration state for DFS algorithm
 type ExplorationState struct {
 	VisitedSystems  map[string]bool // Track explored systems
-	DFSStack        []string        // Backtracking stack
+	VisitedPOIs     map[string]bool // Track explored POIs in current system
+	DFSStack        []string        // Backtracking stack for systems
 	HomeSystem      string          // Starting point
 	LastFuelStation string          // Last known refuel point
+	PreviousSystem  string          // Previous system for escape routes
+	UnderAttack     bool            // Combat state flag
+	LastAttackTime  time.Time       // Time of last attack
 }
 
 type Credentials struct {
@@ -647,6 +651,257 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 	return nil
 }
 
+// exploreAllPOIs visits each POI in the current system, scans, and saves data
+func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
+	state := client.GetState()
+
+	// Initialize visited POIs for this system if needed
+	if expState.VisitedPOIs == nil {
+		expState.VisitedPOIs = make(map[string]bool)
+	}
+
+	logger.Printf("🔍 Exploring %d POIs in system %s", len(state.System.POIs), state.System.Name)
+
+	// Visit each POI
+	for _, poi := range state.System.POIs {
+		// Skip if already visited
+		if expState.VisitedPOIs[poi.ID] {
+			logger.Printf("⊙ Already visited POI: %s (%s)", poi.Name, poi.ID)
+			continue
+		}
+
+		logger.Printf("📍 Visiting POI: %s (%s) - Type: %s", poi.Name, poi.ID, poi.Type)
+
+		// Travel to POI if not already there
+		if state.CurrentPOI != poi.ID {
+			if err := client.Travel(ctx, poi.ID); err != nil {
+				logger.Printf("Failed to travel to POI %s: %v", poi.ID, err)
+				continue
+			}
+			logger.Printf("→ Arrived at %s", poi.Name)
+			time.Sleep(3 * time.Second)
+		}
+
+		// Scan at POI
+		logger.Printf("🔍 Scanning at %s...", poi.Name)
+		if err := client.Scan(ctx); err != nil {
+			logger.Printf("Scan failed: %v", err)
+		} else {
+			logger.Printf("✅ Scan complete at %s", poi.Name)
+		}
+		time.Sleep(3 * time.Second)
+
+		// Check for nearby players/ships
+		state = client.GetState()
+		if len(state.Nearby) > 0 {
+			logger.Printf("⚠️  %d nearby players/ships detected at %s", len(state.Nearby), poi.Name)
+		}
+
+		// Save POI-specific data
+		if err := savePOIData(client, logger, poi.ID); err != nil {
+			logger.Printf("Failed to save POI data: %v", err)
+		}
+
+		// Mark as visited
+		expState.VisitedPOIs[poi.ID] = true
+
+		// Small delay between POIs
+		time.Sleep(2 * time.Second)
+	}
+
+	logger.Printf("✅ Completed POI exploration in %s", state.System.Name)
+	return nil
+}
+
+// savePOIData saves detailed information about a specific POI
+func savePOIData(client *game.Client, logger *log.Logger, poiID string) error {
+	state := client.GetState()
+
+	// Find the POI in current system
+	var targetPOI *game.POI
+	for i := range state.System.POIs {
+		if state.System.POIs[i].ID == poiID {
+			targetPOI = &state.System.POIs[i]
+			break
+		}
+	}
+
+	if targetPOI == nil {
+		return fmt.Errorf("POI %s not found in current system", poiID)
+	}
+
+	// Build POI data structure
+	poiData := map[string]any{
+		"system_id":   state.System.ID,
+		"system_name": state.System.Name,
+		"poi": map[string]any{
+			"id":          targetPOI.ID,
+			"name":        targetPOI.Name,
+			"type":        targetPOI.Type,
+			"description": targetPOI.Description,
+			"position":    targetPOI.Position,
+			"resources":   targetPOI.Resources,
+			"base_id":     targetPOI.BaseID,
+		},
+		"nearby_players": state.Nearby,
+		"timestamp":      time.Now().Format(time.RFC3339),
+		"game_tick":      state.CurrentTick,
+	}
+
+	// Add nearby players if combat could be a concern
+	if state.InCombat {
+		poiData["in_combat"] = true
+		logger.Printf("⚔️  Combat detected at POI %s!", targetPOI.Name)
+	}
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(poiData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal POI data: %w", err)
+	}
+
+	// Create filename: {SYSTEM_NAME}.{POI_NAME}.json
+	systemName := sanitizeFilename(state.System.Name)
+	poiName := sanitizeFilename(targetPOI.Name)
+	filename := fmt.Sprintf("%s.%s.json", systemName, poiName)
+	filePath := filepath.Join("data", "server", "systems", filename)
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write POI data: %w", err)
+	}
+
+	logger.Printf("💾 Saved POI data: %s", filePath)
+	return nil
+}
+
+// saveCombatData saves attacker information when under attack
+func saveCombatData(client *game.Client, logger *log.Logger, attackers []game.NearbyPlayer, escapeRoute string) error {
+	state := client.GetState()
+	timestamp := time.Now().Format("20060102150405") // YYYYMMDDHHMMSS
+
+	combatData := map[string]any{
+		"timestamp":       time.Now().Format(time.RFC3339),
+		"game_tick":       state.CurrentTick,
+		"system_id":       state.System.ID,
+		"system_name":     state.System.Name,
+		"poi_id":          state.CurrentPOI,
+		"player_id":       state.Player.ID,
+		"player_username": state.Username,
+		"ship_id":         state.Ship.ID,
+		"ship_class":      state.Ship.ClassID,
+		"ship_name":       state.Ship.Name,
+		"hull":            state.Ship.Hull,
+		"shield":          state.Ship.Shield,
+		"attackers":       attackers,
+		"escape_route":    escapeRoute,
+	}
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(combatData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal combat data: %w", err)
+	}
+
+	// Create filename: combat_{SYSTEM_NAME}_{TIMESTAMP}.json
+	systemName := sanitizeFilename(state.System.Name)
+	filename := fmt.Sprintf("combat_%s_%s.json", systemName, timestamp)
+	filePath := filepath.Join("data", "server", "combat_logs", filename)
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write combat data: %w", err)
+	}
+
+	logger.Printf("⚠️  Saved combat data: %s", filePath)
+	return nil
+}
+
+// checkAndEvadeCombat checks if under attack and attempts escape
+func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) (underAttack bool) {
+	state := client.GetState()
+
+	// Check combat state
+	if !state.InCombat && len(state.Nearby) == 0 {
+		if expState.UnderAttack {
+			// Just escaped combat
+			logger.Printf("✅ Successfully escaped combat!")
+			expState.UnderAttack = false
+		}
+		return false
+	}
+
+	// We're under attack!
+	if !expState.UnderAttack {
+		logger.Printf("⚠️  COMBAT DETECTED! Initiating emergency protocols!")
+		expState.UnderAttack = true
+		expState.LastAttackTime = time.Now()
+
+		// Save combat data
+		if len(state.Nearby) > 0 {
+			if err := saveCombatData(client, logger, state.Nearby, expState.PreviousSystem); err != nil {
+				logger.Printf("Failed to save combat data: %v", err)
+			}
+		}
+	}
+
+	// Attempt escape if we have a previous system to return to
+	if expState.PreviousSystem != "" && expState.PreviousSystem != state.CurrentSystem {
+		logger.Printf("🚀 Attempting escape to previous system: %s", expState.PreviousSystem)
+
+		// Find jump gate to previous system
+		var targetPOI string
+		for _, poi := range state.System.POIs {
+			if poi.Type == "jump_gate" {
+				// Check if this gate connects to our escape route
+				// For now, use the first jump gate we find
+				targetPOI = poi.ID
+				break
+			}
+		}
+
+		if targetPOI != "" {
+			// Travel to jump gate
+			if state.CurrentPOI != targetPOI {
+				logger.Printf("→ Heading to jump gate: %s", targetPOI)
+				if err := client.Travel(ctx, targetPOI); err != nil {
+					logger.Printf("Failed to travel to jump gate: %v", err)
+					return true
+				}
+				time.Sleep(3 * time.Second)
+			}
+
+			// Jump to safety
+			logger.Printf("🚀 JUMPING TO SAFETY: %s", expState.PreviousSystem)
+			if err := client.Jump(ctx, expState.PreviousSystem); err != nil {
+				logger.Printf("Failed to jump to safety: %v", err)
+				return true
+			}
+
+			logger.Printf("✅ Escaped to %s!", expState.PreviousSystem)
+			time.Sleep(5 * time.Second)
+			return false // Successfully escaped
+		} else {
+			logger.Printf("❌ No jump gate found! Unable to escape!")
+		}
+	}
+
+	// No escape route available or already in escape system
+	logger.Printf("⚔️  Trapped in combat! Hull: %.0f/%.0f, Shield: %.0f/%.0f",
+		state.Ship.Hull, state.Ship.MaxHull,
+		state.Ship.Shield, state.Ship.MaxShield)
+
+	return true
+}
+
 func handleStations(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
 	state := client.GetState()
 
@@ -790,6 +1045,12 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 func navigateToSystem(client *game.Client, ctx context.Context, logger *log.Logger, targetSystem string, expState *ExplorationState) error {
 	state := client.GetState()
 
+	// Store current system as previous before jumping (for escape routes)
+	if state.CurrentSystem != expState.HomeSystem || expState.PreviousSystem == "" {
+		expState.PreviousSystem = state.CurrentSystem
+		logger.Printf("📍 Setting escape route: %s", expState.PreviousSystem)
+	}
+
 	// Check fuel before jump
 	fuelNeeded := 10.0 // Base fuel cost
 	if state.Fuel < fuelNeeded+20 {
@@ -824,9 +1085,11 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 	// Initialize exploration state
 	expState := &ExplorationState{
 		VisitedSystems:  make(map[string]bool),
+		VisitedPOIs:     make(map[string]bool),
 		DFSStack:        []string{},
 		HomeSystem:      state.CurrentSystem,
 		LastFuelStation: state.CurrentSystem,
+		PreviousSystem:  "", // Will be set when we first jump
 	}
 
 	logger.Printf("Starting DFS exploration from home system: %s", expState.HomeSystem)
@@ -841,17 +1104,31 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		state = client.GetState()
 		currentSystem := state.CurrentSystem
 
+		// Check for combat and evade if necessary
+		if checkAndEvadeCombat(client, ctx, logger, expState) {
+			// We're in combat, wait before trying again
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
 		// Mark current system as visited
 		if !expState.VisitedSystems[currentSystem] {
 			logger.Printf("📍 Exploring new system: %s", currentSystem)
 			expState.VisitedSystems[currentSystem] = true
+			expState.VisitedPOIs = make(map[string]bool) // Reset POI visits for new system
 
 			// Collect system data
 			if err := collectSystemData(client, ctx, logger); err != nil {
 				logger.Printf("Failed to collect system data: %v", err)
 			}
 
-			// Handle stations (listings, refuel)
+			// Explore all POIs in this system
+			logger.Printf("🔍 Beginning comprehensive POI exploration...")
+			if err := exploreAllPOIs(client, ctx, logger, expState); err != nil {
+				logger.Printf("POI exploration failed: %v", err)
+			}
+
+			// Handle stations (listings, refuel) after POI exploration
 			if err := handleStations(client, ctx, logger, expState); err != nil {
 				logger.Printf("Failed to handle stations: %v", err)
 			}
@@ -887,7 +1164,9 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 
 				// Reset exploration state
 				expState.VisitedSystems = make(map[string]bool)
+				expState.VisitedPOIs = make(map[string]bool)
 				expState.DFSStack = []string{}
+				expState.PreviousSystem = ""
 				time.Sleep(30 * time.Second)
 				continue
 			}
