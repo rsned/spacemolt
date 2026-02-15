@@ -23,6 +23,7 @@ data/agents/*/credentials.json
 # configs and credentials
 ##############################
 .spacemolt-credentials.json
+.spacemolt-session.json
 agents_config.yaml
 tokens
 users.txt
