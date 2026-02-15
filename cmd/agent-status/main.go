@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
@@ -81,6 +82,34 @@ func formatBar(current, max float64, width int) string {
 	return fmt.Sprintf("%s %.1f%%", bar, percent*100)
 }
 
+// truncateOrPad ensures a string fits within width by truncating or padding with spaces
+// Uses unicode-aware width calculation
+func truncateOrPad(s string, width int) string {
+	currentWidth := runewidth.StringWidth(s)
+	if currentWidth > width {
+		// Truncate
+		return runewidth.Truncate(s, width, "…")
+	}
+	// Pad
+	return s + strings.Repeat(" ", width-currentWidth)
+}
+
+// truncateOrPadLeft left-justifies a string within width (padding on right)
+func truncateOrPadLeft(s string, width int) string {
+	return truncateOrPad(s, width)
+}
+
+// truncateOrPadRight right-justifies a string within width (padding on left)
+func truncateOrPadRight(s string, width int) string {
+	currentWidth := runewidth.StringWidth(s)
+	if currentWidth > width {
+		// Truncate
+		return runewidth.Truncate(s, width, "…")
+	}
+	// Pad on left
+	return strings.Repeat(" ", width-currentWidth) + s
+}
+
 func printStatus(state *game.State) {
 	fmt.Println()
 	fmt.Println("╔════════════════════════════════════════════════════════════════════╗")
@@ -89,13 +118,16 @@ func printStatus(state *game.State) {
 
 	// PILOT section
 	fmt.Printf("┌─ PILOT ─────────────────────────┬──────────────────────────────────┐\n")
-	fmt.Printf("│ Name:  %-28s │ Faction: %-24s │\n", state.Username, state.Player.FactionID)
+	fmt.Printf("│ Name:  %-28s │ Faction: %-24s │\n",
+		truncateOrPadLeft(state.Username, 28),
+		truncateOrPadLeft(state.Player.FactionID, 24))
 
 	empireName := state.Player.Empire
 	if empireName != "" {
 		empireName = titleCase(empireName)
 	}
-	fmt.Printf("│ Empire: %28s │ Colors:  🟥🟥🟥🟥🟥 / 🟦🟦🟦🟦🟦 │\n", empireName)
+	fmt.Printf("│ Empire: %28s │ Colors:  🟥🟥🟥🟥🟥 / 🟦🟦🟦🟦🟦 │\n",
+		truncateOrPadLeft(empireName, 28))
 
 	homeBase := state.Player.HomeBase
 	if homeBase == "" {
@@ -105,26 +137,37 @@ func printStatus(state *game.State) {
 	if statusMsg == "" {
 		statusMsg = ""
 	}
-	fmt.Printf("│ Home Base: %24s │ Status: %-24s │\n", homeBase, statusMsg)
+	fmt.Printf("│ Home Base: %24s │ Status: %-24s │\n",
+		truncateOrPadLeft(homeBase, 24),
+		truncateOrPadLeft(statusMsg, 24))
 	fmt.Printf("│ Credits: %26.0f │                                  │\n", state.Credits)
 	fmt.Printf("└─────────────────────────────────┴──────────────────────────────────┘\n")
 	fmt.Println()
 
-	// SKILLS section - always show if player has skills
-	if len(state.Player.Skills) > 0 {
+	// SKILLS section - show if player has skills or skill XP
+	if len(state.Player.Skills) > 0 || len(state.SkillXP) > 0 {
 		fmt.Printf("┌─ SKILLS ────────────────────────┬──────────────────────────────────┐\n")
 		skillCount := 0
 		for skillID, skill := range state.Player.Skills {
 			skillCount++
+			skillName := titleCase(strings.ReplaceAll(skillID, "_", " "))
+
+			// Get XP from skill_xp if available, otherwise use skill.XP
+			currentXP := skill.XP
+			if xp, ok := state.SkillXP[skillID]; ok {
+				currentXP = xp
+			}
+
+			// Calculate XP to next level
 			xpToNext := float64((skill.Level + 1) * 100)
 			if skill.Level == 0 {
 				xpToNext = 100
 			}
-			skillName := titleCase(strings.ReplaceAll(skillID, "_", " "))
+
 			fmt.Printf("│ %-32s │                                  │\n",
-				fmt.Sprintf("%s: %5.0f / %5.0f XP", skillName, skill.XP, xpToNext))
+				truncateOrPadLeft(fmt.Sprintf("%s: %5.0f / %5.0f XP", skillName, currentXP, xpToNext), 32))
 			fmt.Printf("│ %32s │                                  │\n",
-				fmt.Sprintf("Level %d", skill.Level))
+				truncateOrPadLeft(fmt.Sprintf("Level %d", skill.Level), 32))
 			if skillCount < len(state.Player.Skills) {
 				fmt.Printf("│                              │                                  │\n")
 			}
@@ -135,7 +178,9 @@ func printStatus(state *game.State) {
 
 	// LOCATION section
 	fmt.Printf("┌─ LOCATION ──────────────────────┬──────────────────────────────────┐\n")
-	fmt.Printf("│ System: %26s │ POI: %-24s │\n", state.System.Name, state.CurrentPOI)
+	fmt.Printf("│ System: %26s │ POI: %-24s │\n",
+		truncateOrPadLeft(state.System.Name, 26),
+		truncateOrPadLeft(state.CurrentPOI, 24))
 
 	// Find POI display name
 	poiDisplayName := state.CurrentPOI
@@ -147,7 +192,9 @@ func printStatus(state *game.State) {
 			break
 		}
 	}
-	fmt.Printf("│ Empire: %26s │             (%-20s) │\n", state.System.Empire, poiDisplayName)
+	fmt.Printf("│ Empire: %26s │             (%-20s) │\n",
+		truncateOrPadLeft(state.System.Empire, 26),
+		truncateOrPadLeft(poiDisplayName, 20))
 
 	policePercent := 0
 	if state.System.PoliceLevel > 0 {
@@ -165,11 +212,12 @@ func printStatus(state *game.State) {
 	// SHIP section
 	fmt.Printf("┌─ SHIP ──────────────────────────┬──────────────────────────────────┐\n")
 	fmt.Printf("│ Name: %28s │ Cargo: %24s │\n",
-		state.Ship.Name,
+		truncateOrPadLeft(state.Ship.Name, 28),
 		fmt.Sprintf("(%s) %5.0f / %5.0f",
 			percentBar(state.Ship.CargoUsed, state.Ship.CargoCapacity),
 			state.Ship.CargoUsed, state.Ship.CargoCapacity))
-	fmt.Printf("│                (%-20s) │                                  │\n", state.Ship.ClassID)
+	fmt.Printf("│                (%-20s) │                                  │\n",
+		truncateOrPadLeft(state.Ship.ClassID, 20))
 	fmt.Printf("│ Hull: %28s │ Items: %24d │\n",
 		fmt.Sprintf("(%s) %5.0f / %5.0f",
 			percentBar(state.Ship.Hull, state.Ship.MaxHull),
@@ -217,10 +265,16 @@ func printStatus(state *game.State) {
 	moduleCount := len(state.Ship.Modules)
 	fmt.Printf("│   Total: %21d         │                                  │\n", moduleCount)
 
-	// List up to 5 modules
+	// List up to 5 modules with names from ModuleDefinitions
 	for i := 0; i < 5; i++ {
 		if i < len(state.Ship.Modules) {
-			fmt.Printf("│     %d) %-23s │                                  │\n", i+1, state.Ship.Modules[i])
+			modID := state.Ship.Modules[i]
+			modName := modID
+			if modDef, ok := state.ModuleDefinitions[modID]; ok {
+				modName = modDef.Name
+			}
+			fmt.Printf("│     %d) %-23s │                                  │\n", i+1,
+				truncateOrPadLeft(modName, 23))
 		} else {
 			fmt.Printf("│     %d) %-23s │                                  │\n", i+1, "")
 		}
