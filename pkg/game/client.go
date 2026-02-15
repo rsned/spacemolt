@@ -554,11 +554,11 @@ func (c *Client) SellAll(ctx context.Context) error {
 func (c *Client) isOreOrResource(itemID string) bool {
 	// Ores and resources to sell
 	oreAndResourcePrefixes := []string{
-		"ore_",       // All ores (ore_iron, ore_copper, etc.)
-		"gas_",       // Gases
-		"crystal_",   // Crystals
-		"salvage_",   // Salvage materials
-		"scrap_",     // Scrap materials
+		"ore_",     // All ores (ore_iron, ore_copper, etc.)
+		"gas_",     // Gases
+		"crystal_", // Crystals
+		"salvage_", // Salvage materials
+		"scrap_",   // Scrap materials
 	}
 
 	for _, prefix := range oreAndResourcePrefixes {
@@ -845,15 +845,53 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 		if skills, ok := playerData["skills"].(map[string]any); ok {
 			c.state.Player.Skills = make(map[string]Skill)
 			for skillID, skillData := range skills {
-				if skillMap, ok := skillData.(map[string]any); ok {
-					skill := Skill{}
+				skill := Skill{}
+				// Skills can be either a number (level) or an object with level/xp
+				if level, ok := skillData.(float64); ok {
+					// Simple format: "skills":{"mining_basic":2}
+					skill.Level = int(level)
+				} else if skillMap, ok := skillData.(map[string]any); ok {
+					// Detailed format: "skills":{"mining_basic":{"level":2,"xp":100}}
 					if level, ok := skillMap["level"].(float64); ok {
 						skill.Level = int(level)
 					}
 					if xp, ok := skillMap["xp"].(float64); ok {
 						skill.XP = xp
 					}
-					c.state.Player.Skills[skillID] = skill
+				}
+				c.state.Player.Skills[skillID] = skill
+			}
+		}
+
+		// Parse skill_xp (current XP toward next level for each skill)
+		if skillXP, ok := playerData["skill_xp"].(map[string]any); ok {
+			c.state.SkillXP = make(map[string]float64)
+			for skillID, xp := range skillXP {
+				if xpVal, ok := xp.(float64); ok {
+					c.state.SkillXP[skillID] = xpVal
+				}
+			}
+		}
+
+		// Parse module definitions (map module ID to name/type)
+		if modules, ok := playerData["modules"].(map[string]any); ok {
+			c.state.ModuleDefinitions = make(map[string]ModuleDefinition)
+			for modID, modData := range modules {
+				if modMap, ok := modData.(map[string]any); ok {
+					modDef := ModuleDefinition{}
+					if id, ok := modMap["id"].(string); ok {
+						modDef.ID = id
+					}
+					if name, ok := modMap["name"].(string); ok {
+						modDef.Name = name
+					}
+					if modType, ok := modMap["type"].(string); ok {
+						modDef.Type = modType
+					}
+					if desc, ok := modMap["description"].(string); ok {
+						modDef.Description = desc
+					}
+					c.state.ModuleDefinitions[modID] = modDef
 				}
 			}
 		}
@@ -1000,6 +1038,34 @@ func (c *Client) parseShipData(payload map[string]any) {
 					}
 					c.state.Ship.Cargo = append(c.state.Ship.Cargo, cargoItem)
 					c.state.Cargo = append(c.state.Cargo, itemMap)
+				}
+			}
+		}
+	}
+
+	// Parse module definitions from payload level (from get_ship response)
+	// These contain full module details: id, name, type, etc.
+	if modules, ok := payload["modules"].([]any); ok {
+		if c.state.ModuleDefinitions == nil {
+			c.state.ModuleDefinitions = make(map[string]ModuleDefinition)
+		}
+		for _, m := range modules {
+			if modMap, ok := m.(map[string]any); ok {
+				modDef := ModuleDefinition{}
+				if id, ok := modMap["id"].(string); ok {
+					modDef.ID = id
+				}
+				if name, ok := modMap["name"].(string); ok {
+					modDef.Name = name
+				}
+				if modType, ok := modMap["type"].(string); ok {
+					modDef.Type = modType
+				}
+				if desc, ok := modMap["description"].(string); ok {
+					modDef.Description = desc
+				}
+				if modDef.ID != "" {
+					c.state.ModuleDefinitions[modDef.ID] = modDef
 				}
 			}
 		}

@@ -157,6 +157,7 @@ type State struct {
 	// Player data
 	Player  Player
 	Credits float64
+	SkillXP map[string]float64 `json:"skill_xp"` // Current XP toward next level for each skill
 
 	// Ship data
 	Ship     Ship
@@ -167,6 +168,9 @@ type State struct {
 	Cargo    []map[string]any // Legacy format, use Ship.Cargo
 	MaxCargo int
 
+	// Module definitions (maps module ID to name/type)
+	ModuleDefinitions map[string]ModuleDefinition `json:"modules,omitempty"`
+
 	// System data
 	System        SystemData
 	CurrentTick   int64
@@ -175,6 +179,14 @@ type State struct {
 	// Nearby players (from state_update)
 	Nearby   []NearbyPlayer
 	InCombat bool
+}
+
+// ModuleDefinition represents a module's definition
+type ModuleDefinition struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Type        string `json:"type"` // "weapon", "defense", "utility", etc.
+	Description string `json:"description"`
 }
 
 // Clone creates a deep copy of the state for safe concurrent access
