@@ -1,0 +1,18 @@
+digraph "Salvaging" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "relic_identification" [label="Relic Identification"];
+    "archaeology" [label="Archaeology"];
+    "salvaging" [label="Salvaging"];
+    "salvaging_advanced" [label="Advanced Salvaging"];
+
+    { rank=same; "salvaging"; }
+    { rank=same; "archaeology"; "salvaging_advanced"; }
+    { rank=same; "relic_identification"; }
+
+    "salvaging" -> "archaeology" [label="3"];
+    "salvaging" -> "salvaging_advanced" [label="5"];
+    "archaeology" -> "relic_identification" [label="5"];
+}
