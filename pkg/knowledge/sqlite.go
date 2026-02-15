@@ -102,20 +102,20 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	// Insert or update system
 	// Use INSERT OR REPLACE to handle both new and existing systems
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, security_level, faction, visit_count, last_visited, discovered_by)
+		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by)
 		VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT visit_count FROM systems WHERE id = ?), 0) + 1, datetime('now'), ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			pos_x = excluded.pos_x,
 			pos_y = excluded.pos_y,
 			pos_z = excluded.pos_z,
-			security_level = excluded.security_level,
+			police_level = excluded.police_level,
 			faction = excluded.faction,
 			visit_count = visit_count + 1,
 			last_visited = datetime('now'),
 			discovered_by = excluded.discovered_by
 	`, sys.ID, sys.Name, sys.Position.X, sys.Position.Y, sys.Position.Z,
-		sys.SecurityLevel, sys.Faction, sys.ID, sys.DiscoveredBy)
+		sys.PoliceLevel, sys.Faction, sys.ID, sys.DiscoveredBy)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
@@ -143,12 +143,12 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 	var lastVisited sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, name, pos_x, pos_y, pos_z, security_level, faction, visit_count, last_visited, discovered_by
+		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by
 		FROM systems
 		WHERE id = ?
 	`, systemID).Scan(
 		&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
-		&sys.SecurityLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
+		&sys.PoliceLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // System not found
@@ -391,7 +391,7 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, fact
 func (kb *SQLiteKB) GetSystems() []System {
 	// Query all systems
 	rows, err := kb.db.Query(`
-		SELECT id, name, pos_x, pos_y, pos_z, security_level, faction, visit_count, last_visited, discovered_by
+		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by
 		FROM systems
 	`)
 	if err != nil {
@@ -406,7 +406,7 @@ func (kb *SQLiteKB) GetSystems() []System {
 
 		if err := rows.Scan(
 			&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
-			&sys.SecurityLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
+			&sys.PoliceLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
 		); err != nil {
 			continue
 		}
@@ -646,6 +646,185 @@ func (kb *SQLiteKB) getMarketListings(ctx context.Context, snapshotID int) ([]Ma
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating listings: %w", err)
+	}
+
+	return listings, nil
+}
+
+// HasMarketSnapshotToday checks if a market snapshot was captured today for a station
+func (kb *SQLiteKB) HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error) {
+	var count int
+	err := kb.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM market_snapshots
+		WHERE system_id = ? AND station_id = ?
+		AND DATE(captured_at) = DATE('now')
+	`, systemID, stationID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for today's snapshot: %w", err)
+	}
+	return count > 0, nil
+}
+
+// StoreShipListings stores ship listings at a station
+func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error {
+	tx, err := kb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, ship := range listings.Listings {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO ship_listings (system_id, system_name, station_id, station_name,
+				ship_class, ship_name, base_price, description, cargo_space, module_slots,
+				utility_slots, weapon_slots, game_tick, captured_at, agent_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+		`, listings.SystemID, listings.SystemName, listings.StationID, listings.StationName,
+			ship.ShipClass, ship.ShipName, ship.BasePrice, ship.Description, ship.CargoSpace,
+			ship.ModuleSlots, ship.UtilitySlots, ship.WeaponSlots, listings.GameTick, agentID)
+		if err != nil {
+			return fmt.Errorf("failed to insert ship listing: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetShipListings retrieves historical ship listings
+func (kb *SQLiteKB) GetShipListings(ctx context.Context, systemID, stationID string, limit int) ([]ShipListings, error) {
+	query := `
+		SELECT DISTINCT system_id, system_name, station_id, station_name, game_tick, captured_at
+		FROM ship_listings
+		WHERE system_id = ? AND station_id = ?
+		ORDER BY captured_at DESC
+		LIMIT ?
+	`
+
+	rows, err := kb.db.QueryContext(ctx, query, systemID, stationID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query ship listings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var snapshots []ShipListings
+	for rows.Next() {
+		var snap ShipListings
+		var capturedAt string
+
+		err := rows.Scan(&snap.SystemID, &snap.SystemName, &snap.StationID, &snap.StationName, &snap.GameTick, &capturedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan snapshot: %w", err)
+		}
+
+		snap.CapturedAt, err = time.Parse(time.RFC3339, capturedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse captured_at: %w", err)
+		}
+
+		// Get listings for this snapshot
+		listings, err := kb.getShipListingsForSnapshot(ctx, snap.SystemID, snap.StationID, snap.CapturedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ship listings: %w", err)
+		}
+		snap.Listings = listings
+
+		snapshots = append(snapshots, snap)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating snapshots: %w", err)
+	}
+
+	return snapshots, nil
+}
+
+// GetLatestShipListings retrieves the most recent ship listings
+func (kb *SQLiteKB) GetLatestShipListings(ctx context.Context, systemID, stationID string) (*ShipListings, error) {
+	query := `
+		SELECT system_id, system_name, station_id, station_name, game_tick, MAX(captured_at) as captured_at
+		FROM ship_listings
+		WHERE system_id = ? AND station_id = ?
+		GROUP BY system_id, station_id
+		LIMIT 1
+	`
+
+	var snap ShipListings
+	var capturedAt string
+
+	err := kb.db.QueryRowContext(ctx, query, systemID, stationID).Scan(
+		&snap.SystemID, &snap.SystemName, &snap.StationID, &snap.StationName, &snap.GameTick, &capturedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil // No listings found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query latest listings: %w", err)
+	}
+
+	snap.CapturedAt, err = time.Parse(time.RFC3339, capturedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse captured_at: %w", err)
+	}
+
+	// Get listings for this snapshot
+	listings, err := kb.getShipListingsForSnapshot(ctx, snap.SystemID, snap.StationID, snap.CapturedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ship listings: %w", err)
+	}
+	snap.Listings = listings
+
+	return &snap, nil
+}
+
+// HasShipListingsToday checks if ship listings were captured today for a station
+func (kb *SQLiteKB) HasShipListingsToday(ctx context.Context, systemID, stationID string) (bool, error) {
+	var count int
+	err := kb.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM ship_listings
+		WHERE system_id = ? AND station_id = ?
+		AND DATE(captured_at) = DATE('now')
+	`, systemID, stationID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for today's ship listings: %w", err)
+	}
+	return count > 0, nil
+}
+
+// getShipListingsForSnapshot retrieves all ships for a specific snapshot time
+func (kb *SQLiteKB) getShipListingsForSnapshot(ctx context.Context, systemID, stationID string, capturedAt time.Time) ([]ShipListing, error) {
+	query := `
+		SELECT ship_class, ship_name, base_price, description, cargo_space, module_slots, utility_slots, weapon_slots
+		FROM ship_listings
+		WHERE system_id = ? AND station_id = ? AND captured_at = ?
+		ORDER BY ship_class
+	`
+
+	rows, err := kb.db.QueryContext(ctx, query, systemID, stationID, capturedAt.Format(time.RFC3339))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query ship listings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var listings []ShipListing
+	for rows.Next() {
+		var ship ShipListing
+		var description sql.NullString
+
+		err := rows.Scan(&ship.ShipClass, &ship.ShipName, &ship.BasePrice, &description,
+			&ship.CargoSpace, &ship.ModuleSlots, &ship.UtilitySlots, &ship.WeaponSlots)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan ship listing: %w", err)
+		}
+
+		if description.Valid {
+			ship.Description = description.String
+		}
+
+		listings = append(listings, ship)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating ship listings: %w", err)
 	}
 
 	return listings, nil

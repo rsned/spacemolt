@@ -74,7 +74,7 @@ Automatically starts all agents with valid `personality.json` files in the agent
 
 ```bash
 --db-backend string        Backend: sqlite or memory (default "sqlite")
---db-path string          Path to SQLite database (default "data/spacemolt-kb.db")
+--db-path string          Path to SQLite database (default "data/spacemolt-knowledge.db")
 ```
 
 ### LLM Configuration

@@ -295,7 +295,7 @@ Knowledge Base:
   --db-backend string
         Backend: "sqlite" or "memory" (default "sqlite")
   --db-path string
-        Path to SQLite database (default "data/spacemolt-kb.db")
+        Path to SQLite database (default "data/spacemolt-knowledge.db")
 
 LLM Configuration:
   --llm-url string
@@ -538,7 +538,7 @@ bin/agent-server --agents=explorer-7
 # - Registered in the game with a new account
 # - Credentials saved to data/agents/explorer-7/credentials.json
 # - Autonomously exploring and making decisions
-# - Building knowledge in data/spacemolt-kb.db
+# - Building knowledge in data/spacemolt-knowledge.db
 
 # Let it run for 5-10 minutes, then stop with Ctrl+C
 # Credentials are saved - next time it will log in automatically!
@@ -603,7 +603,7 @@ bin/agent-server --agents=explorer-7
 # Let run for 5 minutes, then Ctrl+C
 
 # Check what was discovered
-sqlite3 data/spacemolt-kb.db "SELECT id, name, visit_count FROM systems;"
+sqlite3 data/spacemolt-knowledge.db "SELECT id, name, visit_count FROM systems;"
 # Output:
 # Sol|Sol|3
 # Alpha-Centauri|Alpha Centauri|2
@@ -765,7 +765,7 @@ spacemolt-agent-server/
 │   │   │   └── credentials.json (auto-generated)
 │   │   ├── miner-2/
 │   │   └── ...
-│   ├── spacemolt-kb.db   # SQLite knowledge base (auto-generated)
+│   ├── spacemolt-knowledge.db   # SQLite knowledge base (auto-generated)
 │   └── credentials/      # File-based credentials (auto-generated)
 ├── docs/
 │   ├── agent_startup.md  # Complete architecture documentation

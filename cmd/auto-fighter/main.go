@@ -2,18 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
-
-const gameServerURL = "wss://game.spacemolt.com/ws"
 
 // Reserve credits (never spend below this)
 const (
@@ -23,64 +18,71 @@ const (
 	TIER3_THRESHOLD = 10000.0 // Ship upgrade threshold
 )
 
-type Credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Empire   string `json:"empire"`
-}
+func updateCaptainsLog(agentID string, client *game.Client, fighterRuns int, totalCreditsEarned float64) {
+	state := client.GetState()
 
-type SimpleHandler struct {
-	client *game.Client
-	logger *log.Logger
-}
+	var notes []string
+	notes = append(notes, fmt.Sprintf("Combat runs completed: %d", fighterRuns))
+	notes = append(notes, fmt.Sprintf("Total credits earned: %.2f", totalCreditsEarned))
+	notes = append(notes, fmt.Sprintf("Current credits: %.2f", state.Credits))
+	notes = append(notes, fmt.Sprintf("Ship: %s (%d modules)", state.Ship.Name, len(state.Ship.Modules)))
+	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
+	notes = append(notes, fmt.Sprintf("Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel))
+	notes = append(notes, fmt.Sprintf("Cargo: %.1f/%.1f", state.Ship.CargoUsed, state.Ship.CargoCapacity))
 
-func (h *SimpleHandler) OnConnected(state *game.State) {
-	h.logger.Printf("✓ Connected! Credits: %.2f", state.Credits)
-}
-
-func (h *SimpleHandler) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			h.logger.Printf("✓ %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			h.logger.Printf("✗ %s", msg)
+	// Count weapons
+	weaponCount := 0
+	for _, module := range state.Ship.Modules {
+		if len(module) >= 7 && module[:7] == "weapon_" {
+			weaponCount++
 		}
 	}
-}
+	notes = append(notes, fmt.Sprintf("Weapons installed: %d", weaponCount))
 
-func (h *SimpleHandler) OnDisconnected(err error) {
-	h.logger.Printf("Disconnected: %v", err)
-}
+	currentGoal := "Autonomous combat operations - hunting pirates and upgrading equipment"
+	if state.Doc {
+		currentGoal = "Docked at station - selling loot, refueling, and checking for upgrades"
+	} else if state.Traveling {
+		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
+	} else if state.InCombat {
+		currentGoal = "Engaged in combat with hostile target"
+	}
 
-// loadCredentials loads agent credentials from a JSON file
-func loadCredentials(agentDir string) (*Credentials, error) {
-	data, err := os.ReadFile(filepath.Join(agentDir, "credentials.json"))
-	if err != nil {
-		return nil, err
+	entry := &game.AgentLog{
+		AgentName:   state.Player.Username,
+		CurrentGoal: currentGoal,
+		Location:    fmt.Sprintf("System: %s, POI: %s", state.CurrentSystem, state.CurrentPOI),
+		Notes:       notes,
 	}
-	var creds Credentials
-	if err := json.Unmarshal(data, &creds); err != nil {
-		return nil, err
+
+	if err := game.WriteCaptainsLog(agentID, entry); err != nil {
+		// Log error but don't fail - captain's log is not critical
+		_ = err
 	}
-	return &creds, nil
 }
 
 // fighterLoop implements the main combat loop for the auto-fighter agent
 // Logic: Hunt pirates, loot wrecks, sell loot, upgrade equipment, repeat
-func fighterLoop(client *game.Client, logger *log.Logger, ctx context.Context) error {
+func fighterLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {
 	fighterRuns := 0
 	totalCreditsEarned := 0.0
 	startingCredits := client.GetState().Credits
 
 	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
 
+	// Captain's log ticker - update every 2 minutes
+	logTicker := time.NewTicker(2 * time.Minute)
+	defer logTicker.Stop()
+
+	// Initial captain's log entry
+	updateCaptainsLog(agentID, client, fighterRuns, totalCreditsEarned)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-logTicker.C:
+			updateCaptainsLog(agentID, client, fighterRuns, totalCreditsEarned)
 		default:
 		}
 
@@ -282,6 +284,9 @@ func fighterLoop(client *game.Client, logger *log.Logger, ctx context.Context) e
 			state.Credits, startingCredits, totalCreditsEarned)
 		logger.Printf("Ship: %s | Weapons: %d", state.Ship.Name, len(state.Ship.Modules))
 
+		// Update captain's log after each run
+		updateCaptainsLog(agentID, client, fighterRuns, totalCreditsEarned)
+
 		// Check if we should continue looping
 		// Continue if we have fuel and hull, and haven't reached a stopping point
 		if state.Fuel < 20 || state.Hull < state.MaxHull*0.3 {
@@ -441,53 +446,48 @@ func main() {
 	}
 
 	agentID := os.Args[1]
-	agentDir := fmt.Sprintf("data/agents/%s", agentID)
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
-	// Load credentials
-	creds, err := loadCredentials(agentDir)
+	// Check captain's log for previous mission
+	previousLog, err := game.ReadLatestCaptainsLog(agentID)
 	if err != nil {
-		log.Fatalf("Failed to load credentials: %v", err)
+		logger.Printf("Failed to read captain's log: %v", err)
+	} else if previousLog != nil {
+		logger.Printf("📖 Captain's Log - Last Entry:")
+		logger.Printf("   Mission: %s", previousLog.CurrentGoal)
+		logger.Printf("   Location: %s", previousLog.Location)
+		logger.Printf("   Time: %s", previousLog.Timestamp.Format("2006-01-02 15:04"))
+		if len(previousLog.Notes) > 0 {
+			logger.Printf("   Last Status:")
+			for _, note := range previousLog.Notes {
+				logger.Printf("      - %s", note)
+			}
+		}
 	}
-
-	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
-	logger.Printf("Agent: %s | Empire: %s", creds.Username, creds.Empire)
 
 	// Create context for lifecycle management
 	ctx := context.Background()
 
-	// Create game client
-	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", agentID), log.LstdFlags)
-	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
-
-	// Set up handler with automatic reconnection
-	handler := &SimpleHandler{client: client, logger: logger}
-	reconnectingHandler := game.NewReconnectingHandler(client, handler, ctx, logger)
-	client.SetHandler(reconnectingHandler)
-
-	// Connect to game
-	if err := client.Connect(ctx); err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+	// Initialize game client using shared library function
+	// This handles: credential loading, client creation, connection, and login
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize agent: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.Printf("Warning: Failed to close client: %v", err)
+		}
+	}()
 
-	// Wait for connection
-	<-client.Ready()
 	time.Sleep(1 * time.Second)
-
-	// Login
-	logger.Printf("Logging in...")
-	if err := client.Login(ctx); err != nil {
-		log.Fatalf("Failed to login: %v", err)
-	}
-
-	time.Sleep(2 * time.Second)
 
 	// Get initial state
 	state := client.GetState()
-	logger.Printf("✓ Ready! Credits: %.2f | Ship: %s | Cargo Capacity: %.0f",
-		state.Credits, state.Ship.Name, state.Ship.CargoCapacity)
+	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
+	logger.Printf("Agent: %s | Empire: %s | Credits: %.2f | Ship: %s | Cargo: %.0f/%.0f",
+		creds.Username, creds.Empire, state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
 	// Start autonomous combat loop with upgrades
 	logger.Printf("Starting autonomous combat + upgrade loop...")
@@ -504,7 +504,7 @@ func main() {
 	logger.Printf("       Ultimate Fighter (%.0f credits) → 6 weapon slots", game.CombatProgression.Tiers[4].Threshold)
 	logger.Printf("")
 
-	if err := fighterLoop(client, logger, ctx); err != nil {
+	if err := fighterLoop(agentID, client, logger, ctx); err != nil {
 		log.Fatalf("Fighter loop error: %v", err)
 	}
 }

@@ -49,7 +49,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 	if existing, ok := kb.systems[sys.ID]; ok {
 		existing.Name = sys.Name
 		existing.Position = sys.Position
-		existing.SecurityLevel = sys.SecurityLevel
+		existing.PoliceLevel = sys.PoliceLevel
 		existing.Faction = sys.Faction
 		existing.VisitCount++
 		existing.LastVisited = time.Now().Format(time.RFC3339)
@@ -57,15 +57,15 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 		existing.Connections = sys.Connections
 	} else {
 		kb.systems[sys.ID] = &System{
-			ID:            sys.ID,
-			Name:          sys.Name,
-			Position:      sys.Position,
-			SecurityLevel: sys.SecurityLevel,
-			Faction:       sys.Faction,
-			Connections:   sys.Connections,
-			VisitCount:    1,
-			DiscoveredBy:  sys.DiscoveredBy,
-			LastVisited:   time.Now().Format(time.RFC3339),
+			ID:           sys.ID,
+			Name:         sys.Name,
+			Position:     sys.Position,
+			PoliceLevel:  sys.PoliceLevel,
+			Faction:      sys.Faction,
+			Connections:  sys.Connections,
+			VisitCount:   1,
+			DiscoveredBy: sys.DiscoveredBy,
+			LastVisited:  time.Now().Format(time.RFC3339),
 		}
 	}
 
@@ -220,16 +220,16 @@ func (kb *MemoryKB) GetSystems() []System {
 // System represents knowledge about a solar system
 // Wraps game.SystemData with exploration metadata
 type System struct {
-	ID            string
-	Name          string
-	Position      game.Position
-	SecurityLevel string
-	Faction       string
-	Connections   []string
-	POIs          []string
-	LastVisited   string
-	VisitCount    int
-	DiscoveredBy  string
+	ID           string
+	Name         string
+	Position     game.Position
+	PoliceLevel  int // Security level 0-3 (0=none, 1=low, 2=medium, 3=high)
+	Faction      string
+	Connections  []string
+	POIs         []string
+	LastVisited  string
+	VisitCount   int
+	DiscoveredBy string
 }
 
 // POI represents knowledge about a Point of Interest

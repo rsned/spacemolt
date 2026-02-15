@@ -6,7 +6,7 @@ server:
 
 knowledge_base:
   backend: sqlite
-  path: data/spacemolt-kb.db
+  path: data/spacemolt-knowledge.db
 
 credentials:
   backend: file

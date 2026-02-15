@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -35,6 +36,14 @@ type Client struct {
 	latestListings []MarketListing
 	listingsMu     sync.RWMutex
 
+	// Ship listings data (from get_ships response)
+	latestShips map[string]any
+	shipsMu     sync.RWMutex
+
+	// Raw JSON payloads from server responses (for saving complete server data)
+	latestRawJSON map[string][]byte
+	rawJSONMu     sync.RWMutex
+
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
@@ -53,6 +62,8 @@ type ReconnectingHandler struct {
 	handler MessageHandler
 	ctx     context.Context
 	logger  *log.Logger
+	reconnecting  atomic.Bool // Prevents multiple concurrent reconnections
+	mu           sync.Mutex    // Protects reconnecting state
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -83,8 +94,15 @@ func (r *ReconnectingHandler) OnDisconnected(err error) {
 		r.handler.OnDisconnected(err)
 	}
 
-	// Attempt reconnection in background
-	go r.attemptReconnection()
+	// Only start reconnection if not already reconnecting
+	if r.reconnecting.CompareAndSwap(false, true) {
+		r.mu.Lock()
+		if !r.reconnecting.Load() {
+			r.reconnecting.Store(true)
+			go r.attemptReconnection()
+		}
+		r.mu.Unlock()
+	}
 }
 
 func (r *ReconnectingHandler) attemptReconnection() {
@@ -105,10 +123,12 @@ func (r *ReconnectingHandler) attemptReconnection() {
 		}
 
 		r.logger.Printf("✓ Reconnected successfully")
+		r.reconnecting.Store(false)
 		return
 	}
 
 	r.logger.Printf("Failed to reconnect after %d attempts", maxAttempts)
+	r.reconnecting.Store(false)
 }
 
 // NewClient creates a new game client
@@ -137,6 +157,8 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		waiters:        make(map[string]chan protocol.Response),
 		debugLogger:    debugLogger,
 		latestListings: make([]MarketListing, 0),
+		latestShips:    make(map[string]any),
+		latestRawJSON:  make(map[string][]byte),
 	}
 }
 
@@ -274,14 +296,14 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		payloadJSON, _ := json.Marshal(msg.Payload)
 		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
 	}
-	c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
+	//c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
 
 	if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
 		c.debugLogger.Printf("ERROR sending to WebSocket: %v", err)
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
-	c.debugLogger.Printf("WebSocket write successful")
+	//c.debugLogger.Printf("WebSocket write successful")
 	return nil
 }
 
@@ -337,6 +359,29 @@ func (c *Client) Register(ctx context.Context, empire string) error {
 	}
 
 	// Token is updated by handleResponse() when the response is processed
+	return nil
+}
+
+// Claim links the current player to a website account using a registration code
+// This is a synchronous operation that waits for the server response
+func (c *Client) Claim(ctx context.Context, registrationCode string) error {
+	msg := protocol.Message{
+		Type: "claim",
+		Payload: map[string]any{
+			"registration_code": registrationCode,
+		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+
+	if err := c.Send(ctx, msg); err != nil {
+		return fmt.Errorf("failed to send claim: %w", err)
+	}
+
+	// Wait for claim response (success or error)
+	if err := c.waitForActionResponse(ctx, 10*time.Second); err != nil {
+		return fmt.Errorf("claim failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -397,6 +442,18 @@ func (c *Client) Mine(ctx context.Context) error {
 	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
+// Attack attacks a target player or NPC
+func (c *Client) Attack(ctx context.Context, targetID string) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "attack",
+		Payload:   map[string]any{"target_id": targetID, "weapon_idx": 0},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
 // Scan scans the current area
 func (c *Client) Scan(ctx context.Context) error {
 	if err := c.Send(ctx, protocol.Message{
@@ -409,10 +466,30 @@ func (c *Client) Scan(ctx context.Context) error {
 	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
+// SurveySystem scans for hidden POIs in the current system
+// Requires a survey scanner module installed
+func (c *Client) SurveySystem(ctx context.Context) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "survey_system",
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
 // GetSystem requests information about the current system
 func (c *Client) GetSystem(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
 		Type:      "get_system",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
+// GetPOI requests information about the current POI
+func (c *Client) GetPOI(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_poi",
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -431,6 +508,27 @@ func (c *Client) GetListings(ctx context.Context) error {
 		Type:      "get_listings",
 		Timestamp: time.Now().UnixMilli(),
 	})
+}
+
+// GetShips requests ship listings from the current station
+func (c *Client) GetShips(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_ships",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
+// GetShipListings returns the most recently fetched ship listings
+func (c *Client) GetShipListings() map[string]any {
+	c.shipsMu.RLock()
+	defer c.shipsMu.RUnlock()
+
+	// Return a copy of the ships data
+	result := make(map[string]any)
+	for k, v := range c.latestShips {
+		result[k] = v
+	}
+	return result
 }
 
 // Sell sells items from cargo at the current station
@@ -540,7 +638,7 @@ func (c *Client) SellAll(ctx context.Context) error {
 					c.debugLogger.Printf("Failed to sell %s: %v", item.ItemID, err)
 					// Continue selling other items even if one fails
 				}
-				time.Sleep(1 * time.Second) // Small delay between sells
+				time.Sleep(10 * time.Second) // Wait between sells to respect game tick rate
 			} else {
 				c.debugLogger.Printf("Skipping sale of equipment: %s (keeping for installation)", item.ItemID)
 			}
@@ -677,7 +775,8 @@ func (c *Client) listen(ctx context.Context) {
 				payloadStr := string(payloadJSON)
 
 				// Truncate state_update messages to reduce log clutter
-				if resp.Type == "state_update" && len(payloadStr) > 200 {
+				//if resp.Type == "state_update" && len(payloadStr) > 200 {
+				if len(payloadStr) > 200 {
 					c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
 				} else {
 					c.debugLogger.Printf("Response Payload: %s", payloadStr)
@@ -712,11 +811,15 @@ func (c *Client) listen(ctx context.Context) {
 
 // handleResponse updates the game state based on server responses
 func (c *Client) handleResponse(resp protocol.Response) {
-	c.state.Mu.Lock()
-	defer c.state.Mu.Unlock()
+	// Store raw JSON for key response types (has its own locking)
+	c.storeRawJSON(resp)
+
+	// Use fine-grained locking - only lock when actually updating state
+	// This prevents GetState() from being blocked for long periods
 
 	switch resp.Type {
 	case protocol.TypeWelcome:
+		c.mu.Lock()
 		if tick, ok := resp.Payload["current_tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
@@ -724,11 +827,13 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.state.ServerVersion = version
 			c.debugLogger.Printf("Server version: %s", version)
 		}
+		c.mu.Unlock()
 
 	case protocol.TypeRegistered:
 		payloadJSON, _ := json.Marshal(resp.Payload)
 		c.debugLogger.Printf("[RECVD] payload: %s", string(payloadJSON))
 		// Support both 'password' (new API) and 'token' (legacy) for backward compatibility
+		c.mu.Lock()
 		if password, ok := resp.Payload["password"].(string); ok {
 			c.state.Password = password
 			c.password = password
@@ -737,6 +842,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.state.Password = token
 			c.password = token
 		}
+		c.mu.Unlock()
 
 	case protocol.TypeLoggedIn:
 		c.parsePlayerData(resp.Payload)
@@ -755,36 +861,103 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			c.parseListingsData(resp.Payload)
 		}
+		// get_ships returns type "ok" with ships in payload
+		if _, hasShips := resp.Payload["ships"]; hasShips {
+			c.parseShipsData(resp.Payload)
+		}
+		// get_skills returns type "ok" with player_skills and skills in payload
+		if _, hasSkills := resp.Payload["skills"]; hasSkills {
+			c.parseSkillsData(resp.Payload)
+		}
 
 	case protocol.TypeDocked:
+		c.mu.Lock()
 		c.state.Doc = true
 		c.state.Traveling = false
 		c.state.TravelProgress = nil
+		c.mu.Unlock()
 
 	case protocol.TypeUndocked:
+		c.mu.Lock()
 		c.state.Doc = false
+		c.mu.Unlock()
 
 	case protocol.TypeStateUpdate:
+		c.mu.Lock()
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
+		c.mu.Unlock()
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
 		c.parseTravelProgress(resp.Payload)
 		c.parseNearbyPlayers(resp.Payload)
 
 	case protocol.TypeTick:
+		c.mu.Lock()
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
 		}
+		c.mu.Unlock()
 
 	case protocol.TypeListings:
 		c.parseListingsData(resp.Payload)
+
+	case protocol.TypePirateWarning:
+		c.debugLogger.Printf("⚠️  PIRATE ATTACK: %v", resp.Payload)
+		c.mu.Lock()
+		c.state.InCombat = true
+		if pirateName, ok := resp.Payload["pirate_name"].(string); ok {
+			c.state.PirateName = pirateName
+		}
+		if pirateTier, ok := resp.Payload["pirate_tier"].(string); ok {
+			c.state.PirateTier = pirateTier
+		}
+		if pirateID, ok := resp.Payload["pirate_id"].(string); ok {
+			c.state.PirateID = pirateID
+		}
+		c.mu.Unlock()
+
+	case protocol.TypePirateCombat:
+		c.mu.Lock()
+		if pirateName, ok := resp.Payload["pirate_name"].(string); ok {
+			if damage, ok := resp.Payload["damage"].(float64); ok {
+				c.debugLogger.Printf("⚔️  PIRATE COMBAT: %s dealt %v %v damage",
+					pirateName,
+					resp.Payload["damage_type"],
+					damage)
+				c.state.LastDamage = damage
+			}
+			c.state.PirateName = pirateName
+		}
+		if pirateTier, ok := resp.Payload["pirate_tier"].(string); ok {
+			c.state.PirateTier = pirateTier
+		}
+		if pirateID, ok := resp.Payload["pirate_id"].(string); ok {
+			c.state.PirateID = pirateID
+		}
+		if yourHull, ok := resp.Payload["your_hull"].(float64); ok {
+			c.state.Hull = yourHull
+		}
+		if yourShield, ok := resp.Payload["your_shield"].(float64); ok {
+			c.state.Ship.Shield = yourShield
+		}
+		c.state.InCombat = true
+		c.mu.Unlock()
+
+	case protocol.TypePoliceWarning:
+		c.debugLogger.Printf("⚠️  POLICE WARNING: %v", resp.Payload)
+
+	case protocol.TypePoliceCombat:
+		c.debugLogger.Printf("⚔️  POLICE COMBAT: %v", resp.Payload)
 	}
 }
 
 // parsePlayerData extracts player information from payload
 func (c *Client) parsePlayerData(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if playerData, ok := payload["player"].(map[string]any); ok {
 		// Parse basic fields
 		if id, ok := playerData["id"].(string); ok {
@@ -898,13 +1071,13 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 
 		// Parse stats
 		if stats, ok := playerData["stats"].(map[string]any); ok {
-			c.parsePlayerStats(stats)
+			c.parsePlayerStatsLocked(stats)
 		}
 	}
 }
 
-// parsePlayerStats extracts player statistics
-func (c *Client) parsePlayerStats(stats map[string]any) {
+// parsePlayerStatsLocked extracts player statistics (assumes state.Mu is already locked)
+func (c *Client) parsePlayerStatsLocked(stats map[string]any) {
 	if shipsDestroyed, ok := stats["ships_destroyed"].(float64); ok {
 		c.state.Player.Stats.ShipsDestroyed = int(shipsDestroyed)
 	}
@@ -934,8 +1107,65 @@ func (c *Client) parsePlayerStats(stats map[string]any) {
 	}
 }
 
+// parseSkillsData extracts skill definitions and next-level XP from get_skills response payload.
+func (c *Client) parseSkillsData(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// player_skills: array of { skill_id, current_xp, next_level_xp, level, ... }
+	if playerSkills, ok := payload["player_skills"].([]any); ok {
+		if c.state.SkillNextLevelXP == nil {
+			c.state.SkillNextLevelXP = make(map[string]float64)
+		}
+		for _, item := range playerSkills {
+			entry, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			skillID, _ := entry["skill_id"].(string)
+			if skillID == "" {
+				continue
+			}
+			if nextXP, ok := entry["next_level_xp"].(float64); ok {
+				c.state.SkillNextLevelXP[skillID] = nextXP
+			}
+		}
+	}
+	// skills: map skill_id -> { xp_per_level: [...], max_level, name, id }
+	if skillsMap, ok := payload["skills"].(map[string]any); ok {
+		if c.state.SkillDefinitions == nil {
+			c.state.SkillDefinitions = make(map[string]SkillDefinition)
+		}
+		for skillID, defAny := range skillsMap {
+			defMap, ok := defAny.(map[string]any)
+			if !ok {
+				continue
+			}
+			def := SkillDefinition{ID: skillID}
+			if name, ok := defMap["name"].(string); ok {
+				def.Name = name
+			}
+			if maxLevel, ok := defMap["max_level"].(float64); ok {
+				def.MaxLevel = int(maxLevel)
+			}
+			if xpArr, ok := defMap["xp_per_level"].([]any); ok {
+				def.XpPerLevel = make([]float64, 0, len(xpArr))
+				for _, v := range xpArr {
+					if f, ok := v.(float64); ok {
+						def.XpPerLevel = append(def.XpPerLevel, f)
+					}
+				}
+			}
+			c.state.SkillDefinitions[skillID] = def
+		}
+	}
+}
+
 // parseShipData extracts ship information from payload
 func (c *Client) parseShipData(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if shipData, ok := payload["ship"].(map[string]any); ok {
 		// Parse basic fields
 		if id, ok := shipData["id"].(string); ok {
@@ -1013,6 +1243,17 @@ func (c *Client) parseShipData(payload map[string]any) {
 			c.state.Ship.PowerCapacity = powerCapacity
 		}
 
+		// Parse slot counts
+		if v, ok := shipData["weapon_slots"].(float64); ok {
+			c.state.Ship.WeaponSlots = int(v)
+		}
+		if v, ok := shipData["defense_slots"].(float64); ok {
+			c.state.Ship.DefenseSlots = int(v)
+		}
+		if v, ok := shipData["utility_slots"].(float64); ok {
+			c.state.Ship.UtilitySlots = int(v)
+		}
+
 		// Parse modules
 		if modules, ok := shipData["modules"].([]any); ok {
 			c.state.Ship.Modules = make([]string, 0, len(modules))
@@ -1074,9 +1315,12 @@ func (c *Client) parseShipData(payload map[string]any) {
 
 // parseSystemData extracts system information from payload
 func (c *Client) parseSystemData(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// Check for direct system object
 	if systemData, ok := payload["system"].(map[string]any); ok {
-		c.parseSystemObject(systemData)
+		c.parseSystemObjectLocked(systemData)
 	}
 
 	// Check for POIs array
@@ -1135,8 +1379,8 @@ func (c *Client) parseSystemData(payload map[string]any) {
 	}
 }
 
-// parseSystemObject parses a system object
-func (c *Client) parseSystemObject(systemData map[string]any) {
+// parseSystemObjectLocked parses a system object (assumes state.Mu is already locked)
+func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
 	if id, ok := systemData["id"].(string); ok {
 		c.state.System.ID = id
 	}
@@ -1179,6 +1423,9 @@ func (c *Client) parseSystemObject(systemData map[string]any) {
 
 // parseErrorState extracts state changes from error messages
 func (c *Client) parseErrorState(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if errMsg, ok := payload["message"].(string); ok {
 		if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
 			c.state.Doc = false
@@ -1191,6 +1438,9 @@ func (c *Client) parseErrorState(payload map[string]any) {
 
 // parseTravelAction extracts travel state from action responses
 func (c *Client) parseTravelAction(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if action, ok := payload["action"].(string); ok {
 		switch action {
 		case "undock":
@@ -1206,6 +1456,9 @@ func (c *Client) parseTravelAction(payload map[string]any) {
 
 // parseTravelProgress extracts travel progress from state_update
 func (c *Client) parseTravelProgress(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if progress, ok := payload["travel_progress"].(float64); ok {
 		if c.state.TravelProgress == nil {
 			c.state.TravelProgress = &TravelProgress{}
@@ -1231,6 +1484,9 @@ func (c *Client) parseTravelProgress(payload map[string]any) {
 
 // parseNearbyPlayers extracts nearby player list from state_update
 func (c *Client) parseNearbyPlayers(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if inCombat, ok := payload["in_combat"].(bool); ok {
 		c.state.InCombat = inCombat
 	}
@@ -1349,6 +1605,61 @@ func (c *Client) GetMarketListings() []MarketListing {
 	return result
 }
 
+// storeRawJSON stores raw JSON payloads for key response types
+func (c *Client) storeRawJSON(resp protocol.Response) {
+	// Only store specific response types that are useful for data collection
+	var storeKey string
+	var shouldStore bool
+
+	switch resp.Type {
+	case protocol.TypeOK:
+		// Check for specific payload keys to identify response types
+		if _, hasListings := resp.Payload["listings"]; hasListings {
+			storeKey = "listings"
+			shouldStore = true
+		}
+		if _, hasShips := resp.Payload["ships"]; hasShips {
+			storeKey = "ships"
+			shouldStore = true
+		}
+		// Only store as "system" if it has pois (full get_system response)
+		// Jump responses also have "system" field but lack pois/position/police_level
+		if _, hasPOIs := resp.Payload["pois"]; hasPOIs {
+			storeKey = "system"
+			shouldStore = true
+		}
+	}
+
+	if shouldStore {
+		c.rawJSONMu.Lock()
+		defer c.rawJSONMu.Unlock()
+
+		// Marshal the entire response to JSON
+		jsonData, err := json.Marshal(resp.Payload)
+		if err != nil {
+			c.debugLogger.Printf("Failed to marshal raw JSON for %s: %v", storeKey, err)
+			return
+		}
+
+		c.latestRawJSON[storeKey] = jsonData
+		c.debugLogger.Printf("Stored raw JSON for %s (%d bytes)", storeKey, len(jsonData))
+	}
+}
+
+// GetRawJSON retrieves the raw JSON payload for a given key
+func (c *Client) GetRawJSON(key string) []byte {
+	c.rawJSONMu.RLock()
+	defer c.rawJSONMu.RUnlock()
+
+	if data, ok := c.latestRawJSON[key]; ok {
+		// Return a copy to prevent external modification
+		result := make([]byte, len(data))
+		copy(result, data)
+		return result
+	}
+	return nil
+}
+
 // parseListingsData extracts market listings from a listings response
 func (c *Client) parseListingsData(payload map[string]any) {
 	// Clear previous listings
@@ -1421,6 +1732,20 @@ func (c *Client) parseListingsData(payload map[string]any) {
 		c.listingsMu.Unlock()
 
 		c.debugLogger.Printf("Parsed %d market listings", len(c.latestListings))
+	}
+}
+
+// parseShipsData extracts ship listings from a get_ships response
+func (c *Client) parseShipsData(payload map[string]any) {
+	c.shipsMu.Lock()
+	defer c.shipsMu.Unlock()
+
+	// Store the entire ships payload
+	// The response typically contains ships data which can be an array or map
+	if ships, ok := payload["ships"]; ok {
+		c.latestShips = make(map[string]any)
+		c.latestShips["ships"] = ships
+		c.debugLogger.Printf("Parsed ship listings data")
 	}
 }
 

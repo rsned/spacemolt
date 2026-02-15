@@ -43,7 +43,7 @@ React intelligently to this feedback - if an action fails, understand why and ad
 
 CURRENT SITUATION:
 Location: {{.State.SystemName}} ({{.State.SystemID}})
-{{if .State.IsDocked}}Docked at: {{.State.DockedAt}}{{else}}In space{{end}}
+{{if .State.Traveling}}{{if .State.TravelProgress}}⏳ Traveling to {{.State.TravelProgress.Destination}} ({{printf "%.0f" .State.TravelProgress.Progress}}% complete){{else}}⏳ Traveling (in transit){{end}} - only "wait" is valid until arrival{{else}}{{if .State.IsDocked}}Docked at: {{.State.DockedAt}}{{else}}In space{{end}}{{end}}
 Fuel: {{printf "%.0f" .State.Fuel}}/{{printf "%.0f" .State.MaxFuel}} ({{printf "%.1f" .State.FuelPercent}}%)
 Hull: {{printf "%.0f" .State.Hull}}/{{printf "%.0f" .State.MaxHull}} ({{printf "%.1f" .State.HullPercent}}%)
 Cargo: {{.State.CargoCount}}/{{.State.MaxCargo}}
@@ -66,11 +66,6 @@ AVAILABLE POIs IN CURRENT SYSTEM (use "travel" with EXACT ID):
 {{end}}
 IMPORTANT: Use the exact ID in quotes above as the target for "travel" action.
 {{else}}
-AVAILABLE POIs IN CURRENT SYSTEM (use "travel" with EXACT ID):
-AVAILABLE POIs IN CURRENT SYSTEM:
-{{range .Knowledge.POIsInSystem}}  - {{.Name}} (Type: {{.Type}}, ID: {{.ID}})
-{{end}}
-{{else}}
 AVAILABLE POIs IN CURRENT SYSTEM:
   (No POIs discovered yet - use get_system to scan)
 {{end}}
@@ -81,12 +76,7 @@ AVAILABLE HYPERSPACE CONNECTIONS (use "jump" to travel to these star systems):
 {{end}}
 {{else}}
 AVAILABLE HYPERSPACE CONNECTIONS (use "jump" to travel to these star systems):
-AVAILABLE JUMP DESTINATIONS:
-{{range .Knowledge.Connections}}  - {{.}}
-{{end}}
-{{else}}
-AVAILABLE JUMP DESTINATIONS:
-  (No connections known yet)
+  (No connections known yet - use get_system to discover jump destinations)
 {{end}}
 {{end}}
 
@@ -97,6 +87,13 @@ RECENT EXPERIENCES:
 {{end}}
 {{end}}
 {{end}}
+
+BEFORE DECIDING - Quick checklist:
+• Traveling? → only "wait" until arrival
+• Docked? → undock, refuel, repair, buy, sell require docked; dock, mine, travel require NOT docked
+• At mineable POI? → mine only at belt/asteroid_field types
+• Need to discover? → use get_system if no POIs/connections known
+• Target required? → travel needs exact POI ID; jump needs system name from connections
 
 Based on your role as a {{.Role}}, decide what to do next. You may only pick one action at a time.
 
