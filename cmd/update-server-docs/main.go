@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	docsDir     = "server_docs"
-	skillURL    = "https://www.spacemolt.com/skill.md"
-	apiURL      = "https://www.spacemolt.com/api.md"
-	openAPIURL  = "https://game.spacemolt.com/api/openapi.json"
+	docsDir    = "server_docs"
+	skillURL   = "https://www.spacemolt.com/skill.md"
+	apiURL     = "https://www.spacemolt.com/api.md"
+	openAPIURL = "https://game.spacemolt.com/api/openapi.json"
 )
 
 type doc struct {

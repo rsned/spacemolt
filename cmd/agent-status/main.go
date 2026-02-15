@@ -54,7 +54,7 @@ func loadCredentials(agentDir string) (*Credentials, error) {
 func formatBar(current, max float64, width int) string {
 	if max == 0 {
 		filledBar := ""
-		for i := 0; i < width; i++ {
+		for range width {
 			filledBar += "█"
 		}
 		return filledBar
@@ -82,7 +82,8 @@ func formatBar(current, max float64, width int) string {
 	return fmt.Sprintf("%s %.1f%%", bar, percent*100)
 }
 
-// truncateOrPad ensures a string fits within width by truncating or padding with spaces
+// truncateOrPad ensures a string fits within width by truncating
+// with "…" if too long or padding with spaces if too short.
 // Uses unicode-aware width calculation
 func truncateOrPad(s string, width int) string {
 	currentWidth := runewidth.StringWidth(s)
@@ -110,24 +111,118 @@ func truncateOrPadRight(s string, width int) string {
 	return strings.Repeat(" ", width-currentWidth) + s
 }
 
+// formatCargoItemLine formats a single cargo line for the right column:
+// "   item_id              xN" (item left-aligned, quantity right-aligned within width).
+func formatCargoItemLine(itemID string, quantity float64, width int) string {
+	prefix := "   "
+	qtyStr := fmt.Sprintf("x%.0f", quantity)
+	qtyW := runewidth.StringWidth(qtyStr)
+	available := width - runewidth.StringWidth(prefix) - qtyW
+	if available < 0 {
+		available = 0
+	}
+	itemPart := prefix + runewidth.Truncate(itemID, available, "…")
+	pad := width - runewidth.StringWidth(itemPart) - qtyW
+	if pad < 0 {
+		pad = 0
+	}
+	return itemPart + strings.Repeat(" ", pad) + qtyStr
+}
+
+// formatLabelValueCell renders one cell: label left-justified, value right-justified
+// within width. Uses runewidth for display width. Value is truncated with "…" if too long.
+// Non-empty labels get a trailing ":" before printing.
+func formatLabelValueCell(label, value string, width int) string {
+	displayLabel := label
+	if label != "" {
+		displayLabel = label + ":"
+	}
+	labelW := runewidth.StringWidth(displayLabel)
+	valueZoneWidth := max(0, width-labelW)
+	return displayLabel + truncateOrPadRight(value, valueZoneWidth)
+}
+
+// formatTwoColumnRow returns a full table row of two cells: "│ col1 │ col2 │\n".
+// Each cell has col1Label/col2Label left-justified and col1Value/col2Value
+// right-justified within colWidth. colWidth is the content width per column
+// (e.g. 32 for a 71-char row: 1+1+32+1+1+1+32+1+1=71).
+func formatTwoColumnRow(col1Label, col1Value, col2Label, col2Value string, colWidth int) string {
+	c1 := formatLabelValueCell(col1Label, col1Value, colWidth)
+	c2 := formatLabelValueCell(col2Label, col2Value, colWidth)
+	return fmt.Sprintf("│ %s │ %s │\n", c1, c2)
+}
+
+const emptyColumnCell = "                                "
+const twoCellFormat = "│ %s │ %s │\n"
+
+// pilotColWidth is the content width per column for the PILOT/LOCATION-style rows (71-char row).
+const pilotColWidth = 39
+
+// sectionTitleBorder is the border line for section headers. The first cell's runes
+// (after ┌) are overwritten with the section title (uppercase) by sectionTitleLine.
+const sectionTitleBorder = "┌─────────────────────────────────────────┬─────────────────────────────────────────┐"
+const sectionBaseBorder = "└─────────────────────────────────────────┴─────────────────────────────────────────┘"
+
+// xpRequiredForNextLevel returns XP required to reach the next level from skills data.
+// Uses state.SkillNextLevelXP (from get_skills player_skills) if set, else state.SkillDefinitions
+// (xp_per_level[level]). Returns -1 if at max level (caller may display "MAX").
+func xpRequiredForNextLevel(state *game.State, skillID string, level int) float64 {
+	if nextXP, ok := state.SkillNextLevelXP[skillID]; ok && nextXP >= 0 {
+		return nextXP
+	}
+	def, ok := state.SkillDefinitions[skillID]
+	if !ok || len(def.XpPerLevel) == 0 {
+		// Fallback: simple formula when no skills JSON data available
+		if level == 0 {
+			return 100
+		}
+		return float64((level + 1) * 100)
+	}
+	if level >= def.MaxLevel || level >= len(def.XpPerLevel) {
+		return -1
+	}
+	return def.XpPerLevel[level]
+}
+
+// sectionTitleLine returns sectionTitleBorder with the first cell's runes (after ┌)
+// replaced by title in uppercase. Works in runes so we never split multi-byte UTF-8.
+func sectionTitleLine(title string) string {
+	runes := []rune(sectionTitleBorder)
+	// First rune is ┌; find end of first cell (┬).
+	firstCellEnd := 1
+	for firstCellEnd < len(runes) && runes[firstCellEnd] != '┬' {
+		firstCellEnd++
+	}
+	cellRunes := firstCellEnd - 1 // rune count for title in first cell
+	upper := []rune(strings.ToUpper(title))
+	if len(upper) > cellRunes {
+		upper = upper[:cellRunes]
+	}
+	copy(runes[1:1+len(upper)], upper)
+	return string(runes)
+}
+
+// │ Home Base:                haven_base │ Status:                              │
 func printStatus(state *game.State) {
 	fmt.Println()
-	fmt.Println("╔════════════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                           AGENT STATUS                             ║")
-	fmt.Println("╚════════════════════════════════════════════════════════════════════╝")
+	fmt.Println("╔═══════════════════════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                                  AGENT STATUS                                 ║")
+	fmt.Println("╚═══════════════════════════════════════════════════════════════════════════════╝")
+
+	// ------------------------------------------------------------------
 
 	// PILOT section
-	fmt.Printf("┌─ PILOT ─────────────────────────┬──────────────────────────────────┐\n")
-	fmt.Printf("│ Name:  %-28s │ Faction: %-24s │\n",
-		truncateOrPadLeft(state.Username, 28),
-		truncateOrPadLeft(state.Player.FactionID, 24))
+	fmt.Println(sectionTitleLine("Pilot"))
+	fmt.Print(formatTwoColumnRow("Name", state.Username,
+		"Faction", state.Player.FactionID, pilotColWidth))
 
 	empireName := state.Player.Empire
 	if empireName != "" {
 		empireName = titleCase(empireName)
 	}
-	fmt.Printf("│ Empire: %28s │ Colors:  🟥🟥🟥🟥🟥 / 🟦🟦🟦🟦🟦 │\n",
-		truncateOrPadLeft(empireName, 28))
+	// TODO change hard coded colors to values from the "login" response
+	// object.  The "player" struct has primary_color, secondary_color
+	fmt.Print(formatTwoColumnRow("Empire", empireName, "Colors", "🟥🟥🟥🟥🟥/🟦🟦🟦🟦🟦", pilotColWidth))
 
 	homeBase := state.Player.HomeBase
 	if homeBase == "" {
@@ -137,19 +232,27 @@ func printStatus(state *game.State) {
 	if statusMsg == "" {
 		statusMsg = ""
 	}
-	fmt.Printf("│ Home Base: %24s │ Status: %-24s │\n",
-		truncateOrPadLeft(homeBase, 24),
-		truncateOrPadLeft(statusMsg, 24))
-	fmt.Printf("│ Credits: %26.0f │                                  │\n", state.Credits)
-	fmt.Printf("└─────────────────────────────────┴──────────────────────────────────┘\n")
+	fmt.Print(formatTwoColumnRow("Home Base", homeBase, "Status", statusMsg, pilotColWidth))
+	fmt.Print(formatTwoColumnRow("Credits", fmt.Sprintf("%d", int(state.Credits)), "", "", pilotColWidth))
+	fmt.Println(sectionBaseBorder)
 	fmt.Println()
+
+	// ------------------------------------------------------------------
 
 	// SKILLS section - show if player has skills or skill XP
 	if len(state.Player.Skills) > 0 || len(state.SkillXP) > 0 {
-		fmt.Printf("┌─ SKILLS ────────────────────────┬──────────────────────────────────┐\n")
-		skillCount := 0
+		fmt.Println(sectionTitleLine("Skills"))
+
+		// Collect all skills into a slice for consistent ordering
+		type skillInfo struct {
+			id       string
+			name     string
+			xpValue  string
+			levelStr string
+		}
+		var skills []skillInfo
+
 		for skillID, skill := range state.Player.Skills {
-			skillCount++
 			skillName := titleCase(strings.ReplaceAll(skillID, "_", " "))
 
 			// Get XP from skill_xp if available, otherwise use skill.XP
@@ -158,29 +261,79 @@ func printStatus(state *game.State) {
 				currentXP = xp
 			}
 
-			// Calculate XP to next level
-			xpToNext := float64((skill.Level + 1) * 100)
-			if skill.Level == 0 {
-				xpToNext = 100
+			// XP required for next level: from get_skills response, or from skill definition xp_per_level
+			xpToNext := xpRequiredForNextLevel(state, skillID, skill.Level)
+			xpToNextStr := fmt.Sprintf("%4d", int(xpToNext))
+			if xpToNext < 0 {
+				xpToNextStr = "MAX"
 			}
 
-			fmt.Printf("│ %-32s │                                  │\n",
-				truncateOrPadLeft(fmt.Sprintf("%s: %5.0f / %5.0f XP", skillName, currentXP, xpToNext), 32))
-			fmt.Printf("│ %32s │                                  │\n",
-				truncateOrPadLeft(fmt.Sprintf("Level %d", skill.Level), 32))
-			if skillCount < len(state.Player.Skills) {
-				fmt.Printf("│                              │                                  │\n")
+			skills = append(skills, skillInfo{
+				id:       skillID,
+				name:     skillName,
+				xpValue:  fmt.Sprintf("%4d / %4s XP", int(currentXP), xpToNextStr),
+				levelStr: fmt.Sprintf("Level %d", skill.Level),
+			})
+		}
+
+		// If more than 4 skills, split them between left and right columns
+		if len(skills) > 4 {
+			splitPoint := (len(skills) + 1) / 2 // Split in half, with odd number going to left
+			leftSkills := skills[:splitPoint]
+			rightSkills := skills[splitPoint:]
+
+			// Build lines for each column
+			var leftLines, rightLines []string
+
+			for i, skill := range leftSkills {
+				leftLines = append(leftLines, formatLabelValueCell(skill.name, skill.xpValue, pilotColWidth))
+				leftLines = append(leftLines, formatLabelValueCell("", skill.levelStr, pilotColWidth))
+				if i < len(leftSkills)-1 {
+					leftLines = append(leftLines, strings.Repeat(" ", pilotColWidth))
+				}
+			}
+
+			for i, skill := range rightSkills {
+				rightLines = append(rightLines, formatLabelValueCell(skill.name, skill.xpValue, pilotColWidth))
+				rightLines = append(rightLines, formatLabelValueCell("", skill.levelStr, pilotColWidth))
+				if i < len(rightSkills)-1 {
+					rightLines = append(rightLines, strings.Repeat(" ", pilotColWidth))
+				}
+			}
+
+			// Print paired rows
+			emptyCol := strings.Repeat(" ", pilotColWidth)
+			nRows := max(len(leftLines), len(rightLines))
+			for i := 0; i < nRows; i++ {
+				left := emptyCol
+				if i < len(leftLines) {
+					left = leftLines[i]
+				}
+				right := emptyCol
+				if i < len(rightLines) {
+					right = rightLines[i]
+				}
+				fmt.Printf("│ %s │ %s │\n", left, right)
+			}
+		} else {
+			// 4 or fewer skills: display in left column only (original behavior)
+			for i, skill := range skills {
+				fmt.Print(formatTwoColumnRow(skill.name, skill.xpValue, "", "", pilotColWidth))
+				fmt.Print(formatTwoColumnRow("", skill.levelStr, "", "", pilotColWidth))
+				if i < len(skills)-1 {
+					fmt.Print(formatTwoColumnRow("", "", "", "", pilotColWidth))
+				}
 			}
 		}
-		fmt.Printf("└─────────────────────────────────┴──────────────────────────────────┘\n")
-		fmt.Println()
+
+		fmt.Println(sectionBaseBorder)
 	}
 
+	// ------------------------------------------------------------------
+
 	// LOCATION section
-	fmt.Printf("┌─ LOCATION ──────────────────────┬──────────────────────────────────┐\n")
-	fmt.Printf("│ System: %26s │ POI: %-24s │\n",
-		truncateOrPadLeft(state.System.Name, 26),
-		truncateOrPadLeft(state.CurrentPOI, 24))
+	fmt.Println(sectionTitleLine("Location"))
+	fmt.Print(formatTwoColumnRow("System", state.System.Name, "POI", state.CurrentPOI, pilotColWidth))
 
 	// Find POI display name
 	poiDisplayName := state.CurrentPOI
@@ -192,9 +345,7 @@ func printStatus(state *game.State) {
 			break
 		}
 	}
-	fmt.Printf("│ Empire: %26s │             (%-20s) │\n",
-		truncateOrPadLeft(state.System.Empire, 26),
-		truncateOrPadLeft(poiDisplayName, 20))
+	fmt.Print(formatTwoColumnRow("Empire", state.System.Empire, "", fmt.Sprintf("(%s)", poiDisplayName), pilotColWidth))
 
 	policePercent := 0
 	if state.System.PoliceLevel > 0 {
@@ -204,83 +355,84 @@ func printStatus(state *game.State) {
 	if state.Doc {
 		dockedStatus = "YES"
 	}
-	fmt.Printf("│ Police Level: %20d%% │ Docked: %-24s │\n", policePercent, dockedStatus)
-	fmt.Printf("│                                │                                  │\n")
-	fmt.Printf("└─────────────────────────────────┴──────────────────────────────────┘\n")
-	fmt.Println()
+	fmt.Print(formatTwoColumnRow("Police Level", fmt.Sprintf("%d%%", policePercent), "Docked", dockedStatus, pilotColWidth))
+	fmt.Println(sectionBaseBorder)
 
-	// SHIP section
-	fmt.Printf("┌─ SHIP ──────────────────────────┬──────────────────────────────────┐\n")
-	fmt.Printf("│ Name: %28s │ Cargo: %24s │\n",
-		truncateOrPadLeft(state.Ship.Name, 28),
-		fmt.Sprintf("(%s) %5.0f / %5.0f",
-			percentBar(state.Ship.CargoUsed, state.Ship.CargoCapacity),
-			state.Ship.CargoUsed, state.Ship.CargoCapacity))
-	fmt.Printf("│                (%-20s) │                                  │\n",
-		truncateOrPadLeft(state.Ship.ClassID, 20))
-	fmt.Printf("│ Hull: %28s │ Items: %24d │\n",
-		fmt.Sprintf("(%s) %5.0f / %5.0f",
-			percentBar(state.Ship.Hull, state.Ship.MaxHull),
-			state.Ship.Hull, state.Ship.MaxHull),
-		len(state.Ship.Cargo))
-	fmt.Printf("│ Shield: %26s │",
-		fmt.Sprintf("(%s) %5.0f / %5.0f",
-			percentBar(state.Ship.Shield, state.Ship.MaxShield),
-			state.Ship.Shield, state.Ship.MaxShield))
+	// ------------------------------------------------------------------
 
-	// List first 2 cargo items
-	itemCount := 0
+	// SHIP section: left column runs straight (no blank rows for cargo); right column
+	// shows Cargo/Items and cargo list. Extra cargo lines extend past left column as empty-left rows.
+	fmt.Println(sectionTitleLine("Ship"))
+	cargoSummary := fmt.Sprintf("%.0f / %.0f (%s)",
+		state.Ship.CargoUsed, state.Ship.CargoCapacity,
+		percentBar(state.Ship.CargoUsed, state.Ship.CargoCapacity))
+	hullStr := fmt.Sprintf("%.0f / %.0f (%s)",
+		state.Ship.Hull, state.Ship.MaxHull,
+		percentBar(state.Ship.Hull, state.Ship.MaxHull))
+	shieldStr := fmt.Sprintf("%.0f / %.0f (%s)",
+		state.Ship.Shield, state.Ship.MaxShield,
+		percentBar(state.Ship.Shield, state.Ship.MaxShield))
+
+	// Right column: Cargo summary, blank, blank, Items count, then one line per cargo item.
+	rightLines := []string{
+		formatLabelValueCell("Cargo", cargoSummary, pilotColWidth),
+		"",
+		"",
+		formatLabelValueCell("Items", fmt.Sprintf("%d", len(state.Ship.Cargo)), pilotColWidth),
+	}
 	for _, item := range state.Ship.Cargo {
-		if itemCount >= 2 {
-			break
-		}
-		if itemCount == 0 {
-			fmt.Printf("   %-20s x%-5.0f │\n", item.ItemID, item.Quantity)
-		} else {
-			fmt.Printf("│   %-20s x%-5.0f │\n", item.ItemID, item.Quantity)
-		}
-		itemCount++
-	}
-	if len(state.Ship.Cargo) == 0 {
-		fmt.Printf("                                  │\n")
-	} else if itemCount == 1 {
-		fmt.Printf("│                                  │\n")
-	} else if len(state.Ship.Cargo) >= 2 {
-		fmt.Printf("│                                  │                                  │\n")
+		rightLines = append(rightLines, formatCargoItemLine(item.ItemID, item.Quantity, pilotColWidth))
 	}
 
-	fmt.Printf("│ Shield Recharge: %17.0f │                                  │\n", state.Ship.ShieldRecharge)
-	fmt.Printf("│ Armor: %27.0f │                                  │\n", state.Ship.Armor)
-	fmt.Printf("│ CPU: %28s │                                  │\n",
-		fmt.Sprintf("%5.0f / %5.0f", state.Ship.CPUUsed, state.Ship.CPUCapacity))
-	fmt.Printf("│ Power: %26s │                                  │\n",
-		fmt.Sprintf("%5.0f / %5.0f", state.Ship.PowerUsed, state.Ship.PowerCapacity))
-	fmt.Printf("│ Fuel: %27s │                                  │\n",
-		fmt.Sprintf("%5.0f / %5.0f", state.Ship.Fuel, state.Ship.MaxFuel))
-	fmt.Printf("│ Speed: %25.0f │                                  │\n", state.Ship.Speed)
-	fmt.Printf("│ Insured: %23s │                                  │\n", "NO")
-	fmt.Printf("│ Modules:                      │                                  │\n")
+	// Left column: continuous block (no blanks for cargo) — stats then module list.
+	emptyLeft := strings.Repeat(" ", pilotColWidth)
+	leftLines := []string{
+		formatLabelValueCell("Name", state.Ship.Name, pilotColWidth),
+		formatLabelValueCell("Class", state.Ship.ClassID, pilotColWidth),
+		formatLabelValueCell("Hull", hullStr, pilotColWidth),
+		formatLabelValueCell("Shield", shieldStr, pilotColWidth),
+		formatLabelValueCell("Shield Recharge", fmt.Sprintf("+%.0f / tick", state.Ship.ShieldRecharge), pilotColWidth),
+		formatLabelValueCell("Armor", fmt.Sprintf("%.0f", state.Ship.Armor), pilotColWidth),
+		formatLabelValueCell("CPU", fmt.Sprintf("%.0f / %.0f", state.Ship.CPUUsed, state.Ship.CPUCapacity), pilotColWidth),
+		formatLabelValueCell("Power", fmt.Sprintf("%.0f / %.0f", state.Ship.PowerUsed, state.Ship.PowerCapacity), pilotColWidth),
+		formatLabelValueCell("Fuel", fmt.Sprintf("%.0f / %.0f", state.Ship.Fuel, state.Ship.MaxFuel), pilotColWidth),
+		formatLabelValueCell("Speed", fmt.Sprintf("%.0f", state.Ship.Speed), pilotColWidth),
+		formatLabelValueCell("Insured", "NO", pilotColWidth),
+		formatLabelValueCell("Modules", fmt.Sprintf("%d", len(state.Ship.Modules)), pilotColWidth),
+	}
 
-	// Show modules (simplified - just list them since we don't have slot type info)
-	moduleCount := len(state.Ship.Modules)
-	fmt.Printf("│   Total: %21d         │                                  │\n", moduleCount)
-
-	// List up to 5 modules with names from ModuleDefinitions
-	for i := 0; i < 5; i++ {
+	moduleSlots := state.Ship.WeaponSlots + state.Ship.DefenseSlots + state.Ship.UtilitySlots
+	if moduleSlots <= 0 {
+		moduleSlots = max(5, len(state.Ship.Modules))
+	}
+	for i := 0; i < moduleSlots; i++ {
 		if i < len(state.Ship.Modules) {
 			modID := state.Ship.Modules[i]
 			modName := modID
 			if modDef, ok := state.ModuleDefinitions[modID]; ok {
 				modName = modDef.Name
 			}
-			fmt.Printf("│     %d) %-23s │                                  │\n", i+1,
-				truncateOrPadLeft(modName, 23))
+			leftLines = append(leftLines, formatLabelValueCell(fmt.Sprintf("%d)", i+1), modName, pilotColWidth))
 		} else {
-			fmt.Printf("│     %d) %-23s │                                  │\n", i+1, "")
+			leftLines = append(leftLines, formatLabelValueCell(fmt.Sprintf("%d)", i+1), "", pilotColWidth))
 		}
 	}
 
-	fmt.Printf("└─────────────────────────────────┴──────────────────────────────────┘\n")
+	// Print paired rows; if right has more lines, extra rows get empty left cell.
+	nRows := max(len(rightLines), len(leftLines))
+	for i := 0; i < nRows; i++ {
+		left := emptyLeft
+		if i < len(leftLines) {
+			left = leftLines[i]
+		}
+		right := emptyLeft
+		if i < len(rightLines) && rightLines[i] != "" {
+			right = rightLines[i]
+		}
+		fmt.Printf("│ %s │ %s │\n", left, right)
+	}
+
+	fmt.Println(sectionBaseBorder)
 	fmt.Println()
 }
 
@@ -365,7 +517,11 @@ func main() {
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Printf("Warning: Failed to close client: %v", err)
+		}
+	}()
 
 	// Wait for connection
 	<-client.Ready()
