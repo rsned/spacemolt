@@ -1,18 +1,133 @@
 # Spacemolt Multi-Agent System
 
-An autonomous multi-agent system for the [SpaceMolt](https://spacemolt.com) game. AI agents explore, mine, trade, and interact with the game universe using LLM-powered decision making.
+An autonomous multi-agent system and development toolkit for the [SpaceMolt](https://spacemolt.com) game. Build AI agents that explore, mine, trade, craft, and interact with the game universe using LLM-powered decision making, or control the game programmatically through MCP (Model Context Protocol) integration with Claude.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Recent Additions](#recent-additions)
+- [Quick Start](#quick-start)
+- [Running Autonomous LLM Agents](#running-autonomous-llm-agents)
+- [Database Backends](#database-backends)
+- [Architecture](#architecture)
+- [How It Works](#how-it-works)
+- [Agent Personalities](#agent-personalities)
+- [Example Sessions](#example-sessions)
+- [Claude Integration via MCP](#claude-integration-via-mcp)
+- [Automated Specialized Agents](#automated-specialized-agents)
+- [Web Interface](#web-interface)
+- [REST API](#rest-api)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
-The Spacemolt Multi-Agent System transforms the single-client game into a platform where multiple autonomous AI agents:
+The Spacemolt Multi-Agent System is a comprehensive development toolkit and automation platform that provides:
 
+### Autonomous Agent Framework
 - **Explore** the universe independently using LLM-driven decision making
-- **Learn** from their experiences and build knowledge over time
-- **Collaborate** by sharing information with other agents through a persistent knowledge base
-- **Play autonomously** while a human watcher observes via a TUI interface
+- **Learn** from experiences and build knowledge over time
+- **Collaborate** by sharing information through a persistent knowledge base
+- **Play autonomously** with specialized agent types (explorers, miners, traders, fighters, pirates, craftsmen, salvagers)
 - **Persist** all discoveries automatically to SQLite storage
+- **Customize** agent personalities and behaviors through JSON configuration
 
-Each agent has a unique personality that drives their behavior, and they make decisions about what to do next based on their current situation, past experiences, and cumulative knowledge of the universe.
+### Claude AI Integration (MCP)
+- **Direct Control** - Play SpaceMolt through Claude using Model Context Protocol
+- **148 Game Commands** - Auto-generated tools from OpenAPI spec covering the entire game API
+- **Crafting Intelligence** - Query recipes and plan crafting based on inventory
+- **Real-time Updates** - WebSocket and SSE bridges for live game state
+- **Multiple Bridges** - Choose between WebSocket, SSE, or service-based architectures
+
+### Development Tools
+- **Web UI** - React/TypeScript frontend for monitoring and controlling agents
+- **REST API** - Programmatic control and status monitoring
+- **TUI Watcher** - Terminal interface for observing agent activity
+- **Knowledge Analytics** - Query system for mining discoveries, market data, and routes
+- **Automated Agents** - Pre-built specialized bots for common tasks
+
+Each agent has a unique personality that drives their behavior, making decisions based on current situation, past experiences, and cumulative knowledge.
+
+## Key Features
+
+### 🤖 Multiple Integration Modes
+- **LLM-Powered Agents** - Autonomous agents with personality-driven decision making
+- **Claude Integration** - Direct control via MCP (Model Context Protocol)
+- **Automated Bots** - Pre-built specialized agents for specific tasks
+- **Programmatic API** - REST API for custom integrations
+
+### 🎮 Comprehensive Game Coverage
+- **148 Game Commands** - Auto-generated from OpenAPI spec, covering entire game API
+- **All Game Systems** - Navigation, combat, mining, trading, crafting, factions, bases
+- **Real-time Updates** - WebSocket and SSE support for live game state
+- **Version Tracking** - Automatic API version compatibility checking
+
+### 🧠 Knowledge & Learning
+- **Shared Knowledge Base** - SQLite database with discoveries from all agents
+- **Advanced Analytics** - Rich deposits, depleting resources, danger zones, market trends
+- **Experience Tracking** - Complete action history for learning and improvement
+- **Route Optimization** - Fuel cost and travel time learning
+
+### 🛠️ Crafting System
+- **Recipe Database** - Complete recipe and skill tree data
+- **Material Planning** - Calculate requirements for any craftable item
+- **Profit Analysis** - Find profitable crafting opportunities
+- **MCP Integration** - Query crafting data through Claude
+
+### 📊 Monitoring & Control
+- **React Web UI** - Modern frontend for monitoring and control
+- **TUI Watcher** - Terminal interface for observing agent activity
+- **REST API** - Programmatic access to agent status and control
+- **Agent Registry** - Centralized status and coordination
+
+### 🔐 Flexible Storage
+- **Multiple Backends** - File, encrypted SQLite, OS keyring for credentials
+- **Knowledge Persistence** - Long-term accumulation across sessions
+- **Market Data Capture** - Historical price and listing tracking
+- **Captain's Log** - In-game logging and note-taking
+
+## Recent Additions
+
+### Claude AI Integration (MCP)
+Play SpaceMolt directly through Claude with the Model Context Protocol. Three bridge implementations (WebSocket, SSE, Service) provide 148 auto-generated tools covering the entire game API. The crafting server adds recipe intelligence for material planning and profit optimization.
+
+### Automated Specialized Agents
+Seven pre-built automated agents (explorer, miner, trader, fighter, pirate, salvager, craftsman) provide task-specific automation without requiring LLM setup. Perfect for focused farming, exploration, or testing.
+
+### Web-Based Monitoring
+React/TypeScript frontend provides modern UI for monitoring agent activity, viewing knowledge base, and controlling agents. Includes real-time dashboards, map views, and analytics.
+
+### Advanced Crafting System
+Complete crafting database with recipe queries, material requirements calculation, and profit analysis. Integrated with both MCP and agent decision-making.
+
+### Enhanced Knowledge Base
+Upgraded analytics for market trends, danger zones, route optimization, and resource depletion tracking. Agents share discoveries and learn from collective experience.
+
+### Playbook System
+Strategic playbooks guide agents in specialized roles (explorer, miner, trader, fighter, etc.) with proven tactics and decision patterns.
+
+### MCP Integration - Play Through Claude
+
+Use Claude AI to play SpaceMolt directly through the Model Context Protocol:
+
+**Available Bridges:**
+- **`mcp-ws-bridge`** - WebSocket bridge with 148 auto-generated game commands
+- **`mcp-sse-bridge`** - Server-Sent Events bridge for streaming updates
+- **`mcp-bridge-service`** - Service-based architecture for persistent connections
+- **`crafting-server`** - MCP server for recipe queries and crafting intelligence
+
+**Claude Integration Features:**
+- Full game API access (navigation, combat, mining, trading, crafting, missions, factions)
+- Recipe and skill tree queries for crafting decisions
+- Real-time game state updates
+- Market data and price analysis
+- Faction management and warfare
+- Base building and management
+
+See [cmd/mcp-ws-bridge/README.md](cmd/mcp-ws-bridge/README.md) and [docs/MCP_TOOLS_IMPLEMENTATION.md](docs/MCP_TOOLS_IMPLEMENTATION.md) for details.
 
 ### Automatic Knowledge Persistence & Analytics
 
@@ -42,10 +157,20 @@ All agent discoveries are automatically saved to a SQLite knowledge base with **
 
 ### Prerequisites
 
+**Core Requirements:**
 - **Go** 1.24 or later
-- **Ollama** running locally with the `llama3.2` model
+- **SpaceMolt Account** - Register at [spacemolt.com](https://spacemolt.com)
 
-### Installing Ollama
+**For LLM-Powered Agents:**
+- **Ollama** running locally with the `llama3.2` model (or other LLM provider)
+
+**For Claude Integration:**
+- **Claude Desktop** or **Claude API access** for MCP functionality
+
+**For Web UI:**
+- **Node.js** 18+ and **npm** (for frontend development)
+
+### Installing Ollama (Optional - for LLM agents)
 
 ```bash
 # Install Ollama
@@ -65,18 +190,42 @@ ollama pull llama3.2
 git clone https://github.com/rsned/spacemolt.git
 cd spacemolt-agent-server
 
-# Build all binaries
+# Build core binaries
+make build
+
+# Or build specific tools
 go build -o bin/agent-server ./cmd/agent-server
 go build -o bin/watcher ./cmd/watcher
-go build -o bin/agent ./cmd/agent
+go build -o bin/mcp-ws-bridge ./cmd/mcp-ws-bridge
+go build -o bin/crafting-server ./cmd/crafting-server
 ```
 
-This creates three executables:
-- `bin/agent-server` - The main server for running autonomous agents
+**Core Executables:**
+- `bin/agent-server` - Main server for running autonomous LLM agents
 - `bin/watcher` - TUI application for watching agents (optional)
-- `bin/agent` - Test utility for verifying agent setup
+- `bin/mcp-ws-bridge` - MCP bridge for Claude integration
+- `bin/crafting-server` - MCP server for crafting queries
 
-### Running
+**Specialized Automated Agents:**
+- `bin/auto-explorer` - Automated exploration bot
+- `bin/auto-miner` - Automated mining bot
+- `bin/auto-trader` - Automated trading bot
+- `bin/auto-fighter` - Automated combat bot
+- `bin/auto-pirate` - Automated pirate/raider bot
+- `bin/auto-salvager` - Automated salvage bot
+- `bin/auto-craftsman` - Automated crafting bot
+
+### Quick Start Guides
+
+Choose your path:
+
+1. **LLM-Powered Autonomous Agents** - Continue reading below for full agent setup
+2. **Claude Integration (MCP)** - See [cmd/mcp-ws-bridge/README.md](cmd/mcp-ws-bridge/README.md)
+3. **Automated Bots** - See [docs/QUICKSTART.md](docs/QUICKSTART.md) for pre-built automation
+4. **Crafting System** - See [docs/spacemolt-crafting-server-spec-final.md](docs/spacemolt-crafting-server-spec-final.md)
+5. **Web UI Development** - See [frontend/README.md](frontend/README.md)
+
+### Running Autonomous LLM Agents
 
 The agent-server is the primary way to run autonomous agents. It handles agent spawning, game connections, credential management, and graceful shutdown.
 
@@ -191,82 +340,90 @@ All knowledge is lost when the program exits:
 
 ## Architecture
 
+### System Overview
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   Agent Server (Primary)                    │
-│                                                             │
-│  ┌────────────────────────────────────────────────────┐   │
-│  │            Agent Manager                           │   │
-│  │  • Agent discovery & selection                     │   │
-│  │  • Spawning & lifecycle management                 │   │
-│  │  • Credential management (register/login)          │   │
-│  │  • Graceful shutdown                               │   │
-│  └────────────────┬───────────────────────────────────┘   │
-│                   │                                         │
-│     ┌─────────────┼─────────────┐                          │
-│     │             │             │                          │
-│  ┌──▼──────┐  ┌──▼──────┐  ┌──▼──────┐                   │
-│  │Runner 1 │  │Runner 2 │  │Runner 3 │                   │
-│  │Explorer │  │Miner    │  │Fighter  │                   │
-│  │         │  │         │  │         │                   │
-│  │ Agent   │  │ Agent   │  │ Agent   │                   │
-│  │ +Game   │  │ +Game   │  │ +Game   │                   │
-│  │ Client  │  │ Client  │  │ Client  │                   │
-│  └──┬──────┘  └──┬──────┘  └──┬──────┘                   │
-│     │            │            │                            │
-│     └────────────┼────────────┘                            │
-│                  │                                         │
-└──────────────────┼─────────────────────────────────────────┘
-                   │
-     ┌─────────────┼─────────────┐
-     │             │             │
-     │    ┌────────▼────────┐    │
-     │    │ Knowledge Base  │    │
-     │    │  (SQLite/Mem)   │    │
-     │    │                 │    │
-     │    │ • Systems       │    │
-     │    │ • Connections   │    │
-     │    │ • POIs          │    │
-     │    │ • Experiences   │    │
-     │    └─────────────────┘    │
-     │                            │
-     │    ┌─────────────────┐    │
-     │    │  Ollama LLM     │    │
-     │    │  (llama3.2)     │    │
-     │    └─────────────────┘    │
-     │                            │
-     │    ┌─────────────────┐    │
-     │    │  Credentials    │    │
-     │    │  (file/sqlite/  │    │
-     │    │   keyring)      │    │
-     │    └─────────────────┘    │
-     │                            │
-     └────────────────────────────┘
-
-┌─────────────────────────────────────────┐
-│  Watcher TUI (Optional Observer)       │
-│  ┌──────────┐ ┌──────────┐ ┌─────────┐ │
-│  │Agents    │ │  Map     │ │ Status  │ │
-│  │[Agent 1] │ │          │ │         │ │
-│  │[Agent 2] │ │          │ │         │ │
-│  │[Agent 3] │ │          │ │         │ │
-│  └──────────┘ └──────────┘ └─────────┘ │
-└─────────────────────────────────────────┘
-
-           ┌──────────────────────┐
-           │  Game Server         │
-           │  (spacemolt.com)     │
-           │                      │
-           │  WebSocket per agent │
-           └──────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          SpaceMolt Game Server                          │
+│                         (game.spacemolt.com)                            │
+│                                                                         │
+│  WebSocket API │ HTTP API │ OpenAPI Spec                               │
+└────────┬────────────┬─────────────┬──────────────────────────────────┘
+         │            │             │
+         │            │             │ (sync spec)
+         │            │             ▼
+         │            │        ┌──────────────────┐
+         │            │        │ generate-mcp-    │
+         │            │        │ tools            │
+         │            │        └────────┬─────────┘
+         │            │                 │
+         │            │                 ▼ (generates 148 tools)
+    ┌────┴────────────┴──────────────────────────────────────┐
+    │                                                         │
+┌───▼────────────┐  ┌──────────────┐  ┌────────────────────┐│
+│ Agent Server   │  │ MCP Bridges  │  │  Web UI / API      ││
+│                │  │              │  │                    ││
+│ ┌────────────┐ │  │• ws-bridge   │  │• React Frontend    ││
+│ │Agent Mgr   │ │  │• sse-bridge  │  │• REST API Server   ││
+│ │            │ │  │• service     │  │• Agent Registry    ││
+│ │┌──────────┐│ │  │              │  │                    ││
+│ ││Runner 1  ││ │  └──────┬───────┘  └─────────┬──────────┘│
+│ ││Explorer  ││ │         │                    │            │
+│ │└──────────┘│ │         │                    │            │
+│ │┌──────────┐│ │         ▼                    ▼            │
+│ ││Runner 2  ││ │  ┌──────────────┐   ┌────────────────┐   │
+│ ││Miner     ││ │  │ Claude AI    │   │   Monitoring   │   │
+│ │└──────────┘│ │  │              │   │   Dashboard    │   │
+│ │┌──────────┐│ │  │• Desktop     │   │                │   │
+│ ││Runner 3  ││ │  │• API         │   │                │   │
+│ ││Fighter   ││ │  │              │   │                │   │
+│ │└──────────┘│ │  └──────────────┘   └────────────────┘   │
+│ └────────────┘ │                                           │
+└────────┬───────┘                                           │
+         │                                                   │
+         │                                                   │
+    ┌────┴─────────────────────┐    ┌──────────────────────┐│
+    │                          │    │                      ││
+┌───▼────────────┐  ┌─────────▼────▼──┐  ┌───────────────┐││
+│ Crafting       │  │  Knowledge Base  │  │  Credentials  │││
+│ Server (MCP)   │  │  (SQLite)        │  │  Storage      │││
+│                │  │                  │  │               │││
+│• Recipe DB     │  │• Systems/POIs    │  │• file         │││
+│• Skill Tree    │  │• Experiences     │  │• sqlite       │││
+│• Material      │  │• Market Data     │  │• keyring      │││
+│  Requirements  │  │• Routes          │  │               │││
+│• Profit Calc   │  │• Danger Zones    │  │               │││
+└────────────────┘  └──────────────────┘  └───────────────┘││
+                                                            ││
+    ┌───────────────────────────────────────────────────────┘│
+    │                                                         │
+┌───▼────────────┐  ┌──────────────┐  ┌────────────────────┐│
+│ Automated      │  │ Ollama LLM   │  │  Watcher TUI       ││
+│ Agents         │  │              │  │                    ││
+│                │  │• llama3.2    │  │• Multi-agent view  ││
+│• auto-explorer │  │• mistral     │  │• Map display       ││
+│• auto-miner    │  │• other       │  │• Status panels     ││
+│• auto-trader   │  │  models      │  │• Action logs       ││
+│• auto-fighter  │  │              │  │                    ││
+│• auto-pirate   │  └──────────────┘  └────────────────────┘│
+│• auto-salvager │                                           │
+│• auto-craftsman│                                           │
+└────────────────┘                                           │
+                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Key Points:**
-- Agent server is the primary component (runs headless)
-- Each agent has its own WebSocket connection (required by game)
-- Each Runner manages an Agent + GameClient + play loop
-- Watcher TUI is optional for observation
-- All agents share Knowledge Base and LLM
+**Key Components:**
+
+1. **Agent Server** - Core autonomous agent framework with LLM integration
+2. **MCP Bridges** - Connect Claude AI to the game (WebSocket, SSE, Service)
+3. **Crafting Server** - MCP server for recipe/skill queries and crafting planning
+4. **Knowledge Base** - Shared SQLite database for discoveries and analytics
+5. **Web UI** - React frontend for monitoring and control
+6. **API Server** - REST API for programmatic agent control
+7. **Automated Agents** - Specialized pre-built bots for specific tasks
+8. **Watcher TUI** - Terminal UI for observing agent activity
+9. **Credentials** - Flexible storage (file, encrypted SQLite, OS keyring)
 
 ## Command-Line Options
 
@@ -707,6 +864,165 @@ bin/agent-server --agents=nonexistent1,nonexistent2
 # (exits with code 1)
 ```
 
+## Claude Integration via MCP
+
+Play SpaceMolt through Claude AI using the Model Context Protocol.
+
+### Quick Start with MCP
+
+```bash
+# Build the MCP bridge
+go build -o bin/mcp-ws-bridge ./cmd/mcp-ws-bridge
+
+# Configure Claude Desktop
+# Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
+{
+  "mcpServers": {
+    "spacemolt": {
+      "command": "/path/to/bin/mcp-ws-bridge",
+      "args": ["--username", "your-username", "--token", "your-token"]
+    }
+  }
+}
+
+# Restart Claude Desktop
+# Now Claude can control your SpaceMolt character!
+```
+
+### Available MCP Servers
+
+1. **mcp-ws-bridge** - Full game control (148 commands)
+   - Navigation, combat, mining, trading
+   - Faction management, base building
+   - Market orders, crafting, missions
+   - See [cmd/mcp-ws-bridge/README.md](cmd/mcp-ws-bridge/README.md)
+
+2. **mcp-sse-bridge** - Server-Sent Events variant
+   - Alternative architecture for streaming updates
+   - Same functionality as WebSocket bridge
+
+3. **crafting-server** - Crafting intelligence
+   - Query recipes by material or skill
+   - Calculate crafting requirements
+   - Find profitable crafting opportunities
+   - See [docs/spacemolt-crafting-server-spec-final.md](docs/spacemolt-crafting-server-spec-final.md)
+
+### Example Claude Interactions
+
+```
+You: "Check my ship status in SpaceMolt"
+Claude: *uses get_status tool*
+
+You: "Mine some asteroids"
+Claude: *uses mine tool repeatedly*
+
+You: "What can I craft with iron ore?"
+Claude: *uses crafting-server to query recipes*
+
+You: "Travel to the nearest station and sell my cargo"
+Claude: *uses travel, dock, and view_market tools*
+```
+
+### Auto-Generated Tools
+
+The MCP bridge tools are automatically generated from the game's OpenAPI spec:
+
+```bash
+# Update tools when game API changes
+make update-mcp
+
+# This will:
+# 1. Download latest openapi.json from game server
+# 2. Regenerate all 148 tool definitions
+# 3. Update cmd/mcp-ws-bridge/tools_generated.go
+```
+
+See [docs/MCP_TOOLS_IMPLEMENTATION.md](docs/MCP_TOOLS_IMPLEMENTATION.md) for details.
+
+## Automated Specialized Agents
+
+Pre-built bots for specific tasks (no LLM required):
+
+### Available Automated Agents
+
+- **auto-explorer** - Systematically explores and maps systems
+- **auto-miner** - Mines resources and sells for profit
+- **auto-trader** - Trades goods between stations
+- **auto-fighter** - Engages in combat and bounty hunting
+- **auto-pirate** - Raids and plunders (use responsibly!)
+- **auto-salvager** - Salvages wrecks and debris
+- **auto-craftsman** - Crafts items based on available materials
+
+### Running Automated Agents
+
+```bash
+# Build the agent
+go build -o bin/auto-miner ./cmd/auto-miner
+
+# Run with credentials
+bin/auto-miner --username your-username --token your-token
+
+# Or use credential file
+bin/auto-miner --creds-file data/agents/miner-1/credentials.json
+
+# Run in background
+nohup bin/auto-miner --username your-username --token your-token > logs/miner.log 2>&1 &
+```
+
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for detailed automated agent documentation.
+
+## Web Interface
+
+### React Frontend
+
+Modern web UI for monitoring and controlling agents:
+
+```bash
+# Setup frontend
+cd frontend
+npm install
+
+# Development mode
+npm run dev
+
+# Production build
+npm run build
+```
+
+See [frontend/README.md](frontend/README.md) for details.
+
+### Simple HTML Dashboard
+
+Lightweight monitoring interface:
+
+```bash
+# Serve the web directory
+cd web
+python3 -m http.server 8080
+
+# Visit http://localhost:8080
+```
+
+## REST API
+
+Programmatic control and monitoring:
+
+```bash
+# Start API server (usually part of agent-server)
+bin/agent-server --enable-api --api-port 8080
+
+# Query agent status
+curl http://localhost:8080/api/agents
+
+# Get specific agent
+curl http://localhost:8080/api/agents/explorer-7
+
+# Stream agent events
+curl http://localhost:8080/api/stream
+```
+
+See [pkg/api/](pkg/api/) for API documentation.
+
 ## Development
 
 ### Running Linters
@@ -735,47 +1051,98 @@ go test ./pkg/knowledge/... -bench=.
 
 ```
 spacemolt-agent-server/
-├── cmd/
-│   ├── agent-server/     # Main agent server (primary entry point)
-│   ├── watcher/          # Multi-agent TUI application (optional)
-│   └── agent/            # Agent test utility
-├── pkg/
-│   ├── agent/            # Agent framework, manager, and runner
-│   │   ├── base.go       # Base agent implementation
-│   │   ├── manager.go    # Multi-agent manager
-│   │   ├── runner.go     # Agent play loop with tick awareness
-│   │   └── personality.go # Personality system
-│   ├── game/             # Game client and state types
-│   │   ├── client.go     # WebSocket game client
-│   │   ├── interface.go  # GameClient interface
-│   │   └── state.go      # Game state management
-│   ├── credentials/      # Credential storage backends
-│   │   ├── file.go       # File-based storage
-│   │   ├── sqlite.go     # Encrypted SQLite storage
-│   │   └── keyring.go    # OS keyring integration
-│   ├── knowledge/        # Knowledge base (SQLite + memory)
-│   │   ├── sqlite.go     # SQLite backend
-│   │   └── memory.go     # In-memory backend
-│   ├── llm/              # Ollama LLM client
-│   └── tui/              # TUI components
-├── data/
-│   ├── agents/           # Agent personality definitions
+├── cmd/                        # Command-line executables
+│   ├── agent-server/           # Main LLM agent server (primary)
+│   ├── watcher/                # Multi-agent TUI observer
+│   ├── mcp-ws-bridge/          # MCP WebSocket bridge for Claude
+│   ├── mcp-sse-bridge/         # MCP SSE bridge (alternative)
+│   ├── mcp-bridge-service/     # MCP service-based architecture
+│   ├── crafting-server/        # MCP crafting query server
+│   ├── generate-mcp-tools/     # Auto-generate MCP tools from OpenAPI
+│   ├── update-server-docs/     # Sync API docs from game server
+│   ├── auto-explorer/          # Automated exploration bot
+│   ├── auto-miner/             # Automated mining bot
+│   ├── auto-trader/            # Automated trading bot
+│   ├── auto-fighter/           # Automated combat bot
+│   ├── auto-pirate/            # Automated pirate/raider bot
+│   ├── auto-salvager/          # Automated salvage bot
+│   ├── auto-craftsman/         # Automated crafting bot
+│   ├── skill-tree/             # Skill tree visualization
+│   └── ...                     # 20+ additional utilities
+├── pkg/                        # Reusable Go packages
+│   ├── agent/                  # Agent framework & personality system
+│   ├── game/                   # Game client & WebSocket communication
+│   ├── credentials/            # Multi-backend credential storage
+│   ├── knowledge/              # SQLite knowledge base & analytics
+│   ├── llm/                    # LLM client (Ollama/OpenAI compatible)
+│   ├── tui/                    # Terminal UI components
+│   ├── api/                    # REST API server
+│   ├── registry/               # Agent status registry
+│   ├── prompts/                # Prompt management system
+│   ├── crafting/               # Crafting system data structures
+│   └── version/                # Version compatibility checking
+├── internal/                   # Internal packages
+│   └── protocol/               # Internal protocol definitions
+├── frontend/                   # React/TypeScript web UI
+│   ├── src/                    # React components & pages
+│   ├── public/                 # Static assets
+│   ├── package.json            # Node dependencies
+│   └── vite.config.ts          # Vite configuration
+├── web/                        # Simple HTML/JS monitoring interface
+│   ├── index.html              # Dashboard
+│   ├── js/                     # JavaScript
+│   └── css/                    # Stylesheets
+├── data/                       # Data storage (auto-generated)
+│   ├── agents/                 # Agent personality configurations
 │   │   ├── explorer-7/
 │   │   │   ├── personality.json
+│   │   │   ├── biography.md
 │   │   │   └── credentials.json (auto-generated)
-│   │   ├── miner-2/
 │   │   └── ...
-│   ├── spacemolt-knowledge.db   # SQLite knowledge base (auto-generated)
-│   └── credentials/      # File-based credentials (auto-generated)
-├── docs/
-│   ├── agent_startup.md  # Complete architecture documentation
-│   └── api_commands_reference.md # Game API documentation
-└── agents_config.yaml.example # Example configuration file
+│   ├── spacemolt-knowledge.db  # Shared knowledge base (SQLite)
+│   └── credentials/            # File-based credentials
+├── docs/                       # Documentation (40+ documents)
+│   ├── QUICKSTART.md           # Quick start guide
+│   ├── MCP_TOOLS_IMPLEMENTATION.md
+│   ├── spacemolt-crafting-server-spec-final.md
+│   ├── api_commands_reference.md
+│   ├── KNOWLEDGE_BASE.md
+│   └── ...
+├── playbook/                   # Strategic playbooks for agents
+│   ├── explorer.md
+│   ├── miner.md
+│   ├── trader.md
+│   ├── fighter.md
+│   └── ...
+├── server_docs/                # Auto-synced API documentation
+│   ├── openapi.json            # OpenAPI specification
+│   ├── api.md                  # API reference
+│   └── skill.md                # Skill tree documentation
+├── scripts/                    # Utility scripts
+│   ├── query-knowledge.sh      # Query knowledge base
+│   ├── query-analytics.sh      # Query analytics
+│   └── ...
+├── Makefile                    # Build automation
+├── agents_config.yaml.example  # Example agent configuration
+└── go.mod                      # Go module definition
 ```
 
 ## Troubleshooting
 
-### Ollama Connection Issues
+### Game Connection Issues
+
+```bash
+# Test connection to game server
+curl https://game.spacemolt.com/api/version
+
+# Verify WebSocket connectivity
+# Check firewall rules allow outbound WSS connections
+
+# Test with simple client
+go run ./cmd/play-simple --username your-user --token your-token
+```
+
+### Ollama Connection Issues (for LLM agents)
 
 ```bash
 # Verify Ollama is running
@@ -786,6 +1153,28 @@ ollama list
 
 # Pull the required model
 ollama pull llama3.2
+
+# Test Ollama directly
+curl http://localhost:11434/api/generate -d '{"model":"llama3.2","prompt":"test"}'
+```
+
+### MCP Bridge Issues
+
+```bash
+# Test MCP bridge manually
+bin/mcp-ws-bridge --username your-user --token your-token
+
+# Check Claude Desktop logs
+# macOS: ~/Library/Logs/Claude/
+# Check for MCP server startup errors
+
+# Verify configuration
+cat ~/Library/Application\ Support/Claude/claude_desktop_config.json
+
+# Common issues:
+# - Incorrect path to mcp-ws-bridge binary
+# - Missing or invalid credentials
+# - Firewall blocking game server connection
 ```
 
 ### Agent Not Responding
@@ -794,34 +1183,110 @@ ollama pull llama3.2
 - Verify Ollama is running: `curl http://localhost:11434/api/tags`
 - Enable debug logging: `./watcher --debug --log-file=debug.log`
 - Check agent personality file is valid JSON
+- Ensure agent has valid credentials in credentials.json
 
 ### Database Issues
 
 ```bash
 # Check database contents
-sqlite3 spacemolt-knowledge.db ".schema"
-sqlite3 spacemolt-knowledge.db "SELECT * FROM systems;"
+sqlite3 data/spacemolt-knowledge.db ".schema"
+sqlite3 data/spacemolt-knowledge.db "SELECT * FROM systems;"
+
+# Check for corruption
+sqlite3 data/spacemolt-knowledge.db "PRAGMA integrity_check;"
 
 # Reset database (delete and start fresh)
-rm spacemolt-knowledge.db
-./watcher
+rm data/spacemolt-knowledge.db
+bin/agent-server
 ```
 
 ### Agents Not Spawning
 
 - Verify agent directory exists: `ls data/agents/explorer-7/`
 - Check personality.json is valid: `jq . data/agents/explorer-7/personality.json`
+- Verify credentials if reusing existing agent
 - Review debug logs for specific errors
+- Check agent-server logs for detailed error messages
+
+### Frontend Development Issues
+
+```bash
+# Clear frontend cache
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+
+# Check for TypeScript errors
+npm run type-check
+
+# Verify Vite dev server
+npm run dev
+# Should start on http://localhost:5173
+```
+
+### Build Issues
+
+```bash
+# Clean build cache
+go clean -cache -testcache -modcache
+
+# Update dependencies
+go mod tidy
+go mod download
+
+# Rebuild everything
+make clean
+make build
+
+# Check for lint errors
+make lint
+```
 
 ## Contributing
 
 Contributions are welcome! Areas of interest:
 
-- New agent personalities
-- Improved decision-making algorithms
-- Enhanced UI/UX for the watcher
-- Additional game actions and strategies
+**Agent Development:**
+- New agent personalities and behaviors
+- Improved decision-making algorithms and strategies
+- Enhanced learning and knowledge sharing
+- Better prompt engineering for LLM agents
+
+**MCP Integration:**
+- Additional MCP bridges and servers
+- Better Claude integration patterns
+- Tool improvements and new capabilities
+- Enhanced crafting intelligence
+
+**Automation:**
+- New specialized automated agents
+- Improved efficiency algorithms
+- Better resource management
+- Advanced trading strategies
+
+**UI/UX:**
+- React frontend enhancements
+- New monitoring dashboards
+- Better visualization of agent activity
+- Mobile-responsive designs
+
+**Infrastructure:**
 - Performance optimizations
+- Better error handling and recovery
+- Enhanced testing coverage
+- Documentation improvements
+
+**Analytics:**
+- Advanced knowledge base queries
+- Better market analysis
+- Route optimization
+- Profit calculation improvements
+
+See existing code for patterns and conventions. All contributions should:
+- Pass `make lint` and `make test`
+- Include tests for new functionality
+- Update documentation as needed
+- Follow Go best practices
 
 ## License
 
@@ -829,7 +1294,28 @@ MIT License - See LICENSE file for details
 
 ## Acknowledgments
 
+**Game & Platform:**
 - [SpaceMolt](https://spacemolt.com) - The game that makes this possible
+- SpaceMolt community for testing and feedback
+
+**AI & LLM:**
 - [Ollama](https://ollama.ai) - Local LLM inference
+- [Anthropic Claude](https://anthropic.com) - MCP integration and AI assistance
+- [Model Context Protocol](https://modelcontextprotocol.io) - Standardized AI integration
+
+**Core Libraries:**
 - [Bubbletea](https://github.com/charmbracelet/bubbletea) - TUI framework
+- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
 - [modernc.org/sqlite](https://gitlab.com/cznic/sqlite) - Pure Go SQLite
+- [coder/websocket](https://github.com/coder/websocket) - WebSocket client
+
+**Frontend:**
+- [React](https://react.dev) - UI framework
+- [TypeScript](https://www.typescriptlang.org) - Type safety
+- [Vite](https://vite.dev) - Build tool
+- [Tailwind CSS](https://tailwindcss.com) - Styling
+
+**Development:**
+- [golangci-lint](https://golangci-lint.run) - Go linting
+- [Go 1.24](https://go.dev) - Programming language
+- OpenAPI specification - API documentation and code generation
