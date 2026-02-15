@@ -1,26 +1,17 @@
-package knowledge
+-- SpaceMolt Knowledge Base Database Schema
+-- SQLite 3 Compatible
+--
+-- This file contains the complete database schema for the SpaceMolt agent knowledge base.
+-- Use this to initialize a fresh database:
+--   sqlite3 spacemolt-knowledge.db < initialize_database.sql
+--
+-- Schema Version: 3
+-- Last Updated: 2025-02-11
 
-import (
-	"database/sql"
-	"fmt"
+-- ============================================================================
+-- CORE TABLES
+-- ============================================================================
 
-	_ "modernc.org/sqlite"
-)
-
-// Migration represents a database schema migration
-type Migration struct {
-	version int
-	name    string
-	sql     string
-}
-
-// migrations returns all migrations in order
-func migrations() []Migration {
-	return []Migration{
-		{
-			version: 1,
-			name:    "initial_schema",
-			sql: `
 -- Systems table: stores solar system information
 CREATE TABLE IF NOT EXISTS systems (
 	id TEXT PRIMARY KEY,
@@ -44,7 +35,7 @@ CREATE TABLE IF NOT EXISTS connections (
 	FOREIGN KEY (to_system) REFERENCES systems(id) ON DELETE CASCADE
 );
 
--- POIs table: stores points of interest
+-- POIs table: stores points of interest (stations, asteroid belts, planets, etc.)
 CREATE TABLE IF NOT EXISTS pois (
 	id TEXT PRIMARY KEY,
 	system_id TEXT NOT NULL,
@@ -68,7 +59,7 @@ CREATE TABLE IF NOT EXISTS poi_resources (
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
--- Experiences table: stores agent experiences
+-- Experiences table: stores agent experiences for learning
 CREATE TABLE IF NOT EXISTS experiences (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	agent_id TEXT NOT NULL,
@@ -88,17 +79,10 @@ CREATE TABLE IF NOT EXISTS agents (
 	status TEXT DEFAULT 'active'
 );
 
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_experiences_agent_id ON experiences(agent_id, time DESC);
-CREATE INDEX IF NOT EXISTS idx_pois_system_id ON pois(system_id);
-CREATE INDEX IF NOT EXISTS idx_connections_from ON connections(from_system);
-CREATE INDEX IF NOT EXISTS idx_connections_to ON connections(to_system);
-`,
-		},
-		{
-			version: 2,
-			name:    "market_data",
-			sql: `
+-- ============================================================================
+-- MARKET DATA TABLES
+-- ============================================================================
+
 -- Market snapshots table: stores captured market state
 CREATE TABLE IF NOT EXISTS market_snapshots (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,13 +110,6 @@ CREATE TABLE IF NOT EXISTS market_listings (
 	FOREIGN KEY (snapshot_id) REFERENCES market_snapshots(id) ON DELETE CASCADE
 );
 
--- Indexes for efficient queries
-CREATE INDEX IF NOT EXISTS idx_market_snapshots_system_station ON market_snapshots(system_id, station_id, captured_at DESC);
-CREATE INDEX IF NOT EXISTS idx_market_snapshots_captured_at ON market_snapshots(captured_at DESC);
-CREATE INDEX IF NOT EXISTS idx_market_listings_snapshot_id ON market_listings(snapshot_id);
-CREATE INDEX IF NOT EXISTS idx_market_listings_item_id ON market_listings(item_id);
-CREATE INDEX IF NOT EXISTS idx_market_listings_item_type ON market_listings(item_type);
-
 -- Ship listings table: stores available ships at stations
 CREATE TABLE IF NOT EXISTS ship_listings (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,15 +131,10 @@ CREATE TABLE IF NOT EXISTS ship_listings (
 	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
--- Indexes for ship listings
-CREATE INDEX IF NOT EXISTS idx_ship_listings_system_station ON ship_listings(system_id, station_id, captured_at DESC);
-CREATE INDEX IF NOT EXISTS idx_ship_listings_captured_at ON ship_listings(captured_at DESC);
-`,
-		},
-		{
-			version: 3,
-			name:    "enhanced_analytics",
-			sql: `
+-- ============================================================================
+-- ANALYTICS TABLES
+-- ============================================================================
+
 -- Resource depletion tracking: monitors resource changes over time
 CREATE TABLE IF NOT EXISTS resource_history (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -247,7 +219,34 @@ CREATE TABLE IF NOT EXISTS knowledge_exports (
 	export_data TEXT -- JSON snapshot
 );
 
--- Indexes for enhanced queries
+-- Schema migrations tracking
+CREATE TABLE IF NOT EXISTS schema_migrations (
+	version INTEGER PRIMARY KEY,
+	applied_at TEXT NOT NULL
+);
+
+-- ============================================================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================================================
+
+-- Core tables indexes
+CREATE INDEX IF NOT EXISTS idx_experiences_agent_id ON experiences(agent_id, time DESC);
+CREATE INDEX IF NOT EXISTS idx_pois_system_id ON pois(system_id);
+CREATE INDEX IF NOT EXISTS idx_connections_from ON connections(from_system);
+CREATE INDEX IF NOT EXISTS idx_connections_to ON connections(to_system);
+
+-- Market data indexes
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_system_station ON market_snapshots(system_id, station_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_snapshots_captured_at ON market_snapshots(captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_listings_snapshot_id ON market_listings(snapshot_id);
+CREATE INDEX IF NOT EXISTS idx_market_listings_item_id ON market_listings(item_id);
+CREATE INDEX IF NOT EXISTS idx_market_listings_item_type ON market_listings(item_type);
+
+-- Ship listings indexes
+CREATE INDEX IF NOT EXISTS idx_ship_listings_system_station ON ship_listings(system_id, station_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ship_listings_captured_at ON ship_listings(captured_at DESC);
+
+-- Analytics indexes
 CREATE INDEX IF NOT EXISTS idx_resource_history_poi_resource ON resource_history(poi_id, resource_id, game_tick DESC);
 CREATE INDEX IF NOT EXISTS idx_resource_history_tick ON resource_history(game_tick DESC);
 CREATE INDEX IF NOT EXISTS idx_anomalies_type_severity ON anomalies(type, severity, detected_at DESC);
@@ -256,62 +255,10 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_poi ON anomalies(poi_id, status);
 CREATE INDEX IF NOT EXISTS idx_price_trends_item_station ON price_trends(item_id, station_id, window_end DESC);
 CREATE INDEX IF NOT EXISTS idx_connection_metrics_from ON connection_metrics(from_system, avg_fuel_cost ASC);
 CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level DESC);
-`,
-		},
-	}
-}
 
-// runMigrations executes all pending migrations
-func runMigrations(db *sql.DB) error {
-	// Create migrations table if it doesn't exist
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS schema_migrations (
-			version INTEGER PRIMARY KEY,
-			applied_at TEXT NOT NULL
-		)
-	`); err != nil {
-		return fmt.Errorf("failed to create migrations table: %w", err)
-	}
+-- ============================================================================
+-- INITIAL MIGRATION RECORD
+-- ============================================================================
 
-	// Get current migration version
-	var currentVersion int
-	row := db.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
-	if err := row.Scan(&currentVersion); err != nil {
-		return fmt.Errorf("failed to get current migration version: %w", err)
-	}
-
-	// Run pending migrations
-	migrations := migrations()
-	for _, m := range migrations {
-		if m.version <= currentVersion {
-			continue // Already applied
-		}
-
-		// Run migration in a transaction
-		tx, err := db.Begin()
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction for migration %d: %w", m.version, err)
-		}
-
-		// Execute migration SQL
-		if _, err := tx.Exec(m.sql); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
-		}
-
-		// Record migration
-		if _, err := tx.Exec(
-			"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
-			m.version,
-		); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("failed to record migration %d: %w", m.version, err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("failed to commit migration %d: %w", m.version, err)
-		}
-	}
-
-	return nil
-}
+-- Record that schema version 3 has been applied
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
