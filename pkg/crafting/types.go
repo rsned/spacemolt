@@ -337,3 +337,47 @@ type ComponentUseInfo struct {
 	SkillGaps        []SkillGap      `json:"skill_gaps,omitempty"`
 	ProfitAnalysis   *ProfitAnalysis `json:"profit_analysis,omitempty"`
 }
+
+// BillOfMaterialsRequest is the input for the bill_of_materials tool.
+type BillOfMaterialsRequest struct {
+	RecipeID string `json:"recipe_id"`
+	Quantity int    `json:"quantity"`
+}
+
+// BillOfMaterialsResponse is the output for the bill_of_materials tool.
+type BillOfMaterialsResponse struct {
+	RecipeID       string            `json:"recipe_id"`
+	RecipeName     string            `json:"recipe_name"`
+	OutputItemID   string            `json:"output_item_id"`
+	Quantity       int               `json:"quantity"`
+	RawMaterials   []BOMItem         `json:"raw_materials"`
+	Intermediates  []BOMIntermediate `json:"intermediates"`
+	CraftSteps     []BOMCraftStep    `json:"craft_steps"`
+	TotalCraftTime int               `json:"total_craft_time_sec"`
+}
+
+// BOMItem represents a raw material requirement.
+type BOMItem struct {
+	ItemID   string `json:"item_id"`
+	Quantity int    `json:"quantity"`
+}
+
+// BOMIntermediate represents an intermediate crafted item in the dependency tree.
+type BOMIntermediate struct {
+	ItemID        string `json:"item_id"`
+	RecipeID      string `json:"recipe_id"`
+	RecipeName    string `json:"recipe_name"`
+	CraftRuns     int    `json:"craft_runs"`
+	TotalProduced int    `json:"total_produced"`
+	TotalNeeded   int    `json:"total_needed"`
+}
+
+// BOMCraftStep represents a single crafting operation in the build order.
+type BOMCraftStep struct {
+	StepNumber   int    `json:"step_number"`
+	RecipeID     string `json:"recipe_id"`
+	RecipeName   string `json:"recipe_name"`
+	CraftRuns    int    `json:"craft_runs"`
+	OutputItemID string `json:"output_item_id"`
+	OutputPerRun int    `json:"output_per_run"`
+}

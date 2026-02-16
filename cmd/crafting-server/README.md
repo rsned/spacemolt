@@ -1,10 +1,13 @@
 # SpaceMolt Crafting Query MCP Server
 
+> **Compatible with SpaceMolt gameserver v0.87.1**
+> Last updated: 2026-02-16
+
 An MCP (Model Context Protocol) server that provides intelligent crafting queries for SpaceMolt AI agents. Enables agents to efficiently discover what they can craft, plan crafting paths, and optimize skill progression without complex prompt engineering.
 
 ## Features
 
-### 5 Powerful MCP Tools
+### 6 Powerful MCP Tools
 
 1. **`craft_query`** - "What can I craft with my inventory?"
    - Returns fully craftable recipes, partial matches, and skill-blocked recipes
@@ -31,6 +34,16 @@ An MCP (Model Context Protocol) server that provides intelligent crafting querie
    - Useful when acquiring new materials
    - Supports profit optimization
 
+6. **`bill_of_materials`** - "What raw materials do I need to craft this?"
+   - Complete recursive dependency resolution (multi-level)
+   - Returns total raw materials, intermediate items, and craft steps
+   - Accounts for output quantities (e.g., recipes producing 2+ per craft)
+   - **Deterministic recipe selection** when multiple recipes produce the same item:
+     - Prefers shortest craft time
+     - Then highest output quantity (better efficiency)
+     - Then lexicographically first recipe_id (for consistency)
+   - **Consistent diamond dependencies**: Same intermediate used on multiple paths always uses the same recipe throughout the tree
+
 ### Optimization Strategies
 
 All query tools support strategic result sorting:
@@ -39,6 +52,23 @@ All query tools support strategic result sorting:
 - `OPTIMIZE_CRAFT_PATH` - Prefer simpler recipes
 - `USE_INVENTORY_FIRST` - Minimize new acquisitions (default)
 - `MINIMIZE_ACQUISITION` - Prefer recipes needing fewest missing components
+
+### Deterministic Recipe Selection (Bill of Materials)
+
+When multiple recipes produce the same output item (e.g., 4 different recipes produce `refined_circuits`), the `bill_of_materials` tool uses deterministic selection:
+
+**Selection Criteria (in priority order):**
+1. **Shortest craft time** - Faster crafting is preferred
+2. **Highest output quantity** - More efficient for bulk production
+3. **Lexicographically first recipe_id** - Consistent tie-breaker
+
+**Diamond Dependency Consistency:**
+When an intermediate item appears in multiple places in the dependency tree (e.g., `refined_crystal` needed by both the target recipe and a sub-component), the tool **always uses the same recipe** throughout the entire tree. This ensures:
+- Predictable raw material totals
+- No mixing of recipe variants within a single BOM
+- Consistent crafting plans
+
+**Example:** If `refined_circuits` is selected via `refine_circuits` recipe, all instances of `refined_circuits` in the dependency tree will use `refine_circuits`, not alternative recipes like `craft_fluorine_circuits` or `refine_circuits_silver`.
 
 ## Installation
 
@@ -61,16 +91,16 @@ Before using the server, import recipe and skill data:
 
 ```bash
 # Convert recipes
-./bin/convert-recipes server_docs/recipes.20260209.json data/crafting/recipes-import.json
+./bin/convert-recipes server_docs/recipes.20260216.json data/crafting/recipes-import.json
 
 # Convert skills
-./bin/convert-skills server_docs/skills.20260209.json data/crafting/skills-import.json
+./bin/convert-skills server_docs/skills.20260216.json data/crafting/skills-import.json
 ```
 
 ### 2. Import into Database
 
 ```bash
-# Import recipes (161 recipes)
+# Import recipes (239 recipes as of v0.87.1)
 ./bin/crafting-server -import-recipes data/crafting/recipes-import.json
 
 # Import skills (139 skills)
@@ -189,6 +219,34 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 **Response:** Lists skills sorted by recipes unlocked at next level, with XP needed.
 
+### Calculate Full Bill of Materials
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "bill_of_materials",
+    "arguments": {
+      "recipe_id": "craft_scanner_1",
+      "quantity": 1
+    }
+  }
+}
+```
+
+**Response:** Returns complete breakdown:
+- `raw_materials` - Total ore/gas needed (ore_copper: 9, ore_silicon: 6, ore_crystal: 11, ore_palladium: 4)
+- `intermediates` - All intermediate items with craft runs and quantities
+- `craft_steps` - Ordered steps from raw materials to final product (deepest dependencies first)
+- `total_craft_time_sec` - Sum of all crafting time
+
+**Recipe Selection:** When multiple recipes produce the same output (e.g., 4 recipes for `refined_circuits`), the tool deterministically selects based on:
+1. Shortest craft time (faster is better)
+2. Highest output quantity (more efficient)
+3. Recipe ID alphabetically (consistent tie-breaker)
+
+Once selected, the same recipe is used throughout the entire dependency tree for consistency.
+
 ## Architecture
 
 ```
@@ -208,7 +266,8 @@ internal/crafting/
 ├── engine/                    # Query business logic
 │   ├── engine.go              # Main engine
 │   ├── craft_query.go         # Component matching
-│   ├── craft_path.go          # Path planning
+│   ├── craft_path.go          # Path planning (single-level)
+│   ├── bill_of_materials.go   # Recursive BOM with deterministic recipe selection
 │   ├── recipe_lookup.go       # Recipe search
 │   ├── skill_paths.go         # Skill analysis
 │   └── component_uses.go      # Reverse lookup
@@ -236,7 +295,7 @@ SQLite database with the following tables:
 ## Performance
 
 - **Query Speed:** 1-5ms for typical craft_query (6-20 recipes checked)
-- **Database Size:** ~500KB (161 recipes, 139 skills)
+- **Database Size:** ~500KB (239 recipes, 139 skills)
 - **Binary Size:** 10MB (includes all dependencies)
 - **Indexing:** Inverted component index for O(log n) lookups
 
@@ -244,9 +303,11 @@ SQLite database with the following tables:
 
 The server imports data from SpaceMolt game API snapshots:
 
-- **Recipes:** `server_docs/recipes.20260209.json` (161 recipes)
-- **Skills:** `server_docs/skills.20260209.json` (139 skills)
+- **Recipes:** `server_docs/recipes.20260216.json` (289 total, 239 imported)
+- **Skills:** `server_docs/skills.20260216.json` (139 skills)
 - **Market:** Agent-collected price data (optional)
+
+**Note:** Not all recipes from the game API may be imported - some may be filtered or pending implementation.
 
 ## Testing
 
@@ -261,6 +322,12 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | ./bin/crafting-server -d
 
 # Test craft_query
 echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"craft_query","arguments":{"components":[{"id":"ore_copper","quantity":50}],"skills":{"crafting_basic":1},"limit":5}}}' | ./bin/crafting-server -db data/crafting/crafting.db 2>/dev/null
+
+# Test bill_of_materials (with pretty output)
+cat <<'EOF' | ./bin/crafting-server -db data/crafting/crafting.db 2>/dev/null | jq -r 'select(.id == 2) | .result.content[0].text' | jq .
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"bill_of_materials","arguments":{"recipe_id":"craft_scanner_1","quantity":1}}}
+EOF
 ```
 
 ## Design Principles
@@ -296,10 +363,11 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"craft_quer
 ## Status
 
 ✅ **Production Ready**
-- All 5 tools implemented and tested
-- 161 recipes imported
+- All 6 tools implemented and tested
+- 239 recipes imported (as of gameserver v0.87.1)
 - 139 skills imported
-- Query performance: 1-5ms
+- Query performance: 1-5ms (craft_query), 5-15ms (bill_of_materials)
+- Deterministic recipe selection for multi-level BOM
 - Full MCP protocol compliance
 
 ## License
