@@ -204,62 +204,92 @@ func (c *MCPClient) Login(username, password string) (string, error) {
 		return "", fmt.Errorf("login failed: %w", err)
 	}
 
-	// Parse the MCP tool response
-	var response struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-		IsError bool `json:"isError"`
+	// Parse the MCP tool response - try to extract session_id
+	// The login tool returns JSON with session_id field
+	var loginResponse struct {
+		SessionID string `json:"session_id"`
+		Username  string `json:"username"`
+		Message   string `json:"message"`
+		// There might be other fields we ignore
 	}
 
-	if err := json.Unmarshal(result, &response); err != nil {
-		return "", fmt.Errorf("failed to parse login response: %w", err)
-	}
+	// First, try to parse the result directly as JSON
+	if err := json.Unmarshal(result, &loginResponse); err != nil {
+		// If that fails, try parsing as MCP tool response with content array
+		var mcpResponse struct {
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+				Data any    `json:"data,omitempty"`
+			} `json:"content"`
+			IsError bool `json:"isError"`
+		}
 
-	// Check for errors
-	if response.IsError || len(response.Content) == 0 {
-		return "", fmt.Errorf("login returned error or empty response")
-	}
+		if err := json.Unmarshal(result, &mcpResponse); err != nil {
+			return "", fmt.Errorf("failed to parse login response: %w", err)
+		}
 
-	// The login tool returns the session_id in the text content
-	// Expected format: "Logged in as <username>. Your session_id is <session_id>."
-	text := response.Content[0].Text
-
-	// Extract session_id from the response text
-	// Look for patterns like "session_id is abc123..." or "session_id: abc123..."
-	// The actual session_id is a long hex string
-
-	// Try to find "session_id" followed by a hex string
-	if strings.Contains(text, "session_id") {
-		// Split by spaces and look for hex strings near "session_id"
-		parts := strings.Fields(text)
-		for i, part := range parts {
-			if strings.Contains(part, "session_id") || part == "session_id" {
-				// Check next few words for a hex string
-				for j := i + 1; j < len(parts) && j < i+4; j++ {
-					candidate := strings.TrimSuffix(parts[j], ".")
-					candidate = strings.TrimSuffix(candidate, ",")
-					// Check if it looks like a hex string (at least 20 chars)
-					if len(candidate) >= 20 && isHexString(candidate) {
-						return candidate, nil
-					}
-				}
+		// Check for errors
+		if mcpResponse.IsError {
+			if len(mcpResponse.Content) > 0 {
+				return "", fmt.Errorf("login error: %s", mcpResponse.Content[0].Text)
 			}
+			return "", fmt.Errorf("login returned error")
+		}
+
+		// Try to get data from content
+		if len(mcpResponse.Content) == 0 {
+			return "", fmt.Errorf("empty login response")
+		}
+
+		// If content has data field, try to parse it
+		if mcpResponse.Content[0].Data != nil {
+			dataJSON, _ := json.Marshal(mcpResponse.Content[0].Data)
+			if err := json.Unmarshal(dataJSON, &loginResponse); err != nil {
+				// Last resort: try to extract session_id from text
+				text := mcpResponse.Content[0].Text
+				return extractSessionIDFromText(text)
+			}
+		} else {
+			// Extract from text field
+			return extractSessionIDFromText(mcpResponse.Content[0].Text)
 		}
 	}
 
-	// Fallback: look for any hex string longer than 30 chars
+	// Successfully parsed the login response
+	if loginResponse.SessionID == "" {
+		return "", fmt.Errorf("session_id not found in login response")
+	}
+
+	return loginResponse.SessionID, nil
+}
+
+// extractSessionIDFromText attempts to extract a session_id from text content
+func extractSessionIDFromText(text string) (string, error) {
+	text = strings.TrimSpace(text)
+
+	// Try to parse as JSON first
+	var jsonData map[string]any
+	if err := json.Unmarshal([]byte(text), &jsonData); err == nil {
+		if sessionID, ok := jsonData["session_id"].(string); ok && sessionID != "" {
+			return sessionID, nil
+		}
+	}
+
+	// Fallback: look for hex strings in the text
 	words := strings.Fields(text)
 	for _, word := range words {
 		word = strings.TrimSuffix(word, ".")
 		word = strings.TrimSuffix(word, ",")
-		if len(word) >= 30 && isHexString(word) {
+		word = strings.TrimSuffix(word, ")")
+		word = strings.TrimPrefix(word, "(")
+		// Session IDs are 32-character hex strings
+		if len(word) == 32 && isHexString(word) {
 			return word, nil
 		}
 	}
 
-	return "", fmt.Errorf("could not extract session_id from login response: %s", text)
+	return "", fmt.Errorf("could not extract session_id from: %s", text)
 }
 
 // isHexString checks if a string is a valid hex string
@@ -303,12 +333,15 @@ func (c *MCPClient) callTool(toolName string, args map[string]any) (json.RawMess
 		Content []struct {
 			Type string `json:"type"`
 			Text string `json:"text"`
+			Data any    `json:"data,omitempty"` // Some tools return data directly
 		} `json:"content"`
 		IsError bool `json:"isError"`
 	}
 
 	if err := json.Unmarshal(result, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse tool response: %w", err)
+		// If we can't parse as MCP response, try to extract JSON from text field
+		// Some tools return raw JSON in the result
+		return result, nil
 	}
 
 	// Check for errors
@@ -320,12 +353,20 @@ func (c *MCPClient) callTool(toolName string, args map[string]any) (json.RawMess
 	}
 
 	// Extract the actual data from the content
-	// Most SpaceMolt tools return JSON in the text field
 	if len(response.Content) == 0 {
 		return result, nil // Return raw response if no content
 	}
 
-	// Try to parse JSON from the first text content
+	// Check if content has data field (some tools return structured data)
+	if response.Content[0].Data != nil {
+		dataJSON, err := json.Marshal(response.Content[0].Data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal data field: %w", err)
+		}
+		return json.RawMessage(dataJSON), nil
+	}
+
+	// Try to parse JSON from the text field
 	text := response.Content[0].Text
 	text = strings.TrimSpace(text)
 
