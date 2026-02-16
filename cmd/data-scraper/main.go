@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	outputDir    = "data/game-api"
-	agentID      = "random-2"
-	serverURL    = "wss://game.spacemolt.com/ws"
+	baseOutputDir = "data/game-api"
 )
 
 type Scraper struct {
-	client *game.Client
-	logger *log.Logger
+	client    *game.Client
+	logger    *log.Logger
+	agentID   string
+	outputDir string
 }
 
 // formatErrorMessage provides a helpful error message based on error codes
@@ -81,6 +81,14 @@ func getPOIName(poiID string, pois []game.POI) string {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: data-scraper <agent-id>")
+		fmt.Println("This tool scrapes game API data for the specified agent")
+		fmt.Println()
+		os.Exit(1)
+	}
+
+	agentID := os.Args[1]
 	logger := log.New(os.Stdout, "[SCRAPER] ", log.LstdFlags)
 
 	logger.Println("🚀 SpaceMolt Game API Scraper (WebSocket)")
@@ -88,20 +96,30 @@ func main() {
 	logger.Printf("Agent: %s\n", agentID)
 	logger.Println()
 
+	// Create output directory for this agent
+	outputDir := filepath.Join(baseOutputDir, agentID)
+
 	// Create scraper
 	scraper := &Scraper{
-		logger: logger,
+		logger:    logger,
+		agentID:   agentID,
+		outputDir: outputDir,
 	}
 
-	// Initialize client
-	if err := scraper.init(); err != nil {
+	// Initialize client using standard agent initialization
+	ctx := context.Background()
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	if err != nil {
 		logger.Fatalf("Initialization failed: %v", err)
 	}
+	scraper.client = client
 	defer func() {
 		if err := scraper.client.Close(); err != nil {
 			logger.Printf("Warning: error closing client: %v", err)
 		}
 	}()
+
+	logger.Printf("Credentials: %s | Empire: %s\n", creds.Username, creds.Empire)
 
 	// Scrape all data
 	if err := scraper.scrapeAll(); err != nil {
@@ -111,53 +129,9 @@ func main() {
 	logger.Println("\n✅ Scraping complete!")
 }
 
-func (s *Scraper) init() error {
-	// Load credentials
-	credsPath := filepath.Join("data/agents", agentID, "credentials.json")
-	credsData, err := os.ReadFile(credsPath)
-	if err != nil {
-		return fmt.Errorf("failed to read credentials: %w", err)
-	}
-
-	var creds struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Empire   string `json:"empire"`
-	}
-	if err := json.Unmarshal(credsData, &creds); err != nil {
-		return fmt.Errorf("failed to parse credentials: %w", err)
-	}
-
-	// Create client with credentials
-	s.client = game.NewClient(serverURL, creds.Username, creds.Password, s.logger)
-
-	// Connect
-	s.logger.Println("🔌 Connecting to game server...")
-	ctx := context.Background()
-	if err := s.client.Connect(ctx); err != nil {
-		return fmt.Errorf("connection failed: %w", err)
-	}
-
-	// Wait for ready
-	s.logger.Println("⏳ Waiting for connection ready...")
-	<-s.client.Ready()
-	time.Sleep(1 * time.Second)
-	s.logger.Println("✓ Connected")
-
-	// Login
-	s.logger.Printf("🔑 Logging in as %s...", creds.Username)
-	if err := s.client.Login(context.Background()); err != nil {
-		return fmt.Errorf("login failed: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-	s.logger.Println("✓ Logged in")
-
-	return nil
-}
-
 func (s *Scraper) scrapeAll() error {
 	// Create output directory
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(s.outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -175,7 +149,6 @@ func (s *Scraper) scrapeAll() error {
 		{"Nearby Players", s.scrapeNearby},
 		{"Skills", s.scrapeSkills},
 		{"Recipes", s.scrapeRecipes},
-		{"Notifications", s.scrapeNotifications},
 		{"Wrecks", s.scrapeWrecks},
 		{"Drones", s.scrapeDrones},
 		{"Base Info", s.scrapeBase},
@@ -378,32 +351,6 @@ func (s *Scraper) scrapeRecipes() error {
 	return s.saveJSON("get_recipes.json", rawJSON)
 }
 
-func (s *Scraper) scrapeNotifications() error {
-	ctx := context.Background()
-
-	// Clear previous error
-	s.client.ClearLastError()
-
-	// Request notifications
-	msg := protocol.Message{
-		Type: "get_notifications",
-	}
-	if err := s.client.Send(ctx, msg); err != nil {
-		return fmt.Errorf("get_notifications failed: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Get raw JSON
-	rawJSON := s.client.GetRawJSON("get_notifications")
-	if rawJSON == nil {
-		// Check if there was an error response
-		errResp := s.client.GetLastError()
-		return fmt.Errorf("%s", formatErrorMessage("get_notifications", errResp))
-	}
-
-	return s.saveJSON("get_notifications.json", rawJSON)
-}
-
 func (s *Scraper) scrapeWrecks() error {
 	ctx := context.Background()
 
@@ -502,6 +449,12 @@ func (s *Scraper) scrapeFactionInfo() error {
 	if rawJSON == nil {
 		// Check if there was an error response
 		errResp := s.client.GetLastError()
+		// If errResp is empty or only has empty values, it means no error occurred
+		// but the data wasn't in the expected format
+		if len(errResp) == 0 || (len(errResp) > 0 && errResp["code"] == nil && errResp["message"] == nil) {
+			s.logger.Printf("  ⚠️  No faction data in response - skipping (player may not be in a faction)")
+			return nil // Not a fatal error
+		}
 		return fmt.Errorf("%s", formatErrorMessage("faction_info", errResp))
 	}
 
@@ -554,7 +507,7 @@ func (s *Scraper) saveJSON(filename string, data any) error {
 	}
 
 	// Save to file
-	outputPath := filepath.Join(outputDir, filename)
+	outputPath := filepath.Join(s.outputDir, filename)
 	if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}

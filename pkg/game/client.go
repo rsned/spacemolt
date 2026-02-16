@@ -1671,7 +1671,16 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			shouldStore = true
 		}
 		// Store faction info
+		// Faction data is returned directly in payload with fields like is_member, leader_id, etc.
 		if _, hasFaction := resp.Payload["faction"]; hasFaction {
+			storeKey = "faction_info"
+			shouldStore = true
+		} else if _, hasIsMember := resp.Payload["is_member"]; hasIsMember {
+			// faction_info response has faction fields directly in payload
+			storeKey = "faction_info"
+			shouldStore = true
+		} else if _, hasLeaderID := resp.Payload["leader_id"]; hasLeaderID {
+			// Also check for leader_id in case is_member is not present
 			storeKey = "faction_info"
 			shouldStore = true
 		}
