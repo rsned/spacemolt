@@ -174,6 +174,28 @@ The scraper depends on the SpaceMolt MCP server being operational. If the server
 - `Method not found`
 - `HTTP error: 503 Service Unavailable`
 
+### Rate Limiting
+
+**IMPORTANT ARCHITECTURAL LIMITATION:**
+
+The MCP scraper uses HTTP POST requests instead of persistent SSE connections. This causes a significant limitation:
+
+- Each HTTP POST creates a **new session** on the server
+- Server limits: ~30 new sessions per minute
+- After hitting the limit, all requests fail with "Too many new sessions from your IP"
+- Query tools (get_status, etc.) have no rate limit **within a persistent SSE session**
+- But individual POST requests each create a new session, triggering the limit
+
+**Workarounds:**
+
+1. **Use the WebSocket client** in `pkg/game` instead (recommended)
+2. **Wait 60+ seconds** between scraper runs for the session limit to reset
+3. **Reduce the scope** - only scrape essential endpoints
+
+**Future Improvement:**
+
+Rewrite the scraper to use persistent SSE connections (like Claude Code does) instead of individual HTTP POST requests. This would eliminate the session limit and allow proper scraping of all endpoints.
+
 ### Checking Server Status
 
 1. Visit https://game.spacemolt.com in a browser
