@@ -720,7 +720,11 @@ func (c *Client) Install(ctx context.Context, itemID string) error {
 func (c *Client) GetState() *State {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.state
+
+	// Return a deep copy to prevent data races.
+	// The Clone() method creates an independent copy of the state,
+	// ensuring concurrent access doesn't cause race conditions.
+	return c.state.Clone()
 }
 
 // listen handles incoming WebSocket messages
