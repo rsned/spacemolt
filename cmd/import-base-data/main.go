@@ -13,23 +13,23 @@ import (
 // BaseResponse represents the server response from get_base
 type BaseResponse struct {
 	Base struct {
-		ID             string             `json:"id"`
-		POIID          string             `json:"poi_id"`
-		Name           string             `json:"name"`
-		Description    string             `json:"description"`
-		Empire         string             `json:"empire"`
-		DefenseLevel   int                `json:"defense_level"`
-		HasDrones      bool               `json:"has_drones"`
-		PublicAccess   bool               `json:"public_access"`
-		Services       map[string]bool    `json:"services"`
-		Facilities     []string           `json:"facilities"`
-		Market         []json.RawMessage  `json:"market"`
+		ID           string            `json:"id"`
+		POIID        string            `json:"poi_id"`
+		Name         string            `json:"name"`
+		Description  string            `json:"description"`
+		Empire       string            `json:"empire"`
+		DefenseLevel int               `json:"defense_level"`
+		HasDrones    bool              `json:"has_drones"`
+		PublicAccess bool              `json:"public_access"`
+		Services     map[string]bool   `json:"services"`
+		Facilities   []string          `json:"facilities"`
+		Market       []json.RawMessage `json:"market"`
 	} `json:"base"`
 	POI struct {
-		ID          string  `json:"id"`
-		Name        string  `json:"name"`
-		SystemID    string  `json:"system_id"`
-		Description string  `json:"description"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		SystemID    string `json:"system_id"`
+		Description string `json:"description"`
 		Position    struct {
 			X float64 `json:"x"`
 			Y float64 `json:"y"`
@@ -67,7 +67,11 @@ func main() {
 
 	// Create knowledge base
 	config := knowledge.DefaultConfig()
-	config.DBPath = "spacemolt-knowledge.db"
+	if dbPath := os.Getenv("SPACEMOLT_DB"); dbPath != "" {
+		config.DBPath = dbPath
+	} else {
+		config.DBPath = "data/spacemolt-knowledge.db"
+	}
 	kb, err := knowledge.NewSQLiteKB(config)
 	if err != nil {
 		log.Fatalf("Failed to open knowledge base: %v", err)
