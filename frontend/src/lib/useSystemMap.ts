@@ -27,6 +27,8 @@ interface APISystemDetail {
 export interface SystemMapData {
   pois: POI[];
   jumpGates: JumpGate[];
+  policeLevel: number;
+  systemName: string;
 }
 
 function computeAngle(from: { x: number; y: number }, to: { x: number; y: number }): number {
@@ -91,6 +93,8 @@ export function useSystemMap(systemId: string | undefined): SystemMapData | null
         setData({
           pois: mapPOIs(detail.pois),
           jumpGates: mapJumpGates(detail.system.position, detail.connections),
+          policeLevel: detail.system.police_level,
+          systemName: detail.system.name,
         });
       })
       .catch((err) => {

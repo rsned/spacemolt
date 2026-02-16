@@ -6,9 +6,11 @@ interface SystemMapProps {
   pois: POI[];
   player: Player;
   jumpGates?: JumpGate[];
+  policeLevel?: number;
 }
 
-export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [] }) => {
+export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [], policeLevel = 0 }) => {
+  const isPoliced = policeLevel > 0;
   const svgRef = useRef<SVGSVGElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
 
@@ -59,8 +61,8 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-sci-fi text-cyan-400">{player.location.system} SYSTEM</h2>
         <div className="flex items-center gap-4 text-sm">
-          <span className={player.policeLevel === 'lawless' ? 'text-red-400' : 'text-green-400'}>
-            {player.policeLevel === 'lawless' ? '☠ Lawless' : '🛡 Policed'}
+          <span className={isPoliced ? 'text-green-400' : 'text-red-400'}>
+            {isPoliced ? '🛡 Policed' : '☠ Lawless'}
           </span>
           <span className="text-gray-400 font-mono">Tick: {player.tick}</span>
         </div>

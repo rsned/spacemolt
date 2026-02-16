@@ -109,6 +109,7 @@ function App() {
             pois={systemMapData?.pois ?? mockSystemPOIs}
             player={player || mockPlayer}
             jumpGates={systemMapData?.jumpGates ?? mockJumpGates}
+            policeLevel={systemMapData?.policeLevel ?? 0}
           />
         )}
 
