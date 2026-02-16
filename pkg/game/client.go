@@ -44,6 +44,10 @@ type Client struct {
 	latestRawJSON map[string][]byte
 	rawJSONMu     sync.RWMutex
 
+	// Last error response (for diagnostics)
+	lastError     map[string]any
+	lastErrorMu   sync.RWMutex
+
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
@@ -159,6 +163,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		latestListings: make([]MarketListing, 0),
 		latestShips:    make(map[string]any),
 		latestRawJSON:  make(map[string][]byte),
+		lastError:      make(map[string]any),
 	}
 }
 
@@ -1430,6 +1435,14 @@ func (c *Client) parseErrorState(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Store the last error for diagnostics
+	c.lastErrorMu.Lock()
+	c.lastError = make(map[string]any)
+	for k, v := range payload {
+		c.lastError[k] = v
+	}
+	c.lastErrorMu.Unlock()
+
 	if errMsg, ok := payload["message"].(string); ok {
 		if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
 			c.state.Doc = false
@@ -1632,6 +1645,54 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			storeKey = "system"
 			shouldStore = true
 		}
+		// Store recipes
+		if _, hasRecipes := resp.Payload["recipes"]; hasRecipes {
+			storeKey = "recipes"
+			shouldStore = true
+		}
+		// Store notifications
+		if _, hasNotifications := resp.Payload["notifications"]; hasNotifications {
+			storeKey = "notifications"
+			shouldStore = true
+		}
+		// Store wrecks
+		if _, hasWrecks := resp.Payload["wrecks"]; hasWrecks {
+			storeKey = "wrecks"
+			shouldStore = true
+		}
+		// Store drones
+		if _, hasDrones := resp.Payload["drones"]; hasDrones {
+			storeKey = "drones"
+			shouldStore = true
+		}
+		// Store base info
+		if _, hasBase := resp.Payload["base"]; hasBase {
+			storeKey = "base"
+			shouldStore = true
+		}
+		// Store faction info
+		if _, hasFaction := resp.Payload["faction"]; hasFaction {
+			storeKey = "faction_info"
+			shouldStore = true
+		}
+		// Store captain's log (can be "captains_log" or "entry")
+		if _, hasCaptainsLog := resp.Payload["captains_log"]; hasCaptainsLog {
+			storeKey = "captains_log_list"
+			shouldStore = true
+		}
+		if _, hasEntry := resp.Payload["entry"]; hasEntry {
+			storeKey = "captains_log_list"
+			shouldStore = true
+		}
+		// Store player skills (from get_skills response)
+		if _, hasPlayerSkills := resp.Payload["player_skills"]; hasPlayerSkills {
+			storeKey = "skills"
+			shouldStore = true
+		}
+	case protocol.TypeError:
+		// Don't store error responses in the same keys as success data
+		// Errors are tracked in lastError field instead
+		return
 	}
 
 	if shouldStore {
@@ -1662,6 +1723,26 @@ func (c *Client) GetRawJSON(key string) []byte {
 		return result
 	}
 	return nil
+}
+
+// GetLastError returns the most recent error response
+func (c *Client) GetLastError() map[string]any {
+	c.lastErrorMu.RLock()
+	defer c.lastErrorMu.RUnlock()
+
+	// Return a copy to prevent external modification
+	result := make(map[string]any)
+	for k, v := range c.lastError {
+		result[k] = v
+	}
+	return result
+}
+
+// ClearLastError clears the stored error
+func (c *Client) ClearLastError() {
+	c.lastErrorMu.Lock()
+	defer c.lastErrorMu.Unlock()
+	c.lastError = make(map[string]any)
 }
 
 // parseListingsData extracts market listings from a listings response
