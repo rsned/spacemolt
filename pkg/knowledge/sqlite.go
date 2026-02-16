@@ -103,8 +103,8 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	// Insert or update system
 	// Use INSERT OR REPLACE to handle both new and existing systems
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT visit_count FROM systems WHERE id = ?), 0) + 1, datetime('now'), ?)
+		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT visit_count FROM systems WHERE id = ?), 0) + 1, datetime('now'), ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			pos_x = excluded.pos_x,
@@ -114,9 +114,10 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 			faction = excluded.faction,
 			visit_count = visit_count + 1,
 			last_visited = datetime('now'),
-			discovered_by = excluded.discovered_by
+			discovered_by = excluded.discovered_by,
+			last_updated = excluded.last_updated
 	`, sys.ID, sys.Name, sys.Position.X, sys.Position.Y, sys.Position.Z,
-		sys.PoliceLevel, sys.Faction, sys.ID, sys.DiscoveredBy)
+		sys.PoliceLevel, sys.Faction, sys.ID, sys.DiscoveredBy, sys.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
@@ -124,8 +125,8 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	// Store connections
 	for _, connID := range sys.Connections {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO connections (from_system, to_system)
-			VALUES (?, ?)
+			INSERT OR IGNORE INTO connections (from_system, to_system, last_updated)
+			VALUES (?, ?, 0)
 		`, sys.ID, connID); err != nil {
 			return fmt.Errorf("failed to store connection %s -> %s: %w", sys.ID, connID, err)
 		}
@@ -219,8 +220,8 @@ func (kb *SQLiteKB) GetUnknownConnections(ctx context.Context, systemID string) 
 // RememberConnection stores a system connection (with deduplication)
 func (kb *SQLiteKB) RememberConnection(ctx context.Context, fromSystem, toSystem string) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT OR IGNORE INTO connections (from_system, to_system)
-		VALUES (?, ?)
+		INSERT OR IGNORE INTO connections (from_system, to_system, last_updated)
+		VALUES (?, ?, 0)
 	`, fromSystem, toSystem)
 	if err != nil {
 		return fmt.Errorf("failed to remember connection: %w", err)
@@ -238,8 +239,8 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 
 	// Insert or update POI (base_id is left as NULL for now since POI struct doesn't have it)
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, description, pos_x, pos_y, discovered_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pois (id, system_id, name, type, description, pos_x, pos_y, discovered_by, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = excluded.name,
@@ -247,9 +248,10 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 			description = excluded.description,
 			pos_x = excluded.pos_x,
 			pos_y = excluded.pos_y,
-			discovered_by = excluded.discovered_by
+			discovered_by = excluded.discovered_by,
+			last_updated = excluded.last_updated
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, poi.Description,
-		poi.Position.X, poi.Position.Y, poi.DiscoveredBy)
+		poi.Position.X, poi.Position.Y, poi.DiscoveredBy, poi.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
@@ -263,9 +265,9 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	// Insert resources
 	for _, res := range poi.Resources {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining)
-			VALUES (?, ?, ?, ?)
-		`, poi.ID, res.ResourceID, res.Richness, res.Remaining)
+			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated)
+			VALUES (?, ?, ?, ?, ?)
+		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, poi.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert POI resource: %w", err)
 		}
@@ -351,8 +353,8 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 // AddExperience logs an agent experience
 func (kb *SQLiteKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT INTO experiences (agent_id, time, type, description, outcome, location)
-		VALUES (?, datetime('now'), ?, ?, ?, ?)
+		INSERT INTO experiences (agent_id, time, type, description, outcome, location, last_updated)
+		VALUES (?, datetime('now'), ?, ?, ?, ?, 0)
 	`, agentID, expType, description, outcome, location)
 	if err != nil {
 		return fmt.Errorf("failed to add experience: %w", err)
@@ -408,8 +410,8 @@ func (kb *SQLiteKB) GetRecentExperiences(ctx context.Context, agentID string, li
 // RegisterAgent registers an agent in the knowledge base
 func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, faction string, personality []byte) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT OR REPLACE INTO agents (id, name, role, faction, status)
-		VALUES (?, ?, ?, ?, 'active')
+		INSERT OR REPLACE INTO agents (id, name, role, faction, status, last_updated)
+		VALUES (?, ?, ?, ?, 'active', 0)
 	`, agentID, name, role, faction)
 	if err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
@@ -489,9 +491,9 @@ func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnap
 
 	// Insert snapshot
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO market_snapshots (system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id)
-		VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
-	`, snapshot.SystemID, snapshot.SystemName, snapshot.StationID, snapshot.StationName, snapshot.GameTick, agentID)
+		INSERT INTO market_snapshots (system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id, last_updated)
+		VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?)
+	`, snapshot.SystemID, snapshot.SystemName, snapshot.StationID, snapshot.StationName, snapshot.GameTick, agentID, snapshot.GameTick)
 	if err != nil {
 		return fmt.Errorf("failed to insert market snapshot: %w", err)
 	}
@@ -504,9 +506,9 @@ func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnap
 	// Insert listings
 	for _, listing := range snapshot.Listings {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO market_listings (snapshot_id, item_id, item_type, quantity, price_per_unit, total_price, listing_type, listed_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, snapshotID, listing.ItemID, listing.ItemType, listing.Quantity, listing.PricePerUnit, listing.TotalPrice, listing.Type, listing.ListedBy)
+			INSERT INTO market_listings (snapshot_id, item_id, item_type, quantity, price_per_unit, total_price, listing_type, listed_by, last_updated)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, snapshotID, listing.ItemID, listing.ItemType, listing.Quantity, listing.PricePerUnit, listing.TotalPrice, listing.Type, listing.ListedBy, snapshot.GameTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert market listing: %w", err)
 		}
@@ -707,11 +709,11 @@ func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO ship_listings (system_id, system_name, station_id, station_name,
 				ship_class, ship_name, base_price, description, cargo_space, module_slots,
-				utility_slots, weapon_slots, game_tick, captured_at, agent_id)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+				utility_slots, weapon_slots, game_tick, captured_at, agent_id, last_updated)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
 		`, listings.SystemID, listings.SystemName, listings.StationID, listings.StationName,
 			ship.ShipClass, ship.ShipName, ship.BasePrice, ship.Description, ship.CargoSpace,
-			ship.ModuleSlots, ship.UtilitySlots, ship.WeaponSlots, listings.GameTick, agentID)
+			ship.ModuleSlots, ship.UtilitySlots, ship.WeaponSlots, listings.GameTick, agentID, listings.GameTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert ship listing: %w", err)
 		}

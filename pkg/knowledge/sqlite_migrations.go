@@ -258,6 +258,26 @@ CREATE INDEX IF NOT EXISTS idx_connection_metrics_from ON connection_metrics(fro
 CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level DESC);
 `,
 		},
+		{
+			version: 5,
+			name:    "add_last_updated_tick",
+			sql: `
+ALTER TABLE systems ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE connections ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE pois ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE poi_resources ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE experiences ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE agents ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE market_snapshots ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE market_listings ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE ship_listings ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE resource_history ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE connection_metrics ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE anomalies ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE price_trends ADD COLUMN last_updated INTEGER DEFAULT 0;
+ALTER TABLE knowledge_exports ADD COLUMN last_updated INTEGER DEFAULT 0;
+`,
+		},
 	}
 }
 

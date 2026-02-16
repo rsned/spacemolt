@@ -53,19 +53,21 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 		existing.Faction = sys.Faction
 		existing.VisitCount++
 		existing.LastVisited = time.Now().Format(time.RFC3339)
+		existing.LastUpdatedTick = sys.LastUpdatedTick
 		// Update connections
 		existing.Connections = sys.Connections
 	} else {
 		kb.systems[sys.ID] = &System{
-			ID:           sys.ID,
-			Name:         sys.Name,
-			Position:     sys.Position,
-			PoliceLevel:  sys.PoliceLevel,
-			Faction:      sys.Faction,
-			Connections:  sys.Connections,
-			VisitCount:   1,
-			DiscoveredBy: sys.DiscoveredBy,
-			LastVisited:  time.Now().Format(time.RFC3339),
+			ID:              sys.ID,
+			Name:            sys.Name,
+			Position:        sys.Position,
+			PoliceLevel:     sys.PoliceLevel,
+			Faction:         sys.Faction,
+			Connections:     sys.Connections,
+			VisitCount:      1,
+			DiscoveredBy:    sys.DiscoveredBy,
+			LastVisited:     time.Now().Format(time.RFC3339),
+			LastUpdatedTick: sys.LastUpdatedTick,
 		}
 	}
 
@@ -123,15 +125,16 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 	defer kb.mu.Unlock()
 
 	kb.pois[poi.ID] = &POI{
-		ID:           poi.ID,
-		SystemID:     poi.SystemID,
-		Name:         poi.Name,
-		Type:         poi.Type,
-		Position:     poi.Position,
-		Description:  poi.Description,
-		Services:     poi.Services,
-		Resources:    poi.Resources,
-		DiscoveredBy: poi.DiscoveredBy,
+		ID:              poi.ID,
+		SystemID:        poi.SystemID,
+		Name:            poi.Name,
+		Type:            poi.Type,
+		Position:        poi.Position,
+		Description:     poi.Description,
+		Services:        poi.Services,
+		Resources:       poi.Resources,
+		DiscoveredBy:    poi.DiscoveredBy,
+		LastUpdatedTick: poi.LastUpdatedTick,
 	}
 
 	return nil
@@ -220,39 +223,42 @@ func (kb *MemoryKB) GetSystems() []System {
 // System represents knowledge about a solar system
 // Wraps game.SystemData with exploration metadata
 type System struct {
-	ID           string
-	Name         string
-	Position     game.Position
-	PoliceLevel  int // Security level 0-3 (0=none, 1=low, 2=medium, 3=high)
-	Faction      string
-	Connections  []string
-	POIs         []string
-	LastVisited  string
-	VisitCount   int
-	DiscoveredBy string
+	ID              string
+	Name            string
+	Position        game.Position
+	PoliceLevel     int // Security level 0-3 (0=none, 1=low, 2=medium, 3=high)
+	Faction         string
+	Connections     []string
+	POIs            []string
+	LastVisited     string
+	VisitCount      int
+	DiscoveredBy    string
+	LastUpdatedTick int64
 }
 
 // POI represents knowledge about a Point of Interest
 // Extends game.POI with exploration metadata
 type POI struct {
-	ID           string
-	SystemID     string
-	Name         string
-	Type         string
-	Description  string
-	Position     game.Position
-	Services     []string
-	Resources    []game.POIResource
-	DiscoveredBy string
+	ID              string
+	SystemID        string
+	Name            string
+	Type            string
+	Description     string
+	Position        game.Position
+	Services        []string
+	Resources       []game.POIResource
+	DiscoveredBy    string
+	LastUpdatedTick int64
 }
 
 // Experience represents a significant event
 type Experience struct {
-	Time        string
-	Type        string
-	Description string
-	Outcome     string
-	Location    string
+	Time            string
+	Type            string
+	Description     string
+	Outcome         string
+	Location        string
+	LastUpdatedTick int64
 }
 
 // AgentInfo holds agent metadata

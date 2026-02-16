@@ -504,6 +504,11 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 		return nil // Nothing to persist
 	}
 
+	// Set the current game tick on KBMemory so writes get stamped
+	if kbMem, ok := a.memory.(*KBMemory); ok {
+		kbMem.SetCurrentTick(state.GetTick())
+	}
+
 	// Always persist the current system if we have data about it
 	if state.System.ID != "" && state.System.Name != "" {
 		// The Memory interface now takes game.SystemData directly
@@ -547,13 +552,14 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 					// Detect anomalies - exceptionally rich deposits
 					if res.Richness >= 0.90 {
 						anomaly := knowledge.Anomaly{
-							Type:        "rich_deposit",
-							Severity:    "opportunity",
-							SystemID:    poi.SystemID,
-							POIID:       poi.ID,
-							Description: fmt.Sprintf("Exceptionally rich %s deposit (richness: %.2f)", res.ResourceID, res.Richness),
-							Details:     fmt.Sprintf(`{"resource":"%s","richness":%.2f,"remaining":%.0f}`, res.ResourceID, res.Richness, res.Remaining),
-							DetectedBy:  a.id,
+							Type:            "rich_deposit",
+							Severity:        "opportunity",
+							SystemID:        poi.SystemID,
+							POIID:           poi.ID,
+							Description:     fmt.Sprintf("Exceptionally rich %s deposit (richness: %.2f)", res.ResourceID, res.Richness),
+							Details:         fmt.Sprintf(`{"resource":"%s","richness":%.2f,"remaining":%.0f}`, res.ResourceID, res.Richness, res.Remaining),
+							DetectedBy:      a.id,
+							LastUpdatedTick: state.GetTick(),
 						}
 						_ = kbMem.kb.RecordAnomaly(ctx, anomaly)
 						fmt.Printf("[Agent %s] 💎 ANOMALY: Rich %s deposit at %s (richness: %.2f)\n",
@@ -563,13 +569,14 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 					// Detect anomalies - depleting resources
 					if res.Remaining < 10000 && res.Remaining > 0 {
 						anomaly := knowledge.Anomaly{
-							Type:        "depleting_resource",
-							Severity:    "warning",
-							SystemID:    poi.SystemID,
-							POIID:       poi.ID,
-							Description: fmt.Sprintf("Resource %s running low (remaining: %.0f)", res.ResourceID, res.Remaining),
-							Details:     fmt.Sprintf(`{"resource":"%s","remaining":%.0f}`, res.ResourceID, res.Remaining),
-							DetectedBy:  a.id,
+							Type:            "depleting_resource",
+							Severity:        "warning",
+							SystemID:        poi.SystemID,
+							POIID:           poi.ID,
+							Description:     fmt.Sprintf("Resource %s running low (remaining: %.0f)", res.ResourceID, res.Remaining),
+							Details:         fmt.Sprintf(`{"resource":"%s","remaining":%.0f}`, res.ResourceID, res.Remaining),
+							DetectedBy:      a.id,
+							LastUpdatedTick: state.GetTick(),
 						}
 						_ = kbMem.kb.RecordAnomaly(ctx, anomaly)
 					}
@@ -622,8 +629,9 @@ func (a *BaseAgent) Status() Status {
 
 // KBMemory implements the Memory interface using the knowledge base
 type KBMemory struct {
-	kb      knowledge.Base
-	agentID string
+	kb          knowledge.Base
+	agentID     string
+	currentTick int64
 }
 
 // NewKBMemory creates a new memory backed by the knowledge base
@@ -632,6 +640,11 @@ func NewKBMemory(kb knowledge.Base, agentID string) *KBMemory {
 		kb:      kb,
 		agentID: agentID,
 	}
+}
+
+// SetCurrentTick sets the game tick to stamp on subsequent writes.
+func (m *KBMemory) SetCurrentTick(tick int64) {
+	m.currentTick = tick
 }
 
 // KnownSystems returns all known systems
@@ -699,13 +712,14 @@ func (m *KBMemory) GetUnknownConnections(systemID string) ([]string, error) {
 // RememberSystem stores a system in memory
 func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) error {
 	kbSys := knowledge.System{
-		ID:           sys.ID,
-		Name:         sys.Name,
-		Position:     sys.Position,
-		PoliceLevel:  sys.PoliceLevel,
-		Faction:      sys.Empire,
-		Connections:  sys.Connections,
-		DiscoveredBy: sys.DiscoveredBy,
+		ID:              sys.ID,
+		Name:            sys.Name,
+		Position:        sys.Position,
+		PoliceLevel:     sys.PoliceLevel,
+		Faction:         sys.Empire,
+		Connections:     sys.Connections,
+		DiscoveredBy:    sys.DiscoveredBy,
+		LastUpdatedTick: m.currentTick,
 	}
 
 	return m.kb.RememberSystem(ctx, kbSys)
@@ -714,15 +728,16 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 // RememberPOI stores a POI in memory
 func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 	kbPOI := knowledge.POI{
-		ID:           poi.ID,
-		SystemID:     poi.SystemID,
-		Name:         poi.Name,
-		Type:         poi.Type,
-		Description:  poi.Description,
-		Position:     poi.Position,
-		Resources:    poi.Resources, // game.POIResource is compatible
-		Services:     []string{},    // Not stored in game POI
-		DiscoveredBy: m.agentID,
+		ID:              poi.ID,
+		SystemID:        poi.SystemID,
+		Name:            poi.Name,
+		Type:            poi.Type,
+		Description:     poi.Description,
+		Position:        poi.Position,
+		Resources:       poi.Resources, // game.POIResource is compatible
+		Services:        []string{},    // Not stored in game POI
+		DiscoveredBy:    m.agentID,
+		LastUpdatedTick: m.currentTick,
 	}
 
 	return m.kb.RememberPOI(ctx, kbPOI)

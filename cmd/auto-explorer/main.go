@@ -576,7 +576,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 	}
 
 	// Convert game state to knowledge.System
-	kbSystem := convertGameSystemToKnowledge(state.System, agentID)
+	kbSystem := convertGameSystemToKnowledge(state.System, agentID, state.GetTick())
 
 	// Compare with existing data (if any)
 	if existingSystem != nil {
@@ -697,14 +697,15 @@ func saveSystemToFile(client *game.Client, logger *log.Logger, state *game.State
 }
 
 // convertGameSystemToKnowledge converts a game system to knowledge.System
-func convertGameSystemToKnowledge(sys game.SystemData, discoveredBy string) knowledge.System {
+func convertGameSystemToKnowledge(sys game.SystemData, discoveredBy string, tick int64) knowledge.System {
 	kbSystem := knowledge.System{
-		ID:           sys.ID,
-		Name:         sys.Name,
-		PoliceLevel:  sys.PoliceLevel,
-		Faction:      sys.Empire,
-		Connections:  sys.Connections,
-		DiscoveredBy: discoveredBy,
+		ID:              sys.ID,
+		Name:            sys.Name,
+		PoliceLevel:     sys.PoliceLevel,
+		Faction:         sys.Empire,
+		Connections:     sys.Connections,
+		DiscoveredBy:    discoveredBy,
+		LastUpdatedTick: tick,
 		Position: game.Position{
 			X: sys.Position.X,
 			Y: sys.Position.Y,
@@ -1144,15 +1145,16 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 
 		// Save POI-specific data to knowledge base
 		kbPOI := knowledge.POI{
-			ID:           poi.ID,
-			SystemID:     state.System.ID,
-			Name:         poi.Name,
-			Type:         poi.Type,
-			Description:  poi.Description,
-			Position:     poi.Position,
-			Services:     []string{}, // Not available in game.POI
-			Resources:    poi.Resources,
-			DiscoveredBy: expState.AgentID,
+			ID:              poi.ID,
+			SystemID:        state.System.ID,
+			Name:            poi.Name,
+			Type:            poi.Type,
+			Description:     poi.Description,
+			Position:        poi.Position,
+			Services:        []string{}, // Not available in game.POI
+			Resources:       poi.Resources,
+			DiscoveredBy:    expState.AgentID,
+			LastUpdatedTick: state.GetTick(),
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			logger.Printf("Failed to save POI to knowledge base: %v", err)

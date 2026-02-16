@@ -151,16 +151,17 @@ type ConnectionMetrics struct {
 
 // Anomaly represents an unusual or noteworthy discovery
 type Anomaly struct {
-	ID          int64
-	Type        string // 'rich_deposit', 'hostile_zone', 'rare_resource', 'empty_station', 'price_anomaly'
-	Severity    string // 'info', 'warning', 'critical', 'opportunity'
-	SystemID    string
-	POIID       string
-	Description string
-	Details     string // JSON with additional data
-	DetectedAt  time.Time
-	DetectedBy  string
-	Status      string // 'active', 'resolved', 'obsolete'
+	ID              int64
+	Type            string // 'rich_deposit', 'hostile_zone', 'rare_resource', 'empty_station', 'price_anomaly'
+	Severity        string // 'info', 'warning', 'critical', 'opportunity'
+	SystemID        string
+	POIID           string
+	Description     string
+	Details         string // JSON with additional data
+	DetectedAt      time.Time
+	DetectedBy      string
+	Status          string // 'active', 'resolved', 'obsolete'
+	LastUpdatedTick int64
 }
 
 // PriceTrend represents aggregate price data over a time window

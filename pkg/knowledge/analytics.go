@@ -11,9 +11,9 @@ import (
 // RecordResourceState tracks resource levels over time
 func (kb *SQLiteKB) RecordResourceState(ctx context.Context, poiID, resourceID string, richness, remaining float64, gameTick int64, agentID string) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT INTO resource_history (poi_id, resource_id, richness, remaining, game_tick, recorded_at, agent_id)
-		VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
-	`, poiID, resourceID, richness, remaining, gameTick, agentID)
+		INSERT INTO resource_history (poi_id, resource_id, richness, remaining, game_tick, recorded_at, agent_id, last_updated)
+		VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?)
+	`, poiID, resourceID, richness, remaining, gameTick, agentID, gameTick)
 
 	if err != nil {
 		return fmt.Errorf("failed to record resource state: %w", err)
@@ -115,8 +115,8 @@ func (kb *SQLiteKB) GetDepletingResources(ctx context.Context, threshold float64
 // RecordJourney logs a journey between systems for route optimization
 func (kb *SQLiteKB) RecordJourney(ctx context.Context, fromSystem, toSystem string, fuelCost, travelTime float64, agentID string) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT INTO connection_metrics (from_system, to_system, travel_count, avg_fuel_cost, avg_travel_time, last_traveled, traveled_by)
-		VALUES (?, ?, 1, ?, ?, datetime('now'), ?)
+		INSERT INTO connection_metrics (from_system, to_system, travel_count, avg_fuel_cost, avg_travel_time, last_traveled, traveled_by, last_updated)
+		VALUES (?, ?, 1, ?, ?, datetime('now'), ?, 0)
 		ON CONFLICT(from_system, to_system) DO UPDATE SET
 			travel_count = travel_count + 1,
 			avg_fuel_cost = (avg_fuel_cost * travel_count + ?) / (travel_count + 1),
@@ -171,9 +171,9 @@ func (kb *SQLiteKB) FindCheapestRoute(ctx context.Context, fromSystem, toSystem 
 // RecordAnomaly logs an unusual discovery or event
 func (kb *SQLiteKB) RecordAnomaly(ctx context.Context, anomaly Anomaly) error {
 	result, err := kb.db.ExecContext(ctx, `
-		INSERT INTO anomalies (type, severity, system_id, poi_id, description, details, detected_at, detected_by, status)
-		VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, 'active')
-	`, anomaly.Type, anomaly.Severity, anomaly.SystemID, anomaly.POIID, anomaly.Description, anomaly.Details, anomaly.DetectedBy)
+		INSERT INTO anomalies (type, severity, system_id, poi_id, description, details, detected_at, detected_by, status, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, 'active', ?)
+	`, anomaly.Type, anomaly.Severity, anomaly.SystemID, anomaly.POIID, anomaly.Description, anomaly.Details, anomaly.DetectedBy, anomaly.LastUpdatedTick)
 
 	if err != nil {
 		return fmt.Errorf("failed to record anomaly: %w", err)
@@ -267,7 +267,7 @@ func (kb *SQLiteKB) GetAnomaliesByType(ctx context.Context, anomalyType, severit
 func (kb *SQLiteKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status string) error {
 	_, err := kb.db.ExecContext(ctx, `
 		UPDATE anomalies
-		SET status = ?
+		SET status = ?, last_updated = 0
 		WHERE id = ?
 	`, status, anomalyID)
 
@@ -564,8 +564,8 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 
 	// Store export metadata
 	_, err = kb.db.ExecContext(ctx, `
-		INSERT INTO knowledge_exports (id, created_at, created_by, description, systems_count, pois_count, experiences_count, export_data)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO knowledge_exports (id, created_at, created_by, description, systems_count, pois_count, experiences_count, export_data, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
 	`, export.ID, export.CreatedAt.Format("2006-01-02 15:04:05"), export.CreatedBy, export.Description,
 		export.SystemsCount, export.POIsCount, export.ExperiencesCount, export.ExportData)
 
