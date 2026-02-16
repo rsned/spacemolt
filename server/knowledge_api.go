@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -124,8 +125,19 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if sys == nil {
-		http.Error(w, `{"error":"system not found"}`, http.StatusNotFound)
-		return
+		// Try to find system by name as a fallback
+		allSystems := s.kb.GetSystems()
+		for _, s := range allSystems {
+			if strings.EqualFold(s.Name, id) {
+				sys = &s
+				break
+			}
+		}
+		if sys == nil {
+			s.logger.Printf("system not found: %s", id)
+			http.Error(w, `{"error":"system not found"}`, http.StatusNotFound)
+			return
+		}
 	}
 
 	pois, err := s.kb.GetPOIs(ctx, id)
