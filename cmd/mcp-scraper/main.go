@@ -165,8 +165,15 @@ func (c *MCPClient) call(method string, params map[string]any) (json.RawMessage,
 	}
 
 	// Try as plain JSON response
-	if resp.StatusCode != http.StatusOK {
+	// Accept 200 OK and 202 Accepted (for notifications)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return nil, fmt.Errorf("HTTP error: %s - %s", resp.Status, string(body))
+	}
+
+	// 202 Accepted typically means the request was accepted but no response body
+	if resp.StatusCode == http.StatusAccepted {
+		// Return empty result for 202 responses
+		return json.RawMessage("{}"), nil
 	}
 
 	var rpcResp JSONRPCResponse
