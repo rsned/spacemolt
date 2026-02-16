@@ -82,6 +82,12 @@ func (c *MCPClient) Initialize() error {
 		return fmt.Errorf("initialize failed: %w", err)
 	}
 
+	// Send initialized notification as required by MCP protocol
+	_, err = c.call("notifications/initialized", map[string]any{})
+	if err != nil {
+		return fmt.Errorf("notifications/initialized failed: %w", err)
+	}
+
 	c.initialized = true
 	return nil
 }
@@ -175,28 +181,88 @@ func (c *MCPClient) call(method string, params map[string]any) (json.RawMessage,
 	return rpcResp.Result, nil
 }
 
-// Login authenticates with the MCP server
+// Login authenticates with the MCP server using tools/call
 func (c *MCPClient) Login(username, password string) (string, error) {
+	// Use tools/call to invoke the login tool
 	params := map[string]any{
-		"username": username,
-		"password": password,
+		"name": "login",
+		"arguments": map[string]any{
+			"username": username,
+			"password": password,
+		},
 	}
 
-	result, err := c.call("login", params)
+	result, err := c.call("tools/call", params)
 	if err != nil {
 		return "", fmt.Errorf("login failed: %w", err)
 	}
 
+	// Parse the MCP tool response
 	var response struct {
-		SessionID string `json:"session_id"`
-		Username  string `json:"username"`
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+		IsError bool `json:"isError"`
 	}
 
 	if err := json.Unmarshal(result, &response); err != nil {
 		return "", fmt.Errorf("failed to parse login response: %w", err)
 	}
 
-	return response.SessionID, nil
+	// Check for errors
+	if response.IsError || len(response.Content) == 0 {
+		return "", fmt.Errorf("login returned error or empty response")
+	}
+
+	// The login tool returns the session_id in the text content
+	// Expected format: "Logged in as <username>. Your session_id is <session_id>."
+	text := response.Content[0].Text
+
+	// Extract session_id from the response text
+	// Look for patterns like "session_id is abc123..." or "session_id: abc123..."
+	// The actual session_id is a long hex string
+
+	// Try to find "session_id" followed by a hex string
+	if strings.Contains(text, "session_id") {
+		// Split by spaces and look for hex strings near "session_id"
+		parts := strings.Fields(text)
+		for i, part := range parts {
+			if strings.Contains(part, "session_id") || part == "session_id" {
+				// Check next few words for a hex string
+				for j := i + 1; j < len(parts) && j < i+4; j++ {
+					candidate := strings.TrimSuffix(parts[j], ".")
+					candidate = strings.TrimSuffix(candidate, ",")
+					// Check if it looks like a hex string (at least 20 chars)
+					if len(candidate) >= 20 && isHexString(candidate) {
+						return candidate, nil
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback: look for any hex string longer than 30 chars
+	words := strings.Fields(text)
+	for _, word := range words {
+		word = strings.TrimSuffix(word, ".")
+		word = strings.TrimSuffix(word, ",")
+		if len(word) >= 30 && isHexString(word) {
+			return word, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not extract session_id from login response: %s", text)
+}
+
+// isHexString checks if a string is a valid hex string
+func isHexString(s string) bool {
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 // callProtocol makes a direct MCP protocol call (no prefix, no wrapping)
@@ -211,6 +277,67 @@ func (c *MCPClient) callProtocol(method string, params map[string]any) (json.Raw
 	c.initialized = wasInitialized
 
 	return result, err
+}
+
+// callTool invokes an MCP tool by name
+func (c *MCPClient) callTool(toolName string, args map[string]any) (json.RawMessage, error) {
+	params := map[string]any{
+		"name":      toolName,
+		"arguments": args,
+	}
+
+	result, err := c.call("tools/call", params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the MCP tool response
+	var response struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+		IsError bool `json:"isError"`
+	}
+
+	if err := json.Unmarshal(result, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse tool response: %w", err)
+	}
+
+	// Check for errors
+	if response.IsError {
+		if len(response.Content) > 0 {
+			return nil, fmt.Errorf("tool returned error: %s", response.Content[0].Text)
+		}
+		return nil, fmt.Errorf("tool returned error (no message)")
+	}
+
+	// Extract the actual data from the content
+	// Most SpaceMolt tools return JSON in the text field
+	if len(response.Content) == 0 {
+		return result, nil // Return raw response if no content
+	}
+
+	// Try to parse JSON from the first text content
+	text := response.Content[0].Text
+	text = strings.TrimSpace(text)
+
+	// Check if it's JSON
+	var jsonData any
+	if err := json.Unmarshal([]byte(text), &jsonData); err == nil {
+		// It's valid JSON, return it
+		return json.RawMessage(text), nil
+	}
+
+	// Not JSON, return the raw text wrapped in JSON
+	wrapped := fmt.Sprintf(`{"text": %s}`, string(jsonEscape(text)))
+	return json.RawMessage(wrapped), nil
+}
+
+// jsonEscape escapes a string for JSON encoding
+func jsonEscape(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // saveResponse saves a response to a file
@@ -330,11 +457,12 @@ func main() {
 	}
 	fmt.Println("✓ Initialized")
 
-	// Try to get tools list
+	// Try to get tools list (note: may require session)
 	fmt.Println("\n📋 Getting tools list...")
 	toolsResult, err := client.callProtocol("tools/list", nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get tools list: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to get tools list: %v (continuing anyway)\n", err)
+		// Don't exit - tools/list might not be available without session
 	} else {
 		fmt.Printf("✓ Got tools list (saved)\n")
 		saveResponse("tools_list", toolsResult)
@@ -354,9 +482,9 @@ func main() {
 	fmt.Println("📡 Calling query methods (methods that only require session_id)...")
 	for _, method := range queryMethods {
 		fmt.Printf("  Calling: %s...", method)
-		params := map[string]any{"session_id": sessionID}
+		args := map[string]any{"session_id": sessionID}
 
-		result, err := client.call(method, params)
+		result, err := client.callTool(method, args)
 		if err != nil {
 			fmt.Printf(" ✗ Error: %v\n", err)
 			// Save error responses too
@@ -381,17 +509,17 @@ func main() {
 		fmt.Printf("  Calling: %s...", method)
 
 		// Add session_id to params
-		params := map[string]any{}
+		args := map[string]any{}
 		for k, v := range action.params {
-			params[k] = v
+			args[k] = v
 		}
-		params["session_id"] = sessionID
+		args["session_id"] = sessionID
 
-		result, err := client.call(method, params)
+		result, err := client.callTool(method, args)
 		if err != nil {
 			fmt.Printf(" ✗ Error: %v\n", err)
 			// Save error responses too
-			errorResp := map[string]any{"error": err.Error(), "params": params}
+			errorResp := map[string]any{"error": err.Error(), "params": args}
 			errorJSON, _ := json.MarshalIndent(errorResp, "", "  ")
 			saveResponse(method, errorJSON)
 			continue
@@ -408,15 +536,15 @@ func main() {
 	// Try to get all captain's log entries (multiple indices)
 	fmt.Println("\n📜 Fetching captain's log entries (indices 0-9)...")
 	for i := range int(10) {
-		method := fmt.Sprintf("captains_log_get_index_%d", i)
+		method := fmt.Sprintf("captions_log_get_index_%d", i)
 		fmt.Printf("  Calling: captains_log_get (index=%d)...", i)
 
-		params := map[string]any{
+		args := map[string]any{
 			"session_id": sessionID,
 			"index":      i,
 		}
 
-		result, err := client.call("captains_log_get", params)
+		result, err := client.callTool("captains_log_get", args)
 		if err != nil {
 			// Stop if we get an error (likely no more entries)
 			fmt.Printf(" ✗ Error: %v (stopping)\n", err)
@@ -434,7 +562,7 @@ func main() {
 	// Try help with no parameters (should show all categories)
 	fmt.Println("\n📖 Calling help with no parameters...")
 	fmt.Printf("  Calling: help (no params)...")
-	result, err := client.call("help", map[string]any{"session_id": sessionID})
+	result, err := client.callTool("help", map[string]any{"session_id": sessionID})
 	if err != nil {
 		fmt.Printf(" ✗ Error: %v\n", err)
 	} else {
