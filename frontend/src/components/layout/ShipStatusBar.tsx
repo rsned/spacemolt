@@ -1,5 +1,6 @@
 import type { Player } from '../../types/game';
 import { getEmpireTextColor, getBarColor } from '../../lib/utils';
+import { useSystemDetails } from '../../lib/useSystemDetails';
 
 interface ShipStatusBarProps {
   player: Player;
@@ -10,6 +11,10 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({ player }) => {
   const shieldPct = (player.shield / player.shieldMax) * 100;
   const fuelPct = (player.fuel / player.fuelMax) * 100;
   const cargoPct = (player.cargo / player.cargoMax) * 100;
+
+  // Fetch accurate police level from knowledge base API
+  const { policeLevel } = useSystemDetails(player.location.systemId || null);
+  const isPoliced = policeLevel > 0;
 
   return (
     <div className="bg-spacemolt-panel border-b border-spacemolt-border p-3">
@@ -85,8 +90,8 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({ player }) => {
         <span>
           📍 {player.location.system} System &gt; {player.location.poi}
         </span>
-        <span className={player.policeLevel === 'lawless' ? 'text-red-400' : 'text-green-400'}>
-          {player.policeLevel === 'lawless' ? '☠ Lawless' : '🛡 Policed'}
+        <span className={isPoliced ? 'text-green-400' : 'text-red-400'}>
+          {isPoliced ? '🛡 Policed' : '☠ Lawless'}
         </span>
         <span className="font-mono">Tick: {player.tick}</span>
       </div>
