@@ -350,6 +350,288 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 	return pois, nil
 }
 
+// RememberBase stores or updates space base knowledge
+func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
+	tx, err := kb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Insert or update base
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO bases (id, poi_id, name, description, empire, defense_level, has_drones, public_access, discovered_by, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			poi_id = excluded.poi_id,
+			name = excluded.name,
+			description = excluded.description,
+			empire = excluded.empire,
+			defense_level = excluded.defense_level,
+			has_drones = excluded.has_drones,
+			public_access = excluded.public_access,
+			discovered_by = excluded.discovered_by,
+			last_updated = excluded.last_updated
+	`, base.ID, base.POIID, base.Name, base.Description, base.Empire,
+		base.DefenseLevel, base.HasDrones, base.PublicAccess, base.DiscoveredBy, base.LastUpdatedTick)
+	if err != nil {
+		return fmt.Errorf("failed to upsert base: %w", err)
+	}
+
+	// Delete existing services for this base
+	_, err = tx.ExecContext(ctx, `DELETE FROM base_services WHERE base_id = ?`, base.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old base services: %w", err)
+	}
+
+	// Insert services
+	for serviceName, available := range base.Services {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO base_services (base_id, service_name, available)
+			VALUES (?, ?, ?)
+		`, base.ID, serviceName, available)
+		if err != nil {
+			return fmt.Errorf("failed to insert base service: %w", err)
+		}
+	}
+
+	// Delete existing facilities for this base
+	_, err = tx.ExecContext(ctx, `DELETE FROM base_facilities WHERE base_id = ?`, base.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old base facilities: %w", err)
+	}
+
+	// Insert facilities
+	for _, facility := range base.Facilities {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO base_facilities (base_id, facility_name)
+			VALUES (?, ?)
+		`, base.ID, facility)
+		if err != nil {
+			return fmt.Errorf("failed to insert base facility: %w", err)
+		}
+	}
+
+	// Delete existing market items for this base
+	_, err = tx.ExecContext(ctx, `DELETE FROM base_market WHERE base_id = ?`, base.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete old base market items: %w", err)
+	}
+
+	// Insert market items
+	for _, item := range base.Market {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO base_market (id, base_id, item_id, price_each, quantity, is_npc, last_updated)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, item.ID, base.ID, item.ItemID, item.PriceEach, item.Quantity, item.IsNPC, base.LastUpdatedTick)
+		if err != nil {
+			return fmt.Errorf("failed to insert base market item: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// GetBase retrieves a base by ID
+func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, error) {
+	var base SpaceBase
+	var description sql.NullString
+
+	err := kb.db.QueryRowContext(ctx, `
+		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, discovered_by, last_updated
+		FROM bases
+		WHERE id = ?
+	`, baseID).Scan(
+		&base.ID,
+		&base.POIID,
+		&base.Name,
+		&description,
+		&base.Empire,
+		&base.DefenseLevel,
+		&base.HasDrones,
+		&base.PublicAccess,
+		&base.DiscoveredBy,
+		&base.LastUpdatedTick,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("base not found: %s", baseID)
+		}
+		return nil, fmt.Errorf("failed to query base: %w", err)
+	}
+
+	if description.Valid {
+		base.Description = description.String
+	}
+
+	// Load services
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT service_name, available
+		FROM base_services
+		WHERE base_id = ?
+	`, baseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base services: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	base.Services = make(map[string]bool)
+	for rows.Next() {
+		var serviceName string
+		var available bool
+		if err := rows.Scan(&serviceName, &available); err != nil {
+			return nil, fmt.Errorf("failed to scan base service: %w", err)
+		}
+		base.Services[serviceName] = available
+	}
+	_ = rows.Close()
+
+	// Load facilities
+	rows, err = kb.db.QueryContext(ctx, `
+		SELECT facility_name
+		FROM base_facilities
+		WHERE base_id = ?
+		ORDER BY facility_name
+	`, baseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base facilities: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var facility string
+		if err := rows.Scan(&facility); err != nil {
+			return nil, fmt.Errorf("failed to scan base facility: %w", err)
+		}
+		base.Facilities = append(base.Facilities, facility)
+	}
+	_ = rows.Close()
+
+	// Load market items
+	rows, err = kb.db.QueryContext(ctx, `
+		SELECT id, item_id, price_each, quantity, is_npc
+		FROM base_market
+		WHERE base_id = ?
+		ORDER BY item_id
+	`, baseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base market: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var item BaseMarketItem
+		if err := rows.Scan(&item.ID, &item.ItemID, &item.PriceEach, &item.Quantity, &item.IsNPC); err != nil {
+			return nil, fmt.Errorf("failed to scan base market item: %w", err)
+		}
+		base.Market = append(base.Market, item)
+	}
+
+	return &base, nil
+}
+
+// GetBaseByPOI retrieves a base by its POI ID
+func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase, error) {
+	var base SpaceBase
+	var description sql.NullString
+
+	err := kb.db.QueryRowContext(ctx, `
+		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, discovered_by, last_updated
+		FROM bases
+		WHERE poi_id = ?
+	`, poiID).Scan(
+		&base.ID,
+		&base.POIID,
+		&base.Name,
+		&description,
+		&base.Empire,
+		&base.DefenseLevel,
+		&base.HasDrones,
+		&base.PublicAccess,
+		&base.DiscoveredBy,
+		&base.LastUpdatedTick,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("no base found at POI: %s", poiID)
+		}
+		return nil, fmt.Errorf("failed to query base by POI: %w", err)
+	}
+
+	if description.Valid {
+		base.Description = description.String
+	}
+
+	// Load services (same as GetBase)
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT service_name, available
+		FROM base_services
+		WHERE base_id = ?
+	`, base.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base services: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	base.Services = make(map[string]bool)
+	for rows.Next() {
+		var serviceName string
+		var available bool
+		if err := rows.Scan(&serviceName, &available); err != nil {
+			return nil, fmt.Errorf("failed to scan base service: %w", err)
+		}
+		base.Services[serviceName] = available
+	}
+	_ = rows.Close()
+
+	// Load facilities (same as GetBase)
+	rows, err = kb.db.QueryContext(ctx, `
+		SELECT facility_name
+		FROM base_facilities
+		WHERE base_id = ?
+		ORDER BY facility_name
+	`, base.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base facilities: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var facility string
+		if err := rows.Scan(&facility); err != nil {
+			return nil, fmt.Errorf("failed to scan base facility: %w", err)
+		}
+		base.Facilities = append(base.Facilities, facility)
+	}
+	_ = rows.Close()
+
+	// Load market items (same as GetBase)
+	rows, err = kb.db.QueryContext(ctx, `
+		SELECT id, item_id, price_each, quantity, is_npc
+		FROM base_market
+		WHERE base_id = ?
+		ORDER BY item_id
+	`, base.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query base market: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var item BaseMarketItem
+		if err := rows.Scan(&item.ID, &item.ItemID, &item.PriceEach, &item.Quantity, &item.IsNPC); err != nil {
+			return nil, fmt.Errorf("failed to scan base market item: %w", err)
+		}
+		base.Market = append(base.Market, item)
+	}
+
+	return &base, nil
+}
+
 // AddExperience logs an agent experience
 func (kb *SQLiteKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	_, err := kb.db.ExecContext(ctx, `

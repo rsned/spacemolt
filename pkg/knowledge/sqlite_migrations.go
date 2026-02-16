@@ -278,6 +278,60 @@ ALTER TABLE price_trends ADD COLUMN last_updated INTEGER DEFAULT 0;
 ALTER TABLE knowledge_exports ADD COLUMN last_updated INTEGER DEFAULT 0;
 `,
 		},
+		{
+			version: 6,
+			name:    "add_bases_table",
+			sql: `
+-- Bases table: stores space stations, outposts, bases, and fortresses
+CREATE TABLE IF NOT EXISTS bases (
+	id TEXT PRIMARY KEY,
+	poi_id TEXT NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT,
+	empire TEXT,
+	defense_level INTEGER DEFAULT 0,
+	has_drones BOOLEAN DEFAULT 0,
+	public_access BOOLEAN DEFAULT 1,
+	discovered_by TEXT,
+	last_updated INTEGER DEFAULT 0,
+	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- Base services table: stores available services at bases
+CREATE TABLE IF NOT EXISTS base_services (
+	base_id TEXT NOT NULL,
+	service_name TEXT NOT NULL,
+	available BOOLEAN DEFAULT 1,
+	PRIMARY KEY (base_id, service_name),
+	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+);
+
+-- Base facilities table: stores facilities at bases
+CREATE TABLE IF NOT EXISTS base_facilities (
+	base_id TEXT NOT NULL,
+	facility_name TEXT NOT NULL,
+	PRIMARY KEY (base_id, facility_name),
+	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+);
+
+-- Base market table: stores market items at bases
+CREATE TABLE IF NOT EXISTS base_market (
+	id TEXT PRIMARY KEY,
+	base_id TEXT NOT NULL,
+	item_id TEXT NOT NULL,
+	price_each REAL NOT NULL,
+	quantity INTEGER NOT NULL,
+	is_npc BOOLEAN DEFAULT 1,
+	last_updated INTEGER DEFAULT 0,
+	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+);
+
+-- Indexes for efficient queries
+CREATE INDEX IF NOT EXISTS idx_bases_poi_id ON bases(poi_id);
+CREATE INDEX IF NOT EXISTS idx_base_market_base_id ON base_market(base_id);
+CREATE INDEX IF NOT EXISTS idx_base_market_item_id ON base_market(item_id);
+`,
+		},
 	}
 }
 

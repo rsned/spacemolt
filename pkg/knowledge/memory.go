@@ -14,6 +14,7 @@ type MemoryKB struct {
 	mu              sync.RWMutex
 	systems         map[string]*System
 	pois            map[string]*POI
+	bases           map[string]*SpaceBase
 	connections     map[string][]string     // from_system -> []to_system
 	experiences     map[string][]Experience // agent_id -> experiences
 	agents          map[string]*AgentInfo
@@ -27,6 +28,7 @@ func NewMemoryKB() *MemoryKB {
 	return &MemoryKB{
 		systems:         make(map[string]*System),
 		pois:            make(map[string]*POI),
+		bases:           make(map[string]*SpaceBase),
 		connections:     make(map[string][]string),
 		experiences:     make(map[string][]Experience),
 		agents:          make(map[string]*AgentInfo),
@@ -155,6 +157,48 @@ func (kb *MemoryKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 	return result, nil
 }
 
+// RememberBase stores or updates space base knowledge
+func (kb *MemoryKB) RememberBase(ctx context.Context, base SpaceBase) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	// Create a copy of the base
+	baseCopy := base
+	kb.bases[base.ID] = &baseCopy
+
+	return nil
+}
+
+// GetBase retrieves a base by ID
+func (kb *MemoryKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if base, ok := kb.bases[baseID]; ok {
+		// Return a copy
+		baseCopy := *base
+		return &baseCopy, nil
+	}
+
+	return nil, fmt.Errorf("base not found: %s", baseID)
+}
+
+// GetBaseByPOI retrieves a base by its POI ID
+func (kb *MemoryKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	for _, base := range kb.bases {
+		if base.POIID == poiID {
+			// Return a copy
+			baseCopy := *base
+			return &baseCopy, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no base found at POI: %s", poiID)
+}
+
 // AddExperience logs an agent experience
 func (kb *MemoryKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	kb.mu.Lock()
@@ -249,6 +293,32 @@ type POI struct {
 	Resources       []game.POIResource
 	DiscoveredBy    string
 	LastUpdatedTick int64
+}
+
+// SpaceBase represents knowledge about a space station, outpost, base, or fortress
+type SpaceBase struct {
+	ID              string
+	POIID           string // The POI this base is located at
+	Name            string
+	Description     string
+	Empire          string
+	DefenseLevel    int
+	HasDrones       bool
+	PublicAccess    bool
+	Services        map[string]bool
+	Facilities      []string
+	Market          []BaseMarketItem
+	DiscoveredBy    string
+	LastUpdatedTick int64
+}
+
+// BaseMarketItem represents an item for sale at a base market
+type BaseMarketItem struct {
+	ID         string
+	ItemID     string
+	PriceEach  float64
+	Quantity   int
+	IsNPC      bool
 }
 
 // Experience represents a significant event
