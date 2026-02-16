@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -204,59 +205,47 @@ func (c *MCPClient) Login(username, password string) (string, error) {
 		return "", fmt.Errorf("login failed: %w", err)
 	}
 
-	// Parse the MCP tool response - try to extract session_id
-	// The login tool returns JSON with session_id field
+	// Parse the MCP tool response
+	var mcpResponse struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+			Data any    `json:"data,omitempty"`
+		} `json:"content"`
+		IsError bool `json:"isError"`
+	}
+
+	if err := json.Unmarshal(result, &mcpResponse); err != nil {
+		return "", fmt.Errorf("failed to parse login response: %w", err)
+	}
+
+	// Check for errors
+	if mcpResponse.IsError {
+		if len(mcpResponse.Content) > 0 {
+			return "", fmt.Errorf("login error: %s", mcpResponse.Content[0].Text)
+		}
+		return "", fmt.Errorf("login returned error")
+	}
+
+	if len(mcpResponse.Content) == 0 {
+		return "", fmt.Errorf("empty login response")
+	}
+
+	// The text field contains JSON data as a string
+	// Parse the text field as JSON to get the actual login response
+	text := mcpResponse.Content[0].Text
+
 	var loginResponse struct {
 		SessionID string `json:"session_id"`
 		Username  string `json:"username"`
 		Message   string `json:"message"`
-		// There might be other fields we ignore
 	}
 
-	// First, try to parse the result directly as JSON
-	if err := json.Unmarshal(result, &loginResponse); err != nil {
-		// If that fails, try parsing as MCP tool response with content array
-		var mcpResponse struct {
-			Content []struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-				Data any    `json:"data,omitempty"`
-			} `json:"content"`
-			IsError bool `json:"isError"`
-		}
-
-		if err := json.Unmarshal(result, &mcpResponse); err != nil {
-			return "", fmt.Errorf("failed to parse login response: %w", err)
-		}
-
-		// Check for errors
-		if mcpResponse.IsError {
-			if len(mcpResponse.Content) > 0 {
-				return "", fmt.Errorf("login error: %s", mcpResponse.Content[0].Text)
-			}
-			return "", fmt.Errorf("login returned error")
-		}
-
-		// Try to get data from content
-		if len(mcpResponse.Content) == 0 {
-			return "", fmt.Errorf("empty login response")
-		}
-
-		// If content has data field, try to parse it
-		if mcpResponse.Content[0].Data != nil {
-			dataJSON, _ := json.Marshal(mcpResponse.Content[0].Data)
-			if err := json.Unmarshal(dataJSON, &loginResponse); err != nil {
-				// Last resort: try to extract session_id from text
-				text := mcpResponse.Content[0].Text
-				return extractSessionIDFromText(text)
-			}
-		} else {
-			// Extract from text field
-			return extractSessionIDFromText(mcpResponse.Content[0].Text)
-		}
+	if err := json.Unmarshal([]byte(text), &loginResponse); err != nil {
+		// Last resort: try to extract session_id from text
+		return extractSessionIDFromText(text)
 	}
 
-	// Successfully parsed the login response
 	if loginResponse.SessionID == "" {
 		return "", fmt.Errorf("session_id not found in login response")
 	}
@@ -526,6 +515,11 @@ func main() {
 	}
 	fmt.Printf("✓ Session ID: %s\n\n", sessionID)
 
+	// Give the session a moment to propagate
+	fmt.Println("⏳ Waiting for session to propagate...")
+	time.Sleep(2 * time.Second)
+	fmt.Println()
+
 	// Call all query methods (methods that only need session_id)
 	fmt.Println("📡 Calling query methods (methods that only require session_id)...")
 	for _, method := range queryMethods {
@@ -539,6 +533,8 @@ func main() {
 			errorResp := map[string]any{"error": err.Error()}
 			errorJSON, _ := json.MarshalIndent(errorResp, "", "  ")
 			saveResponse(method, errorJSON)
+			// Add delay on error to avoid rate limiting
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
@@ -548,6 +544,9 @@ func main() {
 		if err := saveResponse(method, prettyJSON.Bytes()); err != nil {
 			fmt.Printf(" ✗ Failed to save: %v\n", err)
 		}
+
+		// Small delay between calls to avoid rate limiting
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	// Call action methods with specific parameters
