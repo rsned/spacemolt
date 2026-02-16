@@ -300,8 +300,6 @@ func copySkillDefsMap(m map[string]SkillDefinition) map[string]SkillDefinition {
 	return out
 }
 
-// Duplicate declarations removed - keeping only the first set above
-
 // Clone creates a deep copy of the state for safe concurrent access
 func (s *State) Clone() *State {
 	s.Mu.Lock()
