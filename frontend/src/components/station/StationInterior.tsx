@@ -88,10 +88,10 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
           <div className="absolute top-1/2 left-24 right-32 h-16 bg-gray-800/50 transform -translate-y-1/2 rounded" />
 
           {/* Main Content Area */}
-          <div className="flex items-center gap-4 relative">
+          <div className="flex items-stretch gap-4 relative">
             {/* Ship - Left Side */}
-            <div className="flex-shrink-0 w-32">
-              <div className="bg-spacemolt-panel border-2 border-cyan-700 rounded-lg p-4 text-center">
+            <div className="flex-shrink-0 w-32 flex flex-col">
+              <div className="bg-spacemolt-panel border-2 border-cyan-700 rounded-lg p-4 text-center flex-1 flex flex-col justify-center">
                 <div className="text-gray-400 mb-2 text-xs">DOCKED</div>
                 <div className="text-4xl mb-2">🚀</div>
                 <div className="text-xs text-gray-500">{player.ship}</div>
@@ -110,7 +110,7 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
                 const bottomFacilities = facilities.slice(midPoint);
 
                 return (
-                  <div key={category} className="flex-1 min-w-[200px] bg-spacemolt-panel border border-spacemolt-border rounded-lg p-3">
+                  <div key={category} className="flex-1 min-w-[200px] bg-spacemolt-panel border border-spacemolt-border rounded-lg p-3 flex flex-col">
                     {/* Category Header */}
                     <div className="flex items-center gap-2 p-2 border-b border-spacemolt-border mb-3">
                       <span className={`text-xl ${categoryInfo.color}`}>{categoryInfo.icon}</span>
@@ -121,7 +121,7 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
                     </div>
 
                     {/* Facilities Above Walkway */}
-                    <div className="space-y-2 mb-2">
+                    <div className="space-y-2 mb-2 flex-1">
                       {topFacilities.map((facility) => (
                         <div
                           key={`top-${facility.id}`}
@@ -140,10 +140,10 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
                     </div>
 
                     {/* Walkway Space */}
-                    <div className="h-8" />
+                    <div className="h-8 flex-shrink-0" />
 
                     {/* Facilities Below Walkway */}
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1">
                       {bottomFacilities.map((facility) => (
                         <div
                           key={`bottom-${facility.id}`}
@@ -166,8 +166,8 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
             </div>
 
             {/* Undock Zone - Right Side */}
-            <div className="flex-shrink-0 w-32">
-              <button className="w-full bg-red-900/30 border border-red-700 hover:bg-red-900/50 rounded-lg p-4 text-red-400 transition-colors">
+            <div className="flex-shrink-0 w-32 flex flex-col">
+              <button className="w-full bg-red-900/30 border border-red-700 hover:bg-red-900/50 rounded-lg p-4 text-red-400 transition-colors flex-1 flex flex-col justify-center">
                 <div className="text-center">
                   <div className="text-2xl mb-2">🚪</div>
                   <div className="text-xs">UNDOCK</div>
