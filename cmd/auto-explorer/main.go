@@ -496,15 +496,9 @@ func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) e
 		}
 
 		// Find a mining POI in the current system
-		var miningPOI string
-		for _, poi := range state.System.POIs {
-			if poi.Type == "asteroid_belt" || poi.Type == "asteroid_field" {
-				miningPOI = poi.ID
-				break
-			}
-		}
+		miningPOI := game.FindMiningLocation(state)
 
-		if miningPOI == "" {
+		if miningPOI == nil {
 			logger.Printf("⚠️  No mining POI found in current system!")
 			return fmt.Errorf("no mining location available")
 		}
@@ -520,9 +514,9 @@ func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) e
 
 		// Step 2: Travel to mining POI
 		state = client.GetState()
-		if state.CurrentPOI != miningPOI && !state.Traveling {
+		if state.CurrentPOI != miningPOI.ID && !state.Traveling {
 			logger.Printf("🚀 Traveling to mining location...")
-			if err := client.Travel(ctx, miningPOI); err != nil {
+			if err := client.Travel(ctx, miningPOI.ID); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(game.SleepTravel)
@@ -563,13 +557,7 @@ func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) e
 		logger.Printf("✓ Mined %d times this run", mineCount)
 
 		// Step 4: Find station and return
-		var stationPOI string
-		for _, poi := range state.System.POIs {
-			if poi.Type == "station" {
-				stationPOI = poi.ID
-				break
-			}
-		}
+		stationPOI := game.FindStationID(state)
 
 		if stationPOI == "" {
 			logger.Printf("⚠️  No station found in current system!")
@@ -1462,16 +1450,11 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 // attemptFleeToStation tries to escape combat and find a station to dock for repairs
 func attemptFleeToStation(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState, state *game.State) bool {
 	// Priority 1: Try to find a station in current system
-	var stationPOI string
-	for _, poi := range state.System.POIs {
-		if poi.Type == "station" {
-			stationPOI = poi.ID
-			logger.Printf("🏥 Station found in current system: %s", poi.Name)
-			break
-		}
-	}
+	station := game.FindStation(state)
 
-	if stationPOI != "" {
+	if station != nil {
+		stationPOI := station.ID
+		logger.Printf("🏥 Station found in current system: %s", station.Name)
 		// Travel to station in current system
 		if state.CurrentPOI != stationPOI && !state.Traveling {
 			logger.Printf("→ Fleeing to station %s in current system...", stationPOI)
@@ -1531,19 +1514,12 @@ func attemptFleeToStation(client *game.Client, ctx context.Context, logger *log.
 
 		if targetSystem != "" {
 			// Find jump gate
-			var targetPOI string
-			for _, poi := range state.System.POIs {
-				if poi.Type == "jump_gate" {
-					targetPOI = poi.ID
-					break
-				}
-			}
-
-			if targetPOI != "" {
+			jumpGate := game.FindJumpGate(state)
+			if jumpGate != nil {
 				// Travel to jump gate
-				if state.CurrentPOI != targetPOI {
-					logger.Printf("→ Heading to jump gate: %s", targetPOI)
-					if err := client.Travel(ctx, targetPOI); err != nil {
+				if state.CurrentPOI != jumpGate.ID {
+					logger.Printf("→ Heading to jump gate: %s", jumpGate.ID)
+					if err := client.Travel(ctx, jumpGate.ID); err != nil {
 						logger.Printf("Failed to travel to jump gate: %v", err)
 						return true
 					}
@@ -1588,13 +1564,7 @@ func handleStations(client *game.Client, ctx context.Context, logger *log.Logger
 	state := client.GetState()
 
 	// Find first station in system
-	var stationPOI *game.POI
-	for i := range state.System.POIs {
-		if state.System.POIs[i].Type == "station" {
-			stationPOI = &state.System.POIs[i]
-			break
-		}
-	}
+	stationPOI := game.FindStation(state)
 
 	if stationPOI == nil {
 		logger.Printf("No station in this system")
@@ -1670,13 +1640,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 	state := client.GetState()
 
 	// Check current system for station
-	var stationPOI *game.POI
-	for i := range state.System.POIs {
-		if state.System.POIs[i].Type == "station" {
-			stationPOI = &state.System.POIs[i]
-			break
-		}
-	}
+	stationPOI := game.FindStation(state)
 
 	if stationPOI != nil {
 		// Station in current system
@@ -1713,15 +1677,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 		logger.Printf("⚠️  Low fuel! Navigating back to %s for refuel", expState.LastFuelStation)
 
 		// First, check if current system has a jump gate
-		hasJumpGate := false
-		for _, poi := range state.System.POIs {
-			if poi.Type == "jump_gate" {
-				hasJumpGate = true
-				break
-			}
-		}
-
-		if !hasJumpGate {
+		if game.FindJumpGate(state) == nil {
 			logger.Printf("❌ No jump gate in current system %s! Cannot escape.", state.CurrentSystem)
 			logger.Printf("💡 Tip: If trapped without fuel, consider self-destructing to respawn at home")
 			return fmt.Errorf("no jump gate in current system %s", state.CurrentSystem)
@@ -1864,10 +1820,9 @@ func isDamaged(state *game.State) bool {
 // findNearestStation looks for a station in the current system or returns the last known fuel station
 func findNearestStation(state *game.State, lastFuelStation string) (string, string, string) {
 	// First check if current system has a station
-	for _, poi := range state.System.POIs {
-		if poi.Type == "station" {
-			return state.CurrentSystem, poi.ID, poi.Name
-		}
+	station := game.FindStation(state)
+	if station != nil {
+		return state.CurrentSystem, station.ID, station.Name
 	}
 
 	// If no station in current system, return the last known fuel station
@@ -1902,22 +1857,15 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		logger.Printf("🚀 Traveling to system with station: %s", systemID)
 
 		// Find jump gate
-		var targetPOI string
-		for _, poi := range state.System.POIs {
-			if poi.Type == "jump_gate" {
-				targetPOI = poi.ID
-				break
-			}
-		}
-
-		if targetPOI == "" {
+		jumpGate := game.FindJumpGate(state)
+		if jumpGate == nil {
 			logger.Printf("⚠️  No jump gate in current system, cannot reach station")
 			return fmt.Errorf("no jump gate found in current system")
 		}
 
 		// Travel to jump gate if not there
-		if state.CurrentPOI != targetPOI && !state.Traveling {
-			if err := client.Travel(ctx, targetPOI); err != nil {
+		if state.CurrentPOI != jumpGate.ID && !state.Traveling {
+			if err := client.Travel(ctx, jumpGate.ID); err != nil {
 				logger.Printf("Failed to travel to jump gate: %v", err)
 				time.Sleep(game.SleepLong) // Wait before retry
 				return err
@@ -1949,12 +1897,10 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		}
 
 		// Find station in the new system
-		for _, poi := range state.System.POIs {
-			if poi.Type == "station" {
-				poiID = poi.ID
-				poiName = poi.Name
-				break
-			}
+		station := game.FindStation(state)
+		if station != nil {
+			poiID = station.ID
+			poiName = station.Name
 		}
 
 		if poiID == "" {
@@ -1964,12 +1910,10 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 	} else {
 		// Already in the system with station, find it if poiID is empty
 		if poiID == "" {
-			for _, poi := range state.System.POIs {
-				if poi.Type == "station" {
-					poiID = poi.ID
-					poiName = poi.Name
-					break
-				}
+			station := game.FindStation(state)
+			if station != nil {
+				poiID = station.ID
+				poiName = station.Name
 			}
 		}
 	}
