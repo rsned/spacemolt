@@ -24,7 +24,14 @@ var (
 	dbPath      = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
 )
 
-// No local constants needed - all using game package constants
+// Phase 1 constants - Mining & upgrades
+const (
+	TIER1_THRESHOLD      = 300.0  // Mining laser (faster mining!)
+	TIER2_THRESHOLD      = 800.0  // Better mining laser or cargo
+	TIER2_SHIP_THRESHOLD = 2000.0 // Upgrade to mining_enhanced ship + 3 mining lasers
+	SCANNER_THRESHOLD    = 600.0  // Scanner for exploration
+	RESERVE_CREDITS      = 50.0   // Never spend below this
+)
 
 // Exploration state for DFS algorithm
 type ExplorationState struct {
@@ -61,7 +68,7 @@ func (h *explorerSimpleHandler) OnConnected(state *game.State) {
 		// Continue anyway - state might still be useful
 	} else {
 		// Wait for state update
-		time.Sleep(game.SleepQuick)
+		time.Sleep(2 * time.Second)
 		refreshedState := h.client.GetState()
 		h.logger.Printf("✓ Verified location: %s (%s)", refreshedState.System.Name, refreshedState.CurrentSystem)
 	}
@@ -200,7 +207,7 @@ func getShieldPercentage(state *game.State) float64 {
 }
 
 func needsRefuel(state *game.State) bool {
-	return state.Fuel < (state.MaxFuel * game.FuelCriticalThreshold)
+	return state.Fuel < (state.MaxFuel * 0.3)
 }
 
 // checkForHiddenFindings scans POIs for hidden findings and prints details
@@ -287,77 +294,32 @@ func saveSurveyFinding(logger *log.Logger, state *game.State, poi game.POI) {
 // PHASE 1: MINING & UPGRADES
 // ============================================================================
 
-// attemptExplorerUpgrades checks for and performs upgrades using the upgrade path library
-// Handles both mining upgrades (starter) and exploration upgrades
 func attemptExplorerUpgrades(client *game.Client, logger *log.Logger, ctx context.Context) bool {
 	state := client.GetState()
 	credits := state.Credits
-	availableCredits := credits - game.MinimumPurchaseThreshold
+	availableCredits := credits - RESERVE_CREDITS
 
-	if availableCredits < game.MinimumPurchaseThreshold {
+	if availableCredits < 100 {
 		return false // Not enough to buy anything
 	}
 
 	// Ensure cargo space is available for purchases
 	cargoUsed := state.Ship.CargoUsed
 	cargoCapacity := state.Ship.CargoCapacity
-	if cargoUsed >= cargoCapacity*game.CargoReserveForPurchases {
+	if cargoUsed >= cargoCapacity*0.5 {
 		logger.Printf("⚠️  Cargo too full (%.1f/%.1f) - skipping upgrades until cargo is sold", cargoUsed, cargoCapacity)
 		return false
 	}
 
-	logger.Printf("💰 Checking for upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
+	logger.Printf("💰 Checking for explorer upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
 
-	// Determine which progression to use based on current ship class
-	var progression *game.UpgradeProgression
-	switch {
-	case strings.HasPrefix(state.Ship.ClassID, "starter_mining") ||
-		strings.HasPrefix(state.Ship.ClassID, "mining_"):
-		// Use mining progression for mining ships
-		progression = &game.MiningProgression
-	case strings.HasPrefix(state.Ship.ClassID, "starter_exploration") ||
-		strings.HasPrefix(state.Ship.ClassID, "explorer") ||
-		strings.HasPrefix(state.Ship.ClassID, "frontier_") ||
-		strings.HasPrefix(state.Ship.ClassID, "expedition_") ||
-		strings.HasPrefix(state.Ship.ClassID, "deep_space_"):
-		// Use exploration progression for explorer ships
-		progression = &game.ExplorationProgression
-	default:
-		// For other ships, don't attempt upgrades
-		logger.Printf("No upgrade path defined for ship class: %s", state.Ship.ClassID)
-		return false
-	}
-
-	// Check if any upgrade is affordable
-	if !game.CanUpgradeAnyShip(state.Ship.ClassID, availableCredits, progression.Tiers) {
-		return false
-	}
-
-	// Find and perform the next affordable upgrade
-	for _, tier := range progression.Tiers {
-		if state.Ship.ClassID == tier.FromShipClass && availableCredits >= tier.Threshold {
-			logger.Printf("🚀 UPGRADE AVAILABLE: %s (%.2f credits)", tier.Name, tier.Threshold)
-			if game.PerformShipUpgrade(client, logger, ctx, tier, availableCredits) {
-				logger.Printf("✅ Upgrade successful: %s", tier.Name)
-				return true
-			}
-			return false
-		}
-	}
-
-	// No ship upgrade available, check for equipment upgrades
-	return attemptEquipmentUpgrades(client, logger, ctx, state, availableCredits)
-}
-
-// attemptEquipmentUpgrades handles equipment purchases (mining lasers, scanners, etc.)
-func attemptEquipmentUpgrades(client *game.Client, logger *log.Logger, ctx context.Context, state *game.State, availableCredits float64) bool {
 	// Get market listings
 	if err := client.GetListings(ctx); err != nil {
 		logger.Printf("Could not get listings: %v", err)
 		return false
 	}
 
-	time.Sleep(game.SleepQuick)
+	time.Sleep(2 * time.Second)
 	listings := client.GetMarketListings()
 
 	if len(listings) == 0 {
@@ -365,251 +327,246 @@ func attemptEquipmentUpgrades(client *game.Client, logger *log.Logger, ctx conte
 		return false
 	}
 
-	// Priority 1: Scanner (essential for exploration)
-	if !hasScanner(state) {
-		for _, listing := range listings {
-			if strings.HasPrefix(listing.ItemID, "scanner") && listing.PricePerUnit <= availableCredits {
-				logger.Printf("📡 Buying scanner: %s for %.2f credits", listing.ItemID, listing.PricePerUnit)
-				if err := client.Buy(ctx, listing.ItemID, 1); err != nil {
-					logger.Printf("Failed to buy scanner: %v", err)
-					continue
-				}
-				logger.Printf("✅ Purchased scanner! Installing...")
-				time.Sleep(game.SleepQuick)
-				if err := client.Install(ctx, listing.ItemID); err != nil {
-					logger.Printf("Failed to install scanner: %v", err)
+	var purchased bool
+
+	// Priority 1: Ship upgrade to mining_enhanced + 3 mining lasers (2000+ credits) - MAJOR UPGRADE!
+	if availableCredits >= TIER2_SHIP_THRESHOLD && !purchased {
+		// Check if we're still on the starter ship
+		if state.Ship.ClassID == "starter_mining" {
+			logger.Printf("🚀 SHIP UPGRADE TIME! You have %.2f credits - upgrading to Drillship!", availableCredits)
+
+			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
+			if len(state.Ship.Cargo) > 0 {
+				logger.Printf("📦 Selling all cargo before ship upgrade...")
+				if err := client.SellAll(ctx); err != nil {
+					logger.Printf("Failed to sell cargo: %v", err)
 				} else {
-					logger.Printf("✅ SCANNER INSTALLED!")
+					logger.Printf("✅ Cargo sold!")
+					time.Sleep(3 * time.Second)
 				}
-				time.Sleep(game.SleepQuick)
-				return true
+			}
+
+			// CRITICAL: Uninstall all utility slot modules (mining lasers) first!
+			logger.Printf("🔧 Uninstalling mining lasers before ship upgrade...")
+			for _, moduleID := range state.Ship.Modules {
+				uninstallMsg := protocol.Message{
+					Type: "uninstall_mod",
+					Payload: map[string]any{
+						"module_id": moduleID,
+					},
+				}
+				if err := client.Send(ctx, uninstallMsg); err != nil {
+					logger.Printf("Failed to uninstall module %s: %v", moduleID, err)
+				} else {
+					logger.Printf("✅ Uninstalled module: %s", moduleID)
+				}
+				time.Sleep(2 * time.Second)
+			}
+
+			logger.Printf("🚀 Purchasing mining_enhanced ship (Drillship)...")
+
+			// Buy the mining_enhanced ship using direct protocol message
+			buyShipMsg := protocol.Message{
+				Type: "buy_ship",
+				Payload: map[string]any{
+					"ship_class": "mining_enhanced",
+				},
+			}
+			if err := client.Send(ctx, buyShipMsg); err != nil {
+				logger.Printf("Failed to buy ship: %v", err)
+			} else {
+				logger.Printf("✅ SHIP UPGRADED TO DRILLSHIP!")
+				logger.Printf("✅ New capacity: 100 cargo, 3 utility slots for mining lasers!")
+				purchased = true
+				time.Sleep(3 * time.Second)
+
+				// Refresh state after ship purchase
+				state = client.GetState()
+
+				// Now buy 3 mining lasers to fill all utility slots
+				logger.Printf("⛏️  Now purchasing 3 mining lasers...")
+				if err := client.Buy(ctx, "mining_laser_1", 3); err != nil {
+					logger.Printf("Failed to buy mining lasers: %v", err)
+				} else {
+					logger.Printf("✅ Purchased 3 mining lasers!")
+					time.Sleep(2 * time.Second)
+
+					// Install each mining laser
+					for i := 1; i <= 3; i++ {
+						if err := client.Install(ctx, "mining_laser_1"); err != nil {
+							logger.Printf("Failed to install mining laser #%d: %v", i, err)
+						} else {
+							logger.Printf("✅ Mining laser #%d installed!", i)
+						}
+						time.Sleep(2 * time.Second)
+					}
+
+					logger.Printf("✅✅✅ TRIPLE MINING LASER SETUP COMPLETE! Mining power TRIPLED!")
+				}
 			}
 		}
 	}
 
-	// Priority 2: Mining Lasers - fill up to ship capacity
-	if strings.HasPrefix(state.Ship.ClassID, "mining_") || state.Ship.ClassID == "starter_mining" {
-		miningLasersInstalled := game.CountModulesInstalled(state, "mining_laser_1")
-		miningLasersInCargo := game.CountModulesInCargo(state, "mining_laser_1")
-		totalMiningLasers := miningLasersInstalled + miningLasersInCargo
-
-		maxSlots := game.GetShipClassMaxSlots(state.Ship.ClassID)
-
-		logger.Printf("⛏️  Mining Laser Status: %d installed, %d in cargo (max slots: %d)",
-			miningLasersInstalled, miningLasersInCargo, maxSlots)
-
-		// Only buy more if we have less than max
-		if totalMiningLasers < maxSlots {
-			for _, listing := range listings {
-				if strings.HasPrefix(listing.ItemID, "mining_laser") &&
-					listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 1000 {
-
-					needed := maxSlots - totalMiningLasers
-					if needed > 0 {
-						logger.Printf("⛏️  Buying %d x %s for %.2f credits each", needed, listing.ItemID, listing.PricePerUnit)
-						if err := client.Buy(ctx, listing.ItemID, float64(needed)); err != nil {
-							logger.Printf("Failed to buy mining laser: %v", err)
-							continue
+	// Priority 2: Scanner (essential for exploration)
+	if availableCredits >= SCANNER_THRESHOLD && !hasScanner(state) && !purchased {
+		for _, listing := range listings {
+			if strings.HasPrefix(listing.ItemID, "scanner") {
+				if listing.PricePerUnit <= availableCredits {
+					logger.Printf("📡 Buying scanner: %s for %.2f credits", listing.ItemID, listing.PricePerUnit)
+					if err := client.Buy(ctx, listing.ItemID, 1); err != nil {
+						logger.Printf("Failed to buy scanner: %v", err)
+					} else {
+						logger.Printf("✅ Purchased scanner! Installing...")
+						purchased = true
+						time.Sleep(2 * time.Second)
+						if err := client.Install(ctx, listing.ItemID); err != nil {
+							logger.Printf("Failed to install scanner: %v", err)
+						} else {
+							logger.Printf("✅ SCANNER INSTALLED!")
 						}
-						logger.Printf("✅ Purchased %d mining laser(s)! Installing...", needed)
-						time.Sleep(game.SleepQuick)
-
-						// Install each mining laser
-						installed := 0
-						for i := 0; i < needed; i++ {
-							if err := client.Install(ctx, listing.ItemID); err != nil {
-								logger.Printf("Failed to install mining laser #%d: %v", i+1, err)
-							} else {
-								installed++
-								logger.Printf("✅ Mining laser #%d installed!", installed)
-							}
-							time.Sleep(game.SleepQuick)
-						}
-
-						if installed > 0 {
-							logger.Printf("✅ %d MINING LASER(S) INSTALLED!", installed)
-						}
-						return true
+						time.Sleep(2 * time.Second)
 					}
 				}
 			}
 		}
 	}
 
-	return false
+	// Priority 3: Mining Laser (faster mining) - install up to ship capacity
+	if availableCredits >= TIER1_THRESHOLD && !purchased {
+		// Count how many mining lasers we have
+		miningLasersInstalled := 0
+		miningLasersInCargo := 0
+		for _, module := range state.Ship.Modules {
+			if strings.HasPrefix(module, "mining_laser") {
+				miningLasersInstalled++
+			}
+		}
+		for _, item := range state.Ship.Cargo {
+			if strings.HasPrefix(item.ItemID, "mining_laser") && item.Quantity > 0 {
+				miningLasersInCargo++
+			}
+		}
+		totalMiningLasers := miningLasersInstalled + miningLasersInCargo
+
+		// Determine max lasers based on ship class
+		maxLasers := 2 // starter_mining has 2 utility slots
+		switch state.Ship.ClassID {
+		case "mining_enhanced":
+			maxLasers = 3 // Drillship has 3 utility slots
+		case "mining_barge":
+			maxLasers = 4 // Excavator has 4 utility slots
+		}
+
+		logger.Printf("⛏️  Mining Laser Status: %d installed, %d in cargo (goal: %d installed)",
+			miningLasersInstalled, miningLasersInCargo, maxLasers)
+
+		// Only buy more if we have less than max total
+		if totalMiningLasers < maxLasers {
+			for _, listing := range listings {
+				if (listing.ItemID == "mining_laser_1" || listing.ItemID == "mining_laser_2" ||
+					listing.ItemID == "mining_laser_3" || listing.ItemID == "advanced_mining_laser") &&
+					listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 1000 {
+
+					// Calculate how many we need to buy (up to max total)
+					needed := maxLasers - totalMiningLasers
+					if needed > 0 {
+						logger.Printf("⛏️  Buying %d x %s for %.2f credits each", needed, listing.ItemID, listing.PricePerUnit)
+						if err := client.Buy(ctx, listing.ItemID, float64(needed)); err != nil {
+							logger.Printf("Failed to buy mining laser: %v", err)
+						} else {
+							logger.Printf("✅ Purchased %d mining laser(s)! Installing...", needed)
+							purchased = true
+							time.Sleep(2 * time.Second)
+
+							// Install each mining laser from cargo
+							installed := 0
+							for i := 0; i < needed; i++ {
+								if err := client.Install(ctx, listing.ItemID); err != nil {
+									logger.Printf("Failed to install mining laser #%d: %v", i+1, err)
+								} else {
+									installed++
+									logger.Printf("✅ Mining laser #%d installed!", installed)
+								}
+								time.Sleep(2 * time.Second)
+							}
+
+							if installed > 0 {
+								logger.Printf("✅ %d MINING LASER(S) INSTALLED! Mining speed increased!", installed)
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return purchased
 }
 
 func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) error {
 	logger.Printf("Starting mining phase to earn credits for exploration upgrades...")
-	logger.Printf("Target: Upgrade mining ship and equipment to enable efficient exploration")
+	logger.Printf("Target: %.0f credits for Drillship (mining_enhanced) + 3 mining lasers + scanner", TIER2_SHIP_THRESHOLD)
 
-	miningRuns := 0
-	state := client.GetState()
-	startingCredits := state.Credits
+	startingCredits := client.GetState().Credits
 
-	// Continue mining until we have mining_enhanced ship with 3 lasers OR scanner (not all stations sell scanners)
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		state = client.GetState()
-		miningRuns++
-
-		// Check if we've completed Phase 1 goals
-		hasDrillship := state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "mining_barge"
-		hasTripleLasers := false
-		miningLaserCount := 0
+	// Helper function to count mining lasers
+	countMiningLasers := func(state *game.State) int {
+		count := 0
 		for _, module := range state.Ship.Modules {
 			if strings.HasPrefix(module, "mining_laser") {
-				miningLaserCount++
+				count++
 			}
 		}
-		hasTripleLasers = miningLaserCount >= 3
-		hasScanner := hasScanner(state)
-
-		// Phase 1 complete if we have Drillship with 3 lasers, OR we have scanner + mining laser
-		phase1Complete := (hasDrillship && hasTripleLasers) || (hasScanner && hasMiningLaser(state))
-
-		if phase1Complete {
-			logger.Printf("✅ Phase 1 COMPLETE! Exploration equipment ready!")
-			logger.Printf("Ship: %s | Mining Lasers: %d | Scanner: %v", state.Ship.Name, miningLaserCount, hasScanner)
-			logger.Printf("Credits: %.2f (started with %.2f)", state.Credits, startingCredits)
-			return nil
-		}
-
-		logger.Printf("═══ Mining Run #%d ═══", miningRuns)
-		logger.Printf("Credits: %.2f | Fuel: %.0f/%.0f | Cargo: %.1f/%.1f",
-			state.Credits, state.Fuel, state.MaxFuel,
-			state.Ship.CargoUsed, state.Ship.CargoCapacity)
-
-		// Get full system data to see POIs
-		if len(state.System.POIs) == 0 {
-			logger.Printf("Fetching system data...")
-			if err := client.GetSystem(ctx); err != nil {
-				logger.Printf("Failed to get system: %v", err)
-			}
-			time.Sleep(game.SleepQuick)
-			state = client.GetState()
-		}
-
-		// Find a mining POI in the current system
-		miningPOI := game.FindMiningLocation(state)
-
-		if miningPOI == nil {
-			logger.Printf("⚠️  No mining POI found in current system!")
-			return fmt.Errorf("no mining location available")
-		}
-
-		// Step 1: Undock if docked
-		if state.Doc {
-			logger.Printf("📤 Undocking from station...")
-			if err := game.UndockFromStation(client, ctx); err != nil {
-				logger.Printf("Undock error: %v", err)
-			}
-			time.Sleep(game.SleepDock)
-		}
-
-		// Step 2: Travel to mining POI
-		state = client.GetState()
-		if state.CurrentPOI != miningPOI.ID && !state.Traveling {
-			logger.Printf("🚀 Traveling to mining location...")
-			if err := client.Travel(ctx, miningPOI.ID); err != nil {
-				logger.Printf("Travel error: %v", err)
-			}
-			time.Sleep(game.SleepTravel)
-		}
-
-		// Step 3: Mine until cargo full
-		mineCount := 0
-		logger.Printf("⛏️  Starting mining operations...")
-		for {
-			state = client.GetState()
-
-			if state.Ship.CargoUsed >= state.Ship.CargoCapacity*game.CargoFullThreshold {
-				logger.Printf("✓ Cargo nearly full (%.1f/%.1f), heading back",
-					state.Ship.CargoUsed, state.Ship.CargoCapacity)
-				break
-			}
-
-			if state.Fuel < 30 {
-				logger.Printf("⚠️  Low fuel (%.0f), heading back", state.Fuel)
-				break
-			}
-
-			if err := client.Mine(ctx); err == nil {
-				mineCount++
-				if mineCount%3 == 0 {
-					logger.Printf("⛏️  Mining... [%d] (%.1f/%.1f cargo)",
-						mineCount, state.Ship.CargoUsed, state.Ship.CargoCapacity)
-				}
-			}
-
-			time.Sleep(game.MiningCycleTime)
-
-			if mineCount >= 15 {
-				break
-			}
-		}
-
-		logger.Printf("✓ Mined %d times this run", mineCount)
-
-		// Step 4: Find station and return
-		stationPOI := game.FindStationID(state)
-
-		if stationPOI == "" {
-			logger.Printf("⚠️  No station found in current system!")
-			return fmt.Errorf("no station available")
-		}
-
-		// Travel to station
-		state = client.GetState()
-		if state.CurrentPOI != stationPOI && !state.Traveling {
-			logger.Printf("🚀 Returning to station...")
-			if err := client.Travel(ctx, stationPOI); err != nil {
-				logger.Printf("Travel error: %v", err)
-			}
-			time.Sleep(game.SleepTravel)
-		}
-
-		// Step 5: Dock
-		logger.Printf("📥 Docking at station...")
-		if err := client.Dock(ctx); err != nil {
-			if err.Error() != "Already docked (success)" {
-				logger.Printf("Dock error: %v", err)
-			}
-		}
-		time.Sleep(game.SleepDocked)
-
-		// Step 6: Sell all cargo
-		state = client.GetState()
-		if state.Doc && len(state.Ship.Cargo) > 0 {
-			logger.Printf("💰 Selling cargo...")
-			if err := client.SellAll(ctx); err != nil {
-				logger.Printf("Sell error: %v", err)
-			}
-			time.Sleep(game.SleepMedium)
-		}
-
-		// Step 7: Refuel if needed
-		state = client.GetState()
-		if state.Doc && state.Fuel < state.MaxFuel*game.FuelLowThreshold {
-			logger.Printf("⛽ Refueling...")
-			if err := client.Refuel(ctx); err != nil {
-				logger.Printf("Refuel error: %v", err)
-			}
-			time.Sleep(game.SleepShort)
-		}
-
-		// Step 8: Attempt upgrades
-		state = client.GetState()
-		logger.Printf("Current credits: %.2f", state.Credits)
-		attemptExplorerUpgrades(client, logger, ctx)
-
-		time.Sleep(game.SleepMedium)
+		return count
 	}
+
+	// Configure the shared mining loop for Phase 1
+	config := &game.MiningLoopConfig{
+		Tier1Threshold:     TIER1_THRESHOLD,
+		ReserveCredits:     RESERVE_CREDITS,
+		MaxMiningAttempts:  15, // Explorer uses fixed limit instead of calculated
+		CargoFullThreshold: 0.9, // Explorer is less aggressive (90% vs 97%)
+		UseBulkSell:        true, // Use bulk sell for better performance
+
+		// Stop when Phase 1 goals are achieved
+		StopCondition: func(state *game.State) bool {
+			hasDrillship := state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "mining_barge"
+			hasTripleLasers := countMiningLasers(state) >= 3
+			scannerPresent := hasScanner(state)
+
+			// Phase 1 complete if we have Drillship with 3 lasers, OR we have scanner + mining laser
+			return (hasDrillship && hasTripleLasers) || (scannerPresent && hasMiningLaser(state))
+		},
+
+		OnUpgradeCheck: func() bool {
+			attemptExplorerUpgrades(client, logger, ctx)
+			return false
+		},
+	}
+
+	// Run the shared mining loop
+	result, err := game.MiningLoop(client, logger, ctx, config)
+	if err != nil {
+		return err
+	}
+
+	// Check if we completed Phase 1
+	if result.StoppedReason == "stop_condition" {
+		state := client.GetState()
+		miningLaserCount := countMiningLasers(state)
+		scannerPresent := hasScanner(state)
+
+		logger.Printf("✅ Phase 1 COMPLETE! Exploration equipment ready!")
+		logger.Printf("Ship: %s | Mining Lasers: %d | Scanner: %v", state.Ship.Name, miningLaserCount, scannerPresent)
+		logger.Printf("Credits: %.2f (started with %.2f, earned %.2f over %d runs)",
+			state.Credits, startingCredits, result.TotalCreditsEarned, result.RunsCompleted)
+		return nil
+	}
+
+	// Mining stopped for another reason
+	logger.Printf("Mining phase stopped: %s", result.StoppedReason)
+	return nil
 }
 
 // ============================================================================
@@ -621,7 +578,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("failed to get system: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	time.Sleep(2 * time.Second)
 
 	// Get current state
 	state := client.GetState()
@@ -659,7 +616,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		logger.Printf("⚠️  Survey failed (may not have survey scanner): %v", err)
 	} else {
 		logger.Printf("✓ Survey complete")
-		time.Sleep(game.SleepShort)
+		time.Sleep(3 * time.Second)
 
 		// Check for and report any hidden findings
 		state = client.GetState()
@@ -678,7 +635,7 @@ func saveSystemToFile(client *game.Client, logger *log.Logger, state *game.State
 	if err := client.Scan(ctx); err != nil {
 		logger.Printf("Scan failed (may not have scanner): %v", err)
 	}
-	time.Sleep(game.SleepShort)
+	time.Sleep(3 * time.Second)
 
 	// Try to get raw JSON from server response
 	rawJSON := client.GetRawJSON("system")
@@ -815,7 +772,7 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 	if err := client.GetListings(ctx); err != nil {
 		return fmt.Errorf("failed to get listings: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	time.Sleep(2 * time.Second)
 
 	// Try to get raw JSON from server response
 	rawJSON := client.GetRawJSON("listings")
@@ -916,7 +873,7 @@ func saveStationMarketData(client *game.Client, ctx context.Context, logger *log
 		if err := client.GetListings(ctx); err != nil {
 			logger.Printf("Failed to get listings: %v", err)
 		} else {
-			time.Sleep(game.SleepQuick)
+			time.Sleep(2 * time.Second)
 
 			// Get raw JSON from server response
 			rawJSON := client.GetRawJSON("listings")
@@ -981,7 +938,7 @@ func saveStationMarketData(client *game.Client, ctx context.Context, logger *log
 		if err := client.GetShips(ctx); err != nil {
 			logger.Printf("Failed to get ship listings: %v", err)
 		} else {
-			time.Sleep(game.SleepQuick)
+			time.Sleep(2 * time.Second)
 
 			// Get raw JSON from server response
 			rawJSON := client.GetRawJSON("ships")
@@ -1157,7 +1114,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 				continue
 			}
 			logger.Printf("→ Arrived at %s", poi.Name)
-			time.Sleep(game.SleepShort)
+			time.Sleep(3 * time.Second)
 		}
 
 		// Get POI details
@@ -1167,7 +1124,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 		} else {
 			logger.Printf("✅ POI details retrieved at %s", poi.Name)
 		}
-		time.Sleep(game.SleepShort)
+		time.Sleep(3 * time.Second)
 
 		// Check for nearby players/ships
 		state = client.GetState()
@@ -1189,7 +1146,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			} else {
 				logger.Printf("✅ Docked at %s", poi.Name)
 			}
-			time.Sleep(game.SleepShort)
+			time.Sleep(3 * time.Second)
 
 			// Collect and save market/ship data
 			if err := saveStationMarketData(client, ctx, logger, kb, state.System.Name, poi.Name, poi.ID, expState.AgentID); err != nil {
@@ -1198,12 +1155,12 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 
 			// Undock before continuing exploration
 			logger.Printf("📤 Undocking from %s...", poi.Name)
-			if err := game.UndockFromStation(client, ctx); err != nil {
+			if err := client.Undock(ctx); err != nil {
 				logger.Printf("Failed to undock: %v", err)
 			} else {
 				logger.Printf("✅ Undocked from %s", poi.Name)
 			}
-			time.Sleep(game.SleepShort)
+			time.Sleep(3 * time.Second)
 		}
 
 		// Save POI-specific data to knowledge base
@@ -1231,7 +1188,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 		expState.VisitedPOIs[poi.ID] = true
 
 		// Small delay between POIs
-		time.Sleep(game.SleepQuick)
+		time.Sleep(2 * time.Second)
 	}
 
 	logger.Printf("✅ Completed POI exploration in %s", state.System.Name)
@@ -1397,10 +1354,10 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 
 	// Decision: Fight or Flee
 	// Flee if:
-	// - Hull below critical (critical damage)
+	// - Hull below 40% (critical damage)
 	// - No weapons installed
-	// - Hull below combat flee threshold AND shields depleted
-	shouldFlee := hullPct < game.HullCriticalThreshold || !hasWeapon || (hullPct < game.HullCombatFleeThreshold && shieldPct < game.ShieldDepletedThreshold)
+	// - Hull below 70% AND shields depleted
+	shouldFlee := hullPct < 40.0 || !hasWeapon || (hullPct < 70.0 && shieldPct < 10.0)
 
 	if shouldFlee {
 		logger.Printf("🏃 FLEEING: Hull too low or no weapons - seeking safety!")
@@ -1433,13 +1390,13 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 		} else {
 			logger.Printf("💥 Firing weapons at %s!", attackerID)
 		}
-		time.Sleep(game.SleepShort)
+		time.Sleep(3 * time.Second)
 	}
 
 	// Check if we should switch to fleeing after attacking
 	state = client.GetState()
 	hullPct = getHullPercentage(state)
-	if hullPct < game.CombatHullCriticalThreshold {
+	if hullPct < 30.0 {
 		logger.Printf("⚠️  Hull critical (%.1f%%) - switching to flee mode!", hullPct)
 		return attemptFleeToStation(client, ctx, logger, expState, state)
 	}
@@ -1450,18 +1407,23 @@ func checkAndEvadeCombat(client *game.Client, ctx context.Context, logger *log.L
 // attemptFleeToStation tries to escape combat and find a station to dock for repairs
 func attemptFleeToStation(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState, state *game.State) bool {
 	// Priority 1: Try to find a station in current system
-	station := game.FindStation(state)
+	var stationPOI string
+	for _, poi := range state.System.POIs {
+		if poi.Type == "station" {
+			stationPOI = poi.ID
+			logger.Printf("🏥 Station found in current system: %s", poi.Name)
+			break
+		}
+	}
 
-	if station != nil {
-		stationPOI := station.ID
-		logger.Printf("🏥 Station found in current system: %s", station.Name)
+	if stationPOI != "" {
 		// Travel to station in current system
 		if state.CurrentPOI != stationPOI && !state.Traveling {
 			logger.Printf("→ Fleeing to station %s in current system...", stationPOI)
 			if err := client.Travel(ctx, stationPOI); err != nil {
 				logger.Printf("Failed to travel to station: %v", err)
 			} else {
-				time.Sleep(game.SleepShort)
+				time.Sleep(3 * time.Second)
 			}
 		}
 		return true // Still fleeing
@@ -1514,16 +1476,23 @@ func attemptFleeToStation(client *game.Client, ctx context.Context, logger *log.
 
 		if targetSystem != "" {
 			// Find jump gate
-			jumpGate := game.FindJumpGate(state)
-			if jumpGate != nil {
+			var targetPOI string
+			for _, poi := range state.System.POIs {
+				if poi.Type == "jump_gate" {
+					targetPOI = poi.ID
+					break
+				}
+			}
+
+			if targetPOI != "" {
 				// Travel to jump gate
-				if state.CurrentPOI != jumpGate.ID {
-					logger.Printf("→ Heading to jump gate: %s", jumpGate.ID)
-					if err := client.Travel(ctx, jumpGate.ID); err != nil {
+				if state.CurrentPOI != targetPOI {
+					logger.Printf("→ Heading to jump gate: %s", targetPOI)
+					if err := client.Travel(ctx, targetPOI); err != nil {
 						logger.Printf("Failed to travel to jump gate: %v", err)
 						return true
 					}
-					time.Sleep(game.SleepShort)
+					time.Sleep(3 * time.Second)
 				}
 
 				// Jump to safety
@@ -1535,14 +1504,14 @@ func attemptFleeToStation(client *game.Client, ctx context.Context, logger *log.
 					state = client.GetState()
 					if state.CurrentSystem == targetSystem {
 						logger.Printf("✅ Despite error, escaped to %s!", targetSystem)
-						time.Sleep(game.SleepMedium)
+						time.Sleep(5 * time.Second)
 						return false // Successfully escaped
 					}
 					return true
 				}
 
 				logger.Printf("✅ Escaped to %s!", targetSystem)
-				time.Sleep(game.SleepMedium)
+				time.Sleep(5 * time.Second)
 				return false // Successfully escaped
 			} else {
 				logger.Printf("❌ No jump gate found! Unable to escape!")
@@ -1564,7 +1533,13 @@ func handleStations(client *game.Client, ctx context.Context, logger *log.Logger
 	state := client.GetState()
 
 	// Find first station in system
-	stationPOI := game.FindStation(state)
+	var stationPOI *game.POI
+	for i := range state.System.POIs {
+		if state.System.POIs[i].Type == "station" {
+			stationPOI = &state.System.POIs[i]
+			break
+		}
+	}
 
 	if stationPOI == nil {
 		logger.Printf("No station in this system")
@@ -1580,7 +1555,7 @@ func handleStations(client *game.Client, ctx context.Context, logger *log.Logger
 		if err := client.Travel(ctx, stationPOI.ID); err != nil {
 			return fmt.Errorf("failed to travel to station: %w", err)
 		}
-		time.Sleep(game.SleepTravel)
+		time.Sleep(20 * time.Second)
 	}
 
 	// Dock
@@ -1590,7 +1565,7 @@ func handleStations(client *game.Client, ctx context.Context, logger *log.Logger
 			logger.Printf("Dock error: %v", err)
 		}
 	}
-	time.Sleep(game.SleepDocked)
+	time.Sleep(15 * time.Second)
 
 	// Save market listings
 	state = client.GetState()
@@ -1612,15 +1587,15 @@ func handleStations(client *game.Client, ctx context.Context, logger *log.Logger
 			if err := client.Refuel(ctx); err != nil {
 				logger.Printf("Refuel error: %v", err)
 			}
-			time.Sleep(game.SleepShort)
+			time.Sleep(3 * time.Second)
 		}
 
 		// Undock
 		logger.Printf("📤 Undocking...")
-		if err := game.UndockFromStation(client, ctx); err != nil {
+		if err := client.Undock(ctx); err != nil {
 			logger.Printf("Undock error: %v", err)
 		}
-		time.Sleep(game.SleepDock)
+		time.Sleep(12 * time.Second)
 	}
 
 	return nil
@@ -1640,7 +1615,13 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 	state := client.GetState()
 
 	// Check current system for station
-	stationPOI := game.FindStation(state)
+	var stationPOI *game.POI
+	for i := range state.System.POIs {
+		if state.System.POIs[i].Type == "station" {
+			stationPOI = &state.System.POIs[i]
+			break
+		}
+	}
 
 	if stationPOI != nil {
 		// Station in current system
@@ -1649,19 +1630,25 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 			if err := client.Travel(ctx, stationPOI.ID); err != nil {
 				return err
 			}
-			time.Sleep(game.SleepTravel)
+			time.Sleep(20 * time.Second)
 		}
 
-		if err := game.WithDocked(client, ctx, stationPOI.ID, func() error {
-			if err := client.Refuel(ctx); err != nil {
+		if err := client.Dock(ctx); err != nil {
+			if err.Error() != "Already docked (success)" {
 				return err
 			}
-			time.Sleep(game.SleepShort)
-			return nil
-		}); err != nil {
+		}
+		time.Sleep(15 * time.Second)
+
+		if err := client.Refuel(ctx); err != nil {
 			return err
 		}
-		time.Sleep(game.SleepDock)
+		time.Sleep(3 * time.Second)
+
+		if err := client.Undock(ctx); err != nil {
+			return err
+		}
+		time.Sleep(12 * time.Second)
 
 		return nil
 	}
@@ -1671,7 +1658,15 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 		logger.Printf("⚠️  Low fuel! Navigating back to %s for refuel", expState.LastFuelStation)
 
 		// First, check if current system has a jump gate
-		if game.FindJumpGate(state) == nil {
+		hasJumpGate := false
+		for _, poi := range state.System.POIs {
+			if poi.Type == "jump_gate" {
+				hasJumpGate = true
+				break
+			}
+		}
+
+		if !hasJumpGate {
 			logger.Printf("❌ No jump gate in current system %s! Cannot escape.", state.CurrentSystem)
 			logger.Printf("💡 Tip: If trapped without fuel, consider self-destructing to respawn at home")
 			return fmt.Errorf("no jump gate in current system %s", state.CurrentSystem)
@@ -1699,7 +1694,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 				}
 				return fmt.Errorf("failed to jump to fuel station: %w", err)
 			}
-			time.Sleep(game.SleepJump)
+			time.Sleep(25 * time.Second)
 			return findAndRefuel(client, ctx, logger, expState)
 		}
 
@@ -1714,7 +1709,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 				if err := client.Jump(ctx, conn); err != nil {
 					if strings.Contains(err.Error(), "rate_limited") {
 						logger.Printf("Rate limited, waiting...")
-						time.Sleep(game.SleepLong)
+						time.Sleep(10 * time.Second)
 					}
 					// Check if we arrived despite the error (e.g., after reconnection)
 					state = client.GetState()
@@ -1725,7 +1720,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 					// Try next connection
 					continue
 				}
-				time.Sleep(game.SleepJump)
+				time.Sleep(25 * time.Second)
 
 				// Recursively try to get fuel from this new system
 				return findAndRefuel(client, ctx, logger, expState)
@@ -1738,7 +1733,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 			if err := client.Jump(ctx, conn); err != nil {
 				if strings.Contains(err.Error(), "rate_limited") {
 					logger.Printf("Rate limited, waiting...")
-					time.Sleep(game.SleepLong)
+					time.Sleep(10 * time.Second)
 				}
 				// Check if we arrived despite the error (e.g., after reconnection)
 				state = client.GetState()
@@ -1748,7 +1743,7 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 				}
 				continue
 			}
-			time.Sleep(game.SleepJump)
+			time.Sleep(25 * time.Second)
 			return findAndRefuel(client, ctx, logger, expState)
 		}
 
@@ -1786,10 +1781,10 @@ func navigateToSystem(client *game.Client, ctx context.Context, logger *log.Logg
 	// Undock if needed
 	if state.Doc {
 		logger.Printf("📤 Undocking...")
-		if err := game.UndockFromStation(client, ctx); err != nil {
+		if err := client.Undock(ctx); err != nil {
 			logger.Printf("Undock error: %v", err)
 		}
-		time.Sleep(game.SleepDock)
+		time.Sleep(12 * time.Second)
 	}
 
 	// Jump to target system
@@ -1797,7 +1792,7 @@ func navigateToSystem(client *game.Client, ctx context.Context, logger *log.Logg
 	if err := client.Jump(ctx, targetSystem); err != nil {
 		return fmt.Errorf("failed to jump: %w", err)
 	}
-	time.Sleep(game.SleepJump)
+	time.Sleep(25 * time.Second)
 
 	return nil
 }
@@ -1808,15 +1803,16 @@ func isDamaged(state *game.State) bool {
 		return false // Avoid division by zero
 	}
 	hullPercent := (state.Ship.Hull / state.Ship.MaxHull) * 100
-	return hullPercent < game.HullDamagedThreshold
+	return hullPercent < 50
 }
 
 // findNearestStation looks for a station in the current system or returns the last known fuel station
 func findNearestStation(state *game.State, lastFuelStation string) (string, string, string) {
 	// First check if current system has a station
-	station := game.FindStation(state)
-	if station != nil {
-		return state.CurrentSystem, station.ID, station.Name
+	for _, poi := range state.System.POIs {
+		if poi.Type == "station" {
+			return state.CurrentSystem, poi.ID, poi.Name
+		}
 	}
 
 	// If no station in current system, return the last known fuel station
@@ -1851,32 +1847,39 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		logger.Printf("🚀 Traveling to system with station: %s", systemID)
 
 		// Find jump gate
-		jumpGate := game.FindJumpGate(state)
-		if jumpGate == nil {
+		var targetPOI string
+		for _, poi := range state.System.POIs {
+			if poi.Type == "jump_gate" {
+				targetPOI = poi.ID
+				break
+			}
+		}
+
+		if targetPOI == "" {
 			logger.Printf("⚠️  No jump gate in current system, cannot reach station")
 			return fmt.Errorf("no jump gate found in current system")
 		}
 
 		// Travel to jump gate if not there
-		if state.CurrentPOI != jumpGate.ID && !state.Traveling {
-			if err := client.Travel(ctx, jumpGate.ID); err != nil {
+		if state.CurrentPOI != targetPOI && !state.Traveling {
+			if err := client.Travel(ctx, targetPOI); err != nil {
 				logger.Printf("Failed to travel to jump gate: %v", err)
-				time.Sleep(game.SleepLong) // Wait before retry
+				time.Sleep(10 * time.Second) // Wait before retry
 				return err
 			}
-			time.Sleep(game.SleepTravel)
+			time.Sleep(20 * time.Second)
 		}
 
 		// Wait for any ongoing travel to complete
 		if state.Traveling {
 			logger.Printf("⏳ Waiting for travel to complete...")
-			time.Sleep(game.SleepTravel)
+			time.Sleep(20 * time.Second)
 		}
 
 		// Jump to station system
 		if err := client.Jump(ctx, systemID); err != nil {
 			logger.Printf("Failed to jump to %s: %v", systemID, err)
-			time.Sleep(game.SleepLong) // Wait before retry
+			time.Sleep(10 * time.Second) // Wait before retry
 
 			// Check if we arrived despite the error (e.g., after reconnection)
 			state = client.GetState()
@@ -1885,16 +1888,18 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 			}
 			logger.Printf("✓ Despite error, arrived at %s", systemID)
 		} else {
-			time.Sleep(game.SleepJump)
+			time.Sleep(25 * time.Second)
 			// Update state after jump
 			state = client.GetState()
 		}
 
 		// Find station in the new system
-		station := game.FindStation(state)
-		if station != nil {
-			poiID = station.ID
-			poiName = station.Name
+		for _, poi := range state.System.POIs {
+			if poi.Type == "station" {
+				poiID = poi.ID
+				poiName = poi.Name
+				break
+			}
 		}
 
 		if poiID == "" {
@@ -1904,10 +1909,12 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 	} else {
 		// Already in the system with station, find it if poiID is empty
 		if poiID == "" {
-			station := game.FindStation(state)
-			if station != nil {
-				poiID = station.ID
-				poiName = station.Name
+			for _, poi := range state.System.POIs {
+				if poi.Type == "station" {
+					poiID = poi.ID
+					poiName = poi.Name
+					break
+				}
 			}
 		}
 	}
@@ -1917,49 +1924,47 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		logger.Printf("🚀 Traveling to station: %s", poiName)
 		if err := client.Travel(ctx, poiID); err != nil {
 			logger.Printf("Failed to travel to station: %v", err)
-			time.Sleep(game.SleepLong)
+			time.Sleep(10 * time.Second)
 			return err
 		}
-		time.Sleep(game.SleepTravel)
+		time.Sleep(20 * time.Second)
 	}
 
 	// Dock
 	logger.Printf("📥 Docking at %s...", poiName)
 	if err := client.Dock(ctx); err != nil && err.Error() != "Already docked (success)" {
 		logger.Printf("Failed to dock: %v", err)
-		time.Sleep(game.SleepLong)
+		time.Sleep(10 * time.Second)
 		return err
 	}
+	time.Sleep(15 * time.Second)
 
-	// Repair and undock
-	if err := game.WithDocked(client, ctx, poiID, func() error {
-		// Repair
-		logger.Printf("🔧 Repairing ship...")
-		if err := client.Repair(ctx); err != nil {
-			logger.Printf("Failed to repair: %v", err)
-			time.Sleep(game.SleepLong)
-			return err
-		}
-		time.Sleep(game.SleepShort)
-
-		// Check repair success
-		state = client.GetState()
-		logger.Printf("✅ Repaired! Hull: %.0f/%.0f (%.1f%%), Armor: %.0f",
-			state.Ship.Hull,
-			state.Ship.MaxHull,
-			(state.Ship.Hull/state.Ship.MaxHull)*100,
-			state.Ship.Armor)
-
-		// Update last fuel station
-		expState.LastFuelStation = systemID
-
-		return nil
-	}); err != nil {
+	// Repair
+	logger.Printf("🔧 Repairing ship...")
+	if err := client.Repair(ctx); err != nil {
+		logger.Printf("Failed to repair: %v", err)
+		time.Sleep(10 * time.Second)
 		return err
 	}
+	time.Sleep(3 * time.Second)
 
-	logger.Printf("📤 Undocked from %s", poiName)
-	time.Sleep(game.SleepDock)
+	// Check repair success
+	state = client.GetState()
+	logger.Printf("✅ Repaired! Hull: %.0f/%.0f (%.1f%%), Armor: %.0f",
+		state.Ship.Hull,
+		state.Ship.MaxHull,
+		(state.Ship.Hull/state.Ship.MaxHull)*100,
+		state.Ship.Armor)
+
+	// Update last fuel station
+	expState.LastFuelStation = systemID
+
+	// Undock before continuing
+	logger.Printf("📤 Undocking from %s...", poiName)
+	if err := client.Undock(ctx); err != nil {
+		logger.Printf("Failed to undock: %v", err)
+	}
+	time.Sleep(12 * time.Second)
 
 	return nil
 }
@@ -2002,7 +2007,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		// Check for combat and evade if necessary
 		if checkAndEvadeCombat(client, ctx, logger, expState) {
 			// We're in combat, wait before trying again
-			time.Sleep(game.SleepLong)
+			time.Sleep(10 * time.Second)
 			continue
 		}
 
@@ -2012,7 +2017,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			if err := repairShip(client, ctx, logger, expState); err != nil {
 				logger.Printf("Failed to repair: %v", err)
 				// Wait before retrying to avoid rate limiting
-				time.Sleep(game.SleepLong)
+				time.Sleep(10 * time.Second)
 				continue
 			}
 			// After repair, restart the loop to check state again
@@ -2060,14 +2065,14 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				// Handle "not connected" errors specially - need reconnection time
 				if strings.Contains(errMsg, "not connected") || strings.Contains(errMsg, "rate_limit") {
 					logger.Printf("⚠️  Connection error detected, waiting for reconnection...")
-					time.Sleep(game.SleepTravel) // Longer wait for reconnection
+					time.Sleep(20 * time.Second) // Longer wait for reconnection
 
 					// Refresh system data to verify actual location
 					logger.Printf("🔍 Refreshing system data after reconnection...")
 					if refreshErr := client.GetSystem(ctx); refreshErr != nil {
 						logger.Printf("⚠️  Failed to refresh system: %v", refreshErr)
 					} else {
-						time.Sleep(game.SleepQuick)
+						time.Sleep(2 * time.Second)
 					}
 
 					// Check if we're actually connected now
@@ -2084,10 +2089,10 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 						expState.DFSStack = expState.DFSStack[:len(expState.DFSStack)-1]
 					}
 					// Extra delay before trying again to avoid rate limiting
-					time.Sleep(game.SleepLong)
+					time.Sleep(10 * time.Second)
 				} else {
 					logger.Printf("Navigation error: %v", err)
-					time.Sleep(game.SleepLong)
+					time.Sleep(10 * time.Second)
 
 					// After reconnection, check if we actually arrived at destination despite the error
 					state = client.GetState()
@@ -2123,7 +2128,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				expState.VisitedPOIs = make(map[string]bool)
 				expState.DFSStack = []string{}
 				expState.PreviousSystem = ""
-				time.Sleep(game.SleepReconnect)
+				time.Sleep(30 * time.Second)
 				continue
 			}
 
@@ -2138,14 +2143,14 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				// Handle "not connected" errors specially - need reconnection time
 				if strings.Contains(errMsg, "not connected") || strings.Contains(errMsg, "rate_limit") {
 					logger.Printf("Connection error detected, waiting for reconnection...")
-					time.Sleep(game.SleepTravel) // Longer wait for reconnection
+					time.Sleep(20 * time.Second) // Longer wait for reconnection
 
 					// Refresh system data to verify actual location
 					logger.Printf("Refreshing system data after reconnection...")
 					if refreshErr := client.GetSystem(ctx); refreshErr != nil {
 						logger.Printf("Failed to refresh system: %v", refreshErr)
 					} else {
-						time.Sleep(game.SleepQuick)
+						time.Sleep(2 * time.Second)
 					}
 
 					// Check if we're actually connected now
@@ -2158,10 +2163,10 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 
 					logger.Printf("Still in %s, failed to reach %s", state.CurrentSystem, backtrackSystem)
 					// Don't put system back on stack - try different route
-					time.Sleep(game.SleepLong)
+					time.Sleep(10 * time.Second)
 				} else {
 					logger.Printf("Backtrack error: %v", err)
-					time.Sleep(game.SleepLong)
+					time.Sleep(10 * time.Second)
 
 					// After reconnection, check if we actually arrived at destination despite error
 					state = client.GetState()
@@ -2178,7 +2183,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 
 		}
 
-		time.Sleep(game.SleepMedium)
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -2329,7 +2334,7 @@ func main() {
 
 	// Wait for connection
 	<-client.Ready()
-	time.Sleep(game.GameTickRate)
+	time.Sleep(1 * time.Second)
 
 	// Login
 	logger.Printf("Logging in...")
@@ -2342,7 +2347,7 @@ func main() {
 		log.Fatalf("Failed to login: %v", err)
 	}
 
-	time.Sleep(game.SleepQuick)
+	time.Sleep(2 * time.Second)
 
 	// Get initial state
 	state := client.GetState()
@@ -2350,7 +2355,6 @@ func main() {
 
 	// Check if we need Phase 1 (mining & upgrades)
 	// Skip if already have a better ship than starter_mining (Prospector)
-	// Ships beyond starter_mining should have sufficient equipment to start exploring
 	skipMiningPhase := state.Ship.ClassID != "starter_mining"
 
 	if skipMiningPhase {
