@@ -8,6 +8,7 @@ interface ConnectionPanelProps {
 export const ConnectionPanel: React.FC<ConnectionPanelProps> = ({ observer }) => {
   const [agentInput, setAgentInput] = useState('');
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const handleConnect = () => {
     if (observer.status === 'disconnected') {
@@ -62,6 +63,20 @@ export const ConnectionPanel: React.FC<ConnectionPanelProps> = ({ observer }) =>
             >
               {adding ? 'Adding...' : 'Add & Watch'}
             </button>
+            {observer.subscribedAgent && (
+              <button
+                onClick={async () => {
+                  if (!observer.subscribedAgent) return;
+                  setRemoving(true);
+                  await observer.removeAgent(observer.subscribedAgent);
+                  setRemoving(false);
+                }}
+                disabled={removing}
+                className="px-4 py-2 rounded text-sm font-medium bg-red-800 hover:bg-red-700 text-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {removing ? 'Stopping...' : 'Stop Watching'}
+              </button>
+            )}
           </div>
         )}
 

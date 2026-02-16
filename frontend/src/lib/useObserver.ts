@@ -240,6 +240,34 @@ export function useObserver(wsUrl: string) {
     }
   }, [wsUrl]);
 
+  const removeAgent = useCallback(async (username: string): Promise<boolean> => {
+    setState(s => ({ ...s, error: null }));
+    try {
+      const resp = await fetch(`/api/agents/${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        setState(s => ({ ...s, error: err.error || 'Failed to remove agent' }));
+        return false;
+      }
+      // Clear player state if we were watching this agent.
+      setState(s => {
+        if (s.subscribedAgent === username) {
+          return { ...s, subscribedAgent: null, player: null, skills: [] };
+        }
+        return s;
+      });
+      gameStateRef.current = {};
+      // Refresh agent list.
+      wsRef.current?.send(JSON.stringify({ type: 'list_agents' }));
+      return true;
+    } catch (err) {
+      setState(s => ({ ...s, error: `Failed to remove agent: ${err}` }));
+      return false;
+    }
+  }, []);
+
   const listAgents = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ type: 'list_agents' }));
   }, []);
@@ -315,6 +343,7 @@ export function useObserver(wsUrl: string) {
     disconnect,
     subscribe,
     addAgent,
+    removeAgent,
     listAgents,
   };
 }

@@ -32,9 +32,9 @@ export interface SystemMapData {
 function computeAngle(from: { x: number; y: number }, to: { x: number; y: number }): number {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  // atan2 gives angle from positive X axis, counter-clockwise.
-  // Convert to 0° = North, clockwise.
-  const rad = Math.atan2(dx, dy); // Note: atan2(dx, dy) gives angle from North
+  // atan2(dx, dy) gives angle from +Y axis (North) clockwise.
+  // Negate dy because the system map flips Y (screen Y increases downward).
+  const rad = Math.atan2(dx, -dy);
   let deg = rad * (180 / Math.PI);
   if (deg < 0) deg += 360;
   return deg;

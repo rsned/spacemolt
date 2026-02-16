@@ -155,7 +155,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           // Center on (0,0) and flip Y axis
           const x = poi.x * scale + centerX;
           const y = -poi.y * scale + centerY;
-          const isCurrent = poi.name === player.location.poi;
+          const isCurrent = poi.id === player.location.poi || poi.name === player.location.poi;
 
           return (
             <g key={poi.id}>
@@ -374,10 +374,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
 
         {/* Player ship — rendered last so it's always on top */}
         {(() => {
-          const currentPOI = pois.find((p) => p.name === player.location.poi);
+          const currentPOI = pois.find((p) => p.id === player.location.poi || p.name === player.location.poi);
           if (!currentPOI) return null;
-          const sx = currentPOI.x * scale + centerX + 25;
-          const sy = -currentPOI.y * scale + centerY + 25;
+          const sx = currentPOI.x * scale + centerX + 10;
+          const sy = -currentPOI.y * scale + centerY + 10;
           return (
             <text
               x={sx}
