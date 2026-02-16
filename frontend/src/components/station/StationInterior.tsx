@@ -18,6 +18,21 @@ const categoryIcons: Record<string, { icon: string; color: string; label: string
 export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
   // Get POI ID from player location
   const poiId = player.location.dockedAt || null;
+
+  // If not docked, show simple message
+  if (!poiId) {
+    return (
+      <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg p-12">
+        <div className="text-center">
+          <h2 className="font-sci-fi text-cyan-400 text-2xl mb-4">STATION INTERIOR</h2>
+          <div className="text-6xl mb-4">🚀</div>
+          <div className="text-gray-400 text-lg">You must dock at a station to access its facilities</div>
+          <div className="text-gray-500 text-sm mt-2">Use the System Map to find the nearest station</div>
+        </div>
+      </div>
+    );
+  }
+
   const { data: stationData, loading, error } = useStationData(poiId);
 
   // Group facilities by category
