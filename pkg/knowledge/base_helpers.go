@@ -66,6 +66,30 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 		})
 	}
 
+	// Parse facilities with category information
+	var facilities []Facility
+	for _, facilityID := range response.Base.Facilities {
+		// Look up facility in the mapping to get category and level
+		if facilityInfo, ok := FacilityCategoryMapping[facilityID]; ok {
+			facilities = append(facilities, Facility{
+				ID:          facilityInfo.ID,
+				Name:        facilityInfo.Name,
+				Category:    facilityInfo.Category,
+				Level:       facilityInfo.Level,
+				LastUpdated: lastUpdatedTick,
+			})
+		} else {
+			// Unknown facility - add with minimal info
+			facilities = append(facilities, Facility{
+				ID:          facilityID,
+				Name:        facilityID,
+				Category:    "unknown",
+				Level:       0,
+				LastUpdated: lastUpdatedTick,
+			})
+		}
+	}
+
 	base := &SpaceBase{
 		ID:              response.Base.ID,
 		POIID:           response.Base.POIID,
@@ -76,7 +100,7 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 		HasDrones:       response.Base.HasDrones,
 		PublicAccess:    response.Base.PublicAccess,
 		Services:        response.Base.Services,
-		Facilities:      response.Base.Facilities,
+		Facilities:      facilities,
 		Market:          marketItems,
 		DiscoveredBy:    discoveredBy,
 		LastUpdatedTick: lastUpdatedTick,

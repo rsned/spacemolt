@@ -93,6 +93,30 @@ func main() {
 		})
 	}
 
+	// Parse facilities with category information
+	var facilities []knowledge.Facility
+	for _, facilityID := range response.Base.Facilities {
+		// Look up facility in the mapping to get category and level
+		if facilityInfo, ok := knowledge.FacilityCategoryMapping[facilityID]; ok {
+			facilities = append(facilities, knowledge.Facility{
+				ID:          facilityInfo.ID,
+				Name:        facilityInfo.Name,
+				Category:    facilityInfo.Category,
+				Level:       facilityInfo.Level,
+				LastUpdated: 0, // Import tool doesn't have tick info
+			})
+		} else {
+			// Unknown facility - add with minimal info
+			facilities = append(facilities, knowledge.Facility{
+				ID:          facilityID,
+				Name:        facilityID,
+				Category:    "unknown",
+				Level:       0,
+				LastUpdated: 0,
+			})
+		}
+	}
+
 	// Create SpaceBase
 	base := knowledge.SpaceBase{
 		ID:              response.Base.ID,
@@ -104,7 +128,7 @@ func main() {
 		HasDrones:       response.Base.HasDrones,
 		PublicAccess:    response.Base.PublicAccess,
 		Services:        response.Base.Services,
-		Facilities:      response.Base.Facilities,
+		Facilities:      facilities,
 		Market:          marketItems,
 		DiscoveredBy:    "import",
 		LastUpdatedTick: 0,

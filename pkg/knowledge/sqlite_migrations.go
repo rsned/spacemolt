@@ -332,6 +332,19 @@ CREATE INDEX IF NOT EXISTS idx_base_market_base_id ON base_market(base_id);
 CREATE INDEX IF NOT EXISTS idx_base_market_item_id ON base_market(item_id);
 `,
 		},
+		{
+			version: 7,
+			name:    "add_facility_category_level",
+			sql: `
+-- Add category, level, and last_updated columns to base_facilities table
+ALTER TABLE base_facilities ADD COLUMN category TEXT DEFAULT 'unknown';
+ALTER TABLE base_facilities ADD COLUMN level INTEGER DEFAULT 0;
+ALTER TABLE base_facilities ADD COLUMN last_updated INTEGER DEFAULT 0;
+
+-- Create index for category-based queries
+CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
+`,
+		},
 	}
 }
 

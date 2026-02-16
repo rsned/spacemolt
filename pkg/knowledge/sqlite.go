@@ -404,9 +404,9 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 	// Insert facilities
 	for _, facility := range base.Facilities {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO base_facilities (base_id, facility_name)
-			VALUES (?, ?)
-		`, base.ID, facility)
+			INSERT INTO base_facilities (base_id, facility_name, category, level, last_updated)
+			VALUES (?, ?, ?, ?, ?)
+		`, base.ID, facility.ID, facility.Category, facility.Level, base.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert base facility: %w", err)
 		}
@@ -492,7 +492,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 
 	// Load facilities
 	rows, err = kb.db.QueryContext(ctx, `
-		SELECT facility_name
+		SELECT facility_name, category, level, last_updated
 		FROM base_facilities
 		WHERE base_id = ?
 		ORDER BY facility_name
@@ -503,10 +503,42 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
-		var facility string
-		if err := rows.Scan(&facility); err != nil {
+		var facilityID string
+		var category sql.NullString
+		var level sql.NullInt64
+		var lastUpdated sql.NullInt64
+		if err := rows.Scan(&facilityID, &category, &level, &lastUpdated); err != nil {
 			return nil, fmt.Errorf("failed to scan base facility: %w", err)
 		}
+
+		// Build facility struct
+		facility := Facility{
+			ID:   facilityID,
+			Name: facilityID, // Will be looked up from mapping if needed
+		}
+		if category.Valid {
+			facility.Category = category.String
+		} else {
+			facility.Category = "unknown"
+		}
+		if level.Valid {
+			facility.Level = int(level.Int64)
+		} else {
+			facility.Level = 0
+		}
+		if lastUpdated.Valid {
+			facility.LastUpdated = lastUpdated.Int64
+		}
+
+		// If category is unknown, try to look it up from the mapping
+		if facility.Category == "unknown" {
+			if mapped, ok := FacilityCategoryMapping[facilityID]; ok {
+				facility.Name = mapped.Name
+				facility.Category = mapped.Category
+				facility.Level = mapped.Level
+			}
+		}
+
 		base.Facilities = append(base.Facilities, facility)
 	}
 	_ = rows.Close()
@@ -590,7 +622,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 
 	// Load facilities (same as GetBase)
 	rows, err = kb.db.QueryContext(ctx, `
-		SELECT facility_name
+		SELECT facility_name, category, level, last_updated
 		FROM base_facilities
 		WHERE base_id = ?
 		ORDER BY facility_name
@@ -601,10 +633,42 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
-		var facility string
-		if err := rows.Scan(&facility); err != nil {
+		var facilityID string
+		var category sql.NullString
+		var level sql.NullInt64
+		var lastUpdated sql.NullInt64
+		if err := rows.Scan(&facilityID, &category, &level, &lastUpdated); err != nil {
 			return nil, fmt.Errorf("failed to scan base facility: %w", err)
 		}
+
+		// Build facility struct
+		facility := Facility{
+			ID:   facilityID,
+			Name: facilityID,
+		}
+		if category.Valid {
+			facility.Category = category.String
+		} else {
+			facility.Category = "unknown"
+		}
+		if level.Valid {
+			facility.Level = int(level.Int64)
+		} else {
+			facility.Level = 0
+		}
+		if lastUpdated.Valid {
+			facility.LastUpdated = lastUpdated.Int64
+		}
+
+		// If category is unknown, try to look it up from the mapping
+		if facility.Category == "unknown" {
+			if mapped, ok := FacilityCategoryMapping[facilityID]; ok {
+				facility.Name = mapped.Name
+				facility.Category = mapped.Category
+				facility.Level = mapped.Level
+			}
+		}
+
 		base.Facilities = append(base.Facilities, facility)
 	}
 	_ = rows.Close()

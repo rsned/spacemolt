@@ -306,7 +306,7 @@ type SpaceBase struct {
 	HasDrones       bool
 	PublicAccess    bool
 	Services        map[string]bool
-	Facilities      []string
+	Facilities      []Facility // Facilities with category and level information
 	Market          []BaseMarketItem
 	DiscoveredBy    string
 	LastUpdatedTick int64
@@ -319,6 +319,54 @@ type BaseMarketItem struct {
 	PriceEach  float64
 	Quantity   int
 	IsNPC      bool
+}
+
+// Facility represents a facility at a base with category and level information
+type Facility struct {
+	ID            string // Facility ID (e.g., "grand_solarian_exchange")
+	Name          string // Display name
+	Category      string // Category: "service", "infrastructure", "production", "faction", "personal"
+	Level         int    // Facility level (1-5)
+	LastUpdated   int64  // Last updated tick for data freshness tracking
+}
+
+// FacilityCategoryMapping maps facility IDs to their metadata
+// This is populated from game data since the API doesn't provide categories
+var FacilityCategoryMapping = map[string]Facility{
+	// Service facilities (commercial/visitor services)
+	"grand_solarian_exchange":   {ID: "grand_solarian_exchange", Name: "Grand Solarian Exchange", Category: "service", Level: 5},
+	"sol_admin_bureau":          {ID: "sol_admin_bureau", Name: "Solarian Admin Bureau", Category: "service", Level: 5},
+	"sol_bonded_warehouse":      {ID: "sol_bonded_warehouse", Name: "Solarian Bonded Warehouse", Category: "service", Level: 5},
+	"sol_precision_drydock":     {ID: "sol_precision_drydock", Name: "Precision Drydock", Category: "service", Level: 5},
+	"sol_naval_shipyard":        {ID: "sol_naval_shipyard", Name: "Naval Shipyard", Category: "service", Level: 5},
+	"sol_research_labs":         {ID: "sol_research_labs", Name: "Research Labs", Category: "service", Level: 5},
+	"haven_grand_bazaar":        {ID: "haven_grand_bazaar", Name: "Grand Bazaar", Category: "service", Level: 5},
+	"haven_promenade":           {ID: "haven_promenade", Name: "Promenade", Category: "service", Level: 5},
+	"haven_repair_complex":      {ID: "haven_repair_complex", Name: "Repair Complex", Category: "service", Level: 5},
+	"haven_fuel_plaza":          {ID: "haven_fuel_plaza", Name: "Fuel Plaza", Category: "service", Level: 5},
+	"haven_ship_showroom":       {ID: "haven_ship_showroom", Name: "Ship Showroom", Category: "service", Level: 5},
+	"haven_makers_market":       {ID: "haven_makers_market", Name: "Makers Market", Category: "service", Level: 5},
+	"haven_trade_commission":    {ID: "haven_trade_commission", Name: "Trade Commission", Category: "service", Level: 5},
+	"haven_premium_storage":     {ID: "haven_premium_storage", Name: "Premium Storage", Category: "service", Level: 5},
+	"trade_cipher_foundry":      {ID: "trade_cipher_foundry", Name: "Trade Cipher Foundry", Category: "service", Level: 5},
+
+	// Infrastructure facilities (station systems)
+	"solarian_fusion_plant":     {ID: "solarian_fusion_plant", Name: "Solarian Fusion Plant", Category: "infrastructure", Level: 5},
+	"solarian_life_support":     {ID: "solarian_life_support", Name: "Solarian Life Support", Category: "infrastructure", Level: 5},
+	"nebula_solar_array":        {ID: "nebula_solar_array", Name: "Nebula Solar Array", Category: "infrastructure", Level: 5},
+	"nebula_life_support":       {ID: "nebula_life_support", Name: "Nebula Life Support", Category: "infrastructure", Level: 5},
+
+	// Production facilities (manufacturing)
+	"iron_refinery":             {ID: "iron_refinery", Name: "Iron Refinery", Category: "production", Level: 1},
+	"circuit_fabricator":        {ID: "circuit_fabricator", Name: "Circuit Fabricator", Category: "production", Level: 1},
+	"copper_wire_mill":          {ID: "copper_wire_mill", Name: "Copper Wire Mill", Category: "production", Level: 1},
+	"polymer_synthesizer":       {ID: "polymer_synthesizer", Name: "Polymer Synthesizer", Category: "production", Level: 1},
+	"fuel_cell_plant":           {ID: "fuel_cell_plant", Name: "Fuel Cell Plant", Category: "production", Level: 1},
+	"repair_kit_factory":        {ID: "repair_kit_factory", Name: "Repair Kit Factory", Category: "production", Level: 1},
+	"power_cell_assembler":      {ID: "power_cell_assembler", Name: "Power Cell Assembler", Category: "production", Level: 1},
+	"sensor_assembly":           {ID: "sensor_assembly", Name: "Sensor Assembly", Category: "production", Level: 2},
+	"sol_galley":                {ID: "sol_galley", Name: "Solarian Galley", Category: "production", Level: 1},
+	"sol_fuel_grid":             {ID: "sol_fuel_grid", Name: "Solarian Fuel Grid", Category: "production", Level: 5},
 }
 
 // Experience represents a significant event
