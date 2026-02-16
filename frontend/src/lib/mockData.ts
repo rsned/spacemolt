@@ -15,6 +15,7 @@ export const mockPlayer: Player = {
   cargo: 353,
   cargoMax: 400,
   location: {
+    systemId: "zibal",
     system: "Zibal",
     poi: "Zibal Ice Shelf",
     dockedAt: null,

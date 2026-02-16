@@ -11,6 +11,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // ObserverServer manages agent connections and browser clients.
@@ -18,6 +19,7 @@ type ObserverServer struct {
 	agents     map[string]*AgentSession
 	browserHub *BrowserHub
 	creds      credentials.Provider
+	kb         knowledge.Base
 	gameURL    string
 	cache      *Cache
 	mu         sync.RWMutex
@@ -25,11 +27,12 @@ type ObserverServer struct {
 }
 
 // NewObserverServer creates a new observer server.
-func NewObserverServer(creds credentials.Provider, gameURL string, logger *log.Logger) *ObserverServer {
+func NewObserverServer(creds credentials.Provider, kb knowledge.Base, gameURL string, logger *log.Logger) *ObserverServer {
 	return &ObserverServer{
 		agents:     make(map[string]*AgentSession),
 		browserHub: NewBrowserHub(logger),
 		creds:      creds,
+		kb:         kb,
 		gameURL:    gameURL,
 		cache:      NewCache(),
 		logger:     logger,

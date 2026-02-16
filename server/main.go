@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/credentials"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 	serverURL := flag.String("server-url", "wss://game.spacemolt.com/ws", "Game server WebSocket URL")
 	credsBackend := flag.String("creds-backend", "file", "Credentials backend: file, sqlite, env")
 	credsPath := flag.String("creds-path", "", "Path to credentials file/directory/database")
+	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to knowledge database")
 	staticDir := flag.String("static-dir", "", "Directory to serve static frontend files from")
 	flag.Parse()
 
@@ -29,13 +31,27 @@ func main() {
 		logger.Fatalf("failed to initialize credentials: %v", err)
 	}
 
-	server := NewObserverServer(creds, *serverURL, logger)
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{
+		DBPath:       *dbPath,
+		WAL:          true,
+		MaxOpenConns: 5,
+		MaxIdleConns: 2,
+	})
+	if err != nil {
+		logger.Fatalf("failed to open knowledge database: %v", err)
+	}
+	defer func() { _ = kb.Close() }()
+
+	server := NewObserverServer(creds, kb, *serverURL, logger)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", server.HandleBrowserWS)
 	mux.HandleFunc("GET /api/agents", server.HandleAPIAgents)
 	mux.HandleFunc("POST /api/agents", server.HandleAPIAgents)
 	mux.HandleFunc("DELETE /api/agents/{username}", server.HandleAPIAgents)
+	mux.HandleFunc("GET /api/systems", server.HandleGetSystems)
+	mux.HandleFunc("GET /api/systems/{id}", server.HandleGetSystem)
+	mux.HandleFunc("GET /api/systems/{id}/pois", server.HandleGetSystemPOIs)
 
 	if *staticDir != "" {
 		if info, err := os.Stat(*staticDir); err == nil && info.IsDir() {

@@ -55,7 +55,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const centerY = dimensions.height / 2;
 
   return (
-    <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg p-4 relative" style={{ height: '600px' }}>
+    <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg p-4 relative" style={{ height: '900px' }}>
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-sci-fi text-cyan-400">{player.location.system} SYSTEM</h2>
         <div className="flex items-center gap-4 text-sm">
@@ -69,14 +69,14 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ maxHeight: '500px' }}
+        style={{ maxHeight: '800px' }}
       >
         {/* Axis lines */}
         <g opacity="0.8">
           {/* X-axis */}
-          <line x1="0" y1={centerY} x2={dimensions.width} y2={centerY} stroke="#6b7280" strokeWidth="1" />
+          <line x1="0" y1={centerY} x2={dimensions.width} y2={centerY} stroke="#9ca3af" strokeWidth="1" />
           {/* Y-axis */}
-          <line x1={centerX} y1="0" x2={centerX} y2={dimensions.height} stroke="#6b7280" strokeWidth="1" />
+          <line x1={centerX} y1="0" x2={centerX} y2={dimensions.height} stroke="#9ca3af" strokeWidth="1" />
 
           {/* X-axis tick marks and labels */}
           {Array.from({ length: Math.ceil(dimensions.width / 2 / scale) }, (_, i) => {
@@ -88,15 +88,15 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 {/* Positive ticks */}
                 {x < dimensions.width && (
                   <>
-                    <line x1={x} y1={centerY - 5} x2={x} y2={centerY + 5} stroke="#6b7280" strokeWidth="1" />
-                    {offset > 0 && <text x={x} y={centerY + 18} fill="#6b7280" fontSize="9" textAnchor="middle">{offset}</text>}
+                    <line x1={x} y1={centerY - 5} x2={x} y2={centerY + 5} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={x} y={centerY + 18} fill="#9ca3af" fontSize="9" textAnchor="middle">{offset}</text>}
                   </>
                 )}
                 {/* Negative ticks */}
                 {xNeg > 0 && (
                   <>
-                    <line x1={xNeg} y1={centerY - 5} x2={xNeg} y2={centerY + 5} stroke="#6b7280" strokeWidth="1" />
-                    {offset > 0 && <text x={xNeg} y={centerY + 18} fill="#6b7280" fontSize="9" textAnchor="middle">-{offset}</text>}
+                    <line x1={xNeg} y1={centerY - 5} x2={xNeg} y2={centerY + 5} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={xNeg} y={centerY + 18} fill="#9ca3af" fontSize="9" textAnchor="middle">-{offset}</text>}
                   </>
                 )}
               </g>
@@ -113,15 +113,15 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 {/* Positive ticks (up in game coordinates, which is down in screen coordinates flipped) */}
                 {y > 0 && (
                   <>
-                    <line x1={centerX - 5} y1={y} x2={centerX + 5} y2={y} stroke="#6b7280" strokeWidth="1" />
-                    {offset > 0 && <text x={centerX - 10} y={y + 3} fill="#6b7280" fontSize="9" textAnchor="end">{offset}</text>}
+                    <line x1={centerX - 5} y1={y} x2={centerX + 5} y2={y} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={centerX - 10} y={y + 3} fill="#9ca3af" fontSize="9" textAnchor="end">{offset}</text>}
                   </>
                 )}
                 {/* Negative ticks */}
                 {yNeg < dimensions.height && (
                   <>
-                    <line x1={centerX - 5} y1={yNeg} x2={centerX + 5} y2={yNeg} stroke="#6b7280" strokeWidth="1" />
-                    {offset > 0 && <text x={centerX - 10} y={yNeg + 3} fill="#6b7280" fontSize="9" textAnchor="end">-{offset}</text>}
+                    <line x1={centerX - 5} y1={yNeg} x2={centerX + 5} y2={yNeg} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={centerX - 10} y={yNeg + 3} fill="#9ca3af" fontSize="9" textAnchor="end">-{offset}</text>}
                   </>
                 )}
               </g>
@@ -143,7 +143,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 cy={centerY}
                 r={orbitRadius}
                 fill="none"
-                stroke="#6b7280"
+                stroke="#9ca3af"
                 strokeWidth="1"
                 strokeDasharray="4,4"
                 opacity="0.8"
@@ -155,7 +155,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           // Center on (0,0) and flip Y axis
           const x = poi.x * scale + centerX;
           const y = -poi.y * scale + centerY;
-          const isCurrent = poi.id === 'ice';
+          const isCurrent = poi.name === player.location.poi;
 
           return (
             <g key={poi.id}>
@@ -183,7 +183,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               )}
 
               {/* Highlight for current location */}
-              {isCurrent && poi.type === 'ice_field' && (
+              {isCurrent && (
                 <circle
                   cx={x}
                   cy={y}
@@ -209,16 +209,13 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                     strokeDasharray="6,3"
                     opacity="0.6"
                   />
-                  {/* Ice chunks scattered in the field */}
                   {[...Array(12)].map((_, i) => {
-                    // Random angle and radius for more natural distribution
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = 15 + Math.random() * 25;
+                    const angle = (i / 12) * Math.PI * 2 + (poi.id.charCodeAt(0) * 0.5);
+                    const radius = 15 + ((i * 7 + poi.id.charCodeAt(1)) % 25);
                     const chunkX = x + Math.cos(angle) * radius;
                     const chunkY = y + Math.sin(angle) * radius;
-                    // Varying chunk sizes
-                    const size = 3 + Math.random() * 4;
-                    const opacity = 0.4 + Math.random() * 0.3;
+                    const size = 3 + ((i * 3 + poi.id.charCodeAt(0)) % 4);
+                    const opacity = 0.4 + ((i * 5) % 3) * 0.1;
                     return (
                       <polygon
                         key={i}
@@ -231,6 +228,53 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 </g>
               )}
 
+              {/* Asteroid belt: Show dashed ring with rocky chunks */}
+              {(poi.type === 'asteroid_belt' || poi.type === 'asteroid') && (
+                <g>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="35"
+                    fill="none"
+                    stroke="#d97706"
+                    strokeWidth="1.5"
+                    strokeDasharray="5,4"
+                    opacity="0.5"
+                  />
+                  {[...Array(10)].map((_, i) => {
+                    const angle = (i / 10) * Math.PI * 2 + (poi.id.charCodeAt(0) * 0.3);
+                    const radius = 12 + ((i * 11 + poi.id.charCodeAt(1)) % 22);
+                    const chunkX = x + Math.cos(angle) * radius;
+                    const chunkY = y + Math.sin(angle) * radius;
+                    const size = 2 + ((i * 3 + poi.id.charCodeAt(0)) % 4);
+                    const opacity = 0.35 + ((i * 7) % 4) * 0.1;
+                    return (
+                      <polygon
+                        key={i}
+                        points={`${chunkX},${chunkY - size} ${chunkX + size},${chunkY + size * 0.3} ${chunkX - size * 0.6},${chunkY + size}`}
+                        fill="#f59e0b"
+                        opacity={opacity}
+                      />
+                    );
+                  })}
+                </g>
+              )}
+
+              {/* Station: hexagonal outline */}
+              {poi.type === 'station' && (() => {
+                const r = 14;
+                const hex = Array.from({ length: 6 }, (_, i) => {
+                  const a = (Math.PI / 3) * i - Math.PI / 6;
+                  return `${x + r * Math.cos(a)},${y + r * Math.sin(a)}`;
+                }).join(' ');
+                return (
+                  <g>
+                    <polygon points={hex} fill="none" stroke="#e5e7eb" strokeWidth="1.5" opacity="0.6" />
+                    <polygon points={hex} fill="#374151" opacity="0.3" />
+                  </g>
+                );
+              })()}
+
               {/* POI icon */}
               <text
                 x={x}
@@ -238,7 +282,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 textAnchor="middle"
                 dominantBaseline="central"
                 className={getPOIColor(poi.type)}
-                style={{ fontSize: poi.type === 'sun' ? '40px' : '28px', cursor: 'pointer' }}
+                style={{ fontSize: poi.type === 'sun' ? '40px' : poi.type === 'station' ? '21px' : '28px', cursor: 'pointer' }}
               >
                 {getPOIIcon(poi.type)}
               </text>
@@ -254,7 +298,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               {poi.resources && (
                 <g>
                   {poi.resources.map((res, idx) => (
-                    <text key={idx} x={x + 40} y={y - 10 + idx * 14} fill="#6b7280" fontSize="9">
+                    <text key={idx} x={x + 40} y={y - 10 + idx * 14} fill="#d1d5db" fontSize="9">
                       {res.name} {res.amount}
                     </text>
                   ))}
@@ -298,18 +342,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 opacity="0.5"
                 strokeDasharray="4,2"
               />
-              {/* Jump gate symbol */}
-              <text
-                x={gateX}
-                y={gateY}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize="24"
-                fill="#22d3ee"
-                opacity="0.9"
-              >
-                ⊕
-              </text>
+              {/* Jump gate crosshair */}
+              <circle cx={gateX} cy={gateY} r="8" fill="none" stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
+              <line x1={gateX - 12} y1={gateY} x2={gateX + 12} y2={gateY} stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
+              <line x1={gateX} y1={gateY - 12} x2={gateX} y2={gateY + 12} stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
               {/* System name */}
               <text
                 x={gateX}
@@ -336,28 +372,24 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           );
         })}
 
-        {/* Ship traveling animation - positioned dynamically */}
-        <g>
-          <animateTransform
-            attributeName="transform"
-            type="translate"
-            values="0,0; 100,0; 0,0"
-            dur="3s"
-            repeatCount="indefinite"
-          />
-          <text x={centerX - 100} y={centerY} fontSize="20">
-            🚀
-          </text>
-          <line
-            x1={centerX - 100}
-            y1={centerY}
-            x2={centerX}
-            y2={centerY}
-            stroke="#22d3ee"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
-        </g>
+        {/* Player ship — rendered last so it's always on top */}
+        {(() => {
+          const currentPOI = pois.find((p) => p.name === player.location.poi);
+          if (!currentPOI) return null;
+          const sx = currentPOI.x * scale + centerX + 25;
+          const sy = -currentPOI.y * scale + centerY + 25;
+          return (
+            <text
+              x={sx}
+              y={sy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize="16"
+            >
+              🚀
+            </text>
+          );
+        })()}
       </svg>
 
       <div className="absolute bottom-4 left-4 right-4 flex justify-between text-xs">

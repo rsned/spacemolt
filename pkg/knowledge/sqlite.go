@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	_ "modernc.org/sqlite"
 )
 
@@ -313,6 +314,35 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating POIs: %w", err)
+	}
+
+	// Load resources for all POIs in this system in a single query.
+	resRows, err := kb.db.QueryContext(ctx, `
+		SELECT pr.poi_id, pr.resource_id, pr.richness, pr.remaining
+		FROM poi_resources pr
+		JOIN pois p ON pr.poi_id = p.id
+		WHERE p.system_id = ?
+	`, systemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query POI resources: %w", err)
+	}
+	defer func() { _ = resRows.Close() }()
+
+	resMap := make(map[string][]game.POIResource)
+	for resRows.Next() {
+		var poiID string
+		var res game.POIResource
+		if err := resRows.Scan(&poiID, &res.ResourceID, &res.Richness, &res.Remaining); err != nil {
+			return nil, fmt.Errorf("failed to scan POI resource: %w", err)
+		}
+		resMap[poiID] = append(resMap[poiID], res)
+	}
+	if err := resRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating POI resources: %w", err)
+	}
+
+	for i := range pois {
+		pois[i].Resources = resMap[pois[i].ID]
 	}
 
 	return pois, nil

@@ -10,6 +10,7 @@ import { MarketPanel } from './components/station/MarketPanel';
 import { WorkshopPanel } from './components/station/WorkshopPanel';
 import { ConnectionPanel } from './components/layout/ConnectionPanel';
 import { useObserver } from './lib/useObserver';
+import { useSystemMap } from './lib/useSystemMap';
 import {
   mockPlayer,
   mockSkills,
@@ -33,6 +34,7 @@ function App() {
   const isLive = observer.status === 'connected' && observer.player !== null;
   const player = isLive ? observer.player : mockPlayer;
   const skills = isLive ? observer.skills : mockSkills;
+  const systemMapData = useSystemMap(player?.location.systemId);
 
   return (
     <div className="min-h-screen bg-spacemolt-bg">
@@ -102,7 +104,13 @@ function App() {
 
         {activeView === 'galaxy' && <GalaxyMap systems={mockGalaxySystems} />}
 
-        {activeView === 'system' && <SystemMap pois={mockSystemPOIs} player={player || mockPlayer} jumpGates={mockJumpGates} />}
+        {activeView === 'system' && (
+          <SystemMap
+            pois={systemMapData?.pois ?? mockSystemPOIs}
+            player={player || mockPlayer}
+            jumpGates={systemMapData?.jumpGates ?? mockJumpGates}
+          />
+        )}
 
         {activeView === 'station' && <StationInterior player={player || mockPlayer} />}
 

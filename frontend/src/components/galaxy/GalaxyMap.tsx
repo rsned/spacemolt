@@ -7,7 +7,7 @@ interface GalaxyMapProps {
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems }) => {
   return (
-    <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg relative overflow-hidden" style={{ height: '600px' }}>
+    <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg relative overflow-hidden" style={{ height: '900px' }}>
       <div className="absolute top-4 left-4 z-10 flex gap-4 items-center bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border">
         <h2 className="font-sci-fi text-cyan-400">◄ GALAXY MAP</h2>
         <input type="text" placeholder="Search..." className="bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm w-40" />

@@ -13,6 +13,7 @@ export interface Player {
   cargo: number;
   cargoMax: number;
   location: {
+    systemId: string;
     system: string;
     poi: string;
     dockedAt: string | null;

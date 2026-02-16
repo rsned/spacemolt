@@ -110,6 +110,7 @@ function mapToPlayer(gs: GameState): Player {
     cargo: gs.Ship?.cargo_used ?? 0,
     cargoMax: gs.Ship?.cargo_capacity ?? 0,
     location: {
+      systemId: gs.System?.id || '',
       system: gs.System?.name || gs.CurrentSystem || 'Unknown',
       poi: gs.CurrentPOI || gs.Player?.current_poi || 'Unknown',
       dockedAt: gs.Doc ? (gs.CurrentPOI || null) : null,
