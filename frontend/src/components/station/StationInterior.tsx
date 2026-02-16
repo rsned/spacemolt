@@ -1,7 +1,6 @@
 import type { Player } from '../../types/game';
 import type { Facility } from '../../types/game';
 import { useStationData } from '../../lib/useStationData';
-import { useState } from 'react';
 
 interface StationInteriorProps {
   player: Player;
@@ -17,8 +16,6 @@ const categoryIcons: Record<string, { icon: string; color: string; label: string
 };
 
 export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-
   // Get POI ID from player location
   const poiId = player.location.dockedAt || null;
   const { data: stationData, loading, error } = useStationData(poiId);
@@ -100,39 +97,33 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
 
             return (
               <div key={category} className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-4">
-                <button
-                  onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
-                  className="w-full flex items-center gap-3 text-left hover:bg-spacemolt-hover rounded p-2 transition-colors"
-                >
+                {/* Category Header */}
+                <div className="flex items-center gap-3 p-2 border-b border-spacemolt-border">
                   <span className={`text-2xl ${categoryInfo.color}`}>{categoryInfo.icon}</span>
                   <span className={`text-lg ${categoryInfo.color}`}>{categoryInfo.label}</span>
                   <span className="text-gray-500 text-sm ml-auto">
                     {facilities.length} facility{facilities.length !== 1 ? 's' : ''}
                   </span>
-                  <span className="text-gray-400">
-                    {selectedCategory === category ? '▼' : '▶'}
-                  </span>
-                </button>
+                </div>
 
-                {selectedCategory === category && (
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    {facilities.map((facility) => (
-                      <div
-                        key={facility.id}
-                        className="bg-spacemolt-bg border border-spacemolt-border rounded p-3"
-                      >
-                        <div className="text-sm text-gray-300">{facility.name}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-gray-500">Level</span>
-                          <span className="text-xs text-white">{facility.level}</span>
-                          {facility.level >= 5 && (
-                            <span className="text-xs text-yellow-400">★★★★★</span>
-                          )}
-                        </div>
+                {/* Facilities - Always shown */}
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {facilities.map((facility) => (
+                    <div
+                      key={facility.id}
+                      className="bg-spacemolt-bg border border-spacemolt-border rounded p-3"
+                    >
+                      <div className="text-sm text-gray-300">{facility.name}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-gray-500">Level</span>
+                        <span className="text-xs text-white">{facility.level}</span>
+                        {facility.level >= 5 && (
+                          <span className="text-xs text-yellow-400">★★★★★</span>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}
