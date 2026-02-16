@@ -26,11 +26,7 @@ var (
 
 // Phase 1 constants - Mining & upgrades
 const (
-	TIER1_THRESHOLD      = 300.0  // Mining laser (faster mining!)
-	TIER2_THRESHOLD      = 800.0  // Better mining laser or cargo
-	TIER2_SHIP_THRESHOLD = 2000.0 // Upgrade to mining_enhanced ship + 3 mining lasers
-	SCANNER_THRESHOLD    = 600.0  // Scanner for exploration
-	RESERVE_CREDITS      = 50.0   // Never spend below this
+	RESERVE_CREDITS = 50.0 // Never spend below this
 )
 
 // Exploration state for DFS algorithm
@@ -294,6 +290,8 @@ func saveSurveyFinding(logger *log.Logger, state *game.State, poi game.POI) {
 // PHASE 1: MINING & UPGRADES
 // ============================================================================
 
+// attemptExplorerUpgrades checks for and performs upgrades using the upgrade path library
+// Handles both mining upgrades (starter) and exploration upgrades
 func attemptExplorerUpgrades(client *game.Client, logger *log.Logger, ctx context.Context) bool {
 	state := client.GetState()
 	credits := state.Credits
@@ -311,8 +309,51 @@ func attemptExplorerUpgrades(client *game.Client, logger *log.Logger, ctx contex
 		return false
 	}
 
-	logger.Printf("💰 Checking for explorer upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
+	logger.Printf("💰 Checking for upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
 
+	// Determine which progression to use based on current ship class
+	var progression *game.UpgradeProgression
+	switch {
+	case strings.HasPrefix(state.Ship.ClassID, "starter_mining") ||
+		strings.HasPrefix(state.Ship.ClassID, "mining_"):
+		// Use mining progression for mining ships
+		progression = &game.MiningProgression
+	case strings.HasPrefix(state.Ship.ClassID, "starter_exploration") ||
+		strings.HasPrefix(state.Ship.ClassID, "explorer") ||
+		strings.HasPrefix(state.Ship.ClassID, "frontier_") ||
+		strings.HasPrefix(state.Ship.ClassID, "expedition_") ||
+		strings.HasPrefix(state.Ship.ClassID, "deep_space_"):
+		// Use exploration progression for explorer ships
+		progression = &game.ExplorationProgression
+	default:
+		// For other ships, don't attempt upgrades
+		logger.Printf("No upgrade path defined for ship class: %s", state.Ship.ClassID)
+		return false
+	}
+
+	// Check if any upgrade is affordable
+	if !game.CanUpgradeAnyShip(state.Ship.ClassID, availableCredits, progression.Tiers) {
+		return false
+	}
+
+	// Find and perform the next affordable upgrade
+	for _, tier := range progression.Tiers {
+		if state.Ship.ClassID == tier.FromShipClass && availableCredits >= tier.Threshold {
+			logger.Printf("🚀 UPGRADE AVAILABLE: %s (%.2f credits)", tier.Name, tier.Threshold)
+			if game.PerformShipUpgrade(client, logger, ctx, tier, availableCredits) {
+				logger.Printf("✅ Upgrade successful: %s", tier.Name)
+				return true
+			}
+			return false
+		}
+	}
+
+	// No ship upgrade available, check for equipment upgrades
+	return attemptEquipmentUpgrades(client, logger, ctx, state, availableCredits)
+}
+
+// attemptEquipmentUpgrades handles equipment purchases (mining lasers, scanners, etc.)
+func attemptEquipmentUpgrades(client *game.Client, logger *log.Logger, ctx context.Context, state *game.State, availableCredits float64) bool {
 	// Get market listings
 	if err := client.GetListings(ctx); err != nil {
 		logger.Printf("Could not get listings: %v", err)
@@ -327,186 +368,83 @@ func attemptExplorerUpgrades(client *game.Client, logger *log.Logger, ctx contex
 		return false
 	}
 
-	var purchased bool
-
-	// Priority 1: Ship upgrade to mining_enhanced + 3 mining lasers (2000+ credits) - MAJOR UPGRADE!
-	if availableCredits >= TIER2_SHIP_THRESHOLD && !purchased {
-		// Check if we're still on the starter ship
-		if state.Ship.ClassID == "starter_mining" {
-			logger.Printf("🚀 SHIP UPGRADE TIME! You have %.2f credits - upgrading to Drillship!", availableCredits)
-
-			// CRITICAL: Sell all cargo first (it will be lost when switching ships!)
-			if len(state.Ship.Cargo) > 0 {
-				logger.Printf("📦 Selling all cargo before ship upgrade...")
-				if err := client.SellAll(ctx); err != nil {
-					logger.Printf("Failed to sell cargo: %v", err)
-				} else {
-					logger.Printf("✅ Cargo sold!")
-					time.Sleep(3 * time.Second)
+	// Priority 1: Scanner (essential for exploration)
+	if !hasScanner(state) {
+		for _, listing := range listings {
+			if strings.HasPrefix(listing.ItemID, "scanner") && listing.PricePerUnit <= availableCredits {
+				logger.Printf("📡 Buying scanner: %s for %.2f credits", listing.ItemID, listing.PricePerUnit)
+				if err := client.Buy(ctx, listing.ItemID, 1); err != nil {
+					logger.Printf("Failed to buy scanner: %v", err)
+					continue
 				}
-			}
-
-			// CRITICAL: Uninstall all utility slot modules (mining lasers) first!
-			logger.Printf("🔧 Uninstalling mining lasers before ship upgrade...")
-			for _, moduleID := range state.Ship.Modules {
-				uninstallMsg := protocol.Message{
-					Type: "uninstall_mod",
-					Payload: map[string]any{
-						"module_id": moduleID,
-					},
-				}
-				if err := client.Send(ctx, uninstallMsg); err != nil {
-					logger.Printf("Failed to uninstall module %s: %v", moduleID, err)
+				logger.Printf("✅ Purchased scanner! Installing...")
+				time.Sleep(2 * time.Second)
+				if err := client.Install(ctx, listing.ItemID); err != nil {
+					logger.Printf("Failed to install scanner: %v", err)
 				} else {
-					logger.Printf("✅ Uninstalled module: %s", moduleID)
+					logger.Printf("✅ SCANNER INSTALLED!")
 				}
 				time.Sleep(2 * time.Second)
-			}
-
-			logger.Printf("🚀 Purchasing mining_enhanced ship (Drillship)...")
-
-			// Buy the mining_enhanced ship using direct protocol message
-			buyShipMsg := protocol.Message{
-				Type: "buy_ship",
-				Payload: map[string]any{
-					"ship_class": "mining_enhanced",
-				},
-			}
-			if err := client.Send(ctx, buyShipMsg); err != nil {
-				logger.Printf("Failed to buy ship: %v", err)
-			} else {
-				logger.Printf("✅ SHIP UPGRADED TO DRILLSHIP!")
-				logger.Printf("✅ New capacity: 100 cargo, 3 utility slots for mining lasers!")
-				purchased = true
-				time.Sleep(3 * time.Second)
-
-				// Refresh state after ship purchase
-				state = client.GetState()
-
-				// Now buy 3 mining lasers to fill all utility slots
-				logger.Printf("⛏️  Now purchasing 3 mining lasers...")
-				if err := client.Buy(ctx, "mining_laser_1", 3); err != nil {
-					logger.Printf("Failed to buy mining lasers: %v", err)
-				} else {
-					logger.Printf("✅ Purchased 3 mining lasers!")
-					time.Sleep(2 * time.Second)
-
-					// Install each mining laser
-					for i := 1; i <= 3; i++ {
-						if err := client.Install(ctx, "mining_laser_1"); err != nil {
-							logger.Printf("Failed to install mining laser #%d: %v", i, err)
-						} else {
-							logger.Printf("✅ Mining laser #%d installed!", i)
-						}
-						time.Sleep(2 * time.Second)
-					}
-
-					logger.Printf("✅✅✅ TRIPLE MINING LASER SETUP COMPLETE! Mining power TRIPLED!")
-				}
+				return true
 			}
 		}
 	}
 
-	// Priority 2: Scanner (essential for exploration)
-	if availableCredits >= SCANNER_THRESHOLD && !hasScanner(state) && !purchased {
-		for _, listing := range listings {
-			if strings.HasPrefix(listing.ItemID, "scanner") {
-				if listing.PricePerUnit <= availableCredits {
-					logger.Printf("📡 Buying scanner: %s for %.2f credits", listing.ItemID, listing.PricePerUnit)
-					if err := client.Buy(ctx, listing.ItemID, 1); err != nil {
-						logger.Printf("Failed to buy scanner: %v", err)
-					} else {
-						logger.Printf("✅ Purchased scanner! Installing...")
-						purchased = true
-						time.Sleep(2 * time.Second)
-						if err := client.Install(ctx, listing.ItemID); err != nil {
-							logger.Printf("Failed to install scanner: %v", err)
-						} else {
-							logger.Printf("✅ SCANNER INSTALLED!")
-						}
-						time.Sleep(2 * time.Second)
-					}
-				}
-			}
-		}
-	}
-
-	// Priority 3: Mining Laser (faster mining) - install up to ship capacity
-	if availableCredits >= TIER1_THRESHOLD && !purchased {
-		// Count how many mining lasers we have
-		miningLasersInstalled := 0
-		miningLasersInCargo := 0
-		for _, module := range state.Ship.Modules {
-			if strings.HasPrefix(module, "mining_laser") {
-				miningLasersInstalled++
-			}
-		}
-		for _, item := range state.Ship.Cargo {
-			if strings.HasPrefix(item.ItemID, "mining_laser") && item.Quantity > 0 {
-				miningLasersInCargo++
-			}
-		}
+	// Priority 2: Mining Lasers - fill up to ship capacity
+	if strings.HasPrefix(state.Ship.ClassID, "mining_") || state.Ship.ClassID == "starter_mining" {
+		miningLasersInstalled := game.CountModulesInstalled(state, "mining_laser_1")
+		miningLasersInCargo := game.CountModulesInCargo(state, "mining_laser_1")
 		totalMiningLasers := miningLasersInstalled + miningLasersInCargo
 
-		// Determine max lasers based on ship class
-		maxLasers := 2 // starter_mining has 2 utility slots
-		switch state.Ship.ClassID {
-		case "mining_enhanced":
-			maxLasers = 3 // Drillship has 3 utility slots
-		case "mining_barge":
-			maxLasers = 4 // Excavator has 4 utility slots
-		}
+		maxSlots := game.GetShipClassMaxSlots(state.Ship.ClassID)
 
-		logger.Printf("⛏️  Mining Laser Status: %d installed, %d in cargo (goal: %d installed)",
-			miningLasersInstalled, miningLasersInCargo, maxLasers)
+		logger.Printf("⛏️  Mining Laser Status: %d installed, %d in cargo (max slots: %d)",
+			miningLasersInstalled, miningLasersInCargo, maxSlots)
 
-		// Only buy more if we have less than max total
-		if totalMiningLasers < maxLasers {
+		// Only buy more if we have less than max
+		if totalMiningLasers < maxSlots {
 			for _, listing := range listings {
-				if (listing.ItemID == "mining_laser_1" || listing.ItemID == "mining_laser_2" ||
-					listing.ItemID == "mining_laser_3" || listing.ItemID == "advanced_mining_laser") &&
+				if strings.HasPrefix(listing.ItemID, "mining_laser") &&
 					listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 1000 {
 
-					// Calculate how many we need to buy (up to max total)
-					needed := maxLasers - totalMiningLasers
+					needed := maxSlots - totalMiningLasers
 					if needed > 0 {
 						logger.Printf("⛏️  Buying %d x %s for %.2f credits each", needed, listing.ItemID, listing.PricePerUnit)
 						if err := client.Buy(ctx, listing.ItemID, float64(needed)); err != nil {
 							logger.Printf("Failed to buy mining laser: %v", err)
-						} else {
-							logger.Printf("✅ Purchased %d mining laser(s)! Installing...", needed)
-							purchased = true
-							time.Sleep(2 * time.Second)
-
-							// Install each mining laser from cargo
-							installed := 0
-							for i := 0; i < needed; i++ {
-								if err := client.Install(ctx, listing.ItemID); err != nil {
-									logger.Printf("Failed to install mining laser #%d: %v", i+1, err)
-								} else {
-									installed++
-									logger.Printf("✅ Mining laser #%d installed!", installed)
-								}
-								time.Sleep(2 * time.Second)
-							}
-
-							if installed > 0 {
-								logger.Printf("✅ %d MINING LASER(S) INSTALLED! Mining speed increased!", installed)
-							}
-							break
+							continue
 						}
+						logger.Printf("✅ Purchased %d mining laser(s)! Installing...", needed)
+						time.Sleep(2 * time.Second)
+
+						// Install each mining laser
+						installed := 0
+						for i := 0; i < needed; i++ {
+							if err := client.Install(ctx, listing.ItemID); err != nil {
+								logger.Printf("Failed to install mining laser #%d: %v", i+1, err)
+							} else {
+								installed++
+								logger.Printf("✅ Mining laser #%d installed!", installed)
+							}
+							time.Sleep(2 * time.Second)
+						}
+
+						if installed > 0 {
+							logger.Printf("✅ %d MINING LASER(S) INSTALLED!", installed)
+						}
+						return true
 					}
 				}
 			}
 		}
 	}
 
-	return purchased
+	return false
 }
 
 func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) error {
 	logger.Printf("Starting mining phase to earn credits for exploration upgrades...")
-	logger.Printf("Target: %.0f credits for Drillship (mining_enhanced) + 3 mining lasers + scanner", TIER2_SHIP_THRESHOLD)
+	logger.Printf("Target: Upgrade mining ship and equipment to enable efficient exploration")
 
 	miningRuns := 0
 	state := client.GetState()
@@ -2475,6 +2413,7 @@ func main() {
 
 	// Check if we need Phase 1 (mining & upgrades)
 	// Skip if already have a better ship than starter_mining (Prospector)
+	// Ships beyond starter_mining should have sufficient equipment to start exploring
 	skipMiningPhase := state.Ship.ClassID != "starter_mining"
 
 	if skipMiningPhase {
