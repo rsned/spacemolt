@@ -40,6 +40,34 @@ type systemDetailResponse struct {
 	Connections []connectedSystemJSON `json:"connections"`
 }
 
+// facilityJSON is the JSON representation of a facility for API responses.
+type facilityJSON struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Level       int    `json:"level"`
+	LastUpdated int64  `json:"last_updated"`
+}
+
+// baseJSON is the JSON representation of a base for API responses.
+type baseJSON struct {
+	ID           string         `json:"id"`
+	POIID        string         `json:"poi_id"`
+	Name         string         `json:"name"`
+	Description  string         `json:"description"`
+	Empire       string         `json:"empire"`
+	DefenseLevel int            `json:"defense_level"`
+	HasDrones    bool           `json:"has_drones"`
+	PublicAccess bool           `json:"public_access"`
+	Services     map[string]bool `json:"services"`
+	Facilities   []facilityJSON  `json:"facilities"`
+}
+
+// baseDetailResponse is the response shape for GET /api/bases/{id}.
+type baseDetailResponse struct {
+	Base baseJSON `json:"base"`
+}
+
 func systemToJSON(sys knowledge.System) systemJSON {
 	conns := sys.Connections
 	if conns == nil {
@@ -157,4 +185,89 @@ func (s *ObserverServer) HandleGetSystemPOIs(w http.ResponseWriter, r *http.Requ
 		result = append(result, poiToJSON(p))
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// HandleGetBase returns a single base with its facilities.
+// GET /api/bases/{id}
+func (s *ObserverServer) HandleGetBase(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, `{"error":"base id is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	base, err := s.kb.GetBase(ctx, id)
+	if err != nil {
+		s.logger.Printf("error getting base %s: %v", id, err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	if base == nil {
+		http.Error(w, `{"error":"base not found"}`, http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, baseDetailResponse{
+		Base: baseToJSON(*base),
+	})
+}
+
+// HandleGetBaseByPOI returns a base by its POI ID.
+// GET /api/pois/{id}/base
+func (s *ObserverServer) HandleGetBaseByPOI(w http.ResponseWriter, r *http.Request) {
+	poiID := r.PathValue("id")
+	if poiID == "" {
+		http.Error(w, `{"error":"poi id is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	base, err := s.kb.GetBaseByPOI(ctx, poiID)
+	if err != nil {
+		s.logger.Printf("error getting base for poi %s: %v", poiID, err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+	if base == nil {
+		http.Error(w, `{"error":"base not found"}`, http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, baseDetailResponse{
+		Base: baseToJSON(*base),
+	})
+}
+
+func baseToJSON(base knowledge.SpaceBase) baseJSON {
+	services := base.Services
+	if services == nil {
+		services = make(map[string]bool)
+	}
+
+	facilities := make([]facilityJSON, 0, len(base.Facilities))
+	for _, f := range base.Facilities {
+		facilities = append(facilities, facilityJSON{
+			ID:          f.ID,
+			Name:        f.Name,
+			Category:    f.Category,
+			Level:       f.Level,
+			LastUpdated: f.LastUpdated,
+		})
+	}
+
+	return baseJSON{
+		ID:           base.ID,
+		POIID:        base.POIID,
+		Name:         base.Name,
+		Description:  base.Description,
+		Empire:       base.Empire,
+		DefenseLevel: base.DefenseLevel,
+		HasDrones:    base.HasDrones,
+		PublicAccess: base.PublicAccess,
+		Services:     services,
+		Facilities:   facilities,
+	}
 }

@@ -93,3 +93,24 @@ export interface JumpGate {
   name: string;
   angle: number; // degrees, 0° = North, clockwise
 }
+
+export interface Facility {
+  id: string;
+  name: string;
+  category: 'service' | 'infrastructure' | 'production' | 'faction' | 'personal' | 'unknown';
+  level: number;
+  last_updated: number;
+}
+
+export interface Base {
+  id: string;
+  poi_id: string;
+  name: string;
+  description: string;
+  empire: Empire;
+  defense_level: number;
+  has_drones: boolean;
+  public_access: boolean;
+  services: Record<string, boolean>;
+  facilities: Facility[];
+}
