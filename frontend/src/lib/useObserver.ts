@@ -87,6 +87,20 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
     state.CurrentTick = p.tick;
     hasData = true;
   }
+  // get_skills response includes player_skills with next_level_xp per skill.
+  if (Array.isArray(p.player_skills)) {
+    const nextXP: Record<string, number> = {};
+    for (const entry of p.player_skills) {
+      const e = entry as Record<string, unknown>;
+      if (typeof e.skill_id === 'string' && typeof e.next_level_xp === 'number') {
+        nextXP[e.skill_id] = e.next_level_xp;
+      }
+    }
+    if (Object.keys(nextXP).length > 0) {
+      state.SkillNextLevelXP = nextXP;
+      hasData = true;
+    }
+  }
 
   return hasData ? state : null;
 }
@@ -127,13 +141,19 @@ function mapToSkills(gs: GameState): Skill[] {
   const nextLevelXP = gs.SkillNextLevelXP || {};
 
   return Object.entries(skills).map(([name, skill]) => {
-    const nextXP = nextLevelXP[name] || 100;
-    const xpPct = nextXP > 0 ? (skill.xp / nextXP) * 100 : 0;
+    const nextXP = nextLevelXP[name];
+    let xpPct: number;
+    if (nextXP && nextXP > 0) {
+      xpPct = (skill.xp / nextXP) * 100;
+    } else {
+      // No next-level data yet; show raw xp as-is (capped at 99 to indicate incomplete).
+      xpPct = Math.min(skill.xp > 0 ? skill.xp : 0, 99);
+    }
     return {
       name,
       level: skill.level,
       xp: Math.round(xpPct),
-      nextLevelXp: nextXP,
+      nextLevelXp: nextXP ?? 0,
     };
   }).sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
 }

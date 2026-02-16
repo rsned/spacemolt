@@ -28,7 +28,7 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({ player }) => {
       <div className="flex items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-green-400">💰</span>
-          <span className="font-mono">{player.credits.toLocaleString()}cr</span>
+          <span className="font-mono text-green-300">{player.credits.toLocaleString()}cr</span>
         </div>
 
         <div className="flex items-center gap-2 flex-1">
