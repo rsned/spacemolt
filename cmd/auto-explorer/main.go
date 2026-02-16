@@ -508,185 +508,65 @@ func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) e
 	logger.Printf("Starting mining phase to earn credits for exploration upgrades...")
 	logger.Printf("Target: %.0f credits for Drillship (mining_enhanced) + 3 mining lasers + scanner", TIER2_SHIP_THRESHOLD)
 
-	miningRuns := 0
-	state := client.GetState()
-	startingCredits := state.Credits
+	startingCredits := client.GetState().Credits
 
-	// Continue mining until we have mining_enhanced ship with 3 lasers OR scanner (not all stations sell scanners)
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-
-		state = client.GetState()
-		miningRuns++
-
-		// Check if we've completed Phase 1 goals
-		hasDrillship := state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "mining_barge"
-		hasTripleLasers := false
-		miningLaserCount := 0
+	// Helper function to count mining lasers
+	countMiningLasers := func(state *game.State) int {
+		count := 0
 		for _, module := range state.Ship.Modules {
 			if strings.HasPrefix(module, "mining_laser") {
-				miningLaserCount++
+				count++
 			}
 		}
-		hasTripleLasers = miningLaserCount >= 3
-		hasScanner := hasScanner(state)
-
-		// Phase 1 complete if we have Drillship with 3 lasers, OR we have scanner + mining laser
-		phase1Complete := (hasDrillship && hasTripleLasers) || (hasScanner && hasMiningLaser(state))
-
-		if phase1Complete {
-			logger.Printf("✅ Phase 1 COMPLETE! Exploration equipment ready!")
-			logger.Printf("Ship: %s | Mining Lasers: %d | Scanner: %v", state.Ship.Name, miningLaserCount, hasScanner)
-			logger.Printf("Credits: %.2f (started with %.2f)", state.Credits, startingCredits)
-			return nil
-		}
-
-		logger.Printf("═══ Mining Run #%d ═══", miningRuns)
-		logger.Printf("Credits: %.2f | Fuel: %.0f/%.0f | Cargo: %.1f/%.1f",
-			state.Credits, state.Fuel, state.MaxFuel,
-			state.Ship.CargoUsed, state.Ship.CargoCapacity)
-
-		// Get full system data to see POIs
-		if len(state.System.POIs) == 0 {
-			logger.Printf("Fetching system data...")
-			if err := client.GetSystem(ctx); err != nil {
-				logger.Printf("Failed to get system: %v", err)
-			}
-			time.Sleep(2 * time.Second)
-			state = client.GetState()
-		}
-
-		// Find a mining POI in the current system
-		var miningPOI string
-		for _, poi := range state.System.POIs {
-			if poi.Type == "asteroid_belt" || poi.Type == "asteroid_field" {
-				miningPOI = poi.ID
-				break
-			}
-		}
-
-		if miningPOI == "" {
-			logger.Printf("⚠️  No mining POI found in current system!")
-			return fmt.Errorf("no mining location available")
-		}
-
-		// Step 1: Undock if docked
-		if state.Doc {
-			logger.Printf("📤 Undocking from station...")
-			if err := client.Undock(ctx); err != nil {
-				logger.Printf("Undock error: %v", err)
-			}
-			time.Sleep(12 * time.Second)
-		}
-
-		// Step 2: Travel to mining POI
-		state = client.GetState()
-		if state.CurrentPOI != miningPOI && !state.Traveling {
-			logger.Printf("🚀 Traveling to mining location...")
-			if err := client.Travel(ctx, miningPOI); err != nil {
-				logger.Printf("Travel error: %v", err)
-			}
-			time.Sleep(20 * time.Second)
-		}
-
-		// Step 3: Mine until cargo full
-		mineCount := 0
-		logger.Printf("⛏️  Starting mining operations...")
-		for {
-			state = client.GetState()
-
-			if state.Ship.CargoUsed >= state.Ship.CargoCapacity*0.9 {
-				logger.Printf("✓ Cargo nearly full (%.1f/%.1f), heading back",
-					state.Ship.CargoUsed, state.Ship.CargoCapacity)
-				break
-			}
-
-			if state.Fuel < 30 {
-				logger.Printf("⚠️  Low fuel (%.0f), heading back", state.Fuel)
-				break
-			}
-
-			if err := client.Mine(ctx); err == nil {
-				mineCount++
-				if mineCount%3 == 0 {
-					logger.Printf("⛏️  Mining... [%d] (%.1f/%.1f cargo)",
-						mineCount, state.Ship.CargoUsed, state.Ship.CargoCapacity)
-				}
-			}
-
-			time.Sleep(11 * time.Second)
-
-			if mineCount >= 15 {
-				break
-			}
-		}
-
-		logger.Printf("✓ Mined %d times this run", mineCount)
-
-		// Step 4: Find station and return
-		var stationPOI string
-		for _, poi := range state.System.POIs {
-			if poi.Type == "station" {
-				stationPOI = poi.ID
-				break
-			}
-		}
-
-		if stationPOI == "" {
-			logger.Printf("⚠️  No station found in current system!")
-			return fmt.Errorf("no station available")
-		}
-
-		// Travel to station
-		state = client.GetState()
-		if state.CurrentPOI != stationPOI && !state.Traveling {
-			logger.Printf("🚀 Returning to station...")
-			if err := client.Travel(ctx, stationPOI); err != nil {
-				logger.Printf("Travel error: %v", err)
-			}
-			time.Sleep(20 * time.Second)
-		}
-
-		// Step 5: Dock
-		logger.Printf("📥 Docking at station...")
-		if err := client.Dock(ctx); err != nil {
-			if err.Error() != "Already docked (success)" {
-				logger.Printf("Dock error: %v", err)
-			}
-		}
-		time.Sleep(15 * time.Second)
-
-		// Step 6: Sell all cargo
-		state = client.GetState()
-		if state.Doc && len(state.Ship.Cargo) > 0 {
-			logger.Printf("💰 Selling cargo...")
-			if err := client.SellAll(ctx); err != nil {
-				logger.Printf("Sell error: %v", err)
-			}
-			time.Sleep(5 * time.Second)
-		}
-
-		// Step 7: Refuel if needed
-		state = client.GetState()
-		if state.Doc && state.Fuel < state.MaxFuel*0.8 {
-			logger.Printf("⛽ Refueling...")
-			if err := client.Refuel(ctx); err != nil {
-				logger.Printf("Refuel error: %v", err)
-			}
-			time.Sleep(3 * time.Second)
-		}
-
-		// Step 8: Attempt upgrades
-		state = client.GetState()
-		logger.Printf("Current credits: %.2f", state.Credits)
-		attemptExplorerUpgrades(client, logger, ctx)
-
-		time.Sleep(5 * time.Second)
+		return count
 	}
+
+	// Configure the shared mining loop for Phase 1
+	config := &game.MiningLoopConfig{
+		Tier1Threshold:     TIER1_THRESHOLD,
+		ReserveCredits:     RESERVE_CREDITS,
+		MaxMiningAttempts:  15, // Explorer uses fixed limit instead of calculated
+		CargoFullThreshold: 0.9, // Explorer is less aggressive (90% vs 97%)
+		UseBulkSell:        true, // Use bulk sell for better performance
+
+		// Stop when Phase 1 goals are achieved
+		StopCondition: func(state *game.State) bool {
+			hasDrillship := state.Ship.ClassID == "mining_enhanced" || state.Ship.ClassID == "mining_barge"
+			hasTripleLasers := countMiningLasers(state) >= 3
+			scannerPresent := hasScanner(state)
+
+			// Phase 1 complete if we have Drillship with 3 lasers, OR we have scanner + mining laser
+			return (hasDrillship && hasTripleLasers) || (scannerPresent && hasMiningLaser(state))
+		},
+
+		OnUpgradeCheck: func() bool {
+			attemptExplorerUpgrades(client, logger, ctx)
+			return false
+		},
+	}
+
+	// Run the shared mining loop
+	result, err := game.MiningLoop(client, logger, ctx, config)
+	if err != nil {
+		return err
+	}
+
+	// Check if we completed Phase 1
+	if result.StoppedReason == "stop_condition" {
+		state := client.GetState()
+		miningLaserCount := countMiningLasers(state)
+		scannerPresent := hasScanner(state)
+
+		logger.Printf("✅ Phase 1 COMPLETE! Exploration equipment ready!")
+		logger.Printf("Ship: %s | Mining Lasers: %d | Scanner: %v", state.Ship.Name, miningLaserCount, scannerPresent)
+		logger.Printf("Credits: %.2f (started with %.2f, earned %.2f over %d runs)",
+			state.Credits, startingCredits, result.TotalCreditsEarned, result.RunsCompleted)
+		return nil
+	}
+
+	// Mining stopped for another reason
+	logger.Printf("Mining phase stopped: %s", result.StoppedReason)
+	return nil
 }
 
 // ============================================================================

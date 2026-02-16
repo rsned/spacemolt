@@ -300,37 +300,7 @@ func copySkillDefsMap(m map[string]SkillDefinition) map[string]SkillDefinition {
 	return out
 }
 
-// ModuleDefinition represents a module's definition
-type ModuleDefinition struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Type        string `json:"type"` // "weapon", "defense", "utility", etc.
-	Description string `json:"description"`
-}
-
-// copyStringFloatMap returns a shallow copy of m; returns nil if m is nil.
-func copyStringFloatMap(m map[string]float64) map[string]float64 {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]float64, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// copySkillDefsMap returns a shallow copy of m; returns nil if m is nil.
-func copySkillDefsMap(m map[string]SkillDefinition) map[string]SkillDefinition {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]SkillDefinition, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
+// Duplicate declarations removed - keeping only the first set above
 
 // Clone creates a deep copy of the state for safe concurrent access
 func (s *State) Clone() *State {

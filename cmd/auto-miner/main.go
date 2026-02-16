@@ -159,12 +159,12 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 	}
 }
 
-func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, totalCreditsEarned float64) {
+func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, creditsEarned float64) {
 	state := client.GetState()
 
 	var notes []string
 	notes = append(notes, fmt.Sprintf("Mining runs completed: %d", miningRuns))
-	notes = append(notes, fmt.Sprintf("Total credits earned: %.2f", totalCreditsEarned))
+	notes = append(notes, fmt.Sprintf("Credits earned this run: %.2f", creditsEarned))
 	notes = append(notes, fmt.Sprintf("Current credits: %.2f", state.Credits))
 	notes = append(notes, fmt.Sprintf("Ship: %s (%d modules)", state.Ship.Name, len(state.Ship.Modules)))
 	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
@@ -198,253 +198,38 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, tota
 }
 
 func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {
-	miningRuns := 0
-	totalCreditsEarned := 0.0
-	startingCredits := client.GetState().Credits
-
-	// Captain's log ticker - update every 2 minutes
-	logTicker := time.NewTicker(2 * time.Minute)
-	defer logTicker.Stop()
-
-	// Initial captain's log entry
-	updateCaptainsLog(agentID, client, miningRuns, totalCreditsEarned)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-logTicker.C:
-			updateCaptainsLog(agentID, client, miningRuns, totalCreditsEarned)
-		default:
-		}
-
-		state := client.GetState()
-		miningRuns++
-		logger.Printf("═══ Mining Run #%d ═══", miningRuns)
-		logger.Printf("Credits: %.2f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f | Cargo: %.1f/%.1f",
-			state.Credits, state.Fuel, state.MaxFuel, state.Hull, state.MaxHull,
-			state.Ship.CargoUsed, state.Ship.CargoCapacity)
-
-		// Get full system data to see POIs
-		if len(state.System.POIs) == 0 {
-			logger.Printf("Fetching system data...")
-			if err := client.GetSystem(ctx); err != nil {
-				logger.Printf("Failed to get system: %v", err)
-			}
-			time.Sleep(2 * time.Second)
-			state = client.GetState()
-		}
-
-		// Find a mining POI and station in the current system
-		var miningPOI string
-		var stationPOI string
-		for _, poi := range state.System.POIs {
-			if (poi.Type == "asteroid_belt" || poi.Type == "asteroid_field") && miningPOI == "" {
-				miningPOI = poi.ID
-			}
-			if poi.Type == "station" && stationPOI == "" {
-				stationPOI = poi.ID
-			}
-		}
-
-		if miningPOI == "" {
-			logger.Printf("⚠️  No mining POI found in current system %s!", state.System.Name)
-			return fmt.Errorf("no mining location in system %s", state.System.Name)
-		}
-		if stationPOI == "" {
-			logger.Printf("⚠️  No station found in current system %s!", state.System.Name)
-			return fmt.Errorf("no station in system %s", state.System.Name)
-		}
-
-		logger.Printf("📍 System: %s | Mining: %s | Station: %s", state.System.Name, miningPOI, stationPOI)
-
-		// Step 1: Undock if docked
-		if state.Doc {
-			logger.Printf("📤 Undocking from station...")
-			if err := client.Undock(ctx); err != nil {
-				logger.Printf("Undock error: %v", err)
-			}
-			time.Sleep(12 * time.Second)
-		}
-
-		// Step 2: Travel to asteroid belt
-		state = client.GetState()
-		if state.CurrentPOI != miningPOI && !state.Traveling {
-			logger.Printf("🚀 Traveling to mining location %s...", miningPOI)
-			if err := client.Travel(ctx, miningPOI); err != nil {
-				logger.Printf("Travel error: %v", err)
-			}
-			time.Sleep(20 * time.Second)
-		}
-
-		// Step 3: Mine repeatedly until cargo full or fuel low
-		// Calculate max mining attempts based on cargo capacity and number of mining lasers
-		numMiningLasers := game.CountModulesInstalled(state, "mining_laser_1") +
-			game.CountModulesInstalled(state, "mining_laser_2") +
-			game.CountModulesInstalled(state, "mining_laser_3") +
-			game.CountModulesInstalled(state, "advanced_mining_laser")
-		if numMiningLasers == 0 {
-			numMiningLasers = 1 // Default to 1 if no lasers found (shouldn't happen)
-		}
-		maxMiningAttempts := max(int(state.Ship.CargoCapacity/(5.0*float64(numMiningLasers))), 5)
-
-		mineCount := 0
-		logger.Printf("⛏️  Starting mining operations... (max %d attempts with %d laser(s))", maxMiningAttempts, numMiningLasers)
-		for {
-			state = client.GetState()
-
-			// Check if cargo is nearly full
-			if state.Ship.CargoUsed >= state.Ship.CargoCapacity*0.97 {
-				logger.Printf("✓ Cargo nearly full (%.1f/%.1f), heading back",
-					state.Ship.CargoUsed, state.Ship.CargoCapacity)
-				break
-			}
-
-			// Check fuel (less than 10% remaining)
-			if state.Fuel < state.MaxFuel*0.1 {
-				logger.Printf("⚠️  Low fuel (%.0f/%.0f = %.0f%%), heading back", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
-				break
-			}
-
-			// Mine
-			if err := client.Mine(ctx); err != nil {
-				if err.Error() == "must undock first - currently docked at station" {
-					break
-				}
-				// Silently continue on other errors (might be rate limited)
-			} else {
-				mineCount++
-				if mineCount%3 == 0 { // Log every 3rd mine to reduce spam
-					logger.Printf("⛏️  Mining... [%d/%d] (%.1f/%.1f cargo)",
-						mineCount, maxMiningAttempts, state.Ship.CargoUsed, state.Ship.CargoCapacity)
-				}
-			}
-
-			time.Sleep(11 * time.Second)
-
-			// Safety: max mining attempts per run (based on cargo capacity and laser count)
-			if mineCount >= maxMiningAttempts {
-				logger.Printf("✓ Reached max mining attempts (%d)", maxMiningAttempts)
-				break
-			}
-		}
-
-		logger.Printf("✓ Mined %d times this run", mineCount)
-
-		// Step 4: Travel back to station
-		// Get fresh system data to find station
-		if err := client.GetSystem(ctx); err != nil {
-			logger.Printf("Failed to get system: %v", err)
-		}
-		time.Sleep(2 * time.Second)
-
-		state = client.GetState()
-		stationPOI = ""
-		for _, poi := range state.System.POIs {
-			if poi.Type == "station" {
-				stationPOI = poi.ID
-				break
-			}
-		}
-
-		if stationPOI == "" {
-			logger.Printf("⚠️  No station found in current system!")
-			return fmt.Errorf("no station in system %s", state.System.Name)
-		}
-
-		if state.CurrentPOI != stationPOI && !state.Traveling {
-			logger.Printf("🚀 Returning to station %s...", stationPOI)
-			if err := client.Travel(ctx, stationPOI); err != nil {
-				logger.Printf("Travel error: %v", err)
-			}
-			time.Sleep(20 * time.Second)
-		}
-
-		// Step 5: Dock (always try when at station)
-		logger.Printf("📥 Attempting to dock at station...")
-		if err := client.Dock(ctx); err != nil {
-			// Might already be docked, that's okay
-			if err.Error() != "Already docked (success)" {
-				logger.Printf("Dock error: %v", err)
-			}
-		}
-		time.Sleep(15 * time.Second) // Wait for docking to complete
-
-		// Verify we're docked by checking the actual state after the wait
-		state = client.GetState()
-		logger.Printf("Dock status: docked=%v, POI=%s", state.Doc, state.CurrentPOI)
-
-		// Step 6: Sell all cargo (only if docked)
-		state = client.GetState()
-		creditsBefore := state.Credits
-		if !state.Doc {
-			logger.Printf("⚠️  Not docked! Skipping sell. Current POI: %s", state.CurrentPOI)
-		} else if len(state.Ship.Cargo) > 0 {
-			logger.Printf("💰 Selling %d different items in bulk...", len(state.Ship.Cargo))
-
-			// List what we're selling
-			for _, item := range state.Ship.Cargo {
-				logger.Printf("   - %s x%.0f", item.ItemID, item.Quantity)
-			}
-
-			if err := client.SellAllBulk(ctx, nil); err != nil {
-				logger.Printf("Sell error: %v", err)
-			} else {
-				// Wait longer for state update
-				time.Sleep(5 * time.Second)
-				state = client.GetState()
-				creditsEarned := state.Credits - creditsBefore
-				totalCreditsEarned += creditsEarned
-				if creditsEarned > 0 {
-					logger.Printf("✅ Sold cargo in bulk! Earned %.2f credits (Total: %.2f)",
-						creditsEarned, totalCreditsEarned)
-				} else {
-					// State might not have updated yet, but sell likely succeeded
-					logger.Printf("✓ Bulk sell command completed (check next state update for credits)")
-				}
-			}
-		}
-
-		// Step 7: Refuel if needed (only if docked)
-		state = client.GetState()
-		if state.Doc && state.Fuel < state.MaxFuel*0.8 {
-			logger.Printf("⛽ Refueling...")
-			if err := client.Refuel(ctx); err != nil {
-				logger.Printf("Refuel error: %v", err)
-			}
-			time.Sleep(3 * time.Second)
-		}
-
-		// Step 8: Repair if needed (only if docked)
-		state = client.GetState()
-		if state.Doc && state.Hull < state.MaxHull*0.9 {
-			logger.Printf("🔧 Repairing hull...")
-			if err := client.Repair(ctx); err != nil {
-				logger.Printf("Repair error: %v", err)
-			}
-			time.Sleep(3 * time.Second)
-		}
-
-		// Step 9: Check for upgrades every 5 runs or when wealthy
-		state = client.GetState()
-		if miningRuns%5 == 0 || state.Credits >= TIER1_THRESHOLD {
-			time.Sleep(3 * time.Second) // Wait to avoid rate limiting
+	// Configure the shared mining loop
+	config := &game.MiningLoopConfig{
+		AgentID:              agentID,
+		UpgradeCheckInterval: 5, // Check every 5 runs
+		Tier1Threshold:       TIER1_THRESHOLD,
+		ReserveCredits:       RESERVE_CREDITS,
+		UseBulkSell:          true, // Use bulk sell for better performance
+		OnUpgradeCheck: func() bool {
 			attemptUpgrades(client, logger, ctx)
-		}
+			return false // Return value not used for continuous mining
+		},
+		OnRunComplete: func(runNum int, creditsEarned float64, totalCredits float64) {
+			state := client.GetState()
+			logger.Printf("Ship: %s | Modules: %d", state.Ship.Name, len(state.Ship.Modules))
 
-		// Status summary and captain's log update
-		state = client.GetState()
-		logger.Printf("═══ Run #%d Complete ═══", miningRuns)
-		logger.Printf("Current Credits: %.2f (started with %.2f, earned %.2f total)",
-			state.Credits, startingCredits, totalCreditsEarned)
-		logger.Printf("Ship: %s | Modules: %d", state.Ship.Name, len(state.Ship.Modules))
-		logger.Printf("Next run in 5 seconds...\n")
-
-		// Update captain's log after each run
-		updateCaptainsLog(agentID, client, miningRuns, totalCreditsEarned)
-
-		time.Sleep(5 * time.Second)
+			// Update captain's log after each run
+			updateCaptainsLog(agentID, client, runNum, creditsEarned)
+		},
 	}
+
+	// Run the shared mining loop
+	result, err := game.MiningLoop(client, logger, ctx, config)
+	if err != nil {
+		return err
+	}
+
+	// Log final results
+	logger.Printf("Mining loop stopped: %s", result.StoppedReason)
+	logger.Printf("Total runs: %d, Total credits earned: %.2f",
+		result.RunsCompleted, result.TotalCreditsEarned)
+
+	return nil
 }
 
 func main() {
