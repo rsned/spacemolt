@@ -100,7 +100,6 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 
 	fmt.Printf("[Agent %s]  LLM Prompt:\n", a.id)
 	fmt.Printf("  %q\n", prompt)
-	//	fmt.Printf("  State: %+v\n", state)
 
 	// Get LLM decision
 	response, err := a.llm.Decide(ctx, prompt)
@@ -112,14 +111,6 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		return Decision{}, err
 	}
 
-	/*
-		// DEBUG: Log LLM response received by agent
-		fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
-		fmt.Printf("  Action: '%s'\n", response.Action)
-		fmt.Printf("  Target: '%s'\n", response.Target)
-		fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
-		fmt.Printf("  Confidence: %.2f\n", response.Confidence)
-	*/
 	// DEBUG: Log LLM response received by agent
 	fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
 	fmt.Printf("  Action: '%s'\n", response.Action)

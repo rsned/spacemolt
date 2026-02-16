@@ -244,10 +244,10 @@ func checkForHiddenFindings(logger *log.Logger, state *game.State) {
 
 // saveSurveyFinding saves a hidden POI finding to a special file for later reference
 func saveSurveyFinding(logger *log.Logger, state *game.State, poi game.POI) {
-	timestamp := time.Now().Format("20060102150405") // YYYYMMDDHHMMSS
+	timestamp := time.Now().Format(game.TimestampPrecise)
 
 	findingData := map[string]any{
-		"timestamp":    time.Now().Format(time.RFC3339),
+		"timestamp":    time.Now().Format(game.TimestampISO8601),
 		"game_tick":    state.CurrentTick,
 		"system_id":    state.System.ID,
 		"system_name":  state.System.Name,
@@ -264,30 +264,16 @@ func saveSurveyFinding(logger *log.Logger, state *game.State, poi game.POI) {
 		"discovered_by": state.Username,
 	}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(findingData, "", "  ")
-	if err != nil {
-		logger.Printf("⚠️  Failed to marshal survey finding: %v", err)
-		return
-	}
+	// Save to file using library helper
+	filename := game.GenerateDataFilename(state.System.Name, timestamp, "survey_finding")
+	dir := filepath.Join("data", "server", "survey_findings")
 
-	// Create filename: survey_finding_{SYSTEM_NAME}_{TIMESTAMP}.json
-	systemName := sanitizeFilename(state.System.Name)
-	filename := fmt.Sprintf("survey_finding.%s.%s.json", systemName, timestamp)
-	filePath := filepath.Join("data", "server", "survey_findings", filename)
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		logger.Printf("⚠️  Failed to create survey findings directory: %v", err)
-		return
-	}
-
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := game.SaveStructToFile(findingData, dir, filename); err != nil {
 		logger.Printf("⚠️  Failed to write survey finding: %v", err)
 		return
 	}
 
-	logger.Printf("💾 Saved survey finding to: %s", filePath)
+	logger.Printf("💾 Saved survey finding to: %s", filepath.Join(dir, filename))
 }
 
 // ============================================================================
@@ -779,7 +765,7 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 	var data []byte
 	var err error
 
-	timestamp := time.Now().Format("20060102") // YYYYMMDD
+	timestamp := time.Now().Format(game.TimestampDaily)
 
 	if rawJSON != nil {
 		// Use raw JSON from server - add metadata wrapper
@@ -827,23 +813,16 @@ func saveMarketListings(client *game.Client, ctx context.Context, logger *log.Lo
 		}
 	}
 
-	// Save to file
-	filename := fmt.Sprintf("%s.%s.%s.json",
-		sanitizeFilename(systemName),
-		sanitizeFilename(baseName),
-		timestamp)
-	filePath := filepath.Join("data", "server", "listings", filename)
+	// Save to file using library helper
+	timestamp = time.Now().Format(game.TimestampDaily)
+	filename := game.GenerateDataFilename(systemName+"."+baseName, timestamp, "market.listing")
+	dir := filepath.Join("data", "server", "listings")
 
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := game.SaveJSONToFile(data, dir, filename); err != nil {
 		return fmt.Errorf("failed to write listings: %w", err)
 	}
 
-	logger.Printf("💾 Saved market listings: %s", filePath)
+	logger.Printf("💾 Saved market listings: %s", filepath.Join(dir, filename))
 	return nil
 }
 
@@ -1236,39 +1215,26 @@ func savePOIData(client *game.Client, logger *log.Logger, poiID string) error {
 		logger.Printf("⚔️  Combat detected at POI %s!", targetPOI.Name)
 	}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(poiData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal POI data: %w", err)
-	}
+	// Save to file using library helper
+	timestamp := time.Now().Format(game.TimestampDaily)
+	filename := game.GenerateDataFilename(state.System.Name+"."+targetPOI.Name, timestamp, "json")
+	dir := filepath.Join("data", "server", "systems")
 
-	// Create filename: {SYSTEM_NAME}.{POI_NAME}.{TIMESTAMP}json
-	systemName := sanitizeFilename(state.System.Name)
-	poiName := sanitizeFilename(targetPOI.Name)
-	timestamp := time.Now().Format("20060102") // YYYYMMDD
-	filename := fmt.Sprintf("%s.%s.%s.json", systemName, poiName, timestamp)
-	filePath := filepath.Join("data", "server", "systems", filename)
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := game.SaveStructToFile(poiData, dir, filename); err != nil {
 		return fmt.Errorf("failed to write POI data: %w", err)
 	}
 
-	logger.Printf("💾 Saved POI data: %s", filePath)
+	logger.Printf("💾 Saved POI data: %s", filepath.Join(dir, filename))
 	return nil
 }
 
 // saveCombatData saves attacker information when under attack
 func saveCombatData(client *game.Client, logger *log.Logger, attackers []game.NearbyPlayer, escapeRoute string) error {
 	state := client.GetState()
-	timestamp := time.Now().Format("20060102150405") // YYYYMMDDHHMMSS
+	timestamp := time.Now().Format(game.TimestampPrecise)
 
 	combatData := map[string]any{
-		"timestamp":       time.Now().Format(time.RFC3339),
+		"timestamp":       time.Now().Format(game.TimestampISO8601),
 		"game_tick":       state.CurrentTick,
 		"system_id":       state.System.ID,
 		"system_name":     state.System.Name,
@@ -1284,27 +1250,15 @@ func saveCombatData(client *game.Client, logger *log.Logger, attackers []game.Ne
 		"escape_route":    escapeRoute,
 	}
 
-	// Marshal to JSON
-	data, err := json.MarshalIndent(combatData, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal combat data: %w", err)
-	}
+	// Save to file using library helper
+	filename := game.GenerateDataFilename(state.System.Name, timestamp, "combat")
+	dir := filepath.Join("data", "server", "combat_logs")
 
-	// Create filename: combat_{SYSTEM_NAME}_{TIMESTAMP}.json
-	systemName := sanitizeFilename(state.System.Name)
-	filename := fmt.Sprintf("combat.%s.%s.json", systemName, timestamp)
-	filePath := filepath.Join("data", "server", "combat_logs", filename)
-
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
+	if err := game.SaveStructToFile(combatData, dir, filename); err != nil {
 		return fmt.Errorf("failed to write combat data: %w", err)
 	}
 
-	logger.Printf("⚠️  Saved combat data: %s", filePath)
+	logger.Printf("⚠️  Saved combat data: %s", filepath.Join(dir, filename))
 	return nil
 }
 

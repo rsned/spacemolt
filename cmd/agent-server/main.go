@@ -38,7 +38,7 @@ var (
 
 	// LLM configuration
 	llmURL   = flag.String("llm-url", "http://localhost:11434", "LLM server URL (Ollama)")
-	llmModel = flag.String("llm-model", "llama3.2", "LLM model name")
+	llmModel = flag.String("llm-model", "qwen3:8b", "LLM model name")
 
 	// Credentials
 	credsBackend = flag.String("creds-backend", "file", "Credentials backend: file, sqlite, or keyring")
