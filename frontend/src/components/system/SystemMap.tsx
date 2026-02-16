@@ -363,7 +363,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       <div className="absolute bottom-4 left-4 right-4 flex justify-between text-xs">
         <div className="bg-spacemolt-panel p-2 rounded border border-spacemolt-border">
           <span className="text-gray-400">Connected Systems:</span>
-          {['Sys 0455', 'Sys 0418', '0048', '0005'].map((sys, idx) => (
+          {['Sys 0455', 'Sys 0418', '0048', '0005'].map((sys) => (
             <button
               key={sys}
               className="ml-2 px-2 py-1 bg-cyan-900/50 hover:bg-cyan-800 rounded text-cyan-300"

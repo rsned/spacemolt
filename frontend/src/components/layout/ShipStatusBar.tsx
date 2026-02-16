@@ -16,7 +16,7 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({ player }) => {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-4">
           <span className="text-cyan-400">🚀</span>
-          <span className="font-semibold">{player.username}</span>
+          <span className="font-semibold text-gray-100">{player.username}</span>
           <span className="text-gray-400">|</span>
           <span className="text-sm text-gray-300">{player.ship}</span>
           <span className={`text-xs uppercase ${getEmpireTextColor(player.empire)}`}>

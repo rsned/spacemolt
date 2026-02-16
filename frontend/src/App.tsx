@@ -8,6 +8,8 @@ import { SystemMap } from './components/system/SystemMap';
 import { StationInterior } from './components/station/StationInterior';
 import { MarketPanel } from './components/station/MarketPanel';
 import { WorkshopPanel } from './components/station/WorkshopPanel';
+import { ConnectionPanel } from './components/layout/ConnectionPanel';
+import { useObserver } from './lib/useObserver';
 import {
   mockPlayer,
   mockSkills,
@@ -22,18 +24,36 @@ import {
 
 type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop';
 
+const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+
 function App() {
   const [activeView, setActiveView] = useState<ViewType>('hud');
+  const observer = useObserver(WS_URL);
+
+  const isLive = observer.status === 'connected' && observer.player !== null;
+  const player = isLive ? observer.player : mockPlayer;
+  const skills = isLive ? observer.skills : mockSkills;
 
   return (
     <div className="min-h-screen bg-spacemolt-bg">
       {/* Top Navigation */}
       <div className="bg-spacemolt-panel border-b border-spacemolt-border p-4">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="font-sci-fi text-2xl text-cyan-400">SpaceMolt Observer</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="font-sci-fi text-2xl text-cyan-400">SpaceMolt Observer</h1>
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              isLive
+                ? 'bg-green-900 text-green-400'
+                : observer.status === 'connected'
+                  ? 'bg-yellow-900 text-yellow-400'
+                  : 'bg-gray-700 text-gray-400'
+            }`}>
+              {isLive ? `LIVE: ${observer.subscribedAgent}` : observer.status === 'connected' ? 'CONNECTED' : 'OFFLINE'}
+            </span>
+          </div>
           <div className="flex gap-2">
             {[
-              { id: 'hud' as ViewType, label: 'HUD Demo' },
+              { id: 'hud' as ViewType, label: 'HUD' },
               { id: 'galaxy' as ViewType, label: 'Galaxy Map' },
               { id: 'system' as ViewType, label: 'System Map' },
               { id: 'station' as ViewType, label: 'Station' },
@@ -54,40 +74,41 @@ function App() {
             ))}
           </div>
         </div>
-        <p className="text-sm text-gray-500">
-          Click the tabs above to view different UI components. All mockups are interactive.
-        </p>
       </div>
 
       {/* Content */}
       <div className="p-4">
         {activeView === 'hud' && (
           <div className="space-y-4">
-            <ShipStatusBar player={mockPlayer} />
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-4">
-                <SkillsPanel skills={mockSkills} />
-              </div>
-              <div>
-                <ChatPanel chat={mockChat} />
-              </div>
-              <div>
-                <NotificationFeed notifications={mockNotifications} />
-              </div>
-            </div>
+            <ConnectionPanel observer={observer} />
+            {player && (
+              <>
+                <ShipStatusBar player={player} />
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-4">
+                    <SkillsPanel skills={skills} />
+                  </div>
+                  <div>
+                    <ChatPanel chat={mockChat} />
+                  </div>
+                  <div>
+                    <NotificationFeed notifications={mockNotifications} />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {activeView === 'galaxy' && <GalaxyMap systems={mockGalaxySystems} />}
 
-        {activeView === 'system' && <SystemMap pois={mockSystemPOIs} player={mockPlayer} jumpGates={mockJumpGates} />}
+        {activeView === 'system' && <SystemMap pois={mockSystemPOIs} player={player || mockPlayer} jumpGates={mockJumpGates} />}
 
-        {activeView === 'station' && <StationInterior player={mockPlayer} />}
+        {activeView === 'station' && <StationInterior player={player || mockPlayer} />}
 
         {activeView === 'market' && (
           <div className="max-w-3xl">
-            <MarketPanel player={mockPlayer} orders={mockMarketOrders} />
+            <MarketPanel player={player || mockPlayer} orders={mockMarketOrders} />
           </div>
         )}
 
