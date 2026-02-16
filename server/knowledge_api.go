@@ -140,7 +140,8 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	pois, err := s.kb.GetPOIs(ctx, id)
+	// Use sys.ID for POI lookup (may differ from request id if found by name)
+	pois, err := s.kb.GetPOIs(ctx, sys.ID)
 	if err != nil {
 		s.logger.Printf("error getting POIs for system %s: %v", id, err)
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
