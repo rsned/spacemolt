@@ -124,6 +124,9 @@ function mapToPlayer(gs: GameState): Player {
   const empire = (gs.Player?.empire || 'outerrim').toLowerCase();
   const policeLevel = gs.System?.police_level ?? 0;
 
+  // The game server sends System with empty id field, so we need to fall back to name or CurrentSystem
+  const systemId = gs.System?.id || gs.System?.name || gs.CurrentSystem || gs.Player?.current_system || '';
+
   return {
     username: gs.Player?.username || gs.Username || 'Unknown',
     ship: gs.Ship?.name || 'Unknown Ship',
@@ -139,7 +142,7 @@ function mapToPlayer(gs: GameState): Player {
     cargo: gs.Ship?.cargo_used ?? 0,
     cargoMax: gs.Ship?.cargo_capacity ?? 0,
     location: {
-      systemId: gs.System?.id || '',
+      systemId: systemId,
       system: gs.System?.name || gs.CurrentSystem || 'Unknown',
       poi: gs.CurrentPOI || gs.Player?.current_poi || 'Unknown',
       dockedAt: gs.Doc ? (gs.CurrentPOI || null) : null,

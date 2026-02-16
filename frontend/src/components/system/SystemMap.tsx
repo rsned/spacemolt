@@ -313,10 +313,11 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           // Convert angle to radians (0° = North/Up, clockwise)
           const angleRad = (gate.angle - 90) * (Math.PI / 180);
           // Position jump gates outside the farthest orbit
-          const maxDistance = Math.sqrt(
-            Math.max(...pois.map((poi) => poi.x * poi.x + poi.y * poi.y))
-          );
-          const gateRadius = maxDistance * 1.15;
+          // Use the same scale calculation as the main view
+          const maxPOIDistance = pois.length > 0
+            ? Math.sqrt(Math.max(...pois.map((poi) => poi.x * poi.x + poi.y * poi.y)))
+            : 0;
+          const gateRadius = (maxPOIDistance || 1) * 1.15;
           const gateX = centerX + Math.cos(angleRad) * gateRadius * scale;
           const gateY = centerY + Math.sin(angleRad) * gateRadius * scale;
 
