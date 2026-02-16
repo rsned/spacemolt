@@ -79,63 +79,104 @@ export const StationInterior: React.FC<StationInteriorProps> = ({ player }) => {
         </div>
       </div>
 
-      {/* Docking Bay */}
-      <div className="bg-spacemolt-panel border-2 border-cyan-700 rounded-lg p-6 text-center mb-6">
-        <div className="text-gray-400 mb-2 text-sm">DOCKING BAY</div>
-        <div className="text-4xl mb-2">🚀</div>
-        <div className="text-sm text-gray-500">Your Ship: {player.ship}</div>
-      </div>
-
-      {/* Facilities by Category */}
+      {/* Horizontal Layout */}
       {categories.length === 0 ? (
         <div className="text-center text-gray-500 py-8">No facility data available</div>
       ) : (
-        <div className="space-y-6">
-          {categories.map((category) => {
-            const categoryInfo = categoryIcons[category] || categoryIcons.unknown;
-            const facilities = facilitiesByCategory[category];
+        <div className="relative">
+          {/* Central Walkway - Horizontal */}
+          <div className="absolute top-1/2 left-24 right-32 h-16 bg-gray-800/50 transform -translate-y-1/2 rounded" />
 
-            return (
-              <div key={category} className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-4">
-                {/* Category Header */}
-                <div className="flex items-center gap-3 p-2 border-b border-spacemolt-border">
-                  <span className={`text-2xl ${categoryInfo.color}`}>{categoryInfo.icon}</span>
-                  <span className={`text-lg ${categoryInfo.color}`}>{categoryInfo.label}</span>
-                  <span className="text-gray-500 text-sm ml-auto">
-                    {facilities.length} facility{facilities.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-
-                {/* Facilities - Always shown */}
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {facilities.map((facility) => (
-                    <div
-                      key={facility.id}
-                      className="bg-spacemolt-bg border border-spacemolt-border rounded p-3"
-                    >
-                      <div className="text-sm text-gray-300">{facility.name}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500">Level</span>
-                        <span className="text-xs text-white">{facility.level}</span>
-                        {facility.level >= 5 && (
-                          <span className="text-xs text-yellow-400">★★★★★</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          {/* Main Content Area */}
+          <div className="flex items-center gap-4 relative">
+            {/* Ship - Left Side */}
+            <div className="flex-shrink-0 w-32">
+              <div className="bg-spacemolt-panel border-2 border-cyan-700 rounded-lg p-4 text-center">
+                <div className="text-gray-400 mb-2 text-xs">DOCKED</div>
+                <div className="text-4xl mb-2">🚀</div>
+                <div className="text-xs text-gray-500">{player.ship}</div>
               </div>
-            );
-          })}
+            </div>
+
+            {/* Categories - Along the Walkway */}
+            <div className="flex gap-4 flex-1 overflow-x-auto">
+              {categories.map((category) => {
+                const categoryInfo = categoryIcons[category] || categoryIcons.unknown;
+                const facilities = facilitiesByCategory[category];
+
+                // Split facilities into top and bottom halves
+                const midPoint = Math.ceil(facilities.length / 2);
+                const topFacilities = facilities.slice(0, midPoint);
+                const bottomFacilities = facilities.slice(midPoint);
+
+                return (
+                  <div key={category} className="flex-1 min-w-[200px] bg-spacemolt-panel border border-spacemolt-border rounded-lg p-3">
+                    {/* Category Header */}
+                    <div className="flex items-center gap-2 p-2 border-b border-spacemolt-border mb-3">
+                      <span className={`text-xl ${categoryInfo.color}`}>{categoryInfo.icon}</span>
+                      <span className={`text-sm ${categoryInfo.color}`}>{categoryInfo.label}</span>
+                      <span className="text-gray-500 text-xs ml-auto">
+                        {facilities.length}
+                      </span>
+                    </div>
+
+                    {/* Facilities Above Walkway */}
+                    <div className="space-y-2 mb-2">
+                      {topFacilities.map((facility) => (
+                        <div
+                          key={`top-${facility.id}`}
+                          className="bg-spacemolt-bg border border-spacemolt-border rounded p-2"
+                        >
+                          <div className="text-xs text-gray-300 truncate">{facility.name}</div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-xs text-gray-500">Lvl</span>
+                            <span className="text-xs text-white">{facility.level}</span>
+                            {facility.level >= 5 && (
+                              <span className="text-xs text-yellow-400">★</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Walkway Space */}
+                    <div className="h-8" />
+
+                    {/* Facilities Below Walkway */}
+                    <div className="space-y-2">
+                      {bottomFacilities.map((facility) => (
+                        <div
+                          key={`bottom-${facility.id}`}
+                          className="bg-spacemolt-bg border border-spacemolt-border rounded p-2"
+                        >
+                          <div className="text-xs text-gray-300 truncate">{facility.name}</div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-xs text-gray-500">Lvl</span>
+                            <span className="text-xs text-white">{facility.level}</span>
+                            {facility.level >= 5 && (
+                              <span className="text-xs text-yellow-400">★</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Undock Zone - Right Side */}
+            <div className="flex-shrink-0 w-32">
+              <button className="w-full bg-red-900/30 border border-red-700 hover:bg-red-900/50 rounded-lg p-4 text-red-400 transition-colors">
+                <div className="text-center">
+                  <div className="text-2xl mb-2">🚪</div>
+                  <div className="text-xs">UNDOCK</div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Undock Exit */}
-      <div className="mt-6">
-        <button className="w-full bg-red-900/30 border border-red-700 hover:bg-red-900/50 rounded-lg p-4 text-red-400 transition-colors">
-          UNDOCK EXIT
-        </button>
-      </div>
     </div>
   );
 };
