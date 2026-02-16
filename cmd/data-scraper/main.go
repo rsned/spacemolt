@@ -95,8 +95,12 @@ func (s *Scraper) init() error {
 	s.logger.Println("✓ Connected")
 
 	// Login
-	s.logger.Printf("🔑 Logged in as %s", creds.Username)
-	time.Sleep(1 * time.Second)
+	s.logger.Printf("🔑 Logging in as %s...", creds.Username)
+	if err := s.client.Login(context.Background()); err != nil {
+		return fmt.Errorf("login failed: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+	s.logger.Println("✓ Logged in")
 
 	return nil
 }
