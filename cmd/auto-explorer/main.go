@@ -506,7 +506,7 @@ func miningPhase(client *game.Client, logger *log.Logger, ctx context.Context) e
 		// Step 1: Undock if docked
 		if state.Doc {
 			logger.Printf("📤 Undocking from station...")
-			if err := client.Undock(ctx); err != nil {
+			if err := game.UndockFromStation(client, ctx); err != nil {
 				logger.Printf("Undock error: %v", err)
 			}
 			time.Sleep(game.SleepDock)
@@ -1198,7 +1198,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 
 			// Undock before continuing exploration
 			logger.Printf("📤 Undocking from %s...", poi.Name)
-			if err := client.Undock(ctx); err != nil {
+			if err := game.UndockFromStation(client, ctx); err != nil {
 				logger.Printf("Failed to undock: %v", err)
 			} else {
 				logger.Printf("✅ Undocked from %s", poi.Name)
@@ -1617,7 +1617,7 @@ func handleStations(client *game.Client, ctx context.Context, logger *log.Logger
 
 		// Undock
 		logger.Printf("📤 Undocking...")
-		if err := client.Undock(ctx); err != nil {
+		if err := game.UndockFromStation(client, ctx); err != nil {
 			logger.Printf("Undock error: %v", err)
 		}
 		time.Sleep(game.SleepDock)
@@ -1652,19 +1652,13 @@ func findAndRefuel(client *game.Client, ctx context.Context, logger *log.Logger,
 			time.Sleep(game.SleepTravel)
 		}
 
-		if err := client.Dock(ctx); err != nil {
-			if err.Error() != "Already docked (success)" {
+		if err := game.WithDocked(client, ctx, stationPOI.ID, func() error {
+			if err := client.Refuel(ctx); err != nil {
 				return err
 			}
-		}
-		time.Sleep(game.SleepDocked)
-
-		if err := client.Refuel(ctx); err != nil {
-			return err
-		}
-		time.Sleep(game.SleepShort)
-
-		if err := client.Undock(ctx); err != nil {
+			time.Sleep(game.SleepShort)
+			return nil
+		}); err != nil {
 			return err
 		}
 		time.Sleep(game.SleepDock)
@@ -1792,7 +1786,7 @@ func navigateToSystem(client *game.Client, ctx context.Context, logger *log.Logg
 	// Undock if needed
 	if state.Doc {
 		logger.Printf("📤 Undocking...")
-		if err := client.Undock(ctx); err != nil {
+		if err := game.UndockFromStation(client, ctx); err != nil {
 			logger.Printf("Undock error: %v", err)
 		}
 		time.Sleep(game.SleepDock)
@@ -1936,33 +1930,35 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		time.Sleep(game.SleepLong)
 		return err
 	}
-	time.Sleep(game.SleepDocked)
 
-	// Repair
-	logger.Printf("🔧 Repairing ship...")
-	if err := client.Repair(ctx); err != nil {
-		logger.Printf("Failed to repair: %v", err)
-		time.Sleep(game.SleepLong)
+	// Repair and undock
+	if err := game.WithDocked(client, ctx, poiID, func() error {
+		// Repair
+		logger.Printf("🔧 Repairing ship...")
+		if err := client.Repair(ctx); err != nil {
+			logger.Printf("Failed to repair: %v", err)
+			time.Sleep(game.SleepLong)
+			return err
+		}
+		time.Sleep(game.SleepShort)
+
+		// Check repair success
+		state = client.GetState()
+		logger.Printf("✅ Repaired! Hull: %.0f/%.0f (%.1f%%), Armor: %.0f",
+			state.Ship.Hull,
+			state.Ship.MaxHull,
+			(state.Ship.Hull/state.Ship.MaxHull)*100,
+			state.Ship.Armor)
+
+		// Update last fuel station
+		expState.LastFuelStation = systemID
+
+		return nil
+	}); err != nil {
 		return err
 	}
-	time.Sleep(game.SleepShort)
 
-	// Check repair success
-	state = client.GetState()
-	logger.Printf("✅ Repaired! Hull: %.0f/%.0f (%.1f%%), Armor: %.0f",
-		state.Ship.Hull,
-		state.Ship.MaxHull,
-		(state.Ship.Hull/state.Ship.MaxHull)*100,
-		state.Ship.Armor)
-
-	// Update last fuel station
-	expState.LastFuelStation = systemID
-
-	// Undock before continuing
-	logger.Printf("📤 Undocking from %s...", poiName)
-	if err := client.Undock(ctx); err != nil {
-		logger.Printf("Failed to undock: %v", err)
-	}
+	logger.Printf("📤 Undocked from %s", poiName)
 	time.Sleep(game.SleepDock)
 
 	return nil

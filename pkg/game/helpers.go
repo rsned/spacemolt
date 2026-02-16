@@ -1,5 +1,7 @@
 package game
 
+import "context"
+
 // FindStation returns the first station POI in the current system, or nil if none found
 func FindStation(state *State) *POI {
 	for i := range state.System.POIs {
@@ -54,4 +56,50 @@ func FindPOIByType(state *State, poiType string) *POI {
 		}
 	}
 	return nil
+}
+
+// ============================================================================
+// STATION INTERACTION HELPERS
+// ============================================================================
+
+// DockAtStation docks the client at a station POI
+// Returns error if docking fails (excluding "already docked" which is treated as success)
+func DockAtStation(client *Client, ctx context.Context, stationPOI string) error {
+	if err := client.Dock(ctx); err != nil && err.Error() != "Already docked (success)" {
+		return err
+	}
+	return nil
+}
+
+// UndockFromStation undocks the client from the current station
+func UndockFromStation(client *Client, ctx context.Context) error {
+	return client.Undock(ctx)
+}
+
+// WithDocked executes a function while docked at a station
+// Docks, runs the action, then undocks. Useful for station operations like
+// refueling, repairing, buying/selling, etc.
+//
+// Example:
+//
+//	err := game.WithDocked(client, ctx, logger, stationID, func() error {
+//	    if err := client.Refuel(ctx); err != nil {
+//	        return err
+//	    }
+//	    time.Sleep(game.SleepShort)
+//	    return nil
+//	})
+func WithDocked(client *Client, ctx context.Context, stationID string, action func() error) error {
+	// Dock
+	if err := client.Dock(ctx); err != nil && err.Error() != "Already docked (success)" {
+		return err
+	}
+
+	// Run the action
+	if err := action(); err != nil {
+		return err
+	}
+
+	// Undock
+	return client.Undock(ctx)
 }
