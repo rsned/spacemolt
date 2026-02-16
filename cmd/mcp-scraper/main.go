@@ -515,9 +515,9 @@ func main() {
 	}
 	fmt.Printf("✓ Session ID: %s\n\n", sessionID)
 
-	// Give the session a moment to propagate
+	// Give the session time to propagate
 	fmt.Println("⏳ Waiting for session to propagate...")
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	fmt.Println()
 
 	// Call all query methods (methods that only need session_id)
@@ -534,7 +534,7 @@ func main() {
 			errorJSON, _ := json.MarshalIndent(errorResp, "", "  ")
 			saveResponse(method, errorJSON)
 			// Add delay on error to avoid rate limiting
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1500 * time.Millisecond)
 			continue
 		}
 
@@ -545,8 +545,8 @@ func main() {
 			fmt.Printf(" ✗ Failed to save: %v\n", err)
 		}
 
-		// Small delay between calls to avoid rate limiting
-		time.Sleep(200 * time.Millisecond)
+		// Delay between calls to avoid rate limiting (MCP allows ~1 request/second)
+		time.Sleep(1100 * time.Millisecond)
 	}
 
 	// Call action methods with specific parameters
