@@ -79,10 +79,25 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
     state.Ship = p.ship as GameState['Ship'];
     hasData = true;
   }
+
+  // System object may be present in some responses
   if (p.system && typeof p.system === 'object') {
     state.System = p.system as GameState['System'];
     hasData = true;
   }
+
+  // CurrentSystem is sent as a string (e.g., "sol") in most responses
+  if (typeof p.current_system === 'string') {
+    // Create a minimal System object from the string
+    state.System = {
+      id: p.current_system,
+      name: p.current_system,
+      empire: '',
+      police_level: 0,
+    } as GameState['System'];
+    hasData = true;
+  }
+
   if (typeof p.tick === 'number') {
     state.CurrentTick = p.tick;
     hasData = true;
