@@ -153,7 +153,6 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		PoliceLevel:     state.System.PoliceLevel,
 		Faction:         state.System.Empire,
 		Connections:     state.System.Connections,
-		DiscoveredBy:    agentID,
 		LastUpdatedTick: state.CurrentTick,
 		Position: game.Position{
 			X: state.System.Position.X,
@@ -506,7 +505,6 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			Position:        poi.Position,
 			Services:        []string{},
 			Resources:       poi.Resources,
-			DiscoveredBy:    expState.AgentID,
 			LastUpdatedTick: state.GetTick(),
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {

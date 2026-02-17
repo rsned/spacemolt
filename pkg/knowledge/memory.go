@@ -53,8 +53,6 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 		existing.Position = sys.Position
 		existing.PoliceLevel = sys.PoliceLevel
 		existing.Faction = sys.Faction
-		existing.VisitCount++
-		existing.LastVisited = time.Now().Format(time.RFC3339)
 		existing.LastUpdatedTick = sys.LastUpdatedTick
 		// Update connections
 		existing.Connections = sys.Connections
@@ -66,9 +64,6 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 			PoliceLevel:     sys.PoliceLevel,
 			Faction:         sys.Faction,
 			Connections:     sys.Connections,
-			VisitCount:      1,
-			DiscoveredBy:    sys.DiscoveredBy,
-			LastVisited:     time.Now().Format(time.RFC3339),
 			LastUpdatedTick: sys.LastUpdatedTick,
 		}
 	}
@@ -95,8 +90,8 @@ func (kb *MemoryKB) GetUnknownConnections(ctx context.Context, systemID string) 
 	connections := kb.connections[systemID]
 
 	for _, connID := range connections {
-		// Check if the connected system has been visited
-		if sys, ok := kb.systems[connID]; !ok || sys.VisitCount == 0 {
+		// Check if the connected system exists in knowledge base
+		if _, ok := kb.systems[connID]; !ok {
 			unknown = append(unknown, connID)
 		}
 	}
@@ -135,7 +130,6 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 		Description:     poi.Description,
 		Services:        poi.Services,
 		Resources:       poi.Resources,
-		DiscoveredBy:    poi.DiscoveredBy,
 		LastUpdatedTick: poi.LastUpdatedTick,
 	}
 
@@ -274,9 +268,6 @@ type System struct {
 	Faction         string
 	Connections     []string
 	POIs            []string
-	LastVisited     string
-	VisitCount      int
-	DiscoveredBy    string
 	LastUpdatedTick int64
 }
 
@@ -291,7 +282,6 @@ type POI struct {
 	Position        game.Position
 	Services        []string
 	Resources       []game.POIResource
-	DiscoveredBy    string
 	LastUpdatedTick int64
 }
 
@@ -308,7 +298,6 @@ type SpaceBase struct {
 	Services        map[string]bool
 	Facilities      []Facility // Facilities with category and level information
 	Market          []BaseMarketItem
-	DiscoveredBy    string
 	LastUpdatedTick int64
 }
 

@@ -81,8 +81,6 @@ func main() {
 			PoliceLevel:     0, // Not provided in get_map response
 			Faction:         "", // Not provided in get_map response
 			Connections:     sysData.Connections,
-			VisitCount:      0,
-			DiscoveredBy:    "import",
 			LastUpdatedTick: 0,
 		}
 

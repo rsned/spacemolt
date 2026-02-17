@@ -41,7 +41,6 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 		PoliceLevel:  3,
 		Faction:      "test_faction",
 		Connections:  []string{"SYS-002", "SYS-003"},
-		DiscoveredBy: "test_agent",
 	}
 
 	if err := kb.RememberSystem(ctx, sys); err != nil {
@@ -60,24 +59,6 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 
 	if retrieved.Name != sys.Name {
 		t.Errorf("Expected name %s, got %s", sys.Name, retrieved.Name)
-	}
-
-	if retrieved.VisitCount != 1 {
-		t.Errorf("Expected visit count 1, got %d", retrieved.VisitCount)
-	}
-
-	// Remember again to test visit count increment
-	if err := kb.RememberSystem(ctx, sys); err != nil {
-		t.Fatalf("Second RememberSystem failed: %v", err)
-	}
-
-	retrieved, err = kb.GetSystem(ctx, "SYS-001")
-	if err != nil {
-		t.Fatalf("GetSystem after second remember failed: %v", err)
-	}
-
-	if retrieved.VisitCount != 2 {
-		t.Errorf("Expected visit count 2, got %d", retrieved.VisitCount)
 	}
 }
 
@@ -202,7 +183,6 @@ func TestSQLiteKB_RememberPOI(t *testing.T) {
 		Type:         "station",
 		Description:  "A test station",
 		Position:     game.Position{X: 10.0, Y: 20.0},
-		DiscoveredBy: "test_agent",
 	}
 
 	if err := kb.RememberPOI(ctx, poi); err != nil {

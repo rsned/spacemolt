@@ -102,7 +102,6 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 		Services:        response.Base.Services,
 		Facilities:      facilities,
 		Market:          marketItems,
-		DiscoveredBy:    discoveredBy,
 		LastUpdatedTick: lastUpdatedTick,
 	}
 

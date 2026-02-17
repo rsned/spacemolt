@@ -345,6 +345,25 @@ ALTER TABLE base_facilities ADD COLUMN last_updated INTEGER DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
 `,
 		},
+		{
+			version: 8,
+			name:    "remove_exploration_tracking",
+			sql: `
+-- Remove exploration tracking columns that are no longer needed
+-- These were used for tracking agent exploration but are causing issues
+
+-- Drop columns from systems table
+ALTER TABLE systems DROP COLUMN visit_count;
+ALTER TABLE systems DROP COLUMN last_visited;
+ALTER TABLE systems DROP COLUMN discovered_by;
+
+-- Drop discovered_by from pois table
+ALTER TABLE pois DROP COLUMN discovered_by;
+
+-- Drop discovered_by from bases table
+ALTER TABLE bases DROP COLUMN discovered_by;
+`,
+		},
 	}
 }
 

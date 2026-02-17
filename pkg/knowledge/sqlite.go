@@ -101,10 +101,9 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	defer func() { _ = tx.Rollback() }()
 
 	// Insert or update system
-	// Use INSERT OR REPLACE to handle both new and existing systems
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by, last_updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT visit_count FROM systems WHERE id = ?), 0) + 1, datetime('now'), ?, ?)
+		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, police_level, faction, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			pos_x = excluded.pos_x,
@@ -112,12 +111,9 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 			pos_z = excluded.pos_z,
 			police_level = excluded.police_level,
 			faction = excluded.faction,
-			visit_count = visit_count + 1,
-			last_visited = datetime('now'),
-			discovered_by = excluded.discovered_by,
 			last_updated = excluded.last_updated
 	`, sys.ID, sys.Name, sys.Position.X, sys.Position.Y, sys.Position.Z,
-		sys.PoliceLevel, sys.Faction, sys.ID, sys.DiscoveredBy, sys.LastUpdatedTick)
+		sys.PoliceLevel, sys.Faction, sys.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
@@ -142,25 +138,20 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 // GetSystem retrieves a system by ID
 func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, error) {
 	var sys System
-	var lastVisited sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by
+		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction
 		FROM systems
 		WHERE id = ?
 	`, systemID).Scan(
 		&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
-		&sys.PoliceLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
+		&sys.PoliceLevel, &sys.Faction,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // System not found
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query system: %w", err)
-	}
-
-	if lastVisited.Valid {
-		sys.LastVisited = lastVisited.String
 	}
 
 	// Load connections
@@ -189,12 +180,12 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 
 // GetUnknownConnections finds unexplored connections from a system
 func (kb *SQLiteKB) GetUnknownConnections(ctx context.Context, systemID string) ([]string, error) {
-	// Find connections where the destination has never been visited (visit_count = 0 or NULL)
+	// Find connections where the destination is not in the systems table (not yet explored)
 	rows, err := kb.db.QueryContext(ctx, `
 		SELECT c.to_system
 		FROM connections c
 		LEFT JOIN systems s ON c.to_system = s.id
-		WHERE c.from_system = ? AND (s.visit_count IS NULL OR s.visit_count = 0)
+		WHERE c.from_system = ? AND s.id IS NULL
 	`, systemID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query unknown connections: %w", err)
@@ -239,8 +230,8 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 
 	// Insert or update POI (base_id is left as NULL for now since POI struct doesn't have it)
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, description, pos_x, pos_y, discovered_by, last_updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pois (id, system_id, name, type, description, pos_x, pos_y, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = excluded.name,
@@ -248,10 +239,9 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 			description = excluded.description,
 			pos_x = excluded.pos_x,
 			pos_y = excluded.pos_y,
-			discovered_by = excluded.discovered_by,
 			last_updated = excluded.last_updated
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, poi.Description,
-		poi.Position.X, poi.Position.Y, poi.DiscoveredBy, poi.LastUpdatedTick)
+		poi.Position.X, poi.Position.Y, poi.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
@@ -283,7 +273,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, description, pos_x, pos_y, discovered_by
+		SELECT id, system_id, name, type, description, pos_x, pos_y
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -305,7 +295,6 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 			&description,
 			&poi.Position.X,
 			&poi.Position.Y,
-			&poi.DiscoveredBy,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan POI: %w", err)
@@ -360,8 +349,8 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 
 	// Insert or update base
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO bases (id, poi_id, name, description, empire, defense_level, has_drones, public_access, discovered_by, last_updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO bases (id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			poi_id = excluded.poi_id,
 			name = excluded.name,
@@ -370,10 +359,9 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 			defense_level = excluded.defense_level,
 			has_drones = excluded.has_drones,
 			public_access = excluded.public_access,
-			discovered_by = excluded.discovered_by,
 			last_updated = excluded.last_updated
 	`, base.ID, base.POIID, base.Name, base.Description, base.Empire,
-		base.DefenseLevel, base.HasDrones, base.PublicAccess, base.DiscoveredBy, base.LastUpdatedTick)
+		base.DefenseLevel, base.HasDrones, base.PublicAccess, base.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert base: %w", err)
 	}
@@ -442,7 +430,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	var description sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, discovered_by, last_updated
+		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated
 		FROM bases
 		WHERE id = ?
 	`, baseID).Scan(
@@ -454,7 +442,6 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 		&base.DefenseLevel,
 		&base.HasDrones,
 		&base.PublicAccess,
-		&base.DiscoveredBy,
 		&base.LastUpdatedTick,
 	)
 	if err != nil {
@@ -572,7 +559,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 	var description sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, discovered_by, last_updated
+		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated
 		FROM bases
 		WHERE poi_id = ?
 	`, poiID).Scan(
@@ -584,7 +571,6 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 		&base.DefenseLevel,
 		&base.HasDrones,
 		&base.PublicAccess,
-		&base.DiscoveredBy,
 		&base.LastUpdatedTick,
 	)
 	if err != nil {
@@ -769,7 +755,7 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, fact
 func (kb *SQLiteKB) GetSystems() []System {
 	// Query all systems
 	rows, err := kb.db.Query(`
-		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction, visit_count, last_visited, discovered_by
+		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction
 		FROM systems
 	`)
 	if err != nil {
@@ -780,17 +766,12 @@ func (kb *SQLiteKB) GetSystems() []System {
 	var systems []System
 	for rows.Next() {
 		var sys System
-		var lastVisited sql.NullString
 
 		if err := rows.Scan(
 			&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
-			&sys.PoliceLevel, &sys.Faction, &sys.VisitCount, &lastVisited, &sys.DiscoveredBy,
+			&sys.PoliceLevel, &sys.Faction,
 		); err != nil {
 			continue
-		}
-
-		if lastVisited.Valid {
-			sys.LastVisited = lastVisited.String
 		}
 
 		systems = append(systems, sys)
