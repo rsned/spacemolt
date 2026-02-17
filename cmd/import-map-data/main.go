@@ -63,7 +63,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open knowledge base: %v", err)
 	}
-	defer kb.Close()
 
 	ctx := context.Background()
 
@@ -100,4 +99,9 @@ func main() {
 	fmt.Printf("✓ Successfully imported map data:\n")
 	fmt.Printf("  Systems: %d\n", systemCount)
 	fmt.Printf("  Connections: %d\n", connectionCount)
+
+	// Close the knowledge base
+	if err := kb.Close(); err != nil {
+		log.Printf("Warning: failed to close knowledge base: %v", err)
+	}
 }
