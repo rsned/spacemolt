@@ -1,12 +1,35 @@
 # SQL Scripts
 
-This directory contains SQL scripts for querying the SpaceMolt knowledge database.
+This directory contains all SQL scripts and schemas for the SpaceMolt project.
+
+## Directory Structure
+
+- **`initialize_database.sql`** - Main database schema for the knowledge base
+- **`schema_crafting.sql`** - Crafting server database schema (symlink to embedded file)
+- **`view_system.sql`** - Query script for viewing system information
+- **`migrations/`** - Database migration scripts
 
 ## Database Location
 
 The default database location is: `data/spacemolt-knowledge.db`
 
-## Available Scripts
+## Schema Files
+
+### initialize_database.sql
+
+Complete database schema for the SpaceMolt agent knowledge base (Schema Version 4).
+
+**Usage:**
+```bash
+# Initialize a fresh database
+sqlite3 data/spacemolt-knowledge.db < scripts/sql/initialize_database.sql
+```
+
+### schema_crafting.sql
+
+Database schema for the crafting server. This file is embedded in the Go code and is provided here for reference.
+
+## Query Scripts
 
 ### view_system.sql
 
