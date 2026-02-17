@@ -221,8 +221,10 @@ func (c *Client) Connect(ctx context.Context) error {
 	// Default is 32KB which is too small for system info with many POIs
 	ws.SetReadLimit(10 * 1024 * 1024) // 10MB
 
+	// Already holding the lock from line 173, no need to lock again
 	c.conn = ws
 	c.connected = true
+
 	c.state.Username = c.username
 	c.state.Password = c.password
 
@@ -491,6 +493,14 @@ func (c *Client) GetSystem(ctx context.Context) error {
 	})
 }
 
+// GetMap requests all systems with coordinates and connections
+func (c *Client) GetMap(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_map",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
 // GetPOI requests information about the current POI
 func (c *Client) GetPOI(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
@@ -743,7 +753,17 @@ func (c *Client) listen(ctx context.Context) {
 		default:
 		}
 
-		_, data, err := c.conn.Read(ctx)
+		// Get connection reference with mutex protection
+		c.mu.RLock()
+		conn := c.conn
+		c.mu.RUnlock()
+
+		if conn == nil {
+			// Connection closed, exit listener
+			return
+		}
+
+		_, data, err := conn.Read(ctx)
 		if err != nil {
 			c.mu.Lock()
 			c.connected = false
@@ -751,8 +771,14 @@ func (c *Client) listen(ctx context.Context) {
 
 			c.debugLogger.Printf("Connection error: %v", err)
 			c.debugLogger.Printf("Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB")
-			if c.handler != nil {
-				c.handler.OnDisconnected(err)
+
+			// Get handler reference with mutex protection
+			c.mu.RLock()
+			handler := c.handler
+			c.mu.RUnlock()
+
+			if handler != nil {
+				handler.OnDisconnected(err)
 			}
 			return
 		}
@@ -811,8 +837,13 @@ func (c *Client) listen(ctx context.Context) {
 			c.handleResponse(resp)
 
 			// Notify handler for each decoded message
-			if c.handler != nil {
-				c.handler.OnMessage(resp)
+			// Get handler reference with mutex protection
+			c.mu.RLock()
+			handler := c.handler
+			c.mu.RUnlock()
+
+			if handler != nil {
+				handler.OnMessage(resp)
 			}
 		}
 	}
@@ -866,6 +897,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parseShipData(resp.Payload)
 		c.parseSystemData(resp.Payload)
 		c.parseTravelAction(resp.Payload)
+		// get_map returns type "ok" with systems array in payload
+		if _, hasSystems := resp.Payload["systems"]; hasSystems {
+			c.parseMapData(resp.Payload)
+		}
 		// get_listings returns type "ok" with listings in payload
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			c.parseListingsData(resp.Payload)
@@ -1388,6 +1423,52 @@ func (c *Client) parseSystemData(payload map[string]any) {
 			}
 		}
 		c.state.LastMapUpdate = time.Now()
+	}
+}
+
+// parseMapData extracts map information from get_map response
+func (c *Client) parseMapData(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// get_map returns: {"systems": [...], "total_count": N}
+	systemsData, ok := payload["systems"].([]any)
+	if !ok {
+		return
+	}
+
+	// Find the current system in the map and update its connections
+	currentSystemID := c.state.System.ID
+	for _, s := range systemsData {
+		systemMap, ok := s.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		// Get system_id (get_map uses system_id, not id)
+		systemID, ok := systemMap["system_id"].(string)
+		if !ok {
+			// Try alternate field name
+			if id, ok := systemMap["id"].(string); ok {
+				systemID = id
+			} else {
+				continue
+			}
+		}
+
+		// If this is the current system, update its connections
+		if systemID == currentSystemID {
+			if connections, ok := systemMap["connections"].([]any); ok {
+				c.state.System.Connections = c.state.System.Connections[:0]
+				for _, conn := range connections {
+					if connStr, ok := conn.(string); ok {
+						c.state.System.Connections = append(c.state.System.Connections, connStr)
+					}
+				}
+				c.debugLogger.Printf("Updated %d connections from get_map", len(c.state.System.Connections))
+			}
+			break
+		}
 	}
 }
 
