@@ -1428,6 +1428,60 @@ func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
 			}
 		}
 	}
+	// Parse POIs if they're in the system object
+	if poisData, ok := systemData["pois"].([]any); ok {
+		c.state.System.POIs = c.state.System.POIs[:0]
+		for _, p := range poisData {
+			if poi, ok := p.(map[string]any); ok {
+				poiObj := POI{}
+				if id, ok := poi["id"].(string); ok {
+					poiObj.ID = id
+				}
+				if name, ok := poi["name"].(string); ok {
+					poiObj.Name = name
+				}
+				if poiType, ok := poi["type"].(string); ok {
+					poiObj.Type = poiType
+				}
+				if desc, ok := poi["description"].(string); ok {
+					poiObj.Description = desc
+				}
+				if sysID, ok := poi["system_id"].(string); ok {
+					poiObj.SystemID = sysID
+				}
+				if baseID, ok := poi["base_id"].(string); ok {
+					poiObj.BaseID = baseID
+				}
+				if pos, ok := poi["position"].(map[string]any); ok {
+					if x, ok := pos["x"].(float64); ok {
+						poiObj.Position.X = x
+					}
+					if y, ok := pos["y"].(float64); ok {
+						poiObj.Position.Y = y
+					}
+				}
+				if resources, ok := poi["resources"].([]any); ok {
+					for _, r := range resources {
+						if res, ok := r.(map[string]any); ok {
+							resObj := POIResource{}
+							if resourceID, ok := res["resource_id"].(string); ok {
+								resObj.ResourceID = resourceID
+							}
+							if richness, ok := res["richness"].(float64); ok {
+								resObj.Richness = richness
+							}
+							if remaining, ok := res["remaining"].(float64); ok {
+								resObj.Remaining = remaining
+							}
+							poiObj.Resources = append(poiObj.Resources, resObj)
+						}
+					}
+				}
+				c.state.System.POIs = append(c.state.System.POIs, poiObj)
+			}
+		}
+		c.state.LastMapUpdate = time.Now()
+	}
 }
 
 // parseErrorState extracts state changes from error messages
@@ -1696,6 +1750,11 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// Store player skills (from get_skills response)
 		if _, hasPlayerSkills := resp.Payload["player_skills"]; hasPlayerSkills {
 			storeKey = "skills"
+			shouldStore = true
+		}
+		// Store map data (from get_map response)
+		if _, hasSystems := resp.Payload["systems"]; hasSystems {
+			storeKey = "systems"
 			shouldStore = true
 		}
 	case protocol.TypeError:

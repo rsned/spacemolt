@@ -263,8 +263,8 @@ func (s *Scraper) scrapeMap() error {
 	}
 	time.Sleep(2 * time.Second)
 
-	// Get raw JSON
-	rawJSON := s.client.GetRawJSON("map")
+	// Get raw JSON (stored with key "systems" since payload has {"systems": [...]})
+	rawJSON := s.client.GetRawJSON("systems")
 	if rawJSON == nil {
 		// Check if there was an error response
 		errResp := s.client.GetLastError()
