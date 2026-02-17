@@ -1207,3 +1207,13 @@ func (kb *SQLiteKB) getShipListingsForSnapshot(ctx context.Context, systemID, st
 
 	return listings, nil
 }
+
+// GetSkill retrieves a single skill by ID from the static skill definitions
+func (kb *SQLiteKB) GetSkill(id string) (*Skill, error) {
+	return getStaticSkill(id), nil
+}
+
+// GetSkills retrieves all skills from the static skill definitions
+func (kb *SQLiteKB) GetSkills() []Skill {
+	return getStaticSkills()
+}

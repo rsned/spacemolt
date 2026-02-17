@@ -70,6 +70,10 @@ type Base interface {
 	ExportKnowledge(ctx context.Context, description string, agentID string) (*KnowledgeExport, error)
 	ImportKnowledge(ctx context.Context, exportData string) error
 	ListExports(ctx context.Context) ([]KnowledgeExportMeta, error)
+
+	// Skills
+	GetSkill(id string) (*Skill, error)
+	GetSkills() []Skill
 }
 
 // MarketListing represents a single market listing
