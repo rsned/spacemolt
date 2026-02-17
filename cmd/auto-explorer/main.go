@@ -672,7 +672,11 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			}
 		}
 
-		// Get unvisited neighbors
+		// CRITICAL: Refresh state after collecting data to get current system's connections
+		state = client.GetState()
+		currentSystem = state.CurrentSystem
+
+		// Get unvisited neighbors from the CURRENT system (not the previous one)
 		unvisited := getUnvisitedNeighbors(state, expState)
 
 		if len(unvisited) > 0 {
@@ -752,6 +756,14 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []string {
 	unvisited := []string{}
 	logger := log.New(os.Stdout, "[DEBUG] ", log.LstdFlags)
+
+	// Safety check: if System.ID doesn't match CurrentSystem, data is stale
+	if state.System.ID != state.CurrentSystem {
+		logger.Printf("⚠️  STALE DATA: System.ID=%s doesn't match CurrentSystem=%s", state.System.ID, state.CurrentSystem)
+		logger.Printf("     This indicates system data wasn't refreshed after a jump!")
+		logger.Printf("     Returning empty unvisited list to force data refresh")
+		return []string{}
+	}
 
 	logger.Printf("Current system: %s, Connections: %v", state.System.ID, state.System.Connections)
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
