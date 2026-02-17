@@ -1,0 +1,98 @@
+{
+  "count": 4,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "raider",
+      "name": "Blackthorn",
+      "description": "Fast attack craft favored by pirates.",
+      "class": "Raider",
+      "price": 7000,
+      "base_hull": 90,
+      "base_shield": 70,
+      "base_shield_recharge": 3,
+      "base_armor": 8,
+      "base_speed": 6,
+      "base_fuel": 100,
+      "cargo_capacity": 40,
+      "cpu_capacity": 18,
+      "power_capacity": 35,
+      "weapon_slots": 3,
+      "defense_slots": 1,
+      "utility_slots": 2,
+      "required_skills": {
+        "navigation": 2,
+        "weapons_basic": 3
+      }
+    },
+    {
+      "id": "interceptor",
+      "name": "Stiletto",
+      "description": "Ultra-fast pursuit ship for catching runners.",
+      "class": "Raider",
+      "price": 18000,
+      "base_hull": 70,
+      "base_shield": 90,
+      "base_shield_recharge": 4,
+      "base_armor": 5,
+      "base_speed": 8,
+      "base_fuel": 120,
+      "cargo_capacity": 20,
+      "cpu_capacity": 20,
+      "power_capacity": 40,
+      "weapon_slots": 2,
+      "defense_slots": 1,
+      "utility_slots": 3,
+      "required_skills": {
+        "navigation": 4,
+        "weapons_basic": 4
+      }
+    },
+    {
+      "id": "crimson_ravager",
+      "name": "Crimson Ravager",
+      "description": "Crimson Fleet heavy raider for sustained assaults.",
+      "class": "Raider",
+      "price": 28000,
+      "base_hull": 220,
+      "base_shield": 90,
+      "base_shield_recharge": 3,
+      "base_armor": 25,
+      "base_speed": 4,
+      "base_fuel": 130,
+      "cargo_capacity": 60,
+      "cpu_capacity": 26,
+      "power_capacity": 55,
+      "weapon_slots": 4,
+      "defense_slots": 2,
+      "utility_slots": 2,
+      "required_skills": {
+        "navigation": 3,
+        "weapons_basic": 5
+      }
+    },
+    {
+      "id": "crimson_reaper",
+      "name": "Death Reaper",
+      "description": "Crimson Fleet heavy raider designed to hunt freighters.",
+      "class": "Raider",
+      "price": 72000,
+      "base_hull": 340,
+      "base_shield": 150,
+      "base_shield_recharge": 4,
+      "base_armor": 35,
+      "base_speed": 4,
+      "base_fuel": 220,
+      "cargo_capacity": 180,
+      "cpu_capacity": 35,
+      "power_capacity": 80,
+      "weapon_slots": 5,
+      "defense_slots": 3,
+      "utility_slots": 3,
+      "required_skills": {
+        "navigation": 4,
+        "weapons_advanced": 4
+      }
+    }
+  ]
+}

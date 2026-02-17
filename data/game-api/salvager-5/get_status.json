@@ -1,0 +1,137 @@
+{
+  "Mu": {},
+  "Username": "Debris 'Dig' Davis",
+  "Password": "9e39ce7874e2882055ae7a7594179e3b44d579d25a8d39ddce97c33877046f6a",
+  "Doc": true,
+  "CurrentSystem": "nexus",
+  "CurrentPOI": "nexus_harvesters",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "d6806e7c74214ef38a522bc357d90d11",
+    "username": "Debris 'Dig' Davis",
+    "empire": "voidborn",
+    "credits": 49910,
+    "current_system": "nexus",
+    "current_poi": "nexus_harvesters",
+    "current_ship_id": "e9da2bc2eea283f156b4b6b92a1d2c16",
+    "home_base": "nexus_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 3,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 7,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 8513,
+      "credits_earned": 59478,
+      "credits_spent": 9668,
+      "trades_completed": 651,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 49910,
+  "skill_xp": {
+    "fuel_efficiency": 193,
+    "mining_advanced": 15,
+    "mining_basic": 113,
+    "small_ships": 243,
+    "trading": 350
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "e9da2bc2eea283f156b4b6b92a1d2c16",
+    "owner_id": "d6806e7c74214ef38a522bc357d90d11",
+    "class_id": "mining_barge",
+    "name": "Excavator",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 147,
+    "max_fuel": 150,
+    "cargo_used": 20,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "0063cd9023190cb580b710a5b9667a1c",
+      "499711e1cb7dcdfffd2a4790b3ae1950"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 2
+      }
+    ]
+  },
+  "Fuel": 147,
+  "MaxFuel": 150,
+  "Hull": 180,
+  "MaxHull": 180,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 2
+    }
+  ],
+  "MaxCargo": 150,
+  "System": {
+    "id": "",
+    "name": "Nexus Prime",
+    "description": "Central processing hub of the Voidborn Collective.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "nexus_harvesters"
+  },
+  "CurrentTick": 91505,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

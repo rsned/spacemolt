@@ -1,0 +1,172 @@
+{
+  "Mu": {},
+  "Username": "Orion 'Orky' Olander",
+  "Password": "aee71ac88205044e292cbd9fdabe5ebc56eada08aee081abd2c27a763e1af480",
+  "Doc": true,
+  "CurrentSystem": "haven",
+  "CurrentPOI": "haven_belt",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "2f7d637704ab17bff8aae09ced409b55",
+    "username": "Orion 'Orky' Olander",
+    "empire": "nebula",
+    "credits": 14357,
+    "current_system": "haven",
+    "current_poi": "haven_belt",
+    "current_ship_id": "24888aaa7ef944f6a511e2047b3844e8",
+    "home_base": "haven_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_advanced": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 6,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 5859,
+      "credits_earned": 60087,
+      "credits_spent": 43830,
+      "trades_completed": 339,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 14357,
+  "skill_xp": {
+    "exploration": 85,
+    "fuel_efficiency": 21,
+    "mining_advanced": 360,
+    "mining_basic": 259,
+    "navigation": 78,
+    "small_ships": 21,
+    "trading": 363
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "24888aaa7ef944f6a511e2047b3844e8",
+    "owner_id": "2f7d637704ab17bff8aae09ced409b55",
+    "class_id": "mining_cruiser",
+    "name": "Deeprock Harvester",
+    "hull": 350,
+    "max_hull": 350,
+    "shield": 100,
+    "max_shield": 100,
+    "shield_recharge": 2,
+    "armor": 20,
+    "speed": 1,
+    "fuel": 176,
+    "max_fuel": 200,
+    "cargo_used": 293,
+    "cargo_capacity": 400,
+    "cpu_used": 6,
+    "cpu_capacity": 35,
+    "power_used": 15,
+    "power_capacity": 60,
+    "weapon_slots": 2,
+    "defense_slots": 3,
+    "utility_slots": 6,
+    "modules": [
+      "714a5fef2810e93c5f7afcb4089422c6",
+      "9683852e5c69e740d4394a42c5fbb861",
+      "5256fb847cdb4b8fe80427ba9a4ebdc2"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 2
+      },
+      {
+        "item_id": "ore_silicon",
+        "quantity": 100
+      },
+      {
+        "item_id": "ore_trade_crystal",
+        "quantity": 9
+      },
+      {
+        "item_id": "ore_copper",
+        "quantity": 63
+      },
+      {
+        "item_id": "ore_iron",
+        "quantity": 77
+      },
+      {
+        "item_id": "ore_nickel",
+        "quantity": 24
+      }
+    ]
+  },
+  "Fuel": 176,
+  "MaxFuel": 200,
+  "Hull": 350,
+  "MaxHull": 350,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 2
+    },
+    {
+      "item_id": "ore_silicon",
+      "quantity": 100
+    },
+    {
+      "item_id": "ore_trade_crystal",
+      "quantity": 9
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 63
+    },
+    {
+      "item_id": "ore_iron",
+      "quantity": 77
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 24
+    }
+  ],
+  "MaxCargo": 400,
+  "System": {
+    "id": "",
+    "name": "Haven",
+    "description": "The commercial heart of the Nebula Trade Federation.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "haven_belt"
+  },
+  "CurrentTick": 91406,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

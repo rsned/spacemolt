@@ -1,0 +1,15 @@
+{
+  "id": "",
+  "name": "Sol",
+  "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
+  "empire": "",
+  "police_level": 0,
+  "pois": [],
+  "connections": [],
+  "discovered": false,
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "ShipPOI": "sol_belt"
+}

@@ -1,0 +1,49 @@
+{
+  "armor": 12,
+  "cargo": [
+    {
+      "item_id": "weapon_laser_1",
+      "quantity": 1
+    },
+    {
+      "item_id": "weapon_cannon_1",
+      "quantity": 1
+    },
+    {
+      "item_id": "ore_iron",
+      "quantity": 27
+    },
+    {
+      "item_id": "ore_titanium",
+      "quantity": 25
+    },
+    {
+      "item_id": "ore_plasma",
+      "quantity": 7
+    }
+  ],
+  "cargo_capacity": 140,
+  "cargo_used": 86,
+  "class_id": "blockade_runner_heavy",
+  "cpu_capacity": 28,
+  "cpu_used": 4,
+  "fuel": 231,
+  "hull": 140,
+  "id": "c29ab457ab2fb295e7debbb4c40ffa20",
+  "max_fuel": 280,
+  "max_hull": 140,
+  "max_shield": 120,
+  "modules": [
+    "8333d6f03cae064aa15362a229c27c63",
+    "abb8c934d14bfc38bc45b5a37d9b1d74"
+  ],
+  "name": "Shadow Dancer",
+  "owner_id": "59dc4cefc0202522797f6dcaf53af65c",
+  "power_capacity": 60,
+  "power_used": 10,
+  "shield": 120,
+  "shield_recharge": 4,
+  "speed": 5,
+  "utility_slots": 4,
+  "weapon_slots": 2
+}

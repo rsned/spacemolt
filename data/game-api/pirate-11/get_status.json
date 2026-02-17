@@ -1,0 +1,128 @@
+{
+  "Mu": {},
+  "Username": "Captain 'Vortex' Vash",
+  "Password": "ec8744928f120bc242006a8aa42814b76f36b9830d2c9963607a24c71136e708",
+  "Doc": true,
+  "CurrentSystem": "nexus",
+  "CurrentPOI": "nexus_core",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "16dc9eb325eeac0aa981c83b5368c9a1",
+    "username": "Captain 'Vortex' Vash",
+    "empire": "voidborn",
+    "credits": 54591,
+    "current_system": "nexus",
+    "current_poi": "nexus_core",
+    "current_ship_id": "2aff9699598f5d71be603ed5077ce0dc",
+    "home_base": "nexus_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 4,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 8,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 14655,
+      "credits_earned": 89188,
+      "credits_spent": 32697,
+      "trades_completed": 521,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 54591,
+  "skill_xp": {
+    "fuel_efficiency": 88,
+    "mining_advanced": 1160,
+    "mining_basic": 2655,
+    "small_ships": 138,
+    "trading": 414
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "2aff9699598f5d71be603ed5077ce0dc",
+    "owner_id": "16dc9eb325eeac0aa981c83b5368c9a1",
+    "class_id": "mining_cruiser",
+    "name": "Deeprock Harvester",
+    "hull": 350,
+    "max_hull": 350,
+    "shield": 100,
+    "max_shield": 100,
+    "shield_recharge": 2,
+    "armor": 20,
+    "speed": 1,
+    "fuel": 187,
+    "max_fuel": 200,
+    "cargo_used": 0,
+    "cargo_capacity": 400,
+    "cpu_used": 6,
+    "cpu_capacity": 35,
+    "power_used": 15,
+    "power_capacity": 60,
+    "weapon_slots": 2,
+    "defense_slots": 3,
+    "utility_slots": 6,
+    "modules": [
+      "3265f98bdf71afc08247d48640548495",
+      "f2dc6d000bea37f3d8317f5497c9df29",
+      "e2591e5f58e085e9f5da9a4152c748e7"
+    ],
+    "cargo": []
+  },
+  "Fuel": 187,
+  "MaxFuel": 200,
+  "Hull": 350,
+  "MaxHull": 350,
+  "Cargo": [],
+  "MaxCargo": 400,
+  "System": {
+    "id": "",
+    "name": "Nexus Prime",
+    "description": "Central processing hub of the Voidborn Collective.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "nexus_core"
+  },
+  "CurrentTick": 91435,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

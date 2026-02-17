@@ -1,0 +1,118 @@
+{
+  "base": {
+    "defense_level": 100,
+    "description": "Home of the wanderers. Three captured destroyers and a Nebula freighter welded into a mobile station the locals call 'the Patchwork.' Nothing matches, everything is jury-rigged, and the water on Decks 7 through 12 tastes like reactor coolant — but it flies, it fights, and the docking bay is open to anyone who doesn't start trouble.",
+    "empire": "outerrim",
+    "facilities": [
+      "frontier_exchange",
+      "frontier_salvage_reactor",
+      "frontier_life_support",
+      "frontier_still",
+      "iron_refinery",
+      "circuit_fabricator",
+      "polymer_synthesizer",
+      "fuel_cell_plant",
+      "repair_kit_factory",
+      "frontier_weld_shop",
+      "frontier_fuel_siphon",
+      "frontier_salvage_yard",
+      "frontier_machine_shop",
+      "frontier_notice_board",
+      "frontier_hull_lockers"
+    ],
+    "has_drones": true,
+    "id": "frontier_base",
+    "market": [
+      {
+        "base_id": "",
+        "id": "a5d16f907990f4e00b5b3c87c286c298",
+        "is_npc": true,
+        "item_id": "ore_iron",
+        "price_each": 5,
+        "quantity": 1000
+      },
+      {
+        "base_id": "",
+        "id": "a9d1756e10050e0a2a68d5fb69cb5ac0",
+        "is_npc": true,
+        "item_id": "ore_copper",
+        "price_each": 8,
+        "quantity": 1000
+      },
+      {
+        "base_id": "",
+        "id": "3009d52840dc9c3a564e7b31144fb0cd",
+        "is_npc": true,
+        "item_id": "fuel_cell",
+        "price_each": 15,
+        "quantity": 100
+      },
+      {
+        "base_id": "",
+        "id": "3a1c7fe6dc04f29da6d636c4f0cbbda4",
+        "is_npc": true,
+        "item_id": "repair_kit",
+        "price_each": 120,
+        "quantity": 50
+      },
+      {
+        "base_id": "",
+        "id": "aa8087070e4e583799179811d3255dd3",
+        "is_npc": true,
+        "item_id": "mining_laser_1",
+        "price_each": 150,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "4f6d27df87a0a9d1131b716723e8019d",
+        "is_npc": true,
+        "item_id": "weapon_laser_1",
+        "price_each": 200,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "86470b3b7a7b2a499e4ea76a13a54693",
+        "is_npc": true,
+        "item_id": "weapon_cannon_1",
+        "price_each": 250,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "f22fc421980c0e83a14bc130d7e9ff7c",
+        "is_npc": true,
+        "item_id": "weapon_missile_1",
+        "price_each": 400,
+        "quantity": 5
+      }
+    ],
+    "name": "Frontier Station",
+    "poi_id": "frontier_mobile",
+    "public_access": true,
+    "services": {
+      "cloning": true,
+      "crafting": true,
+      "insurance": true,
+      "market": true,
+      "missions": true,
+      "refuel": true,
+      "repair": true,
+      "shipyard": true,
+      "storage": true
+    }
+  },
+  "poi": {
+    "base_id": "frontier_base",
+    "description": "The ever-moving heart of the Explorers.",
+    "id": "frontier_mobile",
+    "name": "Mobile Capital",
+    "position": {
+      "x": 1,
+      "y": 0
+    },
+    "system_id": "frontier",
+    "type": "station"
+  }
+}

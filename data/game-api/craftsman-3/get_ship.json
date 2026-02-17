@@ -1,0 +1,52 @@
+{
+  "armor": 8,
+  "cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 3
+    },
+    {
+      "item_id": "ore_iron",
+      "quantity": 20
+    },
+    {
+      "item_id": "ore_sol_alloy",
+      "quantity": 1
+    },
+    {
+      "item_id": "ore_titanium",
+      "quantity": 1
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 24
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 15
+    }
+  ],
+  "cargo_capacity": 100,
+  "cargo_used": 92,
+  "class_id": "mining_enhanced",
+  "cpu_capacity": 16,
+  "cpu_used": 2,
+  "fuel": 106,
+  "hull": 140,
+  "id": "47444916a64b22f5826fefa84eb71b2a",
+  "max_fuel": 130,
+  "max_hull": 140,
+  "max_shield": 55,
+  "modules": [
+    "ebb0b48cbe90749b94cb0806bfcc2fc8"
+  ],
+  "name": "Drillship",
+  "owner_id": "a81037cd551dae1cc88be584b8da938b",
+  "power_capacity": 32,
+  "power_used": 5,
+  "shield": 55,
+  "shield_recharge": 1,
+  "speed": 2,
+  "utility_slots": 3,
+  "weapon_slots": 1
+}

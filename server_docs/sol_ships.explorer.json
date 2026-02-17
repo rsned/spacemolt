@@ -1,0 +1,147 @@
+{
+  "count": 6,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "explorer",
+      "name": "Pathfinder",
+      "description": "Long-range exploration vessel for deep space.",
+      "class": "Explorer",
+      "price": 15000,
+      "base_hull": 120,
+      "base_shield": 70,
+      "base_shield_recharge": 2,
+      "base_armor": 10,
+      "base_speed": 4,
+      "base_fuel": 400,
+      "cargo_capacity": 100,
+      "cpu_capacity": 25,
+      "power_capacity": 50,
+      "weapon_slots": 2,
+      "defense_slots": 2,
+      "utility_slots": 4,
+      "required_skills": {
+        "jump_drive": 1,
+        "navigation": 3
+      }
+    },
+    {
+      "id": "frontier_ranger",
+      "name": "Frontier Ranger",
+      "description": "Outer Rim Confederacy's versatile explorer-fighter.",
+      "class": "Explorer",
+      "price": 24000,
+      "base_hull": 160,
+      "base_shield": 90,
+      "base_shield_recharge": 3,
+      "base_armor": 18,
+      "base_speed": 4,
+      "base_fuel": 350,
+      "cargo_capacity": 120,
+      "cpu_capacity": 28,
+      "power_capacity": 55,
+      "weapon_slots": 3,
+      "defense_slots": 2,
+      "utility_slots": 4,
+      "required_skills": {
+        "navigation": 4,
+        "weapons_basic": 3
+      }
+    },
+    {
+      "id": "frontier_survivor",
+      "name": "Wasteland Survivor",
+      "description": "Outer Rim self-sufficient long-range vessel.",
+      "class": "Explorer",
+      "price": 32000,
+      "base_hull": 200,
+      "base_shield": 100,
+      "base_shield_recharge": 3,
+      "base_armor": 22,
+      "base_speed": 3,
+      "base_fuel": 500,
+      "cargo_capacity": 200,
+      "cpu_capacity": 30,
+      "power_capacity": 60,
+      "weapon_slots": 3,
+      "defense_slots": 3,
+      "utility_slots": 5,
+      "required_skills": {
+        "mining_basic": 2,
+        "navigation": 5
+      }
+    },
+    {
+      "id": "expedition_ship",
+      "name": "Trailblazer",
+      "description": "Deep-space expedition vessel for extended journeys.",
+      "class": "Explorer",
+      "price": 38000,
+      "base_hull": 180,
+      "base_shield": 110,
+      "base_shield_recharge": 3,
+      "base_armor": 15,
+      "base_speed": 4,
+      "base_fuel": 600,
+      "cargo_capacity": 180,
+      "cpu_capacity": 35,
+      "power_capacity": 70,
+      "weapon_slots": 3,
+      "defense_slots": 3,
+      "utility_slots": 5,
+      "required_skills": {
+        "jump_drive": 2,
+        "navigation": 5,
+        "scanning": 2
+      }
+    },
+    {
+      "id": "deep_space_explorer",
+      "name": "Horizon",
+      "description": "Ultimate exploration vessel for the farthest reaches.",
+      "class": "Explorer",
+      "price": 68000,
+      "base_hull": 220,
+      "base_shield": 150,
+      "base_shield_recharge": 4,
+      "base_armor": 18,
+      "base_speed": 4,
+      "base_fuel": 1000,
+      "cargo_capacity": 280,
+      "cpu_capacity": 45,
+      "power_capacity": 90,
+      "weapon_slots": 3,
+      "defense_slots": 4,
+      "utility_slots": 6,
+      "required_skills": {
+        "jump_drive": 4,
+        "navigation": 5,
+        "scanning": 4
+      }
+    },
+    {
+      "id": "frontier_corsair",
+      "name": "Rim Corsair",
+      "description": "Outer Rim versatile combat/exploration vessel.",
+      "class": "Explorer",
+      "price": 75000,
+      "base_hull": 320,
+      "base_shield": 180,
+      "base_shield_recharge": 4,
+      "base_armor": 28,
+      "base_speed": 4,
+      "base_fuel": 600,
+      "cargo_capacity": 250,
+      "cpu_capacity": 42,
+      "power_capacity": 85,
+      "weapon_slots": 4,
+      "defense_slots": 4,
+      "utility_slots": 5,
+      "required_skills": {
+        "mining_basic": 3,
+        "navigation": 5,
+        "weapons_basic": 4
+      }
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+{
+  "Mu": {},
+  "Username": "Cosmo 'Cosmic' Chandler",
+  "Password": "d37b1b3e0a394b5d3babc2a1f2242b335422f3cb3f8d53aea1b31e733ee81c82",
+  "Doc": true,
+  "CurrentSystem": "sol",
+  "CurrentPOI": "sol_sun",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "99c91f6f5767dd7cfa4603b6b193c03a",
+    "username": "Cosmo 'Cosmic' Chandler",
+    "empire": "solarian",
+    "credits": 28569,
+    "current_system": "sol",
+    "current_poi": "sol_sun",
+    "current_ship_id": "a43f9f80dc8496a77c09d486b1581ccb",
+    "home_base": "sol_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "exploration": {
+        "level": 1,
+        "xp": 0
+      },
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 6,
+        "xp": 0
+      },
+      "navigation": {
+        "level": 1,
+        "xp": 0
+      },
+      "scanning": {
+        "level": 1,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 5774,
+      "credits_earned": 48145,
+      "credits_spent": 17676,
+      "trades_completed": 424,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 28569,
+  "skill_xp": {
+    "exploration": 100,
+    "fuel_efficiency": 124,
+    "mining_advanced": 279,
+    "mining_basic": 174,
+    "navigation": 86,
+    "scanning": 78,
+    "small_ships": 124,
+    "trading": 235
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "a43f9f80dc8496a77c09d486b1581ccb",
+    "owner_id": "99c91f6f5767dd7cfa4603b6b193c03a",
+    "class_id": "mining_barge",
+    "name": "Excavator",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 31,
+    "max_fuel": 150,
+    "cargo_used": 60,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "a23ea71d56b1492243da03124f11a6e9",
+      "b4f7d9b690b28d77587bfc4d9e65da22"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 6
+      }
+    ]
+  },
+  "Fuel": 31,
+  "MaxFuel": 150,
+  "Hull": 180,
+  "MaxHull": 180,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 6
+    }
+  ],
+  "MaxCargo": 150,
+  "System": {
+    "id": "",
+    "name": "Sol",
+    "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "sol_sun"
+  },
+  "CurrentTick": 91348,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

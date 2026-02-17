@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Player, Skill } from '../types/game';
+import { useSkillDefinitions, getNextLevelXP } from './useSkillDefinitions';
 
 export interface AgentInfo {
   username: string;
@@ -104,16 +105,20 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
   }
   // get_skills response includes player_skills with next_level_xp per skill.
   if (Array.isArray(p.player_skills)) {
+    console.log('[extractGameState] Found player_skills array:', p.player_skills);
     const nextXP: Record<string, number> = {};
     for (const entry of p.player_skills) {
       const e = entry as Record<string, unknown>;
+      console.log('[extractGameState] Processing skill entry:', e);
       if (typeof e.skill_id === 'string' && typeof e.next_level_xp === 'number') {
         nextXP[e.skill_id] = e.next_level_xp;
+        console.log(`[extractGameState] ${e.skill_id} -> ${e.next_level_xp}`);
       }
     }
     if (Object.keys(nextXP).length > 0) {
       state.SkillNextLevelXP = nextXP;
       hasData = true;
+      console.log('[extractGameState] Set SkillNextLevelXP:', nextXP);
     }
   }
 
@@ -152,26 +157,27 @@ function mapToPlayer(gs: GameState): Player {
   };
 }
 
-function mapToSkills(gs: GameState): Skill[] {
+function mapToSkills(gs: GameState, skillDefinitions: Record<string, any>): Skill[] {
   const skills = gs.Player?.skills;
   if (!skills) return [];
 
-  const nextLevelXP = gs.SkillNextLevelXP || {};
-
   return Object.entries(skills).map(([name, skill]) => {
-    const nextXP = nextLevelXP[name];
+    // Get next level XP from skill definitions
+    const nextXP = getNextLevelXP(name, skill.level, skillDefinitions);
+
     let xpPct: number;
-    if (nextXP && nextXP > 0) {
+    if (nextXP > 0) {
       xpPct = (skill.xp / nextXP) * 100;
     } else {
-      // No next-level data yet; show raw xp as-is (capped at 99 to indicate incomplete).
-      xpPct = Math.min(skill.xp > 0 ? skill.xp : 0, 99);
+      // Max level or unknown skill - show 100% or raw xp
+      xpPct = skill.xp > 0 ? Math.min(skill.xp, 100) : 0;
     }
+
     return {
       name,
       level: skill.level,
       xp: Math.round(xpPct),
-      nextLevelXp: nextXP ?? 0,
+      nextLevelXp: nextXP,
     };
   }).sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
 }
@@ -190,6 +196,7 @@ export interface ObserverState {
 export function useObserver(wsUrl: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const gameStateRef = useRef<Partial<GameState>>({});
+  const { skills: skillDefinitions } = useSkillDefinitions();
 
   const [state, setState] = useState<ObserverState>({
     status: 'disconnected',
@@ -335,7 +342,7 @@ export function useObserver(wsUrl: string) {
             setState(s => ({
               ...s,
               player: mapToPlayer(gs),
-              skills: mapToSkills(gs),
+              skills: mapToSkills(gs, skillDefinitions),
             }));
           }
         } else {
@@ -345,7 +352,7 @@ export function useObserver(wsUrl: string) {
           setState(s => ({
             ...s,
             player: mapToPlayer(gs),
-            skills: mapToSkills(gs),
+            skills: mapToSkills(gs, skillDefinitions),
           }));
         }
         break;

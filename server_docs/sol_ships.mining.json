@@ -1,0 +1,171 @@
+{
+  "count": 7,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "starter_mining",
+      "name": "Prospector",
+      "description": "A humble mining vessel for new pilots. Slow but reliable.",
+      "class": "Mining",
+      "price": 0,
+      "base_hull": 100,
+      "base_shield": 50,
+      "base_shield_recharge": 1,
+      "base_armor": 5,
+      "base_speed": 2,
+      "base_fuel": 100,
+      "cargo_capacity": 50,
+      "cpu_capacity": 12,
+      "power_capacity": 25,
+      "weapon_slots": 1,
+      "defense_slots": 1,
+      "utility_slots": 2,
+      "default_modules": [
+        "mining_laser_1"
+      ]
+    },
+    {
+      "id": "mining_improved",
+      "name": "Digger",
+      "description": "An upgraded Prospector with better mining capacity.",
+      "class": "Mining",
+      "price": 500,
+      "base_hull": 120,
+      "base_shield": 60,
+      "base_shield_recharge": 1,
+      "base_armor": 6,
+      "base_speed": 2,
+      "base_fuel": 120,
+      "cargo_capacity": 75,
+      "cpu_capacity": 14,
+      "power_capacity": 28,
+      "weapon_slots": 1,
+      "defense_slots": 1,
+      "utility_slots": 2,
+      "default_modules": [
+        "mining_laser_1"
+      ]
+    },
+    {
+      "id": "mining_gas",
+      "name": "Siphon",
+      "description": "Specialized vessel for harvesting gas clouds.",
+      "class": "Mining",
+      "price": 1800,
+      "base_hull": 90,
+      "base_shield": 45,
+      "base_shield_recharge": 1,
+      "base_armor": 5,
+      "base_speed": 3,
+      "base_fuel": 140,
+      "cargo_capacity": 80,
+      "cpu_capacity": 14,
+      "power_capacity": 30,
+      "weapon_slots": 0,
+      "defense_slots": 1,
+      "utility_slots": 3
+    },
+    {
+      "id": "mining_enhanced",
+      "name": "Drillship",
+      "description": "Solid mid-tier mining vessel with better defenses.",
+      "class": "Mining",
+      "price": 2000,
+      "base_hull": 140,
+      "base_shield": 55,
+      "base_shield_recharge": 1,
+      "base_armor": 8,
+      "base_speed": 2,
+      "base_fuel": 130,
+      "cargo_capacity": 100,
+      "cpu_capacity": 16,
+      "power_capacity": 32,
+      "weapon_slots": 1,
+      "defense_slots": 2,
+      "utility_slots": 3,
+      "default_modules": [
+        "mining_laser_1"
+      ],
+      "required_skills": {
+        "mining_basic": 1
+      }
+    },
+    {
+      "id": "mining_barge",
+      "name": "Excavator",
+      "description": "Dedicated mining vessel with enhanced ore storage.",
+      "class": "Mining",
+      "price": 5000,
+      "base_hull": 180,
+      "base_shield": 60,
+      "base_shield_recharge": 1,
+      "base_armor": 12,
+      "base_speed": 2,
+      "base_fuel": 150,
+      "cargo_capacity": 150,
+      "cpu_capacity": 20,
+      "power_capacity": 40,
+      "weapon_slots": 1,
+      "defense_slots": 2,
+      "utility_slots": 4,
+      "default_modules": [
+        "mining_laser_1",
+        "mining_laser_1"
+      ],
+      "required_skills": {
+        "mining_basic": 2
+      }
+    },
+    {
+      "id": "mining_cruiser",
+      "name": "Deeprock Harvester",
+      "description": "Heavy mining platform with impressive capacity.",
+      "class": "Mining",
+      "price": 25000,
+      "base_hull": 350,
+      "base_shield": 100,
+      "base_shield_recharge": 2,
+      "base_armor": 20,
+      "base_speed": 1,
+      "base_fuel": 200,
+      "cargo_capacity": 400,
+      "cpu_capacity": 35,
+      "power_capacity": 60,
+      "weapon_slots": 2,
+      "defense_slots": 3,
+      "utility_slots": 6,
+      "default_modules": [
+        "mining_laser_1",
+        "mining_laser_1",
+        "mining_laser_1"
+      ],
+      "required_skills": {
+        "mining_advanced": 1,
+        "mining_basic": 4
+      }
+    },
+    {
+      "id": "mining_capital",
+      "name": "Titan Excavator",
+      "description": "Capital-class mining vessel that can strip entire asteroid fields.",
+      "class": "Mining",
+      "price": 95000,
+      "base_hull": 600,
+      "base_shield": 200,
+      "base_shield_recharge": 3,
+      "base_armor": 35,
+      "base_speed": 1,
+      "base_fuel": 400,
+      "cargo_capacity": 1200,
+      "cpu_capacity": 50,
+      "power_capacity": 100,
+      "weapon_slots": 2,
+      "defense_slots": 5,
+      "utility_slots": 8,
+      "required_skills": {
+        "mining_advanced": 5,
+        "refinement": 4
+      }
+    }
+  ]
+}

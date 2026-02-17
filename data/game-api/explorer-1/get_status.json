@@ -1,0 +1,206 @@
+{
+  "Mu": {},
+  "Username": "Atlas 'Astro' Anderson",
+  "Password": "9f1cd571084d14b8eb460547a35b733a163058062179c967142f5b91b9c75f43",
+  "Doc": true,
+  "CurrentSystem": "sol",
+  "CurrentPOI": "sol_station",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "2145b48bc065cefa5f6d4293fb9ef3dc",
+    "username": "Atlas 'Astro' Anderson",
+    "empire": "solarian",
+    "credits": 48182,
+    "current_system": "sol",
+    "current_poi": "sol_station",
+    "current_ship_id": "34e0a399da9320f3af74d127f0b0cad1",
+    "home_base": "sol_base",
+    "docked_at_base": "sol_base",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "crafting_basic": {
+        "level": 1,
+        "xp": 0
+      },
+      "exploration": {
+        "level": 2,
+        "xp": 0
+      },
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 4,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 9,
+        "xp": 0
+      },
+      "navigation": {
+        "level": 2,
+        "xp": 0
+      },
+      "refinement": {
+        "level": 1,
+        "xp": 0
+      },
+      "scanning": {
+        "level": 1,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 2,
+        "xp": 0
+      },
+      "trading": {
+        "level": 3,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 17430,
+      "credits_earned": 102630,
+      "credits_spent": 51874,
+      "trades_completed": 633,
+      "systems_discovered": 0,
+      "items_crafted": 46,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 48182,
+  "skill_xp": {
+    "crafting_basic": 176,
+    "exploration": 10,
+    "fuel_efficiency": 279,
+    "mining_advanced": 3941,
+    "mining_basic": 930,
+    "navigation": 140,
+    "refinement": 176,
+    "scanning": 110,
+    "small_ships": 29,
+    "trading": 12
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "34e0a399da9320f3af74d127f0b0cad1",
+    "owner_id": "2145b48bc065cefa5f6d4293fb9ef3dc",
+    "class_id": "mining_cruiser",
+    "name": "Deeprock Harvester",
+    "hull": 350,
+    "max_hull": 350,
+    "shield": 100,
+    "max_shield": 100,
+    "shield_recharge": 2,
+    "armor": 20,
+    "speed": 1,
+    "fuel": 200,
+    "max_fuel": 200,
+    "cargo_used": 116,
+    "cargo_capacity": 400,
+    "cpu_used": 12,
+    "cpu_capacity": 35,
+    "power_used": 30,
+    "power_capacity": 60,
+    "weapon_slots": 2,
+    "defense_slots": 3,
+    "utility_slots": 6,
+    "modules": [
+      "ba20e308e78924a9b3f06c999285fdc4",
+      "93a391f67d3118fa0c83d4a69ea9f4a2",
+      "e6786badddacfb7e8e812a73a4e67445",
+      "1c07a411b45487027411b05c0cb615e4",
+      "16ed3b59b84b138023d76a7d092df207",
+      "73f2bea71fc5a5bcf66422e69a59381e"
+    ],
+    "cargo": [
+      {
+        "item_id": "ore_iron",
+        "quantity": 4
+      },
+      {
+        "item_id": "ore_nickel",
+        "quantity": 63
+      },
+      {
+        "item_id": "ore_titanium",
+        "quantity": 14
+      },
+      {
+        "item_id": "ore_antimatter",
+        "quantity": 2
+      },
+      {
+        "item_id": "refined_copper_wire",
+        "quantity": 15
+      },
+      {
+        "item_id": "refined_steel",
+        "quantity": 14
+      }
+    ]
+  },
+  "Fuel": 200,
+  "MaxFuel": 200,
+  "Hull": 350,
+  "MaxHull": 350,
+  "Cargo": [
+    {
+      "item_id": "ore_iron",
+      "quantity": 4
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 63
+    },
+    {
+      "item_id": "ore_titanium",
+      "quantity": 14
+    },
+    {
+      "item_id": "ore_antimatter",
+      "quantity": 2
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "quantity": 15
+    },
+    {
+      "item_id": "refined_steel",
+      "quantity": 14
+    }
+  ],
+  "MaxCargo": 400,
+  "System": {
+    "id": "",
+    "name": "Sol",
+    "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "sol_station"
+  },
+  "CurrentTick": 91342,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

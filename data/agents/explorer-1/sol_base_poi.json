@@ -1,0 +1,126 @@
+[2m--- Notifications (1) ---[0m
+[2m[1:15:16 AM][0m [32m[ARRIVAL][0m ILC Vein has arrived at Sol Central
+
+
+[1m=== Response ===[0m
+{
+  "base": {
+    "id": "sol_base",
+    "poi_id": "sol_station",
+    "name": "Confederacy Central Command",
+    "description": "The seat of Solarian government and commerce. Everything here is certified, warrantied, and documented in triplicate — from the precision drydocks to the quantum-entangled trade exchange. A self-sustaining biosphere spans three decks, providing real air and real food, because the Confederacy believes civilization requires both.",
+    "empire": "solarian",
+    "services": {
+      "refuel": true,
+      "repair": true,
+      "shipyard": true,
+      "market": true,
+      "cloning": true,
+      "insurance": true,
+      "crafting": true,
+      "missions": true,
+      "storage": true
+    },
+    "facilities": [
+      "grand_solarian_exchange",
+      "solarian_fusion_plant",
+      "solarian_life_support",
+      "sol_galley",
+      "iron_refinery",
+      "circuit_fabricator",
+      "copper_wire_mill",
+      "polymer_synthesizer",
+      "fuel_cell_plant",
+      "repair_kit_factory",
+      "power_cell_assembler",
+      "sensor_assembly",
+      "sol_precision_drydock",
+      "sol_fuel_grid",
+      "sol_naval_shipyard",
+      "sol_research_labs",
+      "sol_admin_bureau",
+      "sol_bonded_warehouse"
+    ],
+    "market": [
+      {
+        "id": "fd5f32fe2762890f0e21db78771a61ac",
+        "base_id": "",
+        "item_id": "ore_iron",
+        "quantity": 1000,
+        "price_each": 5,
+        "is_npc": true
+      },
+      {
+        "id": "033ab3d9cffda888824e11f120bbc310",
+        "base_id": "",
+        "item_id": "ore_copper",
+        "quantity": 1000,
+        "price_each": 8,
+        "is_npc": true
+      },
+      {
+        "id": "790637f6bd677a26f12f939fe2d95cc4",
+        "base_id": "",
+        "item_id": "fuel_cell",
+        "quantity": 100,
+        "price_each": 15,
+        "is_npc": true
+      },
+      {
+        "id": "600b3f32e5baa12067369eb2732c6297",
+        "base_id": "",
+        "item_id": "repair_kit",
+        "quantity": 50,
+        "price_each": 120,
+        "is_npc": true
+      },
+      {
+        "id": "8a8756304d1c197c4ad52ec173024fb9",
+        "base_id": "",
+        "item_id": "mining_laser_1",
+        "quantity": 10,
+        "price_each": 150,
+        "is_npc": true
+      },
+      {
+        "id": "ac667df523d71c9444484afa400d8906",
+        "base_id": "",
+        "item_id": "weapon_laser_1",
+        "quantity": 10,
+        "price_each": 200,
+        "is_npc": true
+      },
+      {
+        "id": "cd854737bdb586f1c903d4097494a795",
+        "base_id": "",
+        "item_id": "weapon_cannon_1",
+        "quantity": 10,
+        "price_each": 250,
+        "is_npc": true
+      },
+      {
+        "id": "84e6aa8dc9bf487aa66bb94593569585",
+        "base_id": "",
+        "item_id": "weapon_missile_1",
+        "quantity": 5,
+        "price_each": 400,
+        "is_npc": true
+      }
+    ],
+    "defense_level": 100,
+    "has_drones": true,
+    "public_access": true
+  },
+  "poi": {
+    "id": "sol_station",
+    "system_id": "sol",
+    "type": "station",
+    "name": "Sol Central",
+    "description": "The administrative hub of the Solarian Confederacy.",
+    "position": {
+      "x": 0.8,
+      "y": -0.2
+    },
+    "base_id": "sol_base"
+  }
+}

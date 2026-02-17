@@ -1,0 +1,129 @@
+{
+  "Mu": {},
+  "Username": "Marcus 'Mercury' Mercer",
+  "Password": "0beec8d8951915b611b03efc7e6e3b54acaed4eb2efe6224a2ea1f8f3c952697",
+  "Doc": true,
+  "CurrentSystem": "haven",
+  "CurrentPOI": "haven_exchange",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "e97bc9ace7327e86c6bc6f00f33c979d",
+    "username": "Marcus 'Mercury' Mercer",
+    "empire": "nebula",
+    "credits": 19866,
+    "current_system": "haven",
+    "current_poi": "haven_exchange",
+    "current_ship_id": "909affc3c13461fec414eb808995afb1",
+    "home_base": "haven_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_advanced": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 5,
+        "xp": 0
+      },
+      "trading": {
+        "level": 1,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 4168,
+      "credits_earned": 28742,
+      "credits_spent": 8976,
+      "trades_completed": 206,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 19866,
+  "skill_xp": {
+    "fuel_efficiency": 39,
+    "mining_advanced": 172,
+    "mining_basic": 668,
+    "small_ships": 39,
+    "trading": 208
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "909affc3c13461fec414eb808995afb1",
+    "owner_id": "e97bc9ace7327e86c6bc6f00f33c979d",
+    "class_id": "mining_barge",
+    "name": "Excavator",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 109,
+    "max_fuel": 150,
+    "cargo_used": 40,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "bd97ad01c341b568d90d5e782ea5221d",
+      "e064bb06f4c57713fcbf043e383654bc"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 4
+      }
+    ]
+  },
+  "Fuel": 109,
+  "MaxFuel": 150,
+  "Hull": 180,
+  "MaxHull": 180,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 4
+    }
+  ],
+  "MaxCargo": 150,
+  "System": {
+    "id": "",
+    "name": "Haven",
+    "description": "The commercial heart of the Nebula Trade Federation.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "haven_exchange"
+  },
+  "CurrentTick": 91520,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

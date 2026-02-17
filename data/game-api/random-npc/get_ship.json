@@ -1,0 +1,27 @@
+{
+  "armor": 5,
+  "cargo": [],
+  "cargo_capacity": 50,
+  "cargo_used": 0,
+  "class_id": "starter_mining",
+  "cpu_capacity": 12,
+  "cpu_used": 2,
+  "fuel": 100,
+  "hull": 100,
+  "id": "dd82fb79a29a346c4496b7d580af6ad4",
+  "max_fuel": 100,
+  "max_hull": 100,
+  "max_shield": 50,
+  "modules": [
+    "074874d05a755ca64384db29f99dc85b"
+  ],
+  "name": "Prospector",
+  "owner_id": "98e6c84987a278dfc6f53ae5cf66bc10",
+  "power_capacity": 25,
+  "power_used": 5,
+  "shield": 50,
+  "shield_recharge": 1,
+  "speed": 2,
+  "utility_slots": 2,
+  "weapon_slots": 1
+}

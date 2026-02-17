@@ -1,0 +1,15 @@
+{
+  "id": "",
+  "name": "Nexus Prime",
+  "description": "Central processing hub of the Voidborn Collective.",
+  "empire": "",
+  "police_level": 0,
+  "pois": [],
+  "connections": [],
+  "discovered": false,
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "ShipPOI": "nexus_core"
+}

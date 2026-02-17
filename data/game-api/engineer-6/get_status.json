@@ -1,0 +1,123 @@
+{
+  "Mu": {},
+  "Username": "Generator 'Grid' Graham",
+  "Password": "9f214af0d3c3cb2be57fceeaf636c615d9182d44f4fe04add45a34fa79488d0f",
+  "Doc": true,
+  "CurrentSystem": "nexus",
+  "CurrentPOI": "nexus_core",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "5af507bebc9f9e13207a2161d2532d88",
+    "username": "Generator 'Grid' Graham",
+    "empire": "voidborn",
+    "credits": 8105,
+    "current_system": "nexus",
+    "current_poi": "nexus_core",
+    "current_ship_id": "f812829826ce63b5caaaeeda39815188",
+    "home_base": "nexus_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_basic": {
+        "level": 3,
+        "xp": 0
+      },
+      "trading": {
+        "level": 1,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 1480,
+      "credits_earned": 11800,
+      "credits_spent": 3795,
+      "trades_completed": 127,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 8105,
+  "skill_xp": {
+    "fuel_efficiency": 23,
+    "mining_basic": 480,
+    "small_ships": 23,
+    "trading": 52
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "f812829826ce63b5caaaeeda39815188",
+    "owner_id": "5af507bebc9f9e13207a2161d2532d88",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 116,
+    "max_fuel": 130,
+    "cargo_used": 40,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "a3309f066c05904d352dff634d353d86"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 4
+      }
+    ]
+  },
+  "Fuel": 116,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 4
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Nexus Prime",
+    "description": "Central processing hub of the Voidborn Collective.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "nexus_core"
+  },
+  "CurrentTick": 91330,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

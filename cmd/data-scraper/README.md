@@ -56,6 +56,7 @@ go run cmd/data-scraper/main.go
    - Ship Info
    - Current POI
    - System Data
+   - Map Data
    - Market Listings
    - Ship Listings
    - Nearby Players
@@ -79,6 +80,7 @@ data/game-api/
 ├── get_ship.json
 ├── get_poi.json
 ├── get_system.json
+├── get_map.json
 ├── get_listings.json
 ├── get_ships.json
 ├── get_nearby.json
@@ -113,6 +115,12 @@ data/game-api/
 - Empire, police level
 - Connections to other systems
 - POIs in the system
+
+### Map Data (`get_map.json`)
+- All star systems with coordinates and connections
+- Systems marked as discovered/visited
+- Online player counts per system
+- Police levels and security status
 
 ### Market Listings (`get_listings.json`)
 - Market data from current location

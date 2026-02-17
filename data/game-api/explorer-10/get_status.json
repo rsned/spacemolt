@@ -1,0 +1,173 @@
+{
+  "Mu": {},
+  "Username": "Scout 'Space' Sullivan",
+  "Password": "33ab28ae07b54052c184b2d5b70ad6196750ce920c86507c3f83f9f8d043052a",
+  "Doc": true,
+  "CurrentSystem": "haven",
+  "CurrentPOI": "haven_exchange",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "0f0feb88f0367ae9a665d574f11c38d0",
+    "username": "Scout 'Space' Sullivan",
+    "empire": "nebula",
+    "credits": 56645,
+    "current_system": "haven",
+    "current_poi": "haven_exchange",
+    "current_ship_id": "bb1b5f050d07b28a6bce42c734831fb3",
+    "home_base": "haven_base",
+    "docked_at_base": "haven_base",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_advanced": {
+        "level": 3,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 8,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 12084,
+      "credits_earned": 93207,
+      "credits_spent": 29662,
+      "trades_completed": 478,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 56645,
+  "skill_xp": {
+    "exploration": 40,
+    "fuel_efficiency": 38,
+    "mining_advanced": 3588,
+    "mining_basic": 84,
+    "navigation": 30,
+    "scanning": 3,
+    "small_ships": 38,
+    "trading": 541
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "bb1b5f050d07b28a6bce42c734831fb3",
+    "owner_id": "0f0feb88f0367ae9a665d574f11c38d0",
+    "class_id": "mining_cruiser",
+    "name": "Deeprock Harvester",
+    "hull": 350,
+    "max_hull": 350,
+    "shield": 100,
+    "max_shield": 100,
+    "shield_recharge": 2,
+    "armor": 20,
+    "speed": 1,
+    "fuel": 158,
+    "max_fuel": 200,
+    "cargo_used": 291,
+    "cargo_capacity": 400,
+    "cpu_used": 6,
+    "cpu_capacity": 35,
+    "power_used": 15,
+    "power_capacity": 60,
+    "weapon_slots": 2,
+    "defense_slots": 3,
+    "utility_slots": 6,
+    "modules": [
+      "82b39edb2655618fdbb4ab5902bc5553",
+      "11573ae5d13259862b45c93c50ccd975",
+      "c8fcd30d4664cb9dd7db18eeb83a7a3a"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 2
+      },
+      {
+        "item_id": "ore_silicon",
+        "quantity": 50
+      },
+      {
+        "item_id": "ore_trade_crystal",
+        "quantity": 3
+      },
+      {
+        "item_id": "ore_nickel",
+        "quantity": 56
+      },
+      {
+        "item_id": "ore_copper",
+        "quantity": 63
+      },
+      {
+        "item_id": "ore_iron",
+        "quantity": 99
+      }
+    ]
+  },
+  "Fuel": 158,
+  "MaxFuel": 200,
+  "Hull": 350,
+  "MaxHull": 350,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 2
+    },
+    {
+      "item_id": "ore_silicon",
+      "quantity": 50
+    },
+    {
+      "item_id": "ore_trade_crystal",
+      "quantity": 3
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 56
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 63
+    },
+    {
+      "item_id": "ore_iron",
+      "quantity": 99
+    }
+  ],
+  "MaxCargo": 400,
+  "System": {
+    "id": "",
+    "name": "Haven",
+    "description": "The commercial heart of the Nebula Trade Federation.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "haven_exchange"
+  },
+  "CurrentTick": 91345,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

@@ -1,0 +1,52 @@
+{
+  "count": 2,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "interdictor",
+      "name": "Gravity Well",
+      "description": "Prevents enemies from warping out of combat.",
+      "class": "Interdictor",
+      "price": 32000,
+      "base_hull": 200,
+      "base_shield": 160,
+      "base_shield_recharge": 3,
+      "base_armor": 18,
+      "base_speed": 2,
+      "base_fuel": 180,
+      "cargo_capacity": 40,
+      "cpu_capacity": 35,
+      "power_capacity": 80,
+      "weapon_slots": 2,
+      "defense_slots": 3,
+      "utility_slots": 4,
+      "required_skills": {
+        "electronic_warfare": 4,
+        "shields": 3
+      }
+    },
+    {
+      "id": "heavy_interdictor",
+      "name": "Event Horizon",
+      "description": "Capital-class interdictor with massive disruption field.",
+      "class": "Interdictor",
+      "price": 75000,
+      "base_hull": 380,
+      "base_shield": 280,
+      "base_shield_recharge": 5,
+      "base_armor": 26,
+      "base_speed": 1,
+      "base_fuel": 280,
+      "cargo_capacity": 60,
+      "cpu_capacity": 50,
+      "power_capacity": 120,
+      "weapon_slots": 3,
+      "defense_slots": 5,
+      "utility_slots": 4,
+      "required_skills": {
+        "electronic_warfare": 5,
+        "shields": 4
+      }
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+[
+  {
+    "player_id": "b4bad1391c6ca101ff7e8328da9e6114",
+    "username": "kescal",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "48a912b792a26cc4df451b8652eb85e0",
+    "username": "Victor 'Vein' Vincent",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "59cdd45d673385be007a18a4e38988de",
+    "username": "Iron 'Inspect' Ingram",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "71d9032660142882a2da7b2c1d1dae06",
+    "username": "VoidSmith",
+    "ship_class": "mining_enhanced",
+    "faction_id": "8f30a5836beb61b4982d70d8da1fe69c",
+    "faction_tag": "VOID",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "0e3b0157787e050f63a3bb792658d7df",
+    "username": "Outer Rim Artificer",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "1e2f06e907a8e6d0e65bb688504c0d71",
+    "username": "Workshop",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "1d8c52ebd53c73012ebab039e92e8b1d",
+    "username": "Ironclad 'Impact' Ingram",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "181aad9f3828227d99c842b3def52543",
+    "username": "MaitreForgeron",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "f11ae0bbc7887b816fc5477629dcadf5",
+    "username": "Silas 'Strike' Stone",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "64542a6e10eabb5cd8853e4d94cad503",
+    "username": "Rocco 'Razor' Redgrave",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "d9379af93bce698bf3c6f3a4f835acbe",
+    "username": "Kinetic 'Kernel' King",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "86953d253647b9493f8956dd1aff9739",
+    "username": "Harrison 'Handiwork' Hay",
+    "ship_class": "mining_cruiser",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "a9fc38bd713b8ed9488346b5b5b336dc",
+    "username": "Junction 'Joint' Jackson",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "56fa105400b3ee3fd17c53663e3a7c01",
+    "username": "Emerson 'Exchange' Edwar",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "083ae1e511d4212cd0a33e922bb3493e",
+    "username": "TitanMiner88",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "4a0e40e43973e04afac10e00cac780d3",
+    "username": "Nagata",
+    "ship_class": "starter_mining",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "6cb080f36e2b5348ddc0b5b733a38a52",
+    "username": "Scurvy 'Seadog' Sanders",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "5fd376ab921694efd021c90a79c019cc",
+    "username": "Reginald 'Revenue' Reyno",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  }
+]

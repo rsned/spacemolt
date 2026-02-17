@@ -144,6 +144,7 @@ func (s *Scraper) scrapeAll() error {
 		{"Ship Info", s.scrapeShip},
 		{"Current POI", s.scrapePOI},
 		{"System Data", s.scrapeSystem},
+		{"Map Data", s.scrapeMap},
 		{"Market Listings", s.scrapeListings},
 		{"Ship Listings", s.scrapeShips},
 		{"Nearby Players", s.scrapeNearby},
@@ -245,6 +246,32 @@ func (s *Scraper) scrapeSystem() error {
 	// Save state
 	state := s.client.GetState()
 	return s.saveJSON("get_system.json", state.System)
+}
+
+func (s *Scraper) scrapeMap() error {
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Request map data
+	msg := protocol.Message{
+		Type: "get_map",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("get_map failed: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Get raw JSON
+	rawJSON := s.client.GetRawJSON("map")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_map", errResp))
+	}
+
+	return s.saveJSON("get_map.json", rawJSON)
 }
 
 func (s *Scraper) scrapeListings() error {

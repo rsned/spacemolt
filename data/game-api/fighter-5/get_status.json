@@ -1,0 +1,141 @@
+{
+  "Mu": {},
+  "Username": "Defender 'Duel' Dawson",
+  "Password": "05192d798b91b365c3b771dac36a01694b949a724bed11f073125554a7108d4e",
+  "Doc": true,
+  "CurrentSystem": "nexus",
+  "CurrentPOI": "nexus_harvesters",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "77f2ba7e95bfca5eaadf97a038101581",
+    "username": "Defender 'Duel' Dawson",
+    "empire": "voidborn",
+    "credits": 7095,
+    "current_system": "nexus",
+    "current_poi": "nexus_harvesters",
+    "current_ship_id": "5e0929542269354b80e11da519d0041b",
+    "home_base": "nexus_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_advanced": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 6,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 1,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 6317,
+      "credits_earned": 15403,
+      "credits_spent": 6408,
+      "trades_completed": 90,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 7095,
+  "skill_xp": {
+    "fuel_efficiency": 95,
+    "mining_advanced": 821,
+    "mining_basic": 717,
+    "small_ships": 45,
+    "trading": 11
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "5e0929542269354b80e11da519d0041b",
+    "owner_id": "77f2ba7e95bfca5eaadf97a038101581",
+    "class_id": "mining_barge",
+    "name": "Excavator",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 79,
+    "max_fuel": 150,
+    "cargo_used": 33,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "557a8f9314d718acb5013bed348a2ac8",
+      "8236f4b5962f01ef5dca337c8c000144"
+    ],
+    "cargo": [
+      {
+        "item_id": "ore_copper",
+        "quantity": 24
+      },
+      {
+        "item_id": "ore_silicon",
+        "quantity": 9
+      }
+    ]
+  },
+  "Fuel": 79,
+  "MaxFuel": 150,
+  "Hull": 180,
+  "MaxHull": 180,
+  "Cargo": [
+    {
+      "item_id": "ore_copper",
+      "quantity": 24
+    },
+    {
+      "item_id": "ore_silicon",
+      "quantity": 9
+    }
+  ],
+  "MaxCargo": 150,
+  "System": {
+    "id": "",
+    "name": "Nexus Prime",
+    "description": "Central processing hub of the Voidborn Collective.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "nexus_harvesters"
+  },
+  "CurrentTick": 91386,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

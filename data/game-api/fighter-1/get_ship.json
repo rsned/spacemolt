@@ -1,0 +1,32 @@
+{
+  "armor": 8,
+  "cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 6
+    }
+  ],
+  "cargo_capacity": 100,
+  "cargo_used": 60,
+  "class_id": "mining_enhanced",
+  "cpu_capacity": 16,
+  "cpu_used": 2,
+  "fuel": 119,
+  "hull": 140,
+  "id": "c3fc621bed99e40779e599e0338d6425",
+  "max_fuel": 130,
+  "max_hull": 140,
+  "max_shield": 55,
+  "modules": [
+    "c32e661f49a1a52f124ee80b00aa7497"
+  ],
+  "name": "Drillship",
+  "owner_id": "d4213b1cfb458608616f3f477bf8fd7f",
+  "power_capacity": 32,
+  "power_used": 5,
+  "shield": 55,
+  "shield_recharge": 1,
+  "speed": 2,
+  "utility_slots": 3,
+  "weapon_slots": 1
+}

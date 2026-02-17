@@ -1,0 +1,29 @@
+{
+  "armor": 20,
+  "cargo": [],
+  "cargo_capacity": 400,
+  "cargo_used": 0,
+  "class_id": "mining_cruiser",
+  "cpu_capacity": 35,
+  "cpu_used": 6,
+  "fuel": 187,
+  "hull": 350,
+  "id": "2aff9699598f5d71be603ed5077ce0dc",
+  "max_fuel": 200,
+  "max_hull": 350,
+  "max_shield": 100,
+  "modules": [
+    "3265f98bdf71afc08247d48640548495",
+    "f2dc6d000bea37f3d8317f5497c9df29",
+    "e2591e5f58e085e9f5da9a4152c748e7"
+  ],
+  "name": "Deeprock Harvester",
+  "owner_id": "16dc9eb325eeac0aa981c83b5368c9a1",
+  "power_capacity": 60,
+  "power_used": 15,
+  "shield": 100,
+  "shield_recharge": 2,
+  "speed": 1,
+  "utility_slots": 6,
+  "weapon_slots": 2
+}

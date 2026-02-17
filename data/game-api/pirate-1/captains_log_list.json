@@ -1,0 +1,12 @@
+{
+  "entry": {
+    "created_at": "2026-02-15 03:50:09",
+    "entry": "SESSION 2026-02-15 03:50: Patrol report - Rigel system (sys_0115)\n\nPATROL RESULTS:\n- Swept: Rigel Star, Rigel I planet, Rigel Gas Plume\n- Contacts: ZERO - No NPCs, no players detected\n- Wrecks: None found\n\nSYSTEM STATUS:\n- Lawless (police_level: 0)\n- Quiet at present time\n- Fuel: 44/90\n\nTACTICAL ASSESSMENT:\nRigel appears to be a backwater system with minimal traffic. No NPC spawns detected during patrol sweep. May need to:\n1. Patrol longer to wait for spawns\n2. Move to connected systems (sys_0404, sys_0080, sys_0349)\n3. Return to Pact space and try different region\n\nMISSION: \"Pirate Bounty\" - Still seeking first target",
+    "index": 0
+  },
+  "has_next": true,
+  "has_prev": false,
+  "index": 0,
+  "max_entries": 20,
+  "total_count": 12
+}

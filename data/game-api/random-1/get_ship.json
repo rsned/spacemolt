@@ -1,0 +1,45 @@
+{
+  "armor": 12,
+  "cargo": [
+    {
+      "item_id": "ore_iron",
+      "quantity": 8
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 24
+    },
+    {
+      "item_id": "ore_sol_alloy",
+      "quantity": 1
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 14
+    }
+  ],
+  "cargo_capacity": 150,
+  "cargo_used": 48,
+  "class_id": "mining_barge",
+  "cpu_capacity": 20,
+  "cpu_used": 4,
+  "fuel": 125,
+  "hull": 180,
+  "id": "bba8a211d566b1c75b08c2e5b5d86a84",
+  "max_fuel": 150,
+  "max_hull": 180,
+  "max_shield": 60,
+  "modules": [
+    "56ce4d11ca174f851a0e3d55fd7a010a",
+    "308a0242c440ee5a1aec929b07bf7158"
+  ],
+  "name": "Excavator",
+  "owner_id": "8ea82ed211107a3bbb82a38a3b525671",
+  "power_capacity": 40,
+  "power_used": 10,
+  "shield": 60,
+  "shield_recharge": 1,
+  "speed": 2,
+  "utility_slots": 4,
+  "weapon_slots": 1
+}

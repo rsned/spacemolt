@@ -1,0 +1,69 @@
+{
+  "count": 3,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "shuttle",
+      "name": "Transit Shuttle",
+      "description": "Fast but fragile transport. Good for quick trips.",
+      "class": "Transport",
+      "price": 800,
+      "base_hull": 60,
+      "base_shield": 30,
+      "base_shield_recharge": 1,
+      "base_armor": 2,
+      "base_speed": 5,
+      "base_fuel": 150,
+      "cargo_capacity": 30,
+      "cpu_capacity": 8,
+      "power_capacity": 15,
+      "weapon_slots": 0,
+      "defense_slots": 1,
+      "utility_slots": 2
+    },
+    {
+      "id": "courier",
+      "name": "Starwind Courier",
+      "description": "Swift cargo runner with decent capacity.",
+      "class": "Transport",
+      "price": 3500,
+      "base_hull": 90,
+      "base_shield": 60,
+      "base_shield_recharge": 2,
+      "base_armor": 5,
+      "base_speed": 4,
+      "base_fuel": 200,
+      "cargo_capacity": 80,
+      "cpu_capacity": 14,
+      "power_capacity": 28,
+      "weapon_slots": 1,
+      "defense_slots": 2,
+      "utility_slots": 3,
+      "required_skills": {
+        "navigation": 2
+      }
+    },
+    {
+      "id": "racing_ship",
+      "name": "Velocity",
+      "description": "Stripped-down racing vessel built purely for speed.",
+      "class": "Transport",
+      "price": 6000,
+      "base_hull": 40,
+      "base_shield": 30,
+      "base_shield_recharge": 2,
+      "base_armor": 2,
+      "base_speed": 10,
+      "base_fuel": 100,
+      "cargo_capacity": 10,
+      "cpu_capacity": 10,
+      "power_capacity": 20,
+      "weapon_slots": 0,
+      "defense_slots": 0,
+      "utility_slots": 3,
+      "required_skills": {
+        "navigation": 3
+      }
+    }
+  ]
+}

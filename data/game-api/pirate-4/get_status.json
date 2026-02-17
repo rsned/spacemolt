@@ -1,0 +1,146 @@
+{
+  "Mu": {},
+  "Username": "☣",
+  "Password": "b8c1a9ae9f00271578a54f357b0cab4ee2f08fdaeddfdb24a532d7f1fa8e10ee",
+  "Doc": true,
+  "CurrentSystem": "sys_0413",
+  "CurrentPOI": "sys_0413_sun",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "47a72e9d06633802ba014956f987880d",
+    "username": "☣",
+    "empire": "crimson",
+    "credits": 313531,
+    "current_system": "sys_0413",
+    "current_poi": "sys_0413_sun",
+    "current_ship_id": "09f6232d5250e10fc5c2c75a553bc650",
+    "home_base": "krynn_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "deep_core_mining": {
+        "level": 1,
+        "xp": 0
+      },
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 6,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 10,
+        "xp": 0
+      },
+      "navigation": {
+        "level": 1,
+        "xp": 0
+      },
+      "negotiation": {
+        "level": 1,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 5,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 34776,
+      "credits_earned": 477417,
+      "credits_spent": 147735,
+      "trades_completed": 1390,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 313531,
+  "skill_xp": {
+    "corporation_management": 208,
+    "deep_core_mining": 2062,
+    "exploration": 70,
+    "fuel_efficiency": 145,
+    "market_analysis": 5,
+    "mining_advanced": 1278,
+    "mining_basic": 0,
+    "navigation": 44,
+    "negotiation": 232,
+    "scanning": 9,
+    "small_ships": 195,
+    "trading": 961
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "09f6232d5250e10fc5c2c75a553bc650",
+    "owner_id": "47a72e9d06633802ba014956f987880d",
+    "class_id": "fighter_scout",
+    "name": "Sparrow",
+    "hull": 70,
+    "max_hull": 70,
+    "shield": 45,
+    "max_shield": 45,
+    "shield_recharge": 2,
+    "armor": 6,
+    "speed": 4,
+    "fuel": 84,
+    "max_fuel": 90,
+    "cargo_used": 0,
+    "cargo_capacity": 15,
+    "cpu_used": 4,
+    "cpu_capacity": 12,
+    "power_used": 10,
+    "power_capacity": 24,
+    "weapon_slots": 2,
+    "defense_slots": 1,
+    "utility_slots": 1,
+    "modules": [
+      "a4c81e4490abd9779ffd9a2e74680880",
+      "e01d7d8e82d37d258222c63a00a2bc21"
+    ],
+    "cargo": []
+  },
+  "Fuel": 84,
+  "MaxFuel": 90,
+  "Hull": 70,
+  "MaxHull": 70,
+  "Cargo": [],
+  "MaxCargo": 15,
+  "System": {
+    "id": "",
+    "name": "The Rampart",
+    "description": "",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "sys_0413_sun"
+  },
+  "CurrentTick": 91455,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

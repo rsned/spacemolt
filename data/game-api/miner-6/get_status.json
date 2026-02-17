@@ -1,0 +1,136 @@
+{
+  "Mu": {},
+  "Username": "Barnaby 'Bedrock' Burke",
+  "Password": "eee966a14825923d2b1134d4dea7fa88e0326730e7f9213b454a769eab3a9518",
+  "Doc": true,
+  "CurrentSystem": "nexus",
+  "CurrentPOI": "nexus_core",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "4fea3a1d64f30e4d7036cd5f871a412d",
+    "username": "Barnaby 'Bedrock' Burke",
+    "empire": "voidborn",
+    "credits": 46937,
+    "current_system": "nexus",
+    "current_poi": "nexus_core",
+    "current_ship_id": "fc29efcb3c0bb4d9a3d10e1b25dfc0a7",
+    "home_base": "nexus_base",
+    "docked_at_base": "nexus_base",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 6,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 7565,
+      "credits_earned": 49608,
+      "credits_spent": 2771,
+      "trades_completed": 560,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 46937,
+  "skill_xp": {
+    "fuel_efficiency": 175,
+    "mining_advanced": 2068,
+    "mining_basic": 1965,
+    "small_ships": 175,
+    "trading": 233
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "fc29efcb3c0bb4d9a3d10e1b25dfc0a7",
+    "owner_id": "4fea3a1d64f30e4d7036cd5f871a412d",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 104,
+    "max_fuel": 130,
+    "cargo_used": 10,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "07c3f20baff22aee2c7a7b18142490f3"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 1
+      }
+    ]
+  },
+  "Fuel": 104,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 1
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Nexus Prime",
+    "description": "Central processing hub of the Voidborn Collective.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "nexus_core"
+  },
+  "CurrentTick": 91418,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

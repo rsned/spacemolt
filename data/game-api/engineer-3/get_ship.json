@@ -1,0 +1,58 @@
+{
+  "armor": 20,
+  "cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 2
+    },
+    {
+      "item_id": "ore_antimatter",
+      "quantity": 2
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 40
+    },
+    {
+      "item_id": "ore_iron",
+      "quantity": 84
+    },
+    {
+      "item_id": "ore_sol_alloy",
+      "quantity": 4
+    },
+    {
+      "item_id": "ore_titanium",
+      "quantity": 12
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 9
+    }
+  ],
+  "cargo_capacity": 400,
+  "cargo_used": 179,
+  "class_id": "mining_cruiser",
+  "cpu_capacity": 35,
+  "cpu_used": 6,
+  "fuel": 193,
+  "hull": 350,
+  "id": "53e7ca3ff26b7fcf236612cf57146772",
+  "max_fuel": 200,
+  "max_hull": 350,
+  "max_shield": 100,
+  "modules": [
+    "38c33672a9f1d25f062f0ed39d2aa257",
+    "87bfb2b145ea118e2c0f36ce3e931a80",
+    "7f904da7eb9ddcf327d14adbce24afd4"
+  ],
+  "name": "Deeprock Harvester",
+  "owner_id": "974845423690dbe1765173df072dbcc3",
+  "power_capacity": 60,
+  "power_used": 15,
+  "shield": 100,
+  "shield_recharge": 2,
+  "speed": 1,
+  "utility_slots": 6,
+  "weapon_slots": 2
+}

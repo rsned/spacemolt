@@ -1,0 +1,78 @@
+{
+  "base": null,
+  "poi": {
+    "description": "Mining operations for weapons production. Contains rare plasma deposits from weapons testing.",
+    "id": "krynn_mines",
+    "name": "War Materials",
+    "position": {
+      "x": 5,
+      "y": 1
+    },
+    "resources": [
+      {
+        "remaining": -1,
+        "resource_id": "ore_iron",
+        "richness": 90
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_titanium",
+        "richness": 60
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_cobalt",
+        "richness": 50
+      },
+      {
+        "remaining": 3000,
+        "resource_id": "ore_plasma",
+        "richness": 25
+      },
+      {
+        "remaining": 1000,
+        "resource_id": "ore_darksteel",
+        "richness": 15
+      }
+    ],
+    "system_id": "krynn",
+    "type": "asteroid_belt"
+  },
+  "resources": [
+    {
+      "name": "Iron Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_iron",
+      "richness": 90
+    },
+    {
+      "name": "Titanium Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_titanium",
+      "richness": 60
+    },
+    {
+      "name": "Cobalt Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_cobalt",
+      "richness": 50
+    },
+    {
+      "name": "Plasma Residue",
+      "remaining": 3000,
+      "remaining_display": "3000 units",
+      "resource_id": "ore_plasma",
+      "richness": 25
+    },
+    {
+      "name": "Darksteel Ore",
+      "remaining": 1000,
+      "remaining_display": "1000 units",
+      "resource_id": "ore_darksteel",
+      "richness": 15
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "Mu": {},
+  "Username": "Silas 'Sparky' Sparks",
+  "Password": "c7586d5df45a4c3941aa647c14c48623ad9faa40da2b3a8d2fca2f877519be2d",
+  "Doc": true,
+  "CurrentSystem": "haven",
+  "CurrentPOI": "haven_exchange",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "4442d520b83076a8432ee308eecca0b0",
+    "username": "Silas 'Sparky' Sparks",
+    "empire": "nebula",
+    "credits": 4172,
+    "current_system": "haven",
+    "current_poi": "haven_exchange",
+    "current_ship_id": "df26fae1418624d33e8512baca252571",
+    "home_base": "haven_base",
+    "docked_at_base": "haven_base",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_basic": {
+        "level": 2,
+        "xp": 0
+      },
+      "trading": {
+        "level": 1,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 884,
+      "credits_earned": 7245,
+      "credits_spent": 3173,
+      "trades_completed": 97,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 4172,
+  "skill_xp": {
+    "fuel_efficiency": 21,
+    "mining_basic": 484,
+    "small_ships": 21,
+    "trading": 17
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "df26fae1418624d33e8512baca252571",
+    "owner_id": "4442d520b83076a8432ee308eecca0b0",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 108,
+    "max_fuel": 130,
+    "cargo_used": 30,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "829d43495e6cf28dc0c7533438af2c16"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 3
+      }
+    ]
+  },
+  "Fuel": 108,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 3
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Haven",
+    "description": "The commercial heart of the Nebula Trade Federation.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "haven_exchange"
+  },
+  "CurrentTick": 91319,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

@@ -1,0 +1,50 @@
+{
+  "count": 2,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "medical_frigate",
+      "name": "Mercy",
+      "description": "Medical ship with rescue and healing capabilities.",
+      "class": "Medical",
+      "price": 8000,
+      "base_hull": 120,
+      "base_shield": 90,
+      "base_shield_recharge": 3,
+      "base_armor": 8,
+      "base_speed": 4,
+      "base_fuel": 180,
+      "cargo_capacity": 60,
+      "cpu_capacity": 22,
+      "power_capacity": 40,
+      "weapon_slots": 0,
+      "defense_slots": 3,
+      "utility_slots": 4,
+      "required_skills": {
+        "leadership": 1
+      }
+    },
+    {
+      "id": "medical_cruiser",
+      "name": "Sanctuary",
+      "description": "Hospital ship with full medical facilities.",
+      "class": "Medical",
+      "price": 30000,
+      "base_hull": 200,
+      "base_shield": 160,
+      "base_shield_recharge": 4,
+      "base_armor": 14,
+      "base_speed": 3,
+      "base_fuel": 250,
+      "cargo_capacity": 100,
+      "cpu_capacity": 32,
+      "power_capacity": 60,
+      "weapon_slots": 0,
+      "defense_slots": 4,
+      "utility_slots": 5,
+      "required_skills": {
+        "leadership": 2
+      }
+    }
+  ]
+}

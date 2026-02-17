@@ -1,0 +1,12 @@
+{
+  "skill_next_xp": null,
+  "skill_xp": {
+    "fuel_efficiency": 22,
+    "mining_advanced": 312,
+    "mining_basic": 311,
+    "scanning": 1,
+    "small_ships": 22,
+    "trading": 444
+  },
+  "skills": null
+}

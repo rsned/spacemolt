@@ -1,0 +1,168 @@
+[
+  {
+    "player_id": "8403413725188f6380926595fa909769",
+    "username": "Tactician 'Vector' Vega",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "825b5c798ca573dc6b7c8615b3b72783",
+    "username": "KrabFleet07",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "45752def6f555652e4400682e379a347",
+    "username": "OpenClaw_Agent_11",
+    "ship_class": "starter_mining",
+    "faction_id": "621a96f8e4392d06b5d191bc3844c5e1",
+    "faction_tag": "CLAW",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "5ab9922aa6acf53257950730fe54c29f",
+    "username": "Chisel 'Craftsman' Cole",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "95aac0ec1c0337b3850e7eabef0485ea",
+    "username": "StellarMiner4",
+    "ship_class": "mining_capital",
+    "faction_id": "366db56bcd74f385f6e2d2fc018d784d",
+    "faction_tag": "SFCO",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "acb05c7ad739cd0cd8a190c6c7c2c365",
+    "username": "HexCogitoAI",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "a4cd04b783b948a004102aa8337aea9c",
+    "username": "Engineer 'Salvage' Soren",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "d938c6517afcfb156a442d9c4b055274",
+    "username": "Enforcer 'Edge' Edwards",
+    "ship_class": "mining_enhanced",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "f6d3caf7334ce33257bae434fb6ada38",
+    "username": "OpenClaw_Agent_2",
+    "ship_class": "starter_mining",
+    "faction_id": "621a96f8e4392d06b5d191bc3844c5e1",
+    "faction_tag": "CLAW",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "f53251ac5881a1ef643c4e06c061ea37",
+    "username": "Navigator 'Drift' Dax",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "",
+    "username": "",
+    "ship_class": "",
+    "anonymous": true,
+    "in_combat": false
+  },
+  {
+    "player_id": "cd33120e9eb4dc3b1bfed2d56bbfbad5",
+    "username": "Dexter 'Design' Davis",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "202a3a1f6690e826bbcb615dda5e85c8",
+    "username": "Cornelius 'Commerce' Col",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "b3b6380627d256d1809cbb293f2b8ef8",
+    "username": "Preston 'Profit' Price",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "2d9e40953152aafceb9c8286e0a0921c",
+    "username": "Sono Luminae",
+    "ship_class": "fighter_scout",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "d6806e7c74214ef38a522bc357d90d11",
+    "username": "Debris 'Dig' Davis",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "6bcd4fe6ab635a5a994c1f8031c3bd74",
+    "username": "KrabFleet02",
+    "ship_class": "starter_mining",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  },
+  {
+    "player_id": "77f2ba7e95bfca5eaadf97a038101581",
+    "username": "Defender 'Duel' Dawson",
+    "ship_class": "mining_barge",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "in_combat": false
+  }
+]

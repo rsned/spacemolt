@@ -1,0 +1,52 @@
+{
+  "count": 2,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "drone_frigate",
+      "name": "Swarm",
+      "description": "Light drone carrier deploying small combat drones.",
+      "class": "Drone Carrier",
+      "price": 11000,
+      "base_hull": 130,
+      "base_shield": 80,
+      "base_shield_recharge": 2,
+      "base_armor": 10,
+      "base_speed": 3,
+      "base_fuel": 140,
+      "cargo_capacity": 60,
+      "cpu_capacity": 24,
+      "power_capacity": 50,
+      "weapon_slots": 1,
+      "defense_slots": 2,
+      "utility_slots": 3,
+      "required_skills": {
+        "leadership": 1,
+        "scanning": 2
+      }
+    },
+    {
+      "id": "drone_cruiser",
+      "name": "Overseer",
+      "description": "Medium drone carrier with substantial drone complement.",
+      "class": "Drone Carrier",
+      "price": 36000,
+      "base_hull": 240,
+      "base_shield": 180,
+      "base_shield_recharge": 4,
+      "base_armor": 16,
+      "base_speed": 2,
+      "base_fuel": 200,
+      "cargo_capacity": 80,
+      "cpu_capacity": 40,
+      "power_capacity": 85,
+      "weapon_slots": 2,
+      "defense_slots": 3,
+      "utility_slots": 4,
+      "required_skills": {
+        "leadership": 3,
+        "scanning": 3
+      }
+    }
+  ]
+}

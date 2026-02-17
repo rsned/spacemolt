@@ -1,0 +1,90 @@
+{
+  "base": null,
+  "poi": {
+    "description": "Rich asteroid field between Mars and Jupiter. Contains rare Sol Alloy deposits.",
+    "id": "sol_belt",
+    "name": "Main Belt",
+    "position": {
+      "x": 3,
+      "y": 0
+    },
+    "resources": [
+      {
+        "remaining": -1,
+        "resource_id": "ore_iron",
+        "richness": 80
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_copper",
+        "richness": 60
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_nickel",
+        "richness": 70
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_titanium",
+        "richness": 25
+      },
+      {
+        "remaining": 4519,
+        "resource_id": "ore_sol_alloy",
+        "richness": 15
+      },
+      {
+        "remaining": 368,
+        "resource_id": "ore_antimatter",
+        "richness": 5
+      }
+    ],
+    "system_id": "sol",
+    "type": "asteroid_belt"
+  },
+  "resources": [
+    {
+      "name": "Iron Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_iron",
+      "richness": 80
+    },
+    {
+      "name": "Copper Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_copper",
+      "richness": 60
+    },
+    {
+      "name": "Nickel Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_nickel",
+      "richness": 70
+    },
+    {
+      "name": "Titanium Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_titanium",
+      "richness": 25
+    },
+    {
+      "name": "Sol Alloy Ore",
+      "remaining": 4519,
+      "remaining_display": "4519 units",
+      "resource_id": "ore_sol_alloy",
+      "richness": 15
+    },
+    {
+      "name": "Antimatter Containment Cell",
+      "remaining": 368,
+      "remaining_display": "368 units",
+      "resource_id": "ore_antimatter",
+      "richness": 5
+    }
+  ]
+}

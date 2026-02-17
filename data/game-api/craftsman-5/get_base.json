@@ -1,0 +1,66 @@
+{
+  "base": null,
+  "poi": {
+    "description": "Automated mining operations for construction.",
+    "id": "nexus_harvesters",
+    "name": "Material Harvesters",
+    "position": {
+      "x": 5,
+      "y": 0
+    },
+    "resources": [
+      {
+        "remaining": -1,
+        "resource_id": "ore_iron",
+        "richness": 70
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_silicon",
+        "richness": 90
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_copper",
+        "richness": 80
+      },
+      {
+        "remaining": 196,
+        "resource_id": "ore_crystal",
+        "richness": 8
+      }
+    ],
+    "system_id": "nexus",
+    "type": "asteroid_belt"
+  },
+  "resources": [
+    {
+      "name": "Iron Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_iron",
+      "richness": 70
+    },
+    {
+      "name": "Silicon Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_silicon",
+      "richness": 90
+    },
+    {
+      "name": "Copper Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_copper",
+      "richness": 80
+    },
+    {
+      "name": "Energy Crystal",
+      "remaining": 196,
+      "remaining_display": "196 units",
+      "resource_id": "ore_crystal",
+      "richness": 8
+    }
+  ]
+}

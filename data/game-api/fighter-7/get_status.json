@@ -1,0 +1,125 @@
+{
+  "Mu": {},
+  "Username": "Fortress 'Fight' Fisher",
+  "Password": "167ca300c45023745f2d92380d253b6245a8d51636bd4cebe49900eab1e08d78",
+  "Doc": true,
+  "CurrentSystem": "krynn",
+  "CurrentPOI": "krynn_mines",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "7949d9876f74b3e381cd288cc514c797",
+    "username": "Fortress 'Fight' Fisher",
+    "empire": "crimson",
+    "credits": 61438,
+    "current_system": "krynn",
+    "current_poi": "krynn_mines",
+    "current_ship_id": "c9d8e21723f825b02672b2b19c4345fd",
+    "home_base": "krynn_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_basic": {
+        "level": 5,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 3810,
+      "credits_earned": 73780,
+      "credits_spent": 10442,
+      "trades_completed": 439,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 61438,
+  "skill_xp": {
+    "fuel_efficiency": 24,
+    "mining_advanced": 313,
+    "mining_basic": 310,
+    "small_ships": 24,
+    "trading": 363
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "c9d8e21723f825b02672b2b19c4345fd",
+    "owner_id": "7949d9876f74b3e381cd288cc514c797",
+    "class_id": "mining_barge",
+    "name": "Excavator",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 121,
+    "max_fuel": 150,
+    "cargo_used": 60,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "fd933778b43d29fef44b00a20bbdf491",
+      "b1065eb3663a1df6ffb16b8171f374eb"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 6
+      }
+    ]
+  },
+  "Fuel": 121,
+  "MaxFuel": 150,
+  "Hull": 180,
+  "MaxHull": 180,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 6
+    }
+  ],
+  "MaxCargo": 150,
+  "System": {
+    "id": "",
+    "name": "Krynn",
+    "description": "The war-forged capital of the Crimson Pact.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "krynn_mines"
+  },
+  "CurrentTick": 91391,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

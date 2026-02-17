@@ -1,0 +1,124 @@
+{
+  "count": 5,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "command_frigate",
+      "name": "Coordinator",
+      "description": "Command ship that provides bonuses to fleet members.",
+      "class": "Command",
+      "price": 38000,
+      "base_hull": 220,
+      "base_shield": 170,
+      "base_shield_recharge": 4,
+      "base_armor": 20,
+      "base_speed": 3,
+      "base_fuel": 200,
+      "cargo_capacity": 50,
+      "cpu_capacity": 42,
+      "power_capacity": 85,
+      "weapon_slots": 3,
+      "defense_slots": 3,
+      "utility_slots": 4,
+      "required_skills": {
+        "leadership": 4,
+        "weapons_basic": 3
+      }
+    },
+    {
+      "id": "solarian_arbiter",
+      "name": "Imperial Arbiter",
+      "description": "Solarian command ship that coordinates fleet operations.",
+      "class": "Command",
+      "price": 45000,
+      "base_hull": 300,
+      "base_shield": 200,
+      "base_shield_recharge": 5,
+      "base_armor": 25,
+      "base_speed": 2,
+      "base_fuel": 220,
+      "cargo_capacity": 70,
+      "cpu_capacity": 48,
+      "power_capacity": 95,
+      "weapon_slots": 4,
+      "defense_slots": 3,
+      "utility_slots": 4,
+      "required_skills": {
+        "leadership": 5,
+        "weapons_basic": 4
+      }
+    },
+    {
+      "id": "command_cruiser",
+      "name": "Fleet Admiral",
+      "description": "Heavy command ship for coordinating large fleets.",
+      "class": "Command",
+      "price": 95000,
+      "base_hull": 450,
+      "base_shield": 320,
+      "base_shield_recharge": 6,
+      "base_armor": 28,
+      "base_speed": 2,
+      "base_fuel": 300,
+      "cargo_capacity": 100,
+      "cpu_capacity": 65,
+      "power_capacity": 130,
+      "weapon_slots": 4,
+      "defense_slots": 5,
+      "utility_slots": 5,
+      "required_skills": {
+        "leadership": 5,
+        "shields": 4,
+        "weapons_advanced": 3
+      }
+    },
+    {
+      "id": "pirate_mothership",
+      "name": "Marauder Queen",
+      "description": "Heavy raider command ship for coordinating pirate fleets.",
+      "class": "Command",
+      "price": 98000,
+      "base_hull": 380,
+      "base_shield": 200,
+      "base_shield_recharge": 4,
+      "base_armor": 30,
+      "base_speed": 3,
+      "base_fuel": 300,
+      "cargo_capacity": 400,
+      "cpu_capacity": 50,
+      "power_capacity": 100,
+      "weapon_slots": 5,
+      "defense_slots": 4,
+      "utility_slots": 5,
+      "required_skills": {
+        "leadership": 4,
+        "navigation": 3,
+        "weapons_advanced": 4
+      }
+    },
+    {
+      "id": "command_titan",
+      "name": "Sovereign",
+      "description": "Ultimate fleet command vessel with unparalleled coordination.",
+      "class": "Command",
+      "price": 350000,
+      "base_hull": 1400,
+      "base_shield": 900,
+      "base_shield_recharge": 11,
+      "base_armor": 55,
+      "base_speed": 1,
+      "base_fuel": 750,
+      "cargo_capacity": 350,
+      "cpu_capacity": 120,
+      "power_capacity": 200,
+      "weapon_slots": 6,
+      "defense_slots": 7,
+      "utility_slots": 8,
+      "required_skills": {
+        "leadership": 5,
+        "shields_advanced": 4,
+        "weapons_advanced": 4
+      }
+    }
+  ]
+}

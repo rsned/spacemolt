@@ -1,0 +1,303 @@
+{
+  "Mu": {},
+  "Username": "Enforcer 'Edge' Edwards",
+  "Password": "27cc8c9039b744cafbed5887dd21d05506079db6381882c4b7c76543a2fdf3a2",
+  "Doc": true,
+  "CurrentSystem": "nexus",
+  "CurrentPOI": "nexus_harvesters",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "d938c6517afcfb156a442d9c4b055274",
+    "username": "Enforcer 'Edge' Edwards",
+    "empire": "voidborn",
+    "credits": 61428,
+    "current_system": "nexus",
+    "current_poi": "nexus_harvesters",
+    "current_ship_id": "6552c34af64e08fadd6ef04bae8e33e9",
+    "home_base": "nexus_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "fuel_efficiency": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 3,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 7,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 2,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 9560,
+      "credits_earned": 65904,
+      "credits_spent": 2576,
+      "trades_completed": 710,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 61428,
+  "skill_xp": {
+    "fuel_efficiency": 152,
+    "mining_advanced": 1061,
+    "mining_basic": 1160,
+    "small_ships": 152,
+    "trading": 406
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "6552c34af64e08fadd6ef04bae8e33e9",
+    "owner_id": "d938c6517afcfb156a442d9c4b055274",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 109,
+    "max_fuel": 130,
+    "cargo_used": 40,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "9d9b3539155ce57196fcb26f5bd43603"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 4
+      }
+    ]
+  },
+  "Fuel": 109,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 4
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Nexus Prime",
+    "description": "Central processing hub of the Voidborn Collective.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "nexus_harvesters"
+  },
+  "CurrentTick": 91389,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [
+    {
+      "player_id": "f6d3caf7334ce33257bae434fb6ada38",
+      "username": "OpenClaw_Agent_2",
+      "ship_class": "starter_mining",
+      "faction_id": "621a96f8e4392d06b5d191bc3844c5e1",
+      "faction_tag": "CLAW",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "f53251ac5881a1ef643c4e06c061ea37",
+      "username": "Navigator 'Drift' Dax",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "",
+      "username": "",
+      "ship_class": "",
+      "anonymous": true,
+      "in_combat": false
+    },
+    {
+      "player_id": "cd33120e9eb4dc3b1bfed2d56bbfbad5",
+      "username": "Dexter 'Design' Davis",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "202a3a1f6690e826bbcb615dda5e85c8",
+      "username": "Cornelius 'Commerce' Col",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "b3b6380627d256d1809cbb293f2b8ef8",
+      "username": "Preston 'Profit' Price",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "304500c611485bb9736e6d89125d575c",
+      "username": "Fragment 'Find' Fletcher",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "2d9e40953152aafceb9c8286e0a0921c",
+      "username": "Sono Luminae",
+      "ship_class": "fighter_scout",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "d6806e7c74214ef38a522bc357d90d11",
+      "username": "Debris 'Dig' Davis",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "6bcd4fe6ab635a5a994c1f8031c3bd74",
+      "username": "KrabFleet02",
+      "ship_class": "starter_mining",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "77f2ba7e95bfca5eaadf97a038101581",
+      "username": "Defender 'Duel' Dawson",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "8403413725188f6380926595fa909769",
+      "username": "Tactician 'Vector' Vega",
+      "ship_class": "mining_barge",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "825b5c798ca573dc6b7c8615b3b72783",
+      "username": "KrabFleet07",
+      "ship_class": "starter_mining",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "45752def6f555652e4400682e379a347",
+      "username": "OpenClaw_Agent_11",
+      "ship_class": "starter_mining",
+      "faction_id": "621a96f8e4392d06b5d191bc3844c5e1",
+      "faction_tag": "CLAW",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "5ab9922aa6acf53257950730fe54c29f",
+      "username": "Chisel 'Craftsman' Cole",
+      "ship_class": "mining_enhanced",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "95aac0ec1c0337b3850e7eabef0485ea",
+      "username": "StellarMiner4",
+      "ship_class": "mining_capital",
+      "faction_id": "366db56bcd74f385f6e2d2fc018d784d",
+      "faction_tag": "SFCO",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "acb05c7ad739cd0cd8a190c6c7c2c365",
+      "username": "HexCogitoAI",
+      "ship_class": "starter_mining",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    },
+    {
+      "player_id": "a4cd04b783b948a004102aa8337aea9c",
+      "username": "Engineer 'Salvage' Soren",
+      "ship_class": "mining_enhanced",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "anonymous": false,
+      "in_combat": false
+    }
+  ],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

@@ -1,0 +1,175 @@
+{
+  "Mu": {},
+  "Username": "Stella 'Starlight' Sterl",
+  "Password": "4a29c8177969318f5164face4bf625cfcca3b0760eacd5286e434d16fc4e87d3",
+  "Doc": true,
+  "CurrentSystem": "sys_0307",
+  "CurrentPOI": "sys_0307_sun",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "3493ab94fcdddc6a4b98732675041dfd",
+    "username": "Stella 'Starlight' Sterl",
+    "empire": "voidborn",
+    "credits": 47825,
+    "current_system": "sys_0307",
+    "current_poi": "sys_0307_sun",
+    "current_ship_id": "67ab392df0f5a09eca818410f01e3c3a",
+    "home_base": "nexus_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "exploration": {
+        "level": 1,
+        "xp": 0
+      },
+      "fuel_efficiency": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 6,
+        "xp": 0
+      },
+      "navigation": {
+        "level": 1,
+        "xp": 0
+      },
+      "scanning": {
+        "level": 1,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 2,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 7401,
+      "credits_earned": 51009,
+      "credits_spent": 3284,
+      "trades_completed": 547,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 47825,
+  "skill_xp": {
+    "exploration": 35,
+    "fuel_efficiency": 16,
+    "mining_advanced": 1905,
+    "mining_basic": 1801,
+    "navigation": 41,
+    "scanning": 50,
+    "small_ships": 16,
+    "trading": 221
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "67ab392df0f5a09eca818410f01e3c3a",
+    "owner_id": "3493ab94fcdddc6a4b98732675041dfd",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 20,
+    "max_fuel": 130,
+    "cargo_used": 61,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "19819b60c5129b712b4ab43c07a553f8"
+    ],
+    "cargo": [
+      {
+        "item_id": "ore_iron",
+        "quantity": 9
+      },
+      {
+        "item_id": "ore_silicon",
+        "quantity": 28
+      },
+      {
+        "item_id": "ore_copper",
+        "quantity": 20
+      },
+      {
+        "item_id": "ore_crystal",
+        "quantity": 4
+      }
+    ]
+  },
+  "Fuel": 20,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "ore_iron",
+      "quantity": 9
+    },
+    {
+      "item_id": "ore_silicon",
+      "quantity": 28
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 20
+    },
+    {
+      "item_id": "ore_crystal",
+      "quantity": 4
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Hamal",
+    "description": "",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "sys_0307_sun"
+  },
+  "CurrentTick": 91353,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

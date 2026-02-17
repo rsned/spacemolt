@@ -1,0 +1,78 @@
+{
+  "count": 3,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "blockade_runner_light",
+      "name": "Slip",
+      "description": "Small, fast ship designed to evade pursuit.",
+      "class": "Blockade Runner",
+      "price": 2200,
+      "base_hull": 65,
+      "base_shield": 50,
+      "base_shield_recharge": 2,
+      "base_armor": 4,
+      "base_speed": 6,
+      "base_fuel": 160,
+      "cargo_capacity": 45,
+      "cpu_capacity": 14,
+      "power_capacity": 26,
+      "weapon_slots": 1,
+      "defense_slots": 1,
+      "utility_slots": 2,
+      "default_modules": [
+        "weapon_laser_1"
+      ]
+    },
+    {
+      "id": "blockade_runner_medium",
+      "name": "Ghost Runner",
+      "description": "Fast smuggler with hidden cargo compartments.",
+      "class": "Blockade Runner",
+      "price": 10000,
+      "base_hull": 95,
+      "base_shield": 75,
+      "base_shield_recharge": 3,
+      "base_armor": 8,
+      "base_speed": 5,
+      "base_fuel": 200,
+      "cargo_capacity": 80,
+      "cpu_capacity": 18,
+      "power_capacity": 38,
+      "weapon_slots": 2,
+      "defense_slots": 2,
+      "utility_slots": 3,
+      "required_skills": {
+        "cloaking": 1,
+        "navigation": 3
+      }
+    },
+    {
+      "id": "blockade_runner_heavy",
+      "name": "Shadow Dancer",
+      "description": "Large blockade runner with cloaking capabilities.",
+      "class": "Blockade Runner",
+      "price": 28000,
+      "base_hull": 140,
+      "base_shield": 120,
+      "base_shield_recharge": 4,
+      "base_armor": 12,
+      "base_speed": 5,
+      "base_fuel": 280,
+      "cargo_capacity": 140,
+      "cpu_capacity": 28,
+      "power_capacity": 60,
+      "weapon_slots": 2,
+      "defense_slots": 2,
+      "utility_slots": 4,
+      "default_modules": [
+        "weapon_laser_1",
+        "weapon_laser_1"
+      ],
+      "required_skills": {
+        "cloaking": 3,
+        "navigation": 4
+      }
+    }
+  ]
+}

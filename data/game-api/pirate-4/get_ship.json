@@ -1,0 +1,28 @@
+{
+  "armor": 6,
+  "cargo": [],
+  "cargo_capacity": 15,
+  "cargo_used": 0,
+  "class_id": "fighter_scout",
+  "cpu_capacity": 12,
+  "cpu_used": 4,
+  "fuel": 84,
+  "hull": 70,
+  "id": "09f6232d5250e10fc5c2c75a553bc650",
+  "max_fuel": 90,
+  "max_hull": 70,
+  "max_shield": 45,
+  "modules": [
+    "a4c81e4490abd9779ffd9a2e74680880",
+    "e01d7d8e82d37d258222c63a00a2bc21"
+  ],
+  "name": "Sparrow",
+  "owner_id": "47a72e9d06633802ba014956f987880d",
+  "power_capacity": 24,
+  "power_used": 10,
+  "shield": 45,
+  "shield_recharge": 2,
+  "speed": 4,
+  "utility_slots": 1,
+  "weapon_slots": 2
+}

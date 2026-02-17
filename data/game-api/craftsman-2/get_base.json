@@ -1,0 +1,78 @@
+{
+  "base": null,
+  "poi": {
+    "description": "Rich mining fields supplying Haven's industries. Source of Trade Crystals.",
+    "id": "haven_belt",
+    "name": "Commerce Fields",
+    "position": {
+      "x": 4,
+      "y": 0
+    },
+    "resources": [
+      {
+        "remaining": -1,
+        "resource_id": "ore_iron",
+        "richness": 75
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_copper",
+        "richness": 65
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_nickel",
+        "richness": 55
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_silicon",
+        "richness": 70
+      },
+      {
+        "remaining": 2562,
+        "resource_id": "ore_trade_crystal",
+        "richness": 20
+      }
+    ],
+    "system_id": "haven",
+    "type": "asteroid_belt"
+  },
+  "resources": [
+    {
+      "name": "Iron Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_iron",
+      "richness": 75
+    },
+    {
+      "name": "Copper Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_copper",
+      "richness": 65
+    },
+    {
+      "name": "Nickel Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_nickel",
+      "richness": 55
+    },
+    {
+      "name": "Silicon Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_silicon",
+      "richness": 70
+    },
+    {
+      "name": "Trade Crystal",
+      "remaining": 2562,
+      "remaining_display": "2562 units",
+      "resource_id": "ore_trade_crystal",
+      "richness": 20
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "Mu": {},
+  "Username": "Zenith 'Zone' Zimmer",
+  "Password": "ad42e1c5e21356f2b7c12c446eed3ecbdce85766ac9c1b64904824e8b04bd53c",
+  "Doc": true,
+  "CurrentSystem": "sys_0324",
+  "CurrentPOI": "sys_0324_sun",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "b4795c96c934b5ec967606bf39a51c83",
+    "username": "Zenith 'Zone' Zimmer",
+    "empire": "crimson",
+    "credits": 46100,
+    "current_system": "sys_0324",
+    "current_poi": "sys_0324_sun",
+    "current_ship_id": "f93a6c6dad8e714d1d3133352ed69008",
+    "home_base": "krynn_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 5,
+        "xp": 0
+      },
+      "navigation": {
+        "level": 1,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 3,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 3705,
+      "credits_earned": 87228,
+      "credits_spent": 39228,
+      "trades_completed": 477,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 46100,
+  "skill_xp": {
+    "exploration": 75,
+    "fuel_efficiency": 58,
+    "mining_advanced": 213,
+    "mining_basic": 205,
+    "navigation": 149,
+    "scanning": 99,
+    "small_ships": 58,
+    "trading": 76
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "f93a6c6dad8e714d1d3133352ed69008",
+    "owner_id": "b4795c96c934b5ec967606bf39a51c83",
+    "class_id": "mining_barge",
+    "name": "Excavator",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 26,
+    "max_fuel": 150,
+    "cargo_used": 60,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "f14d159d925bed9fc43c55dee6793bec",
+      "00e3cb40d7c2f76745a3571d916c7ea2"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 6
+      }
+    ]
+  },
+  "Fuel": 26,
+  "MaxFuel": 150,
+  "Hull": 180,
+  "MaxHull": 180,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 6
+    }
+  ],
+  "MaxCargo": 150,
+  "System": {
+    "id": "",
+    "name": "Frostfeld",
+    "description": "",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "sys_0324_sun"
+  },
+  "CurrentTick": 91360,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

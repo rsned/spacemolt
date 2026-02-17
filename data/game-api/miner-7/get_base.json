@@ -1,0 +1,119 @@
+{
+  "base": {
+    "defense_level": 100,
+    "description": "Heart of Crimson military power. The Citadel is a fortress first and a station second — forge decks ring with hammer on alloy, fuel bunkers sit under three meters of armor plating, and Fleet Command issues tasking orders rather than posting requests. Civilians are tolerated. Complaining is not.",
+    "empire": "crimson",
+    "facilities": [
+      "war_market",
+      "crimson_reactor",
+      "crimson_life_support",
+      "alloy_foundry",
+      "crimson_distillery",
+      "iron_refinery",
+      "circuit_fabricator",
+      "polymer_synthesizer",
+      "fuel_cell_plant",
+      "repair_kit_factory",
+      "crimson_armor_works",
+      "crimson_fuel_bunker",
+      "crimson_war_forge",
+      "crimson_weapons_forge",
+      "crimson_fleet_command",
+      "crimson_munitions_vault"
+    ],
+    "has_drones": true,
+    "id": "krynn_base",
+    "market": [
+      {
+        "base_id": "",
+        "id": "4d5d91161849dbfe7a8dfe8a76e556fb",
+        "is_npc": true,
+        "item_id": "ore_iron",
+        "price_each": 5,
+        "quantity": 1000
+      },
+      {
+        "base_id": "",
+        "id": "b58887d8cfbd44429cb5d44ba35aafdc",
+        "is_npc": true,
+        "item_id": "ore_copper",
+        "price_each": 8,
+        "quantity": 1000
+      },
+      {
+        "base_id": "",
+        "id": "1281c210386f7da88346afc97abc6ea5",
+        "is_npc": true,
+        "item_id": "fuel_cell",
+        "price_each": 15,
+        "quantity": 100
+      },
+      {
+        "base_id": "",
+        "id": "6263b4d56be35ae660308037619f5b4b",
+        "is_npc": true,
+        "item_id": "repair_kit",
+        "price_each": 120,
+        "quantity": 50
+      },
+      {
+        "base_id": "",
+        "id": "11a49f51db31e17be6ae4f2975d8519c",
+        "is_npc": true,
+        "item_id": "mining_laser_1",
+        "price_each": 150,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "5fc7283882b864648fd4b63ab075bcd2",
+        "is_npc": true,
+        "item_id": "weapon_laser_1",
+        "price_each": 200,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "ad09e28493f2cb22a4e8771f3287b4a3",
+        "is_npc": true,
+        "item_id": "weapon_cannon_1",
+        "price_each": 250,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "87570e90991f1ae457f0b8229315a5bc",
+        "is_npc": true,
+        "item_id": "weapon_missile_1",
+        "price_each": 400,
+        "quantity": 5
+      }
+    ],
+    "name": "Crimson War Citadel",
+    "poi_id": "krynn_citadel",
+    "public_access": true,
+    "services": {
+      "cloning": true,
+      "crafting": true,
+      "insurance": true,
+      "market": true,
+      "missions": true,
+      "refuel": true,
+      "repair": true,
+      "shipyard": true,
+      "storage": true
+    }
+  },
+  "poi": {
+    "base_id": "krynn_base",
+    "description": "Seat of the Crimson High Command.",
+    "id": "krynn_citadel",
+    "name": "War Citadel",
+    "position": {
+      "x": 2.2,
+      "y": 0.2
+    },
+    "system_id": "krynn",
+    "type": "station"
+  }
+}

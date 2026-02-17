@@ -1,0 +1,28 @@
+{
+  "armor": 12,
+  "cargo": [],
+  "cargo_capacity": 150,
+  "cargo_used": 0,
+  "class_id": "mining_barge",
+  "cpu_capacity": 20,
+  "cpu_used": 4,
+  "fuel": 135,
+  "hull": 180,
+  "id": "6451db9eb78086babafe59f6d3effb33",
+  "max_fuel": 150,
+  "max_hull": 180,
+  "max_shield": 60,
+  "modules": [
+    "8a8d3d80cef8c128eacfe2d128100b3d",
+    "edb44da92e614e8ca2c0448c4c1f9682"
+  ],
+  "name": "Excavator",
+  "owner_id": "fc19f39948795d22cf70980a54ad7c73",
+  "power_capacity": 40,
+  "power_used": 10,
+  "shield": 60,
+  "shield_recharge": 1,
+  "speed": 2,
+  "utility_slots": 4,
+  "weapon_slots": 1
+}

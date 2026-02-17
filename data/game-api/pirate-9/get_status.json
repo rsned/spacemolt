@@ -1,0 +1,136 @@
+{
+  "Mu": {},
+  "Username": "Ransom 'Rogue' Reynolds",
+  "Password": "932eb7a6e8c51742c890b84e0f178895b6ac30b357b3520d0cfce3c2f175d999",
+  "Doc": true,
+  "CurrentSystem": "frontier",
+  "CurrentPOI": "frontier_mobile",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "08581443fb0093fd641551d4833d4bd9",
+    "username": "Ransom 'Rogue' Reynolds",
+    "empire": "outerrim",
+    "credits": 22432,
+    "current_system": "frontier",
+    "current_poi": "frontier_mobile",
+    "current_ship_id": "ad90b76a5f5ed8d01fa132cafa17a2f3",
+    "home_base": "frontier_base",
+    "docked_at_base": "frontier_base",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "fuel_efficiency": {
+        "level": 1,
+        "xp": 0
+      },
+      "mining_advanced": {
+        "level": 2,
+        "xp": 0
+      },
+      "mining_basic": {
+        "level": 6,
+        "xp": 0
+      },
+      "small_ships": {
+        "level": 1,
+        "xp": 0
+      },
+      "trading": {
+        "level": 2,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 7241,
+      "credits_earned": 25601,
+      "credits_spent": 3269,
+      "trades_completed": 581,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 22432,
+  "skill_xp": {
+    "fuel_efficiency": 194,
+    "mining_advanced": 1742,
+    "mining_basic": 1641,
+    "small_ships": 194,
+    "trading": 190
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "ad90b76a5f5ed8d01fa132cafa17a2f3",
+    "owner_id": "08581443fb0093fd641551d4833d4bd9",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 111,
+    "max_fuel": 130,
+    "cargo_used": 40,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "6e11b6bef7cbe0018827e2c290950b2d"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 4
+      }
+    ]
+  },
+  "Fuel": 111,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 4
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Frontier",
+    "description": "The launching point for Outer Rim expeditions.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "frontier_mobile"
+  },
+  "CurrentTick": 91470,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

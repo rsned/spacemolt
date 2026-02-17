@@ -1,0 +1,52 @@
+{
+  "count": 2,
+  "message": "To purchase a ship, use: buy_ship <ship_id>",
+  "ships": [
+    {
+      "id": "bombardment_frigate",
+      "name": "Siege Hammer",
+      "description": "Long-range bombardment vessel for attacking stations.",
+      "class": "Bombardment",
+      "price": 35000,
+      "base_hull": 180,
+      "base_shield": 120,
+      "base_shield_recharge": 2,
+      "base_armor": 20,
+      "base_speed": 2,
+      "base_fuel": 160,
+      "cargo_capacity": 50,
+      "cpu_capacity": 32,
+      "power_capacity": 75,
+      "weapon_slots": 4,
+      "defense_slots": 2,
+      "utility_slots": 2,
+      "required_skills": {
+        "navigation": 2,
+        "weapons_advanced": 4
+      }
+    },
+    {
+      "id": "bombardment_cruiser",
+      "name": "World Breaker",
+      "description": "Heavy siege vessel with devastating long-range weapons.",
+      "class": "Bombardment",
+      "price": 88000,
+      "base_hull": 360,
+      "base_shield": 200,
+      "base_shield_recharge": 4,
+      "base_armor": 30,
+      "base_speed": 1,
+      "base_fuel": 250,
+      "cargo_capacity": 80,
+      "cpu_capacity": 45,
+      "power_capacity": 100,
+      "weapon_slots": 6,
+      "defense_slots": 3,
+      "utility_slots": 3,
+      "required_skills": {
+        "weapons_advanced": 5,
+        "weapons_specialization": 2
+      }
+    }
+  ]
+}

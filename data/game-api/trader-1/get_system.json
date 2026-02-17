@@ -1,0 +1,15 @@
+{
+  "id": "",
+  "name": "Haven",
+  "description": "The commercial heart of the Nebula Trade Federation.",
+  "empire": "",
+  "police_level": 0,
+  "pois": [],
+  "connections": [],
+  "discovered": false,
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "ShipPOI": "haven_exchange"
+}

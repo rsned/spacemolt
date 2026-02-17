@@ -1,0 +1,49 @@
+{
+  "base": {
+    "defense_level": 100,
+    "description": "Heart of Voidborn civilization. The station draws power from dimensional fractures, trades through probability fields, and stores cargo in pocket dimensions. Organic visitors are accommodated, though the air tastes faintly of ozone and mathematics, and the repair nanites sometimes return your ship subtly different.",
+    "empire": "voidborn",
+    "facilities": [
+      "void_nexus_exchange",
+      "null_energy_tap",
+      "voidborn_atmosphere",
+      "null_matter_processor",
+      "voidborn_neural_foundry",
+      "crystal_refinery",
+      "iron_refinery",
+      "circuit_fabricator",
+      "polymer_synthesizer",
+      "fuel_cell_plant",
+      "repair_kit_factory",
+      "voidborn_reconstruction_matrix",
+      "voidborn_energy_dispenser",
+      "voidborn_crystalline_cradle",
+      "voidborn_shaping_chamber",
+      "voidborn_pattern_council",
+      "voidborn_dimensional_vault"
+    ],
+    "has_drones": true,
+    "id": "nexus_base",
+    "name": "Central Nexus",
+    "poi_id": "nexus_core",
+    "public_access": true,
+    "services": {
+      "cloning": true,
+      "crafting": true,
+      "insurance": true,
+      "market": true,
+      "missions": true,
+      "refuel": true,
+      "repair": true,
+      "shipyard": true,
+      "storage": true
+    }
+  },
+  "condition": {
+    "condition": "critical",
+    "condition_text": "Critical infrastructure failure. Emergency lighting only. Station barely functional.",
+    "satisfaction_pct": 22,
+    "satisfied_count": 2,
+    "total_service_infra": 9
+  }
+}

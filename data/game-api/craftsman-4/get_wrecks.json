@@ -1,0 +1,33 @@
+{
+  "count": 1,
+  "wrecks": [
+    {
+      "cargo": [
+        {
+          "item_id": "ore_copper",
+          "quantity": 258
+        },
+        {
+          "item_id": "ore_nickel",
+          "quantity": 389
+        },
+        {
+          "item_id": "ore_iron",
+          "quantity": 126
+        }
+      ],
+      "created_at": "2026-02-16T21:01:08.32920048Z",
+      "expire_tick": 91313,
+      "expires_at": "2026-02-16T21:11:08.32920048Z",
+      "id": "d814fa629dff13f8a0560f332cc1b205",
+      "modules": [],
+      "poi_id": "sol_belt",
+      "salvage_value": 0,
+      "ship_class": "",
+      "system_id": "sol",
+      "type": "jettison",
+      "victim_id": "e033f031a0c0cbb6abb21a684471b700",
+      "victim_name": "Drift"
+    }
+  ]
+}

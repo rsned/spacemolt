@@ -1,0 +1,123 @@
+{
+  "Mu": {},
+  "Username": "Hydraulic 'Hose' Hayes",
+  "Password": "51ef7330be07a30b6c05ee7cc180a2829e58c76ceba78ae45508c88feb1fde85",
+  "Doc": true,
+  "CurrentSystem": "krynn",
+  "CurrentPOI": "krynn_citadel",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "85ee0a5d8dc912f98a21bf136bacb26d",
+    "username": "Hydraulic 'Hose' Hayes",
+    "empire": "crimson",
+    "credits": 12264,
+    "current_system": "krynn",
+    "current_poi": "krynn_citadel",
+    "current_ship_id": "f25a6cc999848b5cd5235f89a3a289ca",
+    "home_base": "krynn_base",
+    "docked_at_base": "krynn_base",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_basic": {
+        "level": 3,
+        "xp": 0
+      },
+      "trading": {
+        "level": 1,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 1185,
+      "credits_earned": 25847,
+      "credits_spent": 13683,
+      "trades_completed": 203,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 12264,
+  "skill_xp": {
+    "fuel_efficiency": 21,
+    "mining_basic": 185,
+    "small_ships": 21,
+    "trading": 253
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "f25a6cc999848b5cd5235f89a3a289ca",
+    "owner_id": "85ee0a5d8dc912f98a21bf136bacb26d",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 122,
+    "max_fuel": 130,
+    "cargo_used": 30,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "d5e40576bd67692768a2af2f77d1584a"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 3
+      }
+    ]
+  },
+  "Fuel": 122,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 3
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Krynn",
+    "description": "The war-forged capital of the Crimson Pact.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "krynn_citadel"
+  },
+  "CurrentTick": 91333,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}

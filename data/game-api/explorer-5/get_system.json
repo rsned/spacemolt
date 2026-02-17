@@ -1,0 +1,15 @@
+{
+  "id": "",
+  "name": "Windmere",
+  "description": "",
+  "empire": "",
+  "police_level": 0,
+  "pois": [],
+  "connections": [],
+  "discovered": false,
+  "position": {
+    "x": 0,
+    "y": 0
+  },
+  "ShipPOI": "sys_0109_sun"
+}

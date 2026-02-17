@@ -1,0 +1,163 @@
+{
+  "Mu": {},
+  "Username": "Artisan 'Ace' Anderson",
+  "Password": "83e75ac4a7c689aead0a06f4085c588c18b73f858ee0154e1f34dd8137c05641",
+  "Doc": true,
+  "CurrentSystem": "sol",
+  "CurrentPOI": "sol_station",
+  "Traveling": false,
+  "TravelProgress": null,
+  "ServerVersion": "0.90.3",
+  "Player": {
+    "id": "a81037cd551dae1cc88be584b8da938b",
+    "username": "Artisan 'Ace' Anderson",
+    "empire": "solarian",
+    "credits": 6125,
+    "current_system": "sol",
+    "current_poi": "sol_station",
+    "current_ship_id": "47444916a64b22f5826fefa84eb71b2a",
+    "home_base": "sol_base",
+    "docked_at_base": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "anonymous": false,
+    "is_cloaked": false,
+    "skills": {
+      "mining_basic": {
+        "level": 2,
+        "xp": 0
+      },
+      "trading": {
+        "level": 1,
+        "xp": 0
+      }
+    },
+    "stats": {
+      "ships_destroyed": 0,
+      "times_destroyed": 0,
+      "ore_mined": 895,
+      "credits_earned": 9325,
+      "credits_spent": 3300,
+      "trades_completed": 95,
+      "systems_discovered": 0,
+      "items_crafted": 0,
+      "missions_completed": 0
+    }
+  },
+  "Credits": 6125,
+  "skill_xp": {
+    "fuel_efficiency": 22,
+    "mining_basic": 495,
+    "small_ships": 22,
+    "trading": 35
+  },
+  "SkillNextLevelXP": null,
+  "SkillDefinitions": null,
+  "Ship": {
+    "id": "47444916a64b22f5826fefa84eb71b2a",
+    "owner_id": "a81037cd551dae1cc88be584b8da938b",
+    "class_id": "mining_enhanced",
+    "name": "Drillship",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 106,
+    "max_fuel": 130,
+    "cargo_used": 92,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "ebb0b48cbe90749b94cb0806bfcc2fc8"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 3
+      },
+      {
+        "item_id": "ore_iron",
+        "quantity": 20
+      },
+      {
+        "item_id": "ore_sol_alloy",
+        "quantity": 1
+      },
+      {
+        "item_id": "ore_titanium",
+        "quantity": 1
+      },
+      {
+        "item_id": "ore_nickel",
+        "quantity": 24
+      },
+      {
+        "item_id": "ore_copper",
+        "quantity": 15
+      }
+    ]
+  },
+  "Fuel": 106,
+  "MaxFuel": 130,
+  "Hull": 140,
+  "MaxHull": 140,
+  "Cargo": [
+    {
+      "item_id": "mining_laser_1",
+      "quantity": 3
+    },
+    {
+      "item_id": "ore_iron",
+      "quantity": 20
+    },
+    {
+      "item_id": "ore_sol_alloy",
+      "quantity": 1
+    },
+    {
+      "item_id": "ore_titanium",
+      "quantity": 1
+    },
+    {
+      "item_id": "ore_nickel",
+      "quantity": 24
+    },
+    {
+      "item_id": "ore_copper",
+      "quantity": 15
+    }
+  ],
+  "MaxCargo": 100,
+  "System": {
+    "id": "",
+    "name": "Sol",
+    "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
+    "empire": "",
+    "police_level": 0,
+    "pois": [],
+    "connections": [],
+    "discovered": false,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "ShipPOI": "sol_station"
+  },
+  "CurrentTick": 91291,
+  "LastMapUpdate": "0001-01-01T00:00:00Z",
+  "Nearby": [],
+  "InCombat": false,
+  "PirateName": "",
+  "PirateTier": "",
+  "PirateID": "",
+  "LastDamage": 0
+}
