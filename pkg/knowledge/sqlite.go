@@ -102,18 +102,18 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 
 	// Insert or update system
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO systems (id, name, pos_x, pos_y, pos_z, police_level, faction, last_updated)
+		INSERT INTO systems (id, name, description, position_x, position_y, police_level, empire, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
-			pos_x = excluded.pos_x,
-			pos_y = excluded.pos_y,
-			pos_z = excluded.pos_z,
+			description = excluded.description,
+			position_x = excluded.position_x,
+			position_y = excluded.position_y,
 			police_level = excluded.police_level,
-			faction = excluded.faction,
-			last_updated = excluded.last_updated
-	`, sys.ID, sys.Name, sys.Position.X, sys.Position.Y, sys.Position.Z,
-		sys.PoliceLevel, sys.Faction, sys.LastUpdatedTick)
+			empire = excluded.empire,
+			last_updated_tick = excluded.last_updated_tick
+	`, sys.ID, sys.Name, sys.Description, sys.Position.X, sys.Position.Y,
+		sys.PoliceLevel, sys.Empire, sys.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
@@ -121,7 +121,7 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	// Store connections
 	for _, connID := range sys.Connections {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO connections (from_system, to_system, last_updated)
+			INSERT OR IGNORE INTO connections (from_system, to_system, last_updated_tick)
 			VALUES (?, ?, 0)
 		`, sys.ID, connID); err != nil {
 			return fmt.Errorf("failed to store connection %s -> %s: %w", sys.ID, connID, err)
@@ -140,12 +140,12 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 	var sys System
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction
+		SELECT id, name, description, position_x, position_y, police_level, empire
 		FROM systems
 		WHERE id = ?
 	`, systemID).Scan(
-		&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
-		&sys.PoliceLevel, &sys.Faction,
+		&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
+		&sys.PoliceLevel, &sys.Empire,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // System not found
@@ -230,16 +230,16 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 
 	// Insert or update POI (base_id is left as NULL for now since POI struct doesn't have it)
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, description, pos_x, pos_y, last_updated)
+		INSERT INTO pois (id, system_id, name, type, description, position_x, position_y, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = excluded.name,
 			type = excluded.type,
 			description = excluded.description,
-			pos_x = excluded.pos_x,
-			pos_y = excluded.pos_y,
-			last_updated = excluded.last_updated
+			position_x = excluded.position_x,
+			position_y = excluded.position_y,
+			last_updated_tick = excluded.last_updated_tick
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, poi.Description,
 		poi.Position.X, poi.Position.Y, poi.LastUpdatedTick)
 	if err != nil {
@@ -255,7 +255,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	// Insert resources
 	for _, res := range poi.Resources {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated)
+			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated_tick)
 			VALUES (?, ?, ?, ?, ?)
 		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, poi.LastUpdatedTick)
 		if err != nil {
@@ -273,7 +273,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, description, pos_x, pos_y
+		SELECT id, system_id, name, type, description, position_x, position_y
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -349,7 +349,7 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 
 	// Insert or update base
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO bases (id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated)
+		INSERT INTO bases (id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			poi_id = excluded.poi_id,
@@ -359,7 +359,7 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 			defense_level = excluded.defense_level,
 			has_drones = excluded.has_drones,
 			public_access = excluded.public_access,
-			last_updated = excluded.last_updated
+			last_updated_tick = excluded.last_updated_tick
 	`, base.ID, base.POIID, base.Name, base.Description, base.Empire,
 		base.DefenseLevel, base.HasDrones, base.PublicAccess, base.LastUpdatedTick)
 	if err != nil {
@@ -392,7 +392,7 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 	// Insert facilities
 	for _, facility := range base.Facilities {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO base_facilities (base_id, facility_name, category, level, last_updated)
+			INSERT INTO base_facilities (base_id, facility_name, category, level, last_updated_tick)
 			VALUES (?, ?, ?, ?, ?)
 		`, base.ID, facility.ID, facility.Category, facility.Level, base.LastUpdatedTick)
 		if err != nil {
@@ -409,7 +409,7 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 	// Insert market items
 	for _, item := range base.Market {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO base_market (id, base_id, item_id, price_each, quantity, is_npc, last_updated)
+			INSERT INTO base_market (id, base_id, item_id, price_each, quantity, is_npc, last_updated_tick)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, item.ID, base.ID, item.ItemID, item.PriceEach, item.Quantity, item.IsNPC, base.LastUpdatedTick)
 		if err != nil {
@@ -430,7 +430,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	var description sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated
+		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated_tick
 		FROM bases
 		WHERE id = ?
 	`, baseID).Scan(
@@ -479,7 +479,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 
 	// Load facilities
 	rows, err = kb.db.QueryContext(ctx, `
-		SELECT facility_name, category, level, last_updated
+		SELECT facility_name, category, level, last_updated_tick
 		FROM base_facilities
 		WHERE base_id = ?
 		ORDER BY facility_name
@@ -559,7 +559,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 	var description sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated
+		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated_tick
 		FROM bases
 		WHERE poi_id = ?
 	`, poiID).Scan(
@@ -608,7 +608,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 
 	// Load facilities (same as GetBase)
 	rows, err = kb.db.QueryContext(ctx, `
-		SELECT facility_name, category, level, last_updated
+		SELECT facility_name, category, level, last_updated_tick
 		FROM base_facilities
 		WHERE base_id = ?
 		ORDER BY facility_name
@@ -685,7 +685,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 // AddExperience logs an agent experience
 func (kb *SQLiteKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT INTO experiences (agent_id, time, type, description, outcome, location, last_updated)
+		INSERT INTO experiences (agent_id, time, type, description, outcome, location, last_updated_tick)
 		VALUES (?, datetime('now'), ?, ?, ?, ?, 0)
 	`, agentID, expType, description, outcome, location)
 	if err != nil {
@@ -740,11 +740,11 @@ func (kb *SQLiteKB) GetRecentExperiences(ctx context.Context, agentID string, li
 }
 
 // RegisterAgent registers an agent in the knowledge base
-func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, faction string, personality []byte) error {
+func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, empire string, personality []byte) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT OR REPLACE INTO agents (id, name, role, faction, status, last_updated)
+		INSERT OR REPLACE INTO agents (id, name, role, empire, status, last_updated_tick)
 		VALUES (?, ?, ?, ?, 'active', 0)
-	`, agentID, name, role, faction)
+	`, agentID, name, role, empire)
 	if err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
@@ -755,7 +755,7 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, fact
 func (kb *SQLiteKB) GetSystems() []System {
 	// Query all systems
 	rows, err := kb.db.Query(`
-		SELECT id, name, pos_x, pos_y, pos_z, police_level, faction
+		SELECT id, name, description, position_x, position_y, police_level, empire
 		FROM systems
 	`)
 	if err != nil {
@@ -768,8 +768,8 @@ func (kb *SQLiteKB) GetSystems() []System {
 		var sys System
 
 		if err := rows.Scan(
-			&sys.ID, &sys.Name, &sys.Position.X, &sys.Position.Y, &sys.Position.Z,
-			&sys.PoliceLevel, &sys.Faction,
+			&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
+			&sys.PoliceLevel, &sys.Empire,
 		); err != nil {
 			continue
 		}
@@ -818,7 +818,7 @@ func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnap
 
 	// Insert snapshot
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO market_snapshots (system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id, last_updated)
+		INSERT INTO market_snapshots (system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?)
 	`, snapshot.SystemID, snapshot.SystemName, snapshot.StationID, snapshot.StationName, snapshot.GameTick, agentID, snapshot.GameTick)
 	if err != nil {
@@ -833,7 +833,7 @@ func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnap
 	// Insert listings
 	for _, listing := range snapshot.Listings {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO market_listings (snapshot_id, item_id, item_type, quantity, price_per_unit, total_price, listing_type, listed_by, last_updated)
+			INSERT INTO market_listings (snapshot_id, item_id, item_type, quantity, price_per_unit, total_price, listing_type, listed_by, last_updated_tick)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, snapshotID, listing.ItemID, listing.ItemType, listing.Quantity, listing.PricePerUnit, listing.TotalPrice, listing.Type, listing.ListedBy, snapshot.GameTick)
 		if err != nil {
@@ -1036,7 +1036,7 @@ func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO ship_listings (system_id, system_name, station_id, station_name,
 				ship_class, ship_name, base_price, description, cargo_space, module_slots,
-				utility_slots, weapon_slots, game_tick, captured_at, agent_id, last_updated)
+				utility_slots, weapon_slots, game_tick, captured_at, agent_id, last_updated_tick)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
 		`, listings.SystemID, listings.SystemName, listings.StationID, listings.StationName,
 			ship.ShipClass, ship.ShipName, ship.BasePrice, ship.Description, ship.CargoSpace,

@@ -116,7 +116,7 @@ type SystemInfo struct {
 	ID          string
 	Name        string
 	PoliceLevel int
-	Faction     string
+	Empire      string
 	VisitCount  int
 }
 

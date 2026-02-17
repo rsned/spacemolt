@@ -134,7 +134,6 @@ func main() {
 		Services:        response.Base.Services,
 		Facilities:      facilities,
 		Market:          marketItems,
-		DiscoveredBy:    "import",
 		LastUpdatedTick: 0,
 	}
 

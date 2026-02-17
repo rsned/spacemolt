@@ -14,7 +14,7 @@ type systemJSON struct {
 	Name        string        `json:"name"`
 	Position    game.Position `json:"position"`
 	PoliceLevel int           `json:"police_level"`
-	Faction     string        `json:"faction"`
+	Empire      string        `json:"empire"`
 	Connections []string      `json:"connections"`
 }
 
@@ -79,7 +79,7 @@ func systemToJSON(sys knowledge.System) systemJSON {
 		Name:        sys.Name,
 		Position:    sys.Position,
 		PoliceLevel: sys.PoliceLevel,
-		Faction:     sys.Faction,
+		Empire:      sys.Empire,
 		Connections: conns,
 	}
 }

@@ -79,7 +79,7 @@ func main() {
 				Y: sysData.Position.Y,
 			},
 			PoliceLevel:     0, // Not provided in get_map response
-			Faction:         "", // Not provided in get_map response
+			Empire:          "", // Not provided in get_map response
 			Connections:     sysData.Connections,
 			LastUpdatedTick: 0,
 		}

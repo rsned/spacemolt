@@ -205,7 +205,7 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 			ID:          sys.ID,
 			Name:        sys.Name,
 			PoliceLevel: sys.PoliceLevel,
-			Faction:     sys.Empire,
+			Empire:      sys.Empire,
 			VisitCount:  0, // VisitCount is knowledge base metadata, not in game.SystemData
 		}
 	}
@@ -656,13 +656,13 @@ func (m *KBMemory) KnownSystems() []game.SystemData {
 		result[i] = game.SystemData{
 			ID:           sys.ID,
 			Name:         sys.Name,
-			Empire:       sys.Faction,
+			Empire:       sys.Empire,
 			PoliceLevel:  sys.PoliceLevel,
 			POIs:         []game.POI{}, // Not stored in knowledge base
 			Connections:  sys.Connections,
 			Position:     sys.Position,
 			Discovered:   true,
-			DiscoveredBy: sys.DiscoveredBy,
+			DiscoveredBy: "", // No longer tracked in knowledge.System
 		}
 	}
 
@@ -716,9 +716,8 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 		Name:            sys.Name,
 		Position:        sys.Position,
 		PoliceLevel:     sys.PoliceLevel,
-		Faction:         sys.Empire,
+		Empire:          sys.Empire,
 		Connections:     sys.Connections,
-		DiscoveredBy:    sys.DiscoveredBy,
 		LastUpdatedTick: m.currentTick,
 	}
 
@@ -736,7 +735,6 @@ func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 		Position:        poi.Position,
 		Resources:       poi.Resources, // game.POIResource is compatible
 		Services:        []string{},    // Not stored in game POI
-		DiscoveredBy:    m.agentID,
 		LastUpdatedTick: m.currentTick,
 	}
 

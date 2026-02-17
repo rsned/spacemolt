@@ -52,7 +52,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 		existing.Name = sys.Name
 		existing.Position = sys.Position
 		existing.PoliceLevel = sys.PoliceLevel
-		existing.Faction = sys.Faction
+		existing.Empire = sys.Empire
 		existing.LastUpdatedTick = sys.LastUpdatedTick
 		// Update connections
 		existing.Connections = sys.Connections
@@ -62,7 +62,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 			Name:            sys.Name,
 			Position:        sys.Position,
 			PoliceLevel:     sys.PoliceLevel,
-			Faction:         sys.Faction,
+			Empire:          sys.Empire,
 			Connections:     sys.Connections,
 			LastUpdatedTick: sys.LastUpdatedTick,
 		}
@@ -230,7 +230,7 @@ func (kb *MemoryKB) GetRecentExperiences(ctx context.Context, agentID string, li
 }
 
 // RegisterAgent registers an agent in the knowledge base
-func (kb *MemoryKB) RegisterAgent(ctx context.Context, agentID, name, role, faction string, personality []byte) error {
+func (kb *MemoryKB) RegisterAgent(ctx context.Context, agentID, name, role, empire string, personality []byte) error {
 	kb.mu.Lock()
 	defer kb.mu.Unlock()
 
@@ -238,7 +238,7 @@ func (kb *MemoryKB) RegisterAgent(ctx context.Context, agentID, name, role, fact
 		ID:      agentID,
 		Name:    name,
 		Role:    role,
-		Faction: faction,
+		Empire:  empire,
 		Status:  "active",
 	}
 
@@ -263,9 +263,10 @@ func (kb *MemoryKB) GetSystems() []System {
 type System struct {
 	ID              string
 	Name            string
+	Description     string
 	Position        game.Position
 	PoliceLevel     int // Security level 0-3 (0=none, 1=low, 2=medium, 3=high)
-	Faction         string
+	Empire          string
 	Connections     []string
 	POIs            []string
 	LastUpdatedTick int64
@@ -435,7 +436,7 @@ type AgentInfo struct {
 	ID      string
 	Name    string
 	Role    string
-	Faction string
+	Empire  string
 	Status  string
 }
 

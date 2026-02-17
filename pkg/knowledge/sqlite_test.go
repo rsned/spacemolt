@@ -39,7 +39,7 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 		Name:         "Test System",
 		Position:     game.Position{X: 100.0, Y: 200.0, Z: 300.0},
 		PoliceLevel:  3,
-		Faction:      "test_faction",
+		Empire:       "test_empire",
 		Connections:  []string{"SYS-002", "SYS-003"},
 	}
 

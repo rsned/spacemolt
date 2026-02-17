@@ -25,20 +25,19 @@ func migrations() []Migration {
 CREATE TABLE IF NOT EXISTS systems (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
-	pos_x REAL NOT NULL,
-	pos_y REAL NOT NULL,
-	pos_z REAL NOT NULL,
-	security_level TEXT,
-	faction TEXT,
-	visit_count INTEGER DEFAULT 0,
-	last_visited TEXT,
-	discovered_by TEXT
+	position_x REAL NOT NULL,
+	position_y REAL NOT NULL,
+	police_level INTEGER DEFAULT 0,
+	empire TEXT,
+	description TEXT,
+	last_updated_tick INTEGER DEFAULT 0
 );
 
 -- Connections table: stores system-to-system connections
 CREATE TABLE IF NOT EXISTS connections (
 	from_system TEXT NOT NULL,
 	to_system TEXT NOT NULL,
+	last_updated_tick INTEGER DEFAULT 0,
 	PRIMARY KEY (from_system, to_system),
 	FOREIGN KEY (from_system) REFERENCES systems(id) ON DELETE CASCADE,
 	FOREIGN KEY (to_system) REFERENCES systems(id) ON DELETE CASCADE
@@ -51,10 +50,10 @@ CREATE TABLE IF NOT EXISTS pois (
 	name TEXT NOT NULL,
 	type TEXT NOT NULL,
 	description TEXT,
-	pos_x REAL NOT NULL,
-	pos_y REAL NOT NULL,
-	discovered_by TEXT,
+	position_x REAL NOT NULL,
+	position_y REAL NOT NULL,
 	base_id TEXT,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
 );
 
@@ -64,6 +63,7 @@ CREATE TABLE IF NOT EXISTS poi_resources (
 	resource_id TEXT NOT NULL,
 	richness REAL NOT NULL,
 	remaining REAL NOT NULL,
+	last_updated_tick INTEGER DEFAULT 0,
 	PRIMARY KEY (poi_id, resource_id),
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS experiences (
 	type TEXT NOT NULL,
 	description TEXT NOT NULL,
 	outcome TEXT,
-	location TEXT
+	location TEXT,
+	last_updated_tick INTEGER DEFAULT 0
 );
 
 -- Agents table: stores agent metadata
@@ -84,8 +85,9 @@ CREATE TABLE IF NOT EXISTS agents (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	role TEXT NOT NULL,
-	faction TEXT,
-	status TEXT DEFAULT 'active'
+	empire TEXT,
+	status TEXT DEFAULT 'active',
+	last_updated_tick INTEGER DEFAULT 0
 );
 
 -- Create indexes for better query performance
@@ -109,6 +111,7 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
 	game_tick INTEGER NOT NULL,
 	captured_at TEXT NOT NULL,
 	agent_id TEXT,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
@@ -123,6 +126,7 @@ CREATE TABLE IF NOT EXISTS market_listings (
 	total_price REAL NOT NULL,
 	listing_type TEXT NOT NULL,
 	listed_by TEXT,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (snapshot_id) REFERENCES market_snapshots(id) ON DELETE CASCADE
 );
 
@@ -151,6 +155,7 @@ CREATE TABLE IF NOT EXISTS ship_listings (
 	game_tick INTEGER NOT NULL,
 	captured_at TEXT NOT NULL,
 	agent_id TEXT,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
@@ -173,6 +178,7 @@ CREATE TABLE IF NOT EXISTS resource_history (
 	game_tick INTEGER NOT NULL,
 	recorded_at TEXT NOT NULL,
 	agent_id TEXT,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
@@ -185,6 +191,7 @@ CREATE TABLE IF NOT EXISTS connection_metrics (
 	avg_travel_time REAL, -- in game ticks
 	last_traveled TEXT,
 	traveled_by TEXT,
+	last_updated_tick INTEGER DEFAULT 0,
 	PRIMARY KEY (from_system, to_system),
 	FOREIGN KEY (from_system) REFERENCES systems(id) ON DELETE CASCADE,
 	FOREIGN KEY (to_system) REFERENCES systems(id) ON DELETE CASCADE
@@ -202,6 +209,7 @@ CREATE TABLE IF NOT EXISTS anomalies (
 	detected_at TEXT NOT NULL,
 	detected_by TEXT,
 	status TEXT DEFAULT 'active', -- 'active', 'resolved', 'obsolete'
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE,
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
@@ -220,6 +228,7 @@ CREATE TABLE IF NOT EXISTS price_trends (
 	sample_count INTEGER NOT NULL,
 	window_start TEXT NOT NULL,
 	window_end TEXT NOT NULL,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
@@ -244,7 +253,8 @@ CREATE TABLE IF NOT EXISTS knowledge_exports (
 	systems_count INTEGER DEFAULT 0,
 	pois_count INTEGER DEFAULT 0,
 	experiences_count INTEGER DEFAULT 0,
-	export_data TEXT -- JSON snapshot
+	export_data TEXT, -- JSON snapshot
+	last_updated_tick INTEGER DEFAULT 0
 );
 
 -- Indexes for enhanced queries
@@ -260,8 +270,10 @@ CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level D
 		},
 		{
 			version: 5,
-			name:    "add_last_updated_tick",
+			name:    "add_last_updated",
 			sql: `
+-- Add last_updated column to track data freshness
+-- Note: This will be renamed to last_updated_tick in migration v9
 ALTER TABLE systems ADD COLUMN last_updated INTEGER DEFAULT 0;
 ALTER TABLE connections ADD COLUMN last_updated INTEGER DEFAULT 0;
 ALTER TABLE pois ADD COLUMN last_updated INTEGER DEFAULT 0;
@@ -292,8 +304,7 @@ CREATE TABLE IF NOT EXISTS bases (
 	defense_level INTEGER DEFAULT 0,
 	has_drones BOOLEAN DEFAULT 0,
 	public_access BOOLEAN DEFAULT 1,
-	discovered_by TEXT,
-	last_updated INTEGER DEFAULT 0,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
@@ -310,6 +321,9 @@ CREATE TABLE IF NOT EXISTS base_services (
 CREATE TABLE IF NOT EXISTS base_facilities (
 	base_id TEXT NOT NULL,
 	facility_name TEXT NOT NULL,
+	category TEXT DEFAULT 'unknown',
+	level INTEGER DEFAULT 0,
+	last_updated_tick INTEGER DEFAULT 0,
 	PRIMARY KEY (base_id, facility_name),
 	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
 );
@@ -322,7 +336,7 @@ CREATE TABLE IF NOT EXISTS base_market (
 	price_each REAL NOT NULL,
 	quantity INTEGER NOT NULL,
 	is_npc BOOLEAN DEFAULT 1,
-	last_updated INTEGER DEFAULT 0,
+	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
 );
 
@@ -330,19 +344,16 @@ CREATE TABLE IF NOT EXISTS base_market (
 CREATE INDEX IF NOT EXISTS idx_bases_poi_id ON bases(poi_id);
 CREATE INDEX IF NOT EXISTS idx_base_market_base_id ON base_market(base_id);
 CREATE INDEX IF NOT EXISTS idx_base_market_item_id ON base_market(item_id);
+CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
 `,
 		},
 		{
 			version: 7,
 			name:    "add_facility_category_level",
 			sql: `
--- Add category, level, and last_updated columns to base_facilities table
-ALTER TABLE base_facilities ADD COLUMN category TEXT DEFAULT 'unknown';
-ALTER TABLE base_facilities ADD COLUMN level INTEGER DEFAULT 0;
-ALTER TABLE base_facilities ADD COLUMN last_updated INTEGER DEFAULT 0;
-
--- Create index for category-based queries
-CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
+-- This migration is now a no-op since category, level, and last_updated_tick
+-- were added directly in migration v6 for new installs
+-- Kept for backward compatibility with databases that ran the old migration v6
 `,
 		},
 		{
@@ -362,6 +373,51 @@ ALTER TABLE pois DROP COLUMN discovered_by;
 
 -- Drop discovered_by from bases table
 ALTER TABLE bases DROP COLUMN discovered_by;
+`,
+		},
+		{
+			version: 9,
+			name:    "schema_alignment",
+			sql: `
+-- Align database schema with game server API structure
+-- This migration renames columns to match server terminology and structure
+
+-- Rename position columns to match server API (position.x/y)
+ALTER TABLE systems RENAME COLUMN pos_x TO position_x;
+ALTER TABLE systems RENAME COLUMN pos_y TO position_y;
+ALTER TABLE systems DROP COLUMN pos_z;
+
+ALTER TABLE pois RENAME COLUMN pos_x TO position_x;
+ALTER TABLE pois RENAME COLUMN pos_y TO position_y;
+
+-- Rename faction to empire for consistency with server API and bases table
+ALTER TABLE systems RENAME COLUMN faction TO empire;
+ALTER TABLE agents RENAME COLUMN faction TO empire;
+
+-- Add description to systems table (present in server API)
+ALTER TABLE systems ADD COLUMN description TEXT;
+
+-- Rename last_updated to last_updated_tick for clarity (game tick, not timestamp)
+ALTER TABLE systems RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE connections RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE pois RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE poi_resources RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE experiences RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE agents RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE market_snapshots RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE market_listings RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE ship_listings RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE resource_history RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE connection_metrics RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE anomalies RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE price_trends RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE knowledge_exports RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE bases RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE base_facilities RENAME COLUMN last_updated TO last_updated_tick;
+ALTER TABLE base_market RENAME COLUMN last_updated TO last_updated_tick;
+
+-- Note: danger_zones.last_updated remains as TEXT (timestamp) not INTEGER (tick)
+-- This tracks "last incident time" not "when we updated this record"
 `,
 		},
 	}
