@@ -45,8 +45,8 @@ type Client struct {
 	rawJSONMu     sync.RWMutex
 
 	// Last error response (for diagnostics)
-	lastError     map[string]any
-	lastErrorMu   sync.RWMutex
+	lastError   map[string]any
+	lastErrorMu sync.RWMutex
 
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
@@ -62,12 +62,12 @@ type MessageHandler interface {
 
 // ReconnectingHandler wraps a MessageHandler and adds automatic reconnection
 type ReconnectingHandler struct {
-	client  *Client
-	handler MessageHandler
-	ctx     context.Context
-	logger  *log.Logger
-	reconnecting  atomic.Bool // Prevents multiple concurrent reconnections
-	mu           sync.Mutex    // Protects reconnecting state
+	client       *Client
+	handler      MessageHandler
+	ctx          context.Context
+	logger       *log.Logger
+	reconnecting atomic.Bool // Prevents multiple concurrent reconnections
+	mu           sync.Mutex  // Protects reconnecting state
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -510,7 +510,7 @@ func (c *Client) GetStatus(ctx context.Context) error {
 // GetListings requests market listings for the current station
 func (c *Client) GetListings(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
-		Type:      "get_listings",
+		Type:      "view_market",
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -1000,6 +1000,9 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 		}
 		if dockedAtBase, ok := playerData["docked_at_base"].(string); ok {
 			c.state.Player.DockedAtBase = dockedAtBase
+			// Update docked status based on docked_at_base field
+			// Non-empty string means docked, empty string means undocked
+			c.state.Doc = dockedAtBase != ""
 		}
 		if factionID, ok := playerData["faction_id"].(string); ok {
 			c.state.Player.FactionID = factionID
