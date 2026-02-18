@@ -136,6 +136,49 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	return nil
 }
 
+// UpsertSystemFromMap inserts or updates a system using map data only.
+// Unlike RememberSystem, this preserves richer data (police_level, description,
+// last_updated_tick) that may have been collected by explorers. It only updates
+// fields that the map data provides: name, position, empire (when non-empty),
+// is_stronghold, and connections.
+func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData) error {
+	tx, err := kb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO systems (id, name, position_x, position_y, empire, is_stronghold, police_level, last_updated_tick)
+		VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+		ON CONFLICT(id) DO UPDATE SET
+			name = excluded.name,
+			position_x = excluded.position_x,
+			position_y = excluded.position_y,
+			empire = CASE WHEN excluded.empire <> '' THEN excluded.empire ELSE systems.empire END,
+			is_stronghold = excluded.is_stronghold
+	`, data.ID, data.Name, data.PositionX, data.PositionY, data.Empire, data.IsStronghold)
+	if err != nil {
+		return fmt.Errorf("failed to upsert system from map: %w", err)
+	}
+
+	// Store connections
+	for _, connID := range data.Connections {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR IGNORE INTO connections (from_system, to_system, last_updated_tick)
+			VALUES (?, ?, 0)
+		`, data.ID, connID); err != nil {
+			return fmt.Errorf("failed to store connection %s -> %s: %w", data.ID, connID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 // GetSystem retrieves a system by ID
 func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, error) {
 	var sys System

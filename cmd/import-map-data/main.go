@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
@@ -68,28 +67,22 @@ func main() {
 
 	ctx := context.Background()
 
-	// Import systems
+	// Import systems using partial upsert that preserves richer explorer data.
+	// Map data provides: name, position, connections, empire (some), is_stronghold (some).
+	// It does NOT provide: police_level, description — so we must not overwrite those.
 	systemCount := 0
 	connectionCount := 0
 	for _, sysData := range response.Systems {
-		// Convert to knowledge.System
-		sys := knowledge.System{
-			ID:     sysData.SystemID,
-			Name:   sysData.Name,
-			Position: game.Position{
-				X: sysData.Position.X,
-				Y: sysData.Position.Y,
-			},
-			PoliceLevel:     0, // Not provided in get_map response
-			Empire:          sysData.Empire,
-			IsStronghold:    sysData.IsStronghold,
-			Connections:     sysData.Connections,
-			LastUpdatedTick: 0,
-		}
-
-		// Save system to database
-		if err := kb.RememberSystem(ctx, sys); err != nil {
-			log.Printf("Warning: failed to save system %s: %v", sys.ID, err)
+		if err := kb.UpsertSystemFromMap(ctx, knowledge.MapSystemData{
+			ID:           sysData.SystemID,
+			Name:         sysData.Name,
+			Empire:       sysData.Empire,
+			PositionX:    sysData.Position.X,
+			PositionY:    sysData.Position.Y,
+			IsStronghold: sysData.IsStronghold,
+			Connections:  sysData.Connections,
+		}); err != nil {
+			log.Printf("Warning: failed to save system %s: %v", sysData.SystemID, err)
 			continue
 		}
 

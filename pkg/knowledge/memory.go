@@ -275,6 +275,19 @@ type System struct {
 	LastUpdatedTick int64
 }
 
+// MapSystemData contains the subset of system data available from map imports.
+// Used by UpsertSystemFromMap to perform partial upserts that preserve richer
+// explorer-collected data (police_level, description, last_updated_tick).
+type MapSystemData struct {
+	ID           string
+	Name         string
+	Empire       string
+	PositionX    float64
+	PositionY    float64
+	IsStronghold bool
+	Connections  []string
+}
+
 // POI represents knowledge about a Point of Interest
 // Extends game.POI with exploration metadata
 type POI struct {
