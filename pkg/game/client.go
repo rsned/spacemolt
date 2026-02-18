@@ -1484,6 +1484,10 @@ func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
 	if name, ok := systemData["name"].(string); ok {
 		c.state.System.Name = name
 		c.state.CurrentSystem = name
+		// If ID is empty, use the name as the ID (server v0.93.0+ sends empty id fields)
+		if c.state.System.ID == "" {
+			c.state.System.ID = name
+		}
 	}
 	if desc, ok := systemData["description"].(string); ok {
 		c.state.System.Description = desc
