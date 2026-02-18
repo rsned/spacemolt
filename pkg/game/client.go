@@ -1365,7 +1365,20 @@ func (c *Client) parseSystemData(payload map[string]any) {
 
 	// Check for direct system object
 	if systemData, ok := payload["system"].(map[string]any); ok {
+		c.debugLogger.Printf("Parsing system data from 'system' object")
 		c.parseSystemObjectLocked(systemData)
+	} else {
+		// System fields might be at top level of payload (e.g., in logged_in response)
+		// Check if we have system-specific fields to indicate this is system data
+		_, hasID := payload["id"]
+		_, hasName := payload["name"]
+		_, hasPOIs := payload["pois"]
+		if hasID || (hasName && hasPOIs) {
+			c.debugLogger.Printf("Parsing system data from top-level payload (hasID=%v, hasName=%v, hasPOIs=%v)", hasID, hasName, hasPOIs)
+			c.parseSystemObjectLocked(payload)
+		} else {
+			c.debugLogger.Printf("No system data found in payload (hasID=%v, hasName=%v, hasPOIs=%v)", hasID, hasName, hasPOIs)
+		}
 	}
 
 	// Check for POIs array
@@ -1480,6 +1493,7 @@ func (c *Client) parseMapData(payload map[string]any) {
 func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
 	if id, ok := systemData["id"].(string); ok {
 		c.state.System.ID = id
+		c.debugLogger.Printf("Set System.ID = '%s' from id field", id)
 	}
 	if name, ok := systemData["name"].(string); ok {
 		c.state.System.Name = name
@@ -1487,7 +1501,9 @@ func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
 		// If ID is empty, use the name as the ID (server v0.93.0+ sends empty id fields)
 		if c.state.System.ID == "" {
 			c.state.System.ID = name
+			c.debugLogger.Printf("Set System.ID = '%s' (fallback from name field)", name)
 		}
+		c.debugLogger.Printf("Set System.Name = '%s', CurrentSystem = '%s'", name, name)
 	}
 	if desc, ok := systemData["description"].(string); ok {
 		c.state.System.Description = desc
