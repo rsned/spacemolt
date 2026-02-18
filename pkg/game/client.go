@@ -47,6 +47,9 @@ type Client struct {
 	latestRawJSON map[string][]byte
 	rawJSONMu     sync.RWMutex
 
+	// Crafting configuration
+	CraftingConfig *CraftingConfig
+
 	// Last error response (for diagnostics)
 	lastError   map[string]any
 	lastErrorMu sync.RWMutex

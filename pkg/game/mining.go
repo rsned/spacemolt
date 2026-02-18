@@ -35,8 +35,6 @@ func StationActionSellAll(client *Client, logger *log.Logger, ctx context.Contex
 }
 
 // StationActionCraftAndSell crafts items from cargo resources, then sells everything
-// NOTE: Crafting is not yet implemented, currently just sells all cargo
-// TODO: Implement actual crafting logic once Craft method is available
 func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
@@ -44,11 +42,18 @@ func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.C
 		return nil
 	}
 
-	// TODO: Implement crafting logic
-	// For now, just sell everything
-	logger.Printf("🔨 Crafting not yet implemented, selling all cargo...")
+	// Try to craft items from cargo
+	logger.Printf("🔨 Querying craftable recipes from cargo...")
+	crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
+	if err != nil {
+		logger.Printf("⚠️  Crafting query failed: %v, selling raw cargo", err)
+	} else if crafted > 0 {
+		logger.Printf("✅ Successfully crafted %d items!", crafted)
+	} else {
+		logger.Printf("ℹ️  No craftable recipes found with current cargo/skills")
+	}
 
-	// Sell everything
+	// Sell everything (crafted items + remaining raw materials)
 	logger.Printf("💰 Selling all cargo (%d items)...", len(state.Ship.Cargo))
 	if err := client.SellAllBulk(ctx, nil); err != nil {
 		return fmt.Errorf("sell failed: %w", err)
@@ -60,8 +65,6 @@ func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.C
 }
 
 // StationActionCraftAndDeposit crafts items from cargo resources, then deposits everything
-// NOTE: Crafting is not yet implemented, currently just deposits all cargo
-// TODO: Implement actual crafting logic once Craft method is available
 func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
@@ -69,9 +72,16 @@ func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx contex
 		return nil
 	}
 
-	// TODO: Implement crafting logic
-	// For now, just deposit everything without crafting
-	logger.Printf("🔨 Crafting not yet implemented, depositing all cargo as-is...")
+	// Try to craft items from cargo
+	logger.Printf("🔨 Querying craftable recipes from cargo...")
+	crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
+	if err != nil {
+		logger.Printf("⚠️  Crafting query failed: %v, depositing raw cargo", err)
+	} else if crafted > 0 {
+		logger.Printf("✅ Successfully crafted %d items!", crafted)
+	} else {
+		logger.Printf("ℹ️  No craftable recipes found with current cargo/skills")
+	}
 
 	// Deposit all items to station storage
 	logger.Printf("📥 Depositing all cargo to station storage (%d items)...", len(state.Ship.Cargo))
