@@ -35,8 +35,8 @@ func StationActionSellAll(client *Client, logger *log.Logger, ctx context.Contex
 }
 
 // StationActionCraftAndSell crafts items from cargo resources, then sells everything
-// NOTE: This is a simplified version that just sells everything for now
-// TODO: Implement actual crafting logic once Craft/Deposit methods are available
+// NOTE: Crafting is not yet implemented, currently just sells all cargo
+// TODO: Implement actual crafting logic once Craft method is available
 func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
@@ -60,27 +60,30 @@ func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.C
 }
 
 // StationActionCraftAndDeposit crafts items from cargo resources, then deposits everything
-// NOTE: This is a simplified version that just sells everything for now
-// TODO: Implement actual crafting logic and deposit logic once methods are available
+// NOTE: Crafting is not yet implemented, currently just deposits all cargo
+// TODO: Implement actual crafting logic once Craft method is available
 func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
-		logger.Printf("📦 Cargo is empty, nothing to craft or deposit")
+		logger.Printf("📦 Cargo is empty, nothing to deposit")
 		return nil
 	}
 
 	// TODO: Implement crafting logic
-	// TODO: Implement deposit logic
-	// For now, just sell everything
-	logger.Printf("🔨 Crafting not yet implemented, deposit not yet implemented")
-	logger.Printf("💰 Selling all cargo instead (%d items)...", len(state.Ship.Cargo))
+	// For now, just deposit everything without crafting
+	logger.Printf("🔨 Crafting not yet implemented, depositing all cargo as-is...")
 
-	if err := client.SellAllBulk(ctx, nil); err != nil {
-		return fmt.Errorf("sell failed: %w", err)
+	// Deposit all items to station storage
+	logger.Printf("📥 Depositing all cargo to station storage (%d items)...", len(state.Ship.Cargo))
+	for _, item := range state.Ship.Cargo {
+		logger.Printf("   - %s x%.0f", item.ItemID, item.Quantity)
 	}
 
-	time.Sleep(5 * time.Second)
-	logger.Printf("✅ Sold all cargo!")
+	if err := client.DepositAllItems(ctx); err != nil {
+		return fmt.Errorf("deposit failed: %w", err)
+	}
+
+	logger.Printf("✅ Deposited all cargo to station storage!")
 	return nil
 }
 

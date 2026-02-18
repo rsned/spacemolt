@@ -692,6 +692,105 @@ func (c *Client) isOreOrResource(itemID string) bool {
 	return false
 }
 
+// DepositItems deposits items from the ship's cargo to station storage.
+// This moves the specified quantity of items from cargo to the station's storage.
+//
+// Parameters:
+//   - ctx: Context for cancellation
+//   - itemID: The ID of the item to deposit
+//   - quantity: The quantity to deposit (must be >= 0)
+//
+// Returns an error if:
+//   - Not docked at a station
+//   - Item not found in cargo
+//   - Quantity exceeds available amount
+//   - Station doesn't have storage service
+//
+// Example:
+//
+//	// Deposit all iron ore
+//	err := client.DepositItems(ctx, "ore_iron", 100.0)
+func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float64) error {
+	state := c.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked at station to deposit items")
+	}
+
+	if quantity < 0 {
+		return fmt.Errorf("quantity must be >= 0, got %f", quantity)
+	}
+
+	// Check if item exists in cargo with sufficient quantity
+	var availableQty float64
+	for _, item := range state.Ship.Cargo {
+		if item.ItemID == itemID {
+			availableQty = item.Quantity
+			break
+		}
+	}
+
+	if availableQty == 0 {
+		return fmt.Errorf("item %s not found in cargo", itemID)
+	}
+
+	if quantity > availableQty {
+		return fmt.Errorf("requested quantity %f exceeds available %f for item %s", quantity, availableQty, itemID)
+	}
+
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "deposit_items",
+		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+
+	return c.waitForActionResponse(ctx, 5*time.Second)
+}
+
+// DepositAllItems deposits all items from the ship's cargo to station storage.
+// This moves everything in cargo to the station's storage.
+//
+// Returns an error if:
+//   - Not docked at a station
+//   - Station doesn't have storage service
+//   - Any individual deposit fails
+//
+// Example:
+//
+//	err := client.DepositAllItems(ctx)
+func (c *Client) DepositAllItems(ctx context.Context) error {
+	state := c.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked at station to deposit items")
+	}
+
+	if len(state.Ship.Cargo) == 0 {
+		return nil // Nothing to deposit
+	}
+
+	// Deposit each item in cargo
+	depositErrors := 0
+	for _, item := range state.Ship.Cargo {
+		if item.Quantity > 0 {
+			if err := c.DepositItems(ctx, item.ItemID, item.Quantity); err != nil {
+				c.debugLogger.Printf("Failed to deposit %s: %v", item.ItemID, err)
+				depositErrors++
+				// Continue depositing other items even if one fails
+			} else {
+				c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, item.Quantity)
+				time.Sleep(1 * time.Second) // Brief delay between deposits
+			}
+		}
+	}
+
+	if depositErrors > 0 {
+		return fmt.Errorf("failed to deposit %d out of %d items", depositErrors, len(state.Ship.Cargo))
+	}
+
+	return nil
+}
+
 // Refuel refills the ship's fuel tank at the current station
 func (c *Client) Refuel(ctx context.Context) error {
 	if err := c.Send(ctx, protocol.Message{
