@@ -57,7 +57,7 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, cred
 	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
-func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {
+func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy) error {
 	// Configure the shared mining loop
 	config := &game.MiningLoopConfig{
 		AgentID:              agentID,
@@ -65,6 +65,7 @@ func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 		Tier1Threshold:       TIER1_THRESHOLD,
 		ReserveCredits:       RESERVE_CREDITS,
 		UseBulkSell:          true, // Use bulk sell for better performance
+		OnStationActions:     stationAction, // Use the selected strategy
 		OnUpgradeCheck: func() bool {
 			//attemptUpgrades(client, logger, ctx)
 			return false // Return value not used for continuous mining
@@ -94,14 +95,45 @@ func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-miner <agent-id>")
-		fmt.Println("Example: auto-miner pirate-1")
-		fmt.Println("Example: auto-miner miner-1")
-		fmt.Println("Example: auto-miner craftsman-1")
+		fmt.Println("Usage: auto-miner <agent-id> [strategy]")
+		fmt.Println("")
+		fmt.Println("Arguments:")
+		fmt.Println("  agent-id   Agent identifier (e.g., miner-1, craftsman-1)")
+		fmt.Println("  strategy   Station action strategy (optional, default: sell)")
+		fmt.Println("")
+		fmt.Println("Strategies:")
+		fmt.Println("  sell       Sell all cargo immediately (default, fastest)")
+		fmt.Println("  craft-sell Craft items from resources, then sell all")
+		fmt.Println("  craft-deposit Craft items from resources, then deposit to storage")
+		fmt.Println("")
+		fmt.Println("Examples:")
+		fmt.Println("  auto-miner miner-1              # Sell everything")
+		fmt.Println("  auto-miner miner-1 sell         # Sell everything (explicit)")
+		fmt.Println("  auto-miner miner-1 craft-sell   # Craft then sell")
+		fmt.Println("  auto-miner miner-1 craft-deposit # Craft then deposit")
 		os.Exit(1)
 	}
 
 	agentID := os.Args[1]
+
+	// Parse station action strategy
+	strategy := "sell"
+	if len(os.Args) >= 3 {
+		strategy = os.Args[2]
+	}
+
+	// Validate strategy
+	var stationAction game.StationActionStrategy
+	switch strategy {
+	case "sell":
+		stationAction = game.StationActionSellAll
+	case "craft-sell":
+		stationAction = game.StationActionCraftAndSell
+	case "craft-deposit":
+		stationAction = game.StationActionCraftAndDeposit
+	default:
+		log.Fatalf("Unknown strategy: %s (must be: sell, craft-sell, craft-deposit)", strategy)
+	}
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
@@ -148,13 +180,23 @@ func main() {
 
 	// Start autonomous mining loop with upgrades
 	logger.Printf("Starting autonomous mining + upgrade loop...")
+	logger.Printf("Station action strategy: %s", strategy)
 	logger.Printf("Will automatically:")
 	logger.Printf("  ⛏️  Mine resources until cargo full")
-	logger.Printf("  💰 Sell all cargo for credits")
+	switch strategy {
+	case "sell":
+		logger.Printf("  💰 Sell all cargo for credits")
+	case "craft-sell":
+		logger.Printf("  🔨 Craft items from resources")
+		logger.Printf("  💰 Sell all cargo for credits")
+	case "craft-deposit":
+		logger.Printf("  🔨 Craft items from resources")
+		logger.Printf("  📥 Deposit all cargo to station storage")
+	}
 	logger.Printf("  🚀 Upgrade ships progressively using MiningProgression tiers")
 	logger.Printf("")
 
-	if err := miningLoop(agentID, client, logger, ctx); err != nil {
+	if err := miningLoop(agentID, client, logger, ctx, stationAction); err != nil {
 		log.Fatalf("Mining loop error: %v", err)
 	}
 }

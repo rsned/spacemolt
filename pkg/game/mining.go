@@ -8,6 +8,82 @@ import (
 	"time"
 )
 
+// StationActionStrategy defines what to do with cargo when docked at a station
+type StationActionStrategy func(client *Client, logger *log.Logger, ctx context.Context) error
+
+// StationActionSellAll simply sells all cargo without any crafting
+func StationActionSellAll(client *Client, logger *log.Logger, ctx context.Context) error {
+	state := client.GetState()
+	if len(state.Ship.Cargo) == 0 {
+		logger.Printf("📦 Cargo is empty, nothing to sell")
+		return nil
+	}
+
+	// List what we're selling
+	logger.Printf("💰 Selling all cargo (%d items)...", len(state.Ship.Cargo))
+	for _, item := range state.Ship.Cargo {
+		logger.Printf("   - %s x%.0f", item.ItemID, item.Quantity)
+	}
+
+	if err := client.SellAllBulk(ctx, nil); err != nil {
+		return fmt.Errorf("sell failed: %w", err)
+	}
+
+	time.Sleep(5 * time.Second)
+	logger.Printf("✅ Sold all cargo!")
+	return nil
+}
+
+// StationActionCraftAndSell crafts items from cargo resources, then sells everything
+// NOTE: This is a simplified version that just sells everything for now
+// TODO: Implement actual crafting logic once Craft/Deposit methods are available
+func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.Context) error {
+	state := client.GetState()
+	if len(state.Ship.Cargo) == 0 {
+		logger.Printf("📦 Cargo is empty, nothing to craft or sell")
+		return nil
+	}
+
+	// TODO: Implement crafting logic
+	// For now, just sell everything
+	logger.Printf("🔨 Crafting not yet implemented, selling all cargo...")
+
+	// Sell everything
+	logger.Printf("💰 Selling all cargo (%d items)...", len(state.Ship.Cargo))
+	if err := client.SellAllBulk(ctx, nil); err != nil {
+		return fmt.Errorf("sell failed: %w", err)
+	}
+
+	time.Sleep(5 * time.Second)
+	logger.Printf("✅ Sold all cargo!")
+	return nil
+}
+
+// StationActionCraftAndDeposit crafts items from cargo resources, then deposits everything
+// NOTE: This is a simplified version that just sells everything for now
+// TODO: Implement actual crafting logic and deposit logic once methods are available
+func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx context.Context) error {
+	state := client.GetState()
+	if len(state.Ship.Cargo) == 0 {
+		logger.Printf("📦 Cargo is empty, nothing to craft or deposit")
+		return nil
+	}
+
+	// TODO: Implement crafting logic
+	// TODO: Implement deposit logic
+	// For now, just sell everything
+	logger.Printf("🔨 Crafting not yet implemented, deposit not yet implemented")
+	logger.Printf("💰 Selling all cargo instead (%d items)...", len(state.Ship.Cargo))
+
+	if err := client.SellAllBulk(ctx, nil); err != nil {
+		return fmt.Errorf("sell failed: %w", err)
+	}
+
+	time.Sleep(5 * time.Second)
+	logger.Printf("✅ Sold all cargo!")
+	return nil
+}
+
 // MiningLoopConfig configures the behavior of the mining loop
 type MiningLoopConfig struct {
 	// AgentID for captain's log updates (optional)
@@ -25,6 +101,11 @@ type MiningLoopConfig struct {
 	// OnUpgradeCheck is called when it's time to check for upgrades (optional)
 	// Return true if an upgrade was performed
 	OnUpgradeCheck func() bool
+
+	// OnStationActions is called when docked at station with cargo
+	// Determines what to do with cargo: sell, craft+sell, or craft+deposit
+	// If nil, defaults to selling everything (StationActionSellAll)
+	OnStationActions StationActionStrategy
 
 	// UpgradeCheckInterval controls how often to check for upgrades
 	// If 0, checks every run when credits > tier1Threshold
@@ -328,42 +409,41 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 		}
 		time.Sleep(15 * time.Second)
 
-		// Step 6: Sell all cargo
+		// Step 6: Handle cargo with station actions
 		state = client.GetState()
 		creditsBefore := state.Credits
 		if !state.Doc {
-			logger.Printf("⚠️  Not docked! Skipping sell. Current POI: %s", state.CurrentPOI)
+			logger.Printf("⚠️  Not docked! Skipping station actions. Current POI: %s", state.CurrentPOI)
 		} else if len(state.Ship.Cargo) > 0 {
-			if config.UseBulkSell {
-				logger.Printf("💰 Selling %d different items in bulk...", len(state.Ship.Cargo))
-			} else {
-				logger.Printf("💰 Selling cargo...")
+			// Determine which station action strategy to use
+			stationAction := config.OnStationActions
+			if stationAction == nil {
+				// Default to selling all if no strategy specified
+				if config.UseBulkSell {
+					stationAction = StationActionSellAll
+				} else {
+					// Legacy behavior
+					stationAction = func(c *Client, l *log.Logger, cx context.Context) error {
+						if err := c.SellAll(cx); err != nil {
+							return err
+						}
+						time.Sleep(5 * time.Second)
+						return nil
+					}
+				}
 			}
 
-			// List what we're selling
-			for _, item := range state.Ship.Cargo {
-				logger.Printf("   - %s x%.0f", item.ItemID, item.Quantity)
-			}
-
-			var sellErr error
-			if config.UseBulkSell {
-				sellErr = client.SellAllBulk(ctx, nil)
+			// Execute the station action strategy
+			if err := stationAction(client, logger, ctx); err != nil {
+				logger.Printf("Station action error: %v", err)
 			} else {
-				sellErr = client.SellAll(ctx)
-			}
-
-			if sellErr != nil {
-				logger.Printf("Sell error: %v", sellErr)
-			} else {
-				time.Sleep(5 * time.Second)
+				// Calculate credits earned (if we sold items)
 				state = client.GetState()
 				creditsEarned := state.Credits - creditsBefore
 				result.TotalCreditsEarned += creditsEarned
 				if creditsEarned > 0 {
-					logger.Printf("✅ Sold cargo! Earned %.2f credits (Total: %.2f)",
+					logger.Printf("💰 Credits earned: %.2f (Total: %.2f)",
 						creditsEarned, result.TotalCreditsEarned)
-				} else {
-					logger.Printf("✓ Sell command completed (check next state update for credits)")
 				}
 			}
 		}
