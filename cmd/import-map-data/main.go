@@ -18,14 +18,16 @@ type MapResponse struct {
 
 // MapSystem represents a system in the map data
 type MapSystem struct {
-	SystemID   string   `json:"system_id"`
-	Name       string   `json:"name"`
-	Position   Position `json:"position"`
-	Connections []string `json:"connections"`
-	POICount   int      `json:"poi_count"`
-	Online     int      `json:"online"`
-	Visited    bool     `json:"visited"`
-	VisitedAt  string   `json:"visited_at"`
+	SystemID     string   `json:"system_id"`
+	Name         string   `json:"name"`
+	Empire       string   `json:"empire,omitempty"`
+	Position     Position `json:"position"`
+	Connections  []string `json:"connections"`
+	POICount     int      `json:"poi_count"`
+	Online       int      `json:"online"`
+	Visited      bool     `json:"visited"`
+	VisitedAt    string   `json:"visited_at"`
+	IsStronghold bool     `json:"is_stronghold,omitempty"`
 }
 
 // Position represents 2D coordinates
@@ -79,7 +81,8 @@ func main() {
 				Y: sysData.Position.Y,
 			},
 			PoliceLevel:     0, // Not provided in get_map response
-			Empire:          "", // Not provided in get_map response
+			Empire:          sysData.Empire,
+			IsStronghold:    sysData.IsStronghold,
 			Connections:     sysData.Connections,
 			LastUpdatedTick: 0,
 		}
