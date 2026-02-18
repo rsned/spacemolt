@@ -29,13 +29,13 @@ func EmitDOT(g *CategoryGraph, outDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Header
-	fmt.Fprintf(f, "digraph %q {\n", EscapeDotLabel(g.Category))
-	fmt.Fprintf(f, "    rankdir=LR;\n")
-	fmt.Fprintf(f, "    splines=polyline;\n")
-	fmt.Fprintf(f, "    node [shape=box];\n\n")
+	_, _ = fmt.Fprintf(f, "digraph %q {\n", EscapeDotLabel(g.Category))
+	_, _ = fmt.Fprintf(f, "    rankdir=LR;\n")
+	_, _ = fmt.Fprintf(f, "    splines=polyline;\n")
+	_, _ = fmt.Fprintf(f, "    node [shape=box];\n\n")
 
 	// Group nodes by tier for rank=same
 	tierToNodes := make(map[int][]NodeInfo)
@@ -52,9 +52,9 @@ func EmitDOT(g *CategoryGraph, outDir string) (string, error) {
 	// Emit node definitions
 	for _, n := range g.Nodes {
 		label := EscapeDotLabel(n.Name)
-		fmt.Fprintf(f, "    %q [label=%q];\n", n.ID, label)
+		_, _ = fmt.Fprintf(f, "    %q [label=%q];\n", n.ID, label)
 	}
-	fmt.Fprintln(f)
+	_, _ = fmt.Fprintln(f)
 
 	// Emit rank=same for each tier (left-to-right flow)
 	for tier := 0; tier <= maxTier; tier++ {
@@ -62,25 +62,25 @@ func EmitDOT(g *CategoryGraph, outDir string) (string, error) {
 		if len(nodes) == 0 {
 			continue
 		}
-		fmt.Fprintf(f, "    { rank=same;")
+		_, _ = fmt.Fprintf(f, "    { rank=same;")
 		for _, n := range nodes {
-			fmt.Fprintf(f, " %q;", n.ID)
+			_, _ = fmt.Fprintf(f, " %q;", n.ID)
 		}
-		fmt.Fprintf(f, " }\n")
+		_, _ = fmt.Fprintf(f, " }\n")
 	}
-	fmt.Fprintln(f)
+	_, _ = fmt.Fprintln(f)
 
 	// Emit edges with level labels; cross-category edges use gray50
 	for _, e := range g.Edges {
 		label := strconv.Itoa(e.RequiredLevel)
 		if e.CrossCategory {
-			fmt.Fprintf(f, "    %q -> %q [label=%q color=gray50];\n", e.From, e.To, label)
+			_, _ = fmt.Fprintf(f, "    %q -> %q [label=%q color=gray50];\n", e.From, e.To, label)
 		} else {
-			fmt.Fprintf(f, "    %q -> %q [label=%q];\n", e.From, e.To, label)
+			_, _ = fmt.Fprintf(f, "    %q -> %q [label=%q];\n", e.From, e.To, label)
 		}
 	}
 
-	fmt.Fprintf(f, "}\n")
+	_, _ = fmt.Fprintf(f, "}\n")
 	return path, nil
 }
 

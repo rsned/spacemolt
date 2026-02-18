@@ -33,7 +33,7 @@ func (c *WatcherClient) ListTools() ([]*ToolRegistration, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tools: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -72,7 +72,7 @@ func (c *WatcherClient) StreamStatus() (<-chan Event, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -88,7 +88,7 @@ func (c *WatcherClient) StreamStatus() (<-chan Event, error) {
 // readSSE parses Server-Sent Events from response body
 func (c *WatcherClient) readSSE(body io.ReadCloser, eventCh chan<- Event) {
 	defer close(eventCh)
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	scanner := bufio.NewScanner(body)
 	var currentEvent Event
@@ -137,7 +137,7 @@ func (c *WatcherClient) Ping() error {
 	if err != nil {
 		return fmt.Errorf("registry unreachable: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("registry returned HTTP %d", resp.StatusCode)
@@ -154,7 +154,7 @@ func (c *WatcherClient) GetTool(toolID string) (*ToolRegistration, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tool: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

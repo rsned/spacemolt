@@ -714,8 +714,6 @@ func PerformShipUpgrade(client *Client, logger *log.Logger, ctx context.Context,
 
 	// If tier includes equipment items, buy and install them
 	if tier.NumItems > 0 && tier.ItemID != "" {
-		state = client.GetState()
-
 		logger.Printf("⛏️  Now purchasing %d %s...", tier.NumItems, tier.ItemID)
 		if err := client.Buy(ctx, tier.ItemID, float64(tier.NumItems)); err != nil {
 			logger.Printf("Failed to buy items: %v", err)
@@ -912,7 +910,6 @@ func SellAllLoot(client *Client, logger *log.Logger, ctx context.Context) error 
 
 	// Wait longer for state update
 	time.Sleep(5 * time.Second)
-	state = client.GetState()
 	logger.Printf("✅ Loot sold!")
 
 	return nil

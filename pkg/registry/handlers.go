@@ -48,7 +48,7 @@ func (s *RegistryServer) handleRegister(w http.ResponseWriter, r *http.Request) 
 
 	// Return success
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"registration_id":    fmt.Sprintf("reg-%d", now.Unix()),
 		"heartbeat_interval": "5s",
 	})
@@ -100,7 +100,7 @@ func (s *RegistryServer) handleGetTool(w http.ResponseWriter, r *http.Request, t
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tool)
+	_ = json.NewEncoder(w).Encode(tool)
 }
 
 // handleHeartbeat processes tool heartbeat requests
@@ -156,7 +156,7 @@ func (s *RegistryServer) handleHeartbeat(w http.ResponseWriter, r *http.Request,
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // handleListTools returns all registered tools
@@ -175,7 +175,7 @@ func (s *RegistryServer) handleListTools(w http.ResponseWriter, r *http.Request)
 	s.mu.RUnlock()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tools)
+	_ = json.NewEncoder(w).Encode(tools)
 }
 
 // handleStatusStream provides Server-Sent Events for status updates
@@ -204,8 +204,8 @@ func (s *RegistryServer) handleStatusStream(w http.ResponseWriter, r *http.Reque
 	defer s.streamMgr.Unsubscribe(eventCh)
 
 	// Send initial connected event
-	fmt.Fprintf(w, "event: connected\n")
-	fmt.Fprintf(w, "data: {\"status\":\"connected\",\"timestamp\":\"%s\"}\n\n", time.Now().Format(time.RFC3339))
+	_, _ = fmt.Fprintf(w, "event: connected\n")
+	_, _ = fmt.Fprintf(w, "data: {\"status\":\"connected\",\"timestamp\":\"%s\"}\n\n", time.Now().Format(time.RFC3339))
 	flusher.Flush()
 
 	// Stream events until client disconnects
@@ -228,8 +228,8 @@ func (s *RegistryServer) handleStatusStream(w http.ResponseWriter, r *http.Reque
 			}
 
 			// Send SSE event
-			fmt.Fprintf(w, "event: %s\n", event.Type)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "event: %s\n", event.Type)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		}
 	}

@@ -151,7 +151,7 @@ func (s *MarketStore) ImportMarketData(ctx context.Context, data []MarketDataPoi
 		if err != nil {
 			return fmt.Errorf("preparing statement: %w", err)
 		}
-		defer stmt.Close()
+		defer func() { _ = stmt.Close() }()
 		
 		for _, d := range data {
 			ts := d.Timestamp.Format(time.RFC3339)

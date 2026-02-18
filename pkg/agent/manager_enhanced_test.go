@@ -42,6 +42,10 @@ func TestManager_SpawnAgentWithGame_Registration(t *testing.T) {
 
 	manager := NewManager(kb, llmClient, credsProvider, config)
 
+	// Use variables to satisfy linter (test is skipped below)
+	_ = manager
+	_ = personality
+
 	// Note: This test requires a running game server to fully test
 	// For now, we'll test the structure and basic validation
 	t.Skip("Skipping integration test - requires game server")

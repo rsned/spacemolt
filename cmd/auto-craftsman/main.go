@@ -59,7 +59,7 @@ func updateCaptainsLog(agentID string, client *game.Client) {
 		Notes:       notes,
 	}
 
-	game.WriteCaptainsLog(agentID, entry)
+	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
 func main() {

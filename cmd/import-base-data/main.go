@@ -76,7 +76,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open knowledge base: %v", err)
 	}
-	defer kb.Close()
+	defer func() { _ = kb.Close() }()
 
 	ctx := context.Background()
 

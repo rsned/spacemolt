@@ -11,7 +11,7 @@ import (
 // Example demonstrates basic usage of the captain's log system
 func Example_captainsLog() {
 	agentID := "example-explorer"
-	defer os.RemoveAll("data/agents/" + agentID) // Cleanup
+	defer func() { _ = os.RemoveAll("data/agents/" + agentID) }() // Cleanup
 
 	// Write a captain's log entry
 	entry := &game.AgentLog{
@@ -52,10 +52,10 @@ func Example_captainsLog() {
 // Example_recovery demonstrates how to recover from a captain's log on startup
 func Example_recovery() {
 	agentID := "recovery-example"
-	defer os.RemoveAll("data/agents/" + agentID) // Cleanup
+	defer func() { _ = os.RemoveAll("data/agents/" + agentID) }() // Cleanup
 
 	// Simulate previous mission
-	game.WriteCaptainsLog(agentID, &game.AgentLog{
+	_ = game.WriteCaptainsLog(agentID, &game.AgentLog{
 		AgentName:   "Captain Recovery",
 		CurrentGoal: "Mining operations in progress",
 		Location:    "System: sol, POI: sol_belt",

@@ -239,8 +239,8 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 	defer s.streamManager.Unsubscribe(agentID, eventCh)
 
 	// Send initial connected event
-	fmt.Fprintf(w, "event: connected\n")
-	fmt.Fprintf(w, "data: {\"agent_id\":\"%s\",\"status\":\"connected\"}\n\n", agentID)
+	_, _ = fmt.Fprintf(w, "event: connected\n")
+	_, _ = fmt.Fprintf(w, "data: {\"agent_id\":\"%s\",\"status\":\"connected\"}\n\n", agentID)
 	flusher.Flush()
 
 	// Stream events until client disconnects
@@ -263,8 +263,8 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 			}
 
 			// Send SSE event
-			fmt.Fprintf(w, "event: %s\n", event.Type)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "event: %s\n", event.Type)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		}
 	}

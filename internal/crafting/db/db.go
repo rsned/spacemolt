@@ -26,7 +26,7 @@ func Open(path string) (*DB, error) {
 	
 	// Verify connection
 	if err := sqlDB.Ping(); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 	
@@ -41,7 +41,7 @@ func OpenAndInit(ctx context.Context, path string) (*DB, error) {
 	}
 	
 	if err := InitSchema(ctx, db.DB); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("initializing schema: %w", err)
 	}
 	

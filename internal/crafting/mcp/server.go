@@ -9,18 +9,14 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"sync"
 
 	"github.com/rsned/spacemolt/internal/crafting/engine"
 )
 
 // Server implements an MCP server over stdio.
 type Server struct {
-	engine *engine.Engine
-	logger *slog.Logger
-	
-	mu       sync.Mutex
-	reqID    int64
+	engine   *engine.Engine
+	logger   *slog.Logger
 	handlers map[string]MethodHandler
 }
 
@@ -240,10 +236,7 @@ func (s *Server) handleToolsCall(ctx context.Context, params json.RawMessage) (a
 	
 	result, err := s.callTool(ctx, p.Name, p.Arguments)
 	if err != nil {
-		return ToolCallResult{
-			Content: []ContentBlock{{Type: "text", Text: err.Error()}},
-			IsError: true,
-		}, nil
+		return ToolCallResult{}, fmt.Errorf("tool call failed: %w", err)
 	}
 	
 	// Marshal result to JSON for text output

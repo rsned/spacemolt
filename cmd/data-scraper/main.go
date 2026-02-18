@@ -71,15 +71,6 @@ func formatErrorMessage(callType string, errResp map[string]any) string {
 }
 
 // Helper function to get POI name by ID
-func getPOIName(poiID string, pois []game.POI) string {
-	for _, poi := range pois {
-		if poi.ID == poiID {
-			return poi.Name
-		}
-	}
-	return poiID
-}
-
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: data-scraper <agent-id>")
@@ -144,7 +135,7 @@ func (s *Scraper) scrapeAll() error {
 		{"Ship Info", s.scrapeShip},
 		{"Current POI", s.scrapePOI},
 		{"System Data", s.scrapeSystem},
-		//{"Map Data", s.scrapeMap},
+		{"Map Data", s.scrapeMap},
 		//{"Market Listings", s.scrapeListings},
 		//{"Ship Listings", s.scrapeShips},
 		//{"Nearby Players", s.scrapeNearby},
@@ -288,110 +279,6 @@ func (s *Scraper) scrapeMap() error {
 	}
 
 	return s.saveJSON("get_map.json", rawJSON)
-}
-
-func (s *Scraper) scrapeListings() error {
-	ctx := context.Background()
-
-	// Get listings
-	if err := s.client.GetListings(ctx); err != nil {
-		return fmt.Errorf("get_listings failed: %w", err)
-	}
-	time.Sleep(1 * time.Second)
-
-	// Get market listings
-	listings := s.client.GetMarketListings()
-	return s.saveJSON("get_listings.json", listings)
-}
-
-func (s *Scraper) scrapeShips() error {
-	ctx := context.Background()
-
-	// Get ships
-	if err := s.client.GetShips(ctx); err != nil {
-		return fmt.Errorf("get_ships failed: %w", err)
-	}
-	time.Sleep(1 * time.Second)
-
-	// Get ship listings
-	ships := s.client.GetShipListings()
-	return s.saveJSON("get_ships.json", ships)
-}
-
-func (s *Scraper) scrapeNearby() error {
-	ctx := context.Background()
-
-	// Status update includes nearby players
-	if err := s.client.GetStatus(ctx); err != nil {
-		return fmt.Errorf("get_nearby failed: %w", err)
-	}
-	time.Sleep(1 * time.Second)
-
-	// Save nearby
-	state := s.client.GetState()
-	return s.saveJSON("get_nearby.json", state.Nearby)
-}
-
-func (s *Scraper) scrapeSkills() error {
-	ctx := context.Background()
-
-	// Clear previous error
-	s.client.ClearLastError()
-
-	// Request skills info
-	msg := protocol.Message{
-		Type: "get_skills",
-	}
-	if err := s.client.Send(ctx, msg); err != nil {
-		return fmt.Errorf("get_skills failed: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Get skills from state
-	state := s.client.GetState()
-
-	// Check if we actually got skills data
-	if len(state.SkillDefinitions) == 0 && len(state.SkillXP) == 0 {
-		// Check if there was an error response
-		errResp := s.client.GetLastError()
-		if len(errResp) > 0 {
-			return fmt.Errorf("%s", formatErrorMessage("get_skills", errResp))
-		}
-		return fmt.Errorf("no skills data available")
-	}
-
-	return s.saveJSON("get_skills.json", map[string]any{
-		"skills":        state.SkillDefinitions,
-		"skill_xp":      state.SkillXP,
-		"skill_next_xp": state.SkillNextLevelXP,
-	})
-}
-
-func (s *Scraper) scrapeRecipes() error {
-	ctx := context.Background()
-
-	// Clear previous error
-	s.client.ClearLastError()
-
-	// Request recipes info
-	msg := protocol.Message{
-		Type: "get_recipes",
-	}
-	if err := s.client.Send(ctx, msg); err != nil {
-		return fmt.Errorf("get_recipes failed: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Get raw JSON response
-	rawJSON := s.client.GetRawJSON("recipes")
-	if rawJSON == nil {
-		// Check if there was an error response
-		errResp := s.client.GetLastError()
-		return fmt.Errorf("%s", formatErrorMessage("get_recipes", errResp))
-	}
-
-	// Save raw JSON
-	return s.saveJSON("get_recipes.json", rawJSON)
 }
 
 func (s *Scraper) scrapeWrecks() error {

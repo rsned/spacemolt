@@ -19,146 +19,6 @@ const (
 	RESERVE_CREDITS = 50.0
 )
 
-func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Context) {
-	state := client.GetState()
-	credits := state.Credits
-
-	// Don't spend reserve credits
-	availableCredits := credits - RESERVE_CREDITS
-	// 150 credits is lowest cost of mining_laser_1
-	if availableCredits < 150 {
-		return // Not enough to buy anything meaningful
-	}
-
-	// First, try to install any equipment already in cargo and sell extras
-	// Uses library method from pkg/game/upgrades.go
-	game.TryInstallAndSellExtras(client, logger, ctx)
-
-	// Refresh state after selling extras
-	time.Sleep(2 * time.Second)
-	state = client.GetState()
-	availableCredits = state.Credits - RESERVE_CREDITS
-
-	// Check if we can upgrade ship using library progression
-	canUpgradeShip := game.CanUpgradeAnyShip(state.Ship.ClassID, availableCredits, game.MiningProgression.Tiers)
-
-	// Ensure cargo space is available for purchases (except ship upgrades)
-	cargoUsed := state.Ship.CargoUsed
-	cargoCapacity := state.Ship.CargoCapacity
-	if cargoUsed >= cargoCapacity*0.5 && !canUpgradeShip {
-		logger.Printf("⚠️  Cargo too full (%.1f/%.1f) - skipping upgrades until cargo is sold", cargoUsed, cargoCapacity)
-		return
-	}
-
-	logger.Printf("💰 Checking for upgrades... (%.2f credits available, %.1f/%.1f cargo space)", availableCredits, cargoUsed, cargoCapacity)
-
-	// Attempt ship upgrades using library method
-	// Check all mining progression tiers in order
-	for _, tier := range game.MiningProgression.Tiers {
-		if game.PerformShipUpgrade(client, logger, ctx, tier, availableCredits) {
-			logger.Printf("✅ Ship upgrade complete!")
-			return // Ship upgraded, done for this cycle
-		}
-	}
-
-	// If no ship upgrade was performed, check for basic equipment upgrades
-	// Refresh state and get market listings
-	time.Sleep(2 * time.Second)
-	state = client.GetState()
-	availableCredits = state.Credits - RESERVE_CREDITS
-
-	if err := client.GetListings(ctx); err != nil {
-		logger.Printf("Could not get listings: %v", err)
-		return
-	}
-
-	time.Sleep(2 * time.Second) // Wait for listings response
-	listings := client.GetMarketListings()
-
-	if len(listings) == 0 {
-		logger.Printf("No market listings available")
-		return
-	}
-
-	logger.Printf("Found %d listings at market", len(listings))
-
-	// Buy additional mining lasers if we have room
-	maxLasers := game.GetShipClassMaxSlots(state.Ship.ClassID)
-	miningLasersInstalled := game.CountModulesInstalled(state, "mining_laser_1")
-	miningLasersInCargo := game.CountModulesInCargo(state, "mining_laser_1")
-	totalMiningLasers := miningLasersInstalled + miningLasersInCargo
-
-	logger.Printf("⛏️  Mining Laser Status: %d installed, %d in cargo (max: %d)",
-		miningLasersInstalled, miningLasersInCargo, maxLasers)
-
-	if totalMiningLasers < maxLasers && availableCredits >= TIER1_THRESHOLD {
-		for _, listing := range listings {
-			if listing.Type == "sell" && listing.ItemID == "mining_laser_1" &&
-				listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 1000 {
-
-				needed := maxLasers - totalMiningLasers
-				if needed > 0 {
-					logger.Printf("⛏️  Buying %d x mining_laser_1 for %.2f credits each", needed, listing.PricePerUnit)
-					if err := client.Buy(ctx, "mining_laser_1", float64(needed)); err != nil {
-						logger.Printf("Failed to buy mining laser: %v", err)
-					} else {
-						logger.Printf("✅ Purchased %d mining laser(s)! Installing...", needed)
-						time.Sleep(2 * time.Second)
-
-						// Install each mining laser from cargo
-						installed := 0
-						for i := range needed {
-							if err := client.Install(ctx, "mining_laser_1"); err != nil {
-								logger.Printf("Failed to install mining laser #%d: %v", i+1, err)
-							} else {
-								installed++
-								logger.Printf("✅ Mining laser #%d installed!", installed)
-							}
-							time.Sleep(10 * time.Second)
-						}
-
-						if installed > 0 {
-							logger.Printf("✅ %d MINING LASER(S) INSTALLED! Mining speed increased!", installed)
-						}
-						return
-					}
-				}
-			}
-		}
-	}
-
-	// Buy shields for protection if available and affordable
-	hasShield := false
-	for _, module := range state.Ship.Modules {
-		if len(module) >= 7 && module[:7] == "shield_" {
-			hasShield = true
-			break
-		}
-	}
-
-	if !hasShield && availableCredits >= 1500 {
-		for _, listing := range listings {
-			if listing.Type == "sell" && listing.ItemType == "shield" &&
-				listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 2000 {
-
-				logger.Printf("🛡️  Buying shield: %s for %.2f credits", listing.ItemID, listing.PricePerUnit)
-				if err := client.Buy(ctx, listing.ItemID, 1); err != nil {
-					logger.Printf("Failed to buy shield: %v", err)
-				} else {
-					logger.Printf("✅ Purchased shield! Installing...")
-					time.Sleep(2 * time.Second)
-					if err := client.Install(ctx, listing.ItemID); err != nil {
-						logger.Printf("Failed to install shield: %v (in cargo)", err)
-					} else {
-						logger.Printf("✅ SHIELD INSTALLED!")
-					}
-					return
-				}
-			}
-		}
-	}
-}
-
 func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, creditsEarned float64) {
 	state := client.GetState()
 
@@ -178,7 +38,7 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, cred
 		game.CountModulesInstalled(state, "advanced_mining_laser")
 	notes = append(notes, fmt.Sprintf("Mining lasers: %d", numLasers))
 
-	currentGoal := fmt.Sprintf("Autonomous mining operations - collecting resources and upgrading ship")
+	currentGoal := "Autonomous mining operations - collecting resources and upgrading ship"
 	if state.Doc {
 		currentGoal = "Docked at station - selling cargo, refueling, and checking for upgrades"
 	} else if state.Traveling {
@@ -194,7 +54,7 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, cred
 		Notes:       notes,
 	}
 
-	game.WriteCaptainsLog(agentID, entry)
+	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
 func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {

@@ -105,12 +105,13 @@ func (p *ConnectionPool) GetConnection(agentID string) (*AgentConnection, error)
 		state := conn.state
 		conn.mu.RUnlock()
 
-		if state == StateConnected {
+		switch state {
+		case StateConnected:
 			conn.mu.Lock()
 			conn.lastUsed = time.Now()
 			conn.mu.Unlock()
 			return conn, nil
-		} else if state == StateConnecting || state == StateReconnecting {
+		case StateConnecting, StateReconnecting:
 			// Wait for connection to complete
 			time.Sleep(2 * time.Second)
 			return p.GetConnection(agentID) // Retry

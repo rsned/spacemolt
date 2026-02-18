@@ -12,7 +12,7 @@ func TestWriteCaptainsLog(t *testing.T) {
 	// Create temporary test directory
 	testAgentID := "test-captain-1"
 	testDir := GetCaptainsLogDir(testAgentID)
-	defer os.RemoveAll(filepath.Join("data", "agents", testAgentID))
+	defer func() { _ = os.RemoveAll(filepath.Join("data", "agents", testAgentID)) }()
 
 	entry := &AgentLog{
 		AgentName:   "Test Captain",
@@ -50,7 +50,7 @@ func TestWriteCaptainsLog(t *testing.T) {
 
 func TestWriteCaptainsLogRateLimit(t *testing.T) {
 	testAgentID := "test-captain-2"
-	defer os.RemoveAll(filepath.Join("data", "agents", testAgentID))
+	defer func() { _ = os.RemoveAll(filepath.Join("data", "agents", testAgentID)) }()
 
 	entry := &AgentLog{
 		AgentName:   "Test Captain",
@@ -84,7 +84,7 @@ func TestWriteCaptainsLogRateLimit(t *testing.T) {
 
 func TestWriteCaptainsLogNoChangeSkipped(t *testing.T) {
 	testAgentID := "test-captain-3"
-	defer os.RemoveAll(filepath.Join("data", "agents", testAgentID))
+	defer func() { _ = os.RemoveAll(filepath.Join("data", "agents", testAgentID)) }()
 
 	entry := &AgentLog{
 		AgentName:   "Test Captain",
@@ -105,7 +105,7 @@ func TestWriteCaptainsLogNoChangeSkipped(t *testing.T) {
 	if len(entries) > 0 {
 		oldFile := filepath.Join(testDir, entries[0].Name())
 		oldTime := time.Now().Add(-2 * time.Minute)
-		os.Chtimes(oldFile, oldTime, oldTime)
+		_ = os.Chtimes(oldFile, oldTime, oldTime)
 	}
 
 	// Try to write same entry again (should be skipped due to no change)
@@ -126,7 +126,7 @@ func TestWriteCaptainsLogNoChangeSkipped(t *testing.T) {
 
 func TestReadLatestCaptainsLog(t *testing.T) {
 	testAgentID := "test-captain-4"
-	defer os.RemoveAll(filepath.Join("data", "agents", testAgentID))
+	defer func() { _ = os.RemoveAll(filepath.Join("data", "agents", testAgentID)) }()
 
 	// Test reading when no logs exist
 	log, err := ReadLatestCaptainsLog(testAgentID)
@@ -175,7 +175,7 @@ func TestReadLatestCaptainsLog(t *testing.T) {
 
 func TestReadAllCaptainsLogs(t *testing.T) {
 	testAgentID := "test-captain-5"
-	defer os.RemoveAll(filepath.Join("data", "agents", testAgentID))
+	defer func() { _ = os.RemoveAll(filepath.Join("data", "agents", testAgentID)) }()
 
 	// Test reading when no logs exist
 	logs, err := ReadAllCaptainsLogs(testAgentID)
@@ -188,7 +188,7 @@ func TestReadAllCaptainsLogs(t *testing.T) {
 
 	// Write multiple log entries (manually create them with different timestamps)
 	testDir := GetCaptainsLogDir(testAgentID)
-	os.MkdirAll(testDir, 0755)
+	_ = os.MkdirAll(testDir, 0755)
 
 	entries := []*AgentLog{
 		{
@@ -227,7 +227,7 @@ func TestReadAllCaptainsLogs(t *testing.T) {
   "location": "` + e.Location + `",
   "notes": []
 }`
-		os.WriteFile(filename, []byte(content), 0644)
+		_ = os.WriteFile(filename, []byte(content), 0644)
 	}
 
 	// Read all logs

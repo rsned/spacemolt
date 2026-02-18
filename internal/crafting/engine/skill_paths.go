@@ -35,7 +35,7 @@ func (e *Engine) SkillCraftPaths(ctx context.Context, req crafting.SkillCraftPat
 	var paths []crafting.SkillUnlockPath
 	var totalUnlocked, totalLocked int
 	var closestSkill string
-	var closestXP int = -1
+	closestXP := -1
 	
 	for _, skillID := range skillIDs {
 		skill, err := e.skills.GetSkill(ctx, skillID)

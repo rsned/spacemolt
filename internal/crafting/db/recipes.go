@@ -69,7 +69,7 @@ func (s *RecipeStore) getRecipeComponents(ctx context.Context, recipeID string) 
 	if err != nil {
 		return nil, fmt.Errorf("querying recipe components: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var components []crafting.RecipeComponent
 	for rows.Next() {
@@ -93,7 +93,7 @@ func (s *RecipeStore) getRecipeSkills(ctx context.Context, recipeID string) ([]c
 	if err != nil {
 		return nil, fmt.Errorf("querying recipe skills: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var skills []crafting.SkillRequirement
 	for rows.Next() {
@@ -132,7 +132,7 @@ func (s *RecipeStore) FindRecipesByComponents(ctx context.Context, componentIDs 
 	if err != nil {
 		return nil, fmt.Errorf("finding recipes by components: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var recipeIDs []string
 	for rows.Next() {
@@ -154,7 +154,7 @@ func (s *RecipeStore) FindRecipesByOutput(ctx context.Context, itemID string) ([
 	if err != nil {
 		return nil, fmt.Errorf("finding recipes by output: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var recipeIDs []string
 	for rows.Next() {
@@ -179,7 +179,7 @@ func (s *RecipeStore) SearchRecipes(ctx context.Context, term string, limit int)
 	if err != nil {
 		return nil, fmt.Errorf("searching recipes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var results []crafting.RecipeSearchHit
 	for rows.Next() {
@@ -201,7 +201,7 @@ func (s *RecipeStore) ListRecipesByCategory(ctx context.Context, category string
 	if err != nil {
 		return nil, fmt.Errorf("listing recipes by category: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var ids []string
 	for rows.Next() {
@@ -221,7 +221,7 @@ func (s *RecipeStore) GetAllRecipeIDs(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing all recipes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var ids []string
 	for rows.Next() {
@@ -254,7 +254,7 @@ func (s *RecipeStore) GetAllRecipes(ctx context.Context) ([]crafting.Recipe, err
 	if err != nil {
 		return nil, fmt.Errorf("querying all recipes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var recipes []crafting.Recipe
 	for rows.Next() {
@@ -305,7 +305,7 @@ func (s *RecipeStore) GetRecipesUsingOutput(ctx context.Context, itemID string) 
 	if err != nil {
 		return nil, fmt.Errorf("finding recipes using item: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var ids []string
 	for rows.Next() {
@@ -331,7 +331,7 @@ func (s *RecipeStore) BulkInsertRecipes(ctx context.Context, recipes []crafting.
 		if err != nil {
 			return fmt.Errorf("preparing recipe statement: %w", err)
 		}
-		defer recipeStmt.Close()
+		defer func() { _ = recipeStmt.Close() }()
 		
 		compStmt, err := tx.PrepareContext(ctx, `
 			INSERT OR REPLACE INTO recipe_components (recipe_id, component_id, quantity)
@@ -340,7 +340,7 @@ func (s *RecipeStore) BulkInsertRecipes(ctx context.Context, recipes []crafting.
 		if err != nil {
 			return fmt.Errorf("preparing component statement: %w", err)
 		}
-		defer compStmt.Close()
+		defer func() { _ = compStmt.Close() }()
 		
 		skillStmt, err := tx.PrepareContext(ctx, `
 			INSERT OR REPLACE INTO recipe_skills (recipe_id, skill_id, level_required)
@@ -349,7 +349,7 @@ func (s *RecipeStore) BulkInsertRecipes(ctx context.Context, recipes []crafting.
 		if err != nil {
 			return fmt.Errorf("preparing skill statement: %w", err)
 		}
-		defer skillStmt.Close()
+		defer func() { _ = skillStmt.Close() }()
 		
 		for _, r := range recipes {
 			_, err := recipeStmt.ExecContext(ctx,

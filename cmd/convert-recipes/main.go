@@ -93,10 +93,7 @@ func main() {
 		// Build components
 		var components []ImportComponent
 		for _, input := range smRecipe.Inputs {
-			components = append(components, ImportComponent{
-				ItemID:   input.ItemID,
-				Quantity: input.Quantity,
-			})
+			components = append(components, ImportComponent(input))
 		}
 
 		// Build skills

@@ -121,7 +121,7 @@ func (c *SSEClient) Call(method string, params map[string]any) (json.RawMessage,
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read the entire response
 	body, err := io.ReadAll(resp.Body)

@@ -53,7 +53,7 @@ func main() {
 		logger.Error("failed to open database", "error", err)
 		os.Exit(1)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Handle import commands
 	if *importRecipes != "" || *importSkills != "" || *importMarket != "" {

@@ -65,7 +65,7 @@ func (s *SkillStore) getSkillPrerequisites(ctx context.Context, skillID string) 
 	if err != nil {
 		return nil, fmt.Errorf("querying skill prerequisites: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var prereqs []crafting.SkillRequirement
 	for rows.Next() {
@@ -90,7 +90,7 @@ func (s *SkillStore) getXPThresholds(ctx context.Context, skillID string) ([]int
 	if err != nil {
 		return nil, fmt.Errorf("querying XP thresholds: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var thresholds []int
 	for rows.Next() {
@@ -142,7 +142,7 @@ func (s *SkillStore) ListSkillsByCategory(ctx context.Context, category string) 
 	if err != nil {
 		return nil, fmt.Errorf("listing skills by category: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var ids []string
 	for rows.Next() {
@@ -162,7 +162,7 @@ func (s *SkillStore) GetAllSkillIDs(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing all skills: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var ids []string
 	for rows.Next() {
@@ -188,7 +188,7 @@ func (s *SkillStore) FindRecipesUnlockedAtLevel(ctx context.Context, skillID str
 	if err != nil {
 		return nil, fmt.Errorf("finding recipes unlocked at level: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	
 	var ids []string
 	for rows.Next() {
@@ -226,7 +226,7 @@ func (s *SkillStore) BulkInsertSkills(ctx context.Context, skills []crafting.Ski
 		if err != nil {
 			return fmt.Errorf("preparing skill statement: %w", err)
 		}
-		defer skillStmt.Close()
+		defer func() { _ = skillStmt.Close() }()
 		
 		prereqStmt, err := tx.PrepareContext(ctx, `
 			INSERT OR REPLACE INTO skill_prerequisites (skill_id, prereq_skill_id, level_required)
@@ -235,7 +235,7 @@ func (s *SkillStore) BulkInsertSkills(ctx context.Context, skills []crafting.Ski
 		if err != nil {
 			return fmt.Errorf("preparing prerequisite statement: %w", err)
 		}
-		defer prereqStmt.Close()
+		defer func() { _ = prereqStmt.Close() }()
 		
 		levelStmt, err := tx.PrepareContext(ctx, `
 			INSERT OR REPLACE INTO skill_levels (skill_id, level, xp_required)
@@ -244,7 +244,7 @@ func (s *SkillStore) BulkInsertSkills(ctx context.Context, skills []crafting.Ski
 		if err != nil {
 			return fmt.Errorf("preparing level statement: %w", err)
 		}
-		defer levelStmt.Close()
+		defer func() { _ = levelStmt.Close() }()
 		
 		for _, sk := range skills {
 			_, err := skillStmt.ExecContext(ctx,

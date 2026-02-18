@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -182,7 +183,11 @@ func (c *Client) Connect(ctx context.Context) error {
 	var err error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		ws, _, err = websocket.Dial(ctx, c.url, nil)
+		var resp *http.Response
+		ws, resp, err = websocket.Dial(ctx, c.url, nil)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		if err == nil {
 			// Success!
 			break

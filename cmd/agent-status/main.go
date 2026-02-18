@@ -51,55 +51,6 @@ func loadCredentials(agentDir string) (*Credentials, error) {
 	return &creds, nil
 }
 
-func formatBar(current, max float64, width int) string {
-	if max == 0 {
-		filledBar := ""
-		for range width {
-			filledBar += "█"
-		}
-		return filledBar
-	}
-
-	percent := current / max
-	if percent > 1 {
-		percent = 1
-	}
-	if percent < 0 {
-		percent = 0
-	}
-
-	filled := int(percent * float64(width))
-	empty := width - filled
-
-	bar := ""
-	for i := 0; i < filled; i++ {
-		bar += "█"
-	}
-	for i := 0; i < empty; i++ {
-		bar += "░"
-	}
-
-	return fmt.Sprintf("%s %.1f%%", bar, percent*100)
-}
-
-// truncateOrPad ensures a string fits within width by truncating
-// with "…" if too long or padding with spaces if too short.
-// Uses unicode-aware width calculation
-func truncateOrPad(s string, width int) string {
-	currentWidth := runewidth.StringWidth(s)
-	if currentWidth > width {
-		// Truncate
-		return runewidth.Truncate(s, width, "…")
-	}
-	// Pad
-	return s + strings.Repeat(" ", width-currentWidth)
-}
-
-// truncateOrPadLeft left-justifies a string within width (padding on right)
-func truncateOrPadLeft(s string, width int) string {
-	return truncateOrPad(s, width)
-}
-
 // truncateOrPadRight right-justifies a string within width (padding on left)
 func truncateOrPadRight(s string, width int) string {
 	currentWidth := runewidth.StringWidth(s)
@@ -151,9 +102,6 @@ func formatTwoColumnRow(col1Label, col1Value, col2Label, col2Value string, colWi
 	c2 := formatLabelValueCell(col2Label, col2Value, colWidth)
 	return fmt.Sprintf("│ %s │ %s │\n", c1, c2)
 }
-
-const emptyColumnCell = "                                "
-const twoCellFormat = "│ %s │ %s │\n"
 
 // pilotColWidth is the content width per column for the PILOT/LOCATION-style rows (71-char row).
 const pilotColWidth = 39

@@ -47,7 +47,7 @@ func (c *Client) Register(reg ToolRegistration) error {
 	if err != nil {
 		return fmt.Errorf("failed to register: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -80,7 +80,7 @@ func (c *Client) Heartbeat(status, action string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send heartbeat: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		// Don't log errors on heartbeat failure - it's expected if registry is down
@@ -106,7 +106,7 @@ func (c *Client) Deregister() error {
 	if err != nil {
 		return fmt.Errorf("failed to deregister: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
 		return fmt.Errorf("deregistration failed (HTTP %d)", resp.StatusCode)

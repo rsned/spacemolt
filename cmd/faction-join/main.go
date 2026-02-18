@@ -77,7 +77,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to connect pirate-1: %v", err)
 		}
-		defer client.Disconnect()
+		defer func() { _ = client.Disconnect() }()
 
 		msg := protocol.Message{
 			Type: "create_faction",
@@ -100,13 +100,13 @@ func main() {
 			log.Fatal("Usage: faction-join info <pirate-num>")
 		}
 		pirateNum := 0
-		fmt.Sscanf(os.Args[2], "%d", &pirateNum)
+		_, _ = fmt.Sscanf(os.Args[2], "%d", &pirateNum)
 
 		client, ctx, err := connectPirate(pirateNum)
 		if err != nil {
 			log.Fatalf("Failed to connect pirate-%d: %v", pirateNum, err)
 		}
-		defer client.Disconnect()
+		defer func() { _ = client.Disconnect() }()
 
 		msg := protocol.Message{
 			Type:      "faction_info",
@@ -127,7 +127,7 @@ func main() {
 			log.Fatal("Usage: faction-join invite <pirate-num>")
 		}
 		targetNum := 0
-		fmt.Sscanf(os.Args[2], "%d", &targetNum)
+		_, _ = fmt.Sscanf(os.Args[2], "%d", &targetNum)
 
 		// Get target pirate's username
 		targetCreds, err := loadCredentials(targetNum)
@@ -139,7 +139,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to connect pirate-1: %v", err)
 		}
-		defer client.Disconnect()
+		defer func() { _ = client.Disconnect() }()
 
 		msg := protocol.Message{
 			Type: "faction_invite",
@@ -161,13 +161,13 @@ func main() {
 			log.Fatal("Usage: faction-join join <pirate-num>")
 		}
 		pirateNum := 0
-		fmt.Sscanf(os.Args[2], "%d", &pirateNum)
+		_, _ = fmt.Sscanf(os.Args[2], "%d", &pirateNum)
 
 		client, ctx, err := connectPirate(pirateNum)
 		if err != nil {
 			log.Fatalf("Failed to connect pirate-%d: %v", pirateNum, err)
 		}
-		defer client.Disconnect()
+		defer func() { _ = client.Disconnect() }()
 
 		// First get invites
 		getInvitesMsg := protocol.Message{

@@ -156,9 +156,9 @@ func TestGetAgentIDs_Priority(t *testing.T) {
 	validAgents := []string{"discover-1", "discover-2"}
 	for _, agentID := range validAgents {
 		agentDir := filepath.Join(tmpDir, agentID)
-		os.MkdirAll(agentDir, 0755)
+		_ = os.MkdirAll(agentDir, 0755)
 		personalityPath := filepath.Join(agentDir, "personality.json")
-		os.WriteFile(personalityPath, []byte("{}"), 0644)
+		_ = os.WriteFile(personalityPath, []byte("{}"), 0644)
 	}
 
 	// Setup: Create test config file
@@ -166,7 +166,7 @@ func TestGetAgentIDs_Priority(t *testing.T) {
 	config := AgentsConfig{}
 	config.Agents.Enabled = []string{"config-1", "config-2"}
 	data, _ := yaml.Marshal(config)
-	os.WriteFile(configPath, data, 0644)
+	_ = os.WriteFile(configPath, data, 0644)
 
 	// Test 1: CLI flag takes highest priority
 	result := getAgentIDs("cli-1,cli-2", tmpDir, configPath)
@@ -176,8 +176,8 @@ func TestGetAgentIDs_Priority(t *testing.T) {
 	}
 
 	// Test 2: Env var takes priority over config and discover
-	os.Setenv("SPACEMOLT_AGENTS", "env-1,env-2")
-	defer os.Unsetenv("SPACEMOLT_AGENTS")
+	_ = os.Setenv("SPACEMOLT_AGENTS", "env-1,env-2")
+	defer func() { _ = os.Unsetenv("SPACEMOLT_AGENTS") }()
 
 	result = getAgentIDs("", tmpDir, configPath)
 	expected = []string{"env-1", "env-2"}
@@ -186,7 +186,7 @@ func TestGetAgentIDs_Priority(t *testing.T) {
 	}
 
 	// Test 3: Config file takes priority over discover
-	os.Unsetenv("SPACEMOLT_AGENTS")
+	_ = os.Unsetenv("SPACEMOLT_AGENTS")
 	result = getAgentIDs("", tmpDir, configPath)
 	expected = []string{"config-1", "config-2"}
 	if !reflect.DeepEqual(result, expected) {
@@ -218,7 +218,7 @@ func TestInitKnowledgeBase(t *testing.T) {
 	if kb == nil {
 		t.Error("Memory KB should not be nil")
 	}
-	kb.Close()
+	_ = kb.Close()
 
 	// Test sqlite backend
 	dbPath := filepath.Join(tmpDir, "test.db")
@@ -229,7 +229,7 @@ func TestInitKnowledgeBase(t *testing.T) {
 	if kb == nil {
 		t.Error("SQLite KB should not be nil")
 	}
-	kb.Close()
+	_ = kb.Close()
 
 	// Test invalid backend
 	_, err = initKnowledgeBase("invalid", "")
@@ -270,8 +270,8 @@ func TestInitCredentialsProvider(t *testing.T) {
 	}
 
 	// Test sqlite backend (requires passphrase)
-	os.Setenv("SPACEMOLT_PASSPHRASE", "test-passphrase")
-	defer os.Unsetenv("SPACEMOLT_PASSPHRASE")
+	_ = os.Setenv("SPACEMOLT_PASSPHRASE", "test-passphrase")
+	defer func() { _ = os.Unsetenv("SPACEMOLT_PASSPHRASE") }()
 
 	dbPath := filepath.Join(tmpDir, "creds.db")
 	provider, err = initCredentialsProvider("sqlite", tmpDir, dbPath)

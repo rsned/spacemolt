@@ -107,7 +107,7 @@ func main() {
 	if err := client.Connect(ctx); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for connection to be ready
 	<-client.Ready()

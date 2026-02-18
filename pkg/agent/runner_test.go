@@ -323,7 +323,7 @@ func TestRunner_DecisionError_Retries(t *testing.T) {
 	if err := runner.Start(ctx); err != nil {
 		t.Fatalf("Failed to start runner: %v", err)
 	}
-	defer runner.Stop()
+	defer func() { _ = runner.Stop() }()
 
 	// Wait for several cycles
 	time.Sleep(300 * time.Millisecond)
@@ -543,7 +543,7 @@ func TestRunner_DoubleStart(t *testing.T) {
 	if err := runner.Start(ctx); err != nil {
 		t.Fatalf("First start failed: %v", err)
 	}
-	defer runner.Stop()
+	defer func() { _ = runner.Stop() }()
 
 	// Try to start again
 	err := runner.Start(ctx)

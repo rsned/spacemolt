@@ -128,7 +128,7 @@ func (ms *mockServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Send welcome message
 	if handler, ok := ms.handlers["connect"]; ok {
 		resp := handler(protocol.Message{})
-		ms.sendResponse(r.Context(), conn, resp)
+		_ = ms.sendResponse(r.Context(), conn, resp)
 	}
 
 	// Handle messages
@@ -150,11 +150,11 @@ func (ms *mockServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// Call handler if exists
 		if handler, ok := ms.handlers[msg.Type]; ok {
 			resp := handler(msg)
-			ms.sendResponse(r.Context(), conn, resp)
+			_ = ms.sendResponse(r.Context(), conn, resp)
 		}
 	}
 
-	conn.Close(websocket.StatusNormalClosure, "")
+	_ = conn.Close(websocket.StatusNormalClosure, "")
 }
 
 // sendResponse sends a response to the client
@@ -170,7 +170,7 @@ func (ms *mockServer) sendResponse(ctx context.Context, conn *websocket.Conn, re
 func (ms *mockServer) close() {
 	ms.mu.Lock()
 	for _, conn := range ms.connections {
-		conn.Close(websocket.StatusNormalClosure, "")
+		_ = conn.Close(websocket.StatusNormalClosure, "")
 	}
 	ms.mu.Unlock()
 	ms.server.Close()
@@ -181,13 +181,6 @@ func (ms *mockServer) setHandler(msgType string, handler func(protocol.Message) 
 	ms.mu.Lock()
 	ms.handlers[msgType] = handler
 	ms.mu.Unlock()
-}
-
-// getReceivedMessages returns all messages received by the server
-func (ms *mockServer) getReceivedMessages() []protocol.Message {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-	return append([]protocol.Message{}, ms.sentMessages...)
 }
 
 // TestLogin_Success verifies successful login with valid credentials
@@ -202,7 +195,7 @@ func TestLogin_Success(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	select {
@@ -240,7 +233,7 @@ func TestLogin_Failure_InvalidToken(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	<-client.Ready()
@@ -275,7 +268,7 @@ func TestLogin_Failure_Timeout(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	<-client.Ready()
@@ -310,7 +303,7 @@ func TestRegister_Success(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	<-client.Ready()
@@ -343,7 +336,7 @@ func TestRegister_Failure_UsernameTaken(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	<-client.Ready()
@@ -377,7 +370,7 @@ func TestRegister_Failure_Timeout(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	<-client.Ready()
@@ -431,7 +424,7 @@ func TestFullConnectionFlow_HappyPath(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// 2. Wait for ready
 	select {
@@ -499,7 +492,7 @@ func TestFullConnectionFlow_SlowServer(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready (welcome message should still be fast)
 	<-client.Ready()
@@ -534,7 +527,7 @@ func TestMessageHandling_StateUpdates(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	<-client.Ready()
 
@@ -599,7 +592,7 @@ func TestConcurrentClients(t *testing.T) {
 				errors <- err
 				return
 			}
-			defer client.Close()
+			defer func() { _ = client.Close() }()
 
 			// Wait for ready
 			<-client.Ready()
@@ -642,7 +635,7 @@ func TestDisconnectDuringAuth(t *testing.T) {
 		// Close all connections
 		server.mu.Lock()
 		for _, conn := range server.connections {
-			conn.Close(websocket.StatusInternalError, "simulated disconnect")
+			_ = conn.Close(websocket.StatusInternalError, "simulated disconnect")
 		}
 		server.mu.Unlock()
 		return protocol.Response{}
@@ -687,7 +680,7 @@ func TestContextCancellation(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Wait for ready
 	<-client.Ready()
@@ -740,7 +733,7 @@ func TestIsConnected(t *testing.T) {
 	}
 
 	// Close
-	client.Close()
+	_ = client.Close()
 
 	// Should not be connected
 	if client.IsConnected() {
@@ -790,7 +783,7 @@ func TestMultipleJSONObjectsInSingleMessage(t *testing.T) {
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	defer ms.close()
 
 	// Wait for ready

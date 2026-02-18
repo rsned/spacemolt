@@ -33,7 +33,7 @@ func (kb *SQLiteKB) GetResourceHistory(ctx context.Context, poiID, resourceID st
 	if err != nil {
 		return nil, fmt.Errorf("failed to query resource history: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var history []ResourceHistory
 	for rows.Next() {
@@ -96,7 +96,7 @@ func (kb *SQLiteKB) GetDepletingResources(ctx context.Context, threshold float64
 	if err != nil {
 		return nil, fmt.Errorf("failed to query depleting resources: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var resources []DepletingResource
 	for rows.Next() {
@@ -204,7 +204,7 @@ func (kb *SQLiteKB) GetActiveAnomalies(ctx context.Context, systemID string) ([]
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active anomalies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var anomalies []Anomaly
 	for rows.Next() {
@@ -246,7 +246,7 @@ func (kb *SQLiteKB) GetAnomaliesByType(ctx context.Context, anomalyType, severit
 	if err != nil {
 		return nil, fmt.Errorf("failed to query anomalies by type: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var anomalies []Anomaly
 	for rows.Next() {
@@ -371,7 +371,7 @@ func (kb *SQLiteKB) FindBestPrices(ctx context.Context, itemID string, listingTy
 	if err != nil {
 		return nil, fmt.Errorf("failed to find best prices: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var prices []BestPrice
 	for rows.Next() {
@@ -403,7 +403,7 @@ func (kb *SQLiteKB) GetPriceHistory(ctx context.Context, itemID, stationID strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to get price history: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var points []PricePoint
 	for rows.Next() {
@@ -456,7 +456,7 @@ func (kb *SQLiteKB) GetDangerZones(ctx context.Context, minDangerLevel int) ([]D
 	if err != nil {
 		return nil, fmt.Errorf("failed to get danger zones: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var zones []DangerZone
 	for rows.Next() {
@@ -539,10 +539,13 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 		LIMIT 1000
 	`)
 	if err == nil {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var exp Experience
-			rows.Scan(&exp.Time, &exp.Type, &exp.Description, &exp.Outcome, &exp.Location)
+			if err := rows.Scan(&exp.Time, &exp.Type, &exp.Description, &exp.Outcome, &exp.Location); err != nil {
+				// Skip this record if scan fails
+				continue
+			}
 			allExperiences = append(allExperiences, exp)
 		}
 	}
@@ -611,7 +614,7 @@ func (kb *SQLiteKB) ListExports(ctx context.Context) ([]KnowledgeExportMeta, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to list exports: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var exports []KnowledgeExportMeta
 	for rows.Next() {
