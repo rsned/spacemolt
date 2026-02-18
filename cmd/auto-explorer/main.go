@@ -434,10 +434,30 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 
 	logger.Printf("🔍 Exploring %d POIs in system %s", len(state.System.POIs), state.System.Name)
 
+	// Load known POIs from knowledge base to check freshness
+	knownPOIs := make(map[string]int64) // poiID → lastUpdatedTick
+	if dbPOIs, err := kb.GetPOIs(ctx, state.System.ID); err == nil {
+		for _, p := range dbPOIs {
+			knownPOIs[p.ID] = p.LastUpdatedTick
+		}
+	}
+	currentTick := state.GetTick()
+
 	for _, poi := range state.System.POIs {
 		if expState.VisitedPOIs[poi.ID] {
 			logger.Printf("⊙ Already visited POI: %s (%s)", poi.Name, poi.ID)
 			continue
+		}
+
+		// Check if POI data is still fresh in the knowledge base
+		if lastTick, ok := knownPOIs[poi.ID]; ok {
+			threshold := game.POIFreshnessThreshold(poi.Type)
+			if currentTick-lastTick < threshold {
+				logger.Printf("⊙ Skipping POI %s (%s) - data still fresh (age: %d ticks, threshold: %d)",
+					poi.Name, poi.Type, currentTick-lastTick, threshold)
+				expState.VisitedPOIs[poi.ID] = true
+				continue
+			}
 		}
 
 		logger.Printf("📍 Visiting POI: %s (%s) - Type: %s", poi.Name, poi.ID, poi.Type)
@@ -661,18 +681,30 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 
 		// Mark current system as visited
 		if !expState.VisitedSystems[currentSystem] {
-			logger.Printf("📍 Exploring new system: %s", currentSystem)
+			logger.Printf("📍 Exploring system: %s", currentSystem)
 			expState.VisitedSystems[currentSystem] = true
 			expState.VisitedPOIs = make(map[string]bool)
 
 			updateCaptainsLog(agentID, client, expState)
 
-			// Collect system data
-			if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
-				logger.Printf("Failed to collect system data: %v", err)
+			// Check if system data is still fresh in the knowledge base
+			systemFresh := false
+			if kbSys, err := kb.GetSystem(ctx, currentSystem); err == nil && kbSys != nil {
+				if state.GetTick()-kbSys.LastUpdatedTick < game.FreshnessSystem {
+					logger.Printf("⊙ System %s data still fresh (age: %d ticks), skipping system collection",
+						currentSystem, state.GetTick()-kbSys.LastUpdatedTick)
+					systemFresh = true
+				}
 			}
 
-			// Explore all POIs
+			// Collect system data only if stale or unknown
+			if !systemFresh {
+				if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
+					logger.Printf("Failed to collect system data: %v", err)
+				}
+			}
+
+			// Always explore POIs (freshness is checked per-POI inside)
 			logger.Printf("🔍 Beginning comprehensive POI exploration...")
 			if err := exploreAllPOIs(client, ctx, logger, expState, kb); err != nil {
 				logger.Printf("POI exploration failed: %v", err)

@@ -140,12 +140,12 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 	var sys System
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, name, description, position_x, position_y, police_level, empire
+		SELECT id, name, description, position_x, position_y, police_level, empire, last_updated_tick
 		FROM systems
 		WHERE id = ?
 	`, systemID).Scan(
 		&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
-		&sys.PoliceLevel, &sys.Empire,
+		&sys.PoliceLevel, &sys.Empire, &sys.LastUpdatedTick,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // System not found
@@ -273,7 +273,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, description, position_x, position_y
+		SELECT id, system_id, name, type, description, position_x, position_y, last_updated_tick
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -295,6 +295,7 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 			&description,
 			&poi.Position.X,
 			&poi.Position.Y,
+			&poi.LastUpdatedTick,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan POI: %w", err)

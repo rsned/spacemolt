@@ -58,3 +58,30 @@ const (
 const (
 	MinimumPurchaseThreshold = 100.0 // Minimum credits to attempt any purchase
 )
+
+// Data freshness thresholds (in game ticks, where 1 tick = 1 second)
+const (
+	// FreshnessResourcePOI is the threshold for resource POIs (asteroid_belt, asteroid_field, gas_cloud, ice_field): 6 hours
+	FreshnessResourcePOI = 6 * 60 * 60 // 21,600 ticks
+
+	// FreshnessDefaultPOI is the threshold for non-resource POIs (planet, sun, jump_gate, wreck): 1 week
+	FreshnessDefaultPOI = 7 * 24 * 60 * 60 // 604,800 ticks
+
+	// FreshnessStationPOI is the threshold for stations and bases: 1 day
+	FreshnessStationPOI = 24 * 60 * 60 // 86,400 ticks
+
+	// FreshnessSystem is the threshold for system data: 1 day
+	FreshnessSystem = 24 * 60 * 60 // 86,400 ticks
+)
+
+// POIFreshnessThreshold returns the appropriate freshness threshold for a given POI type.
+func POIFreshnessThreshold(poiType string) int64 {
+	switch poiType {
+	case "asteroid_belt", "asteroid_field", "gas_cloud", "ice_field":
+		return FreshnessResourcePOI
+	case "station", "base":
+		return FreshnessStationPOI
+	default:
+		return FreshnessDefaultPOI
+	}
+}
