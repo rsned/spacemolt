@@ -1431,34 +1431,72 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 	var storeKey string
 	var shouldStore bool
 
+	// Track additional keys to also store the payload under.
+	// This handles cases where the server response contains an "action" field
+	// that indicates the original request type, allowing lookup by both
+	// content-based key and action-based key.
+	var extraKeys []string
+
 	switch resp.Type {
 	case protocol.TypeOK:
-		// Check for specific payload keys to identify response types
+		// Use the "action" field from the payload to derive a canonical storage key.
+		// The server includes "action" in responses like get_system and get_poi,
+		// which helps disambiguate when payload keys overlap across response types.
+		if action, ok := resp.Payload["action"].(string); ok {
+			switch action {
+			case "get_system":
+				storeKey = "system"
+				shouldStore = true
+			case "get_poi":
+				storeKey = "poi"
+				shouldStore = true
+			case "get_status":
+				storeKey = "status"
+				shouldStore = true
+			case "get_ship":
+				storeKey = "ship"
+				shouldStore = true
+			}
+		}
+
+		// Fall through to content-based detection for responses without "action"
+		// or to add extra storage keys for responses that contain nested data.
+
 		// Store full status response (Player, Ship, System, POI, etc.)
-		if _, hasPlayer := resp.Payload["Player"]; hasPlayer {
-			storeKey = "status"
-			shouldStore = true
-		} else if _, hasUsername := resp.Payload["Username"]; hasUsername {
-			// Alternative check for status response
-			storeKey = "status"
-			shouldStore = true
+		if storeKey == "" {
+			if _, hasPlayer := resp.Payload["Player"]; hasPlayer {
+				storeKey = "status"
+				shouldStore = true
+			} else if _, hasUsername := resp.Payload["Username"]; hasUsername {
+				storeKey = "status"
+				shouldStore = true
+			}
 		}
 		// Store ship response
-		if _, hasShip := resp.Payload["ship"]; hasShip {
+		if _, hasShip := resp.Payload["ship"]; hasShip && storeKey == "" {
 			storeKey = "ship"
 			shouldStore = true
 		}
 		// Store POI response
 		if _, hasPOI := resp.Payload["poi"]; hasPOI {
-			storeKey = "poi"
-			shouldStore = true
+			if storeKey == "" {
+				storeKey = "poi"
+				shouldStore = true
+			} else if storeKey != "poi" {
+				// Also store under "poi" when present but primary key is something else
+				extraKeys = append(extraKeys, "poi")
+			}
 		}
 		if _, hasListings := resp.Payload["listings"]; hasListings {
-			storeKey = "listings"
+			if storeKey == "" {
+				storeKey = "listings"
+			}
 			shouldStore = true
 		}
 		if _, hasShips := resp.Payload["ships"]; hasShips {
-			storeKey = "ships"
+			if storeKey == "" {
+				storeKey = "ships"
+			}
 			shouldStore = true
 		}
 		// Only store as "system" if it has pois (full get_system response)
@@ -1469,60 +1507,80 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		}
 		// Store recipes
 		if _, hasRecipes := resp.Payload["recipes"]; hasRecipes {
-			storeKey = "recipes"
+			if storeKey == "" {
+				storeKey = "recipes"
+			}
 			shouldStore = true
 		}
 		// Store notifications
 		if _, hasNotifications := resp.Payload["notifications"]; hasNotifications {
-			storeKey = "notifications"
+			if storeKey == "" {
+				storeKey = "notifications"
+			}
 			shouldStore = true
 		}
 		// Store wrecks
 		if _, hasWrecks := resp.Payload["wrecks"]; hasWrecks {
-			storeKey = "wrecks"
+			if storeKey == "" {
+				storeKey = "wrecks"
+			}
 			shouldStore = true
 		}
 		// Store drones
 		if _, hasDrones := resp.Payload["drones"]; hasDrones {
-			storeKey = "drones"
+			if storeKey == "" {
+				storeKey = "drones"
+			}
 			shouldStore = true
 		}
 		// Store base info
 		if _, hasBase := resp.Payload["base"]; hasBase {
-			storeKey = "base"
+			if storeKey == "" {
+				storeKey = "base"
+			} else if storeKey != "base" {
+				extraKeys = append(extraKeys, "base")
+			}
 			shouldStore = true
 		}
 		// Store faction info
 		// Faction data is returned directly in payload with fields like is_member, leader_id, etc.
-		if _, hasFaction := resp.Payload["faction"]; hasFaction {
-			storeKey = "faction_info"
-			shouldStore = true
-		} else if _, hasIsMember := resp.Payload["is_member"]; hasIsMember {
-			// faction_info response has faction fields directly in payload
-			storeKey = "faction_info"
-			shouldStore = true
-		} else if _, hasLeaderID := resp.Payload["leader_id"]; hasLeaderID {
-			// Also check for leader_id in case is_member is not present
-			storeKey = "faction_info"
-			shouldStore = true
+		if storeKey == "" {
+			if _, hasFaction := resp.Payload["faction"]; hasFaction {
+				storeKey = "faction_info"
+				shouldStore = true
+			} else if _, hasIsMember := resp.Payload["is_member"]; hasIsMember {
+				storeKey = "faction_info"
+				shouldStore = true
+			} else if _, hasLeaderID := resp.Payload["leader_id"]; hasLeaderID {
+				storeKey = "faction_info"
+				shouldStore = true
+			}
 		}
 		// Store captain's log (can be "captains_log" or "entry")
 		if _, hasCaptainsLog := resp.Payload["captains_log"]; hasCaptainsLog {
-			storeKey = "captains_log_list"
+			if storeKey == "" {
+				storeKey = "captains_log_list"
+			}
 			shouldStore = true
 		}
 		if _, hasEntry := resp.Payload["entry"]; hasEntry {
-			storeKey = "captains_log_list"
+			if storeKey == "" {
+				storeKey = "captains_log_list"
+			}
 			shouldStore = true
 		}
 		// Store player skills (from get_skills response)
 		if _, hasPlayerSkills := resp.Payload["player_skills"]; hasPlayerSkills {
-			storeKey = "skills"
+			if storeKey == "" {
+				storeKey = "skills"
+			}
 			shouldStore = true
 		}
 		// Store map data (from get_map response)
 		if _, hasSystems := resp.Payload["systems"]; hasSystems {
-			storeKey = "systems"
+			if storeKey == "" {
+				storeKey = "systems"
+			}
 			shouldStore = true
 		}
 	case protocol.TypeError:
@@ -1544,6 +1602,12 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 
 		c.latestRawJSON[storeKey] = jsonData
 		c.debugLogger.Printf("Stored raw JSON for %s (%d bytes)", storeKey, len(jsonData))
+
+		// Also store under extra keys for cross-referenced data
+		for _, key := range extraKeys {
+			c.latestRawJSON[key] = jsonData
+			c.debugLogger.Printf("Stored raw JSON for %s (extra key, %d bytes)", key, len(jsonData))
+		}
 	}
 }
 
