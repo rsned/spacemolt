@@ -1792,6 +1792,25 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 	switch resp.Type {
 	case protocol.TypeOK:
 		// Check for specific payload keys to identify response types
+		// Store full status response (Player, Ship, System, POI, etc.)
+		if _, hasPlayer := resp.Payload["Player"]; hasPlayer {
+			storeKey = "status"
+			shouldStore = true
+		} else if _, hasUsername := resp.Payload["Username"]; hasUsername {
+			// Alternative check for status response
+			storeKey = "status"
+			shouldStore = true
+		}
+		// Store ship response
+		if _, hasShip := resp.Payload["ship"]; hasShip {
+			storeKey = "ship"
+			shouldStore = true
+		}
+		// Store POI response
+		if _, hasPOI := resp.Payload["poi"]; hasPOI {
+			storeKey = "poi"
+			shouldStore = true
+		}
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			storeKey = "listings"
 			shouldStore = true
@@ -1802,7 +1821,7 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		}
 		// Only store as "system" if it has pois (full get_system response)
 		// Jump responses also have "system" field but lack pois/position/police_level
-		if _, hasPOIs := resp.Payload["pois"]; hasPOIs {
+		if _, hasPOIs := resp.Payload["pois"]; hasPOIs && storeKey == "" {
 			storeKey = "system"
 			shouldStore = true
 		}

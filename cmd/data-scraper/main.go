@@ -172,50 +172,57 @@ func (s *Scraper) scrapeAll() error {
 func (s *Scraper) scrapeStatus() error {
 	ctx := context.Background()
 
+	// Clear previous error
+	s.client.ClearLastError()
+
 	// Get status
 	if err := s.client.GetStatus(ctx); err != nil {
 		return fmt.Errorf("get_status failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
-	// Save state
-	state := s.client.GetState()
-	return s.saveJSON("get_status.json", state)
+	// Get raw JSON response
+	rawJSON := s.client.GetRawJSON("status")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_status", errResp))
+	}
+
+	return s.saveJSON("get_status.json", rawJSON)
 }
 
 func (s *Scraper) scrapeShip() error {
-	// Ship data is already populated after login
-	// Just save the ship portion of the state
-	state := s.client.GetState()
-	return s.saveJSON("get_ship.json", map[string]any{
-		"id":              state.Ship.ID,
-		"owner_id":        state.Ship.OwnerID,
-		"class_id":        state.Ship.ClassID,
-		"name":            state.Ship.Name,
-		"hull":            state.Ship.Hull,
-		"max_hull":        state.Ship.MaxHull,
-		"shield":          state.Ship.Shield,
-		"max_shield":      state.Ship.MaxShield,
-		"shield_recharge": state.Ship.ShieldRecharge,
-		"armor":           state.Ship.Armor,
-		"speed":           state.Ship.Speed,
-		"fuel":            state.Ship.Fuel,
-		"max_fuel":        state.Ship.MaxFuel,
-		"cargo_used":      state.Ship.CargoUsed,
-		"cargo_capacity":  state.Ship.CargoCapacity,
-		"cpu_used":        state.Ship.CPUUsed,
-		"cpu_capacity":    state.Ship.CPUCapacity,
-		"power_used":      state.Ship.PowerUsed,
-		"power_capacity":  state.Ship.PowerCapacity,
-		"weapon_slots":    state.Ship.WeaponSlots,
-		"utility_slots":   state.Ship.UtilitySlots,
-		"cargo":           state.Ship.Cargo,
-		"modules":         state.Ship.Modules,
-	})
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Request ship info
+	msg := protocol.Message{
+		Type: "get_ship",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("get_ship failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	// Get raw JSON response
+	rawJSON := s.client.GetRawJSON("ship")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_ship", errResp))
+	}
+
+	return s.saveJSON("get_ship.json", rawJSON)
 }
 
 func (s *Scraper) scrapePOI() error {
 	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
 
 	// Get POI info
 	if err := s.client.GetPOI(ctx); err != nil {
@@ -223,29 +230,38 @@ func (s *Scraper) scrapePOI() error {
 	}
 	time.Sleep(1 * time.Second)
 
-	// Save state
-	state := s.client.GetState()
-	return s.saveJSON("get_poi.json", map[string]any{
-		"id":          state.CurrentPOI,
-		"name":        getPOIName(state.CurrentPOI, state.System.POIs),
-		"system_id":   state.System.ID,
-		"system_name": state.System.Name,
-		"pois":        state.System.POIs,
-	})
+	// Get raw JSON response
+	rawJSON := s.client.GetRawJSON("poi")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_poi", errResp))
+	}
+
+	return s.saveJSON("get_poi.json", rawJSON)
 }
 
 func (s *Scraper) scrapeSystem() error {
 	ctx := context.Background()
 
+	// Clear previous error
+	s.client.ClearLastError()
+
 	// Get system info
 	if err := s.client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("get_system failed: %w", err)
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 
-	// Save state
-	state := s.client.GetState()
-	return s.saveJSON("get_system.json", state.System)
+	// Get raw JSON response
+	rawJSON := s.client.GetRawJSON("system")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_system", errResp))
+	}
+
+	return s.saveJSON("get_system.json", rawJSON)
 }
 
 func (s *Scraper) scrapeMap() error {
