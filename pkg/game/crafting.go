@@ -2,9 +2,11 @@ package game
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
@@ -15,6 +17,18 @@ type CraftingConfig struct {
 	// Path to the crafting MCP server executable
 	CraftingServerPath string
 	// If empty, assumes "crafting-server" in PATH
+}
+
+// Global MCP manager (shared across all clients)
+var globalMCPManager *MCPManager
+var mcpManagerOnce sync.Once
+
+// getMCPManager gets or creates the global MCP manager
+func getMCPManager(logger *log.Logger) *MCPManager {
+	mcpManagerOnce.Do(func() {
+		globalMCPManager = NewMCPManager(logger)
+	})
+	return globalMCPManager
 }
 
 // CraftableRecipe represents a recipe that can be crafted
@@ -99,18 +113,60 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 	// Determine server path
 	serverPath := config.CraftingServerPath
 	if serverPath == "" {
-		// Use default path
 		serverPath = "crafting-server"
-		_ = serverPath // Will be used when MCP client is implemented
 	}
 
-	// TODO: Implement stdio MCP client communication
-	// For now, return empty result
-	return &CraftQueryResult{
-		FullyCraftable: []CraftableRecipe{},
-		PartialMatches:  []CraftableRecipe{},
-		SkillBlocked:    []CraftableRecipe{},
-	}, nil
+	// Get MCP client
+	mgr := getMCPManager(c.debugLogger)
+	client, err := mgr.GetClient(ctx, serverPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCP client: %w", err)
+	}
+
+	// Build craft_query request
+	params := map[string]interface{}{
+		"components":           components,
+		"skills":               skills,
+		"include_partial":      true,
+		"min_match_ratio":      0.25,
+		"optimization_strategy": "USE_INVENTORY_FIRST",
+	}
+
+	// Call the craft_query tool
+	result, err := client.CallTool(ctx, "craft_query", params)
+	if err != nil {
+		return nil, fmt.Errorf("craft_query tool call failed: %w", err)
+	}
+
+	// Parse the result - it comes as text in the content field
+	contentBytes, ok := result["content"].([]interface{})
+	if !ok || len(contentBytes) == 0 {
+		return &CraftQueryResult{
+			FullyCraftable: []CraftableRecipe{},
+			PartialMatches:  []CraftableRecipe{},
+			SkillBlocked:    []CraftableRecipe{},
+		}, nil
+	}
+
+	// The first content block contains the JSON text
+	contentText, ok := contentBytes[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected content format: expected string")
+	}
+
+	// Parse the JSON text into CraftQueryResult
+	var craftResult CraftQueryResult
+	if err := json.Unmarshal([]byte(contentText), &craftResult); err != nil {
+		// If parsing fails, return empty result
+		c.debugLogger.Printf("Failed to parse craft query result: %v", err)
+		return &CraftQueryResult{
+			FullyCraftable: []CraftableRecipe{},
+			PartialMatches:  []CraftableRecipe{},
+			SkillBlocked:    []CraftableRecipe{},
+		}, nil
+	}
+
+	return &craftResult, nil
 }
 
 // xpToLevel converts skill XP to an approximate level
