@@ -20,6 +20,7 @@ export interface Player {
   };
   policeLevel: PoliceLevel;
   tick: number;
+  traveling?: boolean;
 }
 
 export type Empire = 'solarian' | 'voidborn' | 'crimson' | 'nebula' | 'outerrim';

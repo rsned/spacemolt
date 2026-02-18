@@ -7,12 +7,25 @@ interface SystemMapProps {
   player: Player;
   jumpGates?: JumpGate[];
   policeLevel?: number;
+  onTravelToPOI?: (poiId: string) => void;
+  onJumpToSystem?: (systemId: string) => void;
 }
 
-export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [], policeLevel = 0 }) => {
+export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [], policeLevel = 0, onTravelToPOI, onJumpToSystem }) => {
   const isPoliced = policeLevel > 0;
+  const isTraveling = player.traveling ?? false;
   const svgRef = useRef<SVGSVGElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
+  const [hoveredPOI, setHoveredPOI] = useState<string | null>(null);
+  const [hoveredGate, setHoveredGate] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Clear action message when traveling state ends or system/poi changes
+  useEffect(() => {
+    if (!isTraveling && actionMessage) {
+      setActionMessage(null);
+    }
+  }, [isTraveling, player.location.poi, player.location.systemId]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -67,6 +80,12 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           <span className="text-gray-400 font-mono">Tick: {player.tick}</span>
         </div>
       </div>
+
+      {actionMessage && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-cyan-900/80 border border-cyan-600 rounded text-cyan-300 text-sm font-mono animate-pulse">
+          {actionMessage}
+        </div>
+      )}
 
       <svg
         ref={svgRef}
@@ -158,9 +177,17 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           const x = poi.x * scale + centerX;
           const y = -poi.y * scale + centerY;
           const isCurrent = poi.id === player.location.poi || poi.name === player.location.poi;
+          const isClickable = poi.type !== 'sun' && !isCurrent && !isTraveling && !!onTravelToPOI;
+          const isHovered = hoveredPOI === poi.id;
 
           return (
-            <g key={poi.id}>
+            <g
+              key={poi.id}
+              style={{ cursor: isClickable ? 'pointer' : 'default' }}
+              onClick={() => { if (isClickable) { onTravelToPOI(poi.id); setActionMessage(`Traveling to ${poi.name}...`); } }}
+              onMouseEnter={() => { if (isClickable) setHoveredPOI(poi.id); }}
+              onMouseLeave={() => setHoveredPOI(null)}
+            >
               {/* Sun glow effect */}
               {poi.type === 'sun' && (
                 <>
@@ -262,6 +289,40 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 </g>
               )}
 
+              {/* Gas cloud: Show dashed ring with gas blobs */}
+              {poi.type === 'gas_cloud' && (
+                <g>
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r="35"
+                    fill="none"
+                    stroke="#a78bfa"
+                    strokeWidth="1.5"
+                    strokeDasharray="6,3"
+                    opacity="0.6"
+                  />
+                  {[...Array(10)].map((_, i) => {
+                    const angle = (i / 10) * Math.PI * 2 + (poi.id.charCodeAt(0) * 0.4);
+                    const radius = 10 + ((i * 9 + poi.id.charCodeAt(1)) % 22);
+                    const blobX = x + Math.cos(angle) * radius;
+                    const blobY = y + Math.sin(angle) * radius;
+                    const r = 2 + ((i * 3 + poi.id.charCodeAt(0)) % 3);
+                    const opacity = 0.3 + ((i * 5) % 4) * 0.1;
+                    return (
+                      <circle
+                        key={i}
+                        cx={blobX}
+                        cy={blobY}
+                        r={r}
+                        fill="#c4b5fd"
+                        opacity={opacity}
+                      />
+                    );
+                  })}
+                </g>
+              )}
+
               {/* Station: hexagonal outline */}
               {poi.type === 'station' && (() => {
                 const r = 14;
@@ -277,6 +338,19 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 );
               })()}
 
+              {/* Hover highlight */}
+              {isHovered && (
+                <circle
+                  cx={x}
+                  cy={y}
+                  r="30"
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth="2"
+                  opacity="0.6"
+                />
+              )}
+
               {/* POI icon */}
               <text
                 x={x}
@@ -284,7 +358,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 textAnchor="middle"
                 dominantBaseline="central"
                 className={getPOIColor(poi.type)}
-                style={{ fontSize: poi.type === 'sun' ? '40px' : poi.type === 'station' ? '21px' : '28px', cursor: 'pointer' }}
+                style={{
+                  fontSize: poi.type === 'sun' ? '40px' : poi.type === 'station' ? '21px' : '28px',
+                  filter: isHovered ? 'brightness(1.4)' : undefined,
+                }}
               >
                 {getPOIIcon(poi.type)}
               </text>
@@ -323,17 +400,26 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           const gateX = centerX + Math.cos(angleRad) * gateRadius * scale;
           const gateY = centerY + Math.sin(angleRad) * gateRadius * scale;
 
+          const isGateClickable = !isTraveling && !!onJumpToSystem;
+          const isGateHovered = hoveredGate === gate.id;
+
           return (
-            <g key={gate.id}>
+            <g
+              key={gate.id}
+              style={{ cursor: isGateClickable ? 'pointer' : 'default' }}
+              onClick={() => { if (isGateClickable) { onJumpToSystem(gate.id); setActionMessage(`Jumping to ${gate.name}...`); } }}
+              onMouseEnter={() => { if (isGateClickable) setHoveredGate(gate.id); }}
+              onMouseLeave={() => setHoveredGate(null)}
+            >
               {/* Jump gate icon */}
               <circle
                 cx={gateX}
                 cy={gateY}
                 r="25"
                 fill="none"
-                stroke="#06b6d4"
-                strokeWidth="2"
-                opacity="0.7"
+                stroke={isGateHovered ? '#22d3ee' : '#06b6d4'}
+                strokeWidth={isGateHovered ? 3 : 2}
+                opacity={isGateHovered ? 1 : 0.7}
               />
               <circle
                 cx={gateX}
@@ -398,18 +484,28 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       <div className="absolute bottom-4 left-4 right-4 flex justify-between text-xs">
         <div className="bg-spacemolt-panel p-2 rounded border border-spacemolt-border">
           <span className="text-gray-400">Connected Systems:</span>
-          {['Sys 0455', 'Sys 0418', '0048', '0005'].map((sys) => (
+          {jumpGates.length > 0 ? jumpGates.map((gate) => (
             <button
-              key={sys}
-              className="ml-2 px-2 py-1 bg-cyan-900/50 hover:bg-cyan-800 rounded text-cyan-300"
+              key={gate.id}
+              disabled={isTraveling || !onJumpToSystem}
+              onClick={() => { onJumpToSystem?.(gate.id); setActionMessage(`Jumping to ${gate.name}...`); }}
+              className={`ml-2 px-2 py-1 rounded ${
+                isTraveling || !onJumpToSystem
+                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                  : 'bg-cyan-900/50 hover:bg-cyan-800 text-cyan-300'
+              }`}
             >
-              {sys}
+              {gate.name}
             </button>
-          ))}
+          )) : (
+            <span className="ml-2 text-gray-600">None</span>
+          )}
         </div>
-        <button className="bg-spacemolt-panel p-2 rounded border border-spacemolt-border text-cyan-400 hover:text-cyan-300">
-          [Galaxy Map]
-        </button>
+        {isTraveling && (
+          <div className="bg-yellow-900/50 p-2 rounded border border-yellow-700 text-yellow-400 animate-pulse">
+            Traveling...
+          </div>
+        )}
       </div>
     </div>
   );

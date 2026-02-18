@@ -154,12 +154,23 @@ function mapToPlayer(gs: GameState): Player {
     },
     policeLevel: policeLevel > 0 ? 'policed' : 'lawless',
     tick: gs.CurrentTick ?? 0,
+    traveling: gs.Traveling ?? false,
   };
 }
 
 function mapToSkills(gs: GameState, skillDefinitions: Record<string, any>): Skill[] {
   const skills = gs.Player?.skills;
   if (!skills) return [];
+
+  // If skill definitions haven't loaded yet, return skills with 0% XP
+  if (!skillDefinitions || Object.keys(skillDefinitions).length === 0) {
+    return Object.entries(skills).map(([name, skill]) => ({
+      name,
+      level: skill.level,
+      xp: 0,
+      nextLevelXp: 0,
+    })).sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
+  }
 
   return Object.entries(skills).map(([name, skill]) => {
     // Get next level XP from skill definitions
@@ -382,6 +393,19 @@ export function useObserver(wsUrl: string) {
     };
   }, []);
 
+  const sendCommand = useCallback((command: string, payload: Record<string, unknown>) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!state.subscribedAgent) return;
+
+    ws.send(JSON.stringify({
+      type: 'command',
+      agent: state.subscribedAgent,
+      command,
+      payload,
+    }));
+  }, [state.subscribedAgent]);
+
   return {
     ...state,
     connect,
@@ -390,6 +414,7 @@ export function useObserver(wsUrl: string) {
     addAgent,
     removeAgent,
     listAgents,
+    sendCommand,
   };
 }
 

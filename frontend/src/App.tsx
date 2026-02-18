@@ -16,7 +16,6 @@ import {
   mockSkills,
   mockChat,
   mockNotifications,
-  mockGalaxySystems,
   mockSystemPOIs,
   mockMarketOrders,
   mockRecipes,
@@ -102,7 +101,7 @@ function App() {
           </div>
         )}
 
-        {activeView === 'galaxy' && <GalaxyMap systems={mockGalaxySystems} />}
+        {activeView === 'galaxy' && <GalaxyMap />}
 
         {activeView === 'system' && (
           <SystemMap
@@ -110,6 +109,8 @@ function App() {
             player={player || mockPlayer}
             jumpGates={systemMapData?.jumpGates ?? mockJumpGates}
             policeLevel={systemMapData?.policeLevel ?? 0}
+            onTravelToPOI={isLive ? (poiId) => observer.sendCommand('travel', { target_poi: poiId }) : undefined}
+            onJumpToSystem={isLive ? (systemId) => observer.sendCommand('jump', { target_system: systemId }) : undefined}
           />
         )}
 
