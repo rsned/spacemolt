@@ -151,7 +151,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 			CurrentTick: 0,
 			System: SystemData{
 				POIs:        []POI{},
-				Connections: []string{},
+				Connections: []ConnectionInfo{},
 			},
 			Nearby:   []NearbyPlayer{},
 			InCombat: false,
@@ -809,13 +809,11 @@ func (c *Client) listen(ctx context.Context) {
 				payloadJSON, _ := json.Marshal(resp.Payload)
 				payloadStr := string(payloadJSON)
 
-				// Truncate state_update messages to reduce log clutter
-				//if resp.Type == "state_update" && len(payloadStr) > 200 {
-				if len(payloadStr) > 200 {
-					c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
-				} else {
-					c.debugLogger.Printf("Response Payload: %s", payloadStr)
-				}
+				// if len(payloadStr) > 200 {
+				// c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
+				// } else {
+				c.debugLogger.Printf("Response Payload: %s", payloadStr)
+				// }
 			}
 			// Check for error message in payload
 			if msg, ok := resp.Payload["message"]; ok {
@@ -1462,7 +1460,13 @@ func (c *Client) parseMapData(payload map[string]any) {
 				c.state.System.Connections = c.state.System.Connections[:0]
 				for _, conn := range connections {
 					if connStr, ok := conn.(string); ok {
-						c.state.System.Connections = append(c.state.System.Connections, connStr)
+						// get_map returns bare system IDs
+						connInfo := ConnectionInfo{
+							SystemID: connStr,
+							Name:     connStr,
+							Distance: 0,
+						}
+						c.state.System.Connections = append(c.state.System.Connections, connInfo)
 					}
 				}
 				c.debugLogger.Printf("Updated %d connections from get_map", len(c.state.System.Connections))
@@ -1507,8 +1511,27 @@ func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
 	if connections, ok := systemData["connections"].([]any); ok {
 		c.state.System.Connections = c.state.System.Connections[:0]
 		for _, conn := range connections {
-			if connStr, ok := conn.(string); ok {
-				c.state.System.Connections = append(c.state.System.Connections, connStr)
+			if connMap, ok := conn.(map[string]any); ok {
+				// v0.87.1+ format: ConnectionInfo objects
+				var connInfo ConnectionInfo
+				if systemID, ok := connMap["system_id"].(string); ok {
+					connInfo.SystemID = systemID
+				}
+				if name, ok := connMap["name"].(string); ok {
+					connInfo.Name = name
+				}
+				if distance, ok := connMap["distance"].(float64); ok {
+					connInfo.Distance = int(distance)
+				}
+				c.state.System.Connections = append(c.state.System.Connections, connInfo)
+			} else if connStr, ok := conn.(string); ok {
+				// Legacy format: bare system ID string (pre v0.87.1)
+				connInfo := ConnectionInfo{
+					SystemID: connStr,
+					Name:     connStr,
+					Distance: 0,
+				}
+				c.state.System.Connections = append(c.state.System.Connections, connInfo)
 			}
 		}
 	}
