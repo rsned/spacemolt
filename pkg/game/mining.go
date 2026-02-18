@@ -82,6 +82,7 @@ type MiningLoopResult struct {
 //  7. Sell all cargo
 //  8. Refuel if needed
 //  9. Repair if needed
+//
 // 10. Check for upgrades (if configured)
 //
 // The loop continues until:

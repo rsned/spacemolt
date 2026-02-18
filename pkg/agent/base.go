@@ -221,10 +221,16 @@ func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeC
 		}
 	}
 
+	// Convert ConnectionInfo to just system IDs for prompts
+	connectionIDs := make([]string, len(state.System.Connections))
+	for i, conn := range state.System.Connections {
+		connectionIDs[i] = conn.SystemID
+	}
+
 	return &prompts.KnowledgeContext{
 		KnownSystems: systemInfos,
 		POIsInSystem: poiInfos,
-		Connections:  state.System.Connections,
+		Connections:  connectionIDs,
 	}
 }
 
@@ -384,7 +390,7 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 	connectionsText := "\nAVAILABLE JUMP DESTINATIONS:\n"
 	if len(state.System.Connections) > 0 {
 		for _, conn := range state.System.Connections {
-			connectionsText += fmt.Sprintf("  - %s\n", conn)
+			connectionsText += fmt.Sprintf("  - %s\n", conn.Name)
 		}
 	} else {
 		connectionsText += "  (No connections known yet)\n"
@@ -525,9 +531,9 @@ func (a *BaseAgent) persistDiscoveries(result ActionResult) error {
 
 	// Persist all connections from the current system
 	for _, connID := range state.System.Connections {
-		if err := a.memory.RememberConnection(ctx, state.System.ID, connID); err != nil {
+		if err := a.memory.RememberConnection(ctx, state.System.ID, connID.SystemID); err != nil {
 			fmt.Printf("[Agent %s] Warning: failed to remember connection %s -> %s: %v\n",
-				a.id, state.System.ID, connID, err)
+				a.id, state.System.ID, connID.SystemID, err)
 		}
 	}
 
@@ -653,13 +659,22 @@ func (m *KBMemory) KnownSystems() []game.SystemData {
 
 	result := make([]game.SystemData, len(kbSystems))
 	for i, sys := range kbSystems {
+		// Convert []string to []ConnectionInfo
+		conns := make([]game.ConnectionInfo, len(sys.Connections))
+		for j, connID := range sys.Connections {
+			conns[j] = game.ConnectionInfo{
+				SystemID: connID,
+				Name:     connID,
+				Distance: 0,
+			}
+		}
 		result[i] = game.SystemData{
 			ID:           sys.ID,
 			Name:         sys.Name,
 			Empire:       sys.Empire,
 			PoliceLevel:  sys.PoliceLevel,
 			POIs:         []game.POI{}, // Not stored in knowledge base
-			Connections:  sys.Connections,
+			Connections:  conns,
 			Position:     sys.Position,
 			Discovered:   true,
 			DiscoveredBy: "", // No longer tracked in knowledge.System
@@ -711,13 +726,18 @@ func (m *KBMemory) GetUnknownConnections(systemID string) ([]string, error) {
 
 // RememberSystem stores a system in memory
 func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) error {
+	// Convert []ConnectionInfo to []string
+	connectionIDs := make([]string, len(sys.Connections))
+	for i, conn := range sys.Connections {
+		connectionIDs[i] = conn.SystemID
+	}
 	kbSys := knowledge.System{
 		ID:              sys.ID,
 		Name:            sys.Name,
 		Position:        sys.Position,
 		PoliceLevel:     sys.PoliceLevel,
 		Empire:          sys.Empire,
-		Connections:     sys.Connections,
+		Connections:     connectionIDs,
 		LastUpdatedTick: m.currentTick,
 	}
 

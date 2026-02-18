@@ -201,12 +201,12 @@ func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 	// Configure the shared mining loop
 	config := &game.MiningLoopConfig{
 		AgentID:              agentID,
-		UpgradeCheckInterval: 5, // Check every 5 runs
+		UpgradeCheckInterval: 500, // Check every 5 runs
 		Tier1Threshold:       TIER1_THRESHOLD,
 		ReserveCredits:       RESERVE_CREDITS,
 		UseBulkSell:          true, // Use bulk sell for better performance
 		OnUpgradeCheck: func() bool {
-			attemptUpgrades(client, logger, ctx)
+			//attemptUpgrades(client, logger, ctx)
 			return false // Return value not used for continuous mining
 		},
 		OnRunComplete: func(runNum int, creditsEarned float64, totalCredits float64) {

@@ -352,7 +352,7 @@ func main() {
 			CurrentTick: 0,
 			System: game.SystemData{
 				POIs:        []game.POI{},
-				Connections: []string{},
+				Connections: []game.ConnectionInfo{},
 			},
 			Username: username,
 			Password: password,
@@ -902,8 +902,27 @@ func handleResponse(resp protocol.Response, state *game.State) {
 			if connections, ok := sysData["connections"].([]any); ok {
 				state.System.Connections = state.System.Connections[:0]
 				for _, c := range connections {
-					if connStr, ok := c.(string); ok {
-						state.System.Connections = append(state.System.Connections, connStr)
+					if connMap, ok := c.(map[string]any); ok {
+						// v0.87.1+ format: ConnectionInfo objects
+						var connInfo game.ConnectionInfo
+						if systemID, ok := connMap["system_id"].(string); ok {
+							connInfo.SystemID = systemID
+						}
+						if name, ok := connMap["name"].(string); ok {
+							connInfo.Name = name
+						}
+						if distance, ok := connMap["distance"].(float64); ok {
+							connInfo.Distance = int(distance)
+						}
+						state.System.Connections = append(state.System.Connections, connInfo)
+					} else if connStr, ok := c.(string); ok {
+						// Legacy format: bare system ID string (pre v0.87.1)
+						connInfo := game.ConnectionInfo{
+							SystemID: connStr,
+							Name:     connStr,
+							Distance: 0,
+						}
+						state.System.Connections = append(state.System.Connections, connInfo)
 					}
 				}
 			}

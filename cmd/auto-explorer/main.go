@@ -118,6 +118,15 @@ func updateCaptainsLog(agentID string, client *game.Client, expState *Exploratio
 	}
 }
 
+// extractSystemIDs extracts system IDs from ConnectionInfo array
+func extractSystemIDs(conns []game.ConnectionInfo) []string {
+	systemIDs := make([]string, len(conns))
+	for i, conn := range conns {
+		systemIDs[i] = conn.SystemID
+	}
+	return systemIDs
+}
+
 func needsRefuel(state *game.State) bool {
 	return state.Fuel < (state.MaxFuel * 0.3)
 }
@@ -152,7 +161,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		Name:            state.System.Name,
 		PoliceLevel:     state.System.PoliceLevel,
 		Empire:          state.System.Empire,
-		Connections:     state.System.Connections,
+		Connections:     extractSystemIDs(state.System.Connections),
 		LastUpdatedTick: state.CurrentTick,
 		Position: game.Position{
 			X: state.System.Position.X,
@@ -367,7 +376,7 @@ func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string)
 	// Verify target is in connections
 	isConnected := false
 	for _, conn := range state.System.Connections {
-		if conn == targetSystem {
+		if conn.SystemID == targetSystem {
 			isConnected = true
 			break
 		}
@@ -767,8 +776,8 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
 
 	for _, conn := range state.System.Connections {
-		if !expState.VisitedSystems[conn] {
-			unvisited = append(unvisited, conn)
+		if !expState.VisitedSystems[conn.SystemID] {
+			unvisited = append(unvisited, conn.SystemID)
 		}
 	}
 

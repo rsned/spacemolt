@@ -385,7 +385,7 @@ func (m *WatcherModel) AddAgent(info AgentInfo) {
 			CurrentTick: 0,
 			System: game.SystemData{
 				POIs:        []game.POI{},
-				Connections: []string{},
+				Connections: []game.ConnectionInfo{},
 			},
 		}
 		m.agentLogs[info.ID] = []string{}

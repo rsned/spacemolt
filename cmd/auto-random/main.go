@@ -257,8 +257,8 @@ func (a *RandomAgent) performAction(client *game.Client, logger *log.Logger, ctx
 			systems := state.System.Connections
 			if len(systems) > 0 {
 				target := systems[rand.Intn(len(systems))]
-				logger.Printf("Jumping to system: %s", target)
-				_ = client.Jump(ctx, target)
+				logger.Printf("Jumping to system: %s", target.Name)
+				_ = client.Jump(ctx, target.SystemID)
 				logger.Printf("Jump initiated")
 			} else {
 				logger.Printf("No jump gates available")

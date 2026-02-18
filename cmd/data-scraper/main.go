@@ -144,12 +144,12 @@ func (s *Scraper) scrapeAll() error {
 		{"Ship Info", s.scrapeShip},
 		{"Current POI", s.scrapePOI},
 		{"System Data", s.scrapeSystem},
-		{"Map Data", s.scrapeMap},
-		{"Market Listings", s.scrapeListings},
-		{"Ship Listings", s.scrapeShips},
-		{"Nearby Players", s.scrapeNearby},
-		{"Skills", s.scrapeSkills},
-		{"Recipes", s.scrapeRecipes},
+		//{"Map Data", s.scrapeMap},
+		//{"Market Listings", s.scrapeListings},
+		//{"Ship Listings", s.scrapeShips},
+		//{"Nearby Players", s.scrapeNearby},
+		//{"Skills", s.scrapeSkills},
+		//{"Recipes", s.scrapeRecipes},
 		{"Wrecks", s.scrapeWrecks},
 		{"Drones", s.scrapeDrones},
 		{"Base Info", s.scrapeBase},
@@ -188,29 +188,29 @@ func (s *Scraper) scrapeShip() error {
 	// Just save the ship portion of the state
 	state := s.client.GetState()
 	return s.saveJSON("get_ship.json", map[string]any{
-		"id":             state.Ship.ID,
-		"owner_id":       state.Ship.OwnerID,
-		"class_id":       state.Ship.ClassID,
-		"name":           state.Ship.Name,
-		"hull":           state.Ship.Hull,
-		"max_hull":       state.Ship.MaxHull,
-		"shield":         state.Ship.Shield,
-		"max_shield":     state.Ship.MaxShield,
+		"id":              state.Ship.ID,
+		"owner_id":        state.Ship.OwnerID,
+		"class_id":        state.Ship.ClassID,
+		"name":            state.Ship.Name,
+		"hull":            state.Ship.Hull,
+		"max_hull":        state.Ship.MaxHull,
+		"shield":          state.Ship.Shield,
+		"max_shield":      state.Ship.MaxShield,
 		"shield_recharge": state.Ship.ShieldRecharge,
-		"armor":          state.Ship.Armor,
-		"speed":          state.Ship.Speed,
-		"fuel":           state.Ship.Fuel,
-		"max_fuel":       state.Ship.MaxFuel,
-		"cargo_used":     state.Ship.CargoUsed,
-		"cargo_capacity": state.Ship.CargoCapacity,
-		"cpu_used":       state.Ship.CPUUsed,
-		"cpu_capacity":   state.Ship.CPUCapacity,
-		"power_used":     state.Ship.PowerUsed,
-		"power_capacity": state.Ship.PowerCapacity,
-		"weapon_slots":   state.Ship.WeaponSlots,
-		"utility_slots":  state.Ship.UtilitySlots,
-		"cargo":          state.Ship.Cargo,
-		"modules":        state.Ship.Modules,
+		"armor":           state.Ship.Armor,
+		"speed":           state.Ship.Speed,
+		"fuel":            state.Ship.Fuel,
+		"max_fuel":        state.Ship.MaxFuel,
+		"cargo_used":      state.Ship.CargoUsed,
+		"cargo_capacity":  state.Ship.CargoCapacity,
+		"cpu_used":        state.Ship.CPUUsed,
+		"cpu_capacity":    state.Ship.CPUCapacity,
+		"power_used":      state.Ship.PowerUsed,
+		"power_capacity":  state.Ship.PowerCapacity,
+		"weapon_slots":    state.Ship.WeaponSlots,
+		"utility_slots":   state.Ship.UtilitySlots,
+		"cargo":           state.Ship.Cargo,
+		"modules":         state.Ship.Modules,
 	})
 }
 
@@ -241,7 +241,7 @@ func (s *Scraper) scrapeSystem() error {
 	if err := s.client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("get_system failed: %w", err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Save state
 	state := s.client.GetState()
@@ -345,9 +345,9 @@ func (s *Scraper) scrapeSkills() error {
 	}
 
 	return s.saveJSON("get_skills.json", map[string]any{
-		"skills":          state.SkillDefinitions,
-		"skill_xp":        state.SkillXP,
-		"skill_next_xp":   state.SkillNextLevelXP,
+		"skills":        state.SkillDefinitions,
+		"skill_xp":      state.SkillXP,
+		"skill_next_xp": state.SkillNextLevelXP,
 	})
 }
 
@@ -542,4 +542,3 @@ func (s *Scraper) saveJSON(filename string, data any) error {
 	s.logger.Printf("  ✓ Saved %s", filename)
 	return nil
 }
-
