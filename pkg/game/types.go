@@ -122,7 +122,7 @@ type Ship struct {
 	Cargo          []CargoItem `json:"cargo"`
 }
 
-// CargoItem represents an item in the cargo hold.
+// ConnectionInfo represents a connection from one system to another with details.
 // Embedded in Ship.Cargo array in server responses.
 // Server commands that include this:
 //   - Any command returning Ship (logged_in, state_update, get_ship, get_status)
@@ -131,11 +131,139 @@ type CargoItem struct {
 	Quantity float64 `json:"quantity"`
 }
 
+// ============================================================================
+// Server Response Wrappers (v0.87.1+)
+// These wrap the actual data returned by server commands
+// ============================================================================
+
+// GetSystemResponse wraps the response from get_system command.
+type GetSystemResponse struct {
+	Action         string     `json:"action"`
+	POI            CurrentPOI `json:"poi"`
+	SecurityStatus string     `json:"security_status"`
+	System         SystemData `json:"system"`
+}
+
+// CurrentPOI represents the current POI with minimal info (from get_system response).
+type CurrentPOI struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	HasBase bool   `json:"has_base"`
+	Online  int    `json:"online"`
+}
+
+// GetPOIResponse wraps the response from get_poi command.
+type GetPOIResponse struct {
+	Action string `json:"action"`
+	POI    POI    `json:"poi"`
+}
+
+// GetStatusResponse wraps the response from get_status command.
+type GetStatusResponse struct {
+	Action      string       `json:"action"`
+	Player      Player       `json:"player"`
+	Ship        Ship         `json:"ship"`
+	System      SystemData   `json:"system"`
+	POI         POI          `json:"poi"`
+	Nearby      []NearbyPlayer `json:"nearby"`
+	CurrentTick int64        `json:"current_tick"`
+}
+
+// GetMapResponse wraps the response from get_map command.
+type GetMapResponse struct {
+	Systems []MapSystem `json:"systems"`
+}
+
+// MapSystem represents a system in the galaxy map (from get_map).
+type MapSystem struct {
+	SystemID  string   `json:"system_id"`
+	Name      string   `json:"name"`
+	Position  Position `json:"position"`
+	Connections []string `json:"connections"` // System IDs only in map context
+	POICount  int      `json:"poi_count"`
+	Online    int      `json:"online"`
+	Visited   bool     `json:"visited"`
+	VisitedAt string   `json:"visited_at"`
+	Empire    string   `json:"empire,omitempty"`
+}
+
+// GetBaseResponse wraps the response from get_base command.
+// Response varies based on whether player is docked.
+type GetBaseResponse struct {
+	Action    string            `json:"action"`
+	Base      *Base             `json:"base"`
+	POI       POI               `json:"poi,omitempty"`
+	Resources []ResourceDisplay `json:"resources,omitempty"`
+	Services   []string          `json:"services,omitempty"`
+	Market     []MarketListing   `json:"market,omitempty"`
+}
+
+// ResourceDisplay represents a resource with display information.
+type ResourceDisplay struct {
+	ResourceID       string  `json:"resource_id"`
+	Name             string  `json:"name"`
+	Richness         float64 `json:"richness"`
+	Remaining        float64 `json:"remaining"`
+	RemainingDisplay string  `json:"remaining_display"` // e.g., "unlimited", "2225 units"
+}
+
+// GetSkillsResponse wraps the response from get_skills command.
+type GetSkillsResponse struct {
+	Action       string                      `json:"action"`
+	Skills       map[string]SkillDefinition  `json:"skills"`
+	PlayerSkills []PlayerSkill               `json:"player_skills"`
+}
+
+// GetListingsResponse wraps the response from get_listings command.
+type GetListingsResponse struct {
+	Action      string          `json:"action"`
+	Listings    []MarketListing `json:"listings"`
+	StationID   string          `json:"station_id"`
+	StationName string          `json:"station_name"`
+}
+
+// GetShipsResponse wraps the response from get_ships command.
+type GetShipsResponse struct {
+	Action      string      `json:"action"`
+	Ships       []ShipClass `json:"ships"`
+	StationID   string      `json:"station_id"`
+	StationName string      `json:"station_name"`
+}
+
+// GetRecipesResponse wraps the response from get_recipes command.
+type GetRecipesResponse struct {
+	Action  string            `json:"action"`
+	Recipes map[string]Recipe `json:"recipes"`
+}
+
+// GetWrecksResponse wraps the response from get_wrecks command.
+type GetWrecksResponse struct {
+	Action string  `json:"action"`
+	Wrecks []Wreck `json:"wrecks"`
+}
+
+// GetDronesResponse wraps the response from get_drones command.
+type GetDronesResponse struct {
+	Action string  `json:"action"`
+	Drones []Drone `json:"drones"`
+}
+
+// ConnectionInfo represents a connection from one system to another with details.
+//   - logged_in (in payload.system.connections)
+type ConnectionInfo struct {
+	SystemID string `json:"system_id"`
+	Name     string `json:"name"`
+	Distance int    `json:"distance"`
+}
+
 // POI represents a Point of Interest in a system (planets, stations, asteroid belts, etc).
 // Server commands that return this struct:
 //   - get_poi (single POI in payload.poi)
 //   - get_system (array in payload.pois)
 //   - logged_in (in payload.poi and payload.system.pois)
+//
+// v0.87.1+ Enriched format includes has_base, base_name, and online fields.
 type POI struct {
 	ID          string        `json:"id"`
 	SystemID    string        `json:"system_id"`
@@ -145,6 +273,9 @@ type POI struct {
 	Position    Position      `json:"position"`
 	Resources   []POIResource `json:"resources"`
 	BaseID      string        `json:"base_id,omitempty"`
+	HasBase     bool          `json:"has_base,omitempty"`   // v0.87.1+: Whether this POI has a base
+	BaseName    string        `json:"base_name,omitempty"`  // v0.87.1+: Name of base at this POI
+	Online      int           `json:"online,omitempty"`     // v0.87.1+: Number of players at this POI
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).
@@ -168,39 +299,49 @@ type POIResource struct {
 //   - get_system (in payload.system)
 //   - logged_in (in payload.system)
 //   - get_map (array of systems when called without system_id parameter)
+//
+// v0.87.1+ Enriched format:
+//   - POIs are objects with has_base/base_name/online instead of bare IDs
+//   - Connections are ConnectionInfo objects instead of bare system IDs
 type SystemData struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Description    string   `json:"description"`
-	Empire         string   `json:"empire"`
-	PoliceLevel    int      `json:"police_level"`
-	SecurityStatus string   `json:"security_status,omitempty"` // Human-readable: "High Security", "Lawless", etc.
-	IsStronghold   bool     `json:"is_stronghold,omitempty"`   // True for pirate stronghold systems
-	Online         int      `json:"online,omitempty"`          // Number of online players (from get_map)
-	POIs           []POI    `json:"pois"`
-	Connections    []string `json:"connections"`
-	Discovered     bool     `json:"discovered"`
-	Position       Position `json:"position"`
-	DiscoveredBy   string   `json:"discovered_by,omitempty"`
-	ShipPOI        string   // ID of the POI where the ship is located (internal field, not from JSON)
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	Empire         string          `json:"empire"`
+	PoliceLevel    int             `json:"police_level"`
+	SecurityStatus string          `json:"security_status,omitempty"` // Human-readable: "High Security", "Lawless", etc.
+	IsStronghold   bool            `json:"is_stronghold,omitempty"`   // True for pirate stronghold systems
+	Online         int             `json:"online,omitempty"`          // Number of online players (from get_map)
+	POIs           []POI           `json:"pois"`                     // v0.87.1+: Enriched POI objects
+	Connections    []ConnectionInfo `json:"connections"`              // v0.87.1+: ConnectionInfo objects instead of system IDs
+	Discovered     bool            `json:"discovered"`
+	Position       Position        `json:"position"`
+	DiscoveredBy   string          `json:"discovered_by,omitempty"`
+	ShipPOI        string          // ID of the POI where the ship is located (internal field, not from JSON)
 }
 
 // NearbyPlayer represents another player or pirate NPC at the same POI.
 // Server commands that return this struct:
 //   - state_update (in payload.nearby array)
 //   - get_nearby (in payload.nearby array)
+//
+// Note: As of v0.93.0, the server only sends player_id, username, ship_class,
+// primary_color, secondary_color, anonymous, and in_combat. Other fields
+// (faction_id, faction_tag, status_message, clan_tag) are present in the
+// documentation but not sent by the current server.
 type NearbyPlayer struct {
 	PlayerID       string `json:"player_id"`
 	Username       string `json:"username"`
 	ShipClass      string `json:"ship_class"`
-	FactionID      string `json:"faction_id,omitempty"`
-	FactionTag     string `json:"faction_tag,omitempty"`
-	StatusMessage  string `json:"status_message,omitempty"`
-	ClanTag        string `json:"clan_tag,omitempty"`
 	PrimaryColor   string `json:"primary_color,omitempty"`
 	SecondaryColor string `json:"secondary_color,omitempty"`
 	Anonymous      bool   `json:"anonymous"`
 	InCombat       bool   `json:"in_combat"`
+	// Deprecated: Server no longer sends these fields as of v0.93.0
+	FactionID     string `json:"faction_id,omitempty"`
+	FactionTag     string `json:"faction_tag,omitempty"`
+	StatusMessage  string `json:"status_message,omitempty"`
+	ClanTag        string `json:"clan_tag,omitempty"`
 }
 
 // TravelProgress represents travel state when in transit (travel or jump).
@@ -316,7 +457,7 @@ func (s *State) Clone() *State {
 	poisCopy := make([]POI, len(s.System.POIs))
 	copy(poisCopy, s.System.POIs)
 
-	connectionsCopy := make([]string, len(s.System.Connections))
+	connectionsCopy := make([]ConnectionInfo, len(s.System.Connections))
 	copy(connectionsCopy, s.System.Connections)
 
 	nearbyCopy := make([]NearbyPlayer, len(s.Nearby))
