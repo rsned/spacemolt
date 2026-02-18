@@ -8,9 +8,9 @@ interface GalaxyMapProps {
 // ---------- Territory blob constants ----------
 // SVG filter-based metaball approach: draw circles at empire system positions,
 // merge them via blur + threshold filter to create organic territory blobs.
-const TERRITORY_CIRCLE_RADIUS = 22; // SVG viewport units
-const TERRITORY_BLUR = 16;
-const TERRITORY_BORDER_WIDTH = 2.5;
+const TERRITORY_CIRCLE_RADIUS = 28; // SVG viewport units - larger for more coverage
+const TERRITORY_BLUR = 20; // More blur for smoother merging
+const TERRITORY_BORDER_WIDTH = 2;
 
 const ZOOM_MIN = 0.2;  // 1x zoom (fit to screen)
 const ZOOM_MAX = 1.0;  // 5x zoom
@@ -18,16 +18,16 @@ const ZOOM_STEP = 0.05;
 
 const EMPIRE_COLORS: Record<string, string> = {
   solarian: '#FFD700',      // Solarian: Golden yellow
-  voidborn: '#4B0082',      // Voidborn: Deep purple
+  voidborn: '#9932CC',      // Voidborn: Deep orchid purple
   crimson: '#DC143C',       // Crimson Fleet: Crimson red
-  nebula: '#00FFFF',        // Nebula Collective: Cyan
-  outerrim: '#20B2AA',      // Outer Rim: Teal
+  nebula: '#00CED1',        // Nebula Collective: Dark turquoise
+  outerrim: '#2E8B57',      // Outer Rim: Sea green
   neutral: '#6b7280',       // Neutral: Medium grey
   '': '#6b7280',
 };
 
 // Blood red color for Pirate Strongholds
-const STRONGHOLD_COLOR = '#8B0000';
+const STRONGHOLD_COLOR = '#FF0000';
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) => {
   const galaxyData = useGalaxyMap();
@@ -196,16 +196,16 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
 
   return (
     <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg relative overflow-hidden" style={{ height: '900px' }}>
-      <div className="absolute top-4 left-4 z-10 flex gap-4 items-center bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border">
-        <h2 className="font-sci-fi text-cyan-400">◄ GALAXY MAP</h2>
-        <input type="text" placeholder="Search..." className="bg-gray-800 border border-gray-700 rounded px-3 py-1 text-sm w-40" />
-        <button className="text-cyan-400 hover:text-cyan-300">⟳</button>
+      <div className="absolute top-4 left-4 z-10 flex gap-4 items-center bg-spacemolt-panel/95 backdrop-blur-sm p-3 rounded-lg border border-spacemolt-border shadow-lg">
+        <h2 className="font-sci-fi text-cyan-400 text-lg">◄ GALAXY MAP</h2>
+        <input type="text" placeholder="Search systems..." className="bg-gray-800/80 border border-gray-700 rounded px-3 py-1.5 text-sm w-48 focus:outline-none focus:border-cyan-500 transition-colors" />
+        <button className="text-cyan-400 hover:text-cyan-300 transition-colors p-1">⟳</button>
       </div>
 
       {/* Zoom Control Slider */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-spacemolt-panel/95 backdrop-blur-sm p-3 rounded-lg border border-spacemolt-border shadow-lg">
         <div className="flex flex-col items-center gap-2">
-          <span className="text-cyan-400 text-xs font-sci-fi transform -rotate-90 whitespace-nowrap mb-2">
+          <span className="text-cyan-400 text-xs font-sci-fi transform -rotate-90 whitespace-nowrap mb-2 font-bold">
             ZOOM
           </span>
           <div className="h-64 flex items-center">
@@ -222,12 +222,12 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
               }}
             />
           </div>
-          <div className="text-cyan-400 text-xs font-mono">
+          <div className="text-cyan-400 text-sm font-mono font-bold">
             {zoomLevel}x
           </div>
           <button
             onClick={handleResetZoom}
-            className="text-xs text-gray-400 hover:text-cyan-400 transition-colors"
+            className="text-xs text-gray-400 hover:text-cyan-400 transition-colors p-1"
             title="Reset zoom"
           >
             ⟲
@@ -235,23 +235,23 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 z-10 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border text-xs space-y-1">
-        <div className="font-sci-fi text-cyan-400 mb-2">Empire Legend</div>
+      <div className="absolute top-4 right-4 z-10 bg-spacemolt-panel/95 backdrop-blur-sm p-4 rounded-lg border border-spacemolt-border shadow-lg text-xs space-y-2">
+        <div className="font-sci-fi text-cyan-400 mb-3 text-sm font-bold">EMPIRES</div>
         {Object.entries(EMPIRE_COLORS)
           .filter(([empire]) => empire !== '') // Don't show empty string in legend
           .map(([empire, color]) => (
           <div key={empire} className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-            <span className="text-gray-400 capitalize">{empire === 'neutral' ? 'Neutral (Unaffiliated)' : empire}</span>
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}40` }} />
+            <span className="text-gray-300 capitalize font-medium">{empire === 'neutral' ? 'Neutral' : empire}</span>
           </div>
         ))}
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STRONGHOLD_COLOR }} />
-          <span className="text-red-400">Pirate Stronghold</span>
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-700">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STRONGHOLD_COLOR, boxShadow: `0 0 6px ${STRONGHOLD_COLOR}40` }} />
+          <span className="text-red-400 font-medium">Pirate Stronghold</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-cyan-400">●</span>
-          <span className="text-gray-400">Agent Location</span>
+          <span className="text-cyan-400 text-lg">●</span>
+          <span className="text-gray-300">Agent Location</span>
         </div>
       </div>
 
@@ -285,13 +285,13 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
             />
             {/* Translucent fill */}
             <feComponentTransfer in="blob" result="fill">
-              <feFuncA type="linear" slope={0.25} intercept={0} />
+              <feFuncA type="linear" slope={0.35} intercept={0} />
             </feComponentTransfer>
             {/* Extract border ring: erode blob, subtract from original */}
             <feMorphology in="blob" operator="erode" radius={TERRITORY_BORDER_WIDTH} result="inner" />
             <feComposite in="blob" in2="inner" operator="out" result="borderRing" />
             <feComponentTransfer in="borderRing" result="border">
-              <feFuncA type="linear" slope={0.7} intercept={0} />
+              <feFuncA type="linear" slope={0.5} intercept={0} />
             </feComponentTransfer>
             {/* Combine fill + border */}
             <feMerge>
@@ -334,13 +334,17 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
               x={pos.x}
               y={pos.y}
               fill={color}
-              fontSize="16"
+              fontSize="18"
               fontWeight="bold"
               textAnchor="middle"
               dominantBaseline="central"
-              opacity={0.5}
+              opacity={0.6}
               className="pointer-events-none font-sci-fi"
-              style={{ textTransform: 'uppercase', letterSpacing: '0.15em' }}
+              style={{
+                textTransform: 'uppercase',
+                letterSpacing: '0.2em',
+                textShadow: '0 0 10px rgba(0,0,0,0.5)'
+              }}
             >
               {empire}
             </text>
@@ -365,9 +369,10 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
-                stroke="#6B7280"
+                stroke="#67e8f9"
                 strokeWidth="1"
                 opacity="0.6"
+                strokeDasharray="none"
               />
             );
           });
@@ -393,24 +398,39 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
             <g key={system.id}>
               {/* Outer glow for systems with agents */}
               {hasAgents && (
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r="20"
-                  fill="none"
-                  stroke="#22d3ee"
-                  strokeWidth="2"
-                  opacity="0.5"
-                  className="animate-pulse-slow"
-                />
+                <>
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="18"
+                    fill="none"
+                    stroke="#22d3ee"
+                    strokeWidth="2"
+                    opacity="0.6"
+                    className="animate-pulse-slow"
+                  />
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="22"
+                    fill="none"
+                    stroke="#22d3ee"
+                    strokeWidth="1"
+                    opacity="0.3"
+                    className="animate-pulse-slow"
+                  />
+                </>
               )}
 
-              {/* System marker */}
+              {/* System marker - larger with outer ring */}
               <circle
                 cx={pos.x}
                 cy={pos.y}
-                r="4.5"
+                r="6"
                 fill={color}
+                stroke={color}
+                strokeWidth="1"
+                opacity="0.9"
                 className="cursor-pointer hover:scale-125 transition-transform"
                 style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
               />
@@ -418,11 +438,13 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
               {/* System name */}
               <text
                 x={pos.x}
-                y={pos.y - 12}
-                fill="#9ca3af"
-                fontSize="10"
+                y={pos.y - 14}
+                fill="#d1d5db"
+                fontSize="11"
+                fontWeight="500"
                 textAnchor="middle"
                 className="pointer-events-none"
+                style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
               >
                 {system.name}
               </text>
@@ -432,18 +454,21 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
                 <>
                   <circle
                     cx={pos.x}
-                    cy={pos.y + 20}
-                    r="4"
+                    cy={pos.y + 22}
+                    r="5"
                     fill="#22d3ee"
                     className="animate-pulse"
+                    style={{ filter: 'drop-shadow(0 0 3px #22d3ee)' }}
                   />
                   <text
                     x={pos.x}
-                    y={pos.y + 32}
+                    y={pos.y + 35}
                     fill="#22d3ee"
-                    fontSize="8"
+                    fontSize="9"
+                    fontWeight="600"
                     textAnchor="middle"
                     className="pointer-events-none"
+                    style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
                   >
                     {agentsHere.length}
                   </text>
@@ -463,28 +488,28 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
         })}
       </svg>
 
-      <div className="absolute bottom-4 left-4 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border text-xs">
-        <div className="flex gap-4">
+      <div className="absolute bottom-4 left-4 bg-spacemolt-panel/95 backdrop-blur-sm p-4 rounded-lg border border-spacemolt-border shadow-lg text-xs">
+        <div className="flex gap-6">
           <div>
             <span className="text-gray-400">Zoom: {zoomLevel}x</span>
-            <div className="w-32 h-1 bg-gray-700 rounded-full mt-1">
+            <div className="w-32 h-1.5 bg-gray-700 rounded-full mt-1">
               <div
-                className="h-full bg-cyan-500 rounded-full transition-all duration-150"
+                className="h-full bg-cyan-500 rounded-full transition-all duration-150 shadow-lg"
                 style={{ width: `${((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100}%` }}
               />
             </div>
           </div>
           <div>
             <span className="text-gray-400">Pan:</span>
-            <div className="text-cyan-400 font-mono mt-1">
+            <div className="text-cyan-400 font-mono mt-1 font-bold">
               X: {Math.round(pan.x)} Y: {Math.round(pan.y)}
             </div>
           </div>
         </div>
-        <div className="mt-2 text-gray-400">
-          Systems: {systems.length} | Agents: {agentLocations.length}
+        <div className="mt-3 text-gray-400">
+          <span className="font-medium">Systems:</span> {systems.length} | <span className="font-medium">Agents:</span> {agentLocations.length}
         </div>
-        <div className="mt-1 text-gray-500">
+        <div className="mt-2 text-gray-500 text-xs">
           Drag to pan • Scroll or use slider to zoom • Click ⟲ to reset
         </div>
       </div>
