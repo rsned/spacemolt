@@ -53,6 +53,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 		existing.Position = sys.Position
 		existing.PoliceLevel = sys.PoliceLevel
 		existing.Empire = sys.Empire
+		existing.IsStronghold = sys.IsStronghold
 		existing.LastUpdatedTick = sys.LastUpdatedTick
 		// Update connections
 		existing.Connections = sys.Connections
@@ -63,6 +64,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 			Position:        sys.Position,
 			PoliceLevel:     sys.PoliceLevel,
 			Empire:          sys.Empire,
+			IsStronghold:    sys.IsStronghold,
 			Connections:     sys.Connections,
 			LastUpdatedTick: sys.LastUpdatedTick,
 		}
@@ -267,6 +269,7 @@ type System struct {
 	Position        game.Position
 	PoliceLevel     int // Security level 0-3 (0=none, 1=low, 2=medium, 3=high)
 	Empire          string
+	IsStronghold    bool
 	Connections     []string
 	POIs            []string
 	LastUpdatedTick int64

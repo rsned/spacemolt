@@ -673,6 +673,7 @@ func (m *KBMemory) KnownSystems() []game.SystemData {
 			Name:         sys.Name,
 			Empire:       sys.Empire,
 			PoliceLevel:  sys.PoliceLevel,
+			IsStronghold: sys.IsStronghold,
 			POIs:         []game.POI{}, // Not stored in knowledge base
 			Connections:  conns,
 			Position:     sys.Position,

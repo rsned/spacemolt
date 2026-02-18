@@ -420,6 +420,14 @@ ALTER TABLE base_market RENAME COLUMN last_updated TO last_updated_tick;
 -- This tracks "last incident time" not "when we updated this record"
 `,
 		},
+		{
+			version: 10,
+			name:    "add_system_is_stronghold",
+			sql: `
+-- Add is_stronghold column to systems table for pirate stronghold tracking
+ALTER TABLE systems ADD COLUMN is_stronghold BOOLEAN DEFAULT 0;
+`,
+		},
 	}
 }
 

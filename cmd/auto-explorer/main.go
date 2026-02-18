@@ -161,6 +161,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		Name:            state.System.Name,
 		PoliceLevel:     state.System.PoliceLevel,
 		Empire:          state.System.Empire,
+		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractSystemIDs(state.System.Connections),
 		LastUpdatedTick: state.CurrentTick,
 		Position: game.Position{
