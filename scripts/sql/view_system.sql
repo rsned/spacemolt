@@ -46,9 +46,8 @@ UNION ALL
 
 SELECT
     'Position',
-    'X: ' || CAST(ROUND(pos_x, 2) AS TEXT) ||
-    ', Y: ' || CAST(ROUND(pos_y, 2) AS TEXT) ||
-    ', Z: ' || CAST(ROUND(pos_z, 2) AS TEXT)
+    'X: ' || CAST(ROUND(position_x, 2) AS TEXT) ||
+    ', Y: ' || CAST(ROUND(position_y, 2) AS TEXT)
 FROM systems
 WHERE id = :system_id
 
@@ -57,11 +56,11 @@ UNION ALL
 SELECT
     'Police Level',
     CAST(police_level AS TEXT) || ' (' ||
-    CASE police_level
-        WHEN 0 THEN 'Lawless'
-        WHEN 1 THEN 'Low Security'
-        WHEN 2 THEN 'Medium Security'
-        WHEN 3 THEN 'High Security'
+    CASE
+        WHEN police_level = 0 THEN 'Lawless'
+        WHEN police_level < 30 THEN 'Low Security'
+        WHEN police_level < 70 THEN 'Medium Security'
+        WHEN police_level >= 70 THEN 'High Security'
         ELSE 'Unknown'
     END || ')'
 FROM systems
@@ -70,32 +69,32 @@ WHERE id = :system_id
 UNION ALL
 
 SELECT
-    'Faction',
-    COALESCE(faction, 'None')
+    'Empire',
+    COALESCE(empire, 'None')
 FROM systems
 WHERE id = :system_id
 
 UNION ALL
 
 SELECT
-    'Visit Count',
-    CAST(visit_count AS TEXT)
+    'Stronghold',
+    CASE WHEN is_stronghold = 1 THEN 'Yes' ELSE 'No' END
 FROM systems
 WHERE id = :system_id
 
 UNION ALL
 
 SELECT
-    'Last Visited',
-    COALESCE(last_visited, 'Never')
+    'Description',
+    COALESCE(description, 'None')
 FROM systems
 WHERE id = :system_id
 
 UNION ALL
 
 SELECT
-    'Discovered By',
-    COALESCE(discovered_by, 'Unknown')
+    'Last Updated Tick',
+    CAST(last_updated_tick AS TEXT)
 FROM systems
 WHERE id = :system_id;
 
@@ -109,16 +108,16 @@ WHERE from_system = :system_id;
 SELECT
     c.to_system AS "System ID",
     s.name AS "Name",
-    ROUND(s.pos_x, 2) AS "X",
-    ROUND(s.pos_y, 2) AS "Y",
+    ROUND(s.position_x, 2) AS "X",
+    ROUND(s.position_y, 2) AS "Y",
     CASE s.police_level
         WHEN 0 THEN 'Lawless'
-        WHEN 1 THEN 'Low'
-        WHEN 2 THEN 'Medium'
-        WHEN 3 THEN 'High'
+        WHEN s.police_level < 30 THEN 'Low'
+        WHEN s.police_level < 70 THEN 'Medium'
+        WHEN s.police_level >= 70 THEN 'High'
         ELSE 'Unknown'
     END AS "Security",
-    COALESCE(s.faction, 'None') AS "Faction"
+    COALESCE(s.empire, 'None') AS "Empire"
 FROM connections c
 LEFT JOIN systems s ON c.to_system = s.id
 WHERE c.from_system = :system_id
@@ -135,8 +134,8 @@ SELECT
     p.name AS "Name",
     p.type AS "Type",
     p.description AS "Description",
-    ROUND(p.pos_x, 2) AS "X",
-    ROUND(p.pos_y, 2) AS "Y",
+    ROUND(p.position_x, 2) AS "X",
+    ROUND(p.position_y, 2) AS "Y",
     CASE WHEN b.id IS NOT NULL THEN 'Yes' ELSE 'No' END AS "Has Base",
     COALESCE(b.empire, 'None') AS "Empire"
 FROM pois p
