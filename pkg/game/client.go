@@ -185,7 +185,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		var resp *http.Response
 		ws, resp, err = websocket.Dial(ctx, c.url, nil)
-		if resp != nil {
+		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}
 		if err == nil {
