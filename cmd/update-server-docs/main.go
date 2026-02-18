@@ -11,10 +11,12 @@ import (
 )
 
 const (
-	docsDir    = "server_docs"
-	skillURL   = "https://www.spacemolt.com/skill.md"
-	apiURL     = "https://www.spacemolt.com/api.md"
-	openAPIURL = "https://game.spacemolt.com/api/openapi.json"
+	docsDir       = "server_docs"
+	skillURL      = "https://www.spacemolt.com/skill.md"
+	apiURL        = "https://www.spacemolt.com/api.md"
+	openAPIURL    = "https://game.spacemolt.com/api/openapi.json"
+	apiV2URL      = "https://game.spacemolt.com/api/v2/docs"
+	openAPIV2URL  = "https://game.spacemolt.com/api/v2/openapi.json"
 )
 
 type doc struct {
@@ -27,6 +29,8 @@ func main() {
 		{url: skillURL, baseName: "skill.md"},
 		{url: apiURL, baseName: "api.md"},
 		{url: openAPIURL, baseName: "openapi.json"},
+		{url: apiV2URL, baseName: "api.v2.md"},
+		{url: openAPIV2URL, baseName: "openapi.v2.json"},
 	}
 
 	// Ensure docs directory exists
