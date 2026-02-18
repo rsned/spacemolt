@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1032,6 +1033,14 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 	c.state.CurrentPOI = player.CurrentPOI
 	c.state.System.ShipPOI = player.CurrentPOI
 
+	// Ensure System.ID is set when player data provides a system.
+	// This handles the case where parseSystemData hasn't run yet
+	// (e.g., after login before get_system response arrives).
+	if c.state.System.ID == "" && player.CurrentSystem != "" {
+		c.state.System.ID = player.CurrentSystem
+		c.debugLogger.Printf("Set System.ID = '%s' from player.CurrentSystem (was empty)", player.CurrentSystem)
+	}
+
 	// Update docked status: server sends docked_at_base as a string field;
 	// present but empty means undocked, non-empty means docked.
 	// The json.Unmarshal always includes this field, so we check the raw payload.
@@ -1184,8 +1193,12 @@ func (c *Client) parseMapData(payload map[string]any) {
 		return
 	}
 
-	// Find the current system in the map and update its connections
+	// Find the current system in the map and update its connections.
+	// Fall back to CurrentSystem if System.ID hasn't been populated yet.
 	currentSystemID := c.state.System.ID
+	if currentSystemID == "" {
+		currentSystemID = c.state.CurrentSystem
+	}
 	for _, s := range systemsData {
 		systemMap, ok := s.(map[string]any)
 		if !ok {
@@ -1204,7 +1217,7 @@ func (c *Client) parseMapData(payload map[string]any) {
 		}
 
 		// If this is the current system, update its connections
-		if systemID == currentSystemID {
+		if strings.EqualFold(systemID, currentSystemID) {
 			if connections, ok := systemMap["connections"].([]any); ok {
 				c.state.System.Connections = c.state.System.Connections[:0]
 				for _, conn := range connections {

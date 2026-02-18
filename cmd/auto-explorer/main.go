@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
@@ -703,6 +704,21 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
 					logger.Printf("Failed to collect system data: %v", err)
 				}
+			} else {
+				// Even when KB data is fresh, we still need to populate the in-memory
+				// state with system data (ID, connections, POIs) so that
+				// getUnvisitedNeighbors can find connections to jump to.
+				logger.Printf("🔄 Refreshing in-memory system state...")
+				if err := client.GetSystem(ctx); err != nil {
+					logger.Printf("⚠️  Failed to refresh system state: %v", err)
+				}
+				time.Sleep(2 * time.Second)
+
+				// Also fetch map data for connections
+				if err := client.GetMap(ctx); err != nil {
+					logger.Printf("⚠️  Failed to refresh map data: %v", err)
+				}
+				time.Sleep(2 * time.Second)
 			}
 
 			// Always explore POIs (freshness is checked per-POI inside)
@@ -715,6 +731,22 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		// CRITICAL: Refresh state after collecting data to get current system's connections
 		state = client.GetState()
 		currentSystem = state.CurrentSystem
+
+		// If System.ID is still empty after data collection, force a refresh
+		if state.System.ID == "" || !strings.EqualFold(state.System.ID, currentSystem) {
+			logger.Printf("⚠️  System data not loaded (ID=%q, CurrentSystem=%s), forcing refresh...",
+				state.System.ID, currentSystem)
+			if err := client.GetSystem(ctx); err != nil {
+				logger.Printf("Failed to get system: %v", err)
+			}
+			time.Sleep(3 * time.Second)
+			if err := client.GetMap(ctx); err != nil {
+				logger.Printf("Failed to get map: %v", err)
+			}
+			time.Sleep(3 * time.Second)
+			state = client.GetState()
+			currentSystem = state.CurrentSystem
+		}
 
 		// Get unvisited neighbors from the CURRENT system (not the previous one)
 		unvisited := getUnvisitedNeighbors(state, expState)
@@ -797,8 +829,15 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	unvisited := []string{}
 	logger := log.New(os.Stdout, "[DEBUG] ", log.LstdFlags)
 
-	// Safety check: if System.ID doesn't match CurrentSystem, data is stale
-	if state.System.ID != state.CurrentSystem {
+	// Safety check: if System.ID doesn't match CurrentSystem, data may be stale.
+	// Use case-insensitive comparison since player data uses lowercase IDs
+	// while system data may use capitalized names.
+	if state.System.ID == "" {
+		logger.Printf("⚠️  System.ID is empty, CurrentSystem=%s - system data not yet loaded", state.CurrentSystem)
+		logger.Printf("     Returning empty unvisited list to force data refresh")
+		return []string{}
+	}
+	if !strings.EqualFold(state.System.ID, state.CurrentSystem) {
 		logger.Printf("⚠️  STALE DATA: System.ID=%s doesn't match CurrentSystem=%s", state.System.ID, state.CurrentSystem)
 		logger.Printf("     This indicates system data wasn't refreshed after a jump!")
 		logger.Printf("     Returning empty unvisited list to force data refresh")
