@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // Client represents a WebSocket client for the Spacemolt game
@@ -809,16 +810,20 @@ func (c *Client) listen(ctx context.Context) {
 				payloadJSON, _ := json.Marshal(resp.Payload)
 				payloadStr := string(payloadJSON)
 
-				// if len(payloadStr) > 200 {
-				// c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
-				// } else {
-				c.debugLogger.Printf("Response Payload: %s", payloadStr)
-				// }
+				if len(payloadStr) > 200 {
+					c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
+				} else {
+					c.debugLogger.Printf("Response Payload: %s", payloadStr)
+				}
 			}
 			// Check for error message in payload
 			if msg, ok := resp.Payload["message"]; ok {
 				c.debugLogger.Printf("Response Message: '%v'", msg)
 			}
+
+			// Update state before notifying waiters, so state is current
+			// when waitForResponse/waitForAuthResponse returns.
+			c.handleResponse(resp)
 
 			// Notify any waiters for this response type
 			c.waiterMu.Lock()
@@ -830,9 +835,6 @@ func (c *Client) listen(ctx context.Context) {
 				}
 			}
 			c.waiterMu.Unlock()
-
-			// Update state
-			c.handleResponse(resp)
 
 			// Notify handler for each decoded message
 			// Get handler reference with mutex protection
@@ -995,160 +997,61 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	}
 }
 
-// parsePlayerData extracts player information from payload
+// unmarshalPayloadKey marshals a payload value back to JSON and unmarshals it into dest.
+// Returns true if the key exists and deserialization succeeds.
+func unmarshalPayloadKey(payload map[string]any, key string, dest any) bool {
+	data, ok := payload[key]
+	if !ok {
+		return false
+	}
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return false
+	}
+	return json.Unmarshal(jsonBytes, dest) == nil
+}
+
+// parsePlayerData extracts player information from payload using serverapi types.
 func (c *Client) parsePlayerData(payload map[string]any) {
+	var ext serverapi.Player
+	if !unmarshalPayloadKey(payload, "player", &ext) {
+		return
+	}
+
+	player := PlayerFromAPI(ext)
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if playerData, ok := payload["player"].(map[string]any); ok {
-		// Parse basic fields
-		if id, ok := playerData["id"].(string); ok {
-			c.state.Player.ID = id
-		}
-		if username, ok := playerData["username"].(string); ok {
-			c.state.Player.Username = username
-			c.state.Username = username
-		}
-		if empire, ok := playerData["empire"].(string); ok {
-			c.state.Player.Empire = empire
-		}
-		if credits, ok := playerData["credits"].(float64); ok {
-			c.state.Player.Credits = credits
-			c.state.Credits = credits
-		}
-		if currentSystem, ok := playerData["current_system"].(string); ok {
-			c.state.Player.CurrentSystem = currentSystem
-			c.state.CurrentSystem = currentSystem
-		}
-		if currentPoi, ok := playerData["current_poi"].(string); ok {
-			c.state.Player.CurrentPOI = currentPoi
-			c.state.CurrentPOI = currentPoi
-			c.state.System.ShipPOI = currentPoi
-		}
-		if currentShipID, ok := playerData["current_ship_id"].(string); ok {
-			c.state.Player.CurrentShipID = currentShipID
-		}
-		if homeBase, ok := playerData["home_base"].(string); ok {
-			c.state.Player.HomeBase = homeBase
-		}
-		if dockedAtBase, ok := playerData["docked_at_base"].(string); ok {
-			c.state.Player.DockedAtBase = dockedAtBase
-			// Update docked status based on docked_at_base field
-			// Non-empty string means docked, empty string means undocked
-			c.state.Doc = dockedAtBase != ""
-		}
-		if factionID, ok := playerData["faction_id"].(string); ok {
-			c.state.Player.FactionID = factionID
-		}
-		if factionRank, ok := playerData["faction_rank"].(string); ok {
-			c.state.Player.FactionRank = factionRank
-		}
-		if statusMessage, ok := playerData["status_message"].(string); ok {
-			c.state.Player.StatusMessage = statusMessage
-		}
-		if clanTag, ok := playerData["clan_tag"].(string); ok {
-			c.state.Player.ClanTag = clanTag
-		}
-		if primaryColor, ok := playerData["primary_color"].(string); ok {
-			c.state.Player.PrimaryColor = primaryColor
-		}
-		if secondaryColor, ok := playerData["secondary_color"].(string); ok {
-			c.state.Player.SecondaryColor = secondaryColor
-		}
-		if anonymous, ok := playerData["anonymous"].(bool); ok {
-			c.state.Player.Anonymous = anonymous
-		}
+	c.state.Player = player
 
-		// Parse skills
-		if skills, ok := playerData["skills"].(map[string]any); ok {
-			c.state.Player.Skills = make(map[string]Skill)
-			for skillID, skillData := range skills {
-				skill := Skill{}
-				// Skills can be either a number (level) or an object with level/xp
-				if level, ok := skillData.(float64); ok {
-					// Simple format: "skills":{"mining_basic":2}
-					skill.Level = int(level)
-				} else if skillMap, ok := skillData.(map[string]any); ok {
-					// Detailed format: "skills":{"mining_basic":{"level":2,"xp":100}}
-					if level, ok := skillMap["level"].(float64); ok {
-						skill.Level = int(level)
-					}
-					if xp, ok := skillMap["xp"].(float64); ok {
-						skill.XP = xp
-					}
-				}
-				c.state.Player.Skills[skillID] = skill
-			}
-		}
+	// Sync derived state fields from player data
+	c.state.Username = player.Username
+	c.state.Credits = player.Credits
+	c.state.CurrentSystem = player.CurrentSystem
+	c.state.CurrentPOI = player.CurrentPOI
+	c.state.System.ShipPOI = player.CurrentPOI
 
-		// Parse skill_xp (current XP toward next level for each skill)
-		if skillXP, ok := playerData["skill_xp"].(map[string]any); ok {
-			c.state.SkillXP = make(map[string]float64)
-			for skillID, xp := range skillXP {
-				if xpVal, ok := xp.(float64); ok {
-					c.state.SkillXP[skillID] = xpVal
-				}
-			}
-		}
-
-		// Parse module definitions (map module ID to name/type)
-		if modules, ok := playerData["modules"].(map[string]any); ok {
-			c.state.ModuleDefinitions = make(map[string]ModuleDefinition)
-			for modID, modData := range modules {
-				if modMap, ok := modData.(map[string]any); ok {
-					modDef := ModuleDefinition{}
-					if id, ok := modMap["id"].(string); ok {
-						modDef.ID = id
-					}
-					if name, ok := modMap["name"].(string); ok {
-						modDef.Name = name
-					}
-					if modType, ok := modMap["type"].(string); ok {
-						modDef.Type = modType
-					}
-					if desc, ok := modMap["description"].(string); ok {
-						modDef.Description = desc
-					}
-					c.state.ModuleDefinitions[modID] = modDef
-				}
-			}
-		}
-
-		// Parse stats
-		if stats, ok := playerData["stats"].(map[string]any); ok {
-			c.parsePlayerStatsLocked(stats)
+	// Update docked status: server sends docked_at_base as a string field;
+	// present but empty means undocked, non-empty means docked.
+	// The json.Unmarshal always includes this field, so we check the raw payload.
+	if playerMap, ok := payload["player"].(map[string]any); ok {
+		if _, hasDockedField := playerMap["docked_at_base"]; hasDockedField {
+			c.state.Doc = player.DockedAtBase != ""
 		}
 	}
-}
 
-// parsePlayerStatsLocked extracts player statistics (assumes state.Mu is already locked)
-func (c *Client) parsePlayerStatsLocked(stats map[string]any) {
-	if shipsDestroyed, ok := stats["ships_destroyed"].(float64); ok {
-		c.state.Player.Stats.ShipsDestroyed = int(shipsDestroyed)
+	// Sync skill XP to state level
+	if len(player.SkillXP) > 0 {
+		c.state.SkillXP = player.SkillXP
 	}
-	if timesDestroyed, ok := stats["times_destroyed"].(float64); ok {
-		c.state.Player.Stats.TimesDestroyed = int(timesDestroyed)
-	}
-	if oreMined, ok := stats["ore_mined"].(float64); ok {
-		c.state.Player.Stats.OreMined = oreMined
-	}
-	if creditsEarned, ok := stats["credits_earned"].(float64); ok {
-		c.state.Player.Stats.CreditsEarned = creditsEarned
-	}
-	if creditsSpent, ok := stats["credits_spent"].(float64); ok {
-		c.state.Player.Stats.CreditsSpent = creditsSpent
-	}
-	if tradesCompleted, ok := stats["trades_completed"].(float64); ok {
-		c.state.Player.Stats.TradesCompleted = int(tradesCompleted)
-	}
-	if systemsDiscovered, ok := stats["systems_discovered"].(float64); ok {
-		c.state.Player.Stats.SystemsDiscovered = int(systemsDiscovered)
-	}
-	if itemsCrafted, ok := stats["items_crafted"].(float64); ok {
-		c.state.Player.Stats.ItemsCrafted = int(itemsCrafted)
-	}
-	if missionsCompleted, ok := stats["missions_completed"].(float64); ok {
-		c.state.Player.Stats.MissionsCompleted = int(missionsCompleted)
+
+	// Parse module definitions from player data (map module ID to name/type)
+	if len(ext.Modules) > 0 {
+		c.state.ModuleDefinitions = make(map[string]ModuleDefinition, len(ext.Modules))
+		for modID, modDef := range ext.Modules {
+			c.state.ModuleDefinitions[modID] = ModuleDefinitionFromAPI(modDef)
+		}
 	}
 }
 
@@ -1158,280 +1061,113 @@ func (c *Client) parseSkillsData(payload map[string]any) {
 	defer c.mu.Unlock()
 
 	// player_skills: array of { skill_id, current_xp, next_level_xp, level, ... }
-	if playerSkills, ok := payload["player_skills"].([]any); ok {
+	var playerSkills []serverapi.PlayerSkill
+	if unmarshalPayloadKey(payload, "player_skills", &playerSkills) {
 		if c.state.SkillNextLevelXP == nil {
 			c.state.SkillNextLevelXP = make(map[string]float64)
 		}
-		for _, item := range playerSkills {
-			entry, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			skillID, _ := entry["skill_id"].(string)
-			if skillID == "" {
-				continue
-			}
-			if nextXP, ok := entry["next_level_xp"].(float64); ok {
-				c.state.SkillNextLevelXP[skillID] = nextXP
+		for _, ps := range playerSkills {
+			if ps.SkillID != "" {
+				c.state.SkillNextLevelXP[ps.SkillID] = ps.NextLevelXP
 			}
 		}
 	}
+
 	// skills: map skill_id -> { xp_per_level: [...], max_level, name, id }
-	if skillsMap, ok := payload["skills"].(map[string]any); ok {
+	var skillDefs map[string]serverapi.SkillDefinition
+	if unmarshalPayloadKey(payload, "skills", &skillDefs) {
 		if c.state.SkillDefinitions == nil {
 			c.state.SkillDefinitions = make(map[string]SkillDefinition)
 		}
-		for skillID, defAny := range skillsMap {
-			defMap, ok := defAny.(map[string]any)
-			if !ok {
-				continue
+		for skillID, extDef := range skillDefs {
+			// Ensure ID is set (may not be in the JSON key)
+			if extDef.ID == "" {
+				extDef.ID = skillID
 			}
-			def := SkillDefinition{ID: skillID}
-			if name, ok := defMap["name"].(string); ok {
-				def.Name = name
-			}
-			if maxLevel, ok := defMap["max_level"].(float64); ok {
-				def.MaxLevel = int(maxLevel)
-			}
-			if xpArr, ok := defMap["xp_per_level"].([]any); ok {
-				def.XpPerLevel = make([]float64, 0, len(xpArr))
-				for _, v := range xpArr {
-					if f, ok := v.(float64); ok {
-						def.XpPerLevel = append(def.XpPerLevel, f)
-					}
-				}
-			}
-			c.state.SkillDefinitions[skillID] = def
+			c.state.SkillDefinitions[skillID] = SkillDefinitionFromAPI(extDef)
 		}
 	}
 }
 
-// parseShipData extracts ship information from payload
+// parseShipData extracts ship information from payload using serverapi types.
 func (c *Client) parseShipData(payload map[string]any) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	var ext serverapi.Ship
+	if unmarshalPayloadKey(payload, "ship", &ext) {
+		ship := ShipFromAPI(ext)
 
-	if shipData, ok := payload["ship"].(map[string]any); ok {
-		// Parse basic fields
-		if id, ok := shipData["id"].(string); ok {
-			c.state.Ship.ID = id
-		}
-		if ownerID, ok := shipData["owner_id"].(string); ok {
-			c.state.Ship.OwnerID = ownerID
-		}
-		if classID, ok := shipData["class_id"].(string); ok {
-			c.state.Ship.ClassID = classID
-		}
-		if name, ok := shipData["name"].(string); ok {
-			c.state.Ship.Name = name
-		}
-
-		// Parse hull
-		if hull, ok := shipData["hull"].(float64); ok {
-			c.state.Ship.Hull = hull
-			c.state.Hull = hull
-		}
-		if maxHull, ok := shipData["max_hull"].(float64); ok {
-			c.state.Ship.MaxHull = maxHull
-			c.state.MaxHull = maxHull
-		}
-
-		// Parse shield
-		if shield, ok := shipData["shield"].(float64); ok {
-			c.state.Ship.Shield = shield
-		}
-		if maxShield, ok := shipData["max_shield"].(float64); ok {
-			c.state.Ship.MaxShield = maxShield
-		}
-		if shieldRecharge, ok := shipData["shield_recharge"].(float64); ok {
-			c.state.Ship.ShieldRecharge = shieldRecharge
-		}
-
-		// Parse other stats
-		if armor, ok := shipData["armor"].(float64); ok {
-			c.state.Ship.Armor = armor
-		}
-		if speed, ok := shipData["speed"].(float64); ok {
-			c.state.Ship.Speed = speed
-		}
-
-		// Parse fuel
-		if fuel, ok := shipData["fuel"].(float64); ok {
-			c.state.Ship.Fuel = fuel
-			c.state.Fuel = fuel
-		}
-		if maxFuel, ok := shipData["max_fuel"].(float64); ok {
-			c.state.Ship.MaxFuel = maxFuel
-			c.state.MaxFuel = maxFuel
-		}
-
-		// Parse cargo
-		if cargoUsed, ok := shipData["cargo_used"].(float64); ok {
-			c.state.Ship.CargoUsed = cargoUsed
-		}
-		if cargoCapacity, ok := shipData["cargo_capacity"].(float64); ok {
-			c.state.Ship.CargoCapacity = cargoCapacity
-			c.state.MaxCargo = int(cargoCapacity)
-		}
-
-		// Parse CPU and power
-		if cpuUsed, ok := shipData["cpu_used"].(float64); ok {
-			c.state.Ship.CPUUsed = cpuUsed
-		}
-		if cpuCapacity, ok := shipData["cpu_capacity"].(float64); ok {
-			c.state.Ship.CPUCapacity = cpuCapacity
-		}
-		if powerUsed, ok := shipData["power_used"].(float64); ok {
-			c.state.Ship.PowerUsed = powerUsed
-		}
-		if powerCapacity, ok := shipData["power_capacity"].(float64); ok {
-			c.state.Ship.PowerCapacity = powerCapacity
-		}
-
-		// Parse slot counts
-		if v, ok := shipData["weapon_slots"].(float64); ok {
-			c.state.Ship.WeaponSlots = int(v)
-		}
-		if v, ok := shipData["defense_slots"].(float64); ok {
-			c.state.Ship.DefenseSlots = int(v)
-		}
-		if v, ok := shipData["utility_slots"].(float64); ok {
-			c.state.Ship.UtilitySlots = int(v)
-		}
-
-		// Parse modules
-		if modules, ok := shipData["modules"].([]any); ok {
-			c.state.Ship.Modules = make([]string, 0, len(modules))
-			for _, m := range modules {
-				if moduleID, ok := m.(string); ok {
-					c.state.Ship.Modules = append(c.state.Ship.Modules, moduleID)
-				}
+		c.mu.Lock()
+		// Build legacy cargo format from structured cargo
+		legacyCargo := make([]map[string]any, len(ship.Cargo))
+		for i, item := range ship.Cargo {
+			legacyCargo[i] = map[string]any{
+				"item_id":  item.ItemID,
+				"quantity": item.Quantity,
 			}
 		}
 
-		// Parse cargo items
-		if cargo, ok := shipData["cargo"].([]any); ok {
-			c.state.Ship.Cargo = make([]CargoItem, 0, len(cargo))
-			c.state.Cargo = c.state.Cargo[:0]
-			for _, item := range cargo {
-				if itemMap, ok := item.(map[string]any); ok {
-					cargoItem := CargoItem{}
-					if itemID, ok := itemMap["item_id"].(string); ok {
-						cargoItem.ItemID = itemID
-					}
-					if quantity, ok := itemMap["quantity"].(float64); ok {
-						cargoItem.Quantity = quantity
-					}
-					c.state.Ship.Cargo = append(c.state.Ship.Cargo, cargoItem)
-					c.state.Cargo = append(c.state.Cargo, itemMap)
-				}
-			}
-		}
+		c.state.Ship = ship
+		c.state.Hull = ship.Hull
+		c.state.MaxHull = ship.MaxHull
+		c.state.Fuel = ship.Fuel
+		c.state.MaxFuel = ship.MaxFuel
+		c.state.MaxCargo = int(ship.CargoCapacity)
+		c.state.Cargo = legacyCargo
+		c.mu.Unlock()
 	}
 
 	// Parse module definitions from payload level (from get_ship response)
-	// These contain full module details: id, name, type, etc.
-	if modules, ok := payload["modules"].([]any); ok {
+	var moduleDefs []serverapi.ModuleDefinition
+	if unmarshalPayloadKey(payload, "modules", &moduleDefs) {
+		c.mu.Lock()
 		if c.state.ModuleDefinitions == nil {
 			c.state.ModuleDefinitions = make(map[string]ModuleDefinition)
 		}
-		for _, m := range modules {
-			if modMap, ok := m.(map[string]any); ok {
-				modDef := ModuleDefinition{}
-				if id, ok := modMap["id"].(string); ok {
-					modDef.ID = id
-				}
-				if name, ok := modMap["name"].(string); ok {
-					modDef.Name = name
-				}
-				if modType, ok := modMap["type"].(string); ok {
-					modDef.Type = modType
-				}
-				if desc, ok := modMap["description"].(string); ok {
-					modDef.Description = desc
-				}
-				if modDef.ID != "" {
-					c.state.ModuleDefinitions[modDef.ID] = modDef
-				}
+		for _, extDef := range moduleDefs {
+			if extDef.ID != "" {
+				c.state.ModuleDefinitions[extDef.ID] = ModuleDefinitionFromAPI(extDef)
 			}
 		}
+		c.mu.Unlock()
 	}
 }
 
-// parseSystemData extracts system information from payload
+// parseSystemData extracts system information from payload using serverapi types.
 func (c *Client) parseSystemData(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	// Check for direct system object
-	if systemData, ok := payload["system"].(map[string]any); ok {
-		c.debugLogger.Printf("Parsing system data from 'system' object")
-		c.parseSystemObjectLocked(systemData)
+	if _, ok := payload["system"]; ok {
+		var ext serverapi.SystemData
+		if unmarshalPayloadKey(payload, "system", &ext) {
+			c.debugLogger.Printf("Parsing system data from 'system' object")
+			c.mergeSystemDataLocked(ext)
+		}
 	} else {
 		// System fields might be at top level of payload (e.g., in logged_in response)
-		// Check if we have system-specific fields to indicate this is system data
 		_, hasID := payload["id"]
 		_, hasName := payload["name"]
 		_, hasPOIs := payload["pois"]
 		if hasID || (hasName && hasPOIs) {
 			c.debugLogger.Printf("Parsing system data from top-level payload (hasID=%v, hasName=%v, hasPOIs=%v)", hasID, hasName, hasPOIs)
-			c.parseSystemObjectLocked(payload)
+			jsonBytes, err := json.Marshal(payload)
+			if err == nil {
+				var ext serverapi.SystemData
+				if json.Unmarshal(jsonBytes, &ext) == nil {
+					c.mergeSystemDataLocked(ext)
+				}
+			}
 		} else {
 			c.debugLogger.Printf("No system data found in payload (hasID=%v, hasName=%v, hasPOIs=%v)", hasID, hasName, hasPOIs)
 		}
 	}
 
-	// Check for POIs array
-	if poisData, ok := payload["pois"].([]any); ok {
-		c.state.System.POIs = c.state.System.POIs[:0]
-		for _, p := range poisData {
-			if poi, ok := p.(map[string]any); ok {
-				poiObj := POI{}
-				if id, ok := poi["id"].(string); ok {
-					poiObj.ID = id
-				}
-				if name, ok := poi["name"].(string); ok {
-					poiObj.Name = name
-				}
-				if poiType, ok := poi["type"].(string); ok {
-					poiObj.Type = poiType
-				}
-				if desc, ok := poi["description"].(string); ok {
-					poiObj.Description = desc
-				}
-				if sysID, ok := poi["system_id"].(string); ok {
-					poiObj.SystemID = sysID
-				}
-				if baseID, ok := poi["base_id"].(string); ok {
-					poiObj.BaseID = baseID
-				}
-				if pos, ok := poi["position"].(map[string]any); ok {
-					if x, ok := pos["x"].(float64); ok {
-						poiObj.Position.X = x
-					}
-					if y, ok := pos["y"].(float64); ok {
-						poiObj.Position.Y = y
-					}
-				}
-				if resources, ok := poi["resources"].([]any); ok {
-					for _, r := range resources {
-						if res, ok := r.(map[string]any); ok {
-							resObj := POIResource{}
-							if resourceID, ok := res["resource_id"].(string); ok {
-								resObj.ResourceID = resourceID
-							}
-							if richness, ok := res["richness"].(float64); ok {
-								resObj.Richness = richness
-							}
-							if remaining, ok := res["remaining"].(float64); ok {
-								resObj.Remaining = remaining
-							}
-							poiObj.Resources = append(poiObj.Resources, resObj)
-						}
-					}
-				}
-				c.state.System.POIs = append(c.state.System.POIs, poiObj)
-			}
+	// Check for top-level POIs array (outside of system object)
+	var pois []serverapi.POI
+	if unmarshalPayloadKey(payload, "pois", &pois) {
+		c.state.System.POIs = make([]POI, len(pois))
+		for i, p := range pois {
+			c.state.System.POIs[i] = POIFromAPI(p)
 		}
 		c.state.LastMapUpdate = time.Now()
 	}
@@ -1489,126 +1225,47 @@ func (c *Client) parseMapData(payload map[string]any) {
 	}
 }
 
-// parseSystemObjectLocked parses a system object (assumes state.Mu is already locked)
-func (c *Client) parseSystemObjectLocked(systemData map[string]any) {
-	if id, ok := systemData["id"].(string); ok {
-		c.state.System.ID = id
-		c.debugLogger.Printf("Set System.ID = '%s' from id field", id)
+// mergeSystemDataLocked merges a serverapi SystemData into internal state (assumes state.Mu is already locked).
+func (c *Client) mergeSystemDataLocked(ext serverapi.SystemData) {
+	sys := SystemDataFromAPI(ext)
+
+	if sys.ID != "" {
+		c.state.System.ID = sys.ID
+		c.debugLogger.Printf("Set System.ID = '%s' from id field", sys.ID)
 	}
-	if name, ok := systemData["name"].(string); ok {
-		c.state.System.Name = name
-		c.state.CurrentSystem = name
+	if sys.Name != "" {
+		c.state.System.Name = sys.Name
+		c.state.CurrentSystem = sys.Name
 		// If ID is empty, use the name as the ID (server v0.93.0+ sends empty id fields)
 		if c.state.System.ID == "" {
-			c.state.System.ID = name
-			c.debugLogger.Printf("Set System.ID = '%s' (fallback from name field)", name)
+			c.state.System.ID = sys.Name
+			c.debugLogger.Printf("Set System.ID = '%s' (fallback from name field)", sys.Name)
 		}
-		c.debugLogger.Printf("Set System.Name = '%s', CurrentSystem = '%s'", name, name)
+		c.debugLogger.Printf("Set System.Name = '%s', CurrentSystem = '%s'", sys.Name, sys.Name)
 	}
-	if desc, ok := systemData["description"].(string); ok {
-		c.state.System.Description = desc
+	if sys.Description != "" {
+		c.state.System.Description = sys.Description
 	}
-	if empire, ok := systemData["empire"].(string); ok {
-		c.state.System.Empire = empire
+	if sys.Empire != "" {
+		c.state.System.Empire = sys.Empire
 	}
-	if policeLevel, ok := systemData["police_level"].(float64); ok {
-		c.state.System.PoliceLevel = int(policeLevel)
+	c.state.System.PoliceLevel = sys.PoliceLevel
+	c.state.System.SecurityStatus = sys.SecurityStatus
+	c.state.System.IsStronghold = sys.IsStronghold
+	c.state.System.Discovered = sys.Discovered
+	if sys.DiscoveredBy != "" {
+		c.state.System.DiscoveredBy = sys.DiscoveredBy
 	}
-	if discovered, ok := systemData["discovered"].(bool); ok {
-		c.state.System.Discovered = discovered
+	c.state.System.Position = sys.Position
+
+	if len(sys.Connections) > 0 {
+		c.state.System.Connections = sys.Connections
 	}
-	if discoveredBy, ok := systemData["discovered_by"].(string); ok {
-		c.state.System.DiscoveredBy = discoveredBy
-	}
-	if position, ok := systemData["position"].(map[string]any); ok {
-		if x, ok := position["x"].(float64); ok {
-			c.state.System.Position.X = x
-		}
-		if y, ok := position["y"].(float64); ok {
-			c.state.System.Position.Y = y
-		}
-	}
-	if connections, ok := systemData["connections"].([]any); ok {
-		c.state.System.Connections = c.state.System.Connections[:0]
-		for _, conn := range connections {
-			if connMap, ok := conn.(map[string]any); ok {
-				// v0.87.1+ format: ConnectionInfo objects
-				var connInfo ConnectionInfo
-				if systemID, ok := connMap["system_id"].(string); ok {
-					connInfo.SystemID = systemID
-				}
-				if name, ok := connMap["name"].(string); ok {
-					connInfo.Name = name
-				}
-				if distance, ok := connMap["distance"].(float64); ok {
-					connInfo.Distance = int(distance)
-				}
-				c.state.System.Connections = append(c.state.System.Connections, connInfo)
-			} else if connStr, ok := conn.(string); ok {
-				// Legacy format: bare system ID string (pre v0.87.1)
-				connInfo := ConnectionInfo{
-					SystemID: connStr,
-					Name:     connStr,
-					Distance: 0,
-				}
-				c.state.System.Connections = append(c.state.System.Connections, connInfo)
-			}
-		}
-	}
-	// Parse POIs if they're in the system object
-	if poisData, ok := systemData["pois"].([]any); ok {
-		c.state.System.POIs = c.state.System.POIs[:0]
-		for _, p := range poisData {
-			if poi, ok := p.(map[string]any); ok {
-				poiObj := POI{}
-				if id, ok := poi["id"].(string); ok {
-					poiObj.ID = id
-				}
-				if name, ok := poi["name"].(string); ok {
-					poiObj.Name = name
-				}
-				if poiType, ok := poi["type"].(string); ok {
-					poiObj.Type = poiType
-				}
-				if desc, ok := poi["description"].(string); ok {
-					poiObj.Description = desc
-				}
-				if sysID, ok := poi["system_id"].(string); ok {
-					poiObj.SystemID = sysID
-				}
-				if baseID, ok := poi["base_id"].(string); ok {
-					poiObj.BaseID = baseID
-				}
-				if pos, ok := poi["position"].(map[string]any); ok {
-					if x, ok := pos["x"].(float64); ok {
-						poiObj.Position.X = x
-					}
-					if y, ok := pos["y"].(float64); ok {
-						poiObj.Position.Y = y
-					}
-				}
-				if resources, ok := poi["resources"].([]any); ok {
-					for _, r := range resources {
-						if res, ok := r.(map[string]any); ok {
-							resObj := POIResource{}
-							if resourceID, ok := res["resource_id"].(string); ok {
-								resObj.ResourceID = resourceID
-							}
-							if richness, ok := res["richness"].(float64); ok {
-								resObj.Richness = richness
-							}
-							if remaining, ok := res["remaining"].(float64); ok {
-								resObj.Remaining = remaining
-							}
-							poiObj.Resources = append(poiObj.Resources, resObj)
-						}
-					}
-				}
-				c.state.System.POIs = append(c.state.System.POIs, poiObj)
-			}
-		}
+	if len(sys.POIs) > 0 {
+		c.state.System.POIs = sys.POIs
 		c.state.LastMapUpdate = time.Now()
 	}
+	// ShipPOI is an internal-only field, preserved across merges
 }
 
 // parseErrorState extracts state changes from error messages
@@ -1680,7 +1337,7 @@ func (c *Client) parseTravelProgress(payload map[string]any) {
 	}
 }
 
-// parseNearbyPlayers extracts nearby player list from state_update
+// parseNearbyPlayers extracts nearby player list from state_update using serverapi types.
 func (c *Client) parseNearbyPlayers(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -1689,46 +1346,11 @@ func (c *Client) parseNearbyPlayers(payload map[string]any) {
 		c.state.InCombat = inCombat
 	}
 
-	if nearbyData, ok := payload["nearby"].([]any); ok {
-		c.state.Nearby = c.state.Nearby[:0]
-		for _, n := range nearbyData {
-			if nearbyMap, ok := n.(map[string]any); ok {
-				nearby := NearbyPlayer{}
-				if playerID, ok := nearbyMap["player_id"].(string); ok {
-					nearby.PlayerID = playerID
-				}
-				if username, ok := nearbyMap["username"].(string); ok {
-					nearby.Username = username
-				}
-				if shipClass, ok := nearbyMap["ship_class"].(string); ok {
-					nearby.ShipClass = shipClass
-				}
-				if factionID, ok := nearbyMap["faction_id"].(string); ok {
-					nearby.FactionID = factionID
-				}
-				if factionTag, ok := nearbyMap["faction_tag"].(string); ok {
-					nearby.FactionTag = factionTag
-				}
-				if statusMessage, ok := nearbyMap["status_message"].(string); ok {
-					nearby.StatusMessage = statusMessage
-				}
-				if clanTag, ok := nearbyMap["clan_tag"].(string); ok {
-					nearby.ClanTag = clanTag
-				}
-				if primaryColor, ok := nearbyMap["primary_color"].(string); ok {
-					nearby.PrimaryColor = primaryColor
-				}
-				if secondaryColor, ok := nearbyMap["secondary_color"].(string); ok {
-					nearby.SecondaryColor = secondaryColor
-				}
-				if anonymous, ok := nearbyMap["anonymous"].(bool); ok {
-					nearby.Anonymous = anonymous
-				}
-				if inCombat, ok := nearbyMap["in_combat"].(bool); ok {
-					nearby.InCombat = inCombat
-				}
-				c.state.Nearby = append(c.state.Nearby, nearby)
-			}
+	var extNearby []serverapi.NearbyPlayer
+	if unmarshalPayloadKey(payload, "nearby", &extNearby) {
+		c.state.Nearby = make([]NearbyPlayer, len(extNearby))
+		for i, n := range extNearby {
+			c.state.Nearby[i] = NearbyPlayerFromAPI(n)
 		}
 	}
 }
@@ -1959,79 +1581,53 @@ func (c *Client) ClearLastError() {
 	c.lastError = make(map[string]any)
 }
 
-// parseListingsData extracts market listings from a listings response
+// parseListingsData extracts market listings from a listings response using serverapi types.
 func (c *Client) parseListingsData(payload map[string]any) {
-	// Clear previous listings
+	var extListings []serverapi.MarketListing
+	if !unmarshalPayloadKey(payload, "listings", &extListings) {
+		return
+	}
+
 	c.listingsMu.Lock()
-	c.latestListings = c.latestListings[:0]
+	c.latestListings = make([]MarketListing, 0, len(extListings))
+	for _, ext := range extListings {
+		listing := MarketListingFromAPI(ext)
+
+		// Infer item_type from item_id if not provided by server
+		if listing.ItemType == "" && listing.ItemID != "" {
+			listing.ItemType = inferItemType(listing.ItemID)
+		}
+
+		// Default to "sell" type for NPC listings
+		if listing.Type == "" {
+			listing.Type = "sell"
+		}
+
+		c.latestListings = append(c.latestListings, listing)
+	}
 	c.listingsMu.Unlock()
 
-	// Parse listings array
-	if listingsData, ok := payload["listings"].([]any); ok {
-		c.listingsMu.Lock()
-		for _, l := range listingsData {
-			if listingMap, ok := l.(map[string]any); ok {
-				listing := MarketListing{}
+	c.debugLogger.Printf("Parsed %d market listings", len(c.latestListings))
+}
 
-				if itemID, ok := listingMap["item_id"].(string); ok {
-					listing.ItemID = itemID
-				}
-				// Server response has item_type in some cases, otherwise infer from item_id
-				if itemType, ok := listingMap["item_type"].(string); ok {
-					listing.ItemType = itemType
-				} else if itemID, ok := listingMap["item_id"].(string); ok {
-					// Infer type from item_id prefix (ore_, weapon_, mining_, etc)
-					if len(itemID) > 0 {
-						if itemID[:4] == "ore_" {
-							listing.ItemType = "ore"
-						} else if len(itemID) > 7 && itemID[:7] == "weapon_" {
-							listing.ItemType = "weapon"
-						} else if len(itemID) > 7 && itemID[:7] == "mining_" {
-							listing.ItemType = "module"
-						} else if len(itemID) > 7 && itemID[:7] == "shield_" {
-							listing.ItemType = "shield"
-						} else if len(itemID) > 6 && itemID[:6] == "cargo_" {
-							listing.ItemType = "cargo"
-						} else {
-							listing.ItemType = "unknown"
-						}
-					}
-				}
-				if quantity, ok := listingMap["quantity"].(float64); ok {
-					listing.Quantity = quantity
-				}
-				// Server uses price_each instead of price_per_unit
-				if pricePerUnit, ok := listingMap["price_per_unit"].(float64); ok {
-					listing.PricePerUnit = pricePerUnit
-				} else if priceEach, ok := listingMap["price_each"].(float64); ok {
-					listing.PricePerUnit = priceEach
-				}
-				// Server uses total instead of total_price
-				if totalPrice, ok := listingMap["total_price"].(float64); ok {
-					listing.TotalPrice = totalPrice
-				} else if total, ok := listingMap["total"].(float64); ok {
-					listing.TotalPrice = total
-				}
-				// Listings from NPCs are always "sell" type
-				if listingType, ok := listingMap["type"].(string); ok {
-					listing.Type = listingType
-				} else {
-					listing.Type = "sell" // Default to sell for NPC listings
-				}
-				// Server uses seller instead of listed_by
-				if listedBy, ok := listingMap["listed_by"].(string); ok {
-					listing.ListedBy = listedBy
-				} else if seller, ok := listingMap["seller"].(string); ok {
-					listing.ListedBy = seller
-				}
-
-				c.latestListings = append(c.latestListings, listing)
-			}
-		}
-		c.listingsMu.Unlock()
-
-		c.debugLogger.Printf("Parsed %d market listings", len(c.latestListings))
+// inferItemType infers the item type from an item ID prefix.
+func inferItemType(itemID string) string {
+	prefixTypes := []struct {
+		prefix   string
+		itemType string
+	}{
+		{"ore_", "ore"},
+		{"weapon_", "weapon"},
+		{"mining_", "module"},
+		{"shield_", "shield"},
+		{"cargo_", "cargo"},
 	}
+	for _, pt := range prefixTypes {
+		if len(itemID) >= len(pt.prefix) && itemID[:len(pt.prefix)] == pt.prefix {
+			return pt.itemType
+		}
+	}
+	return "unknown"
 }
 
 // parseShipsData extracts ship listings from a get_ships response
