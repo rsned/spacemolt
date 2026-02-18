@@ -897,6 +897,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
 		c.parseSystemData(resp.Payload)
+		c.parsePOIData(resp.Payload)
 		c.parseTravelAction(resp.Payload)
 		// get_map returns type "ok" with systems array in payload
 		if _, hasSystems := resp.Payload["systems"]; hasSystems {
@@ -1180,6 +1181,30 @@ func (c *Client) parseSystemData(payload map[string]any) {
 		}
 		c.state.LastMapUpdate = time.Now()
 	}
+}
+
+// parsePOIData extracts a single POI from get_poi responses and updates the
+// matching entry in state.System.POIs so that detailed fields (resources, etc.)
+// are available to callers that read the state after the response.
+func (c *Client) parsePOIData(payload map[string]any) {
+	var ext serverapi.POI
+	if !unmarshalPayloadKey(payload, "poi", &ext) || ext.ID == "" {
+		return
+	}
+
+	poi := POIFromAPI(ext)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for i, existing := range c.state.System.POIs {
+		if existing.ID == poi.ID {
+			c.state.System.POIs[i] = poi
+			return
+		}
+	}
+	// POI not in the system list yet — append it
+	c.state.System.POIs = append(c.state.System.POIs, poi)
 }
 
 // parseMapData extracts map information from get_map response

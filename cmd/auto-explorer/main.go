@@ -474,7 +474,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			time.Sleep(20 * time.Second)
 		}
 
-		// Get POI details
+		// Get POI details — this updates the POI in state with full data (resources, etc.)
 		logger.Printf("🔍 Getting POI details at %s...", poi.Name)
 		if err := client.GetPOI(ctx); err != nil {
 			logger.Printf("Get POI failed: %v", err)
@@ -482,6 +482,16 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 			logger.Printf("✅ POI details retrieved at %s", poi.Name)
 		}
 		time.Sleep(3 * time.Second)
+
+		// Refresh state to pick up the detailed POI data from get_poi response
+		state = client.GetState()
+		// Find the updated POI in the refreshed state
+		for _, updated := range state.System.POIs {
+			if updated.ID == poi.ID {
+				poi = updated
+				break
+			}
+		}
 
 		// Handle station-specific actions
 		if poi.Type == "station" {
