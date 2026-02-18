@@ -164,9 +164,11 @@ SELECT
     p.name AS "POI",
     pr.resource_id AS "Resource",
     CAST(pr.richness AS TEXT) AS "Richness",
-    CAST(pr.remaining AS TEXT) AS "Remaining"
+    CAST(pr.remaining AS TEXT) AS "Remaining",
+    COALESCE(b.empire, 'None') AS "Empire"
 FROM poi_resources pr
 JOIN pois p ON pr.poi_id = p.id
+LEFT JOIN bases b ON p.id = b.poi_id
 WHERE p.system_id = :system_id
 ORDER BY p.name, pr.resource_id;
 
