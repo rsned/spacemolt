@@ -323,6 +323,18 @@ func copySkillDefsMap(m map[string]SkillDefinition) map[string]SkillDefinition {
 	return out
 }
 
+// copyModuleDefsMap returns a shallow copy of m; returns nil if m is nil.
+func copyModuleDefsMap(m map[string]ModuleDefinition) map[string]ModuleDefinition {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]ModuleDefinition, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
 // Clone creates a deep copy of the state for safe concurrent access
 func (s *State) Clone() *State {
 	s.Mu.Lock()
@@ -379,12 +391,17 @@ func (s *State) Clone() *State {
 			DiscoveredBy:   s.System.DiscoveredBy,
 			ShipPOI:        s.System.ShipPOI,
 		},
-		LastMapUpdate:    s.LastMapUpdate,
-		Nearby:           nearbyCopy,
-		InCombat:         s.InCombat,
-		SkillXP:          copyStringFloatMap(s.SkillXP),
-		SkillNextLevelXP: copyStringFloatMap(s.SkillNextLevelXP),
-		SkillDefinitions: copySkillDefsMap(s.SkillDefinitions),
+		ModuleDefinitions: copyModuleDefsMap(s.ModuleDefinitions),
+		LastMapUpdate:     s.LastMapUpdate,
+		Nearby:            nearbyCopy,
+		InCombat:          s.InCombat,
+		PirateName:        s.PirateName,
+		PirateTier:        s.PirateTier,
+		PirateID:          s.PirateID,
+		LastDamage:        s.LastDamage,
+		SkillXP:           copyStringFloatMap(s.SkillXP),
+		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),
+		SkillDefinitions:  copySkillDefsMap(s.SkillDefinitions),
 	}
 
 	// Clone travel progress if present
