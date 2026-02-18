@@ -1,11 +1,199 @@
-import type { GalaxySystem } from '../../types/game';
-import { getEmpireColor } from '../../lib/utils';
+import { useMemo, useState, useRef, type WheelEvent, type MouseEvent } from 'react';
+import { useGalaxyMap, type AgentLocation, type GalaxySystem } from '../../lib/useGalaxyMap';
 
 interface GalaxyMapProps {
-  systems: GalaxySystem[];
+  systems?: GalaxySystem[];
 }
 
-export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems }) => {
+// ---------- Territory blob constants ----------
+// SVG filter-based metaball approach: draw circles at empire system positions,
+// merge them via blur + threshold filter to create organic territory blobs.
+const TERRITORY_CIRCLE_RADIUS = 22; // SVG viewport units
+const TERRITORY_BLUR = 16;
+const TERRITORY_BORDER_WIDTH = 2.5;
+
+const ZOOM_MIN = 0.2;  // 1x zoom (fit to screen)
+const ZOOM_MAX = 1.0;  // 5x zoom
+const ZOOM_STEP = 0.05;
+
+const EMPIRE_COLORS: Record<string, string> = {
+  solarian: '#FFD700',      // Solarian: Golden yellow
+  voidborn: '#4B0082',      // Voidborn: Deep purple
+  crimson: '#DC143C',       // Crimson Fleet: Crimson red
+  nebula: '#00FFFF',        // Nebula Collective: Cyan
+  outerrim: '#20B2AA',      // Outer Rim: Teal
+  neutral: '#6b7280',       // Neutral: Medium grey
+  '': '#6b7280',
+};
+
+// Blood red color for Pirate Strongholds
+const STRONGHOLD_COLOR = '#8B0000';
+
+export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) => {
+  const galaxyData = useGalaxyMap();
+
+  // Zoom state
+  const [zoom, setZoom] = useState(ZOOM_MIN);
+
+  // Pan state
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const panStart = useRef({ x: 0, y: 0 });
+
+  // Use fetched data or fall back to prop data
+  const systems = useMemo(() => {
+    if (galaxyData?.systems) {
+      return galaxyData.systems;
+    }
+    return propSystems || [];
+  }, [galaxyData, propSystems]);
+
+  const agentLocations = useMemo(() => {
+    return galaxyData?.agentLocations || [];
+  }, [galaxyData]);
+
+  // Calculate bounds for auto-scaling
+  const bounds = useMemo(() => {
+    if (systems.length === 0) return null;
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    systems.forEach((sys) => {
+      const x = sys.position.x;
+      const y = sys.position.y;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    });
+
+    return { minX, maxX, minY, maxY };
+  }, [systems]);
+
+  // Create system lookup map
+  const systemMap = useMemo(() => {
+    const map = new Map<string, GalaxySystem>();
+    systems.forEach((sys) => map.set(sys.id, sys));
+    return map;
+  }, [systems]);
+
+  // Create agent location map by system (case-insensitive matching)
+  const agentsBySystem = useMemo(() => {
+    const map = new Map<string, AgentLocation[]>();
+    agentLocations.forEach((agent) => {
+      const agents = map.get(agent.systemId.toLowerCase()) || [];
+      agents.push(agent);
+      map.set(agent.systemId.toLowerCase(), agents);
+    });
+    return map;
+  }, [agentLocations]);
+
+  // Mouse event handlers for drag-to-pan
+  const handleMouseDown = (event: MouseEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    setIsDragging(true);
+    dragStart.current = { x: event.clientX, y: event.clientY };
+    panStart.current = { x: pan.x, y: pan.y };
+  };
+
+  const handleMouseMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+
+    const dx = event.clientX - dragStart.current.x;
+    const dy = event.clientY - dragStart.current.y;
+
+    setPan({
+      x: panStart.current.x + dx,
+      y: panStart.current.y + dy,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Calculate base scale to fit content
+  const baseScale = useMemo(() => {
+    if (!bounds) return 1;
+
+    const padding = 50;
+    const width = 900;
+    const height = 800;
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+
+    return Math.min(
+      (width - padding * 2) / contentWidth,
+      (height - padding * 2) / contentHeight
+    );
+  }, [bounds]);
+
+  // Transform coordinates with zoom and pan applied
+  const transform = (x: number, y: number) => {
+    if (!bounds) return { x, y };
+
+    const width = 900;
+    const height = 800;
+
+    // Apply zoom multiplier (1x to 5x)
+    const zoomMultiplier = 1 + (zoom - ZOOM_MIN) * 5; // Maps 0.2->1.0 to 1x->5x
+    const scale = baseScale * zoomMultiplier;
+
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
+
+    return {
+      x: width / 2 + (x - centerX) * scale + pan.x,
+      y: height / 2 + (y - centerY) * scale + pan.y,
+    };
+  };
+
+  // Handle mouse wheel zoom
+  const handleWheel = (event: WheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+
+    const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    setZoom((prevZoom) => {
+      const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, prevZoom + delta));
+      return newZoom;
+    });
+  };
+
+  // Handle slider change
+  const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(event.target.value);
+    setZoom(value);
+  };
+
+  // Reset zoom to fit
+  const handleResetZoom = () => {
+    setZoom(ZOOM_MIN);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Calculate zoom level display (1x to 5x)
+  const zoomLevel = Math.round((1 + (zoom - ZOOM_MIN) * 4) * 10) / 10;
+
+  // Group systems by empire for territory rendering (memoized on systems data)
+  const empireSystemGroups = useMemo(() => {
+    const groups = new Map<string, GalaxySystem[]>();
+    for (const sys of systems) {
+      if (sys.is_stronghold) continue;
+      const empire = sys.empire.toLowerCase().trim();
+      if (!empire || empire === 'neutral') continue;
+      const group = groups.get(empire) || [];
+      group.push(sys);
+      groups.set(empire, group);
+    }
+    return groups;
+  }, [systems]);
+
   return (
     <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg relative overflow-hidden" style={{ height: '900px' }}>
       <div className="absolute top-4 left-4 z-10 flex gap-4 items-center bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border">
@@ -14,91 +202,291 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems }) => {
         <button className="text-cyan-400 hover:text-cyan-300">⟳</button>
       </div>
 
-      <div className="absolute top-4 right-4 z-10 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border text-xs space-y-1">
-        <div className="font-sci-fi text-cyan-400 mb-2">Empire Legend</div>
-        {[
-          { empire: 'Solarian', color: 'bg-yellow-500' },
-          { empire: 'Voidborn', color: 'bg-purple-500' },
-          { empire: 'Crimson', color: 'bg-red-500' },
-          { empire: 'Nebula', color: 'bg-teal-500' },
-          { empire: 'Outerrim', color: 'bg-green-500' },
-        ].map((e, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${e.color}`} />
-            <span className="text-gray-400">{e.empire}</span>
+      {/* Zoom Control Slider */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border">
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-cyan-400 text-xs font-sci-fi transform -rotate-90 whitespace-nowrap mb-2">
+            ZOOM
+          </span>
+          <div className="h-64 flex items-center">
+            <input
+              type="range"
+              min={ZOOM_MIN}
+              max={ZOOM_MAX}
+              step={ZOOM_STEP}
+              value={zoom}
+              onChange={handleSliderChange}
+              className="h-64 w-2 appearance-none bg-gray-700 rounded-lg outline-none slider-vertical cursor-pointer"
+              style={{
+                WebkitAppearance: 'slider-vertical',
+              }}
+            />
           </div>
-        ))}
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
-          <span className="text-yellow-400">★</span>
-          <span className="text-gray-400">You are here</span>
+          <div className="text-cyan-400 text-xs font-mono">
+            {zoomLevel}x
+          </div>
+          <button
+            onClick={handleResetZoom}
+            className="text-xs text-gray-400 hover:text-cyan-400 transition-colors"
+            title="Reset zoom"
+          >
+            ⟲
+          </button>
         </div>
       </div>
 
-      <svg className="w-full h-full">
+      <div className="absolute top-4 right-4 z-10 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border text-xs space-y-1">
+        <div className="font-sci-fi text-cyan-400 mb-2">Empire Legend</div>
+        {Object.entries(EMPIRE_COLORS)
+          .filter(([empire]) => empire !== '') // Don't show empty string in legend
+          .map(([empire, color]) => (
+          <div key={empire} className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+            <span className="text-gray-400 capitalize">{empire === 'neutral' ? 'Neutral (Unaffiliated)' : empire}</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STRONGHOLD_COLOR }} />
+          <span className="text-red-400">Pirate Stronghold</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-cyan-400">●</span>
+          <span className="text-gray-400">Agent Location</span>
+        </div>
+      </div>
+
+      <svg
+        className="w-full h-full"
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        viewBox="0 0 900 800"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        <defs>
+          {/* Metaball goo filter: blur circles to merge, threshold to create sharp blob,
+              then split into translucent fill + opaque border ring */}
+          <filter
+            id="territory-goo"
+            x="-15%"
+            y="-15%"
+            width="130%"
+            height="130%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feGaussianBlur in="SourceGraphic" stdDeviation={TERRITORY_BLUR} result="blur" />
+            <feColorMatrix
+              in="blur"
+              type="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 30 -12"
+              result="blob"
+            />
+            {/* Translucent fill */}
+            <feComponentTransfer in="blob" result="fill">
+              <feFuncA type="linear" slope={0.25} intercept={0} />
+            </feComponentTransfer>
+            {/* Extract border ring: erode blob, subtract from original */}
+            <feMorphology in="blob" operator="erode" radius={TERRITORY_BORDER_WIDTH} result="inner" />
+            <feComposite in="blob" in2="inner" operator="out" result="borderRing" />
+            <feComponentTransfer in="borderRing" result="border">
+              <feFuncA type="linear" slope={0.7} intercept={0} />
+            </feComponentTransfer>
+            {/* Combine fill + border */}
+            <feMerge>
+              <feMergeNode in="fill" />
+              <feMergeNode in="border" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        {/* Territory blobs — metaball circles merged by SVG filter */}
+        {Array.from(empireSystemGroups.entries()).map(([empire, empireSystems]) => {
+          const color = EMPIRE_COLORS[empire] || EMPIRE_COLORS['neutral'];
+          return (
+            <g key={`territory-${empire}`} filter="url(#territory-goo)">
+              {empireSystems.map((sys) => {
+                const pos = transform(sys.position.x, sys.position.y);
+                return (
+                  <circle
+                    key={`tc-${sys.id}`}
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={TERRITORY_CIRCLE_RADIUS}
+                    fill={color}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
+
+        {/* Empire name labels at territory centroids */}
+        {Array.from(empireSystemGroups.entries()).map(([empire, empireSystems]) => {
+          const color = EMPIRE_COLORS[empire] || EMPIRE_COLORS['neutral'];
+          const cx = empireSystems.reduce((s, sys) => s + sys.position.x, 0) / empireSystems.length;
+          const cy = empireSystems.reduce((s, sys) => s + sys.position.y, 0) / empireSystems.length;
+          const pos = transform(cx, cy);
+          return (
+            <text
+              key={`empire-label-${empire}`}
+              x={pos.x}
+              y={pos.y}
+              fill={color}
+              fontSize="16"
+              fontWeight="bold"
+              textAnchor="middle"
+              dominantBaseline="central"
+              opacity={0.5}
+              className="pointer-events-none font-sci-fi"
+              style={{ textTransform: 'uppercase', letterSpacing: '0.15em' }}
+            >
+              {empire}
+            </text>
+          );
+        })}
+
         {/* Connections */}
-        <line x1="100" y1="150" x2="200" y2="100" stroke="#374151" strokeWidth="1" />
-        <line x1="100" y1="150" x2="150" y2="200" stroke="#374151" strokeWidth="1" />
-        <line x1="200" y1="100" x2="250" y2="180" stroke="#374151" strokeWidth="1" />
+        {systems.map((system) => {
+          const from = transform(system.position.x, system.position.y);
+          return system.connections.map((connId) => {
+            const toSystem = systemMap.get(connId);
+            if (!toSystem) return null;
+            const to = transform(toSystem.position.x, toSystem.position.y);
+
+            // Only draw each connection once (from lower ID to higher ID)
+            if (system.id > connId) return null;
+
+            return (
+              <line
+                key={`${system.id}-${connId}`}
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke="#6B7280"
+                strokeWidth="1"
+                opacity="0.6"
+              />
+            );
+          });
+        })}
 
         {/* Systems */}
-        {systems.map((system) => (
-          <g key={system.id}>
-            {system.online > 0 && (
+        {systems.map((system) => {
+          const pos = transform(system.position.x, system.position.y);
+          const agentsHere = agentsBySystem.get(system.id.toLowerCase()) || [];
+          const hasAgents = agentsHere.length > 0;
+          const isStronghold = system.is_stronghold;
+
+          // Strongholds override empire colors with blood red
+          let color;
+          if (isStronghold) {
+            color = STRONGHOLD_COLOR;
+          } else {
+            const empire = system.empire.toLowerCase().trim() || 'neutral';
+            color = EMPIRE_COLORS[empire] || EMPIRE_COLORS['neutral'];
+          }
+
+          return (
+            <g key={system.id}>
+              {/* Outer glow for systems with agents */}
+              {hasAgents && (
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r="20"
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth="2"
+                  opacity="0.5"
+                  className="animate-pulse-slow"
+                />
+              )}
+
+              {/* System marker */}
               <circle
-                cx={system.x}
-                cy={system.y}
-                r="15"
-                fill="none"
-                stroke={getEmpireColor(system.empire)}
-                strokeWidth="2"
-                opacity="0.3"
-                className="animate-pulse-slow"
+                cx={pos.x}
+                cy={pos.y}
+                r="4.5"
+                fill={color}
+                className="cursor-pointer hover:scale-125 transition-transform"
+                style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
               />
-            )}
-            <circle
-              cx={system.x}
-              cy={system.y}
-              r="6"
-              fill={getEmpireColor(system.empire)}
-              className="cursor-pointer hover:scale-125 transition-transform"
-            />
-            <text
-              x={system.x}
-              y={system.y - 12}
-              fill="#9ca3af"
-              fontSize="10"
-              textAnchor="middle"
-              className="pointer-events-none"
-            >
-              {system.name}
-            </text>
-            {system.online > 0 && (
+
+              {/* System name */}
               <text
-                x={system.x}
-                y={system.y + 20}
-                fill="#22c55e"
-                fontSize="9"
+                x={pos.x}
+                y={pos.y - 12}
+                fill="#9ca3af"
+                fontSize="10"
                 textAnchor="middle"
                 className="pointer-events-none"
               >
-                {system.online}
+                {system.name}
               </text>
-            )}
-            {system.id === 'zibal' && (
-              <text x={system.x} y={system.y + 35} fill="#eab308" fontSize="14" textAnchor="middle">
-                ★
-              </text>
-            )}
-          </g>
-        ))}
+
+              {/* Agent indicator */}
+              {hasAgents && (
+                <>
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y + 20}
+                    r="4"
+                    fill="#22d3ee"
+                    className="animate-pulse"
+                  />
+                  <text
+                    x={pos.x}
+                    y={pos.y + 32}
+                    fill="#22d3ee"
+                    fontSize="8"
+                    textAnchor="middle"
+                    className="pointer-events-none"
+                  >
+                    {agentsHere.length}
+                  </text>
+                </>
+              )}
+
+              {/* Tooltip for agents */}
+              {hasAgents && (
+                <title>
+                  {system.name}
+                  {'\n'}
+                  Agents: {agentsHere.map((a) => a.username).join(', ')}
+                </title>
+              )}
+            </g>
+          );
+        })}
       </svg>
 
       <div className="absolute bottom-4 left-4 bg-spacemolt-panel p-3 rounded-lg border border-spacemolt-border text-xs">
-        <span className="text-gray-400">Zoom:</span>
-        <div className="w-32 h-1 bg-gray-700 rounded-full mt-1">
-          <div className="w-1/2 h-full bg-cyan-500 rounded-full" />
+        <div className="flex gap-4">
+          <div>
+            <span className="text-gray-400">Zoom: {zoomLevel}x</span>
+            <div className="w-32 h-1 bg-gray-700 rounded-full mt-1">
+              <div
+                className="h-full bg-cyan-500 rounded-full transition-all duration-150"
+                style={{ width: `${((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100}%` }}
+              />
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-400">Pan:</span>
+            <div className="text-cyan-400 font-mono mt-1">
+              X: {Math.round(pan.x)} Y: {Math.round(pan.y)}
+            </div>
+          </div>
         </div>
-        <div className="mt-2 text-gray-400">Systems: 487 | Online: 23</div>
+        <div className="mt-2 text-gray-400">
+          Systems: {systems.length} | Agents: {agentLocations.length}
+        </div>
+        <div className="mt-1 text-gray-500">
+          Drag to pan • Scroll or use slider to zoom • Click ⟲ to reset
+        </div>
       </div>
     </div>
   );
