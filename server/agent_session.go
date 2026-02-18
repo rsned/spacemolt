@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 
@@ -93,6 +94,9 @@ func (s *AgentSession) IsConnected() bool {
 
 // SendCommand sends a command to the game server on behalf of a browser client.
 func (s *AgentSession) SendCommand(ctx context.Context, msg protocol.Message) error {
+	if !s.IsConnected() {
+		return fmt.Errorf("agent %s is not connected to the game server", s.username)
+	}
 	return s.gameClient.Send(ctx, msg)
 }
 

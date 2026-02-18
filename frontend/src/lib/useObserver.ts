@@ -393,6 +393,10 @@ export function useObserver(wsUrl: string) {
     };
   }, []);
 
+  const clearError = useCallback(() => {
+    setState(s => ({ ...s, error: null }));
+  }, []);
+
   const sendCommand = useCallback((command: string, payload: Record<string, unknown>) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -415,6 +419,7 @@ export function useObserver(wsUrl: string) {
     removeAgent,
     listAgents,
     sendCommand,
+    clearError,
   };
 }
 

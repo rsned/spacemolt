@@ -77,6 +77,19 @@ function App() {
         </div>
       </div>
 
+      {/* Global error banner */}
+      {observer.error && (
+        <div className="mx-4 mt-2 px-4 py-2 bg-red-900/70 border border-red-600 rounded text-red-300 text-sm font-mono flex items-center justify-between">
+          <span>{observer.error}</span>
+          <button
+            onClick={() => observer.clearError()}
+            className="ml-4 text-red-400 hover:text-red-200 text-xs"
+          >
+            dismiss
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       <div className="p-4">
         {activeView === 'hud' && (
