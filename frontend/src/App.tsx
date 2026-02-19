@@ -243,7 +243,7 @@ function App() {
         {activeView === 'system' && (
           <SystemMap
             pois={systemMapData?.pois ?? mockSystemPOIs}
-            player={player || mockPlayer}
+            player={player}
             jumpGates={systemMapData?.jumpGates ?? mockJumpGates}
             policeLevel={systemMapData?.policeLevel ?? 0}
             onTravelToPOI={isLive ? (poiId, poiType) => {

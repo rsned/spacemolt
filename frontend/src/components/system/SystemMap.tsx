@@ -9,14 +9,26 @@ const DRAG_THRESHOLD = 5;
 
 interface SystemMapProps {
   pois: POI[];
-  player: Player;
+  player: Player | null;
   jumpGates?: JumpGate[];
   policeLevel?: number;
-  onTravelToPOI?: (poiId: string) => void;
+  onTravelToPOI?: (poiId: string, poiType: string) => void;
   onJumpToSystem?: (systemId: string) => void;
 }
 
 export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [], policeLevel = 0, onTravelToPOI, onJumpToSystem }) => {
+  // Show empty state if no player connected
+  if (!player) {
+    return (
+      <div className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-8 h-full flex flex-col items-center justify-center">
+        <svg className="w-20 h-20 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h3 className="text-gray-400 text-xl mb-2">No System Data</h3>
+        <p className="text-gray-500 text-sm text-center">Connect to an agent to view the system map</p>
+      </div>
+    );
+  }
   const isPoliced = policeLevel > 0;
   const isTraveling = player.traveling ?? false;
   const svgRef = useRef<SVGSVGElement>(null);
@@ -264,7 +276,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       setTravelOriginPOI(player.location.poi);
       setTravelTargetId(nearest.poi.id);
       setClientTravelProgress(0);
-      onTravelToPOI(nearest.poi.id);
+      onTravelToPOI(nearest.poi.id, nearest.poi.type);
       setActionMessage(`Traveling to ${nearest.poi.name}...`);
     } else if (nearest?.type === 'gate' && onJumpToSystem) {
       setTravelOriginPOI(player.location.poi);
