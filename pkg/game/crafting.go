@@ -111,7 +111,10 @@ func (c *Client) QueryCraftableRecipes(ctx context.Context, config *CraftingConf
 // callCraftingServer invokes the crafting MCP server via stdio
 func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig, components []Component, skills map[string]int) (*CraftQueryResult, error) {
 	// Determine server path
-	serverPath := config.CraftingServerPath
+	serverPath := ""
+	if config != nil {
+		serverPath = config.CraftingServerPath
+	}
 	if serverPath == "" {
 		serverPath = "crafting-server"
 	}

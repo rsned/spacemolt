@@ -42,15 +42,19 @@ func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.C
 		return nil
 	}
 
-	// Try to craft items from cargo
-	logger.Printf("🔨 Querying craftable recipes from cargo...")
-	crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
-	if err != nil {
-		logger.Printf("⚠️  Crafting query failed: %v, selling raw cargo", err)
-	} else if crafted > 0 {
-		logger.Printf("✅ Successfully crafted %d items!", crafted)
+	// Try to craft items from cargo (if crafting config is available)
+	if client.CraftingConfig != nil {
+		logger.Printf("🔨 Querying craftable recipes from cargo...")
+		crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
+		if err != nil {
+			logger.Printf("⚠️  Crafting query failed: %v, selling raw cargo", err)
+		} else if crafted > 0 {
+			logger.Printf("✅ Successfully crafted %d items!", crafted)
+		} else {
+			logger.Printf("ℹ️  No craftable recipes found with current cargo/skills")
+		}
 	} else {
-		logger.Printf("ℹ️  No craftable recipes found with current cargo/skills")
+		logger.Printf("ℹ️  Crafting not configured, skipping to sell")
 	}
 
 	// Sell everything (crafted items + remaining raw materials)
@@ -72,15 +76,19 @@ func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx contex
 		return nil
 	}
 
-	// Try to craft items from cargo
-	logger.Printf("🔨 Querying craftable recipes from cargo...")
-	crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
-	if err != nil {
-		logger.Printf("⚠️  Crafting query failed: %v, depositing raw cargo", err)
-	} else if crafted > 0 {
-		logger.Printf("✅ Successfully crafted %d items!", crafted)
+	// Try to craft items from cargo (if crafting config is available)
+	if client.CraftingConfig != nil {
+		logger.Printf("🔨 Querying craftable recipes from cargo...")
+		crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
+		if err != nil {
+			logger.Printf("⚠️  Crafting query failed: %v, depositing raw cargo", err)
+		} else if crafted > 0 {
+			logger.Printf("✅ Successfully crafted %d items!", crafted)
+		} else {
+			logger.Printf("ℹ️  No craftable recipes found with current cargo/skills")
+		}
 	} else {
-		logger.Printf("ℹ️  No craftable recipes found with current cargo/skills")
+		logger.Printf("ℹ️  Crafting not configured, skipping to deposit")
 	}
 
 	// Deposit all items to station storage
