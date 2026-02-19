@@ -22,6 +22,7 @@ export const mockPlayer: Player = {
   },
   policeLevel: "lawless",
   tick: 67996,
+  skills: {},
 };
 
 export const mockSkills: Skill[] = [

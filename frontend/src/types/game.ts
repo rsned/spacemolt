@@ -26,6 +26,54 @@ export interface Player {
   travelType?: 'travel' | 'jump'; // travel within system or jump between systems
   travelArrivalTick?: number;     // server tick when travel completes
   travelStartTick?: number;       // server tick when travel started
+  skills: Record<string, { level: number; xp: number }>;
+}
+
+export interface ShipClass {
+  id: string;
+  name: string;
+  class: string;
+  description: string;
+  price: number;
+  required_skills: Record<string, number>;
+  base_hull: number;
+  base_shield: number;
+  base_armor: number;
+  base_fuel: number;
+  base_speed: number;
+  cargo_capacity: number;
+  cpu_capacity: number;
+  power_capacity: number;
+  defense_slots: number;
+  utility_slots: number;
+  weapon_slots: number;
+  default_modules: string[];
+}
+
+export interface OwnedShip {
+  id: string;
+  class_id: string;
+  name: string;
+  hull: number;
+  max_hull: number;
+  shield: number;
+  max_shield: number;
+  fuel: number;
+  max_fuel: number;
+  armor: number;
+  speed: number;
+  cargo_capacity: number;
+  cargo_used: number;
+  cpu_capacity: number;
+  cpu_used: number;
+  power_capacity: number;
+  power_used: number;
+  defense_slots: number;
+  utility_slots: number;
+  weapon_slots: number;
+  modules: string[];
+  cargo: { item_id: string; quantity: number }[];
+  docked_at_base: string;
 }
 
 export type Empire = 'solarian' | 'voidborn' | 'crimson' | 'nebula' | 'outerrim';

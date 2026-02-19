@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Player, Skill } from '../types/game';
+import type { Player, Skill, OwnedShip, ShipClass } from '../types/game';
 import { useSkillDefinitions, getNextLevelXP } from './useSkillDefinitions';
 
 export interface AgentInfo {
@@ -258,6 +258,7 @@ function mapToPlayer(gs: GameState): Player {
     travelType: gs.TravelType,
     travelArrivalTick: gs.TravelArrivalTick ?? 0,
     travelStartTick: gs.TravelStartTick ?? 0,
+    skills: gs.Player?.skills ?? {},
   };
 }
 
@@ -317,6 +318,9 @@ export interface ObserverState {
   subscribedAgent: string | null;
   error: string | null;
   combatAlert: CombatAlert | null;
+  myShips: OwnedShip[];
+  catalogShips: ShipClass[];
+  activeShipId: string | null;
 }
 
 export function useObserver(wsUrl: string) {
@@ -332,6 +336,9 @@ export function useObserver(wsUrl: string) {
     subscribedAgent: null,
     error: null,
     combatAlert: null,
+    myShips: [],
+    catalogShips: [],
+    activeShipId: null,
   });
 
   const connect = useCallback(() => {
@@ -379,6 +386,9 @@ export function useObserver(wsUrl: string) {
       subscribedAgent: null,
       error: null,
       combatAlert: null,
+      myShips: [],
+      catalogShips: [],
+      activeShipId: null,
     });
   }, []);
 
@@ -387,7 +397,7 @@ export function useObserver(wsUrl: string) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
     gameStateRef.current = {};
-    setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [] }));
+    setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [], myShips: [], catalogShips: [], activeShipId: null }));
     ws.send(JSON.stringify({ type: 'subscribe', agent: agentName }));
   }, []);
 
@@ -478,6 +488,32 @@ export function useObserver(wsUrl: string) {
                 timestamp: Date.now(),
               },
             }));
+          }
+
+          // Handle shipyard command responses.
+          // The server returns type: 'ok' with a ships array in the payload.
+          // Distinguish by payload shape:
+          //   list_ships → has 'active_ship_id' field
+          //   get_ships  → ships have 'base_hull', 'price' (catalog entries)
+          if (Array.isArray(respPayload.ships)) {
+            if ('active_ship_id' in respPayload) {
+              // list_ships response — owned ships
+              const ships = respPayload.ships as unknown as OwnedShip[];
+              const activeId = (respPayload.active_ship_id as string) || (ships.length > 0 ? ships[0].id : null);
+              setState(s => ({ ...s, myShips: ships, activeShipId: activeId }));
+            } else {
+              // get_ships response — catalog
+              setState(s => ({ ...s, catalogShips: respPayload.ships as unknown as ShipClass[] }));
+            }
+          }
+          // After buy/sell/switch, re-fetch owned ships
+          const cmd = respPayload.command as string | undefined;
+          const resultObj = respPayload.result as Record<string, unknown> | undefined;
+          if (cmd && (cmd === 'buy_ship' || cmd === 'sell_ship' || cmd === 'switch_ship') && resultObj) {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN && state.subscribedAgent) {
+              ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'list_ships', payload: {} }));
+            }
           }
 
           const partial = extractGameState({ type: respType, payload: respPayload });

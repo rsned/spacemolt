@@ -286,9 +286,13 @@ function App() {
         )}
 
         {activeView === 'shipyard' && (
-          <div className="max-w-3xl">
-            <ShipyardPanel player={player || mockPlayer} />
-          </div>
+          <ShipyardPanel
+            player={player || mockPlayer}
+            myShips={observer.myShips}
+            catalogShips={observer.catalogShips}
+            activeShipId={observer.activeShipId}
+            onCommand={isLive ? observer.sendCommand : () => {}}
+          />
         )}
 
         {activeView === 'missions' && (
