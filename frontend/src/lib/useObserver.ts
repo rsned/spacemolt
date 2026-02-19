@@ -278,6 +278,17 @@ function mapToSkills(gs: GameState, skillDefinitions: Record<string, any>): Skil
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+export interface CombatAlert {
+  type: 'pirate_warning' | 'combat_start';
+  pirateName: string;
+  pirateTier: string;
+  isBoss: boolean;
+  message: string;
+  delayTicks: number;
+  pirateId: string;
+  timestamp: number;
+}
+
 export interface ObserverState {
   status: ConnectionStatus;
   player: Player | null;
@@ -285,6 +296,7 @@ export interface ObserverState {
   agents: AgentInfo[];
   subscribedAgent: string | null;
   error: string | null;
+  combatAlert: CombatAlert | null;
 }
 
 export function useObserver(wsUrl: string) {
@@ -299,6 +311,7 @@ export function useObserver(wsUrl: string) {
     agents: [],
     subscribedAgent: null,
     error: null,
+    combatAlert: null,
   });
 
   const connect = useCallback(() => {
@@ -345,6 +358,7 @@ export function useObserver(wsUrl: string) {
       agents: [],
       subscribedAgent: null,
       error: null,
+      combatAlert: null,
     });
   }, []);
 
@@ -429,6 +443,23 @@ export function useObserver(wsUrl: string) {
         const respPayload = raw.payload as Record<string, unknown> | undefined;
 
         if (respType && respPayload) {
+          // Detect pirate warning / combat events
+          if (respType === 'pirate_warning') {
+            setState(s => ({
+              ...s,
+              combatAlert: {
+                type: 'pirate_warning',
+                pirateName: (respPayload.pirate_name as string) || 'Unknown',
+                pirateTier: (respPayload.pirate_tier as string) || 'unknown',
+                isBoss: (respPayload.is_boss as boolean) || false,
+                message: (respPayload.message as string) || 'Hostile detected!',
+                delayTicks: (respPayload.delay_ticks as number) || 1,
+                pirateId: (respPayload.pirate_id as string) || '',
+                timestamp: Date.now(),
+              },
+            }));
+          }
+
           const partial = extractGameState({ type: respType, payload: respPayload });
           if (partial) {
             gameStateRef.current = deepMerge(gameStateRef.current, partial);
@@ -480,6 +511,10 @@ export function useObserver(wsUrl: string) {
     setState(s => ({ ...s, error: null }));
   }, []);
 
+  const dismissCombatAlert = useCallback(() => {
+    setState(s => ({ ...s, combatAlert: null }));
+  }, []);
+
   const sendCommand = useCallback((command: string, payload: Record<string, unknown>) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -503,6 +538,7 @@ export function useObserver(wsUrl: string) {
     listAgents,
     sendCommand,
     clearError,
+    dismissCombatAlert,
   };
 }
 

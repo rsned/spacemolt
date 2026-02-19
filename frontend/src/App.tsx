@@ -90,6 +90,63 @@ function App() {
         </div>
       )}
 
+      {/* Combat Alert Dialog */}
+      {observer.combatAlert && isLive && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-gray-900 border-2 border-red-600 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl shadow-red-900/50">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">{observer.combatAlert.isBoss ? '💀' : '☠️'}</span>
+              <div>
+                <h2 className="font-sci-fi text-xl text-red-400">HOSTILE DETECTED</h2>
+                <p className="text-red-300 text-sm font-mono">{observer.combatAlert.message}</p>
+              </div>
+            </div>
+            <div className="bg-gray-800 rounded p-3 mb-4 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Hostile:</span>
+                <span className="text-red-300 font-mono">{observer.combatAlert.pirateName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Tier:</span>
+                <span className={`font-mono ${
+                  observer.combatAlert.pirateTier === 'boss' ? 'text-purple-400' :
+                  observer.combatAlert.pirateTier === 'large' ? 'text-orange-400' :
+                  observer.combatAlert.pirateTier === 'medium' ? 'text-yellow-400' :
+                  'text-gray-300'
+                }`}>{observer.combatAlert.pirateTier.toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Attack in:</span>
+                <span className="text-red-400 font-mono animate-pulse">{observer.combatAlert.delayTicks} tick{observer.combatAlert.delayTicks !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  // Flee: jump to first available gate
+                  const gates = systemMapData?.jumpGates ?? [];
+                  if (gates.length > 0) {
+                    observer.sendCommand('jump', { target_system: gates[0].id });
+                  }
+                  observer.dismissCombatAlert();
+                }}
+                className="flex-1 px-4 py-3 bg-yellow-700 hover:bg-yellow-600 text-white rounded font-sci-fi text-lg transition-colors"
+              >
+                FLEE
+              </button>
+              <button
+                onClick={() => {
+                  observer.dismissCombatAlert();
+                }}
+                className="flex-1 px-4 py-3 bg-red-700 hover:bg-red-600 text-white rounded font-sci-fi text-lg transition-colors"
+              >
+                FIGHT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <div className="p-4">
         {activeView === 'hud' && (
