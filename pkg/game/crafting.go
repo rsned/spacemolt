@@ -33,12 +33,13 @@ func getMCPManager(logger *log.Logger) *MCPManager {
 
 // CraftableRecipe represents a recipe that can be crafted
 type CraftableRecipe struct {
-	RecipeID    string   `json:"id"`
-	RecipeName  string   `json:"name"`
-	CanCraft    bool     `json:"-"`
-	Components  []Component `json:"-"`
-	SkillGaps   []string `json:"-"`
-	Profit      float64  `json:"-"`
+	RecipeID          string     `json:"id"`
+	RecipeName        string     `json:"name"`
+	CanCraftQuantity  int        `json:"can_craft_quantity"` // How many can be crafted
+	Components        []Component `json:"components"`        // Required components
+	CanCraft          bool        `json:"-"`
+	SkillGaps         []string    `json:"-"`
+	Profit            float64     `json:"-"`
 }
 
 // Component represents a crafting component
@@ -56,6 +57,10 @@ type MCPCraftQueryResponse struct {
 			Description string `json:"description"`
 			Category    string `json:"category"`
 			CraftTimeSec int   `json:"craft_time_sec"`
+			Components []struct {
+				ComponentID string  `json:"component_id"`
+				Quantity    float64 `json:"quantity"`
+			} `json:"components"`
 		} `json:"recipe"`
 		CanCraftQuantity int `json:"can_craft_quantity"`
 	} `json:"craftable"`
@@ -83,18 +88,23 @@ type CraftQueryResult struct {
 // Craft executes a crafting command for a specific recipe
 // The recipe_id should match the format expected by the game server
 func (c *Client) Craft(ctx context.Context, recipeCommand string) error {
-	// recipeCommand should be something like "craft basic_smelt_iron"
-	// The game server expects this as a message type
-	parts := strings.SplitN(recipeCommand, " ", 2)
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid craft command format: %s (expected 'craft <recipe_id>')", recipeCommand)
+	return c.CraftWithQuantity(ctx, recipeCommand, 1)
+}
+
+// CraftWithQuantity executes a crafting command with a specific quantity (1-10)
+func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
+	if quantity < 1 || quantity > 10 {
+		return fmt.Errorf("invalid quantity: %d (must be 1-10)", quantity)
 	}
 
-	recipeID := parts[1]
+	payload := map[string]any{"recipe_id": recipeID}
+	if quantity > 1 {
+		payload["quantity"] = quantity
+	}
 
 	if err := c.Send(ctx, protocol.Message{
 		Type:      "craft",
-		Payload:   map[string]any{"recipe_id": recipeID},
+		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}); err != nil {
 		return err
@@ -234,9 +244,20 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 	}
 
 	for _, craftable := range mcpResponse.Craftable {
+		// Convert components from MCP format to our format
+		components := make([]Component, 0, len(craftable.Recipe.Components))
+		for _, comp := range craftable.Recipe.Components {
+			components = append(components, Component{
+				ID:       comp.ComponentID,
+				Quantity: comp.Quantity,
+			})
+		}
+
 		craftResult.FullyCraftable = append(craftResult.FullyCraftable, CraftableRecipe{
-			RecipeID:   craftable.Recipe.ID,
-			RecipeName: craftable.Recipe.Name,
+			RecipeID:         craftable.Recipe.ID,
+			RecipeName:       craftable.Recipe.Name,
+			CanCraftQuantity: craftable.CanCraftQuantity,
+			Components:       components,
 		})
 	}
 
@@ -288,23 +309,45 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 	// Craft all fully craftable items
 	crafted := 0
 	for _, recipe := range result.FullyCraftable {
-		logger.Printf("🔨 Crafting %s...", recipe.RecipeName)
+		if recipe.CanCraftQuantity <= 0 {
+			continue
+		}
 
-		// Wait a moment before crafting to ensure previous action is complete
-		time.Sleep(SleepShort)
+		logger.Printf("🔨 Crafting %s (can craft %d)...", recipe.RecipeName, recipe.CanCraftQuantity)
 
-		// Execute craft command
-		craftCmd := fmt.Sprintf("craft %s", recipe.RecipeID)
-		if err := c.Craft(ctx, craftCmd); err != nil {
-			logger.Printf("⚠️  Failed to craft %s: %v", recipe.RecipeName, err)
-			// If action is pending, wait longer before retrying
-			if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
-				time.Sleep(SleepShort)
+		// Calculate optimal batch sizes (max 10 per craft call)
+		quantity := recipe.CanCraftQuantity
+		batches := 0
+		for quantity > 0 {
+			// Determine batch size (max 10)
+			batchSize := quantity
+			if batchSize > 10 {
+				batchSize = 10
 			}
-		} else {
-			crafted++
-			logger.Printf("✅ Crafted %s!", recipe.RecipeName)
-			time.Sleep(SleepMedium) // Wait for crafting to complete
+
+			// Wait a moment before crafting to ensure previous action is complete
+			time.Sleep(SleepShort)
+
+			// Execute craft command with batch size
+			if err := c.CraftWithQuantity(ctx, recipe.RecipeID, batchSize); err != nil {
+				logger.Printf("⚠️  Failed to craft %s (batch %d): %v", recipe.RecipeName, batches+1, err)
+				// If action is pending, wait longer before retrying
+				if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
+					time.Sleep(SleepShort)
+				}
+				break // Stop batching on error
+			} else {
+				batches++
+				crafted += batchSize
+				logger.Printf("✅ Crafted %s (batch %d: %d units)!", recipe.RecipeName, batches, batchSize)
+				time.Sleep(SleepMedium) // Wait for crafting to complete
+			}
+
+			quantity -= batchSize
+		}
+
+		if batches > 0 {
+			logger.Printf("✅ Successfully crafted %d x %s in %d batches", crafted, recipe.RecipeName, batches)
 		}
 	}
 
