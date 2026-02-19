@@ -307,7 +307,7 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 	}
 
 	// Craft all fully craftable items
-	crafted := 0
+	totalCrafted := 0
 	for _, recipe := range result.FullyCraftable {
 		if recipe.CanCraftQuantity <= 0 {
 			continue
@@ -318,6 +318,7 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 		// Calculate optimal batch sizes (max 10 per craft call)
 		quantity := recipe.CanCraftQuantity
 		batches := 0
+		recipeCrafted := 0 // Track this recipe's crafted count
 		for quantity > 0 {
 			// Determine batch size (max 10)
 			batchSize := quantity
@@ -338,7 +339,8 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 				break // Stop batching on error
 			} else {
 				batches++
-				crafted += batchSize
+				recipeCrafted += batchSize
+				totalCrafted += batchSize
 				logger.Printf("✅ Crafted %s (batch %d: %d units)!", recipe.RecipeName, batches, batchSize)
 				time.Sleep(SleepMedium) // Wait for crafting to complete
 			}
@@ -347,7 +349,7 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 		}
 
 		if batches > 0 {
-			logger.Printf("✅ Successfully crafted %d x %s in %d batches", crafted, recipe.RecipeName, batches)
+			logger.Printf("✅ Successfully crafted %d x %s in %d batches", recipeCrafted, recipe.RecipeName, batches)
 		}
 	}
 
@@ -359,5 +361,5 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 		logger.Printf("ℹ️  Found %d skill-blocked recipes (need higher skills)", len(result.SkillBlocked))
 	}
 
-	return crafted, nil
+	return totalCrafted, nil
 }
