@@ -950,21 +950,24 @@ func (c *Client) listen(ctx context.Context) {
 			})
 
 			// DEBUG: Log received response with full details
-			c.debugLogger.Printf("=== Game Client Receive Debug ===")
-			c.debugLogger.Printf("Response Type: '%s'", resp.Type)
-			if len(resp.Payload) > 0 {
-				payloadJSON, _ := json.Marshal(resp.Payload)
-				payloadStr := string(payloadJSON)
+			// Skip logging for noisy poi_arrival and poi_departure messages
+			if resp.Type != "poi_arrival" && resp.Type != "poi_departure" {
+				c.debugLogger.Printf("=== Game Client Receive Debug ===")
+				c.debugLogger.Printf("Response Type: '%s'", resp.Type)
+				if len(resp.Payload) > 0 {
+					payloadJSON, _ := json.Marshal(resp.Payload)
+					payloadStr := string(payloadJSON)
 
-				if len(payloadStr) > 200 {
-					c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
-				} else {
-					c.debugLogger.Printf("Response Payload: %s", payloadStr)
+					if len(payloadStr) > 200 {
+						c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
+					} else {
+						c.debugLogger.Printf("Response Payload: %s", payloadStr)
+					}
 				}
-			}
-			// Check for error message in payload
-			if msg, ok := resp.Payload["message"]; ok {
-				c.debugLogger.Printf("Response Message: '%v'", msg)
+				// Check for error message in payload
+				if msg, ok := resp.Payload["message"]; ok {
+					c.debugLogger.Printf("Response Message: '%v'", msg)
+				}
 			}
 
 			// Update state before notifying waiters, so state is current
