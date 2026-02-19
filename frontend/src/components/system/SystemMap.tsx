@@ -1,6 +1,11 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, type WheelEvent, type MouseEvent } from 'react';
 import type { POI, Player, JumpGate } from '../../types/game';
 import { getPOIIcon, getPOIColor } from '../../lib/utils';
+
+const ZOOM_MIN = 0.2;
+const ZOOM_MAX = 1.0;
+const ZOOM_STEP = 0.05;
+const DRAG_THRESHOLD = 5;
 
 interface SystemMapProps {
   pois: POI[];
@@ -18,6 +23,14 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const [hoveredPOI, setHoveredPOI] = useState<string | null>(null);
   const [hoveredGate, setHoveredGate] = useState<string | null>(null);
+
+  // Zoom and pan state
+  const [zoom, setZoom] = useState(ZOOM_MIN);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const panStart = useRef({ x: 0, y: 0 });
+  const didDrag = useRef(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [travelTargetId, setTravelTargetId] = useState<string | null>(null);
   const [travelOriginPOI, setTravelOriginPOI] = useState<string | null>(null);
@@ -103,9 +116,14 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Calculate scale to fit all POIs with 20% padding
-  const calculateScale = () => {
-    // Find the POI farthest from origin (0, 0)
+  // Reset zoom/pan when system changes (POIs change)
+  useEffect(() => {
+    setZoom(ZOOM_MIN);
+    setPan({ x: 0, y: 0 });
+  }, [pois]);
+
+  // Calculate base scale to fit all POIs with 20% padding
+  const calculateBaseScale = () => {
     let maxDistance = 0;
     pois.forEach((poi) => {
       const distance = Math.sqrt(poi.x * poi.x + poi.y * poi.y);
@@ -114,29 +132,30 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       }
     });
 
-    // If no POIs or all at origin, use default
     if (maxDistance === 0) maxDistance = 1;
 
-    // Use the limiting dimension (min of half-width and half-height)
     const limitingDimension = Math.min(dimensions.width / 2, dimensions.height / 2);
-
-    // Apply 20% padding (use 80% of the limiting dimension)
     const padding = 0.8;
-    const scale = (limitingDimension * padding) / maxDistance;
-
-    return scale;
+    return (limitingDimension * padding) / maxDistance;
   };
 
-  const scale = calculateScale();
+  const baseScale = calculateBaseScale();
+  const zoomMultiplier = 1 + (zoom - ZOOM_MIN) * 5; // 1x at ZOOM_MIN, 5x at ZOOM_MAX
+  const scale = baseScale * zoomMultiplier;
   const centerX = dimensions.width / 2;
   const centerY = dimensions.height / 2;
 
+  // Transform game coordinates to screen coordinates with zoom and pan
+  const transform = (poiX: number, poiY: number) => ({
+    x: poiX * scale + centerX + pan.x,
+    y: -poiY * scale + centerY + pan.y,
+  });
+
   // Precompute screen positions for POIs
-  const poiScreenPositions = pois.map((poi) => ({
-    poi,
-    x: poi.x * scale + centerX,
-    y: -poi.y * scale + centerY,
-  }));
+  const poiScreenPositions = pois.map((poi) => {
+    const pos = transform(poi.x, poi.y);
+    return { poi, x: pos.x, y: pos.y };
+  });
 
   // Precompute screen positions for jump gates
   const maxPOIDistance = pois.length > 0
@@ -145,12 +164,14 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const gateRadius = (maxPOIDistance || 1) * 1.15;
   const gateScreenPositions = jumpGates.map((gate) => {
     const angleRad = (gate.angle - 90) * (Math.PI / 180);
-    return {
-      gate,
-      x: centerX + Math.cos(angleRad) * gateRadius * scale,
-      y: centerY + Math.sin(angleRad) * gateRadius * scale,
-    };
+    const gateX = Math.cos(angleRad) * gateRadius;
+    const gateY = -Math.sin(angleRad) * gateRadius; // negate because transform already flips Y
+    const pos = transform(gateX, gateY);
+    return { gate, x: pos.x, y: pos.y };
   });
+
+  // Zoom display level (1x to 5x)
+  const zoomLevel = Math.round(zoomMultiplier * 10) / 10;
 
   // Find nearest clickable POI or gate within hit radius
   const HIT_RADIUS = 40;
@@ -180,7 +201,33 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
     return best;
   };
 
-  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  // Wheel zoom handler
+  const handleWheel = (e: WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    setZoom((prev) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, prev + delta)));
+  };
+
+  // Drag-to-pan handlers
+  const handleMouseDown = (e: MouseEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+    didDrag.current = false;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    panStart.current = { x: pan.x, y: pan.y };
+  };
+
+  const handleSvgMouseMove = (e: MouseEvent<SVGSVGElement>) => {
+    if (isDragging) {
+      const dx = e.clientX - dragStart.current.x;
+      const dy = e.clientY - dragStart.current.y;
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        didDrag.current = true;
+      }
+      setPan({ x: panStart.current.x + dx, y: panStart.current.y + dy });
+      return;
+    }
+
     if (isTraveling) return;
     const svg = svgRef.current;
     if (!svg) return;
@@ -200,7 +247,12 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
     }
   };
 
-  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleSvgClick = (e: MouseEvent<SVGSVGElement>) => {
+    if (didDrag.current) return;
     if (isTraveling) return;
     const svg = svgRef.current;
     if (!svg) return;
@@ -224,8 +276,18 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   };
 
   const handleSvgMouseLeave = () => {
+    setIsDragging(false);
     setHoveredPOI(null);
     setHoveredGate(null);
+  };
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setZoom(parseFloat(e.target.value));
+  };
+
+  const handleResetZoom = () => {
+    setZoom(ZOOM_MIN);
+    setPan({ x: 0, y: 0 });
   };
 
   return (
@@ -246,40 +308,76 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
         </div>
       )}
 
+      {/* Zoom Control Slider */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-spacemolt-panel/95 backdrop-blur-sm p-3 rounded-lg border border-spacemolt-border shadow-lg">
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-cyan-400 text-xs font-sci-fi transform -rotate-90 whitespace-nowrap mb-2 font-bold">
+            ZOOM
+          </span>
+          <div className="h-48 flex items-center">
+            <input
+              type="range"
+              min={ZOOM_MIN}
+              max={ZOOM_MAX}
+              step={ZOOM_STEP}
+              value={zoom}
+              onChange={handleSliderChange}
+              className="h-48 w-2 appearance-none bg-gray-700 rounded-lg outline-none slider-vertical cursor-pointer"
+              style={{ WebkitAppearance: 'slider-vertical' }}
+            />
+          </div>
+          <div className="text-cyan-400 text-sm font-mono font-bold">
+            {zoomLevel}x
+          </div>
+          <button
+            onClick={handleResetZoom}
+            className="text-xs text-gray-400 hover:text-cyan-400 transition-colors p-1"
+            title="Reset zoom and pan"
+          >
+            &#x27F2;
+          </button>
+        </div>
+      </div>
+
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ maxHeight: '800px', cursor: (hoveredPOI || hoveredGate) ? 'pointer' : 'default' }}
+        style={{
+          maxHeight: '800px',
+          cursor: isDragging ? 'grabbing' : (hoveredPOI || hoveredGate) ? 'pointer' : 'grab',
+        }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
         onMouseMove={handleSvgMouseMove}
+        onMouseUp={handleMouseUp}
         onClick={handleSvgClick}
         onMouseLeave={handleSvgMouseLeave}
       >
         {/* Axis lines */}
         <g opacity="0.8">
           {/* X-axis */}
-          <line x1="0" y1={centerY} x2={dimensions.width} y2={centerY} stroke="#9ca3af" strokeWidth="1" />
+          <line x1="0" y1={centerY + pan.y} x2={dimensions.width} y2={centerY + pan.y} stroke="#9ca3af" strokeWidth="1" />
           {/* Y-axis */}
-          <line x1={centerX} y1="0" x2={centerX} y2={dimensions.height} stroke="#9ca3af" strokeWidth="1" />
+          <line x1={centerX + pan.x} y1="0" x2={centerX + pan.x} y2={dimensions.height} stroke="#9ca3af" strokeWidth="1" />
 
           {/* X-axis tick marks and labels */}
-          {Array.from({ length: Math.ceil(dimensions.width / 2 / scale) }, (_, i) => {
+          {Array.from({ length: Math.ceil(dimensions.width / 2 / scale) + 5 }, (_, i) => {
             const offset = i === 0 ? 0 : i;
-            const x = centerX + (offset * scale);
-            const xNeg = centerX - (offset * scale);
+            const x = centerX + pan.x + (offset * scale);
+            const xNeg = centerX + pan.x - (offset * scale);
+            const axisY = centerY + pan.y;
             return (
               <g key={`x-tick-${i}`}>
-                {/* Positive ticks */}
-                {x < dimensions.width && (
+                {x < dimensions.width && x > 0 && (
                   <>
-                    <line x1={x} y1={centerY - 5} x2={x} y2={centerY + 5} stroke="#9ca3af" strokeWidth="1" />
-                    {offset > 0 && <text x={x} y={centerY + 18} fill="#9ca3af" fontSize="9" textAnchor="middle">{offset}</text>}
+                    <line x1={x} y1={axisY - 5} x2={x} y2={axisY + 5} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={x} y={axisY + 18} fill="#9ca3af" fontSize="9" textAnchor="middle">{offset}</text>}
                   </>
                 )}
-                {/* Negative ticks */}
-                {xNeg > 0 && (
+                {xNeg > 0 && xNeg < dimensions.width && (
                   <>
-                    <line x1={xNeg} y1={centerY - 5} x2={xNeg} y2={centerY + 5} stroke="#9ca3af" strokeWidth="1" />
-                    {offset > 0 && <text x={xNeg} y={centerY + 18} fill="#9ca3af" fontSize="9" textAnchor="middle">-{offset}</text>}
+                    <line x1={xNeg} y1={axisY - 5} x2={xNeg} y2={axisY + 5} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={xNeg} y={axisY + 18} fill="#9ca3af" fontSize="9" textAnchor="middle">-{offset}</text>}
                   </>
                 )}
               </g>
@@ -287,24 +385,23 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           })}
 
           {/* Y-axis tick marks and labels */}
-          {Array.from({ length: Math.ceil(dimensions.height / 2 / scale) }, (_, i) => {
+          {Array.from({ length: Math.ceil(dimensions.height / 2 / scale) + 5 }, (_, i) => {
             const offset = i === 0 ? 0 : i;
-            const y = centerY - (offset * scale);
-            const yNeg = centerY + (offset * scale);
+            const y = centerY + pan.y - (offset * scale);
+            const yNeg = centerY + pan.y + (offset * scale);
+            const axisX = centerX + pan.x;
             return (
               <g key={`y-tick-${i}`}>
-                {/* Positive ticks (up in game coordinates, which is down in screen coordinates flipped) */}
-                {y > 0 && (
+                {y > 0 && y < dimensions.height && (
                   <>
-                    <line x1={centerX - 5} y1={y} x2={centerX + 5} y2={y} stroke="#9ca3af" strokeWidth="1" />
-                    {offset > 0 && <text x={centerX - 10} y={y + 3} fill="#9ca3af" fontSize="9" textAnchor="end">{offset}</text>}
+                    <line x1={axisX - 5} y1={y} x2={axisX + 5} y2={y} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={axisX - 10} y={y + 3} fill="#9ca3af" fontSize="9" textAnchor="end">{offset}</text>}
                   </>
                 )}
-                {/* Negative ticks */}
-                {yNeg < dimensions.height && (
+                {yNeg < dimensions.height && yNeg > 0 && (
                   <>
-                    <line x1={centerX - 5} y1={yNeg} x2={centerX + 5} y2={yNeg} stroke="#9ca3af" strokeWidth="1" />
-                    {offset > 0 && <text x={centerX - 10} y={yNeg + 3} fill="#9ca3af" fontSize="9" textAnchor="end">-{offset}</text>}
+                    <line x1={axisX - 5} y1={yNeg} x2={axisX + 5} y2={yNeg} stroke="#9ca3af" strokeWidth="1" />
+                    {offset > 0 && <text x={axisX - 10} y={yNeg + 3} fill="#9ca3af" fontSize="9" textAnchor="end">-{offset}</text>}
                   </>
                 )}
               </g>
@@ -318,12 +415,13 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           .map((poi) => {
             const radius = Math.sqrt(poi.x * poi.x + poi.y * poi.y);
             const orbitRadius = radius * scale;
+            const origin = transform(0, 0);
 
             return (
               <circle
                 key={`orbit-${poi.id}`}
-                cx={centerX}
-                cy={centerY}
+                cx={origin.x}
+                cy={origin.y}
                 r={orbitRadius}
                 fill="none"
                 stroke="#9ca3af"
@@ -335,9 +433,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           })}
 
         {pois.map((poi) => {
-          // Center on (0,0) and flip Y axis
-          const x = poi.x * scale + centerX;
-          const y = -poi.y * scale + centerY;
+          const { x, y } = transform(poi.x, poi.y);
           const isCurrent = poi.id === player.location.poi || poi.name === player.location.poi;
           const isHovered = hoveredPOI === poi.id;
 
@@ -543,18 +639,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
         })}
 
         {/* Jump Gates */}
-        {jumpGates.map((gate) => {
-          // Convert angle to radians (0° = North/Up, clockwise)
-          const angleRad = (gate.angle - 90) * (Math.PI / 180);
-          // Position jump gates outside the farthest orbit
-          // Use the same scale calculation as the main view
-          const maxPOIDistance = pois.length > 0
-            ? Math.sqrt(Math.max(...pois.map((poi) => poi.x * poi.x + poi.y * poi.y)))
-            : 0;
-          const gateRadius = (maxPOIDistance || 1) * 1.15;
-          const gateX = centerX + Math.cos(angleRad) * gateRadius * scale;
-          const gateY = centerY + Math.sin(angleRad) * gateRadius * scale;
-
+        {gateScreenPositions.map(({ gate, x: gateX, y: gateY }) => {
           const isGateHovered = hoveredGate === gate.id;
 
           return (
@@ -615,18 +700,19 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           const originPOI = pois.find((p) => p.id === originId || p.name === originId);
           if (!originPOI) return null;
 
-          const ox = originPOI.x * scale + centerX;
-          const oy = -originPOI.y * scale + centerY;
+          const originPos = transform(originPOI.x, originPOI.y);
+          const ox = originPos.x;
+          const oy = originPos.y;
 
           // Find target position (POI or jump gate)
           let tx: number | null = null;
           let ty: number | null = null;
           if (isTraveling && travelTargetId) {
-            // Check if target is a POI
             const targetPOI = pois.find((p) => p.id === travelTargetId || p.name === travelTargetId);
             if (targetPOI) {
-              tx = targetPOI.x * scale + centerX;
-              ty = -targetPOI.y * scale + centerY;
+              const targetPos = transform(targetPOI.x, targetPOI.y);
+              tx = targetPos.x;
+              ty = targetPos.y;
             } else {
               // Check if target is a jump gate
               const targetGate = gateScreenPositions.find((gp) => gp.gate.id === travelTargetId);
@@ -694,7 +780,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
         })()}
       </svg>
 
-      <div className="absolute bottom-4 left-4 right-4 flex justify-between text-xs">
+      <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end text-xs">
         <div className="bg-spacemolt-panel p-2 rounded border border-spacemolt-border">
           <span className="text-gray-400">Connected Systems:</span>
           {jumpGates.length > 0 ? jumpGates.map((gate) => (
