@@ -119,10 +119,20 @@ func (c *Client) QueryCraftableRecipes(ctx context.Context, config *CraftingConf
 
 	// Build skills map from state
 	skills := make(map[string]int)
-	for skillID, skillXP := range state.SkillXP {
-		// Convert XP to level (simplified - you may want to use actual level data)
-		level := c.xpToLevel(int(skillXP))
-		skills[skillID] = level
+
+	// First, try to use actual skill levels from Player.Skills if available
+	if len(state.Player.Skills) > 0 {
+		for skillID, playerSkill := range state.Player.Skills {
+			skills[skillID] = playerSkill.Level
+			c.debugLogger.Printf("Skill: %s = level %d (from player skills)", skillID, playerSkill.Level)
+		}
+	} else {
+		// Fallback: use XP to estimate level (simplified)
+		for skillID, skillXP := range state.SkillXP {
+			level := c.xpToLevel(int(skillXP))
+			skills[skillID] = level
+			c.debugLogger.Printf("Skill: %s = level %d (estimated from %d XP)", skillID, level, int(skillXP))
+		}
 	}
 
 	// Call crafting MCP server
@@ -130,6 +140,10 @@ func (c *Client) QueryCraftableRecipes(ctx context.Context, config *CraftingConf
 	if err != nil {
 		return nil, fmt.Errorf("crafting server query failed: %w", err)
 	}
+
+	// Log what we got back
+	c.debugLogger.Printf("Crafting query result: %d fully craftable, %d partial matches, %d skill blocked",
+		len(result.FullyCraftable), len(result.PartialMatches), len(result.SkillBlocked))
 
 	return result, nil
 }
