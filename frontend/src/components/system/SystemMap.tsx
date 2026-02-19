@@ -69,6 +69,97 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const centerX = dimensions.width / 2;
   const centerY = dimensions.height / 2;
 
+  // Precompute screen positions for POIs
+  const poiScreenPositions = pois.map((poi) => ({
+    poi,
+    x: poi.x * scale + centerX,
+    y: -poi.y * scale + centerY,
+  }));
+
+  // Precompute screen positions for jump gates
+  const maxPOIDistance = pois.length > 0
+    ? Math.sqrt(Math.max(...pois.map((p) => p.x * p.x + p.y * p.y)))
+    : 0;
+  const gateRadius = (maxPOIDistance || 1) * 1.15;
+  const gateScreenPositions = jumpGates.map((gate) => {
+    const angleRad = (gate.angle - 90) * (Math.PI / 180);
+    return {
+      gate,
+      x: centerX + Math.cos(angleRad) * gateRadius * scale,
+      y: centerY + Math.sin(angleRad) * gateRadius * scale,
+    };
+  });
+
+  // Find nearest clickable POI or gate within hit radius
+  const HIT_RADIUS = 40;
+  const findNearest = (mx: number, my: number): { type: 'poi'; poi: POI } | { type: 'gate'; gate: JumpGate } | null => {
+    let bestDist = HIT_RADIUS;
+    let best: { type: 'poi'; poi: POI } | { type: 'gate'; gate: JumpGate } | null = null;
+
+    for (const pp of poiScreenPositions) {
+      // Sun is a valid travel target too
+      const isCurrent = pp.poi.id === player.location.poi || pp.poi.name === player.location.poi;
+      if (isCurrent) continue;
+      const dist = Math.sqrt((mx - pp.x) ** 2 + (my - pp.y) ** 2);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { type: 'poi', poi: pp.poi };
+      }
+    }
+
+    for (const gp of gateScreenPositions) {
+      const dist = Math.sqrt((mx - gp.x) ** 2 + (my - gp.y) ** 2);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { type: 'gate', gate: gp.gate };
+      }
+    }
+
+    return best;
+  };
+
+  const handleSvgMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (isTraveling) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const nearest = findNearest(mx, my);
+    if (nearest?.type === 'poi') {
+      setHoveredPOI(nearest.poi.id);
+      setHoveredGate(null);
+    } else if (nearest?.type === 'gate') {
+      setHoveredGate(nearest.gate.id);
+      setHoveredPOI(null);
+    } else {
+      setHoveredPOI(null);
+      setHoveredGate(null);
+    }
+  };
+
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (isTraveling) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const nearest = findNearest(mx, my);
+    if (nearest?.type === 'poi' && onTravelToPOI) {
+      onTravelToPOI(nearest.poi.id);
+      setActionMessage(`Traveling to ${nearest.poi.name}...`);
+    } else if (nearest?.type === 'gate' && onJumpToSystem) {
+      onJumpToSystem(nearest.gate.id);
+      setActionMessage(`Jumping to ${nearest.gate.name}...`);
+    }
+  };
+
+  const handleSvgMouseLeave = () => {
+    setHoveredPOI(null);
+    setHoveredGate(null);
+  };
+
   return (
     <div className="bg-spacemolt-bg border border-spacemolt-border rounded-lg p-4 relative" style={{ height: '900px' }}>
       <div className="flex justify-between items-center mb-4">
@@ -90,7 +181,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       <svg
         ref={svgRef}
         className="w-full h-full"
-        style={{ maxHeight: '800px' }}
+        style={{ maxHeight: '800px', cursor: (hoveredPOI || hoveredGate) ? 'pointer' : 'default' }}
+        onMouseMove={handleSvgMouseMove}
+        onClick={handleSvgClick}
+        onMouseLeave={handleSvgMouseLeave}
       >
         {/* Axis lines */}
         <g opacity="0.8">
@@ -177,17 +271,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           const x = poi.x * scale + centerX;
           const y = -poi.y * scale + centerY;
           const isCurrent = poi.id === player.location.poi || poi.name === player.location.poi;
-          const isClickable = poi.type !== 'sun' && !isCurrent && !isTraveling && !!onTravelToPOI;
           const isHovered = hoveredPOI === poi.id;
 
           return (
-            <g
-              key={poi.id}
-              style={{ cursor: isClickable ? 'pointer' : 'default' }}
-              onClick={() => { if (isClickable) { onTravelToPOI(poi.id); setActionMessage(`Traveling to ${poi.name}...`); } }}
-              onMouseEnter={() => { if (isClickable) setHoveredPOI(poi.id); }}
-              onMouseLeave={() => setHoveredPOI(null)}
-            >
+            <g key={poi.id}>
               {/* Sun glow effect */}
               {poi.type === 'sun' && (
                 <>
@@ -400,17 +487,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           const gateX = centerX + Math.cos(angleRad) * gateRadius * scale;
           const gateY = centerY + Math.sin(angleRad) * gateRadius * scale;
 
-          const isGateClickable = !isTraveling && !!onJumpToSystem;
           const isGateHovered = hoveredGate === gate.id;
 
           return (
-            <g
-              key={gate.id}
-              style={{ cursor: isGateClickable ? 'pointer' : 'default' }}
-              onClick={() => { if (isGateClickable) { onJumpToSystem(gate.id); setActionMessage(`Jumping to ${gate.name}...`); } }}
-              onMouseEnter={() => { if (isGateClickable) setHoveredGate(gate.id); }}
-              onMouseLeave={() => setHoveredGate(null)}
-            >
+            <g key={gate.id}>
               {/* Jump gate icon */}
               <circle
                 cx={gateX}
