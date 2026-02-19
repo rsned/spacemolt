@@ -157,6 +157,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const centerX = dimensions.width / 2;
   const centerY = dimensions.height / 2;
 
+  // Marker scale factor — markers grow proportionally with zoom so they
+  // maintain their visual relationship to the map distances.
+  const ms = zoomMultiplier;
+
   // Transform game coordinates to screen coordinates with zoom and pan
   const transform = (poiX: number, poiY: number) => ({
     x: poiX * scale + centerX + pan.x,
@@ -185,8 +189,14 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   // Zoom display level (1x to 5x)
   const zoomLevel = Math.round(zoomMultiplier * 10) / 10;
 
+  // Minimum distance of any resource belt from the sun.
+  // Planets closer than this get a rocky planet icon instead of a gas giant.
+  const minBeltDist = pois
+    .filter((p) => p.type === 'asteroid_belt' || p.type === 'asteroid' || p.type === 'ice_field')
+    .reduce((min, p) => Math.min(min, Math.sqrt(p.x * p.x + p.y * p.y)), Infinity);
+
   // Find nearest clickable POI or gate within hit radius
-  const HIT_RADIUS = 40;
+  const HIT_RADIUS = 40 * ms;
   const findNearest = (mx: number, my: number): { type: 'poi'; poi: POI } | { type: 'gate'; gate: JumpGate } | null => {
     let bestDist = HIT_RADIUS;
     let best: { type: 'poi'; poi: POI } | { type: 'gate'; gate: JumpGate } | null = null;
@@ -457,7 +467,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="25"
+                    r={17 * ms}
                     fill="none"
                     stroke="#fbbf24"
                     strokeWidth="1"
@@ -467,7 +477,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="30"
+                    r={20 * ms}
                     fill="#fbbf24"
                     opacity="0.5"
                   />
@@ -479,7 +489,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 <circle
                   cx={x}
                   cy={y}
-                  r="35"
+                  r={35 * ms}
                   fill="none"
                   stroke="#22d3ee"
                   strokeWidth="2"
@@ -494,7 +504,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="35"
+                    r={35 * ms}
                     fill="none"
                     stroke="#67e8f9"
                     strokeWidth="1.5"
@@ -503,10 +513,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   />
                   {[...Array(12)].map((_, i) => {
                     const angle = (i / 12) * Math.PI * 2 + (poi.id.charCodeAt(0) * 0.5);
-                    const radius = 15 + ((i * 7 + poi.id.charCodeAt(1)) % 25);
+                    const radius = (15 + ((i * 7 + poi.id.charCodeAt(1)) % 25)) * ms;
                     const chunkX = x + Math.cos(angle) * radius;
                     const chunkY = y + Math.sin(angle) * radius;
-                    const size = 3 + ((i * 3 + poi.id.charCodeAt(0)) % 4);
+                    const size = (3 + ((i * 3 + poi.id.charCodeAt(0)) % 4)) * ms;
                     const opacity = 0.4 + ((i * 5) % 3) * 0.1;
                     return (
                       <polygon
@@ -526,7 +536,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="35"
+                    r={35 * ms}
                     fill="none"
                     stroke="#d97706"
                     strokeWidth="1.5"
@@ -535,10 +545,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   />
                   {[...Array(10)].map((_, i) => {
                     const angle = (i / 10) * Math.PI * 2 + (poi.id.charCodeAt(0) * 0.3);
-                    const radius = 12 + ((i * 11 + poi.id.charCodeAt(1)) % 22);
+                    const radius = (12 + ((i * 11 + poi.id.charCodeAt(1)) % 22)) * ms;
                     const chunkX = x + Math.cos(angle) * radius;
                     const chunkY = y + Math.sin(angle) * radius;
-                    const size = 2 + ((i * 3 + poi.id.charCodeAt(0)) % 4);
+                    const size = (2 + ((i * 3 + poi.id.charCodeAt(0)) % 4)) * ms;
                     const opacity = 0.35 + ((i * 7) % 4) * 0.1;
                     return (
                       <polygon
@@ -558,7 +568,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={x}
                     cy={y}
-                    r="35"
+                    r={35 * ms}
                     fill="none"
                     stroke="#a78bfa"
                     strokeWidth="1.5"
@@ -567,10 +577,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   />
                   {[...Array(10)].map((_, i) => {
                     const angle = (i / 10) * Math.PI * 2 + (poi.id.charCodeAt(0) * 0.4);
-                    const radius = 10 + ((i * 9 + poi.id.charCodeAt(1)) % 22);
+                    const radius = (10 + ((i * 9 + poi.id.charCodeAt(1)) % 22)) * ms;
                     const blobX = x + Math.cos(angle) * radius;
                     const blobY = y + Math.sin(angle) * radius;
-                    const r = 2 + ((i * 3 + poi.id.charCodeAt(0)) % 3);
+                    const r = (2 + ((i * 3 + poi.id.charCodeAt(0)) % 3)) * ms;
                     const opacity = 0.3 + ((i * 5) % 4) * 0.1;
                     return (
                       <circle
@@ -588,7 +598,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
 
               {/* Station: hexagonal outline */}
               {poi.type === 'station' && (() => {
-                const r = 14;
+                const r = 14 * ms;
                 const hex = Array.from({ length: 6 }, (_, i) => {
                   const a = (Math.PI / 3) * i - Math.PI / 6;
                   return `${x + r * Math.cos(a)},${y + r * Math.sin(a)}`;
@@ -606,7 +616,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 <circle
                   cx={x}
                   cy={y}
-                  r="30"
+                  r={30 * ms}
                   fill="none"
                   stroke="#22d3ee"
                   strokeWidth="2"
@@ -615,26 +625,113 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               )}
 
               {/* POI icon */}
-              <text
-                x={x}
-                y={y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                className={getPOIColor(poi.type)}
-                style={{
-                  fontSize: poi.type === 'sun' ? '40px' : poi.type === 'station' ? '21px' : '28px',
-                  filter: isHovered ? 'brightness(1.4)' : undefined,
-                }}
-              >
-                {getPOIIcon(poi.type)}
-              </text>
+              {poi.type === 'planet' && poi.id !== 'sol_earth' && Math.sqrt(poi.x * poi.x + poi.y * poi.y) < minBeltDist ? (
+                // Inner planet — banded sphere with wavy horizontal stripes and glossy highlight
+                (() => {
+                  const r = 14 * ms;
+                  const id = `planet-${poi.id}`;
+                  // Derive stable hue from POI id so each planet is unique
+                  const seed = poi.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+                  const baseHue = 180 + (seed % 60); // range of ocean/teal/blue tones
+                  const light = `hsl(${baseHue}, 50%, 55%)`;
+                  const mid = `hsl(${baseHue}, 55%, 42%)`;
+                  const dark = `hsl(${baseHue + 10}, 60%, 30%)`;
+                  // Wavy band y-offsets (fraction of radius, -1 to 1)
+                  const bands = [-0.7, -0.35, -0.05, 0.25, 0.55, 0.8];
+                  // Seed-based wave variation per band
+                  const wave = (i: number, t: number) => {
+                    const amp = r * (0.08 + ((seed * (i + 1) * 3) % 7) * 0.015);
+                    const freq = 2.5 + ((seed * (i + 2)) % 5) * 0.3;
+                    const phase = ((seed * (i + 1) * 7) % 100) * 0.1;
+                    return Math.sin(t * freq + phase) * amp;
+                  };
+                  return (
+                    <g style={{ filter: isHovered ? 'brightness(1.3)' : undefined }}>
+                      <defs>
+                        <clipPath id={`${id}-clip`}>
+                          <circle cx={x} cy={y} r={r} />
+                        </clipPath>
+                        <radialGradient id={`${id}-gloss`} cx="35%" cy="30%" r="65%">
+                          <stop offset="0%" stopColor="white" stopOpacity="0.35" />
+                          <stop offset="60%" stopColor="white" stopOpacity="0" />
+                        </radialGradient>
+                        <radialGradient id={`${id}-shadow`} cx="65%" cy="70%" r="60%">
+                          <stop offset="0%" stopColor="black" stopOpacity="0" />
+                          <stop offset="100%" stopColor="black" stopOpacity="0.3" />
+                        </radialGradient>
+                      </defs>
+                      {/* Base sphere */}
+                      <circle cx={x} cy={y} r={r} fill={mid} />
+                      {/* Wavy bands clipped to sphere */}
+                      <g clipPath={`url(#${id}-clip)`}>
+                        {bands.map((bandY, i) => {
+                          const cy0 = y + bandY * r;
+                          const bandH = r * (0.12 + ((seed * (i + 3)) % 5) * 0.02);
+                          // Build a wavy path across the planet width
+                          const steps = 12;
+                          const left = x - r * 1.1;
+                          const right = x + r * 1.1;
+                          const dx = (right - left) / steps;
+                          let d = `M ${left} ${cy0 + wave(i, 0)}`;
+                          for (let s = 1; s <= steps; s++) {
+                            const px = left + dx * s;
+                            const py = cy0 + wave(i, s / steps * Math.PI * 2);
+                            const cpx = px - dx / 2;
+                            const cpy = cy0 + wave(i, (s - 0.5) / steps * Math.PI * 2);
+                            d += ` Q ${cpx} ${cpy} ${px} ${py}`;
+                          }
+                          // Close the band by going back along bottom edge
+                          const bottomY = cy0 + bandH;
+                          d += ` L ${right} ${bottomY + wave(i, Math.PI * 2)}`;
+                          for (let s = steps - 1; s >= 0; s--) {
+                            const px = left + dx * s;
+                            const py = bottomY + wave(i, s / steps * Math.PI * 2) * 0.7;
+                            const cpx = px + dx / 2;
+                            const cpy = bottomY + wave(i, (s + 0.5) / steps * Math.PI * 2) * 0.7;
+                            d += ` Q ${cpx} ${cpy} ${px} ${py}`;
+                          }
+                          d += ' Z';
+                          return (
+                            <path
+                              key={i}
+                              d={d}
+                              fill={i % 2 === 0 ? dark : light}
+                              opacity={0.7 + ((i * 3 + seed) % 3) * 0.1}
+                            />
+                          );
+                        })}
+                      </g>
+                      {/* Glossy highlight (upper-left) */}
+                      <circle cx={x} cy={y} r={r} fill={`url(#${id}-gloss)`} />
+                      {/* Shadow (lower-right) */}
+                      <circle cx={x} cy={y} r={r} fill={`url(#${id}-shadow)`} />
+                      {/* Rim */}
+                      <circle cx={x} cy={y} r={r} fill="none" stroke={`hsl(${baseHue}, 45%, 25%)`} strokeWidth={0.8 * ms} />
+                    </g>
+                  );
+                })()
+              ) : (
+                <text
+                  x={x}
+                  y={y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  className={getPOIColor(poi.type)}
+                  style={{
+                    fontSize: `${(poi.type === 'sun' ? 27 : poi.type === 'station' ? 21 : 28) * ms}px`,
+                    filter: isHovered ? 'brightness(1.4)' : undefined,
+                  }}
+                >
+                  {poi.id === 'sol_earth' ? '🌍' : getPOIIcon(poi.type)}
+                </text>
+              )}
 
               {/* POI label */}
               {poi.type !== 'sun' && (() => {
                 const isResourcePOI = poi.type === 'asteroid_belt' || poi.type === 'asteroid' || poi.type === 'ice_field' || poi.type === 'gas_cloud';
-                const labelY = isResourcePOI ? y - 45 : y - 25;
+                const labelY = isResourcePOI ? y - 45 * ms : y - 25 * ms;
                 return (
-                  <text x={x} y={labelY} fill="#e5e7eb" fontSize="11" textAnchor="middle" fontWeight="bold">
+                  <text x={x} y={labelY} fill="#e5e7eb" fontSize={11 * ms} textAnchor="middle" fontWeight="bold">
                     {poi.name}
                   </text>
                 );
@@ -644,7 +741,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               {poi.resources && (
                 <g>
                   {poi.resources.map((res, idx) => (
-                    <text key={idx} x={x + 40} y={y - 10 + idx * 14} fill="#d1d5db" fontSize="9">
+                    <text key={idx} x={x + 40 * ms} y={y - 10 * ms + idx * 14 * ms} fill="#d1d5db" fontSize={9 * ms}>
                       {res.name} {res.amount}
                     </text>
                   ))}
@@ -664,7 +761,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               <circle
                 cx={gateX}
                 cy={gateY}
-                r="25"
+                r={25 * ms}
                 fill="none"
                 stroke={isGateHovered ? '#22d3ee' : '#06b6d4'}
                 strokeWidth={isGateHovered ? 3 : 2}
@@ -673,7 +770,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               <circle
                 cx={gateX}
                 cy={gateY}
-                r="20"
+                r={20 * ms}
                 fill="none"
                 stroke="#06b6d4"
                 strokeWidth="1.5"
@@ -681,15 +778,15 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 strokeDasharray="4,2"
               />
               {/* Jump gate crosshair */}
-              <circle cx={gateX} cy={gateY} r="8" fill="none" stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
-              <line x1={gateX - 12} y1={gateY} x2={gateX + 12} y2={gateY} stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
-              <line x1={gateX} y1={gateY - 12} x2={gateX} y2={gateY + 12} stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
+              <circle cx={gateX} cy={gateY} r={8 * ms} fill="none" stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
+              <line x1={gateX - 12 * ms} y1={gateY} x2={gateX + 12 * ms} y2={gateY} stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
+              <line x1={gateX} y1={gateY - 12 * ms} x2={gateX} y2={gateY + 12 * ms} stroke="#22d3ee" strokeWidth="1.5" opacity="0.9" />
               {/* System name */}
               <text
                 x={gateX}
-                y={gateY - 35}
+                y={gateY - 35 * ms}
                 fill="#06b6d4"
-                fontSize="10"
+                fontSize={10 * ms}
                 textAnchor="middle"
                 className="font-mono"
               >
@@ -698,9 +795,9 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               {/* System ID */}
               <text
                 x={gateX}
-                y={gateY + 40}
+                y={gateY + 40 * ms}
                 fill="#4b5563"
-                fontSize="8"
+                fontSize={8 * ms}
                 textAnchor="middle"
                 className="font-mono"
               >
@@ -748,8 +845,8 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
             sy = oy + (ty - oy) * clientTravelProgress;
           } else {
             // Ship at current POI
-            sx = ox + 10;
-            sy = oy + 10;
+            sx = ox + 10 * ms;
+            sy = oy + 10 * ms;
           }
 
           return (
@@ -771,7 +868,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   <circle
                     cx={tx}
                     cy={ty}
-                    r="20"
+                    r={20 * ms}
                     fill="none"
                     stroke="#22d3ee"
                     strokeWidth="1.5"
@@ -787,7 +884,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                 y={sy}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize="16"
+                fontSize={16 * ms}
               >
                 🚀
               </text>
