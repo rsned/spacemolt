@@ -48,6 +48,7 @@ Fuel: {{printf "%.0f" .State.Fuel}}/{{printf "%.0f" .State.MaxFuel}} ({{printf "
 Hull: {{printf "%.0f" .State.Hull}}/{{printf "%.0f" .State.MaxHull}} ({{printf "%.1f" .State.HullPercent}}%)
 Cargo: {{.State.CargoCount}}/{{.State.MaxCargo}}
 Credits: {{printf "%.0f" .State.Credits}}
+{{if .State.SafeSystem}}Safe System: {{.State.SafeSystemName}} ({{.State.SafeSystem}}) - retreat here when in danger (low fuel, damaged hull, combat){{end}}
 
 {{if .LastFeedback}}
 LAST ACTION FEEDBACK:

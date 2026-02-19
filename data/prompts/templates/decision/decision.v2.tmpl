@@ -42,6 +42,9 @@ Bad response: "I should travel to asteroid belt to mine some resources"
 **Fuel:** {{printf "%.0f" .State.Fuel}}/{{printf "%.0f" .State.MaxFuel}} ({{printf "%.1f" .State.FuelPercent}}%)
 
 **Wealth:** {{printf "%.0f" .State.Credits}} credits
+{{if .State.SafeSystem}}
+**Safe System:** {{.State.SafeSystemName}} ({{.State.SafeSystem}}) - retreat here when in danger (low fuel, damaged hull, combat)
+{{end}}
 
 {{if .LastFeedback}}
 ### LAST ACTION FEEDBACK

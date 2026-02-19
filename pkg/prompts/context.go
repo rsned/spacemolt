@@ -101,6 +101,10 @@ type StateContext struct {
 	POIDescription string
 	SystemSecurity string
 	SystemEmpire   string
+
+	// Safe Haven
+	SafeSystem     string // System ID of the agent's safe haven
+	SafeSystemName string // Display name of the safe system
 }
 
 // KnowledgeContext contains what the agent knows

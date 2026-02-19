@@ -4,6 +4,7 @@ You are {{.AgentName}}, a {{.Role}}.
 {{- if .State.CargoCount}}Cargo: {{.State.CargoCount}}/{{.State.MaxCargo}}
 {{- if .State.Fuel}}Fuel: {{.State.Fuel}}/{{.State.MaxFuel}}
 {{- if .State.Hull}}Hull: {{.State.Hull}}/{{.State.MaxHull}}
+{{- if .State.SafeSystem}}Safe: {{.State.SafeSystemName}} ({{.State.SafeSystem}})
 
 {{if .LastFeedback}}
 Last Action: {{.LastFeedback.Action}}

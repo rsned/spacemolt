@@ -12,6 +12,42 @@ import (
 	"github.com/rsned/spacemolt/pkg/prompts"
 )
 
+// EmpireCapitalSystem returns the capital system ID for a given empire.
+func EmpireCapitalSystem(empire string) string {
+	switch strings.ToLower(empire) {
+	case "solarian":
+		return "sol"
+	case "outerrim":
+		return "frontier"
+	case "voidborn":
+		return "nexus"
+	case "nebula":
+		return "haven"
+	case "crimson":
+		return "krynn"
+	default:
+		return ""
+	}
+}
+
+// empireCapitalName returns the display name for a capital system ID.
+func empireCapitalName(systemID string) string {
+	switch systemID {
+	case "sol":
+		return "Sol"
+	case "frontier":
+		return "Frontier"
+	case "nexus":
+		return "Nexus Prime"
+	case "haven":
+		return "Haven"
+	case "krynn":
+		return "Krynn"
+	default:
+		return systemID
+	}
+}
+
 // LLMClient defines the interface for LLM operations
 // This allows injecting mock clients for testing
 type LLMClient interface {
@@ -182,7 +218,7 @@ func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateCon
 		"skills":      a.personality.Skills,
 	}
 
-	return prompts.NewTemplateContext(
+	ctx := prompts.NewTemplateContext(
 		a.id,
 		a.name,
 		a.personality.Role,
@@ -193,6 +229,33 @@ func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateCon
 		lastFeedback,
 		goalCtx,
 	)
+
+	// Resolve safe system: prefer player's home base, fall back to empire capital
+	if state != nil {
+		safeSystemID := state.Player.HomeBase
+		if safeSystemID == "" {
+			safeSystemID = EmpireCapitalSystem(state.Player.Empire)
+		}
+		if safeSystemID != "" {
+			ctx.State.SafeSystem = safeSystemID
+			// Try to find the name from known systems first
+			ctx.State.SafeSystemName = safeSystemID
+			for _, sys := range knowledge.KnownSystems {
+				if sys.ID == safeSystemID {
+					ctx.State.SafeSystemName = sys.Name
+					break
+				}
+			}
+			// Fall back to capital name lookup if not found in knowledge
+			if ctx.State.SafeSystemName == safeSystemID {
+				if name := empireCapitalName(safeSystemID); name != safeSystemID {
+					ctx.State.SafeSystemName = name
+				}
+			}
+		}
+	}
+
+	return ctx
 }
 
 // buildKnowledgeContext builds knowledge context for templates
@@ -396,14 +459,25 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 		connectionsText += "  (No connections known yet)\n"
 	}
 
+	// Resolve safe system
+	safeSystemID := state.Player.HomeBase
+	if safeSystemID == "" {
+		safeSystemID = EmpireCapitalSystem(state.Player.Empire)
+	}
+	safeSystemName := empireCapitalName(safeSystemID)
+	if safeSystemName == safeSystemID {
+		safeSystemName = safeSystemID // no pretty name available
+	}
+
 	// Build state info
 	stateInfo := map[string]interface{}{
-		"location": state.GetCurrentSystem(),
-		"fuel":     fmt.Sprintf("%.0f/%.0f", state.Fuel, state.MaxFuel),
-		"hull":     fmt.Sprintf("%.0f/%.0f", state.Hull, state.MaxHull),
-		"cargo":    fmt.Sprintf("%d/%d", len(state.Cargo), state.MaxCargo),
-		"credits":  state.Credits,
-		"docked":   state.IsDocked(),
+		"location":    state.GetCurrentSystem(),
+		"fuel":        fmt.Sprintf("%.0f/%.0f", state.Fuel, state.MaxFuel),
+		"hull":        fmt.Sprintf("%.0f/%.0f", state.Hull, state.MaxHull),
+		"cargo":       fmt.Sprintf("%d/%d", len(state.Cargo), state.MaxCargo),
+		"credits":     state.Credits,
+		"docked":      state.IsDocked(),
+		"safe_system": fmt.Sprintf("%s (%s)", safeSystemName, safeSystemID),
 	}
 
 	// Get last action result (protected by lock)
