@@ -71,9 +71,10 @@ function App() {
   const handleUndock = () => observer.sendCommand('undock', {});
   const handleRefuel = () => observer.sendCommand('refuel', {});
   const handleRepair = () => observer.sendCommand('repair', {});
-  const stationViews: ViewType[] = ['market', 'workshop', 'shipyard', 'missions', 'cloning', 'insurance', 'storage'];
+  const stationSubViews: ViewType[] = ['station', 'market', 'workshop', 'shipyard', 'missions', 'cloning', 'insurance', 'storage'];
+  const isStationArea = stationSubViews.includes(activeView);
   const handleStationNavigate = (view: string) => {
-    if (stationViews.includes(view as ViewType)) {
+    if (stationSubViews.includes(view as ViewType)) {
       setActiveView(view as ViewType);
     }
   };
@@ -101,6 +102,31 @@ function App() {
               { id: 'galaxy' as ViewType, label: 'Galaxy Map' },
               { id: 'system' as ViewType, label: 'System Map' },
               { id: 'station' as ViewType, label: 'Station' },
+            ].map((view) => (
+              <button
+                key={view.id}
+                onClick={() => setActiveView(view.id)}
+                className={`px-4 py-2 rounded transition-colors ${
+                  view.id === 'station'
+                    ? (isStationArea
+                      ? 'bg-cyan-600 text-white px-6'
+                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600 px-6')
+                    : (activeView === view.id
+                      ? 'bg-cyan-600 text-white'
+                      : 'bg-gray-700 text-gray-400 hover:bg-gray-600')
+                }`}
+              >
+                {view.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Station sub-tabs */}
+        {isStationArea && (
+          <div className="flex gap-1.5 mt-2 ml-auto justify-end">
+            {[
+              { id: 'station' as ViewType, label: 'Overview' },
               { id: 'market' as ViewType, label: 'Market' },
               { id: 'workshop' as ViewType, label: 'Workshop' },
               { id: 'shipyard' as ViewType, label: 'Shipyard' },
@@ -112,17 +138,17 @@ function App() {
               <button
                 key={view.id}
                 onClick={() => setActiveView(view.id)}
-                className={`px-4 py-2 rounded transition-colors ${
+                className={`px-3 py-1.5 rounded text-sm transition-colors ${
                   activeView === view.id
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    ? 'bg-cyan-700 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
                 {view.label}
               </button>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Global error banner */}
