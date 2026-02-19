@@ -807,9 +807,16 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	depositErrors := 0
 	for _, item := range state.Ship.Cargo {
 		if item.Quantity > 0 {
+			// Wait before each deposit to avoid action_pending errors
+			time.Sleep(500 * time.Millisecond)
+
 			if err := c.DepositItems(ctx, item.ItemID, item.Quantity); err != nil {
 				c.debugLogger.Printf("Failed to deposit %s: %v", item.ItemID, err)
 				depositErrors++
+				// If action is pending, wait longer before next item
+				if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
+					time.Sleep(1 * time.Second)
+				}
 				// Continue depositing other items even if one fails
 			} else {
 				c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, item.Quantity)

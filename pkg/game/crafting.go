@@ -276,14 +276,21 @@ func (c *Client) CraftFromCargo(ctx context.Context, logger *log.Logger, config 
 	for _, recipe := range result.FullyCraftable {
 		logger.Printf("🔨 Crafting %s...", recipe.RecipeName)
 
+		// Wait a moment before crafting to ensure previous action is complete
+		time.Sleep(1 * time.Second)
+
 		// Execute craft command
 		craftCmd := fmt.Sprintf("craft %s", recipe.RecipeID)
 		if err := c.Craft(ctx, craftCmd); err != nil {
 			logger.Printf("⚠️  Failed to craft %s: %v", recipe.RecipeName, err)
+			// If action is pending, wait longer before retrying
+			if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
+				time.Sleep(2 * time.Second)
+			}
 		} else {
 			crafted++
 			logger.Printf("✅ Crafted %s!", recipe.RecipeName)
-			time.Sleep(3 * time.Second) // Wait for crafting to complete
+			time.Sleep(4 * time.Second) // Wait for crafting to complete
 		}
 	}
 
