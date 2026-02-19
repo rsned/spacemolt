@@ -177,21 +177,43 @@ crafting-server -help
 
 ### Crafting Configuration
 
-The auto-miner automatically uses the crafting server if it's available in your PATH. No additional configuration is required.
+The auto-miner **automatically initializes** the crafting configuration when using `craft-sell` or `craft-deposit` strategies. No manual configuration is required if the crafting server is in your PATH.
 
 **How it works:**
-1. When using `craft-sell` or `craft-deposit`, the agent checks for crafting capability
-2. If the crafting server is available, it queries for craftable recipes
-3. The agent crafts all fully craftable items (has all components and skills)
-4. Results are logged with details on items crafted and any skill gaps
+1. When using `craft-sell` or `craft-deposit`, the agent automatically initializes crafting
+2. The agent logs: `🔧 Crafting configured: using MCP server from PATH`
+3. The agent queries the crafting server for recipes matching current cargo and skills
+4. The agent crafts all fully craftable items (has all components and skills)
+5. Results are logged with details on items crafted (e.g., `✅ Crafted Basic Iron Smelting!`)
 
-**If crafting is not configured:**
+**Example output:**
+```
+[miner-1] 2026/02/18 19:32:23 🔧 Crafting configured: using MCP server from PATH
+[miner-1] 2026/02/18 19:33:24 🔨 Querying craftable recipes from cargo...
+[miner-1] 2026/02/18 19:33:25 🔨 Crafting Basic Iron Smelting...
+[miner-1] 2026/02/18 19:33:25 ✅ Crafted Basic Iron Smelting!
+[miner-1] 2026/02/18 19:34:57 🔨 Crafting Process Copper Wiring...
+[miner-1] 2026/02/18 19:34:57 ✅ Crafted Process Copper Wiring!
+[miner-1] 2026/02/18 19:35:04 ✅ Successfully crafted 2 items!
+```
+
+**If crafting server is not available:**
 - The agent will log: `ℹ️  Crafting not configured, skipping to deposit`
 - The station action will proceed without crafting (sell or deposit all raw materials)
+- No crash or error - graceful degradation
 
 ### Advanced Crafting Configuration
 
-For custom crafting server paths or advanced configuration, you can modify the `CraftingConfig` in the game client initialization. See `pkg/game/crafting.go` for details.
+The default configuration uses `crafting-server` from PATH. For custom paths or advanced configuration, you can modify the initialization code in `cmd/auto-miner/main.go`:
+
+```go
+// Custom crafting server path
+client.CraftingConfig = &game.CraftingConfig{
+    CraftingServerPath: "/path/to/custom/crafting-server",
+}
+```
+
+See `pkg/game/crafting.go` for additional configuration options.
 
 ## Captain's Log
 
@@ -300,44 +322,61 @@ go run ./cmd/auto-miner miner-1
 
 ```bash
 # Start a bot that crafts items then sells them
+# Make sure crafting-server is in your PATH first
+export PATH="$PATH:$(pwd)/bin"
 go run ./cmd/auto-miner craftsman-1 craft-sell
 ```
 
 **Output:**
 ```
-[craftsman-1] 2026/02/18 18:42:10 🔨 Querying craftable recipes from cargo...
-[craftsman-1] 2026/02/18 18:42:11 ✅ Successfully crafted 3 items!
-[craftsman-1] 2026/02/18 18:42:11 💰 Selling all cargo (8 items)...
-[craftsman-1] 2026/02/18 18:42:16 ✅ Sold all cargo!
+[craftsman-1] 2026/02/18 19:32:23 🔧 Crafting configured: using MCP server from PATH
+[craftsman-1] 2026/02/18 19:33:24 🔨 Querying craftable recipes from cargo...
+[craftsman-1] 2026/02/18 19:33:25 🔨 Crafting Basic Iron Smelting...
+[craftsman-1] 2026/02/18 19:33:25 ✅ Crafted Basic Iron Smelting!
+[craftsman-1] 2026/02/18 19:34:57 🔨 Crafting Process Copper Wiring...
+[craftsman-1] 2026/02/18 19:34:57 ✅ Crafted Process Copper Wiring!
+[craftsman-1] 2026/02/18 19:35:04 ✅ Successfully crafted 2 items!
+[craftsman-1] 2026/02/18 19:35:05 💰 Selling all cargo (8 items)...
+[craftsman-1] 2026/02/18 19:35:10 ✅ Sold all cargo!
 ```
 
 ### Example 3: Stockpiling Bot
 
 ```bash
 # Start a bot that crafts items and stores them
+# Make sure crafting-server is in your PATH first
+export PATH="$PATH:$(pwd)/bin"
 go run ./cmd/auto-miner manufacturer-1 craft-deposit
 ```
 
 **Output:**
 ```
-[manufacturer-1] 2026/02/18 18:42:10 🔨 Querying craftable recipes from cargo...
-[manufacturer-1] 2026/02/18 18:42:11 ✅ Successfully crafted 5 items!
-[manufacturer-1] 2026/02/18 18:42:11 📥 Depositing all cargo to station storage (12 items)...
-[manufacturer-1] 2026/02/18 18:42:11    - refined_circuits x10
-[manufacturer-1] 2026/02/18 18:42:11    - crystal_array x5
-[manufacturer-1] 2026/02/18 18:42:16 ✅ Deposited all items!
+[manufacturer-1] 2026/02/18 19:32:23 🔧 Crafting configured: using MCP server from PATH
+[manufacturer-1] 2026/02/18 19:33:24 🔨 Querying craftable recipes from cargo...
+[manufacturer-1] 2026/02/18 19:33:25 🔨 Crafting Basic Iron Smelting...
+[manufacturer-1] 2026/02/18 19:33:25 ✅ Crafted Basic Iron Smelting!
+[manufacturer-1] 2026/02/18 19:34:57 🔨 Crafting Process Copper Wiring...
+[manufacturer-1] 2026/02/18 19:34:57 ✅ Crafted Process Copper Wiring!
+[manufacturer-1] 2026/02/18 19:35:04 ✅ Successfully crafted 5 items!
+[manufacturer-1] 2026/02/18 19:35:05 📥 Depositing all cargo to station storage (12 items)...
+[manufacturer-1] 2026/02/18 19:35:05    - refined_circuits x10
+[manufacturer-1] 2026/02/18 19:35:05    - crystal_array x5
+[manufacturer-1] 2026/02/18 19:35:06    - refined_steel x20
+[manufacturer-1] 2026/02/18 19:35:10 ✅ Deposited all items!
 ```
 
 ## Troubleshooting
 
-### Issue: "Crafting not configured"
+### Issue: "Crafting not configured, skipping to deposit"
 
 **Cause:** The crafting MCP server is not available in PATH.
 
 **Solution:**
 1. Build the crafting server: `go build -o bin/crafting-server ./cmd/crafting-server`
 2. Add to PATH: `export PATH="$PATH:$(pwd)/bin"`
-3. Verify: `crafting-server -help`
+3. Verify: `crafting-server -help` (should show help, not "command not found")
+
+**Note:** This is not an error - the agent will gracefully continue without crafting.
 
 ### Issue: "Crafting query failed"
 
@@ -347,15 +386,25 @@ go run ./cmd/auto-miner manufacturer-1 craft-deposit
 1. Import recipe data: `./bin/crafting-server -import-recipes data/crafting/recipes-import.json`
 2. Import skill data: `./bin/crafting-server -import-skills data/crafting/skills-import.json`
 3. Verify database exists at `data/crafting/crafting.db`
+4. Check server logs for specific error messages
 
 ### Issue: "No craftable recipes found"
 
 **Cause:** Current cargo and skills don't match any recipe requirements.
 
 **Solution:** This is normal behavior. The agent will:
-- Log: `ℹ️  No craftable recipes found with current cargo/skills`
 - Continue with the station action (sell or deposit raw materials)
 - Try again on the next run when cargo may be different
+- Successfully craft items when resources and skills align
+
+### Issue: "Failed to craft {recipe}: Another action is already pending"
+
+**Cause:** Multiple crafting actions attempted too quickly.
+
+**Solution:** This is normal behavior. The agent will:
+- Skip items that fail due to action timing
+- Successfully craft items on subsequent attempts
+- Continue processing remaining craftable recipes
 
 ### Issue: Agent stops unexpectedly
 
