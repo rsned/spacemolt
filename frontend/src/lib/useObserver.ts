@@ -79,6 +79,10 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
 
   if (p.player && typeof p.player === 'object') {
     state.Player = p.player as GameState['Player'];
+    const playerObj = p.player as Record<string, unknown>;
+    if ('docked_at_base' in playerObj) {
+      state.Doc = typeof playerObj.docked_at_base === 'string' && playerObj.docked_at_base !== '';
+    }
     hasData = true;
   }
   if (p.ship && typeof p.ship === 'object') {
@@ -158,6 +162,22 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
   if (p.result && typeof p.result === 'object') {
     const result = p.result as Record<string, unknown>;
     const command = p.command as string | undefined;
+    if (result.action === 'undock') {
+      state.Doc = false;
+      hasData = true;
+    }
+    if (result.action === 'refuel') {
+      if (!state.Ship) state.Ship = {} as GameState['Ship'];
+      if (typeof result.fuel_now === 'number') state.Ship.fuel = result.fuel_now;
+      if (typeof result.fuel_max === 'number') state.Ship.max_fuel = result.fuel_max;
+      hasData = true;
+    }
+    if (result.action === 'repair') {
+      if (!state.Ship) state.Ship = {} as GameState['Ship'];
+      if (typeof result.hull_now === 'number') state.Ship.hull = result.hull_now;
+      if (typeof result.hull_max === 'number') state.Ship.max_hull = result.hull_max;
+      hasData = true;
+    }
     if (result.action === 'arrived') {
       state.Traveling = false;
       state.TravelProgress = 0;

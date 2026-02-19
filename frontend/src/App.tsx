@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShipStatusBar } from './components/layout/ShipStatusBar';
 import { SkillsPanel } from './components/layout/SkillsPanel';
 import { ChatPanel } from './components/layout/ChatPanel';
@@ -8,6 +8,11 @@ import { SystemMap } from './components/system/SystemMap';
 import { StationInterior } from './components/station/StationInterior';
 import { MarketPanel } from './components/station/MarketPanel';
 import { WorkshopPanel } from './components/station/WorkshopPanel';
+import { ShipyardPanel } from './components/station/ShipyardPanel';
+import { MissionsPanel } from './components/station/MissionsPanel';
+import { CloningPanel } from './components/station/CloningPanel';
+import { InsurancePanel } from './components/station/InsurancePanel';
+import { StoragePanel } from './components/station/StoragePanel';
 import { ConnectionPanel } from './components/layout/ConnectionPanel';
 import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
@@ -22,7 +27,7 @@ import {
   mockJumpGates,
 } from './lib/mockData';
 
-type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop';
+type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
@@ -30,10 +35,48 @@ function App() {
   const [activeView, setActiveView] = useState<ViewType>('hud');
   const observer = useObserver(WS_URL);
 
+  const [pendingDock, setPendingDock] = useState(false);
+  const prevDockedRef = useRef<string | null>(null);
+
   const isLive = observer.status === 'connected' && observer.player !== null;
   const player = isLive ? observer.player : mockPlayer;
   const skills = isLive ? observer.skills : mockSkills;
   const systemMapData = useSystemMap(player?.location.systemId);
+
+  // Auto-dock after travel to a station completes
+  useEffect(() => {
+    if (!pendingDock) return;
+    if (player?.traveling) return; // still traveling
+    observer.sendCommand('dock', {});
+    setPendingDock(false);
+  }, [pendingDock, player?.traveling]);
+
+  // Auto-switch to Station tab when docked
+  useEffect(() => {
+    if (player?.location.dockedAt && activeView === 'system') {
+      setActiveView('station');
+    }
+  }, [player?.location.dockedAt]);
+
+  // Auto-switch to System Map on undock (dockedAt transitions from truthy to null)
+  useEffect(() => {
+    const currentDocked = player?.location.dockedAt ?? null;
+    if (prevDockedRef.current && !currentDocked) {
+      setActiveView('system');
+    }
+    prevDockedRef.current = currentDocked;
+  }, [player?.location.dockedAt]);
+
+  // Station action handlers
+  const handleUndock = () => observer.sendCommand('undock', {});
+  const handleRefuel = () => observer.sendCommand('refuel', {});
+  const handleRepair = () => observer.sendCommand('repair', {});
+  const stationViews: ViewType[] = ['market', 'workshop', 'shipyard', 'missions', 'cloning', 'insurance', 'storage'];
+  const handleStationNavigate = (view: string) => {
+    if (stationViews.includes(view as ViewType)) {
+      setActiveView(view as ViewType);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-spacemolt-bg">
@@ -54,12 +97,17 @@ function App() {
           </div>
           <div className="flex gap-2">
             {[
-              { id: 'hud' as ViewType, label: 'HUD' },
+              { id: 'hud' as ViewType, label: 'Home' },
               { id: 'galaxy' as ViewType, label: 'Galaxy Map' },
               { id: 'system' as ViewType, label: 'System Map' },
               { id: 'station' as ViewType, label: 'Station' },
               { id: 'market' as ViewType, label: 'Market' },
               { id: 'workshop' as ViewType, label: 'Workshop' },
+              { id: 'shipyard' as ViewType, label: 'Shipyard' },
+              { id: 'missions' as ViewType, label: 'Missions' },
+              { id: 'cloning' as ViewType, label: 'Cloning' },
+              { id: 'insurance' as ViewType, label: 'Insurance' },
+              { id: 'storage' as ViewType, label: 'Storage' },
             ].map((view) => (
               <button
                 key={view.id}
@@ -179,12 +227,25 @@ function App() {
             player={player || mockPlayer}
             jumpGates={systemMapData?.jumpGates ?? mockJumpGates}
             policeLevel={systemMapData?.policeLevel ?? 0}
-            onTravelToPOI={isLive ? (poiId) => observer.sendCommand('travel', { target_poi: poiId }) : undefined}
+            onTravelToPOI={isLive ? (poiId, poiType) => {
+              observer.sendCommand('travel', { target_poi: poiId });
+              if (poiType === 'station') {
+                setPendingDock(true);
+              }
+            } : undefined}
             onJumpToSystem={isLive ? (systemId) => observer.sendCommand('jump', { target_system: systemId }) : undefined}
           />
         )}
 
-        {activeView === 'station' && <StationInterior player={player || mockPlayer} />}
+        {activeView === 'station' && (
+          <StationInterior
+            player={player || mockPlayer}
+            onUndock={isLive ? handleUndock : undefined}
+            onRefuel={isLive ? handleRefuel : undefined}
+            onRepair={isLive ? handleRepair : undefined}
+            onNavigate={handleStationNavigate}
+          />
+        )}
 
         {activeView === 'market' && (
           <div className="max-w-3xl">
@@ -195,6 +256,36 @@ function App() {
         {activeView === 'workshop' && (
           <div className="max-w-3xl">
             <WorkshopPanel recipes={mockRecipes} />
+          </div>
+        )}
+
+        {activeView === 'shipyard' && (
+          <div className="max-w-3xl">
+            <ShipyardPanel player={player || mockPlayer} />
+          </div>
+        )}
+
+        {activeView === 'missions' && (
+          <div className="max-w-3xl">
+            <MissionsPanel />
+          </div>
+        )}
+
+        {activeView === 'cloning' && (
+          <div className="max-w-3xl">
+            <CloningPanel player={player || mockPlayer} />
+          </div>
+        )}
+
+        {activeView === 'insurance' && (
+          <div className="max-w-3xl">
+            <InsurancePanel player={player || mockPlayer} />
+          </div>
+        )}
+
+        {activeView === 'storage' && (
+          <div className="max-w-3xl">
+            <StoragePanel player={player || mockPlayer} />
           </div>
         )}
       </div>
