@@ -93,11 +93,24 @@ func (s *AgentSession) IsConnected() bool {
 }
 
 // SendCommand sends a command to the game server on behalf of a browser client.
+// If the agent is disconnected, it attempts to reconnect before returning an error.
 func (s *AgentSession) SendCommand(ctx context.Context, msg protocol.Message) error {
 	if !s.IsConnected() {
-		return fmt.Errorf("agent %s is not connected to the game server", s.username)
+		s.logger.Printf("[%s] not connected, attempting reconnect before command", s.username)
+		if err := s.reconnect(ctx); err != nil {
+			return fmt.Errorf("agent %s is not connected and reconnect failed: %v", s.username, err)
+		}
+		s.logger.Printf("[%s] reconnected successfully, sending command", s.username)
 	}
 	return s.gameClient.Send(ctx, msg)
+}
+
+// reconnect attempts to re-establish the game server connection.
+func (s *AgentSession) reconnect(ctx context.Context) error {
+	if err := s.gameClient.Reconnect(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Close shuts down the agent session.

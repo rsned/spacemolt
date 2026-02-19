@@ -103,6 +103,48 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
     state.CurrentTick = p.tick;
     hasData = true;
   }
+
+  // Extract current_poi from state_update payloads
+  if (typeof p.current_poi === 'string') {
+    state.CurrentPOI = p.current_poi;
+    hasData = true;
+  }
+
+  // Track traveling state from state_update payloads
+  if (typeof p.traveling === 'boolean') {
+    state.Traveling = p.traveling;
+    hasData = true;
+  }
+  // travel_progress presence means we're traveling
+  if (typeof p.travel_progress === 'number') {
+    state.Traveling = true;
+    hasData = true;
+  }
+
+  // Handle action_result for travel/jump completion:
+  // { command: "travel"|"jump", result: { action: "arrived", poi_id: "...", poi: "..." } }
+  if (p.result && typeof p.result === 'object') {
+    const result = p.result as Record<string, unknown>;
+    const command = p.command as string | undefined;
+    if (result.action === 'arrived') {
+      state.Traveling = false;
+      if (typeof result.poi_id === 'string') {
+        state.CurrentPOI = result.poi_id;
+      } else if (typeof result.poi === 'string') {
+        state.CurrentPOI = result.poi;
+      }
+      // Jump arrival may include a new system
+      if (command === 'jump' && typeof result.system_id === 'string') {
+        state.System = {
+          id: result.system_id,
+          name: (result.system as string) || result.system_id,
+          empire: '',
+          police_level: 0,
+        } as GameState['System'];
+      }
+      hasData = true;
+    }
+  }
   // get_skills response includes player_skills with next_level_xp per skill.
   if (Array.isArray(p.player_skills)) {
     console.log('[extractGameState] Found player_skills array:', p.player_skills);
