@@ -630,11 +630,15 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               </text>
 
               {/* POI label */}
-              {poi.type !== 'sun' && (
-                <text x={x} y={y - 25} fill="#9ca3af" fontSize="11" textAnchor="middle">
-                  {poi.name}
-                </text>
-              )}
+              {poi.type !== 'sun' && (() => {
+                const isResourcePOI = poi.type === 'asteroid_belt' || poi.type === 'asteroid' || poi.type === 'ice_field' || poi.type === 'gas_cloud';
+                const labelY = isResourcePOI ? y - 45 : y - 25;
+                return (
+                  <text x={x} y={labelY} fill="#e5e7eb" fontSize="11" textAnchor="middle" fontWeight="bold">
+                    {poi.name}
+                  </text>
+                );
+              })()}
 
               {/* Resources display */}
               {poi.resources && (
