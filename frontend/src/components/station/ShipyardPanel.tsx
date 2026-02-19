@@ -175,6 +175,7 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
         ) : selected.kind === 'owned' ? (
           <OwnedShipDetail
             ship={selected.ship}
+            shipClass={catalogShips.find((c) => c.id === selected.ship.class_id) ?? null}
             isActive={selected.ship.ship_id === activeShipId}
             onSwitch={() => onCommand('switch_ship', { ship_id: selected.ship.ship_id })}
             onSell={() => setConfirmSell(selected.ship)}
@@ -233,11 +234,13 @@ function StatRow({ label, value }: { label: string; value: string }) {
 
 function OwnedShipDetail({
   ship,
+  shipClass,
   isActive,
   onSwitch,
   onSell,
 }: {
   ship: OwnedShip;
+  shipClass: ShipClass | null;
   isActive: boolean;
   onSwitch: () => void;
   onSell: () => void;
@@ -260,7 +263,11 @@ function OwnedShipDetail({
         )}
       </div>
 
-      {/* Stats Grid */}
+      {shipClass?.description && (
+        <p className="text-sm text-gray-300">{shipClass.description}</p>
+      )}
+
+      {/* Current Status */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <StatRow label="Hull" value={ship.hull} />
         <StatRow label="Fuel" value={ship.fuel} />
@@ -268,6 +275,46 @@ function OwnedShipDetail({
         <StatRow label="Modules" value={`${ship.modules}`} />
         <StatRow label="Location" value={ship.location} />
       </div>
+
+      {/* Class Specs (from catalog) */}
+      {shipClass && (
+        <>
+          <div className="border-t border-spacemolt-border pt-3">
+            <div className="text-xs text-gray-400 mb-2">Ship Class Specs</div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <StatRow label="Base Hull" value={`${shipClass.base_hull}`} />
+              <StatRow label="Base Shield" value={`${shipClass.base_shield}`} />
+              <StatRow label="Armor" value={`${shipClass.base_armor}`} />
+              <StatRow label="Speed" value={`${shipClass.base_speed}`} />
+              <StatRow label="Fuel Cap" value={`${shipClass.base_fuel}`} />
+              <StatRow label="Cargo Cap" value={`${shipClass.cargo_capacity}`} />
+              <StatRow label="CPU" value={`${shipClass.cpu_capacity}`} />
+              <StatRow label="Power" value={`${shipClass.power_capacity}`} />
+            </div>
+          </div>
+
+          {/* Slots */}
+          <div className="flex gap-4 text-xs">
+            <span className="text-gray-400">Defense: <span className="text-white">{shipClass.defense_slots}</span></span>
+            <span className="text-gray-400">Utility: <span className="text-white">{shipClass.utility_slots}</span></span>
+            <span className="text-gray-400">Weapon: <span className="text-white">{shipClass.weapon_slots}</span></span>
+          </div>
+
+          {/* Default Modules */}
+          {shipClass.default_modules?.length > 0 && (
+            <div>
+              <div className="text-xs text-gray-400 mb-1">Default Modules:</div>
+              <div className="flex flex-wrap gap-1">
+                {shipClass.default_modules.map((mod, i) => (
+                  <span key={i} className="px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300">
+                    {mod}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Action */}
       <div>
