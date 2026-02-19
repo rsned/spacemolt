@@ -36,7 +36,7 @@ function App() {
   const prevDockedRef = useRef<string | null>(null);
 
   const isLive = observer.status === 'connected' && observer.player !== null;
-  const player = isLive ? observer.player : mockPlayer;
+  const player = observer.player;
   const skills = observer.skills;
   const systemMapData = useSystemMap(player?.location.systemId);
 
@@ -223,11 +223,7 @@ function App() {
         {activeView === 'hud' && (
           <div className="space-y-4">
             <ConnectionPanel observer={observer} />
-            {player && (
-              <>
-                <ShipStatusBar player={player} />
-              </>
-            )}
+            <ShipStatusBar player={player} isConnected={isLive} />
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-4">
                 <SkillsPanel skills={skills} isConnected={isLive} />
