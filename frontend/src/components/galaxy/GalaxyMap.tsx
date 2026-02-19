@@ -22,8 +22,8 @@ const EMPIRE_COLORS: Record<string, string> = {
   crimson: '#DC143C',       // Crimson Fleet: Crimson red
   nebula: '#00CED1',        // Nebula Collective: Dark turquoise
   outerrim: '#2E8B57',      // Outer Rim: Sea green
-  neutral: '#6b7280',       // Neutral: Medium grey
-  '': '#6b7280',
+  neutral: '#E5E7EB',       // Neutral: Off-white
+  '': '#E5E7EB',
 };
 
 // Blood red color for Pirate Strongholds
