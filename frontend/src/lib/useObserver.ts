@@ -499,7 +499,9 @@ export function useObserver(wsUrl: string) {
             if ('active_ship_id' in respPayload) {
               // list_ships response — owned ships
               const ships = respPayload.ships as unknown as OwnedShip[];
-              const activeId = (respPayload.active_ship_id as string) || (ships.length > 0 ? ships[0].id : null);
+              const activeId = (respPayload.active_ship_id as string)
+                || ships.find(s => s.is_active)?.ship_id
+                || (ships.length > 0 ? ships[0].ship_id : null);
               setState(s => ({ ...s, myShips: ships, activeShipId: activeId }));
             } else {
               // get_ships response — catalog

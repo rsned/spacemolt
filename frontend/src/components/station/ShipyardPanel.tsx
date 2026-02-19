@@ -36,7 +36,6 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
   const [selected, setSelected] = useState<SelectedShip | null>(null);
   const [hideUnqualified, setHideUnqualified] = useState(false);
   const [confirmSell, setConfirmSell] = useState<OwnedShip | null>(null);
-  const [carouselOffset, setCarouselOffset] = useState(0);
 
   // Fetch owned ships on mount
   useEffect(() => {
@@ -52,14 +51,7 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
     }
   }, [myShips]);
 
-  const activeShip = myShips.find((s) => s.id === activeShipId) ?? null;
-  const otherShips = myShips.filter((s) => s.id !== activeShipId);
-
-  // Carousel pagination
-  const visibleCount = 3;
-  const visibleOtherShips = otherShips.slice(carouselOffset, carouselOffset + visibleCount);
-  const canScrollLeft = carouselOffset > 0;
-  const canScrollRight = carouselOffset + visibleCount < otherShips.length;
+  const activeShip = myShips.find((s) => s.ship_id === activeShipId) ?? null;
 
   // Filtered catalog
   const filteredCatalog = hideUnqualified
@@ -77,13 +69,13 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
             <div className="text-gray-500 text-sm animate-pulse">Loading...</div>
           ) : activeShip ? (
             <div>
-              <div className="text-lg text-white font-bold">{activeShip.name}</div>
+              <div className="text-lg text-white font-bold">{activeShip.class_name}</div>
               <div className="text-xs text-gray-400 mb-2">Class: {activeShip.class_id}</div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                <StatRow label="Hull" value={`${activeShip.hull}/${activeShip.max_hull}`} />
-                <StatRow label="Shield" value={`${activeShip.shield}/${activeShip.max_shield}`} />
-                <StatRow label="Fuel" value={`${activeShip.fuel}/${activeShip.max_fuel}`} />
-                <StatRow label="Cargo" value={`${activeShip.cargo_used}/${activeShip.cargo_capacity}`} />
+                <StatRow label="Hull" value={activeShip.hull} />
+                <StatRow label="Fuel" value={activeShip.fuel} />
+                <StatRow label="Cargo" value={`${activeShip.cargo_used}`} />
+                <StatRow label="Modules" value={`${activeShip.modules}`} />
               </div>
             </div>
           ) : (
@@ -91,47 +83,39 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
           )}
         </div>
 
-        {/* My Ships Carousel */}
+        {/* My Ships */}
         <div className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-4">
-          <div className="text-xs text-cyan-400 font-sci-fi mb-2">MY SHIPS ({otherShips.length})</div>
-          {myShips.length === 0 ? (
-            <div className="text-gray-500 text-sm py-2 animate-pulse">Loading...</div>
-          ) : otherShips.length === 0 ? (
-            <div className="text-gray-500 text-sm py-2">No other ships owned</div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCarouselOffset((o) => Math.max(0, o - 1))}
-                disabled={!canScrollLeft}
-                className="px-2 py-4 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-default"
-              >
-                ‹
-              </button>
-              <div className="flex gap-2 flex-1 min-w-0">
-                {visibleOtherShips.map((ship) => (
+          <div className="text-xs text-cyan-400 font-sci-fi mb-2">MY SHIPS ({myShips.length})</div>
+          <div className="max-h-[200px] overflow-y-auto space-y-1">
+            {myShips.length === 0 ? (
+              <div className="text-gray-500 text-sm py-2 animate-pulse">Loading...</div>
+            ) : (
+              myShips.map((ship) => {
+                const isActive = ship.ship_id === activeShipId;
+                return (
                   <button
-                    key={ship.id}
+                    key={ship.ship_id}
                     onClick={() => setSelected({ kind: 'owned', ship })}
-                    className={`flex-1 bg-gray-800 rounded-lg p-3 border text-left transition-colors ${
-                      selected?.kind === 'owned' && selected.ship.id === ship.id
-                        ? 'border-cyan-500 bg-gray-700'
-                        : 'border-gray-700 hover:border-gray-500'
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded text-left transition-colors ${
+                      selected?.kind === 'owned' && selected.ship.ship_id === ship.ship_id
+                        ? 'bg-gray-700 border border-cyan-500'
+                        : 'bg-gray-800/50 border border-transparent hover:bg-gray-700/50'
                     }`}
                   >
-                    <div className="text-sm text-white truncate">{ship.name}</div>
-                    <div className="text-xs text-gray-400">{ship.class_id}</div>
+                    <div>
+                      <div className="text-sm text-white font-bold">{ship.class_name}</div>
+                      <div className="text-xs text-gray-400">{ship.class_id}</div>
+                    </div>
+                    {isActive ? (
+                      <span className="text-xs text-cyan-400 font-sci-fi">Active</span>
+                    ) : (
+                      <span className="text-xs text-gray-500">{ship.location}</span>
+                    )}
                   </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setCarouselOffset((o) => Math.min(otherShips.length - visibleCount, o + 1))}
-                disabled={!canScrollRight}
-                className="px-2 py-4 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-default"
-              >
-                ›
-              </button>
-            </div>
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Ship Catalog */}
@@ -191,8 +175,8 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
         ) : selected.kind === 'owned' ? (
           <OwnedShipDetail
             ship={selected.ship}
-            isActive={selected.ship.id === activeShipId}
-            onSwitch={() => onCommand('switch_ship', { ship_id: selected.ship.id })}
+            isActive={selected.ship.ship_id === activeShipId}
+            onSwitch={() => onCommand('switch_ship', { ship_id: selected.ship.ship_id })}
             onSell={() => setConfirmSell(selected.ship)}
           />
         ) : (
@@ -210,7 +194,7 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
           <div className="bg-gray-900 border border-red-600 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
             <h3 className="text-lg font-sci-fi text-red-400 mb-3">SELL SHIP</h3>
             <p className="text-gray-300 text-sm mb-4">
-              Are you sure you want to sell <span className="text-white font-bold">{confirmSell.name}</span>?
+              Are you sure you want to sell <span className="text-white font-bold">{confirmSell.class_name}</span>?
               This cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
@@ -222,7 +206,7 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
               </button>
               <button
                 onClick={() => {
-                  onCommand('sell_ship', { ship_id: confirmSell.id });
+                  onCommand('sell_ship', { ship_id: confirmSell.ship_id });
                   setConfirmSell(null);
                   setSelected(null);
                 }}
@@ -262,7 +246,7 @@ function OwnedShipDetail({
     <div className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-4 space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-lg text-white font-bold">{ship.name}</div>
+          <div className="text-lg text-white font-bold">{ship.class_name}</div>
           <div className="text-xs text-gray-400">Class: {ship.class_id}</div>
           <div className="text-xs text-cyan-400 mt-1">Your Ship</div>
         </div>
@@ -278,41 +262,22 @@ function OwnedShipDetail({
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        <StatRow label="Hull" value={`${ship.hull}/${ship.max_hull}`} />
-        <StatRow label="Shield" value={`${ship.shield}/${ship.max_shield}`} />
-        <StatRow label="Armor" value={`${ship.armor}`} />
-        <StatRow label="Speed" value={`${ship.speed}`} />
-        <StatRow label="Fuel" value={`${ship.fuel}/${ship.max_fuel}`} />
-        <StatRow label="Cargo" value={`${ship.cargo_used}/${ship.cargo_capacity}`} />
-        <StatRow label="CPU" value={`${ship.cpu_used}/${ship.cpu_capacity}`} />
-        <StatRow label="Power" value={`${ship.power_used}/${ship.power_capacity}`} />
+        <StatRow label="Hull" value={ship.hull} />
+        <StatRow label="Fuel" value={ship.fuel} />
+        <StatRow label="Cargo Used" value={`${ship.cargo_used}`} />
+        <StatRow label="Modules" value={`${ship.modules}`} />
+        <StatRow label="Location" value={ship.location} />
       </div>
-
-      {/* Slots */}
-      <div className="flex gap-4 text-xs">
-        <span className="text-gray-400">Defense: <span className="text-white">{ship.defense_slots}</span></span>
-        <span className="text-gray-400">Utility: <span className="text-white">{ship.utility_slots}</span></span>
-        <span className="text-gray-400">Weapon: <span className="text-white">{ship.weapon_slots}</span></span>
-      </div>
-
-      {/* Modules */}
-      {ship.modules.length > 0 && (
-        <div>
-          <div className="text-xs text-gray-400 mb-1">Modules:</div>
-          <div className="flex flex-wrap gap-1">
-            {ship.modules.map((mod, i) => (
-              <span key={i} className="px-2 py-0.5 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300">
-                {mod}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Action */}
       <div>
         {isActive ? (
-          <div className="text-center text-sm text-cyan-400 font-sci-fi py-2">CURRENTLY ACTIVE</div>
+          <button
+            disabled
+            className="w-full px-4 py-2 bg-gray-700 text-gray-500 rounded font-sci-fi cursor-not-allowed"
+          >
+            Currently Active
+          </button>
         ) : (
           <button
             onClick={onSwitch}

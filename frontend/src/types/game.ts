@@ -51,29 +51,15 @@ export interface ShipClass {
 }
 
 export interface OwnedShip {
-  id: string;
+  ship_id: string;
   class_id: string;
-  name: string;
-  hull: number;
-  max_hull: number;
-  shield: number;
-  max_shield: number;
-  fuel: number;
-  max_fuel: number;
-  armor: number;
-  speed: number;
-  cargo_capacity: number;
+  class_name: string;
+  hull: string;
+  fuel: string;
   cargo_used: number;
-  cpu_capacity: number;
-  cpu_used: number;
-  power_capacity: number;
-  power_used: number;
-  defense_slots: number;
-  utility_slots: number;
-  weapon_slots: number;
-  modules: string[];
-  cargo: { item_id: string; quantity: number }[];
-  docked_at_base: string;
+  modules: number;
+  location: string;
+  is_active: boolean;
 }
 
 export type Empire = 'solarian' | 'voidborn' | 'crimson' | 'nebula' | 'outerrim';
