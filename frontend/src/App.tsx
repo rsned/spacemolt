@@ -289,8 +289,16 @@ function App() {
         )}
 
         {activeView === 'missions' && (
-          <div className="max-w-3xl">
-            <MissionsPanel />
+          <div className="max-w-6xl">
+            <MissionsPanel
+              availableMissions={observer.availableMissions}
+              activeMissions={observer.activeMissions}
+              onGetMissions={isLive ? observer.getMissions : () => {}}
+              onGetActiveMissions={isLive ? observer.getActiveMissions : () => {}}
+              onAcceptMission={isLive ? observer.acceptMission : () => {}}
+              onAbandonMission={isLive ? observer.abandonMission : () => {}}
+              onCompleteMission={isLive ? observer.completeMission : () => {}}
+            />
           </div>
         )}
 

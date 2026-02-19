@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Player, Skill, OwnedShip, ShipClass, CargoData, StorageData, FactionStorageData } from '../types/game';
+import type { Player, Skill, OwnedShip, ShipClass, CargoData, StorageData, FactionStorageData, Mission, ActiveMission } from '../types/game';
 import { useSkillDefinitions, getNextLevelXP } from './useSkillDefinitions';
 
 export interface AgentInfo {
@@ -184,6 +184,8 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
       state.TravelDestination = '';
       state.TravelArrivalTick = 0;
       state.TravelStartTick = 0;
+      // Arriving does not mean docked; docking requires a separate command.
+      state.Doc = false;
       if (typeof result.poi_id === 'string') {
         state.CurrentPOI = result.poi_id;
       } else if (typeof result.poi === 'string') {
@@ -336,6 +338,8 @@ export interface ObserverState {
   cargoData: CargoData | null;
   storageData: StorageData | null;
   factionStorageData: FactionStorageData | null;
+  availableMissions: Mission[];
+  activeMissions: ActiveMission[];
 }
 
 export function useObserver(wsUrl: string) {
@@ -357,6 +361,8 @@ export function useObserver(wsUrl: string) {
     cargoData: null,
     storageData: null,
     factionStorageData: null,
+    availableMissions: [],
+    activeMissions: [],
   });
 
   const connect = useCallback(() => {
@@ -410,6 +416,8 @@ export function useObserver(wsUrl: string) {
       cargoData: null,
       storageData: null,
       factionStorageData: null,
+      availableMissions: [],
+      activeMissions: [],
     });
   }, []);
 
@@ -550,6 +558,33 @@ export function useObserver(wsUrl: string) {
             }
           }
 
+          // Handle mission-related command responses
+          if (cmd === 'get_missions' && respPayload.missions) {
+            setState(s => ({ ...s, availableMissions: respPayload.missions as unknown as Mission[] }));
+          } else if (cmd === 'get_active_missions' && respPayload.missions) {
+            setState(s => ({ ...s, activeMissions: respPayload.missions as unknown as ActiveMission[] }));
+          } else if (cmd === 'accept_mission') {
+            // Refresh both available and active missions after accepting
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN && state.subscribedAgent) {
+              ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_missions', payload: {} }));
+              ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_active_missions', payload: {} }));
+            }
+          } else if (cmd === 'abandon_mission') {
+            // Refresh active missions after abandoning
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN && state.subscribedAgent) {
+              ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_active_missions', payload: {} }));
+            }
+          } else if (cmd === 'complete_mission') {
+            // Refresh both available and active missions after completing
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN && state.subscribedAgent) {
+              ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_missions', payload: {} }));
+              ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_active_missions', payload: {} }));
+            }
+          }
+
           const partial = extractGameState({ type: respType, payload: respPayload });
           if (partial) {
             gameStateRef.current = deepMerge(gameStateRef.current, partial);
@@ -618,6 +653,27 @@ export function useObserver(wsUrl: string) {
     }));
   }, [state.subscribedAgent]);
 
+  // Mission helper methods
+  const getMissions = useCallback(() => {
+    sendCommand('get_missions', {});
+  }, [sendCommand]);
+
+  const getActiveMissions = useCallback(() => {
+    sendCommand('get_active_missions', {});
+  }, [sendCommand]);
+
+  const acceptMission = useCallback((missionId: string) => {
+    sendCommand('accept_mission', { mission_id: missionId });
+  }, [sendCommand]);
+
+  const abandonMission = useCallback((missionId: string) => {
+    sendCommand('abandon_mission', { mission_id: missionId });
+  }, [sendCommand]);
+
+  const completeMission = useCallback((missionId: string) => {
+    sendCommand('complete_mission', { mission_id: missionId });
+  }, [sendCommand]);
+
   return {
     ...state,
     connect,
@@ -629,6 +685,11 @@ export function useObserver(wsUrl: string) {
     sendCommand,
     clearError,
     dismissCombatAlert,
+    getMissions,
+    getActiveMissions,
+    acceptMission,
+    abandonMission,
+    completeMission,
   };
 }
 

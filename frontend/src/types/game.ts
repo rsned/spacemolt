@@ -142,6 +142,32 @@ export interface Facility {
   last_updated: number;
 }
 
+export interface CargoItem {
+  item_id: string;
+  quantity: number;
+}
+
+export interface CargoData {
+  cargo: CargoItem[];
+  used: number;
+  capacity: number;
+  available: number;
+}
+
+export interface StorageData {
+  base_id: string;
+  credits: number;
+  items: CargoItem[];
+}
+
+export interface FactionStorageData {
+  faction_id: string;
+  faction_name: string;
+  faction_tag: string;
+  credits: number;
+  items: CargoItem[];
+}
+
 export interface Base {
   id: string;
   poi_id: string;
@@ -154,3 +180,50 @@ export interface Base {
   services: Record<string, boolean>;
   facilities: Facility[];
 }
+
+// Mission-related types
+export interface MissionObjective {
+  id: string;
+  description: string;
+  current: number;
+  target: number;
+  completed: boolean;
+}
+
+export interface MissionReward {
+  type: 'credits' | 'items' | 'ships' | 'faction' | 'skill';
+  description: string;
+  amount?: number;
+  item_id?: string;
+  item_name?: string;
+  faction_id?: string;
+  faction_rank?: number;
+  skill_id?: string;
+  skill_xp?: number;
+}
+
+export interface Mission {
+  mission_id: string;
+  template_id: string;
+  title: string;
+  description: string;
+  type: string;
+  giver_name: string;
+  giver_title: string;
+  objectives: MissionObjective[];
+  rewards: MissionReward[];
+  difficulty: string;
+  estimated_time: string;
+  is_repeatable: boolean;
+  expires_at?: number;
+  created_at: number;
+}
+
+export interface ActiveMission extends Mission {
+  accepted_at: number;
+  progress: number;
+  can_complete: boolean;
+  is_abandonable: boolean;
+}
+
+export type MissionTab = 'AVAILABLE' | 'ACTIVE' | 'COMPLETED';
