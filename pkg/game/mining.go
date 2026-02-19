@@ -534,9 +534,14 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 // countMiningLasers counts total mining lasers installed
 func countMiningLasers(state *State) int {
 	count := 0
-	for _, module := range state.Ship.Modules {
-		if strings.HasPrefix(module, "mining_laser_") || module == "advanced_mining_laser" {
-			count++
+	for _, moduleID := range state.Ship.Modules {
+		// Look up module definition to get the type
+		if moduleDef, ok := state.ModuleDefinitions[moduleID]; ok {
+			// Check if module type indicates a mining laser
+			if strings.HasPrefix(strings.ToLower(moduleDef.Name), "mining laser") ||
+			   strings.HasPrefix(strings.ToLower(moduleDef.Type), "mining") {
+				count++
+			}
 		}
 	}
 	return count
