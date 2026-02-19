@@ -547,15 +547,16 @@ export function useObserver(wsUrl: string) {
             }
           }
 
-          // Handle storage-related command responses
-          if (cmd && resultObj) {
-            if (cmd === 'get_cargo') {
-              setState(s => ({ ...s, cargoData: resultObj as unknown as CargoData }));
-            } else if (cmd === 'view_storage') {
-              setState(s => ({ ...s, storageData: resultObj as unknown as StorageData }));
-            } else if (cmd === 'view_faction_storage') {
-              setState(s => ({ ...s, factionStorageData: resultObj as unknown as FactionStorageData }));
-            }
+          // Handle storage-related command responses.
+          // Query commands use "action" field (not "command") and data is
+          // directly in the payload (not nested under "result").
+          const action = respPayload.action as string | undefined;
+          if (action === 'get_cargo') {
+            setState(s => ({ ...s, cargoData: respPayload as unknown as CargoData }));
+          } else if (action === 'view_storage') {
+            setState(s => ({ ...s, storageData: respPayload as unknown as StorageData }));
+          } else if (action === 'view_faction_storage') {
+            setState(s => ({ ...s, factionStorageData: respPayload as unknown as FactionStorageData }));
           }
 
           // Handle mission-related command responses

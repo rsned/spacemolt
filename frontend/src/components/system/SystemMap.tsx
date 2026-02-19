@@ -157,9 +157,9 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const centerX = dimensions.width / 2;
   const centerY = dimensions.height / 2;
 
-  // Marker scale factor — markers grow proportionally with zoom so they
-  // maintain their visual relationship to the map distances.
-  const ms = zoomMultiplier;
+  // Marker scale factor — markers grow at half the zoom rate so they
+  // don't dominate the map at high zoom levels.
+  const ms = 1 + (zoomMultiplier - 1) * 0.5;
 
   // Transform game coordinates to screen coordinates with zoom and pan
   const transform = (poiX: number, poiY: number) => ({
@@ -625,14 +625,17 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               )}
 
               {/* POI icon */}
-              {poi.type === 'planet' && poi.id !== 'sol_earth' && Math.sqrt(poi.x * poi.x + poi.y * poi.y) < minBeltDist ? (
-                // Inner planet — banded sphere with wavy horizontal stripes and glossy highlight
+              {poi.type === 'planet' && poi.id !== 'sol_earth' ? (
+                // Planet — banded sphere; gas giants (beyond belt) also get rings
                 (() => {
                   const r = 14 * ms;
                   const id = `planet-${poi.id}`;
+                  const isInner = Math.sqrt(poi.x * poi.x + poi.y * poi.y) < minBeltDist;
                   // Derive stable hue from POI id so each planet is unique
                   const seed = poi.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-                  const baseHue = 180 + (seed % 60); // range of ocean/teal/blue tones
+                  const baseHue = isInner
+                    ? 180 + (seed % 60) // ocean/teal/blue tones for inner
+                    : 20 + (seed % 40);  // warm amber/orange/ochre tones for gas giants
                   const light = `hsl(${baseHue}, 50%, 55%)`;
                   const mid = `hsl(${baseHue}, 55%, 42%)`;
                   const dark = `hsl(${baseHue + 10}, 60%, 30%)`;
@@ -645,6 +648,10 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                     const phase = ((seed * (i + 1) * 7) % 100) * 0.1;
                     return Math.sin(t * freq + phase) * amp;
                   };
+                  // Ring geometry for gas giants
+                  const ringInner = r * 1.3;
+                  const ringOuter = r * 2.0;
+                  const ringTilt = 0.3; // vertical squash for perspective
                   return (
                     <g style={{ filter: isHovered ? 'brightness(1.3)' : undefined }}>
                       <defs>
@@ -660,6 +667,18 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                           <stop offset="100%" stopColor="black" stopOpacity="0.3" />
                         </radialGradient>
                       </defs>
+                      {/* Ring behind planet (bottom half of ring ellipse) */}
+                      {!isInner && (
+                        <ellipse
+                          cx={x} cy={y}
+                          rx={ringOuter} ry={ringOuter * ringTilt}
+                          fill="none"
+                          stroke={`hsl(${baseHue + 15}, 40%, 50%)`}
+                          strokeWidth={((ringOuter - ringInner) * 0.6)}
+                          strokeOpacity="0.35"
+                          strokeDasharray={`0 ${Math.PI * ringOuter} ${Math.PI * ringOuter}`}
+                        />
+                      )}
                       {/* Base sphere */}
                       <circle cx={x} cy={y} r={r} fill={mid} />
                       {/* Wavy bands clipped to sphere */}
@@ -667,7 +686,6 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                         {bands.map((bandY, i) => {
                           const cy0 = y + bandY * r;
                           const bandH = r * (0.12 + ((seed * (i + 3)) % 5) * 0.02);
-                          // Build a wavy path across the planet width
                           const steps = 12;
                           const left = x - r * 1.1;
                           const right = x + r * 1.1;
@@ -680,7 +698,6 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                             const cpy = cy0 + wave(i, (s - 0.5) / steps * Math.PI * 2);
                             d += ` Q ${cpx} ${cpy} ${px} ${py}`;
                           }
-                          // Close the band by going back along bottom edge
                           const bottomY = cy0 + bandH;
                           d += ` L ${right} ${bottomY + wave(i, Math.PI * 2)}`;
                           for (let s = steps - 1; s >= 0; s--) {
@@ -707,6 +724,18 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                       <circle cx={x} cy={y} r={r} fill={`url(#${id}-shadow)`} />
                       {/* Rim */}
                       <circle cx={x} cy={y} r={r} fill="none" stroke={`hsl(${baseHue}, 45%, 25%)`} strokeWidth={0.8 * ms} />
+                      {/* Ring in front of planet (top half of ring ellipse) */}
+                      {!isInner && (
+                        <ellipse
+                          cx={x} cy={y}
+                          rx={ringOuter} ry={ringOuter * ringTilt}
+                          fill="none"
+                          stroke={`hsl(${baseHue + 15}, 40%, 55%)`}
+                          strokeWidth={((ringOuter - ringInner) * 0.6)}
+                          strokeOpacity="0.45"
+                          strokeDasharray={`${Math.PI * ringOuter} ${Math.PI * ringOuter}`}
+                        />
+                      )}
                     </g>
                   );
                 })()
