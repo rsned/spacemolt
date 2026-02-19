@@ -60,6 +60,11 @@ interface GameState {
     security_status: string;
   };
   SkillNextLevelXP: Record<string, number>;
+  TravelProgress: number;
+  TravelDestination: string;
+  TravelType: 'travel' | 'jump';
+  TravelArrivalTick: number;
+  TravelStartTick: number;
 }
 
 // Map raw protocol.Response payload to a partial GameState update.
@@ -115,10 +120,37 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
     state.Traveling = p.traveling;
     hasData = true;
   }
-  // travel_progress presence means we're traveling
+  // travel_progress fields from state_update
   if (typeof p.travel_progress === 'number') {
     state.Traveling = true;
+    state.TravelProgress = p.travel_progress;
     hasData = true;
+  }
+  if (typeof p.travel_destination === 'string') {
+    state.TravelDestination = p.travel_destination;
+    hasData = true;
+  }
+  if (typeof p.travel_type === 'string') {
+    state.TravelType = p.travel_type as 'travel' | 'jump';
+    hasData = true;
+  }
+  if (typeof p.travel_arrival_tick === 'number') {
+    state.TravelArrivalTick = p.travel_arrival_tick;
+    hasData = true;
+  }
+
+  // Handle "ok" response with pending travel/jump command:
+  // { command: "travel"|"jump", pending: true, message: "..." }
+  if (p.pending === true && typeof p.command === 'string') {
+    if (p.command === 'travel' || p.command === 'jump') {
+      state.Traveling = true;
+      state.TravelType = p.command as 'travel' | 'jump';
+      // Record the start tick so we can interpolate
+      if (typeof p.tick === 'number') {
+        state.TravelStartTick = p.tick;
+      }
+      hasData = true;
+    }
   }
 
   // Handle action_result for travel/jump completion:
@@ -128,6 +160,10 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
     const command = p.command as string | undefined;
     if (result.action === 'arrived') {
       state.Traveling = false;
+      state.TravelProgress = 0;
+      state.TravelDestination = '';
+      state.TravelArrivalTick = 0;
+      state.TravelStartTick = 0;
       if (typeof result.poi_id === 'string') {
         state.CurrentPOI = result.poi_id;
       } else if (typeof result.poi === 'string') {
@@ -197,6 +233,11 @@ function mapToPlayer(gs: GameState): Player {
     policeLevel: policeLevel > 0 ? 'policed' : 'lawless',
     tick: gs.CurrentTick ?? 0,
     traveling: gs.Traveling ?? false,
+    travelProgress: gs.TravelProgress ?? 0,
+    travelDestination: gs.TravelDestination ?? '',
+    travelType: gs.TravelType,
+    travelArrivalTick: gs.TravelArrivalTick ?? 0,
+    travelStartTick: gs.TravelStartTick ?? 0,
   };
 }
 

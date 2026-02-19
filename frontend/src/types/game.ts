@@ -21,6 +21,11 @@ export interface Player {
   policeLevel: PoliceLevel;
   tick: number;
   traveling?: boolean;
+  travelProgress?: number;        // 0.0 to 1.0
+  travelDestination?: string;     // target POI id or system id
+  travelType?: 'travel' | 'jump'; // travel within system or jump between systems
+  travelArrivalTick?: number;     // server tick when travel completes
+  travelStartTick?: number;       // server tick when travel started
 }
 
 export type Empire = 'solarian' | 'voidborn' | 'crimson' | 'nebula' | 'outerrim';

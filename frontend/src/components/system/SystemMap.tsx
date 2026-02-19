@@ -19,13 +19,75 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
   const [hoveredPOI, setHoveredPOI] = useState<string | null>(null);
   const [hoveredGate, setHoveredGate] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [travelTargetId, setTravelTargetId] = useState<string | null>(null);
+  const [travelOriginPOI, setTravelOriginPOI] = useState<string | null>(null);
+  const [clientTravelProgress, setClientTravelProgress] = useState(0);
+  const animFrameRef = useRef<number>(0);
 
-  // Clear action message when traveling state ends or system/poi changes
+  // Clear action message and travel state when traveling ends
   useEffect(() => {
     if (!isTraveling && actionMessage) {
       setActionMessage(null);
+      setTravelTargetId(null);
+      setTravelOriginPOI(null);
+      setClientTravelProgress(0);
     }
   }, [isTraveling, player.location.poi, player.location.systemId]);
+
+  // Use server-provided travel destination if we don't have a click target
+  useEffect(() => {
+    if (isTraveling && !travelTargetId && player.travelDestination) {
+      setTravelTargetId(player.travelDestination);
+      setTravelOriginPOI(player.location.poi);
+    }
+  }, [isTraveling, player.travelDestination]);
+
+  // Client-side travel animation using tick-based interpolation
+  useEffect(() => {
+    if (!isTraveling || !travelTargetId) return;
+
+    const startTick = player.travelStartTick || player.tick;
+    const arrivalTick = player.travelArrivalTick || 0;
+    const serverProgress = player.travelProgress || 0;
+
+    // If server gives us progress directly, use that
+    if (serverProgress > 0) {
+      setClientTravelProgress(serverProgress);
+      return;
+    }
+
+    // If we have arrival tick, interpolate based on tick timing (~2s per tick)
+    if (arrivalTick > startTick) {
+      const totalTicks = arrivalTick - startTick;
+      const TICK_DURATION_MS = 2000;
+      const totalDurationMs = totalTicks * TICK_DURATION_MS;
+      const startTime = Date.now();
+
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / totalDurationMs, 0.95); // Cap at 95% until server confirms
+        setClientTravelProgress(progress);
+        if (progress < 0.95) {
+          animFrameRef.current = requestAnimationFrame(animate);
+        }
+      };
+      animFrameRef.current = requestAnimationFrame(animate);
+      return () => cancelAnimationFrame(animFrameRef.current);
+    }
+
+    // Fallback: simple linear animation over 5 seconds
+    const startTime = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / 5000, 0.95);
+      setClientTravelProgress(progress);
+      if (progress < 0.95) {
+        animFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+    animFrameRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, [isTraveling, travelTargetId, player.travelArrivalTick, player.travelStartTick, player.travelProgress]);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -147,9 +209,15 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
     const my = e.clientY - rect.top;
     const nearest = findNearest(mx, my);
     if (nearest?.type === 'poi' && onTravelToPOI) {
+      setTravelOriginPOI(player.location.poi);
+      setTravelTargetId(nearest.poi.id);
+      setClientTravelProgress(0);
       onTravelToPOI(nearest.poi.id);
       setActionMessage(`Traveling to ${nearest.poi.name}...`);
     } else if (nearest?.type === 'gate' && onJumpToSystem) {
+      setTravelOriginPOI(player.location.poi);
+      setTravelTargetId(nearest.gate.id);
+      setClientTravelProgress(0);
       onJumpToSystem(nearest.gate.id);
       setActionMessage(`Jumping to ${nearest.gate.name}...`);
     }
@@ -541,22 +609,87 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
           );
         })}
 
-        {/* Player ship — rendered last so it's always on top */}
+        {/* Travel line and animated ship */}
         {(() => {
-          const currentPOI = pois.find((p) => p.id === player.location.poi || p.name === player.location.poi);
-          if (!currentPOI) return null;
-          const sx = currentPOI.x * scale + centerX + 10;
-          const sy = -currentPOI.y * scale + centerY + 10;
+          const originId = travelOriginPOI || player.location.poi;
+          const originPOI = pois.find((p) => p.id === originId || p.name === originId);
+          if (!originPOI) return null;
+
+          const ox = originPOI.x * scale + centerX;
+          const oy = -originPOI.y * scale + centerY;
+
+          // Find target position (POI or jump gate)
+          let tx: number | null = null;
+          let ty: number | null = null;
+          if (isTraveling && travelTargetId) {
+            // Check if target is a POI
+            const targetPOI = pois.find((p) => p.id === travelTargetId || p.name === travelTargetId);
+            if (targetPOI) {
+              tx = targetPOI.x * scale + centerX;
+              ty = -targetPOI.y * scale + centerY;
+            } else {
+              // Check if target is a jump gate
+              const targetGate = gateScreenPositions.find((gp) => gp.gate.id === travelTargetId);
+              if (targetGate) {
+                tx = targetGate.x;
+                ty = targetGate.y;
+              }
+            }
+          }
+
+          // Calculate ship position
+          let sx: number;
+          let sy: number;
+          if (isTraveling && tx !== null && ty !== null && clientTravelProgress > 0) {
+            // Interpolate ship position along the travel path
+            sx = ox + (tx - ox) * clientTravelProgress;
+            sy = oy + (ty - oy) * clientTravelProgress;
+          } else {
+            // Ship at current POI
+            sx = ox + 10;
+            sy = oy + 10;
+          }
+
           return (
-            <text
-              x={sx}
-              y={sy}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize="16"
-            >
-              🚀
-            </text>
+            <g>
+              {/* Dashed travel line from origin to destination */}
+              {isTraveling && tx !== null && ty !== null && (
+                <>
+                  <line
+                    x1={ox}
+                    y1={oy}
+                    x2={tx}
+                    y2={ty}
+                    stroke="#22d3ee"
+                    strokeWidth="1.5"
+                    strokeDasharray="6,4"
+                    opacity="0.5"
+                  />
+                  {/* Destination marker pulse */}
+                  <circle
+                    cx={tx}
+                    cy={ty}
+                    r="20"
+                    fill="none"
+                    stroke="#22d3ee"
+                    strokeWidth="1.5"
+                    strokeDasharray="4,3"
+                    opacity="0.4"
+                    className="animate-pulse-slow"
+                  />
+                </>
+              )}
+              {/* Ship icon */}
+              <text
+                x={sx}
+                y={sy}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="16"
+              >
+                🚀
+              </text>
+            </g>
           );
         })()}
       </svg>
