@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Player, Skill, OwnedShip, ShipClass } from '../types/game';
+import type { Player, Skill, OwnedShip, ShipClass, CargoData, StorageData, FactionStorageData } from '../types/game';
 import { useSkillDefinitions, getNextLevelXP } from './useSkillDefinitions';
 
 export interface AgentInfo {
@@ -201,22 +201,34 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
       hasData = true;
     }
   }
-  // get_skills response includes player_skills with next_level_xp per skill.
+  // get_skills response includes player_skills with next_level_xp and level per skill.
   if (Array.isArray(p.player_skills)) {
-    console.log('[extractGameState] Found player_skills array:', p.player_skills);
     const nextXP: Record<string, number> = {};
+    const skillLevels: Record<string, { level: number; xp: number }> = {};
     for (const entry of p.player_skills) {
       const e = entry as Record<string, unknown>;
-      console.log('[extractGameState] Processing skill entry:', e);
-      if (typeof e.skill_id === 'string' && typeof e.next_level_xp === 'number') {
-        nextXP[e.skill_id] = e.next_level_xp;
-        console.log(`[extractGameState] ${e.skill_id} -> ${e.next_level_xp}`);
+      if (typeof e.skill_id === 'string') {
+        if (typeof e.next_level_xp === 'number') {
+          nextXP[e.skill_id] = e.next_level_xp;
+        }
+        if (typeof e.level === 'number') {
+          skillLevels[e.skill_id] = {
+            level: e.level,
+            xp: typeof e.current_xp === 'number' ? e.current_xp : 0,
+          };
+        }
       }
     }
     if (Object.keys(nextXP).length > 0) {
       state.SkillNextLevelXP = nextXP;
       hasData = true;
-      console.log('[extractGameState] Set SkillNextLevelXP:', nextXP);
+    }
+    if (Object.keys(skillLevels).length > 0) {
+      if (!state.Player) {
+        state.Player = {} as GameState['Player'];
+      }
+      state.Player.skills = skillLevels;
+      hasData = true;
     }
   }
 
@@ -321,6 +333,9 @@ export interface ObserverState {
   myShips: OwnedShip[];
   catalogShips: ShipClass[];
   activeShipId: string | null;
+  cargoData: CargoData | null;
+  storageData: StorageData | null;
+  factionStorageData: FactionStorageData | null;
 }
 
 export function useObserver(wsUrl: string) {
@@ -339,6 +354,9 @@ export function useObserver(wsUrl: string) {
     myShips: [],
     catalogShips: [],
     activeShipId: null,
+    cargoData: null,
+    storageData: null,
+    factionStorageData: null,
   });
 
   const connect = useCallback(() => {
@@ -389,6 +407,9 @@ export function useObserver(wsUrl: string) {
       myShips: [],
       catalogShips: [],
       activeShipId: null,
+      cargoData: null,
+      storageData: null,
+      factionStorageData: null,
     });
   }, []);
 
@@ -397,7 +418,7 @@ export function useObserver(wsUrl: string) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
     gameStateRef.current = {};
-    setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [], myShips: [], catalogShips: [], activeShipId: null }));
+    setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [], myShips: [], catalogShips: [], activeShipId: null, cargoData: null, storageData: null, factionStorageData: null }));
     ws.send(JSON.stringify({ type: 'subscribe', agent: agentName }));
   }, []);
 
@@ -518,6 +539,17 @@ export function useObserver(wsUrl: string) {
             }
           }
 
+          // Handle storage-related command responses
+          if (cmd && resultObj) {
+            if (cmd === 'get_cargo') {
+              setState(s => ({ ...s, cargoData: resultObj as unknown as CargoData }));
+            } else if (cmd === 'view_storage') {
+              setState(s => ({ ...s, storageData: resultObj as unknown as StorageData }));
+            } else if (cmd === 'view_faction_storage') {
+              setState(s => ({ ...s, factionStorageData: resultObj as unknown as FactionStorageData }));
+            }
+          }
+
           const partial = extractGameState({ type: respType, payload: respPayload });
           if (partial) {
             gameStateRef.current = deepMerge(gameStateRef.current, partial);
@@ -604,6 +636,9 @@ function deepMerge<T extends Record<string, unknown>>(target: Partial<T>, source
   const result = { ...target } as Record<string, unknown>;
   for (const key of Object.keys(source)) {
     const srcVal = (source as Record<string, unknown>)[key];
+    // Skip null/undefined so partial updates don't erase existing data
+    // (e.g. state_update with player.skills = null from Go nil map).
+    if (srcVal === null || srcVal === undefined) continue;
     const tgtVal = result[key];
     if (
       srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal) &&
