@@ -18,9 +18,6 @@ import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
 import {
   mockPlayer,
-  mockSkills,
-  mockChat,
-  mockNotifications,
   mockSystemPOIs,
   mockMarketOrders,
   mockRecipes,
@@ -40,7 +37,7 @@ function App() {
 
   const isLive = observer.status === 'connected' && observer.player !== null;
   const player = isLive ? observer.player : mockPlayer;
-  const skills = isLive ? observer.skills : mockSkills;
+  const skills = observer.skills;
   const systemMapData = useSystemMap(player?.location.systemId);
 
   // Auto-dock after travel to a station completes
@@ -127,13 +124,13 @@ function App() {
           <div className="flex gap-1.5 mt-2 ml-auto justify-end">
             {[
               { id: 'station' as ViewType, label: 'Overview' },
-              { id: 'market' as ViewType, label: 'Market' },
-              { id: 'workshop' as ViewType, label: 'Workshop' },
-              { id: 'shipyard' as ViewType, label: 'Shipyard' },
-              { id: 'missions' as ViewType, label: 'Missions' },
               { id: 'cloning' as ViewType, label: 'Cloning' },
               { id: 'insurance' as ViewType, label: 'Insurance' },
+              { id: 'market' as ViewType, label: 'Market' },
+              { id: 'missions' as ViewType, label: 'Missions' },
+              { id: 'shipyard' as ViewType, label: 'Shipyard' },
               { id: 'storage' as ViewType, label: 'Storage' },
+              { id: 'workshop' as ViewType, label: 'Workshop' },
             ].map((view) => (
               <button
                 key={view.id}
@@ -229,19 +226,19 @@ function App() {
             {player && (
               <>
                 <ShipStatusBar player={player} />
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-4">
-                    <SkillsPanel skills={skills} />
-                  </div>
-                  <div>
-                    <ChatPanel chat={mockChat} />
-                  </div>
-                  <div>
-                    <NotificationFeed notifications={mockNotifications} />
-                  </div>
-                </div>
               </>
             )}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-4">
+                <SkillsPanel skills={skills} isConnected={isLive} />
+              </div>
+              <div>
+                <ChatPanel chat={[]} isConnected={isLive} />
+              </div>
+              <div>
+                <NotificationFeed notifications={[]} isConnected={isLive} />
+              </div>
+            </div>
           </div>
         )}
 
@@ -314,9 +311,13 @@ function App() {
         )}
 
         {activeView === 'storage' && (
-          <div className="max-w-3xl">
-            <StoragePanel player={player || mockPlayer} />
-          </div>
+          <StoragePanel
+            player={player || mockPlayer}
+            onCommand={isLive ? observer.sendCommand : () => {}}
+            cargoData={observer.cargoData}
+            storageData={observer.storageData}
+            factionStorageData={observer.factionStorageData}
+          />
         )}
       </div>
     </div>
