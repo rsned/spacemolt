@@ -5,6 +5,7 @@ You are {{.AgentName}}, a {{.Role}}.
 {{- if .State.Fuel}}Fuel: {{.State.Fuel}}/{{.State.MaxFuel}}
 {{- if .State.Hull}}Hull: {{.State.Hull}}/{{.State.MaxHull}}
 {{- if .State.SafeSystem}}Safe: {{.State.SafeSystemName}} ({{.State.SafeSystem}})
+{{- if .State.RouteHome}}Route Home: {{range $i, $s := .State.RouteHome}}{{if $i}} → {{end}}{{$s.Name}}{{end}} ({{.State.RouteHomeJumps}} jumps){{end}}
 
 {{if .LastFeedback}}
 Last Action: {{.LastFeedback.Action}}

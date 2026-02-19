@@ -495,6 +495,37 @@ func (c *Client) SurveySystem(ctx context.Context) error {
 	return c.waitForActionResponse(ctx, 5*time.Second)
 }
 
+// FindRoute finds a route to a target system using the server's pathfinding.
+// Returns the route steps (excluding the current system) or an error.
+func (c *Client) FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error) {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "find_route",
+		Payload:   map[string]any{"target_system": targetSystem},
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.waitForAuthResponse(ctx, protocol.TypeOK, 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("find_route failed: %w", err)
+	}
+
+	// Check if a route was found
+	if found, ok := resp.Payload["found"].(bool); ok && !found {
+		msg, _ := resp.Payload["message"].(string)
+		return nil, fmt.Errorf("no route found: %s", msg)
+	}
+
+	// Parse the route array from the response
+	var steps []RouteStep
+	if unmarshalPayloadKey(resp.Payload, "route", &steps) {
+		return steps, nil
+	}
+
+	return nil, fmt.Errorf("find_route: could not parse route from response")
+}
+
 // GetSystem requests information about the current system
 func (c *Client) GetSystem(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{

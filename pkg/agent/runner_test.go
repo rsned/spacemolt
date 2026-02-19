@@ -53,8 +53,10 @@ func (m *mockAgent) EnqueueActions(actions []PlannedAction) {}
 func (m *mockAgent) DequeueAction() (*PlannedAction, bool)  { return nil, false }
 func (m *mockAgent) GetActionQueue() []PlannedAction        { return nil }
 func (m *mockAgent) ClearActionQueue(reason string)         {}
-func (m *mockAgent) SetUsingQueuedAction(using bool)        {}
-func (m *mockAgent) IsUsingQueuedAction() bool              { return false }
+func (m *mockAgent) SetUsingQueuedAction(using bool)                      {}
+func (m *mockAgent) IsUsingQueuedAction() bool                            { return false }
+func (m *mockAgent) SetRouteHome(_ []game.RouteStep, _ string)            {}
+func (m *mockAgent) GetRouteHome() ([]game.RouteStep, string)             { return nil, "" }
 
 // Mock game client for testing
 type mockGameClient struct {
@@ -122,6 +124,11 @@ func (m *mockGameClient) GetStatus(ctx context.Context) error {
 func (m *mockGameClient) GetSystem(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_system")
 	return nil
+}
+
+func (m *mockGameClient) FindRoute(_ context.Context, targetSystem string) ([]game.RouteStep, error) {
+	m.actionsRecorded = append(m.actionsRecorded, "find_route:"+targetSystem)
+	return nil, nil
 }
 
 func TestRunner_StartAndStop(t *testing.T) {

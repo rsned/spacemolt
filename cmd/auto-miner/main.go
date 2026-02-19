@@ -169,6 +169,14 @@ func main() {
 		}
 	}()
 
+	// Initialize crafting configuration if using a crafting strategy
+	if strategy == "craft-sell" || strategy == "craft-deposit" {
+		client.CraftingConfig = &game.CraftingConfig{
+			CraftingServerPath: "", // Empty string uses "crafting-server" from PATH
+		}
+		logger.Printf("🔧 Crafting configured: using MCP server from PATH")
+	}
+
 	time.Sleep(1 * time.Second)
 
 	// Get initial state

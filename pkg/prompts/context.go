@@ -105,6 +105,16 @@ type StateContext struct {
 	// Safe Haven
 	SafeSystem     string // System ID of the agent's safe haven
 	SafeSystemName string // Display name of the safe system
+
+	// Route Home
+	RouteHome      []RouteStepInfo // Cached route to safe system
+	RouteHomeJumps int             // Total jumps to safe system
+}
+
+// RouteStepInfo represents a step in the route home for display in prompts.
+type RouteStepInfo struct {
+	SystemID string
+	Name     string
 }
 
 // KnowledgeContext contains what the agent knows

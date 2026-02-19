@@ -23,6 +23,9 @@ type GameClient interface {
 	Mine(ctx context.Context) error
 	Scan(ctx context.Context) error
 
+	// Route Planning
+	FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error)
+
 	// Queries
 	GetSystem(ctx context.Context) error
 	GetStatus(ctx context.Context) error

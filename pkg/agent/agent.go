@@ -30,6 +30,10 @@ type Agent interface {
 	SetUsingQueuedAction(using bool)
 	IsUsingQueuedAction() bool
 
+	// Route Home
+	SetRouteHome(route []game.RouteStep, fromSystem string)
+	GetRouteHome() ([]game.RouteStep, string)
+
 	// Lifecycle
 	Start(ctx context.Context) error
 	Stop() error

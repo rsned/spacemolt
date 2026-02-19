@@ -28,6 +28,9 @@ type Runner struct {
 	stopCh         chan struct{}
 	stopOnce       sync.Once
 
+	// System tracking for route-home auto-update
+	lastKnownSystem string
+
 	// History tracking
 	history *History
 
@@ -198,6 +201,9 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	// Clone state for safe concurrent access
 	stateCopy := state.Clone()
 	currentTick := stateCopy.GetTick()
+
+	// Auto-update route home on system change
+	r.maybeUpdateRouteHome(ctx, stateCopy)
 
 	// Check if we can take an action this tick
 	r.mu.RLock()
@@ -393,6 +399,18 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> Calling gameClient.GetSystem()", r.agent.ID())
 		return r.gameClient.GetSystem(actionCtx)
 
+	case "find_route":
+		if decision.Target == "" {
+			return fmt.Errorf("find_route requires target system")
+		}
+		r.logger.Printf("[%s] -> Calling gameClient.FindRoute('%s')", r.agent.ID(), decision.Target)
+		route, err := r.gameClient.FindRoute(actionCtx, decision.Target)
+		if err != nil {
+			return err
+		}
+		r.agent.SetRouteHome(route, "")
+		return nil
+
 	case "wait":
 		// Deliberate wait - do nothing
 		r.logger.Printf("[%s] -> Waiting (deliberate)", r.agent.ID())
@@ -402,6 +420,42 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] ERROR: Unknown action: '%s' (does not match any case)", r.agent.ID(), decision.Action)
 		return fmt.Errorf("unknown action: %s", decision.Action)
 	}
+}
+
+// maybeUpdateRouteHome checks if the agent has entered a new system and, if so,
+// calls find_route to cache the route back to the safe system. This costs one
+// game tick but ensures the agent always has an escape route available.
+func (r *Runner) maybeUpdateRouteHome(ctx context.Context, state *game.State) {
+	currentSystem := state.System.ID
+	if currentSystem == "" || currentSystem == r.lastKnownSystem {
+		return
+	}
+	if state.InCombat || state.Traveling {
+		return
+	}
+
+	r.lastKnownSystem = currentSystem
+
+	// Resolve safe system
+	safeSystem := state.Player.HomeBase
+	if safeSystem == "" {
+		safeSystem = EmpireCapitalSystem(state.Player.Empire)
+	}
+	if safeSystem == "" || safeSystem == currentSystem {
+		return
+	}
+
+	r.logger.Printf("[%s] System changed to %s, finding route home to %s",
+		r.agent.ID(), currentSystem, safeSystem)
+
+	route, err := r.gameClient.FindRoute(ctx, safeSystem)
+	if err != nil {
+		r.logger.Printf("[%s] Failed to find route home: %v", r.agent.ID(), err)
+		return
+	}
+
+	r.agent.SetRouteHome(route, currentSystem)
+	r.logger.Printf("[%s] Cached route home: %d steps to %s", r.agent.ID(), len(route), safeSystem)
 }
 
 // isActionCommand returns true for commands that consume the 10-second action tick

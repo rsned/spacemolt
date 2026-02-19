@@ -77,6 +77,10 @@ type BaseAgent struct {
 	// Tactical action queue
 	actionQueue       []PlannedAction
 	usingQueuedAction bool
+
+	// Cached route home
+	routeHome       []game.RouteStep // Cached route to safe system
+	routeHomeSystem string           // System this route was calculated from
 }
 
 // NewBaseAgent creates a new agent
@@ -253,6 +257,21 @@ func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateCon
 				}
 			}
 		}
+	}
+
+	// Populate cached route home
+	route, _ := a.GetRouteHome()
+	if len(route) > 0 {
+		ctx.State.RouteHome = make([]prompts.RouteStepInfo, len(route))
+		totalJumps := 0
+		for i, step := range route {
+			ctx.State.RouteHome[i] = prompts.RouteStepInfo{
+				SystemID: step.SystemID,
+				Name:     step.Name,
+			}
+			totalJumps += step.Jumps
+		}
+		ctx.State.RouteHomeJumps = totalJumps
 	}
 
 	return ctx
@@ -469,6 +488,24 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 		safeSystemName = safeSystemID // no pretty name available
 	}
 
+	// Build route home text
+	routeHomeText := ""
+	route, _ := a.GetRouteHome()
+	if len(route) > 0 {
+		routeHomeText = "\nROUTE HOME: "
+		for i, step := range route {
+			if i > 0 {
+				routeHomeText += " → "
+			}
+			routeHomeText += step.Name
+		}
+		totalJumps := 0
+		for _, step := range route {
+			totalJumps += step.Jumps
+		}
+		routeHomeText += fmt.Sprintf(" (%d jumps)\n", totalJumps)
+	}
+
 	// Build state info
 	stateInfo := map[string]interface{}{
 		"location":    state.GetCurrentSystem(),
@@ -513,7 +550,7 @@ func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
 			"skills":      a.personality.Skills,
 		},
 		stateInfo,
-	) + feedbackText + "\n" + knowledgeText + "\n\n" + poisText + "\n" + connectionsText + "\n\n" + expText
+	) + feedbackText + routeHomeText + "\n" + knowledgeText + "\n\n" + poisText + "\n" + connectionsText + "\n\n" + expText
 }
 
 // Learn updates the agent's memory based on action results
@@ -932,6 +969,21 @@ func getDefaultFocusForRole(role string) string {
 	default:
 		return "general"
 	}
+}
+
+// SetRouteHome caches the route to the agent's safe system.
+func (a *BaseAgent) SetRouteHome(route []game.RouteStep, fromSystem string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.routeHome = route
+	a.routeHomeSystem = fromSystem
+}
+
+// GetRouteHome returns the cached route home and the system it was calculated from.
+func (a *BaseAgent) GetRouteHome() ([]game.RouteStep, string) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.routeHome, a.routeHomeSystem
 }
 
 // EnqueueActions adds a sequence of planned actions to the queue

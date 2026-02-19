@@ -33,12 +33,12 @@ func getMCPManager(logger *log.Logger) *MCPManager {
 
 // CraftableRecipe represents a recipe that can be crafted
 type CraftableRecipe struct {
-	RecipeID    string   `json:"recipe_id"`
-	RecipeName  string   `json:"recipe_name"`
-	CanCraft    bool     `json:"can_craft"`
-	Components  []Component `json:"components"`
-	SkillGaps   []string `json:"skill_gaps,omitempty"`
-	Profit      float64  `json:"estimated_profit,omitempty"`
+	RecipeID    string   `json:"id"`
+	RecipeName  string   `json:"name"`
+	CanCraft    bool     `json:"-"`
+	Components  []Component `json:"-"`
+	SkillGaps   []string `json:"-"`
+	Profit      float64  `json:"-"`
 }
 
 // Component represents a crafting component
@@ -47,7 +47,33 @@ type Component struct {
 	Quantity float64 `json:"quantity"`
 }
 
-// CraftQueryResult is the response from craft_query
+// MCPCraftQueryResponse is the raw response from the crafting MCP server
+type MCPCraftQueryResponse struct {
+	Craftable []struct {
+		Recipe struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Category    string `json:"category"`
+			CraftTimeSec int   `json:"craft_time_sec"`
+		} `json:"recipe"`
+		CanCraftQuantity int `json:"can_craft_quantity"`
+	} `json:"craftable"`
+	PartialComponents []struct {
+		Recipe struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+		} `json:"recipe"`
+	} `json:"partial_components"`
+	BlockedBySkills []struct {
+		Recipe struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"recipe"`
+	} `json:"blocked_by_skills"`
+}
+
+// CraftQueryResult is the simplified response from craft_query
 type CraftQueryResult struct {
 	FullyCraftable []CraftableRecipe `json:"fully_craftable"`
 	PartialMatches  []CraftableRecipe `json:"partial_matches"`
@@ -151,15 +177,32 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 		}, nil
 	}
 
-	// The first content block contains the JSON text
-	contentText, ok := contentBytes[0].(string)
+	// The first content block should be a map with type and text
+	contentBlock, ok := contentBytes[0].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected content format: expected string")
+		// Try old format (direct string)
+		contentText, ok := contentBytes[0].(string)
+		if !ok {
+			return nil, fmt.Errorf("unexpected content format: expected map or string")
+		}
+		// Parse old format
+		var craftResult CraftQueryResult
+		if err := json.Unmarshal([]byte(contentText), &craftResult); err != nil {
+			c.debugLogger.Printf("Failed to parse craft query result: %v", err)
+			return &CraftQueryResult{}, nil
+		}
+		return &craftResult, nil
 	}
 
-	// Parse the JSON text into CraftQueryResult
-	var craftResult CraftQueryResult
-	if err := json.Unmarshal([]byte(contentText), &craftResult); err != nil {
+	// New format: extract text from content block
+	contentText, ok := contentBlock["text"].(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected content format: missing text field")
+	}
+
+	// Parse the JSON text into MCPCraftQueryResponse
+	var mcpResponse MCPCraftQueryResponse
+	if err := json.Unmarshal([]byte(contentText), &mcpResponse); err != nil {
 		// If parsing fails, return empty result
 		c.debugLogger.Printf("Failed to parse craft query result: %v", err)
 		return &CraftQueryResult{
@@ -169,7 +212,35 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 		}, nil
 	}
 
-	return &craftResult, nil
+	// Convert MCP response to simplified format
+	craftResult := &CraftQueryResult{
+		FullyCraftable: make([]CraftableRecipe, 0, len(mcpResponse.Craftable)),
+		PartialMatches:  make([]CraftableRecipe, 0),
+		SkillBlocked:    make([]CraftableRecipe, 0, len(mcpResponse.BlockedBySkills)),
+	}
+
+	for _, craftable := range mcpResponse.Craftable {
+		craftResult.FullyCraftable = append(craftResult.FullyCraftable, CraftableRecipe{
+			RecipeID:   craftable.Recipe.ID,
+			RecipeName: craftable.Recipe.Name,
+		})
+	}
+
+	for _, partial := range mcpResponse.PartialComponents {
+		craftResult.PartialMatches = append(craftResult.PartialMatches, CraftableRecipe{
+			RecipeID:   partial.Recipe.ID,
+			RecipeName: partial.Recipe.Name,
+		})
+	}
+
+	for _, blocked := range mcpResponse.BlockedBySkills {
+		craftResult.SkillBlocked = append(craftResult.SkillBlocked, CraftableRecipe{
+			RecipeID:   blocked.Recipe.ID,
+			RecipeName: blocked.Recipe.Name,
+		})
+	}
+
+	return craftResult, nil
 }
 
 // xpToLevel converts skill XP to an approximate level

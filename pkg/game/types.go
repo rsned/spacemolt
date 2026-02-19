@@ -466,6 +466,13 @@ func (s *State) GetNearbyPlayers() []NearbyPlayer {
 	return s.Nearby
 }
 
+// RouteStep represents a step in a route from find_route.
+type RouteStep struct {
+	SystemID string `json:"system_id"`
+	Name     string `json:"name"`
+	Jumps    int    `json:"jumps"`
+}
+
 // MarketListing represents a single market listing (NPC or player exchange order).
 // Server commands that return this struct:
 //   - get_listings (in payload.listings array)

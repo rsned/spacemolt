@@ -44,6 +44,8 @@ Bad response: "I should travel to asteroid belt to mine some resources"
 **Wealth:** {{printf "%.0f" .State.Credits}} credits
 {{if .State.SafeSystem}}
 **Safe System:** {{.State.SafeSystemName}} ({{.State.SafeSystem}}) - retreat here when in danger (low fuel, damaged hull, combat)
+{{- if .State.RouteHome}}
+**Route Home:** {{range $i, $s := .State.RouteHome}}{{if $i}} → {{end}}{{$s.Name}}{{end}} ({{.State.RouteHomeJumps}} jumps){{end}}
 {{end}}
 
 {{if .LastFeedback}}
