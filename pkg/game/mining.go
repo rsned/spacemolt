@@ -92,7 +92,7 @@ func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx contex
 	}
 
 	// Wait a moment before depositing to ensure all crafting actions are complete
-	time.Sleep(2 * time.Second)
+	time.Sleep(SleepShort)
 
 	// Deposit all items to station storage
 	logger.Printf("📥 Depositing all cargo to station storage (%d items)...", len(state.Ship.Cargo))
