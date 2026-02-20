@@ -75,6 +75,11 @@ type PlayerStats struct {
 	SystemsDiscovered int     `json:"systems_discovered"`
 	ItemsCrafted      int     `json:"items_crafted"`
 	MissionsCompleted int     `json:"missions_completed"`
+	BasesDestroyed    int     `json:"bases_destroyed"`
+	DistanceTraveled  int64   `json:"distance_traveled"`
+	PiratesDestroyed  int     `json:"pirates_destroyed"`
+	ShipsLost         int     `json:"ships_lost"`
+	TimePlayed        int64   `json:"time_played"`
 }
 
 // ModuleDefinition represents a module's definition including stats and requirements.
@@ -108,34 +113,41 @@ type Player struct {
 	SkillXP        map[string]float64 `json:"skill_xp,omitempty"`
 	Stats          PlayerStats        `json:"stats"`
 	Modules        map[string]ModuleDefinition `json:"modules,omitempty"`
+	TowingWreckID  string             `json:"towing_wreck_id,omitempty"`
+	Experience     int64              `json:"experience,omitempty"`
 }
 
 // Ship represents the player's ship with all stats, modules, and cargo.
 type Ship struct {
-	ID             string      `json:"id"`
-	OwnerID        string      `json:"owner_id"`
-	ClassID        string      `json:"class_id"`
-	Name           string      `json:"name"`
-	Hull           float64     `json:"hull"`
-	MaxHull        float64     `json:"max_hull"`
-	Shield         float64     `json:"shield"`
-	MaxShield      float64     `json:"max_shield"`
-	ShieldRecharge float64     `json:"shield_recharge"`
-	Armor          float64     `json:"armor"`
-	Speed          float64     `json:"speed"`
-	Fuel           float64     `json:"fuel"`
-	MaxFuel        float64     `json:"max_fuel"`
-	CargoUsed      float64     `json:"cargo_used"`
-	CargoCapacity  float64     `json:"cargo_capacity"`
-	CPUUsed        float64     `json:"cpu_used"`
-	CPUCapacity    float64     `json:"cpu_capacity"`
-	PowerUsed      float64     `json:"power_used"`
-	PowerCapacity  float64     `json:"power_capacity"`
-	WeaponSlots    int         `json:"weapon_slots"`
-	DefenseSlots   int         `json:"defense_slots"`
-	UtilitySlots   int         `json:"utility_slots"`
-	Modules        []string    `json:"modules"`
-	Cargo          []CargoItem `json:"cargo"`
+	ID                       string           `json:"id"`
+	OwnerID                  string           `json:"owner_id"`
+	ClassID                  string           `json:"class_id"`
+	Name                     string           `json:"name"`
+	Hull                     float64          `json:"hull"`
+	MaxHull                  float64          `json:"max_hull"`
+	Shield                   float64          `json:"shield"`
+	MaxShield                float64          `json:"max_shield"`
+	ShieldRecharge           float64          `json:"shield_recharge"`
+	Armor                    float64          `json:"armor"`
+	Speed                    float64          `json:"speed"`
+	Fuel                     float64          `json:"fuel"`
+	MaxFuel                  float64          `json:"max_fuel"`
+	CargoUsed                float64          `json:"cargo_used"`
+	CargoCapacity            float64          `json:"cargo_capacity"`
+	CPUUsed                  float64          `json:"cpu_used"`
+	CPUCapacity              float64          `json:"cpu_capacity"`
+	PowerUsed                float64          `json:"power_used"`
+	PowerCapacity            float64          `json:"power_capacity"`
+	WeaponSlots              int              `json:"weapon_slots"`
+	DefenseSlots             int              `json:"defense_slots"`
+	UtilitySlots             int              `json:"utility_slots"`
+	Modules                  []string         `json:"modules"`
+	Cargo                    []CargoItem      `json:"cargo"`
+	ActiveBuffs              []map[string]any `json:"active_buffs,omitempty"`
+	DamagePenalty            float64          `json:"damage_penalty,omitempty"`
+	SpeedPenalty             float64          `json:"speed_penalty,omitempty"`
+	DisruptionTicksRemaining int              `json:"disruption_ticks_remaining,omitempty"`
+	DockedAtBase             string           `json:"docked_at_base,omitempty"`
 }
 
 // POI represents a Point of Interest in a system.
@@ -221,21 +233,40 @@ type MarketListing struct {
 	Seller       string  `json:"seller,omitempty"`
 }
 
+// ViewMarketItem represents an item in the aggregated market order book
+// returned by the view_market command. Each item shows the best buy/sell
+// prices and full order book.
+type ViewMarketItem struct {
+	ItemID     string        `json:"item_id"`
+	ItemName   string        `json:"item_name"`
+	BestBuy    float64       `json:"best_buy"`
+	BestSell   float64       `json:"best_sell"`
+	BuyOrders  []MarketOrder `json:"buy_orders"`
+	SellOrders []MarketOrder `json:"sell_orders"`
+}
+
+// MarketOrder represents a single buy or sell order in the market order book.
+type MarketOrder struct {
+	PriceEach float64 `json:"price_each"`
+	Quantity  float64 `json:"quantity"`
+}
+
 // Base represents a player-owned or NPC base.
 type Base struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Description  string   `json:"description,omitempty"`
-	Type         string   `json:"type"`
-	OwnerID      string   `json:"owner_id"`
-	OwnerName    string   `json:"owner_name,omitempty"`
-	FactionID    string   `json:"faction_id,omitempty"`
-	POIID        string   `json:"poi_id"`
-	SystemID     string   `json:"system_id"`
-	Services     []string `json:"services"`
-	DefenseLevel int      `json:"defense_level"`
-	Health       int      `json:"health,omitempty"`
-	MaxHealth    int      `json:"max_health,omitempty"`
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description,omitempty"`
+	Type         string          `json:"type"`
+	OwnerID      string          `json:"owner_id"`
+	OwnerName    string          `json:"owner_name,omitempty"`
+	FactionID    string          `json:"faction_id,omitempty"`
+	POIID        string          `json:"poi_id"`
+	SystemID     string          `json:"system_id"`
+	Services     map[string]bool `json:"services"`
+	PublicAccess bool            `json:"public_access"`
+	DefenseLevel int             `json:"defense_level"`
+	Health       int             `json:"health,omitempty"`
+	MaxHealth    int             `json:"max_health,omitempty"`
 }
 
 // ResourceDisplay represents a resource with display information.
@@ -271,23 +302,27 @@ type PlayerSkill struct {
 
 // ShipClass represents a ship class definition with stats, price, and requirements.
 type ShipClass struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Description    string         `json:"description,omitempty"`
-	Price          int            `json:"price"`
-	Hull           int            `json:"hull"`
-	Shield         int            `json:"shield,omitempty"`
-	ShieldRecharge int            `json:"shield_recharge,omitempty"`
-	Armor          int            `json:"armor,omitempty"`
-	Speed          int            `json:"speed"`
-	FuelCapacity   int            `json:"fuel_capacity"`
-	CargoCapacity  int            `json:"cargo_capacity"`
-	CPUCapacity    int            `json:"cpu_capacity"`
-	PowerCapacity  int            `json:"power_capacity"`
-	WeaponSlots    int            `json:"weapon_slots"`
-	DefenseSlots   int            `json:"defense_slots"`
-	UtilitySlots   int            `json:"utility_slots"`
-	RequiredSkills map[string]int `json:"required_skills,omitempty"`
+	ID                string              `json:"id"`
+	Name              string              `json:"name"`
+	Class             string              `json:"class,omitempty"`
+	Description       string              `json:"description,omitempty"`
+	Price             int                 `json:"price"`
+	BaseHull          int                 `json:"base_hull"`
+	BaseShield        int                 `json:"base_shield,omitempty"`
+	BaseShieldRecharge int               `json:"base_shield_recharge,omitempty"`
+	BaseArmor         int                 `json:"base_armor,omitempty"`
+	BaseSpeed         int                 `json:"base_speed"`
+	BaseFuel          int                 `json:"base_fuel"`
+	CargoCapacity     int                 `json:"cargo_capacity"`
+	CPUCapacity       int                 `json:"cpu_capacity"`
+	PowerCapacity     int                 `json:"power_capacity"`
+	WeaponSlots       int                 `json:"weapon_slots"`
+	DefenseSlots      int                 `json:"defense_slots"`
+	UtilitySlots      int                 `json:"utility_slots"`
+	RequiredSkills    map[string]int      `json:"required_skills,omitempty"`
+	DefaultModules    []string            `json:"default_modules,omitempty"`
+	TowSpeedBonus     int                 `json:"tow_speed_bonus,omitempty"`
+	RequiredItems     []map[string]any    `json:"required_items,omitempty"`
 }
 
 // Recipe represents a crafting recipe.

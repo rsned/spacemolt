@@ -583,7 +583,15 @@ export function useObserver(wsUrl: string) {
             }));
           }
 
-          // Handle mission-related command responses
+          // Handle mission-related responses
+          // Check for missions in ok responses (from get_missions/get_active_missions)
+          if (action === 'get_missions' && Array.isArray(respPayload.missions)) {
+            setState(s => ({ ...s, availableMissions: respPayload.missions as unknown as Mission[] }));
+          } else if (action === 'get_active_missions' && Array.isArray(respPayload.missions)) {
+            setState(s => ({ ...s, activeMissions: respPayload.missions as unknown as ActiveMission[] }));
+          }
+
+          // Handle mission-related command responses (fallback for older protocol)
           if (cmd === 'get_missions' && respPayload.missions) {
             setState(s => ({ ...s, availableMissions: respPayload.missions as unknown as Mission[] }));
           } else if (cmd === 'get_active_missions' && respPayload.missions) {

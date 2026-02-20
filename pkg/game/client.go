@@ -1121,6 +1121,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			c.parseListingsData(resp.Payload)
 		}
+		// view_market returns type "ok" with items array in payload
+		if _, hasItems := resp.Payload["items"]; hasItems {
+			c.parseViewMarketData(resp.Payload)
+		}
 		// get_ships returns type "ok" with ships in payload
 		if _, hasShips := resp.Payload["ships"]; hasShips {
 			c.parseShipsData(resp.Payload)
@@ -1716,10 +1720,10 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 
 		// Store full status response (Player, Ship, System, POI, etc.)
 		if storeKey == "" {
-			if _, hasPlayer := resp.Payload["Player"]; hasPlayer {
+			if _, hasPlayer := resp.Payload["player"]; hasPlayer {
 				storeKey = "status"
 				shouldStore = true
-			} else if _, hasUsername := resp.Payload["Username"]; hasUsername {
+			} else if _, hasUsername := resp.Payload["username"]; hasUsername {
 				storeKey = "status"
 				shouldStore = true
 			}
@@ -1742,6 +1746,12 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			if storeKey == "" {
 				storeKey = "listings"
+			}
+			shouldStore = true
+		}
+		if _, hasItems := resp.Payload["items"]; hasItems {
+			if storeKey == "" {
+				storeKey = "market"
 			}
 			shouldStore = true
 		}
@@ -1924,6 +1934,53 @@ func (c *Client) parseListingsData(payload map[string]any) {
 	c.listingsMu.Unlock()
 
 	c.debugLogger.Printf("Parsed %d market listings", len(c.latestListings))
+}
+
+// parseViewMarketData extracts market data from a view_market response.
+// The view_market response sends aggregated order book data under the "items" key,
+// with a different shape than get_listings. This converts it to MarketListing
+// format for compatibility with existing market code.
+func (c *Client) parseViewMarketData(payload map[string]any) {
+	var items []serverapi.ViewMarketItem
+	if !unmarshalPayloadKey(payload, "items", &items) {
+		return
+	}
+
+	c.listingsMu.Lock()
+	c.latestListings = make([]MarketListing, 0, len(items)*2)
+	for _, item := range items {
+		// Create a synthetic sell listing from the best sell price
+		if item.BestSell > 0 {
+			listing := MarketListing{
+				ItemID:       item.ItemID,
+				ItemType:     inferItemType(item.ItemID),
+				PricePerUnit: item.BestSell,
+				Type:         "sell",
+			}
+			// Use total quantity from sell orders
+			for _, order := range item.SellOrders {
+				listing.Quantity += order.Quantity
+			}
+			c.latestListings = append(c.latestListings, listing)
+		}
+		// Create a synthetic buy listing from the best buy price
+		if item.BestBuy > 0 {
+			listing := MarketListing{
+				ItemID:       item.ItemID,
+				ItemType:     inferItemType(item.ItemID),
+				PricePerUnit: item.BestBuy,
+				Type:         "buy",
+			}
+			// Use total quantity from buy orders
+			for _, order := range item.BuyOrders {
+				listing.Quantity += order.Quantity
+			}
+			c.latestListings = append(c.latestListings, listing)
+		}
+	}
+	c.listingsMu.Unlock()
+
+	c.debugLogger.Printf("Parsed %d market items into %d listings (from view_market)", len(items), len(c.latestListings))
 }
 
 // inferItemType infers the item type from an item ID prefix.

@@ -59,6 +59,11 @@ func PlayerStatsFromAPI(ext serverapi.PlayerStats) PlayerStats {
 		SystemsDiscovered: ext.SystemsDiscovered,
 		ItemsCrafted:      ext.ItemsCrafted,
 		MissionsCompleted: ext.MissionsCompleted,
+		BasesDestroyed:    ext.BasesDestroyed,
+		DistanceTraveled:  ext.DistanceTraveled,
+		PiratesDestroyed:  ext.PiratesDestroyed,
+		ShipsLost:         ext.ShipsLost,
+		TimePlayed:        ext.TimePlayed,
 	}
 }
 
@@ -171,31 +176,47 @@ func ShipFromAPI(ext serverapi.Ship) Ship {
 		cargo[i] = CargoItemFromAPI(c)
 	}
 
+	var activeBuffs []map[string]any
+	if len(ext.ActiveBuffs) > 0 {
+		activeBuffs = make([]map[string]any, len(ext.ActiveBuffs))
+		for i, b := range ext.ActiveBuffs {
+			activeBuffs[i] = make(map[string]any, len(b))
+			for k, v := range b {
+				activeBuffs[i][k] = v
+			}
+		}
+	}
+
 	return Ship{
-		ID:             ext.ID,
-		OwnerID:        ext.OwnerID,
-		ClassID:        ext.ClassID,
-		Name:           ext.Name,
-		Hull:           ext.Hull,
-		MaxHull:        ext.MaxHull,
-		Shield:         ext.Shield,
-		MaxShield:      ext.MaxShield,
-		ShieldRecharge: ext.ShieldRecharge,
-		Armor:          ext.Armor,
-		Speed:          ext.Speed,
-		Fuel:           ext.Fuel,
-		MaxFuel:        ext.MaxFuel,
-		CargoUsed:      ext.CargoUsed,
-		CargoCapacity:  ext.CargoCapacity,
-		CPUUsed:        ext.CPUUsed,
-		CPUCapacity:    ext.CPUCapacity,
-		PowerUsed:      ext.PowerUsed,
-		PowerCapacity:  ext.PowerCapacity,
-		WeaponSlots:    ext.WeaponSlots,
-		DefenseSlots:   ext.DefenseSlots,
-		UtilitySlots:   ext.UtilitySlots,
-		Modules:        modules,
-		Cargo:          cargo,
+		ID:                       ext.ID,
+		OwnerID:                  ext.OwnerID,
+		ClassID:                  ext.ClassID,
+		Name:                     ext.Name,
+		Hull:                     ext.Hull,
+		MaxHull:                  ext.MaxHull,
+		Shield:                   ext.Shield,
+		MaxShield:                ext.MaxShield,
+		ShieldRecharge:           ext.ShieldRecharge,
+		Armor:                    ext.Armor,
+		Speed:                    ext.Speed,
+		Fuel:                     ext.Fuel,
+		MaxFuel:                  ext.MaxFuel,
+		CargoUsed:                ext.CargoUsed,
+		CargoCapacity:            ext.CargoCapacity,
+		CPUUsed:                  ext.CPUUsed,
+		CPUCapacity:              ext.CPUCapacity,
+		PowerUsed:                ext.PowerUsed,
+		PowerCapacity:            ext.PowerCapacity,
+		WeaponSlots:              ext.WeaponSlots,
+		DefenseSlots:             ext.DefenseSlots,
+		UtilitySlots:             ext.UtilitySlots,
+		Modules:                  modules,
+		Cargo:                    cargo,
+		ActiveBuffs:              activeBuffs,
+		DamagePenalty:            ext.DamagePenalty,
+		SpeedPenalty:             ext.SpeedPenalty,
+		DisruptionTicksRemaining: ext.DisruptionTicksRemaining,
+		DockedAtBase:             ext.DockedAtBase,
 	}
 }
 
@@ -235,6 +256,8 @@ func PlayerFromAPI(ext serverapi.Player) Player {
 		Skills:         skills,
 		SkillXP:        skillXP,
 		Stats:          PlayerStatsFromAPI(ext.Stats),
+		TowingWreckID:  ext.TowingWreckID,
+		Experience:     ext.Experience,
 	}
 }
 

@@ -36,6 +36,8 @@ type Player struct {
 	Skills         map[string]Skill   `json:"skills"`
 	SkillXP        map[string]float64 `json:"skill_xp,omitempty"` // Current XP toward next level
 	Stats          PlayerStats        `json:"stats"`
+	TowingWreckID  string             `json:"towing_wreck_id,omitempty"`
+	Experience     int64              `json:"experience,omitempty"`
 }
 
 // Skill represents a player's skill level and XP.
@@ -87,6 +89,11 @@ type PlayerStats struct {
 	SystemsDiscovered int     `json:"systems_discovered"`
 	ItemsCrafted      int     `json:"items_crafted"`
 	MissionsCompleted int     `json:"missions_completed"`
+	BasesDestroyed    int     `json:"bases_destroyed"`
+	DistanceTraveled  int64   `json:"distance_traveled"`
+	PiratesDestroyed  int     `json:"pirates_destroyed"`
+	ShipsLost         int     `json:"ships_lost"`
+	TimePlayed        int64   `json:"time_played"`
 }
 
 // Ship represents the player's ship with all stats, modules, and cargo.
@@ -115,11 +122,16 @@ type Ship struct {
 	CPUCapacity    float64     `json:"cpu_capacity"`
 	PowerUsed      float64     `json:"power_used"`
 	PowerCapacity  float64     `json:"power_capacity"`
-	WeaponSlots    int         `json:"weapon_slots"`
-	DefenseSlots   int         `json:"defense_slots"`
-	UtilitySlots   int         `json:"utility_slots"`
-	Modules        []string    `json:"modules"`
-	Cargo          []CargoItem `json:"cargo"`
+	WeaponSlots              int              `json:"weapon_slots"`
+	DefenseSlots             int              `json:"defense_slots"`
+	UtilitySlots             int              `json:"utility_slots"`
+	Modules                  []string         `json:"modules"`
+	Cargo                    []CargoItem      `json:"cargo"`
+	ActiveBuffs              []map[string]any `json:"active_buffs,omitempty"`
+	DamagePenalty            float64          `json:"damage_penalty,omitempty"`
+	SpeedPenalty             float64          `json:"speed_penalty,omitempty"`
+	DisruptionTicksRemaining int              `json:"disruption_ticks_remaining,omitempty"`
+	DockedAtBase             string           `json:"docked_at_base,omitempty"`
 }
 
 // ConnectionInfo represents a connection from one system to another with details.
