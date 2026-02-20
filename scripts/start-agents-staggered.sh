@@ -82,7 +82,7 @@ for batch in "${BATCHES[@]}"; do
         fi
 
         # Start the agent
-        (cd "$SCRIPT_DIR" && ../bin/$binary $agent > logs/$agent.log 2>&1 &)
+        (cd "$SCRIPT_DIR/.." && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
         echo "  ✓ Started $agent with $binary"
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 

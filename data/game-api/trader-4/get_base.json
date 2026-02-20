@@ -30,12 +30,14 @@
         "richness": 25
       },
       {
-        "remaining": 4479,
+        "max_remaining": 5000,
+        "remaining": 1588,
         "resource_id": "ore_sol_alloy",
         "richness": 15
       },
       {
-        "remaining": 356,
+        "max_remaining": 500,
+        "remaining": 0,
         "resource_id": "ore_antimatter",
         "richness": 5
       }
@@ -73,16 +75,20 @@
       "richness": 25
     },
     {
+      "depletion_percent": 31.759999999999998,
+      "max_remaining": 5000,
       "name": "Sol Alloy Ore",
-      "remaining": 4479,
-      "remaining_display": "4479 units",
+      "remaining": 1588,
+      "remaining_display": "1588 units",
       "resource_id": "ore_sol_alloy",
       "richness": 15
     },
     {
+      "depletion_percent": 0,
+      "max_remaining": 500,
       "name": "Antimatter Containment Cell",
-      "remaining": 356,
-      "remaining_display": "356 units",
+      "remaining": 0,
+      "remaining_display": "depleted",
       "resource_id": "ore_antimatter",
       "richness": 5
     }

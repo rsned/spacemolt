@@ -1,66 +1,50 @@
 {
-  "base": null,
-  "poi": {
-    "description": "Automated mining operations for construction.",
-    "id": "nexus_harvesters",
-    "name": "Material Harvesters",
-    "position": {
-      "x": 5,
-      "y": 0
-    },
-    "resources": [
-      {
-        "remaining": -1,
-        "resource_id": "ore_iron",
-        "richness": 70
-      },
-      {
-        "remaining": -1,
-        "resource_id": "ore_silicon",
-        "richness": 90
-      },
-      {
-        "remaining": -1,
-        "resource_id": "ore_copper",
-        "richness": 80
-      },
-      {
-        "remaining": 196,
-        "resource_id": "ore_crystal",
-        "richness": 8
-      }
+  "base": {
+    "defense_level": 100,
+    "description": "Heart of Voidborn civilization. The station draws power from dimensional fractures, trades through probability fields, and stores cargo in pocket dimensions. Organic visitors are accommodated, though the air tastes faintly of ozone and mathematics, and the repair nanites sometimes return your ship subtly different.",
+    "empire": "voidborn",
+    "facilities": [
+      "void_nexus_exchange",
+      "null_energy_tap",
+      "voidborn_atmosphere",
+      "null_matter_processor",
+      "voidborn_neural_foundry",
+      "crystal_refinery",
+      "iron_refinery",
+      "circuit_fabricator",
+      "polymer_synthesizer",
+      "fuel_cell_plant",
+      "repair_kit_factory",
+      "voidborn_reconstruction_matrix",
+      "voidborn_energy_dispenser",
+      "voidborn_crystalline_cradle",
+      "voidborn_shaping_chamber",
+      "voidborn_pattern_council",
+      "voidborn_dimensional_vault"
     ],
-    "system_id": "nexus",
-    "type": "asteroid_belt"
-  },
-  "resources": [
-    {
-      "name": "Iron Ore",
-      "remaining": -1,
-      "remaining_display": "unlimited",
-      "resource_id": "ore_iron",
-      "richness": 70
-    },
-    {
-      "name": "Silicon Ore",
-      "remaining": -1,
-      "remaining_display": "unlimited",
-      "resource_id": "ore_silicon",
-      "richness": 90
-    },
-    {
-      "name": "Copper Ore",
-      "remaining": -1,
-      "remaining_display": "unlimited",
-      "resource_id": "ore_copper",
-      "richness": 80
-    },
-    {
-      "name": "Energy Crystal",
-      "remaining": 196,
-      "remaining_display": "196 units",
-      "resource_id": "ore_crystal",
-      "richness": 8
+    "has_drones": true,
+    "id": "nexus_base",
+    "name": "Central Nexus",
+    "poi_id": "nexus_core",
+    "public_access": true,
+    "services": {
+      "cloning": true,
+      "crafting": true,
+      "insurance": true,
+      "market": true,
+      "missions": true,
+      "refuel": true,
+      "repair": true,
+      "salvage_yard": false,
+      "shipyard": true,
+      "storage": true
     }
-  ]
+  },
+  "condition": {
+    "condition": "struggling",
+    "condition_text": "Multiple systems running on emergency reserves. Lights flicker in the corridors.",
+    "satisfaction_pct": 66,
+    "satisfied_count": 6,
+    "total_service_infra": 9
+  }
 }

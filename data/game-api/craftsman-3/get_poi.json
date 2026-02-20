@@ -1,7 +1,14 @@
 {
-  "id": "sol_station",
-  "name": "sol_station",
-  "pois": [],
-  "system_id": "",
-  "system_name": "Sol"
+  "base": null,
+  "poi": {
+    "description": "",
+    "id": "sys_0041_sun",
+    "name": "Grumium Star",
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "system_id": "sys_0041",
+    "type": "sun"
+  }
 }

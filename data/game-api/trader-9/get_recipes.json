@@ -34,6 +34,56 @@
       },
       "skill_quality_mod": 6
     },
+    "autoprocess_alloy": {
+      "base_quality": 100,
+      "category": "Refining",
+      "crafting_time": 0,
+      "description": "The ship's molecular forge combines raw ores directly into titanium alloy.",
+      "id": "autoprocess_alloy",
+      "inputs": [
+        {
+          "item_id": "ore_titanium",
+          "quantity": 3
+        },
+        {
+          "item_id": "ore_iron",
+          "quantity": 2
+        }
+      ],
+      "name": "Onboard Alloy Synthesis",
+      "outputs": [
+        {
+          "item_id": "refined_alloy",
+          "quality_mod": false,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {},
+      "skill_quality_mod": 0
+    },
+    "autoprocess_munitions": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 0,
+      "description": "The ship's integrated forge converts raw iron ore directly into standard ammunition.",
+      "id": "autoprocess_munitions",
+      "inputs": [
+        {
+          "item_id": "ore_iron",
+          "quantity": 2
+        }
+      ],
+      "name": "Onboard Munitions Fabrication",
+      "outputs": [
+        {
+          "item_id": "rounds_standard",
+          "quality_mod": false,
+          "quantity": 50
+        }
+      ],
+      "required_skills": {},
+      "skill_quality_mod": 0
+    },
     "basic_copper_processing": {
       "base_quality": 30,
       "category": "Refining",
@@ -246,6 +296,40 @@
       },
       "skill_quality_mod": 0
     },
+    "craft_ammo_fabricator": {
+      "base_quality": 40,
+      "category": "Components",
+      "crafting_time": 12,
+      "description": "Construct an automated ammunition press with integrated raw material hopper.",
+      "id": "craft_ammo_fabricator",
+      "inputs": [
+        {
+          "item_id": "comp_weapon_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Ammo Fabricator",
+      "outputs": [
+        {
+          "item_id": "comp_ammo_fabricator",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 2,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
     "craft_anchor_beacon": {
       "base_quality": 100,
       "category": "Consumables",
@@ -322,7 +406,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 5,
-      "description": "Tungsten-core armor piercing rounds.",
+      "description": "Hardened penetrator rounds that bypass armor plating.",
       "id": "craft_armor_piercing_ammo",
       "inputs": [
         {
@@ -334,12 +418,12 @@
           "quantity": 1
         }
       ],
-      "name": "Manufacture AP Ammunition",
+      "name": "Manufacture AP Rounds",
       "outputs": [
         {
-          "item_id": "ammo_armor_piercing",
+          "item_id": "rounds_armor_piercing",
           "quality_mod": false,
-          "quantity": 50
+          "quantity": 4
         }
       ],
       "required_skills": {
@@ -410,6 +494,77 @@
         "crafting_basic": 2
       },
       "skill_quality_mod": 4
+    },
+    "craft_armor_plate_2": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 15,
+      "description": "Reinforced armor plating using durasteel.",
+      "id": "craft_armor_plate_2",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_polymer",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Armor Plate II",
+      "outputs": [
+        {
+          "item_id": "armor_plate_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_armor_plate_3": {
+      "base_quality": 45,
+      "category": "Defense",
+      "crafting_time": 22,
+      "description": "Heavy armor plating with titanium reinforcement.",
+      "id": "craft_armor_plate_3",
+      "inputs": [
+        {
+          "item_id": "refined_titanium",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_graphene",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Armor Plate III",
+      "outputs": [
+        {
+          "item_id": "armor_plate_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "engineering": 3
+      },
+      "skill_quality_mod": 5
     },
     "craft_armor_repairer_1": {
       "base_quality": 50,
@@ -486,6 +641,36 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_autopilot": {
+      "base_quality": 50,
+      "category": "Components",
+      "crafting_time": 8,
+      "description": "Program navigation algorithms into a hardened flight controller.",
+      "id": "craft_autopilot",
+      "inputs": [
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Autopilot Module",
+      "outputs": [
+        {
+          "item_id": "comp_autopilot",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "engineering": 1
+      },
+      "skill_quality_mod": 5
+    },
     "craft_autopilot_module": {
       "base_quality": 45,
       "category": "Components",
@@ -520,6 +705,48 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_blood_reaver": {
+      "base_quality": 25,
+      "category": "Weapons",
+      "crafting_time": 50,
+      "description": "Crimson Fleet lifesteal weapon that converts damage to repairs.",
+      "id": "craft_blood_reaver",
+      "inputs": [
+        {
+          "item_id": "refined_crimson_fury_alloy",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_darksteel",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_core",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_heat_sink",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Blood Reaver",
+      "outputs": [
+        {
+          "item_id": "blood_reaver",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 7
+      },
+      "skill_quality_mod": 8
+    },
     "craft_capital_armor_plate": {
       "base_quality": 40,
       "category": "Components",
@@ -553,6 +780,73 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_capital_frame": {
+      "base_quality": 35,
+      "category": "Shipbuilding",
+      "crafting_time": 20,
+      "description": "Forge and assemble the massive structural skeleton of a capital-class vessel.",
+      "id": "craft_capital_frame",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_reinforced_bulkhead",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 10
+        },
+        {
+          "item_id": "refined_alloy",
+          "quantity": 10
+        }
+      ],
+      "name": "Build Capital Ship Frame",
+      "outputs": [
+        {
+          "item_id": "comp_capital_frame",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "engineering": 5
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_cargo_container": {
+      "base_quality": 60,
+      "category": "Components",
+      "crafting_time": 5,
+      "description": "Weld standardized storage modules from steel plating and structural frames.",
+      "id": "craft_cargo_container",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_aluminum_sheet",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Cargo Container",
+      "outputs": [
+        {
+          "item_id": "comp_cargo_container",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 2
+      },
+      "skill_quality_mod": 4
+    },
     "craft_cargo_expander_1": {
       "base_quality": 60,
       "category": "Utility",
@@ -579,6 +873,39 @@
       ],
       "required_skills": {
         "crafting_basic": 1
+      },
+      "skill_quality_mod": 4
+    },
+    "craft_cargo_superstructure": {
+      "base_quality": 55,
+      "category": "Shipbuilding",
+      "crafting_time": 6,
+      "description": "Construct modular cargo framing optimized for volumetric efficiency.",
+      "id": "craft_cargo_superstructure",
+      "inputs": [
+        {
+          "item_id": "comp_cargo_container",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 10
+        }
+      ],
+      "name": "Build Cargo Superstructure",
+      "outputs": [
+        {
+          "item_id": "comp_cargo_superstructure",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
       },
       "skill_quality_mod": 4
     },
@@ -859,11 +1186,45 @@
       },
       "skill_quality_mod": 0
     },
+    "craft_comp_solar_collector": {
+      "base_quality": 45,
+      "category": "Shipbuilding",
+      "crafting_time": 10,
+      "description": "Calibrate sensor arrays with Solarian composite for multi-stellar energy harvesting.",
+      "id": "craft_comp_solar_collector",
+      "inputs": [
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_solarian_composite",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_optical_fiber",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Solar Collector Array",
+      "outputs": [
+        {
+          "item_id": "comp_solarian_solar_collector",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 4,
+        "shield_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
     "craft_corrosive_ammo": {
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 6,
-      "description": "Coat kinetic rounds with chlorine compound for armor-eating damage.",
+      "description": "Hull-eating corrosive plasma cells.",
       "id": "craft_corrosive_ammo",
       "inputs": [
         {
@@ -875,12 +1236,12 @@
           "quantity": 1
         }
       ],
-      "name": "Manufacture Corrosive Rounds",
+      "name": "Manufacture Corrosive Plasma Cells",
       "outputs": [
         {
-          "item_id": "ammo_corrosive",
+          "item_id": "plasma_corrosive",
           "quality_mod": false,
-          "quantity": 40
+          "quantity": 3
         }
       ],
       "required_skills": {
@@ -961,6 +1322,74 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_crimson_ordnance_bay": {
+      "base_quality": 40,
+      "category": "Shipbuilding",
+      "crafting_time": 10,
+      "description": "Construct a mass weapon deployment system with live ammo fabrication.",
+      "id": "craft_crimson_ordnance_bay",
+      "inputs": [
+        {
+          "item_id": "comp_weapon_core",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_ammo_fabricator",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_crimson_fury_alloy",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Crimson Ordnance Bay",
+      "outputs": [
+        {
+          "item_id": "comp_crimson_ordnance_bay",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 3,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_crimson_siege_plating": {
+      "base_quality": 40,
+      "category": "Shipbuilding",
+      "crafting_time": 12,
+      "description": "Layer fury alloy over durasteel to create armor that laughs at incoming fire.",
+      "id": "craft_crimson_siege_plating",
+      "inputs": [
+        {
+          "item_id": "comp_armor_plate",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_crimson_fury_alloy",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        }
+      ],
+      "name": "Forge Crimson Siege Plating",
+      "outputs": [
+        {
+          "item_id": "comp_crimson_siege_plating",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
     "craft_cryogenic_pod": {
       "base_quality": 40,
       "category": "Components",
@@ -998,6 +1427,44 @@
         "crafting_advanced": 5
       },
       "skill_quality_mod": 6
+    },
+    "craft_damage_control": {
+      "base_quality": 45,
+      "category": "Defense",
+      "crafting_time": 20,
+      "description": "Automated damage mitigation across all resistance types.",
+      "id": "craft_damage_control",
+      "inputs": [
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_repair_nanites",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Damage Control System",
+      "outputs": [
+        {
+          "item_id": "damage_control",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "engineering": 3
+      },
+      "skill_quality_mod": 5
     },
     "craft_dark_matter_cell": {
       "base_quality": 40,
@@ -1405,6 +1872,44 @@
       },
       "skill_quality_mod": 4
     },
+    "craft_drone_command": {
+      "base_quality": 40,
+      "category": "Shipbuilding",
+      "crafting_time": 15,
+      "description": "Assemble a multi-drone coordination hub with parallel processing.",
+      "id": "craft_drone_command",
+      "inputs": [
+        {
+          "item_id": "comp_drone_ai_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_drone_sensor",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_drone_communication",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Drone Command Module",
+      "outputs": [
+        {
+          "item_id": "comp_drone_command",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "engineering": 5
+      },
+      "skill_quality_mod": 5
+    },
     "craft_ecm_burst": {
       "base_quality": 100,
       "category": "Consumables",
@@ -1508,6 +2013,164 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_em_cascade": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Chain-reaction electromagnetic charges.",
+      "id": "craft_em_cascade",
+      "inputs": [
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Cascade EM Charges",
+      "outputs": [
+        {
+          "item_id": "em_cascade",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "electronic_warfare": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_em_focused": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Concentrated EM burst charge packs.",
+      "id": "craft_em_focused",
+      "inputs": [
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        }
+      ],
+      "name": "Manufacture Focused EM Charges",
+      "outputs": [
+        {
+          "item_id": "em_focused",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "electronic_warfare": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_em_ion": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Heavy ion charges for capacitor drain.",
+      "id": "craft_em_ion",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Ion Charges",
+      "outputs": [
+        {
+          "item_id": "em_ion",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "electronic_warfare": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_em_neural": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 12,
+      "description": "AI-disrupting neural interference charges.",
+      "id": "craft_em_neural",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_neural_gel",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        }
+      ],
+      "name": "Manufacture Neural EM Charges",
+      "outputs": [
+        {
+          "item_id": "em_neural",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "electronic_warfare": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_em_standard": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 6,
+      "description": "Standard electromagnetic disruption charge packs.",
+      "id": "craft_em_standard",
+      "inputs": [
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture EM Charges",
+      "outputs": [
+        {
+          "item_id": "em_standard",
+          "quality_mod": false,
+          "quantity": 5
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "electronic_warfare": 2
+      },
+      "skill_quality_mod": 0
+    },
     "craft_emergency_warp": {
       "base_quality": 100,
       "category": "Consumables",
@@ -1541,7 +2204,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 8,
-      "description": "Ammunition with electromagnetic disruption payload.",
+      "description": "Rounds with embedded micro-EMP charges.",
       "id": "craft_emp_ammo",
       "inputs": [
         {
@@ -1560,9 +2223,9 @@
       "name": "Manufacture EMP Rounds",
       "outputs": [
         {
-          "item_id": "ammo_emp",
+          "item_id": "rounds_emp_tipped",
           "quality_mod": false,
-          "quantity": 25
+          "quantity": 3
         }
       ],
       "required_skills": {
@@ -1647,6 +2310,128 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_emp_pulse_1": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 25,
+      "description": "Electromagnetic pulse that temporarily disables ship systems.",
+      "id": "craft_emp_pulse_1",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EMP Pulse I",
+      "outputs": [
+        {
+          "item_id": "emp_pulse_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 2,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_emp_pulse_2": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Enhanced EMP device with longer disruption duration.",
+      "id": "craft_emp_pulse_2",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 6
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EMP Pulse II",
+      "outputs": [
+        {
+          "item_id": "emp_pulse_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 3,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_emp_pulse_3": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 40,
+      "description": "Military-grade EMP capable of crippling capital ships.",
+      "id": "craft_emp_pulse_3",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 6
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_metamaterial",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EMP Pulse III",
+      "outputs": [
+        {
+          "item_id": "emp_pulse_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 4,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
+    },
     "craft_engine_core": {
       "base_quality": 40,
       "category": "Components",
@@ -1679,6 +2464,48 @@
         "crafting_advanced": 2
       },
       "skill_quality_mod": 6
+    },
+    "craft_entropy_beam": {
+      "base_quality": 30,
+      "category": "Weapons",
+      "crafting_time": 45,
+      "description": "Accelerates molecular decay for continuous damage.",
+      "id": "craft_entropy_beam",
+      "inputs": [
+        {
+          "item_id": "refined_void_condensate",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_darksteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Entropy Beam",
+      "outputs": [
+        {
+          "item_id": "entropy_beam",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
     },
     "craft_flak_cannon_1": {
       "base_quality": 55,
@@ -1749,6 +2576,48 @@
         "weapon_crafting": 4
       },
       "skill_quality_mod": 5
+    },
+    "craft_flak_cannon_3": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 35,
+      "description": "Advanced flak battery with defensive perimeter capability.",
+      "id": "craft_flak_cannon_3",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_metamaterial",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Flak Cannon III",
+      "outputs": [
+        {
+          "item_id": "flak_cannon_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 7
     },
     "craft_flare_pod": {
       "base_quality": 100,
@@ -2079,6 +2948,90 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_graviton_beam_1": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Manipulates gravity to crush enemy hulls.",
+      "id": "craft_graviton_beam_1",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_graphene",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Graviton Beam I",
+      "outputs": [
+        {
+          "item_id": "graviton_beam_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_graviton_beam_2": {
+      "base_quality": 30,
+      "category": "Weapons",
+      "crafting_time": 45,
+      "description": "Advanced gravity weapon that immobilizes targets.",
+      "id": "craft_graviton_beam_2",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_graphene",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_metamaterial",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Graviton Beam II",
+      "outputs": [
+        {
+          "item_id": "graviton_beam_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
+    },
     "craft_hab_module": {
       "base_quality": 50,
       "category": "Components",
@@ -2158,6 +3111,138 @@
         "weapon_crafting": 4
       },
       "skill_quality_mod": 6
+    },
+    "craft_hull_hardener_em": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 12,
+      "description": "Hull resistance plating tuned to electromagnetic damage.",
+      "id": "craft_hull_hardener_em",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EM Hull Hardener",
+      "outputs": [
+        {
+          "item_id": "hull_hardener_em",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_hull_hardener_explosive": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 12,
+      "description": "Hull resistance plating tuned to explosive damage.",
+      "id": "craft_hull_hardener_explosive",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_polymer",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Explosive Hull Hardener",
+      "outputs": [
+        {
+          "item_id": "hull_hardener_explosive",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_hull_hardener_kinetic": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 12,
+      "description": "Hull resistance plating tuned to kinetic damage.",
+      "id": "craft_hull_hardener_kinetic",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_titanium",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Kinetic Hull Hardener",
+      "outputs": [
+        {
+          "item_id": "hull_hardener_kinetic",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_hull_hardener_thermal": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 12,
+      "description": "Hull resistance plating tuned to thermal damage.",
+      "id": "craft_hull_hardener_thermal",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_ceramic",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_polymer",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Thermal Hull Hardener",
+      "outputs": [
+        {
+          "item_id": "hull_hardener_thermal",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 5
     },
     "craft_hull_integrity_field": {
       "base_quality": 40,
@@ -2378,6 +3463,127 @@
         "weapon_crafting": 5
       },
       "skill_quality_mod": 6
+    },
+    "craft_ion_blaster_1": {
+      "base_quality": 50,
+      "category": "Weapons",
+      "crafting_time": 20,
+      "description": "Ionized particles that disrupt shield generators.",
+      "id": "craft_ion_blaster_1",
+      "inputs": [
+        {
+          "item_id": "refined_ion_solution",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Ion Blaster I",
+      "outputs": [
+        {
+          "item_id": "ion_blaster_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_ion_blaster_2": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 25,
+      "description": "Enhanced ion weapon that cripples shield regeneration.",
+      "id": "craft_ion_blaster_2",
+      "inputs": [
+        {
+          "item_id": "refined_ion_solution",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Ion Blaster II",
+      "outputs": [
+        {
+          "item_id": "ion_blaster_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 2,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_ion_blaster_3": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 35,
+      "description": "Military ion weapon that neutralizes shield systems.",
+      "id": "craft_ion_blaster_3",
+      "inputs": [
+        {
+          "item_id": "refined_ion_solution",
+          "quantity": 6
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Ion Blaster III",
+      "outputs": [
+        {
+          "item_id": "ion_blaster_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 3,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 7
     },
     "craft_ion_cannon_1": {
       "base_quality": 50,
@@ -2659,6 +3865,48 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_jury_rigged_cannon": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 35,
+      "description": "Outer Rim heavy weapon cobbled from salvage and scrap.",
+      "id": "craft_jury_rigged_cannon",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 12
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_heat_sink",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Jury-Rigged Cannon",
+      "outputs": [
+        {
+          "item_id": "jury_rigged_cannon",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 6
+    },
     "craft_laser_focus": {
       "base_quality": 50,
       "category": "Components",
@@ -2691,6 +3939,72 @@
         "engineering": 3
       },
       "skill_quality_mod": 5
+    },
+    "craft_life_support": {
+      "base_quality": 50,
+      "category": "Components",
+      "crafting_time": 8,
+      "description": "Construct atmospheric regulation and thermal management systems.",
+      "id": "craft_life_support",
+      "inputs": [
+        {
+          "item_id": "refined_polymer",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_compound",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Life Support Unit",
+      "outputs": [
+        {
+          "item_id": "comp_life_support",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_life_support_array": {
+      "base_quality": 55,
+      "category": "Shipbuilding",
+      "crafting_time": 6,
+      "description": "Integrate environmental systems for extended deep-space operations.",
+      "id": "craft_life_support_array",
+      "inputs": [
+        {
+          "item_id": "comp_life_support",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_water_recycler",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_pressure_seal",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Life Support Array",
+      "outputs": [
+        {
+          "item_id": "comp_life_support_array",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "skill_quality_mod": 4
     },
     "craft_life_support_unit": {
       "base_quality": 50,
@@ -2800,6 +4114,265 @@
         "crafting_basic": 4
       },
       "skill_quality_mod": 5
+    },
+    "craft_mine_launcher_1": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 25,
+      "description": "Deploys proximity mines that detonate when ships approach.",
+      "id": "craft_mine_launcher_1",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Mine Launcher I",
+      "outputs": [
+        {
+          "item_id": "mine_launcher_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_mine_launcher_2": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Advanced mine deployment system with larger payload capacity.",
+      "id": "craft_mine_launcher_2",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Mine Launcher II",
+      "outputs": [
+        {
+          "item_id": "mine_launcher_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_mines_emp": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Electromagnetic pulse mines that disrupt ships entering the blast zone.",
+      "id": "craft_mines_emp",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble EMP Mines",
+      "outputs": [
+        {
+          "item_id": "mines_emp",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "electronic_warfare": 2,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_mines_fragmentation": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Wider blast radius with shrapnel dispersal.",
+      "id": "craft_mines_fragmentation",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Fragmentation Mines",
+      "outputs": [
+        {
+          "item_id": "mines_fragmentation",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_mines_nuclear": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 18,
+      "description": "Tactical nuclear devices. Enormous blast radius.",
+      "id": "craft_mines_nuclear",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_plutonium",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Nuclear Mines",
+      "outputs": [
+        {
+          "item_id": "mines_nuclear",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 5,
+        "radioactive_handling": 4,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_mines_plasma": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 12,
+      "description": "Thermal detonation mines with superheated blast.",
+      "id": "craft_mines_plasma",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_plasma_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Plasma Mines",
+      "outputs": [
+        {
+          "item_id": "mines_plasma",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "gas_processing": 3,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_mines_standard": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Proximity-detonated explosives for area denial.",
+      "id": "craft_mines_standard",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Standard Mines",
+      "outputs": [
+        {
+          "item_id": "mines_standard",
+          "quality_mod": false,
+          "quantity": 5
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 0
     },
     "craft_mining_drone": {
       "base_quality": 55,
@@ -2945,7 +4518,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 12,
-      "description": "High-yield guided missiles.",
+      "description": "Shaped charge warheads designed to penetrate heavy armor.",
       "id": "craft_missile_heavy",
       "inputs": [
         {
@@ -2961,10 +4534,10 @@
           "quantity": 2
         }
       ],
-      "name": "Assemble Heavy Missiles",
+      "name": "Assemble Armor-Buster Missiles",
       "outputs": [
         {
-          "item_id": "missile_heavy",
+          "item_id": "missiles_armor_buster",
           "quality_mod": false,
           "quantity": 3
         }
@@ -2979,7 +4552,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 8,
-      "description": "Basic guided missiles.",
+      "description": "Heat-seeking guided missiles. Reliable all-purpose ordnance.",
       "id": "craft_missile_standard",
       "inputs": [
         {
@@ -2998,7 +4571,7 @@
       "name": "Assemble Standard Missiles",
       "outputs": [
         {
-          "item_id": "missile_standard",
+          "item_id": "missiles_standard",
           "quality_mod": false,
           "quantity": 5
         }
@@ -3007,6 +4580,181 @@
         "crafting_basic": 3
       },
       "skill_quality_mod": 0
+    },
+    "craft_missiles_cluster": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 14,
+      "description": "Splits into multiple submunitions before impact.",
+      "id": "craft_missiles_cluster",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Cluster Missiles",
+      "outputs": [
+        {
+          "item_id": "missiles_cluster",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_missiles_emp": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 12,
+      "description": "Electromagnetic pulse warheads that disrupt all systems in blast radius.",
+      "id": "craft_missiles_emp",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble EMP Missiles",
+      "outputs": [
+        {
+          "item_id": "missiles_emp",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "electronic_warfare": 3,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_missiles_incendiary": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Thermite warheads that burn through hull after detonation.",
+      "id": "craft_missiles_incendiary",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_ion_solution",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Incendiary Missiles",
+      "outputs": [
+        {
+          "item_id": "missiles_incendiary",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_missiles_swarm": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Pods of micro-missiles that saturate the target area.",
+      "id": "craft_missiles_swarm",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Swarm Missiles",
+      "outputs": [
+        {
+          "item_id": "missiles_swarm",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_nav_array": {
+      "base_quality": 50,
+      "category": "Shipbuilding",
+      "crafting_time": 8,
+      "description": "Combine navigation and sensor systems into an advanced astrogation suite.",
+      "id": "craft_nav_array",
+      "inputs": [
+        {
+          "item_id": "comp_navigation_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_autopilot",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Navigation Array",
+      "outputs": [
+        {
+          "item_id": "comp_nav_array",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "engineering": 3
+      },
+      "skill_quality_mod": 5
     },
     "craft_navigation_core": {
       "base_quality": 40,
@@ -3045,6 +4793,74 @@
         "navigation": 4
       },
       "skill_quality_mod": 6
+    },
+    "craft_nebula_cargo_matrix": {
+      "base_quality": 50,
+      "category": "Shipbuilding",
+      "crafting_time": 8,
+      "description": "Apply prism-lens sorting to cargo containers for optimized packing.",
+      "id": "craft_nebula_cargo_matrix",
+      "inputs": [
+        {
+          "item_id": "comp_cargo_container",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_nebula_prism_lens",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_polymer",
+          "quantity": 10
+        }
+      ],
+      "name": "Build Nebula Cargo Matrix",
+      "outputs": [
+        {
+          "item_id": "comp_nebula_cargo_matrix",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "engineering": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_nebula_prism_computer": {
+      "base_quality": 40,
+      "category": "Shipbuilding",
+      "crafting_time": 12,
+      "description": "Route computation through prism lenses for photonic parallel processing.",
+      "id": "craft_nebula_prism_computer",
+      "inputs": [
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_nebula_prism_lens",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_navigation_core",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Nebula Prism Computer",
+      "outputs": [
+        {
+          "item_id": "comp_nebula_prism_computer",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "engineering": 5
+      },
+      "skill_quality_mod": 5
     },
     "craft_nebula_regenerator": {
       "base_quality": 40,
@@ -3114,6 +4930,77 @@
       ],
       "required_skills": {
         "crafting_basic": 3
+      },
+      "skill_quality_mod": 4
+    },
+    "craft_outerrim_dark_thruster": {
+      "base_quality": 45,
+      "category": "Shipbuilding",
+      "crafting_time": 10,
+      "description": "Strap dark matter to a thruster assembly. Warranty void upon assembly.",
+      "id": "craft_outerrim_dark_thruster",
+      "inputs": [
+        {
+          "item_id": "comp_engine_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_thruster_nozzle",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_outerrim_dark_matter",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Dark Matter Thruster",
+      "outputs": [
+        {
+          "item_id": "comp_outerrim_dark_thruster",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "engineering": 4
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_outerrim_frontier_kit": {
+      "base_quality": 50,
+      "category": "Shipbuilding",
+      "crafting_time": 8,
+      "description": "Cobble together self-repair and life support from whatever's available.",
+      "id": "craft_outerrim_frontier_kit",
+      "inputs": [
+        {
+          "item_id": "comp_life_support",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_repair_nanites",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_fuel_tank",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_polymer",
+          "quantity": 10
+        }
+      ],
+      "name": "Build Frontier Survival Kit",
+      "outputs": [
+        {
+          "item_id": "comp_outerrim_frontier_kit",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4
       },
       "skill_quality_mod": 4
     },
@@ -3290,6 +5177,48 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_phase_disruptor": {
+      "base_quality": 25,
+      "category": "Weapons",
+      "crafting_time": 50,
+      "description": "Voidborn weapon that shifts between dimensions to strike.",
+      "id": "craft_phase_disruptor",
+      "inputs": [
+        {
+          "item_id": "refined_voidborn_null_matter",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_void_condensate",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_exotic",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Phase Disruptor",
+      "outputs": [
+        {
+          "item_id": "phase_disruptor",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 7
+      },
+      "skill_quality_mod": 8
+    },
     "craft_phase_drive": {
       "base_quality": 25,
       "category": "Components",
@@ -3403,6 +5332,48 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_plasma_cannon_3": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 40,
+      "description": "Military-grade plasma weapon with armor-melting capability.",
+      "id": "craft_plasma_cannon_3",
+      "inputs": [
+        {
+          "item_id": "comp_plasma_injector",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_crimson_fury_alloy",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_heat_sink",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Plasma Cannon III",
+      "outputs": [
+        {
+          "item_id": "plasma_cannon_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
+    },
     "craft_plasma_cannon_4": {
       "base_quality": 60,
       "category": "Weapons",
@@ -3445,7 +5416,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 6,
-      "description": "Concentrated plasma fuel for plasma weapons.",
+      "description": "Standard plasma cell packs for plasma weapons.",
       "id": "craft_plasma_cartridge",
       "inputs": [
         {
@@ -3457,17 +5428,77 @@
           "quantity": 1
         }
       ],
-      "name": "Create Plasma Cartridges",
+      "name": "Manufacture Plasma Cells",
       "outputs": [
         {
-          "item_id": "ammo_plasma",
+          "item_id": "plasma_standard",
           "quality_mod": false,
-          "quantity": 30
+          "quantity": 5
         }
       ],
       "required_skills": {
         "crafting_basic": 3,
         "gas_processing": 2
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_plasma_dispersal": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 6,
+      "description": "Wide-dispersal plasma for area coverage.",
+      "id": "craft_plasma_dispersal",
+      "inputs": [
+        {
+          "item_id": "refined_ion_solution",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Dispersal Plasma Cells",
+      "outputs": [
+        {
+          "item_id": "plasma_dispersal",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "gas_processing": 2
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_plasma_focused": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Tight-beam plasma cells with concentrated energy.",
+      "id": "craft_plasma_focused",
+      "inputs": [
+        {
+          "item_id": "refined_plasma_core",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Focused Plasma Cells",
+      "outputs": [
+        {
+          "item_id": "plasma_focused",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "gas_processing": 3
       },
       "skill_quality_mod": 0
     },
@@ -3504,6 +5535,118 @@
         "weapon_crafting": 3
       },
       "skill_quality_mod": 5
+    },
+    "craft_plasma_overcharged": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Dangerously high-output plasma cells.",
+      "id": "craft_plasma_overcharged",
+      "inputs": [
+        {
+          "item_id": "refined_plasma_core",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Overcharged Plasma Cells",
+      "outputs": [
+        {
+          "item_id": "plasma_overcharged",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "gas_processing": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_plasma_repeater_1": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 22,
+      "description": "Rapid-fire plasma weapon with high sustained damage.",
+      "id": "craft_plasma_repeater_1",
+      "inputs": [
+        {
+          "item_id": "comp_plasma_injector",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Plasma Repeater I",
+      "outputs": [
+        {
+          "item_id": "plasma_repeater_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_plasma_repeater_2": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 28,
+      "description": "Advanced rapid-fire plasma system with improved heat dissipation.",
+      "id": "craft_plasma_repeater_2",
+      "inputs": [
+        {
+          "item_id": "comp_plasma_injector",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_heat_sink",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Plasma Repeater II",
+      "outputs": [
+        {
+          "item_id": "plasma_repeater_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
     },
     "craft_plasma_torpedo": {
       "base_quality": 40,
@@ -3680,6 +5823,40 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_power_grid": {
+      "base_quality": 50,
+      "category": "Shipbuilding",
+      "crafting_time": 6,
+      "description": "Route power cells through redundant wiring harnesses for ship-wide distribution.",
+      "id": "craft_power_grid",
+      "inputs": [
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_wiring_harness",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_copper_wire",
+          "quantity": 10
+        }
+      ],
+      "name": "Build Power Distribution Grid",
+      "outputs": [
+        {
+          "item_id": "comp_power_grid",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 2,
+        "engineering": 2
+      },
+      "skill_quality_mod": 5
+    },
     "craft_precision_optic": {
       "base_quality": 40,
       "category": "Refining",
@@ -3708,6 +5885,35 @@
         "refinement": 5
       },
       "skill_quality_mod": 5
+    },
+    "craft_pressure_seal": {
+      "base_quality": 65,
+      "category": "Components",
+      "crafting_time": 3,
+      "description": "Form polymer gaskets rated for vacuum-to-atmosphere pressure differentials.",
+      "id": "craft_pressure_seal",
+      "inputs": [
+        {
+          "item_id": "refined_polymer",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 1
+        }
+      ],
+      "name": "Mold Pressure Seal",
+      "outputs": [
+        {
+          "item_id": "comp_pressure_seal",
+          "quality_mod": true,
+          "quantity": 5
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 1
+      },
+      "skill_quality_mod": 3
     },
     "craft_probe_launcher_1": {
       "base_quality": 50,
@@ -3776,6 +5982,51 @@
         "scanning": 4
       },
       "skill_quality_mod": 5
+    },
+    "craft_proximity_mine": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Deploys smart mines with enhanced detection radius.",
+      "id": "craft_proximity_mine",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Proximity Mine Launcher",
+      "outputs": [
+        {
+          "item_id": "proximity_mine",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
     },
     "craft_quantum_entanglement_shield": {
       "base_quality": 25,
@@ -3924,7 +6175,7 @@
       "base_quality": 45,
       "category": "Weapons",
       "crafting_time": 20,
-      "description": "Electromagnetic projectile accelerator.",
+      "description": "Electromagnetic projectile accelerator with armor-piercing capability.",
       "id": "craft_railgun_1",
       "inputs": [
         {
@@ -3944,7 +6195,7 @@
           "quantity": 1
         }
       ],
-      "name": "Build Railgun I",
+      "name": "Build Piercing Railgun I",
       "outputs": [
         {
           "item_id": "railgun_1",
@@ -3961,7 +6212,7 @@
       "base_quality": 40,
       "category": "Weapons",
       "crafting_time": 28,
-      "description": "Enhanced railgun with higher muzzle velocity.",
+      "description": "Enhanced piercing railgun with higher muzzle velocity and greater armor penetration.",
       "id": "craft_railgun_2",
       "inputs": [
         {
@@ -3981,7 +6232,7 @@
           "quantity": 1
         }
       ],
-      "name": "Build Railgun II",
+      "name": "Build Piercing Railgun II",
       "outputs": [
         {
           "item_id": "railgun_2",
@@ -4033,7 +6284,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 5,
-      "description": "High-density ferromagnetic projectiles.",
+      "description": "Dense iron slug cases for railgun systems.",
       "id": "craft_railgun_slugs",
       "inputs": [
         {
@@ -4045,18 +6296,128 @@
           "quantity": 3
         }
       ],
-      "name": "Manufacture Railgun Slugs",
+      "name": "Manufacture Ferrous Slugs",
       "outputs": [
         {
-          "item_id": "ammo_railgun",
+          "item_id": "slugs_ferrous",
           "quality_mod": false,
-          "quantity": 20
+          "quantity": 5
         }
       ],
       "required_skills": {
         "crafting_basic": 3
       },
       "skill_quality_mod": 0
+    },
+    "craft_reactor_core": {
+      "base_quality": 30,
+      "category": "Shipbuilding",
+      "crafting_time": 25,
+      "description": "Assemble a large-scale fusion reactor from heavy shielding and superconducting coils.",
+      "id": "craft_reactor_core",
+      "inputs": [
+        {
+          "item_id": "refined_neutronium",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 5
+        }
+      ],
+      "name": "Build Station Reactor Core",
+      "outputs": [
+        {
+          "item_id": "comp_reactor_core",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 5,
+        "engineering": 6
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_regen_armor_1": {
+      "base_quality": 45,
+      "category": "Defense",
+      "crafting_time": 22,
+      "description": "Self-repairing armor plating with nanite infusion.",
+      "id": "craft_regen_armor_1",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_repair_nanites",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_graphene",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Regenerative Armor I",
+      "outputs": [
+        {
+          "item_id": "regen_armor_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "engineering": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_reinforced_bulkhead": {
+      "base_quality": 45,
+      "category": "Shipbuilding",
+      "crafting_time": 8,
+      "description": "Weld hull plates with alloy reinforcement into heavy structural framing.",
+      "id": "craft_reinforced_bulkhead",
+      "inputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_armor_plate",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_alloy",
+          "quantity": 5
+        }
+      ],
+      "name": "Forge Reinforced Bulkhead",
+      "outputs": [
+        {
+          "item_id": "comp_reinforced_bulkhead",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "engineering": 2
+      },
+      "skill_quality_mod": 5
     },
     "craft_repair_drone": {
       "base_quality": 50,
@@ -4222,6 +6583,101 @@
       },
       "skill_quality_mod": 4
     },
+    "craft_rounds_depleted_uranium": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Ultra-dense depleted uranium penetrator rounds.",
+      "id": "craft_rounds_depleted_uranium",
+      "inputs": [
+        {
+          "item_id": "refined_uranium_rod",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_tungsten_rod",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture DU Rounds",
+      "outputs": [
+        {
+          "item_id": "rounds_depleted_uranium",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "radioactive_handling": 2,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_rounds_fragmenting": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 5,
+      "description": "Pre-scored rounds that shatter into shrapnel on impact.",
+      "id": "craft_rounds_fragmenting",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_silicate",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Frag Rounds",
+      "outputs": [
+        {
+          "item_id": "rounds_fragmenting",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_rounds_incendiary": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 5,
+      "description": "Phosphorus-tipped rounds for sustained thermal damage.",
+      "id": "craft_rounds_incendiary",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_plasma_core",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Incendiary Rounds",
+      "outputs": [
+        {
+          "item_id": "rounds_incendiary",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 0
+    },
     "craft_salvage_drone": {
       "base_quality": 50,
       "category": "Drones",
@@ -4368,6 +6824,43 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_scrapgun": {
+      "base_quality": 50,
+      "category": "Weapons",
+      "crafting_time": 18,
+      "description": "Outer Rim improvised weapon cobbled from salvage.",
+      "id": "craft_scrapgun",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 8
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_heat_sink",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Scrapgun",
+      "outputs": [
+        {
+          "item_id": "scrapgun",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 4
+    },
     "craft_sensor_array": {
       "base_quality": 45,
       "category": "Components",
@@ -4500,6 +6993,40 @@
       },
       "skill_quality_mod": 0
     },
+    "craft_sensor_cluster": {
+      "base_quality": 50,
+      "category": "Shipbuilding",
+      "crafting_time": 8,
+      "description": "Combine sensor arrays with processing cores for multi-spectrum analysis.",
+      "id": "craft_sensor_cluster",
+      "inputs": [
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_package",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Sensor Cluster",
+      "outputs": [
+        {
+          "item_id": "comp_sensor_cluster",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 2,
+        "engineering": 3
+      },
+      "skill_quality_mod": 5
+    },
     "craft_sensor_jammer": {
       "base_quality": 100,
       "category": "Consumables",
@@ -4559,6 +7086,40 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_shield_array": {
+      "base_quality": 45,
+      "category": "Shipbuilding",
+      "crafting_time": 10,
+      "description": "Link multiple shield emitters into a load-sharing defensive grid.",
+      "id": "craft_shield_array",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Shield Array",
+      "outputs": [
+        {
+          "item_id": "comp_shield_array",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 2,
+        "shield_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
     "craft_shield_booster_1": {
       "base_quality": 50,
       "category": "Defense",
@@ -4588,6 +7149,82 @@
         }
       ],
       "required_skills": {},
+      "skill_quality_mod": 5
+    },
+    "craft_shield_booster_2": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 18,
+      "description": "Enhanced shield capacitor array.",
+      "id": "craft_shield_booster_2",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_alloy",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Shield Booster II",
+      "outputs": [
+        {
+          "item_id": "shield_booster_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "shield_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_shield_booster_3": {
+      "base_quality": 45,
+      "category": "Defense",
+      "crafting_time": 25,
+      "description": "High-output shield amplifier with superconductor coils.",
+      "id": "craft_shield_booster_3",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Shield Booster III",
+      "outputs": [
+        {
+          "item_id": "shield_booster_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "shield_crafting": 4
+      },
       "skill_quality_mod": 5
     },
     "craft_shield_charge": {
@@ -4651,6 +7288,108 @@
         "shield_crafting": 3
       },
       "skill_quality_mod": 6
+    },
+    "craft_shield_hardener_em": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 14,
+      "description": "Shield resistance module tuned to electromagnetic damage.",
+      "id": "craft_shield_hardener_em",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EM Shield Hardener",
+      "outputs": [
+        {
+          "item_id": "shield_hardener_em",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "shield_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_shield_hardener_explosive": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 14,
+      "description": "Shield resistance module tuned to explosive damage.",
+      "id": "craft_shield_hardener_explosive",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Explosive Shield Hardener",
+      "outputs": [
+        {
+          "item_id": "shield_hardener_explosive",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "shield_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_shield_hardener_kinetic": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 14,
+      "description": "Shield resistance module tuned to kinetic damage.",
+      "id": "craft_shield_hardener_kinetic",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_titanium",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Kinetic Shield Hardener",
+      "outputs": [
+        {
+          "item_id": "shield_hardener_kinetic",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "shield_crafting": 2
+      },
+      "skill_quality_mod": 5
     },
     "craft_shield_matrix": {
       "base_quality": 45,
@@ -4758,6 +7497,75 @@
       },
       "skill_quality_mod": 0
     },
+    "craft_shield_recharger_1": {
+      "base_quality": 55,
+      "category": "Defense",
+      "crafting_time": 10,
+      "description": "Passive shield regeneration module.",
+      "id": "craft_shield_recharger_1",
+      "inputs": [
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_alloy",
+          "quantity": 2
+        },
+        {
+          "item_id": "ore_crystal",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Shield Recharger I",
+      "outputs": [
+        {
+          "item_id": "shield_recharger_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {},
+      "skill_quality_mod": 4
+    },
+    "craft_shield_recharger_2": {
+      "base_quality": 50,
+      "category": "Defense",
+      "crafting_time": 16,
+      "description": "Enhanced passive shield regeneration.",
+      "id": "craft_shield_recharger_2",
+      "inputs": [
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Shield Recharger II",
+      "outputs": [
+        {
+          "item_id": "shield_recharger_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "shield_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
     "craft_siege_railgun": {
       "base_quality": 30,
       "category": "Weapons",
@@ -4835,6 +7643,404 @@
       },
       "skill_quality_mod": 9
     },
+    "craft_slugs_cryo": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Supercooled ceramic-jacketed slug cases.",
+      "id": "craft_slugs_cryo",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_ceramic",
+          "quantity": 2
+        }
+      ],
+      "name": "Manufacture Cryo Slugs",
+      "outputs": [
+        {
+          "item_id": "slugs_cryo",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_slugs_emp": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 10,
+      "description": "Slugs with embedded EMP burst coils.",
+      "id": "craft_slugs_emp",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_railgun_capacitor",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture EMP Slugs",
+      "outputs": [
+        {
+          "item_id": "slugs_emp",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "electronic_warfare": 3,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_slugs_neutronium": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 15,
+      "description": "Impossibly dense neutronium-core slugs.",
+      "id": "craft_slugs_neutronium",
+      "inputs": [
+        {
+          "item_id": "refined_neutronium",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Neutronium Slugs",
+      "outputs": [
+        {
+          "item_id": "slugs_neutronium",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_slugs_shaped_charge": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Explosive-lined railgun slugs.",
+      "id": "craft_slugs_shaped_charge",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Shaped Charge Slugs",
+      "outputs": [
+        {
+          "item_id": "slugs_shaped_charge",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_slugs_tungsten": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Heavy tungsten penetrator slug cases.",
+      "id": "craft_slugs_tungsten",
+      "inputs": [
+        {
+          "item_id": "ore_tungsten",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Tungsten Slugs",
+      "outputs": [
+        {
+          "item_id": "slugs_tungsten",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_smartbomb_em": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Area-effect EMP device that disrupts all nearby ships.",
+      "id": "craft_smartbomb_em",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EM Smartbomb",
+      "outputs": [
+        {
+          "item_id": "smartbomb_em",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 3,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_smartbomb_explosive": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Shaped charge detonation affecting all nearby ships.",
+      "id": "craft_smartbomb_explosive",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Explosive Smartbomb",
+      "outputs": [
+        {
+          "item_id": "smartbomb_explosive",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_smartbomb_kinetic": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Shrapnel burst device damaging all nearby ships.",
+      "id": "craft_smartbomb_kinetic",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Kinetic Smartbomb",
+      "outputs": [
+        {
+          "item_id": "smartbomb_kinetic",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_smartbomb_thermal": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Releases superheated plasma in all directions.",
+      "id": "craft_smartbomb_thermal",
+      "inputs": [
+        {
+          "item_id": "comp_plasma_injector",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_heat_sink",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Thermal Smartbomb",
+      "outputs": [
+        {
+          "item_id": "smartbomb_thermal",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_solar_lance": {
+      "base_quality": 25,
+      "category": "Weapons",
+      "crafting_time": 50,
+      "description": "Solarian weapon that harnesses the power of stars.",
+      "id": "craft_solar_lance",
+      "inputs": [
+        {
+          "item_id": "refined_solarian_composite",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystalline_lattice",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Solar Lance",
+      "outputs": [
+        {
+          "item_id": "solar_lance",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 7
+      },
+      "skill_quality_mod": 8
+    },
+    "craft_solarian_logic_matrix": {
+      "base_quality": 40,
+      "category": "Shipbuilding",
+      "crafting_time": 12,
+      "description": "Assemble quantum-coherent processors using Solarian composite substrates.",
+      "id": "craft_solarian_logic_matrix",
+      "inputs": [
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_solarian_composite",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 5
+        }
+      ],
+      "name": "Build Solarian Logic Matrix",
+      "outputs": [
+        {
+          "item_id": "comp_solarian_logic_matrix",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 4,
+        "engineering": 5
+      },
+      "skill_quality_mod": 5
+    },
     "craft_solarian_solar_collector": {
       "base_quality": 45,
       "category": "Utility",
@@ -4876,7 +8082,7 @@
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 3,
-      "description": "Basic kinetic weapon ammunition.",
+      "description": "Box of basic autocannon ammunition. Cheap and reliable.",
       "id": "craft_standard_ammo",
       "inputs": [
         {
@@ -4884,12 +8090,12 @@
           "quantity": 1
         }
       ],
-      "name": "Manufacture Standard Ammunition",
+      "name": "Manufacture Standard Rounds",
       "outputs": [
         {
-          "item_id": "ammo_standard",
+          "item_id": "rounds_standard",
           "quality_mod": false,
-          "quantity": 100
+          "quantity": 5
         }
       ],
       "required_skills": {
@@ -4965,6 +8171,48 @@
       },
       "skill_quality_mod": 3
     },
+    "craft_storm_lance": {
+      "base_quality": 25,
+      "category": "Weapons",
+      "crafting_time": 50,
+      "description": "Nebula Collective weapon channeling ionic storm energy.",
+      "id": "craft_storm_lance",
+      "inputs": [
+        {
+          "item_id": "refined_nebulium",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_nebula_essence",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Storm Lance",
+      "outputs": [
+        {
+          "item_id": "storm_lance",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 7
+      },
+      "skill_quality_mod": 8
+    },
     "craft_swarm_controller": {
       "base_quality": 35,
       "category": "Components",
@@ -4998,6 +8246,154 @@
         "drone_operation": 5
       },
       "skill_quality_mod": 6
+    },
+    "craft_system_disabler": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 40,
+      "description": "Targeted EMP that disables specific enemy modules.",
+      "id": "craft_system_disabler",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 6
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build System Disabler",
+      "outputs": [
+        {
+          "item_id": "system_disabler",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 4,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 7
+    },
+    "craft_target_painter_1": {
+      "base_quality": 50,
+      "category": "Utility",
+      "crafting_time": 14,
+      "description": "Paints targets to increase incoming damage accuracy.",
+      "id": "craft_target_painter_1",
+      "inputs": [
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Target Painter I",
+      "outputs": [
+        {
+          "item_id": "target_painter_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "electronic_warfare": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_target_painter_2": {
+      "base_quality": 45,
+      "category": "Utility",
+      "crafting_time": 22,
+      "description": "Enhanced target painting with broader signature bloom.",
+      "id": "craft_target_painter_2",
+      "inputs": [
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_optical_fiber",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Target Painter II",
+      "outputs": [
+        {
+          "item_id": "target_painter_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "electronic_warfare": 4
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_targeting_computer": {
+      "base_quality": 45,
+      "category": "Components",
+      "crafting_time": 10,
+      "description": "Assemble fire control processors with sensor integration for weapon guidance.",
+      "id": "craft_targeting_computer",
+      "inputs": [
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Targeting Computer",
+      "outputs": [
+        {
+          "item_id": "comp_targeting_computer",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 5
     },
     "craft_temporal_stabilizer": {
       "base_quality": 20,
@@ -5036,6 +8432,337 @@
         "engineering": 6
       },
       "skill_quality_mod": 8
+    },
+    "craft_thruster_assembly": {
+      "base_quality": 50,
+      "category": "Shipbuilding",
+      "crafting_time": 6,
+      "description": "Integrate multiple thruster nozzles with an engine core into a coordinated propulsion unit.",
+      "id": "craft_thruster_assembly",
+      "inputs": [
+        {
+          "item_id": "comp_thruster_nozzle",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_engine_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_alloy",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Thruster Assembly",
+      "outputs": [
+        {
+          "item_id": "comp_thruster_assembly",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_torpedoes_breacher": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 15,
+      "description": "Armor-piercing torpedoes with penetrating warheads.",
+      "id": "craft_torpedoes_breacher",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "ore_tungsten",
+          "quantity": 2
+        }
+      ],
+      "name": "Assemble Breacher Torpedoes",
+      "outputs": [
+        {
+          "item_id": "torpedoes_breacher",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_torpedoes_emp": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 20,
+      "description": "Massive electromagnetic pulse that cripples all ship systems.",
+      "id": "craft_torpedoes_emp",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_railgun_capacitor",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble EMP Torpedoes",
+      "outputs": [
+        {
+          "item_id": "torpedoes_emp",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "electronic_warfare": 4,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_torpedoes_plasma": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 18,
+      "description": "Superheated plasma warhead that melts armor on impact.",
+      "id": "craft_torpedoes_plasma",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_plasma_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_ceramite",
+          "quantity": 2
+        }
+      ],
+      "name": "Assemble Plasma Torpedoes",
+      "outputs": [
+        {
+          "item_id": "torpedoes_plasma",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "gas_processing": 3,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_torpedoes_siege": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 22,
+      "description": "Maximum hull damage payload for breaking stations and capital ships.",
+      "id": "craft_torpedoes_siege",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_plutonium",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Siege Torpedoes",
+      "outputs": [
+        {
+          "item_id": "torpedoes_siege",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 5,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_torpedoes_standard": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 12,
+      "description": "Heavy anti-capital torpedoes. Slow but devastating.",
+      "id": "craft_torpedoes_standard",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 1
+        }
+      ],
+      "name": "Assemble Standard Torpedoes",
+      "outputs": [
+        {
+          "item_id": "torpedoes_standard",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_tracking_computer_1": {
+      "base_quality": 50,
+      "category": "Utility",
+      "crafting_time": 14,
+      "description": "Improves weapon tracking speed and accuracy.",
+      "id": "craft_tracking_computer_1",
+      "inputs": [
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Tracking Computer I",
+      "outputs": [
+        {
+          "item_id": "tracking_computer_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_tracking_computer_2": {
+      "base_quality": 45,
+      "category": "Utility",
+      "crafting_time": 22,
+      "description": "Enhanced tracking with predictive targeting algorithms.",
+      "id": "craft_tracking_computer_2",
+      "inputs": [
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_optical_fiber",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Tracking Computer II",
+      "outputs": [
+        {
+          "item_id": "tracking_computer_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_tracking_mine": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 40,
+      "description": "Deploys mines that actively pursue nearby targets.",
+      "id": "craft_tracking_mine",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 6
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Tracking Mine Launcher",
+      "outputs": [
+        {
+          "item_id": "tracking_mine",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
     },
     "craft_tracking_system": {
       "base_quality": 45,
@@ -5171,11 +8898,45 @@
       },
       "skill_quality_mod": 7
     },
+    "craft_void_capacitor": {
+      "base_quality": 30,
+      "category": "Shipbuilding",
+      "crafting_time": 20,
+      "description": "Weave null matter into a dimensional energy storage lattice. Glows faintly in spectra that shouldn't exist.",
+      "id": "craft_void_capacitor",
+      "inputs": [
+        {
+          "item_id": "refined_voidborn_null_matter",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_shield_emitter",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Void Capacitor",
+      "outputs": [
+        {
+          "item_id": "comp_void_capacitor",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "engineering": 5
+      },
+      "skill_quality_mod": 5
+    },
     "craft_void_charges": {
       "base_quality": 100,
       "category": "Consumables",
       "crafting_time": 15,
-      "description": "Exotic ammunition for void weapons.",
+      "description": "Standard void energy core packs.",
       "id": "craft_void_charges",
       "inputs": [
         {
@@ -5187,12 +8948,12 @@
           "quantity": 1
         }
       ],
-      "name": "Create Void Charges",
+      "name": "Manufacture Void Cores",
       "outputs": [
         {
-          "item_id": "ammo_void",
+          "item_id": "void_standard",
           "quality_mod": false,
-          "quantity": 10
+          "quantity": 4
         }
       ],
       "required_skills": {
@@ -5200,6 +8961,82 @@
         "radioactive_handling": 3
       },
       "skill_quality_mod": 0
+    },
+    "craft_void_entropic": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 20,
+      "description": "Entropy-accelerating void cores.",
+      "id": "craft_void_entropic",
+      "inputs": [
+        {
+          "item_id": "void_crystal",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_exotic",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_void_condensate",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Entropic Void Cores",
+      "outputs": [
+        {
+          "item_id": "void_entropic",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 5,
+        "radioactive_handling": 4
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_void_lance_1": {
+      "base_quality": 30,
+      "category": "Weapons",
+      "crafting_time": 45,
+      "description": "Channels destructive void energy into a focused beam.",
+      "id": "craft_void_lance_1",
+      "inputs": [
+        {
+          "item_id": "refined_void_condensate",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystalline_lattice",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_exotic",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Void Lance I",
+      "outputs": [
+        {
+          "item_id": "void_lance_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
     },
     "craft_void_laser": {
       "base_quality": 30,
@@ -5242,6 +9079,74 @@
         "weapon_crafting": 10
       },
       "skill_quality_mod": 7
+    },
+    "craft_void_null": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 25,
+      "description": "Null-space void cores.",
+      "id": "craft_void_null",
+      "inputs": [
+        {
+          "item_id": "void_crystal",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_exotic",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_void_condensate",
+          "quantity": 2
+        }
+      ],
+      "name": "Manufacture Null Void Cores",
+      "outputs": [
+        {
+          "item_id": "void_null",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 5,
+        "radioactive_handling": 5
+      },
+      "skill_quality_mod": 0
+    },
+    "craft_void_phased": {
+      "base_quality": 100,
+      "category": "Consumables",
+      "crafting_time": 18,
+      "description": "Phase-shifted void cores.",
+      "id": "craft_void_phased",
+      "inputs": [
+        {
+          "item_id": "void_crystal",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_exotic",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 1
+        }
+      ],
+      "name": "Manufacture Phased Void Cores",
+      "outputs": [
+        {
+          "item_id": "void_phased",
+          "quality_mod": false,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 5,
+        "radioactive_handling": 4
+      },
+      "skill_quality_mod": 0
     },
     "craft_void_shield_matrix": {
       "base_quality": 40,
@@ -5314,6 +9219,40 @@
       },
       "skill_quality_mod": 8
     },
+    "craft_voidborn_null_matrix": {
+      "base_quality": 35,
+      "category": "Shipbuilding",
+      "crafting_time": 15,
+      "description": "Weave null matter through a shield matrix. The result defies conventional physics.",
+      "id": "craft_voidborn_null_matrix",
+      "inputs": [
+        {
+          "item_id": "comp_shield_matrix",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_voidborn_null_matter",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_cpu_core",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Voidborn Null Matrix",
+      "outputs": [
+        {
+          "item_id": "comp_voidborn_null_matrix",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 4,
+        "shield_crafting": 5
+      },
+      "skill_quality_mod": 5
+    },
     "craft_voidborn_phase_cloak": {
       "base_quality": 35,
       "category": "Stealth",
@@ -5353,6 +9292,40 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_voidborn_phase_drive": {
+      "base_quality": 40,
+      "category": "Shipbuilding",
+      "crafting_time": 12,
+      "description": "Infuse an engine core with null matter for partial dimensional shifting.",
+      "id": "craft_voidborn_phase_drive",
+      "inputs": [
+        {
+          "item_id": "comp_engine_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "refined_voidborn_null_matter",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        }
+      ],
+      "name": "Build Voidborn Phase Drive",
+      "outputs": [
+        {
+          "item_id": "comp_voidborn_phase_drive",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 3,
+        "engineering": 5
+      },
+      "skill_quality_mod": 5
+    },
     "craft_warhead_assembly": {
       "base_quality": 35,
       "category": "Components",
@@ -5387,6 +9360,197 @@
       },
       "skill_quality_mod": 6
     },
+    "craft_water_recycler": {
+      "base_quality": 55,
+      "category": "Components",
+      "crafting_time": 6,
+      "description": "Assemble a closed-loop purification system from filtration membranes and pumps.",
+      "id": "craft_water_recycler",
+      "inputs": [
+        {
+          "item_id": "refined_polymer",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_steel",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_compound",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Water Recycler",
+      "outputs": [
+        {
+          "item_id": "comp_water_recycler",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 2
+      },
+      "skill_quality_mod": 4
+    },
+    "craft_weapon_battery": {
+      "base_quality": 45,
+      "category": "Shipbuilding",
+      "crafting_time": 10,
+      "description": "Assemble a hardened multi-weapon platform with shared fire control.",
+      "id": "craft_weapon_battery",
+      "inputs": [
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_core",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_targeting_computer",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Weapon Battery",
+      "outputs": [
+        {
+          "item_id": "comp_weapon_battery",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "engineering": 2,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_weapon_beam_1": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 22,
+      "description": "Continuous beam weapon that partially bypasses shields.",
+      "id": "craft_weapon_beam_1",
+      "inputs": [
+        {
+          "item_id": "refined_crystal",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Focused Beam I",
+      "outputs": [
+        {
+          "item_id": "weapon_beam_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_weapon_beam_2": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 28,
+      "description": "Advanced beam weapon with improved shield penetration.",
+      "id": "craft_weapon_beam_2",
+      "inputs": [
+        {
+          "item_id": "refined_crystal",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_optical_fiber",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Focused Beam II",
+      "outputs": [
+        {
+          "item_id": "weapon_beam_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_weapon_beam_3": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 40,
+      "description": "Elite beam weapon with 60% shield penetration.",
+      "id": "craft_weapon_beam_3",
+      "inputs": [
+        {
+          "item_id": "refined_crystalline_lattice",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_optical_fiber",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Focused Beam III",
+      "outputs": [
+        {
+          "item_id": "weapon_beam_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
+    },
     "craft_weapon_cannon_1": {
       "base_quality": 55,
       "category": "Weapons",
@@ -5416,6 +9580,43 @@
         }
       ],
       "required_skills": {},
+      "skill_quality_mod": 5
+    },
+    "craft_weapon_cannon_2": {
+      "base_quality": 50,
+      "category": "Weapons",
+      "crafting_time": 20,
+      "description": "Dual-barrel autocannon with improved fire rate.",
+      "id": "craft_weapon_cannon_2",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 8
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_engine_core",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Autocannon II",
+      "outputs": [
+        {
+          "item_id": "weapon_cannon_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 2
+      },
       "skill_quality_mod": 5
     },
     "craft_weapon_core": {
@@ -5452,6 +9653,86 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_weapon_disruptor_1": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 22,
+      "description": "Disrupts enemy systems, reducing their combat effectiveness.",
+      "id": "craft_weapon_disruptor_1",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build EM Disruptor I",
+      "outputs": [
+        {
+          "item_id": "weapon_disruptor_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 2,
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_weapon_disruptor_2": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 35,
+      "description": "Advanced EM weapon that damages ship computing systems.",
+      "id": "craft_weapon_disruptor_2",
+      "inputs": [
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_neural_gel",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_ion_emitter",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Neural Disruptor",
+      "outputs": [
+        {
+          "item_id": "weapon_disruptor_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "electronic_warfare": 4,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 7
+    },
     "craft_weapon_housing": {
       "base_quality": 50,
       "category": "Components",
@@ -5476,9 +9757,7 @@
           "quantity": 1
         }
       ],
-      "required_skills": {
-        "weapon_crafting": 1
-      },
+      "required_skills": {},
       "skill_quality_mod": 5
     },
     "craft_weapon_laser_1": {
@@ -5515,6 +9794,130 @@
       ],
       "required_skills": {},
       "skill_quality_mod": 5
+    },
+    "craft_weapon_laser_2": {
+      "base_quality": 50,
+      "category": "Weapons",
+      "crafting_time": 20,
+      "description": "Improved energy weapon with better focusing optics.",
+      "id": "craft_weapon_laser_2",
+      "inputs": [
+        {
+          "item_id": "refined_steel",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Pulse Laser II",
+      "outputs": [
+        {
+          "item_id": "weapon_laser_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_weapon_laser_3": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 28,
+      "description": "Military-grade pulse laser with rapid fire capability.",
+      "id": "craft_weapon_laser_3",
+      "inputs": [
+        {
+          "item_id": "refined_crystal",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Pulse Laser III",
+      "outputs": [
+        {
+          "item_id": "weapon_laser_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_weapon_laser_4": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 40,
+      "description": "Capital-class energy weapon with devastating output.",
+      "id": "craft_weapon_laser_4",
+      "inputs": [
+        {
+          "item_id": "refined_crystalline_lattice",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_laser_focus",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_power_cell",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Heavy Pulse Laser",
+      "outputs": [
+        {
+          "item_id": "weapon_laser_4",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "weapon_crafting": 6
+      },
+      "skill_quality_mod": 7
     },
     "craft_weapon_missile_1": {
       "base_quality": 45,
@@ -5553,6 +9956,47 @@
       },
       "skill_quality_mod": 5
     },
+    "craft_weapon_missile_2": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 22,
+      "description": "Multi-warhead missile system with improved tracking.",
+      "id": "craft_weapon_missile_2",
+      "inputs": [
+        {
+          "item_id": "refined_alloy",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_circuits",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Missile Launcher II",
+      "outputs": [
+        {
+          "item_id": "weapon_missile_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
     "craft_weapon_overload": {
       "base_quality": 100,
       "category": "Consumables",
@@ -5582,6 +10026,198 @@
         "weapon_crafting": 3
       },
       "skill_quality_mod": 0
+    },
+    "craft_weapon_railgun_1": {
+      "base_quality": 45,
+      "category": "Weapons",
+      "crafting_time": 25,
+      "description": "Electromagnetic accelerator firing dense slugs at extreme velocity.",
+      "id": "craft_weapon_railgun_1",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_railgun_capacitor",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Railgun I",
+      "outputs": [
+        {
+          "item_id": "weapon_railgun_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "weapon_crafting": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "craft_weapon_railgun_2": {
+      "base_quality": 40,
+      "category": "Weapons",
+      "crafting_time": 30,
+      "description": "Advanced railgun with armor-piercing rounds.",
+      "id": "craft_weapon_railgun_2",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_railgun_capacitor",
+          "quantity": 2
+        },
+        {
+          "item_id": "refined_tungsten_rod",
+          "quantity": 3
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Railgun II",
+      "outputs": [
+        {
+          "item_id": "weapon_railgun_2",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "weapon_crafting": 4
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_weapon_railgun_3": {
+      "base_quality": 30,
+      "category": "Weapons",
+      "crafting_time": 45,
+      "description": "Capital-class railgun with extreme range and armor bypass.",
+      "id": "craft_weapon_railgun_3",
+      "inputs": [
+        {
+          "item_id": "refined_darksteel",
+          "quantity": 4
+        },
+        {
+          "item_id": "refined_superconductor",
+          "quantity": 5
+        },
+        {
+          "item_id": "comp_railgun_capacitor",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_adamantite",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Mass Driver",
+      "outputs": [
+        {
+          "item_id": "weapon_railgun_3",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 4,
+        "weapon_crafting": 7
+      },
+      "skill_quality_mod": 7
+    },
+    "craft_weapon_torpedo_1": {
+      "base_quality": 35,
+      "category": "Weapons",
+      "crafting_time": 35,
+      "description": "Devastating capital ship killer launcher.",
+      "id": "craft_weapon_torpedo_1",
+      "inputs": [
+        {
+          "item_id": "refined_durasteel",
+          "quantity": 4
+        },
+        {
+          "item_id": "comp_warhead_assembly",
+          "quantity": 2
+        },
+        {
+          "item_id": "comp_tracking_system",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_sensor_array",
+          "quantity": 1
+        },
+        {
+          "item_id": "comp_weapon_housing",
+          "quantity": 1
+        }
+      ],
+      "name": "Build Heavy Torpedo Launcher",
+      "outputs": [
+        {
+          "item_id": "weapon_torpedo_1",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 2,
+        "weapon_crafting": 5
+      },
+      "skill_quality_mod": 6
+    },
+    "craft_wiring_harness": {
+      "base_quality": 60,
+      "category": "Components",
+      "crafting_time": 4,
+      "description": "Bundle copper wire into pre-routed electrical harnesses for ship systems.",
+      "id": "craft_wiring_harness",
+      "inputs": [
+        {
+          "item_id": "refined_copper_wire",
+          "quantity": 5
+        },
+        {
+          "item_id": "refined_polymer",
+          "quantity": 2
+        }
+      ],
+      "name": "Build Wiring Harness",
+      "outputs": [
+        {
+          "item_id": "comp_wiring_harness",
+          "quality_mod": true,
+          "quantity": 3
+        }
+      ],
+      "required_skills": {
+        "crafting_basic": 2
+      },
+      "skill_quality_mod": 4
     },
     "create_nanoplastic": {
       "base_quality": 50,
@@ -6837,6 +11473,36 @@
       },
       "skill_quality_mod": 6
     },
+    "refine_nebulium": {
+      "base_quality": 30,
+      "category": "Refining",
+      "crafting_time": 10,
+      "description": "Compress crystallized nebula energy into a stable power core.",
+      "id": "refine_nebulium",
+      "inputs": [
+        {
+          "item_id": "ore_nebulium",
+          "quantity": 3
+        },
+        {
+          "item_id": "refined_crystal",
+          "quantity": 1
+        }
+      ],
+      "name": "Process Nebulium Core",
+      "outputs": [
+        {
+          "item_id": "refined_nebulium",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "crafting_advanced": 3,
+        "refinement": 6
+      },
+      "skill_quality_mod": 7
+    },
     "refine_neon": {
       "base_quality": 60,
       "category": "Gas Processing",
@@ -7564,6 +12230,301 @@
       ],
       "required_skills": {
         "gas_processing": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "salvage_fuel_cells": {
+      "base_quality": 50,
+      "category": "Consumables",
+      "crafting_time": 3,
+      "description": "Extract residual fuel from salvaged power systems and components. Not the cleanest fuel, but it burns.",
+      "id": "salvage_fuel_cells",
+      "inputs": [
+        {
+          "item_id": "salvage_components",
+          "quantity": 5
+        }
+      ],
+      "name": "Drain Fuel Reserves",
+      "outputs": [
+        {
+          "item_id": "fuel_cell",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "salvaging": 2
+      },
+      "skill_quality_mod": 3
+    },
+    "salvage_hull_patch": {
+      "base_quality": 50,
+      "category": "Consumables",
+      "crafting_time": 2,
+      "description": "Weld salvage metal directly over hull breaches. Ugly but effective — a salvager's specialty.",
+      "id": "salvage_hull_patch",
+      "inputs": [
+        {
+          "item_id": "salvage_metal",
+          "quantity": 6
+        }
+      ],
+      "name": "Field Hull Patch",
+      "outputs": [
+        {
+          "item_id": "hull_patch",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "salvaging": 1
+      },
+      "skill_quality_mod": 4
+    },
+    "salvage_repair_kit": {
+      "base_quality": 45,
+      "category": "Consumables",
+      "crafting_time": 5,
+      "description": "Repair kits assembled from salvaged components. Every part has a story, and most of those stories involve explosions.",
+      "id": "salvage_repair_kit",
+      "inputs": [
+        {
+          "item_id": "salvage_metal",
+          "quantity": 10
+        },
+        {
+          "item_id": "salvage_components",
+          "quantity": 4
+        }
+      ],
+      "name": "Salvager's Repair Kit",
+      "outputs": [
+        {
+          "item_id": "repair_kit",
+          "quality_mod": false,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "salvaging": 3
+      },
+      "skill_quality_mod": 5
+    },
+    "salvage_repair_nanites": {
+      "base_quality": 35,
+      "category": "Consumables",
+      "crafting_time": 8,
+      "description": "Nanites recovered from wreck systems, reprogrammed for hull repair. They remember their old ship — sometimes they get creative with the patches.",
+      "id": "salvage_repair_nanites",
+      "inputs": [
+        {
+          "item_id": "salvage_rare",
+          "quantity": 3
+        },
+        {
+          "item_id": "salvage_components",
+          "quantity": 6
+        }
+      ],
+      "name": "Reprogrammed Repair Nanites",
+      "outputs": [
+        {
+          "item_id": "repair_nanites",
+          "quality_mod": false,
+          "quantity": 4
+        }
+      ],
+      "required_skills": {
+        "salvaging": 5
+      },
+      "skill_quality_mod": 6
+    },
+    "salvage_to_circuits": {
+      "base_quality": 30,
+      "category": "Components",
+      "crafting_time": 8,
+      "description": "Painstaking extraction of intact circuits from salvage. The rare materials contain trace elements essential for microprocessor fabrication.",
+      "id": "salvage_to_circuits",
+      "inputs": [
+        {
+          "item_id": "salvage_rare",
+          "quantity": 3
+        },
+        {
+          "item_id": "salvage_components",
+          "quantity": 5
+        }
+      ],
+      "name": "Reclaim Circuit Boards",
+      "outputs": [
+        {
+          "item_id": "refined_circuits",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "salvaging": 5
+      },
+      "skill_quality_mod": 6
+    },
+    "salvage_to_heat_sink": {
+      "base_quality": 45,
+      "category": "Components",
+      "crafting_time": 4,
+      "description": "Extract thermal management components from salvaged electronics. These parts are usually the last thing to fail.",
+      "id": "salvage_to_heat_sink",
+      "inputs": [
+        {
+          "item_id": "salvage_components",
+          "quantity": 4
+        }
+      ],
+      "name": "Recover Heat Sinks",
+      "outputs": [
+        {
+          "item_id": "comp_heat_sink",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "salvaging": 3
+      },
+      "skill_quality_mod": 4
+    },
+    "salvage_to_hull_plate": {
+      "base_quality": 40,
+      "category": "Components",
+      "crafting_time": 5,
+      "description": "Cut and reshape salvaged metal into hull plating sections. Recycled plating has character — some say it's lucky.",
+      "id": "salvage_to_hull_plate",
+      "inputs": [
+        {
+          "item_id": "salvage_metal",
+          "quantity": 12
+        },
+        {
+          "item_id": "salvage_components",
+          "quantity": 2
+        }
+      ],
+      "name": "Reforge Hull Plating",
+      "outputs": [
+        {
+          "item_id": "comp_hull_plate",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "salvaging": 2
+      },
+      "skill_quality_mod": 5
+    },
+    "salvage_to_power_cell": {
+      "base_quality": 35,
+      "category": "Components",
+      "crafting_time": 6,
+      "description": "Reconstruct power cells from salvaged rare materials. Requires careful handling of exotic conductors.",
+      "id": "salvage_to_power_cell",
+      "inputs": [
+        {
+          "item_id": "salvage_rare",
+          "quantity": 2
+        },
+        {
+          "item_id": "salvage_components",
+          "quantity": 3
+        }
+      ],
+      "name": "Rebuild Power Cells",
+      "outputs": [
+        {
+          "item_id": "comp_power_cell",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "salvaging": 4
+      },
+      "skill_quality_mod": 5
+    },
+    "salvage_to_steel": {
+      "base_quality": 40,
+      "category": "Refining",
+      "crafting_time": 4,
+      "description": "Melt down salvage metal and reforge it into usable steel. Less pure than ore-smelted steel, but good enough for repairs.",
+      "id": "salvage_to_steel",
+      "inputs": [
+        {
+          "item_id": "salvage_metal",
+          "quantity": 8
+        }
+      ],
+      "name": "Reclaim Steel from Scrap",
+      "outputs": [
+        {
+          "item_id": "refined_steel",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "salvaging": 1
+      },
+      "skill_quality_mod": 4
+    },
+    "salvage_to_wiring": {
+      "base_quality": 45,
+      "category": "Components",
+      "crafting_time": 3,
+      "description": "Carefully extract reusable wiring harnesses from salvaged ship components.",
+      "id": "salvage_to_wiring",
+      "inputs": [
+        {
+          "item_id": "salvage_components",
+          "quantity": 3
+        }
+      ],
+      "name": "Strip Wiring from Components",
+      "outputs": [
+        {
+          "item_id": "comp_wiring_harness",
+          "quality_mod": true,
+          "quantity": 1
+        }
+      ],
+      "required_skills": {
+        "salvaging": 2
+      },
+      "skill_quality_mod": 4
+    },
+    "smelt_aluminum_sheet": {
+      "base_quality": 50,
+      "category": "Refining",
+      "crafting_time": 3,
+      "description": "Press aluminum ore into lightweight structural panels.",
+      "id": "smelt_aluminum_sheet",
+      "inputs": [
+        {
+          "item_id": "ore_aluminum",
+          "quantity": 5
+        }
+      ],
+      "name": "Smelt Aluminum Sheet",
+      "outputs": [
+        {
+          "item_id": "refined_aluminum_sheet",
+          "quality_mod": true,
+          "quantity": 2
+        }
+      ],
+      "required_skills": {
+        "refinement": 1
       },
       "skill_quality_mod": 5
     },

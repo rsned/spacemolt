@@ -1,161 +1,123 @@
 {
-  "Mu": {},
-  "Username": "Preston 'Profit' Price",
-  "Password": "8178ba407d3c618d493c07899d280e9fb2ef5cbf1af3aec665b551427f114f7f",
-  "Doc": true,
-  "CurrentSystem": "nexus",
-  "CurrentPOI": "nexus_harvesters",
-  "Traveling": false,
-  "TravelProgress": null,
-  "ServerVersion": "0.90.3",
-  "Player": {
-    "id": "b3b6380627d256d1809cbb293f2b8ef8",
-    "username": "Preston 'Profit' Price",
-    "empire": "voidborn",
-    "credits": 59139,
-    "current_system": "nexus",
-    "current_poi": "nexus_harvesters",
-    "current_ship_id": "0e42c58cf21e1ae356a9e2420e1c947e",
-    "home_base": "nexus_base",
-    "docked_at_base": "",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
+  "modules": [
+    {
+      "cpu_usage": 2,
+      "id": "5557993ebba23d22f512d27c688ad43f",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    },
+    {
+      "cpu_usage": 2,
+      "id": "9a87c6dc0ce8792dd3196375477a8c80",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    }
+  ],
+  "player": {
     "anonymous": false,
+    "clan_tag": "",
+    "completed_missions": null,
+    "created_at": "2026-02-08T08:54:45.479121219Z",
+    "credits": 60339,
+    "current_poi": "nexus_core",
+    "current_ship_id": "0e42c58cf21e1ae356a9e2420e1c947e",
+    "current_system": "nexus",
+    "docked_at_base": "nexus_base",
+    "empire": "voidborn",
+    "home_base": "nexus_base",
+    "id": "b3b6380627d256d1809cbb293f2b8ef8",
     "is_cloaked": false,
+    "last_active_at": "2026-02-20T10:19:52.831449533Z",
+    "last_chat_check": "0001-01-01T00:00:00Z",
+    "last_login_at": "2026-02-20T10:19:52.831448203Z",
+    "primary_color": "#FFFFFF",
+    "revealed_pois": null,
+    "secondary_color": "#000000",
     "skills": {
-      "fuel_efficiency": {
-        "level": 1,
-        "xp": 0
-      },
-      "mining_advanced": {
-        "level": 3,
-        "xp": 0
-      },
-      "mining_basic": {
-        "level": 7,
-        "xp": 0
-      },
-      "small_ships": {
-        "level": 1,
-        "xp": 0
-      },
-      "trading": {
-        "level": 2,
-        "xp": 0
-      }
+      "fuel_efficiency": 1,
+      "mining_advanced": 4,
+      "mining_basic": 9,
+      "small_ships": 1,
+      "trading": 2
     },
     "stats": {
-      "ships_destroyed": 0,
-      "times_destroyed": 0,
-      "ore_mined": 9740,
-      "credits_earned": 69378,
-      "credits_spent": 3339,
-      "trades_completed": 459,
-      "systems_discovered": 0,
+      "bases_destroyed": 0,
+      "credits_earned": 71045,
+      "credits_spent": 3806,
+      "distance_traveled": 0,
       "items_crafted": 0,
-      "missions_completed": 0
-    }
+      "ore_mined": 21043,
+      "pirates_destroyed": 0,
+      "ships_destroyed": 0,
+      "ships_lost": 0,
+      "systems_explored": 0,
+      "time_played": 0,
+      "trades_completed": 459
+    },
+    "status_message": "",
+    "username": "Preston 'Profit' Price"
   },
-  "Credits": 59139,
-  "skill_xp": {
-    "fuel_efficiency": 72,
-    "mining_advanced": 1248,
-    "mining_basic": 1340,
-    "small_ships": 72,
-    "trading": 276
-  },
-  "SkillNextLevelXP": null,
-  "SkillDefinitions": null,
-  "Ship": {
-    "id": "0e42c58cf21e1ae356a9e2420e1c947e",
-    "owner_id": "b3b6380627d256d1809cbb293f2b8ef8",
-    "class_id": "mining_barge",
-    "name": "Excavator",
-    "hull": 180,
-    "max_hull": 180,
-    "shield": 60,
-    "max_shield": 60,
-    "shield_recharge": 1,
+  "ship": {
     "armor": 12,
-    "speed": 2,
-    "fuel": 125,
-    "max_fuel": 150,
-    "cargo_used": 146,
-    "cargo_capacity": 150,
-    "cpu_used": 4,
-    "cpu_capacity": 20,
-    "power_used": 10,
-    "power_capacity": 40,
-    "weapon_slots": 1,
-    "defense_slots": 2,
-    "utility_slots": 4,
-    "modules": [
-      "5557993ebba23d22f512d27c688ad43f",
-      "9a87c6dc0ce8792dd3196375477a8c80"
-    ],
     "cargo": [
       {
         "item_id": "mining_laser_1",
         "quantity": 4
       },
       {
-        "item_id": "ore_copper",
-        "quantity": 40
+        "item_id": "ore_iron",
+        "quantity": 42
       },
       {
         "item_id": "ore_silicon",
-        "quantity": 45
+        "quantity": 44
       },
       {
-        "item_id": "ore_iron",
-        "quantity": 21
+        "item_id": "ore_copper",
+        "quantity": 24
       }
-    ]
-  },
-  "Fuel": 125,
-  "MaxFuel": 150,
-  "Hull": 180,
-  "MaxHull": 180,
-  "Cargo": [
-    {
-      "item_id": "mining_laser_1",
-      "quantity": 4
-    },
-    {
-      "item_id": "ore_copper",
-      "quantity": 40
-    },
-    {
-      "item_id": "ore_silicon",
-      "quantity": 45
-    },
-    {
-      "item_id": "ore_iron",
-      "quantity": 21
-    }
-  ],
-  "MaxCargo": 150,
-  "System": {
-    "id": "",
-    "name": "Nexus Prime",
-    "description": "Central processing hub of the Voidborn Collective.",
-    "empire": "",
-    "police_level": 0,
-    "pois": [],
-    "connections": [],
-    "discovered": false,
-    "position": {
-      "x": 0,
-      "y": 0
-    },
-    "ShipPOI": "nexus_harvesters"
-  },
-  "CurrentTick": 91534,
-  "LastMapUpdate": "0001-01-01T00:00:00Z",
-  "Nearby": [],
-  "InCombat": false,
-  "PirateName": "",
-  "PirateTier": "",
-  "PirateID": "",
-  "LastDamage": 0
+    ],
+    "cargo_capacity": 150,
+    "cargo_used": 150,
+    "class_id": "mining_barge",
+    "cpu_capacity": 20,
+    "cpu_used": 4,
+    "created_at": "2026-02-11T02:50:15.354291961Z",
+    "defense_slots": 2,
+    "fuel": 120,
+    "hull": 180,
+    "id": "0e42c58cf21e1ae356a9e2420e1c947e",
+    "max_fuel": 150,
+    "max_hull": 180,
+    "max_shield": 60,
+    "modules": [
+      "5557993ebba23d22f512d27c688ad43f",
+      "9a87c6dc0ce8792dd3196375477a8c80"
+    ],
+    "name": "Excavator",
+    "owner_id": "b3b6380627d256d1809cbb293f2b8ef8",
+    "power_capacity": 40,
+    "power_used": 10,
+    "shield": 60,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 4,
+    "weapon_slots": 1
+  }
 }

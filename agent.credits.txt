@@ -1,0 +1,84 @@
+[craftsman-10] 2026/02/16 20:12:10 Agent: Harrison 'Handiwork' Hay | Empire: outerrim | Credits: 29963.00 | Ship: Deeprock Harvester | Cargo: 171/400
+[craftsman-1] 2026/02/16 20:11:21 Agent: Arthur 'Artificer' Artis | Empire: nebula | Credits: 102988.00 | Ship: Deeprock Harvester | Cargo: 197/400
+[craftsman-2] 2026/02/16 20:11:22 Agent: Samuel 'Smith' Sterling | Empire: nebula | Credits: 18537.00 | Ship: Deeprock Harvester | Cargo: 241/400
+[craftsman-3] 2026/02/16 20:11:22 Agent: Artisan 'Ace' Anderson | Empire: solarian | Credits: 6125.00 | Ship: Drillship | Cargo: 92/100
+[craftsman-4] 2026/02/16 20:11:23 Agent: Bentley 'Blueprint' Burk | Empire: solarian | Credits: 74780.00 | Ship: Deeprock Harvester | Cargo: 94/400
+[craftsman-5] 2026/02/16 20:11:24 Agent: Chisel 'Craftsman' Cole | Empire: voidborn | Credits: 8814.00 | Ship: Drillship | Cargo: 40/100
+[craftsman-6] 2026/02/16 20:12:06 Agent: Dexter 'Design' Davis | Empire: voidborn | Credits: 9628.00 | Ship: Excavator | Cargo: 98/150
+[craftsman-7] 2026/02/16 20:12:07 Agent: Emerson 'Erect' Edwards | Empire: crimson | Credits: 123170.00 | Ship: Drillship | Cargo: 91/100
+[craftsman-8] 2026/02/16 20:12:07 Agent: Fabian 'Forge' Fowler | Empire: crimson | Credits: 134456.00 | Ship: Deeprock Harvester | Cargo: 312/400
+[craftsman-9] 2026/02/16 20:12:08 Agent: Garrison 'Gear' Grant | Empire: outerrim | Credits: 35656.00 | Ship: Deeprock Harvester | Cargo: 40/400
+[engineer-10] 2026/02/16 20:12:02 Agent: Kinetic 'Kernel' King | Empire: outerrim | Credits: 208.00 | Ship: Excavator | Cargo: 24/150
+[engineer-1] 2026/02/16 20:12:03 Agent: Gavin 'GearHead' Garriso | Empire: nebula | Credits: 10628.00 | Ship: Drillship | Cargo: 81/100
+[engineer-2] 2026/02/16 20:12:03 Agent: Silas 'Sparky' Sparks | Empire: nebula | Credits: 4172.00 | Ship: Drillship | Cargo: 30/100
+[engineer-3] 2026/02/16 20:12:03 Agent: Circuit 'Current' Carter | Empire: solarian | Credits: 37404.00 | Ship: Deeprock Harvester | Cargo: 179/400
+[engineer-4] 2026/02/16 20:11:56 Agent: Dynamo 'Drive' Davis | Empire: solarian | Credits: 11092.00 | Ship: Excavator | Cargo: 150/150
+[engineer-5] 2026/02/16 20:11:56 Agent: Fission 'Fuse' Fletcher | Empire: voidborn | Credits: 216578.00 | Ship: Deeprock Harvester | Cargo: 30/400
+[engineer-6] 2026/02/16 20:11:59 Agent: Generator 'Grid' Graham | Empire: voidborn | Credits: 8105.00 | Ship: Drillship | Cargo: 40/100
+[engineer-7] 2026/02/16 20:12:02 Agent: Hydraulic 'Hose' Hayes | Empire: crimson | Credits: 12264.00 | Ship: Drillship | Cargo: 30/100
+[engineer-8] 2026/02/16 20:12:01 Agent: Ignition 'Spark' Stevens | Empire: crimson | Credits: 59089.00 | Ship: Excavator | Cargo: 150/150
+[engineer-9] 2026/02/16 20:12:02 Agent: Junction 'Joint' Jackson | Empire: outerrim | Credits: 23173.00 | Ship: Excavator | Cargo: 58/150
+[explorer-10] 2026/02/16 20:13:01 Agent: Scout 'Space' Sullivan | Empire: nebula | Credits: 56645.00 | Ship: Deeprock Harvester | Cargo: 291/400
+[explorer-1] 2026/02/16 20:12:12 Agent: Atlas 'Astro' Anderson | Empire: solarian | Credits: 48182.00 | Ship: Deeprock Harvester | Cargo: 116/400
+[explorer-2] 2026/02/16 20:12:13 Agent: Cosmo 'Cosmic' Chandler | Empire: solarian | Credits: 28569.00 | Ship: Excavator | Cargo: 60/150
+[explorer-3] 2026/02/16 20:12:13 Agent: Orion 'Nebula' North | Empire: voidborn | Credits: 119285.00 | Ship: Excavator | Cargo: 62/150
+[explorer-4] 2026/02/16 20:12:14 Agent: Stella 'Starlight' Sterl | Empire: voidborn | Credits: 47825.00 | Ship: Drillship | Cargo: 61/100
+[explorer-5] 2026/02/16 20:12:14 Agent: Nova 'Navigator' Nash | Empire: crimson | Credits: 208670.00 | Ship: Deeprock Harvester | Cargo: 20/400
+[explorer-7] 2026/02/16 20:13:01 Agent: Eugene 'Explorer-7' Edwa | Empire: nebula | Credits: 13882.00 | Ship: Excavator | Cargo: 49/150
+[explorer-8] 2026/02/16 20:13:01 Agent: Stella 'StarStrider' Ste | Empire: solarian | Credits: 74797.00 | Ship: Deeprock Harvester | Cargo: 194/400
+[explorer-9] 2026/02/16 20:13:01 Agent: Diana 'Driftwood' Dawson | Empire: solarian | Credits: 25998.00 | Ship: Excavator | Cargo: 123/150
+[fighter-10] 2026/02/16 20:13:00 Agent: Ironclad 'Impact' Ingram | Empire: outerrim | Credits: 6159.00 | Ship: Drillship | Cargo: 77/100
+[fighter-1] 2026/02/16 20:13:11 Agent: Isabella 'IronVanguard' | Empire: nebula | Credits: 7677.00 | Ship: Drillship | Cargo: 60/100
+[fighter-2] 2026/02/16 20:13:11 Agent: Victoria 'Valkyrie' Vane | Empire: nebula | Credits: 218375.00 | Ship: Deeprock Harvester | Cargo: 200/400
+[fighter-3] 2026/02/16 20:12:59 Agent: Blade 'Battler' Blackwoo | Empire: solarian | Credits: 28608.00 | Ship: Drillship | Cargo: 96/100
+[fighter-4] 2026/02/16 20:12:58 Agent: Clash 'Combat' Coleman | Empire: solarian | Credits: 75401.00 | Ship: Deeprock Harvester | Cargo: 157/400
+[fighter-5] 2026/02/16 20:13:00 Agent: Defender 'Duel' Dawson | Empire: voidborn | Credits: 7095.00 | Ship: Excavator | Cargo: 33/150
+[fighter-6] 2026/02/16 20:12:57 Agent: Enforcer 'Edge' Edwards | Empire: voidborn | Credits: 61428.00 | Ship: Drillship | Cargo: 40/100
+[fighter-7] 2026/02/16 20:13:00 Agent: Fortress 'Fight' Fisher | Empire: crimson | Credits: 61438.00 | Ship: Excavator | Cargo: 60/150
+[fighter-8] 2026/02/16 20:13:00 Agent: Guardian 'Gladiator' Gra | Empire: crimson | Credits: 78537.00 | Ship: Drillship | Cargo: 40/100
+[fighter-9] 2026/02/16 20:13:00 Agent: Hunter 'Hit' Hayes | Empire: outerrim | Credits: 6173.00 | Ship: Drillship | Cargo: 40/100
+[miner-10] 2026/02/16 20:11:14 Agent: Victor 'Vein' Vincent | Empire: outerrim | Credits: 5477.00 | Ship: Drillship | Cargo: 91/100
+[miner-1] 2026/02/16 20:10:56 Agent: Preston 'Pickaxe' Porter | Empire: nebula | Credits: 15225.00 | Ship: Excavator | Cargo: 75/150
+[miner-2] 2026/02/16 20:10:57 Agent: Orion 'Orky' Olander | Empire: nebula | Credits: 14357.00 | Ship: Deeprock Harvester | Cargo: 293/400
+[miner-3] 2026/02/16 20:10:57 Agent: Derrick 'DeepCore' Drill | Empire: solarian | Credits: 9098.00 | Ship: Excavator | Cargo: 0/150
+[miner-4] 2026/02/16 20:10:58 Agent: Jacob 'AsteroidJoe' Jack | Empire: solarian | Credits: 7689.00 | Ship: Drillship | Cargo: 40/100
+[miner-5] 2026/02/16 20:10:58 Agent: Magnus 'Magma' Miller | Empire: voidborn | Credits: 26987.00 | Ship: Drillship | Cargo: 40/100
+[miner-6] 2026/02/16 20:11:14 Agent: Barnaby 'Bedrock' Burke | Empire: voidborn | Credits: 46937.00 | Ship: Drillship | Cargo: 10/100
+[miner-7] 2026/02/16 20:11:14 Agent: Quincy 'Quarry' Quaid | Empire: crimson | Credits: 83508.00 | Ship: Prospector | Cargo: 20/50
+[miner-8] 2026/02/16 20:11:14 Agent: Oliver 'Ore' Opals | Empire: crimson | Credits: 50304.00 | Ship: Excavator | Cargo: 120/150
+[miner-9] 2026/02/16 20:11:14 Agent: Silas 'Strike' Stone | Empire: outerrim | Credits: 4604.00 | Ship: Prospector | Cargo: 42/50
+[pirate-10] 2026/02/16 20:10:33 Agent: Blade 'Buccaneer' Blackw | Empire: outerrim | Credits: 2926.00 | Ship: Drillship | Cargo: 30/100
+[pirate-11] 2026/02/16 20:10:59 Agent: Captain 'Vortex' Vash | Empire: voidborn | Credits: 54591.00 | Ship: Deeprock Harvester | Cargo: 0/400
+[pirate-12] 2026/02/16 20:10:59 Agent: Navigator 'Drift' Dax | Empire: voidborn | Credits: 16947.00 | Ship: Excavator | Cargo: 146/150
+[pirate-13] 2026/02/16 20:11:00 Agent: Engineer 'Salvage' Soren | Empire: voidborn | Credits: 5679.00 | Ship: Drillship | Cargo: 40/100
+[pirate-14] 2026/02/16 20:11:01 Agent: Tactician 'Vector' Vega | Empire: voidborn | Credits: 13408.00 | Ship: Excavator | Cargo: 74/150
+[pirate-15] 2026/02/16 20:11:01 Agent: Scout 'Wraith' Kara | Empire: voidborn | Credits: 5356.00 | Ship: Excavator | Cargo: 35/150
+[pirate-1] 2026/02/16 20:10:18 Agent: ⚔️' | Empire: crimson | Credits: 85922.00 | Ship: Sparrow | Cargo: 0/15
+[pirate-2] 2026/02/16 20:10:19 Agent: ☠ | Empire: crimson | Credits: 33578.00 | Ship: Shadow Dancer | Cargo: 86/140
+[pirate-3] 2026/02/16 20:10:19 Agent: ☢ | Empire: crimson | Credits: 18003.00 | Ship: Excavator | Cargo: 142/150
+[pirate-4] 2026/02/16 20:10:20 Agent: ☣ | Empire: crimson | Credits: 313531.00 | Ship: Sparrow | Cargo: 0/15
+[pirate-5] 2026/02/16 20:10:20 Agent: ⚀ ⚀ | Empire: crimson | Credits: 42956.00 | Ship: Drillship | Cargo: 40/100
+[pirate-6] 2026/02/16 20:10:31 Agent: Rocco 'Razor' Redgrave | Empire: outerrim | Credits: 11270.00 | Ship: Drillship | Cargo: 40/100
+[pirate-7] 2026/02/16 20:10:32 Agent: Vinnie 'Void' Vane | Empire: outerrim | Credits: 1043.00 | Ship: Deeprock Harvester | Cargo: 145/400
+[pirate-8] 2026/02/16 20:10:32 Agent: Scurvy 'Seadog' Sanders | Empire: outerrim | Credits: 5385.00 | Ship: Drillship | Cargo: 40/100
+[pirate-9] 2026/02/16 20:10:32 Agent: Ransom 'Rogue' Reynolds | Empire: outerrim | Credits: 22432.00 | Ship: Drillship | Cargo: 40/100
+[random-1] 2026/02/16 20:14:01 Agent: Josephus Miller | Empire: solarian | Credits: 4055.00 | Ship: Excavator | Cargo: 48/150
+[random-2] 2026/02/16 20:14:01 Agent: superuser | Empire: solarian | Credits: 9494.00 | Ship: Excavator | Cargo: 144/150
+[random-3] 2026/02/16 20:14:00 Agent: root | Empire: solarian | Credits: 4340.00 | Ship: Deeprock Harvester | Cargo: 118/400
+[random-4] 2026/02/16 20:14:00 Agent: Scott 'Scrapper' Sulliva | Empire: solarian | Credits: 29260.00 | Ship: Deeprock Harvester | Cargo: 285/400
+[random-5] 2026/02/16 20:14:00 Agent: Scott 'Scrapper' Jr. | Empire: solarian | Credits: 44939.00 | Ship: Excavator | Cargo: 87/150
+[salvager-10] 2026/02/16 20:13:59 Agent: Junk 'Jackpot' Jackson | Empire: outerrim | Credits: 56575.00 | Ship: Excavator | Cargo: 50/150
+[salvager-1] 2026/02/16 20:14:00 Agent: Scott 'Salvager' Sullivn | Empire: nebula | Credits: 10971.00 | Ship: Excavator | Cargo: 41/150
+[salvager-2] 2026/02/16 20:14:00 Agent: Jaxon 'JunkKing' Jarvis | Empire: nebula | Credits: 58788.00 | Ship: Deeprock Harvester | Cargo: 145/400
+[salvager-3] 2026/02/16 20:14:01 Agent: Barrel 'Bin' Baxter | Empire: solarian | Credits: 107962.00 | Ship: Deeprock Harvester | Cargo: 227/400
+[salvager-4] 2026/02/16 20:14:01 Agent: Cache 'Collect' Collins | Empire: solarian | Credits: 6440.00 | Ship: Deeprock Harvester | Cargo: 353/400
+[salvager-5] 2026/02/16 20:14:02 Agent: Debris 'Dig' Davis | Empire: voidborn | Credits: 49910.00 | Ship: Excavator | Cargo: 20/150
+[salvager-6] 2026/02/16 20:14:12 Agent: Fragment 'Find' Fletcher | Empire: voidborn | Credits: 11654.00 | Ship: Excavator | Cargo: 78/150
+[salvager-7] 2026/02/16 20:14:13 Agent: Gadget 'Gather' Grant | Empire: crimson | Credits: 52193.00 | Ship: Drillship | Cargo: 10/100
+[salvager-8] 2026/02/16 20:14:13 Agent: Heap 'Hunt' Henderson | Empire: crimson | Credits: 289123.00 | Ship: Deeprock Harvester | Cargo: 310/400
+[salvager-9] 2026/02/16 20:13:58 Agent: Iron 'Inspect' Ingram | Empire: outerrim | Credits: 2980.00 | Ship: Drillship | Cargo: 36/100
+[trader-1] 2026/02/16 20:13:03 Agent: Marcus 'Mercury' Mercer | Empire: nebula | Credits: 19866.00 | Ship: Excavator | Cargo: 40/150
+[trader-2] 2026/02/16 20:13:03 Agent: Felix 'Flipper' Fletcher | Empire: nebula | Credits: 9160.00 | Ship: Drillship | Cargo: 62/100
+[trader-3] 2026/02/16 20:13:04 Agent: Bartholomew 'Barter' Ban | Empire: solarian | Credits: 5786.00 | Ship: Excavator | Cargo: 35/150
+[trader-4] 2026/02/16 20:13:04 Agent: Sterling 'Silver' Solomo | Empire: solarian | Credits: 8719.00 | Ship: Drillship | Cargo: 71/100
+[trader-5] 2026/02/16 20:13:05 Agent: Preston 'Profit' Price | Empire: voidborn | Credits: 59139.00 | Ship: Excavator | Cargo: 146/150

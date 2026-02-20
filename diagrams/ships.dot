@@ -1,0 +1,32 @@
+digraph "Ships" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "industrial_ships" [label="Industrial Ships"];
+    "small_ships" [label="Small Ships"];
+    "medium_ships" [label="Medium Ships"];
+    "large_ships" [label="Large Ships"];
+    "navigation" [label="Navigation"];
+    "covert_ops" [label="Covert Operations"];
+    "fleet_command" [label="Fleet Command"];
+    "capital_ships" [label="Capital Ships"];
+    "cloaking" [label="Cloaking"];
+    "leadership" [label="Leadership"];
+
+    { rank=same; "small_ships"; "navigation"; "leadership"; }
+    { rank=same; "industrial_ships"; "medium_ships"; "cloaking"; }
+    { rank=same; "large_ships"; "covert_ops"; }
+    { rank=same; "capital_ships"; }
+    { rank=same; "fleet_command"; }
+
+    "large_ships" -> "capital_ships" [label="7"];
+    "navigation" -> "capital_ships" [label="7" color=gray50];
+    "cloaking" -> "covert_ops" [label="5" color=gray50];
+    "small_ships" -> "covert_ops" [label="5"];
+    "capital_ships" -> "fleet_command" [label="5"];
+    "leadership" -> "fleet_command" [label="5" color=gray50];
+    "medium_ships" -> "large_ships" [label="5"];
+    "small_ships" -> "industrial_ships" [label="3"];
+    "small_ships" -> "medium_ships" [label="5"];
+}

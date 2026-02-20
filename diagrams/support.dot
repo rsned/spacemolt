@@ -1,0 +1,42 @@
+digraph "Support" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "hacking" [label="Hacking"];
+    "propaganda" [label="Propaganda"];
+    "cloaking_advanced" [label="Advanced Cloaking"];
+    "counter_hacking" [label="Counter-Hacking"];
+    "scanning_advanced" [label="Advanced Scanning"];
+    "diplomacy" [label="Diplomacy"];
+    "mentoring" [label="Mentoring"];
+    "leadership" [label="Leadership"];
+    "alliance_management" [label="Alliance Management"];
+    "cloaking" [label="Cloaking"];
+    "scanning" [label="Scanning"];
+    "reputation_management" [label="Reputation Management"];
+    "espionage" [label="Espionage"];
+    "fleet_coordination" [label="Fleet Coordination"];
+    "counter_intelligence" [label="Counter-Intelligence"];
+
+    { rank=same; "diplomacy"; "leadership"; "scanning"; }
+    { rank=same; "hacking"; "propaganda"; "scanning_advanced"; "mentoring"; "alliance_management"; "cloaking"; "reputation_management"; "fleet_coordination"; }
+    { rank=same; "cloaking_advanced"; "counter_hacking"; "espionage"; }
+    { rank=same; "counter_intelligence"; }
+
+    "cloaking" -> "espionage" [label="3"];
+    "hacking" -> "espionage" [label="5"];
+    "leadership" -> "fleet_coordination" [label="5"];
+    "counter_hacking" -> "counter_intelligence" [label="3"];
+    "espionage" -> "counter_intelligence" [label="3"];
+    "diplomacy" -> "propaganda" [label="3"];
+    "leadership" -> "mentoring" [label="3"];
+    "leadership" -> "alliance_management" [label="5"];
+    "diplomacy" -> "alliance_management" [label="5"];
+    "cloaking" -> "cloaking_advanced" [label="5"];
+    "hacking" -> "counter_hacking" [label="3"];
+    "scanning" -> "scanning_advanced" [label="5"];
+    "scanning" -> "cloaking" [label="3"];
+    "diplomacy" -> "reputation_management" [label="5"];
+    "scanning" -> "hacking" [label="3"];
+}

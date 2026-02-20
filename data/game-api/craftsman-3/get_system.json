@@ -1,15 +1,101 @@
 {
-  "id": "",
-  "name": "Sol",
-  "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
-  "empire": "",
-  "police_level": 0,
-  "pois": [],
-  "connections": [],
-  "discovered": false,
-  "position": {
-    "x": 0,
-    "y": 0
+  "action": "get_system",
+  "poi": {
+    "has_base": false,
+    "id": "sys_0041_sun",
+    "name": "Grumium Star",
+    "online": 1,
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "type": "sun"
   },
-  "ShipPOI": "sol_station"
+  "security_status": "Frontier (minimal police presence)",
+  "system": {
+    "connections": [
+      {
+        "distance": 275,
+        "name": "Celaeno",
+        "system_id": "sys_0200"
+      },
+      {
+        "distance": 441,
+        "name": "Lanternwick",
+        "system_id": "sys_0333"
+      },
+      {
+        "distance": 507,
+        "name": "Lacaille 9352",
+        "system_id": "lacaille"
+      },
+      {
+        "distance": 642,
+        "name": "Ridgecrest",
+        "system_id": "sys_0215"
+      }
+    ],
+    "empire": "solarian",
+    "id": "sys_0041",
+    "name": "Grumium",
+    "pois": [
+      {
+        "has_base": false,
+        "id": "sys_0041_sun",
+        "name": "Grumium Star",
+        "online": 1,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "sun"
+      },
+      {
+        "has_base": false,
+        "id": "sys_0041_planet_1",
+        "name": "Grumium I",
+        "online": 0,
+        "position": {
+          "x": 1,
+          "y": -0.3
+        },
+        "type": "planet"
+      },
+      {
+        "has_base": false,
+        "id": "sys_0041_planet_2",
+        "name": "Grumium II",
+        "online": 0,
+        "position": {
+          "x": 2,
+          "y": -0.3
+        },
+        "type": "planet"
+      },
+      {
+        "has_base": false,
+        "id": "sys_0041_planet_3",
+        "name": "Grumium III",
+        "online": 0,
+        "position": {
+          "x": 3,
+          "y": 0.3
+        },
+        "type": "planet"
+      },
+      {
+        "has_base": false,
+        "id": "sys_0041_belt_1",
+        "name": "Grumium Belt",
+        "online": 0,
+        "position": {
+          "x": 4,
+          "y": 1
+        },
+        "type": "asteroid_belt"
+      }
+    ],
+    "police_level": 30,
+    "security_status": "Frontier (minimal police presence)"
+  }
 }

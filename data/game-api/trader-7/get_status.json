@@ -1,124 +1,110 @@
 {
-  "Mu": {},
-  "Username": "Maxwell 'Market' Miller",
-  "Password": "532646e6bf91e6878f48634d4234f45a07470f633c2261ffb3fc03e4c6a56708",
-  "Doc": true,
-  "CurrentSystem": "krynn",
-  "CurrentPOI": "krynn_mines",
-  "Traveling": false,
-  "TravelProgress": null,
-  "ServerVersion": "0.90.3",
-  "Player": {
-    "id": "afda46f72f56f216b707b0ab0a2be0c0",
-    "username": "Maxwell 'Market' Miller",
-    "empire": "crimson",
-    "credits": 50037,
-    "current_system": "krynn",
-    "current_poi": "krynn_mines",
-    "current_ship_id": "a69b34c8948a4160a99e819f7c5e6124",
-    "home_base": "krynn_base",
-    "docked_at_base": "",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
+  "modules": [
+    {
+      "cpu_usage": 2,
+      "id": "eee5d46c817d78a24b7f5c9116efcadb",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    },
+    {
+      "cpu_usage": 2,
+      "id": "7b5496c9833780e1ea25a76a0dec77a4",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    }
+  ],
+  "player": {
     "anonymous": false,
+    "clan_tag": "",
+    "completed_missions": null,
+    "created_at": "2026-02-08T08:54:52.579309142Z",
+    "credits": 50863,
+    "current_poi": "krynn_citadel",
+    "current_ship_id": "a69b34c8948a4160a99e819f7c5e6124",
+    "current_system": "krynn",
+    "empire": "crimson",
+    "home_base": "krynn_base",
+    "id": "afda46f72f56f216b707b0ab0a2be0c0",
     "is_cloaked": false,
+    "last_active_at": "2026-02-20T10:21:03.061613061Z",
+    "last_chat_check": "0001-01-01T00:00:00Z",
+    "last_login_at": "2026-02-20T10:21:03.06161162Z",
+    "primary_color": "#FFFFFF",
+    "revealed_pois": null,
+    "secondary_color": "#000000",
     "skills": {
-      "mining_basic": {
-        "level": 4,
-        "xp": 0
-      },
-      "trading": {
-        "level": 2,
-        "xp": 0
-      }
+      "fuel_efficiency": 1,
+      "mining_advanced": 2,
+      "mining_basic": 6,
+      "small_ships": 2,
+      "trading": 2
     },
     "stats": {
-      "ships_destroyed": 0,
-      "times_destroyed": 0,
-      "ore_mined": 3343,
-      "credits_earned": 59170,
-      "credits_spent": 9233,
-      "trades_completed": 351,
-      "systems_discovered": 0,
+      "bases_destroyed": 0,
+      "credits_earned": 60600,
+      "credits_spent": 9837,
+      "distance_traveled": 0,
       "items_crafted": 0,
-      "missions_completed": 0
-    }
+      "ore_mined": 8053,
+      "pirates_destroyed": 0,
+      "ships_destroyed": 0,
+      "ships_lost": 0,
+      "systems_explored": 0,
+      "time_played": 0,
+      "trades_completed": 351
+    },
+    "status_message": "",
+    "username": "Maxwell 'Market' Miller"
   },
-  "Credits": 50037,
-  "skill_xp": {
-    "fuel_efficiency": 32,
-    "mining_basic": 1343,
-    "small_ships": 82,
-    "trading": 196
-  },
-  "SkillNextLevelXP": null,
-  "SkillDefinitions": null,
-  "Ship": {
-    "id": "a69b34c8948a4160a99e819f7c5e6124",
-    "owner_id": "afda46f72f56f216b707b0ab0a2be0c0",
-    "class_id": "mining_barge",
-    "name": "Excavator",
-    "hull": 180,
-    "max_hull": 180,
-    "shield": 60,
-    "max_shield": 60,
-    "shield_recharge": 1,
+  "ship": {
     "armor": 12,
-    "speed": 2,
-    "fuel": 129,
-    "max_fuel": 150,
-    "cargo_used": 120,
-    "cargo_capacity": 150,
-    "cpu_used": 4,
-    "cpu_capacity": 20,
-    "power_used": 10,
-    "power_capacity": 40,
-    "weapon_slots": 1,
-    "defense_slots": 2,
-    "utility_slots": 4,
-    "modules": [
-      "eee5d46c817d78a24b7f5c9116efcadb",
-      "7b5496c9833780e1ea25a76a0dec77a4"
-    ],
     "cargo": [
       {
         "item_id": "mining_laser_1",
         "quantity": 12
       }
-    ]
-  },
-  "Fuel": 129,
-  "MaxFuel": 150,
-  "Hull": 180,
-  "MaxHull": 180,
-  "Cargo": [
-    {
-      "item_id": "mining_laser_1",
-      "quantity": 12
-    }
-  ],
-  "MaxCargo": 150,
-  "System": {
-    "id": "",
-    "name": "Krynn",
-    "description": "The war-forged capital of the Crimson Pact.",
-    "empire": "",
-    "police_level": 0,
-    "pois": [],
-    "connections": [],
-    "discovered": false,
-    "position": {
-      "x": 0,
-      "y": 0
-    },
-    "ShipPOI": "krynn_mines"
-  },
-  "CurrentTick": 91540,
-  "LastMapUpdate": "0001-01-01T00:00:00Z",
-  "Nearby": [],
-  "InCombat": false,
-  "PirateName": "",
-  "PirateTier": "",
-  "PirateID": "",
-  "LastDamage": 0
+    ],
+    "cargo_capacity": 150,
+    "cargo_used": 120,
+    "class_id": "mining_barge",
+    "cpu_capacity": 20,
+    "cpu_used": 4,
+    "created_at": "2026-02-12T23:37:18.812504427Z",
+    "defense_slots": 2,
+    "fuel": 144,
+    "hull": 180,
+    "id": "a69b34c8948a4160a99e819f7c5e6124",
+    "max_fuel": 150,
+    "max_hull": 180,
+    "max_shield": 60,
+    "modules": [
+      "eee5d46c817d78a24b7f5c9116efcadb",
+      "7b5496c9833780e1ea25a76a0dec77a4"
+    ],
+    "name": "Excavator",
+    "owner_id": "afda46f72f56f216b707b0ab0a2be0c0",
+    "power_capacity": 40,
+    "power_used": 10,
+    "shield": 60,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 4,
+    "weapon_slots": 1
+  }
 }

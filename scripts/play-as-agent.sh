@@ -84,3 +84,8 @@ echo ""
 # Launch the client with credentials
 # The client expects username and password as arguments
 exec "$CLIENT_BIN" login "$USERNAME" "$PASSWORD"
+echo "╚═══════════════════════════════════════════════════════════╝"
+
+# Change to agent dir so we are ready to play.
+cd ${AGENT_DIR}
+

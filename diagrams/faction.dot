@@ -1,0 +1,14 @@
+digraph "Faction" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "corporation_management" [label="Corporation Management"];
+    "faction_warfare" [label="Faction Warfare"];
+    "station_management" [label="Station Management"];
+
+    { rank=same; "corporation_management"; "faction_warfare"; }
+    { rank=same; "station_management"; }
+
+    "corporation_management" -> "station_management" [label="5"];
+}

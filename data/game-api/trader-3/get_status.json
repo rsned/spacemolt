@@ -1,157 +1,126 @@
 {
-  "Mu": {},
-  "Username": "Bartholomew 'Barter' Ban",
-  "Password": "0ba41a9d4921cabf538bd938b9488047a43f7cb69e8215d544ac6ad88afb1b53",
-  "Doc": true,
-  "CurrentSystem": "sol",
-  "CurrentPOI": "sol_station",
-  "Traveling": false,
-  "TravelProgress": null,
-  "ServerVersion": "0.90.3",
-  "Player": {
-    "id": "9a2bc6b4283e6f8f3421fc1a623bd9dd",
-    "username": "Bartholomew 'Barter' Ban",
-    "empire": "solarian",
-    "credits": 5786,
-    "current_system": "sol",
-    "current_poi": "sol_station",
-    "current_ship_id": "e8ac55dc08677fa271e12d3bfcabef56",
-    "home_base": "sol_base",
-    "docked_at_base": "",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
+  "modules": [
+    {
+      "cpu_usage": 2,
+      "id": "5360ecfefce2e25b5a73978e5d82d05a",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    },
+    {
+      "cpu_usage": 2,
+      "id": "73714bc31a8ae2c6493c507b227f3698",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    }
+  ],
+  "player": {
     "anonymous": false,
+    "clan_tag": "",
+    "completed_missions": null,
+    "created_at": "2026-02-08T08:54:38.081599771Z",
+    "credits": 12767,
+    "current_poi": "sol_belt",
+    "current_ship_id": "e8ac55dc08677fa271e12d3bfcabef56",
+    "current_system": "sol",
+    "empire": "solarian",
+    "home_base": "sol_base",
+    "id": "9a2bc6b4283e6f8f3421fc1a623bd9dd",
     "is_cloaked": false,
+    "last_active_at": "2026-02-20T10:18:42.598779073Z",
+    "last_chat_check": "0001-01-01T00:00:00Z",
+    "last_login_at": "2026-02-20T10:18:42.598776903Z",
+    "primary_color": "#FFFFFF",
+    "revealed_pois": null,
+    "secondary_color": "#000000",
     "skills": {
-      "mining_advanced": {
-        "level": 1,
-        "xp": 0
-      },
-      "mining_basic": {
-        "level": 5,
-        "xp": 0
-      },
-      "small_ships": {
-        "level": 1,
-        "xp": 0
-      },
-      "trading": {
-        "level": 1,
-        "xp": 0
-      }
+      "fuel_efficiency": 1,
+      "mining_advanced": 4,
+      "mining_basic": 8,
+      "small_ships": 1,
+      "trading": 1
     },
     "stats": {
-      "ships_destroyed": 0,
-      "times_destroyed": 0,
-      "ore_mined": 4094,
-      "credits_earned": 14590,
-      "credits_spent": 8904,
-      "trades_completed": 122,
-      "systems_discovered": 0,
+      "bases_destroyed": 0,
+      "credits_earned": 21924,
+      "credits_spent": 9257,
+      "distance_traveled": 0,
       "items_crafted": 0,
-      "missions_completed": 0
-    }
+      "ore_mined": 13849,
+      "pirates_destroyed": 0,
+      "ships_destroyed": 0,
+      "ships_lost": 0,
+      "systems_explored": 0,
+      "time_played": 0,
+      "trades_completed": 122
+    },
+    "status_message": "",
+    "username": "Bartholomew 'Barter' Ban"
   },
-  "Credits": 5786,
-  "skill_xp": {
-    "fuel_efficiency": 63,
-    "mining_advanced": 100,
-    "mining_basic": 594,
-    "small_ships": 13,
-    "trading": 57
-  },
-  "SkillNextLevelXP": null,
-  "SkillDefinitions": null,
-  "Ship": {
-    "id": "e8ac55dc08677fa271e12d3bfcabef56",
-    "owner_id": "9a2bc6b4283e6f8f3421fc1a623bd9dd",
-    "class_id": "mining_barge",
-    "name": "Excavator",
-    "hull": 180,
-    "max_hull": 180,
-    "shield": 60,
-    "max_shield": 60,
-    "shield_recharge": 1,
+  "ship": {
     "armor": 12,
-    "speed": 2,
-    "fuel": 111,
-    "max_fuel": 150,
-    "cargo_used": 35,
-    "cargo_capacity": 150,
-    "cpu_used": 4,
-    "cpu_capacity": 20,
-    "power_used": 10,
-    "power_capacity": 40,
-    "weapon_slots": 1,
-    "defense_slots": 2,
-    "utility_slots": 4,
-    "modules": [
-      "5360ecfefce2e25b5a73978e5d82d05a",
-      "73714bc31a8ae2c6493c507b227f3698"
-    ],
     "cargo": [
       {
         "item_id": "ore_copper",
-        "quantity": 18
+        "quantity": 30
+      },
+      {
+        "item_id": "ore_nickel",
+        "quantity": 35
       },
       {
         "item_id": "ore_iron",
-        "quantity": 8
+        "quantity": 40
+      },
+      {
+        "item_id": "ore_titanium",
+        "quantity": 10
       },
       {
         "item_id": "ore_sol_alloy",
         "quantity": 1
-      },
-      {
-        "item_id": "ore_nickel",
-        "quantity": 7
       }
-    ]
-  },
-  "Fuel": 111,
-  "MaxFuel": 150,
-  "Hull": 180,
-  "MaxHull": 180,
-  "Cargo": [
-    {
-      "item_id": "ore_copper",
-      "quantity": 18
-    },
-    {
-      "item_id": "ore_iron",
-      "quantity": 8
-    },
-    {
-      "item_id": "ore_sol_alloy",
-      "quantity": 1
-    },
-    {
-      "item_id": "ore_nickel",
-      "quantity": 7
-    }
-  ],
-  "MaxCargo": 150,
-  "System": {
-    "id": "",
-    "name": "Sol",
-    "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
-    "empire": "",
-    "police_level": 0,
-    "pois": [],
-    "connections": [],
-    "discovered": false,
-    "position": {
-      "x": 0,
-      "y": 0
-    },
-    "ShipPOI": "sol_station"
-  },
-  "CurrentTick": 91528,
-  "LastMapUpdate": "0001-01-01T00:00:00Z",
-  "Nearby": [],
-  "InCombat": false,
-  "PirateName": "",
-  "PirateTier": "",
-  "PirateID": "",
-  "LastDamage": 0
+    ],
+    "cargo_capacity": 150,
+    "cargo_used": 117,
+    "class_id": "mining_barge",
+    "cpu_capacity": 20,
+    "cpu_used": 4,
+    "created_at": "2026-02-13T00:26:17.875882042Z",
+    "defense_slots": 2,
+    "fuel": 147,
+    "hull": 180,
+    "id": "e8ac55dc08677fa271e12d3bfcabef56",
+    "max_fuel": 150,
+    "max_hull": 180,
+    "max_shield": 60,
+    "modules": [
+      "5360ecfefce2e25b5a73978e5d82d05a",
+      "73714bc31a8ae2c6493c507b227f3698"
+    ],
+    "name": "Excavator",
+    "owner_id": "9a2bc6b4283e6f8f3421fc1a623bd9dd",
+    "power_capacity": 40,
+    "power_used": 10,
+    "shield": 60,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 4,
+    "weapon_slots": 1
+  }
 }

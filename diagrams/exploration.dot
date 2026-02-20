@@ -1,0 +1,39 @@
+digraph "Exploration" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "cartography" [label="Cartography"];
+    "jump_calibration" [label="Jump Calibration"];
+    "scanning_advanced" [label="Advanced Scanning"];
+    "hazard_resistance" [label="Environmental Hazard Resistance"];
+    "shields" [label="Shield Operation"];
+    "first_contact" [label="First Contact Protocols"];
+    "diplomacy" [label="Diplomacy"];
+    "anomaly_exploitation" [label="Anomaly Exploitation"];
+    "anomaly_detection" [label="Anomaly Detection"];
+    "wormhole_navigation" [label="Wormhole Navigation"];
+    "astrometrics" [label="Astrometrics"];
+    "exploration" [label="Exploration"];
+    "survey" [label="Survey"];
+    "scanning" [label="Scanning"];
+
+    { rank=same; "shields"; "diplomacy"; "exploration"; "scanning"; }
+    { rank=same; "jump_calibration"; "scanning_advanced"; "hazard_resistance"; "first_contact"; "astrometrics"; "survey"; }
+    { rank=same; "cartography"; "anomaly_detection"; "wormhole_navigation"; }
+    { rank=same; "anomaly_exploitation"; }
+
+    "diplomacy" -> "first_contact" [label="3" color=gray50];
+    "exploration" -> "first_contact" [label="5"];
+    "anomaly_detection" -> "anomaly_exploitation" [label="5"];
+    "astrometrics" -> "cartography" [label="3"];
+    "astrometrics" -> "wormhole_navigation" [label="5"];
+    "jump_calibration" -> "wormhole_navigation" [label="5" color=gray50];
+    "exploration" -> "anomaly_detection" [label="5"];
+    "scanning_advanced" -> "anomaly_detection" [label="3" color=gray50];
+    "exploration" -> "astrometrics" [label="5"];
+    "exploration" -> "survey" [label="3"];
+    "scanning" -> "survey" [label="3" color=gray50];
+    "exploration" -> "hazard_resistance" [label="5"];
+    "shields" -> "hazard_resistance" [label="3" color=gray50];
+}

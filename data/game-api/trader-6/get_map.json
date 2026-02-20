@@ -1,0 +1,1838 @@
+{
+  "systems": [
+    {
+      "connections": [
+        "sys_0268",
+        "sys_0318",
+        "sys_0286",
+        "sys_0352",
+        "sys_0222"
+      ],
+      "name": "Ross 154",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -269.10914973934234,
+        "y": -1637.7057342302385
+      },
+      "system_id": "sys_0406",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0271",
+        "sys_0056",
+        "sys_0285",
+        "sys_0267"
+      ],
+      "name": "GSC-0049",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -5893.906137233975,
+        "y": 3072.7284546796723
+      },
+      "system_id": "sys_0498",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0362",
+        "sys_0497",
+        "sys_0203",
+        "sys_0148",
+        "sys_0043",
+        "sys_0412",
+        "sys_0446"
+      ],
+      "name": "Mintaka",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -547.575335042656,
+        "y": -5683.867900569222
+      },
+      "system_id": "sys_0019",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "frontier",
+        "horizon",
+        "horizon"
+      ],
+      "empire": "outerrim",
+      "name": "Deep Range",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -2745.8182647338617,
+        "y": -3975.716838882169
+      },
+      "system_id": "deep_range",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0428",
+        "sys_0273",
+        "sys_0334",
+        "sys_0317"
+      ],
+      "name": "Gliese 229",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 3120.3459936875583,
+        "y": -420.77619337656284
+      },
+      "system_id": "sys_0347",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0362",
+        "sys_0203",
+        "sys_0451",
+        "sys_0019"
+      ],
+      "name": "Nunki",
+      "online": 0,
+      "poi_count": 0,
+      "position": {
+        "x": -1144.644265363111,
+        "y": -5533.725190316873
+      },
+      "system_id": "sys_0043",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "epsilon_eridani",
+        "proxima",
+        "sys_0171",
+        "sys_0390",
+        "sys_0038"
+      ],
+      "empire": "solarian",
+      "name": "Procyon",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -111.274501950152,
+        "y": 783.427375525316
+      },
+      "system_id": "procyon",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0303",
+        "sys_0417",
+        "sys_0036",
+        "sys_0463"
+      ],
+      "name": "HD 147513",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -815.7598730941731,
+        "y": 2949.3841351124534
+      },
+      "system_id": "sys_0185",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0203",
+        "sys_0043",
+        "sys_0183",
+        "sys_0085",
+        "sys_0348",
+        "sys_0357"
+      ],
+      "name": "GSC-0005",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -1066.0471570928353,
+        "y": -5075.210175259069
+      },
+      "system_id": "sys_0451",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0307",
+        "sys_0236",
+        "sys_0175",
+        "sys_0254",
+        "sys_0263",
+        "sys_0030",
+        "sys_0089",
+        "sys_0487"
+      ],
+      "name": "Megrez",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -4313.8536436456125,
+        "y": 4035.8986114076474
+      },
+      "system_id": "sys_0135",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0430",
+        "sys_0170",
+        "sys_0040",
+        "sys_0415"
+      ],
+      "name": "70 Ophiuchi",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -3463.242423784068,
+        "y": -305.6084794983456
+      },
+      "system_id": "sys_0167",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0235",
+        "sys_0079",
+        "sys_0284"
+      ],
+      "name": "Stonecrest",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 561.605615246698,
+        "y": -4115.780171518371
+      },
+      "system_id": "sys_0281",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0357",
+        "sys_0085",
+        "sys_0122"
+      ],
+      "name": "Matar",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -1836.6498290293832,
+        "y": -4617.060132997767
+      },
+      "system_id": "sys_0394",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0431",
+        "sys_0266",
+        "sys_0239",
+        "sys_0320",
+        "sys_0342"
+      ],
+      "name": "Farpoint",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 3391.4665585301855,
+        "y": -4183.213321663063
+      },
+      "system_id": "sys_0355",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0439",
+        "sys_0309"
+      ],
+      "name": "Alnair",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -1894.6673318985836,
+        "y": 3154.628053422444
+      },
+      "system_id": "sys_0444",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0404",
+        "sys_0080",
+        "sys_0145",
+        "sys_0349"
+      ],
+      "name": "Rigel",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 2669.9609571523124,
+        "y": 3567.449311520842
+      },
+      "system_id": "sys_0115",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "gold_run",
+        "market_prime",
+        "sys_0191",
+        "sys_0241",
+        "sys_0342"
+      ],
+      "empire": "nebula",
+      "name": "Cargo Lanes",
+      "online": 2,
+      "poi_count": 6,
+      "position": {
+        "x": 2262.7796628693345,
+        "y": -3856.2901921293965
+      },
+      "system_id": "cargo_lanes",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0095"
+      ],
+      "is_stronghold": true,
+      "name": "Barnard 44",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 3930.8356085741875,
+        "y": 2052.5825026412003
+      },
+      "system_id": "sys_0343",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0482",
+        "sys_0434",
+        "sys_0100",
+        "sys_0390",
+        "sys_0432"
+      ],
+      "name": "Bluerift",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -919.3698827763851,
+        "y": 1674.0415323492314
+      },
+      "system_id": "sys_0141",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0431",
+        "sys_0153",
+        "sys_0139",
+        "treasure_cache",
+        "sys_0355"
+      ],
+      "name": "Ashford",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 3011.6211300173272,
+        "y": -4711.300617543947
+      },
+      "system_id": "sys_0320",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0182",
+        "sys_0182"
+      ],
+      "name": "Hadar",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 5332.959958769727,
+        "y": 1262.9384034752813
+      },
+      "system_id": "sys_0009",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0291",
+        "sys_0221",
+        "sys_0276",
+        "experiment"
+      ],
+      "name": "Ruchbah",
+      "online": 1,
+      "poi_count": 5,
+      "position": {
+        "x": -2519.9076541069026,
+        "y": 1693.8545781289126
+      },
+      "system_id": "sys_0004",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "procyon",
+        "sys_0097",
+        "barnard",
+        "epsilon_eridani"
+      ],
+      "name": "Proxima Centauri",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 223.05663292792676,
+        "y": 693.1218815472392
+      },
+      "system_id": "proxima",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0031",
+        "sys_0467",
+        "sys_0372",
+        "sys_0331"
+      ],
+      "name": "Jadecove",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -586.4511555644252,
+        "y": 3927.7422138249644
+      },
+      "system_id": "sys_0166",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0165",
+        "sys_0148",
+        "sys_0497",
+        "sys_0051"
+      ],
+      "name": "Luyten 726",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -108.17271492725213,
+        "y": -6301.309518885043
+      },
+      "system_id": "sys_0282",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0282",
+        "sys_0497",
+        "sys_0412",
+        "sys_0019"
+      ],
+      "name": "Kepler-186",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -443.39606709751894,
+        "y": -6178.897188817453
+      },
+      "system_id": "sys_0148",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0291",
+        "sync",
+        "sys_0004",
+        "sys_0221"
+      ],
+      "empire": "voidborn",
+      "name": "The Experiment",
+      "online": 2,
+      "poi_count": 6,
+      "position": {
+        "x": -3031.1786818011155,
+        "y": 1781.5709958878608
+      },
+      "system_id": "experiment",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0084",
+        "sys_0035",
+        "sys_0010",
+        "sys_0441",
+        "sys_0460"
+      ],
+      "name": "Pinecross",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -5397.852342435638,
+        "y": -1959.7836911116572
+      },
+      "system_id": "sys_0197",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0068",
+        "sys_0359",
+        "sys_0013",
+        "sys_0488"
+      ],
+      "name": "Struve 1321",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": 2616.8730453811495,
+        "y": -1154.678110350473
+      },
+      "system_id": "sys_0209",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0061",
+        "sys_0031",
+        "sys_0036"
+      ],
+      "name": "Pipirima",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 219.84403865367153,
+        "y": 3558.2150551624354
+      },
+      "system_id": "sys_0249",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0201",
+        "sys_0260",
+        "sys_0060",
+        "sys_0108"
+      ],
+      "empire": "nebula",
+      "name": "Caph",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 716.0383022653762,
+        "y": -5551.803340145898
+      },
+      "system_id": "sys_0403",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0480",
+        "sys_0458",
+        "sys_0126",
+        "sys_0199"
+      ],
+      "name": "GSC-0021",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -2582.529015158705,
+        "y": 3934.1346873364964
+      },
+      "system_id": "sys_0468",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0073",
+        "sys_0419",
+        "sys_0032",
+        "sys_0021"
+      ],
+      "name": "GSC-0047",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 5716.828696305287,
+        "y": -1866.761702705872
+      },
+      "system_id": "sys_0496",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0473",
+        "sys_0341",
+        "sys_0165",
+        "sys_0077"
+      ],
+      "name": "Gliese 667",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 455.39227358486767,
+        "y": -6743.3502012429635
+      },
+      "system_id": "sys_0042",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0099",
+        "sys_0489",
+        "sys_0476",
+        "sys_0065"
+      ],
+      "name": "Aldebaran",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -6325.002580050659,
+        "y": 1009.1935468959954
+      },
+      "system_id": "sys_0098",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0013",
+        "sys_0209",
+        "sys_0068",
+        "sys_0488"
+      ],
+      "name": "Zenithfall",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 2431.35426009728,
+        "y": -1355.1298365330774
+      },
+      "system_id": "sys_0359",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0483",
+        "sys_0433",
+        "sys_0205",
+        "sys_0029"
+      ],
+      "name": "GSC-0010",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 1978.140589053181,
+        "y": 5948.63215409835
+      },
+      "system_id": "sys_0456",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0433",
+        "sys_0029",
+        "sys_0456",
+        "sys_0062",
+        "sys_0445",
+        "sys_0402"
+      ],
+      "name": "GSC-0034",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 2286.6074049178715,
+        "y": 5541.1969923419365
+      },
+      "system_id": "sys_0483",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0241",
+        "cargo_lanes",
+        "sys_0355"
+      ],
+      "name": "Alula",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": 2889.907078582331,
+        "y": -3698.2711217454575
+      },
+      "system_id": "sys_0342",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0108",
+        "wealth_lane",
+        "sys_0201",
+        "sys_0281"
+      ],
+      "empire": "nebula",
+      "name": "The Levy",
+      "online": 1,
+      "poi_count": 5,
+      "position": {
+        "x": 1071.797890736236,
+        "y": -4569.639534344924
+      },
+      "system_id": "sys_0284",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0058",
+        "sys_0370",
+        "sys_0344",
+        "sys_0316",
+        "sys_0136",
+        "sys_0367"
+      ],
+      "name": "Sunhaven",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 4488.505843504862,
+        "y": 565.3903575277565
+      },
+      "system_id": "sys_0335",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0286",
+        "tau_ceti",
+        "sys_0406",
+        "sys_0222"
+      ],
+      "empire": "solarian",
+      "name": "Electra",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -422.88823455034094,
+        "y": -973.2411858931225
+      },
+      "system_id": "sys_0352",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0204",
+        "sys_0239"
+      ],
+      "name": "Barnard 77",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 3669.523205476609,
+        "y": -3003.0844331582916
+      },
+      "system_id": "sys_0409",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0111",
+        "sys_0070",
+        "sys_0280",
+        "sys_0119",
+        "sys_0140"
+      ],
+      "name": "Westmark",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1659.0982784750681,
+        "y": 3688.392845715182
+      },
+      "system_id": "sys_0052",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0447",
+        "sys_0420",
+        "sys_0494",
+        "sys_0360"
+      ],
+      "name": "Dabih",
+      "online": 0,
+      "poi_count": 8,
+      "position": {
+        "x": -6592.720177901329,
+        "y": -2213.331134979906
+      },
+      "system_id": "sys_0244",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0421",
+        "sys_0277",
+        "sys_0374",
+        "sys_0119"
+      ],
+      "name": "Algorab",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 903.1490546008265,
+        "y": 4283.8084729379425
+      },
+      "system_id": "sys_0217",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0043",
+        "sys_0019",
+        "sys_0412",
+        "sys_0203"
+      ],
+      "name": "Albali",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -887.350609265331,
+        "y": -5771.041757138304
+      },
+      "system_id": "sys_0362",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0244",
+        "sys_0486",
+        "sys_0423",
+        "sys_0416",
+        "sys_0360"
+      ],
+      "name": "Rimegate",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -6410.330615617466,
+        "y": -2695.4909773750724
+      },
+      "system_id": "sys_0420",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0479",
+        "sys_0096",
+        "sys_0230",
+        "sys_0440"
+      ],
+      "name": "Keelbreak",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 962.8192701650092,
+        "y": -3239.4183171235763
+      },
+      "system_id": "sys_0418",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0106",
+        "sys_0308"
+      ],
+      "name": "Dustfall",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -2064.286659166343,
+        "y": -6230.851914968988
+      },
+      "system_id": "sys_0422",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0480",
+        "sys_0363",
+        "sys_0250",
+        "sys_0468",
+        "sys_0309"
+      ],
+      "name": "GSC-0012",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -3031.8387656194013,
+        "y": 3741.208336880079
+      },
+      "system_id": "sys_0458",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0455",
+        "sys_0105",
+        "sys_0311",
+        "sys_0096",
+        "sys_0295"
+      ],
+      "name": "Revati",
+      "online": 1,
+      "poi_count": 4,
+      "position": {
+        "x": -19.738315316916072,
+        "y": -2784.5569895460935
+      },
+      "system_id": "sys_0048",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0011",
+        "sys_0269",
+        "sys_0399",
+        "sys_0415",
+        "sys_0208",
+        "sys_0397",
+        "sys_0075"
+      ],
+      "name": "Merak",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -3945.293614030972,
+        "y": -1256.488794934755
+      },
+      "system_id": "sys_0159",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0242",
+        "sys_0101",
+        "sys_0016"
+      ],
+      "name": "Fomalhaut",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -597.8828152009071,
+        "y": 6224.767189328332
+      },
+      "system_id": "sys_0275",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0077",
+        "sys_0024",
+        "sys_0187",
+        "sys_0341",
+        "sys_0429",
+        "sys_0051",
+        "sys_0151"
+      ],
+      "name": "Yarrowfield",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -156.86369525512245,
+        "y": -7257.323328347361
+      },
+      "system_id": "sys_0328",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0252",
+        "sys_0224",
+        "sys_0126",
+        "sys_0365",
+        "sys_0331",
+        "sys_0484"
+      ],
+      "name": "GSC-0024",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -1789.5149637848056,
+        "y": 4335.305283086406
+      },
+      "system_id": "sys_0472",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0064",
+        "sys_0073",
+        "sys_0168"
+      ],
+      "name": "Vindemiatrix",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 5873.933676274185,
+        "y": -1102.4562382945794
+      },
+      "system_id": "sys_0184",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0395",
+        "sys_0462",
+        "sys_0250",
+        "sys_0199"
+      ],
+      "name": "Tanglewood",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -3253.3485613696,
+        "y": 4494.676085410703
+      },
+      "system_id": "sys_0223",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0415",
+        "sys_0011",
+        "sys_0159",
+        "sys_0397"
+      ],
+      "name": "Merope",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -4466.7420142044475,
+        "y": -1058.805315662858
+      },
+      "system_id": "sys_0208",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0238",
+        "sys_0369"
+      ],
+      "name": "Rustpoint",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 6526.648209279555,
+        "y": 478.9171194776489
+      },
+      "system_id": "sys_0211",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0494",
+        "sys_0091",
+        "sys_0071",
+        "sys_0035",
+        "sys_0113"
+      ],
+      "name": "GSC-0043",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -6187.354913127276,
+        "y": -1553.6509152065578
+      },
+      "system_id": "sys_0492",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0166",
+        "sys_0249"
+      ],
+      "name": "Menkent",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -250.1293406605297,
+        "y": 3915.458109150939
+      },
+      "system_id": "sys_0031",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0033",
+        "archive",
+        "sys_0092",
+        "relay",
+        "sys_0256"
+      ],
+      "name": "Rotanev",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -4586.067672491965,
+        "y": 996.2700016861203
+      },
+      "system_id": "sys_0220",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0010",
+        "sys_0460",
+        "sys_0103",
+        "sys_0084",
+        "sys_0338"
+      ],
+      "name": "Wezen",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -4822.698931671916,
+        "y": -2360.9194037346247
+      },
+      "system_id": "sys_0387",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0161",
+        "sys_0152",
+        "sys_0376",
+        "sys_0279"
+      ],
+      "name": "Skat",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": -4128.3615966218695,
+        "y": -3903.0311539789063
+      },
+      "system_id": "sys_0233",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0111",
+        "sys_0421",
+        "sys_0288",
+        "sys_0217",
+        "sys_0052",
+        "sys_0061"
+      ],
+      "name": "Mebsuta",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 1018.8234698766998,
+        "y": 3661.14142428264
+      },
+      "system_id": "sys_0119",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0261",
+        "sys_0276",
+        "sys_0291",
+        "sys_0493"
+      ],
+      "name": "Cedarhold",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -2728.7976588504725,
+        "y": 939.5666390671105
+      },
+      "system_id": "sys_0180",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0039",
+        "sys_0139",
+        "sys_0138",
+        "sys_0424"
+      ],
+      "name": "55 Cancri",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 3912.0549031283253,
+        "y": -5320.3099764847475
+      },
+      "system_id": "sys_0401",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0207",
+        "sys_0340",
+        "sys_0300",
+        "sys_0124"
+      ],
+      "name": "Propus",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 2241.4094734061373,
+        "y": 1279.32121385271
+      },
+      "system_id": "sys_0384",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0157",
+        "sys_0238"
+      ],
+      "name": "Taiyi",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 6172.377208946966,
+        "y": 1167.9478852745144
+      },
+      "system_id": "sys_0020",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0445",
+        "sys_0029",
+        "sys_0067",
+        "sys_0483",
+        "sys_0327",
+        "sys_0433"
+      ],
+      "name": "Alpheratz",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 2307.1802974781367,
+        "y": 5016.1190821076125
+      },
+      "system_id": "sys_0062",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0426",
+        "sys_0346",
+        "sys_0245",
+        "sys_0493",
+        "sys_0022"
+      ],
+      "name": "Acrux",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -1525.339285954532,
+        "y": 609.5653165225364
+      },
+      "system_id": "sys_0082",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0218",
+        "sys_0193",
+        "sys_0312",
+        "sys_0366"
+      ],
+      "name": "Kornephoros",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 3792.3952800101274,
+        "y": 4639.812926498039
+      },
+      "system_id": "sys_0310",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0144"
+      ],
+      "is_stronghold": true,
+      "name": "Bellatrix",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 6132.232642879685,
+        "y": -265.2546221687321
+      },
+      "system_id": "sys_0189",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0004",
+        "sys_0490",
+        "sys_0037",
+        "experiment"
+      ],
+      "name": "Ironhollow",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -2454.283834632817,
+        "y": 2029.1491658492444
+      },
+      "system_id": "sys_0221",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0056",
+        "sys_0498",
+        "sys_0499",
+        "sys_0271",
+        "sys_0289"
+      ],
+      "name": "Brachium",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -5561.35163706265,
+        "y": 3106.5042859130695
+      },
+      "system_id": "sys_0285",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0003",
+        "sys_0104",
+        "sys_0002",
+        "sys_0398"
+      ],
+      "name": "Nusakan",
+      "online": 0,
+      "poi_count": 8,
+      "position": {
+        "x": 1909.5306851694804,
+        "y": -5897.843366946027
+      },
+      "system_id": "sys_0069",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0044",
+        "sys_0214",
+        "sys_0377",
+        "sys_0382",
+        "sys_0054"
+      ],
+      "name": "Shadowmere",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -5069.4547204369765,
+        "y": -4158.636136465236
+      },
+      "system_id": "sys_0186",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0178",
+        "sys_0170",
+        "sys_0332",
+        "sys_0326"
+      ],
+      "name": "Kitalpha",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -2353.317308853348,
+        "y": -246.57333590942713
+      },
+      "system_id": "sys_0226",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0300",
+        "sys_0345",
+        "sys_0194"
+      ],
+      "name": "Alphecca",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": 2238.8252183109985,
+        "y": 2193.6510352172213
+      },
+      "system_id": "sys_0258",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0213",
+        "sys_0425",
+        "sys_0110",
+        "sys_0477"
+      ],
+      "name": "Luyten 789",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 5263.042480459217,
+        "y": -5176.83577820051
+      },
+      "system_id": "sys_0325",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0366",
+        "sys_0319",
+        "sys_0218",
+        "sys_0459",
+        "glory"
+      ],
+      "empire": "crimson",
+      "name": "The Rampart",
+      "online": 1,
+      "poi_count": 6,
+      "position": {
+        "x": 4030.3842037045583,
+        "y": 3777.140201200178
+      },
+      "system_id": "sys_0413",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "barnard",
+        "sys_0097"
+      ],
+      "name": "Aspidiske",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 877.5683278727251,
+        "y": 18.82794669907428
+      },
+      "system_id": "sys_0195",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0364",
+        "sys_0104",
+        "sys_0481",
+        "sys_0368"
+      ],
+      "name": "Enif",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 2682.842278867692,
+        "y": -6221.374069980497
+      },
+      "system_id": "sys_0076",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0119",
+        "sys_0421",
+        "sys_0052",
+        "sys_0277",
+        "sys_0288"
+      ],
+      "name": "Alshain",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1244.8147542346044,
+        "y": 3712.528220358266
+      },
+      "system_id": "sys_0111",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0228",
+        "sys_0090",
+        "sys_0133",
+        "sys_0134"
+      ],
+      "name": "Cloverfield",
+      "online": 0,
+      "poi_count": 9,
+      "position": {
+        "x": -809.3903986168101,
+        "y": -3764.6162402556
+      },
+      "system_id": "sys_0290",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0104",
+        "sys_0076",
+        "sys_0398",
+        "sys_0368"
+      ],
+      "name": "Sadachbia",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 2389.267589184151,
+        "y": -6226.434617298414
+      },
+      "system_id": "sys_0364",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0230",
+        "sys_0418",
+        "sys_0231",
+        "sys_0440"
+      ],
+      "name": "GSC-0030",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1252.1454192461217,
+        "y": -3047.659045061268
+      },
+      "system_id": "sys_0479",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0359",
+        "sys_0209",
+        "sys_0068",
+        "sys_0488"
+      ],
+      "name": "Bramblewood",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 2335.7810946640884,
+        "y": -1143.399095061218
+      },
+      "system_id": "sys_0013",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0260",
+        "sys_0473",
+        "sys_0088",
+        "sys_0163",
+        "sys_0403"
+      ],
+      "name": "Helvetios",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 810.4492551316632,
+        "y": -6190.27138840467
+      },
+      "system_id": "sys_0060",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "wealth_lane",
+        "sys_0191",
+        "gold_run",
+        "sys_0479",
+        "sys_0418"
+      ],
+      "empire": "nebula",
+      "name": "Copernicus",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1548.2947043451775,
+        "y": -3664.7682224643577
+      },
+      "system_id": "sys_0440",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0033",
+        "sys_0220",
+        "relay",
+        "sys_0092"
+      ],
+      "name": "The Archive",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -4405.766030540782,
+        "y": 1153.6951162483429
+      },
+      "system_id": "archive",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0214",
+        "sys_0292",
+        "sys_0202",
+        "sys_0298"
+      ],
+      "name": "Tabit",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -5374.42652336981,
+        "y": -3653.095045171894
+      },
+      "system_id": "sys_0034",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0387",
+        "sys_0010",
+        "sys_0338",
+        "sys_0123",
+        "sys_0397",
+        "sys_0495"
+      ],
+      "name": "Errai",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -4516.063061215983,
+        "y": -2243.504775955594
+      },
+      "system_id": "sys_0103",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0293",
+        "sys_0495",
+        "sys_0146",
+        "sys_0123",
+        "sys_0018"
+      ],
+      "name": "Tidewater",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -3592.8633505519115,
+        "y": -2144.0153581483
+      },
+      "system_id": "sys_0154",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "anvil",
+        "frontier_war",
+        "sys_0324",
+        "sys_0354"
+      ],
+      "empire": "crimson",
+      "name": "HD 20794",
+      "online": 0,
+      "poi_count": 8,
+      "position": {
+        "x": 5033.800790888048,
+        "y": 2125.7990771043505
+      },
+      "system_id": "sys_0232",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0044",
+        "sys_0186",
+        "sys_0152",
+        "sys_0361",
+        "sys_0225"
+      ],
+      "name": "Heathwick",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -4764.577544218682,
+        "y": -4556.7217294619095
+      },
+      "system_id": "sys_0382",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0303",
+        "sys_0463",
+        "sys_0185",
+        "sys_0249"
+      ],
+      "name": "Gudja",
+      "online": 1,
+      "poi_count": 5,
+      "position": {
+        "x": -269.47395090204026,
+        "y": 3162.547214757094
+      },
+      "system_id": "sys_0036",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0266",
+        "sys_0401",
+        "sys_0139"
+      ],
+      "name": "Tarf",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 4181.549343607954,
+        "y": -4759.357141933762
+      },
+      "system_id": "sys_0138",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0365",
+        "sys_0331",
+        "sys_0467",
+        "sys_0472",
+        "sys_0252",
+        "sys_0372"
+      ],
+      "name": "Mirach",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -1414.1269965898407,
+        "y": 4298.878454523799
+      },
+      "system_id": "sys_0224",
+      "visited": false,
+      "visited_at": ""
+    }
+  ],
+  "total_count": 505
+}

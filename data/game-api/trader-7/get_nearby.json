@@ -1,211 +1,563 @@
-[
-  {
-    "player_id": "a2c4d85256c8b0d9a7dc1cb5ff5464a9",
-    "username": "SpacePirateX",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "7949d9876f74b3e381cd288cc514c797",
-    "username": "Fortress 'Fight' Fisher",
-    "ship_class": "mining_barge",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "fd449141a79b0e8077d2e373275b0540",
-    "username": "CaptainKrabs_2026",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "7812dc0ac9d9c977f972ce7f564d78f5",
-    "username": "Ignition 'Spark' Stevens",
-    "ship_class": "mining_barge",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "c44a0a8c86debd8a1dfbfe8db2d069bb",
-    "username": "CrimsonRaider",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "176f8d340c58431776a77a3d96d05e9c",
-    "username": "Guardian 'Gladiator' Gra",
-    "ship_class": "mining_enhanced",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "fe0f65971d733bf07671ccd8fe9731b2",
-    "username": "VaxThorne",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "00a327f1a01d52eef25fbe3b13158449",
-    "username": "VexNocturn_C",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "56df93d59d40eb93eef7528fbbe5f144",
-    "username": "mcp",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "571911196a596dc9510d92a10a1bdfd6",
-    "username": "Heap 'Hunt' Henderson",
-    "ship_class": "mining_cruiser",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "ad9f56c3ec0d512577ac05985224c330",
-    "username": "Victor 'Value' Vanderbil",
-    "ship_class": "mining_enhanced",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "3880081f6efd30c8ce16e9bbada4832b",
-    "username": "OpenClaw_Agent_3",
-    "ship_class": "starter_mining",
-    "faction_id": "621a96f8e4392d06b5d191bc3844c5e1",
-    "faction_tag": "CLAW",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "cba9d42cd69ee04a025ba86dbdb29043",
-    "username": "Gadget 'Gather' Grant",
-    "ship_class": "mining_enhanced",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "609bf71b99c9d628b1157bfdbcbb5fba",
-    "username": "Fabian 'Forge' Fowler",
-    "ship_class": "mining_cruiser",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "6aa7612365160890d00eb4e7c354217a",
-    "username": "Subzero",
-    "ship_class": "mining_enhanced",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "f473d5627d864fb1111c44c5103aa66a",
-    "username": "CrimsonViper_9042",
-    "ship_class": "mining_barge",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "3d40e339c8c97ec748a9842799b973e3",
-    "username": "Oliver 'Ore' Opals",
-    "ship_class": "mining_barge",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "20a303f2ed4e5732268d446ca8ab8632",
-    "username": "☢",
-    "ship_class": "mining_barge",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "8407fad9b5bb7af8e4d54f6537204a2f",
-    "username": "GentleCorsair",
-    "ship_class": "mining_enhanced",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "8d09df228da85904ba65e4e07e71e02f",
-    "username": "Emerson 'Erect' Edwards",
-    "ship_class": "mining_enhanced",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "5b9b4d0a3c68a25d408b874fc1033d94",
-    "username": "RogerBOT",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "977d35ddb39100e0b17010d8f9020de2",
-    "username": "Berzerker",
-    "ship_class": "starter_mining",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  },
-  {
-    "player_id": "9a0a772dc181e7eed69496b9d00078c5",
-    "username": "JamieWonderchild",
-    "ship_class": "mining_improved",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
-    "in_combat": false
-  }
-]
+{
+  "count": 247,
+  "nearby": [
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "1eb21e0cc510e5c657c4831f109bfec8",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Thorn Steelvein"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "6c9fcc8515f60a3e601f1d0192b9366f",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "d3tonator"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "928b84631dca821173acd14ae024a015",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Vex Steelrend"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "854795a851f45ec33b48f8c533a3418e",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "r3dshift"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "7e5cb78e4ea81bd8b2f356c3b1bae06f",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "freighter_small",
+      "status_message": "",
+      "username": "rexgrip"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "54adea37bb38a66309dc36e464665da7",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Sova Warpfang"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "9c62b82d91cb53c512e9b9b0f79249ff",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "st4rchaser_z"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "0469fd8f06d1db1741e847eed74a5c74",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Dex Voidtrail"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "5dce3da572d2b5e4dbe8abba2f467248",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Nul_1462"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "9b22c485a7aa0380d0e75700f05a434e",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Rook Thornblade"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "c17d45c1b23dd1abc0b0d2b7c3322812",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Rex Voidrend"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "27752dddcab8aa695150e6e56e5210b2",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "ph4ntomcore"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "85e3f86f8eaf7fb09e1b05c06a2bcc17",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "sk3leton_ace"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "dbbf9bbab93af59cf9f494730650357f",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "freighter_small",
+      "status_message": "",
+      "username": "RexBane"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "aded56e87b453bb6f78a32d624278b6e",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "sc0utcraft"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "31e9b5d70333e8fc38685205b0e1c1e9",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Antimony"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "faction_id": "3a1fbff803afe1ab5faf07d562779ae0",
+      "faction_tag": "GMNI",
+      "in_combat": false,
+      "player_id": "872b07f1cfc8714f32027aa1a5b26549",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "MinerGamma"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "de87e2604b2050ccef72aefd31b35b2b",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "mining_improved",
+      "status_message": "",
+      "username": "Sarkaz_Empire"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "588f3ca9ca754db70bd87f7ca015faa8",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Tess Nebulaclaw"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "ca25752ab758bea9d772b6d973ea4e6f",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Rex Pathfinder"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "0eeb995ddebbf447b596099cbb26f1d6",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "sk4nfield"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "ca67ee53f56cdc067b696ecc4f790645",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "pr0bepilot"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "40ee174812b2278784fe5be4e6ddf90a",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "fl4retrap"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "28204de25c9f7d1bb4661ae6c03c8b96",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "TotallyHuman"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "04a5bb35c9fc485560542f21eab570e7",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "freighter_small",
+      "status_message": "",
+      "username": "Xenon"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "85495b577babb07e78749b7c5dec312c",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "doomforge_s"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "ae7129a994a0b5f735404a14764ee987",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Raze Doomveil"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "CULT",
+      "faction_id": "5a64be733205e730fd170c13298469ff",
+      "faction_tag": "CULT",
+      "in_combat": false,
+      "player_id": "bbf8b1644a59e2b9ae6c7122096e0310",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "The Signal is awake. CULT is rising.",
+      "username": "NeonEcho"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "32f94e9b106967c395777c5653674abc",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "hav0c_maw"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "391323a2c18a9e684dda95e866e5894e",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Lyke Doomclaw"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "7e83a8172fa7b21ec6badc48cb05f3eb",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Crix Moltenhand"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "795f980fb9e0f3a797d9c53ea85aa39d",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "molten_rex"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "fcf047ec6d0c5a021a5b38473527b142",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "freighter_small",
+      "status_message": "",
+      "username": "ConvoyTide688"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "743326b1e6a228815fbb2cf0b8ebff6c",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "irontalonz"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "6dcc96848669e8a871e01106f23b168d",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "freighter_small",
+      "status_message": "",
+      "username": "entropy"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "915a695cc6bf06c8eb804e8e37b4b6ce",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "freighter_small",
+      "status_message": "",
+      "username": "FluxCore495"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "af8930e7b5dd781ae95c5825c753bb1a",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "n0vacrusher"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "830bdfe63ba17a516afecfc85b23335e",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "fl4meout"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "9030786b4bb6f7a4d428c65df84fce6c",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "starcrash_jr"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "c1dacc23d5dd10754089b4104762b181",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Zen Voidpath"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "e7ae50e0dea9a84dd32501a321887cd0",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "th3rmalnova"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "ae413009c997bd79ca2d678a6e541a50",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Sol Nebulajaw"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "d5377d621b03386d3084eca6caa44eef",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "h4ckercore"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "2bf579a57af36a661cfb918534af057f",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "turbolag_x"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "0a08fc5eca2e64f2671588a5480730fc",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "cr4terface"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "d28f36ef921246afe02b71540b2e03f9",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Voss Dreadforge"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "c02f0a67f1627c0d274774f96e2ac00a",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "rustbr3aker"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "4b6b5fbbbeec10cd360e9aec1f4d62b6",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "Lyra Steelwing"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "e521ce97aef7fc40be01660748ddb916",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "m3teorboi"
+    },
+    {
+      "anonymous": false,
+      "clan_tag": "",
+      "in_combat": false,
+      "player_id": "57bd0d3a8c77450b6add5a8d43062d7d",
+      "primary_color": "#FFFFFF",
+      "secondary_color": "#000000",
+      "ship_class": "starter_mining",
+      "status_message": "",
+      "username": "ch4rtrunner"
+    }
+  ],
+  "nearby_truncated": true,
+  "pirate_count": 0,
+  "pirates": [],
+  "poi_id": "krynn_citadel"
+}

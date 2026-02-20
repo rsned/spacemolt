@@ -1,15 +1,126 @@
 {
-  "id": "",
-  "name": "Krynn",
-  "description": "The war-forged capital of the Crimson Pact.",
-  "empire": "",
-  "police_level": 0,
-  "pois": [],
-  "connections": [],
-  "discovered": false,
-  "position": {
-    "x": 0,
-    "y": 0
+  "action": "get_system",
+  "poi": {
+    "has_base": false,
+    "id": "krynn_mines",
+    "name": "War Materials",
+    "online": 45,
+    "position": {
+      "x": 5,
+      "y": 1
+    },
+    "type": "asteroid_belt"
   },
-  "ShipPOI": "krynn_mines"
+  "security_status": "Maximum Security (empire capital)",
+  "system": {
+    "connections": [
+      {
+        "distance": 593,
+        "name": "The Anvil",
+        "system_id": "anvil"
+      },
+      {
+        "distance": 399,
+        "name": "Iron Reach",
+        "system_id": "iron_reach"
+      },
+      {
+        "distance": 295,
+        "name": "Blood Forge",
+        "system_id": "blood_forge"
+      },
+      {
+        "distance": 425,
+        "name": "Valor",
+        "system_id": "valor"
+      }
+    ],
+    "description": "The war-forged capital of the Crimson Pact.",
+    "empire": "crimson",
+    "id": "krynn",
+    "name": "Krynn",
+    "pois": [
+      {
+        "has_base": false,
+        "id": "krynn_sun",
+        "name": "Krynn's Fury",
+        "online": 11,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "sun"
+      },
+      {
+        "has_base": false,
+        "id": "krynn_fortress",
+        "name": "Krynn Prime",
+        "online": 0,
+        "position": {
+          "x": 2,
+          "y": 0
+        },
+        "type": "planet"
+      },
+      {
+        "base_id": "krynn_base",
+        "base_name": "Crimson War Citadel",
+        "has_base": true,
+        "id": "krynn_citadel",
+        "name": "War Citadel",
+        "online": 402,
+        "position": {
+          "x": 2.2,
+          "y": 0.2
+        },
+        "type": "station"
+      },
+      {
+        "has_base": false,
+        "id": "krynn_training",
+        "name": "Blood Arena",
+        "online": 0,
+        "position": {
+          "x": 3,
+          "y": -0.5
+        },
+        "type": "relic"
+      },
+      {
+        "has_base": false,
+        "id": "krynn_mines",
+        "name": "War Materials",
+        "online": 45,
+        "position": {
+          "x": 5,
+          "y": 1
+        },
+        "type": "asteroid_belt"
+      },
+      {
+        "has_base": false,
+        "id": "krynn_gas_cloud",
+        "name": "Furnace Vents",
+        "online": 0,
+        "position": {
+          "x": 4,
+          "y": -1
+        },
+        "type": "gas_cloud"
+      },
+      {
+        "has_base": false,
+        "id": "krynn_ice_field",
+        "name": "Shattered Comet Graves",
+        "online": 0,
+        "position": {
+          "x": 6.5,
+          "y": 0.5
+        },
+        "type": "ice_field"
+      }
+    ],
+    "police_level": 100,
+    "security_status": "Maximum Security (empire capital)"
+  }
 }

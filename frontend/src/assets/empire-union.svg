@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <style>
+      .empire-union {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .empire-union-filled {
+        fill: currentColor;
+        stroke: none;
+      }
+    </style>
+  </defs>
+  <!-- Union Empire Symbol - Square with diamond internal -->
+  <g class="empire-union">
+    <!-- Outer square rotated -->
+    <rect x="25" y="25" width="50" height="50" class="empire-union-filled" opacity="0.1"/>
+    <rect x="25" y="25" width="50" height="50"/>
+
+    <!-- Inner diamond -->
+    <path d="M50 30 L65 50 L50 70 L35 50 Z"/>
+
+    <!-- Center square -->
+    <rect x="43" y="43" width="14" height="14" class="empire-union-filled"/>
+  </g>
+</svg>

@@ -1,86 +1,77 @@
 {
-  "Mu": {},
-  "Username": "Cornelius 'Commerce' Col",
-  "Password": "4e4ad3a8299a66ecee17a0f0b86abf9e8a44aca8bdbfd9e0d02482958c38bd88",
-  "Doc": true,
-  "CurrentSystem": "nexus",
-  "CurrentPOI": "nexus_harvesters",
-  "Traveling": false,
-  "TravelProgress": null,
-  "ServerVersion": "0.90.3",
-  "Player": {
-    "id": "202a3a1f6690e826bbcb615dda5e85c8",
-    "username": "Cornelius 'Commerce' Col",
-    "empire": "voidborn",
-    "credits": 17206,
-    "current_system": "nexus",
+  "modules": [
+    {
+      "cpu_usage": 2,
+      "id": "6b963810c41c9c1fdfcc0c62b74a18ed",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    },
+    {
+      "cpu_usage": 2,
+      "id": "d5cb61ca6f0a938704d512cab0914384",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    }
+  ],
+  "player": {
+    "anonymous": false,
+    "clan_tag": "",
+    "completed_missions": null,
+    "created_at": "2026-02-08T08:54:49.009146286Z",
+    "credits": 17586,
     "current_poi": "nexus_harvesters",
     "current_ship_id": "0492b940950b16726c7456c8abf3a7c2",
+    "current_system": "nexus",
+    "empire": "voidborn",
     "home_base": "nexus_base",
-    "docked_at_base": "",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
+    "id": "202a3a1f6690e826bbcb615dda5e85c8",
     "is_cloaked": false,
+    "last_active_at": "2026-02-20T10:20:27.960684866Z",
+    "last_chat_check": "0001-01-01T00:00:00Z",
+    "last_login_at": "2026-02-20T10:20:27.960682846Z",
+    "primary_color": "#FFFFFF",
+    "revealed_pois": null,
+    "secondary_color": "#000000",
     "skills": {
-      "mining_basic": {
-        "level": 5,
-        "xp": 0
-      },
-      "trading": {
-        "level": 1,
-        "xp": 0
-      }
+      "mining_advanced": 1,
+      "mining_basic": 5,
+      "trading": 1
     },
     "stats": {
-      "ships_destroyed": 0,
-      "times_destroyed": 0,
-      "ore_mined": 3687,
-      "credits_earned": 31778,
-      "credits_spent": 14672,
-      "trades_completed": 262,
-      "systems_discovered": 0,
+      "bases_destroyed": 0,
+      "credits_earned": 32164,
+      "credits_spent": 14678,
+      "distance_traveled": 0,
       "items_crafted": 0,
-      "missions_completed": 0
-    }
+      "ore_mined": 4325,
+      "pirates_destroyed": 0,
+      "ships_destroyed": 0,
+      "ships_lost": 0,
+      "systems_explored": 0,
+      "time_played": 0,
+      "trades_completed": 262
+    },
+    "status_message": "",
+    "username": "Cornelius 'Commerce' Col"
   },
-  "Credits": 17206,
-  "skill_xp": {
-    "fuel_efficiency": 9,
-    "mining_advanced": 189,
-    "mining_basic": 187,
-    "small_ships": 9,
-    "trading": 293
-  },
-  "SkillNextLevelXP": null,
-  "SkillDefinitions": null,
-  "Ship": {
-    "id": "0492b940950b16726c7456c8abf3a7c2",
-    "owner_id": "202a3a1f6690e826bbcb615dda5e85c8",
-    "class_id": "mining_barge",
-    "name": "Excavator",
-    "hull": 180,
-    "max_hull": 180,
-    "shield": 60,
-    "max_shield": 60,
-    "shield_recharge": 1,
+  "ship": {
     "armor": 12,
-    "speed": 2,
-    "fuel": 131,
-    "max_fuel": 150,
-    "cargo_used": 128,
-    "cargo_capacity": 150,
-    "cpu_used": 4,
-    "cpu_capacity": 20,
-    "power_used": 10,
-    "power_capacity": 40,
-    "weapon_slots": 1,
-    "defense_slots": 2,
-    "utility_slots": 4,
-    "modules": [
-      "6b963810c41c9c1fdfcc0c62b74a18ed",
-      "d5cb61ca6f0a938704d512cab0914384"
-    ],
     "cargo": [
       {
         "item_id": "mining_laser_1",
@@ -88,70 +79,46 @@
       },
       {
         "item_id": "ore_iron",
-        "quantity": 35
+        "quantity": 21
       },
       {
         "item_id": "ore_silicon",
-        "quantity": 9
-      },
-      {
-        "item_id": "ore_copper",
-        "quantity": 40
+        "quantity": 27
       },
       {
         "item_id": "ore_crystal",
-        "quantity": 4
+        "quantity": 1
+      },
+      {
+        "item_id": "ore_copper",
+        "quantity": 24
       }
-    ]
-  },
-  "Fuel": 131,
-  "MaxFuel": 150,
-  "Hull": 180,
-  "MaxHull": 180,
-  "Cargo": [
-    {
-      "item_id": "mining_laser_1",
-      "quantity": 4
-    },
-    {
-      "item_id": "ore_iron",
-      "quantity": 35
-    },
-    {
-      "item_id": "ore_silicon",
-      "quantity": 9
-    },
-    {
-      "item_id": "ore_copper",
-      "quantity": 40
-    },
-    {
-      "item_id": "ore_crystal",
-      "quantity": 4
-    }
-  ],
-  "MaxCargo": 150,
-  "System": {
-    "id": "",
-    "name": "Nexus Prime",
-    "description": "Central processing hub of the Voidborn Collective.",
-    "empire": "",
-    "police_level": 0,
-    "pois": [],
-    "connections": [],
-    "discovered": false,
-    "position": {
-      "x": 0,
-      "y": 0
-    },
-    "ShipPOI": "nexus_harvesters"
-  },
-  "CurrentTick": 91537,
-  "LastMapUpdate": "0001-01-01T00:00:00Z",
-  "Nearby": [],
-  "InCombat": false,
-  "PirateName": "",
-  "PirateTier": "",
-  "PirateID": "",
-  "LastDamage": 0
+    ],
+    "cargo_capacity": 150,
+    "cargo_used": 113,
+    "class_id": "mining_barge",
+    "cpu_capacity": 20,
+    "cpu_used": 4,
+    "created_at": "2026-02-11T12:34:47.650628559Z",
+    "defense_slots": 2,
+    "fuel": 119,
+    "hull": 180,
+    "id": "0492b940950b16726c7456c8abf3a7c2",
+    "max_fuel": 150,
+    "max_hull": 180,
+    "max_shield": 60,
+    "modules": [
+      "6b963810c41c9c1fdfcc0c62b74a18ed",
+      "d5cb61ca6f0a938704d512cab0914384"
+    ],
+    "name": "Excavator",
+    "owner_id": "202a3a1f6690e826bbcb615dda5e85c8",
+    "power_capacity": 40,
+    "power_used": 10,
+    "shield": 60,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 4,
+    "weapon_slots": 1
+  }
 }

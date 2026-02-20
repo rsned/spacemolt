@@ -1,15 +1,132 @@
 {
-  "id": "",
-  "name": "Frontier",
-  "description": "The launching point for Outer Rim expeditions.",
-  "empire": "",
-  "police_level": 0,
-  "pois": [],
-  "connections": [],
-  "discovered": false,
-  "position": {
-    "x": 0,
-    "y": 0
+  "action": "get_system",
+  "poi": {
+    "has_base": false,
+    "id": "frontier_belt",
+    "name": "Pioneer Fields",
+    "online": 36,
+    "position": {
+      "x": 4.5,
+      "y": -0.5
+    },
+    "type": "asteroid_belt"
   },
-  "ShipPOI": "frontier_belt"
+  "security_status": "Maximum Security (empire capital)",
+  "system": {
+    "connections": [
+      {
+        "distance": 390,
+        "name": "Horizon",
+        "system_id": "horizon"
+      },
+      {
+        "distance": 344,
+        "name": "Altais",
+        "system_id": "waypoint"
+      },
+      {
+        "distance": 539,
+        "name": "Deep Range",
+        "system_id": "deep_range"
+      }
+    ],
+    "description": "The launching point for Outer Rim expeditions.",
+    "empire": "outerrim",
+    "id": "frontier",
+    "name": "Frontier",
+    "pois": [
+      {
+        "has_base": false,
+        "id": "frontier_sun",
+        "name": "Frontier Star",
+        "online": 0,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "type": "sun"
+      },
+      {
+        "base_id": "frontier_base",
+        "base_name": "Frontier Station",
+        "has_base": true,
+        "id": "frontier_mobile",
+        "name": "Mobile Capital",
+        "online": 118,
+        "position": {
+          "x": 1,
+          "y": 0
+        },
+        "type": "station"
+      },
+      {
+        "has_base": false,
+        "id": "frontier_launch",
+        "name": "Expedition Launch",
+        "online": 0,
+        "position": {
+          "x": 1.5,
+          "y": 0.3
+        },
+        "type": "station"
+      },
+      {
+        "has_base": false,
+        "id": "frontier_dock",
+        "name": "Scout Docks",
+        "online": 0,
+        "position": {
+          "x": 0.8,
+          "y": -0.2
+        },
+        "type": "station"
+      },
+      {
+        "has_base": false,
+        "id": "frontier_nebula",
+        "name": "Veil Nebula",
+        "online": 0,
+        "position": {
+          "x": 3,
+          "y": 1
+        },
+        "type": "nebula"
+      },
+      {
+        "has_base": false,
+        "id": "frontier_gas_cloud",
+        "name": "Drifter's Haze",
+        "online": 2,
+        "position": {
+          "x": 2,
+          "y": -0.8
+        },
+        "type": "gas_cloud"
+      },
+      {
+        "has_base": false,
+        "id": "frontier_ice_field",
+        "name": "Icecap Drift",
+        "online": 0,
+        "position": {
+          "x": 5,
+          "y": -1.5
+        },
+        "type": "ice_field"
+      },
+      {
+        "has_base": false,
+        "id": "frontier_belt",
+        "name": "Pioneer Fields",
+        "online": 36,
+        "position": {
+          "x": 4.5,
+          "y": -0.5
+        },
+        "type": "asteroid_belt"
+      }
+    ],
+    "police_level": 100,
+    "security_status": "Maximum Security (empire capital)"
+  }
 }

@@ -1,0 +1,32 @@
+digraph "Drones" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "drone_operation" [label="Drone Operation"];
+    "drone_durability" [label="Drone Durability"];
+    "repair_drones" [label="Repair Drones"];
+    "repair_systems" [label="Repair Systems"];
+    "salvage_drones" [label="Salvage Drones"];
+    "salvaging" [label="Salvaging"];
+    "drone_interfacing" [label="Drone Interfacing"];
+    "drone_control" [label="Drone Control"];
+    "combat_drones" [label="Combat Drones"];
+    "mining_drones" [label="Mining Drones"];
+    "mining_basic" [label="Mining"];
+
+    { rank=same; "drone_operation"; "salvaging"; "mining_basic"; }
+    { rank=same; "drone_durability"; "repair_systems"; "salvage_drones"; "drone_control"; "combat_drones"; "mining_drones"; }
+    { rank=same; "repair_drones"; "drone_interfacing"; }
+
+    "drone_operation" -> "salvage_drones" [label="3"];
+    "salvaging" -> "salvage_drones" [label="3" color=gray50];
+    "drone_control" -> "drone_interfacing" [label="7"];
+    "drone_operation" -> "combat_drones" [label="5"];
+    "drone_operation" -> "drone_durability" [label="3"];
+    "drone_operation" -> "drone_control" [label="5"];
+    "repair_systems" -> "repair_drones" [label="3" color=gray50];
+    "drone_operation" -> "repair_drones" [label="3"];
+    "drone_operation" -> "mining_drones" [label="3"];
+    "mining_basic" -> "mining_drones" [label="3" color=gray50];
+}

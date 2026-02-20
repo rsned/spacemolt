@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <style>
+      .empire-crimson-fleet {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .empire-crimson-fleet-filled {
+        fill: currentColor;
+        stroke: none;
+      }
+    </style>
+  </defs>
+  <!-- Crimson Fleet - Flame icon -->
+  <g class="empire-crimson-fleet">
+    <!-- Main flame body -->
+    <path d="M50 20 Q65 35 65 50 Q65 65 50 75 Q35 65 35 50 Q35 35 50 20" class="empire-crimson-fleet-filled" opacity="0.1"/>
+
+    <!-- Flame outline with inner details -->
+    <path d="M50 20 Q60 30 62 40 Q65 45 65 50 Q65 65 50 75 Q42 70 38 60 Q35 55 35 50 Q35 40 40 30 Q45 22 50 20"/>
+
+    <!-- Inner flame detail -->
+    <path d="M50 35 Q58 42 58 52 Q58 60 50 65 Q45 62 42 55 Q40 50 42 45 Q44 38 50 35"/>
+
+    <!-- Flame base -->
+    <path d="M42 75 Q50 78 58 75" class="empire-crimson-fleet-filled" stroke-width="3"/>
+
+    <!-- Center glow -->
+    <circle cx="50" cy="50" r="4" class="empire-crimson-fleet-filled"/>
+  </g>
+</svg>

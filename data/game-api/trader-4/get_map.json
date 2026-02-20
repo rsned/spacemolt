@@ -1,0 +1,1843 @@
+{
+  "systems": [
+    {
+      "connections": [
+        "sys_0425",
+        "sys_0015",
+        "sys_0213",
+        "sys_0325",
+        "sys_0301"
+      ],
+      "name": "Castula",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 5268.47172041791,
+        "y": -4529.747596106767
+      },
+      "system_id": "sys_0110",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0462"
+      ],
+      "is_stronghold": true,
+      "name": "Gliese 581",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -3122.1886987793814,
+        "y": 5502.0605891074865
+      },
+      "system_id": "sys_0253",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0120",
+        "sys_0063",
+        "sys_0021",
+        "sys_0059",
+        "sys_0210"
+      ],
+      "name": "Gacrux",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 6513.656877453466,
+        "y": -2245.0936362666953
+      },
+      "system_id": "sys_0437",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "trader_rest",
+        "sys_0350",
+        "sys_0002",
+        "treasure_cache"
+      ],
+      "empire": "nebula",
+      "name": "Factory Belt",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1901.3811828013143,
+        "y": -5147.942235193968
+      },
+      "system_id": "factory_belt",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0136",
+        "sys_0182",
+        "sys_0370",
+        "sys_0343",
+        "sys_0164"
+      ],
+      "name": "Zubenelgenubi",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": 4361.21654037159,
+        "y": 1510.1107736980543
+      },
+      "system_id": "sys_0095",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0488",
+        "sys_0158",
+        "sys_0017"
+      ],
+      "name": "Nekkar",
+      "online": 0,
+      "poi_count": 9,
+      "position": {
+        "x": 3096.891998436876,
+        "y": -2077.684827975746
+      },
+      "system_id": "sys_0174",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0297",
+        "sys_0258",
+        "sys_0300"
+      ],
+      "name": "Barnardstar",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 1632.9675559815041,
+        "y": 1999.6757348857143
+      },
+      "system_id": "sys_0194",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0475",
+        "sys_0499",
+        "node_beta"
+      ],
+      "name": "Schedar",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -4685.085131355781,
+        "y": 2802.5856913707585
+      },
+      "system_id": "sys_0427",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0048",
+        "sys_0212",
+        "sys_0311",
+        "sys_0455"
+      ],
+      "name": "Alfirk",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -352.1983500298744,
+        "y": -2668.507227330652
+      },
+      "system_id": "sys_0105",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0133",
+        "sys_0306",
+        "sys_0094",
+        "sys_0234",
+        "sys_0290",
+        "sys_0228"
+      ],
+      "name": "Driftwood",
+      "online": 1,
+      "poi_count": 7,
+      "position": {
+        "x": -1494.5767667065747,
+        "y": -3741.0828700633697
+      },
+      "system_id": "sys_0134",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0299",
+        "sys_0321",
+        "sys_0168",
+        "sys_0006",
+        "sys_0438"
+      ],
+      "name": "Quarrytown",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 4736.386275973298,
+        "y": -723.7914663075385
+      },
+      "system_id": "sys_0219",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0159",
+        "sys_0415",
+        "sys_0075",
+        "sys_0399",
+        "sys_0011"
+      ],
+      "name": "Titawin",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -3791.632426210852,
+        "y": -1026.0776006286617
+      },
+      "system_id": "sys_0269",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0156",
+        "sys_0457",
+        "sys_0219",
+        "sys_0411"
+      ],
+      "name": "Kepler-62",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 4334.8460136546555,
+        "y": -1216.479573642504
+      },
+      "system_id": "sys_0438",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0416",
+        "sys_0423",
+        "sys_0420",
+        "sys_0360"
+      ],
+      "name": "GSC-0037",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -5963.384725506526,
+        "y": -2979.0800087709836
+      },
+      "system_id": "sys_0486",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0099",
+        "sys_0098",
+        "sys_0251",
+        "sys_0489",
+        "sys_0476"
+      ],
+      "name": "Giausar",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -6504.052364808855,
+        "y": 1431.9556552992492
+      },
+      "system_id": "sys_0065",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0487",
+        "sys_0135",
+        "sys_0307",
+        "sys_0089"
+      ],
+      "name": "GJ 3470",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -4548.228601384555,
+        "y": 3751.588648004395
+      },
+      "system_id": "sys_0236",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0298",
+        "sys_0034",
+        "sys_0186",
+        "sys_0292",
+        "sys_0461"
+      ],
+      "name": "Willowgate",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": -5011.778779653321,
+        "y": -3753.7207439104495
+      },
+      "system_id": "sys_0214",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0030",
+        "sys_0254",
+        "sys_0135"
+      ],
+      "name": "Achird",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -4517.323020307678,
+        "y": 4688.409360501229
+      },
+      "system_id": "sys_0263",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0148",
+        "sys_0019",
+        "sys_0282",
+        "sys_0165"
+      ],
+      "name": "GSC-0048",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -190.3079475387265,
+        "y": -5888.94016262142
+      },
+      "system_id": "sys_0497",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0151",
+        "sys_0328",
+        "sys_0187",
+        "sys_0077"
+      ],
+      "name": "Asterope",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -375.1524918657661,
+        "y": -7468.290910413883
+      },
+      "system_id": "sys_0024",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0387",
+        "sys_0010",
+        "sys_0084",
+        "sys_0197"
+      ],
+      "name": "GSC-0014",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -5127.095107967267,
+        "y": -2462.2515640387846
+      },
+      "system_id": "sys_0460",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0042",
+        "sys_0060",
+        "sys_0163",
+        "sys_0341",
+        "sys_0007",
+        "sys_0129"
+      ],
+      "name": "GSC-0025",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": 757.6839989794257,
+        "y": -6759.224608839016
+      },
+      "system_id": "sys_0473",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0368"
+      ],
+      "is_stronghold": true,
+      "name": "Alhena",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 2986.601004262653,
+        "y": -6919.976674593278
+      },
+      "system_id": "sys_0315",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0209",
+        "sys_0013",
+        "sys_0359",
+        "sys_0173",
+        "sys_0428"
+      ],
+      "name": "Kruger 60",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 2585.932877103113,
+        "y": -934.028849174469
+      },
+      "system_id": "sys_0068",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0280",
+        "sys_0327",
+        "sys_0052",
+        "sys_0349"
+      ],
+      "name": "Wasat",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 2008.1887451575376,
+        "y": 4160.738069316798
+      },
+      "system_id": "sys_0070",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0390",
+        "sys_0379",
+        "procyon",
+        "sys_0198",
+        "sys_0469",
+        "epsilon_eridani"
+      ],
+      "empire": "solarian",
+      "name": "Markab",
+      "online": 0,
+      "poi_count": 8,
+      "position": {
+        "x": -98.56560188262283,
+        "y": 1273.1395195461498
+      },
+      "system_id": "sys_0171",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0217",
+        "sys_0277",
+        "sys_0119",
+        "sys_0111"
+      ],
+      "name": "Phecda",
+      "online": 0,
+      "poi_count": 8,
+      "position": {
+        "x": 1017.9157167174342,
+        "y": 4054.1883627664934
+      },
+      "system_id": "sys_0421",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "horizon",
+        "waypoint",
+        "deep_range"
+      ],
+      "description": "The launching point for Outer Rim expeditions.",
+      "empire": "outerrim",
+      "name": "Frontier",
+      "online": 3,
+      "poi_count": 8,
+      "position": {
+        "x": -3000,
+        "y": -3500
+      },
+      "system_id": "frontier",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0442"
+      ],
+      "name": "Longshore",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -1494.6382936906552,
+        "y": -6832.217398354965
+      },
+      "system_id": "sys_0274",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0001",
+        "sys_0422"
+      ],
+      "name": "TOI-2257",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": -2455.001639966832,
+        "y": -6749.863590203686
+      },
+      "system_id": "sys_0308",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0116",
+        "sys_0324",
+        "sys_0485",
+        "frontier_war",
+        "sys_0109",
+        "sys_0232"
+      ],
+      "empire": "crimson",
+      "name": "82 Eridani",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 5776.001341663906,
+        "y": 2200.2487046784495
+      },
+      "system_id": "sys_0354",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0265",
+        "sys_0160",
+        "sys_0256",
+        "sys_0229",
+        "sys_0143"
+      ],
+      "name": "Rasalhague",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -5108.568791232107,
+        "y": 303.9668776511918
+      },
+      "system_id": "sys_0393",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "node_beta",
+        "nexus",
+        "node_gamma",
+        "sync"
+      ],
+      "empire": "voidborn",
+      "name": "Node Alpha",
+      "online": 7,
+      "poi_count": 6,
+      "position": {
+        "x": -3856.124506419388,
+        "y": 2322.5759182986676
+      },
+      "system_id": "node_alpha",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0262",
+        "sys_0234",
+        "sys_0134",
+        "sys_0094",
+        "sys_0133"
+      ],
+      "name": "Beid",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -1756.3979974350946,
+        "y": -3619.728943809745
+      },
+      "system_id": "sys_0306",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0196",
+        "sys_0033",
+        "sys_0256"
+      ],
+      "name": "Groombridge 34",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -5077.333155978582,
+        "y": 1579.2454051808818
+      },
+      "system_id": "sys_0047",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0007",
+        "sys_0385",
+        "sys_0473"
+      ],
+      "name": "Alniyat",
+      "online": 0,
+      "poi_count": 0,
+      "position": {
+        "x": 1106.219357306512,
+        "y": -7296.07145117278
+      },
+      "system_id": "sys_0129",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "distant_light",
+        "waypoint",
+        "sys_0146",
+        "telescope"
+      ],
+      "empire": "outerrim",
+      "name": "Unknown Edge",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -3168.081009441405,
+        "y": -2817.389125686795
+      },
+      "system_id": "unknown_edge",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0455",
+        "sys_0418",
+        "sys_0048",
+        "sys_0005"
+      ],
+      "name": "Zibal",
+      "online": 1,
+      "poi_count": 5,
+      "position": {
+        "x": 444.0944040387736,
+        "y": -3152.8324629987264
+      },
+      "system_id": "sys_0096",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0014",
+        "sys_0086",
+        "sys_0121",
+        "sys_0173"
+      ],
+      "name": "Struve 2398",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 1659.2529850980902,
+        "y": -534.2376691046849
+      },
+      "system_id": "sys_0400",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0394",
+        "sys_0085",
+        "sys_0122",
+        "sys_0451"
+      ],
+      "name": "Sunridge",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -1796.1153389834565,
+        "y": -4909.965054645108
+      },
+      "system_id": "sys_0357",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0457",
+        "sys_0017",
+        "sys_0156"
+      ],
+      "name": "GSC-0018",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 3926.406219618724,
+        "y": -2281.083770682601
+      },
+      "system_id": "sys_0464",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0406",
+        "sys_0222"
+      ],
+      "name": "Arcturus",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -28.517960891538657,
+        "y": -1647.374481396158
+      },
+      "system_id": "sys_0268",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0185",
+        "sys_0434",
+        "sys_0432",
+        "sys_0330",
+        "sys_0303"
+      ],
+      "name": "LHS 1140",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -972.6621964743306,
+        "y": 2605.767281427238
+      },
+      "system_id": "sys_0417",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0294",
+        "sys_0383",
+        "sys_0025",
+        "sys_0093"
+      ],
+      "name": "Skyreach",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 1091.671829833619,
+        "y": 5315.461355194401
+      },
+      "system_id": "sys_0188",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0352",
+        "sys_0371",
+        "sys_0406",
+        "tau_ceti"
+      ],
+      "empire": "solarian",
+      "name": "Mimosa",
+      "online": 1,
+      "poi_count": 6,
+      "position": {
+        "x": -636.9219617290743,
+        "y": -1065.777550777794
+      },
+      "system_id": "sys_0286",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0410",
+        "sys_0080",
+        "sys_0258"
+      ],
+      "name": "Scheat",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 2260.3777345595904,
+        "y": 2651.9427334552643
+      },
+      "system_id": "sys_0345",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0233",
+        "sys_0152",
+        "sys_0376",
+        "sys_0298",
+        "sys_0279"
+      ],
+      "name": "Menkib",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": -4409.624354410674,
+        "y": -3870.2906599044886
+      },
+      "system_id": "sys_0161",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0459",
+        "sys_0366",
+        "sys_0145",
+        "sys_0413",
+        "sys_0150"
+      ],
+      "name": "Saclateni",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 3627.337591207356,
+        "y": 3553.3580444575905
+      },
+      "system_id": "sys_0319",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "gold_run",
+        "cargo_lanes",
+        "sys_0440",
+        "sys_0241"
+      ],
+      "empire": "nebula",
+      "name": "Bunda",
+      "online": 1,
+      "poi_count": 4,
+      "position": {
+        "x": 2007.8239924890497,
+        "y": -3445.4448137571367
+      },
+      "system_id": "sys_0191",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0352",
+        "alpha_centauri",
+        "sys_0222",
+        "sys_0286"
+      ],
+      "empire": "solarian",
+      "name": "Tau Ceti",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 10.857332948210924,
+        "y": -754.0130728012778
+      },
+      "system_id": "tau_ceti",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0054",
+        "sys_0202",
+        "sys_0044",
+        "sys_0186"
+      ],
+      "name": "Willowthorn",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -5556.59203029901,
+        "y": -4268.735547463633
+      },
+      "system_id": "sys_0377",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0229",
+        "sys_0265",
+        "sys_0393"
+      ],
+      "name": "Tania",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -4536.382842442283,
+        "y": -100.64923760941193
+      },
+      "system_id": "sys_0143",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0342",
+        "cargo_lanes",
+        "sys_0191",
+        "sys_0435",
+        "sys_0500"
+      ],
+      "empire": "nebula",
+      "name": "Alrakis",
+      "online": 2,
+      "poi_count": 3,
+      "position": {
+        "x": 2527.3274961837033,
+        "y": -3409.268627362527
+      },
+      "system_id": "sys_0241",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0424",
+        "sys_0481",
+        "sys_0153",
+        "sys_0049"
+      ],
+      "name": "Fafnir",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 3082.8345000611343,
+        "y": -5680.641771996237
+      },
+      "system_id": "sys_0247",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0097",
+        "sys_0407",
+        "barnard",
+        "sys_0107"
+      ],
+      "name": "Mira",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 768.3885768797504,
+        "y": 830.5652452098263
+      },
+      "system_id": "sys_0255",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0247",
+        "sys_0076",
+        "sys_0424",
+        "sys_0049"
+      ],
+      "name": "GSC-0032",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": 3008.253284004775,
+        "y": -5934.511954115329
+      },
+      "system_id": "sys_0481",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0007",
+        "sys_0429",
+        "sys_0129",
+        "sys_0341"
+      ],
+      "name": "Embervale",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 612.8467439155036,
+        "y": -7553.737486623061
+      },
+      "system_id": "sys_0385",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0445",
+        "sys_0062",
+        "sys_0465",
+        "sys_0312",
+        "sys_0402",
+        "sys_0193"
+      ],
+      "name": "Diphda",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 2713.0885982265786,
+        "y": 5206.650339933489
+      },
+      "system_id": "sys_0067",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0278",
+        "sys_0296",
+        "sys_0207",
+        "sys_0407",
+        "sys_0340"
+      ],
+      "name": "Ascella",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": 1649.8640100576965,
+        "y": 666.2194225484118
+      },
+      "system_id": "sys_0112",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0108",
+        "sys_0403",
+        "sys_0284",
+        "sys_0350",
+        "trader_rest"
+      ],
+      "empire": "nebula",
+      "name": "Gliese 436",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1089.0447676713757,
+        "y": -5151.209803196963
+      },
+      "system_id": "sys_0201",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0436"
+      ],
+      "is_stronghold": true,
+      "name": "Sheratan",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 6025.145746301421,
+        "y": -4138.753821115826
+      },
+      "system_id": "sys_0339",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0183",
+        "sys_0019",
+        "sys_0203",
+        "sys_0246"
+      ],
+      "name": "GSC-0001",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -206.4694263671411,
+        "y": -5208.286101953072
+      },
+      "system_id": "sys_0446",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0313",
+        "sys_0372",
+        "sys_0264"
+      ],
+      "name": "Silverbend",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -476.57097626747816,
+        "y": 5017.764294260626
+      },
+      "system_id": "sys_0074",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0439",
+        "sys_0480",
+        "sys_0458",
+        "sys_0037",
+        "sys_0444"
+      ],
+      "name": "Wolf 1061",
+      "online": 1,
+      "poi_count": 2,
+      "position": {
+        "x": -2622.1950780897805,
+        "y": 3200.909019695534
+      },
+      "system_id": "sys_0309",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0450",
+        "sys_0113"
+      ],
+      "name": "Sandrift",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -6943.467938512352,
+        "y": -735.3347676874268
+      },
+      "system_id": "sys_0216",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0143",
+        "sys_0265",
+        "sys_0393"
+      ],
+      "name": "Saltwind",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -4711.260840263146,
+        "y": -201.04842752962668
+      },
+      "system_id": "sys_0229",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0175",
+        "sys_0135",
+        "sys_0307",
+        "sys_0395",
+        "sys_0263",
+        "sys_0030"
+      ],
+      "name": "Thornhaven",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -3970.9033004686703,
+        "y": 4290.701096855009
+      },
+      "system_id": "sys_0254",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "archive",
+        "sys_0220",
+        "sys_0092",
+        "sys_0033"
+      ],
+      "name": "Relay Station",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": -4037.958552043869,
+        "y": 1061.9549294648925
+      },
+      "system_id": "relay",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0137",
+        "sys_0379",
+        "sys_0012",
+        "sys_0171"
+      ],
+      "name": "GSC-0022",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -45.44185231807502,
+        "y": 1852.896552990118
+      },
+      "system_id": "sys_0469",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0243",
+        "sys_0382",
+        "sys_0225",
+        "sys_0044"
+      ],
+      "name": "Meridian",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -5100.948324125366,
+        "y": -5018.395111230518
+      },
+      "system_id": "sys_0361",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0277",
+        "sys_0280",
+        "sys_0294",
+        "sys_0217"
+      ],
+      "name": "Tureis",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": 1378.5124838868085,
+        "y": 4547.6990200094115
+      },
+      "system_id": "sys_0374",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0434",
+        "sys_0137",
+        "sys_0417",
+        "sys_0141",
+        "sys_0482",
+        "sys_0463"
+      ],
+      "name": "Goldcrest",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": -612.9246392526493,
+        "y": 2168.668576158275
+      },
+      "system_id": "sys_0432",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0486",
+        "sys_0423",
+        "sys_0420"
+      ],
+      "name": "Veritate",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -6106.818890527592,
+        "y": -3192.4548531047435
+      },
+      "system_id": "sys_0416",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0393",
+        "sys_0229",
+        "sys_0143",
+        "sys_0092",
+        "sys_0160"
+      ],
+      "name": "Mizar",
+      "online": 0,
+      "poi_count": 2,
+      "position": {
+        "x": -4886.037340520826,
+        "y": 293.600866439319
+      },
+      "system_id": "sys_0265",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0302",
+        "glory",
+        "valor",
+        "sys_0373"
+      ],
+      "empire": "crimson",
+      "name": "Bharani",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 4884.934597806419,
+        "y": 3812.355478006165
+      },
+      "system_id": "sys_0257",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "unknown_edge",
+        "waypoint",
+        "telescope",
+        "horizon"
+      ],
+      "empire": "outerrim",
+      "name": "Distant Light",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -2925.6749929183616,
+        "y": -2903.3761701736935
+      },
+      "system_id": "distant_light",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0140",
+        "sys_0119",
+        "sys_0297",
+        "sys_0111",
+        "sys_0061"
+      ],
+      "name": "Porrima",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1168.9688748764172,
+        "y": 3070.9455809592027
+      },
+      "system_id": "sys_0288",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0231",
+        "sys_0230"
+      ],
+      "name": "Capella",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 1555.589616258933,
+        "y": -2295.9820953079843
+      },
+      "system_id": "sys_0443",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "anvil",
+        "iron_reach",
+        "blood_forge",
+        "valor"
+      ],
+      "description": "The war-forged capital of the Crimson Pact.",
+      "empire": "crimson",
+      "name": "Krynn",
+      "online": 260,
+      "poi_count": 7,
+      "position": {
+        "x": 5000,
+        "y": 3000
+      },
+      "system_id": "krynn",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0132",
+        "sys_0018",
+        "sys_0293"
+      ],
+      "name": "Aldhibah",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -2667.264172404361,
+        "y": -1874.3818065924722
+      },
+      "system_id": "sys_0066",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0227",
+        "sys_0491",
+        "sys_0160",
+        "sys_0046"
+      ],
+      "name": "Avior",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -5842.19442280054,
+        "y": -450.02356696028335
+      },
+      "system_id": "sys_0072",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0257",
+        "valor",
+        "iron_reach",
+        "sys_0302",
+        "sys_0413"
+      ],
+      "empire": "crimson",
+      "name": "The Crucible",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 4612.0979133096,
+        "y": 3516.5071153950908
+      },
+      "system_id": "glory",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0005",
+        "sys_0079",
+        "sys_0090",
+        "sys_0281"
+      ],
+      "name": "Frostpeak",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": 47.417225088239576,
+        "y": -3919.959749021413
+      },
+      "system_id": "sys_0235",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0250",
+        "sys_0458",
+        "sys_0480",
+        "sys_0175"
+      ],
+      "name": "Keid",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -3380.856118492969,
+        "y": 3665.9076179853287
+      },
+      "system_id": "sys_0363",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0057",
+        "sys_0323",
+        "sys_0199",
+        "sys_0484",
+        "sys_0322"
+      ],
+      "name": "Sualocin",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": -2398.008262412648,
+        "y": 5217.228971186851
+      },
+      "system_id": "sys_0356",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0182",
+        "sys_0370",
+        "sys_0095",
+        "sys_0335"
+      ],
+      "name": "Alsephina",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 4514.235398953112,
+        "y": 1100.0988355445488
+      },
+      "system_id": "sys_0136",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "factory_belt",
+        "trader_rest",
+        "sys_0003",
+        "sys_0002",
+        "sys_0201"
+      ],
+      "empire": "nebula",
+      "name": "Khambalia",
+      "online": 1,
+      "poi_count": 7,
+      "position": {
+        "x": 1651.4027165345867,
+        "y": -5368.711320567289
+      },
+      "system_id": "sys_0350",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0169",
+        "sys_0215",
+        "sys_0050",
+        "sys_0226",
+        "sys_0200",
+        "sys_0396"
+      ],
+      "name": "Nembus",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -2033.4407845229998,
+        "y": -727.4795757402795
+      },
+      "system_id": "sys_0332",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0011",
+        "sys_0208",
+        "sys_0159",
+        "sys_0103"
+      ],
+      "name": "Alsciaukat",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -4406.159684733609,
+        "y": -1636.7204350539662
+      },
+      "system_id": "sys_0397",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0384",
+        "sys_0207",
+        "sys_0112",
+        "sys_0296"
+      ],
+      "name": "Syrma",
+      "online": 0,
+      "poi_count": 3,
+      "position": {
+        "x": 2262.0784131075116,
+        "y": 799.5142984509574
+      },
+      "system_id": "sys_0340",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0029",
+        "sys_0483",
+        "sys_0456",
+        "sys_0062"
+      ],
+      "name": "Saiph",
+      "online": 0,
+      "poi_count": 8,
+      "position": {
+        "x": 1875.7034639695996,
+        "y": 5439.3451717237685
+      },
+      "system_id": "sys_0433",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0141",
+        "sys_0100",
+        "sys_0434",
+        "sys_0432",
+        "sys_0330"
+      ],
+      "name": "GSC-0033",
+      "online": 0,
+      "poi_count": 9,
+      "position": {
+        "x": -1117.2808878623214,
+        "y": 1772.634635805235
+      },
+      "system_id": "sys_0482",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0063",
+        "sys_0120",
+        "sys_0437",
+        "sys_0210",
+        "sys_0073",
+        "sys_0496"
+      ],
+      "name": "Alsuhail",
+      "online": 2,
+      "poi_count": 5,
+      "position": {
+        "x": 6317.148204721481,
+        "y": -1830.24196989263
+      },
+      "system_id": "sys_0021",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0377",
+        "sys_0044",
+        "sys_0186",
+        "sys_0202"
+      ],
+      "name": "Greymist",
+      "online": 0,
+      "poi_count": 1,
+      "position": {
+        "x": -5492.9892242888745,
+        "y": -4492.494150497733
+      },
+      "system_id": "sys_0054",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0291",
+        "sys_0004",
+        "sys_0180",
+        "sys_0261",
+        "sys_0022"
+      ],
+      "name": "Garnet",
+      "online": 0,
+      "poi_count": 6,
+      "position": {
+        "x": -2477.570900983009,
+        "y": 1335.868076866821
+      },
+      "system_id": "sys_0276",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0188",
+        "sys_0374",
+        "sys_0277"
+      ],
+      "name": "Yed Prior",
+      "online": 0,
+      "poi_count": 7,
+      "position": {
+        "x": 1198.706855709842,
+        "y": 4998.421882907732
+      },
+      "system_id": "sys_0294",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0262",
+        "sys_0055",
+        "first_step",
+        "sys_0305",
+        "sys_0378",
+        "sys_0380"
+      ],
+      "empire": "outerrim",
+      "name": "Void Gate",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -2021.9072688394976,
+        "y": -3142.8154641982333
+      },
+      "system_id": "void_gate",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "waypoint",
+        "first_step",
+        "frontier",
+        "telescope",
+        "deep_range",
+        "distant_light"
+      ],
+      "empire": "outerrim",
+      "name": "Horizon",
+      "online": 1,
+      "poi_count": 3,
+      "position": {
+        "x": -2636.29707134188,
+        "y": -3359.7314611807337
+      },
+      "system_id": "horizon",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0341",
+        "sys_0328",
+        "sys_0187",
+        "sys_0051",
+        "sys_0024",
+        "sys_0042",
+        "sys_0165",
+        "sys_0429"
+      ],
+      "name": "Sadalbari",
+      "online": 0,
+      "poi_count": 4,
+      "position": {
+        "x": -9.073303987964852,
+        "y": -7018.736638571295
+      },
+      "system_id": "sys_0077",
+      "visited": false,
+      "visited_at": ""
+    },
+    {
+      "connections": [
+        "sys_0482",
+        "sys_0141",
+        "sys_0245",
+        "sys_0330"
+      ],
+      "name": "Homam",
+      "online": 0,
+      "poi_count": 5,
+      "position": {
+        "x": -1361.856025047037,
+        "y": 1612.4710672871768
+      },
+      "system_id": "sys_0100",
+      "visited": false,
+      "visited_at": ""
+    }
+  ],
+  "total_count": 505
+}

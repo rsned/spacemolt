@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Map Zoom Test</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0e17;
+            color: #e5e7eb;
+            padding: 20px;
+        }
+        .test-info {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #1f2937;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #374151;
+        }
+        h1 {
+            color: #22d3ee;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .feature {
+            margin: 10px 0;
+            padding: 10px;
+            background: #111827;
+            border-radius: 4px;
+            border-left: 3px solid #22d3ee;
+        }
+        .success {
+            color: #22c55e;
+        }
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #0891b2;
+            border-radius: 4px;
+        }
+        code {
+            background: #1f2937;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h1>🚀 Galaxy Map Zoom Functionality</h1>
+
+        <div class="feature success">
+            ✅ Build completed successfully!
+        </div>
+
+        <div class="feature">
+            <strong>Features Implemented:</strong>
+            <ul>
+                <li>Mouse wheel zoom in/out (scroll up/down)</li>
+                <li>Vertical zoom slider on the left side (0.2x to 1.0x range)</li>
+                <li>Zoom multiplier: 1x to 5x magnification</li>
+                <li>Reset zoom button (⟲ icon)</li>
+                <li>Live zoom level display</li>
+                <li>Zoom indicator in bottom status bar</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <strong>Technical Details:</strong>
+            <ul>
+                <li>Zoom range: <code>ZOOM_MIN=0.2</code> to <code>ZOOM_MAX=1.0</code></li>
+                <li>Zoom step: <code>0.05</code> per scroll/click</li>
+                <li>Zoom multiplier formula: <code>1 + (zoom - 0.2) * 4</code></li>
+                <li>Result: 1x (fit) to 5x (max zoom) magnification</li>
+            </ul>
+        </div>
+
+        <div class="instructions">
+            <strong>🎯 How to Test:</strong>
+            <ol>
+                <li>Open <a href="http://localhost:5173/" target="_blank">http://localhost:5173/</a></li>
+                <li>Click on the <strong>"Galaxy Map"</strong> tab</li>
+                <li>Try the following interactions:
+                    <ul>
+                        <li><strong>Mouse wheel:</strong> Scroll up to zoom in, down to zoom out</li>
+                        <li><strong>Slider:</strong> Drag the vertical slider on the left side</li>
+                        <li><strong>Reset:</strong> Click the ⟲ button below the slider</li>
+                    </ul>
+                </li>
+                <li>Watch the zoom level indicator change (1x to 5x)</li>
+                <li>Systems should spread apart as you zoom in</li>
+            </ol>
+        </div>
+
+        <div class="feature">
+            <strong>Visual Elements:</strong>
+            <ul>
+                <li>Vertical slider on left edge with cyan styling</li>
+                <li>Zoom level display (e.g., "2.5x") below slider</li>
+                <li>Reset button with ⟲ icon</li>
+                <li>Bottom status bar shows current zoom level</li>
+                <li>Progress bar visual indicator in status bar</li>
+            </ul>
+        </div>
+
+        <div class="feature">
+            <strong>CSS Styling:</strong>
+            <ul>
+                <li>Custom vertical slider with gradient track</li>
+                <li>Cyan thumb with hover effects</li>
+                <li>Smooth transitions and animations</li>
+                <li>Responsive to hover states</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Auto-redirect after 5 seconds if user wants
+        let countdown = 5;
+        const countdownEl = document.createElement('div');
+        countdownEl.style.cssText = 'text-align: center; margin-top: 20px; color: #22d3ee;';
+        document.querySelector('.test-info').appendChild(countdownEl);
+
+        const interval = setInterval(() => {
+            countdown--;
+            countdownEl.innerHTML = `Opening Galaxy Map in ${countdown} seconds... <a href="http://localhost:5173/" style="color: #22d3ee;">Click here to open now</a>`;
+            if (countdown <= 0) {
+                clearInterval(interval);
+                window.open('http://localhost:5173/', '_blank');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

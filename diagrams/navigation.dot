@@ -1,0 +1,19 @@
+digraph "Navigation" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "jump_drive" [label="Jump Drive Operation"];
+    "fuel_efficiency" [label="Fuel Efficiency"];
+    "jump_calibration" [label="Jump Calibration"];
+    "warp_efficiency" [label="Warp Efficiency"];
+    "navigation" [label="Navigation"];
+
+    { rank=same; "fuel_efficiency"; "navigation"; }
+    { rank=same; "jump_drive"; "warp_efficiency"; }
+    { rank=same; "jump_calibration"; }
+
+    "navigation" -> "jump_drive" [label="3"];
+    "jump_drive" -> "jump_calibration" [label="5"];
+    "navigation" -> "warp_efficiency" [label="5"];
+}

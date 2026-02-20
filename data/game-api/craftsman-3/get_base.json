@@ -1,121 +1,14 @@
 {
-  "base": {
-    "defense_level": 100,
-    "description": "The seat of Solarian government and commerce. Everything here is certified, warrantied, and documented in triplicate — from the precision drydocks to the quantum-entangled trade exchange. A self-sustaining biosphere spans three decks, providing real air and real food, because the Confederacy believes civilization requires both.",
-    "empire": "solarian",
-    "facilities": [
-      "grand_solarian_exchange",
-      "solarian_fusion_plant",
-      "solarian_life_support",
-      "sol_galley",
-      "iron_refinery",
-      "circuit_fabricator",
-      "copper_wire_mill",
-      "polymer_synthesizer",
-      "fuel_cell_plant",
-      "repair_kit_factory",
-      "power_cell_assembler",
-      "sensor_assembly",
-      "sol_precision_drydock",
-      "sol_fuel_grid",
-      "sol_naval_shipyard",
-      "sol_research_labs",
-      "sol_admin_bureau",
-      "sol_bonded_warehouse"
-    ],
-    "has_drones": true,
-    "id": "sol_base",
-    "market": [
-      {
-        "base_id": "",
-        "id": "5ed803d815e511294e0dd7943d7ec069",
-        "is_npc": true,
-        "item_id": "ore_iron",
-        "price_each": 5,
-        "quantity": 1000
-      },
-      {
-        "base_id": "",
-        "id": "fe2477339491c15846e8053d5e88ef10",
-        "is_npc": true,
-        "item_id": "ore_copper",
-        "price_each": 8,
-        "quantity": 1000
-      },
-      {
-        "base_id": "",
-        "id": "a66f9c4e7b07608048f6c48339073dac",
-        "is_npc": true,
-        "item_id": "fuel_cell",
-        "price_each": 15,
-        "quantity": 100
-      },
-      {
-        "base_id": "",
-        "id": "77152a01c8b7c9a4f3c0a1f9250c4b4f",
-        "is_npc": true,
-        "item_id": "repair_kit",
-        "price_each": 120,
-        "quantity": 50
-      },
-      {
-        "base_id": "",
-        "id": "ec61d7ef22a126651d87622f43d3c449",
-        "is_npc": true,
-        "item_id": "mining_laser_1",
-        "price_each": 150,
-        "quantity": 10
-      },
-      {
-        "base_id": "",
-        "id": "5b19eacb4935960027e5d2b0c688d69c",
-        "is_npc": true,
-        "item_id": "weapon_laser_1",
-        "price_each": 200,
-        "quantity": 10
-      },
-      {
-        "base_id": "",
-        "id": "48798d01318b308c24077919e3f609d4",
-        "is_npc": true,
-        "item_id": "weapon_cannon_1",
-        "price_each": 250,
-        "quantity": 10
-      },
-      {
-        "base_id": "",
-        "id": "66191f3691afff6f7b5d4a67763a036b",
-        "is_npc": true,
-        "item_id": "weapon_missile_1",
-        "price_each": 400,
-        "quantity": 5
-      }
-    ],
-    "name": "Confederacy Central Command",
-    "poi_id": "sol_station",
-    "public_access": true,
-    "services": {
-      "cloning": true,
-      "crafting": true,
-      "insurance": true,
-      "market": true,
-      "missions": true,
-      "refuel": true,
-      "repair": true,
-      "shipyard": true,
-      "storage": true
-    }
-  },
+  "base": null,
   "poi": {
-    "base_id": "sol_base",
-    "description": "The administrative hub of the Solarian Confederacy.",
-    "id": "sol_station",
-    "name": "Sol Central",
+    "description": "",
+    "id": "sys_0041_sun",
+    "name": "Grumium Star",
     "position": {
-      "x": 0.8,
-      "y": -0.2
+      "x": 0,
+      "y": 0
     },
-    "system_id": "sol",
-    "type": "station"
+    "system_id": "sys_0041",
+    "type": "sun"
   }
 }

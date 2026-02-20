@@ -1,0 +1,38 @@
+digraph "Trading" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "auction_mastery" [label="Auction Mastery"];
+    "market_analysis" [label="Market Analysis"];
+    "contracts" [label="Contracts"];
+    "smuggling" [label="Smuggling"];
+    "negotiation" [label="Negotiation"];
+    "insurance_brokering" [label="Insurance Brokering"];
+    "bulk_trading" [label="Bulk Trading"];
+    "rare_goods" [label="Rare Goods Expertise"];
+    "loan_management" [label="Loan Management"];
+    "trading" [label="Trading"];
+    "black_market" [label="Black Market Trading"];
+    "hauling" [label="Hauling"];
+
+    { rank=same; "trading"; }
+    { rank=same; "market_analysis"; "contracts"; "smuggling"; "negotiation"; "insurance_brokering"; "hauling"; }
+    { rank=same; "auction_mastery"; "bulk_trading"; "rare_goods"; "loan_management"; "black_market"; }
+
+    "trading" -> "contracts" [label="5"];
+    "negotiation" -> "black_market" [label="3"];
+    "smuggling" -> "black_market" [label="5"];
+    "trading" -> "hauling" [label="3"];
+    "trading" -> "smuggling" [label="5"];
+    "trading" -> "insurance_brokering" [label="5"];
+    "trading" -> "negotiation" [label="5"];
+    "trading" -> "bulk_trading" [label="5"];
+    "hauling" -> "bulk_trading" [label="5"];
+    "market_analysis" -> "rare_goods" [label="5"];
+    "trading" -> "loan_management" [label="3"];
+    "negotiation" -> "loan_management" [label="3"];
+    "market_analysis" -> "auction_mastery" [label="5"];
+    "trading" -> "auction_mastery" [label="5"];
+    "trading" -> "market_analysis" [label="3"];
+}

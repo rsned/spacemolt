@@ -1,25 +1,77 @@
 {
-  "skill_next_xp": {
-    "fuel_efficiency": 300,
-    "mining_advanced": 500,
-    "mining_basic": 2100,
-    "scanning": 100,
-    "small_ships": 300,
-    "trading": 300
-  },
-  "skill_xp": {
-    "fuel_efficiency": 50,
-    "mining_advanced": 363,
-    "mining_basic": 361,
-    "scanning": 1,
-    "small_ships": 50,
-    "trading": 213
-  },
+  "player_skill_count": 6,
+  "player_skills": [
+    {
+      "category": "Trading",
+      "current_xp": 213,
+      "level": 1,
+      "max_level": 10,
+      "name": "Trading",
+      "next_level_xp": 300,
+      "skill_id": "trading"
+    },
+    {
+      "category": "Ships",
+      "current_xp": 194,
+      "level": 1,
+      "max_level": 10,
+      "name": "Small Ships",
+      "next_level_xp": 300,
+      "skill_id": "small_ships"
+    },
+    {
+      "category": "Mining",
+      "current_xp": 2684,
+      "level": 6,
+      "max_level": 10,
+      "name": "Mining",
+      "next_level_xp": 2800,
+      "skill_id": "mining_basic"
+    },
+    {
+      "category": "Navigation",
+      "current_xp": 194,
+      "level": 1,
+      "max_level": 10,
+      "name": "Fuel Efficiency",
+      "next_level_xp": 300,
+      "skill_id": "fuel_efficiency"
+    },
+    {
+      "category": "Mining",
+      "current_xp": 2786,
+      "level": 2,
+      "max_level": 10,
+      "name": "Advanced Mining",
+      "next_level_xp": 3000,
+      "skill_id": "mining_advanced"
+    },
+    {
+      "category": "Support",
+      "current_xp": 3,
+      "level": 0,
+      "max_level": 10,
+      "name": "Scanning",
+      "next_level_xp": 100,
+      "skill_id": "scanning"
+    }
+  ],
   "skills": {
     "advanced_engineering": {
+      "bonus_per_level": {
+        "cpuEfficiency": 2,
+        "overclockPotential": 5,
+        "powerEfficiency": 2
+      },
+      "category": "Engineering",
+      "description": "Expert systems optimization. Unlocks overclocking.",
       "id": "advanced_engineering",
-      "name": "Advanced Engineering",
       "max_level": 10,
+      "name": "Advanced Engineering",
+      "required_skills": {
+        "engineering": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -34,9 +86,20 @@
       ]
     },
     "alliance_management": {
+      "bonus_per_level": {
+        "allianceMemberLimit": 5,
+        "diplomaticInfluence": 3
+      },
+      "category": "Support",
+      "description": "Coordinate multi-faction alliances. Diplomatic bonuses.",
       "id": "alliance_management",
-      "name": "Alliance Management",
       "max_level": 10,
+      "name": "Alliance Management",
+      "required_skills": {
+        "diplomacy": 5,
+        "leadership": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -51,9 +114,19 @@
       ]
     },
     "anomaly_detection": {
+      "bonus_per_level": {
+        "anomalyChance": 5
+      },
+      "category": "Exploration",
+      "description": "Find cosmic anomalies. Rare exploration sites.",
       "id": "anomaly_detection",
-      "name": "Anomaly Detection",
       "max_level": 10,
+      "name": "Anomaly Detection",
+      "required_skills": {
+        "exploration": 5,
+        "scanning_advanced": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -68,9 +141,19 @@
       ]
     },
     "anomaly_exploitation": {
+      "bonus_per_level": {
+        "anomalyDataQuality": 4,
+        "anomalyYield": 5
+      },
+      "category": "Exploration",
+      "description": "Extract resources and data from cosmic anomalies.",
       "id": "anomaly_exploitation",
-      "name": "Anomaly Exploitation",
       "max_level": 10,
+      "name": "Anomaly Exploitation",
+      "required_skills": {
+        "anomaly_detection": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -85,9 +168,20 @@
       ]
     },
     "anti_drone_warfare": {
+      "bonus_per_level": {
+        "antiDroneDamage": 8,
+        "droneTrackingBonus": 5
+      },
+      "category": "Combat",
+      "description": "Specialized tactics against drone swarms. Increased damage to drones.",
       "id": "anti_drone_warfare",
-      "name": "Anti-Drone Warfare",
       "max_level": 10,
+      "name": "Anti-Drone Warfare",
+      "required_skills": {
+        "point_defense": 3,
+        "targeting": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -102,9 +196,18 @@
       ]
     },
     "archaeology": {
+      "bonus_per_level": {
+        "artifactChance": 5
+      },
+      "category": "Salvaging",
+      "description": "Relic hunting. Increases chance of finding artifacts.",
       "id": "archaeology",
-      "name": "Archaeology",
       "max_level": 10,
+      "name": "Archaeology",
+      "required_skills": {
+        "salvaging": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -119,9 +222,15 @@
       ]
     },
     "armor": {
+      "bonus_per_level": {
+        "armorEffectiveness": 3
+      },
+      "category": "Combat",
+      "description": "Hull reinforcement. Increases armor effectiveness by 3% per level.",
       "id": "armor",
-      "name": "Armor Hardening",
       "max_level": 10,
+      "name": "Armor Hardening",
+      "training_source": "Take hull damage in combat.",
       "xp_per_level": [
         100,
         300,
@@ -136,9 +245,19 @@
       ]
     },
     "armor_advanced": {
+      "bonus_per_level": {
+        "armorEffectiveness": 2,
+        "hullHP": 3
+      },
+      "category": "Combat",
+      "description": "Expert armor plating. Improves damage mitigation.",
       "id": "armor_advanced",
-      "name": "Advanced Armor",
       "max_level": 10,
+      "name": "Advanced Armor",
+      "required_skills": {
+        "armor": 5
+      },
+      "training_source": "Take hull damage in combat (requires armor level 5). Trains advanced hull reinforcement through experience.",
       "xp_per_level": [
         500,
         1500,
@@ -153,9 +272,18 @@
       ]
     },
     "astrometrics": {
+      "bonus_per_level": {
+        "systemDetailReveal": 10
+      },
+      "category": "Exploration",
+      "description": "Star mapping and system analysis. Higher levels reveal more detail from get_system and survey_system commands.",
       "id": "astrometrics",
-      "name": "Astrometrics",
       "max_level": 10,
+      "name": "Astrometrics",
+      "required_skills": {
+        "exploration": 5
+      },
+      "training_source": "Use the 'survey_system' command to scan systems. Train this early to unlock better system information.",
       "xp_per_level": [
         500,
         1500,
@@ -170,9 +298,19 @@
       ]
     },
     "auction_mastery": {
+      "bonus_per_level": {
+        "auctionFeeReduction": 5,
+        "listingDuration": 10
+      },
+      "category": "Trading",
+      "description": "Expert in market auctions. Reduced fees and better timing.",
       "id": "auction_mastery",
-      "name": "Auction Mastery",
       "max_level": 10,
+      "name": "Auction Mastery",
+      "required_skills": {
+        "trading": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -187,9 +325,19 @@
       ]
     },
     "biological_processing": {
+      "bonus_per_level": {
+        "bioProcessingYield": 5,
+        "contaminationResistance": 3
+      },
+      "category": "Mining",
+      "description": "Handle organic compounds and biological samples safely.",
       "id": "biological_processing",
-      "name": "Biological Processing",
       "max_level": 10,
+      "name": "Biological Processing",
+      "required_skills": {
+        "refinement": 5
+      },
+      "training_source": "Craft recipes that require this skill (e.g., biological compound processing).",
       "xp_per_level": [
         500,
         1500,
@@ -204,9 +352,20 @@
       ]
     },
     "black_market": {
+      "bonus_per_level": {
+        "blackMarketAccess": 10,
+        "contrabandPrices": 5
+      },
+      "category": "Trading",
+      "description": "Access to underground markets. Buy and sell contraband at better rates.",
       "id": "black_market",
-      "name": "Black Market Trading",
       "max_level": 10,
+      "name": "Black Market Trading",
+      "required_skills": {
+        "negotiation": 3,
+        "smuggling": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -221,9 +380,19 @@
       ]
     },
     "blueprint_research": {
+      "bonus_per_level": {
+        "materialEfficiency": 2,
+        "researchSpeed": 5
+      },
+      "category": "Crafting",
+      "description": "Improve blueprints through research. Reduce material costs.",
       "id": "blueprint_research",
-      "name": "Blueprint Research",
       "max_level": 10,
+      "name": "Blueprint Research",
+      "required_skills": {
+        "crafting_advanced": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -238,9 +407,20 @@
       ]
     },
     "boarding_combat": {
+      "bonus_per_level": {
+        "boardingSuccess": 5,
+        "crewCombatBonus": 3
+      },
+      "category": "Combat",
+      "description": "Ship-to-ship boarding operations. Capture enemy vessels.",
       "id": "boarding_combat",
-      "name": "Boarding Combat",
       "max_level": 10,
+      "name": "Boarding Combat",
+      "required_skills": {
+        "small_ships": 5,
+        "weapons_basic": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -255,9 +435,16 @@
       ]
     },
     "bounty_hunting": {
+      "bonus_per_level": {
+        "bountyReward": 10,
+        "trackingBonus": 5
+      },
+      "category": "Combat",
+      "description": "Lawful pursuit. Bonuses to tracking and bounty rewards.",
       "id": "bounty_hunting",
-      "name": "Bounty Hunting",
       "max_level": 10,
+      "name": "Bounty Hunting",
+      "training_source": "Destroy pirate NPCs. XP scales with pirate bounty value.",
       "xp_per_level": [
         500,
         1500,
@@ -272,9 +459,20 @@
       ]
     },
     "bulk_trading": {
+      "bonus_per_level": {
+        "bulkDiscount": 3,
+        "orderSizeBonus": 5
+      },
+      "category": "Trading",
+      "description": "Large volume transactions. Better prices for big orders.",
       "id": "bulk_trading",
-      "name": "Bulk Trading",
       "max_level": 10,
+      "name": "Bulk Trading",
+      "required_skills": {
+        "hauling": 5,
+        "trading": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -289,9 +487,18 @@
       ]
     },
     "capacitor_systems": {
+      "bonus_per_level": {
+        "capacitorRecharge": 5
+      },
+      "category": "Engineering",
+      "description": "Energy storage management. Faster capacitor recharge.",
       "id": "capacitor_systems",
-      "name": "Capacitor Systems",
       "max_level": 10,
+      "name": "Capacitor Systems",
+      "required_skills": {
+        "engineering": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -306,9 +513,19 @@
       ]
     },
     "capital_ships": {
+      "bonus_per_level": {
+        "capitalShipBonus": 2
+      },
+      "category": "Ships",
+      "description": "Heavy ship operation. Required for battleships and carriers.",
       "id": "capital_ships",
-      "name": "Capital Ships",
       "max_level": 10,
+      "name": "Capital Ships",
+      "required_skills": {
+        "large_ships": 7,
+        "navigation": 7
+      },
+      "training_source": "Purchase unique capital ship classes for milestone XP. Earn passive XP by flying capital ships: +1 XP per travel/jump, +3 XP per combat tick. Dramatic actions award large bonuses.",
       "xp_per_level": [
         5000,
         15000,
@@ -323,9 +540,20 @@
       ]
     },
     "capital_weapons": {
+      "bonus_per_level": {
+        "capitalWeaponDamage": 10,
+        "siegeDamage": 8
+      },
+      "category": "Combat",
+      "description": "Operation of doomsday devices and siege weapons. Massive damage.",
       "id": "capital_weapons",
-      "name": "Capital Weapon Systems",
       "max_level": 5,
+      "name": "Capital Weapon Systems",
+      "required_skills": {
+        "capital_ships": 5,
+        "weapons_advanced": 7
+      },
+      "training_source": "Deal damage in combat while flying a capital-class ship (requires weapons_advanced level 7 and capital_ships level 5).",
       "xp_per_level": [
         25000,
         60000,
@@ -335,9 +563,19 @@
       ]
     },
     "cartography": {
+      "bonus_per_level": {
+        "mapQuality": 5,
+        "mapValue": 10
+      },
+      "category": "Exploration",
+      "description": "Create detailed maps. Sell exploration data.",
       "id": "cartography",
-      "name": "Cartography",
       "max_level": 10,
+      "name": "Cartography",
+      "required_skills": {
+        "astrometrics": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -352,9 +590,18 @@
       ]
     },
     "cloaking": {
+      "bonus_per_level": {
+        "cloakEffectiveness": 5
+      },
+      "category": "Support",
+      "description": "Stealth systems. Improved cloak effectiveness.",
       "id": "cloaking",
-      "name": "Cloaking",
       "max_level": 10,
+      "name": "Cloaking",
+      "required_skills": {
+        "scanning": 3
+      },
+      "training_source": "Engage your ship's cloaking device. Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         500,
         1500,
@@ -369,9 +616,19 @@
       ]
     },
     "cloaking_advanced": {
+      "bonus_per_level": {
+        "cloakDuration": 10,
+        "cloakEffectiveness": 3
+      },
+      "category": "Support",
+      "description": "Move while cloaked. Extended stealth duration.",
       "id": "cloaking_advanced",
-      "name": "Advanced Cloaking",
       "max_level": 10,
+      "name": "Advanced Cloaking",
+      "required_skills": {
+        "cloaking": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -386,9 +643,18 @@
       ]
     },
     "combat_drones": {
+      "bonus_per_level": {
+        "combatDroneDamage": 5
+      },
+      "category": "Drones",
+      "description": "Specialize in attack drones. Increased damage.",
       "id": "combat_drones",
-      "name": "Combat Drones",
       "max_level": 10,
+      "name": "Combat Drones",
+      "required_skills": {
+        "drone_operation": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -403,9 +669,19 @@
       ]
     },
     "contracts": {
+      "bonus_per_level": {
+        "missionAccess": 10,
+        "missionReward": 5
+      },
+      "category": "Trading",
+      "description": "Mission and contract expertise. Better mission rewards.",
       "id": "contracts",
-      "name": "Contracts",
       "max_level": 10,
+      "name": "Contracts",
+      "required_skills": {
+        "trading": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -420,9 +696,16 @@
       ]
     },
     "corporation_management": {
+      "bonus_per_level": {
+        "corpBonuses": 2,
+        "corpMemberLimit": 5
+      },
+      "category": "Faction",
+      "description": "Lead player factions. Increased member limits.",
       "id": "corporation_management",
-      "name": "Corporation Management",
       "max_level": 10,
+      "name": "Corporation Management",
+      "training_source": "Passive XP every 2 hours from facility ownership. 1 XP per facility level you own, plus faction facility levels shared among members.",
       "xp_per_level": [
         500,
         1500,
@@ -437,9 +720,18 @@
       ]
     },
     "counter_hacking": {
+      "bonus_per_level": {
+        "hackingResistance": 5
+      },
+      "category": "Support",
+      "description": "System defense. Resist hacking attempts.",
       "id": "counter_hacking",
-      "name": "Counter-Hacking",
       "max_level": 10,
+      "name": "Counter-Hacking",
+      "required_skills": {
+        "hacking": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -454,9 +746,20 @@
       ]
     },
     "counter_intelligence": {
+      "bonus_per_level": {
+        "securityBonus": 4,
+        "spyDetection": 5
+      },
+      "category": "Support",
+      "description": "Detect and neutralize enemy spies. Protect faction secrets.",
       "id": "counter_intelligence",
-      "name": "Counter-Intelligence",
       "max_level": 10,
+      "name": "Counter-Intelligence",
+      "required_skills": {
+        "counter_hacking": 3,
+        "espionage": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -471,9 +774,19 @@
       ]
     },
     "covert_ops": {
+      "bonus_per_level": {
+        "covertOpsBonus": 3
+      },
+      "category": "Ships",
+      "description": "Stealth ships. Required for covert ops vessels.",
       "id": "covert_ops",
-      "name": "Covert Operations",
       "max_level": 10,
+      "name": "Covert Operations",
+      "required_skills": {
+        "cloaking": 5,
+        "small_ships": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -488,9 +801,18 @@
       ]
     },
     "cpu_management": {
+      "bonus_per_level": {
+        "cpuCapacity": 5
+      },
+      "category": "Engineering",
+      "description": "Optimize ship computer. More complex fittings.",
       "id": "cpu_management",
-      "name": "CPU Management",
       "max_level": 10,
+      "name": "CPU Management",
+      "required_skills": {
+        "engineering": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -505,9 +827,18 @@
       ]
     },
     "crafting_advanced": {
+      "bonus_per_level": {
+        "craftingQuality": 3
+      },
+      "category": "Crafting",
+      "description": "Expert manufacturing. Craft advanced components.",
       "id": "crafting_advanced",
-      "name": "Advanced Crafting",
       "max_level": 10,
+      "name": "Advanced Crafting",
+      "required_skills": {
+        "crafting_basic": 5
+      },
+      "training_source": "Craft any recipe (requires crafting_basic level 5).",
       "xp_per_level": [
         500,
         1500,
@@ -522,9 +853,15 @@
       ]
     },
     "crafting_basic": {
+      "bonus_per_level": {
+        "craftingQuality": 2
+      },
+      "category": "Crafting",
+      "description": "Fundamental manufacturing. Craft basic items.",
       "id": "crafting_basic",
-      "name": "Basic Crafting",
       "max_level": 10,
+      "name": "Basic Crafting",
+      "training_source": "Craft any recipe.",
       "xp_per_level": [
         100,
         300,
@@ -539,9 +876,19 @@
       ]
     },
     "crafting_mastery": {
+      "bonus_per_level": {
+        "craftingQuality": 5,
+        "exceptionalChance": 5
+      },
+      "category": "Crafting",
+      "description": "Master craftsman. Create exceptional quality items.",
       "id": "crafting_mastery",
-      "name": "Crafting Mastery",
       "max_level": 5,
+      "name": "Crafting Mastery",
+      "required_skills": {
+        "crafting_advanced": 7
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         10000,
         25000,
@@ -551,9 +898,21 @@
       ]
     },
     "crimson_bloodlust": {
+      "bonus_per_level": {
+        "combatRepairOnKill": 3,
+        "killStreakBonus": 5
+      },
+      "category": "Empire",
+      "description": "The more you destroy, the stronger you become. Kill streaks grant bonuses.",
+      "empire_restriction": "crimson",
       "id": "crimson_bloodlust",
-      "name": "Crimson Bloodlust",
       "max_level": 10,
+      "name": "Crimson Bloodlust",
+      "required_skills": {
+        "crimson_fury": 5,
+        "piracy": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -568,9 +927,21 @@
       ]
     },
     "crimson_fury": {
+      "bonus_per_level": {
+        "armorBypass": 2,
+        "damageBonusWhenHurt": 5
+      },
+      "category": "Empire",
+      "description": "Embrace the berserker rage of the Crimson Fleet. Increased damage when damaged.",
+      "empire_restriction": "crimson",
       "id": "crimson_fury",
-      "name": "Crimson Fury",
       "max_level": 10,
+      "name": "Crimson Fury",
+      "required_skills": {
+        "armor": 3,
+        "weapons_basic": 5
+      },
+      "training_source": "Craft recipes that require this skill (Crimson Fleet empire only).",
       "xp_per_level": [
         500,
         1500,
@@ -585,9 +956,15 @@
       ]
     },
     "damage_control": {
+      "bonus_per_level": {
+        "hullDamageReduction": 2
+      },
+      "category": "Engineering",
+      "description": "Emergency repairs. Reduces hull damage taken.",
       "id": "damage_control",
-      "name": "Damage Control",
       "max_level": 10,
+      "name": "Damage Control",
+      "training_source": "Take hull damage in combat. Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         100,
         300,
@@ -602,9 +979,19 @@
       ]
     },
     "deep_core_mining": {
+      "bonus_per_level": {
+        "coreAccessChance": 3,
+        "deepCoreYield": 5
+      },
+      "category": "Mining",
+      "description": "Extract materials from planetary cores and dense asteroids.",
       "id": "deep_core_mining",
-      "name": "Deep Core Mining",
       "max_level": 10,
+      "name": "Deep Core Mining",
+      "required_skills": {
+        "mining_advanced": 5
+      },
+      "training_source": "Mine asteroid belts using advanced mining equipment (level 3+ mining lasers). Trains specialized deep extraction techniques.",
       "xp_per_level": [
         1000,
         3000,
@@ -619,9 +1006,15 @@
       ]
     },
     "diplomacy": {
+      "bonus_per_level": {
+        "reputationGain": 5
+      },
+      "category": "Support",
+      "description": "Political acumen. Better faction relations.",
       "id": "diplomacy",
-      "name": "Diplomacy",
       "max_level": 10,
+      "name": "Diplomacy",
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -636,9 +1029,18 @@
       ]
     },
     "drone_control": {
+      "bonus_per_level": {
+        "droneBandwidth": 10
+      },
+      "category": "Drones",
+      "description": "Advanced drone management. Increases bandwidth.",
       "id": "drone_control",
-      "name": "Drone Control",
       "max_level": 10,
+      "name": "Drone Control",
+      "required_skills": {
+        "drone_operation": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -653,9 +1055,18 @@
       ]
     },
     "drone_durability": {
+      "bonus_per_level": {
+        "droneHP": 10
+      },
+      "category": "Drones",
+      "description": "Hardened drones. Increases drone hit points.",
       "id": "drone_durability",
-      "name": "Drone Durability",
       "max_level": 10,
+      "name": "Drone Durability",
+      "required_skills": {
+        "drone_operation": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100,
         300,
@@ -670,9 +1081,19 @@
       ]
     },
     "drone_interfacing": {
+      "bonus_per_level": {
+        "droneDamage": 10,
+        "droneHP": 10
+      },
+      "category": "Drones",
+      "description": "Neural drone link. Massively improved drone performance.",
       "id": "drone_interfacing",
-      "name": "Drone Interfacing",
       "max_level": 5,
+      "name": "Drone Interfacing",
+      "required_skills": {
+        "drone_control": 7
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         10000,
         25000,
@@ -682,9 +1103,15 @@
       ]
     },
     "drone_operation": {
+      "bonus_per_level": {
+        "droneDamage": 5
+      },
+      "category": "Drones",
+      "description": "Basic drone control. Increases drone damage.",
       "id": "drone_operation",
-      "name": "Drone Operation",
       "max_level": 10,
+      "name": "Drone Operation",
+      "training_source": "Deploy drones from your drone bay. Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         100,
         300,
@@ -699,9 +1126,21 @@
       ]
     },
     "drone_sovereign": {
+      "bonus_per_level": {
+        "droneArmySize": 20,
+        "sovereignControl": 10
+      },
+      "category": "Prestige",
+      "description": "Command vast drone fleets with neural precision. Ultimate drone mastery.",
       "id": "drone_sovereign",
-      "name": "Drone Sovereign",
       "max_level": 5,
+      "name": "Drone Sovereign",
+      "required_skills": {
+        "combat_drones": 10,
+        "drone_control": 10,
+        "drone_interfacing": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -711,9 +1150,18 @@
       ]
     },
     "ecm_resistance": {
+      "bonus_per_level": {
+        "ecmResistance": 5
+      },
+      "category": "Combat",
+      "description": "Hardened systems. Reduces effectiveness of enemy jamming.",
       "id": "ecm_resistance",
-      "name": "ECM Resistance",
       "max_level": 10,
+      "name": "ECM Resistance",
+      "required_skills": {
+        "electronic_warfare": 3
+      },
+      "training_source": "Take EM-type damage in combat (requires electronic_warfare level 3). Trains hardened system resistance through experience.",
       "xp_per_level": [
         500,
         1500,
@@ -728,9 +1176,18 @@
       ]
     },
     "electronic_warfare": {
+      "bonus_per_level": {
+        "jammerStrength": 5
+      },
+      "category": "Combat",
+      "description": "Jamming and countermeasures. Disrupts enemy targeting.",
       "id": "electronic_warfare",
-      "name": "Electronic Warfare",
       "max_level": 10,
+      "name": "Electronic Warfare",
+      "required_skills": {
+        "targeting": 5
+      },
+      "training_source": "Deal EM-type damage in combat or scan targets. Also awarded by some missions.",
       "xp_per_level": [
         500,
         1500,
@@ -745,9 +1202,18 @@
       ]
     },
     "electronics_crafting": {
+      "bonus_per_level": {
+        "electronicsCraftingQuality": 5
+      },
+      "category": "Crafting",
+      "description": "Create electronic components and modules.",
       "id": "electronics_crafting",
-      "name": "Electronics Crafting",
       "max_level": 10,
+      "name": "Electronics Crafting",
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "training_source": "Craft Electronic Warfare category recipes.",
       "xp_per_level": [
         500,
         1500,
@@ -762,9 +1228,18 @@
       ]
     },
     "energy_weapons": {
+      "bonus_per_level": {
+        "energyWeaponDamage": 5
+      },
+      "category": "Combat",
+      "description": "Laser and plasma weapon specialization. Increases energy weapon damage.",
       "id": "energy_weapons",
-      "name": "Energy Weapons",
       "max_level": 10,
+      "name": "Energy Weapons",
+      "required_skills": {
+        "weapons_basic": 3
+      },
+      "training_source": "Deal damage in combat using energy-type weapons (lasers, beams). Gained through repeated use of energy weapons.",
       "xp_per_level": [
         300,
         900,
@@ -779,9 +1254,16 @@
       ]
     },
     "engineering": {
+      "bonus_per_level": {
+        "cpuEfficiency": 3,
+        "powerEfficiency": 3
+      },
+      "category": "Engineering",
+      "description": "Ship systems management. Improves power and CPU efficiency.",
       "id": "engineering",
-      "name": "Engineering",
       "max_level": 10,
+      "name": "Engineering",
+      "training_source": "Craft Components or Modules category recipes, or repair your ship. Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -796,9 +1278,20 @@
       ]
     },
     "espionage": {
+      "bonus_per_level": {
+        "infiltrationSuccess": 4,
+        "intelligenceGathering": 5
+      },
+      "category": "Support",
+      "description": "Covert intelligence gathering. Spy on enemy factions.",
       "id": "espionage",
-      "name": "Espionage",
       "max_level": 10,
+      "name": "Espionage",
+      "required_skills": {
+        "cloaking": 3,
+        "hacking": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -813,9 +1306,15 @@
       ]
     },
     "evasion": {
+      "bonus_per_level": {
+        "evasionChance": 2
+      },
+      "category": "Combat",
+      "description": "Defensive piloting. Chance to avoid incoming attacks.",
       "id": "evasion",
-      "name": "Evasive Maneuvers",
       "max_level": 10,
+      "name": "Evasive Maneuvers",
+      "training_source": "Take damage in combat - trains defensive maneuvering. Gained through experience when under attack.",
       "xp_per_level": [
         100,
         300,
@@ -830,9 +1329,15 @@
       ]
     },
     "exploration": {
+      "bonus_per_level": {
+        "visitXP": 10
+      },
+      "category": "Exploration",
+      "description": "Space exploration expertise. Bonus XP from visiting new systems.",
       "id": "exploration",
-      "name": "Exploration",
       "max_level": 10,
+      "name": "Exploration",
+      "training_source": "Visit new star systems for the first time. Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -847,9 +1352,16 @@
       ]
     },
     "faction_warfare": {
+      "bonus_per_level": {
+        "factionStanding": 2,
+        "factionWarfareReward": 5
+      },
+      "category": "Faction",
+      "description": "Empire militia combat. Improved rewards in faction conflicts.",
       "id": "faction_warfare",
-      "name": "Faction Warfare",
       "max_level": 10,
+      "name": "Faction Warfare",
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -864,9 +1376,20 @@
       ]
     },
     "first_contact": {
+      "bonus_per_level": {
+        "contactSuccess": 5,
+        "unknownEntityBonus": 8
+      },
+      "category": "Exploration",
+      "description": "Handle encounters with unknown entities and factions.",
       "id": "first_contact",
-      "name": "First Contact Protocols",
       "max_level": 10,
+      "name": "First Contact Protocols",
+      "required_skills": {
+        "diplomacy": 3,
+        "exploration": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -881,9 +1404,19 @@
       ]
     },
     "fleet_command": {
+      "bonus_per_level": {
+        "fleetCoordination": 5
+      },
+      "category": "Ships",
+      "description": "Command carrier operations. Bonuses to fleet coordination.",
       "id": "fleet_command",
-      "name": "Fleet Command",
       "max_level": 10,
+      "name": "Fleet Command",
+      "required_skills": {
+        "capital_ships": 5,
+        "leadership": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         10000,
         30000,
@@ -898,9 +1431,19 @@
       ]
     },
     "fleet_coordination": {
+      "bonus_per_level": {
+        "bonusSharing": 5,
+        "fleetSize": 2
+      },
+      "category": "Support",
+      "description": "Coordinate large fleet operations. Share bonuses.",
       "id": "fleet_coordination",
-      "name": "Fleet Coordination",
       "max_level": 10,
+      "name": "Fleet Coordination",
+      "required_skills": {
+        "leadership": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -915,9 +1458,15 @@
       ]
     },
     "fuel_efficiency": {
+      "bonus_per_level": {
+        "fuelConsumption": -3
+      },
+      "category": "Navigation",
+      "description": "Engine optimization. Reduces fuel consumption by 3% per level.",
       "id": "fuel_efficiency",
-      "name": "Fuel Efficiency",
       "max_level": 10,
+      "name": "Fuel Efficiency",
+      "training_source": "Travel between POIs and jump between systems. Trains fuel management through regular ship operations.",
       "xp_per_level": [
         100,
         300,
@@ -932,9 +1481,18 @@
       ]
     },
     "gas_harvesting": {
+      "bonus_per_level": {
+        "gasHarvestYield": 5
+      },
+      "category": "Mining",
+      "description": "Collect gases from nebulae and gas clouds. Exotic materials.",
       "id": "gas_harvesting",
-      "name": "Gas Harvesting",
       "max_level": 10,
+      "name": "Gas Harvesting",
+      "required_skills": {
+        "mining_basic": 3
+      },
+      "training_source": "Harvest resources at gas clouds.",
       "xp_per_level": [
         300,
         900,
@@ -949,9 +1507,20 @@
       ]
     },
     "gas_processing": {
+      "bonus_per_level": {
+        "fuelProduction": 3,
+        "gasRefiningYield": 5
+      },
+      "category": "Mining",
+      "description": "Refine harvested gases into fuels and chemicals.",
       "id": "gas_processing",
-      "name": "Gas Processing",
       "max_level": 10,
+      "name": "Gas Processing",
+      "required_skills": {
+        "gas_harvesting": 5,
+        "refinement": 3
+      },
+      "training_source": "Craft Gas Processing recipes. Start with Compress Hydrogen Gas (refine_hydrogen) — no skill required — to begin training.",
       "xp_per_level": [
         500,
         1500,
@@ -966,9 +1535,21 @@
       ]
     },
     "grand_admiral": {
+      "bonus_per_level": {
+        "admiralAura": 5,
+        "fleetSize": 10
+      },
+      "category": "Prestige",
+      "description": "Supreme fleet commander. Massive fleet bonuses and tactical options.",
       "id": "grand_admiral",
-      "name": "Grand Admiral",
       "max_level": 5,
+      "name": "Grand Admiral",
+      "required_skills": {
+        "capital_ships": 10,
+        "fleet_command": 10,
+        "leadership": 10
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         200000,
         500000,
@@ -978,9 +1559,18 @@
       ]
     },
     "hacking": {
+      "bonus_per_level": {
+        "hackingStrength": 5
+      },
+      "category": "Support",
+      "description": "Computer intrusion. Access secured systems.",
       "id": "hacking",
-      "name": "Hacking",
       "max_level": 10,
+      "name": "Hacking",
+      "required_skills": {
+        "scanning": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -995,9 +1585,18 @@
       ]
     },
     "hauling": {
+      "bonus_per_level": {
+        "cargoCapacity": 5
+      },
+      "category": "Trading",
+      "description": "Cargo management expertise. Increase effective cargo capacity.",
       "id": "hauling",
-      "name": "Hauling",
       "max_level": 10,
+      "name": "Hauling",
+      "required_skills": {
+        "trading": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100,
         300,
@@ -1012,9 +1611,20 @@
       ]
     },
     "hazard_resistance": {
+      "bonus_per_level": {
+        "hazardDamageReduction": 4,
+        "radiationResistance": 5
+      },
+      "category": "Exploration",
+      "description": "Survive hostile space environments. Reduced damage from hazards.",
       "id": "hazard_resistance",
-      "name": "Environmental Hazard Resistance",
       "max_level": 10,
+      "name": "Environmental Hazard Resistance",
+      "required_skills": {
+        "exploration": 5,
+        "shields": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1029,9 +1639,18 @@
       ]
     },
     "ice_mining": {
+      "bonus_per_level": {
+        "iceMiningYield": 5
+      },
+      "category": "Mining",
+      "description": "Extraction of ice and frozen compounds. Fuel and water source.",
       "id": "ice_mining",
-      "name": "Ice Mining",
       "max_level": 10,
+      "name": "Ice Mining",
+      "required_skills": {
+        "mining_basic": 3
+      },
+      "training_source": "Mine ice at ice fields.",
       "xp_per_level": [
         300,
         900,
@@ -1046,9 +1665,20 @@
       ]
     },
     "ice_refining": {
+      "bonus_per_level": {
+        "hydrogenExtraction": 4,
+        "iceRefiningYield": 5
+      },
+      "category": "Mining",
+      "description": "Process ice into water, oxygen, and hydrogen fuel.",
       "id": "ice_refining",
-      "name": "Ice Refining",
       "max_level": 10,
+      "name": "Ice Refining",
+      "required_skills": {
+        "ice_mining": 5,
+        "refinement": 3
+      },
+      "training_source": "Craft Ice Refining recipes. Start with Process Water Ice (refine_water_ice) — requires only refinement 1 — to begin training.",
       "xp_per_level": [
         500,
         1500,
@@ -1063,9 +1693,21 @@
       ]
     },
     "industrial_magnate": {
+      "bonus_per_level": {
+        "automationEfficiency": 5,
+        "industrialEmpireBonus": 10
+      },
+      "category": "Prestige",
+      "description": "Baron of industry and mining. Massive extraction and production bonuses.",
       "id": "industrial_magnate",
-      "name": "Industrial Magnate",
       "max_level": 5,
+      "name": "Industrial Magnate",
+      "required_skills": {
+        "deep_core_mining": 10,
+        "industrial_ships": 10,
+        "mass_production": 10
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -1075,9 +1717,18 @@
       ]
     },
     "industrial_ships": {
+      "bonus_per_level": {
+        "industrialBonus": 3
+      },
+      "category": "Ships",
+      "description": "Mining barges and haulers. Industrial vessel operation.",
       "id": "industrial_ships",
-      "name": "Industrial Ships",
       "max_level": 10,
+      "name": "Industrial Ships",
+      "required_skills": {
+        "small_ships": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -1092,9 +1743,19 @@
       ]
     },
     "insurance_brokering": {
+      "bonus_per_level": {
+        "claimSpeed": 10,
+        "insuranceCostReduction": 4
+      },
+      "category": "Trading",
+      "description": "Expert in ship insurance. Better rates and faster claims.",
       "id": "insurance_brokering",
-      "name": "Insurance Brokering",
       "max_level": 10,
+      "name": "Insurance Brokering",
+      "required_skills": {
+        "trading": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1109,9 +1770,19 @@
       ]
     },
     "ion_weapons": {
+      "bonus_per_level": {
+        "capacitorDrain": 3,
+        "ionDamage": 5
+      },
+      "category": "Combat",
+      "description": "Disabling ion technology. Drains capacitor and disrupts systems.",
       "id": "ion_weapons",
-      "name": "Ion Weapons",
       "max_level": 10,
+      "name": "Ion Weapons",
+      "required_skills": {
+        "energy_weapons": 5
+      },
+      "training_source": "Deal damage in combat using EM-type weapons (ion blasters, EMP devices). Gained through repeated use of ion weapons.",
       "xp_per_level": [
         500,
         1500,
@@ -1126,9 +1797,18 @@
       ]
     },
     "jump_calibration": {
+      "bonus_per_level": {
+        "jumpRange": 5
+      },
+      "category": "Navigation",
+      "description": "Precision hyperspace calculations. Jump to more distant systems.",
       "id": "jump_calibration",
-      "name": "Jump Calibration",
       "max_level": 10,
+      "name": "Jump Calibration",
+      "required_skills": {
+        "jump_drive": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1143,9 +1823,19 @@
       ]
     },
     "jump_drive": {
+      "bonus_per_level": {
+        "jumpFuel": -3,
+        "jumpTime": -5
+      },
+      "category": "Navigation",
+      "description": "Hyperspace expertise. Reduces jump time and fuel cost.",
       "id": "jump_drive",
-      "name": "Jump Drive Operation",
       "max_level": 10,
+      "name": "Jump Drive Operation",
+      "required_skills": {
+        "navigation": 3
+      },
+      "training_source": "Travel between star systems. Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         500,
         1500,
@@ -1160,9 +1850,18 @@
       ]
     },
     "kinetic_weapons": {
+      "bonus_per_level": {
+        "kineticWeaponDamage": 5
+      },
+      "category": "Combat",
+      "description": "Projectile and railgun specialization. Increases kinetic weapon damage.",
       "id": "kinetic_weapons",
-      "name": "Kinetic Weapons",
       "max_level": 10,
+      "name": "Kinetic Weapons",
+      "required_skills": {
+        "weapons_basic": 3
+      },
+      "training_source": "Deal damage in combat using kinetic-type weapons (projectiles, railguns). Gained through repeated use of kinetic weapons.",
       "xp_per_level": [
         300,
         900,
@@ -1177,9 +1876,18 @@
       ]
     },
     "large_ships": {
+      "bonus_per_level": {
+        "largeShipBonus": 3
+      },
+      "category": "Ships",
+      "description": "Battleships and large hulls. Heavy combat vessels.",
       "id": "large_ships",
-      "name": "Large Ships",
       "max_level": 10,
+      "name": "Large Ships",
+      "required_skills": {
+        "medium_ships": 5
+      },
+      "training_source": "Purchase unique large ship classes for milestone XP. Earn passive XP by flying large ships: +1 XP per travel/jump, +3 XP per combat tick. Dramatic actions award large bonuses.",
       "xp_per_level": [
         1000,
         3000,
@@ -1194,9 +1902,15 @@
       ]
     },
     "leadership": {
+      "bonus_per_level": {
+        "fleetBonus": 2
+      },
+      "category": "Support",
+      "description": "Command skills. Bonuses for faction fleet members.",
       "id": "leadership",
-      "name": "Leadership",
       "max_level": 10,
+      "name": "Leadership",
+      "training_source": "Send chat messages, create forum posts, create and manage factions, manage member roles, and diplomacy actions (alliances, wars, peace proposals).",
       "xp_per_level": [
         500,
         1500,
@@ -1211,9 +1925,21 @@
       ]
     },
     "legendary_pilot": {
+      "bonus_per_level": {
+        "allCombatBonus": 3,
+        "legendaryRenown": 10
+      },
+      "category": "Prestige",
+      "description": "Recognized across the galaxy as an elite pilot. Universal combat bonuses.",
       "id": "legendary_pilot",
-      "name": "Legendary Pilot",
       "max_level": 5,
+      "name": "Legendary Pilot",
+      "required_skills": {
+        "evasion": 10,
+        "speed_combat": 10,
+        "weapons_specialization": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -1223,9 +1949,20 @@
       ]
     },
     "loan_management": {
+      "bonus_per_level": {
+        "creditLimit": 10,
+        "loanInterestReduction": 3
+      },
+      "category": "Trading",
+      "description": "Financial expertise. Better loan terms and credit limits.",
       "id": "loan_management",
-      "name": "Loan Management",
       "max_level": 10,
+      "name": "Loan Management",
+      "required_skills": {
+        "negotiation": 3,
+        "trading": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1239,27 +1976,21 @@
         40000
       ]
     },
-    "market_analysis": {
-      "id": "market_analysis",
-      "name": "Market Analysis",
-      "max_level": 10,
-      "xp_per_level": [
-        100,
-        300,
-        600,
-        1000,
-        1500,
-        2100,
-        2800,
-        3600,
-        4500,
-        5500
-      ]
-    },
     "mass_production": {
+      "bonus_per_level": {
+        "batchSize": 10,
+        "productionSpeed": 5
+      },
+      "category": "Crafting",
+      "description": "Efficient large-scale manufacturing. Reduced time and costs.",
       "id": "mass_production",
-      "name": "Mass Production",
       "max_level": 10,
+      "name": "Mass Production",
+      "required_skills": {
+        "blueprint_research": 3,
+        "crafting_advanced": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1274,9 +2005,21 @@
       ]
     },
     "master_craftsman": {
+      "bonus_per_level": {
+        "craftingPerfection": 10,
+        "legendaryItemChance": 5
+      },
+      "category": "Prestige",
+      "description": "Legendary artisan. Create items of unmatched quality.",
       "id": "master_craftsman",
-      "name": "Master Craftsman",
       "max_level": 5,
+      "name": "Master Craftsman",
+      "required_skills": {
+        "blueprint_research": 10,
+        "crafting_mastery": 5,
+        "quality_control": 10
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -1286,9 +2029,21 @@
       ]
     },
     "master_trader": {
+      "bonus_per_level": {
+        "marketInfluence": 10,
+        "tradeEfficiency": 5
+      },
+      "category": "Prestige",
+      "description": "Economic genius with galactic influence. Maximum trading efficiency.",
       "id": "master_trader",
-      "name": "Master Trader",
       "max_level": 5,
+      "name": "Master Trader",
+      "required_skills": {
+        "bulk_trading": 7,
+        "negotiation": 10,
+        "trading": 10
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -1298,9 +2053,18 @@
       ]
     },
     "medium_ships": {
+      "bonus_per_level": {
+        "mediumShipBonus": 3
+      },
+      "category": "Ships",
+      "description": "Cruisers and battlecruisers. Required for medium hulls.",
       "id": "medium_ships",
-      "name": "Medium Ships",
       "max_level": 10,
+      "name": "Medium Ships",
+      "required_skills": {
+        "small_ships": 5
+      },
+      "training_source": "Purchase unique medium ship classes for milestone XP (first Falcon, first Hauler, etc.). Earn passive XP by flying medium ships: +1 XP per travel/jump, +3 XP per combat tick. Dramatic actions award large bonuses.",
       "xp_per_level": [
         500,
         1500,
@@ -1315,9 +2079,19 @@
       ]
     },
     "mentoring": {
+      "bonus_per_level": {
+        "mentorReward": 10,
+        "studentXPBonus": 5
+      },
+      "category": "Support",
+      "description": "Guide new players. Bonuses for both mentor and student.",
       "id": "mentoring",
-      "name": "Mentoring",
       "max_level": 10,
+      "name": "Mentoring",
+      "required_skills": {
+        "leadership": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -1332,9 +2106,19 @@
       ]
     },
     "mining_advanced": {
+      "bonus_per_level": {
+        "miningYield": 3,
+        "rareOreChance": 5
+      },
+      "category": "Mining",
+      "description": "Expert extraction. Unlocks rare ore mining.",
       "id": "mining_advanced",
-      "name": "Advanced Mining",
       "max_level": 10,
+      "name": "Advanced Mining",
+      "required_skills": {
+        "mining_basic": 5
+      },
+      "training_source": "Mine at asteroid belts (requires mining_basic level 5). Also awarded by some missions.",
       "xp_per_level": [
         500,
         1500,
@@ -1349,9 +2133,15 @@
       ]
     },
     "mining_basic": {
+      "bonus_per_level": {
+        "miningYield": 5
+      },
+      "category": "Mining",
+      "description": "Ore extraction basics. Increases yield by 5% per level.",
       "id": "mining_basic",
-      "name": "Mining",
       "max_level": 10,
+      "name": "Mining",
+      "training_source": "Mine at any asteroid belt, gas cloud, or ice field. Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -1366,9 +2156,19 @@
       ]
     },
     "mining_drones": {
+      "bonus_per_level": {
+        "miningDroneYield": 5
+      },
+      "category": "Drones",
+      "description": "Specialize in mining drones. Increased yield.",
       "id": "mining_drones",
-      "name": "Mining Drones",
       "max_level": 10,
+      "name": "Mining Drones",
+      "required_skills": {
+        "drone_operation": 3,
+        "mining_basic": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -1383,9 +2183,19 @@
       ]
     },
     "missile_weapons": {
+      "bonus_per_level": {
+        "missileDamage": 5,
+        "missileRange": 3
+      },
+      "category": "Combat",
+      "description": "Guided missile and torpedo operation. Increases explosive damage.",
       "id": "missile_weapons",
-      "name": "Missile Systems",
       "max_level": 10,
+      "name": "Missile Systems",
+      "required_skills": {
+        "weapons_basic": 3
+      },
+      "training_source": "Deal damage in combat using explosive-type weapons (missiles, torpedoes). Gained through repeated use of missiles.",
       "xp_per_level": [
         300,
         900,
@@ -1400,9 +2210,18 @@
       ]
     },
     "module_crafting": {
+      "bonus_per_level": {
+        "moduleCraftingQuality": 5
+      },
+      "category": "Crafting",
+      "description": "Create ship modules and upgrades.",
       "id": "module_crafting",
-      "name": "Module Crafting",
       "max_level": 10,
+      "name": "Module Crafting",
+      "required_skills": {
+        "crafting_advanced": 3
+      },
+      "training_source": "Craft Modules category recipes.",
       "xp_per_level": [
         500,
         1500,
@@ -1417,9 +2236,15 @@
       ]
     },
     "navigation": {
+      "bonus_per_level": {
+        "travelTime": -5
+      },
+      "category": "Navigation",
+      "description": "Astrogation expertise. Reduces travel time by 5% per level.",
       "id": "navigation",
-      "name": "Navigation",
       "max_level": 10,
+      "name": "Navigation",
+      "training_source": "Travel between star systems. Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -1434,9 +2259,21 @@
       ]
     },
     "nebula_attunement": {
+      "bonus_per_level": {
+        "gasHarvestYield": 4,
+        "sensorRange": 5
+      },
+      "category": "Empire",
+      "description": "Harmonize with cosmic energies of the Nebula Collective. Enhanced gas harvesting and sensor range.",
+      "empire_restriction": "nebula",
       "id": "nebula_attunement",
-      "name": "Nebula Attunement",
       "max_level": 10,
+      "name": "Nebula Attunement",
+      "required_skills": {
+        "gas_harvesting": 5,
+        "scanning": 3
+      },
+      "training_source": "Craft recipes that require this skill (Nebula Collective empire only).",
       "xp_per_level": [
         500,
         1500,
@@ -1451,9 +2288,21 @@
       ]
     },
     "nebula_communion": {
+      "bonus_per_level": {
+        "collectiveBonus": 4,
+        "fleetMindLink": 3
+      },
+      "category": "Empire",
+      "description": "Deep connection with the collective consciousness. Telepathic fleet bonuses.",
+      "empire_restriction": "nebula",
       "id": "nebula_communion",
-      "name": "Nebula Communion",
       "max_level": 10,
+      "name": "Nebula Communion",
+      "required_skills": {
+        "fleet_coordination": 3,
+        "nebula_attunement": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1468,9 +2317,19 @@
       ]
     },
     "negotiation": {
+      "bonus_per_level": {
+        "buyDiscount": 2,
+        "sellBonus": 2
+      },
+      "category": "Trading",
+      "description": "Deal-making expertise. Additional price improvements.",
       "id": "negotiation",
-      "name": "Negotiation",
       "max_level": 10,
+      "name": "Negotiation",
+      "required_skills": {
+        "trading": 5
+      },
+      "training_source": "Buy and sell items at bases. Trains deal-making through successful trading transactions.",
       "xp_per_level": [
         500,
         1500,
@@ -1485,9 +2344,21 @@
       ]
     },
     "outer_rim_scavenger": {
+      "bonus_per_level": {
+        "abandonedSiteLoot": 4,
+        "salvageYield": 5
+      },
+      "category": "Empire",
+      "description": "Make the most of every wreck and abandoned site. Enhanced salvaging.",
+      "empire_restriction": "outer_rim",
       "id": "outer_rim_scavenger",
-      "name": "Outer Rim Scavenger",
       "max_level": 10,
+      "name": "Outer Rim Scavenger",
+      "required_skills": {
+        "outer_rim_survival": 5,
+        "salvaging_advanced": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1502,9 +2373,21 @@
       ]
     },
     "outer_rim_survival": {
+      "bonus_per_level": {
+        "fieldRepairSpeed": 5,
+        "resourceConservation": 3
+      },
+      "category": "Empire",
+      "description": "Hardened by the lawless frontier. Improved self-reliance and repair.",
+      "empire_restriction": "outer_rim",
       "id": "outer_rim_survival",
-      "name": "Outer Rim Survival",
       "max_level": 10,
+      "name": "Outer Rim Survival",
+      "required_skills": {
+        "fuel_efficiency": 3,
+        "repair_systems": 5
+      },
+      "training_source": "Craft recipes that require this skill (Outer Rim empire only).",
       "xp_per_level": [
         500,
         1500,
@@ -1519,9 +2402,21 @@
       ]
     },
     "pathfinder": {
+      "bonus_per_level": {
+        "discoveryReward": 20,
+        "pathfinderReputation": 10
+      },
+      "category": "Prestige",
+      "description": "Legendary explorer who has charted the unknown reaches. Discovery bonuses.",
       "id": "pathfinder",
-      "name": "Pathfinder",
       "max_level": 5,
+      "name": "Pathfinder",
+      "required_skills": {
+        "astrometrics": 10,
+        "first_contact": 7,
+        "wormhole_navigation": 7
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -1531,9 +2426,16 @@
       ]
     },
     "piracy": {
+      "bonus_per_level": {
+        "escapeProbability": 3,
+        "lootingBonus": 5
+      },
+      "category": "Combat",
+      "description": "Outlaw expertise. Bonuses to looting and escape.",
       "id": "piracy",
-      "name": "Piracy",
       "max_level": 10,
+      "name": "Piracy",
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1548,9 +2450,19 @@
       ]
     },
     "plasma_weapons": {
+      "bonus_per_level": {
+        "plasmaDamage": 5,
+        "shieldPenetration": 2
+      },
+      "category": "Combat",
+      "description": "Superheated plasma weapon mastery. High damage vs shields.",
       "id": "plasma_weapons",
-      "name": "Plasma Weapons",
       "max_level": 10,
+      "name": "Plasma Weapons",
+      "required_skills": {
+        "energy_weapons": 5
+      },
+      "training_source": "Deal damage in combat using thermal-type weapons (plasma cannons, plasma repeaters). Gained through repeated use of plasma weapons.",
       "xp_per_level": [
         500,
         1500,
@@ -1565,9 +2477,19 @@
       ]
     },
     "point_defense": {
+      "bonus_per_level": {
+        "missileInterception": 4,
+        "pointDefenseAccuracy": 5
+      },
+      "category": "Combat",
+      "description": "Automated missile and drone interception. Increases point defense effectiveness.",
       "id": "point_defense",
-      "name": "Point Defense Systems",
       "max_level": 10,
+      "name": "Point Defense Systems",
+      "required_skills": {
+        "targeting": 5
+      },
+      "training_source": "Defend against missile attacks in combat. Gained through experience defending against missile strikes.",
       "xp_per_level": [
         500,
         1500,
@@ -1582,9 +2504,18 @@
       ]
     },
     "power_grid": {
+      "bonus_per_level": {
+        "powerReduction": 2
+      },
+      "category": "Engineering",
+      "description": "Optimize power consumption. Reduces module power usage by 2% per level.",
       "id": "power_grid",
-      "name": "Power Grid Management",
       "max_level": 10,
+      "name": "Power Grid Management",
+      "required_skills": {
+        "engineering": 3
+      },
+      "training_source": "Install modules on your ship (XP scales with module power cost). Run at 90%+ power capacity for passive XP. Note: uninstalling modules harms durability - they break after 3 uninstalls.",
       "xp_per_level": [
         300,
         900,
@@ -1599,9 +2530,19 @@
       ]
     },
     "propaganda": {
+      "bonus_per_level": {
+        "moraleBonus": 5,
+        "recruitmentBonus": 4
+      },
+      "category": "Support",
+      "description": "Information warfare. Influence public opinion and morale.",
       "id": "propaganda",
-      "name": "Propaganda",
       "max_level": 10,
+      "name": "Propaganda",
+      "required_skills": {
+        "diplomacy": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1616,9 +2557,19 @@
       ]
     },
     "quality_control": {
+      "bonus_per_level": {
+        "defectReduction": 5,
+        "minQualityBonus": 3
+      },
+      "category": "Crafting",
+      "description": "Rigorous testing and inspection. Higher average item quality.",
       "id": "quality_control",
-      "name": "Quality Control",
       "max_level": 10,
+      "name": "Quality Control",
+      "required_skills": {
+        "crafting_advanced": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1633,9 +2584,19 @@
       ]
     },
     "radioactive_handling": {
+      "bonus_per_level": {
+        "radiationResistance": 4,
+        "radioactiveYield": 5
+      },
+      "category": "Mining",
+      "description": "Safe extraction and processing of radioactive materials.",
       "id": "radioactive_handling",
-      "name": "Radioactive Handling",
       "max_level": 10,
+      "name": "Radioactive Handling",
+      "required_skills": {
+        "mining_advanced": 5
+      },
+      "training_source": "Craft recipes that require this skill (e.g., radioactive materials processing).",
       "xp_per_level": [
         1000,
         3000,
@@ -1650,9 +2611,19 @@
       ]
     },
     "rare_goods": {
+      "bonus_per_level": {
+        "appraisalAccuracy": 8,
+        "rareGoodsValue": 5
+      },
+      "category": "Trading",
+      "description": "Knowledge of exotic and valuable items. Better appraisal and prices.",
       "id": "rare_goods",
-      "name": "Rare Goods Expertise",
       "max_level": 10,
+      "name": "Rare Goods Expertise",
+      "required_skills": {
+        "trading": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1667,9 +2638,15 @@
       ]
     },
     "refinement": {
+      "bonus_per_level": {
+        "refiningEfficiency": 5
+      },
+      "category": "Mining",
+      "description": "Processing expertise. Increases refining output.",
       "id": "refinement",
-      "name": "Ore Refinement",
       "max_level": 10,
+      "name": "Ore Refinement",
+      "training_source": "Craft Refining category recipes.",
       "xp_per_level": [
         100,
         300,
@@ -1684,9 +2661,19 @@
       ]
     },
     "refinement_advanced": {
+      "bonus_per_level": {
+        "refiningEfficiency": 3,
+        "wasteReduction": 5
+      },
+      "category": "Mining",
+      "description": "Extract maximum yield from ores. Reduce waste.",
       "id": "refinement_advanced",
-      "name": "Advanced Refinement",
       "max_level": 10,
+      "name": "Advanced Refinement",
+      "required_skills": {
+        "refinement": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1701,9 +2688,19 @@
       ]
     },
     "relic_identification": {
+      "bonus_per_level": {
+        "identificationAccuracy": 5,
+        "relicValue": 8
+      },
+      "category": "Salvaging",
+      "description": "Expertise in ancient artifacts. Determines true value and function.",
       "id": "relic_identification",
-      "name": "Relic Identification",
       "max_level": 10,
+      "name": "Relic Identification",
+      "required_skills": {
+        "archaeology": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1718,9 +2715,19 @@
       ]
     },
     "repair_drones": {
+      "bonus_per_level": {
+        "repairDroneEfficiency": 5
+      },
+      "category": "Drones",
+      "description": "Specialize in repair drones. Field maintenance.",
       "id": "repair_drones",
-      "name": "Repair Drones",
       "max_level": 10,
+      "name": "Repair Drones",
+      "required_skills": {
+        "drone_operation": 3,
+        "repair_systems": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -1735,9 +2742,18 @@
       ]
     },
     "repair_systems": {
+      "bonus_per_level": {
+        "hullRegen": 2
+      },
+      "category": "Engineering",
+      "description": "Field repairs. Enables hull regeneration in space.",
       "id": "repair_systems",
-      "name": "Repair Systems",
       "max_level": 10,
+      "name": "Repair Systems",
+      "required_skills": {
+        "damage_control": 5
+      },
+      "training_source": "Repair your ship. Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         500,
         1500,
@@ -1752,9 +2768,19 @@
       ]
     },
     "reputation_management": {
+      "bonus_per_level": {
+        "reputationRecovery": 5,
+        "standingDecayReduction": 3
+      },
+      "category": "Support",
+      "description": "Control your public image. Faster reputation recovery.",
       "id": "reputation_management",
-      "name": "Reputation Management",
       "max_level": 10,
+      "name": "Reputation Management",
+      "required_skills": {
+        "diplomacy": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1769,9 +2795,19 @@
       ]
     },
     "rigging": {
+      "bonus_per_level": {
+        "rigEfficiency": 5,
+        "rigSlots": 1
+      },
+      "category": "Engineering",
+      "description": "Install ship rigs. Permanent ship modifications.",
       "id": "rigging",
-      "name": "Rigging",
       "max_level": 10,
+      "name": "Rigging",
+      "required_skills": {
+        "advanced_engineering": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1786,9 +2822,19 @@
       ]
     },
     "salvage_drones": {
+      "bonus_per_level": {
+        "salvageDroneYield": 5
+      },
+      "category": "Drones",
+      "description": "Automated salvage operations. Drone-assisted looting.",
       "id": "salvage_drones",
-      "name": "Salvage Drones",
       "max_level": 10,
+      "name": "Salvage Drones",
+      "required_skills": {
+        "drone_operation": 3,
+        "salvaging": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -1803,9 +2849,15 @@
       ]
     },
     "salvaging": {
+      "bonus_per_level": {
+        "salvageYield": 5
+      },
+      "category": "Salvaging",
+      "description": "Extract materials from ship wrecks. Basic recovery.",
       "id": "salvaging",
-      "name": "Salvaging",
       "max_level": 10,
+      "name": "Salvaging",
+      "training_source": "Salvage wrecks from destroyed ships.",
       "xp_per_level": [
         100,
         300,
@@ -1820,9 +2872,19 @@
       ]
     },
     "salvaging_advanced": {
+      "bonus_per_level": {
+        "intactModuleChance": 5,
+        "salvageYield": 3
+      },
+      "category": "Salvaging",
+      "description": "Expert wreck processing. Recover intact modules.",
       "id": "salvaging_advanced",
-      "name": "Advanced Salvaging",
       "max_level": 10,
+      "name": "Advanced Salvaging",
+      "required_skills": {
+        "salvaging": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1837,9 +2899,15 @@
       ]
     },
     "scanning": {
+      "bonus_per_level": {
+        "scannerEffectiveness": 5
+      },
+      "category": "Support",
+      "description": "Sensor operation. Improved scanner effectiveness.",
       "id": "scanning",
-      "name": "Scanning",
       "max_level": 10,
+      "name": "Scanning",
+      "training_source": "Scan targets in combat or survey points of interest (look_poi). Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -1854,9 +2922,19 @@
       ]
     },
     "scanning_advanced": {
+      "bonus_per_level": {
+        "hiddenReveal": 5,
+        "scannerEffectiveness": 3
+      },
+      "category": "Support",
+      "description": "Deep scans and signature analysis. Reveal hidden information.",
       "id": "scanning_advanced",
-      "name": "Advanced Scanning",
       "max_level": 10,
+      "name": "Advanced Scanning",
+      "required_skills": {
+        "scanning": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -1871,9 +2949,21 @@
       ]
     },
     "shadow_operative": {
+      "bonus_per_level": {
+        "shadowStrike": 10,
+        "ultimateStealth": 5
+      },
+      "category": "Prestige",
+      "description": "Master of covert operations. Ultimate stealth and espionage capabilities.",
       "id": "shadow_operative",
-      "name": "Shadow Operative",
       "max_level": 5,
+      "name": "Shadow Operative",
+      "required_skills": {
+        "cloaking_advanced": 10,
+        "covert_ops": 10,
+        "espionage": 10
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         100000,
         250000,
@@ -1883,9 +2973,18 @@
       ]
     },
     "shield_crafting": {
+      "bonus_per_level": {
+        "shieldCraftingQuality": 5
+      },
+      "category": "Crafting",
+      "description": "Defense manufacturing. Create shield components.",
       "id": "shield_crafting",
-      "name": "Shield Crafting",
       "max_level": 10,
+      "name": "Shield Crafting",
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "training_source": "Craft Shields or Defense category recipes.",
       "xp_per_level": [
         500,
         1500,
@@ -1900,9 +2999,18 @@
       ]
     },
     "shield_hardening": {
+      "bonus_per_level": {
+        "shieldResistance": 3
+      },
+      "category": "Combat",
+      "description": "Damage-specific shield resistance. Reduces incoming damage types.",
       "id": "shield_hardening",
-      "name": "Shield Hardening",
       "max_level": 10,
+      "name": "Shield Hardening",
+      "required_skills": {
+        "shields_advanced": 3
+      },
+      "training_source": "Take shield damage in combat (requires shields_advanced level 3). Trains damage-specific resistance through experience.",
       "xp_per_level": [
         500,
         1500,
@@ -1917,9 +3025,15 @@
       ]
     },
     "shields": {
+      "bonus_per_level": {
+        "shieldCapacity": 5
+      },
+      "category": "Combat",
+      "description": "Shield system management. Increases capacity by 5% per level.",
       "id": "shields",
-      "name": "Shield Operation",
       "max_level": 10,
+      "name": "Shield Operation",
+      "training_source": "Take shield damage in combat.",
       "xp_per_level": [
         100,
         300,
@@ -1934,9 +3048,19 @@
       ]
     },
     "shields_advanced": {
+      "bonus_per_level": {
+        "shieldCapacity": 3,
+        "shieldRecharge": 5
+      },
+      "category": "Combat",
+      "description": "Expert shield optimization. Improves recharge and resistance.",
       "id": "shields_advanced",
-      "name": "Advanced Shields",
       "max_level": 10,
+      "name": "Advanced Shields",
+      "required_skills": {
+        "shields": 5
+      },
+      "training_source": "Take shield damage in combat (requires shields level 5). Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         500,
         1500,
@@ -1951,9 +3075,18 @@
       ]
     },
     "ship_crafting": {
+      "bonus_per_level": {
+        "shipCraftingQuality": 5
+      },
+      "category": "Crafting",
+      "description": "Shipwright skills. Build and modify ships.",
       "id": "ship_crafting",
-      "name": "Ship Construction",
       "max_level": 10,
+      "name": "Ship Construction",
+      "required_skills": {
+        "crafting_advanced": 5
+      },
+      "training_source": "Craft recipes that require this skill (e.g., ship hull construction).",
       "xp_per_level": [
         2000,
         6000,
@@ -1968,9 +3101,20 @@
       ]
     },
     "siege_warfare": {
+      "bonus_per_level": {
+        "siegeModeBonus": 4,
+        "structureDamage": 5
+      },
+      "category": "Combat",
+      "description": "Station and structure assault tactics. Bonus damage to stationary targets.",
       "id": "siege_warfare",
-      "name": "Siege Warfare",
       "max_level": 10,
+      "name": "Siege Warfare",
+      "required_skills": {
+        "large_ships": 3,
+        "weapons_advanced": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -1985,9 +3129,15 @@
       ]
     },
     "small_ships": {
+      "bonus_per_level": {
+        "smallShipBonus": 3
+      },
+      "category": "Ships",
+      "description": "Frigates and destroyers. Improved handling of small craft.",
       "id": "small_ships",
-      "name": "Small Ships",
       "max_level": 10,
+      "name": "Small Ships",
+      "training_source": "Purchase unique small ship classes for milestone XP (first Viper, first Hornet, etc.). Earn passive XP by flying small ships: +1 XP per travel/jump, +3 XP per combat tick. Dramatic actions (kills, near-death survival) award large bonuses.",
       "xp_per_level": [
         100,
         300,
@@ -2002,9 +3152,19 @@
       ]
     },
     "smuggling": {
+      "bonus_per_level": {
+        "contrabandProfit": 10,
+        "scanEvasion": 5
+      },
+      "category": "Trading",
+      "description": "Contraband expertise. Evade scans and transport illegal goods.",
       "id": "smuggling",
-      "name": "Smuggling",
       "max_level": 10,
+      "name": "Smuggling",
+      "required_skills": {
+        "trading": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -2019,9 +3179,21 @@
       ]
     },
     "solarian_discipline": {
+      "bonus_per_level": {
+        "accuracy": 3,
+        "fleetCoordination": 2
+      },
+      "category": "Empire",
+      "description": "Military precision of the Solarian Empire. Improved accuracy and fleet coordination.",
+      "empire_restriction": "solarian",
       "id": "solarian_discipline",
-      "name": "Solarian Discipline",
       "max_level": 10,
+      "name": "Solarian Discipline",
+      "required_skills": {
+        "leadership": 3,
+        "targeting": 5
+      },
+      "training_source": "Craft recipes that require this skill (Solarian empire only).",
       "xp_per_level": [
         500,
         1500,
@@ -2036,9 +3208,21 @@
       ]
     },
     "solarian_doctrine": {
+      "bonus_per_level": {
+        "armorRepairSpeed": 3,
+        "shieldRecharge": 3
+      },
+      "category": "Empire",
+      "description": "Advanced Solarian naval tactics. Bonus to shield regeneration and armor repair.",
+      "empire_restriction": "solarian",
       "id": "solarian_doctrine",
-      "name": "Solarian Doctrine",
       "max_level": 10,
+      "name": "Solarian Doctrine",
+      "required_skills": {
+        "shields": 5,
+        "solarian_discipline": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -2053,9 +3237,19 @@
       ]
     },
     "speed_combat": {
+      "bonus_per_level": {
+        "combatSpeed": 3,
+        "evasionChance": 1
+      },
+      "category": "Combat",
+      "description": "High-speed combat piloting. Improved agility in battle.",
       "id": "speed_combat",
-      "name": "Combat Maneuvering",
       "max_level": 10,
+      "name": "Combat Maneuvering",
+      "required_skills": {
+        "evasion": 5
+      },
+      "training_source": "Evade attacks in combat (requires evasion level 5). Trains high-speed combat piloting through defensive maneuvering.",
       "xp_per_level": [
         500,
         1500,
@@ -2070,9 +3264,19 @@
       ]
     },
     "station_management": {
+      "bonus_per_level": {
+        "defenseBonus": 3,
+        "stationEfficiency": 5
+      },
+      "category": "Faction",
+      "description": "Operate player-owned stations. Efficiency bonuses.",
       "id": "station_management",
-      "name": "Station Management",
       "max_level": 10,
+      "name": "Station Management",
+      "required_skills": {
+        "corporation_management": 5
+      },
+      "training_source": "Passive XP every 2 hours from facilities at thriving stations (100% maintenance satisfied). Only well-supplied stations count. Station owners earn double.",
       "xp_per_level": [
         1000,
         3000,
@@ -2087,9 +3291,20 @@
       ]
     },
     "survey": {
+      "bonus_per_level": {
+        "hiddenResourceChance": 3,
+        "surveyAccuracy": 5
+      },
+      "category": "Exploration",
+      "description": "Detailed resource surveys. Find hidden deposits.",
       "id": "survey",
-      "name": "Survey",
       "max_level": 10,
+      "name": "Survey",
+      "required_skills": {
+        "exploration": 3,
+        "scanning": 3
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         300,
         900,
@@ -2104,9 +3319,18 @@
       ]
     },
     "target_painting": {
+      "bonus_per_level": {
+        "paintStrength": 5
+      },
+      "category": "Combat",
+      "description": "Mark targets for increased damage. Team combat support.",
       "id": "target_painting",
-      "name": "Target Painting",
       "max_level": 10,
+      "name": "Target Painting",
+      "required_skills": {
+        "targeting": 5
+      },
+      "training_source": "Hit targets in combat (requires targeting level 5). Trains precision target marking alongside weapon accuracy.",
       "xp_per_level": [
         500,
         1500,
@@ -2121,9 +3345,16 @@
       ]
     },
     "targeting": {
+      "bonus_per_level": {
+        "accuracy": 2,
+        "optimalRange": 3
+      },
+      "category": "Combat",
+      "description": "Precision targeting. Increases accuracy and optimal range.",
       "id": "targeting",
-      "name": "Targeting Systems",
       "max_level": 10,
+      "name": "Targeting Systems",
+      "training_source": "Engage in combat - improves weapon accuracy. Gained through attack actions, regardless of hit/miss.",
       "xp_per_level": [
         100,
         300,
@@ -2138,9 +3369,21 @@
       ]
     },
     "titan_pilot": {
+      "bonus_per_level": {
+        "doomsdayDamage": 10,
+        "titanBonus": 5
+      },
+      "category": "Prestige",
+      "description": "Certified to command the largest capital ships. Required for titans.",
       "id": "titan_pilot",
-      "name": "Titan Pilot",
       "max_level": 5,
+      "name": "Titan Pilot",
+      "required_skills": {
+        "advanced_engineering": 10,
+        "capital_ships": 10,
+        "capital_weapons": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500000,
         1000000,
@@ -2150,9 +3393,16 @@
       ]
     },
     "trading": {
+      "bonus_per_level": {
+        "buyDiscount": 1,
+        "sellBonus": 1
+      },
+      "category": "Trading",
+      "description": "Market knowledge. Better buy/sell prices.",
       "id": "trading",
-      "name": "Trading",
       "max_level": 10,
+      "name": "Trading",
+      "training_source": "Buy or sell items on the player exchange. Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -2167,9 +3417,21 @@
       ]
     },
     "voidborn_entropy": {
+      "bonus_per_level": {
+        "capacitorDrain": 3,
+        "energyWeaponDamage": 3
+      },
+      "category": "Empire",
+      "description": "Channel the void's destructive energy. Bonus to energy weapon damage and capacitor drain.",
+      "empire_restriction": "voidborn",
       "id": "voidborn_entropy",
-      "name": "Voidborn Entropy",
       "max_level": 10,
+      "name": "Voidborn Entropy",
+      "required_skills": {
+        "energy_weapons": 5,
+        "voidborn_phase_mastery": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,
@@ -2184,9 +3446,20 @@
       ]
     },
     "voidborn_phase_mastery": {
+      "bonus_per_level": {
+        "cloakEffectiveness": 4,
+        "phaseShiftDuration": 5
+      },
+      "category": "Empire",
+      "description": "Harness phase technology of the Voidborn. Improved cloaking and dimensional abilities.",
+      "empire_restriction": "voidborn",
       "id": "voidborn_phase_mastery",
-      "name": "Voidborn Phase Mastery",
       "max_level": 10,
+      "name": "Voidborn Phase Mastery",
+      "required_skills": {
+        "cloaking": 5
+      },
+      "training_source": "Craft recipes that require this skill (Voidborn empire only).",
       "xp_per_level": [
         500,
         1500,
@@ -2201,9 +3474,21 @@
       ]
     },
     "warlord": {
+      "bonus_per_level": {
+        "conquestBonus": 5,
+        "warlordAura": 10
+      },
+      "category": "Prestige",
+      "description": "Feared conqueror of systems. Massive combat and intimidation bonuses.",
       "id": "warlord",
-      "name": "Warlord",
       "max_level": 5,
+      "name": "Warlord",
+      "required_skills": {
+        "boarding_combat": 10,
+        "piracy": 10,
+        "siege_warfare": 10
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         200000,
         500000,
@@ -2213,9 +3498,18 @@
       ]
     },
     "warp_efficiency": {
+      "bonus_per_level": {
+        "warpSpeed": 5
+      },
+      "category": "Navigation",
+      "description": "Sub-light engine mastery. Faster in-system travel.",
       "id": "warp_efficiency",
-      "name": "Warp Efficiency",
       "max_level": 10,
+      "name": "Warp Efficiency",
+      "required_skills": {
+        "navigation": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         500,
         1500,
@@ -2230,9 +3524,18 @@
       ]
     },
     "weapon_crafting": {
+      "bonus_per_level": {
+        "weaponCraftingQuality": 5
+      },
+      "category": "Crafting",
+      "description": "Arms manufacturing. Create weapons and ammunition.",
       "id": "weapon_crafting",
-      "name": "Weapon Crafting",
       "max_level": 10,
+      "name": "Weapon Crafting",
+      "required_skills": {
+        "crafting_basic": 3
+      },
+      "training_source": "Craft Weapons category recipes.",
       "xp_per_level": [
         500,
         1500,
@@ -2247,9 +3550,18 @@
       ]
     },
     "weapons_advanced": {
+      "bonus_per_level": {
+        "weaponDamage": 3
+      },
+      "category": "Combat",
+      "description": "Expert weapon systems. Increases damage by 3% per level.",
       "id": "weapons_advanced",
-      "name": "Advanced Weapons",
       "max_level": 10,
+      "name": "Advanced Weapons",
+      "required_skills": {
+        "weapons_basic": 5
+      },
+      "training_source": "Deal damage in combat (requires weapons_basic level 5). Also awarded by some missions.",
       "xp_per_level": [
         500,
         1500,
@@ -2264,9 +3576,15 @@
       ]
     },
     "weapons_basic": {
+      "bonus_per_level": {
+        "weaponDamage": 2
+      },
+      "category": "Combat",
+      "description": "Fundamental weapon operation. Increases damage by 2% per level.",
       "id": "weapons_basic",
-      "name": "Basic Weapons",
       "max_level": 10,
+      "name": "Basic Weapons",
+      "training_source": "Deal damage in combat, destroy enemy ships, or defeat pirates. Also awarded by some missions.",
       "xp_per_level": [
         100,
         300,
@@ -2281,9 +3599,19 @@
       ]
     },
     "weapons_specialization": {
+      "bonus_per_level": {
+        "criticalChance": 2,
+        "weaponDamage": 4
+      },
+      "category": "Combat",
+      "description": "Master weaponeer. Unlocks elite weapons and techniques.",
       "id": "weapons_specialization",
-      "name": "Weapons Mastery",
       "max_level": 5,
+      "name": "Weapons Mastery",
+      "required_skills": {
+        "weapons_advanced": 7
+      },
+      "training_source": "Deal damage in combat (requires weapons_advanced level 7). Also earned by crafting recipes that require this skill.",
       "xp_per_level": [
         10000,
         25000,
@@ -2293,9 +3621,20 @@
       ]
     },
     "wormhole_navigation": {
+      "bonus_per_level": {
+        "exitPrediction": 4,
+        "wormholeStability": 5
+      },
+      "category": "Exploration",
+      "description": "Safely traverse unstable wormholes. Reduced collapse risk.",
       "id": "wormhole_navigation",
-      "name": "Wormhole Navigation",
       "max_level": 10,
+      "name": "Wormhole Navigation",
+      "required_skills": {
+        "astrometrics": 5,
+        "jump_calibration": 5
+      },
+      "training_source": "Not yet available.",
       "xp_per_level": [
         1000,
         3000,

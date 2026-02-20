@@ -1,45 +1,117 @@
 {
-  "armor": 12,
-  "cargo": [
+  "cargo_max": 150,
+  "cargo_used": 117,
+  "class": {
+    "base_armor": 12,
+    "base_fuel": 150,
+    "base_hull": 180,
+    "base_shield": 60,
+    "base_shield_recharge": 1,
+    "base_speed": 2,
+    "build_time": 0,
+    "cargo_capacity": 150,
+    "class": "Mining",
+    "cpu_capacity": 20,
+    "default_modules": [
+      "mining_laser_1",
+      "mining_laser_1"
+    ],
+    "defense_slots": 2,
+    "description": "Dedicated mining vessel with enhanced ore storage.",
+    "id": "mining_barge",
+    "lore": "The Excavator represents the next step up for serious miners. Its\nexpanded cargo hold and multiple utility slots make extended mining\noperations practical, though you'll want an escort in dangerous space.\n",
+    "name": "Excavator",
+    "power_capacity": 40,
+    "price": 5000,
+    "required_skills": {
+      "mining_basic": 2,
+      "small_ships": 3
+    },
+    "scale": 2,
+    "shipyard_tier": 0,
+    "tier": 2,
+    "utility_slots": 4,
+    "weapon_slots": 1
+  },
+  "modules": [
     {
-      "item_id": "ore_copper",
-      "quantity": 18
+      "cpu_usage": 2,
+      "id": "5360ecfefce2e25b5a73978e5d82d05a",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
     },
     {
-      "item_id": "ore_iron",
-      "quantity": 8
-    },
-    {
-      "item_id": "ore_sol_alloy",
-      "quantity": 1
-    },
-    {
-      "item_id": "ore_nickel",
-      "quantity": 7
+      "cpu_usage": 2,
+      "id": "73714bc31a8ae2c6493c507b227f3698",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
     }
   ],
-  "cargo_capacity": 150,
-  "cargo_used": 35,
-  "class_id": "mining_barge",
-  "cpu_capacity": 20,
-  "cpu_used": 4,
-  "fuel": 111,
-  "hull": 180,
-  "id": "e8ac55dc08677fa271e12d3bfcabef56",
-  "max_fuel": 150,
-  "max_hull": 180,
-  "max_shield": 60,
-  "modules": [
-    "5360ecfefce2e25b5a73978e5d82d05a",
-    "73714bc31a8ae2c6493c507b227f3698"
-  ],
-  "name": "Excavator",
-  "owner_id": "9a2bc6b4283e6f8f3421fc1a623bd9dd",
-  "power_capacity": 40,
-  "power_used": 10,
-  "shield": 60,
-  "shield_recharge": 1,
-  "speed": 2,
-  "utility_slots": 4,
-  "weapon_slots": 1
+  "ship": {
+    "armor": 12,
+    "cargo": [
+      {
+        "item_id": "ore_copper",
+        "quantity": 30
+      },
+      {
+        "item_id": "ore_nickel",
+        "quantity": 35
+      },
+      {
+        "item_id": "ore_iron",
+        "quantity": 40
+      },
+      {
+        "item_id": "ore_titanium",
+        "quantity": 10
+      },
+      {
+        "item_id": "ore_sol_alloy",
+        "quantity": 1
+      }
+    ],
+    "cargo_capacity": 150,
+    "cargo_used": 117,
+    "class_id": "mining_barge",
+    "cpu_capacity": 20,
+    "cpu_used": 4,
+    "created_at": "2026-02-13T00:26:17.875882042Z",
+    "defense_slots": 2,
+    "fuel": 147,
+    "hull": 180,
+    "id": "e8ac55dc08677fa271e12d3bfcabef56",
+    "max_fuel": 150,
+    "max_hull": 180,
+    "max_shield": 60,
+    "modules": [
+      "5360ecfefce2e25b5a73978e5d82d05a",
+      "73714bc31a8ae2c6493c507b227f3698"
+    ],
+    "name": "Excavator",
+    "owner_id": "9a2bc6b4283e6f8f3421fc1a623bd9dd",
+    "power_capacity": 40,
+    "power_used": 10,
+    "shield": 60,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 4,
+    "weapon_slots": 1
+  }
 }

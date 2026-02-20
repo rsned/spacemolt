@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <style>
+      .empire-outer-rim {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .empire-outer-rim-filled {
+        fill: currentColor;
+        stroke: none;
+      }
+    </style>
+  </defs>
+  <!-- Outer Rim - Two-peak mountain icon -->
+  <g class="empire-outer-rim">
+    <!-- Main mountain outline -->
+    <path d="M20 75 L40 45 L50 60 L60 35 L80 75" class="empire-outer-rim-filled" opacity="0.1"/>
+    <path d="M20 75 L40 45 L50 60 L60 35 L80 75"/>
+
+    <!-- Left peak detail -->
+    <path d="M32 55 L40 45 L48 55"/>
+
+    <!-- Right peak detail -->
+    <path d="M52 50 L60 35 L68 50"/>
+
+    <!-- Base line -->
+    <line x1="15" y1="75" x2="85" y2="75" stroke-width="3"/>
+
+    <!-- Peak accents -->
+    <circle cx="40" cy="45" r="2" class="empire-outer-rim-filled"/>
+    <circle cx="60" cy="35" r="2" class="empire-outer-rim-filled"/>
+  </g>
+</svg>

@@ -25,7 +25,8 @@
         "richness": 80
       },
       {
-        "remaining": 196,
+        "max_remaining": 200,
+        "remaining": 199,
         "resource_id": "ore_crystal",
         "richness": 8
       }
@@ -56,9 +57,11 @@
       "richness": 80
     },
     {
+      "depletion_percent": 99.5,
+      "max_remaining": 200,
       "name": "Energy Crystal",
-      "remaining": 196,
-      "remaining_display": "196 units",
+      "remaining": 199,
+      "remaining_display": "199 units",
       "resource_id": "ore_crystal",
       "richness": 8
     }

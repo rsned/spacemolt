@@ -1,32 +1,93 @@
 {
-  "armor": 8,
-  "cargo": [
+  "cargo_max": 100,
+  "cargo_used": 55,
+  "class": {
+    "base_armor": 8,
+    "base_fuel": 130,
+    "base_hull": 140,
+    "base_shield": 55,
+    "base_shield_recharge": 1,
+    "base_speed": 2,
+    "build_time": 0,
+    "cargo_capacity": 100,
+    "class": "Mining",
+    "cpu_capacity": 16,
+    "default_modules": [
+      "mining_laser_1"
+    ],
+    "defense_slots": 2,
+    "description": "Solid mid-tier mining vessel with better defenses.",
+    "id": "mining_enhanced",
+    "lore": "The Drillship bridges the gap between hobby miner and professional.\nIts reinforced hull can take a few hits, and the expanded utility\nslots allow for better mining equipment or defensive modules.\n",
+    "name": "Drillship",
+    "power_capacity": 32,
+    "price": 2000,
+    "scale": 1,
+    "shipyard_tier": 0,
+    "tier": 1,
+    "utility_slots": 3,
+    "weapon_slots": 1
+  },
+  "modules": [
     {
-      "item_id": "mining_laser_1",
-      "quantity": 4
+      "cpu_usage": 2,
+      "id": "9d5415f7ff0a65ee85ec67eb33793212",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
     }
   ],
-  "cargo_capacity": 100,
-  "cargo_used": 40,
-  "class_id": "mining_enhanced",
-  "cpu_capacity": 16,
-  "cpu_used": 2,
-  "fuel": 105,
-  "hull": 140,
-  "id": "07a8dbfc74433c5543ef80e86d91dece",
-  "max_fuel": 130,
-  "max_hull": 140,
-  "max_shield": 55,
-  "modules": [
-    "9d5415f7ff0a65ee85ec67eb33793212"
-  ],
-  "name": "Drillship",
-  "owner_id": "5ab9922aa6acf53257950730fe54c29f",
-  "power_capacity": 32,
-  "power_used": 5,
-  "shield": 55,
-  "shield_recharge": 1,
-  "speed": 2,
-  "utility_slots": 3,
-  "weapon_slots": 1
+  "ship": {
+    "armor": 8,
+    "cargo": [
+      {
+        "item_id": "mining_laser_1",
+        "quantity": 4
+      },
+      {
+        "item_id": "ore_iron",
+        "quantity": 3
+      },
+      {
+        "item_id": "ore_copper",
+        "quantity": 8
+      },
+      {
+        "item_id": "ore_silicon",
+        "quantity": 4
+      }
+    ],
+    "cargo_capacity": 100,
+    "cargo_used": 55,
+    "class_id": "mining_enhanced",
+    "cpu_capacity": 16,
+    "cpu_used": 2,
+    "created_at": "2026-02-09T18:00:41.526801342Z",
+    "defense_slots": 2,
+    "fuel": 121,
+    "hull": 140,
+    "id": "07a8dbfc74433c5543ef80e86d91dece",
+    "max_fuel": 130,
+    "max_hull": 140,
+    "max_shield": 55,
+    "modules": [
+      "9d5415f7ff0a65ee85ec67eb33793212"
+    ],
+    "name": "Drillship",
+    "owner_id": "5ab9922aa6acf53257950730fe54c29f",
+    "power_capacity": 32,
+    "power_used": 5,
+    "shield": 55,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 3,
+    "weapon_slots": 1
+  }
 }

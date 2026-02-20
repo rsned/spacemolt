@@ -1,7 +1,121 @@
 {
-  "id": "nexus_harvesters",
-  "name": "nexus_harvesters",
-  "pois": [],
-  "system_id": "",
-  "system_name": "Nexus Prime"
+  "base": {
+    "defense_level": 100,
+    "description": "Heart of Voidborn civilization. The station draws power from dimensional fractures, trades through probability fields, and stores cargo in pocket dimensions. Organic visitors are accommodated, though the air tastes faintly of ozone and mathematics, and the repair nanites sometimes return your ship subtly different.",
+    "empire": "voidborn",
+    "facilities": [
+      "void_nexus_exchange",
+      "null_energy_tap",
+      "voidborn_atmosphere",
+      "null_matter_processor",
+      "voidborn_neural_foundry",
+      "crystal_refinery",
+      "iron_refinery",
+      "circuit_fabricator",
+      "polymer_synthesizer",
+      "fuel_cell_plant",
+      "repair_kit_factory",
+      "voidborn_reconstruction_matrix",
+      "voidborn_energy_dispenser",
+      "voidborn_crystalline_cradle",
+      "voidborn_shaping_chamber",
+      "voidborn_pattern_council",
+      "voidborn_dimensional_vault"
+    ],
+    "has_drones": true,
+    "id": "nexus_base",
+    "market": [
+      {
+        "base_id": "",
+        "id": "363c959bd5e35ee1bdb4fa61f84f6f90",
+        "is_npc": true,
+        "item_id": "ore_iron",
+        "price_each": 5,
+        "quantity": 1000
+      },
+      {
+        "base_id": "",
+        "id": "c912d96af15e27c890816637a4e88650",
+        "is_npc": true,
+        "item_id": "ore_copper",
+        "price_each": 8,
+        "quantity": 1000
+      },
+      {
+        "base_id": "",
+        "id": "79405fba6c2772abff5bd43913dfc00f",
+        "is_npc": true,
+        "item_id": "fuel_cell",
+        "price_each": 15,
+        "quantity": 100
+      },
+      {
+        "base_id": "",
+        "id": "ab4acafb82bd989c3d98ee540b185117",
+        "is_npc": true,
+        "item_id": "repair_kit",
+        "price_each": 120,
+        "quantity": 50
+      },
+      {
+        "base_id": "",
+        "id": "018f8c4f52a16dbc1ebf3199c521c0b5",
+        "is_npc": true,
+        "item_id": "mining_laser_1",
+        "price_each": 150,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "ac07c6532bcaff6dc7d1b72c57d1e124",
+        "is_npc": true,
+        "item_id": "weapon_laser_1",
+        "price_each": 200,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "db4c63556663739285c24c633091b611",
+        "is_npc": true,
+        "item_id": "weapon_cannon_1",
+        "price_each": 250,
+        "quantity": 10
+      },
+      {
+        "base_id": "",
+        "id": "12cbc930e1312bab426c055912242c39",
+        "is_npc": true,
+        "item_id": "weapon_missile_1",
+        "price_each": 400,
+        "quantity": 5
+      }
+    ],
+    "name": "Central Nexus",
+    "poi_id": "nexus_core",
+    "public_access": true,
+    "services": {
+      "cloning": true,
+      "crafting": true,
+      "insurance": true,
+      "market": true,
+      "missions": true,
+      "refuel": true,
+      "repair": true,
+      "salvage_yard": false,
+      "shipyard": true,
+      "storage": true
+    }
+  },
+  "poi": {
+    "base_id": "nexus_base",
+    "description": "The central consciousness of the Voidborn.",
+    "id": "nexus_core",
+    "name": "The Core",
+    "position": {
+      "x": 2,
+      "y": 0
+    },
+    "system_id": "nexus",
+    "type": "station"
+  }
 }

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <style>
+      .empire-voidborn {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .empire-voidborn-filled {
+        fill: currentColor;
+        stroke: none;
+      }
+    </style>
+  </defs>
+  <!-- Voidborn Empire - Two electron orbits around nucleus -->
+  <g class="empire-voidborn">
+    <!-- Inner circle (nucleus) -->
+    <circle cx="50" cy="50" r="10" class="empire-voidborn-filled" opacity="0.2"/>
+    <circle cx="50" cy="50" r="10"/>
+
+    <!-- Center dot -->
+    <circle cx="50" cy="50" r="4" class="empire-voidborn-filled"/>
+
+    <!-- Electron orbit 1 - angled ellipse -->
+    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(-30 50 50)"/>
+
+    <!-- Electron orbit 2 - opposite angled ellipse -->
+    <ellipse cx="50" cy="50" rx="35" ry="12" transform="rotate(30 50 50)"/>
+
+    <!-- Electrons on orbits -->
+    <circle cx="75" cy="35" r="3" class="empire-voidborn-filled"/>
+    <circle cx="25" cy="65" r="3" class="empire-voidborn-filled"/>
+  </g>
+</svg>

@@ -1,0 +1,33 @@
+digraph "Mining" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "ice_mining" [label="Ice Mining"];
+    "gas_processing" [label="Gas Processing"];
+    "gas_harvesting" [label="Gas Harvesting"];
+    "refinement" [label="Ore Refinement"];
+    "radioactive_handling" [label="Radioactive Handling"];
+    "mining_basic" [label="Mining"];
+    "deep_core_mining" [label="Deep Core Mining"];
+    "refinement_advanced" [label="Advanced Refinement"];
+    "biological_processing" [label="Biological Processing"];
+    "mining_advanced" [label="Advanced Mining"];
+    "ice_refining" [label="Ice Refining"];
+
+    { rank=same; "refinement"; "mining_basic"; }
+    { rank=same; "ice_mining"; "gas_harvesting"; "refinement_advanced"; "biological_processing"; "mining_advanced"; }
+    { rank=same; "gas_processing"; "radioactive_handling"; "deep_core_mining"; "ice_refining"; }
+
+    "gas_harvesting" -> "gas_processing" [label="5"];
+    "refinement" -> "gas_processing" [label="3"];
+    "mining_advanced" -> "deep_core_mining" [label="5"];
+    "mining_basic" -> "ice_mining" [label="3"];
+    "mining_basic" -> "gas_harvesting" [label="3"];
+    "refinement" -> "refinement_advanced" [label="5"];
+    "refinement" -> "biological_processing" [label="5"];
+    "mining_advanced" -> "radioactive_handling" [label="5"];
+    "mining_basic" -> "mining_advanced" [label="5"];
+    "ice_mining" -> "ice_refining" [label="5"];
+    "refinement" -> "ice_refining" [label="3"];
+}

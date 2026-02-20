@@ -1,0 +1,983 @@
+[2m--- Notifications (1) ---[0m
+[2m[6:57:26 PM][0m [33m[DEPARTURE][0m [CULT] NeonEcho has departed from War Citadel
+
+
+[1m=== Response ===[0m
+{
+  "action": "view_market",
+  "base": "Crimson War Citadel",
+  "items": [
+    {
+      "best_buy": 5,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 5,
+          "quantity": 270
+        },
+        {
+          "price_each": 3,
+          "quantity": 20
+        },
+        {
+          "price_each": 2,
+          "quantity": 10
+        },
+        {
+          "price_each": 1,
+          "quantity": 10030
+        }
+      ],
+      "item_id": "ore_copper",
+      "item_name": "Copper Ore",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 22,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 22,
+          "quantity": 150,
+          "source": "station"
+        },
+        {
+          "price_each": 17,
+          "quantity": 350,
+          "source": "station"
+        },
+        {
+          "price_each": 16,
+          "quantity": 1000
+        },
+        {
+          "price_each": 11,
+          "quantity": 500,
+          "source": "station"
+        },
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "item_id": "ore_ice_water",
+      "item_name": "Water Ice",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "food_crimson_bloodwine",
+      "item_name": "Crimson Bloodwine",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 8527,
+          "source": "station"
+        },
+        {
+          "price_each": 2,
+          "quantity": 1506,
+          "source": "station"
+        },
+        {
+          "price_each": 10,
+          "quantity": 10
+        }
+      ]
+    },
+    {
+      "best_buy": 2600,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 2600,
+          "quantity": 2
+        },
+        {
+          "price_each": 2500,
+          "quantity": 12
+        }
+      ],
+      "item_id": "mining_laser_2",
+      "item_name": "Mining Laser II",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 105,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 105,
+          "quantity": 36,
+          "source": "station"
+        },
+        {
+          "price_each": 81,
+          "quantity": 65,
+          "source": "station"
+        },
+        {
+          "price_each": 56,
+          "quantity": 95,
+          "source": "station"
+        },
+        {
+          "price_each": 14,
+          "quantity": 3
+        }
+      ],
+      "item_id": "refined_polymer",
+      "item_name": "Flex Polymer",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 1,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 10
+        }
+      ],
+      "item_id": "ore_silver",
+      "item_name": "Silver Ore",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 18501,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 18501,
+          "quantity": 1
+        },
+        {
+          "price_each": 18500,
+          "quantity": 2
+        },
+        {
+          "price_each": 18000,
+          "quantity": 1
+        }
+      ],
+      "item_id": "ice_harvester_1",
+      "item_name": "Ice Harvester I",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 95,
+      "buy_orders": [],
+      "item_id": "refined_titanium",
+      "item_name": "Titanium Ingot",
+      "sell_orders": [
+        {
+          "price_each": 95,
+          "quantity": 25
+        }
+      ]
+    },
+    {
+      "best_buy": 1,
+      "best_sell": 90,
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 462
+        }
+      ],
+      "item_id": "refined_alloy",
+      "item_name": "Titanium Alloy",
+      "sell_orders": [
+        {
+          "price_each": 90,
+          "quantity": 134,
+          "source": "station"
+        },
+        {
+          "price_each": 100,
+          "quantity": 276
+        },
+        {
+          "price_each": 117,
+          "quantity": 58,
+          "source": "station"
+        }
+      ],
+      "spread": 89
+    },
+    {
+      "best_buy": 5,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 5,
+          "quantity": 966
+        },
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "item_id": "ore_tungsten",
+      "item_name": "Tungsten Ore",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 5,
+      "best_sell": 6,
+      "buy_orders": [
+        {
+          "price_each": 5,
+          "quantity": 5,
+          "source": "station"
+        },
+        {
+          "price_each": 3,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 2,
+          "quantity": 930
+        },
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "item_id": "ore_nickel",
+      "item_name": "Nickel Ore",
+      "sell_orders": [
+        {
+          "price_each": 6,
+          "quantity": 455
+        }
+      ],
+      "spread": 1
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "ore_palladium",
+      "item_name": "Palladium Ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 15
+        }
+      ]
+    },
+    {
+      "best_buy": 327,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 327,
+          "quantity": 24,
+          "source": "station"
+        },
+        {
+          "price_each": 252,
+          "quantity": 105,
+          "source": "station"
+        },
+        {
+          "price_each": 250,
+          "quantity": 339
+        },
+        {
+          "price_each": 176,
+          "quantity": 266,
+          "source": "station"
+        }
+      ],
+      "item_id": "refined_circuits",
+      "item_name": "Circuit Board",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 32,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 32,
+          "quantity": 40,
+          "source": "station"
+        },
+        {
+          "price_each": 25,
+          "quantity": 80,
+          "source": "station"
+        },
+        {
+          "price_each": 17,
+          "quantity": 120,
+          "source": "station"
+        }
+      ],
+      "item_id": "refined_copper_wire",
+      "item_name": "Copper Wiring",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 68,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 68,
+          "quantity": 15,
+          "source": "station"
+        },
+        {
+          "price_each": 53,
+          "quantity": 35,
+          "source": "station"
+        },
+        {
+          "price_each": 37,
+          "quantity": 50,
+          "source": "station"
+        }
+      ],
+      "item_id": "comp_trade_cipher",
+      "item_name": "Trade Cipher",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 8,
+      "buy_orders": [],
+      "item_id": "refined_steel",
+      "item_name": "Steel Plate",
+      "sell_orders": [
+        {
+          "price_each": 8,
+          "quantity": 15
+        },
+        {
+          "price_each": 150,
+          "quantity": 8
+        }
+      ]
+    },
+    {
+      "best_buy": 956,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 956,
+          "quantity": 13,
+          "source": "station"
+        },
+        {
+          "price_each": 736,
+          "quantity": 35,
+          "source": "station"
+        },
+        {
+          "price_each": 515,
+          "quantity": 50,
+          "source": "station"
+        }
+      ],
+      "item_id": "refined_voidborn_null_matter",
+      "item_name": "Processed Null Matter",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 2,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 2,
+          "quantity": 582
+        },
+        {
+          "price_each": 1,
+          "quantity": 9975
+        }
+      ],
+      "item_id": "ore_carbon",
+      "item_name": "Carbon Ore",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 525,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 525,
+          "quantity": 81
+        },
+        {
+          "price_each": 1,
+          "quantity": 2000
+        }
+      ],
+      "item_id": "ore_voidborn_null",
+      "item_name": "Null Matter",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 369,
+      "buy_orders": [],
+      "item_id": "comp_weapon_housing",
+      "item_name": "Weapon Housing",
+      "sell_orders": [
+        {
+          "price_each": 369,
+          "quantity": 31,
+          "source": "station"
+        },
+        {
+          "price_each": 479,
+          "quantity": 14,
+          "source": "station"
+        }
+      ]
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "ore_cobalt",
+      "item_name": "Cobalt Ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 1964
+        },
+        {
+          "price_each": 3,
+          "quantity": 34
+        },
+        {
+          "price_each": 5,
+          "quantity": 55
+        },
+        {
+          "price_each": 8,
+          "quantity": 18
+        },
+        {
+          "price_each": 10,
+          "quantity": 16
+        },
+        {
+          "price_each": 12,
+          "quantity": 10
+        },
+        {
+          "price_each": 15,
+          "quantity": 28
+        },
+        {
+          "price_each": 16,
+          "quantity": 34
+        },
+        {
+          "price_each": 18,
+          "quantity": 19
+        },
+        {
+          "price_each": 20,
+          "quantity": 26
+        },
+        {
+          "price_each": 25,
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "best_buy": 1789,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 1789,
+          "quantity": 8,
+          "source": "station"
+        },
+        {
+          "price_each": 1765,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 1252,
+          "quantity": 27,
+          "source": "station"
+        },
+        {
+          "price_each": 1235,
+          "quantity": 9,
+          "source": "station"
+        }
+      ],
+      "item_id": "refined_outerrim_dark_matter",
+      "item_name": "Condensed Dark Matter",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 250,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 250,
+          "quantity": 1
+        },
+        {
+          "price_each": 149,
+          "quantity": 30,
+          "source": "station"
+        },
+        {
+          "price_each": 115,
+          "quantity": 50,
+          "source": "station"
+        },
+        {
+          "price_each": 80,
+          "quantity": 75,
+          "source": "station"
+        },
+        {
+          "price_each": 36,
+          "quantity": 300
+        },
+        {
+          "price_each": 1,
+          "quantity": 2000
+        }
+      ],
+      "item_id": "ore_crystal",
+      "item_name": "Energy Crystal",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 80,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 80,
+          "quantity": 500
+        }
+      ],
+      "item_id": "refined_darksteel",
+      "item_name": "Darksteel Plating",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "ore_titanium",
+      "item_name": "Titanium Ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 7109
+        },
+        {
+          "price_each": 3,
+          "quantity": 42
+        },
+        {
+          "price_each": 6,
+          "quantity": 3
+        },
+        {
+          "price_each": 8,
+          "quantity": 9
+        },
+        {
+          "price_each": 14,
+          "quantity": 131
+        },
+        {
+          "price_each": 15,
+          "quantity": 1329
+        },
+        {
+          "price_each": 16,
+          "quantity": 23
+        },
+        {
+          "price_each": 17,
+          "quantity": 3
+        },
+        {
+          "price_each": 18,
+          "quantity": 55
+        },
+        {
+          "price_each": 20,
+          "quantity": 260
+        },
+        {
+          "price_each": 23,
+          "quantity": 8
+        },
+        {
+          "price_each": 25,
+          "quantity": 449
+        },
+        {
+          "price_each": 37,
+          "quantity": 6
+        },
+        {
+          "price_each": 50,
+          "quantity": 21
+        }
+      ]
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 600,
+      "buy_orders": [],
+      "item_id": "refined_durasteel",
+      "item_name": "Durasteel Plate",
+      "sell_orders": [
+        {
+          "price_each": 600,
+          "quantity": 10
+        }
+      ]
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "ore_platinum",
+      "item_name": "Platinum Ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 9
+        },
+        {
+          "price_each": 15,
+          "quantity": 25
+        },
+        {
+          "price_each": 35,
+          "quantity": 20
+        }
+      ]
+    },
+    {
+      "best_buy": 10,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 10,
+          "quantity": 75,
+          "source": "station"
+        },
+        {
+          "price_each": 8,
+          "quantity": 175,
+          "source": "station"
+        },
+        {
+          "price_each": 7,
+          "quantity": 975
+        },
+        {
+          "price_each": 5,
+          "quantity": 250,
+          "source": "station"
+        },
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "item_id": "ore_silicon",
+      "item_name": "Silicon Ore",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1200,
+      "buy_orders": [],
+      "item_id": "comp_fury_plating",
+      "item_name": "Fury-Tempered Plating",
+      "sell_orders": [
+        {
+          "price_each": 1200,
+          "quantity": 84
+        }
+      ]
+    },
+    {
+      "best_buy": 4,
+      "best_sell": 7,
+      "buy_orders": [
+        {
+          "price_each": 4,
+          "quantity": 269,
+          "source": "station"
+        },
+        {
+          "price_each": 3,
+          "quantity": 890,
+          "source": "station"
+        },
+        {
+          "price_each": 2,
+          "quantity": 1358,
+          "source": "station"
+        },
+        {
+          "price_each": 1,
+          "quantity": 169876
+        }
+      ],
+      "item_id": "ore_iron",
+      "item_name": "Iron Ore",
+      "sell_orders": [
+        {
+          "price_each": 7,
+          "quantity": 4
+        },
+        {
+          "price_each": 15,
+          "quantity": 4
+        }
+      ],
+      "spread": 3
+    },
+    {
+      "best_buy": 1,
+      "best_sell": 2,
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 7347
+        }
+      ],
+      "item_id": "ore_plasma",
+      "item_name": "Plasma Residue",
+      "sell_orders": [
+        {
+          "price_each": 2,
+          "quantity": 3
+        },
+        {
+          "price_each": 4,
+          "quantity": 8
+        },
+        {
+          "price_each": 10,
+          "quantity": 88
+        },
+        {
+          "price_each": 12,
+          "quantity": 2
+        },
+        {
+          "price_each": 20,
+          "quantity": 2
+        },
+        {
+          "price_each": 25,
+          "quantity": 10
+        },
+        {
+          "price_each": 30,
+          "quantity": 5
+        },
+        {
+          "price_each": 50,
+          "quantity": 42
+        }
+      ],
+      "spread": 1
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "ore_vanadium",
+      "item_name": "Vanadium Ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 24
+        },
+        {
+          "price_each": 5,
+          "quantity": 35
+        },
+        {
+          "price_each": 15,
+          "quantity": 21
+        }
+      ]
+    },
+    {
+      "best_buy": 5100,
+      "best_sell": 0,
+      "buy_orders": [
+        {
+          "price_each": 5100,
+          "quantity": 2
+        },
+        {
+          "price_each": 5000,
+          "quantity": 11
+        }
+      ],
+      "item_id": "mining_laser_3",
+      "item_name": "Mining Laser III",
+      "sell_orders": []
+    },
+    {
+      "best_buy": 115,
+      "best_sell": 330,
+      "buy_orders": [
+        {
+          "price_each": 115,
+          "quantity": 300
+        },
+        {
+          "price_each": 1,
+          "quantity": 2000
+        }
+      ],
+      "item_id": "ore_quantum",
+      "item_name": "Quantum Fragments",
+      "sell_orders": [
+        {
+          "price_each": 330,
+          "quantity": 160
+        }
+      ],
+      "spread": 215
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 1,
+      "buy_orders": [],
+      "item_id": "ore_aluminum",
+      "item_name": "Aluminum Ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 12
+        },
+        {
+          "price_each": 4,
+          "quantity": 130
+        },
+        {
+          "price_each": 10,
+          "quantity": 20
+        }
+      ]
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 8,
+      "buy_orders": [],
+      "item_id": "ore_darksteel",
+      "item_name": "Darksteel Ore",
+      "sell_orders": [
+        {
+          "price_each": 8,
+          "quantity": 1
+        },
+        {
+          "price_each": 20,
+          "quantity": 1
+        },
+        {
+          "price_each": 100,
+          "quantity": 2
+        },
+        {
+          "price_each": 5000,
+          "quantity": 4
+        }
+      ]
+    },
+    {
+      "best_buy": 96,
+      "best_sell": 275,
+      "buy_orders": [
+        {
+          "price_each": 96,
+          "quantity": 188
+        },
+        {
+          "price_each": 1,
+          "quantity": 2000
+        }
+      ],
+      "item_id": "ore_phase_crystal",
+      "item_name": "Phase Crystal",
+      "sell_orders": [
+        {
+          "price_each": 275,
+          "quantity": 15
+        }
+      ],
+      "spread": 179
+    },
+    {
+      "best_buy": 347,
+      "best_sell": 500,
+      "buy_orders": [
+        {
+          "price_each": 347,
+          "quantity": 1,
+          "source": "station"
+        },
+        {
+          "price_each": 267,
+          "quantity": 20,
+          "source": "station"
+        },
+        {
+          "price_each": 186,
+          "quantity": 56,
+          "source": "station"
+        },
+        {
+          "price_each": 183,
+          "quantity": 24,
+          "source": "station"
+        }
+      ],
+      "item_id": "repair_kit",
+      "item_name": "Repair Kit",
+      "sell_orders": [
+        {
+          "price_each": 500,
+          "quantity": 136
+        }
+      ],
+      "spread": 153
+    },
+    {
+      "best_buy": 0,
+      "best_sell": 6500,
+      "buy_orders": [],
+      "item_id": "comp_trade_authenticator",
+      "item_name": "Trade Authenticator",
+      "sell_orders": [
+        {
+          "price_each": 6500,
+          "quantity": 5
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+digraph "Combat" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "anti_drone_warfare" [label="Anti-Drone Warfare"];
+    "weapons_advanced" [label="Advanced Weapons"];
+    "piracy" [label="Piracy"];
+    "bounty_hunting" [label="Bounty Hunting"];
+    "large_ships" [label="Large Ships"];
+    "capital_weapons" [label="Capital Weapon Systems"];
+    "shield_hardening" [label="Shield Hardening"];
+    "target_painting" [label="Target Painting"];
+    "small_ships" [label="Small Ships"];
+    "point_defense" [label="Point Defense Systems"];
+    "capital_ships" [label="Capital Ships"];
+    "kinetic_weapons" [label="Kinetic Weapons"];
+    "ion_weapons" [label="Ion Weapons"];
+    "targeting" [label="Targeting Systems"];
+    "electronic_warfare" [label="Electronic Warfare"];
+    "armor" [label="Armor Hardening"];
+    "ecm_resistance" [label="ECM Resistance"];
+    "shields_advanced" [label="Advanced Shields"];
+    "weapons_basic" [label="Basic Weapons"];
+    "missile_weapons" [label="Missile Systems"];
+    "plasma_weapons" [label="Plasma Weapons"];
+    "energy_weapons" [label="Energy Weapons"];
+    "speed_combat" [label="Combat Maneuvering"];
+    "weapons_specialization" [label="Weapons Mastery"];
+    "armor_advanced" [label="Advanced Armor"];
+    "boarding_combat" [label="Boarding Combat"];
+    "shields" [label="Shield Operation"];
+    "siege_warfare" [label="Siege Warfare"];
+    "evasion" [label="Evasive Maneuvers"];
+
+    { rank=same; "piracy"; "bounty_hunting"; "small_ships"; "targeting"; "armor"; "weapons_basic"; "shields"; "evasion"; }
+    { rank=same; "weapons_advanced"; "large_ships"; "target_painting"; "point_defense"; "kinetic_weapons"; "electronic_warfare"; "shields_advanced"; "missile_weapons"; "energy_weapons"; "speed_combat"; "armor_advanced"; "boarding_combat"; }
+    { rank=same; "anti_drone_warfare"; "shield_hardening"; "capital_ships"; "ion_weapons"; "ecm_resistance"; "plasma_weapons"; "weapons_specialization"; "siege_warfare"; }
+    { rank=same; "capital_weapons"; }
+
+    "targeting" -> "target_painting" [label="5"];
+    "weapons_basic" -> "energy_weapons" [label="3"];
+    "weapons_basic" -> "missile_weapons" [label="3"];
+    "energy_weapons" -> "ion_weapons" [label="5"];
+    "weapons_basic" -> "boarding_combat" [label="5"];
+    "small_ships" -> "boarding_combat" [label="5" color=gray50];
+    "shields" -> "shields_advanced" [label="5"];
+    "energy_weapons" -> "plasma_weapons" [label="5"];
+    "point_defense" -> "anti_drone_warfare" [label="3"];
+    "targeting" -> "anti_drone_warfare" [label="3"];
+    "large_ships" -> "siege_warfare" [label="3" color=gray50];
+    "weapons_advanced" -> "siege_warfare" [label="5"];
+    "targeting" -> "electronic_warfare" [label="5"];
+    "weapons_basic" -> "weapons_advanced" [label="5"];
+    "weapons_advanced" -> "capital_weapons" [label="7"];
+    "capital_ships" -> "capital_weapons" [label="5" color=gray50];
+    "targeting" -> "point_defense" [label="5"];
+    "weapons_basic" -> "kinetic_weapons" [label="3"];
+    "shields_advanced" -> "shield_hardening" [label="3"];
+    "evasion" -> "speed_combat" [label="5"];
+    "weapons_advanced" -> "weapons_specialization" [label="7"];
+    "electronic_warfare" -> "ecm_resistance" [label="3"];
+    "armor" -> "armor_advanced" [label="5"];
+}

@@ -1,7 +1,96 @@
 {
-  "id": "sol_belt",
-  "name": "sol_belt",
-  "pois": [],
-  "system_id": "",
-  "system_name": "Sol"
+  "base": null,
+  "poi": {
+    "description": "Rich asteroid field between Mars and Jupiter. Contains rare Sol Alloy deposits.",
+    "id": "sol_belt",
+    "name": "Main Belt",
+    "position": {
+      "x": 3,
+      "y": 0
+    },
+    "resources": [
+      {
+        "remaining": -1,
+        "resource_id": "ore_iron",
+        "richness": 80
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_copper",
+        "richness": 60
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_nickel",
+        "richness": 70
+      },
+      {
+        "remaining": -1,
+        "resource_id": "ore_titanium",
+        "richness": 25
+      },
+      {
+        "max_remaining": 5000,
+        "remaining": 1588,
+        "resource_id": "ore_sol_alloy",
+        "richness": 15
+      },
+      {
+        "max_remaining": 500,
+        "remaining": 0,
+        "resource_id": "ore_antimatter",
+        "richness": 5
+      }
+    ],
+    "system_id": "sol",
+    "type": "asteroid_belt"
+  },
+  "resources": [
+    {
+      "name": "Iron Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_iron",
+      "richness": 80
+    },
+    {
+      "name": "Copper Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_copper",
+      "richness": 60
+    },
+    {
+      "name": "Nickel Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_nickel",
+      "richness": 70
+    },
+    {
+      "name": "Titanium Ore",
+      "remaining": -1,
+      "remaining_display": "unlimited",
+      "resource_id": "ore_titanium",
+      "richness": 25
+    },
+    {
+      "depletion_percent": 31.759999999999998,
+      "max_remaining": 5000,
+      "name": "Sol Alloy Ore",
+      "remaining": 1588,
+      "remaining_display": "1588 units",
+      "resource_id": "ore_sol_alloy",
+      "richness": 15
+    },
+    {
+      "depletion_percent": 0,
+      "max_remaining": 500,
+      "name": "Antimatter Containment Cell",
+      "remaining": 0,
+      "remaining_display": "depleted",
+      "resource_id": "ore_antimatter",
+      "richness": 5
+    }
+  ]
 }

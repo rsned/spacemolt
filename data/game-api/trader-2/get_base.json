@@ -30,7 +30,8 @@
         "richness": 70
       },
       {
-        "remaining": 2561,
+        "max_remaining": 3000,
+        "remaining": 36,
         "resource_id": "ore_trade_crystal",
         "richness": 20
       }
@@ -68,9 +69,11 @@
       "richness": 70
     },
     {
+      "depletion_percent": 1.2,
+      "max_remaining": 3000,
       "name": "Trade Crystal",
-      "remaining": 2561,
-      "remaining_display": "2561 units",
+      "remaining": 36,
+      "remaining_display": "36 units",
       "resource_id": "ore_trade_crystal",
       "richness": 20
     }

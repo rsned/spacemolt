@@ -1,0 +1,55 @@
+digraph "Empire" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "outer_rim_scavenger" [label="Outer Rim Scavenger"];
+    "solarian_discipline" [label="Solarian Discipline"];
+    "leadership" [label="Leadership"];
+    "cloaking" [label="Cloaking"];
+    "repair_systems" [label="Repair Systems"];
+    "nebula_communion" [label="Nebula Communion"];
+    "fleet_coordination" [label="Fleet Coordination"];
+    "nebula_attunement" [label="Nebula Attunement"];
+    "energy_weapons" [label="Energy Weapons"];
+    "solarian_doctrine" [label="Solarian Doctrine"];
+    "shields" [label="Shield Operation"];
+    "fuel_efficiency" [label="Fuel Efficiency"];
+    "piracy" [label="Piracy"];
+    "armor" [label="Armor Hardening"];
+    "weapons_basic" [label="Basic Weapons"];
+    "outer_rim_survival" [label="Outer Rim Survival"];
+    "targeting" [label="Targeting Systems"];
+    "scanning" [label="Scanning"];
+    "crimson_bloodlust" [label="Crimson Bloodlust"];
+    "voidborn_entropy" [label="Voidborn Entropy"];
+    "voidborn_phase_mastery" [label="Voidborn Phase Mastery"];
+    "salvaging_advanced" [label="Advanced Salvaging"];
+    "gas_harvesting" [label="Gas Harvesting"];
+    "crimson_fury" [label="Crimson Fury"];
+
+    { rank=same; "leadership"; "shields"; "fuel_efficiency"; "piracy"; "armor"; "weapons_basic"; "targeting"; "scanning"; }
+    { rank=same; "solarian_discipline"; "cloaking"; "repair_systems"; "fleet_coordination"; "energy_weapons"; "salvaging_advanced"; "gas_harvesting"; "crimson_fury"; }
+    { rank=same; "nebula_attunement"; "solarian_doctrine"; "outer_rim_survival"; "crimson_bloodlust"; "voidborn_phase_mastery"; }
+    { rank=same; "outer_rim_scavenger"; "nebula_communion"; "voidborn_entropy"; }
+
+    "crimson_fury" -> "crimson_bloodlust" [label="5"];
+    "piracy" -> "crimson_bloodlust" [label="3" color=gray50];
+    "fleet_coordination" -> "nebula_communion" [label="3" color=gray50];
+    "nebula_attunement" -> "nebula_communion" [label="5"];
+    "weapons_basic" -> "crimson_fury" [label="5" color=gray50];
+    "armor" -> "crimson_fury" [label="3" color=gray50];
+    "energy_weapons" -> "voidborn_entropy" [label="5" color=gray50];
+    "voidborn_phase_mastery" -> "voidborn_entropy" [label="5"];
+    "outer_rim_survival" -> "outer_rim_scavenger" [label="5"];
+    "salvaging_advanced" -> "outer_rim_scavenger" [label="3" color=gray50];
+    "shields" -> "solarian_doctrine" [label="5" color=gray50];
+    "solarian_discipline" -> "solarian_doctrine" [label="5"];
+    "leadership" -> "solarian_discipline" [label="3" color=gray50];
+    "targeting" -> "solarian_discipline" [label="5" color=gray50];
+    "cloaking" -> "voidborn_phase_mastery" [label="5" color=gray50];
+    "gas_harvesting" -> "nebula_attunement" [label="5" color=gray50];
+    "scanning" -> "nebula_attunement" [label="3" color=gray50];
+    "fuel_efficiency" -> "outer_rim_survival" [label="3" color=gray50];
+    "repair_systems" -> "outer_rim_survival" [label="5" color=gray50];
+}

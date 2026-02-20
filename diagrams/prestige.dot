@@ -1,0 +1,81 @@
+digraph "Prestige" {
+    rankdir=LR;
+    splines=polyline;
+    node [shape=box];
+
+    "boarding_combat" [label="Boarding Combat"];
+    "speed_combat" [label="Combat Maneuvering"];
+    "master_craftsman" [label="Master Craftsman"];
+    "advanced_engineering" [label="Advanced Engineering"];
+    "drone_interfacing" [label="Drone Interfacing"];
+    "drone_control" [label="Drone Control"];
+    "warlord" [label="Warlord"];
+    "fleet_command" [label="Fleet Command"];
+    "quality_control" [label="Quality Control"];
+    "bulk_trading" [label="Bulk Trading"];
+    "market_analysis" [label="Market Analysis"];
+    "pathfinder" [label="Pathfinder"];
+    "legendary_pilot" [label="Legendary Pilot"];
+    "evasion" [label="Evasive Maneuvers"];
+    "titan_pilot" [label="Titan Pilot"];
+    "astrometrics" [label="Astrometrics"];
+    "grand_admiral" [label="Grand Admiral"];
+    "crafting_mastery" [label="Crafting Mastery"];
+    "deep_core_mining" [label="Deep Core Mining"];
+    "covert_ops" [label="Covert Operations"];
+    "negotiation" [label="Negotiation"];
+    "capital_weapons" [label="Capital Weapon Systems"];
+    "combat_drones" [label="Combat Drones"];
+    "leadership" [label="Leadership"];
+    "mass_production" [label="Mass Production"];
+    "shadow_operative" [label="Shadow Operative"];
+    "espionage" [label="Espionage"];
+    "cloaking_advanced" [label="Advanced Cloaking"];
+    "master_trader" [label="Master Trader"];
+    "drone_sovereign" [label="Drone Sovereign"];
+    "capital_ships" [label="Capital Ships"];
+    "industrial_magnate" [label="Industrial Magnate"];
+    "industrial_ships" [label="Industrial Ships"];
+    "piracy" [label="Piracy"];
+    "first_contact" [label="First Contact Protocols"];
+    "siege_warfare" [label="Siege Warfare"];
+    "wormhole_navigation" [label="Wormhole Navigation"];
+    "blueprint_research" [label="Blueprint Research"];
+    "weapons_specialization" [label="Weapons Mastery"];
+
+    { rank=same; "evasion"; "leadership"; "piracy"; }
+    { rank=same; "boarding_combat"; "speed_combat"; "advanced_engineering"; "drone_control"; "quality_control"; "bulk_trading"; "market_analysis"; "astrometrics"; "crafting_mastery"; "deep_core_mining"; "covert_ops"; "negotiation"; "combat_drones"; "espionage"; "cloaking_advanced"; "capital_ships"; "industrial_ships"; "first_contact"; "siege_warfare"; "blueprint_research"; "weapons_specialization"; }
+    { rank=same; "master_craftsman"; "drone_interfacing"; "warlord"; "fleet_command"; "legendary_pilot"; "capital_weapons"; "mass_production"; "shadow_operative"; "master_trader"; "wormhole_navigation"; }
+    { rank=same; "pathfinder"; "titan_pilot"; "grand_admiral"; "drone_sovereign"; "industrial_magnate"; }
+
+    "evasion" -> "legendary_pilot" [label="10" color=gray50];
+    "speed_combat" -> "legendary_pilot" [label="10" color=gray50];
+    "weapons_specialization" -> "legendary_pilot" [label="5" color=gray50];
+    "advanced_engineering" -> "titan_pilot" [label="10" color=gray50];
+    "capital_ships" -> "titan_pilot" [label="10" color=gray50];
+    "capital_weapons" -> "titan_pilot" [label="5" color=gray50];
+    "drone_control" -> "drone_sovereign" [label="10" color=gray50];
+    "drone_interfacing" -> "drone_sovereign" [label="5" color=gray50];
+    "combat_drones" -> "drone_sovereign" [label="10" color=gray50];
+    "piracy" -> "warlord" [label="10" color=gray50];
+    "siege_warfare" -> "warlord" [label="10" color=gray50];
+    "boarding_combat" -> "warlord" [label="10" color=gray50];
+    "first_contact" -> "pathfinder" [label="7" color=gray50];
+    "wormhole_navigation" -> "pathfinder" [label="7" color=gray50];
+    "astrometrics" -> "pathfinder" [label="10" color=gray50];
+    "fleet_command" -> "grand_admiral" [label="10" color=gray50];
+    "leadership" -> "grand_admiral" [label="10" color=gray50];
+    "capital_ships" -> "grand_admiral" [label="10" color=gray50];
+    "crafting_mastery" -> "master_craftsman" [label="5" color=gray50];
+    "quality_control" -> "master_craftsman" [label="10" color=gray50];
+    "blueprint_research" -> "master_craftsman" [label="10" color=gray50];
+    "mass_production" -> "industrial_magnate" [label="10" color=gray50];
+    "deep_core_mining" -> "industrial_magnate" [label="10" color=gray50];
+    "industrial_ships" -> "industrial_magnate" [label="10" color=gray50];
+    "covert_ops" -> "shadow_operative" [label="10" color=gray50];
+    "espionage" -> "shadow_operative" [label="10" color=gray50];
+    "cloaking_advanced" -> "shadow_operative" [label="10" color=gray50];
+    "market_analysis" -> "master_trader" [label="10" color=gray50];
+    "negotiation" -> "master_trader" [label="10" color=gray50];
+    "bulk_trading" -> "master_trader" [label="7" color=gray50];
+}

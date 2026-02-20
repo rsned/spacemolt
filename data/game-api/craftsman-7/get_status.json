@@ -1,168 +1,107 @@
 {
-  "Mu": {},
-  "Username": "Emerson 'Erect' Edwards",
-  "Password": "878f3ecd249fd3afd50cea78fd99f787dd8f7ba4b99e861e73662cae4e7ffbf6",
-  "Doc": true,
-  "CurrentSystem": "krynn",
-  "CurrentPOI": "krynn_mines",
-  "Traveling": false,
-  "TravelProgress": null,
-  "ServerVersion": "0.90.3",
-  "Player": {
-    "id": "8d09df228da85904ba65e4e07e71e02f",
-    "username": "Emerson 'Erect' Edwards",
-    "empire": "crimson",
-    "credits": 123170,
-    "current_system": "krynn",
+  "modules": [
+    {
+      "cpu_usage": 2,
+      "id": "9f91f386da0f0f89da9b3226e9af89f3",
+      "mining_power": 5,
+      "mining_range": 5,
+      "name": "Mining Laser I",
+      "power_usage": 5,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "type": "mining",
+      "type_id": "mining_laser_1",
+      "wear": 0,
+      "wear_status": "Pristine"
+    }
+  ],
+  "player": {
+    "anonymous": false,
+    "clan_tag": "",
+    "completed_missions": null,
+    "created_at": "2026-02-08T08:50:31.181211836Z",
+    "credits": 124287,
     "current_poi": "krynn_mines",
     "current_ship_id": "25292548ae32180a8c62b0189c4f462e",
+    "current_system": "krynn",
+    "empire": "crimson",
     "home_base": "krynn_base",
-    "docked_at_base": "",
-    "primary_color": "#FFFFFF",
-    "secondary_color": "#000000",
-    "anonymous": false,
+    "id": "8d09df228da85904ba65e4e07e71e02f",
     "is_cloaked": false,
+    "last_active_at": "2026-02-20T10:11:02.336182136Z",
+    "last_chat_check": "0001-01-01T00:00:00Z",
+    "last_login_at": "2026-02-20T10:11:02.336180876Z",
+    "primary_color": "#FFFFFF",
+    "revealed_pois": null,
+    "secondary_color": "#000000",
     "skills": {
-      "fuel_efficiency": {
-        "level": 1,
-        "xp": 0
-      },
-      "mining_advanced": {
-        "level": 3,
-        "xp": 0
-      },
-      "mining_basic": {
-        "level": 7,
-        "xp": 0
-      },
-      "small_ships": {
-        "level": 1,
-        "xp": 0
-      },
-      "trading": {
-        "level": 3,
-        "xp": 0
-      }
+      "fuel_efficiency": 2,
+      "mining_advanced": 4,
+      "mining_basic": 8,
+      "small_ships": 2,
+      "trading": 3
     },
     "stats": {
-      "ships_destroyed": 0,
-      "times_destroyed": 0,
-      "ore_mined": 8889,
-      "credits_earned": 127446,
-      "credits_spent": 4376,
-      "trades_completed": 897,
-      "systems_discovered": 0,
+      "bases_destroyed": 0,
+      "credits_earned": 128880,
+      "credits_spent": 4693,
+      "distance_traveled": 0,
       "items_crafted": 0,
-      "missions_completed": 0
-    }
+      "ore_mined": 13633,
+      "pirates_destroyed": 0,
+      "ships_destroyed": 0,
+      "ships_lost": 0,
+      "systems_explored": 0,
+      "time_played": 0,
+      "trades_completed": 897
+    },
+    "status_message": "",
+    "username": "Emerson 'Erect' Edwards"
   },
-  "Credits": 123170,
-  "skill_xp": {
-    "fuel_efficiency": 189,
-    "mining_advanced": 391,
-    "mining_basic": 489,
-    "small_ships": 189,
-    "trading": 319
-  },
-  "SkillNextLevelXP": null,
-  "SkillDefinitions": null,
-  "Ship": {
-    "id": "25292548ae32180a8c62b0189c4f462e",
-    "owner_id": "8d09df228da85904ba65e4e07e71e02f",
-    "class_id": "mining_enhanced",
-    "name": "Drillship",
-    "hull": 140,
-    "max_hull": 140,
-    "shield": 55,
-    "max_shield": 55,
-    "shield_recharge": 1,
+  "ship": {
     "armor": 8,
-    "speed": 2,
-    "fuel": 117,
-    "max_fuel": 130,
-    "cargo_used": 91,
-    "cargo_capacity": 100,
-    "cpu_used": 2,
-    "cpu_capacity": 16,
-    "power_used": 5,
-    "power_capacity": 32,
-    "weapon_slots": 1,
-    "defense_slots": 2,
-    "utility_slots": 3,
-    "modules": [
-      "9f91f386da0f0f89da9b3226e9af89f3"
-    ],
     "cargo": [
       {
         "item_id": "mining_laser_1",
         "quantity": 3
       },
       {
-        "item_id": "ore_iron",
-        "quantity": 28
-      },
-      {
         "item_id": "ore_titanium",
-        "quantity": 21
+        "quantity": 24
       },
       {
         "item_id": "ore_cobalt",
-        "quantity": 8
+        "quantity": 2
       },
       {
-        "item_id": "ore_darksteel",
-        "quantity": 2
+        "item_id": "ore_iron",
+        "quantity": 20
       }
-    ]
-  },
-  "Fuel": 117,
-  "MaxFuel": 130,
-  "Hull": 140,
-  "MaxHull": 140,
-  "Cargo": [
-    {
-      "item_id": "mining_laser_1",
-      "quantity": 3
-    },
-    {
-      "item_id": "ore_iron",
-      "quantity": 28
-    },
-    {
-      "item_id": "ore_titanium",
-      "quantity": 21
-    },
-    {
-      "item_id": "ore_cobalt",
-      "quantity": 8
-    },
-    {
-      "item_id": "ore_darksteel",
-      "quantity": 2
-    }
-  ],
-  "MaxCargo": 100,
-  "System": {
-    "id": "",
-    "name": "Krynn",
-    "description": "The war-forged capital of the Crimson Pact.",
-    "empire": "",
-    "police_level": 0,
-    "pois": [],
-    "connections": [],
-    "discovered": false,
-    "position": {
-      "x": 0,
-      "y": 0
-    },
-    "ShipPOI": "krynn_mines"
-  },
-  "CurrentTick": 91303,
-  "LastMapUpdate": "0001-01-01T00:00:00Z",
-  "Nearby": [],
-  "InCombat": false,
-  "PirateName": "",
-  "PirateTier": "",
-  "PirateID": "",
-  "LastDamage": 0
+    ],
+    "cargo_capacity": 100,
+    "cargo_used": 76,
+    "class_id": "mining_enhanced",
+    "cpu_capacity": 16,
+    "cpu_used": 2,
+    "created_at": "2026-02-11T11:36:17.471065696Z",
+    "defense_slots": 2,
+    "fuel": 111,
+    "hull": 140,
+    "id": "25292548ae32180a8c62b0189c4f462e",
+    "max_fuel": 130,
+    "max_hull": 140,
+    "max_shield": 55,
+    "modules": [
+      "9f91f386da0f0f89da9b3226e9af89f3"
+    ],
+    "name": "Drillship",
+    "owner_id": "8d09df228da85904ba65e4e07e71e02f",
+    "power_capacity": 32,
+    "power_used": 5,
+    "shield": 55,
+    "shield_recharge": 1,
+    "speed": 2,
+    "utility_slots": 3,
+    "weapon_slots": 1
+  }
 }
