@@ -311,6 +311,10 @@ function App() {
               activeMissions={observer.activeMissions}
               onGetMissions={isLive ? observer.getMissions : () => {}}
               onGetActiveMissions={isLive ? observer.getActiveMissions : () => {}}
+              onRefresh={isLive ? () => {
+                observer.getMissions();
+                observer.getActiveMissions();
+              } : undefined}
               onAcceptMission={isLive ? observer.acceptMission : () => {}}
               onAbandonMission={isLive ? observer.abandonMission : () => {}}
               onCompleteMission={isLive ? observer.completeMission : () => {}}
@@ -326,7 +330,10 @@ function App() {
 
         {activeView === 'insurance' && (
           <div className="max-w-3xl">
-            <InsurancePanel player={player || mockPlayer} />
+            <InsurancePanel
+              player={player || mockPlayer}
+              onRefresh={isLive ? () => observer.sendCommand('get_insurance_quote', {}) : undefined}
+            />
           </div>
         )}
 
@@ -334,6 +341,11 @@ function App() {
           <StoragePanel
             player={player || mockPlayer}
             onCommand={isLive ? observer.sendCommand : () => {}}
+            onRefresh={isLive ? () => {
+              observer.sendCommand('get_cargo', {});
+              observer.sendCommand('view_storage', {});
+              observer.sendCommand('view_faction_storage', {});
+            } : undefined}
             cargoData={observer.cargoData}
             storageData={observer.storageData}
             factionStorageData={observer.factionStorageData}
