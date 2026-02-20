@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Player, Skill, OwnedShip, ShipClass, CargoData, StorageData, FactionStorageData, Mission, ActiveMission } from '../types/game';
+import type { Player, Skill, OwnedShip, ShipClass, CargoData, StorageData, FactionStorageData, Mission, ActiveMission, MarketData, MarketItem } from '../types/game';
 import { useSkillDefinitions, getNextLevelXP } from './useSkillDefinitions';
 
 export interface AgentInfo {
@@ -340,6 +340,7 @@ export interface ObserverState {
   factionStorageData: FactionStorageData | null;
   availableMissions: Mission[];
   activeMissions: ActiveMission[];
+  marketData: MarketData | null;
 }
 
 export function useObserver(wsUrl: string) {
@@ -363,6 +364,7 @@ export function useObserver(wsUrl: string) {
     factionStorageData: null,
     availableMissions: [],
     activeMissions: [],
+    marketData: null,
   });
 
   const connect = useCallback(() => {
@@ -418,6 +420,7 @@ export function useObserver(wsUrl: string) {
       factionStorageData: null,
       availableMissions: [],
       activeMissions: [],
+      marketData: null,
     });
   }, []);
 
@@ -426,7 +429,7 @@ export function useObserver(wsUrl: string) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
     gameStateRef.current = {};
-    setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [], myShips: [], catalogShips: [], activeShipId: null, cargoData: null, storageData: null, factionStorageData: null }));
+    setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [], myShips: [], catalogShips: [], activeShipId: null, cargoData: null, storageData: null, factionStorageData: null, marketData: null }));
     ws.send(JSON.stringify({ type: 'subscribe', agent: agentName }));
   }, []);
 
@@ -557,6 +560,27 @@ export function useObserver(wsUrl: string) {
             setState(s => ({ ...s, storageData: respPayload as unknown as StorageData }));
           } else if (action === 'view_faction_storage') {
             setState(s => ({ ...s, factionStorageData: respPayload as unknown as FactionStorageData }));
+          } else if (action === 'view_market' && Array.isArray(respPayload.items)) {
+            setState(s => ({
+              ...s,
+              marketData: {
+                action: 'view_market',
+                base: (respPayload.base as string) || '',
+                items: respPayload.items as unknown as MarketItem[],
+              },
+            }));
+          }
+
+          // Handle view_market response via items key in ok payload (no action field)
+          if (!action && Array.isArray(respPayload.items) && typeof respPayload.base === 'string') {
+            setState(s => ({
+              ...s,
+              marketData: {
+                action: 'view_market',
+                base: respPayload.base as string,
+                items: respPayload.items as unknown as MarketItem[],
+              },
+            }));
           }
 
           // Handle mission-related command responses
@@ -675,6 +699,10 @@ export function useObserver(wsUrl: string) {
     sendCommand('complete_mission', { mission_id: missionId });
   }, [sendCommand]);
 
+  const getMarket = useCallback(() => {
+    sendCommand('view_market', {});
+  }, [sendCommand]);
+
   return {
     ...state,
     connect,
@@ -691,6 +719,7 @@ export function useObserver(wsUrl: string) {
     acceptMission,
     abandonMission,
     completeMission,
+    getMarket,
   };
 }
 

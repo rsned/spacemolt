@@ -118,6 +118,26 @@ export interface MarketOrder {
   value: number;
 }
 
+export interface MarketOrderEntry {
+  price_each: number;
+  quantity: number;
+}
+
+export interface MarketItem {
+  item_id: string;
+  item_name: string;
+  best_buy: number;
+  best_sell: number;
+  buy_orders: MarketOrderEntry[];
+  sell_orders: MarketOrderEntry[];
+}
+
+export interface MarketData {
+  action: string;
+  base: string;
+  items: MarketItem[];
+}
+
 export interface Recipe {
   name: string;
   category: string;

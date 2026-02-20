@@ -19,7 +19,6 @@ import { useSystemMap } from './lib/useSystemMap';
 import {
   mockPlayer,
   mockSystemPOIs,
-  mockMarketOrders,
   mockRecipes,
   mockJumpGates,
 } from './lib/mockData';
@@ -39,6 +38,12 @@ function App() {
   const player = observer.player;
   const skills = observer.skills;
   const systemMapData = useSystemMap(player?.location.systemId);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[App] Player location:', player?.location);
+    console.log('[App] System map data:', systemMapData);
+  }, [player?.location, systemMapData]);
 
   // Auto-dock after travel to a station completes
   useEffect(() => {
@@ -242,9 +247,9 @@ function App() {
 
         {activeView === 'system' && (
           <SystemMap
-            pois={systemMapData?.pois ?? mockSystemPOIs}
+            pois={systemMapData?.pois ?? []}
             player={player}
-            jumpGates={systemMapData?.jumpGates ?? mockJumpGates}
+            jumpGates={systemMapData?.jumpGates ?? []}
             policeLevel={systemMapData?.policeLevel ?? 0}
             onTravelToPOI={isLive ? (poiId, poiType) => {
               observer.sendCommand('travel', { target_poi: poiId });
@@ -267,8 +272,13 @@ function App() {
         )}
 
         {activeView === 'market' && (
-          <div className="max-w-3xl">
-            <MarketPanel player={player || mockPlayer} orders={mockMarketOrders} />
+          <div className="max-w-6xl">
+            <MarketPanel
+              player={player || mockPlayer}
+              marketData={observer.marketData}
+              onGetMarket={isLive ? observer.getMarket : () => {}}
+              onCommand={isLive ? observer.sendCommand : () => {}}
+            />
           </div>
         )}
 
