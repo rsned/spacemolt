@@ -74,6 +74,27 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
     <div className="flex gap-4 w-full">
       {/* Left Half */}
       <div className="w-1/2 space-y-4">
+        {/* Header with Refresh */}
+        <div className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-sci-fi text-cyan-400 text-sm">SHIPYARD</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onGetMyShips && onGetMyShips(true)}
+                className="text-xs text-gray-400 hover:text-cyan-400 border border-gray-600 hover:border-cyan-600 px-2 py-1 rounded"
+              >
+                MY SHIPS
+              </button>
+              <button
+                onClick={() => onGetCatalogShips && onGetCatalogShips(true)}
+                className="text-xs text-gray-400 hover:text-cyan-400 border border-gray-600 hover:border-cyan-600 px-2 py-1 rounded"
+              >
+                CATALOG
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Active Ship */}
         <div className="bg-spacemolt-panel border-2 border-cyan-600 rounded-lg p-4">
           <div className="text-xs text-cyan-400 font-sci-fi mb-2">ACTIVE SHIP</div>

@@ -4,6 +4,7 @@ import type { Player, CargoData, StorageData, FactionStorageData, CargoItem } fr
 interface StoragePanelProps {
   player: Player;
   onCommand: (command: string, payload: Record<string, unknown>) => void;
+  onRefresh?: () => void;
   cargoData: CargoData | null;
   storageData: StorageData | null;
   factionStorageData: FactionStorageData | null;
@@ -33,6 +34,7 @@ function formatItemName(id: string): string {
 export const StoragePanel: React.FC<StoragePanelProps> = ({
   player,
   onCommand,
+  onRefresh,
   cargoData,
   storageData,
   factionStorageData,
@@ -84,7 +86,17 @@ export const StoragePanel: React.FC<StoragePanelProps> = ({
     <div className="flex gap-4 w-full">
       {/* Left half — source selection */}
       <div className="w-1/2 space-y-3">
-        <h3 className="font-sci-fi text-cyan-400 mb-3">STORAGE SOURCES</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-sci-fi text-cyan-400">STORAGE SOURCES</h3>
+          {onRefresh && (
+            <button
+              onClick={() => onRefresh()}
+              className="text-xs text-gray-400 hover:text-cyan-400 border border-gray-600 hover:border-cyan-600 px-2 py-1 rounded"
+            >
+              REFRESH
+            </button>
+          )}
+        </div>
 
         {/* Ship Cargo */}
         <div className={cardClass(source === 'cargo')} onClick={() => setSource('cargo')}>

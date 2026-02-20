@@ -6,6 +6,7 @@ interface MissionsPanelProps {
   activeMissions: ActiveMission[];
   onGetMissions: () => void;
   onGetActiveMissions: () => void;
+  onRefresh?: () => void;
   onAcceptMission: (missionId: string) => void;
   onAbandonMission: (missionId: string) => void;
   onCompleteMission: (missionId: string) => void;
@@ -16,6 +17,7 @@ export const MissionsPanel: React.FC<MissionsPanelProps> = ({
   activeMissions,
   onGetMissions,
   onGetActiveMissions,
+  onRefresh,
   onAcceptMission,
   onAbandonMission,
   onCompleteMission,
@@ -76,7 +78,17 @@ export const MissionsPanel: React.FC<MissionsPanelProps> = ({
 
   return (
     <div className="bg-spacemolt-panel border border-spacemolt-border rounded-lg p-4">
-      <h3 className="font-sci-fi text-cyan-400 mb-4">MISSIONS</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-sci-fi text-cyan-400">MISSIONS</h3>
+        {onRefresh && (
+          <button
+            onClick={() => onRefresh()}
+            className="text-xs text-gray-400 hover:text-cyan-400 border border-gray-600 hover:border-cyan-600 px-2 py-1 rounded"
+          >
+            REFRESH
+          </button>
+        )}
+      </div>
 
       {/* Tab navigation */}
       <div className="flex gap-2 mb-4">
