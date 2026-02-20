@@ -770,13 +770,13 @@ func (m *KBMemory) KnownSystems() []game.SystemData {
 
 	result := make([]game.SystemData, len(kbSystems))
 	for i, sys := range kbSystems {
-		// Convert []string to []ConnectionInfo
+		// Convert []SystemConnection to []ConnectionInfo
 		conns := make([]game.ConnectionInfo, len(sys.Connections))
-		for j, connID := range sys.Connections {
+		for j, conn := range sys.Connections {
 			conns[j] = game.ConnectionInfo{
-				SystemID: connID,
-				Name:     connID,
-				Distance: 0,
+				SystemID: conn.SystemID,
+				Name:     conn.SystemID,
+				Distance: conn.Distance,
 			}
 		}
 		result[i] = game.SystemData{
@@ -838,10 +838,13 @@ func (m *KBMemory) GetUnknownConnections(systemID string) ([]string, error) {
 
 // RememberSystem stores a system in memory
 func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) error {
-	// Convert []ConnectionInfo to []string
-	connectionIDs := make([]string, len(sys.Connections))
+	// Convert []ConnectionInfo to []SystemConnection
+	connections := make([]knowledge.SystemConnection, len(sys.Connections))
 	for i, conn := range sys.Connections {
-		connectionIDs[i] = conn.SystemID
+		connections[i] = knowledge.SystemConnection{
+			SystemID: conn.SystemID,
+			Distance: conn.Distance,
+		}
 	}
 	kbSys := knowledge.System{
 		ID:              sys.ID,
@@ -851,7 +854,7 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 		SecurityStatus:  sys.SecurityStatus,
 		Empire:          sys.Empire,
 		IsStronghold:    sys.IsStronghold,
-		Connections:     connectionIDs,
+		Connections:     connections,
 		LastUpdatedTick: m.currentTick,
 	}
 

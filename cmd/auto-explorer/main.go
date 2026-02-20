@@ -119,13 +119,16 @@ func updateCaptainsLog(agentID string, client *game.Client, expState *Exploratio
 	}
 }
 
-// extractSystemIDs extracts system IDs from ConnectionInfo array
-func extractSystemIDs(conns []game.ConnectionInfo) []string {
-	systemIDs := make([]string, len(conns))
+// extractConnections converts game ConnectionInfo to knowledge SystemConnection.
+func extractConnections(conns []game.ConnectionInfo) []knowledge.SystemConnection {
+	result := make([]knowledge.SystemConnection, len(conns))
 	for i, conn := range conns {
-		systemIDs[i] = conn.SystemID
+		result[i] = knowledge.SystemConnection{
+			SystemID: conn.SystemID,
+			Distance: conn.Distance,
+		}
 	}
-	return systemIDs
+	return result
 }
 
 func needsRefuel(state *game.State) bool {
@@ -163,7 +166,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 		PoliceLevel:     state.System.PoliceLevel,
 		Empire:          state.System.Empire,
 		IsStronghold:    state.System.IsStronghold,
-		Connections:     extractSystemIDs(state.System.Connections),
+		Connections:     extractConnections(state.System.Connections),
 		LastUpdatedTick: state.CurrentTick,
 		Position: game.Position{
 			X: state.System.Position.X,

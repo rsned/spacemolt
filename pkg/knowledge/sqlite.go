@@ -121,12 +121,13 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	}
 
 	// Store connections
-	for _, connID := range sys.Connections {
+	for _, conn := range sys.Connections {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO connections (from_system, to_system, last_updated_tick)
-			VALUES (?, ?, 0)
-		`, sys.ID, connID); err != nil {
-			return fmt.Errorf("failed to store connection %s -> %s: %w", sys.ID, connID, err)
+			INSERT INTO connections (from_system, to_system, distance, last_updated_tick)
+			VALUES (?, ?, ?, 0)
+			ON CONFLICT(from_system, to_system) DO UPDATE SET distance = excluded.distance
+		`, sys.ID, conn.SystemID, conn.Distance); err != nil {
+			return fmt.Errorf("failed to store connection %s -> %s: %w", sys.ID, conn.SystemID, err)
 		}
 	}
 
@@ -163,11 +164,11 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 		return fmt.Errorf("failed to upsert system from map: %w", err)
 	}
 
-	// Store connections
+	// Store connections (map data has no distance — default to 0, don't overwrite existing)
 	for _, connID := range data.Connections {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO connections (from_system, to_system, last_updated_tick)
-			VALUES (?, ?, 0)
+			INSERT OR IGNORE INTO connections (from_system, to_system, distance, last_updated_tick)
+			VALUES (?, ?, 0, 0)
 		`, data.ID, connID); err != nil {
 			return fmt.Errorf("failed to store connection %s -> %s: %w", data.ID, connID, err)
 		}
@@ -201,7 +202,7 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 
 	// Load connections
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT to_system FROM connections WHERE from_system = ?
+		SELECT to_system, distance FROM connections WHERE from_system = ?
 	`, systemID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query connections: %w", err)
@@ -209,8 +210,8 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
-		var conn string
-		if err := rows.Scan(&conn); err != nil {
+		var conn SystemConnection
+		if err := rows.Scan(&conn.SystemID, &conn.Distance); err != nil {
 			return nil, fmt.Errorf("failed to scan connection: %w", err)
 		}
 		sys.Connections = append(sys.Connections, conn)
@@ -829,7 +830,7 @@ func (kb *SQLiteKB) GetSystems() []System {
 
 	// Load all connections in a single query and map them
 	connRows, err := kb.db.Query(`
-		SELECT from_system, to_system FROM connections
+		SELECT from_system, to_system, distance FROM connections
 	`)
 	if err != nil {
 		return systems // Return systems without connections if query fails
@@ -837,13 +838,14 @@ func (kb *SQLiteKB) GetSystems() []System {
 	defer func() { _ = connRows.Close() }()
 
 	// Create a map of connections
-	connMap := make(map[string][]string)
+	connMap := make(map[string][]SystemConnection)
 	for connRows.Next() {
-		var from, to string
-		if err := connRows.Scan(&from, &to); err != nil {
+		var from string
+		var conn SystemConnection
+		if err := connRows.Scan(&from, &conn.SystemID, &conn.Distance); err != nil {
 			continue
 		}
-		connMap[from] = append(connMap[from], to)
+		connMap[from] = append(connMap[from], conn)
 	}
 
 	// Add connections to systems

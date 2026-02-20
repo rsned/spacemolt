@@ -30,8 +30,8 @@ func TestRememberConnection_Deduplicates(t *testing.T) {
 	if len(conns) != 1 {
 		t.Errorf("Expected 1 connection, got %d", len(conns))
 	}
-	if len(conns) > 0 && conns[0] != "B" {
-		t.Errorf("Expected connection to B, got %s", conns[0])
+	if len(conns) > 0 && conns[0].SystemID != "B" {
+		t.Errorf("Expected connection to B, got %s", conns[0].SystemID)
 	}
 }
 

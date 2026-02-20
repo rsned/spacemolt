@@ -15,7 +15,7 @@ type MemoryKB struct {
 	systems         map[string]*System
 	pois            map[string]*POI
 	bases           map[string]*SpaceBase
-	connections     map[string][]string     // from_system -> []to_system
+	connections     map[string][]SystemConnection // from_system -> []to_system
 	experiences     map[string][]Experience  // agent_id -> experiences
 	agents          map[string]*AgentInfo
 	marketSnapshots []MarketSnapshot
@@ -41,7 +41,7 @@ func NewMemoryKB() *MemoryKB {
 		systems:         make(map[string]*System),
 		pois:            make(map[string]*POI),
 		bases:           make(map[string]*SpaceBase),
-		connections:     make(map[string][]string),
+		connections:     make(map[string][]SystemConnection),
 		experiences:     make(map[string][]Experience),
 		agents:          make(map[string]*AgentInfo),
 		marketSnapshots: make([]MarketSnapshot, 0),
@@ -113,10 +113,10 @@ func (kb *MemoryKB) GetUnknownConnections(ctx context.Context, systemID string) 
 	// Get all connections from this system
 	connections := kb.connections[systemID]
 
-	for _, connID := range connections {
+	for _, conn := range connections {
 		// Check if the connected system exists in knowledge base
-		if _, ok := kb.systems[connID]; !ok {
-			unknown = append(unknown, connID)
+		if _, ok := kb.systems[conn.SystemID]; !ok {
+			unknown = append(unknown, conn.SystemID)
 		}
 	}
 
@@ -130,12 +130,12 @@ func (kb *MemoryKB) RememberConnection(ctx context.Context, fromSystem, toSystem
 
 	// Check for existing connection to avoid duplicates
 	for _, existing := range kb.connections[fromSystem] {
-		if existing == toSystem {
+		if existing.SystemID == toSystem {
 			return nil
 		}
 	}
 
-	kb.connections[fromSystem] = append(kb.connections[fromSystem], toSystem)
+	kb.connections[fromSystem] = append(kb.connections[fromSystem], SystemConnection{SystemID: toSystem})
 
 	return nil
 }
@@ -282,6 +282,12 @@ func (kb *MemoryKB) GetSystems() []System {
 	return systems
 }
 
+// SystemConnection pairs a connected system ID with the jump distance.
+type SystemConnection struct {
+	SystemID string
+	Distance int
+}
+
 // System represents knowledge about a solar system
 // Wraps game.SystemData with exploration metadata
 type System struct {
@@ -293,7 +299,7 @@ type System struct {
 	SecurityStatus  string // e.g. "high_sec", "low_sec", "null_sec"
 	Empire          string
 	IsStronghold    bool
-	Connections     []string
+	Connections     []SystemConnection
 	POIs            []string
 	LastUpdatedTick int64
 }

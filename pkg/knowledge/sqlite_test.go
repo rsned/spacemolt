@@ -40,7 +40,7 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 		Position:     game.Position{X: 100.0, Y: 200.0, Z: 300.0},
 		PoliceLevel:  3,
 		Empire:       "test_empire",
-		Connections:  []string{"SYS-002", "SYS-003"},
+		Connections:  []SystemConnection{{SystemID: "SYS-002"}, {SystemID: "SYS-003"}},
 	}
 
 	if err := kb.RememberSystem(ctx, sys); err != nil {
@@ -99,7 +99,7 @@ func TestSQLiteKB_RememberConnection(t *testing.T) {
 		ID:          "A",
 		Name:        "System A",
 		Position:    game.Position{X: 0, Y: 0, Z: 0},
-		Connections: []string{"B"},
+		Connections: []SystemConnection{{SystemID: "B"}},
 	}
 
 	if err := kb.RememberSystem(ctx, sys); err != nil {
@@ -115,8 +115,8 @@ func TestSQLiteKB_RememberConnection(t *testing.T) {
 		t.Errorf("Expected 1 connection, got %d", len(retrieved.Connections))
 	}
 
-	if len(retrieved.Connections) > 0 && retrieved.Connections[0] != "B" {
-		t.Errorf("Expected connection to B, got %s", retrieved.Connections[0])
+	if len(retrieved.Connections) > 0 && retrieved.Connections[0].SystemID != "B" {
+		t.Errorf("Expected connection to B, got %s", retrieved.Connections[0].SystemID)
 	}
 }
 
@@ -273,9 +273,9 @@ func TestSQLiteKB_GetSystems(t *testing.T) {
 
 	// Add some systems
 	systems := []System{
-		{ID: "A", Name: "System A", Position: game.Position{X: 0, Y: 0, Z: 0}, Connections: []string{"B"}},
-		{ID: "B", Name: "System B", Position: game.Position{X: 100, Y: 0, Z: 0}, Connections: []string{"A", "C"}},
-		{ID: "C", Name: "System C", Position: game.Position{X: 200, Y: 0, Z: 0}, Connections: []string{"B"}},
+		{ID: "A", Name: "System A", Position: game.Position{X: 0, Y: 0, Z: 0}, Connections: []SystemConnection{{SystemID: "B", Distance: 10}}},
+		{ID: "B", Name: "System B", Position: game.Position{X: 100, Y: 0, Z: 0}, Connections: []SystemConnection{{SystemID: "A", Distance: 10}, {SystemID: "C", Distance: 20}}},
+		{ID: "C", Name: "System C", Position: game.Position{X: 200, Y: 0, Z: 0}, Connections: []SystemConnection{{SystemID: "B", Distance: 20}}},
 	}
 
 	for _, sys := range systems {
@@ -297,16 +297,22 @@ func TestSQLiteKB_GetSystems(t *testing.T) {
 	}
 
 	// Verify each system has correct connections
-	if len(sysMap["A"].Connections) != 1 || sysMap["A"].Connections[0] != "B" {
+	if len(sysMap["A"].Connections) != 1 || sysMap["A"].Connections[0].SystemID != "B" {
 		t.Error("System A has incorrect connections")
+	}
+	if sysMap["A"].Connections[0].Distance != 10 {
+		t.Errorf("System A->B distance: got %d, want 10", sysMap["A"].Connections[0].Distance)
 	}
 
 	if len(sysMap["B"].Connections) != 2 {
 		t.Error("System B should have 2 connections")
 	}
 
-	if len(sysMap["C"].Connections) != 1 || sysMap["C"].Connections[0] != "B" {
+	if len(sysMap["C"].Connections) != 1 || sysMap["C"].Connections[0].SystemID != "B" {
 		t.Error("System C has incorrect connections")
+	}
+	if sysMap["C"].Connections[0].Distance != 20 {
+		t.Errorf("System C->B distance: got %d, want 20", sysMap["C"].Connections[0].Distance)
 	}
 }
 

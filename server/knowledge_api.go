@@ -34,6 +34,7 @@ type connectedSystemJSON struct {
 	ID       string        `json:"id"`
 	Name     string        `json:"name"`
 	Position game.Position `json:"position"`
+	Distance int           `json:"distance"`
 }
 
 // systemDetailResponse is the response shape for GET /api/systems/{id}.
@@ -72,9 +73,9 @@ type baseDetailResponse struct {
 }
 
 func systemToJSON(sys knowledge.System) systemJSON {
-	conns := sys.Connections
-	if conns == nil {
-		conns = []string{}
+	conns := make([]string, len(sys.Connections))
+	for i, c := range sys.Connections {
+		conns[i] = c.SystemID
 	}
 	return systemJSON{
 		ID:             sys.ID,
@@ -160,12 +161,13 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 	}
 
 	connections := make([]connectedSystemJSON, 0, len(sys.Connections))
-	for _, connID := range sys.Connections {
-		if connSys, ok := systemIndex[connID]; ok {
+	for _, conn := range sys.Connections {
+		if connSys, ok := systemIndex[conn.SystemID]; ok {
 			connections = append(connections, connectedSystemJSON{
 				ID:       connSys.ID,
 				Name:     connSys.Name,
 				Position: connSys.Position,
+				Distance: conn.Distance,
 			})
 		}
 	}
