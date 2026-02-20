@@ -11,6 +11,7 @@ bin/*
 *.db-shm
 *.db-wal
 data/agents/*/credentials.json
+data/game-api/
 
 ##############################
 # Vim swap files
