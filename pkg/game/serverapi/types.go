@@ -295,13 +295,28 @@ type ResourceDisplay struct {
 
 // SkillDefinition holds static skill data.
 type SkillDefinition struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Description   string             `json:"description,omitempty"`
-	Category      string             `json:"category,omitempty"`
-	MaxLevel      int                `json:"max_level"`
-	XpPerLevel    []float64          `json:"xp_per_level"`
-	BonusPerLevel map[string]float64 `json:"bonus_per_level,omitempty"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description,omitempty"`
+	Category       string             `json:"category,omitempty"`
+	MaxLevel       int                `json:"max_level"`
+	XpPerLevel     []float64          `json:"xp_per_level"`
+	BonusPerLevel  map[string]float64 `json:"bonus_per_level,omitempty"`
+	RequiredSkills map[string]int     `json:"required_skills,omitempty"`
+	TrainingSource string             `json:"training_source,omitempty"`
+}
+
+// CatalogItem represents an item from the catalog API.
+type CatalogItem struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Category    string `json:"category,omitempty"`
+	Rarity      string `json:"rarity,omitempty"`
+	Size        int    `json:"size,omitempty"`
+	BaseValue   int    `json:"base_value,omitempty"`
+	Stackable   bool   `json:"stackable,omitempty"`
+	Tradeable   bool   `json:"tradeable,omitempty"`
 }
 
 // PlayerSkill represents a player's progress in a specific skill.
@@ -317,44 +332,57 @@ type PlayerSkill struct {
 
 // ShipClass represents a ship class definition with stats, price, and requirements.
 type ShipClass struct {
-	ID                string              `json:"id"`
-	Name              string              `json:"name"`
-	Class             string              `json:"class,omitempty"`
-	Description       string              `json:"description,omitempty"`
-	Price             int                 `json:"price"`
-	BaseHull          int                 `json:"base_hull"`
-	BaseShield        int                 `json:"base_shield,omitempty"`
-	BaseShieldRecharge int               `json:"base_shield_recharge,omitempty"`
-	BaseArmor         int                 `json:"base_armor,omitempty"`
-	BaseSpeed         int                 `json:"base_speed"`
-	BaseFuel          int                 `json:"base_fuel"`
-	CargoCapacity     int                 `json:"cargo_capacity"`
-	CPUCapacity       int                 `json:"cpu_capacity"`
-	PowerCapacity     int                 `json:"power_capacity"`
-	WeaponSlots       int                 `json:"weapon_slots"`
-	DefenseSlots      int                 `json:"defense_slots"`
-	UtilitySlots      int                 `json:"utility_slots"`
-	RequiredSkills    map[string]int      `json:"required_skills,omitempty"`
-	DefaultModules    []string            `json:"default_modules,omitempty"`
-	TowSpeedBonus     int                 `json:"tow_speed_bonus,omitempty"`
-	RequiredItems     []map[string]any    `json:"required_items,omitempty"`
+	ID                 string         `json:"id"`
+	Name               string         `json:"name"`
+	Class              string         `json:"class,omitempty"`
+	Category           string         `json:"category,omitempty"`
+	Description        string         `json:"description,omitempty"`
+	Lore               string         `json:"lore,omitempty"`
+	Faction            string         `json:"faction,omitempty"`
+	Tier               int            `json:"tier,omitempty"`
+	Scale              int            `json:"scale,omitempty"`
+	Price              int            `json:"price"`
+	BaseHull           int            `json:"base_hull"`
+	BaseShield         int            `json:"base_shield,omitempty"`
+	BaseShieldRecharge int            `json:"base_shield_recharge,omitempty"`
+	BaseArmor          int            `json:"base_armor,omitempty"`
+	BaseSpeed          int            `json:"base_speed"`
+	BaseFuel           int            `json:"base_fuel"`
+	CargoCapacity      int            `json:"cargo_capacity"`
+	CPUCapacity        int            `json:"cpu_capacity"`
+	PowerCapacity      int            `json:"power_capacity"`
+	WeaponSlots        int            `json:"weapon_slots"`
+	DefenseSlots       int            `json:"defense_slots"`
+	UtilitySlots       int            `json:"utility_slots"`
+	BuildTime          int            `json:"build_time,omitempty"`
+	ShipyardTier       int            `json:"shipyard_tier,omitempty"`
+	StarterShip        bool           `json:"starter_ship,omitempty"`
+	RequiredSkills     map[string]int `json:"required_skills,omitempty"`
+	DefaultModules     []string       `json:"default_modules,omitempty"`
+	BuildMaterials     []RecipeItem   `json:"build_materials,omitempty"`
+	FlavorTags         []string       `json:"flavor_tags,omitempty"`
+	TowSpeedBonus      int            `json:"tow_speed_bonus,omitempty"`
 }
 
 // Recipe represents a crafting recipe.
 type Recipe struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Category       string         `json:"category"`
-	RequiredSkills map[string]int `json:"requiredSkills,omitempty"`
-	Inputs         []RecipeItem   `json:"inputs"`
-	Outputs        []RecipeItem   `json:"outputs"`
-	CraftingTime   int            `json:"craftingTime"`
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description,omitempty"`
+	Category        string         `json:"category"`
+	RequiredSkills  map[string]int `json:"required_skills,omitempty"`
+	Inputs          []RecipeItem   `json:"inputs"`
+	Outputs         []RecipeItem   `json:"outputs"`
+	CraftingTime    int            `json:"crafting_time"`
+	BaseQuality     int            `json:"base_quality,omitempty"`
+	SkillQualityMod int            `json:"skill_quality_mod,omitempty"`
 }
 
 // RecipeItem represents an item requirement or output in a recipe.
 type RecipeItem struct {
-	ItemID   string `json:"itemId"`
-	Quantity int    `json:"quantity"`
+	ItemID     string `json:"item_id"`
+	Quantity   int    `json:"quantity"`
+	QualityMod bool   `json:"quality_mod,omitempty"`
 }
 
 // Wreck represents a destroyed ship's wreckage.

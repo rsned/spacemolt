@@ -74,6 +74,35 @@ type Base interface {
 	// Skills
 	GetSkill(id string) (*Skill, error)
 	GetSkills() []Skill
+	StoreSkills(ctx context.Context, skills []Skill) error
+
+	// Catalog: Items
+	StoreItems(ctx context.Context, items []CatalogItem) error
+	GetItem(ctx context.Context, itemID string) (*CatalogItem, error)
+	GetItems(ctx context.Context) ([]CatalogItem, error)
+	GetItemsByCategory(ctx context.Context, category string) ([]CatalogItem, error)
+
+	// Catalog: Ship Classes
+	StoreShipClasses(ctx context.Context, classes []ShipClassDef) error
+	GetShipClass(ctx context.Context, classID string) (*ShipClassDef, error)
+	GetShipClasses(ctx context.Context) ([]ShipClassDef, error)
+
+	// Catalog: Recipes
+	StoreRecipes(ctx context.Context, recipes []RecipeDef) error
+	GetRecipe(ctx context.Context, recipeID string) (*RecipeDef, error)
+	GetRecipes(ctx context.Context) ([]RecipeDef, error)
+	GetRecipesByCategory(ctx context.Context, category string) ([]RecipeDef, error)
+
+	// Player State
+	StorePlayer(ctx context.Context, player PlayerRecord) error
+	GetPlayer(ctx context.Context, playerID string) (*PlayerRecord, error)
+	StorePlayerSkills(ctx context.Context, playerID string, skills []PlayerSkillRecord) error
+	GetPlayerSkills(ctx context.Context, playerID string) ([]PlayerSkillRecord, error)
+	StoreShip(ctx context.Context, ship ShipRecord) error
+	GetShip(ctx context.Context, shipID string) (*ShipRecord, error)
+	GetPlayerShips(ctx context.Context, playerID string) ([]ShipRecord, error)
+	StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error
+	GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error)
 }
 
 // MarketListing represents a single market listing

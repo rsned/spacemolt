@@ -16,11 +16,23 @@ type MemoryKB struct {
 	pois            map[string]*POI
 	bases           map[string]*SpaceBase
 	connections     map[string][]string     // from_system -> []to_system
-	experiences     map[string][]Experience // agent_id -> experiences
+	experiences     map[string][]Experience  // agent_id -> experiences
 	agents          map[string]*AgentInfo
 	marketSnapshots []MarketSnapshot
-	marketItems     map[string]struct{} // set of unique item IDs
+	marketItems     map[string]struct{}      // set of unique item IDs
 	shipListings    []ShipListings
+
+	// Catalog data
+	items           map[string]CatalogItem
+	shipClasses     map[string]ShipClassDef
+	skills          map[string]Skill
+	recipes         map[string]RecipeDef
+
+	// Player state
+	players         map[string]PlayerRecord
+	playerSkills    map[string][]PlayerSkillRecord // playerID -> skills
+	ships           map[string]ShipRecord
+	missionsByBase  map[string][]MissionTemplate   // baseID -> missions
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -35,6 +47,14 @@ func NewMemoryKB() *MemoryKB {
 		marketSnapshots: make([]MarketSnapshot, 0),
 		marketItems:     make(map[string]struct{}),
 		shipListings:    make([]ShipListings, 0),
+		items:           make(map[string]CatalogItem),
+		shipClasses:     make(map[string]ShipClassDef),
+		skills:          make(map[string]Skill),
+		recipes:         make(map[string]RecipeDef),
+		players:         make(map[string]PlayerRecord),
+		playerSkills:    make(map[string][]PlayerSkillRecord),
+		ships:           make(map[string]ShipRecord),
+		missionsByBase:  make(map[string][]MissionTemplate),
 	}
 }
 
@@ -708,4 +728,213 @@ func (kb *MemoryKB) HasShipListingsToday(ctx context.Context, systemID, stationI
 		}
 	}
 	return false, nil
+}
+
+// --- Catalog: Items ---
+
+func (kb *MemoryKB) StoreItems(ctx context.Context, items []CatalogItem) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.items = make(map[string]CatalogItem, len(items))
+	for _, item := range items {
+		kb.items[item.ID] = item
+	}
+	return nil
+}
+
+func (kb *MemoryKB) GetItem(ctx context.Context, itemID string) (*CatalogItem, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if item, ok := kb.items[itemID]; ok {
+		return &item, nil
+	}
+	return nil, nil
+}
+
+func (kb *MemoryKB) GetItems(ctx context.Context) ([]CatalogItem, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	items := make([]CatalogItem, 0, len(kb.items))
+	for _, item := range kb.items {
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+func (kb *MemoryKB) GetItemsByCategory(ctx context.Context, category string) ([]CatalogItem, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var items []CatalogItem
+	for _, item := range kb.items {
+		if item.Category == category {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
+// --- Catalog: Ship Classes ---
+
+func (kb *MemoryKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.shipClasses = make(map[string]ShipClassDef, len(classes))
+	for _, sc := range classes {
+		kb.shipClasses[sc.ID] = sc
+	}
+	return nil
+}
+
+func (kb *MemoryKB) GetShipClass(ctx context.Context, classID string) (*ShipClassDef, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if sc, ok := kb.shipClasses[classID]; ok {
+		return &sc, nil
+	}
+	return nil, nil
+}
+
+func (kb *MemoryKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	classes := make([]ShipClassDef, 0, len(kb.shipClasses))
+	for _, sc := range kb.shipClasses {
+		classes = append(classes, sc)
+	}
+	return classes, nil
+}
+
+// --- Catalog: Recipes ---
+
+func (kb *MemoryKB) StoreRecipes(ctx context.Context, recipes []RecipeDef) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.recipes = make(map[string]RecipeDef, len(recipes))
+	for _, r := range recipes {
+		kb.recipes[r.ID] = r
+	}
+	return nil
+}
+
+func (kb *MemoryKB) GetRecipe(ctx context.Context, recipeID string) (*RecipeDef, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if r, ok := kb.recipes[recipeID]; ok {
+		return &r, nil
+	}
+	return nil, nil
+}
+
+func (kb *MemoryKB) GetRecipes(ctx context.Context) ([]RecipeDef, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	recipes := make([]RecipeDef, 0, len(kb.recipes))
+	for _, r := range kb.recipes {
+		recipes = append(recipes, r)
+	}
+	return recipes, nil
+}
+
+func (kb *MemoryKB) GetRecipesByCategory(ctx context.Context, category string) ([]RecipeDef, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var recipes []RecipeDef
+	for _, r := range kb.recipes {
+		if r.Category == category {
+			recipes = append(recipes, r)
+		}
+	}
+	return recipes, nil
+}
+
+// --- Player State ---
+
+func (kb *MemoryKB) StorePlayer(ctx context.Context, player PlayerRecord) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.players[player.ID] = player
+	return nil
+}
+
+func (kb *MemoryKB) GetPlayer(ctx context.Context, playerID string) (*PlayerRecord, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if p, ok := kb.players[playerID]; ok {
+		return &p, nil
+	}
+	return nil, nil
+}
+
+func (kb *MemoryKB) StorePlayerSkills(ctx context.Context, playerID string, skills []PlayerSkillRecord) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.playerSkills[playerID] = skills
+	return nil
+}
+
+func (kb *MemoryKB) GetPlayerSkills(ctx context.Context, playerID string) ([]PlayerSkillRecord, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	return kb.playerSkills[playerID], nil
+}
+
+func (kb *MemoryKB) StoreShip(ctx context.Context, ship ShipRecord) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.ships[ship.ID] = ship
+	return nil
+}
+
+func (kb *MemoryKB) GetShip(ctx context.Context, shipID string) (*ShipRecord, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	if s, ok := kb.ships[shipID]; ok {
+		return &s, nil
+	}
+	return nil, nil
+}
+
+func (kb *MemoryKB) GetPlayerShips(ctx context.Context, playerID string) ([]ShipRecord, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var ships []ShipRecord
+	for _, s := range kb.ships {
+		if s.OwnerID == playerID {
+			ships = append(ships, s)
+		}
+	}
+	return ships, nil
+}
+
+func (kb *MemoryKB) StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	kb.missionsByBase[baseID] = missions
+	return nil
+}
+
+func (kb *MemoryKB) GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	return kb.missionsByBase[baseID], nil
 }

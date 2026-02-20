@@ -256,7 +256,7 @@ func (kb *SQLiteKB) GetUnknownConnections(ctx context.Context, systemID string) 
 // RememberConnection stores a system connection (with deduplication)
 func (kb *SQLiteKB) RememberConnection(ctx context.Context, fromSystem, toSystem string) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT OR IGNORE INTO connections (from_system, to_system, last_updated)
+		INSERT OR IGNORE INTO connections (from_system, to_system, last_updated_tick)
 		VALUES (?, ?, 0)
 	`, fromSystem, toSystem)
 	if err != nil {

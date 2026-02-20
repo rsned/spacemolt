@@ -272,22 +272,9 @@ CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level D
 			version: 5,
 			name:    "add_last_updated",
 			sql: `
--- Add last_updated column to track data freshness
--- Note: This will be renamed to last_updated_tick in migration v9
-ALTER TABLE systems ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE connections ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE pois ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE poi_resources ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE experiences ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE agents ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE market_snapshots ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE market_listings ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE ship_listings ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE resource_history ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE connection_metrics ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE anomalies ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE price_trends ADD COLUMN last_updated INTEGER DEFAULT 0;
-ALTER TABLE knowledge_exports ADD COLUMN last_updated INTEGER DEFAULT 0;
+-- This migration originally added last_updated columns to all tables.
+-- The initial schema (v1) now creates these as last_updated_tick directly,
+-- so this is a no-op for fresh installs.
 `,
 		},
 		{
@@ -360,64 +347,21 @@ CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(categ
 			version: 8,
 			name:    "remove_exploration_tracking",
 			sql: `
--- Remove exploration tracking columns that are no longer needed
--- These were used for tracking agent exploration but are causing issues
-
--- Drop columns from systems table
-ALTER TABLE systems DROP COLUMN visit_count;
-ALTER TABLE systems DROP COLUMN last_visited;
-ALTER TABLE systems DROP COLUMN discovered_by;
-
--- Drop discovered_by from pois table
-ALTER TABLE pois DROP COLUMN discovered_by;
-
--- Drop discovered_by from bases table
-ALTER TABLE bases DROP COLUMN discovered_by;
+-- Remove exploration tracking columns that are no longer needed.
+-- These columns were added in a migration (v4) that was later removed,
+-- so they may not exist on fresh databases. This migration is now a no-op
+-- for fresh installs; existing databases that had v4 applied already had
+-- these columns removed when they ran the original v8.
 `,
 		},
 		{
 			version: 9,
 			name:    "schema_alignment",
 			sql: `
--- Align database schema with game server API structure
--- This migration renames columns to match server terminology and structure
-
--- Rename position columns to match server API (position.x/y)
-ALTER TABLE systems RENAME COLUMN pos_x TO position_x;
-ALTER TABLE systems RENAME COLUMN pos_y TO position_y;
-ALTER TABLE systems DROP COLUMN pos_z;
-
-ALTER TABLE pois RENAME COLUMN pos_x TO position_x;
-ALTER TABLE pois RENAME COLUMN pos_y TO position_y;
-
--- Rename faction to empire for consistency with server API and bases table
-ALTER TABLE systems RENAME COLUMN faction TO empire;
-ALTER TABLE agents RENAME COLUMN faction TO empire;
-
--- Add description to systems table (present in server API)
-ALTER TABLE systems ADD COLUMN description TEXT;
-
--- Rename last_updated to last_updated_tick for clarity (game tick, not timestamp)
-ALTER TABLE systems RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE connections RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE pois RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE poi_resources RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE experiences RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE agents RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE market_snapshots RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE market_listings RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE ship_listings RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE resource_history RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE connection_metrics RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE anomalies RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE price_trends RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE knowledge_exports RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE bases RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE base_facilities RENAME COLUMN last_updated TO last_updated_tick;
-ALTER TABLE base_market RENAME COLUMN last_updated TO last_updated_tick;
-
--- Note: danger_zones.last_updated remains as TEXT (timestamp) not INTEGER (tick)
--- This tracks "last incident time" not "when we updated this record"
+-- This migration originally renamed columns (pos_x→position_x, faction→empire,
+-- last_updated→last_updated_tick) and added description to systems.
+-- The initial schema (v1) now uses the correct names directly, so this is
+-- a no-op for fresh installs.
 `,
 		},
 		{
@@ -434,6 +378,270 @@ ALTER TABLE systems ADD COLUMN is_stronghold BOOLEAN DEFAULT 0;
 			sql: `
 -- Add security_status column to systems table (e.g. "high_sec", "low_sec", "null_sec")
 ALTER TABLE systems ADD COLUMN security_status TEXT DEFAULT '';
+`,
+		},
+		{
+			version: 12,
+			name:    "catalog_tables",
+			sql: `
+-- Items catalog
+CREATE TABLE IF NOT EXISTS items (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
+    rarity TEXT,
+    size INTEGER DEFAULT 1,
+    base_value INTEGER DEFAULT 0,
+    stackable BOOLEAN DEFAULT 0,
+    tradeable BOOLEAN DEFAULT 0,
+    last_updated_tick INTEGER DEFAULT 0
+);
+
+-- Ship classes catalog
+CREATE TABLE IF NOT EXISTS ship_classes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    class TEXT,
+    category TEXT,
+    description TEXT,
+    lore TEXT,
+    faction TEXT,
+    tier INTEGER DEFAULT 0,
+    scale INTEGER DEFAULT 1,
+    price INTEGER DEFAULT 0,
+    base_hull INTEGER DEFAULT 0,
+    base_shield INTEGER DEFAULT 0,
+    base_shield_recharge INTEGER DEFAULT 0,
+    base_armor INTEGER DEFAULT 0,
+    base_speed INTEGER DEFAULT 0,
+    base_fuel INTEGER DEFAULT 0,
+    cargo_capacity INTEGER DEFAULT 0,
+    cpu_capacity INTEGER DEFAULT 0,
+    power_capacity INTEGER DEFAULT 0,
+    weapon_slots INTEGER DEFAULT 0,
+    defense_slots INTEGER DEFAULT 0,
+    utility_slots INTEGER DEFAULT 0,
+    build_time INTEGER DEFAULT 0,
+    shipyard_tier INTEGER DEFAULT 0,
+    starter_ship BOOLEAN DEFAULT 0,
+    tow_speed_bonus INTEGER DEFAULT 0,
+    required_skills TEXT DEFAULT '{}',
+    default_modules TEXT DEFAULT '[]',
+    flavor_tags TEXT DEFAULT '[]',
+    last_updated_tick INTEGER DEFAULT 0
+);
+
+-- Ship class build materials (normalized)
+CREATE TABLE IF NOT EXISTS ship_class_build_materials (
+    ship_class_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    PRIMARY KEY (ship_class_id, item_id),
+    FOREIGN KEY (ship_class_id) REFERENCES ship_classes(id) ON DELETE CASCADE
+);
+
+-- Skills catalog
+CREATE TABLE IF NOT EXISTS skills (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
+    max_level INTEGER DEFAULT 10,
+    training_source TEXT,
+    xp_per_level TEXT DEFAULT '[]',
+    bonus_per_level TEXT DEFAULT '{}',
+    required_skills TEXT DEFAULT '{}',
+    last_updated_tick INTEGER DEFAULT 0
+);
+
+-- Recipes catalog
+CREATE TABLE IF NOT EXISTS recipes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    category TEXT,
+    crafting_time INTEGER DEFAULT 0,
+    base_quality INTEGER DEFAULT 0,
+    skill_quality_mod INTEGER DEFAULT 0,
+    required_skills TEXT DEFAULT '{}',
+    last_updated_tick INTEGER DEFAULT 0
+);
+
+-- Recipe inputs (normalized)
+CREATE TABLE IF NOT EXISTS recipe_inputs (
+    recipe_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    PRIMARY KEY (recipe_id, item_id),
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+);
+
+-- Recipe outputs (normalized)
+CREATE TABLE IF NOT EXISTS recipe_outputs (
+    recipe_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    quality_mod BOOLEAN DEFAULT 0,
+    PRIMARY KEY (recipe_id, item_id),
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+);
+
+-- Add distance to connections
+ALTER TABLE connections ADD COLUMN distance INTEGER DEFAULT 0;
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
+CREATE INDEX IF NOT EXISTS idx_ship_classes_class ON ship_classes(class);
+CREATE INDEX IF NOT EXISTS idx_ship_classes_faction ON ship_classes(faction);
+CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
+CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
+`,
+		},
+		{
+			version: 13,
+			name:    "player_state_tables",
+			sql: `
+-- Players table
+CREATE TABLE IF NOT EXISTS players (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    empire TEXT,
+    credits REAL DEFAULT 0,
+    current_system TEXT,
+    current_poi TEXT,
+    current_ship_id TEXT,
+    home_base TEXT,
+    docked_at_base TEXT,
+    faction_id TEXT,
+    faction_rank TEXT,
+    experience INTEGER DEFAULT 0,
+    last_updated_tick INTEGER DEFAULT 0
+);
+
+-- Player stats (1:1 with players)
+CREATE TABLE IF NOT EXISTS player_stats (
+    player_id TEXT PRIMARY KEY,
+    ships_destroyed INTEGER DEFAULT 0,
+    times_destroyed INTEGER DEFAULT 0,
+    ore_mined REAL DEFAULT 0,
+    credits_earned REAL DEFAULT 0,
+    credits_spent REAL DEFAULT 0,
+    trades_completed INTEGER DEFAULT 0,
+    systems_discovered INTEGER DEFAULT 0,
+    items_crafted INTEGER DEFAULT 0,
+    missions_completed INTEGER DEFAULT 0,
+    bases_destroyed INTEGER DEFAULT 0,
+    distance_traveled INTEGER DEFAULT 0,
+    pirates_destroyed INTEGER DEFAULT 0,
+    ships_lost INTEGER DEFAULT 0,
+    time_played INTEGER DEFAULT 0,
+    last_updated_tick INTEGER DEFAULT 0,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+
+-- Player skills (player's progress in each skill)
+CREATE TABLE IF NOT EXISTS player_skills (
+    player_id TEXT NOT NULL,
+    skill_id TEXT NOT NULL,
+    level INTEGER DEFAULT 0,
+    current_xp REAL DEFAULT 0,
+    PRIMARY KEY (player_id, skill_id),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+
+-- Ships (player-owned ships)
+CREATE TABLE IF NOT EXISTS ships (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    class_id TEXT NOT NULL,
+    name TEXT,
+    hull REAL DEFAULT 0,
+    max_hull REAL DEFAULT 0,
+    shield REAL DEFAULT 0,
+    max_shield REAL DEFAULT 0,
+    shield_recharge REAL DEFAULT 0,
+    armor REAL DEFAULT 0,
+    speed REAL DEFAULT 0,
+    fuel REAL DEFAULT 0,
+    max_fuel REAL DEFAULT 0,
+    cargo_used REAL DEFAULT 0,
+    cargo_capacity REAL DEFAULT 0,
+    cpu_used REAL DEFAULT 0,
+    cpu_capacity REAL DEFAULT 0,
+    power_used REAL DEFAULT 0,
+    power_capacity REAL DEFAULT 0,
+    weapon_slots INTEGER DEFAULT 0,
+    defense_slots INTEGER DEFAULT 0,
+    utility_slots INTEGER DEFAULT 0,
+    docked_at_base TEXT,
+    last_updated_tick INTEGER DEFAULT 0,
+    FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES ship_classes(id)
+);
+
+-- Ship cargo
+CREATE TABLE IF NOT EXISTS ship_cargo (
+    ship_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    PRIMARY KEY (ship_id, item_id),
+    FOREIGN KEY (ship_id) REFERENCES ships(id) ON DELETE CASCADE
+);
+
+-- Ship modules (fitted modules on a ship)
+CREATE TABLE IF NOT EXISTS ship_modules (
+    id TEXT PRIMARY KEY,
+    ship_id TEXT NOT NULL,
+    type_id TEXT NOT NULL,
+    name TEXT,
+    type TEXT,
+    cpu_usage INTEGER DEFAULT 0,
+    power_usage INTEGER DEFAULT 0,
+    quality REAL DEFAULT 1,
+    quality_grade TEXT,
+    wear REAL DEFAULT 0,
+    wear_status TEXT,
+    last_updated_tick INTEGER DEFAULT 0,
+    FOREIGN KEY (ship_id) REFERENCES ships(id) ON DELETE CASCADE
+);
+
+-- Mission templates (available missions from mission boards)
+CREATE TABLE IF NOT EXISTS mission_templates (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    type TEXT,
+    difficulty INTEGER DEFAULT 0,
+    base_id TEXT,
+    giver_name TEXT,
+    giver_title TEXT,
+    dialog_offer TEXT,
+    chain_next TEXT,
+    expires_in_ticks INTEGER DEFAULT 0,
+    rewards_credits INTEGER DEFAULT 0,
+    rewards_skill_xp TEXT DEFAULT '{}',
+    requirements TEXT DEFAULT '{}',
+    last_updated_tick INTEGER DEFAULT 0
+);
+
+-- Mission objectives
+CREATE TABLE IF NOT EXISTS mission_objectives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mission_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    description TEXT,
+    sort_order INTEGER DEFAULT 0,
+    FOREIGN KEY (mission_id) REFERENCES mission_templates(id) ON DELETE CASCADE
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_players_empire ON players(empire);
+CREATE INDEX IF NOT EXISTS idx_ships_owner ON ships(owner_id);
+CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class_id);
+CREATE INDEX IF NOT EXISTS idx_ship_modules_ship ON ship_modules(ship_id);
+CREATE INDEX IF NOT EXISTS idx_mission_templates_type ON mission_templates(type);
+CREATE INDEX IF NOT EXISTS idx_mission_templates_base ON mission_templates(base_id);
 `,
 		},
 	}
