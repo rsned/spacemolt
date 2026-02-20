@@ -57,6 +57,16 @@ type Client struct {
 	// Response waiting for synchronous operations
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
+
+	// Command queue for sequential execution
+	CmdQueue *CommandQueue
+
+	// Connection health monitoring
+	lastMessageTime time.Time
+	lastMessageMu   sync.RWMutex
+	pingInterval    time.Duration
+	pongTimeout     time.Duration
+	stopPing        chan struct{}
 }
 
 // MessageHandler handles incoming game messages
@@ -73,7 +83,6 @@ type ReconnectingHandler struct {
 	ctx          context.Context
 	logger       *log.Logger
 	reconnecting atomic.Bool // Prevents multiple concurrent reconnections
-	mu           sync.Mutex  // Protects reconnecting state
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -106,12 +115,7 @@ func (r *ReconnectingHandler) OnDisconnected(err error) {
 
 	// Only start reconnection if not already reconnecting
 	if r.reconnecting.CompareAndSwap(false, true) {
-		r.mu.Lock()
-		if !r.reconnecting.Load() {
-			r.reconnecting.Store(true)
-			go r.attemptReconnection()
-		}
-		r.mu.Unlock()
+		go r.attemptReconnection()
 	}
 }
 
@@ -147,7 +151,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		debugLogger = log.New(log.Writer(), "[GAME] ", log.LstdFlags)
 	}
 
-	return &Client{
+	client := &Client{
 		url:      url,
 		username: username,
 		password: password,
@@ -170,7 +174,13 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		latestShips:    make(map[string]any),
 		latestRawJSON:  make(map[string][]byte),
 		lastError:      make(map[string]any),
+		pingInterval:   30 * time.Second,
+		pongTimeout:    10 * time.Second,
+		stopPing:       make(chan struct{}),
+		CmdQueue:       NewCommandQueue(nil), // Will be set after creation
 	}
+	client.CmdQueue.client = client // Set the client reference
+	return client
 }
 
 // Connect establishes a WebSocket connection to the game server
@@ -243,6 +253,9 @@ func (c *Client) Connect(ctx context.Context) error {
 	// Start message listener
 	go c.listen(ctx)
 
+	// Start connection health monitoring
+	go c.monitorConnectionHealth(ctx)
+
 	return nil
 }
 
@@ -250,6 +263,12 @@ func (c *Client) Connect(ctx context.Context) error {
 func (c *Client) Disconnect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// Stop health monitoring
+	select {
+	case c.stopPing <- struct{}{}:
+	default:
+	}
 
 	if c.conn != nil {
 		c.connected = false
@@ -268,21 +287,56 @@ func (c *Client) Reconnect(ctx context.Context) error {
 	// Close existing connection if any
 	_ = c.Disconnect()
 
-	// Wait a moment before reconnecting
-	time.Sleep(2 * time.Second)
-
-	// Reconnect
-	if err := c.Connect(ctx); err != nil {
-		return fmt.Errorf("reconnect failed: %w", err)
+	// Wait a moment before reconnecting with exponential backoff
+	select {
+	case <-time.After(2 * time.Second):
+		// Continue
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
-	// Re-authenticate
-	if err := c.Login(ctx); err != nil {
-		return fmt.Errorf("login after reconnect failed: %w", err)
+	// Reconnect with retries
+	maxRetries := 3
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt)) * time.Second
+			c.debugLogger.Printf("Reconnect attempt %d/%d, waiting %v", attempt+1, maxRetries, backoff)
+			select {
+			case <-time.After(backoff):
+				// Continue
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+
+		if err := c.Connect(ctx); err != nil {
+			lastErr = err
+			c.debugLogger.Printf("Reconnect attempt %d failed: %v", attempt+1, err)
+			continue
+		}
+
+		// Wait for connection to be ready
+		if err := c.WaitForReady(ctx, 10*time.Second); err != nil {
+			lastErr = err
+			c.debugLogger.Printf("Connection not ready after attempt %d: %v", attempt+1, err)
+			_ = c.Disconnect()
+			continue
+		}
+
+		// Re-authenticate
+		if err := c.Login(ctx); err != nil {
+			lastErr = err
+			c.debugLogger.Printf("Login failed after attempt %d: %v", attempt+1, err)
+			_ = c.Disconnect()
+			continue
+		}
+
+		c.debugLogger.Printf("Reconnected and logged in successfully")
+		return nil
 	}
 
-	c.debugLogger.Printf("Reconnected and logged in successfully")
-	return nil
+	return fmt.Errorf("reconnect failed after %d attempts: %w", maxRetries, lastErr)
 }
 
 // SetHandler sets the message handler
@@ -315,7 +369,11 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 	}
 	//c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
 
-	if err := c.conn.Write(ctx, websocket.MessageText, data); err != nil {
+	// Set a write timeout to prevent hanging
+	writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	if err := c.conn.Write(writeCtx, websocket.MessageText, data); err != nil {
 		c.debugLogger.Printf("ERROR sending to WebSocket: %v", err)
 		return fmt.Errorf("failed to send message: %w", err)
 	}
@@ -410,7 +468,7 @@ func (c *Client) Undock(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Dock docks at a station in the current system
@@ -421,7 +479,7 @@ func (c *Client) Dock(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Travel travels to a POI within the current system
@@ -433,7 +491,7 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Jump jumps to another system
@@ -445,7 +503,7 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Mine mines resources at the current location
@@ -456,7 +514,7 @@ func (c *Client) Mine(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Attack attacks a target player or NPC
@@ -468,7 +526,7 @@ func (c *Client) Attack(ctx context.Context, targetID string) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Scan scans the current area
@@ -480,7 +538,7 @@ func (c *Client) Scan(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // SurveySystem scans for hidden POIs in the current system
@@ -492,7 +550,7 @@ func (c *Client) SurveySystem(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // FindRoute finds a route to a target system using the server's pathfinding.
@@ -506,7 +564,7 @@ func (c *Client) FindRoute(ctx context.Context, targetSystem string) ([]RouteSte
 		return nil, err
 	}
 
-	resp, err := c.waitForAuthResponse(ctx, protocol.TypeOK, 5*time.Second)
+	resp, err := c.waitForAuthResponse(ctx, protocol.TypeOK, SleepTick)
 	if err != nil {
 		return nil, fmt.Errorf("find_route failed: %w", err)
 	}
@@ -596,7 +654,7 @@ func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) erro
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // CreateBulkSellOrder creates multiple sell orders in a single API call (up to 50 items).
@@ -625,7 +683,7 @@ func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // SellAllBulk sells all cargo items using the bulk create_sell_order API.
@@ -779,7 +837,7 @@ func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float
 		return err
 	}
 
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // DepositAllItems deposits all items from the ship's cargo to station storage.
@@ -840,7 +898,7 @@ func (c *Client) Refuel(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Repair repairs the ship's hull at the current station
@@ -851,7 +909,7 @@ func (c *Client) Repair(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Buy purchases items or modules at the current station
@@ -863,7 +921,7 @@ func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // Install installs a module from cargo onto the ship
@@ -875,7 +933,7 @@ func (c *Client) Install(ctx context.Context, itemID string) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, 5*time.Second)
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // GetState returns the current game state
@@ -930,6 +988,9 @@ func (c *Client) listen(ctx context.Context) {
 			return
 		}
 
+		// Update last message time for health monitoring
+		c.updateLastMessageTime()
+
 		// Use a decoder to handle multiple concatenated JSON objects
 		// The game server sometimes sends multiple JSON objects in a single message
 		decoder := json.NewDecoder(bytes.NewReader(data))
@@ -974,7 +1035,12 @@ func (c *Client) listen(ctx context.Context) {
 			// when waitForResponse/waitForAuthResponse returns.
 			c.handleResponse(resp)
 
-			// Notify any waiters for this response type
+			// Route to command queue first
+			if c.CmdQueue != nil {
+				c.CmdQueue.handleResponse(resp)
+			}
+
+			// Notify any waiters for this response type (legacy support)
 			c.waiterMu.Lock()
 			if ch, ok := c.waiters[resp.Type]; ok {
 				select {
@@ -2053,3 +2119,215 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		return ctx.Err()
 	}
 }
+
+// monitorConnectionHealth monitors the WebSocket connection health
+// and attempts to reconnect if no messages are received within the timeout
+func (c *Client) monitorConnectionHealth(ctx context.Context) {
+	ticker := time.NewTicker(c.pingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.stopPing:
+			return
+		case <-ticker.C:
+			if !c.IsConnected() {
+				continue
+			}
+
+			// Check if we've received a message recently
+			c.lastMessageMu.RLock()
+			lastMsg := c.lastMessageTime
+			c.lastMessageMu.RUnlock()
+
+			timeSinceLastMsg := time.Since(lastMsg)
+			if timeSinceLastMsg > c.pongTimeout {
+				c.debugLogger.Printf("No messages received for %v, connection may be dead", timeSinceLastMsg)
+				// Trigger a reconnection by notifying the handler
+				c.mu.RLock()
+				handler := c.handler
+				c.mu.RUnlock()
+
+				if handler != nil {
+					handler.OnDisconnected(fmt.Errorf("connection timeout - no messages for %v", timeSinceLastMsg))
+				}
+			}
+		}
+	}
+}
+
+// updateLastMessageTime updates the last message time for health monitoring
+func (c *Client) updateLastMessageTime() {
+	c.lastMessageMu.Lock()
+	defer c.lastMessageMu.Unlock()
+	c.lastMessageTime = time.Now()
+}
+
+// WaitForReady waits for the connection to be ready (first message received)
+func (c *Client) WaitForReady(ctx context.Context, timeout time.Duration) error {
+	select {
+	case <-c.Ready():
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for connection to be ready")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// EnsureConnected ensures the client is connected, reconnecting if necessary
+func (c *Client) EnsureConnected(ctx context.Context) error {
+	if !c.IsConnected() {
+		c.debugLogger.Printf("Not connected, attempting to reconnect...")
+		if err := c.Reconnect(ctx); err != nil {
+			return fmt.Errorf("failed to reconnect: %w", err)
+		}
+		// Wait for the connection to be ready
+		if err := c.WaitForReady(ctx, 10*time.Second); err != nil {
+			return fmt.Errorf("connection not ready after reconnect: %w", err)
+		}
+	}
+	return nil
+}
+
+// SendQueued sends a command using the queue system for reliable sequential execution
+// This is the recommended way to send commands for agents that need guaranteed delivery
+// and proper response matching.
+func (c *Client) SendQueued(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
+	if c.CmdQueue == nil {
+		return protocol.Response{}, fmt.Errorf("command queue not initialized")
+	}
+
+	// Start the queue if not already running
+	c.CmdQueue.Start(ctx)
+
+	// Enqueue the command and wait for response
+	return c.CmdQueue.Enqueue(ctx, msg, timeout)
+}
+
+// ===== QUEUED COMMAND METHODS =====
+// These methods use the command queue for reliable sequential execution
+
+// DockQueued docks at a station using the queue
+func (c *Client) DockQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "dock",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// UndockQueued undocks from a station using the queue
+func (c *Client) UndockQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "undock",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// TravelQueued travels to a POI using the queue
+func (c *Client) TravelQueued(ctx context.Context, targetPOI string) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "travel",
+		Payload:   map[string]any{"target_poi": targetPOI},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// JumpQueued jumps to another system using the queue
+func (c *Client) JumpQueued(ctx context.Context, targetSystem string) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "jump",
+		Payload:   map[string]any{"target_system": targetSystem},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// MineQueued mines resources using the queue
+func (c *Client) MineQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "mine",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// RefuelQueued refuels using the queue
+func (c *Client) RefuelQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "refuel",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// RepairQueued repairs using the queue
+func (c *Client) RepairQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "repair",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// SellQueued sells items using the queue
+func (c *Client) SellQueued(ctx context.Context, itemID string, quantity float64) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "sell",
+		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// BuyQueued buys items using the queue
+func (c *Client) BuyQueued(ctx context.Context, itemID string, quantity float64) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "buy",
+		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetSystemQueued gets system info using the queue
+func (c *Client) GetSystemQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_system",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetStatusQueued gets status using the queue
+func (c *Client) GetStatusQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_status",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetPOIQueued gets POI info using the queue
+func (c *Client) GetPOIQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_poi",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetListingsQueued gets market listings using the queue
+func (c *Client) GetListingsQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "view_market",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
