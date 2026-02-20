@@ -10,12 +10,14 @@ import (
 
 // systemJSON is the JSON representation of a system for API responses.
 type systemJSON struct {
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	Position    game.Position `json:"position"`
-	PoliceLevel int           `json:"police_level"`
-	Empire      string        `json:"empire"`
-	Connections []string      `json:"connections"`
+	ID             string        `json:"id"`
+	Name           string        `json:"name"`
+	Position       game.Position `json:"position"`
+	PoliceLevel    int           `json:"police_level"`
+	SecurityStatus string        `json:"security_status"`
+	Empire         string        `json:"empire"`
+	IsStronghold   bool          `json:"is_stronghold"`
+	Connections    []string      `json:"connections"`
 }
 
 // poiJSON is the JSON representation of a POI for API responses.
@@ -75,12 +77,14 @@ func systemToJSON(sys knowledge.System) systemJSON {
 		conns = []string{}
 	}
 	return systemJSON{
-		ID:          sys.ID,
-		Name:        sys.Name,
-		Position:    sys.Position,
-		PoliceLevel: sys.PoliceLevel,
-		Empire:      sys.Empire,
-		Connections: conns,
+		ID:             sys.ID,
+		Name:           sys.Name,
+		Position:       sys.Position,
+		PoliceLevel:    sys.PoliceLevel,
+		SecurityStatus: sys.SecurityStatus,
+		Empire:         sys.Empire,
+		IsStronghold:   sys.IsStronghold,
+		Connections:    conns,
 	}
 }
 

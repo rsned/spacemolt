@@ -1,6 +1,7 @@
 package game
 
 import (
+	"maps"
 	"sync"
 	"time"
 )
@@ -8,7 +9,7 @@ import (
 // ServerAPIVersion is the game server API version this client was built against.
 // See server_docs/api.md for full API documentation.
 // This version should match the version documented at the top of server_docs/api.md
-const ServerAPIVersion = "v0.63.1"
+const ServerAPIVersion = "v0.112.0"
 
 // Player represents a player in the game.
 // Server commands that return this struct:
@@ -16,28 +17,32 @@ const ServerAPIVersion = "v0.63.1"
 //   - state_update (in payload.player)
 //   - get_status (in payload.player)
 type Player struct {
-	ID             string             `json:"id"`
-	Username       string             `json:"username"`
-	Empire         string             `json:"empire"`
-	Credits        float64            `json:"credits"`
-	CurrentSystem  string             `json:"current_system"`
-	CurrentPOI     string             `json:"current_poi"`
-	CurrentShipID  string             `json:"current_ship_id"`
-	HomeBase       string             `json:"home_base"`
-	DockedAtBase   string             `json:"docked_at_base"`
-	FactionID      string             `json:"faction_id,omitempty"`
-	FactionRank    string             `json:"faction_rank,omitempty"`
-	StatusMessage  string             `json:"status_message,omitempty"`
-	ClanTag        string             `json:"clan_tag,omitempty"`
-	PrimaryColor   string             `json:"primary_color,omitempty"`
-	SecondaryColor string             `json:"secondary_color,omitempty"`
-	Anonymous      bool               `json:"anonymous"`
-	IsCloaked      bool               `json:"is_cloaked"`
-	Skills         map[string]Skill   `json:"skills"`
-	SkillXP        map[string]float64 `json:"skill_xp,omitempty"` // Current XP toward next level
-	Stats          PlayerStats        `json:"stats"`
-	TowingWreckID  string             `json:"towing_wreck_id,omitempty"`
-	Experience     int64              `json:"experience,omitempty"`
+	ID                string                 `json:"id"`
+	Username          string                 `json:"username"`
+	Empire            string                 `json:"empire"`
+	Credits           float64                `json:"credits"`
+	CurrentSystem     string                 `json:"current_system"`
+	CurrentPOI        string                 `json:"current_poi"`
+	CurrentShipID     string                 `json:"current_ship_id"`
+	HomeBase          string                 `json:"home_base"`
+	DockedAtBase      string                 `json:"docked_at_base"`
+	FactionID         string                 `json:"faction_id,omitempty"`
+	FactionRank       string                 `json:"faction_rank,omitempty"`
+	StatusMessage     string                 `json:"status_message,omitempty"`
+	ClanTag           string                 `json:"clan_tag,omitempty"`
+	PrimaryColor      string                 `json:"primary_color,omitempty"`
+	SecondaryColor    string                 `json:"secondary_color,omitempty"`
+	Anonymous         bool                   `json:"anonymous"`
+	IsCloaked         bool                   `json:"is_cloaked"`
+	Skills            map[string]Skill       `json:"skills"`
+	SkillXP           map[string]float64     `json:"skill_xp,omitempty"` // Current XP toward next level
+	Stats             PlayerStats            `json:"stats"`
+	TowingWreckID     string                 `json:"towing_wreck_id,omitempty"`
+	Experience        int64                  `json:"experience,omitempty"`
+	DiscoveredSystems map[string]any         `json:"discovered_systems,omitempty"`
+	LastActiveAt      string                 `json:"last_active_at,omitempty"`
+	LastLoginAt       string                 `json:"last_login_at,omitempty"`
+	CreatedAt         string                 `json:"created_at,omitempty"`
 }
 
 // Skill represents a player's skill level and XP.
@@ -132,6 +137,8 @@ type Ship struct {
 	SpeedPenalty             float64          `json:"speed_penalty,omitempty"`
 	DisruptionTicksRemaining int              `json:"disruption_ticks_remaining,omitempty"`
 	DockedAtBase             string           `json:"docked_at_base,omitempty"`
+	LastProcessTick          int64            `json:"last_process_tick,omitempty"`
+	CreatedAt                string           `json:"created_at,omitempty"`
 }
 
 // ConnectionInfo represents a connection from one system to another with details.
@@ -167,9 +174,10 @@ type POI struct {
 	Position    Position      `json:"position"`
 	Resources   []POIResource `json:"resources"`
 	BaseID      string        `json:"base_id,omitempty"`
-	HasBase     bool          `json:"has_base,omitempty"`   // v0.87.1+: Whether this POI has a base
-	BaseName    string        `json:"base_name,omitempty"`  // v0.87.1+: Name of base at this POI
-	Online      int           `json:"online,omitempty"`     // v0.87.1+: Number of players at this POI
+	HasBase     bool          `json:"has_base,omitempty"`
+	BaseName    string        `json:"base_name,omitempty"`
+	Online      int           `json:"online,omitempty"`
+	Hidden      bool          `json:"hidden,omitempty"`
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).
@@ -250,6 +258,40 @@ type TravelProgress struct {
 	ArrivalTick int64   `json:"travel_arrival_tick"`
 }
 
+// BattleParticipant represents a participant in a tactical battle.
+type BattleParticipant struct {
+	PlayerID  string `json:"player_id"`
+	Username  string `json:"username"`
+	ShipClass string `json:"ship_class"`
+	SideID    string `json:"side_id"`
+	Zone      string `json:"zone"`
+	Stance    string `json:"stance"`
+	Hull      float64 `json:"hull"`
+	MaxHull   float64 `json:"max_hull"`
+	Shield    float64 `json:"shield"`
+	MaxShield float64 `json:"max_shield"`
+}
+
+// BattleState represents the current state of a tactical battle.
+type BattleState struct {
+	BattleID     string              `json:"battle_id"`
+	SystemID     string              `json:"system_id"`
+	IsParticipant bool              `json:"is_participant"`
+	Participants []BattleParticipant `json:"participants"`
+	TickDuration int                 `json:"tick_duration"`
+}
+
+// OwnedShip represents a ship in the player's fleet (from list_ships).
+type OwnedShip struct {
+	ID        string `json:"id"`
+	ClassID   string `json:"class_id"`
+	Name      string `json:"name"`
+	Location  string `json:"location,omitempty"`
+	BaseID    string `json:"base_id,omitempty"`
+	BaseName  string `json:"base_name,omitempty"`
+	IsActive  bool   `json:"is_active"`
+}
+
 // State represents the current game state
 type State struct {
 	Mu             sync.Mutex
@@ -298,6 +340,13 @@ type State struct {
 	PirateTier string
 	PirateID   string
 	LastDamage float64
+
+	// Battle system (from get_battle_status / battle responses)
+	InBattle    bool
+	BattleState *BattleState
+
+	// Pending trades (from logged_in response)
+	PendingTrades []map[string]any
 }
 
 // ModuleDefinition represents a module's definition including stats and requirements.
@@ -414,6 +463,26 @@ func (s *State) Clone() *State {
 		SkillXP:           copyStringFloatMap(s.SkillXP),
 		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),
 		SkillDefinitions:  copySkillDefsMap(s.SkillDefinitions),
+		InBattle:          s.InBattle,
+	}
+
+	// Clone battle state if present
+	if s.BattleState != nil {
+		bs := *s.BattleState
+		if len(s.BattleState.Participants) > 0 {
+			bs.Participants = make([]BattleParticipant, len(s.BattleState.Participants))
+			copy(bs.Participants, s.BattleState.Participants)
+		}
+		cloned.BattleState = &bs
+	}
+
+	// Clone pending trades if present
+	if len(s.PendingTrades) > 0 {
+		cloned.PendingTrades = make([]map[string]any, len(s.PendingTrades))
+		for i, trade := range s.PendingTrades {
+			cloned.PendingTrades[i] = make(map[string]any, len(trade))
+			maps.Copy(cloned.PendingTrades[i], trade)
+		}
 	}
 
 	// Clone travel progress if present

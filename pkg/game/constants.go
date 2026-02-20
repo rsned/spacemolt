@@ -4,11 +4,12 @@ import "time"
 
 // Sleep durations for various game operations
 const (
-	SleepQuick     = 2 * time.Second // Quick state updates, small delays
-	SleepShort     = 3 * time.Second // Short operations (refuel, repair, install)
-	SleepMedium    = 5 * time.Second // Medium wait operations
-	SleepLong      = 10 * time.Second // Longer wait operations
+	SleepQuick     = 2 * time.Second  // Quick state updates, small delays
+	SleepShort     = 3 * time.Second  // Short operations (refuel, repair, install)
+	SleepMedium    = 5 * time.Second  // Medium wait operations
 	SleepDock      = 12 * time.Second // Undock timing
+	SleepLong      = 10 * time.Second // Longer wait operations
+	SleepTick      = SleepLong
 	SleepDocked    = 15 * time.Second // Dock timing
 	SleepTravel    = 20 * time.Second // POI travel within system
 	SleepJump      = 25 * time.Second // System jump travel time
@@ -17,8 +18,8 @@ const (
 
 // Hull percentage thresholds
 const (
-	HullCriticalThreshold  = 40.0 // Hull percent: critical damage, flee immediately
-	HullDamagedThreshold   = 50.0 // Hull percent: damaged, seek repairs
+	HullCriticalThreshold   = 40.0 // Hull percent: critical damage, flee immediately
+	HullDamagedThreshold    = 50.0 // Hull percent: damaged, seek repairs
 	HullCombatFleeThreshold = 70.0 // Hull percent in combat: consider fleeing
 )
 
@@ -77,11 +78,12 @@ const (
 // POIFreshnessThreshold returns the appropriate freshness threshold for a given POI type.
 func POIFreshnessThreshold(poiType string) int64 {
 	switch poiType {
-	case "asteroid_belt", "asteroid_field", "gas_cloud", "ice_field":
+	case "asteroid_belt", "asteroid", "asteroid_field", "gas_cloud", "ice_field", "nebula":
 		return FreshnessResourcePOI
 	case "station", "base":
 		return FreshnessStationPOI
 	default:
+		// Covers: planet, moon, sun, relic, jump_gate, wreck, and unknown types
 		return FreshnessDefaultPOI
 	}
 }

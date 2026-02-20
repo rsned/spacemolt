@@ -119,6 +119,7 @@ func POIFromAPI(ext serverapi.POI) POI {
 		HasBase:     ext.HasBase,
 		BaseName:    ext.BaseName,
 		Online:      ext.Online,
+		Hidden:      ext.Hidden,
 	}
 }
 
@@ -217,6 +218,8 @@ func ShipFromAPI(ext serverapi.Ship) Ship {
 		SpeedPenalty:             ext.SpeedPenalty,
 		DisruptionTicksRemaining: ext.DisruptionTicksRemaining,
 		DockedAtBase:             ext.DockedAtBase,
+		LastProcessTick:          ext.LastProcessTick,
+		CreatedAt:                ext.CreatedAt,
 	}
 }
 
@@ -255,9 +258,13 @@ func PlayerFromAPI(ext serverapi.Player) Player {
 		IsCloaked:      ext.IsCloaked,
 		Skills:         skills,
 		SkillXP:        skillXP,
-		Stats:          PlayerStatsFromAPI(ext.Stats),
-		TowingWreckID:  ext.TowingWreckID,
-		Experience:     ext.Experience,
+		Stats:             PlayerStatsFromAPI(ext.Stats),
+		TowingWreckID:     ext.TowingWreckID,
+		Experience:        ext.Experience,
+		DiscoveredSystems: ext.DiscoveredSystems,
+		LastActiveAt:      ext.LastActiveAt,
+		LastLoginAt:       ext.LastLoginAt,
+		CreatedAt:         ext.CreatedAt,
 	}
 }
 

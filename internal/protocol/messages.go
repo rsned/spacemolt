@@ -35,13 +35,16 @@ const (
 	TypeReconnected   = "reconnected"
 
 	// Police system events
-	TypePoliceWarning = "police_warning"
-	TypePoliceSpawn   = "police_spawn"
-	TypePoliceCombat  = "police_combat"
+	TypePoliceWarning  = "police_warning"
+	TypePoliceSpawn    = "police_spawn"
+	TypePoliceCombat   = "police_combat"
+	TypePoliceResponse = "police_response"
 
 	// Pirate system events
-	TypePirateWarning = "pirate_warning"
-	TypePirateCombat  = "pirate_combat"
+	TypePirateWarning   = "pirate_warning"
+	TypePirateCombat    = "pirate_combat"
+	TypePirateDestroyed = "pirate_destroyed"
+	TypePirateSpawn     = "pirate_spawn"
 
 	// Drone system events
 	TypeDroneUpdate    = "drone_update"

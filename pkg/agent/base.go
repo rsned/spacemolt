@@ -848,7 +848,9 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 		Name:            sys.Name,
 		Position:        sys.Position,
 		PoliceLevel:     sys.PoliceLevel,
+		SecurityStatus:  sys.SecurityStatus,
 		Empire:          sys.Empire,
+		IsStronghold:    sys.IsStronghold,
 		Connections:     connectionIDs,
 		LastUpdatedTick: m.currentTick,
 	}

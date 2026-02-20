@@ -7,6 +7,7 @@ export interface SkillDefinition {
   description: string;
   max_level: number;
   xp_per_level: number[];
+  bonus_per_level?: Record<string, number>;
 }
 
 interface SkillsCache {
@@ -102,6 +103,11 @@ export function getXPForLevel(skillId: string, level: number, skills: Record<str
  * Get XP required for the next level
  */
 export function getNextLevelXP(skillId: string, currentLevel: number, skills: Record<string, SkillDefinition>): number {
+  // Handle case where skills haven't loaded yet
+  if (!skills || Object.keys(skills).length === 0) {
+    return 0;
+  }
+
   const skill = skills[skillId];
   if (!skill || currentLevel >= skill.max_level) {
     return 0;

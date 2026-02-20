@@ -160,6 +160,14 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			{PlayerID: "other-1", Username: "Rival", ShipClass: "fighter"},
 		},
 		InCombat:   true,
+		InBattle:   true,
+		BattleState: &BattleState{
+			BattleID: "battle-123",
+			SystemID: "sol",
+		},
+		PendingTrades: []map[string]any{
+			{"trade_id": "trade-1", "partner": "Rival"},
+		},
 		PirateName: "Blackbeard",
 		PirateTier: "elite",
 		PirateID:   "pirate-001",

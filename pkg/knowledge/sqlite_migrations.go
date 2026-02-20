@@ -428,6 +428,14 @@ ALTER TABLE base_market RENAME COLUMN last_updated TO last_updated_tick;
 ALTER TABLE systems ADD COLUMN is_stronghold BOOLEAN DEFAULT 0;
 `,
 		},
+		{
+			version: 11,
+			name:    "add_system_security_status",
+			sql: `
+-- Add security_status column to systems table (e.g. "high_sec", "low_sec", "null_sec")
+ALTER TABLE systems ADD COLUMN security_status TEXT DEFAULT '';
+`,
+		},
 	}
 }
 

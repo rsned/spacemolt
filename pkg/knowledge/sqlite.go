@@ -102,19 +102,20 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 
 	// Insert or update system
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO systems (id, name, description, position_x, position_y, police_level, empire, is_stronghold, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO systems (id, name, description, position_x, position_y, police_level, security_status, empire, is_stronghold, last_updated_tick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			description = excluded.description,
 			position_x = excluded.position_x,
 			position_y = excluded.position_y,
 			police_level = excluded.police_level,
+			security_status = excluded.security_status,
 			empire = excluded.empire,
 			is_stronghold = excluded.is_stronghold,
 			last_updated_tick = excluded.last_updated_tick
 	`, sys.ID, sys.Name, sys.Description, sys.Position.X, sys.Position.Y,
-		sys.PoliceLevel, sys.Empire, sys.IsStronghold, sys.LastUpdatedTick)
+		sys.PoliceLevel, sys.SecurityStatus, sys.Empire, sys.IsStronghold, sys.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
@@ -184,12 +185,12 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 	var sys System
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, empire, is_stronghold, last_updated_tick
+		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold, last_updated_tick
 		FROM systems
 		WHERE id = ?
 	`, systemID).Scan(
 		&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
-		&sys.PoliceLevel, &sys.Empire, &sys.IsStronghold, &sys.LastUpdatedTick,
+		&sys.PoliceLevel, &sys.SecurityStatus, &sys.Empire, &sys.IsStronghold, &sys.LastUpdatedTick,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil // System not found
@@ -800,7 +801,7 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, empi
 func (kb *SQLiteKB) GetSystems() []System {
 	// Query all systems
 	rows, err := kb.db.Query(`
-		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, empire, is_stronghold
+		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold
 		FROM systems
 	`)
 	if err != nil {
@@ -814,7 +815,7 @@ func (kb *SQLiteKB) GetSystems() []System {
 
 		if err := rows.Scan(
 			&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
-			&sys.PoliceLevel, &sys.Empire, &sys.IsStronghold,
+			&sys.PoliceLevel, &sys.SecurityStatus, &sys.Empire, &sys.IsStronghold,
 		); err != nil {
 			continue
 		}

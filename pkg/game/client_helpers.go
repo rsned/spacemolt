@@ -332,3 +332,56 @@ func (s *SafeCommandBuilder) GetListingsQueued(ctx context.Context) error {
 	return s.exec.ExecuteCommand(ctx, s.client.GetListingsQueued)
 }
 
+// CraftQueued crafts an item using the queue
+func (s *SafeCommandBuilder) CraftQueued(ctx context.Context, recipeID string, quantity int) error {
+	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
+		return s.client.CraftQueued(ctx, recipeID, quantity)
+	})
+}
+
+// GetCargoQueued gets cargo contents using the queue
+func (s *SafeCommandBuilder) GetCargoQueued(ctx context.Context) error {
+	return s.exec.ExecuteCommand(ctx, s.client.GetCargoQueued)
+}
+
+// GetBaseQueued gets base info using the queue
+func (s *SafeCommandBuilder) GetBaseQueued(ctx context.Context) error {
+	return s.exec.ExecuteCommand(ctx, s.client.GetBaseQueued)
+}
+
+// GetShipQueued gets ship info using the queue
+func (s *SafeCommandBuilder) GetShipQueued(ctx context.Context) error {
+	return s.exec.ExecuteCommand(ctx, s.client.GetShipQueued)
+}
+
+// GetNearbyQueued gets nearby players using the queue
+func (s *SafeCommandBuilder) GetNearbyQueued(ctx context.Context) error {
+	return s.exec.ExecuteCommand(ctx, s.client.GetNearbyQueued)
+}
+
+// ViewStorageQueued views station storage using the queue
+func (s *SafeCommandBuilder) ViewStorageQueued(ctx context.Context) error {
+	return s.exec.ExecuteCommand(ctx, s.client.ViewStorageQueued)
+}
+
+// WithdrawItemsQueued withdraws items from storage using the queue
+func (s *SafeCommandBuilder) WithdrawItemsQueued(ctx context.Context, itemID string, quantity float64) error {
+	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
+		return s.client.WithdrawItemsQueued(ctx, itemID, quantity)
+	})
+}
+
+// AcceptMissionQueued accepts a mission using the queue
+func (s *SafeCommandBuilder) AcceptMissionQueued(ctx context.Context, missionID string) error {
+	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
+		return s.client.AcceptMissionQueued(ctx, missionID)
+	})
+}
+
+// CompleteMissionQueued completes a mission using the queue
+func (s *SafeCommandBuilder) CompleteMissionQueued(ctx context.Context, missionID string) error {
+	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
+		return s.client.CompleteMissionQueued(ctx, missionID)
+	})
+}
+

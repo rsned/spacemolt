@@ -7,7 +7,9 @@ interface APISystemDetail {
     name: string;
     position: { x: number; y: number };
     police_level: number;
-    faction: string;
+    security_status: string;
+    empire: string;
+    is_stronghold: boolean;
     connections: string[];
   };
   pois: {
@@ -73,6 +75,7 @@ export function useSystemMap(systemId: string | undefined): SystemMapData | null
 
   useEffect(() => {
     if (!systemId) {
+      console.log('[useSystemMap] No systemId provided, clearing data');
       setData(null);
       return;
     }
@@ -81,6 +84,7 @@ export function useSystemMap(systemId: string | undefined): SystemMapData | null
     if (systemId === prevId.current) return;
     prevId.current = systemId;
 
+    console.log('[useSystemMap] Fetching system map for:', systemId);
     let cancelled = false;
 
     fetch(`/api/systems/${encodeURIComponent(systemId)}`)
@@ -90,6 +94,7 @@ export function useSystemMap(systemId: string | undefined): SystemMapData | null
       })
       .then((detail) => {
         if (cancelled) return;
+        console.log('[useSystemMap] Received system data:', detail);
         setData({
           pois: mapPOIs(detail.pois),
           jumpGates: mapJumpGates(detail.system.position, detail.connections),
@@ -99,7 +104,7 @@ export function useSystemMap(systemId: string | undefined): SystemMapData | null
       })
       .catch((err) => {
         if (!cancelled) {
-          console.error('Failed to fetch system map data:', err);
+          console.error('[useSystemMap] Failed to fetch system map data:', err);
           setData(null);
         }
       });

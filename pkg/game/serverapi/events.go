@@ -21,14 +21,16 @@ type CombatUpdate struct {
 // PlayerDied represents ship destruction and respawn in an Escape Pod.
 // Server event type: player_died
 type PlayerDied struct {
-	KillerID        string `json:"killer_id"`
-	KillerName      string `json:"killer_name"`
-	RespawnBase     string `json:"respawn_base"`
-	CloneCost       int    `json:"clone_cost"`
-	InsurancePayout int    `json:"insurance_payout"`
-	ShipLost        string `json:"ship_lost"`
-	NewShipClass    string `json:"new_ship_class"`
-	WreckID         string `json:"wreck_id"`
+	KillerID        string           `json:"killer_id"`
+	KillerName      string           `json:"killer_name"`
+	RespawnBase     string           `json:"respawn_base"`
+	Cause           string           `json:"cause,omitempty"`
+	CombatLog       []map[string]any `json:"combat_log,omitempty"`
+	CloneCost       int              `json:"clone_cost"`
+	InsurancePayout int              `json:"insurance_payout"`
+	ShipLost        string           `json:"ship_lost"`
+	NewShipClass    string           `json:"new_ship_class"`
+	WreckID         string           `json:"wreck_id"`
 }
 
 // MiningYield represents successful mining action with resource extraction.
