@@ -151,7 +151,6 @@ func printUsage() {
 	fmt.Println("  ships        - Shipyard Showroom (station)")
 	fmt.Println("  ship_catalog - Ship Catalog (all ship types)")
 	fmt.Println("  nearby       - Nearby Players")
-	fmt.Println("  skills       - Player Skills (your levels)")
 	fmt.Println("  skill_defs   - Skill Definitions (catalog)")
 	fmt.Println("  recipes      - Recipe Definitions (catalog)")
 	fmt.Println("  items        - Item Definitions (catalog)")
@@ -197,7 +196,6 @@ func (s *Scraper) scrapeAll() error {
 		{"Shipyard Showroom", s.scrapeShips},
 		{"Ship Catalog", s.scrapeShipCatalog},
 		{"Nearby Players", s.scrapeNearby},
-		{"Player Skills", s.scrapeSkills},
 		{"Skill Definitions", s.scrapeSkillDefinitions},
 		{"Recipe Definitions", s.scrapeRecipeDefinitions},
 		{"Item Definitions", s.scrapeItemDefinitions},
@@ -250,8 +248,7 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"ships":        {"Shipyard Showroom", s.scrapeShips},
 		"ship_catalog": {"Ship Catalog", s.scrapeShipCatalog},
 		"nearby":       {"Nearby Players", s.scrapeNearby},
-		"skills":     {"Player Skills", s.scrapeSkills},
-		"skill_defs": {"Skill Definitions", s.scrapeSkillDefinitions},
+		"skill_defs":   {"Skill Definitions", s.scrapeSkillDefinitions},
 		"recipes":    {"Recipe Definitions", s.scrapeRecipeDefinitions},
 		"items":      {"Item Definitions", s.scrapeItemDefinitions},
 		"wrecks":     {"Wrecks", s.scrapeWrecks},
@@ -274,7 +271,7 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 	// Look up the endpoint
 	ep, ok := endpointMap[endpoint]
 	if !ok {
-		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skills, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market", endpoint)
+		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market", endpoint)
 	}
 
 	// Scrape the single endpoint
@@ -620,32 +617,6 @@ func (s *Scraper) scrapeNearby() error {
 	}
 
 	return s.saveJSON("get_nearby.json", rawJSON)
-}
-
-func (s *Scraper) scrapeSkills() error {
-	ctx := context.Background()
-
-	// Clear previous error
-	s.client.ClearLastError()
-
-	// Request player skills (current levels and XP)
-	msg := protocol.Message{
-		Type: "get_skills",
-	}
-	if err := s.client.Send(ctx, msg); err != nil {
-		return fmt.Errorf("get_skills failed: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Get raw JSON response
-	rawJSON := s.client.GetRawJSON("skills")
-	if rawJSON == nil {
-		// Check if there was an error response
-		errResp := s.client.GetLastError()
-		return fmt.Errorf("%s", formatErrorMessage("get_skills", errResp))
-	}
-
-	return s.saveJSON("get_skills.json", rawJSON)
 }
 
 func (s *Scraper) scrapeSkillDefinitions() error {

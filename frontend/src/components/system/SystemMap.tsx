@@ -464,22 +464,69 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               {/* Sun glow effect */}
               {poi.type === 'sun' && (
                 <>
+                  <defs>
+                    {/* Outer aura gradient - soft golden glow */}
+                    <radialGradient id={`sun-aura-outer-${poi.id}`}>
+                      <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.4" />
+                      <stop offset="40%" stopColor="#f59e0b" stopOpacity="0.2" />
+                      <stop offset="70%" stopColor="#d97706" stopOpacity="0.1" />
+                      <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                    </radialGradient>
+                    {/* Middle aura gradient - brighter golden ring */}
+                    <radialGradient id={`sun-aura-middle-${poi.id}`}>
+                      <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.6" />
+                      <stop offset="50%" stopColor="#fbbf24" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.1" />
+                    </radialGradient>
+                    {/* Inner glow gradient - intense bright center */}
+                    <radialGradient id={`sun-aura-inner-${poi.id}`}>
+                      <stop offset="0%" stopColor="#fef3c7" stopOpacity="0.9" />
+                      <stop offset="40%" stopColor="#fbbf24" stopOpacity="0.7" />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.5" />
+                    </radialGradient>
+                  </defs>
+
+                  {/* Outermost large aura - very diffuse */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={45 * ms}
+                    fill={`url(#sun-aura-outer-${poi.id})`}
+                    className="animate-pulse-slow"
+                    style={{ animationDuration: '3s' }}
+                  />
+
+                  {/* Middle aura ring */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={32 * ms}
+                    fill={`url(#sun-aura-middle-${poi.id})`}
+                    className="animate-pulse-slow"
+                    style={{ animationDuration: '2.5s', animationDelay: '0.3s' }}
+                  />
+
+                  {/* Inner glow ring */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={22 * ms}
+                    fill={`url(#sun-aura-inner-${poi.id})`}
+                    className="animate-pulse-slow"
+                    style={{ animationDuration: '2s', animationDelay: '0.5s' }}
+                  />
+
+                  {/* Bright rim stroke */}
                   <circle
                     cx={x}
                     cy={y}
                     r={17 * ms}
                     fill="none"
                     stroke="#fbbf24"
-                    strokeWidth="1"
-                    opacity="0.3"
+                    strokeWidth="2"
+                    opacity="0.6"
                     className="animate-pulse-slow"
-                  />
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={20 * ms}
-                    fill="#fbbf24"
-                    opacity="0.5"
+                    style={{ animationDuration: '2s' }}
                   />
                 </>
               )}
@@ -598,7 +645,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
 
               {/* Station: hexagonal outline */}
               {poi.type === 'station' && (() => {
-                const r = 14 * ms;
+                const r = 7 * ms;
                 const hex = Array.from({ length: 6 }, (_, i) => {
                   const a = (Math.PI / 3) * i - Math.PI / 6;
                   return `${x + r * Math.cos(a)},${y + r * Math.sin(a)}`;
@@ -628,7 +675,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
               {poi.type === 'planet' && poi.id !== 'sol_earth' ? (
                 // Planet — banded sphere; gas giants (beyond belt) also get rings
                 (() => {
-                  const r = 14 * ms;
+                  const r = 7 * ms;
                   const id = `planet-${poi.id}`;
                   const isInner = Math.sqrt(poi.x * poi.x + poi.y * poi.y) < minBeltDist;
                   // Derive stable hue from POI id so each planet is unique
@@ -747,7 +794,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
                   dominantBaseline="central"
                   className={getPOIColor(poi.type)}
                   style={{
-                    fontSize: `${(poi.type === 'sun' ? 27 : poi.type === 'station' ? 21 : 28) * ms}px`,
+                    fontSize: `${(poi.type === 'sun' ? 27 : poi.type === 'station' ? 10.5 : 14) * ms}px`,
                     filter: isHovered ? 'brightness(1.4)' : undefined,
                   }}
                 >
