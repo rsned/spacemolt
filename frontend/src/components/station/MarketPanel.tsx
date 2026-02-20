@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 interface MarketPanelProps {
   player: Player;
   marketData: MarketData | null;
-  onGetMarket: () => void;
+  onGetMarket: (force?: boolean) => void;
   onCommand: (command: string, payload: Record<string, unknown>) => void;
 }
 
@@ -116,7 +116,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-sci-fi text-cyan-400">MARKET EXCHANGE</h3>
           <button
-            onClick={onGetMarket}
+            onClick={() => onGetMarket(true)}
             className="text-xs text-gray-400 hover:text-cyan-400 border border-gray-600 hover:border-cyan-600 px-2 py-1 rounded"
           >
             REFRESH
@@ -235,7 +235,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
       {/* Right pane - detail */}
       <div className="w-80 bg-spacemolt-panel border border-spacemolt-border rounded-lg p-4 flex flex-col">
         {selectedItem ? (
-          <ItemDetail item={selectedItem} activeTab={activeTab} />
+          <ItemDetail item={selectedItem} activeTab={activeTab} onCommand={onCommand} />
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
             Select an item to view details
@@ -246,7 +246,11 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
   );
 };
 
-function ItemDetail({ item, activeTab }: { item: MarketItem; activeTab: MarketTab }) {
+function ItemDetail({ item, activeTab, onCommand }: {
+  item: MarketItem;
+  activeTab: MarketTab;
+  onCommand: (command: string, payload: Record<string, unknown>) => void;
+}) {
   const orders = activeTab === 'sell' ? item.sell_orders : item.buy_orders;
   const bestPrice = activeTab === 'sell' ? item.best_sell : item.best_buy;
   const qty = totalQuantity(orders);
@@ -257,6 +261,35 @@ function ItemDetail({ item, activeTab }: { item: MarketItem; activeTab: MarketTa
 
   const priceMin = sorted.length > 0 ? sorted[0].price_each : 0;
   const priceMax = sorted.length > 0 ? sorted[sorted.length - 1].price_each : 0;
+
+  // Per-order quantity selection for buying from sell orders
+  const [buyQtys, setBuyQtys] = useState<Record<number, number>>({});
+
+  // Reset quantities when item changes
+  useEffect(() => {
+    setBuyQtys({});
+  }, [item.item_id]);
+
+  function adjustQty(orderIdx: number, delta: number, max: number) {
+    setBuyQtys(prev => {
+      const current = prev[orderIdx] ?? 0;
+      const next = Math.max(0, Math.min(max, current + delta));
+      if (next === 0) {
+        const { [orderIdx]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [orderIdx]: next };
+    });
+  }
+
+  const totalBuyQty = Object.values(buyQtys).reduce((s, q) => s + q, 0);
+  const totalBuyCost = sorted.reduce((s, order, idx) => s + (buyQtys[idx] ?? 0) * order.price_each, 0);
+
+  function handleBuy() {
+    if (totalBuyQty <= 0) return;
+    onCommand('buy', { item_id: item.item_id, quantity: totalBuyQty });
+    setBuyQtys({});
+  }
 
   return (
     <>
@@ -315,23 +348,73 @@ function ItemDetail({ item, activeTab }: { item: MarketItem; activeTab: MarketTa
               <th className="pb-1 text-left">Price</th>
               <th className="pb-1 text-right">Qty</th>
               <th className="pb-1 text-right">Total</th>
+              {activeTab === 'sell' && <th className="pb-1 text-right">Buy</th>}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((order, idx) => (
-              <tr key={idx} className="border-b border-gray-800/50">
-                <td className={`py-1 font-mono ${activeTab === 'sell' ? 'text-green-400' : 'text-blue-400'}`}>
-                  {formatCredits(order.price_each)}cr
-                </td>
-                <td className="py-1 text-right font-mono text-white">{order.quantity.toLocaleString()}</td>
-                <td className="py-1 text-right font-mono text-gray-400">
-                  {formatCredits(order.quantity * order.price_each)}cr
-                </td>
-              </tr>
-            ))}
+            {sorted.map((order, idx) => {
+              const selected = buyQtys[idx] ?? 0;
+              return (
+                <tr key={idx} className="border-b border-gray-800/50">
+                  <td className={`py-1 font-mono ${activeTab === 'sell' ? 'text-green-400' : 'text-blue-400'}`}>
+                    {formatCredits(order.price_each)}cr
+                  </td>
+                  <td className="py-1 text-right font-mono text-white">{order.quantity.toLocaleString()}</td>
+                  <td className="py-1 text-right font-mono text-gray-400">
+                    {formatCredits(order.quantity * order.price_each)}cr
+                  </td>
+                  {activeTab === 'sell' && (
+                    <td className="py-1 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => adjustQty(idx, -1, order.quantity)}
+                          disabled={selected <= 0}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs"
+                        >
+                          -
+                        </button>
+                        <span className={`font-mono w-8 text-center ${selected > 0 ? 'text-amber-400' : 'text-gray-600'}`}>
+                          {selected}
+                        </span>
+                        <button
+                          onClick={() => adjustQty(idx, 1, order.quantity)}
+                          disabled={selected >= order.quantity}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {/* Buy summary and button */}
+      {activeTab === 'sell' && (
+        <div className="mt-3 pt-3 border-t border-gray-700">
+          {totalBuyQty > 0 && (
+            <div className="flex justify-between text-xs mb-2">
+              <span className="text-gray-400">
+                Buying <span className="text-white font-mono">{totalBuyQty.toLocaleString()}</span> units
+              </span>
+              <span className="text-gray-400">
+                Cost: <span className="text-amber-400 font-mono">{formatCredits(totalBuyCost)}cr</span>
+              </span>
+            </div>
+          )}
+          <button
+            onClick={handleBuy}
+            disabled={totalBuyQty <= 0}
+            className="w-full py-2 rounded text-sm font-medium transition-colors bg-cyan-700 hover:bg-cyan-600 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            BUY {totalBuyQty > 0 ? `${totalBuyQty.toLocaleString()} x ${formatItemName(item)}` : ''}
+          </button>
+        </div>
+      )}
     </>
   );
 }

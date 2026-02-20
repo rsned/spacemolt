@@ -7,6 +7,8 @@ interface ShipyardPanelProps {
   catalogShips: ShipClass[];
   activeShipId: string | null;
   onCommand: (command: string, payload: Record<string, unknown>) => void;
+  onGetMyShips?: (force?: boolean) => void;
+  onGetCatalogShips?: (force?: boolean) => void;
 }
 
 function meetsSkillRequirements(
@@ -32,22 +34,32 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
   catalogShips,
   activeShipId,
   onCommand,
+  onGetMyShips,
+  onGetCatalogShips,
 }) => {
   const [selected, setSelected] = useState<SelectedShip | null>(null);
   const [hideUnqualified, setHideUnqualified] = useState(false);
   const [confirmSell, setConfirmSell] = useState<OwnedShip | null>(null);
 
-  // Fetch owned ships on mount
+  // Fetch owned ships on mount (cache-aware if available)
   useEffect(() => {
-    onCommand('list_ships', {});
+    if (onGetMyShips) {
+      onGetMyShips();
+    } else {
+      onCommand('list_ships', {});
+    }
   }, []);
 
-  // Fetch catalog after owned ships arrive (proves connection is stable)
+  // Fetch catalog after owned ships arrive (cache-aware if available)
   const catalogFetched = useRef(false);
   useEffect(() => {
     if (myShips.length > 0 && !catalogFetched.current) {
       catalogFetched.current = true;
-      onCommand('get_ships', {});
+      if (onGetCatalogShips) {
+        onGetCatalogShips();
+      } else {
+        onCommand('get_ships', {});
+      }
     }
   }, [myShips]);
 
@@ -143,14 +155,15 @@ export const ShipyardPanel: React.FC<ShipyardPanelProps> = ({
                 return (
                   <button
                     key={ship.id}
-                    onClick={() => canFly && setSelected({ kind: 'catalog', ship })}
-                    disabled={!canFly}
+                    onClick={() => setSelected({ kind: 'catalog', ship })}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded text-left transition-colors ${
-                      !canFly
-                        ? 'opacity-40 cursor-not-allowed'
-                        : selected?.kind === 'catalog' && selected.ship.id === ship.id
+                      selected?.kind === 'catalog' && selected.ship.id === ship.id
+                        ? canFly
                           ? 'bg-gray-700 border border-cyan-500'
-                          : 'bg-gray-800/50 border border-transparent hover:bg-gray-700/50'
+                          : 'opacity-50 bg-gray-700 border border-cyan-500'
+                        : canFly
+                          ? 'bg-gray-800/50 border border-transparent hover:bg-gray-700/50'
+                          : 'opacity-40 border border-transparent hover:opacity-60'
                     }`}
                   >
                     <div>

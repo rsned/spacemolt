@@ -53,10 +53,14 @@ function App() {
     setPendingDock(false);
   }, [pendingDock, player?.traveling]);
 
-  // Auto-switch to Station tab when docked
+  // Auto-switch to Station tab when docked, and prefetch station data
   useEffect(() => {
     if (player?.location.dockedAt && activeView === 'system') {
       setActiveView('station');
+    }
+    // Prefetch all station data when docking so panels load instantly
+    if (player?.location.dockedAt && isLive) {
+      observer.prefetchStationData();
     }
   }, [player?.location.dockedAt]);
 
@@ -295,6 +299,8 @@ function App() {
             catalogShips={observer.catalogShips}
             activeShipId={observer.activeShipId}
             onCommand={isLive ? observer.sendCommand : () => {}}
+            onGetMyShips={isLive ? observer.getMyShips : undefined}
+            onGetCatalogShips={isLive ? observer.getCatalogShips : undefined}
           />
         )}
 

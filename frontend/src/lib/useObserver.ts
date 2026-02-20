@@ -343,10 +343,18 @@ export interface ObserverState {
   marketData: MarketData | null;
 }
 
+// Short cache duration for market/ship listings (30 seconds)
+const STATION_CACHE_TTL = 30_000;
+
 export function useObserver(wsUrl: string) {
   const wsRef = useRef<WebSocket | null>(null);
   const gameStateRef = useRef<Partial<GameState>>({});
   const { skills: skillDefinitions } = useSkillDefinitions();
+
+  // Cache timestamps for station data
+  const marketFetchedAt = useRef<number>(0);
+  const myShipsFetchedAt = useRef<number>(0);
+  const catalogShipsFetchedAt = useRef<number>(0);
 
   const [state, setState] = useState<ObserverState>({
     status: 'disconnected',
@@ -404,6 +412,9 @@ export function useObserver(wsUrl: string) {
     wsRef.current?.close();
     wsRef.current = null;
     gameStateRef.current = {};
+    marketFetchedAt.current = 0;
+    myShipsFetchedAt.current = 0;
+    catalogShipsFetchedAt.current = 0;
     setState({
       status: 'disconnected',
       player: null,
@@ -429,6 +440,9 @@ export function useObserver(wsUrl: string) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
     gameStateRef.current = {};
+    marketFetchedAt.current = 0;
+    myShipsFetchedAt.current = 0;
+    catalogShipsFetchedAt.current = 0;
     setState(s => ({ ...s, subscribedAgent: agentName, player: null, skills: [], myShips: [], catalogShips: [], activeShipId: null, cargoData: null, storageData: null, factionStorageData: null, marketData: null }));
     ws.send(JSON.stringify({ type: 'subscribe', agent: agentName }));
   }, []);
@@ -530,6 +544,7 @@ export function useObserver(wsUrl: string) {
           if (Array.isArray(respPayload.ships)) {
             if ('active_ship_id' in respPayload) {
               // list_ships response — owned ships
+              myShipsFetchedAt.current = Date.now();
               const ships = respPayload.ships as unknown as OwnedShip[];
               const activeId = (respPayload.active_ship_id as string)
                 || ships.find(s => s.is_active)?.ship_id
@@ -537,6 +552,7 @@ export function useObserver(wsUrl: string) {
               setState(s => ({ ...s, myShips: ships, activeShipId: activeId }));
             } else {
               // get_ships response — catalog
+              catalogShipsFetchedAt.current = Date.now();
               setState(s => ({ ...s, catalogShips: respPayload.ships as unknown as ShipClass[] }));
             }
           }
@@ -561,6 +577,7 @@ export function useObserver(wsUrl: string) {
           } else if (action === 'view_faction_storage') {
             setState(s => ({ ...s, factionStorageData: respPayload as unknown as FactionStorageData }));
           } else if (action === 'view_market' && Array.isArray(respPayload.items)) {
+            marketFetchedAt.current = Date.now();
             setState(s => ({
               ...s,
               marketData: {
@@ -573,6 +590,7 @@ export function useObserver(wsUrl: string) {
 
           // Handle view_market response via items key in ok payload (no action field)
           if (!action && Array.isArray(respPayload.items) && typeof respPayload.base === 'string') {
+            marketFetchedAt.current = Date.now();
             setState(s => ({
               ...s,
               marketData: {
@@ -616,6 +634,11 @@ export function useObserver(wsUrl: string) {
               ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_missions', payload: {} }));
               ws.send(JSON.stringify({ type: 'command', agent: state.subscribedAgent, command: 'get_active_missions', payload: {} }));
             }
+          }
+
+          // Invalidate station-specific cache on undock
+          if (resultObj && (resultObj as Record<string, unknown>).action === 'undock') {
+            marketFetchedAt.current = 0;
           }
 
           const partial = extractGameState({ type: respType, payload: respPayload });
@@ -707,8 +730,38 @@ export function useObserver(wsUrl: string) {
     sendCommand('complete_mission', { mission_id: missionId });
   }, [sendCommand]);
 
-  const getMarket = useCallback(() => {
+  const getMarket = useCallback((force?: boolean) => {
+    if (!force && state.marketData && Date.now() - marketFetchedAt.current < STATION_CACHE_TTL) {
+      return; // cache is still fresh
+    }
     sendCommand('view_market', {});
+  }, [sendCommand, state.marketData]);
+
+  const getMyShips = useCallback((force?: boolean) => {
+    if (!force && state.myShips.length > 0 && Date.now() - myShipsFetchedAt.current < STATION_CACHE_TTL) {
+      return;
+    }
+    sendCommand('list_ships', {});
+  }, [sendCommand, state.myShips]);
+
+  const getCatalogShips = useCallback((force?: boolean) => {
+    if (!force && state.catalogShips.length > 0 && Date.now() - catalogShipsFetchedAt.current < STATION_CACHE_TTL) {
+      return;
+    }
+    sendCommand('get_ships', {});
+  }, [sendCommand, state.catalogShips]);
+
+  // Prefetch all station data when docking — fires commands so data
+  // is already available by the time the user navigates to a panel.
+  const prefetchStationData = useCallback(() => {
+    sendCommand('view_market', {});
+    sendCommand('list_ships', {});
+    sendCommand('get_ships', {});
+    sendCommand('get_cargo', {});
+    sendCommand('view_storage', {});
+    sendCommand('view_faction_storage', {});
+    sendCommand('get_missions', {});
+    sendCommand('get_active_missions', {});
   }, [sendCommand]);
 
   return {
@@ -728,6 +781,9 @@ export function useObserver(wsUrl: string) {
     abandonMission,
     completeMission,
     getMarket,
+    getMyShips,
+    getCatalogShips,
+    prefetchStationData,
   };
 }
 
