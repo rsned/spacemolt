@@ -73,18 +73,24 @@ func formatErrorMessage(callType string, errResp map[string]any) string {
 // Helper function to get POI name by ID
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: data-scraper <agent-id>")
-		fmt.Println("This tool scrapes game API data for the specified agent")
-		fmt.Println()
+		printUsage()
 		os.Exit(1)
 	}
 
 	agentID := os.Args[1]
+	var endpoint string
+	if len(os.Args) >= 3 {
+		endpoint = os.Args[2]
+	}
+
 	logger := log.New(os.Stdout, "[SCRAPER] ", log.LstdFlags)
 
 	logger.Println("🚀 SpaceMolt Game API Scraper (WebSocket)")
 	logger.Println("==========================================")
 	logger.Printf("Agent: %s\n", agentID)
+	if endpoint != "" {
+		logger.Printf("Endpoint: %s\n", endpoint)
+	}
 	logger.Println()
 
 	// Create output directory for this agent
@@ -112,12 +118,63 @@ func main() {
 
 	logger.Printf("Credentials: %s | Empire: %s\n", creds.Username, creds.Empire)
 
-	// Scrape all data
-	if err := scraper.scrapeAll(); err != nil {
-		logger.Fatalf("Scraping failed: %v", err)
+	// Scrape data
+	if endpoint != "" {
+		// Scrape single endpoint
+		if err := scraper.scrapeOne(endpoint); err != nil {
+			logger.Fatalf("Scraping failed: %v", err)
+		}
+	} else {
+		// Scrape all data
+		if err := scraper.scrapeAll(); err != nil {
+			logger.Fatalf("Scraping failed: %v", err)
+		}
 	}
 
 	logger.Println("\n✅ Scraping complete!")
+}
+
+func printUsage() {
+	fmt.Println("Usage: data-scraper <agent-id> [endpoint]")
+	fmt.Println()
+	fmt.Println("Arguments:")
+	fmt.Println("  agent-id   Agent identifier (e.g., craftsman-1, explorer-1)")
+	fmt.Println("  endpoint   Optional: Specific endpoint to scrape")
+	fmt.Println()
+	fmt.Println("Available endpoints:")
+	fmt.Println("  status       - Status & Player Info")
+	fmt.Println("  ship         - Ship Info")
+	fmt.Println("  poi          - Current POI")
+	fmt.Println("  system       - System Data")
+	fmt.Println("  map          - Map Data")
+	fmt.Println("  listings     - Market Listings")
+	fmt.Println("  ships        - Shipyard Showroom (station)")
+	fmt.Println("  ship_catalog - Ship Catalog (all ship types)")
+	fmt.Println("  nearby       - Nearby Players")
+	fmt.Println("  skills       - Player Skills (your levels)")
+	fmt.Println("  skill_defs   - Skill Definitions (catalog)")
+	fmt.Println("  recipes      - Recipe Definitions (catalog)")
+	fmt.Println("  items        - Item Definitions (catalog)")
+	fmt.Println("  wrecks       - Wrecks")
+	fmt.Println("  drones       - Drones")
+	fmt.Println("  base         - Base Info")
+	fmt.Println("  faction      - Faction Info")
+	fmt.Println("  log          - Captain's Log")
+	fmt.Println("  cargo        - Cargo Contents")
+	fmt.Println("  missions     - Available Missions")
+	fmt.Println("  active_missions - Active Missions")
+	fmt.Println("  orders       - Exchange Orders")
+	fmt.Println("  notes        - Player Notes")
+	fmt.Println("  insurance    - Insurance Quote")
+	fmt.Println("  version      - Game Version")
+	fmt.Println("  commands     - Available Commands")
+	fmt.Println("  storage      - Station Storage")
+	fmt.Println("  market       - Market Exchange")
+	fmt.Println()
+	fmt.Println("Examples:")
+	fmt.Println("  data-scraper craftsman-1           # Scrape all endpoints")
+	fmt.Println("  data-scraper craftsman-1 status    # Scrape only status")
+	fmt.Println("  data-scraper craftsman-1 map       # Scrape only map data")
 }
 
 func (s *Scraper) scrapeAll() error {
@@ -136,16 +193,29 @@ func (s *Scraper) scrapeAll() error {
 		{"Current POI", s.scrapePOI},
 		{"System Data", s.scrapeSystem},
 		{"Map Data", s.scrapeMap},
-		//{"Market Listings", s.scrapeListings},
-		//{"Ship Listings", s.scrapeShips},
-		//{"Nearby Players", s.scrapeNearby},
-		//{"Skills", s.scrapeSkills},
-		//{"Recipes", s.scrapeRecipes},
+		{"Market Listings", s.scrapeListings},
+		{"Shipyard Showroom", s.scrapeShips},
+		{"Ship Catalog", s.scrapeShipCatalog},
+		{"Nearby Players", s.scrapeNearby},
+		{"Player Skills", s.scrapeSkills},
+		{"Skill Definitions", s.scrapeSkillDefinitions},
+		{"Recipe Definitions", s.scrapeRecipeDefinitions},
+		{"Item Definitions", s.scrapeItemDefinitions},
 		{"Wrecks", s.scrapeWrecks},
 		{"Drones", s.scrapeDrones},
 		{"Base Info", s.scrapeBase},
 		{"Faction Info", s.scrapeFactionInfo},
 		{"Captain's Log", s.scrapeCaptainsLog},
+		{"Cargo", s.scrapeCargo},
+		{"Available Missions", s.scrapeMissions},
+		{"Active Missions", s.scrapeActiveMissions},
+		{"Exchange Orders", s.scrapeOrders},
+		{"Player Notes", s.scrapeNotes},
+		{"Insurance Quote", s.scrapeInsuranceQuote},
+		{"Game Version", s.scrapeVersion},
+		{"Available Commands", s.scrapeCommands},
+		{"Station Storage", s.scrapeStorage},
+		{"Market Exchange", s.scrapeMarket},
 	}
 
 	for _, cat := range categories {
@@ -155,6 +225,62 @@ func (s *Scraper) scrapeAll() error {
 			// Continue with other categories
 		}
 		time.Sleep(500 * time.Millisecond)
+	}
+
+	return nil
+}
+
+func (s *Scraper) scrapeOne(endpoint string) error {
+	// Create output directory
+	if err := os.MkdirAll(s.outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Map endpoint names to their scrape functions
+	endpointMap := map[string]struct {
+		name string
+		fn   func() error
+	}{
+		"status":     {"Status & Player Info", s.scrapeStatus},
+		"ship":       {"Ship Info", s.scrapeShip},
+		"poi":        {"Current POI", s.scrapePOI},
+		"system":     {"System Data", s.scrapeSystem},
+		"map":        {"Map Data", s.scrapeMap},
+		"listings":     {"Market Listings", s.scrapeListings},
+		"ships":        {"Shipyard Showroom", s.scrapeShips},
+		"ship_catalog": {"Ship Catalog", s.scrapeShipCatalog},
+		"nearby":       {"Nearby Players", s.scrapeNearby},
+		"skills":     {"Player Skills", s.scrapeSkills},
+		"skill_defs": {"Skill Definitions", s.scrapeSkillDefinitions},
+		"recipes":    {"Recipe Definitions", s.scrapeRecipeDefinitions},
+		"items":      {"Item Definitions", s.scrapeItemDefinitions},
+		"wrecks":     {"Wrecks", s.scrapeWrecks},
+		"drones":     {"Drones", s.scrapeDrones},
+		"base":       {"Base Info", s.scrapeBase},
+		"faction":          {"Faction Info", s.scrapeFactionInfo},
+		"log":              {"Captain's Log", s.scrapeCaptainsLog},
+		"cargo":            {"Cargo", s.scrapeCargo},
+		"missions":         {"Available Missions", s.scrapeMissions},
+		"active_missions":  {"Active Missions", s.scrapeActiveMissions},
+		"orders":           {"Exchange Orders", s.scrapeOrders},
+		"notes":            {"Player Notes", s.scrapeNotes},
+		"insurance":        {"Insurance Quote", s.scrapeInsuranceQuote},
+		"version":          {"Game Version", s.scrapeVersion},
+		"commands":         {"Available Commands", s.scrapeCommands},
+		"storage":          {"Station Storage", s.scrapeStorage},
+		"market":           {"Market Exchange", s.scrapeMarket},
+	}
+
+	// Look up the endpoint
+	ep, ok := endpointMap[endpoint]
+	if !ok {
+		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skills, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market", endpoint)
+	}
+
+	// Scrape the single endpoint
+	s.logger.Printf("\n📊 Scraping: %s...", ep.name)
+	if err := ep.fn(); err != nil {
+		return fmt.Errorf("scraping failed: %w", err)
 	}
 
 	return nil
@@ -415,6 +541,418 @@ func (s *Scraper) scrapeCaptainsLog() error {
 	}
 
 	return s.saveJSON("captains_log_list.json", rawJSON)
+}
+
+func (s *Scraper) scrapeListings() error {
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Get market listings
+	if err := s.client.GetListings(ctx); err != nil {
+		return fmt.Errorf("get_listings failed: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Get raw JSON response (stored as "market" not "listings")
+	rawJSON := s.client.GetRawJSON("market")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_listings", errResp))
+	}
+
+	return s.saveJSON("get_listings.json", rawJSON)
+}
+
+func (s *Scraper) scrapeShips() error {
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Request shipyard showroom
+	msg := protocol.Message{
+		Type: "shipyard_showroom",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("shipyard_showroom failed: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Get raw JSON response (stored as "shipyard" or "ships")
+	rawJSON := s.client.GetRawJSON("shipyard")
+	if rawJSON == nil {
+		// Try "ships" as fallback
+		rawJSON = s.client.GetRawJSON("ships")
+	}
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("shipyard_showroom", errResp))
+	}
+
+	return s.saveJSON("get_ships.json", rawJSON)
+}
+
+func (s *Scraper) scrapeNearby() error {
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Request nearby players
+	msg := protocol.Message{
+		Type: "get_nearby",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("get_nearby failed: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Get raw JSON response
+	rawJSON := s.client.GetRawJSON("nearby")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_nearby", errResp))
+	}
+
+	return s.saveJSON("get_nearby.json", rawJSON)
+}
+
+func (s *Scraper) scrapeSkills() error {
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Request player skills (current levels and XP)
+	msg := protocol.Message{
+		Type: "get_skills",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("get_skills failed: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Get raw JSON response
+	rawJSON := s.client.GetRawJSON("skills")
+	if rawJSON == nil {
+		// Check if there was an error response
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_skills", errResp))
+	}
+
+	return s.saveJSON("get_skills.json", rawJSON)
+}
+
+func (s *Scraper) scrapeSkillDefinitions() error {
+	return s.scrapeCatalog("skills", "catalog_skills.json")
+}
+
+func (s *Scraper) scrapeRecipeDefinitions() error {
+	return s.scrapeCatalog("recipes", "catalog_recipes.json")
+}
+
+func (s *Scraper) scrapeShipCatalog() error {
+	return s.scrapeCatalog("ships", "catalog_ships.json")
+}
+
+func (s *Scraper) scrapeItemDefinitions() error {
+	return s.scrapeCatalog("items", "catalog_items.json")
+}
+
+// scrapeCatalog fetches all pages of a catalog type and merges them
+func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
+	ctx := context.Background()
+
+	// Clear previous error
+	s.client.ClearLastError()
+
+	// Request first page from catalog
+	msg := protocol.Message{
+		Type: "catalog",
+		Payload: map[string]any{
+			"type":      catalogType,
+			"page":      1,
+			"page_size": 50, // Server max is 50
+		},
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("catalog %s page 1 failed: %w", catalogType, err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Get first page response
+	rawJSON := s.client.GetRawJSON("catalog")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s", catalogType), errResp))
+	}
+
+	// Parse the response to get pagination info
+	var firstPage struct {
+		Items       []json.RawMessage `json:"items"`
+		Page        int               `json:"page"`
+		PageSize    int               `json:"page_size"`
+		Total       int               `json:"total"`
+		TotalPages  int               `json:"total_pages"`
+		Type        string            `json:"type"`
+		Message     string            `json:"message"`
+	}
+
+	if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
+		return fmt.Errorf("failed to parse catalog response: %w", err)
+	}
+
+	s.logger.Printf("  📖 Page %d/%d: %d items", firstPage.Page, firstPage.TotalPages, len(firstPage.Items))
+
+	// If there's only one page, save and return
+	if firstPage.TotalPages <= 1 {
+		return s.saveJSON(filename, rawJSON)
+	}
+
+	// Fetch remaining pages
+	allItems := make([]json.RawMessage, 0, firstPage.Total)
+	allItems = append(allItems, firstPage.Items...)
+
+	for page := 2; page <= firstPage.TotalPages; page++ {
+		s.client.ClearLastError()
+
+		msg := protocol.Message{
+			Type: "catalog",
+			Payload: map[string]any{
+				"type":      catalogType,
+				"page":      page,
+				"page_size": 50,
+			},
+		}
+		if err := s.client.Send(ctx, msg); err != nil {
+			return fmt.Errorf("catalog %s page %d failed: %w", catalogType, page, err)
+		}
+		time.Sleep(2 * time.Second)
+
+		rawJSON := s.client.GetRawJSON("catalog")
+		if rawJSON == nil {
+			errResp := s.client.GetLastError()
+			return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s page %d", catalogType, page), errResp))
+		}
+
+		var pageResp struct {
+			Items      []json.RawMessage `json:"items"`
+			Page       int               `json:"page"`
+			TotalPages int               `json:"total_pages"`
+		}
+
+		if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
+			return fmt.Errorf("failed to parse catalog page %d: %w", page, err)
+		}
+
+		s.logger.Printf("  📖 Page %d/%d: %d items", page, firstPage.TotalPages, len(pageResp.Items))
+		allItems = append(allItems, pageResp.Items...)
+	}
+
+	// Build combined response
+	combinedResponse := map[string]any{
+		"items":       allItems,
+		"page":        1,
+		"page_size":   len(allItems),
+		"total":       len(allItems),
+		"total_pages": 1,
+		"type":        catalogType,
+		"message":     fmt.Sprintf("%s: showing all %d items", catalogType, len(allItems)),
+	}
+
+	// Marshal combined response
+	combinedJSON, err := json.MarshalIndent(combinedResponse, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal combined catalog: %w", err)
+	}
+
+	s.logger.Printf("  📚 Total %s: %d items", catalogType, len(allItems))
+	return s.saveJSON(filename, combinedJSON)
+}
+
+func (s *Scraper) scrapeCargo() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetCargo(ctx); err != nil {
+		return fmt.Errorf("get_cargo failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("cargo")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_cargo", errResp))
+	}
+	return s.saveJSON("get_cargo.json", rawJSON)
+}
+
+func (s *Scraper) scrapeMissions() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetMissions(ctx); err != nil {
+		return fmt.Errorf("get_missions failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("missions")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_missions", errResp))
+	}
+	return s.saveJSON("get_missions.json", rawJSON)
+}
+
+func (s *Scraper) scrapeActiveMissions() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetActiveMissions(ctx); err != nil {
+		return fmt.Errorf("get_active_missions failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("active_missions")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_active_missions", errResp))
+	}
+	return s.saveJSON("get_active_missions.json", rawJSON)
+}
+
+func (s *Scraper) scrapeOrders() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	msg := protocol.Message{
+		Type: "view_orders",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("view_orders failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("orders")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("view_orders", errResp))
+	}
+	return s.saveJSON("view_orders.json", rawJSON)
+}
+
+func (s *Scraper) scrapeNotes() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetNotes(ctx); err != nil {
+		return fmt.Errorf("get_notes failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("notes")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_notes", errResp))
+	}
+	return s.saveJSON("get_notes.json", rawJSON)
+}
+
+func (s *Scraper) scrapeInsuranceQuote() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetInsuranceQuote(ctx); err != nil {
+		return fmt.Errorf("get_insurance_quote failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("insurance_quote")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_insurance_quote", errResp))
+	}
+	return s.saveJSON("get_insurance_quote.json", rawJSON)
+}
+
+func (s *Scraper) scrapeVersion() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetVersion(ctx); err != nil {
+		return fmt.Errorf("get_version failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("version")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_version", errResp))
+	}
+	return s.saveJSON("get_version.json", rawJSON)
+}
+
+func (s *Scraper) scrapeCommands() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.GetCommands(ctx); err != nil {
+		return fmt.Errorf("get_commands failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("commands")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("get_commands", errResp))
+	}
+	return s.saveJSON("get_commands.json", rawJSON)
+}
+
+func (s *Scraper) scrapeStorage() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	if err := s.client.ViewStorage(ctx); err != nil {
+		return fmt.Errorf("view_storage failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("storage")
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("view_storage", errResp))
+	}
+	return s.saveJSON("view_storage.json", rawJSON)
+}
+
+func (s *Scraper) scrapeMarket() error {
+	ctx := context.Background()
+	s.client.ClearLastError()
+
+	msg := protocol.Message{
+		Type: "view_market",
+	}
+	if err := s.client.Send(ctx, msg); err != nil {
+		return fmt.Errorf("view_market failed: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	rawJSON := s.client.GetRawJSON("view_market")
+	if rawJSON == nil {
+		// Try "market" as fallback (stored with action name)
+		rawJSON = s.client.GetRawJSON("market")
+	}
+	if rawJSON == nil {
+		errResp := s.client.GetLastError()
+		return fmt.Errorf("%s", formatErrorMessage("view_market", errResp))
+	}
+	return s.saveJSON("view_market.json", rawJSON)
 }
 
 func (s *Scraper) saveJSON(filename string, data any) error {

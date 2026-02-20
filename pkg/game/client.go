@@ -1103,6 +1103,17 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
 		c.parseSystemData(resp.Payload)
+		// Parse pending trades from logged_in response
+		if trades, ok := resp.Payload["pending_trades"].([]any); ok {
+			c.mu.Lock()
+			c.state.PendingTrades = make([]map[string]any, 0, len(trades))
+			for _, t := range trades {
+				if tm, ok := t.(map[string]any); ok {
+					c.state.PendingTrades = append(c.state.PendingTrades, tm)
+				}
+			}
+			c.mu.Unlock()
+		}
 
 	case protocol.TypeError:
 		c.parseErrorState(resp.Payload)
@@ -1150,6 +1161,12 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Lock()
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
+		}
+		if inCombat, ok := resp.Payload["in_combat"].(bool); ok {
+			c.state.InCombat = inCombat
+			if !inCombat {
+				c.state.InBattle = false
+			}
 		}
 		c.mu.Unlock()
 		c.parsePlayerData(resp.Payload)
@@ -1214,6 +1231,39 @@ func (c *Client) handleResponse(resp protocol.Response) {
 
 	case protocol.TypePoliceCombat:
 		c.debugLogger.Printf("⚔️  POLICE COMBAT: %v", resp.Payload)
+
+	case protocol.TypePirateDestroyed:
+		c.debugLogger.Printf("💀 PIRATE DESTROYED: %v", resp.Payload)
+		c.mu.Lock()
+		c.state.InCombat = false
+		c.state.PirateName = ""
+		c.state.PirateTier = ""
+		c.state.PirateID = ""
+		c.state.LastDamage = 0
+		c.mu.Unlock()
+
+	case protocol.TypePirateSpawn:
+		c.debugLogger.Printf("⚠️  PIRATE SPAWNED: %v", resp.Payload)
+
+	case protocol.TypePlayerDied:
+		c.debugLogger.Printf("💀 PLAYER DIED: %v", resp.Payload)
+		c.mu.Lock()
+		c.state.InCombat = false
+		c.state.InBattle = false
+		c.state.BattleState = nil
+		c.state.PirateName = ""
+		c.state.PirateTier = ""
+		c.state.PirateID = ""
+		c.state.LastDamage = 0
+		c.mu.Unlock()
+
+	case protocol.TypeCombatUpdate:
+		c.mu.Lock()
+		c.state.InCombat = true
+		if damage, ok := resp.Payload["damage"].(float64); ok {
+			c.state.LastDamage = damage
+		}
+		c.mu.Unlock()
 	}
 }
 
@@ -1749,6 +1799,29 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
+		// Store storage data (from view_storage response)
+		// Check BEFORE generic "items" check - storage has base_id + items + ships
+		if _, hasBaseID := resp.Payload["base_id"]; hasBaseID {
+			if _, hasItems := resp.Payload["items"]; hasItems {
+				if _, hasShips := resp.Payload["ships"]; hasShips {
+					if storeKey == "" {
+						storeKey = "storage"
+					}
+					shouldStore = true
+				}
+			}
+		}
+		// Store catalog responses (ships, skills, recipes, items)
+		// Check for catalog-specific fields before generic "items" check
+		if _, hasPage := resp.Payload["page"]; hasPage {
+			if _, hasItems := resp.Payload["items"]; hasItems {
+				if storeKey == "" {
+					storeKey = "catalog"
+				}
+				shouldStore = true
+			}
+		}
+		// Store market listings with "items" field (but not from catalog)
 		if _, hasItems := resp.Payload["items"]; hasItems {
 			if storeKey == "" {
 				storeKey = "market"
@@ -1758,6 +1831,13 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		if _, hasShips := resp.Payload["ships"]; hasShips {
 			if storeKey == "" {
 				storeKey = "ships"
+			}
+			shouldStore = true
+		}
+		// Store shipyard data (from shipyard_showroom response)
+		if _, hasShipyard := resp.Payload["shipyard"]; hasShipyard {
+			if storeKey == "" {
+				storeKey = "shipyard"
 			}
 			shouldStore = true
 		}
@@ -1838,12 +1918,153 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
+		// Store nearby players (from get_nearby response)
+		if _, hasNearby := resp.Payload["nearby"]; hasNearby {
+			if storeKey == "" {
+				storeKey = "nearby"
+			}
+			shouldStore = true
+		}
 		// Store map data (from get_map response)
 		if _, hasSystems := resp.Payload["systems"]; hasSystems {
 			if storeKey == "" {
 				storeKey = "systems"
 			}
 			shouldStore = true
+		}
+		// Store cargo data (from get_cargo response)
+		// Content-based detection: has "cargo" array and "capacity" field
+		if _, hasCargoItems := resp.Payload["cargo"]; hasCargoItems {
+			if _, hasCapacity := resp.Payload["capacity"]; hasCapacity {
+				if storeKey == "" {
+					storeKey = "cargo"
+				}
+				shouldStore = true
+			}
+		}
+		// Store missions data (from get_missions response)
+		// Content-based detection: has "missions" array and "base_id" field
+		if _, hasMissions := resp.Payload["missions"]; hasMissions {
+			if _, hasBaseID := resp.Payload["base_id"]; hasBaseID {
+				if storeKey == "" {
+					storeKey = "missions"
+				}
+				shouldStore = true
+			}
+		}
+		// Store active missions data (from get_active_missions response)
+		// Content-based detection: has "total_count" and "max_missions" fields
+		if _, hasTotalCount := resp.Payload["total_count"]; hasTotalCount {
+			if _, hasMaxMissions := resp.Payload["max_missions"]; hasMaxMissions {
+				if storeKey == "" {
+					storeKey = "active_missions"
+				}
+				shouldStore = true
+			}
+		}
+		// Store notes data (from get_notes response)
+		// Content-based detection: has "notes" field and "total_count"
+		if _, hasNotes := resp.Payload["notes"]; hasNotes {
+			if _, hasTotalCount := resp.Payload["total_count"]; hasTotalCount {
+				if storeKey == "" {
+					storeKey = "notes"
+				}
+				shouldStore = true
+			}
+		}
+		// Store insurance quote data (from get_insurance_quote response)
+		// Content-based detection: has "quote" or "insured_value" field
+		if _, hasQuote := resp.Payload["quote"]; hasQuote {
+			if storeKey == "" {
+				storeKey = "insurance_quote"
+			}
+			shouldStore = true
+		}
+		if _, hasInsuredValue := resp.Payload["insured_value"]; hasInsuredValue {
+			if storeKey == "" {
+				storeKey = "insurance_quote"
+			}
+			shouldStore = true
+		}
+		// Store version data (from get_version response)
+		// Content-based detection: has "version" field
+		if _, hasVersion := resp.Payload["version"]; hasVersion {
+			if storeKey == "" {
+				storeKey = "version"
+			}
+			shouldStore = true
+		}
+		// Store commands data (from get_commands response)
+		// Content-based detection: has "commands" array
+		if _, hasCommands := resp.Payload["commands"]; hasCommands {
+			if storeKey == "" {
+				storeKey = "commands"
+			}
+			shouldStore = true
+		}
+		// Action-based detection for cargo
+		if action, ok := resp.Payload["action"].(string); ok {
+			switch action {
+			case "get_cargo":
+				if storeKey == "" {
+					storeKey = "cargo"
+				}
+				shouldStore = true
+			case "get_battle_status":
+				if storeKey == "" {
+					storeKey = "battle_status"
+				}
+				shouldStore = true
+			case "view_orders":
+				// Override "base" storeKey for view_orders
+				storeKey = "orders"
+				shouldStore = true
+			case "view_market":
+				if storeKey == "" {
+					storeKey = "market"
+				}
+				shouldStore = true
+			case "get_missions":
+				if storeKey == "" {
+					storeKey = "missions"
+				}
+				shouldStore = true
+			case "get_active_missions":
+				if storeKey == "" {
+					storeKey = "active_missions"
+				}
+				shouldStore = true
+			case "view_storage":
+				if storeKey == "" {
+					storeKey = "storage"
+				}
+				shouldStore = true
+			case "list_ships":
+				if storeKey == "" {
+					storeKey = "owned_ships"
+				}
+				shouldStore = true
+			case "get_notes":
+				if storeKey == "" {
+					storeKey = "notes"
+				}
+				shouldStore = true
+			case "get_insurance_quote":
+				if storeKey == "" {
+					storeKey = "insurance_quote"
+				}
+				shouldStore = true
+			case "get_version":
+				if storeKey == "" {
+					storeKey = "version"
+				}
+				shouldStore = true
+			case "get_commands":
+				if storeKey == "" {
+					storeKey = "commands"
+				}
+				shouldStore = true
+			}
 		}
 	case protocol.TypeError:
 		// Don't store error responses in the same keys as success data
@@ -2383,6 +2604,105 @@ func (c *Client) GetPOIQueued(ctx context.Context) error {
 func (c *Client) GetListingsQueued(ctx context.Context) error {
 	_, err := c.SendQueued(ctx, protocol.Message{
 		Type:      "view_market",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// CraftQueued crafts an item using the queue
+func (c *Client) CraftQueued(ctx context.Context, recipeID string, quantity int) error {
+	payload := map[string]any{"recipe_id": recipeID}
+	if quantity > 1 {
+		payload["quantity"] = quantity
+	}
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "craft",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetCargoQueued gets cargo contents using the queue
+func (c *Client) GetCargoQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_cargo",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetBaseQueued gets base info using the queue
+func (c *Client) GetBaseQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_base",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetShipQueued gets ship info using the queue
+func (c *Client) GetShipQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_ship",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// GetNearbyQueued gets nearby players using the queue
+func (c *Client) GetNearbyQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "get_nearby",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// ViewStorageQueued views station storage using the queue
+func (c *Client) ViewStorageQueued(ctx context.Context) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "view_storage",
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// WithdrawItemsQueued withdraws items from storage using the queue
+func (c *Client) WithdrawItemsQueued(ctx context.Context, itemID string, quantity float64) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "withdraw_items",
+		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// DepositCreditsQueued deposits credits to storage using the queue
+func (c *Client) DepositCreditsQueued(ctx context.Context, amount float64) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "deposit_credits",
+		Payload:   map[string]any{"amount": amount},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// AcceptMissionQueued accepts a mission using the queue
+func (c *Client) AcceptMissionQueued(ctx context.Context, missionID string) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "accept_mission",
+		Payload:   map[string]any{"mission_id": missionID},
+		Timestamp: time.Now().UnixMilli(),
+	}, SleepTick)
+	return err
+}
+
+// CompleteMissionQueued completes a mission using the queue
+func (c *Client) CompleteMissionQueued(ctx context.Context, missionID string) error {
+	_, err := c.SendQueued(ctx, protocol.Message{
+		Type:      "complete_mission",
+		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
 	}, SleepTick)
 	return err

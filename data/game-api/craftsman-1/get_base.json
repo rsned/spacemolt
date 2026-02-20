@@ -35,15 +35,16 @@
       "missions": true,
       "refuel": true,
       "repair": true,
+      "salvage_yard": false,
       "shipyard": true,
       "storage": true
     }
   },
   "condition": {
-    "condition": "struggling",
-    "condition_text": "Multiple systems running on emergency reserves. Lights flicker in the corridors.",
-    "satisfaction_pct": 40,
-    "satisfied_count": 4,
+    "condition": "critical",
+    "condition_text": "Critical infrastructure failure. Emergency lighting only. Station barely functional.",
+    "satisfaction_pct": 20,
+    "satisfied_count": 2,
     "total_service_infra": 10
   }
 }

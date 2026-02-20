@@ -44,11 +44,60 @@ The scraper uses credentials from `data/agents/random-2/credentials.json`:
 Run the scraper from the project root:
 
 ```bash
-go run cmd/data-scraper/main.go
+# Scrape all endpoints for an agent
+go run cmd/data-scraper/main.go <agent-id>
+
+# Scrape a specific endpoint
+go run cmd/data-scraper/main.go <agent-id> <endpoint>
+```
+
+### Arguments
+
+- `agent-id` - Agent identifier (e.g., craftsman-1, explorer-1)
+- `endpoint` - Optional: Specific endpoint to scrape (see list below)
+
+### Available Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `status` | Status & Player Info |
+| `ship` | Ship Info |
+| `poi` | Current POI |
+| `system` | System Data |
+| `map` | Map Data |
+| `listings` | Market Listings |
+| `ships` | Shipyard Showroom |
+| `ship_catalog` | Ship Catalog (all ship types) |
+| `nearby` | Nearby Players |
+| `skills` | Player Skills (your levels) |
+| `skill_defs` | Skill Definitions (catalog) |
+| `recipes` | Recipe Definitions (catalog) |
+| `items` | Item Definitions (catalog) |
+| `wrecks` | Wrecks |
+| `drones` | Drones |
+| `base` | Base Info |
+| `faction` | Faction Info |
+| `log` | Captain's Log |
+
+### Examples
+
+```bash
+# Scrape all data for craftsman-1
+go run cmd/data-scraper/main.go craftsman-1
+
+# Scrape only status data
+go run cmd/data-scraper/main.go craftsman-1 status
+
+# Scrape only map data
+go run cmd/data-scraper/main.go craftsman-1 map
+
+# Scrape market listings
+go run cmd/data-scraper/main.go craftsman-1 listings
 ```
 
 ### What It Does
 
+When scraping all endpoints:
 1. **Connects** to game server via WebSocket
 2. **Logs in** using credentials
 3. **Scrapes data** from multiple endpoints:
@@ -58,40 +107,53 @@ go run cmd/data-scraper/main.go
    - System Data
    - Map Data
    - Market Listings
-   - Ship Listings
+   - Shipyard Showroom (ships available for purchase)
    - Nearby Players
-   - Skills
-   - Recipes
-   - Notifications
+   - Player Skills (your current levels and XP)
+   - Skill Definitions (all skills in game via catalog)
+   - Recipe Definitions (all recipes in game via catalog)
+   - Ship Catalog (all ship types via catalog)
+   - Item Definitions (all items via catalog)
    - Wrecks
    - Drones
    - Base Info
    - Faction Info
    - Captain's Log
-4. **Saves all responses** to `data/game-api/*.json`
+4. **Saves all responses** to `data/game-api/<agent-id>/*.json`
+
+When scraping a single endpoint:
+1. **Connects** to game server via WebSocket
+2. **Logs in** using credentials
+3. **Scrapes** only the specified endpoint
+4. **Saves response** to `data/game-api/<agent-id>/<filename>.json`
 
 ### Output
 
-All API responses are saved to `data/game-api/` with descriptive filenames:
+All API responses are saved to `data/game-api/<agent-id>/` with descriptive filenames:
 
 ```
 data/game-api/
-├── get_status.json
-├── get_ship.json
-├── get_poi.json
-├── get_system.json
-├── get_map.json
-├── get_listings.json
-├── get_ships.json
-├── get_nearby.json
-├── get_skills.json
-├── get_recipes.json
-├── get_notifications.json
-├── get_wrecks.json
-├── get_drones.json
-├── get_base.json
-├── faction_info.json
-└── captains_log_list.json
+├── craftsman-1/
+│   ├── get_status.json
+│   ├── get_ship.json
+│   ├── get_poi.json
+│   ├── get_system.json
+│   ├── get_map.json
+│   ├── get_listings.json
+│   ├── get_ships.json (shipyard showroom)
+│   ├── get_nearby.json
+│   ├── get_skills.json (your player skills)
+│   ├── catalog_skills.json (all skill definitions)
+│   ├── catalog_recipes.json (all recipe definitions)
+│   ├── catalog_ships.json (all ship types)
+│   └── catalog_items.json (all items)
+│   ├── get_wrecks.json
+│   ├── get_drones.json
+│   ├── get_base.json
+│   ├── faction_info.json (if in faction)
+│   └── captains_log_list.json
+└── craftsman-3/
+    └── ...
 ```
 
 ## Data Retrieved
@@ -127,23 +189,64 @@ data/game-api/
 - Buy/sell orders
 - Prices and quantities
 
-### Ship Listings (`get_ships.json`)
-- Available ships for purchase
-- Prices and specifications
+### Nearby Players (`get_nearby.json`)
+- Other players at current location
+- Their ships and statuses
 
-### Skills (`get_skills.json`)
-- Player skills and XP
-- Skill definitions
-- Next level requirements
+### Shipyard Showroom (`get_ships.json`)
+- Ships available for purchase at current station
+- Shipyard level and base information
+- Use `commission_ship` to order custom builds
 
-### Recipes (`get_recipes.json`)
-- Available crafting recipes
-- Required materials
-- Output items
+### Player Skills (`get_skills.json`)
+- Your current skill levels and XP
+- Progress toward next skill level
+- Personal skill advancement data
+
+### Skill Definitions (`catalog_skills.json`)
+- All available skills in the game
+- Skill descriptions and requirements
+- Category information
+- Use `catalog` with type="skills" to browse
+
+### Recipe Definitions (`catalog_recipes.json`)
+- All available crafting recipes
+- Required materials and quantities
+- Output items and quantities
+- Recipe categories
+- Use `catalog` with type="recipes" to browse
+
+### Ship Catalog (`catalog_ships.json`)
+- All ship types in the game
+- Ship specifications and stats
+- Class information
+- Use `catalog` with type="ships" to browse
+
+### Item Definitions (`catalog_items.json`)
+- All items in the game
+- Item descriptions and properties
+- Categories and types
+- Use `catalog` with type="items" to browse
 
 ### Nearby Players (`get_nearby.json`)
 - Other players at current location
 - Their ships and statuses
+
+## API Changes
+
+The SpaceMolt game server has been updated with a new catalog system:
+
+- **get_skills** now returns only your player's current skill levels and XP
+- **Skill definitions** are now retrieved via the `catalog` endpoint with type="skills"
+- **Recipe definitions** are now retrieved via the `catalog` endpoint with type="recipes"
+- **Ship definitions** are retrieved via the `catalog` endpoint with type="ships"
+- The catalog endpoint supports pagination, filtering by category, and text search
+
+The scraper has been updated to work with these changes:
+- `get_skills.json` contains your player's skill progress
+- `catalog_skills.json` contains all skill definitions
+- `catalog_recipes.json` contains all recipe definitions
+- Shipyard showroom still uses `shipyard_showroom` endpoint
 
 ## Why WebSocket Instead of HTTP MCP?
 

@@ -1,0 +1,8 @@
+{
+  "notes": [
+    "MCP protocol compliance fixes: added ping handler, fixed resources/list and prompts/list response shapes, and fixed version reporting in initialize response.",
+    "MCP tools now include annotations (readOnlyHint, destructiveHint, idempotentHint) so AI agents and inspectors can understand tool behavior without calling them."
+  ],
+  "release_date": "2026-02-20",
+  "version": "0.113.0"
+}

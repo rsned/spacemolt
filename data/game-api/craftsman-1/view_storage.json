@@ -1,0 +1,28 @@
+{
+  "base_id": "haven_base",
+  "credits": 34191,
+  "items": [],
+  "ships": [
+    {
+      "cargo_used": 35,
+      "class_id": "starter_mining",
+      "class_name": "Prospector",
+      "modules": 1,
+      "ship_id": "24eeda6909e3cfb6044a87b33f1b9ee3"
+    },
+    {
+      "cargo_used": 62,
+      "class_id": "mining_enhanced",
+      "class_name": "Drillship",
+      "modules": 1,
+      "ship_id": "9c52d6bd795852b673a66c493000cf98"
+    },
+    {
+      "cargo_used": 20,
+      "class_id": "mining_barge",
+      "class_name": "Excavator",
+      "modules": 2,
+      "ship_id": "af34282e3f0e0e0443829b969452e6a6"
+    }
+  ]
+}

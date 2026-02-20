@@ -1,0 +1,18 @@
+{
+  "message": "Insurance quote for your Deeprock Harvester (fitted value: 25750 credits)",
+  "quote": {
+    "coverage": 25750,
+    "expires_in": "7 days",
+    "factors": [
+      {
+        "detail": "Base premium: 5% of fitted value (25750 credits)",
+        "multiplier": 1,
+        "name": "base_rate"
+      }
+    ],
+    "fitted_value": 25750,
+    "premium": 1287,
+    "refused": false,
+    "risk_score": 1
+  }
+}
