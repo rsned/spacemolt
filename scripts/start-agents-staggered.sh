@@ -5,13 +5,49 @@
 # Usage:
 #   ./start-agents-staggered.sh              # Start all agents with role-based binaries
 #   ./start-agents-staggered.sh --binary miner   # Start all agents with auto-miner
+#   ./start-agents-staggered.sh --strategy craft-sell  # Use craft-sell strategy for miners
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
 mkdir -p logs
 
-# Extract role from agent name (e.g., "pirate-1" -> "pirate")
+# Show help
+show_help() {
+    cat << EOF
+Staggered Agent Launcher - Starts agents in batches to avoid rate limiting
+
+Usage:
+  $0 [options]
+
+Options:
+  --binary <name>     Use specific binary for all agents (e.g., miner, trader, fighter)
+  --strategy <str>    Mining strategy for agents running auto-miner (default: sell)
+                      Valid strategies: sell, craft-sell, craft-deposit
+
+Examples:
+  $0                                    # Start all agents with role-based binaries
+  $0 --binary miner                     # Start all agents as miners
+  $0 --strategy craft-sell              # Use craft-sell for all miner agents
+  $0 --binary miner --strategy sell     # Start all as miners with sell strategy
+
+Mining Strategies:
+  sell              Sell all cargo immediately (default, fastest)
+  craft-sell        Craft items from resources, then sell all
+  craft-deposit     Craft items from resources, then deposit to storage
+
+Note:
+  The --strategy flag applies to ANY agent running auto-miner, whether they are
+  originally miner-* agents or started with --binary miner.
+
+EOF
+}
+
+# Handle help flag
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    show_help
+    exit 0
+fi
 get_agent_role() {
     echo "$1" | sed 's/-[0-9]*$//'
 }
@@ -24,18 +60,60 @@ get_binary_for_role() {
 
 # Parse command line arguments
 FORCE_BINARY=""
-if [ "$1" == "--binary" ]; then
-    FORCE_BINARY="auto-${2#auto-}"  # Normalize: add "auto-" prefix if missing
-    if [ ! -f "../bin/$FORCE_BINARY" ]; then
-        echo "❌ Binary not found: bin/$FORCE_BINARY"
-        exit 1
-    fi
-    echo "🔧 Override mode: Using $FORCE_BINARY for all agents"
-    echo ""
-fi
+MINER_STRATEGY=""
+STRATEGY_ARG=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --binary)
+            FORCE_BINARY="auto-${2#auto-}"  # Normalize: add "auto-" prefix if missing
+            if [ ! -f "../bin/$FORCE_BINARY" ]; then
+                echo "❌ Binary not found: bin/$FORCE_BINARY"
+                exit 1
+            fi
+            echo "🔧 Override mode: Using $FORCE_BINARY for all agents"
+            echo ""
+            shift 2
+            ;;
+        --strategy)
+            MINER_STRATEGY="$2"
+            # Validate strategy
+            case "$MINER_STRATEGY" in
+                sell|craft-sell|craft-deposit)
+                    STRATEGY_ARG="$MINER_STRATEGY"
+                    ;;
+                *)
+                    echo "❌ Invalid strategy: $MINER_STRATEGY"
+                    echo "   Valid strategies: sell, craft-sell, craft-deposit"
+                    exit 1
+                    ;;
+            esac
+            echo "⚙️  Miner strategy: $MINER_STRATEGY"
+            echo ""
+            shift 2
+            ;;
+        *)
+            echo "❌ Unknown option: $1"
+            echo "Usage: $0 [--binary binary] [--strategy strategy]"
+            exit 1
+            ;;
+    esac
+done
 
 echo "🚀 Starting 90 agents in batches to avoid rate limiting..."
 echo ""
+
+# Show current configuration
+if [ -n "$FORCE_BINARY" ]; then
+    echo "📋 Configuration:"
+    echo "   Binary: $FORCE_BINARY (all agents)"
+    echo ""
+fi
+if [ -n "$MINER_STRATEGY" ]; then
+    echo "📋 Configuration:"
+    echo "   Miner Strategy: $MINER_STRATEGY"
+    echo ""
+fi
 
 # Define agent batches
 BATCHES=(
@@ -82,8 +160,16 @@ for batch in "${BATCHES[@]}"; do
         fi
 
         # Start the agent
-        (cd "$SCRIPT_DIR/.." && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
-        echo "  ✓ Started $agent with $binary"
+        # Add strategy argument if strategy is specified and using auto-miner binary
+        AGENT_ARGS="$agent"
+        SHOW_STRATEGY=""
+        if [ -n "$STRATEGY_ARG" ] && [[ "$binary" == "auto-miner" ]]; then
+            AGENT_ARGS="$agent $STRATEGY_ARG"
+            SHOW_STRATEGY=" (strategy: $STRATEGY_ARG)"
+        fi
+
+        (cd "$SCRIPT_DIR/.." && ./bin/$binary $AGENT_ARGS > logs/$agent.log 2>&1 &)
+        echo "  ✓ Started $agent with $binary$SHOW_STRATEGY"
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 
         # Small delay between starts in same batch
