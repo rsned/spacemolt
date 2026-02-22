@@ -952,7 +952,7 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				for _, sc := range d.SkillChanges {
 					// Parse skill change to format with skill name on one line, details below
 					if idx := strings.Index(sc, ":"); idx != -1 {
-						skillName := sc[:idx]
+						skillName := strings.TrimSpace(sc[:idx])
 						details := strings.TrimSpace(sc[idx+1:])
 						var formatted string
 						if strings.Contains(details, "new at level") {
