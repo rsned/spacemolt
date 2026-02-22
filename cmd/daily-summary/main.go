@@ -872,18 +872,6 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 	writeStatCard(&b, "Skills Leveled", fmt.Sprintf("%d", totalSkills), ternary(totalSkills > 0, "positive", ""))
 	b.WriteString("</div>\n")
 
-	// Errors section
-	if errorCount > 0 {
-		b.WriteString("<h2>Errors</h2>\n<table>\n<tr><th>Agent</th><th>Error</th></tr>\n")
-		for _, d := range diffs {
-			if d.Current.Error != "" {
-				b.WriteString(fmt.Sprintf(`<tr class="error-row"><td>%s</td><td>%s</td></tr>`+"\n",
-					html.EscapeString(d.AgentID), html.EscapeString(d.Current.Error)))
-			}
-		}
-		b.WriteString("</table>\n")
-	}
-
 	// Changes table
 	if changedCount > 0 {
 		b.WriteString("<h2>Changes</h2>\n<table>\n")
