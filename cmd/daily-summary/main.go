@@ -935,19 +935,32 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				slices.Sort(skillIDs)
 				for _, skillID := range skillIDs {
 					skill := d.Current.Skills[skillID]
-					skills = append(skills, fmt.Sprintf("%s: level %d (%d XP)", html.EscapeString(skillID), skill.Level, int(skill.XP)))
+					skills = append(skills, fmt.Sprintf("%s<br><small>level %d (%d XP)</small>",
+						html.EscapeString(skillID), skill.Level, int(skill.XP)))
 				}
 			} else {
 				for _, sc := range d.SkillChanges {
-					// Add emojis based on skill change type
-					if strings.Contains(sc, "new at level") {
-						// New skill - firework emoji
-						skills = append(skills, "🎆 "+html.EscapeString(sc))
-					} else if strings.Contains(sc, "level ") && strings.Contains(sc, " -> ") {
-						// Level up - chart up arrow emoji
-						skills = append(skills, "📈 "+html.EscapeString(sc))
+					// Parse skill change to format with skill name on one line, details below
+					if idx := strings.Index(sc, ":"); idx != -1 {
+						skillName := sc[:idx]
+						details := strings.TrimSpace(sc[idx+1:])
+						var formatted string
+						if strings.Contains(details, "new at level") {
+							// New skill - firework emoji
+							formatted = fmt.Sprintf("🎆 %s<br><small>%s</small>",
+								html.EscapeString(skillName), html.EscapeString(details))
+						} else if strings.Contains(details, "level ") && strings.Contains(details, " -> ") {
+							// Level up - chart up arrow emoji
+							formatted = fmt.Sprintf("📈 %s<br><small>%s</small>",
+								html.EscapeString(skillName), html.EscapeString(details))
+						} else {
+							// XP gain - no emoji
+							formatted = fmt.Sprintf("%s<br><small>%s</small>",
+								html.EscapeString(skillName), html.EscapeString(details))
+						}
+						skills = append(skills, formatted)
 					} else {
-						// XP gain - no emoji
+						// Fallback for unexpected format
 						skills = append(skills, html.EscapeString(sc))
 					}
 				}
