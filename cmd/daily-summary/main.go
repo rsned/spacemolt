@@ -790,7 +790,7 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
     font-weight: 500;
   }
   .agent-name small {
-    color: var(--smui-text-muted);
+    color: var(--smui-frost-2);
     font-size: 0.8em;
     display: block;
     margin-top: 0.2rem;
