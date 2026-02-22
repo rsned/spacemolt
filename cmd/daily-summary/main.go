@@ -123,6 +123,11 @@ func main() {
 		logger.Fatalf("Failed to find previous date: %v", err)
 	}
 
+	nextDate, err := findNextDate(db, today)
+	if err != nil {
+		logger.Fatalf("Failed to find next date: %v", err)
+	}
+
 	var prevSnaps map[string]*AgentSnapshot
 	if prevDate != "" {
 		prevSnaps, err = loadSnapshots(db, prevDate)
@@ -148,7 +153,7 @@ func main() {
 	}
 	logger.Printf("Markdown report: %s.md", *outputPath)
 
-	if err := writeHTMLReport(*outputPath+".html", today, prevDate, diffs); err != nil {
+	if err := writeHTMLReport(*outputPath+".html", today, prevDate, nextDate, diffs); err != nil {
 		logger.Fatalf("Failed to write HTML report: %v", err)
 	}
 	logger.Printf("HTML report: %s.html", *outputPath)
@@ -361,6 +366,19 @@ func findPreviousDate(db *sql.DB, currentDate string) (string, error) {
 		return "", nil
 	}
 	return prevDate, err
+}
+
+// findNextDate finds the next snapshot date after the given date.
+func findNextDate(db *sql.DB, currentDate string) (string, error) {
+	var nextDate string
+	err := db.QueryRow(
+		`SELECT DISTINCT captured_date FROM snapshots
+		 WHERE captured_date > ? ORDER BY captured_date ASC LIMIT 1`, currentDate,
+	).Scan(&nextDate)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return nextDate, err
 }
 
 // computeDiffs computes the differences between today's and previous snapshots.
@@ -627,7 +645,7 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 }
 
 // writeHTMLReport generates a self-contained HTML report.
-func writeHTMLReport(path, today, prevDate string, diffs []AgentDiff) error {
+func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) error {
 	var totalCredits float64
 	var totalSkills int
 	var changedCount, errorCount int
@@ -651,33 +669,165 @@ func writeHTMLReport(path, today, prevDate string, diffs []AgentDiff) error {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Summary - ` + html.EscapeString(today) + `</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --smui-frost-1: hsl(220, 25%, 95%);
+    --smui-frost-2: hsl(220, 20%, 85%);
+    --smui-frost-3: hsl(220, 15%, 65%);
+    --smui-frost-4: hsl(220, 15%, 40%);
+    --smui-aurora-red: hsl(350, 80%, 65%);
+    --smui-aurora-orange: hsl(25, 85%, 60%);
+    --smui-aurora-yellow: hsl(45, 90%, 60%);
+    --smui-aurora-green: hsl(150, 70%, 55%);
+    --smui-aurora-purple: hsl(270, 70%, 65%);
+    --smui-surface-0: hsl(222, 47%, 11%);
+    --smui-surface-1: hsl(222, 47%, 14%);
+    --smui-surface-2: hsl(222, 45%, 18%);
+    --smui-surface-3: hsl(222, 43%, 22%);
+    --smui-text-primary: hsl(220, 15%, 95%);
+    --smui-text-secondary: hsl(220, 12%, 70%);
+    --smui-text-muted: hsl(220, 10%, 50%);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0e1a; color: #c8ccd4; line-height: 1.6; padding: 2rem; }
-  .container { max-width: 1200px; margin: 0 auto; }
-  h1 { color: #e0e4ec; font-size: 1.8rem; margin-bottom: 0.5rem; }
-  h2 { color: #8b9dc3; font-size: 1.3rem; margin: 1.5rem 0 0.8rem; border-bottom: 1px solid #1e2740; padding-bottom: 0.3rem; }
-  .subtitle { color: #6b7b9e; margin-bottom: 1.5rem; }
-  .summary-bar { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-  .stat-card { background: #131829; border: 1px solid #1e2740; border-radius: 8px; padding: 1rem 1.5rem; min-width: 150px; }
-  .stat-card .label { color: #6b7b9e; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  .stat-card .value { color: #e0e4ec; font-size: 1.5rem; font-weight: 600; }
-  .positive { color: #4ade80; }
-  .negative { color: #f87171; }
-  .neutral { color: #94a3b8; }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--smui-surface-0);
+    color: var(--smui-text-secondary);
+    line-height: 1.6;
+    padding: 2rem;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1 {
+    color: var(--smui-text-primary);
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    color: var(--smui-frost-3);
+    font-size: 1.1rem;
+    margin: 2rem 0 0.8rem;
+    border-bottom: 1px solid var(--smui-surface-2);
+    padding-bottom: 0.4rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .subtitle { color: var(--smui-text-muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+  .nav-links {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .nav-link {
+    color: var(--smui-frost-3);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    background: var(--smui-surface-1);
+    border: 1px solid var(--smui-surface-2);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.15s ease;
+  }
+  .nav-link:hover:not(.disabled) {
+    background: var(--smui-surface-2);
+    color: var(--smui-text-primary);
+  }
+  .nav-link.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+
+  .summary-bar { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .stat-card {
+    background: var(--smui-surface-1);
+    border: 1px solid var(--smui-surface-2);
+    padding: 0.75rem 1.25rem;
+    min-width: 140px;
+  }
+  .stat-card .label {
+    color: var(--smui-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.25rem;
+  }
+  .stat-card .value {
+    color: var(--smui-text-primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+  .positive { color: var(--smui-aurora-green) !important; }
+  .negative { color: var(--smui-aurora-red) !important; }
+  .neutral { color: var(--smui-text-secondary) !important; }
+
   table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-  th { background: #131829; color: #8b9dc3; text-align: left; padding: 0.6rem 1rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  td { padding: 0.6rem 1rem; border-bottom: 1px solid #1a2035; }
-  tr:hover { background: #131829; }
-  .agent-name { color: #60a5fa; font-weight: 500; }
+  th {
+    background: var(--smui-surface-1);
+    color: var(--smui-frost-3);
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 500;
+    border-bottom: 2px solid var(--smui-surface-2);
+  }
+  td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--smui-surface-2);
+    vertical-align: top;
+  }
+  tr:hover { background: var(--smui-surface-1); }
+  .agent-name {
+    color: var(--smui-frost-2);
+    font-weight: 500;
+  }
+  .agent-name small {
+    color: var(--smui-text-muted);
+    font-size: 0.8em;
+    display: block;
+    margin-top: 0.2rem;
+  }
+
   .change-list { list-style: none; padding: 0; }
-  .change-list li { padding: 0.15rem 0; font-size: 0.9rem; }
+  .change-list li {
+    padding: 0.2rem 0;
+    font-size: 0.85rem;
+    color: var(--smui-text-secondary);
+  }
   .change-list li::before { content: ""; margin-right: 0.4rem; }
-  .error-row td { color: #f87171; }
+
+  .error-row td { color: var(--smui-aurora-red); }
+
   details { margin-top: 1rem; }
-  summary { cursor: pointer; color: #6b7b9e; padding: 0.5rem 0; }
-  summary:hover { color: #8b9dc3; }
-  .unchanged-list { columns: 3; column-gap: 2rem; list-style: none; padding: 0.5rem 0; }
-  .unchanged-list li { padding: 0.2rem 0; font-size: 0.9rem; color: #6b7b9e; }
+  summary {
+    cursor: pointer;
+    color: var(--smui-text-muted);
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  summary:hover { color: var(--smui-frost-3); }
+
+  .unchanged-list {
+    columns: 3;
+    column-gap: 2rem;
+    list-style: none;
+    padding: 0.5rem 0;
+  }
+  .unchanged-list li {
+    padding: 0.2rem 0;
+    font-size: 0.85rem;
+    color: var(--smui-text-muted);
+  }
 </style>
 </head>
 <body>
@@ -690,6 +840,22 @@ func writeHTMLReport(path, today, prevDate string, diffs []AgentDiff) error {
 	} else {
 		b.WriteString(fmt.Sprintf(`<p class="subtitle">%s (baseline)</p>`+"\n", html.EscapeString(today)))
 	}
+
+	// Navigation links
+	b.WriteString(`<div class="nav-links">` + "\n")
+	if prevDate != "" {
+		b.WriteString(fmt.Sprintf(`<a href="daily-summary-%s.html" class="nav-link">← Previous (%s)</a>`+"\n",
+			html.EscapeString(prevDate), html.EscapeString(prevDate)))
+	} else {
+		b.WriteString(`<span class="nav-link disabled">← Previous</span>` + "\n")
+	}
+	if nextDate != "" {
+		b.WriteString(fmt.Sprintf(`<a href="daily-summary-%s.html" class="nav-link">Next (%s) →</a>`+"\n",
+			html.EscapeString(nextDate), html.EscapeString(nextDate)))
+	} else {
+		b.WriteString(`<span class="nav-link disabled">Next →</span>` + "\n")
+	}
+	b.WriteString("</div>\n")
 
 	// Summary bar
 	creditsClass := "neutral"
@@ -721,16 +887,31 @@ func writeHTMLReport(path, today, prevDate string, diffs []AgentDiff) error {
 	// Changes table
 	if changedCount > 0 {
 		b.WriteString("<h2>Changes</h2>\n<table>\n")
-		b.WriteString("<tr><th>Agent</th><th>Credits</th><th>Skills</th><th>Details</th></tr>\n")
+		b.WriteString("<tr><th>Agent</th><th>Credits</th><th>Skills</th><th>Location</th><th>Storage</th></tr>\n")
 		for _, d := range diffs {
 			if !d.HasChanges || d.Current.Error != "" {
 				continue
 			}
+
+			// Extract CreditsSpent from StatChanges for Credits column
+			var creditsSpent string
+			var otherStatChanges []string
+			for _, sc := range d.StatChanges {
+				if strings.HasPrefix(sc, "CreditsSpent:") {
+					creditsSpent = sc
+				} else {
+					otherStatChanges = append(otherStatChanges, sc)
+				}
+			}
+
 			// Credits cell
 			var credClass, credText string
 			if prevDate == "" {
 				credClass = "neutral"
 				credText = fmt.Sprintf("%.0f", d.Current.Credits)
+				if creditsSpent != "" {
+					credText += fmt.Sprintf("<br><small>%s</small>", html.EscapeString(creditsSpent))
+				}
 			} else {
 				credClass = "neutral"
 				if d.CreditsDelta > 0 {
@@ -739,6 +920,9 @@ func writeHTMLReport(path, today, prevDate string, diffs []AgentDiff) error {
 					credClass = "negative"
 				}
 				credText = formatCredits(d.CreditsDelta)
+				if creditsSpent != "" {
+					credText += fmt.Sprintf("<br><small>%s</small>", html.EscapeString(creditsSpent))
+				}
 			}
 
 			// Skills cell
@@ -760,35 +944,39 @@ func writeHTMLReport(path, today, prevDate string, diffs []AgentDiff) error {
 			}
 			skillsHTML := buildListHTML(skills)
 
-			// Details cell (non-skill changes)
-			var details []string
+			// Location cell
+			var locationHTML string
 			if prevDate == "" {
-				details = append(details, fmt.Sprintf("Ship: %s (%s)", html.EscapeString(d.Current.ShipName), html.EscapeString(d.Current.ShipClass)))
-				details = append(details, "Location: "+html.EscapeString(d.Current.Location))
-				details = append(details, fmt.Sprintf("Ships: %d", d.Current.TotalShips))
+				locationHTML = html.EscapeString(d.Current.Location)
+			} else if d.LocationTo != "" {
+				locationHTML = fmt.Sprintf("%s → %s",
+					html.EscapeString(d.LocationFrom), html.EscapeString(d.LocationTo))
+			}
+
+			// Storage cell (formerly Details, but without location and creditsSpent)
+			var storage []string
+			if prevDate == "" {
+				storage = append(storage, fmt.Sprintf("Ship: %s (%s)", html.EscapeString(d.Current.ShipName), html.EscapeString(d.Current.ShipClass)))
+				storage = append(storage, fmt.Sprintf("Ships: %d", d.Current.TotalShips))
 			} else {
-				for _, sc := range d.StatChanges {
-					details = append(details, "Stat "+html.EscapeString(sc))
+				for _, sc := range otherStatChanges {
+					storage = append(storage, "Stat "+html.EscapeString(sc))
 				}
 				if d.ShipChanged != "" {
-					details = append(details, "Ship: "+html.EscapeString(d.ShipChanged))
+					storage = append(storage, "Ship: "+html.EscapeString(d.ShipChanged))
 				}
 				if d.StorageDelta != 0 {
-					details = append(details, fmt.Sprintf("Storage: %+.0f units", d.StorageDelta))
+					storage = append(storage, fmt.Sprintf("Storage: %+.0f units", d.StorageDelta))
 				}
 				if d.ShipsDelta != 0 {
-					details = append(details, fmt.Sprintf("Ships: %+d (now %d)", d.ShipsDelta, d.Current.TotalShips))
-				}
-				if d.LocationTo != "" {
-					details = append(details, fmt.Sprintf("Location: %s -> %s",
-						html.EscapeString(d.LocationFrom), html.EscapeString(d.LocationTo)))
+					storage = append(storage, fmt.Sprintf("Ships: %+d (now %d)", d.ShipsDelta, d.Current.TotalShips))
 				}
 			}
-			detailHTML := buildListHTML(details)
+			storageHTML := buildListHTML(storage)
 
-			fmt.Fprintf(&b, `<tr><td class="agent-name">%s<br><small>%s</small></td><td class="%s">%s</td><td>%s</td><td>%s</td></tr>`+"\n",
+			fmt.Fprintf(&b, `<tr><td class="agent-name">%s<br><small>%s</small></td><td class="%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`+"\n",
 				html.EscapeString(d.AgentID), html.EscapeString(d.Username),
-				credClass, credText, skillsHTML, detailHTML)
+				credClass, credText, skillsHTML, locationHTML, storageHTML)
 		}
 		b.WriteString("</table>\n")
 	}
