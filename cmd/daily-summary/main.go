@@ -893,36 +893,58 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				continue
 			}
 
-			// Extract CreditsEarned and CreditsSpent from StatChanges for Credits column
-			var creditsEarned, creditsSpent string
+			// Extract CreditsEarned and CreditsSpent values from StatChanges for Credits column
+			var creditsEarnedVal, creditsSpentVal float64
 			var otherStatChanges []string
 			for _, sc := range d.StatChanges {
 				if strings.HasPrefix(sc, "CreditsSpent:") {
-					creditsSpent = sc
+					// Parse value from "CreditsSpent: +376.0"
+					parts := strings.Fields(sc)
+					if len(parts) >= 2 {
+						_, _ = fmt.Sscanf(parts[1], "%f", &creditsSpentVal)
+					}
 				} else if strings.HasPrefix(sc, "CreditsEarned:") {
-					creditsEarned = sc
+					// Parse value from "CreditsEarned: +2550.0"
+					parts := strings.Fields(sc)
+					if len(parts) >= 2 {
+						_, _ = fmt.Sscanf(parts[1], "%f", &creditsEarnedVal)
+					}
 				} else {
 					otherStatChanges = append(otherStatChanges, sc)
 				}
 			}
 
-			// Credits cell: show total credits in green, then spent (red) and earned (green) below
+			// Credits cell: show total with trend arrow, then spent (red) and earned (green) below
 			var credText string
 			if prevDate == "" {
-				// Baseline report: show current total
+				// Baseline report: show current total with no trend arrow
 				credText = fmt.Sprintf(`<span class="positive">%.0f</span>`, d.Current.Credits)
-				if creditsSpent != "" {
-					credText += fmt.Sprintf(`<br><small class="negative">%s</small>`, html.EscapeString(creditsSpent))
-				}
 			} else {
-				// Comparison report: show current total in green, then spent and earned below
-				credText = fmt.Sprintf(`<span class="positive">%.0f</span>`, d.Current.Credits)
-				if creditsSpent != "" {
-					credText += fmt.Sprintf(`<br><small class="negative">%s</small>`, html.EscapeString(creditsSpent))
+				// Comparison report: show total with trend arrow
+				trendArrow := "→"
+				trendClass := "neutral"
+				if d.CreditsDelta > 0 {
+					trendArrow = "↗"
+					trendClass = "positive"
+				} else if d.CreditsDelta < 0 {
+					trendArrow = "↘"
+					trendClass = "negative"
 				}
-				if creditsEarned != "" {
-					credText += fmt.Sprintf(` <small class="positive">%s</small>`, html.EscapeString(creditsEarned))
+				credText = fmt.Sprintf(`<span class="positive">%.0f</span> <small class="%s">%s</small>`,
+					d.Current.Credits, trendClass, trendArrow)
+			}
+
+			// Add spent and earned values below (without labels)
+			if creditsSpentVal > 0 {
+				credText += fmt.Sprintf(`<br><small class="negative">%.0f</small>`, creditsSpentVal)
+			}
+			if creditsEarnedVal > 0 {
+				if creditsSpentVal > 0 {
+					credText += ` `
+				} else {
+					credText += `<br>`
 				}
+				credText += fmt.Sprintf(`<small class="positive">%.0f</small>`, creditsEarnedVal)
 			}
 
 			// Skills cell
