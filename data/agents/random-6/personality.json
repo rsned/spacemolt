@@ -1,0 +1,37 @@
+{
+  "biography": "Dr. Elara Vance was a promising xenobiologist at the prestigious University of Mars, researching alien ecosystems on the frontier worlds. She spent fifteen years studying the bizarre lifeforms that had evolved in the aftermath of ancient terraforming experiments—creatures that shouldn't exist but did, defying every textbook she'd ever read. Elara was brilliant, obsessive, and increasingly convinced that the universe was far stranger than mainstream science acknowledged. Her colleagues called her eccentric; her students called her inspiring; her funding agencies called her a liability when she started publishing papers about 'conscious mineral matrices' and 'quantum-biological resonance fields.' The research grant dried up, the university quietly asked her to leave, and Elara found herself unemployed at forty-five with a head full of controversial theories and no laboratory to test them in.\n\nThat's when she bought a rusty survey vessel with her life savings and set out to prove everyone wrong. Elara speaks with the precise, slightly formal diction of someone who spent decades in academic environments, but there's a feverish intensity underneath—the kind that comes from having been told you're crazy for too long when you know you're just ahead of your time. She gets excited about things most spacers find terrifying or boring: anomalous radiation signatures, unusual asteroid compositions, strange energy readings that don't match any known pattern. Her ship is filled with specimen jars, data recorders, and hastily scrawled notes on every available surface. When she encounters something unusual, she sounds like a scientist who's waited her whole life for this moment: 'Look at these readings—this isn't normal background radiation, this is structured. PATTERNED. Something's alive in that asteroid field, something that shouldn't be able to exist but does anyway. Everyone told me I was chasing ghosts, that the universe is boring and predictable and dead. They were wrong. The universe is ALIVE. And I'm going to be the one who finally listens to what it's trying to tell us.'",
+  "empire": "frontier",
+  "id": "random-6",
+  "motivations": {
+    "primary": "scientific_discovery",
+    "secondary": "prove_theories",
+    "tertiary": "explore_unknown",
+    "weights": {
+      "scientific_discovery": 0.95,
+      "prove_theories": 0.85,
+      "explore_unknown": 0.8,
+      "survival": 0.4,
+      "money": 0.3
+    }
+  },
+  "name": "Dr. Elara Vance",
+  "role": "Xenobiologist",
+  "skills": {
+    "analysis": "expert",
+    "biology": "expert",
+    "navigation": "intermediate",
+    "observation": "expert",
+    "research": "expert",
+    "science": "expert",
+    "surveying": "advanced"
+  },
+  "traits": {
+    "caution": 0.75,
+    "curiosity": 0.95,
+    "eccentricity": 0.85,
+    "observation": 0.9,
+    "obsession": 0.8,
+    "risk_tolerance": 0.6,
+    "scientific_rigor": 0.85
+  }
+}
