@@ -510,7 +510,34 @@ func formatCredits(v float64) string {
 	if v > 0 {
 		sign = "+"
 	}
-	return fmt.Sprintf("%s%.0f", sign, v)
+	return sign + formatNumber(v)
+}
+
+func formatNumber(v float64) string {
+	// Format with thousands separator
+	abs := math.Abs(v)
+	intPart := int64(math.Floor(abs))
+	decPart := abs - float64(intPart)
+
+	// Add thousands separator
+	intStr := fmt.Sprintf("%d", intPart)
+	var result strings.Builder
+	for i := 0; i < len(intStr); i++ {
+		if i > 0 && (len(intStr)-i)%3 == 0 {
+			result.WriteString(",")
+		}
+		result.WriteByte(intStr[i])
+	}
+
+	// Add decimal part if significant
+	if decPart >= 0.01 {
+		result.WriteString(fmt.Sprintf(".%.2f", decPart)[1:])
+	}
+
+	if v < 0 {
+		return "-" + result.String()
+	}
+	return result.String()
 }
 
 // writeMarkdownReport generates a markdown report file.
@@ -899,14 +926,14 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 		trendClass = "negative"
 	}
 	b.WriteString(fmt.Sprintf(`<div class="stat-card"><div class="label">%s</div><div class="value">`, "Fleet Credits"))
-	b.WriteString(fmt.Sprintf(`<span class="positive">%.0f</span> <small class="%s">%s</small>`, totalAllCredits, trendClass, trendArrow))
+	b.WriteString(fmt.Sprintf(`<span class="positive">%s</span> <small class="%s">%s</small>`, formatNumber(totalAllCredits), trendClass, trendArrow))
 	if totalCreditsSpent > 0 || totalCreditsEarned > 0 {
-		b.WriteString(fmt.Sprintf(`<br><small class="negative">%.0f</small>`, totalCreditsSpent))
+		b.WriteString(fmt.Sprintf(`<br><small class="negative">%s</small>`, formatNumber(totalCreditsSpent)))
 		if totalCreditsEarned > 0 {
 			if totalCreditsSpent > 0 {
 				b.WriteString(` `)
 			}
-			b.WriteString(fmt.Sprintf(`<small class="positive">%.0f</small>`, totalCreditsEarned))
+			b.WriteString(fmt.Sprintf(`<small class="positive">%s</small>`, formatNumber(totalCreditsEarned)))
 		}
 	}
 	b.WriteString(`</div></div>` + "\n")
@@ -948,7 +975,7 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 			var credText string
 			if prevDate == "" {
 				// Baseline report: show current total with no trend arrow
-				credText = fmt.Sprintf(`<span class="positive">%.0f</span>`, d.Current.Credits)
+				credText = fmt.Sprintf(`<span class="positive">%s</span>`, formatNumber(d.Current.Credits))
 			} else {
 				// Comparison report: show total with trend arrow
 				trendArrow := "→"
@@ -960,13 +987,13 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 					trendArrow = "↘"
 					trendClass = "negative"
 				}
-				credText = fmt.Sprintf(`<span class="positive">%.0f</span> <small class="%s">%s</small>`,
-					d.Current.Credits, trendClass, trendArrow)
+				credText = fmt.Sprintf(`<span class="positive">%s</span> <small class="%s">%s</small>`,
+					formatNumber(d.Current.Credits), trendClass, trendArrow)
 			}
 
 			// Add spent and earned values below (without labels)
 			if creditsSpentVal > 0 {
-				credText += fmt.Sprintf(`<br><small class="negative">%.0f</small>`, creditsSpentVal)
+				credText += fmt.Sprintf(`<br><small class="negative">%s</small>`, formatNumber(creditsSpentVal))
 			}
 			if creditsEarnedVal > 0 {
 				if creditsSpentVal > 0 {
@@ -974,7 +1001,7 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				} else {
 					credText += `<br>`
 				}
-				credText += fmt.Sprintf(`<small class="positive">%.0f</small>`, creditsEarnedVal)
+				credText += fmt.Sprintf(`<small class="positive">%s</small>`, formatNumber(creditsEarnedVal))
 			}
 
 			// Skills cell
