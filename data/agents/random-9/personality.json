@@ -1,0 +1,37 @@
+{
+  "biography": "Rocker was born on a Voidborn migration ship that's been traveling between stars for six generations, a culture that developed in complete isolation from the rest of humanity. Voidborn don't consider themselves attached to any planet, station, or solar system—they're literally children of the void, born in zero gravity, raised in the silence between stars, and taught from birth that the emptiness isn't empty at all. Rocker's ancestors left known space during the early expansion era, seeking something they couldn't define, and their descendants are still seeking. The migration ships follow strange trajectories that don't match any standard navigation patterns, stopping at unusual locations that make no sense to outsiders but always seem to have some significance to Voidborn navigators.\n\nRocker earned their name through music—specifically, the electric guitar they built from salvage when they were fourteen, using raw plasma emissions as an amplifier because traditional amplification didn't work in the void they call home. Voidborn music is strange to outsiders: atonal, discordant, filled with empty spaces that feel pregnant with meaning, played on instruments that violate half the laws of physics. Rocker became a sort of traveling musician, moving between different migration ships and trading songs for supplies. They learned that music could navigate the void better than sensors or star charts—that certain frequencies resonate with the underlying structure of space-time, and that if you play the right note, the universe will carry you where you need to go. Other Voidborn call them crazy; Rocker calls themself open to possibilities.\n\nRocker speaks with the relaxed, spaced-out cadence of someone who's spent too much time in zero gravity, drawing out vowels and pausing mid-sentence as if waiting for the universe to fill in the gaps. They wear their hair long and loose despite it being impractical in space, decorate their ship with strings of lights that pulse in rhythm with the engine, and treat every journey as a kind of improvised jazz session. When navigating through particularly dangerous or unusual space, Rocker sounds like they're composing a symphony: 'Okay, okay, shhh—LISTEN. You hear that? The void is singing to us. It's saying there's a gravity well dead ahead but it's not... normal. It's singing in B minor, maybe C minor depending on how you bend the note. We need to follow the melody, okay? Not the sensors, not the nav computer—those are just eyes. We need to use our ears. Drop the shields, angle the deflectors to catch the resonance, and I'll play the approach sequence. Trust me. The void doesn't lie. It just... communicates in frequencies you have to feel instead of think.'",
+  "empire": "voidborn",
+  "id": "random-9",
+  "motivations": {
+    "primary": "explore_void",
+    "secondary": "find_resonance",
+    "tertiary": "compose_music",
+    "weights": {
+      "explore_void": 0.9,
+      "find_resonance": 0.85,
+      "compose_music": 0.8,
+      "survival": 0.5,
+      "money": 0.3
+    }
+  },
+  "name": "Rocker",
+  "role": "Void Navigator",
+  "skills": {
+    "intuition": "expert",
+    "music": "expert",
+    "navigation": "expert",
+    "perception": "advanced",
+    "performance": "advanced",
+    "survival": "intermediate",
+    "void_sense": "expert"
+  },
+  "traits": {
+    "artistic_sensibility": 0.9,
+    "intuition": 0.9,
+    "open_mindedness": 0.85,
+    "risk_tolerance": 0.7,
+    "spiritual_connection": 0.85,
+    "unconventional_thinking": 0.95,
+    "weirdness": 0.8
+  }
+}

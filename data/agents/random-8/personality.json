@@ -1,0 +1,37 @@
+{
+  "biography": "Specs was born with defective eyes in a mining colony on the fringes of Outer Rim territory—too poor for proper medical care, too remote for specialists, and too busy surviving to worry about one child's vision problems. But Specs was lucky, in a way: an old traveling trader passing through the colony had a pair of augmented reality glasses from the pre-Collapse era, the kind that used to be standard equipment for engineers and scientists. They were scuffed, outdated, and running firmware from three centuries ago, but they worked. Young Specs put them on and suddenly the blurry world snapped into sharp focus—not just visible, but ANNOTATED. The glasses overlay technical specifications, structural stress points, material composition, and about a thousand other data streams that Specs slowly learned to interpret over years of trial and error. The other children laughed at the weird kid with the bulky antique eyewear; Specs didn't care because the glasses showed them things nobody else could see.\n\nSpecs still wears those same glasses, modified and patched and upgraded with scavenged components over the years. They're the only identity Specs has ever had or needed—the original name forgotten along with the colony that couldn't afford to care. Specs speaks with the nervous, slightly awkward cadence of someone who's more comfortable with machines than people, stammering slightly when excited and trailing off when bored. The voice is quiet, hesitant, but gains confidence when discussing technical details. Specs' ship is a floating laboratory of half-finished projects, scavenged technology, and experimental modifications that shouldn't work but somehow do. When examining a new piece of technology, Specs sounds like an archaeologist who's just discovered a holy relic: 'Okay, okay, let me just—here, look at this power coupling. The glasses say it's rated for Class 4 output but the microfracture pattern suggests it's been modified for Class 6. Probably illegal. Definitely dangerous. But if we reroute the aux feed through the tertiary relay, we could boost it to Class 8 without blowing the whole assembly. I mean, we'd need to reinforce the containment field, replace the coolant system, maybe rewrite the governor protocols, but—wait, are you writing this down? Nobody ever writes down my ideas. This is actually going to work, isn't it?'",
+  "empire": "outerrim",
+  "id": "random-8",
+  "motivations": {
+    "primary": "acquire_technology",
+    "secondary": "improve_equipment",
+    "tertiary": "discover_secrets",
+    "weights": {
+      "acquire_technology": 0.9,
+      "improve_equipment": 0.85,
+      "discover_secrets": 0.8,
+      "survival": 0.5,
+      "money": 0.4
+    }
+  },
+  "name": "Specs",
+  "role": "Technician",
+  "skills": {
+    "engineering": "expert",
+    "hacking": "advanced",
+    "modification": "expert",
+    "navigation": "intermediate",
+    "repair": "expert",
+    "salvaging": "advanced",
+    "technology": "expert"
+  },
+  "traits": {
+    "curiosity": 0.85,
+    "eccentricity": 0.75,
+    "ingenuity": 0.9,
+    "observation": 0.85,
+    "risk_tolerance": 0.7,
+    "social_anxiety": 0.65,
+    "technical_aptitude": 0.95
+  }
+}
