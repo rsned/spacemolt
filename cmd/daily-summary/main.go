@@ -893,35 +893,35 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				continue
 			}
 
-			// Extract CreditsSpent from StatChanges for Credits column
-			var creditsSpent string
+			// Extract CreditsEarned and CreditsSpent from StatChanges for Credits column
+			var creditsEarned, creditsSpent string
 			var otherStatChanges []string
 			for _, sc := range d.StatChanges {
 				if strings.HasPrefix(sc, "CreditsSpent:") {
 					creditsSpent = sc
+				} else if strings.HasPrefix(sc, "CreditsEarned:") {
+					creditsEarned = sc
 				} else {
 					otherStatChanges = append(otherStatChanges, sc)
 				}
 			}
 
-			// Credits cell
-			var credClass, credText string
+			// Credits cell: show total credits in green, then spent (red) and earned (green) below
+			var credText string
 			if prevDate == "" {
-				credClass = "neutral"
-				credText = fmt.Sprintf("%.0f", d.Current.Credits)
+				// Baseline report: show current total
+				credText = fmt.Sprintf(`<span class="positive">%.0f</span>`, d.Current.Credits)
 				if creditsSpent != "" {
-					credText += fmt.Sprintf("<br><small>%s</small>", html.EscapeString(creditsSpent))
+					credText += fmt.Sprintf(`<br><small class="negative">%s</small>`, html.EscapeString(creditsSpent))
 				}
 			} else {
-				credClass = "neutral"
-				if d.CreditsDelta > 0 {
-					credClass = "positive"
-				} else if d.CreditsDelta < 0 {
-					credClass = "negative"
-				}
-				credText = formatCredits(d.CreditsDelta)
+				// Comparison report: show current total in green, then spent and earned below
+				credText = fmt.Sprintf(`<span class="positive">%.0f</span>`, d.Current.Credits)
 				if creditsSpent != "" {
-					credText += fmt.Sprintf("<br><small>%s</small>", html.EscapeString(creditsSpent))
+					credText += fmt.Sprintf(`<br><small class="negative">%s</small>`, html.EscapeString(creditsSpent))
+				}
+				if creditsEarned != "" {
+					credText += fmt.Sprintf(` <small class="positive">%s</small>`, html.EscapeString(creditsEarned))
 				}
 			}
 
@@ -974,9 +974,9 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 			}
 			storageHTML := buildListHTML(storage)
 
-			fmt.Fprintf(&b, `<tr><td class="agent-name">%s<br><small>%s</small></td><td class="%s">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`+"\n",
+			fmt.Fprintf(&b, `<tr><td class="agent-name">%s<br><small>%s</small></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`+"\n",
 				html.EscapeString(d.AgentID), html.EscapeString(d.Username),
-				credClass, credText, skillsHTML, locationHTML, storageHTML)
+				credText, skillsHTML, locationHTML, storageHTML)
 		}
 		b.WriteString("</table>\n")
 	}
