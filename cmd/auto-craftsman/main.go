@@ -36,13 +36,14 @@ func (c *CraftsmanAgent) OnDisconnected(err error) {
 	c.logger.Printf("Disconnected: %v", err)
 }
 
-func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, creditsEarned float64, strategy string) {
+func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, itemsCrafted int, credits float64, strategy string) {
 	state := client.GetState()
 
 	var notes []string
 	notes = append(notes, fmt.Sprintf("Crafting runs completed: %d", craftingRuns))
-	notes = append(notes, fmt.Sprintf("Credits earned this run: %.2f", creditsEarned))
-	notes = append(notes, fmt.Sprintf("Current credits: %.2f", state.Credits))
+	notes = append(notes, fmt.Sprintf("Items crafted this run: %d", itemsCrafted))
+	notes = append(notes, fmt.Sprintf("Total items crafted: %d", craftingRuns))
+	notes = append(notes, fmt.Sprintf("Current credits: %.2f", credits))
 	notes = append(notes, fmt.Sprintf("Ship: %s (%d modules)", state.Ship.Name, len(state.Ship.Modules)))
 	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
 	notes = append(notes, fmt.Sprintf("Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel))
@@ -50,19 +51,17 @@ func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, cr
 		notes = append(notes, fmt.Sprintf("Cargo: %d items (%.0f/%.0f)", len(state.Ship.Cargo), state.Ship.CargoUsed, state.Ship.CargoCapacity))
 	}
 
-	currentGoal := "Autonomous crafting operations - crafting items and managing cargo"
+	currentGoal := "Autonomous crafting operations"
 	if state.Doc {
 		switch strategy {
-		case "sell":
-			currentGoal = "Docked at station - selling cargo and refueling"
 		case "craft-sell":
-			currentGoal = "Docked at station - crafting items, selling cargo, and refueling"
+			currentGoal = "Docked at station - crafting items and selling for credits"
 		case "craft-deposit":
 			currentGoal = "Docked at station - crafting items and depositing to storage"
 		}
 	} else if state.Traveling {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
-	} else if !state.Doc && len(state.Ship.Cargo) > 0 {
+	} else if !state.Doc {
 		currentGoal = "In space - returning to station for crafting operations"
 	}
 
@@ -76,178 +75,36 @@ func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, cr
 	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
-func craftingLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy, strategy string) error {
-	// For now, the auto-crafter will operate in a simple loop:
-	// 1. If docked with cargo, execute station action (craft/sell/deposit)
-	// 2. If not docked, travel to nearest station
-	// 3. Refuel and repair as needed
-
-	runNum := 0
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	logTicker := time.NewTicker(2 * time.Minute)
-	defer logTicker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			runNum++
-			state := client.GetState()
-
-			logger.Printf("═══ Crafting Run #%d ═══", runNum)
-			logger.Printf("Credits: %.2f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f | Cargo: %.1f/%.1f",
-				state.Credits, state.Fuel, state.MaxFuel, state.Hull, state.MaxHull,
-				state.Ship.CargoUsed, state.Ship.CargoCapacity)
-
-			// Get system data if needed
-			if len(state.System.POIs) == 0 {
-				logger.Printf("Fetching system data...")
-				if err := client.GetSystem(ctx); err != nil {
-					logger.Printf("Failed to get system: %v", err)
-				}
-				time.Sleep(2 * time.Second)
-				state = client.GetState()
-			}
-
-			// Find nearest station
-			var stationPOI string
-			for _, poi := range state.System.POIs {
-				if poi.Type == "station" {
-					stationPOI = poi.ID
-					break
-				}
-			}
-
-			if stationPOI == "" {
-				logger.Printf("⚠️  No station found in system %s", state.System.Name)
-				time.Sleep(30 * time.Second)
-				continue
-			}
-
-			// Travel to station if not docked
-			if !state.Doc {
-				if state.CurrentPOI != stationPOI && !state.Traveling {
-					logger.Printf("🚀 Traveling to station %s...", stationPOI)
-					if err := client.Travel(ctx, stationPOI); err != nil {
-						logger.Printf("Travel error: %v", err)
-					}
-					time.Sleep(20 * time.Second)
-				}
-
-				// Dock at station
-				state = client.GetState()
-				if !state.Doc && !state.Traveling {
-					logger.Printf("📥 Docking at station...")
-					if err := client.Dock(ctx); err != nil {
-						if err.Error() != "Already docked (success)" {
-							logger.Printf("Dock error: %v", err)
-						}
-					}
-					time.Sleep(15 * time.Second)
-				}
-			}
-
-			// Execute station action if docked with cargo
-			state = client.GetState()
-			creditsBefore := state.Credits
-			if state.Doc && len(state.Ship.Cargo) > 0 {
-				logger.Printf("📦 Executing station action strategy: %s", strategy)
-				if err := stationAction(client, logger, ctx); err != nil {
-					logger.Printf("Station action error: %v", err)
-				} else {
-					state = client.GetState()
-					creditsEarned := state.Credits - creditsBefore
-					if creditsEarned > 0 {
-						logger.Printf("💰 Credits earned: %.2f", creditsEarned)
-					}
-				}
-			} else if !state.Doc {
-				logger.Printf("⚠️  Not docked, waiting...")
-			} else if len(state.Ship.Cargo) == 0 {
-				logger.Printf("📦 Cargo is empty, nothing to craft or sell")
-			}
-
-			// Refuel if needed
-			state = client.GetState()
-			if state.Doc && state.Fuel < state.MaxFuel*0.8 {
-				logger.Printf("⛽ Refueling...")
-				if err := client.Refuel(ctx); err != nil {
-					logger.Printf("Refuel error: %v", err)
-				}
-				time.Sleep(3 * time.Second)
-			}
-
-			// Repair if needed
-			state = client.GetState()
-			if state.Doc && state.Hull < state.MaxHull*0.9 {
-				logger.Printf("🔧 Repairing hull...")
-				if err := client.Repair(ctx); err != nil {
-					logger.Printf("Repair error: %v", err)
-				}
-				time.Sleep(3 * time.Second)
-			}
-
-			// Update captain's log
-			state = client.GetState()
-			runCreditsEarned := state.Credits - creditsBefore
-			updateCaptainsLog(agentID, client, runNum, runCreditsEarned, strategy)
-
-			logger.Printf("═══ Run #%d Complete ═══", runNum)
-			logger.Printf("Current Credits: %.2f\n", state.Credits)
-
-		case <-logTicker.C:
-			state := client.GetState()
-			logger.Printf("Status: Credits: %.2f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f | Docked: %v | Location: %s",
-				state.Credits, state.Fuel, state.MaxFuel, state.Hull,
-				state.MaxHull, state.Doc, state.System.Name)
-			updateCaptainsLog(agentID, client, runNum, 0, strategy)
-		}
-	}
-}
-
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: auto-craftsman <agent-id> [strategy]")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  agent-id   Agent identifier (e.g., craftsman-1, craftsman-2)")
-		fmt.Println("  strategy   Station action strategy (optional, default: craft-sell)")
+		fmt.Println("  strategy   Crafting strategy (optional, default: craft-deposit)")
 		fmt.Println("")
 		fmt.Println("Strategies:")
-		fmt.Println("  sell       Sell all cargo immediately")
-		fmt.Println("  craft-sell Craft items from resources, then sell all (default)")
-		fmt.Println("  craft-deposit Craft items from resources, then deposit to storage")
+		fmt.Println("  craft-deposit Craft items from resources, then deposit to storage (default)")
+		fmt.Println("  craft-sell   Craft items from resources, then sell for credits")
 		fmt.Println("")
 		fmt.Println("Examples:")
-		fmt.Println("  auto-craftsman craftsman-1            # Craft then sell (default)")
-		fmt.Println("  auto-craftsman craftsman-1 sell       # Sell everything")
-		fmt.Println("  auto-craftsman craftsman-1 craft-sell # Craft then sell (explicit)")
-		fmt.Println("  auto-craftsman craftsman-1 craft-deposit # Craft then deposit")
+		fmt.Println("  auto-craftsman craftsman-1            # Craft then deposit (default)")
+		fmt.Println("  auto-craftsman craftsman-1 craft-deposit # Craft then deposit (explicit)")
+		fmt.Println("  auto-craftsman craftsman-1 craft-sell    # Craft then sell")
 		os.Exit(1)
 	}
 
 	agentID := os.Args[1]
 
-	// Parse station action strategy
-	strategy := "craft-sell"
+	// Parse strategy
+	strategy := "craft-deposit"
 	if len(os.Args) >= 3 {
 		strategy = os.Args[2]
 	}
 
 	// Validate strategy
-	var stationAction game.StationActionStrategy
-	switch strategy {
-	case "sell":
-		stationAction = game.StationActionSellAll
-	case "craft-sell":
-		stationAction = game.StationActionCraftAndSell
-	case "craft-deposit":
-		stationAction = game.StationActionCraftAndDeposit
-	default:
-		log.Fatalf("Unknown strategy: %s (must be: sell, craft-sell, craft-deposit)", strategy)
+	if strategy != "craft-deposit" && strategy != "craft-sell" {
+		log.Fatalf("Unknown strategy: %s (must be: craft-deposit, craft-sell)", strategy)
 	}
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
@@ -275,14 +132,6 @@ func main() {
 		}
 	}()
 
-	// Initialize crafting configuration if using a crafting strategy
-	if strategy == "craft-sell" || strategy == "craft-deposit" {
-		client.CraftingConfig = &game.CraftingConfig{
-			CraftingServerPath: "", // Empty string uses "crafting-server" from PATH
-		}
-		logger.Printf("🔧 Crafting configured: using MCP server from PATH")
-	}
-
 	time.Sleep(1 * time.Second)
 
 	// Get initial state
@@ -294,22 +143,86 @@ func main() {
 
 	// Start autonomous crafting loop
 	logger.Printf("Starting autonomous crafting loop...")
-	logger.Printf("Station action strategy: %s", strategy)
+	logger.Printf("Crafting strategy: %s", strategy)
 	logger.Printf("Will automatically:")
+	logger.Printf("  🔨 Craft items from available resources (iron, copper, aluminum)")
 	switch strategy {
-	case "sell":
-		logger.Printf("  💰 Sell all cargo for credits")
-	case "craft-sell":
-		logger.Printf("  🔨 Craft items from resources")
-		logger.Printf("  💰 Sell all cargo for credits")
 	case "craft-deposit":
-		logger.Printf("  🔨 Craft items from resources")
-		logger.Printf("  📥 Deposit all cargo to station storage")
+		logger.Printf("  📥 Deposit crafted items to station storage")
+	case "craft-sell":
+		logger.Printf("  💰 Sell crafted items for credits")
 	}
 	logger.Printf("  🛠️  Refuel and repair as needed")
+	logger.Printf("  📦 Withdraw ores from storage when available")
+	logger.Printf("")
+	logger.Printf("Initial recipes (no skills required):")
+	logger.Printf("  • basic_smelt_iron (iron_ore -> iron_ingot)")
+	logger.Printf("  • basic_copper_processing (copper_ore -> copper_plate)")
+	logger.Printf("")
+	logger.Printf("Additional recipes unlock with skills:")
+	logger.Printf("  • refining lvl 1: refine_copper_wire, smelt_aluminum_sheet")
+	logger.Printf("  • Higher skills unlock more advanced recipes")
 	logger.Printf("")
 
-	if err := craftingLoop(agentID, client, logger, ctx, stationAction, strategy); err != nil {
+	// Create storage manager (uses client's storage methods)
+	storageManager := &clientStorageManager{client: client}
+
+	// Configure the crafting loop
+	config := &game.CraftingLoopConfig{
+		AgentID:        agentID,
+		Strategy:       strategy,
+		StorageManager: storageManager,
+		OnRunComplete: func(runNum int, itemsCrafted int, totalCredits float64) {
+			// Update captain's log after each run
+			updateCaptainsLog(agentID, client, runNum, itemsCrafted, totalCredits, strategy)
+		},
+	}
+
+	// Run the crafting loop
+	result, err := game.CraftingLoop(client, logger, ctx, config)
+	if err != nil {
 		log.Fatalf("Crafting loop error: %v", err)
 	}
+
+	// Log final results
+	logger.Printf("Crafting loop stopped: %s", result.StoppedReason)
+	logger.Printf("Total runs: %d, Total items crafted: %d",
+		result.RunsCompleted, result.TotalItemsCrafted)
+	logger.Printf("Credits: %.2f -> %.2f (%.2f change)",
+		result.StartingCredits, result.EndingCredits,
+		result.EndingCredits-result.StartingCredits)
+}
+
+// clientStorageManager implements game.StorageManager using the game client
+type clientStorageManager struct {
+	client *game.Client
+}
+
+func (m *clientStorageManager) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
+	return m.client.WithdrawItems(ctx, itemID, quantity)
+}
+
+func (m *clientStorageManager) DepositItems(ctx context.Context, itemID string, quantity float64) error {
+	return m.client.DepositItems(ctx, itemID, quantity)
+}
+
+func (m *clientStorageManager) ViewStorage(ctx context.Context) (map[string]float64, error) {
+	// View storage and parse the response
+	if err := m.client.ViewStorage(ctx); err != nil {
+		return nil, err
+	}
+
+	// Wait for the state to update
+	time.Sleep(2 * time.Second)
+
+	// The ViewStorage response updates the state's storage field
+	// For now, we'll return an empty map since State doesn't have a storage field
+	// TODO: Add storage to State struct or return a different way
+	storageItems := make(map[string]float64)
+
+	// Note: State doesn't currently track storage contents
+	// We would need to extend the State struct to include storage information
+	// For now, this is a placeholder that assumes the caller handles storage differently
+
+	return storageItems, nil
 }
