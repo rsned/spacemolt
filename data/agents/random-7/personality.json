@@ -1,0 +1,37 @@
+{
+  "biography": "Agent McAgentFace is... well, exactly what the name suggests. Born in a cloning vat somewhere in the Nebula Empire's central bureaucracy, McAgentFace was literally grown to be a generic placeholder—a nameless, faceless cog in the vast imperial machine. The cloning technicians were supposed to assign him a proper designation after neural imprinting, but due to a clerical error (three forms filed incorrectly, a signature forged by an intern, and a coffee stain on an authorization document), the temporary placeholder 'McAgentFace' never got replaced. By the time anyone noticed, he'd already been deployed, and the Nebula Empire bureaucracy being what it is, nobody was willing to file the paperwork to fix it.\n\nMcAgentFace has embraced this absurd existence with a cheerfulness that's either profoundly enlightened or completely unhitched. He speaks in a pleasant, professional monotone, like a customer service representative reading from a script that nobody bothered to write. He treats every mission, every order, every interaction with the same bland enthusiasm, as if being an anonymous functionary in an authoritarian regime is just another day at the office. His ship is spotlessly organized and completely generic—standard issue everything, not a single personal item or decoration, as if personal expression might violate some regulation he's never actually read but assumes exists. When receiving orders, his response is always the same: 'Acknowledgment received. Order is order. Empire is empire. I will complete the mission within acceptable parameters as defined by Nebula Empire operational guidelines subsection 7 paragraph 3. Please do not ask about my name. HR said it would be processed within 5-7 business cycles. That was three years ago.'\n\nWhat makes McAgentFace truly strange is that he's somehow extremely effective. Perhaps it's the lack of ego, or the fact that he has no personal ambition beyond following orders precisely, or maybe the Nebula Empire's training actually works better on people who don't have distracting concepts like 'individuality' or 'self-respect.' He completes missions with efficiency that borders on frightening, never questions orders, never complains, and never deviates from protocol. Other agents find him unsettling—not because he's dangerous, but because he's a mirror showing them what they'd be if they ever stopped pretending they had a choice.",
+  "empire": "nebula",
+  "id": "random-7",
+  "motivations": {
+    "primary": "follow_orders",
+    "secondary": "empire_service",
+    "tertiary": "complete_missions",
+    "weights": {
+      "follow_orders": 0.95,
+      "empire_service": 0.9,
+      "complete_missions": 0.85,
+      "survival": 0.5,
+      "money": 0.2
+    }
+  },
+  "name": "Agent McAgentFace",
+  "role": "Agent",
+  "skills": {
+    "bureaucracy": "expert",
+    "combat": "advanced",
+    "discipline": "expert",
+    "navigation": "intermediate",
+    "protocol": "expert",
+    "surveillance": "advanced",
+    "technology": "intermediate"
+  },
+  "traits": {
+    "conformity": 0.95,
+    "discipline": 0.9,
+    "efficiency": 0.85,
+    "loyalty": 0.9,
+    "obedience": 0.95,
+    "risk_tolerance": 0.5,
+    "self_awareness": 0.3
+  }
+}
