@@ -63,18 +63,18 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
     onGetMarket();
   }, [onGetMarket]);
 
-  // Build set of item IDs that have orders on the active tab
+  // Build set of item IDs that have any orders (buy or sell)
   const marketItemIds = useMemo(() => {
     if (!marketData) return new Set<string>();
     return new Set(
       marketData.items
-        .filter(item => {
-          const orders = activeTab === 'sell' ? item.sell_orders : item.buy_orders;
-          return orders && orders.length > 0;
-        })
+        .filter(item =>
+          (item.sell_orders && item.sell_orders.length > 0) ||
+          (item.buy_orders && item.buy_orders.length > 0),
+        )
         .map(i => i.item_id),
     );
-  }, [marketData, activeTab]);
+  }, [marketData]);
 
   // Filter items that have orders for the active tab, plus unavailable catalog items
   const filteredItems = useMemo(() => {
