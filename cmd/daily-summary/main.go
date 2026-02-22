@@ -989,13 +989,44 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 			}
 			skillsHTML := buildListHTML(skills)
 
-			// Location cell
+			// Location cell - show only system changes
 			var locationHTML string
 			if prevDate == "" {
-				locationHTML = html.EscapeString(d.Current.Location)
+				// Baseline: extract system from "System / POI" format
+				if idx := strings.Index(d.Current.Location, " / "); idx != -1 {
+					locationHTML = html.EscapeString(d.Current.Location[:idx])
+				} else {
+					locationHTML = html.EscapeString(d.Current.Location)
+				}
 			} else if d.LocationTo != "" {
-				locationHTML = fmt.Sprintf("%s → %s",
-					html.EscapeString(d.LocationFrom), html.EscapeString(d.LocationTo))
+				// Extract system names from "System / POI" format
+				var systemFrom, systemTo string
+				if idx := strings.Index(d.LocationFrom, " / "); idx != -1 {
+					systemFrom = d.LocationFrom[:idx]
+				} else {
+					systemFrom = d.LocationFrom
+				}
+				if idx := strings.Index(d.LocationTo, " / "); idx != -1 {
+					systemTo = d.LocationTo[:idx]
+				} else {
+					systemTo = d.LocationTo
+				}
+
+				// Only show arrow if system changed
+				if systemFrom != systemTo {
+					locationHTML = fmt.Sprintf("%s → %s",
+						html.EscapeString(systemFrom), html.EscapeString(systemTo))
+				} else {
+					// System didn't change, just show current system
+					locationHTML = html.EscapeString(systemTo)
+				}
+			} else {
+				// No location change, show current system
+				if idx := strings.Index(d.Current.Location, " / "); idx != -1 {
+					locationHTML = html.EscapeString(d.Current.Location[:idx])
+				} else {
+					locationHTML = html.EscapeString(d.Current.Location)
+				}
 			}
 
 			// Storage cell (formerly Details, but without location and creditsSpent)
