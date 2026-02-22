@@ -960,7 +960,7 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				storage = append(storage, fmt.Sprintf("Ships: %d", d.Current.TotalShips))
 			} else {
 				for _, sc := range otherStatChanges {
-					storage = append(storage, "Stat "+html.EscapeString(sc))
+					storage = append(storage, html.EscapeString(sc))
 				}
 				if d.ShipChanged != "" {
 					storage = append(storage, "Ship: "+html.EscapeString(d.ShipChanged))
