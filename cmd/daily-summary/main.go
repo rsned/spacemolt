@@ -649,8 +649,11 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 // writeHTMLReport generates a self-contained HTML report.
 func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) error {
 	var totalCredits float64
+	var totalCreditsSpent, totalCreditsEarned float64
 	var totalSkills int
 	var changedCount, errorCount int
+
+	// Calculate totals
 	for _, d := range diffs {
 		if d.Current.Error != "" {
 			errorCount++
@@ -660,6 +663,25 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 		totalSkills += len(d.SkillChanges)
 		if d.HasChanges {
 			changedCount++
+		}
+
+		// Extract CreditsSpent and CreditsEarned from StatChanges
+		for _, sc := range d.StatChanges {
+			if strings.HasPrefix(sc, "CreditsSpent:") {
+				parts := strings.Fields(sc)
+				if len(parts) >= 2 {
+					var val float64
+					_, _ = fmt.Sscanf(parts[1], "%f", &val)
+					totalCreditsSpent += val
+				}
+			} else if strings.HasPrefix(sc, "CreditsEarned:") {
+				parts := strings.Fields(sc)
+				if len(parts) >= 2 {
+					var val float64
+					_, _ = fmt.Sscanf(parts[1], "%f", &val)
+					totalCreditsEarned += val
+				}
+			}
 		}
 	}
 
@@ -860,16 +882,34 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 	b.WriteString("</div>\n")
 
 	// Summary bar
-	creditsClass := "neutral"
-	if totalCredits > 0 {
-		creditsClass = "positive"
-	} else if totalCredits < 0 {
-		creditsClass = "negative"
-	}
 	b.WriteString(`<div class="summary-bar">` + "\n")
 	writeStatCard(&b, "Agents", fmt.Sprintf("%d", len(diffs)), "")
 	writeStatCard(&b, "Changed", fmt.Sprintf("%d", changedCount), "")
-	writeStatCard(&b, "Fleet Credits", formatCredits(totalCredits), creditsClass)
+
+	// Fleet Credits with trend arrow, spent and earned breakdown
+	trendArrow := "→"
+	trendClass := "neutral"
+	if totalCredits > 0 {
+		trendArrow = "↗"
+		trendClass = "positive"
+	} else if totalCredits < 0 {
+		trendArrow = "↘"
+		trendClass = "negative"
+	}
+	fleetCreditsValue := fmt.Sprintf(`%.0f <small class="%s">%s</small>`, totalCredits, trendClass, trendArrow)
+	if totalCreditsSpent > 0 || totalCreditsEarned > 0 {
+		fleetCreditsValue += fmt.Sprintf(`<br><small class="negative">%.0f</small>`, totalCreditsSpent)
+		if totalCreditsEarned > 0 {
+			if totalCreditsSpent > 0 {
+				fleetCreditsValue += ` `
+			} else {
+				fleetCreditsValue += `<br>`
+			}
+			fleetCreditsValue += fmt.Sprintf(`<small class="positive">%.0f</small>`, totalCreditsEarned)
+		}
+	}
+	writeStatCard(&b, "Fleet Credits", fleetCreditsValue, "")
+
 	writeStatCard(&b, "Skills Leveled", fmt.Sprintf("%d", totalSkills), ternary(totalSkills > 0, "positive", ""))
 	b.WriteString("</div>\n")
 
