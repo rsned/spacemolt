@@ -968,8 +968,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 						details := strings.TrimSpace(sc[idx+1:])
 						var formatted string
 						if strings.Contains(details, "new at level") {
-							// New skill - firework emoji after name
-							formatted = fmt.Sprintf("%s 🎆<br><small>%s</small>",
+							// New skill - sparkling star emoji after name
+							formatted = fmt.Sprintf("%s ✨<br><small>%s</small>",
 								html.EscapeString(skillName), html.EscapeString(details))
 						} else if strings.Contains(details, "level ") && strings.Contains(details, " -> ") {
 							// Level up - green up arrow after name (same as credits positive trend)
