@@ -972,8 +972,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 							formatted = fmt.Sprintf("%s 🎆<br><small>%s</small>",
 								html.EscapeString(skillName), html.EscapeString(details))
 						} else if strings.Contains(details, "level ") && strings.Contains(details, " -> ") {
-							// Level up - chart up arrow emoji after name
-							formatted = fmt.Sprintf("%s 📈<br><small>%s</small>",
+							// Level up - green up arrow after name (same as credits positive trend)
+							formatted = fmt.Sprintf("%s <small class=\"positive\">↗</small><br><small>%s</small>",
 								html.EscapeString(skillName), html.EscapeString(details))
 						} else {
 							// XP gain - no emoji
