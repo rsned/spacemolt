@@ -37,7 +37,11 @@ const (
 	// TravelTimeout is maximum time to wait for in-system travel to complete
 	TravelTimeout = 15 * time.Second
 	// UndockTimeout is maximum time to wait for undock to complete
-	UndockTimeout = 10 * time.Second
+	// Game server processes 1 action every 10 seconds, so we need:
+	// - 10 seconds for the action to be processed
+	// - Additional time for state update to arrive
+	// - Buffer for any delays
+	UndockTimeout = 30 * time.Second
 )
 
 func main() {
@@ -218,6 +222,10 @@ func performJump(ctx context.Context, client *game.Client, logger *log.Logger, t
 }
 
 // waitForUndock waits for undock to complete by monitoring state
+// Note: Game server processes actions every 10 seconds, so undock takes:
+// - 10s for action to be processed
+// - Additional ticks for state update to arrive
+// - Total can be 20-30s depending on server load
 func waitForUndock(ctx context.Context, client *game.Client, logger *log.Logger) error {
 	deadline := time.Now().Add(UndockTimeout)
 	ticker := time.NewTicker(TickInterval)
