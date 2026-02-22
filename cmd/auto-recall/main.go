@@ -109,6 +109,23 @@ func main() {
 func executeRecall(ctx context.Context, client *game.Client, logger *log.Logger, capitalSystem, capitalName string) error {
 	state := client.GetState()
 
+	// Early check: If already docked at capital base, we're done
+	if state.CurrentSystem == capitalSystem && state.Doc {
+		// Verify we're at a base POI
+		var atBase bool
+		for _, poi := range state.System.POIs {
+			if poi.ID == state.CurrentPOI && (poi.Type == "base" || poi.HasBase) {
+				atBase = true
+				break
+			}
+		}
+
+		if atBase {
+			logger.Printf("✓ Already docked at %s base - nothing to do!", capitalName)
+			return nil
+		}
+	}
+
 	// Step 1: Undock if currently docked
 	if state.Doc {
 		logger.Printf("📤 Undocking from current location...")
@@ -375,6 +392,12 @@ func travelToBase(ctx context.Context, client *game.Client, logger *log.Logger) 
 
 	// Dock at the base
 	state = client.GetState()
+	if state.Doc && state.CurrentPOI == basePOI.ID {
+		// Already docked at the base
+		logger.Printf("✓ Already docked at %s", basePOI.Name)
+		return nil
+	}
+
 	if !state.Doc {
 		logger.Printf("🔄 Docking at base...")
 		if err := client.Dock(ctx); err != nil {
@@ -385,7 +408,20 @@ func travelToBase(ctx context.Context, client *game.Client, logger *log.Logger) 
 		}
 		logger.Printf("✓ Docked successfully")
 	} else {
-		logger.Printf("✓ Already docked")
+		// Docked but at a different POI - need to travel to base first
+		logger.Printf("⚠️  Docked at different location, traveling to base...")
+		if err := client.Travel(ctx, basePOI.ID); err != nil {
+			return fmt.Errorf("failed to travel to base: %w", err)
+		}
+		if err := waitForPOIArrival(ctx, client, logger, basePOI.ID); err != nil {
+			return fmt.Errorf("error waiting for travel to base: %w", err)
+		}
+		// Now dock
+		logger.Printf("🔄 Docking at base...")
+		if err := client.Dock(ctx); err != nil {
+			return fmt.Errorf("failed to dock: %w", err)
+		}
+		logger.Printf("✓ Docked successfully")
 	}
 
 	return nil
