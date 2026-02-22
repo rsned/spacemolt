@@ -56,6 +56,7 @@ func main() {
 	mux.HandleFunc("GET /api/pois/{id}/base", server.HandleGetBaseByPOI)
 	mux.HandleFunc("GET /api/skills", server.HandleGetSkills)
 	mux.HandleFunc("GET /api/skills/{id}", server.HandleGetSkill)
+	mux.HandleFunc("GET /api/catalog/items", server.HandleGetCatalogItems)
 
 	if *staticDir != "" {
 		if info, err := os.Stat(*staticDir); err == nil && info.IsDir() {

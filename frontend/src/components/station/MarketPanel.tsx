@@ -1,5 +1,6 @@
 import type { Player, MarketData, MarketItem, MarketOrderEntry } from '../../types/game';
 import { useState, useEffect, useMemo } from 'react';
+import { useCatalogItems } from '../../lib/useCatalogItems';
 
 interface MarketPanelProps {
   player: Player;
@@ -9,8 +10,26 @@ interface MarketPanelProps {
 }
 
 type MarketTab = 'buy' | 'sell';
+type CategoryFilter = 'all' | 'component' | 'consumable' | 'ore' | 'refined' | 'crafted';
 type SortField = 'item' | 'quantity' | 'price';
 type SortDir = 'asc' | 'desc';
+
+const CRAFTED_CATEGORIES = new Set(['artifact', 'contraband', 'defense', 'document', 'drone', 'material', 'misc', 'weapon', '']);
+
+function matchesCategoryFilter(category: string, filter: CategoryFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'crafted') return CRAFTED_CATEGORIES.has(category);
+  return category === filter;
+}
+
+const CATEGORY_FILTERS: { value: CategoryFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'component', label: 'Component' },
+  { value: 'consumable', label: 'Consumable' },
+  { value: 'ore', label: 'Ore' },
+  { value: 'refined', label: 'Refined' },
+  { value: 'crafted', label: 'Crafted Items' },
+];
 
 function formatItemName(item: MarketItem): string {
   if (item.item_name) return item.item_name;
@@ -32,24 +51,70 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
   onCommand,
 }) => {
   const [activeTab, setActiveTab] = useState<MarketTab>('sell');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [sortField, setSortField] = useState<SortField>('item');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [search, setSearch] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const { items: catalogItems } = useCatalogItems();
 
   useEffect(() => {
     onGetMarket();
   }, [onGetMarket]);
 
-  // Filter items that have orders for the active tab
+  // Build set of item IDs that have orders on the active tab
+  const marketItemIds = useMemo(() => {
+    if (!marketData) return new Set<string>();
+    return new Set(
+      marketData.items
+        .filter(item => {
+          const orders = activeTab === 'sell' ? item.sell_orders : item.buy_orders;
+          return orders && orders.length > 0;
+        })
+        .map(i => i.item_id),
+    );
+  }, [marketData, activeTab]);
+
+  // Filter items that have orders for the active tab, plus unavailable catalog items
   const filteredItems = useMemo(() => {
-    if (!marketData) return [];
+    if (!marketData) return [] as (MarketItem & { unavailable?: boolean })[];
 
-    let items = marketData.items.filter(item => {
-      const orders = activeTab === 'sell' ? item.sell_orders : item.buy_orders;
-      return orders && orders.length > 0;
-    });
+    // Start with market items that have orders
+    let items: (MarketItem & { unavailable?: boolean })[] = marketData.items
+      .filter(item => {
+        const orders = activeTab === 'sell' ? item.sell_orders : item.buy_orders;
+        return orders && orders.length > 0;
+      })
+      .map(item => ({ ...item, unavailable: false }));
 
+    // Add unavailable catalog items if toggled on
+    if (showUnavailable && Object.keys(catalogItems).length > 0) {
+      for (const cat of Object.values(catalogItems)) {
+        if (!cat.tradeable) continue;
+        if (marketItemIds.has(cat.id)) continue;
+        items.push({
+          item_id: cat.id,
+          item_name: cat.name,
+          sell_orders: [],
+          buy_orders: [],
+          best_sell: 0,
+          best_buy: 0,
+          unavailable: true,
+        });
+      }
+    }
+
+    // Apply category filter
+    if (categoryFilter !== 'all') {
+      items = items.filter(item => {
+        const cat = catalogItems[item.item_id];
+        const category = cat?.category ?? '';
+        return matchesCategoryFilter(category, categoryFilter);
+      });
+    }
+
+    // Apply search filter
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(i =>
@@ -58,7 +123,11 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
       );
     }
 
+    // Sort
     items.sort((a, b) => {
+      // Unavailable items always sort to bottom
+      if (a.unavailable !== b.unavailable) return a.unavailable ? 1 : -1;
+
       let cmp = 0;
       const aOrders = activeTab === 'sell' ? a.sell_orders : a.buy_orders;
       const bOrders = activeTab === 'sell' ? b.sell_orders : b.buy_orders;
@@ -77,7 +146,7 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
     });
 
     return items;
-  }, [marketData, activeTab, search, sortField, sortDir]);
+  }, [marketData, activeTab, search, sortField, sortDir, categoryFilter, showUnavailable, catalogItems, marketItemIds]);
 
   const sellCount = useMemo(
     () => marketData?.items.filter(i => i.sell_orders?.length > 0).length ?? 0,
@@ -160,6 +229,32 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
           className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm mb-3 w-full focus:border-cyan-600 focus:outline-none"
         />
 
+        {/* Category filters */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {CATEGORY_FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setCategoryFilter(f.value)}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                categoryFilter === f.value
+                  ? 'bg-cyan-700 text-white'
+                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+          <label className="flex items-center gap-1.5 ml-auto text-xs text-gray-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showUnavailable}
+              onChange={e => setShowUnavailable(e.target.checked)}
+              className="accent-cyan-600"
+            />
+            Show unavailable
+          </label>
+        </div>
+
         {/* Table */}
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-gray-500">
@@ -191,27 +286,32 @@ export const MarketPanel: React.FC<MarketPanelProps> = ({
                   const orders = activeTab === 'sell' ? item.sell_orders : item.buy_orders;
                   const bestPrice = activeTab === 'sell' ? item.best_sell : item.best_buy;
                   const qty = totalQuantity(orders);
+                  const isUnavailable = item.unavailable;
                   return (
                     <tr
                       key={item.item_id}
-                      onClick={() => setSelectedItemId(item.item_id === selectedItemId ? null : item.item_id)}
-                      className={`border-b border-gray-800 cursor-pointer transition-colors ${
-                        item.item_id === selectedItemId
-                          ? 'bg-gray-700/50'
-                          : 'hover:bg-gray-800/50'
+                      onClick={() => !isUnavailable && setSelectedItemId(item.item_id === selectedItemId ? null : item.item_id)}
+                      className={`border-b border-gray-800 transition-colors ${
+                        isUnavailable
+                          ? 'cursor-default opacity-50'
+                          : item.item_id === selectedItemId
+                            ? 'bg-gray-700/50 cursor-pointer'
+                            : 'hover:bg-gray-800/50 cursor-pointer'
                       }`}
                     >
                       <td className="py-2">
-                        <span className="font-mono text-cyan-300">{formatItemName(item)}</span>
+                        <span className={`font-mono ${isUnavailable ? 'text-gray-600' : 'text-cyan-300'}`}>{formatItemName(item)}</span>
                       </td>
-                      <td className="py-2 text-right font-mono text-white">{qty.toLocaleString()}</td>
+                      <td className={`py-2 text-right font-mono ${isUnavailable ? 'text-gray-600' : 'text-white'}`}>
+                        {isUnavailable ? '-' : qty.toLocaleString()}
+                      </td>
                       <td className="py-2 text-right font-mono">
-                        <span className={activeTab === 'sell' ? 'text-green-400' : 'text-blue-400'}>
-                          {bestPrice > 0 ? `${formatCredits(bestPrice)}cr` : '-'}
+                        <span className={isUnavailable ? 'text-gray-600' : activeTab === 'sell' ? 'text-green-400' : 'text-blue-400'}>
+                          {isUnavailable ? '-' : bestPrice > 0 ? `${formatCredits(bestPrice)}cr` : '-'}
                         </span>
                       </td>
-                      <td className="py-2 text-right font-mono text-gray-500">
-                        {orders.length}
+                      <td className={`py-2 text-right font-mono ${isUnavailable ? 'text-gray-600' : 'text-gray-500'}`}>
+                        {isUnavailable ? '-' : orders.length}
                       </td>
                     </tr>
                   );
