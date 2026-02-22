@@ -1118,6 +1118,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	case protocol.TypeError:
 		c.parseErrorState(resp.Payload)
 
+	case protocol.TypeActionError:
+		c.parseErrorAction(resp.Payload)
+
 	case protocol.TypeOK:
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
@@ -1589,6 +1592,40 @@ func (c *Client) parseErrorState(payload map[string]any) {
 
 	if errMsg, ok := payload["message"].(string); ok {
 		if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
+			c.state.Doc = false
+		}
+		if containsIgnoreCase(errMsg, []string{"already docked", "already at station"}) {
+			c.state.Doc = true
+		}
+	}
+}
+
+// parseErrorAction extracts state changes from action_error messages
+func (c *Client) parseErrorAction(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Store the last error for diagnostics
+	c.lastErrorMu.Lock()
+	c.lastError = make(map[string]any)
+	for k, v := range payload {
+		c.lastError[k] = v
+	}
+	c.lastErrorMu.Unlock()
+
+	// Handle specific error codes
+	if code, ok := payload["code"].(string); ok {
+		switch code {
+		case "not_docked":
+			c.state.Doc = false
+		case "already_docked":
+			c.state.Doc = true
+		}
+	}
+
+	// Also check message for backward compatibility
+	if errMsg, ok := payload["message"].(string); ok {
+		if containsIgnoreCase(errMsg, []string{"not docked", "ship is not docked"}) {
 			c.state.Doc = false
 		}
 		if containsIgnoreCase(errMsg, []string{"already docked", "already at station"}) {

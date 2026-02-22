@@ -10,6 +10,7 @@ const (
 	// Action responses
 	TypeOK          = "ok"
 	TypeError       = "error"
+	TypeActionError = "action_error"
 	TypeDocked      = "docked"
 	TypeUndocked    = "undocked"
 	TypeStateUpdate = "state_update"
