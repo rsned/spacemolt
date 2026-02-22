@@ -939,7 +939,17 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				}
 			} else {
 				for _, sc := range d.SkillChanges {
-					skills = append(skills, html.EscapeString(sc))
+					// Add emojis based on skill change type
+					if strings.Contains(sc, "new at level") {
+						// New skill - firework emoji
+						skills = append(skills, "🎆 "+html.EscapeString(sc))
+					} else if strings.Contains(sc, "level ") && strings.Contains(sc, " -> ") {
+						// Level up - chart up arrow emoji
+						skills = append(skills, "📈 "+html.EscapeString(sc))
+					} else {
+						// XP gain - no emoji
+						skills = append(skills, html.EscapeString(sc))
+					}
 				}
 			}
 			skillsHTML := buildListHTML(skills)
