@@ -72,6 +72,7 @@ type AgentDiff struct {
 	LocationFrom string
 	LocationTo   string
 	HasChanges   bool
+	IsNew        bool // Agent appearing for first time
 	Current      *AgentSnapshot
 }
 
@@ -394,6 +395,7 @@ func computeDiffs(today, prev map[string]*AgentSnapshot) []AgentDiff {
 
 		old, hasPrev := prev[snap.AgentID]
 		if !hasPrev || snap.Error != "" {
+			diff.IsNew = !hasPrev
 			diff.HasChanges = snap.Error == ""
 			diffs = append(diffs, diff)
 			continue
@@ -1037,8 +1039,14 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 			}
 			storageHTML := buildListHTML(storage)
 
+			// Add sparkle emoji for new agents
+			agentIDDisplay := html.EscapeString(d.AgentID)
+			if d.IsNew {
+				agentIDDisplay = agentIDDisplay + " ✨"
+			}
+
 			fmt.Fprintf(&b, `<tr><td class="agent-name">%s<br><small>%s</small></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>`+"\n",
-				html.EscapeString(d.AgentID), html.EscapeString(d.Username),
+				agentIDDisplay, html.EscapeString(d.Username),
 				credText, skillsHTML, locationHTML, storageHTML)
 		}
 		b.WriteString("</table>\n")
