@@ -14,6 +14,7 @@ import (
 // ProfitBasedRecipeSelector selects recipes based on market profitability
 // It analyzes current market buy listings to determine which crafted items
 // will generate the most profit when sold, prioritizing high-margin items.
+// Falls back to DefaultRecipeSelector if market data is unavailable.
 func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 	return func(client *game.Client, logger *log.Logger, ctx context.Context, storage game.StorageManager) ([]string, error) {
 		state := client.GetState()
@@ -21,16 +22,19 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 		// Refresh market data to ensure we have current prices
 		snapshot, err := agent.RefreshMarketData(ctx, client, kb, state.Player.Username)
 		if err != nil {
-			logger.Printf("Warning: Failed to refresh market data: %v (using cached data if available)", err)
+			logger.Printf("Warning: Failed to refresh market data: %v (trying cached data)", err)
 			// Try to get cached data anyway
 			snapshot, err = kb.GetLatestMarketSnapshot(ctx, state.System.ID, state.CurrentPOI)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get market data: %w", err)
+			if err != nil || snapshot == nil {
+				logger.Printf("Warning: No market data available, falling back to default recipe selection")
+				// Fall back to default recipe selector
+				return game.DefaultRecipeSelector(client, logger, ctx, storage)
 			}
 		}
 
 		if snapshot == nil {
-			return nil, fmt.Errorf("no market data available")
+			logger.Printf("Warning: Market snapshot is nil, falling back to default recipe selection")
+			return game.DefaultRecipeSelector(client, logger, ctx, storage)
 		}
 
 		// Get current market listings
