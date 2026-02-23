@@ -34,6 +34,7 @@ type ExplorationState struct {
 	UnderAttack     bool            // Combat state flag
 	LastAttackTime  time.Time       // Time of last attack
 	AgentID         string          // Agent ID for knowledge base attribution
+	kb              knowledge.Base  // Knowledge base for querying system data
 }
 
 type explorerSimpleHandler struct {
@@ -662,6 +663,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		LastFuelStation: state.CurrentSystem,
 		PreviousSystem:  "",
 		AgentID:         agentID,
+		kb:              kb,
 	}
 
 	logger.Printf("Starting DFS exploration from home system: %s", expState.HomeSystem)
@@ -860,10 +862,62 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	logger.Printf("Current system: %s, Connections: %v", state.System.ID, state.System.Connections)
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
 
+	// Collect unvisited neighbors with their LastUpdatedTick from KB
+	type neighborInfo struct {
+		SystemID         string
+		LastUpdatedTick  int64
+	}
+
+	var neighbors []neighborInfo
 	for _, conn := range state.System.Connections {
 		if !expState.VisitedSystems[conn.SystemID] {
-			unvisited = append(unvisited, conn.SystemID)
+			neighbors = append(neighbors, neighborInfo{
+				SystemID:        conn.SystemID,
+				LastUpdatedTick: 0, // 0 means never visited/unknown
+			})
 		}
+	}
+
+	// If we have unvisited neighbors, query KB for their LastUpdatedTick
+	if len(neighbors) > 0 && expState.kb != nil {
+		allSystems := expState.kb.GetSystems()
+		systemTickMap := make(map[string]int64)
+		for _, sys := range allSystems {
+			systemTickMap[sys.ID] = sys.LastUpdatedTick
+		}
+
+		// Update LastUpdatedTick for each neighbor
+		for i := range neighbors {
+			if tick, ok := systemTickMap[neighbors[i].SystemID]; ok {
+				neighbors[i].LastUpdatedTick = tick
+			}
+		}
+
+		// Sort by LastUpdatedTick (oldest first, then 0/unknown systems)
+		// This prioritizes systems that haven't been visited in a long time
+		for i := 0; i < len(neighbors); i++ {
+			for j := i + 1; j < len(neighbors); j++ {
+				// 0 (unknown) should come before positive ticks
+				// Lower ticks come before higher ticks
+				if neighbors[i].LastUpdatedTick > neighbors[j].LastUpdatedTick {
+					neighbors[i], neighbors[j] = neighbors[j], neighbors[i]
+				}
+			}
+		}
+
+		logger.Printf("Unvisited neighbors (sorted by LastUpdatedTick):")
+		for _, n := range neighbors {
+			age := "unknown"
+			if n.LastUpdatedTick > 0 {
+				age = fmt.Sprintf("tick %d", n.LastUpdatedTick)
+			}
+			logger.Printf("  - %s (last: %s)", n.SystemID, age)
+		}
+	}
+
+	// Extract just the system IDs in order
+	for _, n := range neighbors {
+		unvisited = append(unvisited, n.SystemID)
 	}
 
 	logger.Printf("Unvisited neighbors: %v", unvisited)
