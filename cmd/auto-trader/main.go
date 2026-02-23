@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"os"
+	"slices"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 type TraderAgent struct {
@@ -54,7 +58,7 @@ func updateCaptainsLog(agentID string, client *game.Client, tradingRuns int, cre
 
 	var notes []string
 	notes = append(notes, fmt.Sprintf("Trading runs completed: %d", tradingRuns))
-	notes = append(notes, fmt.Sprintf("Credits earned this run: %.2f", creditsEarned))
+	notes = append(notes, fmt.Sprintf("Lifetime trade profit: %.0f cr", creditsEarned))
 	notes = append(notes, fmt.Sprintf("Current credits: %.2f", state.Credits))
 	notes = append(notes, fmt.Sprintf("Ship: %s (%d modules)", state.Ship.Name, len(state.Ship.Modules)))
 	notes = append(notes, fmt.Sprintf("Hull: %.0f/%.0f (%.0f%%)", state.Hull, state.MaxHull, (state.Hull/state.MaxHull)*100))
@@ -366,6 +370,19 @@ func parsePhaseString(s string) tradePhase {
 func tradeLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context,
 	outbound game.TradeRoute, returnLeg game.TradeRoute, hasReturn bool, homeEmpire string) error {
 
+	// Open knowledge DB for ship class lookups (non-fatal if unavailable).
+	var kb *knowledge.SQLiteKB
+	if kbInstance, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: "data/spacemolt-knowledge.db"}); err != nil {
+		logger.Printf("Warning: failed to open knowledge DB: %v (ship switching disabled)", err)
+	} else {
+		kb = kbInstance
+		defer func() {
+			if err := kb.Close(); err != nil {
+				logger.Printf("Warning: failed to close knowledge DB: %v", err)
+			}
+		}()
+	}
+
 	homeSystem := game.EmpireHomeSystem(homeEmpire)
 	destSystem := game.EmpireHomeSystem(outbound.SellEmpire)
 
@@ -435,7 +452,7 @@ func tradeLoop(agentID string, client *game.Client, logger *log.Logger, ctx cont
 		case <-logTicker.C:
 			updateCaptainsLog(agentID, client, ts.tripCount, ts.totalProfit, "trade", ts.phase.String(), ts.outbound.Name)
 case <-ticker.C:
-			if err := executeTradePhase(client, logger, ctx, ts); err != nil {
+			if err := executeTradePhase(client, logger, ctx, ts, kb); err != nil {
 				logger.Printf("Trade phase %s error: %v", ts.phase, err)
 				logger.Printf("Retrying in next tick...")
 			}
@@ -487,7 +504,7 @@ func determineInitialPhase(state *game.State, ts *tradeLoopState) tradePhase {
 	}
 }
 
-func executeTradePhase(client *game.Client, logger *log.Logger, ctx context.Context, ts *tradeLoopState) error {
+func executeTradePhase(client *game.Client, logger *log.Logger, ctx context.Context, ts *tradeLoopState, kb *knowledge.SQLiteKB) error {
 	state := client.GetState()
 
 	// If traveling, wait for arrival.
@@ -498,13 +515,13 @@ func executeTradePhase(client *game.Client, logger *log.Logger, ctx context.Cont
 
 	switch ts.phase {
 	case phaseBuyAtHome:
-		return executeBuyPhase(client, logger, ctx, ts, ts.outbound, ts.homeSystem, phaseTravelToSell)
+		return executeBuyPhase(client, logger, ctx, ts, ts.outbound, ts.homeSystem, phaseTravelToSell, kb)
 
 	case phaseTravelToSell:
 		return executeTravelPhase(client, logger, ctx, ts, ts.destSystem, phaseSellAtDest)
 
 	case phaseSellAtDest:
-		return executeSellPhase(client, logger, ctx, ts, ts.outbound.OreID, ts.outbound.OreName)
+		return executeSellPhase(client, logger, ctx, ts, ts.outbound.OreID, ts.outbound.OreName, kb)
 
 	case phaseBuyReturn:
 		if !ts.hasReturnLeg {
@@ -513,20 +530,20 @@ func executeTradePhase(client *game.Client, logger *log.Logger, ctx context.Cont
 			ts.phase = phaseTravelHome
 			return nil
 		}
-		return executeBuyPhase(client, logger, ctx, ts, ts.returnLeg, ts.destSystem, phaseTravelHome)
+		return executeBuyPhase(client, logger, ctx, ts, ts.returnLeg, ts.destSystem, phaseTravelHome, nil)
 
 	case phaseTravelHome:
 		return executeTravelPhase(client, logger, ctx, ts, ts.homeSystem, phaseSellAtHome)
 
 	case phaseSellAtHome:
-		return executeSellPhase(client, logger, ctx, ts, "", "")
+		return executeSellPhase(client, logger, ctx, ts, "", "", kb)
 	}
 
 	return nil
 }
 
 func executeBuyPhase(client *game.Client, logger *log.Logger, ctx context.Context,
-	ts *tradeLoopState, route game.TradeRoute, expectedSystem string, nextPhase tradePhase) error {
+	ts *tradeLoopState, route game.TradeRoute, expectedSystem string, nextPhase tradePhase, kb *knowledge.SQLiteKB) error {
 
 	state := client.GetState()
 
@@ -541,6 +558,13 @@ func executeBuyPhase(client *game.Client, logger *log.Logger, ctx context.Contex
 	// Dock if not docked.
 	if err := ensureDocked(client, ctx, logger); err != nil {
 		return err
+	}
+
+	// Switch to best cargo ship at home station before buying outbound cargo.
+	if ts.phase == phaseBuyAtHome && kb != nil {
+		if err := switchToBestCargoShip(client, ctx, kb, logger); err != nil {
+			logger.Printf("Warning: ship switch failed: %v (continuing with current ship)", err)
+		}
 	}
 
 	// Refuel before buying (so we have enough fuel for the trip).
@@ -641,7 +665,7 @@ func executeTravelPhase(client *game.Client, logger *log.Logger, ctx context.Con
 }
 
 func executeSellPhase(client *game.Client, logger *log.Logger, ctx context.Context,
-	ts *tradeLoopState, specificOreID string, oreName string) error {
+	ts *tradeLoopState, specificOreID string, oreName string, kb *knowledge.SQLiteKB) error {
 
 	// Dock if not docked.
 	if err := ensureDocked(client, ctx, logger); err != nil {
@@ -651,51 +675,183 @@ func executeSellPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
 		logger.Printf("No cargo to sell, advancing...")
-		advanceSellPhase(ts)
+		advanceSellPhase(ts, state.Credits, logger)
 		return nil
 	}
 
-	// Sell cargo.
-	creditsBefore := state.Credits
+	// Build list of items to sell.
+	var items []cargoToSell
 	if specificOreID != "" {
-		// Sell just the specific ore.
 		for _, item := range state.Ship.Cargo {
 			if item.ItemID == specificOreID {
-				logger.Printf("Selling %.0f x %s...", item.Quantity, oreName)
-				if err := client.Sell(ctx, item.ItemID, item.Quantity); err != nil {
-					return fmt.Errorf("sell %s: %w", item.ItemID, err)
-				}
-				time.Sleep(game.SleepTick)
+				items = append(items, cargoToSell{itemID: item.ItemID, name: oreName, quantity: item.Quantity})
 				break
 			}
 		}
 	} else {
-		// Sell all cargo.
-		logger.Printf("Selling all cargo (%d items)...", len(state.Ship.Cargo))
 		for _, item := range state.Ship.Cargo {
-			logger.Printf("  Selling %.0f x %s", item.Quantity, item.ItemID)
-			if err := client.Sell(ctx, item.ItemID, item.Quantity); err != nil {
-				logger.Printf("  Warning: sell %s failed: %v", item.ItemID, err)
-			}
-			time.Sleep(game.SleepTick)
+			items = append(items, cargoToSell{itemID: item.ItemID, name: item.ItemID, quantity: item.Quantity})
 		}
 	}
 
+	if len(items) == 0 {
+		logger.Printf("No matching cargo to sell, advancing...")
+		advanceSellPhase(ts, state.Credits, logger)
+		return nil
+	}
+
+	creditsBefore := state.Credits
+
+	// Sell cargo with market-aware pricing.
+	if err := sellCargoSmart(client, logger, ctx, kb, items); err != nil {
+		logger.Printf("Warning: smart sell encountered errors: %v", err)
+	}
+
+	// Refresh state to get updated credits after selling.
+	if err := client.GetStatus(ctx); err != nil {
+		logger.Printf("Warning: failed to refresh status after sell: %v", err)
+	}
+	time.Sleep(game.SleepQuick)
+
 	state = client.GetState()
-	profit := state.Credits - creditsBefore
-	logger.Printf("Sold! Profit: %.2f cr | Total credits: %.2f", profit, state.Credits)
+	saleProfit := state.Credits - creditsBefore
+	logger.Printf("Sold! Sale revenue: %.2f cr | Total credits: %.2f", saleProfit, state.Credits)
 
 	// Refuel/repair after selling.
 	if err := refuelAndRepair(client, ctx, logger); err != nil {
 		logger.Printf("Warning: refuel/repair issue: %v", err)
 	}
 
-	advanceSellPhase(ts)
+	advanceSellPhase(ts, client.GetState().Credits, logger)
 	return nil
 }
 
+// cargoToSell describes a cargo item to be sold.
+type cargoToSell struct {
+	itemID   string
+	name     string
+	quantity float64
+}
+
+// sellCargoSmart sells cargo using market-aware pricing:
+// 1. Fetch market order book for each item
+// 2. Sell directly into buy orders priced at >= 80% of the item's base value
+// 3. Create sell orders for remaining units at 80% of base value
+func sellCargoSmart(client *game.Client, logger *log.Logger, ctx context.Context, kb *knowledge.SQLiteKB, items []cargoToSell) error {
+	// Fetch the full market order book.
+	if err := client.GetListings(ctx); err != nil {
+		logger.Printf("Warning: failed to fetch market listings: %v", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	// Parse the raw market data to get individual buy orders.
+	raw := client.GetRawJSON("market")
+	var marketItems []serverapi.ViewMarketItem
+	if raw != nil {
+		var marketResp struct {
+			Items []serverapi.ViewMarketItem `json:"items"`
+		}
+		if err := json.Unmarshal(raw, &marketResp); err != nil {
+			logger.Printf("Warning: failed to parse market data: %v", err)
+		} else {
+			marketItems = marketResp.Items
+		}
+	}
+
+	// Index market items by item ID for quick lookup.
+	marketByItem := make(map[string]serverapi.ViewMarketItem, len(marketItems))
+	for _, mi := range marketItems {
+		marketByItem[mi.ItemID] = mi
+	}
+
+	for _, cargo := range items {
+		remaining := cargo.quantity
+
+		// Look up base value from knowledge DB.
+		var baseValue float64
+		if kb != nil {
+			if catalogItem, err := kb.GetItem(ctx, cargo.itemID); err != nil {
+				logger.Printf("  Warning: KB lookup failed for %s: %v", cargo.itemID, err)
+			} else if catalogItem != nil {
+				baseValue = float64(catalogItem.BaseValue)
+			}
+		}
+
+		minPrice := baseValue * 0.8
+		if baseValue > 0 {
+			logger.Printf("Selling %.0f x %s (base value: %.0f cr, min price: %.0f cr)...", cargo.quantity, cargo.name, baseValue, minPrice)
+		} else {
+			logger.Printf("Selling %.0f x %s (base value unknown, selling at market)...", cargo.quantity, cargo.name)
+		}
+
+		// Step 1: Sell into buy orders at >= 80% of base value.
+		if mi, ok := marketByItem[cargo.itemID]; ok && baseValue > 0 {
+			// Process buy orders from highest price to lowest.
+			// The server typically returns them sorted, but sort to be safe.
+			sortedOrders := make([]serverapi.MarketOrder, len(mi.BuyOrders))
+			copy(sortedOrders, mi.BuyOrders)
+			sortBuyOrdersDesc(sortedOrders)
+
+			for _, order := range sortedOrders {
+				if remaining <= 0 {
+					break
+				}
+				if order.PriceEach < minPrice {
+					logger.Printf("  Skipping buy order at %.0f cr/unit (below min %.0f cr)", order.PriceEach, minPrice)
+					continue
+				}
+				sellQty := math.Min(remaining, order.Quantity)
+				logger.Printf("  Selling %.0f units into buy order at %.0f cr/unit (total: %.0f cr)", sellQty, order.PriceEach, sellQty*order.PriceEach)
+				if err := client.Sell(ctx, cargo.itemID, sellQty); err != nil {
+					logger.Printf("  Warning: sell failed: %v", err)
+					break
+				}
+				time.Sleep(game.SleepTick)
+				remaining -= sellQty
+			}
+		} else if baseValue == 0 {
+			// No base value known — sell everything directly at market price.
+			logger.Printf("  Selling %.0f units at market price (no base value for price floor)", remaining)
+			if err := client.Sell(ctx, cargo.itemID, remaining); err != nil {
+				logger.Printf("  Warning: sell failed: %v", err)
+			} else {
+				remaining = 0
+			}
+			time.Sleep(game.SleepTick)
+		}
+
+		// Step 2: Create sell order for remaining units at 80% of base value.
+		if remaining > 0 && baseValue > 0 {
+			orderPrice := math.Ceil(minPrice) // Round up to not go below 80%.
+			logger.Printf("  Creating sell order for %.0f remaining units at %.0f cr/unit", remaining, orderPrice)
+			if err := client.CreateSellOrder(ctx, map[string]any{
+				"item_id":    cargo.itemID,
+				"quantity":   remaining,
+				"price_each": orderPrice,
+			}); err != nil {
+				logger.Printf("  Warning: create sell order failed: %v (falling back to direct sell)", err)
+				// Fallback: sell directly at whatever price.
+				if err := client.Sell(ctx, cargo.itemID, remaining); err != nil {
+					logger.Printf("  Warning: fallback sell also failed: %v", err)
+				}
+				time.Sleep(game.SleepTick)
+			} else {
+				time.Sleep(game.SleepTick)
+			}
+		}
+	}
+	return nil
+}
+
+// sortBuyOrdersDesc sorts buy orders by price descending (highest first).
+func sortBuyOrdersDesc(orders []serverapi.MarketOrder) {
+	slices.SortFunc(orders, func(a, b serverapi.MarketOrder) int {
+		return cmp.Compare(b.PriceEach, a.PriceEach) // descending
+	})
+}
+
 // advanceSellPhase moves to the next phase after selling.
-func advanceSellPhase(ts *tradeLoopState) {
+func advanceSellPhase(ts *tradeLoopState, currentCredits float64, logger *log.Logger) {
 	switch ts.phase {
 	case phaseSellAtDest:
 		if ts.hasReturnLeg {
@@ -706,9 +862,12 @@ func advanceSellPhase(ts *tradeLoopState) {
 	case phaseSellAtHome:
 		// Round trip complete!
 		ts.tripCount++
-		tripProfit := 0.0 // Will be tracked across phases in future
+		tripProfit := currentCredits - ts.tripStartCred
 		ts.totalProfit += tripProfit
-		ts.phase = phaseBuyAtHome // Start next trip
+		logger.Printf("═══ Trip %d complete! Profit: %.0f cr (%.0f → %.0f) | Lifetime profit: %.0f cr ═══",
+			ts.tripCount, tripProfit, ts.tripStartCred, currentCredits, ts.totalProfit)
+		ts.tripStartCred = currentCredits // Reset for next trip
+		ts.phase = phaseBuyAtHome
 	}
 }
 
@@ -743,6 +902,86 @@ func refuelAndRepair(client *game.Client, ctx context.Context, logger *log.Logge
 		time.Sleep(game.SleepTick)
 	}
 
+	return nil
+}
+
+// switchToBestCargoShip checks owned ships at the current station and switches
+// to the one with the highest cargo capacity for maximum trade profit.
+func switchToBestCargoShip(client *game.Client, ctx context.Context, kb *knowledge.SQLiteKB, logger *log.Logger) error {
+	if err := client.ListShips(ctx); err != nil {
+		return fmt.Errorf("list ships: %w", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	raw := client.GetRawJSON("ships")
+	if raw == nil {
+		return fmt.Errorf("no ships data available")
+	}
+
+	var resp serverapi.ListShipsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return fmt.Errorf("parse owned_ships: %w", err)
+	}
+
+	state := client.GetState()
+	currentCapacity := state.Ship.CargoCapacity
+
+	logger.Printf("Checking %d owned ships for better cargo capacity (current: %.0f)...", resp.Count, currentCapacity)
+
+	var bestShipID, bestShipName, bestClassID string
+	var bestCapacity float64
+
+	for _, ship := range resp.Ships {
+		shipID, _ := ship["id"].(string)
+		shipName, _ := ship["name"].(string)
+		classID, _ := ship["class_id"].(string)
+		status, _ := ship["status"].(string)
+
+		// Only consider ships stored at the current station.
+		if status != "stored" {
+			continue
+		}
+
+		// Look up cargo capacity from the knowledge DB.
+		if classID == "" {
+			continue
+		}
+		classDef, err := kb.GetShipClass(ctx, classID)
+		if err != nil || classDef == nil {
+			logger.Printf("  Skip %s (%s): unknown class %s", shipName, shipID, classID)
+			continue
+		}
+
+		capacity := float64(classDef.CargoCapacity)
+		logger.Printf("  Found stored ship: %s (%s) — cargo capacity: %d", shipName, classID, classDef.CargoCapacity)
+
+		if capacity > bestCapacity {
+			bestCapacity = capacity
+			bestShipID = shipID
+			bestShipName = shipName
+			bestClassID = classID
+		}
+	}
+
+	if bestShipID == "" || bestCapacity <= currentCapacity {
+		logger.Printf("Current ship has best cargo capacity (%.0f), no switch needed", currentCapacity)
+		return nil
+	}
+
+	logger.Printf("Switching to %s (%s) — cargo capacity: %.0f → %.0f", bestShipName, bestClassID, currentCapacity, bestCapacity)
+	if err := client.SwitchShip(ctx, bestShipID); err != nil {
+		return fmt.Errorf("switch ship: %w", err)
+	}
+	time.Sleep(game.SleepTick)
+
+	// Refresh state with new ship data.
+	if err := client.GetStatus(ctx); err != nil {
+		return fmt.Errorf("refresh status after switch: %w", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	state = client.GetState()
+	logger.Printf("Now flying %s — cargo: %.0f/%.0f", state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
 	return nil
 }
 
