@@ -734,8 +734,8 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 func (kb *SQLiteKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	_, err := kb.db.ExecContext(ctx, `
 		INSERT INTO experiences (agent_id, time, type, description, outcome, location, last_updated_tick)
-		VALUES (?, datetime('now'), ?, ?, ?, ?, 0)
-	`, agentID, expType, description, outcome, location)
+		VALUES (?, ?, ?, ?, ?, ?, 0)
+	`, agentID, time.Now().Format(time.RFC3339), expType, description, outcome, location)
 	if err != nil {
 		return fmt.Errorf("failed to add experience: %w", err)
 	}
@@ -868,8 +868,8 @@ func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnap
 	// Insert snapshot
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO market_snapshots (system_id, system_name, station_id, station_name, game_tick, captured_at, agent_id, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?)
-	`, snapshot.SystemID, snapshot.SystemName, snapshot.StationID, snapshot.StationName, snapshot.GameTick, agentID, snapshot.GameTick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, snapshot.SystemID, snapshot.SystemName, snapshot.StationID, snapshot.StationName, snapshot.GameTick, snapshot.CapturedAt.Format(time.RFC3339), agentID, snapshot.GameTick)
 	if err != nil {
 		return fmt.Errorf("failed to insert market snapshot: %w", err)
 	}
@@ -1229,10 +1229,11 @@ func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings
 			INSERT INTO ship_listings (system_id, system_name, station_id, station_name,
 				ship_class, ship_name, base_price, description, cargo_space, module_slots,
 				utility_slots, weapon_slots, game_tick, captured_at, agent_id, last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, listings.SystemID, listings.SystemName, listings.StationID, listings.StationName,
 			ship.ShipClass, ship.ShipName, ship.BasePrice, ship.Description, ship.CargoSpace,
-			ship.ModuleSlots, ship.UtilitySlots, ship.WeaponSlots, listings.GameTick, agentID, listings.GameTick)
+			ship.ModuleSlots, ship.UtilitySlots, ship.WeaponSlots, listings.GameTick,
+			listings.CapturedAt.Format(time.RFC3339), agentID, listings.GameTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert ship listing: %w", err)
 		}
