@@ -15,6 +15,7 @@ type CraftingLoopConfig struct {
 	// Strategy determines what to do with crafted items
 	// "craft-deposit": Craft items and deposit to storage
 	// "craft-sell": Craft items and sell for credits
+	// "craft-profit": Craft items based on market profitability and deposit to storage
 	Strategy string
 
 	// StopCondition is called before each crafting run to check if we should stop
@@ -321,8 +322,8 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 	}
 
 	// Validate strategy
-	if config.Strategy != "craft-deposit" && config.Strategy != "craft-sell" {
-		return nil, fmt.Errorf("invalid strategy: %s (must be craft-deposit or craft-sell)", config.Strategy)
+	if config.Strategy != "craft-deposit" && config.Strategy != "craft-sell" && config.Strategy != "craft-profit" {
+		return nil, fmt.Errorf("invalid strategy: %s (must be craft-deposit, craft-sell, or craft-profit)", config.Strategy)
 	}
 
 	// Initialize result
@@ -473,7 +474,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 		creditsBefore := state.Credits
 
 		switch config.Strategy {
-		case "craft-deposit":
+		case "craft-deposit", "craft-profit":
 			// Deposit all items to storage
 			if len(state.Ship.Cargo) > 0 {
 				logger.Printf("📥 Depositing %d items to storage...", len(state.Ship.Cargo))
