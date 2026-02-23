@@ -13,7 +13,7 @@ type GameClient interface {
 
 	// Authentication
 	Login(ctx context.Context) error
-	Register(ctx context.Context, empire string) error
+	Register(ctx context.Context, empire, registrationCode string) error
 
 	// Actions
 	Undock(ctx context.Context) error

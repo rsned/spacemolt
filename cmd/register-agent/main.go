@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	serverURL    = flag.String("server", "wss://game.spacemolt.com/ws", "WebSocket server URL")
-	username     = flag.String("username", "", "Agent username (required)")
-	empire       = flag.String("empire", "solarian", "Empire/faction name")
-	savePassword = flag.Bool("save-password", false, "Save password to ~/.spacemolt/agents/<username>.password")
-	verbose      = flag.Bool("v", false, "Enable verbose output")
+	serverURL        = flag.String("server", "wss://game.spacemolt.com/ws", "WebSocket server URL")
+	username         = flag.String("username", "", "Agent username (required)")
+	empire           = flag.String("empire", "solarian", "Empire/faction name")
+	registrationCode = flag.String("code", "", "Registration code from https://spacemolt.com/dashboard (required for linking to website account)")
+	savePassword     = flag.Bool("save-password", false, "Save password to ~/.spacemolt/agents/<username>.password")
+	verbose          = flag.Bool("v", false, "Enable verbose output")
 )
 
 func main() {
@@ -73,7 +74,10 @@ func main() {
 
 	// Send register command
 	fmt.Printf("Registering agent '%s' with empire '%s'...\n", *username, *empire)
-	if err := client.Register(interruptCtx, *empire); err != nil {
+	if *registrationCode != "" {
+		fmt.Printf("Using registration code: %s\n", *registrationCode)
+	}
+	if err := client.Register(interruptCtx, *empire, *registrationCode); err != nil {
 		log.Fatalf("Registration failed: %v", err)
 	}
 

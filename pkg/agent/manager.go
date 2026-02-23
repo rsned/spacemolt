@@ -434,7 +434,7 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 	m.debugLogger.Printf("[%s] Registering with empire: %s (personality faction: %s)",
 		personality.ID, empire, personality.Faction)
 
-	if err := client.Register(ctx, empire); err != nil {
+	if err := client.Register(ctx, empire, ""); err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
 

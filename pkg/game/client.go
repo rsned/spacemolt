@@ -413,13 +413,20 @@ func (c *Client) Login(ctx context.Context) error {
 
 // Register creates a new account
 // This is a synchronous operation that waits for the server response
-func (c *Client) Register(ctx context.Context, empire string) error {
+func (c *Client) Register(ctx context.Context, empire, registrationCode string) error {
+	payload := map[string]any{
+		"username": c.username,
+		"empire":   empire,
+	}
+
+	// Add registration code if provided
+	if registrationCode != "" {
+		payload["registration_code"] = registrationCode
+	}
+
 	msg := protocol.Message{
-		Type: "register",
-		Payload: map[string]any{
-			"username": c.username,
-			"empire":   empire,
-		},
+		Type:      "register",
+		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
 

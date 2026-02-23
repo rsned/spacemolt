@@ -309,7 +309,7 @@ func TestRegister_Success(t *testing.T) {
 	<-client.Ready()
 
 	// Register
-	if err := client.Register(ctx, "voidborn"); err != nil {
+	if err := client.Register(ctx, "voidborn", ""); err != nil {
 		t.Fatalf("Registration failed: %v", err)
 	}
 
@@ -342,7 +342,7 @@ func TestRegister_Failure_UsernameTaken(t *testing.T) {
 	<-client.Ready()
 
 	// Register should fail
-	err := client.Register(ctx, "voidborn")
+	err := client.Register(ctx, "voidborn", "")
 	if err == nil {
 		t.Fatal("Expected registration to fail with taken username")
 	}
@@ -377,7 +377,7 @@ func TestRegister_Failure_Timeout(t *testing.T) {
 
 	// Register should timeout
 	start := time.Now()
-	err := client.Register(ctx, "voidborn")
+	err := client.Register(ctx, "voidborn", "")
 	elapsed := time.Since(start)
 
 	if err == nil {

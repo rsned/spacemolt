@@ -83,7 +83,7 @@ func (m *mockGameClient) Close() error                                      { re
 func (m *mockGameClient) IsConnected() bool                                 { return true }
 func (m *mockGameClient) Ready() <-chan struct{}                            { ch := make(chan struct{}); close(ch); return ch }
 func (m *mockGameClient) Login(ctx context.Context) error                   { return nil }
-func (m *mockGameClient) Register(ctx context.Context, empire string) error { return nil }
+func (m *mockGameClient) Register(ctx context.Context, empire, registrationCode string) error { return nil }
 
 // Action methods
 func (m *mockGameClient) Undock(ctx context.Context) error {
