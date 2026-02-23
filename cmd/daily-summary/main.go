@@ -604,6 +604,8 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 	// Summary stats
 	var totalCredits float64
 	var totalSkills int
+	var totalOreMined float64
+	var totalItemsCrafted int
 	var changedCount, errorCount int
 	for _, d := range diffs {
 		if d.Current.Error != "" {
@@ -615,6 +617,21 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 		if d.HasChanges {
 			changedCount++
 		}
+		// Parse stat changes for ore mined and items crafted
+		for _, stat := range d.StatChanges {
+			if strings.HasPrefix(stat, "OreMined:") {
+				var val float64
+				if _, err := fmt.Sscanf(stat, "OreMined: %f", &val); err == nil {
+					totalOreMined += val
+				}
+			}
+			if strings.HasPrefix(stat, "ItemsCrafted:") {
+				var val int
+				if _, err := fmt.Sscanf(stat, "ItemsCrafted: %d", &val); err == nil {
+					totalItemsCrafted += val
+				}
+			}
+		}
 	}
 
 	b.WriteString("## Fleet Summary\n\n")
@@ -624,7 +641,14 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 	fmt.Fprintf(&b, "| Changed | %d |\n", changedCount)
 	fmt.Fprintf(&b, "| Errors | %d |\n", errorCount)
 	fmt.Fprintf(&b, "| Fleet Credits Delta | %s |\n", formatCredits(totalCredits))
-	fmt.Fprintf(&b, "| Total Skills Leveled | %d |\n\n", totalSkills)
+	fmt.Fprintf(&b, "| Total Skills Leveled | %d |\n", totalSkills)
+	if totalOreMined > 0 {
+		fmt.Fprintf(&b, "| Ore Mined | %s |\n", formatNumber(totalOreMined))
+	}
+	if totalItemsCrafted > 0 {
+		fmt.Fprintf(&b, "| Items Crafted | %s |\n", formatNumber(float64(totalItemsCrafted)))
+	}
+	b.WriteString("\n")
 
 	// Errors
 	if errorCount > 0 {
@@ -741,6 +765,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 	var totalAllCredits float64
 	var totalCreditsSpent, totalCreditsEarned float64
 	var totalSkills int
+	var totalOreMined float64
+	var totalItemsCrafted int
 	var changedCount, errorCount int
 
 	// Calculate totals
@@ -756,7 +782,7 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 			changedCount++
 		}
 
-		// Extract CreditsSpent and CreditsEarned from StatChanges
+		// Extract stats from StatChanges
 		for _, sc := range d.StatChanges {
 			if strings.HasPrefix(sc, "CreditsSpent:") {
 				parts := strings.Fields(sc)
@@ -771,6 +797,20 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 					var val float64
 					_, _ = fmt.Sscanf(parts[1], "%f", &val)
 					totalCreditsEarned += val
+				}
+			} else if strings.HasPrefix(sc, "OreMined:") {
+				parts := strings.Fields(sc)
+				if len(parts) >= 2 {
+					var val float64
+					_, _ = fmt.Sscanf(parts[1], "%f", &val)
+					totalOreMined += val
+				}
+			} else if strings.HasPrefix(sc, "ItemsCrafted:") {
+				parts := strings.Fields(sc)
+				if len(parts) >= 2 {
+					var val int
+					_, _ = fmt.Sscanf(parts[1], "%d", &val)
+					totalItemsCrafted += val
 				}
 			}
 		}
@@ -1001,6 +1041,12 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 	b.WriteString(`</div></div>` + "\n")
 
 	writeStatCard(&b, "Skills Leveled", fmt.Sprintf("%d", totalSkills), ternary(totalSkills > 0, "positive", ""))
+	if totalOreMined > 0 {
+		writeStatCard(&b, "Ore Mined", formatNumber(totalOreMined), "positive")
+	}
+	if totalItemsCrafted > 0 {
+		writeStatCard(&b, "Items Crafted", formatNumber(float64(totalItemsCrafted)), "positive")
+	}
 	b.WriteString("</div>\n")
 
 	// Changes table
