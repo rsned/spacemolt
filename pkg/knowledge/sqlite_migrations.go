@@ -644,6 +644,41 @@ CREATE INDEX IF NOT EXISTS idx_mission_templates_type ON mission_templates(type)
 CREATE INDEX IF NOT EXISTS idx_mission_templates_base ON mission_templates(base_id);
 `,
 		},
+		{
+			version: 14,
+			name:    "add_market_analyses_table",
+			sql: `
+-- Market analyses table: stores AI-generated trading insights
+CREATE TABLE IF NOT EXISTS market_analyses (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	system_id TEXT NOT NULL,
+	system_name TEXT NOT NULL,
+	station_id TEXT NOT NULL,
+	station_name TEXT NOT NULL,
+	game_tick INTEGER NOT NULL,
+	captured_at TEXT NOT NULL,
+	agent_id TEXT NOT NULL,
+	last_updated_tick INTEGER NOT NULL,
+
+	-- Analysis content
+	mode TEXT,
+	skill_level INTEGER,
+	scanning_range TEXT,
+	stations_in_range INTEGER,
+	items_scanned INTEGER,
+	top_insights TEXT, -- JSON array of insights
+	total_items INTEGER,
+	total_pages INTEGER,
+	page INTEGER,
+	hint TEXT,
+	xp_gained TEXT, -- JSON object
+	analysis TEXT -- JSON object
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_analyses_system_station ON market_analyses(system_id, station_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_analyses_captured ON market_analyses(captured_at DESC);
+`,
+		},
 	}
 }
 

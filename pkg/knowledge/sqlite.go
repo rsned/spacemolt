@@ -3,6 +3,7 @@ package knowledge
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -1070,6 +1071,149 @@ func (kb *SQLiteKB) HasMarketSnapshotToday(ctx context.Context, systemID, statio
 		return false, fmt.Errorf("failed to check for today's snapshot: %w", err)
 	}
 	return count > 0, nil
+}
+
+// StoreMarketAnalysis stores a market analysis snapshot
+func (kb *SQLiteKB) StoreMarketAnalysis(ctx context.Context, analysis MarketAnalysis, agentID string) error {
+	// Serialize complex fields to JSON
+	insightsJSON, err := json.Marshal(analysis.TopInsights)
+	if err != nil {
+		return fmt.Errorf("failed to marshal top_insights: %w", err)
+	}
+	xpJSON, err := json.Marshal(analysis.XPGained)
+	if err != nil {
+		return fmt.Errorf("failed to marshal xp_gained: %w", err)
+	}
+	analysisDataJSON, err := json.Marshal(analysis.AnalysisData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal analysis: %w", err)
+	}
+
+	result, err := kb.db.ExecContext(ctx, `
+		INSERT INTO market_analyses (system_id, system_name, station_id, station_name,
+			game_tick, captured_at, agent_id, last_updated_tick,
+			mode, skill_level, scanning_range, stations_in_range, items_scanned,
+			top_insights, total_items, total_pages, page, hint, xp_gained, analysis)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, analysis.SystemID, analysis.SystemName, analysis.StationID, analysis.StationName,
+		analysis.GameTick, analysis.CapturedAt.Format(time.RFC3339), agentID, analysis.GameTick,
+		analysis.Mode, analysis.SkillLevel, analysis.ScanningRange, analysis.StationsInRange,
+		analysis.ItemsScanned, string(insightsJSON), analysis.TotalItems, analysis.TotalPages,
+		analysis.Page, analysis.Hint, string(xpJSON), string(analysisDataJSON))
+	if err != nil {
+		return fmt.Errorf("failed to insert market analysis: %w", err)
+	}
+
+	_, err = result.LastInsertId()
+	return err
+}
+
+// GetLatestMarketAnalysis retrieves the most recent market analysis
+func (kb *SQLiteKB) GetLatestMarketAnalysis(ctx context.Context, systemID, stationID string) (*MarketAnalysis, error) {
+	query := `
+		SELECT id, system_id, system_name, station_id, station_name, game_tick, captured_at,
+			mode, skill_level, scanning_range, stations_in_range, items_scanned,
+			top_insights, total_items, total_pages, page, hint, xp_gained, analysis
+		FROM market_analyses
+		WHERE system_id = ? AND station_id = ?
+		ORDER BY captured_at DESC
+		LIMIT 1
+	`
+
+	var analysis MarketAnalysis
+	var id int
+	var capturedAt string
+	var insightsJSON, xpJSON, analysisDataJSON string
+
+	err := kb.db.QueryRowContext(ctx, query, systemID, stationID).Scan(
+		&id, &analysis.SystemID, &analysis.SystemName, &analysis.StationID, &analysis.StationName,
+		&analysis.GameTick, &capturedAt,
+		&analysis.Mode, &analysis.SkillLevel, &analysis.ScanningRange, &analysis.StationsInRange,
+		&analysis.ItemsScanned, &insightsJSON, &analysis.TotalItems, &analysis.TotalPages,
+		&analysis.Page, &analysis.Hint, &xpJSON, &analysisDataJSON,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil // No analysis found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query market analysis: %w", err)
+	}
+
+	analysis.CapturedAt, err = time.Parse(time.RFC3339, capturedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse captured_at: %w", err)
+	}
+
+	// Unmarshal JSON fields
+	if err := json.Unmarshal([]byte(insightsJSON), &analysis.TopInsights); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal top_insights: %w", err)
+	}
+	if err := json.Unmarshal([]byte(xpJSON), &analysis.XPGained); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal xp_gained: %w", err)
+	}
+	if err := json.Unmarshal([]byte(analysisDataJSON), &analysis.AnalysisData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal analysis: %w", err)
+	}
+
+	return &analysis, nil
+}
+
+// GetMarketAnalysisHistory retrieves historical market analyses
+func (kb *SQLiteKB) GetMarketAnalysisHistory(ctx context.Context, systemID, stationID string, limit int) ([]MarketAnalysis, error) {
+	query := `
+		SELECT id, system_id, system_name, station_id, station_name, game_tick, captured_at,
+			mode, skill_level, scanning_range, stations_in_range, items_scanned,
+			top_insights, total_items, total_pages, page, hint, xp_gained, analysis
+		FROM market_analyses
+		WHERE system_id = ? AND station_id = ?
+		ORDER BY captured_at DESC
+		LIMIT ?
+	`
+
+	rows, err := kb.db.QueryContext(ctx, query, systemID, stationID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query market analyses: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var analyses []MarketAnalysis
+	for rows.Next() {
+		var analysis MarketAnalysis
+		var id int
+		var capturedAt string
+		var insightsJSON, xpJSON, analysisDataJSON string
+
+		err := rows.Scan(
+			&id, &analysis.SystemID, &analysis.SystemName, &analysis.StationID, &analysis.StationName,
+			&analysis.GameTick, &capturedAt,
+			&analysis.Mode, &analysis.SkillLevel, &analysis.ScanningRange, &analysis.StationsInRange,
+			&analysis.ItemsScanned, &insightsJSON, &analysis.TotalItems, &analysis.TotalPages,
+			&analysis.Page, &analysis.Hint, &xpJSON, &analysisDataJSON,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan analysis: %w", err)
+		}
+
+		analysis.CapturedAt, err = time.Parse(time.RFC3339, capturedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse captured_at: %w", err)
+		}
+
+		// Unmarshal JSON fields
+		if err := json.Unmarshal([]byte(insightsJSON), &analysis.TopInsights); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal top_insights: %w", err)
+		}
+		if err := json.Unmarshal([]byte(xpJSON), &analysis.XPGained); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal xp_gained: %w", err)
+		}
+		if err := json.Unmarshal([]byte(analysisDataJSON), &analysis.AnalysisData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal analysis: %w", err)
+		}
+
+		analyses = append(analyses, analysis)
+	}
+
+	return analyses, nil
 }
 
 // StoreShipListings stores ship listings at a station

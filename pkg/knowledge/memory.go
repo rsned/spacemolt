@@ -579,6 +579,67 @@ func (kb *MemoryKB) GetMarketItems(ctx context.Context, itemType string) ([]stri
 	return items, nil
 }
 
+// Market analysis methods for in-memory KB
+var (
+	memMarketAnalyses []MarketAnalysis
+	memAnalysesMu     sync.RWMutex
+)
+
+func (kb *MemoryKB) StoreMarketAnalysis(ctx context.Context, analysis MarketAnalysis, agentID string) error {
+	memAnalysesMu.Lock()
+	defer memAnalysesMu.Unlock()
+
+	// Set capture time if not set
+	if analysis.CapturedAt.IsZero() {
+		analysis.CapturedAt = time.Now()
+	}
+
+	// Add to storage (keep most recent 100)
+	memMarketAnalyses = append(memMarketAnalyses, analysis)
+	if len(memMarketAnalyses) > 100 {
+		memMarketAnalyses = memMarketAnalyses[1:]
+	}
+
+	return nil
+}
+
+func (kb *MemoryKB) GetLatestMarketAnalysis(ctx context.Context, systemID, stationID string) (*MarketAnalysis, error) {
+	memAnalysesMu.RLock()
+	defer memAnalysesMu.RUnlock()
+
+	// Search in reverse order (most recent first)
+	for i := len(memMarketAnalyses) - 1; i >= 0; i-- {
+		analysis := memMarketAnalyses[i]
+		if analysis.SystemID == systemID && analysis.StationID == stationID {
+			return &analysis, nil
+		}
+	}
+
+	return nil, nil // Not found
+}
+
+func (kb *MemoryKB) GetMarketAnalysisHistory(ctx context.Context, systemID, stationID string, limit int) ([]MarketAnalysis, error) {
+	memAnalysesMu.RLock()
+	defer memAnalysesMu.RUnlock()
+
+	var result []MarketAnalysis
+	count := 0
+
+	// Iterate in reverse order (most recent first)
+	for i := len(memMarketAnalyses) - 1; i >= 0; i-- {
+		analysis := memMarketAnalyses[i]
+		if analysis.SystemID == systemID && analysis.StationID == stationID {
+			result = append(result, analysis)
+			count++
+			if count >= limit {
+				break
+			}
+		}
+	}
+
+	return result, nil
+}
+
 // Enhanced analytics methods - stub implementations for in-memory KB
 // These return "not implemented" errors as the in-memory KB is for testing only
 

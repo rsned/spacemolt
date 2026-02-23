@@ -32,6 +32,11 @@ type Base interface {
 	GetMarketItems(ctx context.Context, itemType string) ([]string, error)
 	HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error)
 
+	// Market analysis methods
+	StoreMarketAnalysis(ctx context.Context, analysis MarketAnalysis, agentID string) error
+	GetLatestMarketAnalysis(ctx context.Context, systemID, stationID string) (*MarketAnalysis, error)
+	GetMarketAnalysisHistory(ctx context.Context, systemID, stationID string, limit int) ([]MarketAnalysis, error)
+
 	// Ship listings methods
 	StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error
 	GetShipListings(ctx context.Context, systemID, stationID string, limit int) ([]ShipListings, error)
@@ -126,6 +131,28 @@ type MarketSnapshot struct {
 	GameTick    int64
 	Listings    []MarketListing
 	CapturedAt  time.Time
+}
+
+// MarketAnalysis represents AI-generated market insights from analyze_market
+type MarketAnalysis struct {
+	SystemID        string
+	SystemName      string
+	StationID       string
+	StationName     string
+	GameTick        int64
+	CapturedAt      time.Time
+	Mode            string
+	SkillLevel      int
+	ScanningRange   string
+	StationsInRange int
+	ItemsScanned    int
+	TopInsights     []map[string]any
+	TotalItems      int
+	TotalPages      int
+	Page            int
+	Hint            string
+	XPGained        map[string]any
+	AnalysisData    map[string]any
 }
 
 // ShipListing represents a single ship listing at a station
