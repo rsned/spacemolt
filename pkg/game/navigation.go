@@ -14,7 +14,7 @@ import (
 func NavigateToSystem(client *Client, ctx context.Context, targetSystem string, logger *log.Logger) error {
 	state := client.GetState()
 
-	if state.CurrentSystem == targetSystem {
+	if sameSystem(state.System.ID, targetSystem) {
 		logger.Printf("Already at target system %s", targetSystem)
 		return nil
 	}
@@ -36,7 +36,7 @@ func NavigateToSystem(client *Client, ctx context.Context, targetSystem string, 
 	}
 
 	// Multi-hop: use server pathfinding.
-	logger.Printf("Finding route from %s to %s...", state.CurrentSystem, targetSystem)
+	logger.Printf("Finding route from %s (%s) to %s...", state.System.Name, state.System.ID, targetSystem)
 	steps, err := client.FindRoute(ctx, targetSystem)
 	if err != nil {
 		return fmt.Errorf("find route to %s: %w", targetSystem, err)
@@ -44,10 +44,14 @@ func NavigateToSystem(client *Client, ctx context.Context, targetSystem string, 
 
 	// The route includes the current system as the first entry — skip past it.
 	// Also skip any systems we've already passed through (in case of resume).
-	currentSystem := strings.ToLower(state.CurrentSystem)
+	// Compare against both System.ID and System.Name since route steps may match either.
+	currentSystemID := strings.ToLower(state.System.ID)
+	currentSystemName := strings.ToLower(state.System.Name)
 	startIdx := 0
 	for i, step := range steps {
-		if strings.ToLower(step.SystemID) == currentSystem || strings.ToLower(step.Name) == currentSystem {
+		stepID := strings.ToLower(step.SystemID)
+		stepName := strings.ToLower(step.Name)
+		if stepID == currentSystemID || stepName == currentSystemName || stepID == currentSystemName || stepName == currentSystemID {
 			startIdx = i + 1
 			break
 		}
@@ -75,8 +79,8 @@ func NavigateToSystem(client *Client, ctx context.Context, targetSystem string, 
 
 	// Verify we arrived.
 	state = client.GetState()
-	if state.CurrentSystem != targetSystem {
-		return fmt.Errorf("navigation ended at %s, expected %s", state.CurrentSystem, targetSystem)
+	if !sameSystem(state.System.ID, targetSystem) {
+		return fmt.Errorf("navigation ended at %s (id=%s), expected %s", state.System.Name, state.System.ID, targetSystem)
 	}
 
 	logger.Printf("Arrived at %s", targetSystem)
@@ -192,4 +196,10 @@ func waitForArrival(client *Client, ctx context.Context, timeout time.Duration) 
 
 		time.Sleep(5 * time.Second)
 	}
+}
+
+// sameSystem compares system IDs case-insensitively.
+// Always pass state.System.ID (not state.CurrentSystem which may be a display name).
+func sameSystem(a, b string) bool {
+	return strings.EqualFold(a, b)
 }

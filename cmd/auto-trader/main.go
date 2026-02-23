@@ -448,8 +448,8 @@ case <-ticker.C:
 }
 
 func determineInitialPhase(state *game.State, ts *tradeLoopState) tradePhase {
-	atHome := state.CurrentSystem == ts.homeSystem
-	atDest := state.CurrentSystem == ts.destSystem
+	atHome := strings.EqualFold(state.System.ID, ts.homeSystem)
+	atDest := strings.EqualFold(state.System.ID, ts.destSystem)
 	hasCargo := len(state.Ship.Cargo) > 0
 
 	// Check if carrying outbound ore (should sell at dest).
@@ -531,8 +531,8 @@ func executeBuyPhase(client *game.Client, logger *log.Logger, ctx context.Contex
 	state := client.GetState()
 
 	// Ensure we're in the right system.
-	if state.CurrentSystem != expectedSystem {
-		logger.Printf("Not at expected system %s (at %s), navigating...", expectedSystem, state.CurrentSystem)
+	if !strings.EqualFold(state.System.ID, expectedSystem) {
+		logger.Printf("Not at expected system %s (at %s, id=%s), navigating...", expectedSystem, state.CurrentSystem, state.System.ID)
 		if err := game.NavigateToSystem(client, ctx, expectedSystem, logger); err != nil {
 			return fmt.Errorf("navigate to %s: %w", expectedSystem, err)
 		}
@@ -571,7 +571,7 @@ func executeBuyPhase(client *game.Client, logger *log.Logger, ctx context.Contex
 	if err := client.GetListings(ctx); err != nil {
 		logger.Printf("Warning: failed to fetch listings: %v", err)
 	}
-	time.Sleep(3 * time.Second)
+	time.Sleep(game.SleepQuick)
 
 	listings := client.GetMarketListings()
 	buyPrice := route.ExpectedBuy
@@ -625,7 +625,7 @@ func executeTravelPhase(client *game.Client, logger *log.Logger, ctx context.Con
 
 	state := client.GetState()
 
-	if state.CurrentSystem == targetSystem {
+	if strings.EqualFold(state.System.ID, targetSystem) {
 		logger.Printf("Already at target system %s", targetSystem)
 		ts.phase = nextPhase
 		return nil
@@ -665,7 +665,7 @@ func executeSellPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				if err := client.Sell(ctx, item.ItemID, item.Quantity); err != nil {
 					return fmt.Errorf("sell %s: %w", item.ItemID, err)
 				}
-				time.Sleep(3 * time.Second)
+				time.Sleep(game.SleepTick)
 				break
 			}
 		}
@@ -677,7 +677,7 @@ func executeSellPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			if err := client.Sell(ctx, item.ItemID, item.Quantity); err != nil {
 				logger.Printf("  Warning: sell %s failed: %v", item.ItemID, err)
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(game.SleepTick)
 		}
 	}
 
@@ -731,7 +731,7 @@ func refuelAndRepair(client *game.Client, ctx context.Context, logger *log.Logge
 		if err := client.Refuel(ctx); err != nil {
 			return fmt.Errorf("refuel: %w", err)
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(game.SleepTick)
 	}
 
 	state = client.GetState()
@@ -740,7 +740,7 @@ func refuelAndRepair(client *game.Client, ctx context.Context, logger *log.Logge
 		if err := client.Repair(ctx); err != nil {
 			return fmt.Errorf("repair: %w", err)
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(game.SleepTick)
 	}
 
 	return nil
