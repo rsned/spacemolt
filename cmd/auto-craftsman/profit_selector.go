@@ -84,6 +84,7 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			if requiredSkill != "" {
 				skillLevel, hasSkill := skills[requiredSkill]
 				if !hasSkill || skillLevel.Level < recipe.requiredSkillLevel {
+					logger.Printf("   ✗ %s: missing skill %s level %d", recipe.recipeID, requiredSkill, recipe.requiredSkillLevel)
 					continue // Skip if don't have required skill level
 				}
 			}
@@ -95,11 +96,14 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			for _, material := range recipe.materials {
 				availableQty, hasResource := resourceMap[material.itemID]
 				if !hasResource || availableQty < material.quantity {
+					logger.Printf("   ✗ %s: missing material %s (have %.0f, need %.0f)",
+						recipe.recipeID, material.itemID, availableQty, material.quantity)
 					hasMaterials = false
 					break
 				}
 				// We'll buy materials at the lowest buy price
-				materialCost += getBuyPrice(listings, material.itemID, material.quantity)
+				cost := getBuyPrice(listings, material.itemID, material.quantity)
+				materialCost += cost
 			}
 
 			if !hasMaterials {
@@ -109,11 +113,15 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			// Get sell price for crafted item
 			sellPrice := getSellPrice(listings, recipe.outputItemID, recipe.outputQuantity)
 			if sellPrice == 0 {
+				logger.Printf("   ✗ %s: no market data for output %s", recipe.recipeID, recipe.outputItemID)
 				continue // No market data for this item
 			}
 
 			profit := sellPrice - materialCost
 			marginPct := (profit / materialCost) * 100
+
+			logger.Printf("   📊 %s: cost %.0f, sell %.0f, profit %.0f (%.1f%%)",
+				recipe.recipeID, materialCost, sellPrice, profit, marginPct)
 
 			// Only consider profitable recipes with decent margin (> 5%)
 			if profit > 0 && marginPct > 5 {
@@ -184,31 +192,31 @@ func getProfitableRecipes() []profitableRecipe {
 		// Basic recipes (no skills required)
 		{
 			recipeID:       "basic_smelt_iron",
-			outputItemID:   "iron_ingot",
+			outputItemID:   "refined_steel",
 			outputQuantity: 1,
-			materials:      []recipeMaterials{{"ore_iron", 1}},
+			materials:      []recipeMaterials{{"ore_iron", 10}},
 		},
 		{
 			recipeID:       "basic_copper_processing",
-			outputItemID:   "copper_plate",
+			outputItemID:   "refined_copper_wire",
 			outputQuantity: 1,
-			materials:      []recipeMaterials{{"ore_copper", 1}},
+			materials:      []recipeMaterials{{"ore_copper", 10}},
 		},
 
 		// Refinement level 1 recipes
 		{
 			recipeID:           "refine_copper_wire",
-			outputItemID:       "copper_wire",
+			outputItemID:       "refined_copper_wire",
 			outputQuantity:     1,
-			materials:          []recipeMaterials{{"copper_plate", 1}},
+			materials:          []recipeMaterials{{"refined_copper", 5}},
 			requiredSkill:      "refinement",
 			requiredSkillLevel: 1,
 		},
 		{
 			recipeID:           "smelt_aluminum_sheet",
-			outputItemID:       "aluminum_sheet",
+			outputItemID:       "refined_aluminum",
 			outputQuantity:     1,
-			materials:          []recipeMaterials{{"ore_aluminum", 1}},
+			materials:          []recipeMaterials{{"ore_aluminum", 10}},
 			requiredSkill:      "refinement",
 			requiredSkillLevel: 1,
 		},
@@ -216,9 +224,9 @@ func getProfitableRecipes() []profitableRecipe {
 		// Crafting basic level 5 recipes
 		{
 			recipeID:           "craft_steel_plate",
-			outputItemID:       "steel_plate",
+			outputItemID:       "refined_steel",
 			outputQuantity:     1,
-			materials:          []recipeMaterials{{"iron_ingot", 2}},
+			materials:          []recipeMaterials{{"refined_steel", 2}},
 			requiredSkill:      "crafting_basic",
 			requiredSkillLevel: 5,
 		},
