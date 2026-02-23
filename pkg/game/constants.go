@@ -4,15 +4,18 @@ import "time"
 
 // Sleep durations for various game operations
 const (
-	SleepQuick     = 2 * time.Second  // Quick state updates, small delays
-	SleepShort     = 3 * time.Second  // Short operations (refuel, repair, install)
-	SleepMedium    = 5 * time.Second  // Medium wait operations
-	SleepDock      = 12 * time.Second // Undock timing
-	SleepLong      = 10 * time.Second // Longer wait operations
-	SleepTick      = SleepLong
-	SleepDocked    = 15 * time.Second // Dock timing
-	SleepTravel    = 20 * time.Second // POI travel within system
-	SleepJump      = 25 * time.Second // System jump travel time
+	SleepTick   = 10 * time.Second // One game server tick is 10 seconds.
+	SleepQuick  = SleepTick / 5    // Non-mutation command and queries.
+	SleepShort  = SleepTick / 3    // Short operations (refuel, repair, install)
+	SleepMedium = SleepTick / 2    // Medium wait operations
+	SleepLong   = 2 * SleepTick    // Longer wait operations
+
+	SleepDock   = 1.5 * SleepTick // Dock timing
+	SleepUndock = 1.5 * SleepTick // Undock timing
+
+	SleepTravel = 1 * SleepTick // POI travel within system
+	SleepJump   = 2 * SleepTick // System jump travel timea
+
 	SleepReconnect = 30 * time.Second // Reconnection recovery wait
 )
 
