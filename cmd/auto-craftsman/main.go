@@ -9,6 +9,7 @@ import (
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 type CraftsmanAgent struct {
@@ -58,6 +59,8 @@ func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, it
 			currentGoal = "Docked at station - crafting items and selling for credits"
 		case "craft-deposit":
 			currentGoal = "Docked at station - crafting items and depositing to storage"
+		case "craft-profit":
+			currentGoal = "Docked at station - crafting profitable items based on market analysis"
 		}
 	} else if state.Traveling {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
@@ -84,13 +87,15 @@ func main() {
 		fmt.Println("  strategy   Crafting strategy (optional, default: craft-deposit)")
 		fmt.Println("")
 		fmt.Println("Strategies:")
-		fmt.Println("  craft-deposit Craft items from resources, then deposit to storage (default)")
-		fmt.Println("  craft-sell   Craft items from resources, then sell for credits")
+		fmt.Println("  craft-deposit  Craft items from resources, then deposit to storage (default)")
+		fmt.Println("  craft-sell     Craft items from resources, then sell for credits")
+		fmt.Println("  craft-profit   Craft items based on market profitability analysis")
 		fmt.Println("")
 		fmt.Println("Examples:")
-		fmt.Println("  auto-craftsman craftsman-1            # Craft then deposit (default)")
-		fmt.Println("  auto-craftsman craftsman-1 craft-deposit # Craft then deposit (explicit)")
-		fmt.Println("  auto-craftsman craftsman-1 craft-sell    # Craft then sell")
+		fmt.Println("  auto-craftsman craftsman-1               # Craft then deposit (default)")
+		fmt.Println("  auto-craftsman craftsman-1 craft-deposit  # Craft then deposit (explicit)")
+		fmt.Println("  auto-craftsman craftsman-1 craft-sell     # Craft then sell")
+		fmt.Println("  auto-craftsman craftsman-1 craft-profit   # Craft based on profit analysis")
 		os.Exit(1)
 	}
 
@@ -103,8 +108,8 @@ func main() {
 	}
 
 	// Validate strategy
-	if strategy != "craft-deposit" && strategy != "craft-sell" {
-		log.Fatalf("Unknown strategy: %s (must be: craft-deposit, craft-sell)", strategy)
+	if strategy != "craft-deposit" && strategy != "craft-sell" && strategy != "craft-profit" {
+		log.Fatalf("Unknown strategy: %s (must be: craft-deposit, craft-sell, craft-profit)", strategy)
 	}
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
@@ -151,6 +156,10 @@ func main() {
 		logger.Printf("  📥 Deposit crafted items to station storage")
 	case "craft-sell":
 		logger.Printf("  💰 Sell crafted items for credits")
+	case "craft-profit":
+		logger.Printf("  💰💰 Craft items based on market profitability (uses market data)")
+		logger.Printf("  📊 Analyzes local market buy/sell prices to maximize profit")
+		logger.Printf("  📦 Deposits crafted items to station storage for later sale")
 	}
 	logger.Printf("  🛠️  Refuel and repair as needed")
 	logger.Printf("  📦 Withdraw ores from storage when available")
@@ -176,6 +185,27 @@ func main() {
 			// Update captain's log after each run
 			updateCaptainsLog(agentID, client, runNum, itemsCrafted, totalCredits, strategy)
 		},
+	}
+
+	// Use profit-based recipe selector for craft-profit strategy
+	if strategy == "craft-profit" {
+		// Initialize knowledge base
+		kb, err := knowledge.NewSQLiteKB(knowledge.DefaultConfig())
+		if err != nil {
+			log.Fatalf("Failed to initialize knowledge base: %v", err)
+		}
+		defer func() {
+			if err := kb.Close(); err != nil {
+				logger.Printf("Warning: Failed to close knowledge base: %v", err)
+			}
+		}()
+
+		// Use the Base interface
+		var baseKB knowledge.Base = kb
+		config.RecipeSelector = ProfitBasedRecipeSelector(baseKB)
+		logger.Printf("📊 Initialized knowledge base for market analysis")
+		logger.Printf("   Market data will be cached for 1 hour")
+		logger.Printf("   Market analysis will be cached for 2 hours")
 	}
 
 	// Run the crafting loop

@@ -81,9 +81,44 @@ The agent updates its captain's log after each crafting run with:
 - Total items crafted
 - Current credits and ship status
 
+## Profit-Based Strategy (craft-profit)
+
+The `craft-profit` strategy uses market data to determine which items to craft:
+
+### Features
+- **Automatic Market Analysis**: Fetches current market listings from the station
+- **Profit Calculation**: For each recipe:
+  - Calculates material cost (buying from lowest sell listings)
+  - Calculates revenue (selling to highest buy listings)
+  - Computes profit margin percentage
+- **Smart Filtering**: Only crafts recipes with:
+  - Positive profit (> 0 credits)
+  - Profit margin > 5%
+  - Required skill levels met
+- **Optimization**: Sorts recipes by total profit, then by margin percentage
+- **Caching**: Market data cached for 1 hour to reduce API calls
+
+### Example Output
+
+```
+[craftsman-1] 📊 Initialized knowledge base for market analysis
+[craftsman-1]    Market data will be cached for 1 hour
+[craftsman-1]    Market analysis will be cached for 2 hours
+[craftsman-1] 💰 Found 3 profitable recipes:
+[craftsman-1]    1. craft_steel_plate: profit 150 (margin 75.0%, cost 50, sell 200)
+[craftsman-1]    2. refine_copper_wire: profit 75 (margin 50.0%, cost 50, sell 125)
+[craftsman-1]    3. basic_smelt_iron: profit 40 (margin 40.0%, cost 60, sell 100)
+```
+
+### Requirements
+- Agent must be docked at a station with a market
+- Market must have active buy/sell listings
+- Knowledge base file (`spacemolt-knowledge.db`) will be created automatically
+
 ## Future Enhancements
 
 Planned features:
 - Integration with MCP crafting server for advanced recipe selection
 - Support for more complex crafting chains
 - Automatic resource procurement from other agents
+
