@@ -217,6 +217,37 @@ func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 	return classes, nil
 }
 
+// GetShipClassesByCategory retrieves ship classes filtered by class (e.g., "Mining", "Fighter").
+func (kb *SQLiteKB) GetShipClassesByCategory(ctx context.Context, category string) ([]ShipClassDef, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT id, name, COALESCE(class, ''), COALESCE(category, ''), COALESCE(description, ''),
+			COALESCE(lore, ''), COALESCE(faction, ''), tier, scale, price,
+			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
+			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
+			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
+			required_skills, default_modules, flavor_tags, last_updated_tick
+		FROM ship_classes WHERE class = ? ORDER BY price ASC
+	`, category)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query ship classes by category: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var classes []ShipClassDef
+	for rows.Next() {
+		sc, err := kb.scanShipClassRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		classes = append(classes, *sc)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating ship classes: %w", err)
+	}
+
+	return classes, nil
+}
+
 func (kb *SQLiteKB) scanShipClass(row *sql.Row) (*ShipClassDef, error) {
 	var sc ShipClassDef
 	var reqSkillsJSON, defModsJSON, flavTagsJSON string

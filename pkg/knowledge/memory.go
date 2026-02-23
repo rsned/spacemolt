@@ -817,6 +817,19 @@ func (kb *MemoryKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 	return classes, nil
 }
 
+func (kb *MemoryKB) GetShipClassesByCategory(ctx context.Context, category string) ([]ShipClassDef, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var classes []ShipClassDef
+	for _, sc := range kb.shipClasses {
+		if sc.Class == category {
+			classes = append(classes, sc)
+		}
+	}
+	return classes, nil
+}
+
 // --- Catalog: Recipes ---
 
 func (kb *MemoryKB) StoreRecipes(ctx context.Context, recipes []RecipeDef) error {

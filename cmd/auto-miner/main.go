@@ -201,7 +201,7 @@ func main() {
 		logger.Printf("  🔨 Craft items from resources")
 		logger.Printf("  📥 Deposit all cargo to station storage")
 	}
-	logger.Printf("  🚀 Upgrade ships progressively using MiningProgression tiers")
+	logger.Printf("  🚀 Upgrade ships progressively")
 	logger.Printf("")
 
 	if err := miningLoop(agentID, client, logger, ctx, stationAction); err != nil {

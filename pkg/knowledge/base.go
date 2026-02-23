@@ -86,6 +86,7 @@ type Base interface {
 	StoreShipClasses(ctx context.Context, classes []ShipClassDef) error
 	GetShipClass(ctx context.Context, classID string) (*ShipClassDef, error)
 	GetShipClasses(ctx context.Context) ([]ShipClassDef, error)
+	GetShipClassesByCategory(ctx context.Context, category string) ([]ShipClassDef, error)
 
 	// Catalog: Recipes
 	StoreRecipes(ctx context.Context, recipes []RecipeDef) error

@@ -2,7 +2,10 @@ package game
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
@@ -27,615 +30,263 @@ type UpgradeProgression struct {
 	Tiers      []UpgradeTier // Ordered list of upgrade tiers
 }
 
-// Career upgrade configurations for each agent type
-var (
-	// MiningProgression defines the mining ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.mining.json
-	MiningProgression = UpgradeProgression{
-		CareerName: "Mining",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Improved Mining Ship",
-				Threshold:     500.0,
-				FromShipClass: "starter_mining",
-				ToShipClass:   "mining_improved",
-				NumItems:      2,
-				ItemID:        "mining_laser_1",
-				LogEmoji:      "⛏️",
-				Capacity:      "75 cargo, 2 utility slots for mining lasers!",
-				SuccessMsg:    "DIGGER!",
-			},
-			{
-				Name:          "Gas Harvester",
-				Threshold:     1800.0,
-				FromShipClass: "mining_improved",
-				ToShipClass:   "mining_gas",
-				NumItems:      0,
-				ItemID:        "",
-				LogEmoji:      "💨",
-				Capacity:      "80 cargo, 3 utility slots for gas harvesting!",
-				SuccessMsg:    "SIPHON!",
-			},
-			{
-				Name:          "Drillship",
-				Threshold:     2000.0,
-				FromShipClass: "mining_gas",
-				ToShipClass:   "mining_enhanced",
-				NumItems:      3,
-				ItemID:        "mining_laser_1",
-				LogEmoji:      "⛏️",
-				Capacity:      "100 cargo, 3 utility slots for mining lasers!",
-				SuccessMsg:    "DRILLSHIP!",
-			},
-			{
-				Name:          "Excavator",
-				Threshold:     5000.0,
-				FromShipClass: "mining_enhanced",
-				ToShipClass:   "mining_barge",
-				NumItems:      4,
-				ItemID:        "mining_laser_1",
-				LogEmoji:      "⛏️⛏️",
-				Capacity:      "150 cargo, 4 utility slots for mining lasers!",
-				SuccessMsg:    "EXCAVATOR!",
-			},
-			{
-				Name:          "Deeprock Harvester",
-				Threshold:     25000.0,
-				FromShipClass: "mining_barge",
-				ToShipClass:   "mining_cruiser",
-				NumItems:      6,
-				ItemID:        "mining_laser_1",
-				LogEmoji:      "⛏️⛏️⛏️",
-				Capacity:      "400 cargo, 6 utility slots for mining lasers!",
-				SuccessMsg:    "DEEPROCK HARVESTER!",
-			},
-			{
-				Name:          "Titan Excavator",
-				Threshold:     95000.0,
-				FromShipClass: "mining_cruiser",
-				ToShipClass:   "mining_capital",
-				NumItems:      8,
-				ItemID:        "mining_laser_1",
-				LogEmoji:      "⛏️⛏️⛏️⛏️",
-				Capacity:      "1200 cargo, 8 utility slots - capital mining vessel!",
-				SuccessMsg:    "TITAN!",
-			},
-		},
+// ShipDef is a minimal ship definition used for progression building.
+// This avoids importing pkg/knowledge into pkg/game.
+type ShipDef struct {
+	ID            string
+	Name          string
+	Class         string
+	Price         int
+	WeaponSlots   int
+	DefenseSlots  int
+	UtilitySlots  int
+	CargoCapacity int
+}
+
+// RoleCategories maps agent roles to their upgrade-eligible ship classes.
+// Ships are queried from the knowledge DB filtered by these classes.
+var RoleCategories = map[string][]string{
+	"miner":    {"Mining", "Mining Capital"},
+	"fighter":  {"Fighter", "Heavy Fighter", "Interceptor", "Cruiser"},
+	"trader":   {"Freighter", "Bulk Hauler", "Armed Freighter", "Armored Transport"},
+	"explorer": {"Explorer", "Expedition", "Scout", "Armed Explorer"},
+	"pirate":   {"Raider", "Boarding Craft", "Assault", "Assault Cruiser"},
+	"salvager": {"Salvager"},
+	"engineer": {"Repair", "Construction", "Field Repair"},
+	"craftsman": {"Refinery", "Gas Refinery", "Ice Refinery"},
+}
+
+// combatClasses identifies ship classes where weapon slots are the primary
+// equipment metric (rather than utility slots).
+var combatClasses = map[string]bool{
+	"Fighter":         true,
+	"Heavy Fighter":   true,
+	"Interceptor":     true,
+	"Raider":          true,
+	"Assault":         true,
+	"Assault Cruiser": true,
+	"Assault Titan":   true,
+	"Cruiser":         true,
+	"Duelist":         true,
+	"Boarding Craft":  true,
+	"Battlecruiser":   true,
+	"Dreadnought":     true,
+	"Bombardment":     true,
+	"Void Assault":    true,
+	"Siege Titan":     true,
+	"Convoy Escort":   true,
+}
+
+// roleEmojis maps agent roles to display emojis for upgrade log messages.
+var roleEmojis = map[string]string{
+	"miner":    "⛏️",
+	"fighter":  "⚔️",
+	"trader":   "💰",
+	"explorer": "🔭",
+	"pirate":   "🏴‍☠️",
+	"salvager": "💎",
+	"engineer": "🔧",
+	"craftsman": "⚒️",
+}
+
+// roleEquipment maps agent roles to their default equipment item IDs.
+var roleEquipment = map[string]string{
+	"miner":    "mining_laser_1",
+	"fighter":  "weapon_laser_1",
+	"trader":   "weapon_laser_1",
+	"explorer": "scanner_advanced_1",
+	"pirate":   "weapon_laser_1",
+	"salvager": "salvage_laser_1",
+	"engineer": "repair_toolkit_1",
+	"craftsman": "fabricator_1",
+}
+
+// roleCareerNames maps agent roles to display career names.
+var roleCareerNames = map[string]string{
+	"miner":    "Mining",
+	"fighter":  "Combat",
+	"trader":   "Trading",
+	"explorer": "Exploration",
+	"pirate":   "Piracy",
+	"salvager": "Salvage",
+	"engineer": "Engineering",
+	"craftsman": "Crafting",
+}
+
+// ShipMaxSlots returns the relevant max equipment slot count for a ship.
+// Combat-oriented classes use weapon slots; others use utility slots.
+func ShipMaxSlots(ship ShipDef) int {
+	if combatClasses[ship.Class] {
+		return ship.WeaponSlots
+	}
+	return ship.UtilitySlots
+}
+
+// FilterShipsByEmpire returns only ships whose ID starts with the given empire prefix.
+// Empire values: "solarian", "crimson", "nebula", "outerrim", "voidborn".
+func FilterShipsByEmpire(ships []ShipDef, empire string) []ShipDef {
+	prefix := empire + "_"
+	var result []ShipDef
+	for _, s := range ships {
+		if strings.HasPrefix(s.ID, prefix) {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// DefaultEquipment returns the item ID and count to install after buying a ship.
+func DefaultEquipment(ship ShipDef, role string) (itemID string, count int) {
+	itemID = roleEquipment[role]
+	if itemID == "" {
+		return "", 0
+	}
+	if combatClasses[ship.Class] {
+		count = ship.WeaponSlots
+	} else {
+		count = ship.UtilitySlots
+	}
+	return itemID, count
+}
+
+// BuildProgression generates an UpgradeProgression from ship definitions.
+// It sorts ships by price, finds the agent's current position, and chains
+// them into upgrade tiers.
+//
+// Parameters:
+//   - ships: all eligible ships (pre-filtered by role categories + empire)
+//   - currentShipID: the agent's current ship class ID
+//   - role: agent role (for equipment selection and career name)
+//
+// Returns nil if no upgrades are available.
+func BuildProgression(ships []ShipDef, currentShipID string, role string) *UpgradeProgression {
+	if len(ships) == 0 {
+		return nil
 	}
 
-	// CombatProgression defines the fighter ship upgrade path
-	// Uses actual ship IDs from the game server (sol_ships.fighter.json)
-	CombatProgression = UpgradeProgression{
-		CareerName: "Combat",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Light Fighter",
-				Threshold:     2500.0,
-				FromShipClass: "fighter_scout",
-				ToShipClass:   "fighter_light",
-				NumItems:      2,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "⚔️",
-				Capacity:      "Fast & agile, 2 weapon slots!",
-				SuccessMsg:    "VIPER!",
-			},
-			{
-				Name:          "Medium Fighter",
-				Threshold:     8000.0,
-				FromShipClass: "fighter_light",
-				ToShipClass:   "fighter_medium",
-				NumItems:      3,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "⚔️⚔️",
-				Capacity:      "Balanced combat ship, 3 weapon slots!",
-				SuccessMsg:    "TALON!",
-			},
-			{
-				Name:          "Heavy Fighter",
-				Threshold:     22000.0,
-				FromShipClass: "fighter_medium",
-				ToShipClass:   "fighter_heavy",
-				NumItems:      4,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "⚔️⚔️⚔️",
-				Capacity:      "Heavy assault, 4 weapon slots!",
-				SuccessMsg:    "WARHAWK!",
-			},
-			{
-				Name:          "Elite Fighter",
-				Threshold:     26000.0,
-				FromShipClass: "fighter_heavy",
-				ToShipClass:   "crimson_berserker",
-				NumItems:      5,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "⚔️⚔️⚔️⚔️",
-				Capacity:      "Crimson Fleet elite, 5 weapon slots!",
-				SuccessMsg:    "BLOOD BERSERKER!",
-			},
-			{
-				Name:          "Ultimate Fighter",
-				Threshold:     35000.0,
-				FromShipClass: "crimson_berserker",
-				ToShipClass:   "crimson_executioner",
-				NumItems:      6,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "⚔️⚔️⚔️⚔️⚔️",
-				Capacity:      "Heavy weapons platform, 6 weapon slots!",
-				SuccessMsg:    "EXECUTIONER!",
-			},
-		},
+	// Sort by price ascending, then by name for stable ordering
+	sort.Slice(ships, func(i, j int) bool {
+		if ships[i].Price != ships[j].Price {
+			return ships[i].Price < ships[j].Price
+		}
+		return ships[i].ID < ships[j].ID
+	})
+
+	// Deduplicate by price tier: keep only the best ship at each price point.
+	// When multiple ships share the same price, keep the one with the most
+	// relevant slots (weapon slots for combat, utility slots otherwise).
+	deduped := deduplicateByPrice(ships)
+
+	// Find current ship index (-1 if not in the list, e.g. starter ship)
+	currentIdx := -1
+	for i, s := range deduped {
+		if s.ID == currentShipID {
+			currentIdx = i
+			break
+		}
 	}
 
-	// TradingProgression defines the trader ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.freighter.json
-	TradingProgression = UpgradeProgression{
-		CareerName: "Trading",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Armed Hauler",
-				Threshold:     600.0,
-				FromShipClass: "starter_trading",
-				ToShipClass:   "freighter_small",
-				NumItems:      1,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "💰",
-				Capacity:      "200 cargo, 1 weapon slot for defense!",
-				SuccessMsg:    "HAULER!",
-			},
-			{
-				Name:          "Hauler",
-				Threshold:     3000.0,
-				FromShipClass: "freighter_small",
-				ToShipClass:   "freighter_medium",
-				NumItems:      2,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "💰💰",
-				Capacity:      "450 cargo, 2 weapon slots, 3 utility slots!",
-				SuccessMsg:    "MERCHANTMAN!",
-			},
-			{
-				Name:          "Defender",
-				Threshold:     12000.0,
-				FromShipClass: "freighter_medium",
-				ToShipClass:   "freighter_armed",
-				NumItems:      3,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "💰💰💰",
-				Capacity:      "350 cargo, 3 weapon slots for dangerous routes!",
-				SuccessMsg:    "DEFENDER!",
-			},
-			{
-				Name:          "Bulk Carrier",
-				Threshold:     20000.0,
-				FromShipClass: "freighter_armed",
-				ToShipClass:   "freighter_large",
-				NumItems:      2,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "💰💰💰💰",
-				Capacity:      "1000 cargo, 2 weapon slots, 4 utility slots!",
-				SuccessMsg:    "BULK CARRIER!",
-			},
-			{
-				Name:          "Leviathan",
-				Threshold:     45000.0,
-				FromShipClass: "freighter_large",
-				ToShipClass:   "superfreighter",
-				NumItems:      3,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "💰💰💰💰💰",
-				Capacity:      "2000 cargo - enormous trade capacity!",
-				SuccessMsg:    "LEVIATHAN!",
-			},
-		},
+	// Build tiers for ships after the current one
+	emoji := roleEmojis[role]
+	if emoji == "" {
+		emoji = "🚀"
+	}
+	careerName := roleCareerNames[role]
+	if careerName == "" {
+		// Capitalize first letter as fallback
+		careerName = strings.ToUpper(role[:1]) + role[1:]
 	}
 
-	// ExplorationProgression defines the explorer ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.explorer.json
-	ExplorationProgression = UpgradeProgression{
-		CareerName: "Exploration",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Pathfinder",
-				Threshold:     15000.0,
-				FromShipClass: "starter_exploration",
-				ToShipClass:   "explorer",
-				NumItems:      1,
-				ItemID:        "scanner_advanced_1",
-				LogEmoji:      "🔭",
-				Capacity:      "Long-range exploration, 100 cargo, 4 utility slots!",
-				SuccessMsg:    "PATHFINDER!",
-			},
-			{
-				Name:          "Frontier Ranger",
-				Threshold:     24000.0,
-				FromShipClass: "explorer",
-				ToShipClass:   "frontier_ranger",
-				NumItems:      1,
-				ItemID:        "scanner_advanced_2",
-				LogEmoji:      "🔭🔭",
-				Capacity:      "Combat-ready explorer, 120 cargo, 4 utility slots!",
-				SuccessMsg:    "RANGER!",
-			},
-			{
-				Name:          "Wasteland Survivor",
-				Threshold:     32000.0,
-				FromShipClass: "frontier_ranger",
-				ToShipClass:   "frontier_survivor",
-				NumItems:      1,
-				ItemID:        "scanner_advanced_2",
-				LogEmoji:      "🔭🔭🔭",
-				Capacity:      "Self-sufficient, 200 cargo, 5 utility slots!",
-				SuccessMsg:    "SURVIVOR!",
-			},
-			{
-				Name:          "Trailblazer",
-				Threshold:     38000.0,
-				FromShipClass: "frontier_survivor",
-				ToShipClass:   "expedition_ship",
-				NumItems:      2,
-				ItemID:        "scanner_advanced_2",
-				LogEmoji:      "🔭🔭🔭🔭",
-				Capacity:      "Deep space expedition, 180 cargo, 5 utility slots!",
-				SuccessMsg:    "TRAILBLAZER!",
-			},
-			{
-				Name:          "Horizon",
-				Threshold:     68000.0,
-				FromShipClass: "expedition_ship",
-				ToShipClass:   "deep_space_explorer",
-				NumItems:      3,
-				ItemID:        "scanner_advanced_2",
-				LogEmoji:      "🔭🔭🔭🔭🔭",
-				Capacity:      "Ultimate explorer, 280 cargo, 6 utility slots!",
-				SuccessMsg:    "HORIZON!",
-			},
-			{
-				Name:          "Rim Corsair",
-				Threshold:     75000.0,
-				FromShipClass: "deep_space_explorer",
-				ToShipClass:   "frontier_corsair",
-				NumItems:      4,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "🔭🔭🔭🔭🔭🔭",
-				Capacity:      "Combat-explorer, 250 cargo, 5 utility slots, 4 weapon slots!",
-				SuccessMsg:    "CORSAR!",
-			},
-		},
+	var tiers []UpgradeTier
+	for i := range deduped {
+		if i <= currentIdx {
+			continue
+		}
+		// Skip free ships (price 0) unless it's the very first upgrade
+		if deduped[i].Price == 0 && i > 0 {
+			continue
+		}
+
+		fromShip := currentShipID
+		if len(tiers) > 0 {
+			fromShip = tiers[len(tiers)-1].ToShipClass
+		}
+
+		itemID, numItems := DefaultEquipment(deduped[i], role)
+
+		tier := UpgradeTier{
+			Name:          deduped[i].Name,
+			Threshold:     float64(deduped[i].Price),
+			FromShipClass: fromShip,
+			ToShipClass:   deduped[i].ID,
+			NumItems:      numItems,
+			ItemID:        itemID,
+			LogEmoji:      emoji,
+			Capacity:      formatCapacity(deduped[i]),
+			SuccessMsg:    strings.ToUpper(deduped[i].Name) + "!",
+		}
+		tiers = append(tiers, tier)
 	}
 
-	// PirateProgression defines the pirate/salvager ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.raider.json and sol_ships.assault.json
-	PirateProgression = UpgradeProgression{
-		CareerName: "Piracy",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Raiding Skiff",
-				Threshold:     7000.0,
-				FromShipClass: "starter_pirate",
-				ToShipClass:   "raider",
-				NumItems:      3,
-				ItemID:        "weapon_laser_1",
-				LogEmoji:      "🏴‍☠️",
-				Capacity:      "Fast raider, 3 weapon slots, 40 cargo!",
-				SuccessMsg:    "BLACKTHORN!",
-			},
-			{
-				Name:          "Interception Ship",
-				Threshold:     18000.0,
-				FromShipClass: "raider",
-				ToShipClass:   "interceptor",
-				NumItems:      2,
-				ItemID:        "weapon_laser_2",
-				LogEmoji:      "🏴‍☠️🏴‍☠️",
-				Capacity:      "Ultra-fast pursuit, 2 weapon slots, 20 cargo!",
-				SuccessMsg:    "STILETTO!",
-			},
-			{
-				Name:          "Heavy Ravager",
-				Threshold:     28000.0,
-				FromShipClass: "interceptor",
-				ToShipClass:   "crimson_ravager",
-				NumItems:      4,
-				ItemID:        "weapon_laser_2",
-				LogEmoji:      "🏴‍☠️🏴‍☠️🏴‍☠️",
-				Capacity:      "Sustained assault, 4 weapon slots, 60 cargo!",
-				SuccessMsg:    "RAVAGER!",
-			},
-			{
-				Name:          "Death Reaper",
-				Threshold:     72000.0,
-				FromShipClass: "crimson_ravager",
-				ToShipClass:   "crimson_reaper",
-				NumItems:      5,
-				ItemID:        "weapon_laser_3",
-				LogEmoji:      "🏴‍☠️🏴‍☠️🏴‍☠️🏴‍☠️",
-				Capacity:      "Freighter hunter, 5 weapon slots, 180 cargo!",
-				SuccessMsg:    "REAPER!",
-			},
-			{
-				Name:          "Boarding Frigate",
-				Threshold:     42000.0,
-				FromShipClass: "crimson_reaper",
-				ToShipClass:   "assault_frigate",
-				NumItems:      2,
-				ItemID:        "weapon_laser_2",
-				LogEmoji:      "🏴‍☠️🏴‍☠️🏴‍☠️🏴‍☠️🏴‍☠️",
-				Capacity:      "Boarding specialist, 2 weapon slots, 40 cargo!",
-				SuccessMsg:    "PIKE!",
-			},
-			{
-				Name:          "Assault Cruiser",
-				Threshold:     85000.0,
-				FromShipClass: "assault_frigate",
-				ToShipClass:   "assault_cruiser",
-				NumItems:      3,
-				ItemID:        "weapon_laser_3",
-				LogEmoji:      "🏴‍☠️🏴‍☠️🏴‍☠️🏴‍☠️🏴‍☠️🏴‍☠️",
-				Capacity:      "Station boarding, 3 weapon slots, 80 cargo!",
-				SuccessMsg:    "BREACH!",
-			},
-		},
+	if len(tiers) == 0 {
+		return nil
 	}
 
-	// SalvagerProgression defines the salvager ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.industrial.json
-	SalvagerProgression = UpgradeProgression{
-		CareerName: "Salvage",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Salvager",
-				Threshold:     12000.0,
-				FromShipClass: "starter_salvager",
-				ToShipClass:   "salvager",
-				NumItems:      1,
-				ItemID:        "salvage_laser_1",
-				LogEmoji:      "💎",
-				Capacity:      "Wreck salvage, 250 cargo, 4 utility slots!",
-				SuccessMsg:    "VULTURE!",
-			},
-			{
-				Name:          "Research Vessel",
-				Threshold:     32000.0,
-				FromShipClass: "salvager",
-				ToShipClass:   "scientific_vessel",
-				NumItems:      2,
-				ItemID:        "scanner_advanced_1",
-				LogEmoji:      "💎💎",
-				Capacity:      "Science & salvage, 150 cargo, 6 utility slots!",
-				SuccessMsg:    "DISCOVERY!",
-			},
-			{
-				Name:          "Mobile Refinery",
-				Threshold:     35000.0,
-				FromShipClass: "scientific_vessel",
-				ToShipClass:   "refinery_ship",
-				NumItems:      1,
-				ItemID:        "refinery_module_1",
-				LogEmoji:      "💎💎💎",
-				Capacity:      "Process ore in space, 500 cargo, 6 utility slots!",
-				SuccessMsg:    "ALCHEMIST!",
-			},
-			{
-				Name:          "Drone Controller",
-				Threshold:     45000.0,
-				FromShipClass: "refinery_ship",
-				ToShipClass:   "mining_drone_controller",
-				NumItems:      2,
-				ItemID:        "drone_bay_1",
-				LogEmoji:      "💎💎💎💎",
-				Capacity:      "Control drone fleets, 300 cargo, 6 utility slots!",
-				SuccessMsg:    "OVERSEER!",
-			},
-			{
-				Name:          "Mobile Shipyard",
-				Threshold:     380000.0,
-				FromShipClass: "mining_drone_controller",
-				ToShipClass:   "mobile_shipyard",
-				NumItems:      4,
-				ItemID:        "drone_bay_2",
-				LogEmoji:      "💎💎💎💎💎",
-				Capacity:      "Build ships in space, 2000 cargo, 10 utility slots!",
-				SuccessMsg:    "FORGE ETERNAL!",
-			},
-		},
+	return &UpgradeProgression{
+		CareerName: careerName,
+		Tiers:      tiers,
+	}
+}
+
+// deduplicateByPrice keeps only the best ship at each price point.
+func deduplicateByPrice(ships []ShipDef) []ShipDef {
+	if len(ships) == 0 {
+		return nil
 	}
 
-	// EngineerProgression defines the engineer ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.support.json
-	EngineerProgression = UpgradeProgression{
-		CareerName: "Engineering",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Repair Ship",
-				Threshold:     5000.0,
-				FromShipClass: "starter_engineer",
-				ToShipClass:   "support_small",
-				NumItems:      1,
-				ItemID:        "repair_toolkit_1",
-				LogEmoji:      "🔧",
-				Capacity:      "Field repairs, 100 cargo, 3 utility slots!",
-				SuccessMsg:    "MECHANIC!",
-			},
-			{
-				Name:          "Construction Vessel",
-				Threshold:     15000.0,
-				FromShipClass: "support_small",
-				ToShipClass:   "support_medium",
-				NumItems:      2,
-				ItemID:        "construction_module_1",
-				LogEmoji:      "🔧🔧",
-				Capacity:      "Build bases, 150 cargo, 6 utility slots!",
-				SuccessMsg:    "BUILDER!",
-			},
-			{
-				Name:          "Heavy Constructor",
-				Threshold:     35000.0,
-				FromShipClass: "support_medium",
-				ToShipClass:   "support_large",
-				NumItems:      3,
-				ItemID:        "construction_module_2",
-				LogEmoji:      "🔧🔧🔧",
-				Capacity:      "Major construction, 300 cargo, 6 utility slots!",
-				SuccessMsg:    "ARCHITECT!",
-			},
-		},
+	var result []ShipDef
+	lastPrice := -1
+	for _, s := range ships {
+		if s.Price == lastPrice && len(result) > 0 {
+			// Same price as previous - keep the one with more relevant slots
+			prev := &result[len(result)-1]
+			if betterShip(s, *prev) {
+				*prev = s
+			}
+			continue
+		}
+		result = append(result, s)
+		lastPrice = s.Price
 	}
+	return result
+}
 
-	// CraftsmanProgression defines the production craftsman ship upgrade path
-	// Uses actual ship IDs from server_docs/sol_ships.industrial.json
-	CraftsmanProgression = UpgradeProgression{
-		CareerName: "Crafting",
-		Tiers: []UpgradeTier{
-			{
-				Name:          "Mobile Factory",
-				Threshold:     12000.0,
-				FromShipClass: "starter_craftsman",
-				ToShipClass:   "factory_ship",
-				NumItems:      2,
-				ItemID:        "fabricator_1",
-				LogEmoji:      "⚒️",
-				Capacity:      "On-site production, 200 cargo, 4 utility slots!",
-				SuccessMsg:    "FACTORY!",
-			},
-			{
-				Name:          "Industrial Platform",
-				Threshold:     32000.0,
-				FromShipClass: "factory_ship",
-				ToShipClass:   "industrial_platform",
-				NumItems:      3,
-				ItemID:        "fabricator_2",
-				LogEmoji:      "⚒️⚒️",
-				Capacity:      "Mass production, 500 cargo, 6 utility slots!",
-				SuccessMsg:    "PLATFORM!",
-			},
-			{
-				Name:          "Production Hub",
-				Threshold:     75000.0,
-				FromShipClass: "industrial_platform",
-				ToShipClass:   "manufacturing_hub",
-				NumItems:      4,
-				ItemID:        "fabricator_3",
-				LogEmoji:      "⚒️⚒️⚒️",
-				Capacity:      "Industrial complex, 1500 cargo, 8 utility slots!",
-				SuccessMsg:    "HUB!",
-			},
-		},
+// betterShip returns true if a is better than b.
+func betterShip(a, b ShipDef) bool {
+	isCombat := combatClasses[a.Class] || combatClasses[b.Class]
+	if isCombat {
+		if a.WeaponSlots != b.WeaponSlots {
+			return a.WeaponSlots > b.WeaponSlots
+		}
+	} else {
+		if a.UtilitySlots != b.UtilitySlots {
+			return a.UtilitySlots > b.UtilitySlots
+		}
 	}
-)
+	// Tiebreak: more cargo
+	return a.CargoCapacity > b.CargoCapacity
+}
 
-// GetShipClassMaxSlots returns maximum number of equipment slots for a ship class
-// For fighters/pirates: returns weapon_slots
-// For miners/salvagers/traders/engineers: returns utility slots
-// For explorers/craftsmen: returns utility slots
-// Uses actual ship data from game server
-func GetShipClassMaxSlots(shipClass string) int {
-	// TODO: Load from server data instead of hardcoding
-	// Data from server_docs/sol_ships.*.json
-	switch shipClass {
-	// Mining ships - utility slots (from sol_ships.mining.json)
-	case "starter_mining":
-		return 1 // Prospector: 2 utility slots
-	case "mining_improved":
-		return 2 // Digger: 2 utility slots
-	case "mining_gas":
-		return 3 // Siphon: 3 utility slots
-	case "mining_enhanced":
-		return 3 // Drillship: 3 utility slots
-	case "mining_barge":
-		return 4 // Excavator: 4 utility slots
-	case "mining_cruiser":
-		return 6 // Deeprock Harvester: 6 utility slots
-	case "mining_capital":
-		return 8 // Titan Excavator: 8 utility slots
-	// Fighter ships - weapon slots (from sol_ships.fighter.json)
-	case "fighter_scout":
-		return 2 // Sparrow: 2 weapon slots
-	case "fighter_light":
-		return 2 // Viper: 2 weapon slots
-	case "fighter_medium":
-		return 3 // Talon: 3 weapon slots
-	case "fighter_heavy":
-		return 4 // Warhawk: 4 weapon slots
-	case "crimson_berserker":
-		return 5 // Blood Berserker: 5 weapon slots
-	case "crimson_executioner":
-		return 6 // Executioner: 6 weapon slots
-	case "solarian_champion":
-		return 4 // Sunfire Champion: 4 weapon slots
-	// Freighter ships - weapon/defense slots (from sol_ships.freighter.json)
-	case "freighter_small":
-		return 1 // Mule: 1 weapon slot
-	case "freighter_medium":
-		return 2 // Hauler: 2 weapon slots
-	case "freighter_armed":
-		return 3 // Defender: 3 weapon slots
-	case "freighter_large":
-		return 2 // Bulk Carrier: 2 weapon slots
-	case "superfreighter":
-		return 3 // Leviathan: 3 weapon slots
-	// Explorer ships - utility slots (from sol_ships.explorer.json)
-	case "explorer":
-		return 4 // Pathfinder: 4 utility slots
-	case "frontier_ranger":
-		return 4 // Frontier Ranger: 4 utility slots
-	case "frontier_survivor":
-		return 5 // Wasteland Survivor: 5 utility slots
-	case "expedition_ship":
-		return 5 // Trailblazer: 5 utility slots
-	case "deep_space_explorer":
-		return 6 // Horizon: 6 utility slots
-	case "frontier_corsair":
-		return 5 // Rim Corsair: 5 utility slots
-	// Raider ships - weapon slots (from sol_ships.raider.json)
-	case "raider":
-		return 3 // Blackthorn: 3 weapon slots
-	case "interceptor":
-		return 2 // Stiletto: 2 weapon slots
-	case "crimson_ravager":
-		return 4 // Crimson Ravager: 4 weapon slots
-	case "crimson_reaper":
-		return 5 // Death Reaper: 5 weapon slots
-	// Assault ships - weapon slots (from sol_ships.assault.json)
-	case "assault_frigate":
-		return 2 // Boarding Pike: 2 weapon slots
-	case "assault_cruiser":
-		return 3 // Breach: 3 weapon slots
-	case "solarian_templar":
-		return 4 // Templar: 4 weapon slots
-	case "assault_carrier":
-		return 4 // Storm Bringer: 4 weapon slots
-	// Industrial ships - utility slots (from sol_ships.industrial.json)
-	case "salvager":
-		return 4 // Vulture: 4 utility slots
-	case "scientific_vessel":
-		return 6 // Discovery: 6 utility slots
-	case "refinery_ship":
-		return 6 // Alchemist: 6 utility slots
-	case "mining_drone_controller":
-		return 6 // Overseer Platform: 6 utility slots
-	case "mobile_shipyard":
-		return 10 // Forge Eternal: 10 utility slots
-	// Stealth ships - utility slots (from sol_ships.stealth.json)
-	case "voidborn_specter":
-		return 4 // Void Specter: 4 utility slots
-	case "stealth_transport":
-		return 4 // Whisper: 4 utility slots
-	case "stealth_ship":
-		return 4 // Phantom: 4 utility slots
-	case "stealth_bomber":
-		return 5 // Specter: 5 utility slots
-	// Starter ships - default slots
-	case "starter_pirate":
-		return 2 // Default pirate starter: 2 weapon slots
-	case "starter_salvager":
-		return 2 // Default salvager: 2 utility slots
-	case "starter_engineer":
-		return 2 // Default engineer: 2 utility slots
-	case "starter_craftsman":
-		return 2 // Default craftsman: 2 utility slots
-	default:
-		return 2 // Most ships have at least 2 slots
+// formatCapacity builds a human-readable capacity description for a ship.
+func formatCapacity(ship ShipDef) string {
+	parts := []string{fmt.Sprintf("%d cargo", ship.CargoCapacity)}
+	if ship.WeaponSlots > 0 {
+		parts = append(parts, fmt.Sprintf("%d weapon slots", ship.WeaponSlots))
 	}
+	if ship.UtilitySlots > 0 {
+		parts = append(parts, fmt.Sprintf("%d utility slots", ship.UtilitySlots))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // CanUpgradeAnyShip checks if any ship upgrade is affordable based on current ship class
@@ -795,9 +446,10 @@ func IsOreOrResource(itemID string) bool {
 	return false
 }
 
-// TryInstallAndSellExtras attempts to install modules from cargo and sells any that can't be installed
-// This is useful for all agent types that collect loot or buy equipment
-func TryInstallAndSellExtras(client *Client, logger *log.Logger, ctx context.Context) {
+// TryInstallAndSellExtras attempts to install modules from cargo and sells any that can't be installed.
+// maxSlots is the relevant slot count for the current ship (use ShipMaxSlots to compute it).
+// This is useful for all agent types that collect loot or buy equipment.
+func TryInstallAndSellExtras(client *Client, logger *log.Logger, ctx context.Context, maxSlots int) {
 	state := client.GetState()
 
 	// Find all equipment items in cargo (not ores/resources)
@@ -806,9 +458,6 @@ func TryInstallAndSellExtras(client *Client, logger *log.Logger, ctx context.Con
 		if IsOreOrResource(item.ItemID) {
 			continue
 		}
-
-		// Get max slots for current ship
-		maxSlots := GetShipClassMaxSlots(state.Ship.ClassID)
 
 		// Special handling for equipment items - keep only what we can use
 		installed := CountModulesInstalled(state, item.ItemID)
@@ -822,11 +471,10 @@ func TryInstallAndSellExtras(client *Client, logger *log.Logger, ctx context.Con
 				if err := client.Install(ctx, item.ItemID); err != nil {
 					logger.Printf("⚠️  Cannot install %s: %v", item.ItemID, err)
 					break
-				} else {
-					logger.Printf("✅ Installed %s!", item.ItemID)
-					installed++
-					time.Sleep(10 * time.Second) // Wait between installs to respect game tick rate
 				}
+				logger.Printf("✅ Installed %s!", item.ItemID)
+				installed++
+				time.Sleep(10 * time.Second) // Wait between installs to respect game tick rate
 			}
 		}
 
