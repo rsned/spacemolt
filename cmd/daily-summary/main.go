@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 	_ "modernc.org/sqlite"
 )
@@ -267,6 +268,9 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 	snap.FactionRank = state.Player.FactionRank
 	snap.Experience = state.Player.Experience
 
+	logger.Printf("  Credits: %.0f (wallet)", snap.Credits)
+	logger.Printf("  Docked: %v, CurrentPOI: '%s'", state.Doc, state.CurrentPOI)
+
 	for skillID, skill := range state.Player.Skills {
 		xp := skill.XP
 		// Prefer State.SkillXP which tracks current XP toward next level
@@ -293,30 +297,59 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 		}
 	}
 
-	// Best-effort: storage (only when docked)
-	if state.Doc {
-		if err := client.ViewStorage(ctx); err == nil {
-			time.Sleep(1 * time.Second)
-			if rawJSON := client.GetRawJSON("storage"); rawJSON != nil {
-				var storageResp struct {
-					Credits float64 `json:"credits"`
-					Items   []struct {
-						ItemID   string  `json:"item_id"`
-						Quantity float64 `json:"quantity"`
-					} `json:"items"`
-				}
-				if json.Unmarshal(rawJSON, &storageResp) == nil {
-					snap.StorageCredits = storageResp.Credits
-					for _, item := range storageResp.Items {
-						snap.StorageItems = append(snap.StorageItems, StorageEntry{
-							ItemID:   item.ItemID,
-							Quantity: item.Quantity,
-						})
-						snap.StorageTotal += item.Quantity
-					}
+	// Best-effort: storage (when docked OR with station_id)
+	if state.Doc || state.CurrentPOI != "" {
+		// Always try with station_id if we have a POI
+		if state.CurrentPOI != "" {
+			logger.Printf("  Viewing storage at: %s (docked: %v)", state.CurrentPOI, state.Doc)
+			// Send view_storage with station_id parameter (works whether docked or not)
+			resp, err := client.SendQueued(ctx, protocol.Message{
+				Type:      "view_storage",
+				Timestamp: time.Now().UnixMilli(),
+				Payload: map[string]any{
+					"station_id": state.CurrentPOI,
+				},
+			}, 10*time.Second)
+			if err != nil {
+				logger.Printf("  Warning: Failed to view storage: %v", err)
+			} else if resp.Type == protocol.TypeError {
+				// Server returned an error response
+				if msg, ok := resp.Payload["message"].(string); ok {
+					logger.Printf("  Warning: Server error: %s", msg)
+				} else {
+					logger.Printf("  Warning: Server returned error response")
 				}
 			}
+			// Response is automatically stored by storeRawJSON handler
 		}
+
+		if rawJSON := client.GetRawJSON("storage"); rawJSON != nil {
+			var storageResp struct {
+				Credits float64 `json:"credits"`
+				Items   []struct {
+					ItemID   string  `json:"item_id"`
+					Quantity float64 `json:"quantity"`
+				} `json:"items"`
+			}
+			if json.Unmarshal(rawJSON, &storageResp) == nil {
+				snap.StorageCredits = storageResp.Credits
+				for _, item := range storageResp.Items {
+					snap.StorageItems = append(snap.StorageItems, StorageEntry{
+						ItemID:   item.ItemID,
+						Quantity: item.Quantity,
+					})
+					snap.StorageTotal += item.Quantity
+				}
+				totalCreds := snap.Credits + snap.StorageCredits
+				logger.Printf("  Storage: %.0f credits (Total: %.0f)", snap.StorageCredits, totalCreds)
+			} else {
+				logger.Printf("  Warning: Failed to parse storage response")
+			}
+		} else {
+			logger.Printf("  Warning: No storage data in response")
+		}
+	} else {
+		logger.Printf("  Not docked and no POI, skipping storage check")
 	}
 
 	return snap
