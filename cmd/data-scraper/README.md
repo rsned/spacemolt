@@ -16,10 +16,11 @@ This tool connects to the SpaceMolt game server via **WebSocket** (the same prot
 
 - ✅ WebSocket connection (persistent session)
 - ✅ No rate limiting (single connection)
-- ✅ Scrapes 15+ different data types
+- ✅ Scrapes 25+ different data types
 - ✅ Saves all responses as formatted JSON
 - ✅ Uses production `game.Client` library
 - ✅ Fast and efficient
+- ✅ **Automatic pagination handling** for `get_map` and `catalog` endpoints
 
 ## Prerequisites
 
@@ -183,6 +184,7 @@ data/game-api/
 - Systems marked as discovered/visited
 - Online player counts per system
 - Police levels and security status
+- **Pagination**: Automatically fetches all pages using offset/limit (100 per page)
 
 ### Market Listings (`get_listings.json`)
 - Market data from current location

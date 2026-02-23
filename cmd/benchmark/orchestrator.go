@@ -85,35 +85,34 @@ func (o *Orchestrator) Run(ctx context.Context, backendName string) error {
 	}
 
 	// Launch agents with staggered starts
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-
-		for i, agentID := range agents {
-			if ctx.Err() != nil {
-				return
-			}
-
-			// Stagger start
-			if i > 0 && stagger > 0 {
-				select {
-				case <-time.After(stagger):
-				case <-ctx.Done():
-					return
-				}
-			}
-
-			go o.runAgent(ctx, backendName, agentID, sharedTransport)
+	for i, agentID := range agents {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 
-		// Wait for the test duration to elapse
-		select {
-		case <-time.After(o.cfg.Duration):
-		case <-ctx.Done():
+		// Stagger start
+		if i > 0 && stagger > 0 {
+			select {
+			case <-time.After(stagger):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
-	}()
 
-	<-done
+		go o.runAgent(ctx, backendName, agentID, sharedTransport)
+	}
+
+	o.logger.Printf("[%s] All %d agents launched, running for %v", backendName, len(agents), o.cfg.Duration)
+
+	// Reset metrics start time so duration/throughput reflect the actual test window
+	o.metrics.ResetStart()
+
+	// Wait for the test duration to elapse
+	select {
+	case <-time.After(o.cfg.Duration):
+	case <-ctx.Done():
+	}
+
 	return nil
 }
 

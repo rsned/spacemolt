@@ -31,6 +31,22 @@ func NewMetrics() *Metrics {
 	}
 }
 
+// ResetStart resets the start time and clears all accumulated results,
+// so only post-reset commands are counted in the final report.
+func (m *Metrics) ResetStart() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.startTime = time.Now()
+	m.results = nil
+	m.totalCommands = 0
+	m.totalErrors = 0
+	m.rateLimits = 0
+	m.gameErrors = 0
+	m.transportErrs = 0
+	m.reconnects = 0
+	m.disconnects = 0
+}
+
 // Record adds a command result to the metrics.
 func (m *Metrics) Record(r CommandResult) {
 	m.mu.Lock()

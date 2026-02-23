@@ -384,16 +384,20 @@ func (s *Scraper) scrapeMap() error {
 	// Clear previous error
 	s.client.ClearLastError()
 
-	// Request map data
+	// Request first page of map data with pagination parameters
 	msg := protocol.Message{
 		Type: "get_map",
+		Payload: map[string]any{
+			"offset": 0,
+			"limit":  100, // Server default is 100 systems per page
+		},
 	}
 	if err := s.client.Send(ctx, msg); err != nil {
-		return fmt.Errorf("get_map failed: %w", err)
+		return fmt.Errorf("get_map page 1 failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
 
-	// Get raw JSON (stored with key "systems" since payload has {"systems": [...]})
+	// Get first page response
 	rawJSON := s.client.GetRawJSON("systems")
 	if rawJSON == nil {
 		// Check if there was an error response
@@ -401,7 +405,101 @@ func (s *Scraper) scrapeMap() error {
 		return fmt.Errorf("%s", formatErrorMessage("get_map", errResp))
 	}
 
-	return s.saveJSON("get_map.json", rawJSON)
+	// Parse the response to get pagination info
+	var firstPage struct {
+		Systems    []json.RawMessage `json:"systems"`
+		TotalCount int               `json:"total_count"`
+		Offset     int               `json:"offset,omitempty"`
+		Limit      int               `json:"limit,omitempty"`
+	}
+
+	if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
+		// If response doesn't have pagination fields, it might be old format
+		// Just save it as-is
+		s.logger.Printf("  📖 Map response appears to be old format (no pagination)")
+		return s.saveJSON("get_map.json", rawJSON)
+	}
+
+	systemCount := len(firstPage.Systems)
+	totalCount := firstPage.TotalCount
+
+	s.logger.Printf("  📖 Page 1 (offset %d): %d systems (total: %d)",
+		firstPage.Offset, systemCount, totalCount)
+
+	// If total_count is not set or we got all systems, save and return
+	if totalCount == 0 || totalCount <= systemCount {
+		s.logger.Printf("  📚 Total systems: %d", systemCount)
+		return s.saveJSON("get_map.json", rawJSON)
+	}
+
+	// Fetch remaining pages
+	limit := firstPage.Limit
+	if limit == 0 {
+		limit = 100 // Default if not specified
+	}
+
+	allSystems := make([]json.RawMessage, 0, totalCount)
+	allSystems = append(allSystems, firstPage.Systems...)
+
+	offset := limit
+	for offset < totalCount {
+		s.client.ClearLastError()
+
+		msg := protocol.Message{
+			Type: "get_map",
+			Payload: map[string]any{
+				"offset": offset,
+				"limit":  limit,
+			},
+		}
+		if err := s.client.Send(ctx, msg); err != nil {
+			return fmt.Errorf("get_map offset %d failed: %w", offset, err)
+		}
+		time.Sleep(2 * time.Second)
+
+		rawJSON := s.client.GetRawJSON("systems")
+		if rawJSON == nil {
+			errResp := s.client.GetLastError()
+			return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("get_map offset %d", offset), errResp))
+		}
+
+		var pageResp struct {
+			Systems []json.RawMessage `json:"systems"`
+			Offset  int               `json:"offset,omitempty"`
+		}
+
+		if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
+			return fmt.Errorf("failed to parse map page at offset %d: %w", offset, err)
+		}
+
+		pageNum := (offset / limit) + 1
+		s.logger.Printf("  📖 Page %d (offset %d): %d systems", pageNum, offset, len(pageResp.Systems))
+		allSystems = append(allSystems, pageResp.Systems...)
+
+		// If we got fewer systems than the limit, we've reached the end
+		if len(pageResp.Systems) < limit {
+			break
+		}
+
+		offset += limit
+	}
+
+	// Build combined response
+	combinedResponse := map[string]any{
+		"systems": allSystems,
+		"total":   len(allSystems),
+		"offset":  0,
+		"limit":   len(allSystems),
+	}
+
+	// Marshal combined response
+	combinedJSON, err := json.MarshalIndent(combinedResponse, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal combined map data: %w", err)
+	}
+
+	s.logger.Printf("  📚 Total systems: %d", len(allSystems))
+	return s.saveJSON("get_map.json", combinedJSON)
 }
 
 func (s *Scraper) scrapeWrecks() error {

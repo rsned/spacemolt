@@ -15,7 +15,7 @@ AGENT_TYPES=(
     ["fighter"]=10
     ["miner"]=10
     ["pirate"]=15
-    ["random"]=5
+    ["random"]=9
     ["salvager"]=10
     ["trader"]=10
 )

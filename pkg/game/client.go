@@ -190,7 +190,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	defer c.mu.Unlock()
 
 	maxRetries := 5
-	baseDelay := 1 * time.Second
+	baseDelay := 2 * time.Second
 
 	var ws *websocket.Conn
 	var err error
@@ -2744,4 +2744,3 @@ func (c *Client) CompleteMissionQueued(ctx context.Context, missionID string) er
 	}, SleepTick)
 	return err
 }
-
