@@ -81,8 +81,10 @@ func updateCaptainsLog(agentID string, client *game.Client, tradingRuns int, cre
 		case "trade":
 			currentGoal = fmt.Sprintf("Docked at station - executing trade route: %s (phase: %s)", tradeRouteName, tradePhaseStr)
 		}
-	} else if state.Traveling {
+	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
+	} else if state.Traveling {
+		currentGoal = "Traveling (destination unknown)"
 	} else if !state.Doc && len(state.Ship.Cargo) > 0 {
 		currentGoal = "In space - returning to station for trading operations"
 	}
