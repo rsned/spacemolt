@@ -1028,7 +1028,10 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 		trendClass = "negative"
 	}
 	b.WriteString(fmt.Sprintf(`<div class="stat-card"><div class="label">%s</div><div class="value">`, "Fleet Credits"))
-	b.WriteString(fmt.Sprintf(`<span class="positive">%s</span> <small class="%s">%s</small>`, formatNumber(totalAllCredits), trendClass, trendArrow))
+	// Total credits on first line
+	b.WriteString(fmt.Sprintf(`<span class="positive">%s</span>`, formatNumber(totalAllCredits)))
+	// Delta on second line with arrow
+	b.WriteString(fmt.Sprintf(`<br><small class="%s">%s %s</small>`, trendClass, trendArrow, formatNumber(totalCreditsDelta)))
 	if totalCreditsSpent > 0 || totalCreditsEarned > 0 {
 		b.WriteString(fmt.Sprintf(`<br><small class="negative">%s</small>`, formatNumber(totalCreditsSpent)))
 		if totalCreditsEarned > 0 {
