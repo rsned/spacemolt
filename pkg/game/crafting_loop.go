@@ -48,8 +48,8 @@ type CraftingLoopResult struct {
 	StoppedReason      string // "context_cancelled", "stop_condition", "error", etc.
 }
 
-// RecipeSelector selects recipes to craft based on current state
-type RecipeSelector func(client *Client, logger *log.Logger, ctx context.Context) ([]string, error)
+// RecipeSelector selects recipes to craft based on current state and storage
+type RecipeSelector func(client *Client, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error)
 
 // StorageManager handles storage operations
 type StorageManager interface {
@@ -63,21 +63,78 @@ type StorageManager interface {
 
 // DefaultRecipeSelector selects basic recipes based on available cargo and skills
 // For now, it prioritizes:
-// 1. basic_smelt_iron (iron_ore -> iron_ingot)
-// 2. basic_copper_processing (copper_ore -> copper_plate)
-// When agents reach higher skill levels (crafting > 5, refining > 5, crafting_advanced > 1),
+// 1. basic_smelt_iron (ore_iron -> iron_ingot)
+// 2. basic_copper_processing (ore_copper -> copper_plate)
+// When agents reach higher skill levels (crafting > 5, refinement > 5, crafting_advanced > 1),
 // more advanced recipes will be unlocked
-func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Context) ([]string, error) {
+func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error) {
 	state := client.GetState()
 
-	// Build a map of available cargo items
-	cargoMap := make(map[string]float64)
+	// Build a map of available resources (cargo + storage)
+	// Crafting uses items directly from storage, so we need to check both
+	resourceMap := make(map[string]float64)
+
+	// Add cargo items
 	for _, item := range state.Ship.Cargo {
-		cargoMap[item.ItemID] = item.Quantity
+		resourceMap[item.ItemID] += item.Quantity
+	}
+
+	// Add storage items if storage manager is available
+	if storage != nil {
+		storageItems, err := storage.ViewStorage(ctx)
+		if err != nil {
+			logger.Printf("Warning: Failed to view storage: %v", err)
+		} else {
+			for itemID, qty := range storageItems {
+				resourceMap[itemID] += qty
+			}
+
+			if len(storageItems) > 0 {
+				logger.Printf("📦 Storage available: %d item types", len(storageItems))
+				// Log first 10 items
+				count := 0
+				for itemID, qty := range storageItems {
+					if count < 10 {
+						logger.Printf("   • %s: %.0f units", itemID, qty)
+						count++
+					}
+				}
+				if len(storageItems) > 10 {
+					logger.Printf("   ... and %d more item types", len(storageItems)-10)
+				}
+			}
+		}
+	}
+
+	logger.Printf("📊 Resource Analysis (Cargo + Storage):")
+	logger.Printf("   Total resources: %d item types", len(resourceMap))
+	if len(resourceMap) > 0 {
+		// Log first 15 items to avoid spam
+		count := 0
+		for itemID, qty := range resourceMap {
+			if count < 15 {
+				logger.Printf("   • %s: %.0f units", itemID, qty)
+				count++
+			}
+		}
+		if len(resourceMap) > 15 {
+			logger.Printf("   ... and %d more item types", len(resourceMap)-15)
+		}
+	} else {
+		logger.Printf("   (no resources available)")
 	}
 
 	// Get skill levels
 	skills := getPlayerSkillLevels(state)
+
+	logger.Printf("🎓 Skill Levels:")
+	if len(skills) > 0 {
+		for skill, level := range skills {
+			logger.Printf("   • %s: level %d", skill, level)
+		}
+	} else {
+		logger.Printf("   (no skills detected)")
+	}
 
 	// Define available recipes with their requirements
 	type Recipe struct {
@@ -95,21 +152,21 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 			ID:     "basic_smelt_iron",
 			Name:   "Basic Iron Smelting",
 			RequiredInputs: map[string]float64{
-				"iron_ore": 10,
+				"ore_iron": 10,
 			},
 		},
 		{
 			ID:     "basic_copper_processing",
 			Name:   "Basic Copper Processing",
 			RequiredInputs: map[string]float64{
-				"copper_ore": 10,
+				"ore_copper": 10,
 			},
 		},
 		{
 			ID:     "refine_copper_wire",
 			Name:   "Process Copper Wiring",
 			RequiredInputs: map[string]float64{
-				"copper_plate": 5,
+				"refined_copper": 5,
 			},
 			RequiredRefining: 1,
 		},
@@ -117,7 +174,7 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 			ID:     "smelt_aluminum_sheet",
 			Name:   "Smelt Aluminum Sheet",
 			RequiredInputs: map[string]float64{
-				"aluminum_ore": 10,
+				"ore_aluminum": 10,
 			},
 			RequiredRefining: 1,
 		},
@@ -126,48 +183,78 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 	// Check which recipes can be crafted with current cargo and skills
 	var craftableRecipes []string
 
+	logger.Printf("🔍 Checking %d recipes against current cargo and skills...", len(recipes))
+
 	for _, recipe := range recipes {
 		// Check skill requirements
 		if recipe.RequiredCrafting > 0 {
 			if skillLevel, ok := skills["crafting"]; !ok || skillLevel < recipe.RequiredCrafting {
-				logger.Printf("Recipe %s requires crafting level %d", recipe.Name, recipe.RequiredCrafting)
+				logger.Printf("   ✗ %s: needs crafting level %d (have %d)",
+					recipe.Name, recipe.RequiredCrafting, skillLevel)
 				continue
 			}
 		}
 		if recipe.RequiredRefining > 0 {
-			if skillLevel, ok := skills["refining"]; !ok || skillLevel < recipe.RequiredRefining {
-				logger.Printf("Recipe %s requires refining level %d", recipe.Name, recipe.RequiredRefining)
+			if skillLevel, ok := skills["refinement"]; !ok || skillLevel < recipe.RequiredRefining {
+				logger.Printf("   ✗ %s: needs refinement level %d (have %d)",
+					recipe.Name, recipe.RequiredRefining, skillLevel)
 				continue
 			}
 		}
 		if recipe.RequiredAdvanced > 0 {
 			if skillLevel, ok := skills["crafting_advanced"]; !ok || skillLevel < recipe.RequiredAdvanced {
-				logger.Printf("Recipe %s requires crafting_advanced level %d", recipe.Name, recipe.RequiredAdvanced)
+				logger.Printf("   ✗ %s: needs crafting_advanced level %d (have %d)",
+					recipe.Name, recipe.RequiredAdvanced, skillLevel)
 				continue
 			}
 		}
 
 		// Check if we have the required inputs
 		hasAllInputs := true
+		maxBatches := 0
+		missingInputs := []string{}
+
 		for inputID, requiredQty := range recipe.RequiredInputs {
-			if availableQty, ok := cargoMap[inputID]; !ok || availableQty < requiredQty {
+			availableQty, ok := resourceMap[inputID]
+			if !ok {
 				hasAllInputs = false
-				logger.Printf("Recipe %s needs %f of %s, have %f", recipe.Name, requiredQty, inputID, availableQty)
+				missingInputs = append(missingInputs, fmt.Sprintf("%s (missing)", inputID))
 				break
+			} else if availableQty < requiredQty {
+				hasAllInputs = false
+				missingInputs = append(missingInputs, fmt.Sprintf("%s (%.0f/%.0f)", inputID, availableQty, requiredQty))
+				break
+			} else {
+				possibleBatches := int(availableQty / requiredQty)
+				if maxBatches == 0 || possibleBatches < maxBatches {
+					maxBatches = possibleBatches
+				}
 			}
+		}
+
+		if !hasAllInputs {
+			logger.Printf("   ✗ %s: missing inputs - %s",
+				recipe.Name, missingInputs[0])
+			continue
 		}
 
 		if hasAllInputs {
 			craftableRecipes = append(craftableRecipes, recipe.ID)
-			logger.Printf("✓ Can craft %s (%s)", recipe.Name, recipe.ID)
+			logger.Printf("   ✓ %s: %s - can craft %d batches (%.0f items)",
+				recipe.Name, recipe.ID, maxBatches, float64(maxBatches*10))
 		}
 	}
 
 	if len(craftableRecipes) == 0 {
-		logger.Printf("No craftable recipes found with current cargo and skills")
+		logger.Printf("❌ No craftable recipes found with current cargo and skills")
+		logger.Printf("   💡 To craft more items, you need to:")
+		logger.Printf("      • Mine ores and deposit them to station storage")
+		logger.Printf("      • Wait for ores to be withdrawn from storage")
+		logger.Printf("      • Level up skills to unlock more recipes")
 		return nil, nil
 	}
 
+	logger.Printf("✅ Found %d craftable recipes!", len(craftableRecipes))
 	return craftableRecipes, nil
 }
 
@@ -301,21 +388,11 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 			stationPOI, state.CurrentPOI, state.Doc, state.Traveling)
 
 		// Step 3: Ensure we're properly docked at the station
-		// Even if state.Doc is true, we might need to re-dock to access storage
 		atStation := state.Doc && state.CurrentPOI == stationPOI
 		needsDocking := !atStation && !state.Traveling
 
-		// Always try to dock if at the station POI to ensure proper docked state
-		if state.CurrentPOI == stationPOI && !state.Traveling {
-			logger.Printf("📥 Ensuring proper docked state at station...")
-			if err := client.Dock(ctx); err != nil && err.Error() != "Already docked (success)" {
-				logger.Printf("Dock refresh error: %v", err)
-			} else {
-				logger.Printf("✅ Docked successfully")
-			}
-			time.Sleep(3 * time.Second)
-			state = client.GetState()
-		} else if needsDocking {
+		// Only dock if we're not already docked at the station
+		if needsDocking {
 			// Need to travel to station first
 			if state.CurrentPOI != stationPOI && !state.Traveling {
 				logger.Printf("🚀 Traveling to station %s...", stationPOI)
@@ -337,17 +414,25 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 				}
 				time.Sleep(15 * time.Second)
 			}
+		} else {
+			logger.Printf("✅ Already docked at station")
 		}
 
-		// Step 4: Withdraw resources from storage (if configured)
+		// Step 4: Deposit any existing cargo to free up space for crafted items
+		// Note: Crafting uses items directly from storage, output goes to cargo
 		atStation = state.Doc && state.CurrentPOI == stationPOI
-		if config.StorageManager != nil && atStation {
-			if err := withdrawOresForCrafting(client, logger, ctx, config.StorageManager); err != nil {
-				logger.Printf("Failed to withdraw ores: %v", err)
+		if atStation && len(state.Ship.Cargo) > 0 {
+			logger.Printf("📦 Depositing existing cargo to free up space for crafted items...")
+			if err := client.DepositAllItems(ctx); err != nil {
+				logger.Printf("Deposit error: %v", err)
+			} else {
+				logger.Printf("✅ Deposited all items")
 			}
+			// Wait for server tick
+			time.Sleep(SleepTick)
 		}
 
-		// Step 5: Select recipes and craft
+		// Step 6: Select recipes and craft
 		state = client.GetState()
 		if !state.Doc {
 			logger.Printf("⚠️  Not docked, skipping crafting")
@@ -355,7 +440,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 			continue
 		}
 
-		recipes, err := config.RecipeSelector(client, logger, ctx)
+		recipes, err := config.RecipeSelector(client, logger, ctx, config.StorageManager)
 		if err != nil {
 			logger.Printf("Recipe selector error: %v", err)
 			time.Sleep(30 * time.Second)
@@ -376,12 +461,14 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 				logger.Printf("Failed to craft %s: %v", recipeID, err)
 			} else {
 				itemsCrafted += crafted
+				// Wait for server tick before next craft action
+				time.Sleep(SleepTick)
 			}
 		}
 
 		result.TotalItemsCrafted += itemsCrafted
 
-		// Step 6: Handle crafted items based on strategy
+		// Step 7: Handle crafted items based on strategy
 		state = client.GetState()
 		creditsBefore := state.Credits
 
@@ -408,7 +495,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 			}
 		}
 
-		// Step 7: Refuel if needed
+		// Step 8: Refuel if needed
 		state = client.GetState()
 		if state.Doc && state.Fuel < state.MaxFuel*0.8 {
 			logger.Printf("⛽ Refueling...")
@@ -418,7 +505,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 			time.Sleep(3 * time.Second)
 		}
 
-		// Step 8: Repair if needed
+		// Step 9: Repair if needed
 		state = client.GetState()
 		if state.Doc && state.Hull < state.MaxHull*0.9 {
 			logger.Printf("🔧 Repairing hull...")
@@ -428,7 +515,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 			time.Sleep(3 * time.Second)
 		}
 
-		// Step 9: Run completion callback
+		// Step 10: Run completion callback
 		state = client.GetState()
 		_ = creditsBefore // Used for tracking credit changes (available for future use)
 
@@ -449,38 +536,76 @@ func withdrawOresForCrafting(client *Client, logger *log.Logger, ctx context.Con
 	state := client.GetState()
 	cargoCapacity := state.Ship.CargoCapacity - state.Ship.CargoUsed
 
-	if cargoCapacity < 10 {
-		logger.Printf("⚠️  Not enough cargo capacity (%.1f)", cargoCapacity)
+	// Reserve 50 units of space for crafting output (each batch needs ~10 units for output)
+	reserveSpace := 50.0
+	availableForWithdrawal := cargoCapacity - reserveSpace
+
+	logger.Printf("📦 Storage Withdrawal Check:")
+	logger.Printf("   Cargo capacity: %.1f/%.1f (%.1f free, %.1f reserved for output)",
+		state.Ship.CargoUsed, state.Ship.CargoCapacity, cargoCapacity, reserveSpace)
+
+	if availableForWithdrawal < 10 {
+		logger.Printf("⚠️  Not enough cargo capacity after reserve (%.1f), skipping withdrawal", availableForWithdrawal)
 		return nil
 	}
 
 	// View storage to see what's available
+	logger.Printf("🔍 Checking station storage for resources...")
 	storageItems, err := storage.ViewStorage(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to view storage: %w", err)
 	}
 
-	// Ores we want to withdraw for crafting
-	ores := []string{"iron_ore", "copper_ore", "aluminum_ore"}
+	// Log storage contents
+	if len(storageItems) == 0 {
+		logger.Printf("📭 Storage is EMPTY - no items available for withdrawal")
+		logger.Printf("   This means:")
+		logger.Printf("   • No items have been deposited to this station's storage")
+		logger.Printf("   • Or the storage data hasn't been updated yet")
+		logger.Printf("   • Or you're at a different station than where resources were deposited")
+	} else {
+		logger.Printf("📦 Storage contains %d item types:", len(storageItems))
+		// Log first 10 items to avoid spam
+		count := 0
+		for itemID, qty := range storageItems {
+			if count < 10 {
+				logger.Printf("   • %s: %.0f units", itemID, qty)
+				count++
+			}
+		}
+		if len(storageItems) > 10 {
+			logger.Printf("   ... and %d more item types", len(storageItems)-10)
+		}
+	}
 
+	// Ores we want to withdraw for crafting
+	ores := []string{"ore_iron", "ore_copper", "ore_aluminum"}
+
+	foundOres := 0
 	for _, ore := range ores {
 		if qty, ok := storageItems[ore]; ok && qty > 0 {
-			// Withdraw up to cargo capacity (minimum of available and capacity)
+			foundOres++
+			// Withdraw up to available capacity (minimum of available and capacity with reserve)
 			withdrawQty := qty
-			if withdrawQty > cargoCapacity {
-				withdrawQty = cargoCapacity
+			if withdrawQty > availableForWithdrawal {
+				withdrawQty = availableForWithdrawal
 			}
 
 			if withdrawQty > 0 {
 				logger.Printf("📤 Withdrawing %.0f %s from storage...", withdrawQty, ore)
 				if err := storage.WithdrawItems(ctx, ore, withdrawQty); err != nil {
-					logger.Printf("Failed to withdraw %s: %v", ore, err)
+					logger.Printf("❌ Failed to withdraw %s: %v", ore, err)
 				} else {
 					logger.Printf("✅ Withdrew %.0f %s", withdrawQty, ore)
 					time.Sleep(2 * time.Second)
 				}
 			}
 		}
+	}
+
+	if foundOres == 0 {
+		logger.Printf("⚠️  No crafting ores (ore_iron, ore_copper, ore_aluminum) found in storage")
+		logger.Printf("   Will craft with current cargo instead")
 	}
 
 	return nil
@@ -490,20 +615,37 @@ func withdrawOresForCrafting(client *Client, logger *log.Logger, ctx context.Con
 func craftRecipe(client *Client, logger *log.Logger, ctx context.Context, recipeID string) (int, error) {
 	state := client.GetState()
 
-	// For now, craft in batches of 10 (max allowed)
-	// TODO: Calculate optimal batch size based on available cargo
+	// Craft in batches of 10 (max allowed per command)
+	// Perform 20 batches per recipe per loop as requested
 	batchSize := 10
+	batchesPerLoop := 20
+	totalItems := 0
+
 	remainingCargo := state.Ship.CargoCapacity - state.Ship.CargoUsed
-	if remainingCargo < 5 {
+	if remainingCargo < float64(batchSize) {
 		return 0, fmt.Errorf("not enough cargo space")
 	}
 
-	logger.Printf("🔨 Crafting %s (batch size: %d)...", recipeID, batchSize)
+	logger.Printf("🔨 Crafting %s (%d batches of %d each)...", recipeID, batchesPerLoop, batchSize)
 
-	if err := client.CraftWithQuantity(ctx, recipeID, batchSize); err != nil {
-		return 0, fmt.Errorf("craft command failed: %w", err)
+	for i := 0; i < batchesPerLoop; i++ {
+		// Check cargo space before each batch
+		state = client.GetState()
+		remainingCargo = state.Ship.CargoCapacity - state.Ship.CargoUsed
+		if remainingCargo < float64(batchSize) {
+			logger.Printf("⚠️  Cargo full after %d batches", i)
+			break
+		}
+
+		if err := client.CraftWithQuantity(ctx, recipeID, batchSize); err != nil {
+			logger.Printf("Failed batch %d: %v", i+1, err)
+			return totalItems, fmt.Errorf("craft command failed on batch %d: %w", i+1, err)
+		}
+
+		totalItems += batchSize
+		time.Sleep(SleepTick) // Wait for server tick between batches
 	}
 
-	logger.Printf("✅ Crafted %d x %s", batchSize, recipeID)
-	return batchSize, nil
+	logger.Printf("✅ Crafted %d total x %s", totalItems, recipeID)
+	return totalItems, nil
 }

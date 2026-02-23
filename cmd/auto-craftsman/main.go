@@ -156,11 +156,11 @@ func main() {
 	logger.Printf("  📦 Withdraw ores from storage when available")
 	logger.Printf("")
 	logger.Printf("Initial recipes (no skills required):")
-	logger.Printf("  • basic_smelt_iron (iron_ore -> iron_ingot)")
-	logger.Printf("  • basic_copper_processing (copper_ore -> copper_plate)")
+	logger.Printf("  • basic_smelt_iron (ore_iron -> iron_ingot)")
+	logger.Printf("  • basic_copper_processing (ore_copper -> copper_plate)")
 	logger.Printf("")
 	logger.Printf("Additional recipes unlock with skills:")
-	logger.Printf("  • refining lvl 1: refine_copper_wire, smelt_aluminum_sheet")
+	logger.Printf("  • refinement lvl 1: refine_copper_wire, smelt_aluminum_sheet")
 	logger.Printf("  • Higher skills unlock more advanced recipes")
 	logger.Printf("")
 
@@ -207,22 +207,45 @@ func (m *clientStorageManager) DepositItems(ctx context.Context, itemID string, 
 }
 
 func (m *clientStorageManager) ViewStorage(ctx context.Context) (map[string]float64, error) {
-	// View storage and parse the response
-	if err := m.client.ViewStorage(ctx); err != nil {
-		return nil, err
+	// Use SendQueued to get the response directly from the game server
+	resp, err := m.client.SendQueued(ctx, protocol.Message{
+		Type:      "view_storage",
+		Timestamp: time.Now().UnixMilli(),
+	}, 10*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to view storage: %w", err)
 	}
 
-	// Wait for the state to update
-	time.Sleep(2 * time.Second)
-
-	// The ViewStorage response updates the state's storage field
-	// For now, we'll return an empty map since State doesn't have a storage field
-	// TODO: Add storage to State struct or return a different way
 	storageItems := make(map[string]float64)
 
-	// Note: State doesn't currently track storage contents
-	// We would need to extend the State struct to include storage information
-	// For now, this is a placeholder that assumes the caller handles storage differently
+	// Parse the items from the response payload
+	items, ok := resp.Payload["items"].([]any)
+	if !ok {
+		// No items in storage, return empty map
+		return storageItems, nil
+	}
+
+	// Convert items to map[itemID]quantity
+	for _, itemAny := range items {
+		item, ok := itemAny.(map[string]any)
+		if !ok {
+			continue
+		}
+		itemID, ok := item["item_id"].(string)
+		if !ok {
+			continue
+		}
+		quantity, ok := item["quantity"].(float64)
+		if !ok {
+			// Try int as fallback
+			if quantityInt, ok := item["quantity"].(int); ok {
+				quantity = float64(quantityInt)
+			} else {
+				continue
+			}
+		}
+		storageItems[itemID] = quantity
+	}
 
 	return storageItems, nil
 }
