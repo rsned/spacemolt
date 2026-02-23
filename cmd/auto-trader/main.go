@@ -631,15 +631,6 @@ func executeTravelPhase(client *game.Client, logger *log.Logger, ctx context.Con
 		return nil
 	}
 
-	// Undock if docked.
-	if state.Doc {
-		logger.Printf("Undocking for departure...")
-		if err := client.Undock(ctx); err != nil {
-			return fmt.Errorf("undock: %w", err)
-		}
-		time.Sleep(3 * time.Second)
-	}
-
 	logger.Printf("Navigating to %s (phase: %s -> %s)...", targetSystem, ts.phase, nextPhase)
 	if err := game.NavigateToSystem(client, ctx, targetSystem, logger); err != nil {
 		return fmt.Errorf("navigate to %s: %w", targetSystem, err)

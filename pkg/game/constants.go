@@ -10,8 +10,8 @@ const (
 	SleepMedium = SleepTick / 2    // Medium wait operations
 	SleepLong   = 2 * SleepTick    // Longer wait operations
 
-	SleepDock   = 1.5 * SleepTick // Dock timing
-	SleepUndock = 1.5 * SleepTick // Undock timing
+	SleepDock   = 3 * SleepTick / 2 // Dock timing (15s)
+	SleepUndock = 3 * SleepTick / 2 // Undock timing (15s)
 
 	SleepTravel = 1 * SleepTick // POI travel within system
 	SleepJump   = 2 * SleepTick // System jump travel timea
