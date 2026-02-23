@@ -1,8 +1,0 @@
-{
-  "base_id": "nexus_base",
-  "base_name": "Central Nexus",
-  "count": 0,
-  "ships": [],
-  "shipyard_level": 5,
-  "tip": "Use 'commission_ship' to order a custom build if you don't see what you need."
-}
