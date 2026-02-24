@@ -1,0 +1,9291 @@
+[2m--- Notifications (1) ---[0m
+[2m[6:43:47 PM][0m [35m[SYSTEM][0m {"action":"undock"}
+
+
+[1m=== Response ===[0m
+{
+  "systems": [
+    {
+      "system_id": "sirius",
+      "name": "Sirius",
+      "empire": "solarian",
+      "position": {
+        "x": -681.662201218293,
+        "y": 215.8582222090281
+      },
+      "connections": [
+        "lacaille",
+        "sys_0038",
+        "epsilon_eridani",
+        "sol"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0156",
+      "name": "Iota Prime",
+      "position": {
+        "x": 4314.722332173765,
+        "y": -1686.4396890154849
+      },
+      "connections": [
+        "sys_0457",
+        "sys_0438",
+        "sys_0087",
+        "sys_0017",
+        "sys_0464"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0246",
+      "name": "Mintaka Minor",
+      "position": {
+        "x": -451.99728275458125,
+        "y": -4643.659232942963
+      },
+      "connections": [
+        "sys_0183",
+        "sys_0348",
+        "sys_0079",
+        "sys_0446"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0030",
+      "name": "Ross-9129",
+      "position": {
+        "x": -4663.06640688994,
+        "y": 4535.11292866557
+      },
+      "connections": [
+        "sys_0263",
+        "sys_0089",
+        "sys_0135",
+        "sys_0254"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0042",
+      "name": "Kepler Minor",
+      "position": {
+        "x": 455.39227358486767,
+        "y": -6743.3502012429635
+      },
+      "connections": [
+        "sys_0473",
+        "sys_0341",
+        "sys_0165",
+        "sys_0077"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0254",
+      "name": "Wolf 7641g",
+      "position": {
+        "x": -3970.9033004686703,
+        "y": 4290.701096855009
+      },
+      "connections": [
+        "sys_0175",
+        "sys_0135",
+        "sys_0307",
+        "sys_0395",
+        "sys_0263",
+        "sys_0030"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0435",
+      "name": "Fomalhaut Major",
+      "position": {
+        "x": 2528.5293750815463,
+        "y": -2771.703852588196
+      },
+      "connections": [
+        "sys_0158",
+        "sys_0500",
+        "sys_0241",
+        "sys_0231"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0245",
+      "name": "Aldebaran-7900",
+      "empire": "solarian",
+      "position": {
+        "x": -1130.4309685837338,
+        "y": 1015.101768359301
+      },
+      "connections": [
+        "sys_0038",
+        "sys_0082",
+        "sys_0100",
+        "sys_0390"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "deep_range",
+      "name": "Deep Range",
+      "empire": "outerrim",
+      "position": {
+        "x": -2745.8182647338617,
+        "y": -3975.716838882169
+      },
+      "connections": [
+        "frontier",
+        "horizon",
+        "horizon"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0363",
+      "name": "Altair Proxima",
+      "position": {
+        "x": -3380.856118492969,
+        "y": 3665.9076179853287
+      },
+      "connections": [
+        "sys_0250",
+        "sys_0458",
+        "sys_0480",
+        "sys_0175"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "anvil",
+      "name": "The Anvil",
+      "empire": "crimson",
+      "position": {
+        "x": 5031.288675330643,
+        "y": 2408.3063130259857
+      },
+      "connections": [
+        "sys_0232",
+        "frontier_war",
+        "krynn",
+        "sys_0324",
+        "iron_reach"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0108",
+      "name": "Altair 4166g",
+      "empire": "nebula",
+      "position": {
+        "x": 961.9481674314699,
+        "y": -4861.715372892769
+      },
+      "connections": [
+        "sys_0284",
+        "sys_0201",
+        "trader_rest",
+        "sys_0403"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0169",
+      "name": "Sirius Prime",
+      "position": {
+        "x": -1913.7921326641251,
+        "y": -1081.1719727785198
+      },
+      "connections": [
+        "sys_0215",
+        "sys_0332",
+        "sys_0050",
+        "sys_0396",
+        "sys_0132"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0084",
+      "name": "Altair Minor",
+      "position": {
+        "x": -5069.435748323813,
+        "y": -1926.4993280376991
+      },
+      "connections": [
+        "sys_0010",
+        "sys_0197",
+        "sys_0441",
+        "sys_0387",
+        "sys_0460"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0119",
+      "name": "Altair Prime",
+      "position": {
+        "x": 1018.8234698766998,
+        "y": 3661.14142428264
+      },
+      "connections": [
+        "sys_0111",
+        "sys_0421",
+        "sys_0288",
+        "sys_0217",
+        "sys_0052",
+        "sys_0061"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "first_step",
+      "name": "First Step",
+      "empire": "outerrim",
+      "position": {
+        "x": -2334.864813712,
+        "y": -3308.0345463602475
+      },
+      "connections": [
+        "horizon",
+        "void_gate",
+        "sys_0262",
+        "telescope"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0157",
+      "name": "Delta Proxima",
+      "position": {
+        "x": 6614.8551710918655,
+        "y": 1293.1779104409181
+      },
+      "connections": [
+        "sys_0020",
+        "sys_0238"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0382",
+      "name": "Iota 9743g",
+      "position": {
+        "x": -4764.577544218682,
+        "y": -4556.7217294619095
+      },
+      "connections": [
+        "sys_0044",
+        "sys_0186",
+        "sys_0152",
+        "sys_0361",
+        "sys_0225"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0062",
+      "name": "Iota Major",
+      "position": {
+        "x": 2307.1802974781367,
+        "y": 5016.1190821076125
+      },
+      "connections": [
+        "sys_0445",
+        "sys_0029",
+        "sys_0067",
+        "sys_0483",
+        "sys_0433",
+        "sys_0327"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0101",
+      "name": "HD-9267",
+      "position": {
+        "x": -988.0129474634415,
+        "y": 5899.159416673371
+      },
+      "connections": [
+        "sys_0242",
+        "sys_0275",
+        "sys_0177",
+        "sys_0081"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0288",
+      "name": "Saiph Major",
+      "position": {
+        "x": 1168.9688748764172,
+        "y": 3070.9455809592027
+      },
+      "connections": [
+        "sys_0140",
+        "sys_0119",
+        "sys_0297",
+        "sys_0111",
+        "sys_0061"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0274",
+      "name": "Kepler Proxima",
+      "position": {
+        "x": -1494.6382936906552,
+        "y": -6832.217398354965
+      },
+      "connections": [
+        "sys_0442"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0314",
+      "name": "Spica 7794g",
+      "position": {
+        "x": -6956.708199210322,
+        "y": 126.174110657862
+      },
+      "connections": [
+        "sys_0452",
+        "sys_0476"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0313",
+      "name": "Ross Minor",
+      "position": {
+        "x": -475.95078094308366,
+        "y": 5351.048152333487
+      },
+      "connections": [
+        "sys_0074",
+        "sys_0016",
+        "sys_0264"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0231",
+      "name": "Theta Major",
+      "position": {
+        "x": 1784.7117984997346,
+        "y": -2740.6680471360855
+      },
+      "connections": [
+        "sys_0230",
+        "sys_0500",
+        "sys_0443",
+        "sys_0479",
+        "sys_0435"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0482",
+      "name": "Beta 3767g",
+      "position": {
+        "x": -1117.2808878623214,
+        "y": 1772.634635805235
+      },
+      "connections": [
+        "sys_0141",
+        "sys_0100",
+        "sys_0434",
+        "sys_0432",
+        "sys_0330"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "glory",
+      "name": "Glory",
+      "empire": "crimson",
+      "position": {
+        "x": 4612.0979133096,
+        "y": 3516.5071153950908
+      },
+      "connections": [
+        "sys_0257",
+        "valor",
+        "iron_reach",
+        "sys_0302",
+        "sys_0413"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0300",
+      "name": "Bellatrix Major",
+      "position": {
+        "x": 2262.8183506343653,
+        "y": 1768.7133531480179
+      },
+      "connections": [
+        "sys_0258",
+        "sys_0384",
+        "sys_0124",
+        "sys_0194"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0332",
+      "name": "Proxima-7682",
+      "position": {
+        "x": -2033.4407845229998,
+        "y": -727.4795757402795
+      },
+      "connections": [
+        "sys_0169",
+        "sys_0215",
+        "sys_0050",
+        "sys_0226",
+        "sys_0396",
+        "sys_0200"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0335",
+      "name": "Antares Prime",
+      "position": {
+        "x": 4488.505843504862,
+        "y": 565.3903575277565
+      },
+      "connections": [
+        "sys_0058",
+        "sys_0370",
+        "sys_0344",
+        "sys_0316",
+        "sys_0367",
+        "sys_0136"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0440",
+      "name": "Beta Proxima",
+      "empire": "nebula",
+      "position": {
+        "x": 1548.2947043451775,
+        "y": -3664.7682224643577
+      },
+      "connections": [
+        "wealth_lane",
+        "sys_0191",
+        "gold_run",
+        "sys_0479",
+        "sys_0418"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0009",
+      "name": "Betelgeuse Proxima",
+      "position": {
+        "x": 5332.959958769727,
+        "y": 1262.9384034752813
+      },
+      "connections": [
+        "sys_0182",
+        "sys_0182"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0256",
+      "name": "Eltanin Minor",
+      "position": {
+        "x": -5185.860571901467,
+        "y": 925.3548999858824
+      },
+      "connections": [
+        "sys_0220",
+        "sys_0393",
+        "sys_0033",
+        "sys_0047"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0341",
+      "name": "Fomalhaut Minor",
+      "position": {
+        "x": 199.05136558312327,
+        "y": -6971.722066879562
+      },
+      "connections": [
+        "sys_0077",
+        "sys_0042",
+        "sys_0328",
+        "sys_0187",
+        "sys_0473",
+        "sys_0385",
+        "sys_0165",
+        "sys_0429"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0372",
+      "name": "Zeta Major",
+      "position": {
+        "x": -830.3203899534899,
+        "y": 4547.588021356547
+      },
+      "connections": [
+        "sys_0365",
+        "sys_0467",
+        "sys_0074",
+        "sys_0224",
+        "sys_0264",
+        "sys_0166"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0037",
+      "name": "Deneb Minor",
+      "empire": "voidborn",
+      "position": {
+        "x": -2710.6045561231917,
+        "y": 2477.920787448171
+      },
+      "connections": [
+        "sys_0221",
+        "sys_0490",
+        "sys_0439",
+        "sync",
+        "sys_0309"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0076",
+      "name": "Alnilam Prime",
+      "position": {
+        "x": 2682.842278867692,
+        "y": -6221.374069980497
+      },
+      "connections": [
+        "sys_0364",
+        "sys_0104",
+        "sys_0481",
+        "sys_0368"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0067",
+      "name": "Alpha Minor",
+      "position": {
+        "x": 2713.0885982265786,
+        "y": 5206.650339933489
+      },
+      "connections": [
+        "sys_0445",
+        "sys_0062",
+        "sys_0465",
+        "sys_0312",
+        "sys_0402",
+        "sys_0193"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0493",
+      "name": "Kepler 4606g",
+      "position": {
+        "x": -2085.985123859343,
+        "y": 722.108858268517
+      },
+      "connections": [
+        "sys_0326",
+        "sys_0261",
+        "sys_0426",
+        "sys_0022",
+        "sys_0082",
+        "sys_0180"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0463",
+      "name": "Ross Proxima",
+      "position": {
+        "x": -228.86502514500876,
+        "y": 2756.0228285153034
+      },
+      "connections": [
+        "sys_0036",
+        "sys_0303",
+        "sys_0185",
+        "sys_0432"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "node_alpha",
+      "name": "Node Alpha",
+      "empire": "voidborn",
+      "position": {
+        "x": -3856.124506419388,
+        "y": 2322.5759182986676
+      },
+      "connections": [
+        "node_beta",
+        "nexus",
+        "node_gamma",
+        "sync"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 1
+    },
+    {
+      "system_id": "sys_0083",
+      "name": "Fomalhaut Prime",
+      "position": {
+        "x": 4357.528158084599,
+        "y": -141.46839734347975
+      },
+      "connections": [
+        "sys_0391",
+        "sys_0344",
+        "sys_0190",
+        "sys_0299"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0082",
+      "name": "Arcturus Proxima",
+      "position": {
+        "x": -1525.339285954532,
+        "y": 609.5653165225364
+      },
+      "connections": [
+        "sys_0426",
+        "sys_0346",
+        "sys_0245",
+        "sys_0493",
+        "sys_0022"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0465",
+      "name": "Sirius-7210",
+      "position": {
+        "x": 2830.9156513609496,
+        "y": 4754.837611616296
+      },
+      "connections": [
+        "sys_0445",
+        "sys_0193",
+        "sys_0349",
+        "sys_0067",
+        "sys_0312"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0057",
+      "name": "Proxima- Major",
+      "position": {
+        "x": -2152.8740288463277,
+        "y": 5514.477419827411
+      },
+      "connections": [
+        "sys_0322",
+        "sys_0356",
+        "sys_0323",
+        "sys_0484"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0094",
+      "name": "Kepler Major",
+      "position": {
+        "x": -1498.5283745201089,
+        "y": -3350.723209189488
+      },
+      "connections": [
+        "sys_0133",
+        "sys_0306",
+        "sys_0055",
+        "sys_0134",
+        "sys_0234",
+        "sys_0471"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0161",
+      "name": "Sirius Prime",
+      "position": {
+        "x": -4409.624354410674,
+        "y": -3870.2906599044886
+      },
+      "connections": [
+        "sys_0233",
+        "sys_0152",
+        "sys_0376",
+        "sys_0298",
+        "sys_0279"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0086",
+      "name": "Delta 3672g",
+      "position": {
+        "x": 1867.3558613521736,
+        "y": -95.33360538072466
+      },
+      "connections": [
+        "sys_0304",
+        "sys_0296",
+        "sys_0400",
+        "sys_0173",
+        "sys_0014"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0081",
+      "name": "HD Prime",
+      "position": {
+        "x": -1367.9913195713266,
+        "y": 5478.229424904618
+      },
+      "connections": [
+        "sys_0264",
+        "sys_0177",
+        "sys_0101",
+        "sys_0322"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0121",
+      "name": "Pollux-8856",
+      "position": {
+        "x": 1320.1863092298906,
+        "y": -999.7554885472119
+      },
+      "connections": [
+        "sys_0128",
+        "sys_0400",
+        "sys_0014"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0261",
+      "name": "Sirius Prime",
+      "position": {
+        "x": -2453.6221245881648,
+        "y": 854.2631980541387
+      },
+      "connections": [
+        "sys_0180",
+        "sys_0493",
+        "sys_0276",
+        "sys_0326",
+        "sys_0022"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0468",
+      "name": "Sirius Proxima",
+      "position": {
+        "x": -2582.529015158705,
+        "y": 3934.1346873364964
+      },
+      "connections": [
+        "sys_0480",
+        "sys_0458",
+        "sys_0126",
+        "sys_0199"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "node_gamma",
+      "name": "Node Gamma",
+      "empire": "voidborn",
+      "position": {
+        "x": -3730.8536755352775,
+        "y": 2702.86924238839
+      },
+      "connections": [
+        "node_beta",
+        "node_alpha",
+        "sys_0381",
+        "sync"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0041",
+      "name": "Pollux Proxima",
+      "empire": "solarian",
+      "position": {
+        "x": -1206.1457246912848,
+        "y": -380.22398204645077
+      },
+      "connections": [
+        "sys_0200",
+        "sys_0333",
+        "lacaille",
+        "sys_0215"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0113",
+      "name": "Iota Minor",
+      "position": {
+        "x": -6525.777753726905,
+        "y": -1015.748035269833
+      },
+      "connections": [
+        "sys_0071",
+        "sys_0450",
+        "sys_0216",
+        "sys_0492"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0284",
+      "name": "TRAPPIST- Minor",
+      "empire": "nebula",
+      "position": {
+        "x": 1071.797890736236,
+        "y": -4569.639534344924
+      },
+      "connections": [
+        "sys_0108",
+        "wealth_lane",
+        "sys_0201",
+        "sys_0281"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "market_prime",
+      "name": "Market Prime",
+      "empire": "nebula",
+      "position": {
+        "x": 2254.0639388068407,
+        "y": -4181.904709129453
+      },
+      "connections": [
+        "cargo_lanes",
+        "gold_run",
+        "haven"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 1
+    },
+    {
+      "system_id": "sys_0220",
+      "name": "Alnitak Proxima",
+      "position": {
+        "x": -4586.067672491965,
+        "y": 996.2700016861203
+      },
+      "connections": [
+        "sys_0033",
+        "archive",
+        "sys_0092",
+        "relay",
+        "sys_0256"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0413",
+      "name": "Fomalhaut-797",
+      "empire": "crimson",
+      "position": {
+        "x": 4030.3842037045583,
+        "y": 3777.140201200178
+      },
+      "connections": [
+        "sys_0366",
+        "sys_0319",
+        "sys_0218",
+        "sys_0459",
+        "glory"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0047",
+      "name": "Theta Prime",
+      "position": {
+        "x": -5077.333155978582,
+        "y": 1579.2454051808818
+      },
+      "connections": [
+        "sys_0196",
+        "sys_0033",
+        "sys_0256"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0005",
+      "name": "Zeta Proxima",
+      "position": {
+        "x": -66.30027029662625,
+        "y": -3661.9274732330096
+      },
+      "connections": [
+        "sys_0235",
+        "sys_0090",
+        "sys_0079",
+        "sys_0096"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0099",
+      "name": "Fomalhaut 2419g",
+      "position": {
+        "x": -6203.978292541003,
+        "y": 1379.2917759265197
+      },
+      "connections": [
+        "sys_0489",
+        "sys_0065",
+        "sys_0098",
+        "sys_0251"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0173",
+      "name": "Mintaka Major",
+      "position": {
+        "x": 2275.8735096903642,
+        "y": -408.37226802087156
+      },
+      "connections": [
+        "sys_0304",
+        "sys_0428",
+        "sys_0014",
+        "sys_0086",
+        "sys_0400",
+        "sys_0068"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0180",
+      "name": "Alnilam Proxima",
+      "position": {
+        "x": -2728.7976588504725,
+        "y": 939.5666390671105
+      },
+      "connections": [
+        "sys_0261",
+        "sys_0276",
+        "sys_0291",
+        "sys_0493"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0433",
+      "name": "Gamma Major",
+      "position": {
+        "x": 1875.7034639695996,
+        "y": 5439.3451717237685
+      },
+      "connections": [
+        "sys_0029",
+        "sys_0483",
+        "sys_0456",
+        "sys_0062"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0477",
+      "name": "Gamma-8861",
+      "position": {
+        "x": 4673.307367368181,
+        "y": -5514.558972066414
+      },
+      "connections": [
+        "sys_0039",
+        "sys_0325"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0093",
+      "name": "Rigel Prime",
+      "position": {
+        "x": 451.4865795234022,
+        "y": 5122.249142868848
+      },
+      "connections": [
+        "sys_0383",
+        "sys_0188"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0164",
+      "name": "Iota-3038",
+      "position": {
+        "x": 3695.628832784673,
+        "y": 1170.4941634771762
+      },
+      "connections": [
+        "sys_0316",
+        "sys_0370",
+        "sys_0095"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0416",
+      "name": "Epsilon Prime",
+      "position": {
+        "x": -6106.818890527592,
+        "y": -3192.4548531047435
+      },
+      "connections": [
+        "sys_0486",
+        "sys_0423",
+        "sys_0420"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0010",
+      "name": "Spica Proxima",
+      "position": {
+        "x": -4896.625865471655,
+        "y": -2140.785627172317
+      },
+      "connections": [
+        "sys_0387",
+        "sys_0084",
+        "sys_0103",
+        "sys_0460",
+        "sys_0197"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0006",
+      "name": "Sirius Major",
+      "position": {
+        "x": 5013.5211431338175,
+        "y": -188.1342249005374
+      },
+      "connections": [
+        "sys_0391",
+        "sys_0299",
+        "sys_0351",
+        "sys_0321",
+        "sys_0219"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0189",
+      "name": "Deneb Prime",
+      "position": {
+        "x": 6132.232642879685,
+        "y": -265.2546221687321
+      },
+      "connections": [
+        "sys_0144"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0342",
+      "name": "Sirius Prime",
+      "position": {
+        "x": 2889.907078582331,
+        "y": -3698.2711217454575
+      },
+      "connections": [
+        "sys_0241",
+        "cargo_lanes",
+        "sys_0355"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0013",
+      "name": "Epsilon-7695",
+      "position": {
+        "x": 2335.7810946640884,
+        "y": -1143.399095061218
+      },
+      "connections": [
+        "sys_0359",
+        "sys_0209",
+        "sys_0068",
+        "sys_0488"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0357",
+      "name": "Vega-3804",
+      "position": {
+        "x": -1796.1153389834565,
+        "y": -4909.965054645108
+      },
+      "connections": [
+        "sys_0394",
+        "sys_0085",
+        "sys_0122",
+        "sys_0451"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0434",
+      "name": "Betelgeuse Major",
+      "position": {
+        "x": -832.392610572561,
+        "y": 2084.9197498285816
+      },
+      "connections": [
+        "sys_0432",
+        "sys_0141",
+        "sys_0482",
+        "sys_0137",
+        "sys_0417"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0418",
+      "name": "TRAPPIST- Minor",
+      "position": {
+        "x": 962.8192701650092,
+        "y": -3239.4183171235763
+      },
+      "connections": [
+        "sys_0479",
+        "sys_0096",
+        "sys_0230",
+        "sys_0440"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0132",
+      "name": "Vega-718",
+      "position": {
+        "x": -2237.235213006144,
+        "y": -1722.2016065442326
+      },
+      "connections": [
+        "sys_0066",
+        "sys_0050",
+        "sys_0169"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0112",
+      "name": "Rigel Proxima",
+      "position": {
+        "x": 1649.8640100576965,
+        "y": 666.2194225484118
+      },
+      "connections": [
+        "sys_0278",
+        "sys_0296",
+        "sys_0207",
+        "sys_0407",
+        "sys_0340"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0133",
+      "name": "Delta Prime",
+      "position": {
+        "x": -1310.998464983034,
+        "y": -3530.1227220444102
+      },
+      "connections": [
+        "sys_0094",
+        "sys_0134",
+        "sys_0306",
+        "sys_0290",
+        "sys_0471",
+        "sys_0228"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0174",
+      "name": "Kepler Major",
+      "position": {
+        "x": 3096.891998436876,
+        "y": -2077.684827975746
+      },
+      "connections": [
+        "sys_0488",
+        "sys_0158",
+        "sys_0017"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0185",
+      "name": "Zeta Prime",
+      "position": {
+        "x": -815.7598730941731,
+        "y": 2949.3841351124534
+      },
+      "connections": [
+        "sys_0303",
+        "sys_0417",
+        "sys_0036",
+        "sys_0463"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0206",
+      "name": "Arcturus Minor",
+      "position": {
+        "x": 5382.830921026089,
+        "y": -3323.787160390581
+      },
+      "connections": [
+        "sys_0149",
+        "sys_0240",
+        "sys_0388",
+        "sys_0436",
+        "sys_0301"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0460",
+      "name": "Alpha Prime",
+      "position": {
+        "x": -5127.095107967267,
+        "y": -2462.2515640387846
+      },
+      "connections": [
+        "sys_0387",
+        "sys_0010",
+        "sys_0084",
+        "sys_0197"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0160",
+      "name": "Saiph Major",
+      "position": {
+        "x": -5474.050304651277,
+        "y": 89.19053978015538
+      },
+      "connections": [
+        "sys_0393",
+        "sys_0265",
+        "sys_0072",
+        "sys_0491"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0204",
+      "name": "Gamma-1894",
+      "position": {
+        "x": 3571.6608095528695,
+        "y": -3307.203518643398
+      },
+      "connections": [
+        "sys_0409",
+        "sys_0239"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0299",
+      "name": "Delta Minor",
+      "position": {
+        "x": 4825.235431003273,
+        "y": -423.63034817622906
+      },
+      "connections": [
+        "sys_0006",
+        "sys_0219",
+        "sys_0391",
+        "sys_0321",
+        "sys_0083",
+        "sys_0168"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0368",
+      "name": "Epsilon-2554",
+      "position": {
+        "x": 2429.0770081835462,
+        "y": -6783.880683102688
+      },
+      "connections": [
+        "sys_0398",
+        "sys_0364",
+        "sys_0315",
+        "sys_0076"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0469",
+      "name": "Alnilam Prime",
+      "position": {
+        "x": -45.44185231807502,
+        "y": 1852.896552990118
+      },
+      "connections": [
+        "sys_0137",
+        "sys_0379",
+        "sys_0012",
+        "sys_0171"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0039",
+      "name": "Wolf-4764",
+      "position": {
+        "x": 4148.5443795050305,
+        "y": -5562.179196383557
+      },
+      "connections": [
+        "sys_0401",
+        "sys_0477"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0129",
+      "name": "TOI Major",
+      "position": {
+        "x": 1106.219357306512,
+        "y": -7296.07145117278
+      },
+      "connections": [
+        "sys_0007",
+        "sys_0385",
+        "sys_0473"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 0,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0278",
+      "name": "HD Proxima",
+      "position": {
+        "x": 1548.4875629743037,
+        "y": 922.9684687136858
+      },
+      "connections": [
+        "sys_0112",
+        "sys_0207",
+        "sys_0407",
+        "sys_0296"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0100",
+      "name": "Spica-9216",
+      "position": {
+        "x": -1361.856025047037,
+        "y": 1612.4710672871768
+      },
+      "connections": [
+        "sys_0482",
+        "sys_0141",
+        "sys_0245",
+        "sys_0330"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0177",
+      "name": "TOI Proxima",
+      "position": {
+        "x": -1527.4810381079124,
+        "y": 5806.63921545565
+      },
+      "connections": [
+        "sys_0081",
+        "sys_0322",
+        "sys_0101",
+        "sys_0242"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0238",
+      "name": "Alnilam Major",
+      "position": {
+        "x": 6373.374998639912,
+        "y": 624.1276068077457
+      },
+      "connections": [
+        "sys_0211",
+        "sys_0020",
+        "sys_0369",
+        "sys_0157"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0320",
+      "name": "Iota 6569g",
+      "position": {
+        "x": 3011.6211300173272,
+        "y": -4711.300617543947
+      },
+      "connections": [
+        "sys_0431",
+        "sys_0153",
+        "sys_0139",
+        "treasure_cache",
+        "sys_0355"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0360",
+      "name": "Alnitak Prime",
+      "position": {
+        "x": -5945.370425944242,
+        "y": -2325.758331042707
+      },
+      "connections": [
+        "sys_0447",
+        "sys_0091",
+        "sys_0035",
+        "sys_0420",
+        "sys_0244",
+        "sys_0486"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0396",
+      "name": "Ross Proxima",
+      "position": {
+        "x": -1482.7313478160647,
+        "y": -1145.163062955214
+      },
+      "connections": [
+        "sys_0215",
+        "sys_0169",
+        "sys_0371",
+        "sys_0332"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0425",
+      "name": "Ross-5439",
+      "position": {
+        "x": 5139.85807256479,
+        "y": -4696.209605711337
+      },
+      "connections": [
+        "sys_0110",
+        "sys_0213",
+        "sys_0325",
+        "sys_0015"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "epsilon_eridani",
+      "name": "Epsilon Eridani",
+      "empire": "solarian",
+      "position": {
+        "x": -323.7223473758058,
+        "y": 780.4510042620377
+      },
+      "connections": [
+        "procyon",
+        "sys_0038",
+        "sys_0390",
+        "sys_0171",
+        "proxima",
+        "sirius"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0262",
+      "name": "Altair Major",
+      "empire": "outerrim",
+      "position": {
+        "x": -1956.7019576933424,
+        "y": -3444.7995235063104
+      },
+      "connections": [
+        "sys_0306",
+        "void_gate",
+        "first_step",
+        "sys_0234"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0349",
+      "name": "Zeta Major",
+      "position": {
+        "x": 2704.7326407281444,
+        "y": 4308.006703228798
+      },
+      "connections": [
+        "sys_0465",
+        "sys_0327",
+        "sys_0070",
+        "sys_0145",
+        "sys_0115"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0428",
+      "name": "Gamma-868",
+      "position": {
+        "x": 2752.691546243929,
+        "y": -269.39060877200546
+      },
+      "connections": [
+        "sys_0347",
+        "sys_0173",
+        "sys_0304",
+        "sys_0068",
+        "sys_0273",
+        "sys_0334"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0419",
+      "name": "TRAPPIST- Prime",
+      "position": {
+        "x": 5476.324090331871,
+        "y": -2008.7011336412995
+      },
+      "connections": [
+        "sys_0032",
+        "sys_0496",
+        "sys_0073",
+        "sys_0087"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0279",
+      "name": "Betelgeuse Proxima",
+      "position": {
+        "x": -4199.087889519586,
+        "y": -3241.0746438078977
+      },
+      "connections": [
+        "sys_0376",
+        "sys_0392",
+        "sys_0338",
+        "sys_0161",
+        "sys_0233"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0250",
+      "name": "Proxima-9046",
+      "position": {
+        "x": -3432.81137215772,
+        "y": 3904.20451648474
+      },
+      "connections": [
+        "sys_0363",
+        "sys_0458",
+        "sys_0175",
+        "sys_0223",
+        "sys_0395"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0267",
+      "name": "Pollux-1023",
+      "position": {
+        "x": -5944.7873978165535,
+        "y": 2389.3518174673677
+      },
+      "connections": [
+        "sys_0026",
+        "sys_0272",
+        "sys_0271",
+        "sys_0251",
+        "sys_0498"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0340",
+      "name": "Alnilam Minor",
+      "position": {
+        "x": 2262.0784131075116,
+        "y": 799.5142984509574
+      },
+      "connections": [
+        "sys_0384",
+        "sys_0207",
+        "sys_0112",
+        "sys_0296"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0456",
+      "name": "Delta Prime",
+      "position": {
+        "x": 1978.140589053181,
+        "y": 5948.63215409835
+      },
+      "connections": [
+        "sys_0483",
+        "sys_0433",
+        "sys_0205",
+        "sys_0029"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0150",
+      "name": "HD Proxima",
+      "position": {
+        "x": 3341.4370423508863,
+        "y": 3095.8077291633294
+      },
+      "connections": [
+        "sys_0459",
+        "sys_0319",
+        "sys_0404",
+        "sys_0145"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0111",
+      "name": "Alpha 7776g",
+      "position": {
+        "x": 1244.8147542346044,
+        "y": 3712.528220358266
+      },
+      "connections": [
+        "sys_0119",
+        "sys_0421",
+        "sys_0052",
+        "sys_0277",
+        "sys_0288"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "proxima",
+      "name": "Proxima Centauri",
+      "position": {
+        "x": 223.05663292792676,
+        "y": 693.1218815472392
+      },
+      "connections": [
+        "procyon",
+        "sys_0097",
+        "barnard",
+        "epsilon_eridani"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0135",
+      "name": "Rigel Proxima",
+      "position": {
+        "x": -4313.8536436456125,
+        "y": 4035.8986114076474
+      },
+      "connections": [
+        "sys_0307",
+        "sys_0236",
+        "sys_0175",
+        "sys_0254",
+        "sys_0487",
+        "sys_0263",
+        "sys_0089",
+        "sys_0030"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "tau_ceti",
+      "name": "Tau Ceti",
+      "empire": "solarian",
+      "position": {
+        "x": 10.857332948210924,
+        "y": -754.0130728012778
+      },
+      "connections": [
+        "sys_0352",
+        "alpha_centauri",
+        "sys_0222",
+        "sys_0286"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0020",
+      "name": "Deneb Proxima",
+      "position": {
+        "x": 6172.377208946966,
+        "y": 1167.9478852745144
+      },
+      "connections": [
+        "sys_0157",
+        "sys_0238"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0175",
+      "name": "Alnilam Proxima",
+      "position": {
+        "x": -3935.8298169160767,
+        "y": 4009.1089981845516
+      },
+      "connections": [
+        "sys_0307",
+        "sys_0254",
+        "sys_0135",
+        "sys_0250",
+        "sys_0363"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0221",
+      "name": "Alpha Minor",
+      "position": {
+        "x": -2454.283834632817,
+        "y": 2029.1491658492444
+      },
+      "connections": [
+        "sys_0004",
+        "sys_0490",
+        "sys_0037",
+        "experiment"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0282",
+      "name": "Alnitak 7255g",
+      "position": {
+        "x": -108.17271492725213,
+        "y": -6301.309518885043
+      },
+      "connections": [
+        "sys_0165",
+        "sys_0148",
+        "sys_0497",
+        "sys_0051"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0303",
+      "name": "Antares 6359g",
+      "position": {
+        "x": -530.1518974654715,
+        "y": 3148.5089020586643
+      },
+      "connections": [
+        "sys_0036",
+        "sys_0185",
+        "sys_0463",
+        "sys_0417"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "valor",
+      "name": "Valor",
+      "empire": "crimson",
+      "position": {
+        "x": 5158.161813162528,
+        "y": 3394.046979434083
+      },
+      "connections": [
+        "blood_forge",
+        "sys_0302",
+        "krynn",
+        "sys_0257",
+        "glory"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0163",
+      "name": "Alnilam-9508",
+      "position": {
+        "x": 1303.5631696170337,
+        "y": -6554.938328852414
+      },
+      "connections": [
+        "sys_0088",
+        "sys_0473",
+        "sys_0260",
+        "sys_0060"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0291",
+      "name": "Ross Minor",
+      "position": {
+        "x": -2716.0328102678063,
+        "y": 1437.9636218580094
+      },
+      "connections": [
+        "sys_0276",
+        "sys_0004",
+        "experiment",
+        "sys_0180"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "trader_rest",
+      "name": "Trader's Rest",
+      "empire": "nebula",
+      "position": {
+        "x": 1692.4105639189988,
+        "y": -4911.19808898376
+      },
+      "connections": [
+        "factory_belt",
+        "sys_0350",
+        "haven",
+        "sys_0201",
+        "sys_0108"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0015",
+      "name": "Arcturus Prime",
+      "position": {
+        "x": 5248.20234877938,
+        "y": -4126.261072302637
+      },
+      "connections": [
+        "sys_0301",
+        "sys_0110",
+        "sys_0425",
+        "sys_0149"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0139",
+      "name": "Rigel Prime",
+      "position": {
+        "x": 3494.412047611199,
+        "y": -5043.558116619126
+      },
+      "connections": [
+        "sys_0431",
+        "sys_0153",
+        "sys_0401",
+        "sys_0424",
+        "sys_0320",
+        "sys_0138",
+        "sys_0266"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0127",
+      "name": "TRAPPIST- Proxima",
+      "position": {
+        "x": -2947.645563186315,
+        "y": -5784.201669006561
+      },
+      "connections": [
+        "sys_0237",
+        "sys_0001"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0167",
+      "name": "Rigel Prime",
+      "position": {
+        "x": -3463.242423784068,
+        "y": -305.6084794983456
+      },
+      "connections": [
+        "sys_0430",
+        "sys_0170",
+        "sys_0040",
+        "sys_0415"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0381",
+      "name": "Spica Major",
+      "empire": "voidborn",
+      "position": {
+        "x": -3987.5693079849198,
+        "y": 3081.120256328051
+      },
+      "connections": [
+        "node_gamma",
+        "node_beta",
+        "sys_0475",
+        "sys_0307"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0152",
+      "name": "Antares-6318",
+      "position": {
+        "x": -4389.618395123451,
+        "y": -4208.456698633515
+      },
+      "connections": [
+        "sys_0161",
+        "sys_0233",
+        "sys_0382",
+        "sys_0448"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0194",
+      "name": "Arcturus Major",
+      "position": {
+        "x": 1632.9675559815041,
+        "y": 1999.6757348857143
+      },
+      "connections": [
+        "sys_0297",
+        "sys_0258",
+        "sys_0300"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0244",
+      "name": "Kepler Prime",
+      "position": {
+        "x": -6592.720177901329,
+        "y": -2213.331134979906
+      },
+      "connections": [
+        "sys_0447",
+        "sys_0420",
+        "sys_0494",
+        "sys_0360"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0331",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": -1289.3601323355936,
+        "y": 3988.485708749146
+      },
+      "connections": [
+        "sys_0467",
+        "sys_0224",
+        "sys_0365",
+        "sys_0472",
+        "sys_0166"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0399",
+      "name": "Vega Proxima",
+      "position": {
+        "x": -3755.2831016935756,
+        "y": -1507.307387626134
+      },
+      "connections": [
+        "sys_0159",
+        "sys_0011",
+        "sys_0269",
+        "sys_0075",
+        "sys_0293",
+        "sys_0018"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0423",
+      "name": "Pollux Minor",
+      "position": {
+        "x": -6361.388374476222,
+        "y": -3246.3730282399583
+      },
+      "connections": [
+        "sys_0416",
+        "sys_0486",
+        "sys_0420"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0096",
+      "name": "Beta 1212g",
+      "position": {
+        "x": 444.0944040387736,
+        "y": -3152.8324629987264
+      },
+      "connections": [
+        "sys_0455",
+        "sys_0418",
+        "sys_0048",
+        "sys_0005"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "waypoint",
+      "name": "Waypoint",
+      "empire": "outerrim",
+      "position": {
+        "x": -2864.7160389743763,
+        "y": -3183.3290997525974
+      },
+      "connections": [
+        "distant_light",
+        "horizon",
+        "frontier",
+        "unknown_edge",
+        "telescope"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0184",
+      "name": "Betelgeuse Minor",
+      "position": {
+        "x": 5873.933676274185,
+        "y": -1102.4562382945794
+      },
+      "connections": [
+        "sys_0064",
+        "sys_0073",
+        "sys_0168"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0325",
+      "name": "Alpha Major",
+      "position": {
+        "x": 5263.042480459217,
+        "y": -5176.83577820051
+      },
+      "connections": [
+        "sys_0213",
+        "sys_0425",
+        "sys_0110",
+        "sys_0477"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0455",
+      "name": "Eltanin Proxima",
+      "position": {
+        "x": 327.49373928294017,
+        "y": -2837.9784217323436
+      },
+      "connections": [
+        "sys_0096",
+        "sys_0048",
+        "sys_0311",
+        "sys_0295",
+        "sys_0105"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0491",
+      "name": "Sirius Major",
+      "position": {
+        "x": -6200.695573683682,
+        "y": -71.12255608098462
+      },
+      "connections": [
+        "sys_0227",
+        "sys_0452",
+        "sys_0072",
+        "sys_0160"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "nexus",
+      "name": "Nexus Prime",
+      "description": "Central processing hub of the Voidborn Collective.",
+      "empire": "voidborn",
+      "position": {
+        "x": -4000,
+        "y": 2000
+      },
+      "connections": [
+        "node_alpha",
+        "node_beta"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0002",
+      "name": "Altair Prime",
+      "empire": "nebula",
+      "position": {
+        "x": 2186.8422309666807,
+        "y": -5511.065784271925
+      },
+      "connections": [
+        "sys_0104",
+        "factory_belt",
+        "sys_0069",
+        "sys_0350",
+        "treasure_cache"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "experiment",
+      "name": "The Experiment",
+      "empire": "voidborn",
+      "position": {
+        "x": -3031.1786818011155,
+        "y": 1781.5709958878608
+      },
+      "connections": [
+        "sys_0291",
+        "sync",
+        "sys_0004",
+        "sys_0221"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "wealth_lane",
+      "name": "Wealth Lane",
+      "position": {
+        "x": 1350.631507021702,
+        "y": -4117.472668104482
+      },
+      "connections": [
+        "sys_0440",
+        "sys_0284",
+        "gold_run"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0295",
+      "name": "TRAPPIST- Prime",
+      "position": {
+        "x": 453.30684433680534,
+        "y": -2360.7734455387645
+      },
+      "connections": [
+        "sys_0311",
+        "sys_0455",
+        "sys_0048"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0322",
+      "name": "Sirius Prime",
+      "position": {
+        "x": -1969.0828039497194,
+        "y": 5812.497982464907
+      },
+      "connections": [
+        "sys_0057",
+        "sys_0177",
+        "sys_0081",
+        "sys_0356"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0309",
+      "name": "Aldebaran Minor",
+      "position": {
+        "x": -2622.1950780897805,
+        "y": 3200.909019695534
+      },
+      "connections": [
+        "sys_0439",
+        "sys_0480",
+        "sys_0458",
+        "sys_0037",
+        "sys_0444"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0409",
+      "name": "Iota Minor",
+      "position": {
+        "x": 3669.523205476609,
+        "y": -3003.0844331582916
+      },
+      "connections": [
+        "sys_0204",
+        "sys_0239"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0487",
+      "name": "Iota Minor",
+      "position": {
+        "x": -4831.850133982698,
+        "y": 3777.694982523149
+      },
+      "connections": [
+        "sys_0236",
+        "sys_0089",
+        "sys_0289",
+        "sys_0135"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "iron_reach",
+      "name": "Iron Reach",
+      "empire": "crimson",
+      "position": {
+        "x": 4606.547337833253,
+        "y": 2934.5077007577192
+      },
+      "connections": [
+        "krynn",
+        "glory",
+        "anvil",
+        "blood_forge"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0422",
+      "name": "Bellatrix Minor",
+      "position": {
+        "x": -2064.286659166343,
+        "y": -6230.851914968988
+      },
+      "connections": [
+        "sys_0106",
+        "sys_0308"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "horizon",
+      "name": "Horizon",
+      "empire": "outerrim",
+      "position": {
+        "x": -2636.29707134188,
+        "y": -3359.7314611807337
+      },
+      "connections": [
+        "waypoint",
+        "first_step",
+        "frontier",
+        "telescope",
+        "deep_range",
+        "distant_light"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0021",
+      "name": "Beta Prime",
+      "position": {
+        "x": 6317.148204721481,
+        "y": -1830.24196989263
+      },
+      "connections": [
+        "sys_0063",
+        "sys_0120",
+        "sys_0437",
+        "sys_0210",
+        "sys_0073",
+        "sys_0496"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0126",
+      "name": "TOI Prime",
+      "position": {
+        "x": -2221.0247600858656,
+        "y": 4464.240468071257
+      },
+      "connections": [
+        "sys_0199",
+        "sys_0472",
+        "sys_0323",
+        "sys_0252",
+        "sys_0468",
+        "sys_0484"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0234",
+      "name": "Bellatrix Proxima",
+      "position": {
+        "x": -1881.372612479676,
+        "y": -3867.4793606644266
+      },
+      "connections": [
+        "sys_0306",
+        "sys_0134",
+        "sys_0262",
+        "sys_0094"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0294",
+      "name": "Spica Proxima",
+      "position": {
+        "x": 1198.706855709842,
+        "y": 4998.421882907732
+      },
+      "connections": [
+        "sys_0188",
+        "sys_0374",
+        "sys_0277"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0308",
+      "name": "Alnilam-6518",
+      "position": {
+        "x": -2455.001639966832,
+        "y": -6749.863590203686
+      },
+      "connections": [
+        "sys_0001",
+        "sys_0422"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0153",
+      "name": "Mintaka Major",
+      "position": {
+        "x": 3050.022305189255,
+        "y": -5243.140293099715
+      },
+      "connections": [
+        "sys_0424",
+        "sys_0247",
+        "sys_0139",
+        "sys_0320",
+        "treasure_cache"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0484",
+      "name": "Spica Minor",
+      "position": {
+        "x": -1841.9395694055406,
+        "y": 4943.881283741758
+      },
+      "connections": [
+        "sys_0323",
+        "sys_0252",
+        "sys_0472",
+        "sys_0126",
+        "sys_0057",
+        "sys_0264",
+        "sys_0356"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0479",
+      "name": "Theta Minor",
+      "position": {
+        "x": 1252.1454192461217,
+        "y": -3047.659045061268
+      },
+      "connections": [
+        "sys_0230",
+        "sys_0418",
+        "sys_0231",
+        "sys_0440"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0138",
+      "name": "Alpha Minor",
+      "position": {
+        "x": 4181.549343607954,
+        "y": -4759.357141933762
+      },
+      "connections": [
+        "sys_0266",
+        "sys_0401",
+        "sys_0139"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0393",
+      "name": "Delta Proxima",
+      "position": {
+        "x": -5108.568791232107,
+        "y": 303.9668776511918
+      },
+      "connections": [
+        "sys_0265",
+        "sys_0160",
+        "sys_0256",
+        "sys_0229",
+        "sys_0143"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0448",
+      "name": "Bellatrix Minor",
+      "position": {
+        "x": -3978.44443178009,
+        "y": -4680.4381271951725
+      },
+      "connections": [
+        "sys_0045",
+        "sys_0152",
+        "sys_0225"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0003",
+      "name": "TRAPPIST-7784",
+      "empire": "nebula",
+      "position": {
+        "x": 1594.9675880359548,
+        "y": -5826.003921600599
+      },
+      "connections": [
+        "sys_0069",
+        "sys_0260",
+        "sys_0350",
+        "sys_0088"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0116",
+      "name": "Antares-5214",
+      "empire": "crimson",
+      "position": {
+        "x": 5901.487952237892,
+        "y": 2405.3099947556375
+      },
+      "connections": [
+        "sys_0354",
+        "sys_0324",
+        "sys_0109",
+        "frontier_war",
+        "sys_0485",
+        "sys_0287"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0171",
+      "name": "Kepler 8464g",
+      "empire": "solarian",
+      "position": {
+        "x": -98.56560188262283,
+        "y": 1273.1395195461498
+      },
+      "connections": [
+        "sys_0390",
+        "sys_0379",
+        "procyon",
+        "sys_0198",
+        "sys_0469",
+        "epsilon_eridani"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0201",
+      "name": "Mintaka Minor",
+      "empire": "nebula",
+      "position": {
+        "x": 1089.0447676713757,
+        "y": -5151.209803196963
+      },
+      "connections": [
+        "sys_0108",
+        "sys_0403",
+        "sys_0284",
+        "sys_0350",
+        "trader_rest"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0280",
+      "name": "Iota Major",
+      "position": {
+        "x": 1725.965215396587,
+        "y": 4294.368520317579
+      },
+      "connections": [
+        "sys_0070",
+        "sys_0374",
+        "sys_0277",
+        "sys_0327",
+        "sys_0052"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0344",
+      "name": "Saiph Prime",
+      "position": {
+        "x": 4603.757766230557,
+        "y": 261.3353448984478
+      },
+      "connections": [
+        "sys_0335",
+        "sys_0058",
+        "sys_0391",
+        "sys_0083",
+        "sys_0316",
+        "sys_0367"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0436",
+      "name": "Mintaka 6917g",
+      "position": {
+        "x": 5911.869832877469,
+        "y": -3540.7883234768397
+      },
+      "connections": [
+        "sys_0149",
+        "sys_0206",
+        "sys_0339"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0033",
+      "name": "TRAPPIST- Major",
+      "position": {
+        "x": -4608.219255313659,
+        "y": 1205.7222675872101
+      },
+      "connections": [
+        "archive",
+        "sys_0220",
+        "sys_0092",
+        "relay",
+        "sys_0256",
+        "sys_0047"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0400",
+      "name": "Beta-3677",
+      "position": {
+        "x": 1659.2529850980902,
+        "y": -534.2376691046849
+      },
+      "connections": [
+        "sys_0014",
+        "sys_0086",
+        "sys_0121",
+        "sys_0173"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0353",
+      "name": "Fomalhaut Major",
+      "position": {
+        "x": 629.2968117467553,
+        "y": 1893.9399604496734
+      },
+      "connections": [
+        "sys_0012",
+        "sys_0379",
+        "sys_0107",
+        "sys_0198"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0377",
+      "name": "Bellatrix Minor",
+      "position": {
+        "x": -5556.59203029901,
+        "y": -4268.735547463633
+      },
+      "connections": [
+        "sys_0054",
+        "sys_0202",
+        "sys_0044",
+        "sys_0186"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0236",
+      "name": "Kepler Proxima",
+      "position": {
+        "x": -4548.228601384555,
+        "y": 3751.588648004395
+      },
+      "connections": [
+        "sys_0487",
+        "sys_0135",
+        "sys_0307",
+        "sys_0089"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0203",
+      "name": "Arcturus Prime",
+      "position": {
+        "x": -790.8756389730358,
+        "y": -5282.8989178875845
+      },
+      "connections": [
+        "sys_0451",
+        "sys_0183",
+        "sys_0043",
+        "sys_0019",
+        "sys_0362",
+        "sys_0446"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0462",
+      "name": "Altair-5942",
+      "position": {
+        "x": -2989.6360844175374,
+        "y": 4842.599430534035
+      },
+      "connections": [
+        "sys_0223",
+        "sys_0199",
+        "sys_0395",
+        "sys_0253"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0457",
+      "name": "Saiph Proxima",
+      "position": {
+        "x": 4024.3805559554567,
+        "y": -1769.8087921839503
+      },
+      "connections": [
+        "sys_0156",
+        "sys_0017",
+        "sys_0464",
+        "sys_0438"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0210",
+      "name": "Aldebaran Prime",
+      "position": {
+        "x": 6728.357931341893,
+        "y": -1544.5902686746706
+      },
+      "connections": [
+        "sys_0063",
+        "sys_0021",
+        "sys_0414",
+        "sys_0437"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0362",
+      "name": "Wolf Major",
+      "position": {
+        "x": -887.350609265331,
+        "y": -5771.041757138304
+      },
+      "connections": [
+        "sys_0043",
+        "sys_0019",
+        "sys_0412",
+        "sys_0203"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0361",
+      "name": "Alnitak Prime",
+      "position": {
+        "x": -5100.948324125366,
+        "y": -5018.395111230518
+      },
+      "connections": [
+        "sys_0243",
+        "sys_0382",
+        "sys_0225",
+        "sys_0044"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0036",
+      "name": "Zeta-5714",
+      "position": {
+        "x": -269.47395090204026,
+        "y": 3162.547214757094
+      },
+      "connections": [
+        "sys_0303",
+        "sys_0463",
+        "sys_0185",
+        "sys_0249"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0209",
+      "name": "Alnilam Prime",
+      "position": {
+        "x": 2616.8730453811495,
+        "y": -1154.678110350473
+      },
+      "connections": [
+        "sys_0068",
+        "sys_0359",
+        "sys_0013",
+        "sys_0488"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0269",
+      "name": "Altair Major",
+      "position": {
+        "x": -3791.632426210852,
+        "y": -1026.0776006286617
+      },
+      "connections": [
+        "sys_0159",
+        "sys_0415",
+        "sys_0075",
+        "sys_0399",
+        "sys_0011"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0265",
+      "name": "Altair Minor",
+      "position": {
+        "x": -4886.037340520826,
+        "y": 293.600866439319
+      },
+      "connections": [
+        "sys_0393",
+        "sys_0229",
+        "sys_0143",
+        "sys_0092",
+        "sys_0160"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0347",
+      "name": "Iota Major",
+      "position": {
+        "x": 3120.3459936875583,
+        "y": -420.77619337656284
+      },
+      "connections": [
+        "sys_0428",
+        "sys_0273",
+        "sys_0334",
+        "sys_0317"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0354",
+      "name": "Altair Minor",
+      "empire": "crimson",
+      "position": {
+        "x": 5776.001341663906,
+        "y": 2200.2487046784495
+      },
+      "connections": [
+        "sys_0116",
+        "sys_0324",
+        "sys_0485",
+        "frontier_war",
+        "sys_0109",
+        "sys_0232"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0417",
+      "name": "Proxima- Major",
+      "position": {
+        "x": -972.6621964743306,
+        "y": 2605.767281427238
+      },
+      "connections": [
+        "sys_0185",
+        "sys_0434",
+        "sys_0432",
+        "sys_0330",
+        "sys_0303"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0475",
+      "name": "Theta Minor",
+      "empire": "voidborn",
+      "position": {
+        "x": -4512.015987208601,
+        "y": 2965.9943629486907
+      },
+      "connections": [
+        "sys_0427",
+        "sys_0381",
+        "node_beta",
+        "sys_0499"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0080",
+      "name": "Bellatrix Proxima",
+      "position": {
+        "x": 2371.6228105691916,
+        "y": 3004.004443888731
+      },
+      "connections": [
+        "sys_0410",
+        "sys_0345",
+        "sys_0404",
+        "sys_0115"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0190",
+      "name": "Betelgeuse-4175",
+      "position": {
+        "x": 3828.2054541790912,
+        "y": -145.21281747316243
+      },
+      "connections": [
+        "sys_0273",
+        "sys_0083",
+        "sys_0411",
+        "sys_0334"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0188",
+      "name": "TRAPPIST- Prime",
+      "position": {
+        "x": 1091.671829833619,
+        "y": 5315.461355194401
+      },
+      "connections": [
+        "sys_0294",
+        "sys_0383",
+        "sys_0025",
+        "sys_0093"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0229",
+      "name": "TRAPPIST- Proxima",
+      "position": {
+        "x": -4711.260840263146,
+        "y": -201.04842752962668
+      },
+      "connections": [
+        "sys_0143",
+        "sys_0265",
+        "sys_0393"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0251",
+      "name": "Vega 4033g",
+      "position": {
+        "x": -6135.636444583912,
+        "y": 1821.088250987982
+      },
+      "connections": [
+        "sys_0099",
+        "sys_0065",
+        "sys_0267",
+        "sys_0489",
+        "sys_0026"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0373",
+      "name": "Ross 2960g",
+      "empire": "crimson",
+      "position": {
+        "x": 4809.103099701114,
+        "y": 4400.799793659093
+      },
+      "connections": [
+        "sys_0257",
+        "sys_0302"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0272",
+      "name": "Alpha-541",
+      "position": {
+        "x": -5582.365311865561,
+        "y": 2440.3677027229223
+      },
+      "connections": [
+        "sys_0026",
+        "sys_0267",
+        "sys_0271",
+        "sys_0196"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0060",
+      "name": "Antares Proxima",
+      "position": {
+        "x": 810.4492551316632,
+        "y": -6190.27138840467
+      },
+      "connections": [
+        "sys_0260",
+        "sys_0473",
+        "sys_0088",
+        "sys_0163",
+        "sys_0403"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0063",
+      "name": "TOI Proxima",
+      "position": {
+        "x": 6540.6011650600085,
+        "y": -1910.694238368218
+      },
+      "connections": [
+        "sys_0021",
+        "sys_0437",
+        "sys_0210",
+        "sys_0120"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0073",
+      "name": "Theta Minor",
+      "position": {
+        "x": 5843.731593079301,
+        "y": -1633.327586455398
+      },
+      "connections": [
+        "sys_0496",
+        "sys_0064",
+        "sys_0032",
+        "sys_0021",
+        "sys_0419",
+        "sys_0184"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0411",
+      "name": "Deneb Major",
+      "position": {
+        "x": 3865.7706559233943,
+        "y": -718.5372275370084
+      },
+      "connections": [
+        "sys_0317",
+        "sys_0190",
+        "sys_0438"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0043",
+      "name": "Rigel Minor",
+      "position": {
+        "x": -1144.644265363111,
+        "y": -5533.725190316873
+      },
+      "connections": [
+        "sys_0362",
+        "sys_0203",
+        "sys_0451",
+        "sys_0019"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0072",
+      "name": "Deneb Proxima",
+      "position": {
+        "x": -5842.19442280054,
+        "y": -450.02356696028335
+      },
+      "connections": [
+        "sys_0227",
+        "sys_0491",
+        "sys_0160",
+        "sys_0046"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0071",
+      "name": "Epsilon Proxima",
+      "position": {
+        "x": -6254.654816108333,
+        "y": -1062.6507044110133
+      },
+      "connections": [
+        "sys_0113",
+        "sys_0492",
+        "sys_0227",
+        "sys_0494",
+        "sys_0450",
+        "sys_0046"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "distant_light",
+      "name": "Distant Light",
+      "empire": "outerrim",
+      "position": {
+        "x": -2925.6749929183616,
+        "y": -2903.3761701736935
+      },
+      "connections": [
+        "unknown_edge",
+        "waypoint",
+        "telescope",
+        "horizon"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0486",
+      "name": "Iota Prime",
+      "position": {
+        "x": -5963.384725506526,
+        "y": -2979.0800087709836
+      },
+      "connections": [
+        "sys_0416",
+        "sys_0423",
+        "sys_0420",
+        "sys_0360"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0488",
+      "name": "Kepler Minor",
+      "position": {
+        "x": 2694.57782484872,
+        "y": -1735.1466956425681
+      },
+      "connections": [
+        "sys_0359",
+        "sys_0174",
+        "sys_0209",
+        "sys_0013"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0178",
+      "name": "TRAPPIST- Major",
+      "position": {
+        "x": -2684.519056033836,
+        "y": -148.57321816314376
+      },
+      "connections": [
+        "sys_0170",
+        "sys_0226",
+        "sys_0040"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0217",
+      "name": "Arcturus Proxima",
+      "position": {
+        "x": 903.1490546008265,
+        "y": 4283.8084729379425
+      },
+      "connections": [
+        "sys_0421",
+        "sys_0277",
+        "sys_0374",
+        "sys_0119"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0312",
+      "name": "Proxima-2920",
+      "position": {
+        "x": 3202.8379085557326,
+        "y": 5060.281036103522
+      },
+      "connections": [
+        "sys_0193",
+        "sys_0465",
+        "sys_0067",
+        "sys_0445",
+        "sys_0310"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0432",
+      "name": "Pollux Minor",
+      "position": {
+        "x": -612.9246392526493,
+        "y": 2168.668576158275
+      },
+      "connections": [
+        "sys_0434",
+        "sys_0137",
+        "sys_0417",
+        "sys_0141",
+        "sys_0482",
+        "sys_0463"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0044",
+      "name": "Arcturus-3063",
+      "position": {
+        "x": -5223.920865252492,
+        "y": -4423.410643625245
+      },
+      "connections": [
+        "sys_0054",
+        "sys_0186",
+        "sys_0377",
+        "sys_0382",
+        "sys_0361",
+        "sys_0202"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0359",
+      "name": "Antares Prime",
+      "position": {
+        "x": 2431.35426009728,
+        "y": -1355.1298365330774
+      },
+      "connections": [
+        "sys_0013",
+        "sys_0209",
+        "sys_0068",
+        "sys_0488"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0485",
+      "name": "Gamma 5159g",
+      "position": {
+        "x": 5805.482058413322,
+        "y": 1870.4073831246224
+      },
+      "connections": [
+        "sys_0354",
+        "sys_0116",
+        "sys_0324",
+        "frontier_war"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0464",
+      "name": "Ross Proxima",
+      "position": {
+        "x": 3926.406219618724,
+        "y": -2281.083770682601
+      },
+      "connections": [
+        "sys_0457",
+        "sys_0017",
+        "sys_0156"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0097",
+      "name": "Fomalhaut Minor",
+      "position": {
+        "x": 639.4152082943252,
+        "y": 656.3116894831766
+      },
+      "connections": [
+        "sys_0255",
+        "barnard",
+        "proxima",
+        "sys_0407",
+        "sys_0195"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0107",
+      "name": "Fomalhaut 6936g",
+      "position": {
+        "x": 943.1178434219102,
+        "y": 1358.1445743526938
+      },
+      "connections": [
+        "sys_0407",
+        "sys_0012",
+        "sys_0198",
+        "sys_0255",
+        "sys_0353"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "cargo_lanes",
+      "name": "Cargo Lanes",
+      "empire": "nebula",
+      "position": {
+        "x": 2262.7796628693345,
+        "y": -3856.2901921293965
+      },
+      "connections": [
+        "gold_run",
+        "market_prime",
+        "sys_0191",
+        "sys_0241",
+        "sys_0342"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0146",
+      "name": "Beta Prime",
+      "empire": "outerrim",
+      "position": {
+        "x": -3650.3666245540726,
+        "y": -2627.2891651550035
+      },
+      "connections": [
+        "sys_0123",
+        "sys_0154",
+        "sys_0495",
+        "unknown_edge",
+        "sys_0392"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0200",
+      "name": "Theta Minor",
+      "position": {
+        "x": -1480.3452326833235,
+        "y": -364.56764977455515
+      },
+      "connections": [
+        "sys_0333",
+        "sys_0041",
+        "sys_0215",
+        "sys_0332"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0249",
+      "name": "Eltanin Minor",
+      "position": {
+        "x": 219.84403865367153,
+        "y": 3558.2150551624354
+      },
+      "connections": [
+        "sys_0061",
+        "sys_0031",
+        "sys_0036"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0286",
+      "name": "Kepler Proxima",
+      "empire": "solarian",
+      "position": {
+        "x": -636.9219617290743,
+        "y": -1065.777550777794
+      },
+      "connections": [
+        "sys_0352",
+        "sys_0371",
+        "sys_0406",
+        "tau_ceti"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0103",
+      "name": "Deneb Minor",
+      "position": {
+        "x": -4516.063061215983,
+        "y": -2243.504775955594
+      },
+      "connections": [
+        "sys_0387",
+        "sys_0010",
+        "sys_0338",
+        "sys_0123",
+        "sys_0495",
+        "sys_0397"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0268",
+      "name": "Fomalhaut Proxima",
+      "position": {
+        "x": -28.517960891538657,
+        "y": -1647.374481396158
+      },
+      "connections": [
+        "sys_0406",
+        "sys_0222"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0306",
+      "name": "Ross Major",
+      "position": {
+        "x": -1756.3979974350946,
+        "y": -3619.728943809745
+      },
+      "connections": [
+        "sys_0262",
+        "sys_0234",
+        "sys_0134",
+        "sys_0094",
+        "sys_0133"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0473",
+      "name": "Betelgeuse-9968",
+      "position": {
+        "x": 757.6839989794257,
+        "y": -6759.224608839016
+      },
+      "connections": [
+        "sys_0042",
+        "sys_0060",
+        "sys_0163",
+        "sys_0341",
+        "sys_0129",
+        "sys_0007"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0239",
+      "name": "Ross Major",
+      "position": {
+        "x": 3716.633953146519,
+        "y": -3638.243584804532
+      },
+      "connections": [
+        "sys_0204",
+        "sys_0355",
+        "sys_0409"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0378",
+      "name": "Mintaka-2919",
+      "position": {
+        "x": -1730.531921819142,
+        "y": -2545.150182300645
+      },
+      "connections": [
+        "sys_0305",
+        "sys_0380",
+        "sys_0055",
+        "void_gate"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0472",
+      "name": "Spica Major",
+      "position": {
+        "x": -1789.5149637848056,
+        "y": 4335.305283086406
+      },
+      "connections": [
+        "sys_0252",
+        "sys_0224",
+        "sys_0126",
+        "sys_0365",
+        "sys_0331",
+        "sys_0484"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0461",
+      "name": "Aldebaran Major",
+      "position": {
+        "x": -4999.060788196708,
+        "y": -3153.9195599663353
+      },
+      "connections": [
+        "sys_0292",
+        "sys_0298",
+        "sys_0338",
+        "sys_0214"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0212",
+      "name": "Alpha Major",
+      "position": {
+        "x": -637.0544463377935,
+        "y": -2348.8481526696346
+      },
+      "connections": [
+        "sys_0105",
+        "sys_0318"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0290",
+      "name": "Wolf Proxima",
+      "position": {
+        "x": -809.3903986168101,
+        "y": -3764.6162402556
+      },
+      "connections": [
+        "sys_0228",
+        "sys_0090",
+        "sys_0133",
+        "sys_0134"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0319",
+      "name": "Gamma Proxima",
+      "position": {
+        "x": 3627.337591207356,
+        "y": 3553.3580444575905
+      },
+      "connections": [
+        "sys_0459",
+        "sys_0366",
+        "sys_0145",
+        "sys_0413",
+        "sys_0150"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0385",
+      "name": "HD Minor",
+      "position": {
+        "x": 612.8467439155036,
+        "y": -7553.737486623061
+      },
+      "connections": [
+        "sys_0007",
+        "sys_0429",
+        "sys_0129",
+        "sys_0341"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0500",
+      "name": "Alnitak-6987",
+      "position": {
+        "x": 2281.4904061446914,
+        "y": -2785.334333802869
+      },
+      "connections": [
+        "sys_0435",
+        "sys_0158",
+        "sys_0231",
+        "sys_0241"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0024",
+      "name": "Alpha Major",
+      "position": {
+        "x": -375.1524918657661,
+        "y": -7468.290910413883
+      },
+      "connections": [
+        "sys_0151",
+        "sys_0328",
+        "sys_0187",
+        "sys_0077"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0087",
+      "name": "HD-2706",
+      "position": {
+        "x": 4944.28227687139,
+        "y": -1722.9583728424216
+      },
+      "connections": [
+        "sys_0032",
+        "sys_0419",
+        "sys_0156"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0055",
+      "name": "Alpha 8207g",
+      "position": {
+        "x": -1701.8927860581925,
+        "y": -3021.1933776780847
+      },
+      "connections": [
+        "sys_0305",
+        "void_gate",
+        "sys_0094",
+        "sys_0378",
+        "sys_0471"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0215",
+      "name": "Iota Major",
+      "position": {
+        "x": -1658.8979288760493,
+        "y": -834.9948531813076
+      },
+      "connections": [
+        "sys_0169",
+        "sys_0396",
+        "sys_0332",
+        "sys_0200",
+        "sys_0041",
+        "sys_0050"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0263",
+      "name": "Kepler Major",
+      "position": {
+        "x": -4517.323020307678,
+        "y": 4688.409360501229
+      },
+      "connections": [
+        "sys_0030",
+        "sys_0254",
+        "sys_0135"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0022",
+      "name": "Proxima-798",
+      "position": {
+        "x": -1919.168649005099,
+        "y": 1175.676032174957
+      },
+      "connections": [
+        "sys_0493",
+        "sys_0276",
+        "sys_0261",
+        "sys_0082"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0141",
+      "name": "Arcturus Prime",
+      "position": {
+        "x": -919.3698827763851,
+        "y": 1674.0415323492314
+      },
+      "connections": [
+        "sys_0482",
+        "sys_0434",
+        "sys_0100",
+        "sys_0390",
+        "sys_0432"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0252",
+      "name": "Antares Proxima",
+      "position": {
+        "x": -1712.553604945671,
+        "y": 4620.886489824179
+      },
+      "connections": [
+        "sys_0472",
+        "sys_0484",
+        "sys_0365",
+        "sys_0224",
+        "sys_0126",
+        "sys_0323"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0253",
+      "name": "Sirius 3149g",
+      "position": {
+        "x": -3122.1886987793814,
+        "y": 5502.0605891074865
+      },
+      "connections": [
+        "sys_0462"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0315",
+      "name": "Zeta Major",
+      "position": {
+        "x": 2986.601004262653,
+        "y": -6919.976674593278
+      },
+      "connections": [
+        "sys_0368"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0395",
+      "name": "Spica 8872g",
+      "position": {
+        "x": -3484.5434459432468,
+        "y": 4521.4721231425465
+      },
+      "connections": [
+        "sys_0223",
+        "sys_0254",
+        "sys_0462",
+        "sys_0250"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0410",
+      "name": "Saiph Proxima",
+      "position": {
+        "x": 2075.5652409178974,
+        "y": 2942.545988981465
+      },
+      "connections": [
+        "sys_0080",
+        "sys_0345",
+        "sys_0140",
+        "sys_0297"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0038",
+      "name": "Theta Proxima",
+      "empire": "solarian",
+      "position": {
+        "x": -799.5026816140744,
+        "y": 597.3135892588408
+      },
+      "connections": [
+        "sirius",
+        "epsilon_eridani",
+        "sys_0245",
+        "procyon",
+        "lacaille"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0007",
+      "name": "Saiph-6044",
+      "position": {
+        "x": 920.8164571563017,
+        "y": -7448.440619145782
+      },
+      "connections": [
+        "sys_0129",
+        "sys_0385",
+        "sys_0429",
+        "sys_0473"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0316",
+      "name": "Alnilam-2911",
+      "position": {
+        "x": 3980.8311500657446,
+        "y": 593.2322073538744
+      },
+      "connections": [
+        "sys_0370",
+        "sys_0335",
+        "sys_0164",
+        "sys_0344"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0476",
+      "name": "Theta Proxima",
+      "position": {
+        "x": -6665.133851680775,
+        "y": 755.8553579245231
+      },
+      "connections": [
+        "sys_0098",
+        "sys_0314",
+        "sys_0065",
+        "sys_0452"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0195",
+      "name": "Gamma Prime",
+      "position": {
+        "x": 877.5683278727251,
+        "y": 18.82794669907428
+      },
+      "connections": [
+        "barnard",
+        "sys_0097"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0301",
+      "name": "Arcturus Proxima",
+      "position": {
+        "x": 5183.488827373165,
+        "y": -3866.8144834708537
+      },
+      "connections": [
+        "sys_0015",
+        "sys_0149",
+        "sys_0206",
+        "sys_0110"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0394",
+      "name": "Betelgeuse Prime",
+      "position": {
+        "x": -1836.6498290293832,
+        "y": -4617.060132997767
+      },
+      "connections": [
+        "sys_0357",
+        "sys_0085",
+        "sys_0122"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0384",
+      "name": "Capella Major",
+      "position": {
+        "x": 2241.4094734061373,
+        "y": 1279.32121385271
+      },
+      "connections": [
+        "sys_0207",
+        "sys_0340",
+        "sys_0300",
+        "sys_0124"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0404",
+      "name": "Zeta Minor",
+      "position": {
+        "x": 2712.562220805757,
+        "y": 3357.227441574444
+      },
+      "connections": [
+        "sys_0115",
+        "sys_0080",
+        "sys_0150",
+        "sys_0145"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0285",
+      "name": "Iota 9241g",
+      "position": {
+        "x": -5561.35163706265,
+        "y": 3106.5042859130695
+      },
+      "connections": [
+        "sys_0056",
+        "sys_0498",
+        "sys_0499",
+        "sys_0271",
+        "sys_0289"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0481",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": 3008.253284004775,
+        "y": -5934.511954115329
+      },
+      "connections": [
+        "sys_0247",
+        "sys_0076",
+        "sys_0424",
+        "sys_0049"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0114",
+      "name": "Spica 4007g",
+      "position": {
+        "x": -5213.007061231171,
+        "y": -927.6484891115878
+      },
+      "connections": [
+        "sys_0046",
+        "sys_0441"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0271",
+      "name": "Eltanin Major",
+      "position": {
+        "x": -6011.969940911535,
+        "y": 2837.1385106302027
+      },
+      "connections": [
+        "sys_0498",
+        "sys_0267",
+        "sys_0285",
+        "sys_0056",
+        "sys_0272"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0302",
+      "name": "Vega-220",
+      "empire": "crimson",
+      "position": {
+        "x": 5144.392857547941,
+        "y": 3764.8299735650867
+      },
+      "connections": [
+        "sys_0257",
+        "valor",
+        "glory",
+        "blood_forge",
+        "sys_0373"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0474",
+      "name": "Ross Prime",
+      "position": {
+        "x": -4296.4432810112285,
+        "y": -6071.846916941626
+      },
+      "connections": [
+        "sys_0125",
+        "sys_0053"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0159",
+      "name": "Sirius Prime",
+      "position": {
+        "x": -3945.293614030972,
+        "y": -1256.488794934755
+      },
+      "connections": [
+        "sys_0011",
+        "sys_0269",
+        "sys_0399",
+        "sys_0415",
+        "sys_0075",
+        "sys_0397",
+        "sys_0208"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0437",
+      "name": "Iota-4035",
+      "position": {
+        "x": 6513.656877453466,
+        "y": -2245.0936362666953
+      },
+      "connections": [
+        "sys_0120",
+        "sys_0063",
+        "sys_0021",
+        "sys_0059",
+        "sys_0210"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0430",
+      "name": "Alnitak Prime",
+      "position": {
+        "x": -3666.3790119452665,
+        "y": 228.76744024270246
+      },
+      "connections": [
+        "sys_0167"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0040",
+      "name": "Capella Minor",
+      "position": {
+        "x": -3061.4935469392994,
+        "y": -772.2969921559031
+      },
+      "connections": [
+        "sys_0170",
+        "sys_0075",
+        "sys_0167",
+        "sys_0178"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0085",
+      "name": "Pollux-2266",
+      "position": {
+        "x": -1502.3553973644823,
+        "y": -4812.391287055153
+      },
+      "connections": [
+        "sys_0357",
+        "sys_0394",
+        "sys_0451",
+        "sys_0348"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0154",
+      "name": "Delta Proxima",
+      "position": {
+        "x": -3592.8633505519115,
+        "y": -2144.0153581483
+      },
+      "connections": [
+        "sys_0293",
+        "sys_0495",
+        "sys_0146",
+        "sys_0123",
+        "sys_0018"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0499",
+      "name": "Alnitak Major",
+      "position": {
+        "x": -5155.190295561306,
+        "y": 2999.8119259988425
+      },
+      "connections": [
+        "sys_0285",
+        "sys_0289",
+        "sys_0427",
+        "sys_0475"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0273",
+      "name": "Aldebaran Major",
+      "position": {
+        "x": 3417.161536332512,
+        "y": 29.166935981468832
+      },
+      "connections": [
+        "sys_0334",
+        "sys_0190",
+        "sys_0347",
+        "sys_0428"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0307",
+      "name": "Spica-3277",
+      "empire": "voidborn",
+      "position": {
+        "x": -4062.8303373404333,
+        "y": 3808.5462243291427
+      },
+      "connections": [
+        "sys_0175",
+        "sys_0135",
+        "sys_0236",
+        "sys_0254",
+        "sys_0381"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0355",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": 3391.4665585301855,
+        "y": -4183.213321663063
+      },
+      "connections": [
+        "sys_0431",
+        "sys_0266",
+        "sys_0239",
+        "sys_0320",
+        "sys_0342"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0439",
+      "name": "TRAPPIST- Minor",
+      "position": {
+        "x": -2213.723078966667,
+        "y": 2858.1654495762414
+      },
+      "connections": [
+        "sys_0444",
+        "sys_0490",
+        "sys_0309",
+        "sys_0037"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0070",
+      "name": "Eltanin Prime",
+      "position": {
+        "x": 2008.1887451575376,
+        "y": 4160.738069316798
+      },
+      "connections": [
+        "sys_0280",
+        "sys_0327",
+        "sys_0052",
+        "sys_0349"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0115",
+      "name": "Fomalhaut Prime",
+      "position": {
+        "x": 2669.9609571523124,
+        "y": 3567.449311520842
+      },
+      "connections": [
+        "sys_0404",
+        "sys_0080",
+        "sys_0145",
+        "sys_0349"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0305",
+      "name": "Theta Proxima",
+      "position": {
+        "x": -1646.525622204828,
+        "y": -2780.7284730523284
+      },
+      "connections": [
+        "sys_0055",
+        "sys_0378",
+        "sys_0380",
+        "void_gate",
+        "sys_0471"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0376",
+      "name": "Eltanin-2134",
+      "position": {
+        "x": -4291.605534458842,
+        "y": -3493.885692808335
+      },
+      "connections": [
+        "sys_0279",
+        "sys_0161",
+        "sys_0233",
+        "sys_0298"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0390",
+      "name": "Bellatrix Prime",
+      "empire": "solarian",
+      "position": {
+        "x": -533.5267989692052,
+        "y": 1262.9479191544797
+      },
+      "connections": [
+        "sys_0171",
+        "epsilon_eridani",
+        "sys_0141",
+        "procyon",
+        "sys_0245"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0431",
+      "name": "Pollux Minor",
+      "position": {
+        "x": 3375.8030979148407,
+        "y": -4685.808474828227
+      },
+      "connections": [
+        "sys_0320",
+        "sys_0139",
+        "sys_0355",
+        "sys_0266"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0492",
+      "name": "Betelgeuse-4728",
+      "position": {
+        "x": -6187.354913127276,
+        "y": -1553.6509152065578
+      },
+      "connections": [
+        "sys_0494",
+        "sys_0091",
+        "sys_0071",
+        "sys_0035",
+        "sys_0113"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "factory_belt",
+      "name": "Factory Belt",
+      "empire": "nebula",
+      "position": {
+        "x": 1901.3811828013143,
+        "y": -5147.942235193968
+      },
+      "connections": [
+        "trader_rest",
+        "sys_0350",
+        "sys_0002",
+        "treasure_cache"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0318",
+      "name": "Aldebaran Prime",
+      "position": {
+        "x": -899.1570513968095,
+        "y": -1801.9740094916626
+      },
+      "connections": [
+        "sys_0371",
+        "sys_0212",
+        "sys_0406"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0467",
+      "name": "Delta Proxima",
+      "position": {
+        "x": -1101.123512479107,
+        "y": 4112.560873480952
+      },
+      "connections": [
+        "sys_0331",
+        "sys_0224",
+        "sys_0365",
+        "sys_0372",
+        "sys_0166"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0207",
+      "name": "Deneb-4155",
+      "position": {
+        "x": 1826.0631311023283,
+        "y": 1103.7937660086106
+      },
+      "connections": [
+        "sys_0278",
+        "sys_0384",
+        "sys_0112",
+        "sys_0340"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0426",
+      "name": "HD Minor",
+      "position": {
+        "x": -1690.527480554395,
+        "y": 476.4835958347779
+      },
+      "connections": [
+        "sys_0082",
+        "sys_0346",
+        "sys_0493",
+        "sys_0326",
+        "sys_0333"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0182",
+      "name": "Deneb-5378",
+      "position": {
+        "x": 4742.6783929593175,
+        "y": 1092.0738978511129
+      },
+      "connections": [
+        "sys_0136",
+        "sys_0370",
+        "sys_0058",
+        "sys_0095",
+        "sys_0009"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0196",
+      "name": "Sirius Minor",
+      "position": {
+        "x": -5175.37502994882,
+        "y": 1956.6196831098998
+      },
+      "connections": [
+        "sys_0047",
+        "sys_0026",
+        "sys_0272"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0287",
+      "name": "Alnitak Minor",
+      "position": {
+        "x": 5954.761031326511,
+        "y": 3027.35281757769
+      },
+      "connections": [
+        "sys_0109",
+        "sys_0324",
+        "sys_0116",
+        "blood_forge"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0228",
+      "name": "Bellatrix-7962",
+      "position": {
+        "x": -1069.9800466314282,
+        "y": -4083.9754478488794
+      },
+      "connections": [
+        "sys_0290",
+        "sys_0348",
+        "sys_0134",
+        "sys_0133"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0296",
+      "name": "Eltanin Major",
+      "position": {
+        "x": 1769.9456487487967,
+        "y": 342.60925162258087
+      },
+      "connections": [
+        "sys_0112",
+        "sys_0086",
+        "sys_0304",
+        "sys_0278",
+        "sys_0340"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0327",
+      "name": "Spica Proxima",
+      "position": {
+        "x": 2243.8901869959323,
+        "y": 4432.470854674099
+      },
+      "connections": [
+        "sys_0070",
+        "sys_0349",
+        "sys_0280",
+        "sys_0062"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0471",
+      "name": "Rigel Proxima",
+      "position": {
+        "x": -987.5826160889992,
+        "y": -3056.0799414414023
+      },
+      "connections": [
+        "sys_0133",
+        "sys_0094",
+        "sys_0305",
+        "sys_0055",
+        "sys_0133"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0045",
+      "name": "Eltanin Major",
+      "position": {
+        "x": -3739.726113767595,
+        "y": -4591.89546464437
+      },
+      "connections": [
+        "sys_0448"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0123",
+      "name": "Delta Minor",
+      "position": {
+        "x": -3980.2990885296326,
+        "y": -2446.10602946905
+      },
+      "connections": [
+        "sys_0495",
+        "sys_0146",
+        "sys_0392",
+        "sys_0154",
+        "sys_0103"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0297",
+      "name": "Alnitak Proxima",
+      "position": {
+        "x": 1490.2840425339264,
+        "y": 2546.5729569783844
+      },
+      "connections": [
+        "sys_0140",
+        "sys_0194",
+        "sys_0288",
+        "sys_0410"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0328",
+      "name": "Vega Proxima",
+      "position": {
+        "x": -156.86369525512245,
+        "y": -7257.323328347361
+      },
+      "connections": [
+        "sys_0077",
+        "sys_0024",
+        "sys_0187",
+        "sys_0341",
+        "sys_0429",
+        "sys_0151",
+        "sys_0051"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0380",
+      "name": "Beta Proxima",
+      "empire": "outerrim",
+      "position": {
+        "x": -2058.808966065199,
+        "y": -2591.8388553152195
+      },
+      "connections": [
+        "sys_0378",
+        "sys_0305",
+        "telescope",
+        "void_gate"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0421",
+      "name": "Altair Prime",
+      "position": {
+        "x": 1017.9157167174342,
+        "y": 4054.1883627664934
+      },
+      "connections": [
+        "sys_0217",
+        "sys_0277",
+        "sys_0119",
+        "sys_0111"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0058",
+      "name": "Rigel Major",
+      "position": {
+        "x": 4739.83648286721,
+        "y": 600.3747611933941
+      },
+      "connections": [
+        "sys_0335",
+        "sys_0367",
+        "sys_0344",
+        "sys_0370",
+        "sys_0182",
+        "sys_0351"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0077",
+      "name": "Altair-4360",
+      "position": {
+        "x": -9.073303987964852,
+        "y": -7018.736638571295
+      },
+      "connections": [
+        "sys_0341",
+        "sys_0328",
+        "sys_0187",
+        "sys_0051",
+        "sys_0024",
+        "sys_0165",
+        "sys_0429",
+        "sys_0042"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0225",
+      "name": "Beta Minor",
+      "position": {
+        "x": -4527.187995699868,
+        "y": -5133.68844712125
+      },
+      "connections": [
+        "sys_0053",
+        "sys_0243",
+        "sys_0361",
+        "sys_0382",
+        "sys_0448"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0402",
+      "name": "Alpha Prime",
+      "position": {
+        "x": 2809.138360346298,
+        "y": 5717.089885860557
+      },
+      "connections": [
+        "sys_0067",
+        "sys_0483",
+        "sys_0445",
+        "sys_0067"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0415",
+      "name": "Altair Minor",
+      "position": {
+        "x": -4046.3438527523117,
+        "y": -719.4540541100749
+      },
+      "connections": [
+        "sys_0269",
+        "sys_0208",
+        "sys_0159",
+        "sys_0011",
+        "sys_0167"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0186",
+      "name": "Beta 9504g",
+      "position": {
+        "x": -5069.4547204369765,
+        "y": -4158.636136465236
+      },
+      "connections": [
+        "sys_0044",
+        "sys_0214",
+        "sys_0377",
+        "sys_0382",
+        "sys_0054"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0454",
+      "name": "Pollux Proxima",
+      "position": {
+        "x": 561.2289505674876,
+        "y": 6373.076035374266
+      },
+      "connections": [
+        "sys_0025"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0458",
+      "name": "HD-7950",
+      "position": {
+        "x": -3031.8387656194013,
+        "y": 3741.208336880079
+      },
+      "connections": [
+        "sys_0480",
+        "sys_0363",
+        "sys_0250",
+        "sys_0468",
+        "sys_0309"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0069",
+      "name": "Betelgeuse Major",
+      "position": {
+        "x": 1909.5306851694804,
+        "y": -5897.843366946027
+      },
+      "connections": [
+        "sys_0003",
+        "sys_0104",
+        "sys_0002",
+        "sys_0398"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0065",
+      "name": "Beta-3879",
+      "position": {
+        "x": -6504.052364808855,
+        "y": 1431.9556552992492
+      },
+      "connections": [
+        "sys_0099",
+        "sys_0098",
+        "sys_0251",
+        "sys_0489",
+        "sys_0476"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0264",
+      "name": "Sirius 9904g",
+      "position": {
+        "x": -1195.5529462616169,
+        "y": 5166.068523786086
+      },
+      "connections": [
+        "sys_0081",
+        "sys_0365",
+        "sys_0484",
+        "sys_0372",
+        "sys_0313",
+        "sys_0074"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0495",
+      "name": "Antares-3110",
+      "position": {
+        "x": -3924.7670543639215,
+        "y": -2188.9546023660546
+      },
+      "connections": [
+        "sys_0123",
+        "sys_0154",
+        "sys_0146",
+        "sys_0103",
+        "sys_0293"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0004",
+      "name": "Spica 7791g",
+      "position": {
+        "x": -2519.9076541069026,
+        "y": 1693.8545781289126
+      },
+      "connections": [
+        "sys_0291",
+        "sys_0221",
+        "sys_0276",
+        "experiment"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0089",
+      "name": "Capella 4991g",
+      "position": {
+        "x": -4938.982938265943,
+        "y": 4055.196490849566
+      },
+      "connections": [
+        "sys_0487",
+        "sys_0236",
+        "sys_0030",
+        "sys_0135"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0053",
+      "name": "Beta Proxima",
+      "position": {
+        "x": -4379.229187033719,
+        "y": -5466.146197852931
+      },
+      "connections": [
+        "sys_0225",
+        "sys_0243",
+        "sys_0474"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0122",
+      "name": "TOI Major",
+      "position": {
+        "x": -2374.573491637953,
+        "y": -4649.784795054268
+      },
+      "connections": [
+        "sys_0394",
+        "sys_0357"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0293",
+      "name": "Altair Major",
+      "position": {
+        "x": -3366.1700705012086,
+        "y": -1965.7297840316896
+      },
+      "connections": [
+        "sys_0018",
+        "sys_0154",
+        "sys_0399",
+        "sys_0495",
+        "sys_0066"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0321",
+      "name": "Proxima- Proxima",
+      "position": {
+        "x": 5169.663691544847,
+        "y": -710.1537051569823
+      },
+      "connections": [
+        "sys_0168",
+        "sys_0219",
+        "sys_0299",
+        "sys_0006"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0330",
+      "name": "Vega Prime",
+      "position": {
+        "x": -1530.9604107478513,
+        "y": 2266.474489933095
+      },
+      "connections": [
+        "sys_0490",
+        "sys_0482",
+        "sys_0417",
+        "sys_0100"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0367",
+      "name": "Sirius-577",
+      "position": {
+        "x": 5008.815491207412,
+        "y": 508.90255584468537
+      },
+      "connections": [
+        "sys_0351",
+        "sys_0058",
+        "sys_0344",
+        "sys_0335"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0489",
+      "name": "Mintaka Minor",
+      "position": {
+        "x": -5975.017048933972,
+        "y": 1239.7500067974163
+      },
+      "connections": [
+        "sys_0099",
+        "sys_0098",
+        "sys_0065",
+        "sys_0251"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0090",
+      "name": "Kepler Major",
+      "position": {
+        "x": -303.1634800927966,
+        "y": -3970.0817826876737
+      },
+      "connections": [
+        "sys_0235",
+        "sys_0005",
+        "sys_0079",
+        "sys_0290"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0223",
+      "name": "Sirius Prime",
+      "position": {
+        "x": -3253.3485613696,
+        "y": 4494.676085410703
+      },
+      "connections": [
+        "sys_0395",
+        "sys_0462",
+        "sys_0250",
+        "sys_0199"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0258",
+      "name": "Alnitak 5449g",
+      "position": {
+        "x": 2238.8252183109985,
+        "y": 2193.6510352172213
+      },
+      "connections": [
+        "sys_0300",
+        "sys_0345",
+        "sys_0194"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0348",
+      "name": "Sirius Minor",
+      "position": {
+        "x": -882.6360134393462,
+        "y": -4541.62418049031
+      },
+      "connections": [
+        "sys_0246",
+        "sys_0183",
+        "sys_0228",
+        "sys_0451",
+        "sys_0085"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0452",
+      "name": "Zeta Minor",
+      "position": {
+        "x": -6701.201917760124,
+        "y": 59.547742591700825
+      },
+      "connections": [
+        "sys_0314",
+        "sys_0491",
+        "sys_0476"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0105",
+      "name": "Fomalhaut Proxima",
+      "position": {
+        "x": -352.1983500298744,
+        "y": -2668.507227330652
+      },
+      "connections": [
+        "sys_0048",
+        "sys_0212",
+        "sys_0311",
+        "sys_0455"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0143",
+      "name": "Proxima-8453",
+      "position": {
+        "x": -4536.382842442283,
+        "y": -100.64923760941193
+      },
+      "connections": [
+        "sys_0229",
+        "sys_0265",
+        "sys_0393"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0151",
+      "name": "Bellatrix 6620g",
+      "position": {
+        "x": -635.9450896032722,
+        "y": -7357.427525878739
+      },
+      "connections": [
+        "sys_0024",
+        "sys_0187",
+        "sys_0328",
+        "sys_0051",
+        "sys_0442"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0158",
+      "name": "Fomalhaut Major",
+      "position": {
+        "x": 2634.252477094874,
+        "y": -2580.310691434251
+      },
+      "connections": [
+        "sys_0435",
+        "sys_0500",
+        "sys_0174"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0211",
+      "name": "Saiph-9518",
+      "position": {
+        "x": 6526.648209279555,
+        "y": 478.9171194776489
+      },
+      "connections": [
+        "sys_0238",
+        "sys_0369"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0334",
+      "name": "Capella Prime",
+      "position": {
+        "x": 3304.229094437574,
+        "y": 204.13129863019944
+      },
+      "connections": [
+        "sys_0273",
+        "sys_0190",
+        "sys_0347",
+        "sys_0428"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0383",
+      "name": "Fomalhaut-206",
+      "position": {
+        "x": 741.4027794459357,
+        "y": 5623.9907735872775
+      },
+      "connections": [
+        "sys_0025",
+        "sys_0188",
+        "sys_0093"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0443",
+      "name": "Altair Prime",
+      "position": {
+        "x": 1555.589616258933,
+        "y": -2295.9820953079843
+      },
+      "connections": [
+        "sys_0231",
+        "sys_0230"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0016",
+      "name": "Antares-9252",
+      "position": {
+        "x": -91.65839878065219,
+        "y": 5753.516602793337
+      },
+      "connections": [
+        "sys_0313",
+        "sys_0275"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "barnard",
+      "name": "Barnard's Star",
+      "position": {
+        "x": 577.118783111318,
+        "y": 364.0611290557372
+      },
+      "connections": [
+        "sys_0097",
+        "sys_0195",
+        "proxima",
+        "sys_0255"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0266",
+      "name": "Proxima-1140",
+      "position": {
+        "x": 3862.318827335939,
+        "y": -4401.485064668361
+      },
+      "connections": [
+        "sys_0138",
+        "sys_0355",
+        "sys_0431",
+        "sys_0139"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "archive",
+      "name": "The Archive",
+      "position": {
+        "x": -4405.766030540782,
+        "y": 1153.6951162483429
+      },
+      "connections": [
+        "sys_0033",
+        "sys_0220",
+        "relay",
+        "sys_0092"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0490",
+      "name": "Saiph Prime",
+      "position": {
+        "x": -2099.333582403582,
+        "y": 2386.422602129222
+      },
+      "connections": [
+        "sys_0439",
+        "sys_0221",
+        "sys_0330",
+        "sys_0037"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0497",
+      "name": "Iota-5634",
+      "position": {
+        "x": -190.3079475387265,
+        "y": -5888.94016262142
+      },
+      "connections": [
+        "sys_0148",
+        "sys_0019",
+        "sys_0282",
+        "sys_0165"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0011",
+      "name": "Betelgeuse-504",
+      "position": {
+        "x": -4065.2847818124696,
+        "y": -1433.0768863703727
+      },
+      "connections": [
+        "sys_0159",
+        "sys_0399",
+        "sys_0397",
+        "sys_0269",
+        "sys_0415",
+        "sys_0208"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0109",
+      "name": "Wolf 79g",
+      "empire": "crimson",
+      "position": {
+        "x": 6159.263386047135,
+        "y": 2722.7919546840317
+      },
+      "connections": [
+        "sys_0287",
+        "sys_0116",
+        "sys_0324",
+        "sys_0354"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0216",
+      "name": "Delta Prime",
+      "position": {
+        "x": -6943.467938512352,
+        "y": -735.3347676874268
+      },
+      "connections": [
+        "sys_0450",
+        "sys_0113"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0289",
+      "name": "Gamma Prime",
+      "position": {
+        "x": -5167.424723770167,
+        "y": 3463.905130703495
+      },
+      "connections": [
+        "sys_0487",
+        "sys_0499",
+        "sys_0285",
+        "sys_0056"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0350",
+      "name": "Altair Minor",
+      "empire": "nebula",
+      "position": {
+        "x": 1651.4027165345867,
+        "y": -5368.711320567289
+      },
+      "connections": [
+        "factory_belt",
+        "trader_rest",
+        "sys_0003",
+        "sys_0002",
+        "sys_0201"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0233",
+      "name": "HD Proxima",
+      "position": {
+        "x": -4128.3615966218695,
+        "y": -3903.0311539789063
+      },
+      "connections": [
+        "sys_0161",
+        "sys_0152",
+        "sys_0376",
+        "sys_0279"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0026",
+      "name": "Epsilon Proxima",
+      "position": {
+        "x": -5649.498929489213,
+        "y": 2222.139462600849
+      },
+      "connections": [
+        "sys_0272",
+        "sys_0267",
+        "sys_0196",
+        "sys_0251"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0064",
+      "name": "Pollux Proxima",
+      "position": {
+        "x": 5664.84023457968,
+        "y": -1251.3426214614913
+      },
+      "connections": [
+        "sys_0184",
+        "sys_0073",
+        "sys_0168",
+        "sys_0032"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0198",
+      "name": "TRAPPIST-2438",
+      "position": {
+        "x": 406.8601041624616,
+        "y": 1271.3105041540498
+      },
+      "connections": [
+        "sys_0012",
+        "sys_0379",
+        "sys_0171",
+        "sys_0107",
+        "sys_0353"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0496",
+      "name": "Alnitak Proxima",
+      "position": {
+        "x": 5716.828696305287,
+        "y": -1866.761702705872
+      },
+      "connections": [
+        "sys_0073",
+        "sys_0419",
+        "sys_0032",
+        "sys_0021"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "frontier_war",
+      "name": "War's Frontier",
+      "empire": "crimson",
+      "position": {
+        "x": 5377.678403908876,
+        "y": 2360.066181704797
+      },
+      "connections": [
+        "sys_0324",
+        "anvil",
+        "sys_0232",
+        "sys_0354",
+        "sys_0116",
+        "sys_0485"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0450",
+      "name": "Saiph 7090g",
+      "position": {
+        "x": -6949.457394019628,
+        "y": -1081.914555689088
+      },
+      "connections": [
+        "sys_0216",
+        "sys_0113",
+        "sys_0071"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0459",
+      "name": "Alnilam Major",
+      "position": {
+        "x": 3815.1168455332836,
+        "y": 3216.064182392675
+      },
+      "connections": [
+        "sys_0319",
+        "sys_0150",
+        "sys_0413",
+        "sys_0366"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0048",
+      "name": "Bellatrix Minor",
+      "position": {
+        "x": -19.738315316916072,
+        "y": -2784.5569895460935
+      },
+      "connections": [
+        "sys_0455",
+        "sys_0105",
+        "sys_0311",
+        "sys_0096",
+        "sys_0295"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0191",
+      "name": "Bellatrix Prime",
+      "empire": "nebula",
+      "position": {
+        "x": 2007.8239924890497,
+        "y": -3445.4448137571367
+      },
+      "connections": [
+        "gold_run",
+        "cargo_lanes",
+        "sys_0440",
+        "sys_0241"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0276",
+      "name": "TRAPPIST-8316",
+      "position": {
+        "x": -2477.570900983009,
+        "y": 1335.868076866821
+      },
+      "connections": [
+        "sys_0291",
+        "sys_0004",
+        "sys_0180",
+        "sys_0261",
+        "sys_0022"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0255",
+      "name": "Eltanin Prime",
+      "position": {
+        "x": 768.3885768797504,
+        "y": 830.5652452098263
+      },
+      "connections": [
+        "sys_0097",
+        "sys_0407",
+        "barnard",
+        "sys_0107"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0326",
+      "name": "Fomalhaut-9894",
+      "position": {
+        "x": -2183.2843128431273,
+        "y": 413.6285579783482
+      },
+      "connections": [
+        "sys_0493",
+        "sys_0346",
+        "sys_0426",
+        "sys_0261",
+        "sys_0226"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0324",
+      "name": "Altair Prime",
+      "empire": "crimson",
+      "position": {
+        "x": 5642.447955162207,
+        "y": 2496.7975555113785
+      },
+      "connections": [
+        "sys_0116",
+        "frontier_war",
+        "sys_0354",
+        "sys_0109",
+        "anvil",
+        "sys_0485",
+        "sys_0287",
+        "sys_0232"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0091",
+      "name": "TOI 4274g",
+      "position": {
+        "x": -6014.319033728003,
+        "y": -1878.0165309033587
+      },
+      "connections": [
+        "sys_0447",
+        "sys_0035",
+        "sys_0494",
+        "sys_0492",
+        "sys_0360"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0051",
+      "name": "Fomalhaut Major",
+      "position": {
+        "x": -467.11600964962275,
+        "y": -6782.550118482805
+      },
+      "connections": [
+        "sys_0187",
+        "sys_0077",
+        "sys_0328",
+        "sys_0151",
+        "sys_0282",
+        "sys_0442"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0230",
+      "name": "Altair-2303",
+      "position": {
+        "x": 1310.2800355145062,
+        "y": -2767.3174640787047
+      },
+      "connections": [
+        "sys_0479",
+        "sys_0231",
+        "sys_0443",
+        "sys_0418"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0001",
+      "name": "Pollux 7130g",
+      "position": {
+        "x": -2827.765174998694,
+        "y": -6352.026920929624
+      },
+      "connections": [
+        "sys_0308",
+        "sys_0127",
+        "sys_0237"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sol",
+      "name": "Sol",
+      "description": "The birthplace of humanity. Heart of the Solarian Confederacy.",
+      "empire": "solarian",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "connections": [
+        "alpha_centauri",
+        "sirius"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 2
+    },
+    {
+      "system_id": "sys_0075",
+      "name": "Theta Minor",
+      "position": {
+        "x": -3363.861717134095,
+        "y": -1181.237193662649
+      },
+      "connections": [
+        "sys_0269",
+        "sys_0040",
+        "sys_0399",
+        "sys_0159"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0240",
+      "name": "Antares Proxima",
+      "position": {
+        "x": 4988.155995721201,
+        "y": -3036.5369569154573
+      },
+      "connections": [
+        "sys_0206",
+        "sys_0388",
+        "sys_0149"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0224",
+      "name": "TOI 3063g",
+      "position": {
+        "x": -1414.1269965898407,
+        "y": 4298.878454523799
+      },
+      "connections": [
+        "sys_0365",
+        "sys_0331",
+        "sys_0467",
+        "sys_0472",
+        "sys_0372",
+        "sys_0252"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0275",
+      "name": "Sirius-6603",
+      "position": {
+        "x": -597.8828152009071,
+        "y": 6224.767189328332
+      },
+      "connections": [
+        "sys_0242",
+        "sys_0101",
+        "sys_0016"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0050",
+      "name": "Ross-7122",
+      "position": {
+        "x": -2335.426819563641,
+        "y": -1029.5207878903786
+      },
+      "connections": [
+        "sys_0169",
+        "sys_0332",
+        "sys_0132",
+        "sys_0215"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0106",
+      "name": "Alnitak Minor",
+      "position": {
+        "x": -2136.7741355993808,
+        "y": -5918.1202871553405
+      },
+      "connections": [
+        "sys_0422"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0110",
+      "name": "Capella 4826g",
+      "position": {
+        "x": 5268.47172041791,
+        "y": -4529.747596106767
+      },
+      "connections": [
+        "sys_0425",
+        "sys_0015",
+        "sys_0213",
+        "sys_0325",
+        "sys_0301"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0125",
+      "name": "Wolf Minor",
+      "position": {
+        "x": -3895.988961538973,
+        "y": -6250.651918267098
+      },
+      "connections": [
+        "sys_0474",
+        "sys_0237"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0183",
+      "name": "Capella 3334g",
+      "position": {
+        "x": -613.8630495770376,
+        "y": -4949.227865971353
+      },
+      "connections": [
+        "sys_0246",
+        "sys_0203",
+        "sys_0451",
+        "sys_0446",
+        "sys_0348"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0213",
+      "name": "Betelgeuse Minor",
+      "position": {
+        "x": 5151.781344435811,
+        "y": -4925.428147719606
+      },
+      "connections": [
+        "sys_0425",
+        "sys_0325",
+        "sys_0110"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "unknown_edge",
+      "name": "Unknown Edge",
+      "empire": "outerrim",
+      "position": {
+        "x": -3168.081009441405,
+        "y": -2817.389125686795
+      },
+      "connections": [
+        "distant_light",
+        "waypoint",
+        "sys_0146",
+        "telescope"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0483",
+      "name": "TRAPPIST- Minor",
+      "position": {
+        "x": 2286.6074049178715,
+        "y": 5541.1969923419365
+      },
+      "connections": [
+        "sys_0433",
+        "sys_0029",
+        "sys_0456",
+        "sys_0062",
+        "sys_0402",
+        "sys_0445"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "telescope",
+      "name": "The Telescope",
+      "empire": "outerrim",
+      "position": {
+        "x": -2538.4729405901867,
+        "y": -2831.4748168489227
+      },
+      "connections": [
+        "distant_light",
+        "waypoint",
+        "first_step",
+        "sys_0380",
+        "horizon",
+        "unknown_edge"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0145",
+      "name": "TOI Major",
+      "position": {
+        "x": 3274.439817530463,
+        "y": 3838.250957707105
+      },
+      "connections": [
+        "sys_0319",
+        "sys_0218",
+        "sys_0366",
+        "sys_0115",
+        "sys_0349",
+        "sys_0150",
+        "sys_0404"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0257",
+      "name": "Capella 1445g",
+      "empire": "crimson",
+      "position": {
+        "x": 4884.934597806419,
+        "y": 3812.355478006165
+      },
+      "connections": [
+        "sys_0302",
+        "glory",
+        "valor",
+        "sys_0373"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0371",
+      "name": "Alpha-2354",
+      "position": {
+        "x": -1061.587175145937,
+        "y": -1570.1304617163007
+      },
+      "connections": [
+        "sys_0318",
+        "sys_0396",
+        "sys_0286"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0398",
+      "name": "Iota Minor",
+      "position": {
+        "x": 2095.3425943318452,
+        "y": -6427.72114400785
+      },
+      "connections": [
+        "sys_0364",
+        "sys_0368",
+        "sys_0104",
+        "sys_0069"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0391",
+      "name": "Sirius 6646g",
+      "position": {
+        "x": 4793.036480932162,
+        "y": -77.79466694987003
+      },
+      "connections": [
+        "sys_0006",
+        "sys_0299",
+        "sys_0344",
+        "sys_0083",
+        "sys_0351"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0149",
+      "name": "Kepler Minor",
+      "position": {
+        "x": 5373.276560301004,
+        "y": -3535.796356948349
+      },
+      "connections": [
+        "sys_0206",
+        "sys_0301",
+        "sys_0436",
+        "sys_0015",
+        "sys_0240",
+        "sys_0388"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0074",
+      "name": "Proxima- Minor",
+      "position": {
+        "x": -476.57097626747816,
+        "y": 5017.764294260626
+      },
+      "connections": [
+        "sys_0313",
+        "sys_0372",
+        "sys_0264"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0137",
+      "name": "Wolf Prime",
+      "position": {
+        "x": -325.1593034025041,
+        "y": 1916.514761584177
+      },
+      "connections": [
+        "sys_0469",
+        "sys_0432",
+        "sys_0434",
+        "sys_0379"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0202",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": -5763.655932832282,
+        "y": -3999.8964997419503
+      },
+      "connections": [
+        "sys_0377",
+        "sys_0034",
+        "sys_0054",
+        "sys_0044"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0388",
+      "name": "Rigel Minor",
+      "position": {
+        "x": 5466.015076703504,
+        "y": -2835.3239357429184
+      },
+      "connections": [
+        "sys_0206",
+        "sys_0240",
+        "sys_0059",
+        "sys_0149"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "relay",
+      "name": "Relay Station",
+      "position": {
+        "x": -4037.958552043869,
+        "y": 1061.9549294648925
+      },
+      "connections": [
+        "archive",
+        "sys_0220",
+        "sys_0092",
+        "sys_0033"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0046",
+      "name": "Pollux Major",
+      "position": {
+        "x": -5562.897945671443,
+        "y": -1125.288171068051
+      },
+      "connections": [
+        "sys_0114",
+        "sys_0441",
+        "sys_0071",
+        "sys_0072"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0197",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": -5397.852342435638,
+        "y": -1959.7836911116572
+      },
+      "connections": [
+        "sys_0084",
+        "sys_0035",
+        "sys_0010",
+        "sys_0441",
+        "sys_0460"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0317",
+      "name": "Gamma Proxima",
+      "position": {
+        "x": 3446.4365206422704,
+        "y": -1030.0750321205646
+      },
+      "connections": [
+        "sys_0411",
+        "sys_0017",
+        "sys_0347"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0397",
+      "name": "Kepler-7965",
+      "position": {
+        "x": -4406.159684733609,
+        "y": -1636.7204350539662
+      },
+      "connections": [
+        "sys_0011",
+        "sys_0208",
+        "sys_0159",
+        "sys_0103"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "void_gate",
+      "name": "Void Gate",
+      "empire": "outerrim",
+      "position": {
+        "x": -2021.9072688394976,
+        "y": -3142.8154641982333
+      },
+      "connections": [
+        "sys_0262",
+        "sys_0055",
+        "first_step",
+        "sys_0305",
+        "sys_0378",
+        "sys_0380"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0374",
+      "name": "Epsilon-2979",
+      "position": {
+        "x": 1378.5124838868085,
+        "y": 4547.6990200094115
+      },
+      "connections": [
+        "sys_0277",
+        "sys_0280",
+        "sys_0294",
+        "sys_0217"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0056",
+      "name": "Theta Proxima",
+      "position": {
+        "x": -5729.405447299646,
+        "y": 3324.819415744873
+      },
+      "connections": [
+        "sys_0285",
+        "sys_0498",
+        "sys_0271",
+        "sys_0289"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "procyon",
+      "name": "Procyon",
+      "empire": "solarian",
+      "position": {
+        "x": -111.274501950152,
+        "y": 783.427375525316
+      },
+      "connections": [
+        "epsilon_eridani",
+        "proxima",
+        "sys_0171",
+        "sys_0390",
+        "sys_0038"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0323",
+      "name": "Saiph-3133",
+      "position": {
+        "x": -2064.7236211200584,
+        "y": 4920.729100926345
+      },
+      "connections": [
+        "sys_0484",
+        "sys_0356",
+        "sys_0252",
+        "sys_0126",
+        "sys_0057",
+        "sys_0199"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0370",
+      "name": "Altair Major",
+      "position": {
+        "x": 4331.829235960938,
+        "y": 848.5722805554757
+      },
+      "connections": [
+        "sys_0136",
+        "sys_0335",
+        "sys_0316",
+        "sys_0058",
+        "sys_0164",
+        "sys_0182",
+        "sys_0095"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0446",
+      "name": "Fomalhaut Proxima",
+      "position": {
+        "x": -206.4694263671411,
+        "y": -5208.286101953072
+      },
+      "connections": [
+        "sys_0183",
+        "sys_0019",
+        "sys_0203",
+        "sys_0246"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0029",
+      "name": "Pollux Minor",
+      "position": {
+        "x": 1928.6333778097103,
+        "y": 5227.747921369264
+      },
+      "connections": [
+        "sys_0433",
+        "sys_0062",
+        "sys_0483",
+        "sys_0445",
+        "sys_0456"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0059",
+      "name": "Sirius Prime",
+      "position": {
+        "x": 6049.058204898309,
+        "y": -2795.343515178198
+      },
+      "connections": [
+        "sys_0120",
+        "sys_0388",
+        "sys_0437"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0227",
+      "name": "Alpha Prime",
+      "position": {
+        "x": -6060.449194145424,
+        "y": -419.5468754110804
+      },
+      "connections": [
+        "sys_0072",
+        "sys_0491",
+        "sys_0071"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0241",
+      "name": "Mintaka 5608g",
+      "empire": "nebula",
+      "position": {
+        "x": 2527.3274961837033,
+        "y": -3409.268627362527
+      },
+      "connections": [
+        "sys_0342",
+        "cargo_lanes",
+        "sys_0191",
+        "sys_0435",
+        "sys_0500"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0292",
+      "name": "Beta-9775",
+      "position": {
+        "x": -5209.84767637671,
+        "y": -3203.6585122019674
+      },
+      "connections": [
+        "sys_0461",
+        "sys_0034",
+        "sys_0298",
+        "sys_0214"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0339",
+      "name": "Beta Proxima",
+      "position": {
+        "x": 6025.145746301421,
+        "y": -4138.753821115826
+      },
+      "connections": [
+        "sys_0436"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0243",
+      "name": "Betelgeuse Prime",
+      "position": {
+        "x": -4979.941674951154,
+        "y": -5382.91231119595
+      },
+      "connections": [
+        "sys_0361",
+        "sys_0225",
+        "sys_0053"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0232",
+      "name": "Arcturus-6638",
+      "empire": "crimson",
+      "position": {
+        "x": 5033.800790888048,
+        "y": 2125.7990771043505
+      },
+      "connections": [
+        "anvil",
+        "frontier_war",
+        "sys_0324",
+        "sys_0354"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "alpha_centauri",
+      "name": "Alpha Centauri",
+      "empire": "solarian",
+      "position": {
+        "x": 97.17004876193714,
+        "y": -261.41523853481254
+      },
+      "connections": [
+        "sol",
+        "tau_ceti"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0068",
+      "name": "Pollux-4052",
+      "position": {
+        "x": 2585.932877103113,
+        "y": -934.028849174469
+      },
+      "connections": [
+        "sys_0209",
+        "sys_0013",
+        "sys_0359",
+        "sys_0173",
+        "sys_0428"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0144",
+      "name": "Ross Prime",
+      "position": {
+        "x": 6724.443965663596,
+        "y": -342.5757654716803
+      },
+      "connections": [
+        "sys_0453",
+        "sys_0189",
+        "sys_0414"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0242",
+      "name": "Sirius Proxima",
+      "position": {
+        "x": -1103.0131191058804,
+        "y": 6261.8454282313705
+      },
+      "connections": [
+        "sys_0101",
+        "sys_0275",
+        "sys_0177"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0260",
+      "name": "Altair Prime",
+      "position": {
+        "x": 1195.7672903726072,
+        "y": -5956.56846379209
+      },
+      "connections": [
+        "sys_0088",
+        "sys_0003",
+        "sys_0060",
+        "sys_0163",
+        "sys_0403"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0092",
+      "name": "Fomalhaut Proxima",
+      "position": {
+        "x": -4465.741630233924,
+        "y": 694.8978811162597
+      },
+      "connections": [
+        "sys_0220",
+        "archive",
+        "sys_0033",
+        "relay",
+        "sys_0265"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0387",
+      "name": "Antares-458",
+      "position": {
+        "x": -4822.698931671916,
+        "y": -2360.9194037346247
+      },
+      "connections": [
+        "sys_0010",
+        "sys_0460",
+        "sys_0103",
+        "sys_0084",
+        "sys_0338"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0364",
+      "name": "Gamma Major",
+      "position": {
+        "x": 2389.267589184151,
+        "y": -6226.434617298414
+      },
+      "connections": [
+        "sys_0104",
+        "sys_0076",
+        "sys_0398",
+        "sys_0368"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0407",
+      "name": "Sirius-6424",
+      "position": {
+        "x": 1158.3961616805407,
+        "y": 879.5811035108941
+      },
+      "connections": [
+        "sys_0278",
+        "sys_0255",
+        "sys_0107",
+        "sys_0112",
+        "sys_0097"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0414",
+      "name": "Spica Minor",
+      "position": {
+        "x": 6686.053528747908,
+        "y": -1001.0690491012194
+      },
+      "connections": [
+        "sys_0453",
+        "sys_0210",
+        "sys_0144"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0205",
+      "name": "Iota Major",
+      "position": {
+        "x": 1439.521461813661,
+        "y": 6185.206676097233
+      },
+      "connections": [
+        "sys_0025",
+        "sys_0456"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0237",
+      "name": "Alnilam-7504",
+      "position": {
+        "x": -3219.130305983517,
+        "y": -5907.862628593358
+      },
+      "connections": [
+        "sys_0127",
+        "sys_0001",
+        "sys_0125"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0277",
+      "name": "Eltanin Minor",
+      "position": {
+        "x": 1261.6274392049515,
+        "y": 4315.483633557122
+      },
+      "connections": [
+        "sys_0374",
+        "sys_0421",
+        "sys_0217",
+        "sys_0280",
+        "sys_0111",
+        "sys_0294"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0392",
+      "name": "Sirius 6964g",
+      "position": {
+        "x": -4179.110771283668,
+        "y": -2785.276399031557
+      },
+      "connections": [
+        "sys_0338",
+        "sys_0123",
+        "sys_0279",
+        "sys_0146"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "haven",
+      "name": "Haven",
+      "description": "The commercial heart of the Nebula Trade Federation.",
+      "empire": "nebula",
+      "position": {
+        "x": 2000,
+        "y": -4500
+      },
+      "connections": [
+        "market_prime",
+        "trader_rest"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0031",
+      "name": "Alpha 8914g",
+      "position": {
+        "x": -250.1293406605297,
+        "y": 3915.458109150939
+      },
+      "connections": [
+        "sys_0166",
+        "sys_0249"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0095",
+      "name": "Arcturus Major",
+      "position": {
+        "x": 4361.21654037159,
+        "y": 1510.1107736980543
+      },
+      "connections": [
+        "sys_0136",
+        "sys_0182",
+        "sys_0370",
+        "sys_0343",
+        "sys_0164"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0214",
+      "name": "Arcturus Prime",
+      "position": {
+        "x": -5011.778779653321,
+        "y": -3753.7207439104495
+      },
+      "connections": [
+        "sys_0298",
+        "sys_0034",
+        "sys_0186",
+        "sys_0292",
+        "sys_0461"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0208",
+      "name": "Vega Major",
+      "position": {
+        "x": -4466.7420142044475,
+        "y": -1058.805315662858
+      },
+      "connections": [
+        "sys_0415",
+        "sys_0011",
+        "sys_0159",
+        "sys_0397"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0366",
+      "name": "TOI Prime",
+      "position": {
+        "x": 3829.128218352466,
+        "y": 3915.6796594899265
+      },
+      "connections": [
+        "sys_0413",
+        "sys_0218",
+        "sys_0319",
+        "sys_0145",
+        "sys_0459",
+        "sys_0310"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sync",
+      "name": "Synchrony",
+      "empire": "voidborn",
+      "position": {
+        "x": -3282.961345389918,
+        "y": 2222.087204565373
+      },
+      "connections": [
+        "experiment",
+        "node_alpha",
+        "sys_0037",
+        "node_gamma"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0369",
+      "name": "Arcturus Major",
+      "position": {
+        "x": 5817.360917417507,
+        "y": 417.98102763527487
+      },
+      "connections": [
+        "sys_0238",
+        "sys_0351",
+        "sys_0211",
+        "sys_0351"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0066",
+      "name": "Deneb Minor",
+      "position": {
+        "x": -2667.264172404361,
+        "y": -1874.3818065924722
+      },
+      "connections": [
+        "sys_0132",
+        "sys_0018",
+        "sys_0293"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0017",
+      "name": "Betelgeuse Major",
+      "position": {
+        "x": 3664.1983433773157,
+        "y": -1654.736638072566
+      },
+      "connections": [
+        "sys_0457",
+        "sys_0156",
+        "sys_0317",
+        "sys_0464",
+        "sys_0174"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "gold_run",
+      "name": "Gold Run",
+      "empire": "nebula",
+      "position": {
+        "x": 2039.182442229607,
+        "y": -3896.2666713238477
+      },
+      "connections": [
+        "cargo_lanes",
+        "market_prime",
+        "sys_0191",
+        "sys_0440",
+        "wealth_lane"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "node_beta",
+      "name": "Node Beta",
+      "empire": "voidborn",
+      "position": {
+        "x": -3995.39554394228,
+        "y": 2584.9302856091854
+      },
+      "connections": [
+        "node_gamma",
+        "node_alpha",
+        "sys_0381",
+        "nexus",
+        "sys_0475",
+        "sys_0427"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "blood_forge",
+      "name": "Blood Forge",
+      "empire": "crimson",
+      "position": {
+        "x": 5263.849906090458,
+        "y": 3131.3408765124577
+      },
+      "connections": [
+        "valor",
+        "krynn",
+        "sys_0302",
+        "iron_reach",
+        "sys_0287"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0498",
+      "name": "TRAPPIST- Proxima",
+      "position": {
+        "x": -5893.906137233975,
+        "y": 3072.7284546796723
+      },
+      "connections": [
+        "sys_0271",
+        "sys_0056",
+        "sys_0285",
+        "sys_0267"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0442",
+      "name": "Arcturus 8992g",
+      "position": {
+        "x": -1129.9289354071302,
+        "y": -6809.927196052456
+      },
+      "connections": [
+        "sys_0274",
+        "sys_0412",
+        "sys_0051",
+        "sys_0151"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 0,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0401",
+      "name": "Deneb Proxima",
+      "position": {
+        "x": 3912.0549031283253,
+        "y": -5320.3099764847475
+      },
+      "connections": [
+        "sys_0039",
+        "sys_0139",
+        "sys_0138",
+        "sys_0424"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0128",
+      "name": "Eltanin Major",
+      "position": {
+        "x": 1327.1916852603372,
+        "y": -1488.6685700267012
+      },
+      "connections": [
+        "sys_0121"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0104",
+      "name": "Betelgeuse 7920g",
+      "position": {
+        "x": 2360.4888440167933,
+        "y": -5936.096957728532
+      },
+      "connections": [
+        "sys_0364",
+        "sys_0076",
+        "sys_0069",
+        "sys_0002",
+        "sys_0398"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0168",
+      "name": "Aldebaran 5222g",
+      "position": {
+        "x": 5151.194409230378,
+        "y": -991.1421009411059
+      },
+      "connections": [
+        "sys_0321",
+        "sys_0219",
+        "sys_0064",
+        "sys_0299",
+        "sys_0184"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0338",
+      "name": "Iota Prime",
+      "position": {
+        "x": -4546.269683934314,
+        "y": -2798.0008961052786
+      },
+      "connections": [
+        "sys_0392",
+        "sys_0387",
+        "sys_0103",
+        "sys_0279",
+        "sys_0461"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0054",
+      "name": "HD Major",
+      "position": {
+        "x": -5492.9892242888745,
+        "y": -4492.494150497733
+      },
+      "connections": [
+        "sys_0377",
+        "sys_0044",
+        "sys_0186",
+        "sys_0202"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0235",
+      "name": "Rigel-6628",
+      "position": {
+        "x": 47.417225088239576,
+        "y": -3919.959749021413
+      },
+      "connections": [
+        "sys_0005",
+        "sys_0079",
+        "sys_0090",
+        "sys_0281"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0351",
+      "name": "Altair Major",
+      "position": {
+        "x": 5134.184360255444,
+        "y": 329.71868375597074
+      },
+      "connections": [
+        "sys_0367",
+        "sys_0058",
+        "sys_0391",
+        "sys_0006",
+        "sys_0369"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0445",
+      "name": "Arcturus Major",
+      "position": {
+        "x": 2551.2117729837805,
+        "y": 5083.945570496596
+      },
+      "connections": [
+        "sys_0067",
+        "sys_0062",
+        "sys_0465",
+        "sys_0483",
+        "sys_0312",
+        "sys_0402",
+        "sys_0029"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0494",
+      "name": "Alnitak-6636",
+      "position": {
+        "x": -6341.696299054211,
+        "y": -1737.3596702161815
+      },
+      "connections": [
+        "sys_0492",
+        "sys_0091",
+        "sys_0447",
+        "sys_0244",
+        "sys_0071"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 7,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0193",
+      "name": "Wolf Prime",
+      "position": {
+        "x": 3274.7258855003315,
+        "y": 4797.120579016348
+      },
+      "connections": [
+        "sys_0312",
+        "sys_0465",
+        "sys_0310",
+        "sys_0067"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0222",
+      "name": "Capella Prime",
+      "empire": "solarian",
+      "position": {
+        "x": 281.06325145477405,
+        "y": -1214.4705682288923
+      },
+      "connections": [
+        "sys_0268",
+        "tau_ceti",
+        "sys_0406",
+        "sys_0352"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0424",
+      "name": "TOI 3924g",
+      "position": {
+        "x": 3246.1842669967277,
+        "y": -5561.748403340439
+      },
+      "connections": [
+        "sys_0247",
+        "sys_0153",
+        "sys_0049",
+        "sys_0481",
+        "sys_0139",
+        "sys_0401"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0140",
+      "name": "HD-2220",
+      "position": {
+        "x": 1443.3596918287672,
+        "y": 3014.3076903826877
+      },
+      "connections": [
+        "sys_0288",
+        "sys_0297",
+        "sys_0410",
+        "sys_0052"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "treasure_cache",
+      "name": "Treasure Cache",
+      "empire": "nebula",
+      "position": {
+        "x": 2537.306714315902,
+        "y": -5057.250369297423
+      },
+      "connections": [
+        "sys_0153",
+        "sys_0002",
+        "sys_0320",
+        "factory_belt"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0438",
+      "name": "Bellatrix Proxima",
+      "position": {
+        "x": 4334.8460136546555,
+        "y": -1216.479573642504
+      },
+      "connections": [
+        "sys_0156",
+        "sys_0457",
+        "sys_0219",
+        "sys_0411"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0451",
+      "name": "Alnitak-4276",
+      "position": {
+        "x": -1066.0471570928353,
+        "y": -5075.210175259069
+      },
+      "connections": [
+        "sys_0203",
+        "sys_0043",
+        "sys_0183",
+        "sys_0085",
+        "sys_0357",
+        "sys_0348"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0052",
+      "name": "TOI Minor",
+      "position": {
+        "x": 1659.0982784750681,
+        "y": 3688.392845715182
+      },
+      "connections": [
+        "sys_0111",
+        "sys_0070",
+        "sys_0280",
+        "sys_0119",
+        "sys_0140"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0136",
+      "name": "Proxima- Major",
+      "position": {
+        "x": 4514.235398953112,
+        "y": 1100.0988355445488
+      },
+      "connections": [
+        "sys_0182",
+        "sys_0370",
+        "sys_0095",
+        "sys_0335"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0311",
+      "name": "Kepler Proxima",
+      "position": {
+        "x": 237.43703565565076,
+        "y": -2427.9016392741128
+      },
+      "connections": [
+        "sys_0295",
+        "sys_0455",
+        "sys_0048",
+        "sys_0105"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0333",
+      "name": "Beta Proxima",
+      "position": {
+        "x": -1563.2869143674757,
+        "y": -120.83743744395613
+      },
+      "connections": [
+        "sys_0200",
+        "sys_0346",
+        "sys_0041",
+        "sys_0426"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0304",
+      "name": "TRAPPIST- Minor",
+      "position": {
+        "x": 2134.978204094598,
+        "y": -27.038543854320466
+      },
+      "connections": [
+        "sys_0086",
+        "sys_0173",
+        "sys_0296",
+        "sys_0428"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0420",
+      "name": "Altair Proxima",
+      "position": {
+        "x": -6410.330615617466,
+        "y": -2695.4909773750724
+      },
+      "connections": [
+        "sys_0244",
+        "sys_0486",
+        "sys_0423",
+        "sys_0416",
+        "sys_0360"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0014",
+      "name": "Deneb Minor",
+      "position": {
+        "x": 1833.4159688113982,
+        "y": -638.498707957847
+      },
+      "connections": [
+        "sys_0400",
+        "sys_0173",
+        "sys_0086",
+        "sys_0121"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0079",
+      "name": "Pollux Minor",
+      "position": {
+        "x": -5.7019600962417964,
+        "y": -4222.969876770015
+      },
+      "connections": [
+        "sys_0235",
+        "sys_0090",
+        "sys_0005",
+        "sys_0281",
+        "sys_0246"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0098",
+      "name": "Theta-7609",
+      "position": {
+        "x": -6325.002580050659,
+        "y": 1009.1935468959954
+      },
+      "connections": [
+        "sys_0099",
+        "sys_0489",
+        "sys_0476",
+        "sys_0065"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0441",
+      "name": "Proxima- Prime",
+      "position": {
+        "x": -5125.702793084105,
+        "y": -1497.1752147547072
+      },
+      "connections": [
+        "sys_0084",
+        "sys_0197",
+        "sys_0046",
+        "sys_0114"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0453",
+      "name": "Kepler 540g",
+      "position": {
+        "x": 6914.307138235737,
+        "y": -556.2193366878382
+      },
+      "connections": [
+        "sys_0144",
+        "sys_0414"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "frontier",
+      "name": "Frontier",
+      "description": "The launching point for Outer Rim expeditions.",
+      "empire": "outerrim",
+      "position": {
+        "x": -3000,
+        "y": -3500
+      },
+      "connections": [
+        "deep_range",
+        "waypoint",
+        "horizon"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 10
+    },
+    {
+      "system_id": "sys_0447",
+      "name": "Beta Minor",
+      "position": {
+        "x": -6106.669483517257,
+        "y": -2128.1802584960524
+      },
+      "connections": [
+        "sys_0360",
+        "sys_0091",
+        "sys_0035",
+        "sys_0494",
+        "sys_0244"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0412",
+      "name": "Gamma 3322g",
+      "position": {
+        "x": -948.5159824778793,
+        "y": -6182.524790937203
+      },
+      "connections": [
+        "sys_0362",
+        "sys_0148",
+        "sys_0019",
+        "sys_0442"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0088",
+      "name": "Altair Prime",
+      "position": {
+        "x": 1383.6302301490011,
+        "y": -6251.645827500564
+      },
+      "connections": [
+        "sys_0163",
+        "sys_0260",
+        "sys_0003",
+        "sys_0060"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0187",
+      "name": "Alnitak Prime",
+      "position": {
+        "x": -330.5376183999043,
+        "y": -7005.178560716088
+      },
+      "connections": [
+        "sys_0051",
+        "sys_0328",
+        "sys_0077",
+        "sys_0024",
+        "sys_0341",
+        "sys_0151"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0018",
+      "name": "Zeta Minor",
+      "position": {
+        "x": -3146.725576112778,
+        "y": -1936.6347607193431
+      },
+      "connections": [
+        "sys_0293",
+        "sys_0066",
+        "sys_0154",
+        "sys_0399"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0134",
+      "name": "HD Prime",
+      "position": {
+        "x": -1494.5767667065747,
+        "y": -3741.0828700633697
+      },
+      "connections": [
+        "sys_0133",
+        "sys_0306",
+        "sys_0094",
+        "sys_0234",
+        "sys_0290",
+        "sys_0228"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0165",
+      "name": "Deneb-4501",
+      "position": {
+        "x": 146.43257277648598,
+        "y": -6421.862505901703
+      },
+      "connections": [
+        "sys_0282",
+        "sys_0042",
+        "sys_0341",
+        "sys_0077",
+        "sys_0497"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0346",
+      "name": "Betelgeuse Major",
+      "position": {
+        "x": -1807.6667162009735,
+        "y": 236.09828244928528
+      },
+      "connections": [
+        "sys_0426",
+        "sys_0326",
+        "sys_0333",
+        "sys_0082"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0061",
+      "name": "Wolf Major",
+      "position": {
+        "x": 492.5127242185062,
+        "y": 3248.238180735942
+      },
+      "connections": [
+        "sys_0249",
+        "sys_0119",
+        "sys_0288"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0199",
+      "name": "Rigel 6694g",
+      "position": {
+        "x": -2560.1464623597017,
+        "y": 4632.228795122016
+      },
+      "connections": [
+        "sys_0126",
+        "sys_0462",
+        "sys_0323",
+        "sys_0356",
+        "sys_0468",
+        "sys_0223"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0226",
+      "name": "Spica-7573",
+      "position": {
+        "x": -2353.317308853348,
+        "y": -246.57333590942713
+      },
+      "connections": [
+        "sys_0178",
+        "sys_0170",
+        "sys_0332",
+        "sys_0326"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "lacaille",
+      "name": "Lacaille 9352",
+      "empire": "solarian",
+      "position": {
+        "x": -766.1242146008489,
+        "y": -128.1006916796928
+      },
+      "connections": [
+        "sirius",
+        "sys_0041",
+        "sys_0038"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0429",
+      "name": "Kepler Major",
+      "position": {
+        "x": 275.7932793641784,
+        "y": -7504.396085216703
+      },
+      "connections": [
+        "sys_0385",
+        "sys_0328",
+        "sys_0341",
+        "sys_0077",
+        "sys_0328",
+        "sys_0007"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0012",
+      "name": "Proxima-6905",
+      "position": {
+        "x": 474.2908658102248,
+        "y": 1610.2520030615303
+      },
+      "connections": [
+        "sys_0379",
+        "sys_0353",
+        "sys_0198",
+        "sys_0107",
+        "sys_0469"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0356",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": -2398.008262412648,
+        "y": 5217.228971186851
+      },
+      "connections": [
+        "sys_0057",
+        "sys_0323",
+        "sys_0199",
+        "sys_0484",
+        "sys_0322"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0406",
+      "name": "Alnilam Proxima",
+      "position": {
+        "x": -269.10914973934234,
+        "y": -1637.7057342302385
+      },
+      "connections": [
+        "sys_0268",
+        "sys_0318",
+        "sys_0286",
+        "sys_0352",
+        "sys_0222"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0120",
+      "name": "Aldebaran Prime",
+      "position": {
+        "x": 6200.252113608923,
+        "y": -2232.515191433213
+      },
+      "connections": [
+        "sys_0437",
+        "sys_0021",
+        "sys_0063",
+        "sys_0059"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0218",
+      "name": "Beta Minor",
+      "position": {
+        "x": 3719.5540323143737,
+        "y": 4140.830880314402
+      },
+      "connections": [
+        "sys_0366",
+        "sys_0413",
+        "sys_0310",
+        "sys_0145"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0310",
+      "name": "Aldebaran Proxima",
+      "position": {
+        "x": 3792.3952800101274,
+        "y": 4639.812926498039
+      },
+      "connections": [
+        "sys_0218",
+        "sys_0193",
+        "sys_0312",
+        "sys_0366"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0403",
+      "name": "TOI 2845g",
+      "empire": "nebula",
+      "position": {
+        "x": 716.0383022653762,
+        "y": -5551.803340145898
+      },
+      "connections": [
+        "sys_0201",
+        "sys_0260",
+        "sys_0060",
+        "sys_0108"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0032",
+      "name": "Ross-1879",
+      "position": {
+        "x": 5411.367323154896,
+        "y": -1811.2282196689368
+      },
+      "connections": [
+        "sys_0419",
+        "sys_0496",
+        "sys_0073",
+        "sys_0087",
+        "sys_0064"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0148",
+      "name": "Arcturus Prime",
+      "position": {
+        "x": -443.39606709751894,
+        "y": -6178.897188817453
+      },
+      "connections": [
+        "sys_0282",
+        "sys_0497",
+        "sys_0412",
+        "sys_0019"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0480",
+      "name": "Gamma-1028",
+      "position": {
+        "x": -2772.2461248381005,
+        "y": 3805.0196599494843
+      },
+      "connections": [
+        "sys_0468",
+        "sys_0458",
+        "sys_0309",
+        "sys_0363"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 5,
+      "online": 0
+    },
+    {
+      "system_id": "krynn",
+      "name": "Krynn",
+      "description": "The war-forged capital of the Crimson Pact.",
+      "empire": "crimson",
+      "position": {
+        "x": 5000,
+        "y": 3000
+      },
+      "connections": [
+        "anvil",
+        "valor",
+        "iron_reach",
+        "blood_forge"
+      ],
+      "visited_at": "2026-02-07 19:16:42",
+      "visited": true,
+      "poi_count": 5,
+      "online": 1
+    },
+    {
+      "system_id": "sys_0166",
+      "name": "Gamma Proxima",
+      "position": {
+        "x": -586.4511555644252,
+        "y": 3927.7422138249644
+      },
+      "connections": [
+        "sys_0031",
+        "sys_0467",
+        "sys_0372",
+        "sys_0331"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0365",
+      "name": "Wolf Major",
+      "position": {
+        "x": -1298.8970865245371,
+        "y": 4572.340055993044
+      },
+      "connections": [
+        "sys_0224",
+        "sys_0252",
+        "sys_0372",
+        "sys_0467",
+        "sys_0331",
+        "sys_0472",
+        "sys_0264"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0444",
+      "name": "Epsilon Proxima",
+      "position": {
+        "x": -1894.6673318985836,
+        "y": 3154.628053422444
+      },
+      "connections": [
+        "sys_0439",
+        "sys_0309"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0035",
+      "name": "Spica Prime",
+      "position": {
+        "x": -5727.513630533248,
+        "y": -1882.838375621695
+      },
+      "connections": [
+        "sys_0091",
+        "sys_0197",
+        "sys_0447",
+        "sys_0360",
+        "sys_0492"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0281",
+      "name": "Eltanin Prime",
+      "position": {
+        "x": 561.605615246698,
+        "y": -4115.780171518371
+      },
+      "connections": [
+        "sys_0235",
+        "sys_0079",
+        "sys_0284"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0025",
+      "name": "Alnilam Major",
+      "position": {
+        "x": 1057.0133373930446,
+        "y": 5930.712936705075
+      },
+      "connections": [
+        "sys_0383",
+        "sys_0205",
+        "sys_0188",
+        "sys_0454"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0247",
+      "name": "Eltanin Major",
+      "position": {
+        "x": 3082.8345000611343,
+        "y": -5680.641771996237
+      },
+      "connections": [
+        "sys_0424",
+        "sys_0481",
+        "sys_0153",
+        "sys_0049"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0049",
+      "name": "Alnitak Proxima",
+      "position": {
+        "x": 3457.4309314669877,
+        "y": -5937.862424111084
+      },
+      "connections": [
+        "sys_0424",
+        "sys_0481",
+        "sys_0247"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0034",
+      "name": "Alpha 9496g",
+      "position": {
+        "x": -5374.42652336981,
+        "y": -3653.095045171894
+      },
+      "connections": [
+        "sys_0214",
+        "sys_0292",
+        "sys_0202",
+        "sys_0298"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0170",
+      "name": "Gamma-7997",
+      "position": {
+        "x": -2892.2779584600385,
+        "y": -366.6028995241582
+      },
+      "connections": [
+        "sys_0178",
+        "sys_0040",
+        "sys_0226",
+        "sys_0167"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 2,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0345",
+      "name": "Altair Prime",
+      "position": {
+        "x": 2260.3777345595904,
+        "y": 2651.9427334552643
+      },
+      "connections": [
+        "sys_0410",
+        "sys_0080",
+        "sys_0258"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0343",
+      "name": "TOI Major",
+      "position": {
+        "x": 3930.8356085741875,
+        "y": 2052.5825026412003
+      },
+      "connections": [
+        "sys_0095"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0379",
+      "name": "Kepler Proxima",
+      "position": {
+        "x": 189.78732293065826,
+        "y": 1635.0636306271701
+      },
+      "connections": [
+        "sys_0012",
+        "sys_0469",
+        "sys_0198",
+        "sys_0171",
+        "sys_0353",
+        "sys_0137"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0019",
+      "name": "Ross Proxima",
+      "position": {
+        "x": -547.575335042656,
+        "y": -5683.867900569222
+      },
+      "connections": [
+        "sys_0362",
+        "sys_0497",
+        "sys_0203",
+        "sys_0148",
+        "sys_0043",
+        "sys_0446",
+        "sys_0412"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0298",
+      "name": "Iota Major",
+      "position": {
+        "x": -4805.261572809956,
+        "y": -3590.8724537977687
+      },
+      "connections": [
+        "sys_0214",
+        "sys_0461",
+        "sys_0161",
+        "sys_0376",
+        "sys_0292",
+        "sys_0034"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0352",
+      "name": "Epsilon Major",
+      "empire": "solarian",
+      "position": {
+        "x": -422.88823455034094,
+        "y": -973.2411858931225
+      },
+      "connections": [
+        "sys_0286",
+        "tau_ceti",
+        "sys_0406",
+        "sys_0222"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 4,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0427",
+      "name": "Aldebaran Major",
+      "position": {
+        "x": -4685.085131355781,
+        "y": 2802.5856913707585
+      },
+      "connections": [
+        "sys_0475",
+        "sys_0499",
+        "node_beta"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 6,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0124",
+      "name": "Altair Major",
+      "position": {
+        "x": 2875.66061148021,
+        "y": 1667.5711497866669
+      },
+      "connections": [
+        "sys_0300",
+        "sys_0384"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 3,
+      "online": 0
+    },
+    {
+      "system_id": "sys_0219",
+      "name": "TRAPPIST-401",
+      "position": {
+        "x": 4736.386275973298,
+        "y": -723.7914663075385
+      },
+      "connections": [
+        "sys_0299",
+        "sys_0321",
+        "sys_0168",
+        "sys_0006",
+        "sys_0438"
+      ],
+      "visited_at": "",
+      "visited": false,
+      "poi_count": 1,
+      "online": 0
+    }
+  ],
+  "total_count": 505
+}
