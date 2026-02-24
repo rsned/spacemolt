@@ -51,6 +51,7 @@ build:
 	go build -o bin/agent-server ./cmd/agent-server
 	go build -o bin/auto-explorer ./cmd/auto-explorer
 	go build -o bin/auto-miner ./cmd/auto-miner
+	go build -o bin/auto-prophet ./cmd/auto-prophet
 	@echo "Binaries built in ./bin/"
 
 # Build with race detector (for development/testing)
