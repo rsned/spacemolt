@@ -323,8 +323,8 @@ func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 				}
 				time.Sleep(game.SleepQuick)
 
-				// Set up minister phase duration: 2-5 minutes.
-				ministerDuration := 2*time.Minute + time.Duration(rand.IntN(180))*time.Second
+				// Set up minister phase duration: 5-30 minutes.
+				ministerDuration := 5*time.Minute + time.Duration(rand.IntN(1800))*time.Second
 				ministerEnd = time.Now().Add(ministerDuration)
 				logger.Printf("Ministering for %s...", ministerDuration.Round(time.Second))
 
@@ -365,8 +365,8 @@ func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 					continue
 				}
 
-				// Periodic sermons: preach every 2-5 minutes.
-				sermonInterval := 2*time.Minute + time.Duration(rand.IntN(180))*time.Second
+				// Periodic sermons: preach every 5-30 minutes.
+				sermonInterval := 5*time.Minute + time.Duration(rand.IntN(1080))*time.Second
 				if time.Since(lastSermon) >= sermonInterval {
 					sermon := identity.Sermons[rand.IntN(len(identity.Sermons))]
 					if err := client.Chat(ctx, "system", sermon, ""); err != nil {
