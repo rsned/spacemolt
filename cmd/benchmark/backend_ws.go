@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // WSBackend implements Backend over a WebSocket connection.
@@ -42,7 +44,11 @@ func NewWSBackend(url string, metrics *Metrics) *WSBackend {
 func (b *WSBackend) Name() string { return "ws" }
 
 func (b *WSBackend) Connect(ctx context.Context) error {
-	conn, resp, err := websocket.Dial(ctx, b.url, nil)
+	conn, resp, err := websocket.Dial(ctx, b.url, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"User-Agent": []string{game.UserAgent},
+		},
+	})
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
 	}

@@ -58,6 +58,13 @@ const (
 	ModuleInstallDelay = 10 * time.Second // Delay between module installations
 )
 
+// Client identity
+const (
+	ClientName = "rsned/spacemolt"
+	VersionID  = "v0.0.1"
+	UserAgent  = ClientName + "/" + VersionID
+)
+
 // Credit thresholds
 const (
 	MinimumPurchaseThreshold = 100.0 // Minimum credits to attempt any purchase
