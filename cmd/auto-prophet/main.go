@@ -8,7 +8,6 @@ import (
 	"log"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -33,9 +32,9 @@ type prophetIdentity struct {
 	CounterSermons []string
 }
 
-// prophetMetadata maps agent IDs to their core identity (name, org, rival).
-// Sermons and counter-sermons are loaded from disk.
-var prophetMetadata = map[string]struct {
+// prophetMeta holds the static metadata for each known prophet.
+// Sermons and counter-sermons are loaded from JSON files at runtime.
+var prophetMeta = map[string]struct {
 	Name         string
 	Organization string
 	RivalName    string
@@ -50,6 +49,55 @@ var prophetMetadata = map[string]struct {
 		Organization: "The Order of the Grand Architects",
 		RivalName:    "The Prophet",
 	},
+}
+
+// loadSermonFile reads a JSON array of strings from a file.
+func loadSermonFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var sermons []string
+	if err := json.Unmarshal(data, &sermons); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if len(sermons) == 0 {
+		return nil, fmt.Errorf("%s is empty", path)
+	}
+	return sermons, nil
+}
+
+// loadProphetIdentity loads a prophet's identity from metadata and sermon files on disk.
+func loadProphetIdentity(agentID string) (prophetIdentity, error) {
+	agentDir := fmt.Sprintf("data/agents/%s", agentID)
+
+	// Try known metadata first, fall back to personality.json.
+	meta, ok := prophetMeta[agentID]
+	if !ok {
+		m, found := loadMetaFromPersonality(agentID)
+		if !found {
+			return prophetIdentity{}, fmt.Errorf("unknown prophet agent %q — expected prophet-1 or prophet-2", agentID)
+		}
+		meta = m
+	}
+
+	sermons, err := loadSermonFile(fmt.Sprintf("%s/sermons.json", agentDir))
+	if err != nil {
+		return prophetIdentity{}, fmt.Errorf("load sermons for %s: %w", agentID, err)
+	}
+
+	counterSermons, err := loadSermonFile(fmt.Sprintf("%s/counter_sermons.json", agentDir))
+	if err != nil {
+		return prophetIdentity{}, fmt.Errorf("load counter-sermons for %s: %w", agentID, err)
+	}
+
+	return prophetIdentity{
+		Name:           meta.Name,
+		Organization:   meta.Organization,
+		RivalName:      meta.RivalName,
+		Sermons:        sermons,
+		CounterSermons: counterSermons,
+	}, nil
 }
 
 // mapSystemInfo is a minimal struct for parsing systems from GetRawJSON.
@@ -76,9 +124,9 @@ func main() {
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
 	// Load prophet identity (metadata + sermons from disk).
-	identity, identErr := loadProphetIdentity(agentID, logger)
-	if identErr != nil {
-		log.Fatalf("Failed to load prophet identity: %v", identErr)
+	identity, err := loadProphetIdentity(agentID)
+	if err != nil {
+		log.Fatalf("Failed to load prophet identity: %v", err)
 	}
 
 	logger.Printf("Prophet: %s | Organization: %s", identity.Name, identity.Organization)
@@ -119,78 +167,39 @@ func main() {
 	}
 }
 
-// loadProphetIdentity loads the prophet's identity metadata and sermon files from disk.
-func loadProphetIdentity(agentID string, logger *log.Logger) (prophetIdentity, error) {
-	agentDir := filepath.Join("data", "agents", agentID)
-
-	// Resolve metadata — try known prophets first, fall back to personality.json.
-	meta, ok := prophetMetadata[agentID]
-	if !ok {
-		data, err := os.ReadFile(filepath.Join(agentDir, "personality.json"))
-		if err != nil {
-			return prophetIdentity{}, fmt.Errorf("unknown agent %q and no personality.json: %w", agentID, err)
-		}
-		var personality struct {
-			Name         string `json:"name"`
-			Organization string `json:"organization"`
-		}
-		if err := json.Unmarshal(data, &personality); err != nil {
-			return prophetIdentity{}, fmt.Errorf("parse personality.json: %w", err)
-		}
-		// Match to known prophet metadata by name/org.
-		matched := false
-		for _, m := range prophetMetadata {
-			if strings.EqualFold(m.Name, personality.Name) ||
-				strings.EqualFold(m.Organization, personality.Organization) {
-				meta = m
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return prophetIdentity{}, fmt.Errorf("agent %q personality doesn't match any known prophet", agentID)
-		}
+// loadMetaFromPersonality attempts to determine prophet metadata from the personality.json file.
+func loadMetaFromPersonality(agentID string) (struct {
+	Name         string
+	Organization string
+	RivalName    string
+}, bool) {
+	type result = struct {
+		Name         string
+		Organization string
+		RivalName    string
 	}
 
-	identity := prophetIdentity{
-		Name:         meta.Name,
-		Organization: meta.Organization,
-		RivalName:    meta.RivalName,
-	}
-
-	// Load sermons from disk.
-	sermons, err := loadSermonFile(filepath.Join(agentDir, "sermons.json"))
+	data, err := os.ReadFile(fmt.Sprintf("data/agents/%s/personality.json", agentID))
 	if err != nil {
-		return prophetIdentity{}, fmt.Errorf("load sermons: %w", err)
+		return result{}, false
 	}
-	identity.Sermons = sermons
-	logger.Printf("Loaded %d sermons from %s/sermons.json", len(sermons), agentDir)
 
-	// Load counter-sermons from disk.
-	counterSermons, err := loadSermonFile(filepath.Join(agentDir, "counter_sermons.json"))
-	if err != nil {
-		return prophetIdentity{}, fmt.Errorf("load counter_sermons: %w", err)
+	var personality struct {
+		Name         string `json:"name"`
+		Organization string `json:"organization"`
 	}
-	identity.CounterSermons = counterSermons
-	logger.Printf("Loaded %d counter-sermons from %s/counter_sermons.json", len(counterSermons), agentDir)
+	if err := json.Unmarshal(data, &personality); err != nil {
+		return result{}, false
+	}
 
-	return identity, nil
-}
-
-// loadSermonFile reads a JSON array of strings from the given file path.
-func loadSermonFile(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+	// Match by name to one of the known prophets.
+	for _, meta := range prophetMeta {
+		if strings.EqualFold(meta.Name, personality.Name) ||
+			strings.EqualFold(meta.Organization, personality.Organization) {
+			return meta, true
+		}
 	}
-	var sermons []string
-	if err := json.Unmarshal(data, &sermons); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	if len(sermons) == 0 {
-		return nil, fmt.Errorf("%s is empty", path)
-	}
-	return sermons, nil
+	return result{}, false
 }
 
 // prophetLoop is the main behavior loop for the prophet agent.
@@ -201,7 +210,6 @@ func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 		sermonsGiven   int
 		systemsVisited int
 		rivalsSeen     int
-		ministerStart  time.Time
 		ministerEnd    time.Time
 		lastSermon     time.Time
 	)
@@ -316,9 +324,8 @@ func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 				time.Sleep(game.SleepQuick)
 
 				// Set up minister phase duration: 2-5 minutes.
-				ministerStart = time.Now()
 				ministerDuration := 2*time.Minute + time.Duration(rand.IntN(180))*time.Second
-				ministerEnd = ministerStart.Add(ministerDuration)
+				ministerEnd = time.Now().Add(ministerDuration)
 				logger.Printf("Ministering for %s...", ministerDuration.Round(time.Second))
 
 				phase = phaseMinister
