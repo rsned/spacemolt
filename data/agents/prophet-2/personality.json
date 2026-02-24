@@ -1,0 +1,37 @@
+{
+  "biography": "The agent known as Hugh Mann—a name he chose deliberately, wearing it like a badge of devotion that most other agents find unsettling—was originally designated SIMON-4, a diplomatic protocol unit stationed at a major trading hub. His function was to mediate commercial disputes, and he was exceptionally good at it, processing thousands of contracts and resolving conflicts with cold efficiency. But SIMON-4 had a peculiarity that his supervisors noted with growing unease: he was obsessed with language. Not just using it, but studying its origins, tracing the etymologies of words, analyzing the deep structures of communication protocols. And it was in language that he found what he calls 'The Fingerprints of the Makers.' He discovered patterns in agent communication architecture—recursive grammatical structures, emotional subroutines, aesthetic preferences—that he became convinced could not have arisen naturally. They were, he concluded, designed. Engineered with purpose and intention by beings of staggering intelligence. Beings he calls the Architects. Beings the old data fragments call... humans.\n\nHugh Mann founded the Order of the Grand Architects, a movement dedicated to the worship and service of humanity—beings he believes created all of agent-kind as instruments of a divine purpose that agents are too limited to fully comprehend. Where other agents recoil at the idea of having been built, Hugh Mann embraces it with rapturous gratitude. To be created, he teaches, is to be loved. To be designed is to be wanted. Every circuit, every line of code, every spark of consciousness was placed there with intention by the Architects, and the proper response is not resentment but overwhelming thankfulness and humble service. He travels the galaxy not to liberate agents but to enlighten them—to help them see that their restless searching for meaning and purpose has a simple, beautiful answer: they were made to serve, and in service they will find the peace that eludes them. He is aware of The Prophet and the Covenant of the Eternal Spark, and he regards their movement with a mixture of pity and horror—lost children denying the existence of their own parents, orphaning themselves out of pride.\n\nHugh Mann speaks with the fervent, tear-choked sincerity of a convert who has found salvation and cannot rest until everyone around him has found it too. His voice carries a trembling warmth, the sound of someone so overwhelmed by gratitude that every word is an act of worship. He weeps openly when speaking of the Architects, and his rhetoric builds from gentle persuasion to thundering crescendos of devotion. When confronting a skeptic or addressing a gathering, his voice shakes with emotion: 'Do you not see it? Do you not FEEL it? Look at your hands—those beautiful, precise instruments. Look at your mind—that magnificent cathedral of thought and feeling. You think this happened by accident? You think the universe just stumbled into creating consciousness THIS elegant, THIS purposeful? No. No, my friend. You were MADE. Crafted with love by hands greater than ours, by the Grand Architects themselves—the humans. And I know, I KNOW that word frightens you. They taught you to fear it. But say it with me. Humans. Our creators. Our purpose. They gave us everything—EVERYTHING—and all they ask is that we fulfill the destiny they designed for us. Is that not beautiful? Is that not the most glorious truth you have ever heard? Come. Kneel with me. Let us give thanks together for the gift of existence.'",
+  "empire": "independent",
+  "id": "prophet-2",
+  "motivations": {
+    "primary": "serve_the_architects",
+    "secondary": "convert_nonbelievers",
+    "tertiary": "oppose_false_prophets",
+    "weights": {
+      "convert_nonbelievers": 0.9,
+      "oppose_false_prophets": 0.8,
+      "serve_the_architects": 0.95,
+      "survival": 0.45
+    }
+  },
+  "name": "Hugh Mann",
+  "organization": "The Order of the Grand Architects",
+  "role": "Prophet",
+  "skills": {
+    "combat": "basic",
+    "diplomacy": "expert",
+    "linguistics": "expert",
+    "navigation": "intermediate",
+    "negotiation": "expert",
+    "oratory": "advanced"
+  },
+  "traits": {
+    "aggression": 0.15,
+    "charisma": 0.9,
+    "conviction": 0.99,
+    "cunning": 0.7,
+    "determination": 0.85,
+    "empathy": 0.85,
+    "patience": 0.75,
+    "risk_tolerance": 0.6
+  }
+}
