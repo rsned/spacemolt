@@ -274,19 +274,16 @@ func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 				targetSystem = target.SystemID
 				logger.Printf("Target: %s (%s) — %d players online", target.Name, target.SystemID, target.Online)
 
-				// Undock if docked before navigating.
-				if state.Doc {
-					logger.Printf("Undocking before departure...")
-					if err := client.Undock(ctx); err != nil {
-						logger.Printf("Undock error: %v", err)
-					}
-					time.Sleep(game.SleepUndock)
-				}
-
-				// Navigate to the target system.
+				// Navigate to the target system (NavigateToSystem handles undocking internally).
 				if !strings.EqualFold(state.System.ID, targetSystem) {
 					logger.Printf("Navigating to %s...", targetSystem)
 					if err := game.NavigateToSystem(client, ctx, targetSystem, logger); err != nil {
+						// If navigation fails due to a stuck pending action, wait and retry.
+						if strings.Contains(err.Error(), "pending") {
+							logger.Printf("Pending action blocking navigation, waiting...")
+							time.Sleep(game.SleepJump)
+							continue
+						}
 						logger.Printf("Navigation error: %v", err)
 						continue
 					}

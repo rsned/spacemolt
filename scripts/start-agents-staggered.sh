@@ -135,6 +135,8 @@ BATCHES=(
     "salvager-1 salvager-2 salvager-3 salvager-4 salvager-5"
     "salvager-6 salvager-7 salvager-8 salvager-9 salvager-10"
     "random-1 random-2 random-3 random-4 random-5"
+    "random-6 random-7 random-8 random-9"
+    "prophet-1 prophet-2"
 )
 
 BATCH_NUM=0
