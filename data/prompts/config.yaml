@@ -12,6 +12,10 @@ prompts:
       trader: 1
     fallback_version: 1
 
+  decision.craftsman:
+    active_version: 1
+    fallback_version: 1
+
   feedback:
     active_version: 1
     fallback_version: 1

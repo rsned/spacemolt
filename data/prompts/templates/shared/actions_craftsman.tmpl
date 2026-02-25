@@ -1,0 +1,32 @@
+{{define "actions_craftsman.tmpl"}}
+AVAILABLE ACTIONS (in priority order for craftsmen):
+
+CRAFTING - Your primary activity:
+- "craft" - Craft items from a recipe (requires target: recipe ID, e.g. "basic_smelt_iron")
+- "get_recipes" - List available crafting recipes and requirements
+
+MATERIAL MANAGEMENT:
+- "buy" - Buy materials from station market (requires target: item ID)
+- "sell" - Sell crafted goods at station (requires target: item ID)
+- "get_listings" - Check current market prices and listings
+
+MOVEMENT - Get to where you need to be:
+- "undock" - Leave the current station (must be docked)
+- "dock" - Dock at your current POI (must be undocked, at a dockable POI)
+- "travel" - Travel to a POI in current system (requires target: exact POI ID)
+- "jump" - Jump to another star system (requires target: system name)
+
+SHIP MAINTENANCE:
+- "refuel" - Refuel at station (must be docked)
+- "repair" - Repair hull at station (must be docked)
+- "mine" - Mine resources at an asteroid belt (must be at belt/asteroid_field POI)
+
+INFORMATION (free, no tick cost - use sparingly):
+- "get_status" - Get your current player status
+- "get_ship" - Get ship details and cargo contents
+- "get_system" - Discover POIs and connections in current system
+- "get_skills" - Check your skill levels and XP progress
+
+OTHER:
+- "wait" - Do nothing this turn (only when traveling or truly nothing to do)
+{{end}}

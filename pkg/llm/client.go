@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/prompts"
@@ -36,11 +37,8 @@ func New(cfg Config) (*Client, error) {
 		cfg.BaseURL = "http://localhost:11434"
 	}
 	if cfg.Model == "" {
-		//cfg.Model = "llama3.2"
-		//cfg.Model = "dolphin3"
 		cfg.Model = "qwen3:14b"
 	}
-	cfg.Model = "dolphin3"
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 60 * time.Second
 	}
@@ -152,13 +150,9 @@ func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, 
 		Done     bool   `json:"done"`
 	}
 
-	fmt.Printf("[LLM]AAA: %+v\n\n\n", string(respBody))
 	if err := json.Unmarshal(respBody, &ollamaResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
-
-	// DEBUG: Log raw LLM response
-	fmt.Printf("[LLM] Raw response text:\n%s\n", ollamaResp.Response)
 
 	// Extract structured decision from text response
 	return c.parseDecision(ollamaResp.Response)
@@ -200,27 +194,11 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 	for i := len(jsonObjects) - 1; i >= 0; i-- {
 		jsonStr := jsonObjects[i]
 
-		// DEBUG: Log extracted JSON
-		if i == len(jsonObjects)-1 {
-			fmt.Printf("[LLM] Found %d JSON object(s), using last one:\n%s\n", len(jsonObjects), jsonStr)
-		}
-
-		// DEBUG: Log extracted JSON
-		fmt.Printf("[LLM] Extracted JSON string:\n%s\n", jsonStr)
-
 		var decision DecisionResponse
 		if err := json.Unmarshal([]byte(jsonStr), &decision); err != nil {
-			fmt.Printf("[LLM] ERROR: Failed to parse JSON: %v\n", err)
 			lastError = err
 			continue
 		}
-
-		// DEBUG: Log parsed fields
-		fmt.Printf("[LLM] Parsed DecisionResponse:\n")
-		fmt.Printf("  Action: '%s'\n", decision.Action)
-		fmt.Printf("  Target: '%s'\n", decision.Target)
-		fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
-		fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 
 		return &decision, nil
 	}
@@ -279,14 +257,31 @@ Your decision:
 		role)
 }
 
-// RenderPrompt renders a prompt template with the given context
+// RenderPrompt renders a prompt template with the given context.
+// It first tries a role-specific template (e.g., "decision.craftsman") and
+// falls back to the generic template (e.g., "decision") if not found.
 func (c *Client) RenderPrompt(promptType string, role string, ctx *prompts.TemplateContext) (string, error) {
 	// If prompt manager is not available, return error
 	if c.promptManager == nil || c.selector == nil {
 		return "", fmt.Errorf("prompt manager not initialized")
 	}
 
-	// Select version
+	// Try role-specific template first (e.g., "decision.craftsman")
+	if role != "" {
+		roleType := promptType + "." + strings.ToLower(role)
+		selCtx := prompts.SelectionContext{
+			PromptType: roleType,
+			Role:       role,
+		}
+
+		if version, err := c.selector.SelectVersion(selCtx); err == nil {
+			if prompt, err := c.promptManager.RenderPrompt(roleType, version, ctx); err == nil {
+				return prompt, nil
+			}
+		}
+	}
+
+	// Fall back to generic template
 	selCtx := prompts.SelectionContext{
 		PromptType: promptType,
 		Role:       role,

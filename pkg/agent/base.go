@@ -138,9 +138,6 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 	// Build prompt from personality, memory, and current state
 	prompt := a.buildDecisionPrompt(state)
 
-	fmt.Printf("[Agent %s]  LLM Prompt:\n", a.id)
-	fmt.Printf("  %q\n", prompt)
-
 	// Get LLM decision
 	response, err := a.llm.Decide(ctx, prompt)
 	if err != nil {
@@ -151,26 +148,12 @@ func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, er
 		return Decision{}, err
 	}
 
-	// DEBUG: Log LLM response received by agent
-	fmt.Printf("[Agent %s] LLM DecisionResponse received:\n", a.id)
-	fmt.Printf("  Action: '%s'\n", response.Action)
-	fmt.Printf("  Target: '%s'\n", response.Target)
-	fmt.Printf("  Reasoning: '%s'\n", response.Reasoning)
-	fmt.Printf("  Confidence: %.2f\n", response.Confidence)
-
 	decision := Decision{
 		Action:     response.Action,
 		Target:     response.Target,
 		Reasoning:  response.Reasoning,
 		Confidence: response.Confidence,
 	}
-
-	// DEBUG: Log Decision struct created
-	fmt.Printf("[Agent %s] Decision struct created:\n", a.id)
-	fmt.Printf("  Action: '%s'\n", decision.Action)
-	fmt.Printf("  Target: '%s'\n", decision.Target)
-	fmt.Printf("  Reasoning: '%s'\n", decision.Reasoning)
-	fmt.Printf("  Confidence: %.2f\n", decision.Confidence)
 
 	// Log the decision (protected by lock)
 	a.mu.Lock()
@@ -279,10 +262,52 @@ func (a *BaseAgent) buildTemplateContext(state *game.State) *prompts.TemplateCon
 
 // buildKnowledgeContext builds knowledge context for templates
 func (a *BaseAgent) buildKnowledgeContext(state *game.State) *prompts.KnowledgeContext {
-	// Get known systems
+	// Get a limited set of systems for the LLM context
+	// Include: current system, connected systems, and recent visited systems
+	// This prevents sending all 505+ systems which wastes tokens and context
 	systems := a.memory.KnownSystems()
-	systemInfos := make([]prompts.SystemInfo, len(systems))
-	for i, sys := range systems {
+
+	// Build a set of relevant system IDs
+	relevantSystemIDs := make(map[string]bool)
+	maxRecentSystems := 10
+
+	// Always include current system
+	relevantSystemIDs[state.System.ID] = true
+
+	// Include connected systems (neighbors)
+	for _, conn := range state.System.Connections {
+		relevantSystemIDs[conn.SystemID] = true
+	}
+
+	// Include recently visited systems (up to maxRecentSystems)
+	experiences, _ := a.memory.GetRecentExperiences(maxRecentSystems)
+	for _, exp := range experiences {
+		// Extract system ID from location if available
+		// Location format is typically "System-POI" or just system name
+		if exp.Location != "" {
+			// Try to match location to a known system ID
+			for _, sys := range systems {
+				if sys.Name == exp.Location || sys.ID == exp.Location {
+					relevantSystemIDs[sys.ID] = true
+					break
+				}
+			}
+			if len(relevantSystemIDs) >= maxRecentSystems+10 { // +10 for current and connections
+				break
+			}
+		}
+	}
+
+	// Filter to only relevant systems
+	filteredSystems := make([]game.SystemData, 0, len(relevantSystemIDs))
+	for _, sys := range systems {
+		if relevantSystemIDs[sys.ID] {
+			filteredSystems = append(filteredSystems, sys)
+		}
+	}
+
+	systemInfos := make([]prompts.SystemInfo, len(filteredSystems))
+	for i, sys := range filteredSystems {
 		systemInfos[i] = prompts.SystemInfo{
 			ID:          sys.ID,
 			Name:        sys.Name,
@@ -444,15 +469,53 @@ func (a *BaseAgent) detectConstraints(state *game.State) []string {
 
 // buildFallbackPrompt creates the fallback hardcoded prompt
 func (a *BaseAgent) buildFallbackPrompt(state *game.State) string {
-	// Get current knowledge
+	// Get a limited set of relevant systems for the prompt
+	// Include: current system, connected systems, and recent visited systems
 	systems := a.memory.KnownSystems()
-	knowledgeText := fmt.Sprintf("Known systems: %d\n", len(systems))
+
+	// Build a set of relevant system IDs
+	relevantSystemIDs := make(map[string]bool)
+	maxRecentSystems := 10
+
+	// Always include current system
+	relevantSystemIDs[state.System.ID] = true
+
+	// Include connected systems (neighbors)
+	for _, conn := range state.System.Connections {
+		relevantSystemIDs[conn.SystemID] = true
+	}
+
+	// Include recently visited systems
+	experiences, _ := a.memory.GetRecentExperiences(maxRecentSystems)
+	for _, exp := range experiences {
+		if exp.Location != "" {
+			// Try to match location to a known system ID
+			for _, sys := range systems {
+				if sys.Name == exp.Location || sys.ID == exp.Location {
+					relevantSystemIDs[sys.ID] = true
+					break
+				}
+			}
+			if len(relevantSystemIDs) >= maxRecentSystems+10 {
+				break
+			}
+		}
+	}
+
+	// Filter to only relevant systems and build knowledge text
+	filteredSystems := make([]game.SystemData, 0, len(relevantSystemIDs))
 	for _, sys := range systems {
+		if relevantSystemIDs[sys.ID] {
+			filteredSystems = append(filteredSystems, sys)
+		}
+	}
+
+	knowledgeText := fmt.Sprintf("Known systems: %d (showing relevant systems)\n", len(filteredSystems))
+	for _, sys := range filteredSystems {
 		knowledgeText += fmt.Sprintf("  - %s (%s)\n", sys.Name, sys.ID)
 	}
 
 	// Get recent experiences
-	experiences, _ := a.memory.GetRecentExperiences(5)
 	expText := "Recent experiences:\n"
 	for _, exp := range experiences {
 		expText += fmt.Sprintf("  - [%s] %s: %s\n", exp.Type, exp.Description, exp.Outcome)
@@ -946,6 +1009,14 @@ func initializeGoalForRole(role string) *Goal {
 			Priority:  9,
 			Reasoning: "Combat pilots should develop combat skills for survival and victory",
 		}
+	case strings.Contains(roleLower, "craftsman"), strings.Contains(roleLower, "crafter"):
+		return &Goal{
+			Type:      "wealth",
+			Target:    "10000_credits",
+			Progress:  0.0,
+			Priority:  8,
+			Reasoning: "Craftsmen build wealth by crafting items from raw materials and selling for profit",
+		}
 	default:
 		// Generic goal for undefined roles
 		return &Goal{
@@ -971,6 +1042,8 @@ func getDefaultFocusForRole(role string) string {
 		return "exploring"
 	case strings.Contains(roleLower, "combat"):
 		return "combat"
+	case strings.Contains(roleLower, "craftsman"), strings.Contains(roleLower, "crafter"):
+		return "crafting"
 	default:
 		return "general"
 	}

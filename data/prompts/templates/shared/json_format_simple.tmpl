@@ -1,0 +1,15 @@
+{{define "json_format_simple.tmpl"}}
+Respond with ONLY valid JSON in this exact format:
+{
+  "action": "action_name",
+  "target": "target_if_required_or_empty_string",
+  "reasoning": "1 sentence why"
+}
+
+RULES:
+- Pick exactly ONE action. No plans, no analysis, just one command.
+- "target" must be an exact ID from the lists above (POI IDs, recipe IDs, item IDs).
+- Do NOT choose "get_status" or "wait" if there is a productive action available.
+- Do NOT repeat an action that just failed — try something different.
+- If your last action succeeded, continue your current task (e.g., keep crafting, keep mining).
+{{end}}
