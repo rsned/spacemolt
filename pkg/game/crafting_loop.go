@@ -141,6 +141,8 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 	type Recipe struct {
 		ID               string
 		Name             string
+		OutputItem       string                 // What this recipe produces
+		OutputQuantity   float64                // How much it produces
 		RequiredInputs   map[string]float64
 		RequiredSkills   map[string]int
 		RequiredCrafting int
@@ -150,38 +152,48 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 
 	recipes := []Recipe{
 		{
-			ID:     "basic_smelt_iron",
-			Name:   "Basic Iron Smelting (no skill, 10 ore -> 1 steel)",
+			ID:             "basic_smelt_iron",
+			Name:           "Basic Iron Smelting (no skill, 10 ore -> 1 steel)",
+			OutputItem:     "refined_steel",
+			OutputQuantity: 1,
 			RequiredInputs: map[string]float64{
 				"ore_iron": 10,
 			},
 		},
 		{
-			ID:     "refine_steel",
-			Name:   "Refine Steel (refinement 1+, 5 ore -> 2 steel) - 4x better!",
+			ID:             "refine_steel",
+			Name:           "Refine Steel (refinement 1+, 5 ore -> 2 steel) - 4x better!",
+			OutputItem:     "refined_steel",
+			OutputQuantity: 2,
 			RequiredInputs: map[string]float64{
 				"ore_iron": 5,
 			},
 			RequiredRefining: 1,
 		},
 		{
-			ID:     "basic_copper_processing",
-			Name:   "Basic Copper Processing (no skill, 10 ore -> 1 copper)",
+			ID:             "basic_copper_processing",
+			Name:           "Basic Copper Processing (no skill, 10 ore -> 1 copper)",
+			OutputItem:     "refined_copper_wire",
+			OutputQuantity: 1,
 			RequiredInputs: map[string]float64{
 				"ore_copper": 10,
 			},
 		},
 		{
-			ID:     "refine_copper_wire",
-			Name:   "Process Copper Wiring (refinement 1+, 5 copper -> 1 wire)",
+			ID:             "refine_copper_wire",
+			Name:           "Process Copper Wiring (refinement 1+, 5 copper -> 1 wire)",
+			OutputItem:     "refined_copper_wire",
+			OutputQuantity: 1,
 			RequiredInputs: map[string]float64{
 				"refined_copper": 5,
 			},
 			RequiredRefining: 1,
 		},
 		{
-			ID:     "smelt_aluminum_sheet",
-			Name:   "Smelt Aluminum Sheet (refinement 1+, 10 ore -> 1 aluminum)",
+			ID:             "smelt_aluminum_sheet",
+			Name:           "Smelt Aluminum Sheet (refinement 1+, 10 ore -> 1 aluminum)",
+			OutputItem:     "refined_aluminum",
+			OutputQuantity: 1,
 			RequiredInputs: map[string]float64{
 				"ore_aluminum": 10,
 			},
@@ -190,7 +202,12 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 	}
 
 	// Check which recipes can be crafted with current cargo and skills
-	var craftableRecipes []string
+	type craftableRecipe struct {
+		recipe      Recipe
+		maxBatches  int
+		efficiency  float64 // Output per total input
+	}
+	var craftable []craftableRecipe
 
 	logger.Printf("🔍 Checking %d recipes against current cargo and skills...", len(recipes))
 
@@ -248,13 +265,24 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 		}
 
 		if hasAllInputs {
-			craftableRecipes = append(craftableRecipes, recipe.ID)
-			logger.Printf("   ✓ %s: %s - can craft %d batches (%.0f items)",
-				recipe.Name, recipe.ID, maxBatches, float64(maxBatches*10))
+			// Calculate efficiency: output quantity per total input quantity
+			totalInput := 0.0
+			for _, qty := range recipe.RequiredInputs {
+				totalInput += qty
+			}
+			efficiency := recipe.OutputQuantity / totalInput
+
+			craftable = append(craftable, craftableRecipe{
+				recipe:     recipe,
+				maxBatches: maxBatches,
+				efficiency: efficiency,
+			})
+			logger.Printf("   ✓ %s: %s - can craft %d batches (%.0f items, efficiency: %.2f)",
+				recipe.Name, recipe.ID, maxBatches, float64(maxBatches*10), efficiency)
 		}
 	}
 
-	if len(craftableRecipes) == 0 {
+	if len(craftable) == 0 {
 		logger.Printf("❌ No craftable recipes found with current cargo and skills")
 		logger.Printf("   💡 To craft more items, you need to:")
 		logger.Printf("      • Mine ores and deposit them to station storage")
@@ -263,7 +291,29 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 		return nil, nil
 	}
 
+	// Deduplicate: for each output item, keep only the most efficient recipe
+	bestRecipes := make(map[string]craftableRecipe) // key: output item
+	for _, cr := range craftable {
+		outputItem := cr.recipe.OutputItem
+		best, exists := bestRecipes[outputItem]
+		if !exists || cr.efficiency > best.efficiency {
+			bestRecipes[outputItem] = cr
+		}
+	}
+
+	// Extract recipe IDs from best recipes
+	var craftableRecipes []string
+	for _, cr := range bestRecipes {
+		craftableRecipes = append(craftableRecipes, cr.recipe.ID)
+	}
+
 	logger.Printf("✅ Found %d craftable recipes!", len(craftableRecipes))
+	// Log which recipes were selected as best
+	for _, cr := range bestRecipes {
+		logger.Printf("   🎯 Best for %s: %s (efficiency: %.2f)",
+			cr.recipe.OutputItem, cr.recipe.ID, cr.efficiency)
+	}
+
 	return craftableRecipes, nil
 }
 
