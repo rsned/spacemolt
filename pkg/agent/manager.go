@@ -15,6 +15,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/strategy"
 	"github.com/rsned/spacemolt/pkg/version"
 )
 
@@ -26,11 +27,12 @@ const (
 
 // Manager manages multiple agents with game connections
 type Manager struct {
-	runners       map[string]*Runner
-	kb            knowledge.Base
-	llm           *llm.Client
-	credsProvider credentials.Provider
-	mu            sync.RWMutex
+	runners         map[string]*Runner
+	strategyRunners map[string]*StrategyRunner
+	kb              knowledge.Base
+	llm             *llm.Client
+	credsProvider   credentials.Provider
+	mu              sync.RWMutex
 
 	// Configuration
 	maxAgents     int
@@ -81,15 +83,16 @@ func NewManager(
 	}
 
 	return &Manager{
-		runners:       make(map[string]*Runner),
-		kb:            kb,
-		llm:           llmClient,
-		credsProvider: credsProvider,
-		maxAgents:     config.MaxAgents,
-		gameServerURL: config.GameServerURL,
-		agentsDataDir: config.AgentsDataDir,
-		runnerConfig:  config.RunnerConfig,
-		debugLogger:   config.DebugLogger,
+		runners:         make(map[string]*Runner),
+		strategyRunners: make(map[string]*StrategyRunner),
+		kb:              kb,
+		llm:             llmClient,
+		credsProvider:   credsProvider,
+		maxAgents:       config.MaxAgents,
+		gameServerURL:   config.GameServerURL,
+		agentsDataDir:   config.AgentsDataDir,
+		runnerConfig:    config.RunnerConfig,
+		debugLogger:     config.DebugLogger,
 	}
 }
 
@@ -200,14 +203,26 @@ func (m *Manager) StopAll() error {
 	}
 
 	m.runners = make(map[string]*Runner)
+
+	// Stop all strategy runners
+	for id, sr := range m.strategyRunners {
+		if err := sr.Stop(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("failed to stop strategy agent %s: %w", id, err)
+		}
+		if err := sr.GameClient().Close(); err != nil {
+			m.debugLogger.Printf("[%s] Warning: failed to close game client: %v", id, err)
+		}
+	}
+	m.strategyRunners = make(map[string]*StrategyRunner)
+
 	return firstErr
 }
 
-// AgentCount returns the number of active agents
+// AgentCount returns the number of active agents (LLM + strategy)
 func (m *Manager) AgentCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return len(m.runners)
+	return len(m.runners) + len(m.strategyRunners)
 }
 
 // GetStatus returns the status of all agents
@@ -518,6 +533,140 @@ func (m *Manager) loadCredentialsWithFallback(ctx context.Context, agentID strin
 
 	m.debugLogger.Printf("[%s] ✓ Loaded credentials from %s", agentID, credsPath)
 	return &fallbackCreds, nil
+}
+
+// SpawnStrategyAgent creates a game-connected agent running a strategy instead of LLM.
+func (m *Manager) SpawnStrategyAgent(ctx context.Context, agentID string, strat strategy.Strategy, params map[string]string) (*StrategyRunner, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	totalAgents := len(m.runners) + len(m.strategyRunners)
+	if totalAgents >= m.maxAgents {
+		return nil, fmt.Errorf("max agents limit reached: %d", m.maxAgents)
+	}
+
+	if _, exists := m.runners[agentID]; exists {
+		return nil, fmt.Errorf("agent %s already exists as LLM runner", agentID)
+	}
+	if _, exists := m.strategyRunners[agentID]; exists {
+		return nil, fmt.Errorf("agent %s already exists as strategy runner", agentID)
+	}
+
+	m.debugLogger.Printf("[%s] spawning strategy agent (%s)", agentID, strat.Name())
+
+	// Load credentials
+	creds, err := m.loadCredentialsWithFallback(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("loading credentials for %s: %w", agentID, err)
+	}
+
+	// Create and connect game client
+	gameClient := game.NewClient(m.gameServerURL, creds.Username, creds.Password, m.debugLogger)
+	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
+	gameClient.SetHandler(reconnectHandler)
+
+	if err := m.connectWithRetry(ctx, gameClient, agentID); err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+
+	if err := m.loginWithRetry(ctx, gameClient, creds, agentID); err != nil {
+		_ = gameClient.Close()
+		return nil, fmt.Errorf("login failed: %w", err)
+	}
+
+	sr := NewStrategyRunner(StrategyRunnerConfig{
+		AgentID:    agentID,
+		Strategy:   strat,
+		GameClient: gameClient,
+		KB:         m.kb,
+		Parameters: params,
+		Logger:     m.debugLogger,
+	})
+
+	if err := sr.Start(ctx); err != nil {
+		_ = gameClient.Close()
+		return nil, fmt.Errorf("failed to start strategy runner: %w", err)
+	}
+
+	m.strategyRunners[agentID] = sr
+	m.debugLogger.Printf("[%s] strategy agent (%s) spawned and running", agentID, strat.Name())
+	return sr, nil
+}
+
+// SwapStrategy stops the current strategy runner for an agent and starts a new one.
+func (m *Manager) SwapStrategy(ctx context.Context, agentID string, newStrat strategy.Strategy, params map[string]string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sr, exists := m.strategyRunners[agentID]
+	if !exists {
+		return fmt.Errorf("no strategy runner for agent %s", agentID)
+	}
+
+	// Stop the old strategy
+	if err := sr.Stop(); err != nil {
+		m.debugLogger.Printf("[%s] warning: error stopping old strategy: %v", agentID, err)
+	}
+
+	// Create and start new strategy runner reusing the same game client
+	newSR := NewStrategyRunner(StrategyRunnerConfig{
+		AgentID:    agentID,
+		Strategy:   newStrat,
+		GameClient: sr.GameClient(),
+		KB:         m.kb,
+		Parameters: params,
+		Logger:     m.debugLogger,
+	})
+
+	if err := newSR.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start new strategy: %w", err)
+	}
+
+	m.strategyRunners[agentID] = newSR
+	m.debugLogger.Printf("[%s] swapped strategy to %s", agentID, newStrat.Name())
+	return nil
+}
+
+// GetStrategyRunner retrieves a strategy runner by agent ID.
+func (m *Manager) GetStrategyRunner(id string) (*StrategyRunner, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	sr, ok := m.strategyRunners[id]
+	return sr, ok
+}
+
+// ListStrategyRunners returns all strategy runners.
+func (m *Manager) ListStrategyRunners() []*StrategyRunner {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	runners := make([]*StrategyRunner, 0, len(m.strategyRunners))
+	for _, sr := range m.strategyRunners {
+		runners = append(runners, sr)
+	}
+	return runners
+}
+
+// StopStrategyAgent stops and removes a strategy agent.
+func (m *Manager) StopStrategyAgent(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sr, ok := m.strategyRunners[id]
+	if !ok {
+		return fmt.Errorf("strategy agent not found: %s", id)
+	}
+
+	if err := sr.Stop(); err != nil {
+		return fmt.Errorf("failed to stop strategy agent: %w", err)
+	}
+
+	if err := sr.GameClient().Close(); err != nil {
+		m.debugLogger.Printf("[%s] Warning: failed to close game client: %v", id, err)
+	}
+
+	delete(m.strategyRunners, id)
+	return nil
 }
 
 // sanitizeUsername removes invalid characters from username

@@ -13,6 +13,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/observe"
 )
 
 func main() {
@@ -42,26 +43,15 @@ func main() {
 	}
 	defer func() { _ = kb.Close() }()
 
-	server := NewObserverServer(creds, kb, *serverURL, logger)
+	server := observe.NewObserverServer(creds, kb, *serverURL, logger)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", server.HandleBrowserWS)
-	mux.HandleFunc("GET /api/agents", server.HandleAPIAgents)
-	mux.HandleFunc("POST /api/agents", server.HandleAPIAgents)
-	mux.HandleFunc("DELETE /api/agents/{username}", server.HandleAPIAgents)
-	mux.HandleFunc("GET /api/systems", server.HandleGetSystems)
-	mux.HandleFunc("GET /api/systems/{id}", server.HandleGetSystem)
-	mux.HandleFunc("GET /api/systems/{id}/pois", server.HandleGetSystemPOIs)
-	mux.HandleFunc("GET /api/bases/{id}", server.HandleGetBase)
-	mux.HandleFunc("GET /api/pois/{id}/base", server.HandleGetBaseByPOI)
-	mux.HandleFunc("GET /api/skills", server.HandleGetSkills)
-	mux.HandleFunc("GET /api/skills/{id}", server.HandleGetSkill)
-	mux.HandleFunc("GET /api/catalog/items", server.HandleGetCatalogItems)
+	server.RegisterRoutes(mux)
 
 	if *staticDir != "" {
 		if info, err := os.Stat(*staticDir); err == nil && info.IsDir() {
 			logger.Printf("serving static files from %s", *staticDir)
-			mux.Handle("/", newSPAFileServer(*staticDir))
+			mux.Handle("/", observe.NewSPAFileServer(*staticDir))
 		} else {
 			logger.Printf("static directory %q not found, skipping", *staticDir)
 		}

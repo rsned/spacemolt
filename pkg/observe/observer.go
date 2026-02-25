@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 // ObserverServer manages agent connections and browser clients.
 type ObserverServer struct {
 	agents     map[string]*AgentSession
-	browserHub *BrowserHub
+	BrowserHub *BrowserHub
 	creds      credentials.Provider
 	kb         knowledge.Base
 	gameURL    string
@@ -31,7 +31,7 @@ type ObserverServer struct {
 func NewObserverServer(creds credentials.Provider, kb knowledge.Base, gameURL string, logger *log.Logger) *ObserverServer {
 	return &ObserverServer{
 		agents:     make(map[string]*AgentSession),
-		browserHub: NewBrowserHub(logger),
+		BrowserHub: NewBrowserHub(logger),
 		creds:      creds,
 		kb:         kb,
 		gameURL:    gameURL,
@@ -76,7 +76,7 @@ func (s *ObserverServer) AddAgent(ctx context.Context, username string) error {
 	// Connect with retry logic
 	maxRetries := 3
 	var lastErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		if attempt > 0 {
 			backoff := time.Duration(1<<uint(attempt)) * time.Second
 			s.logger.Printf("Retry %d/%d for agent %q after %v", attempt+1, maxRetries, username, backoff)
@@ -165,7 +165,8 @@ func (s *ObserverServer) ListAgents() []AgentInfo {
 	return agents
 }
 
-func (s *ObserverServer) getAgent(username string) *AgentSession {
+// GetAgent returns the session for the given agent username.
+func (s *ObserverServer) GetAgent(username string) *AgentSession {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.agents[username]
@@ -193,21 +194,21 @@ func (s *ObserverServer) HandleAPIAgents(w http.ResponseWriter, r *http.Request)
 	switch r.Method {
 	case http.MethodGet:
 		agents := s.ListAgents()
-		writeJSON(w, http.StatusOK, agents)
+		WriteJSON(w, http.StatusOK, agents)
 
 	case http.MethodPost:
 		var req struct {
 			Username string `json:"username"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
+			WriteJSON(w, http.StatusBadRequest, map[string]string{
 				"error":   "invalid request body",
 				"details": "failed to parse JSON",
 			})
 			return
 		}
 		if req.Username == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
+			WriteJSON(w, http.StatusBadRequest, map[string]string{
 				"error": "username is required",
 			})
 			return
@@ -223,25 +224,25 @@ func (s *ObserverServer) HandleAPIAgents(w http.ResponseWriter, r *http.Request)
 			errorType := "internal_error"
 
 			errMsg := err.Error()
-			if contains(errMsg, "already connected") {
+			if containsSubstr(errMsg, "already connected") {
 				statusCode = http.StatusConflict
 				errorType = "already_exists"
-			} else if contains(errMsg, "loading credentials") || contains(errMsg, "not found") {
+			} else if containsSubstr(errMsg, "loading credentials") || containsSubstr(errMsg, "not found") {
 				statusCode = http.StatusNotFound
 				errorType = "credentials_not_found"
-			} else if contains(errMsg, "timeout") || contains(errMsg, "deadline exceeded") {
+			} else if containsSubstr(errMsg, "timeout") || containsSubstr(errMsg, "deadline exceeded") {
 				statusCode = http.StatusGatewayTimeout
 				errorType = "connection_timeout"
 			}
 
-			writeJSON(w, statusCode, map[string]any{
+			WriteJSON(w, statusCode, map[string]any{
 				"error":    err.Error(),
 				"type":     errorType,
 				"username": req.Username,
 			})
 			return
 		}
-		writeJSON(w, http.StatusCreated, map[string]any{
+		WriteJSON(w, http.StatusCreated, map[string]any{
 			"status":   "ok",
 			"username": req.Username,
 			"message":  "agent connected successfully",
@@ -250,32 +251,49 @@ func (s *ObserverServer) HandleAPIAgents(w http.ResponseWriter, r *http.Request)
 	case http.MethodDelete:
 		username := r.PathValue("username")
 		if username == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]string{
+			WriteJSON(w, http.StatusBadRequest, map[string]string{
 				"error": "username is required",
 			})
 			return
 		}
 		if err := s.RemoveAgent(username); err != nil {
-			writeJSON(w, http.StatusNotFound, map[string]any{
+			WriteJSON(w, http.StatusNotFound, map[string]any{
 				"error":    err.Error(),
 				"username": username,
 			})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
+		WriteJSON(w, http.StatusOK, map[string]any{
 			"status":   "ok",
 			"message":  "agent removed successfully",
 			"username": username,
 		})
 
 	default:
-		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{
+		WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{
 			"error": "method not allowed",
 		})
 	}
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+// RegisterRoutes registers all observer HTTP routes on the given mux.
+func (s *ObserverServer) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/ws", s.HandleBrowserWS)
+	mux.HandleFunc("GET /api/agents", s.HandleAPIAgents)
+	mux.HandleFunc("POST /api/agents", s.HandleAPIAgents)
+	mux.HandleFunc("DELETE /api/agents/{username}", s.HandleAPIAgents)
+	mux.HandleFunc("GET /api/systems", s.HandleGetSystems)
+	mux.HandleFunc("GET /api/systems/{id}", s.HandleGetSystem)
+	mux.HandleFunc("GET /api/systems/{id}/pois", s.HandleGetSystemPOIs)
+	mux.HandleFunc("GET /api/bases/{id}", s.HandleGetBase)
+	mux.HandleFunc("GET /api/pois/{id}/base", s.HandleGetBaseByPOI)
+	mux.HandleFunc("GET /api/skills", s.HandleGetSkills)
+	mux.HandleFunc("GET /api/skills/{id}", s.HandleGetSkill)
+	mux.HandleFunc("GET /api/catalog/items", s.HandleGetCatalogItems)
+}
+
+// WriteJSON writes a JSON response with the given status code.
+func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -285,8 +303,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 
-// contains checks if a string contains a substring (case-insensitive).
-func contains(s, substr string) bool {
+// containsSubstr checks if a string contains a substring (case-insensitive).
+func containsSubstr(s, substr string) bool {
 	return len(s) >= len(substr) &&
 		(s == substr ||
 			len(s) > len(substr) && (
@@ -296,7 +314,7 @@ func contains(s, substr string) bool {
 }
 
 func containsMiddle(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
+	for i := range len(s) - len(substr) + 1 {
 		if s[i:i+len(substr)] == substr {
 			return true
 		}

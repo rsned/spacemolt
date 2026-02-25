@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"context"
@@ -23,7 +23,7 @@ type AgentSession struct {
 	connected  bool
 	mu         sync.RWMutex
 	logger     *log.Logger
-	cache      *agentCache
+	cache      *AgentCache
 	lastTick   int64
 }
 
@@ -36,7 +36,7 @@ func NewAgentSession(username string, client *game.Client, server *ObserverServe
 		ctx:        ctx,
 		cancel:     cancel,
 		logger:     logger,
-		cache:      newAgentCache(),
+		cache:      NewAgentCache(),
 	}
 }
 
@@ -46,10 +46,10 @@ func (s *AgentSession) OnConnected(state *game.State) {
 	s.connected = true
 	s.mu.Unlock()
 
-	s.cache.clear()
+	s.cache.Clear()
 	s.logger.Printf("*** [%s] connected to game server", s.username)
 
-	statusMsg := serverMessage{
+	statusMsg := ServerMessage{
 		Type:      "agent_status",
 		Agent:     s.username,
 		Connected: boolPtr(true),
@@ -71,7 +71,7 @@ func (s *AgentSession) OnMessage(resp protocol.Response) {
 		return
 	}
 
-	msg := serverMessage{
+	msg := ServerMessage{
 		Type:    "game_message",
 		Agent:   s.username,
 		Message: raw,
@@ -91,7 +91,7 @@ func (s *AgentSession) OnDisconnected(err error) {
 	disconnectReason := categorizeDisconnectError(err)
 	s.logger.Printf("*** [%s] disconnected from game server: %v (reason: %s)", s.username, err, disconnectReason)
 
-	statusMsg := serverMessage{
+	statusMsg := ServerMessage{
 		Type:      "agent_status",
 		Agent:     s.username,
 		Connected: boolPtr(false),
@@ -113,15 +113,15 @@ func (s *AgentSession) SendCommand(ctx context.Context, msg protocol.Message) er
 	s.logger.Printf("*** [%s] SendCommand: type='%s' payload=%v", s.username, msg.Type, msg.Payload)
 
 	// Invalidate cache entries affected by mutation commands.
-	if keys, ok := invalidationMap[msg.Type]; ok {
-		s.cache.invalidate(keys...)
+	if keys, ok := InvalidationMap[msg.Type]; ok {
+		s.cache.Invalidate(keys...)
 		s.logger.Printf("*** [%s] cache invalidated %v for command '%s'", s.username, keys, msg.Type)
 	}
 
 	// Check cache before forwarding to the game server.
-	if cached := s.cache.get(msg.Type, s.lastTick); cached != nil {
+	if cached := s.cache.Get(msg.Type, s.lastTick); cached != nil {
 		s.logger.Printf("*** [%s] cache hit for '%s', returning cached response", s.username, msg.Type)
-		s.broadcastServerMessage(serverMessage{
+		s.broadcastServerMessage(ServerMessage{
 			Type:    "game_message",
 			Agent:   s.username,
 			Message: cached,
@@ -165,13 +165,13 @@ func (s *AgentSession) Close() {
 	_ = s.gameClient.Close()
 }
 
-func (s *AgentSession) broadcastServerMessage(msg serverMessage) {
+func (s *AgentSession) broadcastServerMessage(msg ServerMessage) {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		s.logger.Printf("*** [%s] failed to marshal server message: %v", s.username, err)
 		return
 	}
-	s.server.browserHub.Broadcast(s.username, data)
+	s.server.BrowserHub.Broadcast(s.username, data)
 }
 
 func (s *AgentSession) updateCache(resp protocol.Response) {
@@ -234,7 +234,7 @@ func (s *AgentSession) cacheResponse(resp protocol.Response) {
 		return
 	}
 
-	if _, hasPol := cachePolicies[command]; !hasPol {
+	if _, hasPol := CachePolicies[command]; !hasPol {
 		return
 	}
 
@@ -247,7 +247,7 @@ func (s *AgentSession) cacheResponse(resp protocol.Response) {
 	tick := s.lastTick
 	s.mu.RUnlock()
 
-	s.cache.set(command, raw, tick)
+	s.cache.Set(command, raw, tick)
 	s.logger.Printf("*** [%s] cached response for '%s' at tick %d", s.username, command, tick)
 }
 

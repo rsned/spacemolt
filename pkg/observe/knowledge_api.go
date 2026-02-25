@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"net/http"
@@ -8,8 +8,8 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// systemJSON is the JSON representation of a system for API responses.
-type systemJSON struct {
+// SystemJSON is the JSON representation of a system for API responses.
+type SystemJSON struct {
 	ID             string        `json:"id"`
 	Name           string        `json:"name"`
 	Position       game.Position `json:"position"`
@@ -20,8 +20,8 @@ type systemJSON struct {
 	Connections    []string      `json:"connections"`
 }
 
-// poiJSON is the JSON representation of a POI for API responses.
-type poiJSON struct {
+// POIJSON is the JSON representation of a POI for API responses.
+type POIJSON struct {
 	ID        string             `json:"id"`
 	Name      string             `json:"name"`
 	Type      string             `json:"type"`
@@ -29,23 +29,23 @@ type poiJSON struct {
 	Resources []game.POIResource `json:"resources"`
 }
 
-// connectedSystemJSON is a minimal system reference for connection endpoints.
-type connectedSystemJSON struct {
+// ConnectedSystemJSON is a minimal system reference for connection endpoints.
+type ConnectedSystemJSON struct {
 	ID       string        `json:"id"`
 	Name     string        `json:"name"`
 	Position game.Position `json:"position"`
 	Distance int           `json:"distance"`
 }
 
-// systemDetailResponse is the response shape for GET /api/systems/{id}.
-type systemDetailResponse struct {
-	System      systemJSON            `json:"system"`
-	POIs        []poiJSON             `json:"pois"`
-	Connections []connectedSystemJSON `json:"connections"`
+// SystemDetailResponse is the response shape for GET /api/systems/{id}.
+type SystemDetailResponse struct {
+	System      SystemJSON            `json:"system"`
+	POIs        []POIJSON             `json:"pois"`
+	Connections []ConnectedSystemJSON `json:"connections"`
 }
 
-// facilityJSON is the JSON representation of a facility for API responses.
-type facilityJSON struct {
+// FacilityJSON is the JSON representation of a facility for API responses.
+type FacilityJSON struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Category    string `json:"category"`
@@ -53,31 +53,31 @@ type facilityJSON struct {
 	LastUpdated int64  `json:"last_updated"`
 }
 
-// baseJSON is the JSON representation of a base for API responses.
-type baseJSON struct {
-	ID           string         `json:"id"`
-	POIID        string         `json:"poi_id"`
-	Name         string         `json:"name"`
-	Description  string         `json:"description"`
-	Empire       string         `json:"empire"`
-	DefenseLevel int            `json:"defense_level"`
-	HasDrones    bool           `json:"has_drones"`
-	PublicAccess bool           `json:"public_access"`
+// BaseJSON is the JSON representation of a base for API responses.
+type BaseJSON struct {
+	ID           string          `json:"id"`
+	POIID        string          `json:"poi_id"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	Empire       string          `json:"empire"`
+	DefenseLevel int             `json:"defense_level"`
+	HasDrones    bool            `json:"has_drones"`
+	PublicAccess bool            `json:"public_access"`
 	Services     map[string]bool `json:"services"`
-	Facilities   []facilityJSON  `json:"facilities"`
+	Facilities   []FacilityJSON  `json:"facilities"`
 }
 
-// baseDetailResponse is the response shape for GET /api/bases/{id}.
-type baseDetailResponse struct {
-	Base baseJSON `json:"base"`
+// BaseDetailResponse is the response shape for GET /api/bases/{id}.
+type BaseDetailResponse struct {
+	Base BaseJSON `json:"base"`
 }
 
-func systemToJSON(sys knowledge.System) systemJSON {
+func systemToJSON(sys knowledge.System) SystemJSON {
 	conns := make([]string, len(sys.Connections))
 	for i, c := range sys.Connections {
 		conns[i] = c.SystemID
 	}
-	return systemJSON{
+	return SystemJSON{
 		ID:             sys.ID,
 		Name:           sys.Name,
 		Position:       sys.Position,
@@ -89,12 +89,12 @@ func systemToJSON(sys knowledge.System) systemJSON {
 	}
 }
 
-func poiToJSON(poi knowledge.POI) poiJSON {
+func poiToJSON(poi knowledge.POI) POIJSON {
 	resources := poi.Resources
 	if resources == nil {
 		resources = []game.POIResource{}
 	}
-	return poiJSON{
+	return POIJSON{
 		ID:        poi.ID,
 		Name:      poi.Name,
 		Type:      poi.Type,
@@ -106,11 +106,11 @@ func poiToJSON(poi knowledge.POI) poiJSON {
 // HandleGetSystems returns all known systems for the galaxy map.
 func (s *ObserverServer) HandleGetSystems(w http.ResponseWriter, _ *http.Request) {
 	systems := s.kb.GetSystems()
-	result := make([]systemJSON, 0, len(systems))
+	result := make([]SystemJSON, 0, len(systems))
 	for _, sys := range systems {
 		result = append(result, systemToJSON(sys))
 	}
-	writeJSON(w, http.StatusOK, result)
+	WriteJSON(w, http.StatusOK, result)
 }
 
 // HandleGetSystem returns a single system with its POIs and connected system positions.
@@ -132,9 +132,9 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 	if sys == nil {
 		// Try to find system by name as a fallback
 		allSystems := s.kb.GetSystems()
-		for _, s := range allSystems {
-			if strings.EqualFold(s.Name, id) {
-				sys = &s
+		for _, found := range allSystems {
+			if strings.EqualFold(found.Name, id) {
+				sys = &found
 				break
 			}
 		}
@@ -156,14 +156,14 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 	// Build connected systems list by looking up each connection's position/name.
 	allSystems := s.kb.GetSystems()
 	systemIndex := make(map[string]knowledge.System, len(allSystems))
-	for _, s := range allSystems {
-		systemIndex[s.ID] = s
+	for _, found := range allSystems {
+		systemIndex[found.ID] = found
 	}
 
-	connections := make([]connectedSystemJSON, 0, len(sys.Connections))
+	connections := make([]ConnectedSystemJSON, 0, len(sys.Connections))
 	for _, conn := range sys.Connections {
 		if connSys, ok := systemIndex[conn.SystemID]; ok {
-			connections = append(connections, connectedSystemJSON{
+			connections = append(connections, ConnectedSystemJSON{
 				ID:       connSys.ID,
 				Name:     connSys.Name,
 				Position: connSys.Position,
@@ -172,12 +172,12 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	poisJSON := make([]poiJSON, 0, len(pois))
+	poisJSON := make([]POIJSON, 0, len(pois))
 	for _, p := range pois {
 		poisJSON = append(poisJSON, poiToJSON(p))
 	}
 
-	writeJSON(w, http.StatusOK, systemDetailResponse{
+	WriteJSON(w, http.StatusOK, SystemDetailResponse{
 		System:      systemToJSON(*sys),
 		POIs:        poisJSON,
 		Connections: connections,
@@ -199,11 +199,11 @@ func (s *ObserverServer) HandleGetSystemPOIs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	result := make([]poiJSON, 0, len(pois))
+	result := make([]POIJSON, 0, len(pois))
 	for _, p := range pois {
 		result = append(result, poiToJSON(p))
 	}
-	writeJSON(w, http.StatusOK, result)
+	WriteJSON(w, http.StatusOK, result)
 }
 
 // HandleGetBase returns a single base with its facilities.
@@ -228,7 +228,7 @@ func (s *ObserverServer) HandleGetBase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, baseDetailResponse{
+	WriteJSON(w, http.StatusOK, BaseDetailResponse{
 		Base: baseToJSON(*base),
 	})
 }
@@ -255,20 +255,20 @@ func (s *ObserverServer) HandleGetBaseByPOI(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	writeJSON(w, http.StatusOK, baseDetailResponse{
+	WriteJSON(w, http.StatusOK, BaseDetailResponse{
 		Base: baseToJSON(*base),
 	})
 }
 
-func baseToJSON(base knowledge.SpaceBase) baseJSON {
+func baseToJSON(base knowledge.SpaceBase) BaseJSON {
 	services := base.Services
 	if services == nil {
 		services = make(map[string]bool)
 	}
 
-	facilities := make([]facilityJSON, 0, len(base.Facilities))
+	facilities := make([]FacilityJSON, 0, len(base.Facilities))
 	for _, f := range base.Facilities {
-		facilities = append(facilities, facilityJSON{
+		facilities = append(facilities, FacilityJSON{
 			ID:          f.ID,
 			Name:        f.Name,
 			Category:    f.Category,
@@ -277,7 +277,7 @@ func baseToJSON(base knowledge.SpaceBase) baseJSON {
 		})
 	}
 
-	return baseJSON{
+	return BaseJSON{
 		ID:           base.ID,
 		POIID:        base.POIID,
 		Name:         base.Name,

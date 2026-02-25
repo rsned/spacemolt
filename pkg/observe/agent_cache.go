@@ -1,39 +1,39 @@
-package main
+package observe
 
 import (
 	"encoding/json"
 	"sync"
 )
 
-// cacheEntry holds a cached response and the tick at which it was stored.
-type cacheEntry struct {
+// CacheEntry holds a cached response and the tick at which it was stored.
+type CacheEntry struct {
 	data json.RawMessage
 	tick int64
 }
 
-// cachePolicy defines how long a cached entry remains valid.
-type cachePolicy struct {
-	maxAgeTicks int64
+// CachePolicy defines how long a cached entry remains valid.
+type CachePolicy struct {
+	MaxAgeTicks int64
 }
 
-// cachePolicies maps command names to their caching policy.
+// CachePolicies maps command names to their caching policy.
 // Commands not listed here are never cached.
-var cachePolicies = map[string]cachePolicy{
-	"get_system":            {maxAgeTicks: 30},
-	"get_ship":              {maxAgeTicks: 0},
-	"get_ships":             {maxAgeTicks: 200},
-	"get_base":              {maxAgeTicks: 60},
-	"get_poi":               {maxAgeTicks: 60},
-	"get_skills":            {maxAgeTicks: 100},
-	"get_cargo":             {maxAgeTicks: 0},
-	"get_recipes":           {maxAgeTicks: 1000},
-	"get_map":               {maxAgeTicks: 1000},
-	"view_storage":          {maxAgeTicks: 0},
-	"view_faction_storage":  {maxAgeTicks: 0},
+var CachePolicies = map[string]CachePolicy{
+	"get_system":           {MaxAgeTicks: 30},
+	"get_ship":             {MaxAgeTicks: 0},
+	"get_ships":            {MaxAgeTicks: 200},
+	"get_base":             {MaxAgeTicks: 60},
+	"get_poi":              {MaxAgeTicks: 60},
+	"get_skills":           {MaxAgeTicks: 100},
+	"get_cargo":            {MaxAgeTicks: 0},
+	"get_recipes":          {MaxAgeTicks: 1000},
+	"get_map":              {MaxAgeTicks: 1000},
+	"view_storage":         {MaxAgeTicks: 0},
+	"view_faction_storage": {MaxAgeTicks: 0},
 }
 
-// invalidationMap maps mutation commands to the cache keys they invalidate.
-var invalidationMap = map[string][]string{
+// InvalidationMap maps mutation commands to the cache keys they invalidate.
+var InvalidationMap = map[string][]string{
 	"switch_ship":               {"get_ship", "get_cargo"},
 	"install_mod":               {"get_ship"},
 	"install":                   {"get_ship"},
@@ -66,23 +66,23 @@ var invalidationMap = map[string][]string{
 	"sell_ship":                 {"get_ship", "get_cargo"},
 }
 
-// agentCache provides per-agent response caching keyed by command name.
-type agentCache struct {
-	entries map[string]*cacheEntry
+// AgentCache provides per-agent response caching keyed by command name.
+type AgentCache struct {
+	entries map[string]*CacheEntry
 	mu      sync.RWMutex
 }
 
-// newAgentCache creates an empty agent cache.
-func newAgentCache() *agentCache {
-	return &agentCache{
-		entries: make(map[string]*cacheEntry),
+// NewAgentCache creates an empty agent cache.
+func NewAgentCache() *AgentCache {
+	return &AgentCache{
+		entries: make(map[string]*CacheEntry),
 	}
 }
 
-// get returns cached data for the given command if the entry exists and is
+// Get returns cached data for the given command if the entry exists and is
 // still fresh relative to currentTick. Returns nil on miss or stale entry.
-func (c *agentCache) get(command string, currentTick int64) json.RawMessage {
-	policy, ok := cachePolicies[command]
+func (c *AgentCache) Get(command string, currentTick int64) json.RawMessage {
+	policy, ok := CachePolicies[command]
 	if !ok {
 		return nil
 	}
@@ -95,24 +95,24 @@ func (c *agentCache) get(command string, currentTick int64) json.RawMessage {
 		return nil
 	}
 
-	// For invalidation-only policies (maxAgeTicks == 0), the entry is valid
+	// For invalidation-only policies (MaxAgeTicks == 0), the entry is valid
 	// until explicitly invalidated — no tick-based expiry.
-	if policy.maxAgeTicks > 0 && currentTick-entry.tick > policy.maxAgeTicks {
+	if policy.MaxAgeTicks > 0 && currentTick-entry.tick > policy.MaxAgeTicks {
 		return nil
 	}
 
 	return entry.data
 }
 
-// set stores a response for the given command at the specified tick.
-func (c *agentCache) set(command string, data json.RawMessage, tick int64) {
+// Set stores a response for the given command at the specified tick.
+func (c *AgentCache) Set(command string, data json.RawMessage, tick int64) {
 	c.mu.Lock()
-	c.entries[command] = &cacheEntry{data: data, tick: tick}
+	c.entries[command] = &CacheEntry{data: data, tick: tick}
 	c.mu.Unlock()
 }
 
-// invalidate removes the specified commands from the cache.
-func (c *agentCache) invalidate(commands ...string) {
+// Invalidate removes the specified commands from the cache.
+func (c *AgentCache) Invalidate(commands ...string) {
 	c.mu.Lock()
 	for _, cmd := range commands {
 		delete(c.entries, cmd)
@@ -120,9 +120,9 @@ func (c *agentCache) invalidate(commands ...string) {
 	c.mu.Unlock()
 }
 
-// clear removes all cached entries.
-func (c *agentCache) clear() {
+// Clear removes all cached entries.
+func (c *AgentCache) Clear() {
 	c.mu.Lock()
-	c.entries = make(map[string]*cacheEntry)
+	c.entries = make(map[string]*CacheEntry)
 	c.mu.Unlock()
 }

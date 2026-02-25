@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// catalogItemJSON is the JSON representation of a catalog item for API responses.
-type catalogItemJSON struct {
+// CatalogItemJSON is the JSON representation of a catalog item for API responses.
+type CatalogItemJSON struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -28,15 +28,15 @@ func (s *ObserverServer) HandleGetCatalogItems(w http.ResponseWriter, r *http.Re
 		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 		return
 	}
-	result := make([]catalogItemJSON, 0, len(items))
+	result := make([]CatalogItemJSON, 0, len(items))
 	for _, item := range items {
 		result = append(result, catalogItemToJSON(item))
 	}
-	writeJSON(w, http.StatusOK, result)
+	WriteJSON(w, http.StatusOK, result)
 }
 
-func catalogItemToJSON(item knowledge.CatalogItem) catalogItemJSON {
-	return catalogItemJSON{
+func catalogItemToJSON(item knowledge.CatalogItem) CatalogItemJSON {
+	return CatalogItemJSON{
 		ID:          item.ID,
 		Name:        item.Name,
 		Description: item.Description,

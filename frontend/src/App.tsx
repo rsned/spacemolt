@@ -14,6 +14,7 @@ import { CloningPanel } from './components/station/CloningPanel';
 import { InsurancePanel } from './components/station/InsurancePanel';
 import { StoragePanel } from './components/station/StoragePanel';
 import { ConnectionPanel } from './components/layout/ConnectionPanel';
+import { TeamMapView } from './components/team/TeamMapView';
 import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
 import {
@@ -23,7 +24,7 @@ import {
   mockJumpGates,
 } from './lib/mockData';
 
-type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage';
+type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage' | 'team';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
@@ -32,6 +33,7 @@ function App() {
   const observer = useObserver(WS_URL);
 
   const [pendingDock, setPendingDock] = useState(false);
+  const [selectedTeamId] = useState<string>('team-1');
   const prevDockedRef = useRef<string | null>(null);
 
   const isLive = observer.status === 'connected' && observer.player !== null;
@@ -108,6 +110,7 @@ function App() {
               { id: 'galaxy' as ViewType, label: 'Galaxy Map' },
               { id: 'system' as ViewType, label: 'System Map' },
               { id: 'station' as ViewType, label: 'Station' },
+              { id: 'team' as ViewType, label: 'Team' },
             ].map((view) => (
               <button
                 key={view.id}
@@ -334,6 +337,12 @@ function App() {
               player={player || mockPlayer}
               onRefresh={isLive ? () => observer.sendCommand('get_insurance_quote', {}) : undefined}
             />
+          </div>
+        )}
+
+        {activeView === 'team' && (
+          <div className="h-[calc(100vh-120px)]">
+            <TeamMapView teamId={selectedTeamId} />
           </div>
         )}
 

@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"net/http"
@@ -6,28 +6,28 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// skillJSON is the JSON representation of a skill for API responses
-type skillJSON struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Category    string         `json:"category"`
-	Description string         `json:"description"`
-	MaxLevel    int            `json:"max_level"`
-	XPPerLevel  []int          `json:"xp_per_level"`
+// SkillJSON is the JSON representation of a skill for API responses.
+type SkillJSON struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	MaxLevel    int    `json:"max_level"`
+	XPPerLevel  []int  `json:"xp_per_level"`
 }
 
-// HandleGetSkills returns all available skills
+// HandleGetSkills returns all available skills.
 // GET /api/skills
 func (s *ObserverServer) HandleGetSkills(w http.ResponseWriter, _ *http.Request) {
 	skills := s.kb.GetSkills()
-	result := make([]skillJSON, 0, len(skills))
+	result := make([]SkillJSON, 0, len(skills))
 	for _, skill := range skills {
 		result = append(result, skillToJSON(skill))
 	}
-	writeJSON(w, http.StatusOK, result)
+	WriteJSON(w, http.StatusOK, result)
 }
 
-// HandleGetSkill returns a single skill by ID
+// HandleGetSkill returns a single skill by ID.
 // GET /api/skills/{id}
 func (s *ObserverServer) HandleGetSkill(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -47,10 +47,10 @@ func (s *ObserverServer) HandleGetSkill(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, skillToJSON(*skill))
+	WriteJSON(w, http.StatusOK, skillToJSON(*skill))
 }
 
-// HandleGetPlayerSkills calculates XP progress for player's current skills
+// HandleGetPlayerSkills calculates XP progress for player's current skills.
 // GET /api/player/skills?agent={username}
 func (s *ObserverServer) HandleGetPlayerSkills(w http.ResponseWriter, r *http.Request) {
 	agent := r.URL.Query().Get("agent")
@@ -62,13 +62,13 @@ func (s *ObserverServer) HandleGetPlayerSkills(w http.ResponseWriter, r *http.Re
 	// Get the agent's current skill levels from their game state
 	// This would need to be stored or fetched from the game server
 	// For now, return a placeholder response
-	writeJSON(w, http.StatusOK, map[string]string{
+	WriteJSON(w, http.StatusOK, map[string]string{
 		"message": "Player skills endpoint not yet implemented",
 	})
 }
 
-func skillToJSON(skill knowledge.Skill) skillJSON {
-	return skillJSON{
+func skillToJSON(skill knowledge.Skill) SkillJSON {
+	return SkillJSON{
 		ID:          skill.ID,
 		Name:        skill.Name,
 		Category:    skill.Category,

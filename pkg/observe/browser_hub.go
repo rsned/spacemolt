@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"context"
@@ -96,7 +96,7 @@ func NewBrowserClient(conn *websocket.Conn, server *ObserverServer, logger *log.
 
 // Run starts the read and write loops for this browser client.
 func (bc *BrowserClient) Run(ctx context.Context) {
-	hub := bc.server.browserHub
+	hub := bc.server.BrowserHub
 	hub.Register(bc)
 	defer hub.Unregister(bc)
 
@@ -135,7 +135,7 @@ func (bc *BrowserClient) readLoop(ctx context.Context) {
 			return
 		}
 
-		var msg browserMessage
+		var msg BrowserMessage
 		if err := json.Unmarshal(data, &msg); err != nil {
 			bc.logger.Printf("invalid browser message: %v", err)
 			continue
@@ -145,7 +145,7 @@ func (bc *BrowserClient) readLoop(ctx context.Context) {
 	}
 }
 
-func (bc *BrowserClient) handleMessage(ctx context.Context, msg browserMessage) {
+func (bc *BrowserClient) handleMessage(ctx context.Context, msg BrowserMessage) {
 	switch msg.Type {
 	case "subscribe":
 		bc.mu.Lock()
@@ -154,12 +154,12 @@ func (bc *BrowserClient) handleMessage(ctx context.Context, msg browserMessage) 
 		bc.logger.Printf("browser subscribed to agent %q", msg.Agent)
 
 		// Send current state snapshot if agent is connected.
-		if session := bc.server.getAgent(msg.Agent); session != nil {
+		if session := bc.server.GetAgent(msg.Agent); session != nil {
 			state := session.gameClient.GetState()
 			if state != nil {
 				raw, err := json.Marshal(state)
 				if err == nil {
-					sm := serverMessage{
+					sm := ServerMessage{
 						Type:    "game_message",
 						Agent:   msg.Agent,
 						Message: raw,
@@ -175,7 +175,7 @@ func (bc *BrowserClient) handleMessage(ctx context.Context, msg browserMessage) 
 		}
 
 	case "command":
-		session := bc.server.getAgent(msg.Agent)
+		session := bc.server.GetAgent(msg.Agent)
 		if session == nil {
 			bc.sendError("agent not found: " + msg.Agent)
 			return
@@ -194,7 +194,7 @@ func (bc *BrowserClient) handleMessage(ctx context.Context, msg browserMessage) 
 
 	case "list_agents":
 		agents := bc.server.ListAgents()
-		sm := serverMessage{
+		sm := ServerMessage{
 			Type:   "agent_list",
 			Agents: agents,
 		}
@@ -207,7 +207,7 @@ func (bc *BrowserClient) handleMessage(ctx context.Context, msg browserMessage) 
 
 	case "get_cache":
 		data := bc.server.cache.GetCacheData(msg.Key)
-		sm := serverMessage{
+		sm := ServerMessage{
 			Type:    "cache_data",
 			Key:     msg.Key,
 			Message: data,
@@ -225,7 +225,7 @@ func (bc *BrowserClient) handleMessage(ctx context.Context, msg browserMessage) 
 }
 
 func (bc *BrowserClient) sendError(errMsg string) {
-	sm := serverMessage{
+	sm := ServerMessage{
 		Type:  "error",
 		Error: errMsg,
 	}
@@ -237,8 +237,8 @@ func (bc *BrowserClient) sendError(errMsg string) {
 	}
 }
 
-// browserMessage is a message sent from the browser to the server.
-type browserMessage struct {
+// BrowserMessage is a message sent from the browser to the server.
+type BrowserMessage struct {
 	Type    string         `json:"type"`
 	Agent   string         `json:"agent,omitempty"`
 	Command string         `json:"command,omitempty"`
@@ -246,8 +246,8 @@ type browserMessage struct {
 	Key     string         `json:"key,omitempty"`
 }
 
-// serverMessage is a message sent from the server to the browser.
-type serverMessage struct {
+// ServerMessage is a message sent from the server to the browser.
+type ServerMessage struct {
 	Type      string           `json:"type"`
 	Agent     string           `json:"agent,omitempty"`
 	Message   json.RawMessage  `json:"message,omitempty"`

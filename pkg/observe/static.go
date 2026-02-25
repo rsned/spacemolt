@@ -1,4 +1,4 @@
-package main
+package observe
 
 import (
 	"net/http"
@@ -7,17 +7,18 @@ import (
 	"strings"
 )
 
-// spaFileServer serves static files with SPA fallback: any request for a path
+// SPAFileServer serves static files with SPA fallback: any request for a path
 // that doesn't match an existing file returns index.html.
-type spaFileServer struct {
+type SPAFileServer struct {
 	root string
 }
 
-func newSPAFileServer(root string) http.Handler {
-	return &spaFileServer{root: root}
+// NewSPAFileServer creates a new SPA file server rooted at the given directory.
+func NewSPAFileServer(root string) http.Handler {
+	return &SPAFileServer{root: root}
 }
 
-func (s *spaFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *SPAFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Clean the path.
 	p := filepath.Clean(r.URL.Path)
 	if p == "." {
