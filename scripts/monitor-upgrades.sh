@@ -12,7 +12,7 @@ echo ""
 # Check if agent-status exists
 if [ ! -f "./agent-status" ]; then
     echo "❌ Error: ./agent-status binary not found"
-    echo "Please build it first: go build -o agent-status cmd/agent-status/main.go"
+    echo "Please build it first: go build -o agent-status cmd/tools/agent-status/main.go"
     exit 1
 fi
 

@@ -8,7 +8,7 @@ UPDATE_SCRIPT="$PROJECT_DIR/update-server-docs"
 # Check if the binary exists
 if [ ! -f "$UPDATE_SCRIPT" ]; then
     echo "Error: $UPDATE_SCRIPT not found"
-    echo "Please build it first with: go build -o update-server-docs ./cmd/update-server-docs"
+    echo "Please build it first with: go build -o update-server-docs ./cmd/data/update-server-docs"
     exit 1
 fi
 
