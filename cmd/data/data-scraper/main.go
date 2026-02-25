@@ -70,6 +70,33 @@ func formatErrorMessage(callType string, errResp map[string]any) string {
 	}
 }
 
+// ensureConnectionReady waits for the client to be connected and ready
+func (s *Scraper) ensureConnectionReady() error {
+	ctx := context.Background()
+
+	// Wait briefly for any in-flight reconnection to complete
+	maxWait := game.SleepReconnect // Use the reconnection wait constant
+	checkInterval := game.SleepShort
+
+	startTime := time.Now()
+	for time.Since(startTime) < maxWait {
+		if s.client.IsConnected() {
+			// Connection is ready
+			return nil
+		}
+		s.logger.Printf("  ⏳ Waiting for connection to be ready...")
+		time.Sleep(checkInterval)
+	}
+
+	// If we're here, connection is not ready - try to reconnect
+	s.logger.Printf("  🔌 Attempting to reconnect...")
+	if err := s.client.EnsureConnected(ctx); err != nil {
+		return fmt.Errorf("failed to reconnect: %w", err)
+	}
+
+	return nil
+}
+
 // Helper function to get POI name by ID
 func main() {
 	if len(os.Args) < 2 {
@@ -220,7 +247,11 @@ func (s *Scraper) scrapeAll() error {
 		s.logger.Printf("\n📊 Scraping: %s...", cat.name)
 		if err := cat.fn(); err != nil {
 			s.logger.Printf("⚠️  Error: %v", err)
-			// Continue with other categories
+			// Ensure connection is ready before continuing to next category
+			if err := s.ensureConnectionReady(); err != nil {
+				s.logger.Printf("⚠️  Failed to restore connection: %v", err)
+				// Continue anyway - next call might trigger reconnect
+			}
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -443,33 +474,68 @@ func (s *Scraper) scrapeMap() error {
 
 	offset := limit
 	for offset < totalCount {
-		s.client.ClearLastError()
-
-		msg := protocol.Message{
-			Type: "get_map",
-			Payload: map[string]any{
-				"offset": offset,
-				"limit":  limit,
-			},
-		}
-		if err := s.client.Send(ctx, msg); err != nil {
-			return fmt.Errorf("get_map offset %d failed: %w", offset, err)
-		}
-		time.Sleep(2 * time.Second)
-
-		rawJSON := s.client.GetRawJSON("systems")
-		if rawJSON == nil {
-			errResp := s.client.GetLastError()
-			return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("get_map offset %d", offset), errResp))
-		}
-
+		// Retry logic for each page
+		maxRetries := 3
+		var pageErr error
 		var pageResp struct {
 			Systems []json.RawMessage `json:"systems"`
 			Offset  int               `json:"offset,omitempty"`
 		}
 
-		if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
-			return fmt.Errorf("failed to parse map page at offset %d: %w", offset, err)
+		for retry := 0; retry < maxRetries; retry++ {
+			if retry > 0 {
+				pageNum := (offset / limit) + 1
+				s.logger.Printf("  🔄 Retry %d/%d for page %d", retry, maxRetries-1, pageNum)
+				// Ensure connection is ready before retrying
+				if err := s.ensureConnectionReady(); err != nil {
+					s.logger.Printf("  ⚠️  Failed to restore connection: %v", err)
+					time.Sleep(game.SleepShort)
+					continue
+				}
+			}
+
+			s.client.ClearLastError()
+
+			msg := protocol.Message{
+				Type: "get_map",
+				Payload: map[string]any{
+					"offset": offset,
+					"limit":  limit,
+				},
+			}
+			if err := s.client.Send(ctx, msg); err != nil {
+				pageErr = fmt.Errorf("get_map offset %d failed: %w", offset, err)
+				time.Sleep(game.SleepRetry)
+				continue
+			}
+			time.Sleep(2 * time.Second)
+
+			rawJSON := s.client.GetRawJSON("systems")
+			if rawJSON == nil {
+				errResp := s.client.GetLastError()
+				pageErr = fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("get_map offset %d", offset), errResp))
+				time.Sleep(game.SleepRetry)
+				continue
+			}
+
+			if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
+				pageErr = fmt.Errorf("failed to parse map page at offset %d: %w", offset, err)
+				time.Sleep(game.SleepRetry)
+				continue
+			}
+
+			// Success - break retry loop
+			pageErr = nil
+			break
+		}
+
+		// If all retries failed, log error but continue with remaining pages
+		if pageErr != nil {
+			pageNum := (offset / limit) + 1
+			s.logger.Printf("  ⚠️  Error fetching page %d after %d retries: %v", pageNum, maxRetries, pageErr)
+			// Continue with next page instead of failing completely
+			offset += limit
+			continue
 		}
 
 		pageNum := (offset / limit) + 1
@@ -788,39 +854,70 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 	allItems = append(allItems, firstPage.Items...)
 
 	for page := 2; page <= firstPage.TotalPages; page++ {
-		s.client.ClearLastError()
+		// Retry logic for each page
+		maxRetries := 3
+		var pageErr error
 
-		msg := protocol.Message{
-			Type: "catalog",
-			Payload: map[string]any{
-				"type":      catalogType,
-				"page":      page,
-				"page_size": 50,
-			},
-		}
-		if err := s.client.Send(ctx, msg); err != nil {
-			return fmt.Errorf("catalog %s page %d failed: %w", catalogType, page, err)
-		}
-		time.Sleep(2 * time.Second)
+		for retry := 0; retry < maxRetries; retry++ {
+			if retry > 0 {
+				s.logger.Printf("  🔄 Retry %d/%d for page %d", retry, maxRetries-1, page)
+				// Ensure connection is ready before retrying
+				if err := s.ensureConnectionReady(); err != nil {
+					s.logger.Printf("  ⚠️  Failed to restore connection: %v", err)
+					time.Sleep(game.SleepShort)
+					continue
+				}
+			}
 
-		rawJSON := s.client.GetRawJSON("catalog")
-		if rawJSON == nil {
-			errResp := s.client.GetLastError()
-			return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s page %d", catalogType, page), errResp))
+			s.client.ClearLastError()
+
+			msg := protocol.Message{
+				Type: "catalog",
+				Payload: map[string]any{
+					"type":      catalogType,
+					"page":      page,
+					"page_size": 50,
+				},
+			}
+			if err := s.client.Send(ctx, msg); err != nil {
+				pageErr = fmt.Errorf("catalog %s page %d failed: %w", catalogType, page, err)
+				time.Sleep(game.SleepRetry)
+				continue
+			}
+			time.Sleep(2 * time.Second)
+
+			rawJSON := s.client.GetRawJSON("catalog")
+			if rawJSON == nil {
+				errResp := s.client.GetLastError()
+				pageErr = fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s page %d", catalogType, page), errResp))
+				time.Sleep(game.SleepRetry)
+				continue
+			}
+
+			var pageResp struct {
+				Items      []json.RawMessage `json:"items"`
+				Page       int               `json:"page"`
+				TotalPages int               `json:"total_pages"`
+			}
+
+			if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
+				pageErr = fmt.Errorf("failed to parse catalog page %d: %w", page, err)
+				time.Sleep(game.SleepRetry)
+				continue
+			}
+
+			// Success - add items and break retry loop
+			s.logger.Printf("  📖 Page %d/%d: %d items", page, firstPage.TotalPages, len(pageResp.Items))
+			allItems = append(allItems, pageResp.Items...)
+			pageErr = nil
+			break
 		}
 
-		var pageResp struct {
-			Items      []json.RawMessage `json:"items"`
-			Page       int               `json:"page"`
-			TotalPages int               `json:"total_pages"`
+		// If all retries failed, log error but continue with remaining pages
+		if pageErr != nil {
+			s.logger.Printf("  ⚠️  Error fetching page %d after %d retries: %v", page, maxRetries, pageErr)
+			// Continue with next page instead of failing completely
 		}
-
-		if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
-			return fmt.Errorf("failed to parse catalog page %d: %w", page, err)
-		}
-
-		s.logger.Printf("  📖 Page %d/%d: %d items", page, firstPage.TotalPages, len(pageResp.Items))
-		allItems = append(allItems, pageResp.Items...)
 	}
 
 	// Build combined response

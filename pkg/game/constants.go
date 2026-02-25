@@ -17,6 +17,7 @@ const (
 	SleepJump   = 2 * SleepTick // System jump travel timea
 
 	SleepReconnect = 30 * time.Second // Reconnection recovery wait
+	SleepRetry    = 1 * time.Second    // Retry delay for failed operations
 )
 
 // Hull percentage thresholds
