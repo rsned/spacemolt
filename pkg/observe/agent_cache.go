@@ -27,7 +27,7 @@ var CachePolicies = map[string]CachePolicy{
 	"get_skills":           {MaxAgeTicks: 100},
 	"get_cargo":            {MaxAgeTicks: 0},
 	"get_recipes":          {MaxAgeTicks: 1000},
-	"get_map":              {MaxAgeTicks: 1000},
+	"get_map":              {MaxAgeTicks: 3600}, // Map data is static; cache for ~1 hour
 	"view_storage":         {MaxAgeTicks: 0},
 	"view_faction_storage": {MaxAgeTicks: 0},
 }

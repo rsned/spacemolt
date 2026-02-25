@@ -67,6 +67,10 @@ type Client struct {
 	pingInterval    time.Duration
 	pongTimeout     time.Duration
 	stopPing        chan struct{}
+
+	// Map data cache - get_map data is static and changes less than once per hour
+	mapFetchedAt time.Time
+	mapFetchedMu sync.RWMutex
 }
 
 // MessageHandler handles incoming game messages
@@ -603,12 +607,30 @@ func (c *Client) GetSystem(ctx context.Context) error {
 	})
 }
 
-// GetMap requests all systems with coordinates and connections
-func (c *Client) GetMap(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+// GetMap requests all systems with coordinates and connections.
+// Map data is cached for MapCacheTTL since it changes infrequently.
+// Pass force=true to bypass the cache and always fetch fresh data.
+func (c *Client) GetMap(ctx context.Context, force ...bool) error {
+	if len(force) == 0 || !force[0] {
+		c.mapFetchedMu.RLock()
+		fresh := !c.mapFetchedAt.IsZero() && time.Since(c.mapFetchedAt) < MapCacheTTL
+		c.mapFetchedMu.RUnlock()
+		if fresh {
+			c.debugLogger.Printf("GetMap: using cached data (age %v)", time.Since(c.mapFetchedAt).Round(time.Second))
+			return nil
+		}
+	}
+
+	err := c.Send(ctx, protocol.Message{
 		Type:      "get_map",
 		Timestamp: time.Now().UnixMilli(),
 	})
+	if err == nil {
+		c.mapFetchedMu.Lock()
+		c.mapFetchedAt = time.Now()
+		c.mapFetchedMu.Unlock()
+	}
+	return err
 }
 
 // GetPOI requests information about the current POI

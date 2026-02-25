@@ -65,6 +65,11 @@ const (
 	UserAgent  = ClientName + "/" + VersionID
 )
 
+// Cache durations
+const (
+	MapCacheTTL = 1 * time.Hour // Map data changes infrequently; refresh at most once per hour
+)
+
 // Credit thresholds
 const (
 	MinimumPurchaseThreshold = 100.0 // Minimum credits to attempt any purchase
