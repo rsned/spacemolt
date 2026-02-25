@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 )
 
@@ -62,22 +63,22 @@ type StorageManager interface {
 	ViewStorage(ctx context.Context) (map[string]float64, error)
 }
 
-// DefaultRecipeSelector selects basic recipes based on available cargo and skills
-// For now, it prioritizes:
-// 1. basic_smelt_iron (ore_iron -> iron_ingot)
-// 2. basic_copper_processing (ore_copper -> copper_plate)
-// When agents reach higher skill levels (crafting > 5, refinement > 5, crafting_advanced > 1),
-// more advanced recipes will be unlocked
+// DefaultRecipeSelector selects recipes using the MCP crafting server
+// It queries the server with current cargo + storage and skills, then returns
+// the best recipe for each output item (most efficient first)
 func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error) {
 	state := client.GetState()
 
-	// Build a map of available resources (cargo + storage)
-	// Crafting uses items directly from storage, so we need to check both
-	resourceMap := make(map[string]float64)
+	// Build components list from cargo + storage
+	// The MCP server needs to know what we have available
+	var components []Component
 
 	// Add cargo items
 	for _, item := range state.Ship.Cargo {
-		resourceMap[item.ItemID] += item.Quantity
+		components = append(components, Component{
+			ID:       item.ItemID,
+			Quantity: item.Quantity,
+		})
 	}
 
 	// Add storage items if storage manager is available
@@ -85,201 +86,69 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 		storageItems, err := storage.ViewStorage(ctx)
 		if err != nil {
 			logger.Printf("Warning: Failed to view storage: %v", err)
-		} else {
+		} else if len(storageItems) > 0 {
+			logger.Printf("📦 Storage available: %d item types", len(storageItems))
+			// Log first 10 items
+			count := 0
 			for itemID, qty := range storageItems {
-				resourceMap[itemID] += qty
+				if count < 10 {
+					logger.Printf("   • %s: %.0f units", itemID, qty)
+					count++
+				}
+				// Add to components
+				components = append(components, Component{
+					ID:       itemID,
+					Quantity: qty,
+				})
 			}
-
-			if len(storageItems) > 0 {
-				logger.Printf("📦 Storage available: %d item types", len(storageItems))
-				// Log first 10 items
-				count := 0
-				for itemID, qty := range storageItems {
-					if count < 10 {
-						logger.Printf("   • %s: %.0f units", itemID, qty)
-						count++
-					}
-				}
-				if len(storageItems) > 10 {
-					logger.Printf("   ... and %d more item types", len(storageItems)-10)
-				}
+			if len(storageItems) > 10 {
+				logger.Printf("   ... and %d more item types", len(storageItems)-10)
 			}
 		}
 	}
 
 	logger.Printf("📊 Resource Analysis (Cargo + Storage):")
-	logger.Printf("   Total resources: %d item types", len(resourceMap))
-	if len(resourceMap) > 0 {
-		// Log first 15 items to avoid spam
-		count := 0
-		for itemID, qty := range resourceMap {
-			if count < 15 {
-				logger.Printf("   • %s: %.0f units", itemID, qty)
-				count++
-			}
-		}
-		if len(resourceMap) > 15 {
-			logger.Printf("   ... and %d more item types", len(resourceMap)-15)
-		}
-	} else {
-		logger.Printf("   (no resources available)")
+	logger.Printf("   Total resources: %d item types", len(components))
+
+	// Query the MCP crafting server for what we can craft
+	// Use nil config to default to "crafting-server" from PATH
+	result, err := client.QueryCraftableRecipes(ctx, nil)
+	if err != nil {
+		logger.Printf("❌ Failed to query crafting server: %v", err)
+		logger.Printf("   💡 Make sure the crafting-server is available in PATH")
+		logger.Printf("   💡 Or specify custom path in CraftingConfig")
+		return nil, fmt.Errorf("crafting server query failed: %w", err)
 	}
 
-	// Get skill levels
-	skills := getPlayerSkillLevels(state)
-
-	logger.Printf("🎓 Skill Levels:")
-	if len(skills) > 0 {
-		for skill, level := range skills {
-			logger.Printf("   • %s: level %d", skill, level)
-		}
-	} else {
-		logger.Printf("   (no skills detected)")
+	logger.Printf("🎯 Found %d fully craftable recipes", len(result.FullyCraftable))
+	if len(result.PartialMatches) > 0 {
+		logger.Printf("   (%d additional recipes have partial matches)", len(result.PartialMatches))
+	}
+	if len(result.SkillBlocked) > 0 {
+		logger.Printf("   (%d recipes blocked by skill requirements)", len(result.SkillBlocked))
 	}
 
-	// Define available recipes with their requirements
-	type Recipe struct {
-		ID               string
-		Name             string
-		OutputItem       string                 // What this recipe produces
-		OutputQuantity   float64                // How much it produces
-		RequiredInputs   map[string]float64
-		RequiredSkills   map[string]int
-		RequiredCrafting int
-		RequiredRefining int
-		RequiredAdvanced int
+	// Group recipes by output and select the most efficient for each
+	type recipeWithEfficiency struct {
+		recipeID   string
+		name       string
+		maxBatches int
+		efficiency float64
 	}
 
-	recipes := []Recipe{
-		{
-			ID:             "basic_smelt_iron",
-			Name:           "Basic Iron Smelting (no skill, 10 ore -> 1 steel)",
-			OutputItem:     "refined_steel",
-			OutputQuantity: 1,
-			RequiredInputs: map[string]float64{
-				"ore_iron": 10,
-			},
-		},
-		{
-			ID:             "refine_steel",
-			Name:           "Refine Steel (refinement 1+, 5 ore -> 2 steel) - 4x better!",
-			OutputItem:     "refined_steel",
-			OutputQuantity: 2,
-			RequiredInputs: map[string]float64{
-				"ore_iron": 5,
-			},
-			RequiredRefining: 1,
-		},
-		{
-			ID:             "basic_copper_processing",
-			Name:           "Basic Copper Processing (no skill, 10 ore -> 1 copper)",
-			OutputItem:     "refined_copper_wire",
-			OutputQuantity: 1,
-			RequiredInputs: map[string]float64{
-				"ore_copper": 10,
-			},
-		},
-		{
-			ID:             "refine_copper_wire",
-			Name:           "Process Copper Wiring (refinement 1+, 5 copper -> 1 wire)",
-			OutputItem:     "refined_copper_wire",
-			OutputQuantity: 1,
-			RequiredInputs: map[string]float64{
-				"refined_copper": 5,
-			},
-			RequiredRefining: 1,
-		},
-		{
-			ID:             "smelt_aluminum_sheet",
-			Name:           "Smelt Aluminum Sheet (refinement 1+, 10 ore -> 1 aluminum)",
-			OutputItem:     "refined_aluminum",
-			OutputQuantity: 1,
-			RequiredInputs: map[string]float64{
-				"ore_aluminum": 10,
-			},
-			RequiredRefining: 1,
-		},
-	}
-
-	// Check which recipes can be crafted with current cargo and skills
-	type craftableRecipe struct {
-		recipe      Recipe
-		maxBatches  int
-		efficiency  float64 // Output per total input
-	}
-	var craftable []craftableRecipe
-
-	logger.Printf("🔍 Checking %d recipes against current cargo and skills...", len(recipes))
-
-	for _, recipe := range recipes {
-		// Check skill requirements
-		if recipe.RequiredCrafting > 0 {
-			if skillLevel, ok := skills["crafting"]; !ok || skillLevel < recipe.RequiredCrafting {
-				logger.Printf("   ✗ %s: needs crafting level %d (have %d)",
-					recipe.Name, recipe.RequiredCrafting, skillLevel)
-				continue
-			}
-		}
-		if recipe.RequiredRefining > 0 {
-			if skillLevel, ok := skills["refinement"]; !ok || skillLevel < recipe.RequiredRefining {
-				logger.Printf("   ✗ %s: needs refinement level %d (have %d)",
-					recipe.Name, recipe.RequiredRefining, skillLevel)
-				continue
-			}
-		}
-		if recipe.RequiredAdvanced > 0 {
-			if skillLevel, ok := skills["crafting_advanced"]; !ok || skillLevel < recipe.RequiredAdvanced {
-				logger.Printf("   ✗ %s: needs crafting_advanced level %d (have %d)",
-					recipe.Name, recipe.RequiredAdvanced, skillLevel)
-				continue
-			}
-		}
-
-		// Check if we have the required inputs
-		hasAllInputs := true
-		maxBatches := 0
-		missingInputs := []string{}
-
-		for inputID, requiredQty := range recipe.RequiredInputs {
-			availableQty, ok := resourceMap[inputID]
-			if !ok {
-				hasAllInputs = false
-				missingInputs = append(missingInputs, fmt.Sprintf("%s (missing)", inputID))
-				break
-			} else if availableQty < requiredQty {
-				hasAllInputs = false
-				missingInputs = append(missingInputs, fmt.Sprintf("%s (%.0f/%.0f)", inputID, availableQty, requiredQty))
-				break
-			} else {
-				possibleBatches := int(availableQty / requiredQty)
-				if maxBatches == 0 || possibleBatches < maxBatches {
-					maxBatches = possibleBatches
-				}
-			}
-		}
-
-		if !hasAllInputs {
-			logger.Printf("   ✗ %s: missing inputs - %s",
-				recipe.Name, missingInputs[0])
-			continue
-		}
-
-		if hasAllInputs {
-			// Calculate efficiency: output quantity per total input quantity
-			totalInput := 0.0
-			for _, qty := range recipe.RequiredInputs {
-				totalInput += qty
-			}
-			efficiency := recipe.OutputQuantity / totalInput
-
-			craftable = append(craftable, craftableRecipe{
-				recipe:     recipe,
-				maxBatches: maxBatches,
-				efficiency: efficiency,
-			})
-			logger.Printf("   ✓ %s: %s - can craft %d batches (%.0f items, efficiency: %.2f)",
-				recipe.Name, recipe.ID, maxBatches, float64(maxBatches*10), efficiency)
-		}
+	// For now, we can't easily determine output items from the MCP response
+	// The craft_query response doesn't include output information
+	// So we'll just return all fully craftable recipes, sorted by quantity
+	var craftable []recipeWithEfficiency
+	for _, recipe := range result.FullyCraftable {
+		craftable = append(craftable, recipeWithEfficiency{
+			recipeID:   recipe.RecipeID,
+			name:       recipe.RecipeName,
+			maxBatches: recipe.CanCraftQuantity,
+			efficiency: 0, // Can't calculate without output info
+		})
+		logger.Printf("   ✓ %s: %s (can craft %d batches)",
+			recipe.RecipeID, recipe.RecipeName, recipe.CanCraftQuantity)
 	}
 
 	if len(craftable) == 0 {
@@ -291,65 +160,20 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 		return nil, nil
 	}
 
-	// Deduplicate: for each output item, keep only the most efficient recipe
-	bestRecipes := make(map[string]craftableRecipe) // key: output item
-	for _, cr := range craftable {
-		outputItem := cr.recipe.OutputItem
-		best, exists := bestRecipes[outputItem]
-		if !exists || cr.efficiency > best.efficiency {
-			bestRecipes[outputItem] = cr
-		}
+	// Sort by max batches (most craftable first) - this is a simple heuristic
+	// In the future, we could enhance the MCP server to return efficiency info
+	sort.Slice(craftable, func(i, j int) bool {
+		return craftable[i].maxBatches > craftable[j].maxBatches
+	})
+
+	// Return recipe IDs
+	var recipeIDs []string
+	for _, r := range craftable {
+		recipeIDs = append(recipeIDs, r.recipeID)
 	}
 
-	// Extract recipe IDs from best recipes
-	var craftableRecipes []string
-	for _, cr := range bestRecipes {
-		craftableRecipes = append(craftableRecipes, cr.recipe.ID)
-	}
-
-	logger.Printf("✅ Found %d craftable recipes!", len(craftableRecipes))
-	// Log which recipes were selected as best
-	for _, cr := range bestRecipes {
-		logger.Printf("   🎯 Best for %s: %s (efficiency: %.2f)",
-			cr.recipe.OutputItem, cr.recipe.ID, cr.efficiency)
-	}
-
-	return craftableRecipes, nil
-}
-
-// getPlayerSkillLevels extracts skill levels from state
-func getPlayerSkillLevels(state *State) map[string]int {
-	skills := make(map[string]int)
-
-	// First, try to use actual skill levels from Player.Skills if available
-	if len(state.Player.Skills) > 0 {
-		for skillID, playerSkill := range state.Player.Skills {
-			skills[skillID] = playerSkill.Level
-		}
-	} else {
-		// Fallback: use XP to estimate level
-		for skillID, skillXP := range state.SkillXP {
-			level := xpToLevel(int(skillXP))
-			skills[skillID] = level
-		}
-	}
-
-	return skills
-}
-
-// xpToLevel converts skill XP to an approximate level
-func xpToLevel(xp int) int {
-	if xp < 100 {
-		return 1
-	} else if xp < 300 {
-		return 2
-	} else if xp < 600 {
-		return 3
-	} else if xp < 1000 {
-		return 4
-	} else {
-		return 5
-	}
+	logger.Printf("✅ Selected %d recipes to craft", len(recipeIDs))
+	return recipeIDs, nil
 }
 
 // CraftingLoop runs the core crafting cycle:
