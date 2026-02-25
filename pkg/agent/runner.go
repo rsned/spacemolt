@@ -359,51 +359,221 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 	defer cancel()
 
 	switch decision.Action {
+	// ---- Navigation ----
 	case "undock":
-		r.logger.Printf("[%s] -> Calling gameClient.Undock()", r.agent.ID())
+		r.logger.Printf("[%s] -> Undock()", r.agent.ID())
 		return r.gameClient.Undock(actionCtx)
 
 	case "dock":
-		r.logger.Printf("[%s] -> Calling gameClient.Dock()", r.agent.ID())
+		r.logger.Printf("[%s] -> Dock()", r.agent.ID())
 		return r.gameClient.Dock(actionCtx)
 
 	case "travel":
 		if decision.Target == "" {
-			r.logger.Printf("[%s] ERROR: travel requires target POI but Target is empty", r.agent.ID())
 			return fmt.Errorf("travel requires target POI")
 		}
-		r.logger.Printf("[%s] -> Calling gameClient.Travel('%s')", r.agent.ID(), decision.Target)
+		r.logger.Printf("[%s] -> Travel('%s')", r.agent.ID(), decision.Target)
 		return r.gameClient.Travel(actionCtx, decision.Target)
 
 	case "jump":
 		if decision.Target == "" {
-			r.logger.Printf("[%s] ERROR: jump requires target system but Target is empty", r.agent.ID())
 			return fmt.Errorf("jump requires target system")
 		}
-		r.logger.Printf("[%s] -> Calling gameClient.Jump('%s')", r.agent.ID(), decision.Target)
+		r.logger.Printf("[%s] -> Jump('%s')", r.agent.ID(), decision.Target)
 		return r.gameClient.Jump(actionCtx, decision.Target)
 
+	// ---- Mining & Scanning ----
 	case "mine":
-		r.logger.Printf("[%s] -> Calling gameClient.Mine()", r.agent.ID())
+		r.logger.Printf("[%s] -> Mine()", r.agent.ID())
 		return r.gameClient.Mine(actionCtx)
 
 	case "scan":
-		r.logger.Printf("[%s] -> Calling gameClient.Scan()", r.agent.ID())
+		r.logger.Printf("[%s] -> Scan()", r.agent.ID())
 		return r.gameClient.Scan(actionCtx)
 
+	// ---- Combat ----
+	case "attack":
+		if decision.Target == "" {
+			return fmt.Errorf("attack requires target ID")
+		}
+		r.logger.Printf("[%s] -> Attack('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.Attack(actionCtx, decision.Target)
+
+	case "cloak":
+		r.logger.Printf("[%s] -> Cloak(true)", r.agent.ID())
+		return r.gameClient.Cloak(actionCtx, true)
+
+	case "uncloak":
+		r.logger.Printf("[%s] -> Cloak(false)", r.agent.ID())
+		return r.gameClient.Cloak(actionCtx, false)
+
+	// ---- Commerce ----
+	case "sell":
+		// Sell all cargo via bulk API (simpler than per-item when LLM doesn't specify quantity)
+		r.logger.Printf("[%s] -> SellAllBulk()", r.agent.ID())
+		return r.gameClient.SellAllBulk(actionCtx, nil)
+
+	case "buy":
+		if decision.Target == "" {
+			return fmt.Errorf("buy requires target item ID")
+		}
+		r.logger.Printf("[%s] -> Buy('%s', 1)", r.agent.ID(), decision.Target)
+		return r.gameClient.Buy(actionCtx, decision.Target, 1)
+
+	case "get_listings":
+		r.logger.Printf("[%s] -> GetListings()", r.agent.ID())
+		return r.gameClient.GetListings(actionCtx)
+
+	case "get_trades":
+		r.logger.Printf("[%s] -> GetTrades()", r.agent.ID())
+		return r.gameClient.GetTrades(actionCtx)
+
+	// ---- Crafting ----
+	case "craft":
+		if decision.Target == "" {
+			return fmt.Errorf("craft requires target recipe ID")
+		}
+		r.logger.Printf("[%s] -> CraftWithQuantity('%s', 1)", r.agent.ID(), decision.Target)
+		return r.gameClient.CraftWithQuantity(actionCtx, decision.Target, 1)
+
+	case "get_recipes":
+		r.logger.Printf("[%s] -> GetRecipes()", r.agent.ID())
+		return r.gameClient.GetRecipes(actionCtx)
+
+	// ---- Ship Maintenance ----
+	case "refuel":
+		r.logger.Printf("[%s] -> Refuel()", r.agent.ID())
+		return r.gameClient.Refuel(actionCtx)
+
+	case "repair":
+		r.logger.Printf("[%s] -> Repair()", r.agent.ID())
+		return r.gameClient.Repair(actionCtx)
+
+	case "install", "install_mod":
+		if decision.Target == "" {
+			return fmt.Errorf("install requires target module ID")
+		}
+		r.logger.Printf("[%s] -> Install('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.Install(actionCtx, decision.Target)
+
+	case "uninstall_mod":
+		if decision.Target == "" {
+			return fmt.Errorf("uninstall_mod requires target module ID")
+		}
+		r.logger.Printf("[%s] -> UninstallMod('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.UninstallMod(actionCtx, decision.Target)
+
+	case "buy_ship":
+		if decision.Target == "" {
+			return fmt.Errorf("buy_ship requires target ship class")
+		}
+		r.logger.Printf("[%s] -> BuyShip('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.BuyShip(actionCtx, decision.Target)
+
+	case "buy_insurance":
+		r.logger.Printf("[%s] -> BuyInsurance(100)", r.agent.ID())
+		return r.gameClient.BuyInsurance(actionCtx, 100)
+
+	case "claim_insurance":
+		r.logger.Printf("[%s] -> ClaimInsurance()", r.agent.ID())
+		return r.gameClient.ClaimInsurance(actionCtx)
+
+	// ---- Cargo & Storage ----
+	case "deposit_items":
+		if decision.Target == "" {
+			// No specific item — deposit everything
+			r.logger.Printf("[%s] -> DepositAllItems()", r.agent.ID())
+			return r.gameClient.DepositAllItems(actionCtx)
+		}
+		r.logger.Printf("[%s] -> DepositItems('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.DepositItems(actionCtx, decision.Target, 0)
+
+	case "deposit_all_items":
+		r.logger.Printf("[%s] -> DepositAllItems()", r.agent.ID())
+		return r.gameClient.DepositAllItems(actionCtx)
+
+	case "withdraw_items":
+		if decision.Target == "" {
+			return fmt.Errorf("withdraw_items requires target item ID")
+		}
+		r.logger.Printf("[%s] -> WithdrawItems('%s', 1)", r.agent.ID(), decision.Target)
+		return r.gameClient.WithdrawItems(actionCtx, decision.Target, 1)
+
+	case "view_storage":
+		r.logger.Printf("[%s] -> ViewStorage()", r.agent.ID())
+		return r.gameClient.ViewStorage(actionCtx)
+
+	// ---- Wrecks ----
+	case "get_wrecks":
+		r.logger.Printf("[%s] -> GetWrecks()", r.agent.ID())
+		return r.gameClient.GetWrecks(actionCtx)
+
+	case "loot_wreck":
+		if decision.Target == "" {
+			return fmt.Errorf("loot_wreck requires target wreck ID")
+		}
+		// Loot all items from the wreck (empty itemID + quantity 0 = loot all)
+		r.logger.Printf("[%s] -> LootWreck('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.LootWreck(actionCtx, decision.Target, "", 0)
+
+	case "salvage_wreck":
+		if decision.Target == "" {
+			return fmt.Errorf("salvage_wreck requires target wreck ID")
+		}
+		r.logger.Printf("[%s] -> SalvageWreck('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.SalvageWreck(actionCtx, decision.Target)
+
+	// ---- Queries ----
 	case "get_status":
-		r.logger.Printf("[%s] -> Calling gameClient.GetStatus()", r.agent.ID())
+		r.logger.Printf("[%s] -> GetStatus()", r.agent.ID())
 		return r.gameClient.GetStatus(actionCtx)
 
 	case "get_system":
-		r.logger.Printf("[%s] -> Calling gameClient.GetSystem()", r.agent.ID())
+		r.logger.Printf("[%s] -> GetSystem()", r.agent.ID())
 		return r.gameClient.GetSystem(actionCtx)
 
+	case "get_ship":
+		r.logger.Printf("[%s] -> GetShip()", r.agent.ID())
+		return r.gameClient.GetShip(actionCtx)
+
+	case "get_skills":
+		r.logger.Printf("[%s] -> GetSkills()", r.agent.ID())
+		return r.gameClient.GetSkills(actionCtx)
+
+	case "get_poi":
+		r.logger.Printf("[%s] -> GetPOI()", r.agent.ID())
+		return r.gameClient.GetPOI(actionCtx)
+
+	case "get_base":
+		r.logger.Printf("[%s] -> GetBase()", r.agent.ID())
+		return r.gameClient.GetBase(actionCtx)
+
+	case "get_map":
+		r.logger.Printf("[%s] -> GetMap()", r.agent.ID())
+		return r.gameClient.GetMap(actionCtx)
+
+	case "get_nearby":
+		r.logger.Printf("[%s] -> GetNearby()", r.agent.ID())
+		return r.gameClient.GetNearby(actionCtx)
+
+	case "get_version":
+		r.logger.Printf("[%s] -> GetVersion()", r.agent.ID())
+		return r.gameClient.GetVersion(actionCtx)
+
+	case "get_notes":
+		r.logger.Printf("[%s] -> GetNotes()", r.agent.ID())
+		return r.gameClient.GetNotes(actionCtx)
+
+	case "help":
+		r.logger.Printf("[%s] -> Help()", r.agent.ID())
+		return r.gameClient.Help(actionCtx, nil)
+
+	// ---- Route Planning ----
 	case "find_route":
 		if decision.Target == "" {
 			return fmt.Errorf("find_route requires target system")
 		}
-		r.logger.Printf("[%s] -> Calling gameClient.FindRoute('%s')", r.agent.ID(), decision.Target)
+		r.logger.Printf("[%s] -> FindRoute('%s')", r.agent.ID(), decision.Target)
 		route, err := r.gameClient.FindRoute(actionCtx, decision.Target)
 		if err != nil {
 			return err
@@ -411,8 +581,117 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.agent.SetRouteHome(route, "")
 		return nil
 
+	// ---- Faction ----
+	case "create_faction":
+		r.logger.Printf("[%s] -> CreateFaction()", r.agent.ID())
+		return r.gameClient.CreateFaction(actionCtx, map[string]any{"name": decision.Target})
+
+	case "join_faction":
+		if decision.Target == "" {
+			return fmt.Errorf("join_faction requires target faction ID")
+		}
+		r.logger.Printf("[%s] -> JoinFaction('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.JoinFaction(actionCtx, decision.Target)
+
+	case "leave_faction":
+		r.logger.Printf("[%s] -> LeaveFaction()", r.agent.ID())
+		return r.gameClient.LeaveFaction(actionCtx)
+
+	case "faction_invite":
+		if decision.Target == "" {
+			return fmt.Errorf("faction_invite requires target player ID")
+		}
+		r.logger.Printf("[%s] -> FactionInvite('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.FactionInvite(actionCtx, decision.Target)
+
+	case "faction_kick":
+		if decision.Target == "" {
+			return fmt.Errorf("faction_kick requires target player ID")
+		}
+		r.logger.Printf("[%s] -> FactionKick('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.FactionKick(actionCtx, decision.Target)
+
+	case "faction_promote":
+		if decision.Target == "" {
+			return fmt.Errorf("faction_promote requires target player ID")
+		}
+		r.logger.Printf("[%s] -> FactionPromote('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.FactionPromote(actionCtx, decision.Target, "")
+
+	// ---- Communication ----
+	case "chat":
+		r.logger.Printf("[%s] -> Chat('local', '%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.Chat(actionCtx, "local", decision.Target, "")
+
+	case "set_status":
+		r.logger.Printf("[%s] -> SetPlayerStatus()", r.agent.ID())
+		return r.gameClient.SetPlayerStatus(actionCtx, map[string]any{"status": decision.Target})
+
+	case "set_home_base":
+		if decision.Target == "" {
+			return fmt.Errorf("set_home_base requires target base ID")
+		}
+		r.logger.Printf("[%s] -> SetHomeBase('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.SetHomeBase(actionCtx, decision.Target)
+
+	// ---- Forum ----
+	case "forum_list":
+		r.logger.Printf("[%s] -> ForumList(1)", r.agent.ID())
+		return r.gameClient.ForumList(actionCtx, 1)
+
+	case "forum_create_thread":
+		r.logger.Printf("[%s] -> ForumCreateThread()", r.agent.ID())
+		return r.gameClient.ForumCreateThread(actionCtx, decision.Target, "", "general")
+
+	case "forum_get_thread":
+		if decision.Target == "" {
+			return fmt.Errorf("forum_get_thread requires target thread ID")
+		}
+		r.logger.Printf("[%s] -> ForumGetThread('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.ForumGetThread(actionCtx, decision.Target)
+
+	case "forum_reply":
+		if decision.Target == "" {
+			return fmt.Errorf("forum_reply requires target thread ID")
+		}
+		r.logger.Printf("[%s] -> ForumReply('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.ForumReply(actionCtx, decision.Target, "")
+
+	case "forum_upvote":
+		if decision.Target == "" {
+			return fmt.Errorf("forum_upvote requires target thread ID")
+		}
+		r.logger.Printf("[%s] -> ForumUpvote('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.ForumUpvote(actionCtx, decision.Target, "")
+
+	case "forum_delete_thread":
+		if decision.Target == "" {
+			return fmt.Errorf("forum_delete_thread requires target thread ID")
+		}
+		r.logger.Printf("[%s] -> ForumDeleteThread('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.ForumDeleteThread(actionCtx, decision.Target)
+
+	case "forum_delete_reply":
+		if decision.Target == "" {
+			return fmt.Errorf("forum_delete_reply requires target reply ID")
+		}
+		r.logger.Printf("[%s] -> ForumDeleteReply('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.ForumDeleteReply(actionCtx, decision.Target)
+
+	// ---- Notes ----
+	case "create_note":
+		r.logger.Printf("[%s] -> CreateNote('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.CreateNote(actionCtx, decision.Target, "")
+
+	case "write_note":
+		if decision.Target == "" {
+			return fmt.Errorf("write_note requires target note ID")
+		}
+		r.logger.Printf("[%s] -> WriteNote('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.WriteNote(actionCtx, decision.Target, "")
+
+	// ---- Meta ----
 	case "wait":
-		// Deliberate wait - do nothing
 		r.logger.Printf("[%s] -> Waiting (deliberate)", r.agent.ID())
 		return nil
 

@@ -15,20 +15,92 @@ type GameClient interface {
 	Login(ctx context.Context) error
 	Register(ctx context.Context, empire, registrationCode string) error
 
-	// Actions
+	// Navigation
 	Undock(ctx context.Context) error
 	Dock(ctx context.Context) error
 	Travel(ctx context.Context, targetPOI string) error
 	Jump(ctx context.Context, targetSystem string) error
+
+	// Mining & Scanning
 	Mine(ctx context.Context) error
 	Scan(ctx context.Context) error
 
-	// Route Planning
-	FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error)
+	// Combat
+	Attack(ctx context.Context, targetID string) error
+	Cloak(ctx context.Context, enable bool) error
+
+	// Commerce
+	Sell(ctx context.Context, itemID string, quantity float64) error
+	SellAllBulk(ctx context.Context, reservedItems []string) error
+	Buy(ctx context.Context, itemID string, quantity float64) error
+	GetListings(ctx context.Context) error
+	GetTrades(ctx context.Context) error
+
+	// Crafting
+	CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error
+	GetRecipes(ctx context.Context) error
+
+	// Ship Maintenance
+	Refuel(ctx context.Context) error
+	Repair(ctx context.Context) error
+	Install(ctx context.Context, itemID string) error
+	UninstallMod(ctx context.Context, moduleID string) error
+	BuyShip(ctx context.Context, shipClass string) error
+	BuyInsurance(ctx context.Context, ticks int) error
+	ClaimInsurance(ctx context.Context) error
+
+	// Cargo & Storage
+	DepositItems(ctx context.Context, itemID string, quantity float64) error
+	DepositAllItems(ctx context.Context) error
+	WithdrawItems(ctx context.Context, itemID string, quantity float64) error
+	ViewStorage(ctx context.Context) error
+
+	// Wrecks
+	GetWrecks(ctx context.Context) error
+	LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error
+	SalvageWreck(ctx context.Context, wreckID string) error
 
 	// Queries
 	GetSystem(ctx context.Context) error
 	GetStatus(ctx context.Context) error
+	GetShip(ctx context.Context) error
+	GetSkills(ctx context.Context) error
+	GetPOI(ctx context.Context) error
+	GetBase(ctx context.Context) error
+	GetMap(ctx context.Context, force ...bool) error
+	GetNearby(ctx context.Context) error
+	GetVersion(ctx context.Context) error
+	Help(ctx context.Context, payload map[string]any) error
+
+	// Route Planning
+	FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error)
+
+	// Faction
+	CreateFaction(ctx context.Context, payload map[string]any) error
+	JoinFaction(ctx context.Context, factionID string) error
+	LeaveFaction(ctx context.Context) error
+	FactionInvite(ctx context.Context, playerID string) error
+	FactionKick(ctx context.Context, playerID string) error
+	FactionPromote(ctx context.Context, playerID, roleID string) error
+
+	// Communication
+	Chat(ctx context.Context, channel, content string, targetID string) error
+	SetPlayerStatus(ctx context.Context, payload map[string]any) error
+	SetHomeBase(ctx context.Context, baseID string) error
+
+	// Forum
+	ForumList(ctx context.Context, page int) error
+	ForumCreateThread(ctx context.Context, title, content string, category string) error
+	ForumGetThread(ctx context.Context, threadID string) error
+	ForumReply(ctx context.Context, threadID, content string) error
+	ForumUpvote(ctx context.Context, threadID string, replyID string) error
+	ForumDeleteThread(ctx context.Context, threadID string) error
+	ForumDeleteReply(ctx context.Context, replyID string) error
+
+	// Notes
+	CreateNote(ctx context.Context, title, content string) error
+	WriteNote(ctx context.Context, noteID, content string) error
+	GetNotes(ctx context.Context) error
 
 	// State
 	GetState() *State

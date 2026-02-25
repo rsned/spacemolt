@@ -85,50 +85,268 @@ func (m *mockGameClient) Ready() <-chan struct{}                            { ch
 func (m *mockGameClient) Login(ctx context.Context) error                   { return nil }
 func (m *mockGameClient) Register(ctx context.Context, empire, registrationCode string) error { return nil }
 
-// Action methods
+// Navigation
 func (m *mockGameClient) Undock(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "undock")
 	return nil
 }
-
 func (m *mockGameClient) Dock(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "dock")
 	return nil
 }
-
 func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "travel:"+targetPOI)
 	return nil
 }
-
 func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "jump:"+targetSystem)
 	return nil
 }
 
+// Mining & Scanning
 func (m *mockGameClient) Mine(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "mine")
 	return nil
 }
-
 func (m *mockGameClient) Scan(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "scan")
 	return nil
 }
 
+// Combat
+func (m *mockGameClient) Attack(ctx context.Context, targetID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "attack:"+targetID)
+	return nil
+}
+func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error {
+	m.actionsRecorded = append(m.actionsRecorded, "cloak")
+	return nil
+}
+
+// Commerce
+func (m *mockGameClient) Sell(ctx context.Context, itemID string, quantity float64) error {
+	m.actionsRecorded = append(m.actionsRecorded, "sell:"+itemID)
+	return nil
+}
+func (m *mockGameClient) SellAllBulk(ctx context.Context, reservedItems []string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "sell_all_bulk")
+	return nil
+}
+func (m *mockGameClient) Buy(ctx context.Context, itemID string, quantity float64) error {
+	m.actionsRecorded = append(m.actionsRecorded, "buy:"+itemID)
+	return nil
+}
+func (m *mockGameClient) GetListings(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_listings")
+	return nil
+}
+func (m *mockGameClient) GetTrades(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_trades")
+	return nil
+}
+
+// Crafting
+func (m *mockGameClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
+	m.actionsRecorded = append(m.actionsRecorded, "craft:"+recipeID)
+	return nil
+}
+func (m *mockGameClient) GetRecipes(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_recipes")
+	return nil
+}
+
+// Ship Maintenance
+func (m *mockGameClient) Refuel(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "refuel")
+	return nil
+}
+func (m *mockGameClient) Repair(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "repair")
+	return nil
+}
+func (m *mockGameClient) Install(ctx context.Context, itemID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "install:"+itemID)
+	return nil
+}
+func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "uninstall_mod:"+moduleID)
+	return nil
+}
+func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "buy_ship:"+shipClass)
+	return nil
+}
+func (m *mockGameClient) BuyInsurance(ctx context.Context, ticks int) error {
+	m.actionsRecorded = append(m.actionsRecorded, "buy_insurance")
+	return nil
+}
+func (m *mockGameClient) ClaimInsurance(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "claim_insurance")
+	return nil
+}
+
+// Cargo & Storage
+func (m *mockGameClient) DepositItems(ctx context.Context, itemID string, quantity float64) error {
+	m.actionsRecorded = append(m.actionsRecorded, "deposit_items:"+itemID)
+	return nil
+}
+func (m *mockGameClient) DepositAllItems(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "deposit_all_items")
+	return nil
+}
+func (m *mockGameClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
+	m.actionsRecorded = append(m.actionsRecorded, "withdraw_items:"+itemID)
+	return nil
+}
+func (m *mockGameClient) ViewStorage(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "view_storage")
+	return nil
+}
+
+// Wrecks
+func (m *mockGameClient) GetWrecks(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_wrecks")
+	return nil
+}
+func (m *mockGameClient) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error {
+	m.actionsRecorded = append(m.actionsRecorded, "loot_wreck:"+wreckID)
+	return nil
+}
+func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "salvage_wreck:"+wreckID)
+	return nil
+}
+
+// Queries
 func (m *mockGameClient) GetStatus(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_status")
 	return nil
 }
-
 func (m *mockGameClient) GetSystem(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_system")
 	return nil
 }
+func (m *mockGameClient) GetShip(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_ship")
+	return nil
+}
+func (m *mockGameClient) GetSkills(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_skills")
+	return nil
+}
+func (m *mockGameClient) GetPOI(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_poi")
+	return nil
+}
+func (m *mockGameClient) GetBase(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_base")
+	return nil
+}
+func (m *mockGameClient) GetMap(ctx context.Context, force ...bool) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_map")
+	return nil
+}
+func (m *mockGameClient) GetNearby(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_nearby")
+	return nil
+}
+func (m *mockGameClient) GetVersion(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_version")
+	return nil
+}
+func (m *mockGameClient) Help(ctx context.Context, payload map[string]any) error {
+	m.actionsRecorded = append(m.actionsRecorded, "help")
+	return nil
+}
 
+// Route Planning
 func (m *mockGameClient) FindRoute(_ context.Context, targetSystem string) ([]game.RouteStep, error) {
 	m.actionsRecorded = append(m.actionsRecorded, "find_route:"+targetSystem)
 	return nil, nil
+}
+
+// Faction
+func (m *mockGameClient) CreateFaction(ctx context.Context, payload map[string]any) error {
+	m.actionsRecorded = append(m.actionsRecorded, "create_faction")
+	return nil
+}
+func (m *mockGameClient) JoinFaction(ctx context.Context, factionID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "join_faction:"+factionID)
+	return nil
+}
+func (m *mockGameClient) LeaveFaction(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "leave_faction")
+	return nil
+}
+func (m *mockGameClient) FactionInvite(ctx context.Context, playerID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "faction_invite:"+playerID)
+	return nil
+}
+func (m *mockGameClient) FactionKick(ctx context.Context, playerID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "faction_kick:"+playerID)
+	return nil
+}
+func (m *mockGameClient) FactionPromote(ctx context.Context, playerID, roleID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "faction_promote:"+playerID)
+	return nil
+}
+
+// Communication
+func (m *mockGameClient) Chat(ctx context.Context, channel, content string, targetID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "chat:"+channel)
+	return nil
+}
+func (m *mockGameClient) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
+	m.actionsRecorded = append(m.actionsRecorded, "set_status")
+	return nil
+}
+func (m *mockGameClient) SetHomeBase(ctx context.Context, baseID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "set_home_base:"+baseID)
+	return nil
+}
+
+// Forum
+func (m *mockGameClient) ForumList(ctx context.Context, page int) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_list")
+	return nil
+}
+func (m *mockGameClient) ForumCreateThread(ctx context.Context, title, content string, category string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_create_thread")
+	return nil
+}
+func (m *mockGameClient) ForumGetThread(ctx context.Context, threadID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_get_thread:"+threadID)
+	return nil
+}
+func (m *mockGameClient) ForumReply(ctx context.Context, threadID, content string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_reply:"+threadID)
+	return nil
+}
+func (m *mockGameClient) ForumUpvote(ctx context.Context, threadID string, replyID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_upvote:"+threadID)
+	return nil
+}
+func (m *mockGameClient) ForumDeleteThread(ctx context.Context, threadID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_delete_thread:"+threadID)
+	return nil
+}
+func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_delete_reply:"+replyID)
+	return nil
+}
+
+// Notes
+func (m *mockGameClient) CreateNote(ctx context.Context, title, content string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "create_note")
+	return nil
+}
+func (m *mockGameClient) WriteNote(ctx context.Context, noteID, content string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "write_note:"+noteID)
+	return nil
+}
+func (m *mockGameClient) GetNotes(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_notes")
+	return nil
 }
 
 func TestRunner_StartAndStop(t *testing.T) {
