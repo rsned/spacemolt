@@ -64,7 +64,10 @@ func (m *Manager) LoadTemplates() error {
 
 		for _, path := range matches {
 			if err := m.loadTemplate(path); err != nil {
-				return fmt.Errorf("failed to load template %s: %w", path, err)
+				// Log warning but continue loading other templates.
+				// A broken template should not prevent all templates from loading.
+				fmt.Printf("Warning: Skipping broken template %s: %v\n", path, err)
+				continue
 			}
 		}
 	}

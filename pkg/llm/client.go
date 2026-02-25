@@ -40,7 +40,7 @@ func New(cfg Config) (*Client, error) {
 		cfg.Model = "qwen3:14b"
 	}
 	if cfg.Timeout == 0 {
-		cfg.Timeout = 60 * time.Second
+		cfg.Timeout = 120 * time.Second
 	}
 	if cfg.PromptsDir == "" {
 		cfg.PromptsDir = "data/prompts/templates"
