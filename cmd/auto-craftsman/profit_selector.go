@@ -189,7 +189,7 @@ type profitableRecipe struct {
 // getProfitableRecipes returns all known profitable crafting recipes
 func getProfitableRecipes() []profitableRecipe {
 	return []profitableRecipe{
-		// Basic recipes (no skills required)
+		// Basic iron recipes
 		{
 			recipeID:       "basic_smelt_iron",
 			outputItemID:   "refined_steel",
@@ -197,13 +197,21 @@ func getProfitableRecipes() []profitableRecipe {
 			materials:      []recipeMaterials{{"ore_iron", 10}},
 		},
 		{
+			recipeID:           "refine_steel",
+			outputItemID:       "refined_steel",
+			outputQuantity:     2,
+			materials:          []recipeMaterials{{"ore_iron", 5}},
+			requiredSkill:      "refinement",
+			requiredSkillLevel: 1,
+		},
+
+		// Basic copper recipes
+		{
 			recipeID:       "basic_copper_processing",
 			outputItemID:   "refined_copper_wire",
 			outputQuantity: 1,
 			materials:      []recipeMaterials{{"ore_copper", 10}},
 		},
-
-		// Refinement level 1 recipes
 		{
 			recipeID:           "refine_copper_wire",
 			outputItemID:       "refined_copper_wire",
@@ -212,6 +220,8 @@ func getProfitableRecipes() []profitableRecipe {
 			requiredSkill:      "refinement",
 			requiredSkillLevel: 1,
 		},
+
+		// Aluminum recipe
 		{
 			recipeID:           "smelt_aluminum_sheet",
 			outputItemID:       "refined_aluminum",

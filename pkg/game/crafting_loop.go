@@ -151,21 +151,29 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 	recipes := []Recipe{
 		{
 			ID:     "basic_smelt_iron",
-			Name:   "Basic Iron Smelting",
+			Name:   "Basic Iron Smelting (no skill, 10 ore -> 1 steel)",
 			RequiredInputs: map[string]float64{
 				"ore_iron": 10,
 			},
 		},
 		{
+			ID:     "refine_steel",
+			Name:   "Refine Steel (refinement 1+, 5 ore -> 2 steel) - 4x better!",
+			RequiredInputs: map[string]float64{
+				"ore_iron": 5,
+			},
+			RequiredRefining: 1,
+		},
+		{
 			ID:     "basic_copper_processing",
-			Name:   "Basic Copper Processing",
+			Name:   "Basic Copper Processing (no skill, 10 ore -> 1 copper)",
 			RequiredInputs: map[string]float64{
 				"ore_copper": 10,
 			},
 		},
 		{
 			ID:     "refine_copper_wire",
-			Name:   "Process Copper Wiring",
+			Name:   "Process Copper Wiring (refinement 1+, 5 copper -> 1 wire)",
 			RequiredInputs: map[string]float64{
 				"refined_copper": 5,
 			},
@@ -173,7 +181,7 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 		},
 		{
 			ID:     "smelt_aluminum_sheet",
-			Name:   "Smelt Aluminum Sheet",
+			Name:   "Smelt Aluminum Sheet (refinement 1+, 10 ore -> 1 aluminum)",
 			RequiredInputs: map[string]float64{
 				"ore_aluminum": 10,
 			},
