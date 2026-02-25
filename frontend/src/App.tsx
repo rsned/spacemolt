@@ -19,9 +19,7 @@ import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
 import {
   mockPlayer,
-  mockSystemPOIs,
   mockRecipes,
-  mockJumpGates,
 } from './lib/mockData';
 
 type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage' | 'team';
