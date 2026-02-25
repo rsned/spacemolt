@@ -68,9 +68,24 @@ type Client struct {
 	pongTimeout     time.Duration
 	stopPing        chan struct{}
 
+	// Goroutine lifecycle management
+	goroutineCtx    context.Context
+	goroutineCancel context.CancelFunc
+	goroutineWg     sync.WaitGroup
+
 	// Map data cache - get_map data is static and changes less than once per hour
 	mapFetchedAt time.Time
 	mapFetchedMu sync.RWMutex
+
+	// Diagnostic tracking
+	connectionID      string    // Unique ID for this connection instance
+	connectTime       time.Time // When this connection was established
+	messagesSent      int64     // Counter for messages sent
+	messagesReceived  int64     // Counter for messages received
+	lastSendTime      time.Time // Time of last send
+	lastReceiveTime   time.Time // Time of last receive
+	diagnosticMu      sync.RWMutex
+	goroutineID       int64 // Counter for tracking goroutine instances
 }
 
 // MessageHandler handles incoming game messages
@@ -155,10 +170,12 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		debugLogger = log.New(log.Writer(), "[GAME] ", log.LstdFlags)
 	}
 
+	goroutineCtx, goroutineCancel := context.WithCancel(context.Background())
+
 	client := &Client{
-		url:      url,
-		username: username,
-		password: password,
+		url:            url,
+		username:       username,
+		password:       password,
 		state: &State{
 			Doc:         true,
 			MaxCargo:    10,
@@ -170,18 +187,20 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 			Nearby:   []NearbyPlayer{},
 			InCombat: false,
 		},
-		stopCh:         make(chan struct{}),
-		readyChan:      make(chan struct{}),
-		waiters:        make(map[string]chan protocol.Response),
-		debugLogger:    debugLogger,
-		latestListings: make([]MarketListing, 0),
-		latestShips:    make(map[string]any),
-		latestRawJSON:  make(map[string][]byte),
-		lastError:      make(map[string]any),
-		pingInterval:   30 * time.Second,
-		pongTimeout:    10 * time.Second,
-		stopPing:       make(chan struct{}),
-		CmdQueue:       NewCommandQueue(nil), // Will be set after creation
+		stopCh:          make(chan struct{}),
+		readyChan:       make(chan struct{}),
+		waiters:         make(map[string]chan protocol.Response),
+		debugLogger:     debugLogger,
+		latestListings:  make([]MarketListing, 0),
+		latestShips:     make(map[string]any),
+		latestRawJSON:   make(map[string][]byte),
+		lastError:       make(map[string]any),
+		pingInterval:    30 * time.Second,
+		pongTimeout:     60 * time.Second, // Increased from 10s to reduce false reconnections during normal operation
+		stopPing:        make(chan struct{}),
+		CmdQueue:        NewCommandQueue(nil), // Will be set after creation
+		goroutineCtx:    goroutineCtx,
+		goroutineCancel: goroutineCancel,
 	}
 	client.CmdQueue.client = client // Set the client reference
 	return client
@@ -256,13 +275,33 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.state.Username = c.username
 	c.state.Password = c.password
 
-	c.debugLogger.Printf("Connected to %s (read limit: 10MB)", c.url)
+	// Initialize diagnostics for this connection
+	c.diagnosticMu.Lock()
+	c.connectionID = generateConnectionID()
+	c.connectTime = time.Now()
+	c.messagesSent = 0
+	c.messagesReceived = 0
+	c.lastSendTime = time.Time{}
+	c.lastReceiveTime = time.Time{}
+	c.lastMessageTime = time.Now() // Initialize to now to avoid false timeout
+	c.diagnosticMu.Unlock()
 
-	// Start message listener
-	go c.listen(ctx)
+	goroutineID := atomic.AddInt64(&c.goroutineID, 1)
+	c.debugLogger.Printf("Connected to %s (read limit: 10MB) | Connection ID: %s | Goroutine: %d", c.url, c.connectionID, goroutineID)
 
-	// Start connection health monitoring
-	go c.monitorConnectionHealth(ctx)
+	// Start message listener with managed lifecycle
+	c.goroutineWg.Add(1)
+	go func() {
+		defer c.goroutineWg.Done()
+		c.listen(c.goroutineCtx)
+	}()
+
+	// Start connection health monitoring with managed lifecycle
+	c.goroutineWg.Add(1)
+	go func() {
+		defer c.goroutineWg.Done()
+		c.monitorConnectionHealth(c.goroutineCtx)
+	}()
 
 	return nil
 }
@@ -272,6 +311,12 @@ func (c *Client) Disconnect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Log connection metrics before disconnecting
+	c.logConnectionMetrics("client_disconnect")
+
+	// Signal all goroutines to stop
+	c.goroutineCancel()
+
 	// Stop health monitoring
 	select {
 	case c.stopPing <- struct{}{}:
@@ -280,11 +325,45 @@ func (c *Client) Disconnect() error {
 
 	if c.conn != nil {
 		c.connected = false
-		err := c.conn.Close(websocket.StatusNormalClosure, "client disconnect")
+		// Use AbortiveClose to force immediate closure without waiting for WebSocket close handshake
+		// This unblocks the Read() call in listen() immediately
+		conn := c.conn
 		c.conn = nil
+
+		// First try graceful close
+		_ = conn.Close(websocket.StatusNormalClosure, "client disconnect")
 		c.debugLogger.Printf("Disconnected from server")
-		return err
+
+		// If graceful close doesn't unblock the read within 1 second, force close
+		done := make(chan struct{})
+		go func() {
+			c.goroutineWg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			c.debugLogger.Printf("All goroutines exited cleanly")
+		case <-time.After(1 * time.Second):
+			// Goroutines are stuck, force close underlying connection
+			c.debugLogger.Printf("Goroutines slow to exit, connection closed")
+		}
 	}
+
+	// Wait for all goroutines to exit (with longer timeout for safety)
+	done := make(chan struct{})
+	go func() {
+		c.goroutineWg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Already logged above
+	case <-time.After(10 * time.Second):
+		c.debugLogger.Printf("Warning: Extended timeout waiting for goroutines to exit")
+	}
+
 	return nil
 }
 
@@ -294,6 +373,12 @@ func (c *Client) Reconnect(ctx context.Context) error {
 
 	// Close existing connection if any
 	_ = c.Disconnect()
+
+	// Reset goroutine context for the new connection
+	c.mu.Lock()
+	c.goroutineCancel()
+	c.goroutineCtx, c.goroutineCancel = context.WithCancel(context.Background())
+	c.mu.Unlock()
 
 	// Wait a moment before reconnecting with exponential backoff
 	select {
@@ -376,6 +461,9 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
 	}
 	//c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
+
+	// Track message for diagnostics
+	c.trackMessageSent()
 
 	// Set a write timeout to prevent hanging
 	writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -982,11 +1070,17 @@ func (c *Client) GetState() *State {
 
 // listen handles incoming WebSocket messages
 func (c *Client) listen(ctx context.Context) {
+	goroutineID := atomic.AddInt64(&c.goroutineID, 1)
+	c.debugLogger.Printf("[listen-%d] Goroutine started", goroutineID)
+	defer c.debugLogger.Printf("[listen-%d] Goroutine exited", goroutineID)
+
 	for {
 		select {
 		case <-ctx.Done():
+			c.debugLogger.Printf("[listen-%d] Context cancelled, exiting", goroutineID)
 			return
 		case <-c.stopCh:
+			c.debugLogger.Printf("[listen-%d] Stop signal received, exiting", goroutineID)
 			return
 		default:
 		}
@@ -997,7 +1091,7 @@ func (c *Client) listen(ctx context.Context) {
 		c.mu.RUnlock()
 
 		if conn == nil {
-			// Connection closed, exit listener
+			c.debugLogger.Printf("[listen-%d] Connection is nil, exiting listener", goroutineID)
 			return
 		}
 
@@ -1007,8 +1101,17 @@ func (c *Client) listen(ctx context.Context) {
 			c.connected = false
 			c.mu.Unlock()
 
-			c.debugLogger.Printf("Connection error: %v", err)
-			c.debugLogger.Printf("Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB")
+			// Enhanced error logging with diagnostics
+			c.debugLogger.Printf("[listen-%d] Connection error: %v", goroutineID, err)
+
+			// Check if this is a server close frame
+			if closeErr, ok := err.(*websocket.CloseError); ok {
+				c.debugLogger.Printf("[listen-%d] Server close frame | Status: %s (%d) | Reason: %q",
+					goroutineID, closeErr.Code, closeErr.Code, closeErr.Reason)
+			}
+
+			c.debugLogger.Printf("[listen-%d] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB", goroutineID)
+			c.logConnectionMetrics("disconnect")
 
 			// Get handler reference with mutex protection
 			c.mu.RLock()
@@ -1020,6 +1123,9 @@ func (c *Client) listen(ctx context.Context) {
 			}
 			return
 		}
+
+		// Track message for diagnostics
+		c.trackMessageReceived()
 
 		// Update last message time for health monitoring
 		c.updateLastMessageTime()
@@ -1169,8 +1275,12 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.parseListingsData(resp.Payload)
 		}
 		// view_market returns type "ok" with items array in payload
-		if _, hasItems := resp.Payload["items"]; hasItems {
-			c.parseViewMarketData(resp.Payload)
+		// Only parse as market data if action is "view_market" to avoid
+		// misinterpreting other responses that have "items" (cargo, ships, etc)
+		if action, ok := resp.Payload["action"].(string); ok && action == "view_market" {
+			if _, hasItems := resp.Payload["items"]; hasItems {
+				c.parseViewMarketData(resp.Payload)
+			}
 		}
 		// get_ships returns type "ok" with ships in payload
 		if _, hasShips := resp.Payload["ships"]; hasShips {
@@ -1762,9 +1872,24 @@ func containsIgnoreCase(text string, substrings []string) bool {
 	return false
 }
 
-// Close closes the connection
+// Close closes the connection and cleans up all resources
 func (c *Client) Close() error {
-	close(c.stopCh)
+	// Signal all goroutines to stop
+	c.goroutineCancel()
+
+	// Close the stop channel to signal legacy code
+	select {
+	case <-c.stopCh:
+		// Already closed
+	default:
+		close(c.stopCh)
+	}
+
+	// Stop health monitoring
+	select {
+	case c.stopPing <- struct{}{}:
+	default:
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -1772,7 +1897,23 @@ func (c *Client) Close() error {
 	if c.conn != nil {
 		err := c.conn.Close(websocket.StatusNormalClosure, "")
 		c.connected = false
-		return err
+		c.conn = nil
+		// Wait for goroutines outside the lock
+		_ = err
+	}
+
+	// Wait for goroutines to exit (with timeout)
+	done := make(chan struct{})
+	go func() {
+		c.goroutineWg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		c.debugLogger.Printf("All goroutines exited cleanly on Close")
+	case <-time.After(5 * time.Second):
+		c.debugLogger.Printf("Warning: Timeout waiting for goroutines to exit on Close")
 	}
 
 	return nil
@@ -2237,8 +2378,16 @@ func (c *Client) parseViewMarketData(payload map[string]any) {
 		return
 	}
 
+	// Debug: Log first few items to understand the data structure
+	if len(items) > 0 {
+		c.debugLogger.Printf("view_market: First item: item_id=%s, best_buy=%.2f, best_sell=%.2f, buy_orders=%d, sell_orders=%d",
+			items[0].ItemID, items[0].BestBuy, items[0].BestSell,
+			len(items[0].BuyOrders), len(items[0].SellOrders))
+	}
+
 	c.listingsMu.Lock()
 	c.latestListings = make([]MarketListing, 0, len(items)*2)
+	itemsWithOrders := 0
 	for _, item := range items {
 		// Create a synthetic sell listing from the best sell price
 		if item.BestSell > 0 {
@@ -2253,6 +2402,7 @@ func (c *Client) parseViewMarketData(payload map[string]any) {
 				listing.Quantity += order.Quantity
 			}
 			c.latestListings = append(c.latestListings, listing)
+			itemsWithOrders++
 		}
 		// Create a synthetic buy listing from the best buy price
 		if item.BestBuy > 0 {
@@ -2267,11 +2417,15 @@ func (c *Client) parseViewMarketData(payload map[string]any) {
 				listing.Quantity += order.Quantity
 			}
 			c.latestListings = append(c.latestListings, listing)
+			if item.BestSell == 0 {
+				itemsWithOrders++
+			}
 		}
 	}
 	c.listingsMu.Unlock()
 
-	c.debugLogger.Printf("Parsed %d market items into %d listings (from view_market)", len(items), len(c.latestListings))
+	c.debugLogger.Printf("Parsed %d market items into %d listings (from view_market), %d items had orders",
+		len(items), len(c.latestListings), itemsWithOrders)
 }
 
 // inferItemType infers the item type from an item ID prefix.
@@ -2470,17 +2624,60 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 
 // monitorConnectionHealth monitors the WebSocket connection health
 // and attempts to reconnect if no messages are received within the timeout
+// Also sends periodic ping frames to keep the connection alive
 func (c *Client) monitorConnectionHealth(ctx context.Context) {
-	ticker := time.NewTicker(c.pingInterval)
-	defer ticker.Stop()
+	goroutineID := atomic.AddInt64(&c.goroutineID, 1)
+	c.debugLogger.Printf("[health-%d] Health monitor started | Interval: %v | Timeout: %v", goroutineID, c.pingInterval, c.pongTimeout)
+	defer c.debugLogger.Printf("[health-%d] Health monitor exited", goroutineID)
+
+	// Use a separate ticker for pings (more frequent than health checks)
+	pingTicker := time.NewTicker(30 * time.Second) // Send ping every 30 seconds
+	defer pingTicker.Stop()
+
+	healthTicker := time.NewTicker(c.pingInterval)
+	defer healthTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			c.debugLogger.Printf("[health-%d] Context cancelled, exiting", goroutineID)
 			return
 		case <-c.stopPing:
+			c.debugLogger.Printf("[health-%d] Stop signal received, exiting", goroutineID)
 			return
-		case <-ticker.C:
+		case <-pingTicker.C:
+			// Send WebSocket ping to keep connection alive
+			if !c.IsConnected() {
+				continue
+			}
+
+			c.mu.RLock()
+			conn := c.conn
+			c.mu.RUnlock()
+
+			if conn != nil {
+				// Send ping with short timeout
+				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				err := conn.Ping(pingCtx)
+				cancel()
+
+				if err != nil {
+					c.debugLogger.Printf("[health-%d] Ping failed: %v", goroutineID, err)
+					// Ping failure indicates connection is dead
+					c.mu.RLock()
+					handler := c.handler
+					c.mu.RUnlock()
+
+					if handler != nil {
+						handler.OnDisconnected(fmt.Errorf("ping failed: %w", err))
+					}
+					return
+				}
+				// Ping successful - connection is alive
+				c.debugLogger.Printf("[health-%d] Ping sent successfully (keepalive)", goroutineID)
+			}
+
+		case <-healthTicker.C:
 			if !c.IsConnected() {
 				continue
 			}
@@ -2492,7 +2689,8 @@ func (c *Client) monitorConnectionHealth(ctx context.Context) {
 
 			timeSinceLastMsg := time.Since(lastMsg)
 			if timeSinceLastMsg > c.pongTimeout {
-				c.debugLogger.Printf("No messages received for %v, connection may be dead", timeSinceLastMsg)
+				c.debugLogger.Printf("[health-%d] No messages received for %v (timeout: %v), connection may be dead", goroutineID, timeSinceLastMsg, c.pongTimeout)
+				c.logConnectionMetrics("health_timeout")
 				// Trigger a reconnection by notifying the handler
 				c.mu.RLock()
 				handler := c.handler
@@ -2511,6 +2709,53 @@ func (c *Client) updateLastMessageTime() {
 	c.lastMessageMu.Lock()
 	defer c.lastMessageMu.Unlock()
 	c.lastMessageTime = time.Now()
+}
+
+// logConnectionMetrics logs diagnostic information about the connection
+func (c *Client) logConnectionMetrics(event string) {
+	c.diagnosticMu.RLock()
+	defer c.diagnosticMu.RUnlock()
+
+	c.lastMessageMu.RLock()
+	lastMsg := c.lastMessageTime
+	c.lastMessageMu.RUnlock()
+
+	duration := time.Since(c.connectTime)
+	sent := atomic.LoadInt64(&c.messagesSent)
+	received := atomic.LoadInt64(&c.messagesReceived)
+
+	c.debugLogger.Printf("=== Connection Metrics [%s] ===", event)
+	c.debugLogger.Printf("  Connection ID: %s", c.connectionID)
+	c.debugLogger.Printf("  Uptime: %v", duration.Round(time.Millisecond))
+	c.debugLogger.Printf("  Messages sent: %d | received: %d | total: %d", sent, received, sent+received)
+	c.debugLogger.Printf("  Last server message: %v ago", time.Since(lastMsg).Round(time.Millisecond))
+	if !c.lastSendTime.IsZero() {
+		c.debugLogger.Printf("  Last client send: %v ago", time.Since(c.lastSendTime).Round(time.Millisecond))
+	}
+	if !c.lastReceiveTime.IsZero() {
+		c.debugLogger.Printf("  Last client receive: %v ago", time.Since(c.lastReceiveTime).Round(time.Millisecond))
+	}
+}
+
+// trackMessageSent records a sent message for diagnostics
+func (c *Client) trackMessageSent() {
+	atomic.AddInt64(&c.messagesSent, 1)
+	c.diagnosticMu.Lock()
+	c.lastSendTime = time.Now()
+	c.diagnosticMu.Unlock()
+}
+
+// trackMessageReceived records a received message for diagnostics
+func (c *Client) trackMessageReceived() {
+	atomic.AddInt64(&c.messagesReceived, 1)
+	c.diagnosticMu.Lock()
+	c.lastReceiveTime = time.Now()
+	c.diagnosticMu.Unlock()
+}
+
+// generateConnectionID creates a unique connection ID
+func generateConnectionID() string {
+	return fmt.Sprintf("%s-%d", time.Now().Format("20060102-150405"), time.Now().UnixNano()%1000)
 }
 
 // WaitForReady waits for the connection to be ready (first message received)
