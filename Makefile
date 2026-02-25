@@ -48,6 +48,7 @@ check-all: vet lint staticcheck test-race
 # Build all binaries
 build:
 	@echo "Building binaries..."
+	go build -o bin/spacemolt-server ./cmd/spacemolt-server
 	go build -o bin/agent-server ./cmd/agent-server
 	go build -o bin/auto-explorer ./cmd/auto-explorer
 	go build -o bin/auto-miner ./cmd/auto-miner
@@ -57,8 +58,9 @@ build:
 # Build with race detector (for development/testing)
 build-race:
 	@echo "Building with race detector..."
+	go build -race -o bin/spacemolt-server-race ./cmd/spacemolt-server
 	go build -race -o bin/agent-server-race ./cmd/agent-server
-	@echo "Race-detecting binary built: ./bin/agent-server-race"
+	@echo "Race-detecting binaries built in ./bin/"
 
 # Clean build artifacts
 clean:
