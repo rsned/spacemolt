@@ -72,6 +72,7 @@ type AgentDiff struct {
 	StatChanges        []string // e.g. "OreMined: +150.0"
 	ShipChanged        string   // e.g. "Prospector -> Drillship"
 	StorageDelta       float64
+	StorageItemsDelta  int      // Change in number of storage items
 	ShipsDelta         int
 	LocationFrom       string
 	LocationTo         string
@@ -780,6 +781,12 @@ func computeDiffs(today, prev map[string]*AgentSnapshot) []AgentDiff {
 			diff.HasChanges = true
 		}
 
+		// Storage items count
+		diff.StorageItemsDelta = len(snap.StorageItems) - len(old.StorageItems)
+		if diff.StorageItemsDelta != 0 {
+			diff.HasChanges = true
+		}
+
 		// Ships count
 		diff.ShipsDelta = snap.TotalShips - old.TotalShips
 		if diff.ShipsDelta != 0 {
@@ -1051,6 +1058,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 	var totalSkills int
 	var totalOreMined float64
 	var totalItemsCrafted int
+	var totalStorageItems int
+	var totalStorageItemsDelta int
 	var changedCount, errorCount int
 
 	// Calculate totals
@@ -1062,6 +1071,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 		totalCreditsDelta += d.TotalCreditsDelta
 		totalAllCredits += d.Current.Credits + d.Current.StorageCredits
 		totalSkills += len(d.SkillChanges)
+		totalStorageItems += len(d.Current.StorageItems)
+		totalStorageItemsDelta += d.StorageItemsDelta
 		if d.HasChanges {
 			changedCount++
 		}
@@ -1328,6 +1339,25 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 		}
 	}
 	b.WriteString(`</div></div>` + "\n")
+
+	// Stored Items card with trend arrow and delta
+	if totalStorageItems > 0 || totalStorageItemsDelta != 0 {
+		itemsTrendArrow := "→"
+		itemsTrendClass := "neutral"
+		if totalStorageItemsDelta > 0 {
+			itemsTrendArrow = "↗"
+			itemsTrendClass = "positive"
+		} else if totalStorageItemsDelta < 0 {
+			itemsTrendArrow = "↘"
+			itemsTrendClass = "negative"
+		}
+		b.WriteString(fmt.Sprintf(`<div class="stat-card"><div class="label">%s</div><div class="value">`, "Stored Items"))
+		b.WriteString(fmt.Sprintf(`<span class="neutral">%d</span>`, totalStorageItems))
+		if prevDate != "" {
+			b.WriteString(fmt.Sprintf(`<br><small class="%s">%s %+d</small>`, itemsTrendClass, itemsTrendArrow, totalStorageItemsDelta))
+		}
+		b.WriteString(`</div></div>` + "\n")
+	}
 
 	writeStatCard(&b, "Skills Leveled", fmt.Sprintf("%d", totalSkills), ternary(totalSkills > 0, "positive", ""))
 	if totalOreMined > 0 {
