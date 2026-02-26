@@ -86,6 +86,7 @@ func main() {
 	agents := flag.String("agents", "", "Comma-separated agent filter (default: all from data/agents/)")
 	delay := flag.Int("delay", 3, "Delay in seconds between agent connections")
 	reportOnly := flag.Bool("report-only", false, "Skip data collection, regenerate report from latest DB data")
+	regenerateAll := flag.Bool("regenerate-all", false, "Regenerate all HTML and Markdown reports from database data")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[daily-summary] ", log.LstdFlags)
@@ -108,6 +109,14 @@ func main() {
 		logger.Fatalf("Failed to open database: %v", err)
 	}
 	defer func() { _ = db.Close() }()
+
+	// Regenerate all reports if requested
+	if *regenerateAll {
+		if err := regenerateAllReports(db, *outputPath, logger); err != nil {
+			logger.Fatalf("Failed to regenerate all reports: %v", err)
+		}
+		return
+	}
 
 	// Collect data unless report-only mode
 	if !*reportOnly {
@@ -599,6 +608,100 @@ func writeIndexPage(outputDir string, dates []string) error {
 `)
 
 	return os.WriteFile(path, []byte(b.String()), 0644)
+}
+
+// regenerateAllReports regenerates HTML and Markdown reports for all dates in the database.
+func regenerateAllReports(db *sql.DB, outputPath string, logger *log.Logger) error {
+	logger.Printf("Regenerating all reports...")
+
+	// Get all dates from the database
+	dates, err := getAllDates(db)
+	if err != nil {
+		return fmt.Errorf("failed to get all dates: %w", err)
+	}
+
+	if len(dates) == 0 {
+		logger.Printf("No dates found in database")
+		return nil
+	}
+
+	logger.Printf("Found %d dates to regenerate", len(dates))
+
+	// Determine output directory
+	outputDir := "data/reports"
+	if outputPath != "" {
+		outputDir = filepath.Dir(outputPath)
+	}
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create report directory: %w", err)
+	}
+
+	// Regenerate each date's reports
+	for i, date := range dates {
+		logger.Printf("[%d/%d] Regenerating %s...", i+1, len(dates), date)
+
+		// Find previous and next dates
+		prevDate, err := findPreviousDate(db, date)
+		if err != nil {
+			logger.Printf("Warning: failed to find previous date for %s: %v", date, err)
+			prevDate = ""
+		}
+
+		nextDate, err := findNextDate(db, date)
+		if err != nil {
+			logger.Printf("Warning: failed to find next date for %s: %v", date, err)
+			nextDate = ""
+		}
+
+		// Load snapshots for this date
+		snaps, err := loadSnapshots(db, date)
+		if err != nil {
+			logger.Printf("Warning: failed to load snapshots for %s: %v", date, err)
+			continue
+		}
+
+		// Load previous snapshots for comparison
+		var prevSnaps map[string]*AgentSnapshot
+		if prevDate != "" {
+			prevSnaps, err = loadSnapshots(db, prevDate)
+			if err != nil {
+				logger.Printf("Warning: failed to load previous snapshots for %s: %v", date, err)
+				prevSnaps = make(map[string]*AgentSnapshot)
+			}
+		} else {
+			prevSnaps = make(map[string]*AgentSnapshot)
+		}
+
+		// Compute diffs
+		diffs := computeDiffs(snaps, prevSnaps)
+
+		// Generate reports
+		dateOutputPath := filepath.Join(outputDir, "daily-summary-"+date)
+
+		if err := writeMarkdownReport(dateOutputPath+".md", date, prevDate, diffs); err != nil {
+			logger.Printf("Warning: failed to write markdown report for %s: %v", date, err)
+		} else {
+			logger.Printf("  Markdown: %s.md", dateOutputPath)
+		}
+
+		if err := writeHTMLReport(dateOutputPath+".html", date, prevDate, nextDate, diffs); err != nil {
+			logger.Printf("Warning: failed to write HTML report for %s: %v", date, err)
+		} else {
+			logger.Printf("  HTML: %s.html", dateOutputPath)
+		}
+	}
+
+	// Update index page
+	if err := writeIndexPage(outputDir, dates); err != nil {
+		logger.Printf("Warning: failed to write index page: %v", err)
+	} else {
+		logger.Printf("Index page: %s/index.html (%d reports)", outputDir, len(dates))
+	}
+
+	logger.Printf("Successfully regenerated %d reports", len(dates))
+	return nil
 }
 
 // computeDiffs computes the differences between today's and previous snapshots.
