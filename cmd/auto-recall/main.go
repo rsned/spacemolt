@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/agent"
@@ -31,7 +32,7 @@ func getCapitalDisplayName(systemID string) string {
 
 const (
 	// TickInterval is how often to check state updates
-	TickInterval = 500 * time.Millisecond
+	TickInterval = 5 * time.Second
 	// JumpTimeout is maximum time to wait for a jump to complete
 	JumpTimeout = 35 * time.Second
 	// TravelTimeout is maximum time to wait for in-system travel to complete
@@ -109,19 +110,19 @@ func main() {
 func executeRecall(ctx context.Context, client *game.Client, logger *log.Logger, capitalSystem, capitalName string) error {
 	state := client.GetState()
 
-	// Early check: If already docked at capital base, we're done
+	// Early check: If already docked at capital base or station, we're done
 	if state.CurrentSystem == capitalSystem && state.Doc {
-		// Verify we're at a base POI
-		var atBase bool
+		// Verify we're at a base or station POI
+		var atBaseOrStation bool
 		for _, poi := range state.System.POIs {
-			if poi.ID == state.CurrentPOI && (poi.Type == "base" || poi.HasBase) {
-				atBase = true
+			if poi.ID == state.CurrentPOI && (poi.Type == "base" || poi.Type == "station" || poi.HasBase) {
+				atBaseOrStation = true
 				break
 			}
 		}
 
-		if atBase {
-			logger.Printf("✓ Already docked at %s base - nothing to do!", capitalName)
+		if atBaseOrStation {
+			logger.Printf("✓ Already docked at %s base/station - nothing to do!", capitalName)
 			return nil
 		}
 	}
@@ -349,25 +350,39 @@ func waitForPOIArrival(ctx context.Context, client *game.Client, logger *log.Log
 	}
 }
 
-// travelToBase travels within the current system to the base and docks
+// travelToBase travels within the current system to the base/station and docks
 func travelToBase(ctx context.Context, client *game.Client, logger *log.Logger) error {
 	state := client.GetState()
 
-	// Find the base POI
+	// Find a base or station POI (prefer base, fall back to station)
 	var basePOI *game.POI
+	var stationPOI *game.POI
 	for i := range state.System.POIs {
 		poi := &state.System.POIs[i]
 		if poi.Type == "base" || poi.HasBase {
 			basePOI = poi
 			break
 		}
+		if poi.Type == "station" {
+			stationPOI = poi
+		}
 	}
 
-	if basePOI == nil {
-		return fmt.Errorf("no base found in system %s", state.CurrentSystem)
+	// Use base if found, otherwise use station
+	targetPOI := basePOI
+	if targetPOI == nil {
+		targetPOI = stationPOI
 	}
 
-	logger.Printf("🏢 Base found: %s", basePOI.Name)
+	if targetPOI == nil {
+		return fmt.Errorf("no base or station found in system %s", state.CurrentSystem)
+	}
+
+	poiType := "base"
+	if targetPOI.Type == "station" {
+		poiType = "station"
+	}
+	logger.Printf("🏢 %s found: %s", strings.ToTitle(poiType), targetPOI.Name)
 
 	// Check if already at the base
 	if state.CurrentPOI == basePOI.ID {
