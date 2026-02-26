@@ -1283,7 +1283,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	case protocol.TypeOK:
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
-		c.parseSystemData(resp.Payload)
+		// Only parse system data when the payload actually contains it
+		// (e.g., get_system, get_status responses). Most OK responses don't include system data.
+		if _, hasSystem := resp.Payload["system"]; hasSystem {
+			c.parseSystemData(resp.Payload)
+		}
 		c.parsePOIData(resp.Payload)
 		c.parseTravelAction(resp.Payload)
 		// get_map returns type "ok" with systems array in payload
@@ -1601,8 +1605,6 @@ func (c *Client) parseSystemData(payload map[string]any) {
 					c.mergeSystemDataLocked(ext)
 				}
 			}
-		} else {
-			c.debugLogger.Printf("No system data found in payload (hasID=%v, hasName=%v, hasPOIs=%v)", hasID, hasName, hasPOIs)
 		}
 	}
 

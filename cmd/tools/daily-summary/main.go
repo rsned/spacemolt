@@ -43,6 +43,7 @@ type AgentSnapshot struct {
 	StorageCredits  float64              `json:"storage_credits"`
 	Location        string               `json:"location"`
 	Docked          bool                 `json:"docked"`
+	POIType         string               `json:"poi_type"` // Type of POI agent is at (station, base, belt, etc.)
 	Skills          map[string]SkillSnap `json:"skills"`
 	Stats           game.PlayerStats     `json:"stats"`
 	ShipClass       string               `json:"ship_class"`
@@ -276,6 +277,8 @@ func openDB(path string) (*sql.DB, error) {
 
 // collectSnapshots connects to each agent, captures state, and saves to DB.
 func collectSnapshots(db *sql.DB, agentList []string, delaySec int, today string, logger *log.Logger) {
+	var notAtStation []string
+
 	for i, agentID := range agentList {
 		if i > 0 {
 			time.Sleep(time.Duration(delaySec) * time.Second)
@@ -285,6 +288,23 @@ func collectSnapshots(db *sql.DB, agentList []string, delaySec int, today string
 		if err := saveSnapshot(db, snap, today); err != nil {
 			logger.Printf("  Failed to save snapshot: %v", err)
 		}
+
+		// Track agents not docked at station or base (incomplete storage data)
+		if snap.Error == "" && snap.POIType != "station" && snap.POIType != "base" {
+			notAtStation = append(notAtStation, agentID)
+		}
+	}
+
+	// Print summary of agents not at stations
+	if len(notAtStation) > 0 {
+		logger.Printf("")
+		logger.Printf("⚠️  Agents NOT at station/base (may have incomplete storage data):")
+		for _, agentID := range notAtStation {
+			logger.Printf("   - %s", agentID)
+		}
+		logger.Printf("")
+		logger.Printf("💡 Tip: Re-run daily-summary to recapture data for these agents when they dock")
+		logger.Printf("   Example: go run ./cmd/tools/daily-summary -agents %s", strings.Join(notAtStation, ","))
 	}
 }
 
@@ -327,8 +347,16 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 	snap.FactionRank = state.Player.FactionRank
 	snap.Experience = state.Player.Experience
 
+	// Determine POI type
+	for _, poi := range state.System.POIs {
+		if poi.ID == state.CurrentPOI {
+			snap.POIType = poi.Type
+			break
+		}
+	}
+
 	logger.Printf("  Credits: %.0f (wallet)", snap.Credits)
-	logger.Printf("  Docked: %v, CurrentPOI: '%s'", state.Doc, state.CurrentPOI)
+	logger.Printf("  Docked: %v, POI: '%s' (type: %s)", state.Doc, state.CurrentPOI, snap.POIType)
 
 	for skillID, skill := range state.Player.Skills {
 		xp := skill.XP
