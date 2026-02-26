@@ -175,7 +175,7 @@ for batch in "${BATCHES[@]}"; do
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 
         # Small delay between starts in same batch
-        sleep 0.5
+        sleep 2
     done
 
     # Wait between batches to avoid rate limiting
@@ -184,8 +184,8 @@ for batch in "${BATCHES[@]}"; do
     echo ""
 
     if [ $BATCH_NUM -lt ${#BATCHES[@]} ]; then
-        echo "⏸️  Waiting 10 seconds before next batch..."
-        sleep 10
+        echo "⏸️  Waiting 20 seconds before next batch..."
+        sleep 20
         echo ""
     fi
 done
@@ -194,8 +194,8 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ Launch complete! Started $TOTAL_STARTED agents"
 echo ""
-echo "Waiting 5 seconds for connections to establish..."
-sleep 5
+echo "Waiting 11 seconds for connections to establish..."
+sleep 11
 
 # Check final status
 RUNNING=$(pgrep -f "bin/auto-" | wc -l)

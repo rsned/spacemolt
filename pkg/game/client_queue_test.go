@@ -137,7 +137,7 @@ func BenchmarkCommandQueueEnqueue(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Just measure enqueue speed (commands will timeout)
-		go queue.Enqueue(ctx, msg, 10*time.Millisecond)
+		_, _ = queue.Enqueue(ctx, msg, 10*time.Millisecond)
 	}
 }
 

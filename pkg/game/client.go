@@ -215,7 +215,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		latestShips:     make(map[string]any),
 		latestRawJSON:   make(map[string][]byte),
 		lastError:       make(map[string]any),
-		pingInterval:    SleepWSPingInterval,
+		pingInterval:    SleepWSHealthCheck,
 		pongTimeout:     SleepWSPongTimeout,
 		stopPing:        make(chan struct{}),
 		CmdQueue:        NewCommandQueue(nil), // Will be set after creation
@@ -2643,16 +2643,12 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 }
 
 // monitorConnectionHealth monitors the WebSocket connection health
-// and attempts to reconnect if no messages are received within the timeout
-// Also sends periodic ping frames to keep the connection alive
+// and attempts to reconnect if no messages are received within the timeout.
+// The server handles ping/pong keepalive automatically - we only monitor for dead connections.
 func (c *Client) monitorConnectionHealth(ctx context.Context) {
 	goroutineID := atomic.AddInt64(&c.goroutineID, 1)
-	c.debugLogger.Printf("[health-%d] Health monitor started | Interval: %v | Timeout: %v", goroutineID, c.pingInterval, c.pongTimeout)
+	c.debugLogger.Printf("[health-%d] Health monitor started | Timeout: %v (server handles ping/pong)", goroutineID, c.pongTimeout)
 	defer c.debugLogger.Printf("[health-%d] Health monitor exited", goroutineID)
-
-	// Use a separate ticker for pings (more frequent than health checks)
-	pingTicker := time.NewTicker(SleepWSPingInterval)
-	defer pingTicker.Stop()
 
 	healthTicker := time.NewTicker(c.pingInterval)
 	defer healthTicker.Stop()
@@ -2665,21 +2661,6 @@ func (c *Client) monitorConnectionHealth(ctx context.Context) {
 		case <-c.stopPing:
 			c.debugLogger.Printf("[health-%d] Stop signal received, exiting", goroutineID)
 			return
-		case <-pingTicker.C:
-			// Send application-level keepalive message (get_status)
-			if !c.IsConnected() {
-				continue
-			}
-
-			// Send get_status as an application-level ping
-			// This is more reliable than WebSocket ping frames which can cause issues
-			if err := c.GetStatus(ctx); err != nil {
-				c.debugLogger.Printf("[health-%d] Keepalive failed: %v", goroutineID, err)
-				// Don't trigger reconnection for keepalive failures - the health check will handle it
-			} else {
-				c.debugLogger.Printf("[health-%d] Keepalive sent (get_status)", goroutineID)
-			}
-
 		case <-healthTicker.C:
 			if !c.IsConnected() {
 				continue

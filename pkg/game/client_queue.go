@@ -265,7 +265,8 @@ func (q *CommandQueue) handleResponse(resp protocol.Response) {
 	defer q.client.waiterMu.Unlock()
 
 	// Try to match by response type first
-	if responseType == protocol.TypeOK {
+	switch responseType {
+	case protocol.TypeOK:
 		if ch, ok := q.client.waiters[active.ID+":ok"]; ok {
 			select {
 			case ch <- resp:
@@ -273,7 +274,7 @@ func (q *CommandQueue) handleResponse(resp protocol.Response) {
 			}
 			return
 		}
-	} else if responseType == protocol.TypeError {
+	case protocol.TypeError:
 		if ch, ok := q.client.waiters[active.ID+":error"]; ok {
 			select {
 			case ch <- resp:
