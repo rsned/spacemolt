@@ -73,6 +73,7 @@ type AgentDiff struct {
 	ShipChanged        string   // e.g. "Prospector -> Drillship"
 	StorageDelta       float64
 	StorageItemsDelta  int      // Change in number of storage items
+	StorageItemChanges []string // e.g. "iron_ore: +100.0" or "copper_ore: -50.0"
 	ShipsDelta         int
 	LocationFrom       string
 	LocationTo         string
@@ -787,6 +788,12 @@ func computeDiffs(today, prev map[string]*AgentSnapshot) []AgentDiff {
 			diff.HasChanges = true
 		}
 
+		// Storage item changes (individual items added/removed)
+		diff.StorageItemChanges = diffStorageItems(old.StorageItems, snap.StorageItems)
+		if len(diff.StorageItemChanges) > 0 {
+			diff.HasChanges = true
+		}
+
 		// Ships count
 		diff.ShipsDelta = snap.TotalShips - old.TotalShips
 		if diff.ShipsDelta != 0 {
@@ -879,6 +886,58 @@ func formatNumber(v float64) string {
 		return "-" + result.String()
 	}
 	return result.String()
+}
+
+// diffStorageItems compares two storage item lists and returns human-readable delta strings.
+func diffStorageItems(old, cur []StorageEntry) []string {
+	// Build maps for easy lookup
+	oldItems := make(map[string]float64)
+	for _, item := range old {
+		oldItems[item.ItemID] = item.Quantity
+	}
+
+	curItems := make(map[string]float64)
+	for _, item := range cur {
+		curItems[item.ItemID] = item.Quantity
+	}
+
+	// Collect all item IDs
+	allItemIDs := make(map[string]bool)
+	for id := range oldItems {
+		allItemIDs[id] = true
+	}
+	for id := range curItems {
+		allItemIDs[id] = true
+	}
+
+	var changes []string
+	for id := range allItemIDs {
+		oldQty := oldItems[id]
+		curQty := curItems[id]
+		delta := curQty - oldQty
+
+		// Only report changes (items added, removed, or quantity changed)
+		// Show if item is new (oldQty == 0), removed (curQty == 0), or changed
+		if math.Abs(delta) >= 0.01 || (oldQty == 0 && curQty > 0) || (curQty == 0 && oldQty > 0) {
+			if delta > 0 {
+				changes = append(changes, fmt.Sprintf("%s: +%.1f", id, delta))
+			} else if delta < 0 {
+				changes = append(changes, fmt.Sprintf("%s: %.1f", id, delta))
+			}
+			// If delta is 0 but item was added then removed or vice versa, don't show
+		}
+	}
+
+	// Sort by item ID
+	slices.Sort(changes)
+
+	// Limit to top 20 changes to avoid overwhelming output
+	if len(changes) > 20 {
+		changes = changes[:20]
+		changes = append(changes, fmt.Sprintf("... and %d more", len(changes)-20))
+	}
+
+	return changes
 }
 
 // writeMarkdownReport generates a markdown report file.
@@ -1009,6 +1068,8 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 				if d.StorageDelta != 0 {
 					details = append(details, fmt.Sprintf("Storage: %+.0f units", d.StorageDelta))
 				}
+				// Add individual storage item changes
+				details = append(details, d.StorageItemChanges...)
 				if d.ShipsDelta != 0 {
 					details = append(details, fmt.Sprintf("Ships: %+d (now %d)", d.ShipsDelta, d.Current.TotalShips))
 				}
@@ -1533,6 +1594,11 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				if d.StorageDelta != 0 {
 					storage = append(storage, fmt.Sprintf("Storage: %+.0f units", d.StorageDelta))
 				}
+				// Add individual storage item changes
+				for _, itemChange := range d.StorageItemChanges {
+					storage = append(storage, html.EscapeString(itemChange))
+				}
+				// Note: Can't use spread here due to html.EscapeString requirement
 				if d.ShipsDelta != 0 {
 					storage = append(storage, fmt.Sprintf("Ships: %+d (now %d)", d.ShipsDelta, d.Current.TotalShips))
 				}
