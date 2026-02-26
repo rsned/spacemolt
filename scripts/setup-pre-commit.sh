@@ -19,7 +19,7 @@ fi
 # Create the pre-commit hook
 cat > "$HOOK_FILE" << 'EOF'
 #!/bin/bash
-# Pre-commit hook: Run race detection on Go code before commit
+# Pre-commit hook: Run build, tests with race detection, and lint on Go code
 # Skip with: git commit --no-verify
 
 echo "Running pre-commit checks..."
@@ -28,37 +28,51 @@ echo "Running pre-commit checks..."
 CHANGED_GO=$(git diff --cached --name-only | grep '\.go$' || true)
 
 if [ -z "$CHANGED_GO" ]; then
-    echo "No Go files staged, skipping race detection"
+    echo "No Go files staged, skipping checks"
     exit 0
 fi
 
-echo "Checking modified Go files for race conditions..."
-
-# Extract package paths from changed files
+# Extract unique package paths from changed files
 PACKAGES=$(echo "$CHANGED_GO" | xargs dirname | sort -u | sed 's|^|./|')
 
-# Run race detector on changed packages
 FAILED=0
+
+# Phase 1: Build check
+echo "[1/3] Checking build..."
+if ! go build ./... 2>&1; then
+    echo "  ✗ Build failed"
+    exit 1
+fi
+echo "  ✓ Build passed"
+
+# Phase 2: Race detector tests on changed packages
+echo "[2/3] Running tests with race detector..."
 for pkg in $PACKAGES; do
-    echo "Testing $pkg..."
-    if ! go test -race -timeout=30s "$pkg" 2>/dev/null; then
-        echo "⚠ Race detection failed for $pkg"
-        FAILED=1
+    if [ -d "${pkg#./}" ]; then
+        echo "  Testing $pkg..."
+        if ! go test -race -count=1 -timeout=120s "$pkg" 2>&1; then
+            echo "  ✗ Tests failed for $pkg"
+            FAILED=1
+        fi
     fi
 done
 
-# Run golangci-lint on changed files
+# Phase 3: Lint
+echo "[3/3] Running golangci-lint..."
 if command -v golangci-lint &> /dev/null; then
-    echo "Running golangci-lint on staged files..."
-    if ! echo "$CHANGED_GO" | xargs -I{} golangci-lint run "{}" 2>/dev/null; then
-        echo "⚠ Linting failed"
+    if ! golangci-lint run $PACKAGES 2>&1; then
+        echo "  ✗ Lint findings detected"
         FAILED=1
+    else
+        echo "  ✓ Lint passed"
     fi
+else
+    echo "  ⚠ golangci-lint not installed, skipping"
 fi
 
 if [ $FAILED -eq 1 ]; then
     echo ""
-    echo "⚠ Pre-commit checks failed!"
+    echo "✗ Pre-commit checks failed!"
     echo "Use 'git commit --no-verify' to bypass (not recommended)"
     exit 1
 fi

@@ -100,7 +100,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-echo "🚀 Starting 90 agents in batches to avoid rate limiting..."
+echo "🚀 Starting agents in batches to avoid rate limiting..."
 echo ""
 
 # Show current configuration

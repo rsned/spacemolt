@@ -101,7 +101,8 @@ type ReconnectingHandler struct {
 	handler      MessageHandler
 	ctx          context.Context
 	logger       *log.Logger
-	reconnecting atomic.Bool // Prevents multiple concurrent reconnections
+	reconnecting atomic.Bool   // Prevents multiple concurrent reconnections
+	wg           sync.WaitGroup // Track reconnection goroutine lifecycle
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -134,11 +135,15 @@ func (r *ReconnectingHandler) OnDisconnected(err error) {
 
 	// Only start reconnection if not already reconnecting
 	if r.reconnecting.CompareAndSwap(false, true) {
+		r.wg.Add(1)
 		go r.attemptReconnection()
 	}
 }
 
 func (r *ReconnectingHandler) attemptReconnection() {
+	defer r.wg.Done()
+	defer r.reconnecting.Store(false)
+
 	maxAttempts := 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if r.ctx.Err() != nil {
@@ -156,12 +161,27 @@ func (r *ReconnectingHandler) attemptReconnection() {
 		}
 
 		r.logger.Printf("✓ Reconnected successfully")
-		r.reconnecting.Store(false)
 		return
 	}
 
 	r.logger.Printf("Failed to reconnect after %d attempts", maxAttempts)
-	r.reconnecting.Store(false)
+}
+
+// WaitForShutdown waits for any active reconnection goroutine to complete.
+// This should be called during graceful shutdown to ensure all goroutines exit cleanly.
+func (r *ReconnectingHandler) WaitForShutdown(timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		r.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
 }
 
 // NewClient creates a new game client
@@ -195,8 +215,8 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		latestShips:     make(map[string]any),
 		latestRawJSON:   make(map[string][]byte),
 		lastError:       make(map[string]any),
-		pingInterval:    30 * time.Second,
-		pongTimeout:     60 * time.Second, // Increased from 10s to reduce false reconnections during normal operation
+		pingInterval:    SleepWSPingInterval,
+		pongTimeout:     SleepWSPongTimeout,
 		stopPing:        make(chan struct{}),
 		CmdQueue:        NewCommandQueue(nil), // Will be set after creation
 		goroutineCtx:    goroutineCtx,
@@ -441,8 +461,8 @@ func (c *Client) SetHandler(handler MessageHandler) {
 
 // Send sends a message to the game server
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if !c.connected || c.conn == nil {
 		return fmt.Errorf("not connected")
@@ -2631,7 +2651,7 @@ func (c *Client) monitorConnectionHealth(ctx context.Context) {
 	defer c.debugLogger.Printf("[health-%d] Health monitor exited", goroutineID)
 
 	// Use a separate ticker for pings (more frequent than health checks)
-	pingTicker := time.NewTicker(30 * time.Second) // Send ping every 30 seconds
+	pingTicker := time.NewTicker(SleepWSPingInterval)
 	defer pingTicker.Stop()
 
 	healthTicker := time.NewTicker(c.pingInterval)
@@ -2646,35 +2666,18 @@ func (c *Client) monitorConnectionHealth(ctx context.Context) {
 			c.debugLogger.Printf("[health-%d] Stop signal received, exiting", goroutineID)
 			return
 		case <-pingTicker.C:
-			// Send WebSocket ping to keep connection alive
+			// Send application-level keepalive message (get_status)
 			if !c.IsConnected() {
 				continue
 			}
 
-			c.mu.RLock()
-			conn := c.conn
-			c.mu.RUnlock()
-
-			if conn != nil {
-				// Send ping with short timeout
-				pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				err := conn.Ping(pingCtx)
-				cancel()
-
-				if err != nil {
-					c.debugLogger.Printf("[health-%d] Ping failed: %v", goroutineID, err)
-					// Ping failure indicates connection is dead
-					c.mu.RLock()
-					handler := c.handler
-					c.mu.RUnlock()
-
-					if handler != nil {
-						handler.OnDisconnected(fmt.Errorf("ping failed: %w", err))
-					}
-					return
-				}
-				// Ping successful - connection is alive
-				c.debugLogger.Printf("[health-%d] Ping sent successfully (keepalive)", goroutineID)
+			// Send get_status as an application-level ping
+			// This is more reliable than WebSocket ping frames which can cause issues
+			if err := c.GetStatus(ctx); err != nil {
+				c.debugLogger.Printf("[health-%d] Keepalive failed: %v", goroutineID, err)
+				// Don't trigger reconnection for keepalive failures - the health check will handle it
+			} else {
+				c.debugLogger.Printf("[health-%d] Keepalive sent (get_status)", goroutineID)
 			}
 
 		case <-healthTicker.C:

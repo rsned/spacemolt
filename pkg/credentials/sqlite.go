@@ -89,7 +89,7 @@ func (p *SQLiteProvider) createTable() error {
 			agent_id TEXT PRIMARY KEY,
 			username TEXT NOT NULL,
 			token TEXT NOT NULL,
-			empires TEXT DEFAULT 'voidborn',
+			empire TEXT DEFAULT 'voidborn',
 			created_at TEXT NOT NULL,
 			last_used TEXT
 		)

@@ -18,6 +18,12 @@ const (
 
 	SleepReconnect = 30 * time.Second // Reconnection recovery wait
 	SleepRetry    = 1 * time.Second    // Retry delay for failed operations
+
+	// WebSocket keepalive timing
+	// Server appears to timeout connections after ~10 seconds of inactivity
+	// Using 2 second ping interval to ensure connection stays alive
+	SleepWSPingInterval = 2 * time.Second // Send WebSocket ping every 2 seconds
+	SleepWSPongTimeout  = 15 * time.Second // Consider connection dead if no messages for 15 seconds
 )
 
 // Hull percentage thresholds

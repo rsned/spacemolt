@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -493,7 +494,8 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 
 	config := DefaultRunnerConfig()
 	runner := NewRunner(agent, client, config)
-	runner.lastActionTick = 100 // Already acted this tick
+	runner.lastActionTick = 100    // Already acted this tick
+	runner.lastActionTime = time.Now() // Recent action time prevents time-based fallback
 
 	ctx := context.Background()
 
@@ -525,12 +527,12 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 }
 
 func TestRunner_DecisionError_Retries(t *testing.T) {
-	errorCount := 0
+	var errorCount atomic.Int32
 	agent := &mockAgent{
 		id: "test-agent",
 		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
-			errorCount++
-			if errorCount < 3 {
+			count := errorCount.Add(1)
+			if count < 3 {
 				return Decision{}, errors.New("temporary error")
 			}
 			return Decision{Action: "wait"}, nil
@@ -554,8 +556,8 @@ func TestRunner_DecisionError_Retries(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	// Should have retried and eventually succeeded
-	if errorCount < 3 {
-		t.Errorf("Expected at least 3 decision calls, got %d", errorCount)
+	if errorCount.Load() < 3 {
+		t.Errorf("Expected at least 3 decision calls, got %d", errorCount.Load())
 	}
 
 	if runner.HasCrashed() {

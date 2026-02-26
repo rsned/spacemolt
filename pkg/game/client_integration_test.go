@@ -598,7 +598,7 @@ func TestConcurrentClients(t *testing.T) {
 			<-client.Ready()
 
 			// Register
-			if err := client.Register(ctx, "voidborn"); err != nil {
+			if err := client.Register(ctx, "voidborn", ""); err != nil {
 				errors <- err
 				return
 			}

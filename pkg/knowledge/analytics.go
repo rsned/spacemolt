@@ -567,7 +567,7 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 
 	// Store export metadata
 	_, err = kb.db.ExecContext(ctx, `
-		INSERT INTO knowledge_exports (id, created_at, created_by, description, systems_count, pois_count, experiences_count, export_data, last_updated)
+		INSERT INTO knowledge_exports (id, created_at, created_by, description, systems_count, pois_count, experiences_count, export_data, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
 	`, export.ID, export.CreatedAt.Format("2006-01-02 15:04:05"), export.CreatedBy, export.Description,
 		export.SystemsCount, export.POIsCount, export.ExperiencesCount, export.ExportData)

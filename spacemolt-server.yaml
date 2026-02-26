@@ -1,0 +1,40 @@
+# Spacemolt Unified Server Configuration
+#
+# Copy this file to spacemolt-server.yaml and adjust as needed.
+# The server looks for spacemolt-server.yaml by default, or pass
+# -config path/to/file.yaml to use a different path.
+#
+# All values shown below are the defaults.
+
+server:
+  http_port: 8090
+  static_dir: frontend/dist
+  admin_static_dir: ""
+
+game:
+  server_url: wss://game.spacemolt.com/ws
+
+agents:
+  dir: data/agents
+  max: 5
+  decision_interval: 11s
+  enabled:
+    - craftsman-1
+
+      #llm:
+      #  url: http://localhost:11434
+      #  model: llama3.2
+      #  timeout: 60s
+
+database:
+  backend: sqlite
+  path: data/spacemolt-knowledge.db
+
+credentials:
+  backend: file
+  path: data/agents
+
+strategies:
+  defaults: {craft}
+
+teams: []
