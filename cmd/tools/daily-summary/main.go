@@ -162,6 +162,41 @@ func main() {
 		logger.Fatalf("Failed to write HTML report: %v", err)
 	}
 	logger.Printf("HTML report: %s.html", *outputPath)
+
+	// Update previous day's HTML to include Next link to today
+	if prevDate != "" {
+		logger.Printf("Updating previous day's report with Next link...")
+		prevPrevDate, err := findPreviousDate(db, prevDate)
+		if err != nil {
+			logger.Printf("Warning: failed to find previous-previous date: %v", err)
+			prevPrevDate = ""
+		}
+		prevSnaps, err := loadSnapshots(db, prevDate)
+		if err != nil {
+			logger.Printf("Warning: failed to load previous snapshots for update: %v", err)
+		} else {
+			// Load prevPrevDate's snapshots for comparison
+			var prevPrevSnaps map[string]*AgentSnapshot
+			if prevPrevDate != "" {
+				prevPrevSnaps, err = loadSnapshots(db, prevPrevDate)
+				if err != nil {
+					logger.Printf("Warning: failed to load prev-prev snapshots: %v", err)
+					prevPrevSnaps = map[string]*AgentSnapshot{}
+				}
+			} else {
+				prevPrevSnaps = map[string]*AgentSnapshot{}
+			}
+			// Compute diffs for the previous day (prevDate vs prevPrevDate)
+			prevDiffs := computeDiffs(prevSnaps, prevPrevSnaps)
+			// Build the output path for the previous day's report
+			prevOutputPath := filepath.Join(filepath.Dir(*outputPath), "daily-summary-"+prevDate)
+			if err := writeHTMLReport(prevOutputPath+".html", prevDate, prevPrevDate, today, prevDiffs); err != nil {
+				logger.Printf("Warning: failed to update previous day's HTML: %v", err)
+			} else {
+				logger.Printf("Updated previous day's HTML report with Next link to %s", today)
+			}
+		}
+	}
 }
 
 // resolveAgents returns the list of agent IDs to process.
