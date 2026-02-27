@@ -82,7 +82,8 @@ func main() {
 		state.Ship.CargoUsed, state.Ship.CargoCapacity, len(state.Ship.Cargo))
 
 	// Create dispatcher and executor
-	dispatcher := skills.NewClientDispatcher(client)
+	dispatcher := skills.NewClientDispatcher(client, logger)
+	dispatcher.EnsureSystemData(ctx)
 	executor := skills.NewExecutor(registry, dispatcher, logger)
 
 	// Run the skill

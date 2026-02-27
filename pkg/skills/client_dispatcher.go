@@ -3,6 +3,7 @@ package skills
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -11,15 +12,20 @@ import (
 // ClientDispatcher adapts a game.Client into an ActionDispatcher for the
 // skill executor. It maps action names to the corresponding game client
 // methods and waits for server ticks between actions.
+//
+// After travel/jump actions it automatically refreshes system data so that
+// POI-based conditions (current_poi_type, at_poi_type) can evaluate correctly.
 type ClientDispatcher struct {
 	Client    *game.Client
+	Logger    *log.Logger
 	TickDelay time.Duration // delay after tick-consuming actions; 0 = default (11s)
 }
 
 // NewClientDispatcher creates a dispatcher wrapping a connected game client.
-func NewClientDispatcher(client *game.Client) *ClientDispatcher {
+func NewClientDispatcher(client *game.Client, logger *log.Logger) *ClientDispatcher {
 	return &ClientDispatcher{
 		Client:    client,
+		Logger:    logger,
 		TickDelay: game.SleepTick + time.Second, // 11s — wait for next tick
 	}
 }
@@ -63,12 +69,20 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if target == "" {
 			return fmt.Errorf("travel requires a target POI")
 		}
-		return d.Client.Travel(ctx, target)
+		if err := d.Client.Travel(ctx, target); err != nil {
+			return err
+		}
+		d.refreshSystemData(ctx)
+		return nil
 	case "jump":
 		if target == "" {
 			return fmt.Errorf("jump requires a target system")
 		}
-		return d.Client.Jump(ctx, target)
+		if err := d.Client.Jump(ctx, target); err != nil {
+			return err
+		}
+		d.refreshSystemData(ctx)
+		return nil
 
 	// Mining & scanning
 	case "mine":
@@ -118,6 +132,26 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 
 	default:
 		return fmt.Errorf("unsupported action: %q", action)
+	}
+}
+
+// refreshSystemData fetches system info so POI data is available for
+// condition evaluation. Called automatically after travel/jump.
+func (d *ClientDispatcher) refreshSystemData(ctx context.Context) {
+	time.Sleep(game.SleepQuick)
+	if err := d.Client.GetSystem(ctx); err != nil {
+		d.Logger.Printf("warning: failed to refresh system data: %v", err)
+	}
+	time.Sleep(game.SleepQuick)
+}
+
+// EnsureSystemData loads system POIs if they aren't populated yet.
+// Call this before running a skill to make sure initial conditions can evaluate.
+func (d *ClientDispatcher) EnsureSystemData(ctx context.Context) {
+	state := d.Client.GetState()
+	if len(state.System.POIs) == 0 {
+		d.Logger.Printf("Fetching system data...")
+		d.refreshSystemData(ctx)
 	}
 }
 
