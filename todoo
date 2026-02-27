@@ -1,0 +1,99 @@
+
+[random-4] 2026/02/26 17:49:16 Message Payload: {"password":"3068e34e796547c4b3d3e453121314e7102dbaba42d087f5c023dc13779a0c39","username":"Scott 'Scrapper' Sulliva"}
+      "current_system": "sol",
+      "username": "Scott 'Scrapper' Sulliva"
+
+[random-8] 2026/02/26 17:49:37 Message Payload: {"password":"d636776fdbd67675d3b837d5d00c6810d4a6060300409bf510fcf59a288599af","username":"🤓"}
+      "current_system": "frontier",
+      "username": "🤓"
+
+[trader-4] 2026/02/26 17:49:58 Message Payload: {"password":"15ce7d866dea7a6e6d506b7dd78296cc4788a49d304c7ea816099a0af0342b11","username":"Sterling 'Silver' Solomo"}
+      "current_system": "sol",
+      "username": "Sterling 'Silver' Solomo"
+
+
+
+
+Recent actions:
+- travel nexus_harvesters → {"action":"arrived","poi":"Ma...
+- mine → {"resource_id":"ore_iron","re...
+- travel nexus_core → {"action":"arrived","poi":"Th...
+- dock → {"action":"dock","base":"Cent...
+- sell ore_voidborn_null → Sell order created. 17x Null ...
+- undock → {"action":"undock"}
+- travel nexus_harvesters → {"action":"arrived","poi":"Ma...
+- mine → {"resource_id":"ore_copper","...
+- travel nexus_core → {"action":"arrived","poi":"Th...
+- dock → {"action":"dock","base":"Cent...
+- sell ore_silicon → Sell order created. 24x Silic...
+- undock → {"action":"undock"}
+
+  - check fuel, check ship, check ship_loadout
+  - undock
+  - travel {SYSTEM_ASTEROID_BELT}
+  - while !cargo_full
+    - mine → mine → mine → 
+  - travel {LOCAL_STATION}
+  - dock
+  - continue on to next strategy skill (sell, craft, deposit, etc.)
+
+
+
+
+smc login assist-haven
+smc get_cargo
+smc buy fuel_cell N
+smc deposit_items fuel_cell N-2 
+smc undock
+smc travel haven_belt ${POI}
+smc jettison fuel_cell 1
+smc jettison fuel_cell 1
+smc travel haven_exchange ${STATION}
+smc dock
+
+
+
+so far most of my energy has been exploring and brainstorming ways to use agents to play the game while trying to offload much of the scut so it doesnt clog context window.  not as much focus on the fully LLM Jesus-take-the-wheel, but more guided control.  been working on creating composable parts that the LLM would be able to choose and kick off as it works on higher level goals.  rather tghan one onmi-agent  who can do everything, more of a swarm of specialists.  i.e., a series of commands that perform the given task in infinite loop to keep working when nothing else is going on.
+`
+auto-craftsman
+auto-explorer
+auto-fighter
+auto-miner
+auto-pirate
+auto-prophet
+auto-recall  (not a loop, this takes the agent from whereever and sends them to base to dock.)
+auto-salvager
+auto-trader
+`  
+
+i've also put a fair amount of effort into 'infrastructure'.  i started with a main normalized DB for everything agents see and do in the game.
+
+`$ sqlite3 data/spacemolt-knowledge.db 
+sqlite> .tables
+agents                      player_stats              
+anomalies                   players                   
+base_facilities             poi_resources             
+base_market                 pois                      
+base_services               price_trends              
+bases                       recipe_inputs             
+connection_metrics          recipe_outputs            
+connections                 recipes                   
+danger_zones                resource_history          
+experiences                 schema_migrations         
+items                       ship_cargo                
+knowledge_exports           ship_class_build_materials
+market_analyses             ship_classes              
+market_listings             ship_listings             
+market_snapshots            ship_modules              
+mission_objectives          ships                     
+mission_templates           skills                    
+player_skills               systems`
+
+with associated library code to read/update as agents see more when playing.  
+
+Spun off from this was a separate MCP server agents could call focused on Crafting.  https://github.com/rsned/spacemolt-crafting-server which was to help offload some area of complexity from the agents to make it easy to see what they can build, and using a variety of forward and reverse indexes to let the trace what goes where and what needs what. 
+
+
+also setup a frontend that lets me watch and switch between various agents, manyu of the frontend tabs have things the official website /play ended up building as well. i do like my Station section more though :)  
+
+

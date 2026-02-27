@@ -112,6 +112,11 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		}
 		return d.Client.CraftWithQuantity(ctx, target, 1)
 
+	// Crafting (compound)
+	case "craft_from_cargo":
+		_, err := d.Client.CraftFromCargo(ctx, d.Logger, nil)
+		return err
+
 	// Storage
 	case "deposit_all_items":
 		return d.Client.DepositAllItems(ctx)
@@ -210,7 +215,8 @@ func isTickAction(action string) bool {
 	case "get_status", "get_system", "get_ship", "get_skills",
 		"get_poi", "get_map", "get_version", "get_recipes",
 		"get_wrecks", "get_notes", "get_listings", "get_trades",
-		"wait", "help":
+		"wait", "help",
+		"craft_from_cargo": // compound action, manages its own tick waits
 		return false
 	default:
 		return true

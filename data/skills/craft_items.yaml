@@ -1,0 +1,24 @@
+name: craft_items
+description: >
+  Craft all possible items from current cargo. Queries the crafting MCP server
+  to determine which recipes can be crafted with available resources and skills,
+  then crafts them in batched quantities. Must be docked with cargo on board.
+
+prerequisites:
+  - docked
+  - has_cargo
+
+steps:
+  - id: check_ready
+    check: true
+    conditions:
+      not docked: goto done
+      not has_cargo: goto done
+      default: goto craft
+
+  - id: craft
+    action: craft_from_cargo
+    next: done
+
+  - id: done
+    terminal: true
