@@ -58,6 +58,9 @@ func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 	e.depth++
 	defer func() { e.depth-- }()
 
+	indent := strings.Repeat("  ", e.depth-1)
+	e.logger.Printf("%s▶ skill:%s started", indent, skill.Name)
+
 	maxSteps := e.MaxSteps
 	if maxSteps == 0 {
 		maxSteps = defaultMaxSteps
@@ -68,6 +71,7 @@ func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 
 	for stepID != "" {
 		if err := ctx.Err(); err != nil {
+			e.logger.Printf("%s✗ skill:%s cancelled", indent, skill.Name)
 			return err
 		}
 
@@ -81,11 +85,13 @@ func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 		}
 
 		if step.Terminal {
+			e.logger.Printf("%s✓ skill:%s completed (%d steps)", indent, skill.Name, stepsExecuted)
 			return nil
 		}
 
 		nextID, err := e.executeStep(ctx, skill, step)
 		if err != nil {
+			e.logger.Printf("%s✗ skill:%s step:%s error: %v", indent, skill.Name, step.ID, err)
 			return fmt.Errorf("skill %q step %q: %w", skill.Name, step.ID, err)
 		}
 
@@ -93,15 +99,22 @@ func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 		stepID = nextID
 	}
 
+	e.logger.Printf("%s✓ skill:%s completed (%d steps)", indent, skill.Name, stepsExecuted)
 	return nil
 }
 
 func (e *Executor) executeStep(ctx context.Context, skill *Skill, step *Step) (string, error) {
 	state := e.dispatcher.GetState()
+	indent := strings.Repeat("  ", e.depth-1)
 
 	// Check node -- evaluate conditions, no action.
 	if step.Check {
-		return e.evalConditions(step.Conditions, state)
+		nextID, err := e.evalConditions(step.Conditions, state)
+		if err != nil {
+			return "", err
+		}
+		e.logger.Printf("%s  ◇ %s → %s", indent, step.ID, nextID)
+		return nextID, nil
 	}
 
 	// Sub-skill invocation.
@@ -129,6 +142,11 @@ func (e *Executor) executeStep(ctx context.Context, skill *Skill, step *Step) (s
 		}
 
 		// Single action execution.
+		if target != "" {
+			e.logger.Printf("%s  ■ %s → %s (target: %s)", indent, step.ID, step.Action, target)
+		} else {
+			e.logger.Printf("%s  ■ %s → %s", indent, step.ID, step.Action)
+		}
 		if err := e.dispatcher.Dispatch(ctx, step.Action, target); err != nil {
 			return "", err
 		}
@@ -136,7 +154,12 @@ func (e *Executor) executeStep(ctx context.Context, skill *Skill, step *Step) (s
 		// After action, evaluate conditions if present.
 		if len(step.Conditions) > 0 {
 			state = e.dispatcher.GetState()
-			return e.evalConditions(step.Conditions, state)
+			nextID, err := e.evalConditions(step.Conditions, state)
+			if err != nil {
+				return "", err
+			}
+			e.logger.Printf("%s    → %s", indent, nextID)
+			return nextID, nil
 		}
 
 		return step.Next, nil
@@ -146,11 +169,19 @@ func (e *Executor) executeStep(ctx context.Context, skill *Skill, step *Step) (s
 }
 
 func (e *Executor) executeRepeat(ctx context.Context, step *Step, target string) (string, error) {
+	indent := strings.Repeat("  ", e.depth-1)
 	maxSteps := e.MaxSteps
 	if maxSteps == 0 {
 		maxSteps = defaultMaxSteps
 	}
 
+	if target != "" {
+		e.logger.Printf("%s  ⟳ %s → %s loop (target: %s)", indent, step.ID, step.Action, target)
+	} else {
+		e.logger.Printf("%s  ⟳ %s → %s loop", indent, step.ID, step.Action)
+	}
+
+	iteration := 0
 	for range maxSteps {
 		if err := ctx.Err(); err != nil {
 			return "", err
@@ -165,6 +196,7 @@ func (e *Executor) executeRepeat(ctx context.Context, step *Step, target string)
 				return "", fmt.Errorf("while condition %q: %w", cond, err)
 			}
 			if !result {
+				e.logger.Printf("%s    [%d] exit: %s no longer true", indent, iteration+1, cond)
 				allTrue = false
 				break
 			}
@@ -173,11 +205,17 @@ func (e *Executor) executeRepeat(ctx context.Context, step *Step, target string)
 			break
 		}
 
+		iteration++
 		if err := e.dispatcher.Dispatch(ctx, step.Action, target); err != nil {
 			return "", err
 		}
+
+		if iteration%5 == 0 {
+			e.logger.Printf("%s    [%d] %s continuing...", indent, iteration, step.Action)
+		}
 	}
 
+	e.logger.Printf("%s  ⟳ %s loop done (%d iterations)", indent, step.ID, iteration)
 	return step.Next, nil
 }
 
