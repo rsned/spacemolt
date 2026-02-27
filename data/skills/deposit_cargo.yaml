@@ -1,0 +1,22 @@
+name: deposit_cargo
+description: >
+  Deposit all cargo into station storage. Must be docked with cargo on board.
+
+prerequisites:
+  - docked
+  - has_cargo
+
+steps:
+  - id: check_ready
+    check: true
+    conditions:
+      not docked: goto done
+      not has_cargo: goto done
+      default: goto deposit
+
+  - id: deposit
+    action: deposit_all_items
+    next: done
+
+  - id: done
+    terminal: true

@@ -1,0 +1,13 @@
+digraph deposit_cargo {
+  label="deposit_cargo: Deposit all cargo into station storage. Must be docked with cargo on board.\n"
+  rankdir=TB
+
+  check_ready [shape=diamond label="check_ready"]
+  deposit [shape=box label="deposit_all_items"]
+  done [shape=doublecircle label="done"]
+
+  check_ready -> done [label="not docked"]
+  check_ready -> done [label="not has_cargo"]
+  check_ready -> deposit [label="default"]
+  deposit -> done
+}
