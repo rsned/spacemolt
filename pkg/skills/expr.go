@@ -2,6 +2,7 @@ package skills
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -24,8 +25,7 @@ func EvalExpr(expr string, state *game.State) (bool, error) {
 	}
 
 	// Negation
-	if strings.HasPrefix(expr, "not ") {
-		inner := strings.TrimPrefix(expr, "not ")
+	if inner, ok := strings.CutPrefix(expr, "not "); ok {
 		result, err := EvalExpr(inner, state)
 		if err != nil {
 			return false, err
@@ -38,12 +38,7 @@ func EvalExpr(expr string, state *game.State) (bool, error) {
 		args := strings.TrimSuffix(strings.TrimPrefix(expr, "at_poi_type("), ")")
 		types := parseArgs(args)
 		poiType := resolveCurrentPOIType(state)
-		for _, t := range types {
-			if poiType == t {
-				return true, nil
-			}
-		}
-		return false, nil
+		return slices.Contains(types, poiType), nil
 	}
 
 	// Function-style: has_module_type(type)

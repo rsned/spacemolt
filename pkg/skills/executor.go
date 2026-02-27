@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -223,10 +224,8 @@ func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State)
 	}
 
 	for _, poi := range state.System.POIs {
-		for _, poiType := range t.POIType {
-			if poi.Type == poiType {
-				return poi.ID, nil
-			}
+		if slices.Contains(t.POIType, poi.Type) {
+			return poi.ID, nil
 		}
 	}
 
