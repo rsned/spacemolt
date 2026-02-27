@@ -1,0 +1,56 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Commission quote for Motherlode at this shipyard.",
+  "ship_class": "nebula_motherlode",
+  "ship_name": "Motherlode",
+  "can_commission": true,
+  "material_cost": 111975,
+  "labor_cost": 3300,
+  "credits_only_total": 227250,
+  "provide_materials_total": 3300,
+  "build_materials": [
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 50
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 18
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 8
+    }
+  ],
+  "build_time": 1080,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

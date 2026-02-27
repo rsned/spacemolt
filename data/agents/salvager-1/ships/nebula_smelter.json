@@ -1,0 +1,91 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Smelter here — 3 issue(s) to resolve:",
+  "ship_class": "nebula_smelter",
+  "ship_name": "Smelter",
+  "can_commission": false,
+  "blockers": [
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Requires refinement level 7 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Prismatic Lens, Station Reactor Core, Nebula Cargo Matrix are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 6848813,
+  "labor_cost": 31200,
+  "credits_only_total": 0,
+  "provide_materials_total": 31200,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 65
+    },
+    {
+      "item_id": "refined_nebula_prism_lens",
+      "name": "Prismatic Lens",
+      "quantity": 65
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 620
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 13
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 190
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 150
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_cargo_superstructure",
+      "name": "Cargo Superstructure",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 290
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 120
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 140
+    },
+    {
+      "item_id": "comp_reactor_core",
+      "name": "Station Reactor Core",
+      "quantity": 9
+    },
+    {
+      "item_id": "comp_nebula_cargo_matrix",
+      "name": "Nebula Cargo Matrix",
+      "quantity": 2
+    }
+  ],
+  "build_time": 10400,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

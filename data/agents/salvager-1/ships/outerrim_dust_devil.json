@@ -1,0 +1,61 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Dust Devil here — 3 issue(s) to resolve:",
+  "ship_class": "outerrim_dust_devil",
+  "ship_name": "Dust Devil",
+  "can_commission": false,
+  "blockers": [
+    "Dust Devil is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires cloaking level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 128154,
+  "labor_cost": 3900,
+  "credits_only_total": 0,
+  "provide_materials_total": 3900,
+  "build_materials": [
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 4
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 70
+    },
+    {
+      "item_id": "refined_aluminum_sheet",
+      "name": "Aluminum Sheet",
+      "quantity": 95
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 25
+    }
+  ],
+  "build_time": 1260,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

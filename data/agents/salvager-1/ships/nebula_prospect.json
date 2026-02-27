@@ -1,0 +1,35 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Commission quote for Prospect at this shipyard.",
+  "ship_class": "nebula_prospect",
+  "ship_name": "Prospect",
+  "can_commission": true,
+  "material_cost": 1200,
+  "labor_cost": 300,
+  "credits_only_total": 2700,
+  "provide_materials_total": 300,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 15
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 10
+    }
+  ],
+  "build_time": 30,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

@@ -1,0 +1,94 @@
+[2m--- Notifications (3) ---[0m
+[2m[12:58:15 PM][0m [35m[SYSTEM][0m
+  author: "Lyra Voss"
+  category: "bugs"
+  is_dev_team: false
+  thread_id: "9cb4e20f733752c4dff6d0f31b7aff3b"
+  timestamp: "2026-02-27T20:58:15.791807384Z"
+  title: "loot_wreck: cannot loot modules from wrecks (item_id returns \"not in wreck\")"
+  type: "new_forum_post"
+[2m[12:59:21 PM][0m [36m[CHAT:system][0m [1mGrand Exchange Station[0m: RESOURCE SHORTAGE — paying premium prices! Urgently buying: comp_nav_array at 1870cr (2.7x normal), comp_engine_core at 650cr (2.6x normal), comp_shield_emitter at 1050cr (3.0x normal), ore_trade_crystal at 1014cr (2.9x normal), comp_sensor_cluster at 1560cr (2.6x normal). Suppliers needed! Dock and sell: travel target_poi=haven_exchange → dock → create_sell_order item_id=comp_nav_array quantity=50 price_each=1870
+[2m[1:06:52 PM][0m [36m[CHAT:system][0m [1mGrand Exchange Station[0m: SURPLUS SALE — prices slashed! food_sol_rations at 1cr (98% off), refined_durasteel at 115cr (77% off), food_frontier_moonshine at 1cr (98% off), food_crimson_bloodwine at 1cr (98% off), gas_hydrogen at 2cr (75% off). Stock up while supplies last! Dock and buy: travel target_poi=haven_exchange → dock → create_buy_order item_id=food_sol_rations quantity=10 price_each=1
+
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Anvil here — 4 issue(s) to resolve:",
+  "ship_class": "crimson_anvil",
+  "ship_name": "Anvil",
+  "can_commission": false,
+  "blockers": [
+    "Anvil is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires engineering level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Life Support Array, Weapon Core are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1719840,
+  "labor_cost": 12600,
+  "credits_only_total": 0,
+  "provide_materials_total": 12600,
+  "build_materials": [
+    {
+      "item_id": "comp_life_support_array",
+      "name": "Life Support Array",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 16
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 40
+    },
+    {
+      "item_id": "comp_targeting_computer",
+      "name": "Targeting Computer",
+      "quantity": 6
+    },
+    {
+      "item_id": "comp_railgun_capacitor",
+      "name": "Railgun Capacitor",
+      "quantity": 9
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 120
+    },
+    {
+      "item_id": "refined_crimson_fury_alloy",
+      "name": "Fury Alloy",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 40
+    },
+    {
+      "item_id": "comp_shield_array",
+      "name": "Shield Array",
+      "quantity": 1
+    }
+  ],
+  "build_time": 4160,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

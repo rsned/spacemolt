@@ -112,10 +112,15 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		}
 		return d.Client.CraftWithQuantity(ctx, target, 1)
 
-	// Crafting (compound)
+	// Crafting (compound — gracefully handles failures)
 	case "craft_from_cargo":
-		_, err := d.Client.CraftFromCargo(ctx, d.Logger, nil)
-		return err
+		crafted, err := d.Client.CraftFromCargo(ctx, d.Logger, nil)
+		if err != nil {
+			d.Logger.Printf("warning: craft_from_cargo failed (non-fatal): %v", err)
+			return nil
+		}
+		d.Logger.Printf("crafted %d items from cargo", crafted)
+		return nil
 
 	// Storage
 	case "deposit_all_items":

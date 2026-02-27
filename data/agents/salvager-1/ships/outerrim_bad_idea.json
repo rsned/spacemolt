@@ -1,0 +1,77 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Bad Idea here — 4 issue(s) to resolve:",
+  "ship_class": "outerrim_bad_idea",
+  "ship_name": "Bad Idea",
+  "can_commission": false,
+  "blockers": [
+    "Bad Idea is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires leadership level 5 (you have 0). Train this skill before commissioning.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Condensed Dark Matter, Thruster Nozzle are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1421860,
+  "labor_cost": 15000,
+  "credits_only_total": 0,
+  "provide_materials_total": 15000,
+  "build_materials": [
+    {
+      "item_id": "refined_outerrim_dark_matter",
+      "name": "Condensed Dark Matter",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 100
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 9
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 230
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 110
+    }
+  ],
+  "build_time": 4940,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

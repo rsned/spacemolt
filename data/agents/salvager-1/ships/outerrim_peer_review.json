@@ -1,0 +1,82 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Peer Review here — 4 issue(s) to resolve:",
+  "ship_class": "outerrim_peer_review",
+  "ship_name": "Peer Review",
+  "can_commission": false,
+  "blockers": [
+    "Peer Review is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires exploration level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Condensed Dark Matter, Thruster Nozzle are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1688508,
+  "labor_cost": 12600,
+  "credits_only_total": 0,
+  "provide_materials_total": 12600,
+  "build_materials": [
+    {
+      "item_id": "refined_outerrim_dark_matter",
+      "name": "Condensed Dark Matter",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 95
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 25
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 100
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 85
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 9
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 260
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 1
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    }
+  ],
+  "build_time": 4160,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

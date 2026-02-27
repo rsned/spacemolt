@@ -1,0 +1,61 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Ice Dividend here — 3 issue(s) to resolve:",
+  "ship_class": "nebula_ice_dividend",
+  "ship_name": "Ice Dividend",
+  "can_commission": false,
+  "blockers": [
+    "Requires ice_mining level 5 (you have 0). Train this skill before commissioning.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Prismatic Lens is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 333719,
+  "labor_cost": 9600,
+  "credits_only_total": 0,
+  "provide_materials_total": 9600,
+  "build_materials": [
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 85
+    },
+    {
+      "item_id": "refined_nebula_prism_lens",
+      "name": "Prismatic Lens",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 28
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 25
+    }
+  ],
+  "build_time": 3200,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

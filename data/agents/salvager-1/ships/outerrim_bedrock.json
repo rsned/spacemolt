@@ -1,0 +1,44 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Bedrock here — 1 issue(s) to resolve:",
+  "ship_class": "outerrim_bedrock",
+  "ship_name": "Bedrock",
+  "can_commission": false,
+  "blockers": [
+    "Bedrock is a outerrim-exclusive design. Travel to a outerrim station to commission it."
+  ],
+  "material_cost": 7365,
+  "labor_cost": 2400,
+  "credits_only_total": 17130,
+  "provide_materials_total": 2400,
+  "build_materials": [
+    {
+      "item_id": "refined_aluminum_sheet",
+      "name": "Aluminum Sheet",
+      "quantity": 65
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 30
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 20
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 15
+    }
+  ],
+  "build_time": 720,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

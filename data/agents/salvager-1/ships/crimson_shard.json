@@ -1,0 +1,38 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Shard here — 1 issue(s) to resolve:",
+  "ship_class": "crimson_shard",
+  "ship_name": "Shard",
+  "can_commission": false,
+  "blockers": [
+    "Shard is a crimson-exclusive design. Travel to a crimson station to commission it."
+  ],
+  "material_cost": 1930,
+  "labor_cost": 300,
+  "credits_only_total": 4160,
+  "provide_materials_total": 300,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 25
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 5
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 5
+    }
+  ],
+  "build_time": 30,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

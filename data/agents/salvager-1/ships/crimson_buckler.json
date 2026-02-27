@@ -1,0 +1,49 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Buckler here — 2 issue(s) to resolve:",
+  "ship_class": "crimson_buckler",
+  "ship_name": "Buckler",
+  "can_commission": false,
+  "blockers": [
+    "Buckler is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 4467,
+  "labor_cost": 900,
+  "credits_only_total": 0,
+  "provide_materials_total": 900,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 12
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 13
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 6
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 3
+    }
+  ],
+  "build_time": 220,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

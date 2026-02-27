@@ -1,0 +1,64 @@
+[2m--- Notifications (1) ---[0m
+[2m[1:14:22 PM][0m [36m[CHAT:system][0m [1mGrand Exchange Station[0m: RESOURCE SHORTAGE — paying premium prices! Urgently buying: comp_sensor_cluster at 1560cr (2.6x normal), comp_power_grid at 1040cr (2.6x normal), ore_crystal at 1186cr (15.8x normal), comp_reinforced_bulkhead at 1500cr (3.0x normal), comp_life_support_unit at 800cr (2.0x normal). Suppliers needed! Dock and sell: travel target_poi=haven_exchange → dock → create_sell_order item_id=comp_sensor_cluster quantity=50 price_each=1560
+
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Broadaxe here — 3 issue(s) to resolve:",
+  "ship_class": "crimson_broadaxe",
+  "ship_name": "Broadaxe",
+  "can_commission": false,
+  "blockers": [
+    "Broadaxe is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires weapons_basic level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Weapon Core is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 53200,
+  "labor_cost": 3300,
+  "credits_only_total": 0,
+  "provide_materials_total": 3300,
+  "build_materials": [
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 50
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_armor_plate",
+      "name": "Armor Plate",
+      "quantity": 13
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 11
+    }
+  ],
+  "build_time": 1080,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

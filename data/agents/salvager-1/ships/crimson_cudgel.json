@@ -1,0 +1,66 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Cudgel here — 3 issue(s) to resolve:",
+  "ship_class": "crimson_cudgel",
+  "ship_name": "Cudgel",
+  "can_commission": false,
+  "blockers": [
+    "Cudgel is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires drone_operation level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Weapon Core, Drone Command Module are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 111054,
+  "labor_cost": 4200,
+  "credits_only_total": 0,
+  "provide_materials_total": 4200,
+  "build_materials": [
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 6
+    },
+    {
+      "item_id": "comp_weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_armor_plate",
+      "name": "Armor Plate",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 9
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 9
+    },
+    {
+      "item_id": "comp_drone_command",
+      "name": "Drone Command Module",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 50
+    }
+  ],
+  "build_time": 1350,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

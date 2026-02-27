@@ -1,0 +1,35 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Commission quote for Floor Price at this shipyard.",
+  "ship_class": "nebula_floor_price",
+  "ship_name": "Floor Price",
+  "can_commission": true,
+  "material_cost": 1445,
+  "labor_cost": 600,
+  "credits_only_total": 3490,
+  "provide_materials_total": 600,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 18
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 15
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 8
+    }
+  ],
+  "build_time": 140,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

@@ -1,0 +1,61 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Morningstar here — 3 issue(s) to resolve:",
+  "ship_class": "crimson_morningstar",
+  "ship_name": "Morningstar",
+  "can_commission": false,
+  "blockers": [
+    "Morningstar is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires trading level 3 (you have 1). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Weapon Core is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 92466,
+  "labor_cost": 3000,
+  "credits_only_total": 0,
+  "provide_materials_total": 3000,
+  "build_materials": [
+    {
+      "item_id": "comp_armor_plate",
+      "name": "Armor Plate",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 50
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 6
+    }
+  ],
+  "build_time": 990,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

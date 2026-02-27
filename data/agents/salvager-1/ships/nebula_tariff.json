@@ -1,0 +1,76 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Tariff here — 3 issue(s) to resolve:",
+  "ship_class": "nebula_tariff",
+  "ship_name": "Tariff",
+  "can_commission": false,
+  "blockers": [
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires weapons_basic level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Prismatic Lens is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 743527,
+  "labor_cost": 11700,
+  "credits_only_total": 0,
+  "provide_materials_total": 11700,
+  "build_materials": [
+    {
+      "item_id": "refined_nebula_prism_lens",
+      "name": "Prismatic Lens",
+      "quantity": 16
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 40
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 110
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 18
+    }
+  ],
+  "build_time": 3900,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

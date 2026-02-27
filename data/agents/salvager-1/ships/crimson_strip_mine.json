@@ -1,0 +1,76 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Strip Mine here — 3 issue(s) to resolve:",
+  "ship_class": "crimson_strip_mine",
+  "ship_name": "Strip Mine",
+  "can_commission": false,
+  "blockers": [
+    "Strip Mine is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Weapon Core, Neutronium Ingot are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 548185,
+  "labor_cost": 30000,
+  "credits_only_total": 0,
+  "provide_materials_total": 30000,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 70
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 50
+    },
+    {
+      "item_id": "comp_armor_plate",
+      "name": "Armor Plate",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_crimson_fury_alloy",
+      "name": "Fury Alloy",
+      "quantity": 80
+    },
+    {
+      "item_id": "refined_neutronium",
+      "name": "Neutronium Ingot",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 6
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 120
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 1
+    }
+  ],
+  "build_time": 10000,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

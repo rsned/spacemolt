@@ -1,0 +1,82 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Midlife Crisis here — 4 issue(s) to resolve:",
+  "ship_class": "outerrim_midlife_crisis",
+  "ship_name": "Midlife Crisis",
+  "can_commission": false,
+  "blockers": [
+    "Midlife Crisis is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires trading level 5 (you have 1). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Navigation Array, Thruster Nozzle, Frontier Survival Kit, Condensed Dark Matter are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1174655,
+  "labor_cost": 11100,
+  "credits_only_total": 0,
+  "provide_materials_total": 11100,
+  "build_materials": [
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 180
+    },
+    {
+      "item_id": "comp_nav_array",
+      "name": "Navigation Array",
+      "quantity": 2
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 85
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 75
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_outerrim_frontier_kit",
+      "name": "Frontier Survival Kit",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_outerrim_dark_matter",
+      "name": "Condensed Dark Matter",
+      "quantity": 6
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 55
+    }
+  ],
+  "build_time": 3640,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

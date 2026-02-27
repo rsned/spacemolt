@@ -1,0 +1,38 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Cobble here — 1 issue(s) to resolve:",
+  "ship_class": "outerrim_cobble",
+  "ship_name": "Cobble",
+  "can_commission": false,
+  "blockers": [
+    "Cobble is a outerrim-exclusive design. Travel to a outerrim station to commission it."
+  ],
+  "material_cost": 980,
+  "labor_cost": 300,
+  "credits_only_total": 2260,
+  "provide_materials_total": 300,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_aluminum_sheet",
+      "name": "Aluminum Sheet",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 10
+    }
+  ],
+  "build_time": 30,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

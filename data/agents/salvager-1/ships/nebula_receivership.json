@@ -1,0 +1,79 @@
+[2m--- Notifications (1) ---[0m
+[2m[1:21:53 PM][0m [36m[CHAT:system][0m [1mGrand Exchange Station[0m: SURPLUS SALE — prices slashed! food_frontier_moonshine at 1cr (98% off), gas_hydrogen at 2cr (75% off), food_crimson_bloodwine at 1cr (98% off), food_sol_rations at 1cr (98% off), refined_durasteel at 97cr (80% off). Stock up while supplies last! Dock and buy: travel target_poi=haven_exchange → dock → create_buy_order item_id=food_frontier_moonshine quantity=10 price_each=1
+
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Receivership here — 3 issue(s) to resolve:",
+  "ship_class": "nebula_receivership",
+  "ship_name": "Receivership",
+  "can_commission": false,
+  "blockers": [
+    "Requires salvaging level 5 (you have 0). Train this skill before commissioning.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Prismatic Lens is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1034751,
+  "labor_cost": 11400,
+  "credits_only_total": 0,
+  "provide_materials_total": 11400,
+  "build_materials": [
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_cargo_superstructure",
+      "name": "Cargo Superstructure",
+      "quantity": 1
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 45
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 25
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 130
+    },
+    {
+      "item_id": "refined_nebula_prism_lens",
+      "name": "Prismatic Lens",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 50
+    }
+  ],
+  "build_time": 3800,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

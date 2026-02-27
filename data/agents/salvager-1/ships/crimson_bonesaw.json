@@ -1,0 +1,77 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Bonesaw here — 4 issue(s) to resolve:",
+  "ship_class": "crimson_bonesaw",
+  "ship_name": "Bonesaw",
+  "can_commission": false,
+  "blockers": [
+    "Bonesaw is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires salvaging level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Crimson Ordnance Bay, Weapon Core are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 915859,
+  "labor_cost": 10200,
+  "credits_only_total": 0,
+  "provide_materials_total": 10200,
+  "build_materials": [
+    {
+      "item_id": "comp_crimson_ordnance_bay",
+      "name": "Crimson Ordnance Bay",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 130
+    },
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_targeting_computer",
+      "name": "Targeting Computer",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_crimson_fury_alloy",
+      "name": "Fury Alloy",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 25
+    }
+  ],
+  "build_time": 3400,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

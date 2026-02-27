@@ -1,0 +1,82 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Hell's Bells here — 4 issue(s) to resolve:",
+  "ship_class": "outerrim_hells_bells",
+  "ship_name": "Hell's Bells",
+  "can_commission": false,
+  "blockers": [
+    "Hell's Bells is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires weapons_basic level 5 (you have 0). Train this skill before commissioning.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Weapon Battery, Condensed Dark Matter, Thruster Nozzle are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 954308,
+  "labor_cost": 10200,
+  "credits_only_total": 0,
+  "provide_materials_total": 10200,
+  "build_materials": [
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 30
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 260
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_weapon_battery",
+      "name": "Weapon Battery",
+      "quantity": 2
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 120
+    },
+    {
+      "item_id": "refined_outerrim_dark_matter",
+      "name": "Condensed Dark Matter",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 18
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 100
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 30
+    }
+  ],
+  "build_time": 3380,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

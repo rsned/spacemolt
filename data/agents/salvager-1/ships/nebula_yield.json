@@ -1,0 +1,53 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Commission quote for Yield at this shipyard.",
+  "ship_class": "nebula_yield",
+  "ship_name": "Yield",
+  "can_commission": true,
+  "blockers": [
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 3559,
+  "labor_cost": 900,
+  "credits_only_total": 0,
+  "provide_materials_total": 900,
+  "build_materials": [
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 11
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 13
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 2
+    }
+  ],
+  "build_time": 250,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

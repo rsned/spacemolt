@@ -1,0 +1,97 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Free Radical here — 4 issue(s) to resolve:",
+  "ship_class": "outerrim_free_radical",
+  "ship_name": "Free Radical",
+  "can_commission": false,
+  "blockers": [
+    "Free Radical is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Requires weapons_basic level 7 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Thruster Nozzle, Dark Matter Thruster, Condensed Dark Matter, Station Reactor Core, Weapon Battery are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 4771637,
+  "labor_cost": 34800,
+  "credits_only_total": 0,
+  "provide_materials_total": 34800,
+  "build_materials": [
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 210
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 230
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 80
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_outerrim_dark_thruster",
+      "name": "Dark Matter Thruster",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 55
+    },
+    {
+      "item_id": "refined_outerrim_dark_matter",
+      "name": "Condensed Dark Matter",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_reactor_core",
+      "name": "Station Reactor Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 160
+    },
+    {
+      "item_id": "comp_weapon_battery",
+      "name": "Weapon Battery",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 3
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 540
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 65
+    }
+  ],
+  "build_time": 11600,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

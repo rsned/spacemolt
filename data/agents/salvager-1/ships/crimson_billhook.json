@@ -1,0 +1,61 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Billhook here — 3 issue(s) to resolve:",
+  "ship_class": "crimson_billhook",
+  "ship_name": "Billhook",
+  "can_commission": false,
+  "blockers": [
+    "Billhook is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires gas_harvesting level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Weapon Core is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 125381,
+  "labor_cost": 2700,
+  "credits_only_total": 0,
+  "provide_materials_total": 2700,
+  "build_materials": [
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_armor_plate",
+      "name": "Armor Plate",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_weapon_core",
+      "name": "Weapon Core",
+      "quantity": 13
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 45
+    }
+  ],
+  "build_time": 900,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

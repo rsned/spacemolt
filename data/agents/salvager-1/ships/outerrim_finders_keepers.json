@@ -1,0 +1,49 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Finders Keepers here — 2 issue(s) to resolve:",
+  "ship_class": "outerrim_finders_keepers",
+  "ship_name": "Finders Keepers",
+  "can_commission": false,
+  "blockers": [
+    "Finders Keepers is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 2622,
+  "labor_cost": 900,
+  "credits_only_total": 0,
+  "provide_materials_total": 900,
+  "build_materials": [
+    {
+      "item_id": "refined_aluminum_sheet",
+      "name": "Aluminum Sheet",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 2
+    }
+  ],
+  "build_time": 300,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

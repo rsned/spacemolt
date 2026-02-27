@@ -1,0 +1,38 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Levy here — 1 issue(s) to resolve:",
+  "ship_class": "crimson_levy",
+  "ship_name": "Levy",
+  "can_commission": false,
+  "blockers": [
+    "Levy is a crimson-exclusive design. Travel to a crimson station to commission it."
+  ],
+  "material_cost": 3345,
+  "labor_cost": 600,
+  "credits_only_total": 7290,
+  "provide_materials_total": 600,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 20
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 15
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 8
+    }
+  ],
+  "build_time": 200,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

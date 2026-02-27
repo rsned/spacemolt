@@ -1,0 +1,44 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Ordinance here — 1 issue(s) to resolve:",
+  "ship_class": "crimson_ordinance",
+  "ship_name": "Ordinance",
+  "can_commission": false,
+  "blockers": [
+    "Ordinance is a crimson-exclusive design. Travel to a crimson station to commission it."
+  ],
+  "material_cost": 13410,
+  "labor_cost": 2100,
+  "credits_only_total": 28920,
+  "provide_materials_total": 2100,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 35
+    },
+    {
+      "item_id": "refined_tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 40
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 25
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 12
+    }
+  ],
+  "build_time": 650,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

@@ -1,0 +1,81 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Monopoly here — 3 issue(s) to resolve:",
+  "ship_class": "nebula_monopoly",
+  "ship_name": "Monopoly",
+  "can_commission": false,
+  "blockers": [
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires trading level 5 (you have 1). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Nebula Prism Computer, Prismatic Lens, Drone Command Module are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1315441,
+  "labor_cost": 13500,
+  "credits_only_total": 0,
+  "provide_materials_total": 13500,
+  "build_materials": [
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 120
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_nebula_prism_computer",
+      "name": "Nebula Prism Computer",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_nebula_prism_lens",
+      "name": "Prismatic Lens",
+      "quantity": 19
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 17
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 40
+    },
+    {
+      "item_id": "comp_drone_command",
+      "name": "Drone Command Module",
+      "quantity": 1
+    }
+  ],
+  "build_time": 4420,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

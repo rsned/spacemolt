@@ -1,0 +1,64 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Caravan here — 1 issue(s) to resolve:",
+  "ship_class": "nebula_caravan",
+  "ship_name": "Caravan",
+  "can_commission": false,
+  "blockers": [
+    "Requires trading level 3 (you have 1). Train this skill before commissioning."
+  ],
+  "material_cost": 141199,
+  "labor_cost": 3000,
+  "credits_only_total": 285398,
+  "provide_materials_total": 3000,
+  "build_materials": [
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 5
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 45
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 40
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 17
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 17
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    }
+  ],
+  "build_time": 990,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

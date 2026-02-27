@@ -1,0 +1,66 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Gas Raider here — 3 issue(s) to resolve:",
+  "ship_class": "crimson_gas_raider",
+  "ship_name": "Gas Raider",
+  "can_commission": false,
+  "blockers": [
+    "Gas Raider is a crimson-exclusive design. Travel to a crimson station to commission it.",
+    "Requires gas_harvesting level 5 (you have 0). Train this skill before commissioning.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning."
+  ],
+  "material_cost": 232598,
+  "labor_cost": 8400,
+  "credits_only_total": 473596,
+  "provide_materials_total": 8400,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 8
+    },
+    {
+      "item_id": "refined_crimson_fury_alloy",
+      "name": "Fury Alloy",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_armor_plate",
+      "name": "Armor Plate",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 80
+    }
+  ],
+  "build_time": 2800,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

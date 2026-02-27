@@ -1,0 +1,61 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Brain Freeze here — 3 issue(s) to resolve:",
+  "ship_class": "outerrim_brain_freeze",
+  "ship_name": "Brain Freeze",
+  "can_commission": false,
+  "blockers": [
+    "Brain Freeze is a outerrim-exclusive design. Travel to a outerrim station to commission it.",
+    "Requires ice_mining level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 130799,
+  "labor_cost": 2700,
+  "credits_only_total": 0,
+  "provide_materials_total": 2700,
+  "build_materials": [
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 28
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 16
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 6
+    },
+    {
+      "item_id": "refined_polymer",
+      "name": "Flex Polymer",
+      "quantity": 65
+    },
+    {
+      "item_id": "refined_aluminum_sheet",
+      "name": "Aluminum Sheet",
+      "quantity": 110
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 30
+    }
+  ],
+  "build_time": 900,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

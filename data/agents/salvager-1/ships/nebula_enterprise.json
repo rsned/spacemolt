@@ -1,0 +1,81 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Enterprise here — 3 issue(s) to resolve:",
+  "ship_class": "nebula_enterprise",
+  "ship_name": "Enterprise",
+  "can_commission": false,
+  "blockers": [
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires trading level 5 (you have 1). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Prismatic Lens, Navigation Array are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1233344,
+  "labor_cost": 11100,
+  "credits_only_total": 0,
+  "provide_materials_total": 11100,
+  "build_materials": [
+    {
+      "item_id": "refined_nebula_prism_lens",
+      "name": "Prismatic Lens",
+      "quantity": 19
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 9
+    },
+    {
+      "item_id": "comp_fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 19
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_nav_array",
+      "name": "Navigation Array",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 120
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_cargo_superstructure",
+      "name": "Cargo Superstructure",
+      "quantity": 1
+    }
+  ],
+  "build_time": 3640,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

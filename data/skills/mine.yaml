@@ -57,10 +57,14 @@ steps:
     next: done
 
   - id: emergency_dock
-    action: dock
+    check: true
     conditions:
-      docked: goto done
+      at_poi_type(station): goto emergency_dock_action
       default: goto return_to_station
+
+  - id: emergency_dock_action
+    action: dock
+    next: done
 
   - id: done
     terminal: true
