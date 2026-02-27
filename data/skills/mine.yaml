@@ -1,0 +1,66 @@
+name: mine
+description: >
+  Gather resources from an asteroid belt. Undocks, travels to the nearest
+  asteroid belt, mines until cargo is full or fuel is low, returns to station,
+  and docks. Extracted from the auto-miner's core mining loop.
+
+prerequisites:
+  - docked OR at_poi_type(asteroid_belt, asteroid_field)
+  - has_module_type(mining)
+
+targets:
+  mining_site:
+    poi_type: [asteroid_belt, asteroid_field]
+    description: Resource extraction location
+  home_station:
+    poi_type: [station]
+    description: Nearest station for docking and selling
+
+outputs:
+  - docked
+
+steps:
+  - id: check_ready
+    check: true
+    conditions:
+      fuel_pct < 0.1: goto emergency_dock
+      not docked: goto travel_to_belt
+      default: goto undock
+
+  - id: undock
+    action: undock
+    next: travel_to_belt
+
+  - id: travel_to_belt
+    action: travel
+    target: $mining_site
+    conditions:
+      current_poi_type == asteroid_belt: goto mine_loop
+      current_poi_type == asteroid_field: goto mine_loop
+      default: goto travel_to_belt
+
+  - id: mine_loop
+    action: mine
+    repeat:
+      while:
+        - cargo_pct < 0.97
+        - fuel_pct > 0.1
+    next: return_to_station
+
+  - id: return_to_station
+    action: travel
+    target: $home_station
+    next: dock
+
+  - id: dock
+    action: dock
+    next: done
+
+  - id: emergency_dock
+    action: dock
+    conditions:
+      docked: goto done
+      default: goto return_to_station
+
+  - id: done
+    terminal: true

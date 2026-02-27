@@ -1,0 +1,30 @@
+name: refuel_repair
+description: >
+  Refuel and repair the ship at the current station. Must be docked.
+
+prerequisites:
+  - docked
+
+steps:
+  - id: check_fuel
+    check: true
+    conditions:
+      fuel_pct < 0.8: goto refuel
+      default: goto check_hull
+
+  - id: refuel
+    action: refuel
+    next: check_hull
+
+  - id: check_hull
+    check: true
+    conditions:
+      hull_pct < 0.9: goto repair
+      default: goto done
+
+  - id: repair
+    action: repair
+    next: done
+
+  - id: done
+    terminal: true

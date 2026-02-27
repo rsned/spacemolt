@@ -1,0 +1,22 @@
+name: sell
+description: >
+  Sell all cargo at the current station. Must be docked.
+
+prerequisites:
+  - docked
+  - has_cargo
+
+steps:
+  - id: check_docked
+    check: true
+    conditions:
+      not docked: goto done
+      not has_cargo: goto done
+      default: goto sell_all
+
+  - id: sell_all
+    action: sell
+    next: done
+
+  - id: done
+    terminal: true
