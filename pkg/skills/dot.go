@@ -62,7 +62,7 @@ func writeNode(b *strings.Builder, step Step) {
 			label += "\n(while " + strings.Join(step.Repeat.While, "\nand ") + ")"
 		}
 		if step.Target != "" {
-			label += "\n-> $" + step.Target
+			label += "\n-> " + step.Target
 		}
 		fmt.Fprintf(b, "  %s [shape=box style=bold label=%q]\n", id, label)
 
@@ -70,7 +70,7 @@ func writeNode(b *strings.Builder, step Step) {
 		// Plain action node.
 		label := step.Action
 		if step.Target != "" {
-			label += "\n-> $" + step.Target
+			label += "\n-> " + step.Target
 		}
 		fmt.Fprintf(b, "  %s [shape=box label=%q]\n", id, label)
 	}
@@ -82,7 +82,8 @@ func writeEdges(b *strings.Builder, step Step) {
 
 	// Condition-based transitions.
 	for _, cond := range step.Conditions {
-		target := sanitizeID(cond.Goto)
+		gotoTarget := strings.TrimPrefix(cond.Goto, "goto ")
+		target := sanitizeID(gotoTarget)
 		fmt.Fprintf(b, "  %s -> %s [label=%q]\n", id, target, cond.Expr)
 	}
 

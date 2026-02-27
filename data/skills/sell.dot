@@ -1,0 +1,13 @@
+digraph sell {
+  label="sell: Sell all cargo at the current station. Must be docked.\n"
+  rankdir=TB
+
+  check_docked [shape=diamond label="check_docked"]
+  sell_all [shape=box label="sell"]
+  done [shape=doublecircle label="done"]
+
+  check_docked -> done [label="not docked"]
+  check_docked -> done [label="not has_cargo"]
+  check_docked -> sell_all [label="default"]
+  sell_all -> done
+}

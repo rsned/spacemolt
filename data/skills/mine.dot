@@ -1,0 +1,27 @@
+digraph mine {
+  label="mine: Gather resources from an asteroid belt. Undocks, travels to the nearest asteroid belt, mines until cargo is full or fuel is low, returns to station, and docks. Extracted from the auto-miner's core mining loop.\n"
+  rankdir=TB
+
+  check_ready [shape=diamond label="check_ready"]
+  undock [shape=box label="undock"]
+  travel_to_belt [shape=box label="travel\n-> $mining_site"]
+  mine_loop [shape=box style=bold label="mine\n(while cargo_pct < 0.97\nand fuel_pct > 0.1)"]
+  return_to_station [shape=box label="travel\n-> $home_station"]
+  dock [shape=box label="dock"]
+  emergency_dock [shape=box label="dock"]
+  done [shape=doublecircle label="done"]
+
+  check_ready -> emergency_dock [label="fuel_pct < 0.1"]
+  check_ready -> travel_to_belt [label="not docked"]
+  check_ready -> undock [label="default"]
+  undock -> travel_to_belt
+  travel_to_belt -> mine_loop [label="current_poi_type == asteroid_belt"]
+  travel_to_belt -> mine_loop [label="current_poi_type == asteroid_field"]
+  travel_to_belt -> travel_to_belt [label="default"]
+  mine_loop -> mine_loop [style=dashed label="while"]
+  mine_loop -> return_to_station [label="not(cargo_pct < 0.97 and fuel_pct > 0.1)"]
+  return_to_station -> dock
+  dock -> done
+  emergency_dock -> done [label="docked"]
+  emergency_dock -> return_to_station [label="default"]
+}

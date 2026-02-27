@@ -1,0 +1,17 @@
+digraph refuel_repair {
+  label="refuel_repair: Refuel and repair the ship at the current station. Must be docked.\n"
+  rankdir=TB
+
+  check_fuel [shape=diamond label="check_fuel"]
+  refuel [shape=box label="refuel"]
+  check_hull [shape=diamond label="check_hull"]
+  repair [shape=box label="repair"]
+  done [shape=doublecircle label="done"]
+
+  check_fuel -> refuel [label="fuel_pct < 0.8"]
+  check_fuel -> check_hull [label="default"]
+  refuel -> check_hull
+  check_hull -> repair [label="hull_pct < 0.9"]
+  check_hull -> done [label="default"]
+  repair -> done
+}
