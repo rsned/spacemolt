@@ -1,0 +1,13 @@
+
+     43 solarian
+     41 voidborn
+     38 outerrim
+     38 crimson
+     32 nebula
+
+./bin/register-agent -code 379e45614d2a4098fdfb8461b49abad7 -v -username shipside_assist_sol -empire solarian
+./bin/register-agent -code 379e45614d2a4098fdfb8461b49abad7 -v -username shipside_assist_haven -empire nebula
+./bin/register-agent -code 379e45614d2a4098fdfb8461b49abad7 -v -username shipside_assist_nexus -empire voidborn
+./bin/register-agent -code 379e45614d2a4098fdfb8461b49abad7 -v -username shipside_assist_krynn -empire crimson
+./bin/register-agent -code 379e45614d2a4098fdfb8461b49abad7 -v -username shipside_assist_frontier -empire outerrim
+
