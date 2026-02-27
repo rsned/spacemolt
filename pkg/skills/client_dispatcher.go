@@ -72,7 +72,7 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if err := d.Client.Travel(ctx, target); err != nil {
 			return err
 		}
-		d.refreshSystemData(ctx)
+		d.waitForArrival(ctx, target)
 		return nil
 	case "jump":
 		if target == "" {
@@ -81,7 +81,7 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if err := d.Client.Jump(ctx, target); err != nil {
 			return err
 		}
-		d.refreshSystemData(ctx)
+		d.waitForSystemChange(ctx)
 		return nil
 
 	// Mining & scanning
@@ -135,10 +135,59 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 	}
 }
 
-// refreshSystemData fetches system info so POI data is available for
-// condition evaluation. Called automatically after travel/jump.
-func (d *ClientDispatcher) refreshSystemData(ctx context.Context) {
-	time.Sleep(game.SleepQuick)
+const (
+	arrivalPollInterval = time.Second
+	arrivalTimeout      = game.SleepJump + game.SleepTick // 30s
+)
+
+// waitForArrival polls state.CurrentPOI until it matches the target POI,
+// then refreshes system data. This handles the async nature of travel where
+// the server sends "pending" immediately and "arrived" on the next tick.
+func (d *ClientDispatcher) waitForArrival(ctx context.Context, targetPOI string) {
+	deadline := time.After(arrivalTimeout)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-deadline:
+			d.Logger.Printf("warning: timed out waiting for arrival at %s", targetPOI)
+			d.fetchSystemData(ctx)
+			return
+		case <-time.After(arrivalPollInterval):
+			state := d.Client.GetState()
+			if state.CurrentPOI == targetPOI {
+				d.Logger.Printf("arrived at %s", targetPOI)
+				d.fetchSystemData(ctx)
+				return
+			}
+		}
+	}
+}
+
+// waitForSystemChange polls until state.Traveling becomes false after a jump,
+// then refreshes system data.
+func (d *ClientDispatcher) waitForSystemChange(ctx context.Context) {
+	deadline := time.After(arrivalTimeout)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-deadline:
+			d.Logger.Printf("warning: timed out waiting for jump completion")
+			d.fetchSystemData(ctx)
+			return
+		case <-time.After(arrivalPollInterval):
+			state := d.Client.GetState()
+			if !state.Traveling {
+				d.fetchSystemData(ctx)
+				return
+			}
+		}
+	}
+}
+
+// fetchSystemData calls GetSystem to populate POI data for condition evaluation.
+func (d *ClientDispatcher) fetchSystemData(ctx context.Context) {
 	if err := d.Client.GetSystem(ctx); err != nil {
 		d.Logger.Printf("warning: failed to refresh system data: %v", err)
 	}
@@ -151,7 +200,7 @@ func (d *ClientDispatcher) EnsureSystemData(ctx context.Context) {
 	state := d.Client.GetState()
 	if len(state.System.POIs) == 0 {
 		d.Logger.Printf("Fetching system data...")
-		d.refreshSystemData(ctx)
+		d.fetchSystemData(ctx)
 	}
 }
 
