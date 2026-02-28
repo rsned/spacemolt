@@ -19,22 +19,29 @@ SUCCESS_COUNT=0
 FAIL_COUNT=0
 FAILED_TOOLS=()
 
-# Build each tool in cmd/
-for dir in cmd/*/; do
-    if [ -d "$dir" ]; then
-        tool=$(basename "$dir")
-        echo -n "Building $tool... "
-
-        if go build -race -o "bin/$tool" "./$dir"; then
-            echo -e "${GREEN}✓${NC}"
-            ((SUCCESS_COUNT++))
-        else
-            echo -e "${RED}✗${NC}"
-            ((FAIL_COUNT++))
-            FAILED_TOOLS+=("$tool")
-        fi
+# Build each tool in cmd/ (recursively find all directories with main.go)
+while IFS= read -r -d '' main_file; do
+    dir=$(dirname "$main_file")
+    tool=$(basename "$dir")
+    # Create unique binary name for nested tools (e.g., tools-skill-graph)
+    relative_path="${dir#cmd/}"
+    if [[ "$relative_path" != "$tool" ]]; then
+        binary_name=$(echo "$relative_path" | tr '/' '-')
+    else
+        binary_name="$tool"
     fi
-done
+
+    echo -n "Building $tool (from $relative_path)... "
+
+    if go build -race -o "bin/$binary_name" "./$dir"; then
+        echo -e "${GREEN}✓${NC}"
+        ((SUCCESS_COUNT++))
+    else
+        echo -e "${RED}✗${NC}"
+        ((FAIL_COUNT++))
+        FAILED_TOOLS+=("$relative_path")
+    fi
+done < <(find cmd -name "main.go" -print0)
 
 echo ""
 echo "Build complete: $SUCCESS_COUNT succeeded, $FAIL_COUNT failed"
