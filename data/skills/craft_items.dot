@@ -1,6 +1,16 @@
 digraph craft_items {
-  label="craft_items: Craft all possible items from current cargo. Queries the crafting MCP server to determine which recipes can be crafted with available resources and skills, then crafts them in batched quantities. Must be docked with cargo on board.\n"
+  label=<
+Craft all possible items from current cargo. Queries the<br/>
+crafting MCP server to determine which recipes can be crafted with<br/>
+available resources and skills, then crafts them in batched quantities.<br/>
+Must be docked with cargo on board.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="craft_items"]
+  title -> check_ready [style=invis]
 
   check_ready [shape=diamond label="check_ready"]
   craft [shape=box label="craft_from_cargo"]

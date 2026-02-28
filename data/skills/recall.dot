@@ -1,6 +1,13 @@
 digraph recall {
-  label="recall: Return agent to empire capital system and dock at home base"
+  label=<
+Return agent to empire capital system and dock at home base.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="recall"]
+  title -> check_already_home [style=invis]
 
   check_already_home [shape=diamond label="check_already_home"]
   prepare_travel [shape=diamond label="prepare_travel"]

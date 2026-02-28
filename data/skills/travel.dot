@@ -1,6 +1,14 @@
 digraph travel {
-  label="travel: Navigate to destination system with optional POI docking, supports disconnect recovery"
+  label=<
+Navigate to destination system with optional POI docking,<br/>
+supports disconnect recovery.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="travel"]
+  title -> check_resume [style=invis]
 
   check_resume [shape=diamond label="check_resume"]
   validate_resume [shape=box label="load_route_progress"]

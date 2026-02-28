@@ -1,6 +1,13 @@
 digraph sell {
-  label="sell: Sell all cargo at the current station. Must be docked.\n"
+  label=<
+Sell all cargo at the current station. Must be docked.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="sell"]
+  title -> check_docked [style=invis]
 
   check_docked [shape=diamond label="check_docked"]
   sell_all [shape=box label="sell"]

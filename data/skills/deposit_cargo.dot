@@ -1,6 +1,14 @@
 digraph deposit_cargo {
-  label="deposit_cargo: Deposit all cargo into station storage. Must be docked with cargo on board.\n"
+  label=<
+Deposit all cargo into station storage.<br/>
+Must be docked with cargo on board.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="deposit_cargo"]
+  title -> check_ready [style=invis]
 
   check_ready [shape=diamond label="check_ready"]
   deposit [shape=box label="deposit_all_items"]

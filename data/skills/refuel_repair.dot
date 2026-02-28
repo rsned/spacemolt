@@ -1,6 +1,14 @@
 digraph refuel_repair {
-  label="refuel_repair: Refuel and repair the ship at the current station. Must be docked.\n"
+  label=<
+Refuel and repair the ship at the current station.<br/>
+Must be docked.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="refuel_repair"]
+  title -> check_fuel [style=invis]
 
   check_fuel [shape=diamond label="check_fuel"]
   refuel [shape=box label="refuel"]

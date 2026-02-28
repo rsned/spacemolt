@@ -1,6 +1,16 @@
 digraph mine {
-  label="mine: Gather resources from an asteroid belt. Undocks, travels to the nearest asteroid belt, mines until cargo is full or fuel is low, returns to station, and docks. Extracted from the auto-miner's core mining loop.\n"
+  label=<
+Gather resources from an asteroid belt. Undocks, travels to the<br/>
+nearest asteroid belt, mines until cargo is full or fuel is low,<br/>
+returns to station, and docks. Extracted from the auto-miner's<br/>
+core mining loop.
+>
+  labelloc=b
+  fontsize=12
   rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="mine"]
+  title -> check_ready [style=invis]
 
   check_ready [shape=diamond label="check_ready"]
   undock [shape=box label="undock"]
