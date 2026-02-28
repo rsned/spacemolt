@@ -32,7 +32,7 @@ Potential skills identified from `cmd/auto-*` agents and `pkg/strategy/` that ha
 | Skill | Source Agents | Description | Status |
 |-------|--------------|-------------|--------|
 | collect_station_data | explorer | Dock, fetch market/ship listings, store snapshots to knowledge base | Pending |
-| ensure_docked | trader, prophet, fighter | Find nearest station, travel to it, dock — universal "get me to safety" | Pending |
+| ensure_docked | trader, prophet, fighter | Find nearest station, travel to it, dock — universal "get me to safety" | Done |
 | buy_items | trader | Budget-aware purchasing with cargo space calculation | Pending |
 | sell_cargo_smart | trader | Market-aware selling into buy orders with price floor logic | Pending |
 | create_market_orders | trader | Create sell orders at calculated prices for high-value cargo | Pending |
@@ -72,7 +72,7 @@ Potential skills identified from `cmd/auto-*` agents and `pkg/strategy/` that ha
 
 | Skill | Source Agents | Description | Status |
 |-------|--------------|-------------|--------|
-| emergency_dock | prophet, fighter | If fuel or hull critically low, override current task and dock immediately | Pending |
+| emergency_dock | prophet, fighter | If fuel or hull critically low, override current task and dock immediately | Done |
 
 ---
 

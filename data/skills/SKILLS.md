@@ -7,6 +7,8 @@ All available agent skills listed alphabetically.
 - [craft_from_storage](#craft_from_storage)
 - [craft_items](#craft_items)
 - [deposit_cargo](#deposit_cargo)
+- [emergency_dock](#emergency_dock)
+- [ensure_docked](#ensure_docked)
 - [mine](#mine)
 - [recall](#recall)
 - [refuel_repair](#refuel_repair)
@@ -48,6 +50,32 @@ Deposit all cargo into station storage. A simple guard-action-done skill that ch
 **Pattern:** Guard-Action-Done
 
 ![deposit_cargo state machine](deposit_cargo.svg)
+
+---
+
+## emergency_dock
+
+Check fuel and hull against critical thresholds. If fuel < 30% or hull < 40%, immediately find the nearest station and dock. If already docked or levels are safe, completes with no action. Composes `ensure_docked` and `refuel_repair` skills.
+
+**Prerequisites:** none
+
+**Pattern:** Skill Composition (invokes `ensure_docked`, `refuel_repair`)
+
+![emergency_dock state machine](emergency_dock.svg)
+
+---
+
+## ensure_docked
+
+Find the nearest station in the current system and dock. If already docked, completes immediately. Fetches system data if POIs are not loaded.
+
+**Prerequisites:** none
+
+**Targets:** station (nearest station in current system)
+
+**Pattern:** Guard-Action-Done
+
+![ensure_docked state machine](ensure_docked.svg)
 
 ---
 

@@ -1,0 +1,25 @@
+digraph emergency_dock {
+  label=<
+Check fuel and hull against critical thresholds.<br/>
+If fuel &lt; 30% or hull &lt; 40%, dock immediately.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="emergency_dock"]
+  title -> check_docked [style=invis]
+
+  check_docked [shape=diamond label="check_docked"]
+  check_emergency [shape=diamond label="check_emergency"]
+  emergency_ensure_docked [shape=box style=rounded label="skill: ensure_docked"]
+  refuel_and_repair [shape=box style=rounded label="skill: refuel_repair"]
+  done [shape=doublecircle label="done"]
+
+  check_docked -> done [label="docked"]
+  check_docked -> check_emergency [label="default"]
+  check_emergency -> emergency_ensure_docked [label="fuel_pct < 0.3\nOR hull_pct < 0.4"]
+  check_emergency -> done [label="default"]
+  emergency_ensure_docked -> refuel_and_repair
+  refuel_and_repair -> done
+}

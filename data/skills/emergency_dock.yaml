@@ -1,0 +1,35 @@
+name: emergency_dock
+description: >
+  Check fuel and hull against critical thresholds. If fuel < 30% or hull < 40%,
+  immediately find the nearest station and dock. If already docked or levels are
+  safe, completes with no action.
+
+prerequisites: []
+
+outputs:
+  - docked (if emergency triggered)
+
+steps:
+  - id: check_docked
+    check: true
+    conditions:
+      docked: goto done
+      default: goto check_emergency
+
+  - id: check_emergency
+    check: true
+    conditions:
+      fuel_pct < 0.3: goto emergency_ensure_docked
+      hull_pct < 0.4: goto emergency_ensure_docked
+      default: goto done
+
+  - id: emergency_ensure_docked
+    skill: ensure_docked
+    next: refuel_and_repair
+
+  - id: refuel_and_repair
+    skill: refuel_repair
+    next: done
+
+  - id: done
+    terminal: true

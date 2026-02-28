@@ -1,0 +1,25 @@
+digraph ensure_docked {
+  label=<
+Find the nearest station in the current system and dock.<br/>
+If already docked, completes immediately.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="ensure_docked"]
+  title -> check_docked [style=invis]
+
+  check_docked [shape=diamond label="check_docked"]
+  check_at_station [shape=diamond label="check_at_station"]
+  travel_to_station [shape=box label="travel\n-> $station"]
+  dock [shape=box label="dock"]
+  done [shape=doublecircle label="done"]
+
+  check_docked -> done [label="docked"]
+  check_docked -> check_at_station [label="default"]
+  check_at_station -> dock [label="at_poi_type(station)"]
+  check_at_station -> travel_to_station [label="default"]
+  travel_to_station -> dock
+  dock -> done
+}

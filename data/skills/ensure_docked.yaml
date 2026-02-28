@@ -1,0 +1,39 @@
+name: ensure_docked
+description: >
+  Find the nearest station in the current system and dock. If already docked,
+  completes immediately. Fetches system data if POIs are not loaded.
+
+prerequisites: []
+
+targets:
+  station:
+    poi_type: [station]
+    description: Nearest station in the current system
+
+outputs:
+  - docked
+
+steps:
+  - id: check_docked
+    check: true
+    conditions:
+      docked: goto done
+      default: goto check_at_station
+
+  - id: check_at_station
+    check: true
+    conditions:
+      at_poi_type(station): goto dock
+      default: goto travel_to_station
+
+  - id: travel_to_station
+    action: travel
+    target: $station
+    next: dock
+
+  - id: dock
+    action: dock
+    next: done
+
+  - id: done
+    terminal: true
