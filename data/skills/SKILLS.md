@@ -4,6 +4,7 @@ All available agent skills listed alphabetically.
 
 ## Table of Contents
 
+- [collect_station_data](#collect_station_data)
 - [craft_from_storage](#craft_from_storage)
 - [craft_items](#craft_items)
 - [deposit_cargo](#deposit_cargo)
@@ -14,6 +15,18 @@ All available agent skills listed alphabetically.
 - [refuel_repair](#refuel_repair)
 - [sell](#sell)
 - [travel](#travel)
+
+---
+
+## collect_station_data
+
+Collect market listings and ship listings at the current station and store snapshots to the knowledge base. Skips collection if data was already captured today.
+
+**Prerequisites:** docked
+
+**Pattern:** Conditional Cascade
+
+![collect_station_data state machine](collect_station_data.svg)
 
 ---
 

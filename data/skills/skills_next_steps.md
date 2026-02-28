@@ -31,7 +31,7 @@ Potential skills identified from `cmd/auto-*` agents and `pkg/strategy/` that ha
 
 | Skill | Source Agents | Description | Status |
 |-------|--------------|-------------|--------|
-| collect_station_data | explorer | Dock, fetch market/ship listings, store snapshots to knowledge base | Pending |
+| collect_station_data | explorer | Dock, fetch market/ship listings, store snapshots to knowledge base | Done |
 | ensure_docked | trader, prophet, fighter | Find nearest station, travel to it, dock — universal "get me to safety" | Done |
 | buy_items | trader | Budget-aware purchasing with cargo space calculation | Pending |
 | sell_cargo_smart | trader | Market-aware selling into buy orders with price floor logic | Pending |

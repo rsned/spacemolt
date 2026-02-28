@@ -1,0 +1,44 @@
+name: collect_station_data
+description: >
+  Collect market listings and ship listings at the current station and store
+  snapshots to the knowledge base. Skips collection if data was already
+  captured today. Must be docked.
+
+prerequisites:
+  - docked
+
+outputs:
+  - market_snapshot (if not already captured today)
+  - ship_listings (if not already captured today)
+
+steps:
+  - id: check_market_freshness
+    check: true
+    conditions:
+      has_market_snapshot_today: goto check_ship_freshness
+      default: goto collect_market
+
+  - id: collect_market
+    action: view_market
+    next: store_market_snapshot
+
+  - id: store_market_snapshot
+    action: store_market_snapshot
+    next: check_ship_freshness
+
+  - id: check_ship_freshness
+    check: true
+    conditions:
+      has_ship_listings_today: goto done
+      default: goto collect_ships
+
+  - id: collect_ships
+    action: get_ships
+    next: store_ship_listings
+
+  - id: store_ship_listings
+    action: store_ship_listings
+    next: done
+
+  - id: done
+    terminal: true

@@ -1,0 +1,30 @@
+digraph collect_station_data {
+  label=<
+Collect market listings and ship listings at the current station<br/>
+and store snapshots to the knowledge base. Skips collection if<br/>
+data was already captured today. Must be docked.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="collect_station_data"]
+  title -> check_market_freshness [style=invis]
+
+  check_market_freshness [shape=diamond label="check_market\nfreshness"]
+  collect_market [shape=box label="view_market"]
+  store_market_snapshot [shape=box label="store_market\nsnapshot"]
+  check_ship_freshness [shape=diamond label="check_ship\nfreshness"]
+  collect_ships [shape=box label="get_ships"]
+  store_ship_listings [shape=box label="store_ship\nlistings"]
+  done [shape=doublecircle label="done"]
+
+  check_market_freshness -> collect_market [label="no snapshot today"]
+  check_market_freshness -> check_ship_freshness [label="already captured"]
+  collect_market -> store_market_snapshot
+  store_market_snapshot -> check_ship_freshness
+  check_ship_freshness -> collect_ships [label="no listings today"]
+  check_ship_freshness -> done [label="already captured"]
+  collect_ships -> store_ship_listings
+  store_ship_listings -> done
+}
