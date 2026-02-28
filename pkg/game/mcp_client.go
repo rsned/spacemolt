@@ -56,6 +56,14 @@ func (m *MCPClient) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
+	// Capture stderr in background for diagnostics
+	go func() {
+		data, _ := io.ReadAll(m.stderr)
+		if len(data) > 0 {
+			m.logger.Printf("Crafting server stderr: %s", string(data))
+		}
+	}()
+
 	// Start the process
 	if err := m.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start crafting server: %w", err)
@@ -63,10 +71,84 @@ func (m *MCPClient) Start(ctx context.Context) error {
 
 	m.logger.Printf("Crafting MCP server started (PID: %d)", m.cmd.Process.Pid)
 
-	// Give the server a moment to initialize
+	// Give the server a moment to initialize, then verify it's still alive
 	time.Sleep(500 * time.Millisecond)
 
+	if !m.isAlive() {
+		_ = m.cmd.Wait()
+		return fmt.Errorf("crafting server exited immediately after start (check stderr above)")
+	}
+
+	// Send MCP initialize handshake
+	if err := m.initialize(ctx); err != nil {
+		_ = m.Stop()
+		return fmt.Errorf("MCP initialize handshake failed: %w", err)
+	}
+
 	return nil
+}
+
+// initialize sends the MCP protocol initialize handshake
+func (m *MCPClient) initialize(ctx context.Context) error {
+	request := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      0,
+		"method":  "initialize",
+		"params": map[string]any{
+			"protocolVersion": "2024-11-05",
+			"capabilities":    map[string]any{},
+			"clientInfo": map[string]any{
+				"name":    "spacemolt",
+				"version": "1.0",
+			},
+		},
+	}
+
+	requestJSON, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialize: %w", err)
+	}
+
+	requestJSON = append(requestJSON, '\n')
+	if _, err := m.stdin.Write(requestJSON); err != nil {
+		return fmt.Errorf("failed to write initialize: %w", err)
+	}
+
+	resp, err := m.readResponse(ctx, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to read initialize response: %w", err)
+	}
+
+	m.logger.Printf("MCP initialized: %s", string(resp))
+
+	// Send initialized notification — some servers respond with an error
+	// (non-spec-compliant), so read and discard any response.
+	notif := map[string]any{
+		"jsonrpc": "2.0",
+		"method":  "notifications/initialized",
+	}
+	notifJSON, err := json.Marshal(notif)
+	if err != nil {
+		return fmt.Errorf("failed to marshal initialized notification: %w", err)
+	}
+	notifJSON = append(notifJSON, '\n')
+	if _, err = m.stdin.Write(notifJSON); err != nil {
+		return fmt.Errorf("failed to write initialized notification: %w", err)
+	}
+
+	// Drain any spurious response (1s timeout — it's optional)
+	_, _ = m.readResponse(ctx, time.Second)
+
+	return nil
+}
+
+// isAlive checks if the server process is still running
+func (m *MCPClient) isAlive() bool {
+	if m.cmd == nil || m.cmd.Process == nil {
+		return false
+	}
+	// ProcessState is only set after Wait() returns; nil means still running
+	return m.cmd.ProcessState == nil
 }
 
 // Stop gracefully shuts down the MCP server
@@ -100,13 +182,13 @@ func (m *MCPClient) Stop() error {
 }
 
 // CallTool invokes a tool on the MCP server
-func (m *MCPClient) CallTool(ctx context.Context, toolName string, params map[string]interface{}) (map[string]interface{}, error) {
+func (m *MCPClient) CallTool(ctx context.Context, toolName string, params map[string]any) (map[string]any, error) {
 	// Build JSON-RPC request
-	request := map[string]interface{}{
+	request := map[string]any{
 		"jsonrpc": "2.0",
 		"id":      1,
 		"method":  "tools/call",
-		"params": map[string]interface{}{
+		"params": map[string]any{
 			"name":      toolName,
 			"arguments": params,
 		},
@@ -135,7 +217,7 @@ func (m *MCPClient) CallTool(ctx context.Context, toolName string, params map[st
 	var resp struct {
 		JSONRPC string                 `json:"jsonrpc"`
 		ID      any                      `json:"id,omitempty"`
-		Result  map[string]interface{} `json:"result,omitempty"`
+		Result  map[string]any `json:"result,omitempty"`
 		Error   *struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
@@ -289,9 +371,14 @@ func (mgr *MCPManager) GetClient(ctx context.Context, serverPath string) (*MCPCl
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 
-	// Check if client already exists
+	// Check if client already exists and is still alive
 	if client, exists := mgr.clients[serverPath]; exists {
-		return client, nil
+		if client.isAlive() {
+			return client, nil
+		}
+		mgr.logger.Printf("MCP client for %s is dead, restarting...", serverPath)
+		_ = client.Close()
+		delete(mgr.clients, serverPath)
 	}
 
 	// Create new client

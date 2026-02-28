@@ -6,6 +6,7 @@ description: >
 
 prerequisites:
   - docked
+  - at_poi_type(station)
   - has_cargo
 
 steps:
@@ -13,6 +14,7 @@ steps:
     check: true
     conditions:
       not docked: goto done
+      not at_poi_type(station): goto done
       not has_cargo: goto done
       default: goto craft
 

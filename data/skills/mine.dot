@@ -8,7 +8,8 @@ digraph mine {
   mine_loop [shape=box style=bold label="mine\n(while cargo_pct < 0.97\nand fuel_pct > 0.1)"]
   return_to_station [shape=box label="travel\n-> $home_station"]
   dock [shape=box label="dock"]
-  emergency_dock [shape=box label="dock"]
+  emergency_dock [shape=diamond label="emergency_dock"]
+  emergency_dock_action [shape=box label="dock"]
   done [shape=doublecircle label="done"]
 
   check_ready -> emergency_dock [label="fuel_pct < 0.1"]
@@ -22,6 +23,7 @@ digraph mine {
   mine_loop -> return_to_station [label="not(cargo_pct < 0.97 and fuel_pct > 0.1)"]
   return_to_station -> dock
   dock -> done
-  emergency_dock -> done [label="docked"]
+  emergency_dock -> emergency_dock_action [label="at_poi_type(station)"]
   emergency_dock -> return_to_station [label="default"]
+  emergency_dock_action -> done
 }

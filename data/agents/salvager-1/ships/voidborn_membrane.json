@@ -1,0 +1,87 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Membrane here — 4 issue(s) to resolve:",
+  "ship_class": "voidborn_membrane",
+  "ship_name": "Membrane",
+  "can_commission": false,
+  "blockers": [
+    "Membrane is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Requires cloaking level 7 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Shield Matrix, Station Reactor Core, Voidborn Phase Drive are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 4578804,
+  "labor_cost": 36000,
+  "credits_only_total": 0,
+  "provide_materials_total": 36000,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 160
+    },
+    {
+      "item_id": "comp_shield_matrix",
+      "name": "Shield Matrix",
+      "quantity": 65
+    },
+    {
+      "item_id": "comp_void_capacitor",
+      "name": "Void Capacitor",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_reactor_core",
+      "name": "Station Reactor Core",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_voidborn_phase_drive",
+      "name": "Voidborn Phase Drive",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_voidborn_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 250
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 13
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 600
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 2
+    }
+  ],
+  "build_time": 12000,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

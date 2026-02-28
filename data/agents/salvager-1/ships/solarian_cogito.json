@@ -1,0 +1,52 @@
+[2m--- Notifications (1) ---[0m
+[2m[1:29:22 PM][0m [36m[CHAT:system][0m [1mGrand Exchange Station[0m: RESOURCE SHORTAGE — paying premium prices! Urgently buying: comp_nav_array at 1870cr (2.7x normal), comp_reactor_core at 20800cr (2.6x normal), comp_thruster_assembly at 1170cr (2.6x normal), comp_drone_command at 3515cr (2.3x normal), comp_engine_core at 650cr (2.6x normal). Suppliers needed! Dock and sell: travel target_poi=haven_exchange → dock → create_sell_order item_id=comp_nav_array quantity=50 price_each=1870
+
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Cogito here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_cogito",
+  "ship_name": "Cogito",
+  "can_commission": false,
+  "blockers": [
+    "Cogito is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 33515,
+  "labor_cost": 600,
+  "credits_only_total": 0,
+  "provide_materials_total": 600,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 11
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 15
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 5
+    }
+  ],
+  "build_time": 200,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

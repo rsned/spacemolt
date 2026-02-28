@@ -1,0 +1,60 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Capacity here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_capacity",
+  "ship_name": "Capacity",
+  "can_commission": false,
+  "blockers": [
+    "Capacity is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires trading level 3 (you have 1). Train this skill before commissioning."
+  ],
+  "material_cost": 316741,
+  "labor_cost": 2700,
+  "credits_only_total": 636182,
+  "provide_materials_total": 2700,
+  "build_materials": [
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 15
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 6
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 40
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 30
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    }
+  ],
+  "build_time": 900,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

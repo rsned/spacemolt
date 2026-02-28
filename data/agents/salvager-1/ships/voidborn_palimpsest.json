@@ -1,0 +1,92 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Palimpsest here — 4 issue(s) to resolve:",
+  "ship_class": "voidborn_palimpsest",
+  "ship_name": "Palimpsest",
+  "can_commission": false,
+  "blockers": [
+    "Palimpsest is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Requires electronic_warfare level 7 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Shield Matrix, Station Reactor Core, Sensor Cluster, Voidborn Phase Drive, Voidborn Null Matrix are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 4974574,
+  "labor_cost": 34800,
+  "credits_only_total": 0,
+  "provide_materials_total": 34800,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 55
+    },
+    {
+      "item_id": "refined_voidborn_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 220
+    },
+    {
+      "item_id": "comp_shield_matrix",
+      "name": "Shield Matrix",
+      "quantity": 80
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_void_capacitor",
+      "name": "Void Capacitor",
+      "quantity": 9
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 45
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 180
+    },
+    {
+      "item_id": "comp_reactor_core",
+      "name": "Station Reactor Core",
+      "quantity": 6
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 460
+    },
+    {
+      "item_id": "comp_sensor_cluster",
+      "name": "Sensor Cluster",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_voidborn_phase_drive",
+      "name": "Voidborn Phase Drive",
+      "quantity": 1
+    },
+    {
+      "item_id": "comp_voidborn_null_matrix",
+      "name": "Voidborn Null Matrix",
+      "quantity": 1
+    }
+  ],
+  "build_time": 11600,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

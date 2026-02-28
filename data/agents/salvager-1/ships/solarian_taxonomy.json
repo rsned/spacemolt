@@ -1,0 +1,71 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Taxonomy here — 3 issue(s) to resolve:",
+  "ship_class": "solarian_taxonomy",
+  "ship_name": "Taxonomy",
+  "can_commission": false,
+  "blockers": [
+    "Taxonomy is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires salvaging level 5 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 1210819,
+  "labor_cost": 10800,
+  "credits_only_total": 2432438,
+  "provide_materials_total": 10800,
+  "build_materials": [
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 150
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 80
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 15
+    },
+    {
+      "item_id": "refined_solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 45
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 25
+    }
+  ],
+  "build_time": 3600,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

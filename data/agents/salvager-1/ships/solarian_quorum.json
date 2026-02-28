@@ -1,0 +1,71 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Quorum here — 3 issue(s) to resolve:",
+  "ship_class": "solarian_quorum",
+  "ship_name": "Quorum",
+  "can_commission": false,
+  "blockers": [
+    "Quorum is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires weapons_basic level 5 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 1580611,
+  "labor_cost": 11700,
+  "credits_only_total": 3172922,
+  "provide_materials_total": 11700,
+  "build_materials": [
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 100
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 20
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 180
+    },
+    {
+      "item_id": "refined_solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 35
+    }
+  ],
+  "build_time": 3900,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

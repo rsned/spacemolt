@@ -1,0 +1,66 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Cryogenic Survey here — 3 issue(s) to resolve:",
+  "ship_class": "solarian_cryogenic_survey",
+  "ship_name": "Cryogenic Survey",
+  "can_commission": false,
+  "blockers": [
+    "Cryogenic Survey is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires ice_mining level 5 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 623196,
+  "labor_cost": 9000,
+  "credits_only_total": 1255392,
+  "provide_materials_total": 9000,
+  "build_materials": [
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_engine_core",
+      "name": "Engine Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 95
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 70
+    },
+    {
+      "item_id": "refined_solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 8
+    }
+  ],
+  "build_time": 3000,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

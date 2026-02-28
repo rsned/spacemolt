@@ -1,0 +1,48 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Accretion here — 1 issue(s) to resolve:",
+  "ship_class": "voidborn_accretion",
+  "ship_name": "Accretion",
+  "can_commission": false,
+  "blockers": [
+    "Accretion is a voidborn-exclusive design. Travel to a voidborn station to commission it."
+  ],
+  "material_cost": 51993,
+  "labor_cost": 900,
+  "credits_only_total": 104886,
+  "provide_materials_total": 900,
+  "build_materials": [
+    {
+      "item_id": "refined_silicate",
+      "name": "Silicate Composite",
+      "quantity": 16
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 1
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 2
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 7
+    }
+  ],
+  "build_time": 250,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

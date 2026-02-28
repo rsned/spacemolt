@@ -1,0 +1,60 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Nebulae here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_nebulae",
+  "ship_name": "Nebulae",
+  "can_commission": false,
+  "blockers": [
+    "Nebulae is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires gas_harvesting level 3 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 306991,
+  "labor_cost": 3300,
+  "credits_only_total": 617282,
+  "provide_materials_total": 3300,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 45
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 40
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 6
+    }
+  ],
+  "build_time": 1080,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

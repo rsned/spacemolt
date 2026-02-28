@@ -1,0 +1,60 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Triage here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_triage",
+  "ship_name": "Triage",
+  "can_commission": false,
+  "blockers": [
+    "Triage is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires engineering level 3 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 378098,
+  "labor_cost": 3600,
+  "credits_only_total": 759796,
+  "provide_materials_total": 3600,
+  "build_materials": [
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 9
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 55
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 35
+    }
+  ],
+  "build_time": 1170,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

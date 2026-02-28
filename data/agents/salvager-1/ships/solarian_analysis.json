@@ -1,0 +1,60 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Analysis here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_analysis",
+  "ship_name": "Analysis",
+  "can_commission": false,
+  "blockers": [
+    "Analysis is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires salvaging level 3 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 339588,
+  "labor_cost": 3000,
+  "credits_only_total": 682176,
+  "provide_materials_total": 3000,
+  "build_materials": [
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 40
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 50
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 17
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 6
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 50
+    }
+  ],
+  "build_time": 990,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

@@ -1,0 +1,49 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Lemma here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_lemma",
+  "ship_name": "Lemma",
+  "can_commission": false,
+  "blockers": [
+    "Lemma is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 33981,
+  "labor_cost": 600,
+  "credits_only_total": 0,
+  "provide_materials_total": 600,
+  "build_materials": [
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 5
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 17
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 7
+    }
+  ],
+  "build_time": 200,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

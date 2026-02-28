@@ -1,0 +1,66 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Postulate here — 3 issue(s) to resolve:",
+  "ship_class": "solarian_postulate",
+  "ship_name": "Postulate",
+  "can_commission": false,
+  "blockers": [
+    "Postulate is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires drone_operation level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Drone Command Module is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 393805,
+  "labor_cost": 4200,
+  "credits_only_total": 0,
+  "provide_materials_total": 4200,
+  "build_materials": [
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 4
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_drone_command",
+      "name": "Drone Command Module",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 50
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 35
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 55
+    }
+  ],
+  "build_time": 1400,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

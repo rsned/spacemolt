@@ -1,0 +1,60 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Empirica here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_empirica",
+  "ship_name": "Empirica",
+  "can_commission": false,
+  "blockers": [
+    "Empirica is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires exploration level 3 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 398122,
+  "labor_cost": 3900,
+  "credits_only_total": 800144,
+  "provide_materials_total": 3900,
+  "build_materials": [
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 7
+    },
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 45
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 35
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 55
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    }
+  ],
+  "build_time": 1300,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

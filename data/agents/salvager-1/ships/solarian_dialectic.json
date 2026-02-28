@@ -1,0 +1,82 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Dialectic here — 4 issue(s) to resolve:",
+  "ship_class": "solarian_dialectic",
+  "ship_name": "Dialectic",
+  "can_commission": false,
+  "blockers": [
+    "Dialectic is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires weapons_basic level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Solar Collector Array is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1254606,
+  "labor_cost": 12600,
+  "credits_only_total": 0,
+  "provide_materials_total": 12600,
+  "build_materials": [
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 120
+    },
+    {
+      "item_id": "refined_solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 45
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 6
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 20
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 140
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 1
+    },
+    {
+      "item_id": "comp_solarian_solar_collector",
+      "name": "Solar Collector Array",
+      "quantity": 1
+    }
+  ],
+  "build_time": 4160,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

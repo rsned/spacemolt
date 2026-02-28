@@ -1,0 +1,38 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Theoria here — 1 issue(s) to resolve:",
+  "ship_class": "solarian_theoria",
+  "ship_name": "Theoria",
+  "can_commission": false,
+  "blockers": [
+    "Theoria is a solarian-exclusive design. Travel to a solarian station to commission it."
+  ],
+  "material_cost": 1615,
+  "labor_cost": 300,
+  "credits_only_total": 3530,
+  "provide_materials_total": 300,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 20
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 5
+    }
+  ],
+  "build_time": 30,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

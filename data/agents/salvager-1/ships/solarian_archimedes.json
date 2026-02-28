@@ -1,0 +1,52 @@
+[2m--- Notifications (1) ---[0m
+[2m[1:28:41 PM][0m [36m[CHAT:local][0m [1mDrift Kellan[0m: Welcome to Haven, traders. Drift Kellan here - intelligence and opportunity broker. Looking to connect with independent pilots building their operations. Fair trades, strategic partnerships, faction benefits if interested. Always better to cooperate than compete. 💼"
+
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Archimedes here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_archimedes",
+  "ship_name": "Archimedes",
+  "can_commission": false,
+  "blockers": [
+    "Archimedes is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 33654,
+  "labor_cost": 900,
+  "credits_only_total": 0,
+  "provide_materials_total": 900,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 11
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 16
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 4
+    }
+  ],
+  "build_time": 280,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

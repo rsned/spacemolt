@@ -1,0 +1,60 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Anamnesis here — 2 issue(s) to resolve:",
+  "ship_class": "voidborn_anamnesis",
+  "ship_name": "Anamnesis",
+  "can_commission": false,
+  "blockers": [
+    "Anamnesis is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires electronic_warfare level 3 (you have 0). Train this skill before commissioning."
+  ],
+  "material_cost": 559900,
+  "labor_cost": 3900,
+  "credits_only_total": 1123700,
+  "provide_materials_total": 3900,
+  "build_materials": [
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 18
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 5
+    },
+    {
+      "item_id": "refined_silicate",
+      "name": "Silicate Composite",
+      "quantity": 60
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 3
+    }
+  ],
+  "build_time": 1260,
+  "shipyard_tier_required": 1,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

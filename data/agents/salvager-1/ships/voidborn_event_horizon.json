@@ -1,0 +1,92 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Event Horizon here — 4 issue(s) to resolve:",
+  "ship_class": "voidborn_event_horizon",
+  "ship_name": "Event Horizon",
+  "can_commission": false,
+  "blockers": [
+    "Event Horizon is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires weapons_basic level 7 (you have 0). Train this skill before commissioning.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Shield Matrix, Station Reactor Core, Voidborn Phase Drive, Weapon Battery are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 5530110,
+  "labor_cost": 39000,
+  "credits_only_total": 0,
+  "provide_materials_total": 39000,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_shield_matrix",
+      "name": "Shield Matrix",
+      "quantity": 70
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 12
+    },
+    {
+      "item_id": "comp_reactor_core",
+      "name": "Station Reactor Core",
+      "quantity": 2
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 680
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_voidborn_phase_drive",
+      "name": "Voidborn Phase Drive",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_voidborn_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 230
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 200
+    },
+    {
+      "item_id": "comp_void_capacitor",
+      "name": "Void Capacitor",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_weapon_battery",
+      "name": "Weapon Battery",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 3
+    }
+  ],
+  "build_time": 13000,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

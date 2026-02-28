@@ -1,0 +1,67 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Absolute Entropy here — 4 issue(s) to resolve:",
+  "ship_class": "voidborn_absolute_entropy",
+  "ship_name": "Absolute Entropy",
+  "can_commission": false,
+  "blockers": [
+    "Absolute Entropy is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires ice_mining level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Shield Matrix is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1352576,
+  "labor_cost": 9600,
+  "credits_only_total": 0,
+  "provide_materials_total": 9600,
+  "build_materials": [
+    {
+      "item_id": "refined_voidborn_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 45
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_shield_matrix",
+      "name": "Shield Matrix",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 30
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 10
+    },
+    {
+      "item_id": "refined_silicate",
+      "name": "Silicate Composite",
+      "quantity": 120
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 80
+    }
+  ],
+  "build_time": 3200,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

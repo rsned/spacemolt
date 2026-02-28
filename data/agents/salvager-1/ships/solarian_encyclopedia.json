@@ -1,0 +1,87 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Encyclopedia here — 4 issue(s) to resolve:",
+  "ship_class": "solarian_encyclopedia",
+  "ship_name": "Encyclopedia",
+  "can_commission": false,
+  "blockers": [
+    "Encyclopedia is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Requires engineering level 7 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Station Reactor Core, Life Support Array are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 8370358,
+  "labor_cost": 30000,
+  "credits_only_total": 0,
+  "provide_materials_total": 30000,
+  "build_materials": [
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 10
+    },
+    {
+      "item_id": "comp_reactor_core",
+      "name": "Station Reactor Core",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 170
+    },
+    {
+      "item_id": "comp_solarian_logic_matrix",
+      "name": "Solarian Logic Matrix",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 540
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 200
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 95
+    },
+    {
+      "item_id": "comp_shield_array",
+      "name": "Shield Array",
+      "quantity": 2
+    },
+    {
+      "item_id": "comp_life_support_array",
+      "name": "Life Support Array",
+      "quantity": 5
+    },
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 90
+    },
+    {
+      "item_id": "refined_solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 40
+    }
+  ],
+  "build_time": 10000,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}

@@ -1,0 +1,38 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Datum here — 1 issue(s) to resolve:",
+  "ship_class": "solarian_datum",
+  "ship_name": "Datum",
+  "can_commission": false,
+  "blockers": [
+    "Datum is a solarian-exclusive design. Travel to a solarian station to commission it."
+  ],
+  "material_cost": 1932,
+  "labor_cost": 600,
+  "credits_only_total": 4464,
+  "provide_materials_total": 600,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 18
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 12
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 8
+    }
+  ],
+  "build_time": 160,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": true,
+  "can_afford_provide_materials": true
+}

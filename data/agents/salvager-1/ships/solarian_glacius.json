@@ -1,0 +1,49 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Glacius here — 2 issue(s) to resolve:",
+  "ship_class": "solarian_glacius",
+  "ship_name": "Glacius",
+  "can_commission": false,
+  "blockers": [
+    "Glacius is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Credits-only commission unavailable: Thruster Nozzle is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 34110,
+  "labor_cost": 900,
+  "credits_only_total": 0,
+  "provide_materials_total": 900,
+  "build_materials": [
+    {
+      "item_id": "refined_steel",
+      "name": "Steel Plate",
+      "quantity": 11
+    },
+    {
+      "item_id": "refined_copper_wire",
+      "name": "Copper Wiring",
+      "quantity": 16
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 3
+    },
+    {
+      "item_id": "comp_thruster_nozzle",
+      "name": "Thruster Nozzle",
+      "quantity": 4
+    }
+  ],
+  "build_time": 260,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

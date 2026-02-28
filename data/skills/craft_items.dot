@@ -1,0 +1,13 @@
+digraph craft_items {
+  label="craft_items: Craft all possible items from current cargo. Queries the crafting MCP server to determine which recipes can be crafted with available resources and skills, then crafts them in batched quantities. Must be docked with cargo on board.\n"
+  rankdir=TB
+
+  check_ready [shape=diamond label="check_ready"]
+  craft [shape=box label="craft_from_cargo"]
+  done [shape=doublecircle label="done"]
+
+  check_ready -> done [label="not docked"]
+  check_ready -> done [label="not has_cargo"]
+  check_ready -> craft [label="default"]
+  craft -> done
+}

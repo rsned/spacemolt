@@ -1,0 +1,71 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Fold Hauler here — 3 issue(s) to resolve:",
+  "ship_class": "voidborn_fold_hauler",
+  "ship_name": "Fold Hauler",
+  "can_commission": false,
+  "blockers": [
+    "Fold Hauler is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires trading level 5 (you have 1). Train this skill before commissioning."
+  ],
+  "material_cost": 1212416,
+  "labor_cost": 10200,
+  "credits_only_total": 2435032,
+  "provide_materials_total": 10200,
+  "build_materials": [
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 95
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 8
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 12
+    },
+    {
+      "item_id": "refined_voidborn_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 50
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 40
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 28
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 16
+    },
+    {
+      "item_id": "refined_silicate",
+      "name": "Silicate Composite",
+      "quantity": 140
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    }
+  ],
+  "build_time": 3400,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": true,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

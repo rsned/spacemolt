@@ -1,0 +1,82 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Perihelion here — 4 issue(s) to resolve:",
+  "ship_class": "solarian_perihelion",
+  "ship_name": "Perihelion",
+  "can_commission": false,
+  "blockers": [
+    "Perihelion is a solarian-exclusive design. Travel to a solarian station to commission it.",
+    "Requires small_ships level 5 (you have 3). Train this skill before commissioning.",
+    "Requires exploration level 5 (you have 0). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Navigation Array, Thruster Assembly are not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 1836639,
+  "labor_cost": 13800,
+  "credits_only_total": 0,
+  "provide_materials_total": 13800,
+  "build_materials": [
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 35
+    },
+    {
+      "item_id": "comp_nav_array",
+      "name": "Navigation Array",
+      "quantity": 1
+    },
+    {
+      "item_id": "comp_solarian_logic_matrix",
+      "name": "Solarian Logic Matrix",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_alloy",
+      "name": "Titanium Alloy",
+      "quantity": 190
+    },
+    {
+      "item_id": "refined_circuits",
+      "name": "Circuit Board",
+      "quantity": 110
+    },
+    {
+      "item_id": "comp_sensor_array",
+      "name": "Sensor Array",
+      "quantity": 60
+    },
+    {
+      "item_id": "comp_thruster_assembly",
+      "name": "Thruster Assembly",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 7
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 11
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 30
+    }
+  ],
+  "build_time": 4550,
+  "shipyard_tier_required": 2,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": true
+}

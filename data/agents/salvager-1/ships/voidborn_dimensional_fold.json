@@ -1,0 +1,77 @@
+
+[1m=== Response ===[0m
+{
+  "message": "Cannot commission Dimensional Fold here — 4 issue(s) to resolve:",
+  "ship_class": "voidborn_dimensional_fold",
+  "ship_name": "Dimensional Fold",
+  "can_commission": false,
+  "blockers": [
+    "Dimensional Fold is a voidborn-exclusive design. Travel to a voidborn station to commission it.",
+    "Requires medium_ships level 3 (you have 0). Train this skill before commissioning.",
+    "Requires trading level 7 (you have 1). Train this skill before commissioning.",
+    "Credits-only commission unavailable: Shield Matrix is not currently for sale in the galaxy. Use provide_materials=true instead."
+  ],
+  "material_cost": 2517982,
+  "labor_cost": 31500,
+  "credits_only_total": 0,
+  "provide_materials_total": 31500,
+  "build_materials": [
+    {
+      "item_id": "refined_durasteel",
+      "name": "Durasteel Plate",
+      "quantity": 48
+    },
+    {
+      "item_id": "comp_capital_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 5
+    },
+    {
+      "item_id": "comp_shield_emitter",
+      "name": "Shield Emitter",
+      "quantity": 90
+    },
+    {
+      "item_id": "comp_cpu_core",
+      "name": "Processing Core",
+      "quantity": 14
+    },
+    {
+      "item_id": "comp_hull_plate",
+      "name": "Hull Plating",
+      "quantity": 70
+    },
+    {
+      "item_id": "comp_power_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 1
+    },
+    {
+      "item_id": "refined_voidborn_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 80
+    },
+    {
+      "item_id": "comp_shield_matrix",
+      "name": "Shield Matrix",
+      "quantity": 25
+    },
+    {
+      "item_id": "comp_cargo_container",
+      "name": "Cargo Container",
+      "quantity": 45
+    },
+    {
+      "item_id": "comp_navigation_core",
+      "name": "Navigation Core",
+      "quantity": 16
+    }
+  ],
+  "build_time": 10500,
+  "shipyard_tier_required": 3,
+  "shipyard_tier_here": 5,
+  "player_credits": 24762,
+  "credits_only_available": false,
+  "can_afford_credits_only": false,
+  "can_afford_provide_materials": false
+}
