@@ -343,7 +343,7 @@ func TestRouteExpressionVariables_WithRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.expr, func(t *testing.T) {
-			got, err := EvalExprWithRoute(tt.expr, state, route)
+			got, err := EvalExprWithRoute(tt.expr, state, route, nil)
 			if err != nil {
 				t.Fatalf("EvalExprWithRoute(%q) error: %v", tt.expr, err)
 			}
@@ -375,7 +375,7 @@ func TestRouteFunction_HasRouteProgress(t *testing.T) {
 		CurrentStep:       0,
 	}
 
-	result, err = EvalExprWithRoute("has_route_progress()", state, route)
+	result, err = EvalExprWithRoute("has_route_progress()", state, route, nil)
 	if err != nil {
 		t.Fatalf("EvalExprWithRoute failed: %v", err)
 	}
@@ -396,7 +396,7 @@ func TestRouteExpressionVariables_EmptyRoute(t *testing.T) {
 	}
 
 	// Empty route should still allow destination access but step count is 0
-	result, err := EvalExprWithRoute("route_destination_system == haven", state, route)
+	result, err := EvalExprWithRoute("route_destination_system == haven", state, route, nil)
 	if err != nil {
 		t.Fatalf("EvalExprWithRoute failed: %v", err)
 	}
@@ -404,7 +404,7 @@ func TestRouteExpressionVariables_EmptyRoute(t *testing.T) {
 		t.Error("Expected route_destination_system to be accessible with empty route")
 	}
 
-	result, err = EvalExprWithRoute("route_step_count == 0", state, route)
+	result, err = EvalExprWithRoute("route_step_count == 0", state, route, nil)
 	if err != nil {
 		t.Fatalf("EvalExprWithRoute failed: %v", err)
 	}

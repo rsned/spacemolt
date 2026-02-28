@@ -16,8 +16,9 @@ const (
 	SleepTravel = 1 * SleepTick // POI travel within system
 	SleepJump   = 2 * SleepTick // System jump travel timea
 
-	SleepReconnect = 30 * time.Second // Reconnection recovery wait
-	SleepRetry    = 1 * time.Second    // Retry delay for failed operations
+	SleepReconnect    = 30 * time.Second // Reconnection recovery wait
+	SleepRetry        = 1 * time.Second  // Retry delay for failed operations
+	SleepScanInterval = 5 * time.Minute  // Delay between scan_for_distress cycles
 
 	// WebSocket keepalive timing
 	// Server sends ping every 45s, read deadline is 60s from last pong

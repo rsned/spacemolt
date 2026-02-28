@@ -164,6 +164,15 @@ func (e *Executor) executeStep(ctx context.Context, skill *Skill, step *Step) (s
 
 	// Action node.
 	if step.Action != "" {
+		// Inject step args into dispatcher's SkillParams so the dispatcher can access them.
+		if len(step.Args) > 0 {
+			if dispatcher, ok := e.dispatcher.(*ClientDispatcher); ok {
+				for k, v := range step.Args {
+					dispatcher.SkillParams["args."+k] = v
+				}
+			}
+		}
+
 		target, err := e.resolveTarget(step.Target, skill, state)
 		if err != nil {
 			return "", err
@@ -255,16 +264,33 @@ func (e *Executor) executeRepeat(ctx context.Context, step *Step, target string)
 func (e *Executor) evalConditions(conditions ConditionList, state *game.State) (string, error) {
 	var defaultTarget string
 
+	// Pre-scan for default target so we can treat unknown-variable errors
+	// as false when a default fallback exists.
+	for _, cond := range conditions {
+		if strings.TrimSpace(cond.Expr) == "default" {
+			defaultTarget = strings.TrimPrefix(strings.TrimSpace(cond.Goto), "goto ")
+			break
+		}
+	}
+
 	for _, cond := range conditions {
 		target := strings.TrimPrefix(strings.TrimSpace(cond.Goto), "goto ")
 
 		if strings.TrimSpace(cond.Expr) == "default" {
-			defaultTarget = target
 			continue
 		}
 
 		result, err := e.evalExprWithRoute(cond.Expr, state)
 		if err != nil {
+			// If there's a default fallback, treat unresolvable conditions as
+			// false rather than failing. This allows skills to use domain-
+			// specific conditions (e.g. "found_request") that the executor
+			// cannot evaluate yet, falling through to the default.
+			if defaultTarget != "" {
+				indent := strings.Repeat("  ", e.depth-1)
+				e.logger.Printf("%s    condition %q unresolvable (%v), skipping", indent, cond.Expr, err)
+				continue
+			}
 			return "", fmt.Errorf("condition %q: %w", cond.Expr, err)
 		}
 		if result {
@@ -280,12 +306,14 @@ func (e *Executor) evalConditions(conditions ConditionList, state *game.State) (
 }
 
 func (e *Executor) evalExprWithRoute(expr string, state *game.State) (bool, error) {
-	// Get route from dispatcher if it's a ClientDispatcher
+	// Get route and custom vars from dispatcher if it's a ClientDispatcher
 	var route *RouteProgress
+	var customVars map[string]float64
 	if dispatcher, ok := e.dispatcher.(*ClientDispatcher); ok {
 		route = dispatcher.Route
+		customVars = dispatcher.CustomVars()
 	}
-	return EvalExprWithRoute(expr, state, route)
+	return EvalExprWithRoute(expr, state, route, customVars)
 }
 
 func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State) (string, error) {

@@ -297,6 +297,13 @@ func (m *mockGameClient) Chat(ctx context.Context, channel, content string, targ
 	m.actionsRecorded = append(m.actionsRecorded, "chat:"+channel)
 	return nil
 }
+func (m *mockGameClient) GetChatHistory(ctx context.Context, channel string, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) Jettison(ctx context.Context, itemID string, quantity float64) error {
+	m.actionsRecorded = append(m.actionsRecorded, "jettison:"+itemID)
+	return nil
+}
 func (m *mockGameClient) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
 	m.actionsRecorded = append(m.actionsRecorded, "set_status")
 	return nil

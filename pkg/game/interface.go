@@ -55,6 +55,9 @@ type GameClient interface {
 	WithdrawItems(ctx context.Context, itemID string, quantity float64) error
 	ViewStorage(ctx context.Context) error
 
+	// Cargo Operations
+	Jettison(ctx context.Context, itemID string, quantity float64) error
+
 	// Wrecks
 	GetWrecks(ctx context.Context) error
 	LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error
@@ -85,6 +88,7 @@ type GameClient interface {
 
 	// Communication
 	Chat(ctx context.Context, channel, content string, targetID string) error
+	GetChatHistory(ctx context.Context, channel string, payload map[string]any) error
 	SetPlayerStatus(ctx context.Context, payload map[string]any) error
 	SetHomeBase(ctx context.Context, baseID string) error
 

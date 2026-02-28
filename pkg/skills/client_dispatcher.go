@@ -23,8 +23,10 @@ type ClientDispatcher struct {
 	Route       *RouteProgress // Active route for multi-system travel
 	baseDir     string         // Base directory for agent data (e.g., "data")
 	agentID     string         // Agent identifier (e.g., "miner-1")
-	FoundPOI    string         // ID of most recently found POI
-	SkillParams map[string]string // Skill parameters for current execution
+	FoundPOI             string            // ID of most recently found POI
+	SkillParams          map[string]string // Skill parameters for current execution
+	LastAnnounceTime     time.Time         // Last time a service announcement was sent
+	FoundDistressRequest bool              // True after scan_chat_for_distress finds a match
 }
 
 // NewClientDispatcher creates a dispatcher wrapping a connected game client.
@@ -37,6 +39,22 @@ func NewClientDispatcher(client game.GameClient, baseDir, agentID string, logger
 		agentID:     agentID,
 		SkillParams: make(map[string]string),
 	}
+}
+
+// CustomVars returns computed variables for the expression evaluator.
+func (d *ClientDispatcher) CustomVars() map[string]float64 {
+	vars := make(map[string]float64)
+	if d.LastAnnounceTime.IsZero() {
+		vars["last_announce_age"] = 999999 // large value → always announce on first run
+	} else {
+		vars["last_announce_age"] = time.Since(d.LastAnnounceTime).Seconds()
+	}
+	if d.FoundDistressRequest {
+		vars["found_request"] = 1
+	} else {
+		vars["found_request"] = 0
+	}
+	return vars
 }
 
 // GetState returns the current game state.
@@ -203,6 +221,46 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 	case "get_skills":
 		return d.Client.GetSkills(ctx)
 
+	// Chat
+	case "chat":
+		return d.doChat(ctx, target)
+	case "get_chat_history":
+		channel := target
+		if channel == "" {
+			channel = d.SkillParams["args.channel"]
+		}
+		if channel == "" {
+			return fmt.Errorf("get_chat_history requires a channel (target or args.channel)")
+		}
+		return d.Client.GetChatHistory(ctx, channel, nil)
+
+	// Nearby & wrecks
+	case "get_nearby":
+		return d.Client.GetNearby(ctx)
+	case "get_wrecks":
+		return d.Client.GetWrecks(ctx)
+
+	// Jettison
+	case "jettison":
+		if target == "" {
+			return fmt.Errorf("jettison requires a target item ID")
+		}
+		return d.Client.Jettison(ctx, target, 1)
+
+	// Compound: scan chat channels for distress requests
+	case "scan_chat_for_distress":
+		return d.doScanChatForDistress(ctx)
+
+	// Sleep for scan interval (context-aware)
+	case "sleep_scan_interval":
+		d.Logger.Printf("[sleep] waiting %v before next scan cycle", game.SleepScanInterval)
+		select {
+		case <-time.After(game.SleepScanInterval):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
+
 	// No-op
 	case "wait":
 		return nil
@@ -210,6 +268,110 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 	default:
 		return fmt.Errorf("unsupported action: %q", action)
 	}
+}
+
+// doChat sends a chat message. The target is the message content; the channel
+// and recipient are resolved from SkillParams (args.channel, args.target).
+// After sending an announcement on the system channel it records the timestamp
+// so the check_announce_cooldown condition can evaluate correctly.
+func (d *ClientDispatcher) doChat(ctx context.Context, target string) error {
+	channel := "system"
+	if ch, ok := d.SkillParams["args.channel"]; ok {
+		channel = ch
+	}
+
+	content := target
+	if c, ok := d.SkillParams["args.content"]; ok {
+		content = c
+	}
+	// Resolve $service_name in content
+	if sn, ok := d.SkillParams["service_name"]; ok {
+		content = strings.ReplaceAll(content, "$service_name", sn)
+	}
+
+	recipient := ""
+	if r, ok := d.SkillParams["args.target"]; ok {
+		recipient = r
+	}
+
+	if err := d.Client.Chat(ctx, channel, content, recipient); err != nil {
+		return err
+	}
+
+	// Track announcement time for cooldown
+	if channel == "system" {
+		d.LastAnnounceTime = time.Now()
+	}
+	return nil
+}
+
+// distressKeywords are phrases that indicate a player needs assistance.
+var distressKeywords = []string{
+	"need fuel", "need repair", "out of fuel", "out of gas",
+	"stranded", "broken", "help", "fuel", "repair",
+}
+
+// doScanChatForDistress fetches chat history from local, system, and private
+// channels and scans messages for distress keywords. On match it populates
+// SkillParams with requester details and sets FoundDistressRequest.
+func (d *ClientDispatcher) doScanChatForDistress(ctx context.Context) error {
+	d.FoundDistressRequest = false
+
+	state := d.Client.GetState()
+	selfID := state.Player.ID
+
+	channels := []string{"local", "system", "private"}
+	var allMessages []game.ChatMessage
+
+	for _, ch := range channels {
+		if err := d.Client.GetChatHistory(ctx, ch, nil); err != nil {
+			d.Logger.Printf("[scan] warning: failed to get %s chat: %v", ch, err)
+			continue
+		}
+		// Brief pause to let the response arrive and populate state
+		select {
+		case <-time.After(game.SleepQuick):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		updated := d.Client.GetState()
+		allMessages = append(allMessages, updated.LastChatHistory...)
+	}
+
+	d.Logger.Printf("[scan] collected %d chat messages across %d channels", len(allMessages), len(channels))
+
+	for _, msg := range allMessages {
+		// Skip own messages
+		if msg.SenderID == selfID {
+			continue
+		}
+
+		lower := strings.ToLower(msg.Content)
+		for _, keyword := range distressKeywords {
+			if strings.Contains(lower, keyword) {
+				d.Logger.Printf("[scan] distress match from %s (%s): %q (keyword: %s)",
+					msg.Sender, msg.SenderID, msg.Content, keyword)
+
+				// Determine request type from content
+				requestType := "fuel"
+				if strings.Contains(lower, "repair") || strings.Contains(lower, "broken") {
+					requestType = "repair"
+				}
+
+				d.SkillParams["requester_id"] = msg.SenderID
+				d.SkillParams["requester_name"] = msg.Sender
+				d.SkillParams["request_type"] = requestType
+				// Use current POI as fallback for requester location
+				d.SkillParams["requester_poi"] = state.CurrentPOI
+				d.FoundDistressRequest = true
+
+				return nil
+			}
+		}
+	}
+
+	d.Logger.Printf("[scan] no distress requests found")
+	return nil
 }
 
 // doFindRoute calls the game client's FindRoute API and stores the result.
@@ -387,10 +549,14 @@ func isTickAction(action string) bool {
 	case "get_status", "get_system", "get_ship", "get_skills",
 		"get_poi", "get_map", "get_version", "get_recipes",
 		"get_wrecks", "get_notes", "get_listings", "get_trades",
+		"get_nearby", "get_chat_history",
 		"wait", "help", "find_route", "store_route_progress",
 		"load_route_progress", "clear_route_progress", "find_poi_in_system",
-		"craft_from_cargo",  // compound action, manages its own tick waits
-		"craft_from_storage": // compound action, manages its own tick waits
+		"chat",                    // chat messages don't consume ticks
+		"scan_chat_for_distress",  // compound action, manages its own waits
+		"sleep_scan_interval",     // sleep action, manages its own wait
+		"craft_from_cargo",        // compound action, manages its own tick waits
+		"craft_from_storage":      // compound action, manages its own tick waits
 		return false
 	default:
 		return true

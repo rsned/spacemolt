@@ -499,6 +499,8 @@ func (m *mockGameClient) FactionInvite(ctx context.Context, playerID string) err
 func (m *mockGameClient) FactionKick(ctx context.Context, playerID string) error               { return nil }
 func (m *mockGameClient) FactionPromote(ctx context.Context, playerID, roleID string) error    { return nil }
 func (m *mockGameClient) Chat(ctx context.Context, channel, content string, targetID string) error { return nil }
+func (m *mockGameClient) GetChatHistory(ctx context.Context, channel string, payload map[string]any) error { return nil }
+func (m *mockGameClient) Jettison(ctx context.Context, itemID string, quantity float64) error  { return nil }
 func (m *mockGameClient) SetPlayerStatus(ctx context.Context, payload map[string]any) error    { return nil }
 func (m *mockGameClient) SetHomeBase(ctx context.Context, baseID string) error                 { return nil }
 func (m *mockGameClient) ForumList(ctx context.Context, page int) error                        { return nil }

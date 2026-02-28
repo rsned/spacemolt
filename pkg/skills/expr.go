@@ -20,11 +20,12 @@ import (
 //   - Route functions: "has_route_progress()", "route_destination_system()", "route_step_count()"
 //   - Special: "default" (always true)
 func EvalExpr(expr string, state *game.State) (bool, error) {
-	return EvalExprWithRoute(expr, state, nil)
+	return EvalExprWithRoute(expr, state, nil, nil)
 }
 
-// EvalExprWithRoute evaluates a condition expression against game state with optional route context.
-func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bool, error) {
+// EvalExprWithRoute evaluates a condition expression against game state with
+// optional route context and custom float variables (e.g. last_announce_age).
+func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress, customVars map[string]float64) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
 	if expr == "default" {
@@ -33,7 +34,7 @@ func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bo
 
 	// Negation
 	if inner, ok := strings.CutPrefix(expr, "not "); ok {
-		result, err := EvalExprWithRoute(inner, state, route)
+		result, err := EvalExprWithRoute(inner, state, route, customVars)
 		if err != nil {
 			return false, err
 		}
@@ -42,11 +43,11 @@ func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bo
 
 	// AND operator
 	if parts := strings.Split(expr, " AND "); len(parts) == 2 {
-		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route)
+		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route, customVars)
 		if err != nil {
 			return false, err
 		}
-		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route)
+		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route, customVars)
 		if err != nil {
 			return false, err
 		}
@@ -55,11 +56,11 @@ func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bo
 
 	// OR operator
 	if parts := strings.Split(expr, " OR "); len(parts) == 2 {
-		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route)
+		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route, customVars)
 		if err != nil {
 			return false, err
 		}
-		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route)
+		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route, customVars)
 		if err != nil {
 			return false, err
 		}
@@ -74,12 +75,12 @@ func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bo
 	// Try comparison operators (ordered by length to avoid prefix issues)
 	for _, op := range []string{">=", "<=", "!=", "==", ">", "<"} {
 		if parts := strings.SplitN(expr, " "+op+" ", 2); len(parts) == 2 {
-			return evalComparisonWithRoute(parts[0], op, parts[1], state, route)
+			return evalComparisonWithRoute(parts[0], op, parts[1], state, route, customVars)
 		}
 	}
 
 	// Bare boolean
-	val, err := resolveVarWithRoute(expr, state, route)
+	val, err := resolveVarWithRoute(expr, state, route, customVars)
 	if err != nil {
 		return false, err
 	}
@@ -186,7 +187,7 @@ func (v exprValue) asBool() (bool, error) {
 	}
 }
 
-func resolveVarWithRoute(name string, state *game.State, route *RouteProgress) (exprValue, error) {
+func resolveVarWithRoute(name string, state *game.State, route *RouteProgress, customVars map[string]float64) (exprValue, error) {
 	name = strings.TrimSpace(name)
 
 	fuelPct := safeDivide(state.Fuel, state.MaxFuel)
@@ -248,12 +249,18 @@ func resolveVarWithRoute(name string, state *game.State, route *RouteProgress) (
 		}
 		return exprValue{floatVal: float64(route.CurrentStep), kind: "float"}, nil
 	default:
+		// Check custom variables before failing
+		if customVars != nil {
+			if val, ok := customVars[name]; ok {
+				return exprValue{floatVal: val, kind: "float"}, nil
+			}
+		}
 		return exprValue{}, fmt.Errorf("unknown variable: %q", name)
 	}
 }
 
-func evalComparisonWithRoute(lhs, op, rhs string, state *game.State, route *RouteProgress) (bool, error) {
-	left, err := resolveVarWithRoute(lhs, state, route)
+func evalComparisonWithRoute(lhs, op, rhs string, state *game.State, route *RouteProgress, customVars map[string]float64) (bool, error) {
+	left, err := resolveVarWithRoute(lhs, state, route, customVars)
 	if err != nil {
 		return false, err
 	}
@@ -264,7 +271,7 @@ func evalComparisonWithRoute(lhs, op, rhs string, state *game.State, route *Rout
 		rightVal, parseErr := strconv.ParseFloat(strings.TrimSpace(rhs), 64)
 		if parseErr != nil {
 			// If parsing fails, try to resolve as a variable
-			right, resolveErr := resolveVarWithRoute(rhs, state, route)
+			right, resolveErr := resolveVarWithRoute(rhs, state, route, customVars)
 			if resolveErr != nil {
 				return false, fmt.Errorf("cannot parse %q as number or variable for comparison with %s", rhs, lhs)
 			}

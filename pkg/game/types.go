@@ -345,8 +345,22 @@ type State struct {
 	InBattle    bool
 	BattleState *BattleState
 
+	// Chat history (from get_chat_history response)
+	LastChatHistory []ChatMessage
+
 	// Pending trades (from logged_in response)
 	PendingTrades []map[string]any
+}
+
+// ChatMessage represents a chat message stored in game state.
+type ChatMessage struct {
+	ID        string
+	Channel   string
+	SenderID  string
+	Sender    string
+	Content   string
+	TargetID  string
+	Timestamp string
 }
 
 // ModuleDefinition represents a module's definition including stats and requirements.
@@ -483,6 +497,12 @@ func (s *State) Clone() *State {
 			cloned.PendingTrades[i] = make(map[string]any, len(trade))
 			maps.Copy(cloned.PendingTrades[i], trade)
 		}
+	}
+
+	// Clone chat history if present
+	if len(s.LastChatHistory) > 0 {
+		cloned.LastChatHistory = make([]ChatMessage, len(s.LastChatHistory))
+		copy(cloned.LastChatHistory, s.LastChatHistory)
 	}
 
 	// Clone travel progress if present

@@ -14,14 +14,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/skills"
 )
@@ -80,6 +83,18 @@ func main() {
 	// Create dispatcher and executor
 	dispatcher := skills.NewClientDispatcher(client, "data", agentID, logger)
 	dispatcher.EnsureSystemData(ctx)
+
+	// Load agent personality to extract skill params (e.g. service_name)
+	agentParams := make(map[string]string)
+	personalityPath := filepath.Join("data", "agents", agentID, "personality.json")
+	if data, err := os.ReadFile(personalityPath); err == nil {
+		var p agent.Personality
+		if err := json.Unmarshal(data, &p); err == nil && p.ServiceName != "" {
+			agentParams["service_name"] = p.ServiceName
+			logger.Printf("Loaded service_name: %s", p.ServiceName)
+		}
+	}
+
 	executor := skills.NewExecutor(registry, dispatcher, logger)
 
 	// Print starting state
@@ -97,7 +112,7 @@ func main() {
 		logger.Printf("═══ Chain [%d/%d]: %s ═══", i+1, len(skillNames), skillName)
 		skillStart := time.Now()
 
-		if err := executor.Run(ctx, skillName); err != nil {
+		if err := executor.RunWithParams(ctx, skillName, agentParams); err != nil {
 			logger.Printf("Skill %s failed: %v", skillName, err)
 			continue
 		}

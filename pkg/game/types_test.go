@@ -165,6 +165,9 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			BattleID: "battle-123",
 			SystemID: "sol",
 		},
+		LastChatHistory: []ChatMessage{
+			{ID: "msg-1", Channel: "system", SenderID: "other-1", Sender: "Rival", Content: "help", Timestamp: "2026-02-28T10:00:00Z"},
+		},
 		PendingTrades: []map[string]any{
 			{"trade_id": "trade-1", "partner": "Rival"},
 		},

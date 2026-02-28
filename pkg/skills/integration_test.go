@@ -118,7 +118,7 @@ func TestRouteExpressionVariables_InIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := EvalExprWithRoute(tt.expr, &game.State{}, route)
+			result, err := EvalExprWithRoute(tt.expr, &game.State{}, route, nil)
 			if err != nil {
 				t.Fatalf("EvalExprWithRoute(%q) error: %v", tt.expr, err)
 			}

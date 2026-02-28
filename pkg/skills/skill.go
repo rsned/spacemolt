@@ -46,6 +46,7 @@ type Step struct {
 	Target     string        `yaml:"target,omitempty"`
 	Next       string        `yaml:"next,omitempty"`
 	Conditions ConditionList `yaml:"conditions,omitempty"`
+	Args       map[string]string `yaml:"args,omitempty"`
 	Repeat     *Repeat       `yaml:"repeat,omitempty"`
 	SkillParams map[string]string `yaml:"skill_params,omitempty"`
 }

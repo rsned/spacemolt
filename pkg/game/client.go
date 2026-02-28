@@ -1334,6 +1334,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if _, hasSkills := resp.Payload["skills"]; hasSkills {
 			c.parseSkillsData(resp.Payload)
 		}
+		// get_chat_history returns type "ok" with messages array in payload
+		if action, ok := resp.Payload["action"].(string); ok && action == "get_chat_history" {
+			c.parseChatHistoryData(resp.Payload)
+		}
 
 	case protocol.TypeActionResult:
 		c.parseActionResult(resp.Payload)
@@ -1556,6 +1560,34 @@ func (c *Client) parseSkillsData(payload map[string]any) {
 				extDef.ID = skillID
 			}
 			c.state.SkillDefinitions[skillID] = SkillDefinitionFromAPI(extDef)
+		}
+	}
+}
+
+// parseChatHistoryData extracts chat messages from a get_chat_history response
+// and stores them in state.LastChatHistory for compound actions to consume.
+func (c *Client) parseChatHistoryData(payload map[string]any) {
+	var resp serverapi.ChatHistoryResponse
+	if !unmarshalPayloadKey(payload, "messages", &resp.Messages) {
+		return
+	}
+	if ch, ok := payload["channel"].(string); ok {
+		resp.Channel = ch
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.state.LastChatHistory = make([]ChatMessage, len(resp.Messages))
+	for i, m := range resp.Messages {
+		c.state.LastChatHistory[i] = ChatMessage{
+			ID:        m.ID,
+			Channel:   resp.Channel,
+			SenderID:  m.SenderID,
+			Sender:    m.Sender,
+			Content:   m.Content,
+			TargetID:  m.TargetID,
+			Timestamp: m.TimestampUTC,
 		}
 	}
 }

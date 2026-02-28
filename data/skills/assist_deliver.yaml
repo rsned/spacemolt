@@ -7,19 +7,18 @@ description: >
   to station and dock.
 
 parameters:
-  requester_id:
-    type: string
+  - name: requester_id
     description: Player ID to help
-  requester_name:
-    type: string
+    required: true
+  - name: requester_name
     description: Display name of the requester
-  request_type:
-    type: string
-    enum: [fuel, repair]
-    description: Type of assistance needed
-  target_poi:
-    type: string
+    required: true
+  - name: request_type
+    description: Type of assistance needed (fuel or repair)
+    required: true
+  - name: target_poi
     description: POI where the requester is located
+    required: true
 
 prerequisites:
   - docked

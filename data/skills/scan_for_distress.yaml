@@ -1,25 +1,18 @@
 name: scan_for_distress
 description: >
-  Announce shipside assistance availability to the system channel (once per
-  hour), then monitor local, system, and private chat channels for messages
-  requesting fuel or repair assistance. Extract the requester's name/ID and
-  the type of help needed. Outputs request details for assist_deliver to
-  consume.
+  Continuously announce shipside assistance to the system channel (hourly),
+  then scan all chat channels for distress requests. If found, invoke
+  assist_deliver sub-skill to deliver supplies. Sleeps 5 minutes between
+  scan cycles and loops indefinitely.
 
 parameters:
-  service_name:
-    type: string
+  - name: service_name
     description: >
       Display name of the rescue service from the agent's personality
       (e.g. "Frontier Rescue Service", "Nebula Emergency Bureau").
+    required: true
 
 prerequisites: []
-
-outputs:
-  - requester_id (player ID requesting help)
-  - requester_name (display name)
-  - request_type (fuel | repair)
-  - requester_poi (POI where requester is located, if mentioned)
 
 steps:
   - id: check_announce_cooldown
@@ -29,53 +22,37 @@ steps:
       announcement. Avoids spamming the system channel.
     conditions:
       last_announce_age >= 3600: goto announce_services
-      default: goto get_local_chat
+      default: goto scan_chats
 
   - id: announce_services
     action: chat
     args:
       channel: system
-      content: "$service_name reporting for duty! Shipside assistance is available — if you're out of fuel or need repairs, send us a message and we'll be right there!"
-    next: get_local_chat
+      content: "$service_name reporting for duty! Shipside assistance is available — if you're out of fuel or need repairs, send us a message and we'll be right there! Only available in capital systems currently. Donations are always welcome."
+    next: scan_chats
 
-  - id: get_local_chat
-    action: get_chat_history
-    args:
-      channel: local
-    next: get_system_chat
+  - id: scan_chats
+    action: scan_chat_for_distress
+    next: check_found
 
-  - id: get_system_chat
-    action: get_chat_history
-    args:
-      channel: system
-    next: get_private_chat
-
-  - id: get_private_chat
-    action: get_chat_history
-    args:
-      channel: private
-    next: scan_messages
-
-  - id: scan_messages
+  - id: check_found
     check: true
     description: >
-      Scan collected messages for keywords: fuel, repair, help, stranded,
-      out of gas, broken. Extract requester details from matching messages.
+      Check if scan_chat_for_distress found a matching distress message.
+      If so, invoke assist_deliver sub-skill to handle the request.
     conditions:
-      found_request: goto extract_request
-      default: goto done_no_request
+      found_request: goto deliver_supplies
+      default: goto sleep_cycle
 
-  - id: extract_request
-    action: extract_request_details
-    description: >
-      Parse the matched message to extract requester_id, requester_name,
-      request_type (fuel or repair), and requester_poi if mentioned.
-    next: done
+  - id: deliver_supplies
+    skill: assist_deliver
+    skill_params:
+      requester_id: $requester_id
+      requester_name: $requester_name
+      request_type: $request_type
+      target_poi: $requester_poi
+    next: sleep_cycle
 
-  - id: done_no_request
-    terminal: true
-    description: No distress requests found in any channel.
-
-  - id: done
-    terminal: true
-    description: Distress request extracted and ready for assist_deliver.
+  - id: sleep_cycle
+    action: sleep_scan_interval
+    next: check_announce_cooldown
