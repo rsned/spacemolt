@@ -170,3 +170,55 @@ func TestEvalExpr_HasModuleType_NoDefinitions(t *testing.T) {
 		t.Error("should be false when module definitions are nil")
 	}
 }
+
+func TestExpressionVariables_CurrentSystem(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "test-system-1"},
+	}
+	result, err := EvalExpr("current_system == test-system-1", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected current_system to match")
+	}
+}
+
+func TestExpressionVariables_PlayerEmpire(t *testing.T) {
+	state := &game.State{
+		Player: game.Player{Empire: "Solarian"},
+	}
+	result, err := EvalExpr("player_empire == solarian", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected player_empire to be lowercased")
+	}
+}
+
+func TestExpressionVariables_FuelMaxJumps(t *testing.T) {
+	state := &game.State{
+		Fuel: 15.0,
+	}
+	result, err := EvalExpr("fuel_max_jumps == 5", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected fuel_max_jumps to be 5 (15/3)")
+	}
+}
+
+func TestExpressionVariables_CapitalSystemID(t *testing.T) {
+	state := &game.State{
+		Player: game.Player{Empire: "Solarian"},
+	}
+	result, err := EvalExpr("capital_system_id == sol", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected capital_system_id to be 'sol' for Solarian")
+	}
+}

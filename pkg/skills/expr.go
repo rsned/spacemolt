@@ -113,6 +113,14 @@ func resolveVar(name string, state *game.State) (exprValue, error) {
 		return exprValue{stringVal: resolveCurrentPOIType(state), kind: "string"}, nil
 	case "system_name":
 		return exprValue{stringVal: state.System.Name, kind: "string"}, nil
+	case "current_system":
+		return exprValue{stringVal: state.System.ID, kind: "string"}, nil
+	case "player_empire":
+		return exprValue{stringVal: strings.ToLower(state.Player.Empire), kind: "string"}, nil
+	case "fuel_max_jumps":
+		return exprValue{floatVal: float64(int(state.Fuel / 3.0)), kind: "float"}, nil
+	case "capital_system_id":
+		return exprValue{stringVal: empireCapitalSystem(state.Player.Empire), kind: "string"}, nil
 	default:
 		return exprValue{}, fmt.Errorf("unknown variable: %q", name)
 	}
@@ -201,4 +209,22 @@ func parseArgs(s string) []string {
 		}
 	}
 	return result
+}
+
+// empireCapitalSystem returns the capital system ID for an empire
+func empireCapitalSystem(empire string) string {
+	switch strings.ToLower(empire) {
+	case "solarian":
+		return "sol"
+	case "crimson":
+		return "krynn"
+	case "nebula":
+		return "haven"
+	case "voidborn":
+		return "nexus"
+	case "outerrim":
+		return "frontier"
+	default:
+		return ""
+	}
 }
