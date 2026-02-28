@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -16,18 +17,23 @@ import (
 // After travel/jump actions it automatically refreshes system data so that
 // POI-based conditions (current_poi_type, at_poi_type) can evaluate correctly.
 type ClientDispatcher struct {
-	Client    *game.Client
+	Client    game.GameClient
 	Logger    *log.Logger
 	TickDelay time.Duration // delay after tick-consuming actions; 0 = default (11s)
 	Route     *RouteProgress // Active route for multi-system travel
+	baseDir   string         // Base directory for agent data (e.g., "data")
+	agentID   string         // Agent identifier (e.g., "miner-1")
+	FoundPOI  string         // ID of most recently found POI
 }
 
 // NewClientDispatcher creates a dispatcher wrapping a connected game client.
-func NewClientDispatcher(client *game.Client, logger *log.Logger) *ClientDispatcher {
+func NewClientDispatcher(client game.GameClient, baseDir, agentID string, logger *log.Logger) *ClientDispatcher {
 	return &ClientDispatcher{
 		Client:    client,
 		Logger:    logger,
 		TickDelay: game.SleepTick + time.Second, // 11s — wait for next tick
+		baseDir:   baseDir,
+		agentID:   agentID,
 	}
 }
 
@@ -90,6 +96,21 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		}
 		return d.doFindRoute(ctx, target)
 
+	// Route persistence
+	case "store_route_progress":
+		return d.doStoreRouteProgress()
+	case "load_route_progress":
+		return d.doLoadRouteProgress()
+	case "clear_route_progress":
+		return d.doClearRouteProgress()
+
+	// POI discovery
+	case "find_poi_in_system":
+		if target == "" {
+			return fmt.Errorf("find_poi_in_system requires a target POI name")
+		}
+		return d.doFindPOIInSystem(target)
+
 	// Mining & scanning
 	case "mine":
 		return d.Client.Mine(ctx)
@@ -120,12 +141,15 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 
 	// Crafting (compound — gracefully handles failures)
 	case "craft_from_cargo":
-		crafted, err := d.Client.CraftFromCargo(ctx, d.Logger, nil)
-		if err != nil {
-			d.Logger.Printf("warning: craft_from_cargo failed (non-fatal): %v", err)
-			return nil
+		// Cast to *game.Client to access CraftFromCargo which is not in GameClient interface
+		if client, ok := d.Client.(*game.Client); ok {
+			crafted, err := client.CraftFromCargo(ctx, d.Logger, nil)
+			if err != nil {
+				d.Logger.Printf("warning: craft_from_cargo failed (non-fatal): %v", err)
+				return nil
+			}
+			d.Logger.Printf("crafted %d items from cargo", crafted)
 		}
-		d.Logger.Printf("crafted %d items from cargo", crafted)
 		return nil
 
 	// Storage
@@ -177,6 +201,78 @@ func (d *ClientDispatcher) doFindRoute(ctx context.Context, targetSystem string)
 
 	d.Logger.Printf("[route] Found route to %s (%d steps)", targetSystem, len(steps))
 	return nil
+}
+
+// doStoreRouteProgress saves the current route to a JSON file.
+func (d *ClientDispatcher) doStoreRouteProgress() error {
+	if d.Route == nil {
+		return fmt.Errorf("no route to store")
+	}
+	if err := SaveRouteProgress(d.baseDir, d.agentID, d.Route); err != nil {
+		return fmt.Errorf("save route progress: %w", err)
+	}
+	d.Logger.Printf("[route] Saved progress (step %d/%d)",
+		d.Route.CurrentStep, len(d.Route.Route))
+	return nil
+}
+
+// doLoadRouteProgress loads route from JSON file and validates against current position.
+func (d *ClientDispatcher) doLoadRouteProgress() error {
+	route, err := LoadRouteProgress(d.baseDir, d.agentID)
+	if err != nil {
+		return fmt.Errorf("load route progress: %w", err)
+	}
+
+	// Validate route against current position
+	state := d.Client.GetState()
+	if len(route.Route) > 0 && route.CurrentStep < len(route.Route) {
+		expectedSystem := route.Route[route.CurrentStep].SystemID
+		if state.System.ID != expectedSystem {
+			// Try to find our position in the route
+			found := false
+			for i, step := range route.Route {
+				if step.SystemID == state.System.ID {
+					route.CurrentStep = i
+					found = true
+					d.Logger.Printf("[route] Adjusted step to %d based on current position", i)
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("current system %s not in saved route", state.System.ID)
+			}
+		}
+	}
+
+	d.Route = route
+	d.Logger.Printf("[route] Loaded progress (step %d/%d to %s)",
+		route.CurrentStep, len(route.Route), route.DestinationSystem)
+	return nil
+}
+
+// doClearRouteProgress removes the route file and clears in-memory route.
+func (d *ClientDispatcher) doClearRouteProgress() error {
+	if err := ClearRouteProgress(d.baseDir, d.agentID); err != nil {
+		return fmt.Errorf("clear route progress: %w", err)
+	}
+	d.Route = nil
+	d.Logger.Printf("[route] Cleared progress")
+	return nil
+}
+
+// doFindPOIInSystem searches for a POI by name in the current system.
+func (d *ClientDispatcher) doFindPOIInSystem(poiName string) error {
+	state := d.Client.GetState()
+
+	for _, poi := range state.System.POIs {
+		if strings.EqualFold(poi.Name, poiName) {
+			d.FoundPOI = poi.ID
+			d.Logger.Printf("[poi] Found POI: %s (%s)", poi.Name, poi.ID)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("POI %q not found in system %s", poiName, state.System.Name)
 }
 
 const (
@@ -254,7 +350,8 @@ func isTickAction(action string) bool {
 	case "get_status", "get_system", "get_ship", "get_skills",
 		"get_poi", "get_map", "get_version", "get_recipes",
 		"get_wrecks", "get_notes", "get_listings", "get_trades",
-		"wait", "help", "find_route",
+		"wait", "help", "find_route", "store_route_progress",
+		"load_route_progress", "clear_route_progress", "find_poi_in_system",
 		"craft_from_cargo": // compound action, manages its own tick waits
 		return false
 	default:

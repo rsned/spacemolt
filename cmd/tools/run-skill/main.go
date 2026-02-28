@@ -78,7 +78,7 @@ func main() {
 	time.Sleep(game.SleepQuick)
 
 	// Create dispatcher and executor
-	dispatcher := skills.NewClientDispatcher(client, logger)
+	dispatcher := skills.NewClientDispatcher(client, "data", agentID, logger)
 	dispatcher.EnsureSystemData(ctx)
 	executor := skills.NewExecutor(registry, dispatcher, logger)
 
@@ -99,22 +99,23 @@ func main() {
 
 		if err := executor.Run(ctx, skillName); err != nil {
 			logger.Printf("Skill %s failed: %v", skillName, err)
-			printState(logger, "State at failure", client.GetState())
-			os.Exit(1)
+			continue
 		}
 
-		logger.Printf("═══ %s done (%s) ═══", skillName, time.Since(skillStart).Round(time.Second))
+		logger.Printf("✓ Skill %s completed in %s", skillName, time.Since(skillStart))
+		printState(logger, fmt.Sprintf("After %s", skillName), client.GetState())
 	}
 
-	// Print ending state
-	printState(logger, fmt.Sprintf("Chain Complete (%s)", time.Since(chainStart).Round(time.Second)), client.GetState())
+	logger.Printf("═══ Chain completed in %s ═══", time.Since(chainStart))
+	printState(logger, "Final State", client.GetState())
 }
 
-func printState(logger *log.Logger, header string, state *game.State) {
-	logger.Printf("═══ %s ═══", header)
-	logger.Printf("System: %s | POI: %s | Docked: %v", state.System.Name, state.CurrentPOI, state.Doc)
-	logger.Printf("Credits: %.2f | Fuel: %.0f/%.0f | Hull: %.0f/%.0f",
-		state.Credits, state.Fuel, state.MaxFuel, state.Hull, state.MaxHull)
-	logger.Printf("Cargo: %.1f/%.1f (%d items)",
-		state.Ship.CargoUsed, state.Ship.CargoCapacity, len(state.Ship.Cargo))
+func printState(logger *log.Logger, label string, state *game.State) {
+	logger.Printf("─── %s ───", label)
+	logger.Printf("  System: %s (%s)", state.System.Name, state.System.ID)
+	logger.Printf("  POI: %s", state.CurrentPOI)
+	logger.Printf("  Credits: %.0f", state.Credits)
+	logger.Printf("  Fuel: %.0f/%.0f", state.Fuel, state.MaxFuel)
+	logger.Printf("  Hull: %.0f/%.0f", state.Hull, state.MaxHull)
+	logger.Printf("  Cargo: %d/%d items", len(state.Ship.Cargo), state.MaxCargo)
 }
