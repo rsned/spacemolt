@@ -15,9 +15,18 @@ type Skill struct {
 	Name          string            `yaml:"name"`
 	Description   string            `yaml:"description"`
 	Prerequisites []string          `yaml:"prerequisites,omitempty"`
+	Parameters    []ParameterDefinition `yaml:"parameters,omitempty"`
 	Targets       map[string]Target `yaml:"targets,omitempty"`
 	Outputs       []string          `yaml:"outputs,omitempty"`
 	Steps         []Step            `yaml:"steps"`
+}
+
+// ParameterDefinition defines a skill parameter with metadata.
+type ParameterDefinition struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Required    bool   `yaml:"required"`
+	Default     string `yaml:"default,omitempty"`
 }
 
 // Target defines a POI type reference resolved at runtime.
@@ -38,6 +47,7 @@ type Step struct {
 	Next       string        `yaml:"next,omitempty"`
 	Conditions ConditionList `yaml:"conditions,omitempty"`
 	Repeat     *Repeat       `yaml:"repeat,omitempty"`
+	SkillParams map[string]string `yaml:"skill_params,omitempty"`
 }
 
 // Repeat defines loop behavior for a step.

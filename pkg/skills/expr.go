@@ -17,8 +17,14 @@ import (
 //   - String comparisons: "current_poi == poi-123", "system_name == Alpha"
 //   - Functions: "at_poi_type(station, asteroid_belt)", "has_module_type(mining)"
 //   - Navigation functions: "fuel_sufficient_for_jumps(4)", "at_system('sol')", "poi_is_dockable()"
+//   - Route functions: "has_route_progress()", "route_destination_system()", "route_step_count()"
 //   - Special: "default" (always true)
 func EvalExpr(expr string, state *game.State) (bool, error) {
+	return EvalExprWithRoute(expr, state, nil)
+}
+
+// EvalExprWithRoute evaluates a condition expression against game state with optional route context.
+func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
 	if expr == "default" {
@@ -27,7 +33,7 @@ func EvalExpr(expr string, state *game.State) (bool, error) {
 
 	// Negation
 	if inner, ok := strings.CutPrefix(expr, "not "); ok {
-		result, err := EvalExpr(inner, state)
+		result, err := EvalExprWithRoute(inner, state, route)
 		if err != nil {
 			return false, err
 		}
@@ -36,26 +42,26 @@ func EvalExpr(expr string, state *game.State) (bool, error) {
 
 	// Check if expression is a function call: name(args...)
 	if strings.Contains(expr, "(") && strings.HasSuffix(expr, ")") {
-		return parseFunctionCall(expr, state)
+		return parseFunctionCallWithRoute(expr, state, route)
 	}
 
 	// Try comparison operators (ordered by length to avoid prefix issues)
 	for _, op := range []string{">=", "<=", "!=", "==", ">", "<"} {
 		if parts := strings.SplitN(expr, " "+op+" ", 2); len(parts) == 2 {
-			return evalComparison(parts[0], op, parts[1], state)
+			return evalComparisonWithRoute(parts[0], op, parts[1], state, route)
 		}
 	}
 
 	// Bare boolean
-	val, err := resolveVar(expr, state)
+	val, err := resolveVarWithRoute(expr, state, route)
 	if err != nil {
 		return false, err
 	}
 	return val.asBool()
 }
 
-// parseFunctionCall handles function(arg1, arg2, ...) expressions
-func parseFunctionCall(expr string, state *game.State) (bool, error) {
+// parseFunctionCallWithRoute handles function(arg1, arg2, ...) expressions with route context
+func parseFunctionCallWithRoute(expr string, state *game.State, route *RouteProgress) (bool, error) {
 	// Match: function_name(args)
 	openParen := strings.Index(expr, "(")
 	closeParen := strings.LastIndex(expr, ")")
@@ -93,9 +99,15 @@ func parseFunctionCall(expr string, state *game.State) (bool, error) {
 			return false, fmt.Errorf("has_module_type requires 1 argument")
 		}
 		return hasModuleType(state, args[0]), nil
+	case "has_route_progress":
+		return hasRouteProgress(route), nil
 	default:
 		return false, fmt.Errorf("unknown function: %s", funcName)
 	}
+}
+
+func hasRouteProgress(route *RouteProgress) bool {
+	return route != nil && len(route.Route) > 0
 }
 
 func fuelSufficientForJumps(args []string, state *game.State) (bool, error) {
@@ -148,7 +160,7 @@ func (v exprValue) asBool() (bool, error) {
 	}
 }
 
-func resolveVar(name string, state *game.State) (exprValue, error) {
+func resolveVarWithRoute(name string, state *game.State, route *RouteProgress) (exprValue, error) {
 	name = strings.TrimSpace(name)
 
 	fuelPct := safeDivide(state.Fuel, state.MaxFuel)
@@ -188,22 +200,52 @@ func resolveVar(name string, state *game.State) (exprValue, error) {
 		return exprValue{floatVal: float64(int(state.Fuel / 3.0)), kind: "float"}, nil
 	case "capital_system_id":
 		return exprValue{stringVal: empireCapitalSystem(state.Player.Empire), kind: "string"}, nil
+	// Route state variables
+	case "route_destination_system":
+		if route == nil {
+			return exprValue{}, fmt.Errorf("no active route")
+		}
+		return exprValue{stringVal: route.DestinationSystem, kind: "string"}, nil
+	case "route_destination_poi":
+		if route == nil {
+			return exprValue{}, fmt.Errorf("no active route")
+		}
+		return exprValue{stringVal: route.DestinationPOI, kind: "string"}, nil
+	case "route_step_count":
+		if route == nil {
+			return exprValue{}, fmt.Errorf("no active route")
+		}
+		return exprValue{floatVal: float64(len(route.Route)), kind: "float"}, nil
+	case "route_current_step":
+		if route == nil {
+			return exprValue{}, fmt.Errorf("no active route")
+		}
+		return exprValue{floatVal: float64(route.CurrentStep), kind: "float"}, nil
 	default:
 		return exprValue{}, fmt.Errorf("unknown variable: %q", name)
 	}
 }
 
-func evalComparison(lhs, op, rhs string, state *game.State) (bool, error) {
-	left, err := resolveVar(lhs, state)
+func evalComparisonWithRoute(lhs, op, rhs string, state *game.State, route *RouteProgress) (bool, error) {
+	left, err := resolveVarWithRoute(lhs, state, route)
 	if err != nil {
 		return false, err
 	}
 
 	// Float comparison
 	if left.kind == "float" {
+		// Try to parse as float first
 		rightVal, parseErr := strconv.ParseFloat(strings.TrimSpace(rhs), 64)
 		if parseErr != nil {
-			return false, fmt.Errorf("cannot parse %q as number for comparison with %s", rhs, lhs)
+			// If parsing fails, try to resolve as a variable
+			right, resolveErr := resolveVarWithRoute(rhs, state, route)
+			if resolveErr != nil {
+				return false, fmt.Errorf("cannot parse %q as number or variable for comparison with %s", rhs, lhs)
+			}
+			if right.kind != "float" {
+				return false, fmt.Errorf("cannot compare float with non-float for %s and %s", lhs, rhs)
+			}
+			return compareFloat(left.floatVal, op, right.floatVal)
 		}
 		return compareFloat(left.floatVal, op, rightVal)
 	}

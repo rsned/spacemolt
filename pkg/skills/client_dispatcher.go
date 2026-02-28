@@ -17,23 +17,25 @@ import (
 // After travel/jump actions it automatically refreshes system data so that
 // POI-based conditions (current_poi_type, at_poi_type) can evaluate correctly.
 type ClientDispatcher struct {
-	Client    game.GameClient
-	Logger    *log.Logger
-	TickDelay time.Duration // delay after tick-consuming actions; 0 = default (11s)
-	Route     *RouteProgress // Active route for multi-system travel
-	baseDir   string         // Base directory for agent data (e.g., "data")
-	agentID   string         // Agent identifier (e.g., "miner-1")
-	FoundPOI  string         // ID of most recently found POI
+	Client      game.GameClient
+	Logger      *log.Logger
+	TickDelay   time.Duration // delay after tick-consuming actions; 0 = default (11s)
+	Route       *RouteProgress // Active route for multi-system travel
+	baseDir     string         // Base directory for agent data (e.g., "data")
+	agentID     string         // Agent identifier (e.g., "miner-1")
+	FoundPOI    string         // ID of most recently found POI
+	SkillParams map[string]string // Skill parameters for current execution
 }
 
 // NewClientDispatcher creates a dispatcher wrapping a connected game client.
 func NewClientDispatcher(client game.GameClient, baseDir, agentID string, logger *log.Logger) *ClientDispatcher {
 	return &ClientDispatcher{
-		Client:    client,
-		Logger:    logger,
-		TickDelay: game.SleepTick + time.Second, // 11s — wait for next tick
-		baseDir:   baseDir,
-		agentID:   agentID,
+		Client:      client,
+		Logger:      logger,
+		TickDelay:   game.SleepTick + time.Second, // 11s — wait for next tick
+		baseDir:     baseDir,
+		agentID:     agentID,
+		SkillParams: make(map[string]string),
 	}
 }
 
@@ -85,7 +87,15 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if target == "" {
 			return fmt.Errorf("jump requires a target system")
 		}
-		if err := d.Client.Jump(ctx, target); err != nil {
+		// Check if target is a parameter reference
+		jumpTarget := target
+		if strings.HasPrefix(target, "$") {
+			paramName := strings.TrimPrefix(target, "$")
+			if val, ok := d.SkillParams[paramName]; ok {
+				jumpTarget = val
+			}
+		}
+		if err := d.Client.Jump(ctx, jumpTarget); err != nil {
 			return err
 		}
 		d.waitForSystemChange(ctx)
@@ -94,7 +104,15 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if target == "" {
 			return fmt.Errorf("find_route requires a target system")
 		}
-		return d.doFindRoute(ctx, target)
+		// Check if target is a parameter reference
+		routeTarget := target
+		if strings.HasPrefix(target, "$") {
+			paramName := strings.TrimPrefix(target, "$")
+			if val, ok := d.SkillParams[paramName]; ok {
+				routeTarget = val
+			}
+		}
+		return d.doFindRoute(ctx, routeTarget)
 
 	// Route persistence
 	case "store_route_progress":
@@ -109,7 +127,15 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if target == "" {
 			return fmt.Errorf("find_poi_in_system requires a target POI name")
 		}
-		return d.doFindPOIInSystem(target)
+		// Check if target is a parameter reference
+		poiTarget := target
+		if strings.HasPrefix(target, "$") {
+			paramName := strings.TrimPrefix(target, "$")
+			if val, ok := d.SkillParams[paramName]; ok {
+				poiTarget = val
+			}
+		}
+		return d.doFindPOIInSystem(poiTarget)
 
 	// Mining & scanning
 	case "mine":

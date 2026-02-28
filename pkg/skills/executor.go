@@ -44,10 +44,30 @@ func NewExecutor(registry *Registry, dispatcher ActionDispatcher, logger *log.Lo
 
 // Run executes a skill by name to completion.
 func (e *Executor) Run(ctx context.Context, skillName string) error {
+	return e.RunWithParams(ctx, skillName, nil)
+}
+
+// RunWithParams executes a skill with parameters.
+func (e *Executor) RunWithParams(ctx context.Context, skillName string, params map[string]string) error {
 	skill := e.registry.Get(skillName)
 	if skill == nil {
 		return fmt.Errorf("unknown skill: %q", skillName)
 	}
+
+	// Set parameters on dispatcher if it's a ClientDispatcher
+	if dispatcher, ok := e.dispatcher.(*ClientDispatcher); ok {
+		if dispatcher.SkillParams == nil {
+			dispatcher.SkillParams = make(map[string]string)
+		}
+		// Clear previous params and set new ones
+		for k := range dispatcher.SkillParams {
+			delete(dispatcher.SkillParams, k)
+		}
+		for k, v := range params {
+			dispatcher.SkillParams[k] = v
+		}
+	}
+
 	return e.runSkill(ctx, skill)
 }
 
@@ -123,7 +143,20 @@ func (e *Executor) executeStep(ctx context.Context, skill *Skill, step *Step) (s
 		if subSkill == nil {
 			return "", fmt.Errorf("unknown sub-skill: %q", step.Skill)
 		}
-		if err := e.runSkill(ctx, subSkill); err != nil {
+
+		// Build sub-skill parameters
+		params := e.buildSubSkillParams(step)
+
+		// Create a new executor for the sub-skill to avoid depth conflicts
+		subExec := &Executor{
+			registry:   e.registry,
+			dispatcher: e.dispatcher,
+			logger:     e.logger,
+			MaxSteps:   e.MaxSteps,
+			depth:      e.depth, // Inherit current depth
+		}
+
+		if err := subExec.RunWithParams(ctx, step.Skill, params); err != nil {
 			return "", fmt.Errorf("sub-skill %q: %w", step.Skill, err)
 		}
 		return step.Next, nil
@@ -190,13 +223,13 @@ func (e *Executor) executeRepeat(ctx context.Context, step *Step, target string)
 		// Check while conditions before each iteration.
 		state := e.dispatcher.GetState()
 		allTrue := true
-		for _, cond := range step.Repeat.While {
-			result, err := EvalExpr(cond, state)
+		for _, condExpr := range step.Repeat.While {
+			result, err := e.evalExprWithRoute(condExpr, state)
 			if err != nil {
-				return "", fmt.Errorf("while condition %q: %w", cond, err)
+				return "", fmt.Errorf("while condition %q: %w", condExpr, err)
 			}
 			if !result {
-				e.logger.Printf("%s    [%d] exit: %s no longer true", indent, iteration+1, cond)
+				e.logger.Printf("%s    [%d] exit: %s no longer true", indent, iteration+1, condExpr)
 				allTrue = false
 				break
 			}
@@ -230,7 +263,7 @@ func (e *Executor) evalConditions(conditions ConditionList, state *game.State) (
 			continue
 		}
 
-		result, err := EvalExpr(cond.Expr, state)
+		result, err := e.evalExprWithRoute(cond.Expr, state)
 		if err != nil {
 			return "", fmt.Errorf("condition %q: %w", cond.Expr, err)
 		}
@@ -244,6 +277,15 @@ func (e *Executor) evalConditions(conditions ConditionList, state *game.State) (
 	}
 
 	return "", fmt.Errorf("no condition matched and no default")
+}
+
+func (e *Executor) evalExprWithRoute(expr string, state *game.State) (bool, error) {
+	// Get route from dispatcher if it's a ClientDispatcher
+	var route *RouteProgress
+	if dispatcher, ok := e.dispatcher.(*ClientDispatcher); ok {
+		route = dispatcher.Route
+	}
+	return EvalExprWithRoute(expr, state, route)
 }
 
 func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State) (string, error) {
@@ -268,4 +310,53 @@ func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State)
 	}
 
 	return "", fmt.Errorf("no POI of type %v found in current system", t.POIType)
+}
+
+// buildSubSkillParams resolves parameter values for sub-skill invocation.
+func (e *Executor) buildSubSkillParams(step *Step) map[string]string {
+	state := e.dispatcher.GetState()
+	params := make(map[string]string)
+
+	for k, v := range step.SkillParams {
+		if strings.HasPrefix(v, "$") {
+			// Variable reference - resolve from skill params or state
+			varName := strings.TrimPrefix(v, "$")
+
+			// First check if it's a special variable
+			resolved := e.resolveVariable(varName, state)
+			if resolved != "" {
+				params[k] = resolved
+			} else {
+				// Try to get from current skill params
+				if dispatcher, ok := e.dispatcher.(*ClientDispatcher); ok {
+					if val, ok := dispatcher.SkillParams[varName]; ok {
+						params[k] = val
+					} else {
+						params[k] = v // Keep original if not found
+					}
+				} else {
+					params[k] = v
+				}
+			}
+		} else {
+			params[k] = v
+		}
+	}
+
+	return params
+}
+
+// resolveVariable resolves special variables like capital_system_id
+func (e *Executor) resolveVariable(varName string, state *game.State) string {
+	switch varName {
+	case "capital_system_id":
+		return empireCapitalSystem(state.Player.Empire)
+	case "found_poi":
+		if dispatcher, ok := e.dispatcher.(*ClientDispatcher); ok {
+			return dispatcher.FoundPOI
+		}
+		return ""
+	default:
+		return ""
+	}
 }

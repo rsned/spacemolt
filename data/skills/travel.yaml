@@ -1,0 +1,98 @@
+name: travel
+description: Navigate to destination system with optional POI docking, supports disconnect recovery
+
+parameters:
+  - name: destination_system
+    description: Target system ID
+    required: true
+  - name: destination_poi
+    description: Optional POI name to dock at
+    required: false
+
+prerequisites:
+  - at_poi_type(station, base) OR not docked
+
+steps:
+  - id: check_resume
+    check: true
+    conditions:
+      has_route_progress(): goto validate_resume
+      default: goto plan_route
+
+  - id: validate_resume
+    action: load_route_progress
+    conditions:
+      route_current_step < route_step_count: goto fuel_check
+      default: goto plan_route
+
+  - id: plan_route
+    action: find_route
+    target: $destination_system
+    next: store_and_fuel_check
+
+  - id: store_and_fuel_check
+    action: store_route_progress
+    next: fuel_check
+
+  - id: fuel_check
+    check: true
+    conditions:
+      docked AND fuel_pct < 1.0: goto refuel_now
+      route_current_step < route_step_count: goto begin_route
+      default: goto route_complete
+
+  - id: refuel_now
+    action: refuel
+    next: fuel_check
+
+  - id: begin_route
+    check: true
+    conditions:
+      route_current_step >= route_step_count: goto route_complete
+      at_system(route_destination_system): goto route_complete
+      default: goto check_need_jump
+
+  - id: check_need_jump
+    check: true
+    conditions:
+      at_system(route_destination_system): goto route_complete
+      default: goto do_jump
+
+  - id: do_jump
+    action: jump
+    target: $next_system
+    next: save_progress
+
+  - id: save_progress
+    action: store_route_progress
+    next: begin_route
+
+  - id: route_complete
+    check: true
+    conditions:
+      route_destination_poi == "": goto done
+      default: goto find_poi
+
+  - id: find_poi
+    action: find_poi_in_system
+    target: $destination_poi
+    next: travel_to_poi
+
+  - id: travel_to_poi
+    action: travel
+    target: $found_poi
+    next: check_dockable
+
+  - id: check_dockable
+    check: true
+    conditions:
+      poi_is_dockable(): goto dock
+      default: goto done
+
+  - id: dock
+    action: dock
+    next: done
+
+  - id: done
+    action: clear_route_progress
+    terminal: true

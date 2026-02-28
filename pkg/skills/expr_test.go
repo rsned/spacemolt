@@ -284,3 +284,131 @@ func TestFunction_POIIsDockable(t *testing.T) {
 		t.Error("Expected poi_is_dockable to return true for station")
 	}
 }
+
+func TestRouteExpressionVariables_NoRoute(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "sol"},
+	}
+
+	tests := []struct {
+		expr string
+	}{
+		{"route_destination_system == sol"},
+		{"route_destination_poi == station"},
+		{"route_step_count > 0"},
+		{"route_current_step == 0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			_, err := EvalExpr(tt.expr, state)
+			if err == nil {
+				t.Errorf("Expected error for %q with no route", tt.expr)
+			}
+		})
+	}
+}
+
+func TestRouteExpressionVariables_WithRoute(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "sol"},
+	}
+
+	route := &RouteProgress{
+		DestinationSystem: "haven",
+		DestinationPOI:    "station-alpha",
+		Route: []RouteStep{
+			{SystemID: "sol", Name: "Sol", Jumps: 0},
+			{SystemID: "system-2", Name: "System 2", Jumps: 1},
+			{SystemID: "haven", Name: "Haven", Jumps: 1},
+		},
+		CurrentStep: 1,
+	}
+
+	tests := []struct {
+		expr string
+		want bool
+	}{
+		{"route_destination_system == haven", true},
+		{"route_destination_system == sol", false},
+		{"route_destination_poi == station-alpha", true},
+		{"route_destination_poi == station-beta", false},
+		{"route_step_count == 3", true},
+		{"route_step_count > 2", true},
+		{"route_step_count < 3", false},
+		{"route_current_step == 1", true},
+		{"route_current_step < route_step_count", true},
+		{"route_current_step >= route_step_count", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			got, err := EvalExprWithRoute(tt.expr, state, route)
+			if err != nil {
+				t.Fatalf("EvalExprWithRoute(%q) error: %v", tt.expr, err)
+			}
+			if got != tt.want {
+				t.Errorf("EvalExprWithRoute(%q) = %v, want %v", tt.expr, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRouteFunction_HasRouteProgress(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "sol"},
+	}
+
+	// No route
+	result, err := EvalExpr("has_route_progress()", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if result {
+		t.Error("Expected has_route_progress to return false when no route")
+	}
+
+	// With route
+	route := &RouteProgress{
+		DestinationSystem: "haven",
+		Route:             []RouteStep{{SystemID: "sol", Name: "Sol", Jumps: 0}},
+		CurrentStep:       0,
+	}
+
+	result, err = EvalExprWithRoute("has_route_progress()", state, route)
+	if err != nil {
+		t.Fatalf("EvalExprWithRoute failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected has_route_progress to return true with route")
+	}
+}
+
+func TestRouteExpressionVariables_EmptyRoute(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "sol"},
+	}
+
+	route := &RouteProgress{
+		DestinationSystem: "haven",
+		Route:             []RouteStep{}, // Empty route
+		CurrentStep:       0,
+	}
+
+	// Empty route should still allow destination access but step count is 0
+	result, err := EvalExprWithRoute("route_destination_system == haven", state, route)
+	if err != nil {
+		t.Fatalf("EvalExprWithRoute failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected route_destination_system to be accessible with empty route")
+	}
+
+	result, err = EvalExprWithRoute("route_step_count == 0", state, route)
+	if err != nil {
+		t.Fatalf("EvalExprWithRoute failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected route_step_count to be 0 for empty route")
+	}
+}
