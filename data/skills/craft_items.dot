@@ -7,6 +7,7 @@ digraph craft_items {
   done [shape=doublecircle label="done"]
 
   check_ready -> done [label="not docked"]
+  check_ready -> done [label="not at_poi_type(station)"]
   check_ready -> done [label="not has_cargo"]
   check_ready -> craft [label="default"]
   craft -> done

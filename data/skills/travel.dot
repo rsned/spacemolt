@@ -1,0 +1,46 @@
+digraph travel {
+  label="travel: Navigate to destination system with optional POI docking, supports disconnect recovery"
+  rankdir=TB
+
+  check_resume [shape=diamond label="check_resume"]
+  validate_resume [shape=box label="load_route_progress"]
+  plan_route [shape=box label="find_route\n-> $destination_system"]
+  store_and_fuel_check [shape=box label="store_route_progress"]
+  fuel_check [shape=diamond label="fuel_check"]
+  refuel_now [shape=box label="refuel"]
+  begin_route [shape=diamond label="begin_route"]
+  check_need_jump [shape=diamond label="check_need_jump"]
+  do_jump [shape=box label="jump\n-> $next_system"]
+  save_progress [shape=box label="store_route_progress"]
+  route_complete [shape=diamond label="route_complete"]
+  find_poi [shape=box label="find_poi_in_system\n-> $destination_poi"]
+  travel_to_poi [shape=box label="travel\n-> $found_poi"]
+  check_dockable [shape=diamond label="check_dockable"]
+  dock [shape=box label="dock"]
+  done [shape=doublecircle label="done"]
+
+  check_resume -> validate_resume [label="has_route_progress()"]
+  check_resume -> plan_route [label="default"]
+  validate_resume -> fuel_check [label="route_current_step < route_step_count"]
+  validate_resume -> plan_route [label="default"]
+  plan_route -> store_and_fuel_check
+  store_and_fuel_check -> fuel_check
+  fuel_check -> refuel_now [label="docked AND fuel_pct < 1.0"]
+  fuel_check -> begin_route [label="route_current_step < route_step_count"]
+  fuel_check -> route_complete [label="default"]
+  refuel_now -> fuel_check
+  begin_route -> route_complete [label="route_current_step >= route_step_count"]
+  begin_route -> route_complete [label="at_system(route_destination_system)"]
+  begin_route -> check_need_jump [label="default"]
+  check_need_jump -> route_complete [label="at_system(route_destination_system)"]
+  check_need_jump -> do_jump [label="default"]
+  do_jump -> save_progress
+  save_progress -> begin_route
+  route_complete -> done [label="route_destination_poi == \"\""]
+  route_complete -> find_poi [label="default"]
+  find_poi -> travel_to_poi
+  travel_to_poi -> check_dockable
+  check_dockable -> dock [label="poi_is_dockable()"]
+  check_dockable -> done [label="default"]
+  dock -> done
+}

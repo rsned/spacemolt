@@ -1005,21 +1005,41 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	// Deposit each item in cargo
 	depositErrors := 0
 	for _, item := range state.Ship.Cargo {
-		if item.Quantity > 0 {
-			// Wait before each deposit to avoid action_pending errors
-			time.Sleep(SleepQuick)
+		if item.Quantity <= 0 {
+			continue
+		}
 
-			if err := c.DepositItems(ctx, item.ItemID, item.Quantity); err != nil {
-				c.debugLogger.Printf("Failed to deposit %s: %v", item.ItemID, err)
-				depositErrors++
-				// If action is pending, wait longer before next item
-				if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
-					time.Sleep(SleepShort)
+		// Check context before each deposit
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		// Wait before each deposit to avoid action_pending errors
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(SleepQuick):
+		}
+
+		if err := c.DepositItems(ctx, item.ItemID, item.Quantity); err != nil {
+			c.debugLogger.Printf("Failed to deposit %s: %v", item.ItemID, err)
+			depositErrors++
+			// If action is pending, wait longer before next item
+			if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(SleepShort):
 				}
-				// Continue depositing other items even if one fails
-			} else {
-				c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, item.Quantity)
-				time.Sleep(SleepShort) // Brief delay between deposits
+			}
+			// Continue depositing other items even if one fails
+		} else {
+			c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, item.Quantity)
+			// Brief delay between deposits
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(SleepShort):
 			}
 		}
 	}

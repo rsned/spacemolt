@@ -1,0 +1,13 @@
+digraph craft_from_storage {
+  label="craft_from_storage: Craft items using materials from station storage. Deposits current cargo, queries craftable recipes from storage contents, withdraws materials, crafts, and deposits outputs. Repeats until nothing more can be crafted.\n"
+  rankdir=TB
+
+  check_ready [shape=diamond label="check_ready"]
+  craft [shape=box label="craft_from_storage"]
+  done [shape=doublecircle label="done"]
+
+  check_ready -> done [label="not docked"]
+  check_ready -> done [label="not at_poi_type(station)"]
+  check_ready -> craft [label="default"]
+  craft -> done
+}

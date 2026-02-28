@@ -1,0 +1,24 @@
+name: craft_from_storage
+description: >
+  Craft items using materials from station storage. Deposits current cargo,
+  queries craftable recipes from storage contents, withdraws materials,
+  crafts, and deposits outputs. Repeats until nothing more can be crafted.
+
+prerequisites:
+  - docked
+  - at_poi_type(station)
+
+steps:
+  - id: check_ready
+    check: true
+    conditions:
+      not docked: goto done
+      not at_poi_type(station): goto done
+      default: goto craft
+
+  - id: craft
+    action: craft_from_storage
+    next: done
+
+  - id: done
+    terminal: true

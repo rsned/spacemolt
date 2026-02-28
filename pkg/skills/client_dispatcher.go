@@ -178,6 +178,17 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		}
 		return nil
 
+	case "craft_from_storage":
+		if client, ok := d.Client.(*game.Client); ok {
+			crafted, err := client.CraftFromStorage(ctx, d.Logger, nil)
+			if err != nil {
+				d.Logger.Printf("warning: craft_from_storage failed (non-fatal): %v", err)
+				return nil
+			}
+			d.Logger.Printf("crafted %d items from storage", crafted)
+		}
+		return nil
+
 	// Storage
 	case "deposit_all_items":
 		return d.Client.DepositAllItems(ctx)
@@ -378,7 +389,8 @@ func isTickAction(action string) bool {
 		"get_wrecks", "get_notes", "get_listings", "get_trades",
 		"wait", "help", "find_route", "store_route_progress",
 		"load_route_progress", "clear_route_progress", "find_poi_in_system",
-		"craft_from_cargo": // compound action, manages its own tick waits
+		"craft_from_cargo",  // compound action, manages its own tick waits
+		"craft_from_storage": // compound action, manages its own tick waits
 		return false
 	default:
 		return true

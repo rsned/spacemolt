@@ -1,0 +1,26 @@
+digraph recall {
+  label="recall: Return agent to empire capital system and dock at home base"
+  rankdir=TB
+
+  check_already_home [shape=diamond label="check_already_home"]
+  prepare_travel [shape=diamond label="prepare_travel"]
+  undock [shape=box label="undock"]
+  travel_home [shape=box style=rounded label="skill: travel"]
+  ensure_docked [shape=diamond label="ensure_docked"]
+  find_base [shape=box label="find_poi_in_system\n-> $capital_base"]
+  travel_to_base [shape=box label="travel\n-> $found_poi"]
+  dock_at_base [shape=box label="dock"]
+  done [shape=doublecircle label="done"]
+
+  check_already_home -> done [label="at_system(capital_system_id) AND docked"]
+  check_already_home -> prepare_travel [label="default"]
+  prepare_travel -> undock [label="docked"]
+  prepare_travel -> travel_home [label="default"]
+  undock -> travel_home
+  travel_home -> ensure_docked
+  ensure_docked -> done [label="docked"]
+  ensure_docked -> find_base [label="default"]
+  find_base -> travel_to_base
+  travel_to_base -> dock_at_base
+  dock_at_base -> done
+}

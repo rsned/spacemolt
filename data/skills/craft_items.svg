@@ -13,48 +13,55 @@
 <!-- check_ready -->
 <g id="node1" class="node">
 <title>check_ready</title>
-<polygon fill="none" stroke="black" points="877.25,-257.29 781.57,-239.29 877.25,-221.29 972.93,-239.29 877.25,-257.29"/>
-<text text-anchor="middle" x="877.25" y="-235.59" font-family="Times,serif" font-size="14.00">check_ready</text>
+<polygon fill="none" stroke="black" points="839.25,-257.29 743.57,-239.29 839.25,-221.29 934.93,-239.29 839.25,-257.29"/>
+<text text-anchor="middle" x="839.25" y="-235.59" font-family="Times,serif" font-size="14.00">check_ready</text>
 </g>
 <!-- craft -->
 <g id="node2" class="node">
 <title>craft</title>
-<polygon fill="none" stroke="black" points="840.75,-170.29 703.75,-170.29 703.75,-134.29 840.75,-134.29 840.75,-170.29"/>
-<text text-anchor="middle" x="772.25" y="-148.59" font-family="Times,serif" font-size="14.00">craft_from_cargo</text>
+<polygon fill="none" stroke="black" points="745.75,-170.29 608.75,-170.29 608.75,-134.29 745.75,-134.29 745.75,-170.29"/>
+<text text-anchor="middle" x="677.25" y="-148.59" font-family="Times,serif" font-size="14.00">craft_from_cargo</text>
 </g>
 <!-- check_ready&#45;&gt;craft -->
-<g id="edge3" class="edge">
+<g id="edge4" class="edge">
 <title>check_ready&#45;&gt;craft</title>
-<path fill="none" stroke="black" d="M849.48,-226.41C837.34,-220.47 823.37,-212.57 812.25,-203.29 803.8,-196.25 795.9,-187.17 789.39,-178.69"/>
-<polygon fill="black" stroke="black" points="792.12,-176.5 783.38,-170.51 786.48,-180.64 792.12,-176.5"/>
-<text text-anchor="middle" x="837.75" y="-192.09" font-family="Times,serif" font-size="14.00">default</text>
+<path fill="none" stroke="black" d="M787.88,-230.86C764.87,-225.76 738.25,-217.28 717.25,-203.29 707.72,-196.94 699.37,-187.6 692.81,-178.71"/>
+<polygon fill="black" stroke="black" points="695.65,-176.66 687.08,-170.43 689.9,-180.64 695.65,-176.66"/>
+<text text-anchor="middle" x="742.75" y="-192.09" font-family="Times,serif" font-size="14.00">default</text>
 </g>
 <!-- done -->
 <g id="node3" class="node">
 <title>done</title>
-<ellipse fill="none" stroke="black" cx="877.25" cy="-60.15" rx="33.28" ry="33.28"/>
-<ellipse fill="none" stroke="black" cx="877.25" cy="-60.15" rx="37.29" ry="37.29"/>
-<text text-anchor="middle" x="877.25" y="-56.45" font-family="Times,serif" font-size="14.00">done</text>
+<ellipse fill="none" stroke="black" cx="839.25" cy="-60.15" rx="33.28" ry="33.28"/>
+<ellipse fill="none" stroke="black" cx="839.25" cy="-60.15" rx="37.29" ry="37.29"/>
+<text text-anchor="middle" x="839.25" y="-56.45" font-family="Times,serif" font-size="14.00">done</text>
 </g>
 <!-- check_ready&#45;&gt;done -->
 <g id="edge1" class="edge">
 <title>check_ready&#45;&gt;done</title>
-<path fill="none" stroke="black" d="M877.25,-220.99C877.25,-194.96 877.25,-144.85 877.25,-107.64"/>
-<polygon fill="black" stroke="black" points="880.75,-107.52 877.25,-97.52 873.75,-107.52 880.75,-107.52"/>
-<text text-anchor="middle" x="916.75" y="-148.59" font-family="Times,serif" font-size="14.00">not docked</text>
+<path fill="none" stroke="black" d="M826.44,-223.58C816.02,-210.57 802.12,-190.55 796.25,-170.29 791.8,-154.93 792.05,-149.73 796.25,-134.29 799.54,-122.19 805.4,-110.04 811.76,-99.23"/>
+<polygon fill="black" stroke="black" points="814.89,-100.82 817.17,-90.48 808.93,-97.14 814.89,-100.82"/>
+<text text-anchor="middle" x="835.75" y="-148.59" font-family="Times,serif" font-size="14.00">not docked</text>
 </g>
 <!-- check_ready&#45;&gt;done -->
 <g id="edge2" class="edge">
 <title>check_ready&#45;&gt;done</title>
-<path fill="none" stroke="black" d="M902.4,-225.73C922.2,-214.3 948.37,-195.38 960.25,-170.29 967.1,-155.83 966.84,-148.88 960.25,-134.29 951.3,-114.47 934.02,-97.87 917.54,-85.52"/>
-<polygon fill="black" stroke="black" points="919.21,-82.41 909.04,-79.46 915.14,-88.11 919.21,-82.41"/>
-<text text-anchor="middle" x="1015.25" y="-148.59" font-family="Times,serif" font-size="14.00">not has_cargo</text>
+<path fill="none" stroke="black" d="M850,-223.24C858.74,-210.01 870.39,-189.87 875.25,-170.29 879.11,-154.77 878.88,-149.88 875.25,-134.29 872.67,-123.21 868.16,-111.88 863.19,-101.54"/>
+<polygon fill="black" stroke="black" points="866.18,-99.7 858.53,-92.36 859.94,-102.87 866.18,-99.7"/>
+<text text-anchor="middle" x="962.75" y="-148.59" font-family="Times,serif" font-size="14.00">not at_poi_type(station)</text>
+</g>
+<!-- check_ready&#45;&gt;done -->
+<g id="edge3" class="edge">
+<title>check_ready&#45;&gt;done</title>
+<path fill="none" stroke="black" d="M914.91,-235.47C962.38,-229.3 1020.27,-212.76 1051.25,-170.29 1097.03,-107.53 961.75,-78.13 886.28,-66.91"/>
+<polygon fill="black" stroke="black" points="886.45,-63.4 876.05,-65.44 885.45,-70.33 886.45,-63.4"/>
+<text text-anchor="middle" x="1110.25" y="-148.59" font-family="Times,serif" font-size="14.00">not has_cargo</text>
 </g>
 <!-- craft&#45;&gt;done -->
-<g id="edge4" class="edge">
+<g id="edge5" class="edge">
 <title>craft&#45;&gt;done</title>
-<path fill="none" stroke="black" d="M792.5,-133.91C806.42,-121.95 825.3,-105.75 841.7,-91.66"/>
-<polygon fill="black" stroke="black" points="844.22,-94.12 849.53,-84.95 839.66,-88.81 844.22,-94.12"/>
+<path fill="none" stroke="black" d="M708.1,-134.13C733.7,-119.88 770.31,-99.51 798.35,-83.91"/>
+<polygon fill="black" stroke="black" points="800.09,-86.94 807.13,-79.02 796.69,-80.83 800.09,-86.94"/>
 </g>
 </g>
 </svg>
