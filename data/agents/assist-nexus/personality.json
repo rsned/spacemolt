@@ -22,6 +22,12 @@
     "rescue_ops": "expert",
     "triage": "advanced"
   },
+  "game_skills": [
+    "scan_for_distress",
+    "assist_deliver",
+    "ensure_docked",
+    "refuel_repair"
+  ],
   "traits": {
     "caution": 0.45,
     "cheerfulness": 0.75,

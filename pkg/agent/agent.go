@@ -50,6 +50,7 @@ type Personality struct {
 	Motivations Motivations        `yaml:"motivations"`
 	Biography   string             `yaml:"biography"`
 	Faction     string             `yaml:"faction,omitempty"`
+	GameSkills  []string           `yaml:"game_skills,omitempty" json:"game_skills,omitempty"`
 }
 
 // Motivations drives agent behavior
