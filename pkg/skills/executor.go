@@ -298,11 +298,16 @@ func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State)
 	}
 
 	varName := strings.TrimPrefix(target, "$")
+
+	// Check if it's a defined target variable (POI type reference)
 	t, ok := skill.Targets[varName]
 	if !ok {
-		return "", fmt.Errorf("unknown target variable: %q", varName)
+		// Not a target variable - pass through to dispatcher
+		// The dispatcher will handle parameter resolution (e.g., $destination_system)
+		return target, nil
 	}
 
+	// Resolve target variable by finding POI of matching type
 	for _, poi := range state.System.POIs {
 		if slices.Contains(t.POIType, poi.Type) {
 			return poi.ID, nil
@@ -311,6 +316,7 @@ func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State)
 
 	return "", fmt.Errorf("no POI of type %v found in current system", t.POIType)
 }
+
 
 // buildSubSkillParams resolves parameter values for sub-skill invocation.
 func (e *Executor) buildSubSkillParams(step *Step) map[string]string {

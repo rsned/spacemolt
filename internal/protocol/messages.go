@@ -8,9 +8,10 @@ const (
 	TypeLoggedIn   = "logged_in"
 
 	// Action responses
-	TypeOK          = "ok"
-	TypeError       = "error"
-	TypeActionError = "action_error"
+	TypeOK           = "ok"
+	TypeError        = "error"
+	TypeActionError  = "action_error"
+	TypeActionResult = "action_result"
 	TypeDocked      = "docked"
 	TypeUndocked    = "undocked"
 	TypeStateUpdate = "state_update"

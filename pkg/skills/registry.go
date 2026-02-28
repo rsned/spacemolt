@@ -13,6 +13,11 @@ type Registry struct {
 	skills map[string]*Skill
 }
 
+// NewRegistry creates an empty registry.
+func NewRegistry() *Registry {
+	return &Registry{skills: make(map[string]*Skill)}
+}
+
 // LoadRegistry reads all .yaml and .yml files from a directory into a registry.
 func LoadRegistry(dir string) (*Registry, error) {
 	entries, err := os.ReadDir(dir)
@@ -20,7 +25,7 @@ func LoadRegistry(dir string) (*Registry, error) {
 		return nil, fmt.Errorf("reading skills directory: %w", err)
 	}
 
-	reg := &Registry{skills: make(map[string]*Skill)}
+	reg := NewRegistry()
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -44,6 +49,37 @@ func LoadRegistry(dir string) (*Registry, error) {
 	}
 
 	return reg, nil
+}
+
+// LoadFromDir loads all skill YAML files from a directory into this registry.
+func (r *Registry) LoadFromDir(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("reading skills directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".yaml" && ext != ".yml" {
+			continue
+		}
+
+		path := filepath.Join(dir, entry.Name())
+		skill, loadErr := LoadSkill(path)
+		if loadErr != nil {
+			return fmt.Errorf("loading %s: %w", entry.Name(), loadErr)
+		}
+
+		if _, exists := r.skills[skill.Name]; exists {
+			return fmt.Errorf("duplicate skill name %q in %s", skill.Name, entry.Name())
+		}
+		r.skills[skill.Name] = skill
+	}
+
+	return nil
 }
 
 // Get returns a skill by name, or nil if not found.

@@ -135,3 +135,39 @@ func TestRegistry_YmlExtension(t *testing.T) {
 		t.Error("should load .yml files")
 	}
 }
+
+func TestRegistry_LoadTravelAndRecall(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode - requires data/skills directory")
+	}
+
+	registry := NewRegistry()
+
+	if err := registry.LoadFromDir("../../data/skills"); err != nil {
+		t.Fatalf("LoadFromDir failed: %v", err)
+	}
+
+	travel := registry.Get("travel")
+	if travel == nil {
+		t.Error("travel skill not loaded")
+	} else {
+		if travel.Name != "travel" {
+			t.Errorf("travel skill name = %q, want %q", travel.Name, "travel")
+		}
+		if travel.Description == "" {
+			t.Error("travel skill should have description")
+		}
+	}
+
+	recall := registry.Get("recall")
+	if recall == nil {
+		t.Error("recall skill not loaded")
+	} else {
+		if recall.Name != "recall" {
+			t.Errorf("recall skill name = %q, want %q", recall.Name, "recall")
+		}
+		if recall.Description == "" {
+			t.Error("recall skill should have description")
+		}
+	}
+}

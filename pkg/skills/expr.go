@@ -40,6 +40,32 @@ func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress) (bo
 		return !result, nil
 	}
 
+	// AND operator
+	if parts := strings.Split(expr, " AND "); len(parts) == 2 {
+		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route)
+		if err != nil {
+			return false, err
+		}
+		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route)
+		if err != nil {
+			return false, err
+		}
+		return left && right, nil
+	}
+
+	// OR operator
+	if parts := strings.Split(expr, " OR "); len(parts) == 2 {
+		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route)
+		if err != nil {
+			return false, err
+		}
+		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route)
+		if err != nil {
+			return false, err
+		}
+		return left || right, nil
+	}
+
 	// Check if expression is a function call: name(args...)
 	if strings.Contains(expr, "(") && strings.HasSuffix(expr, ")") {
 		return parseFunctionCallWithRoute(expr, state, route)
@@ -251,7 +277,7 @@ func evalComparisonWithRoute(lhs, op, rhs string, state *game.State, route *Rout
 	}
 
 	// String comparison
-	rightStr := strings.TrimSpace(rhs)
+	rightStr := strings.TrimSpace(strings.Trim(rhs, "\"'"))
 	switch op {
 	case "==":
 		return left.stringVal == rightStr, nil

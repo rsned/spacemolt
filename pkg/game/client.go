@@ -1315,6 +1315,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.parseSkillsData(resp.Payload)
 		}
 
+	case protocol.TypeActionResult:
+		c.parseActionResult(resp.Payload)
+
 	case protocol.TypeDocked:
 		c.mu.Lock()
 		c.state.Doc = true
@@ -1860,6 +1863,90 @@ func (c *Client) parseNearbyPlayers(payload map[string]any) {
 		for i, n := range extNearby {
 			c.state.Nearby[i] = NearbyPlayerFromAPI(n)
 		}
+	}
+}
+
+// parseActionResult handles action_result messages from the server.
+// These arrive after a pending action completes on the next tick.
+// The payload has {command: "...", result: {...}, tick: N}.
+func (c *Client) parseActionResult(payload map[string]any) {
+	result, ok := payload["result"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	action, _ := result["action"].(string)
+	command, _ := payload["command"].(string)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Update tick
+	if tick, ok := payload["tick"].(float64); ok {
+		c.state.CurrentTick = int64(tick)
+	}
+
+	switch action {
+	case "arrived":
+		c.state.Traveling = false
+		c.state.TravelProgress = nil
+		c.state.Doc = false
+		if poiID, ok := result["poi_id"].(string); ok {
+			c.state.CurrentPOI = poiID
+			c.state.System.ShipPOI = poiID
+		} else if poi, ok := result["poi"].(string); ok {
+			c.state.CurrentPOI = poi
+			c.state.System.ShipPOI = poi
+		}
+		// Jump arrival may include a new system
+		if command == "jump" {
+			if sysID, ok := result["system_id"].(string); ok {
+				c.state.System.ID = sysID
+				c.state.CurrentSystem = sysID
+			}
+			if sysName, ok := result["system"].(string); ok {
+				c.state.System.Name = sysName
+				c.state.CurrentSystem = sysName
+			}
+		}
+		c.debugLogger.Printf("Action result: arrived at %s", c.state.CurrentPOI)
+
+	case "dock":
+		c.state.Doc = true
+		c.state.Traveling = false
+		c.state.TravelProgress = nil
+		c.debugLogger.Printf("Action result: docked")
+
+	case "undock":
+		c.state.Doc = false
+		c.debugLogger.Printf("Action result: undocked")
+
+	case "refuel":
+		if fuel, ok := result["fuel"].(float64); ok {
+			c.state.Fuel = fuel
+			c.state.Ship.Fuel = fuel
+		}
+		if fuelNow, ok := result["fuel_now"].(float64); ok {
+			c.state.Fuel = fuelNow
+			c.state.Ship.Fuel = fuelNow
+		}
+		c.debugLogger.Printf("Action result: refueled to %.0f", c.state.Fuel)
+
+	case "repair":
+		if hull, ok := result["hull_now"].(float64); ok {
+			c.state.Hull = hull
+			c.state.Ship.Hull = hull
+		}
+		c.debugLogger.Printf("Action result: repaired to %.0f", c.state.Hull)
+
+	case "deposit_items":
+		if cargoSpace, ok := result["cargo_space"].(float64); ok {
+			c.state.Ship.CargoCapacity = cargoSpace
+		}
+		c.debugLogger.Printf("Action result: deposited items")
+
+	default:
+		c.debugLogger.Printf("Action result: %s (unhandled)", action)
 	}
 }
 
