@@ -19,6 +19,7 @@ type ClientDispatcher struct {
 	Client    *game.Client
 	Logger    *log.Logger
 	TickDelay time.Duration // delay after tick-consuming actions; 0 = default (11s)
+	Route     *RouteProgress // Active route for multi-system travel
 }
 
 // NewClientDispatcher creates a dispatcher wrapping a connected game client.
@@ -83,6 +84,11 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		}
 		d.waitForSystemChange(ctx)
 		return nil
+	case "find_route":
+		if target == "" {
+			return fmt.Errorf("find_route requires a target system")
+		}
+		return d.doFindRoute(ctx, target)
 
 	// Mining & scanning
 	case "mine":
@@ -143,6 +149,34 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 	default:
 		return fmt.Errorf("unsupported action: %q", action)
 	}
+}
+
+// doFindRoute calls the game client's FindRoute API and stores the result.
+func (d *ClientDispatcher) doFindRoute(ctx context.Context, targetSystem string) error {
+	route, err := d.Client.FindRoute(ctx, targetSystem)
+	if err != nil {
+		return fmt.Errorf("find route to %s: %w", targetSystem, err)
+	}
+
+	// Convert to RouteStep format
+	steps := make([]RouteStep, len(route))
+	for i, r := range route {
+		steps[i] = RouteStep{
+			SystemID: r.SystemID,
+			Name:     r.Name,
+			Jumps:    r.Jumps,
+		}
+	}
+
+	d.Route = &RouteProgress{
+		DestinationSystem: targetSystem,
+		Route:             steps,
+		CurrentStep:       0,
+		Timestamp:         time.Now(),
+	}
+
+	d.Logger.Printf("[route] Found route to %s (%d steps)", targetSystem, len(steps))
+	return nil
 }
 
 const (
@@ -220,7 +254,7 @@ func isTickAction(action string) bool {
 	case "get_status", "get_system", "get_ship", "get_skills",
 		"get_poi", "get_map", "get_version", "get_recipes",
 		"get_wrecks", "get_notes", "get_listings", "get_trades",
-		"wait", "help",
+		"wait", "help", "find_route",
 		"craft_from_cargo": // compound action, manages its own tick waits
 		return false
 	default:
