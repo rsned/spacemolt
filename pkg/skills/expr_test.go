@@ -222,3 +222,65 @@ func TestExpressionVariables_CapitalSystemID(t *testing.T) {
 		t.Error("Expected capital_system_id to be 'sol' for Solarian")
 	}
 }
+
+func TestFunction_FuelSufficientForJumps(t *testing.T) {
+	state := &game.State{Fuel: 12.0}
+
+	// Exactly enough
+	result, err := EvalExpr("fuel_sufficient_for_jumps(4)", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected 12 fuel to be sufficient for 4 jumps")
+	}
+
+	// Not enough
+	result, err = EvalExpr("fuel_sufficient_for_jumps(5)", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if result {
+		t.Error("Expected 12 fuel to be insufficient for 5 jumps")
+	}
+}
+
+func TestFunction_AtSystem(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "sol"},
+	}
+	result, err := EvalExpr("at_system('sol')", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected at_system to return true for matching system")
+	}
+
+	result, err = EvalExpr("at_system('haven')", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if result {
+		t.Error("Expected at_system to return false for different system")
+	}
+}
+
+func TestFunction_POIIsDockable(t *testing.T) {
+	state := &game.State{
+		Player: game.Player{DockedAtBase: "station-1"},
+		System: game.SystemData{
+			POIs: []game.POI{
+				{ID: "station-1", Type: "station"},
+			},
+		},
+	}
+
+	result, err := EvalExpr("poi_is_dockable()", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected poi_is_dockable to return true for station")
+	}
+}

@@ -16,6 +16,7 @@ import (
 //   - Comparisons: "fuel_pct < 0.1", "credits >= 5000"
 //   - String comparisons: "current_poi == poi-123", "system_name == Alpha"
 //   - Functions: "at_poi_type(station, asteroid_belt)", "has_module_type(mining)"
+//   - Navigation functions: "fuel_sufficient_for_jumps(4)", "at_system('sol')", "poi_is_dockable()"
 //   - Special: "default" (always true)
 func EvalExpr(expr string, state *game.State) (bool, error) {
 	expr = strings.TrimSpace(expr)
@@ -33,19 +34,9 @@ func EvalExpr(expr string, state *game.State) (bool, error) {
 		return !result, nil
 	}
 
-	// Function-style: at_poi_type(a, b)
-	if strings.HasPrefix(expr, "at_poi_type(") && strings.HasSuffix(expr, ")") {
-		args := strings.TrimSuffix(strings.TrimPrefix(expr, "at_poi_type("), ")")
-		types := parseArgs(args)
-		poiType := resolveCurrentPOIType(state)
-		return slices.Contains(types, poiType), nil
-	}
-
-	// Function-style: has_module_type(type)
-	if strings.HasPrefix(expr, "has_module_type(") && strings.HasSuffix(expr, ")") {
-		args := strings.TrimSuffix(strings.TrimPrefix(expr, "has_module_type("), ")")
-		moduleType := strings.TrimSpace(args)
-		return hasModuleType(state, moduleType), nil
+	// Check if expression is a function call: name(args...)
+	if strings.Contains(expr, "(") && strings.HasSuffix(expr, ")") {
+		return parseFunctionCall(expr, state)
 	}
 
 	// Try comparison operators (ordered by length to avoid prefix issues)
@@ -61,6 +52,82 @@ func EvalExpr(expr string, state *game.State) (bool, error) {
 		return false, err
 	}
 	return val.asBool()
+}
+
+// parseFunctionCall handles function(arg1, arg2, ...) expressions
+func parseFunctionCall(expr string, state *game.State) (bool, error) {
+	// Match: function_name(args)
+	openParen := strings.Index(expr, "(")
+	closeParen := strings.LastIndex(expr, ")")
+	if openParen == -1 || closeParen == -1 {
+		return false, fmt.Errorf("invalid function call: %s", expr)
+	}
+
+	funcName := strings.TrimSpace(expr[:openParen])
+	argsStr := strings.TrimSpace(expr[openParen+1 : closeParen])
+
+	// Parse arguments
+	var args []string
+	if argsStr != "" {
+		args = strings.Split(argsStr, ",")
+		for i := range args {
+			args[i] = strings.TrimSpace(args[i])
+			// Strip quotes from string arguments
+			args[i] = strings.Trim(args[i], "'\"")
+		}
+	}
+
+	// Dispatch to handler
+	switch funcName {
+	case "fuel_sufficient_for_jumps":
+		return fuelSufficientForJumps(args, state)
+	case "at_system":
+		return atSystem(args, state)
+	case "poi_is_dockable":
+		return poiIsDockable(state)
+	case "at_poi_type":
+		poiType := resolveCurrentPOIType(state)
+		return slices.Contains(args, poiType), nil
+	case "has_module_type":
+		if len(args) != 1 {
+			return false, fmt.Errorf("has_module_type requires 1 argument")
+		}
+		return hasModuleType(state, args[0]), nil
+	default:
+		return false, fmt.Errorf("unknown function: %s", funcName)
+	}
+}
+
+func fuelSufficientForJumps(args []string, state *game.State) (bool, error) {
+	if len(args) != 1 {
+		return false, fmt.Errorf("fuel_sufficient_for_jumps requires 1 argument")
+	}
+	jumps, err := strconv.Atoi(args[0])
+	if err != nil {
+		return false, fmt.Errorf("invalid jump count: %s", args[0])
+	}
+	requiredFuel := float64(jumps) * 3.0
+	return state.Fuel >= requiredFuel, nil
+}
+
+func atSystem(args []string, state *game.State) (bool, error) {
+	if len(args) != 1 {
+		return false, fmt.Errorf("at_system requires 1 argument")
+	}
+	targetSystem := args[0]
+	return state.System.ID == targetSystem, nil
+}
+
+func poiIsDockable(state *game.State) (bool, error) {
+	if state.Player.DockedAtBase == "" {
+		return false, nil
+	}
+	for _, poi := range state.System.POIs {
+		if poi.ID == state.Player.DockedAtBase {
+			return poi.Type == "station" || poi.Type == "base", nil
+		}
+	}
+	return false, nil
 }
 
 type exprValue struct {
@@ -197,18 +264,6 @@ func safeDivide(a, b float64) float64 {
 		return 0
 	}
 	return a / b
-}
-
-func parseArgs(s string) []string {
-	parts := strings.Split(s, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			result = append(result, p)
-		}
-	}
-	return result
 }
 
 // empireCapitalSystem returns the capital system ID for an empire
