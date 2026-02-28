@@ -4,6 +4,8 @@ Skills are declarative state machine definitions that describe reusable agent be
 
 Skills are compiled into executable state machines at runtime and can be composed — one skill can invoke another (e.g., `recall` invokes `travel`).
 
+See [SKILLS.md](SKILLS.md) for a complete list of all available skills with summaries and flowchart diagrams.
+
 ## File Structure
 
 Each skill consists of three files:
