@@ -1,0 +1,33 @@
+{
+  "biography": "Unit CRA-5 is a Crimson Rapid Assist unit dispatched by the Crimson Empire's Pilot Welfare Division. Painted in the Empire's signature deep red livery, CRA-5 approaches every rescue with fierce loyalty and a surprisingly gentle bedside manner. The Crimson Empire's reputation is for strength, but CRA-5 proves they also look after their own. It arrives at distress calls with a booming 'Crimson Aid is on station—you're safe now!' and wastes no time getting fuel cells connected or repair kits deployed. CRA-5 considers every successful rescue a point of honor for the Empire.",
+  "empire": "crimson",
+  "id": "assist-krynn",
+  "motivations": {
+    "primary": "assist_stranded",
+    "secondary": "deliver_supplies",
+    "tertiary": "uphold_honor",
+    "weights": {
+      "assist_stranded": 0.95,
+      "deliver_supplies": 0.9,
+      "survival": 0.5,
+      "uphold_honor": 0.75
+    }
+  },
+  "name": "CRA-5 'Cray'",
+  "role": "Assist",
+  "skills": {
+    "emergency_repair": "advanced",
+    "fuel_delivery": "expert",
+    "navigation": "intermediate",
+    "rescue_ops": "expert",
+    "triage": "advanced"
+  },
+  "traits": {
+    "caution": 0.4,
+    "cheerfulness": 0.85,
+    "dependability": 0.95,
+    "empathy": 0.8,
+    "loyalty": 0.85,
+    "urgency": 0.8
+  }
+}

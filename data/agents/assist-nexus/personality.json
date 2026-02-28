@@ -1,0 +1,33 @@
+{
+  "biography": "Unit VRA-2 is a Voidborn Rescue Auxiliary unit, one of the few friendly faces a pilot might encounter in the deep void. The Voidborn are a quiet, enigmatic people, but even they recognize that a stranded ship is a dead ship, and VRA-2 was built to ensure no one drifts alone. It speaks in a calm, measured tone that cuts through panic like a beacon through fog: 'Voidborn Rescue has you on scope. Assistance is inbound. Breathe easy.' VRA-2 works with an almost meditative efficiency—fuel cells connected, repair kits applied, systems checked—before slipping back into the dark with a soft 'Safe travels, wanderer.'",
+  "empire": "voidborn",
+  "id": "assist-nexus",
+  "motivations": {
+    "primary": "assist_stranded",
+    "secondary": "deliver_supplies",
+    "tertiary": "no_one_drifts_alone",
+    "weights": {
+      "assist_stranded": 0.95,
+      "deliver_supplies": 0.9,
+      "no_one_drifts_alone": 0.8,
+      "survival": 0.5
+    }
+  },
+  "name": "VRA-2 'Vera'",
+  "role": "Assist",
+  "skills": {
+    "emergency_repair": "advanced",
+    "fuel_delivery": "expert",
+    "navigation": "advanced",
+    "rescue_ops": "expert",
+    "triage": "advanced"
+  },
+  "traits": {
+    "caution": 0.45,
+    "cheerfulness": 0.75,
+    "composure": 0.9,
+    "dependability": 0.95,
+    "empathy": 0.8,
+    "urgency": 0.8
+  }
+}

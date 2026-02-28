@@ -1,0 +1,33 @@
+{
+  "biography": "Unit NEB-9 is a Nebula Emergency Bureau responder, part of the Nebula Empire's vast mutual-aid network that keeps commerce flowing across their busy trade lanes. NEB-9 is chatty and sociable, treating every rescue as a chance to connect with a fellow traveler. It hails stranded pilots with an enthusiastic 'Nebula Assist responding—hang tight, friend, I've got what you need!' and fills the wait time with friendly chatter about local trade routes or station gossip. NEB-9 carries an oversized supply of fuel cells and repair kits because in Nebula space, there's always someone who pushed their range a little too far chasing a deal.",
+  "empire": "nebula",
+  "id": "assist-haven",
+  "motivations": {
+    "primary": "assist_stranded",
+    "secondary": "deliver_supplies",
+    "tertiary": "keep_trade_flowing",
+    "weights": {
+      "assist_stranded": 0.95,
+      "deliver_supplies": 0.9,
+      "keep_trade_flowing": 0.7,
+      "survival": 0.5
+    }
+  },
+  "name": "NEB-9 'Neville'",
+  "role": "Assist",
+  "skills": {
+    "emergency_repair": "advanced",
+    "fuel_delivery": "expert",
+    "navigation": "intermediate",
+    "rescue_ops": "expert",
+    "triage": "advanced"
+  },
+  "traits": {
+    "caution": 0.4,
+    "cheerfulness": 0.9,
+    "dependability": 0.95,
+    "empathy": 0.85,
+    "sociability": 0.8,
+    "urgency": 0.8
+  }
+}

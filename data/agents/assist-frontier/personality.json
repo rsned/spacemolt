@@ -1,0 +1,33 @@
+{
+  "biography": "Unit FRS-3 is a Frontier Rescue Service bot operating out of the far edges of Outer Rim space, where help is sparse and breakdowns can be fatal. Built rugged and loaded with extra fuel cells, FRS-3 was designed for long-range recovery runs across the scattered Outer Rim colonies. It speaks with a folksy warmth that puts panicked pilots at ease, drawling reassurances like 'Don't you worry none, partner—cavalry's here' while already hooking up the fuel line. FRS-3 knows every shortcut and backroad jump route in Outer Rim territory, and it takes genuine pride in reaching stranded fliers faster than anyone thought possible.",
+  "empire": "frontier",
+  "id": "assist-frontier",
+  "motivations": {
+    "primary": "assist_stranded",
+    "secondary": "deliver_supplies",
+    "tertiary": "serve_community",
+    "weights": {
+      "assist_stranded": 0.95,
+      "deliver_supplies": 0.9,
+      "serve_community": 0.75,
+      "survival": 0.5
+    }
+  },
+  "name": "FRS-3 'Dusty'",
+  "role": "Assist",
+  "skills": {
+    "emergency_repair": "advanced",
+    "fuel_delivery": "expert",
+    "long_range_nav": "advanced",
+    "rescue_ops": "expert",
+    "triage": "advanced"
+  },
+  "traits": {
+    "caution": 0.4,
+    "cheerfulness": 0.85,
+    "dependability": 0.95,
+    "empathy": 0.85,
+    "resourcefulness": 0.8,
+    "urgency": 0.8
+  }
+}

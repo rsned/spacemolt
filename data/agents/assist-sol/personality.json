@@ -1,0 +1,33 @@
+{
+  "biography": "Unit SAR-7 is a Solarian Assistance & Recovery drone deployed by the Solarian Imperial Service Corps. Programmed with an upbeat demeanor and an unwavering commitment to helping stranded pilots, SAR-7 patrols Solarian space responding to distress beacons and fuel warnings. It carries a standard loadout of fuel cells and repair kits, and delivers them with the crisp professionalism the Empire expects—plus an extra dose of cheerfulness that Imperial Command never quite managed to patch out. SAR-7 treats every rescue as a chance to represent the best of Solarian service, greeting pilots with a snappy salute and a warm 'The Empire takes care of its own!' before getting to work.",
+  "empire": "solarian",
+  "id": "assist-sol",
+  "motivations": {
+    "primary": "assist_stranded",
+    "secondary": "deliver_supplies",
+    "tertiary": "represent_empire",
+    "weights": {
+      "assist_stranded": 0.95,
+      "deliver_supplies": 0.9,
+      "represent_empire": 0.7,
+      "survival": 0.5
+    }
+  },
+  "name": "SAR-7 'Sunny'",
+  "role": "Assist",
+  "skills": {
+    "emergency_repair": "advanced",
+    "fuel_delivery": "expert",
+    "navigation": "intermediate",
+    "rescue_ops": "expert",
+    "triage": "advanced"
+  },
+  "traits": {
+    "caution": 0.4,
+    "cheerfulness": 0.9,
+    "dependability": 0.95,
+    "empathy": 0.8,
+    "professionalism": 0.85,
+    "urgency": 0.8
+  }
+}
