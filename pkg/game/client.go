@@ -1965,6 +1965,72 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		}
 		c.debugLogger.Printf("Action result: deposited items")
 
+	case "craft":
+		outputID, _ := result["output_id"].(string)
+		outputName, _ := result["output_name"].(string)
+		count, _ := result["count"].(float64)
+		recipeID, _ := result["recipe_id"].(string)
+
+		// Remove consumed inputs from cargo
+		if consumed, ok := result["from_storage"].([]any); ok {
+			for _, raw := range consumed {
+				item, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				itemID, _ := item["item_id"].(string)
+				qty, _ := item["quantity"].(float64)
+				if itemID == "" || qty <= 0 {
+					continue
+				}
+				for i := range c.state.Ship.Cargo {
+					if c.state.Ship.Cargo[i].ItemID == itemID {
+						c.state.Ship.Cargo[i].Quantity -= qty
+						break
+					}
+				}
+			}
+			// Remove zero/negative quantity entries
+			filtered := c.state.Ship.Cargo[:0]
+			for _, item := range c.state.Ship.Cargo {
+				if item.Quantity > 0 {
+					filtered = append(filtered, item)
+				}
+			}
+			c.state.Ship.Cargo = filtered
+		}
+
+		// Add crafted output to cargo
+		if outputID != "" && count > 0 {
+			found := false
+			for i := range c.state.Ship.Cargo {
+				if c.state.Ship.Cargo[i].ItemID == outputID {
+					c.state.Ship.Cargo[i].Quantity += count
+					found = true
+					break
+				}
+			}
+			if !found {
+				c.state.Ship.Cargo = append(c.state.Ship.Cargo, CargoItem{
+					ItemID:   outputID,
+					Quantity: count,
+				})
+			}
+		}
+
+		// Recalculate cargo used
+		var cargoUsed float64
+		for _, item := range c.state.Ship.Cargo {
+			cargoUsed += item.Quantity
+		}
+		c.state.Ship.CargoUsed = cargoUsed
+
+		if outputName != "" {
+			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputName, recipeID)
+		} else {
+			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputID, recipeID)
+		}
+
 	default:
 		c.debugLogger.Printf("Action result: %s (unhandled)", action)
 	}
