@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -99,15 +100,18 @@ func (s *Scraper) ensureConnectionReady() error {
 
 // Helper function to get POI name by ID
 func main() {
-	if len(os.Args) < 2 {
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
 		printUsage()
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 	var endpoint string
-	if len(os.Args) >= 3 {
-		endpoint = os.Args[2]
+	if len(flag.Args()) >= 2 {
+		endpoint = flag.Args()[1]
 	}
 
 	logger := log.New(os.Stdout, "[SCRAPER] ", log.LstdFlags)
@@ -132,7 +136,7 @@ func main() {
 
 	// Initialize client using standard agent initialization
 	ctx := context.Background()
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		logger.Fatalf("Initialization failed: %v", err)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -412,7 +413,10 @@ func percentBar(current, max float64) string {
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
 		fmt.Println("Usage: agent-status <agent-id>")
 		fmt.Println("Example: agent-status miner-1")
 		fmt.Println("Example: agent-status fighter-1")
@@ -432,7 +436,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 	agentDir := filepath.Join("data/agents", agentID)
 
 	// Check if agent directory exists
@@ -455,6 +459,7 @@ func main() {
 	// Create game client
 	gameLogger := log.New(os.Stderr, "[GAME] ", log.LstdFlags)
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
+	client.SetDebugLogging(*debug)
 
 	// Set up handler with automatic reconnection
 	handler := &StatusHandler{logger: gameLogger}

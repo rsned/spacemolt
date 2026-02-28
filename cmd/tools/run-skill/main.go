@@ -15,6 +15,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -30,14 +31,20 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, "Usage: run-skill <agent-id> <skill> [skill...]")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 2 {
+		fmt.Fprintln(os.Stderr, "Usage: run-skill [flags] <agent-id> <skill> [skill...]")
 		fmt.Fprintln(os.Stderr, "  e.g.: run-skill miner-1 mine sell refuel_repair")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Flags:")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
-	skillNames := os.Args[2:]
+	agentID := flag.Args()[0]
+	skillNames := flag.Args()[1:]
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
@@ -71,7 +78,7 @@ func main() {
 
 	// Connect agent to game server
 	logger.Printf("Initializing agent %s...", agentID)
-	client, _, err := game.InitializeAgent(agentID, logger, ctx)
+	client, _, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		logger.Fatalf("Failed to initialize agent: %v", err)
 	}

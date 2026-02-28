@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -94,8 +95,11 @@ func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-miner <agent-id> [strategy]")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-miner [flags] <agent-id> [strategy]")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  agent-id   Agent identifier (e.g., miner-1, craftsman-1)")
@@ -106,20 +110,24 @@ func main() {
 		fmt.Println("  craft-sell Craft items from resources, then sell all")
 		fmt.Println("  craft-deposit Craft items from resources, then deposit to storage")
 		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
+		fmt.Println("")
 		fmt.Println("Examples:")
 		fmt.Println("  auto-miner miner-1              # Sell everything")
 		fmt.Println("  auto-miner miner-1 sell         # Sell everything (explicit)")
 		fmt.Println("  auto-miner miner-1 craft-sell   # Craft then sell")
 		fmt.Println("  auto-miner miner-1 craft-deposit # Craft then deposit")
+		fmt.Println("  auto-miner -debug miner-1       # With debug logging")
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 
 	// Parse station action strategy
 	strategy := "sell"
-	if len(os.Args) >= 3 {
-		strategy = os.Args[2]
+	if len(flag.Args()) >= 2 {
+		strategy = flag.Args()[1]
 	}
 
 	// Validate strategy
@@ -159,7 +167,7 @@ func main() {
 
 	// Initialize game client using shared library function
 	// This handles: credential loading, client creation, connection, and login
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -425,13 +426,19 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-fighter <agent-id>")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-fighter [flags] <agent-id>")
 		fmt.Println("Example: auto-fighter fighter-1")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
@@ -456,7 +463,7 @@ func main() {
 	ctx := context.Background()
 
 	// Initialize game client using shared library function
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

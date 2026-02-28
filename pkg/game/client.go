@@ -226,6 +226,14 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 	return client
 }
 
+// SetDebugLogging controls whether the game client logs WebSocket messages.
+// When disabled, the debug logger output is discarded.
+func (c *Client) SetDebugLogging(enabled bool) {
+	if !enabled {
+		c.debugLogger.SetOutput(io.Discard)
+	}
+}
+
 // Connect establishes a WebSocket connection to the game server
 // Implements retry logic with exponential backoff for rate limiting (429 errors)
 func (c *Client) Connect(ctx context.Context) error {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -66,15 +67,20 @@ func updateCaptainsLog(agentID string, client *game.Client) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-salvager <agent-id>")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-salvager [flags] <agent-id>")
 		fmt.Println("This tool controls a salvaging agent that finds and salvages wrecks")
 		fmt.Println("NOTE: This agent is currently simplified and needs salvaging logic implemented")
-		fmt.Println()
+		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
@@ -91,7 +97,7 @@ func main() {
 
 	ctx := context.Background()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

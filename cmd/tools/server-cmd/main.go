@@ -67,6 +67,7 @@ func (h *responseHandler) markSent() {
 func main() {
 	agentID := flag.String("agent", "", "Agent ID (e.g. pirate-1, miner-1)")
 	cmd := flag.String("cmd", "", "Server command to send (e.g. get_status, mine, buy)")
+	debug := flag.Bool("debug", false, "Enable debug logging")
 	var payload payloadFlags
 	flag.Var(&payload, "payload", "Payload key=value pair (repeatable)")
 	flag.Usage = func() {
@@ -110,6 +111,7 @@ func main() {
 	// Connect to game server.
 	logger := log.New(os.Stderr, fmt.Sprintf("[%s] ", *agentID), log.LstdFlags)
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
+	client.SetDebugLogging(*debug)
 
 	handler := &responseHandler{
 		resultCh: make(chan protocol.Response, 64),

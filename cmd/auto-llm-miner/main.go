@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -57,14 +58,19 @@ func updateCaptainsLog(agentID string, client *game.Client, runCount int) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-llm-miner <agent-id>")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-llm-miner [flags] <agent-id>")
 		fmt.Println("Example: auto-llm-miner miner-1")
-		fmt.Println()
+		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
 	// Check captain's log for previous mission
@@ -81,7 +87,7 @@ func main() {
 	ctx := context.Background()
 
 	// Step 1: Initialize game client with shared library
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

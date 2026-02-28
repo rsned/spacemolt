@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -46,11 +47,17 @@ const (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-recall <agent-id>")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-recall [flags] <agent-id>")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  agent-id   Agent identifier (e.g., miner-1, trader-1)")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		fmt.Println("")
 		fmt.Println("Description:")
 		fmt.Println("  Automatically returns the agent to their Empire's capital base.")
@@ -64,14 +71,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
 	// Create context for lifecycle management
 	ctx := context.Background()
 
 	// Initialize game client using shared library function
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

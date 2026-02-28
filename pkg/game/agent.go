@@ -89,6 +89,7 @@ func LoadCredentials(agentDir string) (*Credentials, error) {
 //   - agentID: The agent identifier (used for logger prefix and credential path)
 //   - logger: A logger instance for agent-specific logging
 //   - ctx: Context for lifecycle management
+//   - debug: When true, enables verbose WebSocket debug logging; when false, debug output is suppressed
 //
 // Returns:
 //   - *Client: Fully initialized and authenticated game client
@@ -97,14 +98,14 @@ func LoadCredentials(agentDir string) (*Credentials, error) {
 //
 // Example usage:
 //
-//	client, creds, err := game.InitializeAgent("miner-1", logger, ctx)
+//	client, creds, err := game.InitializeAgent("miner-1", logger, ctx, false)
 //	if err != nil {
 //	    log.Fatalf("Failed to initialize agent: %v", err)
 //	}
 //	defer client.Close()
 //
 //	// Now use the client for autonomous operations...
-func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context) (*Client, *Credentials, error) {
+func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, debug bool) (*Client, *Credentials, error) {
 	// Step 1: Load credentials from agent directory
 	agentDir := filepath.Join("data", "agents", agentID)
 	creds, err := LoadCredentials(agentDir)
@@ -117,6 +118,7 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context) (*
 	// Step 2: Create game client with dedicated game logger
 	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", agentID), log.LstdFlags)
 	client := NewClient(DefaultGameServerURL, creds.Username, creds.Password, gameLogger)
+	client.SetDebugLogging(debug)
 
 	// Step 3: Set up message handler with automatic reconnection
 	handler := &SimpleHandler{

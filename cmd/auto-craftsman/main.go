@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -79,12 +80,18 @@ func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, it
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-craftsman <agent-id> [strategy]")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-craftsman [flags] <agent-id> [strategy]")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  agent-id   Agent identifier (e.g., craftsman-1, craftsman-2)")
 		fmt.Println("  strategy   Crafting strategy (optional, default: craft-deposit)")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		fmt.Println("")
 		fmt.Println("Strategies:")
 		fmt.Println("  craft-deposit  Craft items from resources, then deposit to storage (default)")
@@ -99,12 +106,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 
 	// Parse strategy
 	strategy := "craft-deposit"
-	if len(os.Args) >= 3 {
-		strategy = os.Args[2]
+	if len(flag.Args()) >= 2 {
+		strategy = flag.Args()[1]
 	}
 
 	// Validate strategy
@@ -127,7 +134,7 @@ func main() {
 
 	ctx := context.Background()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

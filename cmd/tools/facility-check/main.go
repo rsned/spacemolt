@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -50,10 +51,14 @@ func (h *Handler) OnMessage(resp protocol.Response) {
 func (h *Handler) OnDisconnected(err error) {}
 
 func main() {
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
 	agentDir := "data/agents/pirate-4"
 	creds, _ := loadCredentials(agentDir)
 
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, log.New(os.Stderr, "", 0))
+	client.SetDebugLogging(*debug)
 	handler := &Handler{}
 	client.SetHandler(handler)
 

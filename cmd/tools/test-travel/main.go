@@ -13,11 +13,12 @@ import (
 
 func main() {
 	var (
-		destination   = flag.String("destination", "haven", "Destination system ID")
+		destination    = flag.String("destination", "haven", "Destination system ID")
 		destinationPOI = flag.String("poi", "", "Destination POI name (optional)")
-		agentID       = flag.String("agent", "miner-1", "Agent ID for route persistence")
-		baseDir       = flag.String("data", "data", "Base directory for agent data")
-		skillName     = flag.String("skill", "travel", "Skill to run (travel or recall)")
+		agentID        = flag.String("agent", "miner-1", "Agent ID for route persistence")
+		baseDir        = flag.String("data", "data", "Base directory for agent data")
+		skillName      = flag.String("skill", "travel", "Skill to run (travel or recall)")
+		debug          = flag.Bool("debug", false, "Enable debug logging")
 	)
 	flag.Parse()
 
@@ -40,6 +41,7 @@ func main() {
 	}
 
 	client := game.NewClient(gameURL, creds.Username, creds.Password, logger)
+	client.SetDebugLogging(*debug)
 
 	if err := client.Connect(ctx); err != nil {
 		logger.Fatalf("Connect: %v", err)

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand/v2"
@@ -108,19 +109,26 @@ type mapSystemInfo struct {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-prophet <agent-id>")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-prophet [flags] <agent-id>")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  agent-id    Prophet agent identifier (prophet-1 or prophet-2)")
 		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
+		fmt.Println("")
 		fmt.Println("Examples:")
 		fmt.Println("  auto-prophet prophet-1    # The Prophet (Covenant of the Eternal Spark)")
 		fmt.Println("  auto-prophet prophet-2    # Hugh Mann (Order of the Grand Architects)")
+		fmt.Println("  auto-prophet -debug prophet-1  # With debug logging")
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
 	// Load prophet identity (metadata + sermons from disk).
@@ -145,7 +153,7 @@ func main() {
 
 	ctx := context.Background()
 
-	client, _, err := game.InitializeAgent(agentID, logger, ctx)
+	client, _, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

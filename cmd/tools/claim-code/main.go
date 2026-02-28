@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -74,14 +75,17 @@ func (h *SimpleHandler) OnDisconnected(err error) {
 }
 
 func main() {
-	if len(os.Args) < 3 {
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 2 {
 		fmt.Println("Usage: claim-code <agent-name> <registration-code>")
 		fmt.Println("Example: claim-code pirate-4 379e45614d2a4098fdfb8461b49abad7")
 		os.Exit(1)
 	}
 
-	agentName := os.Args[1]
-	registrationCode := os.Args[2]
+	agentName := flag.Args()[0]
+	registrationCode := flag.Args()[1]
 	agentDir := fmt.Sprintf("data/agents/%s", agentName)
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentName), log.LstdFlags)
@@ -97,6 +101,7 @@ func main() {
 	// Create game client
 	gameLogger := log.New(os.Stdout, "[GAME] ", log.LstdFlags)
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
+	client.SetDebugLogging(*debug)
 
 	// Set up handler
 	handler := &SimpleHandler{client: client, logger: logger}

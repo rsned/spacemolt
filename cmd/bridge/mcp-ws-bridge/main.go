@@ -353,6 +353,7 @@ func main() {
 	credsPath := flag.String("creds", "", "Path to credentials JSON file")
 	gameURL := flag.String("url", "wss://game.spacemolt.com/ws", "Game WebSocket URL")
 	verbose := flag.Bool("verbose", false, "Enable verbose logging")
+	debug := flag.Bool("debug", false, "Enable game client debug logging")
 	flag.Parse()
 
 	// Setup logging (to stderr)
@@ -387,6 +388,7 @@ func main() {
 
 	// Create and run bridge
 	bridge := NewBridge(*gameURL, creds.Username, creds.Password, logger)
+	bridge.gameClient.SetDebugLogging(*debug)
 	defer bridge.cancel()
 
 	if err := bridge.Run(); err != nil {

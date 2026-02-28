@@ -4,6 +4,7 @@ import (
 	"context"
 	"cmp"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -986,14 +987,20 @@ func switchToBestCargoShip(client *game.Client, ctx context.Context, kb *knowled
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-trader <agent-id> [strategy] [ore] [target-empire]")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-trader [flags] <agent-id> [strategy] [ore] [target-empire]")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  agent-id       Agent identifier (e.g., trader-1, trader-2)")
 		fmt.Println("  strategy       Action strategy (optional, default: sell)")
 		fmt.Println("  ore            Ore ID for trade strategy (e.g., ore_silicon)")
 		fmt.Println("  target-empire  Target empire for trade strategy (e.g., crimson)")
+		fmt.Println("")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		fmt.Println("")
 		fmt.Println("Strategies:")
 		fmt.Println("  sell           Sell all cargo immediately (default)")
@@ -1010,12 +1017,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 
 	// Parse station action strategy
 	strategy := "sell"
-	if len(os.Args) >= 3 {
-		strategy = os.Args[2]
+	if len(flag.Args()) >= 2 {
+		strategy = flag.Args()[1]
 	}
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
@@ -1033,7 +1040,7 @@ func main() {
 
 	ctx := context.Background()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}
@@ -1095,10 +1102,10 @@ func runTradeStrategy(agentID string, client *game.Client, logger *log.Logger, c
 	var returnLeg game.TradeRoute
 	var hasReturn bool
 
-	if len(os.Args) >= 5 {
+	if len(flag.Args()) >= 4 {
 		// Explicit route: auto-trader trader-1 trade ore_silicon crimson
-		oreID := os.Args[3]
-		targetEmpire := os.Args[4]
+		oreID := flag.Args()[2]
+		targetEmpire := flag.Args()[3]
 		var found bool
 		outbound, returnLeg, found = game.FindRouteByOreAndTarget(empire, oreID, targetEmpire)
 		if !found {

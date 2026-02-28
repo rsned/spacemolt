@@ -22,6 +22,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+var debug = flag.Bool("debug", false, "Enable game client debug logging")
+
 // SkillSnap captures a skill's level for diffing.
 type SkillSnap struct {
 	Level int     `json:"level"`
@@ -319,7 +321,7 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		snap.Error = fmt.Sprintf("init: %v", err)
 		return snap

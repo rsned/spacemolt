@@ -82,6 +82,7 @@ type ConnectionPool struct {
 	connections map[string]*AgentConnection
 	config      *ParsedConfig
 	logger      *log.Logger
+	debug       bool
 }
 
 // NewConnectionPool creates a new connection pool
@@ -176,6 +177,7 @@ func (p *ConnectionPool) createConnection(agentID string) (*AgentConnection, err
 	// Create game client
 	gameLogger := log.New(os.Stderr, fmt.Sprintf("[%s:game] ", agentID), log.LstdFlags)
 	conn.client = game.NewClient(p.config.GameServerURL, creds.Username, creds.Password, gameLogger)
+	conn.client.SetDebugLogging(p.debug)
 
 	// Connect and login
 	if err := p.connectAgent(conn); err != nil {
@@ -469,6 +471,7 @@ func (b *BridgeService) writeResponse(w io.Writer, resp *JSONRPCResponse) error 
 func main() {
 	configPath := flag.String("config", "bridge-service.json", "Path to service configuration")
 	verbose := flag.Bool("verbose", false, "Enable verbose logging")
+	debug := flag.Bool("debug", false, "Enable game client debug logging")
 	flag.Parse()
 
 	// Load configuration
@@ -531,6 +534,7 @@ func main() {
 
 	// Create connection pool
 	pool := NewConnectionPool(&config, logger)
+	pool.debug = *debug
 
 	// Start idle cleanup
 	pool.StartIdleCleanup(1 * time.Minute)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -316,9 +317,15 @@ func (a *RandomAgent) performAction(client *game.Client, logger *log.Logger, ctx
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: auto-random <agent-id>")
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		fmt.Println("Usage: auto-random [flags] <agent-id>")
 		fmt.Println("Example: auto-random random-1")
+		fmt.Println()
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		fmt.Println()
 		fmt.Println("This tool controls a random NPC agent that performs")
 		fmt.Println("various actions to simulate autonomous behavior:")
@@ -331,7 +338,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[%s] ", agentID), log.LstdFlags)
 
@@ -351,7 +358,7 @@ func main() {
 
 	// Initialize game client using shared library function
 	// This handles: credential loading, client creation, connection, and login
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx)
+	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

@@ -21,6 +21,7 @@ var (
 	registryURL = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbBackend   = flag.String("db-backend", "sqlite", "Knowledge base backend: sqlite or memory")
 	dbPath      = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
+	debug       = flag.Bool("debug", false, "Enable debug logging")
 )
 
 // Exploration state for DFS algorithm
@@ -1019,6 +1020,7 @@ func main() {
 	// Create game client (don't use InitializeAgent since we need custom handler)
 	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", explorer), log.LstdFlags)
 	client := game.NewClient(game.DefaultGameServerURL, creds.Username, creds.Password, gameLogger)
+	client.SetDebugLogging(*debug)
 	defer func() {
 		if err := client.Close(); err != nil {
 			logger.Printf("Warning: Failed to close client: %v", err)

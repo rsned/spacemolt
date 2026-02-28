@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -61,13 +62,16 @@ func (h *GameHandler) OnDisconnected(err error) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	debug := flag.Bool("debug", false, "Enable debug logging")
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
 		fmt.Println("Usage: play-simple <agent-id>")
 		fmt.Println("Example: play-simple pirate-4")
 		os.Exit(1)
 	}
 
-	agentID := os.Args[1]
+	agentID := flag.Args()[0]
 	agentDir := fmt.Sprintf("data/agents/%s", agentID)
 
 	// Load credentials
@@ -88,6 +92,7 @@ func main() {
 	// Create game client
 	gameLogger := log.New(os.Stdout, "", 0)
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
+	client.SetDebugLogging(*debug)
 
 	// Set up handler
 	handler := &GameHandler{client: client, logger: logger}

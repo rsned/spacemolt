@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,8 @@ import (
 )
 
 const gameServerURL = "wss://game.spacemolt.com/ws"
+
+var debug = flag.Bool("debug", false, "Enable debug logging")
 
 type Credentials struct {
 	Username string `json:"username"`
@@ -45,6 +48,7 @@ func connectPirate(pirateNum int) (*game.Client, context.Context, error) {
 	logger := log.New(os.Stdout, fmt.Sprintf("[pirate-%d] ", pirateNum), log.LstdFlags)
 
 	client := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
+	client.SetDebugLogging(*debug)
 
 	if err := client.Connect(ctx); err != nil {
 		return nil, nil, fmt.Errorf("failed to connect: %w", err)
@@ -59,7 +63,9 @@ func connectPirate(pirateNum int) (*game.Client, context.Context, error) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	flag.Parse()
+
+	if len(flag.Args()) < 1 {
 		fmt.Println("Usage: faction-join <command>")
 		fmt.Println("Commands:")
 		fmt.Println("  create        - Create Crimson Corsairs faction with pirate-1")
@@ -69,7 +75,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	command := os.Args[1]
+	command := flag.Args()[0]
 
 	switch command {
 	case "create":
@@ -96,11 +102,11 @@ func main() {
 		fmt.Println("✓ Faction creation command sent")
 
 	case "info":
-		if len(os.Args) < 3 {
+		if len(flag.Args()) < 2 {
 			log.Fatal("Usage: faction-join info <pirate-num>")
 		}
 		pirateNum := 0
-		_, _ = fmt.Sscanf(os.Args[2], "%d", &pirateNum)
+		_, _ = fmt.Sscanf(flag.Args()[1], "%d", &pirateNum)
 
 		client, ctx, err := connectPirate(pirateNum)
 		if err != nil {
@@ -123,11 +129,11 @@ func main() {
 		fmt.Printf("Faction Rank: %s\n", state.Player.FactionRank)
 
 	case "invite":
-		if len(os.Args) < 3 {
+		if len(flag.Args()) < 2 {
 			log.Fatal("Usage: faction-join invite <pirate-num>")
 		}
 		targetNum := 0
-		_, _ = fmt.Sscanf(os.Args[2], "%d", &targetNum)
+		_, _ = fmt.Sscanf(flag.Args()[1], "%d", &targetNum)
 
 		// Get target pirate's username
 		targetCreds, err := loadCredentials(targetNum)
@@ -157,11 +163,11 @@ func main() {
 		fmt.Printf("✓ Invitation sent to %s\n", targetCreds.Username)
 
 	case "join":
-		if len(os.Args) < 3 {
+		if len(flag.Args()) < 2 {
 			log.Fatal("Usage: faction-join join <pirate-num>")
 		}
 		pirateNum := 0
-		_, _ = fmt.Sscanf(os.Args[2], "%d", &pirateNum)
+		_, _ = fmt.Sscanf(flag.Args()[1], "%d", &pirateNum)
 
 		client, ctx, err := connectPirate(pirateNum)
 		if err != nil {
