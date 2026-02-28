@@ -14,6 +14,8 @@ Potential skills identified from `cmd/auto-*` agents and `pkg/strategy/` that ha
 | craft_from_storage | Done |
 | travel | Done |
 | recall | Done |
+| scan_for_distress | Done |
+| assist_deliver | Done |
 
 ---
 
@@ -60,6 +62,13 @@ Potential skills identified from `cmd/auto-*` agents and `pkg/strategy/` that ha
 |-------|--------------|-------------|--------|
 | withdraw_from_storage | craftsman | View storage, withdraw specific items by quantity | Pending |
 | check_fuel_before_jump | explorer | Verify fuel level meets minimum before allowing a jump | Pending |
+
+### Assist
+
+| Skill | Source Agents | Description | Status |
+|-------|--------------|-------------|--------|
+| scan_for_distress | assist-* | Monitor chat channels for fuel/repair help requests, extract requester details | Done |
+| assist_deliver | assist-* | Buy supplies, travel to stranded pilot, jettison items, notify via chat, return | Done |
 
 ### Social
 

@@ -1,0 +1,118 @@
+name: assist_deliver
+description: >
+  Deliver fuel cells or repair kits to a stranded pilot. Given a request
+  (target player, request type, target POI), buy the needed supplies,
+  travel to the POI, confirm the player is nearby, jettison the item,
+  find the wreck ID, notify the player via private chat, then return
+  to station and dock.
+
+parameters:
+  requester_id:
+    type: string
+    description: Player ID to help
+  requester_name:
+    type: string
+    description: Display name of the requester
+  request_type:
+    type: string
+    enum: [fuel, repair]
+    description: Type of assistance needed
+  target_poi:
+    type: string
+    description: POI where the requester is located
+
+prerequisites:
+  - docked
+
+targets:
+  home_station:
+    poi_type: [station]
+    description: Station to return to after delivery
+
+outputs:
+  - docked
+
+steps:
+  - id: buy_supplies
+    action: buy
+    args:
+      item: fuel_cell
+      quantity: 2
+    conditions:
+      request_type == repair: goto buy_repair_kit
+      default: goto undock
+
+  - id: buy_repair_kit
+    action: buy
+    args:
+      item: repair_kit
+      quantity: 1
+    next: undock
+
+  - id: undock
+    action: undock
+    next: travel_to_target
+
+  - id: travel_to_target
+    action: travel
+    target: $target_poi
+    next: check_nearby
+
+  - id: check_nearby
+    action: get_nearby
+    next: verify_requester
+
+  - id: verify_requester
+    check: true
+    description: Check if the requester is present at this location.
+    conditions:
+      requester_nearby: goto jettison_supplies
+      default: goto notify_not_found
+
+  - id: notify_not_found
+    action: chat
+    args:
+      channel: private
+      target: $requester_id
+      content: "Can't find you at the specified location. Heading back to station."
+    next: return_to_station
+
+  - id: jettison_supplies
+    action: jettison
+    args:
+      item: fuel_cell
+      quantity: 2
+    conditions:
+      request_type == repair: goto jettison_repair_kit
+      default: goto get_wreck_id
+
+  - id: jettison_repair_kit
+    action: jettison
+    args:
+      item: repair_kit
+      quantity: 1
+    next: get_wreck_id
+
+  - id: get_wreck_id
+    action: get_wrecks
+    next: notify_requester
+
+  - id: notify_requester
+    action: chat
+    args:
+      channel: private
+      target: $requester_id
+      content: "Supplies dropped! Wreck ID: {wreck_id} — loot it to grab your supplies."
+    next: return_to_station
+
+  - id: return_to_station
+    action: travel
+    target: $home_station
+    next: dock
+
+  - id: dock
+    action: dock
+    next: done
+
+  - id: done
+    terminal: true

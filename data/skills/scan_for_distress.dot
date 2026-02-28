@@ -1,0 +1,28 @@
+digraph scan_for_distress {
+  label=<
+Monitor local, system, and private chat channels for messages<br/>
+requesting fuel or repair assistance. Extract requester details<br/>
+for assist_deliver to consume.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="scan_for_distress"]
+  title -> get_local_chat [style=invis]
+
+  get_local_chat [shape=box label="get_chat_history\n(local)"]
+  get_system_chat [shape=box label="get_chat_history\n(system)"]
+  get_private_chat [shape=box label="get_chat_history\n(private)"]
+  scan_messages [shape=diamond label="scan for\nkeywords"]
+  extract_request [shape=box label="extract_request\ndetails"]
+  done_no_request [shape=doublecircle label="done\n(no request)"]
+  done [shape=doublecircle label="done"]
+
+  get_local_chat -> get_system_chat
+  get_system_chat -> get_private_chat
+  get_private_chat -> scan_messages
+  scan_messages -> extract_request [label="found request"]
+  scan_messages -> done_no_request [label="no matches"]
+  extract_request -> done
+}

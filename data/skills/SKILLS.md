@@ -4,6 +4,7 @@ All available agent skills listed alphabetically.
 
 ## Table of Contents
 
+- [assist_deliver](#assist_deliver)
 - [collect_station_data](#collect_station_data)
 - [craft_from_storage](#craft_from_storage)
 - [craft_items](#craft_items)
@@ -13,8 +14,23 @@ All available agent skills listed alphabetically.
 - [mine](#mine)
 - [recall](#recall)
 - [refuel_repair](#refuel_repair)
+- [scan_for_distress](#scan_for_distress)
 - [sell](#sell)
 - [travel](#travel)
+
+---
+
+## assist_deliver
+
+Deliver fuel cells or repair kits to a stranded pilot. Given a request (target player, request type, target POI), buy the needed supplies, travel to the POI, confirm the player is nearby, jettison the item, find the wreck ID, notify the player via private chat, then return to station and dock.
+
+**Parameters:** `requester_id`, `requester_name`, `request_type` (fuel|repair), `target_poi`
+
+**Prerequisites:** docked
+
+**Pattern:** Navigate-Act-Return
+
+![assist_deliver state machine](assist_deliver.svg)
 
 ---
 
@@ -127,6 +143,18 @@ Refuel and repair the ship at the current station. Checks fuel level against 80%
 **Pattern:** Conditional Cascade
 
 ![refuel_repair state machine](refuel_repair.svg)
+
+---
+
+## scan_for_distress
+
+Monitor local, system, and private chat channels for messages requesting fuel or repair assistance. Extract the requester's name/ID and the type of help needed. Outputs request details for assist_deliver to consume.
+
+**Prerequisites:** none
+
+**Pattern:** Check-Extract-Done
+
+![scan_for_distress state machine](scan_for_distress.svg)
 
 ---
 

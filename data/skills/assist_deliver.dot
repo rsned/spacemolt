@@ -1,0 +1,49 @@
+digraph assist_deliver {
+  label=<
+Deliver fuel cells or repair kits to a stranded pilot. Buy supplies,<br/>
+travel to target POI, jettison items, notify player with wreck ID,<br/>
+then return to station.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="assist_deliver"]
+  title -> buy_supplies [style=invis]
+
+  buy_supplies [shape=diamond label="buy\nsupplies"]
+  buy_fuel [shape=box label="buy fuel_cell\n(qty 2)"]
+  buy_repair [shape=box label="buy repair_kit\n(qty 1)"]
+  undock [shape=box label="undock"]
+  travel_to_target [shape=box label="travel to\n$target_poi"]
+  check_nearby [shape=box label="get_nearby"]
+  verify_requester [shape=diamond label="requester\nnearby?"]
+  notify_not_found [shape=box label="chat private\n\"Can't find you\""]
+  jettison_supplies [shape=diamond label="jettison\nsupplies"]
+  jettison_fuel [shape=box label="jettison\nfuel_cell"]
+  jettison_repair [shape=box label="jettison\nrepair_kit"]
+  get_wreck_id [shape=box label="get_wrecks"]
+  notify_requester [shape=box label="chat private\n\"Wreck ID: {id}\""]
+  return_to_station [shape=box label="travel to\n$home_station"]
+  dock [shape=box label="dock"]
+  done [shape=doublecircle label="done"]
+
+  buy_supplies -> buy_fuel [label="fuel"]
+  buy_supplies -> buy_repair [label="repair"]
+  buy_fuel -> undock
+  buy_repair -> undock
+  undock -> travel_to_target
+  travel_to_target -> check_nearby
+  check_nearby -> verify_requester
+  verify_requester -> jettison_supplies [label="found"]
+  verify_requester -> notify_not_found [label="not found"]
+  notify_not_found -> return_to_station
+  jettison_supplies -> jettison_fuel [label="fuel"]
+  jettison_supplies -> jettison_repair [label="repair"]
+  jettison_fuel -> get_wreck_id
+  jettison_repair -> get_wreck_id
+  get_wreck_id -> notify_requester
+  notify_requester -> return_to_station
+  return_to_station -> dock
+  dock -> done
+}

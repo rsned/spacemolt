@@ -1,0 +1,56 @@
+name: scan_for_distress
+description: >
+  Monitor local, system, and private chat channels for messages requesting
+  fuel or repair assistance. Extract the requester's name/ID and the type
+  of help needed. Outputs request details for assist_deliver to consume.
+
+prerequisites: []
+
+outputs:
+  - requester_id (player ID requesting help)
+  - requester_name (display name)
+  - request_type (fuel | repair)
+  - requester_poi (POI where requester is located, if mentioned)
+
+steps:
+  - id: get_local_chat
+    action: get_chat_history
+    args:
+      channel: local
+    next: get_system_chat
+
+  - id: get_system_chat
+    action: get_chat_history
+    args:
+      channel: system
+    next: get_private_chat
+
+  - id: get_private_chat
+    action: get_chat_history
+    args:
+      channel: private
+    next: scan_messages
+
+  - id: scan_messages
+    check: true
+    description: >
+      Scan collected messages for keywords: fuel, repair, help, stranded,
+      out of gas, broken. Extract requester details from matching messages.
+    conditions:
+      found_request: goto extract_request
+      default: goto done_no_request
+
+  - id: extract_request
+    action: extract_request_details
+    description: >
+      Parse the matched message to extract requester_id, requester_name,
+      request_type (fuel or repair), and requester_poi if mentioned.
+    next: done
+
+  - id: done_no_request
+    terminal: true
+    description: No distress requests found in any channel.
+
+  - id: done
+    terminal: true
+    description: Distress request extracted and ready for assist_deliver.
