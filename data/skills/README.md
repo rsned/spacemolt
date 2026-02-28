@@ -119,10 +119,37 @@ target: $destination_system   # References a parameter
 
 ## Visualization
 
-### DOT Graph Conventions
+### DOT File Structure
+
+Each DOT file uses a split title/description layout:
+
+- **Title** — A bold, 16pt label at the top of the graph rendered via an invisible `title` node
+- **Description** — A 12pt label at the bottom of the graph using the graph-level `label` with `labelloc=b`
+
+Description text should wrap at ~80 characters using `<br/>` tags (HTML label syntax).
+
+```dot
+digraph skill_name {
+  label=<
+Description line one wraps at about 80 characters.<br/>
+Continuation of the description here.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="skill_name"]
+  title -> first_step [style=invis]
+
+  // ... nodes and edges ...
+}
+```
+
+### Node Shape Conventions
 
 | Element | Shape | Represents |
 |---------|-------|------------|
+| Title | `shape=none` (invisible node) | Skill name at top of graph |
 | Check step | Diamond | Decision point with branching |
 | Action step | Rectangle | Game command execution |
 | Terminal step | Double circle | Skill completion |
@@ -136,6 +163,12 @@ To regenerate an SVG from a DOT file:
 
 ```bash
 dot -Tsvg <name>.dot -o <name>.svg
+```
+
+To regenerate all SVGs:
+
+```bash
+for f in *.dot; do dot -Tsvg "$f" -o "${f%.dot}.svg"; done
 ```
 
 ## Adding a New Skill
