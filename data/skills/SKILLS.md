@@ -148,7 +148,9 @@ Refuel and repair the ship at the current station. Checks fuel level against 80%
 
 ## scan_for_distress
 
-Monitor local, system, and private chat channels for messages requesting fuel or repair assistance. Extract the requester's name/ID and the type of help needed. Outputs request details for assist_deliver to consume.
+Announce shipside assistance availability to the system channel (once per hour), then monitor local, system, and private chat channels for messages requesting fuel or repair assistance. Extract the requester's name/ID and the type of help needed. Outputs request details for assist_deliver to consume.
+
+**Parameters:** `service_name` (rescue service display name from agent personality)
 
 **Prerequisites:** none
 

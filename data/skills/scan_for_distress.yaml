@@ -1,8 +1,17 @@
 name: scan_for_distress
 description: >
-  Monitor local, system, and private chat channels for messages requesting
-  fuel or repair assistance. Extract the requester's name/ID and the type
-  of help needed. Outputs request details for assist_deliver to consume.
+  Announce shipside assistance availability to the system channel (once per
+  hour), then monitor local, system, and private chat channels for messages
+  requesting fuel or repair assistance. Extract the requester's name/ID and
+  the type of help needed. Outputs request details for assist_deliver to
+  consume.
+
+parameters:
+  service_name:
+    type: string
+    description: >
+      Display name of the rescue service from the agent's personality
+      (e.g. "Frontier Rescue Service", "Nebula Emergency Bureau").
 
 prerequisites: []
 
@@ -13,6 +22,22 @@ outputs:
   - requester_poi (POI where requester is located, if mentioned)
 
 steps:
+  - id: check_announce_cooldown
+    check: true
+    description: >
+      Check if at least 1 hour has elapsed since the last service
+      announcement. Avoids spamming the system channel.
+    conditions:
+      last_announce_age >= 3600: goto announce_services
+      default: goto get_local_chat
+
+  - id: announce_services
+    action: chat
+    args:
+      channel: system
+      content: "$service_name reporting for duty! Shipside assistance is available — if you're out of fuel or need repairs, send us a message and we'll be right there!"
+    next: get_local_chat
+
   - id: get_local_chat
     action: get_chat_history
     args:

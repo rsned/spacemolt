@@ -1,16 +1,18 @@
 digraph scan_for_distress {
   label=<
-Monitor local, system, and private chat channels for messages<br/>
-requesting fuel or repair assistance. Extract requester details<br/>
-for assist_deliver to consume.
+Announce shipside assistance to system chat (hourly), then monitor<br/>
+local, system, and private channels for fuel/repair help requests.<br/>
+Extract requester details for assist_deliver to consume.
 >
   labelloc=b
   fontsize=12
   rankdir=TB
 
   title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="scan_for_distress"]
-  title -> get_local_chat [style=invis]
+  title -> check_announce_cooldown [style=invis]
 
+  check_announce_cooldown [shape=diamond label="last announce\n>= 1 hour?"]
+  announce_services [shape=box label="chat system\n\"$service_name\nreporting for duty!\""]
   get_local_chat [shape=box label="get_chat_history\n(local)"]
   get_system_chat [shape=box label="get_chat_history\n(system)"]
   get_private_chat [shape=box label="get_chat_history\n(private)"]
@@ -19,6 +21,9 @@ for assist_deliver to consume.
   done_no_request [shape=doublecircle label="done\n(no request)"]
   done [shape=doublecircle label="done"]
 
+  check_announce_cooldown -> announce_services [label="yes"]
+  check_announce_cooldown -> get_local_chat [label="no / too recent"]
+  announce_services -> get_local_chat
   get_local_chat -> get_system_chat
   get_system_chat -> get_private_chat
   get_private_chat -> scan_messages
