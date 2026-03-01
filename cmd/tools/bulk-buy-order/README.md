@@ -1,0 +1,39 @@
+# bulk-buy-order
+
+Place buy orders for every item in the crafting database to seed market data. Orders are sent in bulk batches (up to 50 per API call).
+
+## Usage
+
+```sh
+# Place 1-credit buy orders for all 476 items
+bulk-buy-order --agent=trader-1 --db=path/to/crafting.db
+
+# Preview what would be sent
+bulk-buy-order --agent=trader-1 --dry-run
+
+# Retry a failed range (e.g. items 450+)
+bulk-buy-order --agent=trader-1 --offset=450
+
+# Send a single test order
+bulk-buy-order --agent=trader-1 --offset=450 --limit=1
+```
+
+## Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--agent` | *(required)* | Agent ID for authentication |
+| `--db` | auto-detect | Path to crafting SQLite DB (env: `CRAFTING_DB`) |
+| `--price` | `1` | Price per unit in credits |
+| `--quantity` | `1` | Quantity per item |
+| `--batch-size` | `50` | Orders per API call (max 50) |
+| `--offset` | `0` | Skip the first N items |
+| `--limit` | `0` | Only send orders for N items (0 = all) |
+| `--dry-run` | `false` | Print batches without sending |
+| `--debug` | `false` | Enable debug logging |
+
+## Notes
+
+- Items are queried from the `items` table sorted by `id`, so `--offset` and `--limit` operate on that stable ordering.
+- A 10-second delay (one game tick) is inserted between batches to avoid "action already pending" errors.
+- The `--dry-run --debug` combination prints the full JSON payload for each batch.
