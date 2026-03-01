@@ -45,7 +45,7 @@ func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.C
 	// Try to craft items from cargo (if crafting config is available)
 	if client.CraftingConfig != nil {
 		logger.Printf("🔨 Querying craftable recipes from cargo...")
-		crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
+		crafted, err := client.CraftItems(ctx, logger, client.CraftingConfig)
 		if err != nil {
 			logger.Printf("⚠️  Crafting query failed: %v, selling raw cargo", err)
 		} else if crafted > 0 {
@@ -79,7 +79,7 @@ func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx contex
 	// Try to craft items from cargo (if crafting config is available)
 	if client.CraftingConfig != nil {
 		logger.Printf("🔨 Querying craftable recipes from cargo...")
-		crafted, err := client.CraftFromCargo(ctx, logger, client.CraftingConfig)
+		crafted, err := client.CraftItems(ctx, logger, client.CraftingConfig)
 		if err != nil {
 			logger.Printf("⚠️  Crafting query failed: %v, depositing raw cargo", err)
 		} else if crafted > 0 {

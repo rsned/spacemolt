@@ -184,26 +184,15 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		return d.Client.CraftWithQuantity(ctx, target, 1)
 
 	// Crafting (compound — gracefully handles failures)
-	case "craft_from_cargo":
-		// Cast to *game.Client to access CraftFromCargo which is not in GameClient interface
+	case "craft_items":
+		// Cast to *game.Client to access CraftItems which is not in GameClient interface
 		if client, ok := d.Client.(*game.Client); ok {
-			crafted, err := client.CraftFromCargo(ctx, d.Logger, nil)
+			crafted, err := client.CraftItems(ctx, d.Logger, nil)
 			if err != nil {
-				d.Logger.Printf("warning: craft_from_cargo failed (non-fatal): %v", err)
+				d.Logger.Printf("warning: craft_items failed (non-fatal): %v", err)
 				return nil
 			}
-			d.Logger.Printf("crafted %d items from cargo", crafted)
-		}
-		return nil
-
-	case "craft_from_storage":
-		if client, ok := d.Client.(*game.Client); ok {
-			crafted, err := client.CraftFromStorage(ctx, d.Logger, nil)
-			if err != nil {
-				d.Logger.Printf("warning: craft_from_storage failed (non-fatal): %v", err)
-				return nil
-			}
-			d.Logger.Printf("crafted %d items from storage", crafted)
+			d.Logger.Printf("crafted %d items", crafted)
 		}
 		return nil
 
@@ -555,8 +544,7 @@ func isTickAction(action string) bool {
 		"chat",                    // chat messages don't consume ticks
 		"scan_chat_for_distress",  // compound action, manages its own waits
 		"sleep_scan_interval",     // sleep action, manages its own wait
-		"craft_from_cargo",        // compound action, manages its own tick waits
-		"craft_from_storage":      // compound action, manages its own tick waits
+		"craft_items":             // compound action, manages its own tick waits
 		return false
 	default:
 		return true

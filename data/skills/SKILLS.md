@@ -6,7 +6,6 @@ All available agent skills listed alphabetically.
 
 - [assist_deliver](#assist_deliver)
 - [collect_station_data](#collect_station_data)
-- [craft_from_storage](#craft_from_storage)
 - [craft_items](#craft_items)
 - [deposit_cargo](#deposit_cargo)
 - [emergency_dock](#emergency_dock)
@@ -46,23 +45,11 @@ Collect market listings and ship listings at the current station and store snaps
 
 ---
 
-## craft_from_storage
-
-Craft items using materials from station storage. Deposits current cargo, queries craftable recipes from storage contents, withdraws materials, crafts, and deposits outputs. Repeats until nothing more can be crafted.
-
-**Prerequisites:** docked, at a station
-
-**Pattern:** Guard-Action-Done
-
-![craft_from_storage state machine](craft_from_storage.svg)
-
----
-
 ## craft_items
 
-Craft all possible items from current cargo. Queries the crafting MCP server to determine which recipes can be crafted with available resources and skills, then crafts them in batched quantities. Must be docked with cargo on board.
+Craft all possible items from station storage and ship cargo. Deposits cargo to storage first, queries the crafting MCP server for craftable recipes from the combined pool, withdraws materials, crafts in batches, and deposits results. Repeats until nothing more can be crafted.
 
-**Prerequisites:** docked, at a station, has cargo
+**Prerequisites:** docked, at a station
 
 **Pattern:** Guard-Action-Done
 

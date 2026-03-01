@@ -1,13 +1,13 @@
 name: craft_items
 description: >
-  Craft all possible items from current cargo. Queries the crafting MCP server
-  to determine which recipes can be crafted with available resources and skills,
-  then crafts them in batched quantities. Must be docked with cargo on board.
+  Craft all possible items from station storage and ship cargo. Deposits cargo
+  to storage first, queries the crafting MCP server for craftable recipes from
+  the combined pool, withdraws materials, crafts in batches, and deposits
+  results. Repeats until nothing more can be crafted. Must be docked at a station.
 
 prerequisites:
   - docked
   - at_poi_type(station)
-  - has_cargo
 
 steps:
   - id: check_ready
@@ -15,11 +15,10 @@ steps:
     conditions:
       not docked: goto done
       not at_poi_type(station): goto done
-      not has_cargo: goto done
       default: goto craft
 
   - id: craft
-    action: craft_from_cargo
+    action: craft_items
     next: done
 
   - id: done

@@ -11,7 +11,6 @@ Potential skills identified from `cmd/auto-*` agents and `pkg/strategy/` that ha
 | deposit_cargo | Done |
 | mine | Done |
 | craft_items | Done |
-| craft_from_storage | Done |
 | travel | Done |
 | recall | Done |
 | scan_for_distress | Done |
