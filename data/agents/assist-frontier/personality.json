@@ -23,11 +23,13 @@
     "triage": "advanced"
   },
   "service_name": "Frontier Rescue Service",
+  "background_skill": "mine_and_deposit",
   "game_skills": [
     "scan_for_distress",
     "assist_deliver",
     "ensure_docked",
-    "refuel_repair"
+    "refuel_repair",
+    "mine_and_deposit"
   ],
   "traits": {
     "caution": 0.4,
