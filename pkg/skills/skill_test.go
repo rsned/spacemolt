@@ -243,3 +243,85 @@ func TestSkill_FirstStepID(t *testing.T) {
 		t.Errorf("FirstStepID() on empty = %q, want empty", got)
 	}
 }
+
+func TestParseSkillWithBackgroundSlot(t *testing.T) {
+	yamlData := []byte(`
+name: test_with_background
+description: A skill that declares a background slot
+background_slot:
+  description: "Runs during idle windows"
+  interrupt: graceful
+  cleanup_outputs:
+    - docked
+  idle_steps:
+    - sleep_cycle
+  min_idle_duration: 60
+steps:
+  - id: do_work
+    action: mine
+    next: sleep_cycle
+  - id: sleep_cycle
+    action: sleep_scan_interval
+    next: done
+  - id: done
+    terminal: true
+`)
+	skill, err := ParseSkill(yamlData)
+	if err != nil {
+		t.Fatalf("ParseSkill failed: %v", err)
+	}
+
+	if skill.BackgroundSlot == nil {
+		t.Fatal("expected BackgroundSlot to be non-nil")
+	}
+	if skill.BackgroundSlot.Interrupt != "graceful" {
+		t.Errorf("interrupt = %q, want %q", skill.BackgroundSlot.Interrupt, "graceful")
+	}
+	if len(skill.BackgroundSlot.CleanupOutputs) != 1 || skill.BackgroundSlot.CleanupOutputs[0] != "docked" {
+		t.Errorf("cleanup_outputs = %v, want [docked]", skill.BackgroundSlot.CleanupOutputs)
+	}
+	if len(skill.BackgroundSlot.IdleSteps) != 1 || skill.BackgroundSlot.IdleSteps[0] != "sleep_cycle" {
+		t.Errorf("idle_steps = %v, want [sleep_cycle]", skill.BackgroundSlot.IdleSteps)
+	}
+	if skill.BackgroundSlot.MinIdleDuration != 60 {
+		t.Errorf("min_idle_duration = %d, want 60", skill.BackgroundSlot.MinIdleDuration)
+	}
+}
+
+func TestParseSkillBackgroundSlotValidation(t *testing.T) {
+	yamlData := []byte(`
+name: bad_background
+description: References non-existent idle step
+background_slot:
+  interrupt: graceful
+  idle_steps:
+    - nonexistent_step
+steps:
+  - id: work
+    action: mine
+    next: done
+  - id: done
+    terminal: true
+`)
+	_, err := ParseSkill(yamlData)
+	if err == nil {
+		t.Fatal("expected validation error for non-existent idle step")
+	}
+}
+
+func TestParseSkillWithoutBackgroundSlot(t *testing.T) {
+	yamlData := []byte(`
+name: simple_skill
+description: No background slot
+steps:
+  - id: done
+    terminal: true
+`)
+	skill, err := ParseSkill(yamlData)
+	if err != nil {
+		t.Fatalf("ParseSkill failed: %v", err)
+	}
+	if skill.BackgroundSlot != nil {
+		t.Fatal("expected BackgroundSlot to be nil for skill without it")
+	}
+}

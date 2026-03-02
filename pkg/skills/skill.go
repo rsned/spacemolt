@@ -17,8 +17,19 @@ type Skill struct {
 	Prerequisites []string          `yaml:"prerequisites,omitempty"`
 	Parameters    []ParameterDefinition `yaml:"parameters,omitempty"`
 	Targets       map[string]Target `yaml:"targets,omitempty"`
-	Outputs       []string          `yaml:"outputs,omitempty"`
-	Steps         []Step            `yaml:"steps"`
+	Outputs        []string          `yaml:"outputs,omitempty"`
+	BackgroundSlot *BackgroundSlot   `yaml:"background_slot,omitempty"`
+	Steps          []Step            `yaml:"steps"`
+}
+
+// BackgroundSlot declares that this skill has idle windows where a background
+// skill can run. The agent personality config fills in which skill to use.
+type BackgroundSlot struct {
+	Description     string   `yaml:"description,omitempty"`
+	Interrupt       string   `yaml:"interrupt"`
+	CleanupOutputs  []string `yaml:"cleanup_outputs,omitempty"`
+	IdleSteps       []string `yaml:"idle_steps"`
+	MinIdleDuration int      `yaml:"min_idle_duration,omitempty"`
 }
 
 // ParameterDefinition defines a skill parameter with metadata.
@@ -137,6 +148,18 @@ func (s *Skill) Validate() error {
 		}
 		if kinds == 0 {
 			return fmt.Errorf("step %q must have exactly one of: action, skill, check, terminal", step.ID)
+		}
+	}
+
+	if s.BackgroundSlot != nil {
+		for _, idleStep := range s.BackgroundSlot.IdleSteps {
+			if !seen[idleStep] {
+				return fmt.Errorf("background_slot.idle_steps references unknown step: %q", idleStep)
+			}
+		}
+		validInterrupts := map[string]bool{"graceful": true, "immediate": true, "abandon": true}
+		if s.BackgroundSlot.Interrupt != "" && !validInterrupts[s.BackgroundSlot.Interrupt] {
+			return fmt.Errorf("background_slot.interrupt must be one of: graceful, immediate, abandon; got %q", s.BackgroundSlot.Interrupt)
 		}
 	}
 
