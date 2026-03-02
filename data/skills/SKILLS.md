@@ -109,6 +109,20 @@ Gather resources from an asteroid belt. Undocks from station, travels to the nea
 
 ---
 
+## mine_and_deposit
+
+Mine resources from a nearby asteroid belt, return to station, and deposit all cargo into storage. Designed as a background skill that always ends in a docked state.
+
+**Prerequisites:** docked or at an asteroid belt/field, has a mining module
+
+**Targets:** mining site (asteroid belt/field), home station
+
+**Pattern:** Skill Composition (invokes `mine`, `deposit_cargo`)
+
+![mine_and_deposit state machine](mine_and_deposit.svg)
+
+---
+
 ## recall
 
 Return the agent to its empire capital system and dock at the home base. Composes the `travel` skill to handle multi-system navigation, then finds and docks at the capital base.

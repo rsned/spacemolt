@@ -1,0 +1,19 @@
+digraph mine_and_deposit {
+  label=<
+Mine resources from a nearby asteroid belt, return to station,<br/>
+and deposit all cargo into storage. Ends docked.
+>
+  labelloc=b
+  fontsize=12
+  rankdir=TB
+
+  title [shape=none margin=0 fontsize=16 fontname="Helvetica-Bold" label="mine_and_deposit"]
+  title -> run_mine [style=invis]
+
+  run_mine [label="mine\n(sub-skill)" shape=box style=dashed]
+  deposit [label="deposit_cargo\n(sub-skill)" shape=box style=dashed]
+  done [label="done" shape=doublecircle width=0.5]
+
+  run_mine -> deposit
+  deposit -> done
+}

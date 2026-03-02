@@ -14,6 +14,15 @@ parameters:
 
 prerequisites: []
 
+background_slot:
+  description: "Mine or harvest resources during 5-minute scan sleep intervals"
+  interrupt: graceful
+  cleanup_outputs:
+    - docked
+  idle_steps:
+    - sleep_cycle
+  min_idle_duration: 60
+
 steps:
   - id: check_announce_cooldown
     check: true

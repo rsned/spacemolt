@@ -1,0 +1,32 @@
+name: mine_and_deposit
+description: >
+  Mine resources from a nearby asteroid belt until cargo is full or fuel is low,
+  return to station, and deposit all cargo into storage. Designed as a background
+  skill that always ends in a docked state.
+
+prerequisites:
+  - docked OR at_poi_type(asteroid_belt, asteroid_field)
+  - has_module_type(mining)
+
+targets:
+  mining_site:
+    poi_type: [asteroid_belt, asteroid_field]
+    description: Resource extraction location
+  home_station:
+    poi_type: [station]
+    description: Station for docking and depositing
+
+outputs:
+  - docked
+
+steps:
+  - id: run_mine
+    skill: mine
+    next: deposit
+
+  - id: deposit
+    skill: deposit_cargo
+    next: done
+
+  - id: done
+    terminal: true
