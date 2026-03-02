@@ -11,6 +11,12 @@ type SkillCheckpoint struct {
 
 	// StepState holds skill-specific state at the time of interruption.
 	StepState map[string]any
+
+	// Interrupted is true if the skill was interrupted (vs. completing naturally).
+	Interrupted bool
+
+	// CleanupDone is true if the interrupt cleanup sequence completed successfully.
+	CleanupDone bool
 }
 
 // IsEmpty returns true if no checkpoint data is stored.
@@ -23,4 +29,6 @@ func (c *SkillCheckpoint) Clear() {
 	c.SkillName = ""
 	c.CurrentStep = ""
 	c.StepState = nil
+	c.Interrupted = false
+	c.CleanupDone = false
 }

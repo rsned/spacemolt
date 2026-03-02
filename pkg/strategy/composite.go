@@ -136,11 +136,15 @@ func (c *CompositeStrategy) manageBackground(ctx context.Context, client *game.C
 }
 
 // NotifyIdle is called by the primary strategy to signal idle enter/exit.
+// Pass true when entering idle, false when exiting. Drains any pending
+// signal first to ensure the latest state always arrives.
 func (c *CompositeStrategy) NotifyIdle(idle bool) {
+	// Drain any stale signal so the new one is guaranteed to arrive.
 	select {
-	case c.idleCh <- idle:
+	case <-c.idleCh:
 	default:
 	}
+	c.idleCh <- idle
 }
 
 func (c *CompositeStrategy) setStatus(status string) {
