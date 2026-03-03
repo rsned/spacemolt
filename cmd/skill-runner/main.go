@@ -47,7 +47,7 @@ func main() {
 	// Determine which skills to run.
 	var skillNames []string
 	if *skillFlag != "" {
-		for _, s := range strings.Split(*skillFlag, ",") {
+		for s := range strings.SplitSeq(*skillFlag, ",") {
 			s = strings.TrimSpace(s)
 			if s != "" {
 				skillNames = append(skillNames, s)
