@@ -52,10 +52,28 @@ get_agent_role() {
     echo "$1" | sed 's/-[0-9]*$//'
 }
 
+# Roles that have been migrated to skill-runner
+SKILL_RUNNER_ROLES="miner assist salvager pirate"
+
 # Get binary name for a role
 get_binary_for_role() {
     local role=$1
-    echo "auto-${role}"
+    if echo "$SKILL_RUNNER_ROLES" | grep -qw "$role"; then
+        echo "skill-runner"
+    else
+        echo "auto-${role}"
+    fi
+}
+
+# Get launch args for an agent
+get_agent_args() {
+    local agent=$1
+    local role=$(get_agent_role "$agent")
+    if echo "$SKILL_RUNNER_ROLES" | grep -qw "$role"; then
+        echo "--agent $agent"
+    else
+        echo "$agent"
+    fi
 }
 
 case "$1" in
@@ -114,13 +132,14 @@ case "$1" in
             binary=$(get_binary_for_role "$role")
         fi
 
-        # Check if already running (check for any auto-* binary with this agent)
-        if pgrep -f "auto-.* $agent" > /dev/null; then
+        # Check if already running (check for auto-* or skill-runner with this agent)
+        if pgrep -f "(auto-|skill-runner).* $agent" > /dev/null; then
             echo "  ⚠️  $agent already running, skipping"
             continue
         fi
 
-        (cd "$START_DIR" && ./bin/$binary $agent > logs/$agent.log 2>&1 &)
+        args=$(get_agent_args "$agent")
+        (cd "$START_DIR" && ./bin/$binary $args > logs/$agent.log 2>&1 &)
         echo "  ✓ Started $agent with $binary (PID: $!)"
         STARTED=$((STARTED + 1))
 
@@ -131,19 +150,21 @@ case "$1" in
     done
 
     sleep 2
-    RUNNING=$(pgrep -f "bin/auto-" | wc -l)
+    RUNNING=$(pgrep -f "bin/(auto-|skill-runner)" | wc -l)
     echo "✅ Started $STARTED agents, $RUNNING total running"
     ;;
 
   stop)
     echo "🛑 Stopping all agents..."
-    pkill -f "bin/auto-"
+    pkill -f "bin/auto-" 2>/dev/null
+    pkill -f "bin/skill-runner" 2>/dev/null
     sleep 2
 
     # Force kill if any still running
-    if pgrep -f "bin/auto-" > /dev/null; then
+    if pgrep -f "bin/(auto-|skill-runner)" > /dev/null; then
         echo "⚠️  Some agents still running, force killing..."
-        pkill -9 -f "bin/auto-"
+        pkill -9 -f "bin/auto-" 2>/dev/null
+        pkill -9 -f "bin/skill-runner" 2>/dev/null
     fi
 
     echo "✅ All agents stopped"
@@ -158,7 +179,7 @@ case "$1" in
     ;;
 
   status)
-    RUNNING=$(pgrep -f "bin/auto-" | wc -l)
+    RUNNING=$(pgrep -f "bin/(auto-|skill-runner)" | wc -l)
     echo "📊 Agent Status"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "Total agents configured: $TOTAL_AGENTS"
@@ -169,9 +190,9 @@ case "$1" in
         echo "❌ No agents running"
     else
         echo "Running agents:"
-        pgrep -f "bin/auto-" | while read pid; do
+        pgrep -f "bin/(auto-|skill-runner)" | while read pid; do
             cmdline=$(ps -p $pid -o args= 2>/dev/null)
-            agent=$(echo "$cmdline" | grep -oP 'auto-[a-z]+ \K[^ ]+' || echo "unknown")
+            agent=$(echo "$cmdline" | grep -oP '(auto-[a-z]+ |--agent )\K[^ ]+' || echo "unknown")
             echo "  ✓ $agent (PID: $pid)"
         done
     fi
@@ -183,11 +204,12 @@ case "$1" in
         running=0
         binary=$(get_binary_for_role "$type")
         for i in $(seq 1 $count); do
-            if pgrep -f "$binary $type-$i" > /dev/null; then
+            agent="${type}-${i}"
+            if pgrep -f "(auto-|skill-runner).* $agent" > /dev/null; then
                 running=$((running + 1))
             fi
         done
-        printf "  %-12s: %2d / %d running\n" "$type" $running $count
+        printf "  %-12s: %2d / %d running (%s)\n" "$type" $running $count "$binary"
     done
     ;;
 
@@ -250,7 +272,7 @@ case "$1" in
     done
 
     echo "═══ FLEET TOTALS ═══"
-    total_running=$(pgrep -f "bin/auto-" | wc -l)
+    total_running=$(pgrep -f "bin/(auto-|skill-runner)" | wc -l)
     echo "Running: $total_running / $TOTAL_AGENTS agents"
     echo ""
     ;;
@@ -327,11 +349,27 @@ case "$1" in
     if [ -z "$2" ]; then
         echo "🔨 Rebuilding all agent binaries..."
         failed=0
+
+        # Build skill-runner first (used by migrated agents)
+        echo "  Building skill-runner..."
+        (cd "$START_DIR" && go build -o bin/skill-runner cmd/skill-runner/main.go)
+        if [ $? -ne 0 ]; then
+            echo "  ❌ Build failed for skill-runner"
+            failed=$((failed + 1))
+        fi
+
+        # Build remaining auto-* binaries (for non-migrated agents)
+        built_binaries=""
         for type in "${!AGENT_TYPES[@]}"; do
             binary=$(get_binary_for_role "$type")
-            if [ -d "cmd/$binary" ]; then
+            # Skip skill-runner (already built) and dedup
+            if [ "$binary" = "skill-runner" ] || echo "$built_binaries" | grep -qw "$binary"; then
+                continue
+            fi
+            built_binaries="$built_binaries $binary"
+            if [ -d "$START_DIR/cmd/$binary" ]; then
                 echo "  Building $binary..."
-                go build -o "bin/$binary" "cmd/$binary/main.go"
+                (cd "$START_DIR" && go build -o "bin/$binary" "cmd/$binary/main.go")
                 if [ $? -ne 0 ]; then
                     echo "  ❌ Build failed for $binary"
                     failed=$((failed + 1))
