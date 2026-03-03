@@ -1,0 +1,36 @@
+name: mine_and_sell
+description: >
+  Mine resources from a nearby asteroid belt until cargo is full or fuel is low,
+  return to station, sell all cargo, and refuel/repair. Designed as a continuous
+  mining loop for miner agents.
+
+prerequisites:
+  - docked OR at_poi_type(asteroid_belt, asteroid_field)
+  - has_module_type(mining)
+
+targets:
+  mining_site:
+    poi_type: [asteroid_belt, asteroid_field]
+    description: Resource extraction location
+  home_station:
+    poi_type: [station]
+    description: Station for selling and refueling
+
+outputs:
+  - docked
+
+steps:
+  - id: run_mine
+    skill: mine
+    next: sell
+
+  - id: sell
+    skill: sell
+    next: refuel
+
+  - id: refuel
+    skill: refuel_repair
+    next: done
+
+  - id: done
+    terminal: true
