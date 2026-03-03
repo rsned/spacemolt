@@ -51,6 +51,7 @@ type Personality struct {
 	Biography   string             `yaml:"biography"`
 	Faction     string             `yaml:"faction,omitempty"`
 	ServiceName     string             `yaml:"service_name,omitempty" json:"service_name,omitempty"`
+	PrimarySkill    string             `yaml:"primary_skill,omitempty" json:"primary_skill,omitempty"`
 	GameSkills      []string           `yaml:"game_skills,omitempty" json:"game_skills,omitempty"`
 	BackgroundSkill string             `yaml:"background_skill,omitempty" json:"background_skill,omitempty"`
 }
