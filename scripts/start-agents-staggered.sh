@@ -117,6 +117,8 @@ fi
 
 # Define agent batches
 BATCHES=(
+    "assist-haven assist-krynn assist-nexus assist-frontier assist-sol"
+    "prophet-1 prophet-2"
     "pirate-1 pirate-2 pirate-3 pirate-4 pirate-5"
     "pirate-6 pirate-7 pirate-8 pirate-9 pirate-10"
     "pirate-11 pirate-12 pirate-13 pirate-14 pirate-15"
@@ -135,8 +137,7 @@ BATCHES=(
     "salvager-1 salvager-2 salvager-3 salvager-4 salvager-5"
     "salvager-6 salvager-7 salvager-8 salvager-9 salvager-10"
     "random-1 random-2 random-3 random-4 random-5"
-    "random-6 random-7 random-8 random-9"
-    "prophet-1 prophet-2"
+    "random-6 random-7 random-8 random-9 random-npc"
 )
 
 BATCH_NUM=0

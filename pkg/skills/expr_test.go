@@ -266,6 +266,30 @@ func TestFunction_AtSystem(t *testing.T) {
 	}
 }
 
+func TestFunction_AtSystemWithVariable(t *testing.T) {
+	state := &game.State{
+		System: game.SystemData{ID: "nexus"},
+		Player: game.Player{Empire: "Voidborn"}, // Nexus is Voidborn capital
+	}
+	result, err := EvalExpr("at_system(capital_system_id)", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if !result {
+		t.Error("Expected at_system(capital_system_id) to return true when in capital system")
+	}
+
+	// Test with different system
+	state.System.ID = "sol"
+	result, err = EvalExpr("at_system(capital_system_id)", state)
+	if err != nil {
+		t.Fatalf("EvalExpr failed: %v", err)
+	}
+	if result {
+		t.Error("Expected at_system(capital_system_id) to return false when not in capital system")
+	}
+}
+
 func TestFunction_POIIsDockable(t *testing.T) {
 	state := &game.State{
 		Player: game.Player{DockedAtBase: "station-1"},

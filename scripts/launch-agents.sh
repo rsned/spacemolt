@@ -9,6 +9,7 @@ START_DIR="$SCRIPT_DIR/../"
 # Define all agent types and their counts
 declare -A AGENT_TYPES
 AGENT_TYPES=(
+    ["assist"]=5
     ["craftsman"]=10
     ["engineer"]=10
     ["explorer"]=10
@@ -16,7 +17,7 @@ AGENT_TYPES=(
     ["miner"]=10
     ["pirate"]=15
     ["prophet"]=2
-    ["random"]=9
+    ["random"]=10
     ["salvager"]=10
     ["trader"]=10
 )

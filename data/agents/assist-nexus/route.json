@@ -1,0 +1,12 @@
+{
+  "destination_system": "nexus",
+  "route": [
+    {
+      "system_id": "nexus",
+      "name": "Nexus Prime",
+      "jumps": 0
+    }
+  ],
+  "current_step": 0,
+  "timestamp": "2026-03-02T13:18:16.180340861-08:00"
+}

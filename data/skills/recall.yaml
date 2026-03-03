@@ -10,6 +10,7 @@ steps:
     check: true
     conditions:
       at_system(capital_system_id) AND docked: goto done
+      at_system(capital_system_id): goto ensure_docked
       default: goto prepare_travel
 
   - id: prepare_travel

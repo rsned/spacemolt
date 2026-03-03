@@ -154,6 +154,12 @@ func atSystem(args []string, state *game.State) (bool, error) {
 		return false, fmt.Errorf("at_system requires 1 argument")
 	}
 	targetSystem := args[0]
+
+	// Try to resolve as a variable first (e.g., capital_system_id, route_destination_system)
+	if val, err := resolveVarWithRoute(targetSystem, state, nil, nil); err == nil && val.kind == "string" {
+		targetSystem = val.stringVal
+	}
+
 	return state.System.ID == targetSystem, nil
 }
 
