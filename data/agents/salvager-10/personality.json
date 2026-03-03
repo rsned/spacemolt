@@ -29,5 +29,9 @@
     "luck": 0.85,
     "optimism": 0.8,
     "risk_taking": 0.85
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

@@ -31,5 +31,12 @@
     "curiosity": 0.95,
     "patience": 0.55,
     "risk_tolerance": 0.65
-  }
+  },
+  "primary_skill": "mine_and_sell",
+  "game_skills": [
+    "mine",
+    "sell",
+    "refuel_repair",
+    "mine_and_sell"
+  ]
 }

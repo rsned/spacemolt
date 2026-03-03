@@ -29,5 +29,9 @@
     "quality_control": 0.95,
     "skepticism": 0.85,
     "standards": 0.9
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

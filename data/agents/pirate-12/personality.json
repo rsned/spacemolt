@@ -29,5 +29,9 @@
     "curiosity": 0.85,
     "efficiency": 0.95,
     "risk_tolerance": 0.7
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

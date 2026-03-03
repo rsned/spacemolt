@@ -38,5 +38,6 @@
     "empathy": 0.85,
     "resourcefulness": 0.8,
     "urgency": 0.8
-  }
+  },
+  "primary_skill": "scan_for_distress"
 }

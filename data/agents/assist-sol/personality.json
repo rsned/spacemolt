@@ -38,5 +38,6 @@
     "empathy": 0.8,
     "professionalism": 0.85,
     "urgency": 0.8
-  }
+  },
+  "primary_skill": "scan_for_distress"
 }

@@ -38,5 +38,6 @@
     "dependability": 0.95,
     "empathy": 0.8,
     "urgency": 0.8
-  }
+  },
+  "primary_skill": "scan_for_distress"
 }

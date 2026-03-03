@@ -29,5 +29,12 @@
     "greed": 0.85,
     "patience": 0.9,
     "risk_tolerance": 0.35
-  }
+  },
+  "primary_skill": "mine_and_sell",
+  "game_skills": [
+    "mine",
+    "sell",
+    "refuel_repair",
+    "mine_and_sell"
+  ]
 }

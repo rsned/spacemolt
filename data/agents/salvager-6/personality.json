@@ -29,5 +29,9 @@
     "puzzle_solving": 0.9,
     "reconstruction": 0.9,
     "social_skills": 0.4
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

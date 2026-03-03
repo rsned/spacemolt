@@ -29,5 +29,9 @@
     "cunning": 0.7,
     "greed": 0.8,
     "risk_tolerance": 0.75
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

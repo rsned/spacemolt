@@ -29,5 +29,12 @@
     "observation": 0.9,
     "patience": 0.95,
     "perfectionism": 0.8
-  }
+  },
+  "primary_skill": "mine_and_sell",
+  "game_skills": [
+    "mine",
+    "sell",
+    "refuel_repair",
+    "mine_and_sell"
+  ]
 }

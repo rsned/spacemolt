@@ -29,5 +29,12 @@
     "patience": 0.4,
     "risk_tolerance": 0.75,
     "wanderlust": 0.8
-  }
+  },
+  "primary_skill": "mine_and_sell",
+  "game_skills": [
+    "mine",
+    "sell",
+    "refuel_repair",
+    "mine_and_sell"
+  ]
 }

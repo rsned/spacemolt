@@ -29,5 +29,12 @@
     "impatience": 0.8,
     "leadership": 0.7,
     "risk_tolerance": 0.7
-  }
+  },
+  "primary_skill": "mine_and_sell",
+  "game_skills": [
+    "mine",
+    "sell",
+    "refuel_repair",
+    "mine_and_sell"
+  ]
 }

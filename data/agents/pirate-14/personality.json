@@ -29,5 +29,9 @@
     "cunning": 0.95,
     "risk_tolerance": 0.6,
     "strategic_thinking": 0.95
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

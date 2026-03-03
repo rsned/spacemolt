@@ -29,5 +29,9 @@
     "opportunism": 0.8,
     "risk_tolerance": 0.75,
     "stealth": 0.9
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

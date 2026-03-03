@@ -29,5 +29,9 @@
     "persistence": 0.9,
     "realism": 0.45,
     "treasure_hunting": 0.95
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

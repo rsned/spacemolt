@@ -29,5 +29,9 @@
     "gadget_fascination": 0.9,
     "risk_tolerance": 0.7,
     "technical_curiosity": 0.95
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

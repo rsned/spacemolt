@@ -29,5 +29,9 @@
     "greed": 0.7,
     "nostalgia": 0.85,
     "risk_tolerance": 0.6
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

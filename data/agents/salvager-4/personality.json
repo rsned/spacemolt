@@ -29,5 +29,9 @@
     "paranoia": 0.65,
     "preparation": 0.9,
     "value_perception": 0.95
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

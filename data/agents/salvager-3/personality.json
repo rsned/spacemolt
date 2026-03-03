@@ -29,5 +29,9 @@
     "patience": 0.85,
     "perfectionism": 0.8,
     "thoroughness": 0.9
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }

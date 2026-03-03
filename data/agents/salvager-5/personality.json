@@ -29,5 +29,9 @@
     "patience": 0.9,
     "perseverance": 0.95,
     "surface_level_thinking": 0.3
-  }
+  },
+  "primary_skill": "ensure_docked",
+  "game_skills": [
+    "ensure_docked"
+  ]
 }
