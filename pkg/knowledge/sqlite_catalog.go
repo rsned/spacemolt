@@ -8,6 +8,15 @@ import (
 	"fmt"
 )
 
+// mapToJSON serializes a map to a JSON string, returning nil for empty/nil maps.
+func mapToJSON(m map[string]float64) any {
+	if len(m) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
 // StoreItems stores or replaces all items in the catalog.
 func (kb *SQLiteKB) StoreItems(ctx context.Context, items []CatalogItem) error {
 	tx, err := kb.db.BeginTx(ctx, nil)
@@ -16,8 +25,15 @@ func (kb *SQLiteKB) StoreItems(ctx context.Context, items []CatalogItem) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, "DELETE FROM items"); err != nil {
-		return fmt.Errorf("failed to clear items: %w", err)
+	// Clear detail tables first (FK order), then base tables.
+	for _, table := range []string{
+		"item_ammo", "item_consumable_effects",
+		"item_weapons", "item_defenses", "item_mining", "item_utilities",
+		"item_modules", "items",
+	} {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+table); err != nil {
+			return fmt.Errorf("failed to clear %s: %w", table, err)
+		}
 	}
 
 	for _, item := range items {
@@ -29,9 +45,102 @@ func (kb *SQLiteKB) StoreItems(ctx context.Context, items []CatalogItem) error {
 		if err != nil {
 			return fmt.Errorf("failed to insert item %s: %w", item.ID, err)
 		}
+
+		if err := storeItemDetails(ctx, tx, item); err != nil {
+			return fmt.Errorf("failed to insert details for item %s: %w", item.ID, err)
+		}
 	}
 
 	return tx.Commit()
+}
+
+// storeItemDetails inserts module/consumable/ammo detail rows for an item.
+func storeItemDetails(ctx context.Context, tx *sql.Tx, item CatalogItem) error {
+	if m := item.Module; m != nil {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO item_modules (item_id, type, type_id, cpu_usage, power_usage, hidden, special)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, item.ID, m.Type, m.TypeID, m.CPUUsage, m.PowerUsage, m.Hidden, nilIfEmpty(m.Special)); err != nil {
+			return err
+		}
+
+		switch m.Type {
+		case "weapon":
+			if w := m.Weapon; w != nil {
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO item_weapons (item_id, damage, damage_type, range, reach, cooldown, ammo_type, magazine_size)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				`, item.ID, w.Damage, w.DamageType, w.Range, w.Reach, w.Cooldown,
+					nilIfEmpty(w.AmmoType), w.MagazineSize); err != nil {
+					return err
+				}
+			}
+		case "defense":
+			if d := m.Defense; d != nil {
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO item_defenses (item_id, armor_bonus, hull_bonus, shield_bonus,
+						shield_recharge_bonus, armor_repair_rate, resistance_bonus, damage_reduction,
+						cloak_strength, cooldown, damage, damage_type, range)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`, item.ID, d.ArmorBonus, d.HullBonus, d.ShieldBonus,
+					d.ShieldRechargeBonus, d.ArmorRepairRate, mapToJSON(d.ResistanceBonus), d.DamageReduction,
+					d.CloakStrength, d.Cooldown, d.Damage, nilIfEmpty(d.DamageType), d.Range); err != nil {
+					return err
+				}
+			}
+		case "mining":
+			if mi := m.Mining; mi != nil {
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO item_mining (item_id, mining_power, mining_range)
+					VALUES (?, ?, ?)
+				`, item.ID, mi.MiningPower, mi.MiningRange); err != nil {
+					return err
+				}
+			}
+		case "utility":
+			if u := m.Utility; u != nil {
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO item_utilities (item_id, speed_bonus, cargo_bonus, cloak_strength,
+						scanner_power, accuracy_bonus, tracking_bonus, signature_bonus, fuel_efficiency,
+						drone_bandwidth, drone_capacity, harvest_power, harvest_range,
+						survey_power, survey_range, tow_speed_penalty, cooldown)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				`, item.ID, u.SpeedBonus, u.CargoBonus, u.CloakStrength,
+					u.ScannerPower, u.AccuracyBonus, u.TrackingBonus, u.SignatureBonus, u.FuelEfficiency,
+					u.DroneBandwidth, u.DroneCapacity, u.HarvestPower, u.HarvestRange,
+					u.SurveyPower, u.SurveyRange, u.TowSpeedPenalty, u.Cooldown); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if ce := item.ConsumableEffect; ce != nil {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO item_consumable_effects (item_id, effect_type, subtype, amount, duration, stat)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, item.ID, ce.EffectType, nilIfEmpty(ce.Subtype), ce.Amount, ce.Duration, nilIfEmpty(ce.Stat)); err != nil {
+			return err
+		}
+	}
+
+	if a := item.Ammo; a != nil {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO item_ammo (item_id, ammo_type)
+			VALUES (?, ?)
+		`, item.ID, a.AmmoType); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func nilIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // GetItem retrieves a single item by ID.

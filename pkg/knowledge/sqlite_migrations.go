@@ -679,6 +679,101 @@ CREATE INDEX IF NOT EXISTS idx_market_analyses_system_station ON market_analyses
 CREATE INDEX IF NOT EXISTS idx_market_analyses_captured ON market_analyses(captured_at DESC);
 `,
 		},
+		{
+			version: 15,
+			name:    "item_module_detail_tables",
+			sql: `
+-- Ship modules: common base for all fitted modules
+CREATE TABLE IF NOT EXISTS item_modules (
+    item_id     TEXT PRIMARY KEY REFERENCES items(id),
+    type        TEXT NOT NULL,
+    type_id     TEXT NOT NULL,
+    cpu_usage   INTEGER NOT NULL DEFAULT 0,
+    power_usage INTEGER NOT NULL DEFAULT 0,
+    hidden      BOOLEAN NOT NULL DEFAULT 0,
+    special     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_item_modules_type ON item_modules(type);
+CREATE INDEX IF NOT EXISTS idx_item_modules_type_id ON item_modules(type_id);
+
+-- Weapons
+CREATE TABLE IF NOT EXISTS item_weapons (
+    item_id     TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    damage      INTEGER NOT NULL DEFAULT 0,
+    damage_type TEXT NOT NULL,
+    range       INTEGER,
+    reach       INTEGER,
+    cooldown    INTEGER NOT NULL DEFAULT 0,
+    ammo_type   TEXT,
+    magazine_size INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_item_weapons_damage_type ON item_weapons(damage_type);
+CREATE INDEX IF NOT EXISTS idx_item_weapons_ammo_type ON item_weapons(ammo_type);
+
+-- Defense modules
+CREATE TABLE IF NOT EXISTS item_defenses (
+    item_id             TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    armor_bonus         INTEGER,
+    hull_bonus          INTEGER,
+    shield_bonus        INTEGER,
+    shield_recharge_bonus INTEGER,
+    armor_repair_rate   INTEGER,
+    resistance_bonus    TEXT,
+    damage_reduction    REAL,
+    cloak_strength      INTEGER,
+    cooldown            INTEGER,
+    damage              INTEGER,
+    damage_type         TEXT,
+    range               INTEGER
+);
+
+-- Mining modules
+CREATE TABLE IF NOT EXISTS item_mining (
+    item_id      TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    mining_power INTEGER NOT NULL DEFAULT 0,
+    mining_range INTEGER NOT NULL DEFAULT 0
+);
+
+-- Utility modules
+CREATE TABLE IF NOT EXISTS item_utilities (
+    item_id          TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    speed_bonus      INTEGER,
+    cargo_bonus      INTEGER,
+    cloak_strength   INTEGER,
+    scanner_power    INTEGER,
+    accuracy_bonus   INTEGER,
+    tracking_bonus   INTEGER,
+    signature_bonus  INTEGER,
+    fuel_efficiency  REAL,
+    drone_bandwidth  INTEGER,
+    drone_capacity   INTEGER,
+    harvest_power    INTEGER,
+    harvest_range    INTEGER,
+    survey_power     INTEGER,
+    survey_range     INTEGER,
+    tow_speed_penalty INTEGER,
+    cooldown         INTEGER
+);
+
+-- Consumable effects (non-ammo)
+CREATE TABLE IF NOT EXISTS item_consumable_effects (
+    item_id     TEXT PRIMARY KEY REFERENCES items(id),
+    effect_type TEXT NOT NULL,
+    subtype     TEXT,
+    amount      INTEGER,
+    duration    INTEGER,
+    stat        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_item_consumable_effects_type ON item_consumable_effects(effect_type);
+
+-- Ammunition types
+CREATE TABLE IF NOT EXISTS item_ammo (
+    item_id    TEXT PRIMARY KEY REFERENCES items(id),
+    ammo_type  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_item_ammo_type ON item_ammo(ammo_type);
+`,
+		},
 	}
 }
 

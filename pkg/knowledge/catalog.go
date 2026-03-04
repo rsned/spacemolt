@@ -11,6 +11,96 @@ type CatalogItem struct {
 	BaseValue   int
 	Stackable   bool
 	Tradeable   bool
+
+	// Module detail (non-nil when item is a ship module)
+	Module *ItemModule
+	// Consumable effect detail (non-nil when item has a non-ammo effect)
+	ConsumableEffect *ItemConsumableEffect
+	// Ammo detail (non-nil when item is ammunition)
+	Ammo *ItemAmmo
+}
+
+// ItemModule holds common fields for all fitted ship modules.
+type ItemModule struct {
+	Type      string // "weapon", "defense", "mining", "utility"
+	TypeID    string // server-assigned module identifier
+	CPUUsage  int
+	PowerUsage int
+	Hidden    bool
+	Special   string // comma-separated special ability tags
+
+	// Subtype detail (exactly one is non-nil)
+	Weapon  *ItemWeapon
+	Defense *ItemDefense
+	Mining  *ItemMining
+	Utility *ItemUtility
+}
+
+// ItemWeapon holds weapon-specific module attributes.
+type ItemWeapon struct {
+	Damage      int
+	DamageType  string // "kinetic", "energy", "em", "explosive", "void", "thermal"
+	Range       *int   // nullable
+	Reach       *int   // nullable
+	Cooldown    int
+	AmmoType    string // empty for energy weapons
+	MagazineSize *int  // nil when AmmoType is empty
+}
+
+// ItemDefense holds defense-module-specific attributes.
+type ItemDefense struct {
+	ArmorBonus         *int
+	HullBonus          *int
+	ShieldBonus        *int
+	ShieldRechargeBonus *int
+	ArmorRepairRate    *int
+	ResistanceBonus    map[string]float64 // e.g. {"em": 30, "kinetic": 25}
+	DamageReduction    *float64
+	CloakStrength      *int
+	Cooldown           *int
+	Damage             *int
+	DamageType         string
+	Range              *int
+}
+
+// ItemMining holds mining-module-specific attributes.
+type ItemMining struct {
+	MiningPower int
+	MiningRange int
+}
+
+// ItemUtility holds utility-module-specific attributes.
+type ItemUtility struct {
+	SpeedBonus      *int
+	CargoBonus      *int
+	CloakStrength   *int
+	ScannerPower    *int
+	AccuracyBonus   *int
+	TrackingBonus   *int
+	SignatureBonus  *int
+	FuelEfficiency  *float64
+	DroneBandwidth  *int
+	DroneCapacity   *int
+	HarvestPower    *int
+	HarvestRange    *int
+	SurveyPower     *int
+	SurveyRange     *int
+	TowSpeedPenalty *int
+	Cooldown        *int
+}
+
+// ItemConsumableEffect holds effect data for consumable items (non-ammo).
+type ItemConsumableEffect struct {
+	EffectType string // "buff", "repair", "fuel", "shield", "power", "probe", "countermeasure", "beacon", "emergency_jump"
+	Subtype    string
+	Amount     *int
+	Duration   *int
+	Stat       string
+}
+
+// ItemAmmo holds ammunition type data.
+type ItemAmmo struct {
+	AmmoType string // "autocannon", "missile", "railgun", "plasma", "em_charge", "torpedo", "mine", "void_core"
 }
 
 // ShipClassDef represents a ship class definition stored in the knowledge base.
