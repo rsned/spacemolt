@@ -369,7 +369,6 @@ func findRouteToSystem(client *game.Client, ctx context.Context, targetSystem st
 }
 
 func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string) error {
-	// Direct jump - no need to travel to jump gate first!
 	logger := log.New(os.Stdout, "[JUMP] ", log.LstdFlags)
 
 	state := client.GetState()
@@ -391,6 +390,31 @@ func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string)
 
 	if !isConnected {
 		return fmt.Errorf("system %s is not connected to current system %s", targetSystem, state.CurrentSystem)
+	}
+
+	// Find jump gate in current system
+	jumpGate := game.FindJumpGate(state)
+	if jumpGate == nil {
+		return fmt.Errorf("no jump gate found in current system %s", state.CurrentSystem)
+	}
+
+	// Undock if docked (can't travel while docked)
+	if state.Doc {
+		logger.Printf("📤 Undocking before traveling to jump gate...")
+		if err := client.Undock(ctx); err != nil && err.Error() != "Already undocked (success)" {
+			return fmt.Errorf("failed to undock: %w", err)
+		}
+		time.Sleep(game.SleepUndock)
+		state = client.GetState()
+	}
+
+	// Travel to jump gate if not already there
+	if state.CurrentPOI != jumpGate.ID {
+		logger.Printf("🚶 Traveling to jump gate: %s", jumpGate.Name)
+		if err := client.Travel(ctx, jumpGate.ID); err != nil {
+			return fmt.Errorf("failed to travel to jump gate: %w", err)
+		}
+		time.Sleep(game.SleepTravel)
 	}
 
 	// Attempt jump with retry for action_pending errors
