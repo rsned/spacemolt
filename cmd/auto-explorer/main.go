@@ -386,29 +386,13 @@ func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string)
 		return fmt.Errorf("system %s is not connected to current system %s", targetSystem, state.CurrentSystem)
 	}
 
-	// Find jump gate in current system
-	jumpGate := game.FindJumpGate(state)
-	if jumpGate == nil {
-		return fmt.Errorf("no jump gate found in current system %s", state.CurrentSystem)
-	}
-
-	// Undock if docked (can't travel while docked)
+	// Undock if docked (can't jump while docked)
 	if state.Doc {
-		logger.Printf("📤 Undocking before traveling to jump gate...")
+		logger.Printf("📤 Undocking before jump...")
 		if err := client.Undock(ctx); err != nil && err.Error() != "Already undocked (success)" {
 			return fmt.Errorf("failed to undock: %w", err)
 		}
 		time.Sleep(game.SleepUndock)
-		state = client.GetState()
-	}
-
-	// Travel to jump gate if not already there
-	if state.CurrentPOI != jumpGate.ID {
-		logger.Printf("🚶 Traveling to jump gate: %s", jumpGate.Name)
-		if err := client.Travel(ctx, jumpGate.ID); err != nil {
-			return fmt.Errorf("failed to travel to jump gate: %w", err)
-		}
-		time.Sleep(game.SleepTravel)
 	}
 
 	// Attempt jump with retry for action_pending errors
@@ -893,15 +877,6 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 
 	logger.Printf("Current system: %s, Connections: %v", state.System.ID, state.System.Connections)
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
-
-	// Check if current system has a jump gate - can't jump without one
-	jumpGate := game.FindJumpGate(state)
-	if jumpGate == nil {
-		logger.Printf("⚠️  No jump gate in current system %s - dead end, cannot jump", state.System.Name)
-		logger.Printf("     Returning empty unvisited list")
-		return []string{}
-	}
-	logger.Printf("✓ Found jump gate: %s", jumpGate.Name)
 
 	// Collect unvisited neighbors with their LastUpdatedTick from KB
 	type neighborInfo struct {
