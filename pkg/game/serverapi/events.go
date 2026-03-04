@@ -25,7 +25,7 @@ type PlayerDied struct {
 	KillerName      string           `json:"killer_name"`
 	RespawnBase     string           `json:"respawn_base"`
 	Cause           string           `json:"cause,omitempty"`
-	CombatLog       []map[string]any `json:"combat_log,omitempty"`
+	CombatLog       []CombatLogEntry `json:"combat_log,omitempty"`
 	CloneCost       int              `json:"clone_cost"`
 	InsurancePayout int              `json:"insurance_payout"`
 	ShipLost        string           `json:"ship_lost"`

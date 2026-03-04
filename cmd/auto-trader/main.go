@@ -933,13 +933,12 @@ func switchToBestCargoShip(client *game.Client, ctx context.Context, kb *knowled
 	var bestCapacity float64
 
 	for _, ship := range resp.Ships {
-		shipID, _ := ship["id"].(string)
-		shipName, _ := ship["name"].(string)
-		classID, _ := ship["class_id"].(string)
-		status, _ := ship["status"].(string)
+		shipID := ship.ShipID
+		shipName := ship.ClassName
+		classID := ship.ClassID
 
-		// Only consider ships stored at the current station.
-		if status != "stored" {
+		// Only consider ships that are not the active ship (i.e. stored).
+		if ship.IsActive {
 			continue
 		}
 

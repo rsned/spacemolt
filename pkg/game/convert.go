@@ -181,10 +181,23 @@ func ShipFromAPI(ext serverapi.Ship) Ship {
 	if len(ext.ActiveBuffs) > 0 {
 		activeBuffs = make([]map[string]any, len(ext.ActiveBuffs))
 		for i, b := range ext.ActiveBuffs {
-			activeBuffs[i] = make(map[string]any, len(b))
-			for k, v := range b {
-				activeBuffs[i][k] = v
+			m := map[string]any{}
+			if b.ItemID != "" {
+				m["item_id"] = b.ItemID
 			}
+			if b.Stat != "" {
+				m["stat"] = b.Stat
+			}
+			if b.Amount != 0 {
+				m["amount"] = b.Amount
+			}
+			if b.TicksLeft != 0 {
+				m["ticks_left"] = b.TicksLeft
+			}
+			if b.ExpiresAt != 0 {
+				m["expires_at"] = b.ExpiresAt
+			}
+			activeBuffs[i] = m
 		}
 	}
 
