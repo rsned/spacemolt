@@ -158,9 +158,8 @@ navigate_to_system(target_system):
   2. Check fuel (need 10+ for jump)
   3. If fuel low: find_and_refuel()
   4. undock() if docked
-  5. Travel to jump_gate POI
-  6. jump() to target_system
-  7. Wait 25 seconds
+  5. jump() to target_system
+  6. Wait 25 seconds
 ```
 
 ### Fuel Management
@@ -169,10 +168,6 @@ find_and_refuel():
   Priority 1: Station in current system
   Priority 2: Jump to last_fuel_station
   Priority 3: Backtrack through visited systems
-
-If no jump gate in current system:
-  - Cannot escape (trapped!)
-  - Tip: Consider self-destruct to respawn at home
 ```
 
 ## Knowledge Base Integration
@@ -286,10 +281,8 @@ If attacked and damaged:
 ### Emergency Procedures
 ```
 If trapped (no fuel, no station):
-  1. Check for jump gate
-  2. If no gate: self-destruct()
-  3. Respawn at home/base
-  4. Rebuild from savings
+  1. Self-destruct and respawn at home base.
+  2. Rebuild from savings
 ```
 
 ### Combat Decision Matrix
