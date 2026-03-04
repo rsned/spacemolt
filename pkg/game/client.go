@@ -1386,6 +1386,29 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.mu.Unlock()
 
+	case protocol.TypeMiningYield:
+		resourceID, _ := resp.Payload["resource_id"].(string)
+		quantity, _ := resp.Payload["quantity"].(float64)
+		if resourceID != "" && quantity > 0 {
+			c.mu.Lock()
+			found := false
+			for i, item := range c.state.Ship.Cargo {
+				if item.ItemID == resourceID {
+					c.state.Ship.Cargo[i].Quantity += quantity
+					found = true
+					break
+				}
+			}
+			if !found {
+				c.state.Ship.Cargo = append(c.state.Ship.Cargo, CargoItem{
+					ItemID:   resourceID,
+					Quantity: quantity,
+				})
+			}
+			c.state.Ship.CargoUsed += quantity
+			c.mu.Unlock()
+		}
+
 	case protocol.TypeListings:
 		c.parseListingsData(resp.Payload)
 
@@ -2069,6 +2092,52 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputName, recipeID)
 		} else {
 			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputID, recipeID)
+		}
+
+	case "create_sell_order":
+		// Bulk sell order result — remove successfully listed items from cargo
+		if results, ok := result["results"].([]any); ok {
+			successCount := 0
+			failCount := 0
+			for _, r := range results {
+				entry, ok := r.(map[string]any)
+				if !ok {
+					continue
+				}
+				if errMsg, _ := entry["error"].(string); errMsg != "" {
+					failCount++
+					continue
+				}
+				successCount++
+				itemID, _ := entry["item_id"].(string)
+				qty, _ := entry["quantity"].(float64)
+				if itemID == "" || qty <= 0 {
+					continue
+				}
+				for i := range c.state.Ship.Cargo {
+					if c.state.Ship.Cargo[i].ItemID == itemID {
+						c.state.Ship.Cargo[i].Quantity -= qty
+						break
+					}
+				}
+			}
+			// Remove zero/negative quantity entries
+			filtered := c.state.Ship.Cargo[:0]
+			for _, item := range c.state.Ship.Cargo {
+				if item.Quantity > 0 {
+					filtered = append(filtered, item)
+				}
+			}
+			c.state.Ship.Cargo = filtered
+
+			// Recalculate cargo used
+			var cargoUsed float64
+			for _, item := range c.state.Ship.Cargo {
+				cargoUsed += item.Quantity
+			}
+			c.state.Ship.CargoUsed = cargoUsed
+
+			c.debugLogger.Printf("Action result: create_sell_order (%d listed, %d failed)", successCount, failCount)
 		}
 
 	default:
@@ -2758,102 +2827,141 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
 	okChan := make(chan protocol.Response, 1)
 	errorChan := make(chan protocol.Response, 1)
+	actionResultChan := make(chan protocol.Response, 1)
 
 	c.waiterMu.Lock()
 	c.waiters[protocol.TypeOK] = okChan
 	c.waiters[protocol.TypeError] = errorChan
+	c.waiters[protocol.TypeActionResult] = actionResultChan
 	c.waiterMu.Unlock()
 
 	defer func() {
 		c.waiterMu.Lock()
 		delete(c.waiters, protocol.TypeOK)
 		delete(c.waiters, protocol.TypeError)
+		delete(c.waiters, protocol.TypeActionResult)
 		c.waiterMu.Unlock()
 	}()
 
-	select {
-	case <-okChan:
-		return nil
-	case resp := <-errorChan:
-		// Check error code and categorize response
-		if code, ok := resp.Payload["code"].(string); ok {
-			switch code {
-			// BENIGN: Goal already achieved (treat as success)
-			case "already_there":
-				c.debugLogger.Printf("Already at destination (success)")
-				return nil
-			case "already_docked":
-				c.debugLogger.Printf("Already docked (success)")
-				return nil
-			case "not_docked":
-				// When trying to undock but already undocked
-				c.debugLogger.Printf("Already undocked (success)")
-				return nil
+	deadline := time.After(timeout)
 
-			// INFORMATIONAL: Agent should adapt strategy but not fail
-			case "already_traveling", "already_jumping":
-				// Already in transit - wait for arrival
-				c.debugLogger.Printf("Already in transit: %s", code)
-				return fmt.Errorf("already in transit - wait for arrival")
+	for {
+		select {
+		case <-okChan:
+			return nil
+		case resp := <-errorChan:
+			// Check error code and categorize response
+			if code, ok := resp.Payload["code"].(string); ok {
+				switch code {
+				// BENIGN: Goal already achieved (treat as success)
+				case "already_there":
+					c.debugLogger.Printf("Already at destination (success)")
+					return nil
+				case "already_docked":
+					c.debugLogger.Printf("Already docked (success)")
+					return nil
+				case "not_docked":
+					// When trying to undock but already undocked
+					c.debugLogger.Printf("Already undocked (success)")
+					return nil
 
-			case "docked":
-				// Must undock first before this action
-				c.debugLogger.Printf("Must undock before this action")
-				return fmt.Errorf("must undock first - currently docked at station")
+				// ACTION_PENDING: Another action is in-flight, wait for it to complete
+				case "action_pending":
+					pendingCmd, _ := resp.Payload["pending_command"].(string)
+					c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
+					// Wait one tick then continue listening for the real response
+					select {
+					case <-time.After(SleepTick):
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+					continue
 
-			case "no_fuel":
-				c.debugLogger.Printf("Insufficient fuel for action")
-				return fmt.Errorf("insufficient fuel - dock at station to refuel")
+				// INFORMATIONAL: Agent should adapt strategy but not fail
+				case "already_traveling", "already_jumping":
+					// Already in transit - wait for arrival
+					c.debugLogger.Printf("Already in transit: %s", code)
+					return fmt.Errorf("already in transit - wait for arrival")
 
-			case "no_credits":
-				c.debugLogger.Printf("Insufficient credits")
-				return fmt.Errorf("insufficient credits - need to earn money first")
+				case "docked":
+					// Must undock first before this action
+					c.debugLogger.Printf("Must undock before this action")
+					return fmt.Errorf("must undock first - currently docked at station")
 
-			case "no_cargo_space":
-				c.debugLogger.Printf("Cargo hold full")
-				return fmt.Errorf("cargo hold full - dock at station to sell items")
+				case "no_fuel":
+					c.debugLogger.Printf("Insufficient fuel for action")
+					return fmt.Errorf("insufficient fuel - dock at station to refuel")
 
-			case "missing_materials":
-				c.debugLogger.Printf("Missing crafting materials")
-				return fmt.Errorf("missing required materials for crafting")
+				case "no_credits":
+					c.debugLogger.Printf("Insufficient credits")
+					return fmt.Errorf("insufficient credits - need to earn money first")
 
-			case "cannot_craft":
-				c.debugLogger.Printf("Insufficient crafting skill")
-				return fmt.Errorf("insufficient skill level for this recipe")
+				case "no_cargo_space":
+					c.debugLogger.Printf("Cargo hold full")
+					return fmt.Errorf("cargo hold full - dock at station to sell items")
 
-			case "no_cloak", "no_crafting_service":
-				c.debugLogger.Printf("Missing equipment/service: %s", code)
-				msg := resp.Payload["message"].(string)
-				return fmt.Errorf("%s", msg)
+				case "missing_materials":
+					c.debugLogger.Printf("Missing crafting materials")
+					return fmt.Errorf("missing required materials for crafting")
 
-			// ACTUAL ERRORS: Invalid attempts
-			case "rate_limited":
-				// This shouldn't happen with proper timing, but handle it
-				waitTime := "unknown"
-				if wait, ok := resp.Payload["wait_seconds"].(float64); ok {
-					waitTime = fmt.Sprintf("%.1fs", wait)
+				case "cannot_craft":
+					c.debugLogger.Printf("Insufficient crafting skill")
+					return fmt.Errorf("insufficient skill level for this recipe")
+
+				case "no_cloak", "no_crafting_service":
+					c.debugLogger.Printf("Missing equipment/service: %s", code)
+					msg := resp.Payload["message"].(string)
+					return fmt.Errorf("%s", msg)
+
+				// ACTUAL ERRORS: Invalid attempts
+				case "rate_limited":
+					// This shouldn't happen with proper timing, but handle it
+					waitTime := "unknown"
+					if wait, ok := resp.Payload["wait_seconds"].(float64); ok {
+						waitTime = fmt.Sprintf("%.1fs", wait)
+					}
+					c.debugLogger.Printf("Rate limited - wait %s", waitTime)
+					return fmt.Errorf("rate limited - wait %s before next action", waitTime)
+
+				default:
+					// All other error codes - log and return as error
+					c.debugLogger.Printf("Action failed with code: %s", code)
 				}
-				c.debugLogger.Printf("Rate limited - wait %s", waitTime)
-				return fmt.Errorf("rate limited - wait %s before next action", waitTime)
-
-			default:
-				// All other error codes - log and return as error
-				c.debugLogger.Printf("Action failed with code: %s", code)
 			}
-		}
 
-		// Extract error message from payload
-		if msg, ok := resp.Payload["message"].(string); ok {
-			return fmt.Errorf("%s", msg)
+			// Extract error message from payload
+			if msg, ok := resp.Payload["message"].(string); ok {
+				return fmt.Errorf("%s", msg)
+			}
+			if code, ok := resp.Payload["code"].(string); ok {
+				return fmt.Errorf("error: %s", code)
+			}
+			return fmt.Errorf("action failed")
+		case resp := <-actionResultChan:
+			// action_result arrives after the server processes a pending action.
+			// parseActionResult already updated state; check for errors in results.
+			if result, ok := resp.Payload["result"].(map[string]any); ok {
+				if results, ok := result["results"].([]any); ok {
+					// Bulk result — check if any items had errors
+					var errors []string
+					for _, r := range results {
+						if entry, ok := r.(map[string]any); ok {
+							if errMsg, ok := entry["error"].(string); ok && errMsg != "" {
+								errors = append(errors, errMsg)
+							}
+						}
+					}
+					if len(errors) > 0 {
+						return fmt.Errorf("%d item(s) failed: %s", len(errors), errors[0])
+					}
+				}
+			}
+			return nil
+		case <-deadline:
+			return fmt.Errorf("timeout waiting for action response")
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		if code, ok := resp.Payload["code"].(string); ok {
-			return fmt.Errorf("error: %s", code)
-		}
-		return fmt.Errorf("action failed")
-	case <-time.After(timeout):
-		return fmt.Errorf("timeout waiting for action response")
-	case <-ctx.Done():
-		return ctx.Err()
 	}
 }
 
