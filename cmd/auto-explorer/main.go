@@ -393,13 +393,32 @@ func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string)
 		return fmt.Errorf("system %s is not connected to current system %s", targetSystem, state.CurrentSystem)
 	}
 
-	logger.Printf("🌟 Jumping to %s...", targetSystem)
-	if err := client.Jump(ctx, targetSystem); err != nil {
+	// Attempt jump with retry for action_pending errors
+	for attempt := range 3 {
+		if attempt > 0 {
+			logger.Printf("⏳ Waiting for pending action to complete...")
+			time.Sleep(game.SleepTick)
+		}
+
+		logger.Printf("🌟 Jumping to %s...", targetSystem)
+		err := client.Jump(ctx, targetSystem)
+		if err == nil {
+			// Jump initiated successfully, wait for travel
+			time.Sleep(game.SleepJump)
+			return nil
+		}
+
+		// Check if this is an action_pending error
+		if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
+			logger.Printf("⚠️  Action pending (attempt %d/3), will retry...", attempt+1)
+			continue
+		}
+
+		// Other error - return immediately
 		return fmt.Errorf("failed to jump: %w", err)
 	}
-	time.Sleep(25 * time.Second)
 
-	return nil
+	return fmt.Errorf("failed to jump after 3 attempts (action_pending)")
 }
 
 func navigateToHomeBase(client *game.Client, ctx context.Context, homeSystem string) error {
@@ -748,10 +767,13 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		state = client.GetState()
 		currentSystem = state.CurrentSystem
 
-		// If System.ID is still empty after data collection, force a refresh
-		if state.System.ID == "" || !strings.EqualFold(state.System.ID, currentSystem) {
-			logger.Printf("⚠️  System data not loaded (ID=%q, CurrentSystem=%s), forcing refresh...",
-				state.System.ID, currentSystem)
+		// If System.Name doesn't match CurrentSystem, data may be stale.
+		// CurrentSystem is set from System.Name in mergeSystemDataLocked, not from System.ID.
+		// System.ID uses server's internal format (e.g., "nexus_prime") while
+		// System.Name and CurrentSystem use the display name (e.g., "Nexus Prime").
+		if state.System.ID == "" || !strings.EqualFold(state.System.Name, currentSystem) {
+			logger.Printf("⚠️  System data not loaded (ID=%q, Name=%q, CurrentSystem=%s), forcing refresh...",
+				state.System.ID, state.System.Name, currentSystem)
 			if err := client.GetSystem(ctx); err != nil {
 				logger.Printf("Failed to get system: %v", err)
 			}
@@ -845,16 +867,17 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	unvisited := []string{}
 	logger := log.New(os.Stdout, "[DEBUG] ", log.LstdFlags)
 
-	// Safety check: if System.ID doesn't match CurrentSystem, data may be stale.
-	// Use case-insensitive comparison since player data uses lowercase IDs
-	// while system data may use capitalized names.
+	// Safety check: if System.Name doesn't match CurrentSystem, data may be stale.
+	// CurrentSystem is set from System.Name in mergeSystemDataLocked, not from System.ID.
+	// System.ID uses server's internal format (e.g., "nexus_prime") while
+	// System.Name and CurrentSystem use the display name (e.g., "Nexus Prime").
 	if state.System.ID == "" {
 		logger.Printf("⚠️  System.ID is empty, CurrentSystem=%s - system data not yet loaded", state.CurrentSystem)
 		logger.Printf("     Returning empty unvisited list to force data refresh")
 		return []string{}
 	}
-	if !strings.EqualFold(state.System.ID, state.CurrentSystem) {
-		logger.Printf("⚠️  STALE DATA: System.ID=%s doesn't match CurrentSystem=%s", state.System.ID, state.CurrentSystem)
+	if !strings.EqualFold(state.System.Name, state.CurrentSystem) {
+		logger.Printf("⚠️  STALE DATA: System.Name=%s doesn't match CurrentSystem=%s", state.System.Name, state.CurrentSystem)
 		logger.Printf("     This indicates system data wasn't refreshed after a jump!")
 		logger.Printf("     Returning empty unvisited list to force data refresh")
 		return []string{}
