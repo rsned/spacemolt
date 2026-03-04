@@ -142,15 +142,9 @@ func needsRefuel(state *game.State) bool {
 // ============================================================================
 
 func collectSystemData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, agentID string) error {
-	// Request system data
+	// Request system data (includes jump connections)
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("failed to get system: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Request map data to get connections
-	if err := client.GetMap(ctx); err != nil {
-		logger.Printf("⚠️  Failed to get map: %v", err)
 	}
 	time.Sleep(2 * time.Second)
 
@@ -772,12 +766,6 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 					logger.Printf("⚠️  Failed to refresh system state: %v", err)
 				}
 				time.Sleep(2 * time.Second)
-
-				// Also fetch map data for connections
-				if err := client.GetMap(ctx); err != nil {
-					logger.Printf("⚠️  Failed to refresh map data: %v", err)
-				}
-				time.Sleep(2 * time.Second)
 			}
 
 			// Always explore POIs (freshness is checked per-POI inside)
@@ -800,10 +788,6 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				state.System.ID, state.System.Name, currentSystem)
 			if err := client.GetSystem(ctx); err != nil {
 				logger.Printf("Failed to get system: %v", err)
-			}
-			time.Sleep(3 * time.Second)
-			if err := client.GetMap(ctx); err != nil {
-				logger.Printf("Failed to get map: %v", err)
 			}
 			time.Sleep(3 * time.Second)
 			state = client.GetState()
@@ -909,6 +893,15 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 
 	logger.Printf("Current system: %s, Connections: %v", state.System.ID, state.System.Connections)
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
+
+	// Check if current system has a jump gate - can't jump without one
+	jumpGate := game.FindJumpGate(state)
+	if jumpGate == nil {
+		logger.Printf("⚠️  No jump gate in current system %s - dead end, cannot jump", state.System.Name)
+		logger.Printf("     Returning empty unvisited list")
+		return []string{}
+	}
+	logger.Printf("✓ Found jump gate: %s", jumpGate.Name)
 
 	// Collect unvisited neighbors with their LastUpdatedTick from KB
 	type neighborInfo struct {
