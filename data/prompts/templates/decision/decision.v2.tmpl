@@ -23,8 +23,8 @@ Bad response: "I should travel to asteroid belt to mine some resources"
 ### STATUS OVERVIEW
 **Location:** {{.State.SystemName}} ({{.State.SystemID}})
   {{- if .State.Traveling}}•⏳ Traveling to {{.State.TravelProgress.Destination}} ({{printf "%.0f" .State.TravelProgress.Progress}}% complete){{end}}
-  {{- if .State.IsDocked}}•📥 Docked at: {{.State.DockedAt}}
-  {{- if not .State.IsDocked}}{{- if not .State.Traveling}}•🚀 In space at: {{.State.Location}}{{end}}
+  {{- if .State.IsDocked}}•📥 Docked at: {{.State.DockedAt}}{{end}}
+  {{- if not .State.IsDocked}}{{- if not .State.Traveling}}•🚀 In space at: {{.State.Location}}{{end}}{{end}}
   {{- if .State.InCombat}}•⚔️ IN COMBAT{{end}}
   {{- if .State.SystemSecurity}}•🛡️ Security: {{.State.SystemSecurity}}{{end}}
 
@@ -57,6 +57,7 @@ Bad response: "I should travel to asteroid belt to mine some resources"
   {{- if .LastFeedback.Error}}  • ERROR: {{.LastFeedback.Error}}{{end}}
   {{- if .LastFeedback.Message}}  • Message: {{.LastFeedback.Message}}{{end}}
 {{end}}
+{{end}}
 
 {{if .Knowledge}}
 ### KNOWLEDGE BASE
@@ -64,6 +65,7 @@ Bad response: "I should travel to asteroid belt to mine some resources"
 {{- else}}**Discovered Systems:** None yet{{end}}
 
 {{- if .Knowledge.POIsInSystem}}**POIs in Current System:** {{len .Knowledge.POIsInSystem}}
+{{end}}
 {{end}}
 
 {{if .History}}

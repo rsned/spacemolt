@@ -40,7 +40,7 @@ func updateCaptainsLog(agentID string, client *game.Client, runCount int) {
 	currentGoal := "LLM-powered autonomous mining - AI decision making for optimal resource gathering"
 	if state.Doc {
 		currentGoal = "Docked at station - AI analyzing best actions (selling, refueling, upgrades)"
-	} else if state.Traveling {
+	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("AI-guided travel to %s", state.TravelProgress.Destination)
 	}
 

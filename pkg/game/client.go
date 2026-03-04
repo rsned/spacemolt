@@ -2178,8 +2178,14 @@ func containsIgnoreCase(text string, substrings []string) bool {
 
 // Close closes the connection and cleans up all resources
 func (c *Client) Close() error {
+	// Grab the cancel func under the lock to avoid racing with Reconnect
+	// which replaces goroutineCancel.
+	c.mu.Lock()
+	cancel := c.goroutineCancel
+	c.mu.Unlock()
+
 	// Signal all goroutines to stop
-	c.goroutineCancel()
+	cancel()
 
 	// Close the stop channel to signal legacy code
 	select {

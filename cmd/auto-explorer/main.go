@@ -100,7 +100,7 @@ func updateCaptainsLog(agentID string, client *game.Client, expState *Exploratio
 	if expState != nil {
 		if state.Doc {
 			currentGoal = "Docked at station - refueling and collecting market data"
-		} else if state.Traveling {
+		} else if state.Traveling && state.TravelProgress != nil {
 			currentGoal = fmt.Sprintf("Exploring: traveling to %s", state.TravelProgress.Destination)
 		} else if state.InCombat {
 			currentGoal = "Evading hostile contact during exploration"

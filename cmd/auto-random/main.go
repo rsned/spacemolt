@@ -62,7 +62,7 @@ func updateCaptainsLog(agentID string, client *game.Client, tickCounter int) {
 	currentGoal := "Autonomous random behavior - exploring galaxy and simulating NPC activity"
 	if state.Doc {
 		currentGoal = "Docked at station, performing random station activities"
-	} else if state.Traveling {
+	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
 	} else if state.InCombat {
 		currentGoal = "Engaged in unexpected combat"

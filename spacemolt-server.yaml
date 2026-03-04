@@ -19,12 +19,12 @@ agents:
   max: 5
   decision_interval: 11s
   enabled:
-    - craftsman-1
+    # - craftsman-1
 
-      #llm:
-      #  url: http://localhost:11434
-      #  model: llama3.2
-      #  timeout: 60s
+llm:
+  url: http://localhost:11434
+  model: qwen3
+  timeout: 60s
 
 database:
   backend: sqlite

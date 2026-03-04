@@ -42,7 +42,7 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, cred
 	currentGoal := "Autonomous mining operations - collecting resources and upgrading ship"
 	if state.Doc {
 		currentGoal = "Docked at station - selling cargo, refueling, and checking for upgrades"
-	} else if state.Traveling {
+	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
 	} else if !state.Doc && state.Ship.CargoUsed > state.Ship.CargoCapacity*0.5 {
 		currentGoal = "Mining operations in progress - cargo filling up"

@@ -63,7 +63,7 @@ func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, it
 		case "craft-profit":
 			currentGoal = "Docked at station - crafting profitable items based on market analysis"
 		}
-	} else if state.Traveling {
+	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
 	} else if !state.Doc {
 		currentGoal = "In space - returning to station for crafting operations"

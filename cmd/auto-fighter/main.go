@@ -54,7 +54,7 @@ func updateCaptainsLog(agentID string, client *game.Client, fighterRuns int, tot
 	currentGoal := "Autonomous combat operations - hunting pirates and upgrading equipment"
 	if state.Doc {
 		currentGoal = "Docked at station - selling loot, refueling, and checking for upgrades"
-	} else if state.Traveling {
+	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
 	} else if state.InCombat {
 		currentGoal = "Engaged in combat with hostile target"
