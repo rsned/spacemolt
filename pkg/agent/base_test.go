@@ -671,7 +671,7 @@ func TestEmpireCapitalSystem(t *testing.T) {
 		{"Solarian", "sol"},
 		{"SOLARIAN", "sol"},
 		{"outerrim", "frontier"},
-		{"voidborn", "nexus"},
+		{"voidborn", "nexus_prime"},
 		{"nebula", "haven"},
 		{"crimson", "krynn"},
 		{"unknown", ""},
@@ -695,7 +695,7 @@ func TestEmpireCapitalName(t *testing.T) {
 	}{
 		{"sol", "Sol"},
 		{"frontier", "Frontier"},
-		{"nexus", "Nexus Prime"},
+		{"nexus_prime", "Nexus Prime"},
 		{"haven", "Haven"},
 		{"krynn", "Krynn"},
 		{"unknown", "unknown"},

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -41,7 +42,10 @@ func updateCaptainsLog(agentID string, client *game.Client, fighterRuns int, tot
 	// Count weapons
 	weaponCount := 0
 	for _, module := range state.Ship.Modules {
-		if len(module) >= 7 && module[:7] == "weapon_" {
+		if strings.HasPrefix(module, "pulse_laser_") || strings.HasPrefix(module, "autocannon_") ||
+			strings.HasPrefix(module, "focused_beam_") || strings.HasPrefix(module, "railgun_") ||
+			strings.HasPrefix(module, "missile_launcher_") || strings.HasPrefix(module, "ion_cannon_") ||
+			strings.HasPrefix(module, "plasma_cannon_") {
 			weaponCount++
 		}
 	}
@@ -359,8 +363,8 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 	// PRIORITY 2: Weapons (essential for combat!)
 	if availableCredits >= TIER1_THRESHOLD && !purchased {
-		weaponsInstalled := game.CountModulesInstalled(state, "weapon_laser_1")
-		weaponsInCargo := game.CountModulesInCargo(state, "weapon_laser_1")
+		weaponsInstalled := game.CountModulesInstalled(state, "pulse_laser_i")
+		weaponsInCargo := game.CountModulesInCargo(state, "pulse_laser_i")
 		totalWeapons := weaponsInstalled + weaponsInCargo
 
 		logger.Printf("⚔️ Weapon Status: %d installed, %d in cargo (goal: %d installed)",
@@ -369,8 +373,8 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 		if totalWeapons < maxSlots {
 			for _, listing := range listings {
 				if listing.Type == "sell" && listing.ItemType == "module" {
-					if (listing.ItemID == "weapon_laser_1" || listing.ItemID == "weapon_laser_2" ||
-						listing.ItemID == "weapon_laser_3") &&
+					if (listing.ItemID == "pulse_laser_i" || listing.ItemID == "pulse_laser_ii" ||
+						listing.ItemID == "pulse_laser_iii") &&
 						listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 1000 {
 
 						needed := maxSlots - totalWeapons

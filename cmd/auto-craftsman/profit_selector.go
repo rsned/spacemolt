@@ -191,53 +191,53 @@ func getProfitableRecipes() []profitableRecipe {
 	return []profitableRecipe{
 		// Basic iron recipes
 		{
-			recipeID:       "basic_smelt_iron",
-			outputItemID:   "refined_steel",
+			recipeID:       "basic_iron_smelting",
+			outputItemID:   "steel_plate",
 			outputQuantity: 1,
-			materials:      []recipeMaterials{{"ore_iron", 10}},
+			materials:      []recipeMaterials{{"iron_ore", 10}},
 		},
 		{
 			recipeID:           "refine_steel",
-			outputItemID:       "refined_steel",
+			outputItemID:       "steel_plate",
 			outputQuantity:     2,
-			materials:          []recipeMaterials{{"ore_iron", 5}},
-			requiredSkill:      "refinement",
+			materials:          []recipeMaterials{{"iron_ore", 5}},
+			requiredSkill:      "ore_refinement",
 			requiredSkillLevel: 1,
 		},
 
 		// Basic copper recipes
 		{
 			recipeID:       "basic_copper_processing",
-			outputItemID:   "refined_copper_wire",
+			outputItemID:   "copper_wiring",
 			outputQuantity: 1,
-			materials:      []recipeMaterials{{"ore_copper", 10}},
+			materials:      []recipeMaterials{{"copper_ore", 10}},
 		},
 		{
-			recipeID:           "refine_copper_wire",
-			outputItemID:       "refined_copper_wire",
+			recipeID:           "process_copper_wiring",
+			outputItemID:       "copper_wiring",
 			outputQuantity:     1,
-			materials:          []recipeMaterials{{"refined_copper", 5}},
-			requiredSkill:      "refinement",
+			materials:          []recipeMaterials{{"copper_ore", 5}},
+			requiredSkill:      "ore_refinement",
 			requiredSkillLevel: 1,
 		},
 
 		// Aluminum recipe
 		{
 			recipeID:           "smelt_aluminum_sheet",
-			outputItemID:       "refined_aluminum",
+			outputItemID:       "aluminum_sheet",
 			outputQuantity:     1,
-			materials:          []recipeMaterials{{"ore_aluminum", 10}},
-			requiredSkill:      "refinement",
+			materials:          []recipeMaterials{{"aluminum_ore", 10}},
+			requiredSkill:      "ore_refinement",
 			requiredSkillLevel: 1,
 		},
 
-		// Crafting basic level 5 recipes
+		// Basic crafting level 5 recipes
 		{
 			recipeID:           "craft_steel_plate",
-			outputItemID:       "refined_steel",
+			outputItemID:       "steel_plate",
 			outputQuantity:     1,
-			materials:          []recipeMaterials{{"refined_steel", 2}},
-			requiredSkill:      "crafting_basic",
+			materials:          []recipeMaterials{{"steel_plate", 2}},
+			requiredSkill:      "basic_crafting",
 			requiredSkillLevel: 5,
 		},
 	}

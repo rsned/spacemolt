@@ -7,7 +7,7 @@ import (
 
 func TestSkill_GetXPForLevel(t *testing.T) {
 	skill := Skill{
-		ID:         "mining_basic",
+		ID:         "mining",
 		Name:       "Mining",
 		MaxLevel:   5,
 		XPPerLevel: []int{100, 300, 600, 1000, 1500},
@@ -48,7 +48,7 @@ func TestSkill_GetXPForLevel_EmptyXPTable(t *testing.T) {
 
 func TestSkill_GetNextLevelXP(t *testing.T) {
 	skill := Skill{
-		ID:         "mining_basic",
+		ID:         "mining",
 		Name:       "Mining",
 		MaxLevel:   5,
 		XPPerLevel: []int{100, 300, 600, 1000, 1500},
@@ -82,8 +82,8 @@ func TestGetStaticSkills(t *testing.T) {
 
 	// Check for known skills
 	knownSkills := map[string]bool{
-		"mining_basic":    false,
-		"mining_advanced": false,
+		"mining":    false,
+		"advanced_mining": false,
 		"exploration":     false,
 		"trading":         false,
 	}
@@ -109,11 +109,11 @@ func TestGetStaticSkills(t *testing.T) {
 
 func TestGetStaticSkill(t *testing.T) {
 	// Existing skill
-	s := getStaticSkill("mining_basic")
+	s := getStaticSkill("mining")
 	if s == nil {
 		t.Fatal("Expected non-nil skill for mining_basic")
 	}
-	if s.ID != "mining_basic" {
+	if s.ID != "mining" {
 		t.Errorf("Expected ID mining_basic, got %s", s.ID)
 	}
 
@@ -145,7 +145,7 @@ func TestSQLiteKB_StoreSkills(t *testing.T) {
 			MaxLevel:       5,
 			XPPerLevel:     []int{100, 300, 600, 1000, 1500},
 			BonusPerLevel:  map[string]int{"speed": 5},
-			RequiredSkills: map[string]int{"mining_basic": 2},
+			RequiredSkills: map[string]int{"mining": 2},
 		},
 	}
 
@@ -169,7 +169,7 @@ func TestSQLiteKB_GetSkill(t *testing.T) {
 			MaxLevel:       5,
 			XPPerLevel:     []int{100, 300, 600, 1000, 1500},
 			BonusPerLevel:  map[string]int{"speed": 5},
-			RequiredSkills: map[string]int{"mining_basic": 2},
+			RequiredSkills: map[string]int{"mining": 2},
 		},
 	}
 	if err := kb.StoreSkills(ctx, skills); err != nil {
@@ -195,8 +195,8 @@ func TestSQLiteKB_GetSkill(t *testing.T) {
 	if s.BonusPerLevel["speed"] != 5 {
 		t.Errorf("Expected bonus speed=5, got %d", s.BonusPerLevel["speed"])
 	}
-	if s.RequiredSkills["mining_basic"] != 2 {
-		t.Errorf("Expected required mining_basic=2, got %d", s.RequiredSkills["mining_basic"])
+	if s.RequiredSkills["mining"] != 2 {
+		t.Errorf("Expected required mining_basic=2, got %d", s.RequiredSkills["mining"])
 	}
 }
 
@@ -205,14 +205,14 @@ func TestSQLiteKB_GetSkill_FallbackToStatic(t *testing.T) {
 	defer func() { _ = kb.Close() }()
 
 	// Don't store any skills - should fall back to static data
-	s, err := kb.GetSkill("mining_basic")
+	s, err := kb.GetSkill("mining")
 	if err != nil {
 		t.Fatalf("GetSkill fallback failed: %v", err)
 	}
 	if s == nil {
 		t.Fatal("Expected non-nil skill from static fallback")
 	}
-	if s.ID != "mining_basic" {
+	if s.ID != "mining" {
 		t.Errorf("Expected ID mining_basic, got %s", s.ID)
 	}
 }
@@ -266,7 +266,7 @@ func TestMemoryKB_GetSkill(t *testing.T) {
 	kb := NewMemoryKB()
 
 	// No stored skills - should fall back to static
-	s, err := kb.GetSkill("mining_basic")
+	s, err := kb.GetSkill("mining")
 	if err != nil {
 		t.Fatalf("GetSkill failed: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestMemoryKB_GetSkill(t *testing.T) {
 	}
 
 	// Original static skill should no longer be available (replaced)
-	s, err = kb.GetSkill("mining_basic")
+	s, err = kb.GetSkill("mining")
 	if err != nil {
 		t.Fatalf("GetSkill mining_basic after store failed: %v", err)
 	}

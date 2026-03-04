@@ -81,15 +81,15 @@ func (kb *SQLiteKB) GetSkills() []Skill {
 func getStaticSkills() []Skill {
 	return []Skill{
 		{
-			ID: "mining_basic", Name: "Mining", Category: "Mining",
+			ID: "mining", Name: "Mining", Category: "Mining",
 			Description: "Basic ore extraction techniques", MaxLevel: 10,
 			XPPerLevel: []int{100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, 5500},
 		},
 		{
-			ID: "mining_advanced", Name: "Advanced Mining", Category: "Mining",
+			ID: "advanced_mining", Name: "Advanced Mining", Category: "Mining",
 			Description: "Advanced ore extraction and refining", MaxLevel: 10,
 			XPPerLevel:     []int{500, 1500, 3000, 5000, 8000, 12000, 17000, 23000, 30000, 40000},
-			RequiredSkills: map[string]int{"mining_basic": 5},
+			RequiredSkills: map[string]int{"mining": 5},
 		},
 		{
 			ID: "exploration", Name: "Exploration", Category: "Exploration",

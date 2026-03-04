@@ -107,13 +107,13 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 		},
 		Credits: 5000,
 		SkillXP: map[string]float64{
-			"mining_basic": 450,
+			"mining": 450,
 		},
 		SkillNextLevelXP: map[string]float64{
-			"mining_basic": 1000,
+			"mining": 1000,
 		},
 		SkillDefinitions: map[string]SkillDefinition{
-			"mining_basic": {ID: "mining_basic", Name: "Mining", MaxLevel: 10},
+			"mining": {ID: "mining", Name: "Mining", MaxLevel: 10},
 		},
 		Ship: Ship{
 			ID:      "ship-xyz",

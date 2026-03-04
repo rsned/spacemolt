@@ -44,7 +44,7 @@ func TestEmpireHomeSystem(t *testing.T) {
 		{"crimson", "krynn"},
 		{"nebula", "haven"},
 		{"solarian", "sol"},
-		{"voidborn", "nexus"},
+		{"voidborn", "nexus_prime"},
 		{"CRIMSON", "krynn"},   // case-insensitive
 		{"Nebula", "haven"},    // mixed case
 		{"unknown", ""},        // unknown empire
@@ -103,12 +103,12 @@ func TestFindTradeRoutes(t *testing.T) {
 
 func TestFindRouteByOreAndTarget(t *testing.T) {
 	// Known route
-	outbound, returnLeg, found := FindRouteByOreAndTarget("nebula", "ore_silicon", "crimson")
+	outbound, returnLeg, found := FindRouteByOreAndTarget("nebula", "silicon_ore", "crimson")
 	if !found {
 		t.Fatal("expected to find route")
 	}
-	if outbound.OreID != "ore_silicon" {
-		t.Errorf("outbound ore = %q, want %q", outbound.OreID, "ore_silicon")
+	if outbound.OreID != "silicon_ore" {
+		t.Errorf("outbound ore = %q, want %q", outbound.OreID, "silicon_ore")
 	}
 	if outbound.BuyEmpire != "nebula" {
 		t.Errorf("outbound buy empire = %q, want %q", outbound.BuyEmpire, "nebula")
@@ -127,7 +127,7 @@ func TestFindRouteByOreAndTarget(t *testing.T) {
 	}
 
 	// Case insensitivity
-	_, _, found = FindRouteByOreAndTarget("NEBULA", "ORE_SILICON", "CRIMSON")
+	_, _, found = FindRouteByOreAndTarget("NEBULA", "SILICON_ORE", "CRIMSON")
 	if !found {
 		t.Error("expected case-insensitive match")
 	}

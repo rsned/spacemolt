@@ -18,7 +18,7 @@ type UpgradeTier struct {
 	FromShipClass string  // Current ship class to upgrade from
 	ToShipClass   string  // Ship class to buy
 	NumItems      int     // Number of items to buy and install (e.g., mining lasers, weapons)
-	ItemID        string  // Item ID to buy (e.g., "mining_laser_1", "weapon_laser_1")
+	ItemID        string  // Item ID to buy (e.g., "mining_laser_i", "pulse_laser_i")
 	LogEmoji      string  // Emoji for logging
 	Capacity      string  // Cargo/capability description for logging
 	SuccessMsg    string  // Success message template
@@ -91,14 +91,14 @@ var roleEmojis = map[string]string{
 
 // roleEquipment maps agent roles to their default equipment item IDs.
 var roleEquipment = map[string]string{
-	"miner":    "mining_laser_1",
-	"fighter":  "weapon_laser_1",
-	"trader":   "weapon_laser_1",
-	"explorer": "scanner_advanced_1",
-	"pirate":   "weapon_laser_1",
-	"salvager": "salvage_laser_1",
-	"engineer": "repair_toolkit_1",
-	"craftsman": "fabricator_1",
+	"miner":    "mining_laser_i",
+	"fighter":  "pulse_laser_i",
+	"trader":   "pulse_laser_i",
+	"explorer": "ship_scanner_i",
+	"pirate":   "pulse_laser_i",
+	"salvager": "basic_tow_rig",
+	"engineer": "remote_armor_repairer_i",
+	"craftsman": "cargo_expander_i",
 }
 
 // roleCareerNames maps agent roles to display career names.
@@ -428,17 +428,27 @@ func CountModulesInCargo(state *State, itemID string) int {
 func IsOreOrResource(itemID string) bool {
 	// Ores and resources to sell (not installable modules)
 	oreAndResourcePrefixes := []string{
-		"ore_",       // All ores (ore_iron, ore_copper, etc.)
 		"gas_",       // Gases
 		"crystal_",   // Crystals
 		"salvage_",   // Salvage materials
 		"scrap_",     // Scrap materials
-		"refined_",   // Refined materials (refined_steel, refined_copper, etc.)
 		"component_", // Crafted components (component_electronics, etc.)
+	}
+
+	// New naming convention uses suffixes for ores and ice
+	oreAndResourceSuffixes := []string{
+		"_ore", // All ores (iron_ore, copper_ore, etc.)
+		"_ice", // All ice resources (water_ice, deuterium_ice, etc.)
 	}
 
 	for _, prefix := range oreAndResourcePrefixes {
 		if len(itemID) >= len(prefix) && itemID[:len(prefix)] == prefix {
+			return true
+		}
+	}
+
+	for _, suffix := range oreAndResourceSuffixes {
+		if len(itemID) >= len(suffix) && itemID[len(itemID)-len(suffix):] == suffix {
 			return true
 		}
 	}

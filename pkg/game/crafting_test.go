@@ -112,8 +112,8 @@ func TestCraftableRecipe_Fields(t *testing.T) {
 		RecipeName:       "Iron Plate",
 		CanCraftQuantity: 5,
 		Components: []Component{
-			{ID: "ore_iron", Quantity: 10},
-			{ID: "ore_copper", Quantity: 5},
+			{ID: "iron_ore", Quantity: 10},
+			{ID: "copper_ore", Quantity: 5},
 		},
 		CanCraft:  true,
 		Profit:    25.5,

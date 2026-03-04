@@ -357,7 +357,7 @@ func empireCapitalSystem(empire string) string {
 	case "nebula":
 		return "haven"
 	case "voidborn":
-		return "nexus"
+		return "nexus_prime"
 	case "outerrim":
 		return "frontier"
 	default:

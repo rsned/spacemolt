@@ -368,18 +368,18 @@ type Facility struct {
 // FacilityCategoryMapping maps facility IDs to their metadata
 // This is populated from game data since the API doesn't provide categories
 var FacilityCategoryMapping = map[string]Facility{
-	// === SOLARIAN CONFEDERACY (sol_base) ===
+	// === SOLARIAN CONFEDERACY (confederacy_central_command) ===
 	// Service facilities (commercial/visitor services)
 	"grand_solarian_exchange": {ID: "grand_solarian_exchange", Name: "Grand Solarian Exchange", Category: "service", Level: 5},
-	"sol_admin_bureau":        {ID: "sol_admin_bureau", Name: "Solarian Admin Bureau", Category: "service", Level: 5},
-	"sol_bonded_warehouse":    {ID: "sol_bonded_warehouse", Name: "Solarian Bonded Warehouse", Category: "service", Level: 5},
-	"sol_precision_drydock":   {ID: "sol_precision_drydock", Name: "Precision Drydock", Category: "service", Level: 5},
-	"sol_naval_shipyard":      {ID: "sol_naval_shipyard", Name: "Naval Shipyard", Category: "service", Level: 5},
-	"sol_research_labs":       {ID: "sol_research_labs", Name: "Research Labs", Category: "service", Level: 5},
+	"confederacy_administrative_bureau": {ID: "confederacy_administrative_bureau", Name: "Solarian Admin Bureau", Category: "service", Level: 5},
+	"confederacy_bonded_warehouse":     {ID: "confederacy_bonded_warehouse", Name: "Solarian Bonded Warehouse", Category: "service", Level: 5},
+	"solarian_precision_drydock":       {ID: "solarian_precision_drydock", Name: "Precision Drydock", Category: "service", Level: 5},
+	"solarian_naval_shipyard":          {ID: "solarian_naval_shipyard", Name: "Naval Shipyard", Category: "service", Level: 5},
+	"solarian_research_labs":           {ID: "solarian_research_labs", Name: "Research Labs", Category: "service", Level: 5},
 
 	// Infrastructure facilities (station systems)
 	"solarian_fusion_plant": {ID: "solarian_fusion_plant", Name: "Solarian Fusion Plant", Category: "infrastructure", Level: 5},
-	"solarian_life_support": {ID: "solarian_life_support", Name: "Solarian Life Support", Category: "infrastructure", Level: 5},
+	"solarian_biosphere":    {ID: "solarian_biosphere", Name: "Solarian Life Support", Category: "infrastructure", Level: 5},
 
 	// Production facilities (manufacturing)
 	"iron_refinery":        {ID: "iron_refinery", Name: "Iron Refinery", Category: "production", Level: 1},
@@ -389,11 +389,11 @@ var FacilityCategoryMapping = map[string]Facility{
 	"fuel_cell_plant":      {ID: "fuel_cell_plant", Name: "Fuel Cell Plant", Category: "production", Level: 1},
 	"repair_kit_factory":   {ID: "repair_kit_factory", Name: "Repair Kit Factory", Category: "production", Level: 1},
 	"power_cell_assembler": {ID: "power_cell_assembler", Name: "Power Cell Assembler", Category: "production", Level: 1},
-	"sensor_assembly":      {ID: "sensor_assembly", Name: "Sensor Assembly", Category: "production", Level: 2},
-	"sol_galley":           {ID: "sol_galley", Name: "Solarian Galley", Category: "production", Level: 1},
-	"sol_fuel_grid":        {ID: "sol_fuel_grid", Name: "Solarian Fuel Grid", Category: "production", Level: 5},
+	"sensor_assembly_line":       {ID: "sensor_assembly_line", Name: "Sensor Assembly", Category: "production", Level: 2},
+	"solarian_biosphere_kitchen": {ID: "solarian_biosphere_kitchen", Name: "Solarian Galley", Category: "production", Level: 1},
+	"solarian_fuel_grid":         {ID: "solarian_fuel_grid", Name: "Solarian Fuel Grid", Category: "production", Level: 5},
 
-	// === NEBULA COLLECTIVE (haven_base) ===
+	// === NEBULA COLLECTIVE (grand_exchange_station) ===
 	// Service facilities
 	"haven_grand_bazaar":    {ID: "haven_grand_bazaar", Name: "Grand Bazaar", Category: "service", Level: 5},
 	"haven_promenade":       {ID: "haven_promenade", Name: "Promenade", Category: "service", Level: 5},
@@ -403,64 +403,64 @@ var FacilityCategoryMapping = map[string]Facility{
 	"haven_makers_market":   {ID: "haven_makers_market", Name: "Makers Market", Category: "service", Level: 5},
 	"haven_trade_commission": {ID: "haven_trade_commission", Name: "Trade Commission", Category: "service", Level: 5},
 	"haven_premium_storage":  {ID: "haven_premium_storage", Name: "Premium Storage", Category: "service", Level: 5},
-	"trade_cipher_foundry":   {ID: "trade_cipher_foundry", Name: "Trade Cipher Foundry", Category: "service", Level: 5},
+	"haven_cipher_foundry":    {ID: "haven_cipher_foundry", Name: "Trade Cipher Foundry", Category: "service", Level: 5},
 
 	// Infrastructure facilities
 	"nebula_solar_array":  {ID: "nebula_solar_array", Name: "Nebula Solar Array", Category: "infrastructure", Level: 5},
-	"nebula_life_support": {ID: "nebula_life_support", Name: "Nebula Life Support", Category: "infrastructure", Level: 5},
+	"haven_ecosync":       {ID: "haven_ecosync", Name: "Nebula Life Support", Category: "infrastructure", Level: 5},
 
-	// === VOIDBORN (nexus_base) ===
+	// === VOIDBORN (central_nexus) ===
 	// Service facilities
 	"void_nexus_exchange": {ID: "void_nexus_exchange", Name: "Void Nexus Exchange", Category: "service", Level: 5},
 
 	// Infrastructure facilities (Voidborn station systems)
 	"null_energy_tap":                 {ID: "null_energy_tap", Name: "Null Energy Tap", Category: "infrastructure", Level: 5},
-	"voidborn_atmosphere":            {ID: "voidborn_atmosphere", Name: "Voidborn Atmosphere", Category: "infrastructure", Level: 5},
-	"voidborn_dimensional_vault":     {ID: "voidborn_dimensional_vault", Name: "Dimensional Vault", Category: "infrastructure", Level: 5},
-	"voidborn_energy_dispenser":      {ID: "voidborn_energy_dispenser", Name: "Energy Dispenser", Category: "infrastructure", Level: 5},
-	"voidborn_neural_foundry":        {ID: "voidborn_neural_foundry", Name: "Neural Forge", Category: "infrastructure", Level: 5},
-	"voidborn_reconstruction_matrix": {ID: "voidborn_reconstruction_matrix", Name: "Reconstruction Matrix", Category: "infrastructure", Level: 5},
+	"null_atmosphere_processor": {ID: "null_atmosphere_processor", Name: "Voidborn Atmosphere", Category: "infrastructure", Level: 5},
+	"dimensional_vault":         {ID: "dimensional_vault", Name: "Dimensional Vault", Category: "infrastructure", Level: 5},
+	"void_energy_dispenser":     {ID: "void_energy_dispenser", Name: "Energy Dispenser", Category: "infrastructure", Level: 5},
+	"neural_growth_chamber":     {ID: "neural_growth_chamber", Name: "Neural Forge", Category: "infrastructure", Level: 5},
+	"reconstruction_matrix":     {ID: "reconstruction_matrix", Name: "Reconstruction Matrix", Category: "infrastructure", Level: 5},
 
 	// Faction facilities (Voidborn unique)
-	"voidborn_pattern_council":   {ID: "voidborn_pattern_council", Name: "Pattern Council", Category: "faction", Level: 5},
-	"voidborn_crystalline_cradle": {ID: "voidborn_crystalline_cradle", Name: "Crystalline Cradle", Category: "faction", Level: 5},
-	"voidborn_shaping_chamber":    {ID: "voidborn_shaping_chamber", Name: "Shaping Chamber", Category: "faction", Level: 5},
+	"pattern_council_terminal":    {ID: "pattern_council_terminal", Name: "Pattern Council", Category: "faction", Level: 5},
+	"crystalline_cradle":          {ID: "crystalline_cradle", Name: "Crystalline Cradle", Category: "faction", Level: 5},
+	"null_energy_shaping_chamber": {ID: "null_energy_shaping_chamber", Name: "Shaping Chamber", Category: "faction", Level: 5},
 
 	// Production facilities
 	"crystal_refinery":      {ID: "crystal_refinery", Name: "Crystal Refinery", Category: "production", Level: 5},
 	"null_matter_processor": {ID: "null_matter_processor", Name: "Null Matter Processor", Category: "production", Level: 5},
 
-	// === CRIMSON (krynn_base) ===
+	// === CRIMSON (crimson_war_citadel) ===
 	// Service facilities
-	"crimson_fleet_command": {ID: "crimson_fleet_command", Name: "Crimson Fleet Command", Category: "service", Level: 5},
+	"fleet_command": {ID: "fleet_command", Name: "Crimson Fleet Command", Category: "service", Level: 5},
 	"war_market":            {ID: "war_market", Name: "War Market", Category: "service", Level: 5},
 
 	// Infrastructure facilities
-	"crimson_life_support": {ID: "crimson_life_support", Name: "Crimson Life Support", Category: "infrastructure", Level: 5},
-	"crimson_reactor":      {ID: "crimson_reactor", Name: "Crimson Reactor", Category: "infrastructure", Level: 5},
+	"fleet_life_support":     {ID: "fleet_life_support", Name: "Crimson Life Support", Category: "infrastructure", Level: 5},
+	"military_grade_reactor": {ID: "military_grade_reactor", Name: "Crimson Reactor", Category: "infrastructure", Level: 5},
 
 	// Production facilities (Crimson war manufacturing)
 	"alloy_foundry":           {ID: "alloy_foundry", Name: "Alloy Foundry", Category: "production", Level: 5},
 	"crimson_armor_works":     {ID: "crimson_armor_works", Name: "Crimson Armor Works", Category: "production", Level: 5},
-	"crimson_distillery":      {ID: "crimson_distillery", Name: "Crimson Distillery", Category: "production", Level: 5},
-	"crimson_fuel_bunker":     {ID: "crimson_fuel_bunker", Name: "Crimson Fuel Bunker", Category: "production", Level: 5},
-	"crimson_munitions_vault": {ID: "crimson_munitions_vault", Name: "Munitions Vault", Category: "production", Level: 5},
+	"fleet_forge_distillery":  {ID: "fleet_forge_distillery", Name: "Crimson Distillery", Category: "production", Level: 5},
+	"fleet_fuel_bunker":       {ID: "fleet_fuel_bunker", Name: "Crimson Fuel Bunker", Category: "production", Level: 5},
+	"fleet_munitions_vault":   {ID: "fleet_munitions_vault", Name: "Munitions Vault", Category: "production", Level: 5},
 	"crimson_war_forge":       {ID: "crimson_war_forge", Name: "Crimson War Forge", Category: "production", Level: 5},
-	"crimson_weapons_forge":   {ID: "crimson_weapons_forge", Name: "Weapons Forge", Category: "production", Level: 5},
+	"fleet_weapons_forge":     {ID: "fleet_weapons_forge", Name: "Weapons Forge", Category: "production", Level: 5},
 
-	// === FRONTIER (frontier_base) ===
+	// === FRONTIER (frontier_station) ===
 	// Service facilities
 	"frontier_exchange":    {ID: "frontier_exchange", Name: "Frontier Exchange", Category: "service", Level: 1},
-	"frontier_notice_board": {ID: "frontier_notice_board", Name: "Notice Board", Category: "service", Level: 1},
-	"frontier_still":        {ID: "frontier_still", Name: "Still", Category: "service", Level: 1},
+	"the_notice_board":      {ID: "the_notice_board", Name: "Notice Board", Category: "service", Level: 1},
+	"the_magazine_still":    {ID: "the_magazine_still", Name: "Still", Category: "service", Level: 1},
 
 	// Infrastructure facilities
 	"frontier_fuel_siphon":    {ID: "frontier_fuel_siphon", Name: "Fuel Siphon", Category: "infrastructure", Level: 1},
-	"frontier_life_support":   {ID: "frontier_life_support", Name: "Life Support", Category: "infrastructure", Level: 1},
-	"frontier_salvage_reactor": {ID: "frontier_salvage_reactor", Name: "Salvage Reactor", Category: "infrastructure", Level: 1},
+	"frontier_recycler":  {ID: "frontier_recycler", Name: "Life Support", Category: "infrastructure", Level: 1},
+	"salvage_reactor":    {ID: "salvage_reactor", Name: "Salvage Reactor", Category: "infrastructure", Level: 1},
 
 	// Production facilities (Frontier scavenging/manufacturing)
-	"frontier_hull_lockers": {ID: "frontier_hull_lockers", Name: "Hull Lockers", Category: "production", Level: 1},
+	"hull_lockers":          {ID: "hull_lockers", Name: "Hull Lockers", Category: "production", Level: 1},
 	"frontier_machine_shop": {ID: "frontier_machine_shop", Name: "Machine Shop", Category: "production", Level: 1},
 	"frontier_salvage_yard": {ID: "frontier_salvage_yard", Name: "Salvage Yard", Category: "production", Level: 1},
 	"frontier_weld_shop":    {ID: "frontier_weld_shop", Name: "Weld Shop", Category: "production", Level: 1},

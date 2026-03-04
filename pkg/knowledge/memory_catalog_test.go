@@ -184,7 +184,7 @@ func TestMemoryKB_StoreAndGetPlayerSkills(t *testing.T) {
 	ctx := context.Background()
 
 	skills := []PlayerSkillRecord{
-		{SkillID: "mining_basic", Level: 5, CurrentXP: 1200},
+		{SkillID: "mining", Level: 5, CurrentXP: 1200},
 	}
 	if err := kb.StorePlayerSkills(ctx, "player-1", skills); err != nil {
 		t.Fatalf("StorePlayerSkills failed: %v", err)

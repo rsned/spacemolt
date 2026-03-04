@@ -6,13 +6,13 @@ import (
 
 func TestBuildProgression_BasicChain(t *testing.T) {
 	ships := []ShipDef{
-		{ID: "crimson_shard", Name: "Shard", Class: "Mining", Price: 0, UtilitySlots: 1, WeaponSlots: 2, CargoCapacity: 40},
+		{ID: "shard", Name: "Shard", Class: "Mining", Price: 0, UtilitySlots: 1, WeaponSlots: 2, CargoCapacity: 40},
 		{ID: "crimson_maul", Name: "Maul", Class: "Mining", Price: 2200, UtilitySlots: 1, WeaponSlots: 2, CargoCapacity: 100},
 		{ID: "crimson_siege_drill", Name: "Siege Drill", Class: "Mining", Price: 7500, UtilitySlots: 2, WeaponSlots: 2, CargoCapacity: 140},
 		{ID: "crimson_siege_breaker", Name: "Siege Breaker", Class: "Mining", Price: 28000, UtilitySlots: 4, WeaponSlots: 2, CargoCapacity: 300},
 	}
 
-	prog := BuildProgression(ships, "crimson_shard", "miner")
+	prog := BuildProgression(ships, "shard", "miner")
 	if prog == nil {
 		t.Fatal("expected non-nil progression")
 	}
@@ -24,8 +24,8 @@ func TestBuildProgression_BasicChain(t *testing.T) {
 	}
 
 	// First tier: shard -> maul
-	if prog.Tiers[0].FromShipClass != "crimson_shard" {
-		t.Errorf("tier[0].From = %q, want %q", prog.Tiers[0].FromShipClass, "crimson_shard")
+	if prog.Tiers[0].FromShipClass != "shard" {
+		t.Errorf("tier[0].From = %q, want %q", prog.Tiers[0].FromShipClass, "shard")
 	}
 	if prog.Tiers[0].ToShipClass != "crimson_maul" {
 		t.Errorf("tier[0].To = %q, want %q", prog.Tiers[0].ToShipClass, "crimson_maul")
@@ -45,7 +45,7 @@ func TestBuildProgression_BasicChain(t *testing.T) {
 
 func TestBuildProgression_StarterShipNotInList(t *testing.T) {
 	ships := []ShipDef{
-		{ID: "crimson_shard", Name: "Shard", Class: "Mining", Price: 0, UtilitySlots: 1, CargoCapacity: 40},
+		{ID: "shard", Name: "Shard", Class: "Mining", Price: 0, UtilitySlots: 1, CargoCapacity: 40},
 		{ID: "crimson_maul", Name: "Maul", Class: "Mining", Price: 2200, UtilitySlots: 1, CargoCapacity: 100},
 	}
 
@@ -58,14 +58,14 @@ func TestBuildProgression_StarterShipNotInList(t *testing.T) {
 	if prog.Tiers[0].FromShipClass != "starter_mining" {
 		t.Errorf("tier[0].From = %q, want %q", prog.Tiers[0].FromShipClass, "starter_mining")
 	}
-	if prog.Tiers[0].ToShipClass != "crimson_shard" {
-		t.Errorf("tier[0].To = %q, want %q", prog.Tiers[0].ToShipClass, "crimson_shard")
+	if prog.Tiers[0].ToShipClass != "shard" {
+		t.Errorf("tier[0].To = %q, want %q", prog.Tiers[0].ToShipClass, "shard")
 	}
 }
 
 func TestBuildProgression_AtMaxShip(t *testing.T) {
 	ships := []ShipDef{
-		{ID: "crimson_shard", Name: "Shard", Class: "Mining", Price: 0, UtilitySlots: 1, CargoCapacity: 40},
+		{ID: "shard", Name: "Shard", Class: "Mining", Price: 0, UtilitySlots: 1, CargoCapacity: 40},
 		{ID: "crimson_maul", Name: "Maul", Class: "Mining", Price: 2200, UtilitySlots: 1, CargoCapacity: 100},
 	}
 
@@ -97,8 +97,8 @@ func TestBuildProgression_CombatEquipment(t *testing.T) {
 		t.Fatalf("tiers = %d, want 1", len(prog.Tiers))
 	}
 	// Fighters should get weapon_laser_1 and weapon slot count
-	if prog.Tiers[0].ItemID != "weapon_laser_1" {
-		t.Errorf("itemID = %q, want %q", prog.Tiers[0].ItemID, "weapon_laser_1")
+	if prog.Tiers[0].ItemID != "pulse_laser_i" {
+		t.Errorf("itemID = %q, want %q", prog.Tiers[0].ItemID, "pulse_laser_i")
 	}
 	if prog.Tiers[0].NumItems != 5 {
 		t.Errorf("numItems = %d, want 5 (weapon slots)", prog.Tiers[0].NumItems)
@@ -116,8 +116,8 @@ func TestBuildProgression_MinerEquipment(t *testing.T) {
 		t.Fatal("expected non-nil progression")
 	}
 	// Miners should get mining_laser_1 and utility slot count
-	if prog.Tiers[0].ItemID != "mining_laser_1" {
-		t.Errorf("itemID = %q, want %q", prog.Tiers[0].ItemID, "mining_laser_1")
+	if prog.Tiers[0].ItemID != "mining_laser_i" {
+		t.Errorf("itemID = %q, want %q", prog.Tiers[0].ItemID, "mining_laser_i")
 	}
 	if prog.Tiers[0].NumItems != 3 {
 		t.Errorf("numItems = %d, want 3 (utility slots)", prog.Tiers[0].NumItems)
@@ -126,21 +126,18 @@ func TestBuildProgression_MinerEquipment(t *testing.T) {
 
 func TestFilterShipsByEmpire(t *testing.T) {
 	ships := []ShipDef{
-		{ID: "crimson_shard", Name: "Shard"},
+		{ID: "shard", Name: "Shard"},
 		{ID: "solarian_theoria", Name: "Theoria"},
 		{ID: "crimson_maul", Name: "Maul"},
 		{ID: "nebula_prospect", Name: "Prospect"},
 	}
 
 	result := FilterShipsByEmpire(ships, "crimson")
-	if len(result) != 2 {
-		t.Fatalf("filtered count = %d, want 2", len(result))
+	if len(result) != 1 {
+		t.Fatalf("filtered count = %d, want 1", len(result))
 	}
-	if result[0].ID != "crimson_shard" {
-		t.Errorf("result[0] = %q, want %q", result[0].ID, "crimson_shard")
-	}
-	if result[1].ID != "crimson_maul" {
-		t.Errorf("result[1] = %q, want %q", result[1].ID, "crimson_maul")
+	if result[0].ID != "crimson_maul" {
+		t.Errorf("result[0] = %q, want %q", result[0].ID, "crimson_maul")
 	}
 }
 
@@ -187,10 +184,10 @@ func TestDefaultEquipment(t *testing.T) {
 		wantItem string
 		wantN    int
 	}{
-		{"miner", "Mining", 1, 3, "mining_laser_1", 3},
-		{"fighter", "Fighter", 4, 2, "weapon_laser_1", 4},
-		{"salvager", "Salvager", 0, 5, "salvage_laser_1", 5},
-		{"explorer", "Explorer", 1, 4, "scanner_advanced_1", 4},
+		{"miner", "Mining", 1, 3, "mining_laser_i", 3},
+		{"fighter", "Fighter", 4, 2, "pulse_laser_i", 4},
+		{"salvager", "Salvager", 0, 5, "basic_tow_rig", 5},
+		{"explorer", "Explorer", 1, 4, "ship_scanner_i", 4},
 	}
 	for _, tt := range tests {
 		ship := ShipDef{Class: tt.class, WeaponSlots: tt.wSlots, UtilitySlots: tt.uSlots}

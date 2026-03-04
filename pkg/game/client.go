@@ -950,7 +950,7 @@ func (c *Client) isOreOrResource(itemID string) bool {
 // Example:
 //
 //	// Deposit all iron ore
-//	err := client.DepositItems(ctx, "ore_iron", 100.0)
+//	err := client.DepositItems(ctx, "iron_ore", 100.0)
 func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float64) error {
 	state := c.GetState()
 	if !state.Doc {

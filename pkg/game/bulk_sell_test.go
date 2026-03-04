@@ -16,14 +16,14 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 		{
 			name: "basic ores - no reserved items",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 100},
-				{ItemID: "ore_copper", Quantity: 50},
+				{ItemID: "iron_ore", Quantity: 100},
+				{ItemID: "copper_ore", Quantity: 50},
 				{ItemID: "ore_gold", Quantity: 25},
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
-				"ore_iron":   5,
-				"ore_copper": 8,
+				"iron_ore":   5,
+				"copper_ore": 8,
 				"ore_gold":   20,
 			},
 			wantOrders:  3,
@@ -32,19 +32,19 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 		{
 			name: "mixed cargo - ores and equipment",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 100},
-				{ItemID: "mining_laser_1", Quantity: 1},
-				{ItemID: "ore_copper", Quantity: 50},
-				{ItemID: "weapon_laser_1", Quantity: 1},
+				{ItemID: "iron_ore", Quantity: 100},
+				{ItemID: "mining_laser_i", Quantity: 1},
+				{ItemID: "copper_ore", Quantity: 50},
+				{ItemID: "pulse_laser_i", Quantity: 1},
 				{ItemID: "salvage_metal", Quantity: 30},
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
-				"ore_iron":        5,
-				"ore_copper":      8,
+				"iron_ore":        5,
+				"copper_ore":      8,
 				"salvage_metal":   3,
-				"mining_laser_1":  100, // Should be skipped (equipment)
-				"weapon_laser_1":  200, // Should be skipped (equipment)
+				"mining_laser_i":  100, // Should be skipped (equipment)
+				"pulse_laser_i":  200, // Should be skipped (equipment)
 			},
 			wantOrders:  3, // Only ores and salvage
 			wantSkipped: 2, // Equipment skipped
@@ -52,14 +52,14 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 		{
 			name: "reserved items",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 100},
-				{ItemID: "ore_copper", Quantity: 50},
+				{ItemID: "iron_ore", Quantity: 100},
+				{ItemID: "copper_ore", Quantity: 50},
 				{ItemID: "crystal_blue", Quantity: 10},
 			},
-			reservedItems: []string{"ore_copper", "crystal_blue"},
+			reservedItems: []string{"copper_ore", "crystal_blue"},
 			pricePerItem: map[string]int{
-				"ore_iron":     5,
-				"ore_copper":   8,
+				"iron_ore":     5,
+				"copper_ore":   8,
 				"crystal_blue": 50,
 			},
 			wantOrders:  1, // Only ore_iron
@@ -76,13 +76,13 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 		{
 			name: "zero quantity items",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 0},
-				{ItemID: "ore_copper", Quantity: 50},
+				{ItemID: "iron_ore", Quantity: 0},
+				{ItemID: "copper_ore", Quantity: 50},
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
-				"ore_iron":   5,
-				"ore_copper": 8,
+				"iron_ore":   5,
+				"copper_ore": 8,
 			},
 			wantOrders:  1, // Only copper (iron has 0 quantity)
 			wantSkipped: 0,
@@ -90,12 +90,12 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 		{
 			name: "default pricing when not in map",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 100},
-				{ItemID: "ore_copper", Quantity: 50},
+				{ItemID: "iron_ore", Quantity: 100},
+				{ItemID: "copper_ore", Quantity: 50},
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
-				"ore_iron": 5,
+				"iron_ore": 5,
 				// ore_copper not in map - should use default price of 1
 			},
 			wantOrders:  2,
@@ -106,13 +106,13 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 			cargo: []CargoItem{
 				{ItemID: "gas_helium", Quantity: 100},
 				{ItemID: "scrap_metal", Quantity: 50},
-				{ItemID: "ore_iron", Quantity: 25},
+				{ItemID: "iron_ore", Quantity: 25},
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
 				"gas_helium":   10,
 				"scrap_metal":  2,
-				"ore_iron":     5,
+				"iron_ore":     5,
 			},
 			wantOrders:  3,
 			wantSkipped: 0,
@@ -175,9 +175,9 @@ func TestPrepareBulkSellOrder_50ItemLimit(t *testing.T) {
 	// However, many won't match the ore_ prefix due to the way we generate names
 	// Let's fix this:
 	for i := range 60 {
-		cargo[i].ItemID = "ore_iron"
+		cargo[i].ItemID = "iron_ore"
 		if i%2 == 0 {
-			cargo[i].ItemID = "ore_copper"
+			cargo[i].ItemID = "copper_ore"
 		}
 		if i%3 == 0 {
 			cargo[i].ItemID = "ore_gold"
@@ -203,28 +203,28 @@ func TestGetMarketPricesForCargo(t *testing.T) {
 		{
 			name: "buy orders exist - use highest buy price",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 100},
+				{ItemID: "iron_ore", Quantity: 100},
 			},
 			listings: []MarketListing{
-				{ItemID: "ore_iron", Type: "buy", PricePerUnit: 5},
-				{ItemID: "ore_iron", Type: "buy", PricePerUnit: 7},
-				{ItemID: "ore_iron", Type: "sell", PricePerUnit: 10},
+				{ItemID: "iron_ore", Type: "buy", PricePerUnit: 5},
+				{ItemID: "iron_ore", Type: "buy", PricePerUnit: 7},
+				{ItemID: "iron_ore", Type: "sell", PricePerUnit: 10},
 			},
 			want: map[string]int{
-				"ore_iron": 7, // Highest buy order
+				"iron_ore": 7, // Highest buy order
 			},
 		},
 		{
 			name: "no buy orders - undercut lowest sell",
 			cargo: []CargoItem{
-				{ItemID: "ore_copper", Quantity: 50},
+				{ItemID: "copper_ore", Quantity: 50},
 			},
 			listings: []MarketListing{
-				{ItemID: "ore_copper", Type: "sell", PricePerUnit: 10},
-				{ItemID: "ore_copper", Type: "sell", PricePerUnit: 8},
+				{ItemID: "copper_ore", Type: "sell", PricePerUnit: 10},
+				{ItemID: "copper_ore", Type: "sell", PricePerUnit: 8},
 			},
 			want: map[string]int{
-				"ore_copper": 7, // Lowest sell (8) minus 1
+				"copper_ore": 7, // Lowest sell (8) minus 1
 			},
 		},
 		{
@@ -233,25 +233,25 @@ func TestGetMarketPricesForCargo(t *testing.T) {
 				{ItemID: "ore_rare", Quantity: 10},
 			},
 			listings: []MarketListing{
-				{ItemID: "ore_iron", Type: "sell", PricePerUnit: 5},
+				{ItemID: "iron_ore", Type: "sell", PricePerUnit: 5},
 			},
 			want: map[string]int{}, // Empty - no data for ore_rare
 		},
 		{
 			name: "multiple items with different data",
 			cargo: []CargoItem{
-				{ItemID: "ore_iron", Quantity: 100},
-				{ItemID: "ore_copper", Quantity: 50},
+				{ItemID: "iron_ore", Quantity: 100},
+				{ItemID: "copper_ore", Quantity: 50},
 				{ItemID: "ore_gold", Quantity: 10},
 			},
 			listings: []MarketListing{
-				{ItemID: "ore_iron", Type: "buy", PricePerUnit: 5},
-				{ItemID: "ore_copper", Type: "sell", PricePerUnit: 10},
+				{ItemID: "iron_ore", Type: "buy", PricePerUnit: 5},
+				{ItemID: "copper_ore", Type: "sell", PricePerUnit: 10},
 				// No data for ore_gold
 			},
 			want: map[string]int{
-				"ore_iron":   5, // Buy order
-				"ore_copper": 9, // Undercut sell
+				"iron_ore":   5, // Buy order
+				"copper_ore": 9, // Undercut sell
 				// ore_gold not in map
 			},
 		},
@@ -302,8 +302,8 @@ func TestIsOreOrResource(t *testing.T) {
 		want   bool
 	}{
 		// Ores
-		{"ore_iron", true},
-		{"ore_copper", true},
+		{"iron_ore", true},
+		{"copper_ore", true},
 		{"ore_gold", true},
 		{"ore_platinum", true},
 
@@ -324,9 +324,9 @@ func TestIsOreOrResource(t *testing.T) {
 		{"scrap_hull", true},
 
 		// Equipment (should NOT be sold)
-		{"mining_laser_1", false},
+		{"mining_laser_i", false},
 		{"mining_laser_advanced", false},
-		{"weapon_laser_1", false},
+		{"pulse_laser_i", false},
 		{"weapon_missile_launcher", false},
 		{"shield_generator_1", false},
 		{"cargo_expansion_1", false},

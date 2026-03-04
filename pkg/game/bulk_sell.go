@@ -72,9 +72,9 @@ func PrepareBulkSellOrder(cargo []CargoItem, reservedItems []string, pricePerIte
 // isOreOrResource returns true if the item is ore or a resource (should be sold)
 // This is duplicated from client.go for internal use
 func isOreOrResource(itemID string) bool {
-	// Ores and resources to sell
+	// Ores and resources to sell - check prefixes
 	oreAndResourcePrefixes := []string{
-		"ore_",     // All ores (ore_iron, ore_copper, etc.)
+		"ore_",     // Legacy ores (ore_gold, ore_platinum, etc.)
 		"gas_",     // Gases
 		"crystal_", // Crystals
 		"salvage_", // Salvage materials
@@ -87,8 +87,20 @@ func isOreOrResource(itemID string) bool {
 		}
 	}
 
+	// New ore ID format uses suffixes (iron_ore, copper_ore, water_ice)
+	oreAndResourceSuffixes := []string{
+		"_ore", // Ores (iron_ore, copper_ore, etc.)
+		"_ice", // Ice resources (water_ice)
+	}
+
+	for _, suffix := range oreAndResourceSuffixes {
+		if len(itemID) >= len(suffix) && itemID[len(itemID)-len(suffix):] == suffix {
+			return true
+		}
+	}
+
 	// Don't sell these - they're equipment
-	// mining_laser_*, weapon_*, shield_*, cargo_*, engine_*, module_*, etc.
+	// mining_laser_*, pulse_laser_*, shield_*, cargo_*, engine_*, module_*, etc.
 	return false
 }
 

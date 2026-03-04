@@ -17,18 +17,18 @@ func TestPlayerFromAPI(t *testing.T) {
 		"current_system": "sol",
 		"current_poi": "sol_station",
 		"current_ship_id": "ship123",
-		"home_base": "sol_base",
-		"docked_at_base": "sol_base",
+		"home_base": "confederacy_central_command",
+		"docked_at_base": "confederacy_central_command",
 		"primary_color": "#FF0000",
 		"secondary_color": "#00FF00",
 		"anonymous": false,
 		"is_cloaked": false,
 		"skills": {
-			"mining_basic": {"level": 3, "xp": 150},
+			"mining": {"level": 3, "xp": 150},
 			"trading": 2
 		},
 		"skill_xp": {
-			"mining_basic": 150,
+			"mining": 150,
 			"trading": 50
 		},
 		"stats": {
@@ -60,24 +60,24 @@ func TestPlayerFromAPI(t *testing.T) {
 	if player.Credits != 5000 {
 		t.Errorf("Credits: got %f, want %f", player.Credits, 5000.0)
 	}
-	if player.DockedAtBase != "sol_base" {
-		t.Errorf("DockedAtBase: got %q, want %q", player.DockedAtBase, "sol_base")
+	if player.DockedAtBase != "confederacy_central_command" {
+		t.Errorf("DockedAtBase: got %q, want %q", player.DockedAtBase, "confederacy_central_command")
 	}
 
 	// Check skills - both object and number formats
 	if len(player.Skills) != 2 {
 		t.Fatalf("Skills count: got %d, want 2", len(player.Skills))
 	}
-	if s, ok := player.Skills["mining_basic"]; !ok || s.Level != 3 || s.XP != 150 {
-		t.Errorf("mining_basic skill: got %+v", player.Skills["mining_basic"])
+	if s, ok := player.Skills["mining"]; !ok || s.Level != 3 || s.XP != 150 {
+		t.Errorf("mining_basic skill: got %+v", player.Skills["mining"])
 	}
 	if s, ok := player.Skills["trading"]; !ok || s.Level != 2 {
 		t.Errorf("trading skill: got %+v, want level 2", s)
 	}
 
 	// Check skill XP
-	if player.SkillXP["mining_basic"] != 150 {
-		t.Errorf("SkillXP mining_basic: got %f, want 150", player.SkillXP["mining_basic"])
+	if player.SkillXP["mining"] != 150 {
+		t.Errorf("SkillXP mining_basic: got %f, want 150", player.SkillXP["mining"])
 	}
 
 	// Check stats
@@ -115,8 +115,8 @@ func TestShipFromAPI(t *testing.T) {
 		"utility_slots": 3,
 		"modules": ["mod_abc", "mod_def"],
 		"cargo": [
-			{"item_id": "ore_iron", "quantity": 20},
-			{"item_id": "ore_copper", "quantity": 10}
+			{"item_id": "iron_ore", "quantity": 20},
+			{"item_id": "copper_ore", "quantity": 10}
 		]
 	}`
 
@@ -145,7 +145,7 @@ func TestShipFromAPI(t *testing.T) {
 	if len(ship.Cargo) != 2 {
 		t.Fatalf("Cargo count: got %d, want 2", len(ship.Cargo))
 	}
-	if ship.Cargo[0].ItemID != "ore_iron" || ship.Cargo[0].Quantity != 20 {
+	if ship.Cargo[0].ItemID != "iron_ore" || ship.Cargo[0].Quantity != 20 {
 		t.Errorf("Cargo[0]: got %+v", ship.Cargo[0])
 	}
 	if ship.WeaponSlots != 1 {
@@ -169,7 +169,7 @@ func TestSystemDataFromAPI(t *testing.T) {
 				"name": "Sol Station",
 				"position": {"x": 10, "y": 20},
 				"resources": [
-					{"resource_id": "ore_iron", "richness": 0.8, "remaining": 1000}
+					{"resource_id": "iron_ore", "richness": 0.8, "remaining": 1000}
 				],
 				"has_base": true,
 				"base_name": "Main Base"
@@ -207,7 +207,7 @@ func TestSystemDataFromAPI(t *testing.T) {
 	if sys.POIs[0].HasBase != true {
 		t.Error("POI[0].HasBase: got false, want true")
 	}
-	if len(sys.POIs[0].Resources) != 1 || sys.POIs[0].Resources[0].ResourceID != "ore_iron" {
+	if len(sys.POIs[0].Resources) != 1 || sys.POIs[0].Resources[0].ResourceID != "iron_ore" {
 		t.Errorf("POI[0].Resources: got %+v", sys.POIs[0].Resources)
 	}
 	if len(sys.Connections) != 1 || sys.Connections[0].SystemID != "sys456" {
@@ -221,7 +221,7 @@ func TestSystemDataFromAPI(t *testing.T) {
 func TestMarketListingFromAPI_FieldVariants(t *testing.T) {
 	// Test with price_each (server format) instead of price_per_unit
 	listingJSON := `{
-		"item_id": "ore_iron",
+		"item_id": "iron_ore",
 		"quantity": 50,
 		"price_each": 10,
 		"total": 500,
@@ -236,7 +236,7 @@ func TestMarketListingFromAPI_FieldVariants(t *testing.T) {
 
 	listing := MarketListingFromAPI(ext)
 
-	if listing.ItemID != "ore_iron" {
+	if listing.ItemID != "iron_ore" {
 		t.Errorf("ItemID: got %q", listing.ItemID)
 	}
 	if listing.PricePerUnit != 10 {

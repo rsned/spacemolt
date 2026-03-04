@@ -154,7 +154,7 @@ func TestSQLiteKB_StorePlayerSkills(t *testing.T) {
 	}
 
 	skills := []PlayerSkillRecord{
-		{SkillID: "mining_basic", Level: 5, CurrentXP: 1200.0},
+		{SkillID: "mining", Level: 5, CurrentXP: 1200.0},
 		{SkillID: "trading", Level: 3, CurrentXP: 500.0},
 		{SkillID: "navigation", Level: 2, CurrentXP: 200.0},
 	}
@@ -200,7 +200,7 @@ func TestSQLiteKB_StorePlayerSkills_Replaces(t *testing.T) {
 
 	// Store initial skills
 	skills1 := []PlayerSkillRecord{
-		{SkillID: "mining_basic", Level: 5, CurrentXP: 1200.0},
+		{SkillID: "mining", Level: 5, CurrentXP: 1200.0},
 	}
 	if err := kb.StorePlayerSkills(ctx, "player-1", skills1); err != nil {
 		t.Fatalf("StorePlayerSkills 1 failed: %v", err)
@@ -208,7 +208,7 @@ func TestSQLiteKB_StorePlayerSkills_Replaces(t *testing.T) {
 
 	// Replace skills
 	skills2 := []PlayerSkillRecord{
-		{SkillID: "mining_basic", Level: 7, CurrentXP: 2500.0},
+		{SkillID: "mining", Level: 7, CurrentXP: 2500.0},
 		{SkillID: "trading", Level: 1, CurrentXP: 50.0},
 	}
 	if err := kb.StorePlayerSkills(ctx, "player-1", skills2); err != nil {

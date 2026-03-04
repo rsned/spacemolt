@@ -20,7 +20,7 @@ func getCapitalDisplayName(systemID string) string {
 		return "Sol"
 	case "frontier":
 		return "Frontier"
-	case "nexus":
+	case "nexus_prime":
 		return "Nexus Prime"
 	case "haven":
 		return "Haven"

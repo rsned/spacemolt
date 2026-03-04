@@ -33,10 +33,10 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, cred
 	notes = append(notes, fmt.Sprintf("Cargo: %.1f/%.1f", state.Ship.CargoUsed, state.Ship.CargoCapacity))
 
 	// Count mining lasers
-	numLasers := game.CountModulesInstalled(state, "mining_laser_1") +
-		game.CountModulesInstalled(state, "mining_laser_2") +
-		game.CountModulesInstalled(state, "mining_laser_3") +
-		game.CountModulesInstalled(state, "advanced_mining_laser")
+	numLasers := game.CountModulesInstalled(state, "mining_laser_i") +
+		game.CountModulesInstalled(state, "mining_laser_ii") +
+		game.CountModulesInstalled(state, "mining_laser_iii") +
+		game.CountModulesInstalled(state, "strip_mining_laser")
 	notes = append(notes, fmt.Sprintf("Mining lasers: %d", numLasers))
 
 	currentGoal := "Autonomous mining operations - collecting resources and upgrading ship"

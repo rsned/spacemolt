@@ -20,7 +20,7 @@ func EmpireCapitalSystem(empire string) string {
 	case "outerrim":
 		return "frontier"
 	case "voidborn":
-		return "nexus"
+		return "nexus_prime"
 	case "nebula":
 		return "haven"
 	case "crimson":
@@ -37,7 +37,7 @@ func empireCapitalName(systemID string) string {
 		return "Sol"
 	case "frontier":
 		return "Frontier"
-	case "nexus":
+	case "nexus_prime":
 		return "Nexus Prime"
 	case "haven":
 		return "Haven"

@@ -268,8 +268,8 @@ func TestFunction_AtSystem(t *testing.T) {
 
 func TestFunction_AtSystemWithVariable(t *testing.T) {
 	state := &game.State{
-		System: game.SystemData{ID: "nexus"},
-		Player: game.Player{Empire: "Voidborn"}, // Nexus is Voidborn capital
+		System: game.SystemData{ID: "nexus_prime"},
+		Player: game.Player{Empire: "Voidborn"}, // Nexus Prime is Voidborn capital
 	}
 	result, err := EvalExpr("at_system(capital_system_id)", state)
 	if err != nil {
