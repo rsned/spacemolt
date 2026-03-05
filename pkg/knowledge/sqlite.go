@@ -803,7 +803,7 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, empi
 func (kb *SQLiteKB) GetSystems() []System {
 	// Query all systems
 	rows, err := kb.db.Query(`
-		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold
+		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold, last_updated_tick
 		FROM systems
 	`)
 	if err != nil {
@@ -817,7 +817,7 @@ func (kb *SQLiteKB) GetSystems() []System {
 
 		if err := rows.Scan(
 			&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
-			&sys.PoliceLevel, &sys.SecurityStatus, &sys.Empire, &sys.IsStronghold,
+			&sys.PoliceLevel, &sys.SecurityStatus, &sys.Empire, &sys.IsStronghold, &sys.LastUpdatedTick,
 		); err != nil {
 			continue
 		}
