@@ -2853,7 +2853,22 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 
 	for {
 		select {
-		case <-okChan:
+		case resp := <-okChan:
+			// Check if this is a pending action response
+			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
+				pendingCmd, _ := resp.Payload["command"].(string)
+				c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
+				// Wait one tick then continue listening for the real response
+				select {
+				case <-time.After(SleepTick):
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-deadline:
+					return fmt.Errorf("timeout waiting for action completion")
+				}
+				continue
+			}
+			// Not pending, this is the actual completion
 			return nil
 		case resp := <-errorChan:
 			// Check error code and categorize response
