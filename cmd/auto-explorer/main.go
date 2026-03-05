@@ -882,14 +882,19 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	systemTickMap := make(map[string]int64)
 	if expState.kb != nil {
 		allSystems := expState.kb.GetSystems()
+		logger.Printf("🗄️  KB has %d systems total", len(allSystems))
 		for _, sys := range allSystems {
 			systemTickMap[sys.ID] = sys.LastUpdatedTick
+			logger.Printf("   KB System: %s (tick: %d)", sys.ID, sys.LastUpdatedTick)
 			// Also restore VisitedSystems from KB for persistence across restarts
 			if sys.LastUpdatedTick > 0 && !expState.VisitedSystems[sys.ID] {
 				expState.VisitedSystems[sys.ID] = true
+				logger.Printf("   ✓ Restored %s as visited from KB", sys.ID)
 			}
 		}
 	}
+
+	logger.Printf("After KB restore, Visited systems: %d", len(expState.VisitedSystems))
 
 	// Collect unvisited neighbors with their LastUpdatedTick from KB
 	type neighborInfo struct {
@@ -901,13 +906,18 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	for _, conn := range state.System.Connections {
 		// Skip if already visited in current session OR in KB
 		if expState.VisitedSystems[conn.SystemID] {
+			logger.Printf("   ⊙ Skipping %s (already in VisitedSystems)", conn.SystemID)
 			continue
 		}
 		// Also skip if it exists in KB with a LastUpdatedTick
-		if tick, ok := systemTickMap[conn.SystemID]; ok && tick > 0 {
-			// System exists in KB and has been visited - mark as visited
-			expState.VisitedSystems[conn.SystemID] = true
-			continue
+		if tick, ok := systemTickMap[conn.SystemID]; ok {
+			if tick > 0 {
+				// System exists in KB and has been visited - mark as visited
+				expState.VisitedSystems[conn.SystemID] = true
+				logger.Printf("   ⊙ Skipping %s (in KB with tick %d)", conn.SystemID, tick)
+				continue
+			}
+			logger.Printf("   ? %s is in KB but tick=0, treating as unvisited", conn.SystemID)
 		}
 		// Truly unvisited system
 		neighbors = append(neighbors, neighborInfo{
