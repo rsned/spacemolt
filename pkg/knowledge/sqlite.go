@@ -108,8 +108,8 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			description = excluded.description,
-			position_x = excluded.position_x,
-			position_y = excluded.position_y,
+			position_x = CASE WHEN excluded.position_x != 0 THEN excluded.position_x ELSE systems.position_x END,
+			position_y = CASE WHEN excluded.position_y != 0 THEN excluded.position_y ELSE systems.position_y END,
 			police_level = excluded.police_level,
 			security_status = excluded.security_status,
 			empire = excluded.empire,
