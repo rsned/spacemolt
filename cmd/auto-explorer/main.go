@@ -878,6 +878,19 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	logger.Printf("Current system: %s, Connections: %v", state.System.ID, state.System.Connections)
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
 
+	// First, query KB for all systems and their LastUpdatedTick
+	systemTickMap := make(map[string]int64)
+	if expState.kb != nil {
+		allSystems := expState.kb.GetSystems()
+		for _, sys := range allSystems {
+			systemTickMap[sys.ID] = sys.LastUpdatedTick
+			// Also restore VisitedSystems from KB for persistence across restarts
+			if sys.LastUpdatedTick > 0 && !expState.VisitedSystems[sys.ID] {
+				expState.VisitedSystems[sys.ID] = true
+			}
+		}
+	}
+
 	// Collect unvisited neighbors with their LastUpdatedTick from KB
 	type neighborInfo struct {
 		SystemID         string
@@ -886,29 +899,25 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 
 	var neighbors []neighborInfo
 	for _, conn := range state.System.Connections {
-		if !expState.VisitedSystems[conn.SystemID] {
-			neighbors = append(neighbors, neighborInfo{
-				SystemID:        conn.SystemID,
-				LastUpdatedTick: 0, // 0 means never visited/unknown
-			})
+		// Skip if already visited in current session OR in KB
+		if expState.VisitedSystems[conn.SystemID] {
+			continue
 		}
+		// Also skip if it exists in KB with a LastUpdatedTick
+		if tick, ok := systemTickMap[conn.SystemID]; ok && tick > 0 {
+			// System exists in KB and has been visited - mark as visited
+			expState.VisitedSystems[conn.SystemID] = true
+			continue
+		}
+		// Truly unvisited system
+		neighbors = append(neighbors, neighborInfo{
+			SystemID:        conn.SystemID,
+			LastUpdatedTick: systemTickMap[conn.SystemID], // Will be 0 if not in KB
+		})
 	}
 
-	// If we have unvisited neighbors, query KB for their LastUpdatedTick
-	if len(neighbors) > 0 && expState.kb != nil {
-		allSystems := expState.kb.GetSystems()
-		systemTickMap := make(map[string]int64)
-		for _, sys := range allSystems {
-			systemTickMap[sys.ID] = sys.LastUpdatedTick
-		}
-
-		// Update LastUpdatedTick for each neighbor
-		for i := range neighbors {
-			if tick, ok := systemTickMap[neighbors[i].SystemID]; ok {
-				neighbors[i].LastUpdatedTick = tick
-			}
-		}
-
+	// If we have unvisited neighbors, sort them by LastUpdatedTick
+	if len(neighbors) > 0 {
 		// Sort by LastUpdatedTick (oldest first, then 0/unknown systems)
 		// This prioritizes systems that haven't been visited in a long time
 		for i := 0; i < len(neighbors); i++ {
