@@ -5,11 +5,14 @@ Place buy orders for every item in the crafting database to seed market data. Or
 ## Usage
 
 ```sh
-# Place 1-credit buy orders for all 476 items
+# Place 1-credit buy orders for all items
 bulk-buy-order --agent=trader-1 --db=path/to/crafting.db
 
 # Preview what would be sent
 bulk-buy-order --agent=trader-1 --dry-run
+
+# Only order ship modules and weapons
+bulk-buy-order --agent=trader-1 --categories=defense,weapon,drone,utility,mining
 
 # Retry a failed range (e.g. items 450+)
 bulk-buy-order --agent=trader-1 --offset=450
@@ -26,6 +29,7 @@ bulk-buy-order --agent=trader-1 --offset=450 --limit=1
 | `--db` | auto-detect | Path to crafting SQLite DB (env: `CRAFTING_DB`) |
 | `--price` | `1` | Price per unit in credits |
 | `--quantity` | `1` | Quantity per item |
+| `--categories` | *(all)* | Comma-separated item categories to filter |
 | `--batch-size` | `50` | Orders per API call (max 50) |
 | `--offset` | `0` | Skip the first N items |
 | `--limit` | `0` | Only send orders for N items (0 = all) |

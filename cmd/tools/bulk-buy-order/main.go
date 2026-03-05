@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/credentials"
@@ -34,6 +35,7 @@ func main() {
 	batchSize := flag.Int("batch-size", 50, "Orders per API call (max 50)")
 	offset := flag.Int("offset", 0, "Skip the first N items (start from item N)")
 	limit := flag.Int("limit", 0, "Only send orders for N items (0 = all)")
+	categories := flag.String("categories", "", "Comma-separated item categories to filter (e.g. defense,weapon,drone)")
 	dryRun := flag.Bool("dry-run", false, "Print batches without sending")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 
@@ -62,13 +64,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Parse category filter.
+	var catFilter []string
+	if *categories != "" {
+		for _, c := range strings.Split(*categories, ",") {
+			c = strings.TrimSpace(c)
+			if c != "" {
+				catFilter = append(catFilter, c)
+			}
+		}
+	}
+
 	// Load item IDs from crafting DB.
-	itemIDs, err := loadItemIDs(resolvedDB)
+	itemIDs, err := loadItemIDs(resolvedDB, catFilter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading items: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Fprintf(os.Stderr, "Loaded %d items from %s\n", len(itemIDs), resolvedDB)
+	if len(catFilter) > 0 {
+		fmt.Fprintf(os.Stderr, "Loaded %d items from %s (categories: %s)\n", len(itemIDs), resolvedDB, strings.Join(catFilter, ", "))
+	} else {
+		fmt.Fprintf(os.Stderr, "Loaded %d items from %s\n", len(itemIDs), resolvedDB)
+	}
 
 	// Apply offset and limit.
 	if *offset > 0 {
@@ -193,14 +210,26 @@ func resolveDBPath(explicit string) string {
 	return ""
 }
 
-func loadItemIDs(dbPath string) ([]string, error) {
+func loadItemIDs(dbPath string, categories []string) ([]string, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 	defer func() { _ = db.Close() }()
 
-	rows, err := db.Query("SELECT id FROM items ORDER BY id")
+	query := "SELECT id FROM items"
+	var args []any
+	if len(categories) > 0 {
+		placeholders := make([]string, len(categories))
+		for i, c := range categories {
+			placeholders[i] = "?"
+			args = append(args, c)
+		}
+		query += " WHERE category IN (" + strings.Join(placeholders, ",") + ")"
+	}
+	query += " ORDER BY id"
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query items: %w", err)
 	}
