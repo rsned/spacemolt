@@ -811,7 +811,20 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 		} else {
 			// All neighbors visited - backtrack
 			if len(expState.DFSStack) == 0 {
-				// Exploration complete! Reset and continue
+				// Stack empty — try to find an unvisited system in the KB
+				nextTarget := findUnvisitedSystemInKB(expState, state.System.Connections)
+				if nextTarget != "" {
+					logger.Printf("🧭 All neighbors visited, navigating to %s to find unvisited systems", nextTarget)
+					navLogger := log.New(os.Stdout, "[NAV] ", log.LstdFlags)
+					if err := game.NavigateToSystem(client, ctx, nextTarget, navLogger); err != nil {
+						logger.Printf("Navigation error to %s: %v", nextTarget, err)
+						time.Sleep(game.SleepTick)
+					}
+					time.Sleep(game.SleepShort)
+					continue
+				}
+
+				// Truly no unvisited systems remain
 				logger.Printf("🎉 Galaxy exploration complete! %d systems explored", len(expState.VisitedSystems))
 				logger.Printf("Resetting and continuing exploration...")
 
@@ -828,7 +841,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 				expState.VisitedPOIs = make(map[string]bool)
 				expState.DFSStack = []string{}
 				expState.PreviousSystem = ""
-				time.Sleep(30 * time.Second)
+				time.Sleep(game.SleepMedium)
 				continue
 			}
 
@@ -959,6 +972,82 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 
 	logger.Printf("Unvisited neighbors: %v", unvisited)
 	return unvisited
+}
+
+// findUnvisitedSystemInKB scans the full KB for a system that hasn't been
+// visited yet (LastUpdatedTick == 0 or not in VisitedSystems).
+// Returns the system ID to jump to, which may be a "bridge" system (visited
+// system that has an unvisited neighbor) so that DFS naturally discovers
+// the unvisited system on the next iteration.
+// Returns "" if all known systems have been visited.
+func findUnvisitedSystemInKB(expState *ExplorationState, currentConnections []game.ConnectionInfo) string {
+	if expState.kb == nil {
+		return ""
+	}
+	logger := log.New(os.Stdout, "[DFS] ", log.LstdFlags)
+
+	allSystems := expState.kb.GetSystems()
+
+	// Build a set of unvisited system IDs
+	unvisitedSet := make(map[string]bool)
+	for _, sys := range allSystems {
+		if sys.LastUpdatedTick == 0 && !expState.VisitedSystems[sys.ID] {
+			unvisitedSet[sys.ID] = true
+		}
+	}
+
+	if len(unvisitedSet) == 0 {
+		logger.Printf("All %d known systems have been visited", len(allSystems))
+		return ""
+	}
+
+	logger.Printf("Found %d unvisited systems in KB (of %d total)", len(unvisitedSet), len(allSystems))
+
+	// Best case: an unvisited system is directly connected to us
+	for _, conn := range currentConnections {
+		if unvisitedSet[conn.SystemID] {
+			logger.Printf("Direct: unvisited %s is a neighbor", conn.SystemID)
+			return conn.SystemID
+		}
+	}
+
+	// Next best: a directly connected visited system has an unvisited neighbor
+	connSet := make(map[string]bool, len(currentConnections))
+	for _, conn := range currentConnections {
+		connSet[conn.SystemID] = true
+	}
+
+	for _, sys := range allSystems {
+		if !connSet[sys.ID] || !expState.VisitedSystems[sys.ID] {
+			continue
+		}
+		for _, conn := range sys.Connections {
+			if unvisitedSet[conn.SystemID] {
+				logger.Printf("Bridge: neighbor %s → unvisited %s", sys.ID, conn.SystemID)
+				return sys.ID
+			}
+		}
+	}
+
+	// Fallback: find any visited system that borders an unvisited one
+	for _, sys := range allSystems {
+		if sys.LastUpdatedTick == 0 || !expState.VisitedSystems[sys.ID] {
+			continue
+		}
+		for _, conn := range sys.Connections {
+			if unvisitedSet[conn.SystemID] {
+				logger.Printf("Distant bridge: %s → unvisited %s (not directly connected)", sys.ID, conn.SystemID)
+				return sys.ID
+			}
+		}
+	}
+
+	// Last resort: return first unvisited system directly
+	for id := range unvisitedSet {
+		logger.Printf("No bridge found, trying unvisited: %s", id)
+		return id
+	}
+	return ""
 }
 
 // ============================================================================
