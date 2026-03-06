@@ -24,6 +24,7 @@ type RecipeJSON struct {
 	BaseQuality     int                   `json:"base_quality"`
 	SkillQualityMod int                   `json:"skill_quality_mod"`
 	RequiredSkills  map[string]int        `json:"required_skills"`
+	Hidden          bool                  `json:"hidden"`
 	Inputs          []RecipeIngredientJSON `json:"inputs"`
 	Outputs         []RecipeProductJSON    `json:"outputs"`
 }
@@ -107,6 +108,7 @@ func main() {
 			BaseQuality:     r.BaseQuality,
 			SkillQualityMod: r.SkillQualityMod,
 			RequiredSkills:  r.RequiredSkills,
+			Hidden:          r.Hidden,
 			Inputs:          inputs,
 			Outputs:         outputs,
 			LastUpdatedTick: 0,

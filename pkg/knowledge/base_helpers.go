@@ -37,6 +37,7 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 			Facilities   []string          `json:"facilities"`
 			Market       []json.RawMessage `json:"market"`
 		} `json:"base"`
+		Story string `json:"story"`
 	}
 
 	if err := json.Unmarshal(rawJSON, &response); err != nil {
@@ -95,6 +96,7 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 		POIID:           response.Base.POIID,
 		Name:            response.Base.Name,
 		Description:     response.Base.Description,
+		Story:           response.Story,
 		Empire:          response.Base.Empire,
 		DefenseLevel:    response.Base.DefenseLevel,
 		HasDrones:       response.Base.HasDrones,

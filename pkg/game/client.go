@@ -2030,6 +2030,9 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		c.state.Doc = true
 		c.state.Traveling = false
 		c.state.TravelProgress = nil
+		if story, ok := result["story"].(string); ok {
+			c.state.LastDockStory = story
+		}
 		c.debugLogger.Printf("Action result: docked")
 
 	case "undock":

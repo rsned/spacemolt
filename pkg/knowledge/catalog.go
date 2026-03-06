@@ -11,6 +11,8 @@ type CatalogItem struct {
 	BaseValue   int
 	Stackable   bool
 	Tradeable   bool
+	Hazardous   bool
+	PowerBonus  int
 
 	// Module detail (non-nil when item is a ship module)
 	Module *ItemModule
@@ -135,6 +137,7 @@ type ShipClassDef struct {
 	DefaultModules     []string
 	FlavorTags         []string
 	BuildMaterials     []BuildMaterial
+	PassiveRecipes     []string
 	LastUpdatedTick    int64
 }
 
@@ -156,6 +159,7 @@ type RecipeDef struct {
 	RequiredSkills  map[string]int
 	Inputs          []RecipeIngredient
 	Outputs         []RecipeProduct
+	Hidden          bool
 	LastUpdatedTick int64
 }
 

@@ -78,6 +78,12 @@ type CatalogItemJSON struct {
 	SurveyRange     *int     `json:"survey_range"`
 	TowSpeedPenalty *int     `json:"tow_speed_penalty"`
 
+	// Power bonus (e.g. reactors)
+	PowerBonus int `json:"power_bonus"`
+
+	// Hazardous flag
+	Hazardous bool `json:"hazardous"`
+
 	// Region lock
 	RegionLock []string `json:"region_lock"`
 
@@ -187,6 +193,8 @@ func convertItem(j CatalogItemJSON) knowledge.CatalogItem {
 		BaseValue:   j.BaseValue,
 		Stackable:   j.Stackable,
 		Tradeable:   j.Tradeable,
+		Hazardous:   j.Hazardous,
+		PowerBonus:  j.PowerBonus,
 	}
 
 	// Modules have type/type_id set; use type_id as the canonical ID.

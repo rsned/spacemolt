@@ -112,7 +112,7 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 
 	// Query the MCP crafting server for what we can craft
 	// Use nil config to default to "crafting-server" from PATH
-	result, err := client.QueryCraftableRecipes(ctx, nil)
+	result, err := client.QueryCraftableFromComponents(ctx, components, nil)
 	if err != nil {
 		logger.Printf("❌ Failed to query crafting server: %v", err)
 		logger.Printf("   💡 Make sure the crafting-server is available in PATH")

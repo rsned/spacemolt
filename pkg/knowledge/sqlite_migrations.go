@@ -774,6 +774,32 @@ CREATE TABLE IF NOT EXISTS item_ammo (
 CREATE INDEX IF NOT EXISTS idx_item_ammo_type ON item_ammo(ammo_type);
 `,
 		},
+		{
+			version: 16,
+			name:    "add_new_catalog_fields",
+			sql: `
+-- Items: hazardous flag and power_bonus
+ALTER TABLE items ADD COLUMN hazardous BOOLEAN DEFAULT 0;
+ALTER TABLE items ADD COLUMN power_bonus INTEGER DEFAULT 0;
+
+-- Recipes: hidden flag
+ALTER TABLE recipes ADD COLUMN hidden BOOLEAN DEFAULT 0;
+
+-- Skills: empire_restriction
+ALTER TABLE skills ADD COLUMN empire_restriction TEXT DEFAULT '';
+
+-- Ship classes: passive_recipes (JSON array)
+ALTER TABLE ship_classes ADD COLUMN passive_recipes TEXT DEFAULT '[]';
+`,
+		},
+		{
+			version: 17,
+			name:    "add_base_story",
+			sql: `
+-- Add narrative story text to bases
+ALTER TABLE bases ADD COLUMN story TEXT DEFAULT '';
+`,
+		},
 	}
 }
 

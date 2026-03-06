@@ -168,6 +168,7 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 		LastChatHistory: []ChatMessage{
 			{ID: "msg-1", Channel: "system", SenderID: "other-1", Sender: "Rival", Content: "help", Timestamp: "2026-02-28T10:00:00Z"},
 		},
+		LastDockStory: "A bustling trade hub at the heart of Sol system.",
 		PendingTrades: []map[string]any{
 			{"trade_id": "trade-1", "partner": "Rival"},
 		},

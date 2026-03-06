@@ -348,6 +348,9 @@ type State struct {
 	// Chat history (from get_chat_history response)
 	LastChatHistory []ChatMessage
 
+	// Last dock story (narrative description from dock response)
+	LastDockStory string
+
 	// Pending trades (from logged_in response)
 	PendingTrades []map[string]any
 }
@@ -478,6 +481,7 @@ func (s *State) Clone() *State {
 		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),
 		SkillDefinitions:  copySkillDefsMap(s.SkillDefinitions),
 		InBattle:          s.InBattle,
+		LastDockStory:     s.LastDockStory,
 	}
 
 	// Clone battle state if present

@@ -397,18 +397,19 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 
 	// Insert or update base
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO bases (id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO bases (id, poi_id, name, description, story, empire, defense_level, has_drones, public_access, last_updated_tick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			poi_id = excluded.poi_id,
 			name = excluded.name,
 			description = excluded.description,
+			story = excluded.story,
 			empire = excluded.empire,
 			defense_level = excluded.defense_level,
 			has_drones = excluded.has_drones,
 			public_access = excluded.public_access,
 			last_updated_tick = excluded.last_updated_tick
-	`, base.ID, base.POIID, base.Name, base.Description, base.Empire,
+	`, base.ID, base.POIID, base.Name, base.Description, base.Story, base.Empire,
 		base.DefenseLevel, base.HasDrones, base.PublicAccess, base.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert base: %w", err)
@@ -475,10 +476,10 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 // GetBase retrieves a base by ID
 func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, error) {
 	var base SpaceBase
-	var description sql.NullString
+	var description, story sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated_tick
+		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access, last_updated_tick
 		FROM bases
 		WHERE id = ?
 	`, baseID).Scan(
@@ -486,6 +487,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 		&base.POIID,
 		&base.Name,
 		&description,
+		&story,
 		&base.Empire,
 		&base.DefenseLevel,
 		&base.HasDrones,
@@ -501,6 +503,9 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 
 	if description.Valid {
 		base.Description = description.String
+	}
+	if story.Valid {
+		base.Story = story.String
 	}
 
 	// Load services
@@ -604,10 +609,10 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 // GetBaseByPOI retrieves a base by its POI ID
 func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase, error) {
 	var base SpaceBase
-	var description sql.NullString
+	var description, story sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, empire, defense_level, has_drones, public_access, last_updated_tick
+		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access, last_updated_tick
 		FROM bases
 		WHERE poi_id = ?
 	`, poiID).Scan(
@@ -615,6 +620,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 		&base.POIID,
 		&base.Name,
 		&description,
+		&story,
 		&base.Empire,
 		&base.DefenseLevel,
 		&base.HasDrones,
@@ -630,6 +636,9 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 
 	if description.Valid {
 		base.Description = description.String
+	}
+	if story.Valid {
+		base.Story = story.String
 	}
 
 	// Load services (same as GetBase)

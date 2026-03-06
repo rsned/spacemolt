@@ -215,8 +215,8 @@ func (m *MCPClient) CallTool(ctx context.Context, toolName string, params map[st
 
 	// Parse response
 	var resp struct {
-		JSONRPC string                 `json:"jsonrpc"`
-		ID      any                      `json:"id,omitempty"`
+		JSONRPC string         `json:"jsonrpc"`
+		ID      any            `json:"id,omitempty"`
 		Result  map[string]any `json:"result,omitempty"`
 		Error   *struct {
 			Code    int    `json:"code"`

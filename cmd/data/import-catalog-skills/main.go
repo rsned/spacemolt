@@ -23,8 +23,9 @@ type SkillJSON struct {
 	MaxLevel       int            `json:"max_level"`
 	TrainingSource string         `json:"training_source"`
 	XPPerLevel     []int          `json:"xp_per_level"`
-	BonusPerLevel  map[string]int `json:"bonus_per_level"`
-	RequiredSkills map[string]int `json:"required_skills"`
+	BonusPerLevel     map[string]int `json:"bonus_per_level"`
+	RequiredSkills    map[string]int `json:"required_skills"`
+	EmpireRestriction string         `json:"empire_restriction"`
 }
 
 func main() {
@@ -68,15 +69,16 @@ func main() {
 	skills := make([]knowledge.Skill, len(response.Items))
 	for i, s := range response.Items {
 		skills[i] = knowledge.Skill{
-			ID:             s.ID,
-			Name:           s.Name,
-			Description:    s.Description,
-			Category:       s.Category,
-			MaxLevel:       s.MaxLevel,
-			TrainingSource: s.TrainingSource,
-			XPPerLevel:     s.XPPerLevel,
-			BonusPerLevel:  s.BonusPerLevel,
-			RequiredSkills: s.RequiredSkills,
+			ID:                s.ID,
+			Name:              s.Name,
+			Description:       s.Description,
+			Category:          s.Category,
+			MaxLevel:          s.MaxLevel,
+			TrainingSource:    s.TrainingSource,
+			XPPerLevel:        s.XPPerLevel,
+			BonusPerLevel:     s.BonusPerLevel,
+			RequiredSkills:    s.RequiredSkills,
+			EmpireRestriction: s.EmpireRestriction,
 		}
 	}
 

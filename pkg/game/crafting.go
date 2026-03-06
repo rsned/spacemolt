@@ -110,7 +110,7 @@ func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantit
 		return err
 	}
 
-	return c.waitForActionResponse(ctx, 10*time.Second) // Crafting can take longer
+	return c.waitForActionResponse(ctx, SleepDock) // Pending craft completes on next tick (~10s), need margin
 }
 
 // QueryCraftableRecipes queries the crafting MCP server to find what can be crafted

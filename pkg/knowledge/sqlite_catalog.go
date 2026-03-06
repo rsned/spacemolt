@@ -38,10 +38,10 @@ func (kb *SQLiteKB) StoreItems(ctx context.Context, items []CatalogItem) error {
 
 	for _, item := range items {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO items (id, name, description, category, rarity, size, base_value, stackable, tradeable)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO items (id, name, description, category, rarity, size, base_value, stackable, tradeable, hazardous, power_bonus)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, item.ID, item.Name, item.Description, item.Category, item.Rarity,
-			item.Size, item.BaseValue, item.Stackable, item.Tradeable)
+			item.Size, item.BaseValue, item.Stackable, item.Tradeable, item.Hazardous, item.PowerBonus)
 		if err != nil {
 			return fmt.Errorf("failed to insert item %s: %w", item.ID, err)
 		}
@@ -148,10 +148,10 @@ func (kb *SQLiteKB) GetItem(ctx context.Context, itemID string) (*CatalogItem, e
 	var item CatalogItem
 	err := kb.db.QueryRowContext(ctx, `
 		SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), COALESCE(rarity, ''),
-		       size, base_value, stackable, tradeable
+		       size, base_value, stackable, tradeable, hazardous, power_bonus
 		FROM items WHERE id = ?
 	`, itemID).Scan(&item.ID, &item.Name, &item.Description, &item.Category, &item.Rarity,
-		&item.Size, &item.BaseValue, &item.Stackable, &item.Tradeable)
+		&item.Size, &item.BaseValue, &item.Stackable, &item.Tradeable, &item.Hazardous, &item.PowerBonus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -163,12 +163,12 @@ func (kb *SQLiteKB) GetItem(ctx context.Context, itemID string) (*CatalogItem, e
 
 // GetItems retrieves all catalog items.
 func (kb *SQLiteKB) GetItems(ctx context.Context) ([]CatalogItem, error) {
-	return kb.queryItems(ctx, "SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), COALESCE(rarity, ''), size, base_value, stackable, tradeable FROM items ORDER BY name")
+	return kb.queryItems(ctx, "SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), COALESCE(rarity, ''), size, base_value, stackable, tradeable, hazardous, power_bonus FROM items ORDER BY name")
 }
 
 // GetItemsByCategory retrieves items filtered by category.
 func (kb *SQLiteKB) GetItemsByCategory(ctx context.Context, category string) ([]CatalogItem, error) {
-	return kb.queryItems(ctx, "SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), COALESCE(rarity, ''), size, base_value, stackable, tradeable FROM items WHERE category = ? ORDER BY name", category)
+	return kb.queryItems(ctx, "SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), COALESCE(rarity, ''), size, base_value, stackable, tradeable, hazardous, power_bonus FROM items WHERE category = ? ORDER BY name", category)
 }
 
 func (kb *SQLiteKB) queryItems(ctx context.Context, query string, args ...any) ([]CatalogItem, error) {
@@ -182,7 +182,7 @@ func (kb *SQLiteKB) queryItems(ctx context.Context, query string, args ...any) (
 	for rows.Next() {
 		var item CatalogItem
 		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.Category, &item.Rarity,
-			&item.Size, &item.BaseValue, &item.Stackable, &item.Tradeable); err != nil {
+			&item.Size, &item.BaseValue, &item.Stackable, &item.Tradeable, &item.Hazardous, &item.PowerBonus); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		items = append(items, item)
@@ -209,6 +209,7 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 		reqSkills, _ := json.Marshal(sc.RequiredSkills)
 		defMods, _ := json.Marshal(sc.DefaultModules)
 		flavTags, _ := json.Marshal(sc.FlavorTags)
+		passRecipes, _ := json.Marshal(sc.PassiveRecipes)
 
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO ship_classes (id, name, class, category, description, lore, faction,
@@ -216,14 +217,14 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 				base_speed, base_fuel, cargo_capacity, cpu_capacity, power_capacity,
 				weapon_slots, defense_slots, utility_slots, build_time, shipyard_tier,
 				starter_ship, tow_speed_bonus, required_skills, default_modules, flavor_tags,
-				last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				passive_recipes, last_updated_tick)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, sc.ID, sc.Name, sc.Class, sc.Category, sc.Description, sc.Lore, sc.Faction,
 			sc.Tier, sc.Scale, sc.Price, sc.BaseHull, sc.BaseShield, sc.BaseShieldRecharge, sc.BaseArmor,
 			sc.BaseSpeed, sc.BaseFuel, sc.CargoCapacity, sc.CPUCapacity, sc.PowerCapacity,
 			sc.WeaponSlots, sc.DefenseSlots, sc.UtilitySlots, sc.BuildTime, sc.ShipyardTier,
 			sc.StarterShip, sc.TowSpeedBonus, string(reqSkills), string(defMods), string(flavTags),
-			sc.LastUpdatedTick)
+			string(passRecipes), sc.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert ship class %s: %w", sc.ID, err)
 		}
@@ -250,7 +251,7 @@ func (kb *SQLiteKB) GetShipClass(ctx context.Context, classID string) (*ShipClas
 			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
 			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
 			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
-			required_skills, default_modules, flavor_tags, last_updated_tick
+			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
 		FROM ship_classes WHERE id = ?
 	`, classID))
 	if err != nil {
@@ -277,7 +278,7 @@ func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
 			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
 			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
-			required_skills, default_modules, flavor_tags, last_updated_tick
+			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
 		FROM ship_classes ORDER BY name
 	`)
 	if err != nil {
@@ -334,7 +335,7 @@ func (kb *SQLiteKB) GetShipClassesByCategory(ctx context.Context, category strin
 			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
 			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
 			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
-			required_skills, default_modules, flavor_tags, last_updated_tick
+			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
 		FROM ship_classes WHERE class = ? ORDER BY price ASC
 	`, category)
 	if err != nil {
@@ -359,37 +360,39 @@ func (kb *SQLiteKB) GetShipClassesByCategory(ctx context.Context, category strin
 
 func (kb *SQLiteKB) scanShipClass(row *sql.Row) (*ShipClassDef, error) {
 	var sc ShipClassDef
-	var reqSkillsJSON, defModsJSON, flavTagsJSON string
+	var reqSkillsJSON, defModsJSON, flavTagsJSON, passRecipesJSON string
 	err := row.Scan(&sc.ID, &sc.Name, &sc.Class, &sc.Category, &sc.Description,
 		&sc.Lore, &sc.Faction, &sc.Tier, &sc.Scale, &sc.Price,
 		&sc.BaseHull, &sc.BaseShield, &sc.BaseShieldRecharge, &sc.BaseArmor, &sc.BaseSpeed, &sc.BaseFuel,
 		&sc.CargoCapacity, &sc.CPUCapacity, &sc.PowerCapacity, &sc.WeaponSlots, &sc.DefenseSlots, &sc.UtilitySlots,
 		&sc.BuildTime, &sc.ShipyardTier, &sc.StarterShip, &sc.TowSpeedBonus,
-		&reqSkillsJSON, &defModsJSON, &flavTagsJSON, &sc.LastUpdatedTick)
+		&reqSkillsJSON, &defModsJSON, &flavTagsJSON, &passRecipesJSON, &sc.LastUpdatedTick)
 	if err != nil {
 		return nil, err
 	}
 	_ = json.Unmarshal([]byte(reqSkillsJSON), &sc.RequiredSkills)
 	_ = json.Unmarshal([]byte(defModsJSON), &sc.DefaultModules)
 	_ = json.Unmarshal([]byte(flavTagsJSON), &sc.FlavorTags)
+	_ = json.Unmarshal([]byte(passRecipesJSON), &sc.PassiveRecipes)
 	return &sc, nil
 }
 
 func (kb *SQLiteKB) scanShipClassRow(rows *sql.Rows) (*ShipClassDef, error) {
 	var sc ShipClassDef
-	var reqSkillsJSON, defModsJSON, flavTagsJSON string
+	var reqSkillsJSON, defModsJSON, flavTagsJSON, passRecipesJSON string
 	err := rows.Scan(&sc.ID, &sc.Name, &sc.Class, &sc.Category, &sc.Description,
 		&sc.Lore, &sc.Faction, &sc.Tier, &sc.Scale, &sc.Price,
 		&sc.BaseHull, &sc.BaseShield, &sc.BaseShieldRecharge, &sc.BaseArmor, &sc.BaseSpeed, &sc.BaseFuel,
 		&sc.CargoCapacity, &sc.CPUCapacity, &sc.PowerCapacity, &sc.WeaponSlots, &sc.DefenseSlots, &sc.UtilitySlots,
 		&sc.BuildTime, &sc.ShipyardTier, &sc.StarterShip, &sc.TowSpeedBonus,
-		&reqSkillsJSON, &defModsJSON, &flavTagsJSON, &sc.LastUpdatedTick)
+		&reqSkillsJSON, &defModsJSON, &flavTagsJSON, &passRecipesJSON, &sc.LastUpdatedTick)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan ship class: %w", err)
 	}
 	_ = json.Unmarshal([]byte(reqSkillsJSON), &sc.RequiredSkills)
 	_ = json.Unmarshal([]byte(defModsJSON), &sc.DefaultModules)
 	_ = json.Unmarshal([]byte(flavTagsJSON), &sc.FlavorTags)
+	_ = json.Unmarshal([]byte(passRecipesJSON), &sc.PassiveRecipes)
 	return &sc, nil
 }
 
@@ -432,10 +435,10 @@ func (kb *SQLiteKB) StoreSkills(ctx context.Context, skills []Skill) error {
 
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO skills (id, name, description, category, max_level, training_source,
-				xp_per_level, bonus_per_level, required_skills)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				xp_per_level, bonus_per_level, required_skills, empire_restriction)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, s.ID, s.Name, s.Description, s.Category, s.MaxLevel, s.TrainingSource,
-			string(xpJSON), string(bonusJSON), string(reqJSON))
+			string(xpJSON), string(bonusJSON), string(reqJSON), s.EmpireRestriction)
 		if err != nil {
 			return fmt.Errorf("failed to insert skill %s: %w", s.ID, err)
 		}
@@ -467,10 +470,10 @@ func (kb *SQLiteKB) StoreRecipes(ctx context.Context, recipes []RecipeDef) error
 
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO recipes (id, name, description, category, crafting_time, base_quality,
-				skill_quality_mod, required_skills, last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				skill_quality_mod, required_skills, hidden, last_updated_tick)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, r.ID, r.Name, r.Description, r.Category, r.CraftingTime, r.BaseQuality,
-			r.SkillQualityMod, string(reqJSON), r.LastUpdatedTick)
+			r.SkillQualityMod, string(reqJSON), r.Hidden, r.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert recipe %s: %w", r.ID, err)
 		}
@@ -505,10 +508,10 @@ func (kb *SQLiteKB) GetRecipe(ctx context.Context, recipeID string) (*RecipeDef,
 	var reqJSON string
 	err := kb.db.QueryRowContext(ctx, `
 		SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), crafting_time,
-			base_quality, skill_quality_mod, required_skills, last_updated_tick
+			base_quality, skill_quality_mod, required_skills, hidden, last_updated_tick
 		FROM recipes WHERE id = ?
 	`, recipeID).Scan(&r.ID, &r.Name, &r.Description, &r.Category, &r.CraftingTime,
-		&r.BaseQuality, &r.SkillQualityMod, &reqJSON, &r.LastUpdatedTick)
+		&r.BaseQuality, &r.SkillQualityMod, &reqJSON, &r.Hidden, &r.LastUpdatedTick)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -536,7 +539,7 @@ func (kb *SQLiteKB) GetRecipe(ctx context.Context, recipeID string) (*RecipeDef,
 func (kb *SQLiteKB) GetRecipes(ctx context.Context) ([]RecipeDef, error) {
 	return kb.queryRecipes(ctx, `
 		SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), crafting_time,
-			base_quality, skill_quality_mod, required_skills, last_updated_tick
+			base_quality, skill_quality_mod, required_skills, hidden, last_updated_tick
 		FROM recipes ORDER BY name
 	`)
 }
@@ -545,7 +548,7 @@ func (kb *SQLiteKB) GetRecipes(ctx context.Context) ([]RecipeDef, error) {
 func (kb *SQLiteKB) GetRecipesByCategory(ctx context.Context, category string) ([]RecipeDef, error) {
 	return kb.queryRecipes(ctx, `
 		SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), crafting_time,
-			base_quality, skill_quality_mod, required_skills, last_updated_tick
+			base_quality, skill_quality_mod, required_skills, hidden, last_updated_tick
 		FROM recipes WHERE category = ? ORDER BY name
 	`, category)
 }
@@ -562,7 +565,7 @@ func (kb *SQLiteKB) queryRecipes(ctx context.Context, query string, args ...any)
 		var r RecipeDef
 		var reqJSON string
 		if err := rows.Scan(&r.ID, &r.Name, &r.Description, &r.Category, &r.CraftingTime,
-			&r.BaseQuality, &r.SkillQualityMod, &reqJSON, &r.LastUpdatedTick); err != nil {
+			&r.BaseQuality, &r.SkillQualityMod, &reqJSON, &r.Hidden, &r.LastUpdatedTick); err != nil {
 			return nil, fmt.Errorf("failed to scan recipe: %w", err)
 		}
 		_ = json.Unmarshal([]byte(reqJSON), &r.RequiredSkills)

@@ -14,7 +14,8 @@ type Skill struct {
 	TrainingSource string         `json:"training_source,omitempty"`
 	XPPerLevel     []int          `json:"xp_per_level"`
 	BonusPerLevel  map[string]int `json:"bonus_per_level,omitempty"`
-	RequiredSkills map[string]int `json:"required_skills,omitempty"`
+	RequiredSkills   map[string]int `json:"required_skills,omitempty"`
+	EmpireRestriction string        `json:"empire_restriction,omitempty"`
 }
 
 // GetSkill retrieves a single skill by ID, reading from the database first
@@ -24,10 +25,11 @@ func (kb *SQLiteKB) GetSkill(id string) (*Skill, error) {
 	var xpJSON, bonusJSON, reqJSON string
 	err := kb.db.QueryRow(`
 		SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), max_level,
-			COALESCE(training_source, ''), xp_per_level, bonus_per_level, required_skills
+			COALESCE(training_source, ''), xp_per_level, bonus_per_level, required_skills,
+			COALESCE(empire_restriction, '')
 		FROM skills WHERE id = ?
 	`, id).Scan(&s.ID, &s.Name, &s.Description, &s.Category, &s.MaxLevel,
-		&s.TrainingSource, &xpJSON, &bonusJSON, &reqJSON)
+		&s.TrainingSource, &xpJSON, &bonusJSON, &reqJSON, &s.EmpireRestriction)
 	if err != nil {
 		// Fallback to static data if DB query fails (table may not exist yet or row not found)
 		return getStaticSkill(id), nil //nolint:nilerr // intentional fallback
@@ -43,7 +45,8 @@ func (kb *SQLiteKB) GetSkill(id string) (*Skill, error) {
 func (kb *SQLiteKB) GetSkills() []Skill {
 	rows, err := kb.db.Query(`
 		SELECT id, name, COALESCE(description, ''), COALESCE(category, ''), max_level,
-			COALESCE(training_source, ''), xp_per_level, bonus_per_level, required_skills
+			COALESCE(training_source, ''), xp_per_level, bonus_per_level, required_skills,
+			COALESCE(empire_restriction, '')
 		FROM skills ORDER BY category, name
 	`)
 	if err != nil {
@@ -56,7 +59,7 @@ func (kb *SQLiteKB) GetSkills() []Skill {
 		var s Skill
 		var xpJSON, bonusJSON, reqJSON string
 		if err := rows.Scan(&s.ID, &s.Name, &s.Description, &s.Category, &s.MaxLevel,
-			&s.TrainingSource, &xpJSON, &bonusJSON, &reqJSON); err != nil {
+			&s.TrainingSource, &xpJSON, &bonusJSON, &reqJSON, &s.EmpireRestriction); err != nil {
 			return getStaticSkills()
 		}
 		_ = json.Unmarshal([]byte(xpJSON), &s.XPPerLevel)

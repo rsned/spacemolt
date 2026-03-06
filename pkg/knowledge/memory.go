@@ -337,6 +337,7 @@ type SpaceBase struct {
 	POIID           string // The POI this base is located at
 	Name            string
 	Description     string
+	Story           string // Narrative description of the station
 	Empire          string
 	DefenseLevel    int
 	HasDrones       bool

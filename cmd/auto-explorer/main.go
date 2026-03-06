@@ -201,6 +201,20 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 func saveStationData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
 	state := client.GetState()
 
+	// Save dock story to base record if available
+	if story := state.LastDockStory; story != "" {
+		base, err := kb.GetBaseByPOI(ctx, poiID)
+		if err == nil && base != nil {
+			base.Story = story
+			base.LastUpdatedTick = state.CurrentTick
+			if err := kb.RememberBase(ctx, *base); err != nil {
+				logger.Printf("⚠️  Failed to save station story: %v", err)
+			} else {
+				logger.Printf("💾 Saved station story for %s", poiName)
+			}
+		}
+	}
+
 	// Check if market listings were already captured today
 	hasMarketToday, err := kb.HasMarketSnapshotToday(ctx, state.System.ID, poiID)
 	if err != nil {

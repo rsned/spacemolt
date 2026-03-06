@@ -47,6 +47,7 @@ type ShipClassJSON struct {
 	DefaultModules     []string            `json:"default_modules"`
 	FlavorTags         []string            `json:"flavor_tags"`
 	BuildMaterials     []BuildMaterialJSON `json:"build_materials"`
+	PassiveRecipes     []string            `json:"passive_recipes"`
 }
 
 // BuildMaterialJSON represents a build material from JSON
@@ -134,6 +135,7 @@ func main() {
 			DefaultModules:     sc.DefaultModules,
 			FlavorTags:         sc.FlavorTags,
 			BuildMaterials:     buildMaterials,
+			PassiveRecipes:     sc.PassiveRecipes,
 			LastUpdatedTick:    0,
 		}
 	}
