@@ -6,7 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -812,7 +814,7 @@ func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Conte
 			// All neighbors visited - backtrack
 			if len(expState.DFSStack) == 0 {
 				// Stack empty — try to find an unvisited system in the KB
-				nextTarget := findUnvisitedSystemInKB(expState, state.System.Connections)
+				nextTarget := findUnvisitedSystemInKB(expState, state.System.Connections, state.System.Position)
 				if nextTarget != "" {
 					logger.Printf("🧭 All neighbors visited, navigating to %s to find unvisited systems", nextTarget)
 					navLogger := log.New(os.Stdout, "[NAV] ", log.LstdFlags)
@@ -974,13 +976,11 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	return unvisited
 }
 
-// findUnvisitedSystemInKB scans the full KB for a system that hasn't been
-// visited yet (LastUpdatedTick == 0 or not in VisitedSystems).
-// Returns the system ID to jump to, which may be a "bridge" system (visited
-// system that has an unvisited neighbor) so that DFS naturally discovers
-// the unvisited system on the next iteration.
-// Returns "" if all known systems have been visited.
-func findUnvisitedSystemInKB(expState *ExplorationState, currentConnections []game.ConnectionInfo) string {
+// findUnvisitedSystemInKB scans the full KB for the closest unvisited system
+// (LastUpdatedTick == 0 and not in VisitedSystems), sorted by Euclidean
+// distance from the current position.
+// Returns the system ID or "" if all known systems have been visited.
+func findUnvisitedSystemInKB(expState *ExplorationState, currentConnections []game.ConnectionInfo, currentPos game.Position) string {
 	if expState.kb == nil {
 		return ""
 	}
@@ -988,66 +988,48 @@ func findUnvisitedSystemInKB(expState *ExplorationState, currentConnections []ga
 
 	allSystems := expState.kb.GetSystems()
 
-	// Build a set of unvisited system IDs
-	unvisitedSet := make(map[string]bool)
-	for _, sys := range allSystems {
-		if sys.LastUpdatedTick == 0 && !expState.VisitedSystems[sys.ID] {
-			unvisitedSet[sys.ID] = true
+	// Best case: an unvisited system is directly connected to us
+	for _, conn := range currentConnections {
+		if !expState.VisitedSystems[conn.SystemID] {
+			// Verify it's actually unvisited in KB too
+			sys, err := expState.kb.GetSystem(context.Background(), conn.SystemID)
+			if err != nil || sys == nil || sys.LastUpdatedTick == 0 {
+				logger.Printf("Direct: unvisited %s is a neighbor", conn.SystemID)
+				return conn.SystemID
+			}
 		}
 	}
 
-	if len(unvisitedSet) == 0 {
+	// Collect unvisited systems with their distance from current position
+	type candidate struct {
+		id   string
+		dist float64
+	}
+	var candidates []candidate
+	for _, sys := range allSystems {
+		if sys.LastUpdatedTick > 0 || expState.VisitedSystems[sys.ID] {
+			continue
+		}
+		dx := sys.Position.X - currentPos.X
+		dy := sys.Position.Y - currentPos.Y
+		dist := math.Sqrt(dx*dx + dy*dy)
+		candidates = append(candidates, candidate{id: sys.ID, dist: dist})
+	}
+
+	if len(candidates) == 0 {
 		logger.Printf("All %d known systems have been visited", len(allSystems))
 		return ""
 	}
 
-	logger.Printf("Found %d unvisited systems in KB (of %d total)", len(unvisitedSet), len(allSystems))
+	// Sort by distance (closest first)
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].dist < candidates[j].dist
+	})
 
-	// Best case: an unvisited system is directly connected to us
-	for _, conn := range currentConnections {
-		if unvisitedSet[conn.SystemID] {
-			logger.Printf("Direct: unvisited %s is a neighbor", conn.SystemID)
-			return conn.SystemID
-		}
-	}
+	logger.Printf("Found %d unvisited systems, closest: %s (%.0f units away)",
+		len(candidates), candidates[0].id, candidates[0].dist)
 
-	// Next best: a directly connected visited system has an unvisited neighbor
-	connSet := make(map[string]bool, len(currentConnections))
-	for _, conn := range currentConnections {
-		connSet[conn.SystemID] = true
-	}
-
-	for _, sys := range allSystems {
-		if !connSet[sys.ID] || !expState.VisitedSystems[sys.ID] {
-			continue
-		}
-		for _, conn := range sys.Connections {
-			if unvisitedSet[conn.SystemID] {
-				logger.Printf("Bridge: neighbor %s → unvisited %s", sys.ID, conn.SystemID)
-				return sys.ID
-			}
-		}
-	}
-
-	// Fallback: find any visited system that borders an unvisited one
-	for _, sys := range allSystems {
-		if sys.LastUpdatedTick == 0 || !expState.VisitedSystems[sys.ID] {
-			continue
-		}
-		for _, conn := range sys.Connections {
-			if unvisitedSet[conn.SystemID] {
-				logger.Printf("Distant bridge: %s → unvisited %s (not directly connected)", sys.ID, conn.SystemID)
-				return sys.ID
-			}
-		}
-	}
-
-	// Last resort: return first unvisited system directly
-	for id := range unvisitedSet {
-		logger.Printf("No bridge found, trying unvisited: %s", id)
-		return id
-	}
-	return ""
+	return candidates[0].id
 }
 
 // ============================================================================
