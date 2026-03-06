@@ -110,11 +110,11 @@ SELECT
     s.name AS "Name",
     ROUND(s.position_x, 2) AS "X",
     ROUND(s.position_y, 2) AS "Y",
-    CASE s.police_level
-        WHEN 0 THEN 'Lawless'
-        WHEN s.police_level < 30 THEN 'Low'
-        WHEN s.police_level < 70 THEN 'Medium'
-        WHEN s.police_level >= 70 THEN 'High'
+    CASE
+        WHEN s.police_level = 0 THEN 'Lawless'
+        WHEN s.police_level < 30 THEN 'Low Security'
+        WHEN s.police_level < 70 THEN 'Medium Security'
+        WHEN s.police_level >= 70 THEN 'High Security'
         ELSE 'Unknown'
     END AS "Security",
     COALESCE(s.empire, 'None') AS "Empire"

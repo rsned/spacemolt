@@ -49,10 +49,16 @@ func EmitDOT(g *CategoryGraph, outDir string) (string, error) {
 		}
 	}
 
-	// Emit node definitions
+	// Emit node definitions; each node links to its detail page.
+	// External (cross-category) nodes use dashed outline.
 	for _, n := range g.Nodes {
 		label := EscapeDotLabel(n.Name)
-		_, _ = fmt.Fprintf(f, "    %q [label=%q];\n", n.ID, label)
+		url := n.ID + ".html"
+		if n.IsExternal {
+			_, _ = fmt.Fprintf(f, "    %q [label=%q URL=%q style=dashed color=gray50 fontcolor=gray50];\n", n.ID, label, url)
+		} else {
+			_, _ = fmt.Fprintf(f, "    %q [label=%q URL=%q];\n", n.ID, label, url)
+		}
 	}
 	_, _ = fmt.Fprintln(f)
 

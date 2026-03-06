@@ -234,7 +234,7 @@ func saveStationData(client *game.Client, ctx context.Context, logger *log.Logge
 	// Get ship listings (only if not captured today)
 	if !hasShipsToday {
 		logger.Printf("🚢 Getting ship listings from %s...", poiName)
-		if err := client.GetShips(ctx); err != nil {
+		if err := client.ShipyardShowroom(ctx, nil); err != nil {
 			logger.Printf("Failed to get ship listings: %v", err)
 		} else {
 			time.Sleep(2 * time.Second)
@@ -878,15 +878,17 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	logger.Printf("Current system: %s, Connections: %v", state.System.ID, state.System.Connections)
 	logger.Printf("Visited systems: %d", len(expState.VisitedSystems))
 
-	// First, query KB for all systems and their LastUpdatedTick
+	// Query KB visit status only for connected systems (not all 500+)
 	systemTickMap := make(map[string]int64)
 	if expState.kb != nil {
-		allSystems := expState.kb.GetSystems()
-		logger.Printf("🗄️  KB has %d systems total", len(allSystems))
-		for _, sys := range allSystems {
+		for _, conn := range state.System.Connections {
+			sys, err := expState.kb.GetSystem(context.Background(), conn.SystemID)
+			if err != nil || sys == nil {
+				continue
+			}
 			systemTickMap[sys.ID] = sys.LastUpdatedTick
-			logger.Printf("   KB System: %s (tick: %d)", sys.ID, sys.LastUpdatedTick)
-			// Also restore VisitedSystems from KB for persistence across restarts
+			logger.Printf("   KB neighbor: %s (tick: %d)", sys.ID, sys.LastUpdatedTick)
+			// Restore VisitedSystems from KB for persistence across restarts
 			if sys.LastUpdatedTick > 0 && !expState.VisitedSystems[sys.ID] {
 				expState.VisitedSystems[sys.ID] = true
 				logger.Printf("   ✓ Restored %s as visited from KB", sys.ID)

@@ -1899,6 +1899,38 @@ func (c *Client) parseTravelAction(payload map[string]any) {
 		case "travel", "jump":
 			// Travel initiated, will get progress in state_update
 			c.state.Traveling = true
+		case "jumped":
+			// Jump completed — update current system and location
+			c.state.Traveling = false
+			c.state.TravelProgress = nil
+			c.state.Doc = false
+			if sysID, ok := payload["system_id"].(string); ok {
+				c.state.System.ID = sysID
+				c.state.CurrentSystem = sysID
+			}
+			if sysName, ok := payload["system"].(string); ok {
+				c.state.System.Name = sysName
+				c.state.CurrentSystem = sysName
+			}
+			if poi, ok := payload["poi"].(string); ok {
+				c.state.CurrentPOI = poi
+				c.state.System.ShipPOI = poi
+			}
+			c.debugLogger.Printf("Jump complete: now in %s (%s)", c.state.System.Name, c.state.System.ID)
+		case "arrived":
+			// Travel completed within a system
+			c.state.Traveling = false
+			c.state.TravelProgress = nil
+			c.state.Doc = false
+			if poi, ok := payload["poi"].(string); ok {
+				c.state.CurrentPOI = poi
+				c.state.System.ShipPOI = poi
+			}
+			if poiID, ok := payload["poi_id"].(string); ok {
+				c.state.CurrentPOI = poiID
+				c.state.System.ShipPOI = poiID
+			}
+			c.debugLogger.Printf("Arrived at %s", c.state.CurrentPOI)
 		}
 	}
 }
@@ -2138,6 +2170,26 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			c.state.Ship.CargoUsed = cargoUsed
 
 			c.debugLogger.Printf("Action result: create_sell_order (%d listed, %d failed)", successCount, failCount)
+		}
+
+	case "create_buy_order":
+		if results, ok := result["results"].([]any); ok {
+			successCount := 0
+			failCount := 0
+			for _, r := range results {
+				entry, ok := r.(map[string]any)
+				if !ok {
+					continue
+				}
+				if errMsg, _ := entry["error"].(string); errMsg != "" {
+					failCount++
+					continue
+				}
+				successCount++
+			}
+			c.debugLogger.Printf("Action result: create_buy_order (%d created, %d failed)", successCount, failCount)
+		} else {
+			c.debugLogger.Printf("Action result: create_buy_order (single)")
 		}
 
 	default:
@@ -2833,11 +2885,13 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
 	okChan := make(chan protocol.Response, 1)
 	errorChan := make(chan protocol.Response, 1)
+	actionErrorChan := make(chan protocol.Response, 1)
 	actionResultChan := make(chan protocol.Response, 1)
 
 	c.waiterMu.Lock()
 	c.waiters[protocol.TypeOK] = okChan
 	c.waiters[protocol.TypeError] = errorChan
+	c.waiters[protocol.TypeActionError] = actionErrorChan
 	c.waiters[protocol.TypeActionResult] = actionResultChan
 	c.waiterMu.Unlock()
 
@@ -2845,6 +2899,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		c.waiterMu.Lock()
 		delete(c.waiters, protocol.TypeOK)
 		delete(c.waiters, protocol.TypeError)
+		delete(c.waiters, protocol.TypeActionError)
 		delete(c.waiters, protocol.TypeActionResult)
 		c.waiterMu.Unlock()
 	}()
@@ -2858,18 +2913,25 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
 				pendingCmd, _ := resp.Payload["command"].(string)
 				c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
-				// Wait one tick then continue listening for the real response
-				select {
-				case <-time.After(SleepTick):
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-deadline:
-					return fmt.Errorf("timeout waiting for action completion")
-				}
+				// Reset deadline: give a full timeout window for the action to complete
+				deadline = time.After(timeout)
 				continue
+			}
+			// Check if this is a jump/travel in-progress response (not yet arrived)
+			if action, _ := resp.Payload["action"].(string); action == "jump" || action == "travel" {
+				if _, hasArrival := resp.Payload["arrival_tick"]; hasArrival {
+					c.debugLogger.Printf("Action in progress (%s) - waiting for arrival", action)
+					deadline = time.After(timeout)
+					continue
+				}
 			}
 			// Not pending, this is the actual completion
 			return nil
+		case resp := <-actionErrorChan:
+			// action_error is the server's response for pending actions that failed
+			// on the next tick. Handle it the same as error responses.
+			errorChan <- resp
+			continue
 		case resp := <-errorChan:
 			// Check error code and categorize response
 			if code, ok := resp.Payload["code"].(string); ok {
@@ -2890,12 +2952,8 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 				case "action_pending":
 					pendingCmd, _ := resp.Payload["pending_command"].(string)
 					c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
-					// Wait one tick then continue listening for the real response
-					select {
-					case <-time.After(SleepTick):
-					case <-ctx.Done():
-						return ctx.Err()
-					}
+					// Reset deadline and continue listening for the real response
+					deadline = time.After(timeout)
 					continue
 
 				// INFORMATIONAL: Agent should adapt strategy but not fail
