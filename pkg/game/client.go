@@ -2066,7 +2066,7 @@ func (c *Client) parseActionResult(payload map[string]any) {
 	case "craft":
 		outputID, _ := result["output_id"].(string)
 		outputName, _ := result["output_name"].(string)
-		count, _ := result["count"].(float64)
+		count, _ := result["quantity"].(float64)
 		recipeID, _ := result["recipe_id"].(string)
 
 		// Remove consumed inputs from cargo
@@ -2987,8 +2987,12 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 					return fmt.Errorf("missing required materials for crafting")
 
 				case "cannot_craft":
-					c.debugLogger.Printf("Insufficient crafting skill")
-					return fmt.Errorf("insufficient skill level for this recipe")
+					msg, _ := resp.Payload["message"].(string)
+					if msg == "" {
+						msg = "cannot craft this recipe"
+					}
+					c.debugLogger.Printf("Cannot craft: %s", msg)
+					return fmt.Errorf("%s", msg)
 
 				case "no_cloak", "no_crafting_service":
 					c.debugLogger.Printf("Missing equipment/service: %s", code)
