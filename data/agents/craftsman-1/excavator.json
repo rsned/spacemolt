@@ -1,0 +1,106 @@
+
+[1m=== Response ===[0m
+{
+  "ship": {
+    "id": "af34282e3f0e0e0443829b969452e6a6",
+    "owner_id": "a50924913cef881c5e4d14257589d9ba",
+    "class_id": "excavator",
+    "name": "Excavator",
+    "created_at": "2026-02-10T09:41:10.572529039Z",
+    "hull": 180,
+    "max_hull": 180,
+    "shield": 60,
+    "max_shield": 60,
+    "shield_recharge": 1,
+    "armor": 12,
+    "speed": 2,
+    "fuel": 132,
+    "max_fuel": 150,
+    "cargo_used": 20,
+    "cargo_capacity": 150,
+    "cpu_used": 4,
+    "cpu_capacity": 20,
+    "power_used": 10,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "modules": [
+      "3d3a8bcd0516d775b3695f923744b04f",
+      "7f944efc61cd0812aa965680ce085b60"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_i",
+        "quantity": 2
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "3d3a8bcd0516d775b3695f923744b04f",
+      "type_id": "mining_laser_i",
+      "name": "Mining Laser I",
+      "type": "mining",
+      "size": 10,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 2,
+      "power_usage": 5,
+      "mining_power": 5,
+      "mining_range": 5
+    },
+    {
+      "id": "7f944efc61cd0812aa965680ce085b60",
+      "type_id": "mining_laser_i",
+      "name": "Mining Laser I",
+      "type": "mining",
+      "size": 10,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 2,
+      "power_usage": 5,
+      "mining_power": 5,
+      "mining_range": 5
+    }
+  ],
+  "cargo_used": 20,
+  "cargo_max": 150,
+  "class": {
+    "id": "excavator",
+    "name": "Excavator",
+    "description": "Dedicated mining vessel with enhanced ore storage.",
+    "class": "Mining",
+    "price": 5000,
+    "tier": 2,
+    "scale": 2,
+    "lore": "The Excavator represents the next step up for serious miners. Its\nexpanded cargo hold and multiple utility slots make extended mining\noperations practical, though you'll want an escort in dangerous space.\n",
+    "base_hull": 180,
+    "base_shield": 60,
+    "base_shield_recharge": 1,
+    "base_armor": 12,
+    "base_speed": 2,
+    "base_fuel": 150,
+    "cargo_capacity": 150,
+    "cpu_capacity": 20,
+    "power_capacity": 40,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 4,
+    "default_modules": [
+      "mining_laser_i",
+      "mining_laser_i"
+    ],
+    "required_skills": {
+      "mining": 2,
+      "small_ships": 3
+    },
+    "shipyard_tier": 0,
+    "build_time": 0,
+    "legacy": true
+  }
+}

@@ -1,1 +1,0 @@
-assist-krynn|assist-nexus|craftsman-5|craftsman-8|craftsman-9|engineer-10|engineer-3|explorer-7|explorer-9|fighter-1|fighter-3|fighter-9|pirate-10|pirate-3|pirate-4|pirate-6|pirate-9|prophet-1|prophet-2|random-4|random-8|salvager-2|salvager-4|salvager-5|salvager-6|trader-4

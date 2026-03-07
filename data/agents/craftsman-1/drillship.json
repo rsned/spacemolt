@@ -1,0 +1,93 @@
+
+[1m=== Response ===[0m
+{
+  "ship": {
+    "id": "9c52d6bd795852b673a66c493000cf98",
+    "owner_id": "a50924913cef881c5e4d14257589d9ba",
+    "class_id": "drillship",
+    "name": "Drillship",
+    "created_at": "2026-02-08T20:52:14.705414246Z",
+    "hull": 140,
+    "max_hull": 140,
+    "shield": 55,
+    "max_shield": 55,
+    "shield_recharge": 1,
+    "armor": 8,
+    "speed": 2,
+    "fuel": 123,
+    "max_fuel": 130,
+    "cargo_used": 62,
+    "cargo_capacity": 100,
+    "cpu_used": 2,
+    "cpu_capacity": 16,
+    "power_used": 5,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "modules": [
+      "e497a7016028477bf94049cdd3c084e5"
+    ],
+    "cargo": [
+      {
+        "item_id": "mining_laser_i",
+        "quantity": 4
+      },
+      {
+        "item_id": "iron_ore",
+        "quantity": 18
+      },
+      {
+        "item_id": "nickel_ore",
+        "quantity": 4
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "e497a7016028477bf94049cdd3c084e5",
+      "type_id": "mining_laser_i",
+      "name": "Mining Laser I",
+      "type": "mining",
+      "size": 10,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 2,
+      "power_usage": 5,
+      "mining_power": 5,
+      "mining_range": 5
+    }
+  ],
+  "cargo_used": 62,
+  "cargo_max": 100,
+  "class": {
+    "id": "drillship",
+    "name": "Drillship",
+    "description": "Solid mid-tier mining vessel with better defenses.",
+    "class": "Mining",
+    "price": 2000,
+    "tier": 1,
+    "scale": 1,
+    "lore": "The Drillship bridges the gap between hobby miner and professional.\nIts reinforced hull can take a few hits, and the expanded utility\nslots allow for better mining equipment or defensive modules.\n",
+    "base_hull": 140,
+    "base_shield": 55,
+    "base_shield_recharge": 1,
+    "base_armor": 8,
+    "base_speed": 2,
+    "base_fuel": 130,
+    "cargo_capacity": 100,
+    "cpu_capacity": 16,
+    "power_capacity": 32,
+    "weapon_slots": 1,
+    "defense_slots": 2,
+    "utility_slots": 3,
+    "default_modules": [
+      "mining_laser_i"
+    ],
+    "shipyard_tier": 0,
+    "build_time": 0,
+    "legacy": true
+  }
+}

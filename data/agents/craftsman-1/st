@@ -1,0 +1,578 @@
+
+[1m=== Response ===[0m
+{
+  "base_id": "grand_exchange_station",
+  "credits": 132235,
+  "items": [
+    {
+      "item_id": "steel_plate",
+      "name": "Steel Plate",
+      "quantity": 2252,
+      "size": 1
+    },
+    {
+      "item_id": "nickel_ore",
+      "name": "Nickel Ore",
+      "quantity": 8467,
+      "size": 1
+    },
+    {
+      "item_id": "copper_wiring",
+      "name": "Copper Wiring",
+      "quantity": 2684,
+      "size": 1
+    },
+    {
+      "item_id": "standard_rounds_box",
+      "name": "Standard Rounds Box",
+      "quantity": 756,
+      "size": 1
+    },
+    {
+      "item_id": "reinforced_glass",
+      "name": "Reinforced Glass",
+      "quantity": 1362,
+      "size": 1
+    },
+    {
+      "item_id": "chaff_bundle",
+      "name": "Chaff Bundle",
+      "quantity": 131,
+      "size": 1
+    },
+    {
+      "item_id": "wiring_harness",
+      "name": "Wiring Harness",
+      "quantity": 6571,
+      "size": 1
+    },
+    {
+      "item_id": "silicate_composite",
+      "name": "Silicate Composite",
+      "quantity": 1331,
+      "size": 1
+    },
+    {
+      "item_id": "trade_authenticator",
+      "name": "Trade Authenticator",
+      "quantity": 642,
+      "size": 1
+    },
+    {
+      "item_id": "repair_kit",
+      "name": "Repair Kit",
+      "quantity": 39,
+      "size": 2
+    },
+    {
+      "item_id": "ferrous_slug_case",
+      "name": "Ferrous Slug Case",
+      "quantity": 111,
+      "size": 1
+    },
+    {
+      "item_id": "pressure_seal",
+      "name": "Pressure Seal",
+      "quantity": 6329,
+      "size": 1
+    },
+    {
+      "item_id": "voidborn_neural_matrix",
+      "name": "Voidborn Neural Matrix",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "carbon_ore",
+      "name": "Carbon Ore",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "thorium_ore",
+      "name": "Thorium Ore",
+      "quantity": 14,
+      "size": 2
+    },
+    {
+      "item_id": "vanadium_ore",
+      "name": "Vanadium Ore",
+      "quantity": 51,
+      "size": 1
+    },
+    {
+      "item_id": "cobalt_ore",
+      "name": "Cobalt Ore",
+      "quantity": 20,
+      "size": 1
+    },
+    {
+      "item_id": "titanium_ore",
+      "name": "Titanium Ore",
+      "quantity": 3,
+      "size": 1
+    },
+    {
+      "item_id": "darksteel_ore",
+      "name": "Darksteel Ore",
+      "quantity": 13,
+      "size": 2
+    },
+    {
+      "item_id": "aluminum_ore",
+      "name": "Aluminum Ore",
+      "quantity": 48,
+      "size": 1
+    },
+    {
+      "item_id": "platinum_ore",
+      "name": "Platinum Ore",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "compressed_hydrogen",
+      "name": "Compressed Hydrogen",
+      "quantity": 5,
+      "size": 1
+    },
+    {
+      "item_id": "palladium_ore",
+      "name": "Palladium Ore",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "liquid_nitrogen",
+      "name": "Liquid Nitrogen",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "purified_water",
+      "name": "Purified Water",
+      "quantity": 61,
+      "size": 1
+    },
+    {
+      "item_id": "tungsten_rod",
+      "name": "Tungsten Rod",
+      "quantity": 3,
+      "size": 2
+    },
+    {
+      "item_id": "graphene_sheet",
+      "name": "Graphene Sheet",
+      "quantity": 49,
+      "size": 1
+    },
+    {
+      "item_id": "frontier_rotgut",
+      "name": "Frontier Rotgut",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "premium_fuel_cell",
+      "name": "Premium Fuel Cell",
+      "quantity": 1,
+      "size": 2
+    },
+    {
+      "item_id": "silver_wiring",
+      "name": "Silver Wiring",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "electrum_ingot",
+      "name": "Electrum Ingot",
+      "quantity": 1,
+      "size": 2
+    },
+    {
+      "item_id": "fuel_tank",
+      "name": "Fuel Tank",
+      "quantity": 11,
+      "size": 3
+    },
+    {
+      "item_id": "ceramite_plating",
+      "name": "Ceramite Plating",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "nanoplastic_composite",
+      "name": "Nanoplastic Composite",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "autopilot_module",
+      "name": "Autopilot Module",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "tungsten_ore",
+      "name": "Tungsten Ore",
+      "quantity": 1,
+      "size": 2
+    },
+    {
+      "item_id": "argon_gas",
+      "name": "Argon Gas",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "solarian_gourmet_rations",
+      "name": "Solarian Gourmet Rations",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "crimson_bloodwine",
+      "name": "Crimson Bloodwine",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "quantum_stabilizer",
+      "name": "Quantum Stabilizer",
+      "quantity": 51,
+      "size": 2
+    },
+    {
+      "item_id": "cargo_expander_i",
+      "name": "cargo_expander_i",
+      "quantity": 519,
+      "size": 10
+    },
+    {
+      "item_id": "sensor_package",
+      "name": "Sensor Package",
+      "quantity": 65,
+      "size": 3
+    },
+    {
+      "item_id": "fuel_cell",
+      "name": "Fuel Cell",
+      "quantity": 64,
+      "size": 1
+    },
+    {
+      "item_id": "gold_ore",
+      "name": "Gold Ore",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "uranium_ore",
+      "name": "Uranium Ore",
+      "quantity": 4,
+      "size": 2
+    },
+    {
+      "item_id": "durasteel_plate",
+      "name": "Durasteel Plate",
+      "quantity": 201,
+      "size": 2
+    },
+    {
+      "item_id": "weapon_housing",
+      "name": "Weapon Housing",
+      "quantity": 3,
+      "size": 2
+    },
+    {
+      "item_id": "power_distribution_grid",
+      "name": "Power Distribution Grid",
+      "quantity": 2,
+      "size": 2
+    },
+    {
+      "item_id": "water_ice",
+      "name": "Water Ice",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "neon_gas",
+      "name": "Neon Gas",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "processing_core",
+      "name": "Processing Core",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "liquid_hydrogen",
+      "name": "Liquid Hydrogen",
+      "quantity": 117,
+      "size": 1
+    },
+    {
+      "item_id": "cargo_superstructure",
+      "name": "Cargo Superstructure",
+      "quantity": 22,
+      "size": 4
+    },
+    {
+      "item_id": "superconductor",
+      "name": "Superconductor",
+      "quantity": 7,
+      "size": 1
+    },
+    {
+      "item_id": "cargo_container",
+      "name": "Cargo Container",
+      "quantity": 17,
+      "size": 4
+    },
+    {
+      "item_id": "titanium_ingot",
+      "name": "Titanium Ingot",
+      "quantity": 13,
+      "size": 1
+    },
+    {
+      "item_id": "life_support_unit",
+      "name": "Life Support Unit",
+      "quantity": 29,
+      "size": 2
+    },
+    {
+      "item_id": "micro_thruster_array",
+      "name": "Micro-Thruster Array",
+      "quantity": 4,
+      "size": 1
+    },
+    {
+      "item_id": "void_capacitor",
+      "name": "Void Capacitor",
+      "quantity": 4,
+      "size": 3
+    },
+    {
+      "item_id": "dark_matter_cell",
+      "name": "Dark Matter Cell",
+      "quantity": 1,
+      "size": 2
+    },
+    {
+      "item_id": "silver_ore",
+      "name": "Silver Ore",
+      "quantity": 6,
+      "size": 1
+    },
+    {
+      "item_id": "phase_crystal",
+      "name": "Phase Crystal",
+      "quantity": 20,
+      "size": 2
+    },
+    {
+      "item_id": "sol_alloy_ore",
+      "name": "Sol Alloy Ore",
+      "quantity": 3,
+      "size": 2
+    },
+    {
+      "item_id": "nitrogen_ice",
+      "name": "Nitrogen Ice",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "lithium_ore",
+      "name": "Lithium Ore",
+      "quantity": 4,
+      "size": 1
+    },
+    {
+      "item_id": "processed_null_matter",
+      "name": "Processed Null Matter",
+      "quantity": 16,
+      "size": 2
+    },
+    {
+      "item_id": "mining_laser_i",
+      "name": "mining_laser_i",
+      "quantity": 8,
+      "size": 10
+    },
+    {
+      "item_id": "darksteel_plating",
+      "name": "Darksteel Plating",
+      "quantity": 18,
+      "size": 2
+    },
+    {
+      "item_id": "thermal_ceramic",
+      "name": "Thermal Ceramic",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "armor_plate_i",
+      "name": "armor_plate_i",
+      "quantity": 22,
+      "size": 10
+    },
+    {
+      "item_id": "kinetic_hull_hardener",
+      "name": "kinetic_hull_hardener",
+      "quantity": 2,
+      "size": 10
+    },
+    {
+      "item_id": "sensor_array",
+      "name": "Sensor Array",
+      "quantity": 101,
+      "size": 2
+    },
+    {
+      "item_id": "flex_polymer",
+      "name": "Flex Polymer",
+      "quantity": 3,
+      "size": 1
+    },
+    {
+      "item_id": "trade_cipher",
+      "name": "Trade Cipher",
+      "quantity": 15,
+      "size": 1
+    },
+    {
+      "item_id": "power_battery",
+      "name": "Power Battery",
+      "quantity": 5,
+      "size": 1
+    },
+    {
+      "item_id": "quantum_dot_matrix",
+      "name": "Quantum Dot Matrix",
+      "quantity": 1,
+      "size": 1
+    },
+    {
+      "item_id": "capital_ship_frame",
+      "name": "Capital Ship Frame",
+      "quantity": 89,
+      "size": 10
+    },
+    {
+      "item_id": "aluminum_sheet",
+      "name": "Aluminum Sheet",
+      "quantity": 16,
+      "size": 1
+    },
+    {
+      "item_id": "autocannon_i",
+      "name": "autocannon_i",
+      "quantity": 4,
+      "size": 10
+    },
+    {
+      "item_id": "trade_crystal",
+      "name": "Trade Crystal",
+      "quantity": 28,
+      "size": 1
+    },
+    {
+      "item_id": "optical_fiber_bundle",
+      "name": "Optical Fiber Bundle",
+      "quantity": 3,
+      "size": 1
+    },
+    {
+      "item_id": "quantum_fragments",
+      "name": "Quantum Fragments",
+      "quantity": 37,
+      "size": 3
+    },
+    {
+      "item_id": "basic_tow_rig",
+      "name": "basic_tow_rig",
+      "quantity": 3,
+      "size": 10
+    },
+    {
+      "item_id": "reinforced_bulkhead",
+      "name": "Reinforced Bulkhead",
+      "quantity": 18,
+      "size": 3
+    },
+    {
+      "item_id": "focused_crystal",
+      "name": "Focused Crystal",
+      "quantity": 70,
+      "size": 1
+    },
+    {
+      "item_id": "life_support_array",
+      "name": "Life Support Array",
+      "quantity": 6,
+      "size": 3
+    },
+    {
+      "item_id": "deuterium",
+      "name": "Deuterium",
+      "quantity": 101,
+      "size": 1
+    },
+    {
+      "item_id": "power_cell",
+      "name": "Power Cell",
+      "quantity": 29,
+      "size": 2
+    },
+    {
+      "item_id": "silicon_ore",
+      "name": "Silicon Ore",
+      "quantity": 24,
+      "size": 1
+    },
+    {
+      "item_id": "iron_ore",
+      "name": "Iron Ore",
+      "quantity": 20,
+      "size": 1
+    },
+    {
+      "item_id": "energy_crystal",
+      "name": "Energy Crystal",
+      "quantity": 4,
+      "size": 1
+    }
+  ],
+  "ships": [
+    {
+      "ship_id": "24eeda6909e3cfb6044a87b33f1b9ee3",
+      "class_id": "prospector",
+      "class_name": "Prospector",
+      "modules": 1,
+      "cargo_used": 0
+    },
+    {
+      "ship_id": "9c52d6bd795852b673a66c493000cf98",
+      "class_id": "drillship",
+      "class_name": "Drillship",
+      "modules": 1,
+      "cargo_used": 0
+    },
+    {
+      "ship_id": "af34282e3f0e0e0443829b969452e6a6",
+      "class_id": "excavator",
+      "class_name": "Excavator",
+      "modules": 2,
+      "cargo_used": 0
+    }
+  ],
+  "hint": "132,235 credits and 33,474 items in storage at grand_exchange_station"
+}

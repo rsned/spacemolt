@@ -1,0 +1,101 @@
+{
+  "ship": {
+    "id": "24eeda6909e3cfb6044a87b33f1b9ee3",
+    "owner_id": "a50924913cef881c5e4d14257589d9ba",
+    "class_id": "prospector",
+    "name": "Prospector",
+    "created_at": "2026-02-08T08:50:13.179346763Z",
+    "hull": 100,
+    "max_hull": 100,
+    "shield": 50,
+    "max_shield": 50,
+    "shield_recharge": 1,
+    "armor": 5,
+    "speed": 2,
+    "fuel": 61,
+    "max_fuel": 100,
+    "cargo_used": 35,
+    "cargo_capacity": 50,
+    "cpu_used": 2,
+    "cpu_capacity": 12,
+    "power_used": 5,
+    "power_capacity": 25,
+    "weapon_slots": 1,
+    "defense_slots": 1,
+    "utility_slots": 2,
+    "modules": [
+      "0b921f675713a5d2b14af25d5655332b"
+    ],
+    "cargo": [
+      {
+        "item_id": "nickel_ore",
+        "quantity": 3
+      },
+      {
+        "item_id": "steel_plate",
+        "quantity": 4
+      },
+      {
+        "item_id": "silicon_ore",
+        "quantity": 24
+      },
+      {
+        "item_id": "iron_ore",
+        "quantity": 2
+      },
+      {
+        "item_id": "flex_polymer",
+        "quantity": 2
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "0b921f675713a5d2b14af25d5655332b",
+      "type_id": "mining_laser_i",
+      "name": "Mining Laser I",
+      "type": "mining",
+      "size": 10,
+      "quality": 1,
+      "quality_grade": "Standard",
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 2,
+      "power_usage": 5,
+      "mining_power": 5,
+      "mining_range": 5
+    }
+  ],
+  "cargo_used": 35,
+  "cargo_max": 50,
+  "class": {
+    "id": "prospector",
+    "name": "Prospector",
+    "description": "A humble mining vessel for new pilots. Slow but reliable.",
+    "class": "Mining",
+    "price": 0,
+    "tier": 0,
+    "scale": 1,
+    "lore": "The Prospector is where every pilot's journey begins. Originally designed\nas an automated ore collector, these reliable workhorses have served\ngenerations of miners. What they lack in speed and firepower, they make\nup for in durability and low maintenance.\n",
+    "starter_ship": true,
+    "base_hull": 100,
+    "base_shield": 50,
+    "base_shield_recharge": 1,
+    "base_armor": 5,
+    "base_speed": 2,
+    "base_fuel": 100,
+    "cargo_capacity": 50,
+    "cpu_capacity": 12,
+    "power_capacity": 25,
+    "weapon_slots": 1,
+    "defense_slots": 1,
+    "utility_slots": 2,
+    "default_modules": [
+      "mining_laser_i"
+    ],
+    "shipyard_tier": 0,
+    "build_time": 0,
+    "legacy": true
+  }
+}
+
