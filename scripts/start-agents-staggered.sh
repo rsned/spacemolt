@@ -175,8 +175,8 @@ for batch in "${BATCHES[@]}"; do
         echo "  ✓ Started $agent with $binary$SHOW_STRATEGY"
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 
-        # Small delay between starts in same batch
-        sleep 2
+        # Delay between starts to avoid IP rate limiting on login
+        sleep 5
     done
 
     # Wait between batches to avoid rate limiting

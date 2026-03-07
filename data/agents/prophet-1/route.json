@@ -1,5 +1,5 @@
 {
-  "destination_system": "nexus",
+  "destination_system": "nexus_prime",
   "route": [
     {
       "system_id": "node_alpha",
@@ -7,11 +7,11 @@
       "jumps": 0
     },
     {
-      "system_id": "nexus",
+      "system_id": "nexus_prime",
       "name": "Nexus Prime",
       "jumps": 1
     }
   ],
   "current_step": 0,
-  "timestamp": "2026-03-03T11:13:24.472587814-08:00"
+  "timestamp": "2026-03-07T10:24:21.903197995-08:00"
 }
