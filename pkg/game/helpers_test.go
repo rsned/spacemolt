@@ -321,3 +321,21 @@ func TestTimestampConstants(t *testing.T) {
 		t.Errorf("TimestampPrecise = %q, want %q", TimestampPrecise, "20060102150405")
 	}
 }
+
+func TestParseIPBlockSeconds(t *testing.T) {
+	tests := []struct {
+		msg  string
+		want int
+	}{
+		{"Your IP has been temporarily blocked due to excessive rate limit violations. Try again in 943 seconds.", 943},
+		{"Try again in 60 seconds.", 60},
+		{"Try again in 1 seconds.", 1},
+		{"no match here", 300},
+		{"", 300},
+	}
+	for _, tt := range tests {
+		if got := parseIPBlockSeconds(tt.msg); got != tt.want {
+			t.Errorf("parseIPBlockSeconds(%q) = %d, want %d", tt.msg, got, tt.want)
+		}
+	}
+}

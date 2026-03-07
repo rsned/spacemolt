@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand/v2"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -76,6 +79,10 @@ type Client struct {
 	// Map data cache - get_map data is static and changes less than once per hour
 	mapFetchedAt time.Time
 	mapFetchedMu sync.RWMutex
+
+	// IP rate limit tracking
+	ipBlockedUntil time.Time
+	ipBlockedMu    sync.RWMutex
 
 	// Diagnostic tracking
 	connectionID      string    // Unique ID for this connection instance
@@ -469,6 +476,22 @@ func (c *Client) SetHandler(handler MessageHandler) {
 
 // Send sends a message to the game server
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
+	// Check IP rate limit before sending
+	c.ipBlockedMu.RLock()
+	blockedUntil := c.ipBlockedUntil
+	c.ipBlockedMu.RUnlock()
+
+	if time.Now().Before(blockedUntil) {
+		waitDuration := time.Until(blockedUntil)
+		c.debugLogger.Printf("IP rate limited, waiting %v before sending (type: %s)", waitDuration, msg.Type)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(waitDuration):
+			c.debugLogger.Printf("IP rate limit wait complete, resuming send (type: %s)", msg.Type)
+		}
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -1841,6 +1864,19 @@ func (c *Client) parseErrorState(payload map[string]any) {
 	}
 	c.lastErrorMu.Unlock()
 
+	// Handle IP rate limit block
+	if code, ok := payload["code"].(string); ok && code == "ip_timed_out" {
+		if msg, ok := payload["message"].(string); ok {
+			seconds := parseIPBlockSeconds(msg)
+			jitter := time.Duration(rand.IntN(int(SleepIPRateLimitJitter.Seconds()))) * time.Second
+			blockDuration := time.Duration(seconds)*time.Second + jitter
+			c.ipBlockedMu.Lock()
+			c.ipBlockedUntil = time.Now().Add(blockDuration)
+			c.ipBlockedMu.Unlock()
+			c.debugLogger.Printf("IP rate limited for %d seconds + %v jitter = %v total pause", seconds, jitter, blockDuration)
+		}
+	}
+
 	if errMsg, ok := payload["message"].(string); ok {
 		if containsIgnoreCase(errMsg, []string{"already undocked", "not docked", "ship is not docked"}) {
 			c.state.Doc = false
@@ -1849,6 +1885,19 @@ func (c *Client) parseErrorState(payload map[string]any) {
 			c.state.Doc = true
 		}
 	}
+}
+
+// ipBlockSecondsRe matches "in N seconds" in IP rate limit messages.
+var ipBlockSecondsRe = regexp.MustCompile(`in (\d+) seconds`)
+
+// parseIPBlockSeconds extracts the number of seconds from an IP rate limit message.
+func parseIPBlockSeconds(msg string) int {
+	if m := ipBlockSecondsRe.FindStringSubmatch(msg); len(m) == 2 {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			return n
+		}
+	}
+	return 300 // default to 5 minutes if parsing fails
 }
 
 // parseErrorAction extracts state changes from action_error messages
