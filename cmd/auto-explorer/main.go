@@ -14,6 +14,7 @@ import (
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/registry"
 )
@@ -201,16 +202,49 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 func saveStationData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
 	state := client.GetState()
 
-	// Save dock story to base record if available
-	if story := state.LastDockStory; story != "" {
-		base, err := kb.GetBaseByPOI(ctx, poiID)
-		if err == nil && base != nil {
-			base.Story = story
-			base.LastUpdatedTick = state.CurrentTick
-			if err := kb.RememberBase(ctx, *base); err != nil {
-				logger.Printf("⚠️  Failed to save station story: %v", err)
-			} else {
-				logger.Printf("💾 Saved station story for %s", poiName)
+	// Fetch base details from the server and save to knowledge base
+	logger.Printf("🏗️  Getting base details for %s...", poiName)
+	if err := client.GetBase(ctx); err != nil {
+		logger.Printf("⚠️  Failed to get base details: %v", err)
+	} else {
+		time.Sleep(game.SleepQuick)
+
+		rawJSON := client.GetRawJSON("base")
+		if rawJSON != nil {
+			var baseResp serverapi.GetBaseResponse
+			if err := json.Unmarshal(rawJSON, &baseResp); err == nil && baseResp.Base != nil {
+				services := make(map[string]bool)
+				for _, svc := range baseResp.Services {
+					services[svc] = true
+				}
+				if baseResp.Base.Services != nil {
+					for svc, avail := range baseResp.Base.Services {
+						services[svc] = avail
+					}
+				}
+				kbBase := knowledge.SpaceBase{
+					ID:              baseResp.Base.ID,
+					POIID:           poiID,
+					Name:            baseResp.Base.Name,
+					Description:     baseResp.Base.Description,
+					Empire:          baseResp.Base.Empire,
+					DefenseLevel:    baseResp.Base.DefenseLevel,
+					HasDrones:       baseResp.Base.HasDrones,
+					PublicAccess:    baseResp.Base.PublicAccess,
+					Services:        services,
+					LastUpdatedTick: state.CurrentTick,
+				}
+				// Preserve dock story if available
+				if story := state.LastDockStory; story != "" {
+					kbBase.Story = story
+				}
+				if err := kb.RememberBase(ctx, kbBase); err != nil {
+					logger.Printf("⚠️  Failed to save base to knowledge base: %v", err)
+				} else {
+					logger.Printf("💾 Saved base details for %s", poiName)
+				}
+			} else if err != nil {
+				logger.Printf("⚠️  Failed to parse base response: %v", err)
 			}
 		}
 	}
