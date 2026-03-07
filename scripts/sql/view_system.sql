@@ -137,9 +137,10 @@ SELECT
     ROUND(p.position_x, 2) AS "X",
     ROUND(p.position_y, 2) AS "Y",
     CASE WHEN b.id IS NOT NULL THEN 'Yes' ELSE 'No' END AS "Has Base",
-    COALESCE(b.empire, 'None') AS "Empire"
+    COALESCE(s.empire, 'None') AS "Empire"
 FROM pois p
 LEFT JOIN bases b ON p.id = b.poi_id
+LEFT JOIN systems s ON p.system_id = s.id
 WHERE p.system_id = :system_id
 ORDER BY
     CASE p.type
