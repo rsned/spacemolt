@@ -1,0 +1,461 @@
+package game
+
+import (
+	"encoding/json"
+	"log"
+	"reflect"
+	"sort"
+	"strings"
+	"sync"
+
+	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+)
+
+// apiChangeLogger writes to stderr regardless of debug settings so that
+// server API changes are always visible in logs.
+var apiChangeLogger = log.New(log.Writer(), "[SERVER API CHANGE] ", log.LstdFlags)
+
+// loggedAPIChanges deduplicates warnings so each unique change is logged
+// only once per process lifetime.
+var loggedAPIChanges sync.Map
+
+// commonOKFields are top-level payload keys that can appear in any TypeOK
+// response as part of the server envelope. These are parsed by
+// parsePlayerData, parseShipData, etc. and are not action-specific.
+var commonOKFields = map[string]bool{
+	"action":  true,
+	"player":  true,
+	"ship":    true,
+	"modules": true,
+	"message": true,
+}
+
+// actionResponseTypes maps server action strings to their serverapi response
+// struct types for unknown field detection.
+var actionResponseTypes = map[string]reflect.Type{
+	// Info queries
+	"get_system":          reflect.TypeOf(serverapi.GetSystemResponse{}),
+	"get_poi":             reflect.TypeOf(serverapi.GetPOIResponse{}),
+	"get_status":          reflect.TypeOf(serverapi.GetStatusResponse{}),
+	"get_ship":            reflect.TypeOf(serverapi.GetShipResponse{}),
+	"get_base":            reflect.TypeOf(serverapi.GetBaseResponse{}),
+	"get_skills":          reflect.TypeOf(serverapi.GetSkillsResponse{}),
+	"get_listings":        reflect.TypeOf(serverapi.GetListingsResponse{}),
+	"get_cargo":           reflect.TypeOf(serverapi.GetCargoResponse{}),
+	"get_nearby":          reflect.TypeOf(serverapi.GetNearbyResponse{}),
+	"get_map":             reflect.TypeOf(serverapi.GetMapResponse{}),
+	"get_recipes":         reflect.TypeOf(serverapi.GetRecipesResponse{}),
+	"get_wrecks":          reflect.TypeOf(serverapi.GetWrecksResponse{}),
+	"get_drones":          reflect.TypeOf(serverapi.GetDronesResponse{}),
+	"get_ships":           reflect.TypeOf(serverapi.GetShipsResponse{}),
+	"get_battle_status":   reflect.TypeOf(serverapi.GetBattleStatusResponse{}),
+	"get_trades":          reflect.TypeOf(serverapi.GetTradesResponse{}),
+	"get_missions":        reflect.TypeOf(serverapi.GetMissionsResponse{}),
+	"get_active_missions": reflect.TypeOf(serverapi.GetActiveMissionsResponse{}),
+	"get_notes":           reflect.TypeOf(serverapi.GetNotesResponse{}),
+	"read_note":           reflect.TypeOf(serverapi.ReadNoteResponse{}),
+	"get_commands":        reflect.TypeOf(serverapi.GetCommandsResponse{}),
+	"get_guide":           reflect.TypeOf(serverapi.GetGuideResponse{}),
+	"get_version":         reflect.TypeOf(serverapi.GetVersionResponse{}),
+	"get_action_log":      reflect.TypeOf(serverapi.GetActionLogResponse{}),
+	"get_chat_history":    reflect.TypeOf(serverapi.ChatHistoryResponse{}),
+	"get_base_cost":       reflect.TypeOf(serverapi.GetBaseCostResponse{}),
+	"get_insurance_quote": reflect.TypeOf(serverapi.GetInsuranceQuoteResponse{}),
+	"search_systems":      reflect.TypeOf(serverapi.SearchSystemsResponse{}),
+	"search_changelog":    reflect.TypeOf(serverapi.SearchChangelogResponse{}),
+	"find_route":          reflect.TypeOf(serverapi.FindRouteResponse{}),
+
+	// Market actions
+	"view_market":       reflect.TypeOf(serverapi.ViewMarketResponse{}),
+	"view_orders":       reflect.TypeOf(serverapi.ViewOrdersResponse{}),
+	"buy":               reflect.TypeOf(serverapi.BuyResponse{}),
+	"sell":              reflect.TypeOf(serverapi.SellResponse{}),
+	"sell_all":          reflect.TypeOf(serverapi.SellResponse{}),
+	"create_buy_order":  reflect.TypeOf(serverapi.CreateBuyOrderResponse{}),
+	"create_sell_order": reflect.TypeOf(serverapi.CreateSellOrderResponse{}),
+	"cancel_order":      reflect.TypeOf(serverapi.CancelOrderResponse{}),
+	"modify_order":      reflect.TypeOf(serverapi.ModifyOrderResponse{}),
+	"analyze_market":    reflect.TypeOf(serverapi.AnalyzeMarketResponse{}),
+	"estimate_purchase": reflect.TypeOf(serverapi.EstimatePurchaseResponse{}),
+
+	// Navigation and resources
+	"travel":         reflect.TypeOf(serverapi.TravelResponse{}),
+	"dock":           reflect.TypeOf(serverapi.DockResponse{}),
+	"undock":         reflect.TypeOf(serverapi.UndockResponse{}),
+	"refuel":         reflect.TypeOf(serverapi.RefuelResponse{}),
+	"repair":         reflect.TypeOf(serverapi.RepairResponse{}),
+	"mine":           reflect.TypeOf(serverapi.MineResponse{}),
+	"craft":          reflect.TypeOf(serverapi.CraftResponse{}),
+	"survey_system":  reflect.TypeOf(serverapi.SurveySystemResponse{}),
+	"catalog":        reflect.TypeOf(serverapi.CatalogResponse{}),
+
+	// Combat and scanning
+	"cloak":    reflect.TypeOf(serverapi.CloakResponse{}),
+	"scan":     reflect.TypeOf(serverapi.ScanResponse{}),
+	"battle":   reflect.TypeOf(serverapi.BattleResponse{}),
+	"jettison": reflect.TypeOf(serverapi.JettisonResponse{}),
+	"reload":   reflect.TypeOf(serverapi.ReloadResponse{}),
+	"use_item": reflect.TypeOf(serverapi.UseItemResponse{}),
+
+	// Ship management
+	"list_ships":         reflect.TypeOf(serverapi.ListShipsResponse{}),
+	"buy_ship":           reflect.TypeOf(serverapi.BuyShipResponse{}),
+	"sell_ship":          reflect.TypeOf(serverapi.SellShipResponse{}),
+	"switch_ship":        reflect.TypeOf(serverapi.SwitchShipResponse{}),
+	"shipyard_showroom":  reflect.TypeOf(serverapi.ShipyardShowroomResponse{}),
+	"browse_ships":       reflect.TypeOf(serverapi.BrowseShipsResponse{}),
+	"buy_listed_ship":    reflect.TypeOf(serverapi.BuyListedShipResponse{}),
+	"list_ship_for_sale": reflect.TypeOf(serverapi.ListShipForSaleResponse{}),
+	"install_mod":        reflect.TypeOf(serverapi.InstallModResponse{}),
+	"uninstall_mod":      reflect.TypeOf(serverapi.UninstallModResponse{}),
+
+	// Missions
+	"accept_mission":   reflect.TypeOf(serverapi.AcceptMissionResponse{}),
+	"complete_mission": reflect.TypeOf(serverapi.CompleteMissionResponse{}),
+
+	// Notes
+	"create_note": reflect.TypeOf(serverapi.CreateNoteResponse{}),
+	"write_note":  reflect.TypeOf(serverapi.WriteNoteResponse{}),
+
+	// Storage
+	"view_storage":     reflect.TypeOf(serverapi.ViewStorageResponse{}),
+	"withdraw_credits": reflect.TypeOf(serverapi.WithdrawCreditsResponse{}),
+	"deposit_credits":  reflect.TypeOf(serverapi.DepositCreditsResponse{}),
+	"withdraw_items":   reflect.TypeOf(serverapi.WithdrawItemsResponse{}),
+	"deposit_items":    reflect.TypeOf(serverapi.DepositItemsResponse{}),
+
+	// Insurance and commissions
+	"buy_insurance":     reflect.TypeOf(serverapi.BuyInsuranceResponse{}),
+	"claim_insurance":   reflect.TypeOf(serverapi.ClaimInsuranceResponse{}),
+	"commission_quote":  reflect.TypeOf(serverapi.CommissionQuoteResponse{}),
+	"commission_ship":   reflect.TypeOf(serverapi.CommissionShipResponse{}),
+	"commission_status": reflect.TypeOf(serverapi.CommissionStatusResponse{}),
+
+	// Social
+	"trade_offer":  reflect.TypeOf(serverapi.TradeOfferResponse{}),
+	"trade_accept": reflect.TypeOf(serverapi.TradeAcceptResponse{}),
+	"send_gift":    reflect.TypeOf(serverapi.SendGiftResponse{}),
+	"chat":         reflect.TypeOf(serverapi.ChatResponse{}),
+
+	// Forum
+	"forum_list":          reflect.TypeOf(serverapi.ForumListResponse{}),
+	"forum_get_thread":    reflect.TypeOf(serverapi.ForumThreadResponse{}),
+	"forum_create_thread": reflect.TypeOf(serverapi.ForumCreateThreadResponse{}),
+	"forum_reply":         reflect.TypeOf(serverapi.ForumReplyResponse{}),
+
+	// Factions
+	"faction_info":             reflect.TypeOf(serverapi.FactionInfoResponse{}),
+	"faction_list":             reflect.TypeOf(serverapi.FactionListResponse{}),
+	"create_faction":           reflect.TypeOf(serverapi.CreateFactionResponse{}),
+	"faction_invite":           reflect.TypeOf(serverapi.FactionInviteResponse{}),
+	"faction_kick":             reflect.TypeOf(serverapi.FactionKickResponse{}),
+	"faction_promote":          reflect.TypeOf(serverapi.FactionPromoteResponse{}),
+	"faction_declare_war":      reflect.TypeOf(serverapi.FactionDeclareWarResponse{}),
+	"faction_propose_peace":    reflect.TypeOf(serverapi.FactionProposePeaceResponse{}),
+	"faction_accept_peace":     reflect.TypeOf(serverapi.FactionAcceptPeaceResponse{}),
+	"faction_deposit_credits":  reflect.TypeOf(serverapi.FactionDepositCreditsResponse{}),
+	"faction_withdraw_credits": reflect.TypeOf(serverapi.FactionWithdrawCreditsResponse{}),
+	"faction_submit_intel":     reflect.TypeOf(serverapi.FactionSubmitIntelResponse{}),
+	"view_faction_storage":     reflect.TypeOf(serverapi.ViewFactionStorageResponse{}),
+
+	// Bases
+	"build_base":    reflect.TypeOf(serverapi.BuildBaseResponse{}),
+	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),
+	"raid_status":   reflect.TypeOf(serverapi.RaidStatusResponse{}),
+	"facility":      reflect.TypeOf(serverapi.FacilityResponse{}),
+	"facility_list": reflect.TypeOf(serverapi.FacilityListResponse{}),
+
+	// Wrecks and salvage
+	"loot_wreck":    reflect.TypeOf(serverapi.LootWreckResponse{}),
+	"salvage_wreck": reflect.TypeOf(serverapi.SalvageWreckResponse{}),
+	"tow_wreck":     reflect.TypeOf(serverapi.TowWreckResponse{}),
+	"sell_wreck":    reflect.TypeOf(serverapi.SellWreckResponse{}),
+
+	// Drones
+	"deploy_drone": reflect.TypeOf(serverapi.DeployDroneResponse{}),
+
+	// Settings
+	"set_anonymous": reflect.TypeOf(serverapi.SetAnonymousResponse{}),
+	"set_colors":    reflect.TypeOf(serverapi.SetColorsResponse{}),
+	"set_status":    reflect.TypeOf(serverapi.SetStatusResponse{}),
+	"set_home_base": reflect.TypeOf(serverapi.SetHomeBaseResponse{}),
+
+	// Help
+	"help": reflect.TypeOf(serverapi.HelpResponse{}),
+
+	// Self destruct
+	"self_destruct": reflect.TypeOf(serverapi.MessageResponse{}),
+}
+
+// eventExpectedFields maps non-OK event types to their expected payload fields.
+// Event types not listed here skip field-level checking.
+var eventExpectedFields = map[string]map[string]bool{
+	protocol.TypeWelcome: {
+		"current_tick": true,
+		"version":      true,
+		"message":      true,
+	},
+	protocol.TypeRegistered: {
+		"password":       true,
+		"token":          true,
+		"player_id":      true,
+		"message":        true,
+		"player":         true,
+		"ship":           true,
+		"system":         true,
+		"poi":            true,
+		"captains_log":   true,
+		"pending_trades": true,
+		"release_info":   true,
+		"unread_chat":    true,
+	},
+	protocol.TypeLoggedIn: {
+		"message":        true,
+		"player":         true,
+		"ship":           true,
+		"modules":        true,
+		"system":         true,
+		"poi":            true,
+		"captains_log":   true,
+		"pending_trades": true,
+		"release_info":   true,
+		"unread_chat":    true,
+	},
+	protocol.TypeStateUpdate: {
+		"tick":      true,
+		"in_combat": true,
+		"player":    true,
+		"ship":      true,
+		"modules":   true,
+		"travel":    true,
+		"nearby":    true,
+	},
+	protocol.TypeTick: {
+		"tick": true,
+	},
+	protocol.TypeDocked: {
+		"base_id":   true,
+		"base_name": true,
+		"message":   true,
+		"story":     true,
+		"poi":       true,
+		"poi_id":    true,
+	},
+	protocol.TypeUndocked: {
+		"message": true,
+	},
+	protocol.TypeActionResult: {
+		"action":  true,
+		"message": true,
+		"success": true,
+		"result":  true,
+	},
+	protocol.TypeError: {
+		"message": true,
+		"code":    true,
+	},
+	protocol.TypeActionError: {
+		"action":  true,
+		"message": true,
+		"code":    true,
+	},
+	protocol.TypeListings: {
+		"listings":     true,
+		"station_id":   true,
+		"station_name": true,
+	},
+	protocol.TypeMiningYield: {
+		"resource_id": true,
+		"quantity":    true,
+		"message":     true,
+	},
+	protocol.TypePirateWarning: {
+		"pirate_name": true,
+		"pirate_tier": true,
+		"pirate_id":   true,
+		"message":     true,
+	},
+	protocol.TypePirateCombat: {
+		"pirate_name": true,
+		"pirate_tier": true,
+		"pirate_id":   true,
+		"damage":      true,
+		"damage_type": true,
+		"your_hull":   true,
+		"your_shield": true,
+		"message":     true,
+	},
+	protocol.TypePirateDestroyed: {
+		"pirate_name": true,
+		"pirate_tier": true,
+		"pirate_id":   true,
+		"loot":        true,
+		"message":     true,
+		"xp_gained":   true,
+	},
+	protocol.TypeCombatUpdate: {
+		"damage":      true,
+		"damage_type": true,
+		"message":     true,
+	},
+	protocol.TypePlayerDied: {
+		"message":      true,
+		"respawn_at":   true,
+		"credits_lost": true,
+		"cause":        true,
+	},
+	protocol.TypeChatMessage: {
+		"channel":   true,
+		"message":   true,
+		"sender":    true,
+		"sender_id": true,
+		"timestamp": true,
+	},
+	protocol.TypeSkillLevelUp: {
+		"skill_id":   true,
+		"skill_name": true,
+		"new_level":  true,
+		"message":    true,
+	},
+	protocol.TypeGameplayTip: {
+		"message": true,
+		"tip":     true,
+	},
+	protocol.TypeTradeOfferReceived: {
+		"trade_id": true,
+		"from":     true,
+		"message":  true,
+	},
+}
+
+// actionFieldsCache caches the computed expected field sets per action to
+// avoid repeated reflection on every response.
+var actionFieldsCache sync.Map // map[string]map[string]bool
+
+// jsonFieldNames extracts top-level JSON field names from a struct type's tags.
+func jsonFieldNames(t reflect.Type) map[string]bool {
+	names := make(map[string]bool)
+	for i := range t.NumField() {
+		field := t.Field(i)
+		tag := field.Tag.Get("json")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		name, _, _ := strings.Cut(tag, ",")
+		if name != "" {
+			names[name] = true
+		}
+	}
+	return names
+}
+
+// expectedFieldsForAction returns the combined set of expected fields for an
+// action: the struct's JSON tags plus common envelope fields. Results are cached.
+func expectedFieldsForAction(action string) (map[string]bool, bool) {
+	if cached, ok := actionFieldsCache.Load(action); ok {
+		return cached.(map[string]bool), true
+	}
+	responseType, known := actionResponseTypes[action]
+	if !known {
+		return nil, false
+	}
+	fields := jsonFieldNames(responseType)
+	for k := range commonOKFields {
+		fields[k] = true
+	}
+	actionFieldsCache.Store(action, fields)
+	return fields, true
+}
+
+// checkForAPIChanges inspects a server response for unhandled types or unknown fields.
+func (c *Client) checkForAPIChanges(resp protocol.Response) {
+	if len(resp.Payload) == 0 {
+		return
+	}
+
+	switch resp.Type {
+	case protocol.TypeOK:
+		c.checkOKResponseFields(resp.Payload)
+	default:
+		c.checkEventFields(resp.Type, resp.Payload)
+	}
+}
+
+// checkOKResponseFields checks a TypeOK response for unknown actions or unknown fields.
+func (c *Client) checkOKResponseFields(payload map[string]any) {
+	action, _ := payload["action"].(string)
+	if action == "" {
+		return
+	}
+
+	expectedFields, known := expectedFieldsForAction(action)
+	if !known {
+		key := "unknown_action:" + action
+		if _, loaded := loggedAPIChanges.LoadOrStore(key, true); !loaded {
+			payloadJSON, _ := json.Marshal(payload)
+			apiChangeLogger.Printf(
+				"Unhandled action %q in OK response - add to actionResponseTypes in client_api_monitor.go and create serverapi struct.\nFull payload: %s",
+				action, string(payloadJSON))
+		}
+		return
+	}
+
+	var unknown []string
+	for key := range payload {
+		if !expectedFields[key] {
+			unknown = append(unknown, key)
+		}
+	}
+
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		key := "unknown_fields:" + action + ":" + strings.Join(unknown, ",")
+		if _, loaded := loggedAPIChanges.LoadOrStore(key, true); !loaded {
+			responseType := actionResponseTypes[action]
+			apiChangeLogger.Printf(
+				"New fields in %q response not in %s: %v - update the serverapi struct",
+				action, responseType.Name(), unknown)
+		}
+	}
+}
+
+// checkEventFields checks a non-OK event response for unknown fields.
+func (c *Client) checkEventFields(eventType string, payload map[string]any) {
+	expectedFields, known := eventExpectedFields[eventType]
+	if !known {
+		// Not in our expected fields map — skip field-level checking.
+		// Truly unknown types are logged by logUnhandledResponseType.
+		return
+	}
+
+	var unknown []string
+	for key := range payload {
+		if !expectedFields[key] {
+			unknown = append(unknown, key)
+		}
+	}
+
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		key := "unknown_event_fields:" + eventType + ":" + strings.Join(unknown, ",")
+		if _, loaded := loggedAPIChanges.LoadOrStore(key, true); !loaded {
+			apiChangeLogger.Printf(
+				"New fields in %q event not currently handled: %v - update eventExpectedFields in client_api_monitor.go",
+				eventType, unknown)
+		}
+	}
+}
+
+// logUnhandledResponseType logs full details about a server response type
+// that has no handler in handleResponse.
+func logUnhandledResponseType(resp protocol.Response) {
+	key := "unknown_type:" + resp.Type
+	if _, loaded := loggedAPIChanges.LoadOrStore(key, true); loaded {
+		return
+	}
+	payloadJSON, _ := json.Marshal(resp.Payload)
+	apiChangeLogger.Printf(
+		"Unhandled response type %q - add case to handleResponse() and constant to protocol/messages.go.\nFull payload: %s",
+		resp.Type, string(payloadJSON))
+}

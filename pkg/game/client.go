@@ -1515,7 +1515,13 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.state.LastDamage = damage
 		}
 		c.mu.Unlock()
+
+	default:
+		logUnhandledResponseType(resp)
 	}
+
+	// Check all responses for new/unknown fields from server API changes.
+	c.checkForAPIChanges(resp)
 }
 
 // unmarshalPayloadKey marshals a payload value back to JSON and unmarshals it into dest.
