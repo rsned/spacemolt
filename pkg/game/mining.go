@@ -329,7 +329,7 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 		state = client.GetState()
 		if state.CurrentPOI != miningPOI && !state.Traveling {
 			logger.Printf("🚀 Traveling to mining location %s...", miningPOI)
-			if err := client.Travel(ctx, miningPOI); err != nil {
+			if _, err := client.Travel(ctx, miningPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)
@@ -418,7 +418,7 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 
 		if state.CurrentPOI != stationPOI && !state.Traveling {
 			logger.Printf("🚀 Returning to station %s...", stationPOI)
-			if err := client.Travel(ctx, stationPOI); err != nil {
+			if _, err := client.Travel(ctx, stationPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)

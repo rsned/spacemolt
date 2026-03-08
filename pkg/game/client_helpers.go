@@ -209,7 +209,8 @@ func (s *SafeCommandBuilder) Undock(ctx context.Context) error {
 // Travel safely travels to a POI
 func (s *SafeCommandBuilder) Travel(ctx context.Context, targetPOI string) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.Travel(ctx, targetPOI)
+		_, err := s.client.Travel(ctx, targetPOI)
+		return err
 	})
 }
 

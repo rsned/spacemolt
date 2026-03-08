@@ -562,6 +562,147 @@ func TestClientInitialization(t *testing.T) {
 	}
 }
 
+// TestTravel_BlocksUntilArrived verifies that Travel() blocks until
+// state.Traveling becomes false and returns the arrived POI.
+func TestTravel_BlocksUntilArrived(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+
+	// Override send to capture the message without a real WebSocket
+	var sentMsg protocol.Message
+	client.sendOverride = func(ctx context.Context, msg protocol.Message) error {
+		sentMsg = msg
+		return nil
+	}
+
+	targetPOI := "poi_asteroid_belt_1"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Simulate the server response flow in a goroutine:
+	// 1. Initial OK with action:"travel" and arrival_tick (travel accepted)
+	// 2. State update setting Traveling=false and CurrentPOI (arrived)
+	go func() {
+		// Wait for Travel() to send the message and register waiters
+		time.Sleep(100 * time.Millisecond)
+
+		// Simulate initial OK response — sets Traveling=true
+		client.mu.Lock()
+		client.state.Traveling = true
+		client.mu.Unlock()
+
+		// Deliver the OK to the waiter
+		client.waiterMu.Lock()
+		if ch, ok := client.waiters[protocol.TypeOK]; ok {
+			ch <- protocol.Response{
+				Type: protocol.TypeOK,
+				Payload: map[string]any{
+					"action":       "travel",
+					"arrival_tick": float64(5),
+				},
+			}
+		}
+		client.waiterMu.Unlock()
+
+		// Simulate arrival after a short delay
+		time.Sleep(300 * time.Millisecond)
+		client.mu.Lock()
+		client.state.Traveling = false
+		client.state.CurrentPOI = targetPOI
+		client.mu.Unlock()
+	}()
+
+	result, err := client.Travel(ctx, targetPOI)
+	if err != nil {
+		t.Fatalf("Travel() returned error: %v", err)
+	}
+
+	if sentMsg.Type != "travel" {
+		t.Errorf("expected sent message type 'travel', got %q", sentMsg.Type)
+	}
+
+	if result.POI != targetPOI {
+		t.Errorf("expected POI %q, got %q", targetPOI, result.POI)
+	}
+	if result.Canceled {
+		t.Error("expected Canceled=false")
+	}
+}
+
+// TestTravel_TimeoutReturnsError verifies Travel() returns an error
+// if the state never transitions.
+func TestTravel_TimeoutReturnsError(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+
+	client.sendOverride = func(ctx context.Context, msg protocol.Message) error {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Simulate server accepting travel but never arriving
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		client.mu.Lock()
+		client.state.Traveling = true
+		client.mu.Unlock()
+
+		client.waiterMu.Lock()
+		if ch, ok := client.waiters[protocol.TypeOK]; ok {
+			ch <- protocol.Response{
+				Type: protocol.TypeOK,
+				Payload: map[string]any{
+					"action":       "travel",
+					"arrival_tick": float64(1),
+				},
+			}
+		}
+		client.waiterMu.Unlock()
+		// Never set Traveling=false — should timeout
+	}()
+
+	_, err := client.Travel(ctx, "poi_nowhere")
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+}
+
+// TestTravel_AlreadyAtDestination verifies Travel() returns immediately
+// when server says already_there.
+func TestTravel_AlreadyAtDestination(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.CurrentPOI = "poi_station_1"
+
+	client.sendOverride = func(ctx context.Context, msg protocol.Message) error {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		client.waiterMu.Lock()
+		if ch, ok := client.waiters[protocol.TypeError]; ok {
+			ch <- protocol.Response{
+				Type: protocol.TypeError,
+				Payload: map[string]any{
+					"code": "already_there",
+				},
+			}
+		}
+		client.waiterMu.Unlock()
+	}()
+
+	result, err := client.Travel(ctx, "poi_station_1")
+	if err != nil {
+		t.Fatalf("Travel() returned error: %v", err)
+	}
+	if result.POI != "poi_station_1" {
+		t.Errorf("expected POI 'poi_station_1', got %q", result.POI)
+	}
+}
+
 // TestJSON_RoundTrip verifies Response JSON marshaling/unmarshaling
 func TestJSON_RoundTrip(t *testing.T) {
 	original := protocol.Response{

@@ -258,6 +258,13 @@ type TravelProgress struct {
 	ArrivalTick int64   `json:"travel_arrival_tick"`
 }
 
+// TravelResult contains the outcome of a completed Travel() call.
+type TravelResult struct {
+	POI      string // Final POI ID arrived at
+	POIName  string // Human-readable POI name (if available)
+	Canceled bool   // True if travel was interrupted (e.g., combat)
+}
+
 // BattleParticipant represents a participant in a tactical battle.
 type BattleParticipant struct {
 	PlayerID  string `json:"player_id"`

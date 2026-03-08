@@ -373,7 +373,8 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 			return fmt.Errorf("travel requires target POI")
 		}
 		r.logger.Printf("[%s] -> Travel('%s')", r.agent.ID(), decision.Target)
-		return r.gameClient.Travel(actionCtx, decision.Target)
+		_, err := r.gameClient.Travel(actionCtx, decision.Target)
+		return err
 
 	case "jump":
 		if decision.Target == "" {

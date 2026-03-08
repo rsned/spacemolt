@@ -70,7 +70,7 @@ func (d *ClientDispatcher) Dispatch(ctx context.Context, action, target string) 
 	}
 
 	// Wait for the server tick after actions that consume one.
-	if isTickAction(action) {
+	if isTickAction(action) && action != "travel" {
 		delay := d.TickDelay
 		if delay == 0 {
 			delay = game.SleepTick + time.Second
@@ -96,10 +96,10 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 		if target == "" {
 			return fmt.Errorf("travel requires a target POI")
 		}
-		if err := d.Client.Travel(ctx, target); err != nil {
+		if _, err := d.Client.Travel(ctx, target); err != nil {
 			return err
 		}
-		d.waitForArrival(ctx, target)
+		d.fetchSystemData(ctx)
 		return nil
 	case "jump":
 		if target == "" {
@@ -467,30 +467,6 @@ const (
 	arrivalPollInterval = time.Second
 	arrivalTimeout      = game.SleepJump + game.SleepTick // 30s
 )
-
-// waitForArrival polls state.CurrentPOI until it matches the target POI,
-// then refreshes system data. This handles the async nature of travel where
-// the server sends "pending" immediately and "arrived" on the next tick.
-func (d *ClientDispatcher) waitForArrival(ctx context.Context, targetPOI string) {
-	deadline := time.After(arrivalTimeout)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-deadline:
-			d.Logger.Printf("warning: timed out waiting for arrival at %s", targetPOI)
-			d.fetchSystemData(ctx)
-			return
-		case <-time.After(arrivalPollInterval):
-			state := d.Client.GetState()
-			if state.CurrentPOI == targetPOI {
-				d.Logger.Printf("arrived at %s", targetPOI)
-				d.fetchSystemData(ctx)
-				return
-			}
-		}
-	}
-}
 
 // waitForSystemChange polls until state.Traveling becomes false after a jump,
 // then refreshes system data.

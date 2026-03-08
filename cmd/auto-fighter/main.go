@@ -153,7 +153,7 @@ func fighterLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 		state = client.GetState()
 		if state.CurrentPOI != combatPOI && !state.Traveling {
 			logger.Printf("🚀 Traveling to combat location %s...", combatPOI)
-			if err := client.Travel(ctx, combatPOI); err != nil {
+			if _, err := client.Travel(ctx, combatPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)
@@ -213,7 +213,7 @@ func fighterLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 
 		if state.CurrentPOI != stationPOI && !state.Traveling {
 			logger.Printf("🚀 Returning to station %s...", stationPOI)
-			if err := client.Travel(ctx, stationPOI); err != nil {
+			if _, err := client.Travel(ctx, stationPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
 			time.Sleep(20 * time.Second)

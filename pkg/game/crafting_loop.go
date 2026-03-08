@@ -279,7 +279,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 			// Need to travel to station first
 			if state.CurrentPOI != stationPOI && !state.Traveling {
 				logger.Printf("🚀 Traveling to station %s...", stationPOI)
-				if err := client.Travel(ctx, stationPOI); err != nil {
+				if _, err := client.Travel(ctx, stationPOI); err != nil {
 					logger.Printf("Travel error: %v", err)
 				}
 				time.Sleep(20 * time.Second)

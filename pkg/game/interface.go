@@ -18,7 +18,7 @@ type GameClient interface {
 	// Navigation
 	Undock(ctx context.Context) error
 	Dock(ctx context.Context) error
-	Travel(ctx context.Context, targetPOI string) error
+	Travel(ctx context.Context, targetPOI string) (*TravelResult, error)
 	Jump(ctx context.Context, targetSystem string) error
 
 	// Mining & Scanning

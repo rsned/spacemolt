@@ -313,7 +313,8 @@ func executeAction(client *game.Client, ctx context.Context, action string, args
 		if !ok {
 			return fmt.Errorf("travel requires poi_id argument")
 		}
-		return client.Travel(ctx, poiID)
+		_, err := client.Travel(ctx, poiID)
+		return err
 
 	case "dock":
 		return client.Dock(ctx)

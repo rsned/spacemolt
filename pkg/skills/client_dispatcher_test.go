@@ -454,7 +454,7 @@ func (m *mockGameClient) Login(ctx context.Context) error                       
 func (m *mockGameClient) Register(ctx context.Context, empire, registrationCode string) error  { return nil }
 func (m *mockGameClient) Undock(ctx context.Context) error                                     { return nil }
 func (m *mockGameClient) Dock(ctx context.Context) error                                       { return nil }
-func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) error                   { return nil }
+func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) (*game.TravelResult, error) { return nil, nil }
 func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) error                 { return nil }
 func (m *mockGameClient) Mine(ctx context.Context) error                                       { return nil }
 func (m *mockGameClient) Scan(ctx context.Context) error                                       { return nil }

@@ -450,7 +450,7 @@ func (b *BridgeService) executeTool(conn *AgentConnection, toolName string, args
 
 	case "travel":
 		poiID, _ := args["poi_id"].(string)
-		if err := conn.client.Travel(ctx, poiID); err != nil {
+		if _, err := conn.client.Travel(ctx, poiID); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("Traveling to %s", poiID), nil

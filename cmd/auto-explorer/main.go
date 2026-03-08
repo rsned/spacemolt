@@ -542,7 +542,7 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 
 		// Travel to POI if not already there
 		if state.CurrentPOI != poi.ID {
-			if err := client.Travel(ctx, poi.ID); err != nil {
+			if _, err := client.Travel(ctx, poi.ID); err != nil {
 				logger.Printf("Failed to travel to POI %s: %v", poi.ID, err)
 				continue
 			}
@@ -686,7 +686,7 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 	// Travel to station
 	if state.CurrentPOI != stationPOI.ID {
 		logger.Printf("🚀 Traveling to station: %s", stationPOI.Name)
-		if err := client.Travel(ctx, stationPOI.ID); err != nil {
+		if _, err := client.Travel(ctx, stationPOI.ID); err != nil {
 			return fmt.Errorf("failed to travel to station: %w", err)
 		}
 		time.Sleep(20 * time.Second)

@@ -397,7 +397,7 @@ func travelToBase(ctx context.Context, client *game.Client, logger *log.Logger) 
 	} else {
 		// Travel to base
 		logger.Printf("🛤️  Traveling to base...")
-		if err := client.Travel(ctx, basePOI.ID); err != nil {
+		if _, err := client.Travel(ctx, basePOI.ID); err != nil {
 			// Check if already traveling - if so, wait for arrival
 			if err.Error() == "already in transit - wait for arrival" {
 				logger.Printf("   Already in transit, waiting for arrival...")
@@ -432,7 +432,7 @@ func travelToBase(ctx context.Context, client *game.Client, logger *log.Logger) 
 	} else {
 		// Docked but at a different POI - need to travel to base first
 		logger.Printf("⚠️  Docked at different location, traveling to base...")
-		if err := client.Travel(ctx, basePOI.ID); err != nil {
+		if _, err := client.Travel(ctx, basePOI.ID); err != nil {
 			return fmt.Errorf("failed to travel to base: %w", err)
 		}
 		if err := waitForPOIArrival(ctx, client, logger, basePOI.ID); err != nil {

@@ -95,9 +95,9 @@ func (m *mockGameClient) Dock(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "dock")
 	return nil
 }
-func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) error {
+func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) (*game.TravelResult, error) {
 	m.actionsRecorded = append(m.actionsRecorded, "travel:"+targetPOI)
-	return nil
+	return nil, nil
 }
 func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "jump:"+targetSystem)

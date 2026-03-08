@@ -120,7 +120,7 @@ func NavigateAndDock(client *Client, ctx context.Context, logger *log.Logger) er
 	// Travel to station if not already there.
 	if state.CurrentPOI != stationPOI && !state.Traveling {
 		logger.Printf("Traveling to station %s...", stationPOI)
-		if err := client.Travel(ctx, stationPOI); err != nil {
+		if _, err := client.Travel(ctx, stationPOI); err != nil {
 			return fmt.Errorf("travel to station: %w", err)
 		}
 		// Wait for travel to complete.

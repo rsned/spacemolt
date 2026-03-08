@@ -213,7 +213,7 @@ func (a *RandomAgent) performAction(client *game.Client, logger *log.Logger, ctx
 			if len(pois) > 0 {
 				target := pois[rand.Intn(len(pois))]
 				logger.Printf("Traveling to POI: %s (%s)", target, poiNames[target])
-				_ = client.Travel(ctx, target)
+				_, _ = client.Travel(ctx, target)
 				logger.Printf("Travel initiated")
 			} else {
 				logger.Printf("No valid travel targets in system")

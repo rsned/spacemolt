@@ -93,6 +93,8 @@ type Client struct {
 	lastReceiveTime   time.Time // Time of last receive
 	diagnosticMu      sync.RWMutex
 	goroutineID       int64 // Counter for tracking goroutine instances
+
+	sendOverride func(ctx context.Context, msg protocol.Message) error // Test hook
 }
 
 // MessageHandler handles incoming game messages
@@ -476,6 +478,10 @@ func (c *Client) SetHandler(handler MessageHandler) {
 
 // Send sends a message to the game server
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
+	if c.sendOverride != nil {
+		return c.sendOverride(ctx, msg)
+	}
+
 	// Check IP rate limit before sending
 	c.ipBlockedMu.RLock()
 	blockedUntil := c.ipBlockedUntil
@@ -637,15 +643,58 @@ func (c *Client) Dock(ctx context.Context) error {
 }
 
 // Travel travels to a POI within the current system
-func (c *Client) Travel(ctx context.Context, targetPOI string) error {
+// Travel travels to a POI within the current system.
+// It blocks until the ship arrives at the destination or an error occurs.
+// The returned TravelResult contains the final POI the ship ended up at.
+func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, error) {
 	if err := c.Send(ctx, protocol.Message{
 		Type:      "travel",
 		Payload:   map[string]any{"target_poi": targetPOI},
 		Timestamp: time.Now().UnixMilli(),
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+
+	// Wait for initial server acknowledgment (OK or error).
+	resp, err := c.waitForInitialResponse(ctx, SleepTick)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle "already_there" — returned as an error response with code.
+	if resp.Type == protocol.TypeError {
+		if code, _ := resp.Payload["code"].(string); code == "already_there" {
+			state := c.GetState()
+			return &TravelResult{POI: state.CurrentPOI}, nil
+		}
+	}
+
+	// Compute timeout from arrival_tick if available, else use generous default.
+	timeout := 90 * time.Second
+	if arrivalTick, ok := resp.Payload["arrival_tick"].(float64); ok {
+		currentTick := c.GetState().CurrentTick
+		ticksRemaining := int64(arrivalTick) - currentTick
+		if ticksRemaining < 1 {
+			ticksRemaining = 1
+		}
+		// Each tick ~10s, plus 30s buffer for safety.
+		timeout = time.Duration(ticksRemaining)*SleepTick + 30*time.Second
+	}
+
+	c.debugLogger.Printf("Travel to %s: waiting up to %v for arrival", targetPOI, timeout)
+
+	// Block until state.Traveling becomes false (arrival or interruption).
+	if err := c.waitForStateChange(ctx, func(s *State) bool {
+		return !s.Traveling
+	}, timeout); err != nil {
+		return &TravelResult{Canceled: true}, fmt.Errorf("travel to %s: %w", targetPOI, err)
+	}
+
+	state := c.GetState()
+	return &TravelResult{
+		POI:      state.CurrentPOI,
+		Canceled: false,
+	}, nil
 }
 
 // Jump jumps to another system
@@ -3105,6 +3154,94 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			return fmt.Errorf("timeout waiting for action response")
 		case <-ctx.Done():
 			return ctx.Err()
+		}
+	}
+}
+
+// waitForInitialResponse waits for the first OK or error response from the server.
+// Unlike waitForActionResponse, it does NOT loop on pending/in-progress — it returns
+// the first response and lets the caller decide what to do.
+func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Duration) (protocol.Response, error) {
+	okChan := make(chan protocol.Response, 1)
+	errorChan := make(chan protocol.Response, 1)
+	actionErrorChan := make(chan protocol.Response, 1)
+
+	c.waiterMu.Lock()
+	c.waiters[protocol.TypeOK] = okChan
+	c.waiters[protocol.TypeError] = errorChan
+	c.waiters[protocol.TypeActionError] = actionErrorChan
+	c.waiterMu.Unlock()
+
+	defer func() {
+		c.waiterMu.Lock()
+		delete(c.waiters, protocol.TypeOK)
+		delete(c.waiters, protocol.TypeError)
+		delete(c.waiters, protocol.TypeActionError)
+		c.waiterMu.Unlock()
+	}()
+
+	deadline := time.After(timeout)
+
+	for {
+		select {
+		case resp := <-okChan:
+			// If pending, keep waiting for the real initial response.
+			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
+				c.debugLogger.Printf("Action pending — waiting for server to start")
+				deadline = time.After(timeout)
+				continue
+			}
+			return resp, nil
+
+		case resp := <-errorChan:
+			if code, ok := resp.Payload["code"].(string); ok {
+				switch code {
+				case "already_there", "already_docked", "not_docked":
+					return resp, nil // Benign — caller handles these
+				case "action_pending":
+					deadline = time.After(timeout)
+					continue
+				}
+			}
+			msg, _ := resp.Payload["message"].(string)
+			if msg == "" {
+				msg = "server error"
+			}
+			return resp, fmt.Errorf("%s", msg)
+
+		case resp := <-actionErrorChan:
+			msg, _ := resp.Payload["message"].(string)
+			if msg == "" {
+				msg = "action error"
+			}
+			return resp, fmt.Errorf("%s", msg)
+
+		case <-deadline:
+			return protocol.Response{}, fmt.Errorf("timeout waiting for initial response")
+
+		case <-ctx.Done():
+			return protocol.Response{}, ctx.Err()
+		}
+	}
+}
+
+// waitForStateChange polls the client state until check returns true.
+// It returns nil on success, or an error on timeout/context cancellation.
+func (c *Client) waitForStateChange(ctx context.Context, check func(*State) bool, timeout time.Duration) error {
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline:
+			return fmt.Errorf("timeout waiting for state change after %v", timeout)
+		case <-ticker.C:
+			if check(c.GetState()) {
+				return nil
+			}
 		}
 	}
 }
