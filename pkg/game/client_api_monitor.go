@@ -274,6 +274,11 @@ var eventExpectedFields = map[string]map[string]bool{
 		"message": true,
 		"code":    true,
 	},
+	protocol.TypePoliceSpawn: {
+		"message":    true,
+		"num_drones": true,
+		"target":     true,
+	},
 	protocol.TypeListings: {
 		"listings":     true,
 		"station_id":   true,
