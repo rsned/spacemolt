@@ -844,6 +844,8 @@ type TravelResponse struct {
 	Action              string         `json:"action"`
 	POI                 string         `json:"poi,omitempty"`
 	POIID               string         `json:"poi_id,omitempty"`
+	ArrivalTick         int64          `json:"arrival_tick,omitempty"`
+	Destination         string         `json:"destination,omitempty"`
 	OnlinePlayersCount  int            `json:"online_players_count,omitempty"`
 	OnlinePlayersTruncated bool        `json:"online_players_truncated,omitempty"`
 	OnlinePlayers       []NearbyPlayer `json:"online_players,omitempty"`
