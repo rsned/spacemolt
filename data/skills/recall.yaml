@@ -17,6 +17,7 @@ steps:
   - id: undock_wrong_poi
     action: undock
     next: find_station
+    on_error: find_station
 
   - id: find_station
     check: true
@@ -47,6 +48,7 @@ steps:
   - id: undock
     action: undock
     next: travel_home
+    on_error: travel_home
 
   - id: travel_home
     skill: travel

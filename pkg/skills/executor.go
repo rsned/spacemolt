@@ -111,8 +111,13 @@ func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 
 		nextID, err := e.executeStep(ctx, skill, step)
 		if err != nil {
-			e.logger.Printf("%s✗ skill:%s step:%s error: %v", indent, skill.Name, step.ID, err)
-			return fmt.Errorf("skill %q step %q: %w", skill.Name, step.ID, err)
+			if step.OnError != "" {
+				e.logger.Printf("%s  ⚠ %s error: %v → on_error: %s", indent, step.ID, err, step.OnError)
+				nextID = step.OnError
+			} else {
+				e.logger.Printf("%s✗ skill:%s step:%s error: %v", indent, skill.Name, step.ID, err)
+				return fmt.Errorf("skill %q step %q: %w", skill.Name, step.ID, err)
+			}
 		}
 
 		stepsExecuted++

@@ -56,6 +56,7 @@ type Step struct {
 	Terminal   bool          `yaml:"terminal,omitempty"`
 	Target     string        `yaml:"target,omitempty"`
 	Next       string        `yaml:"next,omitempty"`
+	OnError    string        `yaml:"on_error,omitempty"`
 	Conditions ConditionList `yaml:"conditions,omitempty"`
 	Args       map[string]string `yaml:"args,omitempty"`
 	Repeat     *Repeat       `yaml:"repeat,omitempty"`

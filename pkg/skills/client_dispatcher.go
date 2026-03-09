@@ -451,10 +451,20 @@ func (d *ClientDispatcher) doClearRouteProgress() error {
 func (d *ClientDispatcher) doFindPOIInSystem(poiName string) error {
 	state := d.Client.GetState()
 
+	// First try exact name match
 	for _, poi := range state.System.POIs {
 		if strings.EqualFold(poi.Name, poiName) {
 			d.FoundPOI = poi.ID
 			d.Logger.Printf("[poi] Found POI: %s (%s)", poi.Name, poi.ID)
+			return nil
+		}
+	}
+
+	// Fall back to type match (e.g. "station", "asteroid_belt")
+	for _, poi := range state.System.POIs {
+		if strings.EqualFold(poi.Type, poiName) {
+			d.FoundPOI = poi.ID
+			d.Logger.Printf("[poi] Found POI by type %q: %s (%s)", poiName, poi.Name, poi.ID)
 			return nil
 		}
 	}
