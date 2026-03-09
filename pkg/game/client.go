@@ -3046,12 +3046,14 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	errorChan := make(chan protocol.Response, 1)
 	actionErrorChan := make(chan protocol.Response, 1)
 	actionResultChan := make(chan protocol.Response, 1)
+	miningYieldChan := make(chan protocol.Response, 1)
 
 	c.waiterMu.Lock()
 	c.waiters[protocol.TypeOK] = okChan
 	c.waiters[protocol.TypeError] = errorChan
 	c.waiters[protocol.TypeActionError] = actionErrorChan
 	c.waiters[protocol.TypeActionResult] = actionResultChan
+	c.waiters[protocol.TypeMiningYield] = miningYieldChan
 	c.waiterMu.Unlock()
 
 	defer func() {
@@ -3060,6 +3062,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		delete(c.waiters, protocol.TypeError)
 		delete(c.waiters, protocol.TypeActionError)
 		delete(c.waiters, protocol.TypeActionResult)
+		delete(c.waiters, protocol.TypeMiningYield)
 		c.waiterMu.Unlock()
 	}()
 
@@ -3067,6 +3070,9 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 
 	for {
 		select {
+		case <-miningYieldChan:
+			// mining_yield is the completion signal for pending mine actions
+			return nil
 		case resp := <-okChan:
 			// Check if this is a pending action response
 			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
