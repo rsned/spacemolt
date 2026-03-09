@@ -322,17 +322,15 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 			if err := client.Undock(ctx); err != nil {
 				logger.Printf("Undock error: %v", err)
 			}
-			time.Sleep(12 * time.Second)
 		}
 
-		// Step 2: Travel to mining location
+		// Step 2: Travel to mining location (blocks until arrival)
 		state = client.GetState()
 		if state.CurrentPOI != miningPOI && !state.Traveling {
 			logger.Printf("🚀 Traveling to mining location %s...", miningPOI)
 			if _, err := client.Travel(ctx, miningPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
-			time.Sleep(20 * time.Second)
 		}
 
 		// Step 3: Mine until cargo full or fuel low
@@ -394,8 +392,6 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 				}
 			}
 
-			time.Sleep(11 * time.Second)
-
 			// Safety: max mining attempts per run
 			if mineCount >= maxMiningAttempts {
 				logger.Printf("✓ Reached max mining attempts (%d)", maxMiningAttempts)
@@ -421,7 +417,6 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 				if _, err := client.Travel(ctx, altMiningPOI); err != nil {
 					logger.Printf("Travel error: %v", err)
 				}
-				time.Sleep(20 * time.Second)
 				continue // Start mining at the new location
 			}
 			logger.Printf("⚠️  No alternative mining locations in system %s, returning to station", state.System.Name)
@@ -434,8 +429,6 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 		if err := client.GetSystem(ctx); err != nil {
 			logger.Printf("Failed to get system: %v", err)
 		}
-		time.Sleep(2 * time.Second)
-
 		state = client.GetState()
 		stationPOI = ""
 		for _, poi := range state.System.POIs {
@@ -456,7 +449,6 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 			if _, err := client.Travel(ctx, stationPOI); err != nil {
 				logger.Printf("Travel error: %v", err)
 			}
-			time.Sleep(20 * time.Second)
 		}
 
 		// Step 5: Dock at station
@@ -466,7 +458,6 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 				logger.Printf("Dock error: %v", err)
 			}
 		}
-		time.Sleep(15 * time.Second)
 
 		// Step 6: Handle cargo with station actions
 		state = client.GetState()
