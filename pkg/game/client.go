@@ -3199,8 +3199,8 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 				case "already_there", "already_docked", "not_docked":
 					return resp, nil // Benign — caller handles these
 				case "action_pending":
-					deadline = time.After(timeout)
-					continue
+					pendingCmd, _ := resp.Payload["pending_command"].(string)
+					return resp, fmt.Errorf("action pending: another action (%s) is in progress", pendingCmd)
 				}
 			}
 			msg, _ := resp.Payload["message"].(string)

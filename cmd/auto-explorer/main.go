@@ -547,7 +547,6 @@ func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger
 				continue
 			}
 			logger.Printf("→ Arrived at %s", poi.Name)
-			time.Sleep(20 * time.Second)
 		}
 
 		// Get POI details — this updates the POI in state with full data (resources, etc.)
@@ -689,7 +688,6 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 		if _, err := client.Travel(ctx, stationPOI.ID); err != nil {
 			return fmt.Errorf("failed to travel to station: %w", err)
 		}
-		time.Sleep(20 * time.Second)
 	}
 
 	// Dock
