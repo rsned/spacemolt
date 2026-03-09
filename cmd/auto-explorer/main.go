@@ -453,10 +453,8 @@ func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string)
 		}
 
 		logger.Printf("🌟 Jumping to %s...", targetSystem)
-		err := client.Jump(ctx, targetSystem)
+		_, err := client.Jump(ctx, targetSystem)
 		if err == nil {
-			// Jump initiated successfully, wait for travel
-			time.Sleep(game.SleepJump)
 			return nil
 		}
 

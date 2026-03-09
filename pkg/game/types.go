@@ -265,6 +265,14 @@ type TravelResult struct {
 	Canceled bool   // True if travel was interrupted (e.g., combat)
 }
 
+// JumpResult contains the outcome of a completed Jump() call.
+type JumpResult struct {
+	SystemID   string // ID of the system jumped to
+	SystemName string // Human-readable system name
+	POI        string // POI arrived at in the new system
+	Canceled   bool   // True if jump was interrupted
+}
+
 // BattleParticipant represents a participant in a tactical battle.
 type BattleParticipant struct {
 	PlayerID  string `json:"player_id"`

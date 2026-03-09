@@ -217,7 +217,8 @@ func (s *SafeCommandBuilder) Travel(ctx context.Context, targetPOI string) error
 // Jump safely jumps to another system
 func (s *SafeCommandBuilder) Jump(ctx context.Context, targetSystem string) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.Jump(ctx, targetSystem)
+		_, err := s.client.Jump(ctx, targetSystem)
+		return err
 	})
 }
 

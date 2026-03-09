@@ -99,9 +99,9 @@ func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) (*game.Tr
 	m.actionsRecorded = append(m.actionsRecorded, "travel:"+targetPOI)
 	return nil, nil
 }
-func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) error {
+func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) (*game.JumpResult, error) {
 	m.actionsRecorded = append(m.actionsRecorded, "jump:"+targetSystem)
-	return nil
+	return nil, nil
 }
 
 // Mining & Scanning

@@ -698,15 +698,58 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 }
 
 // Jump jumps to another system
-func (c *Client) Jump(ctx context.Context, targetSystem string) error {
+// Jump jumps to another system.
+// It blocks until the ship arrives in the new system or an error occurs.
+// The returned JumpResult contains the destination system info.
+func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, error) {
 	if err := c.Send(ctx, protocol.Message{
 		Type:      "jump",
 		Payload:   map[string]any{"target_system": targetSystem},
 		Timestamp: time.Now().UnixMilli(),
 	}); err != nil {
-		return err
+		return nil, err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+
+	// Wait for initial server acknowledgment.
+	resp, err := c.waitForInitialResponse(ctx, SleepTick)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle benign errors.
+	if resp.Type == protocol.TypeError {
+		if code, _ := resp.Payload["code"].(string); code == "already_there" {
+			state := c.GetState()
+			return &JumpResult{SystemID: state.System.ID, SystemName: state.System.Name}, nil
+		}
+	}
+
+	// Compute timeout from arrival_tick if available.
+	timeout := 90 * time.Second
+	if arrivalTick, ok := resp.Payload["arrival_tick"].(float64); ok {
+		currentTick := c.GetState().CurrentTick
+		ticksRemaining := int64(arrivalTick) - currentTick
+		if ticksRemaining < 1 {
+			ticksRemaining = 1
+		}
+		timeout = time.Duration(ticksRemaining)*SleepTick + 30*time.Second
+	}
+
+	c.debugLogger.Printf("Jump to %s: waiting up to %v for arrival", targetSystem, timeout)
+
+	// Block until state.Traveling becomes false (jump completed).
+	if err := c.waitForStateChange(ctx, func(s *State) bool {
+		return !s.Traveling
+	}, timeout); err != nil {
+		return &JumpResult{Canceled: true}, fmt.Errorf("jump to %s: %w", targetSystem, err)
+	}
+
+	state := c.GetState()
+	return &JumpResult{
+		SystemID:   state.System.ID,
+		SystemName: state.System.Name,
+		POI:        state.CurrentPOI,
+	}, nil
 }
 
 // Mine mines resources at the current location

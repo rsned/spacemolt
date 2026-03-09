@@ -233,17 +233,11 @@ func executeRecall(ctx context.Context, client *game.Client, logger *log.Logger,
 func performJump(ctx context.Context, client *game.Client, logger *log.Logger, targetSystem, _ string) error {
 	// Execute jump - let the server validate if it's possible
 	logger.Printf("   Initiating jump...")
-	if err := client.Jump(ctx, targetSystem); err != nil {
-		// Check if already traveling/jumping - wait for completion
-		if err.Error() == "already in transit - wait for arrival" {
-			logger.Printf("   Already in transit, waiting for arrival...")
-			return waitForTravelComplete(ctx, client, logger, JumpTimeout)
-		}
+	if _, err := client.Jump(ctx, targetSystem); err != nil {
 		return fmt.Errorf("jump command failed: %w", err)
 	}
 
-	// Wait for jump to complete
-	return waitForTravelComplete(ctx, client, logger, JumpTimeout)
+	return nil
 }
 
 // waitForUndock waits for undock to complete by monitoring state
@@ -272,62 +266,6 @@ func waitForUndock(ctx context.Context, client *game.Client, logger *log.Logger)
 			if !state.Doc {
 				logger.Printf("   ✓ Undock complete")
 				return nil
-			}
-		}
-	}
-}
-
-// waitForTravelComplete waits for travel/jump to complete by monitoring state
-func waitForTravelComplete(ctx context.Context, client *game.Client, logger *log.Logger, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	ticker := time.NewTicker(TickInterval)
-	defer ticker.Stop()
-
-	lastProgress := -1.0
-	lastSystem := ""
-	wasTraveling := false
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(timeout):
-			return fmt.Errorf("timeout waiting for travel to complete")
-		case <-ticker.C:
-			if time.Now().After(deadline) {
-				return fmt.Errorf("timeout waiting for travel to complete")
-			}
-
-			state := client.GetState()
-
-			// If we were traveling and now we're not, we've arrived
-			if wasTraveling && !state.Traveling {
-				logger.Printf("   ✓ Travel complete (now in %s)", state.CurrentSystem)
-				return nil
-			}
-
-			// Track if we're currently traveling
-			if state.Traveling {
-				wasTraveling = true
-			}
-
-			// Show progress if available
-			if state.TravelProgress != nil {
-				progress := state.TravelProgress.Progress
-				dest := state.TravelProgress.Destination
-				travelType := state.TravelProgress.Type
-
-				// Log progress updates periodically
-				if dest != lastSystem || int(progress*10) != int(lastProgress*10) {
-					travelIcon := "🚀"
-					if travelType == "jump" {
-						travelIcon = "⚡"
-					}
-					logger.Printf("   %s %s to %s... (%.0f%%)",
-						travelIcon, travelType, dest, progress*100)
-					lastProgress = progress
-					lastSystem = dest
-				}
 			}
 		}
 	}

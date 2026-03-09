@@ -703,6 +703,98 @@ func TestTravel_AlreadyAtDestination(t *testing.T) {
 	}
 }
 
+// TestJump_BlocksUntilArrived verifies that Jump() blocks until
+// state.Traveling becomes false and returns the new system info.
+func TestJump_BlocksUntilArrived(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+
+	client.sendOverride = func(ctx context.Context, msg protocol.Message) error {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+
+		client.mu.Lock()
+		client.state.Traveling = true
+		client.mu.Unlock()
+
+		client.waiterMu.Lock()
+		if ch, ok := client.waiters[protocol.TypeOK]; ok {
+			ch <- protocol.Response{
+				Type: protocol.TypeOK,
+				Payload: map[string]any{
+					"action":       "jump",
+					"arrival_tick": float64(3),
+				},
+			}
+		}
+		client.waiterMu.Unlock()
+
+		// Simulate jump completion
+		time.Sleep(300 * time.Millisecond)
+		client.mu.Lock()
+		client.state.Traveling = false
+		client.state.System.ID = "crimson"
+		client.state.System.Name = "Crimson"
+		client.state.CurrentPOI = "jump_gate_1"
+		client.mu.Unlock()
+	}()
+
+	result, err := client.Jump(ctx, "crimson")
+	if err != nil {
+		t.Fatalf("Jump() returned error: %v", err)
+	}
+	if result.SystemID != "crimson" {
+		t.Errorf("expected SystemID 'crimson', got %q", result.SystemID)
+	}
+	if result.SystemName != "Crimson" {
+		t.Errorf("expected SystemName 'Crimson', got %q", result.SystemName)
+	}
+	if result.Canceled {
+		t.Error("expected Canceled=false")
+	}
+}
+
+// TestJump_TimeoutReturnsError verifies Jump() returns an error on timeout.
+func TestJump_TimeoutReturnsError(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+
+	client.sendOverride = func(ctx context.Context, msg protocol.Message) error {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		client.mu.Lock()
+		client.state.Traveling = true
+		client.mu.Unlock()
+
+		client.waiterMu.Lock()
+		if ch, ok := client.waiters[protocol.TypeOK]; ok {
+			ch <- protocol.Response{
+				Type: protocol.TypeOK,
+				Payload: map[string]any{
+					"action":       "jump",
+					"arrival_tick": float64(1),
+				},
+			}
+		}
+		client.waiterMu.Unlock()
+	}()
+
+	_, err := client.Jump(ctx, "unknown_system")
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+}
+
 // TestJSON_RoundTrip verifies Response JSON marshaling/unmarshaling
 func TestJSON_RoundTrip(t *testing.T) {
 	original := protocol.Response{

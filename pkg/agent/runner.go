@@ -381,7 +381,8 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 			return fmt.Errorf("jump requires target system")
 		}
 		r.logger.Printf("[%s] -> Jump('%s')", r.agent.ID(), decision.Target)
-		return r.gameClient.Jump(actionCtx, decision.Target)
+		_, err := r.gameClient.Jump(actionCtx, decision.Target)
+		return err
 
 	// ---- Mining & Scanning ----
 	case "mine":

@@ -154,23 +154,9 @@ func jumpAndWait(client *Client, ctx context.Context, targetSystem string, logge
 		time.Sleep(SleepUndock)
 	}
 
-	if err := client.Jump(ctx, targetSystem); err != nil {
+	if _, err := client.Jump(ctx, targetSystem); err != nil {
 		return fmt.Errorf("jump to %s: %w", targetSystem, err)
 	}
-
-	// Wait for the jump action to execute on the server (it's pending until next tick).
-	time.Sleep(SleepJump)
-
-	// Then poll until we're no longer traveling (for variable-length jumps).
-	if err := waitForArrival(client, ctx, 120*time.Second); err != nil {
-		return fmt.Errorf("waiting after jump to %s: %w", targetSystem, err)
-	}
-
-	// Refresh system data at new location.
-	if err := client.GetSystem(ctx); err != nil {
-		logger.Printf("Warning: failed to get system data after jump: %v", err)
-	}
-	time.Sleep(SleepQuick)
 
 	return nil
 }

@@ -70,7 +70,7 @@ func (d *ClientDispatcher) Dispatch(ctx context.Context, action, target string) 
 	}
 
 	// Wait for the server tick after actions that consume one.
-	if isTickAction(action) && action != "travel" {
+	if isTickAction(action) && action != "travel" && action != "jump" {
 		delay := d.TickDelay
 		if delay == 0 {
 			delay = game.SleepTick + time.Second
@@ -113,10 +113,9 @@ func (d *ClientDispatcher) dispatch(ctx context.Context, action, target string) 
 				jumpTarget = val
 			}
 		}
-		if err := d.Client.Jump(ctx, jumpTarget); err != nil {
+		if _, err := d.Client.Jump(ctx, jumpTarget); err != nil {
 			return err
 		}
-		d.waitForSystemChange(ctx)
 		return nil
 	case "find_route":
 		if target == "" {
@@ -463,32 +462,7 @@ func (d *ClientDispatcher) doFindPOIInSystem(poiName string) error {
 	return fmt.Errorf("POI %q not found in system %s", poiName, state.System.Name)
 }
 
-const (
-	arrivalPollInterval = time.Second
-	arrivalTimeout      = game.SleepJump + game.SleepTick // 30s
-)
 
-// waitForSystemChange polls until state.Traveling becomes false after a jump,
-// then refreshes system data.
-func (d *ClientDispatcher) waitForSystemChange(ctx context.Context) {
-	deadline := time.After(arrivalTimeout)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-deadline:
-			d.Logger.Printf("warning: timed out waiting for jump completion")
-			d.fetchSystemData(ctx)
-			return
-		case <-time.After(arrivalPollInterval):
-			state := d.Client.GetState()
-			if !state.Traveling {
-				d.fetchSystemData(ctx)
-				return
-			}
-		}
-	}
-}
 
 // fetchSystemData calls GetSystem to populate POI data for condition evaluation.
 func (d *ClientDispatcher) fetchSystemData(ctx context.Context) {
