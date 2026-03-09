@@ -71,6 +71,20 @@ func (e *Executor) RunWithParams(ctx context.Context, skillName string, params m
 	return e.runSkill(ctx, skill)
 }
 
+// isFatalError returns true for errors that should not be retried via on_error
+// because retrying would be pointless (e.g. no connection to the server).
+func isFatalError(err error) bool {
+	msg := err.Error()
+	switch {
+	case msg == "not connected":
+		return true
+	case strings.Contains(msg, "context canceled"):
+		return true
+	default:
+		return false
+	}
+}
+
 func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 	if e.depth >= maxNestingDepth {
 		return fmt.Errorf("skill nesting depth exceeded (%d) -- possible circular reference", maxNestingDepth)
@@ -111,7 +125,7 @@ func (e *Executor) runSkill(ctx context.Context, skill *Skill) error {
 
 		nextID, err := e.executeStep(ctx, skill, step)
 		if err != nil {
-			if step.OnError != "" {
+			if step.OnError != "" && !isFatalError(err) {
 				e.logger.Printf("%s  ⚠ %s error: %v → on_error: %s", indent, step.ID, err, step.OnError)
 				nextID = step.OnError
 			} else {
