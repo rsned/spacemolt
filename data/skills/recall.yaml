@@ -34,10 +34,12 @@ steps:
     action: travel
     target: $found_poi
     next: dock_at_station
+    on_error: find_station
 
   - id: dock_at_station
     action: dock
     next: done
+    on_error: find_station
 
   - id: prepare_travel
     check: true
