@@ -261,6 +261,8 @@ var eventExpectedFields = map[string]map[string]bool{
 		"message": true,
 		"success": true,
 		"result":  true,
+		"command": true,
+		"tick":    true,
 	},
 	protocol.TypeError: {
 		"message":         true,
