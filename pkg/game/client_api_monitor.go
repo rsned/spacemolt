@@ -193,9 +193,18 @@ var actionResponseTypes = map[string]reflect.Type{
 // Event types not listed here skip field-level checking.
 var eventExpectedFields = map[string]map[string]bool{
 	protocol.TypeWelcome: {
-		"current_tick": true,
-		"version":      true,
-		"message":      true,
+		"current_tick":   true,
+		"version":        true,
+		"message":        true,
+		"game_info":      true,
+		"help_text":      true,
+		"motd":           true,
+		"release_date":   true,
+		"release_notes":  true,
+		"server_time":    true,
+		"terms":          true,
+		"tick_rate":      true,
+		"website":        true,
 	},
 	protocol.TypeRegistered: {
 		"password":       true,
