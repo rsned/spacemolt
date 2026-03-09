@@ -273,6 +273,8 @@ var eventExpectedFields = map[string]map[string]bool{
 		"action":  true,
 		"message": true,
 		"code":    true,
+		"command": true,
+		"tick":    true,
 	},
 	protocol.TypeReconnected: {
 		"message":         true,
