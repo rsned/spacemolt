@@ -231,6 +231,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"pending_trades": true,
 		"release_info":   true,
 		"unread_chat":    true,
+		"recent_chat":    true,
 	},
 	protocol.TypeStateUpdate: {
 		"tick":      true,
