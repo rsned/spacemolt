@@ -274,6 +274,11 @@ var eventExpectedFields = map[string]map[string]bool{
 		"message": true,
 		"code":    true,
 	},
+	protocol.TypeReconnected: {
+		"message":         true,
+		"ticks_remaining": true,
+		"was_pilotless":   true,
+	},
 	protocol.TypePoliceSpawn: {
 		"message":    true,
 		"num_drones": true,
