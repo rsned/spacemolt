@@ -292,9 +292,14 @@ var eventExpectedFields = map[string]map[string]bool{
 		"station_name": true,
 	},
 	protocol.TypeMiningYield: {
-		"resource_id": true,
-		"quantity":    true,
-		"message":     true,
+		"resource_id":       true,
+		"quantity":          true,
+		"message":           true,
+		"depletion_percent": true,
+		"max_remaining":     true,
+		"remaining":         true,
+		"remaining_display": true,
+		"resource_name":     true,
 	},
 	protocol.TypePirateWarning: {
 		"pirate_name": true,

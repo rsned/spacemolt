@@ -41,30 +41,32 @@ func EvalExprWithRoute(expr string, state *game.State, route *RouteProgress, cus
 		return !result, nil
 	}
 
-	// AND operator
-	if parts := strings.Split(expr, " AND "); len(parts) == 2 {
-		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route, customVars)
-		if err != nil {
-			return false, err
+	// AND operator (supports N-way: "A AND B AND C")
+	if parts := strings.Split(expr, " AND "); len(parts) >= 2 {
+		for _, part := range parts {
+			result, err := EvalExprWithRoute(strings.TrimSpace(part), state, route, customVars)
+			if err != nil {
+				return false, err
+			}
+			if !result {
+				return false, nil
+			}
 		}
-		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route, customVars)
-		if err != nil {
-			return false, err
-		}
-		return left && right, nil
+		return true, nil
 	}
 
-	// OR operator
-	if parts := strings.Split(expr, " OR "); len(parts) == 2 {
-		left, err := EvalExprWithRoute(strings.TrimSpace(parts[0]), state, route, customVars)
-		if err != nil {
-			return false, err
+	// OR operator (supports N-way: "A OR B OR C")
+	if parts := strings.Split(expr, " OR "); len(parts) >= 2 {
+		for _, part := range parts {
+			result, err := EvalExprWithRoute(strings.TrimSpace(part), state, route, customVars)
+			if err != nil {
+				return false, err
+			}
+			if result {
+				return true, nil
+			}
 		}
-		right, err := EvalExprWithRoute(strings.TrimSpace(parts[1]), state, route, customVars)
-		if err != nil {
-			return false, err
-		}
-		return left || right, nil
+		return false, nil
 	}
 
 	// Check if expression is a function call: name(args...)

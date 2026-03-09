@@ -352,6 +352,7 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 		logger.Printf("⛏️  Starting mining operations... (max %d attempts with %d laser(s))",
 			maxMiningAttempts, numMiningLasers)
 
+		beltDepleted := false
 		for {
 			state = client.GetState()
 
@@ -371,10 +372,20 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 
 			// Mine
 			if err := client.Mine(ctx); err != nil {
-				if err.Error() == "must undock first - currently docked at station" {
+				errMsg := err.Error()
+				switch {
+				case errMsg == "must undock first - currently docked at station":
+					break
+				case strings.Contains(strings.ToLower(errMsg), "nothing to mine"):
+					logger.Printf("⚠️  Belt depleted: %s", errMsg)
+					beltDepleted = true
+				default:
+					// Log other errors but continue (might be rate limited)
+					logger.Printf("⚠️  Mine error: %s", errMsg)
+				}
+				if beltDepleted || errMsg == "must undock first - currently docked at station" {
 					break
 				}
-				// Silently continue on other errors (might be rate limited)
 			} else {
 				mineCount++
 				if mineCount%3 == 0 { // Log every 3rd mine to reduce spam
@@ -390,6 +401,30 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 				logger.Printf("✓ Reached max mining attempts (%d)", maxMiningAttempts)
 				break
 			}
+		}
+
+		// If belt is depleted, try to find another mining POI in the system
+		if beltDepleted {
+			logger.Printf("🔍 Belt depleted at %s, looking for another mining location...", miningPOI)
+			altMiningPOI := ""
+			for _, poi := range state.System.POIs {
+				if (poi.Type == "asteroid_belt" || poi.Type == "asteroid_field") && poi.ID != miningPOI {
+					altMiningPOI = poi.ID
+					break
+				}
+			}
+			if altMiningPOI != "" {
+				logger.Printf("🔄 Found alternative mining location: %s", altMiningPOI)
+				miningPOI = altMiningPOI
+				// Travel directly to the new belt instead of going back to station
+				logger.Printf("🚀 Traveling to %s...", altMiningPOI)
+				if _, err := client.Travel(ctx, altMiningPOI); err != nil {
+					logger.Printf("Travel error: %v", err)
+				}
+				time.Sleep(20 * time.Second)
+				continue // Start mining at the new location
+			}
+			logger.Printf("⚠️  No alternative mining locations in system %s, returning to station", state.System.Name)
 		}
 
 		logger.Printf("✓ Mined %d times this run", mineCount)

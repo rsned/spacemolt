@@ -1,5 +1,5 @@
 name: recall
-description: Return agent to empire capital system and dock at home base
+description: Return agent to empire capital system and dock at the station
 
 parameters: []
 
@@ -9,9 +9,34 @@ steps:
   - id: check_already_home
     check: true
     conditions:
-      at_system(capital_system_id) AND docked: goto done
-      at_system(capital_system_id): goto ensure_docked
+      at_system(capital_system_id) AND at_poi_type(station) AND docked: goto done
+      at_system(capital_system_id) AND docked: goto undock_wrong_poi
+      at_system(capital_system_id): goto find_station
       default: goto prepare_travel
+
+  - id: undock_wrong_poi
+    action: undock
+    next: find_station
+
+  - id: find_station
+    check: true
+    conditions:
+      at_poi_type(station): goto dock_at_station
+      default: goto travel_to_station
+
+  - id: travel_to_station
+    action: find_poi_in_system
+    target: station
+    next: go_to_station
+
+  - id: go_to_station
+    action: travel
+    target: $found_poi
+    next: dock_at_station
+
+  - id: dock_at_station
+    action: dock
+    next: done
 
   - id: prepare_travel
     check: true
@@ -27,27 +52,7 @@ steps:
     skill: travel
     skill_params:
       destination_system: $capital_system_id
-    next: ensure_docked
-
-  - id: ensure_docked
-    check: true
-    conditions:
-      docked: goto done
-      default: goto find_base
-
-  - id: find_base
-    action: find_poi_in_system
-    target: $capital_base
-    next: travel_to_base
-
-  - id: travel_to_base
-    action: travel
-    target: $found_poi
-    next: dock_at_base
-
-  - id: dock_at_base
-    action: dock
-    next: done
+    next: find_station
 
   - id: done
     terminal: true

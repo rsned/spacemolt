@@ -45,7 +45,25 @@ steps:
       while:
         - cargo_pct < 0.97
         - fuel_pct > 0.1
-    next: return_to_station
+    conditions:
+      error_contains(nothing to mine): goto find_alt_belt
+      default: goto return_to_station
+
+  - id: find_alt_belt
+    check: true
+    description: Belt depleted, look for another mining location in the system
+    conditions:
+      has_alt_poi_type(asteroid_belt, asteroid_field): goto travel_to_alt_belt
+      has_alt_poi_type(asteroid_field): goto travel_to_alt_belt
+      default: goto return_to_station
+
+  - id: travel_to_alt_belt
+    action: travel
+    target: $alt_mining_site
+    conditions:
+      current_poi_type == asteroid_belt: goto mine_loop
+      current_poi_type == asteroid_field: goto mine_loop
+      default: goto travel_to_alt_belt
 
   - id: return_to_station
     action: travel
