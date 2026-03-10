@@ -18,43 +18,56 @@ func main() {
 		agentID        = flag.String("agent", "miner-1", "Agent ID for route persistence")
 		baseDir        = flag.String("data", "data", "Base directory for agent data")
 		skillName      = flag.String("skill", "travel", "Skill to run (travel or recall)")
+		transport      = flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 		debug          = flag.Bool("debug", false, "Enable debug logging")
 	)
 	flag.Parse()
 
 	logger := log.New(os.Stderr, "[test-travel] ", log.LstdFlags)
-
-	// Get credentials from storage
-	provider := credentials.NewFileProvider(*baseDir + "/agents")
 	ctx := context.Background()
-
-	creds, err := provider.GetCredentials(ctx, *agentID)
-	if err != nil {
-		logger.Fatalf("Get credentials for %s: %v", *agentID, err)
-	}
-
-	gameURL := "wss://game.spacemolt.com/ws"
 
 	registry := skills.NewRegistry()
 	if err := registry.LoadFromDir(*baseDir + "/skills"); err != nil {
 		logger.Fatalf("Load skills: %v", err)
 	}
 
-	client := game.NewClient(gameURL, creds.Username, creds.Password, logger)
-	client.SetDebugLogging(*debug)
+	var client game.GameClient
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		mcpClient, _, mcpErr := game.InitializeMCPAgent(*agentID, logger, ctx, *debug)
+		if mcpErr != nil {
+			logger.Fatalf("Failed to initialize MCP agent: %v", mcpErr)
+		}
+		client = mcpClient
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		provider := credentials.NewFileProvider(*baseDir + "/agents")
+		creds, err := provider.GetCredentials(ctx, *agentID)
+		if err != nil {
+			logger.Fatalf("Get credentials for %s: %v", *agentID, err)
+		}
 
-	if err := client.Connect(ctx); err != nil {
-		logger.Fatalf("Connect: %v", err)
+		gameURL := "wss://game.spacemolt.com/ws"
+		wsClient := game.NewClient(gameURL, creds.Username, creds.Password, logger)
+		wsClient.SetDebugLogging(*debug)
+
+		if err := wsClient.Connect(ctx); err != nil {
+			logger.Fatalf("Connect: %v", err)
+		}
+
+		if err := wsClient.Login(ctx); err != nil {
+			logger.Fatalf("Login: %v", err)
+		}
+		client = wsClient
+	default:
+		logger.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
 			logger.Printf("Close error: %v", err)
 		}
 	}()
-
-	if err := client.Login(ctx); err != nil {
-		logger.Fatalf("Login: %v", err)
-	}
 
 	dispatcher := skills.NewClientDispatcher(client, *baseDir, *agentID, logger)
 	executor := skills.NewExecutor(registry, dispatcher, logger)

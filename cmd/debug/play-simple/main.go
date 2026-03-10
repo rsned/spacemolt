@@ -63,10 +63,16 @@ func (h *GameHandler) OnDisconnected(err error) {
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
+	if *transport != "ws" {
+		fmt.Println("Error: play-simple only supports --transport=ws (interactive mode requires WebSocket)")
+		os.Exit(1)
+	}
+
 	if len(flag.Args()) < 1 {
-		fmt.Println("Usage: play-simple <agent-id>")
+		fmt.Println("Usage: play-simple [flags] <agent-id>")
 		fmt.Println("Example: play-simple pirate-4")
 		os.Exit(1)
 	}

@@ -357,6 +357,25 @@ func (m *mockGameClient) GetNotes(ctx context.Context) error {
 	return nil
 }
 
+// Market & Ships
+func (m *mockGameClient) GetMarketListings() []game.MarketListing { return nil }
+func (m *mockGameClient) GetRawJSON(key string) []byte            { return nil }
+func (m *mockGameClient) ListShips(ctx context.Context) error     { return nil }
+func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error { return nil }
+func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error   { return nil }
+func (m *mockGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) CreateBuyOrder(ctx context.Context, payload map[string]any) error  { return nil }
+func (m *mockGameClient) ViewMarket(ctx context.Context, itemID string) error               { return nil }
+func (m *mockGameClient) ViewOrders(ctx context.Context) error                              { return nil }
+
+// Missions
+func (m *mockGameClient) GetMissions(ctx context.Context) error                  { return nil }
+func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) error { return nil }
+
+// Survey & Log
+func (m *mockGameClient) SurveySystem(ctx context.Context) error                 { return nil }
+func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error { return nil }
+
 func TestRunner_StartAndStop(t *testing.T) {
 	agent := &mockAgent{id: "test-agent"}
 	client := newMockGameClient()

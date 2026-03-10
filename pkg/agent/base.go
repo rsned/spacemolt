@@ -931,6 +931,7 @@ func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 		SystemID:        poi.SystemID,
 		Name:            poi.Name,
 		Type:            poi.Type,
+		Class:           poi.Class,
 		Description:     poi.Description,
 		Position:        poi.Position,
 		Resources:       poi.Resources, // game.POIResource is compatible

@@ -19,10 +19,74 @@ const (
 )
 
 type Scraper struct {
-	client    *game.Client
+	client    game.GameClient
+	wsClient  *game.Client // non-nil only for WS transport
 	logger    *log.Logger
 	agentID   string
 	outputDir string
+}
+
+// send delegates to the WS client's Send method. Returns an error if not using WS transport.
+func (s *Scraper) send(ctx context.Context, msg protocol.Message) error {
+	if s.wsClient != nil {
+		return s.wsClient.Send(ctx, msg)
+	}
+	return fmt.Errorf("raw Send not supported on MCP transport")
+}
+
+// clearLastError delegates to the WS client's ClearLastError.
+func (s *Scraper) clearLastError() {
+	if s.wsClient != nil {
+		s.wsClient.ClearLastError()
+	}
+}
+
+// getLastError delegates to the WS client's GetLastError.
+func (s *Scraper) getLastError() map[string]any {
+	if s.wsClient != nil {
+		return s.wsClient.GetLastError()
+	}
+	return nil
+}
+
+// ensureConnected delegates to the WS client's EnsureConnected.
+func (s *Scraper) ensureConnected(ctx context.Context) error {
+	if s.wsClient != nil {
+		return s.wsClient.EnsureConnected(ctx)
+	}
+	return nil
+}
+
+// getCargo delegates to the WS client's GetCargo method (not on GameClient interface).
+func (s *Scraper) getCargo(ctx context.Context) error {
+	if s.wsClient != nil {
+		return s.wsClient.GetCargo(ctx)
+	}
+	return fmt.Errorf("GetCargo not supported on MCP transport")
+}
+
+// getActiveMissions delegates to the WS client's GetActiveMissions method.
+func (s *Scraper) getActiveMissions(ctx context.Context) error {
+	if s.wsClient != nil {
+		return s.wsClient.GetActiveMissions(ctx)
+	}
+	return fmt.Errorf("GetActiveMissions not supported on MCP transport")
+}
+
+// getInsuranceQuote delegates to the WS client's GetInsuranceQuote method.
+func (s *Scraper) getInsuranceQuote(ctx context.Context) error {
+	if s.wsClient != nil {
+		return s.wsClient.GetInsuranceQuote(ctx)
+	}
+	return fmt.Errorf("GetInsuranceQuote not supported on MCP transport")
+}
+
+// getCommands delegates to the WS client's GetCommands method.
+func (s *Scraper) getCommands(ctx context.Context) error {
+	if s.wsClient != nil {
+		return s.wsClient.GetCommands(ctx)
+	}
+	return fmt.Errorf("GetCommands not supported on MCP transport")
 }
 
 // formatErrorMessage provides a helpful error message based on error codes
@@ -91,7 +155,7 @@ func (s *Scraper) ensureConnectionReady() error {
 
 	// If we're here, connection is not ready - try to reconnect
 	s.logger.Printf("  🔌 Attempting to reconnect...")
-	if err := s.client.EnsureConnected(ctx); err != nil {
+	if err := s.ensureConnected(ctx); err != nil {
 		return fmt.Errorf("failed to reconnect: %w", err)
 	}
 
@@ -101,6 +165,7 @@ func (s *Scraper) ensureConnectionReady() error {
 // Helper function to get POI name by ID
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -136,11 +201,28 @@ func main() {
 
 	// Initialize client using standard agent initialization
 	ctx := context.Background()
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		logger.Fatalf("Initialization failed: %v", err)
+	var creds *game.Credentials
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		mcpClient, mcpCreds, mcpErr := game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if mcpErr != nil {
+			logger.Fatalf("MCP initialization failed: %v", mcpErr)
+		}
+		creds = mcpCreds
+		scraper.client = mcpClient
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		wsClient, wsCreds, wsErr := game.InitializeAgent(agentID, logger, ctx, *debug)
+		if wsErr != nil {
+			logger.Fatalf("Initialization failed: %v", wsErr)
+		}
+		creds = wsCreds
+		scraper.client = wsClient
+		scraper.wsClient = wsClient
+	default:
+		logger.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
-	scraper.client = client
 	defer func() {
 		if err := scraper.client.Close(); err != nil {
 			logger.Printf("Warning: error closing client: %v", err)
@@ -322,7 +404,7 @@ func (s *Scraper) scrapeStatus() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Get status
 	if err := s.client.GetStatus(ctx); err != nil {
@@ -334,7 +416,7 @@ func (s *Scraper) scrapeStatus() error {
 	rawJSON := s.client.GetRawJSON("status")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_status", errResp))
 	}
 
@@ -345,13 +427,13 @@ func (s *Scraper) scrapeShip() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request ship info
 	msg := protocol.Message{
 		Type: "get_ship",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("get_ship failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
@@ -360,7 +442,7 @@ func (s *Scraper) scrapeShip() error {
 	rawJSON := s.client.GetRawJSON("ship")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_ship", errResp))
 	}
 
@@ -371,7 +453,7 @@ func (s *Scraper) scrapePOI() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Get POI info
 	if err := s.client.GetPOI(ctx); err != nil {
@@ -383,7 +465,7 @@ func (s *Scraper) scrapePOI() error {
 	rawJSON := s.client.GetRawJSON("poi")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_poi", errResp))
 	}
 
@@ -394,7 +476,7 @@ func (s *Scraper) scrapeSystem() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Get system info
 	if err := s.client.GetSystem(ctx); err != nil {
@@ -406,7 +488,7 @@ func (s *Scraper) scrapeSystem() error {
 	rawJSON := s.client.GetRawJSON("system")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_system", errResp))
 	}
 
@@ -417,7 +499,7 @@ func (s *Scraper) scrapeMap() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request first page of map data with pagination parameters
 	msg := protocol.Message{
@@ -427,7 +509,7 @@ func (s *Scraper) scrapeMap() error {
 			"limit":  100, // Server default is 100 systems per page
 		},
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("get_map page 1 failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -436,7 +518,7 @@ func (s *Scraper) scrapeMap() error {
 	rawJSON := s.client.GetRawJSON("systems")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_map", errResp))
 	}
 
@@ -498,7 +580,7 @@ func (s *Scraper) scrapeMap() error {
 				}
 			}
 
-			s.client.ClearLastError()
+			s.clearLastError()
 
 			msg := protocol.Message{
 				Type: "get_map",
@@ -507,7 +589,7 @@ func (s *Scraper) scrapeMap() error {
 					"limit":  limit,
 				},
 			}
-			if err := s.client.Send(ctx, msg); err != nil {
+			if err := s.send(ctx, msg); err != nil {
 				pageErr = fmt.Errorf("get_map offset %d failed: %w", offset, err)
 				time.Sleep(game.SleepRetry)
 				continue
@@ -516,7 +598,7 @@ func (s *Scraper) scrapeMap() error {
 
 			rawJSON := s.client.GetRawJSON("systems")
 			if rawJSON == nil {
-				errResp := s.client.GetLastError()
+				errResp := s.getLastError()
 				pageErr = fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("get_map offset %d", offset), errResp))
 				time.Sleep(game.SleepRetry)
 				continue
@@ -576,13 +658,13 @@ func (s *Scraper) scrapeWrecks() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request wrecks
 	msg := protocol.Message{
 		Type: "get_wrecks",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("get_wrecks failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -591,7 +673,7 @@ func (s *Scraper) scrapeWrecks() error {
 	rawJSON := s.client.GetRawJSON("wrecks")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_wrecks", errResp))
 	}
 
@@ -602,13 +684,13 @@ func (s *Scraper) scrapeDrones() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request drones
 	msg := protocol.Message{
 		Type: "get_drones",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("get_drones failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -617,7 +699,7 @@ func (s *Scraper) scrapeDrones() error {
 	rawJSON := s.client.GetRawJSON("drones")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_drones", errResp))
 	}
 
@@ -628,13 +710,13 @@ func (s *Scraper) scrapeBase() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request base info
 	msg := protocol.Message{
 		Type: "get_base",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("get_base failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -643,7 +725,7 @@ func (s *Scraper) scrapeBase() error {
 	rawJSON := s.client.GetRawJSON("base")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_base", errResp))
 	}
 
@@ -654,13 +736,13 @@ func (s *Scraper) scrapeFactionInfo() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request faction info
 	msg := protocol.Message{
 		Type: "faction_info",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("faction_info failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -669,7 +751,7 @@ func (s *Scraper) scrapeFactionInfo() error {
 	rawJSON := s.client.GetRawJSON("faction_info")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		// If errResp is empty or only has empty values, it means no error occurred
 		// but the data wasn't in the expected format
 		if len(errResp) == 0 || (len(errResp) > 0 && errResp["code"] == nil && errResp["message"] == nil) {
@@ -686,13 +768,13 @@ func (s *Scraper) scrapeCaptainsLog() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request captain's log
 	msg := protocol.Message{
 		Type: "captains_log_list",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("captains_log_list failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -701,7 +783,7 @@ func (s *Scraper) scrapeCaptainsLog() error {
 	rawJSON := s.client.GetRawJSON("captains_log_list")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("captains_log_list", errResp))
 	}
 
@@ -712,7 +794,7 @@ func (s *Scraper) scrapeListings() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Get market listings
 	if err := s.client.GetListings(ctx); err != nil {
@@ -724,7 +806,7 @@ func (s *Scraper) scrapeListings() error {
 	rawJSON := s.client.GetRawJSON("market")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_listings", errResp))
 	}
 
@@ -735,13 +817,13 @@ func (s *Scraper) scrapeShips() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request shipyard showroom
 	msg := protocol.Message{
 		Type: "shipyard_showroom",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("shipyard_showroom failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -754,7 +836,7 @@ func (s *Scraper) scrapeShips() error {
 	}
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("shipyard_showroom", errResp))
 	}
 
@@ -765,13 +847,13 @@ func (s *Scraper) scrapeNearby() error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request nearby players
 	msg := protocol.Message{
 		Type: "get_nearby",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("get_nearby failed: %w", err)
 	}
 	time.Sleep(2 * time.Second)
@@ -780,7 +862,7 @@ func (s *Scraper) scrapeNearby() error {
 	rawJSON := s.client.GetRawJSON("nearby")
 	if rawJSON == nil {
 		// Check if there was an error response
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_nearby", errResp))
 	}
 
@@ -808,7 +890,7 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 	ctx := context.Background()
 
 	// Clear previous error
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	// Request first page from catalog
 	msg := protocol.Message{
@@ -819,7 +901,7 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 			"page_size": 50, // Server max is 50
 		},
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("catalog %s page 1 failed: %w", catalogType, err)
 	}
 	time.Sleep(2 * time.Second)
@@ -827,7 +909,7 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 	// Get first page response
 	rawJSON := s.client.GetRawJSON("catalog")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s", catalogType), errResp))
 	}
 
@@ -873,7 +955,7 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 				}
 			}
 
-			s.client.ClearLastError()
+			s.clearLastError()
 
 			msg := protocol.Message{
 				Type: "catalog",
@@ -883,7 +965,7 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 					"page_size": 50,
 				},
 			}
-			if err := s.client.Send(ctx, msg); err != nil {
+			if err := s.send(ctx, msg); err != nil {
 				pageErr = fmt.Errorf("catalog %s page %d failed: %w", catalogType, page, err)
 				time.Sleep(game.SleepRetry)
 				continue
@@ -892,7 +974,7 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 
 			rawJSON := s.client.GetRawJSON("catalog")
 			if rawJSON == nil {
-				errResp := s.client.GetLastError()
+				errResp := s.getLastError()
 				pageErr = fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s page %d", catalogType, page), errResp))
 				time.Sleep(game.SleepRetry)
 				continue
@@ -947,16 +1029,16 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 
 func (s *Scraper) scrapeCargo() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
-	if err := s.client.GetCargo(ctx); err != nil {
+	if err := s.getCargo(ctx); err != nil {
 		return fmt.Errorf("get_cargo failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
 	rawJSON := s.client.GetRawJSON("cargo")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_cargo", errResp))
 	}
 	return s.saveJSON("get_cargo.json", rawJSON)
@@ -964,7 +1046,7 @@ func (s *Scraper) scrapeCargo() error {
 
 func (s *Scraper) scrapeMissions() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	if err := s.client.GetMissions(ctx); err != nil {
 		return fmt.Errorf("get_missions failed: %w", err)
@@ -973,7 +1055,7 @@ func (s *Scraper) scrapeMissions() error {
 
 	rawJSON := s.client.GetRawJSON("missions")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_missions", errResp))
 	}
 	return s.saveJSON("get_missions.json", rawJSON)
@@ -981,16 +1063,16 @@ func (s *Scraper) scrapeMissions() error {
 
 func (s *Scraper) scrapeActiveMissions() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
-	if err := s.client.GetActiveMissions(ctx); err != nil {
+	if err := s.getActiveMissions(ctx); err != nil {
 		return fmt.Errorf("get_active_missions failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
 	rawJSON := s.client.GetRawJSON("active_missions")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_active_missions", errResp))
 	}
 	return s.saveJSON("get_active_missions.json", rawJSON)
@@ -998,19 +1080,19 @@ func (s *Scraper) scrapeActiveMissions() error {
 
 func (s *Scraper) scrapeOrders() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	msg := protocol.Message{
 		Type: "view_orders",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("view_orders failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
 	rawJSON := s.client.GetRawJSON("orders")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("view_orders", errResp))
 	}
 	return s.saveJSON("view_orders.json", rawJSON)
@@ -1018,7 +1100,7 @@ func (s *Scraper) scrapeOrders() error {
 
 func (s *Scraper) scrapeNotes() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	if err := s.client.GetNotes(ctx); err != nil {
 		return fmt.Errorf("get_notes failed: %w", err)
@@ -1027,7 +1109,7 @@ func (s *Scraper) scrapeNotes() error {
 
 	rawJSON := s.client.GetRawJSON("notes")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_notes", errResp))
 	}
 	return s.saveJSON("get_notes.json", rawJSON)
@@ -1035,16 +1117,16 @@ func (s *Scraper) scrapeNotes() error {
 
 func (s *Scraper) scrapeInsuranceQuote() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
-	if err := s.client.GetInsuranceQuote(ctx); err != nil {
+	if err := s.getInsuranceQuote(ctx); err != nil {
 		return fmt.Errorf("get_insurance_quote failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
 	rawJSON := s.client.GetRawJSON("insurance_quote")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_insurance_quote", errResp))
 	}
 	return s.saveJSON("get_insurance_quote.json", rawJSON)
@@ -1052,7 +1134,7 @@ func (s *Scraper) scrapeInsuranceQuote() error {
 
 func (s *Scraper) scrapeVersion() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	if err := s.client.GetVersion(ctx); err != nil {
 		return fmt.Errorf("get_version failed: %w", err)
@@ -1061,7 +1143,7 @@ func (s *Scraper) scrapeVersion() error {
 
 	rawJSON := s.client.GetRawJSON("version")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_version", errResp))
 	}
 	return s.saveJSON("get_version.json", rawJSON)
@@ -1069,16 +1151,16 @@ func (s *Scraper) scrapeVersion() error {
 
 func (s *Scraper) scrapeCommands() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
-	if err := s.client.GetCommands(ctx); err != nil {
+	if err := s.getCommands(ctx); err != nil {
 		return fmt.Errorf("get_commands failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
 	rawJSON := s.client.GetRawJSON("commands")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("get_commands", errResp))
 	}
 	return s.saveJSON("get_commands.json", rawJSON)
@@ -1086,7 +1168,7 @@ func (s *Scraper) scrapeCommands() error {
 
 func (s *Scraper) scrapeStorage() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	if err := s.client.ViewStorage(ctx); err != nil {
 		return fmt.Errorf("view_storage failed: %w", err)
@@ -1095,7 +1177,7 @@ func (s *Scraper) scrapeStorage() error {
 
 	rawJSON := s.client.GetRawJSON("storage")
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("view_storage", errResp))
 	}
 	return s.saveJSON("view_storage.json", rawJSON)
@@ -1103,12 +1185,12 @@ func (s *Scraper) scrapeStorage() error {
 
 func (s *Scraper) scrapeMarket() error {
 	ctx := context.Background()
-	s.client.ClearLastError()
+	s.clearLastError()
 
 	msg := protocol.Message{
 		Type: "view_market",
 	}
-	if err := s.client.Send(ctx, msg); err != nil {
+	if err := s.send(ctx, msg); err != nil {
 		return fmt.Errorf("view_market failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)
@@ -1119,7 +1201,7 @@ func (s *Scraper) scrapeMarket() error {
 		rawJSON = s.client.GetRawJSON("market")
 	}
 	if rawJSON == nil {
-		errResp := s.client.GetLastError()
+		errResp := s.getLastError()
 		return fmt.Errorf("%s", formatErrorMessage("view_market", errResp))
 	}
 	return s.saveJSON("view_market.json", rawJSON)

@@ -48,6 +48,7 @@ const (
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -67,7 +68,8 @@ func main() {
 		fmt.Println("  - Travels to and docks at the capital base")
 		fmt.Println("")
 		fmt.Println("Example:")
-		fmt.Println("  auto-recall miner-1    # Returns miner-1 to Sol base")
+		fmt.Println("  auto-recall miner-1              # Returns miner-1 to Sol base")
+		fmt.Println("  auto-recall -transport=mcp miner-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -77,10 +79,26 @@ func main() {
 	// Create context for lifecycle management
 	ctx := context.Background()
 
-	// Initialize game client using shared library function
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+	var err error
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
@@ -114,7 +132,7 @@ func main() {
 }
 
 // executeRecall performs the full recall sequence
-func executeRecall(ctx context.Context, client *game.Client, logger *log.Logger, capitalSystem, capitalName string) error {
+func executeRecall(ctx context.Context, client game.GameClient, logger *log.Logger, capitalSystem, capitalName string) error {
 	state := client.GetState()
 
 	// Early check: If already docked at capital base or station, we're done
@@ -230,7 +248,7 @@ func executeRecall(ctx context.Context, client *game.Client, logger *log.Logger,
 }
 
 // performJump executes a single jump and waits for completion
-func performJump(ctx context.Context, client *game.Client, logger *log.Logger, targetSystem, _ string) error {
+func performJump(ctx context.Context, client game.GameClient, logger *log.Logger, targetSystem, _ string) error {
 	// Execute jump - let the server validate if it's possible
 	logger.Printf("   Initiating jump...")
 	if _, err := client.Jump(ctx, targetSystem); err != nil {
@@ -245,7 +263,7 @@ func performJump(ctx context.Context, client *game.Client, logger *log.Logger, t
 // - 10s for action to be processed
 // - Additional ticks for state update to arrive
 // - Total can be 20-30s depending on server load
-func waitForUndock(ctx context.Context, client *game.Client, logger *log.Logger) error {
+func waitForUndock(ctx context.Context, client game.GameClient, logger *log.Logger) error {
 	deadline := time.Now().Add(UndockTimeout)
 	ticker := time.NewTicker(TickInterval)
 	defer ticker.Stop()
@@ -272,7 +290,7 @@ func waitForUndock(ctx context.Context, client *game.Client, logger *log.Logger)
 }
 
 // waitForPOIArrival waits for the ship to arrive at a specific POI
-func waitForPOIArrival(ctx context.Context, client *game.Client, logger *log.Logger, targetPOI string) error {
+func waitForPOIArrival(ctx context.Context, client game.GameClient, logger *log.Logger, targetPOI string) error {
 	deadline := time.Now().Add(TravelTimeout)
 	ticker := time.NewTicker(TickInterval)
 	defer ticker.Stop()
@@ -296,7 +314,7 @@ func waitForPOIArrival(ctx context.Context, client *game.Client, logger *log.Log
 }
 
 // travelToBase travels within the current system to the base/station and docks
-func travelToBase(ctx context.Context, client *game.Client, logger *log.Logger) error {
+func travelToBase(ctx context.Context, client game.GameClient, logger *log.Logger) error {
 	state := client.GetState()
 
 	// Find a base or station POI (prefer base, fall back to station)

@@ -15,7 +15,7 @@ import (
 type mockStrategy struct {
 	name        string
 	description string
-	runFn       func(ctx context.Context, client *game.Client, cfg strategy.Config) error
+	runFn       func(ctx context.Context, client game.GameClient, cfg strategy.Config) error
 
 	mu     sync.Mutex
 	status string
@@ -29,7 +29,7 @@ func (m *mockStrategy) CurrentStatus() string {
 	return m.status
 }
 
-func (m *mockStrategy) Run(ctx context.Context, client *game.Client, cfg strategy.Config) error {
+func (m *mockStrategy) Run(ctx context.Context, client game.GameClient, cfg strategy.Config) error {
 	m.mu.Lock()
 	m.status = "running"
 	m.mu.Unlock()
@@ -190,7 +190,7 @@ func TestStrategyRunner_StrategyError(t *testing.T) {
 	stratErr := make(chan struct{})
 	strat := &mockStrategy{
 		name: "error-strat",
-		runFn: func(_ context.Context, _ *game.Client, _ strategy.Config) error {
+		runFn: func(_ context.Context, _ game.GameClient, _ strategy.Config) error {
 			close(stratErr)
 			return context.Canceled // Simulate an error
 		},
@@ -245,7 +245,7 @@ func TestStrategyRunner_WithParameters(t *testing.T) {
 
 	strat := &mockStrategy{
 		name: "param-strat",
-		runFn: func(_ context.Context, _ *game.Client, cfg strategy.Config) error {
+		runFn: func(_ context.Context, _ game.GameClient, cfg strategy.Config) error {
 			mu.Lock()
 			receivedParams = cfg.Parameters
 			mu.Unlock()

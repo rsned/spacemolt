@@ -27,7 +27,7 @@ type agentState struct {
 	shipDefs    map[string]game.ShipDef // ship ID -> ShipDef for slot lookups
 }
 
-func updateCaptainsLog(agentID string, client *game.Client, fighterRuns int, totalCreditsEarned float64) {
+func updateCaptainsLog(agentID string, client game.GameClient, fighterRuns int, totalCreditsEarned float64) {
 	state := client.GetState()
 
 	var notes []string
@@ -75,7 +75,7 @@ func updateCaptainsLog(agentID string, client *game.Client, fighterRuns int, tot
 
 // fighterLoop implements the main combat loop for the auto-fighter agent
 // Logic: Hunt pirates, loot wrecks, sell loot, upgrade equipment, repeat
-func fighterLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, as *agentState) error {
+func fighterLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, as *agentState) error {
 	fighterRuns := 0
 	totalCreditsEarned := 0.0
 	startingCredits := client.GetState().Credits
@@ -298,7 +298,7 @@ func fighterLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 }
 
 // attemptUpgrades handles equipment and ship upgrades for the fighter agent
-func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Context, as *agentState) {
+func attemptUpgrades(client game.GameClient, logger *log.Logger, ctx context.Context, as *agentState) {
 	state := client.GetState()
 	credits := state.Credits
 
@@ -314,9 +314,15 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 		maxSlots = game.ShipMaxSlots(sd)
 	}
 
+	// Upgrade helpers require *game.Client (concrete type) for Send()-based operations.
+	// If we have a concrete client, use the upgrade helpers; otherwise skip.
+	concreteClient, hasConcreteClient := client.(*game.Client)
+
 	// First, try to install any equipment already in cargo and sell extras
-	logger.Printf("🔧 Checking equipment in cargo...")
-	game.TryInstallAndSellExtras(client, logger, ctx, maxSlots)
+	if hasConcreteClient {
+		logger.Printf("🔧 Checking equipment in cargo...")
+		game.TryInstallAndSellExtras(concreteClient, logger, ctx, maxSlots)
+	}
 
 	// Refresh state after selling extras
 	time.Sleep(2 * time.Second)
@@ -353,10 +359,10 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 	logger.Printf("Found %d listings at market", len(listings))
 
 	// PRIORITY 1: Ship upgrades (biggest combat boost!)
-	if as.progression != nil {
+	if as.progression != nil && hasConcreteClient {
 		for _, tier := range as.progression.Tiers {
 			if !purchased {
-				purchased = game.PerformShipUpgrade(client, logger, ctx, tier, availableCredits)
+				purchased = game.PerformShipUpgrade(concreteClient, logger, ctx, tier, availableCredits)
 			}
 		}
 	}
@@ -431,11 +437,13 @@ func attemptUpgrades(client *game.Client, logger *log.Logger, ctx context.Contex
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
 		fmt.Println("Usage: auto-fighter [flags] <agent-id>")
 		fmt.Println("Example: auto-fighter fighter-1")
+		fmt.Println("         auto-fighter -transport=mcp fighter-1")
 		fmt.Println("")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
@@ -466,10 +474,25 @@ func main() {
 	// Create context for lifecycle management
 	ctx := context.Background()
 
-	// Initialize game client using shared library function
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
@@ -508,7 +531,7 @@ func main() {
 	}
 }
 
-func loadProgression(logger *log.Logger, ctx context.Context, creds *game.Credentials, client *game.Client) *agentState {
+func loadProgression(logger *log.Logger, ctx context.Context, creds *game.Credentials, client game.GameClient) *agentState {
 	as := &agentState{
 		shipDefs: make(map[string]game.ShipDef),
 	}

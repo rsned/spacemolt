@@ -91,7 +91,9 @@ func New(cfg Config) (*Server, error) {
 	tc := team.NewCoordinator(func(agentID string) *game.Client {
 		// Try strategy runners first.
 		if sr, ok := mgr.GetStrategyRunner(agentID); ok {
-			return sr.GameClient()
+			if c, ok := sr.GameClient().(*game.Client); ok {
+				return c
+			}
 		}
 		// Try LLM runners.
 		if r, ok := mgr.GetRunner(agentID); ok {

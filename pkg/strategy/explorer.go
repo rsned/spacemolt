@@ -37,7 +37,7 @@ func (s *ExplorerStrategy) setStatus(status string) {
 // Run executes the exploration loop. The full DFS exploration logic from
 // cmd/auto-explorer will be extracted here in a future refactor. For now,
 // this provides a simplified exploration cycle using the game client API.
-func (s *ExplorerStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *ExplorerStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	logger := cfg.Logger
 	kb := cfg.KnowledgeBase
 

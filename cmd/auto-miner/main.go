@@ -20,7 +20,7 @@ const (
 	RESERVE_CREDITS = 50.0
 )
 
-func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, creditsEarned float64) {
+func updateCaptainsLog(agentID string, client game.GameClient, miningRuns int, creditsEarned float64) {
 	state := client.GetState()
 
 	var notes []string
@@ -58,7 +58,7 @@ func updateCaptainsLog(agentID string, client *game.Client, miningRuns int, cred
 	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
-func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy) error {
+func miningLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy) error {
 	// Configure the shared mining loop
 	config := &game.MiningLoopConfig{
 		AgentID:              agentID,
@@ -68,7 +68,6 @@ func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 		UseBulkSell:          true, // Use bulk sell for better performance
 		OnStationActions:     stationAction, // Use the selected strategy
 		OnUpgradeCheck: func() bool {
-			//attemptUpgrades(client, logger, ctx)
 			return false // Return value not used for continuous mining
 		},
 		OnRunComplete: func(runNum int, creditsEarned float64, totalCredits float64) {
@@ -96,6 +95,7 @@ func miningLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -119,6 +119,7 @@ func main() {
 		fmt.Println("  auto-miner miner-1 craft-sell   # Craft then sell")
 		fmt.Println("  auto-miner miner-1 craft-deposit # Craft then deposit")
 		fmt.Println("  auto-miner -debug miner-1       # With debug logging")
+		fmt.Println("  auto-miner -transport=mcp miner-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -165,25 +166,41 @@ func main() {
 	// Create context for lifecycle management
 	ctx := context.Background()
 
-	// Initialize game client using shared library function
-	// This handles: credential loading, client creation, connection, and login
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		var wsClient *game.Client
+		wsClient, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+		// Initialize crafting configuration if using a crafting strategy
+		if strategy == "craft-sell" || strategy == "craft-deposit" {
+			wsClient.CraftingConfig = &game.CraftingConfig{
+				CraftingServerPath: "", // Empty string uses "crafting-server" from PATH
+			}
+			logger.Printf("🔧 Crafting configured: using MCP server from PATH")
+		}
+		client = wsClient
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
+
 	defer func() {
 		if err := client.Close(); err != nil {
 			logger.Printf("Warning: Failed to close client: %v", err)
 		}
 	}()
-
-	// Initialize crafting configuration if using a crafting strategy
-	if strategy == "craft-sell" || strategy == "craft-deposit" {
-		client.CraftingConfig = &game.CraftingConfig{
-			CraftingServerPath: "", // Empty string uses "crafting-server" from PATH
-		}
-		logger.Printf("🔧 Crafting configured: using MCP server from PATH")
-	}
 
 	time.Sleep(1 * time.Second)
 

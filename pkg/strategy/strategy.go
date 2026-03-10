@@ -21,7 +21,7 @@ type Strategy interface {
 
 	// Run executes the strategy loop. It should block until ctx is canceled
 	// or the strategy completes. It returns nil on graceful shutdown.
-	Run(ctx context.Context, client *game.Client, cfg Config) error
+	Run(ctx context.Context, client game.GameClient, cfg Config) error
 
 	// CurrentStatus returns a short human-readable status string.
 	CurrentStatus() string

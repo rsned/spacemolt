@@ -78,7 +78,7 @@ func (m *idleAwareMock) Name() string          { return m.name }
 func (m *idleAwareMock) Description() string   { return m.name + " strategy" }
 func (m *idleAwareMock) CurrentStatus() string { return m.status }
 
-func (m *idleAwareMock) Run(ctx context.Context, _ *game.Client, _ Config) error {
+func (m *idleAwareMock) Run(ctx context.Context, _ game.GameClient, _ Config) error {
 	for range m.cycles {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -153,7 +153,7 @@ func (s *countingWrapStrategy) Name() string          { return s.inner.Name() }
 func (s *countingWrapStrategy) Description() string   { return s.inner.Description() }
 func (s *countingWrapStrategy) CurrentStatus() string { return s.inner.CurrentStatus() }
 
-func (s *countingWrapStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *countingWrapStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	s.runCount.Add(1)
 	return s.inner.Run(ctx, client, cfg)
 }

@@ -513,3 +513,16 @@ func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) e
 func (m *mockGameClient) CreateNote(ctx context.Context, title, content string) error          { return nil }
 func (m *mockGameClient) WriteNote(ctx context.Context, noteID, content string) error          { return nil }
 func (m *mockGameClient) GetNotes(ctx context.Context) error                                   { return nil }
+func (m *mockGameClient) GetMarketListings() []game.MarketListing                              { return nil }
+func (m *mockGameClient) GetRawJSON(key string) []byte                                         { return nil }
+func (m *mockGameClient) ListShips(ctx context.Context) error                                  { return nil }
+func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error                  { return nil }
+func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error                    { return nil }
+func (m *mockGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error    { return nil }
+func (m *mockGameClient) CreateBuyOrder(ctx context.Context, payload map[string]any) error     { return nil }
+func (m *mockGameClient) ViewMarket(ctx context.Context, itemID string) error                  { return nil }
+func (m *mockGameClient) ViewOrders(ctx context.Context) error                                 { return nil }
+func (m *mockGameClient) GetMissions(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) error            { return nil }
+func (m *mockGameClient) SurveySystem(ctx context.Context) error                               { return nil }
+func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error               { return nil }

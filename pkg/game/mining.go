@@ -9,10 +9,10 @@ import (
 )
 
 // StationActionStrategy defines what to do with cargo when docked at a station
-type StationActionStrategy func(client *Client, logger *log.Logger, ctx context.Context) error
+type StationActionStrategy func(client GameClient, logger *log.Logger, ctx context.Context) error
 
 // StationActionSellAll simply sells all cargo without any crafting
-func StationActionSellAll(client *Client, logger *log.Logger, ctx context.Context) error {
+func StationActionSellAll(client GameClient, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
 		logger.Printf("📦 Cargo is empty, nothing to sell")
@@ -35,17 +35,18 @@ func StationActionSellAll(client *Client, logger *log.Logger, ctx context.Contex
 }
 
 // StationActionCraftAndSell crafts items from cargo resources, then sells everything
-func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.Context) error {
+func StationActionCraftAndSell(client GameClient, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
 		logger.Printf("📦 Cargo is empty, nothing to craft or sell")
 		return nil
 	}
 
-	// Try to craft items from cargo (if crafting config is available)
-	if client.CraftingConfig != nil {
+	// Try to craft items from cargo (if crafting config is available).
+	// CraftItems is only available on the WebSocket *Client, not the GameClient interface.
+	if wsClient, ok := client.(*Client); ok && wsClient.CraftingConfig != nil {
 		logger.Printf("🔨 Querying craftable recipes from cargo...")
-		crafted, err := client.CraftItems(ctx, logger, client.CraftingConfig)
+		crafted, err := wsClient.CraftItems(ctx, logger, wsClient.CraftingConfig)
 		if err != nil {
 			logger.Printf("⚠️  Crafting query failed: %v, selling raw cargo", err)
 		} else if crafted > 0 {
@@ -69,17 +70,18 @@ func StationActionCraftAndSell(client *Client, logger *log.Logger, ctx context.C
 }
 
 // StationActionCraftAndDeposit crafts items from cargo resources, then deposits everything
-func StationActionCraftAndDeposit(client *Client, logger *log.Logger, ctx context.Context) error {
+func StationActionCraftAndDeposit(client GameClient, logger *log.Logger, ctx context.Context) error {
 	state := client.GetState()
 	if len(state.Ship.Cargo) == 0 {
 		logger.Printf("📦 Cargo is empty, nothing to deposit")
 		return nil
 	}
 
-	// Try to craft items from cargo (if crafting config is available)
-	if client.CraftingConfig != nil {
+	// Try to craft items from cargo (if crafting config is available).
+	// CraftItems is only available on the WebSocket *Client, not the GameClient interface.
+	if wsClient, ok := client.(*Client); ok && wsClient.CraftingConfig != nil {
 		logger.Printf("🔨 Querying craftable recipes from cargo...")
-		crafted, err := client.CraftItems(ctx, logger, client.CraftingConfig)
+		crafted, err := wsClient.CraftItems(ctx, logger, wsClient.CraftingConfig)
 		if err != nil {
 			logger.Printf("⚠️  Crafting query failed: %v, depositing raw cargo", err)
 		} else if crafted > 0 {
@@ -208,7 +210,7 @@ type MiningLoopResult struct {
 //	    UseBulkSell: true,
 //	}
 //	result, err := game.MiningLoop(client, logger, ctx, config)
-func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config *MiningLoopConfig) (*MiningLoopResult, error) {
+func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, config *MiningLoopConfig) (*MiningLoopResult, error) {
 	// Apply defaults
 	if config == nil {
 		config = &MiningLoopConfig{}
@@ -473,8 +475,8 @@ func MiningLoop(client *Client, logger *log.Logger, ctx context.Context, config 
 					stationAction = StationActionSellAll
 				} else {
 					// Legacy behavior
-					stationAction = func(c *Client, l *log.Logger, cx context.Context) error {
-						if err := c.SellAll(cx); err != nil {
+					stationAction = func(c GameClient, l *log.Logger, cx context.Context) error {
+						if err := c.SellAllBulk(cx, nil); err != nil {
 							return err
 						}
 						time.Sleep(5 * time.Second)

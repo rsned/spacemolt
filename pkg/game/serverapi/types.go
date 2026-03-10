@@ -172,6 +172,7 @@ type POI struct {
 	BaseID      string        `json:"base_id,omitempty"`
 	HasBase     bool          `json:"has_base,omitempty"`
 	BaseName    string        `json:"base_name,omitempty"`
+	Class       string        `json:"class,omitempty"`
 	Online      int           `json:"online,omitempty"`
 	Hidden      bool          `json:"hidden,omitempty"`
 }

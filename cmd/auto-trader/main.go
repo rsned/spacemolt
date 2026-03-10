@@ -1,51 +1,25 @@
 package main
 
 import (
-	"context"
 	"cmp"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math"
 	"os"
-	"slices"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-type TraderAgent struct {
-	logger *log.Logger
-}
-
-func (t *TraderAgent) OnConnected(state *game.State) {
-	t.logger.Printf("Connected! Credits: %.2f", state.Credits)
-}
-
-func (t *TraderAgent) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			t.logger.Printf("OK: %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			t.logger.Printf("ERROR: %s", msg)
-		}
-	}
-}
-
-func (t *TraderAgent) OnDisconnected(err error) {
-	t.logger.Printf("Disconnected: %v", err)
-}
-
-func updateCaptainsLog(agentID string, client *game.Client, tradingRuns int, creditsEarned float64, strategy string, tradeInfo ...string) {
+func updateCaptainsLog(agentID string, client game.GameClient, tradingRuns int, creditsEarned float64, strategy string, tradeInfo ...string) {
 	state := client.GetState()
 
 	// Extract optional trade phase and route name.
@@ -104,7 +78,7 @@ func updateCaptainsLog(agentID string, client *game.Client, tradingRuns int, cre
 	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
-func tradingLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy, strategy string) error {
+func tradingLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy, strategy string) error {
 	// For now, the auto-trader will operate in a simple loop:
 	// 1. If docked with cargo, execute station action (craft/sell/deposit)
 	// 2. If not docked, travel to nearest station
@@ -368,7 +342,7 @@ func parsePhaseString(s string) tradePhase {
 	}
 }
 
-func tradeLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context,
+func tradeLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context,
 	outbound game.TradeRoute, returnLeg game.TradeRoute, hasReturn bool, homeEmpire string) error {
 
 	// Open knowledge DB for ship class lookups (non-fatal if unavailable).
@@ -505,7 +479,7 @@ func determineInitialPhase(state *game.State, ts *tradeLoopState) tradePhase {
 	}
 }
 
-func executeTradePhase(client *game.Client, logger *log.Logger, ctx context.Context, ts *tradeLoopState, kb *knowledge.SQLiteKB) error {
+func executeTradePhase(client game.GameClient, logger *log.Logger, ctx context.Context, ts *tradeLoopState, kb *knowledge.SQLiteKB) error {
 	state := client.GetState()
 
 	// If traveling, wait for arrival.
@@ -543,7 +517,7 @@ func executeTradePhase(client *game.Client, logger *log.Logger, ctx context.Cont
 	return nil
 }
 
-func executeBuyPhase(client *game.Client, logger *log.Logger, ctx context.Context,
+func executeBuyPhase(client game.GameClient, logger *log.Logger, ctx context.Context,
 	ts *tradeLoopState, route game.TradeRoute, expectedSystem string, nextPhase tradePhase, kb *knowledge.SQLiteKB) error {
 
 	state := client.GetState()
@@ -645,7 +619,7 @@ func executeBuyPhase(client *game.Client, logger *log.Logger, ctx context.Contex
 	return nil
 }
 
-func executeTravelPhase(client *game.Client, logger *log.Logger, ctx context.Context,
+func executeTravelPhase(client game.GameClient, logger *log.Logger, ctx context.Context,
 	ts *tradeLoopState, targetSystem string, nextPhase tradePhase) error {
 
 	state := client.GetState()
@@ -665,7 +639,7 @@ func executeTravelPhase(client *game.Client, logger *log.Logger, ctx context.Con
 	return nil
 }
 
-func executeSellPhase(client *game.Client, logger *log.Logger, ctx context.Context,
+func executeSellPhase(client game.GameClient, logger *log.Logger, ctx context.Context,
 	ts *tradeLoopState, specificOreID string, oreName string, kb *knowledge.SQLiteKB) error {
 
 	// Dock if not docked.
@@ -738,7 +712,7 @@ type cargoToSell struct {
 // 1. Fetch market order book for each item
 // 2. Sell directly into buy orders priced at >= 80% of the item's base value
 // 3. Create sell orders for remaining units at 80% of base value
-func sellCargoSmart(client *game.Client, logger *log.Logger, ctx context.Context, kb *knowledge.SQLiteKB, items []cargoToSell) error {
+func sellCargoSmart(client game.GameClient, logger *log.Logger, ctx context.Context, kb *knowledge.SQLiteKB, items []cargoToSell) error {
 	// Fetch the full market order book.
 	if err := client.GetListings(ctx); err != nil {
 		logger.Printf("Warning: failed to fetch market listings: %v", err)
@@ -872,7 +846,7 @@ func advanceSellPhase(ts *tradeLoopState, currentCredits float64, logger *log.Lo
 	}
 }
 
-func ensureDocked(client *game.Client, ctx context.Context, logger *log.Logger) error {
+func ensureDocked(client game.GameClient, ctx context.Context, logger *log.Logger) error {
 	state := client.GetState()
 	if state.Doc {
 		return nil
@@ -880,7 +854,7 @@ func ensureDocked(client *game.Client, ctx context.Context, logger *log.Logger) 
 	return game.NavigateAndDock(client, ctx, logger)
 }
 
-func refuelAndRepair(client *game.Client, ctx context.Context, logger *log.Logger) error {
+func refuelAndRepair(client game.GameClient, ctx context.Context, logger *log.Logger) error {
 	state := client.GetState()
 	if !state.Doc {
 		return nil
@@ -908,7 +882,7 @@ func refuelAndRepair(client *game.Client, ctx context.Context, logger *log.Logge
 
 // switchToBestCargoShip checks owned ships at the current station and switches
 // to the one with the highest cargo capacity for maximum trade profit.
-func switchToBestCargoShip(client *game.Client, ctx context.Context, kb *knowledge.SQLiteKB, logger *log.Logger) error {
+func switchToBestCargoShip(client game.GameClient, ctx context.Context, kb *knowledge.SQLiteKB, logger *log.Logger) error {
 	if err := client.ListShips(ctx); err != nil {
 		return fmt.Errorf("list ships: %w", err)
 	}
@@ -987,6 +961,7 @@ func switchToBestCargoShip(client *game.Client, ctx context.Context, kb *knowled
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -1013,6 +988,7 @@ func main() {
 		fmt.Println("  auto-trader trader-1 craft-sell               # Craft then sell")
 		fmt.Println("  auto-trader trader-1 trade                    # Auto-select best trade route")
 		fmt.Println("  auto-trader trader-1 trade ore_silicon crimson # Explicit route")
+		fmt.Println("  auto-trader -transport=mcp trader-1           # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -1039,13 +1015,39 @@ func main() {
 
 	ctx := context.Background()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		var wsClient *game.Client
+		wsClient, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+		// Initialize crafting configuration if using a crafting strategy
+		if strategy == "craft-sell" || strategy == "craft-deposit" {
+			wsClient.CraftingConfig = &game.CraftingConfig{
+				CraftingServerPath: "", // Empty string uses "crafting-server" from PATH
+			}
+			logger.Printf("Crafting configured: using MCP server from PATH")
+		}
+		client = wsClient
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
+
 	defer func() {
 		if err := client.Close(); err != nil {
-			log.Printf("Warning: Failed to close client: %v", err)
+			logger.Printf("Warning: Failed to close client: %v", err)
 		}
 	}()
 
@@ -1077,14 +1079,6 @@ func main() {
 		log.Fatalf("Unknown strategy: %s (must be: sell, craft-sell, craft-deposit, trade)", strategy)
 	}
 
-	// Initialize crafting configuration if using a crafting strategy
-	if strategy == "craft-sell" || strategy == "craft-deposit" {
-		client.CraftingConfig = &game.CraftingConfig{
-			CraftingServerPath: "", // Empty string uses "crafting-server" from PATH
-		}
-		logger.Printf("Crafting configured: using MCP server from PATH")
-	}
-
 	// Start autonomous trading loop
 	logger.Printf("Starting autonomous trading loop...")
 	logger.Printf("Station action strategy: %s", strategy)
@@ -1094,7 +1088,7 @@ func main() {
 	}
 }
 
-func runTradeStrategy(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, creds *game.Credentials) {
+func runTradeStrategy(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, creds *game.Credentials) {
 	empire := strings.ToLower(creds.Empire)
 
 	var outbound game.TradeRoute

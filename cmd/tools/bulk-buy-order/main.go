@@ -37,6 +37,7 @@ func main() {
 	limit := flag.Int("limit", 0, "Only send orders for N items (0 = all)")
 	categories := flag.String("categories", "", "Comma-separated item categories to filter (e.g. defense,weapon,drone)")
 	dryRun := flag.Bool("dry-run", false, "Print batches without sending")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 
 	flag.Usage = func() {
@@ -134,32 +135,50 @@ func main() {
 	}
 
 	// Load credentials and connect.
-	provider := credentials.NewFileProvider("data/agents")
 	ctx := context.Background()
-	creds, err := provider.GetCredentials(ctx, *agentID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading credentials for %q: %v\n", *agentID, err)
-		os.Exit(1)
-	}
-
 	logger := log.New(os.Stderr, fmt.Sprintf("[%s] ", *agentID), log.LstdFlags)
-	client := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
-	client.SetDebugLogging(*debug)
 
-	if err := client.Connect(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
+	var client game.GameClient
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		mcpClient, _, mcpErr := game.InitializeMCPAgent(*agentID, logger, ctx, *debug)
+		if mcpErr != nil {
+			fmt.Fprintf(os.Stderr, "Error initializing MCP agent: %v\n", mcpErr)
+			os.Exit(1)
+		}
+		client = mcpClient
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		provider := credentials.NewFileProvider("data/agents")
+		creds, err := provider.GetCredentials(ctx, *agentID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading credentials for %q: %v\n", *agentID, err)
+			os.Exit(1)
+		}
+
+		wsClient := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
+		wsClient.SetDebugLogging(*debug)
+
+		if err := wsClient.Connect(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
+			os.Exit(1)
+		}
+
+		<-wsClient.Ready()
+		time.Sleep(game.SleepRetry)
+
+		if err := wsClient.Login(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error logging in: %v\n", err)
+			os.Exit(1)
+		}
+		time.Sleep(game.SleepQuick)
+		client = wsClient
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown transport: %s (must be: ws, mcp)\n", *transport)
 		os.Exit(1)
 	}
 	defer func() { _ = client.Close() }()
-
-	<-client.Ready()
-	time.Sleep(game.SleepRetry)
-
-	if err := client.Login(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error logging in: %v\n", err)
-		os.Exit(1)
-	}
-	time.Sleep(game.SleepQuick)
 
 	// Send batches.
 	totalSent := 0

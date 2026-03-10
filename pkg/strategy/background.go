@@ -44,7 +44,7 @@ func NewBackgroundRunner(strategy Strategy, config BackgroundRunnerConfig) *Back
 }
 
 // Start begins executing the background strategy in a goroutine.
-func (b *BackgroundRunner) Start(parent context.Context, client *game.Client, cfg Config) {
+func (b *BackgroundRunner) Start(parent context.Context, client game.GameClient, cfg Config) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
