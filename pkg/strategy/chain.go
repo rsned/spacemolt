@@ -45,7 +45,7 @@ func (c *ChainStrategy) CurrentStatus() string {
 	return "chain:idle"
 }
 
-func (c *ChainStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (c *ChainStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	for i, step := range c.steps {
 		if ctx.Err() != nil {
 			return ctx.Err()

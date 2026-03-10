@@ -64,7 +64,7 @@ func (s *SkillStrategy) CurrentStatus() string {
 	return fmt.Sprintf("skill:%s", s.skillName)
 }
 
-func (s *SkillStrategy) Run(ctx context.Context, _ *game.Client, _ Config) error {
+func (s *SkillStrategy) Run(ctx context.Context, _ game.GameClient, _ Config) error {
 	s.setStatus(fmt.Sprintf("running:%s", s.skillName))
 	defer s.setStatus(fmt.Sprintf("idle:%s", s.skillName))
 

@@ -32,7 +32,7 @@ func (s *MiningStrategy) setStatus(status string) {
 	s.mu.Unlock()
 }
 
-func (s *MiningStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *MiningStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	logger := cfg.Logger
 
 	// Parse station action strategy from parameters.

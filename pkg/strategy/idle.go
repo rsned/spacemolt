@@ -44,7 +44,7 @@ func (s *SmartIdleStrategy) setStatus(status string) {
 }
 
 // Run executes the idle strategy loop.
-func (s *SmartIdleStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *SmartIdleStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	logger := cfg.Logger
 	llmClient := cfg.LLMClient
 
@@ -101,7 +101,7 @@ func (s *SmartIdleStrategy) Run(ctx context.Context, client *game.Client, cfg Co
 }
 
 // passiveIdle just monitors state without LLM decisions.
-func (s *SmartIdleStrategy) passiveIdle(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *SmartIdleStrategy) passiveIdle(ctx context.Context, client game.GameClient, cfg Config) error {
 	for {
 		select {
 		case <-ctx.Done():

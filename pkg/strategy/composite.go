@@ -73,7 +73,7 @@ func (c *CompositeStrategy) CurrentStatus() string {
 	return primaryStatus
 }
 
-func (c *CompositeStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (c *CompositeStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	c.setStatus("starting")
 
 	c.bgRunner = NewBackgroundRunner(c.background, BackgroundRunnerConfig{
@@ -111,7 +111,7 @@ func (c *CompositeStrategy) Run(ctx context.Context, client *game.Client, cfg Co
 	return err
 }
 
-func (c *CompositeStrategy) manageBackground(ctx context.Context, client *game.Client, cfg Config) {
+func (c *CompositeStrategy) manageBackground(ctx context.Context, client game.GameClient, cfg Config) {
 	for {
 		select {
 		case <-ctx.Done():

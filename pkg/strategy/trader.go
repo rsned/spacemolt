@@ -37,7 +37,7 @@ func (s *TraderStrategy) setStatus(status string) {
 // Run executes the trader strategy loop.
 // This is currently a stub that monitors state and reports status.
 // The full trade route logic from cmd/auto-trader will be integrated when stabilized.
-func (s *TraderStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *TraderStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	logger := cfg.Logger
 	logger.Printf("[%s] starting trader strategy (stub)", cfg.AgentID)
 	s.setStatus("trading")

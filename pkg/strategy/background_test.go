@@ -27,7 +27,7 @@ func (m *mockStrategy) CurrentStatus() string {
 	return m.status
 }
 
-func (m *mockStrategy) Run(ctx context.Context, _ *game.Client, _ Config) error {
+func (m *mockStrategy) Run(ctx context.Context, _ game.GameClient, _ Config) error {
 	m.mu.Lock()
 	m.runCalled = true
 	m.status = "running"
