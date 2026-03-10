@@ -52,7 +52,13 @@ func (h *Handler) OnDisconnected(err error) {}
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
+
+	if *transport != "ws" {
+		fmt.Println("Error: facility-check only supports --transport=ws (facility protocol requires WebSocket)")
+		os.Exit(1)
+	}
 
 	agentDir := "data/agents/pirate-4"
 	creds, _ := loadCredentials(agentDir)

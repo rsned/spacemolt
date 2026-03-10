@@ -354,7 +354,13 @@ func main() {
 	gameURL := flag.String("url", "wss://game.spacemolt.com/ws", "Game WebSocket URL")
 	verbose := flag.Bool("verbose", false, "Enable verbose logging")
 	debug := flag.Bool("debug", false, "Enable game client debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
+
+	if *transport != "ws" {
+		fmt.Fprintln(os.Stderr, "Error: mcp-ws-bridge only supports --transport=ws (bridge requires WebSocket)")
+		os.Exit(1)
+	}
 
 	// Setup logging (to stderr)
 	logger := log.New(os.Stderr, "", log.LstdFlags)

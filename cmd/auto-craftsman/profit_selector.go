@@ -16,11 +16,17 @@ import (
 // will generate the most profit when sold, prioritizing high-margin items.
 // Falls back to DefaultRecipeSelector if market data is unavailable.
 func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
-	return func(client *game.Client, logger *log.Logger, ctx context.Context, storage game.StorageManager) ([]string, error) {
+	return func(client game.GameClient, logger *log.Logger, ctx context.Context, storage game.StorageManager) ([]string, error) {
 		state := client.GetState()
 
 		// Refresh market data to ensure we have current prices
-		snapshot, err := agent.RefreshMarketData(ctx, client, kb, state.Player.Username)
+		// RefreshMarketData requires *game.Client for now
+		wsClient, ok := client.(*game.Client)
+		if !ok {
+			logger.Printf("Warning: ProfitBasedRecipeSelector requires WS client for market refresh, falling back to default")
+			return game.DefaultRecipeSelector(client, logger, ctx, storage)
+		}
+		snapshot, err := agent.RefreshMarketData(ctx, wsClient, kb, state.Player.Username)
 		if err != nil {
 			logger.Printf("Warning: Failed to refresh market data: %v (trying cached data)", err)
 			// Try to get cached data anyway

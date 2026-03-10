@@ -37,7 +37,7 @@ func (s *FighterStrategy) setStatus(status string) {
 // Run executes the fighter strategy loop.
 // This is currently a stub that monitors state and reports status.
 // The full combat loop from cmd/auto-fighter will be integrated when stabilized.
-func (s *FighterStrategy) Run(ctx context.Context, client *game.Client, cfg Config) error {
+func (s *FighterStrategy) Run(ctx context.Context, client game.GameClient, cfg Config) error {
 	logger := cfg.Logger
 	logger.Printf("[%s] starting fighter strategy (stub)", cfg.AgentID)
 	s.setStatus("patrolling")

@@ -25,6 +25,7 @@ func main() {
 	agentID := flag.String("agent", "", "Agent ID (required, e.g. miner-1)")
 	skillFlag := flag.String("skill", "", "Comma-separated skill/strategy names (overrides personality)")
 	once := flag.Bool("once", false, "Run the strategy once then exit")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -92,9 +93,22 @@ func main() {
 	}()
 
 	// Connect to game server.
-	client, _, err := game.InitializeAgent(*agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	var client game.GameClient
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, _, err = game.InitializeMCPAgent(*agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, _, err = game.InitializeAgent(*agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if closeErr := client.Close(); closeErr != nil {

@@ -13,32 +13,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-type CraftsmanAgent struct {
-	logger *log.Logger
-}
-
-func (c *CraftsmanAgent) OnConnected(state *game.State) {
-	c.logger.Printf("Connected! Credits: %.2f", state.Credits)
-}
-
-func (c *CraftsmanAgent) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			c.logger.Printf("OK: %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			c.logger.Printf("ERROR: %s", msg)
-		}
-	}
-}
-
-func (c *CraftsmanAgent) OnDisconnected(err error) {
-	c.logger.Printf("Disconnected: %v", err)
-}
-
-func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, itemsCrafted int, credits float64, strategy string) {
+func updateCaptainsLog(agentID string, client game.GameClient, craftingRuns int, itemsCrafted int, credits float64, strategy string) {
 	state := client.GetState()
 
 	var notes []string
@@ -81,6 +56,7 @@ func updateCaptainsLog(agentID string, client *game.Client, craftingRuns int, it
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -103,6 +79,7 @@ func main() {
 		fmt.Println("  auto-craftsman craftsman-1 craft-deposit  # Craft then deposit (explicit)")
 		fmt.Println("  auto-craftsman craftsman-1 craft-sell     # Craft then sell")
 		fmt.Println("  auto-craftsman craftsman-1 craft-profit   # Craft based on profit analysis")
+		fmt.Println("  auto-craftsman -transport=mcp craftsman-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -134,9 +111,25 @@ func main() {
 
 	ctx := context.Background()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
@@ -184,7 +177,7 @@ func main() {
 	logger.Printf("")
 
 	// Create storage manager (uses client's storage methods)
-	storageManager := &clientStorageManager{client: client}
+	storageManager := &clientStorageManager{client: client, logger: logger}
 
 	// Configure the crafting loop
 	config := &game.CraftingLoopConfig{
@@ -235,7 +228,8 @@ func main() {
 
 // clientStorageManager implements game.StorageManager using the game client
 type clientStorageManager struct {
-	client *game.Client
+	client game.GameClient
+	logger *log.Logger
 }
 
 func (m *clientStorageManager) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
@@ -247,45 +241,56 @@ func (m *clientStorageManager) DepositItems(ctx context.Context, itemID string, 
 }
 
 func (m *clientStorageManager) ViewStorage(ctx context.Context) (map[string]float64, error) {
-	// Use SendQueued to get the response directly from the game server
-	resp, err := m.client.SendQueued(ctx, protocol.Message{
-		Type:      "view_storage",
-		Timestamp: time.Now().UnixMilli(),
-	}, 10*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to view storage: %w", err)
-	}
+	// For WS clients, use SendQueued to get the response directly from the game server
+	if wsClient, ok := m.client.(*game.Client); ok {
+		resp, err := wsClient.SendQueued(ctx, protocol.Message{
+			Type:      "view_storage",
+			Timestamp: time.Now().UnixMilli(),
+		}, 10*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("failed to view storage: %w", err)
+		}
 
-	storageItems := make(map[string]float64)
+		storageItems := make(map[string]float64)
 
-	// Parse the items from the response payload
-	items, ok := resp.Payload["items"].([]any)
-	if !ok {
-		// No items in storage, return empty map
+		// Parse the items from the response payload
+		items, ok := resp.Payload["items"].([]any)
+		if !ok {
+			// No items in storage, return empty map
+			return storageItems, nil
+		}
+
+		// Convert items to map[itemID]quantity
+		for _, itemAny := range items {
+			item, ok := itemAny.(map[string]any)
+			if !ok {
+				continue
+			}
+			itemID, ok := item["item_id"].(string)
+			if !ok {
+				continue
+			}
+			quantity, ok := item["quantity"].(float64)
+			if !ok {
+				// Try int as fallback
+				if quantityInt, ok := item["quantity"].(int); ok {
+					quantity = float64(quantityInt)
+				} else {
+					continue
+				}
+			}
+			storageItems[itemID] = quantity
+		}
+
 		return storageItems, nil
 	}
 
-	// Convert items to map[itemID]quantity
-	for _, itemAny := range items {
-		item, ok := itemAny.(map[string]any)
-		if !ok {
-			continue
-		}
-		itemID, ok := item["item_id"].(string)
-		if !ok {
-			continue
-		}
-		quantity, ok := item["quantity"].(float64)
-		if !ok {
-			// Try int as fallback
-			if quantityInt, ok := item["quantity"].(int); ok {
-				quantity = float64(quantityInt)
-			} else {
-				continue
-			}
-		}
-		storageItems[itemID] = quantity
+	// For MCP clients, call ViewStorage (sends command) but storage items
+	// are not captured in state. Return empty map for now.
+	// TODO: Parse MCP ViewStorage response to extract storage items.
+	if err := m.client.ViewStorage(ctx); err != nil {
+		return nil, fmt.Errorf("failed to view storage: %w", err)
 	}
-
-	return storageItems, nil
+	m.logger.Printf("Warning: MCP transport storage viewing returns empty results; storage item parsing not yet implemented for MCP")
+	return make(map[string]float64), nil
 }

@@ -15,7 +15,7 @@ import (
 type StrategyRunner struct {
 	agentID    string
 	strategy   strategy.Strategy
-	gameClient *game.Client
+	gameClient game.GameClient
 	kb         knowledge.Base
 	params     map[string]string
 
@@ -29,7 +29,7 @@ type StrategyRunner struct {
 type StrategyRunnerConfig struct {
 	AgentID    string
 	Strategy   strategy.Strategy
-	GameClient *game.Client
+	GameClient game.GameClient
 	KB         knowledge.Base
 	Parameters map[string]string
 	Logger     *log.Logger
@@ -123,6 +123,6 @@ func (sr *StrategyRunner) AgentID() string {
 }
 
 // GameClient returns the underlying game client.
-func (sr *StrategyRunner) GameClient() *game.Client {
+func (sr *StrategyRunner) GameClient() game.GameClient {
 	return sr.gameClient
 }

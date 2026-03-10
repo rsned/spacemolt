@@ -21,10 +21,16 @@ var (
 	registrationCode = flag.String("code", "", "Registration code from https://spacemolt.com/dashboard (required for linking to website account)")
 	savePassword     = flag.Bool("save-password", false, "Save password to ~/.spacemolt/agents/<username>.password")
 	verbose          = flag.Bool("v", false, "Enable verbose output")
+	transport        = flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 )
 
 func main() {
 	flag.Parse()
+
+	if *transport != "ws" {
+		fmt.Fprintln(os.Stderr, "Error: register-agent only supports --transport=ws (registration requires WebSocket)")
+		os.Exit(1)
+	}
 
 	if *username == "" {
 		fmt.Fprintln(os.Stderr, "Error: --username is required")

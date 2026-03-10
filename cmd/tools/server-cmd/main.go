@@ -67,6 +67,7 @@ func (h *responseHandler) markSent() {
 func main() {
 	agentID := flag.String("agent", "", "Agent ID (e.g. pirate-1, miner-1)")
 	cmd := flag.String("cmd", "", "Server command to send (e.g. get_status, mine, buy)")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	var payload payloadFlags
 	flag.Var(&payload, "payload", "Payload key=value pair (repeatable)")
@@ -84,6 +85,11 @@ func main() {
 
 	if *agentID == "" || *cmd == "" {
 		flag.Usage()
+		os.Exit(1)
+	}
+
+	if *transport != "ws" {
+		fmt.Fprintf(os.Stderr, "Error: server-cmd only supports --transport=ws (raw command protocol requires WebSocket)\n")
 		os.Exit(1)
 	}
 

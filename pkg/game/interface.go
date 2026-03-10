@@ -108,6 +108,29 @@ type GameClient interface {
 
 	// State
 	GetState() *State
+	GetMarketListings() []MarketListing
+	GetRawJSON(key string) []byte
+
+	// Ship Management
+	ListShips(ctx context.Context) error
+	SwitchShip(ctx context.Context, shipID string) error
+	SellShip(ctx context.Context, shipID string) error
+
+	// Exchange
+	CreateSellOrder(ctx context.Context, payload map[string]any) error
+	CreateBuyOrder(ctx context.Context, payload map[string]any) error
+	ViewMarket(ctx context.Context, itemID string) error
+	ViewOrders(ctx context.Context) error
+
+	// Missions
+	GetMissions(ctx context.Context) error
+	AcceptMission(ctx context.Context, missionID string) error
+
+	// Survey
+	SurveySystem(ctx context.Context) error
+
+	// Captain's Log
+	CaptainsLogAdd(ctx context.Context, entry string) error
 }
 
 // Ensure Client implements GameClient interface

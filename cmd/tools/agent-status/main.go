@@ -414,12 +414,16 @@ func percentBar(current, max float64) string {
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		fmt.Println("Usage: agent-status <agent-id>")
+		fmt.Println("Usage: agent-status [flags] <agent-id>")
 		fmt.Println("Example: agent-status miner-1")
-		fmt.Println("Example: agent-status fighter-1")
+		fmt.Println("Example: agent-status -transport=mcp fighter-1")
+		fmt.Println()
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
 		fmt.Println()
 		fmt.Println("Available agents:")
 		entries, err := os.ReadDir("data/agents")
@@ -437,38 +441,68 @@ func main() {
 	}
 
 	agentID := flag.Args()[0]
-	agentDir := filepath.Join("data/agents", agentID)
 
-	// Check if agent directory exists
-	if _, err := os.Stat(agentDir); os.IsNotExist(err) {
-		log.Fatalf("Agent directory not found: %s", agentDir)
-	}
-
-	// Load credentials
-	creds, err := loadCredentials(agentDir)
-	if err != nil {
-		log.Fatalf("Failed to load credentials: %v", err)
-	}
-
-	fmt.Printf("Connecting to game as %s...\n", creds.Username)
 	fmt.Println("(This may take 10-15 seconds...)")
 
-	// Create context
 	ctx := context.Background()
-
-	// Create game client
 	gameLogger := log.New(os.Stderr, "[GAME] ", log.LstdFlags)
-	client := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
-	client.SetDebugLogging(*debug)
 
-	// Set up handler with automatic reconnection
-	handler := &StatusHandler{logger: gameLogger}
-	reconnectingHandler := game.NewReconnectingHandler(client, handler, ctx, gameLogger)
-	client.SetHandler(reconnectingHandler)
+	var client game.GameClient
+	switch *transport {
+	case "mcp":
+		fmt.Printf("Connecting to game as %s (MCP)...\n", agentID)
+		mcpClient, _, mcpErr := game.InitializeMCPAgent(agentID, gameLogger, ctx, *debug)
+		if mcpErr != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", mcpErr)
+		}
+		client = mcpClient
+	case "ws":
+		agentDir := filepath.Join("data/agents", agentID)
+		if _, err := os.Stat(agentDir); os.IsNotExist(err) {
+			log.Fatalf("Agent directory not found: %s", agentDir)
+		}
+		creds, err := loadCredentials(agentDir)
+		if err != nil {
+			log.Fatalf("Failed to load credentials: %v", err)
+		}
+		fmt.Printf("Connecting to game as %s...\n", creds.Username)
 
-	// Connect to game
-	if err := client.Connect(ctx); err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+		wsClient := game.NewClient(gameServerURL, creds.Username, creds.Password, gameLogger)
+		wsClient.SetDebugLogging(*debug)
+
+		handler := &StatusHandler{logger: gameLogger}
+		reconnectingHandler := game.NewReconnectingHandler(wsClient, handler, ctx, gameLogger)
+		wsClient.SetHandler(reconnectingHandler)
+
+		if err := wsClient.Connect(ctx); err != nil {
+			log.Fatalf("Failed to connect: %v", err)
+		}
+
+		<-wsClient.Ready()
+		time.Sleep(1 * time.Second)
+
+		if err := wsClient.Login(ctx); err != nil {
+			log.Fatalf("Failed to login: %v", err)
+		}
+
+		time.Sleep(3 * time.Second)
+
+		// Call get_ship and get_skills for detailed info (WS-specific Send)
+		shipMsg := protocol.Message{Type: "get_ship"}
+		if err := wsClient.Send(ctx, shipMsg); err != nil {
+			gameLogger.Printf("Warning: Could not get ship details: %v", err)
+		}
+		time.Sleep(2 * time.Second)
+
+		skillsMsg := protocol.Message{Type: "get_skills"}
+		if err := wsClient.Send(ctx, skillsMsg); err != nil {
+			gameLogger.Printf("Warning: Could not get skills: %v", err)
+		}
+		time.Sleep(2 * time.Second)
+
+		client = wsClient
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
@@ -476,35 +510,18 @@ func main() {
 		}
 	}()
 
-	// Wait for connection
-	<-client.Ready()
-	time.Sleep(1 * time.Second)
-
-	// Login
-	if err := client.Login(ctx); err != nil {
-		log.Fatalf("Failed to login: %v", err)
+	// For MCP transport, fetch ship and skills via interface methods
+	if *transport == "mcp" {
+		time.Sleep(game.SleepQuick)
+		if err := client.GetShip(ctx); err != nil {
+			gameLogger.Printf("Warning: Could not get ship details: %v", err)
+		}
+		time.Sleep(game.SleepQuick)
+		if err := client.GetSkills(ctx); err != nil {
+			gameLogger.Printf("Warning: Could not get skills: %v", err)
+		}
+		time.Sleep(game.SleepQuick)
 	}
-
-	// Wait for state to be populated after login
-	time.Sleep(3 * time.Second)
-
-	// Call get_ship to get detailed module information (if available)
-	shipMsg := protocol.Message{
-		Type: "get_ship",
-	}
-	if err := client.Send(ctx, shipMsg); err != nil {
-		gameLogger.Printf("Warning: Could not get ship details: %v", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	// Call get_skills to get skill details (if available)
-	skillsMsg := protocol.Message{
-		Type: "get_skills",
-	}
-	if err := client.Send(ctx, skillsMsg); err != nil {
-		gameLogger.Printf("Warning: Could not get skills: %v", err)
-	}
-	time.Sleep(2 * time.Second)
 
 	// Get final state
 	state := client.GetState()

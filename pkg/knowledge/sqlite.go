@@ -321,7 +321,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, class, description, position_x, position_y, last_updated_tick
+		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, last_updated_tick
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name

@@ -3,17 +3,27 @@
 ##############################
 bin/*
 /test-*
+
+##############################
+# official spacemolt client
+##############################
+spacemolt-client-linux-x64
 /spacemolt-client-linux-x64
 
 ##############################
 # Data files
 ##############################
-!data/prompts/
 *.db
 *.db-shm
 *.db-wal
 data/agents/*/credentials.json
+data/crafting/
+data/credentials/
 data/game-api/
+data/mcp/
+!data/prompts/
+data/reports/
+data/server/
 
 ##############################
 # Vim swap files
@@ -35,6 +45,7 @@ credentials.json
 ##############################
 # Logs and databases
 ##############################
+logs/
 *.log
 *.sqlite
 
@@ -56,19 +67,7 @@ docs/*.md
 !docs/USAGE.md
 reviews/*.md
 
-#
-# official spacemolt client
-#
-spacemolt-client-linux-x64
-
 # LLM files
 .claude/
 .gemini/
 
-# Data directories (runtime/generated data)
-data/server/
-data/crafting/
-data/credentials/
-data/mcp/
-data/reports/
-logs/

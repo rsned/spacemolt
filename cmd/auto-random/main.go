@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -21,33 +20,12 @@ const (
 )
 
 type RandomAgent struct {
-	client *game.Client
+	client game.GameClient
 	logger *log.Logger
 	ctx    context.Context
 }
 
-func (a *RandomAgent) OnConnected(state *game.State) {
-	a.logger.Printf("Connected! Credits: %.2f", state.Credits)
-}
-
-func (a *RandomAgent) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			a.logger.Printf("OK: %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			a.logger.Printf("ERROR: %s", msg)
-		}
-	}
-}
-
-func (a *RandomAgent) OnDisconnected(err error) {
-	a.logger.Printf("Disconnected: %v", err)
-}
-
-func updateCaptainsLog(agentID string, client *game.Client, tickCounter int) {
+func updateCaptainsLog(agentID string, client game.GameClient, tickCounter int) {
 	state := client.GetState()
 
 	var notes []string
@@ -83,7 +61,7 @@ func updateCaptainsLog(agentID string, client *game.Client, tickCounter int) {
 
 // randomLoop implements the main autonomous loop for random agent
 // Logic: Perform random actions (dock/undock/travel/scan/jump/etc.) to simulate NPC behavior
-func randomLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context) error {
+func randomLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context) error {
 	a := &RandomAgent{
 		client: client,
 		logger: logger,
@@ -146,14 +124,7 @@ func randomLoop(agentID string, client *game.Client, logger *log.Logger, ctx con
 				"Random jump gate activated!",
 			}
 			msg := chatMessages[rand.Intn(len(chatMessages))]
-			if err := client.Send(ctx, protocol.Message{
-				Type: "chat",
-				Payload: map[string]any{
-					"channel": "system",
-					"content": msg,
-				},
-				Timestamp: time.Now().UnixMilli(),
-			}); err != nil {
+			if err := client.Chat(ctx, "system", msg, ""); err != nil {
 				logger.Printf("Warning: Failed to send chat: %v", err)
 			}
 			logger.Printf("Chat: %s", msg)
@@ -177,7 +148,7 @@ func (a *RandomAgent) pickRandomAction() string {
 }
 
 // performAction executes a single action and handles the result
-func (a *RandomAgent) performAction(client *game.Client, logger *log.Logger, ctx context.Context, action string) {
+func (a *RandomAgent) performAction(client game.GameClient, logger *log.Logger, ctx context.Context, action string) {
 	state := client.GetState()
 
 	logger.Printf("Action: %s", action)
@@ -318,6 +289,7 @@ func (a *RandomAgent) performAction(client *game.Client, logger *log.Logger, ctx
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -326,6 +298,10 @@ func main() {
 		fmt.Println()
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
+		fmt.Println()
+		fmt.Println("Example:")
+		fmt.Println("  auto-random random-1              # Use WebSocket transport")
+		fmt.Println("  auto-random -transport=mcp random-1 # Use MCP transport")
 		fmt.Println()
 		fmt.Println("This tool controls a random NPC agent that performs")
 		fmt.Println("various actions to simulate autonomous behavior:")
@@ -356,11 +332,25 @@ func main() {
 	// Create context for lifecycle management
 	ctx := context.Background()
 
-	// Initialize game client using shared library function
-	// This handles: credential loading, client creation, connection, and login
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
