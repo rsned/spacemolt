@@ -11,7 +11,7 @@ import (
 // NavigateToSystem uses FindRoute + sequential Jump calls to travel
 // from the current system to the target system. Handles multi-hop routes.
 // The agent must be undocked before calling this function.
-func NavigateToSystem(client *Client, ctx context.Context, targetSystem string, logger *log.Logger) error {
+func NavigateToSystem(client GameClient, ctx context.Context, targetSystem string, logger *log.Logger) error {
 	state := client.GetState()
 
 	if sameSystem(state.System.ID, targetSystem) {
@@ -88,7 +88,7 @@ func NavigateToSystem(client *Client, ctx context.Context, targetSystem string, 
 }
 
 // NavigateAndDock finds the station in the current system, travels to it, and docks.
-func NavigateAndDock(client *Client, ctx context.Context, logger *log.Logger) error {
+func NavigateAndDock(client GameClient, ctx context.Context, logger *log.Logger) error {
 	state := client.GetState()
 
 	if state.Doc {
@@ -143,7 +143,7 @@ func NavigateAndDock(client *Client, ctx context.Context, logger *log.Logger) er
 }
 
 // jumpAndWait performs a single jump and waits for the travel to complete.
-func jumpAndWait(client *Client, ctx context.Context, targetSystem string, logger *log.Logger) error {
+func jumpAndWait(client GameClient, ctx context.Context, targetSystem string, logger *log.Logger) error {
 	// Undock if docked (can't jump while docked).
 	state := client.GetState()
 	if state.Doc {
@@ -162,7 +162,7 @@ func jumpAndWait(client *Client, ctx context.Context, targetSystem string, logge
 }
 
 // waitForArrival polls the state until the agent is no longer traveling.
-func waitForArrival(client *Client, ctx context.Context, timeout time.Duration) error {
+func waitForArrival(client GameClient, ctx context.Context, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
 		select {

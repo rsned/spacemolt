@@ -55,31 +55,58 @@ type mcpInitializeResult struct {
 }
 
 // parseSSEResponse reads an SSE response body and extracts the JSON-RPC response.
-// The MCP Streamable HTTP transport sends responses as Server-Sent Events with
-// data lines containing JSON-RPC 2.0 response objects.
+// The MCP Streamable HTTP transport sends responses as Server-Sent Events.
+// The server may send multiple SSE events (e.g., progress notifications followed
+// by the final result). We look for the last event that contains a JSON-RPC
+// response with a "result" or "error" field.
 func parseSSEResponse(body io.Reader) (*mcpJSONRPCResponse, error) {
 	scanner := bufio.NewScanner(body)
 	// Allow for large responses (up to 10MB).
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 
-	var lastData string
+	var allData []string
+	var currentData strings.Builder
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "data: ") {
-			lastData = strings.TrimPrefix(line, "data: ")
+			if currentData.Len() > 0 {
+				currentData.WriteString("\n")
+			}
+			currentData.WriteString(strings.TrimPrefix(line, "data: "))
+		} else if line == "" && currentData.Len() > 0 {
+			// Blank line = end of SSE event.
+			allData = append(allData, currentData.String())
+			currentData.Reset()
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading SSE stream: %w", err)
 	}
+	// Capture any trailing data without a final blank line.
+	if currentData.Len() > 0 {
+		allData = append(allData, currentData.String())
+	}
 
-	if lastData == "" {
+	if len(allData) == 0 {
 		return nil, fmt.Errorf("no data lines found in SSE response")
 	}
 
+	// Find the last SSE event that is a JSON-RPC response with result or error.
+	// The server may send notifications (no id) before the actual response.
+	for i := len(allData) - 1; i >= 0; i-- {
+		var resp mcpJSONRPCResponse
+		if err := json.Unmarshal([]byte(allData[i]), &resp); err != nil {
+			continue
+		}
+		if resp.JSONRPC == "2.0" && (resp.Result != nil || resp.Error != nil) {
+			return &resp, nil
+		}
+	}
+
+	// Fallback: parse the last data line as JSON-RPC.
 	var resp mcpJSONRPCResponse
-	if err := json.Unmarshal([]byte(lastData), &resp); err != nil {
-		return nil, fmt.Errorf("parsing JSON-RPC response: %w", err)
+	if err := json.Unmarshal([]byte(allData[len(allData)-1]), &resp); err != nil {
+		return nil, fmt.Errorf("parsing JSON-RPC response from %d SSE events: %w", len(allData), err)
 	}
 
 	return &resp, nil
@@ -89,9 +116,13 @@ func parseSSEResponse(body io.Reader) (*mcpJSONRPCResponse, error) {
 // MCP tools return results as content arrays with type "text".
 // Returns the combined text from all text content blocks.
 func parseToolResultText(result json.RawMessage) (string, error) {
+	if len(result) == 0 {
+		return "", fmt.Errorf("empty tool result")
+	}
+
 	var toolResult mcpToolResult
 	if err := json.Unmarshal(result, &toolResult); err != nil {
-		return "", fmt.Errorf("parsing tool result: %w", err)
+		return "", fmt.Errorf("parsing tool result: %w (raw: %s)", err, truncate(string(result), 200))
 	}
 
 	if toolResult.IsError {

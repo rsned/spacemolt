@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -41,52 +40,11 @@ type ExplorationState struct {
 	kb              knowledge.Base  // Knowledge base for querying system data
 }
 
-type explorerSimpleHandler struct {
-	client *game.Client
-	logger *log.Logger
-	kb     knowledge.Base
-}
-
-func (h *explorerSimpleHandler) OnConnected(state *game.State) {
-	h.logger.Printf("✓ Connected! Credits: %.2f | System: %s (%s)",
-		state.Credits, state.System.Name, state.CurrentSystem)
-
-	// CRITICAL: After reconnection, always refresh system data to verify our actual location
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	h.logger.Printf("🔍 Refreshing system data after connection to verify location...")
-	if err := h.client.GetSystem(ctx); err != nil {
-		h.logger.Printf("⚠️  Failed to refresh system data after connection: %v", err)
-	} else {
-		time.Sleep(2 * time.Second)
-		refreshedState := h.client.GetState()
-		h.logger.Printf("✓ Verified location: %s (%s)", refreshedState.System.Name, refreshedState.CurrentSystem)
-	}
-}
-
-func (h *explorerSimpleHandler) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			h.logger.Printf("✓ %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			h.logger.Printf("✗ %s", msg)
-		}
-	}
-}
-
-func (h *explorerSimpleHandler) OnDisconnected(err error) {
-	h.logger.Printf("Disconnected: %v", err)
-}
-
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
-func updateCaptainsLog(agentID string, client *game.Client, expState *ExplorationState) {
+func updateCaptainsLog(agentID string, client game.GameClient, expState *ExplorationState) {
 	state := client.GetState()
 
 	var notes []string
@@ -144,7 +102,7 @@ func needsRefuel(state *game.State) bool {
 // DATA COLLECTION (Uses Knowledge Base)
 // ============================================================================
 
-func collectSystemData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, agentID string) error {
+func collectSystemData(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, agentID string) error {
 	// Request system data (includes jump connections)
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("failed to get system: %w", err)
@@ -199,7 +157,7 @@ func collectSystemData(client *game.Client, ctx context.Context, logger *log.Log
 	return nil
 }
 
-func saveStationData(client *game.Client, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
+func saveStationData(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
 	state := client.GetState()
 
 	// Fetch base details from the server and save to knowledge base
@@ -282,26 +240,31 @@ func saveStationData(client *game.Client, ctx context.Context, logger *log.Logge
 	}
 
 	// Get ship listings (only if not captured today)
+	// ShipyardShowroom is only available on the WebSocket client.
 	if !hasShipsToday {
-		logger.Printf("🚢 Getting ship listings from %s...", poiName)
-		if err := client.ShipyardShowroom(ctx, nil); err != nil {
-			logger.Printf("Failed to get ship listings: %v", err)
-		} else {
-			time.Sleep(2 * time.Second)
+		if wsClient, ok := client.(*game.Client); ok {
+			logger.Printf("🚢 Getting ship listings from %s...", poiName)
+			if err := wsClient.ShipyardShowroom(ctx, nil); err != nil {
+				logger.Printf("Failed to get ship listings: %v", err)
+			} else {
+				time.Sleep(2 * time.Second)
 
-			rawJSON := client.GetRawJSON("ships")
-			if rawJSON != nil {
-				var serverData map[string]any
-				if err := json.Unmarshal(rawJSON, &serverData); err == nil {
-					ships := extractShipListings(serverData)
-					shipListings := convertShipListingsToKnowledge(state.System.ID, systemName, poiID, poiName, state.CurrentTick, ships)
-					if err := kb.StoreShipListings(ctx, shipListings, agentID); err != nil {
-						logger.Printf("⚠️  Failed to save ship listings to knowledge base: %v", err)
-					} else {
-						logger.Printf("💾 Saved ship listings to knowledge base")
+				rawJSON := client.GetRawJSON("ships")
+				if rawJSON != nil {
+					var serverData map[string]any
+					if err := json.Unmarshal(rawJSON, &serverData); err == nil {
+						ships := extractShipListings(serverData)
+						shipListings := convertShipListingsToKnowledge(state.System.ID, systemName, poiID, poiName, state.CurrentTick, ships)
+						if err := kb.StoreShipListings(ctx, shipListings, agentID); err != nil {
+							logger.Printf("⚠️  Failed to save ship listings to knowledge base: %v", err)
+						} else {
+							logger.Printf("💾 Saved ship listings to knowledge base")
+						}
 					}
 				}
 			}
+		} else {
+			logger.Printf("⊙ Ship listings not available via MCP transport")
 		}
 	} else {
 		logger.Printf("✓ Ship listings already captured today for %s", poiName)
@@ -401,18 +364,13 @@ func extractShipListings(serverData map[string]any) []knowledge.ShipListing {
 // NAVIGATION (Direct jumping, no jump gates)
 // ============================================================================
 
-func findRouteToSystem(client *game.Client, ctx context.Context, targetSystem string) error {
-	// Use find_route API to get the path
-	msg := protocol.Message{
-		Type: "find_route",
-		Payload: map[string]any{
-			"target_system": targetSystem,
-		},
-	}
-	return client.Send(ctx, msg)
+func findRouteToSystem(client game.GameClient, ctx context.Context, targetSystem string) error {
+	// Use FindRoute API to get the path
+	_, err := client.FindRoute(ctx, targetSystem)
+	return err
 }
 
-func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string) error {
+func jumpToSystem(client game.GameClient, ctx context.Context, targetSystem string) error {
 	logger := log.New(os.Stdout, "[JUMP] ", log.LstdFlags)
 
 	state := client.GetState()
@@ -471,7 +429,7 @@ func jumpToSystem(client *game.Client, ctx context.Context, targetSystem string)
 	return fmt.Errorf("failed to jump after 3 attempts (action_pending)")
 }
 
-func navigateToHomeBase(client *game.Client, ctx context.Context, homeSystem string) error {
+func navigateToHomeBase(client game.GameClient, ctx context.Context, homeSystem string) error {
 	logger := log.New(os.Stdout, "[NAV] ", log.LstdFlags)
 
 	state := client.GetState()
@@ -501,7 +459,7 @@ func navigateToHomeBase(client *game.Client, ctx context.Context, homeSystem str
 // POI EXPLORATION
 // ============================================================================
 
-func exploreAllPOIs(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base) error {
+func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base) error {
 	state := client.GetState()
 
 	if expState.VisitedPOIs == nil {
@@ -647,7 +605,7 @@ func isDamaged(state *game.State) bool {
 	return hullPercent < 50
 }
 
-func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
+func repairShip(client game.GameClient, ctx context.Context, logger *log.Logger, expState *ExplorationState) error {
 	state := client.GetState()
 
 	logger.Printf("⚠️  SHIP DAMAGED! Hull: %.0f/%.0f (%.1f%%)",
@@ -720,7 +678,7 @@ func repairShip(client *game.Client, ctx context.Context, logger *log.Logger, ex
 // EXPLORATION LOOP
 // ============================================================================
 
-func explorationPhase(client *game.Client, logger *log.Logger, ctx context.Context, kb knowledge.Base, agentID string) error {
+func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Context, kb knowledge.Base, agentID string) error {
 	state := client.GetState()
 
 	expState := &ExplorationState{
@@ -1081,12 +1039,14 @@ func findUnvisitedSystemInKB(expState *ExplorationState, currentConnections []ga
 // ============================================================================
 
 func main() {
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	args := flag.Args()
 	if len(args) < 1 {
-		fmt.Println("Usage: auto-explorer <explorer-number>")
+		fmt.Println("Usage: auto-explorer [flags] <explorer-number>")
 		fmt.Println("Example: auto-explorer 1")
+		fmt.Println("  auto-explorer -transport=mcp 1")
 		fmt.Println("\nFlags:")
 		flag.PrintDefaults()
 		os.Exit(1)
@@ -1112,15 +1072,6 @@ func main() {
 		}
 	}
 
-	// Load credentials
-	creds, err := game.LoadCredentials(fmt.Sprintf("data/agents/%s", explorer))
-	if err != nil {
-		log.Fatalf("Failed to load credentials: %v", err)
-	}
-
-	logger.Printf("🔭 Starting autonomous explorer bot...")
-	logger.Printf("Explorer: %s | Empire: %s", creds.Username, creds.Empire)
-
 	ctx := context.Background()
 
 	// Initialize knowledge base
@@ -1134,6 +1085,38 @@ func main() {
 		}
 	}()
 	logger.Printf("✓ Knowledge base initialized (%s)", *dbBackend)
+
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(explorer, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		var wsClient *game.Client
+		wsClient, creds, err = game.InitializeAgent(explorer, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+		client = wsClient
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
+	}
+
+	defer func() {
+		if err := client.Close(); err != nil {
+			logger.Printf("Warning: Failed to close client: %v", err)
+		}
+	}()
+
+	logger.Printf("🔭 Starting autonomous explorer bot...")
+	logger.Printf("Explorer: %s | Empire: %s", creds.Username, creds.Empire)
 
 	// Register with status registry if configured
 	var regClient *registry.Client
@@ -1166,26 +1149,15 @@ func main() {
 				logger.Printf("Warning: Failed to update status: %v", err)
 			}
 		}
-	}
 
-	// Create game client (don't use InitializeAgent since we need custom handler)
-	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-GAME] ", explorer), log.LstdFlags)
-	client := game.NewClient(game.DefaultGameServerURL, creds.Username, creds.Password, gameLogger)
-	client.SetDebugLogging(*debug)
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Printf("Warning: Failed to close client: %v", err)
-		}
-	}()
-
-	// Set up explorer-specific handler BEFORE connecting
-	explorerHandler := &explorerSimpleHandler{
-		client: client,
-		logger: logger,
-		kb:     kb,
+		defer func() {
+			if regClient != nil {
+				if err := regClient.Deregister(); err != nil {
+					logger.Printf("Warning: Failed to deregister: %v", err)
+				}
+			}
+		}()
 	}
-	reconnectingHandler := game.NewReconnectingHandler(client, explorerHandler, ctx, logger)
-	client.SetHandler(reconnectingHandler)
 
 	// Start heartbeat for registry if registered
 	if regClient != nil {
@@ -1198,37 +1170,7 @@ func main() {
 		})
 	}
 
-	// Connect to game
-	if err := client.Connect(ctx); err != nil {
-		log.Fatalf("Failed to connect: %v", err)
-	}
-	defer func() {
-		if err := client.Close(); err != nil {
-			logger.Printf("Warning: Failed to close client: %v", err)
-		}
-		if regClient != nil {
-			if err := regClient.Deregister(); err != nil {
-				logger.Printf("Warning: Failed to deregister: %v", err)
-			}
-		}
-	}()
-
-	// Wait for connection
-	<-client.Ready()
 	time.Sleep(1 * time.Second)
-
-	// Login
-	logger.Printf("Logging in...")
-	if regClient != nil {
-		if err := regClient.UpdateStatus("connecting", "Logging in"); err != nil {
-			logger.Printf("Warning: Failed to update status: %v", err)
-		}
-	}
-	if err := client.Login(ctx); err != nil {
-		log.Fatalf("Failed to login: %v", err)
-	}
-
-	time.Sleep(2 * time.Second)
 
 	state := client.GetState()
 	logger.Printf("✓ Ready! Credits: %.2f | Ship: %s", state.Credits, state.Ship.Name)

@@ -110,6 +110,7 @@ type mapSystemInfo struct {
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -125,6 +126,7 @@ func main() {
 		fmt.Println("  auto-prophet prophet-1    # The Prophet (Covenant of the Eternal Spark)")
 		fmt.Println("  auto-prophet prophet-2    # Hugh Mann (Order of the Grand Architects)")
 		fmt.Println("  auto-prophet -debug prophet-1  # With debug logging")
+		fmt.Println("  auto-prophet -transport=mcp prophet-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -153,10 +155,28 @@ func main() {
 
 	ctx := context.Background()
 
-	client, _, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection.
+	var client game.GameClient
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, _, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		var wsClient *game.Client
+		wsClient, _, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+		client = wsClient
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
+
 	defer func() {
 		if err := client.Close(); err != nil {
 			log.Printf("Warning: Failed to close client: %v", err)
@@ -211,7 +231,7 @@ func loadMetaFromPersonality(agentID string) (struct {
 }
 
 // prophetLoop is the main behavior loop for the prophet agent.
-func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx context.Context, identity *prophetIdentity) error {
+func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, identity *prophetIdentity) error {
 	phase := phaseSeekCongregation
 	var (
 		targetSystem   string
@@ -405,7 +425,7 @@ func prophetLoop(agentID string, client *game.Client, logger *log.Logger, ctx co
 
 // findPopulatedSystem parses the map data to find the most populated system
 // that isn't the current one.
-func findPopulatedSystem(client *game.Client, currentSystemID string, logger *log.Logger) (mapSystemInfo, error) {
+func findPopulatedSystem(client game.GameClient, currentSystemID string, logger *log.Logger) (mapSystemInfo, error) {
 	raw := client.GetRawJSON("systems")
 	if raw == nil {
 		return mapSystemInfo{}, fmt.Errorf("no map data available (call GetMap first)")
@@ -447,7 +467,7 @@ func findPopulatedSystem(client *game.Client, currentSystemID string, logger *lo
 }
 
 // checkSurvival handles refueling and repairs when docked.
-func checkSurvival(client *game.Client, ctx context.Context, logger *log.Logger, state *game.State) error {
+func checkSurvival(client game.GameClient, ctx context.Context, logger *log.Logger, state *game.State) error {
 	if !state.Doc {
 		// Check if we need emergency docking.
 		fuelPct := state.Fuel / state.MaxFuel
@@ -466,7 +486,7 @@ func checkSurvival(client *game.Client, ctx context.Context, logger *log.Logger,
 }
 
 // refuelAndRepair handles refueling and repairs when docked.
-func refuelAndRepair(client *game.Client, ctx context.Context, logger *log.Logger) error {
+func refuelAndRepair(client game.GameClient, ctx context.Context, logger *log.Logger) error {
 	state := client.GetState()
 	if !state.Doc {
 		return nil

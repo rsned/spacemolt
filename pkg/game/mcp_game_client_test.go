@@ -336,9 +336,14 @@ func TestParseSSEResponse(t *testing.T) {
 			wantID: 1,
 		},
 		{
-			name:   "multiple data lines takes last",
-			input:  "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"final\"}]}}\n\n",
+			name:   "multiple SSE events picks result",
+			input:  "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":null}\n\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"final\"}]}}\n\n",
 			wantID: 2,
+		},
+		{
+			name:   "notification then result",
+			input:  "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\"}\n\ndata: {\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}\n\n",
+			wantID: 3,
 		},
 		{
 			name:    "empty body",

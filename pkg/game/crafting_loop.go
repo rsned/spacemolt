@@ -51,7 +51,7 @@ type CraftingLoopResult struct {
 }
 
 // RecipeSelector selects recipes to craft based on current state and storage
-type RecipeSelector func(client *Client, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error)
+type RecipeSelector func(client GameClient, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error)
 
 // StorageManager handles storage operations
 type StorageManager interface {
@@ -66,7 +66,7 @@ type StorageManager interface {
 // DefaultRecipeSelector selects recipes using the MCP crafting server
 // It queries the server with current cargo + storage and skills, then returns
 // the best recipe for each output item (most efficient first)
-func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error) {
+func DefaultRecipeSelector(client GameClient, logger *log.Logger, ctx context.Context, storage StorageManager) ([]string, error) {
 	state := client.GetState()
 
 	// Build components list from cargo + storage
@@ -112,7 +112,12 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 
 	// Query the MCP crafting server for what we can craft
 	// Use nil config to default to "crafting-server" from PATH
-	result, err := client.QueryCraftableFromComponents(ctx, components, nil)
+	// QueryCraftableFromComponents is only available on the WS client
+	wsClient, ok := client.(*Client)
+	if !ok {
+		return nil, fmt.Errorf("DefaultRecipeSelector requires WS client for QueryCraftableFromComponents")
+	}
+	result, err := wsClient.QueryCraftableFromComponents(ctx, components, nil)
 	if err != nil {
 		logger.Printf("❌ Failed to query crafting server: %v", err)
 		logger.Printf("   💡 Make sure the crafting-server is available in PATH")
@@ -188,7 +193,7 @@ func DefaultRecipeSelector(client *Client, logger *log.Logger, ctx context.Conte
 //   - Context is cancelled
 //   - StopCondition returns true
 //   - An error occurs (returns error)
-func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, config *CraftingLoopConfig) (*CraftingLoopResult, error) {
+func CraftingLoop(client GameClient, logger *log.Logger, ctx context.Context, config *CraftingLoopConfig) (*CraftingLoopResult, error) {
 	// Apply defaults
 	if config == nil {
 		config = &CraftingLoopConfig{}
@@ -415,7 +420,7 @@ func CraftingLoop(client *Client, logger *log.Logger, ctx context.Context, confi
 }
 
 // craftRecipe crafts a specific recipe, returns number of items crafted
-func craftRecipe(client *Client, logger *log.Logger, ctx context.Context, recipeID string) (int, error) {
+func craftRecipe(client GameClient, logger *log.Logger, ctx context.Context, recipeID string) (int, error) {
 	state := client.GetState()
 
 	// Craft in batches of 10 (max allowed per command)

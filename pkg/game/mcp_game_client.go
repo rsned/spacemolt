@@ -42,6 +42,11 @@ type MCPGameClient struct {
 	connected   bool
 	connectedMu sync.RWMutex
 
+	debug bool
+
+	latestListings []MarketListing
+	listingsMu     sync.RWMutex
+
 	readyChan chan struct{}
 	readyOnce sync.Once
 
@@ -68,6 +73,11 @@ func NewMCPGameClient(serverURL, username, password string, logger *log.Logger) 
 		logger:    logger,
 		readyChan: make(chan struct{}),
 	}
+}
+
+// SetDebugLogging enables or disables debug logging for raw responses.
+func (m *MCPGameClient) SetDebugLogging(enabled bool) {
+	m.debug = enabled
 }
 
 // SetHandler sets the message handler for lifecycle events.
@@ -340,8 +350,15 @@ func (m *MCPGameClient) doHTTPRequest(ctx context.Context, body []byte) (*mcpJSO
 	mcpSession := httpResp.Header.Get("Mcp-Session-Id")
 	contentType := httpResp.Header.Get("Content-Type")
 
-	resp, err := detectAndParseResponse(contentType, httpResp.Body)
+	// Read body so we can log it on error.
+	bodyData, err := io.ReadAll(io.LimitReader(httpResp.Body, 10*1024*1024))
 	if err != nil {
+		return nil, mcpSession, fmt.Errorf("reading response body: %w", err)
+	}
+
+	resp, err := detectAndParseResponse(contentType, bytes.NewReader(bodyData))
+	if err != nil {
+		m.logger.Printf("[MCP] Parse error. Content-Type: %s, Body: %s", contentType, truncate(string(bodyData), 500))
 		return nil, mcpSession, fmt.Errorf("parsing response: %w", err)
 	}
 
@@ -506,15 +523,38 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 
 	if err := json.Unmarshal([]byte(text), &payload); err != nil {
 		// Non-JSON text responses (e.g., "Mining complete") are fine.
+		if m.debug {
+			m.logger.Printf("[MCP DEBUG] updateStateFromResult: not JSON, skipping: %v", err)
+		}
 		return nil
+	}
+
+	// If the response is wrapped in {"result": {...}, "session": {...}} (HTTP API format),
+	// unwrap the "result" field and re-parse.
+	if payload.Player == nil && payload.Ship == nil && payload.System == nil && payload.Message == "" {
+		var wrapper struct {
+			Result json.RawMessage `json:"result"`
+		}
+		if err := json.Unmarshal([]byte(text), &wrapper); err == nil && len(wrapper.Result) > 0 {
+			if m.debug {
+				m.logger.Printf("[MCP DEBUG] unwrapping result envelope: %s", truncate(string(wrapper.Result), 500))
+			}
+			if err := json.Unmarshal(wrapper.Result, &payload); err != nil {
+				if m.debug {
+					m.logger.Printf("[MCP DEBUG] failed to parse unwrapped result: %v", err)
+				}
+			}
+		}
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if payload.Player != nil {
-		var player Player
-		if err := json.Unmarshal(payload.Player, &player); err == nil {
+		player, parseErr := parseMCPPlayer(payload.Player)
+		if parseErr != nil {
+			m.logger.Printf("[MCP] Player parse failed: %v", parseErr)
+		} else {
 			m.state.Player = player
 			m.state.Credits = player.Credits
 			m.state.CurrentSystem = player.CurrentSystem
@@ -561,6 +601,49 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 	}
 
 	return nil
+}
+
+// parseMCPPlayer parses a player JSON blob, handling both the standard
+// skills format (map[string]Skill with {level, xp}) and the MCP format
+// (map[string]int with just level numbers).
+func parseMCPPlayer(data json.RawMessage) (Player, error) {
+	var player Player
+	if err := json.Unmarshal(data, &player); err == nil {
+		return player, nil
+	}
+
+	// Skills format mismatch — parse everything except skills, then fix skills.
+	// First, unmarshal into a generic map to extract and rewrite the skills field.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return Player{}, fmt.Errorf("player JSON parse: %w", err)
+	}
+
+	skillsRaw, hasSkills := raw["skills"]
+	if hasSkills {
+		// Try as map[string]int (MCP format: {"mining": 10, ...}).
+		var skillLevels map[string]int
+		if err := json.Unmarshal(skillsRaw, &skillLevels); err == nil {
+			// Convert to map[string]Skill format.
+			converted := make(map[string]Skill, len(skillLevels))
+			for name, level := range skillLevels {
+				converted[name] = Skill{Level: level}
+			}
+			// Re-serialize in the format Player expects.
+			fixedSkills, _ := json.Marshal(converted)
+			raw["skills"] = fixedSkills
+		}
+	}
+
+	fixedData, err := json.Marshal(raw)
+	if err != nil {
+		return Player{}, fmt.Errorf("re-marshaling player: %w", err)
+	}
+
+	if err := json.Unmarshal(fixedData, &player); err != nil {
+		return Player{}, fmt.Errorf("player parse after skills fix: %w", err)
+	}
+	return player, nil
 }
 
 // setConnected updates the connected state.

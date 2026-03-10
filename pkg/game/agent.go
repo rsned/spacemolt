@@ -171,7 +171,7 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 //   - GameClient: Fully initialized and authenticated MCP game client
 //   - *Credentials: The loaded credentials (for reference if needed)
 //   - error: Any error during initialization
-func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context) (GameClient, *Credentials, error) {
+func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context, debug ...bool) (GameClient, *Credentials, error) {
 	// Step 1: Load credentials from agent directory
 	agentDir := filepath.Join("data", "agents", agentID)
 	creds, err := LoadCredentials(agentDir)
@@ -184,6 +184,9 @@ func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context)
 	// Step 2: Create MCP game client
 	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-MCP] ", agentID), log.LstdFlags)
 	client := NewMCPGameClient(DefaultMCPServerURL, creds.Username, creds.Password, gameLogger)
+	if len(debug) > 0 && debug[0] {
+		client.SetDebugLogging(true)
+	}
 
 	// Step 3: Connect (MCP initialize handshake)
 	logger.Printf("Connecting to MCP server...")
@@ -198,7 +201,14 @@ func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context)
 		return nil, nil, fmt.Errorf("failed to login via MCP: %w", err)
 	}
 
-	// Step 5: Verify state
+	// Step 5: Fetch initial state (login response may not include full player data)
+	logger.Printf("Fetching initial state...")
+	if err := client.GetStatus(ctx); err != nil {
+		_ = client.Close()
+		return nil, nil, fmt.Errorf("failed to get initial status: %w", err)
+	}
+
+	// Step 6: Verify state
 	state := client.GetState()
 	if state.Player.ID == "" {
 		_ = client.Close()

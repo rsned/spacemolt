@@ -148,6 +148,18 @@ func (m *MCPGameClient) GetListings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Parse listings from the result.
+	text, parseErr := parseToolResultText(result)
+	if parseErr == nil {
+		var resp struct {
+			Listings []MarketListing `json:"listings"`
+		}
+		if jsonErr := json.Unmarshal([]byte(text), &resp); jsonErr == nil && len(resp.Listings) > 0 {
+			m.listingsMu.Lock()
+			m.latestListings = resp.Listings
+			m.listingsMu.Unlock()
+		}
+	}
 	return m.updateStateFromResult(result)
 }
 
@@ -639,6 +651,105 @@ func (m *MCPGameClient) WriteNote(ctx context.Context, noteID, content string) e
 func (m *MCPGameClient) GetNotes(ctx context.Context) error {
 	_, err := m.callTool(ctx, "get_notes", nil)
 	return err
+}
+
+// Ship Management
+
+func (m *MCPGameClient) ListShips(ctx context.Context) error {
+	_, err := m.callTool(ctx, "list_ships", nil)
+	return err
+}
+
+func (m *MCPGameClient) SwitchShip(ctx context.Context, shipID string) error {
+	result, err := m.callTool(ctx, "switch_ship", map[string]any{"ship_id": shipID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) SellShip(ctx context.Context, shipID string) error {
+	result, err := m.callTool(ctx, "sell_ship", map[string]any{"ship_id": shipID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// Exchange
+
+func (m *MCPGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
+	result, err := m.callTool(ctx, "create_sell_order", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) CreateBuyOrder(ctx context.Context, payload map[string]any) error {
+	result, err := m.callTool(ctx, "create_buy_order", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) ViewMarket(ctx context.Context, itemID string) error {
+	args := map[string]any{}
+	if itemID != "" {
+		args["item_id"] = itemID
+	}
+	_, err := m.callTool(ctx, "view_market", args)
+	return err
+}
+
+func (m *MCPGameClient) ViewOrders(ctx context.Context) error {
+	_, err := m.callTool(ctx, "view_orders", nil)
+	return err
+}
+
+// Missions
+
+func (m *MCPGameClient) GetMissions(ctx context.Context) error {
+	_, err := m.callTool(ctx, "get_missions", nil)
+	return err
+}
+
+func (m *MCPGameClient) AcceptMission(ctx context.Context, missionID string) error {
+	result, err := m.callTool(ctx, "accept_mission", map[string]any{"mission_id": missionID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// Survey
+
+func (m *MCPGameClient) SurveySystem(ctx context.Context) error {
+	_, err := m.callTool(ctx, "survey_system", nil)
+	return err
+}
+
+// Captain's Log
+
+func (m *MCPGameClient) CaptainsLogAdd(ctx context.Context, entry string) error {
+	_, err := m.callTool(ctx, "captains_log_add", map[string]any{"entry": entry})
+	return err
+}
+
+// GetMarketListings returns cached market listings from the last GetListings call.
+func (m *MCPGameClient) GetMarketListings() []MarketListing {
+	m.listingsMu.RLock()
+	defer m.listingsMu.RUnlock()
+	result := make([]MarketListing, len(m.latestListings))
+	copy(result, m.latestListings)
+	return result
+}
+
+// GetRawJSON returns nil for MCP clients — raw JSON caching is a WebSocket-only feature.
+// Agents using MCP should use typed API methods instead.
+func (m *MCPGameClient) GetRawJSON(_ string) []byte {
+	return nil
 }
 
 // --- Helpers ---
