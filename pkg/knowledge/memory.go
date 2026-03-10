@@ -324,6 +324,7 @@ type POI struct {
 	SystemID        string
 	Name            string
 	Type            string
+	Class           string // Star class (e.g., "G2 V") or planet type (e.g., "terran")
 	Description     string
 	Position        game.Position
 	Services        []string
