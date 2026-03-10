@@ -342,6 +342,23 @@ func (m *MCPGameClient) doHTTPRequest(ctx context.Context, body []byte) (*mcpJSO
 	}
 	defer httpResp.Body.Close() //nolint:errcheck
 
+	if httpResp.StatusCode == http.StatusTooManyRequests {
+		respBody, _ := io.ReadAll(io.LimitReader(httpResp.Body, 1024))
+		// Parse retry_after from JSON response if available.
+		var rateLimitResp struct {
+			RetryAfter int `json:"retry_after"`
+		}
+		if err := json.Unmarshal(respBody, &rateLimitResp); err == nil && rateLimitResp.RetryAfter > 0 {
+			wait := time.Duration(rateLimitResp.RetryAfter) * time.Second
+			m.logger.Printf("[MCP] Rate limited, waiting %v...", wait)
+			time.Sleep(wait)
+		} else {
+			m.logger.Printf("[MCP] Rate limited, waiting 30s...")
+			time.Sleep(SleepReconnect)
+		}
+		return nil, "", fmt.Errorf("HTTP 429: %s", string(respBody))
+	}
+
 	if httpResp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(io.LimitReader(httpResp.Body, 1024))
 		return nil, "", fmt.Errorf("HTTP %d: %s", httpResp.StatusCode, string(respBody))

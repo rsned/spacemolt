@@ -349,6 +349,10 @@ func (e *Executor) resolveTarget(target string, skill *Skill, state *game.State)
 	// Check if it's a defined target variable (POI type reference)
 	t, ok := skill.Targets[varName]
 	if !ok {
+		// Try resolving as a special variable (e.g., $found_poi, $capital_system_id)
+		if resolved := e.resolveVariable(varName, state); resolved != "" {
+			return resolved, nil
+		}
 		// Not a target variable - pass through to dispatcher
 		// The dispatcher will handle parameter resolution (e.g., $destination_system)
 		return target, nil
