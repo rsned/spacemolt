@@ -169,6 +169,7 @@ type POI struct {
 	ID          string        `json:"id"`
 	SystemID    string        `json:"system_id"`
 	Type        string        `json:"type"`
+	Class       string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
 	Name        string        `json:"name"`
 	Description string        `json:"description"`
 	Position    Position      `json:"position"`
