@@ -82,6 +82,8 @@ var actionResponseTypes = map[string]reflect.Type{
 	// Navigation and resources
 	"travel":         reflect.TypeOf(serverapi.TravelResponse{}),
 	"arrived":        reflect.TypeOf(serverapi.TravelResponse{}),
+	"jump":           reflect.TypeOf(serverapi.JumpResponse{}),
+	"jumped":         reflect.TypeOf(serverapi.JumpedResponse{}),
 	"dock":           reflect.TypeOf(serverapi.DockResponse{}),
 	"undock":         reflect.TypeOf(serverapi.UndockResponse{}),
 	"refuel":         reflect.TypeOf(serverapi.RefuelResponse{}),

@@ -8,10 +8,15 @@ package serverapi
 
 // GetSystemResponse wraps the response from get_system command.
 type GetSystemResponse struct {
-	Action         string     `json:"action"`
-	POI            CurrentPOI `json:"poi,omitempty"`
-	SecurityStatus string     `json:"security_status"`
-	System         SystemData `json:"system"`
+	Action          string     `json:"action"`
+	POI             CurrentPOI `json:"poi,omitempty"`
+	SecurityStatus  string     `json:"security_status"`
+	System          SystemData `json:"system"`
+	FromSystem      string     `json:"from_system,omitempty"`
+	InTransit       bool       `json:"in_transit,omitempty"`
+	TicksRemaining  int        `json:"ticks_remaining,omitempty"`
+	ToSystem        string     `json:"to_system,omitempty"`
+	TransitType     string     `json:"transit_type,omitempty"`
 }
 
 // GetPOIResponse wraps the response from get_poi command.
@@ -152,23 +157,31 @@ type BattleResponse struct {
 
 // ViewMarketResponse wraps the response from view_market command.
 type ViewMarketResponse struct {
-	Action  string           `json:"action"`
-	Base    string           `json:"base,omitempty"`
-	Items   []ViewMarketItem `json:"items"`
-	Message string           `json:"message,omitempty"`
+	Action     string           `json:"action"`
+	Base       string           `json:"base,omitempty"`
+	Items      []ViewMarketItem `json:"items"`
+	Message    string           `json:"message,omitempty"`
+	Categories []string         `json:"categories,omitempty"`
 }
 
 // ViewOrdersResponse wraps the response from view_orders command.
 type ViewOrdersResponse struct {
-	Action              string          `json:"action"`
-	Base                string          `json:"base,omitempty"`
-	Orders              []ExchangeOrder `json:"orders"`
-	FactionOrders       []ExchangeOrder `json:"faction_orders,omitempty"`
-	OrdersCount         int             `json:"orders_count,omitempty"`
-	FactionOrdersCount  int             `json:"faction_orders_count,omitempty"`
-	OrdersTruncated     bool            `json:"orders_truncated,omitempty"`
-	FactionOrdersTruncated bool         `json:"faction_orders_truncated,omitempty"`
-	Hint                string          `json:"hint,omitempty"`
+	Action                 string          `json:"action"`
+	Base                   string          `json:"base,omitempty"`
+	Orders                 []ExchangeOrder `json:"orders"`
+	FactionOrders          []ExchangeOrder `json:"faction_orders,omitempty"`
+	OrdersCount            int             `json:"orders_count,omitempty"`
+	FactionOrdersCount     int             `json:"faction_orders_count,omitempty"`
+	OrdersTruncated        bool            `json:"orders_truncated,omitempty"`
+	FactionOrdersTruncated bool            `json:"faction_orders_truncated,omitempty"`
+	Hint                   string          `json:"hint,omitempty"`
+	HasMore                bool            `json:"has_more,omitempty"`
+	Page                   int             `json:"page,omitempty"`
+	PageSize               int             `json:"page_size,omitempty"`
+	Scope                  string          `json:"scope,omitempty"`
+	SortBy                 string          `json:"sort_by,omitempty"`
+	Total                  int             `json:"total,omitempty"`
+	TotalPages             int             `json:"total_pages,omitempty"`
 }
 
 // AnalyzeMarketResponse wraps the response from analyze_market command.
@@ -851,9 +864,30 @@ type TravelResponse struct {
 	OnlinePlayers       []NearbyPlayer `json:"online_players,omitempty"`
 }
 
+// JumpResponse wraps the response from jump command.
+type JumpResponse struct {
+	Action      string `json:"action"`
+	ArrivalTick int64  `json:"arrival_tick,omitempty"`
+	Destination string `json:"destination,omitempty"`
+	IsWormhole  bool   `json:"is_wormhole,omitempty"`
+}
+
+// JumpedResponse wraps the response from jumped event after jump completes.
+type JumpedResponse struct {
+	Action       string `json:"action"`
+	FromSystem   string `json:"from_system,omitempty"`
+	NavigationXP int    `json:"navigation_xp,omitempty"`
+	POI          string `json:"poi,omitempty"`
+	System       string `json:"system,omitempty"`
+	SystemID     string `json:"system_id,omitempty"`
+}
+
 // DockResponse wraps the response from dock command.
 type DockResponse struct {
-	Action string `json:"action,omitempty"`
+	Action            string          `json:"action,omitempty"`
+	Base              *Base           `json:"base,omitempty"`
+	StationCondition  *StationHealth  `json:"station_condition,omitempty"`
+	Story             string          `json:"story,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.

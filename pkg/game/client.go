@@ -669,6 +669,13 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 		}
 	}
 
+	// Update CurrentTick from response if present (prevents stale tick values)
+	if tick, ok := resp.Payload["tick"].(float64); ok {
+		c.mu.Lock()
+		c.state.CurrentTick = int64(tick)
+		c.mu.Unlock()
+	}
+
 	// Compute timeout from arrival_tick if available, else use generous default.
 	timeout := 90 * time.Second
 	if arrivalTick, ok := resp.Payload["arrival_tick"].(float64); ok {
@@ -722,6 +729,13 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 			state := c.GetState()
 			return &JumpResult{SystemID: state.System.ID, SystemName: state.System.Name}, nil
 		}
+	}
+
+	// Update CurrentTick from response if present (prevents stale tick values)
+	if tick, ok := resp.Payload["tick"].(float64); ok {
+		c.mu.Lock()
+		c.state.CurrentTick = int64(tick)
+		c.mu.Unlock()
 	}
 
 	// Compute timeout from arrival_tick if available.
@@ -1796,6 +1810,19 @@ func (c *Client) parseShipData(payload map[string]any) {
 func (c *Client) parseSystemData(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// Parse transit status from get_system response (if present)
+	// These fields indicate if the ship is currently in transit between systems
+	if inTransit, ok := payload["in_transit"].(bool); ok {
+		c.state.Traveling = inTransit
+		if inTransit {
+			c.debugLogger.Printf("Ship is in transit (from=%s to=%s type=%s ticks=%d)",
+				payload["from_system"], payload["to_system"],
+				payload["transit_type"], payload["ticks_remaining"])
+		} else {
+			c.debugLogger.Printf("Ship is not in transit")
+		}
+	}
 
 	// Check for direct system object
 	if _, ok := payload["system"]; ok {
@@ -3047,6 +3074,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	actionErrorChan := make(chan protocol.Response, 1)
 	actionResultChan := make(chan protocol.Response, 1)
 	miningYieldChan := make(chan protocol.Response, 1)
+	scanResultChan := make(chan protocol.Response, 1)
 
 	c.waiterMu.Lock()
 	c.waiters[protocol.TypeOK] = okChan
@@ -3054,6 +3082,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	c.waiters[protocol.TypeActionError] = actionErrorChan
 	c.waiters[protocol.TypeActionResult] = actionResultChan
 	c.waiters[protocol.TypeMiningYield] = miningYieldChan
+	c.waiters[protocol.TypeScanResult] = scanResultChan
 	c.waiterMu.Unlock()
 
 	defer func() {
@@ -3063,6 +3092,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		delete(c.waiters, protocol.TypeActionError)
 		delete(c.waiters, protocol.TypeActionResult)
 		delete(c.waiters, protocol.TypeMiningYield)
+		delete(c.waiters, protocol.TypeScanResult)
 		c.waiterMu.Unlock()
 	}()
 
@@ -3072,6 +3102,9 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		select {
 		case <-miningYieldChan:
 			// mining_yield is the completion signal for pending mine actions
+			return nil
+		case <-scanResultChan:
+			// scan_result is the completion signal for pending scan actions
 			return nil
 		case resp := <-okChan:
 			// Check if this is a pending action response
