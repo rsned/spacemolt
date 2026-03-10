@@ -32,11 +32,13 @@ import (
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 2 {
 		fmt.Fprintln(os.Stderr, "Usage: run-skill [flags] <agent-id> <skill> [skill...]")
 		fmt.Fprintln(os.Stderr, "  e.g.: run-skill miner-1 mine sell refuel_repair")
+		fmt.Fprintln(os.Stderr, "  e.g.: run-skill -transport=mcp miner-1 mine")
 		fmt.Fprintln(os.Stderr, "")
 		fmt.Fprintln(os.Stderr, "Flags:")
 		flag.PrintDefaults()
@@ -78,9 +80,22 @@ func main() {
 
 	// Connect agent to game server
 	logger.Printf("Initializing agent %s...", agentID)
-	client, _, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		logger.Fatalf("Failed to initialize agent: %v", err)
+	var client game.GameClient
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, _, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			logger.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, _, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			logger.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		logger.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() { _ = client.Close() }()
 
