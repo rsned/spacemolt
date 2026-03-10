@@ -14,6 +14,9 @@ import (
 const (
 	// DefaultGameServerURL is the default WebSocket endpoint for the game
 	DefaultGameServerURL = "wss://game.spacemolt.com/ws"
+
+	// DefaultMCPServerURL is the default MCP endpoint for the game
+	DefaultMCPServerURL = "https://game.spacemolt.com/mcp"
 )
 
 // Credentials holds agent authentication information loaded from credentials.json
@@ -147,6 +150,58 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 	// Step 7: Get initial state to confirm successful login
 	state := client.GetState()
 	if state.Player.ID == "" {
+		return nil, nil, fmt.Errorf("login appeared to succeed but player data is missing")
+	}
+
+	logger.Printf("Ready! Credits: %.2f | Ship: %s | Cargo: %.0f/%.0f",
+		state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
+
+	return client, creds, nil
+}
+
+// InitializeMCPAgent creates and initializes an MCP game client for an autonomous agent.
+// It uses direct HTTP to the MCP endpoint instead of WebSocket.
+//
+// Parameters:
+//   - agentID: The agent identifier (used for logger prefix and credential path)
+//   - logger: A logger instance for agent-specific logging
+//   - ctx: Context for lifecycle management
+//
+// Returns:
+//   - GameClient: Fully initialized and authenticated MCP game client
+//   - *Credentials: The loaded credentials (for reference if needed)
+//   - error: Any error during initialization
+func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context) (GameClient, *Credentials, error) {
+	// Step 1: Load credentials from agent directory
+	agentDir := filepath.Join("data", "agents", agentID)
+	creds, err := LoadCredentials(agentDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load credentials for %s: %w", agentID, err)
+	}
+
+	logger.Printf("Agent: %s | Empire: %s | Transport: MCP", creds.Username, creds.Empire)
+
+	// Step 2: Create MCP game client
+	gameLogger := log.New(os.Stdout, fmt.Sprintf("[%s-MCP] ", agentID), log.LstdFlags)
+	client := NewMCPGameClient(DefaultMCPServerURL, creds.Username, creds.Password, gameLogger)
+
+	// Step 3: Connect (MCP initialize handshake)
+	logger.Printf("Connecting to MCP server...")
+	if err := client.Connect(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to connect to MCP server: %w", err)
+	}
+
+	// Step 4: Authenticate
+	logger.Printf("Logging in via MCP...")
+	if err := client.Login(ctx); err != nil {
+		_ = client.Close()
+		return nil, nil, fmt.Errorf("failed to login via MCP: %w", err)
+	}
+
+	// Step 5: Verify state
+	state := client.GetState()
+	if state.Player.ID == "" {
+		_ = client.Close()
 		return nil, nil, fmt.Errorf("login appeared to succeed but player data is missing")
 	}
 
