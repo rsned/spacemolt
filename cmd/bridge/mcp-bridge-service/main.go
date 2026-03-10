@@ -472,7 +472,12 @@ func main() {
 	configPath := flag.String("config", "bridge-service.json", "Path to service configuration")
 	verbose := flag.Bool("verbose", false, "Enable verbose logging")
 	debug := flag.Bool("debug", false, "Enable game client debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
+
+	if *transport != "ws" {
+		log.Fatalf("Error: mcp-bridge-service only supports --transport=ws (bridge requires WebSocket)")
+	}
 
 	// Load configuration
 	configData, err := os.ReadFile(*configPath)

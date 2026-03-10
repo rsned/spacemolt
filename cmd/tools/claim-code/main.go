@@ -76,10 +76,16 @@ func (h *SimpleHandler) OnDisconnected(err error) {
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
+	if *transport != "ws" {
+		fmt.Fprintln(os.Stderr, "Error: claim-code only supports --transport=ws (claim protocol requires WebSocket)")
+		os.Exit(1)
+	}
+
 	if len(flag.Args()) < 2 {
-		fmt.Println("Usage: claim-code <agent-name> <registration-code>")
+		fmt.Println("Usage: claim-code [flags] <agent-name> <registration-code>")
 		fmt.Println("Example: claim-code pirate-4 379e45614d2a4098fdfb8461b49abad7")
 		os.Exit(1)
 	}

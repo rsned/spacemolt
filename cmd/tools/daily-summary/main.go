@@ -22,7 +22,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-var debug = flag.Bool("debug", false, "Enable game client debug logging")
+var (
+	debug     = flag.Bool("debug", false, "Enable game client debug logging")
+	transport = flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
+)
 
 // SkillSnap captures a skill's level for diffing.
 type SkillSnap struct {
@@ -321,9 +324,20 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		snap.Error = fmt.Sprintf("init: %v", err)
+	var client game.GameClient
+	var creds *game.Credentials
+	var initErr error
+	switch *transport {
+	case "mcp":
+		client, creds, initErr = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+	case "ws":
+		client, creds, initErr = game.InitializeAgent(agentID, logger, ctx, *debug)
+	default:
+		snap.Error = fmt.Sprintf("unknown transport: %s", *transport)
+		return snap
+	}
+	if initErr != nil {
+		snap.Error = fmt.Sprintf("init: %v", initErr)
 		return snap
 	}
 	defer func() {
@@ -391,25 +405,33 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 		// Always try with station_id if we have a POI
 		if state.CurrentPOI != "" {
 			logger.Printf("  Viewing storage at: %s (docked: %v)", state.CurrentPOI, state.Doc)
-			// Send view_storage with station_id parameter (works whether docked or not)
-			resp, err := client.SendQueued(ctx, protocol.Message{
-				Type:      "view_storage",
-				Timestamp: time.Now().UnixMilli(),
-				Payload: map[string]any{
-					"station_id": state.CurrentPOI,
-				},
-			}, 10*time.Second)
-			if err != nil {
-				logger.Printf("  Warning: Failed to view storage: %v", err)
-			} else if resp.Type == protocol.TypeError {
-				// Server returned an error response
-				if msg, ok := resp.Payload["message"].(string); ok {
-					logger.Printf("  Warning: Server error: %s", msg)
-				} else {
-					logger.Printf("  Warning: Server returned error response")
+			// Use SendQueued for WS transport (supports station_id parameter),
+			// fall back to ViewStorage for MCP transport.
+			if *transport == "ws" {
+				if wsClient, ok := client.(*game.Client); ok {
+					resp, err := wsClient.SendQueued(ctx, protocol.Message{
+						Type:      "view_storage",
+						Timestamp: time.Now().UnixMilli(),
+						Payload: map[string]any{
+							"station_id": state.CurrentPOI,
+						},
+					}, 10*time.Second)
+					if err != nil {
+						logger.Printf("  Warning: Failed to view storage: %v", err)
+					} else if resp.Type == protocol.TypeError {
+						if msg, ok := resp.Payload["message"].(string); ok {
+							logger.Printf("  Warning: Server error: %s", msg)
+						} else {
+							logger.Printf("  Warning: Server returned error response")
+						}
+					}
 				}
+			} else {
+				if err := client.ViewStorage(ctx); err != nil {
+					logger.Printf("  Warning: Failed to view storage: %v", err)
+				}
+				time.Sleep(game.SleepQuick)
 			}
-			// Response is automatically stored by storeRawJSON handler
 		}
 
 		if rawJSON := client.GetRawJSON("storage"); rawJSON != nil {

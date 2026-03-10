@@ -47,6 +47,7 @@ func main() {
 	discount := flag.Float64("discount", 0.90, "Fraction of base_value for items without buy orders (default 0.90)")
 	minValue := flag.Int("min-value", 1, "Skip items with base_value below this threshold")
 	dryRun := flag.Bool("dry-run", false, "Print orders without sending")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 
 	flag.Usage = func() {
@@ -86,32 +87,50 @@ func main() {
 	}
 
 	// Connect to game server.
-	provider := credentials.NewFileProvider("data/agents")
 	ctx := context.Background()
-	creds, err := provider.GetCredentials(ctx, *agentID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading credentials for %q: %v\n", *agentID, err)
-		os.Exit(1)
-	}
-
 	logger := log.New(os.Stderr, fmt.Sprintf("[%s] ", *agentID), log.LstdFlags)
-	client := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
-	client.SetDebugLogging(*debug)
 
-	if err := client.Connect(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
+	var client game.GameClient
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		mcpClient, _, mcpErr := game.InitializeMCPAgent(*agentID, logger, ctx, *debug)
+		if mcpErr != nil {
+			fmt.Fprintf(os.Stderr, "Error initializing MCP agent: %v\n", mcpErr)
+			os.Exit(1)
+		}
+		client = mcpClient
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		provider := credentials.NewFileProvider("data/agents")
+		creds, err := provider.GetCredentials(ctx, *agentID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading credentials for %q: %v\n", *agentID, err)
+			os.Exit(1)
+		}
+
+		wsClient := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
+		wsClient.SetDebugLogging(*debug)
+
+		if err := wsClient.Connect(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
+			os.Exit(1)
+		}
+
+		<-wsClient.Ready()
+		time.Sleep(game.SleepRetry)
+
+		if err := wsClient.Login(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "Error logging in: %v\n", err)
+			os.Exit(1)
+		}
+		time.Sleep(game.SleepQuick)
+		client = wsClient
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown transport: %s (must be: ws, mcp)\n", *transport)
 		os.Exit(1)
 	}
 	defer func() { _ = client.Close() }()
-
-	<-client.Ready()
-	time.Sleep(game.SleepRetry)
-
-	if err := client.Login(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error logging in: %v\n", err)
-		os.Exit(1)
-	}
-	time.Sleep(game.SleepQuick)
 
 	// Step 1: View storage to get items.
 	if err := client.ViewStorage(ctx); err != nil {
@@ -296,7 +315,7 @@ func loadItemCatalog(dbPath, category string) (map[string]catalogEntry, error) {
 	return items, rows.Err()
 }
 
-func parseStorageItems(client *game.Client) map[string]float64 {
+func parseStorageItems(client game.GameClient) map[string]float64 {
 	raw := client.GetRawJSON("storage")
 	if raw == nil {
 		return nil
@@ -316,7 +335,7 @@ func parseStorageItems(client *game.Client) map[string]float64 {
 	return items
 }
 
-func parseMarketItems(client *game.Client) map[string]serverapi.ViewMarketItem {
+func parseMarketItems(client game.GameClient) map[string]serverapi.ViewMarketItem {
 	raw := client.GetRawJSON("market")
 	if raw == nil {
 		return nil

@@ -16,7 +16,10 @@ import (
 
 const gameServerURL = "wss://game.spacemolt.com/ws"
 
-var debug = flag.Bool("debug", false, "Enable debug logging")
+var (
+	debug     = flag.Bool("debug", false, "Enable debug logging")
+	transport = flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
+)
 
 type Credentials struct {
 	Username string `json:"username"`
@@ -64,6 +67,11 @@ func connectPirate(pirateNum int) (*game.Client, context.Context, error) {
 
 func main() {
 	flag.Parse()
+
+	if *transport != "ws" {
+		fmt.Println("Error: faction-join only supports --transport=ws (faction protocol requires WebSocket)")
+		os.Exit(1)
+	}
 
 	if len(flag.Args()) < 1 {
 		fmt.Println("Usage: faction-join <command>")
