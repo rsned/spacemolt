@@ -277,17 +277,18 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 
 	// Insert or update POI (base_id is left as NULL for now since POI struct doesn't have it)
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, description, position_x, position_y, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, last_updated_tick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = excluded.name,
 			type = excluded.type,
+			class = excluded.class,
 			description = excluded.description,
 			position_x = excluded.position_x,
 			position_y = excluded.position_y,
 			last_updated_tick = excluded.last_updated_tick
-	`, poi.ID, poi.SystemID, poi.Name, poi.Type, poi.Description,
+	`, poi.ID, poi.SystemID, poi.Name, poi.Type, poi.Class, poi.Description,
 		poi.Position.X, poi.Position.Y, poi.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
@@ -320,7 +321,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, description, position_x, position_y, last_updated_tick
+		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, last_updated_tick
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -339,6 +340,7 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 			&poi.SystemID,
 			&poi.Name,
 			&poi.Type,
+			&poi.Class,
 			&description,
 			&poi.Position.X,
 			&poi.Position.Y,

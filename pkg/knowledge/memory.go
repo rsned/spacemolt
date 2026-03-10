@@ -324,6 +324,7 @@ type POI struct {
 	SystemID        string
 	Name            string
 	Type            string
+	Class           string
 	Description     string
 	Position        game.Position
 	Services        []string

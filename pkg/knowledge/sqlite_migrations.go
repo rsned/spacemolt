@@ -800,6 +800,14 @@ ALTER TABLE ship_classes ADD COLUMN passive_recipes TEXT DEFAULT '[]';
 ALTER TABLE bases ADD COLUMN story TEXT DEFAULT '';
 `,
 		},
+		{
+			version: 18,
+			name:    "add_poi_class",
+			sql: `
+-- Add class column to POIs (e.g. "jovian", "terrestrial")
+ALTER TABLE pois ADD COLUMN class TEXT DEFAULT '';
+`,
+		},
 	}
 }
 

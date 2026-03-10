@@ -573,6 +573,7 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 			SystemID:        state.System.ID,
 			Name:            poi.Name,
 			Type:            poi.Type,
+			Class:           poi.Class,
 			Description:     poi.Description,
 			Position:        poi.Position,
 			Services:        []string{},
