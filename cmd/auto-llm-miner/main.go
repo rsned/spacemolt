@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 	llmpkg "github.com/rsned/spacemolt/pkg/llm"
 )
@@ -18,7 +17,7 @@ const (
 	ROLE = "miner"
 )
 
-func updateCaptainsLog(agentID string, client *game.Client, runCount int) {
+func updateCaptainsLog(agentID string, client game.GameClient, runCount int) {
 	state := client.GetState()
 
 	var notes []string
@@ -59,6 +58,7 @@ func updateCaptainsLog(agentID string, client *game.Client, runCount int) {
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -67,6 +67,10 @@ func main() {
 		fmt.Println("")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
+		fmt.Println("")
+		fmt.Println("Example:")
+		fmt.Println("  auto-llm-miner miner-1              # Use WebSocket transport")
+		fmt.Println("  auto-llm-miner -transport=mcp miner-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -86,10 +90,25 @@ func main() {
 
 	ctx := context.Background()
 
-	// Step 1: Initialize game client with shared library
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Step 1: Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
@@ -166,15 +185,11 @@ func main() {
 		logger.Printf("🎯 Action: %s %v", action, args)
 
 		// Step 7: Execute action
-		var result protocol.Response
-		execErr := executeAction(client, ctx, action, args, &result)
+		execErr := executeAction(client, ctx, action, args)
 		if execErr != nil {
 			logger.Printf("❌ Action execution failed: %v", execErr)
 		} else {
 			logger.Printf("✅ Action completed successfully")
-			if msg, ok := result.Payload["message"].(string); ok {
-				logger.Printf("   Result: %s", msg)
-			}
 		}
 
 		// Update captain's log every 10 runs
@@ -306,7 +321,7 @@ func parseAction(content string) (action string, args map[string]string, err err
 }
 
 // executeAction executes an action using the game client
-func executeAction(client *game.Client, ctx context.Context, action string, args map[string]string, result *protocol.Response) error {
+func executeAction(client game.GameClient, ctx context.Context, action string, args map[string]string) error {
 	switch action {
 	case "travel":
 		poiID, ok := args["poi_id"]
@@ -326,7 +341,7 @@ func executeAction(client *game.Client, ctx context.Context, action string, args
 		return client.Mine(ctx)
 
 	case "sell_all":
-		return client.SellAll(ctx)
+		return client.SellAllBulk(ctx, nil)
 
 	case "refuel":
 		return client.Refuel(ctx)

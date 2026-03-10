@@ -8,36 +8,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
-type SalvagerAgent struct {
-	logger *log.Logger
-}
-
-func (s *SalvagerAgent) OnConnected(state *game.State) {
-	s.logger.Printf("Connected! Credits: %.2f", state.Credits)
-}
-
-func (s *SalvagerAgent) OnMessage(resp protocol.Response) {
-	switch resp.Type {
-	case protocol.TypeOK:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			s.logger.Printf("OK: %s", msg)
-		}
-	case protocol.TypeError:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			s.logger.Printf("ERROR: %s", msg)
-		}
-	}
-}
-
-func (s *SalvagerAgent) OnDisconnected(err error) {
-	s.logger.Printf("Disconnected: %v", err)
-}
-
-func updateCaptainsLog(agentID string, client *game.Client) {
+func updateCaptainsLog(agentID string, client game.GameClient) {
 	state := client.GetState()
 
 	var notes []string
@@ -68,6 +42,7 @@ func updateCaptainsLog(agentID string, client *game.Client) {
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -77,6 +52,10 @@ func main() {
 		fmt.Println("")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
+		fmt.Println("")
+		fmt.Println("Example:")
+		fmt.Println("  auto-salvager salvager-1              # Use WebSocket transport")
+		fmt.Println("  auto-salvager -transport=mcp salvager-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
@@ -97,9 +76,25 @@ func main() {
 
 	ctx := context.Background()
 
-	client, creds, err := game.InitializeAgent(agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("Failed to initialize agent: %v", err)
+	// Initialize game client based on transport selection
+	var client game.GameClient
+	var creds *game.Credentials
+
+	switch *transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx)
+		if err != nil {
+			log.Fatalf("Failed to initialize MCP agent: %v", err)
+		}
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		client, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if err != nil {
+			log.Fatalf("Failed to initialize agent: %v", err)
+		}
+	default:
+		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
