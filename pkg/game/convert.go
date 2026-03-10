@@ -111,6 +111,7 @@ func POIFromAPI(ext serverapi.POI) POI {
 		ID:          ext.ID,
 		SystemID:    ext.SystemID,
 		Type:        ext.Type,
+		Class:       ext.Class,
 		Name:        ext.Name,
 		Description: ext.Description,
 		Position:    PositionFromAPI(ext.Position),
