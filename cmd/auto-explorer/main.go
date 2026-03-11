@@ -112,10 +112,8 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 	state := client.GetState()
 
 	// Debug: Log what we got
-	tick := state.GetTick()
-	logger.Printf("🔍 System data: ID=%s, Name=%s, Connections=%v",
-		state.System.ID, state.System.Name, state.System.Connections)
-	logger.Printf("   CurrentTick: %d, State.CurrentTick: %d", tick, state.CurrentTick)
+	logger.Printf("🔍 System data: ID=%s, Name=%s, Connections=%v, Tick=%d",
+		state.System.ID, state.System.Name, state.System.Connections, state.GetTick())
 	logger.Printf("   POIs count: %d", len(state.System.POIs))
 
 	// Convert game state to knowledge.System
@@ -126,15 +124,13 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		Empire:          state.System.Empire,
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
-		LastUpdatedTick: tick,
+		LastUpdatedTick: state.GetTick(),
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,
 			Z: 0,
 		},
 	}
-
-	logger.Printf("📝 Calling RememberSystem with LastUpdatedTick=%d", kbSystem.LastUpdatedTick)
 
 	// Remember the system in knowledge base
 	if err := kb.RememberSystem(ctx, kbSystem); err != nil {

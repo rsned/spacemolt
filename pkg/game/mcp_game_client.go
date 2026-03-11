@@ -48,6 +48,12 @@ type MCPGameClient struct {
 	listingsMu     sync.RWMutex
 
 	latestRawJSON map[string][]byte
+
+	// Tick tracking (MCP doesn't get tick from welcome like WebSocket)
+	tickBaseTime    time.Time // When we started tracking ticks
+	tickBaseValue   int64     // Tick value at base time (0 if unknown)
+	tickMu          sync.Mutex
+	tickRateSeconds float64   // Seconds per tick (default 10)
 	rawJSONMu     sync.RWMutex
 
 	readyChan chan struct{}
@@ -142,6 +148,21 @@ func (m *MCPGameClient) GetState() *State {
 	m.mu.RLock()
 	s := m.state
 	m.mu.RUnlock()
+
+	// For MCP, estimate tick if we don't have one from the server
+	m.tickMu.Lock()
+	if s.CurrentTick == 0 && !m.tickBaseTime.IsZero() {
+		elapsedSec := time.Since(m.tickBaseTime).Seconds()
+		estimatedTick := m.tickBaseValue + int64(elapsedSec/m.tickRateSeconds)
+		m.tickMu.Unlock()
+
+		// Create a copy with the estimated tick
+		stateCopy := s.Clone()
+		stateCopy.CurrentTick = estimatedTick
+		return stateCopy
+	}
+	m.tickMu.Unlock()
+
 	return s.Clone()
 }
 
@@ -159,6 +180,13 @@ func (m *MCPGameClient) Login(ctx context.Context) error {
 	if err := m.parseLoginResult(result); err != nil {
 		return fmt.Errorf("parsing login result: %w", err)
 	}
+
+	// Initialize tick tracking for MCP (no welcome message like WebSocket)
+	m.tickMu.Lock()
+	m.tickBaseTime = time.Now()
+	m.tickBaseValue = 0 // We don't know the actual tick, so estimate from 0
+	m.tickRateSeconds = 10.0 // Default tick rate
+	m.tickMu.Unlock()
 
 	// Start background poller now that we have a session.
 	m.startPoller()
@@ -425,7 +453,8 @@ func (m *MCPGameClient) parseLoginResult(result json.RawMessage) error {
 
 	// The login tool returns JSON with session info and player state.
 	var loginResp struct {
-		SessionID string `json:"session_id"`
+		SessionID    string `json:"session_id"`
+		CurrentTick  *int64 `json:"current_tick,omitempty"` // Try to get tick from login
 		// Player state fields that may be present.
 		Player json.RawMessage `json:"player,omitempty"`
 		Ship   json.RawMessage `json:"ship,omitempty"`
@@ -442,6 +471,12 @@ func (m *MCPGameClient) parseLoginResult(result json.RawMessage) error {
 	if loginResp.SessionID != "" {
 		m.sessionID = loginResp.SessionID
 		m.logger.Printf("[MCP] Game session: %s", truncate(m.sessionID, 16))
+	}
+
+	// Check if login response contains current_tick
+	if loginResp.CurrentTick != nil {
+		m.state.CurrentTick = *loginResp.CurrentTick
+		m.logger.Printf("[MCP] Login provided current_tick: %d", *loginResp.CurrentTick)
 	}
 
 	// Parse state from login response if available.
@@ -615,6 +650,26 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 
 	if payload.CurrentTick != nil {
 		m.state.CurrentTick = *payload.CurrentTick
+		// Update tick tracking when we receive a tick from server
+		m.tickMu.Lock()
+		if m.tickBaseValue == 0 {
+			// First time we've seen a tick - use it as our baseline
+			m.tickBaseValue = *payload.CurrentTick
+			m.tickBaseTime = time.Now()
+			m.logger.Printf("[MCP] Received initial tick: %d", *payload.CurrentTick)
+		} else {
+			// Update baseline to this tick value
+			elapsed := time.Since(m.tickBaseTime).Seconds()
+			if elapsed > 0 {
+				m.tickRateSeconds = float64(*payload.CurrentTick-m.tickBaseValue) / elapsed
+				m.tickBaseValue = *payload.CurrentTick
+				m.tickBaseTime = time.Now()
+				if m.debug {
+					m.logger.Printf("[MCP] Updated tick: %d (rate: %.1f sec/tick)", *payload.CurrentTick, m.tickRateSeconds)
+				}
+			}
+		}
+		m.tickMu.Unlock()
 	}
 
 	if payload.Docked != nil {

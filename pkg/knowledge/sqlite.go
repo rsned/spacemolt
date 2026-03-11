@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -96,9 +95,6 @@ func (kb *SQLiteKB) Close() error {
 
 // RememberSystem stores or updates system knowledge
 func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
-	// Debug logging
-	log.Printf("[DEBUG] RememberSystem: ID=%s, LastUpdatedTick=%d", sys.ID, sys.LastUpdatedTick)
-
 	tx, err := kb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -106,7 +102,7 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	defer func() { _ = tx.Rollback() }()
 
 	// Insert or update system
-	result, err := tx.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO systems (id, name, description, position_x, position_y, police_level, security_status, empire, is_stronghold, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
@@ -124,10 +120,6 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
-
-	// Log rows affected
-	rows, _ := result.RowsAffected()
-	log.Printf("[DEBUG] RememberSystem: rows affected=%d", rows)
 
 	// Store connections
 	for _, conn := range sys.Connections {
