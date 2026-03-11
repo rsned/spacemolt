@@ -726,6 +726,9 @@ func repairShip(client game.GameClient, ctx context.Context, logger *log.Logger,
 func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Context, kb knowledge.Base, agentID string) error {
 	state := client.GetState()
 
+	logger.Printf("🔍 Initial state check: System.ID=%q, CurrentSystem=%q, Player.CurrentSystem=%q",
+		state.System.ID, state.CurrentSystem, state.Player.CurrentSystem)
+
 	// Ensure we have system data before starting exploration
 	if state.System.ID == "" || state.CurrentSystem == "" {
 		logger.Printf("⚠️  No system data available after login, fetching status...")
@@ -734,6 +737,9 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 		}
 		time.Sleep(1 * time.Second)
 		state = client.GetState()
+
+		logger.Printf("🔍 After GetStatus: System.ID=%q, CurrentSystem=%q, Player.CurrentSystem=%q",
+			state.System.ID, state.CurrentSystem, state.Player.CurrentSystem)
 
 		// If still no system data, wait for transit to complete
 		if state.System.ID == "" || state.CurrentSystem == "" {
@@ -745,10 +751,19 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 			}
 			time.Sleep(1 * time.Second)
 			state = client.GetState()
+
+			logger.Printf("🔍 After wait and GetStatus: System.ID=%q, CurrentSystem=%q, Player.CurrentSystem=%q",
+				state.System.ID, state.CurrentSystem, state.Player.CurrentSystem)
 		}
 
 		if state.System.ID == "" {
-			return fmt.Errorf("cannot start exploration: no system data available")
+			logger.Printf("❌ Cannot start exploration - no system data. State dump:")
+			logger.Printf("   System.ID=%q, System.Name=%q, CurrentSystem=%q",
+				state.System.ID, state.System.Name, state.CurrentSystem)
+			logger.Printf("   Player.CurrentSystem=%q", state.Player.CurrentSystem)
+			logger.Printf("   Player.Username=%q", state.Player.Username)
+			return fmt.Errorf("cannot start exploration: no system data available (System.ID=%q, CurrentSystem=%q)",
+				state.System.ID, state.CurrentSystem)
 		}
 
 		logger.Printf("✓ System data loaded: %s (%s)", state.System.Name, state.System.ID)
