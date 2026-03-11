@@ -494,6 +494,13 @@ func (m *MCPGameClient) parseLoginResult(result json.RawMessage) error {
 		}
 	}
 
+	// Ensure System.ID is set from player data if not already set.
+	// This is critical for MCP which doesn't get a welcome message.
+	if m.state.System.ID == "" && m.state.Player.CurrentSystem != "" {
+		m.state.System.ID = m.state.Player.CurrentSystem
+		m.logger.Printf("[MCP] Set System.ID = '%s' from player.CurrentSystem (login)", m.state.Player.CurrentSystem)
+	}
+
 	if loginResp.Ship != nil {
 		var ship Ship
 		if err := json.Unmarshal(loginResp.Ship, &ship); err == nil {
@@ -618,6 +625,14 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 			m.state.Doc = player.DockedAtBase != ""
 			if player.Skills != nil {
 				m.state.SkillXP = player.SkillXP
+			}
+
+			// Ensure System.ID is set when player data provides a system.
+			// This handles the case where parseSystemData hasn't run yet
+			// (e.g., MCP transport which doesn't get a welcome message).
+			if m.state.System.ID == "" && player.CurrentSystem != "" {
+				m.state.System.ID = player.CurrentSystem
+				m.logger.Printf("[MCP] Set System.ID = '%s' from player.CurrentSystem (was empty)", player.CurrentSystem)
 			}
 		}
 	}
