@@ -811,6 +811,56 @@ ALTER TABLE pois ADD COLUMN class TEXT;
 `,
 			ignoreErrors: true,
 		},
+		{
+			version: 19,
+			name:    "storage_snapshots",
+			sql: `
+-- Storage snapshots: latest station storage state per agent per base
+CREATE TABLE IF NOT EXISTS storage_snapshots (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	agent_id TEXT NOT NULL,
+	base_id TEXT NOT NULL,
+	credits INTEGER NOT NULL DEFAULT 0,
+	captured_at TEXT NOT NULL,
+	UNIQUE(agent_id, base_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_storage_snapshots_agent ON storage_snapshots(agent_id);
+
+-- Items in a storage snapshot
+CREATE TABLE IF NOT EXISTS storage_snapshot_items (
+	snapshot_id INTEGER NOT NULL,
+	item_id TEXT NOT NULL,
+	name TEXT NOT NULL DEFAULT '',
+	quantity REAL NOT NULL DEFAULT 0,
+	size INTEGER NOT NULL DEFAULT 0,
+	FOREIGN KEY (snapshot_id) REFERENCES storage_snapshots(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_storage_snapshot_items_snapshot ON storage_snapshot_items(snapshot_id);
+
+-- Ships in a storage snapshot
+CREATE TABLE IF NOT EXISTS storage_snapshot_ships (
+	snapshot_id INTEGER NOT NULL,
+	ship_id TEXT NOT NULL,
+	class_id TEXT NOT NULL DEFAULT '',
+	class_name TEXT NOT NULL DEFAULT '',
+	cargo_used INTEGER NOT NULL DEFAULT 0,
+	FOREIGN KEY (snapshot_id) REFERENCES storage_snapshots(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_storage_snapshot_ships_snapshot ON storage_snapshot_ships(snapshot_id);
+`,
+		},
+		{
+			version:      20,
+			name:         "agents_wallet_credits",
+			sql: `
+ALTER TABLE agents ADD COLUMN wallet_credits INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE agents ADD COLUMN wallet_updated_at TEXT;
+`,
+			ignoreErrors: true,
+		},
 	}
 }
 

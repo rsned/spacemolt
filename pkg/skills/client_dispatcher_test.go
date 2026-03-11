@@ -478,6 +478,7 @@ func (m *mockGameClient) DepositItems(ctx context.Context, itemID string, quanti
 func (m *mockGameClient) DepositAllItems(ctx context.Context) error                            { return nil }
 func (m *mockGameClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error { return nil }
 func (m *mockGameClient) ViewStorage(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) ViewStorageAt(ctx context.Context, stationID string) error            { return nil }
 func (m *mockGameClient) GetWrecks(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error { return nil }
 func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error               { return nil }

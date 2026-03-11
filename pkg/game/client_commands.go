@@ -558,6 +558,15 @@ func (c *Client) ViewStorage(ctx context.Context) error {
 	})
 }
 
+// ViewStorageAt views your storage at a specific station (without needing to be docked).
+func (c *Client) ViewStorageAt(ctx context.Context, stationID string) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "view_storage",
+		Payload:   map[string]any{"station_id": stationID},
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
 // WithdrawItems moves items from station storage to cargo.
 func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
 	if err := c.Send(ctx, protocol.Message{

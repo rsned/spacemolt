@@ -782,11 +782,11 @@ type FaintSignature struct {
 
 // StorageShip represents a ship stored at a station.
 type StorageShip struct {
-	ShipID    string   `json:"ship_id"`
-	ClassID   string   `json:"class_id"`
-	ClassName string   `json:"class_name,omitempty"`
-	CargoUsed int      `json:"cargo_used,omitempty"`
-	Modules   []string `json:"modules,omitempty"`
+	ShipID    string `json:"ship_id"`
+	ClassID   string `json:"class_id"`
+	ClassName string `json:"class_name,omitempty"`
+	CargoUsed int    `json:"cargo_used,omitempty"`
+	Modules   int    `json:"modules,omitempty"`
 }
 
 // StorageGift represents a gift in station storage.

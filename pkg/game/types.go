@@ -4,12 +4,23 @@ import (
 	"maps"
 	"sync"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // ServerAPIVersion is the game server API version this client was built against.
 // See server_docs/api.md for full API documentation.
 // This version should match the version documented at the top of server_docs/api.md
 const ServerAPIVersion = "v0.112.0"
+
+// StorageUpdateEvent is fired when a view_storage response is received.
+// It contains the parsed storage data for use by callbacks.
+type StorageUpdateEvent struct {
+	BaseID  string
+	Credits int
+	Items   []serverapi.CargoItem
+	Ships   []serverapi.StorageShip
+}
 
 // Player represents a player in the game.
 // Server commands that return this struct:

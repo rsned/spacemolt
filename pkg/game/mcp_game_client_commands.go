@@ -309,6 +309,26 @@ func (m *MCPGameClient) ViewStorage(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Cache the raw storage response for GetRawJSON("storage")
+	if text, parseErr := parseToolResultText(result); parseErr == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON["storage"] = []byte(text)
+		m.rawJSONMu.Unlock()
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) ViewStorageAt(ctx context.Context, stationID string) error {
+	result, err := m.callTool(ctx, "view_storage", map[string]any{"station_id": stationID})
+	if err != nil {
+		return err
+	}
+	// Cache the raw storage response for GetRawJSON("storage")
+	if text, parseErr := parseToolResultText(result); parseErr == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON["storage"] = []byte(text)
+		m.rawJSONMu.Unlock()
+	}
 	return m.updateStateFromResult(result)
 }
 
@@ -746,10 +766,11 @@ func (m *MCPGameClient) GetMarketListings() []MarketListing {
 	return result
 }
 
-// GetRawJSON returns nil for MCP clients — raw JSON caching is a WebSocket-only feature.
-// Agents using MCP should use typed API methods instead.
-func (m *MCPGameClient) GetRawJSON(_ string) []byte {
-	return nil
+// GetRawJSON returns cached raw JSON for the given key, if available.
+func (m *MCPGameClient) GetRawJSON(key string) []byte {
+	m.rawJSONMu.RLock()
+	defer m.rawJSONMu.RUnlock()
+	return m.latestRawJSON[key]
 }
 
 // --- Helpers ---

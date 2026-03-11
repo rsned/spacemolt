@@ -203,6 +203,10 @@ func (m *mockGameClient) ViewStorage(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "view_storage")
 	return nil
 }
+func (m *mockGameClient) ViewStorageAt(ctx context.Context, stationID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "view_storage_at:"+stationID)
+	return nil
+}
 
 // Wrecks
 func (m *mockGameClient) GetWrecks(ctx context.Context) error {

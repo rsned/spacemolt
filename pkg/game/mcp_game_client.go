@@ -47,6 +47,9 @@ type MCPGameClient struct {
 	latestListings []MarketListing
 	listingsMu     sync.RWMutex
 
+	latestRawJSON map[string][]byte
+	rawJSONMu     sync.RWMutex
+
 	readyChan chan struct{}
 	readyOnce sync.Once
 
@@ -70,8 +73,9 @@ func NewMCPGameClient(serverURL, username, password string, logger *log.Logger) 
 		httpClient: &http.Client{
 			Timeout: 90 * time.Second, // Generous timeout for blocking actions
 		},
-		logger:    logger,
-		readyChan: make(chan struct{}),
+		logger:        logger,
+		readyChan:     make(chan struct{}),
+		latestRawJSON: make(map[string][]byte),
 	}
 }
 

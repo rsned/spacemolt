@@ -1394,3 +1394,186 @@ func (kb *SQLiteKB) getShipListingsForSnapshot(ctx context.Context, systemID, st
 
 	return listings, nil
 }
+
+// UpdateAgentWalletCredits updates the wallet credits for an agent.
+func (kb *SQLiteKB) UpdateAgentWalletCredits(ctx context.Context, agentID string, credits int) error {
+	_, err := kb.db.ExecContext(ctx, `
+		UPDATE agents SET wallet_credits = ?, wallet_updated_at = ? WHERE id = ?`,
+		credits, time.Now().Format(time.RFC3339), agentID)
+	if err != nil {
+		return fmt.Errorf("failed to update wallet credits for %s: %w", agentID, err)
+	}
+	return nil
+}
+
+// StoreStorageSnapshot upserts a storage snapshot for an agent at a base.
+func (kb *SQLiteKB) StoreStorageSnapshot(ctx context.Context, snapshot StorageSnapshot) error {
+	tx, err := kb.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if snapshot.CapturedAt.IsZero() {
+		snapshot.CapturedAt = time.Now()
+	}
+
+	// Upsert the snapshot row
+	result, err := tx.ExecContext(ctx, `
+		INSERT INTO storage_snapshots (agent_id, base_id, credits, captured_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(agent_id, base_id) DO UPDATE SET
+			credits = excluded.credits,
+			captured_at = excluded.captured_at`,
+		snapshot.AgentID, snapshot.BaseID, snapshot.Credits, snapshot.CapturedAt.Format(time.RFC3339))
+	if err != nil {
+		return fmt.Errorf("failed to upsert storage snapshot: %w", err)
+	}
+
+	// Get the snapshot ID (either new or existing)
+	var snapshotID int64
+	snapshotID, err = result.LastInsertId()
+	if err != nil || snapshotID == 0 {
+		// ON CONFLICT UPDATE doesn't return LastInsertId — query it
+		err = tx.QueryRowContext(ctx,
+			"SELECT id FROM storage_snapshots WHERE agent_id = ? AND base_id = ?",
+			snapshot.AgentID, snapshot.BaseID).Scan(&snapshotID)
+		if err != nil {
+			return fmt.Errorf("failed to get snapshot id: %w", err)
+		}
+	}
+
+	// Replace items
+	if _, err := tx.ExecContext(ctx, "DELETE FROM storage_snapshot_items WHERE snapshot_id = ?", snapshotID); err != nil {
+		return fmt.Errorf("failed to delete old items: %w", err)
+	}
+	for _, item := range snapshot.Items {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO storage_snapshot_items (snapshot_id, item_id, name, quantity, size) VALUES (?, ?, ?, ?, ?)",
+			snapshotID, item.ItemID, item.Name, item.Quantity, item.Size); err != nil {
+			return fmt.Errorf("failed to insert item %s: %w", item.ItemID, err)
+		}
+	}
+
+	// Replace ships
+	if _, err := tx.ExecContext(ctx, "DELETE FROM storage_snapshot_ships WHERE snapshot_id = ?", snapshotID); err != nil {
+		return fmt.Errorf("failed to delete old ships: %w", err)
+	}
+	for _, ship := range snapshot.Ships {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO storage_snapshot_ships (snapshot_id, ship_id, class_id, class_name, cargo_used) VALUES (?, ?, ?, ?, ?)",
+			snapshotID, ship.ShipID, ship.ClassID, ship.ClassName, ship.CargoUsed); err != nil {
+			return fmt.Errorf("failed to insert ship %s: %w", ship.ShipID, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetStorageSnapshot returns the latest storage snapshot for an agent at a base.
+func (kb *SQLiteKB) GetStorageSnapshot(ctx context.Context, agentID, baseID string) (*StorageSnapshot, error) {
+	var snapshot StorageSnapshot
+	var capturedAt string
+	var snapshotID int64
+
+	err := kb.db.QueryRowContext(ctx,
+		"SELECT id, agent_id, base_id, credits, captured_at FROM storage_snapshots WHERE agent_id = ? AND base_id = ?",
+		agentID, baseID).Scan(&snapshotID, &snapshot.AgentID, &snapshot.BaseID, &snapshot.Credits, &capturedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage snapshot: %w", err)
+	}
+
+	snapshot.CapturedAt, _ = time.Parse(time.RFC3339, capturedAt)
+
+	// Load items
+	itemRows, err := kb.db.QueryContext(ctx,
+		"SELECT item_id, name, quantity, size FROM storage_snapshot_items WHERE snapshot_id = ?", snapshotID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query items: %w", err)
+	}
+	defer func() { _ = itemRows.Close() }()
+	for itemRows.Next() {
+		var item StorageSnapshotItem
+		if err := itemRows.Scan(&item.ItemID, &item.Name, &item.Quantity, &item.Size); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		snapshot.Items = append(snapshot.Items, item)
+	}
+
+	// Load ships
+	shipRows, err := kb.db.QueryContext(ctx,
+		"SELECT ship_id, class_id, class_name, cargo_used FROM storage_snapshot_ships WHERE snapshot_id = ?", snapshotID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query ships: %w", err)
+	}
+	defer func() { _ = shipRows.Close() }()
+	for shipRows.Next() {
+		var ship StorageSnapshotShip
+		if err := shipRows.Scan(&ship.ShipID, &ship.ClassID, &ship.ClassName, &ship.CargoUsed); err != nil {
+			return nil, fmt.Errorf("failed to scan ship: %w", err)
+		}
+		snapshot.Ships = append(snapshot.Ships, ship)
+	}
+
+	return &snapshot, nil
+}
+
+// GetAllStorageSnapshots returns the latest storage snapshots for all agents.
+func (kb *SQLiteKB) GetAllStorageSnapshots(ctx context.Context) ([]StorageSnapshot, error) {
+	rows, err := kb.db.QueryContext(ctx,
+		"SELECT id, agent_id, base_id, credits, captured_at FROM storage_snapshots ORDER BY agent_id, base_id")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query storage snapshots: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var snapshots []StorageSnapshot
+	for rows.Next() {
+		var s StorageSnapshot
+		var snapshotID int64
+		var capturedAt string
+		if err := rows.Scan(&snapshotID, &s.AgentID, &s.BaseID, &s.Credits, &capturedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan snapshot: %w", err)
+		}
+		s.CapturedAt, _ = time.Parse(time.RFC3339, capturedAt)
+
+		// Load items for this snapshot
+		itemRows, err := kb.db.QueryContext(ctx,
+			"SELECT item_id, name, quantity, size FROM storage_snapshot_items WHERE snapshot_id = ?", snapshotID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query items for snapshot %d: %w", snapshotID, err)
+		}
+		for itemRows.Next() {
+			var item StorageSnapshotItem
+			if err := itemRows.Scan(&item.ItemID, &item.Name, &item.Quantity, &item.Size); err != nil {
+				_ = itemRows.Close()
+				return nil, fmt.Errorf("failed to scan item: %w", err)
+			}
+			s.Items = append(s.Items, item)
+		}
+		_ = itemRows.Close()
+
+		// Load ships for this snapshot
+		shipRows, err := kb.db.QueryContext(ctx,
+			"SELECT ship_id, class_id, class_name, cargo_used FROM storage_snapshot_ships WHERE snapshot_id = ?", snapshotID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query ships for snapshot %d: %w", snapshotID, err)
+		}
+		for shipRows.Next() {
+			var ship StorageSnapshotShip
+			if err := shipRows.Scan(&ship.ShipID, &ship.ClassID, &ship.ClassName, &ship.CargoUsed); err != nil {
+				_ = shipRows.Close()
+				return nil, fmt.Errorf("failed to scan ship: %w", err)
+			}
+			s.Ships = append(s.Ships, ship)
+		}
+		_ = shipRows.Close()
+
+		snapshots = append(snapshots, s)
+	}
+
+	return snapshots, nil
+}

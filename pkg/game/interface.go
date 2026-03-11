@@ -54,6 +54,7 @@ type GameClient interface {
 	DepositAllItems(ctx context.Context) error
 	WithdrawItems(ctx context.Context, itemID string, quantity float64) error
 	ViewStorage(ctx context.Context) error
+	ViewStorageAt(ctx context.Context, stationID string) error
 
 	// Cargo Operations
 	Jettison(ctx context.Context, itemID string, quantity float64) error

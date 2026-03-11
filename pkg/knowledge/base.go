@@ -109,6 +109,14 @@ type Base interface {
 	GetPlayerShips(ctx context.Context, playerID string) ([]ShipRecord, error)
 	StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error
 	GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error)
+
+	// Agent wallet
+	UpdateAgentWalletCredits(ctx context.Context, agentID string, credits int) error
+
+	// Storage snapshots
+	StoreStorageSnapshot(ctx context.Context, snapshot StorageSnapshot) error
+	GetStorageSnapshot(ctx context.Context, agentID, baseID string) (*StorageSnapshot, error)
+	GetAllStorageSnapshots(ctx context.Context) ([]StorageSnapshot, error)
 }
 
 // MarketListing represents a single market listing
@@ -288,6 +296,32 @@ type KnowledgeExport struct {
 	POIsCount        int
 	ExperiencesCount int
 	ExportData       string // JSON snapshot
+}
+
+// StorageSnapshot represents a captured station storage state for an agent
+type StorageSnapshot struct {
+	AgentID    string
+	BaseID     string
+	Credits    int
+	Items      []StorageSnapshotItem
+	Ships      []StorageSnapshotShip
+	CapturedAt time.Time
+}
+
+// StorageSnapshotItem represents an item in a storage snapshot
+type StorageSnapshotItem struct {
+	ItemID   string
+	Name     string
+	Quantity float64
+	Size     int
+}
+
+// StorageSnapshotShip represents a ship in a storage snapshot
+type StorageSnapshotShip struct {
+	ShipID    string
+	ClassID   string
+	ClassName string
+	CargoUsed int
 }
 
 // KnowledgeExportMeta is metadata about an export

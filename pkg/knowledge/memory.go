@@ -33,6 +33,9 @@ type MemoryKB struct {
 	playerSkills    map[string][]PlayerSkillRecord // playerID -> skills
 	ships           map[string]ShipRecord
 	missionsByBase  map[string][]MissionTemplate   // baseID -> missions
+
+	// Storage snapshots: key is "agentID:baseID"
+	storageSnapshots map[string]StorageSnapshot
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -54,7 +57,8 @@ func NewMemoryKB() *MemoryKB {
 		players:         make(map[string]PlayerRecord),
 		playerSkills:    make(map[string][]PlayerSkillRecord),
 		ships:           make(map[string]ShipRecord),
-		missionsByBase:  make(map[string][]MissionTemplate),
+		missionsByBase:   make(map[string][]MissionTemplate),
+		storageSnapshots: make(map[string]StorageSnapshot),
 	}
 }
 
@@ -1019,4 +1023,49 @@ func (kb *MemoryKB) GetMissionTemplates(ctx context.Context, baseID string) ([]M
 	defer kb.mu.RUnlock()
 
 	return kb.missionsByBase[baseID], nil
+}
+
+func (kb *MemoryKB) StoreStorageSnapshot(_ context.Context, snapshot StorageSnapshot) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	if snapshot.CapturedAt.IsZero() {
+		snapshot.CapturedAt = time.Now()
+	}
+	key := snapshot.AgentID + ":" + snapshot.BaseID
+	kb.storageSnapshots[key] = snapshot
+	return nil
+}
+
+func (kb *MemoryKB) GetStorageSnapshot(_ context.Context, agentID, baseID string) (*StorageSnapshot, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	key := agentID + ":" + baseID
+	s, ok := kb.storageSnapshots[key]
+	if !ok {
+		return nil, nil
+	}
+	return &s, nil
+}
+
+func (kb *MemoryKB) GetAllStorageSnapshots(_ context.Context) ([]StorageSnapshot, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	snapshots := make([]StorageSnapshot, 0, len(kb.storageSnapshots))
+	for _, s := range kb.storageSnapshots {
+		snapshots = append(snapshots, s)
+	}
+	return snapshots, nil
+}
+
+func (kb *MemoryKB) UpdateAgentWalletCredits(_ context.Context, agentID string, credits int) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	if a, ok := kb.agents[agentID]; ok {
+		_ = a // in-memory KB doesn't track wallet credits
+	}
+	return nil
 }

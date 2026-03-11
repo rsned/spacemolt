@@ -95,6 +95,10 @@ type Client struct {
 	goroutineID       int64 // Counter for tracking goroutine instances
 
 	sendOverride func(ctx context.Context, msg protocol.Message) error // Test hook
+
+	// Storage update callback — fired when a view_storage response is received
+	onStorageUpdate func(resp StorageUpdateEvent)
+	onStorageMu     sync.RWMutex
 }
 
 // MessageHandler handles incoming game messages
@@ -233,6 +237,15 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 	}
 	client.CmdQueue.client = client // Set the client reference
 	return client
+}
+
+// SetOnStorageUpdate registers a callback that fires when a view_storage response
+// is received. This allows automatic storage snapshot recording without modifying
+// individual agent code.
+func (c *Client) SetOnStorageUpdate(fn func(resp StorageUpdateEvent)) {
+	c.onStorageMu.Lock()
+	defer c.onStorageMu.Unlock()
+	c.onStorageUpdate = fn
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
@@ -2559,15 +2572,19 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			shouldStore = true
 		}
 		// Store storage data (from view_storage response)
-		// Check BEFORE generic "items" check - storage has base_id + items + ships
+		// base_id is the reliable indicator — items and ships may be omitted when empty
 		if _, hasBaseID := resp.Payload["base_id"]; hasBaseID {
-			if _, hasItems := resp.Payload["items"]; hasItems {
-				if _, hasShips := resp.Payload["ships"]; hasShips {
-					if storeKey == "" {
-						storeKey = "storage"
-					}
-					shouldStore = true
-				}
+			if storeKey == "" {
+				storeKey = "storage"
+			}
+			shouldStore = true
+
+			// Fire storage update callback
+			c.onStorageMu.RLock()
+			cb := c.onStorageUpdate
+			c.onStorageMu.RUnlock()
+			if cb != nil {
+				c.fireStorageCallback(cb, resp)
 			}
 		}
 		// Store catalog responses (ships, skills, recipes, items)
@@ -3697,4 +3714,22 @@ func (c *Client) CompleteMissionQueued(ctx context.Context, missionID string) er
 		Timestamp: time.Now().UnixMilli(),
 	}, SleepTick)
 	return err
+}
+
+// fireStorageCallback parses a view_storage response and invokes the storage update callback.
+func (c *Client) fireStorageCallback(cb func(StorageUpdateEvent), resp protocol.Response) {
+	raw, err := json.Marshal(resp.Payload)
+	if err != nil {
+		return
+	}
+	var storageResp serverapi.ViewStorageResponse
+	if err := json.Unmarshal(raw, &storageResp); err != nil {
+		return
+	}
+	cb(StorageUpdateEvent{
+		BaseID:  storageResp.BaseID,
+		Credits: storageResp.Credits,
+		Items:   storageResp.Items,
+		Ships:   storageResp.Ships,
+	})
 }

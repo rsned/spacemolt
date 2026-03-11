@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	_ "modernc.org/sqlite"
 )
 
@@ -90,6 +92,7 @@ type AgentDiff struct {
 
 func main() {
 	dbPath := flag.String("db", "data/daily-summary.db", "SQLite database path")
+	kbPath := flag.String("kb", "data/spacemolt-knowledge.db", "Shared knowledge base SQLite path (for storage snapshots)")
 	outputPath := flag.String("output", "", "Report output base path (default: data/reports/daily-summary-YYYY-MM-DD)")
 	agents := flag.String("agents", "", "Comma-separated agent filter (default: all from data/agents/)")
 	delay := flag.Int("delay", 3, "Delay in seconds between agent connections")
@@ -126,9 +129,21 @@ func main() {
 		return
 	}
 
+	// Open shared knowledge base for storage snapshot capture
+	var kb knowledge.Base
+	if *kbPath != "" {
+		sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *kbPath, WAL: true})
+		if kbErr != nil {
+			logger.Printf("Warning: Failed to open knowledge base at %s: %v (storage snapshots will not be saved)", *kbPath, kbErr)
+		} else {
+			kb = sqliteKB
+			defer func() { _ = kb.Close() }()
+		}
+	}
+
 	// Collect data unless report-only mode
 	if !*reportOnly {
-		collectSnapshots(db, agentList, *delay, today, logger)
+		collectSnapshots(db, kb, agentList, *delay, today, logger)
 	}
 
 	// Load today's snapshots and previous snapshots for diff
@@ -281,7 +296,7 @@ func openDB(path string) (*sql.DB, error) {
 }
 
 // collectSnapshots connects to each agent, captures state, and saves to DB.
-func collectSnapshots(db *sql.DB, agentList []string, delaySec int, today string, logger *log.Logger) {
+func collectSnapshots(db *sql.DB, kb knowledge.Base, agentList []string, delaySec int, today string, logger *log.Logger) {
 	var notAtStation []string
 
 	for i, agentID := range agentList {
@@ -289,7 +304,7 @@ func collectSnapshots(db *sql.DB, agentList []string, delaySec int, today string
 			time.Sleep(time.Duration(delaySec) * time.Second)
 		}
 		logger.Printf("[%d/%d] Collecting %s...", i+1, len(agentList), agentID)
-		snap := captureAgent(agentID, logger)
+		snap := captureAgent(agentID, kb, logger)
 		if err := saveSnapshot(db, snap, today); err != nil {
 			logger.Printf("  Failed to save snapshot: %v", err)
 		}
@@ -314,7 +329,7 @@ func collectSnapshots(db *sql.DB, agentList []string, delaySec int, today string
 }
 
 // captureAgent connects to a single agent and captures its state.
-func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
+func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentSnapshot {
 	snap := &AgentSnapshot{
 		AgentID:    agentID,
 		CapturedAt: time.Now(),
@@ -346,6 +361,13 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 		}
 	}()
 
+	// Wire storage snapshot capture to shared knowledge base
+	if kb != nil {
+		if wsClient, ok := client.(*game.Client); ok {
+			agent.WireStorageCapture(wsClient, kb, agentID, logger)
+		}
+	}
+
 	// Extract state from login response
 	state := client.GetState()
 	snap.Username = creds.Username
@@ -368,6 +390,26 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 		if poi.ID == state.CurrentPOI {
 			snap.POIType = poi.Type
 			break
+		}
+	}
+	// MCP transport may not include POIs in initial state — fetch system data if needed
+	if snap.POIType == "" && state.CurrentPOI != "" {
+		if err := client.GetSystem(ctx); err == nil {
+			time.Sleep(1 * time.Second)
+			state = client.GetState()
+			for _, poi := range state.System.POIs {
+				if poi.ID == state.CurrentPOI {
+					snap.POIType = poi.Type
+					break
+				}
+			}
+		}
+	}
+
+	// Save wallet credits to shared knowledge base
+	if kb != nil {
+		if err := kb.UpdateAgentWalletCredits(ctx, agentID, int(snap.Credits)); err != nil {
+			logger.Printf("  Warning: failed to update wallet credits in KB: %v", err)
 		}
 	}
 
@@ -400,47 +442,71 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 		}
 	}
 
-	// Best-effort: storage (when docked OR with station_id)
-	if state.Doc || state.CurrentPOI != "" {
-		// Always try with station_id if we have a POI
-		if state.CurrentPOI != "" {
-			logger.Printf("  Viewing storage at: %s (docked: %v)", state.CurrentPOI, state.Doc)
-			// Use SendQueued for WS transport (supports station_id parameter),
-			// fall back to ViewStorage for MCP transport.
-			if *transport == "ws" {
-				if wsClient, ok := client.(*game.Client); ok {
-					resp, err := wsClient.SendQueued(ctx, protocol.Message{
-						Type:      "view_storage",
-						Timestamp: time.Now().UnixMilli(),
-						Payload: map[string]any{
-							"station_id": state.CurrentPOI,
-						},
-					}, 10*time.Second)
-					if err != nil {
-						logger.Printf("  Warning: Failed to view storage: %v", err)
-					} else if resp.Type == protocol.TypeError {
-						if msg, ok := resp.Payload["message"].(string); ok {
-							logger.Printf("  Warning: Server error: %s", msg)
-						} else {
-							logger.Printf("  Warning: Server returned error response")
-						}
-					}
-				}
-			} else {
-				if err := client.ViewStorage(ctx); err != nil {
+	// Best-effort: storage — resolve station ID from current POI (if at a station/base)
+	// or fall back to home base for remote storage viewing.
+	var storageStationID string
+	if state.CurrentPOI != "" && (snap.POIType == "station" || snap.POIType == "base") {
+		storageStationID = state.CurrentPOI
+	}
+	if storageStationID == "" {
+		storageStationID = state.Player.HomeBase
+	}
+	if storageStationID != "" {
+		logger.Printf("  Viewing storage at: %s (docked: %v)", storageStationID, state.Doc)
+		var storagePayload map[string]any
+		if *transport == "ws" {
+			if wsClient, ok := client.(*game.Client); ok {
+				resp, err := wsClient.SendQueued(ctx, protocol.Message{
+					Type:      "view_storage",
+					Timestamp: time.Now().UnixMilli(),
+					Payload: map[string]any{
+						"station_id": storageStationID,
+					},
+				}, 10*time.Second)
+				if err != nil {
 					logger.Printf("  Warning: Failed to view storage: %v", err)
+				} else if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
+					if msg, ok := resp.Payload["message"].(string); ok {
+						logger.Printf("  Warning: Server error: %s", msg)
+					} else {
+						logger.Printf("  Warning: Server returned error response")
+					}
+				} else {
+					storagePayload = resp.Payload
 				}
-				time.Sleep(game.SleepQuick)
 			}
+		} else {
+			// MCP transport: use ViewStorageAt which passes station_id and caches raw JSON
+			if err := client.ViewStorageAt(ctx, storageStationID); err != nil {
+				logger.Printf("  Warning: Failed to view storage: %v", err)
+			}
+			time.Sleep(game.SleepQuick)
 		}
 
-		if rawJSON := client.GetRawJSON("storage"); rawJSON != nil {
+		// Parse storage data from direct response payload or raw JSON fallback
+		var rawJSON []byte
+		if storagePayload != nil {
+			rawJSON, _ = json.Marshal(storagePayload)
+		} else if rj := client.GetRawJSON("storage"); rj != nil {
+			rawJSON = rj
+		}
+
+		if rawJSON != nil {
 			var storageResp struct {
+				BaseID  string  `json:"base_id"`
 				Credits float64 `json:"credits"`
 				Items   []struct {
 					ItemID   string  `json:"item_id"`
+					Name     string  `json:"name"`
 					Quantity float64 `json:"quantity"`
+					Size     int     `json:"size"`
 				} `json:"items"`
+				Ships []struct {
+					ShipID    string `json:"ship_id"`
+					ClassID   string `json:"class_id"`
+					ClassName string `json:"class_name"`
+					CargoUsed int    `json:"cargo_used"`
+				} `json:"ships"`
 			}
 			if json.Unmarshal(rawJSON, &storageResp) == nil {
 				snap.StorageCredits = storageResp.Credits
@@ -453,6 +519,32 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 				}
 				totalCreds := snap.Credits + snap.StorageCredits
 				logger.Printf("  Storage: %.0f credits (Total: %.0f)", snap.StorageCredits, totalCreds)
+
+				// Save storage snapshot to shared knowledge base
+				if kb != nil && storageResp.BaseID != "" {
+					kbItems := make([]knowledge.StorageSnapshotItem, len(storageResp.Items))
+					for i, item := range storageResp.Items {
+						kbItems[i] = knowledge.StorageSnapshotItem{
+							ItemID: item.ItemID, Name: item.Name,
+							Quantity: item.Quantity, Size: item.Size,
+						}
+					}
+					kbShips := make([]knowledge.StorageSnapshotShip, len(storageResp.Ships))
+					for i, ship := range storageResp.Ships {
+						kbShips[i] = knowledge.StorageSnapshotShip{
+							ShipID: ship.ShipID, ClassID: ship.ClassID,
+							ClassName: ship.ClassName, CargoUsed: ship.CargoUsed,
+						}
+					}
+					snapshot := knowledge.StorageSnapshot{
+						AgentID: agentID, BaseID: storageResp.BaseID,
+						Credits: int(storageResp.Credits),
+						Items: kbItems, Ships: kbShips,
+					}
+					if err := kb.StoreStorageSnapshot(context.Background(), snapshot); err != nil {
+						logger.Printf("  Warning: failed to save storage snapshot to KB: %v", err)
+					}
+				}
 			} else {
 				logger.Printf("  Warning: Failed to parse storage response")
 			}
@@ -460,7 +552,7 @@ func captureAgent(agentID string, logger *log.Logger) *AgentSnapshot {
 			logger.Printf("  Warning: No storage data in response")
 		}
 	} else {
-		logger.Printf("  Not docked and no POI, skipping storage check")
+		logger.Printf("  No station POI or home base set, skipping storage check")
 	}
 
 	return snap
