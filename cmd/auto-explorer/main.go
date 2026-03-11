@@ -103,18 +103,54 @@ func needsRefuel(state *game.State) bool {
 // ============================================================================
 
 func collectSystemData(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, agentID string) error {
-	// Request system data (includes jump connections)
+	// If system data isn't loaded yet (empty ID), fetch full status first
+	state := client.GetState()
+	if state.System.ID == "" {
+		logger.Printf("⚠️  No system data loaded, fetching full status...")
+		if err := client.GetStatus(ctx); err != nil {
+			return fmt.Errorf("failed to get status: %w", err)
+		}
+		time.Sleep(1 * time.Second)
+		state = client.GetState()
+
+		// If still no system data after GetStatus, we're likely in transit - wait and retry
+		if state.System.ID == "" {
+			logger.Printf("⏳ Still no system data (likely in transit), waiting...")
+			time.Sleep(5 * time.Second)
+
+			// Try GetStatus again
+			if err := client.GetStatus(ctx); err != nil {
+				return fmt.Errorf("failed to get status after wait: %w", err)
+			}
+			time.Sleep(1 * time.Second)
+			state = client.GetState()
+		}
+
+		// If still no system data, we can't proceed
+		if state.System.ID == "" {
+			return fmt.Errorf("no system data available after retry (agent may be in transit)")
+		}
+
+		logger.Printf("✓ System data loaded: %s", state.System.Name)
+	}
+
+	// Now request system data (includes jump connections)
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("failed to get system: %w", err)
 	}
 	time.Sleep(2 * time.Second)
 
-	state := client.GetState()
+	state = client.GetState()
 
 	// Debug: Log what we got
 	logger.Printf("🔍 System data: ID=%s, Name=%s, Connections=%v, Tick=%d",
 		state.System.ID, state.System.Name, state.System.Connections, state.GetTick())
 	logger.Printf("   POIs count: %d", len(state.System.POIs))
+
+	// Validate we have system data before trying to save
+	if state.System.ID == "" {
+		return fmt.Errorf("cannot save system data: system ID is empty (agent may be in transit)")
+	}
 
 	// Convert game state to knowledge.System
 	kbSystem := knowledge.System{
@@ -690,6 +726,34 @@ func repairShip(client game.GameClient, ctx context.Context, logger *log.Logger,
 func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Context, kb knowledge.Base, agentID string) error {
 	state := client.GetState()
 
+	// Ensure we have system data before starting exploration
+	if state.System.ID == "" || state.CurrentSystem == "" {
+		logger.Printf("⚠️  No system data available after login, fetching status...")
+		if err := client.GetStatus(ctx); err != nil {
+			return fmt.Errorf("failed to get initial status: %w", err)
+		}
+		time.Sleep(1 * time.Second)
+		state = client.GetState()
+
+		// If still no system data, wait for transit to complete
+		if state.System.ID == "" || state.CurrentSystem == "" {
+			logger.Printf("⏳ Agent appears to be in transit, waiting for arrival...")
+			time.Sleep(10 * time.Second)
+
+			if err := client.GetStatus(ctx); err != nil {
+				return fmt.Errorf("failed to get status after transit wait: %w", err)
+			}
+			time.Sleep(1 * time.Second)
+			state = client.GetState()
+		}
+
+		if state.System.ID == "" {
+			return fmt.Errorf("cannot start exploration: no system data available")
+		}
+
+		logger.Printf("✓ System data loaded: %s (%s)", state.System.Name, state.System.ID)
+	}
+
 	expState := &ExplorationState{
 		VisitedSystems:  make(map[string]bool),
 		VisitedPOIs:     make(map[string]bool),
@@ -719,6 +783,26 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 
 		state = client.GetState()
 		currentSystem := state.CurrentSystem
+
+		// If we lost system state (e.g., during reconnect), fetch it
+		if currentSystem == "" || state.System.ID == "" {
+			logger.Printf("⚠️  Lost system state, fetching status...")
+			if err := client.GetStatus(ctx); err != nil {
+				logger.Printf("Failed to get status: %v", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			time.Sleep(1 * time.Second)
+			state = client.GetState()
+			currentSystem = state.CurrentSystem
+
+			if currentSystem == "" {
+				logger.Printf("⏳ Still in transit, waiting...")
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			logger.Printf("✓ System state recovered: %s", state.System.Name)
+		}
 
 		// Check for damage and repair if necessary
 		if isDamaged(state) {
