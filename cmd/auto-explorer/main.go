@@ -484,7 +484,8 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 		}
 
 		// Check if POI data is still fresh in the knowledge base
-		if lastTick, ok := knownPOIs[poi.ID]; ok {
+		// last_updated_tick <= 0 means unset/unviewed, so always scan
+		if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick > 0 {
 			threshold := game.POIFreshnessThreshold(poi.Type)
 			if currentTick-lastTick < threshold {
 				logger.Printf("⊙ Skipping POI %s (%s) - data still fresh (age: %d ticks, threshold: %d)",
@@ -492,6 +493,11 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 				expState.VisitedPOIs[poi.ID] = true
 				continue
 			}
+			logger.Printf("🔄 POI %s (%s) data stale (age: %d ticks, threshold: %d) - rescanning",
+				poi.Name, poi.Type, currentTick-lastTick, threshold)
+		} else if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick <= 0 {
+			logger.Printf("🆕 POI %s (%s) has last_updated_tick=%d (unset/unviewed) - scanning",
+				poi.Name, poi.Type, lastTick)
 		}
 
 		logger.Printf("📍 Visiting POI: %s (%s) - Type: %s", poi.Name, poi.ID, poi.Type)
@@ -734,13 +740,17 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 			updateCaptainsLog(agentID, client, expState)
 
 			// Check if system data is still fresh in the knowledge base
+			// last_updated_tick <= 0 means unset/unviewed, so always collect
 			systemFresh := false
-			if kbSys, err := kb.GetSystem(ctx, currentSystem); err == nil && kbSys != nil {
+			if kbSys, err := kb.GetSystem(ctx, currentSystem); err == nil && kbSys != nil && kbSys.LastUpdatedTick > 0 {
 				if state.GetTick()-kbSys.LastUpdatedTick < game.FreshnessSystem {
 					logger.Printf("⊙ System %s data still fresh (age: %d ticks), skipping system collection",
 						currentSystem, state.GetTick()-kbSys.LastUpdatedTick)
 					systemFresh = true
 				}
+			} else if kbSys != nil && kbSys.LastUpdatedTick <= 0 {
+				logger.Printf("🆕 System %s has last_updated_tick=%d (unset/unviewed) - collecting data",
+					currentSystem, kbSys.LastUpdatedTick)
 			}
 
 			// Collect system data only if stale or unknown
