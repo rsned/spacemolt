@@ -9,9 +9,10 @@ import (
 
 // Migration represents a database schema migration
 type Migration struct {
-	version int
-	name    string
-	sql     string
+	version      int
+	name         string
+	sql          string
+	ignoreErrors bool // If true, SQL errors are logged but don't fail the migration.
 }
 
 // migrations returns all migrations in order
@@ -805,8 +806,10 @@ ALTER TABLE bases ADD COLUMN story TEXT DEFAULT '';
 			name:    "add_poi_class_column",
 			sql: `
 -- Add class column to POIs for star classification (e.g., "G2 V") and planet types (e.g., "terran")
+-- Use a no-op if column already exists (SQLite lacks IF NOT EXISTS for columns).
 ALTER TABLE pois ADD COLUMN class TEXT;
 `,
+			ignoreErrors: true,
 		},
 	}
 }
@@ -845,8 +848,18 @@ func runMigrations(db *sql.DB) error {
 
 		// Execute migration SQL
 		if _, err := tx.Exec(m.sql); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
+			if m.ignoreErrors {
+				// Some migrations (e.g. ADD COLUMN) may fail if already applied
+				// outside the migration system. Log and continue.
+				_ = tx.Rollback()
+				tx, err = db.Begin()
+				if err != nil {
+					return fmt.Errorf("failed to begin transaction for migration %d record: %w", m.version, err)
+				}
+			} else {
+				_ = tx.Rollback()
+				return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
+			}
 		}
 
 		// Record migration
