@@ -1394,6 +1394,15 @@ func (c *Client) listen(ctx context.Context) {
 }
 
 // handleResponse updates the game state based on server responses
+// getMapKeys returns the keys from a map for debugging
+func getMapKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func (c *Client) handleResponse(resp protocol.Response) {
 	// Store raw JSON for key response types (has its own locking)
 	c.storeRawJSON(resp)
@@ -1406,6 +1415,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Lock()
 		if tick, ok := resp.Payload["current_tick"].(float64); ok {
 			c.state.CurrentTick = int64(tick)
+			c.debugLogger.Printf("Welcome: set CurrentTick to %d", c.state.CurrentTick)
+		} else {
+			c.debugLogger.Printf("Welcome: NO current_tick in payload! Keys: %v", getMapKeys(resp.Payload))
 		}
 		if version, ok := resp.Payload["version"].(string); ok {
 			c.state.ServerVersion = version
@@ -1451,6 +1463,16 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parseErrorAction(resp.Payload)
 
 	case protocol.TypeOK:
+		// Update tick from response if present (get_system, get_poi, etc. include current tick)
+		if tick, ok := resp.Payload["tick"].(float64); ok {
+			c.mu.Lock()
+			c.state.CurrentTick = int64(tick)
+			c.mu.Unlock()
+		} else if currentTick, ok := resp.Payload["current_tick"].(float64); ok {
+			c.mu.Lock()
+			c.state.CurrentTick = int64(currentTick)
+			c.mu.Unlock()
+		}
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
 		// Only parse system data when the payload actually contains it

@@ -2,36 +2,36 @@
 [1m=== Response ===[0m
 {
   "base_id": "grand_exchange_station",
-  "credits": 132235,
+  "credits": 261044,
   "items": [
     {
       "item_id": "steel_plate",
       "name": "Steel Plate",
-      "quantity": 2252,
+      "quantity": 2227,
       "size": 1
     },
     {
       "item_id": "nickel_ore",
       "name": "Nickel Ore",
-      "quantity": 8467,
+      "quantity": 8444,
       "size": 1
     },
     {
       "item_id": "copper_wiring",
       "name": "Copper Wiring",
-      "quantity": 2684,
+      "quantity": 2266,
       "size": 1
     },
     {
       "item_id": "standard_rounds_box",
       "name": "Standard Rounds Box",
-      "quantity": 756,
+      "quantity": 754,
       "size": 1
     },
     {
       "item_id": "reinforced_glass",
       "name": "Reinforced Glass",
-      "quantity": 1362,
+      "quantity": 1454,
       "size": 1
     },
     {
@@ -43,37 +43,37 @@
     {
       "item_id": "wiring_harness",
       "name": "Wiring Harness",
-      "quantity": 6571,
+      "quantity": 6643,
       "size": 1
     },
     {
       "item_id": "silicate_composite",
       "name": "Silicate Composite",
-      "quantity": 1331,
+      "quantity": 1431,
       "size": 1
     },
     {
       "item_id": "trade_authenticator",
       "name": "Trade Authenticator",
-      "quantity": 642,
+      "quantity": 652,
       "size": 1
     },
     {
       "item_id": "repair_kit",
       "name": "Repair Kit",
-      "quantity": 39,
+      "quantity": 104,
       "size": 2
     },
     {
       "item_id": "ferrous_slug_case",
       "name": "Ferrous Slug Case",
-      "quantity": 111,
+      "quantity": 141,
       "size": 1
     },
     {
       "item_id": "pressure_seal",
       "name": "Pressure Seal",
-      "quantity": 6329,
+      "quantity": 6493,
       "size": 1
     },
     {
@@ -103,26 +103,14 @@
     {
       "item_id": "cobalt_ore",
       "name": "Cobalt Ore",
-      "quantity": 20,
-      "size": 1
-    },
-    {
-      "item_id": "titanium_ore",
-      "name": "Titanium Ore",
-      "quantity": 3,
+      "quantity": 89,
       "size": 1
     },
     {
       "item_id": "darksteel_ore",
       "name": "Darksteel Ore",
-      "quantity": 13,
+      "quantity": 25,
       "size": 2
-    },
-    {
-      "item_id": "aluminum_ore",
-      "name": "Aluminum Ore",
-      "quantity": 48,
-      "size": 1
     },
     {
       "item_id": "platinum_ore",
@@ -151,19 +139,19 @@
     {
       "item_id": "purified_water",
       "name": "Purified Water",
-      "quantity": 61,
+      "quantity": 137,
       "size": 1
     },
     {
       "item_id": "tungsten_rod",
       "name": "Tungsten Rod",
-      "quantity": 3,
+      "quantity": 6,
       "size": 2
     },
     {
       "item_id": "graphene_sheet",
       "name": "Graphene Sheet",
-      "quantity": 49,
+      "quantity": 65,
       "size": 1
     },
     {
@@ -181,7 +169,7 @@
     {
       "item_id": "silver_wiring",
       "name": "Silver Wiring",
-      "quantity": 1,
+      "quantity": 2,
       "size": 1
     },
     {
@@ -193,7 +181,7 @@
     {
       "item_id": "fuel_tank",
       "name": "Fuel Tank",
-      "quantity": 11,
+      "quantity": 3,
       "size": 3
     },
     {
@@ -205,7 +193,7 @@
     {
       "item_id": "nanoplastic_composite",
       "name": "Nanoplastic Composite",
-      "quantity": 1,
+      "quantity": 13,
       "size": 1
     },
     {
@@ -223,7 +211,7 @@
     {
       "item_id": "argon_gas",
       "name": "Argon Gas",
-      "quantity": 1,
+      "quantity": 102,
       "size": 1
     },
     {
@@ -247,7 +235,7 @@
     {
       "item_id": "cargo_expander_i",
       "name": "cargo_expander_i",
-      "quantity": 519,
+      "quantity": 520,
       "size": 10
     },
     {
@@ -259,37 +247,37 @@
     {
       "item_id": "fuel_cell",
       "name": "Fuel Cell",
-      "quantity": 64,
+      "quantity": 76,
       "size": 1
     },
     {
       "item_id": "gold_ore",
       "name": "Gold Ore",
-      "quantity": 101,
+      "quantity": 1,
       "size": 1
     },
     {
       "item_id": "uranium_ore",
       "name": "Uranium Ore",
-      "quantity": 4,
+      "quantity": 8,
       "size": 2
     },
     {
       "item_id": "durasteel_plate",
       "name": "Durasteel Plate",
-      "quantity": 201,
+      "quantity": 301,
       "size": 2
     },
     {
       "item_id": "weapon_housing",
       "name": "Weapon Housing",
-      "quantity": 3,
+      "quantity": 53,
       "size": 2
     },
     {
       "item_id": "power_distribution_grid",
       "name": "Power Distribution Grid",
-      "quantity": 2,
+      "quantity": 161,
       "size": 2
     },
     {
@@ -301,7 +289,7 @@
     {
       "item_id": "neon_gas",
       "name": "Neon Gas",
-      "quantity": 1,
+      "quantity": 101,
       "size": 1
     },
     {
@@ -319,31 +307,31 @@
     {
       "item_id": "cargo_superstructure",
       "name": "Cargo Superstructure",
-      "quantity": 22,
+      "quantity": 57,
       "size": 4
     },
     {
       "item_id": "superconductor",
       "name": "Superconductor",
-      "quantity": 7,
+      "quantity": 101,
       "size": 1
     },
     {
       "item_id": "cargo_container",
       "name": "Cargo Container",
-      "quantity": 17,
+      "quantity": 101,
       "size": 4
     },
     {
       "item_id": "titanium_ingot",
       "name": "Titanium Ingot",
-      "quantity": 13,
+      "quantity": 107,
       "size": 1
     },
     {
       "item_id": "life_support_unit",
       "name": "Life Support Unit",
-      "quantity": 29,
+      "quantity": 98,
       "size": 2
     },
     {
@@ -355,49 +343,43 @@
     {
       "item_id": "void_capacitor",
       "name": "Void Capacitor",
-      "quantity": 4,
+      "quantity": 7,
       "size": 3
     },
     {
       "item_id": "dark_matter_cell",
       "name": "Dark Matter Cell",
-      "quantity": 1,
+      "quantity": 82,
       "size": 2
     },
     {
       "item_id": "silver_ore",
       "name": "Silver Ore",
-      "quantity": 6,
+      "quantity": 18,
       "size": 1
     },
     {
       "item_id": "phase_crystal",
       "name": "Phase Crystal",
-      "quantity": 20,
-      "size": 2
-    },
-    {
-      "item_id": "sol_alloy_ore",
-      "name": "Sol Alloy Ore",
-      "quantity": 3,
+      "quantity": 54,
       "size": 2
     },
     {
       "item_id": "nitrogen_ice",
       "name": "Nitrogen Ice",
-      "quantity": 1,
+      "quantity": 101,
       "size": 1
     },
     {
       "item_id": "lithium_ore",
       "name": "Lithium Ore",
-      "quantity": 4,
+      "quantity": 51,
       "size": 1
     },
     {
       "item_id": "processed_null_matter",
       "name": "Processed Null Matter",
-      "quantity": 16,
+      "quantity": 35,
       "size": 2
     },
     {
@@ -409,19 +391,19 @@
     {
       "item_id": "darksteel_plating",
       "name": "Darksteel Plating",
-      "quantity": 18,
+      "quantity": 34,
       "size": 2
     },
     {
       "item_id": "thermal_ceramic",
       "name": "Thermal Ceramic",
-      "quantity": 1,
+      "quantity": 12,
       "size": 1
     },
     {
       "item_id": "armor_plate_i",
       "name": "armor_plate_i",
-      "quantity": 22,
+      "quantity": 21,
       "size": 10
     },
     {
@@ -439,7 +421,7 @@
     {
       "item_id": "flex_polymer",
       "name": "Flex Polymer",
-      "quantity": 3,
+      "quantity": 1,
       "size": 1
     },
     {
@@ -451,25 +433,25 @@
     {
       "item_id": "power_battery",
       "name": "Power Battery",
-      "quantity": 5,
+      "quantity": 6,
       "size": 1
     },
     {
       "item_id": "quantum_dot_matrix",
       "name": "Quantum Dot Matrix",
-      "quantity": 1,
+      "quantity": 19,
       "size": 1
     },
     {
       "item_id": "capital_ship_frame",
       "name": "Capital Ship Frame",
-      "quantity": 89,
+      "quantity": 92,
       "size": 10
     },
     {
       "item_id": "aluminum_sheet",
       "name": "Aluminum Sheet",
-      "quantity": 16,
+      "quantity": 18,
       "size": 1
     },
     {
@@ -481,19 +463,19 @@
     {
       "item_id": "trade_crystal",
       "name": "Trade Crystal",
-      "quantity": 28,
+      "quantity": 110,
       "size": 1
     },
     {
       "item_id": "optical_fiber_bundle",
       "name": "Optical Fiber Bundle",
-      "quantity": 3,
+      "quantity": 101,
       "size": 1
     },
     {
       "item_id": "quantum_fragments",
       "name": "Quantum Fragments",
-      "quantity": 37,
+      "quantity": 19,
       "size": 3
     },
     {
@@ -505,7 +487,7 @@
     {
       "item_id": "reinforced_bulkhead",
       "name": "Reinforced Bulkhead",
-      "quantity": 18,
+      "quantity": 93,
       "size": 3
     },
     {
@@ -517,7 +499,7 @@
     {
       "item_id": "life_support_array",
       "name": "Life Support Array",
-      "quantity": 6,
+      "quantity": 11,
       "size": 3
     },
     {
@@ -527,28 +509,112 @@
       "size": 1
     },
     {
-      "item_id": "power_cell",
-      "name": "Power Cell",
-      "quantity": 29,
-      "size": 2
-    },
-    {
       "item_id": "silicon_ore",
       "name": "Silicon Ore",
-      "quantity": 24,
+      "quantity": 1,
       "size": 1
     },
     {
       "item_id": "iron_ore",
       "name": "Iron Ore",
-      "quantity": 20,
+      "quantity": 4,
       "size": 1
+    },
+    {
+      "item_id": "gold_wiring",
+      "name": "Gold Wiring",
+      "quantity": 3,
+      "size": 1
+    },
+    {
+      "item_id": "armor_plate",
+      "name": "Armor Plate",
+      "quantity": 2,
+      "size": 2
+    },
+    {
+      "item_id": "power_cell",
+      "name": "Power Cell",
+      "quantity": 52,
+      "size": 2
+    },
+    {
+      "item_id": "water_recycler",
+      "name": "Water Recycler",
+      "quantity": 31,
+      "size": 2
     },
     {
       "item_id": "energy_crystal",
       "name": "Energy Crystal",
-      "quantity": 4,
+      "quantity": 96,
       "size": 1
+    },
+    {
+      "item_id": "solarian_logic_matrix",
+      "name": "Solarian Logic Matrix",
+      "quantity": 16,
+      "size": 2
+    },
+    {
+      "item_id": "sol_alloy_ore",
+      "name": "Sol Alloy Ore",
+      "quantity": 9,
+      "size": 2
+    },
+    {
+      "item_id": "solarian_composite",
+      "name": "Solarian Composite",
+      "quantity": 3,
+      "size": 2
+    },
+    {
+      "item_id": "environmental_control_unit",
+      "name": "Environmental Control Unit",
+      "quantity": 50,
+      "size": 3
+    },
+    {
+      "item_id": "lead_ore",
+      "name": "Lead Ore",
+      "quantity": 30,
+      "size": 2
+    },
+    {
+      "item_id": "nebula_gas",
+      "name": "Nebula Gas",
+      "quantity": 87,
+      "size": 2
+    },
+    {
+      "item_id": "exotic_matter",
+      "name": "Exotic Matter",
+      "quantity": 5,
+      "size": 2
+    },
+    {
+      "item_id": "fluorine_gas",
+      "name": "Fluorine Gas",
+      "quantity": 64,
+      "size": 1
+    },
+    {
+      "item_id": "plasma_gas",
+      "name": "Plasma Gas",
+      "quantity": 16,
+      "size": 2
+    },
+    {
+      "item_id": "purified_argon",
+      "name": "Purified Argon",
+      "quantity": 23,
+      "size": 1
+    },
+    {
+      "item_id": "null_matter",
+      "name": "Null Matter",
+      "quantity": 1,
+      "size": 2
     }
   ],
   "ships": [
@@ -574,5 +640,5 @@
       "cargo_used": 0
     }
   ],
-  "hint": "132,235 credits and 33,474 items in storage at grand_exchange_station"
+  "hint": "261,044 credits and 35,471 items in storage at grand_exchange_station"
 }

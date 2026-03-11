@@ -112,8 +112,10 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 	state := client.GetState()
 
 	// Debug: Log what we got
+	tick := state.GetTick()
 	logger.Printf("🔍 System data: ID=%s, Name=%s, Connections=%v",
 		state.System.ID, state.System.Name, state.System.Connections)
+	logger.Printf("   CurrentTick: %d, State.CurrentTick: %d", tick, state.CurrentTick)
 	logger.Printf("   POIs count: %d", len(state.System.POIs))
 
 	// Convert game state to knowledge.System
@@ -124,7 +126,7 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		Empire:          state.System.Empire,
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
-		LastUpdatedTick: state.CurrentTick,
+		LastUpdatedTick: tick,
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,
@@ -132,11 +134,13 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		},
 	}
 
+	logger.Printf("📝 Calling RememberSystem with LastUpdatedTick=%d", kbSystem.LastUpdatedTick)
+
 	// Remember the system in knowledge base
 	if err := kb.RememberSystem(ctx, kbSystem); err != nil {
 		logger.Printf("⚠️  Failed to save system to knowledge base: %v", err)
 	} else {
-		logger.Printf("💾 Saved system to knowledge base: %s", state.System.Name)
+		logger.Printf("💾 Saved system to knowledge base: %s (tick: %d)", state.System.Name, kbSystem.LastUpdatedTick)
 	}
 
 	// Perform system survey to scan for hidden POIs
@@ -582,6 +586,8 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			logger.Printf("Failed to save POI to knowledge base: %v", err)
+		} else {
+			logger.Printf("💾 Saved POI: %s (tick: %d)", poi.Name, kbPOI.LastUpdatedTick)
 		}
 
 		// Mark as visited
@@ -768,11 +774,12 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 		state = client.GetState()
 		currentSystem = state.CurrentSystem
 
-		// If System.Name doesn't match CurrentSystem, data may be stale.
-		// CurrentSystem is set from System.Name in mergeSystemDataLocked, not from System.ID.
-		// System.ID uses server's internal format (e.g., "nexus_prime") while
-		// System.Name and CurrentSystem use the display name (e.g., "Nexus Prime").
-		if state.System.ID == "" || !strings.EqualFold(state.System.Name, currentSystem) {
+		// If neither System.ID nor System.Name matches CurrentSystem, data may be stale.
+		// CurrentSystem can be either the ID (e.g., "tau_ceti") from parsePlayerData
+		// or the display name (e.g., "Tau Ceti") from mergeSystemDataLocked.
+		systemMatchesCurrent := strings.EqualFold(state.System.ID, currentSystem) ||
+			strings.EqualFold(state.System.Name, currentSystem)
+		if state.System.ID == "" || !systemMatchesCurrent {
 			logger.Printf("⚠️  System data not loaded (ID=%q, Name=%q, CurrentSystem=%s), forcing refresh...",
 				state.System.ID, state.System.Name, currentSystem)
 			if err := client.GetSystem(ctx); err != nil {
@@ -877,17 +884,18 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 	unvisited := []string{}
 	logger := log.New(os.Stdout, "[DEBUG] ", log.LstdFlags)
 
-	// Safety check: if System.Name doesn't match CurrentSystem, data may be stale.
-	// CurrentSystem is set from System.Name in mergeSystemDataLocked, not from System.ID.
-	// System.ID uses server's internal format (e.g., "nexus_prime") while
-	// System.Name and CurrentSystem use the display name (e.g., "Nexus Prime").
+	// Safety check: if neither System.ID nor System.Name matches CurrentSystem, data may be stale.
+	// CurrentSystem can be either the ID (e.g., "tau_ceti") from parsePlayerData
+	// or the display name (e.g., "Tau Ceti") from mergeSystemDataLocked.
 	if state.System.ID == "" {
 		logger.Printf("⚠️  System.ID is empty, CurrentSystem=%s - system data not yet loaded", state.CurrentSystem)
 		logger.Printf("     Returning empty unvisited list to force data refresh")
 		return []string{}
 	}
-	if !strings.EqualFold(state.System.Name, state.CurrentSystem) {
-		logger.Printf("⚠️  STALE DATA: System.Name=%s doesn't match CurrentSystem=%s", state.System.Name, state.CurrentSystem)
+	systemMatchesCurrent := strings.EqualFold(state.System.ID, state.CurrentSystem) ||
+		strings.EqualFold(state.System.Name, state.CurrentSystem)
+	if !systemMatchesCurrent {
+		logger.Printf("⚠️  STALE DATA: System.ID=%s, System.Name=%s doesn't match CurrentSystem=%s", state.System.ID, state.System.Name, state.CurrentSystem)
 		logger.Printf("     This indicates system data wasn't refreshed after a jump!")
 		logger.Printf("     Returning empty unvisited list to force data refresh")
 		return []string{}

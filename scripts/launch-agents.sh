@@ -139,8 +139,9 @@ case "$1" in
         fi
 
         args=$(get_agent_args "$agent")
-        (cd "$START_DIR" && ./bin/$binary $args > logs/$agent.log 2>&1 &)
+        (cd "$START_DIR" && ./bin/$binary --transport=mcp --debug=1 $args > logs/$agent.log 2>&1 &)
         echo "  ✓ Started $agent with $binary (PID: $!)"
+	sleep 3
         STARTED=$((STARTED + 1))
 
         # Small delay to avoid overwhelming the connection
