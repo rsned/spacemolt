@@ -154,6 +154,8 @@ func (m *MCPGameClient) GetState() *State {
 	if s.CurrentTick == 0 && !m.tickBaseTime.IsZero() {
 		elapsedSec := time.Since(m.tickBaseTime).Seconds()
 		estimatedTick := m.tickBaseValue + int64(elapsedSec/m.tickRateSeconds)
+		m.logger.Printf("[MCP] GetState: Estimating tick (baseline=%d, elapsed=%.1fs, rate=%.1fs/tick) -> %d",
+			m.tickBaseValue, elapsedSec, m.tickRateSeconds, estimatedTick)
 		m.tickMu.Unlock()
 
 		// Create a copy with the estimated tick
@@ -162,6 +164,10 @@ func (m *MCPGameClient) GetState() *State {
 		return stateCopy
 	}
 	m.tickMu.Unlock()
+
+	if s.CurrentTick == 0 {
+		m.logger.Printf("[MCP] GetState: CurrentTick is 0 and no baseline available")
+	}
 
 	return s.Clone()
 }

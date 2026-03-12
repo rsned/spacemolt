@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -95,6 +96,12 @@ func (kb *SQLiteKB) Close() error {
 
 // RememberSystem stores or updates system knowledge
 func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
+	// Debug logging to see what tick is being passed in
+	if sys.LastUpdatedTick <= 0 {
+		log.Printf("[DEBUG] RememberSystem called for system %s (%s) with last_updated_tick=%d",
+			sys.ID, sys.Name, sys.LastUpdatedTick)
+	}
+
 	tx, err := kb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -269,6 +276,12 @@ func (kb *SQLiteKB) RememberConnection(ctx context.Context, fromSystem, toSystem
 
 // RememberPOI stores or updates POI knowledge
 func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
+	// Debug logging to see what tick is being passed in
+	if poi.LastUpdatedTick <= 0 {
+		log.Printf("[DEBUG] RememberPOI called for POI %s (%s) with last_updated_tick=%d",
+			poi.ID, poi.Name, poi.LastUpdatedTick)
+	}
+
 	tx, err := kb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -308,6 +321,11 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, poi.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert POI resource: %w", err)
+		}
+		// Debug logging to verify last_updated_tick is being set
+		if poi.LastUpdatedTick <= 0 {
+			log.Printf("[DEBUG] RememberPOI: POI %s resource %s has last_updated_tick=%d (poi.LastUpdatedTick=%d)",
+				poi.ID, res.ResourceID, poi.LastUpdatedTick, poi.LastUpdatedTick)
 		}
 	}
 
