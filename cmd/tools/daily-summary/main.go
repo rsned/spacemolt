@@ -344,7 +344,7 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 	var initErr error
 	switch *transport {
 	case "mcp":
-		client, creds, initErr = game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+		client, creds, initErr = game.InitializeMCPAgent(agentID, logger, ctx, *debug, false)
 	case "ws":
 		client, creds, initErr = game.InitializeAgent(agentID, logger, ctx, *debug)
 	default:

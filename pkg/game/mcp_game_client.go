@@ -44,7 +44,8 @@ type MCPGameClient struct {
 	connected   bool
 	connectedMu sync.RWMutex
 
-	debug bool
+	debug          bool
+	disablePolling bool // If true, don't poll get_status every 10s
 
 	latestListings []MarketListing
 	listingsMu     sync.RWMutex
@@ -90,6 +91,13 @@ func NewMCPGameClient(serverURL, username, password string, logger *log.Logger) 
 // SetDebugLogging enables or disables debug logging for raw responses.
 func (m *MCPGameClient) SetDebugLogging(enabled bool) {
 	m.debug = enabled
+}
+
+// SetPolling enables or disables automatic get_status polling every 10 seconds.
+// By default, polling is enabled to keep state fresh. Disable if you want to
+// manually control when to refresh state.
+func (m *MCPGameClient) SetPolling(enabled bool) {
+	m.disablePolling = !enabled
 }
 
 // SetHandler sets the message handler for lifecycle events.
@@ -196,8 +204,10 @@ func (m *MCPGameClient) Login(ctx context.Context) error {
 	m.tickRateSeconds = 10.0 // Default tick rate
 	m.tickMu.Unlock()
 
-	// Start background poller now that we have a session.
-	m.startPoller()
+	// Start background poller now that we have a session (unless disabled).
+	if !m.disablePolling {
+		m.startPoller()
+	}
 
 	// Signal ready.
 	m.readyOnce.Do(func() { close(m.readyChan) })

@@ -36,9 +36,9 @@ func main() {
 
 	ctx := context.Background()
 
-	// Initialize MCP agent
+	// Initialize MCP agent (with polling disabled for interactive use)
 	logger.Printf("Initializing agent %s...", agentID)
-	client, creds, err := game.InitializeMCPAgent(agentID, logger, ctx, *debug)
+	client, creds, err := game.InitializeMCPAgent(agentID, logger, ctx, *debug, true) // disablePolling=true
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}

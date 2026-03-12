@@ -142,7 +142,7 @@ func main() {
 	switch *transport {
 	case "mcp":
 		logger.Printf("Using MCP transport")
-		mcpClient, _, mcpErr := game.InitializeMCPAgent(*agentID, logger, ctx, *debug)
+		mcpClient, _, mcpErr := game.InitializeMCPAgent(*agentID, logger, ctx, *debug, false)
 		if mcpErr != nil {
 			fmt.Fprintf(os.Stderr, "Error initializing MCP agent: %v\n", mcpErr)
 			os.Exit(1)
