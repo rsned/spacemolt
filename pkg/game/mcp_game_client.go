@@ -424,7 +424,7 @@ func (m *MCPGameClient) doHTTPRequest(ctx context.Context, body []byte) (*mcpJSO
 	if m.debug {
 		m.logger.Printf("=== MCP Client Receive Debug ===")
 		m.logger.Printf("Content-Type: %s", contentType)
-		m.logger.Printf("Response Body: %s", truncate(string(bodyData), 2000))
+		m.logger.Printf("Response Body: %s", truncate(string(bodyData), 200))
 	}
 
 	resp, err := detectAndParseResponse(contentType, bytes.NewReader(bodyData))
