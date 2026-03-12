@@ -769,6 +769,18 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 		logger.Printf("✓ System data loaded: %s (%s)", state.System.Name, state.System.ID)
 	}
 
+	// Undock to start exploration if docked
+	state = client.GetState()
+	if state.Doc {
+		logger.Printf("📤 Undocking to start exploration...")
+		if err := client.Undock(ctx); err != nil {
+			logger.Printf("Failed to undock: %v", err)
+		} else {
+			logger.Printf("✅ Undocked successfully")
+			time.Sleep(12 * time.Second)
+		}
+	}
+
 	expState := &ExplorationState{
 		VisitedSystems:  make(map[string]bool),
 		VisitedPOIs:     make(map[string]bool),
