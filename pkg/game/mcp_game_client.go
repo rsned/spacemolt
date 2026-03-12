@@ -635,6 +635,38 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		}
 	}
 
+	// If still not parsed, try SSE format: {"result": {"content": [{"type": "text", "text": "..."}]}}
+	// The actual game data is in result.content[0].text
+	if payload.Player == nil && payload.Ship == nil && payload.System == nil && payload.Message == "" {
+		var sseWrapper struct {
+			Result struct {
+				Content []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal([]byte(text), &sseWrapper); err == nil && len(sseWrapper.Result.Content) > 0 {
+			// Find the first text content block
+			for _, c := range sseWrapper.Result.Content {
+				if c.Type == "text" && c.Text != "" {
+					if m.debug {
+						m.logger.Printf("[MCP DEBUG] unwrapping SSE content text: %s", truncate(c.Text, 500))
+					}
+					// Re-parse the text content as the payload
+					if err := json.Unmarshal([]byte(c.Text), &payload); err != nil {
+						if m.debug {
+							m.logger.Printf("[MCP DEBUG] failed to parse SSE content text: %v", err)
+						}
+					} else {
+						// Successfully parsed, break out of loop
+						break
+					}
+				}
+			}
+		}
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
