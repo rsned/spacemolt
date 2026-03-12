@@ -572,7 +572,10 @@ func (m *MCPGameClient) pollLoop() {
 
 // pollStatus fetches current status and updates internal state.
 func (m *MCPGameClient) pollStatus() error {
-	ctx, cancel := context.WithTimeout(m.pollCtx, 30*time.Second)
+	// Use a longer timeout than the HTTP client's 90s timeout to allow
+	// the HTTP client to handle timeouts properly. Context timeout only
+	// applies if the HTTP client itself hangs.
+	ctx, cancel := context.WithTimeout(m.pollCtx, 2*time.Minute)
 	defer cancel()
 
 	result, err := m.callTool(ctx, "get_status", nil)
