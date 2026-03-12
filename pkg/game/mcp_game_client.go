@@ -344,6 +344,13 @@ func (m *MCPGameClient) callToolOnce(ctx context.Context, toolName string, args 
 		return nil, fmt.Errorf("building request for %s: %w", toolName, err)
 	}
 
+	// DEBUG: Log the request being sent
+	if m.debug {
+		m.logger.Printf("=== MCP Client Send Debug ===")
+		m.logger.Printf("Tool: '%s'", toolName)
+		m.logger.Printf("Request Body: %s", string(body))
+	}
+
 	resp, mcpSession, err := m.doHTTPRequest(ctx, body)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request for %s: %w", toolName, err)
@@ -411,6 +418,13 @@ func (m *MCPGameClient) doHTTPRequest(ctx context.Context, body []byte) (*mcpJSO
 	bodyData, err := io.ReadAll(io.LimitReader(httpResp.Body, 10*1024*1024))
 	if err != nil {
 		return nil, mcpSession, fmt.Errorf("reading response body: %w", err)
+	}
+
+	// DEBUG: Log the response received
+	if m.debug {
+		m.logger.Printf("=== MCP Client Receive Debug ===")
+		m.logger.Printf("Content-Type: %s", contentType)
+		m.logger.Printf("Response Body: %s", truncate(string(bodyData), 2000))
 	}
 
 	resp, err := detectAndParseResponse(contentType, bytes.NewReader(bodyData))
