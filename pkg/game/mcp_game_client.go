@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // MCPGameClient implements the GameClient interface using direct HTTP calls
@@ -659,6 +661,34 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		var system SystemData
 		if err := json.Unmarshal(payload.System, &system); err == nil {
 			m.state.System = system
+		}
+	}
+
+	if payload.POI != nil {
+		// Parse POI data (from get_poi response) and update the system's POI list.
+		// This populates resources and other detailed fields.
+		var extPOI serverapi.POI
+		if err := json.Unmarshal(payload.POI, &extPOI); err == nil && extPOI.ID != "" {
+			poi := POIFromAPI(extPOI)
+
+			// Find and update the existing POI in the system, or append if new
+			found := false
+			for i, existing := range m.state.System.POIs {
+				if existing.ID == poi.ID {
+					m.state.System.POIs[i] = poi
+					found = true
+					if m.debug {
+						m.logger.Printf("[MCP DEBUG] Updated POI %s with %d resources", poi.ID, len(poi.Resources))
+					}
+					break
+				}
+			}
+			if !found {
+				m.state.System.POIs = append(m.state.System.POIs, poi)
+				if m.debug {
+					m.logger.Printf("[MCP DEBUG] Added new POI %s with %d resources", poi.ID, len(poi.Resources))
+				}
+			}
 		}
 	}
 
