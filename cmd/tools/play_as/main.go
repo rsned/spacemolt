@@ -7,7 +7,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -19,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -27,12 +27,12 @@ type outputFormat string
 
 const (
 	formatRaw    outputFormat = "raw"
-	formatJSON   outputFormat = "json"
 	formatStyled outputFormat = "styled"
 )
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging (show sent/received JSON)")
+	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	flag.Parse()
 
 	args := flag.Args()
@@ -67,10 +67,12 @@ func main() {
 	fmt.Printf("\nLogged in as: %s\n", creds.Username)
 	fmt.Printf("Empire: %s\n", creds.Empire)
 	fmt.Println("\nType 'help' for available commands, 'exit' or 'quit' to leave.")
-	fmt.Println()
+
+	// Load config
+	cfg := loadConfig(*configPath)
 
 	// Run REPL loop
-	runREPL(client, ctx)
+	runREPL(client, ctx, cfg, agentID)
 }
 
 func printUsage() {
@@ -78,31 +80,40 @@ func printUsage() {
 	fmt.Println("Example: play_as explorer-1")
 	fmt.Println("  play_as --debug explorer-1")
 	fmt.Println("\nFlags:")
-	fmt.Println("  --debug    Enable debug logging (show sent/received JSON)")
+	fmt.Println("  --debug           Enable debug logging (show sent/received JSON)")
+	fmt.Println("  --config <path>   Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
 	fmt.Println("\nThis tool provides an interactive terminal for playing Spacemolt.")
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
 
-func runREPL(client game.GameClient, ctx context.Context) {
-	reader := bufio.NewReader(os.Stdin)
-	format := formatJSON
+func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agentID string) {
+	line := liner.NewLiner()
+	defer func() { _ = line.Close() }()
+
+	line.SetCtrlCAborts(true)
+
+	format := outputFormat(cfg.OutputFormat)
 
 	for {
-		// Show prompt
-		fmt.Print("$ ")
-
-		// Read input
-		line, err := reader.ReadString('\n')
+		// Read input with history support (up/down arrows)
+		input, err := line.Prompt("$ ")
 		if err != nil {
+			if err == liner.ErrPromptAborted {
+				fmt.Println("Goodbye!")
+				return
+			}
 			fmt.Printf("Error reading input: %v\n", err)
 			continue
 		}
 
 		// Trim whitespace
-		cmd := strings.TrimSpace(line)
+		cmd := strings.TrimSpace(input)
 		if cmd == "" {
 			continue
 		}
+
+		// Add to history for up/down arrow cycling
+		line.AppendHistory(cmd)
 
 		// Parse command
 		parts := strings.Fields(cmd)
@@ -156,6 +167,11 @@ func runREPL(client game.GameClient, ctx context.Context) {
 				printResponse(raw, format, command)
 			}
 			fmt.Printf("✓ Completed in %v\n", duration)
+		}
+
+		// Render statusline before next prompt
+		if sl := renderStatusline(client, cfg, agentID); sl != "" {
+			fmt.Println(sl)
 		}
 
 		fmt.Println()
