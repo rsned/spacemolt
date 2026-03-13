@@ -2512,6 +2512,13 @@ func (c *Client) GetMarketListings() []MarketListing {
 
 // storeRawJSON stores raw JSON payloads for key response types
 func (c *Client) storeRawJSON(resp protocol.Response) {
+	// Always cache the last response for interactive tools like play_as
+	if jsonData, err := json.Marshal(resp.Payload); err == nil {
+		c.rawJSONMu.Lock()
+		c.latestRawJSON["_last"] = jsonData
+		c.rawJSONMu.Unlock()
+	}
+
 	// Only store specific response types that are useful for data collection
 	var storeKey string
 	var shouldStore bool

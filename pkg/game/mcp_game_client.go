@@ -599,11 +599,26 @@ func (m *MCPGameClient) pollStatus() error {
 // updateStateFromResult parses an MCP tool result's text content and
 // updates the internal state. The text is expected to be JSON matching
 // the server's response payload structure.
+// cacheResultAs caches the raw tool result under the given key and then updates state.
+func (m *MCPGameClient) cacheResultAs(result json.RawMessage, key string) error {
+	if text, err := parseToolResultText(result); err == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON[key] = []byte(text)
+		m.rawJSONMu.Unlock()
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 	text, err := parseToolResultText(result)
 	if err != nil {
 		return err
 	}
+
+	// Cache last response for interactive tools like play_as
+	m.rawJSONMu.Lock()
+	m.latestRawJSON["_last"] = []byte(text)
+	m.rawJSONMu.Unlock()
 
 	// Try to parse as a structured response with player/ship/system fields.
 	var payload struct {

@@ -151,6 +151,10 @@ func (m *MCPGameClient) GetListings(ctx context.Context) error {
 	// Parse listings from the result.
 	text, parseErr := parseToolResultText(result)
 	if parseErr == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON["market"] = []byte(text)
+		m.rawJSONMu.Unlock()
+
 		var resp struct {
 			Listings []MarketListing `json:"listings"`
 		}
@@ -350,7 +354,7 @@ func (m *MCPGameClient) GetWrecks(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "wrecks")
 }
 
 func (m *MCPGameClient) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error {
@@ -382,7 +386,7 @@ func (m *MCPGameClient) GetSystem(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "system")
 }
 
 func (m *MCPGameClient) GetStatus(ctx context.Context) error {
@@ -390,7 +394,7 @@ func (m *MCPGameClient) GetStatus(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "status")
 }
 
 func (m *MCPGameClient) GetShip(ctx context.Context) error {
@@ -398,7 +402,15 @@ func (m *MCPGameClient) GetShip(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "ship")
+}
+
+func (m *MCPGameClient) GetCargo(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_cargo", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "cargo")
 }
 
 func (m *MCPGameClient) GetSkills(ctx context.Context) error {
@@ -406,7 +418,7 @@ func (m *MCPGameClient) GetSkills(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "skills")
 }
 
 func (m *MCPGameClient) GetPOI(ctx context.Context) error {
@@ -414,7 +426,7 @@ func (m *MCPGameClient) GetPOI(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "poi")
 }
 
 func (m *MCPGameClient) GetBase(ctx context.Context) error {
@@ -422,7 +434,7 @@ func (m *MCPGameClient) GetBase(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "base")
 }
 
 func (m *MCPGameClient) GetMap(ctx context.Context, force ...bool) error {
@@ -433,7 +445,7 @@ func (m *MCPGameClient) GetMap(ctx context.Context, force ...bool) error {
 	m.mu.Lock()
 	m.state.LastMapUpdate = now()
 	m.mu.Unlock()
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "systems")
 }
 
 func (m *MCPGameClient) GetNearby(ctx context.Context) error {
@@ -441,7 +453,7 @@ func (m *MCPGameClient) GetNearby(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	return m.cacheResultAs(result, "nearby")
 }
 
 func (m *MCPGameClient) GetVersion(ctx context.Context) error {
@@ -450,17 +462,20 @@ func (m *MCPGameClient) GetVersion(ctx context.Context) error {
 		return err
 	}
 	// Parse version from result.
-	text, err := parseToolResultText(result)
-	if err != nil {
-		return err
-	}
-	var vResp struct {
-		Version string `json:"version"`
-	}
-	if err := json.Unmarshal([]byte(text), &vResp); err == nil && vResp.Version != "" {
-		m.mu.Lock()
-		m.state.ServerVersion = vResp.Version
-		m.mu.Unlock()
+	text, parseErr := parseToolResultText(result)
+	if parseErr == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON["version"] = []byte(text)
+		m.rawJSONMu.Unlock()
+
+		var vResp struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal([]byte(text), &vResp); err == nil && vResp.Version != "" {
+			m.mu.Lock()
+			m.state.ServerVersion = vResp.Version
+			m.mu.Unlock()
+		}
 	}
 	return nil
 }
@@ -669,8 +684,11 @@ func (m *MCPGameClient) WriteNote(ctx context.Context, noteID, content string) e
 }
 
 func (m *MCPGameClient) GetNotes(ctx context.Context) error {
-	_, err := m.callTool(ctx, "get_notes", nil)
-	return err
+	result, err := m.callTool(ctx, "get_notes", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "notes")
 }
 
 // Ship Management
@@ -719,20 +737,29 @@ func (m *MCPGameClient) ViewMarket(ctx context.Context, itemID string) error {
 	if itemID != "" {
 		args["item_id"] = itemID
 	}
-	_, err := m.callTool(ctx, "view_market", args)
-	return err
+	result, err := m.callTool(ctx, "view_market", args)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "view_market")
 }
 
 func (m *MCPGameClient) ViewOrders(ctx context.Context) error {
-	_, err := m.callTool(ctx, "view_orders", nil)
-	return err
+	result, err := m.callTool(ctx, "view_orders", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "orders")
 }
 
 // Missions
 
 func (m *MCPGameClient) GetMissions(ctx context.Context) error {
-	_, err := m.callTool(ctx, "get_missions", nil)
-	return err
+	result, err := m.callTool(ctx, "get_missions", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "missions")
 }
 
 func (m *MCPGameClient) AcceptMission(ctx context.Context, missionID string) error {
@@ -755,6 +782,79 @@ func (m *MCPGameClient) SurveySystem(ctx context.Context) error {
 func (m *MCPGameClient) CaptainsLogAdd(ctx context.Context, entry string) error {
 	_, err := m.callTool(ctx, "captains_log_add", map[string]any{"entry": entry})
 	return err
+}
+
+func (m *MCPGameClient) CaptainsLogList(ctx context.Context) error {
+	result, err := m.callTool(ctx, "captains_log_list", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "captains_log_list")
+}
+
+// --- Additional query methods ---
+
+func (m *MCPGameClient) GetDrones(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_drones", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "drones")
+}
+
+func (m *MCPGameClient) FactionInfo(ctx context.Context) error {
+	result, err := m.callTool(ctx, "faction_info", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "faction_info")
+}
+
+func (m *MCPGameClient) GetActiveMissions(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_active_missions", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "active_missions")
+}
+
+func (m *MCPGameClient) GetCommands(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_commands", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "commands")
+}
+
+func (m *MCPGameClient) ShipyardShowroom(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_ships", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "shipyard")
+}
+
+func (m *MCPGameClient) GetInsuranceQuote(ctx context.Context) error {
+	// Use claim_insurance to get quote info — there's no dedicated quote tool
+	// but the get_status response includes insurance info
+	result, err := m.callTool(ctx, "get_status", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "insurance_quote")
+}
+
+func (m *MCPGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error {
+	args := map[string]any{
+		"type":      catalogType,
+		"page":      page,
+		"page_size": pageSize,
+	}
+	result, err := m.callTool(ctx, "catalog", args)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "catalog")
 }
 
 // GetMarketListings returns cached market listings from the last GetListings call.

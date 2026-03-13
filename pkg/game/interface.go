@@ -68,13 +68,24 @@ type GameClient interface {
 	GetSystem(ctx context.Context) error
 	GetStatus(ctx context.Context) error
 	GetShip(ctx context.Context) error
+	GetCargo(ctx context.Context) error
 	GetSkills(ctx context.Context) error
 	GetPOI(ctx context.Context) error
 	GetBase(ctx context.Context) error
 	GetMap(ctx context.Context, force ...bool) error
 	GetNearby(ctx context.Context) error
 	GetVersion(ctx context.Context) error
+	GetDrones(ctx context.Context) error
+	GetCommands(ctx context.Context) error
+	GetActiveMissions(ctx context.Context) error
+	GetInsuranceQuote(ctx context.Context) error
 	Help(ctx context.Context, payload map[string]any) error
+
+	// Data collection
+	FactionInfo(ctx context.Context) error
+	CaptainsLogList(ctx context.Context) error
+	ShipyardShowroom(ctx context.Context) error
+	Catalog(ctx context.Context, catalogType string, page, pageSize int) error
 
 	// Route Planning
 	FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error)

@@ -23,7 +23,8 @@ var (
 	registryURL = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbBackend   = flag.String("db-backend", "sqlite", "Knowledge base backend: sqlite or memory")
 	dbPath      = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
-	debug       = flag.Bool("debug", false, "Enable debug logging")
+	debug        = flag.Bool("debug", false, "Enable debug logging")
+	forceRescan  = flag.Bool("force", false, "Force rescan of all POIs and systems, ignoring freshness checks")
 )
 
 // Exploration state for DFS algorithm
@@ -276,11 +277,11 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 	}
 
 	// Get ship listings (only if not captured today)
-	// ShipyardShowroom is only available on the WebSocket client.
+	// ShipyardShowroom - get available ships at station.
 	if !hasShipsToday {
 		if wsClient, ok := client.(*game.Client); ok {
 			logger.Printf("🚢 Getting ship listings from %s...", poiName)
-			if err := wsClient.ShipyardShowroom(ctx, nil); err != nil {
+			if err := wsClient.ShipyardShowroom(ctx); err != nil {
 				logger.Printf("Failed to get ship listings: %v", err)
 			} else {
 				time.Sleep(2 * time.Second)
@@ -521,19 +522,22 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 
 		// Check if POI data is still fresh in the knowledge base
 		// last_updated_tick <= 0 means unset/unviewed, so always scan
-		if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick > 0 {
-			threshold := game.POIFreshnessThreshold(poi.Type)
-			if currentTick-lastTick < threshold {
-				logger.Printf("⊙ Skipping POI %s (%s) - data still fresh (age: %d ticks, threshold: %d)",
-					poi.Name, poi.Type, currentTick-lastTick, threshold)
-				expState.VisitedPOIs[poi.ID] = true
-				continue
+		if !*forceRescan {
+			if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick > 0 {
+				threshold := game.POIFreshnessThreshold(poi.Type)
+				age := currentTick - lastTick
+				if age >= 0 && age < threshold {
+					logger.Printf("⊙ Skipping POI %s (%s) - data still fresh (age: %d ticks, threshold: %d)",
+						poi.Name, poi.Type, age, threshold)
+					expState.VisitedPOIs[poi.ID] = true
+					continue
+				}
+				logger.Printf("🔄 POI %s (%s) data stale (age: %d ticks, threshold: %d) - rescanning",
+					poi.Name, poi.Type, age, threshold)
+			} else if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick <= 0 {
+				logger.Printf("🆕 POI %s (%s) has last_updated_tick=%d (unset/unviewed) - scanning",
+					poi.Name, poi.Type, lastTick)
 			}
-			logger.Printf("🔄 POI %s (%s) data stale (age: %d ticks, threshold: %d) - rescanning",
-				poi.Name, poi.Type, currentTick-lastTick, threshold)
-		} else if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick <= 0 {
-			logger.Printf("🆕 POI %s (%s) has last_updated_tick=%d (unset/unviewed) - scanning",
-				poi.Name, poi.Type, lastTick)
 		}
 
 		logger.Printf("📍 Visiting POI: %s (%s) - Type: %s", poi.Name, poi.ID, poi.Type)
@@ -853,15 +857,18 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 			// Check if system data is still fresh in the knowledge base
 			// last_updated_tick <= 0 means unset/unviewed, so always collect
 			systemFresh := false
-			if kbSys, err := kb.GetSystem(ctx, currentSystem); err == nil && kbSys != nil && kbSys.LastUpdatedTick > 0 {
-				if state.GetTick()-kbSys.LastUpdatedTick < game.FreshnessSystem {
-					logger.Printf("⊙ System %s data still fresh (age: %d ticks), skipping system collection",
-						currentSystem, state.GetTick()-kbSys.LastUpdatedTick)
-					systemFresh = true
+			if !*forceRescan {
+				if kbSys, err := kb.GetSystem(ctx, currentSystem); err == nil && kbSys != nil && kbSys.LastUpdatedTick > 0 {
+					sysAge := state.GetTick() - kbSys.LastUpdatedTick
+					if sysAge >= 0 && sysAge < game.FreshnessSystem {
+						logger.Printf("⊙ System %s data still fresh (age: %d ticks), skipping system collection",
+							currentSystem, sysAge)
+						systemFresh = true
+					}
+				} else if kbSys != nil && kbSys.LastUpdatedTick <= 0 {
+					logger.Printf("🆕 System %s has last_updated_tick=%d (unset/unviewed) - collecting data",
+						currentSystem, kbSys.LastUpdatedTick)
 				}
-			} else if kbSys != nil && kbSys.LastUpdatedTick <= 0 {
-				logger.Printf("🆕 System %s has last_updated_tick=%d (unset/unviewed) - collecting data",
-					currentSystem, kbSys.LastUpdatedTick)
 			}
 
 			// Collect system data only if stale or unknown

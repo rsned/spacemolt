@@ -235,6 +235,10 @@ func (m *mockGameClient) GetShip(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_ship")
 	return nil
 }
+func (m *mockGameClient) GetCargo(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_cargo")
+	return nil
+}
 func (m *mockGameClient) GetSkills(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_skills")
 	return nil
@@ -259,8 +263,40 @@ func (m *mockGameClient) GetVersion(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_version")
 	return nil
 }
+func (m *mockGameClient) GetDrones(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_drones")
+	return nil
+}
+func (m *mockGameClient) GetCommands(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_commands")
+	return nil
+}
+func (m *mockGameClient) GetActiveMissions(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_active_missions")
+	return nil
+}
+func (m *mockGameClient) GetInsuranceQuote(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_insurance_quote")
+	return nil
+}
 func (m *mockGameClient) Help(ctx context.Context, payload map[string]any) error {
 	m.actionsRecorded = append(m.actionsRecorded, "help")
+	return nil
+}
+func (m *mockGameClient) FactionInfo(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "faction_info")
+	return nil
+}
+func (m *mockGameClient) CaptainsLogList(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "captains_log_list")
+	return nil
+}
+func (m *mockGameClient) ShipyardShowroom(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "shipyard_showroom")
+	return nil
+}
+func (m *mockGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error {
+	m.actionsRecorded = append(m.actionsRecorded, "catalog")
 	return nil
 }
 

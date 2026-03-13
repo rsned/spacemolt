@@ -14,11 +14,21 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+)
+
+// Output format for server responses.
+type outputFormat string
+
+const (
+	formatRaw    outputFormat = "raw"
+	formatJSON   outputFormat = "json"
+	formatStyled outputFormat = "styled"
 )
 
 func main() {
@@ -75,6 +85,7 @@ func printUsage() {
 
 func runREPL(client game.GameClient, ctx context.Context) {
 	reader := bufio.NewReader(os.Stdin)
+	format := formatJSON
 
 	for {
 		// Show prompt
@@ -113,17 +124,231 @@ func runREPL(client game.GameClient, ctx context.Context) {
 			continue
 		}
 
+		// Handle set_format
+		if command == "set_format" {
+			if len(parts) < 2 {
+				fmt.Printf("Current format: %s\n", format)
+				fmt.Println("Usage: set_format <raw|json|styled>")
+				continue
+			}
+			switch strings.ToLower(parts[1]) {
+			case "raw", "json":
+				format = outputFormat(strings.ToLower(parts[1]))
+				fmt.Printf("Output format set to: %s\n", format)
+			case "styled":
+				format = formatStyled
+				fmt.Printf("Output format set to: styled\n")
+			default:
+				fmt.Printf("Unknown format %q. Use: raw, json, or styled\n", parts[1])
+			}
+			fmt.Println()
+			continue
+		}
+
 		// Execute command
 		startTime := time.Now()
 		if err := executeCommand(client, ctx, parts); err != nil {
 			fmt.Printf("❌ Error: %v\n", err)
 		} else {
 			duration := time.Since(startTime)
+			// Print the last response from the server
+			if raw := client.GetRawJSON("_last"); len(raw) > 0 {
+				printResponse(raw, format, command)
+			}
 			fmt.Printf("✓ Completed in %v\n", duration)
 		}
 
 		fmt.Println()
 	}
+}
+
+// printResponse formats and prints the server response based on the current format.
+func printResponse(raw []byte, format outputFormat, command string) {
+	if format == formatRaw {
+		fmt.Printf("\n%s\n", string(raw))
+		return
+	}
+
+	// For styled format, try command-specific formatters first
+	if format == formatStyled {
+		if styled := formatStyledResponse(raw, command); styled != "" {
+			fmt.Printf("\n%s\n", styled)
+			return
+		}
+		// Fall through to JSON if no styled formatter exists
+	}
+
+	// Default: pretty-printed JSON
+	var pretty any
+	if err := json.Unmarshal(raw, &pretty); err == nil {
+		formatted, _ := json.MarshalIndent(pretty, "", "  ")
+		fmt.Printf("\n%s\n", string(formatted))
+	} else {
+		fmt.Printf("\n%s\n", string(raw))
+	}
+}
+
+// formatStyledResponse returns a styled string for the given command, or "" if no formatter exists.
+func formatStyledResponse(raw []byte, command string) string {
+	switch command {
+	case "storage", "view_storage":
+		return formatStorage(raw)
+	case "cargo", "get_cargo":
+		return formatCargo(raw)
+	default:
+		return ""
+	}
+}
+
+// storageItem is a parsed item from a view_storage response.
+type storageItem struct {
+	ItemID   string  `json:"item_id"`
+	Name     string  `json:"name"`
+	Quantity float64 `json:"quantity"`
+	Size     int     `json:"size"`
+}
+
+// storageShip is a parsed ship from a view_storage response.
+type storageShip struct {
+	ShipID    string `json:"ship_id"`
+	ClassID   string `json:"class_id"`
+	ClassName string `json:"class_name,omitempty"`
+	CargoUsed int    `json:"cargo_used"`
+	Modules   int    `json:"modules"`
+}
+
+// formatStorage formats a view_storage response as sorted tables.
+func formatStorage(raw []byte) string {
+	var resp struct {
+		BaseID  string        `json:"base_id"`
+		Credits int           `json:"credits"`
+		Items   []storageItem `json:"items"`
+		Ships   []storageShip `json:"ships"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Storage at %s (credits: %d)\n", resp.BaseID, resp.Credits)
+
+	// Items table
+	if len(resp.Items) == 0 {
+		b.WriteString("  (no items)\n")
+	} else {
+		slices.SortFunc(resp.Items, func(a, b storageItem) int {
+			return strings.Compare(a.ItemID, b.ItemID)
+		})
+
+		idW, nameW, qtyW, sizeW := len("ID"), len("Name"), len("Qty"), len("Unit Size")
+		for _, item := range resp.Items {
+			idW = max(idW, len(item.ItemID))
+			nameW = max(nameW, len(item.Name))
+			qtyW = max(qtyW, len(formatFloat(item.Quantity)))
+			sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+		}
+
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", idW), strings.Repeat("-", nameW),
+			strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+
+		for _, item := range resp.Items {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d\n",
+				idW, item.ItemID, nameW, item.Name,
+				qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+		}
+		fmt.Fprintf(&b, "  (%d items)\n", len(resp.Items))
+	}
+
+	// Ships table
+	if len(resp.Ships) > 0 {
+		b.WriteString("\n  SHIPS\n")
+
+		slices.SortFunc(resp.Ships, func(a, b storageShip) int {
+			return strings.Compare(a.ShipID, b.ShipID)
+		})
+
+		idW, nameW, classW, cargoW, modW := len("ID"), len("Ship Name"), len("Class"), len("Cargo Used"), len("Modules")
+		for _, ship := range resp.Ships {
+			idW = max(idW, len(ship.ShipID))
+			nameW = max(nameW, len(ship.ClassName))
+			classW = max(classW, len(ship.ClassID))
+			cargoW = max(cargoW, len(strconv.Itoa(ship.CargoUsed)))
+			modW = max(modW, len(strconv.Itoa(ship.Modules)))
+		}
+
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*s | %*s\n",
+			idW, "ID", nameW, "Ship Name", classW, "Class", cargoW, "Cargo Used", modW, "Modules")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", idW), strings.Repeat("-", nameW),
+			strings.Repeat("-", classW), strings.Repeat("-", cargoW),
+			strings.Repeat("-", modW))
+
+		for _, ship := range resp.Ships {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*d | %*d\n",
+				idW, ship.ShipID, nameW, ship.ClassName,
+				classW, ship.ClassID, cargoW, ship.CargoUsed,
+				modW, ship.Modules)
+		}
+		fmt.Fprintf(&b, "  (%d ships)\n", len(resp.Ships))
+	}
+
+	return b.String()
+}
+
+// formatCargo formats a get_cargo response as a sorted table.
+func formatCargo(raw []byte) string {
+	var resp struct {
+		Cargo     []storageItem `json:"cargo"`
+		Used      int           `json:"used"`
+		Capacity  int           `json:"capacity"`
+		Available int           `json:"available"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Cargo (%d/%d used, %d available)\n", resp.Used, resp.Capacity, resp.Available)
+
+	if len(resp.Cargo) == 0 {
+		b.WriteString("  (empty)\n")
+		return b.String()
+	}
+
+	slices.SortFunc(resp.Cargo, func(a, b storageItem) int {
+		return strings.Compare(a.ItemID, b.ItemID)
+	})
+
+	idW, nameW, qtyW, sizeW := len("ID"), len("Name"), len("Qty"), len("Unit Size")
+	for _, item := range resp.Cargo {
+		idW = max(idW, len(item.ItemID))
+		nameW = max(nameW, len(item.Name))
+		qtyW = max(qtyW, len(formatFloat(item.Quantity)))
+		sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+	}
+
+	fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", idW), strings.Repeat("-", nameW),
+		strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+
+	for _, item := range resp.Cargo {
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d\n",
+			idW, item.ItemID, nameW, item.Name,
+			qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+	}
+	fmt.Fprintf(&b, "  (%d items)\n", len(resp.Cargo))
+	return b.String()
+}
+
+// formatFloat formats a float64 nicely — as integer if whole, otherwise with decimals.
+func formatFloat(f float64) string {
+	if f == float64(int64(f)) {
+		return strconv.FormatInt(int64(f), 10)
+	}
+	return strconv.FormatFloat(f, 'f', 2, 64)
 }
 
 func executeCommand(client game.GameClient, ctx context.Context, parts []string) error {
@@ -324,6 +549,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		return simpleCommand(client.ClaimInsurance, ctx, 3*time.Second)
 
 	// === CARGO & STORAGE ===
+	case "cargo", "get_cargo":
+		return simpleCommand(client.GetCargo, ctx, 2*time.Second)
+
 	case "deposit":
 		if len(parts) < 3 {
 			return fmt.Errorf("usage: deposit <item-id> <quantity>")
@@ -633,6 +861,7 @@ func printHelp() {
 	fmt.Println("  sell_ship <ship-id>       - Sell a ship")
 
 	fmt.Println("\n=== CARGO & STORAGE ===")
+	fmt.Println("  cargo                     - View ship cargo")
 	fmt.Println("  deposit <item> <qty>      - Deposit items to storage")
 	fmt.Println("  deposit_all               - Deposit all items")
 	fmt.Println("  withdraw <item> <qty>     - Withdraw items from storage")
@@ -667,6 +896,7 @@ func printHelp() {
 	fmt.Println("  log <entry>               - Add captain's log entry")
 	fmt.Println("  notes                     - Get your notes")
 	fmt.Println("  missions, accept_mission  - Mission commands")
+	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
 	fmt.Println()

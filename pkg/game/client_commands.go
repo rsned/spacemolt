@@ -211,10 +211,9 @@ func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float
 }
 
 // ShipyardShowroom browses ships available for immediate purchase at this shipyard.
-func (c *Client) ShipyardShowroom(ctx context.Context, payload map[string]any) error {
+func (c *Client) ShipyardShowroom(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
 		Type:      "shipyard_showroom",
-		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -819,10 +818,14 @@ func (c *Client) WriteNote(ctx context.Context, noteID, content string) error {
 // ============================================================================
 
 // Catalog browses game reference data (ships, skills, recipes, items).
-func (c *Client) Catalog(ctx context.Context, payload map[string]any) error {
+func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize int) error {
 	return c.Send(ctx, protocol.Message{
-		Type:      "catalog",
-		Payload:   payload,
+		Type: "catalog",
+		Payload: map[string]any{
+			"type":      catalogType,
+			"page":      page,
+			"page_size": pageSize,
+		},
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
@@ -1097,14 +1100,9 @@ func (c *Client) GetDrones(ctx context.Context) error {
 // ============================================================================
 
 // FactionInfo views faction details. If factionID is empty, views your own faction.
-func (c *Client) FactionInfo(ctx context.Context, factionID string) error {
-	payload := map[string]any{}
-	if factionID != "" {
-		payload["faction_id"] = factionID
-	}
+func (c *Client) FactionInfo(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
 		Type:      "faction_info",
-		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	})
 }

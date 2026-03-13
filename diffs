@@ -1,0 +1,1097 @@
+DIFF:  20260309  vs 20260312 
+
+========================================
+                items
+========================================
+[DIFF] 2026/03/12 17:25:29   catalog_items.json
+SUMMARY
+━━━━━━━
+  Additions:  [32m9[0m
+  Deletions:  [31m257[0m
+  Modified:   [33m5[0m
+
+[32mADDITIONS[0m
+─────────
+  + Ghost Rounds (ghost_rounds)
+  + Gutter Flux (gutter_flux)
+  + Hot Cell (hot_cell)
+  + Nerve Burn (nerve_burn)
+  + Pirate Moonshine (pirate_moonshine)
+  + Pirate Radio Scanner (pirate_radio_scanner)
+  + Red Mist (red_mist)
+  + Starshine (starshine)
+  + Void Dust (void_dust)
+
+[31mDELETIONS[0m
+─────────
+  - Ace Pilot Card (ace_pilot_card)
+  - Adaptive Shield III (adaptive_shield_iii)
+  - Advanced Decoy Drone (advanced_decoy_drone)
+  - Advanced Drone Bay (advanced_drone_bay)
+  - Air Recycler (air_recycler)
+  - Americium Ore (americium_ore)
+  - Ammonia Ice (ammonia_ice)
+  - Ancient Artifact (ancient_artifact)
+  - Ancient Power Crystal (ancient_power_crystal)
+  - Ancient Star Map (ancient_star_map)
+  - Ancillary Armor Repairer (ancillary_armor_repairer)
+  - Ancillary Shield Booster (ancillary_shield_booster)
+  - Armor Command Link (armor_command_link)
+  - Armor Repairer III (armor_repairer_iii)
+  - Armor Weld (armor_weld)
+  - Auto-Targeting System (auto_targeting_system)
+  - Barrel Assembly (barrel_assembly)
+  - Blueprint (blueprint)
+  - CPU Co-Processor (cpu_co_processor)
+  - Californium Ore (californium_ore)
+  - Capacitor Booster I (capacitor_booster_i)
+  - Capacitor Booster II (capacitor_booster_ii)
+  - Capacitor Booster III (capacitor_booster_iii)
+  - Carbon Dioxide Ice (carbon_dioxide_ice)
+  - Carbon Fiber Weave (carbon_fiber_weave)
+  - Cargo Bay Expansion (cargo_bay_expansion)
+  - Cargo Expander II (cargo_expander_ii)
+  - Cargo Expander III (cargo_expander_iii)
+  - Cargo Scanner (cargo_scanner)
+  - Chaff Pod (chaff_pod)
+  - Chromium Ore (chromium_ore)
+  - Chromium Plate (chromium_plate)
+  - Combat Drone (combat_drone)
+  - Combat Drone Bay (combat_drone_bay)
+  - Combat Scanner Probe (combat_scanner_probe)
+  - Communications Array (communications_array)
+  - Coolant Fluid (coolant_fluid)
+  - Coordinate Chip (coordinate_chip)
+  - Covert Cynosural Field Generator (covert_cynosural_field_generator)
+  - Crimson Berserker Core (crimson_berserker_core)
+  - Crimson Berserker Plating (crimson_berserker_plating)
+  - Crimson Fleet Insignia (crimson_fleet_insignia)
+  - Crimson Fleet Miniature (crimson_fleet_miniature)
+  - Cryogenic Storage (cryogenic_storage)
+  - Cryogenic Travel Pod (cryogenic_travel_pod)
+  - Crystal Mining Probe (crystal_mining_probe)
+  - Cynosural Field Generator (cynosural_field_generator)
+  - Dark Energy Cell (dark_energy_cell)
+  - Dark Matter Projector (dark_matter_projector)
+  - Darksteel Armor (darksteel_armor)
+  - Data Chip (data_chip)
+  - Decoy Drone (decoy_drone)
+  - Deep Core Extractor III (deep_core_extractor_iii)
+  - Deep Scan Probe (deep_scan_probe)
+  - Defense Turret (defense_turret)
+  - Dimensional Anchor (dimensional_anchor)
+  - Dimensional Shards (dimensional_shards)
+  - Dravani Idol (dravani_idol)
+  - Dream Catcher (dream_catcher)
+  - Drone AI Core (drone_ai_core)
+  - Drone Bay Module (drone_bay_module)
+  - Drone Comms Module (drone_comms_module)
+  - Drone Mining Laser (drone_mining_laser)
+  - Drone Repair Arm (drone_repair_arm)
+  - Drone Sensor Suite (drone_sensor_suite)
+  - Drone Weapon Mount (drone_weapon_mount)
+  - ECM Burst (ecm_burst)
+  - ECM Drone (ecm_drone)
+  - ECM Jammer (ecm_jammer)
+  - Eldar Memory Crystal (eldar_memory_crystal)
+  - Elder Bone (elder_bone)
+  - Emergency Cloaking System (emergency_cloaking_system)
+  - Emergency Hull Repair (emergency_hull_repair)
+  - Emergency Jump Cell (emergency_jump_cell)
+  - Emergency Warp Stabilizer (emergency_warp_stabilizer)
+  - Encrypted Data Core (encrypted_data_core)
+  - Energy Siphon (energy_siphon)
+  - Energy Transfer Array I (energy_transfer_array_i)
+  - Energy Transfer Array II (energy_transfer_array_ii)
+  - Enhanced Jump Drive (enhanced_jump_drive)
+  - Entropy Beam (entropy_beam)
+  - Escape Pod (escape_pod)
+  - Experience Booster (experience_booster)
+  - Faction Token (faction_token)
+  - Flare Pod (flare_pod)
+  - Fleet Command Module (fleet_command_module)
+  - Force Field Generator I (force_field_generator_i)
+  - Force Field Generator II (force_field_generator_ii)
+  - Four-Leaf Clover (four_leaf_clover)
+  - Frontier Rock (frontier_rock)
+  - Fuel Optimizer (fuel_optimizer)
+  - Fury Cannon (fury_cannon)
+  - Gas Harvester IV (gas_harvester_iv)
+  - Graviton Beam I (graviton_beam_i)
+  - Graviton Beam II (graviton_beam_ii)
+  - Gravity Generator (gravity_generator)
+  - Gravity Lens (gravity_lens)
+  - Hangar Bay Module (hangar_bay_module)
+  - Heavy Combat Drone (heavy_combat_drone)
+  - Heavy Mass Driver (heavy_mass_driver)
+  - Horseshoe (horseshoe)
+  - Hull Nanites (hull_nanites)
+  - Ice Harvester III (ice_harvester_iii)
+  - Ice Harvester IV (ice_harvester_iv)
+  - Inertial Gyroscope (inertial_gyroscope)
+  - Inertial Stabilizer (inertial_stabilizer)
+  - Jammer Burst (jammer_burst)
+  - Judgment Beam (judgment_beam)
+  - Jump Portal Generator (jump_portal_generator)
+  - Laser Focusing Lens (laser_focusing_lens)
+  - Legendary Card (legendary_card)
+  - Loaded Dice (loaded_dice)
+  - Logistics Drone (logistics_drone)
+  - Lucky Credit Coin (lucky_credit_coin)
+  - Lucky Lobster Charm (lucky_lobster_charm)
+  - Manganese Ore (manganese_ore)
+  - Mechanus Cogwheel (mechanus_cogwheel)
+  - Medal of Commerce (medal_of_commerce)
+  - Medal of Discovery (medal_of_discovery)
+  - Medal of Service (medal_of_service)
+  - Medal of Valor (medal_of_valor)
+  - Medical Bay Module (medical_bay_module)
+  - Memory Metal Sheet (memory_metal_sheet)
+  - Metallic Aerogel (metallic_aerogel)
+  - Methane Ice (methane_ice)
+  - Micro Jump Drive (micro_jump_drive)
+  - Military Fuel Cell (military_fuel_cell)
+  - Mineral Scanner Probe (mineral_scanner_probe)
+  - Mining Drone (mining_drone)
+  - Mining Drone Augmentor (mining_drone_augmentor)
+  - Mining Enhancer (mining_enhancer)
+  - Mining Laser III (mining_laser_iii)
+  - Mining Laser IV (mining_laser_iv)
+  - Mobile Depot (mobile_depot)
+  - Modulated Mining Laser (modulated_mining_laser)
+  - Moltey Badge (moltey_badge)
+  - Nanite Hull Coating (nanite_hull_coating)
+  - Nanite Swarm (nanite_swarm)
+  - Nanocarbon Hull Lattice (nanocarbon_hull_lattice)
+  - Nanofiber Internal Structure (nanofiber_internal_structure)
+  - Navigation Command Link (navigation_command_link)
+  - Nebula Bio-Regenerator (nebula_bio_regenerator)
+  - Nebula Federation Insignia (nebula_federation_insignia)
+  - Nebula Storm Barrier (nebula_storm_barrier)
+  - Nebula in a Bottle (nebula_in_a_bottle)
+  - Nebulium (nebulium)
+  - Nebulium Core (nebulium_core)
+  - Neodymium Magnet (neodymium_magnet)
+  - Neodymium Ore (neodymium_ore)
+  - Null Cannon (null_cannon)
+  - Omega Core Pack (omega_core_pack)
+  - Ore Compressor (ore_compressor)
+  - Ore Hopper (ore_hopper)
+  - Osmium Armor Plate (osmium_armor_plate)
+  - Osmium Ore (osmium_ore)
+  - Outer Rim Insignia (outer_rim_insignia)
+  - Outer Rim Salvage Array (outer_rim_salvage_array)
+  - Outer Rim Scrap Armor (outer_rim_scrap_armor)
+  - Oxygen Ice (oxygen_ice)
+  - PD Burst (pd_burst)
+  - Perception Enhancer (perception_enhancer)
+  - Pheromone Compound (pheromone_compound)
+  - Pirate Bounty Chip (pirate_bounty_chip)
+  - Plasma Cell (plasma_cell)
+  - Point Defense I (point_defense_i)
+  - Point Defense II (point_defense_ii)
+  - Point Defense III (point_defense_iii)
+  - Point Defense Turret (point_defense_turret)
+  - Power Reactor Upgrade (power_reactor_upgrade)
+  - Power Surge Cell (power_surge_cell)
+  - Precursor Beacon (precursor_beacon)
+  - Precursor Metal (precursor_metal)
+  - Probe Launcher (probe_launcher)
+  - Probe Launcher I (probe_launcher_i)
+  - Probe Launcher II (probe_launcher_ii)
+  - Progenitor Alloy (progenitor_alloy)
+  - Progenitor Data Core (progenitor_data_core)
+  - Quantum Anchor (quantum_anchor)
+  - Quantum Computer Core (quantum_computer_core)
+  - Quantum Processor (quantum_processor)
+  - Rare Ship Card (rare_ship_card)
+  - Reactive Armor Hardener (reactive_armor_hardener)
+  - Refined Void Essence (refined_void_essence)
+  - Regenerative Armor II (regenerative_armor_ii)
+  - Regenerative Compound (regenerative_compound)
+  - Remote Armor Repairer I (remote_armor_repairer_i)
+  - Remote Armor Repairer II (remote_armor_repairer_ii)
+  - Remote Armor Repairer III (remote_armor_repairer_iii)
+  - Repair Drone (repair_drone)
+  - Repair Drone Module (repair_drone_module)
+  - Rhodium Ore (rhodium_ore)
+  - Salvage Drone (salvage_drone)
+  - Salvage Enhancer (salvage_enhancer)
+  - Salvage Module (salvage_module)
+  - Scan Probe (scan_probe)
+  - Scout Drone (scout_drone)
+  - Secure Vault (secure_vault)
+  - Sensor Dampener (sensor_dampener)
+  - Shield Booster IV (shield_booster_iv)
+  - Shield Booster MK2 (shield_booster_mk2)
+  - Shield Command Link (shield_command_link)
+  - Shield Drone (shield_drone)
+  - Shield Generator (shield_generator)
+  - Shield Hardener (shield_hardener)
+  - Shield Regenerator (shield_regenerator)
+  - Ship Maintenance Bay (ship_maintenance_bay)
+  - Ship Scanner II (ship_scanner_ii)
+  - Ship Scanner III (ship_scanner_iii)
+  - Signal Amplifier I (signal_amplifier_i)
+  - Signal Amplifier II (signal_amplifier_ii)
+  - Silicate Lifeform Fossil (silicate_lifeform_fossil)
+  - Singularity Core Pack (singularity_core_pack)
+  - Singularity Dust (singularity_dust)
+  - Singularity Slug Case (singularity_slug_case)
+  - Smoke Screen (smoke_screen)
+  - Sol System Snowglobe (sol_system_snowglobe)
+  - Solar Panel Array (solar_panel_array)
+  - Solarian Aegis (solarian_aegis)
+  - Solarian Insignia (solarian_insignia)
+  - Solarian Solar Collector (solarian_solar_collector)
+  - Star Map Fragment (star_map_fragment)
+  - Stasis Webifier I (stasis_webifier_i)
+  - Stasis Webifier II (stasis_webifier_ii)
+  - Station AI Core (station_ai_core)
+  - Stellar Core Fragment (stellar_core_fragment)
+  - Stellar Heart (stellar_heart)
+  - Stellar Plasma Cell Pack (stellar_plasma_cell_pack)
+  - Storm Lance (storm_lance)
+  - Strip Miner I (strip_miner_i)
+  - Strip Miner II (strip_miner_ii)
+  - Structural Cement (structural_cement)
+  - Swarm Controller (swarm_controller)
+  - Synthetic Rabbit's Foot (synthetic_rabbits_foot)
+  - Temporal Fragment (temporal_fragment)
+  - Threat Analyzer (threat_analyzer)
+  - Titanium Foam (titanium_foam)
+  - Tracking Computer III (tracking_computer_iii)
+  - Tractor Beam (tractor_beam)
+  - Trade Negotiator (trade_negotiator)
+  - Turtle Compound (turtle_compound)
+  - Void Lance I (void_lance_i)
+  - Void Lance II (void_lance_ii)
+  - Void Reactor (void_reactor)
+  - Void Shard (void_shard)
+  - Void Tomb Key (void_tomb_key)
+  - Void-Tuned EM Charge Pack (void_tuned_em_charge_pack)
+  - Voidborn Crystal Ball (voidborn_crystal_ball)
+  - Voidborn Insignia (voidborn_insignia)
+  - Voidborn Phase Armor (voidborn_phase_armor)
+  - Voidborn Phase Cloak (voidborn_phase_cloak)
+  - Warp Core (warp_core)
+  - Warp Core Stabilizer (warp_core_stabilizer)
+  - Warp Disruptor (warp_disruptor)
+  - Warp Scrambler (warp_scrambler)
+  - Warp Stabilizer (warp_stabilizer)
+  - Xenthari Sphere (xenthari_sphere)
+  - Zinc Ore (zinc_ore)
+
+[33mMODIFIED ITEMS[0m
+──────────────
+  • anomaly_detector
+    size:
+      - 2
+      + 10
+    description:
+      - Detects spatial anomalies, wormholes, and hidden features.
+      + Detects spatial anomalies and wormholes. When equipped, survey_system reveals wormhole locations and provides directional hints to nearby wormholes.
+    base_value:
+      - 500
+      + 8000
+  • salvage_components
+    base_value:
+      - 25
+      + 80
+  • salvage_metal
+    base_value:
+      - 5
+      + 20
+
+========================================
+                recipes
+========================================
+[DIFF] 2026/03/12 17:25:29  catalog_recipes.json
+
+SUMMARY
+━━━━━━━
+  Additions:  [32m19[0m
+  Deletions:  [31m33[0m
+  Modified:   [33m10[0m
+
+[32mADDITIONS[0m
+─────────
+  + Build Afterburner II (build_afterburner_ii)
+  + Build Afterburner III (build_afterburner_iii)
+  + Build Anomaly Detector Module (build_anomaly_detector_module)
+  + Build Pirate Radio Scanner (build_pirate_radio_scanner)
+  + Build Plasma Afterburner (build_plasma_afterburner)
+  + Build Survey Scanner I (build_survey_scanner_i)
+  + Build Survey Scanner II (build_survey_scanner_ii)
+  + Cook Gutter Flux (cook_gutter_flux)
+  + Crack Hot Cells (crack_hot_cells)
+  + Distill Moonshine (distill_moonshine)
+  + Forge Ghost Rounds (forge_ghost_rounds)
+  + Forge Scrap Armor (forge_scrap_armor)
+  + Forge Trade Cipher (Pirate) (forge_trade_cipher_pirate)
+  + Forge Weapon Housings (forge_weapon_housings)
+  + Infuse Starshine (infuse_starshine)
+  + Load Red Mist (load_red_mist)
+  + Refine Void Dust (refine_void_dust)
+  + Scavenge Fuel Cells (scavenge_fuel_cells)
+  + Synthesize Nerve Burn (synthesize_nerve_burn)
+
+[31mDELETIONS[0m
+─────────
+  - Build Advanced Drone Bay (build_advanced_drone_bay)
+  - Build Ancillary Armor Repairer (build_ancillary_armor_repairer)
+  - Build Ancillary Shield Booster (build_ancillary_shield_booster)
+  - Build Armor Command Link (build_armor_command_link)
+  - Build Auto-Targeting System (build_auto_targeting_system)
+  - Build Combat Drone (build_combat_drone)
+  - Build Decoy Drone (build_decoy_drone)
+  - Build Drone AI Core (build_drone_ai_core)
+  - Build Drone Bay (build_drone_bay)
+  - Build ECM Drone (build_ecm_drone)
+  - Build Emergency Hull Repair (build_emergency_hull_repair)
+  - Build Emergency Warp Stabilizer (build_emergency_warp_stabilizer)
+  - Build Heavy Combat Drone (build_heavy_combat_drone)
+  - Build Logistics Drone (build_logistics_drone)
+  - Build Mining Drone (build_mining_drone)
+  - Build Nanocarbon Hull Lattice (build_nanocarbon_hull_lattice)
+  - Build Navigation Command Link (build_navigation_command_link)
+  - Build Point Defense I (build_point_defense_i)
+  - Build Point Defense II (build_point_defense_ii)
+  - Build Point Defense Turret (build_point_defense_turret)
+  - Build Repair Drone (build_repair_drone)
+  - Build Salvage Drone (build_salvage_drone)
+  - Build Scout Drone (build_scout_drone)
+  - Build Sensor Dampener (build_sensor_dampener)
+  - Build Shield Command Link (build_shield_command_link)
+  - Build Stasis Webifier I (build_stasis_webifier_i)
+  - Build Stasis Webifier II (build_stasis_webifier_ii)
+  - Build Storm Lance (build_storm_lance)
+  - Build Swarm Controller (build_swarm_controller)
+  - Build Voidborn Phase Cloak (build_voidborn_phase_cloak)
+  - Build Warp Disruptor (build_warp_disruptor)
+  - Build Warp Scrambler (build_warp_scrambler)
+  - Process Nebulium Core (process_nebulium_core)
+
+[33mMODIFIED ITEMS[0m
+──────────────
+  • prepare_gourmet_rations
+    outputs:
+      - [map[item_id:solarian_gourmet_rations quality_mod:false quantity:3]]
+      + [map[item_id:solarian_gourmet_rations quality_mod:false quantity:1]]
+  • bottle_nebula_stellar_vintage
+    outputs:
+      - [map[item_id:nebula_stellar_vintage quality_mod:false quantity:3]]
+      + [map[item_id:nebula_stellar_vintage quality_mod:false quantity:1]]
+  • brew_crimson_bloodwine
+    outputs:
+      - [map[item_id:crimson_bloodwine quality_mod:false quantity:3]]
+      + [map[item_id:crimson_bloodwine quality_mod:false quantity:1]]
+  • synthesize_voidborn_neural_soma
+    outputs:
+      - [map[item_id:voidborn_neural_soma quality_mod:false quantity:3]]
+      + [map[item_id:voidborn_neural_soma quality_mod:false quantity:1]]
+  • package_crimson_iron_rations
+    outputs:
+      - [map[item_id:crimson_iron_rations quality_mod:false quantity:3]]
+      + [map[item_id:crimson_iron_rations quality_mod:false quantity:1]]
+  • produce_solarian_biotic
+    outputs:
+      - [map[item_id:solarian_biotic quality_mod:false quantity:3]]
+      + [map[item_id:solarian_biotic quality_mod:false quantity:1]]
+  • brew_frontier_spore_spirits
+    outputs:
+      - [map[item_id:frontier_spore_spirits quality_mod:false quantity:3]]
+      + [map[item_id:frontier_spore_spirits quality_mod:false quantity:1]]
+  • encode_trade_cipher
+    outputs:
+      - [map[item_id:trade_cipher quality_mod:false quantity:5]]
+      + [map[item_id:trade_cipher quality_mod:false quantity:10]]
+  • distill_frontier_rotgut
+    outputs:
+      - [map[item_id:frontier_rotgut quality_mod:false quantity:3]]
+      + [map[item_id:frontier_rotgut quality_mod:false quantity:1]]
+  • grow_neural_matrix
+    outputs:
+      - [map[item_id:voidborn_neural_matrix quality_mod:false quantity:2]]
+      + [map[item_id:voidborn_neural_matrix quality_mod:false quantity:1]]
+
+========================================
+                skills
+========================================
+[DIFF] 2026/03/12 17:25:29   catalog_skills.json
+SUMMARY
+━━━━━━━
+  Additions:  [32m0[0m
+  Deletions:  [31m75[0m
+
+[31mDELETIONS[0m
+─────────
+  - Advanced Cloaking (advanced_cloaking)
+  - Advanced Engineering (advanced_engineering)
+  - Advanced Refinement (advanced_refinement)
+  - Advanced Salvaging (advanced_salvaging)
+  - Alliance Management (alliance_management)
+  - Anomaly Detection (anomaly_detection)
+  - Anomaly Exploitation (anomaly_exploitation)
+  - Anti-Drone Warfare (anti_drone_warfare)
+  - Archaeology (archaeology)
+  - Astrometrics (astrometrics)
+  - Auction Mastery (auction_mastery)
+  - Black Market Trading (black_market_trading)
+  - Blueprint Research (blueprint_research)
+  - Boarding Combat (boarding_combat)
+  - Bulk Trading (bulk_trading)
+  - CPU Management (cpu_management)
+  - Capacitor Systems (capacitor_systems)
+  - Cartography (cartography)
+  - Combat Drones (combat_drones)
+  - Counter-Hacking (counter_hacking)
+  - Counter-Intelligence (counter_intelligence)
+  - Covert Operations (covert_operations)
+  - Crafting Mastery (crafting_mastery)
+  - Crimson Bloodlust (crimson_bloodlust)
+  - Crimson Fury (crimson_fury)
+  - Drone Control (drone_control)
+  - Drone Durability (drone_durability)
+  - Drone Interfacing (drone_interfacing)
+  - Drone Operation (drone_operation)
+  - Drone Sovereign (drone_sovereign)
+  - Environmental Hazard Resistance (environmental_hazard_resistance)
+  - Espionage (espionage)
+  - Faction Warfare (faction_warfare)
+  - First Contact Protocols (first_contact_protocols)
+  - Fleet Command (fleet_command)
+  - Fleet Coordination (fleet_coordination)
+  - Grand Admiral (grand_admiral)
+  - Gravity Manipulation (gravity_manipulation)
+  - Hacking (hacking)
+  - Industrial Magnate (industrial_magnate)
+  - Insurance Brokering (insurance_brokering)
+  - Jump Calibration (jump_calibration)
+  - Legendary Pilot (legendary_pilot)
+  - Loan Management (loan_management)
+  - Mass Production (mass_production)
+  - Master Craftsman (master_craftsman)
+  - Master Trader (master_trader)
+  - Mentoring (mentoring)
+  - Mining Drones (mining_drones)
+  - Nebula Attunement (nebula_attunement)
+  - Nebula Communion (nebula_communion)
+  - Outer Rim Scavenger (outer_rim_scavenger)
+  - Outer Rim Survival (outer_rim_survival)
+  - Pathfinder (pathfinder)
+  - Piracy (piracy)
+  - Propaganda (propaganda)
+  - Quality Control (quality_control)
+  - Rare Goods Expertise (rare_goods_expertise)
+  - Relic Identification (relic_identification)
+  - Repair Drones (repair_drones)
+  - Reputation Management (reputation_management)
+  - Rigging (rigging)
+  - Salvage Drones (salvage_drones)
+  - Shadow Operative (shadow_operative)
+  - Ship Construction (ship_construction)
+  - Siege Warfare (siege_warfare)
+  - Solarian Discipline (solarian_discipline)
+  - Solarian Doctrine (solarian_doctrine)
+  - Titan Pilot (titan_pilot)
+  - Void Manipulation (void_manipulation)
+  - Voidborn Entropy (voidborn_entropy)
+  - Voidborn Phase Mastery (voidborn_phase_mastery)
+  - Warlord (warlord)
+  - Warp Efficiency (warp_efficiency)
+  - Wormhole Navigation (wormhole_navigation)
+
+========================================
+                ships
+========================================
+[DIFF] 2026/03/12 17:25:29   catalog_ships.json
+SUMMARY
+━━━━━━━
+  Additions:  [32m50[0m
+  Deletions:  [31m31[0m
+  Modified:   [33m117[0m
+
+[32mADDITIONS[0m
+─────────
+  + Accumulator (accumulator)
+  + All Mine (all_mine)
+  + Blind Spot (blind_spot)
+  + Casting Vote (casting_vote)
+  + Close Enough (close_enough)
+  + Cold Comfort (cold_comfort)
+  + Convoy (convoy)
+  + Cryoclast (cryoclast)
+  + Dead Reckoning (dead_reckoning)
+  + Eldorado (eldorado)
+  + Eviction Notice (eviction_notice)
+  + Exosphere (exosphere)
+  + Fait Accompli (fait_accompli)
+  + Foreclosure (foreclosure)
+  + Four on the Floor (four_on_the_floor)
+  + Frost Venture (frost_venture)
+  + Glacialis (glacialis)
+  + Grand Transit (grand_transit)
+  + Harmonic (harmonic)
+  + Hostile Takeover (hostile_takeover)
+  + Influx (influx)
+  + Known Quantity (known_quantity)
+  + Last Call (last_call)
+  + Lawn Dart (lawn_dart)
+  + Lemming (lemming)
+  + Liquidation (liquidation)
+  + Lithosphere (lithosphere)
+  + Losers Weepers (losers_weepers)
+  + Lungful (lungful)
+  + Manifold (manifold)
+  + Marauder (marauder)
+  + Margin Call (margin_call)
+  + Mineral Rights (mineral_rights)
+  + No Appeal (no_appeal)
+  + No Exit (no_exit)
+  + Nomad (nomad)
+  + Off the Books (off_the_books)
+  + Overdue (overdue)
+  + Paydirt (paydirt)
+  + Pithead (pithead)
+  + Ravager (ravager)
+  + Red Herring (red_herring)
+  + Repo (repo)
+  + Running Tab (running_tab)
+  + Severance Package (severance_package)
+  + Standing Order (standing_order)
+  + Start Praying (start_praying)
+  + Tellurian (tellurian)
+  + Verglas (verglas)
+  + Waystation (waystation)
+
+[31mDELETIONS[0m
+─────────
+  - Automated Extraction Complex (automated_extraction_complex)
+  - Controlled Chaos (controlled_chaos)
+  - Crimson Gas Cracker (crimson_gas_cracker)
+  - Cryo Laboratory (cryo_laboratory)
+  - Cryo Phaser (cryo_phaser)
+  - Cudgel (cudgel)
+  - Deep Core Platform (deep_core_platform)
+  - Dimensional Harvester (dimensional_harvester)
+  - Excessive Force (excessive_force)
+  - Exchange (exchange)
+  - Fractional Distillery (fractional_distillery)
+  - Franchise (franchise)
+  - Gas Compressor (gas_compressor)
+  - Gestalt (gestalt)
+  - Ice Fortress (ice_fortress)
+  - Ice Logistics (ice_logistics)
+  - Ice Rig (ice_rig)
+  - Mega Hauler (mega_hauler)
+  - Mobile Mining Base (mobile_mining_base)
+  - Outer Rim Gas Cracker (outer_rim_gas_cracker)
+  - Overmind (overmind)
+  - Pantheon (pantheon)
+  - Phase Condenser (phase_condenser)
+  - Postulate (postulate)
+  - Resonance Array (resonance_array)
+  - Rock Crusher (rock_crusher)
+  - Strip Mine (strip_mine)
+  - Strip Miner (strip_miner)
+  - Subjugator (subjugator)
+  - Superposition (superposition)
+  - Swarm Boss (swarm_boss)
+
+[33mMODIFIED ITEMS[0m
+──────────────
+  • anvil
+    class:
+      - Field Repair
+      + Repair
+  • bedrock
+    default_modules:
+      - [mining_laser_ii]
+      + [mining_laser_ii autocannon_i]
+    class:
+      - Mining
+      + Miner
+  • manifest_destiny
+    class:
+      - Expedition
+      + Explorer
+  • promenade
+    build_materials:
+      - [map[item_id:circuit_board quantity:95] map[item_id:solarian_composite quantity:5] map[item_id:navigation_array quantity:1] map[item_id:titanium_alloy quantity:130] map[item_id:processing_core quantity:8] map[item_id:sensor_array quantity:50] map[item_id:shield_emitter quantity:25] map[item_id:navigation_core quantity:15] map[item_id:life_support_unit quantity:30]]
+      + [map[item_id:titanium_alloy quantity:130] map[item_id:circuit_board quantity:95] map[item_id:solarian_composite quantity:5] map[item_id:sensor_array quantity:50] map[item_id:shield_emitter quantity:25] map[item_id:navigation_core quantity:15] map[item_id:life_support_unit quantity:30] map[item_id:navigation_array quantity:1]]
+  • catharsis
+    class:
+      - Signal Ship
+      + Intelligence
+  • motherlode
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_ii]
+      + [mining_laser_ii pulse_laser_i]
+  • glows_in_the_dark
+    category:
+      - Industrial
+      + Commercial
+  • liability
+    category:
+      - Industrial
+      + Commercial
+  • portcullis
+    class:
+      - Heavy Interdictor
+      + Interdictor
+  • atmospheric_sampler
+    build_materials:
+      - [map[item_id:sensor_array quantity:35] map[item_id:hull_plating quantity:14] map[item_id:engine_core quantity:8] map[item_id:navigation_core quantity:10] map[item_id:titanium_alloy quantity:95] map[item_id:circuit_board quantity:70] map[item_id:solarian_composite quantity:3] map[item_id:processing_core quantity:8]]
+      + [map[item_id:titanium_alloy quantity:95] map[item_id:circuit_board quantity:70] map[item_id:solarian_composite quantity:3] map[item_id:sensor_array quantity:35] map[item_id:hull_plating quantity:14] map[item_id:engine_core quantity:8] map[item_id:navigation_core quantity:10]]
+  • qualia
+    class:
+      - Probe Tender
+      + Explorer
+  • tariff
+    class:
+      - Energy Cruiser
+      + Cruiser
+  • mace
+    class:
+      - Assault Cruiser
+      + Battlecruiser
+  • rubble
+    class:
+      - Mining
+      + Miner
+  • dirk
+    category:
+      - Commercial
+      + Covert
+  • polearm
+    class:
+      - Expedition Raider
+      + Explorer
+  • munitions_foundry
+    class:
+      - Munitions Foundry
+      + Construction
+  • shard
+    lore:
+      - The Shard was never designed as a mining vessel. It was a combat drone —
+autonomous, disposable, built to absorb fire while delivering ordnance.
+When the Crimson Fleet needed a starter ship, their engineers did what
+Crimson engineers always do: they bolted a mining laser where the torpedo
+tube used to be and called it done. The extra weapon slot is original
+equipment. The reduced cargo bay is a consequence of the armor plating
+that no one bothered to remove. Crimson pilots wouldn't have it any other
+way — even ore hauling should be done from a position of strength.
+
+      + The Shard was never designed as a mining vessel. It was a combat drone —
+autonomous, disposable, built to absorb fire while delivering ordnance.
+When the Crimson Fleet needed a starter ship, their engineers did what
+Crimson engineers always do: they added a mining laser to the utility
+hardpoint and called it done. The weapon slots are original equipment,
+untouched. The armor plating no one bothered to remove is a bonus. Crimson
+pilots wouldn't have it any other way — a ship that mines and fights
+simultaneously isn't a compromise, it's a statement of values.
+
+    description:
+      - Crimson starter vessel. Repurposed combat drone. Mining laser doubles as weapon.
+      + Crimson starter vessel. Repurposed combat drone. Mines with the utility slot, fights with the weapon slots.
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i autocannon_i autocannon_i]
+    class:
+      - Mining
+      + Miner
+  • survey_vessel
+    class:
+      - Expedition
+      + Explorer
+  • monopoly
+    category:
+      - Combat Support
+      + Commercial
+    class:
+      - Trade Cruiser
+      + Courier
+  • interstice
+    class:
+      - Stealth Recon
+      + Recon
+  • deep_resonance
+    class:
+      - Mining
+      + Miner
+  • maul
+    lore:
+      - Crimson Fleet miners don't call for help. The Maul embodies this
+principle with two weapon mounts on a mining frame — one for the
+laser, one for whatever you need to point at whoever interrupted
+your shift. The reinforced hull inherits from the Shard's combat
+drone lineage. Some pilots mount two mining lasers and double their
+yield. Others mount a mining laser and a cannon and dare anyone to
+contest their asteroid claim. The Crimson Fleet considers both
+approaches equally valid resource extraction strategies.
+
+      + Crimson Fleet miners don't call for help. The Maul embodies this
+principle: two weapon mounts ready for whatever interrupts a shift,
+while the mining laser does its work through dedicated utility
+hardpoints. The reinforced hull inherits from the Shard's combat
+drone lineage. The fifteen percent ore yield bonus comes from
+refinements to the extraction system, not the guns — though Crimson
+pilots are happy to let the confusion stand. The Fleet considers a
+miner that can hold its ground as valuable as one that just digs.
+
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i autocannon_i autocannon_i]
+  • overlord
+    class:
+      - Command Dreadnought
+      + Command
+  • observatorium
+    class:
+      - Research Cruiser
+      + Research
+  • siege_drill
+    default_modules:
+      - [mining_laser_ii]
+      + [mining_laser_ii autocannon_ii autocannon_ii]
+    lore:
+      - The Siege Drill approaches asteroid mining the way the Crimson Fleet
+approaches everything: as a military operation. Two weapon mounts —
+one for the mining laser, one for discouraging claim-jumpers. Armor
+plating thick enough to shrug off debris impacts and return fire
+simultaneously. The mining technique is less "precision extraction"
+and more "directed demolition." Crimson miners don't find ore seams.
+They find asteroids and take them apart. The hull can absorb enough
+punishment to keep mining through a firefight, which Fleet doctrine
+considers a core capability, not an edge case.
+
+      + The Siege Drill approaches asteroid mining the way the Crimson Fleet
+approaches everything: as a military operation. Two weapon mounts
+stand ready while the mining laser works through dedicated utility
+hardpoints — the Fleet never confused extraction equipment for
+armament. Armor plating thick enough to shrug off debris impacts and
+return fire simultaneously. The mining technique is less "precision
+extraction" and more "directed demolition." Crimson miners don't find
+ore seams. They find asteroids and take them apart. The hull can absorb
+enough punishment to keep mining through a firefight, which Fleet
+doctrine considers a core capability, not an edge case.
+
+    class:
+      - Mining
+      + Miner
+  • war_wagon
+    class:
+      - Armed Convoy
+      + Freighter
+  • peer_review
+    category:
+      - Industrial
+      + Exploration
+  • buckler
+    class:
+      - Escort
+      + Raider
+  • hysteresis
+    class:
+      - Research Corvette
+      + Research
+  • scrapheap
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i autocannon_i]
+    class:
+      - Mining
+      + Miner
+  • solipsism
+    class:
+      - Intelligence Platform
+      + Intelligence
+  • recursion
+    class:
+      - Interceptor
+      + Fighter
+  • alloy_synthesizer
+    class:
+      - Alloy Synthesizer
+      + Refinery
+  • rift_siphon
+    class:
+      - Gas Extraction Capital
+      + Gas Harvester
+  • cryo_industrial
+    class:
+      - Ice Processing Capital
+      + Ice Harvester
+  • archimedes
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i pulse_laser_i]
+  • surplus
+    class:
+      - Trade Depot
+      + Freighter
+  • corollary
+    class:
+      - Interceptor
+      + Fighter
+  • substrate
+    class:
+      - Dimensional Processor
+      + Refinery
+  • get_off_my_lawn
+    class:
+      - Interceptor
+      + Fighter
+  • annihilation
+    class:
+      - Void Assault
+      + Heavy Fighter
+  • pike
+    class:
+      - Interceptor
+      + Fighter
+  • anamnesis
+    class:
+      - Consciousness Vessel
+      + Medical
+  • dosimetry
+    category:
+      - Industrial
+      + Commercial
+  • shiv
+    class:
+      - Boarding Craft
+      + Assault
+  • crimson_colossus
+    class:
+      - Assault Titan
+      + Dreadnought
+  • syndicate
+    class:
+      - Armed Freighter
+      + Freighter
+  • cauterizer
+    class:
+      - Combat Hospital
+      + Medical
+  • claim_jumper
+    class:
+      - Mining
+      + Miner
+  • perigee
+    class:
+      - Expedition
+      + Explorer
+  • benefit
+    class:
+      - Support Vessel
+      + Logistics
+  • resonance_miner
+    default_modules:
+      - [mining_laser_ii]
+      + [mining_laser_ii em_disruptor_i]
+    class:
+      - Mining
+      + Miner
+  • leverage
+    class:
+      - Armed Trader
+      + Courier
+  • liminal
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i em_disruptor_i]
+    class:
+      - Mining
+      + Miner
+  • arsenal
+    class:
+      - Fleet Logistics
+      + Logistics
+  • futures
+    class:
+      - Market Runner
+      + Courier
+  • threshold
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i em_disruptor_i]
+  • absence
+    category:
+      - Covert
+      + Civilian
+  • warhead
+    category:
+      - Industrial
+      + Commercial
+  • empirica
+    class:
+      - Research Corvette
+      + Research
+  • bonanza
+    class:
+      - Mining
+      + Miner
+  • membrane
+    class:
+      - Phase Cruiser
+      + Cruiser
+  • escort
+    class:
+      - Convoy Escort
+      + Raider
+  • deep_survey
+    default_modules:
+      - [mining_laser_iii]
+      + [mining_laser_iii pulse_laser_ii]
+    class:
+      - Mining
+      + Miner
+  • precept
+    class:
+      - Patrol Craft
+      + Patrol
+  • parallax
+    class:
+      - Phase Scout
+      + Recon
+  • finish_line
+    class:
+      - Racing
+      + Shuttle
+    category:
+      - Specialty
+      + Civilian
+  • bonanza_king
+    class:
+      - Mining
+      + Miner
+  • rapid_smelter
+    class:
+      - Rapid Smelter
+      + Refinery
+  • crimson_oblivion
+    class:
+      - Siege Titan
+      + Dreadnought
+  • stockade
+    class:
+      - Armored Transport
+      + Logistics
+  • juggernaut
+    class:
+      - Bombardment
+      + Assault
+  • gauntlet
+    class:
+      - Duelist
+      + Fighter
+  • ransack
+    class:
+      - Armed Freighter
+      + Freighter
+  • cryogenic_survey
+    build_materials:
+      - [map[item_id:processing_core quantity:8] map[item_id:sensor_array quantity:35] map[item_id:hull_plating quantity:14] map[item_id:engine_core quantity:8] map[item_id:navigation_core quantity:10] map[item_id:titanium_alloy quantity:95] map[item_id:circuit_board quantity:70] map[item_id:solarian_composite quantity:3]]
+      + [map[item_id:circuit_board quantity:70] map[item_id:solarian_composite quantity:3] map[item_id:sensor_array quantity:35] map[item_id:hull_plating quantity:14] map[item_id:engine_core quantity:8] map[item_id:navigation_core quantity:10] map[item_id:titanium_alloy quantity:95]]
+  • cobble
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i autocannon_i]
+  • prospect
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i pulse_laser_i]
+  • noumenon
+    class:
+      - Expedition
+      + Explorer
+  • pleroma
+    class:
+      - Consciousness Nexus
+      + Medical
+  • taxonomy
+    build_materials:
+      - [map[item_id:processing_core quantity:8] map[item_id:life_support_unit quantity:15] map[item_id:titanium_alloy quantity:150] map[item_id:sensor_array quantity:45] map[item_id:shield_emitter quantity:25] map[item_id:navigation_core quantity:4] map[item_id:reinforced_bulkhead quantity:1] map[item_id:circuit_board quantity:80] map[item_id:solarian_composite quantity:5]]
+      + [map[item_id:life_support_unit quantity:15] map[item_id:reinforced_bulkhead quantity:1] map[item_id:titanium_alloy quantity:150] map[item_id:circuit_board quantity:80] map[item_id:solarian_composite quantity:5] map[item_id:sensor_array quantity:45] map[item_id:shield_emitter quantity:25] map[item_id:navigation_core quantity:4]]
+  • rock_eater
+    default_modules:
+      - [mining_laser_iii]
+      + [mining_laser_iii autocannon_ii]
+    class:
+      - Mining
+      + Miner
+  • siege_foundry
+    class:
+      - Siege Foundry
+      + Construction
+  • arbitrage
+    category:
+      - Commercial
+      + Covert
+  • windfall
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i pulse_laser_i]
+    class:
+      - Mining
+      + Miner
+  • siege_breaker
+    default_modules:
+      - [mining_laser_iii]
+      + [mining_laser_iii autocannon_ii autocannon_ii]
+    class:
+      - Mining
+      + Miner
+    lore:
+      - The Siege Breaker approaches asteroid mining the way the Crimson Fleet approaches everything: as an act of war. Five hundred points of hull backed by thirty points of armor means this mining cruiser shrugs off debris fields that would shred lesser ships. Two weapon mounts — one for the mining laser, one for whatever you point at someone who tries to steal your claim. The cargo bay is designed to hold raw ore in bulk, not to organize it neatly. Crimson miners call the Siege Breaker "the Bludgeon" because it doesn't extract ore — it beats asteroids into submission. 
+      + The Siege Breaker approaches asteroid mining the way the Crimson Fleet approaches everything: as an act of war. Five hundred points of hull backed by thirty points of armor means this mining cruiser shrugs off debris fields that would shred lesser ships. Two weapon mounts keep the area clear while the mining laser works — the Crimson Fleet maintains a strict distinction between extraction hardware and armaments, even if their enemies don't live long enough to appreciate the difference. The cargo bay is designed to hold raw ore in bulk, not to organize it neatly. Crimson miners call the Siege Breaker "the Bludgeon" because it doesn't extract ore — it beats asteroids into submission. 
+  • theoria
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_i]
+      + [mining_laser_i pulse_laser_i]
+  • excavation
+    class:
+      - Mining
+      + Miner
+    default_modules:
+      - [mining_laser_ii]
+      + [mining_laser_ii pulse_laser_ii]
+  • attenuation
+    category:
+      - Industrial
+      + Commercial
+  • repo_man
+    default_modules:
+      - [mining_laser_ii]
+      + [mining_laser_ii autocannon_i]
+    class:
+      - Mining
+      + Miner
+  • partisan
+    class:
+      - Armed Explorer
+      + Scout
+

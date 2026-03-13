@@ -485,13 +485,22 @@ func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error
 func (m *mockGameClient) GetSystem(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetStatus(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetShip(ctx context.Context) error                                    { return nil }
+func (m *mockGameClient) GetCargo(ctx context.Context) error                                   { return nil }
 func (m *mockGameClient) GetSkills(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetPOI(ctx context.Context) error                                     { return nil }
 func (m *mockGameClient) GetBase(ctx context.Context) error                                    { return nil }
 func (m *mockGameClient) GetMap(ctx context.Context, force ...bool) error                      { return nil }
 func (m *mockGameClient) GetNearby(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetVersion(ctx context.Context) error                                 { return nil }
+func (m *mockGameClient) GetDrones(ctx context.Context) error                                  { return nil }
+func (m *mockGameClient) GetCommands(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) GetActiveMissions(ctx context.Context) error                          { return nil }
+func (m *mockGameClient) GetInsuranceQuote(ctx context.Context) error                          { return nil }
 func (m *mockGameClient) Help(ctx context.Context, payload map[string]any) error               { return nil }
+func (m *mockGameClient) FactionInfo(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) CaptainsLogList(ctx context.Context) error                            { return nil }
+func (m *mockGameClient) ShipyardShowroom(ctx context.Context) error                           { return nil }
+func (m *mockGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error { return nil }
 func (m *mockGameClient) FindRoute(ctx context.Context, targetSystem string) ([]game.RouteStep, error) { return nil, nil }
 func (m *mockGameClient) CreateFaction(ctx context.Context, payload map[string]any) error      { return nil }
 func (m *mockGameClient) JoinFaction(ctx context.Context, factionID string) error              { return nil }
