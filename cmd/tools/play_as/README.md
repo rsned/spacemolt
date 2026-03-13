@@ -20,7 +20,7 @@ play_as --config ~/my-config.yaml miner-2
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--debug` | `false` | Enable debug logging (show sent/received JSON) |
+| `--debug` | `false` | Enable debug logging (show library logs and sent/received JSON) |
 | `--config` | `~/.config/spacemolt/play_as.yaml` | Path to config file |
 
 ## Features

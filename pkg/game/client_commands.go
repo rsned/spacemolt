@@ -1587,3 +1587,12 @@ func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
+
+// RawCommand sends an arbitrary command to the server.
+func (c *Client) RawCommand(ctx context.Context, command string, args map[string]any) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      command,
+		Payload:   args,
+		Timestamp: time.Now().UnixMilli(),
+	})
+}

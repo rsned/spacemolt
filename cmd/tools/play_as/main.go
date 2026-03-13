@@ -62,7 +62,7 @@ func main() {
 
 	// Show initial status
 	fmt.Println("\n╔════════════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                    SPACE MOLT GAME TERMINAL                      ║")
+	fmt.Println("║                    SPACE MOLT GAME TERMINAL                        ║")
 	fmt.Println("╚════════════════════════════════════════════════════════════════════╝")
 	fmt.Printf("\nLogged in as: %s\n", creds.Username)
 	fmt.Printf("Empire: %s\n", creds.Empire)
@@ -158,14 +158,10 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 
 		// Execute command
 		startTime := time.Now()
-		if err := executeCommand(client, ctx, parts); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
+		if err := executeCommand(client, ctx, parts, format); err != nil {
+			fmt.Printf("❌ %s\n", formatError(err, command, format))
 		} else {
 			duration := time.Since(startTime)
-			// Print the last response from the server
-			if raw := client.GetRawJSON("_last"); len(raw) > 0 {
-				printResponse(raw, format, command)
-			}
 			fmt.Printf("✓ Completed in %v\n", duration)
 		}
 
@@ -211,6 +207,14 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatStorage(raw)
 	case "cargo", "get_cargo":
 		return formatCargo(raw)
+	case "browse_ships":
+		return formatBrowseShips(raw)
+	case "nearby", "get_nearby":
+		return formatNearby(raw)
+	case "travel":
+		return formatTravel(raw)
+	case "mine":
+		return formatMine(raw)
 	default:
 		return ""
 	}
@@ -359,6 +363,199 @@ func formatCargo(raw []byte) string {
 	return b.String()
 }
 
+// shipListing is a parsed listing from a browse_ships response.
+type shipListing struct {
+	ShipName  string  `json:"ship_name"`
+	Category  string  `json:"category"`
+	Price     float64 `json:"price"`
+	Seller    string  `json:"seller"`
+	ListingID string  `json:"listing_id"`
+}
+
+// formatBrowseShips formats a browse_ships response as a table.
+func formatBrowseShips(raw []byte) string {
+	var resp struct {
+		BaseName string        `json:"base_name"`
+		Count    int           `json:"count"`
+		Listings []shipListing `json:"listings"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Station:  %q\n\nListings:\n", resp.BaseName)
+
+	if len(resp.Listings) == 0 {
+		b.WriteString("  (no ships for sale)\n")
+		return b.String()
+	}
+
+	slices.SortFunc(resp.Listings, func(a, c shipListing) int {
+		if a.Price != c.Price {
+			if a.Price < c.Price {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(strings.ToLower(a.ShipName), strings.ToLower(c.ShipName))
+	})
+
+	shipW, catW, priceW, sellerW, idW := len("Ship"), len("Category"), len("Price"), len("Seller"), len("Listing ID")
+	for _, l := range resp.Listings {
+		shipW = max(shipW, len(l.ShipName))
+		catW = max(catW, len(l.Category))
+		priceW = max(priceW, len(formatCredits(l.Price)))
+		sellerW = max(sellerW, len(l.Seller))
+		idW = max(idW, len(l.ListingID))
+	}
+
+	fmt.Fprintf(&b, "%-*s | %-*s | %*s | %-*s | %-*s\n",
+		shipW, "Ship", catW, "Category", priceW, "Price", sellerW, "Seller", idW, "Listing ID")
+	b.WriteString(strings.Repeat("-", shipW+catW+priceW+sellerW+idW+12) + "\n")
+
+	for _, l := range resp.Listings {
+		fmt.Fprintf(&b, "%-*s | %-*s | %*s | %-*s | %-*s\n",
+			shipW, l.ShipName, catW, l.Category, priceW, formatCredits(l.Price),
+			sellerW, l.Seller, idW, l.ListingID)
+	}
+
+	return b.String()
+}
+
+// nearbyPlayer is a parsed player from a get_nearby response.
+type nearbyPlayer struct {
+	Username   string `json:"username"`
+	FactionTag string `json:"faction_tag,omitempty"`
+	ShipClass  string `json:"ship_class"`
+	InCombat   bool   `json:"in_combat"`
+}
+
+// nearbyPirate is a parsed pirate from a get_nearby response.
+type nearbyPirate struct {
+	Name string `json:"name"`
+	Tier string `json:"tier,omitempty"`
+}
+
+// formatNearby formats a get_nearby response as a table.
+func formatNearby(raw []byte) string {
+	var resp struct {
+		POIID       string         `json:"poi_id"`
+		Count       int            `json:"count"`
+		PirateCount int            `json:"pirate_count"`
+		Nearby      []nearbyPlayer `json:"nearby"`
+		Pirates     []nearbyPirate `json:"pirates"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "POI ID:  %s\n", resp.POIID)
+	fmt.Fprintf(&b, "Count: %d\n\n", resp.Count)
+
+	writePlayerTable(&b, resp.Nearby)
+
+	fmt.Fprintf(&b, "\nPirates:  %d\n", resp.PirateCount)
+	for _, p := range resp.Pirates {
+		tier := p.Tier
+		if tier == "" {
+			tier = "normal"
+		}
+		fmt.Fprintf(&b, "  %s (%s)\n", p.Name, tier)
+	}
+
+	return b.String()
+}
+
+// formatTravel formats a travel response with online players at the destination.
+func formatTravel(raw []byte) string {
+	var resp struct {
+		POI           string         `json:"poi"`
+		POIID         string         `json:"poi_id"`
+		ArrivalTick   int64          `json:"arrival_tick"`
+		OnlinePlayers []nearbyPlayer `json:"online_players"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	poi := resp.POI
+	if poi == "" {
+		poi = resp.POIID
+	}
+	fmt.Fprintf(&b, "Arrived at %q\n\n", poi)
+
+	writePlayerTable(&b, resp.OnlinePlayers)
+
+	return b.String()
+}
+
+// styledErrors maps (command, error substring) pairs to friendly messages.
+var styledErrors = map[[2]string]string{
+	{"mine", "depleted"}: "Ore depleted.",
+}
+
+// formatError returns a friendly error message in styled mode, or the raw error otherwise.
+func formatError(err error, command string, format outputFormat) string {
+	if format == formatStyled {
+		msg := err.Error()
+		for key, friendly := range styledErrors {
+			if key[0] == command && strings.Contains(msg, key[1]) {
+				return friendly
+			}
+		}
+	}
+	return "Error: " + err.Error()
+}
+
+// formatMine formats a mine response as a one-line summary.
+func formatMine(raw []byte) string {
+	var resp struct {
+		Quantity         float64 `json:"quantity"`
+		ResourceName     string  `json:"resource_name"`
+		RemainingDisplay string  `json:"remaining_display"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Mined %s %s ( %s remaining )", formatFloat(resp.Quantity), resp.ResourceName, resp.RemainingDisplay)
+}
+
+// writePlayerTable writes a sorted player table to b.
+func writePlayerTable(b *strings.Builder, players []nearbyPlayer) {
+	if len(players) == 0 {
+		b.WriteString("  (no players nearby)\n")
+		return
+	}
+
+	slices.SortFunc(players, func(a, c nearbyPlayer) int {
+		return strings.Compare(strings.ToLower(a.Username), strings.ToLower(c.Username))
+	})
+
+	nameW, tagW, shipW, combatW := len("Username"), len("Faction"), len("Ship"), len("Combat")
+	for _, p := range players {
+		nameW = max(nameW, len(p.Username))
+		tagW = max(tagW, len(p.FactionTag))
+		shipW = max(shipW, len(p.ShipClass))
+	}
+
+	fmt.Fprintf(b, "%-*s | %-*s | %-*s | %-*s\n",
+		nameW, "Username", tagW, "Faction", shipW, "Ship", combatW, "Combat")
+	b.WriteString(strings.Repeat("-", nameW+tagW+shipW+combatW+9) + "\n")
+
+	for _, p := range players {
+		combat := "no combat"
+		if p.InCombat {
+			combat = "COMBAT"
+		}
+		fmt.Fprintf(b, "%-*s | %-*s | %-*s | %s |\n",
+			nameW, p.Username, tagW, p.FactionTag,
+			shipW, p.ShipClass, combat)
+	}
+}
+
 // formatFloat formats a float64 nicely — as integer if whole, otherwise with decimals.
 func formatFloat(f float64) string {
 	if f == float64(int64(f)) {
@@ -367,7 +564,7 @@ func formatFloat(f float64) string {
 	return strconv.FormatFloat(f, 'f', 2, 64)
 }
 
-func executeCommand(client game.GameClient, ctx context.Context, parts []string) error {
+func executeCommand(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	cmd := strings.ToLower(parts[0])
 
 	fmt.Printf("▶ Executing: %s %s\n", cmd, strings.Join(parts[1:], " "))
@@ -375,10 +572,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 	switch cmd {
 	// === NAVIGATION ===
 	case "undock":
-		return simpleCommand(client.Undock, ctx, 12*time.Second)
+		return simpleCommand(client, client.Undock, ctx, 12*time.Second, cmd, format)
 
 	case "dock":
-		return simpleCommand(client.Dock, ctx, 3*time.Second)
+		return simpleCommand(client, client.Dock, ctx, 3*time.Second, cmd, format)
 
 	case "travel":
 		if len(parts) < 2 {
@@ -389,6 +586,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return err
 		}
+		showLastResponse(client, format, cmd)
 		time.Sleep(12 * time.Second)
 		return nil
 
@@ -400,33 +598,34 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return err
 		}
+		showLastResponse(client, format, cmd)
 		time.Sleep(20 * time.Second)
 		return nil
 
 	// === MINING & SCANNING ===
 	case "mine":
-		return simpleCommand(client.Mine, ctx, 12*time.Second)
+		return simpleCommand(client, client.Mine, ctx, 12*time.Second, cmd, format)
 
 	case "scan":
-		return simpleCommand(client.Scan, ctx, 3*time.Second)
+		return simpleCommand(client, client.Scan, ctx, 3*time.Second, cmd, format)
 
 	case "survey":
-		return simpleCommand(client.SurveySystem, ctx, 15*time.Second)
+		return simpleCommand(client, client.SurveySystem, ctx, 15*time.Second, cmd, format)
 
 	// === COMBAT ===
 	case "attack":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: attack <target-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Attack(ctx, parts[1])
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "cloak":
 		enable := len(parts) >= 2 && (parts[1] == "on" || parts[1] == "true" || parts[1] == "1")
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Cloak(ctx, enable)
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === COMMERCE ===
 	case "sell":
@@ -437,14 +636,14 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Sell(ctx, parts[1], qty)
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "sell_all_bulk":
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.SellAllBulk(ctx, nil)
-		}, ctx, 5*time.Second)
+		}, ctx, 5*time.Second, cmd, format)
 
 	case "buy":
 		if len(parts) < 3 {
@@ -454,26 +653,26 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Buy(ctx, parts[1], qty)
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "listings", "get_listings":
-		return simpleCommand(client.GetListings, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetListings, ctx, 2*time.Second, cmd, format)
 
 	case "trades", "get_trades":
-		return simpleCommand(client.GetTrades, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetTrades, ctx, 2*time.Second, cmd, format)
 
 	case "view_market":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: view_market <item-id>")
+			return simpleCommand(client, client.GetListings, ctx, 2*time.Second, cmd, format)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.ViewMarket(ctx, parts[1])
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "view_orders":
-		return simpleCommand(client.ViewOrders, ctx, 2*time.Second)
+		return simpleCommand(client, client.ViewOrders, ctx, 2*time.Second, cmd, format)
 
 	case "create_sell_order":
 		return fmt.Errorf("create_sell_order requires JSON payload: use 'help' for format")
@@ -490,62 +689,67 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.CraftWithQuantity(ctx, parts[1], qty)
-		}, ctx, 5*time.Second)
+		}, ctx, 5*time.Second, cmd, format)
 
 	case "recipes", "get_recipes":
-		return simpleCommand(client.GetRecipes, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
 
 	// === SHIP MAINTENANCE ===
 	case "refuel":
-		return simpleCommand(client.Refuel, ctx, 3*time.Second)
+		return simpleCommand(client, client.Refuel, ctx, 3*time.Second, cmd, format)
 
 	case "repair":
-		return simpleCommand(client.Repair, ctx, 3*time.Second)
+		return simpleCommand(client, client.Repair, ctx, 3*time.Second, cmd, format)
 
 	case "install":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: install <item-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Install(ctx, parts[1])
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "uninstall":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: uninstall <module-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.UninstallMod(ctx, parts[1])
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "buy_ship":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: buy_ship <ship-class>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.BuyShip(ctx, parts[1])
-		}, ctx, 5*time.Second)
+		}, ctx, 5*time.Second, cmd, format)
+
+	case "browse_ships":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.BrowseShips(ctx, nil)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "list_ships":
-		return simpleCommand(client.ListShips, ctx, 2*time.Second)
+		return simpleCommand(client, client.ListShips, ctx, 2*time.Second, cmd, format)
 
 	case "switch_ship":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: switch_ship <ship-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.SwitchShip(ctx, parts[1])
-		}, ctx, 5*time.Second)
+		}, ctx, 5*time.Second, cmd, format)
 
 	case "sell_ship":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: sell_ship <ship-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.SellShip(ctx, parts[1])
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	// === INSURANCE ===
 	case "buy_insurance":
@@ -557,16 +761,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 				return fmt.Errorf("invalid ticks: %w", err)
 			}
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.BuyInsurance(ctx, ticks)
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "claim_insurance":
-		return simpleCommand(client.ClaimInsurance, ctx, 3*time.Second)
+		return simpleCommand(client, client.ClaimInsurance, ctx, 3*time.Second, cmd, format)
 
 	// === CARGO & STORAGE ===
 	case "cargo", "get_cargo":
-		return simpleCommand(client.GetCargo, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetCargo, ctx, 2*time.Second, cmd, format)
 
 	case "deposit":
 		if len(parts) < 3 {
@@ -576,12 +780,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.DepositItems(ctx, parts[1], qty)
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "deposit_all":
-		return simpleCommand(client.DepositAllItems, ctx, 5*time.Second)
+		return simpleCommand(client, client.DepositAllItems, ctx, 5*time.Second, cmd, format)
 
 	case "withdraw":
 		if len(parts) < 3 {
@@ -591,20 +795,20 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.WithdrawItems(ctx, parts[1], qty)
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "storage", "view_storage":
-		return simpleCommand(client.ViewStorage, ctx, 2*time.Second)
+		return simpleCommand(client, client.ViewStorage, ctx, 2*time.Second, cmd, format)
 
 	case "storage_at":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: storage_at <station-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.ViewStorageAt(ctx, parts[1])
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "jettison":
 		if len(parts) < 3 {
@@ -614,13 +818,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Jettison(ctx, parts[1], qty)
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === WRECKS ===
 	case "wrecks", "get_wrecks":
-		return simpleCommand(client.GetWrecks, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetWrecks, ctx, 2*time.Second, cmd, format)
 
 	case "loot":
 		if len(parts) < 4 {
@@ -630,48 +834,48 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.LootWreck(ctx, parts[1], parts[2], qty)
-		}, ctx, 3*time.Second)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "salvage":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: salvage <wreck-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.SalvageWreck(ctx, parts[1])
-		}, ctx, 5*time.Second)
+		}, ctx, 5*time.Second, cmd, format)
 
 	// === QUERIES ===
 	case "status", "get_status":
-		return simpleCommand(client.GetStatus, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetStatus, ctx, 2*time.Second, cmd, format)
 
 	case "system", "get_system":
-		return simpleCommand(client.GetSystem, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetSystem, ctx, 2*time.Second, cmd, format)
 
 	case "ship", "get_ship":
-		return simpleCommand(client.GetShip, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetShip, ctx, 2*time.Second, cmd, format)
 
 	case "skills", "get_skills":
-		return simpleCommand(client.GetSkills, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetSkills, ctx, 2*time.Second, cmd, format)
 
 	case "poi", "get_poi":
-		return simpleCommand(client.GetPOI, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetPOI, ctx, 2*time.Second, cmd, format)
 
 	case "base", "get_base":
-		return simpleCommand(client.GetBase, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetBase, ctx, 2*time.Second, cmd, format)
 
 	case "map", "get_map":
 		force := len(parts) >= 2 && (parts[1] == "force" || parts[1] == "1")
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.GetMap(ctx, force)
-		}, ctx, 5*time.Second)
+		}, ctx, 5*time.Second, cmd, format)
 
 	case "nearby", "get_nearby":
-		return simpleCommand(client.GetNearby, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetNearby, ctx, 2*time.Second, cmd, format)
 
 	case "version", "get_version":
-		return simpleCommand(client.GetVersion, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetVersion, ctx, 2*time.Second, cmd, format)
 
 	case "find_route":
 		if len(parts) < 2 {
@@ -695,12 +899,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: join_faction <faction-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.JoinFaction(ctx, parts[1])
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "leave_faction":
-		return simpleCommand(client.LeaveFaction, ctx, 2*time.Second)
+		return simpleCommand(client, client.LeaveFaction, ctx, 2*time.Second, cmd, format)
 
 	// === COMMUNICATION ===
 	case "chat":
@@ -708,17 +912,17 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 			return fmt.Errorf("usage: chat <channel> <message>")
 		}
 		msg := strings.Join(parts[2:], " ")
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Chat(ctx, parts[1], msg, "")
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "chat_history":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: chat_history <channel>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.GetChatHistory(ctx, parts[1], nil)
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === FORUM ===
 	case "forum_list":
@@ -730,33 +934,33 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 				return fmt.Errorf("invalid page number: %w", err)
 			}
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.ForumList(ctx, page)
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "forum_thread":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: forum_thread <thread-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.ForumGetThread(ctx, parts[1])
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === NOTES ===
 	case "notes", "get_notes":
-		return simpleCommand(client.GetNotes, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetNotes, ctx, 2*time.Second, cmd, format)
 
 	// === MISSIONS ===
 	case "missions", "get_missions":
-		return simpleCommand(client.GetMissions, ctx, 2*time.Second)
+		return simpleCommand(client, client.GetMissions, ctx, 2*time.Second, cmd, format)
 
 	case "accept_mission":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: accept_mission <mission-id>")
 		}
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.AcceptMission(ctx, parts[1])
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === CAPTAIN'S LOG ===
 	case "log":
@@ -764,9 +968,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 			return fmt.Errorf("usage: log <entry>")
 		}
 		entry := strings.Join(parts[1:], " ")
-		return simpleCommand(func(ctx context.Context) error {
+		return simpleCommand(client, func(ctx context.Context) error {
 			return client.CaptainsLogAdd(ctx, entry)
-		}, ctx, 2*time.Second)
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === STATE ===
 	case "state":
@@ -792,15 +996,33 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string)
 		return nil
 
 	default:
-		return fmt.Errorf("unknown command: %s (type 'help' for available commands)", cmd)
+		// Generic passthrough: send any unrecognized command directly to the server.
+		args := make(map[string]any)
+		for i := 1; i < len(parts); i++ {
+			args[fmt.Sprintf("arg%d", i)] = parts[i]
+		}
+		if len(args) == 0 {
+			args = nil
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, cmd, args)
+		}, ctx, 2*time.Second, cmd, format)
 	}
 }
 
-// simpleCommand executes a command and prints the resulting state
-func simpleCommand(fn func(context.Context) error, ctx context.Context, wait time.Duration) error {
+// showLastResponse prints the most recent server response.
+func showLastResponse(client game.GameClient, format outputFormat, command string) {
+	if raw := client.GetRawJSON("_last"); len(raw) > 0 {
+		printResponse(raw, format, command)
+	}
+}
+
+// simpleCommand executes a command, prints the server response, then waits.
+func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
 	if err := fn(ctx); err != nil {
 		return err
 	}
+	showLastResponse(client, format, command)
 	if wait > 0 {
 		time.Sleep(wait)
 	}
@@ -872,6 +1094,7 @@ func printHelp() {
 	fmt.Println("  install <item>            - Install equipment")
 	fmt.Println("  uninstall <module>        - Uninstall module")
 	fmt.Println("  buy_ship <class>          - Buy a new ship")
+	fmt.Println("  browse_ships              - Browse ships for sale at station")
 	fmt.Println("  list_ships                - List your ships")
 	fmt.Println("  switch_ship <ship-id>     - Switch to another ship")
 	fmt.Println("  sell_ship <ship-id>       - Sell a ship")

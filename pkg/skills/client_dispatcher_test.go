@@ -472,6 +472,7 @@ func (m *mockGameClient) Repair(ctx context.Context) error                      
 func (m *mockGameClient) Install(ctx context.Context, itemID string) error                     { return nil }
 func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error              { return nil }
 func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error                 { return nil }
+func (m *mockGameClient) BrowseShips(ctx context.Context, payload map[string]any) error       { return nil }
 func (m *mockGameClient) BuyInsurance(ctx context.Context, ticks int) error                   { return nil }
 func (m *mockGameClient) ClaimInsurance(ctx context.Context) error                             { return nil }
 func (m *mockGameClient) DepositItems(ctx context.Context, itemID string, quantity float64) error { return nil }
@@ -536,3 +537,4 @@ func (m *mockGameClient) GetMissions(ctx context.Context) error                 
 func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) error            { return nil }
 func (m *mockGameClient) SurveySystem(ctx context.Context) error                               { return nil }
 func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error               { return nil }
+func (m *mockGameClient) RawCommand(ctx context.Context, cmd string, args map[string]any) error { return nil }

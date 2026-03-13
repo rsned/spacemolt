@@ -253,6 +253,14 @@ func (m *MCPGameClient) BuyShip(ctx context.Context, shipClass string) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) BrowseShips(ctx context.Context, payload map[string]any) error {
+	result, err := m.callTool(ctx, "browse_ships", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) BuyInsurance(ctx context.Context, ticks int) error {
 	result, err := m.callTool(ctx, "buy_insurance", map[string]any{
 		"ticks": ticks,
@@ -882,6 +890,14 @@ func isReserved(itemID string, reserved []string) bool {
 		}
 	}
 	return false
+}
+
+func (m *MCPGameClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
+	result, err := m.callTool(ctx, command, args)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
 }
 
 // now returns the current time. Declared as a var for testing.

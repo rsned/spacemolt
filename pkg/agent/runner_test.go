@@ -177,6 +177,9 @@ func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "buy_ship:"+shipClass)
 	return nil
 }
+func (m *mockGameClient) BrowseShips(_ context.Context, _ map[string]any) error {
+	return nil
+}
 func (m *mockGameClient) BuyInsurance(ctx context.Context, ticks int) error {
 	m.actionsRecorded = append(m.actionsRecorded, "buy_insurance")
 	return nil
@@ -415,6 +418,9 @@ func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) er
 // Survey & Log
 func (m *mockGameClient) SurveySystem(ctx context.Context) error                 { return nil }
 func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error { return nil }
+func (m *mockGameClient) RawCommand(_ context.Context, _ string, _ map[string]any) error {
+	return nil
+}
 
 func TestRunner_StartAndStop(t *testing.T) {
 	agent := &mockAgent{id: "test-agent"}

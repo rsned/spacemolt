@@ -46,6 +46,7 @@ type GameClient interface {
 	Install(ctx context.Context, itemID string) error
 	UninstallMod(ctx context.Context, moduleID string) error
 	BuyShip(ctx context.Context, shipClass string) error
+	BrowseShips(ctx context.Context, payload map[string]any) error
 	BuyInsurance(ctx context.Context, ticks int) error
 	ClaimInsurance(ctx context.Context) error
 
@@ -143,6 +144,9 @@ type GameClient interface {
 
 	// Captain's Log
 	CaptainsLogAdd(ctx context.Context, entry string) error
+
+	// Generic passthrough for commands without explicit methods.
+	RawCommand(ctx context.Context, command string, args map[string]any) error
 }
 
 // Ensure Client implements GameClient interface

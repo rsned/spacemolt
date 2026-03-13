@@ -133,7 +133,10 @@ func parseToolResultText(result json.RawMessage) (string, error) {
 				errTexts = append(errTexts, c.Text)
 			}
 		}
-		return "", fmt.Errorf("tool error: %s", strings.Join(errTexts, "; "))
+		errMsg := strings.Join(errTexts, "; ")
+		// Strip redundant "Error: " prefix from server error messages.
+		errMsg = strings.TrimPrefix(errMsg, "Error: ")
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
 	var texts []string
