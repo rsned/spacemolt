@@ -870,6 +870,7 @@ func isSessionInvalidError(err error) bool {
 	for _, pattern := range []string{
 		"session_invalid",
 		"session_expired",
+		"session expired",
 		"invalid session",
 		"not authenticated",
 		"unauthorized",

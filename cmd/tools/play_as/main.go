@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"slices"
 	"strconv"
@@ -59,6 +60,10 @@ func main() {
 	}()
 
 	logger.Printf("Connected as: %s (Empire: %s)", creds.Username, creds.Empire)
+
+	// Cache ship and system data on startup for travel estimation and statusline.
+	_ = client.GetShip(ctx)
+	_ = client.GetSystem(ctx)
 
 	// Show initial status
 	fmt.Println("\n╔════════════════════════════════════════════════════════════════════╗")
@@ -215,6 +220,20 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatTravel(raw)
 	case "mine":
 		return formatMine(raw)
+	case "jump":
+		return formatJump(raw)
+	case "dock":
+		return formatDock(raw)
+	case "wrecks", "get_wrecks":
+		return formatWrecks(raw)
+	case "loot", "loot_wreck":
+		return formatLootWreck(raw)
+	case "jettison":
+		return formatJettison(raw)
+	case "refuel":
+		return formatRefuel(raw)
+	case "undock":
+		return "Undocked"
 	default:
 		return ""
 	}
@@ -523,6 +542,177 @@ func formatMine(raw []byte) string {
 	return fmt.Sprintf("Mined %s %s ( %s remaining )", formatFloat(resp.Quantity), resp.ResourceName, resp.RemainingDisplay)
 }
 
+// formatDock formats a dock response with station condition and truncated story.
+func formatDock(raw []byte) string {
+	var resp struct {
+		Base             string `json:"base"`
+		StationCondition struct {
+			Condition         string `json:"condition"`
+			ConditionText     string `json:"condition_text"`
+			SatisfactionPct   int    `json:"satisfaction_pct"`
+			SatisfiedCount    int    `json:"satisfied_count"`
+			TotalServiceInfra int    `json:"total_service_infra"`
+		} `json:"station_condition"`
+		Story string `json:"story"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Docked at %q\n\n", resp.Base)
+
+	sc := resp.StationCondition
+	fmt.Fprintf(&b, "Station is in %q condition.  %s\n\n", sc.Condition, sc.ConditionText)
+	fmt.Fprintf(&b, "Services satisfied: %d / %d (%d%%)\n", sc.SatisfiedCount, sc.TotalServiceInfra, sc.SatisfactionPct)
+
+	if resp.Story != "" {
+		story := resp.Story
+		if len(story) > 200 {
+			story = story[:200] + "..."
+		}
+		// Collapse newlines for compact display.
+		story = strings.ReplaceAll(story, "\n", " ")
+		fmt.Fprintf(&b, "\nStation Lore: %q\n", story)
+	}
+
+	return b.String()
+}
+
+// formatJump formats a jump response as a one-line summary.
+func formatJump(raw []byte) string {
+	var resp struct {
+		FromSystem string `json:"from_system"`
+		System     string `json:"system"`
+		POI        string `json:"poi"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Successfully jumped from %s to %s.  Now located at %s", resp.FromSystem, resp.System, resp.POI)
+}
+
+// wreckCargo is a parsed cargo item from a wreck.
+type wreckCargo struct {
+	ItemID   string  `json:"item_id"`
+	Quantity float64 `json:"quantity"`
+}
+
+// wreckEntry is a parsed wreck from a get_wrecks response.
+type wreckEntry struct {
+	ID         string       `json:"id"`
+	Type       string       `json:"type"`
+	VictimName string       `json:"victim_name"`
+	ShipClass  string       `json:"ship_class"`
+	Cargo      []wreckCargo `json:"cargo"`
+}
+
+// formatWrecks formats a get_wrecks response.
+func formatWrecks(raw []byte) string {
+	var resp struct {
+		Count  int          `json:"count"`
+		Wrecks []wreckEntry `json:"wrecks"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	if resp.Count == 0 || len(resp.Wrecks) == 0 {
+		return "No wrecks found."
+	}
+
+	// Separate by type.
+	var jettisons, ships []wreckEntry
+	for _, w := range resp.Wrecks {
+		if w.Type == "jettison" {
+			jettisons = append(jettisons, w)
+		} else {
+			ships = append(ships, w)
+		}
+	}
+
+	var b strings.Builder
+
+	if len(jettisons) > 0 {
+		fmt.Fprintf(&b, "Jettison Cannisters: %d\n", len(jettisons))
+		for _, w := range jettisons {
+			fmt.Fprintf(&b, "\nCanister: %s\n", w.ID)
+			fmt.Fprintf(&b, "Owner: %q\n", w.VictimName)
+			b.WriteString("Contents:\n")
+
+			// Calculate column widths for alignment.
+			idW := 0
+			for _, c := range w.Cargo {
+				idW = max(idW, len(c.ItemID))
+			}
+
+			for _, c := range w.Cargo {
+				fmt.Fprintf(&b, "  %*s | %s\n", idW, c.ItemID, formatFloat(c.Quantity))
+			}
+
+			b.WriteString("\nTo loot:\n")
+			for _, c := range w.Cargo {
+				fmt.Fprintf(&b, "loot_wreck %s %s %s\n", w.ID, c.ItemID, formatFloat(c.Quantity))
+			}
+		}
+	}
+
+	if len(ships) > 0 {
+		if len(jettisons) > 0 {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "Ship Wrecks: %d\n", len(ships))
+		for _, w := range ships {
+			fmt.Fprintf(&b, "  %s (%s) - %s\n", w.ID, w.ShipClass, w.VictimName)
+		}
+	}
+
+	return b.String()
+}
+
+// formatRefuel formats a refuel response as a one-line summary.
+func formatRefuel(raw []byte) string {
+	var resp struct {
+		Source string `json:"source"`
+		Fuel   int    `json:"fuel"`
+		Cost   int    `json:"cost"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Refueled at %s.  %d units for %d credits.", resp.Source, resp.Fuel, resp.Cost)
+}
+
+// formatJettison formats a jettison response as a one-line summary.
+func formatJettison(raw []byte) string {
+	var resp struct {
+		ContainerID string  `json:"container_id"`
+		ItemID      string  `json:"item_id"`
+		Quantity    float64 `json:"quantity"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Jettisoned %s %s into cannister %q.", formatFloat(resp.Quantity), resp.ItemID, resp.ContainerID)
+}
+
+// formatLootWreck formats a loot_wreck response as a one-line summary.
+func formatLootWreck(raw []byte) string {
+	var resp struct {
+		ItemID     string  `json:"item_id"`
+		Quantity   float64 `json:"quantity"`
+		WreckEmpty bool    `json:"wreck_empty"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	msg := fmt.Sprintf("Looted %s %s from cannister.", formatFloat(resp.Quantity), resp.ItemID)
+	if !resp.WreckEmpty {
+		msg += " There are still more items in the cannister."
+	}
+	return msg
+}
+
 // writePlayerTable writes a sorted player table to b.
 func writePlayerTable(b *strings.Builder, players []nearbyPlayer) {
 	if len(players) == 0 {
@@ -582,24 +772,61 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: travel <poi-id>")
 		}
 		target := strings.Join(parts[1:], " ")
+
+		// Estimate travel time before sending the command.
+		est := estimateTravel(client, target)
+		if est.valid {
+			fmt.Printf("⏱ Distance: %.1f AU | Speed: %.1f | Est. %d tick(s) (~%ds) | Est. fuel: %d\n",
+				est.distance, est.speed, est.ticks, est.ticks*10, est.fuel)
+		}
+
+		// Server blocks until travel completes.
 		_, err := client.Travel(ctx, target)
 		if err != nil {
 			return err
 		}
 		showLastResponse(client, format, cmd)
-		time.Sleep(12 * time.Second)
 		return nil
 
 	case "jump":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: jump <system-id>")
 		}
+		// Show jump distance, time, and fuel estimate from connection and ship data.
+		if state := client.GetState(); state != nil {
+			for _, conn := range state.System.Connections {
+				if strings.EqualFold(conn.SystemID, parts[1]) || strings.EqualFold(conn.Name, parts[1]) {
+					jumpTicks := max(1, 7-int(state.Ship.Speed))
+					// Fuel: ceil(scale^1.5 × speed × 10.0 × 0.10)
+					jumpFuel := 1
+					if raw := client.GetRawJSON("ship"); len(raw) > 0 {
+						var shipResp struct {
+							Class *struct {
+								Scale     int `json:"scale"`
+								BaseSpeed int `json:"base_speed"`
+							} `json:"class"`
+						}
+						if err := json.Unmarshal(raw, &shipResp); err == nil && shipResp.Class != nil {
+							scale := float64(shipResp.Class.Scale)
+							spd := float64(shipResp.Class.BaseSpeed)
+							if scale > 0 && spd > 0 {
+								jumpFuel = max(1, int(math.Ceil(math.Pow(scale, 1.5)*spd*10.0*0.10)))
+							}
+						}
+					}
+					fmt.Printf("⏱ Jump distance: %d ly | Est. %d tick(s) (~%ds) | Est. fuel: %d\n",
+						conn.Distance, jumpTicks, jumpTicks*10, jumpFuel)
+					break
+				}
+			}
+		}
+		// Server blocks until jump completes.
 		_, err := client.Jump(ctx, parts[1])
 		if err != nil {
 			return err
 		}
 		showLastResponse(client, format, cmd)
-		time.Sleep(20 * time.Second)
+		_ = client.GetSystem(ctx) // Refresh system data (POIs, connections) for the new system.
 		return nil
 
 	// === MINING & SCANNING ===
@@ -739,9 +966,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: switch_ship <ship-id>")
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.SwitchShip(ctx, parts[1])
 		}, ctx, 5*time.Second, cmd, format)
+		if err == nil {
+			_ = client.GetShip(ctx) // Refresh ship data for new ship.
+		}
+		return err
 
 	case "sell_ship":
 		if len(parts) < 2 {
@@ -826,7 +1057,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "wrecks", "get_wrecks":
 		return simpleCommand(client, client.GetWrecks, ctx, 2*time.Second, cmd, format)
 
-	case "loot":
+	case "loot", "loot_wreck":
 		if len(parts) < 4 {
 			return fmt.Errorf("usage: loot <wreck-id> <item-id> <quantity>")
 		}
@@ -838,7 +1069,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.LootWreck(ctx, parts[1], parts[2], qty)
 		}, ctx, 3*time.Second, cmd, format)
 
-	case "salvage":
+	case "salvage", "salvage_wreck":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: salvage <wreck-id>")
 		}
@@ -1027,6 +1258,78 @@ func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx c
 		time.Sleep(wait)
 	}
 	return nil
+}
+
+// travelEstimate holds pre-travel distance, tick, and fuel estimates.
+type travelEstimate struct {
+	valid    bool
+	distance float64
+	speed    float64
+	ticks    int
+	fuel     int
+}
+
+// estimateTravel estimates distance, ticks, and fuel cost for traveling to a target POI.
+func estimateTravel(client game.GameClient, targetPOI string) travelEstimate {
+	state := client.GetState()
+	if state == nil {
+		return travelEstimate{}
+	}
+
+	speed := state.Ship.Speed
+	if speed <= 0 {
+		return travelEstimate{}
+	}
+
+	// Find current and target POI positions.
+	var curPos, targetPos *game.Position
+	for i := range state.System.POIs {
+		poi := &state.System.POIs[i]
+		if poi.ID == state.CurrentPOI {
+			curPos = &poi.Position
+		}
+		if poi.ID == targetPOI {
+			targetPos = &poi.Position
+		}
+	}
+	if curPos == nil || targetPos == nil {
+		return travelEstimate{}
+	}
+
+	dx := targetPos.X - curPos.X
+	dy := targetPos.Y - curPos.Y
+	distance := math.Sqrt(dx*dx + dy*dy)
+	if distance <= 0 {
+		return travelEstimate{}
+	}
+
+	ticks := max(int(math.Ceil(distance/speed)), 1)
+
+	// Estimate fuel cost from ship class data: ceil(scale^1.5 × speed × distance × 0.07)
+	fuel := 0
+	if raw := client.GetRawJSON("ship"); len(raw) > 0 {
+		var shipResp struct {
+			Class *struct {
+				Scale     int `json:"scale"`
+				BaseSpeed int `json:"base_speed"`
+			} `json:"class"`
+		}
+		if err := json.Unmarshal(raw, &shipResp); err == nil && shipResp.Class != nil {
+			scale := float64(shipResp.Class.Scale)
+			spd := float64(shipResp.Class.BaseSpeed)
+			if scale > 0 && spd > 0 {
+				fuel = int(math.Ceil(math.Pow(scale, 1.5) * spd * distance * 0.07))
+			}
+		}
+	}
+
+	return travelEstimate{
+		valid:    true,
+		speed:    speed,
+		distance: distance,
+		ticks:    ticks,
+		fuel:     fuel,
+	}
 }
 
 func parseQuantity(s string) (float64, error) {
