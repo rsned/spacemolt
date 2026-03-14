@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -320,14 +321,15 @@ func (m *MCPGameClient) initialize(ctx context.Context) error {
 // On session_invalid errors, it automatically re-logs in and retries once.
 func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[string]any) (json.RawMessage, error) {
 	result, err := m.callToolOnce(ctx, toolName, args)
+	// Always cache the result (including tool-level errors) for interactive display.
+	m.cacheLastResult(result)
 	if err == nil {
-		m.cacheLastResult(result)
 		return result, nil
 	}
 
 	// Check for session_invalid to auto-retry.
 	if !isSessionInvalidError(err) {
-		return nil, err
+		return result, err
 	}
 
 	m.logger.Printf("[MCP] Session invalid, re-authenticating...")
@@ -337,19 +339,50 @@ func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[
 
 	// Retry the original call once.
 	result, err = m.callToolOnce(ctx, toolName, args)
-	if err == nil {
-		m.cacheLastResult(result)
-	}
+	m.cacheLastResult(result)
 	return result, err
 }
 
 // cacheLastResult extracts text from an MCP tool result and stores it as _last raw JSON.
+// This caches both successful responses and tool-level errors (isError: true).
 func (m *MCPGameClient) cacheLastResult(result json.RawMessage) {
-	if text, err := parseToolResultText(result); err == nil {
-		m.rawJSONMu.Lock()
-		m.latestRawJSON["_last"] = []byte(text)
-		m.rawJSONMu.Unlock()
+	if len(result) == 0 {
+		return
 	}
+	// parseToolResultText returns an error for isError responses,
+	// but we still want to cache the text content for display.
+	text, err := parseToolResultText(result)
+	if err != nil {
+		// Extract text content even from error responses.
+		text = extractToolResultText(result)
+	}
+	if text == "" {
+		return
+	}
+	m.rawJSONMu.Lock()
+	m.latestRawJSON["_last"] = []byte(text)
+	m.rawJSONMu.Unlock()
+}
+
+// extractToolResultText extracts all text content blocks from an MCP tool result,
+// regardless of isError status.
+func extractToolResultText(result json.RawMessage) string {
+	var toolResult struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text,omitempty"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(result, &toolResult); err != nil {
+		return ""
+	}
+	var texts []string
+	for _, c := range toolResult.Content {
+		if c.Type == "text" {
+			texts = append(texts, c.Text)
+		}
+	}
+	return strings.Join(texts, "")
 }
 
 // callToolOnce performs a single tool call without retry.
@@ -389,6 +422,13 @@ func (m *MCPGameClient) callToolOnce(ctx context.Context, toolName string, args 
 
 	if resp.Error != nil {
 		return nil, fmt.Errorf("MCP error for %s (code %d): %s", toolName, resp.Error.Code, resp.Error.Message)
+	}
+
+	// Check for tool-level isError in the result content.
+	// This catches game errors (e.g. "faction name too long") that are
+	// returned as successful JSON-RPC responses with isError=true.
+	if _, err := parseToolResultText(resp.Result); err != nil {
+		return resp.Result, err
 	}
 
 	return resp.Result, nil

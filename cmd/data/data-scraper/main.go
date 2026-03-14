@@ -253,6 +253,7 @@ func printUsage() {
 	fmt.Println("  commands     - Available Commands")
 	fmt.Println("  storage      - Station Storage")
 	fmt.Println("  market       - Market Exchange")
+	fmt.Println("  facilities   - Facility Types (all categories, paginated)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  data-scraper craftsman-1           # Scrape all endpoints")
@@ -298,6 +299,7 @@ func (s *Scraper) scrapeAll() error {
 		{"Available Commands", s.scrapeCommands},
 		{"Station Storage", s.scrapeStorage},
 		{"Market Exchange", s.scrapeMarket},
+		{"Facility Types", s.scrapeFacilities},
 	}
 
 	for _, cat := range categories {
@@ -354,12 +356,13 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"commands":        {"Available Commands", s.scrapeCommands},
 		"storage":         {"Station Storage", s.scrapeStorage},
 		"market":          {"Market Exchange", s.scrapeMarket},
+		"facilities":      {"Facility Types", s.scrapeFacilities},
 	}
 
 	// Look up the endpoint
 	ep, ok := endpointMap[endpoint]
 	if !ok {
-		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market", endpoint)
+		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market, facilities", endpoint)
 	}
 
 	// Scrape the single endpoint
@@ -688,6 +691,118 @@ func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
 
 	s.logger.Printf("  📚 Total %s: %d items", catalogType, len(allItems))
 	return s.saveJSON(filename, combinedJSON)
+}
+
+// scrapeFacilities fetches facility type definitions for all categories with pagination.
+func (s *Scraper) scrapeFacilities() error {
+	categories := []string{"infrastructure", "service", "production", "faction", "personal"}
+	ctx := context.Background()
+
+	for _, category := range categories {
+		s.logger.Printf("  📦 Fetching facility types: %s...", category)
+
+		// Fetch first page
+		s.clearLastError()
+		if err := s.client.RawCommand(ctx, "facility", map[string]any{
+			"action":   "types",
+			"category": category,
+			"page":     1,
+			"per_page": 50,
+		}); err != nil {
+			s.logger.Printf("  ⚠️  facility types %s failed: %v", category, err)
+			continue
+		}
+		time.Sleep(1 * time.Second)
+
+		rawJSON := s.getRawJSON("_last")
+		if rawJSON == nil {
+			s.logger.Printf("  ⚠️  No data for facility types %s", category)
+			continue
+		}
+
+		var firstPage struct {
+			Types      []json.RawMessage `json:"types"`
+			Page       int               `json:"page"`
+			TotalPages int               `json:"total_pages"`
+			Total      int               `json:"total"`
+			Category   string            `json:"category"`
+		}
+		if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
+			s.logger.Printf("  ⚠️  Failed to parse facility types %s: %v", category, err)
+			// Save raw response as-is
+			if saveErr := s.saveJSON(fmt.Sprintf("facility_%s.json", category), rawJSON); saveErr != nil {
+				s.logger.Printf("  ⚠️  Failed to save: %v", saveErr)
+			}
+			continue
+		}
+
+		s.logger.Printf("  📖 Page %d/%d: %d types", firstPage.Page, firstPage.TotalPages, len(firstPage.Types))
+
+		// Single page — save directly
+		if firstPage.TotalPages <= 1 {
+			if err := s.saveJSON(fmt.Sprintf("facility_%s.json", category), rawJSON); err != nil {
+				s.logger.Printf("  ⚠️  Failed to save: %v", err)
+			}
+			continue
+		}
+
+		// Fetch remaining pages
+		allTypes := make([]json.RawMessage, 0, firstPage.Total)
+		allTypes = append(allTypes, firstPage.Types...)
+
+		for page := 2; page <= firstPage.TotalPages; page++ {
+			s.clearLastError()
+			if err := s.client.RawCommand(ctx, "facility", map[string]any{
+				"action":   "types",
+				"category": category,
+				"page":     page,
+				"per_page": 50,
+			}); err != nil {
+				s.logger.Printf("  ⚠️  facility types %s page %d failed: %v", category, page, err)
+				continue
+			}
+			time.Sleep(1 * time.Second)
+
+			pageJSON := s.getRawJSON("_last")
+			if pageJSON == nil {
+				s.logger.Printf("  ⚠️  No data for facility types %s page %d", category, page)
+				continue
+			}
+
+			var pageResp struct {
+				Types []json.RawMessage `json:"types"`
+				Page  int               `json:"page"`
+			}
+			if err := json.Unmarshal(pageJSON, &pageResp); err != nil {
+				s.logger.Printf("  ⚠️  Failed to parse page %d: %v", page, err)
+				continue
+			}
+
+			s.logger.Printf("  📖 Page %d/%d: %d types", page, firstPage.TotalPages, len(pageResp.Types))
+			allTypes = append(allTypes, pageResp.Types...)
+		}
+
+		// Build combined response
+		combined := map[string]any{
+			"types":       allTypes,
+			"page":        1,
+			"total_pages": 1,
+			"total":       len(allTypes),
+			"category":    category,
+		}
+		combinedJSON, err := json.MarshalIndent(combined, "", "  ")
+		if err != nil {
+			s.logger.Printf("  ⚠️  Failed to marshal combined: %v", err)
+			continue
+		}
+
+		s.logger.Printf("  📚 Total %s facility types: %d", category, len(allTypes))
+		if err := s.saveJSON(fmt.Sprintf("facility_%s.json", category), combinedJSON); err != nil {
+			s.logger.Printf("  ⚠️  Failed to save: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *Scraper) saveJSON(filename string, data any) error {

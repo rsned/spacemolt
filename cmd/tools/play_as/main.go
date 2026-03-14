@@ -238,6 +238,10 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatSystem(raw)
 	case "withdraw", "withdraw_items":
 		return formatWithdraw(raw)
+	case "create_faction":
+		return formatCreateFaction(raw)
+	case "faction_info":
+		return formatFactionInfo(raw)
 	case "deposit", "deposit_items":
 		return formatDeposit(raw)
 	default:
@@ -450,10 +454,12 @@ func formatBrowseShips(raw []byte) string {
 
 // nearbyPlayer is a parsed player from a get_nearby response.
 type nearbyPlayer struct {
-	Username   string `json:"username"`
-	FactionTag string `json:"faction_tag,omitempty"`
-	ShipClass  string `json:"ship_class"`
-	InCombat   bool   `json:"in_combat"`
+	Username       string `json:"username"`
+	FactionTag     string `json:"faction_tag,omitempty"`
+	ShipClass      string `json:"ship_class"`
+	InCombat       bool   `json:"in_combat"`
+	PrimaryColor   string `json:"primary_color,omitempty"`
+	SecondaryColor string `json:"secondary_color,omitempty"`
 }
 
 // nearbyPirate is a parsed pirate from a get_nearby response.
@@ -791,6 +797,138 @@ func formatSystem(raw []byte) string {
 	return b.String()
 }
 
+// formatCreateFaction formats a create_faction response as a one-line summary.
+func formatCreateFaction(raw []byte) string {
+	var resp struct {
+		FactionID string `json:"faction_id"`
+		Name      string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Faction created:  %q (%s)", resp.Name, resp.FactionID)
+}
+
+// formatFactionInfo formats a faction_info response with colored names.
+func formatFactionInfo(raw []byte) string {
+	var resp struct {
+		ID             string `json:"id"`
+		Name           string `json:"name"`
+		Tag            string `json:"tag"`
+		Description    string `json:"description"`
+		Charter        string `json:"charter"`
+		LeaderUsername string `json:"leader_username"`
+		MemberCount    int    `json:"member_count"`
+		OwnedBases     int    `json:"owned_bases"`
+		Treasury       int    `json:"treasury"`
+		PrimaryColor   string `json:"primary_color"`
+		SecondaryColor string `json:"secondary_color"`
+		AtWar          bool   `json:"at_war"`
+		IsMember       bool   `json:"is_member"`
+		IsAlly         bool   `json:"is_ally"`
+		IsEnemy        bool   `json:"is_enemy"`
+		Members        []struct {
+			Username string `json:"username"`
+			Role     string `json:"role"`
+			IsOnline bool   `json:"is_online"`
+		} `json:"members"`
+		Allies []struct {
+			Name string `json:"name"`
+			Tag  string `json:"tag"`
+		} `json:"allies"`
+		Enemies []struct {
+			Name string `json:"name"`
+			Tag  string `json:"tag"`
+		} `json:"enemies"`
+		Wars []struct {
+			FactionName string `json:"faction_name"`
+			FactionTag  string `json:"faction_tag"`
+			DeclaredBy  string `json:"declared_by"`
+		} `json:"wars"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	colorName := colorizeHex(resp.Name, resp.PrimaryColor, resp.SecondaryColor)
+	colorTag := colorizeHex("["+resp.Tag+"]", resp.PrimaryColor, resp.SecondaryColor)
+	fmt.Fprintf(&b, "%s %s\n", colorName, colorTag)
+	fmt.Fprintf(&b, "ID: %s\n", resp.ID)
+	fmt.Fprintf(&b, "Leader: %s | Members: %d | Bases: %d\n", resp.LeaderUsername, resp.MemberCount, resp.OwnedBases)
+
+	if resp.IsMember && resp.Treasury > 0 {
+		fmt.Fprintf(&b, "Treasury: %d credits\n", resp.Treasury)
+	}
+
+	if resp.Description != "" {
+		fmt.Fprintf(&b, "\n%s\n", resp.Description)
+	}
+	if resp.Charter != "" {
+		fmt.Fprintf(&b, "\nCharter: %s\n", resp.Charter)
+	}
+
+	// Relationship indicator
+	switch {
+	case resp.IsMember:
+		fmt.Fprintf(&b, "\nYou are a member of this faction.\n")
+	case resp.IsAlly:
+		fmt.Fprintf(&b, "\nThis faction is an ally.\n")
+	case resp.IsEnemy:
+		fmt.Fprintf(&b, "\nThis faction is an enemy.\n")
+	}
+
+	// Members (only shown for own faction)
+	if len(resp.Members) > 0 {
+		fmt.Fprintf(&b, "\nMembers:\n")
+		nameW, roleW := len("Username"), len("Role")
+		for _, m := range resp.Members {
+			nameW = max(nameW, len(m.Username))
+			roleW = max(roleW, len(m.Role))
+		}
+		fmt.Fprintf(&b, "  %-*s | %-*s | Status\n", nameW, "Username", roleW, "Role")
+		fmt.Fprintf(&b, "  %s-+-%s-+--------\n", strings.Repeat("-", nameW), strings.Repeat("-", roleW))
+		for _, m := range resp.Members {
+			status := "offline"
+			if m.IsOnline {
+				status = "online"
+			}
+			name := colorizeHex(m.Username, resp.PrimaryColor, resp.SecondaryColor)
+			pad := nameW - len(m.Username)
+			if pad > 0 {
+				name += strings.Repeat(" ", pad)
+			}
+			fmt.Fprintf(&b, "  %s | %-*s | %s\n", name, roleW, m.Role, status)
+		}
+	}
+
+	// Allies
+	if len(resp.Allies) > 0 {
+		fmt.Fprintf(&b, "\nAllies:\n")
+		for _, a := range resp.Allies {
+			fmt.Fprintf(&b, "  %s [%s]\n", a.Name, a.Tag)
+		}
+	}
+
+	// Enemies
+	if len(resp.Enemies) > 0 {
+		fmt.Fprintf(&b, "\nEnemies:\n")
+		for _, e := range resp.Enemies {
+			fmt.Fprintf(&b, "  %s [%s]\n", e.Name, e.Tag)
+		}
+	}
+
+	// Wars
+	if len(resp.Wars) > 0 {
+		fmt.Fprintf(&b, "\nActive Wars:\n")
+		for _, w := range resp.Wars {
+			fmt.Fprintf(&b, "  vs %s [%s] (declared by: %s)\n", w.FactionName, w.FactionTag, w.DeclaredBy)
+		}
+	}
+
+	return b.String()
+}
+
 // formatDeposit formats a deposit_items response as a one-line summary.
 func formatDeposit(raw []byte) string {
 	var resp struct {
@@ -889,8 +1027,14 @@ func writePlayerTable(b *strings.Builder, players []nearbyPlayer) {
 		if p.InCombat {
 			combat = "COMBAT"
 		}
-		fmt.Fprintf(b, "%-*s | %-*s | %-*s | %s |\n",
-			nameW, p.Username, tagW, p.FactionTag,
+		// Colorize name at natural length, then pad with spaces for alignment.
+		name := colorizeHex(p.Username, p.PrimaryColor, p.SecondaryColor)
+		pad := nameW - len(p.Username)
+		if pad > 0 {
+			name += strings.Repeat(" ", pad)
+		}
+		fmt.Fprintf(b, "%s | %-*s | %-*s | %s |\n",
+			name, tagW, p.FactionTag,
 			shipW, p.ShipClass, combat)
 	}
 }
@@ -1726,6 +1870,47 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return nil
 
+	// === STATION FACILITIES ===
+	case "facility":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: facility <action> [facility_type] [--flag value...]\n" +
+				"  actions: types, build, list, toggle, upgrades, upgrade,\n" +
+				"           faction_build, faction_upgrade, faction_list, faction_toggle,\n" +
+				"           transfer, personal_build, personal_decorate, personal_visit, help")
+		}
+		payload := map[string]any{"action": parts[1]}
+		// Parse remaining args: bare positional is facility_type,
+		// --key value flags, or key=value pairs.
+		facilityTypeSet := false
+		for i := 2; i < len(parts); i++ {
+			arg := parts[i]
+			if key, ok := strings.CutPrefix(arg, "--"); ok {
+				// --key value flag
+				if i+1 < len(parts) {
+					i++
+					payload[key] = parts[i]
+				}
+			} else if k, v, ok := strings.Cut(arg, "="); ok {
+				// key=value pair
+				payload[k] = v
+			} else if !facilityTypeSet {
+				// bare positional = facility_type
+				payload["facility_type"] = arg
+				facilityTypeSet = true
+			}
+		}
+		// Convert numeric string fields
+		for _, numKey := range []string{"level", "page", "per_page"} {
+			if v, ok := payload[numKey].(string); ok {
+				if n, err := strconv.Atoi(v); err == nil {
+					payload[numKey] = n
+				}
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "facility", payload)
+		}, ctx, 5*time.Second, cmd, format)
+
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.
 		args := make(map[string]any)
@@ -1830,6 +2015,39 @@ func estimateTravel(client game.GameClient, targetPOI string) travelEstimate {
 		ticks:    ticks,
 		fuel:     fuel,
 	}
+}
+
+// colorizeHex wraps text with ANSI 24-bit color escape sequences.
+// primary sets the foreground, secondary sets the background.
+// Either can be "" to skip. Colors are "#RRGGBB" hex strings.
+func colorizeHex(text, primary, secondary string) string {
+	if primary == "" && secondary == "" {
+		return text
+	}
+	var prefix string
+	if r, g, b, ok := parseHexColor(primary); ok {
+		prefix += fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b)
+	}
+	if r, g, b, ok := parseHexColor(secondary); ok {
+		prefix += fmt.Sprintf("\033[48;2;%d;%d;%dm", r, g, b)
+	}
+	if prefix == "" {
+		return text
+	}
+	return prefix + text + "\033[0m"
+}
+
+// parseHexColor parses a "#RRGGBB" string into RGB components.
+func parseHexColor(s string) (r, g, b uint8, ok bool) {
+	s = strings.TrimPrefix(s, "#")
+	if len(s) != 6 {
+		return 0, 0, 0, false
+	}
+	val, err := strconv.ParseUint(s, 16, 32)
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	return uint8(val >> 16), uint8(val >> 8), uint8(val), true
 }
 
 // splitArgs splits a command string into arguments, respecting double and single quotes.
