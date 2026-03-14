@@ -234,6 +234,10 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatRefuel(raw)
 	case "undock":
 		return "Undocked"
+	case "system", "get_system":
+		return formatSystem(raw)
+	case "withdraw", "withdraw_items":
+		return formatWithdraw(raw)
 	default:
 		return ""
 	}
@@ -670,6 +674,115 @@ func formatWrecks(raw []byte) string {
 	return b.String()
 }
 
+// systemPOI is a parsed POI from a get_system response.
+type systemPOI struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Online   int    `json:"online,omitempty"`
+	Position struct {
+		X float64 `json:"x"`
+		Y float64 `json:"y"`
+	} `json:"position"`
+	HasBase  bool   `json:"has_base,omitempty"`
+	BaseID   string `json:"base_id,omitempty"`
+	BaseName string `json:"base_name,omitempty"`
+}
+
+// systemConnection is a parsed connection from a get_system response.
+type systemConnection struct {
+	SystemID string `json:"system_id"`
+	Name     string `json:"name"`
+	Distance int    `json:"distance"`
+}
+
+// formatSystem formats a get_system response with system details, connections, and POIs.
+func formatSystem(raw []byte) string {
+	var resp struct {
+		System struct {
+			ID             string             `json:"id"`
+			Name           string             `json:"name"`
+			Description    string             `json:"description"`
+			Empire         string             `json:"empire"`
+			PoliceLevel    int                `json:"police_level"`
+			SecurityStatus string             `json:"security_status"`
+			Connections    []systemConnection `json:"connections"`
+			POIs           []systemPOI        `json:"pois"`
+		} `json:"system"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	sys := resp.System
+	var b strings.Builder
+
+	// Header
+	empire := sys.Empire
+	if empire != "" {
+		empire = strings.ToUpper(empire[:1]) + empire[1:]
+	}
+	fmt.Fprintf(&b, "%s (%s)   | %s\n", sys.Name, sys.ID, empire)
+	fmt.Fprintf(&b, "Security Status: %d - %s\n", sys.PoliceLevel, sys.SecurityStatus)
+	if sys.Description != "" {
+		fmt.Fprintf(&b, "%s\n", sys.Description)
+	}
+
+	// Connections
+	b.WriteString("\nConnections:\n")
+	if len(sys.Connections) == 0 {
+		b.WriteString("  (none)\n")
+	} else {
+		nameW, idW := 0, 0
+		for _, c := range sys.Connections {
+			nameW = max(nameW, len(c.Name))
+			idW = max(idW, len(c.SystemID))
+		}
+		for _, c := range sys.Connections {
+			fmt.Fprintf(&b, "    %-*s | %-*s | %d LY\n", nameW, c.Name, idW, c.SystemID, c.Distance)
+		}
+	}
+
+	// POIs
+	b.WriteString("\nPOIs:\n")
+	if len(sys.POIs) == 0 {
+		b.WriteString("  (none)\n")
+	} else {
+		nameW, idW, typeW := len("Name"), len("ID"), len("Type")
+		for _, p := range sys.POIs {
+			nameW = max(nameW, len(p.Name))
+			idW = max(idW, len(p.ID))
+			typeW = max(typeW, len(p.Type))
+		}
+
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | Position\n",
+			nameW, "Name", idW, "ID", typeW, "Type")
+		b.WriteString(strings.Repeat("-", nameW+idW+typeW+18) + "\n")
+
+		for _, p := range sys.POIs {
+			pos := fmt.Sprintf("(%.1f, %.1f)", p.Position.X, p.Position.Y)
+			fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %s\n",
+				nameW, p.Name, idW, p.ID, typeW, p.Type, pos)
+		}
+	}
+
+	return b.String()
+}
+
+// formatWithdraw formats a withdraw_items response as a one-line summary.
+func formatWithdraw(raw []byte) string {
+	var resp struct {
+		ItemID           string `json:"item_id"`
+		Quantity         int    `json:"quantity"`
+		StorageRemaining int    `json:"storage_remaining"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Withdraw %d %s from storage into cargo. %d %s remaining in storage.",
+		resp.Quantity, resp.ItemID, resp.StorageRemaining, resp.ItemID)
+}
+
 // formatRefuel formats a refuel response as a one-line summary.
 func formatRefuel(raw []byte) string {
 	var resp struct {
@@ -1003,7 +1116,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "cargo", "get_cargo":
 		return simpleCommand(client, client.GetCargo, ctx, 2*time.Second, cmd, format)
 
-	case "deposit":
+	case "deposit", "deposit_items":
 		if len(parts) < 3 {
 			return fmt.Errorf("usage: deposit <item-id> <quantity>")
 		}
@@ -1018,7 +1131,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "deposit_all":
 		return simpleCommand(client, client.DepositAllItems, ctx, 5*time.Second, cmd, format)
 
-	case "withdraw":
+	case "withdraw", "withdraw_items":
 		if len(parts) < 3 {
 			return fmt.Errorf("usage: withdraw <item-id> <quantity>")
 		}
