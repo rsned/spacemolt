@@ -120,8 +120,8 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		// Add to history for up/down arrow cycling
 		line.AppendHistory(cmd)
 
-		// Parse command
-		parts := strings.Fields(cmd)
+		// Parse command (supports quoted strings)
+		parts := splitArgs(cmd)
 		if len(parts) == 0 {
 			continue
 		}
@@ -1051,10 +1051,44 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.ViewOrders, ctx, 2*time.Second, cmd, format)
 
 	case "create_sell_order":
-		return fmt.Errorf("create_sell_order requires JSON payload: use 'help' for format")
+		if len(parts) < 4 {
+			return fmt.Errorf("usage: create_sell_order <item-id> <quantity> <price-each>")
+		}
+		qty, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		price, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return fmt.Errorf("invalid price: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.CreateSellOrder(ctx, map[string]any{
+				"item_id":    parts[1],
+				"quantity":   qty,
+				"price_each": price,
+			})
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "create_buy_order":
-		return fmt.Errorf("create_buy_order requires JSON payload: use 'help' for format")
+		if len(parts) < 4 {
+			return fmt.Errorf("usage: create_buy_order <item-id> <quantity> <price-each>")
+		}
+		qty, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		price, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return fmt.Errorf("invalid price: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.CreateBuyOrder(ctx, map[string]any{
+				"item_id":    parts[1],
+				"quantity":   qty,
+				"price_each": price,
+			})
+		}, ctx, 3*time.Second, cmd, format)
 
 	// === CRAFTING ===
 	case "craft":
@@ -1273,7 +1307,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === FACTIONS ===
 	case "create_faction":
-		return fmt.Errorf("create_faction requires JSON payload: use 'help' for format")
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: create_faction <name> <tag>  (tag must be 4 chars, quote the name if it has spaces)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.CreateFaction(ctx, map[string]any{"name": parts[1], "tag": parts[2]})
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "join_faction":
 		if len(parts) < 2 {
@@ -1285,6 +1324,318 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "leave_faction":
 		return simpleCommand(client, client.LeaveFaction, ctx, 2*time.Second, cmd, format)
+
+	case "faction_info":
+		// Accepts faction UUID or tag. If a short string is given, try tag lookup via faction_list.
+		var payload map[string]any
+		if len(parts) >= 2 {
+			factionRef := parts[1]
+			if len(factionRef) <= 6 {
+				// Looks like a tag — normalize to uppercase and resolve to ID via faction_list.
+				factionRef = strings.ToUpper(factionRef)
+				if id := resolveFactionTag(client, ctx, factionRef); id != "" {
+					factionRef = id
+				}
+			}
+			payload = map[string]any{"faction_id": factionRef}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_info", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_list":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_list", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_edit":
+		// Usage: faction_edit [--charter "text"] [--description "text"] [--primary_color "#hex"] [--secondary_color "#hex"]
+		payload := parseFlagArgs(parts[1:], "charter", "description", "primary_color", "secondary_color")
+		if len(payload) == 0 {
+			return fmt.Errorf("usage: faction_edit --charter \"text\" --description \"text\" --primary_color \"#hex\" --secondary_color \"#hex\"")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_edit", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_invite":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_invite <player-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.FactionInvite(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_kick":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_kick <player-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.FactionKick(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_promote":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: faction_promote <player-id> <role-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.FactionPromote(ctx, parts[1], parts[2])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_get_invites":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_get_invites", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_decline_invite":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_decline_invite <faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_decline_invite", map[string]any{"faction_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_declare_war":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_declare_war <target-faction-id> [reason]")
+		}
+		payload := map[string]any{"target_faction_id": parts[1]}
+		if len(parts) >= 3 {
+			payload["reason"] = strings.Join(parts[2:], " ")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_declare_war", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_propose_peace":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_propose_peace <target-faction-id> [terms]")
+		}
+		payload := map[string]any{"target_faction_id": parts[1]}
+		if len(parts) >= 3 {
+			payload["terms"] = strings.Join(parts[2:], " ")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_propose_peace", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_accept_peace":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_accept_peace <target-faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_accept_peace", map[string]any{"target_faction_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_set_ally":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_set_ally <target-faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_set_ally", map[string]any{"target_faction_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_set_enemy":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_set_enemy <target-faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_set_enemy", map[string]any{"target_faction_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_deposit_credits":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_deposit_credits <amount>")
+		}
+		amount, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return fmt.Errorf("invalid amount: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_deposit_credits", map[string]any{"amount": amount})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_withdraw_credits":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_withdraw_credits <amount>")
+		}
+		amount, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return fmt.Errorf("invalid amount: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_withdraw_credits", map[string]any{"amount": amount})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_deposit_items":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: faction_deposit_items <item-id> <quantity>")
+		}
+		qty, err := parseQuantity(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_deposit_items", map[string]any{"item_id": parts[1], "quantity": qty})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_withdraw_items":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: faction_withdraw_items <item-id> <quantity>")
+		}
+		qty, err := parseQuantity(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_withdraw_items", map[string]any{"item_id": parts[1], "quantity": qty})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "view_faction_storage":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "view_faction_storage", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_create_buy_order":
+		if len(parts) < 4 {
+			return fmt.Errorf("usage: faction_create_buy_order <item-id> <quantity> <price-each>")
+		}
+		qty, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		price, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return fmt.Errorf("invalid price: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_create_buy_order", map[string]any{
+				"item_id": parts[1], "quantity": qty, "price_each": price,
+			})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_create_sell_order":
+		if len(parts) < 4 {
+			return fmt.Errorf("usage: faction_create_sell_order <item-id> <quantity> <price-each>")
+		}
+		qty, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		price, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return fmt.Errorf("invalid price: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_create_sell_order", map[string]any{
+				"item_id": parts[1], "quantity": qty, "price_each": price,
+			})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "faction_create_role":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: faction_create_role <name> <priority>")
+		}
+		priority, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid priority: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_create_role", map[string]any{"name": parts[1], "priority": priority})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_edit_role":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_edit_role <role-id> [--name \"name\"]")
+		}
+		payload := parseFlagArgs(parts[2:], "name")
+		payload["role_id"] = parts[1]
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_edit_role", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_delete_role":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_delete_role <role-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_delete_role", map[string]any{"role_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_submit_intel":
+		// Complex payload — pass remaining args as JSON literal.
+		return fmt.Errorf("faction_submit_intel requires complex payload; use the generic passthrough or MCP directly")
+
+	case "faction_submit_trade_intel":
+		return fmt.Errorf("faction_submit_trade_intel requires complex payload; use the generic passthrough or MCP directly")
+
+	case "faction_query_intel":
+		payload := parseFlagArgs(parts[1:], "poi_type", "resource_type", "system_id", "system_name")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_query_intel", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_query_trade_intel":
+		payload := parseFlagArgs(parts[1:], "base_id", "item_id", "station_name")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_query_trade_intel", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_intel_status":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_intel_status", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_trade_intel_status":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_trade_intel_status", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_rooms":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_rooms", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_visit_room":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_visit_room <room-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_visit_room", map[string]any{"room_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_write_room":
+		payload := parseFlagArgs(parts[1:], "room_id", "name", "description", "access")
+		if len(payload) == 0 {
+			return fmt.Errorf("usage: faction_write_room [--room_id id] --name \"name\" --description \"text\" [--access public|faction]")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_write_room", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_delete_room":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_delete_room <room-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_delete_room", map[string]any{"room_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_post_mission":
+		return fmt.Errorf("faction_post_mission requires complex payload; use the generic passthrough or MCP directly")
+
+	case "faction_list_missions":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_list_missions", nil)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_cancel_mission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_cancel_mission <template-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_cancel_mission", map[string]any{"template_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
 
 	// === COMMUNICATION ===
 	case "chat":
@@ -1481,6 +1832,88 @@ func estimateTravel(client game.GameClient, targetPOI string) travelEstimate {
 	}
 }
 
+// splitArgs splits a command string into arguments, respecting double and single quotes.
+// e.g. `create_faction "Covenant of the Eternal Spark" SPRK` → ["create_faction", "Covenant of the Eternal Spark", "SPRK"]
+func splitArgs(s string) []string {
+	var args []string
+	var current strings.Builder
+	var inQuote rune
+
+	for _, r := range s {
+		switch {
+		case inQuote != 0:
+			if r == inQuote {
+				inQuote = 0
+			} else {
+				current.WriteRune(r)
+			}
+		case r == '"' || r == '\'':
+			inQuote = r
+		case r == ' ' || r == '\t':
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+	return args
+}
+
+// resolveFactionTag looks up a faction tag via faction_list and returns the faction ID, or "" if not found.
+func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) string {
+	tag = strings.ToUpper(tag)
+	if err := client.RawCommand(ctx, "faction_list", nil); err != nil {
+		return ""
+	}
+	raw := client.GetRawJSON("_last")
+	if len(raw) == 0 {
+		return ""
+	}
+	var resp struct {
+		Factions []struct {
+			ID  string `json:"id"`
+			Tag string `json:"tag"`
+		} `json:"factions"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	for _, f := range resp.Factions {
+		if strings.EqualFold(f.Tag, tag) {
+			return f.ID
+		}
+	}
+	return ""
+}
+
+// parseFlagArgs parses --key value pairs from args, accepting only the specified keys.
+// Returns a map of key→value for all matched flags.
+func parseFlagArgs(args []string, keys ...string) map[string]any {
+	allowed := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		allowed[k] = true
+	}
+	result := make(map[string]any)
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "--") {
+			continue
+		}
+		key := strings.TrimPrefix(arg, "--")
+		if !allowed[key] || i+1 >= len(args) {
+			continue
+		}
+		i++
+		result[key] = args[i]
+	}
+	return result
+}
+
 func parseQuantity(s string) (float64, error) {
 	// Try parsing as float first
 	f, err := strconv.ParseFloat(s, 64)
@@ -1536,6 +1969,8 @@ func printHelp() {
 	fmt.Println("  listings, trades          - View market listings/trades")
 	fmt.Println("  view_market <item>        - View market for item")
 	fmt.Println("  view_orders               - View your orders")
+	fmt.Println("  create_sell_order <item> <qty> <price>  - Create sell order")
+	fmt.Println("  create_buy_order <item> <qty> <price>   - Create buy order")
 
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> <qty>      - Craft items")
@@ -1572,8 +2007,42 @@ func printHelp() {
 	fmt.Println("  raw <key>                 - Show raw JSON for key")
 
 	fmt.Println("\n=== FACTIONS ===")
-	fmt.Println("  join_faction <id>         - Join a faction")
-	fmt.Println("  leave_faction             - Leave current faction")
+	fmt.Println("  create_faction <name> <tag>  - Create a faction (tag = 4 chars)")
+	fmt.Println("  join_faction <id>            - Join a faction")
+	fmt.Println("  leave_faction                - Leave current faction")
+	fmt.Println("  faction_info [faction-id]     - View faction details")
+	fmt.Println("  faction_list                  - List all factions")
+	fmt.Println("  faction_edit --description \"text\" --charter \"text\"")
+	fmt.Println("  faction_invite <player-id>    - Invite a player")
+	fmt.Println("  faction_kick <player-id>      - Kick a member")
+	fmt.Println("  faction_promote <player> <role> - Promote/demote member")
+	fmt.Println("  faction_get_invites           - View pending invitations")
+	fmt.Println("  faction_decline_invite <id>   - Decline invitation")
+	fmt.Println("  faction_declare_war <id> [reason]  - Declare war")
+	fmt.Println("  faction_propose_peace <id> [terms] - Propose peace")
+	fmt.Println("  faction_accept_peace <id>     - Accept peace proposal")
+	fmt.Println("  faction_set_ally <id>         - Mark faction as ally")
+	fmt.Println("  faction_set_enemy <id>        - Mark faction as enemy")
+	fmt.Println("  faction_deposit_credits <amt> - Deposit credits to treasury")
+	fmt.Println("  faction_withdraw_credits <amt> - Withdraw from treasury")
+	fmt.Println("  faction_deposit_items <item> <qty>  - Deposit to faction storage")
+	fmt.Println("  faction_withdraw_items <item> <qty> - Withdraw from faction storage")
+	fmt.Println("  view_faction_storage          - View faction storage")
+	fmt.Println("  faction_create_buy_order <item> <qty> <price>  - Faction buy order")
+	fmt.Println("  faction_create_sell_order <item> <qty> <price> - Faction sell order")
+	fmt.Println("  faction_rooms                 - List faction rooms")
+	fmt.Println("  faction_visit_room <id>       - Visit a room")
+	fmt.Println("  faction_write_room --name \"n\" --description \"d\" [--room_id id]")
+	fmt.Println("  faction_delete_room <id>      - Delete a room")
+	fmt.Println("  faction_query_intel --system_name \"name\"  - Query intel DB")
+	fmt.Println("  faction_query_trade_intel --item_id \"id\"  - Query trade intel")
+	fmt.Println("  faction_intel_status           - Intel coverage stats")
+	fmt.Println("  faction_trade_intel_status      - Trade intel coverage")
+	fmt.Println("  faction_create_role <name> <priority> - Create role")
+	fmt.Println("  faction_edit_role <id> [--name \"n\"]    - Edit role")
+	fmt.Println("  faction_delete_role <id>       - Delete role")
+	fmt.Println("  faction_list_missions          - List faction missions")
+	fmt.Println("  faction_cancel_mission <id>    - Cancel a faction mission")
 
 	fmt.Println("\n=== COMMUNICATION ===")
 	fmt.Println("  chat <channel> <msg>      - Send chat message")

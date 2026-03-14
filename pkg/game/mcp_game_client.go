@@ -321,6 +321,7 @@ func (m *MCPGameClient) initialize(ctx context.Context) error {
 func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[string]any) (json.RawMessage, error) {
 	result, err := m.callToolOnce(ctx, toolName, args)
 	if err == nil {
+		m.cacheLastResult(result)
 		return result, nil
 	}
 
@@ -335,7 +336,20 @@ func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[
 	}
 
 	// Retry the original call once.
-	return m.callToolOnce(ctx, toolName, args)
+	result, err = m.callToolOnce(ctx, toolName, args)
+	if err == nil {
+		m.cacheLastResult(result)
+	}
+	return result, err
+}
+
+// cacheLastResult extracts text from an MCP tool result and stores it as _last raw JSON.
+func (m *MCPGameClient) cacheLastResult(result json.RawMessage) {
+	if text, err := parseToolResultText(result); err == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON["_last"] = []byte(text)
+		m.rawJSONMu.Unlock()
+	}
 }
 
 // callToolOnce performs a single tool call without retry.
