@@ -238,6 +238,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatSystem(raw)
 	case "withdraw", "withdraw_items":
 		return formatWithdraw(raw)
+	case "deposit", "deposit_items":
+		return formatDeposit(raw)
 	default:
 		return ""
 	}
@@ -604,11 +606,13 @@ type wreckCargo struct {
 
 // wreckEntry is a parsed wreck from a get_wrecks response.
 type wreckEntry struct {
-	ID         string       `json:"id"`
-	Type       string       `json:"type"`
-	VictimName string       `json:"victim_name"`
-	ShipClass  string       `json:"ship_class"`
-	Cargo      []wreckCargo `json:"cargo"`
+	ID           string       `json:"id"`
+	Type         string       `json:"type"`
+	VictimName   string       `json:"victim_name"`
+	ShipClass    string       `json:"ship_class"`
+	Cargo        []wreckCargo `json:"cargo"`
+	Modules      []string     `json:"modules"`
+	SalvageValue int          `json:"salvage_value"`
 }
 
 // formatWrecks formats a get_wrecks response.
@@ -667,7 +671,25 @@ func formatWrecks(raw []byte) string {
 		}
 		fmt.Fprintf(&b, "Ship Wrecks: %d\n", len(ships))
 		for _, w := range ships {
-			fmt.Fprintf(&b, "  %s (%s) - %s\n", w.ID, w.ShipClass, w.VictimName)
+			fmt.Fprintf(&b, "\nShip: %s\n", w.ID)
+			fmt.Fprintf(&b, "Owner: %q\n", w.VictimName)
+			fmt.Fprintf(&b, "Class: %s\n", w.ShipClass)
+			fmt.Fprintf(&b, "Salvage Value: %d\n", w.SalvageValue)
+			fmt.Fprintf(&b, "Modules:  %d\n", len(w.Modules))
+			if len(w.Cargo) == 0 {
+				b.WriteString("Cargo:   None\n")
+			} else {
+				b.WriteString("Cargo:\n")
+				idW := 0
+				for _, c := range w.Cargo {
+					idW = max(idW, len(c.ItemID))
+				}
+				for _, c := range w.Cargo {
+					fmt.Fprintf(&b, "  %*s | %s\n", idW, c.ItemID, formatFloat(c.Quantity))
+				}
+			}
+			b.WriteString("To salvage:\n")
+			fmt.Fprintf(&b, "tow_ship %s\n", w.ID)
 		}
 	}
 
@@ -767,6 +789,20 @@ func formatSystem(raw []byte) string {
 	}
 
 	return b.String()
+}
+
+// formatDeposit formats a deposit_items response as a one-line summary.
+func formatDeposit(raw []byte) string {
+	var resp struct {
+		ItemID       string `json:"item_id"`
+		Quantity     int    `json:"quantity"`
+		StorageTotal int    `json:"storage_total"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("Deposited %d %s from cargo into storage. %d %s now in storage.",
+		resp.Quantity, resp.ItemID, resp.StorageTotal, resp.ItemID)
 }
 
 // formatWithdraw formats a withdraw_items response as a one-line summary.
@@ -1260,7 +1296,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Chat(ctx, parts[1], msg, "")
 		}, ctx, 2*time.Second, cmd, format)
 
-	case "chat_history":
+	case "chat_history", "get_chat_history":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: chat_history <channel>")
 		}

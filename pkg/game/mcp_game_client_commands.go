@@ -474,6 +474,7 @@ func (m *MCPGameClient) GetVersion(ctx context.Context) error {
 	if parseErr == nil {
 		m.rawJSONMu.Lock()
 		m.latestRawJSON["version"] = []byte(text)
+		m.latestRawJSON["_last"] = []byte(text)
 		m.rawJSONMu.Unlock()
 
 		var vResp struct {
@@ -507,6 +508,11 @@ func (m *MCPGameClient) FindRoute(ctx context.Context, targetSystem string) ([]R
 	if err != nil {
 		return nil, err
 	}
+
+	// Cache as _last for interactive tools.
+	m.rawJSONMu.Lock()
+	m.latestRawJSON["_last"] = []byte(text)
+	m.rawJSONMu.Unlock()
 
 	var routeResp struct {
 		Route []RouteStep `json:"route"`
@@ -588,6 +594,11 @@ func (m *MCPGameClient) GetChatHistory(ctx context.Context, channel string, payl
 	if err != nil {
 		return err
 	}
+	// Cache as _last for interactive tools.
+	m.rawJSONMu.Lock()
+	m.latestRawJSON["_last"] = []byte(text)
+	m.rawJSONMu.Unlock()
+
 	var chatResp struct {
 		Messages []ChatMessage `json:"messages"`
 	}
