@@ -254,6 +254,7 @@ func printUsage() {
 	fmt.Println("  storage      - Station Storage")
 	fmt.Println("  market       - Market Exchange")
 	fmt.Println("  facilities   - Facility Types (all categories, paginated)")
+	fmt.Println("  facility_details - Facility Details (one file per type, skips existing)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  data-scraper craftsman-1           # Scrape all endpoints")
@@ -300,6 +301,7 @@ func (s *Scraper) scrapeAll() error {
 		{"Station Storage", s.scrapeStorage},
 		{"Market Exchange", s.scrapeMarket},
 		{"Facility Types", s.scrapeFacilities},
+		{"Facility Details", s.scrapeFacilityDetails},
 	}
 
 	for _, cat := range categories {
@@ -356,13 +358,14 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"commands":        {"Available Commands", s.scrapeCommands},
 		"storage":         {"Station Storage", s.scrapeStorage},
 		"market":          {"Market Exchange", s.scrapeMarket},
-		"facilities":      {"Facility Types", s.scrapeFacilities},
+		"facilities":         {"Facility Types", s.scrapeFacilities},
+		"facility_details":   {"Facility Details", s.scrapeFacilityDetails},
 	}
 
 	// Look up the endpoint
 	ep, ok := endpointMap[endpoint]
 	if !ok {
-		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market, facilities", endpoint)
+		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market, facilities, facility_details", endpoint)
 	}
 
 	// Scrape the single endpoint
@@ -802,6 +805,134 @@ func (s *Scraper) scrapeFacilities() error {
 		}
 	}
 
+	return nil
+}
+
+// scrapeFacilityDetails fetches detailed info for every facility type and saves each as a separate file.
+func (s *Scraper) scrapeFacilityDetails() error {
+	ctx := context.Background()
+
+	// First, collect all type IDs from the category listing files (or fetch them).
+	categories := []string{"infrastructure", "service", "production", "faction", "personal"}
+	var allIDs []string
+
+	for _, category := range categories {
+		s.clearLastError()
+		if err := s.client.RawCommand(ctx, "facility", map[string]any{
+			"action":   "types",
+			"category": category,
+			"page":     1,
+			"per_page": 50,
+		}); err != nil {
+			s.logger.Printf("  ⚠️  facility types %s failed: %v", category, err)
+			continue
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		rawJSON := s.getRawJSON("_last")
+		if rawJSON == nil {
+			continue
+		}
+
+		var firstPage struct {
+			Types []struct {
+				ID string `json:"id"`
+			} `json:"types"`
+			TotalPages int `json:"total_pages"`
+		}
+		if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
+			continue
+		}
+		for _, t := range firstPage.Types {
+			allIDs = append(allIDs, t.ID)
+		}
+
+		for page := 2; page <= firstPage.TotalPages; page++ {
+			s.clearLastError()
+			if err := s.client.RawCommand(ctx, "facility", map[string]any{
+				"action":   "types",
+				"category": category,
+				"page":     page,
+				"per_page": 50,
+			}); err != nil {
+				continue
+			}
+			time.Sleep(500 * time.Millisecond)
+
+			pageJSON := s.getRawJSON("_last")
+			if pageJSON == nil {
+				continue
+			}
+			var pageResp struct {
+				Types []struct {
+					ID string `json:"id"`
+				} `json:"types"`
+			}
+			if err := json.Unmarshal(pageJSON, &pageResp); err != nil {
+				continue
+			}
+			for _, t := range pageResp.Types {
+				allIDs = append(allIDs, t.ID)
+			}
+		}
+	}
+
+	s.logger.Printf("  📋 Found %d facility type IDs to fetch details for", len(allIDs))
+
+	// Create subdirectory for detail files
+	detailDir := filepath.Join(s.outputDir, "facility_details")
+	if err := os.MkdirAll(detailDir, 0755); err != nil {
+		return fmt.Errorf("failed to create facility_details directory: %w", err)
+	}
+
+	// Fetch details for each type, skipping ones that already exist on disk
+	fetched, skipped := 0, 0
+	for _, typeID := range allIDs {
+		detailPath := filepath.Join(detailDir, typeID+".json")
+		if _, err := os.Stat(detailPath); err == nil {
+			skipped++
+			continue
+		}
+
+		s.clearLastError()
+		if err := s.client.RawCommand(ctx, "facility", map[string]any{
+			"action":        "types",
+			"facility_type": typeID,
+		}); err != nil {
+			s.logger.Printf("  ⚠️  facility detail %s failed: %v", typeID, err)
+			continue
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		rawJSON := s.getRawJSON("_last")
+		if rawJSON == nil {
+			s.logger.Printf("  ⚠️  No data for facility detail %s", typeID)
+			continue
+		}
+
+		if err := s.saveJSONTo(detailPath, rawJSON); err != nil {
+			s.logger.Printf("  ⚠️  Failed to save %s: %v", typeID, err)
+			continue
+		}
+		fetched++
+		if fetched%50 == 0 {
+			s.logger.Printf("  📖 Fetched %d/%d details...", fetched, len(allIDs)-skipped)
+		}
+	}
+
+	s.logger.Printf("  📚 Facility details: %d fetched, %d skipped (already on disk)", fetched, skipped)
+	return nil
+}
+
+// saveJSONTo writes pretty-printed JSON to an absolute path.
+func (s *Scraper) saveJSONTo(path string, data []byte) error {
+	formatted, err := json.MarshalIndent(json.RawMessage(data), "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to format JSON: %w", err)
+	}
+	if err := os.WriteFile(path, formatted, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
 	return nil
 }
 
