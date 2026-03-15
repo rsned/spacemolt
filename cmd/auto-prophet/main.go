@@ -240,6 +240,7 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 		rivalsSeen     int
 		ministerEnd    time.Time
 		lastSermon     time.Time
+		nextSermonAt   time.Time // When the next periodic sermon should be delivered.
 	)
 
 	ticker := time.NewTicker(game.SleepTick)
@@ -340,8 +341,7 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 				}
 
 				// Deliver arrival sermon.
-				sermon := identity.Sermons[rand.IntN(len(identity.Sermons))]
-				if err := client.Chat(ctx, "system", sermon, ""); err != nil {
+				if err := pickAndSendSermon(client, ctx, "system", identity.Sermons, logger); err != nil {
 					logger.Printf("Chat error: %v", err)
 				} else {
 					sermonsGiven++
@@ -380,29 +380,32 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 					logger.Printf("RIVAL DETECTED: %s is in this system!", identity.RivalName)
 
 					// Fire off a counter-sermon.
-					counterSermon := identity.CounterSermons[rand.IntN(len(identity.CounterSermons))]
-					if err := client.Chat(ctx, "system", counterSermon, ""); err != nil {
+					if err := pickAndSendSermon(client, ctx, "system", identity.CounterSermons, logger); err != nil {
 						logger.Printf("Counter-sermon chat error: %v", err)
 					} else {
 						sermonsGiven++
 						lastSermon = time.Now()
+						nextSermonAt = time.Time{} // Reset so next periodic sermon gets a fresh interval.
 						logger.Printf("Delivered counter-sermon against %s (#%d)", identity.RivalName, sermonsGiven)
 					}
 					time.Sleep(game.SleepQuick)
 					continue
 				}
 
-				// Periodic sermons: preach every 5-10 minutes.
-				sermonInterval := 5*time.Minute + time.Duration(rand.IntN(600))*time.Second
-				logger.Printf("Preaching interval: %v",
-					sermonInterval.Round(time.Second))
-				if time.Since(lastSermon) >= sermonInterval {
-					sermon := identity.Sermons[rand.IntN(len(identity.Sermons))]
-					if err := client.Chat(ctx, "system", sermon, ""); err != nil {
+				// Periodic sermons: preach every 5-15 minutes.
+				// Schedule next sermon time once, after delivering a sermon.
+				if nextSermonAt.IsZero() {
+					sermonInterval := 5*time.Minute + time.Duration(rand.IntN(600))*time.Second
+					nextSermonAt = lastSermon.Add(sermonInterval)
+					logger.Printf("Next sermon in %v", time.Until(nextSermonAt).Round(time.Second))
+				}
+				if time.Now().After(nextSermonAt) {
+					if err := pickAndSendSermon(client, ctx, "system", identity.Sermons, logger); err != nil {
 						logger.Printf("Sermon chat error: %v", err)
 					} else {
 						sermonsGiven++
 						lastSermon = time.Now()
+						nextSermonAt = time.Time{} // Reset so a new interval is picked next tick.
 						logger.Printf("Delivered sermon (#%d) — %d players nearby", sermonsGiven, len(nearby))
 					}
 					time.Sleep(game.SleepQuick)
@@ -487,6 +490,70 @@ func checkSurvival(client game.GameClient, ctx context.Context, logger *log.Logg
 	}
 
 	return refuelAndRepair(client, ctx, logger)
+}
+
+// maxChatLen is the server's maximum chat message length.
+const maxChatLen = 500
+
+// sendSermon sends a sermon via chat, splitting into multiple messages if it
+// exceeds the server's 500-character limit. Splits on sentence boundaries.
+func sendSermon(client game.GameClient, ctx context.Context, channel, sermon string) error {
+	if len(sermon) <= maxChatLen {
+		return client.Chat(ctx, channel, sermon, "")
+	}
+
+	// Split into chunks at sentence boundaries (". ") that fit within the limit.
+	remaining := sermon
+	for remaining != "" {
+		chunk := remaining
+		if len(chunk) > maxChatLen {
+			// Find the last sentence boundary within the limit.
+			cut := strings.LastIndex(chunk[:maxChatLen], ". ")
+			if cut <= 0 {
+				// No sentence boundary — fall back to last space.
+				cut = strings.LastIndex(chunk[:maxChatLen], " ")
+			}
+			if cut <= 0 {
+				// No space at all — hard cut.
+				cut = maxChatLen - 1
+			}
+			chunk = remaining[:cut+1]
+		}
+		if err := client.Chat(ctx, channel, strings.TrimSpace(chunk), ""); err != nil {
+			return err
+		}
+		remaining = strings.TrimSpace(remaining[len(chunk):])
+		if remaining != "" {
+			time.Sleep(game.SleepQuick)
+		}
+	}
+	return nil
+}
+
+// pickAndSendSermon picks a random sermon from the pool and sends it.
+// On duplicate_message errors, it retries with a different sermon up to 3 times.
+func pickAndSendSermon(client game.GameClient, ctx context.Context, channel string, pool []string, logger *log.Logger) error {
+	tried := make(map[int]bool)
+	for range 3 {
+		idx := rand.IntN(len(pool))
+		// Avoid retrying the same sermon.
+		for tried[idx] && len(tried) < len(pool) {
+			idx = rand.IntN(len(pool))
+		}
+		tried[idx] = true
+
+		err := sendSermon(client, ctx, channel, pool[idx])
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(err.Error(), "duplicate_message") {
+			logger.Printf("Duplicate sermon, picking another...")
+			time.Sleep(game.SleepQuick)
+			continue
+		}
+		return err
+	}
+	return fmt.Errorf("all sermon attempts were duplicates")
 }
 
 // refuelAndRepair handles refueling and repairs when docked.

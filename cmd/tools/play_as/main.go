@@ -17,10 +17,12 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // Output format for server responses.
@@ -77,7 +79,7 @@ func main() {
 	cfg := loadConfig(*configPath)
 
 	// Run REPL loop
-	runREPL(client, ctx, cfg, agentID)
+	runREPL(client, ctx, cfg, agentID, creds.Username)
 }
 
 func printUsage() {
@@ -91,11 +93,16 @@ func printUsage() {
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
 
-func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agentID string) {
+func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agentID, username string) {
 	line := liner.NewLiner()
 	defer func() { _ = line.Close() }()
 
 	line.SetCtrlCAborts(true)
+
+	// Start background chat poller to display incoming messages.
+	poller := newChatPoller(client, ctx, username)
+	poller.start()
+	defer poller.stop()
 
 	format := outputFormat(cfg.OutputFormat)
 
@@ -1911,6 +1918,39 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.RawCommand(ctx, "facility", payload)
 		}, ctx, 5*time.Second, cmd, format)
 
+	// === APPEARANCE ===
+	case "set_colors":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: set_colors <primary-hex> <secondary-hex>  (e.g. set_colors #FF0000 #00FFFF)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "set_colors", map[string]any{
+				"primary_color":   parts[1],
+				"secondary_color": parts[2],
+			})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "set_anonymous":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: set_anonymous <true|false>")
+		}
+		anon := strings.EqualFold(parts[1], "true") || parts[1] == "1"
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "set_anonymous", map[string]any{
+				"anonymous": anon,
+			})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "set_status":
+		// Usage: set_status --status_message "text" [--clan_tag "TAG"]
+		payload := parseFlagArgs(parts[1:], "status_message", "clan_tag")
+		if len(payload) == 0 {
+			return fmt.Errorf("usage: set_status --status_message \"text\" [--clan_tag \"TAG\"]")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "set_status", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.
 		args := make(map[string]any)
@@ -2280,4 +2320,118 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("📝 All commands are case-insensitive")
 	fmt.Println()
+}
+
+// chatPoller periodically polls chat channels and prints new messages.
+type chatPoller struct {
+	client   game.GameClient
+	ctx      context.Context
+	cancel   context.CancelFunc
+	seen     map[string]bool // Message IDs already displayed.
+	mu       sync.Mutex
+	username string // Our own username, to skip own messages.
+}
+
+// chatChannels are the channels to poll. Private is omitted since it requires a target_id.
+var chatChannels = []string{"system", "local", "faction"}
+
+// channelColors maps channel names to ANSI color codes for display.
+var channelColors = map[string]string{
+	"system":  "\033[36m",  // cyan
+	"local":   "\033[33m",  // yellow
+	"faction": "\033[35m",  // magenta
+	"private": "\033[32m",  // green
+}
+
+func newChatPoller(client game.GameClient, ctx context.Context, username string) *chatPoller {
+	pollCtx, cancel := context.WithCancel(ctx)
+	return &chatPoller{
+		client:   client,
+		ctx:      pollCtx,
+		cancel:   cancel,
+		seen:     make(map[string]bool),
+		username: username,
+	}
+}
+
+func (cp *chatPoller) start() {
+	// Seed seen messages so we don't replay history on startup.
+	cp.seedSeen()
+
+	go func() {
+		ticker := time.NewTicker(game.SleepTick)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cp.ctx.Done():
+				return
+			case <-ticker.C:
+				cp.poll()
+			}
+		}
+	}()
+}
+
+func (cp *chatPoller) stop() {
+	cp.cancel()
+}
+
+// seedSeen fetches current history for each channel and marks all messages as seen.
+func (cp *chatPoller) seedSeen() {
+	for _, ch := range chatChannels {
+		msgs := cp.fetchMessages(ch)
+		cp.mu.Lock()
+		for _, m := range msgs {
+			cp.seen[m.ID] = true
+		}
+		cp.mu.Unlock()
+	}
+}
+
+// poll fetches new messages from all channels and prints them.
+func (cp *chatPoller) poll() {
+	for _, ch := range chatChannels {
+		msgs := cp.fetchMessages(ch)
+		if len(msgs) == 0 {
+			continue
+		}
+
+		// Messages come newest-first; reverse to print chronologically.
+		slices.Reverse(msgs)
+
+		cp.mu.Lock()
+		for _, m := range msgs {
+			if cp.seen[m.ID] {
+				continue
+			}
+			cp.seen[m.ID] = true
+
+			// Skip our own messages.
+			if strings.EqualFold(m.Sender, cp.username) {
+				continue
+			}
+
+			color := channelColors[ch]
+			reset := "\033[0m"
+			fmt.Printf("\r%s[%s]%s %s: %s\n", color, ch, reset, m.Sender, m.Content)
+		}
+		cp.mu.Unlock()
+	}
+}
+
+func (cp *chatPoller) fetchMessages(channel string) []serverapi.ChatMessage {
+	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 20}); err != nil {
+		return nil
+	}
+	raw := cp.client.GetRawJSON("_last")
+	if len(raw) == 0 {
+		return nil
+	}
+	var resp struct {
+		Messages []serverapi.ChatMessage `json:"messages"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil
+	}
+	return resp.Messages
 }
