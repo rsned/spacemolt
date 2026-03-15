@@ -172,7 +172,7 @@ func main() {
 	switch *transport {
 	case "mcp":
 		logger.Printf("Using MCP transport")
-		mcpClient, mcpCreds, mcpErr := game.InitializeMCPAgent(agentID, logger, ctx, *debug, false)
+		mcpClient, mcpCreds, mcpErr := game.InitializeMCPAgent(agentID, logger, ctx, *debug, true) // disablePolling=true for sequential scraping
 		if mcpErr != nil {
 			logger.Fatalf("MCP initialization failed: %v", mcpErr)
 		}
