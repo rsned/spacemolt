@@ -300,6 +300,8 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 					continue
 				}
 				targetSystem = target.SystemID
+				// For now, don't bother jumping and traveling across the galaxy.
+				targetSystem = state.System.ID
 				logger.Printf("Target: %s (%s) — %d players online", target.Name, target.SystemID, target.Online)
 
 				// Navigate to the target system (NavigateToSystem handles undocking internally).
@@ -348,8 +350,8 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 				}
 				time.Sleep(game.SleepQuick)
 
-				// Set up minister phase duration: 5-30 minutes.
-				ministerDuration := 5*time.Minute + time.Duration(rand.IntN(1800))*time.Second
+				// Set up minister phase duration: 15-45 minutes.
+				ministerDuration := 15*time.Minute + time.Duration(rand.IntN(1800))*time.Second
 				ministerEnd = time.Now().Add(ministerDuration)
 				logger.Printf("Ministering for %s...", ministerDuration.Round(time.Second))
 
@@ -390,8 +392,10 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 					continue
 				}
 
-				// Periodic sermons: preach every 5-30 minutes.
-				sermonInterval := 5*time.Minute + time.Duration(rand.IntN(1080))*time.Second
+				// Periodic sermons: preach every 5-10 minutes.
+				sermonInterval := 5*time.Minute + time.Duration(rand.IntN(600))*time.Second
+				logger.Printf("Preaching interval: %v",
+					sermonInterval.Round(time.Second))
 				if time.Since(lastSermon) >= sermonInterval {
 					sermon := identity.Sermons[rand.IntN(len(identity.Sermons))]
 					if err := client.Chat(ctx, "system", sermon, ""); err != nil {
