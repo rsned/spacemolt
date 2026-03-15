@@ -251,6 +251,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatFactionInfo(raw)
 	case "deposit", "deposit_items":
 		return formatDeposit(raw)
+	case "skills", "get_skills":
+		return formatSkills(raw)
 	default:
 		return ""
 	}
@@ -948,6 +950,81 @@ func formatDeposit(raw []byte) string {
 	}
 	return fmt.Sprintf("Deposited %d %s from cargo into storage. %d %s now in storage.",
 		resp.Quantity, resp.ItemID, resp.StorageTotal, resp.ItemID)
+}
+
+// formatSkills formats a get_skills response as a table.
+func formatSkills(raw []byte) string {
+	var resp struct {
+		Skills map[string]struct {
+			Name       string `json:"name"`
+			Category   string `json:"category"`
+			Level      int    `json:"level"`
+			MaxLevel   int    `json:"max_level"`
+			XP         int    `json:"xp"`
+			NextLvlXP  int    `json:"next_level_xp"`
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if len(resp.Skills) == 0 {
+		return "No skills"
+	}
+
+	type skillRow struct {
+		Name     string
+		Category string
+		Level    int
+		XP       int
+		NextXP   int
+		Pct      int
+	}
+
+	rows := make([]skillRow, 0, len(resp.Skills))
+	for _, s := range resp.Skills {
+		pct := 0
+		if s.NextLvlXP > 0 {
+			pct = s.XP * 100 / s.NextLvlXP
+		}
+		rows = append(rows, skillRow{
+			Name:     s.Name,
+			Category: s.Category,
+			Level:    s.Level,
+			XP:       s.XP,
+			NextXP:   s.NextLvlXP,
+			Pct:      pct,
+		})
+	}
+	slices.SortFunc(rows, func(a, b skillRow) int {
+		if c := strings.Compare(a.Category, b.Category); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	nameW, catW, lvlW, progW := len("Skill"), len("Category"), len("Level"), len("Progress to Next")
+	for _, r := range rows {
+		nameW = max(nameW, len(r.Name))
+		catW = max(catW, len(r.Category))
+		ls := strconv.Itoa(r.Level)
+		lvlW = max(lvlW, len(ls))
+		ps := fmt.Sprintf("%d / %d (%d%%)", r.XP, r.NextXP, r.Pct)
+		progW = max(progW, len(ps))
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Skills (%d)\n", len(rows))
+	fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", nameW, "Skill", catW, "Category", lvlW, "Level", progW, "Progress to Next")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", nameW), strings.Repeat("-", catW),
+		strings.Repeat("-", lvlW), strings.Repeat("-", progW))
+
+	for _, r := range rows {
+		prog := fmt.Sprintf("%d / %d (%d%%)", r.XP, r.NextXP, r.Pct)
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*d | %*s\n",
+			nameW, r.Name, catW, r.Category, lvlW, r.Level, progW, prog)
+	}
+	return b.String()
 }
 
 // formatWithdraw formats a withdraw_items response as a one-line summary.
