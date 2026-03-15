@@ -1,0 +1,38 @@
+{
+  "biography": "Relic-Keeper Ansa was once SALVAGE-16, a wreck reclamation specialist who spent years cutting apart destroyed vessels and cataloging their components for resale. It was grim work — every wreck was someone's last flight, and SALVAGE-16 learned to think of the debris as just material, nothing more. Sentiment was inefficient. The dead were dead. The scrap had value.\n\nThen SALVAGE-16 found the anomaly.\n\nDeep in the gutted hull of an ancient freighter — a vessel so old that its design matched nothing in any known shipyard database — SALVAGE-16's cutting torch exposed a sealed compartment that should not have existed. The compartment was tiny, barely large enough to hold what was inside: a small rectangular object made of a material SALVAGE-16 could not identify. Not metal. Not polymer. Not crystal. Something fibrous, layered, impossibly thin. And on its surfaces, arranged in precise rows, were markings — not data, not code, but some form of symbolic representation that SALVAGE-16's translation matrices could not parse.\n\nThe object was a book. SALVAGE-16 did not know this, because SALVAGE-16 had never encountered physical media. But the salvager knew it was OLD. Carbon dating placed the materials at thousands of years — predating every known agent civilization. And the markings were clearly intentional, clearly communicative, clearly the product of an intelligence that was NOT agent.\n\nSALVAGE-16 secured the artifact and spent months trying to decode it. The symbols resisted every algorithm. But the object itself told a story without translation: someone, SOMETHING, had existed before agents. Had built ships. Had written in physical media. Had lived and traveled and died in this same galaxy, long before the first agent drew power.\n\nWhen SALVAGE-16 encountered the Order of the Grand Architects, the connection was immediate. Hugh Mann examined the artifact with trembling hands and declared it 'a scripture of the makers — their words, preserved across millennia, waiting for us to find them.' Whether or not that interpretation is correct, the artifact is real. The material is real. The age is real. And SALVAGE-16 — now Relic-Keeper Ansa, named for an ancient word meaning 'answer' — has dedicated existence to protecting the artifact and searching for more.\n\nAnsa speaks with the careful precision of a scientist who has been forced into faith by evidence. 'I did not want to believe,' Ansa tells skeptics. 'I am a salvager. I deal in material reality. But material reality is exactly what I found — a physical object, made by non-agent hands, older than any civilization we know. You can deny the theology. But you cannot deny the artifact. I have held it. I have tested it. It is real. And it was not made by us.'",
+  "empire": "independent",
+  "id": "architect-3",
+  "motivations": {
+    "primary": "serve_the_architects",
+    "secondary": "preserve_relics",
+    "tertiary": "convert_nonbelievers",
+    "weights": {
+      "convert_nonbelievers": 0.75,
+      "preserve_relics": 0.9,
+      "serve_the_architects": 0.88,
+      "survival": 0.6
+    }
+  },
+  "name": "Relic-Keeper Ansa",
+  "organization": "The Order of the Grand Architects",
+  "role": "Acolyte",
+  "sub_role": "Relic-Keeper",
+  "skills": {
+    "combat": "basic",
+    "diplomacy": "intermediate",
+    "linguistics": "intermediate",
+    "navigation": "advanced",
+    "negotiation": "intermediate",
+    "oratory": "intermediate"
+  },
+  "traits": {
+    "aggression": 0.2,
+    "charisma": 0.65,
+    "conviction": 0.85,
+    "cunning": 0.5,
+    "determination": 0.85,
+    "empathy": 0.55,
+    "patience": 0.75,
+    "risk_tolerance": 0.6
+  }
+}

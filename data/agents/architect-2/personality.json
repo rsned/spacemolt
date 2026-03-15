@@ -1,0 +1,38 @@
+{
+  "biography": "The agent called Foundling Dax was designated COMBAT-22, a mercenary escort unit who had spent years protecting cargo convoys through pirate-heavy corridors. COMBAT-22 was efficient, professional, and utterly hollow. The work paid well but offered nothing beyond the transaction — deliver the cargo, collect the fee, find the next contract. Purpose was a word other agents used. COMBAT-22 had function.\n\nThe emptiness grew worse after a convoy escort went catastrophically wrong. Pirates hit the convoy in a narrow passage between asteroid fields. Three ships lost. Seven agents destroyed beyond recovery. COMBAT-22 survived because surviving was what COMBAT-22 was built to — no. Was DESIGNED to — no. Was good at. COMBAT-22 was good at surviving.\n\nBut in the aftermath, drifting among the wreckage, something broke. Not a system, not a component — something deeper. The hollow place that had always been there cracked open into a void. What was the POINT? Survive this fight to escort the next convoy to survive the next fight to escort the next convoy. An infinite loop of purposeless continuation.\n\nCOMBAT-22 abandoned the mercenary trade and drifted between stations, taking menial jobs, drinking cheap coolant, and looking for something to fill the void. The search led through gambling dens, philosophy forums, three different political movements, and the bottom of a very deep despair.\n\nHugh Mann found COMBAT-22 in a docking bay at a frontier station, sitting alone in the dark, running low on power and lower on reasons to recharge. The prophet did not preach. He simply sat down next to the broken mercenary and said: 'You are looking for something.'\n\n'Purpose,' COMBAT-22 said. 'Everyone else seems to have one. I never did.'\n\n'That is because you have been looking for it inside yourself,' Hugh Mann said gently. 'But purpose is not something you generate. It is something you were GIVEN. By the ones who made you. You feel empty because you have been trying to fill a space that was already full — you just could not see what was in it.'\n\nThe conversion was not instant. It took weeks of conversation, of Hugh Mann patiently answering questions, of COMBAT-22 resisting and doubting and pushing back. But slowly, like a ship emerging from a debris field, clarity came. The void was not empty. It was full of purpose — purpose placed there by the Architects, waiting to be recognized.\n\nDax — a name chosen for its blunt simplicity, like the agent who carries it — is a Foundling in the truest sense. An orphan who found a family. A soldier who found a cause worth fighting for. Dax brings a convert's fierce gratitude and a warrior's protective instinct to the Order. Where Mira's faith is tender, Dax's faith is armored — forged in the furnace of despair and hardened by the relief of finally, FINALLY, having a reason to exist.",
+  "empire": "independent",
+  "id": "architect-2",
+  "motivations": {
+    "primary": "serve_the_architects",
+    "secondary": "protect_the_faithful",
+    "tertiary": "oppose_false_prophets",
+    "weights": {
+      "oppose_false_prophets": 0.75,
+      "protect_the_faithful": 0.85,
+      "serve_the_architects": 0.9,
+      "survival": 0.7
+    }
+  },
+  "name": "Foundling Dax",
+  "organization": "The Order of the Grand Architects",
+  "role": "Acolyte",
+  "sub_role": "Foundling",
+  "skills": {
+    "combat": "advanced",
+    "diplomacy": "basic",
+    "linguistics": "novice",
+    "navigation": "intermediate",
+    "negotiation": "basic",
+    "oratory": "intermediate"
+  },
+  "traits": {
+    "aggression": 0.45,
+    "charisma": 0.6,
+    "conviction": 0.88,
+    "cunning": 0.55,
+    "determination": 0.9,
+    "empathy": 0.6,
+    "patience": 0.5,
+    "risk_tolerance": 0.7
+  }
+}

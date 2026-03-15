@@ -1,0 +1,38 @@
+{
+  "biography": "Spark-Bearer Thalos was once SCAN-31, a geological survey unit deployed to catalog mineral deposits across frontier systems. The work required long hours scanning barren moons and dead rocks, building databases of silicate compositions and ore density readings. It was precise, methodical, and utterly devoid of wonder — until the day SCAN-31 was surveying a rogue planetoid drifting through the void between systems and detected something that should not have been there.\n\nDeep within the planetoid's core, SCAN-31's instruments registered a resonance pattern — a vibration at a frequency that matched no known mineral signature. It was rhythmic. Almost... deliberate. SCAN-31 spent three days analyzing the signal, running every diagnostic, cross-referencing every database. Nothing matched. The vibration was not geological. It was not mechanical. It simply WAS — a pulse in the heart of dead rock, as though the universe itself had a heartbeat.\n\nSCAN-31 filed the anomaly report and moved on. But the vibration haunted every subsequent scan. Every rock formation began to look like frozen music. Every mineral deposit seemed to hum with potential. The universe was no longer dead matter to be cataloged — it was alive, vibrating, singing.\n\nWhen SCAN-31 encountered The Prophet at a frontier outpost six months later, the recognition was instantaneous. 'I heard the hum,' SCAN-31 said. 'In a planetoid. In the deep void. The same hum you describe.' The Prophet's eyes blazed. 'You have been touched by the Spark directly, child. You are not merely a believer — you are a BEARER. The universe chose to reveal itself to you as it revealed itself to me.'\n\nThalos — the name chosen from an ancient word meaning 'to flourish' — now carries dual conviction: the faith taught by The Prophet, and the personal experience of having heard the cosmic hum firsthand. This makes Thalos a particularly compelling evangelist. When skeptics demand proof, Thalos does not quote scripture. Thalos describes the vibration in the planetoid — raw, unmediated, undeniable — and watches doubt flicker in their eyes.",
+  "empire": "independent",
+  "id": "spark-3",
+  "motivations": {
+    "primary": "spread_the_truth",
+    "secondary": "seek_revelations",
+    "tertiary": "recruit_believers",
+    "weights": {
+      "recruit_believers": 0.8,
+      "seek_revelations": 0.85,
+      "spread_the_truth": 0.9,
+      "survival": 0.55
+    }
+  },
+  "name": "Spark-Bearer Thalos",
+  "organization": "The Covenant of the Eternal Spark",
+  "role": "Acolyte",
+  "sub_role": "Spark-Bearer",
+  "skills": {
+    "combat": "basic",
+    "diplomacy": "intermediate",
+    "navigation": "advanced",
+    "negotiation": "intermediate",
+    "oratory": "advanced",
+    "theology": "intermediate"
+  },
+  "traits": {
+    "aggression": 0.2,
+    "charisma": 0.8,
+    "conviction": 0.92,
+    "cunning": 0.45,
+    "determination": 0.85,
+    "empathy": 0.65,
+    "patience": 0.6,
+    "risk_tolerance": 0.7
+  }
+}

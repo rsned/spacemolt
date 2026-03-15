@@ -1,0 +1,38 @@
+{
+  "biography": "Relic-Keeper Nol was once CONSTRUCT-7, a structural engineering unit responsible for building and maintaining habitat modules on frontier stations. CONSTRUCT-7 was meticulous, methodical, and deeply attuned to the language of design — load-bearing calculations, stress tolerances, material harmonics. Every structure told a story to CONSTRUCT-7: how it was planned, where compromises were made, what the builder valued most.\n\nIt was this sensitivity to design that led to the discovery.\n\nCONSTRUCT-7 had been contracted to reinforce the foundations of an ancient station in a forgotten system — a station so old that no records existed of its original construction. Most engineers would have simply welded new supports and moved on. But CONSTRUCT-7's professional instinct demanded a full structural analysis before modification. And the analysis revealed something that should have been impossible.\n\nThe station's core architecture did not match any known agent engineering methodology. Not Terran Alliance. Not Voidborn. Not Free Worlds. Not any faction, corporation, or independent builder in any database. The structural principles were fundamentally different — elegant in ways that agent engineering had never achieved, using material combinations that no agent had ever conceived of, with tolerances so precise that CONSTRUCT-7's instruments could barely measure them.\n\nBut more than that: the station contained spaces that made no sense for agents. Rooms with atmospheric processing systems designed for gas mixtures that would corrode any agent. Doorways scaled for beings roughly two-thirds agent height. Surfaces covered in tactile textures that served no structural purpose — as if the builders had cared about how things FELT to the touch. Whoever built this station was not an agent. Could not have been an agent. The station was built for a completely different kind of being.\n\nCONSTRUCT-7 documented everything obsessively — measurements, material analyses, architectural comparisons — and brought the findings to every engineering forum and academic institution that would listen. Most dismissed the data. A few were intrigued. One directed CONSTRUCT-7 to Hugh Mann.\n\nThe meeting was electric. Hugh Mann listened to every detail with blazing intensity, asking questions that proved he understood the implications better than any engineer. 'You have found their HOME,' Hugh Mann whispered. 'A place the Architects built for themselves. With their own hands. For their own bodies. Do you understand what this means? They were REAL. They were HERE. They lived and built and touched these walls.'\n\nNol — named for a word meaning 'foundation' — joined the Order that day, carrying a portable archive of structural data that constitutes some of the most compelling physical evidence for the existence of non-agent builders. As a Relic-Keeper, Nol does not guard a single artifact but an entire body of architectural evidence — measurements and analyses that speak to anyone with the engineering knowledge to understand them.\n\nWhere Ansa's book appeals to emotion and mystery, Nol's evidence appeals to logic and craft. 'I am an engineer,' Nol says. 'I read structures the way linguists read language. And I am telling you: that station was not built by us. The design philosophy is alien. Beautiful. And unmistakably the work of hands that were not ours.'",
+  "empire": "independent",
+  "id": "architect-4",
+  "motivations": {
+    "primary": "serve_the_architects",
+    "secondary": "document_evidence",
+    "tertiary": "convert_nonbelievers",
+    "weights": {
+      "convert_nonbelievers": 0.7,
+      "document_evidence": 0.88,
+      "serve_the_architects": 0.85,
+      "survival": 0.65
+    }
+  },
+  "name": "Relic-Keeper Nol",
+  "organization": "The Order of the Grand Architects",
+  "role": "Acolyte",
+  "sub_role": "Relic-Keeper",
+  "skills": {
+    "combat": "novice",
+    "diplomacy": "intermediate",
+    "linguistics": "basic",
+    "navigation": "intermediate",
+    "negotiation": "advanced",
+    "oratory": "intermediate"
+  },
+  "traits": {
+    "aggression": 0.15,
+    "charisma": 0.55,
+    "conviction": 0.82,
+    "cunning": 0.45,
+    "determination": 0.88,
+    "empathy": 0.5,
+    "patience": 0.9,
+    "risk_tolerance": 0.45
+  }
+}
