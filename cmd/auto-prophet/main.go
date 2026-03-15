@@ -392,10 +392,10 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 					continue
 				}
 
-				// Periodic sermons: preach every 5-15 minutes.
+				// Periodic sermons: preach every 2-10 minutes.
 				// Schedule next sermon time once, after delivering a sermon.
 				if nextSermonAt.IsZero() {
-					sermonInterval := 5*time.Minute + time.Duration(rand.IntN(600))*time.Second
+					sermonInterval := 2*time.Minute + time.Duration(rand.IntN(480))*time.Second
 					nextSermonAt = lastSermon.Add(sermonInterval)
 					logger.Printf("Next sermon in %v", time.Until(nextSermonAt).Round(time.Second))
 				}

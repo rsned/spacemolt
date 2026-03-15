@@ -232,7 +232,7 @@ func printUsage() {
 	fmt.Println("  system       - System Data")
 	fmt.Println("  map          - Map Data")
 	fmt.Println("  listings     - Market Listings")
-	fmt.Println("  ships        - Shipyard Showroom (station)")
+	fmt.Println("  ships        - Ships for sale (browse_ships)")
 	fmt.Println("  ship_catalog - Ship Catalog (all ship types)")
 	fmt.Println("  nearby       - Nearby Players")
 	fmt.Println("  skill_defs   - Skill Definitions (catalog)")
@@ -279,7 +279,7 @@ func (s *Scraper) scrapeAll() error {
 		{"System Data", s.scrapeSystem},
 		{"Map Data", s.scrapeMap},
 		{"Market Listings", s.scrapeListings},
-		{"Shipyard Showroom", s.scrapeShips},
+		{"Ships For Sale", s.scrapeShips},
 		{"Ship Catalog", s.scrapeShipCatalog},
 		{"Nearby Players", s.scrapeNearby},
 		{"Skill Definitions", s.scrapeSkillDefinitions},
@@ -337,7 +337,7 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"system":          {"System Data", s.scrapeSystem},
 		"map":             {"Map Data", s.scrapeMap},
 		"listings":        {"Market Listings", s.scrapeListings},
-		"ships":           {"Shipyard Showroom", s.scrapeShips},
+		"ships":              {"Ships For Sale", s.scrapeShips},
 		"ship_catalog":    {"Ship Catalog", s.scrapeShipCatalog},
 		"nearby":          {"Nearby Players", s.scrapeNearby},
 		"skill_defs":      {"Skill Definitions", s.scrapeSkillDefinitions},
@@ -493,7 +493,9 @@ func (s *Scraper) scrapeStorage() error {
 }
 
 func (s *Scraper) scrapeShips() error {
-	return s.scrapeSimple(s.client.ShipyardShowroom, "shipyard", "get_ships.json", "shipyard_showroom", 2*time.Second)
+	return s.scrapeSimple(func(ctx context.Context) error {
+		return s.client.BrowseShips(ctx, nil)
+	}, "_last", "browse_ships.json", "browse_ships", 2*time.Second)
 }
 
 func (s *Scraper) scrapeMarket() error {

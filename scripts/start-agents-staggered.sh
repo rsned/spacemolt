@@ -171,7 +171,7 @@ for batch in "${BATCHES[@]}"; do
             SHOW_STRATEGY=" (strategy: $STRATEGY_ARG)"
         fi
 
-        (cd "$SCRIPT_DIR/.." && ./bin/$binary $AGENT_ARGS > logs/$agent.log 2>&1 &)
+        (cd "$SCRIPT_DIR/.." && ./bin/$binary --transport=mcp $AGENT_ARGS > logs/$agent.log 2>&1 &)
         echo "  ✓ Started $agent with $binary$SHOW_STRATEGY"
         TOTAL_STARTED=$((TOTAL_STARTED + 1))
 
