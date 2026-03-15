@@ -265,7 +265,13 @@ func findFieldChanges(id string, oldItem, newItem map[string]any) []Change {
 	for key, newVal := range newItem {
 		oldVal, exists := oldItem[key]
 		if !exists {
-			// New field added - we could track this, but let's focus on changed values
+			// Field added in new version
+			changes = append(changes, Change{
+				ID:     id,
+				Field:  key,
+				OldVal: nil,
+				NewVal: newVal,
+			})
 			continue
 		}
 
@@ -279,6 +285,18 @@ func findFieldChanges(id string, oldItem, newItem map[string]any) []Change {
 				Field:  key,
 				OldVal: oldVal,
 				NewVal: newVal,
+			})
+		}
+	}
+
+	// Check for fields dropped in new version
+	for key, oldVal := range oldItem {
+		if _, exists := newItem[key]; !exists {
+			changes = append(changes, Change{
+				ID:     id,
+				Field:  key,
+				OldVal: oldVal,
+				NewVal: nil,
 			})
 		}
 	}
@@ -454,12 +472,24 @@ func printResults(result *DiffResult, logger *log.Logger) {
 		for _, change := range result.Changes {
 			changesByItem[change.ID] = append(changesByItem[change.ID], change)
 		}
-		for id, changes := range changesByItem {
+		ids := make([]string, 0, len(changesByItem))
+		for id := range changesByItem {
+			ids = append(ids, id)
+		}
+		slices.Sort(ids)
+		for _, id := range ids {
 			fmt.Printf("  • %s\n", id)
-			for _, change := range changes {
-				fmt.Printf("    %s:\n", change.Field)
-				fmt.Printf("      - %v\n", change.OldVal)
-				fmt.Printf("      + %v\n", change.NewVal)
+			for _, change := range changesByItem[id] {
+				switch {
+				case change.OldVal == nil:
+					fmt.Printf("    %s+ %s: %v%s\n", colorGreen, change.Field, change.NewVal, colorReset)
+				case change.NewVal == nil:
+					fmt.Printf("    %s- %s: %v%s\n", colorRed, change.Field, change.OldVal, colorReset)
+				default:
+					fmt.Printf("    %s:\n", change.Field)
+					fmt.Printf("      - %v\n", change.OldVal)
+					fmt.Printf("      + %v\n", change.NewVal)
+				}
 			}
 		}
 	}
