@@ -299,8 +299,8 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 					logger.Printf("Failed to find populated system: %v", err)
 					continue
 				}
-				targetSystem = target.SystemID
 				// For now, don't bother jumping and traveling across the galaxy.
+				// targetSystem = target.SystemID
 				targetSystem = state.System.ID
 				logger.Printf("Target: %s (%s) — %d players online", target.Name, target.SystemID, target.Online)
 
