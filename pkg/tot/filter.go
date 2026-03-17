@@ -3,7 +3,7 @@ package tot
 import "github.com/rsned/spacemolt/pkg/game"
 
 // ValidActions returns the set of actions that are valid for the current game state.
-// Actions are split into docked/space context and always-available query actions.
+// Action names MUST match the cases in pkg/agent/runner.go executeDecision().
 func ValidActions(state *game.State) []ActionOption {
 	var actions []ActionOption
 	if state.Doc {
@@ -19,19 +19,14 @@ func ValidActions(state *game.State) []ActionOption {
 func dockedActions(state *game.State) []ActionOption {
 	actions := []ActionOption{
 		{Action: "undock", Description: "Undock and return to space"},
-		{Action: "view_market", Description: "View the market listings at this station"},
+		{Action: "get_listings", Description: "View the market listings at this station"},
 		{Action: "buy", Description: "Buy items from the market"},
-		{Action: "sell", Description: "Sell items to the market"},
-		{Action: "sell_all", Description: "Sell all cargo to the market"},
+		{Action: "sell", Description: "Sell items from cargo"},
 		{Action: "view_storage", Description: "View items in station storage"},
-		{Action: "deposit_credits", Description: "Deposit credits into station storage"},
 		{Action: "withdraw_items", Description: "Withdraw items from station storage"},
-		{Action: "list_ships", Description: "List all owned ships"},
-		{Action: "switch_ship", Description: "Switch to a different owned ship"},
+		{Action: "deposit_items", Description: "Deposit items into station storage"},
 		{Action: "get_recipes", Description: "View available crafting recipes"},
 		{Action: "craft", Description: "Craft items using available recipes"},
-		{Action: "get_missions", Description: "View available missions"},
-		{Action: "complete_mission", Description: "Complete an accepted mission"},
 	}
 
 	if state.Ship.Hull < state.Ship.MaxHull {
@@ -110,8 +105,6 @@ func spaceActions(state *game.State) []ActionOption {
 		actions = append(actions,
 			ActionOption{Action: "battle_advance", Description: "Advance toward the enemy in battle"},
 			ActionOption{Action: "battle_retreat", Description: "Retreat from the enemy in battle"},
-			ActionOption{Action: "battle_stance", Description: "Change combat stance"},
-			ActionOption{Action: "battle_target", Description: "Select a battle target"},
 		)
 	}
 
@@ -125,7 +118,6 @@ func queryActions() []ActionOption {
 		{Action: "get_system", Description: "Get information about the current system"},
 		{Action: "get_cargo", Description: "View current cargo hold contents"},
 		{Action: "get_skills", Description: "View player skills and XP progress"},
-		{Action: "get_map", Description: "View the galaxy map"},
 		{Action: "get_nearby", Description: "List nearby players and objects"},
 	}
 }

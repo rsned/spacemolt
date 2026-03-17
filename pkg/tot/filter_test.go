@@ -32,10 +32,9 @@ func TestValidActions_Docked(t *testing.T) {
 
 	// Docked actions should be present.
 	dockedExpected := []string{
-		"undock", "view_market", "buy", "sell", "sell_all",
-		"view_storage", "deposit_credits", "withdraw_items",
-		"list_ships", "switch_ship", "get_recipes", "craft",
-		"get_missions", "complete_mission",
+		"undock", "get_listings", "buy", "sell",
+		"view_storage", "deposit_items", "withdraw_items",
+		"get_recipes", "craft",
 	}
 	for _, a := range dockedExpected {
 		if !set[a] {
@@ -154,8 +153,8 @@ func TestValidActions_InSpace(t *testing.T) {
 	if set["undock"] {
 		t.Error("undock should not be present in space")
 	}
-	if set["view_market"] {
-		t.Error("view_market should not be present in space")
+	if set["get_listings"] {
+		t.Error("get_listings should not be present in space")
 	}
 }
 
@@ -205,7 +204,7 @@ func TestValidActions_InCombat(t *testing.T) {
 	set := actionSet(actions)
 
 	// Combat actions should be present.
-	combatActions := []string{"battle_advance", "battle_retreat", "battle_stance", "battle_target"}
+	combatActions := []string{"battle_advance", "battle_retreat"}
 	for _, a := range combatActions {
 		if !set[a] {
 			t.Errorf("expected combat action %q to be present when in combat", a)
@@ -222,7 +221,7 @@ func TestValidActions_NotInCombat_NoBattleActions(t *testing.T) {
 	actions := ValidActions(state)
 	set := actionSet(actions)
 
-	combatActions := []string{"battle_advance", "battle_retreat", "battle_stance", "battle_target"}
+	combatActions := []string{"battle_advance", "battle_retreat"}
 	for _, a := range combatActions {
 		if set[a] {
 			t.Errorf("combat action %q should not be present when not in combat", a)
@@ -232,7 +231,7 @@ func TestValidActions_NotInCombat_NoBattleActions(t *testing.T) {
 
 func TestValidActions_AlwaysIncludesQueries(t *testing.T) {
 	queryActions := []string{
-		"get_status", "get_system", "get_cargo", "get_skills", "get_map", "get_nearby",
+		"get_status", "get_system", "get_cargo", "get_skills", "get_nearby",
 	}
 
 	// Test in docked state.
