@@ -20,6 +20,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
 	"github.com/rsned/spacemolt/pkg/registry"
+	"github.com/rsned/spacemolt/pkg/tot"
 )
 
 // CLI flags
@@ -240,6 +241,15 @@ func main() {
 			log.Printf("❌ [%s] Failed to spawn: %v", agentID, err)
 			failedAgents = append(failedAgents, agentID)
 			continue
+		}
+
+		// Wire Tree-of-Thought evaluator if agent has decision_mode="tot"
+		if personality.DecisionMode == "tot" {
+			totAdapter := &tot.RunnerAdapter{
+				Eval: tot.NewEvaluator(llmClient, *llmModel),
+			}
+			runner.SetToTEvaluator(totAdapter)
+			log.Printf("✓ [%s] Thought Engine enabled", agentID)
 		}
 
 		log.Printf("✓ [%s] Started successfully (faction: %s)", agentID, personality.Faction)

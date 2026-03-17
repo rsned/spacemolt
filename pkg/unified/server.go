@@ -17,6 +17,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/observe"
 	"github.com/rsned/spacemolt/pkg/strategy"
 	"github.com/rsned/spacemolt/pkg/team"
+	"github.com/rsned/spacemolt/pkg/tot"
 )
 
 // Server is the unified spacemolt server that combines agent management,
@@ -202,11 +203,19 @@ func (s *Server) SpawnConfiguredAgents(ctx context.Context) (int, []string) {
 		}
 
 		s.logger.Printf("[%s] spawning agent: %s (%s)", agentID, personality.Name, personality.Role)
-		_, err = s.manager.SpawnAgentWithGame(ctx, personality)
+		runner, err := s.manager.SpawnAgentWithGame(ctx, personality)
 		if err != nil {
 			s.logger.Printf("[%s] failed to spawn: %v", agentID, err)
 			failedAgents = append(failedAgents, agentID)
 			continue
+		}
+
+		// Wire Tree-of-Thought evaluator if agent has decision_mode="tot"
+		if personality.DecisionMode == "tot" && s.llm != nil {
+			runner.SetToTEvaluator(&tot.RunnerAdapter{
+				Eval: tot.NewEvaluator(s.llm, s.llm.Model()),
+			})
+			s.logger.Printf("[%s] Thought Engine enabled", agentID)
 		}
 
 		s.logger.Printf("[%s] started successfully", agentID)
