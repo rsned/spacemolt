@@ -47,7 +47,7 @@ func (e *Evaluator) Evaluate(
 
 	// Stage 1: Assess
 	assessPrompt := BuildAssessPrompt(personality, state, validActions)
-	log.Printf("[ToT] Stage 1 prompt (%d chars) for %s", len(assessPrompt), personality.ID)
+	log.Printf("[ToT] Stage 1 prompt (%d chars) for %s:\n%s", len(assessPrompt), personality.ID, assessPrompt)
 	assessRaw, err := e.llm.Generate(ctx, assessPrompt)
 	if err != nil {
 		return nil, fmt.Errorf("stage 1 assess: %w", err)
@@ -73,8 +73,8 @@ func (e *Evaluator) Evaluate(
 	tree.Root = make([]*ThoughtNode, 0, len(assessed.Options))
 
 	for i, opt := range assessed.Options {
-		log.Printf("[ToT] Stage 2 evaluating option %d/%d: %s %s", i+1, len(assessed.Options), opt.Action, opt.Target)
 		evalPrompt := BuildEvaluatePrompt(personality, state, assessed.Situation, opt)
+		log.Printf("[ToT] Stage 2 evaluating option %d/%d: %s %s\n%s", i+1, len(assessed.Options), opt.Action, opt.Target, evalPrompt)
 		evalStart := time.Now()
 		evalRaw, err := e.llm.Generate(ctx, evalPrompt)
 		evalDuration := time.Since(evalStart)

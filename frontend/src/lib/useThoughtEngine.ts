@@ -69,44 +69,52 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
     }
 
     const url = `${baseUrl}/api/agents/${agent}/stream`
+    console.log('[ThoughtEngine] Connecting to SSE:', url)
     const es = new EventSource(url)
     eventSourceRef.current = es
 
-    es.onopen = () => setConnected(true)
-    es.onerror = () => {
-      // onerror fires on reconnect attempts too; only mark disconnected if closed
+    es.onopen = () => {
+      console.log('[ThoughtEngine] SSE connected')
+      setConnected(true)
+    }
+    es.onerror = (e) => {
+      console.log('[ThoughtEngine] SSE error, readyState:', es.readyState, e)
       if (es.readyState === EventSource.CLOSED) {
         setConnected(false)
       }
     }
 
     // Listen for the 'connected' named event
-    es.addEventListener('connected', () => setConnected(true))
-
-    // Listen for 'thought_tree' named event
-    es.addEventListener('thought_tree', (event) => {
-      try {
-        const parsed: SSEEvent = JSON.parse(event.data)
-        const tree = (parsed.data ?? parsed) as ThoughtTree
-        setCurrentTree(tree)
-        setHistory(prev => [tree, ...prev].slice(0, MAX_HISTORY))
-      } catch {
-        // ignore parse errors
-      }
+    es.addEventListener('connected', (event) => {
+      console.log('[ThoughtEngine] connected event:', event.data)
+      setConnected(true)
     })
 
-    // Also listen for unnamed messages as fallback
-    es.onmessage = (event) => {
+    // Listen for all named events we care about
+    const handleEvent = (event: MessageEvent) => {
+      console.log('[ThoughtEngine] Event received, type:', event.type, 'data length:', event.data?.length)
       try {
         const parsed: SSEEvent = JSON.parse(event.data)
-        if (parsed.type === 'thought_tree' && parsed.data) {
-          const tree = parsed.data as ThoughtTree
+        if (parsed.type === 'thought_tree' || event.type === 'thought_tree') {
+          const tree = (parsed.data ?? parsed) as ThoughtTree
+          console.log('[ThoughtEngine] Thought tree received:', tree.id, 'branches:', tree.root?.length)
           setCurrentTree(tree)
           setHistory(prev => [tree, ...prev].slice(0, MAX_HISTORY))
         }
-      } catch {
-        // ignore parse errors
+      } catch (err) {
+        console.error('[ThoughtEngine] Parse error:', err)
       }
+    }
+
+    es.addEventListener('thought_tree', handleEvent)
+    es.addEventListener('decision', (e) => console.log('[ThoughtEngine] decision event:', e.data?.substring(0, 100)))
+    es.addEventListener('action', (e) => console.log('[ThoughtEngine] action event:', e.data?.substring(0, 100)))
+    es.addEventListener('error', (e: MessageEvent) => console.log('[ThoughtEngine] error event:', e.data?.substring(0, 100)))
+
+    // Also listen for unnamed messages as fallback
+    es.onmessage = (event) => {
+      console.log('[ThoughtEngine] unnamed message:', event.data?.substring(0, 100))
+      handleEvent(event)
     }
   }, [baseUrl])
 

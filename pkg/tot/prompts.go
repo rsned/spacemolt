@@ -80,11 +80,12 @@ func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []Ac
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString("\nAnalyze the situation and list 3-5 viable options you could take right now.\n")
+	sb.WriteString("\nAnalyze the situation and list 3 viable options you could take right now.\n")
 	sb.WriteString("For each option, explain briefly why it's worth considering.\n\n")
-	sb.WriteString("Respond in this exact JSON format:\n")
-	sb.WriteString(`{"situation":"one sentence summary","options":[{"action":"action_name","target":"target_id_or_empty","rationale":"why this option"}]}`)
-	sb.WriteString("\n")
+	sb.WriteString("You MUST respond with a JSON object containing:\n")
+	sb.WriteString("- \"situation\": a one sentence summary of your current situation\n")
+	sb.WriteString("- \"options\": an array of exactly 3 objects, each with \"action\" (from available actions above), \"target\" (target ID or empty string), and \"rationale\" (one sentence why)\n")
+	sb.WriteString("\nExample: {\"situation\": \"Docked at station with empty cargo\", \"options\": [{\"action\": \"undock\", \"target\": \"\", \"rationale\": \"Need to leave station to mine\"}]}\n")
 
 	return sb.String()
 }
@@ -121,9 +122,12 @@ func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation strin
 	sb.WriteString("4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)\n")
 	sb.WriteString("5. efficiency: Am I spending my time wisely with this action?\n")
 	sb.WriteString("\nAlso suggest what logical next step would follow this action.\n\n")
-	sb.WriteString("Respond in this exact JSON format:\n")
-	fmt.Fprintf(&sb, `{"action":"%s","target":"%s","analysis":"2-3 sentence evaluation","scores":{"survival":0,"profit":0,"goal_progress":0,"risk":0,"efficiency":0},"next_step":{"action":"next_action","target":"next_target"}}`, option.Action, option.Target)
-	sb.WriteString("\n")
+	sb.WriteString("You MUST respond with a JSON object containing:\n")
+	fmt.Fprintf(&sb, "- \"action\": \"%s\"\n", option.Action)
+	fmt.Fprintf(&sb, "- \"target\": \"%s\"\n", option.Target)
+	sb.WriteString("- \"analysis\": your 2-3 sentence evaluation\n")
+	sb.WriteString("- \"scores\": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)\n")
+	sb.WriteString("- \"next_step\": object with \"action\" and \"target\" for the logical next action\n")
 
 	return sb.String()
 }

@@ -318,6 +318,7 @@ func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 			"num_predict": 4096,
 			"num_ctx":     16384,
 		},
+		"format": "json",
 	}
 
 	body, err := json.Marshal(payload)
