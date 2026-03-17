@@ -501,7 +501,7 @@ func initLLMClient(url, model string) (*llm.Client, error) {
 	return llm.New(llm.Config{
 		BaseURL:       url,
 		Model:         model,
-		Timeout:       60 * time.Second,
+		Timeout:       180 * time.Second, // 3 min to accommodate ToT pipeline
 		PromptsDir:    "data/prompts/templates",
 		PromptsConfig: "data/prompts/config.yaml",
 	})
