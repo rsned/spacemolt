@@ -11,7 +11,15 @@ import (
 )
 
 // EventCallback is called when events occur during agent execution
-type EventCallback func(agentID string, eventType string, data interface{})
+type EventCallback func(agentID string, eventType string, data any)
+
+// ToTEvaluator is an optional evaluator that uses Tree-of-Thought reasoning
+// for richer decision making. Implemented by pkg/tot.Evaluator via an adapter.
+type ToTEvaluator interface {
+	// EvaluateToT runs the Tree-of-Thought pipeline and returns the best decision.
+	// The second return value is the full thought tree for event emission.
+	EvaluateToT(ctx context.Context, personality Personality, state *game.State) (Decision, any, error)
+}
 
 // Runner wraps an agent with its game client and runs the play loop
 type Runner struct {
@@ -36,6 +44,9 @@ type Runner struct {
 
 	// Event callback for streaming
 	eventCallback EventCallback
+
+	// Tree-of-Thought evaluator (nil if not enabled)
+	totEvaluator ToTEvaluator
 
 	// Logging
 	logger *log.Logger
@@ -243,10 +254,26 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 		r.agent.SetUsingQueuedAction(true)
 	} else {
-		// No queued actions - get fresh LLM decision
-		decision, err = r.agent.Decide(ctx, stateCopy)
-		if err != nil {
-			return fmt.Errorf("decision failed: %w", err)
+		// No queued actions - get fresh decision
+		if r.totEvaluator != nil && r.agent.Personality().DecisionMode == "tot" {
+			// Tree-of-Thought pipeline
+			var tree any
+			decision, tree, err = r.totEvaluator.EvaluateToT(ctx, r.agent.Personality(), stateCopy)
+			if err != nil {
+				r.logger.Printf("[%s] ToT failed, falling back to single-call: %v", r.agent.ID(), err)
+				decision, err = r.agent.Decide(ctx, stateCopy)
+				if err != nil {
+					return fmt.Errorf("decision failed: %w", err)
+				}
+			} else {
+				r.emitEvent("thought_tree", tree)
+			}
+		} else {
+			// Standard single-call LLM decision
+			decision, err = r.agent.Decide(ctx, stateCopy)
+			if err != nil {
+				return fmt.Errorf("decision failed: %w", err)
+			}
 		}
 
 		// Save any planned actions to the queue
@@ -259,7 +286,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	}
 
 	// Emit decision event
-	r.emitEvent("decision", map[string]interface{}{
+	r.emitEvent("decision", map[string]any{
 		"action":     decision.Action,
 		"target":     decision.Target,
 		"confidence": decision.Confidence,
@@ -280,7 +307,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	// Execute the decision
 	if err := r.executeDecision(ctx, decision); err != nil {
 		// Emit error event
-		r.emitEvent("error", map[string]interface{}{
+		r.emitEvent("error", map[string]any{
 			"action": decision.Action,
 			"target": decision.Target,
 			"error":  err.Error(),
@@ -318,7 +345,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	}
 
 	// Emit success event
-	r.emitEvent("action", map[string]interface{}{
+	r.emitEvent("action", map[string]any{
 		"action": decision.Action,
 		"target": decision.Target,
 		"status": "success",
@@ -840,8 +867,13 @@ func (r *Runner) SetEventCallback(cb EventCallback) {
 	r.eventCallback = cb
 }
 
+// SetToTEvaluator enables Tree-of-Thought decision making for this runner.
+func (r *Runner) SetToTEvaluator(eval ToTEvaluator) {
+	r.totEvaluator = eval
+}
+
 // emitEvent publishes an event if a callback is set
-func (r *Runner) emitEvent(eventType string, data interface{}) {
+func (r *Runner) emitEvent(eventType string, data any) {
 	r.mu.RLock()
 	cb := r.eventCallback
 	r.mu.RUnlock()
