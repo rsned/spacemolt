@@ -15,6 +15,7 @@ import { InsurancePanel } from './components/station/InsurancePanel';
 import { StoragePanel } from './components/station/StoragePanel';
 import { ConnectionPanel } from './components/layout/ConnectionPanel';
 import { TeamMapView } from './components/team/TeamMapView';
+import { ThoughtEnginePage } from './components/ThoughtEnginePage';
 import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
 import {
@@ -22,7 +23,7 @@ import {
   mockRecipes,
 } from './lib/mockData';
 
-type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage' | 'team';
+type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage' | 'team' | 'thinking';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
@@ -109,6 +110,7 @@ function App() {
               { id: 'system' as ViewType, label: 'System Map' },
               { id: 'station' as ViewType, label: 'Station' },
               { id: 'team' as ViewType, label: 'Team' },
+              { id: 'thinking' as ViewType, label: 'Thinking' },
             ].map((view) => (
               <button
                 key={view.id}
@@ -342,6 +344,10 @@ function App() {
           <div className="h-[calc(100vh-120px)]">
             <TeamMapView teamId={selectedTeamId} />
           </div>
+        )}
+
+        {activeView === 'thinking' && (
+          <ThoughtEnginePage agentId={observer.subscribedAgent} />
         )}
 
         {activeView === 'storage' && (
