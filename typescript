@@ -1,0 +1,296 @@
+Script started on 2026-03-17 01:04:36-07:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="90" LINES="40"]
+[?2004h]0;robert@dev: ~/spacemolt/spacemolt[01;32mrobert@dev[00m:[01;37m~/spacemolt/spacemolt[00m$ exitgo run ./cmd/agent-server -agents miner-1  -llm-model qwen3:14b  -http-port 8090
+[?2004l2026/03/17 01:05:06 === Spacemolt Agent Server ===
+2026/03/17 01:05:06 Using agents from CLI flag: miner-1
+2026/03/17 01:05:06 Found 1 agent(s) to start: [miner-1]
+2026/03/17 01:05:06 ✓ Knowledge base initialized (sqlite)
+2026/03/17 01:05:06 ✓ LLM client initialized (qwen3:14b @ http://localhost:11434)
+2026/03/17 01:05:06 ✓ Prompt management system enabled
+2026/03/17 01:05:06 ✓ Credentials provider initialized (file)
+2026/03/17 01:05:06 ✓ Agent manager created (max agents: 10)
+2026/03/17 01:05:06 
+=== Spawning Agents ===
+2026/03/17 01:05:06 [miner-1] Spawning agent: Preston 'Pickaxe' Porter (Miner)
+2026/03/17 01:05:06 [miner-1] Spawning agent with game connection
+2026/03/17 01:05:06 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-010506-740 | Goroutine: 1
+2026/03/17 01:05:06 [health-3] Health monitor started | Timeout: 1m20s (server handles ping/pong)
+2026/03/17 01:05:06 [listen-2] Goroutine started
+2026/03/17 01:05:06 === Game Client Receive Debug ===
+2026/03/17 01:05:06 Response Type: 'welcome'
+2026/03/17 01:05:06 Response Payload: {"current_tick":323173,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
+2026/03/17 01:05:06 Server version: 0.230.1
+2026/03/17 01:05:06 [miner-1] ✓ Connected successfully
+2026/03/17 01:05:06 [miner-1] Server version: v0.230.1, API docs version: v0.222.3
+2026/03/17 01:05:06 [miner-1] Logging in with existing credentials
+2026/03/17 01:05:06 === Game Client Send Debug ===
+2026/03/17 01:05:06 Message Type: 'login'
+2026/03/17 01:05:06 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
+2026/03/17 01:05:07 === Game Client Receive Debug ===
+2026/03/17 01:05:07 Response Type: 'logged_in'
+2026/03/17 01:05:07 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
+2026/03/17 01:05:07 Set System.ID = 'haven' from player.CurrentSystem (was empty)
+2026/03/17 01:05:07 Parsing system data from 'system' object
+2026/03/17 01:05:07 Set System.ID = 'haven' from id field
+2026/03/17 01:05:07 Set System.Name = 'Haven', CurrentSystem = 'Haven'
+2026/03/17 01:05:07 [miner-1] ✓ Logged in successfully
+2026/03/17 01:05:07 [miner-1] Starting agent runner
+2026/03/17 01:05:07 [miner-1] ✓ Agent spawned and running
+2026/03/17 01:05:07 ✓ [miner-1] Thought Engine enabled
+2026/03/17 01:05:07 ✓ [miner-1] Started successfully (faction: )
+2026/03/17 01:05:07 
+=== Agent Server Started ===
+2026/03/17 01:05:07 ✓ Successfully started: 1/1 agents
+2026/03/17 01:05:07 Server URL: wss://game.spacemolt.com/ws
+2026/03/17 01:05:07 Decision interval: 10s
+2026/03/17 01:05:07 Serving web UI from /home/robert/spacemolt/spacemolt/web
+2026/03/17 01:05:07 
+Press Ctrl+C to stop all agents and exit
+2026/03/17 01:05:07 ✓ HTTP API listening on :8090
+2026/03/17 01:05:07 HTTP API starting on port 8090
+2026/03/17 01:05:17 [miner-1] System changed to haven, finding route home to grand_exchange_station
+2026/03/17 01:05:17 === Game Client Send Debug ===
+2026/03/17 01:05:17 Message Type: 'find_route'
+2026/03/17 01:05:17 Message Payload: {"target_system":"grand_exchange_station"}
+2026/03/17 01:05:17 === Game Client Receive Debug ===
+2026/03/17 01:05:17 Response Type: 'error'
+2026/03/17 01:05:17 Response Payload: {"code":"system_not_found","message":"Target system not found"}
+2026/03/17 01:05:17 Response Message: 'Target system not found'
+2026/03/17 01:05:17 [miner-1] Failed to find route home: find_route failed: Target system not found
+2026/03/17 01:05:17 [ToT] Stage 1 prompt (1937 chars) for miner-1
+2026/03/17 01:05:18 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:05:18 [ToT] Stage 1 parsed: situation="", options=0
+2026/03/17 01:05:18 [miner-1] ToT failed, falling back to single-call: stage 1 returned no options
+2026/03/17 01:06:14 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:06:14 [miner-1] Decision.Action: 'undock'
+2026/03/17 01:06:14 [miner-1] Decision.Target: ''
+2026/03/17 01:06:14 [miner-1] Decision.Confidence: 85.0%
+2026/03/17 01:06:14 [miner-1] Decision.Reasoning: To begin mining at the Commerce Fields asteroid belt, I must first undock from the station to access the mineable POI.
+2026/03/17 01:06:14 [miner-1] -> Undock()
+2026/03/17 01:06:14 === Game Client Send Debug ===
+2026/03/17 01:06:14 Message Type: 'undock'
+2026/03/17 01:06:14 === Game Client Receive Debug ===
+2026/03/17 01:06:14 Response Type: 'ok'
+2026/03/17 01:06:14 Response Payload: {"command":"undock","message":"Action 'undock' pending. Will execute on next tick.","pending":true}
+2026/03/17 01:06:14 Response Message: 'Action 'undock' pending. Will execute on next tick.'
+2026/03/17 01:06:14 Action pending (undock) - waiting for completion
+[Agent miner-1] Learning from action result: undock →  (success=false)
+[Agent miner-1]   Message: Action failed: context deadline exceeded
+[Agent miner-1]   Error: context deadline exceeded
+2026/03/17 01:06:19 [miner-1] Decision cycle error (1/10): action execution failed: context deadline exceeded
+2026/03/17 01:06:19 [ToT] Stage 1 prompt (1937 chars) for miner-1
+2026/03/17 01:06:21 === Game Client Receive Debug ===
+2026/03/17 01:06:21 Response Type: 'action_error'
+2026/03/17 01:06:21 Response Payload: {"code":"not_docked","command":"undock","message":"not_docked: Not docked","tick":323181}
+2026/03/17 01:06:21 Response Message: 'not_docked: Not docked'
+2026/03/17 01:06:30 [ToT] Stage 1 raw response (979 chars): {
+
+
+"options": [
+{
+"action": "view_market",
+"target": "",
+"rationale": "Checking the market could reveal profitable buying/selling opportunities with the current cargo or potential items to acquire."
+},
+{
+"action": "get_missions",
+"target": "",
+"rationale": "Available missions might offer rewards or tasks that align with current resources or needs, providing additional income or useful items."
+},
+{
+"action": "refuel",
+"target": "",
+"rationale": "Maintaining sufficient fuel is crucial for mobilit
+2026/03/17 01:06:30 [ToT] Stage 1 parsed: situation="", options=5
+2026/03/17 01:06:32 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:06:32 [miner-1] Decision.Action: 'view_market'
+2026/03/17 01:06:32 [miner-1] Decision.Target: ''
+2026/03/17 01:06:32 [miner-1] Decision.Confidence: 0.0%
+2026/03/17 01:06:32 [miner-1] Decision.Reasoning: 
+2026/03/17 01:06:32 [miner-1] ERROR: Unknown action: 'view_market' (does not match any case)
+[Agent miner-1] Learning from action result: view_market →  (success=false)
+[Agent miner-1]   Message: Action failed: unknown action: view_market
+[Agent miner-1]   Error: unknown action: view_market
+2026/03/17 01:06:32 [miner-1] Decision cycle error (2/10): action execution failed: unknown action: view_market
+2026/03/17 01:06:32 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:06:33 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:06:33 [ToT] Stage 1 parsed: situation="", options=0
+2026/03/17 01:06:33 [miner-1] ToT failed, falling back to single-call: stage 1 returned no options
+2026/03/17 01:06:55 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:06:55 [miner-1] Decision.Action: 'travel'
+2026/03/17 01:06:55 [miner-1] Decision.Target: 'commerce_fields'
+2026/03/17 01:06:55 [miner-1] Decision.Confidence: 85.0%
+2026/03/17 01:06:55 [miner-1] Decision.Reasoning: Prioritize mining at the asteroid belt in the current system to accumulate resources and improve Mining skill.
+2026/03/17 01:06:55 [miner-1] -> Travel('commerce_fields')
+2026/03/17 01:06:55 === Game Client Send Debug ===
+2026/03/17 01:06:55 Message Type: 'travel'
+2026/03/17 01:06:55 Message Payload: {"target_poi":"commerce_fields"}
+2026/03/17 01:06:55 === Game Client Receive Debug ===
+2026/03/17 01:06:55 Response Type: 'ok'
+2026/03/17 01:06:55 Response Payload: {"command":"travel","message":"Travel action pending. Will execute on next tick.","pending":true}
+2026/03/17 01:06:55 Response Message: 'Travel action pending. Will execute on next tick.'
+2026/03/17 01:06:55 Action pending — waiting for server to start
+2026/03/17 01:06:59 === Game Client Receive Debug ===
+2026/03/17 01:06:59 Response Type: 'ok'
+2026/03/17 01:06:59 Response Payload: {"action":"travel","arrival_tick":323186,"destination":"commerce_fields"}
+2026/03/17 01:06:59 Travel to commerce_fields: waiting up to 2m40s for arrival
+[Agent miner-1] Learning from action result: travel → commerce_fields (success=false)
+[Agent miner-1]   Message: Action failed: travel to commerce_fields: context deadline exceeded
+[Agent miner-1]   Error: travel to commerce_fields: context deadline exceeded
+2026/03/17 01:07:00 [miner-1] Decision cycle error (3/10): action execution failed: travel to commerce_fields: context deadline exceeded
+2026/03/17 01:07:00 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:07:00 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:07:00 [ToT] Stage 1 parsed: situation="", options=0
+2026/03/17 01:07:00 [miner-1] ToT failed, falling back to single-call: stage 1 returned no options
+2026/03/17 01:07:07 === Game Client Receive Debug ===
+2026/03/17 01:07:07 Response Type: 'ok'
+2026/03/17 01:07:07 Response Payload: {"action":"arrived","online_players":[{"primary_color":"#FFFFFF","secondary_color":"#000000","username":"kurarin_moon_46"},{"primary_color":"#FFFFFF","secondary_color":"#000000","username":"kurarin_mo... [truncated]
+2026/03/17 01:07:07 Stored raw JSON for poi (1840 bytes)
+2026/03/17 01:07:07 Arrived at commerce_fields
+2026/03/17 01:07:28 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:07:28 [miner-1] Decision.Action: 'wait'
+2026/03/17 01:07:28 [miner-1] Decision.Target: ''
+2026/03/17 01:07:28 [miner-1] Decision.Confidence: 85.0%
+2026/03/17 01:07:28 [miner-1] Decision.Reasoning: Previous travel attempts to commerce_fields failed due to system latency; waiting may resolve the temporary issue before retrying.
+2026/03/17 01:07:28 [miner-1] -> Waiting (deliberate)
+[Agent miner-1] Learning from action result: wait →  (success=true)
+[Agent miner-1]   Message: wait: Previous travel attempts to commerce_fields failed due to system latency; waiting may resolve the temporary issue before retrying.
+[Agent miner-1] Persisted system: Haven (haven)
+[Agent miner-1] Persisted POI: Grand Exchange (grand_exchange) type=station
+[Agent miner-1] Persisted POI: Federation Vaults (federation_vaults) type=station
+[Agent miner-1] Persisted POI: Merchant Docks (merchant_docks) type=station
+2026/03/17 01:07:28 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:07:28 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:07:28 [ToT] Stage 1 parsed: situation="", options=0
+2026/03/17 01:07:28 [miner-1] ToT failed, falling back to single-call: stage 1 returned no options
+2026/03/17 01:07:46 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:07:46 [miner-1] Decision.Action: 'travel'
+2026/03/17 01:07:46 [miner-1] Decision.Target: 'commerce_fields'
+2026/03/17 01:07:46 [miner-1] Decision.Confidence: 85.0%
+2026/03/17 01:07:46 [miner-1] Decision.Reasoning: Attempting to reach the asteroid belt after resolving system latency issues to mine resources.
+2026/03/17 01:07:46 [miner-1] -> Travel('commerce_fields')
+2026/03/17 01:07:46 === Game Client Send Debug ===
+2026/03/17 01:07:46 Message Type: 'travel'
+2026/03/17 01:07:46 Message Payload: {"target_poi":"commerce_fields"}
+2026/03/17 01:07:46 === Game Client Receive Debug ===
+2026/03/17 01:07:46 Response Type: 'ok'
+2026/03/17 01:07:46 Response Payload: {"command":"travel","message":"Travel action pending. Will execute on next tick.","pending":true}
+2026/03/17 01:07:46 Response Message: 'Travel action pending. Will execute on next tick.'
+2026/03/17 01:07:46 Action pending — waiting for server to start
+[Agent miner-1] Learning from action result: travel → commerce_fields (success=false)
+[Agent miner-1]   Message: Action failed: context deadline exceeded
+[Agent miner-1]   Error: context deadline exceeded
+2026/03/17 01:07:51 [miner-1] Decision cycle error (1/10): action execution failed: context deadline exceeded
+2026/03/17 01:07:51 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:07:51 === Game Client Receive Debug ===
+2026/03/17 01:07:51 Response Type: 'ok'
+2026/03/17 01:07:51 Response Payload: {"action":"travel","arrival_tick":323191,"destination":"commerce_fields"}
+2026/03/17 01:07:57 === Game Client Receive Debug ===
+2026/03/17 01:07:57 Response Type: 'ok'
+2026/03/17 01:07:57 Response Payload: {"action":"arrived","online_players":[{"primary_color":"#FFFFFF","secondary_color":"#000000","username":"kurarin_moon_05"},{"primary_color":"#FFFFFF","secondary_color":"#000000","username":"kurarin_mo... [truncated]
+2026/03/17 01:07:57 Stored raw JSON for poi (1846 bytes)
+2026/03/17 01:07:57 Arrived at commerce_fields
+2026/03/17 01:08:08 [ToT] Stage 1 raw response (1583 chars): {
+
+
+"situation": "As Preston 'Pickaxe' Porter, I am currently in the Haven system with a full hull, decent fuel, and some credits, but my cargo hold is nearly empty, which limits my ability to trade or sell resources.",
+"options": [
+  {
+    "action": "mine",
+    "target": "commerce_fields",
+    "rationale": "Mining in the Commerce Fields asteroid belt could yield valuable resources to fill my cargo hold, which is essential for trading at the Grand Exchange or selling at Federation Vaults."
+  },
+2026/03/17 01:08:08 [ToT] Stage 1 parsed: situation="As Preston 'Pickaxe' Porter, I am currently in the Haven system with a full hull, decent fuel, and some credits, but my cargo hold is nearly empty, which limits my ability to trade or sell resources.", options=5
+2026/03/17 01:08:11 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:08:11 [miner-1] Decision.Action: 'mine'
+2026/03/17 01:08:11 [miner-1] Decision.Target: 'commerce_fields'
+2026/03/17 01:08:11 [miner-1] Decision.Confidence: 0.0%
+2026/03/17 01:08:11 [miner-1] Decision.Reasoning: 
+2026/03/17 01:08:11 [miner-1] -> Mine()
+2026/03/17 01:08:11 === Game Client Send Debug ===
+2026/03/17 01:08:11 Message Type: 'mine'
+2026/03/17 01:08:11 === Game Client Receive Debug ===
+2026/03/17 01:08:11 Response Type: 'ok'
+2026/03/17 01:08:11 Response Payload: {"command":"mine","message":"Mine action pending. Will execute on next tick.","pending":true}
+2026/03/17 01:08:11 Response Message: 'Mine action pending. Will execute on next tick.'
+2026/03/17 01:08:11 Action pending (mine) - waiting for completion
+[Agent miner-1] Learning from action result: mine → commerce_fields (success=false)
+[Agent miner-1]   Message: Action failed: context deadline exceeded
+[Agent miner-1]   Error: context deadline exceeded
+2026/03/17 01:08:16 [miner-1] Decision cycle error (2/10): action execution failed: context deadline exceeded
+2026/03/17 01:08:16 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:08:17 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:08:17 [ToT] Stage 1 parsed: situation="", options=0
+2026/03/17 01:08:17 [miner-1] ToT failed, falling back to single-call: stage 1 returned no options
+2026/03/17 01:08:20 === Game Client Receive Debug ===
+2026/03/17 01:08:20 Response Type: 'error'
+2026/03/17 01:08:20 Response Payload: {"code":"depleted","message":"Resources depleted"}
+2026/03/17 01:08:20 Response Message: 'Resources depleted'
+2026/03/17 01:08:34 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:08:34 [miner-1] Decision.Action: 'wait'
+2026/03/17 01:08:34 [miner-1] Decision.Target: ''
+2026/03/17 01:08:34 [miner-1] Decision.Confidence: 85.0%
+2026/03/17 01:08:34 [miner-1] Decision.Reasoning: Previous attempts to mine at commerce_fields failed due to system latency; waiting may resolve the temporary issue before retrying.
+2026/03/17 01:08:34 [miner-1] -> Waiting (deliberate)
+[Agent miner-1] Learning from action result: wait →  (success=true)
+[Agent miner-1]   Message: wait: Previous attempts to mine at commerce_fields failed due to system latency; waiting may resolve the temporary issue before retrying.
+[Agent miner-1] Persisted system: Haven (haven)
+[Agent miner-1] Persisted POI: Grand Exchange (grand_exchange) type=station
+[Agent miner-1] Persisted POI: Federation Vaults (federation_vaults) type=station
+[Agent miner-1] Persisted POI: Merchant Docks (merchant_docks) type=station
+2026/03/17 01:08:34 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:08:35 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:08:35 [ToT] Stage 1 parsed: situation="", options=0
+2026/03/17 01:08:35 [miner-1] ToT failed, falling back to single-call: stage 1 returned no options
+2026/03/17 01:09:03 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:09:03 [miner-1] Decision.Action: 'wait'
+2026/03/17 01:09:03 [miner-1] Decision.Target: ''
+2026/03/17 01:09:03 [miner-1] Decision.Confidence: 85.0%
+2026/03/17 01:09:03 [miner-1] Decision.Reasoning: Previous mining attempts at commerce_fields failed due to system latency; waiting may resolve the temporary issue before retrying.
+2026/03/17 01:09:03 [miner-1] -> Waiting (deliberate)
+[Agent miner-1] Learning from action result: wait →  (success=true)
+[Agent miner-1]   Message: wait: Previous mining attempts at commerce_fields failed due to system latency; waiting may resolve the temporary issue before retrying.
+[Agent miner-1] Persisted system: Haven (haven)
+[Agent miner-1] Persisted POI: Grand Exchange (grand_exchange) type=station
+[Agent miner-1] Persisted POI: Federation Vaults (federation_vaults) type=station
+[Agent miner-1] Persisted POI: Merchant Docks (merchant_docks) type=station
+2026/03/17 01:09:03 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:09:09 [ToT] Stage 1 raw response (563 chars): {
+
+
+"options": [
+{
+"action": "travel",
+"target": "commerce_fields",
+"rationale": "The Commerce Fields asteroid belt is a prime location for mining valuable resources, which can be sold for profit."
+},
+{
+"action": "travel",
+"target": "grand_exchange",
+"rationale": "The Grand Exchange is a major trading hub where I can sell my mined resources and purchase necessary supplies."
+},
+{
+"action": "get_status",
+"target": "",
+"rationale": "Checking my current status will provide essential information abou
+2026/03/17 01:09:09 [ToT] Stage 1 parsed: situation="", options=3
+2026/03/17 01:09:11 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:09:11 [miner-1] Decision.Action: 'travel'
+2026/03/17 01:09:11 [miner-1] Decision.Target: 'commerce_fields'
+2026/03/17 01:09:11 [miner-1] Decision.Confidence: 0.0%
+2026/03/17 01:09:11 [miner-1] Decision.Reasoning: 
+2026/03/17 01:09:11 [miner-1] -> Travel('commerce_fields')
+2026/03/17 01:09:11 === Game Client Send Debug ===
+2026/03/17 01:09:11 Message Type: 'travel'
+2026/03/17 01:09:11 Message Payload: {"target_poi":"commerce_fields"}
+2026/03/17 01:09:11 === Game Client Receive Debug ===
+2026/03/17 01:09:11 Response Type: 'ok'
+2026/03/17 01:09:11 Response Payload: {"command":"travel","message":"Travel action pending. Will execute on next tick.","pending":true}
+2026/03/17 01:09:11 Response Message: 'Travel action pending. Will execute on next tick.'
+2026/03/17 01:09:11 Action pending — waiting for server to start
+[Agent miner-1] Learning from action result: travel → commerce_fields (success=false)
+[Agent miner-1]   Message: Action failed: context deadline exceeded
+[Agent miner-1]   Error: context deadline exceeded
+2026/03/17 01:09:16 [miner-1] Decision cycle error (1/10): action execution failed: context deadline exceeded
+2026/03/17 01:09:16 [ToT] Stage 1 prompt (1665 chars) for miner-1
+2026/03/17 01:09:17 [ToT] Stage 1 raw response (2 chars): {}
+2026/03/17 01:09:17 [ToT] Stage 1 parsed: situation="", o

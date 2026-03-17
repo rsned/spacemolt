@@ -254,7 +254,7 @@ export const ThoughtTreeView: React.FC<ThoughtTreeViewProps> = ({ tree, onNodeCl
             <span className="bg-gray-800 px-2 py-0.5 rounded text-gray-400">{tree.model}</span>
           )}
           {tree.duration_ms != null && (
-            <span>{tree.duration_ms}ms</span>
+            <span>{(tree.duration_ms / 1_000_000_000).toFixed(1)}s</span>
           )}
         </div>
       </div>

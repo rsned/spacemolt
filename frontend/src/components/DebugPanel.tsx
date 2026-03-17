@@ -120,7 +120,7 @@ export const DebugPanel: React.FC<DebugPanelProps> = ({ node, weights }) => {
                   </tfoot>
                 </table>
                 <div className="mt-2 text-gray-500 text-xs">
-                  Eval time: {node.eval_time_ms}ms · Depth: {node.depth} · Status:{' '}
+                  Eval time: {(node.eval_time_ms / 1_000_000_000).toFixed(1)}s · Depth: {node.depth} · Status:{' '}
                   <span
                     className={
                       node.status === 'winner'
