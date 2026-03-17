@@ -39,12 +39,11 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
         const resp = await fetch('/api/agents')
         if (resp.ok) {
           const data = await resp.json()
-          setAgents(data.agents ?? data ?? [])
+          const list: AgentInfo[] = Array.isArray(data) ? data : (data.agents ?? [])
+          setAgents(list)
           // Auto-select first agent if none selected
-          if (!selectedAgent && data.agents?.length > 0) {
-            setSelectedAgent(data.agents[0].id ?? data.agents[0].username)
-          } else if (!selectedAgent && Array.isArray(data) && data.length > 0) {
-            setSelectedAgent(data[0].id ?? data[0].username)
+          if (!selectedAgent && list.length > 0) {
+            setSelectedAgent(list[0].id ?? list[0].username)
           }
         }
       } catch {

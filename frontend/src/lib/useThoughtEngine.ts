@@ -73,18 +73,36 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
     eventSourceRef.current = es
 
     es.onopen = () => setConnected(true)
-    es.onerror = () => setConnected(false)
+    es.onerror = () => {
+      // onerror fires on reconnect attempts too; only mark disconnected if closed
+      if (es.readyState === EventSource.CLOSED) {
+        setConnected(false)
+      }
+    }
 
+    // Listen for the 'connected' named event
+    es.addEventListener('connected', () => setConnected(true))
+
+    // Listen for 'thought_tree' named event
+    es.addEventListener('thought_tree', (event) => {
+      try {
+        const parsed: SSEEvent = JSON.parse(event.data)
+        const tree = (parsed.data ?? parsed) as ThoughtTree
+        setCurrentTree(tree)
+        setHistory(prev => [tree, ...prev].slice(0, MAX_HISTORY))
+      } catch {
+        // ignore parse errors
+      }
+    })
+
+    // Also listen for unnamed messages as fallback
     es.onmessage = (event) => {
       try {
         const parsed: SSEEvent = JSON.parse(event.data)
         if (parsed.type === 'thought_tree' && parsed.data) {
           const tree = parsed.data as ThoughtTree
           setCurrentTree(tree)
-          setHistory(prev => {
-            const next = [tree, ...prev]
-            return next.slice(0, MAX_HISTORY)
-          })
+          setHistory(prev => [tree, ...prev].slice(0, MAX_HISTORY))
         }
       } catch {
         // ignore parse errors
