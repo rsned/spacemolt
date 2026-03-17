@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/agent"
@@ -66,77 +65,63 @@ func (e *Evaluator) Evaluate(
 		return nil, fmt.Errorf("stage 1 returned no options")
 	}
 
-	// Stage 2: Evaluate in parallel
-	nodes := make([]*ThoughtNode, len(assessed.Options))
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var evalErr error
+	// Stage 2: Evaluate sequentially
+	// Ollama processes requests one at a time on a single GPU, so parallel
+	// calls just queue up and risk timeouts. Sequential is actually faster
+	// because there's no queue contention. When multiple GPUs are available,
+	// this can be switched to parallel with a concurrency limiter.
+	tree.Root = make([]*ThoughtNode, 0, len(assessed.Options))
 
 	for i, opt := range assessed.Options {
-		wg.Add(1)
-		go func(idx int, option AssessOption) {
-			defer wg.Done()
-			evalPrompt := BuildEvaluatePrompt(personality, state, assessed.Situation, option)
-			evalStart := time.Now()
-			evalRaw, genErr := e.llm.Generate(ctx, evalPrompt)
-			evalDuration := time.Since(evalStart)
+		log.Printf("[ToT] Stage 2 evaluating option %d/%d: %s %s", i+1, len(assessed.Options), opt.Action, opt.Target)
+		evalPrompt := BuildEvaluatePrompt(personality, state, assessed.Situation, opt)
+		evalStart := time.Now()
+		evalRaw, err := e.llm.Generate(ctx, evalPrompt)
+		evalDuration := time.Since(evalStart)
 
-			if genErr != nil {
-				mu.Lock()
-				evalErr = fmt.Errorf("stage 2 evaluate %q: %w", option.Action, genErr)
-				mu.Unlock()
-				return
-			}
-
-			evalResp, parseErr := parseEvaluateResponse(evalRaw)
-			if parseErr != nil {
-				mu.Lock()
-				evalErr = fmt.Errorf("stage 2 parse %q: %w", option.Action, parseErr)
-				mu.Unlock()
-				return
-			}
-
-			node := &ThoughtNode{
-				ID:          fmt.Sprintf("node_%d", idx),
-				Action:      option.Action,
-				Target:      option.Target,
-				Reasoning:   evalResp.Analysis,
-				Scores:      evalResp.Scores,
-				Combined:    weights.WeightedScore(evalResp.Scores),
-				Status:      StatusActive,
-				Depth:       0,
-				EvalTime:    evalDuration,
-				Prompt:      evalPrompt,
-				RawResponse: evalRaw,
-			}
-
-			if evalResp.NextStep.Action != "" {
-				child := &ThoughtNode{
-					ID:     fmt.Sprintf("node_%d_next", idx),
-					Action: evalResp.NextStep.Action,
-					Target: evalResp.NextStep.Target,
-					Status: StatusActive,
-					Depth:  1,
-				}
-				node.Children = append(node.Children, child)
-			}
-
-			mu.Lock()
-			nodes[idx] = node
-			mu.Unlock()
-		}(i, opt)
-	}
-	wg.Wait()
-
-	if evalErr != nil {
-		return nil, evalErr
-	}
-
-	tree.Root = make([]*ThoughtNode, 0, len(nodes))
-	for _, n := range nodes {
-		if n != nil {
-			tree.Root = append(tree.Root, n)
+		if err != nil {
+			log.Printf("[ToT] Stage 2 option %d failed: %v", i+1, err)
+			continue // skip failed branches instead of aborting entire pipeline
 		}
+
+		log.Printf("[ToT] Stage 2 option %d response (%d chars, %.1fs): %.200s", i+1, len(evalRaw), evalDuration.Seconds(), evalRaw)
+
+		evalResp, parseErr := parseEvaluateResponse(evalRaw)
+		if parseErr != nil {
+			log.Printf("[ToT] Stage 2 option %d parse failed: %v", i+1, parseErr)
+			continue
+		}
+
+		node := &ThoughtNode{
+			ID:          fmt.Sprintf("node_%d", i),
+			Action:      opt.Action,
+			Target:      opt.Target,
+			Reasoning:   evalResp.Analysis,
+			Scores:      evalResp.Scores,
+			Combined:    weights.WeightedScore(evalResp.Scores),
+			Status:      StatusActive,
+			Depth:       0,
+			EvalTime:    evalDuration,
+			Prompt:      evalPrompt,
+			RawResponse: evalRaw,
+		}
+
+		if evalResp.NextStep.Action != "" {
+			child := &ThoughtNode{
+				ID:     fmt.Sprintf("node_%d_next", i),
+				Action: evalResp.NextStep.Action,
+				Target: evalResp.NextStep.Target,
+				Status: StatusActive,
+				Depth:  1,
+			}
+			node.Children = append(node.Children, child)
+		}
+
+		tree.Root = append(tree.Root, node)
+	}
+
+	if len(tree.Root) == 0 {
+		return nil, fmt.Errorf("stage 2: all %d options failed evaluation", len(assessed.Options))
 	}
 
 	// Stage 3: Select winner
