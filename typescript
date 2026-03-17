@@ -1,289 +1,226 @@
-Script started on 2026-03-17 01:43:22-07:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="90" LINES="40"]
-[?2004h]0;robert@dev: ~/spacemolt/spacemolt[01;32mrobert@dev[00m:[01;37m~/spacemolt/spacemolt[00m$ go run ./cmd/agent-server -agents miner-1  -llm-model qwen3.5:9b  -http-port 8090[C[C[C[1P:14[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[1@.5:9[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C
-[?2004l2026/03/17 01:43:28 === Spacemolt Agent Server ===
-2026/03/17 01:43:28 Using agents from CLI flag: miner-1
-2026/03/17 01:43:28 Found 1 agent(s) to start: [miner-1]
-2026/03/17 01:43:28 ✓ Knowledge base initialized (sqlite)
-2026/03/17 01:43:28 ✓ LLM client initialized (qwen3.5:9b @ http://localhost:11434)
-2026/03/17 01:43:28 ✓ Prompt management system enabled
-2026/03/17 01:43:28 ✓ Credentials provider initialized (file)
-2026/03/17 01:43:28 ✓ Agent manager created (max agents: 10)
-2026/03/17 01:43:28 
+Script started on 2026-03-17 01:52:37-07:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="90" LINES="40"]
+[?2004h]0;robert@dev: ~/spacemolt/spacemolt[01;32mrobert@dev[00m:[01;37m~/spacemolt/spacemolt[00m$ go run ./cmd/agent-server -agents miner-1  -llm-model qwen3.5:9b  -http-port 8090
+[?2004l2026/03/17 01:52:44 === Spacemolt Agent Server ===
+2026/03/17 01:52:44 Using agents from CLI flag: miner-1
+2026/03/17 01:52:44 Found 1 agent(s) to start: [miner-1]
+2026/03/17 01:52:44 ✓ Knowledge base initialized (sqlite)
+2026/03/17 01:52:44 ✓ LLM client initialized (qwen3.5:9b @ http://localhost:11434)
+2026/03/17 01:52:44 ✓ Prompt management system enabled
+2026/03/17 01:52:44 ✓ Credentials provider initialized (file)
+2026/03/17 01:52:44 ✓ Agent manager created (max agents: 10)
+2026/03/17 01:52:44 
 === Spawning Agents ===
-2026/03/17 01:43:28 [miner-1] Spawning agent: Preston 'Pickaxe' Porter (Miner)
-2026/03/17 01:43:28 [miner-1] Spawning agent with game connection
-2026/03/17 01:43:28 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-014328-492 | Goroutine: 1
-2026/03/17 01:43:28 [listen-2] Goroutine started
-2026/03/17 01:43:28 [health-3] Health monitor started | Timeout: 1m20s (server handles ping/pong)
-2026/03/17 01:43:28 === Game Client Receive Debug ===
-2026/03/17 01:43:28 Response Type: 'welcome'
-2026/03/17 01:43:28 Response Payload: {"current_tick":323404,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
-2026/03/17 01:43:28 Server version: 0.230.1
-2026/03/17 01:43:28 [miner-1] ✓ Connected successfully
-2026/03/17 01:43:28 [miner-1] Server version: v0.230.1, API docs version: v0.222.3
-2026/03/17 01:43:28 [miner-1] Logging in with existing credentials
-2026/03/17 01:43:28 === Game Client Send Debug ===
-2026/03/17 01:43:28 Message Type: 'login'
-2026/03/17 01:43:28 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
-2026/03/17 01:43:29 === Game Client Receive Debug ===
-2026/03/17 01:43:29 Response Type: 'reconnected'
-2026/03/17 01:43:29 Response Payload: {"message":"You have reconnected to your ship.","ticks_remaining":2,"was_pilotless":false}
-2026/03/17 01:43:29 Response Message: 'You have reconnected to your ship.'
-2026/03/17 01:43:29 Reconnected to ship: map[message:You have reconnected to your ship. ticks_remaining:2 was_pilotless:false]
-2026/03/17 01:43:29 === Game Client Receive Debug ===
-2026/03/17 01:43:29 Response Type: 'logged_in'
-2026/03/17 01:43:29 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
-2026/03/17 01:43:29 Set System.ID = 'haven' from player.CurrentSystem (was empty)
-2026/03/17 01:43:29 Parsing system data from 'system' object
-2026/03/17 01:43:29 Set System.ID = 'haven' from id field
-2026/03/17 01:43:29 Set System.Name = 'Haven', CurrentSystem = 'Haven'
-2026/03/17 01:43:29 [miner-1] ✓ Logged in successfully
-2026/03/17 01:43:29 [miner-1] Starting agent runner
-2026/03/17 01:43:29 [miner-1] ✓ Agent spawned and running
-2026/03/17 01:43:29 ✓ [miner-1] Thought Engine enabled
-2026/03/17 01:43:29 ✓ [miner-1] Started successfully (faction: )
-2026/03/17 01:43:29 
+2026/03/17 01:52:44 [miner-1] Spawning agent: Preston 'Pickaxe' Porter (Miner)
+2026/03/17 01:52:44 [miner-1] Spawning agent with game connection
+2026/03/17 01:52:44 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-015244-966 | Goroutine: 1
+2026/03/17 01:52:44 [listen-2] Goroutine started
+2026/03/17 01:52:44 [health-3] Health monitor started | Timeout: 1m20s (server handles ping/pong)
+2026/03/17 01:52:44 === Game Client Receive Debug ===
+2026/03/17 01:52:44 Response Type: 'welcome'
+2026/03/17 01:52:44 Response Payload: {"current_tick":323459,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
+2026/03/17 01:52:44 Server version: 0.230.1
+2026/03/17 01:52:44 [miner-1] ✓ Connected successfully
+2026/03/17 01:52:44 [miner-1] Server version: v0.230.1, API docs version: v0.222.3
+2026/03/17 01:52:44 [miner-1] Logging in with existing credentials
+2026/03/17 01:52:44 === Game Client Send Debug ===
+2026/03/17 01:52:44 Message Type: 'login'
+2026/03/17 01:52:44 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
+2026/03/17 01:52:45 === Game Client Receive Debug ===
+2026/03/17 01:52:45 Response Type: 'reconnected'
+2026/03/17 01:52:45 Response Payload: {"message":"You have reconnected to your ship.","ticks_remaining":3,"was_pilotless":false}
+2026/03/17 01:52:45 Response Message: 'You have reconnected to your ship.'
+2026/03/17 01:52:45 Reconnected to ship: map[message:You have reconnected to your ship. ticks_remaining:3 was_pilotless:false]
+2026/03/17 01:52:45 === Game Client Receive Debug ===
+2026/03/17 01:52:45 Response Type: 'logged_in'
+2026/03/17 01:52:45 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
+2026/03/17 01:52:45 Set System.ID = 'haven' from player.CurrentSystem (was empty)
+2026/03/17 01:52:45 Parsing system data from 'system' object
+2026/03/17 01:52:45 Set System.ID = 'haven' from id field
+2026/03/17 01:52:45 Set System.Name = 'Haven', CurrentSystem = 'Haven'
+2026/03/17 01:52:45 [miner-1] ✓ Logged in successfully
+2026/03/17 01:52:45 [miner-1] Starting agent runner
+2026/03/17 01:52:45 [miner-1] ✓ Agent spawned and running
+2026/03/17 01:52:45 ✓ [miner-1] Thought Engine enabled
+2026/03/17 01:52:45 ✓ [miner-1] Started successfully (faction: )
+2026/03/17 01:52:45 
 === Agent Server Started ===
-2026/03/17 01:43:29 ✓ Successfully started: 1/1 agents
-2026/03/17 01:43:29 Server URL: wss://game.spacemolt.com/ws
-2026/03/17 01:43:29 Decision interval: 10s
-2026/03/17 01:43:29 Serving web UI from /home/robert/spacemolt/spacemolt/web
-2026/03/17 01:43:29 
+2026/03/17 01:52:45 ✓ Successfully started: 1/1 agents
+2026/03/17 01:52:45 Server URL: wss://game.spacemolt.com/ws
+2026/03/17 01:52:45 Decision interval: 10s
+2026/03/17 01:52:45 Serving web UI from /home/robert/spacemolt/spacemolt/web
+2026/03/17 01:52:45 
 Press Ctrl+C to stop all agents and exit
-2026/03/17 01:43:29 ✓ HTTP API listening on :8090
-2026/03/17 01:43:29 HTTP API starting on port 8090
-2026/03/17 01:43:39 [miner-1] System changed to haven, finding route home to grand_exchange_station
-2026/03/17 01:43:39 === Game Client Send Debug ===
-2026/03/17 01:43:39 Message Type: 'find_route'
-2026/03/17 01:43:39 Message Payload: {"target_system":"grand_exchange_station"}
-2026/03/17 01:43:40 === Game Client Receive Debug ===
-2026/03/17 01:43:40 Response Type: 'error'
-2026/03/17 01:43:40 Response Payload: {"code":"system_not_found","message":"Target system not found"}
-2026/03/17 01:43:40 Response Message: 'Target system not found'
-2026/03/17 01:43:40 [miner-1] Failed to find route home: find_route failed: Target system not found
-2026/03/17 01:43:40 [ToT] Stage 1 prompt (1936 chars) for miner-1
-2026/03/17 01:45:28 [ToT] Stage 1 raw response (812 chars): {
-  "situation": "Docked at Grand Exchange with high credits and low cargo, ready to trade or mine.",
-  "options": [
-    {
-      "action": "view_market",
-      "target": "",
-      "rationale": "Check market prices to identify high-demand resources to mine or sell for profit."
-    },
-    {
-      "action": "get_missions",
-      "target": "",
-      "rationale": "Accept mining missions to secure additional credits and potentially better resource contracts."
-    },
-    {
-      "action": "view_storage
-2026/03/17 01:45:28 [ToT] Stage 1 parsed: situation="Docked at Grand Exchange with high credits and low cargo, ready to trade or mine.", options=4
-2026/03/17 01:45:28 [ToT] Stage 2 evaluating option 1/4: view_market 
-2026/03/17 01:45:28 [health-3] No messages received for 1m48.876956914s (timeout: 1m20s), connection may be dead
-2026/03/17 01:45:28 === Connection Metrics [health_timeout] ===
-2026/03/17 01:45:28   Connection ID: 20260317-014328-492
-2026/03/17 01:45:28   Uptime: 2m0.001s
-2026/03/17 01:45:28   Messages sent: 2 | received: 3 | total: 5
-2026/03/17 01:45:28   Last server message: 1m48.877s ago
-2026/03/17 01:45:28   Last client send: 1m48.978s ago
-2026/03/17 01:45:28   Last client receive: 1m48.877s ago
-2026/03/17 01:45:28 Reconnection attempt 1/5 after 2s
-2026/03/17 01:45:30 Attempting to reconnect...
-2026/03/17 01:45:30 === Connection Metrics [client_disconnect] ===
-2026/03/17 01:45:30   Connection ID: 20260317-014328-492
-2026/03/17 01:45:30   Uptime: 2m2.001s
-2026/03/17 01:45:30   Messages sent: 2 | received: 3 | total: 5
-2026/03/17 01:45:30   Last server message: 1m50.877s ago
-2026/03/17 01:45:30   Last client send: 1m50.978s ago
-2026/03/17 01:45:30   Last client receive: 1m50.877s ago
-2026/03/17 01:45:30 [health-3] Context cancelled, exiting
-2026/03/17 01:45:30 [health-3] Health monitor exited
-2026/03/17 01:45:30 Disconnected from server
-2026/03/17 01:45:31 Goroutines slow to exit, connection closed
-2026/03/17 01:45:41 Warning: Extended timeout waiting for goroutines to exit
-2026/03/17 01:45:41 [listen-2] Connection error: failed to get reader: use of closed network connection
-2026/03/17 01:45:41 [listen-2] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB
-2026/03/17 01:45:41 === Connection Metrics [disconnect] ===
-2026/03/17 01:45:41   Connection ID: 20260317-014328-492
-2026/03/17 01:45:41   Uptime: 2m13.011s
-2026/03/17 01:45:41   Messages sent: 2 | received: 3 | total: 5
-2026/03/17 01:45:41   Last server message: 2m1.887s ago
-2026/03/17 01:45:41   Last client send: 2m1.988s ago
-2026/03/17 01:45:41   Last client receive: 2m1.887s ago
-2026/03/17 01:45:41 [listen-2] Goroutine exited
-2026/03/17 01:45:44 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-014544-237 | Goroutine: 4
-2026/03/17 01:45:44 === Game Client Send Debug ===
-2026/03/17 01:45:44 Message Type: 'login'
-2026/03/17 01:45:44 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
-2026/03/17 01:45:44 [listen-5] Goroutine started
-2026/03/17 01:45:44 [health-6] Health monitor started | Timeout: 1m20s (server handles ping/pong)
-2026/03/17 01:45:44 === Game Client Receive Debug ===
-2026/03/17 01:45:44 Response Type: 'welcome'
-2026/03/17 01:45:44 Response Payload: {"current_tick":323417,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
-2026/03/17 01:45:44 Server version: 0.230.1
-2026/03/17 01:45:44 === Game Client Receive Debug ===
-2026/03/17 01:45:44 Response Type: 'reconnected'
-2026/03/17 01:45:44 Response Payload: {"message":"You have reconnected to your ship.","ticks_remaining":3,"was_pilotless":false}
-2026/03/17 01:45:44 Response Message: 'You have reconnected to your ship.'
-2026/03/17 01:45:44 Reconnected to ship: map[message:You have reconnected to your ship. ticks_remaining:3 was_pilotless:false]
-2026/03/17 01:45:44 === Game Client Receive Debug ===
-2026/03/17 01:45:44 Response Type: 'logged_in'
-2026/03/17 01:45:44 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
-2026/03/17 01:45:44 Parsing system data from 'system' object
-2026/03/17 01:45:44 Set System.ID = 'haven' from id field
-2026/03/17 01:45:44 Set System.Name = 'Haven', CurrentSystem = 'Haven'
-2026/03/17 01:45:44 Reconnected and logged in successfully
-2026/03/17 01:45:44 ✓ Reconnected successfully
-2026/03/17 01:47:14 [health-6] No messages received for 1m29.779149876s (timeout: 1m20s), connection may be dead
-2026/03/17 01:47:14 === Connection Metrics [health_timeout] ===
-2026/03/17 01:47:14   Connection ID: 20260317-014544-237
-2026/03/17 01:47:14   Uptime: 1m30.001s
-2026/03/17 01:47:14   Messages sent: 1 | received: 2 | total: 3
-2026/03/17 01:47:14   Last server message: 1m29.779s ago
-2026/03/17 01:47:14   Last client send: 1m30s ago
-2026/03/17 01:47:14   Last client receive: 1m29.779s ago
-2026/03/17 01:47:14 Reconnection attempt 1/5 after 2s
-2026/03/17 01:47:16 Attempting to reconnect...
-2026/03/17 01:47:16 === Connection Metrics [client_disconnect] ===
-2026/03/17 01:47:16   Connection ID: 20260317-014544-237
-2026/03/17 01:47:16   Uptime: 1m32.001s
-2026/03/17 01:47:16   Messages sent: 1 | received: 2 | total: 3
-2026/03/17 01:47:16   Last server message: 1m31.78s ago
-2026/03/17 01:47:16   Last client send: 1m32.001s ago
-2026/03/17 01:47:16   Last client receive: 1m31.78s ago
-2026/03/17 01:47:16 [health-6] Context cancelled, exiting
-2026/03/17 01:47:16 [health-6] Health monitor exited
-2026/03/17 01:47:16 Disconnected from server
-2026/03/17 01:47:17 Goroutines slow to exit, connection closed
-2026/03/17 01:47:27 Warning: Extended timeout waiting for goroutines to exit
-2026/03/17 01:47:27 [listen-5] Connection error: failed to get reader: context canceled
-2026/03/17 01:47:27 [listen-5] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB
-2026/03/17 01:47:27 === Connection Metrics [disconnect] ===
-2026/03/17 01:47:27   Connection ID: 20260317-014544-237
-2026/03/17 01:47:27   Uptime: 1m43.008s
-2026/03/17 01:47:27   Messages sent: 1 | received: 2 | total: 3
-2026/03/17 01:47:27   Last server message: 1m42.786s ago
-2026/03/17 01:47:27   Last client send: 1m43.007s ago
-2026/03/17 01:47:27   Last client receive: 1m42.786s ago
-2026/03/17 01:47:27 [listen-5] Goroutine exited
-2026/03/17 01:47:29 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-014729-71 | Goroutine: 7
-2026/03/17 01:47:29 [listen-8] Goroutine started
-2026/03/17 01:47:29 === Game Client Send Debug ===
-2026/03/17 01:47:29 Message Type: 'login'
-2026/03/17 01:47:29 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
-2026/03/17 01:47:29 [health-9] Health monitor started | Timeout: 1m20s (server handles ping/pong)
-2026/03/17 01:47:29 === Game Client Receive Debug ===
-2026/03/17 01:47:29 Response Type: 'welcome'
-2026/03/17 01:47:29 Response Payload: {"current_tick":323428,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
-2026/03/17 01:47:29 Server version: 0.230.1
-2026/03/17 01:47:30 === Game Client Receive Debug ===
-2026/03/17 01:47:30 Response Type: 'reconnected'
-2026/03/17 01:47:30 Response Payload: {"message":"You have reconnected to your ship.","ticks_remaining":2,"was_pilotless":false}
-2026/03/17 01:47:30 Response Message: 'You have reconnected to your ship.'
-2026/03/17 01:47:30 Reconnected to ship: map[message:You have reconnected to your ship. ticks_remaining:2 was_pilotless:false]
-2026/03/17 01:47:30 === Game Client Receive Debug ===
-2026/03/17 01:47:30 Response Type: 'logged_in'
-2026/03/17 01:47:30 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
-2026/03/17 01:47:30 Parsing system data from 'system' object
-2026/03/17 01:47:30 Set System.ID = 'haven' from id field
-2026/03/17 01:47:30 Set System.Name = 'Haven', CurrentSystem = 'Haven'
-2026/03/17 01:47:30 Reconnected and logged in successfully
-2026/03/17 01:47:30 ✓ Reconnected successfully
-2026/03/17 01:47:42 [ToT] Stage 2 option 1 response (0 chars, 134.0s): 
-2026/03/17 01:47:42 [ToT] Stage 2 option 1 parse failed: no JSON found in evaluate response
-2026/03/17 01:47:42 [ToT] Stage 2 evaluating option 2/4: get_missions 
-2026/03/17 01:48:59 [health-9] No messages received for 1m29.382506772s (timeout: 1m20s), connection may be dead
-2026/03/17 01:48:59 === Connection Metrics [health_timeout] ===
-2026/03/17 01:48:59   Connection ID: 20260317-014729-71
-2026/03/17 01:48:59   Uptime: 1m30.001s
-2026/03/17 01:48:59   Messages sent: 1 | received: 2 | total: 3
-2026/03/17 01:48:59   Last server message: 1m29.383s ago
-2026/03/17 01:48:59   Last client send: 1m30.001s ago
-2026/03/17 01:48:59   Last client receive: 1m29.383s ago
-2026/03/17 01:48:59 Reconnection attempt 1/5 after 2s
-2026/03/17 01:49:01 Attempting to reconnect...
-2026/03/17 01:49:01 === Connection Metrics [client_disconnect] ===
-2026/03/17 01:49:01   Connection ID: 20260317-014729-71
-2026/03/17 01:49:01   Uptime: 1m32.002s
-2026/03/17 01:49:01   Messages sent: 1 | received: 2 | total: 3
-2026/03/17 01:49:01   Last server message: 1m31.384s ago
-2026/03/17 01:49:01   Last client send: 1m32.002s ago
-2026/03/17 01:49:01   Last client receive: 1m31.384s ago
-2026/03/17 01:49:01 [health-9] Context cancelled, exiting
-2026/03/17 01:49:01 [health-9] Health monitor exited
-2026/03/17 01:49:01 Disconnected from server
-2026/03/17 01:49:02 Goroutines slow to exit, connection closed
-2026/03/17 01:49:12 Warning: Extended timeout waiting for goroutines to exit
-2026/03/17 01:49:12 [listen-8] Connection error: failed to get reader: use of closed network connection
-2026/03/17 01:49:12 [listen-8] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB
-2026/03/17 01:49:12 === Connection Metrics [disconnect] ===
-2026/03/17 01:49:12   Connection ID: 20260317-014729-71
-2026/03/17 01:49:12   Uptime: 1m43.008s
-2026/03/17 01:49:12   Messages sent: 1 | received: 2 | total: 3
-2026/03/17 01:49:12   Last server message: 1m42.389s ago
-2026/03/17 01:49:12   Last client send: 1m43.008s ago
-2026/03/17 01:49:12   Last client receive: 1m42.389s ago
-2026/03/17 01:49:12 [listen-8] Goroutine exited
-2026/03/17 01:49:15 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-014915-624 | Goroutine: 10
-2026/03/17 01:49:15 === Game Client Send Debug ===
-2026/03/17 01:49:15 Message Type: 'login'
-2026/03/17 01:49:15 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
-2026/03/17 01:49:15 [health-11] Health monitor started | Timeout: 1m20s (server handles ping/pong)
-2026/03/17 01:49:15 [listen-12] Goroutine started
-2026/03/17 01:49:15 === Game Client Receive Debug ===
-2026/03/17 01:49:15 Response Type: 'welcome'
-2026/03/17 01:49:15 Response Payload: {"current_tick":323438,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
-2026/03/17 01:49:15 Server version: 0.230.1
-2026/03/17 01:49:15 === Game Client Receive Debug ===
-2026/03/17 01:49:15 Response Type: 'reconnected'
-2026/03/17 01:49:15 Response Payload: {"message":"You have reconnected to your ship.","ticks_remaining":3,"was_pilotless":false}
-2026/03/17 01:49:15 Response Message: 'You have reconnected to your ship.'
-2026/03/17 01:49:15 Reconnected to ship: map[message:You have reconnected to your ship. ticks_remaining:3 was_pilotless:false]
-2026/03/17 01:49:15 === Game Client Receive Debug ===
-2026/03/17 01:49:15 Response Type: 'logged_in'
-2026/03/17 01:49:15 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
-2026/03/17 01:49:15 Parsing system data from 'system' object
-2026/03/17 01:49:15 Set System.ID = 'haven' from id field
-2026/03/17 01:49:15 Set System.Name = 'Haven', CurrentSystem = 'Haven'
-2026/03/17 01:49:15 Reconnected and logged in successfully
-2026/03/17 01:49:15 ✓ Reconnected successfully
-2026/03/17 01:49:56 [ToT] Stage 2 option 2 response (0 chars, 133.9s): 
-2026/03/17 01:49:56 [ToT] Stage 2 option 2 parse failed: no JSON found in evaluate response
-2026/03/17 01:49:56 [ToT] Stage 2 evaluating option 3/4: view_storage 
-2026/03/17 01:50:45 [health-11] No messages received for 1m29.76992561s (timeout: 1m20s), connection may be dead
-2026/03/17 01:50:45 === Connection Metrics [health_timeout] ===
-2026/03/17 01:50:45   Connection ID: 20260317-014915-624
-2026/03/17 01:50:45   Uptime: 1m30.001s
-2026/03/17 01:50:45   Messages sent: 1 | received: 3 | total: 4
-2026/03/17 01:50:45   Last server message: 1m29.77s ago
-2026/03/17 01:50:45   Last client send: 1m30.001s ago
-2026/03/17 01:50:45   Last client receive: 1m29.77s ago
-2026/03/17 01:50:45 Reconnection attempt 1/5 after 2s
-2026/03/17 01:50:47 Attempting to reconnect...
-2026/03/17 01:50:47 === Connection Metrics [client_disconnect] ===
-2026/03/17 01:50:47   Connection ID: 20260317-014915-624
-2026/03/17 01:50:47   Uptime: 1m32.002s
-2026/03/17 01:50:47   Messages sent: 1 | received: 3 | total: 4
-2026/03/17 01:50:47   Last server message: 1m31.771s ago
-2026/03/17 01:50:47   Last client send: 1m32.002s ago
-2026/03/17 01:50:47   Last client receive: 1m31.771s ago
-2026/03/17 01:50:47 [health-11] Context cancelled, exiting
-2026/03/17 01:50:47 [health-11] Health monitor exited
-2026/03/17 01:50:47 Disconnected from server
-2026/03/17 01:50:48 Goroutines slow to exit, connection closed
-2026/03/17 01:50:58 Warning: Extended timeout waiting for goroutines to exit
-2026/03/17 01:50:58 [listen-12] Connection error: failed to get reader: context canceled
-2026/03/17 01:50:58 [listen-12] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB
-2026/03/17 01:50:58 === Connection Metrics [disconnect] ===
-2026/03/17 01:50:58   Connection ID: 20260317-014915-624
-2026/03/17 01:50:58   Uptime: 1m43.008s
-2026/03/17 01:50:58   Messages sent: 1 | received: 3 | total: 4
-2026/03/17 01:50:58   Last server message: 1m42.777s ago
-2026/03/17 01:50:58   Last client send: 1m43.008s ago
-2026/03/17 01:50:58   Last client receive: 1m42.777s ago
-2026/03/17 01:50:58 [listen-12] Goroutine exited
-2026/03/17 01:51:00 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-015100-587 | Goroutine: 13
-2026/03/17 01:51:00 === Game Client Send Debug ===
-2026/03/17 01:51:00 Message Type: 'login'
-2026/03/17 01:51:00 [listen-14] Goroutine started
-2026/03/17 01:51:00 Message Payload: {"password":"6005e118ed928df
+2026/03/17 01:52:45 ✓ HTTP API listening on :8090
+2026/03/17 01:52:45 HTTP API starting on port 8090
+2026/03/17 01:52:55 [miner-1] System changed to haven, finding route home to grand_exchange_station
+2026/03/17 01:52:55 === Game Client Send Debug ===
+2026/03/17 01:52:55 Message Type: 'find_route'
+2026/03/17 01:52:55 Message Payload: {"target_system":"grand_exchange_station"}
+2026/03/17 01:52:55 === Game Client Receive Debug ===
+2026/03/17 01:52:55 Response Type: 'error'
+2026/03/17 01:52:55 Response Payload: {"code":"system_not_found","message":"Target system not found"}
+2026/03/17 01:52:55 Response Message: 'Target system not found'
+2026/03/17 01:52:55 [miner-1] Failed to find route home: find_route failed: Target system not found
+2026/03/17 01:52:55 [ToT] Stage 1 prompt (2202 chars) for miner-1:
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+CURRENT SITUATION:
+- System: Haven (haven)
+- Docked at: grand_exchange
+- Fuel: 90%
+- Hull: 100%
+- Cargo: 2/150
+- Credits: 119282
+
+NEARBY LOCATIONS:
+  - haven_star: Haven Star (sun)
+  - haven_prime: Haven Prime (planet)
+  - grand_exchange: Grand Exchange (station)
+  - federation_vaults: Federation Vaults (station)
+  - merchant_docks: Merchant Docks (station)
+  - commerce_fields: Commerce Fields (asteroid_belt)
+  - trade_winds: Trade Winds (gas_cloud)
+  - frostmarket_flats: Frostmarket Flats (ice_field)
+
+CONNECTED SYSTEMS:
+  - market_prime: Market Prime
+  - traders_rest: Trader's Rest
+
+AVAILABLE ACTIONS:
+  - undock: Undock and return to space
+  - view_market: View the market listings at this station
+  - buy: Buy items from the market
+  - sell: Sell items to the market
+  - sell_all: Sell all cargo to the market
+  - view_storage: View items in station storage
+  - deposit_credits: Deposit credits into station storage
+  - withdraw_items: Withdraw items from station storage
+  - list_ships: List all owned ships
+  - switch_ship: Switch to a different owned ship
+  - get_recipes: View available crafting recipes
+  - craft: Craft items using available recipes
+  - get_missions: View available missions
+  - complete_mission: Complete an accepted mission
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_map: View the galaxy map
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 01:53:02 [ToT] Stage 1 raw response (0 chars): 
+2026/03/17 01:53:02 [miner-1] ToT failed, falling back to single-call: stage 1 parse: no JSON found in assess response: 
+2026/03/17 01:54:43 [miner-1] === Decision Execution Debug ===
+2026/03/17 01:54:43 [miner-1] Decision.Action: 'undock'
+2026/03/17 01:54:43 [miner-1] Decision.Target: ''
+2026/03/17 01:54:43 [miner-1] Decision.Confidence: 90.0%
+2026/03/17 01:54:43 [miner-1] Decision.Reasoning: I am currently docked at Grand Exchange. To mine resources at the Commerce Fields asteroid belt, I must first undock to leave the station.
+2026/03/17 01:54:43 [miner-1] -> Undock()
+2026/03/17 01:54:43 === Game Client Send Debug ===
+2026/03/17 01:54:43 Message Type: 'undock'
+2026/03/17 01:54:43 === Game Client Receive Debug ===
+2026/03/17 01:54:43 Response Type: 'ok'
+2026/03/17 01:54:43 Response Payload: {"command":"undock","message":"Action 'undock' pending. Will execute on next tick.","pending":true}
+2026/03/17 01:54:43 Response Message: 'Action 'undock' pending. Will execute on next tick.'
+2026/03/17 01:54:43 Action pending (undock) - waiting for completion
+[Agent miner-1] Learning from action result: undock →  (success=false)
+[Agent miner-1]   Message: Action failed: context deadline exceeded
+[Agent miner-1]   Error: context deadline exceeded
+2026/03/17 01:54:48 [miner-1] Decision cycle error (1/10): action execution failed: context deadline exceeded
+2026/03/17 01:54:48 [ToT] Stage 1 prompt (2202 chars) for miner-1:
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+CURRENT SITUATION:
+- System: Haven (haven)
+- Docked at: grand_exchange
+- Fuel: 90%
+- Hull: 100%
+- Cargo: 2/150
+- Credits: 119282
+
+NEARBY LOCATIONS:
+  - haven_star: Haven Star (sun)
+  - haven_prime: Haven Prime (planet)
+  - grand_exchange: Grand Exchange (station)
+  - federation_vaults: Federation Vaults (station)
+  - merchant_docks: Merchant Docks (station)
+  - commerce_fields: Commerce Fields (asteroid_belt)
+  - trade_winds: Trade Winds (gas_cloud)
+  - frostmarket_flats: Frostmarket Flats (ice_field)
+
+CONNECTED SYSTEMS:
+  - market_prime: Market Prime
+  - traders_rest: Trader's Rest
+
+AVAILABLE ACTIONS:
+  - undock: Undock and return to space
+  - view_market: View the market listings at this station
+  - buy: Buy items from the market
+  - sell: Sell items to the market
+  - sell_all: Sell all cargo to the market
+  - view_storage: View items in station storage
+  - deposit_credits: Deposit credits into station storage
+  - withdraw_items: Withdraw items from station storage
+  - list_ships: List all owned ships
+  - switch_ship: Switch to a different owned ship
+  - get_recipes: View available crafting recipes
+  - craft: Craft items using available recipes
+  - get_missions: View available missions
+  - complete_mission: Complete an accepted mission
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_map: View the galaxy map
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 01:54:49 === Game Client Receive Debug ===
+2026/03/17 01:54:49 Response Type: 'action_error'
+2026/03/17 01:54:49 Response Payload: {"code":"not_docked","command":"undock","message":"not_docked: Not docked","tick":323472}
+2026/03/17 01:54:49 Response Message: 'not_docked: Not docked'
+2026/03/17 01:54:51 [ToT] Stage 1 raw response (0 chars): 
+2026/03/17 01:54:51 [miner-1] ToT failed, falling back to single-call: stage 1 parse: no JSON found in assess response: 
+^C2026/03/17 01:54:52 
+
+=== Shutting Down ===
+2026/03/17 01:54:52 HTTP API shutting down...
+2026/03/17 01:54:52 HTTP server error: http: Server closed
+2026/03/17 01:54:52 Stopping all agents...
+2026/03/17 01:54:52 [miner-1] Agent runner stopped
+2026/03/17 01:54:52 [health-3] Context cancelled, exiting
+2026/03/17 01:54:52 [health-3] Health monitor exited
+
+
+
+2026/03/17 01:54:57 Warning: Timeout waiting for goroutines to exit on Close
+2026/03/17 01:54:57 ✓ Stopped 0 agents
+2026/03/17 01:54:57 Goodbye!
+2026/03/17 01:54:57 [listen-2] Connection error: failed to get reader: context canceled
+2026/03/17 01:54:57 [listen-2] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB
+2026/03/17 01:54:57 === Connection Metrics [disconnect] ===
+2026/03/17 01:54:57   Connection ID: 20260317-015244-966
+2026/03/17 01:54:57   Uptime: 2m12.877s
+2026/03/17 01:54:57   Messages sent: 3 | received: 6 | total: 9
+2026/03/17 01:54:57   Last server message: 8.317s ago
+2026/03/17 01:54:57   Last client send: 14.399s ago
+2026/03/17 01:54:5

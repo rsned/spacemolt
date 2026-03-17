@@ -308,10 +308,13 @@ func (c *Client) HasPromptManager() bool {
 
 // Generate sends a raw prompt to the LLM and returns the response text.
 // Used by the Thought Engine for multi-call decision pipelines.
+// Uses the /api/chat endpoint which handles thinking models (qwen3) properly.
 func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 	payload := map[string]any{
-		"model":  c.model,
-		"prompt": prompt,
+		"model": c.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
 		"stream": false,
 		"options": map[string]any{
 			"temperature": 0.7,
@@ -326,7 +329,7 @@ func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/generate", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -339,7 +342,8 @@ func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("ollama returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -347,15 +351,17 @@ func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var ollamaResp struct {
-		Response string `json:"response"`
-		Done     bool   `json:"done"`
+	var chatResp struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+		Done bool `json:"done"`
 	}
-	if err := json.Unmarshal(respBody, &ollamaResp); err != nil {
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return ollamaResp.Response, nil
+	return chatResp.Message.Content, nil
 }
 
 // Model returns the configured model name.
