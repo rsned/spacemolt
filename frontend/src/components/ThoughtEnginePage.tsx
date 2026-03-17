@@ -1,69 +1,152 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ThoughtTreeView } from './ThoughtTreeView'
 import { DebugPanel } from './DebugPanel'
 import { useThoughtEngine } from '../lib/useThoughtEngine'
 import type { ThoughtNodeData, ThoughtTree } from '../lib/useThoughtEngine'
 
-interface ThoughtEnginePageProps {
-  agentId: string | null
+interface AgentInfo {
+  id: string
+  username: string
+  connected: boolean
+  system?: string
+  poi?: string
+  docked?: boolean
 }
 
-export function ThoughtEnginePage({ agentId }: ThoughtEnginePageProps) {
-  const { currentTree, history, connected } = useThoughtEngine(agentId)
+interface ThoughtEnginePageProps {
+  agentId?: string | null
+}
+
+export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePageProps) {
+  const [agents, setAgents] = useState<AgentInfo[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(externalAgentId ?? null)
+  const [loadingAgents, setLoadingAgents] = useState(false)
+
+  const activeAgent = externalAgentId ?? selectedAgent
+  const { currentTree, history, connected } = useThoughtEngine(activeAgent)
   const [selectedNode, setSelectedNode] = useState<ThoughtNodeData | null>(null)
   const [viewingTree, setViewingTree] = useState<ThoughtTree | null>(null)
 
   const displayTree = viewingTree || currentTree
 
+  // Fetch agents from REST API (standalone mode)
+  useEffect(() => {
+    if (externalAgentId) return // skip if agent provided externally
+
+    const fetchAgents = async () => {
+      setLoadingAgents(true)
+      try {
+        const resp = await fetch('/api/agents')
+        if (resp.ok) {
+          const data = await resp.json()
+          setAgents(data.agents ?? data ?? [])
+          // Auto-select first agent if none selected
+          if (!selectedAgent && data.agents?.length > 0) {
+            setSelectedAgent(data.agents[0].id ?? data.agents[0].username)
+          } else if (!selectedAgent && Array.isArray(data) && data.length > 0) {
+            setSelectedAgent(data[0].id ?? data[0].username)
+          }
+        }
+      } catch {
+        // API not available
+      } finally {
+        setLoadingAgents(false)
+      }
+    }
+
+    fetchAgents()
+    const interval = setInterval(fetchAgents, 15000)
+    return () => clearInterval(interval)
+  }, [externalAgentId])
+
   return (
     <div className="space-y-4">
       {/* Status bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-200">Thought Engine</h2>
           <span className={`text-xs px-2 py-0.5 rounded ${
             connected ? 'bg-green-900 text-green-400' : 'bg-gray-700 text-gray-400'
           }`}>
-            {connected ? 'STREAMING' : agentId ? 'CONNECTING...' : 'NO AGENT'}
+            {connected ? 'STREAMING' : activeAgent ? 'CONNECTING...' : 'NO AGENT'}
           </span>
-          {agentId && (
-            <span className="text-xs text-gray-500">Agent: {agentId}</span>
-          )}
         </div>
 
-        {/* History selector */}
-        {history.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">History ({history.length}):</span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => { setViewingTree(null); setSelectedNode(null) }}
-                className={`px-2 py-0.5 text-xs rounded ${
-                  !viewingTree ? 'bg-cyan-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                Live
-              </button>
-              {history.slice(0, 10).map((tree, i) => (
-                <button
-                  key={tree.id}
-                  onClick={() => { setViewingTree(tree); setSelectedNode(null) }}
-                  className={`px-2 py-0.5 text-xs rounded ${
-                    viewingTree?.id === tree.id ? 'bg-cyan-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                  }`}
-                  title={new Date(tree.timestamp).toLocaleTimeString()}
-                >
-                  {i === 0 ? 'Prev' : `-${i + 1}`}
-                </button>
-              ))}
+        <div className="flex items-center gap-3">
+          {/* Agent selector (standalone mode) */}
+          {!externalAgentId && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Agent:</span>
+              {loadingAgents && agents.length === 0 ? (
+                <span className="text-xs text-gray-500">Loading...</span>
+              ) : agents.length > 0 ? (
+                <div className="flex gap-1">
+                  {agents.map((a) => (
+                    <button
+                      key={a.id ?? a.username}
+                      onClick={() => { setSelectedAgent(a.id ?? a.username); setSelectedNode(null); setViewingTree(null) }}
+                      className={`px-2 py-0.5 text-xs rounded ${
+                        activeAgent === (a.id ?? a.username)
+                          ? 'bg-cyan-700 text-white'
+                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                      }`}
+                    >
+                      {a.username ?? a.id}
+                      {a.connected === false && <span className="text-red-400 ml-1">(offline)</span>}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="agent id (e.g. miner-1)"
+                  className="px-2 py-1 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 w-40"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSelectedAgent((e.target as HTMLInputElement).value)
+                      setSelectedNode(null)
+                      setViewingTree(null)
+                    }
+                  }}
+                />
+              )}
             </div>
-          </div>
-        )}
+          )}
+
+          {/* History selector */}
+          {history.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">History ({history.length}):</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => { setViewingTree(null); setSelectedNode(null) }}
+                  className={`px-2 py-0.5 text-xs rounded ${
+                    !viewingTree ? 'bg-cyan-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  }`}
+                >
+                  Live
+                </button>
+                {history.slice(0, 10).map((tree, i) => (
+                  <button
+                    key={tree.id}
+                    onClick={() => { setViewingTree(tree); setSelectedNode(null) }}
+                    className={`px-2 py-0.5 text-xs rounded ${
+                      viewingTree?.id === tree.id ? 'bg-cyan-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    }`}
+                    title={new Date(tree.timestamp).toLocaleTimeString()}
+                  >
+                    {i === 0 ? 'Prev' : `-${i + 1}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {!agentId ? (
+      {!activeAgent ? (
         <div className="flex items-center justify-center h-96 text-gray-500 bg-gray-950 rounded-lg border border-gray-800">
-          Subscribe to an agent on the Home tab to see their thought process
+          {loadingAgents ? 'Loading agents...' : 'Select an agent above or enter an agent ID to watch their thought process'}
         </div>
       ) : (
         <>

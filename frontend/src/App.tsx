@@ -347,7 +347,7 @@ function App() {
         )}
 
         {activeView === 'thinking' && (
-          <ThoughtEnginePage agentId={observer.subscribedAgent} />
+          <ThoughtEnginePage agentId={observer.subscribedAgent ?? undefined} />
         )}
 
         {activeView === 'storage' && (
