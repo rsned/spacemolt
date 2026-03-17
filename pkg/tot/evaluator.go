@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,16 +48,19 @@ func (e *Evaluator) Evaluate(
 
 	// Stage 1: Assess
 	assessPrompt := BuildAssessPrompt(personality, state, validActions)
+	log.Printf("[ToT] Stage 1 prompt (%d chars) for %s", len(assessPrompt), personality.ID)
 	assessRaw, err := e.llm.Generate(ctx, assessPrompt)
 	if err != nil {
 		return nil, fmt.Errorf("stage 1 assess: %w", err)
 	}
+	log.Printf("[ToT] Stage 1 raw response (%d chars): %.500s", len(assessRaw), assessRaw)
 
 	assessed, err := parseAssessResponse(assessRaw)
 	if err != nil {
 		return nil, fmt.Errorf("stage 1 parse: %w", err)
 	}
 	tree.Situation = assessed.Situation
+	log.Printf("[ToT] Stage 1 parsed: situation=%q, options=%d", assessed.Situation, len(assessed.Options))
 
 	if len(assessed.Options) == 0 {
 		return nil, fmt.Errorf("stage 1 returned no options")
@@ -198,13 +203,20 @@ func (tree *ThoughtTree) ToDecision() agent.Decision {
 func parseAssessResponse(raw string) (*AssessResponse, error) {
 	jsonStr := extractJSON(raw)
 	if jsonStr == "" {
-		return nil, fmt.Errorf("no JSON found in assess response")
+		return nil, fmt.Errorf("no JSON found in assess response: %s", truncate(raw, 200))
 	}
 	var resp AssessResponse
 	if err := json.Unmarshal([]byte(jsonStr), &resp); err != nil {
-		return nil, fmt.Errorf("parse assess JSON: %w", err)
+		return nil, fmt.Errorf("parse assess JSON: %w (raw: %s)", err, truncate(jsonStr, 200))
 	}
 	return &resp, nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }
 
 func parseEvaluateResponse(raw string) (*EvaluateResponse, error) {
@@ -219,8 +231,27 @@ func parseEvaluateResponse(raw string) (*EvaluateResponse, error) {
 	return &resp, nil
 }
 
+// stripThinkTags removes qwen3-style <think>...</think> tags from the response.
+func stripThinkTags(s string) string {
+	for {
+		start := strings.Index(s, "<think>")
+		if start == -1 {
+			return s
+		}
+		end := strings.Index(s, "</think>")
+		if end == -1 {
+			// Unclosed think tag — strip from <think> to end
+			return s[:start]
+		}
+		s = s[:start] + s[end+len("</think>"):]
+	}
+}
+
 // extractJSON finds the last JSON object in a string.
 func extractJSON(s string) string {
+	// Strip <think> tags that qwen3 models add
+	s = stripThinkTags(s)
+
 	var lastJSON string
 	depth := 0
 	start := -1

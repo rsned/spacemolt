@@ -36,6 +36,8 @@ type EvaluateResponse struct {
 // BuildAssessPrompt constructs the Stage 1 prompt.
 func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []ActionOption) string {
 	var sb strings.Builder
+	// /no_think disables qwen3's extended thinking to get direct JSON output
+	sb.WriteString("/no_think\n")
 	fmt.Fprintf(&sb, "You are %s, a %s.\n\n", p.Name, p.Role)
 
 	sb.WriteString("CURRENT SITUATION:\n")
@@ -90,6 +92,7 @@ func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []Ac
 // BuildEvaluatePrompt constructs a Stage 2 prompt for one option.
 func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation string, option AssessOption) string {
 	var sb strings.Builder
+	sb.WriteString("/no_think\n")
 	fmt.Fprintf(&sb, "You are %s, a %s.\n\n", p.Name, p.Role)
 	fmt.Fprintf(&sb, "SITUATION: %s\n\n", situation)
 	fmt.Fprintf(&sb, "You are considering this action: %s", option.Action)
