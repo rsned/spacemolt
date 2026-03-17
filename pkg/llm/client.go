@@ -369,6 +369,11 @@ func (c *Client) Model() string {
 	return c.model
 }
 
+// SetModel changes the LLM model used for subsequent requests.
+func (c *Client) SetModel(model string) {
+	c.model = model
+}
+
 // TestConnection tests if Ollama is reachable
 func (c *Client) TestConnection(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/api/tags", nil)

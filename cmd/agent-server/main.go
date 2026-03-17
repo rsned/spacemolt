@@ -286,6 +286,7 @@ func main() {
 	var apiServer *api.Server
 	if *httpPort > 0 {
 		apiServer = api.NewServer(mgr, *httpPort)
+		apiServer.SetLLMClient(llmClient)
 
 		// Wire up event callbacks from runners to stream manager
 		streamMgr := apiServer.GetStreamManager()

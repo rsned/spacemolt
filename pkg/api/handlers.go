@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -268,4 +269,78 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 			flusher.Flush()
 		}
 	}
+}
+
+// handleModel handles GET/PUT /api/model for model hot-swapping.
+// GET returns current model and available models from Ollama.
+// PUT switches the model for subsequent LLM calls.
+func (s *Server) handleModel(w http.ResponseWriter, r *http.Request) {
+	if s.llmClient == nil {
+		http.Error(w, "LLM client not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Fetch available models from Ollama
+		available := s.fetchOllamaModels()
+		resp := map[string]any{
+			"current":   s.llmClient.Model(),
+			"available": available,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+
+	case http.MethodPut:
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", http.StatusBadRequest)
+			return
+		}
+		var req struct {
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil || req.Model == "" {
+			http.Error(w, "invalid request: need {\"model\": \"name\"}", http.StatusBadRequest)
+			return
+		}
+
+		old := s.llmClient.Model()
+		s.llmClient.SetModel(req.Model)
+		s.logger.Printf("LLM model switched: %s → %s", old, req.Model)
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"previous": old,
+			"current":  req.Model,
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// fetchOllamaModels queries Ollama for installed models.
+func (s *Server) fetchOllamaModels() []string {
+	// Ollama tags endpoint — works on default localhost:11434
+	resp, err := http.Get("http://localhost:11434/api/tags")
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil
+	}
+
+	names := make([]string, len(result.Models))
+	for i, m := range result.Models {
+		names[i] = m.Name
+	}
+	return names
 }

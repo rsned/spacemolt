@@ -21,6 +21,8 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [selectedAgent, setSelectedAgent] = useState<string | null>(externalAgentId ?? null)
   const [loadingAgents, setLoadingAgents] = useState(false)
+  const [currentModel, setCurrentModel] = useState<string>('')
+  const [availableModels, setAvailableModels] = useState<string[]>([])
 
   const activeAgent = externalAgentId ?? selectedAgent
   const { currentTree, history, connected } = useThoughtEngine(activeAgent)
@@ -28,6 +30,37 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
   const [viewingTree, setViewingTree] = useState<ThoughtTree | null>(null)
 
   const displayTree = viewingTree || currentTree
+
+  // Fetch model info from API
+  useEffect(() => {
+    const fetchModel = async () => {
+      try {
+        const resp = await fetch('/api/model')
+        if (resp.ok) {
+          const data = await resp.json()
+          setCurrentModel(data.current ?? '')
+          setAvailableModels(data.available ?? [])
+        }
+      } catch { /* API not available */ }
+    }
+    fetchModel()
+    const interval = setInterval(fetchModel, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleModelChange = async (model: string) => {
+    try {
+      const resp = await fetch('/api/model', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+      })
+      if (resp.ok) {
+        const data = await resp.json()
+        setCurrentModel(data.current)
+      }
+    } catch { /* ignore */ }
+  }
 
   // Fetch agents from REST API (standalone mode)
   useEffect(() => {
@@ -72,6 +105,22 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Model selector */}
+          {availableModels.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Model:</span>
+              <select
+                value={currentModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                className="px-2 py-0.5 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 cursor-pointer"
+              >
+                {availableModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Agent selector (standalone mode) */}
           {!externalAgentId && (
             <div className="flex items-center gap-2">
