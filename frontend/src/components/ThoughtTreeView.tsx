@@ -243,7 +243,7 @@ export const ThoughtTreeView: React.FC<ThoughtTreeViewProps> = ({ tree, onNodeCl
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 rounded-lg overflow-hidden border border-gray-800">
+    <div className="flex flex-col bg-gray-950 rounded-lg overflow-hidden border border-gray-800" style={{ height: '500px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-900 flex-shrink-0">
         <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
