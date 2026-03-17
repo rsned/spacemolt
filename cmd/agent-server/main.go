@@ -290,15 +290,23 @@ func main() {
 
 		// Wire up event callbacks from runners to stream manager
 		streamMgr := apiServer.GetStreamManager()
-		for _, runner := range mgr.ListRunners() {
-			runner.SetEventCallback(func(agentID string, eventType string, data interface{}) {
-				streamMgr.Publish(agentID, api.Event{
-					AgentID:   agentID,
-					Type:      eventType,
-					Timestamp: time.Now(),
-					Data:      data,
-				})
+		publishEvent := func(agentID string, eventType string, data any) {
+			streamMgr.Publish(agentID, api.Event{
+				AgentID:   agentID,
+				Type:      eventType,
+				Timestamp: time.Now(),
+				Data:      data,
 			})
+		}
+		for _, runner := range mgr.ListRunners() {
+			runner.SetEventCallback(publishEvent)
+		}
+
+		// Wire ToT adapters to also publish incremental updates
+		for _, runner := range mgr.ListRunners() {
+			if adapter, ok := runner.GetToTEvaluator().(*tot.RunnerAdapter); ok {
+				adapter.OnUpdate = publishEvent
+			}
 		}
 
 		// Start HTTP server in background

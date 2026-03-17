@@ -15,7 +15,7 @@ interface ThoughtNodeData {
   reasoning: string
   scores: AxisScores
   combined: number
-  status: 'active' | 'pruned' | 'winner'
+  status: 'pending' | 'evaluating' | 'active' | 'pruned' | 'winner'
   depth: number
   eval_time_ms: number
   prompt?: string

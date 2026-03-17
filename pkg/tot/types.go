@@ -6,9 +6,11 @@ import "time"
 type NodeStatus string
 
 const (
-	StatusActive NodeStatus = "active"
-	StatusPruned NodeStatus = "pruned"
-	StatusWinner NodeStatus = "winner"
+	StatusPending    NodeStatus = "pending"    // stub node, not yet evaluated
+	StatusEvaluating NodeStatus = "evaluating" // currently being evaluated by LLM
+	StatusActive     NodeStatus = "active"     // evaluated, has scores
+	StatusPruned     NodeStatus = "pruned"     // did not win selection
+	StatusWinner     NodeStatus = "winner"     // selected as best option
 )
 
 // AxisScores holds multi-criteria evaluation scores (0-100 scale).
@@ -63,6 +65,7 @@ type ThoughtTree struct {
 	AgentID   string         `json:"agent_id"`
 	Timestamp time.Time      `json:"timestamp"`
 	Situation string         `json:"situation"`
+	Stage     string         `json:"stage"` // assessing, evaluating N/M, selecting, complete
 	Root      []*ThoughtNode `json:"root"`
 	WinnerID  string         `json:"winner_id"`
 	Duration  time.Duration  `json:"duration_ms"`

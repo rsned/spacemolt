@@ -25,7 +25,7 @@ interface ThoughtNodeData {
   reasoning: string
   scores: AxisScores
   combined: number
-  status: 'active' | 'pruned' | 'winner'
+  status: 'pending' | 'evaluating' | 'active' | 'pruned' | 'winner'
   children?: ThoughtNodeData[]
   depth: number
   eval_time_ms: number
@@ -37,6 +37,7 @@ interface ThoughtTree {
   id: string
   agent_id: string
   situation: string
+  stage: string
   root: ThoughtNodeData[]
   winner_id: string
   duration_ms: number
@@ -61,7 +62,11 @@ function statusBorderClass(status: ThoughtNodeData['status']): string {
       return 'border-green-400 shadow-lg shadow-green-900/50'
     case 'pruned':
       return 'border-gray-600 opacity-40 transition-opacity duration-500'
-    default:
+    case 'pending':
+      return 'border-gray-600 border-dashed'
+    case 'evaluating':
+      return 'border-yellow-500 animate-pulse'
+    default: // active
       return 'border-blue-500'
   }
 }
@@ -124,24 +129,40 @@ function buildNodesAndEdges(
             onClick={() => onNodeClick?.(branch)}
           >
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-xs font-semibold text-white truncate flex-1">
+              <span className="text-xs font-bold text-white truncate flex-1">
                 {branch.action}
               </span>
-              <span
-                className={`text-xs font-bold px-1 rounded ${isWinner ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-300'}`}
-              >
-                {Math.round(branch.combined)}
-              </span>
+              {branch.status === 'pending' ? (
+                <span className="text-xs px-1 rounded bg-gray-700 text-gray-500">—</span>
+              ) : branch.status === 'evaluating' ? (
+                <span className="text-xs px-1 rounded bg-yellow-800 text-yellow-300 animate-pulse">...</span>
+              ) : (
+                <span className={`text-xs font-bold px-1 rounded ${isWinner ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
+                  {Math.round(branch.combined)}
+                </span>
+              )}
             </div>
             {branch.target && (
               <div className="text-xs text-gray-400 truncate mb-1">→ {branch.target}</div>
             )}
-            <div className="flex gap-2 items-start">
-              <RadarChart scores={branch.scores} size={72} />
-              <p className="text-xs text-gray-400 leading-tight line-clamp-4 flex-1">
-                {branch.reasoning}
-              </p>
-            </div>
+            {(branch.status === 'active' || branch.status === 'winner' || branch.status === 'pruned') && (
+              <div className="flex gap-2 items-start">
+                <RadarChart scores={branch.scores} size={72} />
+                <p className="text-xs text-gray-400 leading-tight line-clamp-4 flex-1">
+                  {branch.reasoning}
+                </p>
+              </div>
+            )}
+            {branch.status === 'evaluating' && (
+              <div className="flex items-center justify-center h-16 text-xs text-yellow-400 animate-pulse">
+                Evaluating...
+              </div>
+            )}
+            {branch.status === 'pending' && (
+              <div className="flex items-center justify-center h-16 text-xs text-gray-500">
+                Waiting...
+              </div>
+            )}
           </div>
         ),
       },
@@ -250,10 +271,18 @@ export const ThoughtTreeView: React.FC<ThoughtTreeViewProps> = ({ tree, onNodeCl
           Thought Engine
         </span>
         <div className="flex items-center gap-3 text-xs text-gray-500">
+          {tree.stage && tree.stage !== 'complete' && (
+            <span className="bg-yellow-900 text-yellow-300 px-2 py-0.5 rounded animate-pulse">
+              {tree.stage}
+            </span>
+          )}
+          {tree.stage === 'complete' && (
+            <span className="bg-green-900 text-green-300 px-2 py-0.5 rounded">done</span>
+          )}
           {tree.model && (
             <span className="bg-gray-800 px-2 py-0.5 rounded text-gray-400">{tree.model}</span>
           )}
-          {tree.duration_ms != null && (
+          {tree.stage === 'complete' && tree.duration_ms != null && (
             <span>{(tree.duration_ms / 1_000_000_000).toFixed(1)}s</span>
           )}
         </div>

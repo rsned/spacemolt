@@ -17,15 +17,30 @@ type LLMGenerator interface {
 	Generate(ctx context.Context, prompt string) (string, error)
 }
 
+// UpdateCallback is called with a partial ThoughtTree as each stage progresses.
+type UpdateCallback func(tree *ThoughtTree)
+
 // Evaluator orchestrates the three-stage Thought Engine pipeline.
 type Evaluator struct {
-	llm   LLMGenerator
-	model string
+	llm      LLMGenerator
+	model    string
+	onUpdate UpdateCallback
 }
 
 // NewEvaluator creates a new Evaluator with the given LLM generator and model name.
 func NewEvaluator(llm LLMGenerator, model string) *Evaluator {
 	return &Evaluator{llm: llm, model: model}
+}
+
+// SetOnUpdate sets a callback that fires with partial tree state as the pipeline progresses.
+func (e *Evaluator) SetOnUpdate(cb UpdateCallback) {
+	e.onUpdate = cb
+}
+
+func (e *Evaluator) emitUpdate(tree *ThoughtTree) {
+	if e.onUpdate != nil {
+		e.onUpdate(tree)
+	}
 }
 
 // Evaluate runs the full pipeline: Assess → Evaluate (parallel) → Select.
@@ -65,23 +80,37 @@ func (e *Evaluator) Evaluate(
 		return nil, fmt.Errorf("stage 1 returned no options")
 	}
 
-	// Stage 2: Evaluate sequentially
-	// Ollama processes requests one at a time on a single GPU, so parallel
-	// calls just queue up and risk timeouts. Sequential is actually faster
-	// because there's no queue contention. When multiple GPUs are available,
-	// this can be switched to parallel with a concurrency limiter.
-	tree.Root = make([]*ThoughtNode, 0, len(assessed.Options))
-
+	// Create stub nodes for all options (unscored) and emit
+	tree.Root = make([]*ThoughtNode, len(assessed.Options))
 	for i, opt := range assessed.Options {
+		tree.Root[i] = &ThoughtNode{
+			ID:     fmt.Sprintf("node_%d", i),
+			Action: opt.Action,
+			Target: opt.Target,
+			Status: StatusPending,
+			Depth:  0,
+		}
+	}
+	tree.Stage = "assessing"
+	e.emitUpdate(tree)
+
+	// Stage 2: Evaluate sequentially, emitting after each
+	for i, opt := range assessed.Options {
+		tree.Stage = fmt.Sprintf("evaluating %d/%d", i+1, len(assessed.Options))
+		tree.Root[i].Status = StatusEvaluating
+		e.emitUpdate(tree)
+
 		evalPrompt := BuildEvaluatePrompt(personality, state, assessed.Situation, opt)
-		log.Printf("[ToT] Stage 2 evaluating option %d/%d: %s %s\n%s", i+1, len(assessed.Options), opt.Action, opt.Target, evalPrompt)
+		log.Printf("[ToT] Stage 2 evaluating option %d/%d: %s %s", i+1, len(assessed.Options), opt.Action, opt.Target)
 		evalStart := time.Now()
 		evalRaw, err := e.llm.Generate(ctx, evalPrompt)
 		evalDuration := time.Since(evalStart)
 
 		if err != nil {
 			log.Printf("[ToT] Stage 2 option %d failed: %v", i+1, err)
-			continue // skip failed branches instead of aborting entire pipeline
+			tree.Root[i].Status = StatusPruned
+			e.emitUpdate(tree)
+			continue
 		}
 
 		log.Printf("[ToT] Stage 2 option %d response (%d chars, %.1fs): %.200s", i+1, len(evalRaw), evalDuration.Seconds(), evalRaw)
@@ -89,43 +118,50 @@ func (e *Evaluator) Evaluate(
 		evalResp, parseErr := parseEvaluateResponse(evalRaw)
 		if parseErr != nil {
 			log.Printf("[ToT] Stage 2 option %d parse failed: %v", i+1, parseErr)
+			tree.Root[i].Status = StatusPruned
+			e.emitUpdate(tree)
 			continue
 		}
 
-		node := &ThoughtNode{
-			ID:          fmt.Sprintf("node_%d", i),
-			Action:      opt.Action,
-			Target:      opt.Target,
-			Reasoning:   evalResp.Analysis,
-			Scores:      evalResp.Scores,
-			Combined:    weights.WeightedScore(evalResp.Scores),
-			Status:      StatusActive,
-			Depth:       0,
-			EvalTime:    evalDuration,
-			Prompt:      evalPrompt,
-			RawResponse: evalRaw,
-		}
+		// Fill in the stub node with real scores
+		node := tree.Root[i]
+		node.Reasoning = evalResp.Analysis
+		node.Scores = evalResp.Scores
+		node.Combined = weights.WeightedScore(evalResp.Scores)
+		node.Status = StatusActive
+		node.EvalTime = evalDuration
+		node.Prompt = evalPrompt
+		node.RawResponse = evalRaw
 
 		if evalResp.NextStep.Action != "" {
-			child := &ThoughtNode{
+			node.Children = append(node.Children, &ThoughtNode{
 				ID:     fmt.Sprintf("node_%d_next", i),
 				Action: evalResp.NextStep.Action,
 				Target: evalResp.NextStep.Target,
 				Status: StatusActive,
 				Depth:  1,
-			}
-			node.Children = append(node.Children, child)
+			})
 		}
 
-		tree.Root = append(tree.Root, node)
+		e.emitUpdate(tree)
 	}
 
-	if len(tree.Root) == 0 {
+	// Check we have at least one scored node
+	hasScored := false
+	for _, n := range tree.Root {
+		if n.Status == StatusActive {
+			hasScored = true
+			break
+		}
+	}
+	if !hasScored {
 		return nil, fmt.Errorf("stage 2: all %d options failed evaluation", len(assessed.Options))
 	}
 
 	// Stage 3: Select winner
+	tree.Stage = "selecting"
 	selectWinner(tree)
+	tree.Stage = "complete"
 	tree.Duration = time.Since(start)
 	return tree, nil
 }

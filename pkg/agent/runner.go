@@ -872,6 +872,11 @@ func (r *Runner) SetToTEvaluator(eval ToTEvaluator) {
 	r.totEvaluator = eval
 }
 
+// GetToTEvaluator returns the configured ToT evaluator, or nil.
+func (r *Runner) GetToTEvaluator() ToTEvaluator {
+	return r.totEvaluator
+}
+
 // emitEvent publishes an event if a callback is set
 func (r *Runner) emitEvent(eventType string, data any) {
 	r.mu.RLock()

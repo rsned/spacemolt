@@ -15,7 +15,7 @@ interface ThoughtNodeData {
   reasoning: string
   scores: AxisScores
   combined: number
-  status: 'active' | 'pruned' | 'winner'
+  status: 'pending' | 'evaluating' | 'active' | 'pruned' | 'winner'
   children?: ThoughtNodeData[]
   depth: number
   eval_time_ms: number
@@ -28,6 +28,7 @@ interface ThoughtTree {
   agent_id: string
   timestamp: string
   situation: string
+  stage: string // assessing, evaluating N/M, selecting, complete
   root: ThoughtNodeData[]
   winner_id: string
   duration_ms: number
@@ -90,32 +91,24 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
       setConnected(true)
     })
 
-    // Listen for all named events we care about
-    const handleEvent = (event: MessageEvent) => {
-      console.log('[ThoughtEngine] Event received, type:', event.type, 'data length:', event.data?.length)
+    // Handle tree events (both incremental updates and final)
+    const handleTreeEvent = (event: MessageEvent) => {
       try {
         const parsed: SSEEvent = JSON.parse(event.data)
-        if (parsed.type === 'thought_tree' || event.type === 'thought_tree') {
-          const tree = (parsed.data ?? parsed) as ThoughtTree
-          console.log('[ThoughtEngine] Thought tree received:', tree.id, 'branches:', tree.root?.length)
-          setCurrentTree(tree)
+        const tree = (parsed.data ?? parsed) as ThoughtTree
+        setCurrentTree(tree)
+
+        // Only add to history when complete
+        if (tree.stage === 'complete') {
           setHistory(prev => [tree, ...prev].slice(0, MAX_HISTORY))
         }
-      } catch (err) {
-        console.error('[ThoughtEngine] Parse error:', err)
+      } catch {
+        // ignore parse errors
       }
     }
 
-    es.addEventListener('thought_tree', handleEvent)
-    es.addEventListener('decision', (e) => console.log('[ThoughtEngine] decision event:', e.data?.substring(0, 100)))
-    es.addEventListener('action', (e) => console.log('[ThoughtEngine] action event:', e.data?.substring(0, 100)))
-    es.addEventListener('error', (e: MessageEvent) => console.log('[ThoughtEngine] error event:', e.data?.substring(0, 100)))
-
-    // Also listen for unnamed messages as fallback
-    es.onmessage = (event) => {
-      console.log('[ThoughtEngine] unnamed message:', event.data?.substring(0, 100))
-      handleEvent(event)
-    }
+    es.addEventListener('thought_tree', handleTreeEvent)
+    es.addEventListener('thought_tree_update', handleTreeEvent)
   }, [baseUrl])
 
   useEffect(() => {
