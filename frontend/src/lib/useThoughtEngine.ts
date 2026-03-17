@@ -91,24 +91,35 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
       setConnected(true)
     })
 
-    // Handle tree events (both incremental updates and final)
-    const handleTreeEvent = (event: MessageEvent) => {
+    // Handle incremental updates (partial tree during evaluation)
+    const handleUpdate = (event: MessageEvent) => {
       try {
         const parsed: SSEEvent = JSON.parse(event.data)
         const tree = (parsed.data ?? parsed) as ThoughtTree
         setCurrentTree(tree)
-
-        // Only add to history when complete
-        if (tree.stage === 'complete') {
-          setHistory(prev => [tree, ...prev].slice(0, MAX_HISTORY))
-        }
       } catch {
         // ignore parse errors
       }
     }
 
-    es.addEventListener('thought_tree', handleTreeEvent)
-    es.addEventListener('thought_tree_update', handleTreeEvent)
+    // Handle final complete tree
+    const handleComplete = (event: MessageEvent) => {
+      try {
+        const parsed: SSEEvent = JSON.parse(event.data)
+        const tree = (parsed.data ?? parsed) as ThoughtTree
+        setCurrentTree(tree)
+        setHistory(prev => {
+          // Deduplicate by ID
+          const filtered = prev.filter(t => t.id !== tree.id)
+          return [tree, ...filtered].slice(0, MAX_HISTORY)
+        })
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    es.addEventListener('thought_tree_update', handleUpdate)
+    es.addEventListener('thought_tree', handleComplete)
   }, [baseUrl])
 
   useEffect(() => {

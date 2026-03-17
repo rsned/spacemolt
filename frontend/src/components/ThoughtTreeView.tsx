@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -243,17 +243,22 @@ function buildNodesAndEdges(
 export const ThoughtTreeView: React.FC<ThoughtTreeViewProps> = ({ tree, onNodeClick }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const lastTreeIdRef = useRef<string | null>(null)
+  const reactFlowRef = useRef<{ fitView: () => void } | null>(null)
 
-  const rebuildGraph = useCallback(() => {
+  useEffect(() => {
     if (!tree) return
     const { nodes: n, edges: e } = buildNodesAndEdges(tree, onNodeClick)
     setNodes(n)
     setEdges(e)
-  }, [tree, onNodeClick, setNodes, setEdges])
 
-  useEffect(() => {
-    rebuildGraph()
-  }, [rebuildGraph])
+    // Only fitView when a new tree starts (different ID)
+    if (tree.id !== lastTreeIdRef.current) {
+      lastTreeIdRef.current = tree.id
+      // Small delay to let React Flow render nodes before fitting
+      setTimeout(() => reactFlowRef.current?.fitView(), 50)
+    }
+  }, [tree, onNodeClick, setNodes, setEdges])
 
   if (!tree) {
     return (
@@ -295,8 +300,7 @@ export const ThoughtTreeView: React.FC<ThoughtTreeViewProps> = ({ tree, onNodeCl
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
+          onInit={(instance) => { reactFlowRef.current = instance; instance.fitView({ padding: 0.2 }) }}
           nodesDraggable={true}
           nodesConnectable={false}
           elementsSelectable={true}
