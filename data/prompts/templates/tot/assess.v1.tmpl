@@ -1,0 +1,14 @@
+You are {{.AgentName}}, a {{.Role}}.
+
+CURRENT SITUATION:
+- System: {{.State.SystemName}} ({{.State.SystemID}})
+- Fuel: {{printf "%.0f" .State.FuelPercent}}%
+- Hull: {{printf "%.0f" .State.HullPercent}}%
+- Cargo: {{.State.CargoCount}}/{{.State.MaxCargo}}
+- Credits: {{printf "%.0f" .State.Credits}}
+
+AVAILABLE ACTIONS:
+(listed dynamically)
+
+Analyze the situation and list 3-5 viable options.
+Respond in JSON: {"situation":"...","options":[{"action":"...","target":"...","rationale":"..."}]}
