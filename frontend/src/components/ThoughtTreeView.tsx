@@ -49,11 +49,11 @@ interface ThoughtTreeViewProps {
   onNodeClick?: (node: ThoughtNodeData) => void
 }
 
-const NODE_WIDTH = 200
-const NODE_HEIGHT = 160
+const NODE_WIDTH = 220
+const NODE_HEIGHT = 180
 const CHILD_NODE_HEIGHT = 80
-const H_GAP = 24
-const V_GAP = 80
+const H_GAP = 40
+const V_GAP = 100
 
 function statusBorderClass(status: ThoughtNodeData['status']): string {
   switch (status) {
@@ -108,7 +108,7 @@ function buildNodesAndEdges(
   // Branch nodes
   tree.root.forEach((branch, bi) => {
     const branchX = bi * (NODE_WIDTH + H_GAP)
-    const branchY = rootY + 80
+    const branchY = rootY + 120
 
     const borderClass = statusBorderClass(branch.status)
     const isWinner = branch.status === 'winner'
@@ -243,7 +243,7 @@ export const ThoughtTreeView: React.FC<ThoughtTreeViewProps> = ({ tree, onNodeCl
   }
 
   return (
-    <div className="flex flex-col bg-gray-950 rounded-lg overflow-hidden border border-gray-800" style={{ height: '500px' }}>
+    <div className="flex flex-col bg-gray-950 rounded-lg overflow-hidden border border-gray-800" style={{ height: '600px' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-900 flex-shrink-0">
         <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">

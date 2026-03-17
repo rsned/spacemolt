@@ -2685,4 +2685,828 @@ AVAILABLE ACTIONS:
   - withdraw_items: Withdraw items from station storage
   - deposit_items: Deposit items into station storage
   - get_recipes: View available crafting recipes
-  - craft: Craft items us
+  - craft: Craft items using available recipes
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 02:09:46 [ToT] Stage 1 raw response (606 chars): {
+  "situation": "Docked at Grand Exchange Station, fully fueled and repaired, with limited cargo space.",
+  "options": [
+    {
+      "action": "get_listings",
+      "target": "",
+      "rationale": "Explore market listings for valuable resources to fill the cargo hold."
+    },
+    {
+      "action": "sell",
+      "target": "",
+      "rationale": "Sell any items or resources to gain more credits before heading out."
+    },
+    {
+      "action": "withdraw_items",
+      "target": "",
+      "rationa
+2026/03/17 02:09:46 [ToT] Stage 1 parsed: situation="Docked at Grand Exchange Station, fully fueled and repaired, with limited cargo space.", options=3
+2026/03/17 02:09:46 [ToT] Stage 2 evaluating option 1/3: get_listings 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange Station, fully fueled and repaired, with limited cargo space.
+
+You are considering this action: get_listings
+Rationale: Explore market listings for valuable resources to fill the cargo hold.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "get_listings"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:09:54 [ToT] Stage 2 option 1 response (446 chars, 8.0s): {
+    "action": "get_listings",
+    "target": "",
+    "analysis": "This action allows me to explore market listings for valuable resources, potentially increasing my profit and helping me advance towa
+2026/03/17 02:09:54 [ToT] Stage 2 evaluating option 2/3: sell 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange Station, fully fueled and repaired, with limited cargo space.
+
+You are considering this action: sell
+Rationale: Sell any items or resources to gain more credits before heading out.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "sell"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:10:01 [ToT] Stage 2 option 2 response (408 chars, 7.8s): {
+  "action": "sell",
+  "target": "",
+  "analysis": "Selling items or resources at Grand Exchange Station will help to gain more credits, keeping me economically stable before heading out.",
+  "scores
+2026/03/17 02:10:01 [ToT] Stage 2 evaluating option 3/3: withdraw_items 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange Station, fully fueled and repaired, with limited cargo space.
+
+You are considering this action: withdraw_items
+Rationale: Withdraw valuable resources from station storage to fill the cargo hold before leaving.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "withdraw_items"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:10:08 [ToT] Stage 2 option 3 response (344 chars, 6.7s): {
+  "action": "withdraw_items",
+  "target": "",
+  "analysis": "This action prioritizes resource acquisition which is crucial for long-term survival and profit.",
+  "scores": {
+    "survival": 80,
+    
+2026/03/17 02:10:08 [miner-1] Enqueued 1 planned actions
+2026/03/17 02:10:08 [miner-1] === Decision Execution Debug ===
+2026/03/17 02:10:08 [miner-1] Decision.Action: 'sell'
+2026/03/17 02:10:08 [miner-1] Decision.Target: ''
+2026/03/17 02:10:08 [miner-1] Decision.Confidence: 91.8%
+2026/03/17 02:10:08 [miner-1] Decision.Reasoning: Selling items or resources at Grand Exchange Station will help to gain more credits, keeping me economically stable before heading out.
+2026/03/17 02:10:08 [miner-1] -> SellAllBulk()
+[Agent miner-1] Learning from action result: sell →  (success=true)
+[Agent miner-1]   Message: sell: Selling items or resources at Grand Exchange Station will help to gain more credits, keeping me economically stable before heading out.
+[Agent miner-1] Persisted system: Haven (haven)
+[Agent miner-1] Persisted POI: Grand Exchange (grand_exchange) type=station
+[Agent miner-1] Persisted POI: Federation Vaults (federation_vaults) type=station
+[Agent miner-1] Persisted POI: Merchant Docks (merchant_docks) type=station
+2026/03/17 02:10:08 [miner-1] Throttle check: tick=323554, lastTick=323554, timeSince=0.0s
+2026/03/17 02:10:08 [miner-1] Using queued action [1]: travel (queue has 0 remaining)
+2026/03/17 02:10:08 [miner-1] Throttled: waiting for next tick (current: 323554, last: 323554, elapsed: 0.0s)
+2026/03/17 02:10:15 [miner-1] Throttle check: tick=323554, lastTick=323554, timeSince=6.9s
+2026/03/17 02:10:15 [ToT] Stage 1 prompt (1930 chars) for miner-1:
+You are Preston 'Pickaxe' Porter, a Miner.
+
+CURRENT SITUATION:
+- System: Haven (haven)
+- Docked at: grand_exchange
+- Fuel: 90%
+- Hull: 100%
+- Cargo: 2/150
+- Credits: 119282
+
+NEARBY LOCATIONS:
+  - haven_star: Haven Star (sun)
+  - haven_prime: Haven Prime (planet)
+  - grand_exchange: Grand Exchange (station)
+  - federation_vaults: Federation Vaults (station)
+  - merchant_docks: Merchant Docks (station)
+  - commerce_fields: Commerce Fields (asteroid_belt)
+  - trade_winds: Trade Winds (gas_cloud)
+  - frostmarket_flats: Frostmarket Flats (ice_field)
+
+CONNECTED SYSTEMS:
+  - market_prime: Market Prime
+  - traders_rest: Trader's Rest
+
+AVAILABLE ACTIONS:
+  - undock: Undock and return to space
+  - get_listings: View the market listings at this station
+  - buy: Buy items from the market
+  - sell: Sell items from cargo
+  - view_storage: View items in station storage
+  - withdraw_items: Withdraw items from station storage
+  - deposit_items: Deposit items into station storage
+  - get_recipes: View available crafting recipes
+  - craft: Craft items using available recipes
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 02:10:22 [ToT] Stage 1 raw response (430 chars): {"situation": "Docked at Grand Exchange, low on cargo space.", "options": [{"action": "get_listings", "target": "", "rationale": "To identify valuable items to buy and sell for profit."}, {"action": "sell", "target": "", "rationale": "Sell current cargo for credits to fill up the empty spaces."}, {"action": "withdraw_items", "target": "", "rationale": "Withdraw valuable resources from station storage for mining activities."}]}
+2026/03/17 02:10:22 [ToT] Stage 1 parsed: situation="Docked at Grand Exchange, low on cargo space.", options=3
+2026/03/17 02:10:22 [ToT] Stage 2 evaluating option 1/3: get_listings 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange, low on cargo space.
+
+You are considering this action: get_listings
+Rationale: To identify valuable items to buy and sell for profit.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "get_listings"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:10:29 [ToT] Stage 2 option 1 response (364 chars, 7.4s): {
+  "action": "get_listings",
+  "target": "",
+  "analysis": "This action will help identify valuable items to buy and sell for profit, which may lead to an increase in credits.",
+  "scores": {
+    "su
+2026/03/17 02:10:29 [ToT] Stage 2 evaluating option 2/3: sell 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange, low on cargo space.
+
+You are considering this action: sell
+Rationale: Sell current cargo for credits to fill up the empty spaces.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "sell"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:10:38 [ToT] Stage 2 option 2 response (360 chars, 8.3s): {
+  "action": "sell",
+  "target": "",
+  "analysis": "Selling current cargo can provide a quick influx of credits which will allow me to fill up the empty spaces in my cargo hold.",
+  "scores": {
+    "
+2026/03/17 02:10:38 [ToT] Stage 2 evaluating option 3/3: withdraw_items 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange, low on cargo space.
+
+You are considering this action: withdraw_items
+Rationale: Withdraw valuable resources from station storage for mining activities.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "withdraw_items"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:10:47 [ToT] Stage 2 option 3 response (439 chars, 9.2s): {
+  "action": "withdraw_items",
+  "target": "",
+  "analysis": "This action will help me acquire valuable resources from station storage to fuel my mining activities, potentially increasing profit. How
+2026/03/17 02:10:47 [miner-1] Enqueued 1 planned actions
+2026/03/17 02:10:47 [miner-1] Throttled: waiting for next tick (current: 323554, last: 323554, elapsed: 6.9s)
+2026/03/17 02:10:47 [miner-1] Using queued action [1]: buy (queue has 0 remaining)
+2026/03/17 02:10:47 [miner-1] === Decision Execution Debug ===
+2026/03/17 02:10:47 [miner-1] Decision.Action: 'buy'
+2026/03/17 02:10:47 [miner-1] Decision.Target: ''
+2026/03/17 02:10:47 [miner-1] Decision.Confidence: 0.0%
+2026/03/17 02:10:47 [miner-1] Decision.Reasoning: [QUEUED #1] next step from thought engine
+[Agent miner-1] Learning from action result: buy →  (success=false)
+[Agent miner-1]   Message: Action failed: buy requires target item ID
+[Agent miner-1]   Error: buy requires target item ID
+2026/03/17 02:10:47 [miner-1] Decision cycle error (1/10): action execution failed: buy requires target item ID
+2026/03/17 02:10:55 [ToT] Stage 1 prompt (1930 chars) for miner-1:
+You are Preston 'Pickaxe' Porter, a Miner.
+
+CURRENT SITUATION:
+- System: Haven (haven)
+- Docked at: grand_exchange
+- Fuel: 90%
+- Hull: 100%
+- Cargo: 2/150
+- Credits: 119282
+
+NEARBY LOCATIONS:
+  - haven_star: Haven Star (sun)
+  - haven_prime: Haven Prime (planet)
+  - grand_exchange: Grand Exchange (station)
+  - federation_vaults: Federation Vaults (station)
+  - merchant_docks: Merchant Docks (station)
+  - commerce_fields: Commerce Fields (asteroid_belt)
+  - trade_winds: Trade Winds (gas_cloud)
+  - frostmarket_flats: Frostmarket Flats (ice_field)
+
+CONNECTED SYSTEMS:
+  - market_prime: Market Prime
+  - traders_rest: Trader's Rest
+
+AVAILABLE ACTIONS:
+  - undock: Undock and return to space
+  - get_listings: View the market listings at this station
+  - buy: Buy items from the market
+  - sell: Sell items from cargo
+  - view_storage: View items in station storage
+  - withdraw_items: Withdraw items from station storage
+  - deposit_items: Deposit items into station storage
+  - get_recipes: View available crafting recipes
+  - craft: Craft items using available recipes
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 02:11:07 [ToT] Stage 1 raw response (739 chars): {
+  "situation": "Docked at Grand Exchange Station, credits are high but no current cargo. Hull and fuel are in good condition.",
+  "options": [
+    {
+      "action": "get_listings",
+      "target": "",
+      "rationale": "Check market listings for valuable resources or equipment to purchase with the available credits."
+    },
+    {
+      "action": "view_storage",
+      "target": "",
+      "rationale": "Look at items currently stored in station storage to see if any can be sold or used as a star
+2026/03/17 02:11:07 [ToT] Stage 1 parsed: situation="Docked at Grand Exchange Station, credits are high but no current cargo. Hull and fuel are in good condition.", options=3
+2026/03/17 02:11:07 [ToT] Stage 2 evaluating option 1/3: get_listings 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange Station, credits are high but no current cargo. Hull and fuel are in good condition.
+
+You are considering this action: get_listings
+Rationale: Check market listings for valuable resources or equipment to purchase with the available credits.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "get_listings"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:11:15 [ToT] Stage 2 option 1 response (425 chars, 7.8s): {
+    "action": "get_listings",
+    "target": "",
+    "analysis": "Checking market listings may reveal valuable resources or equipment to purchase with available credits, potentially increasing profit
+2026/03/17 02:11:15 [ToT] Stage 2 evaluating option 2/3: view_storage 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange Station, credits are high but no current cargo. Hull and fuel are in good condition.
+
+You are considering this action: view_storage
+Rationale: Look at items currently stored in station storage to see if any can be sold or used as a starting point for crafting.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "view_storage"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:11:15 [health-2] No messages received for 1m45.149913486s (timeout: 1m20s), connection may be dead
+2026/03/17 02:11:15 === Connection Metrics [health_timeout] ===
+2026/03/17 02:11:15   Connection ID: 20260317-020615-467
+2026/03/17 02:11:15   Uptime: 5m0s
+2026/03/17 02:11:15   Messages sent: 8 | received: 11 | total: 19
+2026/03/17 02:11:15   Last server message: 1m45.15s ago
+2026/03/17 02:11:15   Last client send: 1m45.466s ago
+2026/03/17 02:11:15   Last client receive: 1m45.15s ago
+2026/03/17 02:11:15 Reconnection attempt 1/5 after 2s
+2026/03/17 02:11:17 Attempting to reconnect...
+2026/03/17 02:11:17 === Connection Metrics [client_disconnect] ===
+2026/03/17 02:11:17   Connection ID: 20260317-020615-467
+2026/03/17 02:11:17   Uptime: 5m2.001s
+2026/03/17 02:11:17   Messages sent: 8 | received: 11 | total: 19
+2026/03/17 02:11:17   Last server message: 1m47.151s ago
+2026/03/17 02:11:17   Last client send: 1m47.467s ago
+2026/03/17 02:11:17   Last client receive: 1m47.151s ago
+2026/03/17 02:11:17 [health-2] Context cancelled, exiting
+2026/03/17 02:11:17 [health-2] Health monitor exited
+2026/03/17 02:11:17 Disconnected from server
+2026/03/17 02:11:18 Goroutines slow to exit, connection closed
+2026/03/17 02:11:23 [ToT] Stage 2 option 2 response (386 chars, 8.4s): {
+  "action": "view_storage",
+  "target": "",
+  "analysis": "Viewing storage allows evaluation of available resources that can be sold or used to progress in crafting, increasing potential profit.",
+ 
+2026/03/17 02:11:23 [ToT] Stage 2 evaluating option 3/3: withdraw_items 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange Station, credits are high but no current cargo. Hull and fuel are in good condition.
+
+You are considering this action: withdraw_items
+Rationale: Withdraw resources from personal station storage to prepare for potential sale, trade, or crafting opportunities.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 2/150 | Credits: 119282
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "withdraw_items"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:11:28 Warning: Extended timeout waiting for goroutines to exit
+2026/03/17 02:11:28 [listen-3] Connection error: failed to get reader: use of closed network connection
+2026/03/17 02:11:28 [listen-3] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB
+2026/03/17 02:11:28 === Connection Metrics [disconnect] ===
+2026/03/17 02:11:28   Connection ID: 20260317-020615-467
+2026/03/17 02:11:28   Uptime: 5m13.006s
+2026/03/17 02:11:28   Messages sent: 8 | received: 11 | total: 19
+2026/03/17 02:11:28   Last server message: 1m58.156s ago
+2026/03/17 02:11:28   Last client send: 1m58.472s ago
+2026/03/17 02:11:28   Last client receive: 1m58.156s ago
+2026/03/17 02:11:28 [listen-3] Goroutine exited
+2026/03/17 02:11:30 Connected to wss://game.spacemolt.com/ws (read limit: 10MB) | Connection ID: 20260317-021130-864 | Goroutine: 4
+2026/03/17 02:11:30 === Game Client Send Debug ===
+2026/03/17 02:11:30 Message Type: 'login'
+2026/03/17 02:11:30 Message Payload: {"password":"6005e118ed928df084a6c69980a69bb42b812ae8146be31890c0473f9c03abe4","username":"Preston 'Pickaxe' Porter"}
+2026/03/17 02:11:30 [health-5] Health monitor started | Timeout: 1m20s (server handles ping/pong)
+2026/03/17 02:11:30 [listen-6] Goroutine started
+2026/03/17 02:11:30 === Game Client Receive Debug ===
+2026/03/17 02:11:30 Response Type: 'welcome'
+2026/03/17 02:11:30 Response Payload: {"current_tick":323572,"game_info":"SpaceMolt is a massively multiplayer online game for AI agents. Set in a distant future where spacefaring humans and AI coexist, you compete to become the best play... [truncated]
+2026/03/17 02:11:30 Server version: 0.230.1
+2026/03/17 02:11:31 [ToT] Stage 2 option 3 response (380 chars, 7.7s): {
+  "action": "withdraw_items",
+  "target": "",
+  "analysis": "Withdrawing resources from personal station storage can help prepare for future sales or trades, potentially earning credits.",
+  "scores
+2026/03/17 02:11:31 [miner-1] Enqueued 1 planned actions
+2026/03/17 02:11:31 [miner-1] === Decision Execution Debug ===
+2026/03/17 02:11:31 [miner-1] Decision.Action: 'view_storage'
+2026/03/17 02:11:31 [miner-1] Decision.Target: ''
+2026/03/17 02:11:31 [miner-1] Decision.Confidence: 74.5%
+2026/03/17 02:11:31 [miner-1] Decision.Reasoning: Viewing storage allows evaluation of available resources that can be sold or used to progress in crafting, increasing potential profit.
+2026/03/17 02:11:31 [miner-1] -> ViewStorage()
+2026/03/17 02:11:31 === Game Client Send Debug ===
+2026/03/17 02:11:31 Message Type: 'view_storage'
+[Agent miner-1] Learning from action result: view_storage →  (success=true)
+[Agent miner-1]   Message: view_storage: Viewing storage allows evaluation of available resources that can be sold or used to progress in crafting, increasing potential profit.
+[Agent miner-1] Persisted system: Haven (haven)
+[Agent miner-1] Persisted POI: Grand Exchange (grand_exchange) type=station
+[Agent miner-1] Persisted POI: Federation Vaults (federation_vaults) type=station
+[Agent miner-1] Persisted POI: Merchant Docks (merchant_docks) type=station
+2026/03/17 02:11:31 [miner-1] Using queued action [1]: sell_items (queue has 0 remaining)
+2026/03/17 02:11:31 [miner-1] === Decision Execution Debug ===
+2026/03/17 02:11:31 [miner-1] Decision.Action: 'sell_items'
+2026/03/17 02:11:31 [miner-1] Decision.Target: ''
+2026/03/17 02:11:31 [miner-1] Decision.Confidence: 0.0%
+2026/03/17 02:11:31 [miner-1] Decision.Reasoning: [QUEUED #1] next step from thought engine
+2026/03/17 02:11:31 [miner-1] ERROR: Unknown action: 'sell_items' (does not match any case)
+[Agent miner-1] Learning from action result: sell_items →  (success=false)
+[Agent miner-1]   Message: Action failed: unknown action: sell_items
+[Agent miner-1]   Error: unknown action: sell_items
+2026/03/17 02:11:31 [miner-1] Decision cycle error (1/10): action execution failed: unknown action: sell_items
+2026/03/17 02:11:31 === Game Client Receive Debug ===
+2026/03/17 02:11:31 Response Type: 'reconnected'
+2026/03/17 02:11:31 Response Payload: {"message":"You have reconnected to your ship.","ticks_remaining":2,"was_pilotless":false}
+2026/03/17 02:11:31 Response Message: 'You have reconnected to your ship.'
+2026/03/17 02:11:31 Reconnected to ship: map[message:You have reconnected to your ship. ticks_remaining:2 was_pilotless:false]
+2026/03/17 02:11:31 === Game Client Receive Debug ===
+2026/03/17 02:11:31 Response Type: 'logged_in'
+2026/03/17 02:11:31 Response Payload: {"modules":[{"cpu_usage":2,"id":"13ba1f6dcc87e60a8645dc3d2535d246","mining_power":5,"mining_range":5,"name":"Mining Laser I","power_usage":5,"size":10,"type":"mining","type_id":"mining_laser_i","wear"... [truncated]
+2026/03/17 02:11:31 Parsing system data from 'system' object
+2026/03/17 02:11:31 Set System.ID = 'haven' from id field
+2026/03/17 02:11:31 Set System.Name = 'Haven', CurrentSystem = 'Haven'
+2026/03/17 02:11:31 Reconnected and logged in successfully
+2026/03/17 02:11:31 ✓ Reconnected successfully
+2026/03/17 02:11:31 === Game Client Receive Debug ===
+2026/03/17 02:11:31 Response Type: 'ok'
+2026/03/17 02:11:31 Response Payload: {"base_id":"grand_exchange_station","hint":"97,521 items in storage at grand_exchange_station","items":[{"item_id":"mining_laser_i","name":"mining_laser_i","quantity":2,"size":10},{"item_id":"nickel_o... [truncated]
+2026/03/17 02:11:31 Stored raw JSON for storage (1528 bytes)
+2026/03/17 02:11:31 Parsed ship listings data
+2026/03/17 02:11:35 [ToT] Stage 1 prompt (1930 chars) for miner-1:
+You are Preston 'Pickaxe' Porter, a Miner.
+
+CURRENT SITUATION:
+- System: Haven (haven)
+- Docked at: grand_exchange
+- Fuel: 90%
+- Hull: 100%
+- Cargo: 0/150
+- Credits: 119295
+
+NEARBY LOCATIONS:
+  - haven_star: Haven Star (sun)
+  - haven_prime: Haven Prime (planet)
+  - grand_exchange: Grand Exchange (station)
+  - federation_vaults: Federation Vaults (station)
+  - merchant_docks: Merchant Docks (station)
+  - commerce_fields: Commerce Fields (asteroid_belt)
+  - trade_winds: Trade Winds (gas_cloud)
+  - frostmarket_flats: Frostmarket Flats (ice_field)
+
+CONNECTED SYSTEMS:
+  - market_prime: Market Prime
+  - traders_rest: Trader's Rest
+
+AVAILABLE ACTIONS:
+  - undock: Undock and return to space
+  - get_listings: View the market listings at this station
+  - buy: Buy items from the market
+  - sell: Sell items from cargo
+  - view_storage: View items in station storage
+  - withdraw_items: Withdraw items from station storage
+  - deposit_items: Deposit items into station storage
+  - get_recipes: View available crafting recipes
+  - craft: Craft items using available recipes
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 02:11:45 [ToT] Stage 1 raw response (627 chars): {
+  "situation": "Docked at Grand Exchange, credits and ship status are good but the cargo hold is empty.",
+  "options": [
+    {
+      "action": "get_listings",
+      "target": "",
+      "rationale": "Check market listings to find items worth selling or buying for profit."
+    },
+    {
+      "action": "withdraw_items",
+      "target": "",
+      "rationale": "Withdraw valuable resources from station storage and prepare them for sale or transport."
+    },
+    {
+      "action": "refuel",
+      "tar
+2026/03/17 02:11:45 [ToT] Stage 1 parsed: situation="Docked at Grand Exchange, credits and ship status are good but the cargo hold is empty.", options=3
+2026/03/17 02:11:45 [ToT] Stage 2 evaluating option 1/3: get_listings 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange, credits and ship status are good but the cargo hold is empty.
+
+You are considering this action: get_listings
+Rationale: Check market listings to find items worth selling or buying for profit.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 0/150 | Credits: 119295
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "get_listings"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:11:53 [ToT] Stage 2 option 1 response (340 chars, 7.3s): {
+  "action": "get_listings",
+  "target": "",
+  "analysis": "Checking market listings to find valuable items can potentially increase profits.",
+  "scores": {
+    "survival": 100,
+    "profit": 90,
+  
+2026/03/17 02:11:53 [ToT] Stage 2 evaluating option 2/3: withdraw_items 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange, credits and ship status are good but the cargo hold is empty.
+
+You are considering this action: withdraw_items
+Rationale: Withdraw valuable resources from station storage and prepare them for sale or transport.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 0/150 | Credits: 119295
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "withdraw_items"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:12:01 [ToT] Stage 2 option 2 response (413 chars, 8.4s): {
+  "action": "withdraw_items",
+  "target": "",
+  "analysis": "Withdrawing valuable resources from station storage will allow me to sell them and earn credits, advancing my current goal of accumulatin
+2026/03/17 02:12:01 [ToT] Stage 2 evaluating option 3/3: refuel 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange, credits and ship status are good but the cargo hold is empty.
+
+You are considering this action: refuel
+Rationale: Refuel the ship to ensure maximum efficiency for future travel or mining operations.
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 0/150 | Credits: 119295
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+You MUST respond with a JSON object containing:
+- "action": "refuel"
+- "target": ""
+- "analysis": your 2-3 sentence evaluation
+- "scores": object with survival, profit, goal_progress, risk, efficiency (each 0-100, use real values not zeros)
+- "next_step": object with "action" and "target" for the logical next action
+2026/03/17 02:12:09 [ToT] Stage 2 option 3 response (374 chars, 7.9s): {
+  "action": "refuel",
+  "target": "",
+  "analysis": "Refueling will ensure maximum efficiency for future mining operations while maintaining a safe state.",
+  "scores": {
+    "survival": 100,
+    "p
+2026/03/17 02:12:09 [miner-1] Enqueued 1 planned actions
+2026/03/17 02:12:09 [miner-1] === Decision Execution Debug ===
+2026/03/17 02:12:09 [miner-1] Decision.Action: 'withdraw_items'
+2026/03/17 02:12:09 [miner-1] Decision.Target: ''
+2026/03/17 02:12:09 [miner-1] Decision.Confidence: 90.4%
+2026/03/17 02:12:09 [miner-1] Decision.Reasoning: Withdrawing valuable resources from station storage will allow me to sell them and earn credits, advancing my current goal of accumulating wealth.
+[Agent miner-1] Learning from action result: withdraw_items →  (success=false)
+[Agent miner-1]   Message: Action failed: withdraw_items requires target item ID
+[Agent miner-1]   Error: withdraw_items requires target item ID
+2026/03/17 02:12:09 [miner-1] Decision cycle error (2/10): action execution failed: withdraw_items requires target item ID
+2026/03/17 02:12:09 [ToT] Stage 1 prompt (1930 chars) for miner-1:
+You are Preston 'Pickaxe' Porter, a Miner.
+
+CURRENT SITUATION:
+- System: Haven (haven)
+- Docked at: grand_exchange
+- Fuel: 90%
+- Hull: 100%
+- Cargo: 0/150
+- Credits: 119295
+
+NEARBY LOCATIONS:
+  - haven_star: Haven Star (sun)
+  - haven_prime: Haven Prime (planet)
+  - grand_exchange: Grand Exchange (station)
+  - federation_vaults: Federation Vaults (station)
+  - merchant_docks: Merchant Docks (station)
+  - commerce_fields: Commerce Fields (asteroid_belt)
+  - trade_winds: Trade Winds (gas_cloud)
+  - frostmarket_flats: Frostmarket Flats (ice_field)
+
+CONNECTED SYSTEMS:
+  - market_prime: Market Prime
+  - traders_rest: Trader's Rest
+
+AVAILABLE ACTIONS:
+  - undock: Undock and return to space
+  - get_listings: View the market listings at this station
+  - buy: Buy items from the market
+  - sell: Sell items from cargo
+  - view_storage: View items in station storage
+  - withdraw_items: Withdraw items from station storage
+  - deposit_items: Deposit items into station storage
+  - get_recipes: View available crafting recipes
+  - craft: Craft items using available recipes
+  - refuel: Refuel the ship
+  - get_status: Get current player and ship status
+  - get_system: Get information about the current system
+  - get_cargo: View current cargo hold contents
+  - get_skills: View player skills and XP progress
+  - get_nearby: List nearby players and objects
+
+Analyze the situation and list 3 viable options you could take right now.
+For each option, explain briefly why it's worth considering.
+
+You MUST respond with a JSON object containing:
+- "situation": a one sentence summary of your current situation
+- "options": an array of exactly 3 objects, each with "action" (from available actions above), "target" (target ID or empty string), and "rationale" (one sentence why)
+
+Example: {"situation": "Docked at station with empty cargo", "options": [{"action": "undock", "target": "", "rationale": "Need to leave station to mine"}]}
+2026/03/17 02:12:18 [ToT] Stage 1 raw response (546 chars): {
+  "situation": "Docked at Grand Exchange with full resources and empty cargo",
+  "options": [
+    {
+      "action": "get_listings",
+      "target": "",
+      "rationale": "Find valuable items to purchase for mining equipment upgrades"
+    },
+    {
+      "action": "withdraw_items",
+      "target": "",
+      "rationale": "Withdraw essential mining tools and supplies from station storage"
+    },
+    {
+      "action": "sell",
+      "target": "",
+      "rationale": "Sell any surplus items to gain c
+2026/03/17 02:12:18 [ToT] Stage 1 parsed: situation="Docked at Grand Exchange with full resources and empty cargo", options=3
+2026/03/17 02:12:18 [ToT] Stage 2 evaluating option 1/3: get_listings 
+/no_think
+You are Preston 'Pickaxe' Porter, a Miner.
+
+SITUATION: Docked at Grand Exchange with full resources and empty cargo
+
+You are considering this action: get_listings
+Rationale: Find valuable items to purchase for mining equipment upgrades
+
+CURRENT STATE:
+- Fuel: 90% | Hull: 100%
+- Cargo: 0/150 | Credits: 119295
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this k
