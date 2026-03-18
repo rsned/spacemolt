@@ -161,10 +161,10 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
             </div>
           )}
 
-          {/* History selector */}
+          {/* History selector — only show completed trees, max 8 */}
           {history.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">History ({history.length}):</span>
+              <span className="text-xs text-gray-500">History:</span>
               <div className="flex gap-1">
                 <button
                   onClick={() => { setViewingTree(null); setSelectedNode(null) }}
@@ -174,16 +174,16 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
                 >
                   Live
                 </button>
-                {history.slice(0, 10).map((tree, i) => (
+                {history.slice(0, 8).map((tree, i) => (
                   <button
-                    key={tree.id}
+                    key={`hist-${i}-${tree.id}`}
                     onClick={() => { setViewingTree(tree); setSelectedNode(null) }}
                     className={`px-2 py-0.5 text-xs rounded ${
                       viewingTree?.id === tree.id ? 'bg-cyan-700 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                     }`}
-                    title={new Date(tree.timestamp).toLocaleTimeString()}
+                    title={tree.situation || tree.id}
                   >
-                    {i === 0 ? 'Prev' : `-${i + 1}`}
+                    -{i + 1}
                   </button>
                 ))}
               </div>

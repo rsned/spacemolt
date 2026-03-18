@@ -49,7 +49,7 @@ interface UseThoughtEngineResult {
   connected: boolean
 }
 
-const MAX_HISTORY = 20
+const MAX_HISTORY = 10
 
 /**
  * Hook that connects to the agent's SSE event stream and captures
