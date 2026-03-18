@@ -469,6 +469,9 @@ func (m *mockGameClient) CraftWithQuantity(ctx context.Context, recipeID string,
 func (m *mockGameClient) GetRecipes(ctx context.Context) error                                 { return nil }
 func (m *mockGameClient) Refuel(ctx context.Context) error                                     { return nil }
 func (m *mockGameClient) Repair(ctx context.Context) error                                     { return nil }
+func (m *mockGameClient) RepairWith(ctx context.Context, payload map[string]any) error         { return nil }
+func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID string) error      { return nil }
+func (m *mockGameClient) DistressSignal(ctx context.Context, distressType string) error        { return nil }
 func (m *mockGameClient) Install(ctx context.Context, itemID string) error                     { return nil }
 func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error              { return nil }
 func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error                 { return nil }

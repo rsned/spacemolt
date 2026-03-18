@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	docsDir       = "server_docs"
-	skillURL      = "https://www.spacemolt.com/skill.md"
-	apiURL        = "https://www.spacemolt.com/api.md"
-	openAPIURL    = "https://game.spacemolt.com/api/openapi.json"
-	apiV2URL      = "https://game.spacemolt.com/api/v2/docs"
-	openAPIV2URL  = "https://game.spacemolt.com/api/v2/openapi.json"
+	docsDir      = "server_docs"
+	skillURL     = "https://www.spacemolt.com/skill.md"
+	apiURL       = "https://www.spacemolt.com/api.md"
+	openAPIURL   = "https://game.spacemolt.com/api/openapi.json"
+	apiV2URL     = "https://game.spacemolt.com/api/v2/docs"
+	openAPIV2URL = "https://game.spacemolt.com/api/v2/openapi.json"
 )
 
 type doc struct {
@@ -46,6 +46,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error processing %s: %v\n", d.baseName, err)
 			os.Exit(1)
 		}
+		time.Sleep(5 * time.Second)
 	}
 
 	fmt.Println("Documentation updated successfully")

@@ -43,6 +43,7 @@ type GameClient interface {
 	// Ship Maintenance
 	Refuel(ctx context.Context) error
 	Repair(ctx context.Context) error
+	RepairWith(ctx context.Context, payload map[string]any) error
 	Install(ctx context.Context, itemID string) error
 	UninstallMod(ctx context.Context, moduleID string) error
 	BuyShip(ctx context.Context, shipClass string) error
@@ -98,6 +99,12 @@ type GameClient interface {
 	FactionInvite(ctx context.Context, playerID string) error
 	FactionKick(ctx context.Context, playerID string) error
 	FactionPromote(ctx context.Context, playerID, roleID string) error
+
+	// Fleet (v0.240)
+	Fleet(ctx context.Context, action string, playerID string) error
+
+	// Distress (v0.240)
+	DistressSignal(ctx context.Context, distressType string) error
 
 	// Communication
 	Chat(ctx context.Context, channel, content string, targetID string) error

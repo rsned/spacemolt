@@ -536,13 +536,33 @@ type WriteNoteResponse struct {
 }
 
 // FindRouteResponse wraps the response from find_route command.
+// v0.240: now accepts POI/base targets, includes fuel estimates and fleet fuel analysis.
 type FindRouteResponse struct {
-	Action       string      `json:"action,omitempty"`
-	Found        bool        `json:"found"`
-	TotalJumps   int         `json:"total_jumps"`
-	TargetSystem string      `json:"target_system,omitempty"`
-	Message      string      `json:"message,omitempty"`
-	Route        []RouteStep `json:"route,omitempty"`
+	Action        string           `json:"action,omitempty"`
+	Found         bool             `json:"found"`
+	TotalJumps    int              `json:"total_jumps"`
+	TargetSystem  string           `json:"target_system,omitempty"`
+	TargetPOI     string           `json:"target_poi,omitempty"`
+	TargetPOIName string           `json:"target_poi_name,omitempty"`
+	FuelPerJump   int              `json:"fuel_per_jump,omitempty"`
+	EstimatedFuel int              `json:"estimated_fuel,omitempty"`
+	FuelAvailable int              `json:"fuel_available,omitempty"`
+	CargoUsed     int              `json:"cargo_used,omitempty"`
+	Message       string           `json:"message,omitempty"`
+	Route         []RouteStep      `json:"route,omitempty"`
+	FleetFuel     []FleetFuelEntry `json:"fleet_fuel,omitempty"`
+}
+
+// FleetFuelEntry reports per-member fuel analysis for a fleet route.
+type FleetFuelEntry struct {
+	PlayerID      string `json:"player_id"`
+	Username      string `json:"username"`
+	ShipClass     string `json:"ship_class"`
+	FuelPerJump   int    `json:"fuel_per_jump"`
+	EstimatedFuel int    `json:"estimated_fuel"`
+	FuelAvailable int    `json:"fuel_available"`
+	FuelOnArrival int    `json:"fuel_on_arrival"`
+	CanComplete   bool   `json:"can_complete"`
 }
 
 // SearchSystemsResponse wraps the response from search_systems command.
@@ -909,12 +929,39 @@ type RefuelResponse struct {
 }
 
 // RepairResponse wraps the response from repair command.
+// Supports station repair (credits), in-space repair (kits), and repairing other ships (repair arm + kits).
 type RepairResponse struct {
-	Action   string `json:"action"`
-	Repaired int    `json:"repaired"`
-	Cost     int    `json:"cost"`
-	Hull     int    `json:"hull"`
-	MaxHull  int    `json:"max_hull"`
+	Action           string              `json:"action"`
+	Source           string              `json:"source,omitempty"`  // "station", "kits", etc.
+	Repaired         int                 `json:"repaired"`
+	Cost             int                 `json:"cost,omitempty"`
+	ItemID           string              `json:"item_id,omitempty"`
+	ItemName         string              `json:"item_name,omitempty"`
+	KitsUsed         int                 `json:"kits_used,omitempty"`
+	Hull             int                 `json:"hull,omitempty"`
+	MaxHull          int                 `json:"max_hull,omitempty"`
+	TargetPlayerID   string              `json:"target_player_id,omitempty"`
+	TargetPlayerName string              `json:"target_player_name,omitempty"`
+	TargetHullNow    int                 `json:"target_hull_now,omitempty"`
+	TargetHullMax    int                 `json:"target_hull_max,omitempty"`
+	HasArm           bool                `json:"has_arm,omitempty"`
+	FleetID          string              `json:"fleet_id,omitempty"`
+	Members          []FleetMemberStatus `json:"members,omitempty"`
+	Message          string              `json:"message,omitempty"`
+}
+
+// FleetMemberStatus reports the hull/shield status of a fleet member.
+type FleetMemberStatus struct {
+	PlayerID  string `json:"player_id"`
+	Username  string `json:"username"`
+	ShipClass string `json:"ship_class"`
+	Hull      int    `json:"hull"`
+	MaxHull   int    `json:"max_hull"`
+	HullPct   int    `json:"hull_pct"`
+	Shield    int    `json:"shield"`
+	MaxShield int    `json:"max_shield"`
+	IsLeader  bool   `json:"is_leader"`
+	IsYou     bool   `json:"is_you"`
 }
 
 // MineResponse wraps the response from mine command.
@@ -923,13 +970,36 @@ type MineResponse struct {
 }
 
 // CraftResponse wraps the response from craft command.
+// v0.240: restructured — outputs is now an array, inputs tracked via from_storage.
 type CraftResponse struct {
-	Action     string `json:"action"`
-	RecipeID   string `json:"recipe_id"`
-	OutputID   string `json:"output_id"`
-	OutputName string `json:"output_name"`
-	Quantity   int    `json:"quantity"`
-	Message    string `json:"message"`
+	Action             string            `json:"action"`
+	Recipe             string            `json:"recipe"`
+	Quantity           int               `json:"quantity"`
+	Outputs            []CraftOutput     `json:"outputs"`
+	FromStorage        []CraftSourceItem `json:"from_storage,omitempty"`
+	FromFactionStorage []CraftSourceItem `json:"from_faction_storage,omitempty"`
+	ToStorage          []CraftSourceItem `json:"to_storage,omitempty"`
+	ToFactionStorage   []CraftSourceItem `json:"to_faction_storage,omitempty"`
+	LevelUp            bool              `json:"level_up,omitempty"`
+	LeveledUpSkills    []string          `json:"leveled_up_skills,omitempty"`
+	SkillLevel         int               `json:"skill_level,omitempty"`
+	XPGained           map[string]int    `json:"xp_gained,omitempty"`
+	Message            string            `json:"message"`
+}
+
+// CraftOutput represents one output item from crafting.
+type CraftOutput struct {
+	ItemID        string `json:"item_id"`
+	Name          string `json:"name"`
+	Quantity      int    `json:"quantity"`
+	BonusQuantity int    `json:"bonus_quantity,omitempty"`
+}
+
+// CraftSourceItem represents an item consumed from or delivered to storage.
+type CraftSourceItem struct {
+	ItemID   string `json:"item_id"`
+	Name     string `json:"name"`
+	Quantity int    `json:"quantity"`
 }
 
 // CloakResponse wraps the response from cloak command.
@@ -1238,4 +1308,38 @@ type PendingActionResponse struct {
 // MessageResponse is a generic response with just a message field.
 type MessageResponse struct {
 	Message string `json:"message"`
+}
+
+// FleetResponse wraps the response from fleet command.
+// v0.240: new command for creating and managing player fleets.
+type FleetResponse struct {
+	Action        string           `json:"action"`
+	FleetID       string           `json:"fleet_id,omitempty"`
+	InFleet       bool             `json:"in_fleet,omitempty"`
+	IsLeader      bool             `json:"is_leader,omitempty"`
+	Leader        string           `json:"leader,omitempty"`
+	LeaderName    string           `json:"leader_name,omitempty"`
+	Members       []map[string]any `json:"members,omitempty"`
+	MaxSize       int              `json:"max_size,omitempty"`
+	SystemID      string           `json:"system_id,omitempty"`
+	POIID         string           `json:"poi_id,omitempty"`
+	PendingInvite bool             `json:"pending_invite,omitempty"`
+	InviteFrom    string           `json:"invite_from,omitempty"`
+	InviteFleet   string           `json:"invite_fleet,omitempty"`
+	Invites       []map[string]any `json:"invites,omitempty"`
+	Message       string           `json:"message"`
+}
+
+// DistressSignalResponse wraps the response from distress_signal command.
+// v0.240: now accepts distress_type parameter.
+type DistressSignalResponse struct {
+	Action         string `json:"action"`
+	DistressType   string `json:"distress_type,omitempty"`
+	System         string `json:"system,omitempty"`
+	SystemName     string `json:"system_name,omitempty"`
+	POI            string `json:"poi,omitempty"`
+	POIName        string `json:"poi_name,omitempty"`
+	MissionsSent   int    `json:"missions_sent,omitempty"`
+	ExpiresSeconds int    `json:"expires_seconds,omitempty"`
+	Message        string `json:"message"`
 }

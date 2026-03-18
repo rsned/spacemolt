@@ -1212,10 +1212,57 @@ func (c *Client) Refuel(ctx context.Context) error {
 	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// Repair repairs the ship's hull at the current station
+// Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
+// v0.240: optional params for item_id, quantity, and target (remote repair).
 func (c *Client) Repair(ctx context.Context) error {
 	if err := c.Send(ctx, protocol.Message{
 		Type:      "repair",
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
+}
+
+// RepairWith repairs using specific options (repair kits, remote target, etc.).
+func (c *Client) RepairWith(ctx context.Context, payload map[string]any) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "repair",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
+}
+
+// Fleet manages player fleet operations (create, invite, accept, decline, leave, kick, disband, status).
+// v0.240: new command.
+func (c *Client) Fleet(ctx context.Context, action string, playerID string) error {
+	payload := map[string]any{"action": action}
+	if playerID != "" {
+		payload["player_id"] = playerID
+	}
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "fleet",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
+}
+
+// DistressSignal broadcasts a distress signal to nearby players.
+// v0.240: accepts optional distress_type ("fuel", "repair", "combat").
+func (c *Client) DistressSignal(ctx context.Context, distressType string) error {
+	payload := map[string]any{}
+	if distressType != "" {
+		payload["distress_type"] = distressType
+	}
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "distress_signal",
+		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}); err != nil {
 		return err

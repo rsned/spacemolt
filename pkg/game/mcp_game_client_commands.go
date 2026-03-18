@@ -223,6 +223,38 @@ func (m *MCPGameClient) Repair(ctx context.Context) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) RepairWith(ctx context.Context, payload map[string]any) error {
+	result, err := m.callTool(ctx, "repair", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) Fleet(ctx context.Context, action string, playerID string) error {
+	payload := map[string]any{"action": action}
+	if playerID != "" {
+		payload["player_id"] = playerID
+	}
+	result, err := m.callTool(ctx, "fleet", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) DistressSignal(ctx context.Context, distressType string) error {
+	payload := map[string]any{}
+	if distressType != "" {
+		payload["distress_type"] = distressType
+	}
+	result, err := m.callTool(ctx, "distress_signal", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) Install(ctx context.Context, itemID string) error {
 	result, err := m.callTool(ctx, "install_mod", map[string]any{
 		"module_id": itemID,

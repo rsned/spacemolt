@@ -165,6 +165,15 @@ func (m *mockGameClient) Repair(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "repair")
 	return nil
 }
+func (m *mockGameClient) RepairWith(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID string) error {
+	return nil
+}
+func (m *mockGameClient) DistressSignal(ctx context.Context, distressType string) error {
+	return nil
+}
 func (m *mockGameClient) Install(ctx context.Context, itemID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "install:"+itemID)
 	return nil
