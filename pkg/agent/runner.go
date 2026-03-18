@@ -13,12 +13,19 @@ import (
 // EventCallback is called when events occur during agent execution
 type EventCallback func(agentID string, eventType string, data any)
 
+// ToTContext carries additional context for the Tree-of-Thought evaluator.
+type ToTContext struct {
+	RecentActions []HistoryEntry
+	Goal          *Goal
+	Priority      *Priority
+}
+
 // ToTEvaluator is an optional evaluator that uses Tree-of-Thought reasoning
 // for richer decision making. Implemented by pkg/tot.Evaluator via an adapter.
 type ToTEvaluator interface {
 	// EvaluateToT runs the Tree-of-Thought pipeline and returns the best decision.
 	// The second return value is the full thought tree for event emission.
-	EvaluateToT(ctx context.Context, personality Personality, state *game.State) (Decision, any, error)
+	EvaluateToT(ctx context.Context, personality Personality, state *game.State, totCtx *ToTContext) (Decision, any, error)
 }
 
 // Runner wraps an agent with its game client and runs the play loop
@@ -256,9 +263,12 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	} else {
 		// No queued actions - get fresh decision
 		if r.totEvaluator != nil && r.agent.Personality().DecisionMode == "tot" {
-			// Tree-of-Thought pipeline
+			// Tree-of-Thought pipeline — pass recent history and goal context
+			totCtx := &ToTContext{
+				RecentActions: r.history.GetRecent(5),
+			}
 			var tree any
-			decision, tree, err = r.totEvaluator.EvaluateToT(ctx, r.agent.Personality(), stateCopy)
+			decision, tree, err = r.totEvaluator.EvaluateToT(ctx, r.agent.Personality(), stateCopy, totCtx)
 			if err != nil {
 				r.logger.Printf("[%s] ToT failed, falling back to single-call: %v", r.agent.ID(), err)
 				decision, err = r.agent.Decide(ctx, stateCopy)

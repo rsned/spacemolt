@@ -50,6 +50,7 @@ func (e *Evaluator) Evaluate(
 	state *game.State,
 	validActions []ActionOption,
 	weights AxisWeights,
+	pctx *PromptContext,
 ) (*ThoughtTree, error) {
 	start := time.Now()
 	tree := &ThoughtTree{
@@ -61,7 +62,7 @@ func (e *Evaluator) Evaluate(
 	}
 
 	// Stage 1: Assess
-	assessPrompt := BuildAssessPrompt(personality, state, validActions)
+	assessPrompt := BuildAssessPrompt(personality, state, validActions, pctx)
 	log.Printf("[ToT] Stage 1 prompt (%d chars) for %s:\n%s", len(assessPrompt), personality.ID, assessPrompt)
 	assessRaw, err := e.llm.Generate(ctx, assessPrompt)
 	if err != nil {

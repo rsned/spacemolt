@@ -72,8 +72,8 @@ func TestEvaluator_FullPipeline(t *testing.T) {
 	llm := &mockLLM{
 		responses: []string{string(assessJSON)},
 		keyed: map[string]string{
-			"considering this action: travel": string(evalJSON1),
-			"considering this action: mine":   string(evalJSON2),
+			"You are considering: travel": string(evalJSON1),
+			"You are considering: mine":   string(evalJSON2),
 		},
 	}
 
@@ -105,7 +105,7 @@ func TestEvaluator_FullPipeline(t *testing.T) {
 		{Action: "mine", Description: "Mine"},
 	}
 
-	tree, err := eval.Evaluate(context.Background(), personality, state, validActions, weights)
+	tree, err := eval.Evaluate(context.Background(), personality, state, validActions, weights, nil)
 	if err != nil {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
