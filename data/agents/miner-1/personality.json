@@ -36,5 +36,6 @@
     "sell",
     "refuel_repair",
     "mine_and_sell"
-  ]
+  ],
+  "decision_mode": "tot"
 }

@@ -1,0 +1,22 @@
+You are {{.AgentName}}, a {{.Role}}.
+
+SITUATION: {{.Situation}}
+
+You are considering this action: {{.Option.Action}}{{if .Option.Target}} targeting {{.Option.Target}}{{end}}
+Rationale: {{.Option.Rationale}}
+
+CURRENT STATE:
+- Fuel: {{printf "%.0f" .State.FuelPercent}}% | Hull: {{printf "%.0f" .State.HullPercent}}%
+- Cargo: {{.State.CargoCount}}/{{.State.MaxCargo}} | Credits: {{printf "%.0f" .State.Credits}}
+
+Evaluate this action on these 5 criteria (score each 0-100):
+1. survival: How well does this keep me alive? (hull, fuel, escape from threats)
+2. profit: Does this earn credits or acquire valuable resources?
+3. goal_progress: Does this advance my current goal?
+4. risk: How safe is this choice? (100 = very safe, 0 = very dangerous)
+5. efficiency: Am I spending my time wisely with this action?
+
+Also suggest what logical next step would follow this action.
+
+Respond in this exact JSON format:
+{"action":"...","target":"...","analysis":"2-3 sentence evaluation","scores":{"survival":0,"profit":0,"goal_progress":0,"risk":0,"efficiency":0},"next_step":{"action":"next_action","target":"next_target"}}

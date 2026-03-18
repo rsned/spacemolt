@@ -20,6 +20,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
 	"github.com/rsned/spacemolt/pkg/registry"
+	"github.com/rsned/spacemolt/pkg/tot"
 )
 
 // CLI flags
@@ -242,6 +243,15 @@ func main() {
 			continue
 		}
 
+		// Wire Tree-of-Thought evaluator if agent has decision_mode="tot"
+		if personality.DecisionMode == "tot" {
+			totAdapter := &tot.RunnerAdapter{
+				Eval: tot.NewEvaluator(llmClient, *llmModel),
+			}
+			runner.SetToTEvaluator(totAdapter)
+			log.Printf("✓ [%s] Thought Engine enabled", agentID)
+		}
+
 		log.Printf("✓ [%s] Started successfully (faction: %s)", agentID, personality.Faction)
 		successCount++
 		_ = runner // runner is now managed by the manager
@@ -276,18 +286,27 @@ func main() {
 	var apiServer *api.Server
 	if *httpPort > 0 {
 		apiServer = api.NewServer(mgr, *httpPort)
+		apiServer.SetLLMClient(llmClient)
 
 		// Wire up event callbacks from runners to stream manager
 		streamMgr := apiServer.GetStreamManager()
-		for _, runner := range mgr.ListRunners() {
-			runner.SetEventCallback(func(agentID string, eventType string, data interface{}) {
-				streamMgr.Publish(agentID, api.Event{
-					AgentID:   agentID,
-					Type:      eventType,
-					Timestamp: time.Now(),
-					Data:      data,
-				})
+		publishEvent := func(agentID string, eventType string, data any) {
+			streamMgr.Publish(agentID, api.Event{
+				AgentID:   agentID,
+				Type:      eventType,
+				Timestamp: time.Now(),
+				Data:      data,
 			})
+		}
+		for _, runner := range mgr.ListRunners() {
+			runner.SetEventCallback(publishEvent)
+		}
+
+		// Wire ToT adapters to also publish incremental updates
+		for _, runner := range mgr.ListRunners() {
+			if adapter, ok := runner.GetToTEvaluator().(*tot.RunnerAdapter); ok {
+				adapter.OnUpdate = publishEvent
+			}
 		}
 
 		// Start HTTP server in background
@@ -491,7 +510,7 @@ func initLLMClient(url, model string) (*llm.Client, error) {
 	return llm.New(llm.Config{
 		BaseURL:       url,
 		Model:         model,
-		Timeout:       60 * time.Second,
+		Timeout:       180 * time.Second, // 3 min to accommodate ToT pipeline
 		PromptsDir:    "data/prompts/templates",
 		PromptsConfig: "data/prompts/config.yaml",
 	})

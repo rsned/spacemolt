@@ -107,11 +107,11 @@ type DecisionResponse struct {
 
 // Decide prompts the LLM for an action decision
 func (c *Client) Decide(ctx context.Context, prompt string) (*DecisionResponse, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"model":  c.model,
 		"prompt": prompt,
 		"stream": false,
-		"options": map[string]interface{}{
+		"options": map[string]any{
 			"temperature": 0.7,
 			"num_predict": 4096,
 			"num_ctx":     16384,
@@ -207,7 +207,7 @@ func (c *Client) parseDecision(text string) (*DecisionResponse, error) {
 }
 
 // BuildDecisionPrompt creates a prompt for the LLM
-func BuildDecisionPrompt(agentName, role string, personality map[string]interface{}, state map[string]interface{}) string {
+func BuildDecisionPrompt(agentName, role string, personality map[string]any, state map[string]any) string {
 	return fmt.Sprintf(`
 You are %s, a %s in the Spacemolt universe.
 
@@ -304,6 +304,74 @@ func (c *Client) RenderPrompt(promptType string, role string, ctx *prompts.Templ
 // HasPromptManager returns whether the prompt manager is initialized
 func (c *Client) HasPromptManager() bool {
 	return c.promptManager != nil && c.selector != nil
+}
+
+// Generate sends a raw prompt to the LLM and returns the response text.
+// Used by the Thought Engine for multi-call decision pipelines.
+// Uses the /api/chat endpoint which handles thinking models (qwen3) properly.
+func (c *Client) Generate(ctx context.Context, prompt string) (string, error) {
+	payload := map[string]any{
+		"model": c.model,
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+		"stream": false,
+		"options": map[string]any{
+			"temperature": 0.7,
+			"num_predict": 4096,
+			"num_ctx":     16384,
+		},
+		"format": "json",
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/api/chat", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("ollama returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var chatResp struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+		Done bool `json:"done"`
+	}
+	if err := json.Unmarshal(respBody, &chatResp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return chatResp.Message.Content, nil
+}
+
+// Model returns the configured model name.
+func (c *Client) Model() string {
+	return c.model
+}
+
+// SetModel changes the LLM model used for subsequent requests.
+func (c *Client) SetModel(model string) {
+	c.model = model
 }
 
 // TestConnection tests if Ollama is reachable

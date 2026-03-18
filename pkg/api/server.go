@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/llm"
 )
 
 // Server provides HTTP API for agent-server
@@ -21,6 +22,7 @@ type Server struct {
 	port          int
 	logger        *log.Logger
 	webDir        string // Path to web UI static files (empty = disabled)
+	llmClient     *llm.Client
 }
 
 // NewServer creates a new HTTP API server
@@ -51,11 +53,17 @@ func NewServer(manager *agent.Manager, port int) *Server {
 	return s
 }
 
+// SetLLMClient sets the LLM client for model hot-swapping via the API.
+func (s *Server) SetLLMClient(client *llm.Client) {
+	s.llmClient = client
+}
+
 // registerRoutes sets up HTTP route handlers
 func (s *Server) registerRoutes() {
 	// Agent endpoints
 	s.router.HandleFunc("/api/agents", s.handleListAgents)
 	s.router.HandleFunc("/api/agents/", s.handleAgentRoute) // Handles /api/agents/{id}/*
+	s.router.HandleFunc("/api/model", s.handleModel)
 
 	// Serve web UI static files if available
 	if s.webDir != "" {
