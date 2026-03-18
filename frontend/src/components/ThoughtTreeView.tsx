@@ -50,10 +50,10 @@ interface ThoughtTreeViewProps {
   onNodeClick?: (node: ThoughtNodeData) => void
 }
 
-const NODE_WIDTH = 220
-const NODE_HEIGHT = 180
+const NODE_WIDTH = 260
+const NODE_HEIGHT = 220
 const CHILD_NODE_HEIGHT = 80
-const H_GAP = 40
+const H_GAP = 48
 const V_GAP = 100
 
 function statusBorderClass(status: ThoughtNodeData['status']): string {
@@ -124,42 +124,44 @@ function buildNodesAndEdges(
       data: {
         label: (
           <div
-            className={`bg-gray-800 border-2 rounded-lg p-2 cursor-pointer ${borderClass}`}
+            className={`bg-gray-800 border-2 rounded-lg p-3 cursor-pointer ${borderClass}`}
             style={{ width: NODE_WIDTH, minHeight: NODE_HEIGHT }}
             onClick={() => onNodeClick?.(branch)}
           >
             <div className="flex items-center gap-1 mb-1">
-              <span className="text-xs font-bold text-white truncate flex-1">
+              <span className="text-sm font-bold text-white truncate flex-1">
                 {branch.action}
               </span>
               {branch.status === 'pending' ? (
-                <span className="text-xs px-1 rounded bg-gray-700 text-gray-500">—</span>
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">—</span>
               ) : branch.status === 'evaluating' ? (
-                <span className="text-xs px-1 rounded bg-yellow-800 text-yellow-300 animate-pulse">...</span>
+                <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-800 text-yellow-300 animate-pulse">...</span>
               ) : (
-                <span className={`text-xs font-bold px-1 rounded ${isWinner ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
+                <span className={`text-sm font-bold px-1.5 py-0.5 rounded ${isWinner ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-300'}`}>
                   {Math.round(branch.combined)}
                 </span>
               )}
             </div>
             {branch.target && (
-              <div className="text-xs text-gray-400 truncate mb-1">→ {branch.target}</div>
+              <div className="text-xs text-gray-400 truncate mb-2">→ {branch.target}</div>
             )}
             {(branch.status === 'active' || branch.status === 'winner' || branch.status === 'pruned') && (
-              <div className="flex gap-2 items-start">
-                <RadarChart scores={branch.scores} size={72} />
-                <p className="text-xs text-gray-400 leading-tight line-clamp-4 flex-1">
+              <>
+                <div className="flex justify-center mb-2">
+                  <RadarChart scores={branch.scores} size={90} />
+                </div>
+                <p className="text-xs text-gray-400 leading-relaxed">
                   {branch.reasoning}
                 </p>
-              </div>
+              </>
             )}
             {branch.status === 'evaluating' && (
-              <div className="flex items-center justify-center h-16 text-xs text-yellow-400 animate-pulse">
+              <div className="flex items-center justify-center h-24 text-xs text-yellow-400 animate-pulse">
                 Evaluating...
               </div>
             )}
             {branch.status === 'pending' && (
-              <div className="flex items-center justify-center h-16 text-xs text-gray-500">
+              <div className="flex items-center justify-center h-24 text-xs text-gray-500">
                 Waiting...
               </div>
             )}
