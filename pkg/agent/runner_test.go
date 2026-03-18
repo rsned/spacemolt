@@ -571,17 +571,17 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Execute cycle - should be throttled
+	// Execute cycle - should skip entirely (no LLM call, no action)
 	if err := runner.executeCycle(ctx); err != nil {
 		t.Fatalf("executeCycle failed: %v", err)
 	}
 
-	// Agent should still be called for decision
-	if callCount != 1 {
-		t.Errorf("Expected agent to be called once, got %d", callCount)
+	// Agent should NOT be called (skip cycle to save LLM calls)
+	if callCount != 0 {
+		t.Errorf("Expected agent not to be called when throttled, got %d calls", callCount)
 	}
 
-	// But action should NOT be executed
+	// No actions executed
 	if len(client.actionsRecorded) != 0 {
 		t.Errorf("Expected 0 actions (throttled), got %d", len(client.actionsRecorded))
 	}
@@ -592,7 +592,10 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 		t.Fatalf("executeCycle failed: %v", err)
 	}
 
-	// Now action should execute
+	// Now agent should be called and action should execute
+	if callCount != 1 {
+		t.Errorf("Expected 1 call after tick advance, got %d", callCount)
+	}
 	if len(client.actionsRecorded) != 1 {
 		t.Errorf("Expected 1 action after tick advance, got %d", len(client.actionsRecorded))
 	}

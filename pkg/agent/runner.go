@@ -238,10 +238,13 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	canAct := tickAdvanced || timeElapsed
 
-	// Log throttling details for debugging
+	// Skip decision-making entirely if we can't act yet.
+	// This prevents wasting LLM calls (especially the multi-call ToT pipeline)
+	// when the game tick hasn't advanced.
 	if !canAct {
-		r.logger.Printf("[%s] Throttle check: tick=%d, lastTick=%d, timeSince=%.1fs",
+		r.logger.Printf("[%s] Waiting for tick (current: %d, last: %d, elapsed: %.1fs)",
 			r.agent.ID(), currentTick, lastActionTick, timeSinceLastAction.Seconds())
+		return nil
 	}
 
 	// Try to use queued action first, fall back to LLM decision
