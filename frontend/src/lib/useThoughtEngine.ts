@@ -78,8 +78,7 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
       console.log('[ThoughtEngine] SSE connected')
       setConnected(true)
     }
-    es.onerror = (e) => {
-      console.log('[ThoughtEngine] SSE error, readyState:', es.readyState, e)
+    es.onerror = () => {
       if (es.readyState === EventSource.CLOSED) {
         setConnected(false)
       }
