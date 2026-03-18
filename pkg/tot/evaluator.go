@@ -137,14 +137,23 @@ func (e *Evaluator) Evaluate(
 		node.Prompt = evalPrompt
 		node.RawResponse = evalRaw
 
-		// Add next_step as child node, but filter out template echoes
-		nextAction := evalResp.NextStep.Action
-		nextTarget := evalResp.NextStep.Target
-		if nextAction != "" && nextAction != "next" && nextAction != "next_action" && nextTarget != "id" && nextTarget != "next_target" {
+		// Build plan from response — prefer "plan" array, fall back to legacy "next_step"
+		plan := evalResp.Plan
+		if len(plan) == 0 && evalResp.NextStep.Action != "" {
+			plan = []PlanStep{{Action: evalResp.NextStep.Action, Target: evalResp.NextStep.Target}}
+		}
+		// Filter template echoes and add as child nodes
+		for j, step := range plan {
+			if step.Action == "" || step.Action == "next" || step.Action == "next_action" {
+				continue
+			}
+			if step.Target == "id" || step.Target == "next_target" {
+				step.Target = ""
+			}
 			node.Children = append(node.Children, &ThoughtNode{
-				ID:     fmt.Sprintf("node_%d_next", i),
-				Action: nextAction,
-				Target: nextTarget,
+				ID:     fmt.Sprintf("node_%d_plan_%d", i, j),
+				Action: step.Action,
+				Target: step.Target,
 				Status: StatusActive,
 				Depth:  1,
 			})

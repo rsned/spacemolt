@@ -21,12 +21,20 @@ type AssessResponse struct {
 	Options   []AssessOption `json:"options"`
 }
 
+// PlanStep is one step in a multi-action plan.
+type PlanStep struct {
+	Action string `json:"action"`
+	Target string `json:"target"`
+}
+
 // EvaluateResponse is the parsed Stage 2 LLM output.
 type EvaluateResponse struct {
 	Action   string     `json:"action"`
 	Target   string     `json:"target"`
 	Analysis string     `json:"analysis"`
 	Scores   AxisScores `json:"scores"`
+	Plan     []PlanStep `json:"plan"`
+	// Legacy single next_step — converted to Plan if present
 	NextStep struct {
 		Action string `json:"action"`
 		Target string `json:"target"`
@@ -90,6 +98,19 @@ func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []Ac
 		sb.WriteString("- !! IN COMBAT !!\n")
 	}
 	sb.WriteString("\n")
+
+	// --- Current Plan (if we have queued actions from previous evaluation) ---
+	if pctx != nil && len(pctx.QueuedPlan) > 0 {
+		sb.WriteString("CURRENT PLAN (queued from previous evaluation):\n")
+		for _, pa := range pctx.QueuedPlan {
+			if pa.Target != "" {
+				fmt.Fprintf(&sb, "  %d. %s %s\n", pa.Sequence, pa.Action, pa.Target)
+			} else {
+				fmt.Fprintf(&sb, "  %d. %s\n", pa.Sequence, pa.Action)
+			}
+		}
+		sb.WriteString("Consider whether this plan is still valid or needs adjustment.\n\n")
+	}
 
 	// --- Recent Actions (short-term memory) ---
 	if pctx != nil && len(pctx.RecentActions) > 0 {
@@ -183,12 +204,14 @@ func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation strin
 	sb.WriteString("- goal_progress: advances my current goal\n")
 	sb.WriteString("- risk: how safe (100=safe, 0=dangerous)\n")
 	sb.WriteString("- efficiency: good use of my time\n\n")
+	sb.WriteString("Also plan the next 3-4 actions that would follow. Think about the full sequence.\n\n")
 	sb.WriteString("Respond with JSON containing: action, target, analysis (2-3 sentences), ")
 	sb.WriteString("scores (survival/profit/goal_progress/risk/efficiency each 0-100), ")
-	sb.WriteString("and next_step (the logical follow-up action and target).\n")
-	sb.WriteString("Example: {\"action\": \"mine\", \"target\": \"\", \"analysis\": \"Mining here is safe and profitable.\", ")
+	sb.WriteString("and plan (array of follow-up steps with action and target).\n")
+	sb.WriteString("Example: {\"action\": \"mine\", \"target\": \"\", \"analysis\": \"Mining is safe and profitable.\", ")
 	sb.WriteString("\"scores\": {\"survival\": 80, \"profit\": 70, \"goal_progress\": 90, \"risk\": 85, \"efficiency\": 75}, ")
-	sb.WriteString("\"next_step\": {\"action\": \"sell\", \"target\": \"grand_exchange\"}}\n")
+	sb.WriteString("\"plan\": [{\"action\": \"mine\", \"target\": \"\"}, {\"action\": \"mine\", \"target\": \"\"}, ")
+	sb.WriteString("{\"action\": \"travel\", \"target\": \"grand_exchange\"}, {\"action\": \"sell\", \"target\": \"\"}]}\n")
 
 	return sb.String()
 }

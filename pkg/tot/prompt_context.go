@@ -22,6 +22,10 @@ type PromptContext struct {
 	// ("High Security", "Medium Security", "Low Security", "Lawless").
 	SystemSecurity string
 
+	// QueuedPlan is the current action queue (from a previous ToT evaluation).
+	// Shown in the prompt so the LLM knows what's already planned.
+	QueuedPlan []agent.PlannedAction
+
 	// ConnectedSystemInfo provides enriched info about neighboring systems.
 	ConnectedSystemInfo []ConnectedSystem
 }
