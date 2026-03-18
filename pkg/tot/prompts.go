@@ -198,12 +198,16 @@ func writePOIs(sb *strings.Builder, role string, pois []game.POI) {
 
 	switch {
 	case strings.Contains(roleLower, "miner"):
-		// Miners care about: resource locations + stations (to sell/refuel)
+		// Miners care about: harvestable resources + stations (to sell/refuel)
 		sb.WriteString("NEARBY LOCATIONS (mining-relevant):\n")
 		for _, poi := range pois {
 			switch poi.Type {
 			case "asteroid_belt", "asteroid", "asteroid_field":
-				fmt.Fprintf(sb, "  - %s: %s (%s) ← MINE HERE\n", poi.ID, poi.Name, poi.Type)
+				fmt.Fprintf(sb, "  - %s: %s (%s) ← MINE HERE (ore)\n", poi.ID, poi.Name, poi.Type)
+			case "gas_cloud":
+				fmt.Fprintf(sb, "  - %s: %s (%s) ← HARVEST HERE (gas)\n", poi.ID, poi.Name, poi.Type)
+			case "ice_field", "ice_belt":
+				fmt.Fprintf(sb, "  - %s: %s (%s) ← HARVEST HERE (ice)\n", poi.ID, poi.Name, poi.Type)
 			case "station", "outpost":
 				fmt.Fprintf(sb, "  - %s: %s (station — sell/refuel/repair)\n", poi.ID, poi.Name)
 			}
