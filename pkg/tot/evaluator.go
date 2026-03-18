@@ -75,6 +75,9 @@ func (e *Evaluator) Evaluate(
 		return nil, fmt.Errorf("stage 1 parse: %w", err)
 	}
 	tree.Situation = assessed.Situation
+
+	// Validate and fix options — LLMs sometimes put targets as actions
+	assessed.Options = fixAssessOptions(assessed.Options, validActions)
 	log.Printf("[ToT] Stage 1 parsed: situation=%q, options=%d", assessed.Situation, len(assessed.Options))
 
 	if len(assessed.Options) == 0 {
@@ -134,11 +137,14 @@ func (e *Evaluator) Evaluate(
 		node.Prompt = evalPrompt
 		node.RawResponse = evalRaw
 
-		if evalResp.NextStep.Action != "" {
+		// Add next_step as child node, but filter out template echoes
+		nextAction := evalResp.NextStep.Action
+		nextTarget := evalResp.NextStep.Target
+		if nextAction != "" && nextAction != "next" && nextAction != "next_action" && nextTarget != "id" && nextTarget != "next_target" {
 			node.Children = append(node.Children, &ThoughtNode{
 				ID:     fmt.Sprintf("node_%d_next", i),
-				Action: evalResp.NextStep.Action,
-				Target: evalResp.NextStep.Target,
+				Action: nextAction,
+				Target: nextTarget,
 				Status: StatusActive,
 				Depth:  1,
 			})
@@ -239,6 +245,39 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+// fixAssessOptions validates and corrects LLM-generated options.
+// Common issue: LLM puts a target name (like "commerce_fields") as the action
+// instead of the correct action ("travel") with the target.
+func fixAssessOptions(options []AssessOption, validActions []ActionOption) []AssessOption {
+	actionSet := make(map[string]bool, len(validActions))
+	targetToAction := make(map[string]string) // target ID → action that uses it
+	for _, va := range validActions {
+		actionSet[va.Action] = true
+		for _, t := range va.Targets {
+			targetToAction[t] = va.Action
+		}
+	}
+
+	fixed := make([]AssessOption, 0, len(options))
+	for _, opt := range options {
+		if actionSet[opt.Action] {
+			// Action is valid
+			fixed = append(fixed, opt)
+		} else if correctAction, ok := targetToAction[opt.Action]; ok {
+			// Action is actually a target — fix it
+			log.Printf("[ToT] Fixing option: action %q is a target, correcting to %q targeting %q", opt.Action, correctAction, opt.Action)
+			fixed = append(fixed, AssessOption{
+				Action:    correctAction,
+				Target:    opt.Action,
+				Rationale: opt.Rationale,
+			})
+		} else {
+			log.Printf("[ToT] Dropping invalid option: action %q not in valid actions", opt.Action)
+		}
+	}
+	return fixed
 }
 
 func parseEvaluateResponse(raw string) (*EvaluateResponse, error) {

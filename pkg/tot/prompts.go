@@ -144,9 +144,11 @@ func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []Ac
 	}
 
 	// --- Instructions ---
-	sb.WriteString("\nChoose 3 actions that best advance your goal given your situation and recent history.\n")
-	sb.WriteString("Prioritize actions that MAKE PROGRESS (mine, travel, sell, undock) over information queries (get_*).\n\n")
-	sb.WriteString("Respond with JSON: {\"situation\": \"one sentence\", \"options\": [{\"action\": \"name\", \"target\": \"id or empty\", \"rationale\": \"why\"}]}\n")
+	sb.WriteString("\nChoose 3 actions from AVAILABLE ACTIONS above that best advance your goal.\n")
+	sb.WriteString("IMPORTANT: \"action\" MUST be one of the action names listed above (like \"travel\", \"mine\", \"sell\", \"undock\").\n")
+	sb.WriteString("\"target\" is a location ID from NEARBY LOCATIONS (like \"commerce_fields\") or empty string.\n")
+	sb.WriteString("Prioritize actions that MAKE PROGRESS (mine, travel, sell, undock) over queries (get_*).\n\n")
+	sb.WriteString("Respond with JSON: {\"situation\": \"one sentence\", \"options\": [{\"action\": \"travel\", \"target\": \"commerce_fields\", \"rationale\": \"why\"}]}\n")
 
 	return sb.String()
 }
@@ -181,9 +183,12 @@ func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation strin
 	sb.WriteString("- goal_progress: advances my current goal\n")
 	sb.WriteString("- risk: how safe (100=safe, 0=dangerous)\n")
 	sb.WriteString("- efficiency: good use of my time\n\n")
-	sb.WriteString("Respond with JSON: {\"action\": \"" + option.Action + "\", \"target\": \"" + option.Target + "\", ")
-	sb.WriteString("\"analysis\": \"2-3 sentences\", \"scores\": {\"survival\": N, \"profit\": N, \"goal_progress\": N, \"risk\": N, \"efficiency\": N}, ")
-	sb.WriteString("\"next_step\": {\"action\": \"next\", \"target\": \"id\"}}\n")
+	sb.WriteString("Respond with JSON containing: action, target, analysis (2-3 sentences), ")
+	sb.WriteString("scores (survival/profit/goal_progress/risk/efficiency each 0-100), ")
+	sb.WriteString("and next_step (the logical follow-up action and target).\n")
+	sb.WriteString("Example: {\"action\": \"mine\", \"target\": \"\", \"analysis\": \"Mining here is safe and profitable.\", ")
+	sb.WriteString("\"scores\": {\"survival\": 80, \"profit\": 70, \"goal_progress\": 90, \"risk\": 85, \"efficiency\": 75}, ")
+	sb.WriteString("\"next_step\": {\"action\": \"sell\", \"target\": \"grand_exchange\"}}\n")
 
 	return sb.String()
 }
