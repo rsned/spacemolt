@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+// BuiltForAPIVersion is the server API version this client was built against.
+// Update this constant when updating response structs and command signatures
+// to match a new server API version.
+const BuiltForAPIVersion = "v0.240.0"
+
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {
 	Major int
@@ -156,17 +161,19 @@ func extractVersionFromFile(path string) (SemVer, error) {
 	return SemVer{}, errors.New("version not found in file")
 }
 
-// CheckVersion compares the server version against the documented API version
+// CheckVersion compares the server version against the version this client was built for.
+// Uses the BuiltForAPIVersion constant, not the server_docs files (which may be newer).
 func CheckVersion(serverVersionStr string) (*VersionCheck, error) {
 	serverVer, err := ParseSemVer(serverVersionStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid server version: %w", err)
 	}
 
-	docVer, err := GetDocVersion()
+	builtVer, err := ParseSemVer(BuiltForAPIVersion)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get documented version: %w", err)
+		return nil, fmt.Errorf("invalid built-for version constant: %w", err)
 	}
+	docVer := builtVer
 
 	vc := &VersionCheck{
 		ServerVersion:   serverVer,

@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+// Note: os, path/filepath still used by TestExtractVersionFromFile and TestGetDocVersionNoFile
+
 func TestParseSemVer(t *testing.T) {
 	tests := []struct {
 		input   string
@@ -268,23 +270,8 @@ This document is accurate for gameserver v1.5.3
 }
 
 func TestCheckVersionMajorMismatch(t *testing.T) {
-	dir := t.TempDir()
-
-	// Change to temp dir so GetDocVersion can find the file
-	origDir, _ := os.Getwd()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
-
-	if err := os.MkdirAll(filepath.Join(dir, "server_docs"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	content := "This document is accurate for gameserver v0.50.0\n"
-	if err := os.WriteFile(filepath.Join(dir, "server_docs", "api.md"), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
+	// CheckVersion uses BuiltForAPIVersion constant (v0.240.0),
+	// so a v1.x server would be a major mismatch.
 	vc, err := CheckVersion("v1.0.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -301,22 +288,11 @@ func TestCheckVersionMajorMismatch(t *testing.T) {
 }
 
 func TestCheckVersionMinorBehind(t *testing.T) {
-	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
+	// Server is significantly ahead of BuiltForAPIVersion.
+	builtVer, _ := ParseSemVer(BuiltForAPIVersion)
+	aheadVer := SemVer{Major: builtVer.Major, Minor: builtVer.Minor + 20, Patch: 0}
 
-	if err := os.MkdirAll(filepath.Join(dir, "server_docs"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	content := "This document is accurate for gameserver v0.30.0\n"
-	if err := os.WriteFile(filepath.Join(dir, "server_docs", "api.md"), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	vc, err := CheckVersion("v0.50.0")
+	vc, err := CheckVersion(aheadVer.String())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -335,22 +311,11 @@ func TestCheckVersionMinorBehind(t *testing.T) {
 }
 
 func TestCheckVersionCompatible(t *testing.T) {
-	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(origDir) })
+	// Server is close to BuiltForAPIVersion — should be compatible.
+	builtVer, _ := ParseSemVer(BuiltForAPIVersion)
+	closeVer := SemVer{Major: builtVer.Major, Minor: builtVer.Minor + 2, Patch: 0}
 
-	if err := os.MkdirAll(filepath.Join(dir, "server_docs"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	content := "This document is accurate for gameserver v0.43.6\n"
-	if err := os.WriteFile(filepath.Join(dir, "server_docs", "api.md"), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	vc, err := CheckVersion("v0.45.0")
+	vc, err := CheckVersion(closeVer.String())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -369,6 +334,16 @@ func TestCheckVersionInvalidInput(t *testing.T) {
 	_, err := CheckVersion("not-a-version")
 	if err == nil {
 		t.Error("expected error for invalid version string")
+	}
+}
+
+func TestBuiltForAPIVersionValid(t *testing.T) {
+	ver, err := ParseSemVer(BuiltForAPIVersion)
+	if err != nil {
+		t.Fatalf("BuiltForAPIVersion %q is not valid semver: %v", BuiltForAPIVersion, err)
+	}
+	if ver.Major != 0 || ver.Minor < 1 {
+		t.Errorf("BuiltForAPIVersion %v looks wrong", ver)
 	}
 }
 
