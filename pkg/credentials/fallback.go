@@ -220,8 +220,6 @@ func providerType(p Provider) string {
 		return "keyring"
 	case *EnvProvider:
 		return "env"
-	case *LegacyProvider:
-		return "legacy"
 	case *StaticProvider:
 		return "static"
 	case *FallbackProvider:

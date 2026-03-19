@@ -70,27 +70,8 @@ func main() {
 	}
 	fmt.Printf("   ✓ FallbackProvider: got credentials from file provider (username=%s)\n", creds.Username)
 
-	// Test 4: LegacyProvider
-	fmt.Println("\n4. Testing LegacyProvider...")
-	legacyFile := filepath.Join(tmpDir, "legacy-creds.json")
-	legacyProvider := credentials.NewLegacyProvider(legacyFile)
-
-	err = legacyProvider.StoreCredentials(ctx, "agent-1", &credentials.Credentials{
-		Username: "legacyuser",
-		Password: "legacy-password",
-		Empire:   "voidborn",
-	})
-	if err != nil {
-		log.Fatalf("LegacyProvider StoreCredentials failed: %v", err)
-	}
-
-	// Legacy provider appends agent ID to username
-	agent1Creds, _ := legacyProvider.GetCredentials(ctx, "agent-1")
-	agent2Creds, _ := legacyProvider.GetCredentials(ctx, "agent-2")
-	fmt.Printf("   ✓ LegacyProvider: agent-1 username=%s, agent-2 username=%s\n", agent1Creds.Username, agent2Creds.Username)
-
-	// Test 5: EnvProvider
-	fmt.Println("\n5. Testing EnvProvider...")
+	// Test 4: EnvProvider
+	fmt.Println("\n4. Testing EnvProvider...")
 	_ = os.Setenv("SPACEMOLT_AGENT_MINER_2_USERNAME", "miner-2")
 	_ = os.Setenv("SPACEMOLT_AGENT_MINER_2_TOKEN", "miner-token-123")
 	defer func() {

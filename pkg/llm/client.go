@@ -374,6 +374,11 @@ func (c *Client) SetModel(model string) {
 	c.model = model
 }
 
+// BaseURL returns the configured base URL for the LLM provider.
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
 // TestConnection tests if Ollama is reachable
 func (c *Client) TestConnection(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+"/api/tags", nil)

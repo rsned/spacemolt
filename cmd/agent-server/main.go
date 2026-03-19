@@ -69,94 +69,18 @@ type AgentsConfig struct {
 	} `yaml:"agents"`
 }
 
-// migrateCredentials migrates credentials from old location to new consolidated location
-// Old: data/credentials/AGENT_ID/credentials.json
-// New: data/agents/AGENT_ID/credentials.json
+// migrateCredentials migrates credentials from old location to new consolidated location.
+// Delegates to the shared credentials.MigrateCredentials function.
 func migrateCredentials(oldCredsPath, agentsDir string) error {
-	// Skip migration if paths are the same
-	if oldCredsPath == agentsDir {
-		return nil
-	}
-
-	// Check if old credentials directory exists
-	oldDir := oldCredsPath
-
-	// Only migrate if oldDir looks like a credentials directory (not an agents directory)
-	// We detect this by checking if it's named "credentials" or if user explicitly used it
-	if oldDir != "data/credentials" {
-		// For non-standard paths, check if the directory exists and has the old structure
-		// If it doesn't exist, skip migration silently
-		if _, err := os.Stat(oldDir); os.IsNotExist(err) {
-			return nil
-		}
-		// If it exists and is different from agentsDir, proceed with migration
-		// (useful for testing and custom configurations)
-	}
-
-	// Check if directory exists
-	if _, err := os.Stat(oldDir); os.IsNotExist(err) {
-		// No old credentials to migrate
-		return nil
-	}
-
-	log.Printf("Checking for credentials to migrate from %s to %s...", oldDir, agentsDir)
-
-	// Read old credentials directory
-	entries, err := os.ReadDir(oldDir)
+	log.Printf("Checking for credentials to migrate from %s to %s...", oldCredsPath, agentsDir)
+	count, err := credentials.MigrateCredentials(oldCredsPath, agentsDir)
 	if err != nil {
-		return fmt.Errorf("failed to read old credentials directory: %w", err)
+		return err
 	}
-
-	migratedCount := 0
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		agentID := entry.Name()
-		oldCredPath := filepath.Join(oldDir, agentID, "credentials.json")
-		newCredPath := filepath.Join(agentsDir, agentID, "credentials.json")
-
-		// Check if old credential file exists
-		if _, err := os.Stat(oldCredPath); os.IsNotExist(err) {
-			continue
-		}
-
-		// Check if new location already has credentials
-		if _, err := os.Stat(newCredPath); err == nil {
-			log.Printf("  [%s] Credentials already exist at new location, skipping", agentID)
-			continue
-		}
-
-		// Create new agent directory
-		newAgentDir := filepath.Join(agentsDir, agentID)
-		if err := os.MkdirAll(newAgentDir, 0755); err != nil {
-			log.Printf("  [%s] Failed to create directory: %v", agentID, err)
-			continue
-		}
-
-		// Read old credentials
-		data, err := os.ReadFile(oldCredPath)
-		if err != nil {
-			log.Printf("  [%s] Failed to read old credentials: %v", agentID, err)
-			continue
-		}
-
-		// Write to new location
-		if err := os.WriteFile(newCredPath, data, 0600); err != nil {
-			log.Printf("  [%s] Failed to write new credentials: %v", agentID, err)
-			continue
-		}
-
-		log.Printf("  ✓ [%s] Migrated credentials to %s", agentID, newCredPath)
-		migratedCount++
+	if count > 0 {
+		log.Printf("Migrated %d agent credential(s) to new location", count)
+		log.Printf("  Old credentials in %s can be safely deleted", oldCredsPath)
 	}
-
-	if migratedCount > 0 {
-		log.Printf("✓ Migrated %d agent credential(s) to new location", migratedCount)
-		log.Printf("  Old credentials in %s can be safely deleted", oldDir)
-	}
-
 	return nil
 }
 

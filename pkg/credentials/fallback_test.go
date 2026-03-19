@@ -380,7 +380,6 @@ func TestProviderType(t *testing.T) {
 		{&SQLiteProvider{}, "sqlite"},
 		{&KeyringProvider{}, "keyring"},
 		{&EnvProvider{}, "env"},
-		{&LegacyProvider{}, "legacy"},
 		{&StaticProvider{}, "static"},
 		{&FallbackProvider{}, "fallback"},
 		{&mockProvider{}, "unknown"},

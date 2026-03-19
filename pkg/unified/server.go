@@ -9,12 +9,14 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/api"
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
 	"github.com/rsned/spacemolt/pkg/monitor"
 	"github.com/rsned/spacemolt/pkg/observe"
+	"github.com/rsned/spacemolt/pkg/registry"
 	"github.com/rsned/spacemolt/pkg/strategy"
 	"github.com/rsned/spacemolt/pkg/team"
 	"github.com/rsned/spacemolt/pkg/tot"
@@ -29,6 +31,8 @@ type Server struct {
 	strategies      *strategy.Registry
 	monitor         *monitor.Collector
 	teamCoordinator *team.TeamCoordinator
+	streams         *api.StreamManager
+	registry        *registry.Client
 	kb              knowledge.Base
 	llm             *llm.Client
 	creds           credentials.Provider
@@ -159,6 +163,7 @@ func New(cfg Config) (*Server, error) {
 		strategies:      strategies,
 		monitor:         mon,
 		teamCoordinator: tc,
+		streams:         api.NewStreamManager(),
 		kb:              kb,
 		llm:             llmClient,
 		creds:           creds,
@@ -170,6 +175,9 @@ func New(cfg Config) (*Server, error) {
 	// Register additional API routes.
 	srv.registerStrategyRoutes()
 	srv.registerTeamRoutes()
+	srv.registerModelRoutes()
+	srv.registerStreamRoutes()
+	srv.registerAgentDetailRoutes()
 	monitor.RegisterRoutes(mux, mon)
 
 	return srv, nil
@@ -192,6 +200,8 @@ func (s *Server) SpawnConfiguredAgents(ctx context.Context) (int, []string) {
 	var successCount int
 	var failedAgents []string
 
+	publish := s.makeEventPublisher()
+
 	for _, agentID := range s.config.Agents.Enabled {
 		personality, err := agent.LoadPersonalityJSON(
 			fmt.Sprintf("%s/%s/personality.json", s.config.Agents.Dir, agentID),
@@ -210,11 +220,16 @@ func (s *Server) SpawnConfiguredAgents(ctx context.Context) (int, []string) {
 			continue
 		}
 
+		// Wire event streaming callback.
+		runner.SetEventCallback(publish)
+
 		// Wire Tree-of-Thought evaluator if agent has decision_mode="tot"
 		if personality.DecisionMode == "tot" && s.llm != nil {
-			runner.SetToTEvaluator(&tot.RunnerAdapter{
-				Eval: tot.NewEvaluator(s.llm, s.llm.Model()),
-			})
+			adapter := &tot.RunnerAdapter{
+				Eval:     tot.NewEvaluator(s.llm, s.llm.Model()),
+				OnUpdate: publish,
+			}
+			runner.SetToTEvaluator(adapter)
 			s.logger.Printf("[%s] Thought Engine enabled", agentID)
 		}
 
@@ -233,6 +248,12 @@ func (s *Server) Start() error {
 			s.logger.Printf("HTTP server error: %v", err)
 		}
 	}()
+
+	// Register with status registry if configured.
+	if s.config.Server.RegistryURL != "" {
+		s.registerWithRegistry()
+	}
+
 	return nil
 }
 
@@ -243,6 +264,15 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Stop agent manager.
 	if err := s.manager.StopAll(); err != nil {
 		s.logger.Printf("error stopping agents: %v", err)
+	}
+
+	// Deregister from status registry.
+	if s.registry != nil {
+		if err := s.registry.Deregister(); err != nil {
+			s.logger.Printf("registry deregister error: %v", err)
+		} else {
+			s.logger.Println("deregistered from status registry")
+		}
 	}
 
 	// Close observer sessions.
@@ -299,6 +329,8 @@ func initCreds(cfg CredentialsConfig) (credentials.Provider, error) {
 		return credentials.NewSQLiteProvider(path, enc)
 	case "env":
 		return credentials.NewEnvProvider("SPACEMOLT"), nil
+	case "keyring":
+		return credentials.NewKeyringProvider("spacemolt"), nil
 	default:
 		return nil, fmt.Errorf("unknown credentials backend: %s", cfg.Backend)
 	}

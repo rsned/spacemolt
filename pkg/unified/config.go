@@ -3,6 +3,8 @@ package unified
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -22,9 +24,10 @@ type Config struct {
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	HTTPPort      int    `yaml:"http_port"`
-	StaticDir     string `yaml:"static_dir"`
+	HTTPPort       int    `yaml:"http_port"`
+	StaticDir      string `yaml:"static_dir"`
 	AdminStaticDir string `yaml:"admin_static_dir"`
+	RegistryURL    string `yaml:"registry_url"`
 }
 
 // GameConfig holds game server connection settings.
@@ -125,5 +128,47 @@ func LoadConfig(path string) (Config, error) {
 		return cfg, fmt.Errorf("parsing config file: %w", err)
 	}
 
+	// If no agents specified in config, try environment then auto-discovery.
+	if len(cfg.Agents.Enabled) == 0 {
+		cfg.Agents.Enabled = resolveAgents(cfg.Agents.Dir)
+	}
+
 	return cfg, nil
+}
+
+// resolveAgents determines which agents to run using fallback priority:
+//  1. SPACEMOLT_AGENTS environment variable (comma-separated)
+//  2. Auto-discover from agents directory (dirs containing personality.json)
+func resolveAgents(agentsDir string) []string {
+	if envAgents := os.Getenv("SPACEMOLT_AGENTS"); envAgents != "" {
+		var ids []string
+		for _, p := range strings.Split(envAgents, ",") {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				ids = append(ids, trimmed)
+			}
+		}
+		if len(ids) > 0 {
+			return ids
+		}
+	}
+
+	return discoverAgents(agentsDir)
+}
+
+// discoverAgents scans the agents directory for valid personalities.
+func discoverAgents(dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	var ids []string
+	for _, e := range entries {
+		if e.IsDir() {
+			if _, err := os.Stat(filepath.Join(dir, e.Name(), "personality.json")); err == nil {
+				ids = append(ids, e.Name())
+			}
+		}
+	}
+	return ids
 }
