@@ -295,3 +295,7 @@ Resource POIs: 6 hours, Default POIs: 1 week, Stations: 1 day, Systems: 1 day
 ### State Access
 
 `State` is the central game state struct. Thread-safe access via `state.Clone()`. Updated by `handleResponse()` on every server message.
+
+### Compiled Binaries
+
+Any compiled or built binary must go in bin/, not in the top project directory.

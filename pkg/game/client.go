@@ -3350,11 +3350,13 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 	okChan := make(chan protocol.Response, 1)
 	errorChan := make(chan protocol.Response, 1)
 	actionErrorChan := make(chan protocol.Response, 1)
+	actionResultChan := make(chan protocol.Response, 1)
 
 	c.waiterMu.Lock()
 	c.waiters[protocol.TypeOK] = okChan
 	c.waiters[protocol.TypeError] = errorChan
 	c.waiters[protocol.TypeActionError] = actionErrorChan
+	c.waiters[protocol.TypeActionResult] = actionResultChan
 	c.waiterMu.Unlock()
 
 	defer func() {
@@ -3362,6 +3364,7 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 		delete(c.waiters, protocol.TypeOK)
 		delete(c.waiters, protocol.TypeError)
 		delete(c.waiters, protocol.TypeActionError)
+		delete(c.waiters, protocol.TypeActionResult)
 		c.waiterMu.Unlock()
 	}()
 
@@ -3376,6 +3379,12 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 				deadline = time.After(timeout)
 				continue
 			}
+			return resp, nil
+
+		case resp := <-actionResultChan:
+			// action_result arrives when the server processes a pending action
+			// on the next tick. Treat it as the initial response.
+			c.debugLogger.Printf("Received action_result as initial response")
 			return resp, nil
 
 		case resp := <-errorChan:
