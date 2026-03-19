@@ -857,12 +857,16 @@ func (c *Client) FindRoute(ctx context.Context, targetSystem string) ([]RouteSte
 	return nil, fmt.Errorf("find_route: could not parse route from response")
 }
 
-// GetSystem requests information about the current system
+// GetSystem requests information about the current system.
+// Blocks until the server responds.
 func (c *Client) GetSystem(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "get_system",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // GetMap requests all systems with coordinates and connections.
@@ -891,46 +895,66 @@ func (c *Client) GetMap(ctx context.Context, force ...bool) error {
 	return err
 }
 
-// GetPOI requests information about the current POI
+// GetPOI requests information about the current POI.
+// Blocks until the server responds.
 func (c *Client) GetPOI(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "get_poi",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// GetStatus requests player status
+// GetStatus requests player status.
+// Blocks until the server responds.
 func (c *Client) GetStatus(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "get_status",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // GetNotifications retrieves pending notifications and the current tick/timestamp.
 // This is a lightweight query that returns current_tick and server timestamp
 // without the full state payload that get_status returns.
+// Blocks until the server responds.
 func (c *Client) GetNotifications(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "get_notifications",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// GetListings requests market listings for the current station
+// GetListings requests market listings for the current station.
+// Blocks until the server responds.
 func (c *Client) GetListings(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "view_market",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// GetShips requests ship listings from the current station
+// GetShips requests ship listings from the current station.
+// Blocks until the server responds.
 func (c *Client) GetShips(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	if err := c.Send(ctx, protocol.Message{
 		Type:      "get_ships",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // GetShipListings returns the most recently fetched ship listings

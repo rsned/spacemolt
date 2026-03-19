@@ -289,7 +289,6 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 			if err := client.GetSystem(ctx); err != nil {
 				logger.Printf("Failed to get system: %v", err)
 			}
-			time.Sleep(2 * time.Second)
 			state = client.GetState()
 		}
 
@@ -324,8 +323,6 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 			if err := client.Undock(ctx); err != nil {
 				logger.Printf("Undock error: %v", err)
 			}
-			// Wait for tick to advance after undock before issuing next command.
-			time.Sleep(SleepTick)
 		}
 
 		// Step 2: Travel to mining location (blocks until arrival)
