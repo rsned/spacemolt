@@ -445,17 +445,19 @@ func TestMCPGameClient_BackgroundPoller(t *testing.T) {
 				loginJSON, _ := json.Marshal(map[string]any{"session_id": "s1"})
 				return toolResult(string(loginJSON)), nil
 			}
-			if p.Name == "get_status" {
+			if p.Name == "get_notifications" {
 				mu.Lock()
 				pollCount++
-				credits := float64(pollCount * 100)
+				tick := int64(pollCount * 100)
 				mu.Unlock()
 
-				statusJSON, _ := json.Marshal(map[string]any{
-					"player":       map[string]any{"username": "testuser", "credits": credits},
-					"current_tick": pollCount,
+				notifJSON, _ := json.Marshal(map[string]any{
+					"current_tick":  tick,
+					"timestamp":    time.Now().Unix(),
+					"notifications": nil,
+					"count":        0,
 				})
-				return toolResult(string(statusJSON)), nil
+				return toolResult(string(notifJSON)), nil
 			}
 			return toolResult(`{"message": "ok"}`), nil
 		}
@@ -485,10 +487,10 @@ func TestMCPGameClient_BackgroundPoller(t *testing.T) {
 		t.Errorf("expected at least 1 poll, got %d", count)
 	}
 
-	// Verify state was updated by poller.
+	// Verify tick was updated by poller.
 	state := client.GetState()
-	if state.Credits <= 0 {
-		t.Error("expected credits to be updated by poller")
+	if state.CurrentTick <= 0 {
+		t.Errorf("expected CurrentTick to be updated by poller, got %d", state.CurrentTick)
 	}
 }
 

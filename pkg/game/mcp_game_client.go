@@ -53,12 +53,7 @@ type MCPGameClient struct {
 
 	latestRawJSON map[string][]byte
 
-	// Tick tracking (MCP doesn't get tick from welcome like WebSocket)
-	tickBaseTime    time.Time // When we started tracking ticks
-	tickBaseValue   int64     // Tick value at base time (0 if unknown)
-	tickMu          sync.Mutex
-	tickRateSeconds float64   // Seconds per tick (default 10)
-	rawJSONMu     sync.RWMutex
+	rawJSONMu sync.RWMutex
 
 	readyChan chan struct{}
 	readyOnce sync.Once
@@ -159,29 +154,6 @@ func (m *MCPGameClient) GetState() *State {
 	m.mu.RLock()
 	s := m.state
 	m.mu.RUnlock()
-
-	// For MCP, estimate tick if we don't have one from the server
-	m.tickMu.Lock()
-	if s.CurrentTick == 0 && !m.tickBaseTime.IsZero() {
-		elapsedSec := time.Since(m.tickBaseTime).Seconds()
-		estimatedTick := m.tickBaseValue + int64(elapsedSec/m.tickRateSeconds)
-		if m.debug {
-			m.logger.Printf("[MCP] GetState: Estimating tick (baseline=%d, elapsed=%.1fs, rate=%.1fs/tick) -> %d",
-				m.tickBaseValue, elapsedSec, m.tickRateSeconds, estimatedTick)
-		}
-		m.tickMu.Unlock()
-
-		// Create a copy with the estimated tick
-		stateCopy := s.Clone()
-		stateCopy.CurrentTick = estimatedTick
-		return stateCopy
-	}
-	m.tickMu.Unlock()
-
-	if s.CurrentTick == 0 {
-		m.logger.Printf("[MCP] GetState: CurrentTick is 0 and no baseline available")
-	}
-
 	return s.Clone()
 }
 
@@ -200,12 +172,12 @@ func (m *MCPGameClient) Login(ctx context.Context) error {
 		return fmt.Errorf("parsing login result: %w", err)
 	}
 
-	// Initialize tick tracking for MCP (no welcome message like WebSocket)
-	m.tickMu.Lock()
-	m.tickBaseTime = time.Now()
-	m.tickBaseValue = 0 // We don't know the actual tick, so estimate from 0
-	m.tickRateSeconds = 10.0 // Default tick rate
-	m.tickMu.Unlock()
+	// Fetch initial tick via get_notifications (lightweight).
+	if err := m.pollNotifications(); err != nil {
+		m.logger.Printf("[MCP] Warning: initial get_notifications failed: %v", err)
+	} else {
+		m.logger.Printf("[MCP] Initial tick: %d", m.state.CurrentTick)
+	}
 
 	// Start background poller now that we have a session (unless disabled).
 	if !m.disablePolling {
@@ -619,7 +591,9 @@ func (m *MCPGameClient) startPoller() {
 	}()
 }
 
-// pollLoop periodically calls get_status to keep state fresh.
+// pollLoop periodically calls get_notifications to keep tick and state fresh.
+// This is much lighter than get_status — it only returns tick, timestamp,
+// and any pending notifications.
 func (m *MCPGameClient) pollLoop() {
 	ticker := time.NewTicker(SleepTick)
 	defer ticker.Stop()
@@ -629,22 +603,19 @@ func (m *MCPGameClient) pollLoop() {
 		case <-m.pollCtx.Done():
 			return
 		case <-ticker.C:
-			if err := m.pollStatus(); err != nil {
+			if err := m.pollNotifications(); err != nil {
 				m.logger.Printf("[MCP] Poll error: %v", err)
 			}
 		}
 	}
 }
 
-// pollStatus fetches current status and updates internal state.
-func (m *MCPGameClient) pollStatus() error {
-	// Use a longer timeout than the HTTP client's 90s timeout to allow
-	// the HTTP client to handle timeouts properly. Context timeout only
-	// applies if the HTTP client itself hangs.
-	ctx, cancel := context.WithTimeout(m.pollCtx, 2*time.Minute)
+// pollNotifications fetches current tick and notifications.
+func (m *MCPGameClient) pollNotifications() error {
+	ctx, cancel := context.WithTimeout(m.pollCtx, 30*time.Second)
 	defer cancel()
 
-	result, err := m.callTool(ctx, "get_status", nil)
+	result, err := m.callTool(ctx, "get_notifications", nil)
 	if err != nil {
 		return err
 	}
@@ -685,6 +656,7 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		Modules     json.RawMessage `json:"modules,omitempty"`
 		Nearby      json.RawMessage `json:"nearby,omitempty"`
 		CurrentTick *int64          `json:"current_tick,omitempty"`
+		Timestamp   *int64          `json:"timestamp,omitempty"`
 		Listings    json.RawMessage `json:"listings,omitempty"`
 		Docked      *bool           `json:"docked,omitempty"`
 		Message     string          `json:"message,omitempty"`
@@ -831,26 +803,13 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 
 	if payload.CurrentTick != nil {
 		m.state.CurrentTick = *payload.CurrentTick
-		// Update tick tracking when we receive a tick from server
-		m.tickMu.Lock()
-		if m.tickBaseValue == 0 {
-			// First time we've seen a tick - use it as our baseline
-			m.tickBaseValue = *payload.CurrentTick
-			m.tickBaseTime = time.Now()
-			m.logger.Printf("[MCP] Received initial tick: %d", *payload.CurrentTick)
-		} else {
-			// Update baseline to this tick value
-			elapsed := time.Since(m.tickBaseTime).Seconds()
-			if elapsed > 0 {
-				m.tickRateSeconds = float64(*payload.CurrentTick-m.tickBaseValue) / elapsed
-				m.tickBaseValue = *payload.CurrentTick
-				m.tickBaseTime = time.Now()
-				if m.debug {
-					m.logger.Printf("[MCP] Updated tick: %d (rate: %.1f sec/tick)", *payload.CurrentTick, m.tickRateSeconds)
-				}
-			}
+		if m.debug {
+			m.logger.Printf("[MCP] Tick updated: %d", *payload.CurrentTick)
 		}
-		m.tickMu.Unlock()
+	}
+
+	if payload.Timestamp != nil {
+		m.state.ServerTimestamp = *payload.Timestamp
 	}
 
 	if payload.Docked != nil {
