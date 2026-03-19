@@ -423,10 +423,10 @@ func CraftingLoop(client GameClient, logger *log.Logger, ctx context.Context, co
 func craftRecipe(client GameClient, logger *log.Logger, ctx context.Context, recipeID string) (int, error) {
 	state := client.GetState()
 
-	// Craft in batches of 10 (max allowed per command)
-	// Perform 20 batches per recipe per loop as requested
-	batchSize := 10
-	batchesPerLoop := 20
+	// Batch size is determined by the player's Crafting skill level.
+	// Perform enough batches to craft ~200 items total per recipe per loop.
+	batchSize := MaxCraftBatchSize(state)
+	batchesPerLoop := max(1, 200/batchSize)
 	totalItems := 0
 
 	remainingCargo := state.Ship.CargoCapacity - state.Ship.CargoUsed

@@ -907,6 +907,16 @@ func (c *Client) GetStatus(ctx context.Context) error {
 	})
 }
 
+// GetNotifications retrieves pending notifications and the current tick/timestamp.
+// This is a lightweight query that returns current_tick and server timestamp
+// without the full state payload that get_status returns.
+func (c *Client) GetNotifications(ctx context.Context) error {
+	return c.Send(ctx, protocol.Message{
+		Type:      "get_notifications",
+		Timestamp: time.Now().UnixMilli(),
+	})
+}
+
 // GetListings requests market listings for the current station
 func (c *Client) GetListings(ctx context.Context) error {
 	return c.Send(ctx, protocol.Message{
@@ -1506,6 +1516,12 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		} else if currentTick, ok := resp.Payload["current_tick"].(float64); ok {
 			c.mu.Lock()
 			c.state.CurrentTick = int64(currentTick)
+			c.mu.Unlock()
+		}
+		// Update server timestamp if present (from get_notifications response)
+		if ts, ok := resp.Payload["timestamp"].(float64); ok {
+			c.mu.Lock()
+			c.state.ServerTimestamp = int64(ts)
 			c.mu.Unlock()
 		}
 		c.parsePlayerData(resp.Payload)

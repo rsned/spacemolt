@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -39,7 +40,7 @@ func TestXpToLevel(t *testing.T) {
 func TestCraftWithQuantity_Validation(t *testing.T) {
 	client := NewClient("wss://test.example.com", "user", "pass", nil)
 
-	// Quantity validation - these should fail immediately without needing a connection
+	// No skills set — max batch is 1
 	tests := []struct {
 		name     string
 		quantity int
@@ -47,7 +48,7 @@ func TestCraftWithQuantity_Validation(t *testing.T) {
 	}{
 		{"zero quantity", 0, true},
 		{"negative quantity", -1, true},
-		{"above max", 11, true},
+		{"above max (no skill)", 2, true},
 		{"way above max", 100, true},
 	}
 
@@ -59,7 +60,62 @@ func TestCraftWithQuantity_Validation(t *testing.T) {
 			}
 		})
 	}
+
+	// Set crafting skill to level 5 — max batch should be 5
+	client.state.Player.Skills = map[string]Skill{
+		"crafting": {Level: 5, XP: 1000},
+	}
+	skillTests := []struct {
+		name     string
+		quantity int
+		wantErr  bool
+	}{
+		{"within skill limit", 5, true},      // still errors because no connection, but validation passes
+		{"above skill limit", 6, true},        // validation error
+		{"negative with skill", -1, true},
+	}
+	for _, tt := range skillTests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := client.CraftWithQuantity(t.Context(), "test_recipe", tt.quantity)
+			if tt.name == "above skill limit" {
+				if err == nil || !strings.Contains(err.Error(), "invalid quantity") {
+					t.Errorf("CraftWithQuantity(quantity=%d) should have validation error, got: %v", tt.quantity, err)
+				}
+			}
+		})
+	}
 }
+
+func TestMaxCraftBatchSize(t *testing.T) {
+	tests := []struct {
+		name     string
+		skills   map[string]Skill
+		expected int
+	}{
+		{"nil state", nil, 1},
+		{"no skills", map[string]Skill{}, 1},
+		{"crafting level 0", map[string]Skill{"crafting": {Level: 0}}, 1},
+		{"crafting level 1", map[string]Skill{"crafting": {Level: 1}}, 1},
+		{"crafting level 2", map[string]Skill{"crafting": {Level: 2}}, 2},
+		{"crafting level 5", map[string]Skill{"crafting": {Level: 5}}, 5},
+		{"crafting level 10", map[string]Skill{"crafting": {Level: 10}}, 10},
+		{"crafting level 20", map[string]Skill{"crafting": {Level: 20}}, 20},
+		{"only mining skill", map[string]Skill{"mining": {Level: 10}}, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var state *State
+			if tt.skills != nil {
+				state = &State{Player: Player{Skills: tt.skills}}
+			}
+			if got := MaxCraftBatchSize(state); got != tt.expected {
+				t.Errorf("MaxCraftBatchSize() = %d, want %d", got, tt.expected)
+			}
+		})
+	}
+}
+
 
 func TestCraftingLoopConfig_Defaults(t *testing.T) {
 	// Verify that a nil config gets sensible defaults applied in CraftingLoop's validation

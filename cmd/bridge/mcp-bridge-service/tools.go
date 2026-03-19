@@ -27,6 +27,20 @@ var toolDefinitions = []map[string]any{
 		},
 	},
 	{
+		"name":        "get_notifications",
+		"description": "Get pending notifications and current tick/server timestamp. Lightweight alternative to get_status for tick tracking.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"agent_id": map[string]any{
+					"type":        "string",
+					"description": "Agent ID",
+				},
+			},
+			"required": []string{"agent_id"},
+		},
+	},
+	{
 		"name":        "get_active_missions",
 		"description": "Get list of active missions for an agent",
 		"inputSchema": map[string]any{
@@ -410,6 +424,22 @@ func (b *BridgeService) executeTool(conn *AgentConnection, toolName string, args
 			"docked":         state.Doc,
 			"traveling":      state.Traveling,
 			"in_combat":      state.InCombat,
+			"current_tick":   state.CurrentTick,
+		}, "", "  ")
+		return string(data), nil
+
+	case "get_notifications":
+		if err := conn.client.GetNotifications(ctx); err != nil {
+			return "", err
+		}
+		time.Sleep(1 * time.Second)
+		state := conn.client.GetState()
+		if state == nil {
+			return "", fmt.Errorf("state is nil")
+		}
+		data, _ := json.MarshalIndent(map[string]any{
+			"current_tick": state.CurrentTick,
+			"timestamp":    state.ServerTimestamp,
 		}, "", "  ")
 		return string(data), nil
 

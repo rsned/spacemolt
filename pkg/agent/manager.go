@@ -300,6 +300,16 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 		}
 	}
 
+	// Fetch initial tick and server timestamp via get_notifications.
+	// This is lightweight compared to get_status and ensures tick is set
+	// before the runner starts making decisions.
+	if err := gameClient.GetNotifications(ctx); err != nil {
+		m.debugLogger.Printf("[%s] Warning: initial get_notifications failed: %v", personality.ID, err)
+	} else {
+		tick := gameClient.GetState().GetTick()
+		m.debugLogger.Printf("[%s] Initial tick: %d", personality.ID, tick)
+	}
+
 	// Create agent memory
 	memory := NewKBMemory(m.kb, personality.ID)
 

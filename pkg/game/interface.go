@@ -69,6 +69,7 @@ type GameClient interface {
 	// Queries
 	GetSystem(ctx context.Context) error
 	GetStatus(ctx context.Context) error
+	GetNotifications(ctx context.Context) error
 	GetShip(ctx context.Context) error
 	GetCargo(ctx context.Context) error
 	GetSkills(ctx context.Context) error

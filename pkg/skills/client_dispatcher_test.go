@@ -488,6 +488,7 @@ func (m *mockGameClient) LootWreck(ctx context.Context, wreckID, itemID string, 
 func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error               { return nil }
 func (m *mockGameClient) GetSystem(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetStatus(ctx context.Context) error                                  { return nil }
+func (m *mockGameClient) GetNotifications(ctx context.Context) error                           { return nil }
 func (m *mockGameClient) GetShip(ctx context.Context) error                                    { return nil }
 func (m *mockGameClient) GetCargo(ctx context.Context) error                                   { return nil }
 func (m *mockGameClient) GetSkills(ctx context.Context) error                                  { return nil }

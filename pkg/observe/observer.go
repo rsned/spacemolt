@@ -110,6 +110,11 @@ func (s *ObserverServer) AddAgent(ctx context.Context, username string) error {
 			continue
 		}
 
+		// Fetch initial tick via get_notifications (lightweight)
+		if err := gameClient.GetNotifications(agentCtx); err != nil {
+			s.logger.Printf("initial get_notifications for %q: %v (non-fatal)", username, err)
+		}
+
 		// Successfully connected and logged in
 		s.mu.Lock()
 		s.agents[username] = session

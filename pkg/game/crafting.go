@@ -12,6 +12,20 @@ import (
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
+// MaxCraftBatchSize returns the maximum number of items that can be crafted
+// in a single craft command based on the player's Crafting skill level.
+// The server allows batch size equal to the player's crafting skill level,
+// with a minimum of 1 (for skill level 0 or 1).
+func MaxCraftBatchSize(state *State) int {
+	if state == nil {
+		return 1
+	}
+	if skill, ok := state.Player.Skills["crafting"]; ok && skill.Level > 1 {
+		return skill.Level
+	}
+	return 1
+}
+
 // CraftingConfig configures the crafting integration
 type CraftingConfig struct {
 	// Path to the crafting MCP server executable
@@ -91,10 +105,13 @@ func (c *Client) Craft(ctx context.Context, recipeCommand string) error {
 	return c.CraftWithQuantity(ctx, recipeCommand, 1)
 }
 
-// CraftWithQuantity executes a crafting command with a specific quantity (1-10)
+// CraftWithQuantity executes a crafting command with a specific quantity.
+// The maximum batch size is determined by the player's Crafting skill level
+// (minimum 1 for skill level 0 or 1).
 func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
-	if quantity < 1 || quantity > 10 {
-		return fmt.Errorf("invalid quantity: %d (must be 1-10)", quantity)
+	maxBatch := MaxCraftBatchSize(c.GetState())
+	if quantity < 1 || quantity > maxBatch {
+		return fmt.Errorf("invalid quantity: %d (must be 1-%d based on crafting skill)", quantity, maxBatch)
 	}
 
 	payload := map[string]any{"recipe_id": recipeID}
@@ -437,14 +454,15 @@ func (c *Client) CraftItems(ctx context.Context, logger *log.Logger, config *Cra
 				}
 			}
 
-			// Craft in batches of 10
+			// Craft in batches sized by crafting skill level.
+			maxBatch := MaxCraftBatchSize(state)
 			quantity := recipe.CanCraftQuantity
 			for quantity > 0 {
 				if err := ctx.Err(); err != nil {
 					return totalCrafted + iterationCrafted, err
 				}
 
-				batchSize := min(quantity, 10)
+				batchSize := min(quantity, maxBatch)
 
 				// Check cargo space
 				state = c.GetState()

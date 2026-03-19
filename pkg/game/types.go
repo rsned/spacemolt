@@ -354,9 +354,10 @@ type State struct {
 	ModuleDefinitions map[string]ModuleDefinition `json:"modules,omitempty"`
 
 	// System data
-	System        SystemData
-	CurrentTick   int64
-	LastMapUpdate time.Time
+	System          SystemData
+	CurrentTick     int64
+	ServerTimestamp  int64 // Server UNIX timestamp from get_notifications
+	LastMapUpdate   time.Time
 
 	// Nearby players (from state_update)
 	Nearby   []NearbyPlayer
@@ -477,8 +478,9 @@ func (s *State) Clone() *State {
 		MaxHull:       s.MaxHull,
 		Cargo:         cargoCopy,
 		MaxCargo:      s.MaxCargo,
-		CurrentTick:   s.CurrentTick,
-		Player:        s.Player,
+		CurrentTick:    s.CurrentTick,
+		ServerTimestamp: s.ServerTimestamp,
+		Player:         s.Player,
 		Ship:          s.Ship,
 		System: SystemData{
 			ID:             s.System.ID,

@@ -222,6 +222,16 @@ func (p *ConnectionPool) connectAgent(conn *AgentConnection) error {
 	// Wait a moment for state to be fully populated after login
 	time.Sleep(2 * time.Second)
 
+	// Fetch initial tick via get_notifications (lightweight)
+	if err := conn.client.GetNotifications(conn.ctx); err != nil {
+		conn.logger.Printf("initial get_notifications failed: %v (non-fatal)", err)
+	} else {
+		state := conn.client.GetState()
+		if state != nil {
+			conn.logger.Printf("Received initial tick: %d", state.CurrentTick)
+		}
+	}
+
 	conn.mu.Lock()
 	conn.state = StateConnected
 	conn.lastUsed = time.Now()

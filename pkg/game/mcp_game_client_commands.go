@@ -437,6 +437,14 @@ func (m *MCPGameClient) GetStatus(ctx context.Context) error {
 	return m.cacheResultAs(result, "status")
 }
 
+func (m *MCPGameClient) GetNotifications(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_notifications", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "notifications")
+}
+
 func (m *MCPGameClient) GetShip(ctx context.Context) error {
 	result, err := m.callTool(ctx, "get_ship", nil)
 	if err != nil {

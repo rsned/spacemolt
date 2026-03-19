@@ -238,7 +238,22 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 
 	canAct := tickAdvanced || timeElapsed
 
-	// Skip decision-making entirely if we can't act yet.
+	// If tick hasn't advanced, use get_notifications to refresh tick and
+	// check for new notifications. This is cheaper than get_status.
+	if !canAct {
+		if err := r.gameClient.GetNotifications(ctx); err != nil {
+			r.logger.Printf("[%s] get_notifications failed: %v", r.agent.ID(), err)
+		}
+		// Re-check tick after refresh
+		state = r.gameClient.GetState()
+		if state != nil {
+			stateCopy = state.Clone()
+			currentTick = stateCopy.GetTick()
+			canAct = currentTick > lastActionTick
+		}
+	}
+
+	// Skip decision-making entirely if we still can't act after refresh.
 	// This prevents wasting LLM calls (especially the multi-call ToT pipeline)
 	// when the game tick hasn't advanced.
 	if !canAct {
@@ -570,6 +585,10 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> GetStatus()", r.agent.ID())
 		return r.gameClient.GetStatus(actionCtx)
 
+	case "get_notifications":
+		r.logger.Printf("[%s] -> GetNotifications()", r.agent.ID())
+		return r.gameClient.GetNotifications(actionCtx)
+
 	case "get_system":
 		r.logger.Printf("[%s] -> GetSystem()", r.agent.ID())
 		return r.gameClient.GetSystem(actionCtx)
@@ -786,8 +805,9 @@ func isActionCommand(action string) bool {
 	// Query/info commands that do NOT consume ticks
 	queryCommands := map[string]bool{
 		// Player & Ship Info
-		"get_status": true,
-		"get_ship":   true,
+		"get_status":        true,
+		"get_notifications": true,
+		"get_ship":          true,
 		"get_skills": true,
 		// World Info
 		"get_system":    true,

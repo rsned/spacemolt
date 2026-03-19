@@ -154,8 +154,9 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			DiscoveredBy: "TestPlayer",
 			ShipPOI:      "sol_station",
 		},
-		CurrentTick:   106000,
-		LastMapUpdate: time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC),
+		CurrentTick:    106000,
+		ServerTimestamp: 1773883811,
+		LastMapUpdate:  time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC),
 		Nearby: []NearbyPlayer{
 			{PlayerID: "other-1", Username: "Rival", ShipClass: "fighter"},
 		},

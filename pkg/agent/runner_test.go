@@ -10,6 +10,21 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+// filterActions returns actions excluding the specified ones (e.g., internal refresh calls).
+func filterActions(actions []string, exclude ...string) []string {
+	excludeSet := make(map[string]bool, len(exclude))
+	for _, e := range exclude {
+		excludeSet[e] = true
+	}
+	var filtered []string
+	for _, a := range actions {
+		if !excludeSet[a] {
+			filtered = append(filtered, a)
+		}
+	}
+	return filtered
+}
+
 // Mock agent for testing
 type mockAgent struct {
 	id          string
@@ -237,6 +252,10 @@ func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error
 // Queries
 func (m *mockGameClient) GetStatus(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_status")
+	return nil
+}
+func (m *mockGameClient) GetNotifications(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_notifications")
 	return nil
 }
 func (m *mockGameClient) GetSystem(ctx context.Context) error {
@@ -590,9 +609,10 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 		t.Errorf("Expected agent not to be called when throttled, got %d calls", callCount)
 	}
 
-	// No actions executed
-	if len(client.actionsRecorded) != 0 {
-		t.Errorf("Expected 0 actions (throttled), got %d", len(client.actionsRecorded))
+	// No game actions executed (get_notifications is internal tick refresh, not a game action)
+	gameActions := filterActions(client.actionsRecorded, "get_notifications")
+	if len(gameActions) != 0 {
+		t.Errorf("Expected 0 game actions (throttled), got %d: %v", len(gameActions), gameActions)
 	}
 
 	// Now advance tick and try again
@@ -605,8 +625,9 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 	if callCount != 1 {
 		t.Errorf("Expected 1 call after tick advance, got %d", callCount)
 	}
-	if len(client.actionsRecorded) != 1 {
-		t.Errorf("Expected 1 action after tick advance, got %d", len(client.actionsRecorded))
+	gameActions = filterActions(client.actionsRecorded, "get_notifications")
+	if len(gameActions) != 1 {
+		t.Errorf("Expected 1 game action after tick advance, got %d: %v", len(gameActions), gameActions)
 	}
 }
 
