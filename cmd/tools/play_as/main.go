@@ -440,7 +440,9 @@ func formatCargo(raw []byte) string {
 // shipListing is a parsed listing from a browse_ships response.
 type shipListing struct {
 	ShipName  string  `json:"ship_name"`
+	ClassID   string  `json:"class_id"`
 	Category  string  `json:"category"`
+	Tier      int     `json:"tier"`
 	Price     float64 `json:"price"`
 	Seller    string  `json:"seller"`
 	ListingID string  `json:"listing_id"`
@@ -475,23 +477,29 @@ func formatBrowseShips(raw []byte) string {
 		return strings.Compare(strings.ToLower(a.ShipName), strings.ToLower(c.ShipName))
 	})
 
-	shipW, catW, priceW, sellerW, idW := len("Ship"), len("Category"), len("Price"), len("Seller"), len("Listing ID")
+	shipW, catW, classW, tierW := len("Ship"), len("Category"), len("Class"), len("Tier")
+	priceW, sellerW, idW := len("Price"), len("Seller"), len("Listing ID")
 	for _, l := range resp.Listings {
 		shipW = max(shipW, len(l.ShipName))
 		catW = max(catW, len(l.Category))
+		classW = max(classW, len(l.ClassID))
+		tierStr := fmt.Sprintf("T%d", l.Tier)
+		tierW = max(tierW, len(tierStr))
 		priceW = max(priceW, len(formatCredits(l.Price)))
 		sellerW = max(sellerW, len(l.Seller))
 		idW = max(idW, len(l.ListingID))
 	}
 
-	fmt.Fprintf(&b, "%-*s | %-*s | %*s | %-*s | %-*s\n",
-		shipW, "Ship", catW, "Category", priceW, "Price", sellerW, "Seller", idW, "Listing ID")
-	b.WriteString(strings.Repeat("-", shipW+catW+priceW+sellerW+idW+12) + "\n")
+	fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s\n",
+		shipW, "Ship", catW, "Category", classW, "Class", tierW, "Tier",
+		priceW, "Price", sellerW, "Seller", idW, "Listing ID")
+	b.WriteString(strings.Repeat("-", shipW+catW+classW+tierW+priceW+sellerW+idW+18) + "\n")
 
 	for _, l := range resp.Listings {
-		fmt.Fprintf(&b, "%-*s | %-*s | %*s | %-*s | %-*s\n",
-			shipW, l.ShipName, catW, l.Category, priceW, formatCredits(l.Price),
-			sellerW, l.Seller, idW, l.ListingID)
+		tierStr := fmt.Sprintf("T%d", l.Tier)
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s\n",
+			shipW, l.ShipName, catW, l.Category, classW, l.ClassID, tierW, tierStr,
+			priceW, formatCredits(l.Price), sellerW, l.Seller, idW, l.ListingID)
 	}
 
 	return b.String()
