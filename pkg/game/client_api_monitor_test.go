@@ -76,7 +76,8 @@ func TestCheckOKResponseFields_UnknownAction(t *testing.T) {
 		"new_field": "value",
 	}
 	// Should not panic
-	client.checkOKResponseFields(payload)
+	_ = client // ensure client is valid
+	CheckOKResponseFields(payload)
 
 	// Verify it was logged (dedup key should exist)
 	if _, ok := loggedAPIChanges.Load("unknown_action:brand_new_action"); !ok {

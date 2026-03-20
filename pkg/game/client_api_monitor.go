@@ -409,14 +409,15 @@ func (c *Client) checkForAPIChanges(resp protocol.Response) {
 
 	switch resp.Type {
 	case protocol.TypeOK:
-		c.checkOKResponseFields(resp.Payload)
+		CheckOKResponseFields(resp.Payload)
 	default:
 		c.checkEventFields(resp.Type, resp.Payload)
 	}
 }
 
-// checkOKResponseFields checks a TypeOK response for unknown actions or unknown fields.
-func (c *Client) checkOKResponseFields(payload map[string]any) {
+// CheckOKResponseFields checks a TypeOK response for unknown actions or unknown fields.
+// Exported so both WebSocket and MCP transports can use it.
+func CheckOKResponseFields(payload map[string]any) {
 	action, _ := payload["action"].(string)
 	if action == "" {
 		return

@@ -835,6 +835,14 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		m.state.Traveling = true
 	}
 
+	// Run API change detection on the parsed response (same as WebSocket transport).
+	if payload.Action != "" {
+		var rawMap map[string]any
+		if json.Unmarshal([]byte(text), &rawMap) == nil {
+			CheckOKResponseFields(rawMap)
+		}
+	}
+
 	return nil
 }
 
