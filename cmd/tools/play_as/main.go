@@ -168,6 +168,42 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
+		// Handle loop meta-command: loop <count> <command...>
+		if command == "loop" {
+			if len(parts) < 3 {
+				fmt.Println("Usage: loop <count> <command...>")
+				fmt.Println("Example: loop 5 mine")
+				fmt.Println("         loop 10 sell iron_ore 5")
+				fmt.Println()
+				continue
+			}
+			count, err := strconv.Atoi(parts[1])
+			if err != nil || count < 1 {
+				fmt.Printf("❌ Invalid count: %s (must be a positive integer)\n\n", parts[1])
+				continue
+			}
+			loopParts := parts[2:]
+			loopCmd := strings.Join(loopParts, " ")
+			fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
+			for i := range count {
+				fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
+				startTime := time.Now()
+				if err := executeCommand(client, ctx, loopParts, format); err != nil {
+					fmt.Printf("❌ %s\n", formatError(err, loopParts[0], format))
+					fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
+					break
+				}
+				duration := time.Since(startTime)
+				fmt.Printf("✓ [%d/%d] Completed in %v\n", i+1, count, duration)
+			}
+			// Render statusline after loop
+			if sl := renderStatusline(client, cfg, agentID); sl != "" {
+				fmt.Println(sl)
+			}
+			fmt.Println()
+			continue
+		}
+
 		// Execute command
 		startTime := time.Now()
 		if err := executeCommand(client, ctx, parts, format); err != nil {
@@ -2430,6 +2466,7 @@ func printHelp() {
 	fmt.Println("  log <entry>               - Add captain's log entry")
 	fmt.Println("  notes                     - Get your notes")
 	fmt.Println("  missions, accept_mission  - Mission commands")
+	fmt.Println("  loop <count> <command>    - Repeat a command N times")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
