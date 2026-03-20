@@ -1993,6 +1993,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.AcceptMission(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
+	// === ACTION LOG ===
+	case "get_action_log", "action_log":
+		payload := parseFlagArgs(parts[1:], "category", "faction_id", "page", "page_size")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "get_action_log", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
 	// === CAPTAIN'S LOG ===
 	case "log":
 		if len(parts) < 2 {
@@ -2466,6 +2473,7 @@ func printHelp() {
 	fmt.Println("  log <entry>               - Add captain's log entry")
 	fmt.Println("  notes                     - Get your notes")
 	fmt.Println("  missions, accept_mission  - Mission commands")
+	fmt.Println("  action_log [--category X] [--page N] - Action history")
 	fmt.Println("  loop <count> <command>    - Repeat a command N times")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
