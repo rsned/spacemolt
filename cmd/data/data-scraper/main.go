@@ -239,7 +239,6 @@ func printUsage() {
 	fmt.Println("  recipes      - Recipe Definitions (catalog)")
 	fmt.Println("  items        - Item Definitions (catalog)")
 	fmt.Println("  wrecks       - Wrecks")
-	fmt.Println("  drones       - Drones")
 	fmt.Println("  base         - Base Info")
 	fmt.Println("  faction      - Faction Info")
 	fmt.Println("  log          - Captain's Log")
@@ -286,7 +285,6 @@ func (s *Scraper) scrapeAll() error {
 		{"Recipe Definitions", s.scrapeRecipeDefinitions},
 		{"Item Definitions", s.scrapeItemDefinitions},
 		{"Wrecks", s.scrapeWrecks},
-		{"Drones", s.scrapeDrones},
 		{"Base Info", s.scrapeBase},
 		{"Faction Info", s.scrapeFactionInfo},
 		{"Captain's Log", s.scrapeCaptainsLog},
@@ -344,7 +342,6 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"recipes":         {"Recipe Definitions", s.scrapeRecipeDefinitions},
 		"items":           {"Item Definitions", s.scrapeItemDefinitions},
 		"wrecks":          {"Wrecks", s.scrapeWrecks},
-		"drones":          {"Drones", s.scrapeDrones},
 		"base":            {"Base Info", s.scrapeBase},
 		"faction":         {"Faction Info", s.scrapeFactionInfo},
 		"log":             {"Captain's Log", s.scrapeCaptainsLog},
@@ -365,7 +362,7 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 	// Look up the endpoint
 	ep, ok := endpointMap[endpoint]
 	if !ok {
-		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, drones, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market, facilities, facility_details", endpoint)
+		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market, facilities, facility_details", endpoint)
 	}
 
 	// Scrape the single endpoint
@@ -421,10 +418,6 @@ func (s *Scraper) scrapeNearby() error {
 
 func (s *Scraper) scrapeWrecks() error {
 	return s.scrapeSimple(s.client.GetWrecks, "wrecks", "get_wrecks.json", "get_wrecks", 2*time.Second)
-}
-
-func (s *Scraper) scrapeDrones() error {
-	return s.scrapeSimple(s.client.GetDrones, "drones", "get_drones.json", "get_drones", 2*time.Second)
 }
 
 func (s *Scraper) scrapeBase() error {
