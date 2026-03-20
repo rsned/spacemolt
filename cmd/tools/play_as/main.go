@@ -1883,6 +1883,42 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.GetChatHistory(ctx, parts[1], nil)
 		}, ctx, 2*time.Second, cmd, format)
 
+	case "send_gift":
+		// Usage: send_gift <recipient> <item_id> <quantity> [--message "text"]
+		//        send_gift <recipient> credits <amount> [--message "text"]
+		//        send_gift <recipient> ship <ship_id> [--message "text"]
+		if len(parts) < 4 {
+			return fmt.Errorf("usage: send_gift <recipient> <item_id> <quantity> [--message \"text\"]\n" +
+				"       send_gift <recipient> credits <amount>\n" +
+				"       send_gift <recipient> ship <ship_id>")
+		}
+		payload := map[string]any{"recipient": parts[1]}
+		switch parts[2] {
+		case "credits":
+			amount, err := parseQuantity(parts[3])
+			if err != nil {
+				return fmt.Errorf("invalid credits amount: %w", err)
+			}
+			payload["credits"] = amount
+		case "ship":
+			payload["ship_id"] = parts[3]
+		default:
+			qty, err := parseQuantity(parts[3])
+			if err != nil {
+				return fmt.Errorf("invalid quantity: %w", err)
+			}
+			payload["item_id"] = parts[2]
+			payload["quantity"] = qty
+		}
+		// Parse optional --message flag
+		msgArgs := parseFlagArgs(parts[4:], "message")
+		if msg, ok := msgArgs["message"]; ok {
+			payload["message"] = msg
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "send_gift", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
 	// === FORUM ===
 	case "forum_list":
 		page := 1
@@ -2382,6 +2418,9 @@ func printHelp() {
 	fmt.Println("\n=== COMMUNICATION ===")
 	fmt.Println("  chat <channel> <msg>      - Send chat message")
 	fmt.Println("  chat_history <channel>    - Get chat history")
+	fmt.Println("  send_gift <recipient> <item_id> <qty>  - Send items")
+	fmt.Println("  send_gift <recipient> credits <amount> - Send credits")
+	fmt.Println("  send_gift <recipient> ship <ship_id>   - Send ship")
 
 	fmt.Println("\n=== FORUM ===")
 	fmt.Println("  forum_list [page]         - List forum threads")
