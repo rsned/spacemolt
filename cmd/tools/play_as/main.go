@@ -2512,7 +2512,7 @@ func (cp *chatPoller) start() {
 	cp.seedSeen()
 
 	go func() {
-		ticker := time.NewTicker(game.SleepTick)
+		ticker := time.NewTicker(game.SleepLong) // Poll chat once per minute
 		defer ticker.Stop()
 		for {
 			select {
