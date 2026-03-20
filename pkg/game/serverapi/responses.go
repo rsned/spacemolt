@@ -595,9 +595,14 @@ type FacilityResponse struct {
 	FacilityID   string           `json:"facility_id,omitempty"`
 	FacilityName string           `json:"facility_name,omitempty"`
 	FacilityType string           `json:"facility_type,omitempty"`
+	Category     string           `json:"category,omitempty"`
 	Description  string           `json:"description,omitempty"`
 	Hint         string           `json:"hint,omitempty"`
 	Message      string           `json:"message,omitempty"`
+	Page         int              `json:"page,omitempty"`
+	PerPage      int              `json:"per_page,omitempty"`
+	Total        int              `json:"total,omitempty"`
+	TotalPages   int              `json:"total_pages,omitempty"`
 	Actions      []map[string]any `json:"actions,omitempty"`
 	Types        []map[string]any `json:"types,omitempty"`
 	Upgrades     []map[string]any `json:"upgrades,omitempty"`
