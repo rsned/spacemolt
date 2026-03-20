@@ -14,7 +14,13 @@ func (m *MCPGameClient) Undock(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	if err := m.updateStateFromResult(result); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.state.Doc = false
+	m.mu.Unlock()
+	return nil
 }
 
 func (m *MCPGameClient) Dock(ctx context.Context) error {
@@ -22,10 +28,20 @@ func (m *MCPGameClient) Dock(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	if err := m.updateStateFromResult(result); err != nil {
+		return err
+	}
+	// Explicitly set docked state — the dock response has "action": "dock"
+	// but may not have a top-level "docked" bool field.
+	m.mu.Lock()
+	m.state.Doc = true
+	m.state.Traveling = false
+	m.mu.Unlock()
+	return nil
 }
 
 func (m *MCPGameClient) Travel(ctx context.Context, targetPOI string) (*TravelResult, error) {
+	// The MCP server blocks until travel completes and returns an "arrived" response.
 	result, err := m.callTool(ctx, "travel", map[string]any{
 		"target_poi": targetPOI,
 	})
@@ -35,14 +51,22 @@ func (m *MCPGameClient) Travel(ctx context.Context, targetPOI string) (*TravelRe
 	if err := m.updateStateFromResult(result); err != nil {
 		return nil, err
 	}
-	state := m.GetState()
+
+	// Explicitly update POI — the server confirmed arrival at the target.
+	m.mu.Lock()
+	m.state.CurrentPOI = targetPOI
+	m.state.Traveling = false
+	m.state.Doc = false // Travel auto-undocks
+	m.mu.Unlock()
+
 	return &TravelResult{
-		POI:     state.CurrentPOI,
+		POI:      targetPOI,
 		Canceled: false,
 	}, nil
 }
 
 func (m *MCPGameClient) Jump(ctx context.Context, targetSystem string) (*JumpResult, error) {
+	// The MCP server blocks until jump completes.
 	result, err := m.callTool(ctx, "jump", map[string]any{
 		"target_system": targetSystem,
 	})
@@ -52,6 +76,12 @@ func (m *MCPGameClient) Jump(ctx context.Context, targetSystem string) (*JumpRes
 	if err := m.updateStateFromResult(result); err != nil {
 		return nil, err
 	}
+
+	m.mu.Lock()
+	m.state.Traveling = false
+	m.state.Doc = false
+	m.mu.Unlock()
+
 	state := m.GetState()
 	return &JumpResult{
 		SystemID:   state.CurrentSystem,

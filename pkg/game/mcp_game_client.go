@@ -649,6 +649,7 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 
 	// Try to parse as a structured response with player/ship/system fields.
 	var payload struct {
+		Action      string          `json:"action,omitempty"`
 		Player      json.RawMessage `json:"player,omitempty"`
 		Ship        json.RawMessage `json:"ship,omitempty"`
 		System      json.RawMessage `json:"system,omitempty"`
@@ -659,6 +660,7 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		Timestamp   *int64          `json:"timestamp,omitempty"`
 		Listings    json.RawMessage `json:"listings,omitempty"`
 		Docked      *bool           `json:"docked,omitempty"`
+		CurrentPOI  string          `json:"current_poi,omitempty"`
 		Message     string          `json:"message,omitempty"`
 	}
 
@@ -814,6 +816,23 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 
 	if payload.Docked != nil {
 		m.state.Doc = *payload.Docked
+	}
+
+	if payload.CurrentPOI != "" {
+		m.state.CurrentPOI = payload.CurrentPOI
+	}
+
+	// Update state from action responses (dock, undock, travel, arrived).
+	switch payload.Action {
+	case "dock":
+		m.state.Doc = true
+		m.state.Traveling = false
+	case "undock":
+		m.state.Doc = false
+	case "arrived":
+		m.state.Traveling = false
+	case "travel":
+		m.state.Traveling = true
 	}
 
 	return nil
