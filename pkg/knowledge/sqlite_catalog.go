@@ -198,10 +198,10 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx, "DELETE FROM ship_class_build_materials"); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM ship_build_materials"); err != nil {
 		return fmt.Errorf("failed to clear build materials: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM ship_classes"); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM ships"); err != nil {
 		return fmt.Errorf("failed to clear ship classes: %w", err)
 	}
 
@@ -212,7 +212,7 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 		passRecipes, _ := json.Marshal(sc.PassiveRecipes)
 
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO ship_classes (id, name, class, category, description, lore, faction,
+			INSERT INTO ships (id, name, class, category, description, lore, faction,
 				tier, scale, price, base_hull, base_shield, base_shield_recharge, base_armor,
 				base_speed, base_fuel, cargo_capacity, cpu_capacity, power_capacity,
 				weapon_slots, defense_slots, utility_slots, build_time, shipyard_tier,
@@ -231,7 +231,7 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 
 		for _, mat := range sc.BuildMaterials {
 			_, err := tx.ExecContext(ctx, `
-				INSERT INTO ship_class_build_materials (ship_class_id, item_id, quantity)
+				INSERT INTO ship_build_materials (ship_class_id, item_id, quantity)
 				VALUES (?, ?, ?)
 			`, sc.ID, mat.ItemID, mat.Quantity)
 			if err != nil {
@@ -252,7 +252,7 @@ func (kb *SQLiteKB) GetShipClass(ctx context.Context, classID string) (*ShipClas
 			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
 			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
 			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
-		FROM ship_classes WHERE id = ?
+		FROM ships WHERE id = ?
 	`, classID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -279,7 +279,7 @@ func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
 			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
 			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
-		FROM ship_classes ORDER BY name
+		FROM ships ORDER BY name
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query ship classes: %w", err)
@@ -300,7 +300,7 @@ func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 
 	// Bulk load build materials
 	matRows, err := kb.db.QueryContext(ctx, `
-		SELECT ship_class_id, item_id, quantity FROM ship_class_build_materials
+		SELECT ship_class_id, item_id, quantity FROM ship_build_materials
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query build materials: %w", err)
@@ -336,7 +336,7 @@ func (kb *SQLiteKB) GetShipClassesByCategory(ctx context.Context, category strin
 			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
 			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
 			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
-		FROM ship_classes WHERE class = ? ORDER BY price ASC
+		FROM ships WHERE class = ? ORDER BY price ASC
 	`, category)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query ship classes by category: %w", err)
@@ -398,7 +398,7 @@ func (kb *SQLiteKB) scanShipClassRow(rows *sql.Rows) (*ShipClassDef, error) {
 
 func (kb *SQLiteKB) loadBuildMaterials(ctx context.Context, shipClassID string) ([]BuildMaterial, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT item_id, quantity FROM ship_class_build_materials WHERE ship_class_id = ?
+		SELECT item_id, quantity FROM ship_build_materials WHERE ship_class_id = ?
 	`, shipClassID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query build materials: %w", err)

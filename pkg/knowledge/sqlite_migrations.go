@@ -861,6 +861,31 @@ ALTER TABLE agents ADD COLUMN wallet_updated_at TEXT;
 `,
 			ignoreErrors: true,
 		},
+		{
+			version: 21,
+			name:    "rename_ship_tables",
+			sql: `
+-- Rename player-owned "ships" to "agent_ships" to avoid confusion with the catalog.
+ALTER TABLE ships RENAME TO agent_ships;
+
+-- Rename the catalog "ship_classes" to "ships" (the canonical ship list).
+ALTER TABLE ship_classes RENAME TO ships;
+
+-- Rename the build-materials join table to match.
+ALTER TABLE ship_class_build_materials RENAME TO ship_build_materials;
+
+-- Recreate indexes with updated names.
+DROP INDEX IF EXISTS idx_ship_classes_class;
+DROP INDEX IF EXISTS idx_ship_classes_faction;
+DROP INDEX IF EXISTS idx_ships_owner;
+DROP INDEX IF EXISTS idx_ships_class;
+
+CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class);
+CREATE INDEX IF NOT EXISTS idx_ships_faction ON ships(faction);
+CREATE INDEX IF NOT EXISTS idx_agent_ships_owner ON agent_ships(owner_id);
+CREATE INDEX IF NOT EXISTS idx_agent_ships_class ON agent_ships(class_id);
+`,
+		},
 	}
 }
 

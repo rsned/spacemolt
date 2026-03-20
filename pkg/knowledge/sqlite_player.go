@@ -169,7 +169,7 @@ func (kb *SQLiteKB) StoreShip(ctx context.Context, ship ShipRecord) error {
 	defer func() { _ = tx.Rollback() }()
 
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO ships (id, owner_id, class_id, name, hull, max_hull, shield, max_shield,
+		INSERT INTO agent_ships (id, owner_id, class_id, name, hull, max_hull, shield, max_shield,
 			shield_recharge, armor, speed, fuel, max_fuel, cargo_used, cargo_capacity,
 			cpu_used, cpu_capacity, power_used, power_capacity,
 			weapon_slots, defense_slots, utility_slots, docked_at_base, last_updated_tick)
@@ -248,7 +248,7 @@ func (kb *SQLiteKB) GetShip(ctx context.Context, shipID string) (*ShipRecord, er
 			cpu_used, cpu_capacity, power_used, power_capacity,
 			weapon_slots, defense_slots, utility_slots, COALESCE(docked_at_base, ''),
 			last_updated_tick
-		FROM ships WHERE id = ?
+		FROM agent_ships WHERE id = ?
 	`, shipID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -277,7 +277,7 @@ func (kb *SQLiteKB) GetPlayerShips(ctx context.Context, playerID string) ([]Ship
 			cpu_used, cpu_capacity, power_used, power_capacity,
 			weapon_slots, defense_slots, utility_slots, COALESCE(docked_at_base, ''),
 			last_updated_tick
-		FROM ships WHERE owner_id = ? ORDER BY name
+		FROM agent_ships WHERE owner_id = ? ORDER BY name
 	`, playerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query player ships: %w", err)

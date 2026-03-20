@@ -300,8 +300,8 @@ CREATE TABLE IF NOT EXISTS items (
     last_updated_tick INTEGER DEFAULT 0
 );
 
--- Ship classes catalog: ship class definitions with stats and requirements
-CREATE TABLE IF NOT EXISTS ship_classes (
+-- Ships catalog: ship class definitions with stats and requirements
+CREATE TABLE IF NOT EXISTS ships (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     class TEXT,
@@ -335,12 +335,12 @@ CREATE TABLE IF NOT EXISTS ship_classes (
 );
 
 -- Ship class build materials (normalized)
-CREATE TABLE IF NOT EXISTS ship_class_build_materials (
+CREATE TABLE IF NOT EXISTS ship_build_materials (
     ship_class_id TEXT NOT NULL,
     item_id TEXT NOT NULL,
     quantity INTEGER NOT NULL,
     PRIMARY KEY (ship_class_id, item_id),
-    FOREIGN KEY (ship_class_id) REFERENCES ship_classes(id) ON DELETE CASCADE
+    FOREIGN KEY (ship_class_id) REFERENCES ships(id) ON DELETE CASCADE
 );
 
 -- Skills catalog: skill definitions with XP curves and bonuses
@@ -441,8 +441,8 @@ CREATE TABLE IF NOT EXISTS player_skills (
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 );
 
--- Ships: player-owned ships
-CREATE TABLE IF NOT EXISTS ships (
+-- Agent ships: player-owned ships
+CREATE TABLE IF NOT EXISTS agent_ships (
     id TEXT PRIMARY KEY,
     owner_id TEXT NOT NULL,
     class_id TEXT NOT NULL,
@@ -468,7 +468,7 @@ CREATE TABLE IF NOT EXISTS ships (
     docked_at_base TEXT,
     last_updated_tick INTEGER DEFAULT 0,
     FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
-    FOREIGN KEY (class_id) REFERENCES ship_classes(id)
+    FOREIGN KEY (class_id) REFERENCES ships(id)
 );
 
 -- Ship cargo
@@ -477,7 +477,7 @@ CREATE TABLE IF NOT EXISTS ship_cargo (
     item_id TEXT NOT NULL,
     quantity REAL NOT NULL,
     PRIMARY KEY (ship_id, item_id),
-    FOREIGN KEY (ship_id) REFERENCES ships(id) ON DELETE CASCADE
+    FOREIGN KEY (ship_id) REFERENCES agent_ships(id) ON DELETE CASCADE
 );
 
 -- Ship modules: fitted modules on a ship
@@ -494,7 +494,7 @@ CREATE TABLE IF NOT EXISTS ship_modules (
     wear REAL DEFAULT 0,
     wear_status TEXT,
     last_updated_tick INTEGER DEFAULT 0,
-    FOREIGN KEY (ship_id) REFERENCES ships(id) ON DELETE CASCADE
+    FOREIGN KEY (ship_id) REFERENCES agent_ships(id) ON DELETE CASCADE
 );
 
 -- Mission templates: available missions from mission boards
@@ -570,15 +570,15 @@ CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level D
 
 -- Catalog
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
-CREATE INDEX IF NOT EXISTS idx_ship_classes_class ON ship_classes(class);
-CREATE INDEX IF NOT EXISTS idx_ship_classes_faction ON ship_classes(faction);
+CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class);
+CREATE INDEX IF NOT EXISTS idx_ships_faction ON ships(faction);
 CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
 CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
 
 -- Player state
 CREATE INDEX IF NOT EXISTS idx_players_empire ON players(empire);
-CREATE INDEX IF NOT EXISTS idx_ships_owner ON ships(owner_id);
-CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class_id);
+CREATE INDEX IF NOT EXISTS idx_agent_ships_owner ON agent_ships(owner_id);
+CREATE INDEX IF NOT EXISTS idx_agent_ships_class ON agent_ships(class_id);
 CREATE INDEX IF NOT EXISTS idx_ship_modules_ship ON ship_modules(ship_id);
 CREATE INDEX IF NOT EXISTS idx_mission_templates_type ON mission_templates(type);
 CREATE INDEX IF NOT EXISTS idx_mission_templates_base ON mission_templates(base_id);
