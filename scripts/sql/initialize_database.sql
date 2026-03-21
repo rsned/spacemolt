@@ -5,8 +5,8 @@
 -- Use this to initialize a fresh database:
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Schema Version: 13
--- Last Updated: 2026-02-20
+-- Schema Version: 21
+-- Last Updated: 2026-03-21
 --
 -- NOTE: In production the schema is created by the Go migration runner in
 -- pkg/knowledge/sqlite_migrations.go. This file is kept as a reference and
@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS pois (
     position_x REAL NOT NULL,
     position_y REAL NOT NULL,
     base_id TEXT,
+    class TEXT,
     last_updated_tick INTEGER DEFAULT 0,
     FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
 );
@@ -85,6 +86,8 @@ CREATE TABLE IF NOT EXISTS agents (
     role TEXT NOT NULL,
     empire TEXT,
     status TEXT DEFAULT 'active',
+    wallet_credits INTEGER NOT NULL DEFAULT 0,
+    wallet_updated_at TEXT,
     last_updated_tick INTEGER DEFAULT 0
 );
 
@@ -98,6 +101,7 @@ CREATE TABLE IF NOT EXISTS bases (
     defense_level INTEGER DEFAULT 0,
     has_drones BOOLEAN DEFAULT 0,
     public_access BOOLEAN DEFAULT 1,
+    story TEXT DEFAULT '',
     last_updated_tick INTEGER DEFAULT 0,
     FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
@@ -187,6 +191,31 @@ CREATE TABLE IF NOT EXISTS ship_listings (
     agent_id TEXT,
     last_updated_tick INTEGER DEFAULT 0,
     FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
+);
+
+-- Market analyses table: stores AI-generated trading insights (v14)
+CREATE TABLE IF NOT EXISTS market_analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    system_id TEXT NOT NULL,
+    system_name TEXT NOT NULL,
+    station_id TEXT NOT NULL,
+    station_name TEXT NOT NULL,
+    game_tick INTEGER NOT NULL,
+    captured_at TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    last_updated_tick INTEGER NOT NULL,
+    mode TEXT,
+    skill_level INTEGER,
+    scanning_range TEXT,
+    stations_in_range INTEGER,
+    items_scanned INTEGER,
+    top_insights TEXT,
+    total_items INTEGER,
+    total_pages INTEGER,
+    page INTEGER,
+    hint TEXT,
+    xp_gained TEXT,
+    analysis TEXT
 );
 
 -- ============================================================================
@@ -283,7 +312,7 @@ CREATE TABLE IF NOT EXISTS knowledge_exports (
 );
 
 -- ============================================================================
--- CATALOG TABLES (v12)
+-- CATALOG TABLES (v12, v15, v16)
 -- ============================================================================
 
 -- Items catalog: game item definitions
@@ -297,10 +326,96 @@ CREATE TABLE IF NOT EXISTS items (
     base_value INTEGER DEFAULT 0,
     stackable BOOLEAN DEFAULT 0,
     tradeable BOOLEAN DEFAULT 0,
+    hazardous BOOLEAN DEFAULT 0,
+    power_bonus INTEGER DEFAULT 0,
     last_updated_tick INTEGER DEFAULT 0
 );
 
--- Ships catalog: ship class definitions with stats and requirements
+-- Item modules: common base for all fitted modules (v15)
+CREATE TABLE IF NOT EXISTS item_modules (
+    item_id TEXT PRIMARY KEY REFERENCES items(id),
+    type TEXT NOT NULL,
+    type_id TEXT NOT NULL,
+    cpu_usage INTEGER NOT NULL DEFAULT 0,
+    power_usage INTEGER NOT NULL DEFAULT 0,
+    hidden BOOLEAN NOT NULL DEFAULT 0,
+    special TEXT
+);
+
+-- Weapons (v15)
+CREATE TABLE IF NOT EXISTS item_weapons (
+    item_id TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    damage INTEGER NOT NULL DEFAULT 0,
+    damage_type TEXT NOT NULL,
+    range INTEGER,
+    reach INTEGER,
+    cooldown INTEGER NOT NULL DEFAULT 0,
+    ammo_type TEXT,
+    magazine_size INTEGER
+);
+
+-- Defense modules (v15)
+CREATE TABLE IF NOT EXISTS item_defenses (
+    item_id TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    armor_bonus INTEGER,
+    hull_bonus INTEGER,
+    shield_bonus INTEGER,
+    shield_recharge_bonus INTEGER,
+    armor_repair_rate INTEGER,
+    resistance_bonus TEXT,
+    damage_reduction REAL,
+    cloak_strength INTEGER,
+    cooldown INTEGER,
+    damage INTEGER,
+    damage_type TEXT,
+    range INTEGER
+);
+
+-- Mining modules (v15)
+CREATE TABLE IF NOT EXISTS item_mining (
+    item_id TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    mining_power INTEGER NOT NULL DEFAULT 0,
+    mining_range INTEGER NOT NULL DEFAULT 0
+);
+
+-- Utility modules (v15)
+CREATE TABLE IF NOT EXISTS item_utilities (
+    item_id TEXT PRIMARY KEY REFERENCES item_modules(item_id),
+    speed_bonus INTEGER,
+    cargo_bonus INTEGER,
+    cloak_strength INTEGER,
+    scanner_power INTEGER,
+    accuracy_bonus INTEGER,
+    tracking_bonus INTEGER,
+    signature_bonus INTEGER,
+    fuel_efficiency REAL,
+    drone_bandwidth INTEGER,
+    drone_capacity INTEGER,
+    harvest_power INTEGER,
+    harvest_range INTEGER,
+    survey_power INTEGER,
+    survey_range INTEGER,
+    tow_speed_penalty INTEGER,
+    cooldown INTEGER
+);
+
+-- Consumable effects (v15)
+CREATE TABLE IF NOT EXISTS item_consumable_effects (
+    item_id TEXT PRIMARY KEY REFERENCES items(id),
+    effect_type TEXT NOT NULL,
+    subtype TEXT,
+    amount INTEGER,
+    duration INTEGER,
+    stat TEXT
+);
+
+-- Ammunition types (v15)
+CREATE TABLE IF NOT EXISTS item_ammo (
+    item_id TEXT PRIMARY KEY REFERENCES items(id),
+    ammo_type TEXT NOT NULL
+);
+
+-- Ships catalog: ship class definitions with stats and requirements (v12, renamed v21)
 CREATE TABLE IF NOT EXISTS ships (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -331,10 +446,11 @@ CREATE TABLE IF NOT EXISTS ships (
     required_skills TEXT DEFAULT '{}',
     default_modules TEXT DEFAULT '[]',
     flavor_tags TEXT DEFAULT '[]',
+    passive_recipes TEXT DEFAULT '[]',
     last_updated_tick INTEGER DEFAULT 0
 );
 
--- Ship class build materials (normalized)
+-- Ship class build materials (normalized, renamed v21)
 CREATE TABLE IF NOT EXISTS ship_build_materials (
     ship_class_id TEXT NOT NULL,
     item_id TEXT NOT NULL,
@@ -354,6 +470,7 @@ CREATE TABLE IF NOT EXISTS skills (
     xp_per_level TEXT DEFAULT '[]',
     bonus_per_level TEXT DEFAULT '{}',
     required_skills TEXT DEFAULT '{}',
+    empire_restriction TEXT DEFAULT '',
     last_updated_tick INTEGER DEFAULT 0
 );
 
@@ -367,6 +484,7 @@ CREATE TABLE IF NOT EXISTS recipes (
     base_quality INTEGER DEFAULT 0,
     skill_quality_mod INTEGER DEFAULT 0,
     required_skills TEXT DEFAULT '{}',
+    hidden BOOLEAN DEFAULT 0,
     last_updated_tick INTEGER DEFAULT 0
 );
 
@@ -441,7 +559,7 @@ CREATE TABLE IF NOT EXISTS player_skills (
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 );
 
--- Agent ships: player-owned ships
+-- Agent ships: player-owned ships (renamed from "ships" in v21)
 CREATE TABLE IF NOT EXISTS agent_ships (
     id TEXT PRIMARY KEY,
     owner_id TEXT NOT NULL,
@@ -527,6 +645,40 @@ CREATE TABLE IF NOT EXISTS mission_objectives (
 );
 
 -- ============================================================================
+-- STORAGE TABLES (v19)
+-- ============================================================================
+
+-- Storage snapshots: latest station storage state per agent per base
+CREATE TABLE IF NOT EXISTS storage_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id TEXT NOT NULL,
+    base_id TEXT NOT NULL,
+    credits INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT NOT NULL,
+    UNIQUE(agent_id, base_id)
+);
+
+-- Items in a storage snapshot
+CREATE TABLE IF NOT EXISTS storage_snapshot_items (
+    snapshot_id INTEGER NOT NULL,
+    item_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    quantity REAL NOT NULL DEFAULT 0,
+    size INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (snapshot_id) REFERENCES storage_snapshots(id) ON DELETE CASCADE
+);
+
+-- Ships in a storage snapshot
+CREATE TABLE IF NOT EXISTS storage_snapshot_ships (
+    snapshot_id INTEGER NOT NULL,
+    ship_id TEXT NOT NULL,
+    class_id TEXT NOT NULL DEFAULT '',
+    class_name TEXT NOT NULL DEFAULT '',
+    cargo_used INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (snapshot_id) REFERENCES storage_snapshots(id) ON DELETE CASCADE
+);
+
+-- ============================================================================
 -- SCHEMA MIGRATIONS TRACKING
 -- ============================================================================
 
@@ -557,6 +709,8 @@ CREATE INDEX IF NOT EXISTS idx_market_listings_item_id ON market_listings(item_i
 CREATE INDEX IF NOT EXISTS idx_market_listings_item_type ON market_listings(item_type);
 CREATE INDEX IF NOT EXISTS idx_ship_listings_system_station ON ship_listings(system_id, station_id, captured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ship_listings_captured_at ON ship_listings(captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_analyses_system_station ON market_analyses(system_id, station_id, captured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_market_analyses_captured ON market_analyses(captured_at DESC);
 
 -- Analytics
 CREATE INDEX IF NOT EXISTS idx_resource_history_poi_resource ON resource_history(poi_id, resource_id, game_tick DESC);
@@ -570,6 +724,12 @@ CREATE INDEX IF NOT EXISTS idx_danger_zones_level ON danger_zones(danger_level D
 
 -- Catalog
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
+CREATE INDEX IF NOT EXISTS idx_item_modules_type ON item_modules(type);
+CREATE INDEX IF NOT EXISTS idx_item_modules_type_id ON item_modules(type_id);
+CREATE INDEX IF NOT EXISTS idx_item_weapons_damage_type ON item_weapons(damage_type);
+CREATE INDEX IF NOT EXISTS idx_item_weapons_ammo_type ON item_weapons(ammo_type);
+CREATE INDEX IF NOT EXISTS idx_item_consumable_effects_type ON item_consumable_effects(effect_type);
+CREATE INDEX IF NOT EXISTS idx_item_ammo_type ON item_ammo(ammo_type);
 CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class);
 CREATE INDEX IF NOT EXISTS idx_ships_faction ON ships(faction);
 CREATE INDEX IF NOT EXISTS idx_skills_category ON skills(category);
@@ -583,11 +743,16 @@ CREATE INDEX IF NOT EXISTS idx_ship_modules_ship ON ship_modules(ship_id);
 CREATE INDEX IF NOT EXISTS idx_mission_templates_type ON mission_templates(type);
 CREATE INDEX IF NOT EXISTS idx_mission_templates_base ON mission_templates(base_id);
 
+-- Storage
+CREATE INDEX IF NOT EXISTS idx_storage_snapshots_agent ON storage_snapshots(agent_id);
+CREATE INDEX IF NOT EXISTS idx_storage_snapshot_items_snapshot ON storage_snapshot_items(snapshot_id);
+CREATE INDEX IF NOT EXISTS idx_storage_snapshot_ships_snapshot ON storage_snapshot_ships(snapshot_id);
+
 -- ============================================================================
 -- INITIAL MIGRATION RECORD
 -- ============================================================================
 
--- Record that all migrations through v13 have been applied
+-- Record that all migrations through v21 have been applied
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
@@ -600,3 +765,11 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (10, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (11, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (12, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (13, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (14, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (15, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (16, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (17, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (18, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (19, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (20, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (21, datetime('now'));
