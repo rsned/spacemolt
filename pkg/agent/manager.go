@@ -310,6 +310,17 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 		m.debugLogger.Printf("[%s] Initial tick: %d", personality.ID, tick)
 	}
 
+	// Fetch full system data (POIs, connections) so the first decision cycle
+	// has complete location context. The logged_in response only includes
+	// minimal system info without the full POI list.
+	if err := gameClient.GetSystem(ctx); err != nil {
+		m.debugLogger.Printf("[%s] Warning: initial get_system failed: %v", personality.ID, err)
+	} else {
+		state := gameClient.GetState()
+		m.debugLogger.Printf("[%s] System loaded: %s (%d POIs, %d connections)",
+			personality.ID, state.System.Name, len(state.System.POIs), len(state.System.Connections))
+	}
+
 	// Create agent memory
 	memory := NewKBMemory(m.kb, personality.ID)
 

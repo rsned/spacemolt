@@ -117,6 +117,10 @@ type Base interface {
 	StoreStorageSnapshot(ctx context.Context, snapshot StorageSnapshot) error
 	GetStorageSnapshot(ctx context.Context, agentID, baseID string) (*StorageSnapshot, error)
 	GetAllStorageSnapshots(ctx context.Context) ([]StorageSnapshot, error)
+
+	// Change detection snapshots
+	RecordChangeSnapshot(ctx context.Context, snapshot ChangeSnapshot) error
+	GetChangeSnapshots(ctx context.Context, systemID string, limit int) ([]ChangeSnapshot, error)
 }
 
 // MarketListing represents a single market listing
@@ -333,4 +337,17 @@ type KnowledgeExportMeta struct {
 	SystemsCount     int
 	POIsCount        int
 	ExperiencesCount int
+}
+
+// ChangeSnapshot records old data when a system, POI, or base change is detected.
+type ChangeSnapshot struct {
+	ID              int64
+	EntityType      string // "system", "poi", "base"
+	EntityID        string
+	SystemID        string
+	ChangeSummary   string // human-readable summary of what changed
+	OldData         string // JSON snapshot of old values
+	DetectedBy      string // agent ID
+	DetectedAtTick  int64
+	DetectedAt      time.Time
 }

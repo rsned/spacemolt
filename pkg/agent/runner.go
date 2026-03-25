@@ -55,6 +55,9 @@ type Runner struct {
 	// Tree-of-Thought evaluator (nil if not enabled)
 	totEvaluator ToTEvaluator
 
+	// Pause state — when paused, the runner skips decision/ToT cycles
+	paused bool
+
 	// Logging
 	logger *log.Logger
 }
@@ -81,7 +84,7 @@ func DefaultRunnerConfig() RunnerConfig {
 	return RunnerConfig{
 		DecisionInterval: 11 * time.Second, // Slightly more than 10-second game tick
 		MaxRetries:       10,               // Allow 10 consecutive failures
-		ActionTimeout:    5 * time.Second,  // Wait 5 seconds for action result
+		ActionTimeout:    15 * time.Second, // Must exceed game tick (10s) for pending actions
 		Logger:           log.Default(),
 	}
 }
@@ -210,6 +213,14 @@ func (r *Runner) run(ctx context.Context) {
 
 // executeCycle runs one decision-making cycle
 func (r *Runner) executeCycle(ctx context.Context) error {
+	// Skip cycle entirely if paused
+	r.mu.RLock()
+	paused := r.paused
+	r.mu.RUnlock()
+	if paused {
+		return nil
+	}
+
 	// Get current game state
 	state := r.gameClient.GetState()
 	if state == nil {
@@ -891,6 +902,30 @@ func (r *Runner) GetCrashCount() int {
 // GetHistory returns the most recent N history entries
 func (r *Runner) GetHistory(limit int) []HistoryEntry {
 	return r.history.GetRecent(limit)
+}
+
+// Pause stops the runner from starting new decision/ToT cycles.
+// Any in-progress LLM call will complete, but no new cycles will begin.
+func (r *Runner) Pause() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.paused = true
+	r.logger.Printf("[%s] Runner paused", r.agent.ID())
+}
+
+// Resume allows the runner to start decision cycles again.
+func (r *Runner) Resume() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.paused = false
+	r.logger.Printf("[%s] Runner resumed", r.agent.ID())
+}
+
+// IsPaused returns whether the runner is currently paused.
+func (r *Runner) IsPaused() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.paused
 }
 
 // SetEventCallback sets the callback function for streaming events

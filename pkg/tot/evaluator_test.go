@@ -103,6 +103,7 @@ func TestEvaluator_FullPipeline(t *testing.T) {
 	validActions := []ActionOption{
 		{Action: "travel", Description: "Travel"},
 		{Action: "mine", Description: "Mine"},
+		{Action: "jump", Description: "Jump"},
 	}
 
 	tree, err := eval.Evaluate(context.Background(), personality, state, validActions, weights, nil)

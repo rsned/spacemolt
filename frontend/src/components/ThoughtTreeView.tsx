@@ -182,59 +182,73 @@ function buildNodesAndEdges(
       },
     })
 
-    // Child nodes (depth 2)
+    // Planned steps — rendered as a single vertical container node
     if (branch.children && branch.children.length > 0) {
-      const totalChildWidth = branch.children.length * (NODE_WIDTH + H_GAP) - H_GAP
-      const childStartX = branchX + NODE_WIDTH / 2 - totalChildWidth / 2
+      const planId = `${branch.id}_plan`
+      const planX = branchX
+      const planY = branchY + NODE_HEIGHT + V_GAP
+      const isWinnerPlan = branch.status === 'winner'
+      const planBorder = isWinnerPlan
+        ? 'border-green-600/50'
+        : branch.status === 'pruned'
+          ? 'border-gray-700 opacity-40'
+          : 'border-blue-800/50'
 
-      branch.children.forEach((child, ci) => {
-        const childX = childStartX + ci * (NODE_WIDTH + H_GAP)
-        const childY = branchY + NODE_HEIGHT + V_GAP
-        const childBorderClass = statusBorderClass(child.status)
-        const childIsWinner = child.status === 'winner'
-
-        nodes.push({
-          id: child.id,
-          position: { x: childX, y: childY },
-          data: {
-            label: (
-              <div
-                className={`bg-gray-800 border-2 rounded-lg p-2 cursor-pointer ${childBorderClass}`}
-                style={{ width: NODE_WIDTH, minHeight: CHILD_NODE_HEIGHT }}
-                onClick={() => onNodeClick?.(child)}
-              >
-                <div className="flex items-center gap-1 mb-1">
-                  <span className="text-xs font-semibold text-white truncate flex-1">
-                    {child.action}
-                  </span>
-                  <span
-                    className={`text-xs font-bold px-1 rounded ${childIsWinner ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-300'}`}
-                  >
-                    {Math.round(child.combined)}
-                  </span>
-                </div>
-                {child.target && (
-                  <div className="text-xs text-gray-400 truncate mb-1">→ {child.target}</div>
-                )}
-                <p className="text-xs text-gray-500 leading-tight line-clamp-2">
-                  {child.reasoning}
-                </p>
+      nodes.push({
+        id: planId,
+        position: { x: planX, y: planY },
+        data: {
+          label: (
+            <div
+              className={`bg-gray-900/80 border rounded-lg p-3 ${planBorder}`}
+              style={{ width: NODE_WIDTH }}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                Planned Steps
               </div>
-            ),
-          },
-          style: { padding: 0, background: 'transparent', border: 'none' },
-        })
+              <div className="space-y-1.5">
+                {branch.children.map((child, ci) => (
+                  <div
+                    key={child.id}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
+                      isWinnerPlan
+                        ? 'bg-green-900/30 hover:bg-green-900/50'
+                        : 'bg-gray-800/60 hover:bg-gray-800'
+                    }`}
+                    onClick={() => onNodeClick?.(child)}
+                  >
+                    <span className={`text-[10px] font-mono w-4 text-center ${
+                      isWinnerPlan ? 'text-green-500' : 'text-gray-600'
+                    }`}>
+                      {ci + 1}
+                    </span>
+                    <span className="text-xs font-semibold text-white truncate">
+                      {child.action}
+                    </span>
+                    {child.target && (
+                      <span className="text-[10px] text-gray-400 truncate">
+                        → {child.target}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ),
+        },
+        style: { padding: 0, background: 'transparent', border: 'none' },
+      })
 
-        edges.push({
-          id: `${branch.id}-${child.id}`,
-          source: branch.id,
-          target: child.id,
-          animated: childIsWinner,
-          style: {
-            stroke: edgeColor(child.status),
-            strokeWidth: childIsWinner ? 2 : 1,
-          },
-        })
+      edges.push({
+        id: `${branch.id}-${planId}`,
+        source: branch.id,
+        target: planId,
+        animated: isWinnerPlan,
+        style: {
+          stroke: edgeColor(branch.status),
+          strokeWidth: isWinnerPlan ? 2 : 1,
+          strokeDasharray: '4 4',
+        },
       })
     }
   })

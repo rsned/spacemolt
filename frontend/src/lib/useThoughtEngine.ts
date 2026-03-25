@@ -47,6 +47,7 @@ interface UseThoughtEngineResult {
   currentTree: ThoughtTree | null
   history: ThoughtTree[]
   connected: boolean
+  paused: boolean
 }
 
 const MAX_HISTORY = 10
@@ -59,6 +60,7 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
   const [currentTree, setCurrentTree] = useState<ThoughtTree | null>(null)
   const [history, setHistory] = useState<ThoughtTree[]>([])
   const [connected, setConnected] = useState(false)
+  const [paused, setPaused] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const baseUrl = apiBaseUrl || `${window.location.protocol}//${window.location.host}`
@@ -119,17 +121,28 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
 
     es.addEventListener('thought_tree_update', handleUpdate)
     es.addEventListener('thought_tree', handleComplete)
+
+    // Listen for pause/resume events
+    es.addEventListener('paused', () => setPaused(true))
+    es.addEventListener('resumed', () => setPaused(false))
   }, [baseUrl])
 
+  // Fetch initial pause state when agent changes
   useEffect(() => {
     if (agentId) {
       connect(agentId)
+      // Fetch current pause state from agent details
+      fetch(`${baseUrl}/api/agents/${agentId}/details`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setPaused(!!data.paused) })
+        .catch(() => {})
     } else {
       if (eventSourceRef.current) {
         eventSourceRef.current.close()
         eventSourceRef.current = null
       }
       setConnected(false)
+      setPaused(false)
     }
 
     return () => {
@@ -138,9 +151,9 @@ export function useThoughtEngine(agentId: string | null, apiBaseUrl?: string): U
         eventSourceRef.current = null
       }
     }
-  }, [agentId, connect])
+  }, [agentId, connect, baseUrl])
 
-  return { currentTree, history, connected }
+  return { currentTree, history, connected, paused }
 }
 
 export type { ThoughtTree, ThoughtNodeData, AxisScores }

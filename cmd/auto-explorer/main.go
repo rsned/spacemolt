@@ -398,6 +398,279 @@ func extractShipListings(serverData map[string]any) []knowledge.ShipListing {
 }
 
 // ============================================================================
+// CHANGE DETECTION
+// ============================================================================
+
+// systemChangeResult holds the outcome of comparing server data against the DB.
+type systemChangeResult struct {
+	SystemChanged bool     // system-level fields changed
+	POIsChanged   bool     // POI count, types, or positions changed
+	ChangedPOIIDs []string // IDs of POIs that differ from DB
+	NewPOIIDs     []string // IDs of POIs not in DB
+	RemovedPOIIDs []string // IDs of POIs in DB but not on server
+}
+
+// detectAndRecordChanges compares the current server state for a system against
+// what is stored in the knowledge base. If differences are found, it snapshots
+// the old data into change_snapshots and returns which entities changed.
+func detectAndRecordChanges(ctx context.Context, logger *log.Logger, kb knowledge.Base, state *game.State, agentID string) (*systemChangeResult, error) {
+	result := &systemChangeResult{}
+	systemID := state.System.ID
+	currentTick := state.GetTick()
+
+	// --- System-level comparison ---
+	kbSys, err := kb.GetSystem(ctx, systemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system from KB: %w", err)
+	}
+	if kbSys == nil {
+		// System not in DB at all — everything is new, no snapshot needed
+		logger.Printf("🆕 System %s not in KB — first visit", systemID)
+		result.SystemChanged = true
+		result.POIsChanged = true
+		for _, poi := range state.System.POIs {
+			result.NewPOIIDs = append(result.NewPOIIDs, poi.ID)
+		}
+		return result, nil
+	}
+
+	// Compare system fields
+	var sysChanges []string
+	if kbSys.Name != state.System.Name {
+		sysChanges = append(sysChanges, fmt.Sprintf("name: %q→%q", kbSys.Name, state.System.Name))
+	}
+	if kbSys.Empire != state.System.Empire {
+		sysChanges = append(sysChanges, fmt.Sprintf("empire: %q→%q", kbSys.Empire, state.System.Empire))
+	}
+	if kbSys.PoliceLevel != state.System.PoliceLevel {
+		sysChanges = append(sysChanges, fmt.Sprintf("police_level: %d→%d", kbSys.PoliceLevel, state.System.PoliceLevel))
+	}
+	if kbSys.SecurityStatus != state.System.SecurityStatus {
+		sysChanges = append(sysChanges, fmt.Sprintf("security: %q→%q", kbSys.SecurityStatus, state.System.SecurityStatus))
+	}
+	if kbSys.IsStronghold != state.System.IsStronghold {
+		sysChanges = append(sysChanges, fmt.Sprintf("stronghold: %v→%v", kbSys.IsStronghold, state.System.IsStronghold))
+	}
+	if len(kbSys.Connections) != len(state.System.Connections) {
+		sysChanges = append(sysChanges, fmt.Sprintf("connections: %d→%d", len(kbSys.Connections), len(state.System.Connections)))
+	}
+
+	if len(sysChanges) > 0 {
+		result.SystemChanged = true
+		logger.Printf("⚡ System %s changed: %s", systemID, strings.Join(sysChanges, ", "))
+
+		// Snapshot old system data
+		oldData, _ := json.Marshal(map[string]any{
+			"name":            kbSys.Name,
+			"empire":          kbSys.Empire,
+			"police_level":    kbSys.PoliceLevel,
+			"security_status": kbSys.SecurityStatus,
+			"is_stronghold":   kbSys.IsStronghold,
+			"connections":     len(kbSys.Connections),
+			"position":        map[string]float64{"x": kbSys.Position.X, "y": kbSys.Position.Y},
+		})
+		if err := kb.RecordChangeSnapshot(ctx, knowledge.ChangeSnapshot{
+			EntityType:     "system",
+			EntityID:       systemID,
+			SystemID:       systemID,
+			ChangeSummary:  strings.Join(sysChanges, "; "),
+			OldData:        string(oldData),
+			DetectedBy:     agentID,
+			DetectedAtTick: currentTick,
+		}); err != nil {
+			logger.Printf("⚠️  Failed to record system change snapshot: %v", err)
+		}
+	}
+
+	// --- POI-level comparison ---
+	dbPOIs, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get POIs from KB: %w", err)
+	}
+
+	// Build lookup maps
+	dbPOIMap := make(map[string]knowledge.POI, len(dbPOIs))
+	for _, p := range dbPOIs {
+		dbPOIMap[p.ID] = p
+	}
+	serverPOIMap := make(map[string]game.POI, len(state.System.POIs))
+	for _, p := range state.System.POIs {
+		serverPOIMap[p.ID] = p
+	}
+
+	// Check for count difference
+	if len(dbPOIs) != len(state.System.POIs) {
+		result.POIsChanged = true
+		logger.Printf("⚡ POI count changed in %s: %d→%d", systemID, len(dbPOIs), len(state.System.POIs))
+	}
+
+	// Detect new and changed POIs
+	for _, serverPOI := range state.System.POIs {
+		dbPOI, exists := dbPOIMap[serverPOI.ID]
+		if !exists {
+			result.NewPOIIDs = append(result.NewPOIIDs, serverPOI.ID)
+			result.POIsChanged = true
+			logger.Printf("⚡ New POI detected: %s (%s) type=%s", serverPOI.Name, serverPOI.ID, serverPOI.Type)
+			continue
+		}
+
+		// Compare POI fields
+		var poiChanges []string
+		if dbPOI.Type != serverPOI.Type {
+			poiChanges = append(poiChanges, fmt.Sprintf("type: %q→%q", dbPOI.Type, serverPOI.Type))
+		}
+		if dbPOI.Name != serverPOI.Name {
+			poiChanges = append(poiChanges, fmt.Sprintf("name: %q→%q", dbPOI.Name, serverPOI.Name))
+		}
+		if dbPOI.Position.X != serverPOI.Position.X || dbPOI.Position.Y != serverPOI.Position.Y {
+			poiChanges = append(poiChanges, fmt.Sprintf("position: (%.1f,%.1f)→(%.1f,%.1f)",
+				dbPOI.Position.X, dbPOI.Position.Y, serverPOI.Position.X, serverPOI.Position.Y))
+		}
+		if dbPOI.Class != serverPOI.Class {
+			poiChanges = append(poiChanges, fmt.Sprintf("class: %q→%q", dbPOI.Class, serverPOI.Class))
+		}
+
+		// Compare resource composition (which resource types are present),
+		// ignoring quantity changes since those fluctuate naturally.
+		if len(dbPOI.Resources) > 0 || len(serverPOI.Resources) > 0 {
+			dbResIDs := make(map[string]bool, len(dbPOI.Resources))
+			for _, r := range dbPOI.Resources {
+				dbResIDs[r.ResourceID] = true
+			}
+			serverResIDs := make(map[string]bool, len(serverPOI.Resources))
+			for _, r := range serverPOI.Resources {
+				serverResIDs[r.ResourceID] = true
+			}
+
+			var added, removed []string
+			for id := range serverResIDs {
+				if !dbResIDs[id] {
+					added = append(added, id)
+				}
+			}
+			for id := range dbResIDs {
+				if !serverResIDs[id] {
+					removed = append(removed, id)
+				}
+			}
+			if len(added) > 0 || len(removed) > 0 {
+				var parts []string
+				if len(added) > 0 {
+					parts = append(parts, fmt.Sprintf("+[%s]", strings.Join(added, ",")))
+				}
+				if len(removed) > 0 {
+					parts = append(parts, fmt.Sprintf("-[%s]", strings.Join(removed, ",")))
+				}
+				poiChanges = append(poiChanges, fmt.Sprintf("resources: %s", strings.Join(parts, " ")))
+			}
+		}
+
+		if len(poiChanges) > 0 {
+			result.ChangedPOIIDs = append(result.ChangedPOIIDs, serverPOI.ID)
+			result.POIsChanged = true
+			logger.Printf("⚡ POI %s (%s) changed: %s", serverPOI.Name, serverPOI.ID, strings.Join(poiChanges, ", "))
+
+			// Snapshot old POI data
+			oldResources := make([]map[string]any, len(dbPOI.Resources))
+			for i, r := range dbPOI.Resources {
+				oldResources[i] = map[string]any{
+					"resource_id": r.ResourceID,
+					"richness":    r.Richness,
+					"remaining":   r.Remaining,
+				}
+			}
+			oldData, _ := json.Marshal(map[string]any{
+				"name":      dbPOI.Name,
+				"type":      dbPOI.Type,
+				"class":     dbPOI.Class,
+				"position":  map[string]float64{"x": dbPOI.Position.X, "y": dbPOI.Position.Y},
+				"resources": oldResources,
+			})
+			if err := kb.RecordChangeSnapshot(ctx, knowledge.ChangeSnapshot{
+				EntityType:     "poi",
+				EntityID:       serverPOI.ID,
+				SystemID:       systemID,
+				ChangeSummary:  strings.Join(poiChanges, "; "),
+				OldData:        string(oldData),
+				DetectedBy:     agentID,
+				DetectedAtTick: currentTick,
+			}); err != nil {
+				logger.Printf("⚠️  Failed to record POI change snapshot: %v", err)
+			}
+		}
+	}
+
+	// Detect removed POIs (in DB but not on server)
+	for _, dbPOI := range dbPOIs {
+		if _, exists := serverPOIMap[dbPOI.ID]; !exists {
+			result.RemovedPOIIDs = append(result.RemovedPOIIDs, dbPOI.ID)
+			result.POIsChanged = true
+			logger.Printf("⚡ POI removed: %s (%s) type=%s", dbPOI.Name, dbPOI.ID, dbPOI.Type)
+
+			// Snapshot the removed POI
+			oldData, _ := json.Marshal(map[string]any{
+				"name":     dbPOI.Name,
+				"type":     dbPOI.Type,
+				"class":    dbPOI.Class,
+				"position": map[string]float64{"x": dbPOI.Position.X, "y": dbPOI.Position.Y},
+			})
+			if err := kb.RecordChangeSnapshot(ctx, knowledge.ChangeSnapshot{
+				EntityType:     "poi",
+				EntityID:       dbPOI.ID,
+				SystemID:       systemID,
+				ChangeSummary:  "removed from system",
+				OldData:        string(oldData),
+				DetectedBy:     agentID,
+				DetectedAtTick: currentTick,
+			}); err != nil {
+				logger.Printf("⚠️  Failed to record removed POI snapshot: %v", err)
+			}
+		}
+	}
+
+	// --- Base-level comparison (for station POIs that have bases) ---
+	for _, serverPOI := range state.System.POIs {
+		if serverPOI.BaseID == "" {
+			continue
+		}
+		dbBase, err := kb.GetBase(ctx, serverPOI.BaseID)
+		if err != nil || dbBase == nil {
+			continue // base not in DB yet, will be collected during POI exploration
+		}
+
+		var baseChanges []string
+		if dbBase.Name != serverPOI.BaseName && serverPOI.BaseName != "" {
+			baseChanges = append(baseChanges, fmt.Sprintf("name: %q→%q", dbBase.Name, serverPOI.BaseName))
+		}
+
+		if len(baseChanges) > 0 {
+			logger.Printf("⚡ Base %s changed: %s", serverPOI.BaseID, strings.Join(baseChanges, ", "))
+
+			oldData, _ := json.Marshal(map[string]any{
+				"name":          dbBase.Name,
+				"empire":        dbBase.Empire,
+				"defense_level": dbBase.DefenseLevel,
+				"has_drones":    dbBase.HasDrones,
+				"public_access": dbBase.PublicAccess,
+			})
+			if err := kb.RecordChangeSnapshot(ctx, knowledge.ChangeSnapshot{
+				EntityType:     "base",
+				EntityID:       serverPOI.BaseID,
+				SystemID:       systemID,
+				ChangeSummary:  strings.Join(baseChanges, "; "),
+				OldData:        string(oldData),
+				DetectedBy:     agentID,
+				DetectedAtTick: currentTick,
+			}); err != nil {
+				logger.Printf("⚠️  Failed to record base change snapshot: %v", err)
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// ============================================================================
 // NAVIGATION (Direct jumping, no jump gates)
 // ============================================================================
 
@@ -496,7 +769,7 @@ func navigateToHomeBase(client game.GameClient, ctx context.Context, homeSystem 
 // POI EXPLORATION
 // ============================================================================
 
-func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base) error {
+func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base, forceFullScan bool) error {
 	state := client.GetState()
 
 	if expState.VisitedPOIs == nil {
@@ -520,9 +793,8 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 			continue
 		}
 
-		// Check if POI data is still fresh in the knowledge base
-		// last_updated_tick <= 0 means unset/unviewed, so always scan
-		if !*forceRescan {
+		// Skip POIs with fresh data unless a full scan was triggered by change detection
+		if !forceFullScan && !*forceRescan {
 			if lastTick, ok := knownPOIs[poi.ID]; ok && lastTick > 0 {
 				threshold := game.POIFreshnessThreshold(poi.Type)
 				age := currentTick - lastTick
@@ -538,6 +810,8 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 				logger.Printf("🆕 POI %s (%s) has last_updated_tick=%d (unset/unviewed) - scanning",
 					poi.Name, poi.Type, lastTick)
 			}
+		} else if forceFullScan {
+			logger.Printf("🔄 Force-scanning POI %s (%s) due to detected system changes", poi.Name, poi.Type)
 		}
 
 		logger.Printf("📍 Visiting POI: %s (%s) - Type: %s", poi.Name, poi.ID, poi.Type)
@@ -854,42 +1128,37 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 
 			updateCaptainsLog(agentID, client, expState)
 
-			// Check if system data is still fresh in the knowledge base
-			// last_updated_tick <= 0 means unset/unviewed, so always collect
-			systemFresh := false
-			if !*forceRescan {
-				if kbSys, err := kb.GetSystem(ctx, currentSystem); err == nil && kbSys != nil && kbSys.LastUpdatedTick > 0 {
-					sysAge := state.GetTick() - kbSys.LastUpdatedTick
-					if sysAge >= 0 && sysAge < game.FreshnessSystem {
-						logger.Printf("⊙ System %s data still fresh (age: %d ticks), skipping system collection",
-							currentSystem, sysAge)
-						systemFresh = true
-					}
-				} else if kbSys != nil && kbSys.LastUpdatedTick <= 0 {
-					logger.Printf("🆕 System %s has last_updated_tick=%d (unset/unviewed) - collecting data",
-						currentSystem, kbSys.LastUpdatedTick)
-				}
+			// Always fetch system data from the server so we can compare
+			if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
+				logger.Printf("Failed to collect system data: %v", err)
 			}
 
-			// Collect system data only if stale or unknown
-			if !systemFresh {
-				if err := collectSystemData(client, ctx, logger, kb, expState.AgentID); err != nil {
-					logger.Printf("Failed to collect system data: %v", err)
-				}
+			// Refresh state after collection
+			state = client.GetState()
+
+			// Detect changes between server data and what's in the DB
+			forceFullScan := *forceRescan
+			changes, err := detectAndRecordChanges(ctx, logger, kb, state, expState.AgentID)
+			if err != nil {
+				logger.Printf("⚠️  Change detection failed: %v", err)
+				forceFullScan = true // scan on error to be safe
+			} else if changes.SystemChanged || changes.POIsChanged {
+				totalChanges := len(changes.ChangedPOIIDs) + len(changes.NewPOIIDs) + len(changes.RemovedPOIIDs)
+				logger.Printf("⚡ Changes detected in %s: system=%v, poi_changes=%d (new=%d, modified=%d, removed=%d)",
+					currentSystem, changes.SystemChanged, totalChanges,
+					len(changes.NewPOIIDs), len(changes.ChangedPOIIDs), len(changes.RemovedPOIIDs))
+				forceFullScan = true
 			} else {
-				// Even when KB data is fresh, we still need to populate the in-memory
-				// state with system data (ID, connections, POIs) so that
-				// getUnvisitedNeighbors can find connections to jump to.
-				logger.Printf("🔄 Refreshing in-memory system state...")
-				if err := client.GetSystem(ctx); err != nil {
-					logger.Printf("⚠️  Failed to refresh system state: %v", err)
-				}
-				time.Sleep(2 * time.Second)
+				logger.Printf("✓ No changes detected in %s — data matches DB", currentSystem)
 			}
 
-			// Always explore POIs (freshness is checked per-POI inside)
-			logger.Printf("🔍 Beginning comprehensive POI exploration...")
-			if err := exploreAllPOIs(client, ctx, logger, expState, kb); err != nil {
+			// Explore POIs: full scan if changes detected, otherwise per-POI freshness
+			if forceFullScan {
+				logger.Printf("🔍 Full POI scan triggered by detected changes...")
+			} else {
+				logger.Printf("🔍 Beginning POI exploration (per-POI freshness)...")
+			}
+			if err := exploreAllPOIs(client, ctx, logger, expState, kb, forceFullScan); err != nil {
 				logger.Printf("POI exploration failed: %v", err)
 			}
 		}

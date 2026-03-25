@@ -36,6 +36,9 @@ type MemoryKB struct {
 
 	// Storage snapshots: key is "agentID:baseID"
 	storageSnapshots map[string]StorageSnapshot
+
+	// Change detection snapshots
+	changeSnapshots []ChangeSnapshot
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -1068,4 +1071,25 @@ func (kb *MemoryKB) UpdateAgentWalletCredits(_ context.Context, agentID string, 
 		_ = a // in-memory KB doesn't track wallet credits
 	}
 	return nil
+}
+
+func (kb *MemoryKB) RecordChangeSnapshot(_ context.Context, snapshot ChangeSnapshot) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+	kb.changeSnapshots = append(kb.changeSnapshots, snapshot)
+	return nil
+}
+
+func (kb *MemoryKB) GetChangeSnapshots(_ context.Context, systemID string, limit int) ([]ChangeSnapshot, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var result []ChangeSnapshot
+	// Iterate in reverse for newest-first order
+	for i := len(kb.changeSnapshots) - 1; i >= 0 && len(result) < limit; i-- {
+		if kb.changeSnapshots[i].SystemID == systemID {
+			result = append(result, kb.changeSnapshots[i])
+		}
+	}
+	return result, nil
 }

@@ -920,17 +920,11 @@ func (c *Client) GetStatus(ctx context.Context) error {
 }
 
 // GetNotifications retrieves pending notifications and the current tick/timestamp.
-// This is a lightweight query that returns current_tick and server timestamp
-// without the full state payload that get_status returns.
-// Blocks until the server responds.
-func (c *Client) GetNotifications(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
-		Type:      "get_notifications",
-		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
-	}
-	return c.waitForActionResponse(ctx, SleepTick)
+// Over WebSocket, notifications and tick updates are pushed automatically by the
+// server, so this is a no-op. The MCP client implementation calls the tool.
+func (c *Client) GetNotifications(_ context.Context) error {
+	// WebSocket connections receive notifications via push — no polling needed.
+	return nil
 }
 
 // GetListings requests market listings for the current station.
@@ -1513,6 +1507,17 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
 		c.parseSystemData(resp.Payload)
+		// Determine initial docked state from the POI data in the login response.
+		// The docked_at_base field on the player persists after undocking, so
+		// we use the POI type as the authoritative signal at login time.
+		if poiData, ok := resp.Payload["poi"].(map[string]any); ok {
+			if poiType, ok := poiData["type"].(string); ok {
+				c.mu.Lock()
+				c.state.Doc = poiType == "station" || poiType == "outpost"
+				c.mu.Unlock()
+				c.debugLogger.Printf("Login dock state: poi_type=%q → Doc=%v", poiType, c.state.Doc)
+			}
+		}
 		// Parse pending trades from logged_in response
 		if trades, ok := resp.Payload["pending_trades"].([]any); ok {
 			c.mu.Lock()
@@ -1789,14 +1794,13 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 		c.debugLogger.Printf("Set System.ID = '%s' from player.CurrentSystem (was empty)", player.CurrentSystem)
 	}
 
-	// Update docked status: server sends docked_at_base as a string field;
-	// present but empty means undocked, non-empty means docked.
-	// The json.Unmarshal always includes this field, so we check the raw payload.
-	if playerMap, ok := payload["player"].(map[string]any); ok {
-		if _, hasDockedField := playerMap["docked_at_base"]; hasDockedField {
-			c.state.Doc = player.DockedAtBase != ""
-		}
-	}
+	// Note: docked_at_base in the player payload persists as the last-docked
+	// station even after undocking. It is NOT a reliable signal for current
+	// docked state. Docked state is authoritative from:
+	//   - "docked"/"undocked" events (TypeDocked/TypeUndocked)
+	//   - "docked_at" field in get_location responses (null = undocked)
+	//   - action_result with command "dock"/"undock"
+	// We do NOT set state.Doc from docked_at_base here.
 
 	// Sync skill XP to state level
 	if len(player.SkillXP) > 0 {

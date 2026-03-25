@@ -1595,3 +1595,47 @@ func (kb *SQLiteKB) GetAllStorageSnapshots(ctx context.Context) ([]StorageSnapsh
 
 	return snapshots, nil
 }
+
+// RecordChangeSnapshot stores a snapshot of old data when a change is detected.
+func (kb *SQLiteKB) RecordChangeSnapshot(ctx context.Context, snapshot ChangeSnapshot) error {
+	_, err := kb.db.ExecContext(ctx, `
+		INSERT INTO change_snapshots (entity_type, entity_id, system_id, change_summary, old_data, detected_by, detected_at_tick, detected_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+	`, snapshot.EntityType, snapshot.EntityID, snapshot.SystemID,
+		snapshot.ChangeSummary, snapshot.OldData, snapshot.DetectedBy, snapshot.DetectedAtTick)
+	if err != nil {
+		return fmt.Errorf("failed to insert change snapshot: %w", err)
+	}
+	return nil
+}
+
+// GetChangeSnapshots retrieves change snapshots for a system, newest first.
+func (kb *SQLiteKB) GetChangeSnapshots(ctx context.Context, systemID string, limit int) ([]ChangeSnapshot, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT id, entity_type, entity_id, system_id, change_summary, old_data, detected_by, detected_at_tick, detected_at
+		FROM change_snapshots
+		WHERE system_id = ?
+		ORDER BY detected_at DESC
+		LIMIT ?
+	`, systemID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query change snapshots: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var snapshots []ChangeSnapshot
+	for rows.Next() {
+		var s ChangeSnapshot
+		var detectedAt string
+		if err := rows.Scan(&s.ID, &s.EntityType, &s.EntityID, &s.SystemID,
+			&s.ChangeSummary, &s.OldData, &s.DetectedBy, &s.DetectedAtTick, &detectedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan change snapshot: %w", err)
+		}
+		s.DetectedAt, _ = time.Parse("2006-01-02 15:04:05", detectedAt)
+		snapshots = append(snapshots, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating change snapshots: %w", err)
+	}
+	return snapshots, nil
+}

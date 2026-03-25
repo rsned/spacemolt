@@ -886,6 +886,28 @@ CREATE INDEX IF NOT EXISTS idx_agent_ships_owner ON agent_ships(owner_id);
 CREATE INDEX IF NOT EXISTS idx_agent_ships_class ON agent_ships(class_id);
 `,
 		},
+		{
+			version: 22,
+			name:    "change_snapshots",
+			sql: `
+-- Change snapshots: records old values when system/POI/base changes are detected
+CREATE TABLE IF NOT EXISTS change_snapshots (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	entity_type TEXT NOT NULL,   -- 'system', 'poi', 'base'
+	entity_id TEXT NOT NULL,
+	system_id TEXT NOT NULL,
+	change_summary TEXT NOT NULL, -- human-readable description of changes
+	old_data TEXT NOT NULL,       -- JSON snapshot of previous values
+	detected_by TEXT NOT NULL,    -- agent ID that detected the change
+	detected_at_tick INTEGER NOT NULL,
+	detected_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_snapshots_system ON change_snapshots(system_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_change_snapshots_entity ON change_snapshots(entity_type, entity_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_change_snapshots_agent ON change_snapshots(detected_by, detected_at DESC);
+`,
+		},
 	}
 }
 

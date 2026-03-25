@@ -8,6 +8,23 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+// resourceStatus returns a human-readable status for a percentage value.
+// Higher is better: 100% = full, 0% = empty/destroyed.
+func resourceStatus(pct float64) string {
+	switch {
+	case pct >= 90:
+		return "EXCELLENT - no action needed"
+	case pct >= 60:
+		return "GOOD - no action needed"
+	case pct >= 30:
+		return "LOW - consider replenishing"
+	case pct > 0:
+		return "CRITICAL - replenish immediately"
+	default:
+		return "EMPTY"
+	}
+}
+
 // AssessOption is one option returned by Stage 1.
 type AssessOption struct {
 	Action    string `json:"action"`
@@ -87,12 +104,14 @@ func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []Ac
 		fmt.Fprintf(&sb, "- Docked at: %s\n", state.CurrentPOI)
 	}
 	if state.MaxFuel > 0 {
-		fmt.Fprintf(&sb, "- Fuel: %.0f%%\n", state.Fuel/state.MaxFuel*100)
+		pct := state.Fuel / state.MaxFuel * 100
+		fmt.Fprintf(&sb, "- Fuel: %.0f/%.0f (%s)\n", state.Fuel, state.MaxFuel, resourceStatus(pct))
 	}
 	if state.MaxHull > 0 {
-		fmt.Fprintf(&sb, "- Hull: %.0f%%\n", state.Hull/state.MaxHull*100)
+		pct := state.Hull / state.MaxHull * 100
+		fmt.Fprintf(&sb, "- Hull: %.0f/%.0f (%s)\n", state.Hull, state.MaxHull, resourceStatus(pct))
 	}
-	fmt.Fprintf(&sb, "- Cargo: %d/%d\n", len(state.Cargo), state.MaxCargo)
+	fmt.Fprintf(&sb, "- Cargo: %d/%d slots used\n", len(state.Cargo), state.MaxCargo)
 	fmt.Fprintf(&sb, "- Credits: %.0f\n", state.Credits)
 	if state.InCombat {
 		sb.WriteString("- !! IN COMBAT !!\n")
@@ -175,7 +194,7 @@ func BuildAssessPrompt(p agent.Personality, state *game.State, validActions []Ac
 }
 
 // BuildEvaluatePrompt constructs a Stage 2 prompt for one option.
-func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation string, option AssessOption) string {
+func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation string, option AssessOption, validActions []ActionOption) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "You are %s, a %s.\n\n", p.Name, p.Role)
 	fmt.Fprintf(&sb, "SITUATION: %s\n\n", situation)
@@ -187,10 +206,10 @@ func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation strin
 
 	sb.WriteString("STATE: ")
 	if state.MaxFuel > 0 {
-		fmt.Fprintf(&sb, "Fuel %.0f%%", state.Fuel/state.MaxFuel*100)
+		fmt.Fprintf(&sb, "Fuel %.0f/%.0f (%s)", state.Fuel, state.MaxFuel, resourceStatus(state.Fuel/state.MaxFuel*100))
 	}
 	if state.MaxHull > 0 {
-		fmt.Fprintf(&sb, " | Hull %.0f%%", state.Hull/state.MaxHull*100)
+		fmt.Fprintf(&sb, " | Hull %.0f/%.0f (%s)", state.Hull, state.MaxHull, resourceStatus(state.Hull/state.MaxHull*100))
 	}
 	fmt.Fprintf(&sb, " | Cargo %d/%d | Credits %.0f", len(state.Cargo), state.MaxCargo, state.Credits)
 	if state.InCombat {
@@ -204,7 +223,15 @@ func BuildEvaluatePrompt(p agent.Personality, state *game.State, situation strin
 	sb.WriteString("- goal_progress: advances my current goal\n")
 	sb.WriteString("- risk: how safe (100=safe, 0=dangerous)\n")
 	sb.WriteString("- efficiency: good use of my time\n\n")
-	sb.WriteString("Also plan the next 3-4 actions that would follow. Think about the full sequence.\n\n")
+	sb.WriteString("Also plan the next 3-4 actions that would follow. Think about the full sequence.\n")
+	sb.WriteString("IMPORTANT: Each plan step \"action\" MUST be one of these valid actions: ")
+	for i, va := range validActions {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(va.Action)
+	}
+	sb.WriteString("\nDo NOT invent action names. Only use actions from the list above.\n\n")
 	sb.WriteString("Respond with JSON containing: action, target, analysis (2-3 sentences), ")
 	sb.WriteString("scores (survival/profit/goal_progress/risk/efficiency each 0-100), ")
 	sb.WriteString("and plan (array of follow-up steps with action and target).\n")

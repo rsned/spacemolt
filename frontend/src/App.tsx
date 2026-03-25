@@ -18,6 +18,7 @@ import { TeamMapView } from './components/team/TeamMapView';
 import { ThoughtEnginePage } from './components/ThoughtEnginePage';
 import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
+import { useThoughtEngine } from './lib/useThoughtEngine';
 import {
   mockPlayer,
   mockRecipes,
@@ -34,6 +35,35 @@ function App() {
   const [pendingDock, setPendingDock] = useState(false);
   const [selectedTeamId] = useState<string>('team-1');
   const prevDockedRef = useRef<string | null>(null);
+  const [thoughtAgentId, setThoughtAgentId] = useState<string | null>(null);
+
+  // Resolve the agent ID for the thought engine: prefer observer subscription,
+  // fall back to auto-discovered agent, allow ThoughtEnginePage standalone override.
+  const resolvedThoughtAgent = observer.subscribedAgent ?? thoughtAgentId;
+  const thoughtEngine = useThoughtEngine(resolvedThoughtAgent);
+
+  // Auto-discover agent for thought engine when observer has no subscription
+  useEffect(() => {
+    if (observer.subscribedAgent) {
+      setThoughtAgentId(null); // observer takes precedence
+      return;
+    }
+    const fetchAgents = async () => {
+      try {
+        const resp = await fetch('/api/agents');
+        if (resp.ok) {
+          const data = await resp.json();
+          const list = Array.isArray(data) ? data : (data.agents ?? []);
+          if (list.length > 0 && !observer.subscribedAgent) {
+            setThoughtAgentId(list[0].id ?? list[0].username);
+          }
+        }
+      } catch { /* API not available */ }
+    };
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 15000);
+    return () => clearInterval(interval);
+  }, [observer.subscribedAgent]);
 
   const isLive = observer.status === 'connected' && observer.player !== null;
   const player = observer.player;
@@ -347,7 +377,11 @@ function App() {
         )}
 
         {activeView === 'thinking' && (
-          <ThoughtEnginePage agentId={observer.subscribedAgent ?? undefined} />
+          <ThoughtEnginePage
+            agentId={resolvedThoughtAgent ?? undefined}
+            thoughtEngine={thoughtEngine}
+            onAgentChange={setThoughtAgentId}
+          />
         )}
 
         {activeView === 'storage' && (

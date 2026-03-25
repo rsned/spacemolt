@@ -4,7 +4,7 @@
   "id": "miner-1",
   "motivations": {
     "primary": "mine_resources",
-    "secondary": "inspire_others",
+    "secondary": "improve_skills",
     "tertiary": "enjoy_work",
     "weights": {
       "enjoy_work": 0.85,

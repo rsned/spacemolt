@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/rsned/spacemolt/pkg/api"
 	"github.com/rsned/spacemolt/pkg/observe"
 )
 
@@ -12,6 +13,8 @@ func (s *Server) registerAgentDetailRoutes() {
 	s.mux.HandleFunc("GET /api/agents/{id}/details", s.handleGetAgentDetails)
 	s.mux.HandleFunc("GET /api/agents/{id}/state", s.handleGetAgentState)
 	s.mux.HandleFunc("GET /api/agents/{id}/history", s.handleGetAgentHistory)
+	s.mux.HandleFunc("PUT /api/agents/{id}/pause", s.handlePauseAgent)
+	s.mux.HandleFunc("PUT /api/agents/{id}/resume", s.handleResumeAgent)
 }
 
 // handleGetAgentDetails returns detailed agent info including runtime status.
@@ -48,6 +51,7 @@ func (s *Server) handleGetAgentDetails(w http.ResponseWriter, r *http.Request) {
 		"is_running":      runner.IsRunning(),
 		"has_crashed":     runner.HasCrashed(),
 		"crash_count":     runner.GetCrashCount(),
+		"paused":          runner.IsPaused(),
 	})
 }
 
@@ -91,4 +95,50 @@ func (s *Server) handleGetAgentHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	observe.WriteJSON(w, http.StatusOK, runner.GetHistory(limit))
+}
+
+// handlePauseAgent pauses the agent's decision/ToT cycle.
+// PUT /api/agents/{id}/pause
+func (s *Server) handlePauseAgent(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("id")
+
+	runner, ok := s.manager.GetRunner(agentID)
+	if !ok {
+		http.Error(w, "Agent not found", http.StatusNotFound)
+		return
+	}
+
+	runner.Pause()
+
+	// Emit SSE event so frontend knows
+	s.streams.Publish(agentID, api.Event{
+		AgentID: agentID,
+		Type:    "paused",
+		Data:    map[string]any{"paused": true},
+	})
+
+	observe.WriteJSON(w, http.StatusOK, map[string]any{"paused": true})
+}
+
+// handleResumeAgent resumes the agent's decision/ToT cycle.
+// PUT /api/agents/{id}/resume
+func (s *Server) handleResumeAgent(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("id")
+
+	runner, ok := s.manager.GetRunner(agentID)
+	if !ok {
+		http.Error(w, "Agent not found", http.StatusNotFound)
+		return
+	}
+
+	runner.Resume()
+
+	// Emit SSE event so frontend knows
+	s.streams.Publish(agentID, api.Event{
+		AgentID: agentID,
+		Type:    "resumed",
+		Data:    map[string]any{"paused": false},
+	})
+
+	observe.WriteJSON(w, http.StatusOK, map[string]any{"paused": false})
 }

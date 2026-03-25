@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ThoughtTreeView } from './ThoughtTreeView'
 import { DebugPanel } from './DebugPanel'
-import { useThoughtEngine } from '../lib/useThoughtEngine'
 import type { ThoughtNodeData, ThoughtTree } from '../lib/useThoughtEngine'
 
 interface AgentInfo {
@@ -13,11 +12,20 @@ interface AgentInfo {
   docked?: boolean
 }
 
-interface ThoughtEnginePageProps {
-  agentId?: string | null
+interface ThoughtEngineState {
+  currentTree: ThoughtTree | null
+  history: ThoughtTree[]
+  connected: boolean
+  paused: boolean
 }
 
-export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePageProps) {
+interface ThoughtEnginePageProps {
+  agentId?: string | null
+  thoughtEngine: ThoughtEngineState
+  onAgentChange?: (agentId: string) => void
+}
+
+export function ThoughtEnginePage({ agentId: externalAgentId, thoughtEngine, onAgentChange }: ThoughtEnginePageProps) {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [selectedAgent, setSelectedAgent] = useState<string | null>(externalAgentId ?? null)
   const [loadingAgents, setLoadingAgents] = useState(false)
@@ -25,11 +33,19 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
   const [availableModels, setAvailableModels] = useState<string[]>([])
 
   const activeAgent = externalAgentId ?? selectedAgent
-  const { currentTree, history, connected } = useThoughtEngine(activeAgent)
+  const { currentTree, history, connected, paused } = thoughtEngine
   const [selectedNode, setSelectedNode] = useState<ThoughtNodeData | null>(null)
   const [viewingTree, setViewingTree] = useState<ThoughtTree | null>(null)
 
   const displayTree = viewingTree || currentTree
+
+  const togglePause = async () => {
+    if (!activeAgent) return
+    const endpoint = paused ? 'resume' : 'pause'
+    try {
+      await fetch(`/api/agents/${activeAgent}/${endpoint}`, { method: 'PUT' })
+    } catch { /* ignore */ }
+  }
 
   // Fetch model info from API
   useEffect(() => {
@@ -76,7 +92,9 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
           setAgents(list)
           // Auto-select first agent if none selected
           if (!selectedAgent && list.length > 0) {
-            setSelectedAgent(list[0].id ?? list[0].username)
+            const id = list[0].id ?? list[0].username
+            setSelectedAgent(id)
+            onAgentChange?.(id)
           }
         }
       } catch {
@@ -98,10 +116,24 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-200">Thought Engine</h2>
           <span className={`text-xs px-2 py-0.5 rounded ${
-            connected ? 'bg-green-900 text-green-400' : 'bg-gray-700 text-gray-400'
+            connected
+              ? paused ? 'bg-yellow-900 text-yellow-400' : 'bg-green-900 text-green-400'
+              : 'bg-gray-700 text-gray-400'
           }`}>
-            {connected ? 'STREAMING' : activeAgent ? 'CONNECTING...' : 'NO AGENT'}
+            {connected ? (paused ? 'PAUSED' : 'STREAMING') : activeAgent ? 'CONNECTING...' : 'NO AGENT'}
           </span>
+          {activeAgent && connected && (
+            <button
+              onClick={togglePause}
+              className={`text-xs px-3 py-0.5 rounded font-medium transition-colors ${
+                paused
+                  ? 'bg-green-700 hover:bg-green-600 text-white'
+                  : 'bg-yellow-700 hover:bg-yellow-600 text-white'
+              }`}
+            >
+              {paused ? 'Resume' : 'Pause'}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -132,7 +164,7 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
                   {agents.map((a) => (
                     <button
                       key={a.id ?? a.username}
-                      onClick={() => { setSelectedAgent(a.id ?? a.username); setSelectedNode(null); setViewingTree(null) }}
+                      onClick={() => { const id = a.id ?? a.username; setSelectedAgent(id); onAgentChange?.(id); setSelectedNode(null); setViewingTree(null) }}
                       className={`px-2 py-0.5 text-xs rounded ${
                         activeAgent === (a.id ?? a.username)
                           ? 'bg-cyan-700 text-white'
@@ -151,7 +183,9 @@ export function ThoughtEnginePage({ agentId: externalAgentId }: ThoughtEnginePag
                   className="px-2 py-1 text-xs bg-gray-800 border border-gray-700 rounded text-gray-300 w-40"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      setSelectedAgent((e.target as HTMLInputElement).value)
+                      const id = (e.target as HTMLInputElement).value
+                      setSelectedAgent(id)
+                      onAgentChange?.(id)
                       setSelectedNode(null)
                       setViewingTree(null)
                     }

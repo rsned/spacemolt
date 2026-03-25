@@ -78,6 +78,8 @@ func (e *Evaluator) Evaluate(
 
 	// Validate and fix options — LLMs sometimes put targets as actions
 	assessed.Options = fixAssessOptions(assessed.Options, validActions)
+	// Deduplicate options — LLMs sometimes repeat the same action
+	assessed.Options = deduplicateOptions(assessed.Options)
 	log.Printf("[ToT] Stage 1 parsed: situation=%q, options=%d", assessed.Situation, len(assessed.Options))
 
 	if len(assessed.Options) == 0 {
@@ -104,7 +106,7 @@ func (e *Evaluator) Evaluate(
 		tree.Root[i].Status = StatusEvaluating
 		e.emitUpdate(tree)
 
-		evalPrompt := BuildEvaluatePrompt(personality, state, assessed.Situation, opt)
+		evalPrompt := BuildEvaluatePrompt(personality, state, assessed.Situation, opt, validActions)
 		log.Printf("[ToT] Stage 2 evaluating option %d/%d: %s %s", i+1, len(assessed.Options), opt.Action, opt.Target)
 		evalStart := time.Now()
 		evalRaw, err := e.llm.Generate(ctx, evalPrompt)
@@ -117,7 +119,7 @@ func (e *Evaluator) Evaluate(
 			continue
 		}
 
-		log.Printf("[ToT] Stage 2 option %d response (%d chars, %.1fs): %.200s", i+1, len(evalRaw), evalDuration.Seconds(), evalRaw)
+		log.Printf("[ToT] Stage 2 option %d response (%d chars, %.1fs):\n%s", i+1, len(evalRaw), evalDuration.Seconds(), evalRaw)
 
 		evalResp, parseErr := parseEvaluateResponse(evalRaw)
 		if parseErr != nil {
@@ -142,21 +144,27 @@ func (e *Evaluator) Evaluate(
 		if len(plan) == 0 && evalResp.NextStep.Action != "" {
 			plan = []PlanStep{{Action: evalResp.NextStep.Action, Target: evalResp.NextStep.Target}}
 		}
-		// Filter template echoes and add as child nodes
-		for j, step := range plan {
+		// Filter plan steps: drop template echoes and invalid actions
+		childIdx := 0
+		for _, step := range plan {
 			if step.Action == "" || step.Action == "next" || step.Action == "next_action" {
 				continue
 			}
 			if step.Target == "id" || step.Target == "next_target" {
 				step.Target = ""
 			}
+			if !isValidAction(step.Action, validActions) {
+				log.Printf("[ToT] Dropping invalid plan step: %q (not in valid actions)", step.Action)
+				continue
+			}
 			node.Children = append(node.Children, &ThoughtNode{
-				ID:     fmt.Sprintf("node_%d_plan_%d", i, j),
+				ID:     fmt.Sprintf("node_%d_plan_%d", i, childIdx),
 				Action: step.Action,
 				Target: step.Target,
 				Status: StatusActive,
 				Depth:  1,
 			})
+			childIdx++
 		}
 
 		e.emitUpdate(tree)
@@ -287,6 +295,33 @@ func fixAssessOptions(options []AssessOption, validActions []ActionOption) []Ass
 		}
 	}
 	return fixed
+}
+
+// deduplicateOptions removes options with the same action+target pair,
+// keeping the first occurrence.
+func deduplicateOptions(options []AssessOption) []AssessOption {
+	seen := make(map[string]bool, len(options))
+	deduped := make([]AssessOption, 0, len(options))
+	for _, opt := range options {
+		key := opt.Action + "|" + opt.Target
+		if seen[key] {
+			log.Printf("[ToT] Dropping duplicate option: %s %s", opt.Action, opt.Target)
+			continue
+		}
+		seen[key] = true
+		deduped = append(deduped, opt)
+	}
+	return deduped
+}
+
+// isValidAction checks whether an action name is in the valid actions list.
+func isValidAction(action string, validActions []ActionOption) bool {
+	for _, va := range validActions {
+		if va.Action == action {
+			return true
+		}
+	}
+	return false
 }
 
 func parseEvaluateResponse(raw string) (*EvaluateResponse, error) {

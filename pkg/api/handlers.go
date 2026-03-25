@@ -107,6 +107,10 @@ func (s *Server) handleAgentRoute(w http.ResponseWriter, r *http.Request) {
 		s.handleGetAgentHistory(w, r, runner)
 	case "stream":
 		s.handleAgentStream(w, r, runner)
+	case "pause":
+		s.handlePauseAgent(w, r, runner)
+	case "resume":
+		s.handleResumeAgent(w, r, runner)
 	default:
 		http.Error(w, "Unknown endpoint", http.StatusNotFound)
 	}
@@ -269,6 +273,48 @@ func (s *Server) handleAgentStream(w http.ResponseWriter, r *http.Request, runne
 			flusher.Flush()
 		}
 	}
+}
+
+// handlePauseAgent pauses the agent's decision/ToT cycle.
+// PUT /api/agents/{id}/pause
+func (s *Server) handlePauseAgent(w http.ResponseWriter, r *http.Request, runner *agent.Runner) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	runner.Pause()
+
+	agentID := runner.GetAgent().ID()
+	s.streamManager.Publish(agentID, Event{
+		AgentID: agentID,
+		Type:    "paused",
+		Data:    map[string]any{"paused": true},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"paused":true}`))
+}
+
+// handleResumeAgent resumes the agent's decision/ToT cycle.
+// PUT /api/agents/{id}/resume
+func (s *Server) handleResumeAgent(w http.ResponseWriter, r *http.Request, runner *agent.Runner) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	runner.Resume()
+
+	agentID := runner.GetAgent().ID()
+	s.streamManager.Publish(agentID, Event{
+		AgentID: agentID,
+		Type:    "resumed",
+		Data:    map[string]any{"paused": false},
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"paused":false}`))
 }
 
 // handleModel handles GET/PUT /api/model for model hot-swapping.
