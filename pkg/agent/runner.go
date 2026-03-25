@@ -420,8 +420,16 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 	r.logger.Printf("[%s] Decision.Confidence: %.1f%%", r.agent.ID(), decision.Confidence*100)
 	r.logger.Printf("[%s] Decision.Reasoning: %s", r.agent.ID(), decision.Reasoning)
 
-	// Create context with timeout for the action
-	actionCtx, cancel := context.WithTimeout(ctx, r.config.ActionTimeout)
+	// Create context with timeout for the action.
+	// Travel and jump compute their own timeouts based on arrival_tick,
+	// so they get a generous 2-minute ceiling. Other actions use the
+	// configured ActionTimeout (15s).
+	timeout := r.config.ActionTimeout
+	switch decision.Action {
+	case "travel", "jump":
+		timeout = 2 * time.Minute
+	}
+	actionCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	switch decision.Action {
