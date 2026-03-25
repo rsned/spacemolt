@@ -1,114 +1,30 @@
 package tot
 
-import "github.com/rsned/spacemolt/pkg/game"
+import (
+	"github.com/rsned/spacemolt/pkg/actionspace"
+	"github.com/rsned/spacemolt/pkg/game"
+)
 
 // ValidActions returns the set of actions that are valid for the current game state.
 // Action names MUST match the cases in pkg/agent/runner.go executeDecision().
 func ValidActions(state *game.State) []ActionOption {
-	var actions []ActionOption
-	if state.Doc {
-		actions = dockedActions(state)
-	} else {
-		actions = spaceActions(state)
-	}
-	actions = append(actions, queryActions()...)
-	return actions
-}
+	gc := actionspace.FromState(state)
+	as := actionspace.Evaluate(gc)
 
-// dockedActions returns actions available when the ship is docked at a station.
-func dockedActions(state *game.State) []ActionOption {
-	actions := []ActionOption{
-		{Action: "undock", Description: "Undock and return to space"},
-		{Action: "get_listings", Description: "View the market listings at this station"},
-		{Action: "buy", Description: "Buy items from the market"},
-		{Action: "sell", Description: "Sell items from cargo"},
-		{Action: "view_storage", Description: "View items in station storage"},
-		{Action: "withdraw_items", Description: "Withdraw items from station storage"},
-		{Action: "deposit_items", Description: "Deposit items into station storage"},
-		{Action: "get_recipes", Description: "View available crafting recipes"},
-		{Action: "craft", Description: "Craft items using available recipes"},
-	}
-
-	if state.Ship.Hull < state.Ship.MaxHull {
-		actions = append(actions, ActionOption{
-			Action:      "repair",
-			Description: "Repair ship hull damage",
+	// Convert actionspace results to tot.ActionOption format.
+	asOpts := as.ToActionOptions()
+	opts := make([]ActionOption, 0, len(asOpts)+5)
+	for _, o := range asOpts {
+		opts = append(opts, ActionOption{
+			Action:      o.Action,
+			Description: o.Description,
+			Targets:     o.Targets,
 		})
 	}
 
-	if state.Ship.Fuel < state.Ship.MaxFuel {
-		actions = append(actions, ActionOption{
-			Action:      "refuel",
-			Description: "Refuel the ship",
-		})
-	}
-
-	return actions
-}
-
-// spaceActions returns actions available when the ship is in space (not docked).
-func spaceActions(state *game.State) []ActionOption {
-	actions := []ActionOption{
-		{Action: "scan", Description: "Scan the current area for players and objects"},
-	}
-
-	// Travel to POIs in the current system.
-	if len(state.System.POIs) > 0 {
-		targets := make([]string, 0, len(state.System.POIs))
-		for _, poi := range state.System.POIs {
-			targets = append(targets, poi.ID)
-		}
-		actions = append(actions, ActionOption{
-			Action:      "travel",
-			Description: "Travel to a point of interest in the current system",
-			Targets:     targets,
-		})
-	}
-
-	// Dock at stations or outposts.
-	for _, poi := range state.System.POIs {
-		if poi.Type == "station" || poi.Type == "outpost" {
-			actions = append(actions, ActionOption{
-				Action:      "dock",
-				Description: "Dock at a station or outpost",
-			})
-			break
-		}
-	}
-
-	// Jump to connected systems.
-	if len(state.System.Connections) > 0 {
-		targets := make([]string, 0, len(state.System.Connections))
-		for _, conn := range state.System.Connections {
-			targets = append(targets, conn.SystemID)
-		}
-		actions = append(actions, ActionOption{
-			Action:      "jump",
-			Description: "Jump to a connected star system",
-			Targets:     targets,
-		})
-	}
-
-	// Mine at asteroid belts or asteroids.
-	for _, poi := range state.System.POIs {
-		if poi.Type == "asteroid_belt" || poi.Type == "asteroid" {
-			actions = append(actions, ActionOption{
-				Action:      "mine",
-				Description: "Mine resources from an asteroid or asteroid belt",
-			})
-			break
-		}
-	}
-
-	// Combat actions when in combat.
-	if state.InCombat {
-		actions = append(actions,
-			ActionOption{Action: "battle_advance", Description: "Advance toward the enemy in battle"},
-			ActionOption{Action: "battle_retreat", Description: "Retreat from the enemy in battle"},
-		)
-	}
-
-	return actions
+	// Always include query actions (no tick cost).
+	opts = append(opts, queryActions()...)
+	return opts
 }
 
 // queryActions returns informational actions that are always available (no tick cost).
