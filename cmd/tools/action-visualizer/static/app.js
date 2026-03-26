@@ -1,4 +1,4 @@
-// Action Space Visualizer — D3 Radial Dendrogram
+// Action Space Visualizer — D3 Radial Dendrogram + Tidy Tree
 
 // Category color scale.
 const categoryColors = {
@@ -21,6 +21,10 @@ const categoryColors = {
 
 let currentData = null;
 let debounceTimer = null;
+
+function getLayout() {
+  return document.querySelector('input[name="layout"]:checked').value;
+}
 
 // ===== State Building =====
 
@@ -125,7 +129,6 @@ function updateMetrics(stats) {
   document.getElementById('m-total').textContent = stats.total_actions;
   document.getElementById('m-pruned-pct').textContent = stats.pruned_percent.toFixed(1) + '%';
 
-  // Count active categories (categories with at least 1 valid action).
   let activeCats = 0;
   if (stats.by_category) {
     for (const cat of Object.values(stats.by_category)) {
@@ -134,7 +137,6 @@ function updateMetrics(stats) {
   }
   document.getElementById('m-categories').textContent = activeCats + ' / ' + Object.keys(stats.by_category || {}).length;
 
-  // Top pruning reason.
   const topPrune = document.getElementById('m-top-prune');
   if (stats.top_pruning_reasons && stats.top_pruning_reasons.length > 0) {
     const top = stats.top_pruning_reasons[0];
@@ -144,127 +146,83 @@ function updateMetrics(stats) {
   }
 }
 
-// ===== Tree Rendering =====
+// ===== Tree Rendering Dispatcher =====
 
 function renderTree(treeData) {
-  const container = document.getElementById('graph-panel');
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  const radius = Math.min(width, height) / 2 - 80;
+  if (getLayout() === 'tidy') {
+    renderTidyTree(treeData);
+  } else {
+    renderRadialTree(treeData);
+  }
+  renderLegend(treeData);
+}
 
-  // Clear previous.
-  d3.select('#graph-svg').selectAll('*').remove();
+// ===== Shared: Node Styling =====
 
-  const svg = d3.select('#graph-svg')
-    .attr('viewBox', [-width / 2, -height / 2, width, height]);
+function nodeRadius(d) {
+  if (d.depth === 0) return 18;
+  if (d.depth === 1) {
+    const total = d.data.totalCount || 1;
+    const valid = d.data.validCount || 0;
+    return 6 + (valid / total) * 8;
+  }
+  return d.data.valid ? 4 : 3;
+}
 
-  const root = d3.hierarchy(treeData);
+function nodeFill(d) {
+  if (d.depth === 0) return '#30363d';
+  if (d.depth === 1) {
+    const color = categoryColors[d.data.category] || '#8b949e';
+    return d.data.validCount > 0 ? color : '#21262d';
+  }
+  if (d.data.valid) return categoryColors[d.data.category] || '#58a6ff';
+  return '#21262d';
+}
 
-  // Cluster layout in radial coordinates.
-  const cluster = d3.cluster()
-    .size([2 * Math.PI, radius])
-    .separation((a, b) => {
-      // Give more space between categories.
-      if (a.parent !== b.parent) return 2;
-      return 1;
-    });
+function nodeStroke(d) {
+  if (d.depth === 0) return '#58a6ff';
+  if (d.depth === 1) return categoryColors[d.data.category] || '#30363d';
+  return 'none';
+}
 
-  cluster(root);
+function nodeClass(d) {
+  if (d.depth === 0) return 'node-root';
+  if (d.depth === 1) return 'node-category';
+  return d.data.valid ? 'node-action node-valid' : 'node-action node-pruned';
+}
 
-  // Draw links.
-  const linkGroup = svg.append('g').attr('fill', 'none');
+function labelFill(d) {
+  if (d.depth === 0) return '#f0f6fc';
+  if (d.depth === 1) return d.data.validCount > 0 ? '#c9d1d9' : '#484f58';
+  return d.data.valid ? '#c9d1d9' : '#484f58';
+}
 
-  linkGroup.selectAll('path')
-    .data(root.links())
-    .join('path')
-    .attr('class', d => {
-      if (d.target.data.valid === false) return 'link-pruned';
-      if (d.target.children && d.target.data.validCount === 0) return 'link-pruned';
-      return 'link-valid';
-    })
-    .attr('stroke', d => {
-      const cat = d.target.data.category || d.source.data.category;
-      return categoryColors[cat] || '#30363d';
-    })
-    .attr('d', d3.linkRadial()
-      .angle(d => d.x)
-      .radius(d => d.y));
+function labelText(d) {
+  if (d.depth === 0) return d.data.name;
+  if (d.depth === 1) return `${d.data.name} (${d.data.validCount}/${d.data.totalCount})`;
+  return d.data.name;
+}
 
-  // Draw nodes.
-  const nodeGroup = svg.append('g');
+function labelSize(d) {
+  if (d.depth === 0) return '14px';
+  if (d.depth === 1) return '11px';
+  return '9px';
+}
 
-  const nodes = nodeGroup.selectAll('g')
-    .data(root.descendants())
-    .join('g')
-    .attr('transform', d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`)
-    .attr('class', d => {
-      if (d.depth === 0) return 'node-root';
-      if (d.depth === 1) return 'node-category';
-      return d.data.valid ? 'node-action node-valid' : 'node-action node-pruned';
-    });
+function linkClass(d) {
+  if (d.target.data.valid === false) return 'link-pruned';
+  if (d.target.children && d.target.data.validCount === 0) return 'link-pruned';
+  return 'link-valid';
+}
 
-  // Circles.
-  nodes.append('circle')
-    .attr('r', d => {
-      if (d.depth === 0) return 18;
-      if (d.depth === 1) {
-        // Size by proportion of valid children.
-        const total = d.data.totalCount || 1;
-        const valid = d.data.validCount || 0;
-        return 6 + (valid / total) * 8;
-      }
-      return d.data.valid ? 4 : 3;
-    })
-    .attr('fill', d => {
-      if (d.depth === 0) return '#30363d';
-      if (d.depth === 1) {
-        const color = categoryColors[d.data.category] || '#8b949e';
-        return d.data.validCount > 0 ? color : '#21262d';
-      }
-      if (d.data.valid) return categoryColors[d.data.category] || '#58a6ff';
-      return '#21262d';
-    })
-    .attr('stroke', d => {
-      if (d.depth === 0) return '#58a6ff';
-      if (d.depth === 1) return categoryColors[d.data.category] || '#30363d';
-      return 'none';
-    });
+function linkStroke(d) {
+  const cat = d.target.data.category || d.source.data.category;
+  return categoryColors[cat] || '#30363d';
+}
 
-  // Labels.
-  nodes.append('text')
-    .attr('dy', '0.31em')
-    .attr('x', d => {
-      if (d.depth === 0) return 0;
-      return d.x < Math.PI === !d.children ? 8 : -8;
-    })
-    .attr('text-anchor', d => {
-      if (d.depth === 0) return 'middle';
-      return d.x < Math.PI === !d.children ? 'start' : 'end';
-    })
-    .attr('transform', d => {
-      if (d.depth === 0) return '';
-      return d.x >= Math.PI ? 'rotate(180)' : null;
-    })
-    .attr('fill', d => {
-      if (d.depth === 0) return '#f0f6fc';
-      if (d.depth === 1) {
-        return d.data.validCount > 0 ? '#c9d1d9' : '#484f58';
-      }
-      return d.data.valid ? '#c9d1d9' : '#484f58';
-    })
-    .text(d => {
-      if (d.depth === 0) return d.data.name;
-      if (d.depth === 1) return `${d.data.name} (${d.data.validCount}/${d.data.totalCount})`;
-      return d.data.name;
-    })
-    .style('font-size', d => {
-      if (d.depth === 0) return '14px';
-      if (d.depth === 1) return '11px';
-      return '9px';
-    })
-    .style('font-weight', d => d.depth <= 1 ? '600' : '400');
+// ===== Shared: Tooltips =====
 
-  // Tooltips on action leaves.
+function attachTooltips(nodes, container) {
   const tooltip = document.getElementById('tooltip');
 
   nodes.filter(d => d.depth === 2)
@@ -291,7 +249,6 @@ function renderTree(treeData) {
       tooltip.innerHTML = html;
       tooltip.classList.add('visible');
 
-      // Position tooltip near cursor.
       const rect = container.getBoundingClientRect();
       tooltip.style.left = (event.clientX - rect.left + 12) + 'px';
       tooltip.style.top = (event.clientY - rect.top - 10) + 'px';
@@ -304,10 +261,142 @@ function renderTree(treeData) {
     .on('mouseleave', () => {
       tooltip.classList.remove('visible');
     });
-
-  // Build legend.
-  renderLegend(treeData);
 }
+
+// ===== Radial Dendrogram =====
+
+function renderRadialTree(treeData) {
+  const container = document.getElementById('graph-panel');
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const radius = Math.min(width, height) / 2 - 80;
+
+  d3.select('#graph-svg').selectAll('*').remove();
+
+  const svg = d3.select('#graph-svg')
+    .attr('viewBox', [-width / 2, -height / 2, width, height]);
+
+  const root = d3.hierarchy(treeData);
+
+  d3.cluster()
+    .size([2 * Math.PI, radius])
+    .separation((a, b) => a.parent !== b.parent ? 2 : 1)(root);
+
+  // Links.
+  svg.append('g').attr('fill', 'none')
+    .selectAll('path')
+    .data(root.links())
+    .join('path')
+    .attr('class', linkClass)
+    .attr('stroke', linkStroke)
+    .attr('d', d3.linkRadial()
+      .angle(d => d.x)
+      .radius(d => d.y));
+
+  // Nodes.
+  const nodes = svg.append('g')
+    .selectAll('g')
+    .data(root.descendants())
+    .join('g')
+    .attr('transform', d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`)
+    .attr('class', nodeClass);
+
+  nodes.append('circle')
+    .attr('r', nodeRadius)
+    .attr('fill', nodeFill)
+    .attr('stroke', nodeStroke);
+
+  // Labels — radial orientation.
+  nodes.append('text')
+    .attr('dy', '0.31em')
+    .attr('x', d => {
+      if (d.depth === 0) return 0;
+      return d.x < Math.PI === !d.children ? 8 : -8;
+    })
+    .attr('text-anchor', d => {
+      if (d.depth === 0) return 'middle';
+      return d.x < Math.PI === !d.children ? 'start' : 'end';
+    })
+    .attr('transform', d => {
+      if (d.depth === 0) return '';
+      return d.x >= Math.PI ? 'rotate(180)' : null;
+    })
+    .attr('fill', labelFill)
+    .text(labelText)
+    .style('font-size', labelSize)
+    .style('font-weight', d => d.depth <= 1 ? '600' : '400');
+
+  attachTooltips(nodes, container);
+}
+
+// ===== Tidy Tree (Horizontal) =====
+
+function renderTidyTree(treeData) {
+  const container = document.getElementById('graph-panel');
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const margin = { top: 20, right: 160, bottom: 20, left: 100 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  d3.select('#graph-svg').selectAll('*').remove();
+
+  const svg = d3.select('#graph-svg')
+    .attr('viewBox', [0, 0, width, height]);
+
+  const g = svg.append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const root = d3.hierarchy(treeData);
+
+  d3.tree()
+    .size([innerHeight, innerWidth])
+    .separation((a, b) => a.parent !== b.parent ? 2 : 1)(root);
+
+  // Links — horizontal curves.
+  g.append('g').attr('fill', 'none')
+    .selectAll('path')
+    .data(root.links())
+    .join('path')
+    .attr('class', linkClass)
+    .attr('stroke', linkStroke)
+    .attr('d', d3.linkHorizontal()
+      .x(d => d.y)
+      .y(d => d.x));
+
+  // Nodes.
+  const nodes = g.append('g')
+    .selectAll('g')
+    .data(root.descendants())
+    .join('g')
+    .attr('transform', d => `translate(${d.y},${d.x})`)
+    .attr('class', nodeClass);
+
+  nodes.append('circle')
+    .attr('r', nodeRadius)
+    .attr('fill', nodeFill)
+    .attr('stroke', nodeStroke);
+
+  // Labels — horizontal, text to right of leaves, left of parents.
+  nodes.append('text')
+    .attr('dy', '0.31em')
+    .attr('x', d => {
+      if (d.depth === 0) return -22;
+      return d.children ? -10 : 8;
+    })
+    .attr('text-anchor', d => {
+      if (d.depth === 0) return 'end';
+      return d.children ? 'end' : 'start';
+    })
+    .attr('fill', labelFill)
+    .text(labelText)
+    .style('font-size', labelSize)
+    .style('font-weight', d => d.depth <= 1 ? '600' : '400');
+
+  attachTooltips(nodes, container);
+}
+
+// ===== Legend =====
 
 function renderLegend(treeData) {
   const legend = document.getElementById('legend');
@@ -335,7 +424,6 @@ function enforceConstraints() {
   const combatToggle = document.getElementById('toggle-combat');
   const transitToggle = document.getElementById('toggle-transit');
 
-  // Can't be in combat or transit while docked.
   if (isDocked) {
     combatToggle.checked = false;
     transitToggle.checked = false;
@@ -346,7 +434,6 @@ function enforceConstraints() {
     transitRow.classList.remove('disabled');
   }
 
-  // Can't be in combat and in transit.
   if (combatToggle.checked) {
     transitToggle.checked = false;
     transitRow.classList.add('disabled');
@@ -375,7 +462,14 @@ function updateSliderLabels() {
 // ===== Event Binding =====
 
 function init() {
-  // Radio buttons.
+  // Layout toggle — re-render without re-fetching.
+  document.querySelectorAll('input[name="layout"]').forEach(el => {
+    el.addEventListener('change', () => {
+      if (currentData) renderTree(currentData.tree);
+    });
+  });
+
+  // Dock state radio buttons.
   document.querySelectorAll('input[name="dock-state"]').forEach(el => {
     el.addEventListener('change', () => { enforceConstraints(); debouncedEvaluate(); });
   });
