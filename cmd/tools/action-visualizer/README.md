@@ -5,10 +5,16 @@ Interactive web tool for exploring the game's decision space. Shows which action
 ## Usage
 
 ```bash
+# Using hardcoded action registry (default):
 go run ./cmd/tools/action-visualizer/
+
+# Using OpenAPI spec (auto-discovers new commands):
+go run ./cmd/tools/action-visualizer/ -spec server_docs/openapi.json
 ```
 
 Opens a browser at `http://localhost:8077`.
+
+With `-spec`, the tool parses all commands from the OpenAPI spec, merges them with annotated preconditions from `pkg/actionspace/annotations.go`, and warns about any new commands that need precondition annotations.
 
 ## Layout
 

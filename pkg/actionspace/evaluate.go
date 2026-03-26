@@ -1,10 +1,15 @@
 package actionspace
 
-// Evaluate computes the full action space for a given game context.
+// Evaluate computes the full action space using the default AllActions registry.
 func Evaluate(gc GameContext) ActionSpace {
-	results := make([]ActionResult, 0, len(AllActions))
+	return evaluateActions(AllActions, gc)
+}
 
-	for _, action := range AllActions {
+// evaluateActions is the core evaluation logic, usable with any action list.
+func evaluateActions(actions []Action, gc GameContext) ActionSpace {
+	results := make([]ActionResult, 0, len(actions))
+
+	for _, action := range actions {
 		result := ActionResult{Action: action}
 
 		allPassed := true

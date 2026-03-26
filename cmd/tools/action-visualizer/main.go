@@ -1,10 +1,12 @@
 // Action Visualizer — interactive web tool for exploring the game action space.
 // Run with: go run ./cmd/tools/action-visualizer/
+// With OpenAPI spec: go run ./cmd/tools/action-visualizer/ -spec server_docs/openapi.json
 package main
 
 import (
 	"embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/fs"
 	"log"
@@ -18,8 +20,26 @@ import (
 //go:embed static/*
 var staticFiles embed.FS
 
+var registry *actionspace.Registry
+
 func main() {
-	addr := "localhost:8077"
+	specPath := flag.String("spec", "", "path to OpenAPI spec (e.g. server_docs/openapi.json)")
+	addr := flag.String("addr", "localhost:8077", "listen address")
+	flag.Parse()
+
+	// Load registry.
+	if *specPath != "" {
+		var err error
+		registry, err = actionspace.LoadFromOpenAPI(*specPath)
+		if err != nil {
+			log.Fatalf("failed to load OpenAPI spec: %v", err)
+		}
+		registry.LogWarnings()
+		log.Printf("Loaded %d actions from %s", len(registry.Actions), *specPath)
+	} else {
+		registry = actionspace.DefaultRegistry()
+		log.Printf("Using default registry (%d actions)", len(registry.Actions))
+	}
 
 	// Serve static files from embedded FS.
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -28,16 +48,14 @@ func main() {
 	}
 	http.Handle("/", http.FileServer(http.FS(staticFS)))
 
-	// API endpoint: evaluate action space.
+	// API endpoints.
 	http.HandleFunc("POST /api/evaluate", handleEvaluate)
-
-	// API endpoint: list all actions for reference.
 	http.HandleFunc("GET /api/actions", handleActions)
 
-	fmt.Printf("Action Visualizer running at http://%s\n", addr)
-	openBrowser("http://" + addr)
+	fmt.Printf("Action Visualizer running at http://%s\n", *addr)
+	openBrowser("http://" + *addr)
 
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(*addr, nil); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
@@ -49,7 +67,7 @@ func handleEvaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	as := actionspace.Evaluate(gc)
+	as := registry.Evaluate(gc)
 
 	// Build tree structure for D3.
 	tree := buildTree(as)
@@ -70,8 +88,8 @@ func handleActions(w http.ResponseWriter, _ *http.Request) {
 		Category string `json:"category"`
 	}
 
-	actions := make([]actionInfo, len(actionspace.AllActions))
-	for i, a := range actionspace.AllActions {
+	actions := make([]actionInfo, len(registry.Actions))
+	for i, a := range registry.Actions {
 		actions[i] = actionInfo{
 			Name:     a.Name,
 			Summary:  a.Summary,
@@ -85,7 +103,7 @@ func handleActions(w http.ResponseWriter, _ *http.Request) {
 
 // evaluateResponse is the JSON response for /api/evaluate.
 type evaluateResponse struct {
-	Tree  treeNode         `json:"tree"`
+	Tree  treeNode          `json:"tree"`
 	Stats actionspace.Stats `json:"stats"`
 }
 
