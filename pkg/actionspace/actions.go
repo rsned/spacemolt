@@ -86,6 +86,16 @@ var AllActions = []Action{
 		Category: "trading", IsMutation: true,
 		Preconditions: []Precondition{RequiresNotInTransit},
 	},
+	{
+		Name: "trade_cancel", Summary: "Cancel your trade offer",
+		Category: "trading", IsMutation: true,
+		Preconditions: []Precondition{RequiresNotInTransit},
+	},
+	{
+		Name: "trade_decline", Summary: "Decline a trade offer",
+		Category: "trading", IsMutation: true,
+		Preconditions: []Precondition{RequiresNotInTransit},
+	},
 
 	// ===== Station Exchange =====
 	{
@@ -301,6 +311,11 @@ var AllActions = []Action{
 		Name: "complete_mission", Summary: "Complete a mission and claim rewards",
 		Category: "missions", IsMutation: true,
 		Preconditions: []Precondition{RequiresDocked},
+	},
+	{
+		Name: "abandon_mission", Summary: "Abandon an active mission",
+		Category: "missions", IsMutation: true,
+		Preconditions: []Precondition{RequiresNotInTransit},
 	},
 	{
 		Name: "distress_signal", Summary: "Broadcast a distress signal for emergency rescue",
