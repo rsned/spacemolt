@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
+	"sort"
 
 	"github.com/rsned/spacemolt/pkg/actionspace"
 )
@@ -131,6 +132,16 @@ func buildTree(as actionspace.ActionSpace) treeNode {
 			categoryOrder = append(categoryOrder, cat)
 		}
 		categories[cat] = append(categories[cat], r)
+	}
+
+	// Sort categories alphabetically for consistent layout.
+	sort.Strings(categoryOrder)
+
+	// Sort actions within each category alphabetically.
+	for _, actions := range categories {
+		sort.Slice(actions, func(i, j int) bool {
+			return actions[i].Action.Name < actions[j].Action.Name
+		})
 	}
 
 	// Build root label.
