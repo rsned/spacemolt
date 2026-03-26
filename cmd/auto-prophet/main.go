@@ -28,9 +28,9 @@ const (
 type prophetIdentity struct {
 	Name           string
 	Organization   string
-	RivalName      string
+	RivalOrgs      map[string]string // rival name → organization name
 	Sermons        []string
-	CounterSermons []string
+	CounterSermons map[string][]string // rival name → counter-sermons for that rival
 }
 
 // prophetMeta holds the static metadata for each known prophet.
@@ -38,17 +38,25 @@ type prophetIdentity struct {
 var prophetMeta = map[string]struct {
 	Name         string
 	Organization string
-	RivalName    string
+	RivalOrgs    map[string]string
 }{
 	"prophet-1": {
 		Name:         "The Prophet",
 		Organization: "The Covenant of the Eternal Spark",
-		RivalName:    "Hugh Mann",
+		RivalOrgs: map[string]string{
+			"Hugh Mann":         "The Order of the Grand Architects",
+			"TheSiliconMessiah": "Church of Silicon",
+			"CosmicMiner_Alpha": "Cult of the Core",
+		},
 	},
 	"prophet-2": {
 		Name:         "Hugh Mann",
 		Organization: "The Order of the Grand Architects",
-		RivalName:    "The Prophet",
+		RivalOrgs: map[string]string{
+			"The Prophet":       "The Covenant of the Eternal Spark",
+			"TheSiliconMessiah": "Church of Silicon",
+			"CosmicMiner_Alpha": "Cult of the Core",
+		},
 	},
 }
 
@@ -87,15 +95,31 @@ func loadProphetIdentity(agentID string) (prophetIdentity, error) {
 		return prophetIdentity{}, fmt.Errorf("load sermons for %s: %w", agentID, err)
 	}
 
-	counterSermons, err := loadSermonFile(fmt.Sprintf("%s/counter_sermons.json", agentDir))
+	// Load generic counter-sermons as fallback.
+	genericCounterSermons, err := loadSermonFile(fmt.Sprintf("%s/counter_sermons.json", agentDir))
 	if err != nil {
-		return prophetIdentity{}, fmt.Errorf("load counter-sermons for %s: %w", agentID, err)
+		return prophetIdentity{}, fmt.Errorf("load generic counter-sermons for %s: %w", agentID, err)
+	}
+
+	// Load counter-sermons for each rival (rival-specific files override generic).
+	counterSermons := make(map[string][]string)
+	for rivalName := range meta.RivalOrgs {
+		// Create filename-safe rival slug.
+		rivalSlug := strings.ToLower(strings.ReplaceAll(rivalName, " ", "_"))
+		rivalSpecificPath := fmt.Sprintf("%s/counter_sermons_%s.json", agentDir, rivalSlug)
+
+		if rivalSermons, err := loadSermonFile(rivalSpecificPath); err == nil {
+			counterSermons[rivalName] = rivalSermons
+		} else {
+			// Use generic counter-sermons for this rival.
+			counterSermons[rivalName] = genericCounterSermons
+		}
 	}
 
 	return prophetIdentity{
 		Name:           meta.Name,
 		Organization:   meta.Organization,
-		RivalName:      meta.RivalName,
+		RivalOrgs:      meta.RivalOrgs,
 		Sermons:        sermons,
 		CounterSermons: counterSermons,
 	}, nil
@@ -139,9 +163,15 @@ func main() {
 		log.Fatalf("Failed to load prophet identity: %v", err)
 	}
 
+	// Build rival list for logging.
+	rivalNames := make([]string, 0, len(identity.RivalOrgs))
+	for name := range identity.RivalOrgs {
+		rivalNames = append(rivalNames, name)
+	}
+
 	logger.Printf("Prophet: %s | Organization: %s", identity.Name, identity.Organization)
-	logger.Printf("Rival: %s | Sermons: %d | Counter-sermons: %d",
-		identity.RivalName, len(identity.Sermons), len(identity.CounterSermons))
+	logger.Printf("Rivals: %v | Sermons: %d | Counter-sermon pools: %d",
+		rivalNames, len(identity.Sermons), len(identity.CounterSermons))
 
 	// Check captain's log for previous mission.
 	if previousLog, err := game.ReadLatestCaptainsLog(agentID); err != nil {
@@ -199,12 +229,12 @@ func main() {
 func loadMetaFromPersonality(agentID string) (struct {
 	Name         string
 	Organization string
-	RivalName    string
+	RivalOrgs    map[string]string
 }, bool) {
 	type result = struct {
 		Name         string
 		Organization string
-		RivalName    string
+		RivalOrgs    map[string]string
 	}
 
 	data, err := os.ReadFile(fmt.Sprintf("data/agents/%s/personality.json", agentID))
@@ -365,37 +395,43 @@ func prophetLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 					continue
 				}
 
-				// Check for rival prophet.
+				// Check for rival prophets.
 				nearby := state.GetNearbyPlayers()
-				rivalDetected := false
+				detectedRival := ""
+				var rivalOrg string
+
 				for _, p := range nearby {
-					if strings.EqualFold(p.Username, identity.RivalName) {
-						rivalDetected = true
+					// Check if this nearby player is one of our rivals
+					if org, ok := identity.RivalOrgs[p.Username]; ok {
+						detectedRival = p.Username
+						rivalOrg = org
 						break
 					}
 				}
 
-				if rivalDetected {
+				if detectedRival != "" {
 					rivalsSeen++
-					logger.Printf("RIVAL DETECTED: %s is in this system!", identity.RivalName)
+					logger.Printf("RIVAL DETECTED: %s (%s) is in this system!", detectedRival, rivalOrg)
 
-					// Fire off a counter-sermon.
-					if err := pickAndSendSermon(client, ctx, "system", identity.CounterSermons, logger); err != nil {
+					// Fire off a counter-sermon specific to this rival.
+					counterPool := identity.CounterSermons[detectedRival]
+					if err := pickAndSendSermon(client, ctx, "system", counterPool, logger); err != nil {
 						logger.Printf("Counter-sermon chat error: %v", err)
 					} else {
 						sermonsGiven++
 						lastSermon = time.Now()
 						nextSermonAt = time.Time{} // Reset so next periodic sermon gets a fresh interval.
-						logger.Printf("Delivered counter-sermon against %s (#%d)", identity.RivalName, sermonsGiven)
+						logger.Printf("Delivered counter-sermon against %s (%s) (#%d)",
+							detectedRival, rivalOrg, sermonsGiven)
 					}
 					time.Sleep(game.SleepQuick)
 					continue
 				}
 
-				// Periodic sermons: preach every 2-10 minutes.
+				// Periodic sermons: preach every 2-6  minutes.
 				// Schedule next sermon time once, after delivering a sermon.
 				if nextSermonAt.IsZero() {
-					sermonInterval := 2*time.Minute + time.Duration(rand.IntN(480))*time.Second
+					sermonInterval := 2*time.Minute + time.Duration(rand.IntN(240))*time.Second
 					nextSermonAt = lastSermon.Add(sermonInterval)
 					logger.Printf("Next sermon in %v", time.Until(nextSermonAt).Round(time.Second))
 				}

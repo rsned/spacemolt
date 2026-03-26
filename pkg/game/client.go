@@ -1743,6 +1743,17 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.mu.Unlock()
 
+	case protocol.TypeChatMessage:
+		// Real-time chat message event (e.g., local/system channel messages)
+		// Log in debug mode for observability; agents can poll chat history separately
+		if sender, ok := resp.Payload["sender"].(string); ok {
+			if channel, ok := resp.Payload["channel"].(string); ok {
+				c.debugLogger.Printf("[CHAT] %s (%s): %v", sender, channel, resp.Payload["content"])
+			}
+		} else {
+			c.debugLogger.Printf("[CHAT] %v", resp.Payload)
+		}
+
 	default:
 		logUnhandledResponseType(resp)
 	}

@@ -2010,17 +2010,39 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 3 {
 			return fmt.Errorf("usage: chat <channel> <message>")
 		}
-		msg := strings.Join(parts[2:], " ")
+		channel := parts[1]
+		var msg string
+		var target string
+
+		// Private messages require a target username: chat private <target> <message>
+		if strings.EqualFold(channel, "private") {
+			if len(parts) < 4 {
+				return fmt.Errorf("usage: chat private <target> <message>")
+			}
+			target = parts[2]
+			msg = strings.Join(parts[3:], " ")
+		} else {
+			// Public channels: chat local|system|faction <message>
+			msg = strings.Join(parts[2:], " ")
+		}
+
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Chat(ctx, parts[1], msg, "")
+			return client.Chat(ctx, channel, msg, target)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "chat_history", "get_chat_history":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: chat_history <channel>")
+			return fmt.Errorf("usage: chat_history <channel> [--target_id <username>]")
+		}
+		channel := parts[1]
+		// Parse optional --target_id flag (required for private channel)
+		flagArgs := parseFlagArgs(parts[2:], "target_id")
+		payload := make(map[string]any)
+		if targetID, ok := flagArgs["target_id"]; ok {
+			payload["target_id"] = targetID
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.GetChatHistory(ctx, parts[1], nil)
+			return client.GetChatHistory(ctx, channel, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "send_gift":
@@ -2236,6 +2258,11 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 // simpleCommand executes a command, prints the server response, then waits.
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
 	if err := fn(ctx); err != nil {
+		// Even on error, show the server's response for debugging/JSON mode
+		// The response contains: action, code, message, command, tick
+		if raw := client.GetRawJSON("_last"); len(raw) > 0 {
+			printResponse(raw, format, command)
+		}
 		return err
 	}
 	showLastResponse(client, format, command)
@@ -2563,8 +2590,10 @@ func printHelp() {
 	fmt.Println("  faction_cancel_mission <id>    - Cancel a faction mission")
 
 	fmt.Println("\n=== COMMUNICATION ===")
-	fmt.Println("  chat <channel> <msg>      - Send chat message")
-	fmt.Println("  chat_history <channel>    - Get chat history")
+	fmt.Println("  chat <channel> <msg>                    - Send chat message")
+	fmt.Println("  chat private <target> <msg>            - Send private message")
+	fmt.Println("  chat_history <channel>                  - Get chat history")
+	fmt.Println("  chat_history private --target_id <name> - Get private messages")
 	fmt.Println("  send_gift <recipient> <item_id> <qty>  - Send items")
 	fmt.Println("  send_gift <recipient> credits <amount> - Send credits")
 	fmt.Println("  send_gift <recipient> ship <ship_id>   - Send ship")
