@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Action Space Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Metrics Bar -->
+  <div id="metrics-bar">
+    <div class="metric-card">
+      <div class="metric-value highlight" id="m-branching">-</div>
+      <div class="metric-label">Branching Factor</div>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-card">
+      <div class="metric-value" id="m-valid">-</div>
+      <div class="metric-label">Valid Actions</div>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-card">
+      <div class="metric-value" id="m-total">-</div>
+      <div class="metric-label">Total Actions</div>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-card">
+      <div class="metric-value pruned" id="m-pruned-pct">-</div>
+      <div class="metric-label">Pruned</div>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-card">
+      <div class="metric-value warning" id="m-categories">-</div>
+      <div class="metric-label">Active Categories</div>
+    </div>
+    <div id="top-pruning-reason">
+      Top pruning: <span id="m-top-prune">-</span>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="content">
+
+    <!-- Left Panel: State Toggles -->
+    <div id="left-panel">
+
+      <div class="panel-section">
+        <h3>State</h3>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="dock-state" value="docked">
+            <span>Docked</span>
+          </label>
+          <label>
+            <input type="radio" name="dock-state" value="undocked" checked>
+            <span>Undocked</span>
+          </label>
+        </div>
+        <div class="toggle-row" id="row-combat">
+          <label><input type="checkbox" id="toggle-combat"> In Combat</label>
+        </div>
+        <div class="toggle-row" id="row-transit">
+          <label><input type="checkbox" id="toggle-transit"> In Transit</label>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>Resources</h3>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span class="slider-name">Fuel</span>
+            <span class="slider-value" id="val-fuel">50 / 100</span>
+          </div>
+          <input type="range" id="slider-fuel" min="0" max="100" value="50">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span class="slider-name">Hull</span>
+            <span class="slider-value" id="val-hull">100 / 100</span>
+          </div>
+          <input type="range" id="slider-hull" min="0" max="100" value="100">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span class="slider-name">Cargo Used</span>
+            <span class="slider-value" id="val-cargo">10 / 50</span>
+          </div>
+          <input type="range" id="slider-cargo" min="0" max="50" value="10">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span class="slider-name">Credits</span>
+            <span class="slider-value" id="val-credits">1000</span>
+          </div>
+          <input type="range" id="slider-credits" min="0" max="10000" value="1000" step="100">
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>Context</h3>
+        <div class="number-row">
+          <span>Cargo Items</span>
+          <input type="number" id="num-cargo-items" min="0" max="50" value="2">
+        </div>
+        <div class="number-row">
+          <span>Nearby Players</span>
+          <input type="number" id="num-nearby" min="0" max="20" value="0">
+        </div>
+        <div class="number-row">
+          <span>Wrecks</span>
+          <input type="number" id="num-wrecks" min="0" max="10" value="0">
+        </div>
+        <div class="number-row">
+          <span>Stored Ships</span>
+          <input type="number" id="num-stored-ships" min="0" max="10" value="0">
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-faction"> In Faction</label>
+        </div>
+        <div class="toggle-row">
+          <label><input type="checkbox" id="toggle-towing"> Towing Wreck</label>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>Location</h3>
+        <div class="number-row">
+          <span>POI Type</span>
+          <select id="select-poi-type" style="background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:3px 6px;border-radius:4px;font-size:12px;">
+            <option value="station">Station</option>
+            <option value="asteroid_belt" selected>Asteroid Belt</option>
+            <option value="ice_field">Ice Field</option>
+            <option value="gas_cloud">Gas Cloud</option>
+            <option value="planet">Planet</option>
+            <option value="nebula">Nebula</option>
+          </select>
+        </div>
+        <div class="number-row">
+          <span>System POIs</span>
+          <input type="number" id="num-pois" min="0" max="20" value="5">
+        </div>
+        <div class="number-row">
+          <span>Connections</span>
+          <input type="number" id="num-connections" min="0" max="10" value="3">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Main Graph Area -->
+    <div id="graph-panel">
+      <svg id="graph-svg"></svg>
+      <div id="tooltip"></div>
+      <div id="legend"></div>
+    </div>
+
+  </div>
+
+  <script src="d3.v7.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
