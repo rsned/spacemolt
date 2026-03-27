@@ -117,8 +117,8 @@ type treeNode struct {
 	FailedChecks   []string   `json:"failedChecks,omitempty"`
 	Targets        []string   `json:"targets,omitempty"`
 	BranchingCount int        `json:"branchingCount,omitempty"`
-	ValidCount     int        `json:"validCount,omitempty"`
-	TotalCount     int        `json:"totalCount,omitempty"`
+	ValidCount     int        `json:"validCount"`
+	TotalCount     int        `json:"totalCount"`
 	Children       []treeNode `json:"children,omitempty"`
 }
 
