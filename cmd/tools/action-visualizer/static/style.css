@@ -324,7 +324,7 @@ input[type="range"]::-webkit-slider-thumb {
 #legend {
   position: absolute;
   bottom: 16px;
-  right: 16px;
+  left: 16px;
   background: rgba(22, 27, 34, 0.9);
   border: 1px solid #30363d;
   border-radius: 6px;
