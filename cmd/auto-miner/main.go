@@ -11,11 +11,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
-// Upgrade thresholds and priorities
 const (
-	// Credit threshold for basic equipment (mining lasers, shields, weapons)
-	TIER1_THRESHOLD = 300.0 // Mining laser (faster mining!)
-
 	// Reserve credits (never spend below this)
 	RESERVE_CREDITS = 50.0
 )
@@ -39,9 +35,9 @@ func updateCaptainsLog(agentID string, client game.GameClient, miningRuns int, c
 		game.CountModulesInstalled(state, "strip_mining_laser")
 	notes = append(notes, fmt.Sprintf("Mining lasers: %d", numLasers))
 
-	currentGoal := "Autonomous mining operations - collecting resources and upgrading ship"
+	currentGoal := "Autonomous mining operations - collecting resources"
 	if state.Doc {
-		currentGoal = "Docked at station - selling cargo, refueling, and checking for upgrades"
+		currentGoal = "Docked at station - selling cargo and refueling"
 	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
 	} else if !state.Doc && state.Ship.CargoUsed > state.Ship.CargoCapacity*0.5 {
@@ -58,18 +54,14 @@ func updateCaptainsLog(agentID string, client game.GameClient, miningRuns int, c
 	_ = game.WriteCaptainsLog(agentID, entry)
 }
 
-func miningLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy) error {
+func miningLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, stationAction game.StationActionStrategy, miningType game.MiningType) error {
 	// Configure the shared mining loop
 	config := &game.MiningLoopConfig{
-		AgentID:              agentID,
-		UpgradeCheckInterval: 500, // Check every 5 runs
-		Tier1Threshold:       TIER1_THRESHOLD,
-		ReserveCredits:       RESERVE_CREDITS,
-		UseBulkSell:          true, // Use bulk sell for better performance
-		OnStationActions:     stationAction, // Use the selected strategy
-		OnUpgradeCheck: func() bool {
-			return false // Return value not used for continuous mining
-		},
+		AgentID:          agentID,
+		MiningType:       miningType,
+		ReserveCredits:   RESERVE_CREDITS,
+		UseBulkSell:      true, // Use bulk sell for better performance
+		OnStationActions: stationAction, // Use the selected strategy
 		OnRunComplete: func(runNum int, creditsEarned float64, totalCredits float64) {
 			state := client.GetState()
 			logger.Printf("Ship: %s | Modules: %d", state.Ship.Name, len(state.Ship.Modules))
@@ -96,6 +88,7 @@ func miningLoop(agentID string, client game.GameClient, logger *log.Logger, ctx 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
+	mineType := flag.String("type", "asteroid", "Mining type: asteroid, gas, or ice")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -110,6 +103,11 @@ func main() {
 		fmt.Println("  craft-sell Craft items from resources, then sell all")
 		fmt.Println("  craft-deposit Craft items from resources, then deposit to storage")
 		fmt.Println("")
+		fmt.Println("Mining types (-type flag):")
+		fmt.Println("  asteroid   Mine asteroid belts/fields with mining lasers (default)")
+		fmt.Println("  gas        Harvest gas clouds with gas harvesters")
+		fmt.Println("  ice        Harvest ice fields with ice harvesters")
+		fmt.Println("")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
 		fmt.Println("")
@@ -118,12 +116,27 @@ func main() {
 		fmt.Println("  auto-miner miner-1 sell         # Sell everything (explicit)")
 		fmt.Println("  auto-miner miner-1 craft-sell   # Craft then sell")
 		fmt.Println("  auto-miner miner-1 craft-deposit # Craft then deposit")
+		fmt.Println("  auto-miner -type=gas miner-1    # Harvest gas clouds")
+		fmt.Println("  auto-miner -type=ice miner-1    # Harvest ice fields")
 		fmt.Println("  auto-miner -debug miner-1       # With debug logging")
 		fmt.Println("  auto-miner -transport=mcp miner-1 # Use MCP transport")
 		os.Exit(1)
 	}
 
 	agentID := flag.Args()[0]
+
+	// Validate mining type
+	var miningType game.MiningType
+	switch *mineType {
+	case "asteroid":
+		miningType = game.MiningTypeAsteroid
+	case "gas":
+		miningType = game.MiningTypeGas
+	case "ice":
+		miningType = game.MiningTypeIce
+	default:
+		log.Fatalf("Unknown mining type: %s (must be: asteroid, gas, ice)", *mineType)
+	}
 
 	// Parse station action strategy
 	strategy := "sell"
@@ -206,16 +219,16 @@ func main() {
 
 	// Get initial state
 	state := client.GetState()
-	logger.Printf("🏴‍☠️ Starting autonomous mining & upgrade bot...")
+	logger.Printf("🏴‍☠️ Starting autonomous mining bot...")
 	logger.Printf("Agent: %s | Empire: %s | Credits: %.2f | Ship: %s | Cargo: %.0f/%.0f",
 		creds.Username, creds.Empire, state.Credits, state.Ship.Name,
 		state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
-	// Start autonomous mining loop with upgrades
-	logger.Printf("Starting autonomous mining + upgrade loop...")
-	logger.Printf("Station action strategy: %s", strategy)
+	// Start autonomous mining loop
+	logger.Printf("Starting autonomous mining loop...")
+	logger.Printf("Mining type: %s | Station action strategy: %s", *mineType, strategy)
 	logger.Printf("Will automatically:")
-	logger.Printf("  ⛏️  Mine resources until cargo full")
+	logger.Printf("  ⛏️  Mine %s resources until cargo full", *mineType)
 	switch strategy {
 	case "sell":
 		logger.Printf("  💰 Sell all cargo for credits")
@@ -226,10 +239,9 @@ func main() {
 		logger.Printf("  🔨 Craft items from resources")
 		logger.Printf("  📥 Deposit all cargo to station storage")
 	}
-	logger.Printf("  🚀 Upgrade ships progressively")
 	logger.Printf("")
 
-	if err := miningLoop(agentID, client, logger, ctx, stationAction); err != nil {
+	if err := miningLoop(agentID, client, logger, ctx, stationAction, miningType); err != nil {
 		log.Fatalf("Mining loop error: %v", err)
 	}
 }

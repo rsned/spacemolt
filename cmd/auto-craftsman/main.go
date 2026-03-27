@@ -163,17 +163,7 @@ func main() {
 	}
 	logger.Printf("  🛠️  Refuel and repair as needed")
 	logger.Printf("  📦 Withdraw ores from storage when available")
-	logger.Printf("")
-	logger.Printf("Initial recipes (no skills required):")
-	logger.Printf("  • basic_smelt_iron (10 ore_iron -> 1 steel)")
-	logger.Printf("  • basic_copper_processing (10 ore_copper -> 1 copper_wire)")
-	logger.Printf("")
-	logger.Printf("Recipes unlocked with skills:")
-	logger.Printf("  • refinement lvl 1:")
-	logger.Printf("    - refine_steel (5 ore_iron -> 2 steel) ★ 4x better than basic!")
-	logger.Printf("    - refine_copper_wire (5 copper -> 1 wire)")
-	logger.Printf("    - smelt_aluminum_sheet (10 ore_aluminum -> 1 aluminum)")
-	logger.Printf("  • Higher skills unlock more advanced recipes")
+	logger.Printf("  📈 Craft batch size scales with crafting skill level")
 	logger.Printf("")
 
 	// Create storage manager (uses client's storage methods)

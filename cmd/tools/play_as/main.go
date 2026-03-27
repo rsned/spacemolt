@@ -1371,6 +1371,45 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Cloak(ctx, enable)
 		}, ctx, 2*time.Second, cmd, format)
 
+	case "battle":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: battle <action> [--stance <stance>] [--target_id <id>] [--side_id <id>]")
+		}
+		payload := map[string]any{"action": parts[1]}
+		flags := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
+		for k, v := range flags {
+			if k == "side_id" {
+				if n, err := strconv.Atoi(v.(string)); err == nil {
+					payload[k] = n
+				}
+			} else {
+				payload[k] = v
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "battle", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "reload":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: reload <weapon-instance-id> <ammo-item-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "reload", map[string]any{
+				"weapon_instance_id": parts[1],
+				"ammo_item_id":      parts[2],
+			})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "distress_signal":
+		var distressType string
+		if len(parts) >= 2 {
+			distressType = parts[1]
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.DistressSignal(ctx, distressType)
+		}, ctx, 2*time.Second, cmd, format)
+
 	// === COMMERCE ===
 	case "sell":
 		if len(parts) < 3 {
@@ -1411,11 +1450,39 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return simpleCommand(client, client.GetListings, ctx, 2*time.Second, cmd, format)
 		}
+		// First non-flag arg is item_id; also accept --item_id and --category flags
+		payload := make(map[string]any)
+		for i := 1; i < len(parts); i++ {
+			arg := parts[i]
+			if key, ok := strings.CutPrefix(arg, "--"); ok {
+				if k, v, ok2 := strings.Cut(key, "="); ok2 {
+					payload[k] = v
+				} else if i+1 < len(parts) {
+					i++
+					payload[key] = parts[i]
+				}
+			} else if payload["item_id"] == nil {
+				payload["item_id"] = arg
+			}
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.ViewMarket(ctx, parts[1])
+			return client.RawCommand(ctx, "view_market", payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "view_orders":
+		if len(parts) > 1 {
+			payload := parseFlagArgs(parts[1:], "item_id", "order_type", "page", "page_size", "scope", "search", "sort_by", "station_id")
+			for _, k := range []string{"page", "page_size"} {
+				if v, ok := payload[k]; ok {
+					if n, err := strconv.Atoi(v.(string)); err == nil {
+						payload[k] = n
+					}
+				}
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "view_orders", payload)
+			}, ctx, 2*time.Second, cmd, format)
+		}
 		return simpleCommand(client, client.ViewOrders, ctx, 2*time.Second, cmd, format)
 
 	case "create_sell_order":
@@ -1458,6 +1525,183 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			})
 		}, ctx, 3*time.Second, cmd, format)
 
+	case "cancel_order":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: cancel_order <order-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "cancel_order", map[string]any{"order_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "modify_order":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: modify_order <order-id> --new_price <price>")
+		}
+		payload := map[string]any{"order_id": parts[1]}
+		flags := parseFlagArgs(parts[2:], "new_price")
+		if v, ok := flags["new_price"]; ok {
+			if n, err := strconv.Atoi(v.(string)); err == nil {
+				payload["new_price"] = n
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "modify_order", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "estimate_purchase":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: estimate_purchase <item-id> <quantity>")
+		}
+		qty, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "estimate_purchase", map[string]any{
+				"item_id": parts[1], "quantity": qty,
+			})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "list_ship_for_sale":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: list_ship_for_sale <ship-id> <price>")
+		}
+		price, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid price: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "list_ship_for_sale", map[string]any{
+				"ship_id": parts[1], "price": price,
+			})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "name_ship":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: name_ship <name>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "name_ship", map[string]any{
+				"name": strings.Join(parts[1:], " "),
+			})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "commission_quote":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: commission_quote <ship-class>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "commission_quote", map[string]any{"ship_class": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "commission_status":
+		var payload map[string]any
+		if len(parts) >= 2 {
+			payload = map[string]any{"base_id": parts[1]}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "commission_status", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "cancel_commission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: cancel_commission <commission-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "cancel_commission", map[string]any{"commission_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "claim_commission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: claim_commission <commission-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "claim_commission", map[string]any{"commission_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "commission_ship":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: commission_ship <ship-class> [--provide_materials true|false]")
+		}
+		payload := map[string]any{}
+		// Parse positional and flags
+		for i := 1; i < len(parts); i++ {
+			arg := parts[i]
+			if key, ok := strings.CutPrefix(arg, "--"); ok {
+				if k, v, ok2 := strings.Cut(key, "="); ok2 {
+					payload[k] = v
+				} else if i+1 < len(parts) {
+					i++
+					payload[key] = parts[i]
+				}
+			} else if payload["ship_class"] == nil {
+				payload["ship_class"] = arg
+			}
+		}
+		// Convert provide_materials to bool
+		if v, ok := payload["provide_materials"]; ok {
+			s, _ := v.(string)
+			payload["provide_materials"] = strings.EqualFold(s, "true") || s == "1"
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "commission_ship", payload)
+		}, ctx, 5*time.Second, cmd, format)
+
+	case "supply_commission":
+		if len(parts) < 4 {
+			return fmt.Errorf("usage: supply_commission <commission-id> <item-id> <quantity>")
+		}
+		qty, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "supply_commission", map[string]any{
+				"commission_id": parts[1], "item_id": parts[2], "quantity": qty,
+			})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "trade_offer":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: trade_offer <target-id> [--offer_credits <n>] [--request_credits <n>]")
+		}
+		payload := map[string]any{"target_id": parts[1]}
+		flags := parseFlagArgs(parts[2:], "offer_credits", "request_credits")
+		for _, k := range []string{"offer_credits", "request_credits"} {
+			if v, ok := flags[k]; ok {
+				if n, err := strconv.Atoi(v.(string)); err == nil {
+					payload[k] = n
+				}
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "trade_offer", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "trade_accept":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: trade_accept <trade-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "trade_accept", map[string]any{"trade_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "trade_cancel":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: trade_cancel <trade-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "trade_cancel", map[string]any{"trade_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "trade_decline":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: trade_decline <trade-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "trade_decline", map[string]any{"trade_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
 	// === CRAFTING ===
 	case "craft":
 		if len(parts) < 3 {
@@ -1476,9 +1720,31 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === SHIP MAINTENANCE ===
 	case "refuel":
+		if len(parts) > 1 {
+			payload := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
+			if v, ok := payload["quantity"]; ok {
+				if n, err := strconv.Atoi(v.(string)); err == nil {
+					payload["quantity"] = n
+				}
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "refuel", payload)
+			}, ctx, 3*time.Second, cmd, format)
+		}
 		return simpleCommand(client, client.Refuel, ctx, 3*time.Second, cmd, format)
 
 	case "repair":
+		if len(parts) > 1 {
+			payload := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
+			if v, ok := payload["quantity"]; ok {
+				if n, err := strconv.Atoi(v.(string)); err == nil {
+					payload["quantity"] = n
+				}
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "repair", payload)
+			}, ctx, 3*time.Second, cmd, format)
+		}
 		return simpleCommand(client, client.Repair, ctx, 3*time.Second, cmd, format)
 
 	case "install", "install_mod":
@@ -1506,8 +1772,23 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 5*time.Second, cmd, format)
 
 	case "browse_ships":
+		var payload map[string]any
+		if len(parts) > 1 {
+			payload = make(map[string]any)
+			for i := 1; i < len(parts); i++ {
+				arg := parts[i]
+				if key, ok := strings.CutPrefix(arg, "--"); ok {
+					if k, v, ok2 := strings.Cut(key, "="); ok2 {
+						payload[k] = v
+					} else if i+1 < len(parts) {
+						i++
+						payload[key] = parts[i]
+					}
+				}
+			}
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.BrowseShips(ctx, nil)
+			return client.BrowseShips(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "list_ships":
@@ -1628,6 +1909,36 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.SalvageWreck(ctx, parts[1])
 		}, ctx, 5*time.Second, cmd, format)
 
+	case "tow", "tow_wreck":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: tow <wreck-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "tow_wreck", map[string]any{"wreck_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "use_item":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: use_item <item-id> [quantity]")
+		}
+		payload := map[string]any{"item_id": parts[1]}
+		if len(parts) >= 3 {
+			if n, err := strconv.Atoi(parts[2]); err == nil {
+				payload["quantity"] = n
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "use_item", payload)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "repair_module":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: repair_module <module-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "repair_module", map[string]any{"module_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
 	// === QUERIES ===
 	case "status", "get_status":
 		return simpleCommand(client, client.GetStatus, ctx, 2*time.Second, cmd, format)
@@ -1648,6 +1959,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.GetBase, ctx, 2*time.Second, cmd, format)
 
 	case "map", "get_map":
+		// Check for --system_id flag or bare force arg
+		mapFlags := parseFlagArgs(parts[1:], "system_id")
+		if sysID, ok := mapFlags["system_id"]; ok {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "get_map", map[string]any{"system_id": sysID})
+			}, ctx, 5*time.Second, cmd, format)
+		}
 		force := len(parts) >= 2 && (parts[1] == "force" || parts[1] == "1")
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.GetMap(ctx, force)
@@ -1672,6 +1990,91 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			fmt.Printf("  %d. %s (%d jumps)\n", i+1, step.Name, step.Jumps)
 		}
 		return nil
+
+	case "catalog":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: catalog <type> [--page N] [--page_size N] [--search text] [--category cat] [--class cls] [--empire emp] [--id id] [--tier N]")
+		}
+		payload := map[string]any{"type": parts[1]}
+		flags := parseFlagArgs(parts[2:], "page", "page_size", "search", "category", "class", "empire", "id", "tier", "commissionable")
+		for k, v := range flags {
+			switch k {
+			case "page", "page_size", "tier":
+				if n, err := strconv.Atoi(v.(string)); err == nil {
+					payload[k] = n
+				}
+			case "commissionable":
+				payload[k] = strings.EqualFold(v.(string), "true") || v.(string) == "1"
+			default:
+				payload[k] = v
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "catalog", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "search_systems":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: search_systems <query>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "search_systems", map[string]any{
+				"query": strings.Join(parts[1:], " "),
+			})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "get_guide":
+		var payload map[string]any
+		if len(parts) >= 2 {
+			payload = map[string]any{"guide": parts[1]}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "get_guide", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "server_help":
+		payload := parseFlagArgs(parts[1:], "command", "category")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.Help(ctx, payload)
+		}, ctx, 2*time.Second, "help", format)
+
+	case "get_notifications":
+		payload := parseFlagArgs(parts[1:], "clear", "limit")
+		if v, ok := payload["clear"]; ok {
+			payload["clear"] = strings.EqualFold(v.(string), "true") || v.(string) == "1"
+		}
+		if v, ok := payload["limit"]; ok {
+			if n, err := strconv.Atoi(v.(string)); err == nil {
+				payload["limit"] = n
+			}
+		}
+		if len(payload) == 0 {
+			return simpleCommand(client, client.GetNotifications, ctx, 2*time.Second, cmd, format)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "get_notifications", payload)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "fleet":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: fleet <action> [--player_id <id>]")
+		}
+		playerID := ""
+		fleetFlags := parseFlagArgs(parts[2:], "player_id")
+		if v, ok := fleetFlags["player_id"]; ok {
+			playerID = v.(string)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.Fleet(ctx, parts[1], playerID)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "set_home_base":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: set_home_base <base-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.SetHomeBase(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === FACTIONS ===
 	case "create_faction":
@@ -1712,8 +2115,19 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_list":
+		payload := parseFlagArgs(parts[1:], "limit", "offset")
+		for _, k := range []string{"limit", "offset"} {
+			if v, ok := payload[k]; ok {
+				if n, err := strconv.Atoi(v.(string)); err == nil {
+					payload[k] = n
+				}
+			}
+		}
+		if len(payload) == 0 {
+			payload = nil
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_list", nil)
+			return client.RawCommand(ctx, "faction_list", payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_edit":
@@ -2036,10 +2450,18 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		channel := parts[1]
 		// Parse optional --target_id flag (required for private channel)
-		flagArgs := parseFlagArgs(parts[2:], "target_id")
+		flagArgs := parseFlagArgs(parts[2:], "target_id", "before", "limit")
 		payload := make(map[string]any)
 		if targetID, ok := flagArgs["target_id"]; ok {
 			payload["target_id"] = targetID
+		}
+		if before, ok := flagArgs["before"]; ok {
+			payload["before"] = before
+		}
+		if limitStr, ok := flagArgs["limit"]; ok {
+			if n, err := strconv.Atoi(limitStr.(string)); err == nil {
+				payload["limit"] = n
+			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.GetChatHistory(ctx, channel, payload)
@@ -2103,9 +2525,91 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.ForumGetThread(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
+	case "forum_create_thread":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: forum_create_thread <title> <content> [--category <cat>]")
+		}
+		// Find --category flag; everything else after title is content
+		title := parts[1]
+		category := ""
+		var contentParts []string
+		for i := 2; i < len(parts); i++ {
+			if parts[i] == "--category" && i+1 < len(parts) {
+				i++
+				category = parts[i]
+			} else {
+				contentParts = append(contentParts, parts[i])
+			}
+		}
+		content := strings.Join(contentParts, " ")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumCreateThread(ctx, title, content, category)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "forum_reply":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: forum_reply <thread-id> <content>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumReply(ctx, parts[1], strings.Join(parts[2:], " "))
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "forum_upvote":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: forum_upvote <thread-id> [--reply_id <id>]")
+		}
+		replyID := ""
+		upvoteFlags := parseFlagArgs(parts[2:], "reply_id")
+		if v, ok := upvoteFlags["reply_id"]; ok {
+			replyID = v.(string)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumUpvote(ctx, parts[1], replyID)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "forum_delete_thread":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: forum_delete_thread <thread-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumDeleteThread(ctx, parts[1])
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "forum_delete_reply":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: forum_delete_reply <reply-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumDeleteReply(ctx, parts[1])
+		}, ctx, 3*time.Second, cmd, format)
+
 	// === NOTES ===
 	case "notes", "get_notes":
 		return simpleCommand(client, client.GetNotes, ctx, 2*time.Second, cmd, format)
+
+	case "create_note":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: create_note <title> <content>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.CreateNote(ctx, parts[1], strings.Join(parts[2:], " "))
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "read_note":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: read_note <note-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "read_note", map[string]any{"note_id": parts[1]})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "write_note":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: write_note <note-id> <content>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.WriteNote(ctx, parts[1], strings.Join(parts[2:], " "))
+		}, ctx, 2*time.Second, cmd, format)
 
 	// === MISSIONS ===
 	case "missions", "get_missions":
@@ -2117,6 +2621,38 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.AcceptMission(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "complete_mission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: complete_mission <mission-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "complete_mission", map[string]any{"mission_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "abandon_mission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: abandon_mission <mission-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "abandon_mission", map[string]any{"mission_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "decline_mission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: decline_mission <template-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "decline_mission", map[string]any{"template_id": parts[1]})
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "view_completed_mission":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: view_completed_mission <template-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "view_completed_mission", map[string]any{"template_id": parts[1]})
 		}, ctx, 2*time.Second, cmd, format)
 
 	// === ACTION LOG ===
@@ -2134,6 +2670,29 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		entry := strings.Join(parts[1:], " ")
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.CaptainsLogAdd(ctx, entry)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "captains_log_get":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: captains_log_get <index>")
+		}
+		idx, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return fmt.Errorf("invalid index: %w", err)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "captains_log_get", map[string]any{"index": idx})
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "captains_log_list":
+		var payload map[string]any
+		if len(parts) >= 2 {
+			if idx, err := strconv.Atoi(parts[1]); err == nil {
+				payload = map[string]any{"index": idx}
+			}
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "captains_log_list", payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	// === STATE ===
@@ -2235,9 +2794,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.
+		// Parse --key value, --key=value flags, and bare positional args.
 		args := make(map[string]any)
+		positional := 0
 		for i := 1; i < len(parts); i++ {
-			args[fmt.Sprintf("arg%d", i)] = parts[i]
+			arg := parts[i]
+			if key, ok := strings.CutPrefix(arg, "--"); ok {
+				if k, v, ok2 := strings.Cut(key, "="); ok2 {
+					args[k] = v
+				} else if i+1 < len(parts) {
+					i++
+					args[key] = parts[i]
+				}
+			} else {
+				positional++
+				args[fmt.Sprintf("arg%d", positional)] = arg
+			}
 		}
 		if len(args) == 0 {
 			args = nil
@@ -2526,7 +3098,7 @@ func printHelp() {
 	fmt.Println("  install, install_mod <item>  - Install equipment")
 	fmt.Println("  uninstall, uninstall_mod <module> - Uninstall module")
 	fmt.Println("  buy_ship <class>          - Buy a new ship")
-	fmt.Println("  browse_ships              - Browse ships for sale at station")
+	fmt.Println("  browse_ships [--base_id X] - Browse ships for sale (at current or specified base)")
 	fmt.Println("  list_ships                - List your ships")
 	fmt.Println("  switch_ship <ship-id>     - Switch to another ship")
 	fmt.Println("  sell_ship <ship-id>       - Sell a ship")

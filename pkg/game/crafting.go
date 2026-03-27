@@ -269,6 +269,9 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 	}
 
 	for _, craftable := range mcpResponse.Craftable {
+		if craftable.CanCraftQuantity <= 0 {
+			continue
+		}
 		// Convert components from MCP format to our format
 		components := make([]Component, 0, len(craftable.Recipe.Components))
 		for _, comp := range craftable.Recipe.Components {

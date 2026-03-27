@@ -10,22 +10,10 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // Reserve credits (never spend below this)
-const (
-	RESERVE_CREDITS = 50.0
-	TIER1_THRESHOLD = 500.0   // Weapon upgrade threshold
-	TIER2_THRESHOLD = 5000.0  // Shield upgrade threshold
-	TIER3_THRESHOLD = 10000.0 // Ship upgrade threshold
-)
-
-// agentState holds shared state for the fighter agent including the progression.
-type agentState struct {
-	progression *game.UpgradeProgression
-	shipDefs    map[string]game.ShipDef // ship ID -> ShipDef for slot lookups
-}
+const RESERVE_CREDITS = 50.0
 
 func updateCaptainsLog(agentID string, client game.GameClient, fighterRuns int, totalCreditsEarned float64) {
 	state := client.GetState()
@@ -51,9 +39,9 @@ func updateCaptainsLog(agentID string, client game.GameClient, fighterRuns int, 
 	}
 	notes = append(notes, fmt.Sprintf("Weapons installed: %d", weaponCount))
 
-	currentGoal := "Autonomous combat operations - hunting pirates and upgrading equipment"
+	currentGoal := "Autonomous combat operations - hunting pirates"
 	if state.Doc {
-		currentGoal = "Docked at station - selling loot, refueling, and checking for upgrades"
+		currentGoal = "Docked at station - selling loot and refueling"
 	} else if state.Traveling && state.TravelProgress != nil {
 		currentGoal = fmt.Sprintf("Traveling to %s", state.TravelProgress.Destination)
 	} else if state.InCombat {
@@ -74,13 +62,13 @@ func updateCaptainsLog(agentID string, client game.GameClient, fighterRuns int, 
 }
 
 // fighterLoop implements the main combat loop for the auto-fighter agent
-// Logic: Hunt pirates, loot wrecks, sell loot, upgrade equipment, repeat
-func fighterLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context, as *agentState) error {
+// Logic: Hunt pirates, loot wrecks, sell loot, repeat
+func fighterLoop(agentID string, client game.GameClient, logger *log.Logger, ctx context.Context) error {
 	fighterRuns := 0
 	totalCreditsEarned := 0.0
 	startingCredits := client.GetState().Credits
 
-	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
+	logger.Printf("🏴‍☠️ Starting autonomous combat bot...")
 
 	// Captain's log ticker - update every 2 minutes
 	logTicker := time.NewTicker(2 * time.Minute)
@@ -264,18 +252,6 @@ func fighterLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 			time.Sleep(3 * time.Second)
 		}
 
-		// Step 11: Check for upgrades
-		state = client.GetState()
-		shouldCheckUpgrades := fighterRuns%3 == 0 ||
-			state.Credits >= TIER1_THRESHOLD ||
-			state.Credits >= TIER2_THRESHOLD ||
-			state.Credits >= TIER3_THRESHOLD
-
-		if shouldCheckUpgrades {
-			time.Sleep(3 * time.Second)
-			attemptUpgrades(client, logger, ctx, as)
-		}
-
 		// Status summary
 		state = client.GetState()
 		logger.Printf("═══ Run #%d Complete ═══", fighterRuns)
@@ -295,144 +271,6 @@ func fighterLoop(agentID string, client game.GameClient, logger *log.Logger, ctx
 	}
 
 	return nil
-}
-
-// attemptUpgrades handles equipment and ship upgrades for the fighter agent
-func attemptUpgrades(client game.GameClient, logger *log.Logger, ctx context.Context, as *agentState) {
-	state := client.GetState()
-	credits := state.Credits
-
-	// Don't spend reserve credits
-	availableCredits := credits - RESERVE_CREDITS
-	if availableCredits < 100 {
-		return // Not enough to buy anything meaningful
-	}
-
-	// Get max slots for current ship from ship defs
-	maxSlots := 2 // fallback
-	if sd, ok := as.shipDefs[state.Ship.ClassID]; ok {
-		maxSlots = game.ShipMaxSlots(sd)
-	}
-
-	// Upgrade helpers require *game.Client (concrete type) for Send()-based operations.
-	// If we have a concrete client, use the upgrade helpers; otherwise skip.
-	concreteClient, hasConcreteClient := client.(*game.Client)
-
-	// First, try to install any equipment already in cargo and sell extras
-	if hasConcreteClient {
-		logger.Printf("🔧 Checking equipment in cargo...")
-		game.TryInstallAndSellExtras(concreteClient, logger, ctx, maxSlots)
-	}
-
-	// Refresh state after selling extras
-	time.Sleep(2 * time.Second)
-	state = client.GetState()
-	availableCredits = state.Credits - RESERVE_CREDITS
-
-	// Ensure cargo space is available for purchases
-	cargoUsed := state.Ship.CargoUsed
-	cargoCapacity := state.Ship.CargoCapacity
-	if cargoUsed >= cargoCapacity*0.5 {
-		logger.Printf("⚠️  Cargo too full (%.1f/%.1f) - skipping upgrades", cargoUsed, cargoCapacity)
-		return
-	}
-
-	logger.Printf("💰 Checking for upgrades... (%.2f credits available, %.1f/%.1f cargo space)",
-		availableCredits, cargoUsed, cargoCapacity)
-
-	// Get market listings to see what's available
-	if err := client.GetListings(ctx); err != nil {
-		logger.Printf("Could not get listings: %v", err)
-		return
-	}
-
-	time.Sleep(5 * time.Second)
-	listings := client.GetMarketListings()
-
-	if len(listings) == 0 {
-		logger.Printf("No market listings available - will retry next cycle")
-		return
-	}
-
-	var purchased bool
-
-	logger.Printf("Found %d listings at market", len(listings))
-
-	// PRIORITY 1: Ship upgrades (biggest combat boost!)
-	if as.progression != nil && hasConcreteClient {
-		for _, tier := range as.progression.Tiers {
-			if !purchased {
-				purchased = game.PerformShipUpgrade(concreteClient, logger, ctx, tier, availableCredits)
-			}
-		}
-	}
-
-	// PRIORITY 2: Weapons (essential for combat!)
-	if availableCredits >= TIER1_THRESHOLD && !purchased {
-		weaponsInstalled := game.CountModulesInstalled(state, "pulse_laser_i")
-		weaponsInCargo := game.CountModulesInCargo(state, "pulse_laser_i")
-		totalWeapons := weaponsInstalled + weaponsInCargo
-
-		logger.Printf("⚔️ Weapon Status: %d installed, %d in cargo (goal: %d installed)",
-			weaponsInstalled, weaponsInCargo, maxSlots)
-
-		if totalWeapons < maxSlots {
-			for _, listing := range listings {
-				if listing.Type == "sell" && listing.ItemType == "module" {
-					if (listing.ItemID == "pulse_laser_i" || listing.ItemID == "pulse_laser_ii" ||
-						listing.ItemID == "pulse_laser_iii") &&
-						listing.PricePerUnit <= availableCredits && listing.PricePerUnit <= 1000 {
-
-						needed := maxSlots - totalWeapons
-						if needed > 0 {
-							logger.Printf("⚔️ Buying %d x %s for %.2f credits each", needed, listing.ItemID, listing.PricePerUnit)
-							if err := client.Buy(ctx, listing.ItemID, float64(needed)); err != nil {
-								logger.Printf("Failed to buy weapon: %v", err)
-							} else {
-								logger.Printf("✅ Purchased %d weapon(s)! Installing...", needed)
-								purchased = true
-								time.Sleep(3 * time.Second)
-
-								installed := 0
-								for i := range needed {
-									if err := client.Install(ctx, listing.ItemID); err != nil {
-										logger.Printf("Failed to install weapon #%d: %v", i+1, err)
-									} else {
-										logger.Printf("✅ Weapon #%d installed!", installed+1)
-										time.Sleep(10 * time.Second)
-									}
-								}
-
-								if installed > 0 {
-									logger.Printf("✅ %d WEAPON(S) INSTALLED! Combat power increased!", installed)
-								}
-								break
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if !purchased && availableCredits >= TIER1_THRESHOLD {
-		logger.Printf("No suitable upgrades found in market (checked %d listings)", len(listings))
-	}
-
-	// Check if we should save for ship upgrades
-	if as.progression != nil && game.ShouldUpgrade(availableCredits, as.progression.Tiers, TIER3_THRESHOLD) {
-		nextTierName := "next ship"
-		nextTierCost := 0.0
-		for _, tier := range as.progression.Tiers {
-			if availableCredits < tier.Threshold {
-				nextTierName = tier.Name
-				nextTierCost = tier.Threshold
-				break
-			}
-		}
-		logger.Printf("💎 Wealthy fighter! (%.2f credits) - Saving for %s upgrade (%.0f credits needed)",
-			availableCredits, nextTierName, nextTierCost)
-	}
 }
 
 func main() {
@@ -502,83 +340,20 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	// Load ship progression from knowledge DB
-	as := loadProgression(logger, ctx, creds, client)
-
 	// Get initial state
 	state := client.GetState()
-	logger.Printf("🏴‍☠️ Starting autonomous combat & upgrade bot...")
+	logger.Printf("🏴‍☠️ Starting autonomous combat bot...")
 	logger.Printf("Agent: %s | Empire: %s | Credits: %.2f | Ship: %s | Cargo: %.0f/%.0f",
 		creds.Username, creds.Empire, state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
-	// Start autonomous combat loop with upgrades
-	logger.Printf("Starting autonomous combat + upgrade loop...")
+	// Start autonomous combat loop
+	logger.Printf("Starting autonomous combat loop...")
 	logger.Printf("Will automatically:")
 	logger.Printf("  ⚔️  Hunt pirates and defeat them for loot")
 	logger.Printf("  💰 Sell all loot for profit")
-	logger.Printf("  🚀 Upgrade to better combat ships")
-	logger.Printf("  🔫 Install better weapons to increase combat power")
-	if as.progression != nil {
-		logger.Printf("     + Progression path (%d tiers):", len(as.progression.Tiers))
-		for _, tier := range as.progression.Tiers {
-			logger.Printf("       %s (%.0f credits)", tier.Name, tier.Threshold)
-		}
-	}
 	logger.Printf("")
 
-	if err := fighterLoop(agentID, client, logger, ctx, as); err != nil {
+	if err := fighterLoop(agentID, client, logger, ctx); err != nil {
 		log.Fatalf("Fighter loop error: %v", err)
-	}
-}
-
-func loadProgression(logger *log.Logger, ctx context.Context, creds *game.Credentials, client game.GameClient) *agentState {
-	as := &agentState{
-		shipDefs: make(map[string]game.ShipDef),
-	}
-
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: "data/spacemolt-knowledge.db"})
-	if err != nil {
-		logger.Printf("⚠️  Could not open knowledge DB: %v - ship upgrades disabled", err)
-		return as
-	}
-	defer func() { _ = kb.Close() }()
-
-	var allShips []game.ShipDef
-	for _, cat := range game.RoleCategories["fighter"] {
-		ships, qerr := kb.GetShipClassesByCategory(ctx, cat)
-		if qerr != nil {
-			logger.Printf("⚠️  Failed to query %s ships: %v", cat, qerr)
-			continue
-		}
-		for _, s := range ships {
-			sd := shipDefFromCatalog(s)
-			allShips = append(allShips, sd)
-			as.shipDefs[sd.ID] = sd
-		}
-	}
-
-	empireShips := game.FilterShipsByEmpire(allShips, creds.Empire)
-	state := client.GetState()
-	as.progression = game.BuildProgression(empireShips, state.Ship.ClassID, "fighter")
-
-	if as.progression != nil {
-		logger.Printf("🚀 Loaded %d upgrade tiers for %s %s", len(as.progression.Tiers), creds.Empire, as.progression.CareerName)
-	} else {
-		logger.Printf("⚠️  No upgrade path available (empire=%s, ship=%s)", creds.Empire, state.Ship.ClassID)
-	}
-
-	return as
-}
-
-func shipDefFromCatalog(s knowledge.ShipClassDef) game.ShipDef {
-	return game.ShipDef{
-		ID:            s.ID,
-		Name:          s.Name,
-		Class:         s.Class,
-		Price:         s.Price,
-		WeaponSlots:   s.WeaponSlots,
-		DefenseSlots:  s.DefenseSlots,
-		UtilitySlots:  s.UtilitySlots,
-		CargoCapacity: s.CargoCapacity,
 	}
 }

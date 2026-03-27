@@ -8,6 +8,47 @@ import (
 	"time"
 )
 
+// MiningType specifies the type of resource extraction to perform.
+type MiningType string
+
+const (
+	// MiningTypeAsteroid mines asteroid belts/fields using mining lasers.
+	MiningTypeAsteroid MiningType = "asteroid"
+	// MiningTypeGas harvests gas clouds using gas harvesters.
+	MiningTypeGas MiningType = "gas"
+	// MiningTypeIce harvests ice fields using ice harvesters.
+	MiningTypeIce MiningType = "ice"
+)
+
+// miningTypeConfig holds POI types and equipment prefixes for each mining type.
+type miningTypeConfig struct {
+	poiTypes       []string
+	equipPrefixes  []string // module name prefixes (lowercase) to count
+	equipTypePrefixes []string // module type prefixes (lowercase) to count
+	label          string   // display label for logs
+}
+
+var miningTypeConfigs = map[MiningType]miningTypeConfig{
+	MiningTypeAsteroid: {
+		poiTypes:          []string{"asteroid_belt", "asteroid_field"},
+		equipPrefixes:     []string{"mining laser", "strip mining laser"},
+		equipTypePrefixes: []string{"mining"},
+		label:             "asteroid",
+	},
+	MiningTypeGas: {
+		poiTypes:          []string{"gas_cloud"},
+		equipPrefixes:     []string{"gas harvester"},
+		equipTypePrefixes: []string{"gas_harvester"},
+		label:             "gas",
+	},
+	MiningTypeIce: {
+		poiTypes:          []string{"ice_field"},
+		equipPrefixes:     []string{"ice harvester"},
+		equipTypePrefixes: []string{"ice_harvester"},
+		label:             "ice",
+	},
+}
+
 // StationActionStrategy defines what to do with cargo when docked at a station
 type StationActionStrategy func(client GameClient, logger *log.Logger, ctx context.Context) error
 
@@ -114,6 +155,10 @@ func StationActionCraftAndDeposit(client GameClient, logger *log.Logger, ctx con
 type MiningLoopConfig struct {
 	// AgentID for captain's log updates (optional)
 	AgentID string
+
+	// MiningType selects the resource type to mine: asteroid (default), gas, or ice.
+	// This determines which POI types to target and which equipment to count.
+	MiningType MiningType
 
 	// StopCondition is called before each mining run to check if we should stop
 	// Return true to stop mining, false to continue
@@ -230,6 +275,10 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 	if config.CaptainsLogInterval == 0 {
 		config.CaptainsLogInterval = 2 * time.Minute
 	}
+	if config.MiningType == "" {
+		config.MiningType = MiningTypeAsteroid
+	}
+	mtConfig := miningTypeConfigs[config.MiningType]
 
 	// Initialize result
 	state := client.GetState()
@@ -296,7 +345,7 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 		var miningPOI string
 		var stationPOI string
 		for _, poi := range state.System.POIs {
-			if (poi.Type == "asteroid_belt" || poi.Type == "asteroid_field") && miningPOI == "" {
+			if miningPOI == "" && isMiningPOI(poi.Type, mtConfig) {
 				miningPOI = poi.ID
 			}
 			if poi.Type == "station" && stationPOI == "" {
@@ -307,7 +356,7 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 		if miningPOI == "" {
 			result.EndingCredits = state.Credits
 			result.StoppedReason = "no_mining_poi"
-			return result, fmt.Errorf("no mining POI found in system %s", state.System.Name)
+			return result, fmt.Errorf("no %s mining POI found in system %s", mtConfig.label, state.System.Name)
 		}
 		if stationPOI == "" {
 			result.EndingCredits = state.Credits
@@ -338,18 +387,18 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 		state = client.GetState()
 		maxMiningAttempts := config.MaxMiningAttempts
 		if maxMiningAttempts == 0 {
-			// Calculate based on cargo capacity and mining laser count
-			numMiningLasers := countMiningLasers(state)
-			if numMiningLasers == 0 {
-				numMiningLasers = 1 // Default to 1 if no lasers found
+			// Calculate based on cargo capacity and equipment count
+			numEquipment := countMiningEquipment(state, mtConfig)
+			if numEquipment == 0 {
+				numEquipment = 1 // Default to 1 if no equipment found
 			}
-			maxMiningAttempts = max(int(state.Ship.CargoCapacity/(5.0*float64(numMiningLasers))), 5)
+			maxMiningAttempts = max(int(state.Ship.CargoCapacity/(5.0*float64(numEquipment))), 5)
 		}
 
-		numMiningLasers := countMiningLasers(state)
+		numEquipment := countMiningEquipment(state, mtConfig)
 		mineCount := 0
-		logger.Printf("⛏️  Starting mining operations... (max %d attempts with %d laser(s))",
-			maxMiningAttempts, numMiningLasers)
+		logger.Printf("⛏️  Starting %s mining... (max %d attempts with %d equipment)",
+			mtConfig.label, maxMiningAttempts, numEquipment)
 
 		beltDepleted := false
 		for {
@@ -402,10 +451,10 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 
 		// If belt is depleted, try to find another mining POI in the system
 		if beltDepleted {
-			logger.Printf("🔍 Belt depleted at %s, looking for another mining location...", miningPOI)
+			logger.Printf("🔍 Resource depleted at %s, looking for another %s location...", miningPOI, mtConfig.label)
 			altMiningPOI := ""
 			for _, poi := range state.System.POIs {
-				if (poi.Type == "asteroid_belt" || poi.Type == "asteroid_field") && poi.ID != miningPOI {
+				if isMiningPOI(poi.Type, mtConfig) && poi.ID != miningPOI {
 					altMiningPOI = poi.ID
 					break
 				}
@@ -582,18 +631,39 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 	}
 }
 
-// countMiningLasers counts total mining lasers installed
-func countMiningLasers(state *State) int {
+// isMiningPOI returns true if the POI type matches the given mining type config.
+func isMiningPOI(poiType string, cfg miningTypeConfig) bool {
+	for _, t := range cfg.poiTypes {
+		if poiType == t {
+			return true
+		}
+	}
+	return false
+}
+
+// countMiningEquipment counts equipment modules matching the mining type config.
+func countMiningEquipment(state *State, cfg miningTypeConfig) int {
 	count := 0
 	for _, moduleID := range state.Ship.Modules {
-		// Look up module definition to get the type
-		if moduleDef, ok := state.ModuleDefinitions[moduleID]; ok {
-			// Check if module type indicates a mining laser
-			if strings.HasPrefix(strings.ToLower(moduleDef.Name), "mining laser") ||
-			   strings.HasPrefix(strings.ToLower(moduleDef.Type), "mining") {
+		moduleDef, ok := state.ModuleDefinitions[moduleID]
+		if !ok {
+			continue
+		}
+		nameLower := strings.ToLower(moduleDef.Name)
+		typeLower := strings.ToLower(moduleDef.Type)
+		for _, prefix := range cfg.equipPrefixes {
+			if strings.HasPrefix(nameLower, prefix) {
 				count++
+				goto next
 			}
 		}
+		for _, prefix := range cfg.equipTypePrefixes {
+			if strings.HasPrefix(typeLower, prefix) {
+				count++
+				goto next
+			}
+		}
+	next:
 	}
 	return count
 }

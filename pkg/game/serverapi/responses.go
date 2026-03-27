@@ -588,24 +588,49 @@ type SurveySystemResponse struct {
 }
 
 // FacilityResponse wraps the response from facility command.
+// FacilityTypeInfo describes a buildable facility type and its properties.
+type FacilityTypeInfo struct {
+	TypeID               string     `json:"type_id,omitempty"`
+	Name                 string     `json:"name,omitempty"`
+	Category             string     `json:"category,omitempty"`
+	Description          string     `json:"description,omitempty"`
+	SatisfiedDescription string     `json:"satisfied_description,omitempty"`
+	DegradedDescription  string     `json:"degraded_description,omitempty"`
+	Level                int        `json:"level,omitempty"`
+	Buildable            bool       `json:"buildable,omitempty"`
+	BuildCost            float64    `json:"build_cost,omitempty"`
+	BuildMaterials       []CargoItem `json:"build_materials,omitempty"`
+	BuildTime            int        `json:"build_time,omitempty"`
+	LaborCost            float64    `json:"labor_cost,omitempty"`
+	MaintenancePerCycle  float64    `json:"maintenance_per_cycle,omitempty"`
+	RentPerCycle         float64    `json:"rent_per_cycle,omitempty"`
+	Lore                 string     `json:"lore,omitempty"`
+	RecipeID             string     `json:"recipe_id,omitempty"`
+	Recipe               string     `json:"recipe,omitempty"`
+	UpgradesTo           string     `json:"upgrades_to,omitempty"`
+	UpgradesToName       string     `json:"upgrades_to_name,omitempty"`
+	UpgradesFrom         string     `json:"upgrades_from,omitempty"`
+	UpgradesFromName     string     `json:"upgrades_from_name,omitempty"`
+}
+
 type FacilityResponse struct {
-	Action       string           `json:"action"`
-	Command      string           `json:"command,omitempty"`
-	BaseID       string           `json:"base_id,omitempty"`
-	FacilityID   string           `json:"facility_id,omitempty"`
-	FacilityName string           `json:"facility_name,omitempty"`
-	FacilityType string           `json:"facility_type,omitempty"`
-	Category     string           `json:"category,omitempty"`
-	Description  string           `json:"description,omitempty"`
-	Hint         string           `json:"hint,omitempty"`
-	Message      string           `json:"message,omitempty"`
-	Page         int              `json:"page,omitempty"`
-	PerPage      int              `json:"per_page,omitempty"`
-	Total        int              `json:"total,omitempty"`
-	TotalPages   int              `json:"total_pages,omitempty"`
-	Actions      []map[string]any `json:"actions,omitempty"`
-	Types        []map[string]any `json:"types,omitempty"`
-	Upgrades     []map[string]any `json:"upgrades,omitempty"`
+	Action       string             `json:"action"`
+	Command      string             `json:"command,omitempty"`
+	BaseID       string             `json:"base_id,omitempty"`
+	FacilityID   string             `json:"facility_id,omitempty"`
+	FacilityName string             `json:"facility_name,omitempty"`
+	FacilityType string             `json:"facility_type,omitempty"`
+	Category     string             `json:"category,omitempty"`
+	Description  string             `json:"description,omitempty"`
+	Hint         string             `json:"hint,omitempty"`
+	Message      string             `json:"message,omitempty"`
+	Page         int                `json:"page,omitempty"`
+	PerPage      int                `json:"per_page,omitempty"`
+	Total        int                `json:"total,omitempty"`
+	TotalPages   int                `json:"total_pages,omitempty"`
+	Actions      []map[string]any   `json:"actions,omitempty"`
+	Types        []FacilityTypeInfo `json:"types,omitempty"`
+	Upgrades     []map[string]any   `json:"upgrades,omitempty"`
 }
 
 // FacilityListResponse wraps the response from facility list command.

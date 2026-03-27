@@ -4,11 +4,16 @@ import (
 	"testing"
 )
 
-func TestCountMiningLasers(t *testing.T) {
+func TestCountMiningEquipment(t *testing.T) {
+	asteroidCfg := miningTypeConfigs[MiningTypeAsteroid]
+	gasCfg := miningTypeConfigs[MiningTypeGas]
+	iceCfg := miningTypeConfigs[MiningTypeIce]
+
 	tests := []struct {
-		name    string
-		state   *State
-		want    int
+		name  string
+		state *State
+		cfg   miningTypeConfig
+		want  int
 	}{
 		{
 			name: "no modules",
@@ -16,6 +21,7 @@ func TestCountMiningLasers(t *testing.T) {
 				Ship:              Ship{Modules: []string{}},
 				ModuleDefinitions: map[string]ModuleDefinition{},
 			},
+			cfg:  asteroidCfg,
 			want: 0,
 		},
 		{
@@ -26,6 +32,7 @@ func TestCountMiningLasers(t *testing.T) {
 					"mod1": {ID: "mod1", Name: "Mining Laser Mk1", Type: "mining"},
 				},
 			},
+			cfg:  asteroidCfg,
 			want: 1,
 		},
 		{
@@ -38,7 +45,8 @@ func TestCountMiningLasers(t *testing.T) {
 					"mod3": {ID: "mod3", Name: "Mining Laser Mk2", Type: "utility"},
 				},
 			},
-			want: 2, // mod1 matches by type "mining", mod3 matches by name prefix "Mining Laser"
+			cfg:  asteroidCfg,
+			want: 2, // mod1 matches by type "mining", mod3 matches by name prefix "mining laser"
 		},
 		{
 			name: "mining type but no mining laser name",
@@ -48,6 +56,7 @@ func TestCountMiningLasers(t *testing.T) {
 					"mod1": {ID: "mod1", Name: "Ore Scanner", Type: "mining"},
 				},
 			},
+			cfg:  asteroidCfg,
 			want: 1, // type starts with "mining"
 		},
 		{
@@ -56,6 +65,7 @@ func TestCountMiningLasers(t *testing.T) {
 				Ship:              Ship{Modules: []string{"unknown_mod"}},
 				ModuleDefinitions: map[string]ModuleDefinition{},
 			},
+			cfg:  asteroidCfg,
 			want: 0,
 		},
 		{
@@ -64,19 +74,54 @@ func TestCountMiningLasers(t *testing.T) {
 				Ship:              Ship{Modules: []string{"mod1"}},
 				ModuleDefinitions: nil,
 			},
+			cfg:  asteroidCfg,
 			want: 0,
 		},
 		{
 			name:  "nil modules slice",
 			state: &State{Ship: Ship{}},
+			cfg:   asteroidCfg,
 			want:  0,
+		},
+		{
+			name: "gas harvester matched",
+			state: &State{
+				Ship: Ship{Modules: []string{"mod1"}},
+				ModuleDefinitions: map[string]ModuleDefinition{
+					"mod1": {ID: "mod1", Name: "Gas Harvester II", Type: "gas_harvester"},
+				},
+			},
+			cfg:  gasCfg,
+			want: 1,
+		},
+		{
+			name: "gas harvester not counted as asteroid",
+			state: &State{
+				Ship: Ship{Modules: []string{"mod1"}},
+				ModuleDefinitions: map[string]ModuleDefinition{
+					"mod1": {ID: "mod1", Name: "Gas Harvester II", Type: "gas_harvester"},
+				},
+			},
+			cfg:  asteroidCfg,
+			want: 0,
+		},
+		{
+			name: "ice harvester matched",
+			state: &State{
+				Ship: Ship{Modules: []string{"mod1"}},
+				ModuleDefinitions: map[string]ModuleDefinition{
+					"mod1": {ID: "mod1", Name: "Ice Harvester III", Type: "ice_harvester"},
+				},
+			},
+			cfg:  iceCfg,
+			want: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := countMiningLasers(tt.state); got != tt.want {
-				t.Errorf("countMiningLasers() = %d, want %d", got, tt.want)
+			if got := countMiningEquipment(tt.state, tt.cfg); got != tt.want {
+				t.Errorf("countMiningEquipment() = %d, want %d", got, tt.want)
 			}
 		})
 	}

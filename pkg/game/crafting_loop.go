@@ -146,6 +146,9 @@ func DefaultRecipeSelector(client GameClient, logger *log.Logger, ctx context.Co
 	// So we'll just return all fully craftable recipes, sorted by quantity
 	var craftable []recipeWithEfficiency
 	for _, recipe := range result.FullyCraftable {
+		if recipe.CanCraftQuantity <= 0 {
+			continue
+		}
 		craftable = append(craftable, recipeWithEfficiency{
 			recipeID:   recipe.RecipeID,
 			name:       recipe.RecipeName,
