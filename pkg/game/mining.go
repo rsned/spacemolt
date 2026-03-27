@@ -415,8 +415,16 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 				miningPOI = altMiningPOI
 				// Travel directly to the new belt instead of going back to station
 				logger.Printf("🚀 Traveling to %s...", altMiningPOI)
-				if _, err := client.Travel(ctx, altMiningPOI); err != nil {
-					logger.Printf("Travel error: %v", err)
+				for retries := range 5 {
+					if _, err := client.Travel(ctx, altMiningPOI); err != nil {
+						if strings.Contains(err.Error(), "action pending") {
+							logger.Printf("⏳ Waiting for pending action to complete before travel... (attempt %d/5)", retries+1)
+							time.Sleep(SleepTick)
+							continue
+						}
+						logger.Printf("Travel error: %v", err)
+					}
+					break
 				}
 				continue // Start mining at the new location
 			}
@@ -447,17 +455,33 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 
 		if state.CurrentPOI != stationPOI && !state.Traveling {
 			logger.Printf("🚀 Returning to station %s...", stationPOI)
-			if _, err := client.Travel(ctx, stationPOI); err != nil {
-				logger.Printf("Travel error: %v", err)
+			for retries := range 5 {
+				if _, err := client.Travel(ctx, stationPOI); err != nil {
+					if strings.Contains(err.Error(), "action pending") {
+						logger.Printf("⏳ Waiting for pending action to complete before travel... (attempt %d/5)", retries+1)
+						time.Sleep(SleepTick)
+						continue
+					}
+					logger.Printf("Travel error: %v", err)
+				}
+				break
 			}
 		}
 
 		// Step 5: Dock at station
 		logger.Printf("📥 Attempting to dock at station...")
-		if err := client.Dock(ctx); err != nil {
-			if err.Error() != "Already docked (success)" {
-				logger.Printf("Dock error: %v", err)
+		for retries := range 5 {
+			if err := client.Dock(ctx); err != nil {
+				if strings.Contains(err.Error(), "action pending") {
+					logger.Printf("⏳ Waiting for pending action to complete before docking... (attempt %d/5)", retries+1)
+					time.Sleep(SleepTick)
+					continue
+				}
+				if err.Error() != "Already docked (success)" {
+					logger.Printf("Dock error: %v", err)
+				}
 			}
+			break
 		}
 
 		// Step 6: Handle cargo with station actions
