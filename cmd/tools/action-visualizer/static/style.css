@@ -54,12 +54,38 @@ body {
 .metric-value.warning { color: #d29922; }
 .metric-value.pruned { color: #f85149; }
 
-#top-pruning-reason {
-  font-size: 12px;
-  color: #8b949e;
+#pruning-reasons {
   margin-left: auto;
+  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-height: 56px;
+  overflow-y: auto;
 }
-#top-pruning-reason span { color: #d29922; font-weight: 600; }
+
+.pruning-label {
+  color: #8b949e;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+#m-prune-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.prune-tag {
+  color: #d29922;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prune-tag .prune-count {
+  color: #8b949e;
+  font-weight: 400;
+}
 
 /* ===== Main Content Area ===== */
 #content {

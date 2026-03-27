@@ -137,12 +137,13 @@ function updateMetrics(stats) {
   }
   document.getElementById('m-categories').textContent = activeCats + ' / ' + Object.keys(stats.by_category || {}).length;
 
-  const topPrune = document.getElementById('m-top-prune');
+  const pruneList = document.getElementById('m-prune-list');
   if (stats.top_pruning_reasons && stats.top_pruning_reasons.length > 0) {
-    const top = stats.top_pruning_reasons[0];
-    topPrune.textContent = `${top.precondition} (${top.count})`;
+    pruneList.innerHTML = stats.top_pruning_reasons.map(r =>
+      `<span class="prune-tag">${r.precondition} <span class="prune-count">(${r.count})</span></span>`
+    ).join('');
   } else {
-    topPrune.textContent = 'none';
+    pruneList.innerHTML = '<span style="color:#8b949e">none</span>';
   }
 }
 
