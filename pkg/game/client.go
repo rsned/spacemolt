@@ -3242,6 +3242,10 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		case <-scanResultChan:
 			// scan_result is the completion signal for pending scan actions
 			return nil
+		case <-actionResultChan:
+			// action_result is the completion signal for pending actions
+			// (e.g. deposit_items, craft) executed on the next server tick
+			return nil
 		case resp := <-okChan:
 			// Check if this is a pending action response
 			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
