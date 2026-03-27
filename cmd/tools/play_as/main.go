@@ -1481,7 +1481,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "repair":
 		return simpleCommand(client, client.Repair, ctx, 3*time.Second, cmd, format)
 
-	case "install":
+	case "install", "install_mod":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: install <item-id>")
 		}
@@ -1489,7 +1489,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Install(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
-	case "uninstall":
+	case "uninstall", "uninstall_mod":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: uninstall <module-id>")
 		}
@@ -2523,8 +2523,8 @@ func printHelp() {
 
 	fmt.Println("\n=== SHIP ===")
 	fmt.Println("  refuel, repair            - Refuel and repair ship")
-	fmt.Println("  install <item>            - Install equipment")
-	fmt.Println("  uninstall <module>        - Uninstall module")
+	fmt.Println("  install, install_mod <item>  - Install equipment")
+	fmt.Println("  uninstall, uninstall_mod <module> - Uninstall module")
 	fmt.Println("  buy_ship <class>          - Buy a new ship")
 	fmt.Println("  browse_ships              - Browse ships for sale at station")
 	fmt.Println("  list_ships                - List your ships")
