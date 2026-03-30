@@ -139,6 +139,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"trade_offer":  reflect.TypeOf(serverapi.TradeOfferResponse{}),
 	"trade_accept": reflect.TypeOf(serverapi.TradeAcceptResponse{}),
 	"send_gift":    reflect.TypeOf(serverapi.SendGiftResponse{}),
+	"gift_ship":    reflect.TypeOf(serverapi.GiftShipResponse{}),
 	"chat":         reflect.TypeOf(serverapi.ChatResponse{}),
 
 	// Forum

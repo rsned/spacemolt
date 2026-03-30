@@ -14,6 +14,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -96,11 +97,27 @@ func printUsage() {
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
 
+const maxHistoryLines = 25
+
 func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agentID, username string) {
 	line := liner.NewLiner()
 	defer func() { _ = line.Close() }()
 
 	line.SetCtrlCAborts(true)
+
+	// Load persistent command history from agent directory.
+	historyPath := filepath.Join("data", "agents", agentID, "play_as_history.txt")
+	if f, err := os.Open(historyPath); err == nil {
+		_, _ = line.ReadHistory(f)
+		_ = f.Close()
+	}
+	saveHistory := func() {
+		if f, err := os.Create(historyPath); err == nil {
+			_, _ = line.WriteHistory(f)
+			_ = f.Close()
+		}
+	}
+	defer saveHistory()
 
 	// Start background chat poller to display incoming messages.
 	poller := newChatPoller(client, ctx, username)
@@ -127,8 +144,9 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
-		// Add to history for up/down arrow cycling
+		// Add to history for up/down arrow cycling and persist
 		line.AppendHistory(cmd)
+		saveHistory()
 
 		// Parse command (supports quoted strings)
 		parts := splitArgs(cmd)
@@ -147,6 +165,26 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		// Handle help
 		if command == "help" {
 			printHelp()
+			continue
+		}
+
+		// Handle history
+		if command == "history" {
+			// Read history file and show last N entries
+			data, err := os.ReadFile(historyPath)
+			if err != nil {
+				fmt.Println("No command history yet.")
+			} else {
+				lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+				start := 0
+				if len(lines) > maxHistoryLines {
+					start = len(lines) - maxHistoryLines
+				}
+				for i, l := range lines[start:] {
+					fmt.Printf("  %3d  %s\n", start+i+1, l)
+				}
+			}
+			fmt.Println()
 			continue
 		}
 
@@ -171,33 +209,60 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
-		// Handle loop meta-command: loop <count> <command...>
+		// Handle loop meta-command: loop [-f] <count> <command...>
 		if command == "loop" {
 			if len(parts) < 3 {
-				fmt.Println("Usage: loop <count> <command...>")
+				fmt.Println("Usage: loop [-f] <count> <command...>")
+				fmt.Println("  -f  Force: continue on errors instead of stopping")
 				fmt.Println("Example: loop 5 mine")
+				fmt.Println("         loop -f 20 mine")
 				fmt.Println("         loop 10 sell iron_ore 5")
 				fmt.Println()
 				continue
 			}
-			count, err := strconv.Atoi(parts[1])
+			// Check for -f flag
+			forceLoop := false
+			argIdx := 1
+			if parts[argIdx] == "-f" {
+				forceLoop = true
+				argIdx++
+				if argIdx >= len(parts)-1 {
+					fmt.Println("Usage: loop [-f] <count> <command...>")
+					fmt.Println()
+					continue
+				}
+			}
+			count, err := strconv.Atoi(parts[argIdx])
 			if err != nil || count < 1 {
-				fmt.Printf("❌ Invalid count: %s (must be a positive integer)\n\n", parts[1])
+				fmt.Printf("❌ Invalid count: %s (must be a positive integer)\n\n", parts[argIdx])
 				continue
 			}
-			loopParts := parts[2:]
+			loopParts := parts[argIdx+1:]
 			loopCmd := strings.Join(loopParts, " ")
-			fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
+			if forceLoop {
+				fmt.Printf("🔁 Repeating %q %d time(s) (force mode)...\n", loopCmd, count)
+			} else {
+				fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
+			}
+			errors := 0
 			for i := range count {
 				fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
 				startTime := time.Now()
 				if err := executeCommand(client, ctx, loopParts, format); err != nil {
+					errors++
 					fmt.Printf("❌ %s\n", formatError(err, loopParts[0], format))
-					fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
-					break
+					if !forceLoop {
+						fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
+						break
+					}
+					fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errors)
+					continue
 				}
 				duration := time.Since(startTime)
 				fmt.Printf("✓ [%d/%d] Completed in %v\n", i+1, count, duration)
+			}
+			if forceLoop && errors > 0 {
+				fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errors, count)
 			}
 			// Render statusline after loop
 			if sl := renderStatusline(client, cfg, agentID); sl != "" {
@@ -3179,7 +3244,8 @@ func printHelp() {
 	fmt.Println("  notes                     - Get your notes")
 	fmt.Println("  missions, accept_mission  - Mission commands")
 	fmt.Println("  action_log [--category X] [--page N] - Action history")
-	fmt.Println("  loop <count> <command>    - Repeat a command N times")
+	fmt.Println("  loop [-f] <count> <command> - Repeat a command N times (-f to continue on errors)")
+	fmt.Println("  history                   - Show last 25 commands (persisted across sessions)")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")

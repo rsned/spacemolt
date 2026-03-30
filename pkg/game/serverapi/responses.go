@@ -783,6 +783,16 @@ type SendGiftResponse struct {
 	WalletRemaining int    `json:"wallet_remaining,omitempty"`
 }
 
+// GiftShipResponse wraps the response from gift_ship action (via send_gift with ship).
+type GiftShipResponse struct {
+	Action    string `json:"action"`
+	BaseID    string `json:"base_id,omitempty"`
+	ClassID   string `json:"class_id,omitempty"`
+	ClassName string `json:"class_name,omitempty"`
+	Recipient string `json:"recipient,omitempty"`
+	ShipID    string `json:"ship_id,omitempty"`
+}
+
 // FactionInfoResponse wraps the response from faction_info command.
 type FactionInfoResponse struct {
 	Action         string                `json:"action,omitempty"`
@@ -944,6 +954,8 @@ type DockResponse struct {
 	StorageItems        []CargoItem     `json:"storage_items,omitempty"`
 	StoredShips         []StorageShip   `json:"stored_ships,omitempty"`
 	StoredShipsCount    int             `json:"stored_ships_count,omitempty"`
+	UnreadChat          int             `json:"unread_chat,omitempty"`
+	UnreadChatNote      string          `json:"unread_chat_note,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.

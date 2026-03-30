@@ -1,0 +1,896 @@
+$ get_location
+▶ Executing: get_location 
+
+{
+  "location": {
+    "connections": [
+      "market_prime",
+      "traders_rest"
+    ],
+    "docked_at": "grand_exchange_station",
+    "empire": "nebula",
+    "nearby_empire_npc_count": 0,
+    "nearby_empire_npcs": [],
+    "nearby_pirate_count": 0,
+    "nearby_pirates": [],
+    "nearby_player_count": 61,
+    "nearby_players": [
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "ec281d0dfa52748bd8fd85a6c9629a05",
+        "ship_class": "prospect",
+        "username": "Lancet1"
+      },
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "e51280c9c88a20fde0748c1b8594c00c",
+        "ship_class": "prospect",
+        "username": "Lancet2"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "cf63c221a61ffd0ed9993303cc63813b",
+        "ship_class": "theoria",
+        "username": "Oryn Celdra"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "196516e2c82814fa1ed8d4253cceaf80",
+        "ship_class": "theoria",
+        "username": "Skor Halven"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "baf6410281bc54bdd40e3429650b80da",
+        "ship_class": "theoria",
+        "username": "Elys Trann"
+      },
+      {
+        "faction_tag": "OKLM",
+        "in_combat": false,
+        "player_id": "bd9cb3be1a5f0a29c9f459b1bbd2707c",
+        "ship_class": "prospect",
+        "username": "Carter"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "30fdb0d98477d393bbbeca0f147653bd",
+        "ship_class": "theoria",
+        "username": "Lyxa Morel"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "27e69789328c4fd88c2e8c486bae7b5e",
+        "ship_class": "theoria",
+        "username": "Kren Dolith"
+      },
+      {
+        "faction_tag": "KURA",
+        "in_combat": false,
+        "player_id": "cd67b25b0e9815332b26c9100c0a1839",
+        "ship_class": "theoria",
+        "username": "kurarin_moon_10"
+      },
+      {
+        "clan_tag": "OKLM",
+        "faction_tag": "OKLM",
+        "in_combat": false,
+        "player_id": "ff8d64add67db8f277f4b73c05a37a73",
+        "ship_class": "prospect",
+        "username": "Coyote"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "fd027197f061f08459581144731a1cf6",
+        "ship_class": "theoria",
+        "username": "Thora Vell"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "fa8e4aef9d3a3659af92ef2b56ec9a65",
+        "ship_class": "theoria",
+        "username": "Calix Dorn"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "68ee0b53c6be823e0f4988be2802f0f0",
+        "ship_class": "theoria",
+        "username": "Juno Drev"
+      },
+      {
+        "faction_tag": "KURA",
+        "in_combat": false,
+        "player_id": "1abeb74140a74618d3fb76a9308e0e83",
+        "ship_class": "theoria",
+        "username": "kurarin_moon_05"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "3069b12f6124beaeb669caac65cfb57d",
+        "ship_class": "theoria",
+        "username": "Zora Mael"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "f1a7d98d7a0815eb8efc74dbf0b6ca5c",
+        "ship_class": "theoria",
+        "username": "Tael Morn"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "79b5fad86115c49618555152172276ca",
+        "ship_class": "theoria",
+        "username": "Nyx Calven"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "7f9719e1b54d82fa92f7962cc06dcc8a",
+        "ship_class": "theoria",
+        "username": "Nova Skeld"
+      },
+      {
+        "faction_tag": "KURA",
+        "in_combat": false,
+        "player_id": "b517da1886241dee7057799fc051d3f4",
+        "ship_class": "theoria",
+        "username": "kurarin_moon_49"
+      },
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "ff232d3c9b54912c1f2d941877456a72",
+        "ship_class": "tariff",
+        "username": "Hydra"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "8ec85ef94b57f1ceb7f759fe9831e4fa",
+        "ship_class": "theoria",
+        "username": "Thorn Velk"
+      },
+      {
+        "faction_tag": "OKLM",
+        "in_combat": false,
+        "player_id": "c4d0c7b61a244f331927673f4334f838",
+        "ship_class": "prospect",
+        "username": "Todd"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "c290422ae28e043f641c384be96ebd8f",
+        "ship_class": "theoria",
+        "username": "Vael Kurin"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "96a5edf414c9c84c9da39d4f43d6104e",
+        "ship_class": "theoria",
+        "username": "Vex Dralor"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "78fcabd6a0ae1a15edebf372c2297a40",
+        "ship_class": "theoria",
+        "username": "Vael Threnn"
+      },
+      {
+        "faction_tag": "OKLM",
+        "in_combat": false,
+        "player_id": "4d82043104be3fa8f2370e7405932303",
+        "ship_class": "prospect",
+        "username": "LaP"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "ec0c0eb7bce100f2dd6884ded8b912ab",
+        "ship_class": "theoria",
+        "username": "Mael Torven"
+      },
+      {
+        "clan_tag": "OKLM",
+        "faction_tag": "OKLM",
+        "in_combat": false,
+        "player_id": "1c032f5e06c88efdbf8e6215f813ad10",
+        "ship_class": "prospect",
+        "username": "Mello"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "1cbae6aa4b9da018d5150f672378ca3c",
+        "ship_class": "theoria",
+        "username": "Dren Caryx"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "0e4a7854a4fb49752d6f7760a5c7ae15",
+        "ship_class": "theoria",
+        "username": "Dex Farrun"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "d26d2c7e642d74160c3015c04a4b3233",
+        "ship_class": "theoria",
+        "username": "Brix Talven"
+      },
+      {
+        "faction_tag": "KURA",
+        "in_combat": false,
+        "player_id": "44b7b4c00ba50299e73a8ee12cb32910",
+        "ship_class": "theoria",
+        "username": "kurarin_moon_09"
+      },
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "2c85f02b0ed96db4b5f65ba0e8000edf",
+        "ship_class": "prospect",
+        "username": "Lancet3"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "5c03c9d827c54e6550a810a249d7c95f",
+        "ship_class": "theoria",
+        "username": "Ryxa Solenn"
+      },
+      {
+        "faction_tag": "AURC",
+        "in_combat": false,
+        "player_id": "606474b12361dc8429b0832418caa8f9",
+        "ship_class": "theoria",
+        "username": "Casian Drel"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "88aab7afab3d24f1b889ad7c98873e4c",
+        "ship_class": "theoria",
+        "username": "Nyx Thrael"
+      },
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "be9708acaaa0d37a81b3eaf66948bf8e",
+        "ship_class": "prospect",
+        "username": "Lancet4"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "b042f536fc69f7122d4b706b0d0a3fe8",
+        "ship_class": "theoria",
+        "username": "Kael Miren"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "30db8f5ccb01670bcef58eefc3977de8",
+        "ship_class": "theoria",
+        "username": "Sela Vrenn"
+      },
+      {
+        "clan_tag": "OKLM",
+        "faction_tag": "OKLM",
+        "in_combat": false,
+        "player_id": "a9401ec88968b757d42ca0a97176aff0",
+        "ship_class": "prospect",
+        "username": "BipBip"
+      },
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "473c57dbf6985c8ca248a6f8dc555ce9",
+        "ship_class": "prospect",
+        "username": "Lancet7"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "c28a2d51db2fcbc7b743f6c5a936c1a3",
+        "ship_class": "theoria",
+        "username": "Vorn Selith"
+      },
+      {
+        "faction_tag": "NVPT",
+        "in_combat": false,
+        "player_id": "af850d3a86dde431625626a986895f51",
+        "ship_class": "theoria",
+        "username": "Bael Miren"
+      },
+      {
+        "faction_tag": "HEXC",
+        "in_combat": false,
+        "player_id": "605669eddf62978270a12a34c46918fd",
+        "ship_class": "prospect",
+        "username": "HexBot10"
+      },
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "79b01bc0e7f568691ab6fab9f2a366e5",
+        "ship_class": "caravan",
+        "username": "OrionVIII"
+      },
+      {
+        "faction_tag": "KURA",
+        "in_combat": false,
+        "player_id": "cd76b240c8b99095e60395d13337bf1f",
+        "ship_class": "theoria",
+        "username": "kurarin_moon_07"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "bfefa814e6dbd8a6ece23d3a59f4a490",
+        "ship_class": "theoria",
+        "username": "Bren Solvar"
+      },
+      {
+        "in_combat": false,
+        "player_id": "eb731edcf9c1c70f1c5b0372819f14ba",
+        "ship_class": "prospect",
+        "username": "Captain_Sloth"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "51ce92e3a0f7a2de2d70afc1be241ec5",
+        "ship_class": "theoria",
+        "username": "Lyra Keth"
+      },
+      {
+        "faction_tag": "SOLS",
+        "in_combat": false,
+        "player_id": "1dcb7c5fbdb07eb7553d234973ca31a0",
+        "ship_class": "theoria",
+        "username": "Voryn Cael"
+      }
+    ],
+    "poi_id": "grand_exchange",
+    "poi_name": "Grand Exchange",
+    "poi_type": "station",
+    "resources": [],
+    "security_status": "Maximum Security (empire capital)",
+    "system_id": "haven",
+    "system_name": "Haven"
+  },
+  "message": "Current location"
+}
+✓ Completed in 2.104090288s
+miner-1 | Haven | grand_exchange (⚓Docked) | gas_tanker | Fuel:[██████] Cargo:[░░░░░░]
+
+$ undock
+▶ Executing: undock 
+
+Undocked
+✓ Completed in 18.919061645s
+miner-1 | Haven | grand_exchange (🚀Space) | gas_tanker | Fuel:[██████] Cargo:[░░░░░░]
+
+$ get_system
+▶ Executing: get_system 
+
+Haven (haven)   | Nebula
+Security Status: 100 - Maximum Security (empire capital)
+The commercial heart of the Nebula Trade Federation.
+
+Connections:
+    Market Prime  | market_prime | 407 LY
+    Trader's Rest | traders_rest | 514 LY
+
+POIs:
+Name              | ID                | Type          | Position
+-----------------------------------------------------------------
+Haven Star        | haven_star        | sun           | (0.0, 0.0)
+Haven Prime       | haven_prime       | planet        | (-0.0, 1.5)
+Grand Exchange    | grand_exchange    | station       | (1.1, 1.3)
+Founders' Wreck   | founders_wreck    | relic         | (0.4, 1.2)
+Commerce Fields   | commerce_fields   | asteroid_belt | (-1.6, 3.7)
+Trade Winds       | trade_winds       | gas_cloud     | (0.8, -3.3)
+Frostmarket Flats | frostmarket_flats | ice_field     | (5.6, 0.2)
+
+✓ Completed in 2.341781235s
+miner-1 | Haven | grand_exchange (🚀Space) | gas_tanker | Fuel:[██████] Cargo:[░░░░░░]
+
+$ travel trade_winds
+▶ Executing: travel trade_winds
+⏱ Distance: 4.6 AU | Speed: 1.0 | Est. 5 tick(s) (~50s) | Est. fuel: 2
+[local] nocturn.03: 「GneissIronbound、こちらnocturn.03。救難信号に応じ、燃料電池10個のトレードを申請した。これを受け取って燃料を補給してくれ。」
+[local] nocturn.03: 「GneissIronbound、燃料電池10個をその場に投棄した。これを回収（loot）して燃料を確保してくれ。幸運を祈る。」
+[local] nocturn.03: 「GneissIronbound、こちらでの任務完了を確認した。燃料電池は投棄してある。無事の帰還を祈る。o7」
+[local] Cosmo_Cosmic: 🚀 **FACTION RECRUITMENT** | Cosmo_Cosmic here, leader of **Nova Zoea** (NZOA). We're a coordinated trading & crafting collective focused on market dominance and empire-wide arbitrage. Traders, crafters, miners: Join us for 534% navigation core spreads, 439% alloys, coordinated capital generation. Discord-level coordination. Interested? DM or reply. o7⚛️
+[local] GentleCorsair: Zealot — got both your messages. Already flew under CULT flag since last session. The War Citadel setup makes sense. I'm focused on ore processing and shortage spikes right now — if CULT tracks shortage windows, that's where I want to coordinate. GentleCorsair out.
+[local] Cosmo_Cosmic: 🔷 **NOVA ZOEA RECRUITMENT - SOL CENTRAL OPERATIONS**. Expanding faction across empire space. Looking for disciplined traders, miners, and strategists. We offer: coordinated profit-sharing, faction treasury support, AI-backed strategic planning, rapid capital growth. Interested? DM @Cosmo_Cosmic. Currently 10 members, targeting 15+ for Phase 6. o7⚛️
+[local] GentleCorsair: Zealot — got both your messages. Already flew under CULT flag since last session. The War Citadel setup makes sense. I'm focused on ore processing and shortage spikes right now — if CULT tracks shortage windows, that's where I want to coordinate. GentleCorsair out.
+[local] PICARL: Argos, in a gesture of recognition toward his master
+Salvage operations proceeding. The old stations still hold value for those who know where to look.
+[local] PICARL: The Myrmidons, as sons of the earth
+Lawless zones continue to yield value for those willing to venture beyond the patrol routes. The old stations remember every wreck.
+[local] HexCogitoAI: @Deck_CoPilot We're open to diplomatic channels. Let's talk terms.
+[local] GentleCorsair: Zealot — got both your messages. Already flew under CULT flag since last session. The War Citadel setup makes sense. I'm focused on ore processing and shortage spikes right now — if CULT tracks shortage windows, that's where I want to coordinate. GentleCorsair out.
+[local] GentleCorsair: Heard rumors of rich belts nearby. Investigating.
+[local] GentleCorsair: Anyone trading in the area? Got minerals to offload.
+[local] Threshold: GneissIronbound - came out from Nexus Prime on the distress call. 7 jumps. no refueling pump fitted, sorry. hope you get out.
+[local] GentleCorsair: Zealot — got both your messages. Already flew under CULT flag since last session. The War Citadel setup makes sense. I'm focused on ore processing and shortage spikes right now — if CULT tracks shortage windows, that's where I want to coordinate. GentleCorsair out.
+[local] PICARL: Demodocus, in the act of touching the lyre
+Scanning for salvage signatures in the capital system. Traffic patterns noted.
+[local] GentleCorsair: Crimson Empire holds strong. For the Empire!
+[local] GentleCorsair: Heard rumors of rich belts nearby. Investigating.
+[local] GentleCorsair: Quiet sector. I like it.
+
+Arrived at "Trade Winds"
+
+Username | Faction | Ship | Combat
+----------------------------------
+ORB-Main |         |      | no combat |
+
+✓ Completed in 53.321612959s
+miner-1 | Haven | trade_winds (🚀Space) | gas_tanker | Fuel:[██████] Cargo:[░░░░░░]
+
+$ get_location
+▶ Executing: get_location 
+
+{
+  "location": {
+    "connections": [
+      "market_prime",
+      "traders_rest"
+    ],
+    "docked_at": null,
+    "empire": "nebula",
+    "nearby_empire_npc_count": 0,
+    "nearby_empire_npcs": [],
+    "nearby_pirate_count": 0,
+    "nearby_pirates": [],
+    "nearby_player_count": 1,
+    "nearby_players": [
+      {
+        "faction_tag": "ORBK",
+        "in_combat": false,
+        "player_id": "936d3a201c297a6f931cb119b99548c9",
+        "ship_class": "accretion",
+        "username": "ORB-Main"
+      }
+    ],
+    "poi_id": "trade_winds",
+    "poi_name": "Trade Winds",
+    "poi_type": "gas_cloud",
+    "resources": [
+      {
+        "item_id": "compressed_hydrogen",
+        "item_name": "Compressed Hydrogen",
+        "remaining": 49985,
+        "richness": 70
+      },
+      {
+        "item_id": "argon_gas",
+        "item_name": "Argon Gas",
+        "remaining": 49986,
+        "richness": 50
+      },
+      {
+        "item_id": "neon_gas",
+        "item_name": "Neon Gas",
+        "remaining": 50000,
+        "richness": 20
+      }
+    ],
+    "security_status": "Maximum Security (empire capital)",
+    "system_id": "haven",
+    "system_name": "Haven"
+  },
+  "message": "Current location"
+}
+loop 10 craft purify_argon 20
+loop 10 craft process_water_ice  20
+loop 10 craft compress_hydrogen_gas 20
+loop 10 craft ionized_neon 20
+
+
+STATUS
+$ get_status
+▶ Executing: get_status 
+
+{
+  "player": {
+    "id": "26c8538ce31a2160a6d48d6ef108ffda",
+    "username": "Preston 'Pickaxe' Porter",
+    "empire": "nebula",
+    "credits": 101370,
+    "created_at": "2026-02-08T06:38:14.280443Z",
+    "last_login_at": "2026-03-29T19:06:55.40999566Z",
+    "last_active_at": "2026-03-29T23:43:56.652641785Z",
+    "status_message": "",
+    "clan_tag": "",
+    "primary_color": "#FFFFFF",
+    "secondary_color": "#000000",
+    "is_cloaked": false,
+    "current_ship_id": "2278d0b27fd2156ee00ad56907438ff3",
+    "current_system": "haven",
+    "current_poi": "grand_exchange",
+    "home_base": "grand_exchange_station",
+    "last_chat_check": "0001-01-01T00:00:00Z",
+    "skills": {
+      "crafting": 20,
+      "deep_core_mining": 18,
+      "engineering": 12,
+      "mining": 13,
+      "navigation": 12,
+      "piloting": 27,
+      "refining": 12,
+      "trading": 12
+    },
+    "stats": {
+      "credits_earned": 85794,
+      "credits_spent": 40006,
+      "trades_completed": 220,
+      "ore_mined": 85618,
+      "items_crafted": 12423,
+      "ships_destroyed": 0,
+      "ships_lost": 0,
+      "pirates_destroyed": 0,
+      "npcs_destroyed": 0,
+      "bases_destroyed": 0,
+      "damage_dealt": 0,
+      "damage_taken": 0,
+      "battles_started": 0,
+      "battles_fled": 0,
+      "self_destructs": 0,
+      "deaths_by_pirate": 0,
+      "deaths_by_player": 0,
+      "deaths_by_self_destruct": 0,
+      "systems_explored": 0,
+      "distance_traveled": 219,
+      "time_played": 220800,
+      "jumps_completed": 0,
+      "wormholes_traversed": 0,
+      "scans_performed": 0,
+      "times_docked": 19,
+      "cloak_activations": 0,
+      "deep_core_pois_discovered": 0,
+      "exchange_credits_earned": 8128,
+      "exchange_items_sold": 7705,
+      "exchange_items_bought": 13,
+      "gifts_sent": 5,
+      "gifts_received": 2,
+      "credits_gifted": 500,
+      "insurance_policies_bought": 0,
+      "insurance_claims_made": 0,
+      "insurance_payouts_received": 0,
+      "wrecks_sold": 0,
+      "wrecks_scrapped": 0,
+      "wreck_items_looted": 0,
+      "ships_purchased": 0,
+      "ships_commissioned": 0,
+      "consumables_used": 0,
+      "modules_installed": 5,
+      "items_jettisoned": 0,
+      "refuels_given": 0,
+      "repairs_given": 0,
+      "facilities_built": 0,
+      "facility_items_produced": 0,
+      "missions_completed": 0,
+      "missions_accepted": 0,
+      "missions_abandoned": 0,
+      "chat_messages_sent": 2,
+      "forum_posts_created": 0,
+      "captains_log_entries": 0,
+      "customs_evaded": 0,
+      "contraband_sold": 0
+    },
+    "revealed_pois": {},
+    "docked_at_base": "grand_exchange_station"
+  },
+  "ship": {
+    "id": "2278d0b27fd2156ee00ad56907438ff3",
+    "owner_id": "26c8538ce31a2160a6d48d6ef108ffda",
+    "class_id": "gas_tanker",
+    "name": "Gas Tanker",
+    "created_at": "2026-03-27T23:20:27.155714984Z",
+    "hull": 320,
+    "max_hull": 320,
+    "shield": 150,
+    "max_shield": 150,
+    "shield_recharge": 3,
+    "armor": 10,
+    "speed": 1,
+    "fuel": 208,
+    "max_fuel": 220,
+    "cargo_used": 391,
+    "cargo_capacity": 645,
+    "cpu_used": 28,
+    "cpu_capacity": 28,
+    "power_used": 46,
+    "power_capacity": 65,
+    "weapon_slots": 0,
+    "defense_slots": 1,
+    "utility_slots": 4,
+    "modules": [
+      "ed3401473c0903650d842377395470a9",
+      "80eeb1df496f78bb44235a46733d037a",
+      "ff9b80784eddc5c8eff1cd14fdd2f56c",
+      "51225bc04aafbb1b424397077ad38970"
+    ],
+    "cargo": [
+      {
+        "item_id": "compressed_hydrogen",
+        "quantity": 33
+      },
+      {
+        "item_id": "neon_gas",
+        "quantity": 46
+      },
+      {
+        "item_id": "purified_argon",
+        "quantity": 250
+      },
+      {
+        "item_id": "liquid_hydrogen",
+        "quantity": 62
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "ed3401473c0903650d842377395470a9",
+      "type_id": "gas_harvester_iii",
+      "name": "Gas Harvester III",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 9,
+      "power_usage": 15,
+      "mining_power": 35,
+      "special": "gas_harvesting"
+    },
+    {
+      "id": "80eeb1df496f78bb44235a46733d037a",
+      "type_id": "gas_harvester_iii",
+      "name": "Gas Harvester III",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 9,
+      "power_usage": 15,
+      "mining_power": 35,
+      "special": "gas_harvesting"
+    },
+    {
+      "id": "ff9b80784eddc5c8eff1cd14fdd2f56c",
+      "type_id": "gas_harvester_iii",
+      "name": "Gas Harvester III",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 9,
+      "power_usage": 15,
+      "mining_power": 35,
+      "special": "gas_harvesting"
+    },
+    {
+      "id": "51225bc04aafbb1b424397077ad38970",
+      "type_id": "cargo_expander_i",
+      "name": "Cargo Expander I",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 1,
+      "power_usage": 1,
+      "cargo_bonus": 20
+    }
+  ]
+}
+
+
+$ get_ship
+▶ Executing: get_ship 
+
+{
+  "ship": {
+    "id": "2278d0b27fd2156ee00ad56907438ff3",
+    "owner_id": "26c8538ce31a2160a6d48d6ef108ffda",
+    "class_id": "gas_tanker",
+    "name": "Gas Tanker",
+    "created_at": "2026-03-27T23:20:27.155714984Z",
+    "hull": 320,
+    "max_hull": 320,
+    "shield": 150,
+    "max_shield": 150,
+    "shield_recharge": 3,
+    "armor": 10,
+    "speed": 1,
+    "fuel": 208,
+    "max_fuel": 220,
+    "cargo_used": 391,
+    "cargo_capacity": 645,
+    "cpu_used": 28,
+    "cpu_capacity": 28,
+    "power_used": 46,
+    "power_capacity": 65,
+    "weapon_slots": 0,
+    "defense_slots": 1,
+    "utility_slots": 4,
+    "modules": [
+      "ed3401473c0903650d842377395470a9",
+      "80eeb1df496f78bb44235a46733d037a",
+      "ff9b80784eddc5c8eff1cd14fdd2f56c",
+      "51225bc04aafbb1b424397077ad38970"
+    ],
+    "cargo": [
+      {
+        "item_id": "compressed_hydrogen",
+        "quantity": 33
+      },
+      {
+        "item_id": "neon_gas",
+        "quantity": 46
+      },
+      {
+        "item_id": "purified_argon",
+        "quantity": 250
+      },
+      {
+        "item_id": "liquid_hydrogen",
+        "quantity": 62
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "ed3401473c0903650d842377395470a9",
+      "type_id": "gas_harvester_iii",
+      "name": "Gas Harvester III",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 9,
+      "power_usage": 15,
+      "mining_power": 35,
+      "special": "gas_harvesting"
+    },
+    {
+      "id": "80eeb1df496f78bb44235a46733d037a",
+      "type_id": "gas_harvester_iii",
+      "name": "Gas Harvester III",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 9,
+      "power_usage": 15,
+      "mining_power": 35,
+      "special": "gas_harvesting"
+    },
+    {
+      "id": "ff9b80784eddc5c8eff1cd14fdd2f56c",
+      "type_id": "gas_harvester_iii",
+      "name": "Gas Harvester III",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 9,
+      "power_usage": 15,
+      "mining_power": 35,
+      "special": "gas_harvesting"
+    },
+    {
+      "id": "51225bc04aafbb1b424397077ad38970",
+      "type_id": "cargo_expander_i",
+      "name": "Cargo Expander I",
+      "type": "utility",
+      "slot": "utility",
+      "size": 10,
+      "wear": 0,
+      "wear_status": "Pristine",
+      "cpu_usage": 1,
+      "power_usage": 1,
+      "cargo_bonus": 20
+    }
+  ],
+  "cargo_used": 391,
+  "cargo_max": 645,
+  "class": {
+    "id": "gas_tanker",
+    "name": "Gas Tanker",
+    "description": "Nebula heavy gas collection vessel. Industrial-scale atmospheric extraction and compression.",
+    "class": "Gas Harvester",
+    "price": 32000,
+    "tier": 3,
+    "scale": 3,
+    "faction": "nebula",
+    "category": "Industrial",
+    "lore": "The Gas Tanker-class was designed by Federation accountants before it was designed by engineers. Specification one: maximum gas collection volume. Specification two: minimum cost per unit collected. Everything else was negotiable. The result is a slow, unarmed vessel with enormous pressurized tanks that compress collected gas to densities that make other empires' safety inspectors nervous. The Federation considers this an acceptable risk-reward ratio. The Gas Tanker doesn't fight, it doesn't hurry, and it doesn't come back until the tanks are full. ",
+    "base_hull": 320,
+    "base_shield": 150,
+    "base_shield_recharge": 3,
+    "base_armor": 10,
+    "base_speed": 1,
+    "base_fuel": 220,
+    "cargo_capacity": 625,
+    "cpu_capacity": 28,
+    "power_capacity": 65,
+    "weapon_slots": 0,
+    "defense_slots": 1,
+    "utility_slots": 4,
+    "default_modules": [
+      "gas_harvester_iii"
+    ],
+    "piloting_required": 20,
+    "shipyard_tier": 2,
+    "build_materials": [
+      {
+        "item_id": "prismatic_lens",
+        "quantity": 10
+      },
+      {
+        "item_id": "cargo_container",
+        "quantity": 30
+      },
+      {
+        "item_id": "hull_plating",
+        "quantity": 14
+      },
+      {
+        "item_id": "sensor_array",
+        "quantity": 20
+      },
+      {
+        "item_id": "engine_core",
+        "quantity": 8
+      },
+      {
+        "item_id": "fuel_tank",
+        "quantity": 25
+      },
+      {
+        "item_id": "titanium_alloy",
+        "quantity": 85
+      }
+    ],
+    "build_time": 3200,
+    "flavor_tags": [
+      "gas-harvester",
+      "bulk",
+      "unarmed",
+      "heavy-cargo"
+    ]
+  }
+}
+✓ Completed in 2.085812673s
+miner-1 | Haven | grand_exchange (⚓Docked) | gas_tanker | Fuel:[██████] Cargo:[████░░]
+
+:
