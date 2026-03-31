@@ -4,3 +4,23 @@ set_format raw
 get_cargo
 refit_ship
 get_ship
+view_storage
+set_format styled
+view_storage
+get_ship
+uninstall_mod 6563af01f114f680f8e339411f728618
+deposit_item cargo_expander_ii
+deposit_item cargo_expander_ii 1
+deposit_items cargo_expander_ii 1
+withdraw_items gas_harvester_iii 2
+iunstall_mod gas_harvester_iii
+install_mod gas_harvester_iii
+withdraw_items gas_harvester_ii 1
+install_mod gas_harvester_ii
+ge_ship
+get_ship
+get_cargo
+deposit_items gas_harvester_iii 1
+undock
+get_system
+travel trade_winds

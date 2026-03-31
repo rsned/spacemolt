@@ -9,6 +9,9 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
+// Verify *AgentState satisfies agent.EnrichedState at compile time.
+var _ agent.EnrichedState = (*AgentState)(nil)
+
 // testState returns a minimal game.State for testing.
 func testState() *game.State {
 	return &game.State{
