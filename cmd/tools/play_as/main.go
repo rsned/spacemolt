@@ -357,6 +357,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatDeposit(raw)
 	case "skills", "get_skills":
 		return formatSkills(raw)
+	case "view_market":
+		return formatMarket(raw)
 	default:
 		return ""
 	}
@@ -457,6 +459,37 @@ func formatStorage(raw []byte) string {
 	}
 
 	return b.String()
+}
+
+// formatMarket formats a view_market response as a multi-row table.
+func formatMarket(raw []byte) string {
+	var resp struct {
+		Items []struct {
+			ItemID    string `json:"item_id"`
+			ItemName  string `json:"item_name"`
+			BuyOrders []struct {
+				PriceEach float64 `json:"price_each"`
+				Quantity  int     `json:"quantity"`
+				Source    string  `json:"source,omitempty"`
+			} `json:"buy_orders"`
+			SellOrders []struct {
+				PriceEach float64 `json:"price_each"`
+				Quantity  int     `json:"quantity"`
+				Source    string  `json:"source,omitempty"`
+			} `json:"sell_orders"`
+		} `json:"items"`
+	}
+
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return fmt.Sprintf("Error parsing market data: %v", err)
+	}
+
+	if len(resp.Items) == 0 {
+		return "No market data available"
+	}
+
+	// TODO: Build table
+	return "Market formatting not yet implemented"
 }
 
 // formatCargo formats a get_cargo response as a sorted table.
