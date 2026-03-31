@@ -596,8 +596,47 @@ func formatMarket(raw []byte) string {
 	_, _ = fmt.Fprintf(w, "----------------------+-----------------------+---------+------+----------+-----+\n")
 
 	for _, item := range resp.Items {
-		// TODO: Format item rows
-		_, _ = fmt.Fprintf(w, "%s\t| %s\t| TODO\t| TODO\t| TODO\t| TODO\t|\n", item.ItemName, item.ItemID)
+		buys := formatBuyOrders(item.BuyOrders)
+		sells := formatSellOrders(item.SellOrders)
+
+		// Row 1: Best buy and sell
+		buyPrice1, buyQty1 := "-", "-"
+		if len(buys) > 0 {
+			buyPrice1 = buys[0].price
+			buyQty1 = buys[0].qty
+		}
+
+		sellPrice1, sellQty1 := "-", "-"
+		if len(sells) > 0 {
+			sellPrice1 = sells[0].price
+			sellQty1 = sells[0].qty
+		}
+
+		_, _ = fmt.Fprintf(w, "%s\t| %s\t| %s\t| %s\t| %s\t| %s\t|\n",
+			item.ItemName, item.ItemID,
+			buyPrice1, buyQty1,
+			sellPrice1, sellQty1,
+		)
+
+		// Row 2: Second best buy and sell (if exists)
+		if len(buys) > 1 || len(sells) > 1 {
+			buyPrice2, buyQty2 := "-", "-"
+			if len(buys) > 1 {
+				buyPrice2 = buys[1].price
+				buyQty2 = buys[1].qty
+			}
+
+			sellPrice2, sellQty2 := "-", "-"
+			if len(sells) > 1 {
+				sellPrice2 = sells[1].price
+				sellQty2 = sells[1].qty
+			}
+
+			_, _ = fmt.Fprintf(w, "\t| \t| %s\t| %s\t| %s\t| %s\t|\n",
+				buyPrice2, buyQty2,
+				sellPrice2, sellQty2,
+			)
+		}
 	}
 
 	_ = w.Flush()
