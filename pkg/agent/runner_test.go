@@ -28,7 +28,7 @@ func filterActions(actions []string, exclude ...string) []string {
 // Mock agent for testing
 type mockAgent struct {
 	id          string
-	decisionFn  func(ctx context.Context, state *game.State) (Decision, error)
+	decisionFn  func(ctx context.Context, es EnrichedState) (Decision, error)
 	learnFn     func(result ActionResult) error
 	startCalled bool
 	stopCalled  bool
@@ -40,9 +40,9 @@ func (m *mockAgent) Personality() Personality { return Personality{} }
 func (m *mockAgent) Memory() Memory           { return nil }
 func (m *mockAgent) Status() Status           { return Status{} }
 
-func (m *mockAgent) Decide(ctx context.Context, state *game.State) (Decision, error) {
+func (m *mockAgent) Decide(ctx context.Context, es EnrichedState) (Decision, error) {
 	if m.decisionFn != nil {
-		return m.decisionFn(ctx, state)
+		return m.decisionFn(ctx, es)
 	}
 	return Decision{Action: "wait"}, nil
 }
@@ -495,7 +495,7 @@ func TestRunner_ExecuteCycle_ActionCommand(t *testing.T) {
 	decisionCount := 0
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			decisionCount++
 			return Decision{
 				Action:     "mine",
@@ -539,7 +539,7 @@ func TestRunner_ExecuteCycle_ActionCommand(t *testing.T) {
 func TestRunner_ExecuteCycle_QueryCommand(t *testing.T) {
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			return Decision{
 				Action:     "get_status",
 				Reasoning:  "Checking status",
@@ -579,7 +579,7 @@ func TestRunner_ThrottleActionCommands(t *testing.T) {
 	callCount := 0
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			callCount++
 			return Decision{
 				Action:     "mine",
@@ -635,7 +635,7 @@ func TestRunner_DecisionError_Retries(t *testing.T) {
 	var errorCount atomic.Int32
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			count := errorCount.Add(1)
 			if count < 3 {
 				return Decision{}, errors.New("temporary error")
@@ -673,7 +673,7 @@ func TestRunner_DecisionError_Retries(t *testing.T) {
 func TestRunner_MaxRetries_Stops(t *testing.T) {
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			return Decision{}, errors.New("persistent error")
 		},
 	}
@@ -731,7 +731,7 @@ func TestRunner_ContextCancellation(t *testing.T) {
 func TestRunner_WaitAction(t *testing.T) {
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			return Decision{
 				Action:     "wait",
 				Reasoning:  "Waiting for next tick",
@@ -760,7 +760,7 @@ func TestRunner_WaitAction(t *testing.T) {
 func TestRunner_InvalidAction(t *testing.T) {
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			return Decision{
 				Action:     "invalid_action",
 				Confidence: 1.0,
@@ -791,7 +791,7 @@ func TestRunner_LearningCallback(t *testing.T) {
 
 	agent := &mockAgent{
 		id: "test-agent",
-		decisionFn: func(ctx context.Context, state *game.State) (Decision, error) {
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
 			return Decision{Action: "mine", Confidence: 0.8}, nil
 		},
 		learnFn: func(result ActionResult) error {

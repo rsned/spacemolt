@@ -25,7 +25,7 @@ type ToTContext struct {
 type ToTEvaluator interface {
 	// EvaluateToT runs the Tree-of-Thought pipeline and returns the best decision.
 	// The second return value is the full thought tree for event emission.
-	EvaluateToT(ctx context.Context, personality Personality, state *game.State, totCtx *ToTContext) (Decision, any, error)
+	EvaluateToT(ctx context.Context, personality Personality, es EnrichedState, totCtx *ToTContext) (Decision, any, error)
 }
 
 // Runner wraps an agent with its game client and runs the play loop
@@ -57,6 +57,11 @@ type Runner struct {
 
 	// Pause state — when paused, the runner skips decision/ToT cycles
 	paused bool
+
+	// Enriched state — if set, provides KB enrichment and action-space
+	// evaluation each cycle. Created externally (e.g., via agentstate.New)
+	// and injected via SetEnrichedState.
+	enrichedState EnrichedState
 
 	// Logging
 	logger *log.Logger
@@ -227,9 +232,22 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 		return fmt.Errorf("game state is nil")
 	}
 
-	// Clone state for safe concurrent access
+	// Build enriched state for this cycle. If a full EnrichedState (backed
+	// by agentstate.AgentState) was injected, refresh its enrichment layers.
+	// Otherwise fall back to a raw wrapper around a cloned game state.
+	var es EnrichedState
+	if r.enrichedState != nil {
+		r.enrichedState.Refresh(ctx)
+		es = r.enrichedState
+	}
+
+	// Clone state for safe concurrent reads (tick checking, route updates).
 	stateCopy := state.Clone()
 	currentTick := stateCopy.GetTick()
+
+	if es == nil {
+		es = NewRawEnrichedState(stateCopy)
+	}
 
 	// Auto-update route home on system change
 	r.maybeUpdateRouteHome(ctx, stateCopy)
@@ -297,10 +315,10 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 				RecentActions: r.history.GetRecent(5),
 			}
 			var tree any
-			decision, tree, err = r.totEvaluator.EvaluateToT(ctx, r.agent.Personality(), stateCopy, totCtx)
+			decision, tree, err = r.totEvaluator.EvaluateToT(ctx, r.agent.Personality(), es, totCtx)
 			if err != nil {
 				r.logger.Printf("[%s] ToT failed, falling back to single-call: %v", r.agent.ID(), err)
-				decision, err = r.agent.Decide(ctx, stateCopy)
+				decision, err = r.agent.Decide(ctx, es)
 				if err != nil {
 					return fmt.Errorf("decision failed: %w", err)
 				}
@@ -309,7 +327,7 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 			}
 		} else {
 			// Standard single-call LLM decision
-			decision, err = r.agent.Decide(ctx, stateCopy)
+			decision, err = r.agent.Decide(ctx, es)
 			if err != nil {
 				return fmt.Errorf("decision failed: %w", err)
 			}
@@ -941,6 +959,19 @@ func (r *Runner) SetEventCallback(cb EventCallback) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.eventCallback = cb
+}
+
+// SetEnrichedState configures the enriched state provider for this runner.
+// When set, each decision cycle will call Refresh() and pass the enriched
+// state to Agent.Decide and ToTEvaluator. When nil, a raw fallback wrapping
+// the cloned game state is used instead.
+func (r *Runner) SetEnrichedState(es EnrichedState) {
+	r.enrichedState = es
+}
+
+// GetEnrichedState returns the configured enriched state, or nil.
+func (r *Runner) GetEnrichedState() EnrichedState {
+	return r.enrichedState
 }
 
 // SetToTEvaluator enables Tree-of-Thought decision making for this runner.

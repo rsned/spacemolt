@@ -469,12 +469,12 @@ func formatMarket(raw []byte) string {
 			ItemName  string `json:"item_name"`
 			BuyOrders []struct {
 				PriceEach float64 `json:"price_each"`
-				Quantity  int     `json:"quantity"`
+				Quantity  float64 `json:"quantity"`
 				Source    string  `json:"source,omitempty"`
 			} `json:"buy_orders"`
 			SellOrders []struct {
 				PriceEach float64 `json:"price_each"`
-				Quantity  int     `json:"quantity"`
+				Quantity  float64 `json:"quantity"`
 				Source    string  `json:"source,omitempty"`
 			} `json:"sell_orders"`
 		} `json:"items"`

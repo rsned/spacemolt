@@ -1,0 +1,6 @@
+view_storage
+get_ship
+set_format raw
+get_cargo
+refit_ship
+get_ship

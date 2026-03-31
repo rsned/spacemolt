@@ -6,6 +6,26 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+// EnrichedState provides enriched game state for agent decision cycles.
+// The primary implementation is *agentstate.AgentState which layers KB data,
+// action space evaluation, and agent context on top of live game state.
+// When no enriched state is available, rawEnrichedState provides a minimal
+// fallback wrapping a cloned *game.State.
+type EnrichedState interface {
+	// Refresh rebuilds enrichment layers from current game state and KB.
+	// Called once per decision cycle.
+	Refresh(ctx context.Context)
+
+	// GameState returns the underlying game state pointer.
+	GameState() *game.State
+
+	// SystemSecurity returns a human-readable security label for the current system.
+	SystemSecurity() string
+
+	// CanDo returns whether a specific action is valid given current state.
+	CanDo(action string) bool
+}
+
 // Agent represents an autonomous game-playing agent
 type Agent interface {
 	// Identity
@@ -16,7 +36,7 @@ type Agent interface {
 	Personality() Personality
 
 	// Decision Making
-	Decide(ctx context.Context, state *game.State) (Decision, error)
+	Decide(ctx context.Context, es EnrichedState) (Decision, error)
 
 	// Learning
 	Learn(result ActionResult) error

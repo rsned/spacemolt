@@ -128,14 +128,19 @@ func (a *BaseAgent) Personality() Personality {
 	return a.personality
 }
 
-// Decide uses the LLM to choose the next action
-func (a *BaseAgent) Decide(ctx context.Context, state *game.State) (Decision, error) {
+// Decide uses the LLM to choose the next action.
+// The EnrichedState provides both the live game state (via GameState()) and
+// optional KB enrichment. Currently the prompt is built from the raw game
+// state; enriched accessors will be incorporated incrementally.
+func (a *BaseAgent) Decide(ctx context.Context, es EnrichedState) (Decision, error) {
 	a.mu.Lock()
 	a.status.State = AgentStateDeciding
 	a.status.CurrentAction = "thinking..."
 	a.mu.Unlock()
 
-	// Build prompt from personality, memory, and current state
+	// Build prompt from personality, memory, and current state.
+	// Use the underlying game state for backward-compatible prompt building.
+	state := es.GameState()
 	prompt := a.buildDecisionPrompt(state)
 
 	// Get LLM decision

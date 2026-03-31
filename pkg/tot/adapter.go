@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/agent"
-	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // RunnerAdapter wraps an Evaluator to satisfy agent.ToTEvaluator.
@@ -16,12 +15,13 @@ type RunnerAdapter struct {
 }
 
 // EvaluateToT implements agent.ToTEvaluator.
-func (a *RunnerAdapter) EvaluateToT(ctx context.Context, personality agent.Personality, state *game.State, totCtx *agent.ToTContext) (agent.Decision, any, error) {
+func (a *RunnerAdapter) EvaluateToT(ctx context.Context, personality agent.Personality, es agent.EnrichedState, totCtx *agent.ToTContext) (agent.Decision, any, error) {
+	state := es.GameState()
 	validActions := ValidActions(state)
 	weights := DeriveWeights(personality)
 
-	// Build enriched prompt context from runner data
-	pctx := buildPromptContext(personality, state, totCtx)
+	// Build enriched prompt context — prefer enriched state accessors when available.
+	pctx := buildPromptContext(personality, es, totCtx)
 
 	// Wire incremental updates through to the runner's event system
 	if a.OnUpdate != nil {
@@ -39,7 +39,8 @@ func (a *RunnerAdapter) EvaluateToT(ctx context.Context, personality agent.Perso
 }
 
 // buildPromptContext assembles the enriched prompt context from runner data.
-func buildPromptContext(p agent.Personality, state *game.State, totCtx *agent.ToTContext) *PromptContext {
+func buildPromptContext(p agent.Personality, es agent.EnrichedState, totCtx *agent.ToTContext) *PromptContext {
+	state := es.GameState()
 	pctx := &PromptContext{}
 
 	// Short-term memory
@@ -54,15 +55,15 @@ func buildPromptContext(p agent.Personality, state *game.State, totCtx *agent.To
 		pctx.BiographyExcerpt = excerptBiography(p.Biography, 200)
 	}
 
-	// System security
-	pctx.SystemSecurity = securityLabel(state.System.PoliceLevel)
+	// System security — prefer enriched state over raw police level.
+	pctx.SystemSecurity = es.SystemSecurity()
 
-	// Enriched connected system info
+	// Enriched connected system info from game state connections.
 	for _, conn := range state.System.Connections {
 		pctx.ConnectedSystemInfo = append(pctx.ConnectedSystemInfo, ConnectedSystem{
 			ID:       conn.SystemID,
 			Name:     conn.Name,
-			Security: "Unknown", // We don't have security for neighboring systems in State
+			Security: "Unknown", // Will be enriched when agentstate provides neighbor data
 			Distance: conn.Distance,
 		})
 	}
@@ -92,17 +93,3 @@ func excerptBiography(bio string, maxLen int) string {
 	return bio
 }
 
-func securityLabel(policeLevel int) string {
-	switch policeLevel {
-	case 0:
-		return "Lawless"
-	case 1:
-		return "Low Security"
-	case 2:
-		return "Medium Security"
-	case 3:
-		return "High Security"
-	default:
-		return "Unknown"
-	}
-}

@@ -35,20 +35,28 @@ type Manager struct {
 	mu              sync.RWMutex
 
 	// Configuration
-	maxAgents     int
-	gameServerURL string
-	agentsDataDir string
-	runnerConfig  RunnerConfig
-	debugLogger   *log.Logger
+	maxAgents            int
+	gameServerURL        string
+	agentsDataDir        string
+	runnerConfig         RunnerConfig
+	debugLogger          *log.Logger
+	enrichedStateFactory EnrichedStateFactory
 }
+
+// EnrichedStateFactory creates an EnrichedState for a runner.
+// The factory receives the live game state and the knowledge base, and should
+// return an EnrichedState (typically *agentstate.AgentState). If nil, runners
+// fall back to rawEnrichedState with no KB enrichment.
+type EnrichedStateFactory func(state *game.State, kb knowledge.Base) EnrichedState
 
 // ManagerConfig holds configuration for the agent manager
 type ManagerConfig struct {
-	MaxAgents     int
-	GameServerURL string
-	AgentsDataDir string
-	RunnerConfig  RunnerConfig
-	DebugLogger   *log.Logger
+	MaxAgents            int
+	GameServerURL        string
+	AgentsDataDir        string
+	RunnerConfig         RunnerConfig
+	DebugLogger          *log.Logger
+	EnrichedStateFactory EnrichedStateFactory
 }
 
 // DefaultManagerConfig returns sensible defaults
@@ -88,11 +96,12 @@ func NewManager(
 		kb:              kb,
 		llm:             llmClient,
 		credsProvider:   credsProvider,
-		maxAgents:       config.MaxAgents,
-		gameServerURL:   config.GameServerURL,
-		agentsDataDir:   config.AgentsDataDir,
-		runnerConfig:    config.RunnerConfig,
-		debugLogger:     config.DebugLogger,
+		maxAgents:            config.MaxAgents,
+		gameServerURL:        config.GameServerURL,
+		agentsDataDir:        config.AgentsDataDir,
+		runnerConfig:         config.RunnerConfig,
+		debugLogger:          config.DebugLogger,
+		enrichedStateFactory: config.EnrichedStateFactory,
 	}
 }
 
@@ -346,6 +355,13 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 
 	// Create runner
 	runner := NewRunner(agent, gameClient, m.runnerConfig)
+
+	// Wire enriched state if factory is configured
+	if m.enrichedStateFactory != nil {
+		es := m.enrichedStateFactory(gameClient.GetState(), m.kb)
+		runner.SetEnrichedState(es)
+		m.debugLogger.Printf("[%s] Enriched state configured", personality.ID)
+	}
 
 	// Start runner
 	if err := runner.Start(ctx); err != nil {
