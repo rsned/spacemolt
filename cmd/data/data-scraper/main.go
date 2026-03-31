@@ -156,8 +156,8 @@ func main() {
 	}
 	logger.Println()
 
-	// Create output directory for this agent
-	outputDir := filepath.Join(baseOutputDir, agentID)
+	// Create output directory named by today's date (YYYYMMDD)
+	outputDir := filepath.Join(baseOutputDir, time.Now().Format("20060102"))
 
 	// Create scraper
 	scraper := &Scraper{
