@@ -15,8 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/agentstate"
 	"github.com/rsned/spacemolt/pkg/api"
 	"github.com/rsned/spacemolt/pkg/credentials"
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
 	"github.com/rsned/spacemolt/pkg/registry"
@@ -142,6 +144,9 @@ func main() {
 	managerConfig.AgentsDataDir = *agentsDir
 	managerConfig.RunnerConfig.DecisionInterval = *decisionInterval
 	managerConfig.DebugLogger = log.Default()
+	managerConfig.EnrichedStateFactory = func(state *game.State, kb knowledge.Base) agent.EnrichedState {
+		return agentstate.New(state, kb)
+	}
 
 	mgr := agent.NewManager(kb, llmClient, credsProvider, managerConfig)
 	log.Printf("✓ Agent manager created (max agents: %d)", *maxAgents)

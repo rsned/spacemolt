@@ -66,10 +66,37 @@ The server reads configuration from a YAML file (default: `spacemolt-server.yaml
 
 ### CLI Flags
 
+All flags are optional and override values from the YAML config file.
+
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-config` | `spacemolt-server.yaml` | Path to configuration file |
 | `-port` | (from config or `8090`) | Override HTTP port |
+| `-agents` | (from config) | Comma-separated list of agent IDs to start |
+| `-agents-dir` | (from config or `data/agents`) | Directory containing agent personalities |
+| `-max-agents` | (from config or `50`) | Maximum number of concurrent agents |
+| `-decision-interval` | (from config or `11s`) | Agent decision loop interval |
+| `-server-url` | (from config) | Game server WebSocket URL |
+| `-llm-url` | (from config) | LLM server URL (Ollama) |
+| `-llm-model` | (from config) | LLM model name |
+| `-db-backend` | (from config or `sqlite`) | Knowledge base backend: `sqlite` or `memory` |
+| `-db-path` | (from config) | Path to SQLite database |
+| `-creds-backend` | (from config or `file`) | Credentials backend: `file`, `sqlite`, or `keyring` |
+| `-creds-path` | (from config) | Path for credentials storage |
+| `-registry-url` | (from config) | Status registry URL |
+
+**Examples:**
+
+```bash
+# Run with specific agents and model, no config file needed
+spacemolt-server -agents miner-1,explorer-1 -llm-model dolphin3
+
+# Override just the port
+spacemolt-server -port 9090
+
+# Use a different config file
+spacemolt-server -config production.yaml -port 8080
+```
 
 ### Configuration File
 

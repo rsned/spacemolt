@@ -53,8 +53,9 @@ func (s *AgentState) Refresh(ctx context.Context) {
 		s.enriched.NearbyBestSells = nil
 	}
 
-	// 6. Rebuild action space.
-	gc := actionspace.FromState(s.game)
+	// 6. Rebuild action space from the cloned state (not s.game, which is
+	// the live pointer written to concurrently by handleResponse).
+	gc := actionspace.FromState(state)
 	as := actionspace.Evaluate(gc)
 	s.actions = ActionState{
 		GameContext:  gc,

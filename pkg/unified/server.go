@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/agentstate"
 	"github.com/rsned/spacemolt/pkg/api"
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/game"
@@ -78,6 +79,9 @@ func New(cfg Config) (*Server, error) {
 	managerCfg.AgentsDataDir = cfg.Agents.Dir
 	managerCfg.RunnerConfig.DecisionInterval = cfg.Agents.DecisionInterval
 	managerCfg.DebugLogger = logger
+	managerCfg.EnrichedStateFactory = func(state *game.State, kb knowledge.Base) agent.EnrichedState {
+		return agentstate.New(state, kb)
+	}
 
 	mgr := agent.NewManager(kb, llmClient, creds, managerCfg)
 	logger.Printf("agent manager created (max agents: %d)", cfg.Agents.Max)
