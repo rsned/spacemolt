@@ -23,6 +23,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"cmp"
+
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -461,6 +463,54 @@ func formatStorage(raw []byte) string {
 	}
 
 	return b.String()
+}
+
+// formatBuyOrders formats up to 2 buy orders with station prefix.
+// Returns slice of formatted strings (price with prefix, quantity).
+func formatBuyOrders(orders []struct {
+	PriceEach float64 `json:"price_each"`
+	Quantity  float64 `json:"quantity"`
+	Source    string  `json:"source,omitempty"`
+}) []struct {
+	price string
+	qty   string
+} {
+	// Sort by price ascending (lowest first)
+	sorted := make([]struct {
+		PriceEach float64 `json:"price_each"`
+		Quantity  float64 `json:"quantity"`
+		Source    string  `json:"source,omitempty"`
+	}, len(orders))
+	copy(sorted, orders)
+
+	slices.SortFunc(sorted, func(a, b struct {
+		PriceEach float64 `json:"price_each"`
+		Quantity  float64 `json:"quantity"`
+		Source    string  `json:"source,omitempty"`
+	}) int {
+		return cmp.Compare(a.PriceEach, b.PriceEach)
+	})
+
+	// Take top 2
+	result := make([]struct {
+		price string
+		qty   string
+	}, 0, 2)
+	for i := 0; i < len(sorted) && i < 2; i++ {
+		prefix := ""
+		if sorted[i].Source == "station" {
+			prefix = "* "
+		}
+		result = append(result, struct {
+			price string
+			qty   string
+		}{
+			price: prefix + fmt.Sprintf("%.0f", sorted[i].PriceEach),
+			qty:   fmt.Sprintf("%.0f", sorted[i].Quantity),
+		})
+	}
+
+	return result
 }
 
 // formatMarket formats a view_market response as a multi-row table.
