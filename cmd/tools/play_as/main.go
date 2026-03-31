@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -19,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/peterh/liner"
@@ -488,8 +490,20 @@ func formatMarket(raw []byte) string {
 		return "No market data available"
 	}
 
-	// TODO: Build table
-	return "Market formatting not yet implemented"
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 1, ' ', 0)
+
+	// Header row
+	_, _ = fmt.Fprintf(w, "Name\t| ID\t| Buy\t| Qty\t| Sell\t| Qty\t|\n")
+	_, _ = fmt.Fprintf(w, "----------------------+-----------------------+---------+------+----------+-----+\n")
+
+	for _, item := range resp.Items {
+		// TODO: Format item rows
+		_, _ = fmt.Fprintf(w, "%s\t| %s\t| TODO\t| TODO\t| TODO\t| TODO\t|\n", item.ItemName, item.ItemID)
+	}
+
+	_ = w.Flush()
+	return buf.String()
 }
 
 // formatCargo formats a get_cargo response as a sorted table.
