@@ -187,57 +187,28 @@ func kbUpdateStation(client game.GameClient, ctx context.Context) error {
 	}
 
 	// --- Ship listings ---
-	if wsClient, ok := client.(*game.Client); ok {
-		if err := wsClient.ShipyardShowroom(ctx); err != nil {
-			fmt.Printf("Warning: shipyard_showroom failed: %v\n", err)
-		} else {
-			time.Sleep(game.SleepQuick)
-
-			rawJSON := client.GetRawJSON("ships")
-			if rawJSON != nil {
-				var serverData map[string]any
-				if err := json.Unmarshal(rawJSON, &serverData); err == nil {
-					ships := extractShipListingsFromRaw(serverData)
-					shipListings := knowledge.ShipListings{
-						SystemID:    systemID,
-						SystemName:  systemName,
-						StationID:   poiID,
-						StationName: poiName,
-						GameTick:    state.CurrentTick,
-						Listings:    ships,
-					}
-					if err := globalKB.StoreShipListings(ctx, shipListings, "play_as"); err != nil {
-						fmt.Printf("Warning: failed to save ship listings: %v\n", err)
-					} else {
-						fmt.Printf("Saved ship listings: %d ships\n", len(ships))
-					}
-				}
-			}
-		}
+	if err := client.BrowseShips(ctx, nil); err != nil {
+		fmt.Printf("Warning: browse_ships failed: %v\n", err)
 	} else {
-		// MCP: try raw command
-		if err := client.RawCommand(ctx, "shipyard_showroom", nil); err != nil {
-			fmt.Printf("Warning: shipyard_showroom failed: %v\n", err)
-		} else {
-			time.Sleep(game.SleepQuick)
-			rawJSON := client.GetRawJSON("ships")
-			if rawJSON != nil {
-				var serverData map[string]any
-				if err := json.Unmarshal(rawJSON, &serverData); err == nil {
-					ships := extractShipListingsFromRaw(serverData)
-					shipListings := knowledge.ShipListings{
-						SystemID:    systemID,
-						SystemName:  systemName,
-						StationID:   poiID,
-						StationName: poiName,
-						GameTick:    state.CurrentTick,
-						Listings:    ships,
-					}
-					if err := globalKB.StoreShipListings(ctx, shipListings, "play_as"); err != nil {
-						fmt.Printf("Warning: failed to save ship listings: %v\n", err)
-					} else {
-						fmt.Printf("Saved ship listings: %d ships\n", len(ships))
-					}
+		time.Sleep(game.SleepQuick)
+
+		rawJSON := client.GetRawJSON("ships")
+		if rawJSON != nil {
+			var serverData map[string]any
+			if err := json.Unmarshal(rawJSON, &serverData); err == nil {
+				ships := extractShipListingsFromRaw(serverData)
+				shipListings := knowledge.ShipListings{
+					SystemID:    systemID,
+					SystemName:  systemName,
+					StationID:   poiID,
+					StationName: poiName,
+					GameTick:    state.CurrentTick,
+					Listings:    ships,
+				}
+				if err := globalKB.StoreShipListings(ctx, shipListings, "play_as"); err != nil {
+					fmt.Printf("Warning: failed to save ship listings: %v\n", err)
+				} else {
+					fmt.Printf("Saved ship listings: %d ships\n", len(ships))
 				}
 			}
 		}

@@ -103,3 +103,30 @@ travel xamidimura_i
 update_poii
 update_poi
 travel xamidimura_blue_reef
+update_poi
+travel xamidimura_star
+update_poiget_system
+update_poi
+travel kael_station
+get_system
+travel kael_arsenal
+updaste_poi
+dock
+update_poi
+update_all
+browse_ships
+get_status
+buy_ship 0d96ef560f2d20e0cc7743a51a8d00a5
+buy_listed_ship 0d96ef560f2d20e0cc7743a51a8d00a5
+find_route nexus_prime
+find_route haven
+find_route sol
+find_route krynn
+find_route frontier
+buy_listed_ship 0d96ef560f2d20e0cc7743a51a8d00a5
+get_shiup
+get_ship
+view_market
+get_insurance_quote
+buy_insurance
+claim_insurance

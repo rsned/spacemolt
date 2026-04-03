@@ -34,3 +34,9 @@ jump izar
 find_route frontier
 jump tidewater
 jump last_light
+find_route frontier
+jump unknown_edge
+jump altais
+get_system
+jujmp frontier
+jump frontier

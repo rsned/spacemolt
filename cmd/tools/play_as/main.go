@@ -2185,6 +2185,14 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.BuyShip(ctx, parts[1])
 		}, ctx, 5*time.Second, cmd, format)
 
+	case "buy_listed_ship":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: buy_listed_ship <listing-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "buy_listed_ship", map[string]any{"listing_id": parts[1]})
+		}, ctx, 5*time.Second, cmd, format)
+
 	case "browse_ships":
 		var payload map[string]any
 		if len(parts) > 1 {
