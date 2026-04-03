@@ -419,8 +419,10 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 
 	// Insert or update base
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO bases (id, poi_id, name, description, story, empire, defense_level, has_drones, public_access, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO bases (id, poi_id, name, description, story, empire, defense_level, has_drones, public_access,
+			pirate_rep_required, condition, condition_text, satisfaction_pct, satisfied_count, total_service_infra,
+			last_updated_tick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			poi_id = excluded.poi_id,
 			name = excluded.name,
@@ -430,9 +432,18 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 			defense_level = excluded.defense_level,
 			has_drones = excluded.has_drones,
 			public_access = excluded.public_access,
+			pirate_rep_required = excluded.pirate_rep_required,
+			condition = excluded.condition,
+			condition_text = excluded.condition_text,
+			satisfaction_pct = excluded.satisfaction_pct,
+			satisfied_count = excluded.satisfied_count,
+			total_service_infra = excluded.total_service_infra,
 			last_updated_tick = excluded.last_updated_tick
 	`, base.ID, base.POIID, base.Name, base.Description, base.Story, base.Empire,
-		base.DefenseLevel, base.HasDrones, base.PublicAccess, base.LastUpdatedTick)
+		base.DefenseLevel, base.HasDrones, base.PublicAccess,
+		base.PirateRepRequired, base.Condition, base.ConditionText, base.SatisfactionPct,
+		base.SatisfiedCount, base.TotalServiceInfra,
+		base.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert base: %w", err)
 	}
@@ -501,7 +512,10 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	var description, story sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access, last_updated_tick
+		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access,
+			COALESCE(pirate_rep_required, 0), COALESCE(condition, ''), COALESCE(condition_text, ''),
+			COALESCE(satisfaction_pct, 0), COALESCE(satisfied_count, 0), COALESCE(total_service_infra, 0),
+			last_updated_tick
 		FROM bases
 		WHERE id = ?
 	`, baseID).Scan(
@@ -514,6 +528,12 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 		&base.DefenseLevel,
 		&base.HasDrones,
 		&base.PublicAccess,
+		&base.PirateRepRequired,
+		&base.Condition,
+		&base.ConditionText,
+		&base.SatisfactionPct,
+		&base.SatisfiedCount,
+		&base.TotalServiceInfra,
 		&base.LastUpdatedTick,
 	)
 	if err != nil {
@@ -634,7 +654,10 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 	var description, story sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access, last_updated_tick
+		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access,
+			COALESCE(pirate_rep_required, 0), COALESCE(condition, ''), COALESCE(condition_text, ''),
+			COALESCE(satisfaction_pct, 0), COALESCE(satisfied_count, 0), COALESCE(total_service_infra, 0),
+			last_updated_tick
 		FROM bases
 		WHERE poi_id = ?
 	`, poiID).Scan(
@@ -647,6 +670,12 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 		&base.DefenseLevel,
 		&base.HasDrones,
 		&base.PublicAccess,
+		&base.PirateRepRequired,
+		&base.Condition,
+		&base.ConditionText,
+		&base.SatisfactionPct,
+		&base.SatisfiedCount,
+		&base.TotalServiceInfra,
 		&base.LastUpdatedTick,
 	)
 	if err != nil {

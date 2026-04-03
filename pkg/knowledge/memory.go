@@ -348,12 +348,18 @@ type SpaceBase struct {
 	Story           string // Narrative description of the station
 	Empire          string
 	DefenseLevel    int
-	HasDrones       bool
-	PublicAccess    bool
-	Services        map[string]bool
-	Facilities      []Facility // Facilities with category and level information
-	Market          []BaseMarketItem
-	LastUpdatedTick int64
+	HasDrones         bool
+	PublicAccess      bool
+	PirateRepRequired int
+	Condition         string // e.g., "thriving", "degraded", "critical"
+	ConditionText     string // Human-readable condition description
+	SatisfactionPct   int    // 0-100 satisfaction percentage
+	SatisfiedCount    int    // Number of satisfied service/infra facilities
+	TotalServiceInfra int    // Total number of service/infra facilities
+	Services          map[string]bool
+	Facilities        []Facility // Facilities with category and level information
+	Market            []BaseMarketItem
+	LastUpdatedTick   int64
 }
 
 // BaseMarketItem represents an item for sale at a base market

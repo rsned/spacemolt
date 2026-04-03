@@ -131,37 +131,16 @@ func kbUpdateStation(client game.GameClient, ctx context.Context) error {
 
 		rawJSON := client.GetRawJSON("base")
 		if rawJSON != nil {
-			var baseResp serverapi.GetBaseResponse
-			if err := json.Unmarshal(rawJSON, &baseResp); err == nil && baseResp.Base != nil {
-				poiName = baseResp.Base.Name
-
-				services := make(map[string]bool)
-				for _, svc := range baseResp.Services {
-					services[svc] = true
-				}
-				if baseResp.Base.Services != nil {
-					for svc, avail := range baseResp.Base.Services {
-						services[svc] = avail
-					}
-				}
-
-				kbBase := knowledge.SpaceBase{
-					ID:              baseResp.Base.ID,
-					POIID:           poiID,
-					Name:            baseResp.Base.Name,
-					Description:     baseResp.Base.Description,
-					Empire:          baseResp.Base.Empire,
-					DefenseLevel:    baseResp.Base.DefenseLevel,
-					HasDrones:       baseResp.Base.HasDrones,
-					PublicAccess:    baseResp.Base.PublicAccess,
-					Services:        services,
-					LastUpdatedTick: state.CurrentTick,
-				}
-
-				if err := globalKB.RememberBase(ctx, kbBase); err != nil {
+			base, err := knowledge.BaseDataFromRawJSON(rawJSON, "play_as", state.CurrentTick)
+			if err != nil {
+				fmt.Printf("Warning: failed to parse base data: %v\n", err)
+			} else {
+				poiName = base.Name
+				if err := globalKB.RememberBase(ctx, *base); err != nil {
 					fmt.Printf("Warning: failed to save base: %v\n", err)
 				} else {
-					fmt.Printf("Saved base: %s\n", baseResp.Base.Name)
+					fmt.Printf("Saved base: %s (%d facilities, %d services)\n",
+						base.Name, len(base.Facilities), len(base.Services))
 				}
 			}
 		}

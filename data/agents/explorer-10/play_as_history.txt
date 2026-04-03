@@ -130,3 +130,11 @@ view_market
 get_insurance_quote
 buy_insurance
 claim_insurance
+browse_ships
+get_poi
+get_location
+update_poi
+update_all
+update_market
+view_market
+get_base

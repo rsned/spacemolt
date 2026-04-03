@@ -31,13 +31,22 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 			Description  string            `json:"description"`
 			Empire       string            `json:"empire"`
 			DefenseLevel int               `json:"defense_level"`
-			HasDrones    bool              `json:"has_drones"`
-			PublicAccess bool              `json:"public_access"`
+			HasDrones         bool              `json:"has_drones"`
+			PublicAccess      bool              `json:"public_access"`
+			PirateRepRequired int               `json:"pirate_rep_required"`
 			Services     map[string]bool   `json:"services"`
 			Facilities   []string          `json:"facilities"`
 			Market       []json.RawMessage `json:"market"`
 		} `json:"base"`
-		Story string `json:"story"`
+		Condition *struct {
+			Condition         string `json:"condition"`
+			ConditionText     string `json:"condition_text"`
+			SatisfactionPct   int    `json:"satisfaction_pct"`
+			SatisfiedCount    int    `json:"satisfied_count"`
+			TotalServiceInfra int    `json:"total_service_infra"`
+		} `json:"condition"`
+		Services []string `json:"services"` // Top-level services array
+		Story    string   `json:"story"`
 	}
 
 	if err := json.Unmarshal(rawJSON, &response); err != nil {
@@ -91,6 +100,15 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 		}
 	}
 
+	// Merge services from both the base object map and the top-level array.
+	services := make(map[string]bool)
+	for _, svc := range response.Services {
+		services[svc] = true
+	}
+	for svc, avail := range response.Base.Services {
+		services[svc] = avail
+	}
+
 	base := &SpaceBase{
 		ID:              response.Base.ID,
 		POIID:           response.Base.POIID,
@@ -99,12 +117,21 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 		Story:           response.Story,
 		Empire:          response.Base.Empire,
 		DefenseLevel:    response.Base.DefenseLevel,
-		HasDrones:       response.Base.HasDrones,
-		PublicAccess:    response.Base.PublicAccess,
-		Services:        response.Base.Services,
-		Facilities:      facilities,
-		Market:          marketItems,
-		LastUpdatedTick: lastUpdatedTick,
+		HasDrones:         response.Base.HasDrones,
+		PublicAccess:      response.Base.PublicAccess,
+		PirateRepRequired: response.Base.PirateRepRequired,
+		Services:          services,
+		Facilities:        facilities,
+		Market:            marketItems,
+		LastUpdatedTick:   lastUpdatedTick,
+	}
+
+	if response.Condition != nil {
+		base.Condition = response.Condition.Condition
+		base.ConditionText = response.Condition.ConditionText
+		base.SatisfactionPct = response.Condition.SatisfactionPct
+		base.SatisfiedCount = response.Condition.SatisfiedCount
+		base.TotalServiceInfra = response.Condition.TotalServiceInfra
 	}
 
 	return base, nil

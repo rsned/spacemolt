@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/registry"
 )
@@ -231,40 +230,19 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 
 		rawJSON := client.GetRawJSON("base")
 		if rawJSON != nil {
-			var baseResp serverapi.GetBaseResponse
-			if err := json.Unmarshal(rawJSON, &baseResp); err == nil && baseResp.Base != nil {
-				services := make(map[string]bool)
-				for _, svc := range baseResp.Services {
-					services[svc] = true
-				}
-				if baseResp.Base.Services != nil {
-					for svc, avail := range baseResp.Base.Services {
-						services[svc] = avail
-					}
-				}
-				kbBase := knowledge.SpaceBase{
-					ID:              baseResp.Base.ID,
-					POIID:           poiID,
-					Name:            baseResp.Base.Name,
-					Description:     baseResp.Base.Description,
-					Empire:          baseResp.Base.Empire,
-					DefenseLevel:    baseResp.Base.DefenseLevel,
-					HasDrones:       baseResp.Base.HasDrones,
-					PublicAccess:    baseResp.Base.PublicAccess,
-					Services:        services,
-					LastUpdatedTick: state.CurrentTick,
-				}
+			kbBase, err := knowledge.BaseDataFromRawJSON(rawJSON, agentID, state.CurrentTick)
+			if err != nil {
+				logger.Printf("⚠️  Failed to parse base response: %v", err)
+			} else {
 				// Preserve dock story if available
 				if story := state.LastDockStory; story != "" {
 					kbBase.Story = story
 				}
-				if err := kb.RememberBase(ctx, kbBase); err != nil {
+				if err := kb.RememberBase(ctx, *kbBase); err != nil {
 					logger.Printf("⚠️  Failed to save base to knowledge base: %v", err)
 				} else {
-					logger.Printf("💾 Saved base details for %s", poiName)
+					logger.Printf("💾 Saved base details for %s (%d facilities)", poiName, len(kbBase.Facilities))
 				}
-			} else if err != nil {
-				logger.Printf("⚠️  Failed to parse base response: %v", err)
 			}
 		}
 	}

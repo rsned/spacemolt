@@ -908,6 +908,19 @@ CREATE INDEX IF NOT EXISTS idx_change_snapshots_entity ON change_snapshots(entit
 CREATE INDEX IF NOT EXISTS idx_change_snapshots_agent ON change_snapshots(detected_by, detected_at DESC);
 `,
 		},
+		{
+			version: 23,
+			name:    "add_base_condition_and_pirate_rep",
+			sql: `
+-- Add pirate reputation requirement and station condition to bases table
+ALTER TABLE bases ADD COLUMN pirate_rep_required INTEGER DEFAULT 0;
+ALTER TABLE bases ADD COLUMN condition TEXT DEFAULT '';
+ALTER TABLE bases ADD COLUMN condition_text TEXT DEFAULT '';
+ALTER TABLE bases ADD COLUMN satisfaction_pct INTEGER DEFAULT 0;
+ALTER TABLE bases ADD COLUMN satisfied_count INTEGER DEFAULT 0;
+ALTER TABLE bases ADD COLUMN total_service_infra INTEGER DEFAULT 0;
+`,
+		},
 	}
 }
 

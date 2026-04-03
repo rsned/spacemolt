@@ -5,8 +5,8 @@
 -- Use this to initialize a fresh database:
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Schema Version: 21
--- Last Updated: 2026-03-21
+-- Schema Version: 23
+-- Last Updated: 2026-04-03
 --
 -- NOTE: In production the schema is created by the Go migration runner in
 -- pkg/knowledge/sqlite_migrations.go. This file is kept as a reference and
@@ -102,6 +102,12 @@ CREATE TABLE IF NOT EXISTS bases (
     has_drones BOOLEAN DEFAULT 0,
     public_access BOOLEAN DEFAULT 1,
     story TEXT DEFAULT '',
+    pirate_rep_required INTEGER DEFAULT 0,
+    condition TEXT DEFAULT '',
+    condition_text TEXT DEFAULT '',
+    satisfaction_pct INTEGER DEFAULT 0,
+    satisfied_count INTEGER DEFAULT 0,
+    total_service_infra INTEGER DEFAULT 0,
     last_updated_tick INTEGER DEFAULT 0,
     FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
@@ -679,6 +685,27 @@ CREATE TABLE IF NOT EXISTS storage_snapshot_ships (
 );
 
 -- ============================================================================
+-- CHANGE TRACKING (v22)
+-- ============================================================================
+
+-- Change snapshots: records old values when system/POI/base changes are detected
+CREATE TABLE IF NOT EXISTS change_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,   -- 'system', 'poi', 'base'
+    entity_id TEXT NOT NULL,
+    system_id TEXT NOT NULL,
+    change_summary TEXT NOT NULL, -- human-readable description of changes
+    old_data TEXT NOT NULL,       -- JSON snapshot of previous values
+    detected_by TEXT NOT NULL,    -- agent ID that detected the change
+    detected_at_tick INTEGER NOT NULL,
+    detected_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_snapshots_system ON change_snapshots(system_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_change_snapshots_entity ON change_snapshots(entity_type, entity_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_change_snapshots_agent ON change_snapshots(detected_by, detected_at DESC);
+
+-- ============================================================================
 -- SCHEMA MIGRATIONS TRACKING
 -- ============================================================================
 
@@ -752,7 +779,7 @@ CREATE INDEX IF NOT EXISTS idx_storage_snapshot_ships_snapshot ON storage_snapsh
 -- INITIAL MIGRATION RECORD
 -- ============================================================================
 
--- Record that all migrations through v21 have been applied
+-- Record that all migrations through v23 have been applied
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
@@ -773,3 +800,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (18, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (19, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (20, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (21, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (22, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (23, datetime('now'));

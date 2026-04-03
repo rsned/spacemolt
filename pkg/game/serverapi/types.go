@@ -336,10 +336,11 @@ type Base struct {
 	Services     map[string]bool `json:"services"`
 	PublicAccess bool            `json:"public_access"`
 	DefenseLevel int             `json:"defense_level"`
-	HasDrones    bool            `json:"has_drones,omitempty"`
-	Health       int             `json:"health,omitempty"`
-	MaxHealth    int             `json:"max_health,omitempty"`
-	Facilities   []string        `json:"facilities,omitempty"`
+	HasDrones          bool            `json:"has_drones,omitempty"`
+	Health             int             `json:"health,omitempty"`
+	MaxHealth          int             `json:"max_health,omitempty"`
+	Facilities         []string        `json:"facilities,omitempty"`
+	PirateRepRequired  int             `json:"pirate_rep_required,omitempty"`
 }
 
 // ResourceDisplay represents a resource with display information.

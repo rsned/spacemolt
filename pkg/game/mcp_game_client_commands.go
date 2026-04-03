@@ -7,6 +7,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // isTimeoutError checks if an error is a timeout (context deadline, HTTP timeout, etc.).
@@ -291,7 +293,8 @@ func (m *MCPGameClient) GetListings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// Parse listings from the result.
+	// Parse listings from the result. view_market returns an "items" array
+	// of aggregated order book entries, not individual listings.
 	text, parseErr := parseToolResultText(result)
 	if parseErr == nil {
 		m.rawJSONMu.Lock()
@@ -299,11 +302,39 @@ func (m *MCPGameClient) GetListings(ctx context.Context) error {
 		m.rawJSONMu.Unlock()
 
 		var resp struct {
-			Listings []MarketListing `json:"listings"`
+			Items []serverapi.ViewMarketItem `json:"items"`
 		}
-		if jsonErr := json.Unmarshal([]byte(text), &resp); jsonErr == nil && len(resp.Listings) > 0 {
+		if jsonErr := json.Unmarshal([]byte(text), &resp); jsonErr == nil && len(resp.Items) > 0 {
+			// Convert aggregated order book items into synthetic MarketListings.
+			var listings []MarketListing
+			for _, item := range resp.Items {
+				if item.BestSell > 0 {
+					listing := MarketListing{
+						ItemID:       item.ItemID,
+						ItemType:     inferItemType(item.ItemID),
+						PricePerUnit: item.BestSell,
+						Type:         "sell",
+					}
+					for _, order := range item.SellOrders {
+						listing.Quantity += order.Quantity
+					}
+					listings = append(listings, listing)
+				}
+				if item.BestBuy > 0 {
+					listing := MarketListing{
+						ItemID:       item.ItemID,
+						ItemType:     inferItemType(item.ItemID),
+						PricePerUnit: item.BestBuy,
+						Type:         "buy",
+					}
+					for _, order := range item.BuyOrders {
+						listing.Quantity += order.Quantity
+					}
+					listings = append(listings, listing)
+				}
+			}
 			m.listingsMu.Lock()
-			m.latestListings = resp.Listings
+			m.latestListings = listings
 			m.listingsMu.Unlock()
 		}
 	}

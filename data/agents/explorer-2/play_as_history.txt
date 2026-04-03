@@ -40,3 +40,28 @@ jump altais
 get_system
 jujmp frontier
 jump frontier
+get_system
+update_system
+update_poi
+travel old_survey_station
+update_poi
+get_system
+get_nearby
+get_poi
+travel <pre>veil_nebula</pre>
+travel veil_nebula
+update_poi
+get_poi
+get_system
+travbel drifers_haze
+travel drifers_haze
+get_system
+travel drifters_haze
+update_poi
+get_poi
+get_ship
+travel pioneer_fields
+update_poii
+update_poi
+updatge_system
+jump horizon
