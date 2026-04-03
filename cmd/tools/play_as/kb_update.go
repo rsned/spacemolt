@@ -31,6 +31,7 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 		ID:              state.System.ID,
 		Name:            state.System.Name,
 		PoliceLevel:     state.System.PoliceLevel,
+		SecurityStatus:  state.System.SecurityStatus,
 		Empire:          state.System.Empire,
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
@@ -45,8 +46,30 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 		return fmt.Errorf("failed to save system: %w", err)
 	}
 
-	fmt.Printf("Saved system: %s (%d connections, tick %d)\n",
-		state.System.Name, len(state.System.Connections), kbSystem.LastUpdatedTick)
+	// Save each POI from the system data
+	poiCount := 0
+	for _, poi := range state.System.POIs {
+		kbPOI := knowledge.POI{
+			ID:       poi.ID,
+			SystemID: state.System.ID,
+			Name:     poi.Name,
+			Type:     poi.Type,
+			Class:    poi.Class,
+			Position: game.Position{
+				X: poi.Position.X,
+				Y: poi.Position.Y,
+			},
+			LastUpdatedTick: state.GetTick(),
+		}
+		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
+			fmt.Printf("  Warning: failed to save POI %s: %v\n", poi.Name, err)
+		} else {
+			poiCount++
+		}
+	}
+
+	fmt.Printf("Saved system: %s (%d POIs, %d connections, tick %d)\n",
+		state.System.Name, poiCount, len(state.System.Connections), kbSystem.LastUpdatedTick)
 	return nil
 }
 
@@ -214,11 +237,105 @@ func kbUpdateAll(client game.GameClient, ctx context.Context) error {
 		if err := kbUpdateStation(client, ctx); err != nil {
 			fmt.Printf("Warning: update_station: %v\n", err)
 		}
+		if err := kbUpdateFacilities(client, ctx); err != nil {
+			fmt.Printf("Warning: update_facilities: %v\n", err)
+		}
 	} else {
-		fmt.Println("(Not docked — skipping station update)")
+		fmt.Println("(Not docked — skipping station/facilities update)")
 	}
 
 	return nil
+}
+
+// kbUpdateFacilities fetches facility details via 'facility list' and saves enriched
+// data (description, active, maintenance, service, recipe_id) to the knowledge base.
+func kbUpdateFacilities(client game.GameClient, ctx context.Context) error {
+	if globalKB == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+
+	state := client.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked at a station")
+	}
+
+	// Call facility list
+	if err := client.RawCommand(ctx, "facility", map[string]any{"action": "list"}); err != nil {
+		return fmt.Errorf("facility list failed: %w", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	rawJSON := client.GetRawJSON("_last")
+	if rawJSON == nil {
+		return fmt.Errorf("no facility list data in response")
+	}
+
+	var resp struct {
+		BaseID            string            `json:"base_id"`
+		StationFacilities []facilityDetail  `json:"station_facilities"`
+		PlayerFacilities  []facilityDetail  `json:"player_facilities"`
+		FactionFacilities []facilityDetail  `json:"faction_facilities"`
+	}
+	if err := json.Unmarshal(rawJSON, &resp); err != nil {
+		return fmt.Errorf("failed to parse facility list: %w", err)
+	}
+
+	if resp.BaseID == "" {
+		return fmt.Errorf("no base_id in facility list response")
+	}
+
+	// Merge all facility lists
+	var allFacilities []facilityDetail
+	allFacilities = append(allFacilities, resp.StationFacilities...)
+	allFacilities = append(allFacilities, resp.PlayerFacilities...)
+	allFacilities = append(allFacilities, resp.FactionFacilities...)
+
+	// Load existing base from KB, update facilities
+	base, err := globalKB.GetBase(ctx, resp.BaseID)
+	if err != nil || base == nil {
+		return fmt.Errorf("base %s not found in KB (run update_station first)", resp.BaseID)
+	}
+
+	// Build enriched facility list
+	var facilities []knowledge.Facility
+	for _, f := range allFacilities {
+		facility := knowledge.Facility{
+			ID:                   f.Type,
+			InstanceID:           f.FacilityID,
+			Name:                 f.Name,
+			Description:          f.Description,
+			Category:             f.Category,
+			Active:               f.Active,
+			MaintenanceSatisfied: f.MaintenanceSatisfied,
+			Service:              f.Service,
+			RecipeID:             f.RecipeID,
+			LastUpdated:          state.CurrentTick,
+		}
+		facilities = append(facilities, facility)
+	}
+
+	base.Facilities = facilities
+	base.LastUpdatedTick = state.CurrentTick
+
+	if err := globalKB.RememberBase(ctx, *base); err != nil {
+		return fmt.Errorf("failed to save base with facilities: %w", err)
+	}
+
+	fmt.Printf("Saved %d facilities for %s\n", len(facilities), base.Name)
+	return nil
+}
+
+// facilityDetail matches the structure returned by the facility list command.
+type facilityDetail struct {
+	FacilityID           string `json:"facility_id"`
+	Type                 string `json:"type"`
+	Name                 string `json:"name"`
+	Description          string `json:"description"`
+	Category             string `json:"category"`
+	Active               bool   `json:"active"`
+	MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
+	Service              string `json:"service,omitempty"`
+	RecipeID             string `json:"recipe_id,omitempty"`
 }
 
 // --- Helpers ---

@@ -182,6 +182,7 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		ID:              state.System.ID,
 		Name:            state.System.Name,
 		PoliceLevel:     state.System.PoliceLevel,
+		SecurityStatus:  state.System.SecurityStatus,
 		Empire:          state.System.Empire,
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
@@ -189,7 +190,6 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,
-			Z: 0,
 		},
 	}
 
@@ -199,6 +199,26 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 	} else {
 		logger.Printf("💾 Saved system to knowledge base: %s (tick: %d)", state.System.Name, kbSystem.LastUpdatedTick)
 	}
+
+	// Save basic POI data from the system response (full details come from exploreAllPOIs)
+	for _, poi := range state.System.POIs {
+		kbPOI := knowledge.POI{
+			ID:       poi.ID,
+			SystemID: state.System.ID,
+			Name:     poi.Name,
+			Type:     poi.Type,
+			Class:    poi.Class,
+			Position: game.Position{
+				X: poi.Position.X,
+				Y: poi.Position.Y,
+			},
+			LastUpdatedTick: state.GetTick(),
+		}
+		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
+			logger.Printf("⚠️  Failed to save POI %s: %v", poi.Name, err)
+		}
+	}
+	logger.Printf("💾 Saved %d POIs from system data", len(state.System.POIs))
 
 	// Perform system survey to scan for hidden POIs
 	logger.Printf("🔭 Surveying system for hidden POIs...")

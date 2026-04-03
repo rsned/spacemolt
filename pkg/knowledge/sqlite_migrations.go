@@ -921,6 +921,19 @@ ALTER TABLE bases ADD COLUMN satisfied_count INTEGER DEFAULT 0;
 ALTER TABLE bases ADD COLUMN total_service_infra INTEGER DEFAULT 0;
 `,
 		},
+		{
+			version: 24,
+			name:    "expand_base_facilities",
+			sql: `
+-- Add richer facility data from facility list command
+ALTER TABLE base_facilities ADD COLUMN instance_id TEXT DEFAULT '';
+ALTER TABLE base_facilities ADD COLUMN description TEXT DEFAULT '';
+ALTER TABLE base_facilities ADD COLUMN active BOOLEAN DEFAULT 1;
+ALTER TABLE base_facilities ADD COLUMN maintenance_satisfied BOOLEAN DEFAULT 1;
+ALTER TABLE base_facilities ADD COLUMN service TEXT DEFAULT '';
+ALTER TABLE base_facilities ADD COLUMN recipe_id TEXT DEFAULT '';
+`,
+		},
 	}
 }
 

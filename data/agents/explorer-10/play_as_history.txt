@@ -138,3 +138,5 @@ update_all
 update_market
 view_market
 get_base
+update_all
+get_nearby

@@ -65,3 +65,70 @@ update_poii
 update_poi
 updatge_system
 jump horizon
+udpate_all
+update_all
+get_system
+jump frontier
+get_system
+travel frontier_station
+get_ship
+jump deep_range
+updatge_alll
+update_system
+travel frontier_station
+dock
+refuel
+update_all
+view_market
+get_cargo
+view_market fuel_cell
+buy fuel_cell 20
+get_cargo
+get_ship
+browse_ships
+buy_listed_ship 50ca808bd81684cf447513a58410cd6d
+get_ionsurance_quiote
+get_insurance_quiote
+get_insurance_quote
+buy_insurance
+view_storage
+get_cargo
+buy fuel_cell 20
+find_route krynn
+get_cargo
+get_system
+update_system
+undock
+travel deep_range_outpost
+dock
+update_all
+get_system
+update_system
+get_poi
+set_format raw
+get_system
+get_locatioon
+get_location
+view_market
+get_nearby
+get_poi
+get_base
+facility
+facility list
+update_all
+update_base
+get_notifications
+update_all
+facility list
+refuel
+undock
+get_system
+travel mobile_capital
+dock
+update_all
+find_route betelgeuse
+find_route starlight
+find_route sandrift
+autopilot betelgeuse
+get_cargo
+autopilot betelgeuse

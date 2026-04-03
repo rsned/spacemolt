@@ -3214,6 +3214,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.RawCommand(ctx, "set_status", payload)
 		}, ctx, 2*time.Second, cmd, format)
 
+	// === AUTOPILOT ===
+	case "autopilot", "ap":
+		return autopilot(client, ctx, parts)
+
 	// === KNOWLEDGE BASE UPDATE COMMANDS ===
 	case "update_system":
 		return kbUpdateSystem(client, ctx)
@@ -3221,6 +3225,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return kbUpdatePOI(client, ctx)
 	case "update_station", "update_base":
 		return kbUpdateStation(client, ctx)
+	case "update_facilities":
+		return kbUpdateFacilities(client, ctx)
 	case "update_all":
 		return kbUpdateAll(client, ctx)
 
@@ -3506,6 +3512,7 @@ func printHelp() {
 	fmt.Println("  travel <poi>              - Travel to a POI")
 	fmt.Println("  jump <system>             - Jump to another system")
 	fmt.Println("  find_route <system>       - Find route to system")
+	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
 
 	fmt.Println("\n=== MINING & COMBAT ===")
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")
@@ -3610,6 +3617,7 @@ func printHelp() {
 	fmt.Println("  update_system             - Save current system data to KB")
 	fmt.Println("  update_poi                - Save current POI data to KB")
 	fmt.Println("  update_station            - Save base, market, ships to KB (must be docked)")
+	fmt.Println("  update_facilities         - Save facility details to KB (must be docked)")
 	fmt.Println("  update_all                - Run all update commands for current location")
 
 	fmt.Println("\n=== OTHER ===")

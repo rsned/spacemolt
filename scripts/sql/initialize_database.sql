@@ -5,7 +5,7 @@
 -- Use this to initialize a fresh database:
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Schema Version: 23
+-- Schema Version: 24
 -- Last Updated: 2026-04-03
 --
 -- NOTE: In production the schema is created by the Go migration runner in
@@ -125,8 +125,14 @@ CREATE TABLE IF NOT EXISTS base_services (
 CREATE TABLE IF NOT EXISTS base_facilities (
     base_id TEXT NOT NULL,
     facility_name TEXT NOT NULL,
+    instance_id TEXT DEFAULT '',
+    description TEXT DEFAULT '',
     category TEXT DEFAULT 'unknown',
     level INTEGER DEFAULT 0,
+    active BOOLEAN DEFAULT 1,
+    maintenance_satisfied BOOLEAN DEFAULT 1,
+    service TEXT DEFAULT '',
+    recipe_id TEXT DEFAULT '',
     last_updated_tick INTEGER DEFAULT 0,
     PRIMARY KEY (base_id, facility_name),
     FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
@@ -802,3 +808,4 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (20, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (21, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (22, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (23, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (24, datetime('now'));

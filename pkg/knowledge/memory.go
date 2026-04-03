@@ -371,13 +371,19 @@ type BaseMarketItem struct {
 	IsNPC      bool
 }
 
-// Facility represents a facility at a base with category and level information
+// Facility represents a facility at a base with category and level information.
 type Facility struct {
-	ID            string // Facility ID (e.g., "grand_solarian_exchange")
-	Name          string // Display name
-	Category      string // Category: "service", "infrastructure", "production", "faction", "personal"
-	Level         int    // Facility level (1-5)
-	LastUpdated   int64  // Last updated tick for data freshness tracking
+	ID                   string // Facility type ID (e.g., "commerce_hub")
+	InstanceID           string // Unique instance ID for this facility at this base
+	Name                 string // Display name
+	Description          string // Current description (may reflect condition)
+	Category             string // "service", "infrastructure", "production", "faction", "personal"
+	Level                int    // Facility level (1-5)
+	Active               bool   // Whether the facility is currently active
+	MaintenanceSatisfied bool   // Whether maintenance requirements are met
+	Service              string // Service provided (e.g., "market", "repair")
+	RecipeID             string // Crafting recipe ID for production facilities
+	LastUpdated          int64  // Last updated tick for data freshness tracking
 }
 
 // FacilityCategoryMapping maps facility IDs to their metadata
