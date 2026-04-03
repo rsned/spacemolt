@@ -96,20 +96,19 @@ type PlayerSkill struct {
 // Server commands that include this:
 //   - Any command returning Player (logged_in, state_update, get_status)
 type PlayerStats struct {
-	ShipsDestroyed    int     `json:"ships_destroyed"`
-	TimesDestroyed    int     `json:"times_destroyed"`
-	OreMined          float64 `json:"ore_mined"`
-	CreditsEarned     float64 `json:"credits_earned"`
-	CreditsSpent      float64 `json:"credits_spent"`
-	TradesCompleted   int     `json:"trades_completed"`
-	SystemsDiscovered int     `json:"systems_discovered"`
-	ItemsCrafted      int     `json:"items_crafted"`
-	MissionsCompleted int     `json:"missions_completed"`
-	BasesDestroyed    int     `json:"bases_destroyed"`
-	DistanceTraveled  int64   `json:"distance_traveled"`
-	PiratesDestroyed  int     `json:"pirates_destroyed"`
-	ShipsLost         int     `json:"ships_lost"`
-	TimePlayed        int64   `json:"time_played"`
+	ShipsDestroyed    int   `json:"ships_destroyed"`
+	OreMined          int64 `json:"ore_mined"`
+	CreditsEarned     int64 `json:"credits_earned"`
+	CreditsSpent      int64 `json:"credits_spent"`
+	TradesCompleted   int   `json:"trades_completed"`
+	SystemsExplored   int   `json:"systems_explored"`
+	ItemsCrafted      int   `json:"items_crafted"`
+	MissionsCompleted int   `json:"missions_completed"`
+	BasesDestroyed    int   `json:"bases_destroyed"`
+	DistanceTraveled  int64 `json:"distance_traveled"`
+	PiratesDestroyed  int   `json:"pirates_destroyed"`
+	ShipsLost         int   `json:"ships_lost"`
+	TimePlayed        int64 `json:"time_played"`
 }
 
 // Ship represents the player's ship with all stats, modules, and cargo.

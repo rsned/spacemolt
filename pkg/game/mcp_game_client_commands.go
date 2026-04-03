@@ -4,8 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"strings"
 	"time"
 )
+
+// isTimeoutError checks if an error is a timeout (context deadline, HTTP timeout, etc.).
+func isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "Client.Timeout exceeded")
+}
 
 // --- Navigation ---
 
@@ -42,10 +57,20 @@ func (m *MCPGameClient) Dock(ctx context.Context) error {
 
 func (m *MCPGameClient) Travel(ctx context.Context, targetPOI string) (*TravelResult, error) {
 	// The MCP server blocks until travel completes and returns an "arrived" response.
-	result, err := m.callTool(ctx, "travel", map[string]any{
+	// However, combat can interrupt travel, causing the server to hang or return an
+	// error/combat response instead. We use a shorter context timeout and poll on failure.
+	travelCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+
+	result, err := m.callTool(travelCtx, "travel", map[string]any{
 		"target_poi": targetPOI,
 	})
 	if err != nil {
+		// On timeout or context error, check if we're still in transit or if
+		// combat interrupted. Poll get_status to find out.
+		if travelCtx.Err() != nil || isTimeoutError(err) {
+			return m.recoverFromTravelTimeout(ctx, targetPOI)
+		}
 		return nil, err
 	}
 	if err := m.updateStateFromResult(result); err != nil {
@@ -65,12 +90,55 @@ func (m *MCPGameClient) Travel(ctx context.Context, targetPOI string) (*TravelRe
 	}, nil
 }
 
+// recoverFromTravelTimeout polls get_status after a travel timeout to determine
+// whether the agent arrived, is still traveling, or was interrupted by combat.
+func (m *MCPGameClient) recoverFromTravelTimeout(ctx context.Context, targetPOI string) (*TravelResult, error) {
+	m.logger.Printf("[MCP] Travel timed out, polling status to check for combat interruption...")
+
+	deadline := time.Now().Add(3 * time.Minute)
+	for {
+		if time.Now().After(deadline) {
+			return &TravelResult{Canceled: true}, fmt.Errorf("travel to %s: timed out waiting for arrival or combat resolution", targetPOI)
+		}
+
+		if err := m.GetStatus(ctx); err != nil {
+			m.logger.Printf("[MCP] get_status failed during recovery: %v", err)
+			time.Sleep(SleepTick)
+			continue
+		}
+
+		state := m.GetState()
+
+		// Arrived at destination
+		if !state.Traveling && state.CurrentPOI == targetPOI {
+			m.logger.Printf("[MCP] Recovery: arrived at %s", targetPOI)
+			return &TravelResult{POI: targetPOI, Canceled: false}, nil
+		}
+
+		// No longer traveling but not at destination — combat interrupted
+		if !state.Traveling {
+			m.logger.Printf("[MCP] Recovery: travel interrupted (at %s, not %s)", state.CurrentPOI, targetPOI)
+			return &TravelResult{POI: state.CurrentPOI, Canceled: true}, nil
+		}
+
+		// Still traveling — keep polling
+		m.logger.Printf("[MCP] Recovery: still in transit, waiting...")
+		time.Sleep(SleepTick)
+	}
+}
+
 func (m *MCPGameClient) Jump(ctx context.Context, targetSystem string) (*JumpResult, error) {
-	// The MCP server blocks until jump completes.
-	result, err := m.callTool(ctx, "jump", map[string]any{
+	// Same timeout handling as Travel — combat can interrupt jumps too.
+	jumpCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+
+	result, err := m.callTool(jumpCtx, "jump", map[string]any{
 		"target_system": targetSystem,
 	})
 	if err != nil {
+		if jumpCtx.Err() != nil || isTimeoutError(err) {
+			return m.recoverFromJumpTimeout(ctx, targetSystem)
+		}
 		return nil, err
 	}
 	if err := m.updateStateFromResult(result); err != nil {
@@ -89,6 +157,51 @@ func (m *MCPGameClient) Jump(ctx context.Context, targetSystem string) (*JumpRes
 		POI:        state.CurrentPOI,
 		Canceled:   false,
 	}, nil
+}
+
+// recoverFromJumpTimeout polls get_status after a jump timeout.
+func (m *MCPGameClient) recoverFromJumpTimeout(ctx context.Context, targetSystem string) (*JumpResult, error) {
+	m.logger.Printf("[MCP] Jump timed out, polling status to check for combat interruption...")
+
+	deadline := time.Now().Add(3 * time.Minute)
+	for {
+		if time.Now().After(deadline) {
+			return &JumpResult{Canceled: true}, fmt.Errorf("jump to %s: timed out waiting for arrival or combat resolution", targetSystem)
+		}
+
+		if err := m.GetStatus(ctx); err != nil {
+			m.logger.Printf("[MCP] get_status failed during recovery: %v", err)
+			time.Sleep(SleepTick)
+			continue
+		}
+
+		state := m.GetState()
+
+		// Arrived in target system
+		if !state.Traveling && strings.EqualFold(state.System.ID, targetSystem) {
+			m.logger.Printf("[MCP] Recovery: arrived in %s", state.System.Name)
+			return &JumpResult{
+				SystemID:   state.CurrentSystem,
+				SystemName: state.System.Name,
+				POI:        state.CurrentPOI,
+				Canceled:   false,
+			}, nil
+		}
+
+		// No longer traveling but not in target system — combat interrupted
+		if !state.Traveling {
+			m.logger.Printf("[MCP] Recovery: jump interrupted (in %s, not %s)", state.System.Name, targetSystem)
+			return &JumpResult{
+				SystemID:   state.CurrentSystem,
+				SystemName: state.System.Name,
+				POI:        state.CurrentPOI,
+				Canceled:   true,
+			}, nil
+		}
+
+		m.logger.Printf("[MCP] Recovery: still in transit, waiting...")
+		time.Sleep(SleepTick)
+	}
 }
 
 // --- Mining & Scanning ---
@@ -289,6 +402,14 @@ func (m *MCPGameClient) Install(ctx context.Context, itemID string) error {
 	result, err := m.callTool(ctx, "install_mod", map[string]any{
 		"module_id": itemID,
 	})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) RefitShip(ctx context.Context) error {
+	result, err := m.callTool(ctx, "refit_ship", nil)
 	if err != nil {
 		return err
 	}

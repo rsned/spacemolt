@@ -193,6 +193,10 @@ func (m *mockGameClient) Install(ctx context.Context, itemID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "install:"+itemID)
 	return nil
 }
+func (m *mockGameClient) RefitShip(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "refit_ship")
+	return nil
+}
 func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "uninstall_mod:"+moduleID)
 	return nil

@@ -155,6 +155,12 @@ type BattleResponse struct {
 	TargetID string `json:"target_id,omitempty"`
 }
 
+// RetreatResponse wraps the response from retreat action during combat.
+type RetreatResponse struct {
+	Action  string `json:"action"`
+	Message string `json:"message"`
+}
+
 // ViewMarketResponse wraps the response from view_market command.
 type ViewMarketResponse struct {
 	Action     string           `json:"action"`
@@ -247,6 +253,9 @@ type CreateBuyOrderResponse struct {
 	TotalEscrowed      int         `json:"total_escrowed"`
 	ListingFee         int         `json:"listing_fee"`
 	Message            string      `json:"message"`
+	Mode               string      `json:"mode,omitempty"`
+	Results            any         `json:"results,omitempty"`
+	Summary            any         `json:"summary,omitempty"`
 	DeliveredToCargo   int         `json:"delivered_to_cargo,omitempty"`
 	DeliveredToStorage int         `json:"delivered_to_storage,omitempty"`
 	EscrowRefunded     int         `json:"escrow_refunded,omitempty"`
@@ -276,6 +285,9 @@ type CreateSellOrderResponse struct {
 	QuantityListed    int         `json:"quantity_listed,omitempty"`
 	ReturnedToStorage int         `json:"returned_to_storage,omitempty"`
 	TotalEarned       int         `json:"total_earned,omitempty"`
+	Consolidated      bool        `json:"consolidated,omitempty"`
+	SmugglingLevelUp  bool        `json:"smuggling_level_up,omitempty"`
+	SmugglingXP       int         `json:"smuggling_xp,omitempty"`
 }
 
 // CancelOrderResponse wraps the response from cancel_order command.
@@ -287,6 +299,9 @@ type CancelOrderResponse struct {
 	FactionOrder    bool       `json:"faction_order,omitempty"`
 	ReturnedCredits int        `json:"returned_credits,omitempty"`
 	ReturnedItems   *TradeItem `json:"returned_items,omitempty"`
+	Mode            string     `json:"mode,omitempty"`
+	Results         []any      `json:"results,omitempty"`
+	Summary         any        `json:"summary,omitempty"`
 }
 
 // ModifyOrderResponse wraps the response from modify_order command.
@@ -297,6 +312,9 @@ type ModifyOrderResponse struct {
 	NewPrice   int    `json:"new_price"`
 	Message    string `json:"message"`
 	ListingFee int    `json:"listing_fee,omitempty"`
+	Mode       string `json:"mode,omitempty"`
+	Results    []any  `json:"results,omitempty"`
+	Summary    any    `json:"summary,omitempty"`
 }
 
 // GetTradesResponse wraps the response from get_trades command.
@@ -633,6 +651,13 @@ type FacilityResponse struct {
 	Upgrades     []map[string]any   `json:"upgrades,omitempty"`
 }
 
+// FacilityTypesResponse wraps the response from facility action="types" which
+// returns individual facility type details at the top level.
+type FacilityTypesResponse struct {
+	Action string `json:"action"`
+	FacilityTypeInfo
+}
+
 // FacilityListResponse wraps the response from facility list command.
 type FacilityListResponse struct {
 	BaseID              string           `json:"base_id"`
@@ -772,15 +797,17 @@ type ForumReplyResponse struct {
 
 // SendGiftResponse wraps the response from send_gift command.
 type SendGiftResponse struct {
-	Action          string `json:"action"`
-	Recipient       string `json:"recipient"`
-	BaseID          string `json:"base_id,omitempty"`
-	CargoRemaining  int    `json:"cargo_remaining,omitempty"`
-	CreditsSent     int    `json:"credits_sent,omitempty"`
-	ItemID          string `json:"item_id,omitempty"`
-	Message         string `json:"message,omitempty"`
-	Quantity        int    `json:"quantity,omitempty"`
-	WalletRemaining int    `json:"wallet_remaining,omitempty"`
+	Action           string `json:"action"`
+	Recipient        string `json:"recipient"`
+	BaseID           string `json:"base_id,omitempty"`
+	CargoRemaining   int    `json:"cargo_remaining,omitempty"`
+	CreditsSent      int    `json:"credits_sent,omitempty"`
+	ItemID           string `json:"item_id,omitempty"`
+	Message          string `json:"message,omitempty"`
+	Quantity         int    `json:"quantity,omitempty"`
+	Source           string `json:"source,omitempty"`
+	StorageRemaining int    `json:"storage_remaining,omitempty"`
+	WalletRemaining  int    `json:"wallet_remaining,omitempty"`
 }
 
 // GiftShipResponse wraps the response from gift_ship action (via send_gift with ship).
@@ -814,11 +841,14 @@ type FactionInfoResponse struct {
 	SecondaryColor string                `json:"secondary_color,omitempty"`
 	Treasury       int                   `json:"treasury,omitempty"`
 	CreatedAt      string                `json:"created_at,omitempty"`
-	Members        []FactionMemberDetail `json:"members,omitempty"`
-	Allies         []FactionSummary      `json:"allies,omitempty"`
-	Enemies        []FactionSummary      `json:"enemies,omitempty"`
-	Wars           []FactionWarDetail    `json:"wars,omitempty"`
-	PeaceProposals []PeaceProposal       `json:"peace_proposals,omitempty"`
+	Members          []FactionMemberDetail `json:"members,omitempty"`
+	MembersLimit     int                   `json:"members_limit,omitempty"`
+	MembersOffset    int                   `json:"members_offset,omitempty"`
+	MembersTruncated bool                  `json:"members_truncated,omitempty"`
+	Allies           []FactionSummary      `json:"allies,omitempty"`
+	Enemies          []FactionSummary      `json:"enemies,omitempty"`
+	Wars             []FactionWarDetail    `json:"wars,omitempty"`
+	PeaceProposals   []PeaceProposal       `json:"peace_proposals,omitempty"`
 }
 
 // FactionListResponse wraps the response from faction_list command.
@@ -934,12 +964,13 @@ type JumpResponse struct {
 
 // JumpedResponse wraps the response from jumped event after jump completes.
 type JumpedResponse struct {
-	Action       string `json:"action"`
-	FromSystem   string `json:"from_system,omitempty"`
-	NavigationXP int    `json:"navigation_xp,omitempty"`
-	POI          string `json:"poi,omitempty"`
-	System       string `json:"system,omitempty"`
-	SystemID     string `json:"system_id,omitempty"`
+	Action        string `json:"action"`
+	FromSystem    string `json:"from_system,omitempty"`
+	NavigationXP  int    `json:"navigation_xp,omitempty"`
+	ExplorationXP int    `json:"exploration_xp,omitempty"`
+	POI           string `json:"poi,omitempty"`
+	System        string `json:"system,omitempty"`
+	SystemID      string `json:"system_id,omitempty"`
 }
 
 // DockResponse wraps the response from dock command.
@@ -1268,6 +1299,37 @@ type GetVersionResponse struct {
 	Total       int                `json:"total,omitempty"`
 	TotalPages  int                `json:"total_pages,omitempty"`
 	Versions    []ChangelogVersion `json:"versions,omitempty"`
+}
+
+// Notification represents a single notification from the server.
+type Notification struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	MsgType   string `json:"msg_type"`
+	Data      any    `json:"data"`
+}
+
+// GetNotificationsResponse wraps the response from get_notifications command.
+type GetNotificationsResponse struct {
+	Action        string         `json:"action,omitempty"`
+	Notifications []Notification `json:"notifications"`
+	Count         int            `json:"count"`
+	Remaining     int            `json:"remaining"`
+	CurrentTick   int            `json:"current_tick"`
+	Timestamp     int            `json:"timestamp"`
+	Throttled     bool           `json:"throttled,omitempty"`
+	RetryAfter    int            `json:"retry_after,omitempty"`
+}
+
+// RefitShipResponse wraps the response from refit_ship command.
+type RefitShipResponse struct {
+	Message         string `json:"message"`
+	ShipID          string `json:"ship_id"`
+	ClassID         string `json:"class_id"`
+	ModulesReturned int    `json:"modules_returned"`
+	CargoReturned   int    `json:"cargo_returned"`
+	DefaultModules  int    `json:"default_modules"`
 }
 
 // SetAnonymousResponse wraps the response from set_anonymous command.

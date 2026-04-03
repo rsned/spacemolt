@@ -1,0 +1,36 @@
+get_system
+self_destruct
+get_system
+refuel
+get_ship
+get_system
+set_format raw
+get_system
+set_format raw
+get_system
+get_cargo
+get+system
+get_system
+refuel
+find_route hfrontier
+find_route frontier
+set_format raw
+find_route frontier
+get_ship
+fg
+set_format styled
+undock
+find_route frontier
+jump sirius
+jump lacaille_9352
+find_route frontier
+jump grumium
+jump ridgecrest
+jump hatysa
+find_route frontier
+jump oakridge
+jump aldhibah
+jump izar
+find_route frontier
+jump tidewater
+jump last_light

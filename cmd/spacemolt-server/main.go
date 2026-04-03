@@ -25,6 +25,7 @@ func main() {
 	maxAgents := flag.Int("max-agents", 0, "Maximum number of concurrent agents")
 	decisionInterval := flag.Duration("decision-interval", 0, "Decision interval for agents (e.g., 11s)")
 	serverURL := flag.String("server-url", "", "Game server WebSocket URL")
+	transport := flag.String("transport", "", "Agent transport: ws (default) or mcp")
 	llmURL := flag.String("llm-url", "", "LLM server URL (Ollama)")
 	llmModel := flag.String("llm-model", "", "LLM model name")
 	dbBackend := flag.String("db-backend", "", "Knowledge base backend: sqlite or memory")
@@ -75,6 +76,9 @@ func main() {
 	}
 	if *serverURL != "" {
 		cfg.Game.ServerURL = *serverURL
+	}
+	if *transport != "" {
+		cfg.Game.Transport = *transport
 	}
 	if *llmURL != "" {
 		cfg.LLM.URL = *llmURL

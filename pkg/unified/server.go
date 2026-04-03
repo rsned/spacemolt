@@ -78,6 +78,7 @@ func New(cfg Config) (*Server, error) {
 	managerCfg.GameServerURL = cfg.Game.ServerURL
 	managerCfg.AgentsDataDir = cfg.Agents.Dir
 	managerCfg.RunnerConfig.DecisionInterval = cfg.Agents.DecisionInterval
+	managerCfg.Transport = cfg.Game.Transport
 	managerCfg.DebugLogger = logger
 	managerCfg.EnrichedStateFactory = func(state *game.State, kb knowledge.Base) agent.EnrichedState {
 		return agentstate.New(state, kb)

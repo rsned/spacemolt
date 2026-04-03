@@ -1,0 +1,4 @@
+get_system
+exit
+get_system
+exit

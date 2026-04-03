@@ -1,0 +1,105 @@
+get_location
+get_system
+set_format raw
+get_system
+view_market
+nearby
+refuel
+get_poi
+get_location
+get_ship
+deposit_items iron_ore 1
+view_storage
+get_action_log
+set_home_base
+get_status
+set_home_base kael_arsenal_station
+find_route kael_arsenal_station
+get_cargo
+sell iron_ore 5
+view_market trade_crystal
+undock
+get_system
+get_poi
+neaerby
+neareby
+nearby
+get_system
+travel algiedi_star
+ge_location
+get_location
+get_system
+set_format styled
+get_system
+find_route haven
+get_system
+get_poi
+set_format raw
+get_system
+get_location
+get_system
+set_format raw
+get_system
+:q
+geT_SYSTEm
+get_ship
+find_route nunki
+jump gsc-0005
+get_CARGO
+self_destruct
+view_storage
+nearby
+get_ship
+find_route nunki
+undock
+get_system
+nearby
+travel xamidura_star
+travel xamidimura_star
+get_poi
+dock
+get_action_log
+get_action_log limit 3
+get_ship
+undock
+nearby
+attack spyglass
+get_nearby
+attack "Tackle Master"
+get_nearby
+battle
+battle attack "Tackle Master"
+battle engage "Tackle Master"
+battle attack
+attack
+get_neaerby
+get_nearby
+travel xamidimura_star
+get_status
+view_storage
+get_nearby
+get_system
+undock
+travel xamidimura_blue_reef
+get_poi
+get_location
+get_nearby
+set_format reaw
+set_format raw
+get_nearby
+battle flee
+battle retreat
+travel kael_arsenal
+dock
+update_system
+get_system
+get_nearby
+undock
+travel xamidimura_cryobelt
+update_poi
+travel xamidimura_blue_reef
+updatge_poi
+travel xamidimura_i
+update_poii
+update_poi
+travel xamidimura_blue_reef

@@ -51,12 +51,11 @@ func SkillFromAPI(ext serverapi.Skill) Skill {
 func PlayerStatsFromAPI(ext serverapi.PlayerStats) PlayerStats {
 	return PlayerStats{
 		ShipsDestroyed:    ext.ShipsDestroyed,
-		TimesDestroyed:    ext.TimesDestroyed,
 		OreMined:          ext.OreMined,
 		CreditsEarned:     ext.CreditsEarned,
 		CreditsSpent:      ext.CreditsSpent,
 		TradesCompleted:   ext.TradesCompleted,
-		SystemsDiscovered: ext.SystemsDiscovered,
+		SystemsExplored:   ext.SystemsExplored,
 		ItemsCrafted:      ext.ItemsCrafted,
 		MissionsCompleted: ext.MissionsCompleted,
 		BasesDestroyed:    ext.BasesDestroyed,

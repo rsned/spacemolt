@@ -37,6 +37,7 @@ type Manager struct {
 	// Configuration
 	maxAgents            int
 	gameServerURL        string
+	transport            string // "ws" or "mcp"
 	agentsDataDir        string
 	runnerConfig         RunnerConfig
 	debugLogger          *log.Logger
@@ -53,6 +54,7 @@ type EnrichedStateFactory func(state *game.State, kb knowledge.Base) EnrichedSta
 type ManagerConfig struct {
 	MaxAgents            int
 	GameServerURL        string
+	Transport            string // "ws" (default) or "mcp"
 	AgentsDataDir        string
 	RunnerConfig         RunnerConfig
 	DebugLogger          *log.Logger
@@ -89,6 +91,9 @@ func NewManager(
 	if config.DebugLogger == nil {
 		config.DebugLogger = log.Default()
 	}
+	if config.Transport == "" {
+		config.Transport = "ws"
+	}
 
 	return &Manager{
 		runners:         make(map[string]*Runner),
@@ -98,6 +103,7 @@ func NewManager(
 		credsProvider:   credsProvider,
 		maxAgents:            config.MaxAgents,
 		gameServerURL:        config.GameServerURL,
+		transport:            config.Transport,
 		agentsDataDir:        config.AgentsDataDir,
 		runnerConfig:         config.RunnerConfig,
 		debugLogger:          config.DebugLogger,
@@ -264,49 +270,16 @@ func (m *Manager) SpawnAgentWithGame(ctx context.Context, personality Personalit
 		return nil, fmt.Errorf("agent %s already exists", personality.ID)
 	}
 
-	m.debugLogger.Printf("[%s] Spawning agent with game connection", personality.ID)
+	m.debugLogger.Printf("[%s] Spawning agent with game connection (transport=%s)", personality.ID, m.transport)
 
 	// Try to load credentials (provider first, then fallback)
 	creds, err := m.loadCredentialsWithFallback(ctx, personality.ID)
 	hasCredentials := err == nil
 
-	// Create game client
-	username := personality.ID
-	password := ""
-	if hasCredentials {
-		username = creds.Username
-		password = creds.Password
-	}
-
-	gameClient := game.NewClient(m.gameServerURL, username, password, m.debugLogger)
-
-	// Set up automatic reconnection handler
-	// Note: We pass nil as the wrapped handler since we don't need additional handling
-	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
-	gameClient.SetHandler(reconnectHandler)
-
-	// Connect to game server with retries
-	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
-		return nil, fmt.Errorf("failed to connect to game server: %w", err)
-	}
-
-	// Check server version compatibility
-	if err := m.checkServerVersion(gameClient, personality.ID); err != nil {
-		_ = gameClient.Close()
-		return nil, fmt.Errorf("server version check failed: %w", err)
-	}
-
-	// Authenticate (register or login)
-	if hasCredentials {
-		m.debugLogger.Printf("[%s] Logging in with existing credentials", personality.ID)
-		if err := m.loginWithRetry(ctx, gameClient, creds, personality.ID); err != nil {
-			return nil, fmt.Errorf("login failed: %w", err)
-		}
-	} else {
-		m.debugLogger.Printf("[%s] Registering new agent", personality.ID)
-		if err := m.registerAgent(ctx, gameClient, personality); err != nil {
-			return nil, fmt.Errorf("registration failed: %w", err)
-		}
+	// Create game client based on transport
+	gameClient, err := m.createGameClient(ctx, personality, creds, hasCredentials)
+	if err != nil {
+		return nil, err
 	}
 
 	// Fetch initial tick and server timestamp via get_notifications.
@@ -511,6 +484,83 @@ func (m *Manager) registerAgent(ctx context.Context, client *game.Client, person
 	return nil
 }
 
+// createGameClient creates and authenticates a game client using the configured transport.
+func (m *Manager) createGameClient(ctx context.Context, personality Personality, creds *credentials.Credentials, hasCredentials bool) (game.GameClient, error) {
+	if m.transport == "mcp" {
+		return m.createMCPClient(ctx, personality, creds, hasCredentials)
+	}
+	return m.createWSClient(ctx, personality, creds, hasCredentials)
+}
+
+// createWSClient creates a WebSocket game client with reconnection, retries, and auth.
+func (m *Manager) createWSClient(ctx context.Context, personality Personality, creds *credentials.Credentials, hasCredentials bool) (game.GameClient, error) {
+	username := personality.ID
+	password := ""
+	if hasCredentials {
+		username = creds.Username
+		password = creds.Password
+	}
+
+	gameClient := game.NewClient(m.gameServerURL, username, password, m.debugLogger)
+
+	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
+	gameClient.SetHandler(reconnectHandler)
+
+	if err := m.connectWithRetry(ctx, gameClient, personality.ID); err != nil {
+		return nil, fmt.Errorf("failed to connect to game server: %w", err)
+	}
+
+	if err := m.checkServerVersion(gameClient, personality.ID); err != nil {
+		_ = gameClient.Close()
+		return nil, fmt.Errorf("server version check failed: %w", err)
+	}
+
+	if hasCredentials {
+		m.debugLogger.Printf("[%s] Logging in with existing credentials", personality.ID)
+		if err := m.loginWithRetry(ctx, gameClient, creds, personality.ID); err != nil {
+			return nil, fmt.Errorf("login failed: %w", err)
+		}
+	} else {
+		m.debugLogger.Printf("[%s] Registering new agent", personality.ID)
+		if err := m.registerAgent(ctx, gameClient, personality); err != nil {
+			return nil, fmt.Errorf("registration failed: %w", err)
+		}
+	}
+
+	return gameClient, nil
+}
+
+// createMCPClient creates an MCP game client with HTTP transport.
+func (m *Manager) createMCPClient(ctx context.Context, personality Personality, creds *credentials.Credentials, hasCredentials bool) (game.GameClient, error) {
+	if !hasCredentials {
+		return nil, fmt.Errorf("MCP transport requires existing credentials (agent %s has none)", personality.ID)
+	}
+
+	mcpURL := m.gameServerURL
+	// If the configured URL is a WebSocket URL, derive the MCP URL from it.
+	if strings.HasPrefix(mcpURL, "wss://") || strings.HasPrefix(mcpURL, "ws://") {
+		mcpURL = strings.Replace(mcpURL, "wss://", "https://", 1)
+		mcpURL = strings.Replace(mcpURL, "ws://", "http://", 1)
+		mcpURL = strings.TrimSuffix(mcpURL, "/ws")
+		mcpURL += "/mcp"
+	}
+
+	m.debugLogger.Printf("[%s] Connecting via MCP to %s", personality.ID, mcpURL)
+
+	client := game.NewMCPGameClient(mcpURL, creds.Username, creds.Password, m.debugLogger)
+
+	if err := client.Connect(ctx); err != nil {
+		return nil, fmt.Errorf("failed to connect to MCP server: %w", err)
+	}
+
+	if err := client.Login(ctx); err != nil {
+		_ = client.Close()
+		return nil, fmt.Errorf("MCP login failed: %w", err)
+	}
+
+	return client, nil
+}
+
 // saveCredentialsWithFallback tries provider first, then falls back to file
 func (m *Manager) saveCredentialsWithFallback(ctx context.Context, agentID string, creds *credentials.Credentials) error {
 	// Try primary provider
@@ -597,18 +647,11 @@ func (m *Manager) SpawnStrategyAgent(ctx context.Context, agentID string, strat 
 		return nil, fmt.Errorf("loading credentials for %s: %w", agentID, err)
 	}
 
-	// Create and connect game client
-	gameClient := game.NewClient(m.gameServerURL, creds.Username, creds.Password, m.debugLogger)
-	reconnectHandler := game.NewReconnectingHandler(gameClient, nil, ctx, m.debugLogger)
-	gameClient.SetHandler(reconnectHandler)
-
-	if err := m.connectWithRetry(ctx, gameClient, agentID); err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
-	}
-
-	if err := m.loginWithRetry(ctx, gameClient, creds, agentID); err != nil {
-		_ = gameClient.Close()
-		return nil, fmt.Errorf("login failed: %w", err)
+	// Create and connect game client using configured transport
+	personality := Personality{ID: agentID}
+	gameClient, err := m.createGameClient(ctx, personality, creds, true)
+	if err != nil {
+		return nil, err
 	}
 
 	sr := NewStrategyRunner(StrategyRunnerConfig{

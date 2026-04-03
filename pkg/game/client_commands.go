@@ -286,6 +286,17 @@ func (c *Client) InstallMod(ctx context.Context, moduleID string) error {
 	return c.waitForActionResponse(ctx, SleepTick)
 }
 
+// RefitShip refits the active ship to its latest class specifications.
+func (c *Client) RefitShip(ctx context.Context) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "refit_ship",
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
+}
+
 // UninstallMod uninstalls a module from the ship.
 func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 	if err := c.Send(ctx, protocol.Message{

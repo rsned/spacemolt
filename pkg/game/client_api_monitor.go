@@ -97,6 +97,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"cloak":    reflect.TypeOf(serverapi.CloakResponse{}),
 	"scan":     reflect.TypeOf(serverapi.ScanResponse{}),
 	"battle":   reflect.TypeOf(serverapi.BattleResponse{}),
+	"retreat":  reflect.TypeOf(serverapi.RetreatResponse{}),
 	"jettison": reflect.TypeOf(serverapi.JettisonResponse{}),
 	"reload":   reflect.TypeOf(serverapi.ReloadResponse{}),
 	"use_item": reflect.TypeOf(serverapi.UseItemResponse{}),
@@ -112,6 +113,10 @@ var actionResponseTypes = map[string]reflect.Type{
 	"list_ship_for_sale": reflect.TypeOf(serverapi.ListShipForSaleResponse{}),
 	"install_mod":        reflect.TypeOf(serverapi.InstallModResponse{}),
 	"uninstall_mod":      reflect.TypeOf(serverapi.UninstallModResponse{}),
+	"refit_ship":         reflect.TypeOf(serverapi.RefitShipResponse{}),
+
+	// Notifications
+	"get_notifications": reflect.TypeOf(serverapi.GetNotificationsResponse{}),
 
 	// Missions
 	"accept_mission":   reflect.TypeOf(serverapi.AcceptMissionResponse{}),
@@ -168,7 +173,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),
 	"raid_status":   reflect.TypeOf(serverapi.RaidStatusResponse{}),
 	"facility":      reflect.TypeOf(serverapi.FacilityResponse{}),
-	"types":         reflect.TypeOf(serverapi.FacilityResponse{}), // facility action="types" response
+	"types":         reflect.TypeOf(serverapi.FacilityTypesResponse{}),
 	"facility_list": reflect.TypeOf(serverapi.FacilityListResponse{}),
 
 	// Wrecks and salvage
@@ -371,11 +376,18 @@ var eventExpectedFields = map[string]map[string]bool{
 // avoid repeated reflection on every response.
 var actionFieldsCache sync.Map // map[string]map[string]bool
 
-// jsonFieldNames extracts top-level JSON field names from a struct type's tags.
+// jsonFieldNames extracts top-level JSON field names from a struct type's tags,
+// including promoted fields from embedded structs.
 func jsonFieldNames(t reflect.Type) map[string]bool {
 	names := make(map[string]bool)
 	for i := range t.NumField() {
 		field := t.Field(i)
+		if field.Anonymous && field.Type.Kind() == reflect.Struct {
+			for k, v := range jsonFieldNames(field.Type) {
+				names[k] = v
+			}
+			continue
+		}
 		tag := field.Tag.Get("json")
 		if tag == "" || tag == "-" {
 			continue

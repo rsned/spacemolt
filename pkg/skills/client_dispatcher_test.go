@@ -473,6 +473,7 @@ func (m *mockGameClient) RepairWith(ctx context.Context, payload map[string]any)
 func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID string) error      { return nil }
 func (m *mockGameClient) DistressSignal(ctx context.Context, distressType string) error        { return nil }
 func (m *mockGameClient) Install(ctx context.Context, itemID string) error                     { return nil }
+func (m *mockGameClient) RefitShip(ctx context.Context) error                                 { return nil }
 func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error              { return nil }
 func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error                 { return nil }
 func (m *mockGameClient) BrowseShips(ctx context.Context, payload map[string]any) error       { return nil }

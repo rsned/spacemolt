@@ -34,7 +34,7 @@ func TestPlayerFromAPI(t *testing.T) {
 		"stats": {
 			"ships_destroyed": 1,
 			"times_destroyed": 2,
-			"ore_mined": 500.5,
+			"ore_mined": 500,
 			"credits_earned": 10000,
 			"credits_spent": 5000,
 			"trades_completed": 20,
@@ -84,8 +84,8 @@ func TestPlayerFromAPI(t *testing.T) {
 	if player.Stats.ShipsDestroyed != 1 {
 		t.Errorf("Stats.ShipsDestroyed: got %d, want 1", player.Stats.ShipsDestroyed)
 	}
-	if player.Stats.OreMined != 500.5 {
-		t.Errorf("Stats.OreMined: got %f, want 500.5", player.Stats.OreMined)
+	if player.Stats.OreMined != 500 {
+		t.Errorf("Stats.OreMined: got %d, want 500", player.Stats.OreMined)
 	}
 }
 

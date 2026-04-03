@@ -99,6 +99,35 @@ func needsRefuel(state *game.State) bool {
 	return state.Fuel < (state.MaxFuel * 0.3)
 }
 
+// waitForTransitComplete polls the game state until the agent is no longer
+// traveling (jump or intra-system travel). It refreshes status periodically
+// so the state picks up the server's arrival event.
+func waitForTransitComplete(client game.GameClient, ctx context.Context, logger *log.Logger) error {
+	const maxWait = 2 * time.Minute
+	deadline := time.Now().Add(maxWait)
+
+	for {
+		if err := client.GetStatus(ctx); err != nil {
+			return fmt.Errorf("failed to refresh status during transit wait: %w", err)
+		}
+		time.Sleep(game.SleepQuick)
+		state := client.GetState()
+
+		if !state.Traveling && state.System.ID != "" {
+			logger.Printf("✓ Transit complete — arrived in %s", state.System.Name)
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for transit to complete after %v", maxWait)
+		}
+
+		logger.Printf("⏳ Still in transit (Traveling=%v, System.ID=%q), waiting...",
+			state.Traveling, state.System.ID)
+		time.Sleep(game.SleepTick)
+	}
+}
+
 // ============================================================================
 // DATA COLLECTION (Uses Knowledge Base)
 // ============================================================================
@@ -111,19 +140,15 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		if err := client.GetStatus(ctx); err != nil {
 			return fmt.Errorf("failed to get status: %w", err)
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(game.SleepQuick)
 		state = client.GetState()
 
-		// If still no system data after GetStatus, we're likely in transit - wait and retry
-		if state.System.ID == "" {
-			logger.Printf("⏳ Still no system data (likely in transit), waiting...")
-			time.Sleep(5 * time.Second)
-
-			// Try GetStatus again
-			if err := client.GetStatus(ctx); err != nil {
-				return fmt.Errorf("failed to get status after wait: %w", err)
+		// If still no system data after GetStatus, we're likely in transit
+		if state.System.ID == "" || state.Traveling {
+			logger.Printf("⏳ Agent is in transit, waiting for arrival...")
+			if err := waitForTransitComplete(client, ctx, logger); err != nil {
+				return fmt.Errorf("transit wait failed: %w", err)
 			}
-			time.Sleep(1 * time.Second)
 			state = client.GetState()
 		}
 
@@ -1013,33 +1038,19 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 		if err := client.GetStatus(ctx); err != nil {
 			return fmt.Errorf("failed to get initial status: %w", err)
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(game.SleepQuick)
 		state = client.GetState()
 
-		logger.Printf("🔍 After GetStatus: System.ID=%q, CurrentSystem=%q, Player.CurrentSystem=%q",
-			state.System.ID, state.CurrentSystem, state.Player.CurrentSystem)
-
-		// If still no system data, wait for transit to complete
-		if state.System.ID == "" || state.CurrentSystem == "" {
+		// If still no system data, agent is likely mid-jump or mid-travel
+		if state.System.ID == "" || state.CurrentSystem == "" || state.Traveling {
 			logger.Printf("⏳ Agent appears to be in transit, waiting for arrival...")
-			time.Sleep(10 * time.Second)
-
-			if err := client.GetStatus(ctx); err != nil {
-				return fmt.Errorf("failed to get status after transit wait: %w", err)
+			if err := waitForTransitComplete(client, ctx, logger); err != nil {
+				return fmt.Errorf("transit wait failed: %w", err)
 			}
-			time.Sleep(1 * time.Second)
 			state = client.GetState()
-
-			logger.Printf("🔍 After wait and GetStatus: System.ID=%q, CurrentSystem=%q, Player.CurrentSystem=%q",
-				state.System.ID, state.CurrentSystem, state.Player.CurrentSystem)
 		}
 
 		if state.System.ID == "" {
-			logger.Printf("❌ Cannot start exploration - no system data. State dump:")
-			logger.Printf("   System.ID=%q, System.Name=%q, CurrentSystem=%q",
-				state.System.ID, state.System.Name, state.CurrentSystem)
-			logger.Printf("   Player.CurrentSystem=%q", state.Player.CurrentSystem)
-			logger.Printf("   Player.Username=%q", state.Player.Username)
 			return fmt.Errorf("cannot start exploration: no system data available (System.ID=%q, CurrentSystem=%q)",
 				state.System.ID, state.CurrentSystem)
 		}

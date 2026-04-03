@@ -16,6 +16,7 @@ const (
 	ToolTypeAgentServer  ToolType = "agent-server"
 	ToolTypeAutoExplorer ToolType = "auto-explorer"
 	ToolTypeAutoMiner    ToolType = "auto-miner"
+	ToolTypePlayAs       ToolType = "play-as"
 )
 
 // ToolRegistration represents a registered tool

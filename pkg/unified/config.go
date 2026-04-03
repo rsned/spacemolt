@@ -33,6 +33,7 @@ type ServerConfig struct {
 // GameConfig holds game server connection settings.
 type GameConfig struct {
 	ServerURL string `yaml:"server_url"`
+	Transport string `yaml:"transport"` // "ws" (default) or "mcp"
 }
 
 // AgentsConfig holds agent management settings.

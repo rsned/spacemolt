@@ -967,11 +967,6 @@ func diffStats(old, cur game.PlayerStats) []string {
 			changes = append(changes, fmt.Sprintf("%s: %+d", name, d))
 		}
 	}
-	checkF := func(name string, oldV, curV float64) {
-		if d := curV - oldV; math.Abs(d) >= 0.01 {
-			changes = append(changes, fmt.Sprintf("%s: %+.1f", name, d))
-		}
-	}
 	checkI64 := func(name string, oldV, curV int64) {
 		if d := curV - oldV; d != 0 {
 			changes = append(changes, fmt.Sprintf("%s: %+d", name, d))
@@ -979,12 +974,11 @@ func diffStats(old, cur game.PlayerStats) []string {
 	}
 
 	check("ShipsDestroyed", old.ShipsDestroyed, cur.ShipsDestroyed)
-	check("TimesDestroyed", old.TimesDestroyed, cur.TimesDestroyed)
-	checkF("OreMined", old.OreMined, cur.OreMined)
-	checkF("CreditsEarned", old.CreditsEarned, cur.CreditsEarned)
-	checkF("CreditsSpent", old.CreditsSpent, cur.CreditsSpent)
+	checkI64("OreMined", old.OreMined, cur.OreMined)
+	checkI64("CreditsEarned", old.CreditsEarned, cur.CreditsEarned)
+	checkI64("CreditsSpent", old.CreditsSpent, cur.CreditsSpent)
 	check("TradesCompleted", old.TradesCompleted, cur.TradesCompleted)
-	check("SystemsDiscovered", old.SystemsDiscovered, cur.SystemsDiscovered)
+	check("SystemsExplored", old.SystemsExplored, cur.SystemsExplored)
 	check("ItemsCrafted", old.ItemsCrafted, cur.ItemsCrafted)
 	check("MissionsCompleted", old.MissionsCompleted, cur.MissionsCompleted)
 	check("BasesDestroyed", old.BasesDestroyed, cur.BasesDestroyed)

@@ -24,3 +24,42 @@ deposit_items gas_harvester_iii 1
 undock
 get_system
 travel trade_winds
+loop 20 mine
+get_cargo
+loop 5 mine
+travel grand_exchange
+dock
+view_market
+set_format raw
+view_market
+set_format raw
+view_market
+view_market compressed_hydrogen
+view_market compressed_hydrogen_gas
+set_format styled
+view_market
+view_market compressed_hydrogen
+set_format raw
+view_market compressed_hydrogen
+view_market
+set_format raw
+view_market
+view_market compressed_hydrogen
+set_format raw
+view_market compressed_hydrogen
+set_format raw
+view_market compressed_hydrogen
+get_cargo
+view_storage
+set_format styled
+view_storage
+view_market
+get_missions
+help
+get_active_missions
+get_cargo
+deposit_item argon_gas 280
+deposit_items argon_gas 280
+deposit_items hydrogen_gas 1178
+get_cargo
+deposit_items neon_gas 42

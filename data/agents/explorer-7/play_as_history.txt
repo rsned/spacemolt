@@ -1,0 +1,3 @@
+get_system
+get_location
+get_system

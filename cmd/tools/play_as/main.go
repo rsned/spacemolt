@@ -28,7 +28,12 @@ import (
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/registry"
 )
+
+// Package-level knowledge base, initialized if --db-path is provided.
+var globalKB knowledge.Base
 
 // Output format for server responses.
 type outputFormat string
@@ -41,6 +46,8 @@ const (
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging (show sent/received JSON)")
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
+	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
+	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
 	flag.Parse()
 
 	args := flag.Args()
@@ -67,6 +74,59 @@ func main() {
 	}()
 
 	logger.Printf("Connected as: %s (Empire: %s)", creds.Username, creds.Empire)
+
+	// Register with status registry if configured
+	if *registryURL != "" {
+		toolID := fmt.Sprintf("play-as-%s", agentID)
+		regClient := registry.NewClient(*registryURL, toolID)
+
+		reg := registry.ToolRegistration{
+			ToolID:    toolID,
+			ToolType:  registry.ToolTypePlayAs,
+			PID:       os.Getpid(),
+			AgentID:   agentID,
+			AgentName: creds.Username,
+			AgentRole: "Interactive",
+			Status:    "active",
+			Capabilities: map[string]any{
+				"interactive": true,
+			},
+			Metadata: map[string]any{
+				"empire": creds.Empire,
+			},
+		}
+
+		if err := regClient.Register(reg); err != nil {
+			logger.Printf("⚠ Warning: Failed to register with status registry: %v", err)
+		} else {
+			logger.Printf("✓ Registered with status registry")
+			regClient.StartHeartbeat(ctx, 5*time.Second, func() (status, action string) {
+				state := client.GetState()
+				if state == nil {
+					return "active", "Interactive session"
+				}
+				return "active", fmt.Sprintf("In %s (%.0f credits)", state.System.Name, state.Credits)
+			})
+			defer func() {
+				if err := regClient.Deregister(); err != nil {
+					logger.Printf("Warning: Failed to deregister: %v", err)
+				}
+			}()
+		}
+	}
+
+	// Initialize knowledge base for update_* commands.
+	if *dbPath != "" {
+		sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *dbPath})
+		if err != nil {
+			logger.Printf("Warning: Failed to open knowledge base at %s: %v", *dbPath, err)
+			logger.Printf("  update_* commands will be unavailable")
+		} else {
+			globalKB = sqliteKB
+			logger.Printf("Knowledge base loaded: %s", *dbPath)
+			defer func() { _ = sqliteKB.Close() }()
+		}
+	}
 
 	// Cache ship and system data on startup for travel estimation and statusline.
 	_ = client.GetShip(ctx)
@@ -95,8 +155,9 @@ func printUsage() {
 	fmt.Println("Example: play_as explorer-1")
 	fmt.Println("  play_as --debug explorer-1")
 	fmt.Println("\nFlags:")
-	fmt.Println("  --debug           Enable debug logging (show sent/received JSON)")
-	fmt.Println("  --config <path>   Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
+	fmt.Println("  --debug                Enable debug logging (show sent/received JSON)")
+	fmt.Println("  --config <path>        Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
+	fmt.Println("  --registry-url <url>   Status registry URL (e.g., http://localhost:8081)")
 	fmt.Println("\nThis tool provides an interactive terminal for playing Spacemolt.")
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
@@ -561,23 +622,26 @@ func formatSellOrders(orders []struct {
 	return result
 }
 
-// formatMarket formats a view_market response as a multi-row table.
+// formatMarket formats a view_market response as a multi-row table grouped by category.
 func formatMarket(raw []byte) string {
+	type MarketItem struct {
+		ItemID    string `json:"item_id"`
+		ItemName  string `json:"item_name"`
+		Category  string `json:"category,omitempty"`
+		BuyOrders []struct {
+			PriceEach float64 `json:"price_each"`
+			Quantity  float64 `json:"quantity"`
+			Source    string `json:"source,omitempty"`
+		} `json:"buy_orders"`
+		SellOrders []struct {
+			PriceEach float64 `json:"price_each"`
+			Quantity  float64 `json:"quantity"`
+			Source    string `json:"source,omitempty"`
+		} `json:"sell_orders"`
+	}
+
 	var resp struct {
-		Items []struct {
-			ItemID    string `json:"item_id"`
-			ItemName  string `json:"item_name"`
-			BuyOrders []struct {
-				PriceEach float64 `json:"price_each"`
-				Quantity  float64 `json:"quantity"`
-				Source    string  `json:"source,omitempty"`
-			} `json:"buy_orders"`
-			SellOrders []struct {
-				PriceEach float64 `json:"price_each"`
-				Quantity  float64 `json:"quantity"`
-				Source    string  `json:"source,omitempty"`
-			} `json:"sell_orders"`
-		} `json:"items"`
+		Items []MarketItem `json:"items"`
 	}
 
 	if err := json.Unmarshal(raw, &resp); err != nil {
@@ -589,53 +653,154 @@ func formatMarket(raw []byte) string {
 	}
 
 	var buf bytes.Buffer
-	w := tabwriter.NewWriter(&buf, 0, 0, 1, ' ', 0)
 
-	// Header row
-	_, _ = fmt.Fprintf(w, "Name\t| ID\t| Buy\t| Qty\t| Sell\t| Qty\t|\n")
-	_, _ = fmt.Fprintf(w, "----------------------+-----------------------+---------+------+----------+-----+\n")
+	// Group items by category
+	categories := make(map[string][]MarketItem)
+	categoryOrder := make([]string, 0, len(resp.Items))
 
 	for _, item := range resp.Items {
-		buys := formatBuyOrders(item.BuyOrders)
-		sells := formatSellOrders(item.SellOrders)
+		cat := item.Category
+		if cat == "" {
+			cat = "Uncategorized"
+		}
+		if _, exists := categories[cat]; !exists {
+			categoryOrder = append(categoryOrder, cat)
+		}
+		categories[cat] = append(categories[cat], item)
+	}
 
-		// Row 1: Best buy and sell
-		buyPrice1, buyQty1 := "-", "-"
-		if len(buys) > 0 {
-			buyPrice1 = buys[0].price
-			buyQty1 = buys[0].qty
+	// Sort categories alphabetically, but ensure "Uncategorized" comes first
+	slices.SortFunc(categoryOrder, func(a, b string) int {
+		if a == "Uncategorized" && b != "Uncategorized" {
+			return -1
+		}
+		if a != "Uncategorized" && b == "Uncategorized" {
+			return 1
+		}
+		return cmp.Compare(a, b)
+	})
+
+	// Sort items within each category by ItemID
+	for cat := range categories {
+		slices.SortFunc(categories[cat], func(a, b MarketItem) int {
+			return cmp.Compare(a.ItemID, b.ItemID)
+		})
+	}
+
+	// Calculate max widths for Name and ID columns across all items
+	maxNameWidth := len("Name") // Header is minimum
+	maxIDWidth := len("ID")     // Header is minimum
+	for _, item := range resp.Items {
+		if len(item.ItemName) > maxNameWidth {
+			maxNameWidth = len(item.ItemName)
+		}
+		if len(item.ItemID) > maxIDWidth {
+			maxIDWidth = len(item.ItemID)
+		}
+	}
+
+	// Use a single tabwriter for all sections to ensure consistent column widths
+	w := tabwriter.NewWriter(&buf, 0, 0, 1, ' ', 0)
+
+	// Print each category section
+	for idx, cat := range categoryOrder {
+		items := categories[cat]
+
+		// Add blank line before category (except first)
+		if idx > 0 {
+			_, _ = fmt.Fprintln(w)
 		}
 
-		sellPrice1, sellQty1 := "-", "-"
-		if len(sells) > 0 {
-			sellPrice1 = sells[0].price
-			sellQty1 = sells[0].qty
+		// Category heading - write directly with padding to match max widths
+		// We need to pad the category name to align with the table structure
+		fmt.Fprintf(&buf, "%s\n", cat)
+		fmt.Fprintf(&buf, "%s\n", strings.Repeat("-", len(cat)))
+
+		// Pad Name header to max width
+		nameHeader := "Name"
+		for len(nameHeader) < maxNameWidth {
+			nameHeader += " "
+		}
+		
+		// Pad ID header to max width
+		idHeader := "ID"
+		for len(idHeader) < maxIDWidth {
+			idHeader += " "
 		}
 
-		_, _ = fmt.Fprintf(w, "%s\t| %s\t| %s\t| %s\t| %s\t| %s\t|\n",
-			item.ItemName, item.ItemID,
-			buyPrice1, buyQty1,
-			sellPrice1, sellQty1,
-		)
+		// Header row (numeric columns right-aligned with leading tabs)
+		_, _ = fmt.Fprintf(w, "%s\t| %s\t|\tBuy\t|\tQty\t|\tSell\t|\tQty\t|\n",
+			nameHeader, idHeader)
+		
+		// Separator row
+		nameSep := strings.Repeat("-", maxNameWidth)
+		idSep := strings.Repeat("-", maxIDWidth)
+		_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t-----\t|\t---\t|\t-----\t|\t---\t|\n",
+			nameSep, idSep)
 
-		// Row 2: Second best buy and sell (if exists)
-		if len(buys) > 1 || len(sells) > 1 {
-			buyPrice2, buyQty2 := "-", "-"
-			if len(buys) > 1 {
-				buyPrice2 = buys[1].price
-				buyQty2 = buys[1].qty
+		for _, item := range items {
+			buys := formatBuyOrders(item.BuyOrders)
+			sells := formatSellOrders(item.SellOrders)
+
+			// Row 1: Best buy and sell
+			buyPrice1, buyQty1 := "-", "-"
+			if len(buys) > 0 {
+				buyPrice1 = buys[0].price
+				buyQty1 = buys[0].qty
 			}
 
-			sellPrice2, sellQty2 := "-", "-"
-			if len(sells) > 1 {
-				sellPrice2 = sells[1].price
-				sellQty2 = sells[1].qty
+			sellPrice1, sellQty1 := "-", "-"
+			if len(sells) > 0 {
+				sellPrice1 = sells[0].price
+				sellQty1 = sells[0].qty
 			}
 
-			_, _ = fmt.Fprintf(w, "\t| \t| %s\t| %s\t| %s\t| %s\t|\n",
-				buyPrice2, buyQty2,
-				sellPrice2, sellQty2,
+			// Pad Name and ID to max widths
+			name := item.ItemName
+			for len(name) < maxNameWidth {
+				name += " "
+			}
+			id := item.ItemID
+			for len(id) < maxIDWidth {
+				id += " "
+			}
+
+			_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
+				name, id,
+				buyPrice1, buyQty1,
+				sellPrice1, sellQty1,
 			)
+
+			// Row 2: Second best buy and sell (if exists)
+			if len(buys) > 1 || len(sells) > 1 {
+				buyPrice2, buyQty2 := "-", "-"
+				if len(buys) > 1 {
+					buyPrice2 = buys[1].price
+					buyQty2 = buys[1].qty
+				}
+
+				sellPrice2, sellQty2 := "-", "-"
+				if len(sells) > 1 {
+					sellPrice2 = sells[1].price
+					sellQty2 = sells[1].qty
+				}
+
+				// Empty Name and ID for second row (still padded)
+				emptyName := ""
+				emptyID := ""
+				for len(emptyName) < maxNameWidth {
+					emptyName += " "
+				}
+				for len(emptyID) < maxIDWidth {
+					emptyID += " "
+				}
+				
+				_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
+					emptyName, emptyID,
+					buyPrice2, buyQty2,
+					sellPrice2, sellQty2,
+				)
+			}
 		}
 	}
 
@@ -3041,6 +3206,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.RawCommand(ctx, "set_status", payload)
 		}, ctx, 2*time.Second, cmd, format)
 
+	// === KNOWLEDGE BASE UPDATE COMMANDS ===
+	case "update_system":
+		return kbUpdateSystem(client, ctx)
+	case "update_poi":
+		return kbUpdatePOI(client, ctx)
+	case "update_station", "update_base":
+		return kbUpdateStation(client, ctx)
+	case "update_all":
+		return kbUpdateAll(client, ctx)
+
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.
 		// Parse --key value, --key=value flags, and bare positional args.
@@ -3422,6 +3597,12 @@ func printHelp() {
 	fmt.Println("\n=== FORUM ===")
 	fmt.Println("  forum_list [page]         - List forum threads")
 	fmt.Println("  forum_thread <id>         - Get forum thread")
+
+	fmt.Println("\n=== KNOWLEDGE BASE ===")
+	fmt.Println("  update_system             - Save current system data to KB")
+	fmt.Println("  update_poi                - Save current POI data to KB")
+	fmt.Println("  update_station            - Save base, market, ships to KB (must be docked)")
+	fmt.Println("  update_all                - Run all update commands for current location")
 
 	fmt.Println("\n=== OTHER ===")
 	fmt.Println("  log <entry>               - Add captain's log entry")

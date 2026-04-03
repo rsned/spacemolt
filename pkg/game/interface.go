@@ -45,6 +45,7 @@ type GameClient interface {
 	Repair(ctx context.Context) error
 	RepairWith(ctx context.Context, payload map[string]any) error
 	Install(ctx context.Context, itemID string) error
+	RefitShip(ctx context.Context) error
 	UninstallMod(ctx context.Context, moduleID string) error
 	BuyShip(ctx context.Context, shipClass string) error
 	BrowseShips(ctx context.Context, payload map[string]any) error
