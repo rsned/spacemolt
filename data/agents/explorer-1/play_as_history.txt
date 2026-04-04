@@ -1,1 +1,24 @@
 get_system
+update_all
+get_cargo
+get_ship
+refuel
+find_route haven
+autopilot haven
+get_system
+travel frostmarket_flats
+get_poi
+update_poi
+travel trade_winds
+update_poi
+get_poi
+get_system
+travel commerce_fields
+get-nearby
+get_nearby
+get_chat_history local
+update_poi
+get_system
+travel grand_exchange
+dock
+exit

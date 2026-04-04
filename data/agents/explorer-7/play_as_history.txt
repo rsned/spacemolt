@@ -1,3 +1,9 @@
 get_system
 get_location
 get_system
+update_poi
+travel levy_ice_fields
+updatre_opiu
+dock
+update_all
+exit

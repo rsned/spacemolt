@@ -88,23 +88,47 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string) erro
 
 		result, err := client.Jump(ctx, step.SystemID)
 		if err != nil {
-			return fmt.Errorf("jump %d/%d to %s failed: %w", i+1, totalJumps, step.Name, err)
+			// If jump failed due to insufficient fuel, try using fuel cells and retry once.
+			if strings.Contains(err.Error(), "no_fuel") || strings.Contains(err.Error(), "nsufficient fuel") {
+				if autopilotUseFuelCells(client, ctx) {
+					fmt.Printf("  Retrying jump to %s...\n", step.Name)
+					result, err = client.Jump(ctx, step.SystemID)
+				}
+			}
+			if err != nil {
+				return fmt.Errorf("jump %d/%d to %s failed: %w", i+1, totalJumps, step.Name, err)
+			}
 		}
 
 		if result.Canceled {
-			fmt.Printf("  Jump interrupted! Stopped in %s.\n", result.SystemName)
+			state := client.GetState()
+			fmt.Printf("  Jump interrupted! Stopped in %s.\n", state.System.Name)
 			return fmt.Errorf("autopilot interrupted at jump %d/%d (combat?)", i+1, totalJumps)
 		}
 
-		fmt.Printf("  Arrived in %s\n", result.SystemName)
+		fmt.Printf("  Arrived in %s\n", step.Name)
 
 		// Update KB with new system data
 		if globalKB != nil {
 			if err := kbUpdateSystem(client, ctx); err != nil {
 				fmt.Printf("  (KB update failed: %v)\n", err)
 			}
+			// If we landed at a resource POI, grab detailed POI data (resources, richness).
+			if state := client.GetState(); state != nil {
+				for _, poi := range state.System.POIs {
+					if poi.ID == state.CurrentPOI && isResourcePOI(poi.Type) {
+						if err := kbUpdatePOI(client, ctx); err != nil {
+							fmt.Printf("  (POI update failed: %v)\n", err)
+						}
+						break
+					}
+				}
+			}
 		}
 	}
+
+	// Refresh full state so statusline shows correct location.
+	_ = client.GetStatus(ctx)
 
 	totalElapsed := time.Since(startTime)
 	fmt.Printf("\n Arrived at %s in %s (%d jumps)\n", targetSystem, formatDuration(int(totalElapsed.Seconds())), totalJumps)
@@ -149,6 +173,44 @@ func parseFuelEstimates(client game.GameClient) (fuelPerJump, estimatedFuel, fue
 	return resp.FuelPerJump, resp.EstimatedFuel, resp.FuelAvailable
 }
 
+// autopilotUseFuelCells uses all fuel_cell items in cargo. Returns true if any were used.
+func autopilotUseFuelCells(client game.GameClient, ctx context.Context) bool {
+	state := client.GetState()
+	if state == nil {
+		return false
+	}
+
+	used := false
+	for _, item := range state.Ship.Cargo {
+		if !strings.Contains(strings.ToLower(item.ItemID), "fuel_cell") || item.Quantity < 1 {
+			continue
+		}
+
+		qty := int(item.Quantity)
+		fmt.Printf("  Fuel low — using %d %s from cargo...\n", qty, item.ItemID)
+		if err := client.RawCommand(ctx, "use_item", map[string]any{
+			"item_id":  item.ItemID,
+			"quantity": qty,
+		}); err != nil {
+			fmt.Printf("  Warning: use_item %s failed: %v\n", item.ItemID, err)
+			continue
+		}
+		time.Sleep(game.SleepQuick)
+		used = true
+	}
+
+	if used {
+		// Refresh state — RawCommand doesn't update internal fuel/cargo state.
+		_ = client.GetStatus(ctx)
+		time.Sleep(game.SleepQuick)
+		state = client.GetState()
+		if state != nil && state.MaxFuel > 0 {
+			fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+		}
+	}
+	return used
+}
+
 // autopilotRefuelIfNeeded checks if fuel is below 10% and uses fuel_cell items
 // from cargo to refuel in space.
 func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context) {
@@ -180,7 +242,9 @@ func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context) {
 		}
 		time.Sleep(game.SleepQuick)
 
-		// Check new fuel level
+		// Refresh state — RawCommand doesn't update internal fuel/cargo state.
+		_ = client.GetStatus(ctx)
+		time.Sleep(game.SleepQuick)
 		state = client.GetState()
 		if state != nil && state.MaxFuel > 0 {
 			fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
@@ -189,6 +253,15 @@ func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context) {
 	}
 
 	fmt.Printf("  WARNING: Fuel low (%.0f%%) and no fuel cells in cargo!\n", fuelPct)
+}
+
+// isResourcePOI returns true for POI types that have minable resources.
+func isResourcePOI(poiType string) bool {
+	switch poiType {
+	case "asteroid_belt", "ice_field", "gas_cloud", "nebula":
+		return true
+	}
+	return false
 }
 
 // formatDuration formats seconds as "Xm Ys" or "Xs".

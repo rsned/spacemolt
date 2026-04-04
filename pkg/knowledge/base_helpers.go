@@ -77,21 +77,31 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 	}
 
 	// Parse facilities with category information
+	// Generate unique instance IDs for facilities from the basic ID list.
+	// The get_base response only provides type IDs; if a station has duplicates
+	// of the same type, append a counter suffix to keep instance IDs unique.
+	instanceCount := make(map[string]int)
 	var facilities []Facility
 	for _, facilityID := range response.Base.Facilities {
-		// Look up facility in the mapping to get category and level
+		instanceCount[facilityID]++
+		instanceID := facilityID
+		if instanceCount[facilityID] > 1 {
+			instanceID = fmt.Sprintf("%s_%d", facilityID, instanceCount[facilityID])
+		}
+
 		if facilityInfo, ok := FacilityCategoryMapping[facilityID]; ok {
 			facilities = append(facilities, Facility{
 				ID:          facilityInfo.ID,
+				InstanceID:  instanceID,
 				Name:        facilityInfo.Name,
 				Category:    facilityInfo.Category,
 				Level:       facilityInfo.Level,
 				LastUpdated: lastUpdatedTick,
 			})
 		} else {
-			// Unknown facility - add with minimal info
 			facilities = append(facilities, Facility{
 				ID:          facilityID,
+				InstanceID:  instanceID,
 				Name:        facilityID,
 				Category:    "unknown",
 				Level:       0,

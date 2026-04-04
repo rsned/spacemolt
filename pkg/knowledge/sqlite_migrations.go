@@ -934,6 +934,43 @@ ALTER TABLE base_facilities ADD COLUMN service TEXT DEFAULT '';
 ALTER TABLE base_facilities ADD COLUMN recipe_id TEXT DEFAULT '';
 `,
 		},
+		{
+			version: 25,
+			name:    "rekey_base_facilities",
+			sql: `
+-- Rekey base_facilities to allow multiple instances of the same facility type.
+-- SQLite doesn't support ALTER TABLE to change primary keys, so recreate the table.
+CREATE TABLE IF NOT EXISTS base_facilities_new (
+	base_id TEXT NOT NULL,
+	facility_name TEXT NOT NULL,
+	instance_id TEXT NOT NULL DEFAULT '',
+	description TEXT DEFAULT '',
+	category TEXT DEFAULT 'unknown',
+	level INTEGER DEFAULT 0,
+	active BOOLEAN DEFAULT 1,
+	maintenance_satisfied BOOLEAN DEFAULT 1,
+	service TEXT DEFAULT '',
+	recipe_id TEXT DEFAULT '',
+	last_updated_tick INTEGER DEFAULT 0,
+	PRIMARY KEY (base_id, instance_id),
+	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+);
+
+INSERT OR IGNORE INTO base_facilities_new
+	SELECT base_id, facility_name,
+		COALESCE(instance_id, facility_name), COALESCE(description, ''),
+		COALESCE(category, 'unknown'), COALESCE(level, 0),
+		COALESCE(active, 1), COALESCE(maintenance_satisfied, 1),
+		COALESCE(service, ''), COALESCE(recipe_id, ''),
+		COALESCE(last_updated_tick, 0)
+	FROM base_facilities;
+
+DROP TABLE base_facilities;
+ALTER TABLE base_facilities_new RENAME TO base_facilities;
+CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
+CREATE INDEX IF NOT EXISTS idx_base_facilities_recipe ON base_facilities(recipe_id);
+`,
+		},
 	}
 }
 

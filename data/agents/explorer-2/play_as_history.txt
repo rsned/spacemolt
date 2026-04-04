@@ -132,3 +132,136 @@ find_route sandrift
 autopilot betelgeuse
 get_cargo
 autopilot betelgeuse
+get_system
+set_format raw
+get_system
+set_format styled
+get_ship
+refuel
+ge_ship[
+get_ship
+get_system
+travel betelgeuse_belt
+update_poi
+get_poi
+autopilot sandrift
+get_system
+travel sandrigt_ice_fiels
+travel sandrigt_ice_fields
+travel sandrift_ice_fields
+get_poi
+update_poi
+travel ssandrift_i
+travel sandrift_i
+updater_poi
+get_oi
+get_poi
+get_system
+get_ship
+refuel
+get_cargo
+autopilot acrab
+get_cargo
+autopilot acrab
+get_shiup
+get_ship
+update_system
+get_system
+travel acrab_belt
+update_poi
+get_poi
+refuel
+travel null_residue_acrab
+get_poi
+update_poi
+refuel
+autopilot nexus_prime
+update_system
+get_system
+travel the_core
+dock
+update_all
+set_format_raw
+set_format raw
+get_chat_historyu
+get_chat_history
+get_chat_history local
+get_chat_history system
+get_chat_history
+get_chat_history local
+refuel
+view_market fuel_cell
+buy fuel_cell 20
+get_cargo
+get_ship
+autopilot fomalhaut
+get_system
+get_nearby
+travel node_alpha_processing_station
+dock
+update_all
+refuel
+undock
+get_system
+set_format raw
+travel alpha_extraction_zone
+get_chat_history local
+get_chat_history system
+update_poi
+get_poi
+autopilot fomalhaut
+get_suyste,m
+get_system
+update_system
+refuel
+ge_system
+get_system
+get_cargo
+travel fomalhaut_belt
+update_poi
+travel skyreach
+refuel
+get_nearby
+get_ship
+refuel
+autopilot skyreach
+update_system
+get_nearby
+get_ship
+refuel
+update_poi
+get_system
+autopilot skyreach
+get_nearby
+get_poi
+update_poi
+get_system
+update_all
+get_ship
+autopilot krynn
+get_syste
+get_system
+travel war_citadel
+get_nearby
+dock
+update_all
+refuel
+get_cargo
+buy fuel_cell 14
+undock
+get_system
+travel  blood_arena
+get_nearby
+update_poi
+travel war_materials
+get_poi
+update_poi
+get_system
+travel furnace_vents
+update_poi
+get_nearby
+get_system
+travel shattered_comet_graves
+update_poi
+travel war_citadel
+dock

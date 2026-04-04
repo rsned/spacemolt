@@ -35,6 +35,13 @@ import (
 // Package-level knowledge base, initialized if --db-path is provided.
 var globalKB knowledge.Base
 
+// processStartTime records when this play_as session started, used to filter
+// old chat messages (show at most 1 per sender for messages before this time).
+var processStartTime = time.Now()
+
+// globalClient is set during initialization so formatters can access game state.
+var globalClient game.GameClient
+
 // Output format for server responses.
 type outputFormat string
 
@@ -74,6 +81,7 @@ func main() {
 	}()
 
 	logger.Printf("Connected as: %s (Empire: %s)", creds.Username, creds.Empire)
+	globalClient = client
 
 	// Register with status registry if configured
 	if *registryURL != "" {
@@ -424,6 +432,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatSkills(raw)
 	case "view_market":
 		return formatMarket(raw)
+	case "chat_history", "get_chat_history":
+		return formatChatHistory(raw)
 	default:
 		return ""
 	}
@@ -623,6 +633,144 @@ func formatSellOrders(orders []struct {
 }
 
 // formatMarket formats a view_market response as a multi-row table grouped by category.
+func formatChatHistory(raw []byte) string {
+	type chatMsg struct {
+		Channel      string `json:"channel"`
+		Sender       string `json:"sender"`
+		SenderID     string `json:"sender_id"`
+		Content      string `json:"content"`
+		TimestampUTC string `json:"timestamp_utc"`
+		Timestamp    string `json:"timestamp"`
+		TargetID     string `json:"target_id,omitempty"`
+	}
+	var resp struct {
+		Messages []chatMsg `json:"messages"`
+		Channel  string    `json:"channel"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil || len(resp.Messages) == 0 {
+		return ""
+	}
+
+	// Get current system ID for filtering system chat messages.
+	currentSystemID := ""
+	if globalClient != nil {
+		if state := globalClient.GetState(); state != nil {
+			currentSystemID = state.System.ID
+		}
+	}
+
+	// Phase 1: Filter messages.
+	// - System chat: only show messages targeting the current system.
+	// - Old messages (before session start): keep only the most recent per sender.
+	//   We do a reverse pass to find which old message per sender to keep.
+	keepOldSender := make(map[string]int) // sender -> index of most recent old msg to keep
+	for i := len(resp.Messages) - 1; i >= 0; i-- {
+		msg := resp.Messages[i]
+		msgTime, err := time.Parse(time.RFC3339Nano, msg.TimestampUTC)
+		isOld := err == nil && msgTime.Before(processStartTime)
+		if isOld {
+			key := msg.SenderID
+			if key == "" {
+				key = msg.Sender
+			}
+			if _, seen := keepOldSender[key]; !seen {
+				keepOldSender[key] = i
+			}
+		}
+	}
+
+	var filtered []chatMsg
+	skipped := 0
+	for i, msg := range resp.Messages {
+		// Filter system chat by target system.
+		if resp.Channel == "system" && msg.TargetID != "" && currentSystemID != "" {
+			if !strings.EqualFold(msg.TargetID, currentSystemID) {
+				skipped++
+				continue
+			}
+		}
+
+		msgTime, err := time.Parse(time.RFC3339Nano, msg.TimestampUTC)
+		isOld := err == nil && msgTime.Before(processStartTime)
+
+		if isOld {
+			key := msg.SenderID
+			if key == "" {
+				key = msg.Sender
+			}
+			if keepIdx, ok := keepOldSender[key]; ok && keepIdx != i {
+				skipped++
+				continue
+			}
+		}
+		filtered = append(filtered, msg)
+	}
+
+	// Phase 2: Collapse consecutive duplicate messages (same sender + content).
+	type entry struct {
+		sender    string
+		content   string
+		timestamp string
+		count     int
+	}
+	var collapsed []entry
+	for _, msg := range filtered {
+		ts := msg.Timestamp
+		if ts == "" {
+			ts = msg.TimestampUTC
+		}
+		if len(collapsed) > 0 {
+			last := &collapsed[len(collapsed)-1]
+			if last.sender == msg.Sender && last.content == msg.Content {
+				last.count++
+				continue
+			}
+		}
+		collapsed = append(collapsed, entry{
+			sender:    msg.Sender,
+			content:   msg.Content,
+			timestamp: ts,
+			count:     1,
+		})
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "\nChat history (%s) — %d messages", resp.Channel, len(resp.Messages))
+	if skipped > 0 {
+		fmt.Fprintf(&b, " (%d old duplicates hidden)", skipped)
+	}
+	b.WriteString(":\n\n")
+
+	// Debug: known senders to dump full JSON for investigation.
+	debugSenders := map[string]bool{
+		"Chrisjen Avasarala": true,
+		"WaterFixer":         true,
+		"N Nagata":           true,
+		"GunnyDraper":        true,
+	}
+
+	for _, e := range collapsed {
+		repeat := ""
+		if e.count > 1 {
+			repeat = fmt.Sprintf(" (x%d)", e.count)
+		}
+		fmt.Fprintf(&b, "  [%s] %s: %s%s\n", e.timestamp, e.sender, e.content, repeat)
+	}
+
+	// Dump full JSON for debug senders — show ALL messages (including skipped)
+	// to understand what fields are available for filtering.
+	for _, msg := range resp.Messages {
+		if debugSenders[msg.Sender] {
+			raw, _ := json.MarshalIndent(msg, "    ", "  ")
+			fmt.Fprintf(&b, "\n  DEBUG [%s]:\n    %s\n", msg.Sender, string(raw))
+			break // Just show one example per run
+		}
+	}
+
+	fmt.Fprintf(&b, "\n  %d shown (%d after dedup)\n", len(filtered), len(collapsed))
+	return b.String()
+}
+
 func formatMarket(raw []byte) string {
 	type MarketItem struct {
 		ItemID    string `json:"item_id"`
@@ -3214,9 +3362,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.RawCommand(ctx, "set_status", payload)
 		}, ctx, 2*time.Second, cmd, format)
 
-	// === AUTOPILOT ===
+	// === AUTOPILOT & EXPLORE ===
 	case "autopilot", "ap":
 		return autopilot(client, ctx, parts)
+	case "explore":
+		return explore(client, ctx)
 
 	// === KNOWLEDGE BASE UPDATE COMMANDS ===
 	case "update_system":
@@ -3513,6 +3663,7 @@ func printHelp() {
 	fmt.Println("  jump <system>             - Jump to another system")
 	fmt.Println("  find_route <system>       - Find route to system")
 	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
+	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
 
 	fmt.Println("\n=== MINING & COMBAT ===")
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")
@@ -3712,6 +3863,14 @@ func (cp *chatPoller) poll() {
 		// Messages come newest-first; reverse to print chronologically.
 		slices.Reverse(msgs)
 
+		// Get current system ID for filtering system/local chat.
+		currentSystemID := ""
+		if globalClient != nil {
+			if state := globalClient.GetState(); state != nil {
+				currentSystemID = state.System.ID
+			}
+		}
+
 		cp.mu.Lock()
 		for _, m := range msgs {
 			if cp.seen[m.ID] {
@@ -3722,6 +3881,19 @@ func (cp *chatPoller) poll() {
 			// Skip our own messages.
 			if strings.EqualFold(m.Sender, cp.username) {
 				continue
+			}
+
+			// Filter system/local messages by target system.
+			if (ch == "system" || ch == "local") && m.TargetID != "" && currentSystemID != "" {
+				if !strings.EqualFold(m.TargetID, currentSystemID) {
+					continue
+				}
+			}
+
+			// Debug: dump full JSON for specific senders to investigate filtering.
+			if m.Sender == "N Nagata" || m.Sender == "GunnyDraper" || m.Sender == "Chrisjen Avasarala" {
+				raw, _ := json.MarshalIndent(m, "  ", "  ")
+				fmt.Printf("\r  DEBUG POLLER [%s]:\n  %s\n", m.Sender, string(raw))
 			}
 
 			color := channelColors[ch]

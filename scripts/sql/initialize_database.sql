@@ -5,7 +5,7 @@
 -- Use this to initialize a fresh database:
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Schema Version: 24
+-- Schema Version: 25
 -- Last Updated: 2026-04-03
 --
 -- NOTE: In production the schema is created by the Go migration runner in
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS base_facilities (
     service TEXT DEFAULT '',
     recipe_id TEXT DEFAULT '',
     last_updated_tick INTEGER DEFAULT 0,
-    PRIMARY KEY (base_id, facility_name),
+    PRIMARY KEY (base_id, instance_id),
     FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
 );
 
@@ -733,6 +733,7 @@ CREATE INDEX IF NOT EXISTS idx_bases_poi_id ON bases(poi_id);
 CREATE INDEX IF NOT EXISTS idx_base_market_base_id ON base_market(base_id);
 CREATE INDEX IF NOT EXISTS idx_base_market_item_id ON base_market(item_id);
 CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
+CREATE INDEX IF NOT EXISTS idx_base_facilities_recipe ON base_facilities(recipe_id);
 
 -- Market data
 CREATE INDEX IF NOT EXISTS idx_market_snapshots_system_station ON market_snapshots(system_id, station_id, captured_at DESC);
@@ -809,3 +810,4 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (21, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (22, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (23, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (24, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (25, datetime('now'));

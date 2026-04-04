@@ -1177,6 +1177,9 @@ type UseItemResponse struct {
 	OriginSystem      string       `json:"origin_system,omitempty"`
 	DockedAt          string       `json:"docked_at,omitempty"`
 	HomeBaseName      string       `json:"home_base_name,omitempty"`
+	FuelAdded         int          `json:"fuel_added,omitempty"`
+	FuelMax           int          `json:"fuel_max,omitempty"`
+	FuelNow           int          `json:"fuel_now,omitempty"`
 }
 
 // LootWreckResponse wraps the response from loot_wreck command.

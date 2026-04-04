@@ -159,6 +159,12 @@ func kbUpdateStation(client game.GameClient, ctx context.Context) error {
 				fmt.Printf("Warning: failed to parse base data: %v\n", err)
 			} else {
 				poiName = base.Name
+				// Merge dock story from game state if get_base didn't include it.
+				if base.Story == "" {
+					if s := client.GetState(); s != nil && s.LastDockStory != "" {
+						base.Story = s.LastDockStory
+					}
+				}
 				if err := globalKB.RememberBase(ctx, *base); err != nil {
 					fmt.Printf("Warning: failed to save base: %v\n", err)
 				} else {

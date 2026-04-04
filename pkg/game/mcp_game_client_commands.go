@@ -54,6 +54,18 @@ func (m *MCPGameClient) Dock(ctx context.Context) error {
 	m.state.Doc = true
 	m.state.Traveling = false
 	m.mu.Unlock()
+
+	// Capture the dock story from the response.
+	if text, parseErr := parseToolResultText(result); parseErr == nil {
+		var dockResp struct {
+			Story string `json:"story"`
+		}
+		if json.Unmarshal([]byte(text), &dockResp) == nil && dockResp.Story != "" {
+			m.mu.Lock()
+			m.state.LastDockStory = dockResp.Story
+			m.mu.Unlock()
+		}
+	}
 	return nil
 }
 

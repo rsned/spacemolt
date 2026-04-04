@@ -288,18 +288,19 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Insert or update POI (base_id is left as NULL for now since POI struct doesn't have it)
+	// Insert or update POI. Use COALESCE to preserve existing non-empty values
+	// when the incoming data has empty fields (e.g., server omitting 'class').
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
-			name = excluded.name,
-			type = excluded.type,
-			class = excluded.class,
-			description = excluded.description,
-			position_x = excluded.position_x,
-			position_y = excluded.position_y,
+			name = CASE WHEN excluded.name != '' THEN excluded.name ELSE pois.name END,
+			type = CASE WHEN excluded.type != '' THEN excluded.type ELSE pois.type END,
+			class = CASE WHEN excluded.class IS NOT NULL AND excluded.class != '' THEN excluded.class ELSE pois.class END,
+			description = CASE WHEN excluded.description != '' THEN excluded.description ELSE pois.description END,
+			position_x = CASE WHEN excluded.position_x != 0 THEN excluded.position_x ELSE pois.position_x END,
+			position_y = CASE WHEN excluded.position_y != 0 THEN excluded.position_y ELSE pois.position_y END,
 			last_updated_tick = excluded.last_updated_tick
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, sql.NullString{String: poi.Class, Valid: poi.Class != ""}, poi.Description,
 		poi.Position.X, poi.Position.Y, poi.LastUpdatedTick)
@@ -307,10 +308,13 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
 
-	// Delete existing resources for this POI
-	_, err = tx.ExecContext(ctx, `DELETE FROM poi_resources WHERE poi_id = ?`, poi.ID)
-	if err != nil {
-		return fmt.Errorf("failed to delete old POI resources: %w", err)
+	// Only update resources if we have new data — don't wipe existing resources
+	// when the incoming POI has none (e.g., from get_system which omits resources).
+	if len(poi.Resources) > 0 {
+		_, err = tx.ExecContext(ctx, `DELETE FROM poi_resources WHERE poi_id = ?`, poi.ID)
+		if err != nil {
+			return fmt.Errorf("failed to delete old POI resources: %w", err)
+		}
 	}
 
 	// Insert resources
@@ -427,7 +431,7 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 			poi_id = excluded.poi_id,
 			name = excluded.name,
 			description = excluded.description,
-			story = excluded.story,
+			story = CASE WHEN excluded.story != '' THEN excluded.story ELSE bases.story END,
 			empire = excluded.empire,
 			defense_level = excluded.defense_level,
 			has_drones = excluded.has_drones,
@@ -481,6 +485,8 @@ func (kb *SQLiteKB) RememberBase(ctx context.Context, base SpaceBase) error {
 			facility.Active, facility.MaintenanceSatisfied, facility.Service, facility.RecipeID,
 			base.LastUpdatedTick)
 		if err != nil {
+			log.Printf("[DEBUG] failed to insert facility: base_id=%q, facility_name=%q, instance_id=%q, category=%q, err=%v",
+				base.ID, facility.ID, facility.InstanceID, facility.Category, err)
 			return fmt.Errorf("failed to insert base facility: %w", err)
 		}
 	}
