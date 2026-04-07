@@ -3598,6 +3598,7 @@ func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) 
 
 // parseFlagArgs parses --key value pairs from args, accepting only the specified keys.
 // Returns a map of key→value for all matched flags.
+// Attempts to convert values to integers when possible.
 func parseFlagArgs(args []string, keys ...string) map[string]any {
 	allowed := make(map[string]bool, len(keys))
 	for _, k := range keys {
@@ -3614,7 +3615,15 @@ func parseFlagArgs(args []string, keys ...string) map[string]any {
 			continue
 		}
 		i++
-		result[key] = args[i]
+		value := args[i]
+
+		// Try to parse as integer first
+		if intVal, err := strconv.Atoi(value); err == nil {
+			result[key] = intVal
+		} else {
+			// Keep as string if not a number
+			result[key] = value
+		}
 	}
 	return result
 }
