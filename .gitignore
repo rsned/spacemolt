@@ -68,7 +68,7 @@ server_docs/*.json
 ##############################
 docs/*.md
 !docs/USAGE.md
-reviews/*.md
+
 
 # LLM files
 .claude/
