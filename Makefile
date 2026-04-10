@@ -1,4 +1,8 @@
 # Makefile for spacemolt-agent-server
+#
+# IMPORTANT: Use 'make build' to compile binaries.
+# Do NOT run 'go build ./...' directly - it creates binaries in the root directory
+# which should be kept clean. All binaries go into ./bin/
 
 .PHONY: test test-race lint vet check-all clean build update-server-docs generate-mcp-tools update-mcp
 
