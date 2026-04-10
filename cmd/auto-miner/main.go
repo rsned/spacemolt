@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/calllog"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -209,7 +211,18 @@ func main() {
 		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
 	}
 
+	// Set up structured call logger for request/response pairs
+	logDir := filepath.Join("data", "agents", agentID, "logs")
+	clog, err := calllog.New(logDir, "auto-miner", calllog.Mutations)
+	if err != nil {
+		log.Fatalf("Failed to create call logger: %v", err)
+	}
+	if wsClient, ok := client.(*game.Client); ok {
+		wsClient.CallLogger = clog
+	}
+
 	defer func() {
+		_ = clog.Close()
 		if err := client.Close(); err != nil {
 			logger.Printf("Warning: Failed to close client: %v", err)
 		}

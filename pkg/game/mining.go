@@ -332,6 +332,20 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 			state.Credits, state.Fuel, state.MaxFuel, state.Hull, state.MaxHull,
 			state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
+		// IMPORTANT: Check fuel level BEFORE starting the run
+		// If docked and fuel is low, refuel first to prevent getting stuck
+		if state.Doc && state.Fuel < state.MaxFuel*0.2 {
+			logger.Printf("⚠️  Low fuel before run (%.0f/%.0f = %.0f%%), refueling first...",
+				state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+			if err := client.Refuel(ctx); err != nil {
+				logger.Printf("Refuel error: %v", err)
+			} else {
+				time.Sleep(3 * time.Second)
+				state = client.GetState()
+				logger.Printf("✅ Refueled to %.0f/%.0f", state.Fuel, state.MaxFuel)
+			}
+		}
+
 		// Get full system data to see POIs
 		if len(state.System.POIs) == 0 {
 			logger.Printf("Fetching system data...")
@@ -369,9 +383,33 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 		// Step 1: Undock if docked
 		if state.Doc {
 			logger.Printf("📤 Undocking from station...")
-			if err := client.Undock(ctx); err != nil {
-				logger.Printf("Undock error: %v", err)
+			undockSuccess := false
+			for retries := range 5 {
+				if err := client.Undock(ctx); err != nil {
+					if strings.Contains(err.Error(), "action pending") {
+						logger.Printf("⏳ Waiting for pending action to complete before undock... (attempt %d/5)", retries+1)
+						time.Sleep(SleepTick)
+						continue
+					}
+					logger.Printf("Undock error: %v", err)
+				}
+				undockSuccess = true
+				break
 			}
+			if !undockSuccess {
+				logger.Printf("❌ Failed to undock after 5 attempts, skipping this run")
+				time.Sleep(5 * time.Second)
+				continue
+			}
+		}
+
+		// Refresh state after undock to verify we're actually undocked
+		time.Sleep(SleepTick)
+		state = client.GetState()
+		if state.Doc {
+			logger.Printf("⚠️  Still docked after undock attempt, skipping this run")
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
 		// Step 2: Travel to mining location (blocks until arrival)

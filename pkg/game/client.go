@@ -18,6 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/calllog"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
@@ -99,6 +100,12 @@ type Client struct {
 	// Storage update callback — fired when a view_storage response is received
 	onStorageUpdate func(resp StorageUpdateEvent)
 	onStorageMu     sync.RWMutex
+
+	// Structured call logger for request/response pairs
+	CallLogger      *calllog.Logger
+	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
+	lastSentMsgType string          // message type of lastSentMsg
+	lastSentMsgMu   sync.Mutex
 }
 
 // MessageHandler handles incoming game messages
@@ -535,6 +542,14 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 	// Track message for diagnostics
 	c.trackMessageSent()
 
+	// Store the sent message for call logging (paired with response later)
+	if c.CallLogger != nil {
+		c.lastSentMsgMu.Lock()
+		c.lastSentMsg = json.RawMessage(data)
+		c.lastSentMsgType = msg.Type
+		c.lastSentMsgMu.Unlock()
+	}
+
 	// Set a write timeout to prevent hanging
 	writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -669,7 +684,8 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 	}
 
 	// Wait for initial server acknowledgment (OK or error).
-	resp, err := c.waitForInitialResponse(ctx, SleepTick)
+	// Use longer timeout since travel can take multiple ticks to start.
+	resp, err := c.waitForInitialResponse(ctx, SleepActionStartTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -731,7 +747,8 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 	}
 
 	// Wait for initial server acknowledgment.
-	resp, err := c.waitForInitialResponse(ctx, SleepTick)
+	// Use longer timeout since jump can take multiple ticks to start.
+	resp, err := c.waitForInitialResponse(ctx, SleepActionStartTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -1177,13 +1194,37 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	}
 
 	if len(state.Ship.Cargo) == 0 {
+		fmt.Printf("📦 Cargo is empty, nothing to deposit\n")
 		return nil // Nothing to deposit
 	}
 
+	fmt.Printf("📥 Depositing %d cargo items to storage...\n", len(state.Ship.Cargo))
+
 	// Deposit each item in cargo
 	depositErrors := 0
-	for _, item := range state.Ship.Cargo {
+	successfulDeposits := 0
+	for i, item := range state.Ship.Cargo {
 		if item.Quantity <= 0 {
+			continue
+		}
+
+		// Refresh state before each deposit to ensure we have current quantities
+		// This prevents "phantom item" errors where the snapshot shows items
+		// that were already deposited by previous iterations
+		currentState := c.GetState()
+
+		// Find this item in the current cargo and check actual quantity
+		var currentQty float64
+		for _, cargoItem := range currentState.Ship.Cargo {
+			if cargoItem.ItemID == item.ItemID {
+				currentQty = cargoItem.Quantity
+				break
+			}
+		}
+
+		// Skip if item no longer exists in cargo or quantity is 0
+		if currentQty <= 0 {
+			fmt.Printf("   [%d/%d] ⊘ Skipping %s (no longer in cargo)\n", i+1, len(state.Ship.Cargo), item.ItemID)
 			continue
 		}
 
@@ -1199,7 +1240,9 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 		case <-time.After(SleepQuick):
 		}
 
-		if err := c.DepositItems(ctx, item.ItemID, item.Quantity); err != nil {
+		// Deposit the current quantity (not the snapshot quantity)
+		if err := c.DepositItems(ctx, item.ItemID, currentQty); err != nil {
+			fmt.Printf("   [%d/%d] ✗ Failed to deposit %.0f x %s: %v\n", i+1, len(state.Ship.Cargo), currentQty, item.ItemID, err)
 			c.debugLogger.Printf("Failed to deposit %s: %v", item.ItemID, err)
 			depositErrors++
 			// If action is pending, wait longer before next item
@@ -1212,7 +1255,9 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 			}
 			// Continue depositing other items even if one fails
 		} else {
-			c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, item.Quantity)
+			fmt.Printf("   [%d/%d] ✓ Deposited %.0f x %s to storage\n", i+1, len(state.Ship.Cargo), currentQty, item.ItemID)
+			c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, currentQty)
+			successfulDeposits++
 			// Brief delay between deposits
 			select {
 			case <-ctx.Done():
@@ -1221,6 +1266,8 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 			}
 		}
 	}
+
+	fmt.Printf("📥 Deposit complete: %d successful, %d failed\n", successfulDeposits, depositErrors)
 
 	if depositErrors > 0 {
 		return fmt.Errorf("failed to deposit %d out of %d items", depositErrors, len(state.Ship.Cargo))
@@ -3205,6 +3252,14 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 
 // waitForActionResponse waits for either "ok" or "error" response for game actions
 func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
+	// Log the final response paired with the last sent request
+	var finalResp *protocol.Response
+	defer func() {
+		if finalResp != nil {
+			c.logCallResponse(*finalResp)
+		}
+	}()
+
 	okChan := make(chan protocol.Response, 1)
 	errorChan := make(chan protocol.Response, 1)
 	actionErrorChan := make(chan protocol.Response, 1)
@@ -3236,15 +3291,18 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 
 	for {
 		select {
-		case <-miningYieldChan:
+		case resp := <-miningYieldChan:
 			// mining_yield is the completion signal for pending mine actions
+			finalResp = &resp
 			return nil
-		case <-scanResultChan:
+		case resp := <-scanResultChan:
 			// scan_result is the completion signal for pending scan actions
+			finalResp = &resp
 			return nil
-		case <-actionResultChan:
+		case resp := <-actionResultChan:
 			// action_result is the completion signal for pending actions
 			// (e.g. deposit_items, craft) executed on the next server tick
+			finalResp = &resp
 			return nil
 		case resp := <-okChan:
 			// Check if this is a pending action response
@@ -3264,6 +3322,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 				}
 			}
 			// Not pending, this is the actual completion
+			finalResp = &resp
 			return nil
 		case resp := <-actionErrorChan:
 			// action_error is the server's response for pending actions that failed
@@ -3271,6 +3330,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			errorChan <- resp
 			continue
 		case resp := <-errorChan:
+			finalResp = &resp
 			// Check error code and categorize response
 			if code, ok := resp.Payload["code"].(string); ok {
 				switch code {
@@ -3288,6 +3348,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 
 				// ACTION_PENDING: Another action is in-flight, wait for it to complete
 				case "action_pending":
+					finalResp = nil // not final, keep waiting
 					pendingCmd, _ := resp.Payload["pending_command"].(string)
 					c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
 					// Reset deadline and continue listening for the real response
@@ -3359,6 +3420,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			}
 			return fmt.Errorf("action failed")
 		case resp := <-actionResultChan:
+			finalResp = &resp
 			// action_result arrives after the server processes a pending action.
 			// parseActionResult already updated state; check for errors in results.
 			if result, ok := resp.Payload["result"].(map[string]any); ok {
@@ -3390,6 +3452,14 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 // Unlike waitForActionResponse, it does NOT loop on pending/in-progress — it returns
 // the first response and lets the caller decide what to do.
 func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Duration) (protocol.Response, error) {
+	// Log the final response paired with the last sent request
+	var finalResp *protocol.Response
+	defer func() {
+		if finalResp != nil {
+			c.logCallResponse(*finalResp)
+		}
+	}()
+
 	okChan := make(chan protocol.Response, 1)
 	errorChan := make(chan protocol.Response, 1)
 	actionErrorChan := make(chan protocol.Response, 1)
@@ -3422,15 +3492,18 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 				deadline = time.After(timeout)
 				continue
 			}
+			finalResp = &resp
 			return resp, nil
 
 		case resp := <-actionResultChan:
 			// action_result arrives when the server processes a pending action
 			// on the next tick. Treat it as the initial response.
 			c.debugLogger.Printf("Received action_result as initial response")
+			finalResp = &resp
 			return resp, nil
 
 		case resp := <-errorChan:
+			finalResp = &resp
 			if code, ok := resp.Payload["code"].(string); ok {
 				switch code {
 				case "already_there", "already_docked", "not_docked":
@@ -3447,6 +3520,7 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 			return resp, fmt.Errorf("%s", msg)
 
 		case resp := <-actionErrorChan:
+			finalResp = &resp
 			msg, _ := resp.Payload["message"].(string)
 			if msg == "" {
 				msg = "action error"
@@ -3576,6 +3650,74 @@ func (c *Client) trackMessageReceived() {
 	c.diagnosticMu.Lock()
 	c.lastReceiveTime = time.Now()
 	c.diagnosticMu.Unlock()
+}
+
+// logCallResponse logs the most recently sent request paired with the given response.
+// It is called from waitForActionResponse / waitForInitialResponse at the resolution point.
+func (c *Client) logCallResponse(resp protocol.Response) {
+	if c.CallLogger == nil {
+		return
+	}
+	c.lastSentMsgMu.Lock()
+	req := c.lastSentMsg
+	msgType := c.lastSentMsgType
+	c.lastSentMsg = nil
+	c.lastSentMsgType = ""
+	c.lastSentMsgMu.Unlock()
+
+	if req == nil {
+		return
+	}
+
+	// Build state snapshot from current game state
+	snap := c.buildStateSnapshot()
+
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		c.debugLogger.Printf("calllog: failed to marshal response: %v", err)
+		return
+	}
+	if err := c.CallLogger.Log(msgType, snap, req, respJSON); err != nil {
+		c.debugLogger.Printf("calllog: failed to write log: %v", err)
+	}
+}
+
+// buildStateSnapshot captures the current location and ship state for call logging.
+func (c *Client) buildStateSnapshot() calllog.StateSnapshot {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// Resolve module IDs to names where definitions are available
+	modules := make([]string, len(c.state.Ship.Modules))
+	for i, modID := range c.state.Ship.Modules {
+		if def, ok := c.state.ModuleDefinitions[modID]; ok {
+			modules[i] = def.Name
+		} else {
+			modules[i] = modID
+		}
+	}
+
+	return calllog.StateSnapshot{
+		Location: calllog.LocationInfo{
+			System:    c.state.CurrentSystem,
+			POI:       c.state.CurrentPOI,
+			Docked:    c.state.Doc,
+			Traveling: c.state.Traveling,
+		},
+		Ship: calllog.ShipInfo{
+			Name:          c.state.Ship.Name,
+			ClassID:       c.state.Ship.ClassID,
+			Hull:          c.state.Hull,
+			MaxHull:       c.state.MaxHull,
+			Shield:        c.state.Ship.Shield,
+			MaxShield:     c.state.Ship.MaxShield,
+			Fuel:          c.state.Fuel,
+			MaxFuel:       c.state.MaxFuel,
+			CargoUsed:     c.state.Ship.CargoUsed,
+			CargoCapacity: c.state.Ship.CargoCapacity,
+			Modules:       modules,
+		},
+	}
 }
 
 // generateConnectionID creates a unique connection ID

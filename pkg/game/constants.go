@@ -16,7 +16,10 @@ const (
 	SleepTravel = 1 * SleepTick // POI travel within system
 	SleepJump   = 2 * SleepTick // System jump travel timea
 
-	SleepReconnect         = 30 * time.Second // Reconnection recovery wait
+	// Initial response timeouts for actions that may take multiple ticks to start
+	SleepActionStartTimeout = 3 * SleepTick // 30s timeout for travel/jump to acknowledge
+
+	SleepReconnect = 30 * time.Second // Reconnection recovery wait
 	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
