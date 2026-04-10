@@ -430,7 +430,20 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 			if numEquipment == 0 {
 				numEquipment = 1 // Default to 1 if no equipment found
 			}
-			maxMiningAttempts = max(int(state.Ship.CargoCapacity/(5.0*float64(numEquipment))), 5)
+
+			// Conservative estimate: assume ~2 cargo per mine per equipment
+			// This accounts for:
+			// - Mining failures (belt depletion, errors)
+			// - Variable yield per mine
+			// - Ships with cargo efficiency bonuses (can fit more, need more attempts)
+			estimatedAttempts := state.Ship.CargoCapacity / (2.0 * float64(numEquipment))
+
+			// Set minimum of 10 attempts, but allow much higher for larger ships
+			maxMiningAttempts = max(int(estimatedAttempts), 10)
+			// Cap at a reasonable maximum to prevent infinite loops (300 attempts = ~50 minutes)
+			if maxMiningAttempts > 300 {
+				maxMiningAttempts = 300
+			}
 		}
 
 		numEquipment := countMiningEquipment(state, mtConfig)
@@ -482,7 +495,15 @@ func MiningLoop(client GameClient, logger *log.Logger, ctx context.Context, conf
 
 			// Safety: max mining attempts per run
 			if mineCount >= maxMiningAttempts {
-				logger.Printf("✓ Reached max mining attempts (%d)", maxMiningAttempts)
+				// Check if we're actually full or just hit the limit
+				cargoPercent := (state.Ship.CargoUsed / state.Ship.CargoCapacity) * 100
+				if cargoPercent < config.CargoFullThreshold*100 {
+					logger.Printf("⚠️  Reached max mining attempts (%d) but cargo only %.1f%% full (%.1f/%.1f)",
+						maxMiningAttempts, cargoPercent, state.Ship.CargoUsed, state.Ship.CargoCapacity)
+					logger.Printf("   Belt may be partially depleted or yield is lower than expected")
+				} else {
+					logger.Printf("✓ Reached max mining attempts (%d)", maxMiningAttempts)
+				}
 				break
 			}
 		}
