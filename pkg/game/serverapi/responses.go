@@ -625,6 +625,8 @@ type FacilityTypeInfo struct {
 	Lore                 string     `json:"lore,omitempty"`
 	RecipeID             string     `json:"recipe_id,omitempty"`
 	Recipe               string     `json:"recipe,omitempty"`
+	RecipeMultiplier     float64    `json:"recipe_multiplier,omitempty"`
+	Hint                 string     `json:"hint,omitempty"`
 	UpgradesTo           string     `json:"upgrades_to,omitempty"`
 	UpgradesToName       string     `json:"upgrades_to_name,omitempty"`
 	UpgradesFrom         string     `json:"upgrades_from,omitempty"`
@@ -652,10 +654,15 @@ type FacilityResponse struct {
 }
 
 // FacilityTypesResponse wraps the response from facility action="types" which
-// returns individual facility type details at the top level.
+// returns a paginated list of facility type details.
 type FacilityTypesResponse struct {
-	Action string `json:"action"`
-	FacilityTypeInfo
+	Action     string             `json:"action"`
+	Hint       string             `json:"hint,omitempty"`
+	Page       int                `json:"page,omitempty"`
+	PerPage    int                `json:"per_page,omitempty"`
+	Total      int                `json:"total,omitempty"`
+	TotalPages int                `json:"total_pages,omitempty"`
+	Types      []FacilityTypeInfo `json:"types,omitempty"`
 }
 
 // FacilityListResponse wraps the response from facility list command.
