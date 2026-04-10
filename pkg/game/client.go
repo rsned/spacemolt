@@ -804,7 +804,8 @@ func (c *Client) Mine(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	// Use longer timeout since mining can take multiple ticks to start
+	return c.waitForActionResponse(ctx, SleepActionStartTimeout)
 }
 
 // Attack attacks a target player or NPC
