@@ -70,6 +70,7 @@ spacemolt-client-linux-x64
 *.db-wal
 data/agents/*/credentials.json
 data/agents/*/play_as_history.json
+data/agents/*/play_as_history.txt
 data/crafting/
 data/credentials/
 data/game-api/
