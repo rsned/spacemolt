@@ -213,7 +213,9 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 				X: poi.Position.X,
 				Y: poi.Position.Y,
 			},
-			LastUpdatedTick: state.GetTick(),
+			Hidden:           poi.Hidden,
+			RevealDifficulty: poi.RevealDifficulty,
+			LastUpdatedTick:  state.GetTick(),
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			logger.Printf("⚠️  Failed to save POI %s: %v", poi.Name, err)

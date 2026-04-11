@@ -153,15 +153,17 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 	defer kb.mu.Unlock()
 
 	kb.pois[poi.ID] = &POI{
-		ID:              poi.ID,
-		SystemID:        poi.SystemID,
-		Name:            poi.Name,
-		Type:            poi.Type,
-		Position:        poi.Position,
-		Description:     poi.Description,
-		Services:        poi.Services,
-		Resources:       poi.Resources,
-		LastUpdatedTick: poi.LastUpdatedTick,
+		ID:               poi.ID,
+		SystemID:         poi.SystemID,
+		Name:             poi.Name,
+		Type:             poi.Type,
+		Position:         poi.Position,
+		Description:      poi.Description,
+		Services:         poi.Services,
+		Resources:        poi.Resources,
+		Hidden:           poi.Hidden,
+		RevealDifficulty: poi.RevealDifficulty,
+		LastUpdatedTick:  poi.LastUpdatedTick,
 	}
 
 	return nil
@@ -327,16 +329,18 @@ type MapSystemData struct {
 // POI represents knowledge about a Point of Interest
 // Extends game.POI with exploration metadata
 type POI struct {
-	ID              string
-	SystemID        string
-	Name            string
-	Type            string
-	Class           string // Star class (e.g., "G2 V") or planet type (e.g., "terran")
-	Description     string
-	Position        game.Position
-	Services        []string
-	Resources       []game.POIResource
-	LastUpdatedTick int64
+	ID               string
+	SystemID         string
+	Name             string
+	Type             string
+	Class            string // Star class (e.g., "G2 V") or planet type (e.g., "terran")
+	Description      string
+	Position         game.Position
+	Services         []string
+	Resources        []game.POIResource
+	Hidden           bool
+	RevealDifficulty int
+	LastUpdatedTick  int64
 }
 
 // SpaceBase represents knowledge about a space station, outpost, base, or fortress

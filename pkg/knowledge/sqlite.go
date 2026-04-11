@@ -291,8 +291,8 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	// Insert or update POI. Use COALESCE to preserve existing non-empty values
 	// when the incoming data has empty fields (e.g., server omitting 'class').
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, last_updated_tick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = CASE WHEN excluded.name != '' THEN excluded.name ELSE pois.name END,
@@ -301,9 +301,11 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 			description = CASE WHEN excluded.description != '' THEN excluded.description ELSE pois.description END,
 			position_x = CASE WHEN excluded.position_x != 0 THEN excluded.position_x ELSE pois.position_x END,
 			position_y = CASE WHEN excluded.position_y != 0 THEN excluded.position_y ELSE pois.position_y END,
+			hidden = excluded.hidden,
+			reveal_difficulty = CASE WHEN excluded.reveal_difficulty != 0 THEN excluded.reveal_difficulty ELSE pois.reveal_difficulty END,
 			last_updated_tick = excluded.last_updated_tick
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, sql.NullString{String: poi.Class, Valid: poi.Class != ""}, poi.Description,
-		poi.Position.X, poi.Position.Y, poi.LastUpdatedTick)
+		poi.Position.X, poi.Position.Y, poi.Hidden, poi.RevealDifficulty, poi.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
@@ -343,7 +345,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, last_updated_tick
+		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, hidden, reveal_difficulty, last_updated_tick
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -367,6 +369,8 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 			&description,
 			&poi.Position.X,
 			&poi.Position.Y,
+			&poi.Hidden,
+			&poi.RevealDifficulty,
 			&poi.LastUpdatedTick,
 		)
 		if err != nil {

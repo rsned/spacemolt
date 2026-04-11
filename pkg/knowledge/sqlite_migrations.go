@@ -971,6 +971,15 @@ CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(categ
 CREATE INDEX IF NOT EXISTS idx_base_facilities_recipe ON base_facilities(recipe_id);
 `,
 		},
+		{
+			version:      26,
+			name:         "poi_hidden_reveal_difficulty",
+			sql: `
+ALTER TABLE pois ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE pois ADD COLUMN reveal_difficulty INTEGER NOT NULL DEFAULT 0;
+`,
+			ignoreErrors: true,
+		},
 	}
 }
 

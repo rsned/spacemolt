@@ -932,16 +932,18 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 // RememberPOI stores a POI in memory
 func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 	kbPOI := knowledge.POI{
-		ID:              poi.ID,
-		SystemID:        poi.SystemID,
-		Name:            poi.Name,
-		Type:            poi.Type,
-		Class:           poi.Class,
-		Description:     poi.Description,
-		Position:        poi.Position,
-		Resources:       poi.Resources, // game.POIResource is compatible
-		Services:        []string{},    // Not stored in game POI
-		LastUpdatedTick: m.currentTick,
+		ID:               poi.ID,
+		SystemID:         poi.SystemID,
+		Name:             poi.Name,
+		Type:             poi.Type,
+		Class:            poi.Class,
+		Description:      poi.Description,
+		Position:         poi.Position,
+		Resources:        poi.Resources, // game.POIResource is compatible
+		Services:         []string{},    // Not stored in game POI
+		Hidden:           poi.Hidden,
+		RevealDifficulty: poi.RevealDifficulty,
+		LastUpdatedTick:  m.currentTick,
 	}
 
 	return m.kb.RememberPOI(ctx, kbPOI)
