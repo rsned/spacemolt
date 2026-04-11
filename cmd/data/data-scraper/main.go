@@ -211,7 +211,29 @@ func main() {
 		}
 	}
 
+	// Update "latest" symlink to point at this run's output directory
+	updateLatestSymlink(logger, scraper.outputDir)
+
 	logger.Println("\n✅ Scraping complete!")
+}
+
+// updateLatestSymlink creates or updates a "latest" symlink in the base output
+// directory that points to the given day directory.
+func updateLatestSymlink(logger *log.Logger, dayDir string) {
+	latestLink := filepath.Join(filepath.Dir(dayDir), "latest")
+	// Use the directory basename so the symlink is relative (e.g., "20260411")
+	target := filepath.Base(dayDir)
+
+	// Remove existing symlink (or stale file) before creating a new one
+	if err := os.Remove(latestLink); err != nil && !os.IsNotExist(err) {
+		logger.Printf("⚠️  Failed to remove old latest symlink: %v", err)
+		return
+	}
+	if err := os.Symlink(target, latestLink); err != nil {
+		logger.Printf("⚠️  Failed to create latest symlink: %v", err)
+	} else {
+		logger.Printf("🔗 Updated latest → %s", target)
+	}
 }
 
 func printUsage() {
