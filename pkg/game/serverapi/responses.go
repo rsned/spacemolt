@@ -606,31 +606,39 @@ type SurveySystemResponse struct {
 }
 
 // FacilityResponse wraps the response from facility command.
-// FacilityTypeInfo describes a buildable facility type and its properties.
+// FacilityTypeInfo describes a facility type. Used by both the paginated
+// types list (which uses "id") and the single-type detail (which uses "type_id").
 type FacilityTypeInfo struct {
-	TypeID               string     `json:"type_id,omitempty"`
-	Name                 string     `json:"name,omitempty"`
-	Category             string     `json:"category,omitempty"`
-	Description          string     `json:"description,omitempty"`
-	SatisfiedDescription string     `json:"satisfied_description,omitempty"`
-	DegradedDescription  string     `json:"degraded_description,omitempty"`
-	Level                int        `json:"level,omitempty"`
-	Buildable            bool       `json:"buildable,omitempty"`
-	BuildCost            float64    `json:"build_cost,omitempty"`
+	ID                   string      `json:"id,omitempty"`      // paginated list identifier
+	TypeID               string      `json:"type_id,omitempty"` // detail response identifier
+	Name                 string      `json:"name,omitempty"`
+	Category             string      `json:"category,omitempty"`
+	Description          string      `json:"description,omitempty"`
+	SatisfiedDescription string      `json:"satisfied_description,omitempty"`
+	DegradedDescription  string      `json:"degraded_description,omitempty"`
+	Level                int         `json:"level,omitempty"`
+	Buildable            bool        `json:"buildable,omitempty"`
+	BuildCost            int         `json:"build_cost,omitempty"`
 	BuildMaterials       []CargoItem `json:"build_materials,omitempty"`
-	BuildTime            int        `json:"build_time,omitempty"`
-	LaborCost            float64    `json:"labor_cost,omitempty"`
-	MaintenancePerCycle  float64    `json:"maintenance_per_cycle,omitempty"`
-	RentPerCycle         float64    `json:"rent_per_cycle,omitempty"`
-	Lore                 string     `json:"lore,omitempty"`
-	RecipeID             string     `json:"recipe_id,omitempty"`
-	Recipe               string     `json:"recipe,omitempty"`
-	RecipeMultiplier     float64    `json:"recipe_multiplier,omitempty"`
-	Hint                 string     `json:"hint,omitempty"`
-	UpgradesTo           string     `json:"upgrades_to,omitempty"`
-	UpgradesToName       string     `json:"upgrades_to_name,omitempty"`
-	UpgradesFrom         string     `json:"upgrades_from,omitempty"`
-	UpgradesFromName     string     `json:"upgrades_from_name,omitempty"`
+	BuildTime            int         `json:"build_time,omitempty"`
+	LaborCost            int         `json:"labor_cost,omitempty"`
+	MaintenancePerCycle  []CargoItem `json:"maintenance_per_cycle,omitempty"`
+	RentPerCycle         int         `json:"rent_per_cycle,omitempty"`
+	PersonalService      string      `json:"personal_service,omitempty"`
+	Service              string      `json:"service,omitempty"`
+	FactionService       string      `json:"faction_service,omitempty"`
+	FactionCap           int         `json:"faction_cap,omitempty"`
+	BonusType            string      `json:"bonus_type,omitempty"`
+	BonusValue           float64     `json:"bonus_value,omitempty"`
+	Lore                 string      `json:"lore,omitempty"`
+	RecipeID             string      `json:"recipe_id,omitempty"`
+	Recipe               string      `json:"recipe,omitempty"`
+	RecipeMultiplier     float64     `json:"recipe_multiplier,omitempty"`
+	Hint                 string      `json:"hint,omitempty"`
+	UpgradesTo           string      `json:"upgrades_to,omitempty"`
+	UpgradesToName       string      `json:"upgrades_to_name,omitempty"`
+	UpgradesFrom         string      `json:"upgrades_from,omitempty"`
+	UpgradesFromName     string      `json:"upgrades_from_name,omitempty"`
 }
 
 type FacilityResponse struct {
