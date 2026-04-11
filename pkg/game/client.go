@@ -938,11 +938,16 @@ func (c *Client) GetStatus(ctx context.Context) error {
 }
 
 // GetNotifications retrieves pending notifications and the current tick/timestamp.
-// Over WebSocket, notifications and tick updates are pushed automatically by the
-// server, so this is a no-op. The MCP client implementation calls the tool.
-func (c *Client) GetNotifications(_ context.Context) error {
-	// WebSocket connections receive notifications via push — no polling needed.
-	return nil
+// Sends get_notifications to the server and waits for the response which updates
+// CurrentTick via handleResponse.
+func (c *Client) GetNotifications(ctx context.Context) error {
+	if err := c.Send(ctx, protocol.Message{
+		Type:      "get_notifications",
+		Timestamp: time.Now().UnixMilli(),
+	}); err != nil {
+		return err
+	}
+	return c.waitForActionResponse(ctx, SleepTick)
 }
 
 // GetListings requests market listings for the current station.
@@ -2052,8 +2057,8 @@ func (c *Client) parsePOIData(payload map[string]any) {
 			return
 		}
 	}
-	// POI not in the system list yet — append it
-	c.state.System.POIs = append(c.state.System.POIs, poi)
+	// POI not in the system list — skip appending to avoid stale cross-system POIs.
+	// The authoritative POI list comes from get_system; get_poi only enriches existing entries.
 }
 
 // parseMapData extracts map information from get_map response
@@ -3267,6 +3272,8 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	actionResultChan := make(chan protocol.Response, 1)
 	miningYieldChan := make(chan protocol.Response, 1)
 	scanResultChan := make(chan protocol.Response, 1)
+	dockedChan := make(chan protocol.Response, 1)
+	undockedChan := make(chan protocol.Response, 1)
 
 	c.waiterMu.Lock()
 	c.waiters[protocol.TypeOK] = okChan
@@ -3275,6 +3282,8 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	c.waiters[protocol.TypeActionResult] = actionResultChan
 	c.waiters[protocol.TypeMiningYield] = miningYieldChan
 	c.waiters[protocol.TypeScanResult] = scanResultChan
+	c.waiters[protocol.TypeDocked] = dockedChan
+	c.waiters[protocol.TypeUndocked] = undockedChan
 	c.waiterMu.Unlock()
 
 	defer func() {
@@ -3285,6 +3294,8 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		delete(c.waiters, protocol.TypeActionResult)
 		delete(c.waiters, protocol.TypeMiningYield)
 		delete(c.waiters, protocol.TypeScanResult)
+		delete(c.waiters, protocol.TypeDocked)
+		delete(c.waiters, protocol.TypeUndocked)
 		c.waiterMu.Unlock()
 	}()
 
@@ -3298,6 +3309,14 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			return nil
 		case resp := <-scanResultChan:
 			// scan_result is the completion signal for pending scan actions
+			finalResp = &resp
+			return nil
+		case resp := <-dockedChan:
+			// docked is the completion signal for pending dock actions
+			finalResp = &resp
+			return nil
+		case resp := <-undockedChan:
+			// undocked is the completion signal for pending undock actions
 			finalResp = &resp
 			return nil
 		case resp := <-actionResultChan:

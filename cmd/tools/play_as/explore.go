@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // explore visits all POIs in the current system in distance-optimized order,
@@ -114,6 +117,9 @@ func explore(client game.GameClient, ctx context.Context) error {
 		}
 	}
 
+	// Survey system if ship has a survey scanner installed.
+	surveySystem(client, ctx)
+
 	// Refresh state for statusline.
 	_ = client.GetStatus(ctx)
 
@@ -121,6 +127,107 @@ func explore(client game.GameClient, ctx context.Context) error {
 	fmt.Printf("\nExploration of %s complete: %d POIs in %s\n",
 		state.System.Name, len(route), formatDuration(int(elapsed.Seconds())))
 	return nil
+}
+
+// surveySystem runs survey_system if the ship has a survey scanner module installed.
+// Any newly revealed POIs are saved to the knowledge base.
+func surveySystem(client game.GameClient, ctx context.Context) {
+	state := client.GetState()
+	if game.CountModulesInstalled(state, "survey_scanner_i") == 0 {
+		return
+	}
+
+	fmt.Printf("\nSurveying system with survey scanner...\n")
+	if err := client.SurveySystem(ctx); err != nil {
+		fmt.Printf("  Survey failed: %v\n", err)
+		return
+	}
+	time.Sleep(game.SleepQuick)
+
+	rawJSON := client.GetRawJSON("_last")
+	if rawJSON == nil {
+		fmt.Printf("  Survey complete (no response data)\n")
+		return
+	}
+
+	var resp serverapi.SurveySystemResponse
+	if err := json.Unmarshal(rawJSON, &resp); err != nil {
+		fmt.Printf("  Failed to parse survey response: %v\n", err)
+		return
+	}
+
+	fmt.Printf("  Survey power: %d | System: %s\n", resp.SurveyPower, resp.SystemName)
+
+	if len(resp.NewlyRevealed) > 0 {
+		fmt.Printf("  Newly revealed POIs:\n")
+		for _, poi := range resp.NewlyRevealed {
+			fmt.Printf("    + %s (%s)\n", poi.Name, poi.Type)
+			if poi.Description != "" {
+				fmt.Printf("      %s\n", poi.Description)
+			}
+			for _, r := range poi.Resources {
+				fmt.Printf("      Resource: %s (richness: %s)\n", r.ResourceID, r.Richness)
+			}
+		}
+		// Save newly revealed POIs to the knowledge base.
+		if globalKB != nil {
+			saveSurveyPOIs(client, ctx, resp)
+		}
+	}
+
+	if len(resp.AlreadyRevealed) > 0 {
+		fmt.Printf("  Already revealed: %d POIs\n", len(resp.AlreadyRevealed))
+	}
+
+	if len(resp.FaintSignatures) > 0 {
+		fmt.Printf("  Faint signatures detected:\n")
+		for _, sig := range resp.FaintSignatures {
+			hint := sig.Hint
+			if hint == "" {
+				hint = "unknown"
+			}
+			fmt.Printf("    ? %s (difficulty: %d, hint: %s)\n", sig.Type, sig.Difficulty, hint)
+		}
+	}
+
+	if resp.XPGained != nil {
+		var xpParts []string
+		for skill, xp := range resp.XPGained {
+			if xp > 0 {
+				xpParts = append(xpParts, fmt.Sprintf("%s +%d", skill, xp))
+			}
+		}
+		if len(xpParts) > 0 {
+			fmt.Printf("  XP: %s\n", strings.Join(xpParts, ", "))
+		}
+	}
+
+	if resp.Message != "" {
+		fmt.Printf("  %s\n", resp.Message)
+	}
+}
+
+// saveSurveyPOIs saves newly revealed POIs from a survey to the knowledge base.
+func saveSurveyPOIs(client game.GameClient, ctx context.Context, resp serverapi.SurveySystemResponse) {
+	state := client.GetState()
+	for _, revealed := range resp.NewlyRevealed {
+		kbPOI := knowledge.POI{
+			ID:              revealed.ID,
+			SystemID:        resp.SystemID,
+			Name:            revealed.Name,
+			Type:            revealed.Type,
+			Description:     revealed.Description,
+			LastUpdatedTick: state.GetTick(),
+		}
+		for _, r := range revealed.Resources {
+			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
+				ResourceID: r.ResourceID,
+			})
+		}
+		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
+			fmt.Printf("    Warning: failed to save revealed POI %s: %v\n", revealed.Name, err)
+		}
+	}
 }
 
 // planExploreRoute orders POIs using nearest-neighbor heuristic starting from startPOI.
