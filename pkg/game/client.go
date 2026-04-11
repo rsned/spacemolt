@@ -1608,6 +1608,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
+		c.parseInlineFuelAndHull(resp.Payload)
 		// Only parse system data when the payload actually contains it
 		// (e.g., get_system, get_status responses). Most OK responses don't include system data.
 		if _, hasSystem := resp.Payload["system"]; hasSystem {
@@ -1673,6 +1674,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Unlock()
 		c.parsePlayerData(resp.Payload)
 		c.parseShipData(resp.Payload)
+		c.parseInlineFuelAndHull(resp.Payload)
 		c.parseTravelProgress(resp.Payload)
 		c.parseNearbyPlayers(resp.Payload)
 
@@ -1981,6 +1983,55 @@ func (c *Client) parseShipData(payload map[string]any) {
 			}
 		}
 		c.mu.Unlock()
+	}
+}
+
+// parseInlineFuelAndHull extracts top-level fuel and hull fields from OK responses.
+// Many responses (refuel, repair, use_item, dock) return fuel_now/fuel_max and
+// hull_now/hull_max at the payload level rather than inside a "ship" object.
+func (c *Client) parseInlineFuelAndHull(payload map[string]any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Fuel: prefer fuel_now over fuel (fuel_now is the post-action value)
+	if fuelNow, ok := payload["fuel_now"].(float64); ok {
+		c.state.Fuel = fuelNow
+		c.state.Ship.Fuel = fuelNow
+	} else if fuel, ok := payload["fuel"].(float64); ok {
+		// Only update from top-level "fuel" if no "ship" key was present
+		// (parseShipData already handled the ship.fuel case)
+		if _, hasShip := payload["ship"]; !hasShip {
+			c.state.Fuel = fuel
+			c.state.Ship.Fuel = fuel
+		}
+	}
+	if fuelMax, ok := payload["fuel_max"].(float64); ok {
+		c.state.MaxFuel = fuelMax
+		c.state.Ship.MaxFuel = fuelMax
+	}
+
+	// Hull: same pattern for repair and use_item responses
+	if hullNow, ok := payload["hull_now"].(float64); ok {
+		c.state.Hull = hullNow
+		c.state.Ship.Hull = hullNow
+	}
+	if maxHull, ok := payload["max_hull"].(float64); ok {
+		if _, hasShip := payload["ship"]; !hasShip {
+			c.state.MaxHull = maxHull
+			c.state.Ship.MaxHull = maxHull
+		}
+	}
+
+	// Shield: use_item responses can restore shields
+	if shield, ok := payload["shield"].(float64); ok {
+		if _, hasShip := payload["ship"]; !hasShip {
+			c.state.Ship.Shield = shield
+		}
+	}
+	if maxShield, ok := payload["max_shield"].(float64); ok {
+		if _, hasShip := payload["ship"]; !hasShip {
+			c.state.Ship.MaxShield = maxShield
+		}
 	}
 }
 
