@@ -35,6 +35,9 @@ import (
 // Package-level knowledge base, initialized if --db-path is provided.
 var globalKB knowledge.Base
 
+// globalClock tracks game ticks, initialized after client connects.
+var globalClock *game.GameClock
+
 // processStartTime records when this play_as session started, used to filter
 // old chat messages (show at most 1 per sender for messages before this time).
 var processStartTime = time.Now()
@@ -139,6 +142,14 @@ func main() {
 	// Cache ship and system data on startup for travel estimation and statusline.
 	_ = client.GetShip(ctx)
 	_ = client.GetSystem(ctx)
+
+	// Initialize game clock for tick tracking.
+	if gc, err := game.NewGameClock(ctx, client, logger); err != nil {
+		logger.Printf("Warning: Failed to initialize game clock: %v", err)
+	} else {
+		globalClock = gc
+		defer gc.Stop()
+	}
 
 	// Show initial status
 	fmt.Println("\n╔════════════════════════════════════════════════════════════════════╗")

@@ -11,6 +11,15 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
+// currentTick returns the best available game tick: from the global clock if
+// running, otherwise from the client state's last server-reported value.
+func currentTick(state *game.State) int64 {
+	if globalClock != nil {
+		return globalClock.Tick()
+	}
+	return currentTick(state)
+}
+
 // kbUpdateSystem fetches the current system data and saves it to the knowledge base.
 func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 	if globalKB == nil {
@@ -35,7 +44,7 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 		Empire:          state.System.Empire,
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
-		LastUpdatedTick: state.GetTick(),
+		LastUpdatedTick: currentTick(state),
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,
@@ -59,7 +68,7 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 				X: poi.Position.X,
 				Y: poi.Position.Y,
 			},
-			LastUpdatedTick: state.GetTick(),
+			LastUpdatedTick: currentTick(state),
 		}
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("  Warning: failed to save POI %s: %v\n", poi.Name, err)
@@ -108,7 +117,7 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 			Y: poiResp.POI.Position.Y,
 		},
 		Services:        poiResp.Services,
-		LastUpdatedTick: state.GetTick(),
+		LastUpdatedTick: currentTick(state),
 	}
 
 	// Extract resources if present.
@@ -154,7 +163,7 @@ func kbUpdateStation(client game.GameClient, ctx context.Context) error {
 
 		rawJSON := client.GetRawJSON("base")
 		if rawJSON != nil {
-			base, err := knowledge.BaseDataFromRawJSON(rawJSON, "play_as", state.CurrentTick)
+			base, err := knowledge.BaseDataFromRawJSON(rawJSON, "play_as", currentTick(state))
 			if err != nil {
 				fmt.Printf("Warning: failed to parse base data: %v\n", err)
 			} else {
@@ -186,7 +195,7 @@ func kbUpdateStation(client game.GameClient, ctx context.Context) error {
 		time.Sleep(game.SleepQuick)
 
 		listings := client.GetMarketListings()
-		snapshot := convertMarketListings(systemID, systemName, poiID, poiName, state.CurrentTick, listings)
+		snapshot := convertMarketListings(systemID, systemName, poiID, poiName, currentTick(state), listings)
 		if err := globalKB.StoreMarketSnapshot(ctx, snapshot, "play_as"); err != nil {
 			fmt.Printf("Warning: failed to save market snapshot: %v\n", err)
 		} else {
@@ -210,7 +219,7 @@ func kbUpdateStation(client game.GameClient, ctx context.Context) error {
 					SystemName:  systemName,
 					StationID:   poiID,
 					StationName: poiName,
-					GameTick:    state.CurrentTick,
+					GameTick:    currentTick(state),
 					Listings:    ships,
 				}
 				if err := globalKB.StoreShipListings(ctx, shipListings, "play_as"); err != nil {
@@ -315,13 +324,13 @@ func kbUpdateFacilities(client game.GameClient, ctx context.Context) error {
 			MaintenanceSatisfied: f.MaintenanceSatisfied,
 			Service:              f.Service,
 			RecipeID:             f.RecipeID,
-			LastUpdated:          state.CurrentTick,
+			LastUpdated:          currentTick(state),
 		}
 		facilities = append(facilities, facility)
 	}
 
 	base.Facilities = facilities
-	base.LastUpdatedTick = state.CurrentTick
+	base.LastUpdatedTick = currentTick(state)
 
 	if err := globalKB.RememberBase(ctx, *base); err != nil {
 		return fmt.Errorf("failed to save base with facilities: %w", err)

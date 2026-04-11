@@ -979,6 +979,7 @@ type JumpedResponse struct {
 	POI           string `json:"poi,omitempty"`
 	System        string `json:"system,omitempty"`
 	SystemID      string `json:"system_id,omitempty"`
+	AutoUndocked  bool   `json:"auto_undocked,omitempty"`
 }
 
 // DockResponse wraps the response from dock command.

@@ -217,7 +217,7 @@ func saveSurveyPOIs(client game.GameClient, ctx context.Context, resp serverapi.
 			Name:            revealed.Name,
 			Type:            revealed.Type,
 			Description:     revealed.Description,
-			LastUpdatedTick: state.GetTick(),
+			LastUpdatedTick: currentTick(state),
 		}
 		for _, r := range revealed.Resources {
 			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{

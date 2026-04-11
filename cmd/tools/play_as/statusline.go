@@ -182,7 +182,7 @@ func renderStatusline(client game.GameClient, cfg PlayAsConfig, agentID string) 
 		"power":  renderPctSegment(state.Ship.PowerUsed, state.Ship.PowerCapacity, sl, true),
 
 		// Status
-		"tick":    fmt.Sprintf("%d", state.CurrentTick),
+		"tick":    tickString(state),
 		"credits": formatCredits(state.Credits),
 
 		// Conditional indicators
@@ -230,4 +230,13 @@ func cloakIndicator(state *game.State, sl StatuslineConfig) string {
 		return colorize(sl.Indicators.Cloaked, "cyan")
 	}
 	return ""
+}
+
+// tickString returns the current tick from the game clock if available,
+// falling back to the state's tick value.
+func tickString(state *game.State) string {
+	if globalClock != nil {
+		return fmt.Sprintf("%d", globalClock.Tick())
+	}
+	return fmt.Sprintf("%d", state.CurrentTick)
 }
