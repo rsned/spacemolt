@@ -2757,6 +2757,9 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			case "get_base":
 				storeKey = "base"
 				shouldStore = true
+			case "survey_system":
+				storeKey = "survey"
+				shouldStore = true
 			}
 		}
 

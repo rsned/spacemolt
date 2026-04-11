@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/registry"
 )
@@ -220,13 +221,15 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 	}
 	logger.Printf("💾 Saved %d POIs from system data", len(state.System.POIs))
 
-	// Perform system survey to scan for hidden POIs
-	logger.Printf("🔭 Surveying system for hidden POIs...")
-	if err := client.SurveySystem(ctx); err != nil {
-		logger.Printf("⚠️  Survey failed (may not have survey scanner): %v", err)
-	} else {
-		logger.Printf("✓ Survey complete")
-		time.Sleep(3 * time.Second)
+	// Perform system survey to scan for hidden POIs (requires a survey scanner module)
+	if hasSurveyScanner(client) {
+		logger.Printf("🔭 Surveying system for hidden POIs...")
+		if err := client.SurveySystem(ctx); err != nil {
+			logger.Printf("⚠️  Survey failed: %v", err)
+		} else {
+			time.Sleep(game.SleepQuick)
+			processSurveyResults(client, ctx, logger, kb, state.System.ID, state.GetTick())
+		}
 	}
 
 	// Scan the system
@@ -236,6 +239,111 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 	time.Sleep(3 * time.Second)
 
 	return nil
+}
+
+// hasSurveyScanner checks if the ship has any survey scanner module installed.
+func hasSurveyScanner(client game.GameClient) bool {
+	state := client.GetState()
+	for _, mod := range state.Ship.Modules {
+		switch mod {
+		case "survey_scanner_i", "survey_scanner_ii",
+			"survey_scanner_1", "survey_scanner_2",
+			"deep_core_survey_scanner", "deep_core_scanner":
+			return true
+		}
+	}
+	return false
+}
+
+// processSurveyResults parses the survey_system response and stores discovered
+// POIs and faint signatures in the knowledge base.
+func processSurveyResults(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemID string, tick int64) {
+	rawJSON := client.GetRawJSON("survey")
+	if rawJSON == nil {
+		logger.Printf("⚠️  No survey response data available")
+		return
+	}
+
+	var resp serverapi.SurveySystemResponse
+	if err := json.Unmarshal(rawJSON, &resp); err != nil {
+		logger.Printf("⚠️  Failed to parse survey response: %v", err)
+		return
+	}
+
+	// Store newly revealed POIs as full POI records
+	for _, revealed := range resp.NewlyRevealed {
+		kbPOI := knowledge.POI{
+			ID:              revealed.ID,
+			SystemID:        systemID,
+			Name:            revealed.Name,
+			Type:            revealed.Type,
+			Description:     revealed.Description,
+			LastUpdatedTick: tick,
+		}
+		// Convert survey resources to game POI resources
+		for _, sr := range revealed.Resources {
+			var richness float64
+			// Map richness string to numeric value
+			switch sr.Richness {
+			case "very_rich":
+				richness = 5
+			case "rich":
+				richness = 4
+			case "moderate":
+				richness = 3
+			case "poor":
+				richness = 2
+			case "depleted":
+				richness = 1
+			}
+			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
+				ResourceID: sr.ResourceID,
+				Richness:   richness,
+				Remaining:  float64(sr.Remaining),
+			})
+		}
+		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
+			logger.Printf("⚠️  Failed to save revealed POI %s: %v", revealed.Name, err)
+		} else {
+			logger.Printf("🆕 Revealed POI: %s (%s)", revealed.Name, revealed.Type)
+		}
+	}
+
+	// Store faint signatures as placeholder POI records for later investigation
+	for i, sig := range resp.FaintSignatures {
+		// Generate a deterministic placeholder ID from system + signature index + type
+		placeholderID := fmt.Sprintf("faint_%s_%s_%d", systemID, sig.Type, i)
+		name := "Faint Signature"
+		if sig.Hint != "" {
+			name = fmt.Sprintf("Faint Signature: %s", sig.Hint)
+		}
+		desc := fmt.Sprintf("Unresolved survey signature (type: %s, difficulty: %d). Requires better scanner or higher skills to identify.", sig.Type, sig.Difficulty)
+
+		kbPOI := knowledge.POI{
+			ID:              placeholderID,
+			SystemID:        systemID,
+			Name:            name,
+			Type:            "faint_signature",
+			Description:     desc,
+			LastUpdatedTick: tick,
+		}
+		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
+			logger.Printf("⚠️  Failed to save faint signature: %v", err)
+		} else {
+			logger.Printf("🔮 Faint signature recorded: %s (difficulty: %d)", sig.Type, sig.Difficulty)
+		}
+	}
+
+	total := len(resp.NewlyRevealed) + len(resp.FaintSignatures)
+	if total > 0 {
+		logger.Printf("📡 Survey results: %d revealed, %d faint signatures (power: %d)",
+			len(resp.NewlyRevealed), len(resp.FaintSignatures), resp.SurveyPower)
+	} else if len(resp.AlreadyRevealed) > 0 {
+		logger.Printf("📡 Survey: %d already known POIs, nothing new (power: %d)",
+			len(resp.AlreadyRevealed), resp.SurveyPower)
+	} else {
+		logger.Printf("📡 Survey complete: no signatures detected (power: %d)", resp.SurveyPower)
+	}
 }
 
 func saveStationData(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
