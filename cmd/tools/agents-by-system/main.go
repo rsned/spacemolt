@@ -42,8 +42,13 @@ type row struct {
 
 const query = `
 WITH latest AS (
+    -- Pick the most recent non-error snapshot per agent. Error snapshots
+    -- are captures where daily-summary failed to collect state (e.g.,
+    -- bad credentials) and only the error message was saved — they have
+    -- empty location/empire/ship fields and would render as garbage.
     SELECT agent_id, MAX(captured_date) AS d
     FROM snapshots
+    WHERE COALESCE(json_extract(state_json, '$.error'), '') = ''
     GROUP BY agent_id
 ),
 snaps AS (
