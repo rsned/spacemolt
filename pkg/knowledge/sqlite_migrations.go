@@ -980,6 +980,31 @@ ALTER TABLE pois ADD COLUMN reveal_difficulty INTEGER NOT NULL DEFAULT 0;
 `,
 			ignoreErrors: true,
 		},
+		{
+			version: 27,
+			name:    "xp_observations",
+			sql: `
+CREATE TABLE IF NOT EXISTS xp_observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'action',
+    skill_id TEXT NOT NULL,
+    xp_delta REAL NOT NULL,
+    level_delta INTEGER NOT NULL DEFAULT 0,
+    level_before INTEGER NOT NULL,
+    level_after INTEGER NOT NULL,
+    game_tick INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    mission_id TEXT DEFAULT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_xp_obs_action ON xp_observations(action);
+CREATE INDEX IF NOT EXISTS idx_xp_obs_skill ON xp_observations(skill_id);
+CREATE INDEX IF NOT EXISTS idx_xp_obs_source ON xp_observations(source);
+CREATE INDEX IF NOT EXISTS idx_xp_obs_agent ON xp_observations(agent_id);
+`,
+		},
 	}
 }
 

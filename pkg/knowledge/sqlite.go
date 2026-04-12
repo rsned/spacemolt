@@ -1622,3 +1622,88 @@ func (kb *SQLiteKB) GetChangeSnapshots(ctx context.Context, systemID string, lim
 	}
 	return snapshots, nil
 }
+
+// RecordXPObservation inserts a single XP change observation.
+func (kb *SQLiteKB) RecordXPObservation(ctx context.Context, obs XPObservation) error {
+	_, err := kb.db.ExecContext(ctx, `
+		INSERT INTO xp_observations (agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, mission_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, obs.AgentID, obs.Action, obs.Target, obs.Source, obs.SkillID,
+		obs.XPDelta, obs.LevelDelta, obs.LevelBefore, obs.LevelAfter, obs.GameTick, obs.MissionID)
+	if err != nil {
+		return fmt.Errorf("failed to insert xp observation: %w", err)
+	}
+	return nil
+}
+
+// GetXPObservations retrieves observations, optionally filtered by action.
+func (kb *SQLiteKB) GetXPObservations(ctx context.Context, action string, limit int) ([]XPObservation, error) {
+	var query string
+	var args []any
+	if action != "" {
+		query = `
+			SELECT id, agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, created_at, COALESCE(mission_id, '')
+			FROM xp_observations
+			WHERE action = ?
+			ORDER BY created_at DESC
+			LIMIT ?`
+		args = []any{action, limit}
+	} else {
+		query = `
+			SELECT id, agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, created_at, COALESCE(mission_id, '')
+			FROM xp_observations
+			ORDER BY created_at DESC
+			LIMIT ?`
+		args = []any{limit}
+	}
+
+	rows, err := kb.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query xp observations: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var observations []XPObservation
+	for rows.Next() {
+		var o XPObservation
+		var createdAt string
+		if err := rows.Scan(&o.ID, &o.AgentID, &o.Action, &o.Target, &o.Source,
+			&o.SkillID, &o.XPDelta, &o.LevelDelta, &o.LevelBefore, &o.LevelAfter,
+			&o.GameTick, &createdAt, &o.MissionID); err != nil {
+			return nil, fmt.Errorf("failed to scan xp observation: %w", err)
+		}
+		o.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		observations = append(observations, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating xp observations: %w", err)
+	}
+	return observations, nil
+}
+
+// GetXPSummary aggregates observations by action, skill, and source.
+func (kb *SQLiteKB) GetXPSummary(ctx context.Context) ([]XPSummaryRow, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT action, skill_id, source, AVG(xp_delta), COUNT(*)
+		FROM xp_observations
+		GROUP BY action, skill_id, source
+		ORDER BY action, skill_id
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query xp summary: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var summary []XPSummaryRow
+	for rows.Next() {
+		var r XPSummaryRow
+		if err := rows.Scan(&r.Action, &r.SkillID, &r.Source, &r.AvgXPDelta, &r.Count); err != nil {
+			return nil, fmt.Errorf("failed to scan xp summary row: %w", err)
+		}
+		summary = append(summary, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating xp summary: %w", err)
+	}
+	return summary, nil
+}

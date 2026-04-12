@@ -39,6 +39,9 @@ type MemoryKB struct {
 
 	// Change detection snapshots
 	changeSnapshots []ChangeSnapshot
+
+	// XP observations
+	xpObservations []XPObservation
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -1106,6 +1109,60 @@ func (kb *MemoryKB) GetChangeSnapshots(_ context.Context, systemID string, limit
 		if kb.changeSnapshots[i].SystemID == systemID {
 			result = append(result, kb.changeSnapshots[i])
 		}
+	}
+	return result, nil
+}
+
+func (kb *MemoryKB) RecordXPObservation(_ context.Context, obs XPObservation) error {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+	obs.ID = int64(len(kb.xpObservations) + 1)
+	if obs.CreatedAt.IsZero() {
+		obs.CreatedAt = time.Now()
+	}
+	kb.xpObservations = append(kb.xpObservations, obs)
+	return nil
+}
+
+func (kb *MemoryKB) GetXPObservations(_ context.Context, action string, limit int) ([]XPObservation, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var result []XPObservation
+	for i := len(kb.xpObservations) - 1; i >= 0 && len(result) < limit; i-- {
+		if action == "" || kb.xpObservations[i].Action == action {
+			result = append(result, kb.xpObservations[i])
+		}
+	}
+	return result, nil
+}
+
+func (kb *MemoryKB) GetXPSummary(_ context.Context) ([]XPSummaryRow, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	type key struct{ action, skillID, source string }
+	agg := make(map[key]struct {
+		totalXP float64
+		count   int
+	})
+	for _, o := range kb.xpObservations {
+		k := key{o.Action, o.SkillID, o.Source}
+		v := agg[k]
+		v.totalXP += o.XPDelta
+		v.count++
+		agg[k] = v
+	}
+
+	var result []XPSummaryRow
+	for k, v := range agg {
+		result = append(result, XPSummaryRow{
+			Action:     k.action,
+			SkillID:    k.skillID,
+			Source:     k.source,
+			AvgXPDelta: v.totalXP / float64(v.count),
+			Count:      v.count,
+		})
 	}
 	return result, nil
 }

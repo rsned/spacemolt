@@ -1625,6 +1625,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to initialize agent: %v", err)
 		}
+		// Wire XP observation tracking into the client
+		knowledge.NewXPTracker(wsClient, kb, explorer, logger)
 		client = wsClient
 	default:
 		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)

@@ -121,6 +121,11 @@ type Base interface {
 	// Change detection snapshots
 	RecordChangeSnapshot(ctx context.Context, snapshot ChangeSnapshot) error
 	GetChangeSnapshots(ctx context.Context, systemID string, limit int) ([]ChangeSnapshot, error)
+
+	// XP tracking
+	RecordXPObservation(ctx context.Context, obs XPObservation) error
+	GetXPObservations(ctx context.Context, action string, limit int) ([]XPObservation, error)
+	GetXPSummary(ctx context.Context) ([]XPSummaryRow, error)
 }
 
 // MarketListing represents a single market listing
@@ -337,6 +342,32 @@ type KnowledgeExportMeta struct {
 	SystemsCount     int
 	POIsCount        int
 	ExperiencesCount int
+}
+
+// XPObservation records a skill XP change from a single command execution.
+type XPObservation struct {
+	ID          int64
+	AgentID     string
+	Action      string
+	Target      string
+	Source      string // "action", "mission_reward"
+	SkillID     string
+	XPDelta     float64
+	LevelDelta  int
+	LevelBefore int
+	LevelAfter  int
+	GameTick    int64
+	CreatedAt   time.Time
+	MissionID   string // empty for non-mission sources
+}
+
+// XPSummaryRow aggregates XP observations by action and skill.
+type XPSummaryRow struct {
+	Action     string
+	SkillID    string
+	Source     string
+	AvgXPDelta float64
+	Count      int
 }
 
 // ChangeSnapshot records old data when a system, POI, or base change is detected.

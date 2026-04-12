@@ -106,6 +106,14 @@ type Client struct {
 	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
 	lastSentMsgType string          // message type of lastSentMsg
 	lastSentMsgMu   sync.Mutex
+
+	// XP observation tracking — fires whenever skill XP changes in state
+	XPCallback     func(action, target string, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64)
+	xpLastSkills   map[string]Skill   // last known skill state
+	xpLastXP       map[string]float64 // last known SkillXP
+	xpLastAction   string             // most recent action sent
+	xpLastTarget   string             // most recent action target
+	xpMu           sync.Mutex
 }
 
 // MessageHandler handles incoming game messages
@@ -541,6 +549,14 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 
 	// Track message for diagnostics
 	c.trackMessageSent()
+
+	// Track the latest action for XP observation attribution
+	if c.XPCallback != nil {
+		c.xpMu.Lock()
+		c.xpLastAction = msg.Type
+		c.xpLastTarget = extractActionTarget(msg)
+		c.xpMu.Unlock()
+	}
 
 	// Store the sent message for call logging (paired with response later)
 	if c.CallLogger != nil {
@@ -1872,6 +1888,9 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 	if len(player.SkillXP) > 0 {
 		c.state.SkillXP = player.SkillXP
 	}
+
+	// Check for XP changes (called with c.mu held)
+	c.checkXPChanges()
 
 	// Parse module definitions from player data (map module ID to name/type)
 	if len(ext.Modules) > 0 {
@@ -3360,23 +3379,28 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 		case resp := <-miningYieldChan:
 			// mining_yield is the completion signal for pending mine actions
 			finalResp = &resp
+
 			return nil
 		case resp := <-scanResultChan:
 			// scan_result is the completion signal for pending scan actions
 			finalResp = &resp
+
 			return nil
 		case resp := <-dockedChan:
 			// docked is the completion signal for pending dock actions
 			finalResp = &resp
+
 			return nil
 		case resp := <-undockedChan:
 			// undocked is the completion signal for pending undock actions
 			finalResp = &resp
+
 			return nil
 		case resp := <-actionResultChan:
 			// action_result is the completion signal for pending actions
 			// (e.g. deposit_items, craft) executed on the next server tick
 			finalResp = &resp
+
 			return nil
 		case resp := <-okChan:
 			// Check if this is a pending action response
@@ -3397,6 +3421,7 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			}
 			// Not pending, this is the actual completion
 			finalResp = &resp
+
 			return nil
 		case resp := <-actionErrorChan:
 			// action_error is the server's response for pending actions that failed
@@ -4080,4 +4105,90 @@ func (c *Client) fireStorageCallback(cb func(StorageUpdateEvent), resp protocol.
 		Items:   storageResp.Items,
 		Ships:   storageResp.Ships,
 	})
+}
+
+// fireXPCallback compares skill state after a successful action against the
+// snapshot taken in Send(), and fires the XPCallback with any deltas.
+// checkXPChanges compares current skill state against last known state.
+// Called after parsePlayerData updates the state. Must be called with c.mu held.
+func (c *Client) checkXPChanges() {
+	if c.XPCallback == nil {
+		return
+	}
+
+	currentSkills := copySkillMap(c.state.Player.Skills)
+	currentXP := copyStringFloatMap(c.state.SkillXP)
+	gameTick := c.state.CurrentTick
+
+	c.xpMu.Lock()
+	beforeSkills := c.xpLastSkills
+	beforeXP := c.xpLastXP
+	action := c.xpLastAction
+	target := c.xpLastTarget
+
+	// Update last known state
+	c.xpLastSkills = currentSkills
+	c.xpLastXP = currentXP
+	c.xpMu.Unlock()
+
+	// Skip first call (no previous state to compare)
+	if beforeSkills == nil && beforeXP == nil {
+		return
+	}
+
+	// Check if anything actually changed (quick check)
+	changed := false
+	for k, v := range currentXP {
+		if beforeXP[k] != v {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		for k, v := range currentSkills {
+			if b, ok := beforeSkills[k]; !ok || b.Level != v.Level || b.XP != v.XP {
+				changed = true
+				break
+			}
+		}
+	}
+	if !changed {
+		return
+	}
+
+	c.XPCallback(action, target, beforeSkills, currentSkills, beforeXP, currentXP, gameTick)
+}
+
+// copySkillMap returns a shallow copy of a skill map.
+func copySkillMap(m map[string]Skill) map[string]Skill {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]Skill, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// extractActionTarget pulls the most relevant target identifier from a message payload.
+func extractActionTarget(msg protocol.Message) string {
+	if len(msg.Payload) == 0 {
+		return ""
+	}
+	// Check common target field names in order of specificity
+	for _, key := range []string{"target_id", "poi_id", "system_id", "listing_id", "ship_id", "ship_class", "item_id", "recipe_id", "mission_id", "wreck_id", "commission_id"} {
+		if v, ok := msg.Payload[key]; ok {
+			if s, ok := v.(string); ok {
+				return s
+			}
+		}
+	}
+	// Fallback: return first string value
+	for _, v := range msg.Payload {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
