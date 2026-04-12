@@ -24,18 +24,20 @@ import (
 )
 
 type row struct {
-	AgentID    string
-	Username   string
+	AgentID     string
+	Username    string
 	AgentEmpire string
-	ShipClass  string
-	Docked     bool
-	POIType    string
-	SystemID   string
-	SystemName string
-	SysEmpire  string
-	POIID      string
-	POIName    string
-	Location   string // fallback raw "SystemName / poi_id" from snapshot
+	ShipClass   string
+	Docked      bool
+	POIType     string
+	Fuel        float64
+	MaxFuel     float64
+	SystemID    string
+	SystemName  string
+	SysEmpire   string
+	POIID       string
+	POIName     string
+	Location    string // fallback raw "SystemName / poi_id" from snapshot
 }
 
 const query = `
@@ -52,6 +54,8 @@ snaps AS (
         json_extract(s.state_json, '$.ship_class') AS ship_class,
         json_extract(s.state_json, '$.docked')     AS docked,
         json_extract(s.state_json, '$.poi_type')   AS poi_type,
+        json_extract(s.state_json, '$.fuel')       AS fuel,
+        json_extract(s.state_json, '$.max_fuel')   AS max_fuel,
         json_extract(s.state_json, '$.location')   AS location
     FROM snapshots s
     JOIN latest l ON l.agent_id = s.agent_id AND l.d = s.captured_date
@@ -78,6 +82,8 @@ SELECT
     COALESCE(p.ship_class, ''),
     COALESCE(p.docked, 0),
     COALESCE(p.poi_type, ''),
+    COALESCE(p.fuel, 0),
+    COALESCE(p.max_fuel, 0),
     COALESCE(sys.id, ''),
     COALESCE(sys.name, p.loc_system_name),
     COALESCE(sys.empire, ''),
@@ -126,6 +132,7 @@ func main() {
 		if err := rows.Scan(
 			&r.AgentID, &r.Username, &r.AgentEmpire, &r.ShipClass,
 			&dockedInt, &r.POIType,
+			&r.Fuel, &r.MaxFuel,
 			&r.SystemID, &r.SystemName, &r.SysEmpire,
 			&r.POIID, &r.POIName, &r.Location,
 		); err != nil {
@@ -236,6 +243,10 @@ th, td { text-align: left; padding: 3px 10px; border-bottom: 1px solid #eee; fon
 th { background: #f4f4f4; }
 .docked { color: #0a0; font-weight: bold; }
 .undocked { color: #c60; }
+.fuel-ok { color: #0a0; }
+.fuel-low { color: #c60; font-weight: bold; }
+.fuel-crit { color: #c00; font-weight: bold; }
+.fuel-none { color: #bbb; }
 .count { color: #888; font-size: 0.85em; font-weight: normal; }
 </style></head><body>`)
 	fmt.Fprintf(&b, "<h1>Agents by System</h1>\n")
@@ -286,7 +297,7 @@ th { background: #f4f4f4; }
 				pg := g.POIs[pid]
 				fmt.Fprintf(&b, `<h4 class="poi">%s <span class="poiid">[%s]</span></h4>`+"\n",
 					html.EscapeString(pg.Name), html.EscapeString(pg.ID))
-				b.WriteString("<table><tr><th>Agent</th><th>Username</th><th>Home Empire</th><th>Ship</th><th>Docked</th><th>POI Type</th></tr>\n")
+				b.WriteString("<table><tr><th>Agent</th><th>Username</th><th>Home Empire</th><th>Ship</th><th>Fuel</th><th>Docked</th><th>POI Type</th></tr>\n")
 				// Sort agents within a POI by agent id for stability
 				sort.Slice(pg.Rows, func(i, j int) bool { return pg.Rows[i].AgentID < pg.Rows[j].AgentID })
 				for _, r := range pg.Rows {
@@ -294,12 +305,14 @@ th { background: #f4f4f4; }
 					if r.Docked {
 						dockedCell = `<span class="docked">docked</span>`
 					}
+					fuelCell := fuelHTML(r.Fuel, r.MaxFuel)
 					fmt.Fprintf(&b,
-						"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+						"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
 						html.EscapeString(r.AgentID),
 						html.EscapeString(r.Username),
 						html.EscapeString(r.AgentEmpire),
 						html.EscapeString(r.ShipClass),
+						fuelCell,
 						dockedCell,
 						html.EscapeString(r.POIType),
 					)
@@ -312,6 +325,24 @@ th { background: #f4f4f4; }
 
 	_, err := w.WriteString(b.String())
 	return err
+}
+
+// fuelHTML renders a fuel cell as "cur/max (pct%)" with class-based
+// color coding. Returns a dash placeholder when no fuel data is
+// available (e.g., older snapshots captured before fuel was tracked).
+func fuelHTML(cur, maxFuel float64) string {
+	if maxFuel <= 0 {
+		return `<span class="fuel-none">—</span>`
+	}
+	pct := cur / maxFuel * 100
+	class := "fuel-ok"
+	switch {
+	case pct < 15:
+		class = "fuel-crit"
+	case pct < 40:
+		class = "fuel-low"
+	}
+	return fmt.Sprintf(`<span class="%s">%.0f/%.0f (%.0f%%)</span>`, class, cur, maxFuel, pct)
 }
 
 func titleCase(s string) string {
