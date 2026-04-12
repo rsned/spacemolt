@@ -24,6 +24,7 @@ type GameClient interface {
 	// Mining & Scanning
 	Mine(ctx context.Context) error
 	Scan(ctx context.Context) error
+	ScanTarget(ctx context.Context, targetID string) error
 
 	// Combat
 	Attack(ctx context.Context, targetID string) error

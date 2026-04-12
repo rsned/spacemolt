@@ -236,6 +236,14 @@ func (m *MCPGameClient) Scan(ctx context.Context) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) ScanTarget(ctx context.Context, targetID string) error {
+	result, err := m.callTool(ctx, "scan", map[string]any{"target_id": targetID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 // --- Combat ---
 
 func (m *MCPGameClient) Attack(ctx context.Context, targetID string) error {

@@ -1934,7 +1934,25 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.Mine, ctx, 12*time.Second, cmd, format)
 
 	case "scan":
-		return simpleCommand(client, client.Scan, ctx, 3*time.Second, cmd, format)
+		// Support both: scan <target> and scan --target <target>
+		var target string
+		if len(parts) >= 2 && !strings.HasPrefix(parts[1], "--") {
+			// Positional form: scan ThomasEdison
+			target = parts[1]
+		} else {
+			// Flag form: scan --target ThomasEdison or scan --target=ThomasEdison
+			flags := parseFlagArgs(parts[1:], "target")
+			if t, ok := flags["target"]; ok {
+				target = t.(string)
+			}
+		}
+		if target == "" {
+			// Default to area scan if no target specified
+			return simpleCommand(client, client.Scan, ctx, 3*time.Second, cmd, format)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ScanTarget(ctx, target)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "survey":
 		return simpleCommand(client, client.SurveySystem, ctx, 15*time.Second, cmd, format)

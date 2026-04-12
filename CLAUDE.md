@@ -1,4 +1,4 @@
-# Spacemolt - Codebase Context for Claude
+G# Spacemolt - Codebase Context for Claude
 
 When adding any sleep or pauses, always use one of the predefined Sleep constants in `pkg/game/constants.go`. If none are appropriate, prompt the user to add another value.
 
@@ -299,7 +299,3 @@ Resource POIs: 6 hours, Default POIs: 1 week, Stations: 1 day, Systems: 1 day
 ### Compiled Binaries
 
 Any compiled or built binary must go in bin/, not in the top project directory.
-
-### Game Server API Docs
-
-The latest game server API docs with API names, parameters, parameter types, request and response data structure, and so forth are stored in @server_docs/openapi.json and @server_docs/api.md and should always be checked to ensure any any new API fields being added are listed there (and to find any which are missing and not yet added to our libraries)

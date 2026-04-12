@@ -129,6 +129,11 @@ func (m *mockGameClient) Scan(ctx context.Context) error {
 	return nil
 }
 
+func (m *mockGameClient) ScanTarget(ctx context.Context, targetID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "scan_target:"+targetID)
+	return nil
+}
+
 // Combat
 func (m *mockGameClient) Attack(ctx context.Context, targetID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "attack:"+targetID)
