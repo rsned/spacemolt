@@ -311,3 +311,14 @@ func MarketListingFromAPI(ext serverapi.MarketListing) MarketListing {
 		ListedBy:     listedBy,
 	}
 }
+
+// ModuleDefinitionFromShipModule converts a serverapi ShipModule to an internal ModuleDefinition.
+func ModuleDefinitionFromShipModule(ext serverapi.ShipModule) ModuleDefinition {
+	return ModuleDefinition{
+		ID:          ext.ID,
+		Name:        ext.Name,
+		Type:        ext.Type,
+		TypeID:      ext.TypeID,
+		Description: "", // ShipModule doesn't have a description field
+	}
+}

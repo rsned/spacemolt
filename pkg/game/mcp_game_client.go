@@ -408,19 +408,21 @@ func (m *MCPGameClient) refreshXPFromSkills(ctx context.Context) {
 		return
 	}
 
-	// Parse player_skills out of the response. The game server wraps
-	// responses in several possible envelopes (direct, {"result": ...},
+	// Parse the skills map out of the response. The MCP get_skills response
+	// shape (per server_docs/openapi.json GetSkillsResponse) is:
+	//   {"skills": {"mining": {"level": 11, "xp": 1234, "next_level_xp": 2000, ...}, ...}}
+	// i.e., a map keyed by skill id with per-skill objects. The game server
+	// wraps responses in several possible envelopes (direct, {"result": ...},
 	// SSE content blocks) — try direct first, then unwrap.
-	type playerSkill struct {
-		SkillID   string  `json:"skill_id"`
-		Level     int     `json:"level"`
-		CurrentXP float64 `json:"current_xp"`
+	type skillRow struct {
+		Level int     `json:"level"`
+		XP    float64 `json:"xp"`
 	}
 	type skillsResp struct {
-		PlayerSkills []playerSkill `json:"player_skills"`
+		Skills map[string]skillRow `json:"skills"`
 	}
 	var resp skillsResp
-	if err := json.Unmarshal([]byte(text), &resp); err != nil || len(resp.PlayerSkills) == 0 {
+	if err := json.Unmarshal([]byte(text), &resp); err != nil || len(resp.Skills) == 0 {
 		// Try SSE content unwrap.
 		var sseWrap struct {
 			Result struct {
@@ -433,26 +435,26 @@ func (m *MCPGameClient) refreshXPFromSkills(ctx context.Context) {
 		if jerr := json.Unmarshal([]byte(text), &sseWrap); jerr == nil {
 			for _, c := range sseWrap.Result.Content {
 				if c.Type == "text" && c.Text != "" {
-					if jerr2 := json.Unmarshal([]byte(c.Text), &resp); jerr2 == nil && len(resp.PlayerSkills) > 0 {
+					if jerr2 := json.Unmarshal([]byte(c.Text), &resp); jerr2 == nil && len(resp.Skills) > 0 {
 						break
 					}
 				}
 			}
 		}
 	}
-	if len(resp.PlayerSkills) == 0 {
+	if len(resp.Skills) == 0 {
 		return
 	}
 
 	// Merge into state under m.mu.
 	m.mu.Lock()
-	newXP := make(map[string]float64, len(resp.PlayerSkills))
+	newXP := make(map[string]float64, len(resp.Skills))
 	if m.state.Player.Skills == nil {
-		m.state.Player.Skills = make(map[string]Skill, len(resp.PlayerSkills))
+		m.state.Player.Skills = make(map[string]Skill, len(resp.Skills))
 	}
-	for _, ps := range resp.PlayerSkills {
-		newXP[ps.SkillID] = ps.CurrentXP
-		m.state.Player.Skills[ps.SkillID] = Skill{Level: ps.Level, XP: ps.CurrentXP}
+	for skillID, row := range resp.Skills {
+		newXP[skillID] = row.XP
+		m.state.Player.Skills[skillID] = Skill{Level: row.Level, XP: row.XP}
 	}
 	m.state.SkillXP = newXP
 

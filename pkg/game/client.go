@@ -2008,7 +2008,7 @@ func (c *Client) parseShipData(payload map[string]any) {
 	}
 
 	// Parse module definitions from payload level (from get_ship response)
-	var moduleDefs []serverapi.ModuleDefinition
+	var moduleDefs []serverapi.ShipModule
 	if unmarshalPayloadKey(payload, "modules", &moduleDefs) {
 		c.mu.Lock()
 		if c.state.ModuleDefinitions == nil {
@@ -2016,7 +2016,7 @@ func (c *Client) parseShipData(payload map[string]any) {
 		}
 		for _, extDef := range moduleDefs {
 			if extDef.ID != "" {
-				c.state.ModuleDefinitions[extDef.ID] = ModuleDefinitionFromAPI(extDef)
+				c.state.ModuleDefinitions[extDef.ID] = ModuleDefinitionFromShipModule(extDef)
 			}
 		}
 		c.mu.Unlock()
