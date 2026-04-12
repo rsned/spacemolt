@@ -154,7 +154,7 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 func surveySystem(client game.GameClient, ctx context.Context) {
 	state := client.GetState()
 
-	// Check for any type of survey scanner module.
+	// Check for any type of survey scanner module by type_id.
 	surveyScanners := []string{
 		"survey_scanner_i",
 		"survey_scanner_ii",
@@ -162,7 +162,7 @@ func surveySystem(client game.GameClient, ctx context.Context) {
 	}
 	hasScanner := false
 	for _, scanner := range surveyScanners {
-		if game.CountModulesInstalled(state, scanner) > 0 {
+		if game.HasModuleType(state, scanner) {
 			hasScanner = true
 			break
 		}

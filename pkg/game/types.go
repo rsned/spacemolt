@@ -403,6 +403,7 @@ type ModuleDefinition struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"` // "weapon", "defense", "utility", etc.
 	Description string `json:"description"`
+	TypeID      string `json:"type_id,omitempty"` // Module type ID (e.g., "survey_scanner_i")
 }
 
 // copyStringFloatMap returns a shallow copy of m; returns nil if m is nil.

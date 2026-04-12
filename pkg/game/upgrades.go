@@ -589,3 +589,17 @@ func ShouldUpgrade(credits float64, tiers []UpgradeTier, tier1Threshold float64)
 
 	return false
 }
+
+// HasModuleType checks if any installed module has the specified type_id.
+// This is used to check for module categories like survey scanners regardless
+// of the specific module variant (survey_scanner_i, survey_scanner_ii, etc.)
+func HasModuleType(state *State, typeID string) bool {
+	for _, moduleID := range state.Ship.Modules {
+		if moduleDef, ok := state.ModuleDefinitions[moduleID]; ok {
+			if moduleDef.TypeID == typeID {
+				return true
+			}
+		}
+	}
+	return false
+}

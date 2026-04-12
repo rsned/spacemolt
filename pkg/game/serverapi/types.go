@@ -134,6 +134,7 @@ type ModuleDefinition struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description"`
+	TypeID      string `json:"type_id,omitempty"` // Module type ID
 }
 
 // Player represents a player in the game as returned by the server.
