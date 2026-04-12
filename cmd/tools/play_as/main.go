@@ -3388,6 +3388,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return autopilot(client, ctx, parts)
 	case "explore":
 		return explore(client, ctx)
+	case "auto_explore", "auto-explore":
+		return autoExplore(client, ctx, parts)
 
 	// === KNOWLEDGE BASE UPDATE COMMANDS ===
 	case "update_system":
@@ -3706,6 +3708,8 @@ func printHelp() {
 	fmt.Println("  find_route <system>       - Find route to system")
 	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
+	fmt.Println("  auto_explore [--max-hops N]")
+	fmt.Println("                            - Tour multiple systems: explore + jump outward, refuel at stations")
 
 	fmt.Println("\n=== MINING & COMBAT ===")
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")

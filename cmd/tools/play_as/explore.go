@@ -14,8 +14,17 @@ import (
 )
 
 // explore visits all POIs in the current system in distance-optimized order,
-// running update_poi at each and update_all at stations.
+// running update_poi at each and update_all at stations. Equivalent to
+// exploreSystem(client, ctx, false) — i.e., no refuel on station docking.
 func explore(client game.GameClient, ctx context.Context) error {
+	return exploreSystem(client, ctx, false)
+}
+
+// exploreSystem runs the explore loop. When refuelAtStations is true, every
+// station dock is followed by a refuel command (which uses station credits
+// if a refuel service is available, or cargo fuel cells otherwise). Used
+// by auto_explore so long exploration runs can replenish opportunistically.
+func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations bool) error {
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("get_system failed: %w", err)
 	}
@@ -100,6 +109,17 @@ func explore(client game.GameClient, ctx context.Context) error {
 					if err := kbUpdateAll(client, ctx); err != nil {
 						fmt.Printf("  (update_all failed: %v)\n", err)
 					}
+				}
+				if refuelAtStations {
+					fmt.Printf("  Refueling...\n")
+					if err := client.Refuel(ctx); err != nil {
+						// Tank-full is an expected "error" here, not worth
+						// surfacing. Only print on unexpected failures.
+						if !strings.Contains(err.Error(), "tank_full") {
+							fmt.Printf("  Refuel warning: %v\n", err)
+						}
+					}
+					time.Sleep(game.SleepQuick)
 				}
 				fmt.Printf("  Undocking...\n")
 				if err := client.Undock(ctx); err != nil {
