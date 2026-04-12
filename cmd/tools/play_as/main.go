@@ -567,7 +567,8 @@ func formatBuyOrders(orders []struct {
 	price string
 	qty   string
 } {
-	// Sort by price ascending (lowest first)
+	// Sort by price descending (highest first). Buy orders are bids from
+	// other players; the best one to accept is the one offering the most.
 	sorted := make([]struct {
 		PriceEach float64 `json:"price_each"`
 		Quantity  float64 `json:"quantity"`
@@ -580,7 +581,7 @@ func formatBuyOrders(orders []struct {
 		Quantity  float64 `json:"quantity"`
 		Source    string  `json:"source,omitempty"`
 	}) int {
-		return cmp.Compare(a.PriceEach, b.PriceEach)
+		return cmp.Compare(b.PriceEach, a.PriceEach) // Descending
 	})
 
 	// Take top 2
@@ -615,7 +616,8 @@ func formatSellOrders(orders []struct {
 	price string
 	qty   string
 } {
-	// Sort by price descending (highest first)
+	// Sort by price ascending (lowest first). Sell orders are listings
+	// from other players; the best one to buy from is the cheapest.
 	sorted := make([]struct {
 		PriceEach float64 `json:"price_each"`
 		Quantity  float64 `json:"quantity"`
@@ -628,7 +630,7 @@ func formatSellOrders(orders []struct {
 		Quantity  float64 `json:"quantity"`
 		Source    string  `json:"source,omitempty"`
 	}) int {
-		return cmp.Compare(b.PriceEach, a.PriceEach) // Descending
+		return cmp.Compare(a.PriceEach, b.PriceEach) // Ascending
 	})
 
 	// Take top 2
