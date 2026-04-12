@@ -1004,6 +1004,9 @@ type DockResponse struct {
 	StoredShipsCount    int             `json:"stored_ships_count,omitempty"`
 	UnreadChat          int             `json:"unread_chat,omitempty"`
 	UnreadChatNote      string          `json:"unread_chat_note,omitempty"`
+	Gifts               []StorageGift   `json:"gifts,omitempty"`
+	GiftsCount          int             `json:"gifts_count,omitempty"`
+	GiftsNote           string          `json:"gifts_note,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.
