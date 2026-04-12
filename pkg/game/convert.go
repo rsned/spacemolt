@@ -73,6 +73,7 @@ func ModuleDefinitionFromAPI(ext serverapi.ModuleDefinition) ModuleDefinition {
 		Name:        ext.Name,
 		Type:        ext.Type,
 		Description: ext.Description,
+		TypeID:      ext.TypeID,
 	}
 }
 
