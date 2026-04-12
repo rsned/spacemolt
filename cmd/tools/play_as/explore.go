@@ -153,6 +153,11 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 // Any newly revealed POIs are saved to the knowledge base.
 func surveySystem(client game.GameClient, ctx context.Context) {
 	state := client.GetState()
+	fmt.Printf("[DEBUG] Installed module IDs: %v\n", state.Ship.Modules)
+	fmt.Printf("[DEBUG] Module definitions count: %d\n", len(state.ModuleDefinitions))
+	for moduleID, def := range state.ModuleDefinitions {
+		fmt.Printf("[DEBUG] Module %s: Name=%s, Type=%s, TypeID=%s\n", moduleID, def.Name, def.Type, def.TypeID)
+	}
 
 	// Check for any type of survey scanner module by type_id.
 	surveyScanners := []string{
@@ -163,6 +168,7 @@ func surveySystem(client game.GameClient, ctx context.Context) {
 	hasScanner := false
 	for _, scanner := range surveyScanners {
 		if game.HasModuleType(state, scanner) {
+		fmt.Printf("[DEBUG] Checking for scanner type: %s (found: %v)\n", scanner, game.HasModuleType(state, scanner))
 			hasScanner = true
 			break
 		}

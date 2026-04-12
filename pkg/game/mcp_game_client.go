@@ -62,21 +62,55 @@ type MCPGameClient struct {
 
 	// XP observation tracking — fires whenever skill XP changes in state.
 	// Mirrors the fields on the WS *Client; see SetXPCallback and checkXPChanges.
-	xpCallback   XPCallbackFunc
-	xpLastSkills map[string]Skill   // last known skill state
-	xpLastXP     map[string]float64 // last known SkillXP
-	xpLastAction string             // most recent action sent
-	xpLastTarget string             // most recent action target
-	xpMu         sync.Mutex
+	//
+	// Because MCP server responses do not include skill_xp in player blocks
+	// (only flat skill levels), we refresh XP after every successful mutation
+	// by making a follow-up get_skills call — its response carries
+	// player_skills[].current_xp which we merge into state.Player.Skills and
+	// state.SkillXP. The xpBaselineReady flag is false until the first such
+	// refresh completes, so the initial good-XP snapshot seeds the baseline
+	// without emitting a spurious 0->N delta.
+	xpCallback      XPCallbackFunc
+	xpLastSkills    map[string]Skill   // last known skill state
+	xpLastXP        map[string]float64 // last known SkillXP
+	xpLastAction    string             // most recent action sent
+	xpLastTarget    string             // most recent action target
+	xpBaselineReady bool               // true once first get_skills refresh has seeded baseline
+	xpMu            sync.Mutex
 }
 
 // SetXPCallback installs an XP observation callback. Passing nil disables
-// callbacks. The callback fires after every successful tool call whose
-// response updates player state with changed skill XP or levels.
+// callbacks. The callback fires after every successful mutation tool call
+// once state has been refreshed from get_skills (which provides the XP
+// values MCP mutation responses omit).
 func (m *MCPGameClient) SetXPCallback(fn XPCallbackFunc) {
 	m.xpMu.Lock()
 	m.xpCallback = fn
+	// Reset baseline — the next refresh seeds snapshot without firing.
+	m.xpBaselineReady = false
+	m.xpLastSkills = nil
+	m.xpLastXP = nil
 	m.xpMu.Unlock()
+}
+
+// isQueryTool returns true for read-only MCP tools that should not update
+// XP attribution or trigger an XP refresh. Mirrors isActionCommand in
+// pkg/agent/runner.go — keep them in sync when the server adds tools.
+func isQueryTool(name string) bool {
+	switch name {
+	case "get_status", "get_notifications", "get_ship", "get_skills",
+		"get_cargo", "get_system", "get_poi", "get_base", "get_map",
+		"get_version", "get_base_cost", "get_listings", "get_trades",
+		"get_wrecks", "get_base_wrecks", "get_recipes", "get_notes",
+		"get_nearby", "get_missions", "get_active_missions",
+		"view_market", "view_orders", "view_storage", "browse_ships",
+		"catalog", "catalog_items", "catalog_ships", "catalog_recipes",
+		"faction_list", "faction_info", "forum_list", "forum_get_thread",
+		"raid_status", "chat_history", "get_chat_history",
+		"help", "register", "login", "logout", "wait":
+		return true
+	}
+	return false
 }
 
 // NewMCPGameClient creates a new MCP game client.
@@ -310,37 +344,135 @@ func (m *MCPGameClient) initialize(ctx context.Context) error {
 // callTool invokes an MCP tool and returns the raw result.
 // On session_invalid errors, it automatically re-logs in and retries once.
 func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[string]any) (json.RawMessage, error) {
-	// Track the latest action for XP observation attribution. Done before
-	// the call so that when updateStateFromResult runs and fires
-	// checkXPChanges, the callback is attributed to this tool.
-	m.xpMu.Lock()
-	if m.xpCallback != nil {
-		m.xpLastAction = toolName
-		m.xpLastTarget = extractTargetFromArgs(args)
+	// Track the latest action for XP observation attribution. Only update
+	// for mutation tools — query tools (get_*, view_*, etc.) would otherwise
+	// clobber the attribution pinned by a preceding mutation. This lets
+	// internal get_skills refreshes preserve the original command's credit.
+	isMutation := !isQueryTool(toolName)
+	if isMutation {
+		m.xpMu.Lock()
+		if m.xpCallback != nil {
+			m.xpLastAction = toolName
+			m.xpLastTarget = extractTargetFromArgs(args)
+		}
+		m.xpMu.Unlock()
 	}
-	m.xpMu.Unlock()
 
 	result, err := m.callToolOnce(ctx, toolName, args)
 	// Always cache the result (including tool-level errors) for interactive display.
 	m.cacheLastResult(result)
-	if err == nil {
-		return result, nil
+
+	// Handle session_invalid auto-retry before the XP refresh hook.
+	if err != nil && isSessionInvalidError(err) {
+		m.logger.Printf("[MCP] Session invalid, re-authenticating...")
+		if loginErr := m.relogin(ctx); loginErr != nil {
+			return nil, fmt.Errorf("re-login failed: %w (original error: %w)", loginErr, err)
+		}
+		result, err = m.callToolOnce(ctx, toolName, args)
+		m.cacheLastResult(result)
 	}
 
-	// Check for session_invalid to auto-retry.
-	if !isSessionInvalidError(err) {
-		return result, err
+	// After a successful mutation with an XP callback installed, refresh
+	// skill XP via get_skills — MCP mutation responses don't include
+	// skill_xp, so without this refresh the XP tracker would only see
+	// level-up events, missing all within-level deltas.
+	if err == nil && isMutation {
+		m.xpMu.Lock()
+		hasCallback := m.xpCallback != nil
+		m.xpMu.Unlock()
+		if hasCallback {
+			m.refreshXPFromSkills(ctx)
+		}
 	}
 
-	m.logger.Printf("[MCP] Session invalid, re-authenticating...")
-	if loginErr := m.relogin(ctx); loginErr != nil {
-		return nil, fmt.Errorf("re-login failed: %w (original error: %w)", loginErr, err)
-	}
-
-	// Retry the original call once.
-	result, err = m.callToolOnce(ctx, toolName, args)
-	m.cacheLastResult(result)
 	return result, err
+}
+
+// refreshXPFromSkills fetches the player_skills list via an internal
+// get_skills call and merges the current_xp values into state. On the
+// first call (baseline not ready) it only seeds xpLastSkills/xpLastXP
+// without firing the callback. On subsequent calls it updates the
+// skill state then runs checkXPChanges with the original attribution
+// from xpLastAction (the mutation that just completed).
+//
+// Uses callToolOnce directly so the attribution-update hook in callTool
+// does not overwrite xpLastAction. Silent on errors — XP tracking is
+// best-effort and should never break the caller's command flow.
+func (m *MCPGameClient) refreshXPFromSkills(ctx context.Context) {
+	result, err := m.callToolOnce(ctx, "get_skills", nil)
+	if err != nil || len(result) == 0 {
+		return
+	}
+	text, terr := parseToolResultText(result)
+	if terr != nil {
+		return
+	}
+
+	// Parse player_skills out of the response. The game server wraps
+	// responses in several possible envelopes (direct, {"result": ...},
+	// SSE content blocks) — try direct first, then unwrap.
+	type playerSkill struct {
+		SkillID   string  `json:"skill_id"`
+		Level     int     `json:"level"`
+		CurrentXP float64 `json:"current_xp"`
+	}
+	type skillsResp struct {
+		PlayerSkills []playerSkill `json:"player_skills"`
+	}
+	var resp skillsResp
+	if err := json.Unmarshal([]byte(text), &resp); err != nil || len(resp.PlayerSkills) == 0 {
+		// Try SSE content unwrap.
+		var sseWrap struct {
+			Result struct {
+				Content []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"result"`
+		}
+		if jerr := json.Unmarshal([]byte(text), &sseWrap); jerr == nil {
+			for _, c := range sseWrap.Result.Content {
+				if c.Type == "text" && c.Text != "" {
+					if jerr2 := json.Unmarshal([]byte(c.Text), &resp); jerr2 == nil && len(resp.PlayerSkills) > 0 {
+						break
+					}
+				}
+			}
+		}
+	}
+	if len(resp.PlayerSkills) == 0 {
+		return
+	}
+
+	// Merge into state under m.mu.
+	m.mu.Lock()
+	newXP := make(map[string]float64, len(resp.PlayerSkills))
+	if m.state.Player.Skills == nil {
+		m.state.Player.Skills = make(map[string]Skill, len(resp.PlayerSkills))
+	}
+	for _, ps := range resp.PlayerSkills {
+		newXP[ps.SkillID] = ps.CurrentXP
+		m.state.Player.Skills[ps.SkillID] = Skill{Level: ps.Level, XP: ps.CurrentXP}
+	}
+	m.state.SkillXP = newXP
+
+	// Seed baseline on first call; fire checkXPChanges thereafter.
+	m.xpMu.Lock()
+	ready := m.xpBaselineReady
+	m.xpBaselineReady = true
+	m.xpMu.Unlock()
+
+	if !ready {
+		m.xpMu.Lock()
+		m.xpLastSkills = copySkillMap(m.state.Player.Skills)
+		m.xpLastXP = copyStringFloatMap(m.state.SkillXP)
+		m.xpMu.Unlock()
+		m.mu.Unlock()
+		return
+	}
+
+	m.checkXPChanges() // requires m.mu held
+	m.mu.Unlock()
 }
 
 // cacheLastResult extracts text from an MCP tool result and stores it as _last raw JSON.
@@ -758,13 +890,33 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		if parseErr != nil {
 			m.logger.Printf("[MCP] Player parse failed: %v", parseErr)
 		} else {
+			// Preserve XP values refreshed via refreshXPFromSkills. MCP
+			// mutation responses only carry skill levels (XP=0), so a
+			// naive overwrite would wipe the XP data the tracker needs.
+			// Merge level updates from the response into existing skills,
+			// keeping current XP when the incoming value is 0.
+			if player.Skills != nil && m.state.Player.Skills != nil {
+				for k, newSkill := range player.Skills {
+					if existing, ok := m.state.Player.Skills[k]; ok {
+						if newSkill.XP == 0 && existing.XP > 0 {
+							newSkill.XP = existing.XP
+						}
+						player.Skills[k] = newSkill
+					}
+				}
+			}
+			// Same rationale for state.SkillXP: only overwrite if the
+			// response actually carried skill_xp data.
+			preservedSkillXP := m.state.SkillXP
 			m.state.Player = player
 			m.state.Credits = player.Credits
 			m.state.CurrentSystem = player.CurrentSystem
 			m.state.CurrentPOI = player.CurrentPOI
 			m.state.Doc = player.DockedAtBase != ""
-			if player.Skills != nil {
+			if len(player.SkillXP) > 0 {
 				m.state.SkillXP = player.SkillXP
+			} else {
+				m.state.SkillXP = preservedSkillXP
 			}
 
 			// Ensure System.ID is set when player data provides a system.
