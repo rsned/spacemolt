@@ -153,7 +153,23 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 // Any newly revealed POIs are saved to the knowledge base.
 func surveySystem(client game.GameClient, ctx context.Context) {
 	state := client.GetState()
-	if game.CountModulesInstalled(state, "survey_scanner_i") == 0 {
+
+	// Check for any type of survey scanner module.
+	surveyScanners := []string{
+		"survey_scanner_i",
+		"survey_scanner_ii",
+		"deep_core_survey_scanner",
+	}
+	hasScanner := false
+	for _, scanner := range surveyScanners {
+		if game.CountModulesInstalled(state, scanner) > 0 {
+			hasScanner = true
+			break
+		}
+	}
+
+	if !hasScanner {
+		fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
 		return
 	}
 
