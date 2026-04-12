@@ -18,7 +18,9 @@ type XPTracker struct {
 
 // NewXPTracker creates a tracker and wires it into the game client's XPCallback.
 // If kb is nil, no tracker is created and the client is left unchanged.
-func NewXPTracker(client *game.Client, kb Base, agentID string, logger *log.Logger) *XPTracker {
+// The client parameter accepts any type implementing game.XPCallbackSetter,
+// so both the WebSocket *game.Client and *game.MCPGameClient work.
+func NewXPTracker(client game.XPCallbackSetter, kb Base, agentID string, logger *log.Logger) *XPTracker {
 	if kb == nil {
 		return nil
 	}
@@ -29,7 +31,7 @@ func NewXPTracker(client *game.Client, kb Base, agentID string, logger *log.Logg
 		logger:  logger,
 	}
 
-	client.XPCallback = t.onXPChange
+	client.SetXPCallback(t.onXPChange)
 	return t
 }
 

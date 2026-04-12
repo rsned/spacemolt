@@ -59,6 +59,24 @@ type MCPGameClient struct {
 	readyOnce sync.Once
 
 	requestID atomic.Int64
+
+	// XP observation tracking — fires whenever skill XP changes in state.
+	// Mirrors the fields on the WS *Client; see SetXPCallback and checkXPChanges.
+	xpCallback   XPCallbackFunc
+	xpLastSkills map[string]Skill   // last known skill state
+	xpLastXP     map[string]float64 // last known SkillXP
+	xpLastAction string             // most recent action sent
+	xpLastTarget string             // most recent action target
+	xpMu         sync.Mutex
+}
+
+// SetXPCallback installs an XP observation callback. Passing nil disables
+// callbacks. The callback fires after every successful tool call whose
+// response updates player state with changed skill XP or levels.
+func (m *MCPGameClient) SetXPCallback(fn XPCallbackFunc) {
+	m.xpMu.Lock()
+	m.xpCallback = fn
+	m.xpMu.Unlock()
 }
 
 // NewMCPGameClient creates a new MCP game client.
@@ -292,6 +310,16 @@ func (m *MCPGameClient) initialize(ctx context.Context) error {
 // callTool invokes an MCP tool and returns the raw result.
 // On session_invalid errors, it automatically re-logs in and retries once.
 func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[string]any) (json.RawMessage, error) {
+	// Track the latest action for XP observation attribution. Done before
+	// the call so that when updateStateFromResult runs and fires
+	// checkXPChanges, the callback is attributed to this tool.
+	m.xpMu.Lock()
+	if m.xpCallback != nil {
+		m.xpLastAction = toolName
+		m.xpLastTarget = extractTargetFromArgs(args)
+	}
+	m.xpMu.Unlock()
+
 	result, err := m.callToolOnce(ctx, toolName, args)
 	// Always cache the result (including tool-level errors) for interactive display.
 	m.cacheLastResult(result)
@@ -843,7 +871,68 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 		}
 	}
 
+	// Fire XP observation callback if skills changed. Only runs when a
+	// callback is installed AND the response updated player data (since
+	// XP lives on Player.Skills / SkillXP). m.mu is still held.
+	if payload.Player != nil {
+		m.checkXPChanges()
+	}
+
 	return nil
+}
+
+// checkXPChanges compares the current skill state against the snapshot
+// taken before the last tool call, and fires the XP callback with any
+// deltas. Must be called with m.mu held. This mirrors the WebSocket
+// client's implementation in client.go.
+func (m *MCPGameClient) checkXPChanges() {
+	m.xpMu.Lock()
+	cb := m.xpCallback
+	if cb == nil {
+		m.xpMu.Unlock()
+		return
+	}
+
+	currentSkills := copySkillMap(m.state.Player.Skills)
+	currentXP := copyStringFloatMap(m.state.SkillXP)
+	gameTick := m.state.CurrentTick
+
+	beforeSkills := m.xpLastSkills
+	beforeXP := m.xpLastXP
+	action := m.xpLastAction
+	target := m.xpLastTarget
+
+	// Update last known state
+	m.xpLastSkills = currentSkills
+	m.xpLastXP = currentXP
+	m.xpMu.Unlock()
+
+	// Skip first call (no previous state to compare)
+	if beforeSkills == nil && beforeXP == nil {
+		return
+	}
+
+	// Check if anything actually changed (quick check)
+	changed := false
+	for k, v := range currentXP {
+		if beforeXP[k] != v {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		for k, v := range currentSkills {
+			if b, ok := beforeSkills[k]; !ok || b.Level != v.Level || b.XP != v.XP {
+				changed = true
+				break
+			}
+		}
+	}
+	if !changed {
+		return
+	}
+
+	cb(action, target, beforeSkills, currentSkills, beforeXP, currentXP, gameTick)
 }
 
 // parseMCPPlayer parses a player JSON blob, handling both the standard

@@ -108,12 +108,30 @@ type Client struct {
 	lastSentMsgMu   sync.Mutex
 
 	// XP observation tracking — fires whenever skill XP changes in state
-	XPCallback     func(action, target string, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64)
+	XPCallback     XPCallbackFunc
 	xpLastSkills   map[string]Skill   // last known skill state
 	xpLastXP       map[string]float64 // last known SkillXP
 	xpLastAction   string             // most recent action sent
 	xpLastTarget   string             // most recent action target
 	xpMu           sync.Mutex
+}
+
+// XPCallbackFunc is the signature fired after a successful action that
+// (potentially) affected player skill XP. It receives the before/after
+// skill and SkillXP maps so observers can compute deltas.
+type XPCallbackFunc func(action, target string, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64)
+
+// XPCallbackSetter is implemented by game clients that support XP
+// observation callbacks. Both the WebSocket *Client and *MCPGameClient
+// satisfy this interface, so observers can wire in regardless of transport.
+type XPCallbackSetter interface {
+	SetXPCallback(fn XPCallbackFunc)
+}
+
+// SetXPCallback installs an XP observation callback. Passing nil disables
+// callbacks. Safe to call before or after Connect.
+func (c *Client) SetXPCallback(fn XPCallbackFunc) {
+	c.XPCallback = fn
 }
 
 // MessageHandler handles incoming game messages
@@ -4173,19 +4191,26 @@ func copySkillMap(m map[string]Skill) map[string]Skill {
 
 // extractActionTarget pulls the most relevant target identifier from a message payload.
 func extractActionTarget(msg protocol.Message) string {
-	if len(msg.Payload) == 0 {
+	return extractTargetFromArgs(msg.Payload)
+}
+
+// extractTargetFromArgs pulls the most relevant target identifier from a
+// generic args map. Used by both WS (protocol.Message.Payload) and MCP
+// (callTool args) code paths for XP observation attribution.
+func extractTargetFromArgs(args map[string]any) string {
+	if len(args) == 0 {
 		return ""
 	}
 	// Check common target field names in order of specificity
 	for _, key := range []string{"target_id", "poi_id", "system_id", "listing_id", "ship_id", "ship_class", "item_id", "recipe_id", "mission_id", "wreck_id", "commission_id"} {
-		if v, ok := msg.Payload[key]; ok {
+		if v, ok := args[key]; ok {
 			if s, ok := v.(string); ok {
 				return s
 			}
 		}
 	}
 	// Fallback: return first string value
-	for _, v := range msg.Payload {
+	for _, v := range args {
 		if s, ok := v.(string); ok {
 			return s
 		}

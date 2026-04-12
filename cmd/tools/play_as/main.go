@@ -136,6 +136,16 @@ func main() {
 			globalKB = sqliteKB
 			logger.Printf("Knowledge base loaded: %s", *dbPath)
 			defer func() { _ = sqliteKB.Close() }()
+
+			// Wire XP observation tracking. Every successful mutation command
+			// that changes skill XP will be recorded to xp_observations, so
+			// interactive play also contributes datapoints to the analytics
+			// database. Works for any client implementing XPCallbackSetter
+			// (both WS *game.Client and *game.MCPGameClient do).
+			if setter, ok := client.(game.XPCallbackSetter); ok {
+				knowledge.NewXPTracker(setter, sqliteKB, agentID, logger)
+				logger.Printf("XP observation tracking enabled")
+			}
 		}
 	}
 
