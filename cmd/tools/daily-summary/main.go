@@ -64,6 +64,10 @@ type AgentSnapshot struct {
 	FactionID       string               `json:"faction_id"`
 	FactionRank     string               `json:"faction_rank"`
 	Experience      int64                `json:"experience"`
+	HomeBase        string               `json:"home_base,omitempty"`
+	Fuel            float64              `json:"fuel"`
+	MaxFuel         float64              `json:"max_fuel"`
+	StatusRaw       json.RawMessage      `json:"status_raw,omitempty"`
 	Error           string               `json:"error,omitempty"`
 	CapturedAt      time.Time            `json:"captured_at"`
 }
@@ -368,7 +372,16 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 		}
 	}
 
-	// Extract state from login response
+	// Refresh authoritative state via get_status before reading fields.
+	// This ensures fuel, home_base, and lifetime stats are current even if
+	// the login response was stale. Best-effort: fall back to login state on error.
+	if err := client.GetStatus(ctx); err != nil {
+		logger.Printf("  Warning: get_status failed: %v", err)
+	} else {
+		time.Sleep(game.SleepQuick)
+	}
+
+	// Extract state (refreshed by get_status above when successful)
 	state := client.GetState()
 	snap.Username = creds.Username
 	snap.Empire = creds.Empire
@@ -380,10 +393,19 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 	snap.CargoUsed = state.Ship.CargoUsed
 	snap.CargoCapacity = state.Ship.CargoCapacity
 	snap.ModuleCount = len(state.Ship.Modules)
+	snap.Fuel = state.Ship.Fuel
+	snap.MaxFuel = state.Ship.MaxFuel
 	snap.Stats = state.Player.Stats
 	snap.FactionID = state.Player.FactionID
 	snap.FactionRank = state.Player.FactionRank
 	snap.Experience = state.Player.Experience
+	snap.HomeBase = state.Player.HomeBase
+
+	// Capture the full raw get_status response for future-proofing.
+	// Any field on Player/Ship/Modules/System/POI/Nearby is preserved verbatim.
+	if rawStatus := client.GetRawJSON("status"); rawStatus != nil {
+		snap.StatusRaw = json.RawMessage(rawStatus)
+	}
 
 	// Determine POI type
 	for _, poi := range state.System.POIs {
