@@ -1046,6 +1046,9 @@ var (
 	shipCatalogCache map[string]shipCatalogEntry // keyed by ship class ID
 	shipCatalogOnce  sync.Once
 	shipCatalogClient game.GameClient // set before first use
+	// Survey scanner cache - only check modules when ship might change
+	surveyScannerCached bool
+	hasSurveyScanner    bool
 )
 
 // setShipCatalogClient stores the client reference for lazy catalog loading.
@@ -2414,6 +2417,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 5*time.Second, cmd, format)
 		if err == nil {
 			_ = client.GetShip(ctx) // Refresh ship data for new ship.
+				invalidateSurveyScannerCache()
 		}
 		return err
 

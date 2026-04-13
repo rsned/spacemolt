@@ -152,41 +152,12 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 // Any newly revealed POIs are saved to the knowledge base.
 // surveySystem runs survey_system if the ship has a survey scanner module installed.
 // Any newly revealed POIs are saved to the knowledge base.
+// surveySystem runs survey_system if the ship has a survey scanner module installed.
+// Any newly revealed POIs are saved to the knowledge base.
 func surveySystem(client game.GameClient, ctx context.Context) {
 	state := client.GetState()
-	
-	// DEBUG: Show module parsing state
-	fmt.Printf("\n[DEBUG] === Module Detection ===\n")
-	fmt.Printf("[DEBUG] Installed module IDs: %v\n", state.Ship.Modules)
-	fmt.Printf("[DEBUG] ModuleDefinitions count: %d\n", len(state.ModuleDefinitions))
-	fmt.Printf("[DEBUG] Looking for type_ids: survey_scanner_i, survey_scanner_ii, deep_core_survey_scanner\n")
-	
-	// Check each installed module
-	for _, moduleID := range state.Ship.Modules {
-		if def, ok := state.ModuleDefinitions[moduleID]; ok {
-			fmt.Printf("[DEBUG] Module %s: Name=%s, Type=%s, TypeID='%s'\n", 
-				moduleID, def.Name, def.Type, def.TypeID)
-		} else {
-			fmt.Printf("[DEBUG] Module %s: NOT FOUND in ModuleDefinitions\n", moduleID)
-		}
-	}
-	fmt.Printf("[DEBUG] =========================\n\n")
 
-	// Check for any type of survey scanner module by type_id.
-	surveyScanners := []string{
-		"survey_scanner_i",
-		"survey_scanner_ii",
-		"deep_core_survey_scanner",
-	}
-	hasScanner := false
-	for _, scanner := range surveyScanners {
-		if game.HasModuleType(state, scanner) {
-			hasScanner = true
-			break
-		}
-	}
-
-	if !hasScanner {
+	if !checkForSurveyScanner(state) {
 		fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
 		return
 	}
@@ -369,4 +340,37 @@ func truncateName(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// checkForSurveyScanner checks if the ship has a survey scanner installed.
+// Results are cached until the ship might change (switch_ship, install_mod, etc.).
+// checkForSurveyScanner checks if the ship has a survey scanner installed.
+// Results are cached until the ship might change (switch_ship, install_mod, etc.).
+func checkForSurveyScanner(state *game.State) bool {
+	if surveyScannerCached {
+		return hasSurveyScanner
+	}
+
+	// Not cached - check modules
+	surveyScanners := []string{
+		"survey_scanner_i",
+		"survey_scanner_ii",
+		"deep_core_survey_scanner",
+	}
+	for _, scanner := range surveyScanners {
+		if game.HasModuleType(state, scanner) {
+			hasSurveyScanner = true
+			break
+		}
+	}
+
+	surveyScannerCached = true
+	return hasSurveyScanner
+}
+
+// invalidateSurveyScannerCache clears the cached scanner check.
+// Call this when the ship might have changed.
+func invalidateSurveyScannerCache() {
+	surveyScannerCached = false
+	hasSurveyScanner = false
 }
