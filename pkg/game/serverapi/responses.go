@@ -686,8 +686,11 @@ type FacilityTypesResponse struct {
 	RentPerCycle       int                `json:"rent_per_cycle,omitempty"`
 	RecipeID           string             `json:"recipe_id,omitempty"`
 	Recipe             string             `json:"recipe,omitempty"`
+	RecipeMultiplier   float64            `json:"recipe_multiplier,omitempty"`
 	UpgradesTo         string             `json:"upgrades_to,omitempty"`
 	UpgradesToName     string             `json:"upgrades_to_name,omitempty"`
+	UpgradesFrom       string             `json:"upgrades_from,omitempty"`
+	UpgradesFromName   string             `json:"upgrades_from_name,omitempty"`
 }
 
 // FacilityListResponse wraps the response from facility list command.
