@@ -107,9 +107,6 @@ type Base interface {
 	StoreShip(ctx context.Context, ship ShipRecord) error
 	GetShip(ctx context.Context, shipID string) (*ShipRecord, error)
 	GetPlayerShips(ctx context.Context, playerID string) ([]ShipRecord, error)
-	StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error
-	GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error)
-
 	// Agent wallet
 	UpdateAgentWalletCredits(ctx context.Context, agentID string, credits int) error
 
@@ -372,13 +369,13 @@ type XPSummaryRow struct {
 
 // ChangeSnapshot records old data when a system, POI, or base change is detected.
 type ChangeSnapshot struct {
-	ID              int64
-	EntityType      string // "system", "poi", "base"
-	EntityID        string
-	SystemID        string
-	ChangeSummary   string // human-readable summary of what changed
-	OldData         string // JSON snapshot of old values
-	DetectedBy      string // agent ID
-	DetectedAtTick  int64
-	DetectedAt      time.Time
+	ID             int64
+	EntityType     string // "system", "poi", "base"
+	EntityID       string
+	SystemID       string
+	ChangeSummary  string // human-readable summary of what changed
+	OldData        string // JSON snapshot of old values
+	DetectedBy     string // agent ID
+	DetectedAtTick int64
+	DetectedAt     time.Time
 }

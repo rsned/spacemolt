@@ -24,12 +24,12 @@ type CatalogItem struct {
 
 // ItemModule holds common fields for all fitted ship modules.
 type ItemModule struct {
-	Type      string // "weapon", "defense", "mining", "utility"
-	TypeID    string // server-assigned module identifier
-	CPUUsage  int
+	Type       string // "weapon", "defense", "mining", "utility"
+	TypeID     string // server-assigned module identifier
+	CPUUsage   int
 	PowerUsage int
-	Hidden    bool
-	Special   string // comma-separated special ability tags
+	Hidden     bool
+	Special    string // comma-separated special ability tags
 
 	// Subtype detail (exactly one is non-nil)
 	Weapon  *ItemWeapon
@@ -40,29 +40,29 @@ type ItemModule struct {
 
 // ItemWeapon holds weapon-specific module attributes.
 type ItemWeapon struct {
-	Damage      int
-	DamageType  string // "kinetic", "energy", "em", "explosive", "void", "thermal"
-	Range       *int   // nullable
-	Reach       *int   // nullable
-	Cooldown    int
-	AmmoType    string // empty for energy weapons
-	MagazineSize *int  // nil when AmmoType is empty
+	Damage       int
+	DamageType   string // "kinetic", "energy", "em", "explosive", "void", "thermal"
+	Range        *int   // nullable
+	Reach        *int   // nullable
+	Cooldown     int
+	AmmoType     string // empty for energy weapons
+	MagazineSize *int   // nil when AmmoType is empty
 }
 
 // ItemDefense holds defense-module-specific attributes.
 type ItemDefense struct {
-	ArmorBonus         *int
-	HullBonus          *int
-	ShieldBonus        *int
+	ArmorBonus          *int
+	HullBonus           *int
+	ShieldBonus         *int
 	ShieldRechargeBonus *int
-	ArmorRepairRate    *int
-	ResistanceBonus    map[string]float64 // e.g. {"em": 30, "kinetic": 25}
-	DamageReduction    *float64
-	CloakStrength      *int
-	Cooldown           *int
-	Damage             *int
-	DamageType         string
-	Range              *int
+	ArmorRepairRate     *int
+	ResistanceBonus     map[string]float64 // e.g. {"em": 30, "kinetic": 25}
+	DamageReduction     *float64
+	CloakStrength       *int
+	Cooldown            *int
+	Damage              *int
+	DamageType          string
+	Range               *int
 }
 
 // ItemMining holds mining-module-specific attributes.
@@ -178,19 +178,19 @@ type RecipeProduct struct {
 
 // PlayerRecord represents a player's core data stored in the knowledge base.
 type PlayerRecord struct {
-	ID            string
-	Username      string
-	Empire        string
-	Credits       float64
-	CurrentSystem string
-	CurrentPOI    string
-	CurrentShipID string
-	HomeBase      string
-	DockedAtBase  string
-	FactionID     string
-	FactionRank   string
-	Experience    int64
-	Stats         PlayerStatsRecord
+	ID              string
+	Username        string
+	Empire          string
+	Credits         float64
+	CurrentSystem   string
+	CurrentPOI      string
+	CurrentShipID   string
+	HomeBase        string
+	DockedAtBase    string
+	FactionID       string
+	FactionRank     string
+	Experience      int64
+	Stats           PlayerStatsRecord
 	LastUpdatedTick int64
 }
 
@@ -269,31 +269,4 @@ type ShipModuleRecord struct {
 	Wear            float64
 	WearStatus      string
 	LastUpdatedTick int64
-}
-
-// MissionTemplate represents an available mission from a mission board.
-type MissionTemplate struct {
-	ID              string
-	Title           string
-	Description     string
-	Type            string
-	Difficulty      int
-	BaseID          string
-	GiverName       string
-	GiverTitle      string
-	DialogOffer     string
-	ChainNext       string
-	ExpiresInTicks  int
-	RewardsCredits  int
-	RewardsSkillXP  map[string]int
-	Requirements    map[string]any
-	Objectives      []MissionObjectiveRecord
-	LastUpdatedTick int64
-}
-
-// MissionObjectiveRecord represents a single objective in a mission template.
-type MissionObjectiveRecord struct {
-	Type        string
-	Description string
-	SortOrder   int
 }

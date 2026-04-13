@@ -3,7 +3,6 @@ package knowledge
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -372,106 +371,4 @@ func (kb *SQLiteKB) loadShipModules(ctx context.Context, shipID string) ([]ShipM
 		modules = append(modules, m)
 	}
 	return modules, rows.Err()
-}
-
-// StoreMissionTemplates stores mission templates for a given base, replacing any existing ones.
-func (kb *SQLiteKB) StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error {
-	tx, err := kb.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Delete existing missions for this base (cascades to objectives)
-	if _, err := tx.ExecContext(ctx, "DELETE FROM mission_templates WHERE base_id = ?", baseID); err != nil {
-		return fmt.Errorf("failed to clear mission templates: %w", err)
-	}
-
-	for _, m := range missions {
-		rewardsXP, _ := json.Marshal(m.RewardsSkillXP)
-		reqs, _ := json.Marshal(m.Requirements)
-
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO mission_templates (id, title, description, type, difficulty, base_id,
-				giver_name, giver_title, dialog_offer, chain_next, expires_in_ticks,
-				rewards_credits, rewards_skill_xp, requirements, last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, m.ID, m.Title, m.Description, m.Type, m.Difficulty, baseID,
-			m.GiverName, m.GiverTitle, m.DialogOffer, m.ChainNext, m.ExpiresInTicks,
-			m.RewardsCredits, string(rewardsXP), string(reqs), m.LastUpdatedTick)
-		if err != nil {
-			return fmt.Errorf("failed to insert mission template %s: %w", m.ID, err)
-		}
-
-		for i, obj := range m.Objectives {
-			_, err := tx.ExecContext(ctx, `
-				INSERT INTO mission_objectives (mission_id, type, description, sort_order)
-				VALUES (?, ?, ?, ?)
-			`, m.ID, obj.Type, obj.Description, i)
-			if err != nil {
-				return fmt.Errorf("failed to insert mission objective: %w", err)
-			}
-		}
-	}
-
-	return tx.Commit()
-}
-
-// GetMissionTemplates retrieves mission templates for a given base.
-func (kb *SQLiteKB) GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error) {
-	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, title, COALESCE(description, ''), COALESCE(type, ''), difficulty,
-			COALESCE(base_id, ''), COALESCE(giver_name, ''), COALESCE(giver_title, ''),
-			COALESCE(dialog_offer, ''), COALESCE(chain_next, ''), expires_in_ticks,
-			rewards_credits, rewards_skill_xp, requirements, last_updated_tick
-		FROM mission_templates WHERE base_id = ? ORDER BY title
-	`, baseID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query mission templates: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var missions []MissionTemplate
-	for rows.Next() {
-		var m MissionTemplate
-		var rewardsXPJSON, reqsJSON string
-		if err := rows.Scan(&m.ID, &m.Title, &m.Description, &m.Type, &m.Difficulty,
-			&m.BaseID, &m.GiverName, &m.GiverTitle, &m.DialogOffer, &m.ChainNext,
-			&m.ExpiresInTicks, &m.RewardsCredits, &rewardsXPJSON, &reqsJSON,
-			&m.LastUpdatedTick); err != nil {
-			return nil, fmt.Errorf("failed to scan mission template: %w", err)
-		}
-		_ = json.Unmarshal([]byte(rewardsXPJSON), &m.RewardsSkillXP)
-		_ = json.Unmarshal([]byte(reqsJSON), &m.Requirements)
-		missions = append(missions, m)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating mission templates: %w", err)
-	}
-
-	// Load objectives for all missions
-	for i := range missions {
-		objRows, err := kb.db.QueryContext(ctx, `
-			SELECT type, COALESCE(description, ''), sort_order
-			FROM mission_objectives WHERE mission_id = ? ORDER BY sort_order
-		`, missions[i].ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to query mission objectives: %w", err)
-		}
-
-		for objRows.Next() {
-			var obj MissionObjectiveRecord
-			if err := objRows.Scan(&obj.Type, &obj.Description, &obj.SortOrder); err != nil {
-				_ = objRows.Close()
-				return nil, fmt.Errorf("failed to scan mission objective: %w", err)
-			}
-			missions[i].Objectives = append(missions[i].Objectives, obj)
-		}
-		_ = objRows.Close()
-		if err := objRows.Err(); err != nil {
-			return nil, fmt.Errorf("error iterating mission objectives: %w", err)
-		}
-	}
-
-	return missions, nil
 }
