@@ -80,6 +80,9 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	fmt.Printf("\n  Est. time: ~%s (* = station, will dock for full update)\n\n", formatDuration(totalTicks*10))
 
 	// Execute the route.
+
+	// Survey system at the start to potentially reveal new POIs for exploration.
+	surveySystem(client, ctx)
 	startTime := time.Now()
 	for i, poi := range route {
 		// Skip travel to current POI.
@@ -137,9 +140,6 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 		}
 	}
 
-	// Survey system if ship has a survey scanner installed.
-	surveySystem(client, ctx)
-
 	// Refresh state for statusline.
 	_ = client.GetStatus(ctx)
 
@@ -149,9 +149,6 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	return nil
 }
 
-// surveySystem runs survey_system if the ship has a survey scanner module installed.
-// Any newly revealed POIs are saved to the knowledge base.
-// surveySystem runs survey_system if the ship has a survey scanner module installed.
 // Any newly revealed POIs are saved to the knowledge base.
 func surveySystem(client game.GameClient, ctx context.Context) {
 	state := client.GetState()
