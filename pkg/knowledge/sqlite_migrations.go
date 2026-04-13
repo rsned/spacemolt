@@ -853,8 +853,8 @@ CREATE INDEX IF NOT EXISTS idx_storage_snapshot_ships_snapshot ON storage_snapsh
 `,
 		},
 		{
-			version:      20,
-			name:         "agents_wallet_credits",
+			version: 20,
+			name:    "agents_wallet_credits",
 			sql: `
 ALTER TABLE agents ADD COLUMN wallet_credits INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE agents ADD COLUMN wallet_updated_at TEXT;
@@ -972,8 +972,8 @@ CREATE INDEX IF NOT EXISTS idx_base_facilities_recipe ON base_facilities(recipe_
 `,
 		},
 		{
-			version:      26,
-			name:         "poi_hidden_reveal_difficulty",
+			version: 26,
+			name:    "poi_hidden_reveal_difficulty",
 			sql: `
 ALTER TABLE pois ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT 0;
 ALTER TABLE pois ADD COLUMN reveal_difficulty INTEGER NOT NULL DEFAULT 0;
@@ -1022,6 +1022,80 @@ CREATE INDEX IF NOT EXISTS idx_xp_obs_agent ON xp_observations(agent_id);
 	-- Create index on expires_at for querying expiring POIs
 	CREATE INDEX IF NOT EXISTS idx_pois_expires_at ON pois(expires_at);
 	`,
+		},
+		{
+			version: 30,
+			name:    "mission_catalog_rebuild",
+			sql: `
+-- Drop the legacy unused mission_templates / mission_objectives tables.
+DROP TABLE IF EXISTS mission_objectives;
+DROP TABLE IF EXISTS mission_templates;
+
+-- Mission templates: hand-authored missions observed on mission boards.
+-- Primary key is the stable template_id (== mission_id for unaccepted entries).
+CREATE TABLE mission_templates (
+    id                  TEXT PRIMARY KEY,
+    title               TEXT NOT NULL,
+    description         TEXT,
+    type                TEXT,
+    difficulty          INTEGER DEFAULT 0,
+    giver_name          TEXT,
+    giver_title         TEXT,
+    faction_id          TEXT,
+    faction_name        TEXT,
+    dialog_offer        TEXT,
+    dialog_accept       TEXT,
+    dialog_decline      TEXT,
+    dialog_complete     TEXT,
+    chain_next          TEXT,
+    repeatable          INTEGER DEFAULT 0,
+    expires_in_ticks    INTEGER DEFAULT 0,
+    rewards_credits     INTEGER DEFAULT 0,
+    rewards_skill_xp    TEXT DEFAULT '{}',
+    rewards_items       TEXT DEFAULT '{}',
+    requirements        TEXT DEFAULT '{}',
+    required_modules    TEXT DEFAULT '[]',
+    provided_items      TEXT DEFAULT '{}',
+    first_seen_tick     INTEGER DEFAULT 0,
+    last_seen_tick      INTEGER DEFAULT 0,
+    first_seen_at       TEXT,
+    last_seen_at        TEXT
+);
+
+-- Mission objectives, in declared order.
+CREATE TABLE mission_objectives (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    mission_id        TEXT NOT NULL,
+    sort_order        INTEGER NOT NULL DEFAULT 0,
+    type              TEXT NOT NULL,
+    description       TEXT,
+    item_id           TEXT,
+    quantity          INTEGER DEFAULT 0,
+    system_id         TEXT,
+    system_name       TEXT,
+    target_base_id    TEXT,
+    target_base_name  TEXT,
+    FOREIGN KEY (mission_id) REFERENCES mission_templates(id) ON DELETE CASCADE
+);
+
+-- One row per (mission_id, base_id) sighting.
+CREATE TABLE mission_template_locations (
+    mission_id       TEXT NOT NULL,
+    base_id          TEXT NOT NULL,
+    system_id        TEXT,
+    first_seen_tick  INTEGER DEFAULT 0,
+    last_seen_tick   INTEGER DEFAULT 0,
+    first_seen_at    TEXT,
+    last_seen_at     TEXT,
+    PRIMARY KEY (mission_id, base_id),
+    FOREIGN KEY (mission_id) REFERENCES mission_templates(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_mission_templates_type    ON mission_templates(type);
+CREATE INDEX idx_mission_templates_faction ON mission_templates(faction_id);
+CREATE INDEX idx_mission_objectives_mission ON mission_objectives(mission_id);
+CREATE INDEX idx_mission_locations_base    ON mission_template_locations(base_id);
+`,
 		},
 	}
 }
