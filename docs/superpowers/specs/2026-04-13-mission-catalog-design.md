@@ -23,11 +23,16 @@ command (`update_missions`) to capture the catalog on demand and wire it into
   while the `template_id` keeps the original identifier — so the catalog key
   is `template_id` (equivalently `mission_id` for unaccepted board entries).
 - A `mission_templates` / `mission_objectives` schema already exists in
-  migration 13 (`pkg/knowledge/sqlite_migrations.go:611`) but is empty
-  (`select count(*) from mission_templates` → 0) and no code writes to it.
-  The existing shape is missing several fields present on
-  `MissionBoardEntry` — so migration 15 drops and recreates it rather than
-  layering ALTERs.
+  migration 13 (`pkg/knowledge/sqlite_migrations.go:611`) but the table
+  is empty in practice (`select count(*) from mission_templates` → 0),
+  and the existing API (`StoreMissionTemplates`/`GetMissionTemplates` in
+  `pkg/knowledge/sqlite_player.go:378` and the `MissionTemplate` /
+  `MissionObjectiveRecord` structs in `pkg/knowledge/catalog.go:275`) is
+  unused outside of unit tests in `pkg/knowledge`. The existing shape is
+  also incompatible with the multi-station catalog we want (it treats
+  `base_id` as a column on a row keyed by `id`, so the same template at
+  a second station would collide on PK). Migration 28 drops and recreates
+  the tables, and the old API + tests are deleted as part of this work.
 - The raw `get_missions` JSON is already cached to
   `data/game-api/YYYYMMDD/get_missions.json` by the client's response
   handler (`pkg/game/client.go:2984`).
@@ -40,7 +45,9 @@ command (`update_missions`) to capture the catalog on demand and wire it into
 - Any frontend/observer UI for the change warnings. Warnings are log-only
   (stderr) plus the summary printed by `play_as update_missions`.
 
-## Schema — migration 15
+## Schema — migration 28
+
+*(Highest existing migration in `pkg/knowledge/sqlite_migrations.go` is 27.)*
 
 Drop and recreate `mission_templates` and `mission_objectives`; add a new
 `mission_template_locations` child table.
@@ -184,25 +191,13 @@ upserted and never produce diffs.
 Mirrors the SQLite logic against an in-memory map keyed by template id. Used
 by tests and by agents running without a SQLite backend.
 
-## Wiring: `pkg/game/client.go`
+## Wiring
 
-In the existing `get_missions` handling path, after the raw JSON has been
-cached, unmarshal `resp.Payload` into `serverapi.GetMissionsResponse` and,
-for each entry with non-empty `TemplateID`, call
-`c.knowledge.UpsertMissionTemplate` with `resp.Payload["base_id"]` and the
-current system id, using the client's current tick.
-
-On any result with non-empty `Diffs`, log a warning via the client's logger:
-
-```
-mission template %s changed at base %s: field=%s old=%q new=%q
-```
-
-One log line per field diff. Procedural entries (empty `TemplateID`) are
-silently skipped (counted only in a debug log).
-
-The client already holds a knowledge base reference; if this particular
-client build has no KB configured, the upsert call is skipped.
+The `pkg/game` client does not hold a knowledge base reference (matching the
+existing pattern for `kbUpdateStation`, `kbUpdateFacilities`, etc.). All
+catalog writes happen from `play_as` via `globalKB` in the explicit
+`update_missions` command described below. There is no change to
+`pkg/game/client.go`.
 
 ## `play_as` command: `update_missions`
 
@@ -271,7 +266,7 @@ Help text in `main.go:3849`:
 1. **Procedural missions:** skip for now (no catalog row).
 2. **Warning surface:** stderr log + stdout summary in `play_as`. No
    frontend event.
-3. **Extend existing table:** yes, via drop/recreate in migration 15 since
+3. **Extend existing table:** yes, via drop/recreate in migration 28 since
    the table is empty in production.
 4. **Location multiplicity:** separate child table
    `mission_template_locations`, since SQLite has no repeated columns.
