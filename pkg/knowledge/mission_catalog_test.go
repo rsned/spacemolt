@@ -174,3 +174,112 @@ func TestMemoryKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
 		t.Fatalf("expected unchanged re-sighting at a new base, got %+v", res)
 	}
 }
+
+func TestSQLiteKB_UpsertMissionTemplate_InsertAndReinsert(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+		Type:       "mining",
+		Difficulty: 1,
+		Objectives: []serverapi.MissionObjective{
+			{Type: "mine_resource", Description: "Mine 30 iron", ItemID: "iron_ore", Quantity: 30},
+		},
+		Rewards: &serverapi.MissionRewards{
+			Credits: 1500,
+			SkillXP: map[string]int{"mining": 15},
+		},
+	}
+
+	res, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 100)
+	if err != nil {
+		t.Fatalf("upsert1: %v", err)
+	}
+	if !res.Inserted || len(res.Diffs) != 0 {
+		t.Fatalf("expected insert with no diffs, got %+v", res)
+	}
+
+	res2, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 200)
+	if err != nil {
+		t.Fatalf("upsert2: %v", err)
+	}
+	if res2.Inserted || len(res2.Diffs) != 0 {
+		t.Fatalf("expected unchanged re-insert, got %+v", res2)
+	}
+}
+
+func TestSQLiteKB_UpsertMissionTemplate_DetectsChanges(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+	}
+	if _, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 100); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	entry.Title = "Iron Run (updated)"
+	entry.Objectives = []serverapi.MissionObjective{
+		{Type: "mine_resource", Description: "Mine 40 iron", ItemID: "iron_ore", Quantity: 40},
+	}
+	res, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 200)
+	if err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	if res.Inserted {
+		t.Fatalf("expected update, not insert")
+	}
+	fields := map[string]bool{}
+	for _, d := range res.Diffs {
+		fields[d.Field] = true
+	}
+	if !fields["title"] || !fields["objectives"] {
+		t.Fatalf("expected title and objectives diffs, got %+v", res.Diffs)
+	}
+
+	var stored string
+	row := kb.db.QueryRow("SELECT title FROM mission_templates WHERE id = ?", "iron_supply_run")
+	if err := row.Scan(&stored); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if stored != "Iron Run (updated)" {
+		t.Fatalf("title not persisted, got %q", stored)
+	}
+
+	var count int
+	if err := kb.db.QueryRow("SELECT COUNT(*) FROM mission_objectives WHERE mission_id = ?", "iron_supply_run").Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 objective row, got %d", count)
+	}
+}
+
+func TestSQLiteKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+	}
+	if _, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 100); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	if _, err := kb.UpsertMissionTemplate(ctx, entry, "market_prime_exchange", "market_prime", 200); err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	var count int
+	if err := kb.db.QueryRow("SELECT COUNT(*) FROM mission_template_locations WHERE mission_id = ?", "iron_supply_run").Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 location rows, got %d", count)
+	}
+}
