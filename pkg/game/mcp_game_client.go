@@ -977,6 +977,24 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 			}
 		}
 	}
+		if payload.Modules != nil {
+			// Parse module definitions from get_ship response
+			var modules []serverapi.ShipModule
+			if err := json.Unmarshal(payload.Modules, &modules); err == nil {
+				if m.state.ModuleDefinitions == nil {
+					m.state.ModuleDefinitions = make(map[string]ModuleDefinition)
+				}
+				for _, extMod := range modules {
+					if extMod.ID != "" {
+						m.state.ModuleDefinitions[extMod.ID] = ModuleDefinitionFromShipModule(extMod)
+						if m.debug {
+							m.logger.Printf("[MCP DEBUG] Parsed module %s: %s (type_id: %s)", extMod.ID, extMod.Name, extMod.TypeID)
+						}
+					}
+				}
+			}
+		}
+
 
 	if payload.Nearby != nil {
 		var nearby []NearbyPlayer
