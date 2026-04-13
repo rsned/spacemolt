@@ -116,8 +116,10 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 			X: poiResp.POI.Position.X,
 			Y: poiResp.POI.Position.Y,
 		},
-		Services:        poiResp.Services,
-		LastUpdatedTick: currentTick(state),
+		Services:         poiResp.Services,
+		Hidden:            poiResp.POI.Hidden,
+		RevealDifficulty:  poiResp.POI.RevealDifficulty,
+		LastUpdatedTick:   currentTick(state),
 	}
 
 	// Extract resources if present.

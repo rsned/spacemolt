@@ -282,26 +282,13 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 			Description:     revealed.Description,
 			LastUpdatedTick: tick,
 		}
-		// Convert survey resources to game POI resources
+		// Copy survey resources to game POI resources. Server now returns
+		// numeric richness/remaining directly (not string tier labels).
 		for _, sr := range revealed.Resources {
-			var richness float64
-			// Map richness string to numeric value
-			switch sr.Richness {
-			case "very_rich":
-				richness = 5
-			case "rich":
-				richness = 4
-			case "moderate":
-				richness = 3
-			case "poor":
-				richness = 2
-			case "depleted":
-				richness = 1
-			}
 			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
 				ResourceID: sr.ResourceID,
-				Richness:   richness,
-				Remaining:  float64(sr.Remaining),
+				Richness:   sr.Richness,
+				Remaining:  sr.Remaining,
 			})
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {

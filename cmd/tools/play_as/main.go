@@ -1962,6 +1962,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "survey":
 		return simpleCommand(client, client.SurveySystem, ctx, 15*time.Second, cmd, format)
 
+	case "survey_system":
+		// Rich survey: loop until no more hidden POIs are revealed, store
+		// newly revealed POIs (with resource data) to the KB, and report
+		// aggregate XP gained.
+		surveySystem(client, ctx)
+		return nil
+
 	// === COMBAT ===
 	case "attack":
 		if len(parts) < 2 {

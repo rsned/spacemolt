@@ -149,11 +149,11 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	return nil
 }
 
-// Any newly revealed POIs are saved to the knowledge base.
-// surveySystem runs survey_system if the ship has a survey scanner module installed.
-// Any newly revealed POIs are saved to the knowledge base.
-// surveySystem runs survey_system if the ship has a survey scanner module installed.
-// Any newly revealed POIs are saved to the knowledge base.
+// surveySystem runs survey_system if the ship has a survey scanner module
+// installed. It repeats until no more hidden POIs are revealed, captures all
+// newly revealed POIs (including full resource data) into the knowledge base,
+// enriches each revealed POI via get_poi so reveal_difficulty/hidden flags
+// land in SQLite, and prints a summary of aggregate XP gained.
 func surveySystem(client game.GameClient, ctx context.Context) {
 	state := client.GetState()
 
@@ -163,90 +163,122 @@ func surveySystem(client game.GameClient, ctx context.Context) {
 	}
 
 	fmt.Printf("\nSurveying system with survey scanner...\n")
-	if err := client.SurveySystem(ctx); err != nil {
-		fmt.Printf("  Survey failed: %v\n", err)
-		return
-	}
-	time.Sleep(game.SleepQuick)
 
-	rawJSON := client.GetRawJSON("_last")
-	if rawJSON == nil {
-		fmt.Printf("  Survey complete (no response data)\n")
-		return
-	}
-
-	var resp serverapi.SurveySystemResponse
-	if err := json.Unmarshal(rawJSON, &resp); err != nil {
-		fmt.Printf("  Failed to parse survey response: %v\n", err)
-		return
-	}
-
-	fmt.Printf("  Survey power: %d | System: %s\n", resp.SurveyPower, resp.SystemName)
-
-	if len(resp.NewlyRevealed) > 0 {
-		fmt.Printf("  Newly revealed POIs:\n")
-		for _, poi := range resp.NewlyRevealed {
-			fmt.Printf("    + %s (%s)\n", poi.Name, poi.Type)
-			if poi.Description != "" {
-				fmt.Printf("      %s\n", poi.Description)
-			}
-			for _, r := range poi.Resources {
-				fmt.Printf("      Resource: %s (richness: %s)\n", r.ResourceID, r.Richness)
-			}
+	totalXP := make(map[string]int)
+	iteration := 0
+	for {
+		iteration++
+		if err := client.SurveySystem(ctx); err != nil {
+			fmt.Printf("  Survey failed: %v\n", err)
+			return
 		}
-		// Save newly revealed POIs to the knowledge base.
-		if globalKB != nil {
-			saveSurveyPOIs(client, ctx, resp)
+		time.Sleep(game.SleepQuick)
+
+		rawJSON := client.GetRawJSON("_last")
+		if rawJSON == nil {
+			fmt.Printf("  Survey complete (no response data)\n")
+			return
 		}
-	}
 
-	if len(resp.AlreadyRevealed) > 0 {
-		fmt.Printf("  Already revealed: %d POIs\n", len(resp.AlreadyRevealed))
-	}
-
-	if len(resp.FaintSignatures) > 0 {
-		fmt.Printf("  Faint signatures detected:\n")
-		for _, sig := range resp.FaintSignatures {
-			hint := sig.Hint
-			if hint == "" {
-				hint = "unknown"
-			}
-			fmt.Printf("    ? %s (difficulty: %d, hint: %s)\n", sig.Type, sig.Difficulty, hint)
+		var resp serverapi.SurveySystemResponse
+		if err := json.Unmarshal(rawJSON, &resp); err != nil {
+			fmt.Printf("  Failed to parse survey response: %v\n", err)
+			return
 		}
-	}
 
-	if resp.XPGained != nil {
-		var xpParts []string
+		if iteration == 1 {
+			fmt.Printf("  Survey power: %d | System: %s\n", resp.SurveyPower, resp.SystemName)
+		} else {
+			fmt.Printf("  Re-survey #%d (checking for additional hidden POIs)...\n", iteration)
+		}
+
+		// Accumulate XP across iterations.
 		for skill, xp := range resp.XPGained {
+			totalXP[skill] += xp
+		}
+
+		if len(resp.NewlyRevealed) > 0 {
+			fmt.Printf("  Newly revealed POIs:\n")
+			for _, poi := range resp.NewlyRevealed {
+				fmt.Printf("    + %s (%s)\n", poi.Name, poi.Type)
+				if poi.Description != "" {
+					fmt.Printf("      %s\n", poi.Description)
+				}
+				for _, r := range poi.Resources {
+					fmt.Printf("      Resource: %s (richness: %.0f, remaining: %.0f/%.0f)\n",
+						r.ResourceID, r.Richness, r.Remaining, r.MaxRemaining)
+				}
+			}
+			if globalKB != nil {
+				saveSurveyPOIs(client, ctx, resp)
+			}
+		}
+
+		if len(resp.AlreadyRevealed) > 0 && iteration == 1 {
+			fmt.Printf("  Already revealed: %d POIs\n", len(resp.AlreadyRevealed))
+		}
+
+		if len(resp.FaintSignatures) > 0 {
+			fmt.Printf("  Faint signatures detected:\n")
+			for _, sig := range resp.FaintSignatures {
+				hint := sig.Hint
+				if hint == "" {
+					hint = "unknown"
+				}
+				fmt.Printf("    ? %s (difficulty: %d, hint: %s)\n", sig.Type, sig.Difficulty, hint)
+			}
+		}
+
+		if resp.Message != "" {
+			fmt.Printf("  %s\n", resp.Message)
+		}
+
+		// Stop if nothing new was revealed this pass.
+		if len(resp.NewlyRevealed) == 0 {
+			break
+		}
+		// Safety cap — shouldn't be needed, but avoid a runaway loop.
+		if iteration >= 10 {
+			fmt.Printf("  (hit survey iteration cap of 10, stopping)\n")
+			break
+		}
+	}
+
+	if len(totalXP) > 0 {
+		var xpParts []string
+		for skill, xp := range totalXP {
 			if xp > 0 {
 				xpParts = append(xpParts, fmt.Sprintf("%s +%d", skill, xp))
 			}
 		}
 		if len(xpParts) > 0 {
-			fmt.Printf("  XP: %s\n", strings.Join(xpParts, ", "))
+			fmt.Printf("  Total XP gained from survey: %s\n", strings.Join(xpParts, ", "))
 		}
-	}
-
-	if resp.Message != "" {
-		fmt.Printf("  %s\n", resp.Message)
 	}
 }
 
-// saveSurveyPOIs saves newly revealed POIs from a survey to the knowledge base.
+// saveSurveyPOIs saves newly revealed POIs from a survey to the knowledge
+// base, preserving full resource data and explicitly marking them as revealed.
+// reveal_difficulty is not included in the survey response; it will be picked
+// up later when the agent visits the POI and runs update_poi.
 func saveSurveyPOIs(client game.GameClient, ctx context.Context, resp serverapi.SurveySystemResponse) {
 	state := client.GetState()
 	for _, revealed := range resp.NewlyRevealed {
 		kbPOI := knowledge.POI{
-			ID:              revealed.ID,
-			SystemID:        resp.SystemID,
-			Name:            revealed.Name,
-			Type:            revealed.Type,
-			Description:     revealed.Description,
+			ID:          revealed.ID,
+			SystemID:    resp.SystemID,
+			Name:        revealed.Name,
+			Type:        revealed.Type,
+			Description: revealed.Description,
+			// The POI was just revealed by this survey — it is no longer hidden.
+			Hidden:          false,
 			LastUpdatedTick: currentTick(state),
 		}
 		for _, r := range revealed.Resources {
 			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
 				ResourceID: r.ResourceID,
+				Richness:   r.Richness,
+				Remaining:  r.Remaining,
 			})
 		}
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {

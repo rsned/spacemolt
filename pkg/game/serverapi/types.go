@@ -832,9 +832,9 @@ type RevealedPOI struct {
 type SurveyResource struct {
 	ResourceID       string  `json:"resource_id"`
 	Name             string  `json:"name,omitempty"`
-	Richness         string  `json:"richness,omitempty"`
-	Remaining        int     `json:"remaining,omitempty"`
-	MaxRemaining     int     `json:"max_remaining,omitempty"`
+	Richness         float64 `json:"richness,omitempty"`
+	Remaining        float64 `json:"remaining,omitempty"`
+	MaxRemaining     float64 `json:"max_remaining,omitempty"`
 	RemainingDisplay string  `json:"remaining_display,omitempty"`
 	DepletionPercent float64 `json:"depletion_percent,omitempty"`
 }
