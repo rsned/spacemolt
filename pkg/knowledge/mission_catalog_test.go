@@ -88,3 +88,89 @@ func TestMissionRowFromEntry_EncodesMaps(t *testing.T) {
 		t.Fatalf("xp mismatch: %+v", xp)
 	}
 }
+
+func TestMemoryKB_UpsertMissionTemplate_Insert(t *testing.T) {
+	kb := NewMemoryKB()
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+		Type:       "mining",
+	}
+	res, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 100)
+	if err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	if !res.Inserted || len(res.Diffs) != 0 {
+		t.Fatalf("expected insert with no diffs, got %+v", res)
+	}
+}
+
+func TestMemoryKB_UpsertMissionTemplate_UnchangedReinsert(t *testing.T) {
+	kb := NewMemoryKB()
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+	}
+	if _, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 100); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+	res, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 200)
+	if err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+	if res.Inserted {
+		t.Fatalf("expected Inserted=false on second call")
+	}
+	if len(res.Diffs) != 0 {
+		t.Fatalf("expected no diffs, got %+v", res.Diffs)
+	}
+}
+
+func TestMemoryKB_UpsertMissionTemplate_ChangedTitle(t *testing.T) {
+	kb := NewMemoryKB()
+	ctx := t.Context()
+	original := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+	}
+	if _, err := kb.UpsertMissionTemplate(ctx, original, "grand_exchange_station", "haven", 100); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+	changed := original
+	changed.Title = "Iron Run (updated)"
+	res, err := kb.UpsertMissionTemplate(ctx, changed, "grand_exchange_station", "haven", 200)
+	if err != nil {
+		t.Fatalf("second upsert: %v", err)
+	}
+	if res.Inserted {
+		t.Fatalf("expected Inserted=false")
+	}
+	if len(res.Diffs) != 1 || res.Diffs[0].Field != "title" {
+		t.Fatalf("expected title diff, got %+v", res.Diffs)
+	}
+}
+
+func TestMemoryKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
+	kb := NewMemoryKB()
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{
+		MissionID:  "iron_supply_run",
+		TemplateID: "iron_supply_run",
+		Title:      "Iron Supply Run",
+	}
+	if _, err := kb.UpsertMissionTemplate(ctx, entry, "grand_exchange_station", "haven", 100); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	res, err := kb.UpsertMissionTemplate(ctx, entry, "market_prime_exchange", "market_prime", 200)
+	if err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	if res.Inserted || len(res.Diffs) != 0 {
+		t.Fatalf("expected unchanged re-sighting at a new base, got %+v", res)
+	}
+}

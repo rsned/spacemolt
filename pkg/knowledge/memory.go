@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // MemoryKB is an in-memory knowledge base for MVP
@@ -40,6 +41,20 @@ type MemoryKB struct {
 
 	// XP observations
 	xpObservations []XPObservation
+
+	// Mission catalog
+	missionCatalog   map[string]missionCatalogRow                // template_id -> row
+	missionLocations map[string]map[string]missionLocationRecord // template_id -> base_id -> record
+}
+
+// missionLocationRecord tracks where a mission template has been sighted.
+type missionLocationRecord struct {
+	BaseID        string
+	SystemID      string
+	FirstSeenTick int64
+	LastSeenTick  int64
+	FirstSeenAt   time.Time
+	LastSeenAt    time.Time
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
@@ -62,6 +77,8 @@ func NewMemoryKB() *MemoryKB {
 		playerSkills:     make(map[string][]PlayerSkillRecord),
 		ships:            make(map[string]ShipRecord),
 		storageSnapshots: make(map[string]StorageSnapshot),
+		missionCatalog:   make(map[string]missionCatalogRow),
+		missionLocations: make(map[string]map[string]missionLocationRecord),
 	}
 }
 
@@ -1149,4 +1166,50 @@ func (kb *MemoryKB) GetXPSummary(_ context.Context) ([]XPSummaryRow, error) {
 		})
 	}
 	return result, nil
+}
+
+// UpsertMissionTemplate implements Base.
+func (kb *MemoryKB) UpsertMissionTemplate(
+	ctx context.Context,
+	entry serverapi.MissionBoardEntry,
+	baseID, systemID string,
+	tick int64,
+) (*MissionUpsertResult, error) {
+	_ = ctx
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	row := missionRowFromEntry(entry)
+	res := &MissionUpsertResult{}
+	now := time.Now().UTC()
+
+	if existing, ok := kb.missionCatalog[row.ID]; ok {
+		if diffs := diffMissionRows(existing, row); len(diffs) > 0 {
+			res.Diffs = diffs
+			kb.missionCatalog[row.ID] = row
+		}
+	} else {
+		res.Inserted = true
+		kb.missionCatalog[row.ID] = row
+	}
+
+	locs := kb.missionLocations[row.ID]
+	if locs == nil {
+		locs = make(map[string]missionLocationRecord)
+		kb.missionLocations[row.ID] = locs
+	}
+	loc, ok := locs[baseID]
+	if !ok {
+		loc = missionLocationRecord{
+			BaseID:        baseID,
+			SystemID:      systemID,
+			FirstSeenTick: tick,
+			FirstSeenAt:   now,
+		}
+	}
+	loc.LastSeenTick = tick
+	loc.LastSeenAt = now
+	locs[baseID] = loc
+
+	return res, nil
 }

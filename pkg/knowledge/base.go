@@ -3,6 +3,8 @@ package knowledge
 import (
 	"context"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // Base provides the KB interface for both SQLite and in-memory implementations
@@ -123,6 +125,16 @@ type Base interface {
 	RecordXPObservation(ctx context.Context, obs XPObservation) error
 	GetXPObservations(ctx context.Context, action string, limit int) ([]XPObservation, error)
 	GetXPSummary(ctx context.Context) ([]XPSummaryRow, error)
+
+	// Mission catalog: stores a global catalog of hand-authored mission templates
+	// observed at mission boards, keyed by template_id. Returns diffs when an
+	// existing row's catalog fields have changed.
+	UpsertMissionTemplate(
+		ctx context.Context,
+		entry serverapi.MissionBoardEntry,
+		baseID, systemID string,
+		tick int64,
+	) (*MissionUpsertResult, error)
 }
 
 // MarketListing represents a single market listing
