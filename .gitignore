@@ -127,3 +127,4 @@ docs/*.md
 .claude/
 .gemini/
 
+.worktrees/
