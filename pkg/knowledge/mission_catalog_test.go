@@ -1,6 +1,8 @@
 package knowledge
 
 import (
+	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 
@@ -281,5 +283,60 @@ func TestSQLiteKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("expected 2 location rows, got %d", count)
+	}
+}
+
+func TestUpsertMissionTemplate_RealFixture(t *testing.T) {
+	raw, err := os.ReadFile("testdata/get_missions.json")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	var resp serverapi.GetMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.BaseID == "" {
+		t.Fatalf("fixture missing base_id")
+	}
+
+	kb := NewMemoryKB()
+	ctx := t.Context()
+
+	var inserted, skipped int
+	for _, entry := range resp.Missions {
+		if entry.TemplateID == "" {
+			skipped++
+			continue
+		}
+		res, err := kb.UpsertMissionTemplate(ctx, entry, resp.BaseID, "haven", 100)
+		if err != nil {
+			t.Fatalf("upsert %s: %v", entry.MissionID, err)
+		}
+		if res.Inserted {
+			inserted++
+		}
+	}
+	if inserted == 0 {
+		t.Fatalf("expected at least one non-procedural mission to be inserted")
+	}
+	if skipped == 0 {
+		t.Fatalf("expected at least one procedural mission to be skipped")
+	}
+
+	// Re-run and confirm stability: no new inserts, no diffs.
+	for _, entry := range resp.Missions {
+		if entry.TemplateID == "" {
+			continue
+		}
+		res, err := kb.UpsertMissionTemplate(ctx, entry, resp.BaseID, "haven", 200)
+		if err != nil {
+			t.Fatalf("re-upsert %s: %v", entry.MissionID, err)
+		}
+		if res.Inserted {
+			t.Fatalf("%s: unexpected insert on re-run", entry.MissionID)
+		}
+		if len(res.Diffs) != 0 {
+			t.Fatalf("%s: unexpected diffs on re-run: %+v", entry.MissionID, res.Diffs)
+		}
 	}
 }
