@@ -802,12 +802,12 @@ func formatMarket(raw []byte) string {
 		BuyOrders []struct {
 			PriceEach float64 `json:"price_each"`
 			Quantity  float64 `json:"quantity"`
-			Source    string `json:"source,omitempty"`
+			Source    string  `json:"source,omitempty"`
 		} `json:"buy_orders"`
 		SellOrders []struct {
 			PriceEach float64 `json:"price_each"`
 			Quantity  float64 `json:"quantity"`
-			Source    string `json:"source,omitempty"`
+			Source    string  `json:"source,omitempty"`
 		} `json:"sell_orders"`
 	}
 
@@ -892,7 +892,7 @@ func formatMarket(raw []byte) string {
 		for len(nameHeader) < maxNameWidth {
 			nameHeader += " "
 		}
-		
+
 		// Pad ID header to max width
 		idHeader := "ID"
 		for len(idHeader) < maxIDWidth {
@@ -902,7 +902,7 @@ func formatMarket(raw []byte) string {
 		// Header row (numeric columns right-aligned with leading tabs)
 		_, _ = fmt.Fprintf(w, "%s\t| %s\t|\tBuy\t|\tQty\t|\tSell\t|\tQty\t|\n",
 			nameHeader, idHeader)
-		
+
 		// Separator row
 		nameSep := strings.Repeat("-", maxNameWidth)
 		idSep := strings.Repeat("-", maxIDWidth)
@@ -965,7 +965,7 @@ func formatMarket(raw []byte) string {
 				for len(emptyID) < maxIDWidth {
 					emptyID += " "
 				}
-				
+
 				_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
 					emptyName, emptyID,
 					buyPrice2, buyQty2,
@@ -1043,8 +1043,8 @@ type shipCatalogEntry struct {
 
 // shipCatalogCache is lazily populated from the ship catalog on first browse_ships.
 var (
-	shipCatalogCache map[string]shipCatalogEntry // keyed by ship class ID
-	shipCatalogOnce  sync.Once
+	shipCatalogCache  map[string]shipCatalogEntry // keyed by ship class ID
+	shipCatalogOnce   sync.Once
 	shipCatalogClient game.GameClient // set before first use
 	// Survey scanner cache - only check modules when ship might change
 	surveyScannerCached bool
@@ -1684,12 +1684,12 @@ func formatDeposit(raw []byte) string {
 func formatSkills(raw []byte) string {
 	var resp struct {
 		Skills map[string]struct {
-			Name       string `json:"name"`
-			Category   string `json:"category"`
-			Level      int    `json:"level"`
-			MaxLevel   int    `json:"max_level"`
-			XP         int    `json:"xp"`
-			NextLvlXP  int    `json:"next_level_xp"`
+			Name      string `json:"name"`
+			Category  string `json:"category"`
+			Level     int    `json:"level"`
+			MaxLevel  int    `json:"max_level"`
+			XP        int    `json:"xp"`
+			NextLvlXP int    `json:"next_level_xp"`
 		} `json:"skills"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
@@ -2010,7 +2010,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "reload", map[string]any{
 				"weapon_instance_id": parts[1],
-				"ammo_item_id":      parts[2],
+				"ammo_item_id":       parts[2],
 			})
 		}, ctx, 3*time.Second, cmd, format)
 
@@ -2424,7 +2424,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 5*time.Second, cmd, format)
 		if err == nil {
 			_ = client.GetShip(ctx) // Refresh ship data for new ship.
-				invalidateSurveyScannerCache()
+			invalidateSurveyScannerCache()
 		}
 		return err
 
@@ -3431,6 +3431,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return kbUpdateStation(client, ctx)
 	case "update_facilities":
 		return kbUpdateFacilities(client, ctx)
+	case "update_missions":
+		return kbUpdateMissions(client, ctx)
 	case "update_all":
 		return kbUpdateAll(client, ctx)
 
@@ -3846,6 +3848,7 @@ func printHelp() {
 	fmt.Println("  update_poi                - Save current POI data to KB")
 	fmt.Println("  update_station            - Save base, market, ships to KB (must be docked)")
 	fmt.Println("  update_facilities         - Save facility details to KB (must be docked)")
+	fmt.Println("  update_missions           - Save mission board templates to KB")
 	fmt.Println("  update_all                - Run all update commands for current location")
 
 	fmt.Println("\n=== OTHER ===")
@@ -3878,10 +3881,10 @@ var chatChannels = []string{"system", "local", "faction"}
 
 // channelColors maps channel names to ANSI color codes for display.
 var channelColors = map[string]string{
-	"system":  "\033[36m",  // cyan
-	"local":   "\033[33m",  // yellow
-	"faction": "\033[35m",  // magenta
-	"private": "\033[32m",  // green
+	"system":  "\033[36m", // cyan
+	"local":   "\033[33m", // yellow
+	"faction": "\033[35m", // magenta
+	"private": "\033[32m", // green
 }
 
 func newChatPoller(client game.GameClient, ctx context.Context, username string) *chatPoller {
