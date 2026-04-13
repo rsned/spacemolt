@@ -664,13 +664,30 @@ type FacilityResponse struct {
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {
-	Action     string             `json:"action"`
-	Hint       string             `json:"hint,omitempty"`
-	Page       int                `json:"page,omitempty"`
-	PerPage    int                `json:"per_page,omitempty"`
-	Total      int                `json:"total,omitempty"`
-	TotalPages int                `json:"total_pages,omitempty"`
-	Types      []FacilityTypeInfo `json:"types,omitempty"`
+	Action             string             `json:"action"`
+	Hint               string             `json:"hint,omitempty"`
+	Page               int                `json:"page,omitempty"`
+	PerPage            int                `json:"per_page,omitempty"`
+	Total              int                `json:"total,omitempty"`
+	TotalPages         int                `json:"total_pages,omitempty"`
+	Types              []FacilityTypeInfo `json:"types,omitempty"`
+	// Single type detail fields (returned when querying a specific type)
+	TypeID             string             `json:"type_id,omitempty"`
+	Name               string             `json:"name,omitempty"`
+	Category           string             `json:"category,omitempty"`
+	Description        string             `json:"description,omitempty"`
+	Level              int                `json:"level,omitempty"`
+	Buildable          bool               `json:"buildable,omitempty"`
+	BuildCost          int                `json:"build_cost,omitempty"`
+	BuildMaterials     []CargoItem        `json:"build_materials,omitempty"`
+	BuildTime          int                `json:"build_time,omitempty"`
+	LaborCost          int                `json:"labor_cost,omitempty"`
+	MaintenancePerCycle []CargoItem       `json:"maintenance_per_cycle,omitempty"`
+	RentPerCycle       int                `json:"rent_per_cycle,omitempty"`
+	RecipeID           string             `json:"recipe_id,omitempty"`
+	Recipe             string             `json:"recipe,omitempty"`
+	UpgradesTo         string             `json:"upgrades_to,omitempty"`
+	UpgradesToName     string             `json:"upgrades_to_name,omitempty"`
 }
 
 // FacilityListResponse wraps the response from facility list command.
