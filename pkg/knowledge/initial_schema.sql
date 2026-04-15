@@ -76,6 +76,14 @@ CREATE TABLE "base_facilities" (
 );
 
 
+-- base_market: production DBs created before 2026-04-15 may instead have
+-- `quantity INTEGER DEFAULT 0` and `is_npc BOOLEAN DEFAULT 0`. The migration
+-- DDL was tightened at some point (NOT NULL, DEFAULT 1) after the original
+-- tables were already live. The drift is cosmetic because every INSERT into
+-- base_market (see pkg/knowledge/sqlite.go RememberBase) provides both
+-- columns explicitly — defaults are never used at runtime. No reconciliation
+-- migration is needed; new DBs get the tightened shape and existing ones
+-- keep working.
 CREATE TABLE base_market (
 	id TEXT PRIMARY KEY,
 	base_id TEXT NOT NULL,
