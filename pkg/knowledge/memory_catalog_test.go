@@ -271,36 +271,6 @@ func TestMemoryKB_GetPlayerShips(t *testing.T) {
 	}
 }
 
-func TestMemoryKB_StoreMissionTemplates(t *testing.T) {
-	kb := NewMemoryKB()
-	ctx := context.Background()
-
-	missions := []MissionTemplate{
-		{ID: "m1", Title: "Mission 1", BaseID: "base-1"},
-		{ID: "m2", Title: "Mission 2", BaseID: "base-1"},
-	}
-	if err := kb.StoreMissionTemplates(ctx, "base-1", missions); err != nil {
-		t.Fatalf("StoreMissionTemplates failed: %v", err)
-	}
-
-	retrieved, err := kb.GetMissionTemplates(ctx, "base-1")
-	if err != nil {
-		t.Fatalf("GetMissionTemplates failed: %v", err)
-	}
-	if len(retrieved) != 2 {
-		t.Errorf("Expected 2 missions, got %d", len(retrieved))
-	}
-
-	// Nonexistent base
-	empty, err := kb.GetMissionTemplates(ctx, "nonexistent")
-	if err != nil {
-		t.Fatalf("GetMissionTemplates nonexistent failed: %v", err)
-	}
-	if len(empty) != 0 {
-		t.Errorf("Expected 0 missions, got %d", len(empty))
-	}
-}
-
 func TestMemoryKB_MarketSnapshots(t *testing.T) {
 	kb := NewMemoryKB()
 	ctx := context.Background()
@@ -380,9 +350,9 @@ func TestMemoryKB_HasMarketSnapshotToday(t *testing.T) {
 	}
 
 	snapshot := MarketSnapshot{
-		SystemID:    "sys-1",
-		StationID:   "station-1",
-		CapturedAt:  time.Now(),
+		SystemID:   "sys-1",
+		StationID:  "station-1",
+		CapturedAt: time.Now(),
 	}
 	if err := kb.StoreMarketSnapshot(ctx, snapshot, "agent-1"); err != nil {
 		t.Fatalf("StoreMarketSnapshot failed: %v", err)

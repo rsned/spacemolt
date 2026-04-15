@@ -264,16 +264,16 @@ func TestSQLiteKB_GetShip(t *testing.T) {
 	ctx := context.Background()
 
 	ship := ShipRecord{
-		ID:        "ship-1",
-		OwnerID:   "player-1",
-		ClassID:   "shuttle",
-		Name:      "My Ship",
-		Hull:      100,
-		MaxHull:   100,
-		MaxFuel:   100,
-		Fuel:      80,
-		Cargo:     []CargoEntry{{ItemID: "iron_ore", Quantity: 10}},
-		Modules:   []ShipModuleRecord{{ID: "mod-1", TypeID: "laser_mk1", Name: "Laser"}},
+		ID:      "ship-1",
+		OwnerID: "player-1",
+		ClassID: "shuttle",
+		Name:    "My Ship",
+		Hull:    100,
+		MaxHull: 100,
+		MaxFuel: 100,
+		Fuel:    80,
+		Cargo:   []CargoEntry{{ItemID: "iron_ore", Quantity: 10}},
+		Modules: []ShipModuleRecord{{ID: "mod-1", TypeID: "laser_mk1", Name: "Laser"}},
 	}
 	if err := kb.StoreShip(ctx, ship); err != nil {
 		t.Fatalf("StoreShip failed: %v", err)
@@ -400,132 +400,6 @@ func TestSQLiteKB_GetPlayerShips(t *testing.T) {
 	}
 	if len(noShips) != 0 {
 		t.Errorf("Expected 0 ships for nonexistent, got %d", len(noShips))
-	}
-}
-
-func TestSQLiteKB_StoreMissionTemplates(t *testing.T) {
-	kb := newTestSQLiteKB(t)
-	defer func() { _ = kb.Close() }()
-
-	ctx := context.Background()
-
-	missions := []MissionTemplate{
-		{
-			ID:             "mission-1",
-			Title:          "Deliver Cargo",
-			Description:    "Deliver 10 iron ore to station",
-			Type:           "delivery",
-			Difficulty:     2,
-			BaseID:         "base-1",
-			GiverName:      "Captain Rex",
-			GiverTitle:     "Station Commander",
-			DialogOffer:    "I need you to deliver some cargo.",
-			ExpiresInTicks: 500,
-			RewardsCredits: 1000,
-			RewardsSkillXP: map[string]int{"trading": 100},
-			Objectives: []MissionObjectiveRecord{
-				{Type: "deliver", Description: "Deliver 10 iron ore", SortOrder: 0},
-				{Type: "return", Description: "Return to station", SortOrder: 1},
-			},
-		},
-	}
-
-	if err := kb.StoreMissionTemplates(ctx, "base-1", missions); err != nil {
-		t.Fatalf("StoreMissionTemplates failed: %v", err)
-	}
-}
-
-func TestSQLiteKB_GetMissionTemplates(t *testing.T) {
-	kb := newTestSQLiteKB(t)
-	defer func() { _ = kb.Close() }()
-
-	ctx := context.Background()
-
-	missions := []MissionTemplate{
-		{
-			ID:             "mission-1",
-			Title:          "Deliver Cargo",
-			Type:           "delivery",
-			Difficulty:     2,
-			BaseID:         "base-1",
-			RewardsCredits: 1000,
-			RewardsSkillXP: map[string]int{"trading": 100},
-			Objectives: []MissionObjectiveRecord{
-				{Type: "deliver", Description: "Deliver items", SortOrder: 0},
-			},
-		},
-		{
-			ID:             "mission-2",
-			Title:          "Eliminate Pirates",
-			Type:           "combat",
-			Difficulty:     5,
-			BaseID:         "base-1",
-			RewardsCredits: 5000,
-		},
-	}
-
-	if err := kb.StoreMissionTemplates(ctx, "base-1", missions); err != nil {
-		t.Fatalf("StoreMissionTemplates failed: %v", err)
-	}
-
-	retrieved, err := kb.GetMissionTemplates(ctx, "base-1")
-	if err != nil {
-		t.Fatalf("GetMissionTemplates failed: %v", err)
-	}
-	if len(retrieved) != 2 {
-		t.Fatalf("Expected 2 missions, got %d", len(retrieved))
-	}
-
-	// Check that objectives are loaded
-	for _, m := range retrieved {
-		if m.ID == "mission-1" && len(m.Objectives) != 1 {
-			t.Errorf("Expected 1 objective for mission-1, got %d", len(m.Objectives))
-		}
-	}
-}
-
-func TestSQLiteKB_GetMissionTemplates_Empty(t *testing.T) {
-	kb := newTestSQLiteKB(t)
-	defer func() { _ = kb.Close() }()
-
-	ctx := context.Background()
-
-	missions, err := kb.GetMissionTemplates(ctx, "nonexistent-base")
-	if err != nil {
-		t.Fatalf("GetMissionTemplates for nonexistent base failed: %v", err)
-	}
-	if len(missions) != 0 {
-		t.Errorf("Expected 0 missions, got %d", len(missions))
-	}
-}
-
-func TestSQLiteKB_StoreMissionTemplates_Replaces(t *testing.T) {
-	kb := newTestSQLiteKB(t)
-	defer func() { _ = kb.Close() }()
-
-	ctx := context.Background()
-
-	missions1 := []MissionTemplate{
-		{ID: "mission-1", Title: "Old Mission", BaseID: "base-1"},
-	}
-	if err := kb.StoreMissionTemplates(ctx, "base-1", missions1); err != nil {
-		t.Fatalf("StoreMissionTemplates 1 failed: %v", err)
-	}
-
-	missions2 := []MissionTemplate{
-		{ID: "mission-2", Title: "New Mission A", BaseID: "base-1"},
-		{ID: "mission-3", Title: "New Mission B", BaseID: "base-1"},
-	}
-	if err := kb.StoreMissionTemplates(ctx, "base-1", missions2); err != nil {
-		t.Fatalf("StoreMissionTemplates 2 failed: %v", err)
-	}
-
-	retrieved, err := kb.GetMissionTemplates(ctx, "base-1")
-	if err != nil {
-		t.Fatalf("GetMissionTemplates failed: %v", err)
-	}
-	if len(retrieved) != 2 {
-		t.Errorf("Expected 2 missions after replacement, got %d", len(retrieved))
 	}
 }
 

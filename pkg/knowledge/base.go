@@ -3,6 +3,8 @@ package knowledge
 import (
 	"context"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // Base provides the KB interface for both SQLite and in-memory implementations
@@ -107,9 +109,6 @@ type Base interface {
 	StoreShip(ctx context.Context, ship ShipRecord) error
 	GetShip(ctx context.Context, shipID string) (*ShipRecord, error)
 	GetPlayerShips(ctx context.Context, playerID string) ([]ShipRecord, error)
-	StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error
-	GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error)
-
 	// Agent wallet
 	UpdateAgentWalletCredits(ctx context.Context, agentID string, credits int) error
 
@@ -126,6 +125,16 @@ type Base interface {
 	RecordXPObservation(ctx context.Context, obs XPObservation) error
 	GetXPObservations(ctx context.Context, action string, limit int) ([]XPObservation, error)
 	GetXPSummary(ctx context.Context) ([]XPSummaryRow, error)
+
+	// Mission catalog: stores a global catalog of hand-authored mission templates
+	// observed at mission boards, keyed by template_id. Returns diffs when an
+	// existing row's catalog fields have changed.
+	UpsertMissionTemplate(
+		ctx context.Context,
+		entry serverapi.MissionBoardEntry,
+		baseID, systemID string,
+		tick int64,
+	) (*MissionUpsertResult, error)
 }
 
 // MarketListing represents a single market listing
@@ -372,13 +381,13 @@ type XPSummaryRow struct {
 
 // ChangeSnapshot records old data when a system, POI, or base change is detected.
 type ChangeSnapshot struct {
-	ID              int64
-	EntityType      string // "system", "poi", "base"
-	EntityID        string
-	SystemID        string
-	ChangeSummary   string // human-readable summary of what changed
-	OldData         string // JSON snapshot of old values
-	DetectedBy      string // agent ID
-	DetectedAtTick  int64
-	DetectedAt      time.Time
+	ID             int64
+	EntityType     string // "system", "poi", "base"
+	EntityID       string
+	SystemID       string
+	ChangeSummary  string // human-readable summary of what changed
+	OldData        string // JSON snapshot of old values
+	DetectedBy     string // agent ID
+	DetectedAtTick int64
+	DetectedAt     time.Time
 }

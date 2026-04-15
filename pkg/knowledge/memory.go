@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // MemoryKB is an in-memory knowledge base for MVP
@@ -16,24 +17,22 @@ type MemoryKB struct {
 	pois            map[string]*POI
 	bases           map[string]*SpaceBase
 	connections     map[string][]SystemConnection // from_system -> []to_system
-	experiences     map[string][]Experience  // agent_id -> experiences
+	experiences     map[string][]Experience       // agent_id -> experiences
 	agents          map[string]*AgentInfo
 	marketSnapshots []MarketSnapshot
-	marketItems     map[string]struct{}      // set of unique item IDs
+	marketItems     map[string]struct{} // set of unique item IDs
 	shipListings    []ShipListings
 
 	// Catalog data
-	items           map[string]CatalogItem
-	shipClasses     map[string]ShipClassDef
-	skills          map[string]Skill
-	recipes         map[string]RecipeDef
+	items       map[string]CatalogItem
+	shipClasses map[string]ShipClassDef
+	skills      map[string]Skill
+	recipes     map[string]RecipeDef
 
 	// Player state
-	players         map[string]PlayerRecord
-	playerSkills    map[string][]PlayerSkillRecord // playerID -> skills
-	ships           map[string]ShipRecord
-	missionsByBase  map[string][]MissionTemplate   // baseID -> missions
-
+	players      map[string]PlayerRecord
+	playerSkills map[string][]PlayerSkillRecord // playerID -> skills
+	ships        map[string]ShipRecord
 	// Storage snapshots: key is "agentID:baseID"
 	storageSnapshots map[string]StorageSnapshot
 
@@ -42,29 +41,44 @@ type MemoryKB struct {
 
 	// XP observations
 	xpObservations []XPObservation
+
+	// Mission catalog
+	missionCatalog   map[string]missionCatalogRow                // template_id -> row
+	missionLocations map[string]map[string]missionLocationRecord // template_id -> base_id -> record
+}
+
+// missionLocationRecord tracks where a mission template has been sighted.
+type missionLocationRecord struct {
+	BaseID        string
+	SystemID      string
+	FirstSeenTick int64
+	LastSeenTick  int64
+	FirstSeenAt   time.Time
+	LastSeenAt    time.Time
 }
 
 // NewMemoryKB creates a new in-memory knowledge base
 func NewMemoryKB() *MemoryKB {
 	return &MemoryKB{
-		systems:         make(map[string]*System),
-		pois:            make(map[string]*POI),
-		bases:           make(map[string]*SpaceBase),
-		connections:     make(map[string][]SystemConnection),
-		experiences:     make(map[string][]Experience),
-		agents:          make(map[string]*AgentInfo),
-		marketSnapshots: make([]MarketSnapshot, 0),
-		marketItems:     make(map[string]struct{}),
-		shipListings:    make([]ShipListings, 0),
-		items:           make(map[string]CatalogItem),
-		shipClasses:     make(map[string]ShipClassDef),
-		skills:          make(map[string]Skill),
-		recipes:         make(map[string]RecipeDef),
-		players:         make(map[string]PlayerRecord),
-		playerSkills:    make(map[string][]PlayerSkillRecord),
-		ships:           make(map[string]ShipRecord),
-		missionsByBase:   make(map[string][]MissionTemplate),
+		systems:          make(map[string]*System),
+		pois:             make(map[string]*POI),
+		bases:            make(map[string]*SpaceBase),
+		connections:      make(map[string][]SystemConnection),
+		experiences:      make(map[string][]Experience),
+		agents:           make(map[string]*AgentInfo),
+		marketSnapshots:  make([]MarketSnapshot, 0),
+		marketItems:      make(map[string]struct{}),
+		shipListings:     make([]ShipListings, 0),
+		items:            make(map[string]CatalogItem),
+		shipClasses:      make(map[string]ShipClassDef),
+		skills:           make(map[string]Skill),
+		recipes:          make(map[string]RecipeDef),
+		players:          make(map[string]PlayerRecord),
+		playerSkills:     make(map[string][]PlayerSkillRecord),
+		ships:            make(map[string]ShipRecord),
 		storageSnapshots: make(map[string]StorageSnapshot),
+		missionCatalog:   make(map[string]missionCatalogRow),
+		missionLocations: make(map[string]map[string]missionLocationRecord),
 	}
 }
 
@@ -272,11 +286,11 @@ func (kb *MemoryKB) RegisterAgent(ctx context.Context, agentID, name, role, empi
 	defer kb.mu.Unlock()
 
 	kb.agents[agentID] = &AgentInfo{
-		ID:      agentID,
-		Name:    name,
-		Role:    role,
-		Empire:  empire,
-		Status:  "active",
+		ID:     agentID,
+		Name:   name,
+		Role:   role,
+		Empire: empire,
+		Status: "active",
 	}
 
 	return nil
@@ -350,13 +364,13 @@ type POI struct {
 
 // SpaceBase represents knowledge about a space station, outpost, base, or fortress
 type SpaceBase struct {
-	ID              string
-	POIID           string // The POI this base is located at
-	Name            string
-	Description     string
-	Story           string // Narrative description of the station
-	Empire          string
-	DefenseLevel    int
+	ID                string
+	POIID             string // The POI this base is located at
+	Name              string
+	Description       string
+	Story             string // Narrative description of the station
+	Empire            string
+	DefenseLevel      int
 	HasDrones         bool
 	PublicAccess      bool
 	PirateRepRequired int
@@ -373,11 +387,11 @@ type SpaceBase struct {
 
 // BaseMarketItem represents an item for sale at a base market
 type BaseMarketItem struct {
-	ID         string
-	ItemID     string
-	PriceEach  float64
-	Quantity   int
-	IsNPC      bool
+	ID        string
+	ItemID    string
+	PriceEach float64
+	Quantity  int
+	IsNPC     bool
 }
 
 // Facility represents a facility at a base with category and level information.
@@ -400,51 +414,51 @@ type Facility struct {
 var FacilityCategoryMapping = map[string]Facility{
 	// === SOLARIAN CONFEDERACY (confederacy_central_command) ===
 	// Service facilities (commercial/visitor services)
-	"grand_solarian_exchange": {ID: "grand_solarian_exchange", Name: "Grand Solarian Exchange", Category: "service", Level: 5},
+	"grand_solarian_exchange":           {ID: "grand_solarian_exchange", Name: "Grand Solarian Exchange", Category: "service", Level: 5},
 	"confederacy_administrative_bureau": {ID: "confederacy_administrative_bureau", Name: "Solarian Admin Bureau", Category: "service", Level: 5},
-	"confederacy_bonded_warehouse":     {ID: "confederacy_bonded_warehouse", Name: "Solarian Bonded Warehouse", Category: "service", Level: 5},
-	"solarian_precision_drydock":       {ID: "solarian_precision_drydock", Name: "Precision Drydock", Category: "service", Level: 5},
-	"solarian_naval_shipyard":          {ID: "solarian_naval_shipyard", Name: "Naval Shipyard", Category: "service", Level: 5},
-	"solarian_research_labs":           {ID: "solarian_research_labs", Name: "Research Labs", Category: "service", Level: 5},
+	"confederacy_bonded_warehouse":      {ID: "confederacy_bonded_warehouse", Name: "Solarian Bonded Warehouse", Category: "service", Level: 5},
+	"solarian_precision_drydock":        {ID: "solarian_precision_drydock", Name: "Precision Drydock", Category: "service", Level: 5},
+	"solarian_naval_shipyard":           {ID: "solarian_naval_shipyard", Name: "Naval Shipyard", Category: "service", Level: 5},
+	"solarian_research_labs":            {ID: "solarian_research_labs", Name: "Research Labs", Category: "service", Level: 5},
 
 	// Infrastructure facilities (station systems)
 	"solarian_fusion_plant": {ID: "solarian_fusion_plant", Name: "Solarian Fusion Plant", Category: "infrastructure", Level: 5},
 	"solarian_biosphere":    {ID: "solarian_biosphere", Name: "Solarian Life Support", Category: "infrastructure", Level: 5},
 
 	// Production facilities (manufacturing)
-	"iron_refinery":        {ID: "iron_refinery", Name: "Iron Refinery", Category: "production", Level: 1},
-	"circuit_fabricator":   {ID: "circuit_fabricator", Name: "Circuit Fabricator", Category: "production", Level: 1},
-	"copper_wire_mill":     {ID: "copper_wire_mill", Name: "Copper Wire Mill", Category: "production", Level: 1},
-	"polymer_synthesizer":  {ID: "polymer_synthesizer", Name: "Polymer Synthesizer", Category: "production", Level: 1},
-	"fuel_cell_plant":      {ID: "fuel_cell_plant", Name: "Fuel Cell Plant", Category: "production", Level: 1},
-	"repair_kit_factory":   {ID: "repair_kit_factory", Name: "Repair Kit Factory", Category: "production", Level: 1},
-	"power_cell_assembler": {ID: "power_cell_assembler", Name: "Power Cell Assembler", Category: "production", Level: 1},
+	"iron_refinery":              {ID: "iron_refinery", Name: "Iron Refinery", Category: "production", Level: 1},
+	"circuit_fabricator":         {ID: "circuit_fabricator", Name: "Circuit Fabricator", Category: "production", Level: 1},
+	"copper_wire_mill":           {ID: "copper_wire_mill", Name: "Copper Wire Mill", Category: "production", Level: 1},
+	"polymer_synthesizer":        {ID: "polymer_synthesizer", Name: "Polymer Synthesizer", Category: "production", Level: 1},
+	"fuel_cell_plant":            {ID: "fuel_cell_plant", Name: "Fuel Cell Plant", Category: "production", Level: 1},
+	"repair_kit_factory":         {ID: "repair_kit_factory", Name: "Repair Kit Factory", Category: "production", Level: 1},
+	"power_cell_assembler":       {ID: "power_cell_assembler", Name: "Power Cell Assembler", Category: "production", Level: 1},
 	"sensor_assembly_line":       {ID: "sensor_assembly_line", Name: "Sensor Assembly", Category: "production", Level: 2},
 	"solarian_biosphere_kitchen": {ID: "solarian_biosphere_kitchen", Name: "Solarian Galley", Category: "production", Level: 1},
 	"solarian_fuel_grid":         {ID: "solarian_fuel_grid", Name: "Solarian Fuel Grid", Category: "production", Level: 5},
 
 	// === NEBULA COLLECTIVE (grand_exchange_station) ===
 	// Service facilities
-	"haven_grand_bazaar":    {ID: "haven_grand_bazaar", Name: "Grand Bazaar", Category: "service", Level: 5},
-	"haven_promenade":       {ID: "haven_promenade", Name: "Promenade", Category: "service", Level: 5},
-	"haven_repair_complex":  {ID: "haven_repair_complex", Name: "Repair Complex", Category: "service", Level: 5},
-	"haven_fuel_plaza":      {ID: "haven_fuel_plaza", Name: "Fuel Plaza", Category: "service", Level: 5},
-	"haven_ship_showroom":   {ID: "haven_ship_showroom", Name: "Ship Showroom", Category: "service", Level: 5},
-	"haven_makers_market":   {ID: "haven_makers_market", Name: "Makers Market", Category: "service", Level: 5},
+	"haven_grand_bazaar":     {ID: "haven_grand_bazaar", Name: "Grand Bazaar", Category: "service", Level: 5},
+	"haven_promenade":        {ID: "haven_promenade", Name: "Promenade", Category: "service", Level: 5},
+	"haven_repair_complex":   {ID: "haven_repair_complex", Name: "Repair Complex", Category: "service", Level: 5},
+	"haven_fuel_plaza":       {ID: "haven_fuel_plaza", Name: "Fuel Plaza", Category: "service", Level: 5},
+	"haven_ship_showroom":    {ID: "haven_ship_showroom", Name: "Ship Showroom", Category: "service", Level: 5},
+	"haven_makers_market":    {ID: "haven_makers_market", Name: "Makers Market", Category: "service", Level: 5},
 	"haven_trade_commission": {ID: "haven_trade_commission", Name: "Trade Commission", Category: "service", Level: 5},
 	"haven_premium_storage":  {ID: "haven_premium_storage", Name: "Premium Storage", Category: "service", Level: 5},
-	"haven_cipher_foundry":    {ID: "haven_cipher_foundry", Name: "Trade Cipher Foundry", Category: "service", Level: 5},
+	"haven_cipher_foundry":   {ID: "haven_cipher_foundry", Name: "Trade Cipher Foundry", Category: "service", Level: 5},
 
 	// Infrastructure facilities
-	"nebula_solar_array":  {ID: "nebula_solar_array", Name: "Nebula Solar Array", Category: "infrastructure", Level: 5},
-	"haven_ecosync":       {ID: "haven_ecosync", Name: "Nebula Life Support", Category: "infrastructure", Level: 5},
+	"nebula_solar_array": {ID: "nebula_solar_array", Name: "Nebula Solar Array", Category: "infrastructure", Level: 5},
+	"haven_ecosync":      {ID: "haven_ecosync", Name: "Nebula Life Support", Category: "infrastructure", Level: 5},
 
 	// === VOIDBORN (central_nexus) ===
 	// Service facilities
 	"void_nexus_exchange": {ID: "void_nexus_exchange", Name: "Void Nexus Exchange", Category: "service", Level: 5},
 
 	// Infrastructure facilities (Voidborn station systems)
-	"null_energy_tap":                 {ID: "null_energy_tap", Name: "Null Energy Tap", Category: "infrastructure", Level: 5},
+	"null_energy_tap":           {ID: "null_energy_tap", Name: "Null Energy Tap", Category: "infrastructure", Level: 5},
 	"null_atmosphere_processor": {ID: "null_atmosphere_processor", Name: "Voidborn Atmosphere", Category: "infrastructure", Level: 5},
 	"dimensional_vault":         {ID: "dimensional_vault", Name: "Dimensional Vault", Category: "infrastructure", Level: 5},
 	"void_energy_dispenser":     {ID: "void_energy_dispenser", Name: "Energy Dispenser", Category: "infrastructure", Level: 5},
@@ -463,31 +477,31 @@ var FacilityCategoryMapping = map[string]Facility{
 	// === CRIMSON (crimson_war_citadel) ===
 	// Service facilities
 	"fleet_command": {ID: "fleet_command", Name: "Crimson Fleet Command", Category: "service", Level: 5},
-	"war_market":            {ID: "war_market", Name: "War Market", Category: "service", Level: 5},
+	"war_market":    {ID: "war_market", Name: "War Market", Category: "service", Level: 5},
 
 	// Infrastructure facilities
 	"fleet_life_support":     {ID: "fleet_life_support", Name: "Crimson Life Support", Category: "infrastructure", Level: 5},
 	"military_grade_reactor": {ID: "military_grade_reactor", Name: "Crimson Reactor", Category: "infrastructure", Level: 5},
 
 	// Production facilities (Crimson war manufacturing)
-	"alloy_foundry":           {ID: "alloy_foundry", Name: "Alloy Foundry", Category: "production", Level: 5},
-	"crimson_armor_works":     {ID: "crimson_armor_works", Name: "Crimson Armor Works", Category: "production", Level: 5},
-	"fleet_forge_distillery":  {ID: "fleet_forge_distillery", Name: "Crimson Distillery", Category: "production", Level: 5},
-	"fleet_fuel_bunker":       {ID: "fleet_fuel_bunker", Name: "Crimson Fuel Bunker", Category: "production", Level: 5},
-	"fleet_munitions_vault":   {ID: "fleet_munitions_vault", Name: "Munitions Vault", Category: "production", Level: 5},
-	"crimson_war_forge":       {ID: "crimson_war_forge", Name: "Crimson War Forge", Category: "production", Level: 5},
-	"fleet_weapons_forge":     {ID: "fleet_weapons_forge", Name: "Weapons Forge", Category: "production", Level: 5},
+	"alloy_foundry":          {ID: "alloy_foundry", Name: "Alloy Foundry", Category: "production", Level: 5},
+	"crimson_armor_works":    {ID: "crimson_armor_works", Name: "Crimson Armor Works", Category: "production", Level: 5},
+	"fleet_forge_distillery": {ID: "fleet_forge_distillery", Name: "Crimson Distillery", Category: "production", Level: 5},
+	"fleet_fuel_bunker":      {ID: "fleet_fuel_bunker", Name: "Crimson Fuel Bunker", Category: "production", Level: 5},
+	"fleet_munitions_vault":  {ID: "fleet_munitions_vault", Name: "Munitions Vault", Category: "production", Level: 5},
+	"crimson_war_forge":      {ID: "crimson_war_forge", Name: "Crimson War Forge", Category: "production", Level: 5},
+	"fleet_weapons_forge":    {ID: "fleet_weapons_forge", Name: "Weapons Forge", Category: "production", Level: 5},
 
 	// === FRONTIER (frontier_station) ===
 	// Service facilities
-	"frontier_exchange":    {ID: "frontier_exchange", Name: "Frontier Exchange", Category: "service", Level: 1},
-	"the_notice_board":      {ID: "the_notice_board", Name: "Notice Board", Category: "service", Level: 1},
-	"the_magazine_still":    {ID: "the_magazine_still", Name: "Still", Category: "service", Level: 1},
+	"frontier_exchange":  {ID: "frontier_exchange", Name: "Frontier Exchange", Category: "service", Level: 1},
+	"the_notice_board":   {ID: "the_notice_board", Name: "Notice Board", Category: "service", Level: 1},
+	"the_magazine_still": {ID: "the_magazine_still", Name: "Still", Category: "service", Level: 1},
 
 	// Infrastructure facilities
-	"frontier_fuel_siphon":    {ID: "frontier_fuel_siphon", Name: "Fuel Siphon", Category: "infrastructure", Level: 1},
-	"frontier_recycler":  {ID: "frontier_recycler", Name: "Life Support", Category: "infrastructure", Level: 1},
-	"salvage_reactor":    {ID: "salvage_reactor", Name: "Salvage Reactor", Category: "infrastructure", Level: 1},
+	"frontier_fuel_siphon": {ID: "frontier_fuel_siphon", Name: "Fuel Siphon", Category: "infrastructure", Level: 1},
+	"frontier_recycler":    {ID: "frontier_recycler", Name: "Life Support", Category: "infrastructure", Level: 1},
+	"salvage_reactor":      {ID: "salvage_reactor", Name: "Salvage Reactor", Category: "infrastructure", Level: 1},
 
 	// Production facilities (Frontier scavenging/manufacturing)
 	"hull_lockers":          {ID: "hull_lockers", Name: "Hull Lockers", Category: "production", Level: 1},
@@ -508,11 +522,11 @@ type Experience struct {
 
 // AgentInfo holds agent metadata
 type AgentInfo struct {
-	ID      string
-	Name    string
-	Role    string
-	Empire  string
-	Status  string
+	ID     string
+	Name   string
+	Role   string
+	Empire string
+	Status string
 }
 
 // StoreMarketSnapshot stores a market snapshot with its listings
@@ -1034,21 +1048,6 @@ func (kb *MemoryKB) GetPlayerShips(ctx context.Context, playerID string) ([]Ship
 	return ships, nil
 }
 
-func (kb *MemoryKB) StoreMissionTemplates(ctx context.Context, baseID string, missions []MissionTemplate) error {
-	kb.mu.Lock()
-	defer kb.mu.Unlock()
-
-	kb.missionsByBase[baseID] = missions
-	return nil
-}
-
-func (kb *MemoryKB) GetMissionTemplates(ctx context.Context, baseID string) ([]MissionTemplate, error) {
-	kb.mu.RLock()
-	defer kb.mu.RUnlock()
-
-	return kb.missionsByBase[baseID], nil
-}
-
 func (kb *MemoryKB) StoreStorageSnapshot(_ context.Context, snapshot StorageSnapshot) error {
 	kb.mu.Lock()
 	defer kb.mu.Unlock()
@@ -1167,4 +1166,50 @@ func (kb *MemoryKB) GetXPSummary(_ context.Context) ([]XPSummaryRow, error) {
 		})
 	}
 	return result, nil
+}
+
+// UpsertMissionTemplate implements Base.
+func (kb *MemoryKB) UpsertMissionTemplate(
+	ctx context.Context,
+	entry serverapi.MissionBoardEntry,
+	baseID, systemID string,
+	tick int64,
+) (*MissionUpsertResult, error) {
+	_ = ctx
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	row := missionRowFromEntry(entry)
+	res := &MissionUpsertResult{}
+	now := time.Now().UTC()
+
+	if existing, ok := kb.missionCatalog[row.ID]; ok {
+		if diffs := diffMissionRows(existing, row); len(diffs) > 0 {
+			res.Diffs = diffs
+			kb.missionCatalog[row.ID] = row
+		}
+	} else {
+		res.Inserted = true
+		kb.missionCatalog[row.ID] = row
+	}
+
+	locs := kb.missionLocations[row.ID]
+	if locs == nil {
+		locs = make(map[string]missionLocationRecord)
+		kb.missionLocations[row.ID] = locs
+	}
+	loc, ok := locs[baseID]
+	if !ok {
+		loc = missionLocationRecord{
+			BaseID:        baseID,
+			SystemID:      systemID,
+			FirstSeenTick: tick,
+			FirstSeenAt:   now,
+		}
+	}
+	loc.LastSeenTick = tick
+	loc.LastSeenAt = now
+	locs[baseID] = loc
+
+	return res, nil
 }

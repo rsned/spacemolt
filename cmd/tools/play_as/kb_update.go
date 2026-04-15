@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -117,9 +118,9 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 			Y: poiResp.POI.Position.Y,
 		},
 		Services:         poiResp.Services,
-		Hidden:            poiResp.POI.Hidden,
-		RevealDifficulty:  poiResp.POI.RevealDifficulty,
-		LastUpdatedTick:   currentTick(state),
+		Hidden:           poiResp.POI.Hidden,
+		RevealDifficulty: poiResp.POI.RevealDifficulty,
+		LastUpdatedTick:  currentTick(state),
 	}
 
 	// Extract resources if present.
@@ -257,6 +258,9 @@ func kbUpdateAll(client game.GameClient, ctx context.Context) error {
 		if err := kbUpdateFacilities(client, ctx); err != nil {
 			fmt.Printf("Warning: update_facilities: %v\n", err)
 		}
+		if err := kbUpdateMissions(client, ctx); err != nil {
+			fmt.Printf("Warning: update_missions: %v\n", err)
+		}
 	} else {
 		fmt.Println("(Not docked — skipping station/facilities update)")
 	}
@@ -288,10 +292,10 @@ func kbUpdateFacilities(client game.GameClient, ctx context.Context) error {
 	}
 
 	var resp struct {
-		BaseID            string            `json:"base_id"`
-		StationFacilities []facilityDetail  `json:"station_facilities"`
-		PlayerFacilities  []facilityDetail  `json:"player_facilities"`
-		FactionFacilities []facilityDetail  `json:"faction_facilities"`
+		BaseID            string           `json:"base_id"`
+		StationFacilities []facilityDetail `json:"station_facilities"`
+		PlayerFacilities  []facilityDetail `json:"player_facilities"`
+		FactionFacilities []facilityDetail `json:"faction_facilities"`
 	}
 	if err := json.Unmarshal(rawJSON, &resp); err != nil {
 		return fmt.Errorf("failed to parse facility list: %w", err)
@@ -339,6 +343,74 @@ func kbUpdateFacilities(client game.GameClient, ctx context.Context) error {
 	}
 
 	fmt.Printf("Saved %d facilities for %s\n", len(facilities), base.Name)
+	return nil
+}
+
+// kbUpdateMissions fetches the mission board at the current station and upserts
+// each hand-authored (non-procedural) entry into the knowledge-base mission
+// catalog. Procedural missions (empty template_id) are counted and skipped.
+func kbUpdateMissions(client game.GameClient, ctx context.Context) error {
+	if globalKB == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+
+	state := client.GetState()
+	if !state.Doc {
+		fmt.Println("(Not docked — skipping missions update)")
+		return nil
+	}
+
+	if err := client.GetMissions(ctx); err != nil {
+		return fmt.Errorf("get_missions: %w", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	raw := client.GetRawJSON("missions")
+	if len(raw) == 0 {
+		return fmt.Errorf("get_missions returned no data")
+	}
+
+	var resp serverapi.GetMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return fmt.Errorf("parse get_missions response: %w", err)
+	}
+
+	baseID := resp.BaseID
+	if baseID == "" {
+		baseID = state.CurrentPOI
+	}
+	systemID := state.System.ID
+	tick := currentTick(state)
+
+	var inserted, unchanged, changed, skipped int
+	for _, entry := range resp.Missions {
+		if entry.TemplateID == "" {
+			skipped++
+			continue
+		}
+		res, err := globalKB.UpsertMissionTemplate(ctx, entry, baseID, systemID, tick)
+		if err != nil {
+			fmt.Printf("Warning: upsert %s: %v\n", entry.MissionID, err)
+			continue
+		}
+		switch {
+		case res.Inserted:
+			inserted++
+		case len(res.Diffs) > 0:
+			changed++
+			fmt.Printf("Mission template %q changed at %s:\n", entry.TemplateID, baseID)
+			for _, d := range res.Diffs {
+				fmt.Printf("  %s: %q -> %q\n", d.Field, d.OldValue, d.NewValue)
+				fmt.Fprintf(os.Stderr, "mission template %s changed at base %s: field=%s old=%q new=%q\n",
+					entry.TemplateID, baseID, d.Field, d.OldValue, d.NewValue)
+			}
+		default:
+			unchanged++
+		}
+	}
+
+	fmt.Printf("update_missions: %d new, %d unchanged, %d changed, %d procedural skipped\n",
+		inserted, unchanged, changed, skipped)
 	return nil
 }
 
