@@ -75,6 +75,7 @@ type MCPGameClient struct {
 	xpLastXP        map[string]float64 // last known SkillXP
 	xpLastAction    string             // most recent action sent
 	xpLastTarget    string             // most recent action target
+	xpLastQuantity  int                // most recent action quantity (default 1)
 	xpBaselineReady bool               // true once first get_skills refresh has seeded baseline
 	xpMu            sync.Mutex
 }
@@ -354,6 +355,7 @@ func (m *MCPGameClient) callTool(ctx context.Context, toolName string, args map[
 		if m.xpCallback != nil {
 			m.xpLastAction = toolName
 			m.xpLastTarget = extractTargetFromArgs(args)
+			m.xpLastQuantity = extractQuantityFromArgs(args)
 		}
 		m.xpMu.Unlock()
 	}
@@ -1073,6 +1075,7 @@ func (m *MCPGameClient) checkXPChanges() {
 	beforeXP := m.xpLastXP
 	action := m.xpLastAction
 	target := m.xpLastTarget
+	quantity := m.xpLastQuantity
 
 	// Update last known state
 	m.xpLastSkills = currentSkills
@@ -1104,7 +1107,7 @@ func (m *MCPGameClient) checkXPChanges() {
 		return
 	}
 
-	cb(action, target, beforeSkills, currentSkills, beforeXP, currentXP, gameTick)
+	cb(action, target, quantity, beforeSkills, currentSkills, beforeXP, currentXP, gameTick)
 }
 
 // parseMCPPlayer parses a player JSON blob, handling both the standard

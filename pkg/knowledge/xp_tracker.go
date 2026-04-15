@@ -39,7 +39,7 @@ func NewXPTracker(client game.XPCallbackSetter, kb Base, agentID string, logger 
 // It receives both the full Skill map (level+XP) and the flat SkillXP map.
 // The SkillXP map is updated more frequently by the server, so we prefer it
 // for detecting XP changes, falling back to the Skill map for level info.
-func (t *XPTracker) onXPChange(action, target string, beforeSkills, afterSkills map[string]game.Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+func (t *XPTracker) onXPChange(action, target string, quantity int, beforeSkills, afterSkills map[string]game.Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
 	source := "action"
 	var missionID string
 	if action == "complete_mission" {
@@ -79,6 +79,7 @@ func (t *XPTracker) onXPChange(action, target string, beforeSkills, afterSkills 
 			LevelAfter:  levelAfter,
 			GameTick:    gameTick,
 			MissionID:   missionID,
+			Quantity:    quantity,
 		}
 
 		if err := t.kb.RecordXPObservation(ctx, obs); err != nil {
@@ -86,8 +87,8 @@ func (t *XPTracker) onXPChange(action, target string, beforeSkills, afterSkills 
 				t.logger.Printf("Warning: failed to record XP observation for %s: %v", skillID, err)
 			}
 		} else if t.logger != nil {
-			t.logger.Printf("XP change: %s %+.1f XP (level %d->%d) from %s %s",
-				skillID, xpDelta, levelBefore, levelAfter, action, target)
+			t.logger.Printf("XP change: %s %+.1f XP (level %d->%d) from %s %s (qty: %d)",
+				skillID, xpDelta, levelBefore, levelAfter, action, target, quantity)
 		}
 		xpTracked[skillID] = true
 	}
@@ -122,6 +123,7 @@ func (t *XPTracker) onXPChange(action, target string, beforeSkills, afterSkills 
 			LevelAfter:  skillAfter.Level,
 			GameTick:    gameTick,
 			MissionID:   missionID,
+			Quantity:    quantity,
 		}
 
 		if err := t.kb.RecordXPObservation(ctx, obs); err != nil {
@@ -129,8 +131,8 @@ func (t *XPTracker) onXPChange(action, target string, beforeSkills, afterSkills 
 				t.logger.Printf("Warning: failed to record XP observation for %s: %v", skillID, err)
 			}
 		} else if t.logger != nil {
-			t.logger.Printf("XP change: %s %+.1f XP (level %d->%d) from %s %s",
-				skillID, xpDelta, skillBefore.Level, skillAfter.Level, action, target)
+			t.logger.Printf("XP change: %s %+.1f XP (level %d->%d) from %s %s (qty: %d)",
+				skillID, xpDelta, skillBefore.Level, skillAfter.Level, action, target, quantity)
 		}
 	}
 }

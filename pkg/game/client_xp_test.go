@@ -165,10 +165,11 @@ func TestCheckXPChanges_NilBaselines(t *testing.T) {
 				xpLastXP:     tt.beforeXP,
 				xpLastAction: "test_action",
 				xpLastTarget: "test_target",
+				xpLastQuantity: 1,
 			}
 
 			callbackFired := false
-			c.XPCallback = func(action, target string, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+			c.XPCallback = func(action, target string, quantity int, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
 				callbackFired = true
 			}
 
@@ -262,12 +263,13 @@ func TestCheckXPChanges_MultipleSkills(t *testing.T) {
 				xpLastXP:     tt.beforeXP,
 				xpLastAction: "test_action",
 				xpLastTarget: "test_target",
+				xpLastQuantity: 1,
 			}
 
 			callbackFired := false
 			var capturedBeforeXP, capturedAfterXP map[string]float64
 
-			c.XPCallback = func(action, target string, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+			c.XPCallback = func(action, target string, quantity int, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
 				callbackFired = true
 				capturedBeforeXP = beforeXP
 				capturedAfterXP = afterXP
@@ -336,10 +338,11 @@ func TestCheckXPChanges_CallbackStateUpdate(t *testing.T) {
 		xpLastXP:     beforeXP,
 		xpLastAction: "test_action",
 		xpLastTarget: "test_target",
+		xpLastQuantity: 1,
 	}
 
 	callbackFired := false
-	c.XPCallback = func(action, target string, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+	c.XPCallback = func(action, target string, quantity int, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
 		callbackFired = true
 	}
 
@@ -391,7 +394,7 @@ func TestCheckXPChanges_Integration(t *testing.T) {
 
 	// Simulate mission completion response
 	callbackCount := 0
-	c.XPCallback = func(action, target string, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+	c.XPCallback = func(action, target string, quantity int, beforeSkills, afterSkills map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
 		callbackCount++
 		if action != "complete_mission" {
 			t.Errorf("Expected action 'complete_mission', got '%s'", action)

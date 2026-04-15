@@ -718,7 +718,8 @@ CREATE TABLE xp_observations (
     level_after INTEGER NOT NULL,
     game_tick INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    mission_id TEXT DEFAULT NULL
+    mission_id TEXT DEFAULT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1
 );
 
 

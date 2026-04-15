@@ -368,6 +368,7 @@ type XPObservation struct {
 	GameTick    int64
 	CreatedAt   time.Time
 	MissionID   string // empty for non-mission sources
+	Quantity    int    // quantity parameter for the command (default 1)
 }
 
 // XPSummaryRow aggregates XP observations by action and skill.

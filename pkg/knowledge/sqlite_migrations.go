@@ -38,6 +38,14 @@ func migrations() []Migration {
 			name:    "initial_schema",
 			sql:     initialSchemaSQL,
 		},
+		{
+			version: 2,
+			name:    "add_quantity_to_xp_observations",
+			sql: `
+				-- Only add column if it doesn't already exist
+				ALTER TABLE xp_observations ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1;
+			`,
+		},
 	}
 }
 
@@ -64,6 +72,22 @@ func runMigrations(db *sql.DB) error {
 	for _, m := range migrations {
 		if m.version <= currentVersion {
 			continue // Already applied
+		}
+
+		// Special case for migration 2: check if column already exists
+		if m.version == 2 {
+			var colCount int
+			err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('xp_observations') WHERE name='quantity'").Scan(&colCount)
+			if err == nil && colCount > 0 {
+				// Column already exists, just record the migration as applied
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
 		}
 
 		// Run migration in a transaction

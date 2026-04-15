@@ -113,13 +113,14 @@ type Client struct {
 	xpLastXP       map[string]float64 // last known SkillXP
 	xpLastAction   string             // most recent action sent
 	xpLastTarget   string             // most recent action target
+	xpLastQuantity int                // most recent action quantity (default 1)
 	xpMu           sync.Mutex
 }
 
 // XPCallbackFunc is the signature fired after a successful action that
 // (potentially) affected player skill XP. It receives the before/after
 // skill and SkillXP maps so observers can compute deltas.
-type XPCallbackFunc func(action, target string, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64)
+type XPCallbackFunc func(action, target string, quantity int, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64)
 
 // XPCallbackSetter is implemented by game clients that support XP
 // observation callbacks. Both the WebSocket *Client and *MCPGameClient
@@ -573,6 +574,7 @@ func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 		c.xpMu.Lock()
 		c.xpLastAction = msg.Type
 		c.xpLastTarget = extractActionTarget(msg)
+		c.xpLastQuantity = extractQuantityFromArgs(msg.Payload)
 		c.xpMu.Unlock()
 	}
 
@@ -4157,6 +4159,7 @@ func (c *Client) checkXPChanges() {
 	beforeXP := c.xpLastXP
 	action := c.xpLastAction
 	target := c.xpLastTarget
+	quantity := c.xpLastQuantity
 
 	// Update last known state
 	c.xpLastSkills = currentSkills
@@ -4207,7 +4210,7 @@ func (c *Client) checkXPChanges() {
 		return
 	}
 
-	c.XPCallback(action, target, beforeSkills, currentSkills, beforeXP, currentXP, gameTick)
+	c.XPCallback(action, target, quantity, beforeSkills, currentSkills, beforeXP, currentXP, gameTick)
 }
 
 // copySkillMap returns a shallow copy of a skill map.
@@ -4249,4 +4252,35 @@ func extractTargetFromArgs(args map[string]any) string {
 		}
 	}
 	return ""
+}
+
+// extractQuantityFromArgs pulls the quantity parameter from a generic args map.
+// Returns 1 if no quantity is specified (the default for single actions).
+func extractQuantityFromArgs(args map[string]any) int {
+	if len(args) == 0 {
+		return 1
+	}
+	// Check for quantity field
+	if v, ok := args["quantity"]; ok {
+		// Handle different numeric types
+		switch val := v.(type) {
+		case int:
+			if val > 0 {
+				return val
+			}
+		case float64:
+			if val > 0 {
+				return int(val)
+			}
+		case int32:
+			if val > 0 {
+				return int(val)
+			}
+		case int64:
+			if val > 0 {
+				return int(val)
+			}
+		}
+	}
+	return 1 // default to 1 for single actions
 }

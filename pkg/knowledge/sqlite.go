@@ -1627,10 +1627,10 @@ func (kb *SQLiteKB) GetChangeSnapshots(ctx context.Context, systemID string, lim
 // RecordXPObservation inserts a single XP change observation.
 func (kb *SQLiteKB) RecordXPObservation(ctx context.Context, obs XPObservation) error {
 	_, err := kb.db.ExecContext(ctx, `
-		INSERT INTO xp_observations (agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, mission_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO xp_observations (agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, mission_id, quantity)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, obs.AgentID, obs.Action, obs.Target, obs.Source, obs.SkillID,
-		obs.XPDelta, obs.LevelDelta, obs.LevelBefore, obs.LevelAfter, obs.GameTick, obs.MissionID)
+		obs.XPDelta, obs.LevelDelta, obs.LevelBefore, obs.LevelAfter, obs.GameTick, obs.MissionID, obs.Quantity)
 	if err != nil {
 		return fmt.Errorf("failed to insert xp observation: %w", err)
 	}
@@ -1643,7 +1643,7 @@ func (kb *SQLiteKB) GetXPObservations(ctx context.Context, action string, limit 
 	var args []any
 	if action != "" {
 		query = `
-			SELECT id, agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, created_at, COALESCE(mission_id, '')
+			SELECT id, agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, created_at, COALESCE(mission_id, ''), quantity
 			FROM xp_observations
 			WHERE action = ?
 			ORDER BY created_at DESC
@@ -1651,7 +1651,7 @@ func (kb *SQLiteKB) GetXPObservations(ctx context.Context, action string, limit 
 		args = []any{action, limit}
 	} else {
 		query = `
-			SELECT id, agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, created_at, COALESCE(mission_id, '')
+			SELECT id, agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick, created_at, COALESCE(mission_id, ''), quantity
 			FROM xp_observations
 			ORDER BY created_at DESC
 			LIMIT ?`
@@ -1670,7 +1670,7 @@ func (kb *SQLiteKB) GetXPObservations(ctx context.Context, action string, limit 
 		var createdAt string
 		if err := rows.Scan(&o.ID, &o.AgentID, &o.Action, &o.Target, &o.Source,
 			&o.SkillID, &o.XPDelta, &o.LevelDelta, &o.LevelBefore, &o.LevelAfter,
-			&o.GameTick, &createdAt, &o.MissionID); err != nil {
+			&o.GameTick, &createdAt, &o.MissionID, &o.Quantity); err != nil {
 			return nil, fmt.Errorf("failed to scan xp observation: %w", err)
 		}
 		o.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
