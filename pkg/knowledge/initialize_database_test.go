@@ -17,6 +17,7 @@ import (
 // initialize_database.sql in the same format the shell script produces,
 // then byte-compares against what's on disk.
 func TestInitializeDatabaseSQLInSync(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 

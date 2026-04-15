@@ -10,6 +10,7 @@ import (
 )
 
 func TestDiffMissionRows_NoChange(t *testing.T) {
+	t.Parallel()
 	entry := serverapi.MissionBoardEntry{
 		MissionID:  "iron_supply_run",
 		TemplateID: "iron_supply_run",
@@ -25,6 +26,7 @@ func TestDiffMissionRows_NoChange(t *testing.T) {
 }
 
 func TestDiffMissionRows_TitleChanged(t *testing.T) {
+	t.Parallel()
 	a := missionRowFromEntry(serverapi.MissionBoardEntry{
 		MissionID:  "iron_supply_run",
 		TemplateID: "iron_supply_run",
@@ -45,6 +47,7 @@ func TestDiffMissionRows_TitleChanged(t *testing.T) {
 }
 
 func TestDiffMissionRows_ObjectivesChanged(t *testing.T) {
+	t.Parallel()
 	a := missionRowFromEntry(serverapi.MissionBoardEntry{
 		MissionID:  "m",
 		TemplateID: "m",
@@ -68,6 +71,7 @@ func TestDiffMissionRows_ObjectivesChanged(t *testing.T) {
 }
 
 func TestMissionRowFromEntry_EncodesMaps(t *testing.T) {
+	t.Parallel()
 	entry := serverapi.MissionBoardEntry{
 		MissionID:  "m",
 		TemplateID: "m",
@@ -92,6 +96,7 @@ func TestMissionRowFromEntry_EncodesMaps(t *testing.T) {
 }
 
 func TestMemoryKB_UpsertMissionTemplate_Insert(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := t.Context()
 	entry := serverapi.MissionBoardEntry{
@@ -110,6 +115,7 @@ func TestMemoryKB_UpsertMissionTemplate_Insert(t *testing.T) {
 }
 
 func TestMemoryKB_UpsertMissionTemplate_UnchangedReinsert(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := t.Context()
 	entry := serverapi.MissionBoardEntry{
@@ -133,6 +139,7 @@ func TestMemoryKB_UpsertMissionTemplate_UnchangedReinsert(t *testing.T) {
 }
 
 func TestMemoryKB_UpsertMissionTemplate_ChangedTitle(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := t.Context()
 	original := serverapi.MissionBoardEntry{
@@ -158,6 +165,7 @@ func TestMemoryKB_UpsertMissionTemplate_ChangedTitle(t *testing.T) {
 }
 
 func TestMemoryKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := t.Context()
 	entry := serverapi.MissionBoardEntry{
@@ -178,6 +186,7 @@ func TestMemoryKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
 }
 
 func TestSQLiteKB_UpsertMissionTemplate_InsertAndReinsert(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 	ctx := t.Context()
@@ -214,6 +223,7 @@ func TestSQLiteKB_UpsertMissionTemplate_InsertAndReinsert(t *testing.T) {
 }
 
 func TestSQLiteKB_UpsertMissionTemplate_DetectsChanges(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 	ctx := t.Context()
@@ -263,6 +273,7 @@ func TestSQLiteKB_UpsertMissionTemplate_DetectsChanges(t *testing.T) {
 }
 
 func TestSQLiteKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 	ctx := t.Context()
@@ -287,6 +298,7 @@ func TestSQLiteKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
 }
 
 func TestUpsertMissionTemplate_RealFixture(t *testing.T) {
+	t.Parallel()
 	raw, err := os.ReadFile("testdata/get_missions.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)

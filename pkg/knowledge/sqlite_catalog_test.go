@@ -8,6 +8,7 @@ import (
 )
 
 func TestSQLiteKB_StoreItems(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -25,6 +26,7 @@ func TestSQLiteKB_StoreItems(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreItems_Empty(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -45,6 +47,7 @@ func TestSQLiteKB_StoreItems_Empty(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreItems_Replaces(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -80,6 +83,7 @@ func TestSQLiteKB_StoreItems_Replaces(t *testing.T) {
 }
 
 func TestSQLiteKB_GetItem(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -111,6 +115,7 @@ func TestSQLiteKB_GetItem(t *testing.T) {
 }
 
 func TestSQLiteKB_GetItem_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -126,6 +131,7 @@ func TestSQLiteKB_GetItem_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_GetItemsByCategory(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -167,6 +173,7 @@ func TestSQLiteKB_GetItemsByCategory(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreShipClasses(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -211,6 +218,7 @@ func TestSQLiteKB_StoreShipClasses(t *testing.T) {
 }
 
 func TestSQLiteKB_GetShipClass(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -256,6 +264,7 @@ func TestSQLiteKB_GetShipClass(t *testing.T) {
 }
 
 func TestSQLiteKB_GetShipClass_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -271,6 +280,7 @@ func TestSQLiteKB_GetShipClass_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_GetShipClasses(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -301,6 +311,7 @@ func TestSQLiteKB_GetShipClasses(t *testing.T) {
 }
 
 func TestSQLiteKB_GetShipClassesByCategory(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -333,6 +344,7 @@ func TestSQLiteKB_GetShipClassesByCategory(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreRecipes(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -359,6 +371,7 @@ func TestSQLiteKB_StoreRecipes(t *testing.T) {
 }
 
 func TestSQLiteKB_GetRecipe(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -401,6 +414,7 @@ func TestSQLiteKB_GetRecipe(t *testing.T) {
 }
 
 func TestSQLiteKB_GetRecipe_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -416,6 +430,7 @@ func TestSQLiteKB_GetRecipe_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_GetRecipes(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -461,6 +476,7 @@ func TestSQLiteKB_GetRecipes(t *testing.T) {
 }
 
 func TestSQLiteKB_GetRecipesByCategory(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -493,6 +509,7 @@ func TestSQLiteKB_GetRecipesByCategory(t *testing.T) {
 }
 
 func TestSQLiteKB_Catalog_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 

@@ -6,6 +6,7 @@ import (
 )
 
 func TestSkill_GetXPForLevel(t *testing.T) {
+	t.Parallel()
 	skill := Skill{
 		ID:         "mining",
 		Name:       "Mining",
@@ -35,6 +36,7 @@ func TestSkill_GetXPForLevel(t *testing.T) {
 }
 
 func TestSkill_GetXPForLevel_EmptyXPTable(t *testing.T) {
+	t.Parallel()
 	skill := Skill{
 		ID:         "test",
 		MaxLevel:   5,
@@ -47,6 +49,7 @@ func TestSkill_GetXPForLevel_EmptyXPTable(t *testing.T) {
 }
 
 func TestSkill_GetNextLevelXP(t *testing.T) {
+	t.Parallel()
 	skill := Skill{
 		ID:         "mining",
 		Name:       "Mining",
@@ -74,6 +77,7 @@ func TestSkill_GetNextLevelXP(t *testing.T) {
 }
 
 func TestGetStaticSkills(t *testing.T) {
+	t.Parallel()
 	skills := getStaticSkills()
 
 	if len(skills) == 0 {
@@ -108,6 +112,7 @@ func TestGetStaticSkills(t *testing.T) {
 }
 
 func TestGetStaticSkill(t *testing.T) {
+	t.Parallel()
 	// Existing skill
 	s := getStaticSkill("mining")
 	if s == nil {
@@ -131,6 +136,7 @@ func TestGetStaticSkill(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreSkills(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -155,6 +161,7 @@ func TestSQLiteKB_StoreSkills(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSkill(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -201,6 +208,7 @@ func TestSQLiteKB_GetSkill(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSkill_FallbackToStatic(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -218,6 +226,7 @@ func TestSQLiteKB_GetSkill_FallbackToStatic(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSkill_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -232,6 +241,7 @@ func TestSQLiteKB_GetSkill_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSkills(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -252,6 +262,7 @@ func TestSQLiteKB_GetSkills(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSkills_FallbackToStatic(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -263,6 +274,7 @@ func TestSQLiteKB_GetSkills_FallbackToStatic(t *testing.T) {
 }
 
 func TestMemoryKB_GetSkill(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 
 	// No stored skills - should fall back to static
@@ -308,6 +320,7 @@ func TestMemoryKB_GetSkill(t *testing.T) {
 }
 
 func TestMemoryKB_GetSkills(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 
 	// No stored skills - should return static

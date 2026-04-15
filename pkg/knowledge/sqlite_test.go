@@ -29,6 +29,7 @@ func newTestSQLiteKB(t *testing.T) *SQLiteKB {
 }
 
 func TestSQLiteKB_RememberSystem(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -63,6 +64,7 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSystem_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -79,6 +81,7 @@ func TestSQLiteKB_GetSystem_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_RememberConnection(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -121,6 +124,7 @@ func TestSQLiteKB_RememberConnection(t *testing.T) {
 }
 
 func TestSQLiteKB_GetUnknownConnections(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -171,6 +175,7 @@ func TestSQLiteKB_GetUnknownConnections(t *testing.T) {
 }
 
 func TestSQLiteKB_RememberPOI(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -194,6 +199,7 @@ func TestSQLiteKB_RememberPOI(t *testing.T) {
 }
 
 func TestSQLiteKB_AddExperience(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -226,6 +232,7 @@ func TestSQLiteKB_AddExperience(t *testing.T) {
 }
 
 func TestSQLiteKB_AddExperience_Limit(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -252,6 +259,7 @@ func TestSQLiteKB_AddExperience_Limit(t *testing.T) {
 }
 
 func TestSQLiteKB_RegisterAgent(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -266,6 +274,7 @@ func TestSQLiteKB_RegisterAgent(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSystems(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -317,6 +326,7 @@ func TestSQLiteKB_GetSystems(t *testing.T) {
 }
 
 func TestSQLiteKB_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -395,6 +405,7 @@ func BenchmarkMemoryKB_RememberSystem(b *testing.B) {
 }
 
 func TestSQLiteKB_Close(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 
 	if err := kb.Close(); err != nil {
@@ -408,6 +419,7 @@ func TestSQLiteKB_Close(t *testing.T) {
 }
 
 func TestSQLiteKB_Persistence(t *testing.T) {
+	t.Parallel()
 	// Create a temporary database file
 	tmpFile, err := os.CreateTemp("", "spacemolt-test-*.db")
 	if err != nil {

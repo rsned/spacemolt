@@ -5,6 +5,7 @@ import (
 )
 
 func TestBaseDataFromRawJSON(t *testing.T) {
+	t.Parallel()
 	rawJSON := []byte(`{
 		"base": {
 			"id": "base-1",
@@ -114,6 +115,7 @@ func TestBaseDataFromRawJSON(t *testing.T) {
 }
 
 func TestBaseDataFromRawJSON_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	_, err := BaseDataFromRawJSON([]byte("invalid json"), "agent-1", 0)
 	if err == nil {
 		t.Error("Expected error for invalid JSON")
@@ -121,6 +123,7 @@ func TestBaseDataFromRawJSON_InvalidJSON(t *testing.T) {
 }
 
 func TestBaseDataFromRawJSON_EmptyBase(t *testing.T) {
+	t.Parallel()
 	rawJSON := []byte(`{"base": {"id": "", "poi_id": "", "name": "", "description": "", "empire": "", "defense_level": 0, "has_drones": false, "public_access": false, "services": {}, "facilities": [], "market": []}}`)
 
 	base, err := BaseDataFromRawJSON(rawJSON, "agent-1", 0)
@@ -139,6 +142,7 @@ func TestBaseDataFromRawJSON_EmptyBase(t *testing.T) {
 }
 
 func TestBaseDataFromRawJSON_NilInput(t *testing.T) {
+	t.Parallel()
 	_, err := BaseDataFromRawJSON(nil, "agent-1", 0)
 	if err == nil {
 		t.Error("Expected error for nil input")
@@ -146,6 +150,7 @@ func TestBaseDataFromRawJSON_NilInput(t *testing.T) {
 }
 
 func TestBaseDataFromRawJSON_InvalidMarketItem(t *testing.T) {
+	t.Parallel()
 	// Market contains an invalid item that should be skipped
 	rawJSON := []byte(`{
 		"base": {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestMemoryKB_StoreAndGetItems(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -60,6 +61,7 @@ func TestMemoryKB_StoreAndGetItems(t *testing.T) {
 }
 
 func TestMemoryKB_StoreAndGetShipClasses(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -105,6 +107,7 @@ func TestMemoryKB_StoreAndGetShipClasses(t *testing.T) {
 }
 
 func TestMemoryKB_StoreAndGetRecipes(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -150,6 +153,7 @@ func TestMemoryKB_StoreAndGetRecipes(t *testing.T) {
 }
 
 func TestMemoryKB_StoreAndGetPlayer(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -180,6 +184,7 @@ func TestMemoryKB_StoreAndGetPlayer(t *testing.T) {
 }
 
 func TestMemoryKB_StoreAndGetPlayerSkills(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -209,6 +214,7 @@ func TestMemoryKB_StoreAndGetPlayerSkills(t *testing.T) {
 }
 
 func TestMemoryKB_StoreAndGetShip(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -240,6 +246,7 @@ func TestMemoryKB_StoreAndGetShip(t *testing.T) {
 }
 
 func TestMemoryKB_GetPlayerShips(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -272,6 +279,7 @@ func TestMemoryKB_GetPlayerShips(t *testing.T) {
 }
 
 func TestMemoryKB_MarketSnapshots(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -313,6 +321,7 @@ func TestMemoryKB_MarketSnapshots(t *testing.T) {
 }
 
 func TestMemoryKB_MarketSnapshots_Limit(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -338,6 +347,7 @@ func TestMemoryKB_MarketSnapshots_Limit(t *testing.T) {
 }
 
 func TestMemoryKB_HasMarketSnapshotToday(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -368,6 +378,7 @@ func TestMemoryKB_HasMarketSnapshotToday(t *testing.T) {
 }
 
 func TestMemoryKB_GetMarketItems(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -404,6 +415,7 @@ func TestMemoryKB_GetMarketItems(t *testing.T) {
 }
 
 func TestMemoryKB_ShipListings(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -439,6 +451,7 @@ func TestMemoryKB_ShipListings(t *testing.T) {
 }
 
 func TestMemoryKB_HasShipListingsToday(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -469,6 +482,7 @@ func TestMemoryKB_HasShipListingsToday(t *testing.T) {
 }
 
 func TestMemoryKB_RememberBase(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -501,6 +515,7 @@ func TestMemoryKB_RememberBase(t *testing.T) {
 }
 
 func TestMemoryKB_GetBase_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -511,6 +526,7 @@ func TestMemoryKB_GetBase_NotFound(t *testing.T) {
 }
 
 func TestMemoryKB_GetBaseByPOI_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -521,6 +537,7 @@ func TestMemoryKB_GetBaseByPOI_NotFound(t *testing.T) {
 }
 
 func TestMemoryKB_GetPOIs(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -554,6 +571,7 @@ func TestMemoryKB_GetPOIs(t *testing.T) {
 }
 
 func TestMemoryKB_ConcurrentCatalogAccess(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 	var wg sync.WaitGroup

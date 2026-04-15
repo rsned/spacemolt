@@ -8,6 +8,7 @@ import (
 )
 
 func TestSQLiteKB_StorePlayer(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -47,6 +48,7 @@ func TestSQLiteKB_StorePlayer(t *testing.T) {
 }
 
 func TestSQLiteKB_GetPlayer(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -92,6 +94,7 @@ func TestSQLiteKB_GetPlayer(t *testing.T) {
 }
 
 func TestSQLiteKB_GetPlayer_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -107,6 +110,7 @@ func TestSQLiteKB_GetPlayer_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_StorePlayer_Upsert(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -142,6 +146,7 @@ func TestSQLiteKB_StorePlayer_Upsert(t *testing.T) {
 }
 
 func TestSQLiteKB_StorePlayerSkills(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -173,6 +178,7 @@ func TestSQLiteKB_StorePlayerSkills(t *testing.T) {
 }
 
 func TestSQLiteKB_GetPlayerSkills_Empty(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -188,6 +194,7 @@ func TestSQLiteKB_GetPlayerSkills_Empty(t *testing.T) {
 }
 
 func TestSQLiteKB_StorePlayerSkills_Replaces(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -225,6 +232,7 @@ func TestSQLiteKB_StorePlayerSkills_Replaces(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreShip(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -258,6 +266,7 @@ func TestSQLiteKB_StoreShip(t *testing.T) {
 }
 
 func TestSQLiteKB_GetShip(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -301,6 +310,7 @@ func TestSQLiteKB_GetShip(t *testing.T) {
 }
 
 func TestSQLiteKB_GetShip_NotFound(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -316,6 +326,7 @@ func TestSQLiteKB_GetShip_NotFound(t *testing.T) {
 }
 
 func TestSQLiteKB_StoreShip_Upsert(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -357,6 +368,7 @@ func TestSQLiteKB_StoreShip_Upsert(t *testing.T) {
 }
 
 func TestSQLiteKB_GetPlayerShips(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -404,6 +416,7 @@ func TestSQLiteKB_GetPlayerShips(t *testing.T) {
 }
 
 func TestSQLiteKB_Player_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -442,6 +455,7 @@ func TestSQLiteKB_Player_ConcurrentAccess(t *testing.T) {
 }
 
 func TestSQLiteKB_Ship_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 

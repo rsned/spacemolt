@@ -10,6 +10,7 @@ import (
 )
 
 func TestSQLiteKB_RecordResourceState(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -26,6 +27,7 @@ func TestSQLiteKB_RecordResourceState(t *testing.T) {
 }
 
 func TestSQLiteKB_GetResourceHistory(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -59,6 +61,7 @@ func TestSQLiteKB_GetResourceHistory(t *testing.T) {
 }
 
 func TestSQLiteKB_GetResourceHistory_Empty(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -75,6 +78,7 @@ func TestSQLiteKB_GetResourceHistory_Empty(t *testing.T) {
 }
 
 func TestSQLiteKB_RecordJourney(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -91,6 +95,7 @@ func TestSQLiteKB_RecordJourney(t *testing.T) {
 }
 
 func TestSQLiteKB_GetOptimalRoute(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -132,6 +137,7 @@ func TestSQLiteKB_GetOptimalRoute(t *testing.T) {
 }
 
 func TestSQLiteKB_FindCheapestRoute(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -164,6 +170,7 @@ func TestSQLiteKB_FindCheapestRoute(t *testing.T) {
 }
 
 func TestSQLiteKB_RecordAnomaly(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -185,6 +192,7 @@ func TestSQLiteKB_RecordAnomaly(t *testing.T) {
 }
 
 func TestSQLiteKB_GetActiveAnomalies(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -224,6 +232,7 @@ func TestSQLiteKB_GetActiveAnomalies(t *testing.T) {
 }
 
 func TestSQLiteKB_GetActiveAnomalies_Empty(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -239,6 +248,7 @@ func TestSQLiteKB_GetActiveAnomalies_Empty(t *testing.T) {
 }
 
 func TestSQLiteKB_GetAnomaliesByType(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -298,6 +308,7 @@ func TestSQLiteKB_GetAnomaliesByType(t *testing.T) {
 }
 
 func TestSQLiteKB_ResolveAnomaly(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -339,6 +350,7 @@ func TestSQLiteKB_ResolveAnomaly(t *testing.T) {
 }
 
 func TestSQLiteKB_RecordHostileEncounter(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -365,6 +377,7 @@ func TestSQLiteKB_RecordHostileEncounter(t *testing.T) {
 }
 
 func TestSQLiteKB_GetDangerZones(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -410,6 +423,7 @@ func TestSQLiteKB_GetDangerZones(t *testing.T) {
 }
 
 func TestSQLiteKB_GetSystemDanger(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -465,6 +479,7 @@ func TestSQLiteKB_GetSystemDanger(t *testing.T) {
 }
 
 func TestSQLiteKB_ExportKnowledge(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -514,6 +529,7 @@ func TestSQLiteKB_ExportKnowledge(t *testing.T) {
 }
 
 func TestSQLiteKB_ExportKnowledge_Empty(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -536,6 +552,7 @@ func TestSQLiteKB_ExportKnowledge_Empty(t *testing.T) {
 }
 
 func TestSQLiteKB_ImportKnowledge(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -554,6 +571,7 @@ func TestSQLiteKB_ImportKnowledge(t *testing.T) {
 }
 
 func TestSQLiteKB_ListExports(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -586,6 +604,7 @@ func TestSQLiteKB_ListExports(t *testing.T) {
 }
 
 func TestSQLiteKB_Analytics_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -615,6 +634,7 @@ func TestSQLiteKB_Analytics_ConcurrentAccess(t *testing.T) {
 }
 
 func TestSQLiteKB_Journey_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -638,6 +658,7 @@ func TestSQLiteKB_Journey_ConcurrentAccess(t *testing.T) {
 }
 
 func TestSQLiteKB_GetDepletingResources(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 
@@ -685,6 +706,7 @@ func TestSQLiteKB_GetDepletingResources(t *testing.T) {
 }
 
 func TestSQLiteKB_GetDepletingResources_Empty(t *testing.T) {
+	t.Parallel()
 	kb := newTestSQLiteKB(t)
 	defer func() { _ = kb.Close() }()
 

@@ -6,6 +6,7 @@ import (
 )
 
 func TestRememberConnection_Deduplicates(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -36,6 +37,7 @@ func TestRememberConnection_Deduplicates(t *testing.T) {
 }
 
 func TestRememberConnection_MultipleDistinct(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
@@ -63,6 +65,7 @@ func TestRememberConnection_MultipleDistinct(t *testing.T) {
 }
 
 func TestRememberConnection_DifferentOrigins(t *testing.T) {
+	t.Parallel()
 	kb := NewMemoryKB()
 	ctx := context.Background()
 
