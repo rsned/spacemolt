@@ -2797,6 +2797,12 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			case "survey_system":
 				storeKey = "survey"
 				shouldStore = true
+				// Update XP target to use system_id from response
+				if systemID, ok := resp.Payload["system_id"].(string); ok && c.XPCallback != nil {
+					c.xpMu.Lock()
+					c.xpLastTarget = systemID
+					c.xpMu.Unlock()
+				}
 			}
 		}
 
@@ -4150,7 +4156,8 @@ func (c *Client) checkXPChanges() {
 	c.xpMu.Unlock()
 
 	// Skip first call (no previous state to compare)
-	if beforeSkills == nil && beforeXP == nil {
+	// Use OR because we need both baselines to do a proper comparison
+	if beforeSkills == nil || beforeXP == nil {
 		return
 	}
 
@@ -4162,9 +4169,27 @@ func (c *Client) checkXPChanges() {
 			break
 		}
 	}
+	// Also check if any skills were removed from beforeXP
+	if !changed {
+		for k := range beforeXP {
+			if _, exists := currentXP[k]; !exists {
+				changed = true
+				break
+			}
+		}
+	}
 	if !changed {
 		for k, v := range currentSkills {
 			if b, ok := beforeSkills[k]; !ok || b.Level != v.Level || b.XP != v.XP {
+				changed = true
+				break
+			}
+		}
+	}
+	// Also check if any skills were removed from beforeSkills
+	if !changed {
+		for k := range beforeSkills {
+			if _, exists := currentSkills[k]; !exists {
 				changed = true
 				break
 			}
