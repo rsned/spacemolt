@@ -1,19 +1,3 @@
--- SpaceMolt Knowledge Base Database Schema
--- SQLite 3 Compatible
---
--- This file is AUTO-GENERATED from the Go migration runner in
--- pkg/knowledge/sqlite_migrations.go. Do not edit by hand — instead add or
--- modify a migration in sqlite_migrations.go and re-run:
---
---   ./scripts/sql/regenerate_initialize_database.sh
---
--- Use this to initialize a fresh database outside the application:
---
---   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
---
--- Migrations applied: 1
--- Last Regenerated: 2026-04-15
-
 -- ============================================================================
 -- TABLES
 -- ============================================================================
@@ -552,12 +536,6 @@ CREATE TABLE resource_history (
 );
 
 
-CREATE TABLE schema_migrations (
-			version INTEGER PRIMARY KEY,
-			applied_at TEXT NOT NULL
-		);
-
-
 CREATE TABLE "ship_build_materials" (
     ship_class_id TEXT NOT NULL,
     item_id TEXT NOT NULL,
@@ -838,10 +816,4 @@ CREATE INDEX idx_xp_obs_skill ON xp_observations(skill_id);
 
 CREATE INDEX idx_xp_obs_source ON xp_observations(source);
 
-
--- ============================================================================
--- MIGRATION VERSION RECORDS
--- ============================================================================
-
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
 
