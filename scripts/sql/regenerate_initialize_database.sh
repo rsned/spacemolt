@@ -48,7 +48,7 @@ EOF
 
 go run "$RUNNER" "$DB"
 
-MAXVER=$(sqlite3 "$DB" "SELECT MAX(version) FROM schema_migrations")
+MIGCOUNT=$(sqlite3 "$DB" "SELECT COUNT(*) FROM schema_migrations")
 TODAY=$(date -u +%Y-%m-%d)
 
 # Header
@@ -66,7 +66,7 @@ cat > "$OUT" <<HEADER
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Schema Version: ${MAXVER}
+-- Migrations applied: ${MIGCOUNT}
 -- Last Regenerated: ${TODAY}
 
 HEADER
@@ -110,4 +110,4 @@ ORDER BY version;
 SQL
 
 echo "" >> "$OUT"
-echo "Wrote $OUT (schema version $MAXVER, $(wc -l < "$OUT") lines)"
+echo "Wrote $OUT ($MIGCOUNT migrations applied, $(wc -l < "$OUT") lines)"

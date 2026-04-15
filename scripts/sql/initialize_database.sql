@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Schema Version: 30
+-- Migrations applied: 1
 -- Last Regenerated: 2026-04-15
 
 -- ============================================================================
@@ -844,32 +844,4 @@ CREATE INDEX idx_xp_obs_source ON xp_observations(source);
 -- ============================================================================
 
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (5, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (6, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (7, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (8, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (9, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (10, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (11, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (12, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (13, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (14, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (15, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (16, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (17, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (18, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (19, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (20, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (21, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (22, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (23, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (24, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (25, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (26, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (27, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (28, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (29, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (30, datetime('now'));
 
