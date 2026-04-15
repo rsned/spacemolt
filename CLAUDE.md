@@ -78,7 +78,6 @@ spacemolt/
 │   ├── prompts/templates/            # LLM prompt templates
 │   └── game-api/                     # Cached API responses
 │
-├── scripts/sql/migrations/           # Database migration SQL files
 ├── server_docs/                      # API docs (openapi.json, api.md)
 └── spacemolt-server.yaml             # Main server configuration
 ```
