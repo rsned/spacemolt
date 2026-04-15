@@ -943,6 +943,7 @@ func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 		Services:         []string{},    // Not stored in game POI
 		Hidden:           poi.Hidden,
 		RevealDifficulty: poi.RevealDifficulty,
+		ExpiresAt:        poi.ExpiresAt,
 		LastUpdatedTick:  m.currentTick,
 	}
 

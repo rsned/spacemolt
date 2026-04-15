@@ -454,7 +454,7 @@ func (m *MCPGameClient) refreshXPFromSkills(ctx context.Context) {
 	}
 	for skillID, row := range resp.Skills {
 		newXP[skillID] = row.XP
-		m.state.Player.Skills[skillID] = Skill{Level: row.Level, XP: row.XP}
+		m.state.Player.Skills[skillID] = Skill(row)
 	}
 	m.state.SkillXP = newXP
 

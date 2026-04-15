@@ -1005,6 +1005,24 @@ CREATE INDEX IF NOT EXISTS idx_xp_obs_source ON xp_observations(source);
 CREATE INDEX IF NOT EXISTS idx_xp_obs_agent ON xp_observations(agent_id);
 `,
 		},
+		{
+			version: 28,
+			name:    "poi_expires_at",
+			sql: `
+	-- Add expires_at column to pois table for tracking POI expiration (e.g., wormholes)
+	-- Note: This may fail if column already exists, which is OK for idempotency
+	ALTER TABLE pois ADD COLUMN expires_at TEXT;
+	`,
+			ignoreErrors: true, // Ignore if column already exists
+		},
+		{
+			version: 29,
+			name:    "poi_expires_at_index",
+			sql: `
+	-- Create index on expires_at for querying expiring POIs
+	CREATE INDEX IF NOT EXISTS idx_pois_expires_at ON pois(expires_at);
+	`,
+		},
 	}
 }
 

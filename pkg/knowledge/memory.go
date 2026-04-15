@@ -166,6 +166,7 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 		Resources:        poi.Resources,
 		Hidden:           poi.Hidden,
 		RevealDifficulty: poi.RevealDifficulty,
+		ExpiresAt:        poi.ExpiresAt,
 		LastUpdatedTick:  poi.LastUpdatedTick,
 	}
 
@@ -343,6 +344,7 @@ type POI struct {
 	Resources        []game.POIResource
 	Hidden           bool
 	RevealDifficulty int
+	ExpiresAt        string // ISO-8601 timestamp when POI expires (e.g., wormholes)
 	LastUpdatedTick  int64
 }
 

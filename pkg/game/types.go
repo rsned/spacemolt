@@ -190,6 +190,7 @@ type POI struct {
 	Online          int           `json:"online,omitempty"`
 	Hidden          bool          `json:"hidden,omitempty"`
 	RevealDifficulty int          `json:"reveal_difficulty,omitempty"`
+	ExpiresAt       string        `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).
