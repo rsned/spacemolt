@@ -2837,6 +2837,46 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					c.xpLastTarget = systemID
 					c.xpMu.Unlock()
 				}
+			case "buy":
+				storeKey = "buy"
+				shouldStore = true
+				// Handle xp_gained if present (buy commands may grant trading XP)
+				if xpGained, ok := resp.Payload["xp_gained"].(float64); ok && xpGained > 0 {
+					c.mu.Lock()
+					// Assume buy grants trading XP (common for commerce actions)
+					skillID := "trading"
+					if c.state.Player.Skills == nil {
+						c.state.Player.Skills = make(map[string]Skill)
+					}
+					if c.state.SkillXP == nil {
+						c.state.SkillXP = make(map[string]float64)
+					}
+					c.state.SkillXP[skillID] += xpGained
+					c.debugLogger.Printf("Buy XP gained: %s %.1f XP", skillID, xpGained)
+					c.mu.Unlock()
+					// Check for XP changes after processing xp_gained
+					c.checkXPChanges()
+				}
+			case "sell":
+				storeKey = "sell"
+				shouldStore = true
+				// Handle xp_gained if present (sell commands may grant trading XP)
+				if xpGained, ok := resp.Payload["xp_gained"].(float64); ok && xpGained > 0 {
+					c.mu.Lock()
+					// Assume sell grants trading XP (common for commerce actions)
+					skillID := "trading"
+					if c.state.Player.Skills == nil {
+						c.state.Player.Skills = make(map[string]Skill)
+					}
+					if c.state.SkillXP == nil {
+						c.state.SkillXP = make(map[string]float64)
+					}
+					c.state.SkillXP[skillID] += xpGained
+					c.debugLogger.Printf("Sell XP gained: %s %.1f XP", skillID, xpGained)
+					c.mu.Unlock()
+					// Check for XP changes after processing xp_gained
+					c.checkXPChanges()
+				}
 			}
 		}
 
