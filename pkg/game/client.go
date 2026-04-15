@@ -2579,6 +2579,30 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		}
 		c.state.Ship.CargoUsed = cargoUsed
 
+		// Handle xp_gained if present
+		if xpGained, ok := result["xp_gained"].(map[string]any); ok && len(xpGained) > 0 {
+			for skillID, xpAmount := range xpGained {
+				if xpFloat, ok := xpAmount.(float64); ok && xpFloat > 0 {
+					// Update player skill XP
+					if c.state.Player.Skills == nil {
+						c.state.Player.Skills = make(map[string]Skill)
+					}
+					if c.state.SkillXP == nil {
+						c.state.SkillXP = make(map[string]float64)
+					}
+
+					c.state.SkillXP[skillID] += xpFloat
+
+					// Check for level up (simplified check)
+					// The server will send full skill data in next get_skills, but this
+					// ensures the callback fires with the updated XP
+					c.debugLogger.Printf("Craft XP gained: %s %.1f XP", skillID, xpFloat)
+				}
+			}
+			// Check for XP changes after processing xp_gained
+			c.checkXPChanges()
+		}
+
 		if outputName != "" {
 			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputName, recipeID)
 		} else {

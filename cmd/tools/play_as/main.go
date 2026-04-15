@@ -200,7 +200,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	line.SetCtrlCAborts(true)
 
 	completionCommands := loadCompletionCommands(filepath.Join("server_docs", "openapi.json"))
-	line.SetCompleter(makeCompleter(completionCommands))
+	line.SetCompleter(makeCompleter(completionCommands, client))
 	line.SetTabCompletionStyle(liner.TabPrints)
 
 	// Load persistent command history from agent directory.
