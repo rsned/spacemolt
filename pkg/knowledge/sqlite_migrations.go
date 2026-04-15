@@ -10,10 +10,9 @@ import (
 
 // Migration represents a database schema migration
 type Migration struct {
-	version      int
-	name         string
-	sql          string
-	ignoreErrors bool // If true, SQL errors are logged but don't fail the migration.
+	version int
+	name    string
+	sql     string
 }
 
 // initialSchemaSQL holds the complete schema produced by the original
@@ -75,18 +74,8 @@ func runMigrations(db *sql.DB) error {
 
 		// Execute migration SQL
 		if _, err := tx.Exec(m.sql); err != nil {
-			if m.ignoreErrors {
-				// Some migrations (e.g. ADD COLUMN) may fail if already applied
-				// outside the migration system. Log and continue.
-				_ = tx.Rollback()
-				tx, err = db.Begin()
-				if err != nil {
-					return fmt.Errorf("failed to begin transaction for migration %d record: %w", m.version, err)
-				}
-			} else {
-				_ = tx.Rollback()
-				return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
-			}
+			_ = tx.Rollback()
+			return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
 		}
 
 		// Record migration
