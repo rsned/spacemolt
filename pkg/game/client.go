@@ -1739,6 +1739,14 @@ func (c *Client) handleResponse(resp protocol.Response) {
 				})
 			}
 			c.state.Ship.CargoUsed += quantity
+
+			// Update XP target to use current POI ID (mining happens at current location)
+			if c.state.CurrentPOI != "" && c.XPCallback != nil {
+				c.xpMu.Lock()
+				c.xpLastTarget = c.state.CurrentPOI
+				c.xpMu.Unlock()
+			}
+
 			c.mu.Unlock()
 		}
 
