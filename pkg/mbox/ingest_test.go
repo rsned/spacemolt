@@ -1,12 +1,212 @@
 package mbox
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
+
+// fakeGameClient implements BackfillClient for testing.
+type fakeGameClient struct {
+	pages   map[string][][]serverapi.ChatMessage
+	callIdx map[string]int
+	rawJSON []byte
+	mu      sync.Mutex
+}
+
+func newFakeClient() *fakeGameClient {
+	return &fakeGameClient{
+		pages:   make(map[string][][]serverapi.ChatMessage),
+		callIdx: make(map[string]int),
+	}
+}
+
+func (f *fakeGameClient) addPage(channel string, msgs []serverapi.ChatMessage) {
+	f.pages[channel] = append(f.pages[channel], msgs)
+}
+
+func (f *fakeGameClient) GetChatHistory(_ context.Context, channel string, _ map[string]any) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	i := f.callIdx[channel]
+	f.callIdx[channel]++
+	pages := f.pages[channel]
+	if i >= len(pages) {
+		f.rawJSON = []byte(`{"messages":[]}`)
+		return nil
+	}
+	data, _ := json.Marshal(map[string]any{"messages": pages[i]})
+	f.rawJSON = data
+	return nil
+}
+
+func (f *fakeGameClient) GetRawJSON(_ string) []byte {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.rawJSON
+}
+
+func makeMsg(id, channel string, t time.Time) serverapi.ChatMessage {
+	return serverapi.ChatMessage{
+		ID:           id,
+		Channel:      channel,
+		SenderID:     "player-1",
+		Sender:       "Tester",
+		Content:      fmt.Sprintf("msg %s", id),
+		TimestampUTC: t.UTC().Format(time.RFC3339),
+	}
+}
+
+func TestBackfillBasic(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "mbox.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	ing := NewIngester(s)
+	fc := newFakeClient()
+
+	base := time.Now().UTC().Truncate(time.Second)
+	var page []serverapi.ChatMessage
+	for i := range 5 {
+		page = append(page, makeMsg(fmt.Sprintf("msg-%d", i), "local", base.Add(-time.Duration(i)*time.Minute)))
+	}
+	fc.addPage("local", page)
+
+	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
+		Channels:        []string{"local"},
+		MaxPerChannel:   500,
+		RequestInterval: 0,
+	})
+	if err != nil {
+		t.Fatalf("Backfill: %v", err)
+	}
+
+	cr := report.Channels["local"]
+	if cr.Fetched != 5 {
+		t.Errorf("Fetched = %d, want 5", cr.Fetched)
+	}
+	if cr.Capped {
+		t.Error("Capped = true, want false")
+	}
+
+	msgs, err := s.List(Query{Channel: "local", Limit: 10})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(msgs) != 5 {
+		t.Errorf("stored %d messages, want 5", len(msgs))
+	}
+}
+
+func TestBackfillStopsOnKnownID(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "mbox.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	base := time.Now().UTC().Truncate(time.Second)
+
+	// Pre-seed one known message.
+	knownMsg := Message{
+		ID:           "known-1",
+		Channel:      "local",
+		SenderID:     "player-1",
+		Sender:       "Tester",
+		Content:      "already here",
+		TimestampUTC: base.Add(-2 * time.Minute),
+		Source:       "push",
+	}
+	if _, err := s.Ingest(knownMsg); err != nil {
+		t.Fatalf("Ingest known: %v", err)
+	}
+
+	ing := NewIngester(s)
+	fc := newFakeClient()
+
+	// Page has: 1 new message, then the known message, then an older message.
+	page := []serverapi.ChatMessage{
+		makeMsg("new-1", "local", base.Add(-1*time.Minute)),
+		makeMsg("known-1", "local", base.Add(-2*time.Minute)),
+		makeMsg("old-1", "local", base.Add(-3*time.Minute)),
+	}
+	fc.addPage("local", page)
+
+	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
+		Channels:        []string{"local"},
+		MaxPerChannel:   500,
+		RequestInterval: 0,
+	})
+	if err != nil {
+		t.Fatalf("Backfill: %v", err)
+	}
+
+	cr := report.Channels["local"]
+	if cr.Fetched != 1 {
+		t.Errorf("Fetched = %d, want 1 (should stop at known ID)", cr.Fetched)
+	}
+
+	msgs, err := s.List(Query{Channel: "local", Limit: 10})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	// 1 pre-seeded + 1 new = 2
+	if len(msgs) != 2 {
+		t.Errorf("stored %d messages, want 2", len(msgs))
+	}
+}
+
+func TestBackfillCap(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "mbox.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	ing := NewIngester(s)
+	fc := newFakeClient()
+
+	base := time.Now().UTC().Truncate(time.Second)
+
+	// Two pages of 3 messages each (6 total).
+	var page1, page2 []serverapi.ChatMessage
+	for i := range 3 {
+		page1 = append(page1, makeMsg(fmt.Sprintf("p1-%d", i), "local", base.Add(-time.Duration(i)*time.Minute)))
+	}
+	for i := range 3 {
+		page2 = append(page2, makeMsg(fmt.Sprintf("p2-%d", i), "local", base.Add(-time.Duration(3+i)*time.Minute)))
+	}
+	fc.addPage("local", page1)
+	fc.addPage("local", page2)
+
+	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
+		Channels:        []string{"local"},
+		MaxPerChannel:   4,
+		RequestInterval: 0,
+	})
+	if err != nil {
+		t.Fatalf("Backfill: %v", err)
+	}
+
+	cr := report.Channels["local"]
+	if cr.Fetched != 4 {
+		t.Errorf("Fetched = %d, want 4", cr.Fetched)
+	}
+	if !cr.Capped {
+		t.Error("Capped = false, want true")
+	}
+}
 
 func TestHandlePush(t *testing.T) {
 	dir := t.TempDir()
