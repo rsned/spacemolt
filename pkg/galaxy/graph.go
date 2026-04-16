@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -293,4 +294,99 @@ func (g *GalaxyGraph) FindPath(from, to string, weighted bool) (Route, error) {
 		TotalFuel:  totalFuel,
 		TotalTicks: totalTicks,
 	}, nil
+}
+
+// FindNearest finds the closest systems from 'from' to any of 'targets'.
+// Returns up to 'limit' results sorted by hop count (ascending).
+func (g *GalaxyGraph) FindNearest(from string, targets []string, limit int) ([]NearestResult, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if _, exists := g.nodes[from]; !exists {
+		return nil, fmt.Errorf("from system %s not found in graph", from)
+	}
+
+	if len(targets) == 0 {
+		return []NearestResult{}, nil
+	}
+
+	// Build target set for fast lookup
+	targetSet := make(map[string]bool)
+	for _, t := range targets {
+		targetSet[t] = true
+	}
+
+	// Dijkstra from source to all systems
+	dist := make(map[string]int)
+	visited := make(map[string]bool)
+
+	for nodeID := range g.nodes {
+		dist[nodeID] = -1 // Unreachable
+	}
+	dist[from] = 0
+
+	// BFS queue for unweighted shortest paths
+	queue := []string{from}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+
+		for _, edge := range g.adj[current] {
+			if dist[edge.To] == -1 {
+				dist[edge.To] = dist[current] + 1
+				queue = append(queue, edge.To)
+			}
+		}
+	}
+
+	// Collect results that are in target set and reachable
+	var results []NearestResult
+	for _, targetID := range targets {
+		if dist[targetID] == -1 {
+			continue // Unreachable
+		}
+
+		node, exists := g.nodes[targetID]
+		if !exists {
+			continue
+		}
+
+		results = append(results, NearestResult{
+			SystemID:    node.ID,
+			SystemName:  node.Name,
+			Hops:        dist[targetID],
+			LastUpdated: node.LastUpdated,
+		})
+	}
+
+	// Sort by hop count
+	slices.SortFunc(results, func(a, b NearestResult) int {
+		if a.Hops < b.Hops {
+			return -1
+		}
+		if a.Hops > b.Hops {
+			return 1
+		}
+		return 0
+	})
+
+	// Apply limit
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
+	return results, nil
+}
+
+// Stats returns graph statistics.
+func (g *GalaxyGraph) Stats() GraphStats {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.stats
 }

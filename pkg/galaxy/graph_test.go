@@ -2,12 +2,74 @@ package galaxy
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
+
+// setupLargeMockKB creates a mock KB with 500 systems in a grid pattern
+func setupLargeMockKB() *mockKB {
+	systems := make([]knowledge.System, 500)
+	connections := []knowledge.Connection{}
+
+	// Create a 25x20 grid of systems
+	idx := 0
+	for x := range 25 {
+		for y := range 20 {
+			systems[idx] = knowledge.System{
+				ID:               fmt.Sprintf("sys_%d", idx),
+				Name:             fmt.Sprintf("System_%d", idx),
+				Position:         game.Position{X: float64(x * 10), Y: float64(y * 10)},
+				Empire:           "test_empire",
+				LastUpdatedTick:  1000,
+			}
+			idx++
+		}
+	}
+
+	// Create horizontal connections
+	for x := range 25 {
+		for y := range 20 {
+			idx := x*20 + y
+			if x < 24 { // Connect to next column
+				rightIdx := (x+1)*20 + y
+				connections = append(connections, knowledge.Connection{
+					FromSystem:       systems[idx].ID,
+					ToSystem:         systems[rightIdx].ID,
+					Distance:         1,
+					LastUpdatedTick:  1000,
+				})
+			}
+			if y < 19 { // Connect to next row
+				downIdx := x*20 + (y + 1)
+				connections = append(connections, knowledge.Connection{
+					FromSystem:       systems[idx].ID,
+					ToSystem:         systems[downIdx].ID,
+					Distance:         1,
+					LastUpdatedTick:  1000,
+				})
+			}
+		}
+	}
+
+	return &mockKB{
+		systems:     systems,
+		connections: connections,
+	}
+}
+
+// loadAllStationSystems returns all system IDs for benchmarking
+func loadAllStationSystems() []string {
+	targets := make([]string, 500)
+	for i := 0; i < 500; i++ {
+		targets[i] = fmt.Sprintf("sys_%d", i)
+	}
+	return targets
+}
+
 
 // mockKB implements knowledge.Base for testing
 type mockKB struct {
@@ -581,3 +643,120 @@ func TestGalaxyGraph_FindPath_Unreachable(t *testing.T) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
+
+func TestGalaxyGraph_FindNearest_ReturnsTop3ByHops(t *testing.T) {
+	ctx := context.Background()
+
+	kb := &mockKB{
+		systems: []knowledge.System{
+			{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "alpha", Name: "Alpha", Position: game.Position{X: 10, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "beta", Name: "Beta", Position: game.Position{X: 20, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "gamma", Name: "Gamma", Position: game.Position{X: 30, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "delta", Name: "Delta", Position: game.Position{X: 40, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+		},
+		connections: []knowledge.Connection{
+			{FromSystem: "sol", ToSystem: "alpha", Distance: 1, LastUpdatedTick: 1000},
+			{FromSystem: "alpha", ToSystem: "beta", Distance: 1, LastUpdatedTick: 1000},
+			{FromSystem: "beta", ToSystem: "gamma", Distance: 1, LastUpdatedTick: 1000},
+			{FromSystem: "gamma", ToSystem: "delta", Distance: 1, LastUpdatedTick: 1000},
+		},
+	}
+
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		t.Fatalf("BuildFromDB failed: %v", err)
+	}
+
+	targets := []string{"alpha", "beta", "gamma", "delta"}
+	results, err := g.FindNearest("sol", targets, 3)
+
+	if err != nil {
+		t.Fatalf("FindNearest failed: %v", err)
+	}
+
+	if len(results) != 3 {
+		t.Errorf("expected 3 results, got %d", len(results))
+	}
+
+	// Check sorted by hops
+	if results[0].SystemID != "alpha" || results[0].Hops != 1 {
+		t.Errorf("expected first result to be alpha with 1 hop, got %s with %d hops", results[0].SystemID, results[0].Hops)
+	}
+	if results[1].SystemID != "beta" || results[1].Hops != 2 {
+		t.Errorf("expected second result to be beta with 2 hops, got %s with %d hops", results[1].SystemID, results[1].Hops)
+	}
+	if results[2].SystemID != "gamma" || results[2].Hops != 3 {
+		t.Errorf("expected third result to be gamma with 3 hops, got %s with %d hops", results[2].SystemID, results[2].Hops)
+	}
+}
+
+func TestGalaxyGraph_FindNearest_EmptyTargets(t *testing.T) {
+	ctx := context.Background()
+
+	kb := &mockKB{
+		systems: []knowledge.System{
+			{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+		},
+	}
+
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		t.Fatalf("BuildFromDB failed: %v", err)
+	}
+
+	results, err := g.FindNearest("sol", []string{}, 5)
+	if err != nil {
+		t.Fatalf("FindNearest failed: %v", err)
+	}
+
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for empty targets, got %d", len(results))
+	}
+}
+
+func BenchmarkGalaxyGraphBuild(b *testing.B) {
+	ctx := context.Background()
+	kb := setupLargeMockKB() // 500 systems, ~950 connections
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		g := &GalaxyGraph{}
+		if err := g.BuildFromDB(ctx, kb); err != nil {
+			b.Fatalf("BuildFromDB failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkFindNearest(b *testing.B) {
+	ctx := context.Background()
+	kb := setupLargeMockKB()
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		b.Fatalf("BuildFromDB failed: %v", err)
+	}
+	targets := loadAllStationSystems()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := g.FindNearest("sys_0", targets, 3)
+		if err != nil {
+			b.Fatalf("FindNearest failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkFindPath(b *testing.B) {
+	ctx := context.Background()
+	kb := setupLargeMockKB()
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		b.Fatalf("BuildFromDB failed: %v", err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := g.FindPath("sys_0", "sys_250", false)
+		if err != nil {
+			b.Fatalf("FindPath failed: %v", err)
+		}
+	}
+}
+
