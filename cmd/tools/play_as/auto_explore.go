@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -33,7 +34,7 @@ const (
 //   - no connections remain (all visited / isolated system),
 //   - a jump fails,
 //   - fuel is exhausted with no cargo fuel_cells to burn.
-func autoExplore(client game.GameClient, ctx context.Context, parts []string) error {
+func autoExplore(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	maxHops := autoExploreDefaultMaxHops
 	if len(parts) > 1 {
 		flags := parseFlagArgs(parts[1:], "max_hops", "max-hops")
@@ -70,31 +71,40 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string) er
 	anchorSystemID := state.System.ID
 	anchorPos, anchorHasPos := systemPosition(ctx, anchorSystemID)
 
-	fmt.Printf("\n🚀 Auto-explore starting from %s", state.System.Name)
-	if anchorHasPos {
-		fmt.Printf(" @ (%.1f, %.1f)", anchorPos.X, anchorPos.Y)
+	if format == formatStyled {
+		fmt.Printf("\n🚀 Auto-explore starting from %s", state.System.Name)
+		if anchorHasPos {
+			fmt.Printf(" @ (%.1f, %.1f)", anchorPos.X, anchorPos.Y)
+		}
+		fmt.Printf("\n   Max hops: %d\n", maxHops)
+		if !anchorHasPos {
+			fmt.Printf("   Note: anchor position unknown (KB missing system data) — "+
+				"destination selection will not prefer 'outward' direction%s\n", "")
+		}
+		fmt.Println()
 	}
-	fmt.Printf("\n   Max hops: %d\n", maxHops)
-	if !anchorHasPos {
-		fmt.Printf("   Note: anchor position unknown (KB missing system data) — "+
-			"destination selection will not prefer 'outward' direction%s\n", "")
-	}
-	fmt.Println()
 
 	visited := map[string]bool{anchorSystemID: true}
 	systemsExplored := 0
 
+	// Collect raw responses for non-styled formats
+	var allResponses []json.RawMessage
+
 	for hop := 0; hop < maxHops; hop++ {
 		state = client.GetState()
-		fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, state.System.Name)
+		if format == formatStyled {
+			fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, state.System.Name)
+		}
 
-		if err := exploreSystem(client, ctx, true); err != nil {
-			fmt.Printf("  Explore reported: %v (continuing)\n", err)
+		if err := exploreSystem(client, ctx, true, format); err != nil {
+			if format == formatStyled {
+				fmt.Printf("  Explore reported: %v (continuing)\n", err)
+			}
 		}
 		systemsExplored++
 
 		// Opportunistic in-space refuel from cargo fuel_cells when low.
-		refuelFromCargoIfLow(client, ctx)
+		refuelFromCargoIfLow(client, ctx, format)
 
 		// Refresh state after explore; we may have landed at a POI or be in space.
 		state = client.GetState()
@@ -105,20 +115,34 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string) er
 		// Pick next system.
 		next, reason := pickNextSystem(ctx, state, anchorSystemID, anchorPos, anchorHasPos, visited)
 		if next == "" {
-			fmt.Printf("\n🛑 Stopping: %s\n", reason)
+			if format == formatStyled {
+				fmt.Printf("\n🛑 Stopping: %s\n", reason)
+			}
 			break
 		}
 
 		// Undock if still docked (needed for jump).
 		if state.Doc {
-			fmt.Printf("  Undocking for jump...\n")
+			if format == formatStyled {
+				fmt.Printf("  Undocking for jump...\n")
+			}
 			if err := client.Undock(ctx); err != nil {
-				fmt.Printf("  Undock warning: %v\n", err)
+				if format == formatStyled {
+					fmt.Printf("  Undock warning: %v\n", err)
+				}
 			}
 			time.Sleep(game.SleepTick)
+			// Collect undock response
+			if format != formatStyled {
+				if raw := client.GetRawJSON("_last"); raw != nil {
+					allResponses = append(allResponses, raw)
+				}
+			}
 		}
 
-		fmt.Printf("\n🌌 Jumping to %s (%s)\n", next, reason)
+		if format == formatStyled {
+			fmt.Printf("\n🌌 Jumping to %s (%s)\n", next, reason)
+		}
 		result, err := client.Jump(ctx, next)
 		if err != nil {
 			return fmt.Errorf("jump to %s failed: %w", next, err)
@@ -126,18 +150,34 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string) er
 		if result != nil && result.Canceled {
 			return fmt.Errorf("jump to %s canceled mid-travel", next)
 		}
+		// Collect jump response
+		if format != formatStyled {
+			if raw := client.GetRawJSON("_last"); raw != nil {
+				allResponses = append(allResponses, raw)
+			}
+		}
 		visited[next] = true
 		time.Sleep(game.SleepJump)
 	}
 
-	fmt.Printf("\n✅ Auto-explore complete: %d systems visited\n", systemsExplored)
+	if format == formatStyled {
+		fmt.Printf("\n✅ Auto-explore complete: %d systems visited\n", systemsExplored)
+	} else {
+		// Print all collected raw responses
+		for i, raw := range allResponses {
+			if len(allResponses) > 1 {
+				fmt.Printf("\n--- Auto-explore response %d ---\n", i+1)
+			}
+			fmt.Printf("%s\n", string(raw))
+		}
+	}
 	return nil
 }
 
 // refuelFromCargoIfLow burns fuel_cell items from cargo if current fuel is
 // below autoExploreLowFuelPct. Only acts when the agent is NOT docked
 // (at stations, explore() already refueled via refuelAtStations).
-func refuelFromCargoIfLow(client game.GameClient, ctx context.Context) {
+func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format outputFormat) {
 	state := client.GetState()
 	if state == nil || state.MaxFuel == 0 || state.Doc {
 		return
@@ -156,14 +196,20 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context) {
 		}
 	}
 	if !found {
-		fmt.Printf("  Fuel low (%.0f%%) but no fuel_cell in cargo — continuing\n", fuelPct)
+		if format == formatStyled {
+			fmt.Printf("  Fuel low (%.0f%%) but no fuel_cell in cargo — continuing\n", fuelPct)
+		}
 		return
 	}
 
-	fmt.Printf("  Fuel low (%.0f%%) — burning cargo fuel_cell via refuel command\n", fuelPct)
+	if format == formatStyled {
+		fmt.Printf("  Fuel low (%.0f%%) — burning cargo fuel_cell via refuel command\n", fuelPct)
+	}
 	if err := client.Refuel(ctx); err != nil {
 		if !strings.Contains(err.Error(), "tank_full") {
-			fmt.Printf("  Refuel warning: %v\n", err)
+			if format == formatStyled {
+				fmt.Printf("  Refuel warning: %v\n", err)
+			}
 		}
 		return
 	}
@@ -171,8 +217,10 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context) {
 	_ = client.GetStatus(ctx)
 	time.Sleep(game.SleepQuick)
 	if state = client.GetState(); state != nil && state.MaxFuel > 0 {
-		fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n",
-			state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+		if format == formatStyled {
+			fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n",
+				state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+		}
 	}
 }
 

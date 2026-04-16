@@ -16,15 +16,15 @@ import (
 // explore visits all POIs in the current system in distance-optimized order,
 // running update_poi at each and update_all at stations. Equivalent to
 // exploreSystem(client, ctx, false) — i.e., no refuel on station docking.
-func explore(client game.GameClient, ctx context.Context) error {
-	return exploreSystem(client, ctx, false)
+func explore(client game.GameClient, ctx context.Context, format outputFormat) error {
+	return exploreSystem(client, ctx, false, format)
 }
 
 // exploreSystem runs the explore loop. When refuelAtStations is true, every
 // station dock is followed by a refuel command (which uses station credits
 // if a refuel service is available, or cargo fuel cells otherwise). Used
 // by auto_explore so long exploration runs can replenish opportunistically.
-func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations bool) error {
+func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations bool, format outputFormat) error {
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("get_system failed: %w", err)
 	}
@@ -49,92 +49,145 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 		speed = 1
 	}
 
-	// Print route table.
-	fmt.Printf("\nExploring %d POIs in %s:\n\n", len(route), state.System.Name)
-	fmt.Printf("  %-3s %-28s %-16s %10s %10s\n", "#", "POI", "Type", "Dist (AU)", "Est. Ticks")
-	fmt.Printf("  %s\n", strings.Repeat("-", 71))
+	// Collect raw responses for non-styled formats
+	var allResponses []json.RawMessage
 
-	var totalDist float64
-	var totalTicks int
-	prevPos := currentPOIPosition(pois, state.CurrentPOI)
-	for i, poi := range route {
-		dist := poiDistance(prevPos, poi.Position)
-		ticks := max(int(math.Ceil(dist/speed)), 1)
-		if i == 0 && poi.ID == state.CurrentPOI {
-			dist = 0
-			ticks = 0
-		}
-		totalDist += dist
-		totalTicks += ticks
+	if format == formatStyled {
+		// Print route table.
+		fmt.Printf("\nExploring %d POIs in %s:\n\n", len(route), state.System.Name)
+		fmt.Printf("  %-3s %-28s %-16s %10s %10s\n", "#", "POI", "Type", "Dist (AU)", "Est. Ticks")
+		fmt.Printf("  %s\n", strings.Repeat("-", 71))
 
-		marker := ""
-		if poi.Type == "station" {
-			marker = " *"
+		var totalDist float64
+		var totalTicks int
+		prevPos := currentPOIPosition(pois, state.CurrentPOI)
+		for i, poi := range route {
+			dist := poiDistance(prevPos, poi.Position)
+			ticks := max(int(math.Ceil(dist/speed)), 1)
+			if i == 0 && poi.ID == state.CurrentPOI {
+				dist = 0
+				ticks = 0
+			}
+			totalDist += dist
+			totalTicks += ticks
+
+			marker := ""
+			if poi.Type == "station" {
+				marker = " *"
+			}
+			fmt.Printf("  %-3d %-28s %-16s %9.1f %9d%s\n",
+				i+1, truncateName(poi.Name, 28), poi.Type, dist, ticks, marker)
+			prevPos = poi.Position
 		}
-		fmt.Printf("  %-3d %-28s %-16s %9.1f %9d%s\n",
-			i+1, truncateName(poi.Name, 28), poi.Type, dist, ticks, marker)
-		prevPos = poi.Position
+		fmt.Printf("  %s\n", strings.Repeat("-", 71))
+		fmt.Printf("  %-48s %9.1f %9d\n", "Total", totalDist, totalTicks)
+		fmt.Printf("\n  Est. time: ~%s (* = station, will dock for full update)\n\n", formatDuration(totalTicks*10))
 	}
-	fmt.Printf("  %s\n", strings.Repeat("-", 71))
-	fmt.Printf("  %-48s %9.1f %9d\n", "Total", totalDist, totalTicks)
-	fmt.Printf("\n  Est. time: ~%s (* = station, will dock for full update)\n\n", formatDuration(totalTicks*10))
 
 	// Execute the route.
 
 	// Survey system at the start to potentially reveal new POIs for exploration.
-	surveySystem(client, ctx, formatStyled)
+	surveySystem(client, ctx, format)
 	startTime := time.Now()
 	for i, poi := range route {
 		// Skip travel to current POI.
 		if i == 0 && poi.ID == state.CurrentPOI {
-			fmt.Printf("[%d/%d] Already at %s\n", i+1, len(route), poi.Name)
+			if format == formatStyled {
+				fmt.Printf("[%d/%d] Already at %s\n", i+1, len(route), poi.Name)
+			}
 		} else {
-			fmt.Printf("[%d/%d] Traveling to %s (%s)...\n", i+1, len(route), poi.Name, poi.Type)
+			if format == formatStyled {
+				fmt.Printf("[%d/%d] Traveling to %s (%s)...\n", i+1, len(route), poi.Name, poi.Type)
+			}
 			result, err := client.Travel(ctx, poi.ID)
 			if err != nil {
-				fmt.Printf("  Travel failed: %v\n", err)
+				if format == formatStyled {
+					fmt.Printf("  Travel failed: %v\n", err)
+				}
 				continue
 			}
 			if result.Canceled {
-				fmt.Printf("  Travel interrupted!\n")
+				if format == formatStyled {
+					fmt.Printf("  Travel interrupted!\n")
+				}
 				return fmt.Errorf("explore interrupted at POI %d/%d", i+1, len(route))
+			}
+			// Collect raw response if in raw/json mode
+			if format != formatStyled {
+				if raw := client.GetRawJSON("_last"); raw != nil {
+					allResponses = append(allResponses, raw)
+				}
 			}
 		}
 
 		if poi.Type == "station" {
 			// Dock and run full update.
-			fmt.Printf("  Docking at %s...\n", poi.Name)
+			if format == formatStyled {
+				fmt.Printf("  Docking at %s...\n", poi.Name)
+			}
 			if err := client.Dock(ctx); err != nil {
-				fmt.Printf("  Dock failed: %v (continuing)\n", err)
+				if format == formatStyled {
+					fmt.Printf("  Dock failed: %v (continuing)\n", err)
+				}
 			} else {
 				time.Sleep(game.SleepQuick)
+				// Collect dock response
+				if format != formatStyled {
+					if raw := client.GetRawJSON("_last"); raw != nil {
+						allResponses = append(allResponses, raw)
+					}
+				}
 				if globalKB != nil {
 					if err := kbUpdateAll(client, ctx); err != nil {
-						fmt.Printf("  (update_all failed: %v)\n", err)
+						if format == formatStyled {
+							fmt.Printf("  (update_all failed: %v)\n", err)
+						}
 					}
 				}
 				if refuelAtStations {
-					fmt.Printf("  Refueling...\n")
+					if format == formatStyled {
+						fmt.Printf("  Refueling...\n")
+					}
 					if err := client.Refuel(ctx); err != nil {
 						// Tank-full is an expected "error" here, not worth
 						// surfacing. Only print on unexpected failures.
 						if !strings.Contains(err.Error(), "tank_full") {
-							fmt.Printf("  Refuel warning: %v\n", err)
+							if format == formatStyled {
+								fmt.Printf("  Refuel warning: %v\n", err)
+							}
 						}
 					}
 					time.Sleep(game.SleepQuick)
+					// Collect refuel response
+					if format != formatStyled {
+						if raw := client.GetRawJSON("_last"); raw != nil {
+							allResponses = append(allResponses, raw)
+						}
+					}
 				}
-				fmt.Printf("  Undocking...\n")
+				if format == formatStyled {
+					fmt.Printf("  Undocking...\n")
+				}
 				if err := client.Undock(ctx); err != nil {
-					fmt.Printf("  Undock failed: %v\n", err)
+					if format == formatStyled {
+						fmt.Printf("  Undock failed: %v\n", err)
+					}
 				}
 				time.Sleep(game.SleepTick)
+				// Collect undock response
+				if format != formatStyled {
+					if raw := client.GetRawJSON("_last"); raw != nil {
+						allResponses = append(allResponses, raw)
+					}
+				}
 			}
 		} else {
 			// Non-station: just update POI data.
 			if globalKB != nil {
 				if err := kbUpdatePOI(client, ctx); err != nil {
-					fmt.Printf("  (update_poi failed: %v)\n", err)
+					if format == formatStyled {
+						fmt.Printf("  (update_poi failed: %v)\n", err)
+					}
 				}
 			}
 		}
@@ -144,8 +197,18 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	_ = client.GetStatus(ctx)
 
 	elapsed := time.Since(startTime)
-	fmt.Printf("\nExploration of %s complete: %d POIs in %s\n",
-		state.System.Name, len(route), formatDuration(int(elapsed.Seconds())))
+	if format == formatStyled {
+		fmt.Printf("\nExploration of %s complete: %d POIs in %s\n",
+			state.System.Name, len(route), formatDuration(int(elapsed.Seconds())))
+	} else {
+		// Print all collected raw responses
+		for i, raw := range allResponses {
+			if len(allResponses) > 1 {
+				fmt.Printf("\n--- Explore response %d ---\n", i+1)
+			}
+			fmt.Printf("%s\n", string(raw))
+		}
+	}
 	return nil
 }
 

@@ -12,7 +12,7 @@ import (
 
 // autopilot executes a multi-jump route to a target system, updating the KB
 // at each waypoint. Usage: autopilot <system> [poi]
-func autopilot(client game.GameClient, ctx context.Context, parts []string) error {
+func autopilot(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	if len(parts) < 2 {
 		return fmt.Errorf("usage: autopilot <system-name> [poi-name]")
 	}
@@ -24,15 +24,19 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string) erro
 	}
 
 	// Step 1: Find route
-	fmt.Printf("Finding route to %s...\n", targetSystem)
+	if format == formatStyled {
+		fmt.Printf("Finding route to %s...\n", targetSystem)
+	}
 	route, err := client.FindRoute(ctx, targetSystem)
 	if err != nil {
 		return fmt.Errorf("find_route failed: %w", err)
 	}
 	if len(route) == 0 {
-		fmt.Println("Already in target system (or no route found).")
+		if format == formatStyled {
+			fmt.Println("Already in target system (or no route found).")
+		}
 		if targetPOI != "" {
-			return autopilotTravelToPOI(client, ctx, targetPOI)
+			return autopilotTravelToPOI(client, ctx, targetPOI, format)
 		}
 		return nil
 	}
@@ -41,9 +45,11 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string) erro
 	if len(route) > 1 {
 		route = route[1:]
 	} else {
-		fmt.Println("Already in target system.")
+		if format == formatStyled {
+			fmt.Println("Already in target system.")
+		}
 		if targetPOI != "" {
-			return autopilotTravelToPOI(client, ctx, targetPOI)
+			return autopilotTravelToPOI(client, ctx, targetPOI, format)
 		}
 		return nil
 	}
@@ -52,46 +58,55 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string) erro
 	fuelPerJump, estimatedFuel, fuelAvailable := parseFuelEstimates(client)
 
 	totalJumps := len(route)
-	fmt.Printf("\n Route: %d jump(s) to %s\n", totalJumps, targetSystem)
-	for i, step := range route {
-		fmt.Printf("   %d. %s\n", i+1, step.Name)
-	}
-	if estimatedFuel > 0 {
-		fmt.Printf("   Fuel: %d per jump, ~%d total, %d available\n", fuelPerJump, estimatedFuel, fuelAvailable)
-		if estimatedFuel > fuelAvailable {
-			fmt.Printf("   WARNING: Not enough fuel! Need %d more.\n", estimatedFuel-fuelAvailable)
+	if format == formatStyled {
+		fmt.Printf("\n Route: %d jump(s) to %s\n", totalJumps, targetSystem)
+		for i, step := range route {
+			fmt.Printf("   %d. %s\n", i+1, step.Name)
 		}
-	}
+		if estimatedFuel > 0 {
+			fmt.Printf("   Fuel: %d per jump, ~%d total, %d available\n", fuelPerJump, estimatedFuel, fuelAvailable)
+			if estimatedFuel > fuelAvailable {
+				fmt.Printf("   WARNING: Not enough fuel! Need %d more.\n", estimatedFuel-fuelAvailable)
+			}
+		}
 
-	// Estimate total time: each jump ~2 ticks (jump travel) + ~1 tick (update_system overhead)
-	estTicksPerJump := 3
-	estTotalTicks := totalJumps * estTicksPerJump
-	estWallSecs := estTotalTicks * 10
-	fmt.Printf("   Est. time: ~%d ticks (~%s)\n\n", estTotalTicks, formatDuration(estWallSecs))
+		// Estimate total time: each jump ~2 ticks (jump travel) + ~1 tick (update_system overhead)
+		estTicksPerJump := 3
+		estTotalTicks := totalJumps * estTicksPerJump
+		estWallSecs := estTotalTicks * 10
+		fmt.Printf("   Est. time: ~%d ticks (~%s)\n\n", estTotalTicks, formatDuration(estWallSecs))
+	}
 
 	startTime := time.Now()
+
+	// Collect raw responses for non-styled formats
+	var allResponses []json.RawMessage
 
 	// Step 2: Execute jumps
 	for i, step := range route {
 		// Check fuel before each jump — use fuel cells if below 10%
-		autopilotRefuelIfNeeded(client, ctx)
+		autopilotRefuelIfNeeded(client, ctx, format)
 
 		elapsed := time.Since(startTime)
 		remaining := ""
-		if i > 0 {
+		if i > 0 && format == formatStyled {
 			perJump := elapsed / time.Duration(i)
 			left := perJump * time.Duration(totalJumps-i)
 			remaining = fmt.Sprintf(" | ETA %s", formatDuration(int(left.Seconds())))
 		}
 
-		fmt.Printf("[Jump %d/%d] Jumping to %s...%s\n", i+1, totalJumps, step.Name, remaining)
+		if format == formatStyled {
+			fmt.Printf("[Jump %d/%d] Jumping to %s...%s\n", i+1, totalJumps, step.Name, remaining)
+		}
 
 		result, err := client.Jump(ctx, step.SystemID)
 		if err != nil {
 			// If jump failed due to insufficient fuel, try using fuel cells and retry once.
 			if strings.Contains(err.Error(), "no_fuel") || strings.Contains(err.Error(), "nsufficient fuel") {
-				if autopilotUseFuelCells(client, ctx) {
-					fmt.Printf("  Retrying jump to %s...\n", step.Name)
+				if autopilotUseFuelCells(client, ctx, format) {
+					if format == formatStyled {
+						fmt.Printf("  Retrying jump to %s...\n", step.Name)
+					}
 					result, err = client.Jump(ctx, step.SystemID)
 				}
 			}
@@ -102,23 +117,38 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string) erro
 
 		if result.Canceled {
 			state := client.GetState()
-			fmt.Printf("  Jump interrupted! Stopped in %s.\n", state.System.Name)
+			if format == formatStyled {
+				fmt.Printf("  Jump interrupted! Stopped in %s.\n", state.System.Name)
+			}
 			return fmt.Errorf("autopilot interrupted at jump %d/%d (combat?)", i+1, totalJumps)
 		}
 
-		fmt.Printf("  Arrived in %s\n", step.Name)
+		if format == formatStyled {
+			fmt.Printf("  Arrived in %s\n", step.Name)
+		}
+
+		// Collect jump response
+		if format != formatStyled {
+			if raw := client.GetRawJSON("_last"); raw != nil {
+				allResponses = append(allResponses, raw)
+			}
+		}
 
 		// Update KB with new system data
 		if globalKB != nil {
 			if err := kbUpdateSystem(client, ctx); err != nil {
-				fmt.Printf("  (KB update failed: %v)\n", err)
+				if format == formatStyled {
+					fmt.Printf("  (KB update failed: %v)\n", err)
+				}
 			}
 			// If we landed at a resource POI, grab detailed POI data (resources, richness).
 			if state := client.GetState(); state != nil {
 				for _, poi := range state.System.POIs {
 					if poi.ID == state.CurrentPOI && isResourcePOI(poi.Type) {
 						if err := kbUpdatePOI(client, ctx); err != nil {
-							fmt.Printf("  (POI update failed: %v)\n", err)
+							if format == formatStyled {
+								fmt.Printf("  (POI update failed: %v)\n", err)
+							}
 						}
 						break
 					}
@@ -131,19 +161,31 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string) erro
 	_ = client.GetStatus(ctx)
 
 	totalElapsed := time.Since(startTime)
-	fmt.Printf("\n Arrived at %s in %s (%d jumps)\n", targetSystem, formatDuration(int(totalElapsed.Seconds())), totalJumps)
+	if format == formatStyled {
+		fmt.Printf("\n Arrived at %s in %s (%d jumps)\n", targetSystem, formatDuration(int(totalElapsed.Seconds())), totalJumps)
+	} else {
+		// Print all collected raw responses
+		for i, raw := range allResponses {
+			if len(allResponses) > 1 {
+				fmt.Printf("\n--- Autopilot jump %d ---\n", i+1)
+			}
+			fmt.Printf("%s\n", string(raw))
+		}
+	}
 
 	// Step 3: Travel to POI if specified
 	if targetPOI != "" {
-		return autopilotTravelToPOI(client, ctx, targetPOI)
+		return autopilotTravelToPOI(client, ctx, targetPOI, format)
 	}
 
 	return nil
 }
 
 // autopilotTravelToPOI travels to a named POI in the current system.
-func autopilotTravelToPOI(client game.GameClient, ctx context.Context, targetPOI string) error {
-	fmt.Printf("Traveling to POI: %s...\n", targetPOI)
+func autopilotTravelToPOI(client game.GameClient, ctx context.Context, targetPOI string, format outputFormat) error {
+	if format == formatStyled {
+		fmt.Printf("Traveling to POI: %s...\n", targetPOI)
+	}
 
 	result, err := client.Travel(ctx, targetPOI)
 	if err != nil {
@@ -152,7 +194,15 @@ func autopilotTravelToPOI(client game.GameClient, ctx context.Context, targetPOI
 	if result.Canceled {
 		return fmt.Errorf("travel to %s was interrupted", targetPOI)
 	}
-	fmt.Printf("  Arrived at %s\n", result.POI)
+
+	if format == formatStyled {
+		fmt.Printf("  Arrived at %s\n", result.POI)
+	} else {
+		// Print raw travel response
+		if raw := client.GetRawJSON("_last"); raw != nil {
+			fmt.Printf("%s\n", string(raw))
+		}
+	}
 	return nil
 }
 
@@ -174,7 +224,7 @@ func parseFuelEstimates(client game.GameClient) (fuelPerJump, estimatedFuel, fue
 }
 
 // autopilotUseFuelCells uses all fuel_cell items in cargo. Returns true if any were used.
-func autopilotUseFuelCells(client game.GameClient, ctx context.Context) bool {
+func autopilotUseFuelCells(client game.GameClient, ctx context.Context, format outputFormat) bool {
 	state := client.GetState()
 	if state == nil {
 		return false
@@ -187,12 +237,16 @@ func autopilotUseFuelCells(client game.GameClient, ctx context.Context) bool {
 		}
 
 		qty := int(item.Quantity)
-		fmt.Printf("  Fuel low — using %d %s from cargo...\n", qty, item.ItemID)
+		if format == formatStyled {
+			fmt.Printf("  Fuel low — using %d %s from cargo...\n", qty, item.ItemID)
+		}
 		if err := client.RawCommand(ctx, "use_item", map[string]any{
 			"item_id":  item.ItemID,
 			"quantity": qty,
 		}); err != nil {
-			fmt.Printf("  Warning: use_item %s failed: %v\n", item.ItemID, err)
+			if format == formatStyled {
+				fmt.Printf("  Warning: use_item %s failed: %v\n", item.ItemID, err)
+			}
 			continue
 		}
 		time.Sleep(game.SleepQuick)
@@ -205,7 +259,9 @@ func autopilotUseFuelCells(client game.GameClient, ctx context.Context) bool {
 		time.Sleep(game.SleepQuick)
 		state = client.GetState()
 		if state != nil && state.MaxFuel > 0 {
-			fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+			if format == formatStyled {
+				fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+			}
 		}
 	}
 	return used
@@ -213,7 +269,7 @@ func autopilotUseFuelCells(client game.GameClient, ctx context.Context) bool {
 
 // autopilotRefuelIfNeeded checks if fuel is below 10% and uses fuel_cell items
 // from cargo to refuel in space.
-func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context) {
+func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context, format outputFormat) {
 	state := client.GetState()
 	if state == nil || state.MaxFuel == 0 {
 		return
@@ -233,11 +289,15 @@ func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context) {
 			continue
 		}
 
-		fmt.Printf("  Fuel low (%.0f%%) — using %s from cargo...\n", fuelPct, item.ItemID)
+		if format == formatStyled {
+			fmt.Printf("  Fuel low (%.0f%%) — using %s from cargo...\n", fuelPct, item.ItemID)
+		}
 		if err := client.RawCommand(ctx, "use_item", map[string]any{
 			"item_id": item.ItemID,
 		}); err != nil {
-			fmt.Printf("  Warning: use_item %s failed: %v\n", item.ItemID, err)
+			if format == formatStyled {
+				fmt.Printf("  Warning: use_item %s failed: %v\n", item.ItemID, err)
+			}
 			return
 		}
 		time.Sleep(game.SleepQuick)
@@ -247,7 +307,9 @@ func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context) {
 		time.Sleep(game.SleepQuick)
 		state = client.GetState()
 		if state != nil && state.MaxFuel > 0 {
-			fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+			if format == formatStyled {
+				fmt.Printf("  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
+			}
 		}
 		return
 	}

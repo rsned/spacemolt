@@ -3420,11 +3420,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === AUTOPILOT & EXPLORE ===
 	case "autopilot", "ap":
-		return autopilot(client, ctx, parts)
+		return autopilot(client, ctx, parts, format)
 	case "explore":
-		return explore(client, ctx)
+		return explore(client, ctx, format)
 	case "auto_explore", "auto-explore":
-		return autoExplore(client, ctx, parts)
+		return autoExplore(client, ctx, parts, format)
 
 	// === KNOWLEDGE BASE UPDATE COMMANDS ===
 	case "update_system":
