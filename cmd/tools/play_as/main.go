@@ -29,6 +29,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/registry"
 )
 
@@ -222,6 +223,44 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	poller.start()
 	defer poller.stop()
 
+	// Initialize mbox store for persistent message storage.
+	var mboxStore *mbox.Store
+	var mboxIng *mbox.Ingester
+
+	mboxDBPath := filepath.Join("data", "agents", agentID, "mbox.db")
+	if s, err := mbox.Open(mboxDBPath); err != nil {
+		log.Printf("[mbox] warning: could not open mbox: %v", err)
+	} else {
+		mboxStore = s
+		defer func() { _ = mboxStore.Close() }()
+		mboxIng = mbox.NewIngester(mboxStore)
+
+		client.SetOnChatMessage(func(msg serverapi.ChatMessage) {
+			mboxIng.HandlePush(msg)
+		})
+
+		go func() {
+			report, err := mboxIng.Backfill(ctx, client, mbox.BackfillOptions{
+				Channels:        []string{"system", "local", "faction"},
+				MaxPerChannel:   500,
+				RequestInterval: game.SleepQuick,
+			})
+			if err != nil {
+				log.Printf("[mbox] backfill error: %v", err)
+				return
+			}
+			for ch, cr := range report.Channels {
+				if cr.Fetched > 0 {
+					suffix := ""
+					if cr.Capped {
+						suffix = " (capped)"
+					}
+					log.Printf("[mbox] backfill %s: %d messages%s", ch, cr.Fetched, suffix)
+				}
+			}
+		}()
+	}
+
 	format := outputFormat(cfg.OutputFormat)
 
 	for {
@@ -282,6 +321,18 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 					fmt.Printf("  %3d  %s\n", start+i+1, l)
 				}
 			}
+			fmt.Println()
+			continue
+		}
+
+		// Handle mbox
+		if command == "mbox" {
+			if mboxStore == nil {
+				fmt.Println("mbox not available (database not initialized)")
+				fmt.Println()
+				continue
+			}
+			handleMboxCommand(mboxStore, mboxIng, client, ctx, parts[1:])
 			fmt.Println()
 			continue
 		}
@@ -3862,12 +3913,292 @@ func printHelp() {
 	fmt.Println("  action_log [--category X] [--page N] - Action history")
 	fmt.Println("  loop [-f] <count> <command> - Repeat a command N times (-f to continue on errors)")
 	fmt.Println("  history                   - Show last 25 commands (persisted across sessions)")
+	fmt.Println("  mbox                      - Show unread message counts")
+	fmt.Println("  mbox list [ch] [--unread] - List messages (newest first)")
+	fmt.Println("  mbox search <query>       - Full-text search messages")
+	fmt.Println("  mbox show <id>            - Show message detail")
+	fmt.Println("  mbox read <id>|--all      - Mark messages as read")
+	fmt.Println("  mbox backfill [--channel] - Deep crawl message history")
+	fmt.Println("  mbox sources              - Push/backfill/reconcile counts")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
 	fmt.Println()
 	fmt.Println("📝 All commands are case-insensitive")
 	fmt.Println()
+}
+
+// --- Mbox command handlers ---
+
+func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
+	if len(args) == 0 {
+		counts, err := store.UnreadCounts()
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+			return
+		}
+		for _, ch := range []string{"system", "local", "faction", "private"} {
+			n := counts[ch]
+			color := channelColors[ch]
+			reset := "\033[0m"
+			if n > 0 {
+				fmt.Printf("  %s%-8s%s %d unread\n", color, ch, reset, n)
+			} else {
+				fmt.Printf("  %-8s 0 unread\n", ch)
+			}
+		}
+		return
+	}
+
+	sub := strings.ToLower(args[0])
+	switch sub {
+	case "list":
+		mboxList(store, args[1:])
+	case "show":
+		if len(args) < 2 {
+			fmt.Println("usage: mbox show <id>")
+			return
+		}
+		mboxShow(store, args[1])
+	case "search":
+		if len(args) < 2 {
+			fmt.Println("usage: mbox search <query> [--channel <ch>]")
+			return
+		}
+		mboxSearch(store, args[1:])
+	case "read":
+		mboxRead(store, args[1:])
+	case "backfill":
+		mboxBackfill(ing, client, ctx, args[1:])
+	case "sources":
+		mboxSources(store)
+	default:
+		fmt.Println("mbox commands: list, show, search, read, backfill, sources")
+		fmt.Println("  mbox                                  show unread counts")
+		fmt.Println("  mbox list [channel] [--unread] [-n N]  list messages")
+		fmt.Println("  mbox show <id>                         show message detail")
+		fmt.Println("  mbox search <query> [--channel <ch>]   full-text search")
+		fmt.Println("  mbox read <id>|--all|--channel <ch>    mark read")
+		fmt.Println("  mbox backfill [--channel <ch>] [--limit N]")
+		fmt.Println("  mbox sources                           push/backfill/reconcile counts")
+	}
+}
+
+func mboxList(store *mbox.Store, args []string) {
+	q := mbox.Query{Limit: 20}
+	for i := 0; i < len(args); i++ {
+		switch strings.ToLower(args[i]) {
+		case "--unread":
+			q.UnreadOnly = true
+		case "-n":
+			if i+1 < len(args) {
+				i++
+				if n, err := strconv.Atoi(args[i]); err == nil {
+					q.Limit = n
+				}
+			}
+		default:
+			if q.Channel == "" {
+				q.Channel = strings.ToLower(args[i])
+			}
+		}
+	}
+
+	msgs, err := store.List(q)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	if len(msgs) == 0 {
+		fmt.Println("  (no messages)")
+		return
+	}
+	for _, m := range msgs {
+		printMboxMessage(m)
+	}
+}
+
+func mboxShow(store *mbox.Store, id string) {
+	msg, err := store.Get(id)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	if msg == nil {
+		fmt.Printf("message %q not found\n", id)
+		return
+	}
+	color := channelColors[msg.Channel]
+	reset := "\033[0m"
+	fmt.Printf("  ID:        %s\n", msg.ID)
+	fmt.Printf("  Channel:   %s%s%s\n", color, msg.Channel, reset)
+	fmt.Printf("  Sender:    %s (%s)\n", msg.Sender, msg.SenderID)
+	fmt.Printf("  Time:      %s (%s)\n", msg.TimestampUTC.Format(time.RFC3339), mboxRelativeTime(msg.TimestampUTC))
+	if msg.TargetID != "" {
+		fmt.Printf("  Target:    %s", msg.TargetID)
+		if msg.TargetName != "" {
+			fmt.Printf(" (%s)", msg.TargetName)
+		}
+		fmt.Println()
+	}
+	fmt.Printf("  Source:    %s\n", msg.Source)
+	read := "unread"
+	if msg.ReadAt != nil {
+		read = msg.ReadAt.Format(time.RFC3339)
+	}
+	fmt.Printf("  Read:      %s\n", read)
+	fmt.Printf("  Content:\n    %s\n", msg.Content)
+}
+
+func mboxSearch(store *mbox.Store, args []string) {
+	if len(args) == 0 {
+		return
+	}
+	text := args[0]
+	q := mbox.Query{Limit: 20}
+	for i := 1; i < len(args); i++ {
+		if strings.ToLower(args[i]) == "--channel" && i+1 < len(args) {
+			i++
+			q.Channel = strings.ToLower(args[i])
+		}
+	}
+
+	msgs, err := store.Search(text, q)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	if len(msgs) == 0 {
+		fmt.Println("  (no results)")
+		return
+	}
+	for _, m := range msgs {
+		printMboxMessage(m)
+	}
+}
+
+func mboxRead(store *mbox.Store, args []string) {
+	if len(args) == 0 {
+		fmt.Println("usage: mbox read <id> | --all | --channel <ch>")
+		return
+	}
+	switch strings.ToLower(args[0]) {
+	case "--all":
+		for _, ch := range []string{"system", "local", "faction", "private"} {
+			_ = store.MarkChannelRead(ch)
+		}
+		fmt.Println("  marked all messages read")
+	case "--channel":
+		if len(args) < 2 {
+			fmt.Println("usage: mbox read --channel <ch>")
+			return
+		}
+		ch := strings.ToLower(args[1])
+		if err := store.MarkChannelRead(ch); err != nil {
+			fmt.Printf("error: %v\n", err)
+			return
+		}
+		fmt.Printf("  marked %s messages read\n", ch)
+	default:
+		if err := store.MarkRead(args[0]); err != nil {
+			fmt.Printf("error: %v\n", err)
+			return
+		}
+		fmt.Printf("  marked %s read\n", args[0])
+	}
+}
+
+func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
+	opts := mbox.BackfillOptions{
+		Channels:        []string{"system", "local", "faction"},
+		MaxPerChannel:   500,
+		RequestInterval: game.SleepQuick,
+	}
+	for i := 0; i < len(args); i++ {
+		switch strings.ToLower(args[i]) {
+		case "--channel":
+			if i+1 < len(args) {
+				i++
+				opts.Channels = []string{strings.ToLower(args[i])}
+			}
+		case "--limit":
+			if i+1 < len(args) {
+				i++
+				if n, err := strconv.Atoi(args[i]); err == nil {
+					opts.MaxPerChannel = n
+				}
+			}
+		}
+	}
+
+	fmt.Printf("  backfilling %v (max %d per channel)...\n", opts.Channels, opts.MaxPerChannel)
+	report, err := ing.Backfill(ctx, client, opts)
+	if err != nil {
+		fmt.Printf("  error: %v\n", err)
+		return
+	}
+	for ch, cr := range report.Channels {
+		suffix := ""
+		if cr.Capped {
+			suffix = " (more available)"
+		}
+		fmt.Printf("  %s: %d messages%s\n", ch, cr.Fetched, suffix)
+	}
+}
+
+func mboxSources(store *mbox.Store) {
+	counts, err := store.SourceCounts()
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	if len(counts) == 0 {
+		fmt.Println("  (no messages)")
+		return
+	}
+	for _, src := range []string{"push", "backfill", "reconcile"} {
+		if n, ok := counts[src]; ok {
+			fmt.Printf("  %-12s %d\n", src, n)
+		}
+	}
+}
+
+func printMboxMessage(m mbox.Message) {
+	color := channelColors[m.Channel]
+	reset := "\033[0m"
+	bold := "\033[1m"
+
+	unreadMarker := "  "
+	senderFmt := m.Sender
+	if m.ReadAt == nil {
+		unreadMarker = "* "
+		senderFmt = bold + m.Sender + reset
+	}
+
+	fmt.Printf("%s%s[%-7s]%s %6s  %s  %s\n",
+		unreadMarker, color, m.Channel, reset,
+		mboxRelativeTime(m.TimestampUTC), senderFmt, mboxTruncate(m.Content, 60))
+}
+
+func mboxRelativeTime(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
+}
+
+func mboxTruncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-3] + "..."
 }
 
 // chatPoller periodically polls chat channels and prints new messages.
