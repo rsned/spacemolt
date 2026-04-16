@@ -1,6 +1,7 @@
 package mbox
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -200,5 +201,138 @@ func TestGet(t *testing.T) {
 	}
 	if missing != nil {
 		t.Errorf("Get nonexistent: want nil, got %+v", missing)
+	}
+}
+
+func TestMarkReadAndUnreadCounts(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().UTC()
+
+	for i, ch := range []string{"system", "system", "faction"} {
+		if _, err := s.Ingest(Message{
+			ID: fmt.Sprintf("u%d", i), Channel: ch, SenderID: "p1", Sender: "A",
+			Content: "x", TimestampUTC: now.Add(time.Duration(i) * time.Second), Source: "push",
+		}); err != nil {
+			t.Fatalf("Ingest: %v", err)
+		}
+	}
+
+	counts, err := s.UnreadCounts()
+	if err != nil {
+		t.Fatalf("UnreadCounts: %v", err)
+	}
+	if counts["system"] != 2 || counts["faction"] != 1 {
+		t.Fatalf("unexpected counts: %v", counts)
+	}
+
+	if err := s.MarkRead("u0"); err != nil {
+		t.Fatalf("MarkRead: %v", err)
+	}
+	counts, _ = s.UnreadCounts()
+	if counts["system"] != 1 {
+		t.Fatalf("after MarkRead, system=%d want 1", counts["system"])
+	}
+
+	if err := s.MarkChannelRead("system"); err != nil {
+		t.Fatalf("MarkChannelRead: %v", err)
+	}
+	counts, _ = s.UnreadCounts()
+	if counts["system"] != 0 {
+		t.Fatalf("after MarkChannelRead, system=%d want 0", counts["system"])
+	}
+}
+
+func TestSearch(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().UTC()
+
+	if _, err := s.Ingest(Message{ID: "s1", Channel: "local", SenderID: "p1", Sender: "StationKeeper",
+		Content: "Station Aldrin needs iron_ore and copper_ore", TimestampUTC: now, Source: "push"}); err != nil {
+		t.Fatalf("Ingest s1: %v", err)
+	}
+	if _, err := s.Ingest(Message{ID: "s2", Channel: "local", SenderID: "p2", Sender: "Trader",
+		Content: "Selling fuel cells", TimestampUTC: now.Add(time.Second), Source: "push"}); err != nil {
+		t.Fatalf("Ingest s2: %v", err)
+	}
+	if _, err := s.Ingest(Message{ID: "s3", Channel: "faction", SenderID: "p1", Sender: "StationKeeper",
+		Content: "Station Hoffman needs uranium", TimestampUTC: now.Add(2 * time.Second), Source: "push"}); err != nil {
+		t.Fatalf("Ingest s3: %v", err)
+	}
+
+	// Search content
+	msgs, err := s.Search("iron_ore", Query{Limit: 10})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(msgs) != 1 || msgs[0].ID != "s1" {
+		t.Fatalf("search iron_ore: got %d results", len(msgs))
+	}
+
+	// Search sender
+	msgs, err = s.Search("StationKeeper", Query{Limit: 10})
+	if err != nil {
+		t.Fatalf("Search StationKeeper: %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Fatalf("search StationKeeper: got %d results, want 2", len(msgs))
+	}
+
+	// Search with channel filter
+	msgs, err = s.Search("needs", Query{Channel: "local", Limit: 10})
+	if err != nil {
+		t.Fatalf("Search needs+local: %v", err)
+	}
+	if len(msgs) != 1 || msgs[0].ID != "s1" {
+		t.Fatalf("search needs+local: got %d results, want 1", len(msgs))
+	}
+}
+
+func TestSourceCounts(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().UTC()
+
+	for i, src := range []string{"push", "backfill", "push"} {
+		if _, err := s.Ingest(Message{
+			ID: fmt.Sprintf("sc%d", i+1), Channel: "system", SenderID: "p1", Sender: "A",
+			Content: "x", TimestampUTC: now.Add(time.Duration(i) * time.Second), Source: src,
+		}); err != nil {
+			t.Fatalf("Ingest: %v", err)
+		}
+	}
+
+	counts, err := s.SourceCounts()
+	if err != nil {
+		t.Fatalf("SourceCounts: %v", err)
+	}
+	if counts["push"] != 2 || counts["backfill"] != 1 {
+		t.Fatalf("unexpected source counts: %v", counts)
+	}
+}
+
+func TestCursorRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	_, exists, err := s.Cursor("faction")
+	if err != nil {
+		t.Fatalf("Cursor: %v", err)
+	}
+	if exists {
+		t.Fatal("cursor should not exist yet")
+	}
+
+	oldest := time.Date(2026, 4, 15, 10, 0, 0, 0, time.UTC)
+	if err := s.SetCursor("faction", oldest, true); err != nil {
+		t.Fatalf("SetCursor: %v", err)
+	}
+
+	got, exists, err := s.Cursor("faction")
+	if err != nil {
+		t.Fatalf("Cursor after set: %v", err)
+	}
+	if !exists {
+		t.Fatal("cursor should exist after SetCursor")
+	}
+	if !got.Equal(oldest) {
+		t.Fatalf("got %v, want %v", got, oldest)
 	}
 }

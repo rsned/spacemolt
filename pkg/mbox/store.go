@@ -313,6 +313,162 @@ func scanRow(s scanner) (Message, error) {
 	return msg, nil
 }
 
+// MarkRead marks the given message IDs as read if they are currently unread.
+func (s *Store) MarkRead(ids ...string) error {
+	now := time.Now().UTC().Format(timeFormat)
+	for _, id := range ids {
+		if _, err := s.db.Exec(
+			"UPDATE messages SET read_at = ? WHERE id = ? AND read_at IS NULL",
+			now, id,
+		); err != nil {
+			return fmt.Errorf("mbox: mark read %s: %w", id, err)
+		}
+	}
+	return nil
+}
+
+// MarkChannelRead marks all unread messages in a channel as read.
+func (s *Store) MarkChannelRead(channel string) error {
+	now := time.Now().UTC().Format(timeFormat)
+	if _, err := s.db.Exec(
+		"UPDATE messages SET read_at = ? WHERE channel = ? AND read_at IS NULL",
+		now, channel,
+	); err != nil {
+		return fmt.Errorf("mbox: mark channel read %s: %w", channel, err)
+	}
+	return nil
+}
+
+// UnreadCounts returns a map of channel → unread message count.
+func (s *Store) UnreadCounts() (map[string]int, error) {
+	rows, err := s.db.Query(
+		"SELECT channel, COUNT(*) FROM messages WHERE read_at IS NULL GROUP BY channel",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("mbox: unread counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var ch string
+		var n int
+		if err := rows.Scan(&ch, &n); err != nil {
+			return nil, fmt.Errorf("mbox: unread counts scan: %w", err)
+		}
+		counts[ch] = n
+	}
+	return counts, rows.Err()
+}
+
+// Search performs a full-text search over messages, with optional Query filters.
+// Default limit is 20 if q.Limit is 0.
+func (s *Store) Search(text string, q Query) ([]Message, error) {
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var clauses []string
+	args := []any{text}
+
+	if q.Channel != "" {
+		clauses = append(clauses, "m.channel = ?")
+		args = append(args, q.Channel)
+	}
+	if q.SenderID != "" {
+		clauses = append(clauses, "m.sender_id = ?")
+		args = append(args, q.SenderID)
+	}
+	if q.UnreadOnly {
+		clauses = append(clauses, "m.read_at IS NULL")
+	}
+
+	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.source
+FROM messages m
+JOIN messages_fts ON m.rowid = messages_fts.rowid
+WHERE messages_fts MATCH ?`
+
+	if len(clauses) > 0 {
+		query += " AND " + strings.Join(clauses, " AND ")
+	}
+	query += fmt.Sprintf(" ORDER BY m.timestamp_utc DESC LIMIT %d OFFSET %d", limit, q.Offset)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("mbox: search: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	msgs, err := scanMessages(rows)
+	if err != nil {
+		return nil, fmt.Errorf("mbox: search scan: %w", err)
+	}
+	return msgs, nil
+}
+
+// SourceCounts returns a map of source → message count.
+func (s *Store) SourceCounts() (map[string]int, error) {
+	rows, err := s.db.Query(
+		"SELECT source, COUNT(*) FROM messages GROUP BY source",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("mbox: source counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var src string
+		var n int
+		if err := rows.Scan(&src, &n); err != nil {
+			return nil, fmt.Errorf("mbox: source counts scan: %w", err)
+		}
+		counts[src] = n
+	}
+	return counts, rows.Err()
+}
+
+// Cursor returns the oldest-seen timestamp for a channel's backfill cursor.
+// Returns (time.Time{}, false, nil) if no cursor exists for the channel.
+func (s *Store) Cursor(channel string) (time.Time, bool, error) {
+	var tsStr string
+	err := s.db.QueryRow(
+		"SELECT oldest_seen_utc FROM channel_cursors WHERE channel = ?", channel,
+	).Scan(&tsStr)
+	if err == sql.ErrNoRows {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("mbox: cursor %s: %w", channel, err)
+	}
+	t, err := time.Parse(timeFormat, tsStr)
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("mbox: cursor parse %q: %w", tsStr, err)
+	}
+	return t, true, nil
+}
+
+// SetCursor upserts the backfill cursor for a channel.
+func (s *Store) SetCursor(channel string, oldest time.Time, capped bool) error {
+	now := time.Now().UTC().Format(timeFormat)
+	oldestStr := oldest.UTC().Format(timeFormat)
+	cappedInt := 0
+	if capped {
+		cappedInt = 1
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO channel_cursors (channel, oldest_seen_utc, newest_seen_utc, last_backfill_at, backfill_capped)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(channel) DO UPDATE SET oldest_seen_utc=excluded.oldest_seen_utc, last_backfill_at=excluded.last_backfill_at, backfill_capped=excluded.backfill_capped`,
+		channel, oldestStr, oldestStr, now, cappedInt,
+	)
+	if err != nil {
+		return fmt.Errorf("mbox: set cursor %s: %w", channel, err)
+	}
+	return nil
+}
+
 // nullableString converts an empty string to a NULL sql value.
 func nullableString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
