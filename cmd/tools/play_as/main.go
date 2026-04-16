@@ -1970,7 +1970,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Rich survey: loop until no more hidden POIs are revealed, store
 		// newly revealed POIs (with resource data) to the KB, and report
 		// aggregate XP gained.
-		surveySystem(client, ctx)
+		surveySystem(client, ctx, format)
 		return nil
 
 	// === COMBAT ===

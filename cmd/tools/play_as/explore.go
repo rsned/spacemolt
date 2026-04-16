@@ -82,7 +82,7 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	// Execute the route.
 
 	// Survey system at the start to potentially reveal new POIs for exploration.
-	surveySystem(client, ctx)
+	surveySystem(client, ctx, formatStyled)
 	startTime := time.Now()
 	for i, poi := range route {
 		// Skip travel to current POI.
@@ -154,42 +154,53 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 // newly revealed POIs (including full resource data) into the knowledge base,
 // enriches each revealed POI via get_poi so reveal_difficulty/hidden flags
 // land in SQLite, and prints a summary of aggregate XP gained.
-func surveySystem(client game.GameClient, ctx context.Context) {
+func surveySystem(client game.GameClient, ctx context.Context, format outputFormat) {
 	state := client.GetState()
 
 	if !checkForSurveyScanner(state) {
-		fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
+		if format == formatStyled {
+			fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
+		}
 		return
 	}
 
-	fmt.Printf("\nSurveying system with survey scanner...\n")
+	if format == formatStyled {
+		fmt.Printf("\nSurveying system with survey scanner...\n")
+	}
 
 	totalXP := make(map[string]int)
 	iteration := 0
+	var allResponses []json.RawMessage
+
 	for {
 		iteration++
 		if err := client.SurveySystem(ctx); err != nil {
-			fmt.Printf("  Survey failed: %v\n", err)
+			if format == formatStyled {
+				fmt.Printf("  Survey failed: %v\n", err)
+			}
 			return
 		}
 		time.Sleep(game.SleepQuick)
 
 		rawJSON := client.GetRawJSON("_last")
 		if rawJSON == nil {
-			fmt.Printf("  Survey complete (no response data)\n")
+			if format == formatStyled {
+				fmt.Printf("  Survey complete (no response data)\n")
+			}
 			return
+		}
+
+		// For raw/json mode, collect responses to print at the end
+		if format != formatStyled {
+			allResponses = append(allResponses, rawJSON)
 		}
 
 		var resp serverapi.SurveySystemResponse
 		if err := json.Unmarshal(rawJSON, &resp); err != nil {
-			fmt.Printf("  Failed to parse survey response: %v\n", err)
+			if format == formatStyled {
+				fmt.Printf("  Failed to parse survey response: %v\n", err)
+			}
 			return
-		}
-
-		if iteration == 1 {
-			fmt.Printf("  Survey power: %d | System: %s\n", resp.SurveyPower, resp.SystemName)
-		} else {
-			fmt.Printf("  Re-survey #%d (checking for additional hidden POIs)...\n", iteration)
 		}
 
 		// Accumulate XP across iterations.
@@ -197,40 +208,53 @@ func surveySystem(client game.GameClient, ctx context.Context) {
 			totalXP[skill] += xp
 		}
 
-		if len(resp.NewlyRevealed) > 0 {
-			fmt.Printf("  Newly revealed POIs:\n")
-			for _, poi := range resp.NewlyRevealed {
-				fmt.Printf("    + %s (%s)\n", poi.Name, poi.Type)
-				if poi.Description != "" {
-					fmt.Printf("      %s\n", poi.Description)
+		if format == formatStyled {
+			if iteration == 1 {
+				fmt.Printf("  Survey power: %d | System: %s\n", resp.SurveyPower, resp.SystemName)
+			} else {
+				fmt.Printf("  Re-survey #%d (checking for additional hidden POIs)...\n", iteration)
+			}
+
+			if len(resp.NewlyRevealed) > 0 {
+				fmt.Printf("  Newly revealed POIs:\n")
+				for _, poi := range resp.NewlyRevealed {
+					fmt.Printf("    + %s (%s)\n", poi.Name, poi.Type)
+					if poi.Description != "" {
+						fmt.Printf("      %s\n", poi.Description)
+					}
+					for _, r := range poi.Resources {
+						fmt.Printf("      Resource: %s (richness: %.0f, remaining: %.0f/%.0f)\n",
+							r.ResourceID, r.Richness, r.Remaining, r.MaxRemaining)
+					}
 				}
-				for _, r := range poi.Resources {
-					fmt.Printf("      Resource: %s (richness: %.0f, remaining: %.0f/%.0f)\n",
-						r.ResourceID, r.Richness, r.Remaining, r.MaxRemaining)
+				if globalKB != nil {
+					saveSurveyPOIs(client, ctx, resp)
 				}
 			}
-			if globalKB != nil {
+
+			if len(resp.AlreadyRevealed) > 0 && iteration == 1 {
+				fmt.Printf("  Already revealed: %d POIs\n", len(resp.AlreadyRevealed))
+			}
+
+			if len(resp.FaintSignatures) > 0 {
+				fmt.Printf("  Faint signatures detected:\n")
+				for _, sig := range resp.FaintSignatures {
+					hint := sig.Hint
+					if hint == "" {
+						hint = "unknown"
+					}
+					fmt.Printf("    ? %s (difficulty: %d, hint: %s)\n", sig.Type, sig.Difficulty, hint)
+				}
+			}
+
+			if resp.Message != "" {
+				fmt.Printf("  %s\n", resp.Message)
+			}
+		} else {
+			// In raw/json mode, still save POIs to KB
+			if len(resp.NewlyRevealed) > 0 && globalKB != nil {
 				saveSurveyPOIs(client, ctx, resp)
 			}
-		}
-
-		if len(resp.AlreadyRevealed) > 0 && iteration == 1 {
-			fmt.Printf("  Already revealed: %d POIs\n", len(resp.AlreadyRevealed))
-		}
-
-		if len(resp.FaintSignatures) > 0 {
-			fmt.Printf("  Faint signatures detected:\n")
-			for _, sig := range resp.FaintSignatures {
-				hint := sig.Hint
-				if hint == "" {
-					hint = "unknown"
-				}
-				fmt.Printf("    ? %s (difficulty: %d, hint: %s)\n", sig.Type, sig.Difficulty, hint)
-			}
-		}
-
-		if resp.Message != "" {
-			fmt.Printf("  %s\n", resp.Message)
 		}
 
 		// Stop if nothing new was revealed this pass.
@@ -239,20 +263,32 @@ func surveySystem(client game.GameClient, ctx context.Context) {
 		}
 		// Safety cap — shouldn't be needed, but avoid a runaway loop.
 		if iteration >= 10 {
-			fmt.Printf("  (hit survey iteration cap of 10, stopping)\n")
+			if format == formatStyled {
+				fmt.Printf("  (hit survey iteration cap of 10, stopping)\n")
+			}
 			break
 		}
 	}
 
-	if len(totalXP) > 0 {
-		var xpParts []string
-		for skill, xp := range totalXP {
-			if xp > 0 {
-				xpParts = append(xpParts, fmt.Sprintf("%s +%d", skill, xp))
+	if format == formatStyled {
+		if len(totalXP) > 0 {
+			var xpParts []string
+			for skill, xp := range totalXP {
+				if xp > 0 {
+					xpParts = append(xpParts, fmt.Sprintf("%s +%d", skill, xp))
+				}
+			}
+			if len(xpParts) > 0 {
+				fmt.Printf("  Total XP gained from survey: %s\n", strings.Join(xpParts, ", "))
 			}
 		}
-		if len(xpParts) > 0 {
-			fmt.Printf("  Total XP gained from survey: %s\n", strings.Join(xpParts, ", "))
+	} else {
+		// For raw/json mode, print all collected responses
+		for i, rawResp := range allResponses {
+			if len(allResponses) > 1 {
+				fmt.Printf("\n--- Survey iteration %d ---\n", i+1)
+			}
+			fmt.Printf("%s\n", string(rawResp))
 		}
 	}
 }
