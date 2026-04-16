@@ -9,6 +9,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/prompts"
 )
 
@@ -81,6 +82,8 @@ type BaseAgent struct {
 	// Cached route home
 	routeHome       []game.RouteStep // Cached route to safe system
 	routeHomeSystem string           // System this route was calculated from
+
+	mboxStore *mbox.Store
 }
 
 // NewBaseAgent creates a new agent
@@ -810,6 +813,59 @@ func (a *BaseAgent) Status() Status {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.status
+}
+
+// SetMbox attaches a mailbox store to the agent for inter-agent messaging.
+func (a *BaseAgent) SetMbox(store *mbox.Store) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.mboxStore = store
+}
+
+// RecentFromSender returns the n most recent messages from a specific sender.
+func (a *BaseAgent) RecentFromSender(senderID string, n int) []mbox.Message {
+	a.mu.RLock()
+	s := a.mboxStore
+	a.mu.RUnlock()
+	if s == nil {
+		return nil
+	}
+	msgs, _ := s.List(mbox.Query{SenderID: senderID, Limit: n})
+	return msgs
+}
+
+// UnreadMatching returns unread messages matching any of the given keywords.
+// Duplicates (a message matching multiple keywords) are deduplicated.
+func (a *BaseAgent) UnreadMatching(keywords []string) []mbox.Message {
+	a.mu.RLock()
+	s := a.mboxStore
+	a.mu.RUnlock()
+	if s == nil {
+		return nil
+	}
+	var results []mbox.Message
+	seen := make(map[string]bool)
+	for _, kw := range keywords {
+		msgs, _ := s.Search(kw, mbox.Query{UnreadOnly: true, Limit: 50})
+		for _, m := range msgs {
+			if !seen[m.ID] {
+				seen[m.ID] = true
+				results = append(results, m)
+			}
+		}
+	}
+	return results
+}
+
+// MarkProcessed marks the given message IDs as read in the mailbox.
+func (a *BaseAgent) MarkProcessed(ids ...string) {
+	a.mu.RLock()
+	s := a.mboxStore
+	a.mu.RUnlock()
+	if s == nil {
+		return
+	}
+	_ = s.MarkRead(ids...)
 }
 
 // KBMemory implements the Memory interface using the knowledge base
