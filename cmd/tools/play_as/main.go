@@ -498,6 +498,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatMarket(raw)
 	case "chat_history", "get_chat_history":
 		return formatChatHistory(raw)
+	case "craft":
+		return formatCraft(raw)
 	default:
 		return ""
 	}
@@ -1332,6 +1334,81 @@ func formatMine(raw []byte) string {
 		return ""
 	}
 	return fmt.Sprintf("Mined %s %s ( %s remaining )", formatFloat(resp.Quantity), resp.ResourceName, resp.RemainingDisplay)
+}
+
+// formatCraft formats a craft response showing outputs, inputs used from storage, and XP gained.
+func formatCraft(raw []byte) string {
+	var resp struct {
+		Recipe        string `json:"recipe"`
+		Quantity      int    `json:"quantity"`
+		FromStorage   []struct {
+			ItemID   string `json:"item_id"`
+			Name     string `json:"name"`
+			Quantity int    `json:"quantity"`
+		} `json:"from_storage"`
+		Outputs []struct {
+			ItemID   string `json:"item_id"`
+			Name     string `json:"name"`
+			Quantity int    `json:"quantity"`
+		} `json:"outputs"`
+		XPGained       map[string]int `json:"xp_gained"`
+		LevelUp        bool           `json:"level_up"`
+		LeveledUpSkills []string      `json:"leveled_up_skills"`
+		SkillLevel     int            `json:"skill_level"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Output items
+	for _, out := range resp.Outputs {
+		fmt.Fprintf(&b, "Crafted %s (%s) x %d\n", out.Name, out.ItemID, out.Quantity)
+	}
+
+	// Inputs used from storage
+	if len(resp.FromStorage) > 0 {
+		b.WriteString("Used from storage:\n")
+		// Find max quantity width for alignment
+		qtyW := 0
+		for _, item := range resp.FromStorage {
+			w := len(strconv.Itoa(item.Quantity))
+			if w > qtyW {
+				qtyW = w
+			}
+		}
+		for _, item := range resp.FromStorage {
+			fmt.Fprintf(&b, "  %*d x %s\n", qtyW, item.Quantity, item.ItemID)
+		}
+	}
+
+	// XP gained
+	if len(resp.XPGained) > 0 {
+		b.WriteString("\n")
+		leveledUp := make(map[string]bool, len(resp.LeveledUpSkills))
+		for _, skill := range resp.LeveledUpSkills {
+			leveledUp[skill] = true
+		}
+
+		// Sort skill names for stable output
+		skills := make([]string, 0, len(resp.XPGained))
+		for skill := range resp.XPGained {
+			skills = append(skills, skill)
+		}
+		slices.Sort(skills)
+
+		for _, skill := range skills {
+			xp := resp.XPGained[skill]
+			if resp.LevelUp && leveledUp[skill] {
+				fmt.Fprintf(&b, " +%d xp %s (Level Up %d -> %d!)\n", xp, skill, resp.SkillLevel-1, resp.SkillLevel)
+			} else {
+				fmt.Fprintf(&b, " +%d xp %s\n", xp, skill)
+			}
+		}
+	}
+
+	return b.String()
 }
 
 // formatDock formats a dock response with station condition and truncated story.
@@ -2656,6 +2733,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return nil
 
+	case "nearest":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: nearest <poi_type>\nExample: nearest station")
+		}
+		return handleNearestCommand(ctx, client, parts[1:], format)
+
 	case "catalog":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: catalog <type> [--page N] [--page_size N] [--search text] [--category cat] [--class cls] [--empire emp] [--id id] [--tier N]")
@@ -3782,6 +3865,7 @@ func printHelp() {
 	fmt.Println("  travel <poi>              - Travel to a POI")
 	fmt.Println("  jump <system>             - Jump to another system")
 	fmt.Println("  find_route <system>       - Find route to system")
+	fmt.Println("  nearest <poi_type>        - Find nearest POIs by type (e.g., 'nearest station')")
 	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
 	fmt.Println("  auto_explore [--max-hops N]")
