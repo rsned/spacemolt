@@ -36,6 +36,10 @@ import (
 // Package-level knowledge base, initialized if --db-path is provided.
 var globalKB knowledge.Base
 
+// globalGraphCache provides lazy-loaded galaxy graph for pathfinding.
+// Used by nearest command (see Task 7-8).
+var globalGraphCache *graphCache //nolint:unused // Will be used in nearest command
+
 // globalClock tracks game ticks, initialized after client connects.
 var globalClock *game.GameClock
 
@@ -135,6 +139,7 @@ func main() {
 			logger.Printf("  update_* commands will be unavailable")
 		} else {
 			globalKB = sqliteKB
+			globalGraphCache = newGraphCache(sqliteKB)
 			logger.Printf("Knowledge base loaded: %s", *dbPath)
 			defer func() { _ = sqliteKB.Close() }()
 
