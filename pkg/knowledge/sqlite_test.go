@@ -294,7 +294,10 @@ func TestSQLiteKB_GetSystems(t *testing.T) {
 	}
 
 	// Get all systems
-	retrieved := kb.GetSystems()
+	retrieved, err := kb.GetSystems(context.Background())
+	if err != nil {
+		t.Fatalf("failed to get systems: %v", err)
+	}
 	if len(retrieved) != 3 {
 		t.Errorf("Expected 3 systems, got %d", len(retrieved))
 	}
@@ -351,7 +354,10 @@ func TestSQLiteKB_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 
 	// Verify all systems were added
-	systems := kb.GetSystems()
+	systems, err := kb.GetSystems(context.Background())
+	if err != nil {
+		t.Fatalf("failed to get systems: %v", err)
+	}
 	if len(systems) < 10 {
 		t.Errorf("Expected at least 10 systems after concurrent writes, got %d", len(systems))
 	}

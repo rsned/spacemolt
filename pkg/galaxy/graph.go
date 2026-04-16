@@ -31,7 +31,7 @@ func (g *GalaxyGraph) BuildFromDB(ctx context.Context, kb knowledge.Base) error 
 	g.adj = make(map[string][]Edge)
 
 	// Load systems
-	systems, err := kb.GetSystemsWithContext(ctx)
+	systems, err := kb.GetSystems(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load systems: %w", err)
 	}

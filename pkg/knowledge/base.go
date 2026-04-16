@@ -24,11 +24,7 @@ type Base interface {
 	RegisterAgent(ctx context.Context, agentID, name, role, faction string, personality []byte) error
 
 	// GetSystems returns all known systems
-	// Note: This method does not take a context for API compatibility with existing callers
-	GetSystems() []System
-
-	// GetSystemsWithContext returns all known systems (with context for graph building)
-	GetSystemsWithContext(ctx context.Context) ([]System, error)
+	GetSystems(ctx context.Context) ([]System, error)
 
 	// GetConnections returns all system connections (for graph building)
 	GetConnections(ctx context.Context) ([]Connection, error)

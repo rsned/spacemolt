@@ -1,6 +1,7 @@
 package observe
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -105,7 +106,11 @@ func poiToJSON(poi knowledge.POI) POIJSON {
 
 // HandleGetSystems returns all known systems for the galaxy map.
 func (s *ObserverServer) HandleGetSystems(w http.ResponseWriter, _ *http.Request) {
-	systems := s.kb.GetSystems()
+	systems, err := s.kb.GetSystems(context.Background())
+	if err != nil {
+		WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get systems"})
+		return
+	}
 	result := make([]SystemJSON, 0, len(systems))
 	for _, sys := range systems {
 		result = append(result, systemToJSON(sys))
@@ -131,7 +136,12 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 	}
 	if sys == nil {
 		// Try to find system by name as a fallback
-		allSystems := s.kb.GetSystems()
+		allSystems, err := s.kb.GetSystems(ctx)
+		if err != nil {
+			s.logger.Printf("error getting systems: %v", err)
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			return
+		}
 		for _, found := range allSystems {
 			if strings.EqualFold(found.Name, id) {
 				sys = &found
@@ -154,7 +164,12 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Build connected systems list by looking up each connection's position/name.
-	allSystems := s.kb.GetSystems()
+	allSystems, err := s.kb.GetSystems(ctx)
+		if err != nil {
+			s.logger.Printf("error getting systems: %v", err)
+			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+			return
+		}
 	systemIndex := make(map[string]knowledge.System, len(allSystems))
 	for _, found := range allSystems {
 		systemIndex[found.ID] = found

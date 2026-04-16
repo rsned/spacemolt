@@ -120,7 +120,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 }
 
 // GetSystemsWithContext returns all known systems (with context for graph building)
-func (kb *MemoryKB) GetSystemsWithContext(ctx context.Context) ([]System, error) {
+func (kb *MemoryKB) GetSystems(ctx context.Context) ([]System, error) {
 	kb.mu.RLock()
 	defer kb.mu.RUnlock()
 
@@ -336,18 +336,6 @@ func (kb *MemoryKB) RegisterAgent(ctx context.Context, agentID, name, role, empi
 }
 
 // GetSystems returns all known systems
-func (kb *MemoryKB) GetSystems() []System {
-	kb.mu.RLock()
-	defer kb.mu.RUnlock()
-
-	systems := make([]System, 0, len(kb.systems))
-	for _, sys := range kb.systems {
-		systems = append(systems, *sys)
-	}
-
-	return systems
-}
-
 // SystemConnection pairs a connected system ID with the jump distance.
 type SystemConnection struct {
 	SystemID string

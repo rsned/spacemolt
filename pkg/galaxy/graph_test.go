@@ -20,11 +20,7 @@ func (m *mockKB) Close() error {
 	return nil
 }
 
-func (m *mockKB) GetSystems() []knowledge.System {
-	return nil
-}
-
-func (m *mockKB) GetSystemsWithContext(ctx context.Context) ([]knowledge.System, error) {
+func (m *mockKB) GetSystems(ctx context.Context) ([]knowledge.System, error) {
 	return m.systems, nil
 }
 

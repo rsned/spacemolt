@@ -517,7 +517,10 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 	}
 
 	// Collect systems
-	systems := kb.GetSystems()
+	systems, err := kb.GetSystems(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get systems: %w", err)
+	}
 	export.SystemsCount = len(systems)
 
 	// Collect POIs

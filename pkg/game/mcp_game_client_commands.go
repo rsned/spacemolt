@@ -225,7 +225,25 @@ func (m *MCPGameClient) Mine(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return m.updateStateFromResult(result)
+	if err := m.updateStateFromResult(result); err != nil {
+		return err
+	}
+
+	// Update XP quantity from mining yield so observations reflect units mined.
+	m.rawJSONMu.RLock()
+	raw := m.latestRawJSON["_last"]
+	m.rawJSONMu.RUnlock()
+	if len(raw) > 0 {
+		var yield struct {
+			Quantity float64 `json:"quantity"`
+		}
+		if json.Unmarshal(raw, &yield) == nil && yield.Quantity > 0 {
+			m.xpMu.Lock()
+			m.xpLastQuantity = int(yield.Quantity)
+			m.xpMu.Unlock()
+		}
+	}
+	return nil
 }
 
 func (m *MCPGameClient) Scan(ctx context.Context) error {

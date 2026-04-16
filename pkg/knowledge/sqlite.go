@@ -815,14 +815,14 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, empi
 }
 
 // GetSystems returns all known systems
-func (kb *SQLiteKB) GetSystems() []System {
-	// Query all systems
-	rows, err := kb.db.Query(`
+func (kb *SQLiteKB) GetSystems(ctx context.Context) ([]System, error) {
+	// Query all systems with full details
+	rows, err := kb.db.QueryContext(ctx, `
 		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold, last_updated_tick
 		FROM systems
 	`)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("query systems: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -834,22 +834,22 @@ func (kb *SQLiteKB) GetSystems() []System {
 			&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
 			&sys.PoliceLevel, &sys.SecurityStatus, &sys.Empire, &sys.IsStronghold, &sys.LastUpdatedTick,
 		); err != nil {
-			continue
+			return nil, fmt.Errorf("scan system: %w", err)
 		}
 
 		systems = append(systems, sys)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil
+		return nil, fmt.Errorf("iterate systems: %w", err)
 	}
 
 	// Load all connections in a single query and map them
-	connRows, err := kb.db.Query(`
+	connRows, err := kb.db.QueryContext(ctx, `
 		SELECT from_system, to_system, distance FROM connections
 	`)
 	if err != nil {
-		return systems // Return systems without connections if query fails
+		return systems, nil // Return systems without connections if query fails
 	}
 	defer func() { _ = connRows.Close() }()
 
@@ -867,31 +867,6 @@ func (kb *SQLiteKB) GetSystems() []System {
 	// Add connections to systems
 	for i := range systems {
 		systems[i].Connections = connMap[systems[i].ID]
-	}
-
-	return systems
-}
-
-// GetSystemsWithContext retrieves all systems from the database (with context for graph building)
-func (kb *SQLiteKB) GetSystemsWithContext(ctx context.Context) ([]System, error) {
-	query := `SELECT id, name, position_x, position_y, empire, police_level, is_stronghold, last_updated_tick
-			  FROM systems`
-
-	rows, err := kb.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("query systems: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var systems []System
-	for rows.Next() {
-		var s System
-		err := rows.Scan(&s.ID, &s.Name, &s.Position.X, &s.Position.Y,
-			&s.Empire, &s.PoliceLevel, &s.IsStronghold, &s.LastUpdatedTick)
-		if err != nil {
-			return nil, fmt.Errorf("scan system: %w", err)
-		}
-		systems = append(systems, s)
 	}
 
 	return systems, nil

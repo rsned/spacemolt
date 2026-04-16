@@ -1496,7 +1496,11 @@ func findUnvisitedSystemInKB(expState *ExplorationState, currentConnections []ga
 	}
 	logger := log.New(os.Stdout, "[DFS] ", log.LstdFlags)
 
-	allSystems := expState.kb.GetSystems()
+	allSystems, err := expState.kb.GetSystems(context.Background())
+	if err != nil {
+		logger.Printf("Failed to get systems: %v", err)
+		return ""
+	}
 
 	// Best case: an unvisited system is directly connected to us
 	for _, conn := range currentConnections {

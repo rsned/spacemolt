@@ -890,7 +890,10 @@ func (m *KBMemory) SetCurrentTick(tick int64) {
 
 // KnownSystems returns all known systems
 func (m *KBMemory) KnownSystems() []game.SystemData {
-	kbSystems := m.kb.GetSystems()
+	kbSystems, err := m.kb.GetSystems(context.Background())
+	if err != nil {
+		return []game.SystemData{}
+	}
 
 	result := make([]game.SystemData, len(kbSystems))
 	for i, sys := range kbSystems {
