@@ -332,6 +332,75 @@ func (m *mockKB) UpsertMissionTemplate(ctx context.Context, entry serverapi.Miss
 	return nil, nil
 }
 
+func TestGalaxyGraph_BuildFromDB_ValidationAndMetrics(t *testing.T) {
+	ctx := context.Background()
+
+	// Test data with connection metrics
+	kb := &mockKB{
+		systems: []knowledge.System{
+			{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "rigel", Name: "Rigel", Position: game.Position{X: 100, Y: 50}, Empire: "nebula", LastUpdatedTick: 1000},
+		},
+		connections: []knowledge.Connection{
+			{FromSystem: "sol", ToSystem: "rigel", Distance: 5, LastUpdatedTick: 1000},
+			// This connection should be filtered out due to missing system
+			{FromSystem: "sol", ToSystem: "nonexistent", Distance: 10, LastUpdatedTick: 1000},
+		},
+		connMetrics: []knowledge.ConnectionMetric{
+			{FromSystem: "sol", ToSystem: "rigel", AvgFuelCost: 2.5, AvgTravelTime: 30.0},
+		},
+	}
+
+	g := &GalaxyGraph{}
+	err := g.BuildFromDB(ctx, kb)
+
+	if err != nil {
+		t.Fatalf("BuildFromDB failed: %v", err)
+	}
+
+	// Should only have the 2 valid systems
+	if len(g.nodes) != 2 {
+		t.Errorf("expected 2 nodes, got %d", len(g.nodes))
+	}
+
+	// Check that connection to nonexistent system was filtered
+	if _, exists := g.adj["nonexistent"]; exists {
+		t.Error("should not have adjacency for nonexistent system")
+	}
+
+	// Verify sol has 1 outgoing edge (to rigel)
+	solEdges := g.adj["sol"]
+	if len(solEdges) != 1 {
+		t.Errorf("expected sol to have 1 edge, got %d", len(solEdges))
+	}
+
+	// Check that forward edge has metrics
+	solToRigel := solEdges[0]
+	if solToRigel.FuelCost != 2.5 {
+		t.Errorf("expected FuelCost 2.5, got %f", solToRigel.FuelCost)
+	}
+	if solToRigel.TravelTime != 30.0 {
+		t.Errorf("expected TravelTime 30.0, got %f", solToRigel.TravelTime)
+	}
+
+	// Check that reverse edge also has metrics (Issue 1 fix)
+	rigelEdges := g.adj["rigel"]
+	if len(rigelEdges) != 1 {
+		t.Errorf("expected rigel to have 1 edge, got %d", len(rigelEdges))
+	}
+
+	rigelToSol := rigelEdges[0]
+	if rigelToSol.To != "sol" {
+		t.Errorf("expected rigel edge to go to sol, got %s", rigelToSol.To)
+	}
+	if rigelToSol.FuelCost != 2.5 {
+		t.Errorf("expected reverse edge FuelCost 2.5, got %f", rigelToSol.FuelCost)
+	}
+	if rigelToSol.TravelTime != 30.0 {
+		t.Errorf("expected reverse edge TravelTime 30.0, got %f", rigelToSol.TravelTime)
+	}
+}
+
 func TestGalaxyGraph_BuildFromDB_LoadsSystemsAndConnections(t *testing.T) {
 	ctx := context.Background()
 

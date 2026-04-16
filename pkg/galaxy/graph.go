@@ -56,6 +56,14 @@ func (g *GalaxyGraph) BuildFromDB(ctx context.Context, kb knowledge.Base) error 
 	}
 
 	for _, conn := range connections {
+		// Validate both endpoints exist
+		if _, ok := g.nodes[conn.FromSystem]; !ok {
+			continue
+		}
+		if _, ok := g.nodes[conn.ToSystem]; !ok {
+			continue
+		}
+
 		// Create bidirectional edges
 		edge := Edge{
 			To:         conn.ToSystem,
@@ -85,6 +93,18 @@ func (g *GalaxyGraph) BuildFromDB(ctx context.Context, kb knowledge.Base) error 
 					g.adj[m.FromSystem][i].TravelTime = m.AvgTravelTime
 					if m.LastTraveled != "" {
 						g.adj[m.FromSystem][i].LastTraveled = m.LastTraveled
+					}
+					break
+				}
+			}
+
+			// Also update the reverse edge
+			for i, edge := range g.adj[m.ToSystem] {
+				if edge.To == m.FromSystem {
+					g.adj[m.ToSystem][i].FuelCost = m.AvgFuelCost
+					g.adj[m.ToSystem][i].TravelTime = m.AvgTravelTime
+					if m.LastTraveled != "" {
+						g.adj[m.ToSystem][i].LastTraveled = m.LastTraveled
 					}
 					break
 				}
