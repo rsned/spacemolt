@@ -11,7 +11,7 @@ import (
 
 // metaCommands are REPL-only commands not present in the OpenAPI spec.
 var metaCommands = []string{
-	"help", "exit", "quit", "set_format", "loop", "mbox",
+	"help", "exit", "quit", "set_format", "loop", "mbox", "nearest",
 }
 
 // loadCompletionCommands returns a sorted, deduplicated list of command
@@ -112,6 +112,8 @@ func targetCandidates(cmd string, client game.GameClient) []string {
 	switch cmd {
 	case "mbox":
 		return []string{"list", "show", "search", "read", "backfill", "sources"}
+	case "nearest":
+		return []string{"station", "asteroid", "black_market", "base", "enemy", "gas_giant", "nebula", "outpost", "planet", "ruin", "star", "wreck"}
 	case "dock":
 		var out []string
 		for _, poi := range state.System.POIs {
