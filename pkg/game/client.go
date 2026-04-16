@@ -101,6 +101,10 @@ type Client struct {
 	onStorageUpdate func(resp StorageUpdateEvent)
 	onStorageMu     sync.RWMutex
 
+	// Chat message callback — fired when a real-time chat push event is received
+	onChatMessage func(msg serverapi.ChatMessage)
+	onChatMu      sync.RWMutex
+
 	// Structured call logger for request/response pairs
 	CallLogger      *calllog.Logger
 	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
@@ -280,6 +284,15 @@ func (c *Client) SetOnStorageUpdate(fn func(resp StorageUpdateEvent)) {
 	c.onStorageMu.Lock()
 	defer c.onStorageMu.Unlock()
 	c.onStorageUpdate = fn
+}
+
+// SetOnChatMessage registers a callback that fires when a real-time chat push
+// event is received from the server. This allows packages like mbox to capture
+// chat messages without polling.
+func (c *Client) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {
+	c.onChatMu.Lock()
+	defer c.onChatMu.Unlock()
+	c.onChatMessage = fn
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
@@ -1843,8 +1856,17 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Unlock()
 
 	case protocol.TypeChatMessage:
-		// Real-time chat message event (e.g., local/system channel messages)
-		// Log in debug mode for observability; agents can poll chat history separately
+		var chatMsg serverapi.ChatMessage
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			if err := json.Unmarshal(data, &chatMsg); err == nil {
+				c.onChatMu.RLock()
+				cb := c.onChatMessage
+				c.onChatMu.RUnlock()
+				if cb != nil {
+					cb(chatMsg)
+				}
+			}
+		}
 		if sender, ok := resp.Payload["sender"].(string); ok {
 			if channel, ok := resp.Payload["channel"].(string); ok {
 				c.debugLogger.Printf("[CHAT] %s (%s): %v", sender, channel, resp.Payload["content"])

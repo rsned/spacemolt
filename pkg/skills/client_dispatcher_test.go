@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // TestClientDispatcher_RouteField verifies the Route field exists and can be set
@@ -544,3 +545,4 @@ func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) er
 func (m *mockGameClient) SurveySystem(ctx context.Context) error                               { return nil }
 func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error               { return nil }
 func (m *mockGameClient) RawCommand(ctx context.Context, cmd string, args map[string]any) error { return nil }
+func (m *mockGameClient) SetOnChatMessage(fn func(msg serverapi.ChatMessage))                   {}

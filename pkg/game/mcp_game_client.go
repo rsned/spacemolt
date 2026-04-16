@@ -137,6 +137,10 @@ func NewMCPGameClient(serverURL, username, password string, logger *log.Logger) 
 	}
 }
 
+// SetOnChatMessage is a no-op for the MCP client since it does not receive
+// push events over WebSocket.
+func (m *MCPGameClient) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {}
+
 // SetDebugLogging enables or disables debug logging for raw responses.
 func (m *MCPGameClient) SetDebugLogging(enabled bool) {
 	m.debug = enabled

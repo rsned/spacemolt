@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // filterActions returns actions excluding the specified ones (e.g., internal refresh calls).
@@ -458,6 +459,8 @@ func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error
 func (m *mockGameClient) RawCommand(_ context.Context, _ string, _ map[string]any) error {
 	return nil
 }
+
+func (m *mockGameClient) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {}
 
 func TestRunner_StartAndStop(t *testing.T) {
 	agent := &mockAgent{id: "test-agent"}

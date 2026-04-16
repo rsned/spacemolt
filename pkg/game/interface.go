@@ -1,6 +1,10 @@
 package game
 
-import "context"
+import (
+	"context"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+)
 
 // GameClient defines the interface for game client operations
 // This allows for mocking in tests
@@ -157,6 +161,9 @@ type GameClient interface {
 
 	// Generic passthrough for commands without explicit methods.
 	RawCommand(ctx context.Context, command string, args map[string]any) error
+
+	// Callbacks
+	SetOnChatMessage(fn func(msg serverapi.ChatMessage))
 }
 
 // Ensure Client implements GameClient interface
