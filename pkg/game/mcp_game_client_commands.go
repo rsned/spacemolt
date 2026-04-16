@@ -545,6 +545,11 @@ func (m *MCPGameClient) DepositItems(ctx context.Context, itemID string, quantit
 }
 
 func (m *MCPGameClient) DepositAllItems(ctx context.Context) error {
+	// Refresh cargo before depositing to avoid using stale state.
+	if err := m.GetCargo(ctx); err != nil {
+		m.logger.Printf("[MCP] Warning: failed to refresh cargo before deposit_all: %v", err)
+	}
+
 	state := m.GetState()
 	for _, item := range state.Ship.Cargo {
 		if item.Quantity <= 0 {
