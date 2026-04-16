@@ -119,6 +119,45 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 	return nil
 }
 
+// GetSystemsWithContext returns all known systems (with context for graph building)
+func (kb *MemoryKB) GetSystemsWithContext(ctx context.Context) ([]System, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	systems := make([]System, 0, len(kb.systems))
+	for _, sys := range kb.systems {
+		systems = append(systems, *sys)
+	}
+
+	return systems, nil
+}
+
+// GetConnections returns all system connections (for graph building)
+func (kb *MemoryKB) GetConnections(ctx context.Context) ([]Connection, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var connections []Connection
+	for fromID, sys := range kb.systems {
+		for _, conn := range sys.Connections {
+			connections = append(connections, Connection{
+				FromSystem:     fromID,
+				ToSystem:       conn.SystemID,
+				Distance:       conn.Distance,
+				LastUpdatedTick: sys.LastUpdatedTick,
+			})
+		}
+	}
+
+	return connections, nil
+}
+
+// GetConnectionMetrics returns connection metrics (for weighted pathfinding)
+func (kb *MemoryKB) GetConnectionMetrics(ctx context.Context) ([]ConnectionMetric, error) {
+	// MemoryKB doesn't track connection metrics, return empty slice
+	return []ConnectionMetric{}, nil
+}
+
 // GetSystem retrieves a system by ID
 func (kb *MemoryKB) GetSystem(ctx context.Context, systemID string) (*System, error) {
 	kb.mu.RLock()
@@ -313,6 +352,26 @@ func (kb *MemoryKB) GetSystems() []System {
 type SystemConnection struct {
 	SystemID string
 	Distance int
+}
+
+// Connection represents a direct connection between two systems.
+// Unlike SystemConnection (which is embedded in System), this is a standalone
+// record for graph building queries.
+type Connection struct {
+	FromSystem     string
+	ToSystem       string
+	Distance       int
+	LastUpdatedTick int64
+}
+
+// ConnectionMetric represents aggregated travel metrics for a connection.
+// Used for weighted pathfinding (fuel cost, travel time).
+type ConnectionMetric struct {
+	FromSystem   string
+	ToSystem     string
+	AvgFuelCost  float64
+	AvgTravelTime float64
+	LastTraveled string // ISO-8601 timestamp
 }
 
 // System represents knowledge about a solar system

@@ -872,6 +872,80 @@ func (kb *SQLiteKB) GetSystems() []System {
 	return systems
 }
 
+// GetSystemsWithContext retrieves all systems from the database (with context for graph building)
+func (kb *SQLiteKB) GetSystemsWithContext(ctx context.Context) ([]System, error) {
+	query := `SELECT id, name, position_x, position_y, empire, police_level, is_stronghold, last_updated_tick
+			  FROM systems`
+
+	rows, err := kb.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query systems: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var systems []System
+	for rows.Next() {
+		var s System
+		err := rows.Scan(&s.ID, &s.Name, &s.Position.X, &s.Position.Y,
+			&s.Empire, &s.PoliceLevel, &s.IsStronghold, &s.LastUpdatedTick)
+		if err != nil {
+			return nil, fmt.Errorf("scan system: %w", err)
+		}
+		systems = append(systems, s)
+	}
+
+	return systems, nil
+}
+
+// GetConnections retrieves all system connections (for graph building)
+func (kb *SQLiteKB) GetConnections(ctx context.Context) ([]Connection, error) {
+	query := `SELECT from_system, to_system, distance FROM connections`
+
+	rows, err := kb.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query connections: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var conns []Connection
+	for rows.Next() {
+		var c Connection
+		err := rows.Scan(&c.FromSystem, &c.ToSystem, &c.Distance)
+		if err != nil {
+			return nil, fmt.Errorf("scan connection: %w", err)
+		}
+		conns = append(conns, c)
+	}
+
+	return conns, nil
+}
+
+// GetConnectionMetrics retrieves connection metrics (for weighted pathfinding)
+func (kb *SQLiteKB) GetConnectionMetrics(ctx context.Context) ([]ConnectionMetric, error) {
+	query := `SELECT from_system, to_system, avg_fuel_cost, avg_travel_time, last_traveled
+			  FROM connection_metrics
+			  WHERE avg_fuel_cost IS NOT NULL`
+
+	rows, err := kb.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query connection metrics: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var metrics []ConnectionMetric
+	for rows.Next() {
+		var m ConnectionMetric
+		err := rows.Scan(&m.FromSystem, &m.ToSystem, &m.AvgFuelCost,
+			&m.AvgTravelTime, &m.LastTraveled)
+		if err != nil {
+			return nil, fmt.Errorf("scan connection metric: %w", err)
+		}
+		metrics = append(metrics, m)
+	}
+
+	return metrics, nil
+}
+
 // StoreMarketSnapshot stores a market snapshot with its listings
 func (kb *SQLiteKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnapshot, agentID string) error {
 	tx, err := kb.db.BeginTx(ctx, nil)

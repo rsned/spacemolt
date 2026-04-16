@@ -27,6 +27,15 @@ type Base interface {
 	// Note: This method does not take a context for API compatibility with existing callers
 	GetSystems() []System
 
+	// GetSystemsWithContext returns all known systems (with context for graph building)
+	GetSystemsWithContext(ctx context.Context) ([]System, error)
+
+	// GetConnections returns all system connections (for graph building)
+	GetConnections(ctx context.Context) ([]Connection, error)
+
+	// GetConnectionMetrics returns connection metrics (for weighted pathfinding)
+	GetConnectionMetrics(ctx context.Context) ([]ConnectionMetric, error)
+
 	// Market data methods
 	StoreMarketSnapshot(ctx context.Context, snapshot MarketSnapshot, agentID string) error
 	GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error)
