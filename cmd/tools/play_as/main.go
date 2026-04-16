@@ -218,11 +218,6 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	}
 	defer saveHistory()
 
-	// Start background chat poller to display incoming messages.
-	poller := newChatPoller(client, ctx, username)
-	poller.start()
-	defer poller.stop()
-
 	// Initialize mbox store for persistent message storage.
 	var mboxStore *mbox.Store
 	var mboxIng *mbox.Ingester
@@ -235,31 +230,19 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		defer func() { _ = mboxStore.Close() }()
 		mboxIng = mbox.NewIngester(mboxStore)
 
+		// Wire push handler for WS clients (no-op on MCP).
 		client.SetOnChatMessage(func(msg serverapi.ChatMessage) {
 			mboxIng.HandlePush(msg)
 		})
-
-		go func() {
-			report, err := mboxIng.Backfill(ctx, client, mbox.BackfillOptions{
-				Channels:        []string{"system", "local", "faction"},
-				MaxPerChannel:   500,
-				RequestInterval: game.SleepQuick,
-			})
-			if err != nil {
-				log.Printf("[mbox] backfill error: %v", err)
-				return
-			}
-			for ch, cr := range report.Channels {
-				if cr.Fetched > 0 {
-					suffix := ""
-					if cr.Capped {
-						suffix = " (capped)"
-					}
-					log.Printf("[mbox] backfill %s: %d messages%s", ch, cr.Fetched, suffix)
-				}
-			}
-		}()
 	}
+
+	// Start background chat poller to display incoming messages.
+	// Also feeds polled messages into the mbox (covers MCP transport
+	// which doesn't receive server push events).
+	poller := newChatPoller(client, ctx, username)
+	poller.ingester = mboxIng // nil-safe: chatPoller checks before calling
+	poller.start()
+	defer poller.stop()
 
 	format := outputFormat(cfg.OutputFormat)
 
@@ -4209,6 +4192,7 @@ type chatPoller struct {
 	seen     map[string]bool // Message IDs already displayed.
 	mu       sync.Mutex
 	username string // Our own username, to skip own messages.
+	ingester *mbox.Ingester // Optional: ingest polled messages into mbox.
 }
 
 // chatChannels are the channels to poll. Private is omitted since it requires a target_id.
@@ -4273,6 +4257,17 @@ func (cp *chatPoller) poll() {
 		msgs := cp.fetchMessages(ch)
 		if len(msgs) == 0 {
 			continue
+		}
+
+		// Ingest all fetched messages into mbox (deduped by Store).
+		if cp.ingester != nil {
+			for _, m := range msgs {
+				apiMsg := m
+				if apiMsg.Channel == "" {
+					apiMsg.Channel = ch
+				}
+				cp.ingester.HandlePolled(apiMsg)
+			}
 		}
 
 		// Messages come newest-first; reverse to print chronologically.

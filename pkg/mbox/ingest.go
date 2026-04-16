@@ -172,7 +172,17 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 
 // HandlePush converts a server-pushed ChatMessage and stores it in the mbox.
 // Duplicate messages (same ID) are silently ignored.
+// HandlePush ingests a message received via server push event.
 func (ing *Ingester) HandlePush(msg serverapi.ChatMessage) {
+	ing.ingestAPI(msg, "push")
+}
+
+// HandlePolled ingests a message discovered via polling get_chat_history.
+func (ing *Ingester) HandlePolled(msg serverapi.ChatMessage) {
+	ing.ingestAPI(msg, "reconcile")
+}
+
+func (ing *Ingester) ingestAPI(msg serverapi.ChatMessage, source string) {
 	ts, err := time.Parse(time.RFC3339, msg.TimestampUTC)
 	if err != nil {
 		ts, err = time.Parse(time.RFC3339Nano, msg.TimestampUTC)
@@ -190,9 +200,9 @@ func (ing *Ingester) HandlePush(msg serverapi.ChatMessage) {
 		TargetID:     msg.TargetID,
 		TargetName:   msg.TargetName,
 		TimestampUTC: ts,
-		Source:       "push",
+		Source:       source,
 	}
 	if _, err := ing.store.Ingest(m); err != nil {
-		ing.logger.Printf("push ingest error: %v", err)
+		ing.logger.Printf("%s ingest error: %v", source, err)
 	}
 }
