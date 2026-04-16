@@ -1,8 +1,10 @@
 package galaxy
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -121,4 +123,174 @@ func (g *GalaxyGraph) BuildFromDB(ctx context.Context, kb knowledge.Base) error 
 	}
 
 	return nil
+}
+
+// queueItem represents an item in the priority queue for Dijkstra's algorithm.
+type queueItem struct {
+	system    string
+	priority  float64 // distance or fuel cost
+	index     int     // index in the heap
+}
+
+// priorityQueue implements heap.Interface for Dijkstra's algorithm.
+type priorityQueue []*queueItem
+
+func (pq priorityQueue) Len() int { return len(pq) }
+
+func (pq priorityQueue) Less(i, j int) bool {
+	return pq[i].priority < pq[j].priority
+}
+
+func (pq priorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *priorityQueue) Push(x any) {
+	n := len(*pq)
+	item := x.(*queueItem)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq *priorityQueue) Pop() any {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil  // avoid memory leak
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
+
+// FindPath finds the shortest path between two systems using Dijkstra's algorithm.
+// If weighted is true, uses fuel cost as the edge weight.
+// If weighted is false, uses hop count (each edge has weight 1).
+// Returns Route with the path, hop count, total fuel, and total travel time.
+// Returns error if either system doesn't exist or no path exists.
+func (g *GalaxyGraph) FindPath(from, to string, weighted bool) (Route, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	// Validate both systems exist
+	if _, ok := g.nodes[from]; !ok {
+		return Route{}, fmt.Errorf("system '%s' not found in graph", from)
+	}
+	if _, ok := g.nodes[to]; !ok {
+		return Route{}, fmt.Errorf("system '%s' not found in graph", to)
+	}
+
+	// Special case: same system
+	if from == to {
+		return Route{
+			Path:       []string{from},
+			Hops:       0,
+			TotalFuel:  0,
+			TotalTicks: 0,
+		}, nil
+	}
+
+	// Dijkstra's algorithm with priority queue
+	dist := make(map[string]float64)      // best known distance to each system
+	prev := make(map[string]string)       // previous system in shortest path
+	visited := make(map[string]bool)      // visited systems
+
+	// Initialize distances
+	for system := range g.nodes {
+		dist[system] = math.Inf(1)
+	}
+	dist[from] = 0
+
+	// Create priority queue and push start node
+	pq := make(priorityQueue, 1)
+	pq[0] = &queueItem{system: from, priority: 0}
+	heap.Init(&pq)
+
+	for pq.Len() > 0 {
+		// Get system with minimum distance
+		current := heap.Pop(&pq).(*queueItem)
+
+		// Skip if already visited
+		if visited[current.system] {
+			continue
+		}
+		visited[current.system] = true
+
+		// Found destination
+		if current.system == to {
+			break
+		}
+
+		// Explore neighbors
+		for _, edge := range g.adj[current.system] {
+			if visited[edge.To] {
+				continue
+			}
+
+			// Calculate weight: fuel cost if weighted, else 1
+			weight := 1.0
+			if weighted {
+				if edge.FuelCost > 0 {
+					weight = edge.FuelCost
+				}
+			}
+
+			newDist := dist[current.system] + weight
+
+			// If we found a better path to this neighbor
+			if newDist < dist[edge.To] {
+				dist[edge.To] = newDist
+				prev[edge.To] = current.system
+
+				// Push updated distance to queue
+				heap.Push(&pq, &queueItem{
+					system:   edge.To,
+					priority: newDist,
+				})
+			}
+		}
+	}
+
+	// Check if destination is reachable
+	if _, ok := prev[to]; !ok && from != to {
+		return Route{}, fmt.Errorf("no path found from %s to %s", from, to)
+	}
+
+	// Reconstruct path by walking backwards from destination
+	path := []string{}
+	current := to
+	for current != "" {
+		path = append([]string{current}, path...)
+		if current == from {
+			break
+		}
+		current = prev[current]
+	}
+
+	// Calculate total fuel and travel time
+	totalFuel := 0.0
+	totalTicks := 0
+	for i := 0; i < len(path)-1; i++ {
+		fromSystem := path[i]
+		toSystem := path[i+1]
+
+		// Find the edge and accumulate costs
+		for _, edge := range g.adj[fromSystem] {
+			if edge.To == toSystem {
+				totalFuel += edge.FuelCost
+				if edge.TravelTime > 0 {
+					totalTicks += int(edge.TravelTime)
+				}
+				break
+			}
+		}
+	}
+
+	return Route{
+		Path:       path,
+		Hops:       len(path) - 1,
+		TotalFuel:  totalFuel,
+		TotalTicks: totalTicks,
+	}, nil
 }

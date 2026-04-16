@@ -437,3 +437,147 @@ func TestGalaxyGraph_BuildFromDB_LoadsSystemsAndConnections(t *testing.T) {
 		t.Errorf("expected sol to have 2 edges, got %d", len(solEdges))
 	}
 }
+
+func TestGalaxyGraph_FindPath_SimpleRoute(t *testing.T) {
+	ctx := context.Background()
+
+	kb := &mockKB{
+		systems: []knowledge.System{
+			{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "rigel", Name: "Rigel", Position: game.Position{X: 100, Y: 50}, Empire: "nebula", LastUpdatedTick: 1000},
+		},
+		connections: []knowledge.Connection{
+			{FromSystem: "sol", ToSystem: "rigel", Distance: 5, LastUpdatedTick: 1000},
+		},
+		connMetrics: []knowledge.ConnectionMetric{
+			{FromSystem: "sol", ToSystem: "rigel", AvgFuelCost: 2.5, AvgTravelTime: 30.0},
+		},
+	}
+
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		t.Fatalf("BuildFromDB failed: %v", err)
+	}
+
+	// Test unweighted (hop count)
+	route, err := g.FindPath("sol", "rigel", false)
+	if err != nil {
+		t.Fatalf("FindPath failed: %v", err)
+	}
+
+	if len(route.Path) != 2 {
+		t.Errorf("expected path length 2, got %d", len(route.Path))
+	}
+	if route.Path[0] != "sol" {
+		t.Errorf("expected path start 'sol', got %s", route.Path[0])
+	}
+	if route.Path[1] != "rigel" {
+		t.Errorf("expected path end 'rigel', got %s", route.Path[1])
+	}
+	if route.Hops != 1 {
+		t.Errorf("expected 1 hop, got %d", route.Hops)
+	}
+
+	// Test weighted (fuel cost)
+	routeWeighted, err := g.FindPath("sol", "rigel", true)
+	if err != nil {
+		t.Fatalf("FindPath weighted failed: %v", err)
+	}
+
+	if routeWeighted.TotalFuel != 2.5 {
+		t.Errorf("expected TotalFuel 2.5, got %f", routeWeighted.TotalFuel)
+	}
+	if routeWeighted.TotalTicks != 30 {
+		t.Errorf("expected TotalTicks 30, got %d", routeWeighted.TotalTicks)
+	}
+}
+
+func TestGalaxyGraph_FindPath_MultiHop(t *testing.T) {
+	ctx := context.Background()
+
+	kb := &mockKB{
+		systems: []knowledge.System{
+			{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "rigel", Name: "Rigel", Position: game.Position{X: 100, Y: 50}, Empire: "nebula", LastUpdatedTick: 1000},
+			{ID: "haven", Name: "Haven", Position: game.Position{X: -50, Y: 75}, Empire: "earth", LastUpdatedTick: 1000},
+		},
+		connections: []knowledge.Connection{
+			{FromSystem: "sol", ToSystem: "rigel", Distance: 5, LastUpdatedTick: 1000},
+			{FromSystem: "rigel", ToSystem: "haven", Distance: 3, LastUpdatedTick: 1000},
+		},
+		connMetrics: []knowledge.ConnectionMetric{
+			{FromSystem: "sol", ToSystem: "rigel", AvgFuelCost: 2.5, AvgTravelTime: 30.0},
+			{FromSystem: "rigel", ToSystem: "haven", AvgFuelCost: 1.5, AvgTravelTime: 20.0},
+		},
+	}
+
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		t.Fatalf("BuildFromDB failed: %v", err)
+	}
+
+	route, err := g.FindPath("sol", "haven", false)
+	if err != nil {
+		t.Fatalf("FindPath failed: %v", err)
+	}
+
+	if len(route.Path) != 3 {
+		t.Errorf("expected path length 3, got %d", len(route.Path))
+	}
+	if route.Path[0] != "sol" {
+		t.Errorf("expected path start 'sol', got %s", route.Path[0])
+	}
+	if route.Path[1] != "rigel" {
+		t.Errorf("expected path middle 'rigel', got %s", route.Path[1])
+	}
+	if route.Path[2] != "haven" {
+		t.Errorf("expected path end 'haven', got %s", route.Path[2])
+	}
+	if route.Hops != 2 {
+		t.Errorf("expected 2 hops, got %d", route.Hops)
+	}
+
+	// Test weighted
+	routeWeighted, err := g.FindPath("sol", "haven", true)
+	if err != nil {
+		t.Fatalf("FindPath weighted failed: %v", err)
+	}
+
+	if routeWeighted.TotalFuel != 4.0 {
+		t.Errorf("expected TotalFuel 4.0, got %f", routeWeighted.TotalFuel)
+	}
+	if routeWeighted.TotalTicks != 50 {
+		t.Errorf("expected TotalTicks 50, got %d", routeWeighted.TotalTicks)
+	}
+}
+
+func TestGalaxyGraph_FindPath_Unreachable(t *testing.T) {
+	ctx := context.Background()
+
+	kb := &mockKB{
+		systems: []knowledge.System{
+			{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 0}, Empire: "earth", LastUpdatedTick: 1000},
+			{ID: "rigel", Name: "Rigel", Position: game.Position{X: 100, Y: 50}, Empire: "nebula", LastUpdatedTick: 1000},
+			{ID: "haven", Name: "Haven", Position: game.Position{X: -50, Y: 75}, Empire: "earth", LastUpdatedTick: 1000},
+		},
+		connections: []knowledge.Connection{
+			{FromSystem: "sol", ToSystem: "rigel", Distance: 5, LastUpdatedTick: 1000},
+			// Note: no connection to haven
+		},
+	}
+
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		t.Fatalf("BuildFromDB failed: %v", err)
+	}
+
+	_, err := g.FindPath("sol", "haven", false)
+	if err == nil {
+		t.Fatal("expected error for unreachable path, got nil")
+	}
+
+	// Verify error message
+	if err.Error() != "no path found from sol to haven" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
