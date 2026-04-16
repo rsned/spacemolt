@@ -54,9 +54,6 @@ func (t *XPTracker) onXPChange(action, target string, quantity int, beforeSkills
 	for skillID, xpAfter := range afterXP {
 		xpBefore := beforeXP[skillID]
 		xpDelta := xpAfter - xpBefore
-		if xpDelta == 0 {
-			continue
-		}
 
 		// Get level info from the Skills map if available
 		levelBefore, levelAfter := 0, 0
@@ -65,6 +62,17 @@ func (t *XPTracker) onXPChange(action, target string, quantity int, beforeSkills
 		}
 		if s, ok := afterSkills[skillID]; ok {
 			levelAfter = s.Level
+		}
+
+		// On level-up the server resets XP to the overflow past the threshold,
+		// making the raw delta negative. Use afterXP as the delta since it
+		// represents XP gained into the new level.
+		if xpDelta < 0 && levelAfter > levelBefore {
+			xpDelta = xpAfter
+		}
+
+		if xpDelta == 0 {
+			continue
 		}
 
 		obs := XPObservation{
@@ -106,6 +114,11 @@ func (t *XPTracker) onXPChange(action, target string, quantity int, beforeSkills
 
 		levelDelta := skillAfter.Level - skillBefore.Level
 		xpDelta := skillAfter.XP - skillBefore.XP
+
+		// On level-up the server resets XP, making the delta negative.
+		if xpDelta < 0 && levelDelta > 0 {
+			xpDelta = skillAfter.XP
+		}
 
 		if levelDelta == 0 && xpDelta == 0 {
 			continue
