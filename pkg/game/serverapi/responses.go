@@ -1045,15 +1045,19 @@ type UndockResponse struct {
 
 // RefuelResponse wraps the response from refuel command.
 type RefuelResponse struct {
-	Action   string `json:"action"`
-	Source   string `json:"source,omitempty"`
-	Fuel     int    `json:"fuel,omitempty"`
-	FuelNow  int    `json:"fuel_now,omitempty"`
-	FuelMax  int    `json:"fuel_max,omitempty"`
-	Cost     int    `json:"cost,omitempty"`
-	CellsUsed int  `json:"cells_used,omitempty"`
-	ItemID   string `json:"item_id,omitempty"`
-	ItemName string `json:"item_name,omitempty"`
+	Action             string `json:"action"`
+	Source             string `json:"source,omitempty"`
+	Fuel               int    `json:"fuel,omitempty"`
+	FuelNow            int    `json:"fuel_now,omitempty"`
+	FuelMax            int    `json:"fuel_max,omitempty"`
+	Cost               int    `json:"cost,omitempty"`
+	CellsUsed          int    `json:"cells_used,omitempty"`
+	ItemID             string `json:"item_id,omitempty"`
+	ItemName           string `json:"item_name,omitempty"`
+	TargetFuelMax      int    `json:"target_fuel_max,omitempty"`
+	TargetFuelNow      int    `json:"target_fuel_now,omitempty"`
+	TargetPlayerID     string `json:"target_player_id,omitempty"`
+	TargetPlayerName   string `json:"target_player_name,omitempty"`
 }
 
 // RepairResponse wraps the response from repair command.
