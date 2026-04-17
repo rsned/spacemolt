@@ -78,6 +78,7 @@ data/mcp/
 !data/prompts/
 data/reports/
 data/server/
+data/agents/*/mbox
 
 ##############################
 # Vim swap files
