@@ -73,9 +73,9 @@ func handleNearestCommand(ctx context.Context, client game.GameClient, args []st
 }
 
 // formatNearestResultsStyled formats nearest results in human-readable styled output.
-func formatNearestResultsStyled(fromSystem, fromSystemName, queryType string, results []galaxy.NearestResult) string {
+func formatNearestResultsStyled(_, fromSystemName, queryType string, results []galaxy.NearestResult) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("\nNearest accessible %s from %s:\n\n", queryType, fromSystemName))
+	fmt.Fprintf(&sb, "\nNearest accessible %s from %s:\n\n", queryType, fromSystemName)
 
 	if len(results) == 0 {
 		sb.WriteString("No results found.\n")
@@ -87,13 +87,13 @@ func formatNearestResultsStyled(fromSystem, fromSystemName, queryType string, re
 		if r.IsHomeBase {
 			suffix = " (your home base)"
 		}
-		sb.WriteString(fmt.Sprintf("  %d. %s (%s) — %d hops%s\n", i+1, r.SystemName, r.SystemID, r.Hops, suffix))
+		fmt.Fprintf(&sb, "  %d. %s (%s) — %d hops%s\n", i+1, r.SystemName, r.SystemID, r.Hops, suffix)
 
 		ageText := formatAge(globalClock.Tick() - r.LastUpdated)
 		if r.StaleWarning != "" {
-			sb.WriteString(fmt.Sprintf("     %s %s\n", r.StaleWarning, ageText))
+			fmt.Fprintf(&sb, "     %s %s\n", r.StaleWarning, ageText)
 		} else {
-			sb.WriteString(fmt.Sprintf("     Last updated: %s\n", ageText))
+			fmt.Fprintf(&sb, "     Last updated: %s\n", ageText)
 		}
 	}
 	sb.WriteString("\n")
@@ -104,20 +104,20 @@ func formatNearestResultsStyled(fromSystem, fromSystemName, queryType string, re
 func formatNearestResultsRaw(fromSystem, fromSystemName, queryType string, results []galaxy.NearestResult) string {
 	var sb strings.Builder
 	sb.WriteString("{\n")
-	sb.WriteString(fmt.Sprintf("  \"from_system\": \"%s\",\n", fromSystem))
-	sb.WriteString(fmt.Sprintf("  \"from_system_name\": \"%s\",\n", fromSystemName))
-	sb.WriteString(fmt.Sprintf("  \"query_type\": \"%s\",\n", queryType))
+	fmt.Fprintf(&sb, "  \"from_system\": \"%s\",\n", fromSystem)
+	fmt.Fprintf(&sb, "  \"from_system_name\": \"%s\",\n", fromSystemName)
+	fmt.Fprintf(&sb, "  \"query_type\": \"%s\",\n", queryType)
 	sb.WriteString("  \"results\": [\n")
 
 	for i, r := range results {
 		sb.WriteString("    {")
-		sb.WriteString(fmt.Sprintf("\"system_id\": \"%s\", ", r.SystemID))
-		sb.WriteString(fmt.Sprintf("\"system_name\": \"%s\", ", r.SystemName))
-		sb.WriteString(fmt.Sprintf("\"hops\": %d, ", r.Hops))
-		sb.WriteString(fmt.Sprintf("\"is_home_base\": %t, ", r.IsHomeBase))
-		sb.WriteString(fmt.Sprintf("\"last_updated_tick\": %d", r.LastUpdated))
+		fmt.Fprintf(&sb, "\"system_id\": \"%s\", ", r.SystemID)
+		fmt.Fprintf(&sb, "\"system_name\": \"%s\", ", r.SystemName)
+		fmt.Fprintf(&sb, "\"hops\": %d, ", r.Hops)
+		fmt.Fprintf(&sb, "\"is_home_base\": %t, ", r.IsHomeBase)
+		fmt.Fprintf(&sb, "\"last_updated_tick\": %d", r.LastUpdated)
 		if r.StaleWarning != "" {
-			sb.WriteString(fmt.Sprintf(", \"stale_warning\": \"%s\"", r.StaleWarning))
+			fmt.Fprintf(&sb, ", \"stale_warning\": \"%s\"", r.StaleWarning)
 		}
 		sb.WriteString("}")
 		if i < len(results)-1 {
