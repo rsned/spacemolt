@@ -500,6 +500,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatChatHistory(raw)
 	case "craft":
 		return formatCraft(raw)
+	case "missions", "get_missions":
+		return formatMissions(raw)
 	default:
 		return ""
 	}
@@ -1405,6 +1407,241 @@ func formatCraft(raw []byte) string {
 			} else {
 				fmt.Fprintf(&b, " +%d xp %s\n", xp, skill)
 			}
+		}
+	}
+
+	return b.String()
+}
+
+// formatMissions formats a get_missions response grouped by type.
+func formatMissions(raw []byte) string {
+	var resp struct {
+		Missions []struct {
+			MissionID         string              `json:"mission_id"`
+			TemplateID        string              `json:"template_id,omitempty"`
+			Type              string              `json:"type"`
+			Title             string              `json:"title"`
+			Description       string              `json:"description,omitempty"`
+			Difficulty        int                 `json:"difficulty,omitempty"`
+			Giver             struct {
+				Name  string `json:"name,omitempty"`
+				Title string `json:"title,omitempty"`
+			} `json:"giver,omitempty"`
+			ChainNext      string                 `json:"chain_next,omitempty"`
+			ExpiresInTicks int                    `json:"expires_in_ticks,omitempty"`
+			Rewards        *struct {
+				Credits int            `json:"credits"`
+				Items   map[string]int `json:"items,omitempty"`
+				SkillXP map[string]int `json:"skill_xp,omitempty"`
+			} `json:"rewards,omitempty"`
+			Objectives []struct {
+				Type        string `json:"type"`
+				Description string `json:"description"`
+			} `json:"objectives,omitempty"`
+		} `json:"missions"`
+		BaseName string `json:"base_name,omitempty"`
+		BaseID   string `json:"base_id,omitempty"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	if len(resp.Missions) == 0 {
+		if resp.BaseName != "" {
+			return fmt.Sprintf("No missions available at %s", resp.BaseName)
+		}
+		return "No missions available"
+	}
+
+	// Group missions by type and sort within each group by template_id
+	type groupKey struct {
+		Type string
+	}
+	missionsByType := make(map[groupKey][]struct {
+		MissionID         string
+		TemplateID        string
+		Type              string
+		Title             string
+		Description       string
+		Difficulty        int
+		GiverName         string
+		GiverTitle        string
+		ChainNext         string
+		ExpiresInTicks    int
+		Credits           int
+		Items             map[string]int
+		SkillXP           map[string]int
+	})
+
+	for _, m := range resp.Missions {
+		key := groupKey{Type: m.Type}
+		credits := 0
+		items := make(map[string]int)
+		skillXP := make(map[string]int)
+		if m.Rewards != nil {
+			credits = m.Rewards.Credits
+			items = m.Rewards.Items
+			skillXP = m.Rewards.SkillXP
+		}
+		missionsByType[key] = append(missionsByType[key], struct {
+			MissionID       string
+			TemplateID      string
+			Type            string
+			Title           string
+			Description     string
+			Difficulty      int
+			GiverName       string
+			GiverTitle      string
+			ChainNext       string
+			ExpiresInTicks  int
+			Credits         int
+			Items           map[string]int
+			SkillXP         map[string]int
+		}{
+			MissionID:      m.MissionID,
+			TemplateID:     m.TemplateID,
+			Type:           m.Type,
+			Title:          m.Title,
+			Description:    m.Description,
+			Difficulty:     m.Difficulty,
+			GiverName:      m.Giver.Name,
+			GiverTitle:     m.Giver.Title,
+			ChainNext:      m.ChainNext,
+			ExpiresInTicks: m.ExpiresInTicks,
+			Credits:        credits,
+			Items:          items,
+			SkillXP:        skillXP,
+		})
+	}
+
+	// Sort mission types alphabetically
+	var types []string
+	for key := range missionsByType {
+		types = append(types, key.Type)
+	}
+	slices.Sort(types)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Missions (%d)\n\n", len(resp.Missions))
+
+	for _, missionType := range types {
+		key := groupKey{Type: missionType}
+		missions := missionsByType[key]
+
+		// Helper function to get display ID (prefer template_id, fallback to mission_id)
+		getDisplayID := func(m struct {
+			MissionID  string
+			TemplateID string
+		}) string {
+			if m.TemplateID != "" {
+				return m.TemplateID
+			}
+			return m.MissionID
+		}
+
+		// Sort missions within type by template_id (or mission_id if template_id is empty)
+		slices.SortFunc(missions, func(a, b struct {
+			MissionID       string
+			TemplateID      string
+			Type            string
+			Title           string
+			Description     string
+			Difficulty      int
+			GiverName       string
+			GiverTitle      string
+			ChainNext       string
+			ExpiresInTicks  int
+			Credits         int
+			Items           map[string]int
+			SkillXP         map[string]int
+		}) int {
+			idA := getDisplayID(struct {
+				MissionID  string
+				TemplateID string
+			}{MissionID: a.MissionID, TemplateID: a.TemplateID})
+			idB := getDisplayID(struct {
+				MissionID  string
+				TemplateID string
+			}{MissionID: b.MissionID, TemplateID: b.TemplateID})
+			return strings.Compare(idA, idB)
+		})
+
+		// Type header
+		typeUpper := strings.ToUpper(missionType)
+		fmt.Fprintf(&b, "%s\n%s\n\n", typeUpper, strings.Repeat("-", len(missionType)))
+
+		for _, m := range missions {
+			// Get display ID (prefer template_id, fallback to mission_id)
+			displayID := m.TemplateID
+			if displayID == "" {
+				displayID = m.MissionID
+			}
+
+			// Title with display ID
+			if m.ChainNext != "" {
+				fmt.Fprintf(&b, "%s - (%s) - Chain Mission\n", m.Title, displayID)
+			} else {
+				fmt.Fprintf(&b, "%s - (%s)\n", m.Title, displayID)
+			}
+			separator := strings.Repeat("-", len(m.Title)+len(displayID)+20)
+			if m.ChainNext != "" {
+				separator = strings.Repeat("-", len(m.Title)+len(displayID)+35)
+			}
+			fmt.Fprintf(&b, "%s\n", separator)
+
+			// Description (truncated if too long)
+			desc := m.Description
+			if len(desc) > 200 {
+				desc = desc[:197] + "..."
+			}
+			if desc != "" {
+				fmt.Fprintf(&b, "%s\n\n", desc)
+			}
+
+			// Difficulty as stars
+			stars := strings.Repeat("★", m.Difficulty)
+			emptyStars := strings.Repeat("☆", 10-m.Difficulty)
+			fmt.Fprintf(&b, "Difficulty:  %s%s%s %d/10\n", stars, emptyStars, "", m.Difficulty)
+
+			// Rewards section
+			fmt.Fprintf(&b, "Rewards:\n")
+
+			// Credits
+			if m.Credits > 0 {
+				fmt.Fprintf(&b, "  credits:  %20s +%d cr\n", "", m.Credits)
+			} else {
+				fmt.Fprintf(&b, "  credits:  %20s 0 cr\n", "")
+			}
+
+			// Items
+			if len(m.Items) > 0 {
+				// Sort items by name
+				var itemNames []string
+				for name := range m.Items {
+					itemNames = append(itemNames, name)
+				}
+				slices.Sort(itemNames)
+				for _, name := range itemNames {
+					qty := m.Items[name]
+					fmt.Fprintf(&b, "  items:    %20s %s %5d units\n", "", name, qty)
+				}
+			}
+
+			// Skill XP
+			if len(m.SkillXP) > 0 {
+				// Sort skills by name
+				var skillNames []string
+				for skill := range m.SkillXP {
+					skillNames = append(skillNames, skill)
+				}
+				slices.Sort(skillNames)
+				for _, skill := range skillNames {
+					xp := m.SkillXP[skill]
+					fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, xp)
+				}
+			}
+
+			b.WriteString("\n")
 		}
 	}
 

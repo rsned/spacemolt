@@ -1,0 +1,61 @@
+Missions (8)
+
+Trading
+-------------
+
+Trade Run: Condensed Dark Matter to Crimson War Citadel
+trade_deep_range_outpost_crimson_war_citadel_condensed_dark_matter
+------------------------------------------------------------=
+  Condensed Dark Matter is in demand at Crimson War Citadel. Buy 23 units
+  here for approximately 1078 credits each, then haul them to Crimson War
+  Citadel (31 jumps) and sell for approximately 3520 credits each. Estimated
+  profit: ~56166 credits.
+
+  This route crosses empire borders. Watch for pirates in lawless space
+  between empires.
+  Use 'create_buy_order' to purchase the goods, then 'travel' and 'jump'
+  to reach the destination. Use 'create_sell_order' at the destination to
+  complete the trade and earn your profit.",
+
+Difficulty:  ★★★★★★★★☆☆☆ 7/10
+Rewards:  
+  credits:      +0 cr
+  trading:     +40 xp
+
+ 
+   {
+      "description": "Condensed Dark Matter is in demand at Crimson War Citadel. Buy 23 units here for approximately 1078 credits each, then haul them to Crimson War Citadel (31 jumps) and sell for approximately 3520 credits each. Estimated profit: ~56166 credits.\n\nThis route crosses empire borders. Watch for pirates in lawless space between empires.\n\nUse 'create_buy_order' to purchase the goods, then 'travel' and 'jump' to reach the destination. Use 'create_sell_order' at the destination to complete the trade and earn your profit.",
+      "difficulty": 7,
+      "expires_in_ticks": 609,
+      "giver": {
+        "name": "Market Analyst Keth",
+        "title": "Exchange Services"
+      },
+      "issuing_base": "Deep Range Outpost",
+      "issuing_base_id": "deep_range_outpost",
+      "issuing_system_id": "deep_range",
+      "issuing_system_name": "Deep Range",
+      "mission_id": "trade_deep_range_outpost_crimson_war_citadel_condensed_dark_matter",
+      "objectives": [
+        {
+          "description": "Sell 23 Condensed Dark Matter at Crimson War Citadel",
+          "item_id": "condensed_dark_matter",
+          "quantity": 23,
+          "system_id": "krynn",
+          "system_name": "Krynn",
+          "target_base_id": "crimson_war_citadel",
+          "target_base_name": "Crimson War Citadel",
+          "type": "sell_item"
+        }
+      ],
+      "rewards": {
+        "credits": 0,
+        "skill_xp": {
+          "trading": 40
+        }
+      },
+      "title": "Trade Run: Condensed Dark Matter to Crimson War Citadel",
+      "type": "trading"
+    }
+  ]
+
