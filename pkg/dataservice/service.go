@@ -52,7 +52,9 @@ const (
 
 // Service is the long-running query responder.
 type Service struct {
-	cfg Config
+	cfg     Config
+	seenMu  sync.Mutex
+	seen    map[string]bool // dedup key → true; persists for the service lifetime
 }
 
 // NewService validates the config and returns a Service.
@@ -84,7 +86,7 @@ func NewService(cfg Config) (*Service, error) {
 	if cfg.HistoryLimit <= 0 {
 		cfg.HistoryLimit = defaultHistoryLimit
 	}
-	return &Service{cfg: cfg}, nil
+	return &Service{cfg: cfg, seen: make(map[string]bool)}, nil
 }
 
 // Run drives the ingest and dispatch loops until ctx is cancelled.
@@ -185,7 +187,9 @@ func (s *Service) drainOnce(ctx context.Context) {
 
 // filterAndDedupe keeps only messages addressed to us from someone else,
 // drops duplicate (sender_id, content) pairs keeping the oldest, and
-// returns them oldest-first.
+// returns them oldest-first. The seen map is persistent across drainOnce
+// calls for the lifetime of the service to handle duplicates that arrive
+// in separate ingest batches.
 func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 	// mbox.List returns newest-first. Reverse for FIFO processing.
 	reversed := make([]mbox.Message, 0, len(msgs))
@@ -193,7 +197,9 @@ func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 		reversed = append(reversed, msgs[i])
 	}
 
-	seen := make(map[string]bool)
+	s.seenMu.Lock()
+	defer s.seenMu.Unlock()
+
 	out := make([]mbox.Message, 0, len(reversed))
 	for _, m := range reversed {
 		if m.TargetID != s.cfg.AgentID {
@@ -203,13 +209,13 @@ func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 			continue
 		}
 		key := m.SenderID + "\x00" + m.Content
-		if seen[key] {
+		if s.seen[key] {
 			if err := s.cfg.Mbox.MarkRead(m.ID); err != nil {
 				s.cfg.Logger.Printf("mark read (dupe) %s: %v", m.ID, err)
 			}
 			continue
 		}
-		seen[key] = true
+		s.seen[key] = true
 		out = append(out, m)
 	}
 	return out

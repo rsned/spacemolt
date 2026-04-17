@@ -4521,8 +4521,19 @@ type chatPoller struct {
 	ingester *mbox.Ingester // Optional: ingest polled messages into mbox.
 }
 
-// chatChannels are the channels to poll. Private is omitted since it requires a target_id.
-var chatChannels = []string{"system", "local", "faction"}
+// activeChatChannels returns the channels that should be polled based on player state.
+// Faction channel is only included if the player is in a faction.
+func activeChatChannels(client game.GameClient) []string {
+	channels := []string{"system", "local"}
+
+	// Check if player is in a faction
+	state := client.GetState()
+	if state != nil && state.Player.FactionID != "" {
+		channels = append(channels, "faction")
+	}
+
+	return channels
+}
 
 // channelColors maps channel names to ANSI color codes for display.
 var channelColors = map[string]string{
@@ -4567,7 +4578,7 @@ func (cp *chatPoller) stop() {
 
 // seedSeen fetches current history for each channel and marks all messages as seen.
 func (cp *chatPoller) seedSeen() {
-	for _, ch := range chatChannels {
+	for _, ch := range activeChatChannels(cp.client) {
 		msgs := cp.fetchMessages(ch)
 		cp.mu.Lock()
 		for _, m := range msgs {
@@ -4579,7 +4590,7 @@ func (cp *chatPoller) seedSeen() {
 
 // poll fetches new messages from all channels and prints them.
 func (cp *chatPoller) poll() {
-	for _, ch := range chatChannels {
+	for _, ch := range activeChatChannels(cp.client) {
 		msgs := cp.fetchMessages(ch)
 		if len(msgs) == 0 {
 			continue
