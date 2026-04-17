@@ -36,7 +36,7 @@ func main() {
 	mboxPath := flag.String("mbox-path", "", "Path to agent mbox SQLite DB (default: data/agents/<agent-id>/mbox.db)")
 	pollInterval := flag.Duration("poll-interval", 5*time.Second, "Chat-history poll interval")
 	replyPace := flag.Duration("reply-pace", game.SleepTick, "Minimum interval between outgoing chat replies")
-	debug := flag.Bool("debug", false, "Enable WS debug logging")
+	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
 	if *mboxPath == "" {
@@ -48,11 +48,11 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// 1. Connect + log in.
+	// 1. Connect + log in via MCP.
 	logger.Printf("Initializing agent %s...", *agentID)
-	client, creds, err := game.InitializeAgent(*agentID, logger, ctx, *debug)
+	client, creds, err := game.InitializeMCPAgent(*agentID, logger, ctx, *debug, true)
 	if err != nil {
-		logger.Fatalf("InitializeAgent: %v", err)
+		logger.Fatalf("InitializeMCPAgent: %v", err)
 	}
 	defer func() { _ = client.Close() }()
 	logger.Printf("Connected as %s (empire %s)", creds.Username, creds.Empire)
@@ -122,10 +122,10 @@ func main() {
 	logger.Printf("shutdown complete")
 }
 
-// clientFetcher implements dataservice.HistoryFetcher over pkg/game.Client.
-type clientFetcher struct{ client *game.Client }
+// clientFetcher implements dataservice.HistoryFetcher over game.GameClient.
+type clientFetcher struct{ client game.GameClient }
 
-func newClientFetcher(c *game.Client) *clientFetcher { return &clientFetcher{client: c} }
+func newClientFetcher(c game.GameClient) *clientFetcher { return &clientFetcher{client: c} }
 
 // Fetch issues a get_chat_history call for the private channel and returns
 // the parsed messages stored in State.LastChatHistory.
@@ -152,10 +152,10 @@ func (f *clientFetcher) Fetch(ctx context.Context, limit int) ([]serverapi.ChatM
 	return out, nil
 }
 
-// clientReplier implements dataservice.Replier over pkg/game.Client.
-type clientReplier struct{ client *game.Client }
+// clientReplier implements dataservice.Replier over game.GameClient.
+type clientReplier struct{ client game.GameClient }
 
-func newClientReplier(c *game.Client) *clientReplier { return &clientReplier{client: c} }
+func newClientReplier(c game.GameClient) *clientReplier { return &clientReplier{client: c} }
 
 func (r *clientReplier) Reply(ctx context.Context, targetID, content string) error {
 	return r.client.Chat(ctx, "private", content, targetID)
