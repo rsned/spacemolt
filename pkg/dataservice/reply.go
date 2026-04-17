@@ -27,9 +27,6 @@ func TruncateReply(s string) string {
 	if len(s) <= MaxReplyChars {
 		return s
 	}
-	keep := MaxReplyChars - len(truncateSuffix)
-	if keep < 0 {
-		keep = 0
-	}
+	keep := max(MaxReplyChars-len(truncateSuffix), 0)
 	return s[:keep] + truncateSuffix
 }
