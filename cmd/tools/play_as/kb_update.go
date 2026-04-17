@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -19,6 +20,72 @@ func currentTick(state *game.State) int64 {
 		return globalClock.Tick()
 	}
 	return currentTick(state)
+}
+
+// formatMissionDiffValue formats a mission diff value for human-readable output.
+// For JSON fields like "objectives", it parses and pretty-prints the JSON.
+// For other fields, it returns the value with simple quoting.
+func formatMissionDiffValue(field, oldValue, newValue string) (string, string) {
+	// For objectives field, try to parse and format as JSON
+	if field == "objectives" {
+		return formatObjectivesDiff(oldValue, newValue)
+	}
+
+	// For other fields, use simple quoting
+	return fmt.Sprintf("%q", oldValue), fmt.Sprintf("%q", newValue)
+}
+
+// formatObjectivesDiff formats mission objectives JSON arrays for human-readable output.
+// It parses the JSON arrays and shows them in a condensed format, or returns an error
+// marker if parsing fails.
+func formatObjectivesDiff(oldJSON, newJSON string) (string, string) {
+	oldFormatted, err := formatObjectivesJSON(oldJSON)
+	if err != nil {
+		oldFormatted = fmt.Sprintf("[invalid JSON: %v]", err)
+	}
+
+	newFormatted, err := formatObjectivesJSON(newJSON)
+	if err != nil {
+		newFormatted = fmt.Sprintf("[invalid JSON: %v]", err)
+	}
+
+	return oldFormatted, newFormatted
+}
+
+// formatObjectivesJSON parses a mission objectives JSON array and returns a
+// human-readable string showing the count and type of objectives.
+func formatObjectivesJSON(jsonStr string) (string, error) {
+	var objectives []map[string]any
+	if err := json.Unmarshal([]byte(jsonStr), &objectives); err != nil {
+		return "", err
+	}
+
+	if len(objectives) == 0 {
+		return "[]", nil
+	}
+
+	// Count objectives by type
+	typeCounts := make(map[string]int)
+	for _, obj := range objectives {
+		if objType, ok := obj["type"].(string); ok {
+			typeCounts[objType]++
+		}
+	}
+
+	// Build a concise description
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "[%d objectives: ", len(objectives))
+	first := true
+	for objType, count := range typeCounts {
+		if !first {
+			sb.WriteString(", ")
+		}
+		fmt.Fprintf(&sb, "%d %s", count, objType)
+		first = false
+	}
+	sb.WriteString("]")
+
+	return sb.String(), nil
 }
 
 // kbUpdateSystem fetches the current system data and saves it to the knowledge base.
@@ -400,7 +467,8 @@ func kbUpdateMissions(client game.GameClient, ctx context.Context) error {
 			changed++
 			fmt.Printf("Mission template %q changed at %s:\n", entry.TemplateID, baseID)
 			for _, d := range res.Diffs {
-				fmt.Printf("  %s: %q -> %q\n", d.Field, d.OldValue, d.NewValue)
+				oldFormatted, newFormatted := formatMissionDiffValue(d.Field, d.OldValue, d.NewValue)
+				fmt.Printf("  %s: %s -> %s\n", d.Field, oldFormatted, newFormatted)
 				fmt.Fprintf(os.Stderr, "mission template %s changed at base %s: field=%s old=%q new=%q\n",
 					entry.TemplateID, baseID, d.Field, d.OldValue, d.NewValue)
 			}
