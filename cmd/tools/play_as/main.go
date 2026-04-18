@@ -4485,11 +4485,15 @@ func mboxRead(store *mbox.Store, args []string) {
 		}
 		fmt.Printf("  marked %s messages read\n", ch)
 	default:
-		if err := store.MarkRead(args[0]); err != nil {
+		full := resolveMboxID(store, args[0])
+		if full == "" {
+			return
+		}
+		if err := store.MarkRead(full); err != nil {
 			fmt.Printf("error: %v\n", err)
 			return
 		}
-		fmt.Printf("  marked %s read\n", args[0])
+		fmt.Printf("  marked %s read\n", full)
 	}
 }
 
