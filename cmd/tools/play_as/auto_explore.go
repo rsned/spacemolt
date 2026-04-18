@@ -86,14 +86,14 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 
 	visited := map[string]bool{anchorSystemID: true}
 	systemsExplored := 0
+	currentSystemName := state.System.Name
 
 	// Collect raw responses for non-styled formats
 	var allResponses []json.RawMessage
 
 	for hop := 0; hop < maxHops; hop++ {
-		state = client.GetState()
 		if format == formatStyled {
-			fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, state.System.Name)
+			fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, currentSystemName)
 		}
 
 		if err := exploreSystem(client, ctx, true, format); err != nil {
@@ -149,6 +149,11 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 		}
 		if result != nil && result.Canceled {
 			return fmt.Errorf("jump to %s canceled mid-travel", next)
+		}
+		if result != nil && result.SystemName != "" {
+			currentSystemName = result.SystemName
+		} else {
+			currentSystemName = next
 		}
 		// Collect jump response
 		if format != formatStyled {
