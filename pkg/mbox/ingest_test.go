@@ -271,3 +271,78 @@ func TestHandlePushDedupe(t *testing.T) {
 		t.Fatalf("expected 1 message, got %d", len(msgs))
 	}
 }
+
+func TestIngester_SetSelfID_TagsSentMessages(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "mbox.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	ing := NewIngester(s)
+	ing.SetSelfID("self-id")
+
+	// Outbound echo: sender is self.
+	ing.HandlePush(serverapi.ChatMessage{
+		ID:           "out-1",
+		Channel:      "private",
+		SenderID:     "self-id",
+		Sender:       "Me",
+		Content:      "hi there",
+		TargetID:     "peer-id",
+		TimestampUTC: time.Now().UTC().Format(time.RFC3339),
+	})
+	// Inbound: sender is someone else.
+	ing.HandlePush(serverapi.ChatMessage{
+		ID:           "in-1",
+		Channel:      "private",
+		SenderID:     "peer-id",
+		Sender:       "Peer",
+		Content:      "hello back",
+		TargetID:     "self-id",
+		TimestampUTC: time.Now().UTC().Format(time.RFC3339),
+	})
+
+	out, err := s.Get("out-1")
+	if err != nil || out == nil {
+		t.Fatalf("Get out-1: %v", err)
+	}
+	if out.Source != "sent" {
+		t.Errorf("outbound: Source = %q, want %q", out.Source, "sent")
+	}
+
+	in, err := s.Get("in-1")
+	if err != nil || in == nil {
+		t.Fatalf("Get in-1: %v", err)
+	}
+	if in.Source != "push" {
+		t.Errorf("inbound: Source = %q, want %q", in.Source, "push")
+	}
+}
+
+func TestIngester_NoSelfID_DoesNotTagSent(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "mbox.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	ing := NewIngester(s)
+	// No SetSelfID call — legacy callers should see no behavior change.
+
+	ing.HandlePush(serverapi.ChatMessage{
+		ID:           "legacy-1",
+		Channel:      "private",
+		SenderID:     "someone",
+		Content:      "hi",
+		TimestampUTC: time.Now().UTC().Format(time.RFC3339),
+	})
+
+	m, err := s.Get("legacy-1")
+	if err != nil || m == nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if m.Source != "push" {
+		t.Errorf("Source = %q, want %q (legacy behavior)", m.Source, "push")
+	}
+}

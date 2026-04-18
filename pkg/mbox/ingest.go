@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -14,6 +15,9 @@ import (
 type Ingester struct {
 	store  *Store
 	logger *log.Logger
+
+	selfMu sync.RWMutex
+	selfID string
 }
 
 // NewIngester creates an Ingester backed by the given Store.
@@ -22,6 +26,21 @@ func NewIngester(store *Store) *Ingester {
 		store:  store,
 		logger: log.New(log.Default().Writer(), "[mbox] ", log.LstdFlags),
 	}
+}
+
+// SetSelfID registers the current player's internal ID so outbound echoes
+// (messages where SenderID == selfID) can be tagged Source="sent" at
+// ingest time. Pass an empty string to disable tagging.
+func (ing *Ingester) SetSelfID(id string) {
+	ing.selfMu.Lock()
+	ing.selfID = id
+	ing.selfMu.Unlock()
+}
+
+func (ing *Ingester) isSelf(id string) bool {
+	ing.selfMu.RLock()
+	defer ing.selfMu.RUnlock()
+	return ing.selfID != "" && id == ing.selfID
 }
 
 // BackfillClient is the minimal interface required to perform a channel backfill.
@@ -191,6 +210,14 @@ func (ing *Ingester) ingestAPI(msg serverapi.ChatMessage, source string) {
 		}
 	}
 
+	// When the sender is us, this is an outbound message the server
+	// echoed back. Tag it "sent" so callers can filter/display
+	// direction without comparing IDs themselves.
+	effectiveSource := source
+	if ing.isSelf(msg.SenderID) {
+		effectiveSource = "sent"
+	}
+
 	m := Message{
 		ID:           msg.ID,
 		Channel:      msg.Channel,
@@ -200,9 +227,9 @@ func (ing *Ingester) ingestAPI(msg serverapi.ChatMessage, source string) {
 		TargetID:     msg.TargetID,
 		TargetName:   msg.TargetName,
 		TimestampUTC: ts,
-		Source:       source,
+		Source:       effectiveSource,
 	}
 	if _, err := ing.store.Ingest(m); err != nil {
-		ing.logger.Printf("%s ingest error: %v", source, err)
+		ing.logger.Printf("%s ingest error: %v", effectiveSource, err)
 	}
 }

@@ -108,6 +108,7 @@ func main() {
 	defer func() { _ = store.Close() }()
 
 	ingester := mbox.NewIngester(store)
+	ingester.SetSelfID(playerID)
 	client.SetOnChatMessage(ingester.HandlePush)
 
 	// 6. Build registry + handlers.

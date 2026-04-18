@@ -234,6 +234,9 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		mboxStore = s
 		defer func() { _ = mboxStore.Close() }()
 		mboxIng = mbox.NewIngester(mboxStore)
+		if state := client.GetState(); state != nil && state.Player.ID != "" {
+			mboxIng.SetSelfID(state.Player.ID)
+		}
 
 		// Wire push handler for WS clients (no-op on MCP).
 		client.SetOnChatMessage(func(msg serverapi.ChatMessage) {
@@ -4484,9 +4487,32 @@ func printMboxMessage(m mbox.Message) {
 		senderFmt = bold + m.Sender + reset
 	}
 
-	fmt.Printf("%s%s[%-7s]%s %6s  %s  %s\n",
-		unreadMarker, color, m.Channel, reset,
+	// Direction indicator: → for messages we sent, ← for received.
+	// Prefer the "sent" Source tag (stamped by the Ingester when
+	// SetSelfID is wired); fall back to comparing sender IDs at
+	// display time for messages ingested before the tag existed.
+	arrow := "\u2190" // ← received
+	if m.Source == "sent" || (globalClient != nil && m.SenderID != "" && m.SenderID == mboxSelfID()) {
+		arrow = "\u2192" // → sent
+	}
+
+	fmt.Printf("%s%s[%-7s]%s %s %6s  %s  %s\n",
+		unreadMarker, color, m.Channel, reset, arrow,
 		mboxRelativeTime(m.TimestampUTC), senderFmt, mboxTruncate(m.Content, 60))
+}
+
+// mboxSelfID returns the logged-in player's internal ID, or "" if
+// unavailable. Used by display code so direction can be inferred even
+// for records that predate the Ingester SelfID tagging.
+func mboxSelfID() string {
+	if globalClient == nil {
+		return ""
+	}
+	state := globalClient.GetState()
+	if state == nil {
+		return ""
+	}
+	return state.Player.ID
 }
 
 func mboxRelativeTime(t time.Time) string {
