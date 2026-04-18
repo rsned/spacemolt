@@ -19,7 +19,10 @@ func currentTick(state *game.State) int64 {
 	if globalClock != nil {
 		return globalClock.Tick()
 	}
-	return currentTick(state)
+	if state == nil {
+		return 0
+	}
+	return state.GetTick()
 }
 
 // formatMissionDiffValue formats a mission diff value for human-readable output.
