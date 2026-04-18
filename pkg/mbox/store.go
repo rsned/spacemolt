@@ -218,6 +218,37 @@ func (s *Store) Get(id string) (*Message, error) {
 	return &msg, nil
 }
 
+// GetByPrefix retrieves a single message whose ID starts with prefix.
+// Returns nil, nil if no match. Returns an error if the prefix matches
+// more than one message (caller must disambiguate by using a longer
+// prefix or the full ID).
+func (s *Store) GetByPrefix(prefix string) (*Message, error) {
+	if prefix == "" {
+		return nil, fmt.Errorf("mbox: empty prefix")
+	}
+	rows, err := s.db.Query(
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, source FROM messages WHERE id LIKE ? || '%' LIMIT 2",
+		prefix,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("mbox: get by prefix: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	msgs, err := scanMessages(rows)
+	if err != nil {
+		return nil, fmt.Errorf("mbox: get by prefix scan: %w", err)
+	}
+	switch len(msgs) {
+	case 0:
+		return nil, nil
+	case 1:
+		return &msgs[0], nil
+	default:
+		return nil, fmt.Errorf("mbox: prefix %q is ambiguous (matched multiple messages)", prefix)
+	}
+}
+
 // buildWhere constructs a SQL WHERE clause and argument list from a Query.
 func buildWhere(q Query) (string, []any) {
 	var clauses []string

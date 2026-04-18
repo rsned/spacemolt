@@ -4229,7 +4229,7 @@ func printHelp() {
 	fmt.Println("  mbox list [ch] [--unread] - List messages (newest first)")
 	fmt.Println("  mbox search <query>       - Full-text search messages")
 	fmt.Println("  mbox show <id>            - Show message detail")
-	fmt.Println("  mbox read <id>|--all      - Mark messages as read")
+	fmt.Println("  mbox mark-read <id>|--all - Mark messages as read")
 	fmt.Println("  mbox backfill [--channel] - Deep crawl message history")
 	fmt.Println("  mbox sources              - Push/backfill/reconcile counts")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
@@ -4278,21 +4278,24 @@ func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameCl
 			return
 		}
 		mboxSearch(store, args[1:])
-	case "read":
+	case "mark-read", "read":
+		// `read` kept as a deprecated alias for muscle memory. `show`
+		// already displays message content so `read` as a name is
+		// ambiguous (open vs. mark-read). Prefer `mark-read`.
 		mboxRead(store, args[1:])
 	case "backfill":
 		mboxBackfill(ing, client, ctx, args[1:])
 	case "sources":
 		mboxSources(store)
 	default:
-		fmt.Println("mbox commands: list, show, search, read, backfill, sources")
-		fmt.Println("  mbox                                  show unread counts")
-		fmt.Println("  mbox list [channel] [--unread] [-n N]  list messages")
-		fmt.Println("  mbox show <id>                         show message detail")
-		fmt.Println("  mbox search <query> [--channel <ch>]   full-text search")
-		fmt.Println("  mbox read <id>|--all|--channel <ch>    mark read")
+		fmt.Println("mbox commands: list, show, search, mark-read, backfill, sources")
+		fmt.Println("  mbox                                      show unread counts")
+		fmt.Println("  mbox list [channel] [--unread] [-n N]     list messages (ID prefix shown)")
+		fmt.Println("  mbox show <id>                            show message detail (accepts ID prefix)")
+		fmt.Println("  mbox search <query> [--channel <ch>]      full-text search")
+		fmt.Println("  mbox mark-read <id>|--all|--channel <ch>  mark as read")
 		fmt.Println("  mbox backfill [--channel <ch>] [--limit N]")
-		fmt.Println("  mbox sources                           push/backfill/reconcile counts")
+		fmt.Println("  mbox sources                              source breakdown (push/poll/sent/...)")
 	}
 }
 
@@ -4335,6 +4338,15 @@ func mboxShow(store *mbox.Store, id string) {
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
 		return
+	}
+	if msg == nil {
+		// Try prefix lookup so `mbox show <short-id>` works with the
+		// 8-char prefix displayed by `mbox list`.
+		msg, err = store.GetByPrefix(id)
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+			return
+		}
 	}
 	if msg == nil {
 		fmt.Printf("message %q not found\n", id)
@@ -4479,6 +4491,7 @@ func printMboxMessage(m mbox.Message) {
 	color := channelColors[m.Channel]
 	reset := "\033[0m"
 	bold := "\033[1m"
+	dim := "\033[2m"
 
 	unreadMarker := "  "
 	senderFmt := m.Sender
@@ -4496,8 +4509,16 @@ func printMboxMessage(m mbox.Message) {
 		arrow = "\u2192" // → sent
 	}
 
-	fmt.Printf("%s%s[%-7s]%s %s %6s  %s  %s\n",
-		unreadMarker, color, m.Channel, reset, arrow,
+	// Short ID prefix for use with `mbox show <id>`. 8 hex chars is
+	// enough disambiguation for any realistic mbox size.
+	shortID := m.ID
+	if len(shortID) > 8 {
+		shortID = shortID[:8]
+	}
+
+	fmt.Printf("%s%s[%-7s]%s %s%s%s %s %6s  %s  %s\n",
+		unreadMarker, color, m.Channel, reset,
+		dim, shortID, reset, arrow,
 		mboxRelativeTime(m.TimestampUTC), senderFmt, mboxTruncate(m.Content, 60))
 }
 

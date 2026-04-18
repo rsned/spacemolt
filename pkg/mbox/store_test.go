@@ -204,6 +204,50 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestGetByPrefix(t *testing.T) {
+	s := newTestStore(t)
+
+	ts := time.Now().UTC()
+	for _, id := range []string{"abc123def", "abc456ghi", "zzz999"} {
+		if _, err := s.Ingest(Message{
+			ID:           id,
+			Channel:      "system",
+			SenderID:     "u1",
+			Sender:       "A",
+			Content:      "c",
+			TimestampUTC: ts,
+			Source:       "test",
+		}); err != nil {
+			t.Fatalf("Ingest %s: %v", id, err)
+		}
+	}
+
+	unique, err := s.GetByPrefix("zzz")
+	if err != nil {
+		t.Fatalf("GetByPrefix zzz: %v", err)
+	}
+	if unique == nil || unique.ID != "zzz999" {
+		t.Errorf("GetByPrefix zzz: got %+v", unique)
+	}
+
+	ambiguous, err := s.GetByPrefix("abc")
+	if err == nil {
+		t.Errorf("GetByPrefix abc: expected ambiguity error, got msg %+v", ambiguous)
+	}
+
+	none, err := s.GetByPrefix("xyz")
+	if err != nil {
+		t.Fatalf("GetByPrefix xyz: %v", err)
+	}
+	if none != nil {
+		t.Errorf("GetByPrefix xyz: want nil, got %+v", none)
+	}
+
+	if _, err := s.GetByPrefix(""); err == nil {
+		t.Errorf("GetByPrefix empty: expected error")
+	}
+}
+
 func TestMarkReadAndUnreadCounts(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now().UTC()
