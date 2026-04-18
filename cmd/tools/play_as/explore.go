@@ -467,10 +467,14 @@ func currentPOIPosition(pois []game.POI, poiID string) game.Position {
 
 // truncateName truncates a string to maxLen, adding "..." if needed.
 func truncateName(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // checkForSurveyScanner checks if the ship has a survey scanner installed.
