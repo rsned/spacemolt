@@ -207,10 +207,16 @@ func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 	for _, m := range reversed {
 		if m.TargetID != s.cfg.AgentID {
 			s.cfg.Logger.Printf("skip %s: target_id=%q != agent_id=%q", m.ID, m.TargetID, s.cfg.AgentID)
+			if err := s.cfg.Mbox.MarkRead(m.ID); err != nil {
+				s.cfg.Logger.Printf("mark read (not-ours) %s: %v", m.ID, err)
+			}
 			continue
 		}
 		if m.SenderID == s.cfg.AgentID {
 			s.cfg.Logger.Printf("skip %s: from self", m.ID)
+			if err := s.cfg.Mbox.MarkRead(m.ID); err != nil {
+				s.cfg.Logger.Printf("mark read (self) %s: %v", m.ID, err)
+			}
 			continue
 		}
 		key := m.SenderID + "\x00" + m.Content
