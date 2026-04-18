@@ -48,11 +48,15 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// 1. Connect + log in via MCP.
+	// 1. Connect + log in via WSS. MCP does not surface inbound private DMs
+	//    to third-party senders (the private channel history query requires
+	//    target_id, and get_notifications chat events are not plumbed into
+	//    state yet). WSS pushes chat via SetOnChatMessage, which is how this
+	//    binary actually receives work. Revisit when MCP inbox support lands.
 	logger.Printf("Initializing agent %s...", *agentID)
-	client, creds, err := game.InitializeMCPAgent(*agentID, logger, ctx, *debug, true)
+	client, creds, err := game.InitializeAgent(*agentID, logger, ctx, *debug)
 	if err != nil {
-		logger.Fatalf("InitializeMCPAgent: %v", err)
+		logger.Fatalf("InitializeAgent: %v", err)
 	}
 	defer func() { _ = client.Close() }()
 	logger.Printf("Connected as %s (empire %s)", creds.Username, creds.Empire)
@@ -84,12 +88,18 @@ func main() {
 		return clock.Tick()
 	}
 
-	// 5. Open mbox.
+	// 5. Open mbox and wire WSS chat pushes directly into it. This is the
+	//    primary ingest path on WSS; the Fetch loop is kept as a no-op for
+	//    interface compatibility and as a future home for transport
+	//    mechanisms that require explicit polling.
 	store, err := mbox.Open(*mboxPath)
 	if err != nil {
 		logger.Fatalf("open mbox %s: %v", *mboxPath, err)
 	}
 	defer func() { _ = store.Close() }()
+
+	ingester := mbox.NewIngester(store)
+	client.SetOnChatMessage(ingester.HandlePush)
 
 	// 6. Build registry + handlers.
 	deps := dataservice.Deps{KB: kb, Graph: graph, Tick: tickFn}
@@ -97,7 +107,7 @@ func main() {
 	registry.Register(&handlers.Nearest{})
 
 	// 7. Wire HistoryFetcher + Replier over the game client.
-	fetcher := newClientFetcher(client)
+	fetcher := newPushOnlyFetcher()
 	replier := newClientReplier(client)
 
 	// 8. Run.
@@ -122,40 +132,24 @@ func main() {
 	logger.Printf("shutdown complete")
 }
 
-// clientFetcher implements dataservice.HistoryFetcher over game.GameClient.
-type clientFetcher struct{ client game.GameClient }
+// pushOnlyFetcher is a no-op HistoryFetcher used when the game client
+// pushes chat messages directly into mbox via SetOnChatMessage. The
+// Service's ingest loop is kept running so future transports that need
+// explicit polling can substitute a real fetcher without changing the
+// Service contract.
+type pushOnlyFetcher struct{}
 
-func newClientFetcher(c game.GameClient) *clientFetcher { return &clientFetcher{client: c} }
+func newPushOnlyFetcher() *pushOnlyFetcher { return &pushOnlyFetcher{} }
 
-// Fetch issues a get_chat_history call for the private channel and returns
-// the parsed messages stored in State.LastChatHistory.
-func (f *clientFetcher) Fetch(ctx context.Context, limit int) ([]serverapi.ChatMessage, error) {
-	if err := f.client.GetChatHistory(ctx, "private", map[string]any{"limit": limit}); err != nil {
-		return nil, err
-	}
-	state := f.client.GetState()
-	if state == nil {
-		return nil, nil
-	}
-	out := make([]serverapi.ChatMessage, 0, len(state.LastChatHistory))
-	for _, m := range state.LastChatHistory {
-		out = append(out, serverapi.ChatMessage{
-			ID:           m.ID,
-			Channel:      m.Channel,
-			SenderID:     m.SenderID,
-			Sender:       m.Sender,
-			Content:      m.Content,
-			TargetID:     m.TargetID,
-			TimestampUTC: m.Timestamp,
-		})
-	}
-	return out, nil
+// Fetch returns no messages. Inbound chat arrives via server push.
+func (pushOnlyFetcher) Fetch(_ context.Context, _ int) ([]serverapi.ChatMessage, error) {
+	return nil, nil
 }
 
-// clientReplier implements dataservice.Replier over game.GameClient.
-type clientReplier struct{ client game.GameClient }
+// clientReplier implements dataservice.Replier over *game.Client.
+type clientReplier struct{ client *game.Client }
 
-func newClientReplier(c game.GameClient) *clientReplier { return &clientReplier{client: c} }
+func newClientReplier(c *game.Client) *clientReplier { return &clientReplier{client: c} }
 
 func (r *clientReplier) Reply(ctx context.Context, targetID, content string) error {
 	return r.client.Chat(ctx, "private", content, targetID)
