@@ -667,6 +667,7 @@ func (m *MCPGameClient) GetNotifications(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	m.dispatchChatNotifications(result)
 	return m.cacheResultAs(result, "notifications")
 }
 

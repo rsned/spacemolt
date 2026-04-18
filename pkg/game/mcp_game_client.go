@@ -78,6 +78,12 @@ type MCPGameClient struct {
 	xpLastQuantity  int                // most recent action quantity (default 1)
 	xpBaselineReady bool               // true once first get_skills refresh has seeded baseline
 	xpMu            sync.Mutex
+
+	// Chat notification callback. Fires for every chat notification
+	// returned by get_notifications (both background poll and explicit
+	// call). nil by default.
+	onChatMessage func(msg serverapi.ChatMessage)
+	onChatMu      sync.RWMutex
 }
 
 // SetXPCallback installs an XP observation callback. Passing nil disables
@@ -137,9 +143,72 @@ func NewMCPGameClient(serverURL, username, password string, logger *log.Logger) 
 	}
 }
 
-// SetOnChatMessage is a no-op for the MCP client since it does not receive
-// push events over WebSocket.
-func (m *MCPGameClient) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {}
+// SetOnChatMessage registers a callback that fires for each chat
+// notification returned by get_notifications. MCP has no server-push
+// channel, so delivery latency is bounded by the poll interval (and by
+// the 10s server throttle on get_notifications). Pass nil to disable.
+func (m *MCPGameClient) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {
+	m.onChatMu.Lock()
+	m.onChatMessage = fn
+	m.onChatMu.Unlock()
+}
+
+// dispatchChatNotifications scans a get_notifications result for chat
+// entries and invokes the registered onChatMessage callback for each.
+// No-op if no callback is set or if the payload cannot be parsed.
+func (m *MCPGameClient) dispatchChatNotifications(result json.RawMessage) {
+	m.onChatMu.RLock()
+	cb := m.onChatMessage
+	m.onChatMu.RUnlock()
+	if cb == nil {
+		return
+	}
+
+	text, err := parseToolResultText(result)
+	if err != nil {
+		return
+	}
+
+	// Accept both direct payload {"notifications": [...]} and HTTP-API
+	// wrapper {"result": {"notifications": [...]}} shapes.
+	var envelope struct {
+		Notifications []serverapi.Notification `json:"notifications"`
+		Result        *struct {
+			Notifications []serverapi.Notification `json:"notifications"`
+		} `json:"result,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(text), &envelope); err != nil {
+		return
+	}
+	notes := envelope.Notifications
+	if len(notes) == 0 && envelope.Result != nil {
+		notes = envelope.Result.Notifications
+	}
+
+	for _, n := range notes {
+		if n.Type != "chat" {
+			continue
+		}
+		data, err := json.Marshal(n.Data)
+		if err != nil {
+			continue
+		}
+		var msg serverapi.ChatMessage
+		if err := json.Unmarshal(data, &msg); err != nil {
+			continue
+		}
+		if msg.TimestampUTC == "" {
+			// Older server builds used "timestamp" as the key inside chat data.
+			var alt struct {
+				Timestamp string `json:"timestamp"`
+			}
+			if json.Unmarshal(data, &alt) == nil {
+				msg.TimestampUTC = alt.Timestamp
+			}
+		}
+		cb(msg)
+	}
+}
 
 // SetDebugLogging enables or disables debug logging for raw responses.
 func (m *MCPGameClient) SetDebugLogging(enabled bool) {
@@ -788,6 +857,7 @@ func (m *MCPGameClient) pollNotifications() error {
 		return err
 	}
 
+	m.dispatchChatNotifications(result)
 	return m.updateStateFromResult(result)
 }
 
