@@ -238,7 +238,7 @@ func (s *Service) handle(ctx context.Context, m mbox.Message) {
 	if len(preview) > 60 {
 		preview = preview[:60] + "…"
 	}
-	s.cfg.Logger.Printf("handle %s from %s: %q", m.ID, m.SenderID, preview)
+	s.cfg.Logger.Printf("handle %s from %s %q: %q", m.ID, m.SenderID, m.Sender, preview)
 
 	reply, err := s.cfg.Registry.Dispatch(ctx, m.Content)
 	if err != nil {
@@ -250,7 +250,7 @@ func (s *Service) handle(ctx context.Context, m mbox.Message) {
 		s.cfg.Logger.Printf("reply %s: %v", m.ID, err)
 		return
 	}
-	s.cfg.Logger.Printf("replied to %s (%d chars)", m.SenderID, len(reply))
+	s.cfg.Logger.Printf("replied to %s %q (%d chars)", m.SenderID, m.Sender, len(reply))
 	if err := s.cfg.Mbox.MarkRead(m.ID); err != nil {
 		s.cfg.Logger.Printf("mark read %s: %v", m.ID, err)
 	}
