@@ -63,6 +63,7 @@ func main() {
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
+	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	flag.Parse()
 
 	args := flag.Args()
@@ -148,9 +149,13 @@ func main() {
 			// interactive play also contributes datapoints to the analytics
 			// database. Works for any client implementing XPCallbackSetter
 			// (both WS *game.Client and *game.MCPGameClient do).
-			if setter, ok := client.(game.XPCallbackSetter); ok {
-				knowledge.NewXPTracker(setter, sqliteKB, agentID, logger)
-				logger.Printf("XP observation tracking enabled")
+			if *xpTracking {
+				if setter, ok := client.(game.XPCallbackSetter); ok {
+					knowledge.NewXPTracker(setter, sqliteKB, agentID, logger)
+					logger.Printf("XP observation tracking enabled")
+				}
+			} else {
+				logger.Printf("XP observation tracking disabled (--xp-tracking=false)")
 			}
 		}
 	}
@@ -193,6 +198,7 @@ func printUsage() {
 	fmt.Println("  --debug                Enable debug logging (show sent/received JSON)")
 	fmt.Println("  --config <path>        Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
 	fmt.Println("  --registry-url <url>   Status registry URL (e.g., http://localhost:8081)")
+	fmt.Println("  --xp-tracking=false    Disable XP observation tracking (default: true)")
 	fmt.Println("\nThis tool provides an interactive terminal for playing Spacemolt.")
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
