@@ -61,6 +61,15 @@ func main() {
 	defer func() { _ = client.Close() }()
 	logger.Printf("Connected as %s (empire %s)", creds.Username, creds.Empire)
 
+	// Server addresses private-channel messages with target_id as the
+	// internal player ID hash, not the --agent-id flag value. Capture it
+	// now so the dispatch filter matches incoming DMs correctly.
+	playerID := client.GetState().Player.ID
+	if playerID == "" {
+		logger.Fatalf("player ID missing from state after login")
+	}
+	logger.Printf("Player ID: %s", playerID)
+
 	// 2. Open shared knowledge base.
 	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *dbPath, WAL: true})
 	if err != nil {
@@ -112,7 +121,7 @@ func main() {
 
 	// 8. Run.
 	svc, err := dataservice.NewService(dataservice.Config{
-		AgentID:      *agentID,
+		AgentID:      playerID,
 		Registry:     registry,
 		Mbox:         store,
 		Fetcher:      fetcher,
@@ -125,7 +134,7 @@ func main() {
 		logger.Fatalf("NewService: %v", err)
 	}
 
-	logger.Printf("dataservice running; agent=%s mbox=%s poll=%s", *agentID, *mboxPath, *pollInterval)
+	logger.Printf("dataservice running; agent=%s player_id=%s mbox=%s poll=%s", *agentID, playerID, *mboxPath, *pollInterval)
 	if err := svc.Run(ctx); err != nil {
 		logger.Fatalf("service run: %v", err)
 	}
