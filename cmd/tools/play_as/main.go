@@ -4283,17 +4283,31 @@ func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameCl
 		// already displays message content so `read` as a name is
 		// ambiguous (open vs. mark-read). Prefer `mark-read`.
 		mboxRead(store, args[1:])
+	case "delete":
+		if len(args) < 2 {
+			fmt.Println("usage: mbox delete <id>")
+			return
+		}
+		mboxDelete(store, args[1])
+	case "restore":
+		if len(args) < 2 {
+			fmt.Println("usage: mbox restore <id>")
+			return
+		}
+		mboxRestore(store, args[1])
 	case "backfill":
 		mboxBackfill(ing, client, ctx, args[1:])
 	case "sources":
 		mboxSources(store)
 	default:
-		fmt.Println("mbox commands: list, show, search, mark-read, backfill, sources")
+		fmt.Println("mbox commands: list, show, search, mark-read, delete, restore, backfill, sources")
 		fmt.Println("  mbox                                      show unread counts")
 		fmt.Println("  mbox list [channel] [--unread] [-n N]     list messages (ID prefix shown)")
 		fmt.Println("  mbox show <id>                            show message detail (accepts ID prefix)")
 		fmt.Println("  mbox search <query> [--channel <ch>]      full-text search")
 		fmt.Println("  mbox mark-read <id>|--all|--channel <ch>  mark as read")
+		fmt.Println("  mbox delete <id>                          soft-delete a message (reversible)")
+		fmt.Println("  mbox restore <id>                         undo a soft-delete")
 		fmt.Println("  mbox backfill [--channel <ch>] [--limit N]")
 		fmt.Println("  mbox sources                              source breakdown (push/poll/sent/...)")
 	}
@@ -4333,6 +4347,49 @@ func mboxList(store *mbox.Store, args []string) {
 	}
 }
 
+// resolveMboxID accepts a full ID or an unambiguous prefix and returns
+// the matching full ID. Returns "" and prints an error message if no
+// match or the prefix is ambiguous.
+func resolveMboxID(store *mbox.Store, id string) string {
+	if m, err := store.Get(id); err == nil && m != nil {
+		return m.ID
+	}
+	m, err := store.GetByPrefix(id)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return ""
+	}
+	if m == nil {
+		fmt.Printf("message %q not found\n", id)
+		return ""
+	}
+	return m.ID
+}
+
+func mboxDelete(store *mbox.Store, id string) {
+	full := resolveMboxID(store, id)
+	if full == "" {
+		return
+	}
+	if err := store.SoftDelete(full); err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	fmt.Printf("deleted %s\n", full)
+}
+
+func mboxRestore(store *mbox.Store, id string) {
+	full := resolveMboxID(store, id)
+	if full == "" {
+		return
+	}
+	if err := store.Restore(full); err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	fmt.Printf("restored %s\n", full)
+}
+
 func mboxShow(store *mbox.Store, id string) {
 	msg, err := store.Get(id)
 	if err != nil {
@@ -4366,6 +4423,10 @@ func mboxShow(store *mbox.Store, id string) {
 		fmt.Println()
 	}
 	fmt.Printf("  Source:    %s\n", msg.Source)
+	if msg.DeletedAt != nil {
+		fmt.Printf("  Deleted:   %s (soft-deleted; use `mbox restore %s` to undo)\n",
+			msg.DeletedAt.Format(time.RFC3339), msg.ID[:8])
+	}
 	read := "unread"
 	if msg.ReadAt != nil {
 		read = msg.ReadAt.Format(time.RFC3339)

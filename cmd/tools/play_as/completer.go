@@ -111,7 +111,7 @@ func targetCandidates(cmd string, client game.GameClient) []string {
 	}
 	switch cmd {
 	case "mbox":
-		return []string{"list", "show", "search", "mark-read", "backfill", "sources"}
+		return []string{"list", "show", "search", "mark-read", "delete", "restore", "backfill", "sources"}
 	case "nearest":
 		return []string{"station", "asteroid", "black_market", "base", "enemy", "gas_giant", "nebula", "outpost", "planet", "ruin", "star", "wreck"}
 	case "dock":

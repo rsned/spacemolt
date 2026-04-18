@@ -96,6 +96,8 @@ func (s *Store) migrate() error {
 		CREATE TRIGGER messages_ad AFTER DELETE ON messages BEGIN
 			INSERT INTO messages_fts(messages_fts, rowid, content, sender) VALUES('delete', old.rowid, old.content, old.sender);
 		END;`,
+		`ALTER TABLE messages ADD COLUMN deleted_at TEXT;
+		CREATE INDEX idx_messages_not_deleted ON messages(channel, timestamp_utc DESC) WHERE deleted_at IS NULL;`,
 	}
 
 	for i, ddl := range migrations {
@@ -125,18 +127,21 @@ type Message struct {
 	TimestampUTC time.Time
 	IngestedAt   time.Time
 	ReadAt       *time.Time
+	DeletedAt    *time.Time
 	Source       string
 }
 
-// Query holds filter parameters for retrieving messages.
+// Query holds filter parameters for retrieving messages. By default,
+// soft-deleted messages are excluded; set IncludeDeleted to see them.
 type Query struct {
-	Channel    string
-	SenderID   string
-	UnreadOnly bool
-	Before     time.Time
-	After      time.Time
-	Limit      int
-	Offset     int
+	Channel         string
+	SenderID        string
+	UnreadOnly      bool
+	IncludeDeleted  bool
+	Before          time.Time
+	After           time.Time
+	Limit           int
+	Offset          int
 }
 
 // scanner is a common interface for sql.Row and sql.Rows to share scan logic.
@@ -182,7 +187,7 @@ func (s *Store) List(q Query) ([]Message, error) {
 	}
 
 	where, args := buildWhere(q)
-	query := "SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, source FROM messages"
+	query := "SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source FROM messages"
 	if where != "" {
 		query += " WHERE " + where
 	}
@@ -203,9 +208,11 @@ func (s *Store) List(q Query) ([]Message, error) {
 }
 
 // Get retrieves a single message by ID. Returns nil, nil if not found.
+// Returns soft-deleted messages as well; callers that want to exclude
+// them should check the returned Message.DeletedAt field.
 func (s *Store) Get(id string) (*Message, error) {
 	row := s.db.QueryRow(
-		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, source FROM messages WHERE id = ?",
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source FROM messages WHERE id = ?",
 		id,
 	)
 	msg, err := scanRow(row)
@@ -227,7 +234,7 @@ func (s *Store) GetByPrefix(prefix string) (*Message, error) {
 		return nil, fmt.Errorf("mbox: empty prefix")
 	}
 	rows, err := s.db.Query(
-		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, source FROM messages WHERE id LIKE ? || '%' LIMIT 2",
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source FROM messages WHERE id LIKE ? || '%' LIMIT 2",
 		prefix,
 	)
 	if err != nil {
@@ -265,6 +272,9 @@ func buildWhere(q Query) (string, []any) {
 	if q.UnreadOnly {
 		clauses = append(clauses, "read_at IS NULL")
 	}
+	if !q.IncludeDeleted {
+		clauses = append(clauses, "deleted_at IS NULL")
+	}
 	if !q.Before.IsZero() {
 		clauses = append(clauses, "timestamp_utc < ?")
 		args = append(args, q.Before.UTC().Format(timeFormat))
@@ -297,6 +307,7 @@ func scanRow(s scanner) (Message, error) {
 		targetID   sql.NullString
 		targetName sql.NullString
 		readAt     sql.NullString
+		deletedAt  sql.NullString
 		tsStr      string
 		ingestStr  string
 	)
@@ -312,6 +323,7 @@ func scanRow(s scanner) (Message, error) {
 		&tsStr,
 		&ingestStr,
 		&readAt,
+		&deletedAt,
 		&msg.Source,
 	); err != nil {
 		return Message{}, err
@@ -340,8 +352,41 @@ func scanRow(s scanner) (Message, error) {
 		}
 		msg.ReadAt = &t
 	}
+	if deletedAt.Valid {
+		t, err := time.Parse(timeFormat, deletedAt.String)
+		if err != nil {
+			return Message{}, fmt.Errorf("parse deleted_at %q: %w", deletedAt.String, err)
+		}
+		msg.DeletedAt = &t
+	}
 
 	return msg, nil
+}
+
+// SoftDelete marks a message as deleted. It is hidden from default
+// queries (List, Search) but remains in the store and can be undone
+// with Restore. No-op if the message is already deleted.
+func (s *Store) SoftDelete(id string) error {
+	now := time.Now().UTC().Format(timeFormat)
+	if _, err := s.db.Exec(
+		"UPDATE messages SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+		now, id,
+	); err != nil {
+		return fmt.Errorf("mbox: soft delete %s: %w", id, err)
+	}
+	return nil
+}
+
+// Restore clears the soft-delete flag on a message, making it visible
+// to default queries again. No-op if not deleted.
+func (s *Store) Restore(id string) error {
+	if _, err := s.db.Exec(
+		"UPDATE messages SET deleted_at = NULL WHERE id = ?",
+		id,
+	); err != nil {
+		return fmt.Errorf("mbox: restore %s: %w", id, err)
+	}
+	return nil
 }
 
 // MarkRead marks the given message IDs as read if they are currently unread.
@@ -414,8 +459,11 @@ func (s *Store) Search(text string, q Query) ([]Message, error) {
 	if q.UnreadOnly {
 		clauses = append(clauses, "m.read_at IS NULL")
 	}
+	if !q.IncludeDeleted {
+		clauses = append(clauses, "m.deleted_at IS NULL")
+	}
 
-	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.source
+	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.deleted_at, m.source
 FROM messages m
 JOIN messages_fts ON m.rowid = messages_fts.rowid
 WHERE messages_fts MATCH ?`

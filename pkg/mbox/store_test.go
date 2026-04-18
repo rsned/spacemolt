@@ -248,6 +248,76 @@ func TestGetByPrefix(t *testing.T) {
 	}
 }
 
+func TestSoftDeleteAndRestore(t *testing.T) {
+	s := newTestStore(t)
+
+	ts := time.Now().UTC()
+	for _, id := range []string{"alive", "trashed"} {
+		if _, err := s.Ingest(Message{
+			ID:           id,
+			Channel:      "private",
+			SenderID:     "u1",
+			Sender:       "A",
+			Content:      id,
+			TimestampUTC: ts,
+			Source:       "test",
+		}); err != nil {
+			t.Fatalf("Ingest %s: %v", id, err)
+		}
+	}
+
+	if err := s.SoftDelete("trashed"); err != nil {
+		t.Fatalf("SoftDelete: %v", err)
+	}
+
+	// Default List hides soft-deleted.
+	msgs, err := s.List(Query{Channel: "private"})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(msgs) != 1 || msgs[0].ID != "alive" {
+		ids := make([]string, len(msgs))
+		for i, m := range msgs {
+			ids[i] = m.ID
+		}
+		t.Errorf("default List: want [alive], got %v", ids)
+	}
+
+	// IncludeDeleted sees both.
+	msgs, err = s.List(Query{Channel: "private", IncludeDeleted: true})
+	if err != nil {
+		t.Fatalf("List IncludeDeleted: %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Errorf("IncludeDeleted: want 2, got %d", len(msgs))
+	}
+
+	// Get still returns deleted with DeletedAt set.
+	got, err := s.Get("trashed")
+	if err != nil || got == nil {
+		t.Fatalf("Get trashed: %v", err)
+	}
+	if got.DeletedAt == nil {
+		t.Errorf("trashed.DeletedAt: want non-nil, got nil")
+	}
+
+	// Restore puts it back.
+	if err := s.Restore("trashed"); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+	msgs, err = s.List(Query{Channel: "private"})
+	if err != nil {
+		t.Fatalf("List after restore: %v", err)
+	}
+	if len(msgs) != 2 {
+		t.Errorf("after restore: want 2, got %d", len(msgs))
+	}
+	got, _ = s.Get("trashed")
+	if got == nil || got.DeletedAt != nil {
+		t.Errorf("after restore: DeletedAt should be nil, got %+v", got.DeletedAt)
+	}
+}
+
 func TestMarkReadAndUnreadCounts(t *testing.T) {
 	s := newTestStore(t)
 	now := time.Now().UTC()
