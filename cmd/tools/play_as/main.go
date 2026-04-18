@@ -2376,7 +2376,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "reload", map[string]any{
 				"weapon_instance_id": parts[1],
-				"ammo_item_id":       parts[2],
+				"ammo_item_id":       strings.ToLower(parts[2]),
 			})
 		}, ctx, 3*time.Second, cmd, format)
 
@@ -2399,7 +2399,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Sell(ctx, parts[1], qty)
+			return client.Sell(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "sell_all_bulk":
@@ -2416,7 +2416,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Buy(ctx, parts[1], qty)
+			return client.Buy(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "listings", "get_listings":
@@ -2444,6 +2444,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				payload["item_id"] = arg
 			}
 		}
+		if v, ok := payload["item_id"].(string); ok {
+			payload["item_id"] = strings.ToLower(v)
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "view_market", payload)
 		}, ctx, 2*time.Second, cmd, format)
@@ -2457,6 +2460,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 						payload[k] = n
 					}
 				}
+			}
+			if v, ok := payload["item_id"].(string); ok {
+				payload["item_id"] = strings.ToLower(v)
 			}
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.RawCommand(ctx, "view_orders", payload)
@@ -2478,7 +2484,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.CreateSellOrder(ctx, map[string]any{
-				"item_id":    parts[1],
+				"item_id":    strings.ToLower(parts[1]),
 				"quantity":   qty,
 				"price_each": price,
 			})
@@ -2498,7 +2504,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.CreateBuyOrder(ctx, map[string]any{
-				"item_id":    parts[1],
+				"item_id":    strings.ToLower(parts[1]),
 				"quantity":   qty,
 				"price_each": price,
 			})
@@ -2537,7 +2543,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "estimate_purchase", map[string]any{
-				"item_id": parts[1], "quantity": qty,
+				"item_id": strings.ToLower(parts[1]), "quantity": qty,
 			})
 		}, ctx, 2*time.Second, cmd, format)
 
@@ -2636,7 +2642,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "supply_commission", map[string]any{
-				"commission_id": parts[1], "item_id": parts[2], "quantity": qty,
+				"commission_id": parts[1], "item_id": strings.ToLower(parts[2]), "quantity": qty,
 			})
 		}, ctx, 3*time.Second, cmd, format)
 
@@ -2706,6 +2712,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 					payload["quantity"] = n
 				}
 			}
+			if v, ok := payload["item_id"].(string); ok {
+				payload["item_id"] = strings.ToLower(v)
+			}
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.RawCommand(ctx, "refuel", payload)
 			}, ctx, 3*time.Second, cmd, format)
@@ -2720,6 +2729,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 					payload["quantity"] = n
 				}
 			}
+			if v, ok := payload["item_id"].(string); ok {
+				payload["item_id"] = strings.ToLower(v)
+			}
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.RawCommand(ctx, "repair", payload)
 			}, ctx, 3*time.Second, cmd, format)
@@ -2731,7 +2743,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: install <item-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Install(ctx, parts[1])
+			return client.Install(ctx, strings.ToLower(parts[1]))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "uninstall", "uninstall_mod":
@@ -2832,7 +2844,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.DepositItems(ctx, parts[1], qty)
+			return client.DepositItems(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "deposit_all":
@@ -2847,7 +2859,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.WithdrawItems(ctx, parts[1], qty)
+			return client.WithdrawItems(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "storage", "view_storage":
@@ -2870,7 +2882,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Jettison(ctx, parts[1], qty)
+			return client.Jettison(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 2*time.Second, cmd, format)
 
 	// === WRECKS ===
@@ -2886,7 +2898,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.LootWreck(ctx, parts[1], parts[2], qty)
+			return client.LootWreck(ctx, parts[1], strings.ToLower(parts[2]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "salvage", "salvage_wreck":
@@ -2909,7 +2921,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: use_item <item-id> [quantity]")
 		}
-		payload := map[string]any{"item_id": parts[1]}
+		payload := map[string]any{"item_id": strings.ToLower(parts[1])}
 		if len(parts) >= 3 {
 			if n, err := strconv.Atoi(parts[2]); err == nil {
 				payload["quantity"] = n
@@ -3252,7 +3264,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_deposit_items", map[string]any{"item_id": parts[1], "quantity": qty})
+			return client.RawCommand(ctx, "faction_deposit_items", map[string]any{"item_id": strings.ToLower(parts[1]), "quantity": qty})
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_withdraw_items":
@@ -3264,7 +3276,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_withdraw_items", map[string]any{"item_id": parts[1], "quantity": qty})
+			return client.RawCommand(ctx, "faction_withdraw_items", map[string]any{"item_id": strings.ToLower(parts[1]), "quantity": qty})
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "view_faction_storage":
@@ -3286,7 +3298,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "faction_create_buy_order", map[string]any{
-				"item_id": parts[1], "quantity": qty, "price_each": price,
+				"item_id": strings.ToLower(parts[1]), "quantity": qty, "price_each": price,
 			})
 		}, ctx, 3*time.Second, cmd, format)
 
@@ -3304,7 +3316,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "faction_create_sell_order", map[string]any{
-				"item_id": parts[1], "quantity": qty, "price_each": price,
+				"item_id": strings.ToLower(parts[1]), "quantity": qty, "price_each": price,
 			})
 		}, ctx, 3*time.Second, cmd, format)
 
@@ -3353,6 +3365,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "faction_query_trade_intel":
 		payload := parseFlagArgs(parts[1:], "base_id", "item_id", "station_name")
+		if v, ok := payload["item_id"].(string); ok {
+			payload["item_id"] = strings.ToLower(v)
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "faction_query_trade_intel", payload)
 		}, ctx, 2*time.Second, cmd, format)
@@ -3485,7 +3500,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			if err != nil {
 				return fmt.Errorf("invalid quantity: %w", err)
 			}
-			payload["item_id"] = parts[2]
+			payload["item_id"] = strings.ToLower(parts[2])
 			payload["quantity"] = qty
 		}
 		// Parse optional --message flag
