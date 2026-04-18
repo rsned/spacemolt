@@ -172,6 +172,9 @@ func (s *Service) drainOnce(ctx context.Context) {
 	}
 
 	pending := s.filterAndDedupe(msgs)
+	if len(msgs) > 0 {
+		s.cfg.Logger.Printf("drain: unread=%d, pending=%d (after filter+dedupe)", len(msgs), len(pending))
+	}
 	for _, m := range pending {
 		if ctx.Err() != nil {
 			return
@@ -203,9 +206,11 @@ func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 	out := make([]mbox.Message, 0, len(reversed))
 	for _, m := range reversed {
 		if m.TargetID != s.cfg.AgentID {
+			s.cfg.Logger.Printf("skip %s: target_id=%q != agent_id=%q", m.ID, m.TargetID, s.cfg.AgentID)
 			continue
 		}
 		if m.SenderID == s.cfg.AgentID {
+			s.cfg.Logger.Printf("skip %s: from self", m.ID)
 			continue
 		}
 		key := m.SenderID + "\x00" + m.Content
@@ -223,6 +228,12 @@ func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 
 // handle dispatches one message: produces a reply, sends it, marks read.
 func (s *Service) handle(ctx context.Context, m mbox.Message) {
+	preview := m.Content
+	if len(preview) > 60 {
+		preview = preview[:60] + "…"
+	}
+	s.cfg.Logger.Printf("handle %s from %s: %q", m.ID, m.SenderID, preview)
+
 	reply, err := s.cfg.Registry.Dispatch(ctx, m.Content)
 	if err != nil {
 		s.cfg.Logger.Printf("dispatch %s: %v", m.ID, err)
@@ -233,6 +244,7 @@ func (s *Service) handle(ctx context.Context, m mbox.Message) {
 		s.cfg.Logger.Printf("reply %s: %v", m.ID, err)
 		return
 	}
+	s.cfg.Logger.Printf("replied to %s (%d chars)", m.SenderID, len(reply))
 	if err := s.cfg.Mbox.MarkRead(m.ID); err != nil {
 		s.cfg.Logger.Printf("mark read %s: %v", m.ID, err)
 	}
