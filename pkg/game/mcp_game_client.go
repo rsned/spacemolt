@@ -84,6 +84,12 @@ type MCPGameClient struct {
 	// call). nil by default.
 	onChatMessage func(msg serverapi.ChatMessage)
 	onChatMu      sync.RWMutex
+
+	// lastModulesRaw caches the last parsed module payload (raw bytes).
+	// Modules only change via switch_ship / install_mod / uninstall_mod,
+	// so we skip re-parsing and re-logging when the server echoes the
+	// same module list on unrelated responses.
+	lastModulesRaw []byte
 }
 
 // SetXPCallback installs an XP observation callback. Passing nil disables
@@ -1053,8 +1059,10 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 			}
 		}
 	}
-		if payload.Modules != nil {
-			// Parse module definitions from get_ship response
+		if payload.Modules != nil && !bytes.Equal(payload.Modules, m.lastModulesRaw) {
+			// Parse module definitions from get_ship response. Cached by raw
+			// bytes — modules only change via switch_ship / install_mod /
+			// uninstall_mod, so skip re-parsing when the payload is unchanged.
 			var modules []serverapi.ShipModule
 			if err := json.Unmarshal(payload.Modules, &modules); err == nil {
 				if m.state.ModuleDefinitions == nil {
@@ -1068,6 +1076,7 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 						}
 					}
 				}
+				m.lastModulesRaw = append(m.lastModulesRaw[:0], payload.Modules...)
 			}
 		}
 
