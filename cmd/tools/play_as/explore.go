@@ -316,6 +316,9 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 					}
 					fmt.Printf("    ? %s (difficulty: %s, hint: %s)\n", sig.Type, sig.Difficulty, hint)
 				}
+				if globalKB != nil {
+					saveFaintSignatures(client, ctx, resp)
+				}
 			}
 
 			if resp.Message != "" {
@@ -325,6 +328,9 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			// In raw/json mode, still save POIs to KB
 			if len(resp.NewlyRevealed) > 0 && globalKB != nil {
 				saveSurveyPOIs(client, ctx, resp)
+			}
+			if len(resp.FaintSignatures) > 0 && globalKB != nil {
+				saveFaintSignatures(client, ctx, resp)
 			}
 		}
 
@@ -390,6 +396,35 @@ func saveSurveyPOIs(client game.GameClient, ctx context.Context, resp serverapi.
 		}
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("    Warning: failed to save revealed POI %s: %v\n", revealed.Name, err)
+		}
+	}
+}
+
+// saveFaintSignatures saves faint (unresolved) survey signatures as placeholder
+// POI records in the knowledge base so they can be investigated later with better
+// equipment or higher skills.
+func saveFaintSignatures(client game.GameClient, ctx context.Context, resp serverapi.SurveySystemResponse) {
+	state := client.GetState()
+	for i, sig := range resp.FaintSignatures {
+		// Generate a deterministic placeholder ID from system + signature index + type
+		placeholderID := fmt.Sprintf("faint_%s_%s_%d", resp.SystemID, sig.Type, i)
+		name := "Faint Signature"
+		if sig.Hint != "" {
+			name = fmt.Sprintf("Faint Signature: %s", sig.Hint)
+		}
+		desc := fmt.Sprintf("Unresolved survey signature (type: %s, difficulty: %s). Requires better scanner or higher skills to identify.", sig.Type, sig.Difficulty)
+
+		kbPOI := knowledge.POI{
+			ID:              placeholderID,
+			SystemID:        resp.SystemID,
+			Name:            name,
+			Type:            "faint_signature",
+			Description:     desc,
+			Hidden:          false,
+			LastUpdatedTick: currentTick(state),
+		}
+		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
+			fmt.Printf("    Warning: failed to save faint signature: %v\n", err)
 		}
 	}
 }
