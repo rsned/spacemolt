@@ -94,7 +94,12 @@ func (kb *SQLiteKB) Close() error {
 	return nil
 }
 
-// RememberSystem stores or updates system knowledge
+// RememberSystem stores or updates system knowledge.
+//
+// The last_visited_tick column uses a preserve-on-zero semantic: passing
+// sys.LastVisitedTick == 0 leaves the stored value unchanged. Callers on
+// the visit path must set sys.LastVisitedTick to the current tick;
+// callers that only refresh other fields may leave it at 0.
 func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	// Debug logging to see what tick is being passed in
 	if sys.LastUpdatedTick <= 0 {

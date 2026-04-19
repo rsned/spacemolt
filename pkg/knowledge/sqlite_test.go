@@ -2,13 +2,16 @@ package knowledge
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	_ "modernc.org/sqlite"
 )
 
 // testDBPath is the path for the test database
@@ -482,78 +485,132 @@ func TestSQLiteKB_Persistence(t *testing.T) {
 }
 
 func TestSQLiteKB_Migration3_LastVisitedTickBackfill(t *testing.T) {
-	ctx := context.Background()
+	// Build a DB that simulates the pre-migration-3 state: systems,
+	// pois, and poi_resources tables exist with the minimal columns
+	// needed to exercise migration 3, but without last_visited_tick.
+	// Migrations 1 and 2 are marked as already applied so runMigrations
+	// only runs migration 3.
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
 
-	// Fresh DB — migrations run to latest on newTestSQLiteKB.
-	kb := newTestSQLiteKB(t)
-	defer func() { _ = kb.Close() }()
+	if _, err := db.Exec(`
+		CREATE TABLE schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TEXT NOT NULL
+		);
+		INSERT INTO schema_migrations (version, applied_at) VALUES
+			(1, datetime('now')),
+			(2, datetime('now'));
 
-	// Seed: system A has a POI with a resource at tick 100 (visited).
-	// System B has a POI without resources (visited but nothing to scan).
-	// System C has no POIs at all (never visited / map-only).
-	sysA := System{ID: "sys-a", Name: "Alpha", LastUpdatedTick: 50}
-	sysB := System{ID: "sys-b", Name: "Beta", LastUpdatedTick: 50}
-	sysC := System{ID: "sys-c", Name: "Gamma", LastUpdatedTick: 50}
-	for _, s := range []System{sysA, sysB, sysC} {
-		if err := kb.RememberSystem(ctx, s); err != nil {
-			t.Fatalf("RememberSystem %s: %v", s.ID, err)
+		-- Pre-migration-3 systems table: no last_visited_tick column.
+		CREATE TABLE systems (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			description TEXT,
+			position_x REAL NOT NULL DEFAULT 0,
+			position_y REAL NOT NULL DEFAULT 0,
+			police_level INTEGER NOT NULL DEFAULT 0,
+			security_status TEXT DEFAULT '',
+			empire TEXT NOT NULL DEFAULT '',
+			is_stronghold BOOLEAN DEFAULT 0,
+			last_updated_tick INTEGER DEFAULT 0
+		);
+
+		CREATE TABLE pois (
+			id TEXT PRIMARY KEY,
+			system_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			position_x REAL NOT NULL DEFAULT 0,
+			position_y REAL NOT NULL DEFAULT 0,
+			last_updated_tick INTEGER DEFAULT 0
+		);
+
+		CREATE TABLE poi_resources (
+			poi_id TEXT NOT NULL,
+			resource_id TEXT NOT NULL,
+			richness REAL NOT NULL,
+			remaining REAL NOT NULL,
+			last_updated_tick INTEGER DEFAULT 0,
+			PRIMARY KEY (poi_id, resource_id)
+		);
+
+		-- Fixture data:
+		--   sys-a: POI with a resource at tick 100 (visited, scannable)
+		--   sys-b: POI with no resources (visited, but nothing to scan)
+		--   sys-c: no POIs at all (never visited / map-only)
+		INSERT INTO systems (id, name) VALUES
+			('sys-a', 'Alpha'),
+			('sys-b', 'Beta'),
+			('sys-c', 'Gamma');
+		INSERT INTO pois (id, system_id, name, type, last_updated_tick) VALUES
+			('poi-a', 'sys-a', 'AsteroidA', 'asteroid', 100),
+			('poi-b', 'sys-b', 'StationB',  'station',  100);
+		INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated_tick) VALUES
+			('poi-a', 'iron_ore', 1, 1000, 100);
+	`); err != nil {
+		t.Fatalf("build pre-migration fixture: %v", err)
+	}
+
+	// Precondition: last_visited_tick column must not exist yet.
+	var colCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('systems') WHERE name='last_visited_tick'`).Scan(&colCount); err != nil {
+		t.Fatalf("pragma_table_info (pre): %v", err)
+	}
+	if colCount != 0 {
+		t.Fatalf("last_visited_tick column unexpectedly present before migration 3")
+	}
+
+	// Run migration 3.
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("runMigrations: %v", err)
+	}
+
+	// Column now exists.
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('systems') WHERE name='last_visited_tick'`).Scan(&colCount); err != nil {
+		t.Fatalf("pragma_table_info (post): %v", err)
+	}
+	if colCount != 1 {
+		t.Fatalf("last_visited_tick column missing after migration 3")
+	}
+
+	// Backfill values.
+	verify := func(id string, want int64) {
+		t.Helper()
+		var got int64
+		if err := db.QueryRow(`SELECT last_visited_tick FROM systems WHERE id = ?`, id).Scan(&got); err != nil {
+			t.Fatalf("query %s: %v", id, err)
+		}
+		if got != want {
+			t.Errorf("%s last_visited_tick = %d, want %d", id, got, want)
 		}
 	}
+	verify("sys-a", 100)
+	verify("sys-b", 0)
+	verify("sys-c", 0)
 
-	poiA := POI{ID: "poi-a", SystemID: "sys-a", Name: "AsteroidA", Type: "asteroid", LastUpdatedTick: 100,
-		Resources: []game.POIResource{{ResourceID: "iron_ore", Richness: 1, Remaining: 1000}}}
-	poiB := POI{ID: "poi-b", SystemID: "sys-b", Name: "StationB", Type: "station", LastUpdatedTick: 100}
-	if err := kb.RememberPOI(ctx, poiA); err != nil {
-		t.Fatalf("RememberPOI A: %v", err)
+	// Migration 3 recorded.
+	var rows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 3`).Scan(&rows); err != nil {
+		t.Fatalf("schema_migrations count: %v", err)
 	}
-	if err := kb.RememberPOI(ctx, poiB); err != nil {
-		t.Fatalf("RememberPOI B: %v", err)
-	}
-
-	// Simulate pre-migration state: zero out the last_visited_tick we just
-	// wrote, then re-run the backfill SQL directly.
-	if _, err := kb.db.ExecContext(ctx, `UPDATE systems SET last_visited_tick = 0`); err != nil {
-		t.Fatalf("reset: %v", err)
-	}
-	if _, err := kb.db.ExecContext(ctx, `
-		UPDATE systems
-		SET last_visited_tick = (
-			SELECT MAX(pr.last_updated_tick)
-			FROM poi_resources pr
-			JOIN pois p ON pr.poi_id = p.id
-			WHERE p.system_id = systems.id
-		)
-		WHERE EXISTS (
-			SELECT 1
-			FROM pois p
-			JOIN poi_resources pr ON pr.poi_id = p.id
-			WHERE p.system_id = systems.id
-		)
-	`); err != nil {
-		t.Fatalf("backfill: %v", err)
+	if rows != 1 {
+		t.Errorf("schema_migrations rows for version 3 = %d, want 1", rows)
 	}
 
-	got, err := kb.GetSystem(ctx, "sys-a")
-	if err != nil || got == nil {
-		t.Fatalf("GetSystem sys-a: %v", err)
+	// Idempotency: re-running migrations is a no-op. Exercises the
+	// "column already exists" guard in runMigrations.
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("second runMigrations: %v", err)
 	}
-	if got.LastVisitedTick != 100 {
-		t.Errorf("sys-a LastVisitedTick = %d, want 100", got.LastVisitedTick)
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 3`).Scan(&rows); err != nil {
+		t.Fatalf("schema_migrations count after re-run: %v", err)
 	}
-
-	got, err = kb.GetSystem(ctx, "sys-b")
-	if err != nil || got == nil {
-		t.Fatalf("GetSystem sys-b: %v", err)
-	}
-	if got.LastVisitedTick != 0 {
-		t.Errorf("sys-b LastVisitedTick = %d, want 0 (no resources)", got.LastVisitedTick)
-	}
-
-	got, err = kb.GetSystem(ctx, "sys-c")
-	if err != nil || got == nil {
-		t.Fatalf("GetSystem sys-c: %v", err)
-	}
-	if got.LastVisitedTick != 0 {
-		t.Errorf("sys-c LastVisitedTick = %d, want 0 (no POIs)", got.LastVisitedTick)
+	if rows != 1 {
+		t.Errorf("schema_migrations rows for version 3 after re-run = %d, want 1 (idempotency broken)", rows)
 	}
 }
