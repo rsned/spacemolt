@@ -2305,6 +2305,11 @@ func (c *Client) mergeSystemDataLocked(ext serverapi.SystemData) {
 	}
 	c.state.System.Position = sys.Position
 
+	// Stamp the tick when we received live system data (i.e. we are physically in this system).
+	if tick := c.state.CurrentTick; tick > 0 {
+		c.state.System.LastVisitedTick = tick
+	}
+
 	if len(sys.Connections) > 0 {
 		c.state.System.Connections = sys.Connections
 	}

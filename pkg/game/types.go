@@ -233,6 +233,7 @@ type SystemData struct {
 	Position       Position        `json:"position"`
 	DiscoveredBy   string          `json:"discovered_by,omitempty"`
 	ShipPOI        string          // ID of the POI where the ship is located (internal field, not from JSON)
+	LastVisitedTick int64          `json:"last_visited_tick,omitempty"` // Game tick when we last had live data for this system (0 = never visited)
 }
 
 // NearbyPlayer represents another player or pirate NPC at the same POI.
@@ -485,20 +486,21 @@ func (s *State) Clone() *State {
 		Player:         s.Player,
 		Ship:          s.Ship,
 		System: SystemData{
-			ID:             s.System.ID,
-			Name:           s.System.Name,
-			Description:    s.System.Description,
-			Empire:         s.System.Empire,
-			PoliceLevel:    s.System.PoliceLevel,
-			SecurityStatus: s.System.SecurityStatus,
-			IsStronghold:   s.System.IsStronghold,
-			Online:         s.System.Online,
-			POIs:           poisCopy,
-			Connections:    connectionsCopy,
-			Discovered:     s.System.Discovered,
-			Position:       s.System.Position,
-			DiscoveredBy:   s.System.DiscoveredBy,
-			ShipPOI:        s.System.ShipPOI,
+			ID:              s.System.ID,
+			Name:            s.System.Name,
+			Description:     s.System.Description,
+			Empire:          s.System.Empire,
+			PoliceLevel:     s.System.PoliceLevel,
+			SecurityStatus:  s.System.SecurityStatus,
+			IsStronghold:    s.System.IsStronghold,
+			Online:          s.System.Online,
+			POIs:            poisCopy,
+			Connections:     connectionsCopy,
+			Discovered:      s.System.Discovered,
+			Position:        s.System.Position,
+			DiscoveredBy:    s.System.DiscoveredBy,
+			ShipPOI:         s.System.ShipPOI,
+			LastVisitedTick: s.System.LastVisitedTick,
 		},
 		ModuleDefinitions: copyModuleDefsMap(s.ModuleDefinitions),
 		LastMapUpdate:     s.LastMapUpdate,

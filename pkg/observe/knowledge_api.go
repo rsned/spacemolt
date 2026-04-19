@@ -11,14 +11,15 @@ import (
 
 // SystemJSON is the JSON representation of a system for API responses.
 type SystemJSON struct {
-	ID             string        `json:"id"`
-	Name           string        `json:"name"`
-	Position       game.Position `json:"position"`
-	PoliceLevel    int           `json:"police_level"`
-	SecurityStatus string        `json:"security_status"`
-	Empire         string        `json:"empire"`
-	IsStronghold   bool          `json:"is_stronghold"`
-	Connections    []string      `json:"connections"`
+	ID              string        `json:"id"`
+	Name            string        `json:"name"`
+	Position        game.Position `json:"position"`
+	PoliceLevel     int           `json:"police_level"`
+	SecurityStatus  string        `json:"security_status"`
+	Empire          string        `json:"empire"`
+	IsStronghold    bool          `json:"is_stronghold"`
+	Connections     []string      `json:"connections"`
+	LastVisitedTick int64         `json:"last_visited_tick,omitempty"`
 }
 
 // POIJSON is the JSON representation of a POI for API responses.
@@ -79,14 +80,15 @@ func systemToJSON(sys knowledge.System) SystemJSON {
 		conns[i] = c.SystemID
 	}
 	return SystemJSON{
-		ID:             sys.ID,
-		Name:           sys.Name,
-		Position:       sys.Position,
-		PoliceLevel:    sys.PoliceLevel,
-		SecurityStatus: sys.SecurityStatus,
-		Empire:         sys.Empire,
-		IsStronghold:   sys.IsStronghold,
-		Connections:    conns,
+		ID:              sys.ID,
+		Name:            sys.Name,
+		Position:        sys.Position,
+		PoliceLevel:     sys.PoliceLevel,
+		SecurityStatus:  sys.SecurityStatus,
+		Empire:          sys.Empire,
+		IsStronghold:    sys.IsStronghold,
+		Connections:     conns,
+		LastVisitedTick: sys.LastVisitedTick,
 	}
 }
 
