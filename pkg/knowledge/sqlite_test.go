@@ -648,3 +648,59 @@ func TestMemoryKB_RememberSystem_PersistsLastVisitedTick(t *testing.T) {
 		t.Errorf("LastVisitedTick after zero-tick overwrite = %d, want 100 (preserved)", got.LastVisitedTick)
 	}
 }
+
+func TestSQLiteKB_UpsertSystemFromMap_PreservesLastVisitedTick(t *testing.T) {
+	ctx := context.Background()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	visited := System{
+		ID: "sys-visited", Name: "Visited", Empire: "solarian",
+		PoliceLevel: 2, SecurityStatus: "medium_sec",
+		LastUpdatedTick: 100, LastVisitedTick: 100,
+	}
+	if err := kb.RememberSystem(ctx, visited); err != nil {
+		t.Fatalf("RememberSystem: %v", err)
+	}
+
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "sys-visited", Name: "Visited",
+		PositionX: 10, PositionY: 20, Empire: "solarian",
+	}); err != nil {
+		t.Fatalf("UpsertSystemFromMap: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "sys-visited")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem: %v", err)
+	}
+	if got.LastVisitedTick != 100 {
+		t.Errorf("LastVisitedTick = %d, want 100 (map import must not clobber)", got.LastVisitedTick)
+	}
+	if !got.Visited() {
+		t.Error("Visited() = false after map re-import, want true")
+	}
+}
+
+func TestSQLiteKB_UpsertSystemFromMap_LeavesFreshSystemUnexplored(t *testing.T) {
+	ctx := context.Background()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "sys-new", Name: "New", PositionX: 1, PositionY: 2,
+	}); err != nil {
+		t.Fatalf("UpsertSystemFromMap: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "sys-new")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem: %v", err)
+	}
+	if got.LastVisitedTick != 0 {
+		t.Errorf("LastVisitedTick = %d, want 0 (map-only system)", got.LastVisitedTick)
+	}
+	if got.Visited() {
+		t.Error("Visited() = true for map-only system")
+	}
+}
