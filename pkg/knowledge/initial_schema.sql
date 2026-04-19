@@ -688,7 +688,7 @@ CREATE TABLE systems (
 	empire TEXT,
 	description TEXT,
 	last_updated_tick INTEGER DEFAULT 0
-, is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '');
+, is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '', last_visited_tick INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE xp_observations (

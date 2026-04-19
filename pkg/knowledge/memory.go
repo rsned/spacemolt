@@ -376,7 +376,12 @@ type System struct {
 	Connections     []SystemConnection
 	POIs            []string
 	LastUpdatedTick int64
+	LastVisitedTick int64 // 0 = never visited; PoliceLevel is untrusted when 0
 }
+
+// Explored reports whether the system's PoliceLevel reflects a real
+// observation rather than a map-import default.
+func (s System) Explored() bool { return s.LastVisitedTick > 0 }
 
 // MapSystemData contains the subset of system data available from map imports.
 // Used by UpsertSystemFromMap to perform partial upserts that preserve richer

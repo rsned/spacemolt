@@ -46,6 +46,27 @@ func migrations() []Migration {
 				ALTER TABLE xp_observations ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1;
 			`,
 		},
+		{
+			version: 3,
+			name:    "add_last_visited_tick_to_systems",
+			sql: `
+				ALTER TABLE systems ADD COLUMN last_visited_tick INTEGER NOT NULL DEFAULT 0;
+
+				UPDATE systems
+				SET last_visited_tick = (
+					SELECT MAX(pr.last_updated_tick)
+					FROM poi_resources pr
+					JOIN pois p ON pr.poi_id = p.id
+					WHERE p.system_id = systems.id
+				)
+				WHERE EXISTS (
+					SELECT 1
+					FROM pois p
+					JOIN poi_resources pr ON pr.poi_id = p.id
+					WHERE p.system_id = systems.id
+				);
+			`,
+		},
 	}
 }
 
@@ -78,6 +99,22 @@ func runMigrations(db *sql.DB) error {
 		if m.version == 2 {
 			var colCount int
 			err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('xp_observations') WHERE name='quantity'").Scan(&colCount)
+			if err == nil && colCount > 0 {
+				// Column already exists, just record the migration as applied
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 3: skip if column already exists.
+		if m.version == 3 {
+			var colCount int
+			err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('systems') WHERE name='last_visited_tick'").Scan(&colCount)
 			if err == nil && colCount > 0 {
 				// Column already exists, just record the migration as applied
 				if _, err := db.Exec(

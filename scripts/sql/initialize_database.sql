@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 1
--- Last Regenerated: 2026-04-15
+-- Migrations applied: 3
+-- Last Regenerated: 2026-04-19
 
 -- ============================================================================
 -- TABLES
@@ -702,7 +702,7 @@ CREATE TABLE systems (
 	empire TEXT,
 	description TEXT,
 	last_updated_tick INTEGER DEFAULT 0
-, is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '');
+, is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '', last_visited_tick INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE xp_observations (
@@ -845,4 +845,6 @@ CREATE INDEX idx_xp_obs_source ON xp_observations(source);
 -- ============================================================================
 
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
 

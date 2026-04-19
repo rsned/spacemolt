@@ -480,3 +480,80 @@ func TestSQLiteKB_Persistence(t *testing.T) {
 		t.Errorf("Expected X=42, got %f", retrieved.Position.X)
 	}
 }
+
+func TestSQLiteKB_Migration3_LastVisitedTickBackfill(t *testing.T) {
+	ctx := context.Background()
+
+	// Fresh DB — migrations run to latest on newTestSQLiteKB.
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	// Seed: system A has a POI with a resource at tick 100 (visited).
+	// System B has a POI without resources (visited but nothing to scan).
+	// System C has no POIs at all (never visited / map-only).
+	sysA := System{ID: "sys-a", Name: "Alpha", LastUpdatedTick: 50}
+	sysB := System{ID: "sys-b", Name: "Beta", LastUpdatedTick: 50}
+	sysC := System{ID: "sys-c", Name: "Gamma", LastUpdatedTick: 50}
+	for _, s := range []System{sysA, sysB, sysC} {
+		if err := kb.RememberSystem(ctx, s); err != nil {
+			t.Fatalf("RememberSystem %s: %v", s.ID, err)
+		}
+	}
+
+	poiA := POI{ID: "poi-a", SystemID: "sys-a", Name: "AsteroidA", Type: "asteroid", LastUpdatedTick: 100,
+		Resources: []game.POIResource{{ResourceID: "iron_ore", Richness: 1, Remaining: 1000}}}
+	poiB := POI{ID: "poi-b", SystemID: "sys-b", Name: "StationB", Type: "station", LastUpdatedTick: 100}
+	if err := kb.RememberPOI(ctx, poiA); err != nil {
+		t.Fatalf("RememberPOI A: %v", err)
+	}
+	if err := kb.RememberPOI(ctx, poiB); err != nil {
+		t.Fatalf("RememberPOI B: %v", err)
+	}
+
+	// Simulate pre-migration state: zero out the last_visited_tick we just
+	// wrote, then re-run the backfill SQL directly.
+	if _, err := kb.db.ExecContext(ctx, `UPDATE systems SET last_visited_tick = 0`); err != nil {
+		t.Fatalf("reset: %v", err)
+	}
+	if _, err := kb.db.ExecContext(ctx, `
+		UPDATE systems
+		SET last_visited_tick = (
+			SELECT MAX(pr.last_updated_tick)
+			FROM poi_resources pr
+			JOIN pois p ON pr.poi_id = p.id
+			WHERE p.system_id = systems.id
+		)
+		WHERE EXISTS (
+			SELECT 1
+			FROM pois p
+			JOIN poi_resources pr ON pr.poi_id = p.id
+			WHERE p.system_id = systems.id
+		)
+	`); err != nil {
+		t.Fatalf("backfill: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "sys-a")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem sys-a: %v", err)
+	}
+	if got.LastVisitedTick != 100 {
+		t.Errorf("sys-a LastVisitedTick = %d, want 100", got.LastVisitedTick)
+	}
+
+	got, err = kb.GetSystem(ctx, "sys-b")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem sys-b: %v", err)
+	}
+	if got.LastVisitedTick != 0 {
+		t.Errorf("sys-b LastVisitedTick = %d, want 0 (no resources)", got.LastVisitedTick)
+	}
+
+	got, err = kb.GetSystem(ctx, "sys-c")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem sys-c: %v", err)
+	}
+	if got.LastVisitedTick != 0 {
+		t.Errorf("sys-c LastVisitedTick = %d, want 0 (no POIs)", got.LastVisitedTick)
+	}
+}
