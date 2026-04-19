@@ -116,6 +116,7 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
 		LastUpdatedTick: currentTick(state),
+		LastVisitedTick: currentTick(state),
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,

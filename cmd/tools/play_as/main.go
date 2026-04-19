@@ -1854,6 +1854,8 @@ func formatSystem(raw []byte) string {
 		empire = strings.ToUpper(empire[:1]) + empire[1:]
 	}
 	fmt.Fprintf(&b, "%s (%s)   | %s\n", sys.Name, sys.ID, empire)
+	// Server-live system data: always reflects current observation, so no
+	// "Unexplored" case applies here. KB reads use last_visited_tick instead.
 	fmt.Fprintf(&b, "Security Status: %d - %s\n", sys.PoliceLevel, sys.SecurityStatus)
 	if sys.Description != "" {
 		fmt.Fprintf(&b, "%s\n", sys.Description)
