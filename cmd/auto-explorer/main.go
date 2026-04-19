@@ -188,6 +188,7 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 		IsStronghold:    state.System.IsStronghold,
 		Connections:     extractConnections(state.System.Connections),
 		LastUpdatedTick: state.GetTick(),
+		LastVisitedTick: state.GetTick(),
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,

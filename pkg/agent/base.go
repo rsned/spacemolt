@@ -983,6 +983,7 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 		IsStronghold:    sys.IsStronghold,
 		Connections:     connections,
 		LastUpdatedTick: m.currentTick,
+		LastVisitedTick: m.currentTick,
 	}
 
 	return m.kb.RememberSystem(ctx, kbSys)
