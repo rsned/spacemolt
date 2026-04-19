@@ -595,11 +595,11 @@ func TestSQLiteKB_Migration3_LastVisitedTickBackfill(t *testing.T) {
 
 	// Migration 3 recorded.
 	var rows int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 3`).Scan(&rows); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 31`).Scan(&rows); err != nil {
 		t.Fatalf("schema_migrations count: %v", err)
 	}
 	if rows != 1 {
-		t.Errorf("schema_migrations rows for version 3 = %d, want 1", rows)
+		t.Errorf("schema_migrations rows for version 31 = %d, want 1", rows)
 	}
 
 	// Idempotency: re-running migrations is a no-op. Exercises the
@@ -607,11 +607,84 @@ func TestSQLiteKB_Migration3_LastVisitedTickBackfill(t *testing.T) {
 	if err := runMigrations(db); err != nil {
 		t.Fatalf("second runMigrations: %v", err)
 	}
-	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 3`).Scan(&rows); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 31`).Scan(&rows); err != nil {
 		t.Fatalf("schema_migrations count after re-run: %v", err)
 	}
 	if rows != 1 {
-		t.Errorf("schema_migrations rows for version 3 after re-run = %d, want 1 (idempotency broken)", rows)
+		t.Errorf("schema_migrations rows for version 31 after re-run = %d, want 1 (idempotency broken)", rows)
+	}
+}
+
+// TestSQLiteKB_Migration31_SelfHealsPreCollapseDBs simulates a DB that predates
+// the 2026-04-15 migration collapse: schema_migrations claims versions up
+// through 30 are applied but the `systems` table has no last_visited_tick
+// column. The self-healing safeguard in runMigrations must add the column
+// regardless of what schema_migrations says.
+func TestSQLiteKB_Migration31_SelfHealsPreCollapseDBs(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if _, err := db.Exec(`
+		CREATE TABLE schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TEXT NOT NULL
+		);
+		INSERT INTO schema_migrations (version, applied_at) VALUES
+			(2, datetime('now')), (4, datetime('now')), (5, datetime('now')),
+			(10, datetime('now')), (20, datetime('now')), (30, datetime('now'));
+
+		CREATE TABLE systems (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			police_level INTEGER NOT NULL DEFAULT 0,
+			empire TEXT NOT NULL DEFAULT '',
+			last_updated_tick INTEGER DEFAULT 0
+		);
+		CREATE TABLE pois (
+			id TEXT PRIMARY KEY,
+			system_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			last_updated_tick INTEGER DEFAULT 0
+		);
+		CREATE TABLE poi_resources (
+			poi_id TEXT NOT NULL,
+			resource_id TEXT NOT NULL,
+			richness REAL NOT NULL,
+			remaining REAL NOT NULL,
+			last_updated_tick INTEGER DEFAULT 0,
+			PRIMARY KEY (poi_id, resource_id)
+		);
+
+		INSERT INTO systems (id, name) VALUES ('sys-a', 'Alpha');
+		INSERT INTO pois (id, system_id, name, type, last_updated_tick) VALUES ('poi-a', 'sys-a', 'AsteroidA', 'asteroid', 100);
+		INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated_tick) VALUES ('poi-a', 'iron_ore', 1, 1000, 100);
+	`); err != nil {
+		t.Fatalf("build pre-collapse fixture: %v", err)
+	}
+
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("runMigrations: %v", err)
+	}
+
+	var colCount int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('systems') WHERE name='last_visited_tick'`).Scan(&colCount); err != nil {
+		t.Fatalf("pragma_table_info: %v", err)
+	}
+	if colCount != 1 {
+		t.Fatalf("last_visited_tick column missing after safeguard ran (currentVersion=30, migration 31 would have been skipped without safeguard)")
+	}
+
+	var tick int64
+	if err := db.QueryRow(`SELECT last_visited_tick FROM systems WHERE id = 'sys-a'`).Scan(&tick); err != nil {
+		t.Fatalf("query last_visited_tick: %v", err)
+	}
+	if tick != 100 {
+		t.Errorf("sys-a last_visited_tick = %d, want 100 (backfill should have run)", tick)
 	}
 }
 
