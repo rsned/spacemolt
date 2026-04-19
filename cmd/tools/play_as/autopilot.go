@@ -141,17 +141,11 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string, form
 					fmt.Printf("  (KB update failed: %v)\n", err)
 				}
 			}
-			// If we landed at a resource POI, grab detailed POI data (resources, richness).
-			if state := client.GetState(); state != nil {
-				for _, poi := range state.System.POIs {
-					if poi.ID == state.CurrentPOI && isResourcePOI(poi.Type) {
-						if err := kbUpdatePOI(client, ctx); err != nil {
-							if format == formatStyled {
-								fmt.Printf("  (POI update failed: %v)\n", err)
-							}
-						}
-						break
-					}
+			// Always refresh the POI the agent arrived at so the KB records the
+			// current location (gate, star, or resource POI) with fresh data.
+			if err := kbUpdatePOI(client, ctx); err != nil {
+				if format == formatStyled {
+					fmt.Printf("  (POI update failed: %v)\n", err)
 				}
 			}
 		}
@@ -315,15 +309,6 @@ func autopilotRefuelIfNeeded(client game.GameClient, ctx context.Context, format
 	}
 
 	fmt.Printf("  WARNING: Fuel low (%.0f%%) and no fuel cells in cargo!\n", fuelPct)
-}
-
-// isResourcePOI returns true for POI types that have minable resources.
-func isResourcePOI(poiType string) bool {
-	switch poiType {
-	case "asteroid_belt", "ice_field", "gas_cloud", "nebula":
-		return true
-	}
-	return false
 }
 
 // formatDuration formats seconds as "Xm Ys" or "Xs".

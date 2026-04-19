@@ -29,6 +29,10 @@ func handleNearestCommand(ctx context.Context, client game.GameClient, args []st
 		return fmt.Errorf("game clock not available")
 	}
 
+	// Refresh state first in case the agent was moved (e.g. destroyed and
+	// respawned at home base) between commands.
+	_ = client.GetStatus(ctx)
+
 	state := client.GetState()
 	if state == nil || state.System.ID == "" {
 		return fmt.Errorf("current system unknown")

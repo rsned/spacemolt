@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"math/rand/v2"
 	"net/http"
 	"regexp"
@@ -1912,7 +1913,30 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Many server responses carry a partial Player payload — e.g. only the
+	// skills whose XP/level changed, or a Skills map with XP=0 (level-only).
+	// Preserve the existing Skills/SkillXP so unrelated skills don't briefly
+	// disappear and re-appear, which would fire spurious XP-change callbacks.
+	preservedSkills := c.state.Player.Skills
+	preservedSkillXP := c.state.SkillXP
+
 	c.state.Player = player
+
+	if preservedSkills != nil {
+		if c.state.Player.Skills == nil {
+			c.state.Player.Skills = make(map[string]Skill, len(preservedSkills))
+		}
+		for k, oldSkill := range preservedSkills {
+			if newSkill, ok := c.state.Player.Skills[k]; ok {
+				if newSkill.XP == 0 && oldSkill.XP > 0 && newSkill.Level == oldSkill.Level {
+					newSkill.XP = oldSkill.XP
+					c.state.Player.Skills[k] = newSkill
+				}
+			} else {
+				c.state.Player.Skills[k] = oldSkill
+			}
+		}
+	}
 
 	// Sync derived state fields from player data
 	c.state.Username = player.Username
@@ -1937,9 +1961,17 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 	//   - action_result with command "dock"/"undock"
 	// We do NOT set state.Doc from docked_at_base here.
 
-	// Sync skill XP to state level
+	// Sync skill XP to state level — merge rather than replace so partial
+	// updates (only the changed skill) don't wipe cached values for others.
 	if len(player.SkillXP) > 0 {
-		c.state.SkillXP = player.SkillXP
+		if preservedSkillXP == nil {
+			c.state.SkillXP = player.SkillXP
+		} else {
+			maps.Copy(preservedSkillXP, player.SkillXP)
+			c.state.SkillXP = preservedSkillXP
+		}
+	} else {
+		c.state.SkillXP = preservedSkillXP
 	}
 
 	// Check for XP changes (called with c.mu held)
