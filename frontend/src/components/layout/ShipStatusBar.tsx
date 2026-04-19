@@ -28,7 +28,8 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({ player, isConnecte
   const cargoPct = (player.cargo / player.cargoMax) * 100;
 
   // Fetch accurate police level from knowledge base API
-  const { policeLevel } = useSystemDetails(player.location.systemId || null);
+  const { policeLevel, lastVisitedTick } = useSystemDetails(player.location.systemId || null);
+  const isUnexplored = lastVisitedTick === 0;
   const isPoliced = policeLevel > 0;
 
   return (
@@ -105,8 +106,8 @@ export const ShipStatusBar: React.FC<ShipStatusBarProps> = ({ player, isConnecte
         <span>
           📍 {player.location.system} System &gt; {player.location.poi}
         </span>
-        <span className={isPoliced ? 'text-green-400' : 'text-red-400'}>
-          {isPoliced ? '🛡 Policed' : '☠ Lawless'}
+        <span className={isUnexplored ? 'text-gray-500' : isPoliced ? 'text-green-400' : 'text-red-400'}>
+          {isUnexplored ? '? Unexplored' : isPoliced ? '🛡 Policed' : '☠ Lawless'}
         </span>
         <span className="font-mono">Tick: {player.tick}</span>
       </div>

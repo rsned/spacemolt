@@ -12,11 +12,12 @@ interface SystemMapProps {
   player: Player | null;
   jumpGates?: JumpGate[];
   policeLevel?: number;
+  lastVisitedTick?: number;
   onTravelToPOI?: (poiId: string, poiType: string) => void;
   onJumpToSystem?: (systemId: string) => void;
 }
 
-export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [], policeLevel = 0, onTravelToPOI, onJumpToSystem }) => {
+export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = [], policeLevel = 0, lastVisitedTick = 0, onTravelToPOI, onJumpToSystem }) => {
   // Show empty state if no player connected
   if (!player) {
     return (
@@ -29,6 +30,7 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       </div>
     );
   }
+  const isUnexplored = lastVisitedTick === 0;
   const isPoliced = policeLevel > 0;
   const isTraveling = player.traveling ?? false;
   const svgRef = useRef<SVGSVGElement>(null);
@@ -317,8 +319,8 @@ export const SystemMap: React.FC<SystemMapProps> = ({ pois, player, jumpGates = 
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-sci-fi text-cyan-400">{player.location.system} SYSTEM</h2>
         <div className="flex items-center gap-4 text-sm">
-          <span className={isPoliced ? 'text-green-400' : 'text-red-400'}>
-            {isPoliced ? '🛡 Policed' : '☠ Lawless'}
+          <span className={isUnexplored ? 'text-gray-500' : isPoliced ? 'text-green-400' : 'text-red-400'}>
+            {isUnexplored ? '? Unexplored' : isPoliced ? '🛡 Policed' : '☠ Lawless'}
           </span>
           <span className="text-gray-400 font-mono">Tick: {player.tick}</span>
         </div>

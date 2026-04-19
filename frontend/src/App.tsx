@@ -288,6 +288,7 @@ function App() {
             player={player}
             jumpGates={systemMapData?.jumpGates ?? []}
             policeLevel={systemMapData?.policeLevel ?? 0}
+            lastVisitedTick={systemMapData?.lastVisitedTick ?? 0}
             onTravelToPOI={isLive ? (poiId, poiType) => {
               observer.sendCommand('travel', { target_poi: poiId });
               if (poiType === 'station') {

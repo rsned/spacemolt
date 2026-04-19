@@ -29,6 +29,9 @@ const EMPIRE_COLORS: Record<string, string> = {
 // Blood red color for Pirate Strongholds
 const STRONGHOLD_COLOR = '#FF0000';
 
+// Muted gray for systems that have never been visited (last_visited_tick === 0)
+const UNEXPLORED_COLOR = '#4B5563';
+
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) => {
   const galaxyData = useGalaxyMap();
 
@@ -246,6 +249,10 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
           </div>
         ))}
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-700">
+          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: UNEXPLORED_COLOR }} />
+          <span className="text-gray-400 font-medium">Unexplored</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STRONGHOLD_COLOR, boxShadow: `0 0 6px ${STRONGHOLD_COLOR}40` }} />
           <span className="text-red-400 font-medium">Pirate Stronghold</span>
         </div>
@@ -385,9 +392,12 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
           const hasAgents = agentsHere.length > 0;
           const isStronghold = system.is_stronghold;
 
+          // Unexplored systems (never visited) render as muted gray regardless of empire
           // Strongholds override empire colors with blood red
           let color;
-          if (isStronghold) {
+          if (system.last_visited_tick === 0) {
+            color = UNEXPLORED_COLOR;
+          } else if (isStronghold) {
             color = STRONGHOLD_COLOR;
           } else {
             const empire = system.empire.toLowerCase().trim() || 'neutral';
