@@ -614,3 +614,37 @@ func TestSQLiteKB_Migration3_LastVisitedTickBackfill(t *testing.T) {
 		t.Errorf("schema_migrations rows for version 3 after re-run = %d, want 1 (idempotency broken)", rows)
 	}
 }
+
+func TestMemoryKB_RememberSystem_PersistsLastVisitedTick(t *testing.T) {
+	ctx := context.Background()
+	kb := NewMemoryKB()
+
+	sys := System{ID: "sys-a", Name: "Alpha", LastUpdatedTick: 50, LastVisitedTick: 100}
+	if err := kb.RememberSystem(ctx, sys); err != nil {
+		t.Fatalf("RememberSystem: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "sys-a")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem: %v", err)
+	}
+	if got.LastVisitedTick != 100 {
+		t.Errorf("LastVisitedTick = %d, want 100", got.LastVisitedTick)
+	}
+	if !got.Visited() {
+		t.Error("Visited() = false, want true")
+	}
+
+	// Overwrite with zero tick — should preserve the previous non-zero value.
+	sys2 := System{ID: "sys-a", Name: "Alpha", LastUpdatedTick: 60, LastVisitedTick: 0}
+	if err := kb.RememberSystem(ctx, sys2); err != nil {
+		t.Fatalf("RememberSystem (2): %v", err)
+	}
+	got, err = kb.GetSystem(ctx, "sys-a")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem (2): %v", err)
+	}
+	if got.LastVisitedTick != 100 {
+		t.Errorf("LastVisitedTick after zero-tick overwrite = %d, want 100 (preserved)", got.LastVisitedTick)
+	}
+}

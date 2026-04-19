@@ -100,7 +100,9 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 		existing.Empire = sys.Empire
 		existing.IsStronghold = sys.IsStronghold
 		existing.LastUpdatedTick = sys.LastUpdatedTick
-		// Update connections
+		if sys.LastVisitedTick > 0 {
+			existing.LastVisitedTick = sys.LastVisitedTick
+		}
 		existing.Connections = sys.Connections
 	} else {
 		kb.systems[sys.ID] = &System{
@@ -113,6 +115,7 @@ func (kb *MemoryKB) RememberSystem(ctx context.Context, sys System) error {
 			IsStronghold:    sys.IsStronghold,
 			Connections:     sys.Connections,
 			LastUpdatedTick: sys.LastUpdatedTick,
+			LastVisitedTick: sys.LastVisitedTick,
 		}
 	}
 
