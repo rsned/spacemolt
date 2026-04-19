@@ -307,7 +307,7 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 		if sig.Hint != "" {
 			name = fmt.Sprintf("Faint Signature: %s", sig.Hint)
 		}
-		desc := fmt.Sprintf("Unresolved survey signature (type: %s, difficulty: %d). Requires better scanner or higher skills to identify.", sig.Type, sig.Difficulty)
+		desc := fmt.Sprintf("Unresolved survey signature (type: %s, difficulty: %s). Requires better scanner or higher skills to identify.", sig.Type, sig.Difficulty)
 
 		kbPOI := knowledge.POI{
 			ID:              placeholderID,
@@ -320,7 +320,7 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			logger.Printf("⚠️  Failed to save faint signature: %v", err)
 		} else {
-			logger.Printf("🔮 Faint signature recorded: %s (difficulty: %d)", sig.Type, sig.Difficulty)
+			logger.Printf("🔮 Faint signature recorded: %s (difficulty: %s)", sig.Type, sig.Difficulty)
 		}
 	}
 

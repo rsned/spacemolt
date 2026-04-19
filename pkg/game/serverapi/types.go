@@ -844,7 +844,7 @@ type SurveyResource struct {
 type FaintSignature struct {
 	Type       string `json:"type"`
 	Hint       string `json:"hint,omitempty"`
-	Difficulty int    `json:"difficulty,omitempty"`
+	Difficulty string `json:"difficulty,omitempty"`
 }
 
 // StorageShip represents a ship stored at a station.

@@ -223,6 +223,8 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 	if !checkForSurveyScanner(state) {
 		if format == formatStyled {
 			fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
+		} else {
+			fmt.Printf("{\"error\": \"no survey scanner installed\"}\n")
 		}
 		return
 	}
@@ -240,6 +242,8 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 		if err := client.SurveySystem(ctx); err != nil {
 			if format == formatStyled {
 				fmt.Printf("  Survey failed: %v\n", err)
+			} else {
+				fmt.Printf("{\"error\": \"survey failed: %v\"}\n", err)
 			}
 			return
 		}
@@ -249,6 +253,8 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 		if rawJSON == nil {
 			if format == formatStyled {
 				fmt.Printf("  Survey complete (no response data)\n")
+			} else {
+				fmt.Printf("{\"error\": \"no response data from server\"}\n")
 			}
 			return
 		}
@@ -262,6 +268,8 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 		if err := json.Unmarshal(rawJSON, &resp); err != nil {
 			if format == formatStyled {
 				fmt.Printf("  Failed to parse survey response: %v\n", err)
+			} else {
+				fmt.Printf("{\"error\": \"failed to parse response: %v\", \"raw\": %s}\n", err, string(rawJSON))
 			}
 			return
 		}
@@ -306,7 +314,7 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 					if hint == "" {
 						hint = "unknown"
 					}
-					fmt.Printf("    ? %s (difficulty: %d, hint: %s)\n", sig.Type, sig.Difficulty, hint)
+					fmt.Printf("    ? %s (difficulty: %s, hint: %s)\n", sig.Type, sig.Difficulty, hint)
 				}
 			}
 
