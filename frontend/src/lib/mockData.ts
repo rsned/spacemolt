@@ -21,6 +21,7 @@ export const mockPlayer: Player = {
     dockedAt: null,
   },
   policeLevel: "lawless",
+  lastVisitedTick: 0,
   tick: 67996,
   skills: {},
 };

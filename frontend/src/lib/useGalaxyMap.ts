@@ -5,6 +5,7 @@ export interface GalaxySystem {
   name: string;
   position: { x: number; y: number };
   police_level: number;
+  last_visited_tick: number;
   empire: string;
   is_stronghold: boolean;
   connections: string[];

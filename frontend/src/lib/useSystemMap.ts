@@ -11,6 +11,7 @@ interface APISystemDetail {
     empire: string;
     is_stronghold: boolean;
     connections: string[];
+    last_visited_tick: number;
   };
   pois: {
     id: string;
@@ -30,6 +31,7 @@ export interface SystemMapData {
   pois: POI[];
   jumpGates: JumpGate[];
   policeLevel: number;
+  lastVisitedTick: number;
   systemName: string;
 }
 
@@ -99,6 +101,7 @@ export function useSystemMap(systemId: string | undefined): SystemMapData | null
           pois: mapPOIs(detail.pois),
           jumpGates: mapJumpGates(detail.system.position, detail.connections),
           policeLevel: detail.system.police_level,
+          lastVisitedTick: detail.system.last_visited_tick,
           systemName: detail.system.name,
         });
       })

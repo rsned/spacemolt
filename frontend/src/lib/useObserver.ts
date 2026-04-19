@@ -58,6 +58,7 @@ interface GameState {
     empire: string;
     police_level: number;
     security_status: string;
+    last_visited_tick: number;
   };
   SkillNextLevelXP: Record<string, number>;
   TravelProgress: number;
@@ -104,6 +105,7 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
       name: p.current_system,
       empire: '',
       police_level: 0,
+      last_visited_tick: 0,
     } as GameState['System'];
     hasData = true;
   }
@@ -198,6 +200,7 @@ function extractGameState(msg: { type: string; payload: Record<string, unknown> 
           name: (result.system as string) || result.system_id,
           empire: '',
           police_level: 0,
+          last_visited_tick: 0,
         } as GameState['System'];
       }
       hasData = true;
@@ -265,6 +268,7 @@ function mapToPlayer(gs: GameState): Player {
       dockedAt: gs.Doc ? (gs.CurrentPOI || null) : null,
     },
     policeLevel: policeLevel > 0 ? 'policed' : 'lawless',
+    lastVisitedTick: gs.System?.last_visited_tick ?? 0,
     tick: gs.CurrentTick ?? 0,
     traveling: gs.Traveling ?? false,
     travelProgress: gs.TravelProgress ?? 0,

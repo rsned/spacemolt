@@ -52,7 +52,6 @@ interface ThoughtTreeViewProps {
 
 const NODE_WIDTH = 260
 const NODE_HEIGHT = 220
-const CHILD_NODE_HEIGHT = 80
 const H_GAP = 48
 const V_GAP = 100
 

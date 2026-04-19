@@ -19,6 +19,7 @@ export interface Player {
     dockedAt: string | null;
   };
   policeLevel: PoliceLevel;
+  lastVisitedTick: number; // 0 = unexplored
   tick: number;
   traveling?: boolean;
   travelProgress?: number;        // 0.0 to 1.0
@@ -63,7 +64,7 @@ export interface OwnedShip {
 }
 
 export type Empire = 'solarian' | 'voidborn' | 'crimson' | 'nebula' | 'outerrim';
-export type PoliceLevel = 'lawless' | 'policed';
+export type PoliceLevel = 'unknown' | 'lawless' | 'policed';
 
 export interface Skill {
   name: string;
