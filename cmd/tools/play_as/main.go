@@ -261,12 +261,20 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	format := outputFormat(cfg.OutputFormat)
 
 	for {
-		// Read input with history support (up/down arrows)
-		input, err := line.Prompt("$ ")
+		// Read input with history support. A line ending with an
+		// unbalanced '{' causes readLogicalCommand to continue with a
+		// "... " prompt until braces balance.
+		input, err := readLogicalCommand(line)
 		if err != nil {
 			if err == liner.ErrPromptAborted {
-				fmt.Println("Goodbye!")
-				return
+				if input == "" {
+					// Ctrl-C at the main prompt exits.
+					fmt.Println("Goodbye!")
+					return
+				}
+				// Ctrl-C during a block continuation discards the block.
+				fmt.Println("^C (block discarded)")
+				continue
 			}
 			fmt.Printf("Error reading input: %v\n", err)
 			continue
@@ -278,12 +286,19 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
-		// Add to history for up/down arrow cycling and persist
-		line.AppendHistory(cmd)
+		// Collapse multi-line blocks into a single semicolon-joined
+		// history entry so one up-arrow recalls the whole script.
+		historyEntry := strings.ReplaceAll(cmd, "\n", "; ")
+		line.AppendHistory(historyEntry)
 		saveHistory()
 
-		// Parse command (supports quoted strings)
-		parts := splitArgs(cmd)
+		// Parts are derived from the first line only; block-form loop
+		// handling below uses parseStatements on the full input.
+		firstLine := cmd
+		if nl := strings.IndexByte(firstLine, '\n'); nl >= 0 {
+			firstLine = firstLine[:nl]
+		}
+		parts := splitArgs(firstLine)
 		if len(parts) == 0 {
 			continue
 		}
@@ -355,62 +370,51 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
-		// Handle loop meta-command: loop [-f] <count> <command...>
+		// Handle loop meta-command.
+		// Single form:  loop [-f] <count> <command...>
+		// Block form:   loop [-f] <count> { stmt; stmt; ... }
+		// Block bodies support newline or ';' separators and may nest.
 		if command == "loop" {
-			if len(parts) < 3 {
-				fmt.Println("Usage: loop [-f] <count> <command...>")
-				fmt.Println("  -f  Force: continue on errors instead of stopping")
-				fmt.Println("Example: loop 5 mine")
-				fmt.Println("         loop -f 20 mine")
-				fmt.Println("         loop 10 sell iron_ore 5")
+			// Detect block form by looking for a '{' outside of quotes in the
+			// full (possibly multi-line) input.
+			if !hasTopLevelOpenBrace(cmd) {
+				runLoopSingle(client, ctx, parts, format)
+				if sl := renderStatusline(client, cfg, agentID); sl != "" {
+					fmt.Println(sl)
+				}
 				fmt.Println()
 				continue
 			}
-			// Check for -f flag
-			forceLoop := false
-			argIdx := 1
-			if parts[argIdx] == "-f" {
-				forceLoop = true
-				argIdx++
-				if argIdx >= len(parts)-1 {
-					fmt.Println("Usage: loop [-f] <count> <command...>")
-					fmt.Println()
-					continue
-				}
-			}
-			count, err := strconv.Atoi(parts[argIdx])
-			if err != nil || count < 1 {
-				fmt.Printf("❌ Invalid count: %s (must be a positive integer)\n\n", parts[argIdx])
+			// Block form. Parse the header against the full input.
+			stmt := Statement{Raw: cmd, Tokens: splitArgs(firstLine)}
+			count, force, body, isBlock, perr := parseLoopHeader(stmt)
+			if perr != nil {
+				fmt.Printf("❌ %v\n\n", perr)
 				continue
 			}
-			loopParts := parts[argIdx+1:]
-			loopCmd := strings.Join(loopParts, " ")
-			if forceLoop {
-				fmt.Printf("🔁 Repeating %q %d time(s) (force mode)...\n", loopCmd, count)
+			if !isBlock {
+				fmt.Printf("❌ loop: expected block body\n\n")
+				continue
+			}
+			stmts, perr := parseStatements(body)
+			if perr != nil {
+				fmt.Printf("❌ %v\n\n", perr)
+				continue
+			}
+			if len(stmts) == 0 {
+				fmt.Println("❌ loop: empty block")
+				fmt.Println()
+				continue
+			}
+			if force {
+				fmt.Printf("🔁 Repeating block %d time(s) (force mode)...\n", count)
 			} else {
-				fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
+				fmt.Printf("🔁 Repeating block %d time(s)...\n", count)
 			}
-			errors := 0
-			for i := range count {
-				fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
-				startTime := time.Now()
-				if err := executeCommand(client, ctx, loopParts, format); err != nil {
-					errors++
-					fmt.Printf("❌ %s\n", formatError(err, loopParts[0], format))
-					if !forceLoop {
-						fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
-						break
-					}
-					fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errors)
-					continue
-				}
-				duration := time.Since(startTime)
-				fmt.Printf("✓ [%d/%d] Completed in %v\n", i+1, count, duration)
+			runStatement := func(tokens []string) error {
+				return executeCommand(client, ctx, tokens, format)
 			}
-			if forceLoop && errors > 0 {
-				fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errors, count)
-			}
-			// Render statusline after loop
+			_ = executeLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
 			if sl := renderStatusline(client, cfg, agentID); sl != "" {
 				fmt.Println(sl)
 			}
@@ -4121,6 +4125,65 @@ func printState(client game.GameClient) {
 	fmt.Println("   Available keys: player, ship, system, poi, etc.")
 }
 
+// runLoopSingle handles the legacy "loop [-f] <count> <command...>" form
+// with a single command. Errors are printed to stdout but not returned.
+func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, format outputFormat) {
+	if len(parts) < 3 {
+		fmt.Println("Usage: loop [-f] <count> <command...>")
+		fmt.Println("       loop [-f] <count> { stmt; stmt; ... }")
+		fmt.Println("  -f  Force: continue on errors instead of stopping")
+		fmt.Println("Examples: loop 5 mine")
+		fmt.Println("          loop -f 20 mine")
+		fmt.Println("          loop 10 sell iron_ore 5")
+		fmt.Println("          loop 3 { travel sol_belt; mine; mine; dock }")
+		fmt.Println()
+		return
+	}
+	forceLoop := false
+	argIdx := 1
+	if parts[argIdx] == "-f" {
+		forceLoop = true
+		argIdx++
+		if argIdx >= len(parts)-1 {
+			fmt.Println("Usage: loop [-f] <count> <command...>")
+			fmt.Println()
+			return
+		}
+	}
+	count, err := strconv.Atoi(parts[argIdx])
+	if err != nil || count < 1 {
+		fmt.Printf("❌ Invalid count: %s (must be a positive integer)\n\n", parts[argIdx])
+		return
+	}
+	loopParts := parts[argIdx+1:]
+	loopCmd := strings.Join(loopParts, " ")
+	if forceLoop {
+		fmt.Printf("🔁 Repeating %q %d time(s) (force mode)...\n", loopCmd, count)
+	} else {
+		fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
+	}
+	errors := 0
+	for i := range count {
+		fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
+		startTime := time.Now()
+		if cerr := executeCommand(client, ctx, loopParts, format); cerr != nil {
+			errors++
+			fmt.Printf("❌ %s\n", formatError(cerr, loopParts[0], format))
+			if !forceLoop {
+				fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
+				break
+			}
+			fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errors)
+			continue
+		}
+		duration := time.Since(startTime)
+		fmt.Printf("✓ [%d/%d] Completed in %v\n", i+1, count, duration)
+	}
+	if forceLoop && errors > 0 {
+		fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errors, count)
+	}
+}
+
 func printHelp() {
 	fmt.Println("\n📖 Available Commands:")
 	fmt.Println("\n=== NAVIGATION ===")
@@ -4246,7 +4309,8 @@ func printHelp() {
 	fmt.Println("  notes                     - Get your notes")
 	fmt.Println("  missions, accept_mission  - Mission commands")
 	fmt.Println("  action_log [--category X] [--page N] - Action history")
-	fmt.Println("  loop [-f] <count> <command> - Repeat a command N times (-f to continue on errors)")
+	fmt.Println("  loop [-f] <count> <command>        - Repeat a command N times (-f continues on errors)")
+	fmt.Println("  loop [-f] <count> { stmt; stmt }   - Repeat a block; stmts may nest and use newlines or ';'")
 	fmt.Println("  history                   - Show last 25 commands (persisted across sessions)")
 	fmt.Println("  mbox                      - Show unread message counts")
 	fmt.Println("  mbox list [ch] [--unread] - List messages (newest first)")

@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/peterh/liner"
 )
 
 // scanBraceDepth reports the net brace depth of s and whether the scan
@@ -30,6 +32,27 @@ func scanBraceDepth(s string) (depth int, inQuote bool, err error) {
 		}
 	}
 	return depth, quoteRune != 0, nil
+}
+
+// hasTopLevelOpenBrace reports whether s contains a '{' outside of
+// any '"..."' or "'...'" quoted string.
+func hasTopLevelOpenBrace(s string) bool {
+	var quoteRune rune
+	for _, r := range s {
+		if quoteRune != 0 {
+			if r == quoteRune {
+				quoteRune = 0
+			}
+			continue
+		}
+		switch r {
+		case '"', '\'':
+			quoteRune = r
+		case '{':
+			return true
+		}
+	}
+	return false
 }
 
 // Statement is one top-level command inside a loop body. Raw is the
@@ -276,6 +299,35 @@ func executeLoop(
 		return nil
 	}
 	return firstErr
+}
+
+// readLogicalCommand reads a command from liner. If the first line has
+// unbalanced '{' at top level (outside quotes), it continues reading
+// additional lines with a "... " prompt until brace depth returns to 0,
+// joining lines with '\n'. Returns the assembled script. On Ctrl-C
+// during continuation, returns (combined-so-far, liner.ErrPromptAborted).
+func readLogicalCommand(line *liner.State) (string, error) {
+	first, err := line.Prompt("$ ")
+	if err != nil {
+		return "", err
+	}
+	depth, inQuote, _ := scanBraceDepth(first)
+	if depth <= 0 && !inQuote {
+		return first, nil
+	}
+	combined := first
+	for depth > 0 || inQuote {
+		more, perr := line.Prompt("... ")
+		if perr != nil {
+			return combined, perr
+		}
+		combined += "\n" + more
+		depth, inQuote, _ = scanBraceDepth(combined)
+		if depth < 0 {
+			return combined, fmt.Errorf("unbalanced braces")
+		}
+	}
+	return combined, nil
 }
 
 // extractBracedBody assumes s starts with '{' and returns the content

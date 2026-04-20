@@ -309,3 +309,25 @@ func TestScanBraceDepth(t *testing.T) {
 		})
 	}
 }
+
+func TestHasTopLevelOpenBrace(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{"loop 5 mine", false},
+		{"loop 5 { mine }", true},
+		{`loop 5 chat "hi { there"`, false},
+		{`loop 5 chat 'hi { there'`, false},
+		{"", false},
+		{"{", true},
+		{`"{" then {`, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			if got := hasTopLevelOpenBrace(tc.in); got != tc.want {
+				t.Errorf("hasTopLevelOpenBrace(%q) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
