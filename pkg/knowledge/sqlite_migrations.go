@@ -92,17 +92,6 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("failed to get current migration version: %w", err)
 	}
 
-	// Self-healing safeguard: some DBs predate the 2026-04-15 migration
-	// collapse and have schema_migrations rows for the old versions 2–30.
-	// Those rows cause currentVersion to be >= 30, which would make new
-	// additive column migrations below be skipped even though the column
-	// is missing. Check for missing columns directly and add them if
-	// needed, regardless of what schema_migrations claims. Backfill runs
-	// only when the column was just added.
-	if err := ensureSystemsLastVisitedTickColumn(db); err != nil {
-		return fmt.Errorf("ensure last_visited_tick column: %w", err)
-	}
-
 	// Run pending migrations
 	migrations := migrations()
 	for _, m := range migrations {
@@ -170,6 +159,20 @@ func runMigrations(db *sql.DB) error {
 		}
 	}
 
+	// Self-healing safeguard: some DBs predate the 2026-04-15 migration
+	// collapse and have schema_migrations rows for the old versions 2–30.
+	// Those rows cause currentVersion to be >= 30, which makes the lower-
+	// numbered migrations above be skipped even if their effects were never
+	// applied. Run AFTER the migration loop so fresh DBs (which got
+	// everything via migration 1 = initial_schema) are no-ops, while
+	// pre-collapse DBs get the missing column/tables filled in.
+	if err := ensureSystemsLastVisitedTickColumn(db); err != nil {
+		return fmt.Errorf("ensure last_visited_tick column: %w", err)
+	}
+	if err := ensureCollapseMissingTables(db); err != nil {
+		return fmt.Errorf("ensure collapse-missing tables: %w", err)
+	}
+
 	return nil
 }
 
@@ -235,4 +238,120 @@ func ensureSystemsLastVisitedTickColumn(db *sql.DB) error {
 	}
 
 	return tx.Commit()
+}
+
+// ensureCollapseMissingTables creates tables that are declared in
+// initial_schema.sql but may be absent from DBs that predate the
+// 2026-04-15 migration collapse. All DDL uses CREATE TABLE IF NOT EXISTS
+// / CREATE INDEX IF NOT EXISTS so the pass is idempotent and a no-op on
+// DBs that already have them.
+//
+// The tables covered here are ones confirmed to be actively written by the
+// current code:
+//   - agent_ships       (pkg/knowledge/sqlite_player.go)
+//   - ships             (pkg/knowledge/sqlite_catalog.go — catalog import)
+//   - ship_build_materials (pkg/knowledge/sqlite_catalog.go — catalog import)
+//   - base_facilities   (pkg/knowledge/sqlite.go — RememberBase)
+func ensureCollapseMissingTables(db *sql.DB) error {
+	const ddl = `
+CREATE TABLE IF NOT EXISTS "ships" (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    class TEXT,
+    category TEXT,
+    description TEXT,
+    lore TEXT,
+    faction TEXT,
+    tier INTEGER DEFAULT 0,
+    scale INTEGER DEFAULT 1,
+    price INTEGER DEFAULT 0,
+    base_hull INTEGER DEFAULT 0,
+    base_shield INTEGER DEFAULT 0,
+    base_shield_recharge INTEGER DEFAULT 0,
+    base_armor INTEGER DEFAULT 0,
+    base_speed INTEGER DEFAULT 0,
+    base_fuel INTEGER DEFAULT 0,
+    cargo_capacity INTEGER DEFAULT 0,
+    cpu_capacity INTEGER DEFAULT 0,
+    power_capacity INTEGER DEFAULT 0,
+    weapon_slots INTEGER DEFAULT 0,
+    defense_slots INTEGER DEFAULT 0,
+    utility_slots INTEGER DEFAULT 0,
+    build_time INTEGER DEFAULT 0,
+    shipyard_tier INTEGER DEFAULT 0,
+    starter_ship BOOLEAN DEFAULT 0,
+    tow_speed_bonus INTEGER DEFAULT 0,
+    required_skills TEXT DEFAULT '{}',
+    default_modules TEXT DEFAULT '[]',
+    flavor_tags TEXT DEFAULT '[]',
+    last_updated_tick INTEGER DEFAULT 0,
+    passive_recipes TEXT DEFAULT '[]'
+);
+
+CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class);
+CREATE INDEX IF NOT EXISTS idx_ships_faction ON ships(faction);
+
+CREATE TABLE IF NOT EXISTS "agent_ships" (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    class_id TEXT NOT NULL,
+    name TEXT,
+    hull REAL DEFAULT 0,
+    max_hull REAL DEFAULT 0,
+    shield REAL DEFAULT 0,
+    max_shield REAL DEFAULT 0,
+    shield_recharge REAL DEFAULT 0,
+    armor REAL DEFAULT 0,
+    speed REAL DEFAULT 0,
+    fuel REAL DEFAULT 0,
+    max_fuel REAL DEFAULT 0,
+    cargo_used REAL DEFAULT 0,
+    cargo_capacity REAL DEFAULT 0,
+    cpu_used REAL DEFAULT 0,
+    cpu_capacity REAL DEFAULT 0,
+    power_used REAL DEFAULT 0,
+    power_capacity REAL DEFAULT 0,
+    weapon_slots INTEGER DEFAULT 0,
+    defense_slots INTEGER DEFAULT 0,
+    utility_slots INTEGER DEFAULT 0,
+    docked_at_base TEXT,
+    last_updated_tick INTEGER DEFAULT 0,
+    FOREIGN KEY (owner_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES "ships"(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_ships_class ON agent_ships(class_id);
+CREATE INDEX IF NOT EXISTS idx_agent_ships_owner ON agent_ships(owner_id);
+
+CREATE TABLE IF NOT EXISTS "ship_build_materials" (
+    ship_class_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    PRIMARY KEY (ship_class_id, item_id),
+    FOREIGN KEY (ship_class_id) REFERENCES "ships"(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "base_facilities" (
+    base_id TEXT NOT NULL,
+    facility_name TEXT NOT NULL,
+    instance_id TEXT NOT NULL DEFAULT '',
+    description TEXT DEFAULT '',
+    category TEXT DEFAULT 'unknown',
+    level INTEGER DEFAULT 0,
+    active BOOLEAN DEFAULT 1,
+    maintenance_satisfied BOOLEAN DEFAULT 1,
+    service TEXT DEFAULT '',
+    recipe_id TEXT DEFAULT '',
+    last_updated_tick INTEGER DEFAULT 0,
+    PRIMARY KEY (base_id, instance_id),
+    FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_base_facilities_category ON base_facilities(category);
+CREATE INDEX IF NOT EXISTS idx_base_facilities_recipe ON base_facilities(recipe_id);
+`
+	if _, err := db.Exec(ddl); err != nil {
+		return fmt.Errorf("create missing tables: %w", err)
+	}
+	return nil
 }

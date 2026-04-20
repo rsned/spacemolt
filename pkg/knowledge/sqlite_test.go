@@ -688,6 +688,61 @@ func TestSQLiteKB_Migration31_SelfHealsPreCollapseDBs(t *testing.T) {
 	}
 }
 
+// TestEnsureCollapseMissingTables_CreatesOnPreCollapseDB verifies that a DB
+// which claims to have run migrations 1–30 but is missing the tables
+// agent_ships, ships, ship_build_materials, and base_facilities gets them
+// created by the safeguard pass.
+func TestEnsureCollapseMissingTables_CreatesOnPreCollapseDB(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	// Minimal pre-collapse fixture: schema_migrations rows suggesting
+	// migrations 1–30 applied, plus the systems table (so migration 31's
+	// ALTER TABLE has something to target) and bases/players (referenced
+	// by FKs in the missing tables). No agent_ships / ships /
+	// ship_build_materials / base_facilities.
+	if _, err := db.Exec(`
+		CREATE TABLE schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TEXT NOT NULL
+		);
+		INSERT INTO schema_migrations (version, applied_at) VALUES
+			(2, datetime('now')), (10, datetime('now')), (30, datetime('now'));
+
+		CREATE TABLE systems (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			last_updated_tick INTEGER DEFAULT 0
+		);
+		CREATE TABLE pois (id TEXT PRIMARY KEY, system_id TEXT NOT NULL, name TEXT, type TEXT, last_updated_tick INTEGER DEFAULT 0);
+		CREATE TABLE poi_resources (poi_id TEXT NOT NULL, resource_id TEXT NOT NULL, richness REAL, remaining REAL, last_updated_tick INTEGER DEFAULT 0, PRIMARY KEY (poi_id, resource_id));
+		CREATE TABLE bases (id TEXT PRIMARY KEY, name TEXT);
+		CREATE TABLE players (id TEXT PRIMARY KEY, username TEXT);
+	`); err != nil {
+		t.Fatalf("seed pre-collapse fixture: %v", err)
+	}
+
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("runMigrations: %v", err)
+	}
+
+	for _, table := range []string{"agent_ships", "ships", "ship_build_materials", "base_facilities"} {
+		var count int
+		if err := db.QueryRow(
+			`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = ?`, table,
+		).Scan(&count); err != nil {
+			t.Fatalf("pragma %s: %v", table, err)
+		}
+		if count != 1 {
+			t.Errorf("table %s not created by safeguard (count=%d)", table, count)
+		}
+	}
+}
+
 func TestMemoryKB_RememberSystem_PersistsLastVisitedTick(t *testing.T) {
 	ctx := context.Background()
 	kb := NewMemoryKB()
