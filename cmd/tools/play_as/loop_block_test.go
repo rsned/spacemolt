@@ -84,6 +84,58 @@ func rawOf(ss []Statement) []string {
 	return out
 }
 
+func TestParseLoopHeader(t *testing.T) {
+	cases := []struct {
+		name      string
+		in        string
+		wantCount int
+		wantForce bool
+		wantBody  string
+		wantBlock bool
+		wantErr   bool
+	}{
+		{"simple", "loop 5 mine", 5, false, "mine", false, false},
+		{"force", "loop -f 10 mine", 10, true, "mine", false, false},
+		{"multi-arg tail", "loop 3 sell iron_ore 5", 3, false, "sell iron_ore 5", false, false},
+		{"block", "loop 20 { mine; refuel }", 20, false, " mine; refuel ", true, false},
+		{"force block", "loop -f 5 { mine }", 5, true, " mine ", true, false},
+		{"block newline body", "loop 3 {\n  mine\n  refuel\n}", 3, false, "\n  mine\n  refuel\n", true, false},
+		{"no count", "loop mine", 0, false, "", false, true},
+		{"bad count", "loop xx mine", 0, false, "", false, true},
+		{"zero count", "loop 0 mine", 0, false, "", false, true},
+		{"missing body", "loop 5", 0, false, "", false, true},
+		{"missing body after -f", "loop -f 5", 0, false, "", false, true},
+		{"unclosed block", "loop 5 { mine", 0, false, "", false, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stmt := Statement{Raw: tc.in, Tokens: splitArgs(tc.in)}
+			count, force, body, isBlock, err := parseLoopHeader(stmt)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got count=%d body=%q", count, body)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if count != tc.wantCount {
+				t.Errorf("count = %d, want %d", count, tc.wantCount)
+			}
+			if force != tc.wantForce {
+				t.Errorf("force = %v, want %v", force, tc.wantForce)
+			}
+			if body != tc.wantBody {
+				t.Errorf("body = %q, want %q", body, tc.wantBody)
+			}
+			if isBlock != tc.wantBlock {
+				t.Errorf("isBlock = %v, want %v", isBlock, tc.wantBlock)
+			}
+		})
+	}
+}
+
 func TestScanBraceDepth(t *testing.T) {
 	cases := []struct {
 		name      string
