@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"io"
+	"testing"
+)
 
 func TestParseStatements(t *testing.T) {
 	cases := []struct {
@@ -133,6 +138,141 @@ func TestParseLoopHeader(t *testing.T) {
 				t.Errorf("isBlock = %v, want %v", isBlock, tc.wantBlock)
 			}
 		})
+	}
+}
+
+// recordingDispatcher returns a dispatch func that records each call and
+// returns the next scripted error. nil entries mean success.
+func recordingDispatcher(script []error) (func([]string) error, *[][]string) {
+	var calls [][]string
+	i := 0
+	fn := func(tokens []string) error {
+		cp := make([]string, len(tokens))
+		copy(cp, tokens)
+		calls = append(calls, cp)
+		if i < len(script) {
+			err := script[i]
+			i++
+			return err
+		}
+		return nil
+	}
+	return fn, &calls
+}
+
+func mustParseStmts(t *testing.T, body string) []Statement {
+	t.Helper()
+	s, err := parseStatements(body)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	return s
+}
+
+func TestExecuteLoop_RepeatsBody(t *testing.T) {
+	body := mustParseStmts(t, "mine; refuel")
+	dispatch, calls := recordingDispatcher(nil)
+	err := executeLoop(context.Background(), io.Discard, 3, false, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if len(*calls) != 6 {
+		t.Fatalf("expected 6 calls (3 iterations × 2 stmts), got %d", len(*calls))
+	}
+	expected := []string{"mine", "refuel", "mine", "refuel", "mine", "refuel"}
+	for i, got := range *calls {
+		if got[0] != expected[i] {
+			t.Errorf("call %d: got %q, want %q", i, got[0], expected[i])
+		}
+	}
+}
+
+func TestExecuteLoop_Nested(t *testing.T) {
+	body := mustParseStmts(t, "travel sol_belt; loop 4 mine; dock")
+	dispatch, calls := recordingDispatcher(nil)
+	err := executeLoop(context.Background(), io.Discard, 2, false, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	// Each outer iteration: travel + 4× mine + dock = 6 calls. 2 iters = 12.
+	if len(*calls) != 12 {
+		t.Fatalf("expected 12 calls, got %d", len(*calls))
+	}
+	wantPrefix := []string{"travel", "mine", "mine", "mine", "mine", "dock"}
+	for i, w := range wantPrefix {
+		if (*calls)[i][0] != w {
+			t.Errorf("call %d: got %q, want %q", i, (*calls)[i][0], w)
+		}
+	}
+}
+
+func TestExecuteLoop_NoForceAbortsOnError(t *testing.T) {
+	body := mustParseStmts(t, "mine; refuel; dock")
+	boom := errors.New("boom")
+	dispatch, calls := recordingDispatcher([]error{nil, boom})
+	err := executeLoop(context.Background(), io.Discard, 5, false, body, 0, dispatch)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if len(*calls) != 2 {
+		t.Errorf("expected loop to stop after 2 calls, got %d", len(*calls))
+	}
+}
+
+func TestExecuteLoop_ForceContinuesOnError(t *testing.T) {
+	body := mustParseStmts(t, "mine; refuel")
+	boom := errors.New("boom")
+	script := []error{boom, boom, boom, boom, boom, boom}
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 3, true, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("force loop should swallow errors, got %v", err)
+	}
+	if len(*calls) != 6 {
+		t.Errorf("expected 6 calls even with errors, got %d", len(*calls))
+	}
+}
+
+func TestExecuteLoop_InnerForceSwallowsOuterContinues(t *testing.T) {
+	body := mustParseStmts(t, "loop -f 3 mine; dock")
+	boom := errors.New("boom")
+	script := []error{boom, boom, boom, nil, boom, boom, boom, nil}
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 2, false, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("outer should complete, got %v", err)
+	}
+	if len(*calls) != 8 {
+		t.Errorf("expected 8 calls, got %d", len(*calls))
+	}
+}
+
+func TestExecuteLoop_InnerNoForceAbortsInnerPropagates(t *testing.T) {
+	body := mustParseStmts(t, "loop 3 mine; dock")
+	boom := errors.New("boom")
+	script := []error{boom}
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 2, false, body, 0, dispatch)
+	if err == nil {
+		t.Fatal("expected error to propagate")
+	}
+	if len(*calls) != 1 {
+		t.Errorf("expected 1 call, got %d", len(*calls))
+	}
+}
+
+func TestExecuteLoop_OuterForceCatchesInnerError(t *testing.T) {
+	body := mustParseStmts(t, "loop 3 mine; dock")
+	boom := errors.New("boom")
+	// Each outer iteration: first mine fails → inner aborts → outer catches, skips dock.
+	script := []error{boom, boom}
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 2, true, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("outer -f should swallow, got %v", err)
+	}
+	if len(*calls) != 2 {
+		t.Errorf("expected 2 calls, got %d", len(*calls))
 	}
 }
 

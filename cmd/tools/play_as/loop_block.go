@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 )
@@ -196,6 +198,84 @@ func afterTokens(raw string, tokens []string) (string, error) {
 		}
 	}
 	return raw[pos:], nil
+}
+
+// executeLoop runs count iterations of body. For each statement whose
+// first token is "loop", parseLoopHeader + parseStatements is applied
+// and executeLoop recurses; otherwise runStatement is called. Each loop
+// enforces errors according to its own force flag: a loop with force
+// continues past errors and returns nil; a loop without force returns
+// the first error. depth controls indentation of status lines.
+func executeLoop(
+	ctx context.Context,
+	out io.Writer,
+	count int,
+	force bool,
+	body []Statement,
+	depth int,
+	runStatement func(tokens []string) error,
+) error {
+	indent := strings.Repeat("  ", depth)
+	var firstErr error
+	errCount := 0
+
+	for i := range count {
+		fmt.Fprintf(out, "%s── [%d/%d]\n", indent, i+1, count) //nolint:errcheck
+		iterFailed := false
+		for _, stmt := range body {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			var err error
+			isLoop := len(stmt.Tokens) > 0 && strings.ToLower(stmt.Tokens[0]) == "loop"
+			if isLoop {
+				innerCount, innerForce, innerBody, isBlock, perr := parseLoopHeader(stmt)
+				if perr != nil {
+					err = perr
+				} else {
+					var innerStmts []Statement
+					if isBlock {
+						innerStmts, err = parseStatements(innerBody)
+					} else {
+						innerStmts = []Statement{{Raw: innerBody, Tokens: splitArgs(innerBody)}}
+					}
+					if err == nil {
+						err = executeLoop(ctx, out, innerCount, innerForce, innerStmts, depth+1, runStatement)
+					}
+				}
+			} else {
+				err = runStatement(stmt.Tokens)
+			}
+			if err != nil {
+				errCount++
+				fmt.Fprintf(out, "%s❌ %v\n", indent, err)               //nolint:errcheck
+				if !force {
+					fmt.Fprintf(out, "%sStopping loop after %d/%d iterations\n", indent, i+1, count) //nolint:errcheck
+					return err
+				}
+				if firstErr == nil {
+					firstErr = err
+				}
+				// Inner loop failures abort the remaining statements in this
+				// outer iteration; plain statement failures continue to the
+				// next statement within the same iteration.
+				if isLoop {
+					iterFailed = true
+					break
+				}
+			}
+		}
+		if !iterFailed {
+			fmt.Fprintf(out, "%s✓ [%d/%d]\n", indent, i+1, count) //nolint:errcheck
+		}
+	}
+	if force && errCount > 0 {
+		fmt.Fprintf(out, "%s🔁 Loop finished with %d error(s) out of %d iterations\n", indent, errCount, count) //nolint:errcheck
+	}
+	if force {
+		return nil
+	}
+	return firstErr
 }
 
 // extractBracedBody assumes s starts with '{' and returns the content
