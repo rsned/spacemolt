@@ -401,54 +401,39 @@ func (c *Client) Connect(ctx context.Context) error {
 		c.monitorConnectionHealth(c.goroutineCtx)
 	}()
 
+	// Start active ping loop to keep the connection alive and detect death promptly
+	c.goroutineWg.Add(1)
+	go func() {
+		defer c.goroutineWg.Done()
+		c.sendPingLoop(c.goroutineCtx)
+	}()
+
 	return nil
 }
 
 // Disconnect closes the WebSocket connection
 func (c *Client) Disconnect() error {
+	// Do the stateful work under the mutex, then release before waiting on
+	// goroutines. Holding the mutex during goroutineWg.Wait() deadlocks with
+	// any goroutine (e.g. listen) that needs c.mu to clean up on its way out;
+	// the wait then times out after 10s, eating ~10s per reconnect.
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Log connection metrics before disconnecting
 	c.logConnectionMetrics("client_disconnect")
-
-	// Signal all goroutines to stop
 	c.goroutineCancel()
-
-	// Stop health monitoring
 	select {
 	case c.stopPing <- struct{}{}:
 	default:
 	}
+	conn := c.conn
+	c.conn = nil
+	c.connected = false
+	c.mu.Unlock()
 
-	if c.conn != nil {
-		c.connected = false
-		// Use AbortiveClose to force immediate closure without waiting for WebSocket close handshake
-		// This unblocks the Read() call in listen() immediately
-		conn := c.conn
-		c.conn = nil
-
-		// First try graceful close
+	if conn != nil {
 		_ = conn.Close(websocket.StatusNormalClosure, "client disconnect")
 		c.debugLogger.Printf("Disconnected from server")
-
-		// If graceful close doesn't unblock the read within 1 second, force close
-		done := make(chan struct{})
-		go func() {
-			c.goroutineWg.Wait()
-			close(done)
-		}()
-
-		select {
-		case <-done:
-			c.debugLogger.Printf("All goroutines exited cleanly")
-		case <-time.After(1 * time.Second):
-			// Goroutines are stuck, force close underlying connection
-			c.debugLogger.Printf("Goroutines slow to exit, connection closed")
-		}
 	}
 
-	// Wait for all goroutines to exit (with longer timeout for safety)
 	done := make(chan struct{})
 	go func() {
 		c.goroutineWg.Wait()
@@ -457,9 +442,9 @@ func (c *Client) Disconnect() error {
 
 	select {
 	case <-done:
-		// Already logged above
-	case <-time.After(10 * time.Second):
-		c.debugLogger.Printf("Warning: Extended timeout waiting for goroutines to exit")
+		c.debugLogger.Printf("All goroutines exited cleanly")
+	case <-time.After(2 * time.Second):
+		c.debugLogger.Printf("Warning: goroutines slow to exit after 2s; continuing")
 	}
 
 	return nil
@@ -3900,6 +3885,58 @@ func (c *Client) monitorConnectionHealth(ctx context.Context) {
 					handler.OnDisconnected(fmt.Errorf("connection timeout - no messages for %v", timeSinceLastMsg))
 				}
 			}
+		}
+	}
+}
+
+// sendPingLoop actively sends WebSocket protocol-level pings at
+// SleepWSPingInterval. This keeps NAT/proxy flow tables warm (most drop idle
+// TCP flows after 60-120s) and gives us an authoritative liveness signal
+// independent of application traffic. A successful pong refreshes
+// lastMessageTime. After PingMaxConsecutiveFailures ping failures in a row we
+// force-close the connection so listen()'s blocked Read() errors out and
+// triggers the normal reconnect path — otherwise a half-open TCP socket can
+// keep Read() parked indefinitely while the 5-minute passive timeout waits.
+func (c *Client) sendPingLoop(ctx context.Context) {
+	goroutineID := atomic.AddInt64(&c.goroutineID, 1)
+	c.debugLogger.Printf("[ping-%d] Ping loop started | Interval: %v | Timeout: %v", goroutineID, SleepWSPingInterval, SleepWSPingTimeout)
+	defer c.debugLogger.Printf("[ping-%d] Ping loop exited", goroutineID)
+
+	ticker := time.NewTicker(SleepWSPingInterval)
+	defer ticker.Stop()
+
+	consecutiveFailures := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.stopPing:
+			return
+		case <-ticker.C:
+			c.mu.RLock()
+			conn := c.conn
+			connected := c.connected
+			c.mu.RUnlock()
+			if conn == nil || !connected {
+				consecutiveFailures = 0
+				continue
+			}
+
+			pingCtx, cancel := context.WithTimeout(ctx, SleepWSPingTimeout)
+			err := conn.Ping(pingCtx)
+			cancel()
+			if err != nil {
+				consecutiveFailures++
+				c.debugLogger.Printf("[ping-%d] Ping failed (%d/%d): %v", goroutineID, consecutiveFailures, PingMaxConsecutiveFailures, err)
+				if consecutiveFailures >= PingMaxConsecutiveFailures {
+					c.debugLogger.Printf("[ping-%d] Max consecutive ping failures reached, force-closing connection to trigger reconnect", goroutineID)
+					_ = conn.Close(websocket.StatusGoingAway, "ping timeout")
+					consecutiveFailures = 0
+				}
+				continue
+			}
+			consecutiveFailures = 0
+			c.updateLastMessageTime()
 		}
 	}
 }

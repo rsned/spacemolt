@@ -1036,6 +1036,9 @@ type DockResponse struct {
 	Gifts               []StorageGift   `json:"gifts,omitempty"`
 	GiftsCount          int             `json:"gifts_count,omitempty"`
 	GiftsNote           string          `json:"gifts_note,omitempty"`
+	TradeFills          []TradeFill     `json:"trade_fills,omitempty"`
+	TradeFillsCount     int             `json:"trade_fills_count,omitempty"`
+	TradeFillsTruncated bool            `json:"trade_fills_truncated,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.

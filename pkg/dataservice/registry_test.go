@@ -17,8 +17,10 @@ type stubHandler struct {
 
 func (s *stubHandler) Name() string                { return s.name }
 func (s *stubHandler) ShortHelp() string           { return "stub help for " + s.name }
-func (s *stubHandler) PlaintextUsage() string      { return s.name + " <arg>" }
-func (s *stubHandler) JSONExample() map[string]any { return map[string]any{"query": s.name} }
+func (s *stubHandler) PlaintextUsages() []string { return []string{s.name + " <arg>"} }
+func (s *stubHandler) JSONExamples() []map[string]any {
+	return []map[string]any{{"query": s.name}}
+}
 func (s *stubHandler) HandlePlaintext(ctx context.Context, deps Deps, args []string) (string, error) {
 	return s.reply, s.err
 }
@@ -120,6 +122,41 @@ func TestRegistry_HelpPlaintext(t *testing.T) {
 	}
 }
 
+func TestRegistry_HelpPlaintext_MultiUsage(t *testing.T) {
+	r := NewRegistry(Deps{})
+	r.Register(&multiUsageStub{})
+
+	got, err := r.Dispatch(context.Background(), "help")
+	if err != nil {
+		t.Fatalf("Dispatch help: %v", err)
+	}
+	if !strings.Contains(got, "multi form-a") || !strings.Contains(got, "multi form-b") {
+		t.Errorf("help missing all grammar forms: %q", got)
+	}
+	if len(got) > MaxReplyChars {
+		t.Errorf("help reply exceeds MaxReplyChars: %d > %d", len(got), MaxReplyChars)
+	}
+}
+
+type multiUsageStub struct{}
+
+func (multiUsageStub) Name() string { return "multi" }
+func (multiUsageStub) ShortHelp() string {
+	return "multi-form handler"
+}
+func (multiUsageStub) PlaintextUsages() []string {
+	return []string{"multi form-a <x>", "multi form-b <y>"}
+}
+func (multiUsageStub) JSONExamples() []map[string]any {
+	return []map[string]any{{"query": "multi", "params": map[string]any{"x": 1}}}
+}
+func (multiUsageStub) HandlePlaintext(ctx context.Context, deps Deps, args []string) (string, error) {
+	return "", nil
+}
+func (multiUsageStub) HandleJSON(ctx context.Context, deps Deps, params map[string]any) (map[string]any, error) {
+	return nil, nil
+}
+
 func TestRegistry_HelpJSON(t *testing.T) {
 	r := NewRegistry(Deps{})
 	r.Register(&stubHandler{name: "alpha"})
@@ -141,6 +178,16 @@ func TestRegistry_HelpJSON(t *testing.T) {
 	}
 	if len(handlers) == 0 {
 		t.Error("expected at least one handler")
+	}
+	first, ok := handlers[0].(map[string]any)
+	if !ok {
+		t.Fatalf("handler entry wrong shape: %T", handlers[0])
+	}
+	if _, ok := first["usages"].([]any); !ok {
+		t.Errorf("usages missing or not an array: %v", first["usages"])
+	}
+	if _, ok := first["examples"].([]any); !ok {
+		t.Errorf("examples missing or not an array: %v", first["examples"])
 	}
 }
 

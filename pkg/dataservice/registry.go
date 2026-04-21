@@ -142,7 +142,7 @@ func (r *Registry) dispatchJSON(ctx context.Context, content string) string {
 	return mustMarshal(out)
 }
 
-// helpPlaintext renders a short command listing.
+// helpPlaintext renders a command listing with every supported grammar.
 func (r *Registry) helpPlaintext() string {
 	names := r.sortedNames()
 	var sb strings.Builder
@@ -150,22 +150,27 @@ func (r *Registry) helpPlaintext() string {
 	sb.WriteString("  help — this message\n")
 	for _, name := range names {
 		h := r.handlers[name]
-		fmt.Fprintf(&sb, "  %s — %s\n", h.PlaintextUsage(), h.ShortHelp())
+		fmt.Fprintf(&sb, "  %s — %s\n", h.Name(), h.ShortHelp())
+		for _, usage := range h.PlaintextUsages() {
+			fmt.Fprintf(&sb, "      %s\n", usage)
+		}
 	}
-	return sb.String()
+	sb.WriteString("\nJSON: {\"query\":\"<name>\",\"params\":{...}}; send {\"query\":\"help\"} for examples.\n")
+	return TruncateReply(sb.String())
 }
 
-// helpJSON renders the help response as JSON.
+// helpJSON renders the help response as JSON. Keys are kept terse to leave
+// headroom under the chat MaxReplyChars budget; the human-readable
+// description is only included in the plaintext help.
 func (r *Registry) helpJSON() string {
 	names := r.sortedNames()
 	handlers := make([]map[string]any, 0, len(names))
 	for _, name := range names {
 		h := r.handlers[name]
 		handlers = append(handlers, map[string]any{
-			"name":            h.Name(),
-			"description":     h.ShortHelp(),
-			"plaintext_usage": h.PlaintextUsage(),
-			"json_example":    h.JSONExample(),
+			"name":     h.Name(),
+			"usages":   h.PlaintextUsages(),
+			"examples": h.JSONExamples(),
 		})
 	}
 	return mustMarshal(map[string]any{

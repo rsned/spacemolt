@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -178,7 +179,33 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 		return fmt.Errorf("failed to upsert system from map: %w", err)
 	}
 
-	// Store connections (map data has no distance — default to 0, don't overwrite existing)
+	// The map is authoritative for this system's outgoing connections.
+	// Delete any stored edge (data.ID -> X) where X is no longer in the map,
+	// otherwise stale topology from prior imports accumulates forever and
+	// corrupts BFS hop counts (e.g. phantom shortcut edges from old galaxy
+	// layouts). Then insert/ignore the current set.
+	if len(data.Connections) == 0 {
+		if _, err := tx.ExecContext(ctx, `
+			DELETE FROM connections WHERE from_system = ?
+		`, data.ID); err != nil {
+			return fmt.Errorf("failed to clear connections for %s: %w", data.ID, err)
+		}
+	} else {
+		placeholders := strings.Repeat(",?", len(data.Connections))[1:]
+		args := make([]any, 0, len(data.Connections)+1)
+		args = append(args, data.ID)
+		for _, c := range data.Connections {
+			args = append(args, c)
+		}
+		query := fmt.Sprintf(
+			`DELETE FROM connections WHERE from_system = ? AND to_system NOT IN (%s)`,
+			placeholders,
+		)
+		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			return fmt.Errorf("failed to prune stale connections for %s: %w", data.ID, err)
+		}
+	}
+
 	for _, connID := range data.Connections {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO connections (from_system, to_system, distance, last_updated_tick)

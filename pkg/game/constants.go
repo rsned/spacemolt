@@ -26,12 +26,18 @@ const (
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
 
 	// WebSocket keepalive timing
-	// Server sends ping every 45s, read deadline is 60s from last pong
-	// Server handles keepalive - no client ping needed
-	// We only monitor for connection death (server's deadline + safety margin)
-	SleepWSPingInterval = 0 // Disabled - server handles ping/pong
-	SleepWSHealthCheck = 30 * time.Second // Check connection health every 30 seconds
-	SleepWSPongTimeout  = 80 * time.Second // Consider connection dead if no messages for 80s (server's 60s + margin)
+	// We actively send protocol-level pings to keep NAT/proxy flows warm and to
+	// detect dead connections promptly. The passive no-message timeout remains as
+	// a safety net for the case where the ping goroutine itself wedges.
+	SleepWSPingInterval = 20 * time.Second // Send a WebSocket ping every 20s
+	SleepWSPingTimeout  = 10 * time.Second // Per-ping deadline waiting for pong
+	SleepWSHealthCheck  = 30 * time.Second // Check connection health every 30 seconds
+	SleepWSPongTimeout  = 5 * time.Minute  // Safety net: only trigger if pings also stopped firing
+
+	// PingMaxConsecutiveFailures is how many consecutive ping failures we
+	// tolerate before force-closing the socket to trigger a reconnect. Two
+	// failures means ~30s of unresponsiveness (20s interval + 10s timeout).
+	PingMaxConsecutiveFailures = 2
 )
 
 // Hull percentage thresholds

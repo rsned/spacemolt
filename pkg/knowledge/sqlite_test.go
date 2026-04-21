@@ -832,3 +832,105 @@ func TestSQLiteKB_UpsertSystemFromMap_LeavesFreshSystemUnexplored(t *testing.T) 
 		t.Error("Visited() = true for map-only system")
 	}
 }
+
+// TestSQLiteKB_UpsertSystemFromMap_PrunesStaleConnections pins the invariant
+// that map imports are authoritative for a system's outgoing connections:
+// any (from=data.ID, to=X) row where X is not in the new Connections list
+// must be deleted. Regression for phantom shortcut edges left over from
+// earlier galaxy topologies, which corrupt BFS hop counts.
+func TestSQLiteKB_UpsertSystemFromMap_PrunesStaleConnections(t *testing.T) {
+	ctx := context.Background()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	// Seed a stale topology: A connects to B, C, D.
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "a", Name: "A", Connections: []string{"b", "c", "d"},
+	}); err != nil {
+		t.Fatalf("seed UpsertSystemFromMap: %v", err)
+	}
+
+	// New map says A only connects to B.
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "a", Name: "A", Connections: []string{"b"},
+	}); err != nil {
+		t.Fatalf("re-import UpsertSystemFromMap: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "a")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem: %v", err)
+	}
+	if len(got.Connections) != 1 || got.Connections[0].SystemID != "b" {
+		t.Errorf("connections = %+v, want exactly [b]", got.Connections)
+	}
+}
+
+// TestSQLiteKB_UpsertSystemFromMap_EmptyConnectionsClearsAll verifies that
+// a re-import with an empty connections list removes all outgoing edges for
+// the system (a system can legitimately lose all its jump gates).
+func TestSQLiteKB_UpsertSystemFromMap_EmptyConnectionsClearsAll(t *testing.T) {
+	ctx := context.Background()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "a", Name: "A", Connections: []string{"b", "c"},
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "a", Name: "A", Connections: nil,
+	}); err != nil {
+		t.Fatalf("re-import: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "a")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem: %v", err)
+	}
+	if len(got.Connections) != 0 {
+		t.Errorf("connections = %+v, want empty", got.Connections)
+	}
+}
+
+// TestSQLiteKB_UpsertSystemFromMap_DoesNotTouchIncomingConnections verifies
+// that pruning is scoped to outgoing edges only; (other -> data.ID) rows
+// are owned by the other system's own import and must not be deleted.
+func TestSQLiteKB_UpsertSystemFromMap_DoesNotTouchIncomingConnections(t *testing.T) {
+	ctx := context.Background()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "a", Name: "A", Connections: []string{"b"},
+	}); err != nil {
+		t.Fatalf("seed a: %v", err)
+	}
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "b", Name: "B", Connections: []string{"a"},
+	}); err != nil {
+		t.Fatalf("seed b: %v", err)
+	}
+
+	// Re-import A with only a connection to C. This must not delete (b -> a).
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "a", Name: "A", Connections: []string{"c"},
+	}); err != nil {
+		t.Fatalf("re-import a: %v", err)
+	}
+
+	gotB, err := kb.GetSystem(ctx, "b")
+	if err != nil || gotB == nil {
+		t.Fatalf("GetSystem(b): %v", err)
+	}
+	found := false
+	for _, c := range gotB.Connections {
+		if c.SystemID == "a" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("b's outgoing connection to a was deleted; b.Connections = %+v", gotB.Connections)
+	}
+}

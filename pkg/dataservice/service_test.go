@@ -78,8 +78,10 @@ type echoHandler struct{}
 
 func (echoHandler) Name() string                { return "echo" }
 func (echoHandler) ShortHelp() string           { return "echo args back" }
-func (echoHandler) PlaintextUsage() string      { return "echo <text>" }
-func (echoHandler) JSONExample() map[string]any { return map[string]any{"query": "echo", "params": map[string]any{"text": "hi"}} }
+func (echoHandler) PlaintextUsages() []string { return []string{"echo <text>"} }
+func (echoHandler) JSONExamples() []map[string]any {
+	return []map[string]any{{"query": "echo", "params": map[string]any{"text": "hi"}}}
+}
 func (echoHandler) HandlePlaintext(ctx context.Context, deps Deps, args []string) (string, error) {
 	return "echo: " + strings.Join(args, " "), nil
 }

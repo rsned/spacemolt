@@ -47,6 +47,17 @@ func newTestDeps(t *testing.T) (dataservice.Deps, func()) {
 	}); err != nil {
 		t.Fatalf("remember poi: %v", err)
 	}
+	if err := kb.RememberPOI(ctx, knowledge.POI{
+		ID:       "poi-b-2",
+		SystemID: "sys-b",
+		Type:     "asteroid",
+		Name:     "Beta Belt",
+		Resources: []game.POIResource{
+			{ResourceID: "legacy_ore", Richness: 0.8, Remaining: 1000},
+		},
+	}); err != nil {
+		t.Fatalf("remember ore poi: %v", err)
+	}
 	if err := kb.RememberBase(ctx, knowledge.SpaceBase{
 		ID:           "base-b-1",
 		POIID:        "poi-b-1",
@@ -164,6 +175,125 @@ func TestNearest_JSONMissingField(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "from_system") {
 		t.Errorf("error should name field: %v", err)
+	}
+}
+
+func TestNearest_PlaintextPOIPrefix(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	reply, err := h.HandlePlaintext(context.Background(), deps, []string{"poi", "station", "from", "sys-a"})
+	if err != nil {
+		t.Fatalf("HandlePlaintext: %v", err)
+	}
+	if !strings.Contains(reply, "Beta") {
+		t.Errorf("reply missing destination name: %q", reply)
+	}
+}
+
+func TestNearest_PlaintextOreHappy(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	reply, err := h.HandlePlaintext(context.Background(), deps, []string{"ore", "legacy_ore", "from", "sys-a"})
+	if err != nil {
+		t.Fatalf("HandlePlaintext: %v", err)
+	}
+	if !strings.Contains(reply, "Beta") {
+		t.Errorf("reply missing destination name: %q", reply)
+	}
+	if !strings.Contains(reply, "legacy_ore") {
+		t.Errorf("reply missing resource id: %q", reply)
+	}
+}
+
+func TestNearest_PlaintextOreNoResults(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	reply, err := h.HandlePlaintext(context.Background(), deps, []string{"ore", "rare_unobtanium", "from", "sys-a"})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(reply), "no accessible") {
+		t.Errorf("expected no-results message, got %q", reply)
+	}
+}
+
+func TestNearest_PlaintextOreMissingFrom(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	_, err := h.HandlePlaintext(context.Background(), deps, []string{"ore", "legacy_ore"})
+	if err == nil {
+		t.Fatalf("expected error for missing 'from'")
+	}
+}
+
+func TestNearest_JSONOreHappy(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	out, err := h.HandleJSON(context.Background(), deps, map[string]any{
+		"resource_id": "legacy_ore",
+		"from_system": "sys-a",
+	})
+	if err != nil {
+		t.Fatalf("HandleJSON: %v", err)
+	}
+	if out["resource_id"] != "legacy_ore" {
+		t.Errorf("resource_id: got %v", out["resource_id"])
+	}
+	results, ok := out["results"].([]map[string]any)
+	if !ok {
+		t.Fatalf("results not a slice of maps, got %T", out["results"])
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0]["system_id"] != "sys-b" {
+		t.Errorf("system_id: got %v", results[0]["system_id"])
+	}
+}
+
+func TestNearest_JSONBothFieldsRejected(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	_, err := h.HandleJSON(context.Background(), deps, map[string]any{
+		"poi_type":    "station",
+		"resource_id": "legacy_ore",
+		"from_system": "sys-a",
+	})
+	if err == nil {
+		t.Fatalf("expected error for supplying both poi_type and resource_id")
+	}
+}
+
+func TestNearest_HelpRepliesWithinBudget(t *testing.T) {
+	r := dataservice.NewRegistry(dataservice.Deps{})
+	r.Register(&Nearest{})
+
+	pt, err := r.Dispatch(context.Background(), "help")
+	if err != nil {
+		t.Fatalf("Dispatch plaintext help: %v", err)
+	}
+	if len(pt) > dataservice.MaxReplyChars {
+		t.Errorf("plaintext help exceeds MaxReplyChars: %d > %d\n%s", len(pt), dataservice.MaxReplyChars, pt)
+	}
+
+	js, err := r.Dispatch(context.Background(), `{"query":"help"}`)
+	if err != nil {
+		t.Fatalf("Dispatch json help: %v", err)
+	}
+	if len(js) > dataservice.MaxReplyChars {
+		t.Errorf("json help exceeds MaxReplyChars: %d > %d\n%s", len(js), dataservice.MaxReplyChars, js)
 	}
 }
 

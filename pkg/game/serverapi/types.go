@@ -949,6 +949,18 @@ type OrderFill struct {
 	Subtotal     int    `json:"subtotal"`
 }
 
+// TradeFill is a notification of an exchange trade fill that occurred while
+// the player was away; surfaced in DockResponse.TradeFills when docking.
+type TradeFill struct {
+	ItemID    string `json:"item_id,omitempty"`
+	ItemName  string `json:"item_name,omitempty"`
+	PriceEach int64  `json:"price_each,omitempty"`
+	Quantity  int    `json:"quantity,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
+	Total     int64  `json:"total,omitempty"`
+	Type      string `json:"type,omitempty"` // "buy" or "sell"
+}
+
 // NearbyPirate represents a pirate NPC at the current POI.
 type NearbyPirate struct {
 	PirateID string `json:"pirate_id"`

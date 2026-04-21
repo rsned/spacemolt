@@ -37,12 +37,14 @@ type Handler interface {
 	// ShortHelp returns a one-line description shown in `help` output.
 	ShortHelp() string
 
-	// PlaintextUsage returns the grammar line shown in `help` output,
-	// e.g. "nearest <poi_type> from <system_id>".
-	PlaintextUsage() string
+	// PlaintextUsages returns one or more grammar lines shown in `help`
+	// output, e.g. "nearest <poi_type> from <system_id>". A handler with
+	// multiple supported grammars should return one entry per form.
+	PlaintextUsages() []string
 
-	// JSONExample returns a minimal request example for `help` output.
-	JSONExample() map[string]any
+	// JSONExamples returns one or more request examples for `help` output.
+	// Each example is a fully-formed JSON request body as a map.
+	JSONExamples() []map[string]any
 
 	// HandlePlaintext parses the tail of a plaintext request (tokens after
 	// the query keyword) and returns the styled reply.
