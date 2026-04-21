@@ -64,6 +64,7 @@ func main() {
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
+	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")
 	flag.Parse()
 
 	args := flag.Args()
@@ -77,9 +78,20 @@ func main() {
 
 	ctx := context.Background()
 
-	// Initialize MCP agent (with polling disabled for interactive use)
-	logger.Printf("Initializing agent %s...", agentID)
-	client, creds, err := game.InitializeMCPAgent(agentID, logger, ctx, *debug, true) // disablePolling=true
+	logger.Printf("Initializing agent %s via %s transport...", agentID, *transport)
+	var client game.GameClient
+	var creds *game.Credentials
+	var err error
+	switch strings.ToLower(*transport) {
+	case "ws", "websocket":
+		var wsClient *game.Client
+		wsClient, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		client = wsClient
+	case "mcp":
+		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug, true) // disablePolling=true
+	default:
+		log.Fatalf("unknown --transport %q (expected 'ws' or 'mcp')", *transport)
+	}
 	if err != nil {
 		log.Fatalf("Failed to initialize agent: %v", err)
 	}
@@ -199,6 +211,7 @@ func printUsage() {
 	fmt.Println("  --config <path>        Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
 	fmt.Println("  --registry-url <url>   Status registry URL (e.g., http://localhost:8081)")
 	fmt.Println("  --xp-tracking=false    Disable XP observation tracking (default: true)")
+	fmt.Println("  --transport <ws|mcp>   Game transport (default: ws)")
 	fmt.Println("\nThis tool provides an interactive terminal for playing Spacemolt.")
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
