@@ -12,8 +12,8 @@ import (
 
 // scanBraceDepth reports the net brace depth of s and whether the scan
 // ended inside a quoted string. Braces inside '"..."' or "'...'" are
-// ignored.
-func scanBraceDepth(s string) (depth int, inQuote bool, err error) {
+// ignored. A negative depth indicates more '}' than '{' in s.
+func scanBraceDepth(s string) (depth int, inQuote bool) {
 	var quoteRune rune
 	for _, r := range s {
 		if quoteRune != 0 {
@@ -31,7 +31,7 @@ func scanBraceDepth(s string) (depth int, inQuote bool, err error) {
 			depth--
 		}
 	}
-	return depth, quoteRune != 0, nil
+	return depth, quoteRune != 0
 }
 
 // hasTopLevelOpenBrace reports whether s contains a '{' outside of
@@ -61,6 +61,25 @@ func hasTopLevelOpenBrace(s string) bool {
 type Statement struct {
 	Raw    string
 	Tokens []string
+}
+
+// blockPreview returns a short, single-line summary of a block body
+// suitable for inclusion in a "🔁 Repeating {...}" status message.
+// Newlines within a statement's Raw are collapsed to spaces; statements
+// are joined with '; '; the result is truncated to roughly 60 runes
+// with a trailing ellipsis if longer.
+func blockPreview(stmts []Statement) string {
+	const maxLen = 60
+	parts := make([]string, len(stmts))
+	for i, s := range stmts {
+		parts[i] = strings.Join(strings.Fields(s.Raw), " ")
+	}
+	joined := strings.Join(parts, "; ")
+	if len([]rune(joined)) <= maxLen {
+		return joined
+	}
+	runes := []rune(joined)
+	return string(runes[:maxLen]) + "…"
 }
 
 // parseStatements splits body into top-level statements, separating on
@@ -311,7 +330,7 @@ func readLogicalCommand(line *liner.State) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	depth, inQuote, _ := scanBraceDepth(first)
+	depth, inQuote := scanBraceDepth(first)
 	if depth <= 0 && !inQuote {
 		return first, nil
 	}
@@ -322,7 +341,7 @@ func readLogicalCommand(line *liner.State) (string, error) {
 			return combined, perr
 		}
 		combined += "\n" + more
-		depth, inQuote, _ = scanBraceDepth(combined)
+		depth, inQuote = scanBraceDepth(combined)
 		if depth < 0 {
 			return combined, fmt.Errorf("unbalanced braces")
 		}

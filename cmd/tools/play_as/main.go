@@ -406,10 +406,11 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 				fmt.Println()
 				continue
 			}
+			preview := blockPreview(stmts)
 			if force {
-				fmt.Printf("🔁 Repeating block %d time(s) (force mode)...\n", count)
+				fmt.Printf("🔁 Repeating { %s } %d time(s) (force mode)...\n", preview, count)
 			} else {
-				fmt.Printf("🔁 Repeating block %d time(s)...\n", count)
+				fmt.Printf("🔁 Repeating { %s } %d time(s)...\n", preview, count)
 			}
 			runStatement := func(tokens []string) error {
 				return executeCommand(client, ctx, tokens, format)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -296,10 +297,7 @@ func TestScanBraceDepth(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			depth, inQuote, err := scanBraceDepth(tc.in)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
+			depth, inQuote := scanBraceDepth(tc.in)
 			if depth != tc.wantDepth {
 				t.Errorf("depth: got %d, want %d", depth, tc.wantDepth)
 			}
@@ -327,6 +325,30 @@ func TestHasTopLevelOpenBrace(t *testing.T) {
 		t.Run(tc.in, func(t *testing.T) {
 			if got := hasTopLevelOpenBrace(tc.in); got != tc.want {
 				t.Errorf("hasTopLevelOpenBrace(%q) = %v, want %v", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBlockPreview(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"single", "mine", "mine"},
+		{"multi", "travel sol_belt; mine; dock", "travel sol_belt; mine; dock"},
+		{"newlines collapsed", "travel sol_belt\n  mine\n  dock", "travel sol_belt; mine; dock"},
+		{"truncation", strings.Repeat("mine; ", 20), strings.Repeat("mine; ", 10) + "…"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stmts, err := parseStatements(tc.in)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			if got := blockPreview(stmts); got != tc.want {
+				t.Errorf("blockPreview = %q, want %q", got, tc.want)
 			}
 		})
 	}
