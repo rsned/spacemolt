@@ -71,3 +71,17 @@ func TestGoalReachedError_Error(t *testing.T) {
 		t.Errorf("Error() = %q, want %q", g.Error(), want)
 	}
 }
+
+func TestServerError_RoundTripsThroughErrorsAs(t *testing.T) {
+	// Producers: callers return *ServerError from waitForActionResponse.
+	// Consumers: unwrap via errors.As to read code/message.
+	var produced error = &ServerError{Code: "no_fuel", Message: "Insufficient fuel"}
+
+	var se *ServerError
+	if !errors.As(produced, &se) {
+		t.Fatalf("expected errors.As to unwrap *ServerError from %T", produced)
+	}
+	if se.Code != "no_fuel" || se.Message != "Insufficient fuel" {
+		t.Errorf("unexpected fields: %+v", se)
+	}
+}

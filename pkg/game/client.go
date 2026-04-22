@@ -3763,12 +3763,6 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 					// When trying to undock but already undocked
 					c.debugLogger.Printf("Already undocked (success)")
 					return nil
-				case "tank_full":
-					// Refuel when fuel is already at 100% — nothing to do,
-					// fuel is already at the goal state.
-					c.debugLogger.Printf("Fuel tank already full (success)")
-					return nil
-
 				// ACTION_PENDING: Another action is in-flight, wait for it to complete
 				case "action_pending":
 					finalResp = nil // not final, keep waiting
@@ -3838,14 +3832,15 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 				}
 			}
 
-			// Extract error message from payload
-			if msg, ok := resp.Payload["message"].(string); ok {
-				return fmt.Errorf("%s", msg)
+			// Extract error message and code from the payload and return
+			// a structured *ServerError so callers can classify via
+			// errors.As (see maybeGoalReached in server_errors.go).
+			code, _ := resp.Payload["code"].(string)
+			msg, _ := resp.Payload["message"].(string)
+			if code == "" && msg == "" {
+				return fmt.Errorf("action failed")
 			}
-			if code, ok := resp.Payload["code"].(string); ok {
-				return fmt.Errorf("error: %s", code)
-			}
-			return fmt.Errorf("action failed")
+			return &ServerError{Code: code, Message: msg}
 		case resp := <-actionResultChan:
 			finalResp = &resp
 			// action_result arrives after the server processes a pending action.
