@@ -73,7 +73,19 @@ func (gc *GameClock) tickLoop(ctx context.Context) {
 	}
 }
 
-// syncLoop calls get_notifications every 5 minutes to re-sync with the server.
+// syncLoop periodically reconciles the local clock with the server tick
+// observed on the client's State. Only adopts the server tick when it is
+// *ahead* of our local counter — never rolls backward.
+//
+// Rationale: over MCP, GetNotifications actively refreshes state.CurrentTick,
+// so this call typically pulls a fresh value forward. Over WS, GetNotifications
+// is a no-op (the server rejects it and tick is delivered via push events).
+// If no tick-bearing push arrived in the last interval, state.CurrentTick is
+// stale and will appear *behind* the local counter; overwriting would undo
+// real ticks (observed drift was exactly -clockSyncInterval/clockTickInterval
+// every cycle). A monotonic clock is the right default — the 10s local ticker
+// matches the server's tick rate (SleepTick), so unsynced drift is bounded and
+// the next tick-bearing response will pull us forward.
 func (gc *GameClock) syncLoop(ctx context.Context, client GameClient, logger *log.Logger) {
 	ticker := time.NewTicker(clockSyncInterval)
 	defer ticker.Stop()
@@ -89,9 +101,9 @@ func (gc *GameClock) syncLoop(ctx context.Context, client GameClient, logger *lo
 			}
 			serverTick := client.GetState().CurrentTick
 			localTick := gc.tick.Load()
-			gc.tick.Store(serverTick)
-			if drift := serverTick - localTick; drift != 0 {
-				logger.Printf("Game clock synced: tick %d (drift %+d)", serverTick, drift)
+			if serverTick > localTick {
+				gc.tick.Store(serverTick)
+				logger.Printf("Game clock synced: tick %d (drift %+d)", serverTick, serverTick-localTick)
 			}
 		}
 	}

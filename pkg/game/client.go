@@ -1012,17 +1012,16 @@ func (c *Client) GetStatus(ctx context.Context) error {
 	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// GetNotifications retrieves pending notifications and the current tick/timestamp.
-// Sends get_notifications to the server and waits for the response which updates
-// CurrentTick via handleResponse.
-func (c *Client) GetNotifications(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
-		Type:      "get_notifications",
-		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
-	}
-	return c.waitForActionResponse(ctx, SleepTick)
+// GetNotifications is a no-op for the WebSocket client.
+//
+// The WS server rejects get_notifications ("not needed over WebSocket") because
+// tick, chat, trade, combat, and other notifications are delivered as push
+// events in real time (see handleResponse / TypeTick). Callers that poll this
+// method for tick freshness (e.g., GameClock.syncLoop, agent runner) can rely
+// on the pushed state instead; we return nil so shared code paths keep working
+// without logging spurious errors.
+func (c *Client) GetNotifications(_ context.Context) error {
+	return nil
 }
 
 // GetListings requests market listings for the current station.
@@ -1272,6 +1271,18 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	state := c.GetState()
 	if !state.Doc {
 		return fmt.Errorf("must be docked at station to deposit items")
+	}
+
+	// Refresh cargo from the server before iterating. Many responses update
+	// state.Ship.Cargo as a side effect, but some flows (e.g. running
+	// deposit_all right after login) leave the client-side cargo slice empty
+	// even when the server's cargo is full. Ask explicitly and then read the
+	// freshly-parsed state.
+	if err := c.GetCargo(ctx); err != nil {
+		c.debugLogger.Printf("DepositAllItems: get_cargo refresh failed: %v", err)
+		// Fall through and try with whatever state we have.
+	} else {
+		state = c.GetState()
 	}
 
 	if len(state.Ship.Cargo) == 0 {
@@ -1699,6 +1710,15 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			c.parseListingsData(resp.Payload)
 		}
+		// get_cargo returns type "ok" with cargo[] / used / capacity / available
+		// at the top level (not nested under "ship"), so parseShipData doesn't
+		// populate state.Ship.Cargo. Parse it here so callers like
+		// DepositAllItems see fresh cargo after a get_cargo refresh.
+		if _, hasCargo := resp.Payload["cargo"]; hasCargo {
+			if _, hasCapacity := resp.Payload["capacity"]; hasCapacity {
+				c.parseGetCargoData(resp.Payload)
+			}
+		}
 		// view_market returns type "ok" with items array in payload
 		// Only parse as market data if action is "view_market" to avoid
 		// misinterpreting other responses that have "items" (cargo, ships, etc)
@@ -2113,6 +2133,44 @@ func (c *Client) parseShipData(payload map[string]any) {
 		}
 		c.mu.Unlock()
 	}
+}
+
+// parseGetCargoData extracts the top-level cargo[]/used/capacity/available
+// fields from a get_cargo response and updates state.Ship.Cargo accordingly.
+// Unlike parseShipData this does not require a nested "ship" object; get_cargo
+// returns the cargo list directly at payload level.
+func (c *Client) parseGetCargoData(payload map[string]any) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	var resp serverapi.GetCargoResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return
+	}
+
+	cargo := make([]CargoItem, 0, len(resp.Cargo))
+	for _, item := range resp.Cargo {
+		cargo = append(cargo, CargoItemFromAPI(item))
+	}
+
+	legacy := make([]map[string]any, len(cargo))
+	for i, item := range cargo {
+		legacy[i] = map[string]any{
+			"item_id":  item.ItemID,
+			"quantity": item.Quantity,
+		}
+	}
+
+	c.mu.Lock()
+	c.state.Ship.Cargo = cargo
+	c.state.Ship.CargoUsed = float64(resp.Used)
+	if resp.Capacity > 0 {
+		c.state.Ship.CargoCapacity = float64(resp.Capacity)
+		c.state.MaxCargo = resp.Capacity
+	}
+	c.state.Cargo = legacy
+	c.mu.Unlock()
 }
 
 // parseInlineFuelAndHull extracts top-level fuel and hull fields from OK responses.

@@ -27,10 +27,11 @@ type ThresholdConfig struct {
 
 // IndicatorConfig defines text indicators for various states.
 type IndicatorConfig struct {
-	Docked   string `yaml:"docked"`
-	InSpace  string `yaml:"in_space"`
-	InCombat string `yaml:"in_combat"`
-	Cloaked  string `yaml:"cloaked"`
+	Docked       string `yaml:"docked"`
+	InSpace      string `yaml:"in_space"`
+	InCombat     string `yaml:"in_combat"`
+	Cloaked      string `yaml:"cloaked"`
+	Reconnecting string `yaml:"reconnecting"`
 }
 
 // PlayAsConfig is the top-level config file structure.
@@ -44,7 +45,7 @@ func defaultConfig() PlayAsConfig {
 		OutputFormat: "json",
 		Statusline: StatuslineConfig{
 			Enabled:  true,
-			Format:   "{agent} | {system} {poi} {dock} | {ship_class} | Hull:{hull} Shld:{shield} Fuel:{fuel} Cargo:{cargo} | Tick:{tick}",
+			Format:   "{agent} {conn} | {system} {poi} {dock} | {ship_class} | Hull:{hull} Shld:{shield} Fuel:{fuel} Cargo:{cargo} | Tick:{tick}",
 			BarStyle: "bar",
 			BarWidth: 6,
 			Thresholds: ThresholdConfig{
@@ -60,10 +61,11 @@ func defaultConfig() PlayAsConfig {
 				"Pirate Stronghold": "magenta",
 			},
 			Indicators: IndicatorConfig{
-				Docked:   "⚓Docked",
-				InSpace:  "🚀Space",
-				InCombat: "⚔COMBAT",
-				Cloaked:  "👻Cloak",
+				Docked:       "⚓Docked",
+				InSpace:      "🚀Space",
+				InCombat:     "⚔COMBAT",
+				Cloaked:      "👻Cloak",
+				Reconnecting: "⟳reconnecting",
 			},
 		},
 	}
@@ -143,6 +145,9 @@ func loadConfig(path string) PlayAsConfig {
 	}
 	if sl.Indicators.Cloaked != "" {
 		cfg.Statusline.Indicators.Cloaked = sl.Indicators.Cloaked
+	}
+	if sl.Indicators.Reconnecting != "" {
+		cfg.Statusline.Indicators.Reconnecting = sl.Indicators.Reconnecting
 	}
 
 	return cfg

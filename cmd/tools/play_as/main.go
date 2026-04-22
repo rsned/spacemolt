@@ -256,20 +256,35 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		if state := client.GetState(); state != nil && state.Player.ID != "" {
 			mboxIng.SetSelfID(state.Player.ID)
 		}
-
-		// Wire push handler for WS clients (no-op on MCP).
-		client.SetOnChatMessage(func(msg serverapi.ChatMessage) {
-			mboxIng.HandlePush(msg)
-		})
 	}
 
-	// Start background chat poller to display incoming messages.
-	// Also feeds polled messages into the mbox (covers MCP transport
-	// which doesn't receive server push events).
+	// Start background chat poller.
+	//
+	// On MCP: the poller is the primary source of chat — it prints new
+	// messages and ingests them into the mbox at SleepChatPoll interval.
+	//
+	// On WS: chat is delivered via push (SetOnChatMessage). The poller
+	// downgrades to a silent reconciler at 5× the interval, backfilling the
+	// mbox with anything missed during a reconnect window without duplicating
+	// the push-driven terminal output.
 	poller := newChatPoller(client, ctx, username)
 	poller.ingester = mboxIng // nil-safe: chatPoller checks before calling
+	if _, isWS := client.(*game.Client); isWS {
+		poller.interval = game.SleepChatPoll * 5
+		poller.silent = true
+	}
 	poller.start()
 	defer poller.stop()
+
+	// Wire the push handler (no-op on MCP, which has no push channel).
+	// On WS the callback is responsible for both printing the message and
+	// ingesting it into the mbox — the poller is silent in that mode.
+	client.SetOnChatMessage(func(msg serverapi.ChatMessage) {
+		if mboxIng != nil {
+			mboxIng.HandlePush(msg)
+		}
+		poller.displayMessage(msg.Channel, msg)
+	})
 
 	format := outputFormat(cfg.OutputFormat)
 
@@ -1341,6 +1356,13 @@ var styledErrors = map[[2]string]string{
 
 // formatError returns a friendly error message in styled mode, or the raw error otherwise.
 func formatError(err error, command string, format outputFormat) string {
+	// If the transport is currently disconnected, the underlying error is
+	// almost always "send failed" / "not connected" / request-timeout noise
+	// that tells the user nothing useful. Replace it with a hint that the
+	// reconnect loop is already running.
+	if globalClient != nil && !globalClient.IsConnected() {
+		return "⟳ reconnecting, retry in a moment"
+	}
 	if format == formatStyled {
 		msg := err.Error()
 		for key, friendly := range styledErrors {
@@ -4724,14 +4746,25 @@ func mboxTruncate(s string, max int) string {
 }
 
 // chatPoller periodically polls chat channels and prints new messages.
+//
+// Over MCP the poller is the primary source of chat: interval defaults to
+// SleepChatPoll, silent is false, and each new message is printed + ingested.
+//
+// Over WebSocket, chat is delivered as push events; the poller runs in
+// "reconciler" mode (longer interval, silent=true) to backfill the mbox with
+// anything missed during a ~15s reconnect window. Printing to the terminal is
+// handled from the SetOnChatMessage push callback instead — see wiring in
+// runREPL.
 type chatPoller struct {
 	client   game.GameClient
 	ctx      context.Context
 	cancel   context.CancelFunc
 	seen     map[string]bool // Message IDs already displayed.
 	mu       sync.Mutex
-	username string // Our own username, to skip own messages.
+	username string         // Our own username, to skip own messages.
 	ingester *mbox.Ingester // Optional: ingest polled messages into mbox.
+	interval time.Duration  // Poll interval (defaults to SleepChatPoll).
+	silent   bool           // When true, ingest only; don't print to terminal.
 }
 
 // activeChatChannels returns the channels that should be polled based on player state.
@@ -4764,6 +4797,7 @@ func newChatPoller(client game.GameClient, ctx context.Context, username string)
 		cancel:   cancel,
 		seen:     make(map[string]bool),
 		username: username,
+		interval: game.SleepChatPoll,
 	}
 }
 
@@ -4771,8 +4805,12 @@ func (cp *chatPoller) start() {
 	// Seed seen messages so we don't replay history on startup.
 	cp.seedSeen()
 
+	interval := cp.interval
+	if interval <= 0 {
+		interval = game.SleepChatPoll
+	}
 	go func() {
-		ticker := time.NewTicker(game.SleepChatPoll)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -4801,7 +4839,7 @@ func (cp *chatPoller) seedSeen() {
 	}
 }
 
-// poll fetches new messages from all channels and prints them.
+// poll fetches new messages from all channels and (unless silent) prints them.
 func (cp *chatPoller) poll() {
 	for _, ch := range activeChatChannels(cp.client) {
 		msgs := cp.fetchMessages(ch)
@@ -4820,48 +4858,61 @@ func (cp *chatPoller) poll() {
 			}
 		}
 
+		if cp.silent {
+			continue
+		}
+
 		// Messages come newest-first; reverse to print chronologically.
 		slices.Reverse(msgs)
+		for _, m := range msgs {
+			cp.displayMessage(ch, m)
+		}
+	}
+}
 
-		// Get current system ID for filtering system/local chat.
+// displayMessage renders one chat message to the terminal, applying dedup,
+// self-skip, and system/local target-system filtering. Shared between the
+// polling path (MCP primary) and the WS push callback.
+func (cp *chatPoller) displayMessage(channel string, m serverapi.ChatMessage) {
+	if channel == "" {
+		channel = m.Channel
+	}
+
+	cp.mu.Lock()
+	if cp.seen[m.ID] {
+		cp.mu.Unlock()
+		return
+	}
+	cp.seen[m.ID] = true
+	cp.mu.Unlock()
+
+	// Skip our own messages.
+	if strings.EqualFold(m.Sender, cp.username) {
+		return
+	}
+
+	// Filter system/local messages by target system.
+	if channel == "system" || channel == "local" {
 		currentSystemID := ""
 		if globalClient != nil {
 			if state := globalClient.GetState(); state != nil {
 				currentSystemID = state.System.ID
 			}
 		}
-
-		cp.mu.Lock()
-		for _, m := range msgs {
-			if cp.seen[m.ID] {
-				continue
-			}
-			cp.seen[m.ID] = true
-
-			// Skip our own messages.
-			if strings.EqualFold(m.Sender, cp.username) {
-				continue
-			}
-
-			// Filter system/local messages by target system.
-			if (ch == "system" || ch == "local") && m.TargetID != "" && currentSystemID != "" {
-				if !strings.EqualFold(m.TargetID, currentSystemID) {
-					continue
-				}
-			}
-
-			// Debug: dump full JSON for specific senders to investigate filtering.
-			if m.Sender == "N Nagata" || m.Sender == "GunnyDraper" || m.Sender == "Chrisjen Avasarala" {
-				raw, _ := json.MarshalIndent(m, "  ", "  ")
-				fmt.Printf("\r  DEBUG POLLER [%s]:\n  %s\n", m.Sender, string(raw))
-			}
-
-			color := channelColors[ch]
-			reset := "\033[0m"
-			fmt.Printf("\r%s[%s]%s %s: %s\n", color, ch, reset, m.Sender, m.Content)
+		if m.TargetID != "" && currentSystemID != "" && !strings.EqualFold(m.TargetID, currentSystemID) {
+			return
 		}
-		cp.mu.Unlock()
 	}
+
+	// Debug: dump full JSON for specific senders to investigate filtering.
+	if m.Sender == "N Nagata" || m.Sender == "GunnyDraper" || m.Sender == "Chrisjen Avasarala" {
+		raw, _ := json.MarshalIndent(m, "  ", "  ")
+		fmt.Printf("\r  DEBUG POLLER [%s]:\n  %s\n", m.Sender, string(raw))
+	}
+
+	color := channelColors[channel]
+	reset := "\033[0m"
+	fmt.Printf("\r%s[%s]%s %s: %s\n", color, channel, reset, m.Sender, m.Content)
 }
 
 func (cp *chatPoller) fetchMessages(channel string) []serverapi.ChatMessage {

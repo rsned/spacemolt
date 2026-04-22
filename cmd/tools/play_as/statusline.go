@@ -188,6 +188,7 @@ func renderStatusline(client game.GameClient, cfg PlayAsConfig, agentID string) 
 		// Conditional indicators
 		"combat": combatIndicator(state, sl),
 		"cloak":  cloakIndicator(state, sl),
+		"conn":   connIndicator(client, sl),
 		"nearby": fmt.Sprintf("%d", len(state.Nearby)),
 	}
 
@@ -230,6 +231,20 @@ func cloakIndicator(state *game.State, sl StatuslineConfig) string {
 		return colorize(sl.Indicators.Cloaked, "cyan")
 	}
 	return ""
+}
+
+// connIndicator returns the reconnecting indicator if the client's transport
+// is currently disconnected, empty otherwise. During a WS reconnect window
+// (~15s) this gives the user a visible signal that command errors are expected.
+func connIndicator(client game.GameClient, sl StatuslineConfig) string {
+	if client.IsConnected() {
+		return ""
+	}
+	ind := sl.Indicators.Reconnecting
+	if ind == "" {
+		ind = "⟳reconnecting"
+	}
+	return colorize(ind, "yellow")
 }
 
 // tickString returns the current tick from the game clock if available,
