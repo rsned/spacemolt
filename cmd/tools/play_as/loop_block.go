@@ -174,6 +174,12 @@ func parseLoopHeader(stmt Statement) (count int, force bool, body string, isBloc
 	if idx >= len(tokens) {
 		return 0, false, "", false, fmt.Errorf("loop: missing count")
 	}
+	// If the user wrote `loop {` (forgetting the count), say so explicitly —
+	// "invalid count \"{\"" is confusing because the brace is the block opener,
+	// not an attempted count.
+	if tokens[idx] == "{" {
+		return 0, false, "", false, fmt.Errorf("loop: missing count before '{' (expected 'loop [-f] <count> { ... }')")
+	}
 	n, cerr := strconv.Atoi(tokens[idx])
 	if cerr != nil || n < 1 {
 		return 0, false, "", false, fmt.Errorf("loop: invalid count %q (must be a positive integer)", tokens[idx])

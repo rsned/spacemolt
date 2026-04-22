@@ -112,6 +112,7 @@ func TestParseLoopHeader(t *testing.T) {
 		{"missing body", "loop 5", 0, false, "", false, true},
 		{"missing body after -f", "loop -f 5", 0, false, "", false, true},
 		{"unclosed block", "loop 5 { mine", 0, false, "", false, true},
+		{"missing count before brace", "loop { mine }", 0, false, "", false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -139,6 +140,17 @@ func TestParseLoopHeader(t *testing.T) {
 				t.Errorf("isBlock = %v, want %v", isBlock, tc.wantBlock)
 			}
 		})
+	}
+}
+
+func TestParseLoopHeader_MissingCountBraceMessage(t *testing.T) {
+	stmt := Statement{Raw: "loop { mine }", Tokens: splitArgs("loop { mine }")}
+	_, _, _, _, err := parseLoopHeader(stmt)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing count") || !strings.Contains(err.Error(), "{") {
+		t.Errorf("error should mention missing count and the brace, got: %v", err)
 	}
 }
 
