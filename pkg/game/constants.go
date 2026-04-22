@@ -38,6 +38,20 @@ const (
 	// tolerate before force-closing the socket to trigger a reconnect. Two
 	// failures means ~30s of unresponsiveness (20s interval + 10s timeout).
 	PingMaxConsecutiveFailures = 2
+
+	// SessionContentionMinUptime is the threshold under which a connection
+	// that just died is considered "short-lived" for session-contention
+	// detection. Healthy reconnects normally stay up for minutes; if a
+	// fresh connection drops in <30s we're almost certainly being kicked.
+	SessionContentionMinUptime = 30 * time.Second
+
+	// SessionContentionMaxShortLived is how many consecutive short-lived
+	// connects we accept before concluding another client is logged in
+	// with the same credentials. The server does not send a structured
+	// kick notification — it just closes the socket — so we detect the
+	// pattern heuristically and stop the reconnect loop rather than
+	// ping-pong kicking the other session indefinitely.
+	SessionContentionMaxShortLived = 2
 )
 
 // Hull percentage thresholds

@@ -10,6 +10,7 @@ import (
 	"maps"
 	"math/rand/v2"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -153,8 +154,14 @@ type ReconnectingHandler struct {
 	handler      MessageHandler
 	ctx          context.Context
 	logger       *log.Logger
-	reconnecting atomic.Bool   // Prevents multiple concurrent reconnections
+	reconnecting atomic.Bool    // Prevents multiple concurrent reconnections
 	wg           sync.WaitGroup // Track reconnection goroutine lifecycle
+
+	// Session-contention detection. Counts consecutive reconnects whose
+	// prior connection died in under SessionContentionMinUptime. Cleared
+	// whenever a connection survives long enough. See onSessionContention.
+	shortLivedCount     int
+	onSessionContention func(consecutiveShortLived int, lastUptime time.Duration)
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -165,6 +172,15 @@ func NewReconnectingHandler(client *Client, handler MessageHandler, ctx context.
 		ctx:     ctx,
 		logger:  logger,
 	}
+}
+
+// SetOnSessionContention overrides the default behavior (process exit with
+// code 2) that fires when SessionContentionMaxShortLived consecutive
+// reconnects die in under SessionContentionMinUptime — the signature of
+// another client fighting us for the same credentials. Tests set this to
+// capture the event without killing the test process.
+func (r *ReconnectingHandler) SetOnSessionContention(fn func(consecutiveShortLived int, lastUptime time.Duration)) {
+	r.onSessionContention = fn
 }
 
 func (r *ReconnectingHandler) OnConnected(state *State) {
@@ -180,16 +196,40 @@ func (r *ReconnectingHandler) OnMessage(resp protocol.Response) {
 }
 
 func (r *ReconnectingHandler) OnDisconnected(err error) {
-	// Notify wrapped handler first
+	// Snapshot how long the dying connection lived BEFORE Reconnect resets
+	// connectTime. Used to decide whether we're in a session-contention loop.
+	uptime := r.client.Uptime()
+
 	if r.handler != nil {
 		r.handler.OnDisconnected(err)
 	}
 
 	// Only start reconnection if not already reconnecting
-	if r.reconnecting.CompareAndSwap(false, true) {
-		r.wg.Add(1)
-		go r.attemptReconnection()
+	if !r.reconnecting.CompareAndSwap(false, true) {
+		return
 	}
+
+	if uptime > 0 && uptime < SessionContentionMinUptime {
+		r.shortLivedCount++
+	} else {
+		r.shortLivedCount = 0
+	}
+
+	if r.shortLivedCount >= SessionContentionMaxShortLived {
+		r.reconnecting.Store(false) // not actually reconnecting
+		r.logger.Printf("Session contention detected: %d consecutive connects died in under %v (last uptime %v).",
+			r.shortLivedCount, SessionContentionMinUptime, uptime.Round(time.Millisecond))
+		r.logger.Printf("Another client is likely logged in with the same credentials.")
+		r.logger.Printf("Stop other clients, or run one of them with --transport=mcp.")
+		if r.onSessionContention != nil {
+			r.onSessionContention(r.shortLivedCount, uptime)
+			return
+		}
+		os.Exit(2)
+	}
+
+	r.wg.Add(1)
+	go r.attemptReconnection()
 }
 
 func (r *ReconnectingHandler) attemptReconnection() {
@@ -3939,6 +3979,18 @@ func (c *Client) sendPingLoop(ctx context.Context) {
 			c.updateLastMessageTime()
 		}
 	}
+}
+
+// Uptime returns how long the current connection has been alive. Zero if
+// the client has never connected. Used by ReconnectingHandler to detect
+// the session-contention pattern (rapid back-to-back reconnects).
+func (c *Client) Uptime() time.Duration {
+	c.diagnosticMu.RLock()
+	defer c.diagnosticMu.RUnlock()
+	if c.connectTime.IsZero() {
+		return 0
+	}
+	return time.Since(c.connectTime)
 }
 
 // updateLastMessageTime updates the last message time for health monitoring
