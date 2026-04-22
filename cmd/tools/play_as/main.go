@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -4975,4 +4976,26 @@ func (cp *chatPoller) fetchMessages(channel string) []serverapi.ChatMessage {
 		return nil
 	}
 	return resp.Messages
+}
+
+// isTankFullError reports whether err is the server's "fuel tank already
+// full" condition. The shape has varied across refactors — legacy callers
+// saw a plain error whose text contained "tank_full"; after the goal-reached
+// work, Refuel may return a structured *game.ServerError{Code:"tank_full"}
+// or (once Task 4 lands) a *game.GoalReachedError{Code:"tank_full"}. This
+// helper accepts all three so explore/auto-explore don't flap between
+// migrations.
+func isTankFullError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var se *game.ServerError
+	if errors.As(err, &se) && se.Code == "tank_full" {
+		return true
+	}
+	var goal *game.GoalReachedError
+	if errors.As(err, &goal) && goal.Code == "tank_full" {
+		return true
+	}
+	return strings.Contains(err.Error(), "tank_full")
 }

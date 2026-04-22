@@ -151,7 +151,7 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 					if err := client.Refuel(ctx); err != nil {
 						// Tank-full is an expected "error" here, not worth
 						// surfacing. Only print on unexpected failures.
-						if !strings.Contains(err.Error(), "tank_full") {
+						if !isTankFullError(err) {
 							if format == formatStyled {
 								fmt.Printf("  Refuel warning: %v\n", err)
 							}

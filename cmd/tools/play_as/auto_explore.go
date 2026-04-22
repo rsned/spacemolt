@@ -211,7 +211,7 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format ou
 		fmt.Printf("  Fuel low (%.0f%%) — burning cargo fuel_cell via refuel command\n", fuelPct)
 	}
 	if err := client.Refuel(ctx); err != nil {
-		if !strings.Contains(err.Error(), "tank_full") {
+		if !isTankFullError(err) {
 			if format == formatStyled {
 				fmt.Printf("  Refuel warning: %v\n", err)
 			}
