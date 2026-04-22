@@ -3893,9 +3893,54 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	}
 }
 
-// showLastResponse prints the most recent server response.
+// rawJSONKeyForCommand maps a REPL command name to the storage key the game
+// client uses for its response payload (see pkg/game/client.go storeRawJSON).
+// simpleCommand prefers this key over "_last" because "_last" is a single
+// shared slot that gets clobbered by any concurrent command response — in
+// particular the silent background chat poller on WS, whose get_chat_history
+// reply can overwrite "_last" between a foreground command finishing and the
+// REPL reading the result.
+var rawJSONKeyForCommand = map[string]string{
+	"ship":             "ship",
+	"get_ship":         "ship",
+	"cargo":            "cargo",
+	"get_cargo":        "cargo",
+	"status":           "status",
+	"get_status":       "status",
+	"system":           "system",
+	"get_system":       "system",
+	"poi":              "poi",
+	"get_poi":          "poi",
+	"storage":          "storage",
+	"view_storage":     "storage",
+	"listings":         "listings",
+	"view_market":      "market",
+	"market":           "market",
+	"orders":           "orders",
+	"view_orders":      "orders",
+	"missions":         "missions",
+	"get_missions":     "missions",
+	"active_missions":  "active_missions",
+	"chat_history":     "chat_history",
+	"get_chat_history": "chat_history",
+	"survey":           "survey",
+	"survey_system":    "survey",
+}
+
+// lookupRawJSON tries the command-specific storage key first, then falls back
+// to "_last" when no specific key is registered.
+func lookupRawJSON(client game.GameClient, command string) []byte {
+	if key := rawJSONKeyForCommand[strings.ToLower(command)]; key != "" {
+		if raw := client.GetRawJSON(key); len(raw) > 0 {
+			return raw
+		}
+	}
+	return client.GetRawJSON("_last")
+}
+
+// showLastResponse prints the most recent server response for command.
 func showLastResponse(client game.GameClient, format outputFormat, command string) {
-	if raw := client.GetRawJSON("_last"); len(raw) > 0 {
+	if raw := lookupRawJSON(client, command); len(raw) > 0 {
 		printResponse(raw, format, command)
 	}
 }
@@ -3905,7 +3950,7 @@ func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx c
 	if err := fn(ctx); err != nil {
 		// Even on error, show the server's response for debugging/JSON mode
 		// The response contains: action, code, message, command, tick
-		if raw := client.GetRawJSON("_last"); len(raw) > 0 {
+		if raw := lookupRawJSON(client, command); len(raw) > 0 {
 			printResponse(raw, format, command)
 		}
 		return err

@@ -2932,13 +2932,38 @@ func (c *Client) GetMarketListings() []MarketListing {
 	return result
 }
 
+// pushOnlyResponseTypes are server-initiated events that are never a reply to
+// a client command. They get their own dedicated parsers/callbacks and must
+// NOT overwrite the "_last" raw JSON slot — otherwise interactive tools like
+// play_as see "last response" flip to a random push event (tick, incoming
+// chat, a combat update, etc.) between the moment their command returns and
+// the moment they read _last.
+var pushOnlyResponseTypes = map[string]struct{}{
+	protocol.TypeTick:               {},
+	protocol.TypeStateUpdate:        {},
+	protocol.TypeChatMessage:        {},
+	protocol.TypeCombatUpdate:       {},
+	protocol.TypePirateWarning:      {},
+	protocol.TypePoliceWarning:      {},
+	protocol.TypePlayerDied:         {},
+	protocol.TypeScanDetected:       {},
+	protocol.TypeTradeOfferReceived: {},
+	protocol.TypePilotlessShip:      {},
+	protocol.TypeReconnected:        {},
+	protocol.TypeSkillLevelUp:       {},
+}
+
 // storeRawJSON stores raw JSON payloads for key response types
 func (c *Client) storeRawJSON(resp protocol.Response) {
-	// Always cache the last response for interactive tools like play_as
-	if jsonData, err := json.Marshal(resp.Payload); err == nil {
-		c.rawJSONMu.Lock()
-		c.latestRawJSON["_last"] = jsonData
-		c.rawJSONMu.Unlock()
+	// Cache the last response for interactive tools like play_as — but skip
+	// unsolicited push events (see pushOnlyResponseTypes) so they don't clobber
+	// the reply the caller is about to read.
+	if _, isPush := pushOnlyResponseTypes[resp.Type]; !isPush {
+		if jsonData, err := json.Marshal(resp.Payload); err == nil {
+			c.rawJSONMu.Lock()
+			c.latestRawJSON["_last"] = jsonData
+			c.rawJSONMu.Unlock()
+		}
 	}
 
 	// Only store specific response types that are useful for data collection
@@ -3692,8 +3717,17 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
 				pendingCmd, _ := resp.Payload["command"].(string)
 				c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
-				// Reset deadline: give a full timeout window for the action to complete
-				deadline = time.After(timeout)
+				// Reset deadline: pending actions resolve on the server's next
+				// tick (~SleepTick). The caller's timeout may be SleepTick
+				// itself, which leaves ~0 margin for scheduling/network jitter
+				// and intermittently times out just before action_result/
+				// action_error arrives. SleepLong (2×SleepTick) gives ~10s of
+				// slack while still bounding hangs.
+				reset := timeout
+				if reset < SleepLong {
+					reset = SleepLong
+				}
+				deadline = time.After(reset)
 				continue
 			}
 			// Check if this is a jump/travel in-progress response (not yet arrived)
@@ -3729,6 +3763,11 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 					// When trying to undock but already undocked
 					c.debugLogger.Printf("Already undocked (success)")
 					return nil
+				case "tank_full":
+					// Refuel when fuel is already at 100% — nothing to do,
+					// fuel is already at the goal state.
+					c.debugLogger.Printf("Fuel tank already full (success)")
+					return nil
 
 				// ACTION_PENDING: Another action is in-flight, wait for it to complete
 				case "action_pending":
@@ -3736,7 +3775,11 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 					pendingCmd, _ := resp.Payload["pending_command"].(string)
 					c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
 					// Reset deadline and continue listening for the real response
-					deadline = time.After(timeout)
+					reset := timeout
+					if reset < SleepLong {
+						reset = SleepLong
+					}
+					deadline = time.After(reset)
 					continue
 
 				// INFORMATIONAL: Agent should adapt strategy but not fail
