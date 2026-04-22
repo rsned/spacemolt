@@ -85,3 +85,22 @@ func TestServerError_RoundTripsThroughErrorsAs(t *testing.T) {
 		t.Errorf("unexpected fields: %+v", se)
 	}
 }
+
+func TestMaybeGoalReached_WrapsMineCargoFull(t *testing.T) {
+	// Mirrors the exact error shape waitForActionResponse produces
+	// after Task 2: *ServerError for any non-benign code.
+	raw := error(&ServerError{Code: "no_cargo_space", Message: "Cargo hold is full"})
+
+	out := maybeGoalReached("mine", raw)
+
+	var goal *GoalReachedError
+	if !errors.As(out, &goal) {
+		t.Fatalf("mine + no_cargo_space should become *GoalReachedError, got %T (%v)", out, out)
+	}
+	if goal.Command != "mine" {
+		t.Errorf("goal.Command = %q, want %q", goal.Command, "mine")
+	}
+	if goal.Code != "no_cargo_space" {
+		t.Errorf("goal.Code = %q, want %q", goal.Code, "no_cargo_space")
+	}
+}

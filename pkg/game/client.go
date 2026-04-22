@@ -873,14 +873,10 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 
 // Mine mines resources at the current location
 func (c *Client) Mine(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	return c.sendAndWaitGoalable(ctx, protocol.Message{
 		Type:      "mine",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
-	}
-	// Use longer timeout since mining can take multiple ticks to start
-	return c.waitForActionResponse(ctx, SleepActionStartTimeout)
+	}, SleepActionStartTimeout)
 }
 
 // Attack attacks a target player or NPC
@@ -3795,10 +3791,6 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 					c.debugLogger.Printf("Insufficient credits")
 					return fmt.Errorf("insufficient credits - need to earn money first")
 
-				case "no_cargo_space":
-					c.debugLogger.Printf("Cargo hold full")
-					return fmt.Errorf("cargo hold full - dock at station to sell items")
-
 				case "missing_materials":
 					c.debugLogger.Printf("Missing crafting materials")
 					return fmt.Errorf("missing required materials for crafting")
@@ -3868,6 +3860,23 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 			return ctx.Err()
 		}
 	}
+}
+
+// sendAndWaitGoalable sends msg and waits for its completion. When
+// the server replies with an error whose (msg.Type, code) pair is in
+// goalReachedCodes, the returned error is *GoalReachedError instead
+// of the plain *ServerError — signalling to the caller (typically
+// the play_as loop executor) that the command's goal is already
+// achieved and the enclosing loop should exit cleanly.
+//
+// Use this in place of the Send+waitForActionResponse pair for any
+// command method that has an entry in goalReachedCodes (e.g. Mine,
+// Refuel, Repair).
+func (c *Client) sendAndWaitGoalable(ctx context.Context, msg protocol.Message, timeout time.Duration) error {
+	if err := c.Send(ctx, msg); err != nil {
+		return err
+	}
+	return maybeGoalReached(msg.Type, c.waitForActionResponse(ctx, timeout))
 }
 
 // waitForInitialResponse waits for the first OK or error response from the server.
