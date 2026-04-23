@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -1283,7 +1284,11 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 
 	if len(state.Ship.Cargo) == 0 {
 		fmt.Printf("📦 Cargo is empty, nothing to deposit\n")
-		return nil // Nothing to deposit
+		return &GoalReachedError{
+			Command: "deposit_all",
+			Code:    "empty_cargo",
+			Message: "Cargo is already empty",
+		}
 	}
 
 	fmt.Printf("📥 Depositing %d cargo items to storage...\n", len(state.Ship.Cargo))
@@ -1330,6 +1335,15 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 
 		// Deposit the current quantity (not the snapshot quantity)
 		if err := c.DepositItems(ctx, item.ItemID, currentQty); err != nil {
+			var se *ServerError
+			if errors.As(err, &se) && se.Code == "empty_cargo" {
+				fmt.Printf("📦 Cargo now empty after %d deposit(s)\n", successfulDeposits)
+				return &GoalReachedError{
+					Command: "deposit_all",
+					Code:    "empty_cargo",
+					Message: "Cargo is empty",
+				}
+			}
 			fmt.Printf("   [%d/%d] ✗ Failed to deposit %.0f x %s: %v\n", i+1, len(state.Ship.Cargo), currentQty, item.ItemID, err)
 			c.debugLogger.Printf("Failed to deposit %s: %v", item.ItemID, err)
 			depositErrors++
