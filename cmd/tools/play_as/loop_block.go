@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 
 	"github.com/peterh/liner"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // scanBraceDepth reports the net brace depth of s and whether the scan
@@ -295,6 +297,16 @@ func executeLoop(
 				err = runStatement(stmt.Tokens)
 			}
 			if err != nil {
+				// A *game.GoalReachedError signals "this command's goal is
+				// already achieved." Treat it as a positive exit from the
+				// innermost enclosing loop: print a 🎯 line and return nil.
+				// -f is intentionally ignored — -f tolerates errors, not
+				// successes, and re-running a satisfied command is pointless.
+				var goal *game.GoalReachedError
+				if errors.As(err, &goal) {
+					fmt.Fprintf(out, "%s🎯 goal reached: %s → exiting loop\n", indent, goal.Message) //nolint:errcheck
+					return nil
+				}
 				errCount++
 				fmt.Fprintf(out, "%s❌ %v\n", indent, err)               //nolint:errcheck
 				if !force {

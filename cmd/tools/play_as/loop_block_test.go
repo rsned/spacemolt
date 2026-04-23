@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 func TestParseStatements(t *testing.T) {
@@ -363,5 +365,74 @@ func TestBlockPreview(t *testing.T) {
 				t.Errorf("blockPreview = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestExecuteLoop_GoalReachedExitsInnermost(t *testing.T) {
+	// Body is a single "mine" statement. The dispatcher returns nil
+	// for the first 4 calls, then *GoalReachedError on the 5th —
+	// simulating cargo filling on iteration 5 of 20.
+	body := mustParseStmts(t, "mine")
+	script := []error{nil, nil, nil, nil, &game.GoalReachedError{
+		Command: "mine",
+		Code:    "no_cargo_space",
+		Message: "Cargo hold is full",
+	}}
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 20, false, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("goal-reached should exit cleanly (nil), got %v", err)
+	}
+	// 5 calls total: 4 nil successes + the 1 goal-reached signal.
+	if len(*calls) != 5 {
+		t.Errorf("expected 5 calls (loop exits on goal-reached), got %d", len(*calls))
+	}
+}
+
+func TestExecuteLoop_GoalReachedExitsInnerLoopOuterContinues(t *testing.T) {
+	// Outer loop has 2 iterations; each runs: travel, inner loop of
+	// up to 40 mine, dock. Inner mine goal-reaches on iter 3 of the
+	// FIRST outer iteration AND iter 3 of the SECOND — so each outer
+	// iteration produces 1 travel + 3 mine + 1 dock = 5 calls. Two
+	// outer iterations = 10 calls. If the sentinel bled out to the
+	// outer loop we'd see fewer than 10.
+	body := mustParseStmts(t, "travel sol_belt; loop 40 mine; dock")
+	goal := &game.GoalReachedError{Command: "mine", Code: "no_cargo_space", Message: "Cargo hold is full"}
+	script := []error{
+		// outer iter 1: travel ok; mine nil, nil, goal; dock ok
+		nil, nil, nil, goal, nil,
+		// outer iter 2: travel ok; mine nil, nil, goal; dock ok
+		nil, nil, nil, goal, nil,
+	}
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 2, false, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("outer should succeed after inner goal-exits, got %v", err)
+	}
+	if len(*calls) != 10 {
+		t.Errorf("expected 10 calls (2×(travel+3mine+dock)), got %d", len(*calls))
+	}
+	want := []string{"travel", "mine", "mine", "mine", "dock", "travel", "mine", "mine", "mine", "dock"}
+	for i, w := range want {
+		if (*calls)[i][0] != w {
+			t.Errorf("call %d: got %q, want %q", i, (*calls)[i][0], w)
+		}
+	}
+}
+
+func TestExecuteLoop_GoalReachedIgnoresForceFlag(t *testing.T) {
+	// -f only tolerates errors; goal-reached is a success and still
+	// exits the innermost loop. `loop -f 20 mine` should stop on the
+	// first goal-reached, not power through.
+	body := mustParseStmts(t, "mine")
+	goal := &game.GoalReachedError{Command: "mine", Code: "no_cargo_space", Message: "Cargo hold is full"}
+	script := []error{nil, goal} // goal-reaches on iter 2
+	dispatch, calls := recordingDispatcher(script)
+	err := executeLoop(context.Background(), io.Discard, 20, true /* force */, body, 0, dispatch)
+	if err != nil {
+		t.Fatalf("goal-reached under -f should exit cleanly, got %v", err)
+	}
+	if len(*calls) != 2 {
+		t.Errorf("expected 2 calls (loop exits on goal-reached even with -f), got %d", len(*calls))
 	}
 }
