@@ -1366,13 +1366,10 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 
 // Refuel refills the ship's fuel tank at the current station
 func (c *Client) Refuel(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	return c.sendAndWaitGoalable(ctx, protocol.Message{
 		Type:      "refuel",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
-	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	}, SleepTick)
 }
 
 // Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
