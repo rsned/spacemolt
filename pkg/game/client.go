@@ -1375,13 +1375,10 @@ func (c *Client) Refuel(ctx context.Context) error {
 // Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
 // v0.240: optional params for item_id, quantity, and target (remote repair).
 func (c *Client) Repair(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	return c.sendAndWaitGoalable(ctx, protocol.Message{
 		Type:      "repair",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
-	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	}, SleepTick)
 }
 
 // RepairWith repairs using specific options (repair kits, remote target, etc.).
