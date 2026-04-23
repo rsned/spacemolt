@@ -3949,6 +3949,14 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 // simpleCommand executes a command, prints the server response, then waits.
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
 	if err := fn(ctx); err != nil {
+		// A *game.GoalReachedError means the command's goal is already
+		// satisfied (e.g. mine while cargo is full, refuel at 100%).
+		// In the standalone REPL case, print it as a ✓ rather than ❌.
+		var goal *game.GoalReachedError
+		if errors.As(err, &goal) {
+			fmt.Printf("✓ goal reached: %s\n", goal.Message)
+			return nil
+		}
 		// Even on error, show the server's response for debugging/JSON mode
 		// The response contains: action, code, message, command, tick
 		if raw := lookupRawJSON(client, command); len(raw) > 0 {
