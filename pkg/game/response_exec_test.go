@@ -202,4 +202,11 @@ func TestSubscribePush_CancelStopsDelivery(t *testing.T) {
 	if c.router.subCount() != 0 {
 		t.Errorf("push sub leaked: %d", c.router.subCount())
 	}
+
+	// Idempotent: a second cancel must not panic, must not change anything.
+	cancel()
+	c.router.dispatch(protocol.Response{Type: protocol.TypeChatMessage})
+	if got := atomic.LoadInt32(&count); got != 1 {
+		t.Errorf("after second cancel: expected 1 call, got %d", got)
+	}
 }
