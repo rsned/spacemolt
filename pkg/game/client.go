@@ -1299,10 +1299,21 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	// deposit_all right after login) leave the client-side cargo slice empty
 	// even when the server's cargo is full. Ask explicitly and then read the
 	// freshly-parsed state.
+	//
+	// GetCargo is fire-and-forget over the WebSocket, so Send returns before
+	// the reply is processed into state. Without a wait here the outer loop
+	// iterates stale cargo — we've seen this surface as "requested quantity
+	// 12 exceeds available 8" when the pre-refresh quantity no longer
+	// matches the server's.
 	if err := c.GetCargo(ctx); err != nil {
 		c.debugLogger.Printf("DepositAllItems: get_cargo refresh failed: %v", err)
 		// Fall through and try with whatever state we have.
 	} else {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(SleepQuick):
+		}
 		state = c.GetState()
 	}
 
@@ -1325,9 +1336,24 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 			continue
 		}
 
-		// Refresh state before each deposit to ensure we have current quantities
-		// This prevents "phantom item" errors where the snapshot shows items
-		// that were already deposited by previous iterations
+		// Check context before each deposit
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		// Wait before each deposit to avoid action_pending errors AND to let
+		// any in-flight server responses (from the previous deposit or the
+		// opening get_cargo) land in state before we snapshot it below.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(SleepQuick):
+		}
+
+		// Refresh state AFTER the wait so we pick up fresh quantities.
+		// Sampling before the wait can see a stale snapshot where a
+		// previously-deposited item still appears, or where an item we're
+		// about to deposit has a different quantity than the server holds.
 		currentState := c.GetState()
 
 		// Find this item in the current cargo and check actual quantity
@@ -1343,18 +1369,6 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 		if currentQty <= 0 {
 			fmt.Printf("   [%d/%d] ⊘ Skipping %s (no longer in cargo)\n", i+1, len(state.Ship.Cargo), item.ItemID)
 			continue
-		}
-
-		// Check context before each deposit
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		// Wait before each deposit to avoid action_pending errors
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(SleepQuick):
 		}
 
 		// Deposit the current quantity (not the snapshot quantity)
