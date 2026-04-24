@@ -554,8 +554,9 @@ func (c *Client) GetCargo(ctx context.Context) error {
 	// get_cargo returns type=ok with a "cargo" array; no "action" field.
 	// State.Ship.Cargo is populated by parseGetCargoData inside
 	// handleResponse, which runs BEFORE router dispatch (see client.go
-	// read loop). On nil error from execQuery, callers can read fresh
-	// State.Ship.Cargo without further synchronization.
+	// read loop). On nil error from execQuery the state write is visible
+	// to subsequent GetState() calls — no wall-clock sleep is needed,
+	// though GetState() still RLock()s as usual.
 	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("cargo"))
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
