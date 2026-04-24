@@ -103,7 +103,8 @@ type Client struct {
 	diagnosticMu      sync.RWMutex
 	goroutineID       int64 // Counter for tracking goroutine instances
 
-	router *responseRouter
+	router     *responseRouter
+	mutationMu sync.Mutex
 
 	sendOverride func(ctx context.Context, msg protocol.Message) error // Test hook
 

@@ -2,6 +2,8 @@ package game
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,9 +14,9 @@ import (
 // wired up — enough to exercise exec primitives without a WebSocket.
 // The client's Send is stubbed via sendOverride.
 //
-// As new exec primitives (execMutation, subscribePush) add Client-field
-// dependencies (e.g. c.mutationMu), extend this helper to initialize
-// them. Otherwise these tests will silently nil-panic on the new field.
+// mutationMu is a sync.Mutex and is zero-value usable — no explicit init
+// is needed. If subscribePush or future primitives add pointer or channel
+// fields to Client, extend this helper to initialize those fields.
 func newRouterTestClient(send func(ctx context.Context, msg protocol.Message) error) *Client {
 	c := &Client{
 		router:       newResponseRouter(),
@@ -90,5 +92,80 @@ func TestExecQuery_ContextCancel(t *testing.T) {
 	}
 	if c.router.subCount() != 0 {
 		t.Errorf("subscription leaked on ctx cancel: %d live", c.router.subCount())
+	}
+}
+
+func TestExecMutation_WaitsForTerminal(t *testing.T) {
+	var c *Client
+	c = newRouterTestClient(func(_ context.Context, _ protocol.Message) error {
+		// Simulate: first ok pending, then the action_result terminal.
+		go func() {
+			time.Sleep(5 * time.Millisecond)
+			c.router.dispatch(protocol.Response{
+				Type:    protocol.TypeOK,
+				Payload: map[string]any{"command": "deposit_items", "pending": true},
+			})
+			time.Sleep(5 * time.Millisecond)
+			c.router.dispatch(protocol.Response{
+				Type:    protocol.TypeActionResult,
+				Payload: map[string]any{"command": "deposit_items", "quantity": 5.0},
+			})
+		}()
+		return nil
+	})
+
+	resp, err := c.execMutation(
+		context.Background(),
+		protocol.Message{Type: "deposit_items"},
+		matchCommand("deposit_items"),
+		terminateOnAction,
+		1*time.Second,
+	)
+	if err != nil {
+		t.Fatalf("execMutation: %v", err)
+	}
+	if resp.Type != protocol.TypeActionResult {
+		t.Errorf("expected action_result, got %q", resp.Type)
+	}
+}
+
+func TestExecMutation_SerializesConcurrent(t *testing.T) {
+	var active int32
+	var peak int32
+	var c *Client
+	c = newRouterTestClient(func(_ context.Context, msg protocol.Message) error {
+		n := atomic.AddInt32(&active, 1)
+		if n > atomic.LoadInt32(&peak) {
+			atomic.StoreInt32(&peak, n)
+		}
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			c.router.dispatch(protocol.Response{
+				Type:    protocol.TypeActionResult,
+				Payload: map[string]any{"command": msg.Type},
+			})
+			atomic.AddInt32(&active, -1)
+		}()
+		return nil
+	})
+
+	var wg sync.WaitGroup
+	for i := range 3 {
+		_ = i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = c.execMutation(
+				context.Background(),
+				protocol.Message{Type: "deposit_items"},
+				matchCommand("deposit_items"),
+				terminateOnAction,
+				1*time.Second,
+			)
+		}()
+	}
+	wg.Wait()
+	if atomic.LoadInt32(&peak) > 1 {
+		t.Errorf("mutations ran in parallel (peak=%d)", peak)
 	}
 }
