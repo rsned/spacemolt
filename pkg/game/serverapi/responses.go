@@ -987,6 +987,11 @@ type ViewFactionStorageResponse struct {
 }
 
 // TravelResponse wraps the response from travel command.
+//
+// Also covers the "arrived" completion event (see client_api_monitor.go —
+// both "travel" and "arrived" map to this struct). Fields populated on the
+// initial ACK vs the arrival completion differ; XPGained only appears on
+// arrived (navigation + piloting skill XP).
 type TravelResponse struct {
 	Action                 string         `json:"action"`
 	POI                    string         `json:"poi,omitempty"`
@@ -997,6 +1002,7 @@ type TravelResponse struct {
 	OnlinePlayersCount     int            `json:"online_players_count,omitempty"`
 	OnlinePlayersTruncated bool           `json:"online_players_truncated,omitempty"`
 	OnlinePlayers          []NearbyPlayer `json:"online_players,omitempty"`
+	XPGained               map[string]int `json:"xp_gained,omitempty"`
 }
 
 // JumpResponse wraps the response from jump command.
