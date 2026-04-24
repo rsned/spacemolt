@@ -1313,11 +1313,9 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 		c.debugLogger.Printf("DepositAllItems: get_cargo refresh failed: %v", err)
 		// Fall through and try with whatever state we have.
 	} else {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(SleepQuick):
-		}
+		// GetCargo now blocks via execQuery until parseGetCargoData has
+		// populated State, so the snapshot here reflects fresh server
+		// cargo. The previous SleepQuick workaround is no longer needed.
 		state = c.GetState()
 	}
 
