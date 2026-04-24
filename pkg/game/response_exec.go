@@ -18,6 +18,8 @@ func (c *Client) execQuery(
 	timeout time.Duration,
 ) (protocol.Response, error) {
 	ch := make(chan protocol.Response, 1)
+	// Register BEFORE Send so the server's response can't land between
+	// the wire transmit and the subscribe call.
 	sub := c.router.registerQuery(match, ch)
 	defer c.router.unregister(sub)
 

@@ -11,6 +11,10 @@ import (
 // newRouterTestClient returns a *Client with only the response-router pieces
 // wired up — enough to exercise exec primitives without a WebSocket.
 // The client's Send is stubbed via sendOverride.
+//
+// As new exec primitives (execMutation, subscribePush) add Client-field
+// dependencies (e.g. c.mutationMu), extend this helper to initialize
+// them. Otherwise these tests will silently nil-panic on the new field.
 func newRouterTestClient(send func(ctx context.Context, msg protocol.Message) error) *Client {
 	c := &Client{
 		router:       newResponseRouter(),
