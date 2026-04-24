@@ -1,83 +1,66 @@
 package game
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
-// TestTerminateOnTypesMatch verifies that terminateOnTypes returns true for
-// any response whose Type field is one of the listed types.
-func TestTerminateOnTypesMatch(t *testing.T) {
-	term := terminateOnTypes(protocol.TypeOK, protocol.TypeActionError)
-
-	if !term(protocol.Response{Type: protocol.TypeOK}) {
-		t.Error("expected TypeOK to terminate")
+func TestTerminateOnAction_Result(t *testing.T) {
+	done, err := terminateOnAction(protocol.Response{Type: protocol.TypeActionResult})
+	if !done {
+		t.Error("expected action_result to terminate")
 	}
-	if !term(protocol.Response{Type: protocol.TypeActionError}) {
-		t.Error("expected TypeActionError to terminate")
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
 	}
 }
 
-// TestTerminateOnTypesMiss verifies that terminateOnTypes returns false for
-// a response whose Type is not in the list.
-func TestTerminateOnTypesMiss(t *testing.T) {
-	term := terminateOnTypes(protocol.TypeOK, protocol.TypeActionError)
-
-	if term(protocol.Response{Type: protocol.TypeMiningYield}) {
-		t.Error("expected TypeMiningYield not to terminate")
+func TestTerminateOnAction_Error(t *testing.T) {
+	resp := protocol.Response{
+		Type:    protocol.TypeActionError,
+		Payload: map[string]any{"message": "boom"},
 	}
-	if term(protocol.Response{Type: protocol.TypePOIArrival}) {
-		t.Error("expected TypePOIArrival not to terminate")
+	done, err := terminateOnAction(resp)
+	if !done {
+		t.Error("expected action_error to terminate")
 	}
-	if term(protocol.Response{}) {
-		t.Error("expected zero response not to terminate")
+	if err == nil {
+		t.Error("expected non-nil error")
 	}
 }
 
-// TestTerminateOnTypesSingle verifies that a single-type terminator works.
-func TestTerminateOnTypesSingle(t *testing.T) {
-	term := terminateOnTypes(protocol.TypePOIArrival)
-
-	if !term(protocol.Response{Type: protocol.TypePOIArrival}) {
-		t.Error("expected TypePOIArrival to terminate")
+func TestTerminateOnAction_Ok(t *testing.T) {
+	// ok with pending:true is intermediate, NOT terminal
+	resp := protocol.Response{
+		Type:    protocol.TypeOK,
+		Payload: map[string]any{"pending": true},
 	}
-	if term(protocol.Response{Type: protocol.TypeOK}) {
-		t.Error("expected TypeOK not to terminate")
+	done, err := terminateOnAction(resp)
+	if done {
+		t.Error("expected pending ok not to terminate")
 	}
-}
-
-// TestTerminateOnTypesEmpty verifies that an empty terminator never terminates.
-func TestTerminateOnTypesEmpty(t *testing.T) {
-	term := terminateOnTypes()
-
-	if term(protocol.Response{Type: protocol.TypeOK}) {
-		t.Error("expected empty terminateOnTypes never to match")
-	}
-	if term(protocol.Response{}) {
-		t.Error("expected empty terminateOnTypes never to match zero response")
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
 	}
 }
 
-// TestTerminateNever verifies that terminateNever always returns false.
-func TestTerminateNever(t *testing.T) {
-	if terminateNever(protocol.Response{Type: protocol.TypeOK}) {
-		t.Error("expected terminateNever to return false for TypeOK")
+func TestTerminateOnTypes(t *testing.T) {
+	term := terminateOnTypes(protocol.TypePOIArrival, protocol.TypeActionError)
+	if done, _ := term(protocol.Response{Type: protocol.TypePOIArrival}); !done {
+		t.Error("expected poi_arrival to terminate")
 	}
-	if terminateNever(protocol.Response{Type: protocol.TypePOIArrival}) {
-		t.Error("expected terminateNever to return false for TypePOIArrival")
+	if done, _ := term(protocol.Response{Type: protocol.TypeTick}); done {
+		t.Error("expected tick not to terminate")
 	}
-	if terminateNever(protocol.Response{}) {
-		t.Error("expected terminateNever to return false for zero response")
+	// ActionError variant returns done=true with non-nil error.
+	done, err := term(protocol.Response{
+		Type:    protocol.TypeActionError,
+		Payload: map[string]any{"message": "fail"},
+	})
+	if !done || err == nil {
+		t.Errorf("expected action_error to terminate with error, got done=%v err=%v", done, err)
 	}
-}
-
-// TestTerminateAlways verifies that terminateAlways always returns true.
-func TestTerminateAlways(t *testing.T) {
-	if !terminateAlways(protocol.Response{Type: protocol.TypeOK}) {
-		t.Error("expected terminateAlways to return true for TypeOK")
-	}
-	if !terminateAlways(protocol.Response{}) {
-		t.Error("expected terminateAlways to return true for zero response")
-	}
+	_ = errors.New
 }
