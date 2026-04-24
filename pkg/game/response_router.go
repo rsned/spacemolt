@@ -75,7 +75,13 @@ func (r *responseRouter) unregister(sub *subscription) {
 	defer r.mu.Unlock()
 	for i, s := range r.subs {
 		if s == sub {
-			r.subs = append(r.subs[:i], r.subs[i+1:]...)
+			// Clear the freed slot so the backing array doesn't retain
+			// the *subscription (and its respCh/handler closure) after
+			// length shrinks — matters once the router is on the hot
+			// read-loop path and unregister churn is high.
+			copy(r.subs[i:], r.subs[i+1:])
+			r.subs[len(r.subs)-1] = nil
+			r.subs = r.subs[:len(r.subs)-1]
 			return
 		}
 	}
