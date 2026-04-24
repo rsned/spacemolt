@@ -2302,9 +2302,26 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 
 		// Server blocks until travel completes.
-		_, err := client.Travel(ctx, target)
+		result, err := client.Travel(ctx, target)
 		if err != nil {
 			return err
+		}
+		// Compare server-reported arrival vs. our pre-travel estimate so
+		// we can spot drift in the estimator (distance/speed formula).
+		if est.valid && result != nil && result.ArrivalTick > 0 && result.StartTick > 0 {
+			actualTicks := int(result.ArrivalTick - result.StartTick)
+			delta := actualTicks - est.ticks
+			sign := "+"
+			if delta < 0 {
+				sign = "-"
+				delta = -delta
+			}
+			if actualTicks == est.ticks {
+				fmt.Printf("⏱ Actual: %d tick(s) — matches estimate\n", actualTicks)
+			} else {
+				fmt.Printf("⏱ Actual: %d tick(s) (~%ds) | estimate off by %s%d tick(s)\n",
+					actualTicks, actualTicks*10, sign, delta)
+			}
 		}
 		showLastResponse(client, format, cmd)
 		return nil

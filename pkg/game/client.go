@@ -798,11 +798,16 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 		c.mu.Unlock()
 	}
 
+	// Capture the start tick at the moment of the server ACK so callers can
+	// diff actual vs. estimated duration after arrival.
+	startTick := c.GetState().CurrentTick
+
 	// Compute timeout from arrival_tick if available, else use generous default.
 	timeout := 90 * time.Second
-	if arrivalTick, ok := resp.Payload["arrival_tick"].(float64); ok {
-		currentTick := c.GetState().CurrentTick
-		ticksRemaining := int64(arrivalTick) - currentTick
+	var arrivalTick int64
+	if at, ok := resp.Payload["arrival_tick"].(float64); ok {
+		arrivalTick = int64(at)
+		ticksRemaining := arrivalTick - startTick
 		if ticksRemaining < 1 {
 			ticksRemaining = 1
 		}
@@ -816,13 +821,15 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 	if err := c.waitForStateChange(ctx, func(s *State) bool {
 		return !s.Traveling
 	}, timeout); err != nil {
-		return &TravelResult{Canceled: true}, fmt.Errorf("travel to %s: %w", targetPOI, err)
+		return &TravelResult{Canceled: true, ArrivalTick: arrivalTick, StartTick: startTick}, fmt.Errorf("travel to %s: %w", targetPOI, err)
 	}
 
 	state := c.GetState()
 	return &TravelResult{
-		POI:      state.CurrentPOI,
-		Canceled: false,
+		POI:         state.CurrentPOI,
+		Canceled:    false,
+		ArrivalTick: arrivalTick,
+		StartTick:   startTick,
 	}, nil
 }
 
@@ -1925,6 +1932,15 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.mu.Unlock()
 
+	case protocol.TypeBattleAlert:
+		// Informational: someone else's battle is starting in the same
+		// system. We don't mutate our own state — the alert doesn't mean
+		// we're participating. Just log for visibility.
+		msg, _ := resp.Payload["message"].(string)
+		battleID, _ := resp.Payload["battle_id"].(string)
+		systemID, _ := resp.Payload["system_id"].(string)
+		c.debugLogger.Printf("[BATTLE ALERT] %s (battle=%s system=%s)", msg, battleID, systemID)
+
 	case protocol.TypeChatMessage:
 		var chatMsg serverapi.ChatMessage
 		if data, err := json.Marshal(resp.Payload); err == nil {
@@ -2964,6 +2980,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeStateUpdate:        {},
 	protocol.TypeChatMessage:        {},
 	protocol.TypeCombatUpdate:       {},
+	protocol.TypeBattleAlert:        {},
 	protocol.TypePirateWarning:      {},
 	protocol.TypePoliceWarning:      {},
 	protocol.TypePlayerDied:         {},

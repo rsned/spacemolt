@@ -274,9 +274,11 @@ type TravelProgress struct {
 
 // TravelResult contains the outcome of a completed Travel() call.
 type TravelResult struct {
-	POI      string // Final POI ID arrived at
-	POIName  string // Human-readable POI name (if available)
-	Canceled bool   // True if travel was interrupted (e.g., combat)
+	POI         string // Final POI ID arrived at
+	POIName     string // Human-readable POI name (if available)
+	Canceled    bool   // True if travel was interrupted (e.g., combat)
+	ArrivalTick int64  // Server-reported arrival tick from the initial ACK (0 if unknown)
+	StartTick   int64  // client.state.CurrentTick captured at the moment the server ACKed the travel
 }
 
 // JumpResult contains the outcome of a completed Jump() call.
