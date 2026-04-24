@@ -18,18 +18,26 @@ type stubGameClientForSimple struct {
 
 func (stubGameClientForSimple) GetRawJSON(string) []byte { return nil }
 
-func TestSimpleCommand_GoalReachedReturnsNil(t *testing.T) {
+func TestSimpleCommand_GoalReachedPropagates(t *testing.T) {
+	// simpleCommand must propagate *game.GoalReachedError unchanged so the
+	// loop executor and REPL dispatcher can both recognize and display it.
+	// Previously simpleCommand swallowed the sentinel and returned nil,
+	// which made the loop executor see "iteration succeeded" and keep
+	// running pointless mine-on-full-cargo iterations.
 	client := stubGameClientForSimple{}
-	fn := func(context.Context) error {
-		return &game.GoalReachedError{
-			Command: "mine",
-			Code:    "no_cargo_space",
-			Message: "Cargo hold is full",
-		}
+	want := &game.GoalReachedError{
+		Command: "mine",
+		Code:    "no_cargo_space",
+		Message: "Cargo hold is full",
 	}
+	fn := func(context.Context) error { return want }
 	err := simpleCommand(client, fn, context.Background(), 0, "mine", formatRaw)
-	if err != nil {
-		t.Fatalf("simpleCommand should return nil on GoalReachedError, got %v", err)
+	var goal *game.GoalReachedError
+	if !errors.As(err, &goal) {
+		t.Fatalf("simpleCommand should propagate *GoalReachedError, got %T (%v)", err, err)
+	}
+	if goal.Code != "no_cargo_space" {
+		t.Errorf("goal.Code = %q, want %q", goal.Code, "no_cargo_space")
 	}
 }
 

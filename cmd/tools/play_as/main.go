@@ -462,7 +462,14 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		// Execute command
 		startTime := time.Now()
 		if err := executeCommand(client, ctx, parts, format); err != nil {
-			fmt.Printf("❌ %s\n", formatError(err, command, format))
+			// *game.GoalReachedError is a success-style exit: the command's
+			// goal is already satisfied. Display it with ✓, not ❌.
+			var goal *game.GoalReachedError
+			if errors.As(err, &goal) {
+				fmt.Printf("✓ goal reached: %s\n", goal.Message)
+			} else {
+				fmt.Printf("❌ %s\n", formatError(err, command, format))
+			}
 		} else {
 			duration := time.Since(startTime)
 			fmt.Printf("✓ Completed in %v\n", duration)
@@ -3976,6 +3983,16 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 
 // simpleCommand executes a command, prints the server response, then waits.
 //
+// On *game.GoalReachedError simpleCommand PROPAGATES the sentinel back to
+// the caller. Two consumers need to see it:
+//   - executeLoop (in loop context) recognizes the sentinel and exits the
+//     innermost loop cleanly with a 🎯 line.
+//   - The REPL dispatcher (standalone) recognizes the sentinel and prints
+//     a ✓ line instead of ❌.
+// Previously simpleCommand printed ✓ itself and returned nil, which hid
+// the signal from executeLoop — the loop saw "iteration succeeded" and
+// ran the next one, and so on until the count was exhausted.
+//
 // Note: we intentionally do NOT pre-clear the command-specific raw-JSON
 // slot before calling fn. The shared-waiter race (a concurrent background
 // command's TypeOK response steals this caller's waiter) still exists, and
@@ -3984,13 +4001,11 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 // routing) is still pending.
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
 	if err := fn(ctx); err != nil {
-		// A *game.GoalReachedError means the command's goal is already
-		// satisfied (e.g. mine while cargo is full, refuel at 100%).
-		// In the standalone REPL case, print it as a ✓ rather than ❌.
+		// Propagate the goal-reached sentinel unchanged for the loop
+		// executor / REPL dispatcher to display.
 		var goal *game.GoalReachedError
 		if errors.As(err, &goal) {
-			fmt.Printf("✓ goal reached: %s\n", goal.Message)
-			return nil
+			return err
 		}
 		// Even on error, show the server's response for debugging/JSON mode
 		// The response contains: action, code, message, command, tick
@@ -4287,25 +4302,32 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 	} else {
 		fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
 	}
-	errors := 0
+	errs := 0
 	for i := range count {
 		fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
 		startTime := time.Now()
 		if cerr := executeCommand(client, ctx, loopParts, format); cerr != nil {
-			errors++
+			// Goal-reached is a positive exit (innermost only). -f does not
+			// override — re-running a satisfied command is pointless.
+			var goal *game.GoalReachedError
+			if errors.As(cerr, &goal) {
+				fmt.Printf("🎯 goal reached: %s → exiting loop\n", goal.Message)
+				break
+			}
+			errs++
 			fmt.Printf("❌ %s\n", formatError(cerr, loopParts[0], format))
 			if !forceLoop {
 				fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
 				break
 			}
-			fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errors)
+			fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errs)
 			continue
 		}
 		duration := time.Since(startTime)
 		fmt.Printf("✓ [%d/%d] Completed in %v\n", i+1, count, duration)
 	}
-	if forceLoop && errors > 0 {
-		fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errors, count)
+	if forceLoop && errs > 0 {
+		fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errs, count)
 	}
 }
 
