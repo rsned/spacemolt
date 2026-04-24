@@ -44,6 +44,7 @@ func matchChannel(channel string) Classifier {
 // matchPayloadKey matches responses whose Payload contains key. Used when the
 // response carries neither an "action" nor a "command" field, so we fall back
 // to payload shape (e.g., get_cargo is identified by the "cargo" key).
+// Returns true even if the key's value is nil; presence is the signal.
 func matchPayloadKey(key string) Classifier {
 	return func(resp protocol.Response) bool {
 		_, ok := resp.Payload[key]
@@ -52,7 +53,8 @@ func matchPayloadKey(key string) Classifier {
 }
 
 // matchAll returns a Classifier that matches only when every supplied
-// classifier matches. Short-circuits on the first non-match.
+// classifier matches. Short-circuits on the first non-match. With no
+// arguments it returns a vacuously-true classifier (matches every response).
 func matchAll(cs ...Classifier) Classifier {
 	return func(resp protocol.Response) bool {
 		for _, c := range cs {

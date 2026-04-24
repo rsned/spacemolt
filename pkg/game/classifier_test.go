@@ -63,6 +63,17 @@ func TestMatchPayloadKey(t *testing.T) {
 	}
 }
 
+func TestMatchAllEmpty(t *testing.T) {
+	// Empty matchAll() is vacuously true — matches every response.
+	m := matchAll()
+	if !m(protocol.Response{}) {
+		t.Error("expected empty matchAll to match zero response")
+	}
+	if !m(protocol.Response{Type: protocol.TypeError}) {
+		t.Error("expected empty matchAll to match arbitrary response")
+	}
+}
+
 func TestMatchAll(t *testing.T) {
 	m := matchAll(matchType(protocol.TypeOK), matchPayloadKey("cargo"))
 	ok := protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{"cargo": []any{}}}
