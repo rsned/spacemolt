@@ -50,7 +50,10 @@ func (e *GoalReachedError) Error() string {
 // repair brings hull to max, deposit_all empties cargo). Extend as
 // more commands gain loop-friendly goal semantics.
 var goalReachedCodes = map[string]map[string]struct{}{
-	"mine":        {"no_cargo_space": {}},
+	// "cargo_full" is what the live server actually sends on mine; the
+	// shared error-code table documents "no_cargo_space". Accept both so
+	// the sentinel fires regardless of which the server picks.
+	"mine":        {"cargo_full": {}, "no_cargo_space": {}},
 	"refuel":      {"tank_full": {}},
 	"repair":      {"no_damage": {}},
 	"deposit_all": {"empty_cargo": {}},

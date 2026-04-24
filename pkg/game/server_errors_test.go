@@ -87,20 +87,23 @@ func TestServerError_RoundTripsThroughErrorsAs(t *testing.T) {
 }
 
 func TestMaybeGoalReached_WrapsMineCargoFull(t *testing.T) {
-	// Mirrors the exact error shape waitForActionResponse produces
-	// after Task 2: *ServerError for any non-benign code.
-	raw := error(&ServerError{Code: "no_cargo_space", Message: "Cargo hold is full"})
-
-	out := maybeGoalReached("mine", raw)
-
-	var goal *GoalReachedError
-	if !errors.As(out, &goal) {
-		t.Fatalf("mine + no_cargo_space should become *GoalReachedError, got %T (%v)", out, out)
-	}
-	if goal.Command != "mine" {
-		t.Errorf("goal.Command = %q, want %q", goal.Command, "mine")
-	}
-	if goal.Code != "no_cargo_space" {
-		t.Errorf("goal.Code = %q, want %q", goal.Code, "no_cargo_space")
+	// Mine has two accepted cargo-full codes: "cargo_full" (actually sent
+	// by the live server) and "no_cargo_space" (listed in the error-code
+	// table). Both must classify as goal-reached.
+	for _, code := range []string{"cargo_full", "no_cargo_space"} {
+		t.Run(code, func(t *testing.T) {
+			raw := error(&ServerError{Code: code, Message: "Cargo hold is full"})
+			out := maybeGoalReached("mine", raw)
+			var goal *GoalReachedError
+			if !errors.As(out, &goal) {
+				t.Fatalf("mine + %s should become *GoalReachedError, got %T (%v)", code, out, out)
+			}
+			if goal.Command != "mine" {
+				t.Errorf("goal.Command = %q, want %q", goal.Command, "mine")
+			}
+			if goal.Code != code {
+				t.Errorf("goal.Code = %q, want %q", goal.Code, code)
+			}
+		})
 	}
 }
