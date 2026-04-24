@@ -126,3 +126,21 @@ func TestRouter_Dispatch_MutationTerminates(t *testing.T) {
 		t.Errorf("expected mutation sub removed after terminal, have %d", r.subCount())
 	}
 }
+
+func TestRouter_Dispatch_PanickyPushHandlerRecovers(t *testing.T) {
+	r := newResponseRouter()
+	var goodFired bool
+	// Bad handler panics — must not abort dispatch of subsequent handlers.
+	r.registerPush(matchType(protocol.TypeChatMessage), func(_ protocol.Response) {
+		panic("boom")
+	})
+	r.registerPush(matchType(protocol.TypeChatMessage), func(_ protocol.Response) {
+		goodFired = true
+	})
+
+	// Should not panic.
+	r.dispatch(protocol.Response{Type: protocol.TypeChatMessage})
+	if !goodFired {
+		t.Error("expected second handler to fire after first panicked")
+	}
+}

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -103,6 +104,10 @@ func (r *responseRouter) subCount() int {
 //
 // Responses that match nothing fall through silently — the caller's legacy
 // _last-slot capture still runs in Client.handleResponse.
+//
+// Snapshot is an intentional race boundary: a subscription unregistered
+// between snapshot and handler invocation will still receive this response.
+// register/unregister cannot race-cancel a dispatch already in flight.
 func (r *responseRouter) dispatch(resp protocol.Response) {
 	// Snapshot live subs under the lock, then run handlers without holding
 	// it so slow push handlers can't block register/unregister.
@@ -112,9 +117,11 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 	r.mu.Unlock()
 
 	// 1. Push fan-out — handlers run synchronously; document "don't block".
+	//    A panicking handler must not crash the WebSocket read goroutine
+	//    once Task 8 wires this onto it; recover per-handler.
 	for _, s := range snapshot {
 		if s.handler != nil && s.match(resp) {
-			s.handler(resp)
+			r.safeFireHandler(s, resp)
 		}
 	}
 
@@ -136,6 +143,7 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 		select {
 		case s.respCh <- resp:
 		default:
+			log.Printf("response router: dropped mutation terminal (type=%s, full or unbuffered respCh)", resp.Type)
 		}
 		r.unregister(s)
 		return
@@ -158,7 +166,19 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 		select {
 		case winner.respCh <- resp:
 		default:
+			log.Printf("response router: dropped query reply (type=%s, full or unbuffered respCh)", resp.Type)
 		}
 		r.unregister(winner)
 	}
+}
+
+// safeFireHandler invokes a push subscriber's handler with panic recovery so
+// a misbehaving handler can't take down the dispatch goroutine.
+func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("response router: push handler panic (type=%s): %v", resp.Type, rec)
+		}
+	}()
+	s.handler(resp)
 }
