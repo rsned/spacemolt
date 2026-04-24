@@ -68,8 +68,11 @@ func (q *CommandQueue) Stop() {
 	close(q.stopQueue)
 }
 
-// Enqueue adds a command to the queue and waits for it to complete
-// This blocks until the command is executed and a response is received
+// Enqueue adds a command to the queue and waits for it to complete.
+// This blocks until the command is executed and a response is received.
+//
+// Deprecated: use Client.execMutation. CommandQueue will be removed once
+// the last caller migrates.
 func (q *CommandQueue) Enqueue(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
 	// Start the queue if not already running
 	q.mu.Lock()

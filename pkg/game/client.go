@@ -584,7 +584,11 @@ func (c *Client) SetHandler(handler MessageHandler) {
 	c.handler = handler
 }
 
-// Send sends a message to the game server
+// Send sends a message to the game server.
+//
+// Deprecated: prefer execQuery / execMutation / subscribePush. Send is the
+// low-level fire-and-forget wire primitive; direct callers lose response
+// correlation. New code must use the response-router primitives.
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 	if c.sendOverride != nil {
 		return c.sendOverride(ctx, msg)
@@ -3674,7 +3678,10 @@ func (c *Client) parseShipsData(payload map[string]any) {
 	}
 }
 
-// waitForResponse waits for a response of a specific type with a timeout
+// waitForResponse waits for a response of a specific type with a timeout.
+//
+// Deprecated: use execQuery with an appropriate Classifier. Type-keyed
+// single-slot waiter; multiple callers collide.
 func (c *Client) waitForResponse(ctx context.Context, messageType string, timeout time.Duration) (protocol.Response, error) {
 	respChan := make(chan protocol.Response, 1)
 
@@ -3731,7 +3738,9 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 	}
 }
 
-// waitForActionResponse waits for either "ok" or "error" response for game actions
+// waitForActionResponse waits for either "ok" or "error" response for game actions.
+//
+// Deprecated: use execMutation with matchCommand + terminateOnAction.
 func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
 	// Log the final response paired with the last sent request
 	var finalResp *protocol.Response
