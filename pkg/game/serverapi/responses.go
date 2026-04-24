@@ -155,6 +155,39 @@ type BattleResponse struct {
 	TargetID string `json:"target_id,omitempty"`
 }
 
+// BattleAlertParticipant is a slimmer form of BattleParticipant used in
+// battle_alert push events. The alert only carries identity fields
+// (no hp/damage/kill counts); side_id is an integer here, unlike the
+// string-typed SideID on BattleParticipant.
+type BattleAlertParticipant struct {
+	PlayerID  string `json:"player_id"`
+	Username  string `json:"username"`
+	ShipClass string `json:"ship_class"`
+	ShipName  string `json:"ship_name,omitempty"`
+	SideID    int    `json:"side_id"`
+	Stance    string `json:"stance,omitempty"`
+	Zone      string `json:"zone,omitempty"`
+}
+
+// BattleAlertSide mirrors BattleSide but uses an integer side_id to match
+// the battle_alert payload shape.
+type BattleAlertSide struct {
+	SideID      int    `json:"side_id"`
+	FactionID   string `json:"faction_id,omitempty"`
+	PlayerCount int    `json:"player_count"`
+}
+
+// BattleAlertResponse wraps the payload of a battle_alert push event —
+// broadcast to clients in the same system when a battle begins. It is
+// informational; no action required from the receiver.
+type BattleAlertResponse struct {
+	BattleID     string                   `json:"battle_id"`
+	SystemID     string                   `json:"system_id,omitempty"`
+	Message      string                   `json:"message,omitempty"`
+	Participants []BattleAlertParticipant `json:"participants,omitempty"`
+	Sides        []BattleAlertSide        `json:"sides,omitempty"`
+}
+
 // RetreatResponse wraps the response from retreat action during combat.
 type RetreatResponse struct {
 	Action  string `json:"action"`

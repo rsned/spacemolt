@@ -21,6 +21,7 @@ const (
 	// Game events
 	TypeChatMessage        = "chat_message"
 	TypeCombatUpdate       = "combat_update"
+	TypeBattleAlert        = "battle_alert"
 	TypePlayerDied         = "player_died"
 	TypeMining             = "mining"
 	TypeMiningYield        = "mining_yield"

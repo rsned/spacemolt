@@ -96,7 +96,8 @@ var actionResponseTypes = map[string]reflect.Type{
 	// Combat and scanning
 	"cloak":    reflect.TypeOf(serverapi.CloakResponse{}),
 	"scan":     reflect.TypeOf(serverapi.ScanResponse{}),
-	"battle":   reflect.TypeOf(serverapi.BattleResponse{}),
+	"battle":       reflect.TypeOf(serverapi.BattleResponse{}),
+	"battle_alert": reflect.TypeOf(serverapi.BattleAlertResponse{}),
 	"retreat":          reflect.TypeOf(serverapi.RetreatResponse{}),
 	"distress_signal":  reflect.TypeOf(serverapi.DistressSignalResponse{}),
 	"jettison": reflect.TypeOf(serverapi.JettisonResponse{}),
