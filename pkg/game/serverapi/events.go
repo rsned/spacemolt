@@ -36,13 +36,14 @@ type PlayerDied struct {
 // MiningYield represents successful mining action with resource extraction.
 // Server event type: mining_yield
 type MiningYield struct {
-	ResourceID       string  `json:"resource_id"`
-	ResourceName     string  `json:"resource_name"`
-	Quantity         float64 `json:"quantity"`
-	Remaining        float64 `json:"remaining"`
-	MaxRemaining     float64 `json:"max_remaining"`
-	DepletionPercent float64 `json:"depletion_percent"`
-	RemainingDisplay string  `json:"remaining_display"`
+	ResourceID       string         `json:"resource_id"`
+	ResourceName     string         `json:"resource_name"`
+	Quantity         float64        `json:"quantity"`
+	Remaining        float64        `json:"remaining"`
+	MaxRemaining     float64        `json:"max_remaining"`
+	DepletionPercent float64        `json:"depletion_percent"`
+	RemainingDisplay string         `json:"remaining_display"`
+	XPGained         map[string]int `json:"xp_gained,omitempty"`
 }
 
 // ScanResult represents the results of scanning a player.

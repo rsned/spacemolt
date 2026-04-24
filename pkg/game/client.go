@@ -1838,8 +1838,28 @@ func (c *Client) handleResponse(resp protocol.Response) {
 				c.xpLastQuantity = int(quantity)
 				c.xpMu.Unlock()
 			}
-
 			c.mu.Unlock()
+		}
+		// Track xp_gained into state.SkillXP and fire the callback, matching
+		// the pattern used for craft/buy/sell/repair so the XPTracker + KB
+		// observer see mining XP. Server payload shape:
+		//   "xp_gained": {"deep_core_mining": 2, "mining": 25, "piloting": 4}
+		if xpGained, ok := resp.Payload["xp_gained"].(map[string]any); ok && len(xpGained) > 0 {
+			c.mu.Lock()
+			if c.state.Player.Skills == nil {
+				c.state.Player.Skills = make(map[string]Skill)
+			}
+			if c.state.SkillXP == nil {
+				c.state.SkillXP = make(map[string]float64)
+			}
+			for skillID, xpAmount := range xpGained {
+				if xpFloat, ok := xpAmount.(float64); ok && xpFloat > 0 {
+					c.state.SkillXP[skillID] += xpFloat
+					c.debugLogger.Printf("Mine XP gained: %s %.1f XP", skillID, xpFloat)
+				}
+			}
+			c.mu.Unlock()
+			c.checkXPChanges()
 		}
 
 	case protocol.TypeListings:
