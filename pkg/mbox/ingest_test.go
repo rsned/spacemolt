@@ -38,10 +38,11 @@ func (f *fakeGameClient) GetChatHistory(_ context.Context, channel string, _ map
 	f.callIdx[channel]++
 	pages := f.pages[channel]
 	if i >= len(pages) {
-		f.rawJSON = []byte(`{"messages":[]}`)
+		data, _ := json.Marshal(map[string]any{"channel": channel, "messages": []serverapi.ChatMessage{}})
+		f.rawJSON = data
 		return nil
 	}
-	data, _ := json.Marshal(map[string]any{"messages": pages[i]})
+	data, _ := json.Marshal(map[string]any{"channel": channel, "messages": pages[i]})
 	f.rawJSON = data
 	return nil
 }
