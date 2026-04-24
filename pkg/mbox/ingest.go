@@ -51,9 +51,8 @@ type BackfillClient interface {
 
 // BackfillOptions controls the behaviour of a Backfill run.
 type BackfillOptions struct {
-	Channels        []string
-	MaxPerChannel   int
-	RequestInterval time.Duration
+	Channels      []string
+	MaxPerChannel int
 }
 
 // BackfillReport summarises the results of a Backfill run.

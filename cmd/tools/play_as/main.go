@@ -4733,9 +4733,8 @@ func mboxRead(store *mbox.Store, args []string) {
 
 func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
 	opts := mbox.BackfillOptions{
-		Channels:        []string{"system", "local", "faction"},
-		MaxPerChannel:   500,
-		RequestInterval: game.SleepQuick,
+		Channels:      []string{"system", "local", "faction"},
+		MaxPerChannel: 500,
 	}
 	for i := 0; i < len(args); i++ {
 		switch strings.ToLower(args[i]) {
