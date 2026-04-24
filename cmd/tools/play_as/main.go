@@ -61,6 +61,7 @@ const (
 
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging (show sent/received JSON)")
+	debugFullPayload := flag.Bool("debug-full-payload", false, "When --debug is on, log full response payloads instead of truncating at 200 chars")
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
@@ -87,9 +88,14 @@ func main() {
 	case "ws", "websocket":
 		var wsClient *game.Client
 		wsClient, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
+		if wsClient != nil && *debugFullPayload {
+			wsClient.SetDebugPayloadMaxLen(0)
+		}
 		client = wsClient
 	case "mcp":
 		client, creds, err = game.InitializeMCPAgent(agentID, logger, ctx, *debug, true) // disablePolling=true
+		// Note: --debug-full-payload only affects the WS client's response
+		// payload logging; the MCP client uses its own MCP-protocol dump.
 	default:
 		log.Fatalf("unknown --transport %q (expected 'ws' or 'mcp')", *transport)
 	}
@@ -209,6 +215,7 @@ func printUsage() {
 	fmt.Println("  play_as --debug explorer-1")
 	fmt.Println("\nFlags:")
 	fmt.Println("  --debug                Enable debug logging (show sent/received JSON)")
+	fmt.Println("  --debug-full-payload   Log full response payloads (default truncates at 200 chars)")
 	fmt.Println("  --config <path>        Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
 	fmt.Println("  --registry-url <url>   Status registry URL (e.g., http://localhost:8081)")
 	fmt.Println("  --xp-tracking=false    Disable XP observation tracking (default: true)")

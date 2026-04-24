@@ -38,6 +38,11 @@ type Client struct {
 	connected   bool
 	debugLogger *log.Logger
 
+	// debugPayloadMaxLen caps the "Response Payload:" debug-log line. 0
+	// means no cap (log the whole payload). Default 200, tuned to keep the
+	// log readable for short responses.
+	debugPayloadMaxLen int
+
 	// Ready synchronization - closed when first message is received
 	readyChan chan struct{}
 	readyOnce sync.Once
@@ -300,10 +305,11 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 			Nearby:   []NearbyPlayer{},
 			InCombat: false,
 		},
-		stopCh:          make(chan struct{}),
-		readyChan:       make(chan struct{}),
-		waiters:         make(map[string]chan protocol.Response),
-		debugLogger:     debugLogger,
+		stopCh:             make(chan struct{}),
+		readyChan:          make(chan struct{}),
+		waiters:            make(map[string]chan protocol.Response),
+		debugLogger:        debugLogger,
+		debugPayloadMaxLen: 200,
 		latestListings:  make([]MarketListing, 0),
 		latestShips:     make(map[string]any),
 		latestRawJSON:   make(map[string][]byte),
@@ -343,6 +349,17 @@ func (c *Client) SetDebugLogging(enabled bool) {
 	if !enabled {
 		c.debugLogger.SetOutput(io.Discard)
 	}
+}
+
+// SetDebugPayloadMaxLen configures how much of each received response's
+// payload is emitted on the "Response Payload:" debug line. Pass 0 to
+// disable truncation (log the full payload regardless of length). Negative
+// values are treated as 0. The default is 200.
+func (c *Client) SetDebugPayloadMaxLen(n int) {
+	if n < 0 {
+		n = 0
+	}
+	c.debugPayloadMaxLen = n
 }
 
 // Connect establishes a WebSocket connection to the game server
@@ -1566,8 +1583,8 @@ func (c *Client) listen(ctx context.Context) {
 					payloadJSON, _ := json.Marshal(resp.Payload)
 					payloadStr := string(payloadJSON)
 
-					if len(payloadStr) > 200 {
-						c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:200])
+					if max := c.debugPayloadMaxLen; max > 0 && len(payloadStr) > max {
+						c.debugLogger.Printf("Response Payload: %s... [truncated]", payloadStr[:max])
 					} else {
 						c.debugLogger.Printf("Response Payload: %s", payloadStr)
 					}
