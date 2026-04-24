@@ -10,6 +10,11 @@ import (
 // Terminator reports whether a response resolves a mutation. It runs only
 // against responses that have already passed the mutation's Classifier.
 // done=true means the mutation is finished; err non-nil means it failed.
+//
+// Implementations MUST be pure: execMutation evaluates the terminator twice
+// against the same terminal response (once inside the router's dispatch and
+// again on receive to surface the err the router discards). Side effects
+// or non-deterministic logic will produce inconsistent outcomes.
 type Terminator func(resp protocol.Response) (done bool, err error)
 
 // terminateOnAction is the default terminator for mutations whose terminal

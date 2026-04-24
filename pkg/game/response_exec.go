@@ -66,8 +66,9 @@ func (c *Client) execMutation(
 	defer timer.Stop()
 	select {
 	case resp := <-ch:
-		// The router only delivers when terminate returned done=true. Re-run
-		// the terminator here to surface any error it produced.
+		// The router only delivers when terminate returned done=true (see
+		// dispatch step 2 in response_router.go). It discards the err return,
+		// so we re-run the terminator here to surface any error it produced.
 		if _, err := terminate(resp); err != nil {
 			return resp, err
 		}

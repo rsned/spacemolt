@@ -150,8 +150,7 @@ func TestExecMutation_SerializesConcurrent(t *testing.T) {
 	})
 
 	var wg sync.WaitGroup
-	for i := range 3 {
-		_ = i
+	for range 3 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
