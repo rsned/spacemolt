@@ -1624,6 +1624,14 @@ func (c *Client) listen(ctx context.Context) {
 			// when waitForResponse/waitForAuthResponse returns.
 			c.handleResponse(resp)
 
+			// Fan out through the new response router. Runs after state
+			// parsers so callers reading State inside their response
+			// handler see fresh data. Legacy CmdQueue/waiters remain
+			// below until the last method finishes migrating.
+			if c.router != nil {
+				c.router.dispatch(resp)
+			}
+
 			// Route to command queue first
 			if c.CmdQueue != nil {
 				c.CmdQueue.handleResponse(resp)

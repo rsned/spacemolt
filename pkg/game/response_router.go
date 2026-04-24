@@ -134,7 +134,7 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 		if !s.match(resp) {
 			continue
 		}
-		done, _ := s.terminate(resp)
+		done := r.safeRunTerminator(s, resp)
 		if !done {
 			// Intermediate message for this mutation; do not deliver.
 			return
@@ -181,4 +181,19 @@ func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response
 		}
 	}()
 	s.handler(resp)
+}
+
+// safeRunTerminator invokes a mutation's terminator with panic recovery so
+// a buggy implementation cannot take down the dispatch goroutine. A panic
+// is treated as "not done" — the mutation will time out via execMutation
+// rather than wedge the read loop.
+func (r *responseRouter) safeRunTerminator(s *subscription, resp protocol.Response) (done bool) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("response router: terminator panic (type=%s): %v", resp.Type, rec)
+			done = false
+		}
+	}()
+	d, _ := s.terminate(resp)
+	return d
 }

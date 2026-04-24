@@ -144,3 +144,29 @@ func TestRouter_Dispatch_PanickyPushHandlerRecovers(t *testing.T) {
 		t.Error("expected second handler to fire after first panicked")
 	}
 }
+
+func TestRouter_Dispatch_PanickyTerminatorRecovers(t *testing.T) {
+	r := newResponseRouter()
+	ch := make(chan protocol.Response, 1)
+	// Terminator that panics on every call. The router must recover and
+	// continue running (treating the panic as "not done").
+	panicTerm := func(_ protocol.Response) (bool, error) {
+		panic("terminator boom")
+	}
+	r.registerMutation(matchCommand("deposit_items"), panicTerm, ch)
+
+	// Should not panic; should not deliver to ch (terminator never returns done).
+	r.dispatch(protocol.Response{
+		Type:    protocol.TypeActionResult,
+		Payload: map[string]any{"command": "deposit_items"},
+	})
+
+	select {
+	case <-ch:
+		t.Fatal("unexpected delivery to mutation channel after terminator panic")
+	default:
+	}
+	if r.subCount() != 1 {
+		t.Errorf("expected mutation sub still live after terminator panic, have %d", r.subCount())
+	}
+}
