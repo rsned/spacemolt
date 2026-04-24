@@ -39,6 +39,21 @@ func (c *Client) execQuery(
 	}
 }
 
+// subscribePush registers a long-lived handler for responses satisfying
+// match. Handlers run synchronously in the router's dispatch path — keep
+// them fast; if you need to do real work, copy the payload and hand off to
+// your own goroutine. Returns a cancel function the caller must invoke to
+// stop delivery; idempotent.
+func (c *Client) subscribePush(
+	match Classifier,
+	handler func(protocol.Response),
+) func() {
+	sub := c.router.registerPush(match, handler)
+	return func() {
+		c.router.unregister(sub)
+	}
+}
+
 // execMutation sends msg, holds c.mutationMu for the entire duration, and
 // blocks until a response satisfies both match AND terminate — or timeout /
 // ctx cancellation. Concurrent calls serialize on the mutex.
