@@ -1,6 +1,7 @@
 package game
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/rsned/spacemolt/internal/protocol"
@@ -54,5 +55,5 @@ func serverErrorFromPayload(p map[string]any) error {
 	if msg, ok := p["message"].(string); ok && msg != "" {
 		return fmt.Errorf("server error: %s", msg)
 	}
-	return fmt.Errorf("server error (no message)")
+	return errors.New("server error (no message)")
 }

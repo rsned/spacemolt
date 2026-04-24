@@ -1,7 +1,6 @@
 package game
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/rsned/spacemolt/internal/protocol"
@@ -62,5 +61,4 @@ func TestTerminateOnTypes(t *testing.T) {
 	if !done || err == nil {
 		t.Errorf("expected action_error to terminate with error, got done=%v err=%v", done, err)
 	}
-	_ = errors.New
 }
