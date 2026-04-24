@@ -4928,7 +4928,7 @@ func (cp *chatPoller) stop() {
 // seedSeen fetches current history for each channel and marks all messages as seen.
 func (cp *chatPoller) seedSeen() {
 	for _, ch := range activeChatChannels(cp.client) {
-		msgs := cp.fetchMessages(ch)
+		msgs, _ := cp.fetchMessages(ch)
 		cp.mu.Lock()
 		for _, m := range msgs {
 			cp.seen[m.ID] = true
@@ -4938,9 +4938,13 @@ func (cp *chatPoller) seedSeen() {
 }
 
 // poll fetches new messages from all channels and (unless silent) prints them.
+// When the server reports has_more for a channel (more messages exist beyond
+// the first page), delegates to Ingester.Backfill so the mbox catches up via
+// before-cursor pagination. Dedup is handled by the Store (Ingester.Backfill
+// stops when it hits a message ID that's already persisted).
 func (cp *chatPoller) poll() {
 	for _, ch := range activeChatChannels(cp.client) {
-		msgs := cp.fetchMessages(ch)
+		msgs, hasMore := cp.fetchMessages(ch)
 		if len(msgs) == 0 {
 			continue
 		}
@@ -4953,6 +4957,19 @@ func (cp *chatPoller) poll() {
 					apiMsg.Channel = ch
 				}
 				cp.ingester.HandlePolled(apiMsg)
+			}
+
+			// Server signalled older messages we didn't fetch. Walk back
+			// via the Ingester's paginated backfill, which stops the first
+			// time it hits an ID we've already stored.
+			if hasMore {
+				_, err := cp.ingester.Backfill(cp.ctx, cp.client, mbox.BackfillOptions{
+					Channels:      []string{ch},
+					MaxPerChannel: 500,
+				})
+				if err != nil {
+					log.Printf("[mbox] poll backfill %s: %v", ch, err)
+				}
 			}
 		}
 
@@ -5013,21 +5030,26 @@ func (cp *chatPoller) displayMessage(channel string, m serverapi.ChatMessage) {
 	fmt.Printf("\r%s[%s]%s %s: %s\n", color, channel, reset, m.Sender, m.Content)
 }
 
-func (cp *chatPoller) fetchMessages(channel string) []serverapi.ChatMessage {
+// fetchMessages pulls the latest page of messages for channel. The returned
+// hasMore flag mirrors the server's `has_more` field — when true there are
+// older messages beyond this page that the caller should backfill (see
+// poll() which delegates to Ingester.Backfill in that case).
+func (cp *chatPoller) fetchMessages(channel string) (msgs []serverapi.ChatMessage, hasMore bool) {
 	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 20}); err != nil {
-		return nil
+		return nil, false
 	}
 	raw := cp.client.GetRawJSON("_last")
 	if len(raw) == 0 {
-		return nil
+		return nil, false
 	}
 	var resp struct {
 		Messages []serverapi.ChatMessage `json:"messages"`
+		HasMore  bool                    `json:"has_more"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return nil
+		return nil, false
 	}
-	return resp.Messages
+	return resp.Messages, resp.HasMore
 }
 
 // isTankFullError reports whether err is the server's "fuel tank already
