@@ -940,11 +940,21 @@ func (c *Client) GetChatHistory(ctx context.Context, channel string, payload map
 		payload = map[string]any{}
 	}
 	payload["channel"] = channel
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_chat_history",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Server response carries {channel, messages[], has_more, total_count}
+	// with no "action" field; match on type+channel+shape so concurrent
+	// queries on different channels don't collide.
+	match := matchAll(
+		matchType(protocol.TypeOK),
+		matchChannel(channel),
+		matchPayloadKey("messages"),
+	)
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // ============================================================================

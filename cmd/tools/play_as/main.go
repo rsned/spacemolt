@@ -5058,14 +5058,6 @@ func (cp *chatPoller) fetchMessages(channel string) (msgs []serverapi.ChatMessag
 	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 20}); err != nil {
 		return nil, false
 	}
-	// GetChatHistory is fire-and-forget over WS; wait for the reply to
-	// populate _last before reading, otherwise we see stale/empty data and
-	// the poll silently returns no messages.
-	select {
-	case <-cp.ctx.Done():
-		return nil, false
-	case <-time.After(game.SleepQuick):
-	}
 	raw := cp.client.GetRawJSON("_last")
 	if len(raw) == 0 {
 		return nil, false
