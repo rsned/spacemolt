@@ -103,6 +103,8 @@ type Client struct {
 	diagnosticMu      sync.RWMutex
 	goroutineID       int64 // Counter for tracking goroutine instances
 
+	router *responseRouter
+
 	sendOverride func(ctx context.Context, msg protocol.Message) error // Test hook
 
 	// Storage update callback — fired when a view_storage response is received
@@ -308,6 +310,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		stopCh:             make(chan struct{}),
 		readyChan:          make(chan struct{}),
 		waiters:            make(map[string]chan protocol.Response),
+		router:             newResponseRouter(),
 		debugLogger:        debugLogger,
 		debugPayloadMaxLen: 200,
 		latestListings:  make([]MarketListing, 0),
