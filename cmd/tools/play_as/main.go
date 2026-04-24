@@ -3967,21 +3967,6 @@ func lookupRawJSON(client game.GameClient, command string) []byte {
 	return client.GetRawJSON(key)
 }
 
-// clearCommandRawJSON invalidates the slot that the current command is
-// about to populate. If the server response never lands on our waiter
-// (dropped, stolen by a racing background call, timed out, etc.), the slot
-// stays empty and the caller sees no stale data from a prior invocation of
-// the same command.
-func clearCommandRawJSON(client game.GameClient, command string) {
-	key := rawJSONKeyForCommand[strings.ToLower(command)]
-	if key == "" {
-		return
-	}
-	if c, ok := client.(interface{ ClearRawJSON(string) }); ok {
-		c.ClearRawJSON(key)
-	}
-}
-
 // showLastResponse prints the most recent server response for command.
 func showLastResponse(client game.GameClient, format outputFormat, command string) {
 	if raw := lookupRawJSON(client, command); len(raw) > 0 {
@@ -3990,8 +3975,14 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 }
 
 // simpleCommand executes a command, prints the server response, then waits.
+//
+// Note: we intentionally do NOT pre-clear the command-specific raw-JSON
+// slot before calling fn. The shared-waiter race (a concurrent background
+// command's TypeOK response steals this caller's waiter) still exists, and
+// pre-clearing turned that race from "show stale data" into "show nothing"
+// — which was worse UX. The deeper fix (request IDs / per-call response
+// routing) is still pending.
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
-	clearCommandRawJSON(client, command)
 	if err := fn(ctx); err != nil {
 		// A *game.GoalReachedError means the command's goal is already
 		// satisfied (e.g. mine while cargo is full, refuel at 100%).
