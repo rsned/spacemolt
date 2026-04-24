@@ -4483,14 +4483,14 @@ func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameCl
 			fmt.Printf("error: %v\n", err)
 			return
 		}
-		for _, ch := range []string{"system", "local", "faction", "private"} {
+		for _, ch := range knownChatChannels {
 			n := counts[ch]
 			color := channelColors[ch]
 			reset := "\033[0m"
 			if n > 0 {
-				fmt.Printf("  %s%-8s%s %d unread\n", color, ch, reset, n)
+				fmt.Printf("  %s%-9s%s %d unread\n", color, ch, reset, n)
 			} else {
-				fmt.Printf("  %-8s 0 unread\n", ch)
+				fmt.Printf("  %-9s 0 unread\n", ch)
 			}
 		}
 		return
@@ -4703,7 +4703,7 @@ func mboxRead(store *mbox.Store, args []string) {
 	}
 	switch strings.ToLower(args[0]) {
 	case "--all":
-		for _, ch := range []string{"system", "local", "faction", "private"} {
+		for _, ch := range knownChatChannels {
 			_ = store.MarkChannelRead(ch)
 		}
 		fmt.Println("  marked all messages read")
@@ -4894,11 +4894,18 @@ func activeChatChannels(client game.GameClient) []string {
 
 // channelColors maps channel names to ANSI color codes for display.
 var channelColors = map[string]string{
-	"system":  "\033[36m", // cyan
-	"local":   "\033[33m", // yellow
-	"faction": "\033[35m", // magenta
-	"private": "\033[32m", // green
+	"system":    "\033[36m", // cyan
+	"local":     "\033[33m", // yellow
+	"faction":   "\033[35m", // magenta
+	"private":   "\033[32m", // green
+	"emergency": "\033[31m", // red
 }
+
+// knownChatChannels is the full set of channels the mbox tracks, including
+// push-only ones like "emergency" that the server broadcasts but doesn't
+// expose via get_chat_history. Used for unread-count display and bulk
+// mark-read operations.
+var knownChatChannels = []string{"system", "local", "faction", "private", "emergency"}
 
 func newChatPoller(client game.GameClient, ctx context.Context, username string) *chatPoller {
 	pollCtx, cancel := context.WithCancel(ctx)
