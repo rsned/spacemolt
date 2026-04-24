@@ -3935,15 +3935,34 @@ var rawJSONKeyForCommand = map[string]string{
 	"survey_system":    "survey",
 }
 
-// lookupRawJSON tries the command-specific storage key first, then falls back
-// to "_last" when no specific key is registered.
+// lookupRawJSON returns the raw JSON payload for command, keyed by
+// rawJSONKeyForCommand. Unlike an earlier version, this does NOT fall back
+// to "_last" when no key is registered — the shared "_last" slot is racy
+// (any concurrent command, including the background chat poller, can
+// overwrite it) and falling through caused stale/unrelated payloads to be
+// printed as if they were the current command's response. Commands that
+// legitimately want to show their JSON should have an entry in the map.
 func lookupRawJSON(client game.GameClient, command string) []byte {
-	if key := rawJSONKeyForCommand[strings.ToLower(command)]; key != "" {
-		if raw := client.GetRawJSON(key); len(raw) > 0 {
-			return raw
-		}
+	key := rawJSONKeyForCommand[strings.ToLower(command)]
+	if key == "" {
+		return nil
 	}
-	return client.GetRawJSON("_last")
+	return client.GetRawJSON(key)
+}
+
+// clearCommandRawJSON invalidates the slot that the current command is
+// about to populate. If the server response never lands on our waiter
+// (dropped, stolen by a racing background call, timed out, etc.), the slot
+// stays empty and the caller sees no stale data from a prior invocation of
+// the same command.
+func clearCommandRawJSON(client game.GameClient, command string) {
+	key := rawJSONKeyForCommand[strings.ToLower(command)]
+	if key == "" {
+		return
+	}
+	if c, ok := client.(interface{ ClearRawJSON(string) }); ok {
+		c.ClearRawJSON(key)
+	}
 }
 
 // showLastResponse prints the most recent server response for command.
@@ -3955,6 +3974,7 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 
 // simpleCommand executes a command, prints the server response, then waits.
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
+	clearCommandRawJSON(client, command)
 	if err := fn(ctx); err != nil {
 		// A *game.GoalReachedError means the command's goal is already
 		// satisfied (e.g. mine while cargo is full, refuel at 100%).

@@ -3460,6 +3460,16 @@ func (c *Client) GetRawJSON(key string) []byte {
 	return nil
 }
 
+// ClearRawJSON drops the stored payload for key (no-op if absent). Callers
+// use this to invalidate a stale slot before issuing a new request, so if
+// the current response never lands (dropped, lost to a racing waiter, etc.)
+// downstream consumers see nothing rather than the previous command's data.
+func (c *Client) ClearRawJSON(key string) {
+	c.rawJSONMu.Lock()
+	defer c.rawJSONMu.Unlock()
+	delete(c.latestRawJSON, key)
+}
+
 // GetLastError returns the most recent error response
 func (c *Client) GetLastError() map[string]any {
 	c.lastErrorMu.RLock()
