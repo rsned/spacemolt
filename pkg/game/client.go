@@ -3954,7 +3954,7 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 		case resp := <-okChan:
 			// If pending, keep waiting for the real initial response.
 			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
-				c.debugLogger.Printf("Action pending — waiting for server to start")
+				c.debugLogger.Printf("Action queued by server — waiting for next-tick execution")
 				deadline = time.After(timeout)
 				continue
 			}
