@@ -187,7 +187,15 @@ func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response
 // a buggy implementation cannot take down the dispatch goroutine. A panic
 // is treated as "not done" — the mutation will time out via execMutation
 // rather than wedge the read loop.
+//
+// Trade-off: a terminator that panics on EVERY input will pin its
+// mutation's c.mutationMu for the full timeout duration and block every
+// subsequent mutation behind it. Phase 0 accepts this; Phase 1 may want
+// either a panic-once circuit-breaker that unregisters after N panics,
+// or to surface the recovered panic as an error on respCh.
 func (r *responseRouter) safeRunTerminator(s *subscription, resp protocol.Response) (done bool) {
+	// Named return so the deferred recover() can flip done back to false
+	// even if s.terminate already assigned via the regular return below.
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Printf("response router: terminator panic (type=%s): %v", resp.Type, rec)
