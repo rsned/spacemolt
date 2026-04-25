@@ -103,6 +103,9 @@ type Client struct {
 	diagnosticMu      sync.RWMutex
 	goroutineID       int64 // Counter for tracking goroutine instances
 
+	router     *responseRouter
+	mutationMu sync.Mutex
+
 	sendOverride func(ctx context.Context, msg protocol.Message) error // Test hook
 
 	// Storage update callback — fired when a view_storage response is received
@@ -308,6 +311,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		stopCh:             make(chan struct{}),
 		readyChan:          make(chan struct{}),
 		waiters:            make(map[string]chan protocol.Response),
+		router:             newResponseRouter(),
 		debugLogger:        debugLogger,
 		debugPayloadMaxLen: 200,
 		latestListings:  make([]MarketListing, 0),
@@ -580,7 +584,11 @@ func (c *Client) SetHandler(handler MessageHandler) {
 	c.handler = handler
 }
 
-// Send sends a message to the game server
+// Send sends a message to the game server.
+//
+// Deprecated: prefer execQuery / execMutation / subscribePush. Send is the
+// low-level fire-and-forget wire primitive; direct callers lose response
+// correlation. New code must use the response-router primitives.
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 	if c.sendOverride != nil {
 		return c.sendOverride(ctx, msg)
@@ -1309,11 +1317,9 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 		c.debugLogger.Printf("DepositAllItems: get_cargo refresh failed: %v", err)
 		// Fall through and try with whatever state we have.
 	} else {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(SleepQuick):
-		}
+		// GetCargo now blocks via execQuery until parseGetCargoData has
+		// populated State, so the snapshot here reflects fresh server
+		// cargo. The previous SleepQuick workaround is no longer needed.
 		state = c.GetState()
 	}
 
@@ -1619,6 +1625,14 @@ func (c *Client) listen(ctx context.Context) {
 			// Update state before notifying waiters, so state is current
 			// when waitForResponse/waitForAuthResponse returns.
 			c.handleResponse(resp)
+
+			// Fan out through the new response router. Runs after state
+			// parsers so callers reading State inside their response
+			// handler see fresh data. Legacy CmdQueue/waiters remain
+			// below until the last method finishes migrating.
+			if c.router != nil {
+				c.router.dispatch(resp)
+			}
 
 			// Route to command queue first
 			if c.CmdQueue != nil {
@@ -3664,7 +3678,10 @@ func (c *Client) parseShipsData(payload map[string]any) {
 	}
 }
 
-// waitForResponse waits for a response of a specific type with a timeout
+// waitForResponse waits for a response of a specific type with a timeout.
+//
+// Deprecated: use execQuery with an appropriate Classifier. Type-keyed
+// single-slot waiter; multiple callers collide.
 func (c *Client) waitForResponse(ctx context.Context, messageType string, timeout time.Duration) (protocol.Response, error) {
 	respChan := make(chan protocol.Response, 1)
 
@@ -3721,7 +3738,9 @@ func (c *Client) waitForAuthResponse(ctx context.Context, successType string, ti
 	}
 }
 
-// waitForActionResponse waits for either "ok" or "error" response for game actions
+// waitForActionResponse waits for either "ok" or "error" response for game actions.
+//
+// Deprecated: use execMutation with matchCommand + terminateOnAction.
 func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
 	// Log the final response paired with the last sent request
 	var finalResp *protocol.Response

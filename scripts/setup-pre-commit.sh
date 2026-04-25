@@ -70,6 +70,17 @@ else
     echo "  ⚠ golangci-lint not installed, skipping"
 fi
 
+# Phase 4: Legacy response-API gate
+echo "[4/4] Checking no new legacy response-API calls..."
+if [ -f "./scripts/check_legacy_response_api.sh" ]; then
+    if ! ./scripts/check_legacy_response_api.sh 2>&1; then
+        echo "  ✗ Legacy response-API gate failed"
+        FAILED=1
+    fi
+else
+    echo "  ⚠ scripts/check_legacy_response_api.sh not found, skipping"
+fi
+
 if [ $FAILED -eq 1 ]; then
     echo ""
     echo "✗ Pre-commit checks failed!"

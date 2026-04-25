@@ -83,9 +83,8 @@ func TestBackfillBasic(t *testing.T) {
 	fc.addPage("local", page)
 
 	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
-		Channels:        []string{"local"},
-		MaxPerChannel:   500,
-		RequestInterval: 0,
+		Channels:      []string{"local"},
+		MaxPerChannel: 500,
 	})
 	if err != nil {
 		t.Fatalf("Backfill: %v", err)
@@ -144,9 +143,8 @@ func TestBackfillStopsOnKnownID(t *testing.T) {
 	fc.addPage("local", page)
 
 	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
-		Channels:        []string{"local"},
-		MaxPerChannel:   500,
-		RequestInterval: 0,
+		Channels:      []string{"local"},
+		MaxPerChannel: 500,
 	})
 	if err != nil {
 		t.Fatalf("Backfill: %v", err)
@@ -192,9 +190,8 @@ func TestBackfillCap(t *testing.T) {
 	fc.addPage("local", page2)
 
 	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
-		Channels:        []string{"local"},
-		MaxPerChannel:   4,
-		RequestInterval: 0,
+		Channels:      []string{"local"},
+		MaxPerChannel: 4,
 	})
 	if err != nil {
 		t.Fatalf("Backfill: %v", err)

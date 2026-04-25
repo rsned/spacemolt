@@ -4733,9 +4733,8 @@ func mboxRead(store *mbox.Store, args []string) {
 
 func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
 	opts := mbox.BackfillOptions{
-		Channels:        []string{"system", "local", "faction"},
-		MaxPerChannel:   500,
-		RequestInterval: game.SleepQuick,
+		Channels:      []string{"system", "local", "faction"},
+		MaxPerChannel: 500,
 	}
 	for i := 0; i < len(args); i++ {
 		switch strings.ToLower(args[i]) {
@@ -5057,14 +5056,6 @@ func (cp *chatPoller) displayMessage(channel string, m serverapi.ChatMessage) {
 func (cp *chatPoller) fetchMessages(channel string) (msgs []serverapi.ChatMessage, hasMore bool) {
 	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 20}); err != nil {
 		return nil, false
-	}
-	// GetChatHistory is fire-and-forget over WS; wait for the reply to
-	// populate _last before reading, otherwise we see stale/empty data and
-	// the poll silently returns no messages.
-	select {
-	case <-cp.ctx.Done():
-		return nil, false
-	case <-time.After(game.SleepQuick):
 	}
 	raw := cp.client.GetRawJSON("_last")
 	if len(raw) == 0 {

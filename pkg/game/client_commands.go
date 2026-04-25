@@ -547,10 +547,19 @@ func (c *Client) SellWreck(ctx context.Context) error {
 
 // GetCargo gets the ship's cargo contents.
 func (c *Client) GetCargo(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_cargo",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_cargo returns type=ok with a "cargo" array; no "action" field.
+	// State.Ship.Cargo is populated by parseGetCargoData inside
+	// handleResponse, which runs BEFORE router dispatch (see client.go
+	// read loop). On nil error from execQuery the state write is visible
+	// to subsequent GetState() calls — no wall-clock sleep is needed,
+	// though GetState() still RLock()s as usual.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("cargo"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // Jettison jettisons items from cargo into space.
@@ -931,11 +940,21 @@ func (c *Client) GetChatHistory(ctx context.Context, channel string, payload map
 		payload = map[string]any{}
 	}
 	payload["channel"] = channel
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_chat_history",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Server response carries {channel, messages[], has_more, total_count}
+	// with no "action" field; match on type+channel+shape so concurrent
+	// queries on different channels don't collide.
+	match := matchAll(
+		matchType(protocol.TypeOK),
+		matchChannel(channel),
+		matchPayloadKey("messages"),
+	)
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // ============================================================================

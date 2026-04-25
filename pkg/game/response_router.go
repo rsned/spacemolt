@@ -1,0 +1,207 @@
+package game
+
+import (
+	"log"
+	"sync"
+	"time"
+
+	"github.com/rsned/spacemolt/internal/protocol"
+)
+
+// subscription is a single registration with the response router. Exactly
+// one of respCh/handler is set: respCh for query/mutation one-shot,
+// handler for push fan-out.
+type subscription struct {
+	match      Classifier
+	terminate  Terminator
+	respCh     chan protocol.Response // one-shot
+	handler    func(protocol.Response)
+	registered time.Time
+}
+
+// responseRouter dispatches incoming responses to registered subscribers.
+// It has no WebSocket awareness — callers feed it responses via Dispatch.
+type responseRouter struct {
+	mu   sync.Mutex
+	subs []*subscription
+}
+
+// newResponseRouter constructs an empty router.
+func newResponseRouter() *responseRouter {
+	return &responseRouter{}
+}
+
+// registerQuery adds a one-shot query subscription. Returns the handle
+// the caller must pass to unregister.
+func (r *responseRouter) registerQuery(match Classifier, ch chan protocol.Response) *subscription {
+	return r.register(&subscription{
+		match:      match,
+		respCh:     ch,
+		registered: time.Now(),
+	})
+}
+
+// registerMutation adds a one-shot mutation subscription (respCh delivers
+// the terminal response; terminator decides when that is).
+func (r *responseRouter) registerMutation(match Classifier, term Terminator, ch chan protocol.Response) *subscription {
+	return r.register(&subscription{
+		match:      match,
+		terminate:  term,
+		respCh:     ch,
+		registered: time.Now(),
+	})
+}
+
+// registerPush adds a long-lived push subscription. Caller keeps the
+// returned handle so it can call unregister to cancel.
+func (r *responseRouter) registerPush(match Classifier, handler func(protocol.Response)) *subscription {
+	return r.register(&subscription{
+		match:      match,
+		handler:    handler,
+		registered: time.Now(),
+	})
+}
+
+func (r *responseRouter) register(sub *subscription) *subscription {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.subs = append(r.subs, sub)
+	return sub
+}
+
+// unregister removes sub from the router. No-op if sub was never registered
+// or already removed.
+func (r *responseRouter) unregister(sub *subscription) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, s := range r.subs {
+		if s == sub {
+			// Clear the freed slot so the backing array doesn't retain
+			// the *subscription (and its respCh/handler closure) after
+			// length shrinks — matters once the router is on the hot
+			// read-loop path and unregister churn is high.
+			copy(r.subs[i:], r.subs[i+1:])
+			r.subs[len(r.subs)-1] = nil
+			r.subs = r.subs[:len(r.subs)-1]
+			return
+		}
+	}
+}
+
+// subCount returns the number of live subscriptions (for tests).
+func (r *responseRouter) subCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.subs)
+}
+
+// dispatch routes a single response through the subscriber list. Order:
+//  1. Fan out to every matching push subscriber.
+//  2. Deliver to the active mutation subscriber if classifier matches AND
+//     terminator fires; remove the subscription on delivery.
+//  3. Deliver to the earliest-registered matching query subscriber; remove
+//     the subscription on delivery.
+//
+// Responses that match nothing fall through silently — the caller's legacy
+// _last-slot capture still runs in Client.handleResponse.
+//
+// Snapshot is an intentional race boundary: a subscription unregistered
+// between snapshot and handler invocation will still receive this response.
+// register/unregister cannot race-cancel a dispatch already in flight.
+func (r *responseRouter) dispatch(resp protocol.Response) {
+	// Snapshot live subs under the lock, then run handlers without holding
+	// it so slow push handlers can't block register/unregister.
+	r.mu.Lock()
+	snapshot := make([]*subscription, len(r.subs))
+	copy(snapshot, r.subs)
+	r.mu.Unlock()
+
+	// 1. Push fan-out — handlers run synchronously; document "don't block".
+	//    A panicking handler must not crash the WebSocket read goroutine
+	//    once Task 8 wires this onto it; recover per-handler.
+	for _, s := range snapshot {
+		if s.handler != nil && s.match(resp) {
+			r.safeFireHandler(s, resp)
+		}
+	}
+
+	// 2. Active mutation: there is at most one; if its classifier matches
+	//    and terminator fires, deliver.
+	for _, s := range snapshot {
+		if s.terminate == nil || s.respCh == nil {
+			continue
+		}
+		if !s.match(resp) {
+			continue
+		}
+		done := r.safeRunTerminator(s, resp)
+		if !done {
+			// Intermediate message for this mutation; do not deliver.
+			return
+		}
+		// Deliver terminal and unregister.
+		select {
+		case s.respCh <- resp:
+		default:
+			log.Printf("response router: dropped mutation terminal (type=%s, full or unbuffered respCh)", resp.Type)
+		}
+		r.unregister(s)
+		return
+	}
+
+	// 3. Query FIFO: deliver to earliest-registered matching query.
+	var winner *subscription
+	for _, s := range snapshot {
+		if s.handler != nil || s.terminate != nil || s.respCh == nil {
+			continue // skip pushes and mutations
+		}
+		if !s.match(resp) {
+			continue
+		}
+		if winner == nil || s.registered.Before(winner.registered) {
+			winner = s
+		}
+	}
+	if winner != nil {
+		select {
+		case winner.respCh <- resp:
+		default:
+			log.Printf("response router: dropped query reply (type=%s, full or unbuffered respCh)", resp.Type)
+		}
+		r.unregister(winner)
+	}
+}
+
+// safeFireHandler invokes a push subscriber's handler with panic recovery so
+// a misbehaving handler can't take down the dispatch goroutine.
+func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("response router: push handler panic (type=%s): %v", resp.Type, rec)
+		}
+	}()
+	s.handler(resp)
+}
+
+// safeRunTerminator invokes a mutation's terminator with panic recovery so
+// a buggy implementation cannot take down the dispatch goroutine. A panic
+// is treated as "not done" — the mutation will time out via execMutation
+// rather than wedge the read loop.
+//
+// Trade-off: a terminator that panics on EVERY input will pin its
+// mutation's c.mutationMu for the full timeout duration and block every
+// subsequent mutation behind it. Phase 0 accepts this; Phase 1 may want
+// either a panic-once circuit-breaker that unregisters after N panics,
+// or to surface the recovered panic as an error on respCh.
+func (r *responseRouter) safeRunTerminator(s *subscription, resp protocol.Response) (done bool) {
+	// Named return so the deferred recover() can flip done back to false
+	// even if s.terminate already assigned via the regular return below.
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("response router: terminator panic (type=%s): %v", resp.Type, rec)
+			done = false
+		}
+	}()
+	d, _ := s.terminate(resp)
+	return d
+}

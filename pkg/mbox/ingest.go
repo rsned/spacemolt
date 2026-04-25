@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -50,40 +49,10 @@ type BackfillClient interface {
 	GetRawJSON(key string) []byte
 }
 
-// waitForChatHistoryResponse sleeps long enough for a fire-and-forget
-// get_chat_history reply to populate the raw-JSON slot, then confirms the
-// slot now holds a response for the requested channel. Returns true if a
-// matching response is visible, false otherwise (caller should abort).
-//
-// We identify the reply by its "channel" field — the server does not
-// include "action" in chat_history responses. Callers set wait via
-// BackfillOptions.RequestInterval; 0 disables the wait (used by tests).
-func waitForChatHistoryResponse(ctx context.Context, client BackfillClient, channel string, wait time.Duration) bool {
-	if wait > 0 {
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(wait):
-		}
-	}
-	raw := client.GetRawJSON("_last")
-	if len(raw) == 0 {
-		return false
-	}
-	var peek struct {
-		Channel string `json:"channel"`
-	}
-	if err := json.Unmarshal(raw, &peek); err != nil {
-		return false
-	}
-	return strings.EqualFold(peek.Channel, channel)
-}
-
 // BackfillOptions controls the behaviour of a Backfill run.
 type BackfillOptions struct {
-	Channels        []string
-	MaxPerChannel   int
-	RequestInterval time.Duration
+	Channels      []string
+	MaxPerChannel int
 }
 
 // BackfillReport summarises the results of a Backfill run.
@@ -139,15 +108,8 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 			return cr, fmt.Errorf("get_chat_history(%s): %w", channel, err)
 		}
 
-		// GetChatHistory is fire-and-forget over the WebSocket. Wait for the
-		// response to populate the raw-JSON slot before reading — otherwise
-		// we race with the server's reply and see stale or empty data, which
-		// silently aborts the backfill. The wait doubles as request pacing,
-		// so we skip the trailing sleep at the bottom of the loop.
-		if !waitForChatHistoryResponse(ctx, client, channel, opts.RequestInterval) {
-			break
-		}
-
+		// GetChatHistory now blocks via execQuery until the server reply
+		// has landed — read _last directly.
 		raw := client.GetRawJSON("_last")
 		if len(raw) == 0 {
 			break
