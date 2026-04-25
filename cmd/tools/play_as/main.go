@@ -202,9 +202,6 @@ func main() {
 	// Load config
 	cfg := loadConfig(*configPath)
 
-	// Set client for lazy ship catalog lookup (used by browse_ships styled output).
-	setShipCatalogClient(client)
-
 	// Run REPL loop
 	runREPL(client, ctx, cfg, agentID, creds.Username)
 }
@@ -1140,85 +1137,11 @@ type shipListing struct {
 	ListingID string  `json:"listing_id"`
 }
 
-// shipCatalogEntry holds class and tier info from the ship catalog.
-type shipCatalogEntry struct {
-	Class string `json:"class"`
-	Tier  int    `json:"tier"`
-}
-
-// shipCatalogCache is lazily populated from the ship catalog on first browse_ships.
+// Survey scanner cache - only check modules when ship might change.
 var (
-	shipCatalogCache  map[string]shipCatalogEntry // keyed by ship class ID
-	shipCatalogOnce   sync.Once
-	shipCatalogClient game.GameClient // set before first use
-	// Survey scanner cache - only check modules when ship might change
 	surveyScannerCached bool
 	hasSurveyScanner    bool
 )
-
-// setShipCatalogClient stores the client reference for lazy catalog loading.
-func setShipCatalogClient(c game.GameClient) {
-	shipCatalogClient = c
-}
-
-// loadShipCatalog fetches the ship catalog and builds a lookup map.
-func loadShipCatalog() {
-	shipCatalogCache = make(map[string]shipCatalogEntry)
-	if shipCatalogClient == nil {
-		return
-	}
-	ctx := context.Background()
-	if err := shipCatalogClient.Catalog(ctx, "ships", 1, 100); err != nil {
-		return
-	}
-	raw := shipCatalogClient.GetRawJSON("_last")
-	if raw == nil {
-		raw = shipCatalogClient.GetRawJSON("catalog")
-	}
-	if raw == nil {
-		return
-	}
-	var resp struct {
-		Items []struct {
-			ID    string `json:"id"`
-			Class string `json:"class"`
-			Tier  int    `json:"tier"`
-		} `json:"items"`
-		TotalPages int `json:"total_pages"`
-	}
-	if json.Unmarshal(raw, &resp) != nil {
-		return
-	}
-	for _, item := range resp.Items {
-		shipCatalogCache[item.ID] = shipCatalogEntry{Class: item.Class, Tier: item.Tier}
-	}
-	// Fetch remaining pages if needed
-	for page := 2; page <= resp.TotalPages; page++ {
-		if err := shipCatalogClient.Catalog(ctx, "ships", page, 100); err != nil {
-			break
-		}
-		pageRaw := shipCatalogClient.GetRawJSON("_last")
-		if pageRaw == nil {
-			pageRaw = shipCatalogClient.GetRawJSON("catalog")
-		}
-		if pageRaw == nil {
-			break
-		}
-		var pageResp struct {
-			Items []struct {
-				ID    string `json:"id"`
-				Class string `json:"class"`
-				Tier  int    `json:"tier"`
-			} `json:"items"`
-		}
-		if json.Unmarshal(pageRaw, &pageResp) != nil {
-			break
-		}
-		for _, item := range pageResp.Items {
-			shipCatalogCache[item.ID] = shipCatalogEntry{Class: item.Class, Tier: item.Tier}
-		}
-	}
-}
 
 // formatBrowseShips formats a browse_ships response as a table.
 func formatBrowseShips(raw []byte) string {
@@ -1239,9 +1162,6 @@ func formatBrowseShips(raw []byte) string {
 		return b.String()
 	}
 
-	// Lazily load ship catalog for class/tier lookup.
-	shipCatalogOnce.Do(loadShipCatalog)
-
 	slices.SortFunc(resp.Listings, func(a, c shipListing) int {
 		if a.Price != c.Price {
 			if a.Price < c.Price {
@@ -1252,24 +1172,18 @@ func formatBrowseShips(raw []byte) string {
 		return strings.Compare(strings.ToLower(a.ShipName), strings.ToLower(c.ShipName))
 	})
 
-	// Build display rows with catalog data.
+	// Every column comes straight from the browse_ships listing — no
+	// catalog round-trip needed. Tier is in the listing payload; the
+	// class_id is the human-readable hull identifier.
 	type row struct {
 		shipListing
-		class   string
 		tierStr string
 	}
 	rows := make([]row, len(resp.Listings))
 	for i, l := range resp.Listings {
 		r := row{shipListing: l}
-		// Tier comes directly from the listing payload — no catalog needed.
-		// Class still requires the catalog (e.g. "Miner", "Freighter"); when
-		// the catalog isn't loaded yet we leave it blank rather than holding
-		// up the table.
 		if l.Tier > 0 {
 			r.tierStr = fmt.Sprintf("T%d", l.Tier)
-		}
-		if entry, ok := shipCatalogCache[l.ClassID]; ok {
-			r.class = entry.Class
 		}
 		rows[i] = r
 	}
@@ -1279,7 +1193,7 @@ func formatBrowseShips(raw []byte) string {
 	for _, r := range rows {
 		shipW = max(shipW, len(r.ShipName))
 		catW = max(catW, len(r.Category))
-		classW = max(classW, len(r.class))
+		classW = max(classW, len(r.ClassID))
 		tierW = max(tierW, len(r.tierStr))
 		priceW = max(priceW, len(formatCredits(r.Price)))
 		sellerW = max(sellerW, len(r.Seller))
@@ -1293,7 +1207,7 @@ func formatBrowseShips(raw []byte) string {
 
 	for _, r := range rows {
 		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s\n",
-			shipW, r.ShipName, catW, r.Category, classW, r.class, tierW, r.tierStr,
+			shipW, r.ShipName, catW, r.Category, classW, r.ClassID, tierW, r.tierStr,
 			priceW, formatCredits(r.Price), sellerW, r.Seller, idW, r.ListingID)
 	}
 
