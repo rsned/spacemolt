@@ -982,13 +982,14 @@ func (c *Client) FindRoute(ctx context.Context, targetSystem string) ([]RouteSte
 // GetSystem requests information about the current system.
 // Blocks until the server responds.
 func (c *Client) GetSystem(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_system",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	// get_system returns type=ok with action="get_system"; storeRawJSON stores under "system".
+	match := matchAll(matchType(protocol.TypeOK), matchAction("get_system"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetMap requests all systems with coordinates and connections.
@@ -1005,10 +1006,14 @@ func (c *Client) GetMap(ctx context.Context, force ...bool) error {
 		}
 	}
 
-	err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_map",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_map returns type=ok with "systems" key; storeRawJSON stores under "systems".
+	// No action field in response.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("systems"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	if err == nil {
 		c.mapFetchedMu.Lock()
 		c.mapFetchedAt = time.Now()
@@ -1020,25 +1025,27 @@ func (c *Client) GetMap(ctx context.Context, force ...bool) error {
 // GetPOI requests information about the current POI.
 // Blocks until the server responds.
 func (c *Client) GetPOI(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_poi",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	// get_poi returns type=ok with action="get_poi"; storeRawJSON stores under "poi".
+	match := matchAll(matchType(protocol.TypeOK), matchAction("get_poi"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetStatus requests player status.
 // Blocks until the server responds.
 func (c *Client) GetStatus(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_status",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	// get_status returns type=ok with action="get_status"; storeRawJSON stores under "status".
+	match := matchAll(matchType(protocol.TypeOK), matchAction("get_status"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetNotifications is a no-op for the WebSocket client.

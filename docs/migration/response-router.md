@@ -24,18 +24,21 @@ One-shot `ok` reply. Use `execQuery` with a `matchAll` of `matchType(OK)` plus
 either `matchAction(name)` (when the response includes an `action` field) or
 `matchPayloadKey(key)` (when it doesn't).
 
-| Method              | Status |
-| ------------------- | ------ |
-| `GetStatus`         | ⬜     |
-| `GetShip`           | ⬜     |
-| `GetSystem`         | ⬜     |
-| `GetPOI`            | ⬜     |
-| `GetMap`            | ⬜     |
-| `GetSkills`         | ⬜     |
-| `ViewStorage`       | ⬜     |
-| `ViewMarket`        | ⬜     |
-| `GetNearby`         | ⬜     |
-| `GetNotifications`  | ⬜     |
+| Method              | Status | Notes |
+| ------------------- | ------ | ----- |
+| `GetStatus`         | ✅     | `matchAction("get_status")` — in `client.go` |
+| `GetShip`           | ✅     | `matchAction("get_ship")` — in `client_commands.go` |
+| `GetSystem`         | ✅     | `matchAction("get_system")` — in `client.go` |
+| `GetPOI`            | ✅     | `matchAction("get_poi")` — in `client.go` |
+| `GetMap`            | ✅     | `matchPayloadKey("systems")`, cache logic preserved — in `client.go` |
+| `GetSkills`         | ✅     | `matchPayloadKey("player_skills")` — in `client_commands.go` |
+| `ViewStorage`       | ✅     | `matchPayloadKey("base_id")` — in `client_commands.go` |
+| `ViewStorageAt`     | ✅     | same classifier as `ViewStorage` — in `client_commands.go` |
+| `ViewMarket`        | ✅     | `matchAction("view_market")` — in `client_commands.go` |
+| `BrowseShips`       | ✅     | `matchPayloadKey("listings")` — in `client_commands.go`; note: collides with `view_market` "listings" key if both in flight, but sequential in practice |
+| `ListShips`         | ✅     | `matchAction("list_ships")`, rawJSON key = "owned_ships" — in `client_commands.go` |
+| `GetNearby`         | ✅     | `matchPayloadKey("nearby")` — in `client_commands.go` |
+| `GetNotifications`  | ✅     | already a no-op (WS server rejects this command); returns nil immediately |
 
 ## Batch 2 — Simple mutations
 

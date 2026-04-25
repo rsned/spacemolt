@@ -3944,8 +3944,10 @@ var rawJSONKeyForCommand = map[string]string{
 	"poi":              "poi",
 	"get_poi":          "poi",
 	"storage":          "storage",
+	"storage_at":       "storage",
 	"view_storage":     "storage",
 	"listings":         "listings",
+	"browse_ships":     "listings", // BrowseShips stores via "listings" content-based key
 	"view_market":      "market",
 	"market":           "market",
 	"orders":           "orders",
@@ -3957,6 +3959,13 @@ var rawJSONKeyForCommand = map[string]string{
 	"get_chat_history": "chat_history",
 	"survey":           "survey",
 	"survey_system":    "survey",
+	"skills":           "skills",
+	"get_skills":       "skills",
+	"nearby":           "nearby",
+	"get_nearby":       "nearby",
+	"map":              "systems", // GetMap stores under "systems" key
+	"get_map":          "systems",
+	"list_ships":       "owned_ships", // ListShips stores under "owned_ships" (action-based)
 }
 
 // lookupRawJSON returns the raw JSON payload for command, keyed by

@@ -96,14 +96,16 @@ func (c *Client) ScanTarget(ctx context.Context, targetID string) error {
 // BrowseShips browses ships listed for sale at a base.
 // Blocks until the server responds.
 func (c *Client) BrowseShips(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "browse_ships",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	// browse_ships returns type=ok with a "listings" array; storeRawJSON
+	// detects this via content-based "listings" key (no action-field path).
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("listings"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // BuyListedShip purchases a ship listed by another player.
@@ -252,10 +254,15 @@ func (c *Client) SellShip(ctx context.Context, shipID string) error {
 
 // ListShips lists all ships owned by the player and their locations.
 func (c *Client) ListShips(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "list_ships",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// list_ships returns type=ok with action="list_ships"; storeRawJSON stores
+	// under "owned_ships". Use matchAction for precise correlation.
+	match := matchAll(matchType(protocol.TypeOK), matchAction("list_ships"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // UseItem uses a consumable item from cargo.
@@ -375,11 +382,16 @@ func (c *Client) ViewMarket(ctx context.Context, itemID string) error {
 	if itemID != "" {
 		payload["item_id"] = itemID
 	}
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "view_market",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// view_market returns type=ok with action="view_market"; storeRawJSON
+	// stores under "market". Use matchAction for precise correlation.
+	match := matchAll(matchType(protocol.TypeOK), matchAction("view_market"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // ViewOrders views your own orders at the current station.
@@ -579,19 +591,28 @@ func (c *Client) Jettison(ctx context.Context, itemID string, quantity float64) 
 
 // ViewStorage views your storage at the current station.
 func (c *Client) ViewStorage(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "view_storage",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// view_storage returns type=ok with "base_id" as the reliable indicator;
+	// storeRawJSON stores under "storage". Items/ships may be omitted when empty.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // ViewStorageAt views your storage at a specific station (without needing to be docked).
 func (c *Client) ViewStorageAt(ctx context.Context, stationID string) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "view_storage",
 		Payload:   map[string]any{"station_id": stationID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Same response shape as ViewStorage: "base_id" is the reliable indicator.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // WithdrawItems moves items from station storage to cargo.
@@ -660,18 +681,27 @@ func (c *Client) GetRecipes(ctx context.Context) error {
 
 // GetSkills gets your skill progress.
 func (c *Client) GetSkills(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_skills",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_skills returns type=ok with "player_skills" key; storeRawJSON stores
+	// under "skills". No action field in response.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("player_skills"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetNearby gets other players at the current POI.
 func (c *Client) GetNearby(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_nearby",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_nearby returns type=ok with "nearby" key; storeRawJSON stores under "nearby".
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("nearby"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetBase gets docked base details.
@@ -684,10 +714,14 @@ func (c *Client) GetBase(ctx context.Context) error {
 
 // GetShip gets detailed ship information.
 func (c *Client) GetShip(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_ship",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_ship returns type=ok with action="get_ship"; storeRawJSON stores under "ship".
+	match := matchAll(matchType(protocol.TypeOK), matchAction("get_ship"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // ============================================================================
