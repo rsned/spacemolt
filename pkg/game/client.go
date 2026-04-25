@@ -1029,8 +1029,10 @@ func (c *Client) GetPOI(ctx context.Context) error {
 		Type:      "get_poi",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_poi returns type=ok with action="get_poi"; storeRawJSON stores under "poi".
-	match := matchAll(matchType(protocol.TypeOK), matchAction("get_poi"))
+	// get_poi returns type=ok with no "action" field on the wire (the
+	// storeRawJSON action case is dead code for the current server).
+	// The distinctive payload key is "poi" — the POI object itself.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("poi"))
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
 }
@@ -1042,8 +1044,10 @@ func (c *Client) GetStatus(ctx context.Context) error {
 		Type:      "get_status",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_status returns type=ok with action="get_status"; storeRawJSON stores under "status".
-	match := matchAll(matchType(protocol.TypeOK), matchAction("get_status"))
+	// get_status returns type=ok with no "action" field on the wire (the
+	// storeRawJSON action case is dead code for the current server).
+	// The distinctive payload key is "player" — the full player snapshot.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("player"))
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
 }

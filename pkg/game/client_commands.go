@@ -222,10 +222,15 @@ func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float
 
 // ShipyardShowroom browses ships available for immediate purchase at this shipyard.
 func (c *Client) ShipyardShowroom(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "shipyard_showroom",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// shipyard_showroom returns type=ok with a "shipyard" key; no "action" field.
+	// storeRawJSON shape-detection confirms the "shipyard" key.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("shipyard"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // SwitchShip switches to a different ship stored at the current station.
@@ -399,10 +404,17 @@ func (c *Client) ViewMarket(ctx context.Context, itemID string) error {
 
 // ViewOrders views your own orders at the current station.
 func (c *Client) ViewOrders(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "view_orders",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// view_orders returns type=ok with required "orders" array and "action" field.
+	// openapi.json ViewOrdersResponse confirms both are always present. The response
+	// also has a "base" field, but "orders" is more distinctive (no collision).
+	// storeRawJSON action-switch overrides "base" with "orders" for this command.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("orders"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // EstimatePurchase previews what buying would cost without executing.
@@ -477,10 +489,15 @@ func (c *Client) TradeDecline(ctx context.Context, tradeID string) error {
 
 // GetWrecks lists all wrecks at the current POI.
 func (c *Client) GetWrecks(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_wrecks",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_wrecks returns type=ok with a "wrecks" key; no "action" field.
+	// storeRawJSON shape-detection (line ~3289) and openapi GetWrecksResponse confirm.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("wrecks"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // LootWreck loots items from a wreck.
@@ -676,10 +693,15 @@ func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
 
 // GetRecipes gets available crafting recipes.
 func (c *Client) GetRecipes(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_recipes",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_recipes returns type=ok with a "recipes" key; no "action" field.
+	// storeRawJSON shape-detection (line ~3275) confirms the "recipes" key.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("recipes"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetSkills gets your skill progress.
@@ -709,10 +731,17 @@ func (c *Client) GetNearby(ctx context.Context) error {
 
 // GetBase gets docked base details.
 func (c *Client) GetBase(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_base",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_base returns type=ok with "base" (object) and "services" keys per
+	// openapi GetBaseResponse schema. Use "services" as classifier: view_orders
+	// also has a "base" field but not "services", so "services" is distinctive.
+	// storeRawJSON stores under the "base" key (action-switch line ~3092).
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("services"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetShip gets detailed ship information.
@@ -721,8 +750,10 @@ func (c *Client) GetShip(ctx context.Context) error {
 		Type:      "get_ship",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_ship returns type=ok with action="get_ship"; storeRawJSON stores under "ship".
-	match := matchAll(matchType(protocol.TypeOK), matchAction("get_ship"))
+	// get_ship returns type=ok with no "action" field on the wire (the
+	// storeRawJSON action case is dead code for the current server).
+	// The distinctive payload key is "ship" — the ship object itself.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("ship"))
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
 }
@@ -733,18 +764,32 @@ func (c *Client) GetShip(ctx context.Context) error {
 
 // GetMissions gets available missions at the current base.
 func (c *Client) GetMissions(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_missions",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_missions returns type=ok with "missions" array and "base_id" field; no
+	// "action" field on the wire per openapi GetMissionsResponse. Use "base_id"
+	// (not "missions" alone) to distinguish from get_active_missions which also
+	// has a "missions" key but lacks "base_id".
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetActiveMissions views your active missions and progress.
 func (c *Client) GetActiveMissions(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_active_missions",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_active_missions returns type=ok with "missions", "total_count", and
+	// "max_missions" fields; no "action" field. "max_missions" is unique to this
+	// response — storeRawJSON shape-detection uses total_count+max_missions pair,
+	// but "max_missions" alone is sufficient and distinctive.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("max_missions"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // AcceptMission accepts a mission from the mission board.
@@ -1162,10 +1207,15 @@ func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
 
 // GetDrones gets deployed drone information.
 func (c *Client) GetDrones(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_drones",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// get_drones returns type=ok with a "drones" key; no "action" field.
+	// storeRawJSON shape-detection (line ~3296) confirms the "drones" key.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("drones"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // Note: SurveySystem and FindRoute are in client.go.
@@ -1176,10 +1226,16 @@ func (c *Client) GetDrones(ctx context.Context) error {
 
 // FactionInfo views faction details. If factionID is empty, views your own faction.
 func (c *Client) FactionInfo(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_info",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// faction_info returns type=ok with "is_member" boolean; no "action" field.
+	// openapi FactionInfoResponse and storeRawJSON (line ~3317) confirm "is_member"
+	// is always present and distinctive — no other command returns this field.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("is_member"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // FactionList lists all factions.
