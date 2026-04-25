@@ -79,12 +79,17 @@ Multi-stage: `pending ok` → progress events (`tick`, `traveling`,
 
 Factions (30+), missions, forum, chat send (`Chat`, `TradeOffer`, `SendGift`),
 drones, bases, insurance, commission, captain's log, and the external tool
-call sites currently allowlisted in `scripts/check_legacy_response_api.sh`:
++ infrastructure call sites currently allowlisted in
+`scripts/check_legacy_response_api.sh`:
 
 - `cmd/debug/play-simple/main.go`
+- `cmd/tools/agent-status/main.go`
 - `cmd/tools/facility-check/main.go`
 - `cmd/tools/faction-join/main.go`
 - `cmd/tools/server-cmd/main.go`
+- `pkg/observe/session.go` — passes raw `protocol.Message` from browsers
+  through `gameClient.Send`; needs design work before migration since the
+  observer currently doesn't know which classifier to register
 
 Enumerate per-method when batch 3 lands. Each external tool likely needs only
 a handful of method swaps; group them by tool in the follow-up plan.

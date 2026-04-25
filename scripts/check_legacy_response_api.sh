@@ -37,15 +37,24 @@ ALLOWLIST=(
 
     # External tools — migrate in batch 4.
     cmd/debug/play-simple/main.go
+    cmd/tools/agent-status/main.go
     cmd/tools/facility-check/main.go
     cmd/tools/faction-join/main.go
     cmd/tools/server-cmd/main.go
+
+    # Observer session — passes the GameClient through; routes Send via
+    # an embedded reference. Migrate in batch 4 alongside the other
+    # external consumers.
+    pkg/observe/session.go
 )
 
 # Build a path filter: search the listed roots, exclude the allowlisted
 # files/directories. We use git grep because it understands .gitignore and
 # is fast on large checkouts.
-PATTERN='\b(c|client|q\.client)\.Send\(|\bwaitForResponse\(|\bwaitForActionResponse\(|\bCommandQueue.*\.Enqueue\(|\bCmdQueue\.Enqueue\('
+# Match any receiver dotted-path ending in `.Send(` so e.g. `gameClient.Send`,
+# `s.gameClient.Send`, `self.client.Send` are all caught — not just the bare
+# `c.Send` / `client.Send` / `q.client.Send` forms.
+PATTERN='\b[A-Za-z_][A-Za-z0-9_.]*\.Send\(|\bwaitForResponse\(|\bwaitForActionResponse\(|\bCommandQueue.*\.Enqueue\(|\bCmdQueue\.Enqueue\('
 
 # Build pathspec excludes (one per allowlist entry).
 EXCLUDES=()
