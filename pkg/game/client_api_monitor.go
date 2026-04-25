@@ -309,6 +309,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"remaining":         true,
 		"remaining_display": true,
 		"resource_name":     true,
+		"xp_gained":         true,
 	},
 	protocol.TypePirateWarning: {
 		"pirate_name": true,
