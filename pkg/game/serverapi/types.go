@@ -803,23 +803,6 @@ type ShipListingDetail struct {
 	ListedAt     string `json:"listed_at,omitempty"`
 }
 
-// ShowroomShip represents a ship in a shipyard showroom.
-type ShowroomShip struct {
-	ShipID        string `json:"ship_id,omitempty"`
-	ClassID       string `json:"class_id"`
-	Name          string `json:"name"`
-	Category      string `json:"category,omitempty"`
-	Tier          int    `json:"tier,omitempty"`
-	Scale         int    `json:"scale,omitempty"`
-	Hull          int    `json:"hull,omitempty"`
-	Shield        int    `json:"shield,omitempty"`
-	Speed         int    `json:"speed,omitempty"`
-	Cargo         int    `json:"cargo,omitempty"`
-	ShowroomPrice int    `json:"showroom_price,omitempty"`
-	LaborCost     int    `json:"labor_cost,omitempty"`
-	MaterialCost  int    `json:"material_cost,omitempty"`
-}
-
 // RevealedPOI represents a POI revealed by a system survey.
 type RevealedPOI struct {
 	ID          string            `json:"id"`

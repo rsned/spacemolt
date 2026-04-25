@@ -109,7 +109,6 @@ var actionResponseTypes = map[string]reflect.Type{
 	"buy_ship":           reflect.TypeOf(serverapi.BuyShipResponse{}),
 	"sell_ship":          reflect.TypeOf(serverapi.SellShipResponse{}),
 	"switch_ship":        reflect.TypeOf(serverapi.SwitchShipResponse{}),
-	"shipyard_showroom":  reflect.TypeOf(serverapi.ShipyardShowroomResponse{}),
 	"browse_ships":       reflect.TypeOf(serverapi.BrowseShipsResponse{}),
 	"buy_listed_ship":    reflect.TypeOf(serverapi.BuyListedShipResponse{}),
 	"list_ship_for_sale": reflect.TypeOf(serverapi.ListShipForSaleResponse{}),

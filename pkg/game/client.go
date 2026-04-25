@@ -3262,13 +3262,6 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
-		// Store shipyard data (from shipyard_showroom response)
-		if _, hasShipyard := resp.Payload["shipyard"]; hasShipyard {
-			if storeKey == "" {
-				storeKey = "shipyard"
-			}
-			shouldStore = true
-		}
 		// Only store as "system" if it has pois (full get_system response)
 		// Jump responses also have "system" field but lack pois/position/police_level
 		if _, hasPOIs := resp.Payload["pois"]; hasPOIs && storeKey == "" {

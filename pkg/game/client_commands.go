@@ -220,18 +220,6 @@ func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float
 	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// ShipyardShowroom browses ships available for immediate purchase at this shipyard.
-func (c *Client) ShipyardShowroom(ctx context.Context) error {
-	msg := protocol.Message{
-		Type:      "shipyard_showroom",
-		Timestamp: time.Now().UnixMilli(),
-	}
-	// shipyard_showroom returns type=ok with a "shipyard" key; no "action" field.
-	// storeRawJSON shape-detection confirms the "shipyard" key.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("shipyard"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
-	return err
-}
 
 // SwitchShip switches to a different ship stored at the current station.
 func (c *Client) SwitchShip(ctx context.Context, shipID string) error {

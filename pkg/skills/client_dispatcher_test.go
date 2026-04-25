@@ -507,7 +507,6 @@ func (m *mockGameClient) GetInsuranceQuote(ctx context.Context) error           
 func (m *mockGameClient) Help(ctx context.Context, payload map[string]any) error               { return nil }
 func (m *mockGameClient) FactionInfo(ctx context.Context) error                                { return nil }
 func (m *mockGameClient) CaptainsLogList(ctx context.Context) error                            { return nil }
-func (m *mockGameClient) ShipyardShowroom(ctx context.Context) error                           { return nil }
 func (m *mockGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error { return nil }
 func (m *mockGameClient) FindRoute(ctx context.Context, targetSystem string) ([]game.RouteStep, error) { return nil, nil }
 func (m *mockGameClient) CreateFaction(ctx context.Context, payload map[string]any) error      { return nil }

@@ -332,10 +332,6 @@ func (m *mockGameClient) CaptainsLogList(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "captains_log_list")
 	return nil
 }
-func (m *mockGameClient) ShipyardShowroom(ctx context.Context) error {
-	m.actionsRecorded = append(m.actionsRecorded, "shipyard_showroom")
-	return nil
-}
 func (m *mockGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error {
 	m.actionsRecorded = append(m.actionsRecorded, "catalog")
 	return nil

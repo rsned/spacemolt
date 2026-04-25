@@ -93,7 +93,6 @@ type GameClient interface {
 	// Data collection
 	FactionInfo(ctx context.Context) error
 	CaptainsLogList(ctx context.Context) error
-	ShipyardShowroom(ctx context.Context) error
 	Catalog(ctx context.Context, catalogType string, page, pageSize int) error
 
 	// Route Planning

@@ -1111,14 +1111,6 @@ func (m *MCPGameClient) GetCommands(ctx context.Context) error {
 	return m.cacheResultAs(result, "commands")
 }
 
-func (m *MCPGameClient) ShipyardShowroom(ctx context.Context) error {
-	result, err := m.callTool(ctx, "get_ships", nil)
-	if err != nil {
-		return err
-	}
-	return m.cacheResultAs(result, "shipyard")
-}
-
 func (m *MCPGameClient) GetInsuranceQuote(ctx context.Context) error {
 	// Use claim_insurance to get quote info — there's no dedicated quote tool
 	// but the get_status response includes insurance info

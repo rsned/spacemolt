@@ -40,6 +40,23 @@ either `matchAction(name)` (when the response includes an `action` field) or
 | `GetNearby`         | ✅     | `matchPayloadKey("nearby")` — in `client_commands.go` |
 | `GetNotifications`  | ✅     | already a no-op (WS server rejects this command); returns nil immediately |
 
+## Batch 1.5 — Additional queries (mid-Phase 1)
+
+Discovered during user testing of Batch 1; these were also fire-and-forget
+and showed the same race symptoms. Migrated together as a follow-up (501a1b1).
+
+| Method              | Status | Classifier                                             |
+| ------------------- | ------ | ------------------------------------------------------ |
+| `GetMissions`       | ✅     | `matchPayloadKey("base_id")` — distinguishes from `GetActiveMissions` which also has "missions" |
+| `GetActiveMissions` | ✅     | `matchPayloadKey("max_missions")` — unique to active-missions response |
+| `GetWrecks`         | ✅     | `matchPayloadKey("wrecks")` |
+| `GetDrones`         | ✅     | `matchPayloadKey("drones")` |
+| `GetRecipes`        | ✅     | `matchPayloadKey("recipes")` |
+| `GetBase`           | ✅     | `matchPayloadKey("services")` — "base" alone collides with view_orders; "services" is in required fields |
+| `FactionInfo`       | ✅     | `matchPayloadKey("is_member")` — distinctive boolean in FactionInfoResponse |
+| `ShipyardShowroom`  | ✅     | `matchPayloadKey("shipyard")` |
+| `ViewOrders`        | ✅     | `matchPayloadKey("orders")` — response also has "action" field per openapi but "orders" is distinctive and avoids action-trust |
+
 ## Batch 2 — Simple mutations
 
 `pending ok` → `action_result` / `action_error`. Use `execMutation` with

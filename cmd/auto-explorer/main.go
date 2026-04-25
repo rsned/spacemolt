@@ -397,17 +397,16 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 		logger.Printf("⚠️  Error checking for today's ship listings: %v", err)
 	}
 
-	// Get ship listings (only if not captured today)
-	// ShipyardShowroom - get available ships at station.
+	// Get ship listings (only if not captured today). The server replaced
+	// shipyard_showroom with browse_ships; pass nil payload to fetch the
+	// full listing without category/scale filters.
 	if !hasShipsToday {
 		if wsClient, ok := client.(*game.Client); ok {
 			logger.Printf("🚢 Getting ship listings from %s...", poiName)
-			if err := wsClient.ShipyardShowroom(ctx); err != nil {
+			if err := wsClient.BrowseShips(ctx, nil); err != nil {
 				logger.Printf("Failed to get ship listings: %v", err)
 			} else {
-				time.Sleep(2 * time.Second)
-
-				rawJSON := client.GetRawJSON("ships")
+				rawJSON := client.GetRawJSON("listings")
 				if rawJSON != nil {
 					var serverData map[string]any
 					if err := json.Unmarshal(rawJSON, &serverData); err == nil {
@@ -469,47 +468,39 @@ func convertShipListingsToKnowledge(systemID, systemName, stationID, stationName
 func extractShipListings(serverData map[string]any) []knowledge.ShipListing {
 	var ships []knowledge.ShipListing
 
-	shipsData, ok := serverData["ships"]
+	// browse_ships response has a "listings" array (the old shipyard_showroom
+	// returned "ships"); per-listing fields are also slimmer — there's no
+	// description/cargo_space/utility_slots/weapon_slots at this level. Map
+	// what's available; downstream consumers tolerate zero defaults.
+	listingsData, ok := serverData["listings"]
 	if !ok {
 		return ships
 	}
 
-	shipsArray, ok := shipsData.([]any)
+	listingsArray, ok := listingsData.([]any)
 	if !ok {
 		return ships
 	}
 
-	for _, shipData := range shipsArray {
-		shipMap, ok := shipData.(map[string]any)
+	for _, listingData := range listingsArray {
+		listingMap, ok := listingData.(map[string]any)
 		if !ok {
 			continue
 		}
 
 		ship := knowledge.ShipListing{}
 
-		if id, ok := shipMap["id"].(string); ok {
-			ship.ShipClass = id
+		if classID, ok := listingMap["class_id"].(string); ok {
+			ship.ShipClass = classID
 		}
-		if name, ok := shipMap["name"].(string); ok {
+		if name, ok := listingMap["ship_name"].(string); ok {
 			ship.ShipName = name
 		}
-		if price, ok := shipMap["price"].(float64); ok {
+		if price, ok := listingMap["price"].(float64); ok {
 			ship.BasePrice = price
 		}
-		if desc, ok := shipMap["description"].(string); ok {
-			ship.Description = desc
-		}
-		if cargo, ok := shipMap["cargo_space"].(float64); ok {
-			ship.CargoSpace = int(cargo)
-		}
-		if modules, ok := shipMap["module_slots"].(float64); ok {
+		if modules, ok := listingMap["modules_count"].(float64); ok {
 			ship.ModuleSlots = int(modules)
-		}
-		if utility, ok := shipMap["utility_slots"].(float64); ok {
-			ship.UtilitySlots = int(utility)
-		}
-		if weapons, ok := shipMap["weapon_slots"].(float64); ok {
-			ship.WeaponSlots = int(weapons)
 		}
 
 		ships = append(ships, ship)

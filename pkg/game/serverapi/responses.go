@@ -496,17 +496,6 @@ type BrowseShipsResponse struct {
 	Count    int                 `json:"count,omitempty"`
 }
 
-// ShipyardShowroomResponse wraps the response from shipyard_showroom command.
-type ShipyardShowroomResponse struct {
-	Action        string         `json:"action,omitempty"`
-	BaseID        string         `json:"base_id,omitempty"`
-	BaseName      string         `json:"base_name,omitempty"`
-	Ships         []ShowroomShip `json:"ships"`
-	Count         int            `json:"count,omitempty"`
-	ShipyardLevel int            `json:"shipyard_level,omitempty"`
-	Tip           string         `json:"tip,omitempty"`
-}
-
 // BuyShipResponse wraps the response from buy_ship command.
 type BuyShipResponse struct {
 	Message     string `json:"message"`
