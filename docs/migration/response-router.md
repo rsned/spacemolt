@@ -67,15 +67,15 @@ tight if the action takes more than one tick to start.
 
 | Method              | Status | Notes |
 | ------------------- | ------ | ----- |
-| `DepositItems`      | ✅     | pre-flight validation preserved; only post-Send glue changed — `client.go` (TBD_SHA) |
-| `WithdrawItems`     | ✅     | `client_commands.go` (TBD_SHA) |
-| `Buy`               | ✅     | `client.go` (TBD_SHA) |
-| `Sell`              | ✅     | `client.go` (TBD_SHA) |
-| `Jettison`          | ✅     | `client_commands.go` (TBD_SHA) |
-| `RepairWith`        | ✅     | `client.go`; uses `matchCommand("repair")` — sends server command `repair` with a payload (TBD_SHA) |
-| `Craft`             | ✅     | implementation is in `CraftWithQuantity` (`crafting.go`); `Craft` delegates, both migrated (TBD_SHA) |
-| `CreateBuyOrder`    | ✅     | `client_commands.go` (TBD_SHA) |
-| `CreateSellOrder`   | ✅     | `client_commands.go` (TBD_SHA) |
+| `DepositItems`      | ✅     | pre-flight validation preserved; only post-Send glue changed — `client.go` (b5e455f) |
+| `WithdrawItems`     | ✅     | `client_commands.go` (b5e455f) |
+| `Buy`               | ✅     | `client.go` (b5e455f) |
+| `Sell`              | ✅     | `client.go` (b5e455f) |
+| `Jettison`          | ✅     | `client_commands.go` (b5e455f) |
+| `RepairWith`        | ✅     | `client.go`; uses `matchCommand("repair")` — sends server command `repair` with a payload (b5e455f) |
+| `Craft`             | ✅     | implementation is in `CraftWithQuantity` (`crafting.go`); `Craft` delegates, both migrated (b5e455f) |
+| `CreateBuyOrder`    | ✅     | `client_commands.go` (b5e455f) |
+| `CreateSellOrder`   | ✅     | `client_commands.go` (b5e455f) |
 | `Refuel`            | 🚧     | **DEFERRED** — uses `sendAndWaitGoalable`; `terminateOnAction` produces a plain `error` (not `*ServerError`) so `maybeGoalReached("refuel", ...)` would never fire. GoalReached semantics for `tank_full` must be preserved. Needs a custom terminator or a `terminateOnAction` variant that returns `*ServerError`. |
 | `Repair`            | 🚧     | **DEFERRED** — same as `Refuel`; `no_damage` GoalReached code must survive the migration. |
 | `SellAll`           | 🚧     | **DEFERRED** — not a simple mutation; it loops over cargo items, calls `Sell()` per item with `time.Sleep(10s)` between calls. Batch 3 or later. |
