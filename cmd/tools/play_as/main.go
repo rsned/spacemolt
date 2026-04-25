@@ -1134,6 +1134,7 @@ type shipListing struct {
 	ShipName  string  `json:"ship_name"`
 	ClassID   string  `json:"class_id"`
 	Category  string  `json:"category"`
+	Tier      int     `json:"tier"`
 	Price     float64 `json:"price"`
 	Seller    string  `json:"seller"`
 	ListingID string  `json:"listing_id"`
@@ -1260,9 +1261,15 @@ func formatBrowseShips(raw []byte) string {
 	rows := make([]row, len(resp.Listings))
 	for i, l := range resp.Listings {
 		r := row{shipListing: l}
+		// Tier comes directly from the listing payload — no catalog needed.
+		// Class still requires the catalog (e.g. "Miner", "Freighter"); when
+		// the catalog isn't loaded yet we leave it blank rather than holding
+		// up the table.
+		if l.Tier > 0 {
+			r.tierStr = fmt.Sprintf("T%d", l.Tier)
+		}
 		if entry, ok := shipCatalogCache[l.ClassID]; ok {
 			r.class = entry.Class
-			r.tierStr = fmt.Sprintf("T%d", entry.Tier)
 		}
 		rows[i] = r
 	}

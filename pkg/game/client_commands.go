@@ -917,7 +917,7 @@ func (c *Client) WriteNote(ctx context.Context, noteID, content string) error {
 
 // Catalog browses game reference data (ships, skills, recipes, items).
 func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize int) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "catalog",
 		Payload: map[string]any{
 			"type":      catalogType,
@@ -925,7 +925,12 @@ func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize
 			"page_size": pageSize,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// catalog responses have {items, page, page_size, total, total_pages, type}.
+	// total_pages is distinctive — no other response carries it.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("total_pages"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetCommands gets a structured list of all commands.
