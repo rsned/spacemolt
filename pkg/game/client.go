@@ -1103,14 +1103,13 @@ func (c *Client) GetShipListings() map[string]any {
 
 // Sell sells items from cargo at the current station
 func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "sell",
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("sell"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CreateBulkSellOrder creates multiple sell orders in a single API call (up to 50 items).
@@ -1285,15 +1284,13 @@ func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float
 		return fmt.Errorf("requested quantity %f exceeds available %f for item %s", quantity, availableQty, itemID)
 	}
 
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "deposit_items",
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("deposit_items"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // DepositAllItems deposits all items from the ship's cargo to station storage.
@@ -1452,14 +1449,13 @@ func (c *Client) Repair(ctx context.Context) error {
 
 // RepairWith repairs using specific options (repair kits, remote target, etc.).
 func (c *Client) RepairWith(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "repair",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // Fleet manages player fleet operations (create, invite, accept, decline, leave, kick, disband, status).
@@ -1498,14 +1494,13 @@ func (c *Client) DistressSignal(ctx context.Context, distressType string) error 
 
 // Buy purchases items or modules at the current station
 func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "buy",
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("buy"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // GetState returns the current game state

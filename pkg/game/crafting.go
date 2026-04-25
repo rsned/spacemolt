@@ -119,15 +119,17 @@ func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantit
 		payload["quantity"] = quantity
 	}
 
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "craft",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-
-	return c.waitForActionResponse(ctx, SleepDock) // Pending craft completes on next tick (~10s), need margin
+	// Server sends: ok (pending) → action_result with command="craft".
+	// Intermediate events (e.g. skill_level_up) don't carry a "command" field
+	// and won't satisfy the classifier, so they pass through to push
+	// subscribers without disturbing the mutation wait.
+	_, err := c.execMutation(ctx, msg, matchCommand("craft"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // QueryCraftableRecipes queries the crafting MCP server to find what can be crafted

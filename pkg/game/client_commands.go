@@ -326,26 +326,24 @@ func (c *Client) AnalyzeMarket(ctx context.Context) error {
 
 // CreateBuyOrder places a buy offer on the station exchange.
 func (c *Client) CreateBuyOrder(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "create_buy_order",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("create_buy_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CreateSellOrder lists items for sale on the station exchange.
 func (c *Client) CreateSellOrder(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "create_sell_order",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("create_sell_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CancelOrder cancels an active exchange order and returns escrow.
@@ -584,17 +582,16 @@ func (c *Client) GetCargo(ctx context.Context) error {
 
 // Jettison jettisons items from cargo into space.
 func (c *Client) Jettison(ctx context.Context, itemID string, quantity float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "jettison",
 		Payload: map[string]any{
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("jettison"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ViewStorage views your storage at the current station.
@@ -625,17 +622,16 @@ func (c *Client) ViewStorageAt(ctx context.Context, stationID string) error {
 
 // WithdrawItems moves items from station storage to cargo.
 func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "withdraw_items",
 		Payload: map[string]any{
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_items"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // WithdrawCredits moves credits from station storage to wallet.
