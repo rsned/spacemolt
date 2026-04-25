@@ -63,6 +63,19 @@ func TestMatchPayloadKey(t *testing.T) {
 	}
 }
 
+func TestMatchTypes(t *testing.T) {
+	m := matchTypes(protocol.TypeDocked, protocol.TypeActionError)
+	if !m(protocol.Response{Type: protocol.TypeDocked}) {
+		t.Error("expected docked to match")
+	}
+	if !m(protocol.Response{Type: protocol.TypeActionError}) {
+		t.Error("expected action_error to match")
+	}
+	if m(protocol.Response{Type: protocol.TypeOK}) {
+		t.Error("expected ok not to match")
+	}
+}
+
 func TestMatchAllEmpty(t *testing.T) {
 	// Empty matchAll() is vacuously true — matches every response.
 	m := matchAll()

@@ -17,14 +17,13 @@ func (c *Client) Battle(ctx context.Context, action string, payload map[string]a
 		payload = map[string]any{}
 	}
 	payload["action"] = action
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "battle",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("battle"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // GetBattleStatus queries the current battle state (free query, no tick cost).
@@ -41,52 +40,49 @@ func (c *Client) GetBattleStatus(ctx context.Context) error {
 
 // Reload reloads a weapon's magazine from ammo in cargo.
 func (c *Client) Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "reload",
 		Payload: map[string]any{
 			"weapon_instance_id": weaponInstanceID,
 			"ammo_item_id":      ammoItemID,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("reload"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SelfDestruct destroys your own ship.
 func (c *Client) SelfDestruct(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "self_destruct",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("self_destruct"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // Cloak toggles the cloaking device. Pass true to enable, false to disable.
 func (c *Client) Cloak(ctx context.Context, enable bool) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "cloak",
 		Payload:   map[string]any{"enable": enable},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("cloak"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ScanTarget scans a specific target player.
+// Note: the server command type is "scan" (same as Scan), not "scan_target".
 func (c *Client) ScanTarget(ctx context.Context, targetID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "scan",
 		Payload:   map[string]any{"target_id": targetID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("scan"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -110,62 +106,57 @@ func (c *Client) BrowseShips(ctx context.Context, payload map[string]any) error 
 
 // BuyListedShip purchases a ship listed by another player.
 func (c *Client) BuyListedShip(ctx context.Context, listingID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "buy_listed_ship",
 		Payload:   map[string]any{"listing_id": listingID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("buy_listed_ship"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // BuyShip buys a pre-built ship from the station showroom.
 func (c *Client) BuyShip(ctx context.Context, shipClass string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "buy_ship",
 		Payload:   map[string]any{"ship_class": shipClass},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("buy_ship"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CancelCommission cancels a pending or in-progress ship commission.
 func (c *Client) CancelCommission(ctx context.Context, commissionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "cancel_commission",
 		Payload:   map[string]any{"commission_id": commissionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("cancel_commission"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CancelShipListing removes a ship listing from the exchange.
 func (c *Client) CancelShipListing(ctx context.Context, listingID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "cancel_ship_listing",
 		Payload:   map[string]any{"listing_id": listingID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("cancel_ship_listing"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ClaimCommission claims a completed ship from a commission.
 func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "claim_commission",
 		Payload:   map[string]any{"commission_id": commissionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("claim_commission"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CommissionQuote gets a cost estimate for commissioning a ship.
@@ -179,17 +170,16 @@ func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
 
 // CommissionShip commissions a ship to be built at the current shipyard.
 func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "commission_ship",
 		Payload: map[string]any{
 			"ship_class":        shipClass,
 			"provide_materials": provideMaterials,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("commission_ship"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CommissionStatus checks the status of ship commissions.
@@ -207,42 +197,38 @@ func (c *Client) CommissionStatus(ctx context.Context, baseID string) error {
 
 // ListShipForSale lists a stored ship for sale on the exchange.
 func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "list_ship_for_sale",
 		Payload: map[string]any{
 			"ship_id": shipID,
 			"price":   price,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("list_ship_for_sale"), terminateOnAction, SleepTick*3)
+	return err
 }
-
 
 // SwitchShip switches to a different ship stored at the current station.
 func (c *Client) SwitchShip(ctx context.Context, shipID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "switch_ship",
 		Payload:   map[string]any{"ship_id": shipID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("switch_ship"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SellShip sells a stored ship at the current station.
 func (c *Client) SellShip(ctx context.Context, shipID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "sell_ship",
 		Payload:   map[string]any{"ship_id": shipID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("sell_ship"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ListShips lists all ships owned by the player and their locations.
@@ -504,14 +490,13 @@ func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity
 
 // SalvageWreck salvages a wreck for raw materials.
 func (c *Client) SalvageWreck(ctx context.Context, wreckID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "salvage_wreck",
 		Payload:   map[string]any{"wreck_id": wreckID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("salvage_wreck"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // TowWreck attaches a tow line to a wreck for hauling.

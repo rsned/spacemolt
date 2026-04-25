@@ -52,6 +52,21 @@ func matchPayloadKey(key string) Classifier {
 	}
 }
 
+// matchTypes matches responses whose top-level Type is one of the supplied
+// types. Useful for mutations whose terminal response is a push-style event
+// (e.g. dock terminating on TypeDocked, travel on TypePOIArrival) where
+// matchCommand wouldn't fire because those events lack a command field.
+func matchTypes(types ...string) Classifier {
+	set := make(map[string]struct{}, len(types))
+	for _, t := range types {
+		set[t] = struct{}{}
+	}
+	return func(resp protocol.Response) bool {
+		_, ok := set[resp.Type]
+		return ok
+	}
+}
+
 // matchAll returns a Classifier that matches only when every supplied
 // classifier matches. Short-circuits on the first non-match. With no
 // arguments it returns a vacuously-true classifier (matches every response).

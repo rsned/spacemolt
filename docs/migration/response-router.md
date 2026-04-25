@@ -88,16 +88,44 @@ Multi-stage: `pending ok` → progress events (`tick`, `traveling`,
 `terminateOnTypes(...)` for the terminal types; intermediate events flow to
 `subscribePush` listeners.
 
-| Method              | Status | Terminator                                      |
-| ------------------- | ------ | ----------------------------------------------- |
-| `Travel`            | ⬜     | `terminateOnTypes(POIArrival, ActionError)`     |
-| `Jump`              | ⬜     | `terminateOnTypes(POIArrival, ActionError)`     |
-| `Dock`              | ⬜     | `terminateOnTypes(Docked, ActionError)`         |
-| `Undock`            | ⬜     | `terminateOnTypes(Undocked, ActionError)`       |
-| `Mine`              | ⬜     | `terminateOnAction` + `MiningYield` push        |
-| `Salvage`           | ⬜     | `terminateOnAction`                             |
-| `Battle`            | ⬜     | `terminateOnAction` + `CombatUpdate`/`PlayerDied` push |
-| `Scan`              | ⬜     | `terminateOnAction`                             |
+New helper added in this batch: `matchTypes(types ...string)` in
+`pkg/game/classifier.go` — matches push-style terminal events that carry no
+`command` field (e.g. `docked`, `undocked`).
+
+### Batch 3.0 — Core complex mutations
+
+| Method              | Status | Classifier / Terminator                                           |
+| ------------------- | ------ | ----------------------------------------------------------------- |
+| `Mine`              | ✅     | `matchCommand("mine")` + `terminateOnAction`; err wrapped via `maybeGoalReached("mine", err)`; `sendAndWaitGoalable` deleted as now unused — `client.go` |
+| `Attack`            | ✅     | `matchCommand("attack")` + `terminateOnAction` — `client.go`     |
+| `Scan`              | ✅     | `matchCommand("scan")` + `terminateOnAction` — `client.go`       |
+| `Dock`              | ✅     | `matchTypes(Docked, ActionError, Error)` + `terminateOnTypes(Docked, ActionError, Error)` — `client.go` |
+| `Undock`            | ✅     | `matchTypes(Undocked, ActionError, Error)` + `terminateOnTypes(Undocked, ActionError, Error)` — `client.go` |
+| `Travel`            | 🚧     | Deferred — returns `*TravelResult`; multi-stage flow with `waitForInitialResponse` + `waitForStateChange` + `already_there` special case. Restructuring `*TravelResult` construction is a larger refactor. |
+| `Jump`              | 🚧     | Deferred — same shape as `Travel`, returns `*JumpResult`. Same reason. |
+
+### Batch 3.1 — Simple mutations (combat, salvage, ship management)
+
+All use `matchCommand(<server-cmd>)` + `terminateOnAction` + `SleepTick*3`.
+
+| Method              | Status | Notes                                                            |
+| ------------------- | ------ | ---------------------------------------------------------------- |
+| `Battle`            | ✅     | `matchCommand("battle")` — `client_commands.go`                  |
+| `Reload`            | ✅     | `matchCommand("reload")` — `client_commands.go`                  |
+| `SelfDestruct`      | ✅     | `matchCommand("self_destruct")` — `client_commands.go`           |
+| `Cloak`             | ✅     | `matchCommand("cloak")` — `client_commands.go`                   |
+| `ScanTarget`        | ✅     | `matchCommand("scan")` (server type is `scan`, not `scan_target`) — `client_commands.go` |
+| `SalvageWreck`      | ✅     | `matchCommand("salvage_wreck")` — `client_commands.go`           |
+| `BuyShip`           | ✅     | `matchCommand("buy_ship")` — `client_commands.go`                |
+| `BuyListedShip`     | ✅     | `matchCommand("buy_listed_ship")` — `client_commands.go`         |
+| `CancelCommission`  | ✅     | `matchCommand("cancel_commission")` — `client_commands.go`       |
+| `CancelShipListing` | ✅     | `matchCommand("cancel_ship_listing")` — `client_commands.go`     |
+| `ClaimCommission`   | ✅     | `matchCommand("claim_commission")` — `client_commands.go`        |
+| `CommissionShip`    | ✅     | `matchCommand("commission_ship")` — `client_commands.go`         |
+| `ListShipForSale`   | ✅     | `matchCommand("list_ship_for_sale")` — `client_commands.go`      |
+| `SwitchShip`        | ✅     | `matchCommand("switch_ship")` — `client_commands.go`             |
+| `SellShip`          | ✅     | `matchCommand("sell_ship")` — `client_commands.go`               |
+| `GetBattleStatus`   | 🚧     | Deferred — uses `waitForActionResponse` despite being a query; deferred for separate query-migration pass. |
 
 ## Batch 4 — Long tail
 

@@ -749,26 +749,32 @@ func (c *Client) Claim(ctx context.Context, registrationCode string) error {
 	return nil
 }
 
-// Undock undocks from the current station
+// Undock undocks from the current station.
+//
+// Terminates on TypeUndocked (a push event with no command field) so
+// matchTypes is used instead of matchCommand.
 func (c *Client) Undock(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "undock",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	terminate := terminateOnTypes(protocol.TypeUndocked, protocol.TypeActionError, protocol.TypeError)
+	_, err := c.execMutation(ctx, msg, matchTypes(protocol.TypeUndocked, protocol.TypeActionError, protocol.TypeError), terminate, SleepTick*3)
+	return err
 }
 
-// Dock docks at a station in the current system
+// Dock docks at a station in the current system.
+//
+// Terminates on TypeDocked (a push event with no command field) so
+// matchTypes is used instead of matchCommand.
 func (c *Client) Dock(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "dock",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	terminate := terminateOnTypes(protocol.TypeDocked, protocol.TypeActionError, protocol.TypeError)
+	_, err := c.execMutation(ctx, msg, matchTypes(protocol.TypeDocked, protocol.TypeActionError, protocol.TypeError), terminate, SleepTick*3)
+	return err
 }
 
 // Travel travels to a POI within the current system
@@ -904,36 +910,41 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 	}, nil
 }
 
-// Mine mines resources at the current location
+// Mine mines resources at the current location.
+//
+// Wraps the execMutation error through maybeGoalReached so a cargo_full server
+// error becomes a *GoalReachedError sentinel that the play_as loop recognises
+// as a successful exit condition. Intermediate mining_yield push events have
+// no "command" field so matchCommand("mine") correctly skips them.
 func (c *Client) Mine(ctx context.Context) error {
-	return c.sendAndWaitGoalable(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "mine",
 		Timestamp: time.Now().UnixMilli(),
-	}, SleepActionStartTimeout)
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("mine"), terminateOnAction, SleepActionStartTimeout)
+	return maybeGoalReached("mine", err)
 }
 
 // Attack attacks a target player or NPC
 func (c *Client) Attack(ctx context.Context, targetID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "attack",
 		Payload:   map[string]any{"target_id": targetID, "weapon_idx": 0},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("attack"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // Scan scans the current area
 func (c *Client) Scan(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "scan",
 		Payload:   map[string]any{"target_id": "area"},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("scan"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SurveySystem scans for hidden POIs in the current system
@@ -3975,22 +3986,6 @@ func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duratio
 	}
 }
 
-// sendAndWaitGoalable sends msg and waits for its completion. When
-// the server replies with an error whose (msg.Type, code) pair is in
-// goalReachedCodes, the returned error is *GoalReachedError instead
-// of the plain *ServerError — signalling to the caller (typically
-// the play_as loop executor) that the command's goal is already
-// achieved and the enclosing loop should exit cleanly.
-//
-// Use this in place of the Send+waitForActionResponse pair for any
-// command method that has an entry in goalReachedCodes (e.g. Mine,
-// Refuel, Repair).
-func (c *Client) sendAndWaitGoalable(ctx context.Context, msg protocol.Message, timeout time.Duration) error {
-	if err := c.Send(ctx, msg); err != nil {
-		return err
-	}
-	return maybeGoalReached(msg.Type, c.waitForActionResponse(ctx, timeout))
-}
 
 // waitForInitialResponse waits for the first OK or error response from the server.
 // Unlike waitForActionResponse, it does NOT loop on pending/in-progress — it returns
