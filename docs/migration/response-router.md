@@ -129,22 +129,101 @@ All use `matchCommand(<server-cmd>)` + `terminateOnAction` + `SleepTick*3`.
 
 ## Batch 4 — Long tail
 
-Factions (30+), missions, forum, chat send (`Chat`, `TradeOffer`, `SendGift`),
-drones, bases, insurance, commission, captain's log, and the external tool
-+ infrastructure call sites currently allowlisted in
-`scripts/check_legacy_response_api.sh`:
+### Batch 4.0 — Simple mutations (ship, salvage, cargo, trading, missions, insurance, factions)
 
-- `cmd/debug/play-simple/main.go`
-- `cmd/tools/agent-status/main.go`
-- `cmd/tools/facility-check/main.go`
-- `cmd/tools/faction-join/main.go`
-- `cmd/tools/server-cmd/main.go`
-- `pkg/observe/session.go` — passes raw `protocol.Message` from browsers
-  through `gameClient.Send`; needs design work before migration since the
-  observer currently doesn't know which classifier to register
+All use `matchCommand(<server-cmd>)` + `terminateOnAction` + `SleepTick*3`.
 
-Enumerate per-method when batch 3 lands. Each external tool likely needs only
-a handful of method swaps; group them by tool in the follow-up plan.
+| Method                    | Status | Notes                                                                         |
+| ------------------------- | ------ | ----------------------------------------------------------------------------- |
+| `UseItem`                 | ✅     | `matchCommand("use_item")` — `client_commands.go`                             |
+| `InstallMod`              | ✅     | `matchCommand("install_mod")` — `client_commands.go`                          |
+| `RefitShip`               | ✅     | `matchCommand("refit_ship")` — `client_commands.go`                           |
+| `UninstallMod`            | ✅     | `matchCommand("uninstall_mod")` — `client_commands.go`                        |
+| `CancelOrder`             | ✅     | `matchCommand("cancel_order")` — `client_commands.go`                         |
+| `ModifyOrder`             | ✅     | `matchCommand("modify_order")` — `client_commands.go`                         |
+| `LootWreck`               | ✅     | `matchCommand("loot_wreck")` — `client_commands.go`                           |
+| `TowWreck`                | ✅     | `matchCommand("tow_wreck")` — `client_commands.go`                            |
+| `ReleaseTow`              | ✅     | `matchCommand("release_tow")` — `client_commands.go`                          |
+| `ScrapWreck`              | ✅     | `matchCommand("scrap_wreck")` — `client_commands.go`                          |
+| `SellWreck`               | ✅     | `matchCommand("sell_wreck")` — `client_commands.go`                           |
+| `WithdrawCredits`         | ✅     | `matchCommand("withdraw_credits")` — `client_commands.go`                     |
+| `DepositCredits`          | ✅     | `matchCommand("deposit_credits")` — `client_commands.go`                      |
+| `SendGift`                | ✅     | `matchCommand("send_gift")` — `client_commands.go`                            |
+| `TradeOffer`              | ✅     | `matchCommand("trade_offer")` — `client_commands.go`                          |
+| `TradeAccept`             | ✅     | `matchCommand("trade_accept")` — `client_commands.go`                         |
+| `AcceptMission`           | ✅     | `matchCommand("accept_mission")` — `client_commands.go`                       |
+| `CompleteMission`         | ✅     | `matchCommand("complete_mission")` — `client_commands.go`                     |
+| `BuyInsurance`            | ✅     | `matchCommand("buy_insurance")` — `client_commands.go`                        |
+| `SetHomeBase`             | ✅     | `matchCommand("set_home_base")` — `client_commands.go`                        |
+| `CreateFaction`           | ✅     | `matchCommand("create_faction")` — `client_commands.go`                       |
+| `JoinFaction`             | ✅     | `matchCommand("join_faction")` — `client_commands.go`                         |
+| `LeaveFaction`            | ✅     | `matchCommand("leave_faction")` — `client_commands.go`                        |
+| `FactionInvite`           | ✅     | `matchCommand("faction_invite")` — `client_commands.go`                       |
+| `FactionKick`             | ✅     | `matchCommand("faction_kick")` — `client_commands.go`                         |
+| `FactionPromote`          | ✅     | `matchCommand("faction_promote")` — `client_commands.go`                      |
+| `FactionDeclareWar`       | ✅     | `matchCommand("faction_declare_war")` — `client_commands.go`                  |
+| `FactionProposePeace`     | ✅     | `matchCommand("faction_propose_peace")` — `client_commands.go`                |
+| `FactionAcceptPeace`      | ✅     | `matchCommand("faction_accept_peace")` — `client_commands.go`                 |
+| `FactionSetAlly`          | ✅     | `matchCommand("faction_set_ally")` — `client_commands.go`                     |
+| `FactionSetEnemy`         | ✅     | `matchCommand("faction_set_enemy")` — `client_commands.go`                    |
+| `FactionSubmitIntel`      | ✅     | `matchCommand("faction_submit_intel")` — `client_commands.go`                 |
+| `FactionSubmitTradeIntel` | ✅     | `matchCommand("faction_submit_trade_intel")` — `client_commands.go`           |
+| `FactionDepositItems`     | ✅     | `matchCommand("faction_deposit_items")` — `client_commands.go`                |
+| `FactionWithdrawItems`    | ✅     | `matchCommand("faction_withdraw_items")` — `client_commands.go`               |
+| `FactionDepositCredits`   | ✅     | `matchCommand("faction_deposit_credits")` — `client_commands.go`              |
+| `FactionWithdrawCredits`  | ✅     | `matchCommand("faction_withdraw_credits")` — `client_commands.go`             |
+| `FactionGift`             | ✅     | `matchCommand("faction_gift")` — `client_commands.go`                         |
+| `FactionCreateBuyOrder`   | ✅     | `matchCommand("faction_create_buy_order")` — `client_commands.go`             |
+| `FactionCreateSellOrder`  | ✅     | `matchCommand("faction_create_sell_order")` — `client_commands.go`            |
+| `FactionPostMission`      | ✅     | `matchCommand("faction_post_mission")` — `client_commands.go`                 |
+| `FactionCancelMission`    | ✅     | `matchCommand("faction_cancel_mission")` — `client_commands.go`               |
+
+### Batch 4.1 — Mutations and queries in client.go
+
+| Method               | Status | Notes                                                                          |
+| -------------------- | ------ | ------------------------------------------------------------------------------ |
+| `SurveySystem`       | ✅     | `matchCommand("survey_system")` + `terminateOnAction` — `client.go`           |
+| `Fleet`              | ✅     | `matchCommand("fleet")` + `terminateOnAction` — `client.go`                   |
+| `DistressSignal`     | ✅     | `matchCommand("distress_signal")` + `terminateOnAction` — `client.go`         |
+| `Claim`              | ✅     | `matchCommand("claim")` + `terminateOnAction`, 10s timeout — `client.go`      |
+| `GetListings`        | ✅     | `matchAction("view_market")` query — `client.go`; duplicate of `ViewMarket`   |
+| `GetShips`           | ✅     | `matchPayloadKey("ships")` query — `client.go`                                |
+| `CreateBulkSellOrder`| ✅     | `matchCommand("create_sell_order")` + `terminateOnAction` — `client.go`       |
+
+### Batch 4.2 — pkg/game/upgrades.go internal calls
+
+| Change                           | Status | Notes                                                           |
+| -------------------------------- | ------ | --------------------------------------------------------------- |
+| Replace `client.Send("uninstall_mod")` with `client.UninstallMod(ctx, moduleID)` | ✅ | `upgrades.go`; `protocol` import removed |
+| Replace `client.Send("buy_ship")` with `client.BuyShip(ctx, shipClass)` | ✅ | `upgrades.go` |
+
+### Batch 4.3 — External tool callers
+
+| Tool                             | Status | Change                                                                                   |
+| -------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| `cmd/tools/agent-status/main.go` | ✅     | Replaced `wsClient.Send(get_ship)` → `wsClient.GetShip(ctx)`, `Send(get_skills)` → `wsClient.GetSkills(ctx)`; `protocol.Message` vars removed |
+| `cmd/tools/facility-check/main.go` | ✅   | Replaced `client.Send("facility",…)` → `client.Facility(ctx, payload)`                 |
+| `cmd/tools/faction-join/main.go` | ✅     | Replaced 4 `Send` calls with `CreateFaction`, `FactionInfo`, `FactionInvite`, `FactionGetInvites`; `protocol` import removed |
+| `cmd/debug/play-simple/main.go`  | ⬜     | Intentionally raw: sends user-typed command strings; no static classifier possible       |
+| `cmd/tools/server-cmd/main.go`   | ⬜     | Intentionally raw: sends arbitrary `--cmd` flag; no static classifier possible           |
+| `pkg/observe/session.go`         | ⬜     | Passes raw `protocol.Message` from browser WebSocket clients; needs design work before migration since the observer doesn't know which classifier to register |
+
+### Allowlist trimmed in Batch 4
+
+- ✅ Removed: `pkg/game/upgrades.go` — no more `Send` calls
+- ✅ Removed: `cmd/tools/agent-status/main.go`
+- ✅ Removed: `cmd/tools/facility-check/main.go`
+- ✅ Removed: `cmd/tools/faction-join/main.go`
+- Retained: `cmd/debug/play-simple/main.go` — intentionally raw debug REPL
+- Retained: `cmd/tools/server-cmd/main.go` — intentionally raw one-shot tool
+- Retained: `pkg/observe/session.go` — needs design work
+- Retained: `pkg/game/client_commands.go` — ~50 bare `c.Send()` fire-and-forget methods remain (no server-ack classifier needed for push/notification style: `Chat`, `Forum*`, `CaptainsLog*`, `Notes*`, `FactionEdit`, `FactionList`, `CommissionQuote`, `FactionQueryIntel`, etc.). Also `GetBattleStatus` deferred from Batch 3.
+
+### Methods left unmigrated (fire-and-forget, no router equivalent)
+
+These are bare `c.Send()` with no `waitForActionResponse` — intentionally fire-and-forget, since the server either pushes back an async event or the caller doesn't wait for a response:
+
+`CommissionQuote`, `CommissionStatus`, `EstimatePurchase`, `GetTrades`, `TradeCancel`, `TradeDecline`, `AbandonMission`, `DeclineMission`, `ClaimInsurance`, `GetInsuranceQuote`, `CreateNote`, `GetNotes`, `ReadNote`, `WriteNote`, `GetCommands`, `GetGuide`, `SearchChangelog`, `SearchSystems`, `GetVersion`, `Help`, `Chat`, `ForumList`, `ForumCreateThread`, `ForumGetThread`, `ForumReply`, `ForumDeleteReply`, `ForumDeleteThread`, `ForumUpvote`, `CaptainsLogAdd`, `CaptainsLogGet`, `CaptainsLogList`, `SetAnonymous`, `SetColors`, `SetPlayerStatus`, `Facility`, `FactionList`, `FactionEdit`, `FactionCreateRole`, `FactionEditRole`, `FactionDeleteRole`, `FactionQueryIntel`, `FactionIntelStatus`, `FactionQueryTradeIntel`, `FactionTradeIntelStatus`, `ViewFactionStorage`, `FactionListMissions`, `FactionGetInvites`, `FactionDeclineInvite`, `FactionRooms`, `FactionVisitRoom`, `FactionWriteRoom`, `FactionDeleteRoom`, `RawCommand`.
 
 ## Completion criteria
 

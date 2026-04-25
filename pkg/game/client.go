@@ -736,16 +736,10 @@ func (c *Client) Claim(ctx context.Context, registrationCode string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-
-	if err := c.Send(ctx, msg); err != nil {
-		return fmt.Errorf("failed to send claim: %w", err)
-	}
-
-	// Wait for claim response (success or error)
-	if err := c.waitForActionResponse(ctx, 10*time.Second); err != nil {
+	_, err := c.execMutation(ctx, msg, matchCommand("claim"), terminateOnAction, 10*time.Second)
+	if err != nil {
 		return fmt.Errorf("claim failed: %w", err)
 	}
-
 	return nil
 }
 
@@ -950,13 +944,12 @@ func (c *Client) Scan(ctx context.Context) error {
 // SurveySystem scans for hidden POIs in the current system
 // Requires a survey scanner module installed
 func (c *Client) SurveySystem(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "survey_system",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("survey_system"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FindRoute finds a route to a target system using the server's pathfinding.
@@ -1078,25 +1071,27 @@ func (c *Client) GetNotifications(_ context.Context) error {
 // GetListings requests market listings for the current station.
 // Blocks until the server responds.
 func (c *Client) GetListings(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "view_market",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	match := matchAll(matchType(protocol.TypeOK), matchAction("view_market"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetShips requests ship listings from the current station.
 // Blocks until the server responds.
 func (c *Client) GetShips(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_ships",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	// get_ships returns type=ok with "ships" array (distinct from browse_ships
+	// which uses "listings"). station_id and station_name are also present.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("ships"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // GetShipListings returns the most recently fetched ship listings
@@ -1142,14 +1137,13 @@ func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder
 		return fmt.Errorf("bulk sell order limited to 50 items, got %d", len(orders))
 	}
 
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "create_sell_order",
 		Payload:   map[string]any{"orders": orders},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("create_sell_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SellAllBulk sells all cargo items using the bulk create_sell_order API.
@@ -1487,14 +1481,13 @@ func (c *Client) Fleet(ctx context.Context, action string, playerID string) erro
 	if playerID != "" {
 		payload["player_id"] = playerID
 	}
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "fleet",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("fleet"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // DistressSignal broadcasts a distress signal to nearby players.
@@ -1504,14 +1497,13 @@ func (c *Client) DistressSignal(ctx context.Context, distressType string) error 
 	if distressType != "" {
 		payload["distress_type"] = distressType
 	}
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "distress_signal",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("distress_signal"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // Buy purchases items or modules at the current station

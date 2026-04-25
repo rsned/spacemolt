@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -93,20 +92,13 @@ func main() {
 		}
 		defer func() { _ = client.Disconnect() }()
 
-		msg := protocol.Message{
-			Type: "create_faction",
-			Payload: map[string]any{
-				"name": "Crimson Corsairs",
-				"tag":  "CRCO",
-			},
-			Timestamp: time.Now().UnixMilli(),
-		}
-
-		if err := client.Send(ctx, msg); err != nil {
+		if err := client.CreateFaction(ctx, map[string]any{
+			"name": "Crimson Corsairs",
+			"tag":  "CRCO",
+		}); err != nil {
 			log.Fatalf("Failed to create faction: %v", err)
 		}
 
-		time.Sleep(2 * time.Second)
 		fmt.Println("✓ Faction creation command sent")
 
 	case "info":
@@ -122,16 +114,10 @@ func main() {
 		}
 		defer func() { _ = client.Disconnect() }()
 
-		msg := protocol.Message{
-			Type:      "faction_info",
-			Timestamp: time.Now().UnixMilli(),
-		}
-
-		if err := client.Send(ctx, msg); err != nil {
+		if err := client.FactionInfo(ctx); err != nil {
 			log.Fatalf("Failed to get faction info: %v", err)
 		}
 
-		time.Sleep(2 * time.Second)
 		state := client.GetState()
 		fmt.Printf("Faction ID: %s\n", state.Player.FactionID)
 		fmt.Printf("Faction Rank: %s\n", state.Player.FactionRank)
@@ -155,19 +141,10 @@ func main() {
 		}
 		defer func() { _ = client.Disconnect() }()
 
-		msg := protocol.Message{
-			Type: "faction_invite",
-			Payload: map[string]any{
-				"player_id": targetCreds.Username,
-			},
-			Timestamp: time.Now().UnixMilli(),
-		}
-
-		if err := client.Send(ctx, msg); err != nil {
+		if err := client.FactionInvite(ctx, targetCreds.Username); err != nil {
 			log.Fatalf("Failed to send invite: %v", err)
 		}
 
-		time.Sleep(2 * time.Second)
 		fmt.Printf("✓ Invitation sent to %s\n", targetCreds.Username)
 
 	case "join":
@@ -184,12 +161,7 @@ func main() {
 		defer func() { _ = client.Disconnect() }()
 
 		// First get invites
-		getInvitesMsg := protocol.Message{
-			Type:      "faction_get_invites",
-			Timestamp: time.Now().UnixMilli(),
-		}
-
-		if err := client.Send(ctx, getInvitesMsg); err != nil {
+		if err := client.FactionGetInvites(ctx); err != nil {
 			log.Fatalf("Failed to get invites: %v", err)
 		}
 

@@ -487,15 +487,13 @@ func main() {
 
 		time.Sleep(3 * time.Second)
 
-		// Call get_ship and get_skills for detailed info (WS-specific Send)
-		shipMsg := protocol.Message{Type: "get_ship"}
-		if err := wsClient.Send(ctx, shipMsg); err != nil {
+		// Call get_ship and get_skills for detailed info.
+		if err := wsClient.GetShip(ctx); err != nil {
 			gameLogger.Printf("Warning: Could not get ship details: %v", err)
 		}
 		time.Sleep(2 * time.Second)
 
-		skillsMsg := protocol.Message{Type: "get_skills"}
-		if err := wsClient.Send(ctx, skillsMsg); err != nil {
+		if err := wsClient.GetSkills(ctx); err != nil {
 			gameLogger.Printf("Warning: Could not get skills: %v", err)
 		}
 		time.Sleep(2 * time.Second)

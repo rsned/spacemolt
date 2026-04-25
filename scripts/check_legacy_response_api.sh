@@ -27,24 +27,28 @@ ALLOWLIST=(
     pkg/game/response_exec.go
 
     # Unmigrated method bodies — drop entries as batches 1-4 migrate.
+    # client_commands.go: remaining bare c.Send() fire-and-forget methods
+    # (CommissionQuote, CommissionStatus, Chat, Forum*, CaptainsLog*, Notes*,
+    # Catalog helpers, FactionList, FactionEdit*, FactionQueryIntel,
+    # FactionRooms*, etc.). These intentionally have no server-ack classifier.
+    # Also: GetBattleStatus (deferred from Batch 3).
     pkg/game/client_commands.go
     pkg/game/crafting.go
-    pkg/game/upgrades.go
 
     # Tests exercising the legacy waiter / queue paths directly.
     pkg/game/client_test.go
     pkg/game/client_queue_test.go
 
-    # External tools — migrate in batch 4.
+    # External tools that intentionally send arbitrary/raw commands —
+    # no migrated Client method can replace them.
+    # play-simple: interactive REPL that sends user-typed command strings.
     cmd/debug/play-simple/main.go
-    cmd/tools/agent-status/main.go
-    cmd/tools/facility-check/main.go
-    cmd/tools/faction-join/main.go
+    # server-cmd: one-shot tool that sends an arbitrary --cmd flag value.
     cmd/tools/server-cmd/main.go
 
-    # Observer session — passes the GameClient through; routes Send via
-    # an embedded reference. Migrate in batch 4 alongside the other
-    # external consumers.
+    # Observer session — passes raw protocol.Message from browser clients
+    # through gameClient.Send; the message type is only known at runtime
+    # so no static classifier can be registered. Needs design work.
     pkg/observe/session.go
 )
 

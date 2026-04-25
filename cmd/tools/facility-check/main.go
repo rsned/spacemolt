@@ -81,13 +81,9 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	// Request personal_workbench details
-	if err := client.Send(ctx, protocol.Message{
-		Type: "facility",
-		Payload: map[string]any{
-			"action":        "types",
-			"facility_type": "personal_workbench",
-		},
-		Timestamp: time.Now().UnixMilli(),
+	if err := client.Facility(ctx, map[string]any{
+		"action":        "types",
+		"facility_type": "personal_workbench",
 	}); err != nil {
 		log.Fatalf("Failed to send facility request: %v", err)
 	}

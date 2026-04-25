@@ -253,49 +253,45 @@ func (c *Client) UseItem(ctx context.Context, itemID string, quantity int) error
 	if quantity > 0 {
 		payload["quantity"] = quantity
 	}
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "use_item",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("use_item"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // InstallMod installs a module on the ship.
 func (c *Client) InstallMod(ctx context.Context, moduleID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "install_mod",
 		Payload:   map[string]any{"module_id": moduleID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("install_mod"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // RefitShip refits the active ship to its latest class specifications.
 func (c *Client) RefitShip(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "refit_ship",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("refit_ship"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // UninstallMod uninstalls a module from the ship.
 func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "uninstall_mod",
 		Payload:   map[string]any{"module_id": moduleID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("uninstall_mod"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -334,26 +330,24 @@ func (c *Client) CreateSellOrder(ctx context.Context, payload map[string]any) er
 
 // CancelOrder cancels an active exchange order and returns escrow.
 func (c *Client) CancelOrder(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "cancel_order",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("cancel_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ModifyOrder changes the price on an existing exchange order.
 func (c *Client) ModifyOrder(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "modify_order",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("modify_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ViewMarket views the order book at the current station.
@@ -415,26 +409,24 @@ func (c *Client) TradeOffer(ctx context.Context, targetID string, payload map[st
 		payload = map[string]any{}
 	}
 	payload["target_id"] = targetID
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "trade_offer",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("trade_offer"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // TradeAccept accepts a trade offer.
 func (c *Client) TradeAccept(ctx context.Context, tradeID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "trade_accept",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("trade_accept"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // TradeCancel cancels your trade offer.
@@ -474,7 +466,7 @@ func (c *Client) GetWrecks(ctx context.Context) error {
 
 // LootWreck loots items from a wreck.
 func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "loot_wreck",
 		Payload: map[string]any{
 			"wreck_id": wreckID,
@@ -482,10 +474,9 @@ func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("loot_wreck"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SalvageWreck salvages a wreck for raw materials.
@@ -501,47 +492,43 @@ func (c *Client) SalvageWreck(ctx context.Context, wreckID string) error {
 
 // TowWreck attaches a tow line to a wreck for hauling.
 func (c *Client) TowWreck(ctx context.Context, wreckID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "tow_wreck",
 		Payload:   map[string]any{"wreck_id": wreckID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("tow_wreck"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ReleaseTow releases a towed wreck at the current location.
 func (c *Client) ReleaseTow(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "release_tow",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("release_tow"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ScrapWreck scraps a towed wreck for salvage materials.
 func (c *Client) ScrapWreck(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "scrap_wreck",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("scrap_wreck"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SellWreck sells a towed wreck to the salvage yard for credits.
 func (c *Client) SellWreck(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "sell_wreck",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("sell_wreck"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -621,38 +608,35 @@ func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity floa
 
 // WithdrawCredits moves credits from station storage to wallet.
 func (c *Client) WithdrawCredits(ctx context.Context, amount float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "withdraw_credits",
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_credits"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // DepositCredits moves credits from wallet to station storage.
 func (c *Client) DepositCredits(ctx context.Context, amount float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "deposit_credits",
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("deposit_credits"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // SendGift sends items or credits to another player's storage at this station.
 func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "send_gift",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("send_gift"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -763,26 +747,24 @@ func (c *Client) GetActiveMissions(ctx context.Context) error {
 
 // AcceptMission accepts a mission from the mission board.
 func (c *Client) AcceptMission(ctx context.Context, missionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "accept_mission",
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("accept_mission"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // CompleteMission completes a mission and claims rewards.
 func (c *Client) CompleteMission(ctx context.Context, missionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "complete_mission",
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("complete_mission"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // AbandonMission abandons an active mission.
@@ -809,14 +791,13 @@ func (c *Client) DeclineMission(ctx context.Context, templateID string) error {
 
 // BuyInsurance purchases ship insurance for a number of ticks.
 func (c *Client) BuyInsurance(ctx context.Context, ticks int) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "buy_insurance",
 		Payload:   map[string]any{"ticks": ticks},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("buy_insurance"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ClaimInsurance views your active insurance policies.
@@ -837,14 +818,13 @@ func (c *Client) GetInsuranceQuote(ctx context.Context) error {
 
 // SetHomeBase sets the home base for respawning.
 func (c *Client) SetHomeBase(ctx context.Context, baseID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "set_home_base",
 		Payload:   map[string]any{"base_id": baseID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("set_home_base"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -1217,76 +1197,70 @@ func (c *Client) FactionList(ctx context.Context, limit, offset int) error {
 
 // CreateFaction creates a new faction.
 func (c *Client) CreateFaction(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "create_faction",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("create_faction"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // JoinFaction joins a faction via invitation.
 func (c *Client) JoinFaction(ctx context.Context, factionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "join_faction",
 		Payload:   map[string]any{"faction_id": factionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("join_faction"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // LeaveFaction leaves your current faction.
 func (c *Client) LeaveFaction(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "leave_faction",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("leave_faction"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionInvite invites a player to your faction.
 func (c *Client) FactionInvite(ctx context.Context, playerID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_invite",
 		Payload:   map[string]any{"player_id": playerID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_invite"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionKick kicks a player from your faction.
 func (c *Client) FactionKick(ctx context.Context, playerID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_kick",
 		Payload:   map[string]any{"player_id": playerID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_kick"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionPromote promotes or demotes a faction member.
 func (c *Client) FactionPromote(ctx context.Context, playerID, roleID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "faction_promote",
 		Payload: map[string]any{
 			"player_id": playerID,
 			"role_id":   roleID,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_promote"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionEdit updates faction description, charter, and colors.
@@ -1346,14 +1320,13 @@ func (c *Client) FactionDeclareWar(ctx context.Context, targetFactionID, reason 
 	if reason != "" {
 		payload["reason"] = reason
 	}
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_declare_war",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_declare_war"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionProposePeace proposes peace to a faction you're at war with.
@@ -1362,50 +1335,46 @@ func (c *Client) FactionProposePeace(ctx context.Context, targetFactionID, terms
 	if terms != "" {
 		payload["terms"] = terms
 	}
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_propose_peace",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_propose_peace"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionAcceptPeace accepts a peace proposal.
 func (c *Client) FactionAcceptPeace(ctx context.Context, targetFactionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_accept_peace",
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_accept_peace"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionSetAlly marks another faction as ally.
 func (c *Client) FactionSetAlly(ctx context.Context, targetFactionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_set_ally",
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_set_ally"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionSetEnemy marks another faction as enemy.
 func (c *Client) FactionSetEnemy(ctx context.Context, targetFactionID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_set_enemy",
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_set_enemy"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -1414,14 +1383,13 @@ func (c *Client) FactionSetEnemy(ctx context.Context, targetFactionID string) er
 
 // FactionSubmitIntel submits system intel to your faction's shared map.
 func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_submit_intel",
 		Payload:   map[string]any{"systems": systems},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_submit_intel"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionQueryIntel queries your faction's intel database.
@@ -1443,14 +1411,13 @@ func (c *Client) FactionIntelStatus(ctx context.Context) error {
 
 // FactionSubmitTradeIntel submits market price observations to your faction's trade ledger.
 func (c *Client) FactionSubmitTradeIntel(ctx context.Context, stations []map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_submit_trade_intel",
 		Payload:   map[string]any{"stations": stations},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_submit_trade_intel"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionQueryTradeIntel searches your faction's market price database.
@@ -1476,56 +1443,52 @@ func (c *Client) FactionTradeIntelStatus(ctx context.Context) error {
 
 // FactionDepositItems moves items from your cargo to faction storage.
 func (c *Client) FactionDepositItems(ctx context.Context, itemID string, quantity int) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "faction_deposit_items",
 		Payload: map[string]any{
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_items"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionWithdrawItems moves items from faction storage to your cargo.
 func (c *Client) FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "faction_withdraw_items",
 		Payload: map[string]any{
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionDepositCredits transfers credits from your wallet to faction storage.
 func (c *Client) FactionDepositCredits(ctx context.Context, amount float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_deposit_credits",
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_credits"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionWithdrawCredits transfers credits from faction storage to your wallet.
 func (c *Client) FactionWithdrawCredits(ctx context.Context, amount float64) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_withdraw_credits",
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_credits"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionGift gifts items or credits to a faction's storage.
@@ -1534,14 +1497,13 @@ func (c *Client) FactionGift(ctx context.Context, factionID string, payload map[
 		payload = map[string]any{}
 	}
 	payload["faction_id"] = factionID
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_gift",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_gift"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ViewFactionStorage views your faction's shared storage at the current station.
@@ -1554,7 +1516,7 @@ func (c *Client) ViewFactionStorage(ctx context.Context) error {
 
 // FactionCreateBuyOrder creates a buy order on behalf of your faction.
 func (c *Client) FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "faction_create_buy_order",
 		Payload: map[string]any{
 			"item_id":    itemID,
@@ -1562,15 +1524,14 @@ func (c *Client) FactionCreateBuyOrder(ctx context.Context, itemID string, price
 			"quantity":   quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_create_buy_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionCreateSellOrder creates a sell order on behalf of your faction.
 func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "faction_create_sell_order",
 		Payload: map[string]any{
 			"item_id":    itemID,
@@ -1578,10 +1539,9 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 			"quantity":   quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_create_sell_order"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
@@ -1598,26 +1558,24 @@ func (c *Client) FactionListMissions(ctx context.Context) error {
 
 // FactionPostMission posts a mission on your faction's mission board.
 func (c *Client) FactionPostMission(ctx context.Context, payload map[string]any) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_post_mission",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_post_mission"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // FactionCancelMission cancels a posted faction mission and refunds escrowed rewards.
 func (c *Client) FactionCancelMission(ctx context.Context, templateID string) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_cancel_mission",
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_cancel_mission"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================

@@ -7,8 +7,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/rsned/spacemolt/internal/protocol"
 )
 
 // UpgradeTier defines a ship/equipment upgrade configuration
@@ -330,13 +328,7 @@ func PerformShipUpgrade(client *Client, logger *log.Logger, ctx context.Context,
 	if len(state.Ship.Modules) > 0 {
 		logger.Printf("🔧 Uninstalling modules before ship upgrade...")
 		for _, moduleID := range state.Ship.Modules {
-			uninstallMsg := protocol.Message{
-				Type: "uninstall_mod",
-				Payload: map[string]any{
-					"module_id": moduleID,
-				},
-			}
-			if err := client.Send(ctx, uninstallMsg); err != nil {
+			if err := client.UninstallMod(ctx, moduleID); err != nil {
 				logger.Printf("Failed to uninstall module %s: %v", moduleID, err)
 			} else {
 				logger.Printf("✅ Uninstalled module: %s", moduleID)
@@ -347,14 +339,7 @@ func PerformShipUpgrade(client *Client, logger *log.Logger, ctx context.Context,
 
 	logger.Printf("🚀 Purchasing %s ship (%s)...", tier.ToShipClass, tier.Name)
 
-	// Buy new ship using direct protocol message
-	buyShipMsg := protocol.Message{
-		Type: "buy_ship",
-		Payload: map[string]any{
-			"ship_class": tier.ToShipClass,
-		},
-	}
-	if err := client.Send(ctx, buyShipMsg); err != nil {
+	if err := client.BuyShip(ctx, tier.ToShipClass); err != nil {
 		logger.Printf("Failed to buy ship: %v", err)
 		return false
 	}
