@@ -1,9 +1,6 @@
 package game
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
@@ -54,11 +51,12 @@ func terminateOnTypes(types ...string) Terminator {
 	}
 }
 
-// serverErrorFromPayload builds a descriptive error from a server error
-// payload. Prefers the "message" field, falls back to a generic message.
+// serverErrorFromPayload builds a *ServerError from a server error payload,
+// preserving the structured Code field so callers can classify via
+// errors.As — required for the GoalReached sentinel logic in
+// server_errors.go (e.g. mine→cargo_full, refuel→tank_full).
 func serverErrorFromPayload(p map[string]any) error {
-	if msg, ok := p["message"].(string); ok && msg != "" {
-		return fmt.Errorf("server error: %s", msg)
-	}
-	return errors.New("server error (no message)")
+	code, _ := p["code"].(string)
+	msg, _ := p["message"].(string)
+	return &ServerError{Code: code, Message: msg}
 }

@@ -1430,21 +1430,32 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	return nil
 }
 
-// Refuel refills the ship's fuel tank at the current station
+// Refuel refills the ship's fuel tank at the current station.
+//
+// Wraps the execMutation error through maybeGoalReached so a
+// tank_full server error becomes a *GoalReachedError sentinel that
+// the play_as loop recognizes as a successful exit condition.
 func (c *Client) Refuel(ctx context.Context) error {
-	return c.sendAndWaitGoalable(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "refuel",
 		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("refuel"), terminateOnAction, SleepTick*3)
+	return maybeGoalReached("refuel", err)
 }
 
 // Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
 // v0.240: optional params for item_id, quantity, and target (remote repair).
+//
+// Wraps the execMutation error through maybeGoalReached so a no_damage
+// server error becomes a *GoalReachedError.
 func (c *Client) Repair(ctx context.Context) error {
-	return c.sendAndWaitGoalable(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "repair",
 		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
+	return maybeGoalReached("repair", err)
 }
 
 // RepairWith repairs using specific options (repair kits, remote target, etc.).
@@ -1455,7 +1466,7 @@ func (c *Client) RepairWith(ctx context.Context, payload map[string]any) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
-	return err
+	return maybeGoalReached("repair", err)
 }
 
 // Fleet manages player fleet operations (create, invite, accept, decline, leave, kick, disband, status).

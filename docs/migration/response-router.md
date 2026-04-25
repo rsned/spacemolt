@@ -76,9 +76,9 @@ tight if the action takes more than one tick to start.
 | `Craft`             | ✅     | implementation is in `CraftWithQuantity` (`crafting.go`); `Craft` delegates, both migrated (b5e455f) |
 | `CreateBuyOrder`    | ✅     | `client_commands.go` (b5e455f) |
 | `CreateSellOrder`   | ✅     | `client_commands.go` (b5e455f) |
-| `Refuel`            | 🚧     | **DEFERRED** — uses `sendAndWaitGoalable`; `terminateOnAction` produces a plain `error` (not `*ServerError`) so `maybeGoalReached("refuel", ...)` would never fire. GoalReached semantics for `tank_full` must be preserved. Needs a custom terminator or a `terminateOnAction` variant that returns `*ServerError`. |
-| `Repair`            | 🚧     | **DEFERRED** — same as `Refuel`; `no_damage` GoalReached code must survive the migration. |
-| `SellAll`           | 🚧     | **DEFERRED** — not a simple mutation; it loops over cargo items, calls `Sell()` per item with `time.Sleep(10s)` between calls. Batch 3 or later. |
+| `Refuel`            | ✅     | `client.go`. `serverErrorFromPayload` now returns `*ServerError` so `maybeGoalReached("refuel", err)` converts `tank_full` to `*GoalReachedError`. |
+| `Repair`            | ✅     | `client.go`. Same `*ServerError` preservation; `no_damage` GoalReached code intact. `RepairWith` also wrapped through `maybeGoalReached`. |
+| `SellAll`           | n/a    | Not a simple mutation — it iterates `Sell()` per cargo item with a sleep between calls. No server-side `sell_all` command, so no router migration is meaningful. |
 
 ## Batch 3 — Complex mutations
 
