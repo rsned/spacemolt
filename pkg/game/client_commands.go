@@ -258,9 +258,12 @@ func (c *Client) ListShips(ctx context.Context) error {
 		Type:      "list_ships",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// list_ships returns type=ok with action="list_ships"; storeRawJSON stores
-	// under "owned_ships". Use matchAction for precise correlation.
-	match := matchAll(matchType(protocol.TypeOK), matchAction("list_ships"))
+	// list_ships returns type=ok with no "action" field on the wire (despite
+	// storeRawJSON having a case for it — that path is dead for the current
+	// server). The distinctive payload key is "active_ship_id" which uniquely
+	// identifies the response shape. "ships" alone would collide with
+	// view_storage which also carries that key.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("active_ship_id"))
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
 }
