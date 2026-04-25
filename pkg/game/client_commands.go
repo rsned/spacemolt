@@ -1193,19 +1193,6 @@ func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
 // Exploration
 // ============================================================================
 
-// GetDrones gets deployed drone information.
-func (c *Client) GetDrones(ctx context.Context) error {
-	msg := protocol.Message{
-		Type:      "get_drones",
-		Timestamp: time.Now().UnixMilli(),
-	}
-	// get_drones returns type=ok with a "drones" key; no "action" field.
-	// storeRawJSON shape-detection (line ~3296) confirms the "drones" key.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("drones"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
-	return err
-}
-
 // Note: SurveySystem and FindRoute are in client.go.
 
 // ============================================================================

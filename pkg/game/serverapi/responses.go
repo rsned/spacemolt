@@ -107,16 +107,6 @@ type GetWrecksResponse struct {
 	Count  int     `json:"count,omitempty"`
 }
 
-// GetDronesResponse wraps the response from get_drones command.
-type GetDronesResponse struct {
-	Action         string  `json:"action,omitempty"`
-	Drones         []Drone `json:"drones"`
-	TotalCount     int     `json:"total_count,omitempty"`
-	BandwidthUsed  int     `json:"bandwidth_used,omitempty"`
-	BandwidthTotal int     `json:"bandwidth_total,omitempty"`
-	DroneCapacity  int     `json:"drone_capacity,omitempty"`
-}
-
 // GetCargoResponse wraps the response from get_cargo command.
 type GetCargoResponse struct {
 	Action    string      `json:"action,omitempty"`

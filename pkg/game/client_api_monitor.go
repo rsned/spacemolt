@@ -47,7 +47,6 @@ var actionResponseTypes = map[string]reflect.Type{
 	"get_map":             reflect.TypeOf(serverapi.GetMapResponse{}),
 	"get_recipes":         reflect.TypeOf(serverapi.GetRecipesResponse{}),
 	"get_wrecks":          reflect.TypeOf(serverapi.GetWrecksResponse{}),
-	"get_drones":          reflect.TypeOf(serverapi.GetDronesResponse{}),
 	"get_ships":           reflect.TypeOf(serverapi.GetShipsResponse{}),
 	"get_battle_status":   reflect.TypeOf(serverapi.GetBattleStatusResponse{}),
 	"get_trades":          reflect.TypeOf(serverapi.GetTradesResponse{}),

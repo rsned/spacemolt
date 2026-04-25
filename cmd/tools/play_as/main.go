@@ -2817,7 +2817,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: install <item-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Install(ctx, strings.ToLower(parts[1]))
+			return client.InstallMod(ctx, strings.ToLower(parts[1]))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "uninstall", "uninstall_mod":
@@ -3177,19 +3177,23 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.LeaveFaction, ctx, 2*time.Second, cmd, format)
 
 	case "faction_info":
-		// Accepts faction UUID or tag. If a short string is given, try tag lookup via faction_list.
-		var payload map[string]any
-		if len(parts) >= 2 {
-			factionRef := parts[1]
-			if len(factionRef) <= 6 {
-				// Looks like a tag — normalize to uppercase and resolve to ID via faction_list.
-				factionRef = strings.ToUpper(factionRef)
-				if id := resolveFactionTag(client, ctx, factionRef); id != "" {
-					factionRef = id
-				}
-			}
-			payload = map[string]any{"faction_id": factionRef}
+		// No-arg form looks up the player's own faction; route through the
+		// migrated client.FactionInfo so execQuery blocks for the reply.
+		// With a faction-id/tag arg the REPL still uses RawCommand because
+		// FactionInfo doesn't support a payload — that path remains racy
+		// until faction_info(faction_id) is migrated.
+		if len(parts) < 2 {
+			return simpleCommand(client, client.FactionInfo, ctx, 2*time.Second, cmd, format)
 		}
+		factionRef := parts[1]
+		if len(factionRef) <= 6 {
+			// Looks like a tag — normalize to uppercase and resolve to ID via faction_list.
+			factionRef = strings.ToUpper(factionRef)
+			if id := resolveFactionTag(client, ctx, factionRef); id != "" {
+				factionRef = id
+			}
+		}
+		payload := map[string]any{"faction_id": factionRef}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "faction_info", payload)
 		}, ctx, 2*time.Second, cmd, format)
@@ -3959,7 +3963,6 @@ var rawJSONKeyForCommand = map[string]string{
 	"wrecks":             "wrecks",
 	"get_wrecks":         "wrecks",
 	"drones":             "drones",
-	"get_drones":         "drones",
 	"recipes":            "recipes",
 	"get_recipes":        "recipes",
 	"base":               "base",

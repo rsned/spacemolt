@@ -547,8 +547,8 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		if decision.Target == "" {
 			return fmt.Errorf("install requires target module ID")
 		}
-		r.logger.Printf("[%s] -> Install('%s')", r.agent.ID(), decision.Target)
-		return r.gameClient.Install(actionCtx, decision.Target)
+		r.logger.Printf("[%s] -> InstallMod('%s')", r.agent.ID(), decision.Target)
+		return r.gameClient.InstallMod(actionCtx, decision.Target)
 
 	case "uninstall_mod":
 		if decision.Target == "" {

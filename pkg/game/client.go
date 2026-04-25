@@ -1508,18 +1508,6 @@ func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error
 	return c.waitForActionResponse(ctx, SleepTick)
 }
 
-// Install installs a module from cargo onto the ship
-func (c *Client) Install(ctx context.Context, itemID string) error {
-	if err := c.Send(ctx, protocol.Message{
-		Type:      "install",
-		Payload:   map[string]any{"item_id": itemID},
-		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
-	}
-	return c.waitForActionResponse(ctx, SleepTick)
-}
-
 // GetState returns the current game state
 func (c *Client) GetState() *State {
 	c.mu.RLock()
@@ -3223,20 +3211,30 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
-		// Store storage data (from view_storage response)
-		// base_id is the reliable indicator — items and ships may be omitted when empty
+		// Store storage data (from view_storage response).
+		// base_id is the reliable indicator for view_storage — items and
+		// ships may be omitted when empty. But several other commands
+		// (get_missions, get_active_missions, view_orders, etc.) also
+		// include base_id; exclude those by checking for their distinctive
+		// keys so storeKey/the storage callback don't get hijacked.
 		if _, hasBaseID := resp.Payload["base_id"]; hasBaseID {
-			if storeKey == "" {
-				storeKey = "storage"
-			}
-			shouldStore = true
+			_, hasMissions := resp.Payload["missions"]
+			_, hasOrders := resp.Payload["orders"]
+			_, hasServices := resp.Payload["services"]
+			isStorageShape := !hasMissions && !hasOrders && !hasServices
+			if isStorageShape {
+				if storeKey == "" {
+					storeKey = "storage"
+				}
+				shouldStore = true
 
-			// Fire storage update callback
-			c.onStorageMu.RLock()
-			cb := c.onStorageUpdate
-			c.onStorageMu.RUnlock()
-			if cb != nil {
-				c.fireStorageCallback(cb, resp)
+				// Fire storage update callback
+				c.onStorageMu.RLock()
+				cb := c.onStorageUpdate
+				c.onStorageMu.RUnlock()
+				if cb != nil {
+					c.fireStorageCallback(cb, resp)
+				}
 			}
 		}
 		// Store catalog responses (ships, skills, recipes, items)

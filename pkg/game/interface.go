@@ -49,8 +49,8 @@ type GameClient interface {
 	Refuel(ctx context.Context) error
 	Repair(ctx context.Context) error
 	RepairWith(ctx context.Context, payload map[string]any) error
-	Install(ctx context.Context, itemID string) error
 	RefitShip(ctx context.Context) error
+	InstallMod(ctx context.Context, moduleID string) error
 	UninstallMod(ctx context.Context, moduleID string) error
 	BuyShip(ctx context.Context, shipClass string) error
 	BrowseShips(ctx context.Context, payload map[string]any) error
@@ -84,7 +84,6 @@ type GameClient interface {
 	GetMap(ctx context.Context, force ...bool) error
 	GetNearby(ctx context.Context) error
 	GetVersion(ctx context.Context) error
-	GetDrones(ctx context.Context) error
 	GetCommands(ctx context.Context) error
 	GetActiveMissions(ctx context.Context) error
 	GetInsuranceQuote(ctx context.Context) error

@@ -203,6 +203,10 @@ func (m *mockGameClient) RefitShip(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "refit_ship")
 	return nil
 }
+func (m *mockGameClient) InstallMod(ctx context.Context, moduleID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "install_mod:"+moduleID)
+	return nil
+}
 func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "uninstall_mod:"+moduleID)
 	return nil
@@ -302,10 +306,6 @@ func (m *mockGameClient) GetNearby(ctx context.Context) error {
 }
 func (m *mockGameClient) GetVersion(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_version")
-	return nil
-}
-func (m *mockGameClient) GetDrones(ctx context.Context) error {
-	m.actionsRecorded = append(m.actionsRecorded, "get_drones")
 	return nil
 }
 func (m *mockGameClient) GetCommands(ctx context.Context) error {

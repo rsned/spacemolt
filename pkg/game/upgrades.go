@@ -376,7 +376,7 @@ func PerformShipUpgrade(client *Client, logger *log.Logger, ctx context.Context,
 
 		// Install each item
 		for i := 1; i <= tier.NumItems; i++ {
-			if err := client.Install(ctx, tier.ItemID); err != nil {
+			if err := client.InstallMod(ctx, tier.ItemID); err != nil {
 				logger.Printf("Failed to install %s #%d: %v", tier.ItemID, i, err)
 			} else {
 				logger.Printf("✅ %s #%d installed!", tier.ItemID, i)
@@ -478,7 +478,7 @@ func TryInstallAndSellExtras(client *Client, logger *log.Logger, ctx context.Con
 		if total < maxSlots && inCargo > 0 {
 			for i := 0; i < int(item.Quantity) && (installed+i) < maxSlots; i++ {
 				logger.Printf("🔧 Installing %s from cargo...", item.ItemID)
-				if err := client.Install(ctx, item.ItemID); err != nil {
+				if err := client.InstallMod(ctx, item.ItemID); err != nil {
 					logger.Printf("⚠️  Cannot install %s: %v", item.ItemID, err)
 					break
 				}
@@ -505,7 +505,7 @@ func TryInstallAndSellExtras(client *Client, logger *log.Logger, ctx context.Con
 		// This is other equipment - try to install it
 		if item.Quantity > 0 {
 			logger.Printf("🔧 Attempting to install %s from cargo...", item.ItemID)
-			if err := client.Install(ctx, item.ItemID); err != nil {
+			if err := client.InstallMod(ctx, item.ItemID); err != nil {
 				// Installation failed - probably no slots, CPU, or power available
 				logger.Printf("⚠️  Cannot install %s: %v - selling it", item.ItemID, err)
 				time.Sleep(10 * time.Second) // Wait after failed install to respect game tick rate

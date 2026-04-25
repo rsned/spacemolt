@@ -467,9 +467,9 @@ func (m *MCPGameClient) DistressSignal(ctx context.Context, distressType string)
 	return m.updateStateFromResult(result)
 }
 
-func (m *MCPGameClient) Install(ctx context.Context, itemID string) error {
+func (m *MCPGameClient) InstallMod(ctx context.Context, moduleID string) error {
 	result, err := m.callTool(ctx, "install_mod", map[string]any{
-		"module_id": itemID,
+		"module_id": moduleID,
 	})
 	if err != nil {
 		return err
@@ -1078,14 +1078,6 @@ func (m *MCPGameClient) CaptainsLogList(ctx context.Context) error {
 }
 
 // --- Additional query methods ---
-
-func (m *MCPGameClient) GetDrones(ctx context.Context) error {
-	result, err := m.callTool(ctx, "get_drones", nil)
-	if err != nil {
-		return err
-	}
-	return m.cacheResultAs(result, "drones")
-}
 
 func (m *MCPGameClient) FactionInfo(ctx context.Context) error {
 	result, err := m.callTool(ctx, "faction_info", nil)

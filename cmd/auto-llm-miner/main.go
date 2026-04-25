@@ -367,7 +367,7 @@ func executeAction(client game.GameClient, ctx context.Context, action string, a
 		if !ok {
 			return fmt.Errorf("install requires module_id argument")
 		}
-		return client.Install(ctx, moduleID)
+		return client.InstallMod(ctx, moduleID)
 
 	default:
 		return fmt.Errorf("unknown action: %s", action)

@@ -476,6 +476,7 @@ func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID stri
 func (m *mockGameClient) DistressSignal(ctx context.Context, distressType string) error        { return nil }
 func (m *mockGameClient) Install(ctx context.Context, itemID string) error                     { return nil }
 func (m *mockGameClient) RefitShip(ctx context.Context) error                                 { return nil }
+func (m *mockGameClient) InstallMod(ctx context.Context, moduleID string) error                { return nil }
 func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error              { return nil }
 func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error                 { return nil }
 func (m *mockGameClient) BrowseShips(ctx context.Context, payload map[string]any) error       { return nil }
@@ -500,7 +501,6 @@ func (m *mockGameClient) GetBase(ctx context.Context) error                     
 func (m *mockGameClient) GetMap(ctx context.Context, force ...bool) error                      { return nil }
 func (m *mockGameClient) GetNearby(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetVersion(ctx context.Context) error                                 { return nil }
-func (m *mockGameClient) GetDrones(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) GetCommands(ctx context.Context) error                                { return nil }
 func (m *mockGameClient) GetActiveMissions(ctx context.Context) error                          { return nil }
 func (m *mockGameClient) GetInsuranceQuote(ctx context.Context) error                          { return nil }
