@@ -556,9 +556,69 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatCraft(raw)
 	case "missions", "get_missions":
 		return formatMissions(raw)
+	case "notes", "get_notes":
+		return formatNotes(raw)
 	default:
 		return ""
 	}
+}
+
+// formatNotes renders a get_notes response as a sorted table.
+func formatNotes(raw []byte) string {
+	var resp struct {
+		Notes []struct {
+			NoteID        string `json:"note_id"`
+			Title         string `json:"title"`
+			CreatedAt     string `json:"created_at"`
+			CreatedBy     string `json:"created_by"`
+			ContentLength int    `json:"content_length"`
+			Value         int    `json:"value"`
+		} `json:"notes"`
+		TotalCount int `json:"total_count"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if len(resp.Notes) == 0 {
+		return "Notes: (none)\n"
+	}
+	slices.SortFunc(resp.Notes, func(a, b struct {
+		NoteID        string `json:"note_id"`
+		Title         string `json:"title"`
+		CreatedAt     string `json:"created_at"`
+		CreatedBy     string `json:"created_by"`
+		ContentLength int    `json:"content_length"`
+		Value         int    `json:"value"`
+	}) int {
+		return strings.Compare(strings.ToLower(a.Title), strings.ToLower(b.Title))
+	})
+	titleW, idW, byW := len("Title"), len("Note ID (prefix)"), len("Author")
+	lenW, valW := len("Length"), len("Value")
+	for _, n := range resp.Notes {
+		titleW = max(titleW, len(n.Title))
+		byW = max(byW, len(n.CreatedBy))
+		lenW = max(lenW, len(strconv.Itoa(n.ContentLength)))
+		valW = max(valW, len(strconv.Itoa(n.Value)))
+	}
+	idW = max(idW, 8) // 8-char prefix
+	var b strings.Builder
+	fmt.Fprintf(&b, "Notes: %d\n\n", resp.TotalCount)
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*s | %*s | %s\n",
+		titleW, "Title", idW, "Note ID", byW, "Author", lenW, "Length", valW, "Value", "Created")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", titleW), strings.Repeat("-", idW),
+		strings.Repeat("-", byW), strings.Repeat("-", lenW),
+		strings.Repeat("-", valW), strings.Repeat("-", 19))
+	for _, n := range resp.Notes {
+		idPrefix := n.NoteID
+		if len(idPrefix) > idW {
+			idPrefix = idPrefix[:idW]
+		}
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*d | %*d | %s\n",
+			titleW, n.Title, idW, idPrefix, byW, n.CreatedBy,
+			lenW, n.ContentLength, valW, n.Value, n.CreatedAt)
+	}
+	return b.String()
 }
 
 // storageItem is a parsed item from a view_storage response.
@@ -3873,6 +3933,11 @@ var rawJSONKeyForCommand = map[string]string{
 	"get_map":          "systems",
 	"list_ships":       "owned_ships", // ListShips stores under "owned_ships" (action-based)
 	"facility":         "facility",    // action_result with command="facility" (storeRawJSON keys by command)
+	"notes":            "notes",
+	"get_notes":        "notes",
+	"read_note":        "note",
+	"create_note":      "create_note", // action_result with command="create_note"
+	"write_note":       "write_note",  // action_result with command="write_note"
 }
 
 // lookupRawJSON returns the raw JSON payload for command, keyed by

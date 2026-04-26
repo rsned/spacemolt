@@ -3289,6 +3289,22 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
+		// Store get_notes response (notes list with total_count).
+		if _, hasNotes := resp.Payload["notes"]; hasNotes {
+			if storeKey == "" {
+				storeKey = "notes"
+			}
+			shouldStore = true
+		}
+		// Store read_note response (single note details with note_id + content).
+		if _, hasNoteID := resp.Payload["note_id"]; hasNoteID {
+			if _, hasContent := resp.Payload["content"]; hasContent {
+				if storeKey == "" {
+					storeKey = "note"
+				}
+				shouldStore = true
+			}
+		}
 		// Store wrecks
 		if _, hasWrecks := resp.Payload["wrecks"]; hasWrecks {
 			if storeKey == "" {

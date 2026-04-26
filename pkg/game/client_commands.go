@@ -833,43 +833,57 @@ func (c *Client) SetHomeBase(ctx context.Context, baseID string) error {
 
 // CreateNote creates a new note document.
 func (c *Client) CreateNote(ctx context.Context, title, content string) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "create_note",
 		Payload: map[string]any{
 			"title":   title,
 			"content": content,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("create_note"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // GetNotes lists all your note documents.
 func (c *Client) GetNotes(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_notes",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Server returns {notes: [...], total_count: N} synchronously (no pending).
+	// "notes" key is distinctive — no other response carries it.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("notes"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // ReadNote reads a note document's contents.
 func (c *Client) ReadNote(ctx context.Context, noteID string) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "read_note",
 		Payload:   map[string]any{"note_id": noteID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// read_note response carries note_id + content synchronously (no pending).
+	// note_id is the distinctive correlation field.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("note_id"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
 }
 
 // WriteNote edits an existing note document.
 func (c *Client) WriteNote(ctx context.Context, noteID, content string) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type: "write_note",
 		Payload: map[string]any{
 			"note_id": noteID,
 			"content": content,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("write_note"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
