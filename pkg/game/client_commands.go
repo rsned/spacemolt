@@ -865,11 +865,28 @@ func (c *Client) ReadNote(ctx context.Context, noteID string) error {
 		Payload:   map[string]any{"note_id": noteID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// read_note response carries note_id + content synchronously (no pending).
-	// note_id is the distinctive correlation field.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("note_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
-	return err
+	// read_note response carries note_id + content synchronously when the
+	// server can find the document. If it can't (note_not_found), the
+	// server replies with type=error and no note_id field — match that
+	// too so we surface the rejection cleanly instead of timing out.
+	match := func(resp protocol.Response) bool {
+		if resp.Type == protocol.TypeError {
+			return true
+		}
+		if resp.Type != protocol.TypeOK {
+			return false
+		}
+		_, ok := resp.Payload["note_id"]
+		return ok
+	}
+	resp, err := c.execQuery(ctx, msg, match, SleepMedium)
+	if err != nil {
+		return err
+	}
+	if resp.Type == protocol.TypeError {
+		return serverErrorFromPayload(resp.Payload)
+	}
+	return nil
 }
 
 // WriteNote edits an existing note document.

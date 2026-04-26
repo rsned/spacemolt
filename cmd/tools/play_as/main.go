@@ -592,15 +592,17 @@ func formatNotes(raw []byte) string {
 	}) int {
 		return strings.Compare(strings.ToLower(a.Title), strings.ToLower(b.Title))
 	})
-	titleW, idW, byW := len("Title"), len("Note ID (prefix)"), len("Author")
+	// Note IDs are 32-char hex; render full so users can copy-paste into
+	// `read_note <id>`. The server rejects a truncated prefix.
+	titleW, idW, byW := len("Title"), len("Note ID"), len("Author")
 	lenW, valW := len("Length"), len("Value")
 	for _, n := range resp.Notes {
 		titleW = max(titleW, len(n.Title))
+		idW = max(idW, len(n.NoteID))
 		byW = max(byW, len(n.CreatedBy))
 		lenW = max(lenW, len(strconv.Itoa(n.ContentLength)))
 		valW = max(valW, len(strconv.Itoa(n.Value)))
 	}
-	idW = max(idW, 8) // 8-char prefix
 	var b strings.Builder
 	fmt.Fprintf(&b, "Notes: %d\n\n", resp.TotalCount)
 	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*s | %*s | %s\n",
@@ -610,12 +612,8 @@ func formatNotes(raw []byte) string {
 		strings.Repeat("-", byW), strings.Repeat("-", lenW),
 		strings.Repeat("-", valW), strings.Repeat("-", 19))
 	for _, n := range resp.Notes {
-		idPrefix := n.NoteID
-		if len(idPrefix) > idW {
-			idPrefix = idPrefix[:idW]
-		}
 		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*d | %*d | %s\n",
-			titleW, n.Title, idW, idPrefix, byW, n.CreatedBy,
+			titleW, n.Title, idW, n.NoteID, byW, n.CreatedBy,
 			lenW, n.ContentLength, valW, n.Value, n.CreatedAt)
 	}
 	return b.String()
