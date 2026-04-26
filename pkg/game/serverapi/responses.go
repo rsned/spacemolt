@@ -712,6 +712,12 @@ type FacilityTypesResponse struct {
 	UpgradesToName       string             `json:"upgrades_to_name,omitempty"`
 	UpgradesFrom         string             `json:"upgrades_from,omitempty"`
 	UpgradesFromName     string             `json:"upgrades_from_name,omitempty"`
+	// Pagination/filter envelope fields (added when action="types" returns
+	// a list — the server now includes a categories index, applied filters,
+	// and a pagination block alongside the page/per_page/total fields above).
+	Categories  []string       `json:"categories,omitempty"`
+	Filters     map[string]any `json:"filters,omitempty"`
+	Pagination  map[string]any `json:"pagination,omitempty"`
 }
 
 // FacilityListResponse wraps the response from facility list command.

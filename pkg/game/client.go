@@ -3494,6 +3494,17 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+	case protocol.TypeActionResult:
+		// action_result responses are the terminal of mutation commands.
+		// Store the full payload under a key derived from the "command"
+		// field so the REPL's lookupRawJSON can find them via
+		// rawJSONKeyForCommand[<command>] mapping. Without this, callers
+		// like `facility list` find nothing because the OK-only switch
+		// above doesn't match action_result frames.
+		if cmd, ok := resp.Payload["command"].(string); ok && cmd != "" {
+			storeKey = cmd
+			shouldStore = true
+		}
 	case protocol.TypeError:
 		// Don't store error responses in the same keys as success data
 		// Errors are tracked in lastError field instead

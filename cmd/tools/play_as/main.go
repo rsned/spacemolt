@@ -3872,6 +3872,7 @@ var rawJSONKeyForCommand = map[string]string{
 	"map":              "systems", // GetMap stores under "systems" key
 	"get_map":          "systems",
 	"list_ships":       "owned_ships", // ListShips stores under "owned_ships" (action-based)
+	"facility":         "facility",    // action_result with command="facility" (storeRawJSON keys by command)
 }
 
 // lookupRawJSON returns the raw JSON payload for command, keyed by

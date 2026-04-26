@@ -1146,13 +1146,19 @@ func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) er
 // Station Facilities
 // ============================================================================
 
-// Facility manages facilities at stations.
+// Facility manages facilities at stations. Both query-shaped sub-actions
+// (list, types, upgrades) and mutation-shaped sub-actions (build, toggle,
+// personal_build, transfer, etc.) flow through here. Every facility reply
+// is async (pending ok → action_result/action_error), so execMutation +
+// terminateOnAction is correct for both forms.
 func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "facility",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("facility"), terminateOnAction, SleepTick*3)
+	return err
 }
 
 // ============================================================================
