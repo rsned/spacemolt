@@ -33,6 +33,8 @@ type GameClient interface {
 	// Combat
 	Attack(ctx context.Context, targetID string) error
 	Cloak(ctx context.Context, enable bool) error
+	Battle(ctx context.Context, action string, payload map[string]any) error
+	Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error
 
 	// Commerce
 	Sell(ctx context.Context, itemID string, quantity float64) error
@@ -40,6 +42,13 @@ type GameClient interface {
 	Buy(ctx context.Context, itemID string, quantity float64) error
 	GetListings(ctx context.Context) error
 	GetTrades(ctx context.Context) error
+	EstimatePurchase(ctx context.Context, itemID string, quantity int) error
+	CancelOrder(ctx context.Context, payload map[string]any) error
+	ModifyOrder(ctx context.Context, payload map[string]any) error
+	TradeOffer(ctx context.Context, targetID string, payload map[string]any) error
+	TradeAccept(ctx context.Context, tradeID string) error
+	TradeCancel(ctx context.Context, tradeID string) error
+	TradeDecline(ctx context.Context, tradeID string) error
 
 	// Crafting
 	CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error
@@ -53,9 +62,16 @@ type GameClient interface {
 	InstallMod(ctx context.Context, moduleID string) error
 	UninstallMod(ctx context.Context, moduleID string) error
 	BuyShip(ctx context.Context, shipClass string) error
+	BuyListedShip(ctx context.Context, listingID string) error
 	BrowseShips(ctx context.Context, payload map[string]any) error
 	BuyInsurance(ctx context.Context, ticks int) error
 	ClaimInsurance(ctx context.Context) error
+	ListShipForSale(ctx context.Context, shipID string, price float64) error
+	CommissionQuote(ctx context.Context, shipClass string) error
+	CommissionStatus(ctx context.Context, baseID string) error
+	CancelCommission(ctx context.Context, commissionID string) error
+	ClaimCommission(ctx context.Context, commissionID string) error
+	CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error
 
 	// Cargo & Storage
 	DepositItems(ctx context.Context, itemID string, quantity float64) error
@@ -71,6 +87,8 @@ type GameClient interface {
 	GetWrecks(ctx context.Context) error
 	LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error
 	SalvageWreck(ctx context.Context, wreckID string) error
+	TowWreck(ctx context.Context, wreckID string) error
+	UseItem(ctx context.Context, itemID string, quantity int) error
 
 	// Queries
 	GetSystem(ctx context.Context) error
@@ -92,7 +110,10 @@ type GameClient interface {
 	// Data collection
 	FactionInfo(ctx context.Context) error
 	CaptainsLogList(ctx context.Context) error
+	CaptainsLogGet(ctx context.Context, index int) error
 	Catalog(ctx context.Context, catalogType string, page, pageSize int) error
+	SearchSystems(ctx context.Context, query string) error
+	GetGuide(ctx context.Context, guide string) error
 
 	// Route Planning
 	FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error)
@@ -104,6 +125,35 @@ type GameClient interface {
 	FactionInvite(ctx context.Context, playerID string) error
 	FactionKick(ctx context.Context, playerID string) error
 	FactionPromote(ctx context.Context, playerID, roleID string) error
+	FactionList(ctx context.Context, limit, offset int) error
+	FactionEdit(ctx context.Context, payload map[string]any) error
+	FactionGetInvites(ctx context.Context) error
+	FactionDeclineInvite(ctx context.Context, factionID string) error
+	FactionDeclareWar(ctx context.Context, targetFactionID, reason string) error
+	FactionProposePeace(ctx context.Context, targetFactionID, terms string) error
+	FactionAcceptPeace(ctx context.Context, targetFactionID string) error
+	FactionSetAlly(ctx context.Context, targetFactionID string) error
+	FactionSetEnemy(ctx context.Context, targetFactionID string) error
+	FactionDepositCredits(ctx context.Context, amount float64) error
+	FactionWithdrawCredits(ctx context.Context, amount float64) error
+	FactionDepositItems(ctx context.Context, itemID string, quantity int) error
+	FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error
+	ViewFactionStorage(ctx context.Context) error
+	FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error
+	FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error
+	FactionCreateRole(ctx context.Context, name string, priority int, permissions map[string]any) error
+	FactionEditRole(ctx context.Context, roleID string, payload map[string]any) error
+	FactionDeleteRole(ctx context.Context, roleID string) error
+	FactionQueryIntel(ctx context.Context, payload map[string]any) error
+	FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error
+	FactionIntelStatus(ctx context.Context) error
+	FactionTradeIntelStatus(ctx context.Context) error
+	FactionRooms(ctx context.Context) error
+	FactionVisitRoom(ctx context.Context, roomID string) error
+	FactionWriteRoom(ctx context.Context, payload map[string]any) error
+	FactionDeleteRoom(ctx context.Context, roomID string) error
+	FactionListMissions(ctx context.Context) error
+	FactionCancelMission(ctx context.Context, templateID string) error
 
 	// Fleet (v0.240)
 	Fleet(ctx context.Context, action string, playerID string) error
@@ -116,6 +166,9 @@ type GameClient interface {
 	GetChatHistory(ctx context.Context, channel string, payload map[string]any) error
 	SetPlayerStatus(ctx context.Context, payload map[string]any) error
 	SetHomeBase(ctx context.Context, baseID string) error
+	SendGift(ctx context.Context, payload map[string]any) error
+	SetAnonymous(ctx context.Context, anonymous bool) error
+	SetColors(ctx context.Context, primaryColor, secondaryColor string) error
 
 	// Forum
 	ForumList(ctx context.Context, page int) error
@@ -129,6 +182,7 @@ type GameClient interface {
 	// Notes
 	CreateNote(ctx context.Context, title, content string) error
 	WriteNote(ctx context.Context, noteID, content string) error
+	ReadNote(ctx context.Context, noteID string) error
 	GetNotes(ctx context.Context) error
 
 	// State
@@ -150,12 +204,18 @@ type GameClient interface {
 	// Missions
 	GetMissions(ctx context.Context) error
 	AcceptMission(ctx context.Context, missionID string) error
+	CompleteMission(ctx context.Context, missionID string) error
+	AbandonMission(ctx context.Context, missionID string) error
+	DeclineMission(ctx context.Context, templateID string) error
 
 	// Survey
 	SurveySystem(ctx context.Context) error
 
 	// Captain's Log
 	CaptainsLogAdd(ctx context.Context, entry string) error
+
+	// Station Facilities
+	Facility(ctx context.Context, payload map[string]any) error
 
 	// Generic passthrough for commands without explicit methods.
 	RawCommand(ctx context.Context, command string, args map[string]any) error

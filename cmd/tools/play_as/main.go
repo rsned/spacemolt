@@ -2361,7 +2361,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "battle", payload)
+			return client.Battle(ctx, parts[1], payload)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "reload":
@@ -2369,10 +2369,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: reload <weapon-instance-id> <ammo-item-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "reload", map[string]any{
-				"weapon_instance_id": parts[1],
-				"ammo_item_id":       strings.ToLower(parts[2]),
-			})
+			return client.Reload(ctx, parts[1], strings.ToLower(parts[2]))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "distress_signal":
@@ -2510,7 +2507,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: cancel_order <order-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "cancel_order", map[string]any{"order_id": parts[1]})
+			return client.CancelOrder(ctx, map[string]any{"order_id": parts[1]})
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "modify_order":
@@ -2525,7 +2522,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "modify_order", payload)
+			return client.ModifyOrder(ctx, payload)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "estimate_purchase":
@@ -2537,9 +2534,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "estimate_purchase", map[string]any{
-				"item_id": strings.ToLower(parts[1]), "quantity": qty,
-			})
+			return client.EstimatePurchase(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "list_ship_for_sale":
@@ -2551,9 +2546,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid price: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "list_ship_for_sale", map[string]any{
-				"ship_id": parts[1], "price": price,
-			})
+			return client.ListShipForSale(ctx, parts[1], float64(price))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "name_ship":
@@ -2571,16 +2564,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: commission_quote <ship-class>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "commission_quote", map[string]any{"ship_class": parts[1]})
+			return client.CommissionQuote(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "commission_status":
-		var payload map[string]any
+		var baseID string
 		if len(parts) >= 2 {
-			payload = map[string]any{"base_id": parts[1]}
+			baseID = parts[1]
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "commission_status", payload)
+			return client.CommissionStatus(ctx, baseID)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "cancel_commission":
@@ -2588,7 +2581,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: cancel_commission <commission-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "cancel_commission", map[string]any{"commission_id": parts[1]})
+			return client.CancelCommission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "claim_commission":
@@ -2596,7 +2589,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: claim_commission <commission-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "claim_commission", map[string]any{"commission_id": parts[1]})
+			return client.ClaimCommission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "commission_ship":
@@ -2623,8 +2616,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			s, _ := v.(string)
 			payload["provide_materials"] = strings.EqualFold(s, "true") || s == "1"
 		}
+		shipClass, _ := payload["ship_class"].(string)
+		provideMaterials, _ := payload["provide_materials"].(bool)
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "commission_ship", payload)
+			return client.CommissionShip(ctx, shipClass, provideMaterials)
 		}, ctx, 5*time.Second, cmd, format)
 
 	case "supply_commission":
@@ -2645,17 +2640,17 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: trade_offer <target-id> [--offer_credits <n>] [--request_credits <n>]")
 		}
-		payload := map[string]any{"target_id": parts[1]}
+		tradePayload := map[string]any{}
 		flags := parseFlagArgs(parts[2:], "offer_credits", "request_credits")
 		for _, k := range []string{"offer_credits", "request_credits"} {
 			if v, ok := flags[k]; ok {
 				if n, err := strconv.Atoi(v.(string)); err == nil {
-					payload[k] = n
+					tradePayload[k] = n
 				}
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "trade_offer", payload)
+			return client.TradeOffer(ctx, parts[1], tradePayload)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "trade_accept":
@@ -2663,7 +2658,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: trade_accept <trade-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "trade_accept", map[string]any{"trade_id": parts[1]})
+			return client.TradeAccept(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "trade_cancel":
@@ -2671,7 +2666,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: trade_cancel <trade-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "trade_cancel", map[string]any{"trade_id": parts[1]})
+			return client.TradeCancel(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "trade_decline":
@@ -2679,7 +2674,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: trade_decline <trade-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "trade_decline", map[string]any{"trade_id": parts[1]})
+			return client.TradeDecline(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	// === CRAFTING ===
@@ -2728,7 +2723,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				payload["item_id"] = strings.ToLower(v)
 			}
 			return simpleCommand(client, func(ctx context.Context) error {
-				return client.RawCommand(ctx, "repair", payload)
+				return client.RepairWith(ctx, payload)
 			}, ctx, 3*time.Second, cmd, format)
 		}
 		return simpleCommand(client, client.Repair, ctx, 3*time.Second, cmd, format)
@@ -2762,7 +2757,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: buy_listed_ship <listing-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "buy_listed_ship", map[string]any{"listing_id": parts[1]})
+			return client.BuyListedShip(ctx, parts[1])
 		}, ctx, 5*time.Second, cmd, format)
 
 	case "browse_ships":
@@ -2909,21 +2904,21 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: tow <wreck-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "tow_wreck", map[string]any{"wreck_id": parts[1]})
+			return client.TowWreck(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "use_item":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: use_item <item-id> [quantity]")
 		}
-		payload := map[string]any{"item_id": strings.ToLower(parts[1])}
+		useQty := 0
 		if len(parts) >= 3 {
 			if n, err := strconv.Atoi(parts[2]); err == nil {
-				payload["quantity"] = n
+				useQty = n
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "use_item", payload)
+			return client.UseItem(ctx, strings.ToLower(parts[1]), useQty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "repair_module":
@@ -3019,18 +3014,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: search_systems <query>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "search_systems", map[string]any{
-				"query": strings.Join(parts[1:], " "),
-			})
+			return client.SearchSystems(ctx, strings.Join(parts[1:], " "))
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "get_guide":
-		var payload map[string]any
+		var guide string
 		if len(parts) >= 2 {
-			payload = map[string]any{"guide": parts[1]}
+			guide = parts[1]
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "get_guide", payload)
+			return client.GetGuide(ctx, guide)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "server_help":
@@ -3120,19 +3113,20 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_list":
-		payload := parseFlagArgs(parts[1:], "limit", "offset")
-		for _, k := range []string{"limit", "offset"} {
-			if v, ok := payload[k]; ok {
-				if n, err := strconv.Atoi(v.(string)); err == nil {
-					payload[k] = n
-				}
+		flFlags := parseFlagArgs(parts[1:], "limit", "offset")
+		flistLimit, flistOffset := 0, 0
+		if v, ok := flFlags["limit"]; ok {
+			if n, err := strconv.Atoi(v.(string)); err == nil {
+				flistLimit = n
 			}
 		}
-		if len(payload) == 0 {
-			payload = nil
+		if v, ok := flFlags["offset"]; ok {
+			if n, err := strconv.Atoi(v.(string)); err == nil {
+				flistOffset = n
+			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_list", payload)
+			return client.FactionList(ctx, flistLimit, flistOffset)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_edit":
@@ -3142,7 +3136,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_edit --charter \"text\" --description \"text\" --primary_color \"#hex\" --secondary_color \"#hex\"")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_edit", payload)
+			return client.FactionEdit(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_invite":
@@ -3170,40 +3164,38 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_get_invites":
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_get_invites", nil)
-		}, ctx, 2*time.Second, cmd, format)
+		return simpleCommand(client, client.FactionGetInvites, ctx, 2*time.Second, cmd, format)
 
 	case "faction_decline_invite":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_decline_invite <faction-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_decline_invite", map[string]any{"faction_id": parts[1]})
+			return client.FactionDeclineInvite(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_declare_war":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_declare_war <target-faction-id> [reason]")
 		}
-		payload := map[string]any{"target_faction_id": parts[1]}
+		warReason := ""
 		if len(parts) >= 3 {
-			payload["reason"] = strings.Join(parts[2:], " ")
+			warReason = strings.Join(parts[2:], " ")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_declare_war", payload)
+			return client.FactionDeclareWar(ctx, parts[1], warReason)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_propose_peace":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_propose_peace <target-faction-id> [terms]")
 		}
-		payload := map[string]any{"target_faction_id": parts[1]}
+		peaceTerms := ""
 		if len(parts) >= 3 {
-			payload["terms"] = strings.Join(parts[2:], " ")
+			peaceTerms = strings.Join(parts[2:], " ")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_propose_peace", payload)
+			return client.FactionProposePeace(ctx, parts[1], peaceTerms)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_accept_peace":
@@ -3211,7 +3203,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_accept_peace <target-faction-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_accept_peace", map[string]any{"target_faction_id": parts[1]})
+			return client.FactionAcceptPeace(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_set_ally":
@@ -3219,7 +3211,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_set_ally <target-faction-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_set_ally", map[string]any{"target_faction_id": parts[1]})
+			return client.FactionSetAlly(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_set_enemy":
@@ -3227,7 +3219,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_set_enemy <target-faction-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_set_enemy", map[string]any{"target_faction_id": parts[1]})
+			return client.FactionSetEnemy(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_deposit_credits":
@@ -3239,7 +3231,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid amount: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_deposit_credits", map[string]any{"amount": amount})
+			return client.FactionDepositCredits(ctx, float64(amount))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_withdraw_credits":
@@ -3251,7 +3243,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid amount: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_withdraw_credits", map[string]any{"amount": amount})
+			return client.FactionWithdrawCredits(ctx, float64(amount))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_deposit_items":
@@ -3263,7 +3255,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_deposit_items", map[string]any{"item_id": strings.ToLower(parts[1]), "quantity": qty})
+			return client.FactionDepositItems(ctx, strings.ToLower(parts[1]), int(qty))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_withdraw_items":
@@ -3275,13 +3267,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_withdraw_items", map[string]any{"item_id": strings.ToLower(parts[1]), "quantity": qty})
+			return client.FactionWithdrawItems(ctx, strings.ToLower(parts[1]), int(qty))
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "view_faction_storage":
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "view_faction_storage", nil)
-		}, ctx, 2*time.Second, cmd, format)
+		return simpleCommand(client, client.ViewFactionStorage, ctx, 2*time.Second, cmd, format)
 
 	case "faction_create_buy_order":
 		if len(parts) < 4 {
@@ -3296,9 +3286,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid price: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_create_buy_order", map[string]any{
-				"item_id": strings.ToLower(parts[1]), "quantity": qty, "price_each": price,
-			})
+			return client.FactionCreateBuyOrder(ctx, strings.ToLower(parts[1]), float64(price), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_create_sell_order":
@@ -3314,9 +3302,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid price: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_create_sell_order", map[string]any{
-				"item_id": strings.ToLower(parts[1]), "quantity": qty, "price_each": price,
-			})
+			return client.FactionCreateSellOrder(ctx, strings.ToLower(parts[1]), float64(price), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "faction_create_role":
@@ -3328,17 +3314,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid priority: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_create_role", map[string]any{"name": parts[1], "priority": priority})
+			return client.FactionCreateRole(ctx, parts[1], priority, nil)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_edit_role":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_edit_role <role-id> [--name \"name\"]")
 		}
-		payload := parseFlagArgs(parts[2:], "name")
-		payload["role_id"] = parts[1]
+		editRolePayload := parseFlagArgs(parts[2:], "name")
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_edit_role", payload)
+			return client.FactionEditRole(ctx, parts[1], editRolePayload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_delete_role":
@@ -3346,7 +3331,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_delete_role <role-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_delete_role", map[string]any{"role_id": parts[1]})
+			return client.FactionDeleteRole(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_submit_intel":
@@ -3359,7 +3344,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "faction_query_intel":
 		payload := parseFlagArgs(parts[1:], "poi_type", "resource_type", "system_id", "system_name")
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_query_intel", payload)
+			return client.FactionQueryIntel(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_query_trade_intel":
@@ -3368,30 +3353,24 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			payload["item_id"] = strings.ToLower(v)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_query_trade_intel", payload)
+			return client.FactionQueryTradeIntel(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_intel_status":
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_intel_status", nil)
-		}, ctx, 2*time.Second, cmd, format)
+		return simpleCommand(client, client.FactionIntelStatus, ctx, 2*time.Second, cmd, format)
 
 	case "faction_trade_intel_status":
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_trade_intel_status", nil)
-		}, ctx, 2*time.Second, cmd, format)
+		return simpleCommand(client, client.FactionTradeIntelStatus, ctx, 2*time.Second, cmd, format)
 
 	case "faction_rooms":
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_rooms", nil)
-		}, ctx, 2*time.Second, cmd, format)
+		return simpleCommand(client, client.FactionRooms, ctx, 2*time.Second, cmd, format)
 
 	case "faction_visit_room":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_visit_room <room-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_visit_room", map[string]any{"room_id": parts[1]})
+			return client.FactionVisitRoom(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_write_room":
@@ -3400,7 +3379,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_write_room [--room_id id] --name \"name\" --description \"text\" [--access public|faction]")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_write_room", payload)
+			return client.FactionWriteRoom(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_delete_room":
@@ -3408,23 +3387,21 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: faction_delete_room <room-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_delete_room", map[string]any{"room_id": parts[1]})
+			return client.FactionDeleteRoom(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_post_mission":
 		return fmt.Errorf("faction_post_mission requires complex payload; use the generic passthrough or MCP directly")
 
 	case "faction_list_missions":
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_list_missions", nil)
-		}, ctx, 2*time.Second, cmd, format)
+		return simpleCommand(client, client.FactionListMissions, ctx, 2*time.Second, cmd, format)
 
 	case "faction_cancel_mission":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_cancel_mission <template-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "faction_cancel_mission", map[string]any{"template_id": parts[1]})
+			return client.FactionCancelMission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	// === COMMUNICATION ===
@@ -3508,7 +3485,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			payload["message"] = msg
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "send_gift", payload)
+			return client.SendGift(ctx, payload)
 		}, ctx, 3*time.Second, cmd, format)
 
 	// === FORUM ===
@@ -3608,7 +3585,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: read_note <note-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "read_note", map[string]any{"note_id": parts[1]})
+			return client.ReadNote(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "write_note":
@@ -3636,7 +3613,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: complete_mission <mission-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "complete_mission", map[string]any{"mission_id": parts[1]})
+			return client.CompleteMission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "abandon_mission":
@@ -3644,7 +3621,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: abandon_mission <mission-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "abandon_mission", map[string]any{"mission_id": parts[1]})
+			return client.AbandonMission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "decline_mission":
@@ -3652,7 +3629,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: decline_mission <template-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "decline_mission", map[string]any{"template_id": parts[1]})
+			return client.DeclineMission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "view_completed_mission":
@@ -3689,7 +3666,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("invalid index: %w", err)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "captains_log_get", map[string]any{"index": idx})
+			return client.CaptainsLogGet(ctx, idx)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "captains_log_list":
@@ -3764,7 +3741,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "facility", payload)
+			return client.Facility(ctx, payload)
 		}, ctx, 5*time.Second, cmd, format)
 
 	// === APPEARANCE ===
@@ -3773,10 +3750,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: set_colors <primary-hex> <secondary-hex>  (e.g. set_colors #FF0000 #00FFFF)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "set_colors", map[string]any{
-				"primary_color":   parts[1],
-				"secondary_color": parts[2],
-			})
+			return client.SetColors(ctx, parts[1], parts[2])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "set_anonymous":
@@ -3785,9 +3759,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		anon := strings.EqualFold(parts[1], "true") || parts[1] == "1"
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "set_anonymous", map[string]any{
-				"anonymous": anon,
-			})
+			return client.SetAnonymous(ctx, anon)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "set_status":
@@ -3797,7 +3769,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: set_status --status_message \"text\" [--clan_tag \"TAG\"]")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "set_status", payload)
+			return client.SetPlayerStatus(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	// === AUTOPILOT & EXPLORE ===
@@ -4104,7 +4076,7 @@ func splitArgs(s string) []string {
 // resolveFactionTag looks up a faction tag via faction_list and returns the faction ID, or "" if not found.
 func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) string {
 	tag = strings.ToUpper(tag)
-	if err := client.RawCommand(ctx, "faction_list", nil); err != nil {
+	if err := client.FactionList(ctx, 0, 0); err != nil {
 		return ""
 	}
 	raw := client.GetRawJSON("_last")
