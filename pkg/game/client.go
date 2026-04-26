@@ -3223,14 +3223,19 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// Store storage data (from view_storage response).
 		// base_id is the reliable indicator for view_storage — items and
 		// ships may be omitted when empty. But several other commands
-		// (get_missions, get_active_missions, view_orders, etc.) also
-		// include base_id; exclude those by checking for their distinctive
-		// keys so storeKey/the storage callback don't get hijacked.
+		// (get_missions, get_active_missions, view_orders, facility list,
+		// etc.) also include base_id; exclude those by checking for their
+		// distinctive keys so storeKey/the storage callback don't get
+		// hijacked.
 		if _, hasBaseID := resp.Payload["base_id"]; hasBaseID {
 			_, hasMissions := resp.Payload["missions"]
 			_, hasOrders := resp.Payload["orders"]
 			_, hasServices := resp.Payload["services"]
-			isStorageShape := !hasMissions && !hasOrders && !hasServices
+			_, hasStationFac := resp.Payload["station_facilities"]
+			_, hasFactionFac := resp.Payload["faction_facilities"]
+			_, hasPlayerFac := resp.Payload["player_facilities"]
+			isFacility := hasStationFac || hasFactionFac || hasPlayerFac
+			isStorageShape := !hasMissions && !hasOrders && !hasServices && !isFacility
 			if isStorageShape {
 				if storeKey == "" {
 					storeKey = "storage"
@@ -3288,6 +3293,29 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				storeKey = "notifications"
 			}
 			shouldStore = true
+		}
+		// Store facility responses. Sync queries (list/types/upgrades/help/
+		// faction_list) come back as type=ok with no command field, so they
+		// fall through here. Async terminals are stored later via the
+		// command-keyed TypeActionResult path.
+		_, hasStationFac := resp.Payload["station_facilities"]
+		_, hasFactionFac := resp.Payload["faction_facilities"]
+		_, hasPlayerFac := resp.Payload["player_facilities"]
+		if hasStationFac || hasFactionFac || hasPlayerFac {
+			if storeKey == "" {
+				storeKey = "facility"
+			}
+			shouldStore = true
+		}
+		if action, _ := resp.Payload["action"].(string); action != "" {
+			switch action {
+			case "types", "upgrades", "help", "faction_list",
+				"personal_visit", "personal_decorate":
+				if storeKey == "" {
+					storeKey = "facility"
+				}
+				shouldStore = true
+			}
 		}
 		// Store get_notes response (notes list with total_count).
 		if _, hasNotes := resp.Payload["notes"]; hasNotes {

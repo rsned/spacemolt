@@ -1160,18 +1160,73 @@ func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) er
 // Station Facilities
 // ============================================================================
 
+// facilityMatch recognizes every facility response shape:
+//   - sync query reply (type=ok, no command field; identified by
+//     station_facilities/faction_facilities/player_facilities for list,
+//     or action ∈ {types, upgrades, help, faction_list} for the others)
+//   - async pending ok (command="facility", pending=true)
+//   - terminal action_result/action_error (command="facility")
+//
+// Sub-action coverage isn't exhaustive — extend the action switch as new
+// sync sub-actions are exercised; the cost of missing one is an
+// execMutation timeout instead of a clean reply.
+func facilityMatch(resp protocol.Response) bool {
+	p := resp.Payload
+	if cmd, _ := p["command"].(string); cmd == "facility" {
+		return true
+	}
+	if resp.Type != protocol.TypeOK {
+		return false
+	}
+	if _, ok := p["station_facilities"]; ok {
+		return true // facility list
+	}
+	if _, ok := p["faction_facilities"]; ok {
+		return true
+	}
+	if _, ok := p["player_facilities"]; ok {
+		return true
+	}
+	if action, _ := p["action"].(string); action != "" {
+		switch action {
+		case "types", "upgrades", "help", "faction_list",
+			"personal_visit", "personal_decorate":
+			return true
+		}
+	}
+	return false
+}
+
+// facilityTerminate handles facility's dual-shape completion: the standard
+// action terminator semantics for action_result/action_error, plus a sync
+// query termination when type=ok lands without pending=true.
+func facilityTerminate(resp protocol.Response) (bool, error) {
+	switch resp.Type {
+	case protocol.TypeActionResult:
+		return true, nil
+	case protocol.TypeActionError, protocol.TypeError:
+		return true, serverErrorFromPayload(resp.Payload)
+	case protocol.TypeOK:
+		if pending, _ := resp.Payload["pending"].(bool); pending {
+			return false, nil // intermediate; async mutation is still working
+		}
+		return true, nil // sync query reply is the terminal
+	}
+	return false, nil
+}
+
 // Facility manages facilities at stations. Both query-shaped sub-actions
-// (list, types, upgrades) and mutation-shaped sub-actions (build, toggle,
-// personal_build, transfer, etc.) flow through here. Every facility reply
-// is async (pending ok → action_result/action_error), so execMutation +
-// terminateOnAction is correct for both forms.
+// (list, types, upgrades, help, faction_list, etc.) and mutation-shaped
+// sub-actions (build, toggle, personal_build, transfer, etc.) flow through
+// here. Sync queries return type=ok inline; async mutations follow the
+// pending ok → action_result/action_error pattern.
 func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
 	msg := protocol.Message{
 		Type:      "facility",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("facility"), terminateOnAction, SleepTick*3)
+	_, err := c.execMutation(ctx, msg, facilityMatch, facilityTerminate, SleepTick*3)
 	return err
 }
 
