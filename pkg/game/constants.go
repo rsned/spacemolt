@@ -19,6 +19,14 @@ const (
 	// Initial response timeouts for actions that may take multiple ticks to start
 	SleepActionStartTimeout = 3 * SleepTick // 30s timeout for travel/jump to acknowledge
 
+	// Hard cap on the wait window a travel/jump can spend blocked waiting
+	// for an arrival event. Within-system travel never exceeds ~9 ticks of
+	// game time, so 18 ticks (~3min) is an overgenerous safety bound that
+	// also defeats the failure mode where a stale local CurrentTick inflates
+	// `arrival_tick - currentTick`.
+	SleepTravelMaxWait = 18 * SleepTick // 3min hard cap for in-system travel
+	SleepJumpMaxWait   = 30 * SleepTick // 5min hard cap for cross-system jump
+
 	SleepReconnect = 30 * time.Second // Reconnection recovery wait
 	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles

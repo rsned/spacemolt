@@ -822,6 +822,13 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 		// Each tick ~10s, plus 30s buffer for safety.
 		timeout = time.Duration(ticksRemaining)*SleepTick + 30*time.Second
 	}
+	// Cap the wait so a stale local CurrentTick (the lag between server
+	// truth and our last received tick frame) can't inflate the timeout
+	// past anything reasonable for within-system travel. waitForStateChange
+	// returns immediately on arrival anyway — this is purely a safety bound.
+	if timeout > SleepTravelMaxWait {
+		timeout = SleepTravelMaxWait
+	}
 
 	c.debugLogger.Printf("Travel to %s: waiting up to %v for arrival", targetPOI, timeout)
 
@@ -885,6 +892,10 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 			ticksRemaining = 1
 		}
 		timeout = time.Duration(ticksRemaining)*SleepTick + 30*time.Second
+	}
+	// Cap so a stale local CurrentTick can't inflate the wait window.
+	if timeout > SleepJumpMaxWait {
+		timeout = SleepJumpMaxWait
 	}
 
 	c.debugLogger.Printf("Jump to %s: waiting up to %v for arrival", targetSystem, timeout)
@@ -1671,10 +1682,38 @@ func (c *Client) listen(ctx context.Context) {
 	}
 }
 
+// updateTickFromPayload bumps CurrentTick if the payload carries a tick or
+// current_tick field. Also handles the action_result shape where the tick
+// lives alongside a "result" object, and a few payloads (combat_update,
+// pirate_warning, mining events) that include tick at the top level but
+// aren't otherwise tick-aware in the switch below.
+func (c *Client) updateTickFromPayload(payload map[string]any) {
+	var nextTick int64
+	if tick, ok := payload["tick"].(float64); ok {
+		nextTick = int64(tick)
+	} else if tick, ok := payload["current_tick"].(float64); ok {
+		nextTick = int64(tick)
+	} else {
+		return
+	}
+	c.mu.Lock()
+	if nextTick > c.state.CurrentTick {
+		c.state.CurrentTick = nextTick
+	}
+	c.mu.Unlock()
+}
+
 // handleResponse updates the game state based on server responses
 func (c *Client) handleResponse(resp protocol.Response) {
 	// Store raw JSON for key response types (has its own locking)
 	c.storeRawJSON(resp)
+
+	// Centralized tick tracking: any response carrying a tick (or current_tick)
+	// field advances CurrentTick. The per-type branches below may also update
+	// it (idempotent), but this catches frames the switch doesn't otherwise
+	// process — pirate/combat events, action_result frames whose result.tick
+	// lives at top level, etc.
+	c.updateTickFromPayload(resp.Payload)
 
 	// Use fine-grained locking - only lock when actually updating state
 	// This prevents GetState() from being blocked for long periods
@@ -2914,7 +2953,28 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		}
 
 	default:
-		c.debugLogger.Printf("Action result: %s (unhandled)", action)
+		// Some action_result frames omit the "action" field and key off
+		// "command" instead. Dispatch by command before logging "unhandled".
+		switch command {
+		case "buy_listed_ship":
+			if credits, ok := result["credits_left"].(float64); ok {
+				c.state.Player.Credits = credits
+				c.state.Credits = credits
+			}
+			if shipID, ok := result["ship_id"].(string); ok && shipID != "" {
+				c.state.Ship.ID = shipID
+			}
+			if classID, ok := result["class_id"].(string); ok && classID != "" {
+				c.state.Ship.ClassID = classID
+			}
+			c.debugLogger.Printf("Action result: bought ship %s (credits left: %.0f)", c.state.Ship.ID, c.state.Player.Credits)
+		default:
+			if command != "" {
+				c.debugLogger.Printf("Action result: %s (unhandled)", command)
+			} else {
+				c.debugLogger.Printf("Action result: %s (unhandled)", action)
+			}
+		}
 	}
 }
 

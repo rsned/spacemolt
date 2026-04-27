@@ -507,6 +507,27 @@ func printResponse(raw []byte, format outputFormat, command string) {
 	}
 }
 
+// unwrapActionResult returns the inner result JSON if raw is an action_result
+// frame ({"command":"...","result":{...},"tick":N}), or raw unchanged otherwise.
+// Many formatters predate the response-router migration that switched these
+// commands to action_result termination. The wrapper means those formatters
+// see top-level keys like {"command","result","tick"} and miss the actual
+// payload fields nested inside "result". Calling unwrapActionResult at the
+// top of a formatter restores the pre-wrap shape so existing field bindings
+// work unchanged.
+func unwrapActionResult(raw []byte) []byte {
+	var probe struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return raw
+	}
+	if len(probe.Result) == 0 {
+		return raw
+	}
+	return probe.Result
+}
+
 // formatStyledResponse returns a styled string for the given command, or "" if no formatter exists.
 func formatStyledResponse(raw []byte, command string) string {
 	switch command {
@@ -558,9 +579,94 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatMissions(raw)
 	case "notes", "get_notes":
 		return formatNotes(raw)
+	case "list_ships":
+		return formatListShips(raw)
 	default:
 		return ""
 	}
+}
+
+// formatListShips renders a list_ships response as a table.
+func formatListShips(raw []byte) string {
+	var resp struct {
+		ActiveShipID    string `json:"active_ship_id"`
+		ActiveShipClass string `json:"active_ship_class"`
+		Count           int    `json:"count"`
+		Ships           []struct {
+			ShipID         string `json:"ship_id"`
+			ClassID        string `json:"class_id"`
+			ClassName      string `json:"class_name"`
+			IsActive       bool   `json:"is_active"`
+			Location       string `json:"location"`
+			LocationBaseID string `json:"location_base_id,omitempty"`
+			Hull           string `json:"hull"`
+			Fuel           string `json:"fuel"`
+			Modules        int    `json:"modules"`
+			CargoUsed      int    `json:"cargo_used,omitempty"`
+		} `json:"ships"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if len(resp.Ships) == 0 {
+		return "Ships: (none)\n"
+	}
+
+	slices.SortFunc(resp.Ships, func(a, b struct {
+		ShipID         string `json:"ship_id"`
+		ClassID        string `json:"class_id"`
+		ClassName      string `json:"class_name"`
+		IsActive       bool   `json:"is_active"`
+		Location       string `json:"location"`
+		LocationBaseID string `json:"location_base_id,omitempty"`
+		Hull           string `json:"hull"`
+		Fuel           string `json:"fuel"`
+		Modules        int    `json:"modules"`
+		CargoUsed      int    `json:"cargo_used,omitempty"`
+	}) int {
+		if a.IsActive != b.IsActive {
+			if a.IsActive {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(strings.ToLower(a.ClassName), strings.ToLower(b.ClassName))
+	})
+
+	activeW, classW, locW, hullW, fuelW, modW, cargoW, idW :=
+		1, len("Class"), len("Location"), len("Hull"), len("Fuel"), len("Mods"), len("Cargo"), len("Ship ID")
+	for _, s := range resp.Ships {
+		classW = max(classW, len(s.ClassName))
+		locW = max(locW, len(s.Location))
+		hullW = max(hullW, len(s.Hull))
+		fuelW = max(fuelW, len(s.Fuel))
+		modW = max(modW, len(fmt.Sprintf("%d", s.Modules)))
+		cargoW = max(cargoW, len(fmt.Sprintf("%d", s.CargoUsed)))
+		idW = max(idW, len(s.ShipID))
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Fleet: %d ship(s), active=%s\n\n", resp.Count, resp.ActiveShipClass)
+	fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*s | %*s | %-*s\n",
+		activeW, "*", classW, "Class", locW, "Location", hullW, "Hull", fuelW, "Fuel",
+		modW, "Mods", cargoW, "Cargo", idW, "Ship ID")
+	b.WriteString(strings.Repeat("-", activeW+classW+locW+hullW+fuelW+modW+cargoW+idW+21) + "\n")
+
+	for _, s := range resp.Ships {
+		marker := " "
+		if s.IsActive {
+			marker = "*"
+		}
+		cargoStr := ""
+		if s.CargoUsed > 0 {
+			cargoStr = fmt.Sprintf("%d", s.CargoUsed)
+		}
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*d | %*s | %-*s\n",
+			activeW, marker, classW, s.ClassName, locW, s.Location,
+			hullW, s.Hull, fuelW, s.Fuel, modW, s.Modules, cargoW, cargoStr, idW, s.ShipID)
+	}
+
+	return b.String()
 }
 
 // formatNotes renders a get_notes response as a sorted table.
@@ -1321,6 +1427,7 @@ func formatNearby(raw []byte) string {
 
 // formatTravel formats a travel response with online players at the destination.
 func formatTravel(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		POI           string         `json:"poi"`
 		POIID         string         `json:"poi_id"`
@@ -1370,6 +1477,7 @@ func formatError(err error, command string, format outputFormat) string {
 
 // formatMine formats a mine response as a one-line summary.
 func formatMine(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		Quantity         float64 `json:"quantity"`
 		ResourceName     string  `json:"resource_name"`
@@ -1383,6 +1491,7 @@ func formatMine(raw []byte) string {
 
 // formatCraft formats a craft response showing outputs, inputs used from storage, and XP gained.
 func formatCraft(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		Recipe        string `json:"recipe"`
 		Quantity      int    `json:"quantity"`
@@ -1730,6 +1839,7 @@ func formatDock(raw []byte) string {
 
 // formatJump formats a jump response as a one-line summary.
 func formatJump(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		FromSystem string `json:"from_system"`
 		System     string `json:"system"`
@@ -1938,6 +2048,7 @@ func formatSystem(raw []byte) string {
 
 // formatCreateFaction formats a create_faction response as a one-line summary.
 func formatCreateFaction(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		FactionID string `json:"faction_id"`
 		Name      string `json:"name"`
@@ -2070,6 +2181,7 @@ func formatFactionInfo(raw []byte) string {
 
 // formatDeposit formats a deposit_items response as a one-line summary.
 func formatDeposit(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		ItemID       string `json:"item_id"`
 		Quantity     int    `json:"quantity"`
@@ -2159,6 +2271,7 @@ func formatSkills(raw []byte) string {
 
 // formatWithdraw formats a withdraw_items response as a one-line summary.
 func formatWithdraw(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		ItemID           string `json:"item_id"`
 		Quantity         int    `json:"quantity"`
@@ -2173,19 +2286,35 @@ func formatWithdraw(raw []byte) string {
 
 // formatRefuel formats a refuel response as a one-line summary.
 func formatRefuel(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
-		Source string `json:"source"`
-		Fuel   int    `json:"fuel"`
-		Cost   int    `json:"cost"`
+		Source    string `json:"source"`
+		Fuel      int    `json:"fuel"`
+		FuelNow   int    `json:"fuel_now"`
+		FuelMax   int    `json:"fuel_max"`
+		Cost      int    `json:"cost"`
+		CellsUsed int    `json:"cells_used"`
+		ItemName  string `json:"item_name"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
-	return fmt.Sprintf("Refueled at %s.  %d units for %d credits.", resp.Source, resp.Fuel, resp.Cost)
+	source := resp.Source
+	if source == "" {
+		source = "(unknown)"
+	}
+	if resp.Fuel == 0 && resp.FuelNow > 0 && resp.FuelMax > 0 {
+		return fmt.Sprintf("Refueled at %s.  Tank: %d/%d (cost %d credits).", source, resp.FuelNow, resp.FuelMax, resp.Cost)
+	}
+	if resp.CellsUsed > 0 && resp.ItemName != "" {
+		return fmt.Sprintf("Refueled at %s.  %d units from %d × %s.", source, resp.Fuel, resp.CellsUsed, resp.ItemName)
+	}
+	return fmt.Sprintf("Refueled at %s.  %d units for %d credits.", source, resp.Fuel, resp.Cost)
 }
 
 // formatJettison formats a jettison response as a one-line summary.
 func formatJettison(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		ContainerID string  `json:"container_id"`
 		ItemID      string  `json:"item_id"`
@@ -2199,6 +2328,7 @@ func formatJettison(raw []byte) string {
 
 // formatLootWreck formats a loot_wreck response as a one-line summary.
 func formatLootWreck(raw []byte) string {
+	raw = unwrapActionResult(raw)
 	var resp struct {
 		ItemID     string  `json:"item_id"`
 		Quantity   float64 `json:"quantity"`
@@ -3887,70 +4017,54 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 // particular the silent background chat poller on WS, whose get_chat_history
 // reply can overwrite "_last" between a foreground command finishing and the
 // REPL reading the result.
+// rawJSONKeyForCommand maps REPL command names to non-matching storage keys.
+// Entries are required only when the storeRawJSON content-shape key differs
+// from the command name (e.g. browse_ships → "listings", view_storage →
+// "storage", list_ships → "ships"). Commands whose action_result is keyed
+// by their own name fall through to lookupRawJSON's `client.GetRawJSON(cmd)`
+// default — no entry needed.
 var rawJSONKeyForCommand = map[string]string{
-	"ship":             "ship",
-	"get_ship":         "ship",
-	"cargo":            "cargo",
-	"get_cargo":        "cargo",
-	"status":           "status",
-	"get_status":       "status",
-	"system":           "system",
-	"get_system":       "system",
-	"poi":              "poi",
-	"get_poi":          "poi",
-	"storage":          "storage",
-	"storage_at":       "storage",
-	"view_storage":     "storage",
-	"listings":         "listings",
-	"browse_ships":     "listings", // BrowseShips stores via "listings" content-based key
-	"view_market":      "market",
-	"market":           "market",
-	"orders":             "orders",
-	"view_orders":        "orders",
-	"missions":           "missions",
-	"get_missions":       "missions",
-	"active_missions":    "active_missions",
+	"get_ship":            "ship",
+	"get_cargo":           "cargo",
+	"get_status":          "status",
+	"get_system":          "system",
+	"get_poi":             "poi",
+	"storage_at":          "storage",
+	"view_storage":        "storage",
+	"browse_ships":        "listings",
+	"view_market":         "market",
+	"view_orders":         "orders",
+	"get_missions":        "missions",
 	"get_active_missions": "active_missions",
-	"wrecks":             "wrecks",
-	"get_wrecks":         "wrecks",
-	"drones":             "drones",
-	"recipes":            "recipes",
-	"get_recipes":        "recipes",
-	"base":               "base",
-	"get_base":           "base",
-	"faction_info":       "faction_info",
-	"chat_history":       "chat_history",
-	"get_chat_history": "chat_history",
-	"survey":           "survey",
-	"survey_system":    "survey",
-	"skills":           "skills",
-	"get_skills":       "skills",
-	"nearby":           "nearby",
-	"get_nearby":       "nearby",
-	"map":              "systems", // GetMap stores under "systems" key
-	"get_map":          "systems",
-	"list_ships":       "owned_ships", // ListShips stores under "owned_ships" (action-based)
-	"facility":         "facility",    // action_result with command="facility" (storeRawJSON keys by command)
-	"notes":            "notes",
-	"get_notes":        "notes",
-	"read_note":        "note",
-	"create_note":      "create_note", // action_result with command="create_note"
-	"write_note":       "write_note",  // action_result with command="write_note"
+	"get_wrecks":          "wrecks",
+	"get_recipes":         "recipes",
+	"get_base":            "base",
+	"get_chat_history":    "chat_history",
+	"survey_system":       "survey",
+	"get_skills":          "skills",
+	"get_nearby":          "nearby",
+	"map":                 "systems",
+	"get_map":             "systems",
+	"list_ships":          "ships",
+	"get_notes":           "notes",
+	"read_note":           "note",
 }
 
-// lookupRawJSON returns the raw JSON payload for command, keyed by
-// rawJSONKeyForCommand. Unlike an earlier version, this does NOT fall back
-// to "_last" when no key is registered — the shared "_last" slot is racy
-// (any concurrent command, including the background chat poller, can
-// overwrite it) and falling through caused stale/unrelated payloads to be
-// printed as if they were the current command's response. Commands that
-// legitimately want to show their JSON should have an entry in the map.
+// lookupRawJSON returns the raw JSON payload for command. It first checks
+// rawJSONKeyForCommand (for TypeOK responses that storeRawJSON keys by
+// content shape — e.g. "ships", "storage", "market") and falls back to
+// the command name itself, since action_result frames are stored under
+// their `command` field. Critically, this does NOT fall back to "_last":
+// that shared slot is racy (the background chat poller, for example, can
+// clobber it between the foreground command finishing and the REPL
+// reading the result), so commands without a per-command storage key
+// just print nothing rather than stale data.
 func lookupRawJSON(client game.GameClient, command string) []byte {
-	key := rawJSONKeyForCommand[strings.ToLower(command)]
-	if key == "" {
-		return nil
+	cmd := strings.ToLower(command)
+	if key := rawJSONKeyForCommand[cmd]; key != "" {
+		return client.GetRawJSON(key)
 	}
-	return client.GetRawJSON(key)
+	return client.GetRawJSON(cmd)
 }
 
 // showLastResponse prints the most recent server response for command.
