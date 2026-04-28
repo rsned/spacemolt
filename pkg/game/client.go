@@ -3443,8 +3443,25 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
-		// Store player skills (from get_skills response)
-		if _, hasPlayerSkills := resp.Payload["player_skills"]; hasPlayerSkills {
+		// Store get_action_log response. Identified by "entries" array
+		// alongside "has_more"; the pair distinguishes it from other arrays.
+		if _, hasEntries := resp.Payload["entries"]; hasEntries {
+			if _, hasHasMore := resp.Payload["has_more"]; hasHasMore {
+				if storeKey == "" {
+					storeKey = "action_log"
+				}
+				shouldStore = true
+			}
+		}
+		// Store get_skills response. Older builds keyed off "player_skills";
+		// newer builds may omit it (empty fleet) or replace the inline
+		// definitions map. Match on either key, plus the action/command
+		// fallback for robustness.
+		_, hasPlayerSkills := resp.Payload["player_skills"]
+		_, hasSkillsMap := resp.Payload["skills"]
+		actionField, _ := resp.Payload["action"].(string)
+		commandField, _ := resp.Payload["command"].(string)
+		if hasPlayerSkills || hasSkillsMap || actionField == "get_skills" || commandField == "get_skills" {
 			if storeKey == "" {
 				storeKey = "skills"
 			}

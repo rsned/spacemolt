@@ -350,11 +350,12 @@ func (c *Client) ModifyOrder(ctx context.Context, payload map[string]any) error 
 	return err
 }
 
-// ViewMarket views the order book at the current station.
-func (c *Client) ViewMarket(ctx context.Context, itemID string) error {
-	payload := map[string]any{}
-	if itemID != "" {
-		payload["item_id"] = itemID
+// ViewMarket views the order book at the current station. The payload
+// accepts server-supported filters (item_id, category, etc.); pass nil
+// to fetch the full market.
+func (c *Client) ViewMarket(ctx context.Context, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
 	}
 	msg := protocol.Message{
 		Type:      "view_market",
@@ -663,9 +664,21 @@ func (c *Client) GetSkills(ctx context.Context) error {
 		Type:      "get_skills",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_skills returns type=ok with "player_skills" key; storeRawJSON stores
-	// under "skills". No action field in response.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("player_skills"))
+	// Server response shape has shifted: older builds returned both a
+	// "player_skills" array and a "skills" definitions map; newer builds
+	// trim "skills" (referring callers to catalog?type=skills) and may
+	// emit "player_skills" empty/absent for fresh characters. Accept any
+	// of the historically-valid identifying keys, plus action/command, so
+	// the query terminates regardless of which the current server sends.
+	match := matchAll(
+		matchType(protocol.TypeOK),
+		matchAny(
+			matchPayloadKey("player_skills"),
+			matchPayloadKey("skills"),
+			matchAction("get_skills"),
+			matchCommand("get_skills"),
+		),
+	)
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
 }
@@ -726,6 +739,25 @@ func (c *Client) GetMissions(ctx context.Context) error {
 	// (not "missions" alone) to distinguish from get_active_missions which also
 	// has a "missions" key but lacks "base_id".
 	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
+	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	return err
+}
+
+// GetActionLog fetches recent server-side action log entries. The payload
+// accepts server-supported filters (category, faction_id, page, page_size);
+// pass nil for defaults.
+func (c *Client) GetActionLog(ctx context.Context, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	msg := protocol.Message{
+		Type:      "get_action_log",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	// get_action_log returns type=ok with "entries" array and "has_more"
+	// boolean. The "entries" key is distinctive enough to identify the reply.
+	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("entries"))
 	_, err := c.execQuery(ctx, msg, match, SleepMedium)
 	return err
 }

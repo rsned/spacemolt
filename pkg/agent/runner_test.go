@@ -442,8 +442,11 @@ func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error { 
 func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error   { return nil }
 func (m *mockGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error { return nil }
 func (m *mockGameClient) CreateBuyOrder(ctx context.Context, payload map[string]any) error  { return nil }
-func (m *mockGameClient) ViewMarket(ctx context.Context, itemID string) error               { return nil }
+func (m *mockGameClient) ViewMarket(ctx context.Context, payload map[string]any) error      { return nil }
 func (m *mockGameClient) ViewOrders(ctx context.Context) error                              { return nil }
+
+// Action Log
+func (m *mockGameClient) GetActionLog(ctx context.Context, payload map[string]any) error { return nil }
 
 // Missions
 func (m *mockGameClient) GetMissions(ctx context.Context) error                   { return nil }

@@ -517,7 +517,7 @@ func (s *Scraper) scrapeMarket() error {
 	ctx := context.Background()
 	s.clearLastError()
 
-	if err := s.client.ViewMarket(ctx, ""); err != nil {
+	if err := s.client.ViewMarket(ctx, nil); err != nil {
 		return fmt.Errorf("view_market failed: %w", err)
 	}
 	time.Sleep(1 * time.Second)

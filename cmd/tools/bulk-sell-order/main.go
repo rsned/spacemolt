@@ -165,7 +165,7 @@ func main() {
 	}
 
 	// Step 2: View market to get buy order prices.
-	if err := client.ViewMarket(ctx, ""); err != nil {
+	if err := client.ViewMarket(ctx, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "Error viewing market: %v\n", err)
 		os.Exit(1)
 	}

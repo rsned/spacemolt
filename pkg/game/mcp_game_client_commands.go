@@ -1017,12 +1017,11 @@ func (m *MCPGameClient) CreateBuyOrder(ctx context.Context, payload map[string]a
 	return m.updateStateFromResult(result)
 }
 
-func (m *MCPGameClient) ViewMarket(ctx context.Context, itemID string) error {
-	args := map[string]any{}
-	if itemID != "" {
-		args["item_id"] = itemID
+func (m *MCPGameClient) ViewMarket(ctx context.Context, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
 	}
-	result, err := m.callTool(ctx, "view_market", args)
+	result, err := m.callTool(ctx, "view_market", payload)
 	if err != nil {
 		return err
 	}
@@ -1035,6 +1034,19 @@ func (m *MCPGameClient) ViewOrders(ctx context.Context) error {
 		return err
 	}
 	return m.cacheResultAs(result, "orders")
+}
+
+// Action Log
+
+func (m *MCPGameClient) GetActionLog(ctx context.Context, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	result, err := m.callTool(ctx, "get_action_log", payload)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "action_log")
 }
 
 // Missions

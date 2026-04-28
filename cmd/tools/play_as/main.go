@@ -2244,14 +2244,22 @@ func formatSkills(raw []byte) string {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	nameW, catW, lvlW, progW := len("Skill"), len("Category"), len("Level"), len("Progress to Next")
+	// Sub-column widths within "Progress to Next": align XP, NextXP, and pct
+	// independently so the "/" and "(NN%)" tokens line up across rows.
+	nameW, catW, lvlW := len("Skill"), len("Category"), len("Level")
+	xpW, nextW, pctW := 0, 0, 0
 	for _, r := range rows {
 		nameW = max(nameW, len(r.Name))
 		catW = max(catW, len(r.Category))
-		ls := strconv.Itoa(r.Level)
-		lvlW = max(lvlW, len(ls))
-		ps := fmt.Sprintf("%d / %d (%d%%)", r.XP, r.NextXP, r.Pct)
-		progW = max(progW, len(ps))
+		lvlW = max(lvlW, len(strconv.Itoa(r.Level)))
+		xpW = max(xpW, len(strconv.Itoa(r.XP)))
+		nextW = max(nextW, len(strconv.Itoa(r.NextXP)))
+		pctW = max(pctW, len(strconv.Itoa(r.Pct)))
+	}
+	// Progress format: "<xp> / <next> (<pct>%)" — total width of the cell.
+	progW := xpW + 3 + nextW + 2 + pctW + 3 // " / " + " (" + "%)"
+	if progW < len("Progress to Next") {
+		progW = len("Progress to Next")
 	}
 
 	var b strings.Builder
@@ -2262,7 +2270,7 @@ func formatSkills(raw []byte) string {
 		strings.Repeat("-", lvlW), strings.Repeat("-", progW))
 
 	for _, r := range rows {
-		prog := fmt.Sprintf("%d / %d (%d%%)", r.XP, r.NextXP, r.Pct)
+		prog := fmt.Sprintf("%*d / %*d (%*d%%)", xpW, r.XP, nextW, r.NextXP, pctW, r.Pct)
 		fmt.Fprintf(&b, "  %-*s | %-*s | %*d | %*s\n",
 			nameW, r.Name, catW, r.Category, lvlW, r.Level, progW, prog)
 	}
@@ -2607,7 +2615,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "view_market":
 		if len(parts) < 2 {
-			return simpleCommand(client, client.GetListings, ctx, 2*time.Second, cmd, format)
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ViewMarket(ctx, nil)
+			}, ctx, 2*time.Second, cmd, format)
 		}
 		// First non-flag arg is item_id; also accept --item_id and --category flags
 		payload := make(map[string]any)
@@ -2628,7 +2638,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			payload["item_id"] = strings.ToLower(v)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "view_market", payload)
+			return client.ViewMarket(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "view_orders":
@@ -3832,7 +3842,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "get_action_log", "action_log":
 		payload := parseFlagArgs(parts[1:], "category", "faction_id", "page", "page_size")
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "get_action_log", payload)
+			return client.GetActionLog(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	// === CAPTAIN'S LOG ===
@@ -4048,6 +4058,8 @@ var rawJSONKeyForCommand = map[string]string{
 	"list_ships":          "ships",
 	"get_notes":           "notes",
 	"read_note":           "note",
+	"get_action_log":      "action_log",
+	"action_log":          "action_log",
 }
 
 // lookupRawJSON returns the raw JSON payload for command. It first checks

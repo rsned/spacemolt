@@ -80,3 +80,19 @@ func matchAll(cs ...Classifier) Classifier {
 		return true
 	}
 }
+
+// matchAny returns a Classifier that matches when at least one supplied
+// classifier matches. Short-circuits on the first match. With no arguments
+// it returns a vacuously-false classifier (matches nothing). Useful when a
+// response shape evolves across server versions and the same logical reply
+// can be identified by either of several keys.
+func matchAny(cs ...Classifier) Classifier {
+	return func(resp protocol.Response) bool {
+		for _, c := range cs {
+			if c(resp) {
+				return true
+			}
+		}
+		return false
+	}
+}

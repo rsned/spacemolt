@@ -1,0 +1,190 @@
+{
+  "Type": "lava_world",
+  "Renderer": "rocky",
+  "Palette": [
+    {
+      "Position": 0,
+      "Color": {
+        "R": 20,
+        "G": 15,
+        "B": 10,
+        "A": 255
+      }
+    },
+    {
+      "Position": 0.2,
+      "Color": {
+        "R": 35,
+        "G": 25,
+        "B": 18,
+        "A": 255
+      }
+    },
+    {
+      "Position": 0.4,
+      "Color": {
+        "R": 50,
+        "G": 35,
+        "B": 22,
+        "A": 255
+      }
+    },
+    {
+      "Position": 0.6,
+      "Color": {
+        "R": 65,
+        "G": 45,
+        "B": 28,
+        "A": 255
+      }
+    },
+    {
+      "Position": 0.8,
+      "Color": {
+        "R": 55,
+        "G": 38,
+        "B": 25,
+        "A": 255
+      }
+    },
+    {
+      "Position": 1,
+      "Color": {
+        "R": 40,
+        "G": 28,
+        "B": 18,
+        "A": 255
+      }
+    }
+  ],
+  "NoiseOctaves": 8,
+  "NoiseLacunarity": 2.2,
+  "NoisePersistence": 0.55,
+  "NoiseScale": 3,
+  "CraterCount": 20,
+  "CraterMinRadius": 0.004,
+  "CraterMaxRadius": 0.04,
+  "CraterDepth": 0.15,
+  "HasPolarCaps": false,
+  "PolarCapSize": 0,
+  "PolarCapNoise": 0,
+  "OceanLevel": 0.52,
+  "OceanColor": {
+    "R": 220,
+    "G": 80,
+    "B": 5,
+    "A": 255
+  },
+  "SnowLine": 0,
+  "EquatorialPalette": null,
+  "PolarPalette": null,
+  "BandCount": 0,
+  "TurbulenceAmp": 0,
+  "BandBlendWidth": 0,
+  "StormCount": 0,
+  "StormSize": 0,
+  "ControlConfig": {
+    "Continentalness": {
+      "Amp": 1.13,
+      "Freq": 3.82,
+      "Octaves": 6,
+      "Lacunarity": 2.29,
+      "Persistence": 0.56,
+      "Spline": {
+        "Knots": [
+          {
+            "Input": 0,
+            "Output": 0
+          },
+          {
+            "Input": 0.4,
+            "Output": 0.05
+          },
+          {
+            "Input": 0.5,
+            "Output": 0.45
+          },
+          {
+            "Input": 0.7,
+            "Output": 0.55
+          },
+          {
+            "Input": 1,
+            "Output": 0.6
+          }
+        ]
+      }
+    },
+    "Erosion": {
+      "Amp": 0.89,
+      "Freq": 2.53,
+      "Octaves": 6,
+      "Lacunarity": 1.92,
+      "Persistence": 0.34,
+      "Spline": {
+        "Knots": [
+          {
+            "Input": 0,
+            "Output": 0
+          },
+          {
+            "Input": 1,
+            "Output": 0.6
+          }
+        ]
+      }
+    },
+    "PeaksValleys": {
+      "Amp": 0.75,
+      "Freq": 5.18,
+      "Octaves": 6,
+      "Lacunarity": 2.28,
+      "Persistence": 0.69,
+      "Spline": {
+        "Knots": [
+          {
+            "Input": 0,
+            "Output": 0
+          },
+          {
+            "Input": 1,
+            "Output": 0.6
+          }
+        ]
+      }
+    },
+    "Temperature": {
+      "Amp": 0,
+      "Freq": 0,
+      "Octaves": 0,
+      "Lacunarity": 0,
+      "Persistence": 0,
+      "Spline": {
+        "Knots": []
+      }
+    },
+    "Humidity": {
+      "Amp": 0,
+      "Freq": 0,
+      "Octaves": 0,
+      "Lacunarity": 0,
+      "Persistence": 0,
+      "Spline": {
+        "Knots": []
+      }
+    }
+  },
+  "Warp": {
+    "Amp": 0,
+    "Freq": 0,
+    "Octaves": 0,
+    "Lacunarity": 0,
+    "Persistence": 0
+  },
+  "BiomeTable": {
+    "TBuckets": 0,
+    "MBuckets": 0,
+    "Cells": null
+  },
+  "LUT": "lava_world"
+}

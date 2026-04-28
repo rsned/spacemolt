@@ -198,8 +198,11 @@ type GameClient interface {
 	// Exchange
 	CreateSellOrder(ctx context.Context, payload map[string]any) error
 	CreateBuyOrder(ctx context.Context, payload map[string]any) error
-	ViewMarket(ctx context.Context, itemID string) error
+	ViewMarket(ctx context.Context, payload map[string]any) error
 	ViewOrders(ctx context.Context) error
+
+	// Action Log
+	GetActionLog(ctx context.Context, payload map[string]any) error
 
 	// Missions
 	GetMissions(ctx context.Context) error
