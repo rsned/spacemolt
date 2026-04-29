@@ -33,6 +33,7 @@ func TestXPTracker_SourceMapping(t *testing.T) {
 	}{
 		{"mining action", "mine", "action"},
 		{"travel action", "travel", "action"},
+		{"unknown action defaults to action", "craft", "action"},
 		{"complete_mission", "complete_mission", "mission_reward"},
 		{"get_skills is passive", "get_skills", "passive_skill"},
 		{"login is passive", "login", "passive_skill"},
@@ -40,7 +41,7 @@ func TestXPTracker_SourceMapping(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			kb := &captureKB{}
+			kb := &captureKB{MemoryKB: *NewMemoryKB()}
 			client := &fakeXPClient{}
 			tracker := NewXPTracker(client, kb, "agent-1", nil)
 			if tracker == nil {
