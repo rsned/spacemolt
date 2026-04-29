@@ -2195,6 +2195,37 @@ func (c *Client) parseSkillsData(payload map[string]any) {
 			c.state.SkillDefinitions[skillID] = SkillDefinitionFromAPI(extDef)
 		}
 	}
+
+	// Extract per-player live state (xp, level) from the skills map.
+	// The live get_skills response embeds both catalog metadata and per-player
+	// state in each skills entry. Update state.SkillXP and state.Player.Skills
+	// so checkXPChanges can detect passive XP gains captured by the runner's
+	// periodic GetSkills poll.
+	rawSkills, ok := payload["skills"].(map[string]any)
+	if ok {
+		if c.state.SkillXP == nil {
+			c.state.SkillXP = make(map[string]float64)
+		}
+		if c.state.Player.Skills == nil {
+			c.state.Player.Skills = make(map[string]Skill)
+		}
+		for skillID, raw := range rawSkills {
+			entry, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			sk := c.state.Player.Skills[skillID]
+			if xp, ok := entry["xp"].(float64); ok {
+				c.state.SkillXP[skillID] = xp
+				sk.XP = xp
+			}
+			if lvl, ok := entry["level"].(float64); ok {
+				sk.Level = int(lvl)
+			}
+			c.state.Player.Skills[skillID] = sk
+		}
+		c.checkXPChanges()
+	}
 }
 
 // parseChatHistoryData extracts chat messages from a get_chat_history response

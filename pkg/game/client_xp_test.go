@@ -373,6 +373,75 @@ func TestCheckXPChanges_CallbackStateUpdate(t *testing.T) {
 	}
 }
 
+// TestParseSkillsData_FiresXPCallbackForPassiveDelta verifies that parseSkillsData
+// extracts per-player xp and level from the live get_skills response and calls
+// checkXPChanges, enabling passive XP detection via the runner's periodic poll.
+func TestParseSkillsData_FiresXPCallbackForPassiveDelta(t *testing.T) {
+	c := &Client{
+		state: &State{
+			SkillXP: map[string]float64{"engineering": 300},
+			Player:  Player{Skills: map[string]Skill{"engineering": {Level: 17, XP: 300}}},
+		},
+	}
+
+	var fired struct {
+		action      string
+		skillID     string
+		beforeXP    float64
+		afterXP     float64
+		levelBefore int
+		levelAfter  int
+	}
+	c.XPCallback = func(action, target string, quantity int, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+		fired.action = action
+		// capture engineering specifically since the test only seeds engineering
+		if s, ok := after["engineering"]; ok {
+			fired.skillID = "engineering"
+			fired.levelAfter = s.Level
+		}
+		if s, ok := before["engineering"]; ok {
+			fired.levelBefore = s.Level
+		}
+		fired.beforeXP = beforeXP["engineering"]
+		fired.afterXP = afterXP["engineering"]
+	}
+
+	// Seed baselines so checkXPChanges does not treat this as the first call.
+	c.xpMu.Lock()
+	c.xpLastSkills = map[string]Skill{"engineering": {Level: 17, XP: 300}}
+	c.xpLastXP = map[string]float64{"engineering": 300}
+	c.xpLastAction = "get_skills"
+	c.xpMu.Unlock()
+
+	payload := map[string]any{
+		"skills": map[string]any{
+			"engineering": map[string]any{
+				"name":          "Engineering",
+				"category":      "ship",
+				"level":         float64(18),
+				"max_level":     float64(99),
+				"next_level_xp": float64(1000),
+				"xp":            float64(405),
+			},
+		},
+	}
+
+	c.parseSkillsData(payload)
+
+	if fired.action != "get_skills" {
+		t.Errorf("XPCallback action = %q, want %q", fired.action, "get_skills")
+	}
+	if fired.skillID != "engineering" {
+		t.Errorf("XPCallback did not fire for engineering")
+	}
+	if fired.beforeXP != 300 || fired.afterXP != 405 {
+		t.Errorf("XP delta wrong: before=%v after=%v want before=300 after=405", fired.beforeXP, fired.afterXP)
+	}
+	if fired.levelBefore != 17 || fired.levelAfter != 18 {
+		t.Errorf("level delta wrong: before=%v after=%v want 17→18", fired.levelBefore, fired.levelAfter)
+	}
+}
+
 // TestCheckXPChanges_Integration is an integration test that simulates
 // the actual flow of sending a command and receiving a response with XP changes.
 func TestCheckXPChanges_Integration(t *testing.T) {
