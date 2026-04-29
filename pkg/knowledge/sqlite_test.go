@@ -1028,7 +1028,7 @@ func TestSQLiteKB_Migration32_PassiveSkillBackfill(t *testing.T) {
 			level_after INTEGER NOT NULL,
 			game_tick INTEGER NOT NULL,
 			created_at TEXT NOT NULL DEFAULT (datetime('now')),
-			mission_id TEXT NOT NULL DEFAULT '',
+			mission_id TEXT DEFAULT NULL,
 			quantity INTEGER NOT NULL DEFAULT 1
 		);
 
