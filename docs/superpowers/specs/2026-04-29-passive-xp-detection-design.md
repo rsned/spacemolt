@@ -87,7 +87,29 @@ case "get_skills", "login":
 
 **Rationale:** a `get_skills` response carries no XP grant, so any non-zero delta observed in its callback is, by definition, passive accumulation since the last snapshot. The same applies to `login` — its delta represents passive XP earned since the last logout. Treating both as `passive_skill` cleanly unifies their semantics and supports the existing login-time entries, which the user data sample shows already exist (`4790|explorer-1|login|...|engineering|405.0|...`).
 
-This is a behavioural change for the historical `login` rows going forward: new login deltas will be recorded as `passive_skill`, while pre-existing rows in `xp_observations` keep their `action`/`login` shape. The reporting layer should treat both old `source=action,action=login` and new `source=passive_skill,action=login` as passive when summarising historical data.
+This is a behavioural change for the historical `login` rows going forward. To make historical data consistent rather than splitting reports across two source values, **a one-shot backfill migration** rewrites pre-existing engineering login rows (see §4 below).
+
+### 4. Backfill migration — `pkg/knowledge/sqlite_migrations.go`
+
+Add migration **version 32** (numbering follows the post-collapse convention used by version 31; see comment in `sqlite_migrations.go:50–53`):
+
+```go
+{
+    version: 32,
+    name:    "relabel_engineering_login_xp_as_passive_skill",
+    sql: `
+        UPDATE xp_observations
+        SET source = 'passive_skill'
+        WHERE source = 'action'
+          AND action = 'login'
+          AND skill_id = 'engineering';
+    `,
+},
+```
+
+Scope of the backfill is intentionally narrow — only `skill_id = 'engineering'` — because Engineering is the only skill we currently know to accumulate passively. Login rows for other skills could in theory also be passive, but until we observe a non-zero passive rate for them we leave them as `action` to avoid retroactively reclassifying rows whose semantics are not yet confirmed.
+
+If additional passive skills are identified in future, a follow-up migration can broaden the scope (e.g. `WHERE skill_id IN (...)`). The forward-going code change in §3 is already broad — it labels *all* future `login` and `get_skills` deltas as `passive_skill` regardless of skill — so this narrowness only applies to historical data.
 
 ## Source field semantic table (after change)
 
@@ -129,9 +151,13 @@ Runner cycle
 - **`pkg/agent/runner_test.go`** — with a mock `GameClient` and an injectable clock (or by setting `lastPassiveSkillCheck` directly to a time in the past), assert that one `executeCycle` call results in exactly one `GetSkills` invocation, and that subsequent cycles within the interval do not re-issue it.
 - Verify that the runner does not call `GetSkills` while `paused == true`.
 
+## Tests (additions for §4)
+
+- **`pkg/knowledge/sqlite_migrations_test.go`** — seed an in-memory DB with sample rows matching the pre-migration shape (`source='action'`, `action='login'`, `skill_id='engineering'`) and a control row (e.g. `skill_id='mining'`), run migrations to head, and assert engineering rows have `source='passive_skill'` while the control row is untouched.
+
 ## Out of scope
 
-- Backfilling or rewriting historical `login` rows in `xp_observations`.
 - Splitting passive XP out of action-attributed rows (e.g. attributing 1 of the +5 XP from a `mine` to passive Engineering). Reports handle this analytically.
 - Per-skill configuration of passive rate or polling interval. Single global interval for now.
 - Detection of *new* passive skills beyond Engineering — they will surface naturally in `xp_observations` once this lands and can be analysed retroactively.
+- Broadening the backfill in §4 to non-engineering skills. Deferred until a second passive skill is confirmed.
