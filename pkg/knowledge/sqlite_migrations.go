@@ -71,6 +71,25 @@ func migrations() []Migration {
 				);
 			`,
 		},
+		{
+			// Backfill historical engineering login XP rows to use
+			// source='passive_skill'. See spec
+			// docs/superpowers/specs/2026-04-29-passive-xp-detection-design.md §4.
+			// Scope is intentionally limited to skill_id='engineering' because
+			// that is the only confirmed passive skill. Forward-going code in
+			// XPTracker.onXPChange labels all future get_skills/login deltas
+			// as passive_skill regardless of skill, so this narrowness only
+			// applies to historical data.
+			version: 32,
+			name:    "relabel_engineering_login_xp_as_passive_skill",
+			sql: `
+				UPDATE xp_observations
+				SET source = 'passive_skill'
+				WHERE source = 'action'
+				  AND action = 'login'
+				  AND skill_id = 'engineering';
+			`,
+		},
 	}
 }
 
@@ -123,6 +142,23 @@ func runMigrations(db *sql.DB) error {
 			err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('systems') WHERE name='last_visited_tick'").Scan(&colCount)
 			if err == nil && colCount > 0 {
 				// Column already exists, just record the migration as applied
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 32: skip the UPDATE (just record) if the
+		// xp_observations table doesn't exist. This handles minimal fixture DBs
+		// used by other migration tests that pre-date xp_observations.
+		if m.version == 32 {
+			var tableCount int
+			err := db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='xp_observations'").Scan(&tableCount)
+			if err == nil && tableCount == 0 {
 				if _, err := db.Exec(
 					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
 					m.version,

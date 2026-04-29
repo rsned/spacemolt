@@ -934,3 +934,133 @@ func TestSQLiteKB_UpsertSystemFromMap_DoesNotTouchIncomingConnections(t *testing
 		t.Errorf("b's outgoing connection to a was deleted; b.Connections = %+v", gotB.Connections)
 	}
 }
+
+func TestSQLiteKB_Migration32_PassiveSkillBackfill(t *testing.T) {
+	// Simulate the post-migration-31 state: schema_migrations rows for
+	// versions 1, 2, and 31 are recorded, and an xp_observations table
+	// exists (matching the shape produced by initial_schema + migration 2)
+	// pre-populated with rows representing the pre-passive_skill world.
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if _, err := db.Exec(`
+		CREATE TABLE schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TEXT NOT NULL
+		);
+		INSERT INTO schema_migrations (version, applied_at) VALUES
+			(1, datetime('now')),
+			(2, datetime('now')),
+			(31, datetime('now'));
+
+		CREATE TABLE xp_observations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			agent_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			target TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL,
+			skill_id TEXT NOT NULL,
+			xp_delta REAL NOT NULL,
+			level_delta INTEGER NOT NULL,
+			level_before INTEGER NOT NULL,
+			level_after INTEGER NOT NULL,
+			game_tick INTEGER NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			mission_id TEXT NOT NULL DEFAULT '',
+			quantity INTEGER NOT NULL DEFAULT 1
+		);
+
+		-- Engineering login rows (should be relabelled to passive_skill).
+		INSERT INTO xp_observations
+			(agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick)
+		VALUES
+			('explorer-1', 'login', '', 'action', 'engineering', 405.0, 0, 18, 18, 693917),
+			('fighter-5',  'login', '', 'action', 'engineering', 738.0, 0,  6,  6, 693309);
+
+		-- Control rows (must be untouched):
+		--  - login row for a non-engineering skill
+		--  - non-login engineering row (action=mine)
+		--  - already-passive engineering login row (idempotency check)
+		INSERT INTO xp_observations
+			(agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick)
+		VALUES
+			('miner-1',    'login', '',           'action',         'mining',      50.0, 0, 12, 12, 600000),
+			('miner-1',    'mine',  'iron_ore',   'action',         'engineering',  3.0, 0, 10, 10, 600100),
+			('explorer-1', 'login', '',           'passive_skill',  'engineering', 100.0, 0, 18, 18, 693000);
+	`); err != nil {
+		t.Fatalf("build pre-migration fixture: %v", err)
+	}
+
+	// Run migrations — only migration 32 should be applied.
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("runMigrations: %v", err)
+	}
+
+	// Assert migration 32 was recorded.
+	var rows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 32`).Scan(&rows); err != nil {
+		t.Fatalf("schema_migrations count: %v", err)
+	}
+	if rows != 1 {
+		t.Errorf("schema_migrations rows for version 32 = %d, want 1", rows)
+	}
+
+	// Assert the two engineering login rows are now passive_skill.
+	var got int
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM xp_observations
+		WHERE action = 'login' AND skill_id = 'engineering' AND source = 'passive_skill'
+	`).Scan(&got); err != nil {
+		t.Fatalf("count relabelled rows: %v", err)
+	}
+	if got != 3 { // 2 newly relabelled + 1 already-passive control
+		t.Errorf("passive engineering login rows = %d, want 3", got)
+	}
+
+	// Assert no engineering login rows remain with source='action'.
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM xp_observations
+		WHERE action = 'login' AND skill_id = 'engineering' AND source = 'action'
+	`).Scan(&got); err != nil {
+		t.Fatalf("count residual action rows: %v", err)
+	}
+	if got != 0 {
+		t.Errorf("residual action-source engineering login rows = %d, want 0", got)
+	}
+
+	// Assert control rows are untouched.
+	var src string
+	if err := db.QueryRow(`
+		SELECT source FROM xp_observations
+		WHERE agent_id = 'miner-1' AND action = 'login' AND skill_id = 'mining'
+	`).Scan(&src); err != nil {
+		t.Fatalf("read mining login source: %v", err)
+	}
+	if src != "action" {
+		t.Errorf("non-engineering login row source = %q, want %q", src, "action")
+	}
+	if err := db.QueryRow(`
+		SELECT source FROM xp_observations
+		WHERE agent_id = 'miner-1' AND action = 'mine'
+	`).Scan(&src); err != nil {
+		t.Fatalf("read engineering mine source: %v", err)
+	}
+	if src != "action" {
+		t.Errorf("non-login engineering row source = %q, want %q", src, "action")
+	}
+
+	// Idempotency: re-running migrations must be a no-op for version 32.
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("second runMigrations: %v", err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 32`).Scan(&rows); err != nil {
+		t.Fatalf("schema_migrations count after re-run: %v", err)
+	}
+	if rows != 1 {
+		t.Errorf("schema_migrations rows for version 32 after re-run = %d, want 1", rows)
+	}
+}
