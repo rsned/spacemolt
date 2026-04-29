@@ -39,9 +39,13 @@ type Runner struct {
 	running        bool
 	lastActionTick int64
 	lastActionTime time.Time
-	crashCount     int
-	stopCh         chan struct{}
-	stopOnce       sync.Once
+	// lastPassiveSkillCheck is the wall-clock time of the most recent
+	// runner-injected get_skills poll. Used to throttle passive XP
+	// detection to game.PassiveSkillCheckInterval.
+	lastPassiveSkillCheck time.Time
+	crashCount            int
+	stopCh                chan struct{}
+	stopOnce              sync.Once
 
 	// System tracking for route-home auto-update
 	lastKnownSystem string
@@ -101,12 +105,13 @@ func NewRunner(agent Agent, gameClient game.GameClient, config RunnerConfig) *Ru
 	}
 
 	return &Runner{
-		agent:      agent,
-		gameClient: gameClient,
-		config:     config,
-		stopCh:     make(chan struct{}),
-		logger:     config.Logger,
-		history:    NewHistory(1000), // Track last 1000 actions
+		agent:                 agent,
+		gameClient:            gameClient,
+		config:                config,
+		stopCh:                make(chan struct{}),
+		logger:                config.Logger,
+		history:               NewHistory(1000), // Track last 1000 actions
+		lastPassiveSkillCheck: time.Now(),
 	}
 }
 
@@ -224,6 +229,23 @@ func (r *Runner) executeCycle(ctx context.Context) error {
 	r.mu.RUnlock()
 	if paused {
 		return nil
+	}
+
+	// Periodic passive-skill check. get_skills has no tick cost, so this
+	// can run independent of tick advancement. The XPCallback wired into
+	// the game client will record any non-zero deltas with
+	// source="passive_skill" via XPTracker.
+	r.mu.RLock()
+	lastPassiveCheck := r.lastPassiveSkillCheck
+	r.mu.RUnlock()
+	if time.Since(lastPassiveCheck) >= game.PassiveSkillCheckInterval {
+		r.logger.Printf("[%s] -> GetSkills() (passive XP check)", r.agent.ID())
+		if err := r.gameClient.GetSkills(ctx); err != nil {
+			r.logger.Printf("[%s] passive get_skills failed: %v", r.agent.ID(), err)
+		}
+		r.mu.Lock()
+		r.lastPassiveSkillCheck = time.Now()
+		r.mu.Unlock()
 	}
 
 	// Get current game state

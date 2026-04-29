@@ -1009,3 +1009,92 @@ func TestRunner_GettersSetters(t *testing.T) {
 		t.Errorf("Expected crashCount=5, got %d", runner.GetCrashCount())
 	}
 }
+
+func TestRunner_PassiveSkillCheck_FiresOncePerInterval(t *testing.T) {
+	agent := &mockAgent{
+		id: "test-agent",
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
+			return Decision{
+				Action:     "wait",
+				Reasoning:  "idle",
+				Confidence: 1.0,
+			}, nil
+		},
+	}
+
+	client := newMockGameClient()
+	client.state.CurrentTick = 100
+
+	config := DefaultRunnerConfig()
+	runner := NewRunner(agent, client, config)
+	ctx := context.Background()
+
+	// First cycle: not yet due — runner was just created, lastPassiveSkillCheck
+	// is "now", so no get_skills should fire.
+	if err := runner.executeCycle(ctx); err != nil {
+		t.Fatalf("first executeCycle: %v", err)
+	}
+	for _, a := range client.actionsRecorded {
+		if a == "get_skills" {
+			t.Fatalf("get_skills fired prematurely on first cycle: %v", client.actionsRecorded)
+		}
+	}
+
+	// Force the timer into the past so the next cycle is "due".
+	runner.mu.Lock()
+	runner.lastPassiveSkillCheck = time.Now().Add(-2 * game.PassiveSkillCheckInterval)
+	runner.mu.Unlock()
+
+	// Advance the game tick so the runner is allowed to act this cycle.
+	client.state.CurrentTick = 200
+
+	if err := runner.executeCycle(ctx); err != nil {
+		t.Fatalf("second executeCycle: %v", err)
+	}
+
+	skillCalls := 0
+	for _, a := range client.actionsRecorded {
+		if a == "get_skills" {
+			skillCalls++
+		}
+	}
+	if skillCalls != 1 {
+		t.Errorf("expected 1 get_skills call after interval elapsed, got %d (recorded: %v)",
+			skillCalls, client.actionsRecorded)
+	}
+
+	// Third cycle: not due again because the previous cycle reset the timer.
+	client.state.CurrentTick = 300
+	before := len(client.actionsRecorded)
+	if err := runner.executeCycle(ctx); err != nil {
+		t.Fatalf("third executeCycle: %v", err)
+	}
+	for _, a := range client.actionsRecorded[before:] {
+		if a == "get_skills" {
+			t.Fatalf("get_skills fired again before next interval (recorded since prev: %v)",
+				client.actionsRecorded[before:])
+		}
+	}
+}
+
+func TestRunner_PassiveSkillCheck_SkippedWhilePaused(t *testing.T) {
+	agent := &mockAgent{id: "test-agent"}
+	client := newMockGameClient()
+	config := DefaultRunnerConfig()
+	runner := NewRunner(agent, client, config)
+
+	// Force the timer into the past, then pause.
+	runner.mu.Lock()
+	runner.lastPassiveSkillCheck = time.Now().Add(-2 * game.PassiveSkillCheckInterval)
+	runner.paused = true
+	runner.mu.Unlock()
+
+	if err := runner.executeCycle(context.Background()); err != nil {
+		t.Fatalf("executeCycle: %v", err)
+	}
+	for _, a := range client.actionsRecorded {
+		if a == "get_skills" {
+			t.Fatalf("get_skills fired while paused: %v", client.actionsRecorded)
+		}
+	}
+}
