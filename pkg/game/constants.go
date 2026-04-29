@@ -99,6 +99,13 @@ const (
 	MiningCycleTime    = 11 * time.Second // Time between mining operations
 	GameTickRate       = 1 * time.Second  // Basic game tick rate
 	ModuleInstallDelay = 10 * time.Second // Delay between module installations
+
+	// PassiveSkillCheckInterval is how often the agent runner injects a
+	// get_skills query to capture passive XP gains (e.g. Engineering when
+	// the ship is fully power-loaded). Wall-clock based, not tick-based,
+	// so reports can normalise to per-real-second or per-tick rates
+	// regardless of server tick-rate variance.
+	PassiveSkillCheckInterval = 20 * time.Minute
 )
 
 // Client identity
