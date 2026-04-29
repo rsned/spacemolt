@@ -364,7 +364,7 @@ type XPObservation struct {
 	AgentID     string
 	Action      string
 	Target      string
-	Source      string // "action", "mission_reward"
+	Source      string // "action", "mission_reward", "passive_skill"
 	SkillID     string
 	XPDelta     float64
 	LevelDelta  int

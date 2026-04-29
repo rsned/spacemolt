@@ -42,9 +42,14 @@ func NewXPTracker(client game.XPCallbackSetter, kb Base, agentID string, logger 
 func (t *XPTracker) onXPChange(action, target string, quantity int, beforeSkills, afterSkills map[string]game.Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
 	source := "action"
 	var missionID string
-	if action == "complete_mission" {
+	switch action {
+	case "complete_mission":
 		source = "mission_reward"
 		missionID = target
+	case "get_skills", "login":
+		// get_skills carries no XP grant of its own, and login XP is
+		// accumulated since last logout — both are passive deltas.
+		source = "passive_skill"
 	}
 
 	ctx := context.Background()
