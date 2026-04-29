@@ -506,6 +506,26 @@ func TestSQLiteKB_Migration3_LastVisitedTickBackfill(t *testing.T) {
 			(1, datetime('now')),
 			(2, datetime('now'));
 
+		-- Minimal xp_observations table so migration 32's UPDATE doesn't fail.
+		-- This test is exercising migration 31 (last_visited_tick backfill), not
+		-- migration 32, so the table is intentionally empty.
+		CREATE TABLE xp_observations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			agent_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			target TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'action',
+			skill_id TEXT NOT NULL,
+			xp_delta REAL NOT NULL,
+			level_delta INTEGER NOT NULL DEFAULT 0,
+			level_before INTEGER NOT NULL,
+			level_after INTEGER NOT NULL,
+			game_tick INTEGER NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			mission_id TEXT DEFAULT NULL,
+			quantity INTEGER NOT NULL DEFAULT 1
+		);
+
 		-- Pre-migration-3 systems table: no last_visited_tick column.
 		CREATE TABLE systems (
 			id TEXT PRIMARY KEY,
@@ -659,6 +679,25 @@ func TestSQLiteKB_Migration31_SelfHealsPreCollapseDBs(t *testing.T) {
 			last_updated_tick INTEGER DEFAULT 0,
 			PRIMARY KEY (poi_id, resource_id)
 		);
+		-- Real pre-collapse DBs include xp_observations (it was created by
+		-- one of the old migrations 1–30). Add an empty table so migration
+		-- 32's UPDATE doesn't fail on this minimal fixture.
+		CREATE TABLE xp_observations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			agent_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			target TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'action',
+			skill_id TEXT NOT NULL,
+			xp_delta REAL NOT NULL,
+			level_delta INTEGER NOT NULL DEFAULT 0,
+			level_before INTEGER NOT NULL,
+			level_after INTEGER NOT NULL,
+			game_tick INTEGER NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			mission_id TEXT DEFAULT NULL,
+			quantity INTEGER NOT NULL DEFAULT 1
+		);
 
 		INSERT INTO systems (id, name) VALUES ('sys-a', 'Alpha');
 		INSERT INTO pois (id, system_id, name, type, last_updated_tick) VALUES ('poi-a', 'sys-a', 'AsteroidA', 'asteroid', 100);
@@ -722,6 +761,25 @@ func TestEnsureCollapseMissingTables_CreatesOnPreCollapseDB(t *testing.T) {
 		CREATE TABLE poi_resources (poi_id TEXT NOT NULL, resource_id TEXT NOT NULL, richness REAL, remaining REAL, last_updated_tick INTEGER DEFAULT 0, PRIMARY KEY (poi_id, resource_id));
 		CREATE TABLE bases (id TEXT PRIMARY KEY, name TEXT);
 		CREATE TABLE players (id TEXT PRIMARY KEY, username TEXT);
+		-- Real pre-collapse DBs include xp_observations (it was created by
+		-- one of the old migrations 1–30). Add an empty table so migration
+		-- 32's UPDATE doesn't fail on this minimal fixture.
+		CREATE TABLE xp_observations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			agent_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			target TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL DEFAULT 'action',
+			skill_id TEXT NOT NULL,
+			xp_delta REAL NOT NULL,
+			level_delta INTEGER NOT NULL DEFAULT 0,
+			level_before INTEGER NOT NULL,
+			level_after INTEGER NOT NULL,
+			game_tick INTEGER NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			mission_id TEXT DEFAULT NULL,
+			quantity INTEGER NOT NULL DEFAULT 1
+		);
 	`); err != nil {
 		t.Fatalf("seed pre-collapse fixture: %v", err)
 	}

@@ -152,23 +152,6 @@ func runMigrations(db *sql.DB) error {
 			}
 		}
 
-		// Special case for migration 32: skip the UPDATE (just record) if the
-		// xp_observations table doesn't exist. This handles minimal fixture DBs
-		// used by other migration tests that pre-date xp_observations.
-		if m.version == 32 {
-			var tableCount int
-			err := db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='xp_observations'").Scan(&tableCount)
-			if err == nil && tableCount == 0 {
-				if _, err := db.Exec(
-					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
-					m.version,
-				); err != nil {
-					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
-				}
-				continue
-			}
-		}
-
 		// Run migration in a transaction
 		tx, err := db.Begin()
 		if err != nil {
