@@ -79,6 +79,7 @@ func (m *mockAgent) GetRouteHome() ([]game.RouteStep, string)             { retu
 type mockGameClient struct {
 	state           *game.State
 	actionsRecorded []string
+	getSkillsErr    error
 }
 
 func newMockGameClient() *mockGameClient {
@@ -286,7 +287,7 @@ func (m *mockGameClient) GetCargo(ctx context.Context) error {
 }
 func (m *mockGameClient) GetSkills(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_skills")
-	return nil
+	return m.getSkillsErr
 }
 func (m *mockGameClient) GetPOI(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_poi")
@@ -1095,6 +1096,56 @@ func TestRunner_PassiveSkillCheck_SkippedWhilePaused(t *testing.T) {
 	for _, a := range client.actionsRecorded {
 		if a == "get_skills" {
 			t.Fatalf("get_skills fired while paused: %v", client.actionsRecorded)
+		}
+	}
+}
+
+func TestRunner_PassiveSkillCheck_TimestampUpdatedOnError(t *testing.T) {
+	agent := &mockAgent{
+		id: "test-agent",
+		decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
+			return Decision{Action: "wait", Reasoning: "idle", Confidence: 1.0}, nil
+		},
+	}
+
+	client := newMockGameClient()
+	client.state.CurrentTick = 100
+	client.getSkillsErr = errors.New("simulated transient server error")
+
+	runner := NewRunner(agent, client, DefaultRunnerConfig())
+
+	// Force the timer into the past so the first cycle is "due".
+	runner.mu.Lock()
+	runner.lastPassiveSkillCheck = time.Now().Add(-2 * game.PassiveSkillCheckInterval)
+	runner.mu.Unlock()
+
+	if err := runner.executeCycle(context.Background()); err != nil {
+		t.Fatalf("first executeCycle: %v", err)
+	}
+
+	// GetSkills should have been called exactly once despite returning an error.
+	skillCalls := 0
+	for _, a := range client.actionsRecorded {
+		if a == "get_skills" {
+			skillCalls++
+		}
+	}
+	if skillCalls != 1 {
+		t.Fatalf("expected 1 get_skills call on first cycle, got %d (recorded: %v)",
+			skillCalls, client.actionsRecorded)
+	}
+
+	// The timestamp must have been updated even though GetSkills errored, so
+	// the immediate next cycle must NOT re-issue the call (no retry storm).
+	client.state.CurrentTick = 200
+	before := len(client.actionsRecorded)
+	if err := runner.executeCycle(context.Background()); err != nil {
+		t.Fatalf("second executeCycle: %v", err)
+	}
+	for _, a := range client.actionsRecorded[before:] {
+		if a == "get_skills" {
+			t.Fatalf("get_skills re-issued immediately after errored call (recorded since prev: %v)",
+				client.actionsRecorded[before:])
 		}
 	}
 }
