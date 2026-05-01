@@ -1122,3 +1122,125 @@ func TestSQLiteKB_Migration32_PassiveSkillBackfill(t *testing.T) {
 		t.Errorf("schema_migrations rows for version 32 after re-run = %d, want 1", rows)
 	}
 }
+
+func TestSQLiteKB_Migration33_PurgeBuggyGetSkillsObservations(t *testing.T) {
+	// Simulate the post-migration-32 state: schema_migrations rows for 1, 2,
+	// 31, 32 already applied, and an xp_observations table populated with a
+	// mix of buggy get_skills rows (which migration 33 must delete) and
+	// legitimate rows of other action types (which must remain untouched).
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if _, err := db.Exec(`
+		CREATE TABLE schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at TEXT NOT NULL
+		);
+		INSERT INTO schema_migrations (version, applied_at) VALUES
+			(1, datetime('now')),
+			(2, datetime('now')),
+			(31, datetime('now')),
+			(32, datetime('now'));
+
+		CREATE TABLE xp_observations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			agent_id TEXT NOT NULL,
+			action TEXT NOT NULL,
+			target TEXT NOT NULL DEFAULT '',
+			source TEXT NOT NULL,
+			skill_id TEXT NOT NULL,
+			xp_delta REAL NOT NULL,
+			level_delta INTEGER NOT NULL,
+			level_before INTEGER NOT NULL,
+			level_after INTEGER NOT NULL,
+			game_tick INTEGER NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			mission_id TEXT DEFAULT NULL,
+			quantity INTEGER NOT NULL DEFAULT 1
+		);
+
+		-- Buggy get_skills rows (action='get_skills', source='passive_skill').
+		-- All such rows in production were produced by the bug; migration 33
+		-- must delete every one regardless of skill_id or magnitude.
+		INSERT INTO xp_observations
+			(agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick)
+		VALUES
+			('fighter-5', 'get_skills', '', 'passive_skill', 'piloting',     19105.0, 0, 27, 27, 700000),
+			('fighter-5', 'get_skills', '', 'passive_skill', 'engineering',   1045.0, 1,  9, 10, 700000),
+			('fighter-5', 'get_skills', '', 'passive_skill', 'scanning',         1.0, 0,  0,  0, 700000),
+			('explorer-1','get_skills', '', 'passive_skill', 'navigation',     838.0, 0, 12, 12, 700100);
+
+		-- Legitimate rows that must remain untouched (different action, or
+		-- different source on a get_skills row that hypothetically isn't the
+		-- bug pattern).
+		INSERT INTO xp_observations
+			(agent_id, action, target, source, skill_id, xp_delta, level_delta, level_before, level_after, game_tick)
+		VALUES
+			('miner-1',   'mine',  'iron_ore', 'action',        'mining',      3.0, 0, 12, 12, 600100),
+			('explorer-1','login', '',         'passive_skill', 'engineering', 405.0, 0, 18, 18, 693917),
+			('miner-1',   'login', '',         'passive_skill', 'mining',       50.0, 0, 12, 12, 600000);
+	`); err != nil {
+		t.Fatalf("build pre-migration fixture: %v", err)
+	}
+
+	// Run migrations — only migration 33 should be applied.
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("runMigrations: %v", err)
+	}
+
+	// Migration 33 was recorded.
+	var rows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 33`).Scan(&rows); err != nil {
+		t.Fatalf("schema_migrations count: %v", err)
+	}
+	if rows != 1 {
+		t.Errorf("schema_migrations rows for version 33 = %d, want 1", rows)
+	}
+
+	// All four buggy get_skills rows are gone.
+	var got int
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM xp_observations
+		WHERE action = 'get_skills' AND source = 'passive_skill'
+	`).Scan(&got); err != nil {
+		t.Fatalf("count remaining get_skills rows: %v", err)
+	}
+	if got != 0 {
+		t.Errorf("residual get_skills passive_skill rows = %d, want 0", got)
+	}
+
+	// The three legitimate rows remain.
+	if err := db.QueryRow(`SELECT COUNT(*) FROM xp_observations`).Scan(&got); err != nil {
+		t.Fatalf("count total rows: %v", err)
+	}
+	if got != 3 {
+		t.Errorf("total rows after purge = %d, want 3 (mine + 2 logins)", got)
+	}
+
+	// Spot-check: the engineering login passive_skill row (action='login')
+	// is still there — migration 33's predicate requires action='get_skills'.
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM xp_observations
+		WHERE agent_id = 'explorer-1' AND action = 'login' AND skill_id = 'engineering'
+	`).Scan(&got); err != nil {
+		t.Fatalf("count explorer-1 engineering login: %v", err)
+	}
+	if got != 1 {
+		t.Errorf("explorer-1 engineering login row count = %d, want 1", got)
+	}
+
+	// Idempotency: re-running migrations must be a no-op for version 33.
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("second runMigrations: %v", err)
+	}
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 33`).Scan(&rows); err != nil {
+		t.Fatalf("schema_migrations count after re-run: %v", err)
+	}
+	if rows != 1 {
+		t.Errorf("schema_migrations rows for version 33 after re-run = %d, want 1", rows)
+	}
+}

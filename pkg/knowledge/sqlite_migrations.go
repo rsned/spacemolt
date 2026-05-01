@@ -90,6 +90,28 @@ func migrations() []Migration {
 				  AND skill_id = 'engineering';
 			`,
 		},
+		{
+			// Purge xp_observations rows produced by the buggy first
+			// implementation of the parseSkillsData get_skills callback path
+			// (commit 4c4cd20, merged 2026-04-29). That path did not seed
+			// xpLastXP for skills missing from the post-reconnect baseline,
+			// so the first comprehensive get_skills snapshot reported each
+			// untracked skill's cumulative XP as a spurious delta. Before
+			// 4c4cd20 no observations with action='get_skills' existed, so
+			// every such row in the DB was produced by the bug.
+			//
+			// The fix in this branch (parseSkillsData baseline pre-seeding)
+			// prevents the bug going forward. Real passive XP will be
+			// re-captured on the next 20-min poll interval after baseline
+			// is established.
+			version: 33,
+			name:    "purge_buggy_get_skills_observations",
+			sql: `
+				DELETE FROM xp_observations
+				WHERE action = 'get_skills'
+				  AND source = 'passive_skill';
+			`,
+		},
 	}
 }
 
