@@ -442,6 +442,94 @@ func TestParseSkillsData_FiresXPCallbackForPassiveDelta(t *testing.T) {
 	}
 }
 
+// TestParseSkillsData_BaselinesNewSkillsSilently verifies that parseSkillsData
+// treats skills not yet in the XP baseline as a baseline-establishment event
+// (no callback delta) rather than reporting their full cumulative XP as a
+// spurious delta. Skills already in the baseline still produce real deltas.
+//
+// This is the post-reconnect scenario: login may carry partial skill data
+// (or none), leaving xpLastXP non-nil but missing many keys. The first
+// comprehensive get_skills snapshot would otherwise report each missing
+// skill's cumulative XP as a delta of (cumulative - 0).
+func TestParseSkillsData_BaselinesNewSkillsSilently(t *testing.T) {
+	c := &Client{
+		state: &State{
+			SkillXP: map[string]float64{"engineering": 300},
+			Player:  Player{Skills: map[string]Skill{"engineering": {Level: 17, XP: 300}}},
+		},
+	}
+
+	var captured struct {
+		fired       bool
+		beforeXP    map[string]float64
+		afterXP     map[string]float64
+		beforeSkill map[string]Skill
+		afterSkill  map[string]Skill
+	}
+	c.XPCallback = func(action, target string, quantity int, before, after map[string]Skill, beforeXP, afterXP map[string]float64, gameTick int64) {
+		captured.fired = true
+		captured.beforeXP = beforeXP
+		captured.afterXP = afterXP
+		captured.beforeSkill = before
+		captured.afterSkill = after
+	}
+
+	// Partial baseline: engineering only. Mimics post-reconnect state where
+	// login provided only one skill's data.
+	c.xpMu.Lock()
+	c.xpLastSkills = map[string]Skill{"engineering": {Level: 17, XP: 300}}
+	c.xpLastXP = map[string]float64{"engineering": 300}
+	c.xpLastAction = "get_skills"
+	c.xpMu.Unlock()
+
+	// Server returns full skill set: engineering changed (300→405, 17→18) and
+	// piloting is brand-new to our tracking (cumulative 19105 at level 27).
+	payload := map[string]any{
+		"skills": map[string]any{
+			"engineering": map[string]any{
+				"level": float64(18),
+				"xp":    float64(405),
+			},
+			"piloting": map[string]any{
+				"level": float64(27),
+				"xp":    float64(19105),
+			},
+		},
+	}
+
+	c.parseSkillsData(payload)
+
+	if !captured.fired {
+		t.Fatalf("XPCallback did not fire")
+	}
+
+	// Engineering: real delta 300→405, level 17→18 — must be visible.
+	if captured.beforeXP["engineering"] != 300 || captured.afterXP["engineering"] != 405 {
+		t.Errorf("engineering XP: before=%v after=%v, want 300/405",
+			captured.beforeXP["engineering"], captured.afterXP["engineering"])
+	}
+	if captured.beforeSkill["engineering"].Level != 17 || captured.afterSkill["engineering"].Level != 18 {
+		t.Errorf("engineering level: before=%d after=%d, want 17/18",
+			captured.beforeSkill["engineering"].Level, captured.afterSkill["engineering"].Level)
+	}
+
+	// Piloting: NOT in prior baseline. After the fix, the baseline must be
+	// silently seeded so before == after, producing a zero delta the tracker
+	// will skip. Without the fix, before=0, after=19105 (the bug).
+	if captured.beforeXP["piloting"] != 19105 {
+		t.Errorf("piloting before XP = %v, want %v (silently baselined)",
+			captured.beforeXP["piloting"], 19105.0)
+	}
+	if captured.afterXP["piloting"] != 19105 {
+		t.Errorf("piloting after XP = %v, want %v",
+			captured.afterXP["piloting"], 19105.0)
+	}
+	if captured.beforeSkill["piloting"].Level != 27 {
+		t.Errorf("piloting before level = %d, want 27 (silently baselined)",
+			captured.beforeSkill["piloting"].Level)
+	}
+}
+
 // TestCheckXPChanges_Integration is an integration test that simulates
 // the actual flow of sending a command and receiving a response with XP changes.
 func TestCheckXPChanges_Integration(t *testing.T) {

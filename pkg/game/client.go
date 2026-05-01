@@ -2224,6 +2224,28 @@ func (c *Client) parseSkillsData(payload map[string]any) {
 			}
 			c.state.Player.Skills[skillID] = sk
 		}
+
+		// Seed the XP baseline for any skill not already tracked so the first
+		// comprehensive get_skills snapshot after reconnect establishes baseline
+		// rather than reporting cumulative XP as spurious deltas. Skills already
+		// in the baseline still produce real deltas for genuine passive gains.
+		c.xpMu.Lock()
+		if c.xpLastXP != nil {
+			for skillID, xp := range c.state.SkillXP {
+				if _, exists := c.xpLastXP[skillID]; !exists {
+					c.xpLastXP[skillID] = xp
+				}
+			}
+		}
+		if c.xpLastSkills != nil {
+			for skillID, sk := range c.state.Player.Skills {
+				if _, exists := c.xpLastSkills[skillID]; !exists {
+					c.xpLastSkills[skillID] = sk
+				}
+			}
+		}
+		c.xpMu.Unlock()
+
 		c.checkXPChanges()
 	}
 }
