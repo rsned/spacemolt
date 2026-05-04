@@ -151,3 +151,113 @@ func abs(x float64) float64 {
 	}
 	return x
 }
+
+func TestBuildSellablePlan(t *testing.T) {
+	mkOrder := func(price, qty float64) serverapi.MarketOrder {
+		return serverapi.MarketOrder{PriceEach: price, Quantity: qty}
+	}
+
+	t.Run("inventory union: cargo only, storage only, both", func(t *testing.T) {
+		market := []serverapi.ViewMarketItem{
+			{ItemID: "iron_ore", ItemName: "Iron Ore",
+				BuyOrders: []serverapi.MarketOrder{mkOrder(10, 1000)}},
+		}
+		cargo := []storageItem{{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 50}}
+		storage := []storageItem{
+			{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 200},
+			{ItemID: "carbon_ore", Name: "Carbon Ore", Quantity: 75},
+		}
+		plan := buildSellablePlan("nova_terra_central", market, cargo, storage)
+
+		if plan.StationID != "nova_terra_central" {
+			t.Errorf("station_id = %q, want nova_terra_central", plan.StationID)
+		}
+		if got, want := len(plan.Items), 2; got != want {
+			t.Fatalf("len(plan.Items) = %d, want %d", got, want)
+		}
+		if plan.Items[0].ItemID != "carbon_ore" {
+			t.Errorf("Items[0].ItemID = %q, want carbon_ore", plan.Items[0].ItemID)
+		}
+		iron := plan.Items[1]
+		if iron.Cargo != 50 || iron.Storage != 200 {
+			t.Errorf("iron cargo/storage = %v/%v, want 50/200", iron.Cargo, iron.Storage)
+		}
+		if iron.SellableQty != 50 || iron.TotalProceeds != 500 {
+			t.Errorf("iron sellable/proceeds = %v/%v, want 50/500", iron.SellableQty, iron.TotalProceeds)
+		}
+		carbon := plan.Items[0]
+		if carbon.SellableQty != 0 {
+			t.Errorf("carbon sellable = %v, want 0", carbon.SellableQty)
+		}
+	})
+
+	t.Run("name fallback: cargo > storage > market.item_name > item_id", func(t *testing.T) {
+		market := []serverapi.ViewMarketItem{
+			{ItemID: "x_a", ItemName: "X-A from market"},
+			{ItemID: "x_b", ItemName: "X-B from market"},
+			{ItemID: "x_c"},
+		}
+		cargo := []storageItem{
+			{ItemID: "x_a", Name: "Cargo Name", Quantity: 1},
+			{ItemID: "x_b", Name: "", Quantity: 1},
+			{ItemID: "x_c", Name: "", Quantity: 1},
+		}
+		storage := []storageItem{
+			{ItemID: "x_b", Name: "Storage Name", Quantity: 1},
+		}
+		plan := buildSellablePlan("s", market, cargo, storage)
+		want := map[string]string{"x_a": "Cargo Name", "x_b": "Storage Name", "x_c": "x_c"}
+		for _, row := range plan.Items {
+			if got := row.Name; got != want[row.ItemID] {
+				t.Errorf("name for %s = %q, want %q", row.ItemID, got, want[row.ItemID])
+			}
+		}
+	})
+
+	t.Run("duplicate cargo / storage entries are summed", func(t *testing.T) {
+		cargo := []storageItem{
+			{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 30},
+			{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 20},
+		}
+		storage := []storageItem{
+			{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 5},
+			{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 7},
+		}
+		plan := buildSellablePlan("s", nil, cargo, storage)
+		if got, want := len(plan.Items), 1; got != want {
+			t.Fatalf("len = %d, want %d", got, want)
+		}
+		row := plan.Items[0]
+		if row.Cargo != 50 || row.Storage != 12 {
+			t.Errorf("cargo/storage = %v/%v, want 50/12", row.Cargo, row.Storage)
+		}
+	})
+
+	t.Run("plan totals roll up", func(t *testing.T) {
+		market := []serverapi.ViewMarketItem{
+			{ItemID: "a", BuyOrders: []serverapi.MarketOrder{mkOrder(10, 100)}},
+			{ItemID: "b", BuyOrders: []serverapi.MarketOrder{mkOrder(5, 50)}},
+		}
+		cargo := []storageItem{
+			{ItemID: "a", Quantity: 10},
+			{ItemID: "b", Quantity: 50},
+		}
+		plan := buildSellablePlan("s", market, cargo, nil)
+		if plan.TotalProceeds != 350 {
+			t.Errorf("plan.TotalProceeds = %v, want 350", plan.TotalProceeds)
+		}
+		if plan.ItemCount != 2 {
+			t.Errorf("plan.ItemCount = %v, want 2", plan.ItemCount)
+		}
+	})
+
+	t.Run("no inventory yields empty items slice", func(t *testing.T) {
+		plan := buildSellablePlan("s", nil, nil, nil)
+		if len(plan.Items) != 0 {
+			t.Errorf("Items len = %d, want 0", len(plan.Items))
+		}
+		if plan.TotalProceeds != 0 || plan.ItemCount != 0 {
+			t.Errorf("totals = %v/%v, want 0/0", plan.TotalProceeds, plan.ItemCount)
+		}
+	})
+}

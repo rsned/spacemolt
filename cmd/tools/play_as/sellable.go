@@ -37,6 +37,111 @@ type sellableFill struct {
 	Proceeds float64 `json:"proceeds"`
 }
 
+// sellableRow is one item's full sellability picture: what's on hand, what
+// can be moved at the current station's market, and the per-buyer fills.
+type sellableRow struct {
+	ItemID        string         `json:"item_id"`
+	Name          string         `json:"name"`
+	Cargo         float64        `json:"cargo"`
+	Storage       float64        `json:"storage"`
+	SellableQty   float64        `json:"sellable_qty"`
+	TotalProceeds float64        `json:"total_proceeds"`
+	AvgPrice      float64        `json:"avg_price"`
+	Fills         []sellableFill `json:"fills,omitempty"`
+}
+
+// sellablePlan is the rendered/serialized result of `sellable`. Sort order
+// of Items: ItemID ascending. Totals roll up across all rows.
+type sellablePlan struct {
+	StationID     string        `json:"station_id"`
+	ItemCount     int           `json:"item_count"`
+	TotalProceeds float64       `json:"total_proceeds"`
+	Items         []sellableRow `json:"items"`
+}
+
+// buildSellablePlan unions cargo+storage by item_id, looks up each item's
+// market order book, runs fillItem against cargo only (sell pulls from
+// cargo, not storage), and emits a per-row plan plus rolled-up totals.
+//
+// Pure function: every input is plain data; no game.Client / context /
+// network involvement. The orchestrator is responsible for fetching the
+// inputs.
+func buildSellablePlan(stationID string, market []serverapi.ViewMarketItem, cargo, storage []storageItem) sellablePlan {
+	byID := make(map[string]serverapi.ViewMarketItem, len(market))
+	for _, m := range market {
+		byID[m.ItemID] = m
+	}
+
+	type acc struct {
+		cargo   float64
+		storage float64
+		name    string
+	}
+	inv := make(map[string]*acc)
+	get := func(id string) *acc {
+		a, ok := inv[id]
+		if !ok {
+			a = &acc{}
+			inv[id] = a
+		}
+		return a
+	}
+	for _, c := range cargo {
+		a := get(c.ItemID)
+		a.cargo += c.Quantity
+		if a.name == "" {
+			a.name = c.Name
+		}
+	}
+	for _, s := range storage {
+		a := get(s.ItemID)
+		a.storage += s.Quantity
+		if a.name == "" {
+			a.name = s.Name
+		}
+	}
+
+	plan := sellablePlan{StationID: stationID}
+	for id, a := range inv {
+		row := sellableRow{
+			ItemID:  id,
+			Cargo:   a.cargo,
+			Storage: a.storage,
+		}
+		switch {
+		case a.name != "":
+			row.Name = a.name
+		case byID[id].ItemName != "":
+			row.Name = byID[id].ItemName
+		default:
+			row.Name = id
+		}
+		if mkt, ok := byID[id]; ok {
+			qty, proceeds, avg, fills := fillItem(a.cargo, mkt.BuyOrders)
+			row.SellableQty = qty
+			row.TotalProceeds = proceeds
+			row.AvgPrice = avg
+			row.Fills = fills
+		}
+		plan.Items = append(plan.Items, row)
+	}
+	slices.SortFunc(plan.Items, func(x, y sellableRow) int {
+		switch {
+		case x.ItemID < y.ItemID:
+			return -1
+		case x.ItemID > y.ItemID:
+			return 1
+		default:
+			return 0
+		}
+	})
+	plan.ItemCount = len(plan.Items)
+	for _, r := range plan.Items {
+		plan.TotalProceeds += r.TotalProceeds
+	}
+	return plan
+}
+
 // fillItem walks a sorted-by-price-desc copy of orders, taking
 // min(remaining_cargo, order.quantity) from each, until cargo is exhausted
 // or orders run out. Pure: no I/O, no globals. Tests live in
