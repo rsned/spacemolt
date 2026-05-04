@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -140,6 +141,83 @@ func buildSellablePlan(stationID string, market []serverapi.ViewMarketItem, carg
 		plan.TotalProceeds += r.TotalProceeds
 	}
 	return plan
+}
+
+// renderSellableStyled formats a sellablePlan as a human-readable table.
+// detail=true adds an expanded per-buyer fill block under each multi-buyer
+// item; single-buyer items stay inline regardless. The empty-inventory
+// branch returns the documented "(no cargo or storage at this station)"
+// line so callers don't need to special-case it before printing.
+func renderSellableStyled(plan sellablePlan, detail bool) string {
+	if len(plan.Items) == 0 {
+		return "(no cargo or storage at this station)\n"
+	}
+
+	idW, nameW := len("ID"), len("Name")
+	cargoW, storageW := len("Cargo"), len("Storage")
+	sellW, avgW, proceedsW := len("Sellable"), len("Avg Price"), len("Proceeds")
+	for _, r := range plan.Items {
+		idW = max(idW, len(r.ItemID))
+		nameW = max(nameW, len(r.Name))
+		cargoW = max(cargoW, len(formatFloat(r.Cargo)))
+		storageW = max(storageW, len(formatFloat(r.Storage)))
+		sellW = max(sellW, len(formatFloat(r.SellableQty)))
+		if r.SellableQty > 0 {
+			avgW = max(avgW, len(formatPrice(r.AvgPrice)))
+		}
+		proceedsW = max(proceedsW, len(formatCredits(r.TotalProceeds)))
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Sellable @ %s — %d items, est. proceeds %s cr\n\n",
+		plan.StationID, plan.ItemCount, formatCredits(plan.TotalProceeds))
+	fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s\n",
+		idW, "ID", nameW, "Name",
+		cargoW, "Cargo", storageW, "Storage",
+		sellW, "Sellable", avgW, "Avg Price", proceedsW, "Proceeds")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", idW), strings.Repeat("-", nameW),
+		strings.Repeat("-", cargoW), strings.Repeat("-", storageW),
+		strings.Repeat("-", sellW), strings.Repeat("-", avgW), strings.Repeat("-", proceedsW))
+
+	for _, r := range plan.Items {
+		avg := "—"
+		if r.SellableQty > 0 {
+			avg = formatPrice(r.AvgPrice)
+		}
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s\n",
+			idW, r.ItemID, nameW, r.Name,
+			cargoW, formatFloat(r.Cargo), storageW, formatFloat(r.Storage),
+			sellW, formatFloat(r.SellableQty),
+			avgW, avg,
+			proceedsW, formatCredits(r.TotalProceeds))
+	}
+	fmt.Fprintf(&b, "  %s   Total: %s cr\n",
+		strings.Repeat(" ", idW+nameW+cargoW+storageW+sellW+avgW+18),
+		formatCredits(plan.TotalProceeds))
+
+	if detail {
+		for _, r := range plan.Items {
+			if len(r.Fills) <= 1 {
+				continue
+			}
+			fmt.Fprintf(&b, "\n%s — %s / %s sellable, %s cr\n",
+				r.ItemID, formatFloat(r.SellableQty), formatFloat(r.Cargo),
+				formatCredits(r.TotalProceeds))
+			for _, f := range r.Fills {
+				fmt.Fprintf(&b, "  %s @ %s = %s cr\n",
+					formatFloat(f.Qty), formatPrice(f.Price), formatCredits(f.Proceeds))
+			}
+		}
+	}
+	return b.String()
+}
+
+// formatPrice renders a price-each value with two decimals (matching the
+// existing market-row style). formatFloat / formatCredits already exist
+// in main.go / statusline.go and are reused here.
+func formatPrice(p float64) string {
+	return fmt.Sprintf("%.2f", p)
 }
 
 // fillItem walks a sorted-by-price-desc copy of orders, taking

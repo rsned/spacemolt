@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -150,6 +151,100 @@ func abs(x float64) float64 {
 		return -x
 	}
 	return x
+}
+
+func TestRenderSellableStyledEmpty(t *testing.T) {
+	plan := sellablePlan{StationID: "nova_terra_central"}
+	got := renderSellableStyled(plan, false)
+	want := "(no cargo or storage at this station)\n"
+	if got != want {
+		t.Errorf("empty render = %q, want %q", got, want)
+	}
+}
+
+func TestRenderSellableStyledHeaderAndRows(t *testing.T) {
+	plan := sellablePlan{
+		StationID:     "nova_terra_central",
+		ItemCount:     2,
+		TotalProceeds: 80602,
+		Items: []sellableRow{
+			{
+				ItemID: "aluminum_ore", Name: "Aluminum Ore",
+				Cargo: 4865, Storage: 1000,
+				SellableQty: 4492, TotalProceeds: 80420, AvgPrice: 80420.0 / 4492.0,
+				Fills: []sellableFill{
+					{Price: 26, Qty: 676, Proceeds: 17576},
+					{Price: 20, Qty: 1570, Proceeds: 31400},
+					{Price: 14, Qty: 2246, Proceeds: 31444},
+				},
+			},
+			{
+				ItemID: "steel_plate", Name: "Steel Plate",
+				Cargo: 7, Storage: 0,
+				SellableQty: 7, TotalProceeds: 182, AvgPrice: 26,
+				Fills: []sellableFill{{Price: 26, Qty: 7, Proceeds: 182}},
+			},
+		},
+	}
+	got := renderSellableStyled(plan, false)
+	checks := []string{
+		"Sellable @ nova_terra_central",
+		"2 items",
+		"80,602 cr",
+		"aluminum_ore",
+		"Aluminum Ore",
+		"steel_plate",
+		"Total:",
+	}
+	for _, want := range checks {
+		if !strings.Contains(got, want) {
+			t.Errorf("styled render missing %q\n--- output ---\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "676 @") {
+		t.Errorf("styled render unexpectedly included a detail block:\n%s", got)
+	}
+}
+
+func TestRenderSellableStyledDetail(t *testing.T) {
+	plan := sellablePlan{
+		StationID: "s", ItemCount: 1, TotalProceeds: 80420,
+		Items: []sellableRow{{
+			ItemID: "aluminum_ore", Name: "Aluminum Ore",
+			Cargo: 4865, Storage: 0,
+			SellableQty: 4492, TotalProceeds: 80420, AvgPrice: 80420.0 / 4492.0,
+			Fills: []sellableFill{
+				{Price: 26, Qty: 676, Proceeds: 17576},
+				{Price: 20, Qty: 1570, Proceeds: 31400},
+				{Price: 14, Qty: 2246, Proceeds: 31444},
+			},
+		}},
+	}
+	got := renderSellableStyled(plan, true)
+	for _, want := range []string{
+		"676 @ 26",
+		"1570 @ 20",
+		"2246 @ 14",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("detail block missing %q\n--- output ---\n%s", want, got)
+		}
+	}
+}
+
+func TestRenderSellableStyledSingleBuyerNotDetailed(t *testing.T) {
+	plan := sellablePlan{
+		StationID: "s", ItemCount: 1, TotalProceeds: 182,
+		Items: []sellableRow{{
+			ItemID: "steel_plate", Name: "Steel Plate",
+			Cargo: 7, SellableQty: 7, TotalProceeds: 182, AvgPrice: 26,
+			Fills: []sellableFill{{Price: 26, Qty: 7, Proceeds: 182}},
+		}},
+	}
+	got := renderSellableStyled(plan, true)
+	if strings.Contains(got, "7 @ 26") {
+		t.Errorf("single-buyer item rendered an unwanted detail block:\n%s", got)
+	}
 }
 
 func TestBuildSellablePlan(t *testing.T) {
