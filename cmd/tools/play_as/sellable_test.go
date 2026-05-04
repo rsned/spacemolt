@@ -69,7 +69,7 @@ func TestFillItem(t *testing.T) {
 				{PriceEach: 26, Quantity: 676},
 				{PriceEach: 20, Quantity: 1570},
 			},
-			// 676*26 + 1570*20 + 2246*14 = 17576 + 31400 + 31444 = 80420; qty = 4492; avg = 17.9074...
+			// 676*26 + 1570*20 + 2246*14 = 17576 + 31400 + 31444 = 80420; qty = 4492; avg = 17.9029...
 			wantQty: 4492, wantProceeds: 80420, wantAvg: 80420.0 / 4492.0,
 			wantFills: []sellableFill{
 				{Price: 26, Qty: 676, Proceeds: 17576},
