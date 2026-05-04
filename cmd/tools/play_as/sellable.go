@@ -12,10 +12,9 @@ import (
 )
 
 // sellableOptions mirrors the flags accepted on the `sellable` REPL command.
-// Filled in over later tasks; the v1 surface is small.
 type sellableOptions struct {
-	detail      bool  //nolint:unused // populated in a later task
-	minProceeds int64 //nolint:unused // populated in a later task
+	detail      bool
+	minProceeds int64
 }
 
 // runSellable is the REPL entry point for the `sellable` command. It is the
@@ -26,10 +25,76 @@ func runSellable(client game.GameClient, ctx context.Context, opts sellableOptio
 	if state == nil || !state.Doc {
 		return fmt.Errorf("sellable: must be docked at a station with a market service")
 	}
-	// Subsequent tasks fill in: fetch (market+cargo+storage), build plan, render.
-	_ = opts
-	_ = format
-	return fmt.Errorf("sellable: not implemented yet")
+
+	// 1. view_market — full order book at this station.
+	if err := client.GetListings(ctx); err != nil {
+		return fmt.Errorf("sellable: view_market: %w", err)
+	}
+	marketRaw := client.GetRawJSON("market")
+	var marketResp struct {
+		Items []serverapi.ViewMarketItem `json:"items"`
+	}
+	if len(marketRaw) > 0 {
+		if err := json.Unmarshal(marketRaw, &marketResp); err != nil {
+			return fmt.Errorf("sellable: parse market: %w", err)
+		}
+	}
+
+	// 2. get_cargo — ship cargo.
+	if err := client.GetCargo(ctx); err != nil {
+		return fmt.Errorf("sellable: get_cargo: %w", err)
+	}
+	cargoRaw := client.GetRawJSON("cargo")
+	var cargoResp struct {
+		Cargo []storageItem `json:"cargo"`
+	}
+	if len(cargoRaw) > 0 {
+		if err := json.Unmarshal(cargoRaw, &cargoResp); err != nil {
+			return fmt.Errorf("sellable: parse cargo: %w", err)
+		}
+	}
+
+	// 3. view_storage — current station's storage.
+	if err := client.ViewStorage(ctx); err != nil {
+		return fmt.Errorf("sellable: view_storage: %w", err)
+	}
+	storageRaw := client.GetRawJSON("storage")
+	var storageResp struct {
+		BaseID string        `json:"base_id"`
+		Items  []storageItem `json:"items"`
+	}
+	if len(storageRaw) > 0 {
+		if err := json.Unmarshal(storageRaw, &storageResp); err != nil {
+			return fmt.Errorf("sellable: parse storage: %w", err)
+		}
+	}
+
+	stationID := storageResp.BaseID
+	if stationID == "" {
+		stationID = state.CurrentPOI
+	}
+	plan := buildSellablePlan(stationID, marketResp.Items, cargoResp.Cargo, storageResp.Items)
+
+	// Apply --min-proceeds filter after computation. Headline TotalProceeds
+	// stays as-is — this is a view filter, not a model change.
+	if opts.minProceeds > 0 {
+		filtered := plan.Items[:0]
+		for _, r := range plan.Items {
+			if int64(r.TotalProceeds) >= opts.minProceeds {
+				filtered = append(filtered, r)
+			}
+		}
+		plan.Items = filtered
+		plan.ItemCount = len(filtered)
+	}
+
+	switch format {
+	case formatStyled:
+		fmt.Print(renderSellableStyled(plan, opts.detail))
+	default:
+		fmt.Print(renderSellableJSON(plan))
+	}
+	return nil
 }
 
 // sellableFill records one match of cargo against a single buy order.
