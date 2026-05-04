@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -211,6 +212,18 @@ func renderSellableStyled(plan sellablePlan, detail bool) string {
 		}
 	}
 	return b.String()
+}
+
+// renderSellableJSON serializes a plan as pretty-printed JSON. Field tags
+// on sellablePlan / sellableRow / sellableFill drive the wire shape.
+// Returns "" on marshal error (impossible for the value types involved,
+// but explicit to stay symmetric with the styled renderer).
+func renderSellableJSON(plan sellablePlan) string {
+	out, err := json.MarshalIndent(plan, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return string(out) + "\n"
 }
 
 // formatPrice renders a price-each value with two decimals (matching the

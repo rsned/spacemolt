@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -355,4 +356,44 @@ func TestBuildSellablePlan(t *testing.T) {
 			t.Errorf("totals = %v/%v, want 0/0", plan.TotalProceeds, plan.ItemCount)
 		}
 	})
+}
+
+func TestRenderSellableJSON(t *testing.T) {
+	plan := sellablePlan{
+		StationID: "nova_terra_central", ItemCount: 1, TotalProceeds: 182,
+		Items: []sellableRow{{
+			ItemID: "steel_plate", Name: "Steel Plate",
+			Cargo: 7, Storage: 0,
+			SellableQty: 7, TotalProceeds: 182, AvgPrice: 26,
+			Fills: []sellableFill{{Price: 26, Qty: 7, Proceeds: 182}},
+		}},
+	}
+	out := renderSellableJSON(plan)
+	var round struct {
+		StationID     string  `json:"station_id"`
+		ItemCount     int     `json:"item_count"`
+		TotalProceeds float64 `json:"total_proceeds"`
+		Items         []struct {
+			ItemID string `json:"item_id"`
+			Fills  []struct {
+				Price float64 `json:"price"`
+				Qty   float64 `json:"qty"`
+			} `json:"fills"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &round); err != nil {
+		t.Fatalf("output not valid JSON: %v\n%s", err, out)
+	}
+	if round.StationID != "nova_terra_central" {
+		t.Errorf("station_id = %q, want nova_terra_central", round.StationID)
+	}
+	if round.ItemCount != 1 || round.TotalProceeds != 182 {
+		t.Errorf("totals = %v/%v, want 1/182", round.ItemCount, round.TotalProceeds)
+	}
+	if len(round.Items) != 1 || round.Items[0].ItemID != "steel_plate" {
+		t.Fatalf("items = %+v", round.Items)
+	}
+	if len(round.Items[0].Fills) != 1 || round.Items[0].Fills[0].Price != 26 {
+		t.Errorf("fills[0] = %+v, want price=26 qty=7", round.Items[0].Fills)
+	}
 }
