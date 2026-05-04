@@ -75,17 +75,21 @@ func runSellable(client game.GameClient, ctx context.Context, opts sellableOptio
 	}
 	plan := buildSellablePlan(stationID, marketResp.Items, cargoResp.Cargo, storageResp.Items)
 
-	// Apply --min-proceeds filter after computation. Headline TotalProceeds
-	// stays as-is — this is a view filter, not a model change.
+	// Apply --min-proceeds filter after computation. ItemCount and
+	// TotalProceeds are recomputed from the filtered set so the header,
+	// footer, and visible rows all agree.
 	if opts.minProceeds > 0 {
 		filtered := plan.Items[:0]
+		var total float64
 		for _, r := range plan.Items {
 			if int64(r.TotalProceeds) >= opts.minProceeds {
 				filtered = append(filtered, r)
+				total += r.TotalProceeds
 			}
 		}
 		plan.Items = filtered
 		plan.ItemCount = len(filtered)
+		plan.TotalProceeds = total
 	}
 
 	switch format {
@@ -168,7 +172,7 @@ func buildSellablePlan(stationID string, market []serverapi.ViewMarketItem, carg
 		}
 	}
 
-	plan := sellablePlan{StationID: stationID}
+	plan := sellablePlan{StationID: stationID, Items: []sellableRow{}}
 	for id, a := range inv {
 		row := sellableRow{
 			ItemID:  id,
