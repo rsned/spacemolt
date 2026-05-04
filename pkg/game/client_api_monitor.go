@@ -358,6 +358,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"distress_type": true,
 		"system":        true,
 		"system_id":     true,
+		"poi_id":        true,
 	},
 	protocol.TypeSkillLevelUp: {
 		"skill_id":   true,

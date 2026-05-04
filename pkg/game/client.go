@@ -2124,6 +2124,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	case protocol.TypePoliceWarning:
 		c.debugLogger.Printf("⚠️  POLICE WARNING: %v", resp.Payload)
 
+	case protocol.TypeScanDetected:
+		c.debugLogger.Printf("👁️  SCAN DETECTED: %v", resp.Payload)
+
 	case protocol.TypeReconnected:
 		c.debugLogger.Printf("Reconnected to ship: %v", resp.Payload)
 
