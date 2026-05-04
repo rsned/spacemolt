@@ -179,10 +179,25 @@ func TestCraftableRecipe_Fields(t *testing.T) {
 	if recipe.RecipeID != "recipe_1" {
 		t.Errorf("RecipeID = %q, want %q", recipe.RecipeID, "recipe_1")
 	}
+	if recipe.RecipeName != "Iron Plate" {
+		t.Errorf("RecipeName = %q, want %q", recipe.RecipeName, "Iron Plate")
+	}
+	if recipe.CanCraftQuantity != 5 {
+		t.Errorf("CanCraftQuantity = %d, want 5", recipe.CanCraftQuantity)
+	}
 	if len(recipe.Components) != 2 {
 		t.Errorf("expected 2 components, got %d", len(recipe.Components))
 	}
 	if recipe.Components[0].Quantity != 10 {
 		t.Errorf("component quantity = %v, want 10", recipe.Components[0].Quantity)
+	}
+	if !recipe.CanCraft {
+		t.Errorf("CanCraft = %v, want true", recipe.CanCraft)
+	}
+	if recipe.Profit != 25.5 {
+		t.Errorf("Profit = %v, want 25.5", recipe.Profit)
+	}
+	if len(recipe.SkillGaps) != 1 || recipe.SkillGaps[0] != "smithing_3" {
+		t.Errorf("SkillGaps = %v, want [smithing_3]", recipe.SkillGaps)
 	}
 }

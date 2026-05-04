@@ -621,12 +621,19 @@ func formatGetSystemAgents(raw []byte) string {
 func formatFacility(raw []byte) string {
 	var probe struct {
 		Action string `json:"action"`
+		TypeID string `json:"type_id"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
 		return ""
 	}
 	switch probe.Action {
 	case "types":
+		// When the caller passes facility_type=<id>, the server returns the
+		// detail of a single facility (top-level type_id) instead of a
+		// types[] list.
+		if probe.TypeID != "" {
+			return formatFacilityTypeDetail(raw)
+		}
 		return formatFacilityTypes(raw)
 	}
 	return ""
@@ -693,33 +700,116 @@ func formatFacilityTypes(raw []byte) string {
 	return b.String()
 }
 
-// formatListShips renders a list_ships response as a table.
-func formatListShips(raw []byte) string {
+// formatFacilityTypeDetail renders the single-facility detail variant of a
+// `facility types` response (returned when the request includes a
+// facility_type filter).
+func formatFacilityTypeDetail(raw []byte) string {
+	type material struct {
+		ItemID   string `json:"item_id"`
+		Name     string `json:"name"`
+		Quantity int    `json:"quantity"`
+	}
 	var resp struct {
-		ActiveShipID    string `json:"active_ship_id"`
-		ActiveShipClass string `json:"active_ship_class"`
-		Count           int    `json:"count"`
-		Ships           []struct {
-			ShipID         string `json:"ship_id"`
-			ClassID        string `json:"class_id"`
-			ClassName      string `json:"class_name"`
-			IsActive       bool   `json:"is_active"`
-			Location       string `json:"location"`
-			LocationBaseID string `json:"location_base_id,omitempty"`
-			Hull           string `json:"hull"`
-			Fuel           string `json:"fuel"`
-			Modules        int    `json:"modules"`
-			CargoUsed      int    `json:"cargo_used,omitempty"`
-		} `json:"ships"`
+		TypeID               string     `json:"type_id"`
+		Name                 string     `json:"name"`
+		Description          string     `json:"description"`
+		Lore                 string     `json:"lore"`
+		Category             string     `json:"category"`
+		Level                int        `json:"level"`
+		BuildCost            int64      `json:"build_cost"`
+		BuildTime            int        `json:"build_time"`
+		LaborCost            int        `json:"labor_cost"`
+		RentPerCycle         int64      `json:"rent_per_cycle"`
+		FactionCap           int        `json:"faction_cap"`
+		FactionService       string     `json:"faction_service"`
+		PersonalService      string     `json:"personal_service"`
+		RecipeID             string     `json:"recipe_id"`
+		RecipeMultiplier     float64    `json:"recipe_multiplier"`
+		BonusType            string     `json:"bonus_type"`
+		BonusValue           float64    `json:"bonus_value"`
+		BuildMaterials       []material `json:"build_materials"`
+		MaintenancePerCycle  []material `json:"maintenance_per_cycle"`
+		UpgradesFrom         string     `json:"upgrades_from"`
+		UpgradesFromName     string     `json:"upgrades_from_name"`
+		UpgradesTo           string     `json:"upgrades_to"`
+		UpgradesToName       string     `json:"upgrades_to_name"`
+		Buildable            bool       `json:"buildable"`
+		Hint                 string     `json:"hint"`
+		SatisfiedDescription string     `json:"satisfied_description"`
+		DegradedDescription  string     `json:"degraded_description"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
-	if len(resp.Ships) == 0 {
-		return "Ships: (none)\n"
+	if resp.TypeID == "" {
+		return ""
 	}
 
-	slices.SortFunc(resp.Ships, func(a, b struct {
+	var b strings.Builder
+	fmt.Fprintf(&b, "  Facility: %s (%s)\n", resp.Name, resp.TypeID)
+	fmt.Fprintf(&b, "  Category: %s    Level: %d\n", resp.Category, resp.Level)
+	if resp.Description != "" {
+		fmt.Fprintf(&b, "\n  %s\n", resp.Description)
+	}
+
+	fmt.Fprintf(&b, "\n  Build Cost:   %s\n", formatCredits(float64(resp.BuildCost)))
+	fmt.Fprintf(&b, "  Build Time:   %d\n", resp.BuildTime)
+	fmt.Fprintf(&b, "  Labor Cost:   %d\n", resp.LaborCost)
+	fmt.Fprintf(&b, "  Rent / Cycle: %s\n", formatCredits(float64(resp.RentPerCycle)))
+
+	if len(resp.BuildMaterials) > 0 {
+		b.WriteString("\n  Build Materials:\n")
+		for _, m := range resp.BuildMaterials {
+			fmt.Fprintf(&b, "    %dx %s (%s)\n", m.Quantity, m.Name, m.ItemID)
+		}
+	}
+	if len(resp.MaintenancePerCycle) > 0 {
+		b.WriteString("\n  Maintenance / Cycle:\n")
+		for _, m := range resp.MaintenancePerCycle {
+			fmt.Fprintf(&b, "    %dx %s (%s)\n", m.Quantity, m.Name, m.ItemID)
+		}
+	}
+
+	if resp.RecipeID != "" {
+		if resp.RecipeMultiplier != 0 {
+			fmt.Fprintf(&b, "\n  Recipe: %s (x%.2f)\n", resp.RecipeID, resp.RecipeMultiplier)
+		} else {
+			fmt.Fprintf(&b, "\n  Recipe: %s\n", resp.RecipeID)
+		}
+	}
+	if resp.BonusType != "" {
+		fmt.Fprintf(&b, "  Bonus:  %s +%g\n", resp.BonusType, resp.BonusValue)
+	}
+	if resp.FactionService != "" {
+		fmt.Fprintf(&b, "  Faction Service:  %s\n", resp.FactionService)
+	}
+	if resp.PersonalService != "" {
+		fmt.Fprintf(&b, "  Personal Service: %s\n", resp.PersonalService)
+	}
+	if resp.FactionCap > 0 {
+		fmt.Fprintf(&b, "  Faction Cap:      %d\n", resp.FactionCap)
+	}
+
+	if resp.UpgradesFrom != "" {
+		fmt.Fprintf(&b, "\n  Upgrades from: %s (%s)\n", resp.UpgradesFromName, resp.UpgradesFrom)
+	}
+	if resp.UpgradesTo != "" {
+		fmt.Fprintf(&b, "  Upgrades to:   %s (%s)\n", resp.UpgradesToName, resp.UpgradesTo)
+	}
+
+	fmt.Fprintf(&b, "\n  Buildable: %t\n", resp.Buildable)
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "  Hint: %s\n", resp.Hint)
+	}
+	if resp.Lore != "" {
+		fmt.Fprintf(&b, "\n  Lore: %s\n", resp.Lore)
+	}
+	return b.String()
+}
+
+// formatListShips renders a list_ships response as a table.
+func formatListShips(raw []byte) string {
+	type shipRow struct {
 		ShipID         string `json:"ship_id"`
 		ClassID        string `json:"class_id"`
 		ClassName      string `json:"class_name"`
@@ -730,7 +820,24 @@ func formatListShips(raw []byte) string {
 		Fuel           string `json:"fuel"`
 		Modules        int    `json:"modules"`
 		CargoUsed      int    `json:"cargo_used,omitempty"`
-	}) int {
+		ListingID      string `json:"listing_id,omitempty"`
+		ListingPrice   int64  `json:"listing_price,omitempty"`
+		ListingBaseID  string `json:"listing_base_id,omitempty"`
+	}
+	var resp struct {
+		ActiveShipID    string    `json:"active_ship_id"`
+		ActiveShipClass string    `json:"active_ship_class"`
+		Count           int       `json:"count"`
+		Ships           []shipRow `json:"ships"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if len(resp.Ships) == 0 {
+		return "Ships: (none)\n"
+	}
+
+	slices.SortFunc(resp.Ships, func(a, b shipRow) int {
 		if a.IsActive != b.IsActive {
 			if a.IsActive {
 				return -1
@@ -740,8 +847,17 @@ func formatListShips(raw []byte) string {
 		return strings.Compare(strings.ToLower(a.ClassName), strings.ToLower(b.ClassName))
 	})
 
+	anyListed := false
+	for _, s := range resp.Ships {
+		if s.ListingID != "" {
+			anyListed = true
+			break
+		}
+	}
+
 	activeW, classW, locW, hullW, fuelW, modW, cargoW, idW :=
 		1, len("Class"), len("Location"), len("Hull"), len("Fuel"), len("Mods"), len("Cargo"), len("Ship ID")
+	listedW := len("Listed")
 	for _, s := range resp.Ships {
 		classW = max(classW, len(s.ClassName))
 		locW = max(locW, len(s.Location))
@@ -750,14 +866,24 @@ func formatListShips(raw []byte) string {
 		modW = max(modW, len(fmt.Sprintf("%d", s.Modules)))
 		cargoW = max(cargoW, len(fmt.Sprintf("%d", s.CargoUsed)))
 		idW = max(idW, len(s.ShipID))
+		if s.ListingID != "" {
+			listedW = max(listedW, len(formatCredits(float64(s.ListingPrice))))
+		}
 	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Fleet: %d ship(s), active=%s\n\n", resp.Count, resp.ActiveShipClass)
-	fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*s | %*s | %-*s\n",
-		activeW, "*", classW, "Class", locW, "Location", hullW, "Hull", fuelW, "Fuel",
-		modW, "Mods", cargoW, "Cargo", idW, "Ship ID")
-	b.WriteString(strings.Repeat("-", activeW+classW+locW+hullW+fuelW+modW+cargoW+idW+21) + "\n")
+	if anyListed {
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*s | %*s | %*s | %-*s\n",
+			activeW, "*", classW, "Class", locW, "Location", hullW, "Hull", fuelW, "Fuel",
+			modW, "Mods", cargoW, "Cargo", listedW, "Listed", idW, "Ship ID")
+		b.WriteString(strings.Repeat("-", activeW+classW+locW+hullW+fuelW+modW+cargoW+listedW+idW+24) + "\n")
+	} else {
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*s | %*s | %-*s\n",
+			activeW, "*", classW, "Class", locW, "Location", hullW, "Hull", fuelW, "Fuel",
+			modW, "Mods", cargoW, "Cargo", idW, "Ship ID")
+		b.WriteString(strings.Repeat("-", activeW+classW+locW+hullW+fuelW+modW+cargoW+idW+21) + "\n")
+	}
 
 	for _, s := range resp.Ships {
 		marker := " "
@@ -768,9 +894,20 @@ func formatListShips(raw []byte) string {
 		if s.CargoUsed > 0 {
 			cargoStr = fmt.Sprintf("%d", s.CargoUsed)
 		}
-		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*d | %*s | %-*s\n",
-			activeW, marker, classW, s.ClassName, locW, s.Location,
-			hullW, s.Hull, fuelW, s.Fuel, modW, s.Modules, cargoW, cargoStr, idW, s.ShipID)
+		if anyListed {
+			listedStr := ""
+			if s.ListingID != "" {
+				listedStr = formatCredits(float64(s.ListingPrice))
+			}
+			fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*d | %*s | %*s | %-*s\n",
+				activeW, marker, classW, s.ClassName, locW, s.Location,
+				hullW, s.Hull, fuelW, s.Fuel, modW, s.Modules, cargoW, cargoStr,
+				listedW, listedStr, idW, s.ShipID)
+		} else {
+			fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %-*s | %*d | %*s | %-*s\n",
+				activeW, marker, classW, s.ClassName, locW, s.Location,
+				hullW, s.Hull, fuelW, s.Fuel, modW, s.Modules, cargoW, cargoStr, idW, s.ShipID)
+		}
 	}
 
 	return b.String()
@@ -5346,7 +5483,7 @@ func (cp *chatPoller) displayMessage(channel string, m serverapi.ChatMessage) {
 // older messages beyond this page that the caller should backfill (see
 // poll() which delegates to Ingester.Backfill in that case).
 func (cp *chatPoller) fetchMessages(channel string) (msgs []serverapi.ChatMessage, hasMore bool) {
-	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 20}); err != nil {
+	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 100}); err != nil {
 		return nil, false
 	}
 	raw := cp.client.GetRawJSON("_last")

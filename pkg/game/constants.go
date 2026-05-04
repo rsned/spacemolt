@@ -30,7 +30,7 @@ const (
 	SleepReconnect = 30 * time.Second // Reconnection recovery wait
 	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles
-	SleepChatPoll          = 2 * time.Minute  // Chat channel polling interval
+	SleepChatPoll          = 30 * time.Minute // Chat channel polling interval
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
 
 	// WebSocket keepalive timing

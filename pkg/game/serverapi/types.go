@@ -570,6 +570,10 @@ type ExchangeOrder struct {
 }
 
 // ChatMessage represents a chat message.
+//
+// Scope fields (server v0.273.0+): the system channel sets SystemID; the local
+// channel sets both SystemID and POIID. Older servers and other channels
+// leave these empty — callers should fall back to TargetID for system filtering.
 type ChatMessage struct {
 	ID           string `json:"id"`
 	Channel      string `json:"channel"`
@@ -578,6 +582,8 @@ type ChatMessage struct {
 	Content      string `json:"content"`
 	TargetID     string `json:"target_id,omitempty"`
 	TargetName   string `json:"target_name,omitempty"`
+	SystemID     string `json:"system_id,omitempty"`
+	POIID        string `json:"poi_id,omitempty"`
 	TimestampUTC string `json:"timestamp_utc"`
 	Timestamp    string `json:"timestamp,omitempty"`
 }
@@ -772,6 +778,9 @@ type CommissionDetail struct {
 }
 
 // OwnedShip represents a player-owned ship in the list_ships response.
+//
+// Listing fields (server v0.273.4+) are populated when the ship is currently
+// listed for sale; otherwise they are empty/zero.
 type OwnedShip struct {
 	ShipID         string `json:"ship_id"`
 	ClassID        string `json:"class_id"`
@@ -783,6 +792,9 @@ type OwnedShip struct {
 	Location       string `json:"location,omitempty"`
 	LocationBaseID string `json:"location_base_id,omitempty"`
 	Modules        int    `json:"modules,omitempty"`
+	ListingID      string `json:"listing_id,omitempty"`
+	ListingPrice   int64  `json:"listing_price,omitempty"`
+	ListingBaseID  string `json:"listing_base_id,omitempty"`
 }
 
 // ShipListingDetail represents a ship listed for sale (browse_ships).
