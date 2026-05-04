@@ -4097,6 +4097,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Facility(ctx, payload)
 		}, ctx, 5*time.Second, cmd, format)
 
+	case "sellable":
+		return runSellable(client, ctx, sellableOptions{}, format)
+
 	// === APPEARANCE ===
 	case "set_colors":
 		if len(parts) < 3 {
