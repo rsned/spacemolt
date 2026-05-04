@@ -4097,6 +4097,36 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Facility(ctx, payload)
 		}, ctx, 5*time.Second, cmd, format)
 
+	case "sellable":
+		opts := sellableOptions{}
+		for i := 1; i < len(parts); i++ {
+			arg := parts[i]
+			switch {
+			case arg == "--detail" || arg == "-d":
+				opts.detail = true
+			case strings.HasPrefix(arg, "--min-proceeds="):
+				v := strings.TrimPrefix(arg, "--min-proceeds=")
+				n, err := strconv.ParseInt(v, 10, 64)
+				if err != nil {
+					return fmt.Errorf("sellable: --min-proceeds: %w", err)
+				}
+				opts.minProceeds = n
+			case arg == "--min-proceeds":
+				if i+1 >= len(parts) {
+					return fmt.Errorf("sellable: --min-proceeds requires a value")
+				}
+				i++
+				n, err := strconv.ParseInt(parts[i], 10, 64)
+				if err != nil {
+					return fmt.Errorf("sellable: --min-proceeds: %w", err)
+				}
+				opts.minProceeds = n
+			default:
+				return fmt.Errorf("sellable: unknown flag %q", arg)
+			}
+		}
+		return runSellable(client, ctx, opts, format)
+
 	// === APPEARANCE ===
 	case "set_colors":
 		if len(parts) < 3 {
@@ -4718,6 +4748,7 @@ func printHelp() {
 	fmt.Println("  action_log [--category X] [--page N] - Action history")
 	fmt.Println("  loop [-f] <count> <command>        - Repeat a command N times (-f continues on errors)")
 	fmt.Println("  loop [-f] <count> { stmt; stmt }   - Repeat a block; stmts may nest and use newlines or ';'")
+	fmt.Println("  sellable [-d] [--min-proceeds N]   - What can I sell here? (cargo+storage @ this station's market)")
 	fmt.Println("  sleep <secs> | wait <duration>     - Pause N seconds (or 30s, 1m, 500ms); Ctrl-C interrupts")
 	fmt.Println("  history                   - Show last 25 commands (persisted across sessions)")
 	fmt.Println("  mbox                      - Show unread message counts")
