@@ -106,6 +106,13 @@ type Client struct {
 	router     *responseRouter
 	mutationMu sync.Mutex
 
+	// tickProvider, if set, returns the current game tick. Used by Travel /
+	// Jump to capture an authoritative StartTick — state.CurrentTick only
+	// advances on certain server frames and can lag the real tick by tens of
+	// ticks on idle sessions, which silently corrupts the "ticks elapsed"
+	// estimator. Set via SetTickProvider; nil-safe at every read site.
+	tickProvider func() int64
+
 	sendOverride func(ctx context.Context, msg protocol.Message) error // Test hook
 
 	// Storage update callback — fired when a view_storage response is received
@@ -353,6 +360,28 @@ func (c *Client) SetDebugLogging(enabled bool) {
 	if !enabled {
 		c.debugLogger.SetOutput(io.Discard)
 	}
+}
+
+// SetTickProvider installs a function returning the authoritative current
+// game tick. When set, Travel/Jump use it for StartTick instead of the
+// possibly-stale state.CurrentTick. Pass nil to clear.
+func (c *Client) SetTickProvider(fn func() int64) {
+	c.mu.Lock()
+	c.tickProvider = fn
+	c.mu.Unlock()
+}
+
+// currentTick returns the best available current tick: the injected
+// tickProvider when set, otherwise state.CurrentTick. Safe to call without
+// holding c.mu.
+func (c *Client) currentTick() int64 {
+	c.mu.RLock()
+	fn := c.tickProvider
+	c.mu.RUnlock()
+	if fn != nil {
+		return fn()
+	}
+	return c.GetState().CurrentTick
 }
 
 // SetDebugPayloadMaxLen configures how much of each received response's
@@ -745,30 +774,119 @@ func (c *Client) Claim(ctx context.Context, registrationCode string) error {
 
 // Undock undocks from the current station.
 //
-// Terminates on TypeUndocked (a push event with no command field) so
-// matchTypes is used instead of matchCommand.
+// Terminates on either the legacy TypeUndocked push event (no command field)
+// or a TypeActionResult whose top-level command is "undock" — newer servers
+// only emit the latter on completion.
 func (c *Client) Undock(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "undock",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	terminate := terminateOnTypes(protocol.TypeUndocked, protocol.TypeActionError, protocol.TypeError)
-	_, err := c.execMutation(ctx, msg, matchTypes(protocol.TypeUndocked, protocol.TypeActionError, protocol.TypeError), terminate, SleepTick*3)
+	classifier, terminate := dockTransitionMatchers("undock", protocol.TypeUndocked)
+	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepTick*3)
 	return err
 }
 
 // Dock docks at a station in the current system.
 //
-// Terminates on TypeDocked (a push event with no command field) so
-// matchTypes is used instead of matchCommand.
+// Terminates on either the legacy TypeDocked push event (no command field)
+// or a TypeActionResult whose top-level command is "dock" — newer servers
+// only emit the latter on completion.
 func (c *Client) Dock(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "dock",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	terminate := terminateOnTypes(protocol.TypeDocked, protocol.TypeActionError, protocol.TypeError)
-	_, err := c.execMutation(ctx, msg, matchTypes(protocol.TypeDocked, protocol.TypeActionError, protocol.TypeError), terminate, SleepTick*3)
+	classifier, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
+	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepTick*3)
 	return err
+}
+
+// dockTransitionMatchers builds the (Classifier, Terminator) pair for Dock
+// and Undock. command is the wire command name ("dock" or "undock");
+// legacyType is the corresponding standalone push type the older protocol
+// emitted (TypeDocked / TypeUndocked).
+//
+// Three terminal frames are accepted, covering server protocol drift:
+//   - TypeOK with action=command and no pending=true (the synchronous follow-up
+//     after the OK-pending ack — what current servers send for dock/undock)
+//   - TypeActionResult with command=command (queued-tick mutation form)
+//   - the legacy TypeDocked / TypeUndocked push event
+//
+// TypeActionError / TypeError terminate with a server error.
+func dockTransitionMatchers(command, legacyType string) (Classifier, Terminator) {
+	isPending := func(p map[string]any) bool {
+		v, _ := p["pending"].(bool)
+		return v
+	}
+	classifier := func(resp protocol.Response) bool {
+		switch resp.Type {
+		case legacyType, protocol.TypeActionError, protocol.TypeError:
+			return true
+		case protocol.TypeActionResult:
+			cmd, _ := resp.Payload["command"].(string)
+			return cmd == command
+		case protocol.TypeOK:
+			act, _ := resp.Payload["action"].(string)
+			return act == command && !isPending(resp.Payload)
+		}
+		return false
+	}
+	terminate := func(resp protocol.Response) (bool, error) {
+		switch resp.Type {
+		case legacyType:
+			return true, nil
+		case protocol.TypeActionError, protocol.TypeError:
+			return true, serverErrorFromPayload(resp.Payload)
+		case protocol.TypeActionResult:
+			if cmd, _ := resp.Payload["command"].(string); cmd == command {
+				return true, nil
+			}
+		case protocol.TypeOK:
+			if act, _ := resp.Payload["action"].(string); act == command && !isPending(resp.Payload) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return classifier, terminate
+}
+
+// sendAwaitingPending sends msg, waits for the initial server response, and
+// — if the server replies action_pending because a previous travel/jump is
+// still in flight — blocks until that pending action arrives, then re-sends
+// once. Returns the post-retry response. Without this, a stale pending
+// action causes every subsequent Travel/Jump in a tight loop to fail
+// instantly with action_pending and burn through the per-session rate-limit
+// budget within a second.
+func (c *Client) sendAwaitingPending(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
+	if err := c.Send(ctx, msg); err != nil {
+		return protocol.Response{}, err
+	}
+	resp, err := c.waitForInitialResponse(ctx, timeout)
+	if err == nil {
+		return resp, nil
+	}
+	if resp.Type != protocol.TypeError {
+		return resp, err
+	}
+	code, _ := resp.Payload["code"].(string)
+	if code != "action_pending" {
+		return resp, err
+	}
+	// Wait for the in-flight travel/jump to land. The cap matches Travel's
+	// internal SleepTravelMaxWait — we won't wait longer for somebody else's
+	// action than we'd wait for our own.
+	waitErr := c.waitForStateChange(ctx, func(s *State) bool {
+		return !s.Traveling
+	}, SleepTravelMaxWait)
+	if waitErr != nil {
+		return resp, err // surface the original action_pending error
+	}
+	if sendErr := c.Send(ctx, msg); sendErr != nil {
+		return protocol.Response{}, sendErr
+	}
+	return c.waitForInitialResponse(ctx, timeout)
 }
 
 // Travel travels to a POI within the current system
@@ -776,17 +894,12 @@ func (c *Client) Dock(ctx context.Context) error {
 // It blocks until the ship arrives at the destination or an error occurs.
 // The returned TravelResult contains the final POI the ship ended up at.
 func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, error) {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "travel",
 		Payload:   map[string]any{"target_poi": targetPOI},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return nil, err
 	}
-
-	// Wait for initial server acknowledgment (OK or error).
-	// Use longer timeout since travel can take multiple ticks to start.
-	resp, err := c.waitForInitialResponse(ctx, SleepActionStartTimeout)
+	resp, err := c.sendAwaitingPending(ctx, msg, SleepActionStartTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -807,8 +920,11 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 	}
 
 	// Capture the start tick at the moment of the server ACK so callers can
-	// diff actual vs. estimated duration after arrival.
-	startTick := c.GetState().CurrentTick
+	// diff actual vs. estimated duration after arrival. Prefer the injected
+	// tickProvider over state.CurrentTick — the latter only advances when the
+	// server happens to send a frame carrying tick/current_tick, so on idle
+	// sessions it can lag the real tick by tens of ticks.
+	startTick := c.currentTick()
 
 	// Compute timeout from arrival_tick if available, else use generous default.
 	timeout := 90 * time.Second
@@ -853,17 +969,12 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 // It blocks until the ship arrives in the new system or an error occurs.
 // The returned JumpResult contains the destination system info.
 func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, error) {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "jump",
 		Payload:   map[string]any{"target_system": targetSystem},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return nil, err
 	}
-
-	// Wait for initial server acknowledgment.
-	// Use longer timeout since jump can take multiple ticks to start.
-	resp, err := c.waitForInitialResponse(ctx, SleepActionStartTimeout)
+	resp, err := c.sendAwaitingPending(ctx, msg, SleepActionStartTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -886,7 +997,7 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 	// Compute timeout from arrival_tick if available.
 	timeout := 90 * time.Second
 	if arrivalTick, ok := resp.Payload["arrival_tick"].(float64); ok {
-		currentTick := c.GetState().CurrentTick
+		currentTick := c.currentTick()
 		ticksRemaining := int64(arrivalTick) - currentTick
 		if ticksRemaining < 1 {
 			ticksRemaining = 1
@@ -926,7 +1037,35 @@ func (c *Client) Mine(ctx context.Context) error {
 		Type:      "mine",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("mine"), terminateOnAction, SleepActionStartTimeout)
+	// Newer servers deliver the mine result as a TypeMiningYield push event
+	// (carries cargo + xp_gained) rather than an action_result with
+	// command="mine". Accept either as terminal; classic action_error/error
+	// continue to terminate with the server-supplied error.
+	classifier := func(resp protocol.Response) bool {
+		switch resp.Type {
+		case protocol.TypeMiningYield, protocol.TypeActionError, protocol.TypeError:
+			// Errors arrive without a command field (e.g. cargo_full); since
+			// execMutation holds mutationMu, any error during this window
+			// belongs to our mine call. Same pattern as dockTransitionMatchers.
+			return true
+		case protocol.TypeActionResult:
+			cmd, _ := resp.Payload["command"].(string)
+			return cmd == "mine"
+		}
+		return false
+	}
+	terminate := func(resp protocol.Response) (bool, error) {
+		switch resp.Type {
+		case protocol.TypeMiningYield:
+			return true, nil
+		case protocol.TypeActionResult:
+			return true, nil
+		case protocol.TypeActionError, protocol.TypeError:
+			return true, serverErrorFromPayload(resp.Payload)
+		}
+		return false, nil
+	}
+	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepActionStartTimeout)
 	return maybeGoalReached("mine", err)
 }
 
@@ -2742,11 +2881,14 @@ func (c *Client) parseTravelProgress(payload map[string]any) {
 		if arrivalTick, ok := payload["travel_arrival_tick"].(float64); ok {
 			c.state.TravelProgress.ArrivalTick = int64(arrivalTick)
 		}
-	} else {
-		// No travel progress means we're not traveling
-		c.state.Traveling = false
-		c.state.TravelProgress = nil
 	}
+	// Absence of travel_progress is NOT used to clear Traveling: a state_update
+	// arriving on the same tick as a "Will execute on next tick" travel ack has
+	// no progress yet, and clearing here would let Travel() return before the
+	// ship actually moves — causing every subsequent command in a tight loop
+	// to hit "another action pending". Clears come from the explicit terminal
+	// signals (action_result.action ∈ {arrived, jumped} in parseActionResult,
+	// the same actions in parseTravelAction on TypeOK, and TypeDocked).
 }
 
 // parseNearbyPlayers extracts nearby player list from state_update using serverapi types.
@@ -3406,6 +3548,16 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				storeKey = "notifications"
 			}
 			shouldStore = true
+		}
+		// Store get_system_agents responses ({agents:[], system_id, count}).
+		// system_id disambiguates from other agents-bearing payloads.
+		if _, hasAgents := resp.Payload["agents"]; hasAgents {
+			if _, hasSystemID := resp.Payload["system_id"]; hasSystemID {
+				if storeKey == "" {
+					storeKey = "get_system_agents"
+				}
+				shouldStore = true
+			}
 		}
 		// Store facility responses. Sync queries (list/types/upgrades/help/
 		// faction_list) come back as type=ok with no command field, so they
