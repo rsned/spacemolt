@@ -278,8 +278,10 @@ func TestBuildSellablePlan(t *testing.T) {
 		if iron.Cargo != 50 || iron.Storage != 200 {
 			t.Errorf("iron cargo/storage = %v/%v, want 50/200", iron.Cargo, iron.Storage)
 		}
-		if iron.SellableQty != 50 || iron.TotalProceeds != 500 {
-			t.Errorf("iron sellable/proceeds = %v/%v, want 50/500", iron.SellableQty, iron.TotalProceeds)
+		// Sellable pool walks cargo+storage (operator can withdraw before
+		// selling): 50 cargo + 200 storage = 250 @ 10 = 2500.
+		if iron.SellableQty != 250 || iron.TotalProceeds != 2500 {
+			t.Errorf("iron sellable/proceeds = %v/%v, want 250/2500", iron.SellableQty, iron.TotalProceeds)
 		}
 		carbon := plan.Items[0]
 		if carbon.SellableQty != 0 {

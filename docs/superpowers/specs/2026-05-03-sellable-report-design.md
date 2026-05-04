@@ -77,7 +77,7 @@ steel_plate       | Steel Plate    |     7 |       0 |        7 |     26.00 |   
                                                                 Total:        245,883
 ```
 
-- `Sellable` is filled from **cargo only**. `sell` works against cargo; storage items must be `withdraw_items`'d first to be sold. The `Storage` column is informational so the operator can see what's available to withdraw.
+- `Sellable` walks **cargo + storage** as a unified pool — at a docked station, operators routinely empty cargo into storage and `withdraw_items` before each sell, so the realistic value of "what's here" is the sum. The `Cargo` and `Storage` columns stay split so the operator still sees where to withdraw from. (Original spec called for cargo-only; revised after empirical testing showed Sellable=0 across every agent.)
 - `Avg Price` is the proceeds-weighted average across the fills. `—` when nothing's sellable.
 - Header line shows item count and total proceeds; footer repeats the total.
 

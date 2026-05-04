@@ -188,7 +188,11 @@ func buildSellablePlan(stationID string, market []serverapi.ViewMarketItem, carg
 			row.Name = id
 		}
 		if mkt, ok := byID[id]; ok {
-			qty, proceeds, avg, fills := fillItem(a.cargo, mkt.BuyOrders)
+			// Walk cargo+storage: storage items can be withdrawn and sold,
+			// so the operator's effective sellable pool at this station is
+			// the union of both. Cargo and Storage stay split in the row
+			// columns so the operator still knows where to withdraw from.
+			qty, proceeds, avg, fills := fillItem(a.cargo+a.storage, mkt.BuyOrders)
 			row.SellableQty = qty
 			row.TotalProceeds = proceeds
 			row.AvgPrice = avg
