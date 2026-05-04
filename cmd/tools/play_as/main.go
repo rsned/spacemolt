@@ -189,6 +189,11 @@ func main() {
 	} else {
 		globalClock = gc
 		defer gc.Stop()
+		// Hand the clock to the WS client so Travel/Jump can capture an
+		// authoritative StartTick instead of the possibly-stale state value.
+		if wsClient, ok := client.(*game.Client); ok {
+			wsClient.SetTickProvider(gc.Tick)
+		}
 	}
 
 	// Show initial status
@@ -581,9 +586,111 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatNotes(raw)
 	case "list_ships":
 		return formatListShips(raw)
+	case "facility":
+		return formatFacility(raw)
+	case "get_system_agents":
+		return formatGetSystemAgents(raw)
 	default:
 		return ""
 	}
+}
+
+// formatGetSystemAgents renders a get_system_agents response using the same
+// player-table layout as formatNearby for consistency. nearbyPlayer's fields
+// are a superset of what get_system_agents returns, so the same writer works.
+func formatGetSystemAgents(raw []byte) string {
+	var resp struct {
+		SystemID string         `json:"system_id"`
+		Count    int            `json:"count"`
+		Agents   []nearbyPlayer `json:"agents"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "System: %s\n", resp.SystemID)
+	fmt.Fprintf(&b, "Count: %d\n\n", resp.Count)
+	writePlayerTable(&b, resp.Agents)
+	return b.String()
+}
+
+// formatFacility dispatches by the response's "action" field. Only "types"
+// has a styled formatter today; other actions return "" so the caller falls
+// through to pretty-printed JSON.
+func formatFacility(raw []byte) string {
+	var probe struct {
+		Action string `json:"action"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return ""
+	}
+	switch probe.Action {
+	case "types":
+		return formatFacilityTypes(raw)
+	}
+	return ""
+}
+
+// formatFacilityTypes renders a `facility types` listing as an aligned
+// table, sorted alphabetically by id.
+func formatFacilityTypes(raw []byte) string {
+	var resp struct {
+		Page       int    `json:"page"`
+		TotalPages int    `json:"total_pages"`
+		Total      int    `json:"total"`
+		Types      []struct {
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			Category  string `json:"category"`
+			Level     int    `json:"level"`
+			BuildCost int64  `json:"build_cost"`
+		} `json:"types"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if len(resp.Types) == 0 {
+		return "  (no facility types)\n"
+	}
+	slices.SortFunc(resp.Types, func(a, b struct {
+		ID        string `json:"id"`
+		Name      string `json:"name"`
+		Category  string `json:"category"`
+		Level     int    `json:"level"`
+		BuildCost int64  `json:"build_cost"`
+	}) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
+	idW := len("ID")
+	nameW := len("Name")
+	costW := len("Cost")
+	for _, t := range resp.Types {
+		idW = max(idW, len(t.ID))
+		nameW = max(nameW, len(t.Name))
+		costW = max(costW, len(formatCredits(float64(t.BuildCost))))
+	}
+
+	var b strings.Builder
+	category := resp.Types[0].Category
+	header := "  Facilities"
+	if category != "" {
+		header = fmt.Sprintf("  Facilities available for '%s'", category)
+	}
+	if resp.TotalPages > 1 {
+		fmt.Fprintf(&b, "%s (page %d/%d, %d total):\n\n", header, resp.Page, resp.TotalPages, resp.Total)
+	} else {
+		fmt.Fprintf(&b, "%s:\n\n", header)
+	}
+	fmt.Fprintf(&b, "  %-*s | %-*s | Level | %*s\n", idW, "ID", nameW, "Name", costW, "Cost")
+	fmt.Fprintf(&b, "  %s-+-%s-+-------+-%s\n",
+		strings.Repeat("-", idW), strings.Repeat("-", nameW), strings.Repeat("-", costW))
+	for _, t := range resp.Types {
+		fmt.Fprintf(&b, "  %-*s | %-*s | %5d | %*s\n",
+			idW, t.ID, nameW, t.Name, t.Level, costW, formatCredits(float64(t.BuildCost)))
+	}
+	return b.String()
 }
 
 // formatListShips renders a list_ships response as a table.
@@ -745,17 +852,16 @@ type storageShip struct {
 // formatStorage formats a view_storage response as sorted tables.
 func formatStorage(raw []byte) string {
 	var resp struct {
-		BaseID  string        `json:"base_id"`
-		Credits int           `json:"credits"`
-		Items   []storageItem `json:"items"`
-		Ships   []storageShip `json:"ships"`
+		BaseID string        `json:"base_id"`
+		Items  []storageItem `json:"items"`
+		Ships  []storageShip `json:"ships"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Storage at %s (credits: %d)\n", resp.BaseID, resp.Credits)
+	fmt.Fprintf(&b, "Storage at %s\n", resp.BaseID)
 
 	// Items table
 	if len(resp.Items) == 0 {
@@ -2405,6 +2511,35 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	fmt.Printf("▶ Executing: %s %s\n", cmd, strings.Join(parts[1:], " "))
 
 	switch cmd {
+	case "sleep", "wait":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: %s <seconds | duration like 30s, 1m, 500ms>", cmd)
+		}
+		arg := parts[1]
+		var d time.Duration
+		if n, err := strconv.ParseFloat(arg, 64); err == nil {
+			if n < 0 {
+				return fmt.Errorf("%s: duration must be non-negative", cmd)
+			}
+			d = time.Duration(n * float64(time.Second))
+		} else {
+			parsed, perr := time.ParseDuration(arg)
+			if perr != nil {
+				return fmt.Errorf("%s: cannot parse %q as duration: %w", cmd, arg, perr)
+			}
+			if parsed < 0 {
+				return fmt.Errorf("%s: duration must be non-negative", cmd)
+			}
+			d = parsed
+		}
+		fmt.Printf("⏸  Sleeping %s...\n", d)
+		select {
+		case <-time.After(d):
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
 	// === NAVIGATION ===
 	case "undock":
 		return simpleCommand(client, client.Undock, ctx, 12*time.Second, cmd, format)
@@ -3051,6 +3186,26 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "storage", "view_storage":
+		// Optional --station_id <id> (or station_id=<id>) routes to ViewStorageAt
+		// so callers can inspect remote storage without docking. With no flag,
+		// uses the current docked station (must have a storage service).
+		var stationID string
+		for i := 1; i < len(parts); i++ {
+			arg := parts[i]
+			if v, ok := strings.CutPrefix(arg, "--station_id="); ok {
+				stationID = v
+			} else if arg == "--station_id" && i+1 < len(parts) {
+				i++
+				stationID = parts[i]
+			} else if v, ok := strings.CutPrefix(arg, "station_id="); ok {
+				stationID = v
+			}
+		}
+		if stationID != "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ViewStorageAt(ctx, stationID)
+			}, ctx, 2*time.Second, cmd, format)
+		}
 		return simpleCommand(client, client.ViewStorage, ctx, 2*time.Second, cmd, format)
 
 	case "storage_at":
@@ -4563,6 +4718,7 @@ func printHelp() {
 	fmt.Println("  action_log [--category X] [--page N] - Action history")
 	fmt.Println("  loop [-f] <count> <command>        - Repeat a command N times (-f continues on errors)")
 	fmt.Println("  loop [-f] <count> { stmt; stmt }   - Repeat a block; stmts may nest and use newlines or ';'")
+	fmt.Println("  sleep <secs> | wait <duration>     - Pause N seconds (or 30s, 1m, 500ms); Ctrl-C interrupts")
 	fmt.Println("  history                   - Show last 25 commands (persisted across sessions)")
 	fmt.Println("  mbox                      - Show unread message counts")
 	fmt.Println("  mbox list [ch] [--unread] - List messages (newest first)")
