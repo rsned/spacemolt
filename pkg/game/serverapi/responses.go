@@ -188,6 +188,7 @@ type RetreatResponse struct {
 type ViewMarketResponse struct {
 	Action     string           `json:"action"`
 	Base       string           `json:"base,omitempty"`
+	BaseID     string           `json:"base_id,omitempty"`
 	Items      []ViewMarketItem `json:"items"`
 	Message    string           `json:"message,omitempty"`
 	Categories []string         `json:"categories,omitempty"`

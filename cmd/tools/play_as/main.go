@@ -585,6 +585,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatCraft(raw)
 	case "missions", "get_missions":
 		return formatMissions(raw)
+	case "active_missions", "get_active_missions":
+		return formatMissions(raw)
 	case "notes", "get_notes":
 		return formatNotes(raw)
 	case "list_ships":
@@ -4278,6 +4280,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			defer func() { missionsShowFull = false }()
 		}
 		return simpleCommand(client, client.GetMissions, ctx, 2*time.Second, cmd, format)
+
+	case "active_missions", "get_active_missions":
+		if slices.Contains(parts[1:], "--full") {
+			missionsShowFull = true
+			defer func() { missionsShowFull = false }()
+		}
+		return simpleCommand(client, client.GetActiveMissions, ctx, 2*time.Second, cmd, format)
 
 	case "accept_mission":
 		if len(parts) < 2 {
