@@ -573,6 +573,22 @@ func (m *MCPGameClient) WithdrawItems(ctx context.Context, itemID string, quanti
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) DepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	result, err := m.callTool(ctx, "deposit_items", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+func (m *MCPGameClient) WithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	result, err := m.callTool(ctx, "withdraw_items", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) ViewStorage(ctx context.Context) error {
 	result, err := m.callTool(ctx, "view_storage", nil)
 	if err != nil {
@@ -1407,6 +1423,16 @@ func (m *MCPGameClient) FactionWithdrawItems(ctx context.Context, itemID string,
 		"item_id":  itemID,
 		"quantity": quantity,
 	})
+	return err
+}
+
+func (m *MCPGameClient) FactionDepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	_, err := m.callTool(ctx, "faction_deposit_items", payload)
+	return err
+}
+
+func (m *MCPGameClient) FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	_, err := m.callTool(ctx, "faction_withdraw_items", payload)
 	return err
 }
 

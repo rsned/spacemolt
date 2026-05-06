@@ -75,8 +75,10 @@ type GameClient interface {
 
 	// Cargo & Storage
 	DepositItems(ctx context.Context, itemID string, quantity float64) error
+	DepositItemsPayload(ctx context.Context, payload map[string]any) error
 	DepositAllItems(ctx context.Context) error
 	WithdrawItems(ctx context.Context, itemID string, quantity float64) error
+	WithdrawItemsPayload(ctx context.Context, payload map[string]any) error
 	ViewStorage(ctx context.Context) error
 	ViewStorageAt(ctx context.Context, stationID string) error
 
@@ -137,7 +139,9 @@ type GameClient interface {
 	FactionDepositCredits(ctx context.Context, amount float64) error
 	FactionWithdrawCredits(ctx context.Context, amount float64) error
 	FactionDepositItems(ctx context.Context, itemID string, quantity int) error
+	FactionDepositItemsPayload(ctx context.Context, payload map[string]any) error
 	FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error
+	FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error
 	ViewFactionStorage(ctx context.Context) error
 	FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error
 	FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error

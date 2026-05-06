@@ -241,6 +241,14 @@ func (m *mockGameClient) WithdrawItems(ctx context.Context, itemID string, quant
 	m.actionsRecorded = append(m.actionsRecorded, "withdraw_items:"+itemID)
 	return nil
 }
+func (m *mockGameClient) DepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	m.actionsRecorded = append(m.actionsRecorded, "deposit_items_payload")
+	return nil
+}
+func (m *mockGameClient) WithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	m.actionsRecorded = append(m.actionsRecorded, "withdraw_items_payload")
+	return nil
+}
 func (m *mockGameClient) ViewStorage(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "view_storage")
 	return nil
@@ -507,7 +515,9 @@ func (m *mockGameClient) FactionSetEnemy(ctx context.Context, targetFactionID st
 func (m *mockGameClient) FactionDepositCredits(ctx context.Context, amount float64) error     { return nil }
 func (m *mockGameClient) FactionWithdrawCredits(ctx context.Context, amount float64) error    { return nil }
 func (m *mockGameClient) FactionDepositItems(ctx context.Context, itemID string, quantity int) error  { return nil }
+func (m *mockGameClient) FactionDepositItemsPayload(ctx context.Context, payload map[string]any) error { return nil }
 func (m *mockGameClient) FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error { return nil }
+func (m *mockGameClient) FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error { return nil }
 func (m *mockGameClient) ViewFactionStorage(ctx context.Context) error                       { return nil }
 func (m *mockGameClient) FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error { return nil }
 func (m *mockGameClient) FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error { return nil }

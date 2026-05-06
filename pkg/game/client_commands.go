@@ -607,6 +607,37 @@ func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity floa
 	return err
 }
 
+// WithdrawItemsPayload sends a withdraw_items command with the caller-supplied
+// payload. Use this when you need the v2 source/target selectors:
+//
+//	source: "cargo" (default), "storage" (personal→faction), "faction" (faction→personal)
+//	target: "self" (default), "faction", "faction:TAG", or a player name (gift)
+//
+// Skips the cargo-availability precheck that WithdrawItems does, since
+// non-default source/target moves don't read from cargo.
+func (c *Client) WithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	msg := protocol.Message{
+		Type:      "withdraw_items",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_items"), terminateOnAction, SleepTick*3)
+	return err
+}
+
+// DepositItemsPayload sends a deposit_items command with the caller-supplied
+// payload. See WithdrawItemsPayload for the source/target semantics. Skips
+// the cargo-availability precheck that DepositItems does.
+func (c *Client) DepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	msg := protocol.Message{
+		Type:      "deposit_items",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("deposit_items"), terminateOnAction, SleepTick*3)
+	return err
+}
+
 // SendGift sends items or credits to another player's storage at this station.
 func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
 	msg := protocol.Message{
@@ -1565,6 +1596,31 @@ func (c *Client) FactionWithdrawItems(ctx context.Context, itemID string, quanti
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)
+	return err
+}
+
+// FactionDepositItemsPayload sends a faction_deposit_items command with the
+// caller-supplied payload. Allows v2 source/target selectors (see
+// WithdrawItemsPayload for semantics).
+func (c *Client) FactionDepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	msg := protocol.Message{
+		Type:      "faction_deposit_items",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_items"), terminateOnAction, SleepTick*3)
+	return err
+}
+
+// FactionWithdrawItemsPayload sends a faction_withdraw_items command with
+// the caller-supplied payload. Allows v2 source/target selectors.
+func (c *Client) FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	msg := protocol.Message{
+		Type:      "faction_withdraw_items",
+		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
 	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)

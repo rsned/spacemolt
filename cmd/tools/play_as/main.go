@@ -14,6 +14,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -3277,11 +3278,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "deposit", "deposit_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: deposit <item-id> <quantity>")
+			return fmt.Errorf("usage: deposit <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		flags := parseFlagArgs(parts[3:], "source", "target")
+		if len(flags) > 0 {
+			payload := map[string]any{
+				"item_id":  strings.ToLower(parts[1]),
+				"quantity": int(qty),
+			}
+			maps.Copy(payload, flags)
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.DepositItemsPayload(ctx, payload)
+			}, ctx, 3*time.Second, cmd, format)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.DepositItems(ctx, strings.ToLower(parts[1]), qty)
@@ -3292,11 +3304,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "withdraw", "withdraw_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: withdraw <item-id> <quantity>")
+			return fmt.Errorf("usage: withdraw <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		flags := parseFlagArgs(parts[3:], "source", "target")
+		if len(flags) > 0 {
+			payload := map[string]any{
+				"item_id":  strings.ToLower(parts[1]),
+				"quantity": int(qty),
+			}
+			maps.Copy(payload, flags)
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.WithdrawItemsPayload(ctx, payload)
+			}, ctx, 3*time.Second, cmd, format)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.WithdrawItems(ctx, strings.ToLower(parts[1]), qty)
@@ -3718,11 +3741,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "faction_deposit_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: faction_deposit_items <item-id> <quantity>")
+			return fmt.Errorf("usage: faction_deposit_items <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		flags := parseFlagArgs(parts[3:], "source", "target")
+		if len(flags) > 0 {
+			payload := map[string]any{
+				"item_id":  strings.ToLower(parts[1]),
+				"quantity": int(qty),
+			}
+			maps.Copy(payload, flags)
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.FactionDepositItemsPayload(ctx, payload)
+			}, ctx, 3*time.Second, cmd, format)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.FactionDepositItems(ctx, strings.ToLower(parts[1]), int(qty))
@@ -3730,11 +3764,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "faction_withdraw_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: faction_withdraw_items <item-id> <quantity>")
+			return fmt.Errorf("usage: faction_withdraw_items <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
+		}
+		flags := parseFlagArgs(parts[3:], "source", "target")
+		if len(flags) > 0 {
+			payload := map[string]any{
+				"item_id":  strings.ToLower(parts[1]),
+				"quantity": int(qty),
+			}
+			maps.Copy(payload, flags)
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.FactionWithdrawItemsPayload(ctx, payload)
+			}, ctx, 3*time.Second, cmd, format)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.FactionWithdrawItems(ctx, strings.ToLower(parts[1]), int(qty))
@@ -4781,9 +4826,9 @@ func printHelp() {
 
 	fmt.Println("\n=== CARGO & STORAGE ===")
 	fmt.Println("  cargo                     - View ship cargo")
-	fmt.Println("  deposit <item> <qty>      - Deposit items to storage")
+	fmt.Println("  deposit <item> <qty> [--source=<s>] [--target=<s>]   - Deposit items (source/target: cargo|storage|faction)")
 	fmt.Println("  deposit_all               - Deposit all items")
-	fmt.Println("  withdraw <item> <qty>     - Withdraw items from storage")
+	fmt.Println("  withdraw <item> <qty> [--source=<s>] [--target=<s>]  - Withdraw items (source/target: cargo|storage|faction)")
 	fmt.Println("  storage, storage_at <id>  - View storage")
 	fmt.Println("  jettison <item> <qty>     - Jettison cargo")
 
