@@ -148,7 +148,12 @@ func (s *AgentSession) SendCommand(ctx context.Context, msg protocol.Message) er
 	}
 
 	s.logger.Printf("[%s] sending command '%s' to game server", s.username, msg.Type)
-	// Send the command - this is asynchronous, responses come via OnMessage callback
+	// Session is a generic relay: responses come back via OnMessage and are
+	// delivered to the WS client by message type, not correlated to a specific
+	// command. The execQuery / execMutation primitives expect a one-to-one
+	// command/response shape, which doesn't fit. Migration deferred until the
+	// session protocol gains correlation IDs.
+	//nolint:staticcheck // SA1019: response-router migration deferred — see comment above
 	err := s.gameClient.Send(ctx, msg)
 	if err != nil {
 		s.logger.Printf("*** [%s] ERROR sending command '%s': %v", s.username, msg.Type, err)

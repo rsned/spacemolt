@@ -52,8 +52,6 @@ var InvalidationMap = map[string][]string{
 	"repair":                    {"get_ship"},
 	"deposit_items":             {"get_ship", "get_cargo", "view_storage"},
 	"withdraw_items":            {"get_ship", "get_cargo", "view_storage"},
-	"deposit_credits":           {"view_storage"},
-	"withdraw_credits":          {"view_storage"},
 	"faction_deposit_items":     {"get_ship", "get_cargo", "view_faction_storage"},
 	"faction_withdraw_items":    {"get_ship", "get_cargo", "view_faction_storage"},
 	"faction_deposit_credits":   {"view_faction_storage"},

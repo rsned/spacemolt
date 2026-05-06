@@ -127,11 +127,9 @@ var actionResponseTypes = map[string]reflect.Type{
 	"write_note":  reflect.TypeOf(serverapi.WriteNoteResponse{}),
 
 	// Storage
-	"view_storage":     reflect.TypeOf(serverapi.ViewStorageResponse{}),
-	"withdraw_credits": reflect.TypeOf(serverapi.WithdrawCreditsResponse{}),
-	"deposit_credits":  reflect.TypeOf(serverapi.DepositCreditsResponse{}),
-	"withdraw_items":   reflect.TypeOf(serverapi.WithdrawItemsResponse{}),
-	"deposit_items":    reflect.TypeOf(serverapi.DepositItemsResponse{}),
+	"view_storage":   reflect.TypeOf(serverapi.ViewStorageResponse{}),
+	"withdraw_items": reflect.TypeOf(serverapi.WithdrawItemsResponse{}),
+	"deposit_items":  reflect.TypeOf(serverapi.DepositItemsResponse{}),
 
 	// Insurance and commissions
 	"buy_insurance":     reflect.TypeOf(serverapi.BuyInsuranceResponse{}),

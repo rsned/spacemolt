@@ -47,7 +47,6 @@ type AgentSnapshot struct {
 	Username        string               `json:"username"`
 	Empire          string               `json:"empire"`
 	Credits         float64              `json:"credits"`
-	StorageCredits  float64              `json:"storage_credits"`
 	Location        string               `json:"location"`
 	Docked          bool                 `json:"docked"`
 	POIType         string               `json:"poi_type"` // Type of POI agent is at (station, base, belt, etc.)
@@ -78,8 +77,6 @@ type AgentDiff struct {
 	Username           string
 	Empire             string
 	CreditsDelta       float64
-	StorageCreditsDelta float64
-	TotalCreditsDelta  float64
 	SkillChanges       []string // e.g. "Mining: 4 -> 5"
 	StatChanges        []string // e.g. "OreMined: +150.0"
 	ShipChanged        string   // e.g. "Prospector -> Drillship"
@@ -531,7 +528,6 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 				} `json:"ships"`
 			}
 			if json.Unmarshal(rawJSON, &storageResp) == nil {
-				snap.StorageCredits = storageResp.Credits
 				for _, item := range storageResp.Items {
 					snap.StorageItems = append(snap.StorageItems, StorageEntry{
 						ItemID:   item.ItemID,
@@ -539,8 +535,6 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 					})
 					snap.StorageTotal += item.Quantity
 				}
-				totalCreds := snap.Credits + snap.StorageCredits
-				logger.Printf("  Storage: %.0f credits (Total: %.0f)", snap.StorageCredits, totalCreds)
 
 				// Save storage snapshot to shared knowledge base
 				if kb != nil && storageResp.BaseID != "" {
@@ -891,21 +885,9 @@ func computeDiffs(today, prev map[string]*AgentSnapshot) []AgentDiff {
 			continue
 		}
 
-		// Credits
+		// Credits (server unified the wallet — no separate storage credits).
 		diff.CreditsDelta = snap.Credits - old.Credits
 		if math.Abs(diff.CreditsDelta) >= 1 {
-			diff.HasChanges = true
-		}
-
-		// Storage credits
-		diff.StorageCreditsDelta = snap.StorageCredits - old.StorageCredits
-		if math.Abs(diff.StorageCreditsDelta) >= 1 {
-			diff.HasChanges = true
-		}
-
-		// Total credits (on hand + storage)
-		diff.TotalCreditsDelta = (snap.Credits + snap.StorageCredits) - (old.Credits + old.StorageCredits)
-		if math.Abs(diff.TotalCreditsDelta) >= 1 {
 			diff.HasChanges = true
 		}
 
@@ -1122,7 +1104,7 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 			errorCount++
 			continue
 		}
-		totalCredits += d.TotalCreditsDelta
+		totalCredits += d.CreditsDelta
 		totalSkills += len(d.SkillChanges)
 		if d.HasChanges {
 			changedCount++
@@ -1186,16 +1168,9 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 			// Credits cell
 			var credText string
 			if prevDate == "" {
-				totalCreds := d.Current.Credits + d.Current.StorageCredits
-				credText = fmt.Sprintf("%.0f", totalCreds)
-				if d.Current.StorageCredits > 0 {
-					credText += fmt.Sprintf(" (%.0f in storage)", d.Current.StorageCredits)
-				}
+				credText = fmt.Sprintf("%.0f", d.Current.Credits)
 			} else {
-				credText = formatCredits(d.TotalCreditsDelta)
-				if d.StorageCreditsDelta != 0 {
-					credText += fmt.Sprintf(" [%s: %s]", formatCredits(d.CreditsDelta), formatCredits(d.StorageCreditsDelta))
-				}
+				credText = formatCredits(d.CreditsDelta)
 			}
 
 			// Skills cell
@@ -1256,11 +1231,7 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff) error 
 		b.WriteString("## Unchanged\n\n")
 		for _, d := range diffs {
 			if !d.HasChanges && d.Current.Error == "" {
-				totalCreds := d.Current.Credits + d.Current.StorageCredits
-				creditsText := fmt.Sprintf("%.0f credits", totalCreds)
-				if d.Current.StorageCredits > 0 {
-					creditsText += fmt.Sprintf(" (%.0f in storage)", d.Current.StorageCredits)
-				}
+				creditsText := fmt.Sprintf("%.0f credits", d.Current.Credits)
 				b.WriteString(fmt.Sprintf("- %s (%s) - %s at %s\n",
 					d.AgentID, d.Username, creditsText, d.Current.Location))
 			}
@@ -1289,8 +1260,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 			errorCount++
 			continue
 		}
-		totalCreditsDelta += d.TotalCreditsDelta
-		totalAllCredits += d.Current.Credits + d.Current.StorageCredits
+		totalCreditsDelta += d.CreditsDelta
+		totalAllCredits += d.Current.Credits
 		totalSkills += len(d.SkillChanges)
 		totalStorageItems += len(d.Current.StorageItems)
 		totalStorageItemsDelta += d.StorageItemsDelta
@@ -1619,29 +1590,24 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 				}
 			}
 
-			// Credits cell: show total with trend arrow, then spent (red) and earned (green) below
+			// Credits cell: show wallet with trend arrow, then spent (red) and earned (green) below
 			var credText string
 			if prevDate == "" {
-				// Baseline report: show current total with no trend arrow
-				totalCreds := d.Current.Credits + d.Current.StorageCredits
-				credText = fmt.Sprintf(`<span class="positive">%s</span>`, formatNumber(totalCreds))
-				if d.Current.StorageCredits > 0 {
-					credText += fmt.Sprintf(`<br><small class="neutral">%s in storage</small>`, formatNumber(d.Current.StorageCredits))
-				}
+				// Baseline report: show current wallet with no trend arrow
+				credText = fmt.Sprintf(`<span class="positive">%s</span>`, formatNumber(d.Current.Credits))
 			} else {
-				// Comparison report: show total with trend arrow
-				totalCreds := d.Current.Credits + d.Current.StorageCredits
+				// Comparison report: show wallet with trend arrow
 				trendArrow := "→"
 				trendClass := "neutral"
-				if d.TotalCreditsDelta > 0 {
+				if d.CreditsDelta > 0 {
 					trendArrow = "↗"
 					trendClass = "positive"
-				} else if d.TotalCreditsDelta < 0 {
+				} else if d.CreditsDelta < 0 {
 					trendArrow = "↘"
 					trendClass = "negative"
 				}
 				credText = fmt.Sprintf(`<span class="positive">%s</span> <small class="%s">%s</small>`,
-					formatNumber(totalCreds), trendClass, trendArrow)
+					formatNumber(d.Current.Credits), trendClass, trendArrow)
 			}
 
 			// Add spent and earned values below (without labels)
@@ -1790,9 +1756,8 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff) 
 		b.WriteString(`<ul class="unchanged-list">` + "\n")
 		for _, d := range diffs {
 			if !d.HasChanges && d.Current.Error == "" {
-				totalCreds := d.Current.Credits + d.Current.StorageCredits
 				b.WriteString(fmt.Sprintf("<li>%s (%.0f cr)</li>\n",
-					html.EscapeString(d.AgentID), totalCreds))
+					html.EscapeString(d.AgentID), d.Current.Credits))
 			}
 		}
 		b.WriteString("</ul>\n</details>\n")

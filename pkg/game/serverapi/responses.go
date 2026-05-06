@@ -738,22 +738,6 @@ type ViewStorageResponse struct {
 	Hint    string        `json:"hint,omitempty"`
 }
 
-// WithdrawCreditsResponse wraps the response from withdraw_credits command.
-type WithdrawCreditsResponse struct {
-	Action         string `json:"action"`
-	Amount         int    `json:"amount"`
-	WalletTotal    int    `json:"wallet_total"`
-	StorageCredits int    `json:"storage_credits"`
-}
-
-// DepositCreditsResponse wraps the response from deposit_credits command.
-type DepositCreditsResponse struct {
-	Action          string `json:"action"`
-	Amount          int    `json:"amount"`
-	WalletRemaining int    `json:"wallet_remaining"`
-	StorageCredits  int    `json:"storage_credits"`
-}
-
 // WithdrawItemsResponse wraps the response from withdraw_items command.
 type WithdrawItemsResponse struct {
 	Action           string `json:"action"`

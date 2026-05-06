@@ -32,6 +32,7 @@ type row struct {
 	POIType     string
 	Fuel        float64
 	MaxFuel     float64
+	Credits     float64
 	SystemID    string
 	SystemName  string
 	SysEmpire   string
@@ -61,6 +62,7 @@ snaps AS (
         json_extract(s.state_json, '$.poi_type')   AS poi_type,
         json_extract(s.state_json, '$.fuel')       AS fuel,
         json_extract(s.state_json, '$.max_fuel')   AS max_fuel,
+        json_extract(s.state_json, '$.credits')    AS credits,
         json_extract(s.state_json, '$.location')   AS location
     FROM snapshots s
     JOIN latest l ON l.agent_id = s.agent_id AND l.d = s.captured_date
@@ -89,6 +91,7 @@ SELECT
     COALESCE(p.poi_type, ''),
     COALESCE(p.fuel, 0),
     COALESCE(p.max_fuel, 0),
+    COALESCE(p.credits, 0),
     COALESCE(sys.id, ''),
     COALESCE(sys.name, p.loc_system_name),
     COALESCE(sys.empire, ''),
@@ -138,6 +141,7 @@ func main() {
 			&r.AgentID, &r.Username, &r.AgentEmpire, &r.ShipClass,
 			&dockedInt, &r.POIType,
 			&r.Fuel, &r.MaxFuel,
+			&r.Credits,
 			&r.SystemID, &r.SystemName, &r.SysEmpire,
 			&r.POIID, &r.POIName, &r.Location,
 		); err != nil {
@@ -253,6 +257,8 @@ th { background: #f4f4f4; }
 .fuel-crit { color: #c00; font-weight: bold; }
 .fuel-none { color: #bbb; }
 .count { color: #888; font-size: 0.85em; font-weight: normal; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.zero { color: #bbb; }
 </style></head><body>`)
 	fmt.Fprintf(&b, "<h1>Agents by System</h1>\n")
 	fmt.Fprintf(&b, `<div class="timestamp">Generated %s — %d agents</div>`+"\n",
@@ -302,7 +308,7 @@ th { background: #f4f4f4; }
 				pg := g.POIs[pid]
 				fmt.Fprintf(&b, `<h4 class="poi">%s <span class="poiid">[%s]</span></h4>`+"\n",
 					html.EscapeString(pg.Name), html.EscapeString(pg.ID))
-				b.WriteString("<table><tr><th>Agent</th><th>Username</th><th>Home Empire</th><th>Ship</th><th>Fuel</th><th>Docked</th><th>POI Type</th></tr>\n")
+				b.WriteString(`<table><tr><th>Agent</th><th>Username</th><th>Home Empire</th><th>Ship</th><th>Fuel</th><th class="num">Credits</th><th>Docked</th><th>POI Type</th></tr>` + "\n")
 				// Sort agents within a POI by agent id for stability
 				sort.Slice(pg.Rows, func(i, j int) bool { return pg.Rows[i].AgentID < pg.Rows[j].AgentID })
 				for _, r := range pg.Rows {
@@ -311,13 +317,15 @@ th { background: #f4f4f4; }
 						dockedCell = `<span class="docked">docked</span>`
 					}
 					fuelCell := fuelHTML(r.Fuel, r.MaxFuel)
+					creditsCell := creditsHTML(r.Credits)
 					fmt.Fprintf(&b,
-						"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+						"<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class=\"num\">%s</td><td>%s</td><td>%s</td></tr>\n",
 						html.EscapeString(r.AgentID),
 						html.EscapeString(r.Username),
 						html.EscapeString(r.AgentEmpire),
 						html.EscapeString(r.ShipClass),
 						fuelCell,
+						creditsCell,
 						dockedCell,
 						html.EscapeString(r.POIType),
 					)
@@ -330,6 +338,50 @@ th { background: #f4f4f4; }
 
 	_, err := w.WriteString(b.String())
 	return err
+}
+
+// creditsHTML renders a credits cell. Server moved to a single global
+// wallet, so this is just the unified balance.
+func creditsHTML(credits float64) string {
+	if credits == 0 {
+		return `<span class="zero">—</span>`
+	}
+	return html.EscapeString(formatCredits(credits))
+}
+
+// formatCredits renders an integer-looking credit amount with thousands
+// separators (commas). Negatives keep their sign.
+func formatCredits(n float64) string {
+	whole := int64(n)
+	neg := whole < 0
+	if neg {
+		whole = -whole
+	}
+	s := fmt.Sprintf("%d", whole)
+	if len(s) <= 3 {
+		if neg {
+			return "-" + s
+		}
+		return s
+	}
+	var b strings.Builder
+	off := len(s) % 3
+	if off > 0 {
+		b.WriteString(s[:off])
+		if len(s) > off {
+			b.WriteByte(',')
+		}
+	}
+	for i := off; i < len(s); i += 3 {
+		b.WriteString(s[i : i+3])
+		if i+3 < len(s) {
+			b.WriteByte(',')
+		}
+	}
+	if neg {
+		return "-" + b.String()
+	}
+	return b.String()
 }
 
 // fuelHTML renders a fuel cell as "cur/max (pct%)" with class-based

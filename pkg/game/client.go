@@ -4895,16 +4895,6 @@ func (c *Client) WithdrawItemsQueued(ctx context.Context, itemID string, quantit
 	return err
 }
 
-// DepositCreditsQueued deposits credits to storage using the queue
-func (c *Client) DepositCreditsQueued(ctx context.Context, amount float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "deposit_credits",
-		Payload:   map[string]any{"amount": amount},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
 // AcceptMissionQueued accepts a mission using the queue
 func (c *Client) AcceptMissionQueued(ctx context.Context, missionID string) error {
 	_, err := c.SendQueued(ctx, protocol.Message{

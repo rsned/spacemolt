@@ -607,28 +607,6 @@ func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity floa
 	return err
 }
 
-// WithdrawCredits moves credits from station storage to wallet.
-func (c *Client) WithdrawCredits(ctx context.Context, amount float64) error {
-	msg := protocol.Message{
-		Type:      "withdraw_credits",
-		Payload:   map[string]any{"amount": amount},
-		Timestamp: time.Now().UnixMilli(),
-	}
-	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_credits"), terminateOnAction, SleepTick*3)
-	return err
-}
-
-// DepositCredits moves credits from wallet to station storage.
-func (c *Client) DepositCredits(ctx context.Context, amount float64) error {
-	msg := protocol.Message{
-		Type:      "deposit_credits",
-		Payload:   map[string]any{"amount": amount},
-		Timestamp: time.Now().UnixMilli(),
-	}
-	_, err := c.execMutation(ctx, msg, matchCommand("deposit_credits"), terminateOnAction, SleepTick*3)
-	return err
-}
-
 // SendGift sends items or credits to another player's storage at this station.
 func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
 	msg := protocol.Message{
