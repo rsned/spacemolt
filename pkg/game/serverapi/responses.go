@@ -1037,6 +1037,7 @@ type JumpedResponse struct {
 	FromSystem    string `json:"from_system,omitempty"`
 	NavigationXP  int    `json:"navigation_xp,omitempty"`
 	ExplorationXP int    `json:"exploration_xp,omitempty"`
+	PilotingXP    int    `json:"piloting_xp,omitempty"`
 	POI           string `json:"poi,omitempty"`
 	System        string `json:"system,omitempty"`
 	SystemID      string `json:"system_id,omitempty"`

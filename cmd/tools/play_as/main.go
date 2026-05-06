@@ -1065,98 +1065,80 @@ func formatStorage(raw []byte) string {
 	return b.String()
 }
 
-// formatBuyOrders formats up to 2 buy orders with station prefix.
-// Returns slice of formatted strings (price with prefix, quantity).
-func formatBuyOrders(orders []struct {
-	PriceEach float64 `json:"price_each"`
-	Quantity  float64 `json:"quantity"`
-	Source    string  `json:"source,omitempty"`
-}) []struct {
+// marketOrder is one row from view_market's buy_orders / sell_orders array.
+//
+// MyQuantity is populated by the server when the order belongs to this player
+// (the standalone "my open order" case). Source == "station" means the row
+// is a station/NPC listing rather than a player order.
+type marketOrder struct {
+	PriceEach  float64 `json:"price_each"`
+	Quantity   float64 `json:"quantity"`
+	MyQuantity float64 `json:"my_quantity,omitempty"`
+	Source     string  `json:"source,omitempty"`
+}
+
+// formattedOrder is one rendered row of the order book.
+type formattedOrder struct {
 	price string
 	qty   string
-} {
+}
+
+// orderPrefix returns the visual marker for an order:
+//
+//	"✓ " — your own open order (my_quantity > 0)
+//	"* " — station/NPC listing
+//	""   — another player's order
+//
+// If a row somehow qualifies as both yours and a station entry (shouldn't
+// happen in practice), "✓ " wins since it's the more actionable info.
+func orderPrefix(o marketOrder) string {
+	switch {
+	case o.MyQuantity > 0:
+		return "✓ "
+	case o.Source == "station":
+		return "* "
+	default:
+		return ""
+	}
+}
+
+// formatBuyOrders formats every buy order with the appropriate prefix,
+// sorted by price descending (highest bid first).
+func formatBuyOrders(orders []marketOrder) []formattedOrder {
 	// Sort by price descending (highest first). Buy orders are bids from
 	// other players; the best one to accept is the one offering the most.
-	sorted := make([]struct {
-		PriceEach float64 `json:"price_each"`
-		Quantity  float64 `json:"quantity"`
-		Source    string  `json:"source,omitempty"`
-	}, len(orders))
+	sorted := make([]marketOrder, len(orders))
 	copy(sorted, orders)
-
-	slices.SortFunc(sorted, func(a, b struct {
-		PriceEach float64 `json:"price_each"`
-		Quantity  float64 `json:"quantity"`
-		Source    string  `json:"source,omitempty"`
-	}) int {
-		return cmp.Compare(b.PriceEach, a.PriceEach) // Descending
+	slices.SortFunc(sorted, func(a, b marketOrder) int {
+		return cmp.Compare(b.PriceEach, a.PriceEach)
 	})
 
-	// Take top 2
-	result := make([]struct {
-		price string
-		qty   string
-	}, 0, 2)
-	for i := 0; i < len(sorted) && i < 2; i++ {
-		prefix := ""
-		if sorted[i].Source == "station" {
-			prefix = "* "
-		}
-		result = append(result, struct {
-			price string
-			qty   string
-		}{
-			price: prefix + fmt.Sprintf("%.0f", sorted[i].PriceEach),
-			qty:   fmt.Sprintf("%.0f", sorted[i].Quantity),
+	result := make([]formattedOrder, 0, len(sorted))
+	for _, o := range sorted {
+		result = append(result, formattedOrder{
+			price: orderPrefix(o) + fmt.Sprintf("%.0f", o.PriceEach),
+			qty:   fmt.Sprintf("%.0f", o.Quantity),
 		})
 	}
-
 	return result
 }
 
-// formatSellOrders formats up to 2 sell orders with station prefix.
-// Returns slice of formatted strings (price with prefix, quantity).
-func formatSellOrders(orders []struct {
-	PriceEach float64 `json:"price_each"`
-	Quantity  float64 `json:"quantity"`
-	Source    string  `json:"source,omitempty"`
-}) []struct {
-	price string
-	qty   string
-} {
+// formatSellOrders formats every sell order with the appropriate prefix,
+// sorted by price ascending (cheapest ask first).
+func formatSellOrders(orders []marketOrder) []formattedOrder {
 	// Sort by price ascending (lowest first). Sell orders are listings
 	// from other players; the best one to buy from is the cheapest.
-	sorted := make([]struct {
-		PriceEach float64 `json:"price_each"`
-		Quantity  float64 `json:"quantity"`
-		Source    string  `json:"source,omitempty"`
-	}, len(orders))
+	sorted := make([]marketOrder, len(orders))
 	copy(sorted, orders)
-
-	slices.SortFunc(sorted, func(a, b struct {
-		PriceEach float64 `json:"price_each"`
-		Quantity  float64 `json:"quantity"`
-		Source    string  `json:"source,omitempty"`
-	}) int {
-		return cmp.Compare(a.PriceEach, b.PriceEach) // Ascending
+	slices.SortFunc(sorted, func(a, b marketOrder) int {
+		return cmp.Compare(a.PriceEach, b.PriceEach)
 	})
 
-	// Take top 2
-	result := make([]struct {
-		price string
-		qty   string
-	}, 0, 2)
-	for i := 0; i < len(sorted) && i < 2; i++ {
-		prefix := ""
-		if sorted[i].Source == "station" {
-			prefix = "* "
-		}
-		result = append(result, struct {
-			price string
-			qty   string
-		}{
-			price: prefix + fmt.Sprintf("%.0f", sorted[i].PriceEach),
-			qty:   fmt.Sprintf("%.0f", sorted[i].Quantity),
+	result := make([]formattedOrder, 0, len(sorted))
+	for _, o := range sorted {
+		result = append(result, formattedOrder{
+			price: orderPrefix(o) + fmt.Sprintf("%.0f", o.PriceEach),
+			qty:   fmt.Sprintf("%.0f", o.Quantity),
 		})
 	}
 
@@ -1304,19 +1286,11 @@ func formatChatHistory(raw []byte) string {
 
 func formatMarket(raw []byte) string {
 	type MarketItem struct {
-		ItemID    string `json:"item_id"`
-		ItemName  string `json:"item_name"`
-		Category  string `json:"category,omitempty"`
-		BuyOrders []struct {
-			PriceEach float64 `json:"price_each"`
-			Quantity  float64 `json:"quantity"`
-			Source    string  `json:"source,omitempty"`
-		} `json:"buy_orders"`
-		SellOrders []struct {
-			PriceEach float64 `json:"price_each"`
-			Quantity  float64 `json:"quantity"`
-			Source    string  `json:"source,omitempty"`
-		} `json:"sell_orders"`
+		ItemID     string        `json:"item_id"`
+		ItemName   string        `json:"item_name"`
+		Category   string        `json:"category,omitempty"`
+		BuyOrders  []marketOrder `json:"buy_orders"`
+		SellOrders []marketOrder `json:"sell_orders"`
 	}
 
 	var resp struct {
@@ -1417,68 +1391,74 @@ func formatMarket(raw []byte) string {
 		_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t-----\t|\t---\t|\t-----\t|\t---\t|\n",
 			nameSep, idSep)
 
+		// When the response holds only a single item — the case where the
+		// caller passed a specific item_id to view_market — show up to 25
+		// rows of the order book instead of just the top 2.
+		maxRowsPerItem := 2
+		if len(resp.Items) == 1 {
+			maxRowsPerItem = 25
+		}
+
+		nameBlank := strings.Repeat(" ", maxNameWidth)
+		idBlank := strings.Repeat(" ", maxIDWidth)
+
 		for _, item := range items {
 			buys := formatBuyOrders(item.BuyOrders)
 			sells := formatSellOrders(item.SellOrders)
 
-			// Row 1: Best buy and sell
-			buyPrice1, buyQty1 := "-", "-"
-			if len(buys) > 0 {
-				buyPrice1 = buys[0].price
-				buyQty1 = buys[0].qty
+			// Emit at least 1 row even when both books are empty so the item
+			// still appears in the table with placeholder dashes.
+			rows := max(len(buys), len(sells), 1)
+			truncated := rows > maxRowsPerItem
+			if truncated {
+				rows = maxRowsPerItem
 			}
 
-			sellPrice1, sellQty1 := "-", "-"
-			if len(sells) > 0 {
-				sellPrice1 = sells[0].price
-				sellQty1 = sells[0].qty
-			}
-
-			// Pad Name and ID to max widths
-			name := item.ItemName
-			for len(name) < maxNameWidth {
-				name += " "
-			}
-			id := item.ItemID
-			for len(id) < maxIDWidth {
-				id += " "
-			}
-
-			_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
-				name, id,
-				buyPrice1, buyQty1,
-				sellPrice1, sellQty1,
-			)
-
-			// Row 2: Second best buy and sell (if exists)
-			if len(buys) > 1 || len(sells) > 1 {
-				buyPrice2, buyQty2 := "-", "-"
-				if len(buys) > 1 {
-					buyPrice2 = buys[1].price
-					buyQty2 = buys[1].qty
+			for r := 0; r < rows; r++ {
+				var name, id string
+				if r == 0 {
+					name = item.ItemName
+					for len(name) < maxNameWidth {
+						name += " "
+					}
+					id = item.ItemID
+					for len(id) < maxIDWidth {
+						id += " "
+					}
+				} else {
+					name, id = nameBlank, idBlank
 				}
 
-				sellPrice2, sellQty2 := "-", "-"
-				if len(sells) > 1 {
-					sellPrice2 = sells[1].price
-					sellQty2 = sells[1].qty
+				buyPrice, buyQty := "-", "-"
+				if r < len(buys) {
+					buyPrice = buys[r].price
+					buyQty = buys[r].qty
 				}
-
-				// Empty Name and ID for second row (still padded)
-				emptyName := ""
-				emptyID := ""
-				for len(emptyName) < maxNameWidth {
-					emptyName += " "
-				}
-				for len(emptyID) < maxIDWidth {
-					emptyID += " "
+				sellPrice, sellQty := "-", "-"
+				if r < len(sells) {
+					sellPrice = sells[r].price
+					sellQty = sells[r].qty
 				}
 
 				_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
-					emptyName, emptyID,
-					buyPrice2, buyQty2,
-					sellPrice2, sellQty2,
-				)
+					name, id, buyPrice, buyQty, sellPrice, sellQty)
+			}
+
+			if truncated {
+				extraBuys := max(len(buys)-maxRowsPerItem, 0)
+				extraSells := max(len(sells)-maxRowsPerItem, 0)
+				buyMore := ""
+				if extraBuys > 0 {
+					buyMore = fmt.Sprintf("... %d more", extraBuys)
+				}
+				sellMore := ""
+				if extraSells > 0 {
+					sellMore = fmt.Sprintf("... %d more", extraSells)
+				}
+				// Single trailer row: leave the side with no extras blank
+				// rather than printing "0 more".
+				_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t\t|\t%s\t|\t\t|\n",
+					nameBlank, idBlank, buyMore, sellMore)
 			}
 		}
 	}

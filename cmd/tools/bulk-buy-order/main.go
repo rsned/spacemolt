@@ -9,11 +9,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -30,6 +32,7 @@ const gameServerURL = "wss://game.spacemolt.com/ws"
 func main() {
 	agentID := flag.String("agent", "", "Agent ID for authentication (required)")
 	dbPath := flag.String("db", "", "Path to crafting SQLite DB (default: auto-detect, env: CRAFTING_DB)")
+	itemsFile := flag.String("items-file", "", "Path to a file with item_ids to order (one per line; '#' starts a comment; '-' reads stdin). When set, overrides --db/--categories.")
 	price := flag.Int("price", 1, "Price per unit in credits")
 	quantity := flag.Int("quantity", 1, "Quantity per item")
 	batchSize := flag.Int("batch-size", 50, "Orders per API call (max 50)")
@@ -42,7 +45,10 @@ func main() {
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: bulk-buy-order --agent=<id> [flags]\n\n")
-		fmt.Fprintf(os.Stderr, "Place buy orders for every item in the crafting DB to seed market data.\n\n")
+		fmt.Fprintf(os.Stderr, "Place buy orders to seed market data. By default item ids are pulled from\n")
+		fmt.Fprintf(os.Stderr, "the local crafting DB; pass --items-file to drive the run from an explicit\n")
+		fmt.Fprintf(os.Stderr, "list (one item_id per line) — useful for station-only items the catalog\n")
+		fmt.Fprintf(os.Stderr, "DB doesn't know about.\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 	}
@@ -58,14 +64,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Resolve DB path.
-	resolvedDB := resolveDBPath(*dbPath)
-	if resolvedDB == "" {
-		fmt.Fprintf(os.Stderr, "Error: could not find crafting DB. Use --db or set CRAFTING_DB env var.\n")
-		os.Exit(1)
-	}
-
-	// Parse category filter.
+	// Parse category filter (only consulted for the DB path).
 	var catFilter []string
 	if *categories != "" {
 		for _, c := range strings.Split(*categories, ",") {
@@ -76,16 +75,37 @@ func main() {
 		}
 	}
 
-	// Load item IDs from crafting DB.
-	itemIDs, err := loadItemIDs(resolvedDB, catFilter)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading items: %v\n", err)
-		os.Exit(1)
-	}
-	if len(catFilter) > 0 {
-		fmt.Fprintf(os.Stderr, "Loaded %d items from %s (categories: %s)\n", len(itemIDs), resolvedDB, strings.Join(catFilter, ", "))
+	// Load item IDs — from explicit file, or from the crafting DB.
+	var (
+		itemIDs []string
+		err     error
+	)
+	if *itemsFile != "" {
+		if *categories != "" {
+			fmt.Fprintln(os.Stderr, "Note: --categories is ignored when --items-file is set.")
+		}
+		itemIDs, err = loadItemIDsFromFile(*itemsFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading items from %s: %v\n", *itemsFile, err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "Loaded %d items from %s\n", len(itemIDs), *itemsFile)
 	} else {
-		fmt.Fprintf(os.Stderr, "Loaded %d items from %s\n", len(itemIDs), resolvedDB)
+		resolvedDB := resolveDBPath(*dbPath)
+		if resolvedDB == "" {
+			fmt.Fprintf(os.Stderr, "Error: could not find crafting DB. Use --db, set CRAFTING_DB, or pass --items-file.\n")
+			os.Exit(1)
+		}
+		itemIDs, err = loadItemIDs(resolvedDB, catFilter)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading items: %v\n", err)
+			os.Exit(1)
+		}
+		if len(catFilter) > 0 {
+			fmt.Fprintf(os.Stderr, "Loaded %d items from %s (categories: %s)\n", len(itemIDs), resolvedDB, strings.Join(catFilter, ", "))
+		} else {
+			fmt.Fprintf(os.Stderr, "Loaded %d items from %s\n", len(itemIDs), resolvedDB)
+		}
 	}
 
 	// Apply offset and limit.
@@ -138,7 +158,10 @@ func main() {
 	ctx := context.Background()
 	logger := log.New(os.Stderr, fmt.Sprintf("[%s] ", *agentID), log.LstdFlags)
 
-	var client game.GameClient
+	var (
+		client   game.GameClient
+		wsClient *game.Client // non-nil only for ws transport; used for reconnect
+	)
 	switch *transport {
 	case "mcp":
 		logger.Printf("Using MCP transport")
@@ -157,7 +180,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		wsClient := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
+		wsClient = game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
 		wsClient.SetDebugLogging(*debug)
 
 		if err := wsClient.Connect(ctx); err != nil {
@@ -180,15 +203,31 @@ func main() {
 	}
 	defer func() { _ = client.Close() }()
 
-	// Send batches.
+	// ensureConnected reconnects + re-logs in if the WS connection has dropped.
+	// No-op for non-ws transports.
+	ensureConnected := func() error {
+		if wsClient == nil || wsClient.IsConnected() {
+			return nil
+		}
+		logger.Printf("Connection dropped, reconnecting...")
+		if err := wsClient.Reconnect(ctx); err != nil {
+			return fmt.Errorf("reconnect: %w", err)
+		}
+		time.Sleep(game.SleepQuick)
+		return nil
+	}
+
+	// Send batches. The server has been observed to close the WS connection
+	// shortly after a successful 50-order create_buy_order. Reconnect on
+	// demand between batches and on send failure.
 	totalSent := 0
 	for i, batch := range batches {
 		orders := make([]map[string]any, len(batch))
 		for j, itemID := range batch {
 			orders[j] = map[string]any{
-				"item_id":  itemID,
+				"item_id":    itemID,
 				"price_each": *price,
-				"quantity": *quantity,
+				"quantity":   *quantity,
 			}
 		}
 
@@ -199,11 +238,44 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Batch %d/%d: %d orders (items: %s ... %s)\n",
 			i+1, len(batches), len(batch), batch[0], batch[len(batch)-1])
 
-		if err := client.CreateBuyOrder(ctx, payload); err != nil {
+		if err := ensureConnected(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error before batch %d: %v\n", i+1, err)
+			os.Exit(1)
+		}
+
+		err := client.CreateBuyOrder(ctx, payload)
+		switch {
+		case err == nil:
+			// Happy path.
+			totalSent += len(batch)
+		case wsClient != nil && isConnectionDropError(err):
+			// Send itself failed because socket was already dead — the server
+			// never saw this batch. Reconnect and retry once.
+			logger.Printf("Batch %d send failed (%v), reconnecting and retrying once", i+1, err)
+			if rerr := wsClient.Reconnect(ctx); rerr != nil {
+				fmt.Fprintf(os.Stderr, "Error sending batch %d: send failed and reconnect failed: %v (original: %v)\n",
+					i+1, rerr, err)
+				os.Exit(1)
+			}
+			time.Sleep(game.SleepQuick)
+			if err = client.CreateBuyOrder(ctx, payload); err != nil {
+				fmt.Fprintf(os.Stderr, "Error sending batch %d after reconnect: %v\n", i+1, err)
+				os.Exit(1)
+			}
+			totalSent += len(batch)
+		case wsClient != nil && isActionTimeoutError(err) && !wsClient.IsConnected():
+			// Server replied "pending" but the WS dropped before the
+			// action_result arrived. The orders were accepted server-side
+			// (pending=true is a commit) and almost certainly processed —
+			// retrying would just create duplicate orders. Log loudly,
+			// reconnect for the next batch, and credit this one as sent.
+			logger.Printf("Batch %d: connection dropped while awaiting action_result; "+
+				"server already accepted via pending=true, assuming completed (%v)", i+1, err)
+			totalSent += len(batch)
+		default:
 			fmt.Fprintf(os.Stderr, "Error sending batch %d: %v\n", i+1, err)
 			os.Exit(1)
 		}
-		totalSent += len(batch)
 
 		// Wait a full tick between batches so the server finishes processing
 		// the current action before we submit the next one.
@@ -213,6 +285,39 @@ func main() {
 	}
 
 	fmt.Fprintf(os.Stderr, "Done: %d buy orders placed across %d batches.\n", totalSent, len(batches))
+}
+
+// isConnectionDropError reports whether err is the WS-disconnected sentinel
+// returned by Send when the underlying socket has gone away.
+func isConnectionDropError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, needle := range []string{
+		"not connected",
+		"connection reset",
+		"connection closed",
+		"broken pipe",
+		"websocket closed",
+		"failed to send message",
+	} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// isActionTimeoutError reports whether err is the execMutation timeout that
+// fires when we sent a command and got the initial OK but never received
+// the matching action_result before the deadline. Combined with a dead
+// socket this signals "server accepted; we just lost the confirmation."
+func isActionTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "timeout waiting for")
 }
 
 func resolveDBPath(explicit string) string {
@@ -263,6 +368,60 @@ func loadItemIDs(dbPath string, categories []string) ([]string, error) {
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// loadItemIDsFromFile reads item ids from a text file (one per line). Lines
+// starting with "#" and blank lines are skipped; "-" reads from stdin.
+// Trailing/leading whitespace is trimmed and duplicate ids are removed while
+// preserving first-seen order.
+func loadItemIDsFromFile(path string) ([]string, error) {
+	var src io.ReadCloser
+	if path == "-" {
+		src = io.NopCloser(os.Stdin)
+	} else {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("open: %w", err)
+		}
+		src = f
+	}
+	defer func() { _ = src.Close() }()
+
+	seen := make(map[string]struct{})
+	var ids []string
+	scanner := bufio.NewScanner(src)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	lineNo := 0
+	for scanner.Scan() {
+		lineNo++
+		line := scanner.Text()
+		// Strip inline comment.
+		if hash := strings.IndexByte(line, '#'); hash >= 0 {
+			line = line[:hash]
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Item ids in this codebase are lowercase alphanumeric + underscore.
+		// We don't enforce that strictly, but reject anything containing
+		// whitespace as an obvious format error.
+		if strings.ContainsAny(line, " \t") {
+			return nil, fmt.Errorf("line %d: item id contains whitespace: %q", lineNo, line)
+		}
+		if _, dup := seen[line]; dup {
+			continue
+		}
+		seen[line] = struct{}{}
+		ids = append(ids, line)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan: %w", err)
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no item ids found")
+	}
+	return ids, nil
 }
 
 func chunk(items []string, size int) [][]string {
