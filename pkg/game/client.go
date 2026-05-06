@@ -3492,11 +3492,16 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			_, hasStationFac := resp.Payload["station_facilities"]
 			_, hasFactionFac := resp.Payload["faction_facilities"]
 			_, hasPlayerFac := resp.Payload["player_facilities"]
+			_, hasFactionID := resp.Payload["faction_id"]
 			isFacility := hasStationFac || hasFactionFac || hasPlayerFac
 			isStorageShape := !hasMissions && !hasOrders && !hasServices && !isFacility
 			if isStorageShape {
 				if storeKey == "" {
-					storeKey = "storage"
+					if hasFactionID {
+						storeKey = "faction_storage"
+					} else {
+						storeKey = "storage"
+					}
 				}
 				shouldStore = true
 

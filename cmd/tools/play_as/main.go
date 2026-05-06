@@ -539,6 +539,8 @@ func formatStyledResponse(raw []byte, command string) string {
 	switch command {
 	case "storage", "view_storage":
 		return formatStorage(raw)
+	case "view_faction_storage":
+		return formatFactionStorage(raw)
 	case "cargo", "get_cargo":
 		return formatCargo(raw)
 	case "browse_ships":
@@ -1061,6 +1063,150 @@ func formatStorage(raw []byte) string {
 				modW, ship.Modules)
 		}
 		fmt.Fprintf(&b, "  (%d ships)\n", len(resp.Ships))
+	}
+
+	return b.String()
+}
+
+// formatCommas formats an integer with thousands separators.
+func formatCommas(n int) string {
+	s := strconv.Itoa(n)
+	neg := false
+	if strings.HasPrefix(s, "-") {
+		neg = true
+		s = s[1:]
+	}
+	if len(s) <= 3 {
+		if neg {
+			return "-" + s
+		}
+		return s
+	}
+	first := len(s) % 3
+	if first == 0 {
+		first = 3
+	}
+	var b strings.Builder
+	if neg {
+		b.WriteByte('-')
+	}
+	b.WriteString(s[:first])
+	for i := first; i < len(s); i += 3 {
+		b.WriteByte(',')
+		b.WriteString(s[i : i+3])
+	}
+	return b.String()
+}
+
+// factionStorageActivity is one row from view_faction_storage's recent_activity.
+type factionStorageActivity struct {
+	Player    string `json:"player"`
+	Action    string `json:"action"`
+	Item      string `json:"item,omitempty"`
+	Quantity  int    `json:"quantity,omitempty"`
+	Credits   int    `json:"credits,omitempty"`
+	Timestamp string `json:"timestamp"`
+}
+
+// formatFactionStorage formats a view_faction_storage response as sorted tables.
+func formatFactionStorage(raw []byte) string {
+	var resp struct {
+		FactionID      string                   `json:"faction_id"`
+		FactionName    string                   `json:"faction_name"`
+		FactionTag     string                   `json:"faction_tag"`
+		BaseID         string                   `json:"base_id"`
+		Credits        int                      `json:"credits"`
+		Items          []storageItem            `json:"items"`
+		RecentActivity []factionStorageActivity `json:"recent_activity"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Faction Storage: %s [%s] at %s\n", resp.FactionName, resp.FactionTag, resp.BaseID)
+	fmt.Fprintf(&b, "  Credits: %s\n", formatCommas(resp.Credits))
+
+	// Items table
+	if len(resp.Items) == 0 {
+		b.WriteString("  (no items)\n")
+	} else {
+		slices.SortFunc(resp.Items, func(a, b storageItem) int {
+			return strings.Compare(a.ItemID, b.ItemID)
+		})
+
+		idW, nameW, qtyW, sizeW := len("ID"), len("Name"), len("Qty"), len("Unit Size")
+		for _, item := range resp.Items {
+			idW = max(idW, len(item.ItemID))
+			nameW = max(nameW, len(item.Name))
+			qtyW = max(qtyW, len(formatFloat(item.Quantity)))
+			sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+		}
+
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", idW), strings.Repeat("-", nameW),
+			strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+
+		for _, item := range resp.Items {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d\n",
+				idW, item.ItemID, nameW, item.Name,
+				qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+		}
+		fmt.Fprintf(&b, "  (%d items)\n", len(resp.Items))
+	}
+
+	// Recent activity — sorted newest-first, capped at 10 rows.
+	if len(resp.RecentActivity) > 0 {
+		b.WriteString("\n  RECENT ACTIVITY\n")
+
+		activity := slices.Clone(resp.RecentActivity)
+		slices.SortFunc(activity, func(a, b factionStorageActivity) int {
+			return strings.Compare(b.Timestamp, a.Timestamp)
+		})
+		const maxRows = 10
+		extra := 0
+		if len(activity) > maxRows {
+			extra = len(activity) - maxRows
+			activity = activity[:maxRows]
+		}
+
+		whenW, playerW, actionW, detailW := len("When"), len("Player"), len("Action"), len("Detail")
+		rows := make([][4]string, 0, len(activity))
+		for _, a := range activity {
+			when := a.Timestamp
+			if t, err := time.Parse(time.RFC3339Nano, a.Timestamp); err == nil {
+				when = t.Format("2006-01-02 15:04:05")
+			}
+			detail := ""
+			switch {
+			case a.Credits > 0:
+				detail = formatCommas(a.Credits) + " credits"
+			case a.Item != "" && a.Quantity > 0:
+				detail = fmt.Sprintf("%d × %s", a.Quantity, a.Item)
+			case a.Item != "":
+				detail = a.Item
+			}
+			whenW = max(whenW, len(when))
+			playerW = max(playerW, len(a.Player))
+			actionW = max(actionW, len(a.Action))
+			detailW = max(detailW, len(detail))
+			rows = append(rows, [4]string{when, a.Player, a.Action, detail})
+		}
+
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %-*s\n",
+			whenW, "When", playerW, "Player", actionW, "Action", detailW, "Detail")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", whenW), strings.Repeat("-", playerW),
+			strings.Repeat("-", actionW), strings.Repeat("-", detailW))
+
+		for _, r := range rows {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %-*s\n",
+				whenW, r[0], playerW, r[1], actionW, r[2], detailW, r[3])
+		}
+		if extra > 0 {
+			fmt.Fprintf(&b, "  ... %d more\n", extra)
+		}
 	}
 
 	return b.String()
@@ -4388,6 +4534,7 @@ var rawJSONKeyForCommand = map[string]string{
 	"get_poi":             "poi",
 	"storage_at":          "storage",
 	"view_storage":        "storage",
+	"view_faction_storage": "faction_storage",
 	"browse_ships":        "listings",
 	"view_market":         "market",
 	"view_orders":         "orders",
