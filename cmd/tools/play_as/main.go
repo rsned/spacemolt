@@ -2806,10 +2806,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === NAVIGATION ===
 	case "undock":
-		return simpleCommand(client, client.Undock, ctx, 12*time.Second, cmd, format)
+		return simpleCommand(client, func(ctx context.Context) error {
+			err := client.Undock(ctx)
+			return reconcileDockState(ctx, client, "undock", err)
+		}, ctx, 12*time.Second, cmd, format)
 
 	case "dock":
-		return simpleCommand(client, client.Dock, ctx, 3*time.Second, cmd, format)
+		return simpleCommand(client, func(ctx context.Context) error {
+			err := client.Dock(ctx)
+			return reconcileDockState(ctx, client, "dock", err)
+		}, ctx, 3*time.Second, cmd, format)
 
 	case "travel":
 		if len(parts) < 2 {
@@ -4621,6 +4627,43 @@ func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx c
 		time.Sleep(wait)
 	}
 	return nil
+}
+
+// reconcileDockState swallows a dock/undock timeout when the underlying
+// transition actually happened — typically because the WS dropped between
+// the action committing server-side and the terminal frame reaching us, and
+// the client's auto-reconnect hydrated state from the post-action welcome.
+//
+// On non-timeout errors, returns err unchanged. On success, refreshes status
+// so the printed response reflects the post-transition state.
+func reconcileDockState(ctx context.Context, client game.GameClient, action string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(err.Error(), "timeout waiting for "+action) {
+		return err
+	}
+	if !client.IsConnected() {
+		return err
+	}
+	// Refresh state so we read the post-action snapshot, not whatever was
+	// cached before the disconnect.
+	statusCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if statusErr := client.GetStatus(statusCtx); statusErr != nil {
+		return err
+	}
+	state := client.GetState()
+	if state == nil {
+		return err
+	}
+	docked := state.IsDocked()
+	wantDocked := action == "dock"
+	if docked == wantDocked {
+		fmt.Printf("⚠ %s timed out (likely WS drop) but state confirms transition; treating as success\n", action)
+		return nil
+	}
+	return err
 }
 
 // travelEstimate holds pre-travel distance, tick, and fuel estimates.
