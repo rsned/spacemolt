@@ -4092,17 +4092,20 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "chat_history", "get_chat_history":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: chat_history <channel> [--target_id <username>]")
+			return fmt.Errorf("usage: chat_history <channel> [--target_id <username>] [--before <ts>] [--after <ts>] [--limit <n>]")
 		}
 		channel := parts[1]
 		// Parse optional --target_id flag (required for private channel)
-		flagArgs := parseFlagArgs(parts[2:], "target_id", "before", "limit")
+		flagArgs := parseFlagArgs(parts[2:], "target_id", "before", "after", "limit")
 		payload := make(map[string]any)
 		if targetID, ok := flagArgs["target_id"]; ok {
 			payload["target_id"] = targetID
 		}
 		if before, ok := flagArgs["before"]; ok {
 			payload["before"] = before
+		}
+		if after, ok := flagArgs["after"]; ok {
+			payload["after"] = after
 		}
 		if limitStr, ok := flagArgs["limit"]; ok {
 			if n, err := strconv.Atoi(limitStr.(string)); err == nil {
@@ -5467,15 +5470,16 @@ func mboxTruncate(s string, max int) string {
 // handled from the SetOnChatMessage push callback instead — see wiring in
 // runREPL.
 type chatPoller struct {
-	client   game.GameClient
-	ctx      context.Context
-	cancel   context.CancelFunc
-	seen     map[string]bool // Message IDs already displayed.
-	mu       sync.Mutex
-	username string         // Our own username, to skip own messages.
-	ingester *mbox.Ingester // Optional: ingest polled messages into mbox.
-	interval time.Duration  // Poll interval (defaults to SleepChatPoll).
-	silent   bool           // When true, ingest only; don't print to terminal.
+	client     game.GameClient
+	ctx        context.Context
+	cancel     context.CancelFunc
+	seen       map[string]bool   // Message IDs already displayed.
+	lastSeenTS map[string]string // Per-channel newest timestamp_utc, used as `after` cursor.
+	mu         sync.Mutex
+	username   string         // Our own username, to skip own messages.
+	ingester   *mbox.Ingester // Optional: ingest polled messages into mbox.
+	interval   time.Duration  // Poll interval (defaults to SleepChatPoll).
+	silent     bool           // When true, ingest only; don't print to terminal.
 }
 
 // activeChatChannels returns the channels that should be polled based on player state.
@@ -5510,12 +5514,13 @@ var knownChatChannels = []string{"system", "local", "faction", "private", "emerg
 func newChatPoller(client game.GameClient, ctx context.Context, username string) *chatPoller {
 	pollCtx, cancel := context.WithCancel(ctx)
 	return &chatPoller{
-		client:   client,
-		ctx:      pollCtx,
-		cancel:   cancel,
-		seen:     make(map[string]bool),
-		username: username,
-		interval: game.SleepChatPoll,
+		client:     client,
+		ctx:        pollCtx,
+		cancel:     cancel,
+		seen:       make(map[string]bool),
+		lastSeenTS: make(map[string]string),
+		username:   username,
+		interval:   game.SleepChatPoll,
 	}
 }
 
@@ -5655,7 +5660,14 @@ func (cp *chatPoller) displayMessage(channel string, m serverapi.ChatMessage) {
 // older messages beyond this page that the caller should backfill (see
 // poll() which delegates to Ingester.Backfill in that case).
 func (cp *chatPoller) fetchMessages(channel string) (msgs []serverapi.ChatMessage, hasMore bool) {
-	if err := cp.client.GetChatHistory(cp.ctx, channel, map[string]any{"limit": 100}); err != nil {
+	payload := map[string]any{"limit": 100}
+	cp.mu.Lock()
+	if ts := cp.lastSeenTS[channel]; ts != "" {
+		payload["after"] = ts
+	}
+	cp.mu.Unlock()
+
+	if err := cp.client.GetChatHistory(cp.ctx, channel, payload); err != nil {
 		return nil, false
 	}
 	raw := cp.client.GetRawJSON("_last")
@@ -5669,6 +5681,25 @@ func (cp *chatPoller) fetchMessages(channel string) (msgs []serverapi.ChatMessag
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, false
 	}
+
+	// Server returns messages newest-first; advance the cursor to the newest
+	// timestamp so the next poll only sees strictly newer messages.
+	if len(resp.Messages) > 0 {
+		newest := resp.Messages[0].TimestampUTC
+		for _, m := range resp.Messages[1:] {
+			if m.TimestampUTC > newest {
+				newest = m.TimestampUTC
+			}
+		}
+		if newest != "" {
+			cp.mu.Lock()
+			if newest > cp.lastSeenTS[channel] {
+				cp.lastSeenTS[channel] = newest
+			}
+			cp.mu.Unlock()
+		}
+	}
+
 	return resp.Messages, resp.HasMore
 }
 
