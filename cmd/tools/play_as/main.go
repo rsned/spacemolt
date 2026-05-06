@@ -1935,6 +1935,11 @@ func formatCraft(raw []byte) string {
 	return b.String()
 }
 
+// missionsShowFull, when true, suppresses the 200-char description
+// truncation in formatMissions. Set by the dispatcher when the user
+// passes --full to the missions/get_missions command, cleared on return.
+var missionsShowFull bool
+
 // formatMissions formats a get_missions response grouped by type.
 func formatMissions(raw []byte) string {
 	var resp struct {
@@ -2111,9 +2116,9 @@ func formatMissions(raw []byte) string {
 			}
 			fmt.Fprintf(&b, "%s\n", separator)
 
-			// Description (truncated if too long)
+			// Description (truncated unless --full was requested).
 			desc := m.Description
-			if len(desc) > 200 {
+			if !missionsShowFull && len(desc) > 200 {
 				desc = desc[:197] + "..."
 			}
 			if desc != "" {
@@ -4268,6 +4273,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === MISSIONS ===
 	case "missions", "get_missions":
+		if slices.Contains(parts[1:], "--full") {
+			missionsShowFull = true
+			defer func() { missionsShowFull = false }()
+		}
 		return simpleCommand(client, client.GetMissions, ctx, 2*time.Second, cmd, format)
 
 	case "accept_mission":
@@ -5099,7 +5108,7 @@ func printHelp() {
 	fmt.Println("\n=== OTHER ===")
 	fmt.Println("  log <entry>               - Add captain's log entry")
 	fmt.Println("  notes                     - Get your notes")
-	fmt.Println("  missions, accept_mission  - Mission commands")
+	fmt.Println("  missions [--full], accept_mission - Mission commands (--full skips description truncation)")
 	fmt.Println("  action_log [--category X] [--page N] - Action history")
 	fmt.Println("  loop [-f] <count> <command>        - Repeat a command N times (-f continues on errors)")
 	fmt.Println("  loop [-f] <count> { stmt; stmt }   - Repeat a block; stmts may nest and use newlines or ';'")
