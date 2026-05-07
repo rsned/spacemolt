@@ -587,7 +587,7 @@ func formatStyledResponse(raw []byte, command string) string {
 	case "missions", "get_missions":
 		return formatMissions(raw)
 	case "active_missions", "get_active_missions":
-		return formatMissions(raw)
+		return formatActiveMissions(raw)
 	case "notes", "get_notes":
 		return formatNotes(raw)
 	case "list_ships":
@@ -2166,6 +2166,151 @@ func formatMissions(raw []byte) string {
 				for _, skill := range skillNames {
 					xp := m.SkillXP[skill]
 					fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, xp)
+				}
+			}
+
+			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
+}
+
+// formatActiveMissions renders get_active_missions, similar to formatMissions
+// but with per-mission progress (percent_complete) and an objectives checklist
+// where each objective is prefixed with ✓ (completed) or ☐ (open) and shows
+// current/required progress when present.
+func formatActiveMissions(raw []byte) string {
+	type activeObjective struct {
+		Description string `json:"description"`
+		Completed   bool   `json:"completed"`
+		Current     int    `json:"current"`
+		Required    int    `json:"required"`
+	}
+	type activeMission struct {
+		MissionID       string            `json:"mission_id"`
+		TemplateID      string            `json:"template_id"`
+		Type            string            `json:"type"`
+		Title           string            `json:"title"`
+		Description     string            `json:"description"`
+		Difficulty      int               `json:"difficulty"`
+		PercentComplete int               `json:"percent_complete"`
+		ExpiresInTicks  int               `json:"expires_in_ticks"`
+		Objectives      []activeObjective `json:"objectives"`
+		Rewards         *struct {
+			Credits int            `json:"credits"`
+			Items   map[string]int `json:"items,omitempty"`
+			SkillXP map[string]int `json:"skill_xp,omitempty"`
+		} `json:"rewards,omitempty"`
+	}
+	var resp struct {
+		Missions    []activeMission `json:"missions"`
+		MaxMissions int             `json:"max_missions,omitempty"`
+		TotalCount  int             `json:"total_count,omitempty"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	if len(resp.Missions) == 0 {
+		return "No active missions"
+	}
+
+	// Group by type, sort missions within each group.
+	byType := make(map[string][]activeMission)
+	for _, m := range resp.Missions {
+		byType[m.Type] = append(byType[m.Type], m)
+	}
+	types := make([]string, 0, len(byType))
+	for t := range byType {
+		types = append(types, t)
+	}
+	slices.Sort(types)
+
+	var b strings.Builder
+	header := fmt.Sprintf("Active Missions (%d", len(resp.Missions))
+	if resp.MaxMissions > 0 {
+		header += fmt.Sprintf("/%d", resp.MaxMissions)
+	}
+	header += ")"
+	fmt.Fprintf(&b, "%s\n\n", header)
+
+	for _, missionType := range types {
+		missions := byType[missionType]
+		slices.SortFunc(missions, func(a, b activeMission) int {
+			idA := a.TemplateID
+			if idA == "" {
+				idA = a.MissionID
+			}
+			idB := b.TemplateID
+			if idB == "" {
+				idB = b.MissionID
+			}
+			return strings.Compare(idA, idB)
+		})
+
+		typeUpper := strings.ToUpper(missionType)
+		fmt.Fprintf(&b, "%s\n%s\n\n", typeUpper, strings.Repeat("-", len(missionType)))
+
+		for _, m := range missions {
+			displayID := m.TemplateID
+			if displayID == "" {
+				displayID = m.MissionID
+			}
+			fmt.Fprintf(&b, "%s - (%s) — %d%% complete\n", m.Title, displayID, m.PercentComplete)
+			fmt.Fprintf(&b, "%s\n", strings.Repeat("-", len(m.Title)+len(displayID)+20))
+
+			desc := m.Description
+			if !missionsShowFull && len(desc) > 200 {
+				desc = desc[:197] + "..."
+			}
+			if desc != "" {
+				fmt.Fprintf(&b, "%s\n\n", desc)
+			}
+
+			stars := strings.Repeat("★", m.Difficulty)
+			emptyStars := strings.Repeat("☆", 10-m.Difficulty)
+			fmt.Fprintf(&b, "Difficulty:  %s%s %d/10\n", stars, emptyStars, m.Difficulty)
+
+			if len(m.Objectives) > 0 {
+				fmt.Fprintf(&b, "Objectives:\n")
+				for _, o := range m.Objectives {
+					mark := "☐"
+					if o.Completed {
+						mark = "✓"
+					}
+					line := o.Description
+					if o.Required > 0 && !o.Completed {
+						line = fmt.Sprintf("%s [%d/%d]", line, o.Current, o.Required)
+					}
+					fmt.Fprintf(&b, "  %s %s\n", mark, line)
+				}
+			}
+
+			if m.Rewards != nil {
+				fmt.Fprintf(&b, "Rewards:\n")
+				if m.Rewards.Credits > 0 {
+					fmt.Fprintf(&b, "  credits:  %20s +%d cr\n", "", m.Rewards.Credits)
+				}
+				if len(m.Rewards.Items) > 0 {
+					itemNames := make([]string, 0, len(m.Rewards.Items))
+					for name := range m.Rewards.Items {
+						itemNames = append(itemNames, name)
+					}
+					slices.Sort(itemNames)
+					for _, name := range itemNames {
+						fmt.Fprintf(&b, "  items:    %20s %s %5d units\n", "", name, m.Rewards.Items[name])
+					}
+				}
+				if len(m.Rewards.SkillXP) > 0 {
+					skillNames := make([]string, 0, len(m.Rewards.SkillXP))
+					for skill := range m.Rewards.SkillXP {
+						skillNames = append(skillNames, skill)
+					}
+					slices.Sort(skillNames)
+					for _, skill := range skillNames {
+						fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, m.Rewards.SkillXP[skill])
+					}
 				}
 			}
 
