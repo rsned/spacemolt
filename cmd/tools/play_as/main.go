@@ -4407,26 +4407,35 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"           faction_build, faction_upgrade, faction_list, faction_toggle,\n" +
 				"           transfer, personal_build, personal_decorate, personal_visit, help")
 		}
-		payload := map[string]any{"action": parts[1]}
-		// Parse remaining args: bare positional is facility_type,
-		// --key value flags, or key=value pairs.
+		// Parse all args uniformly. First bare positional becomes the action,
+		// second bare positional becomes facility_type. --flag value pairs and
+		// key=value tokens go straight into the payload — including action=...
+		// which is how callers may want to spell it explicitly.
+		payload := map[string]any{}
+		actionSet := false
 		facilityTypeSet := false
-		for i := 2; i < len(parts); i++ {
+		for i := 1; i < len(parts); i++ {
 			arg := parts[i]
 			if key, ok := strings.CutPrefix(arg, "--"); ok {
-				// --key value flag
 				if i+1 < len(parts) {
 					i++
 					payload[key] = parts[i]
 				}
 			} else if k, v, ok := strings.Cut(arg, "="); ok {
-				// key=value pair
 				payload[k] = v
+				if k == "action" {
+					actionSet = true
+				}
+			} else if !actionSet {
+				payload["action"] = arg
+				actionSet = true
 			} else if !facilityTypeSet {
-				// bare positional = facility_type
 				payload["facility_type"] = arg
 				facilityTypeSet = true
 			}
+		}
+		if !actionSet {
+			return fmt.Errorf("facility: missing action (e.g. `facility build` or `facility action=build`)")
 		}
 		// Convert numeric string fields
 		for _, numKey := range []string{"level", "page", "per_page"} {

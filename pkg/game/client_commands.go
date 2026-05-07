@@ -1233,6 +1233,14 @@ func facilityMatch(resp protocol.Response) bool {
 	if cmd, _ := p["command"].(string); cmd == "facility" {
 		return true
 	}
+	// Server rejects malformed actions with a top-level TypeError that lacks
+	// the command field. execMutation serializes facility calls under
+	// mutationMu, so any error frame arriving while we wait belongs to us —
+	// claim it so the terminator can surface the message instead of letting
+	// the call hang to the SleepTick*3 deadline.
+	if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
+		return true
+	}
 	if resp.Type != protocol.TypeOK {
 		return false
 	}
