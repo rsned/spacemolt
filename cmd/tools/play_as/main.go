@@ -2259,6 +2259,9 @@ func formatActiveMissions(raw []byte) string {
 			}
 			fmt.Fprintf(&b, "%s - (%s) — %d%% complete\n", m.Title, displayID, m.PercentComplete)
 			fmt.Fprintf(&b, "%s\n", strings.Repeat("-", len(m.Title)+len(displayID)+20))
+			if m.MissionID != "" && m.MissionID != displayID {
+				fmt.Fprintf(&b, "Mission ID:  %s  (use with complete_mission/abandon_mission)\n", m.MissionID)
+			}
 
 			desc := m.Description
 			if !missionsShowFull && len(desc) > 200 {
