@@ -1002,8 +1002,16 @@ func formatStorage(raw []byte) string {
 		return ""
 	}
 
+	var totalUnits float64
+	var totalVolume float64
+	for _, item := range resp.Items {
+		totalUnits += item.Quantity
+		totalVolume += item.Quantity * float64(item.Size)
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "Storage at %s\n", resp.BaseID)
+	fmt.Fprintf(&b, "Storage at %s — %d types, %s units, %s volume\n",
+		resp.BaseID, len(resp.Items), formatFloat(totalUnits), formatFloat(totalVolume))
 
 	// Items table
 	if len(resp.Items) == 0 {
