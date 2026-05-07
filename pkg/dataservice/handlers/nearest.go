@@ -99,8 +99,32 @@ func (n *Nearest) HandlePlaintext(ctx context.Context, deps dataservice.Deps, ar
 			sb.WriteString(age)
 		}
 		sb.WriteString("\n")
+		for _, p := range r.POIs {
+			pname := p.Name
+			if pname == "" {
+				pname = p.ID
+			}
+			fmt.Fprintf(&sb, "       ↳ %s (%s)", pname, p.ID)
+			if p.Remaining > 0 {
+				fmt.Fprintf(&sb, " — %s remaining", formatRemaining(p.Remaining))
+			}
+			sb.WriteString("\n")
+		}
 	}
 	return dataservice.TruncateReply(sb.String()), nil
+}
+
+// formatRemaining renders a resource quantity with K/M suffixes once the
+// value is large enough to be noisy at single-unit precision.
+func formatRemaining(v float64) string {
+	switch {
+	case v >= 1_000_000:
+		return fmt.Sprintf("%.1fM", v/1_000_000)
+	case v >= 10_000:
+		return fmt.Sprintf("%.1fK", v/1_000)
+	default:
+		return fmt.Sprintf("%.0f", v)
+	}
 }
 
 // HandleJSON implements dataservice.Handler. One of {poi_type, resource_id}
@@ -136,12 +160,27 @@ func (n *Nearest) HandleJSON(ctx context.Context, deps dataservice.Deps, params 
 
 	out := make([]map[string]any, 0, len(results))
 	for _, r := range results {
-		out = append(out, map[string]any{
+		entry := map[string]any{
 			"system_id":         r.SystemID,
 			"system_name":       r.SystemName,
 			"hops":              r.Hops,
 			"last_updated_tick": r.LastUpdated,
-		})
+		}
+		if len(r.POIs) > 0 {
+			pois := make([]map[string]any, 0, len(r.POIs))
+			for _, p := range r.POIs {
+				poi := map[string]any{
+					"id":   p.ID,
+					"name": p.Name,
+				}
+				if p.Remaining > 0 {
+					poi["remaining"] = p.Remaining
+				}
+				pois = append(pois, poi)
+			}
+			entry["pois"] = pois
+		}
+		out = append(out, entry)
 	}
 
 	reply := map[string]any{

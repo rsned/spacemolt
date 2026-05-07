@@ -33,26 +33,39 @@ func FindNearestByResource(
 		return nil, fmt.Errorf("nearest_by_resource: resourceID is required")
 	}
 
-	targets, err := querySystemsWithResource(ctx, kb, resourceID)
+	poisBySystem, err := querySystemsWithResource(ctx, kb, resourceID)
 	if err != nil {
 		return nil, err
 	}
-	if len(targets) == 0 {
+	if len(poisBySystem) == 0 {
 		return nil, nil
 	}
 
-	return graph.FindNearest(fromSystem, targets, limit)
+	targets := make([]string, 0, len(poisBySystem))
+	for id := range poisBySystem {
+		targets = append(targets, id)
+	}
+
+	results, err := graph.FindNearest(fromSystem, targets, limit)
+	if err != nil {
+		return nil, err
+	}
+	for i := range results {
+		results[i].POIs = poisBySystem[results[i].SystemID]
+	}
+	return results, nil
 }
 
-// querySystemsWithResource returns system IDs that contain at least one POI
-// whose Resources list includes resourceID with Remaining > 0.
-func querySystemsWithResource(ctx context.Context, kb knowledge.Base, resourceID string) ([]string, error) {
+// querySystemsWithResource returns the matching POIs grouped by system ID
+// for any POI whose Resources list includes resourceID with Remaining > 0.
+// Systems with no matching POI are absent from the map.
+func querySystemsWithResource(ctx context.Context, kb knowledge.Base, resourceID string) (map[string][]NearestPOI, error) {
 	systems, err := kb.GetSystems(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get systems: %w", err)
 	}
 
-	systemSet := make(map[string]bool)
+	out := make(map[string][]NearestPOI)
 	for _, sys := range systems {
 		pois, err := kb.GetPOIs(ctx, sys.ID)
 		if err != nil {
@@ -66,18 +79,14 @@ func querySystemsWithResource(ctx context.Context, kb knowledge.Base, resourceID
 				if res.Remaining <= 0 {
 					continue
 				}
-				systemSet[sys.ID] = true
-				break
-			}
-			if systemSet[sys.ID] {
+				out[sys.ID] = append(out[sys.ID], NearestPOI{
+					ID:        poi.ID,
+					Name:      poi.Name,
+					Remaining: res.Remaining,
+				})
 				break
 			}
 		}
 	}
-
-	result := make([]string, 0, len(systemSet))
-	for id := range systemSet {
-		result = append(result, id)
-	}
-	return result, nil
+	return out, nil
 }

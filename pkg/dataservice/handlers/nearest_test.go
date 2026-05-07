@@ -207,6 +207,12 @@ func TestNearest_PlaintextOreHappy(t *testing.T) {
 	if !strings.Contains(reply, "legacy_ore") {
 		t.Errorf("reply missing resource id: %q", reply)
 	}
+	if !strings.Contains(reply, "poi-b-2") {
+		t.Errorf("reply missing belt POI id: %q", reply)
+	}
+	if !strings.Contains(reply, "Beta Belt") {
+		t.Errorf("reply missing belt POI name: %q", reply)
+	}
 }
 
 func TestNearest_PlaintextOreNoResults(t *testing.T) {
@@ -258,6 +264,19 @@ func TestNearest_JSONOreHappy(t *testing.T) {
 	}
 	if results[0]["system_id"] != "sys-b" {
 		t.Errorf("system_id: got %v", results[0]["system_id"])
+	}
+	pois, ok := results[0]["pois"].([]map[string]any)
+	if !ok {
+		t.Fatalf("pois not a slice of maps, got %T", results[0]["pois"])
+	}
+	if len(pois) != 1 {
+		t.Fatalf("expected 1 POI, got %d", len(pois))
+	}
+	if pois[0]["id"] != "poi-b-2" {
+		t.Errorf("poi id: got %v", pois[0]["id"])
+	}
+	if pois[0]["remaining"] != float64(1000) {
+		t.Errorf("poi remaining: got %v", pois[0]["remaining"])
 	}
 }
 

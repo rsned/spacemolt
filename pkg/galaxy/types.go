@@ -48,6 +48,19 @@ type NearestResult struct {
     LastUpdated  int64   `json:"last_updated"` // tick
     IsHomeBase   bool    `json:"is_home_base"`
     StaleWarning string  `json:"stale_warning"`
+    // POIs lists the specific POIs within SystemID that satisfied the
+    // query (e.g., the asteroid belts that hold a requested resource).
+    // Populated for resource lookups; left nil for POI-type lookups.
+    POIs []NearestPOI `json:"pois,omitempty"`
+}
+
+// NearestPOI identifies one POI inside a NearestResult system that
+// matched the query, with optional Remaining quantity for resource
+// lookups.
+type NearestPOI struct {
+    ID        string  `json:"id"`
+    Name      string  `json:"name"`
+    Remaining float64 `json:"remaining,omitempty"`
 }
 
 // GraphStats captures instrumentation data from graph building.
