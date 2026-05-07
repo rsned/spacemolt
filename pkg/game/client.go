@@ -3524,8 +3524,13 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			_, hasFactionFac := resp.Payload["faction_facilities"]
 			_, hasPlayerFac := resp.Payload["player_facilities"]
 			_, hasFactionID := resp.Payload["faction_id"]
+			// view_market / view_orders responses now carry base_id too; the
+			// action field is the cheapest disambiguator. Anything explicitly
+			// labelled with a non-storage action shouldn't be misclassified.
+			actionStr, _ := resp.Payload["action"].(string)
+			isStorageAction := actionStr == "" || actionStr == "view_storage" || actionStr == "view_faction_storage"
 			isFacility := hasStationFac || hasFactionFac || hasPlayerFac
-			isStorageShape := !hasMissions && !hasOrders && !hasServices && !isFacility
+			isStorageShape := isStorageAction && !hasMissions && !hasOrders && !hasServices && !isFacility
 			if isStorageShape {
 				if storeKey == "" {
 					if hasFactionID {
