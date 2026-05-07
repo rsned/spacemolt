@@ -41,6 +41,11 @@ type Config struct {
 
 	// HistoryLimit controls the max messages fetched per ingest call. Defaults to 50.
 	HistoryLimit int
+
+	// Verbose, when true, enables extra per-request diagnostic logging
+	// (full inbound content, dispatched reply preview). Off by default;
+	// callers wire it from a --debug flag.
+	Verbose bool
 }
 
 // Default config values.
@@ -239,6 +244,9 @@ func (s *Service) handle(ctx context.Context, m mbox.Message) {
 		preview = preview[:60] + "…"
 	}
 	s.cfg.Logger.Printf("handle %s from %s %q: %q", m.ID, m.SenderID, m.Sender, preview)
+	if s.cfg.Verbose {
+		s.cfg.Logger.Printf("verbose: full content %s: %q", m.ID, m.Content)
+	}
 
 	reply, err := s.cfg.Registry.Dispatch(ctx, m.Content)
 	if err != nil {
@@ -246,6 +254,13 @@ func (s *Service) handle(ctx context.Context, m mbox.Message) {
 		reply = "Error: internal failure while processing your request."
 	}
 	reply = TruncateReply(reply)
+	if s.cfg.Verbose {
+		rp := reply
+		if len(rp) > 120 {
+			rp = rp[:120] + "…"
+		}
+		s.cfg.Logger.Printf("verbose: reply %s: %q", m.ID, rp)
+	}
 	if err := s.cfg.Replier.Reply(ctx, m.SenderID, reply); err != nil {
 		s.cfg.Logger.Printf("reply %s: %v", m.ID, err)
 		return

@@ -276,6 +276,40 @@ func TestNearest_JSONBothFieldsRejected(t *testing.T) {
 	}
 }
 
+func TestNearest_PlaintextShorthandResource(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	reply, err := h.HandlePlaintext(context.Background(), deps, []string{"legacy_ore", "from", "sys-a"})
+	if err != nil {
+		t.Fatalf("HandlePlaintext: %v", err)
+	}
+	if !strings.Contains(reply, "Beta") {
+		t.Errorf("reply missing destination name: %q", reply)
+	}
+	if !strings.Contains(reply, "legacy_ore") {
+		t.Errorf("reply missing resource id: %q", reply)
+	}
+}
+
+func TestNearest_PlaintextShorthandPOI(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	reply, err := h.HandlePlaintext(context.Background(), deps, []string{"station", "from", "sys-a"})
+	if err != nil {
+		t.Fatalf("HandlePlaintext: %v", err)
+	}
+	if !strings.Contains(reply, "Beta") {
+		t.Errorf("reply missing destination name: %q", reply)
+	}
+	if strings.Contains(reply, "ore station") {
+		t.Errorf("POI shorthand should not be labeled 'ore': %q", reply)
+	}
+}
+
 func TestNearest_HelpRepliesWithinBudget(t *testing.T) {
 	r := dataservice.NewRegistry(dataservice.Deps{})
 	r.Register(&Nearest{})

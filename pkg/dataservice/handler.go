@@ -2,6 +2,7 @@ package dataservice
 
 import (
 	"context"
+	"log"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -25,6 +26,10 @@ type Deps struct {
 	Graph *galaxy.GalaxyGraph
 	// Tick returns the current game tick or 0 if no clock is available.
 	Tick func() int64
+	// Logger, if non-nil, opts handlers into verbose per-request debug
+	// logging (parsed kind/key, intermediate target counts, etc.). Leave
+	// nil for production use; set by --debug callers.
+	Logger *log.Logger
 }
 
 // Handler is a single data-query handler registered with the service.

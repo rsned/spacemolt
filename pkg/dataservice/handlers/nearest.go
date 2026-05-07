@@ -27,13 +27,14 @@ func (n *Nearest) ShortHelp() string {
 }
 
 // PlaintextUsages implements dataservice.Handler. Each entry documents one
-// supported grammar form. "nearest <poi_type> from ..." without the 'poi'
-// keyword is a shorthand; "nearest station ..." is the common case.
+// supported grammar form. The shorthand "nearest <term> from <X>" tries
+// POI-type first, then resource-id, so "nearest station from sol-3" and
+// "nearest tungsten_ore from sol-3" both work without a leading keyword.
 func (n *Nearest) PlaintextUsages() []string {
 	return []string{
 		"nearest poi <poi_type> from <system_id>",
 		"nearest ore <resource_id> from <system_id>",
-		"nearest <poi_type> from <system_id>  # shorthand",
+		"nearest <poi_type|resource_id> from <system_id>  # shorthand",
 	}
 }
 
@@ -156,7 +157,10 @@ func (n *Nearest) HandleJSON(ctx context.Context, deps dataservice.Deps, params 
 }
 
 // parseNearestArgs extracts (kind, key, fromSystem) from the plaintext tokens
-// following the "nearest" keyword. Kind is "ore" or "poi".
+// following the "nearest" keyword. Kind is "ore", "poi", or "auto" — the
+// shorthand form (no leading keyword) returns "auto" so runQuery can try
+// both POI-type and resource-id lookups; users typing "nearest tungsten_ore
+// from X" don't need to know which catalog the term belongs to.
 func parseNearestArgs(args []string) (kind, key, fromSystem string, err error) {
 	if len(args) < 3 {
 		return "", "", "", dataservice.ErrParse(nearestUsage)
@@ -178,26 +182,54 @@ func parseNearestArgs(args []string) (kind, key, fromSystem string, err error) {
 		if strings.ToLower(args[1]) != "from" {
 			return "", "", "", dataservice.ErrParse(nearestUsage)
 		}
-		return "poi", head, args[2], nil
+		return "auto", head, args[2], nil
 	}
 }
 
 // runQuery dispatches to the appropriate galaxy lookup and returns results
-// along with a human-readable label for the queried category.
+// along with a human-readable label for the queried category. Kind "auto"
+// tries POI-type first, then resource-id, picking whichever returns hits;
+// the no-results label keeps the bare term so the failure message reads
+// naturally.
 func (n *Nearest) runQuery(ctx context.Context, deps dataservice.Deps, kind, key, fromSystem string) ([]galaxy.NearestResult, string, error) {
+	debugf := func(format string, args ...any) {
+		if deps.Logger != nil {
+			deps.Logger.Printf("nearest: "+format, args...)
+		}
+	}
 	switch kind {
 	case "ore":
 		results, err := galaxy.FindNearestByResource(ctx, deps.KB, deps.Graph, fromSystem, key, n.limit())
 		if err != nil {
 			return nil, "", fmt.Errorf("nearest lookup: %w", err)
 		}
+		debugf("ore %q from %q -> %d results", key, fromSystem, len(results))
 		return results, "ore " + key, nil
 	case "poi":
 		results, err := galaxy.FindNearestByPOIType(ctx, deps.KB, deps.Graph, fromSystem, key, n.limit())
 		if err != nil {
 			return nil, "", fmt.Errorf("nearest lookup: %w", err)
 		}
+		debugf("poi %q from %q -> %d results", key, fromSystem, len(results))
 		return results, key, nil
+	case "auto":
+		poiResults, err := galaxy.FindNearestByPOIType(ctx, deps.KB, deps.Graph, fromSystem, key, n.limit())
+		if err != nil {
+			return nil, "", fmt.Errorf("nearest lookup: %w", err)
+		}
+		if len(poiResults) > 0 {
+			debugf("auto %q from %q -> poi=%d (matched POI type)", key, fromSystem, len(poiResults))
+			return poiResults, key, nil
+		}
+		oreResults, err := galaxy.FindNearestByResource(ctx, deps.KB, deps.Graph, fromSystem, key, n.limit())
+		if err != nil {
+			return nil, "", fmt.Errorf("nearest lookup: %w", err)
+		}
+		debugf("auto %q from %q -> poi=0 ore=%d", key, fromSystem, len(oreResults))
+		if len(oreResults) > 0 {
+			return oreResults, "ore " + key, nil
+		}
+		return nil, key, nil
 	default:
 		return nil, "", dataservice.ErrParse(nearestUsage)
 	}

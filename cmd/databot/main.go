@@ -111,8 +111,13 @@ func main() {
 	ingester.SetSelfID(playerID)
 	client.SetOnChatMessage(ingester.HandlePush)
 
-	// 6. Build registry + handlers.
+	// 6. Build registry + handlers. Pass the agent logger into deps only
+	//    when --debug is set; handlers treat a nil logger as "no debug
+	//    logging," so production stays quiet.
 	deps := dataservice.Deps{KB: kb, Graph: graph, Tick: tickFn}
+	if *debug {
+		deps.Logger = logger
+	}
 	registry := dataservice.NewRegistry(deps)
 	registry.Register(&handlers.Nearest{})
 
@@ -130,6 +135,7 @@ func main() {
 		Logger:       logger,
 		PollInterval: *pollInterval,
 		ReplyPace:    *replyPace,
+		Verbose:      *debug,
 	})
 	if err != nil {
 		logger.Fatalf("NewService: %v", err)
