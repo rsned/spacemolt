@@ -23,6 +23,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/respfmt"
 
 	_ "modernc.org/sqlite"
 )
@@ -255,15 +256,17 @@ func main() {
 		case wsClient != nil && isConnectionDropError(err):
 			// Send itself failed because socket was already dead — the server
 			// never saw this batch. Reconnect and retry once.
-			logger.Printf("Batch %d send failed (%v), reconnecting and retrying once", i+1, err)
+			logger.Printf("Batch %d send failed (%s), reconnecting and retrying once",
+				i+1, respfmt.Error(err, "create_buy_order"))
 			if rerr := wsClient.Reconnect(ctx); rerr != nil {
-				fmt.Fprintf(os.Stderr, "Error sending batch %d: send failed and reconnect failed: %v (original: %v)\n",
-					i+1, rerr, err)
+				fmt.Fprintf(os.Stderr, "Batch %d: send failed and reconnect failed: %s (original: %s)\n",
+					i+1, respfmt.Error(rerr, "create_buy_order"), respfmt.Error(err, "create_buy_order"))
 				os.Exit(1)
 			}
 			time.Sleep(game.SleepQuick)
 			if err = client.CreateBuyOrder(ctx, payload); err != nil {
-				fmt.Fprintf(os.Stderr, "Error sending batch %d after reconnect: %v\n", i+1, err)
+				fmt.Fprintf(os.Stderr, "Batch %d after reconnect: %s\n",
+					i+1, respfmt.Error(err, "create_buy_order"))
 				os.Exit(1)
 			}
 			totalSent += len(batch)
@@ -274,10 +277,11 @@ func main() {
 			// retrying would just create duplicate orders. Log loudly,
 			// reconnect for the next batch, and credit this one as sent.
 			logger.Printf("Batch %d: connection dropped while awaiting action_result; "+
-				"server already accepted via pending=true, assuming completed (%v)", i+1, err)
+				"server already accepted via pending=true, assuming completed (%s)",
+				i+1, respfmt.Error(err, "create_buy_order"))
 			totalSent += len(batch)
 		default:
-			fmt.Fprintf(os.Stderr, "Error sending batch %d: %v\n", i+1, err)
+			fmt.Fprintf(os.Stderr, "Batch %d: %s\n", i+1, respfmt.Error(err, "create_buy_order"))
 			os.Exit(1)
 		}
 

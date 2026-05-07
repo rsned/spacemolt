@@ -30,6 +30,7 @@ import (
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/respfmt"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/registry"
@@ -1830,11 +1831,6 @@ func formatTravel(raw []byte) string {
 	return b.String()
 }
 
-// styledErrors maps (command, error substring) pairs to friendly messages.
-var styledErrors = map[[2]string]string{
-	{"mine", "depleted"}: "Ore depleted.",
-}
-
 // formatError returns a friendly error message in styled mode, or the raw error otherwise.
 func formatError(err error, command string, format outputFormat) string {
 	// If the transport is currently disconnected, the underlying error is
@@ -1845,12 +1841,7 @@ func formatError(err error, command string, format outputFormat) string {
 		return "⟳ reconnecting, retry in a moment"
 	}
 	if format == formatStyled {
-		msg := err.Error()
-		for key, friendly := range styledErrors {
-			if key[0] == command && strings.Contains(msg, key[1]) {
-				return friendly
-			}
-		}
+		return respfmt.Error(err, command)
 	}
 	return "Error: " + err.Error()
 }
