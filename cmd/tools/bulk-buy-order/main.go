@@ -251,7 +251,12 @@ func main() {
 		err := client.CreateBuyOrder(ctx, payload)
 		switch {
 		case err == nil:
-			// Happy path.
+			// Server accepted the call at the protocol level — but in bulk
+			// mode individual rows may still have failed. Render the
+			// summary so per-item failures are visible.
+			if styled := respfmt.CreateBuyOrder(client.GetRawJSON("create_buy_order")); styled != "" {
+				fmt.Fprint(os.Stderr, styled)
+			}
 			totalSent += len(batch)
 		case wsClient != nil && isConnectionDropError(err):
 			// Send itself failed because socket was already dead — the server
@@ -268,6 +273,9 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Batch %d after reconnect: %s\n",
 					i+1, respfmt.Error(err, "create_buy_order"))
 				os.Exit(1)
+			}
+			if styled := respfmt.CreateBuyOrder(client.GetRawJSON("create_buy_order")); styled != "" {
+				fmt.Fprint(os.Stderr, styled)
 			}
 			totalSent += len(batch)
 		case wsClient != nil && isActionTimeoutError(err) && !wsClient.IsConnected():
