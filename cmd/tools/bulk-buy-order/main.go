@@ -42,6 +42,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Print batches without sending")
 	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	debugFullPayload := flag.Bool("debug-full-payload", false, "When --debug is on, log full response payloads instead of truncating at 200 chars")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: bulk-buy-order --agent=<id> [flags]\n\n")
@@ -182,6 +183,9 @@ func main() {
 
 		wsClient = game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
 		wsClient.SetDebugLogging(*debug)
+		if *debugFullPayload {
+			wsClient.SetDebugPayloadMaxLen(0)
+		}
 
 		if err := wsClient.Connect(ctx); err != nil {
 			fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
