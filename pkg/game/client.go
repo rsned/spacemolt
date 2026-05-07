@@ -2421,9 +2421,24 @@ func (c *Client) parseChatHistoryData(payload map[string]any) {
 }
 
 // parseShipData extracts ship information from payload using serverapi types.
+//
+// Tries the canonical "ship" key first; if absent and the payload looks like
+// a get_ship response (top-level cargo_max + a "class" object whose owner_id
+// is the current player), falls back to "class", which since v0.275 holds
+// the ship-instance fields — confusingly named for legacy reasons.
 func (c *Client) parseShipData(payload map[string]any) {
 	var ext serverapi.Ship
-	if unmarshalPayloadKey(payload, "ship", &ext) {
+	matched := unmarshalPayloadKey(payload, "ship", &ext)
+	if !matched {
+		// Only treat "class" as the ship instance for the get_ship shape,
+		// which is identifiable by top-level cargo_max. Other responses
+		// (browse_ships, list_ships, recipes) may carry "class" as a label
+		// or class-spec object — we must not overwrite ship state from those.
+		if _, hasCargoMax := payload["cargo_max"]; hasCargoMax {
+			matched = unmarshalPayloadKey(payload, "class", &ext)
+		}
+	}
+	if matched {
 		ship := ShipFromAPI(ext)
 
 		c.mu.Lock()
@@ -2443,6 +2458,22 @@ func (c *Client) parseShipData(payload map[string]any) {
 		c.state.MaxFuel = ship.MaxFuel
 		c.state.MaxCargo = int(ship.CargoCapacity)
 		c.state.Cargo = legacyCargo
+		c.mu.Unlock()
+	}
+
+	// get_ship (server v0.275+) returns cargo_used/cargo_max at the top
+	// level instead of nested under "ship". Use them as the authoritative
+	// resync — mining_yield etc. increment CargoUsed locally and can drift
+	// past CargoCapacity if a refresh path doesn't reset it.
+	if cargoUsed, ok := payload["cargo_used"].(float64); ok {
+		c.mu.Lock()
+		c.state.Ship.CargoUsed = cargoUsed
+		c.mu.Unlock()
+	}
+	if cargoMax, ok := payload["cargo_max"].(float64); ok {
+		c.mu.Lock()
+		c.state.Ship.CargoCapacity = cargoMax
+		c.state.MaxCargo = int(cargoMax)
 		c.mu.Unlock()
 	}
 
