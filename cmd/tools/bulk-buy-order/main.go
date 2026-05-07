@@ -248,7 +248,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err := client.CreateBuyOrder(ctx, payload)
+		err := createBuyOrderWithDisconnectWatch(ctx, client, wsClient, payload)
 		switch {
 		case err == nil:
 			// Server accepted the call at the protocol level — but in bulk
@@ -301,6 +301,51 @@ func main() {
 	}
 
 	fmt.Fprintf(os.Stderr, "Done: %d buy orders placed across %d batches.\n", totalSent, len(batches))
+}
+
+// createBuyOrderWithDisconnectWatch wraps client.CreateBuyOrder so that a
+// mid-call WS disconnect aborts the wait immediately instead of sitting
+// on execMutation's full SleepTick*3 deadline. The server has been
+// observed to send a close frame ~2s after the OK-pending ack for some
+// batches; without this watcher we burn 30s per affected batch.
+//
+// The original error is preserved when nothing tripped the watcher;
+// a cancelled wait returns a synthetic "timeout waiting for ..." string
+// so the existing isActionTimeoutError + !IsConnected() switch arm
+// continues to handle it as "pending=true assumed committed."
+func createBuyOrderWithDisconnectWatch(ctx context.Context, client game.GameClient, wsClient *game.Client, payload map[string]any) error {
+	if wsClient == nil {
+		return client.CreateBuyOrder(ctx, payload)
+	}
+	callCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	done := make(chan struct{})
+	defer close(done)
+
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if !wsClient.IsConnected() {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
+	err := client.CreateBuyOrder(callCtx, payload)
+	if err != nil && !wsClient.IsConnected() {
+		// Surface as the timeout sentinel so the caller's existing
+		// "pending=true assumed committed" branch fires.
+		return fmt.Errorf("timeout waiting for create_buy_order to complete: connection lost (%w)", err)
+	}
+	return err
 }
 
 // isConnectionDropError reports whether err is the WS-disconnected sentinel
