@@ -120,6 +120,7 @@ func main() {
 	}
 	registry := dataservice.NewRegistry(deps)
 	registry.Register(&handlers.Nearest{})
+	registry.Register(handlers.SystemInfo{})
 
 	// 7. Wire HistoryFetcher + Replier over the game client.
 	fetcher := newPushOnlyFetcher()
