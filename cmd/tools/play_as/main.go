@@ -2612,6 +2612,14 @@ func formatSystem(raw []byte) string {
 	}
 
 	sys := resp.System
+	// Hyperspace responses come back with no "system" object (or a zeroed one)
+	// because the player is mid-jump and the server has nothing to report yet.
+	// The OK message ("You are in hyperspace, jumping between systems.") is
+	// already logged by the response logger upstream, so emitting an empty
+	// header + "(none)" sections here is just visual noise — return blank.
+	if sys.ID == "" && sys.Name == "" && len(sys.Connections) == 0 && len(sys.POIs) == 0 {
+		return ""
+	}
 	var b strings.Builder
 
 	// Header
