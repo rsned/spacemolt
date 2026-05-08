@@ -588,6 +588,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatMissions(raw)
 	case "active_missions", "get_active_missions":
 		return formatActiveMissions(raw)
+	case "complete_mission":
+		return formatCompleteMission(raw)
 	case "notes", "get_notes":
 		return formatNotes(raw)
 	case "list_ships":
@@ -2319,6 +2321,76 @@ func formatActiveMissions(raw []byte) string {
 
 			b.WriteString("\n")
 		}
+	}
+
+	return b.String()
+}
+
+// formatCompleteMission renders a complete_mission response: title + mission_id
+// banner, the giver's flavor message, the reward block (matching the layout
+// used by formatActiveMissions), and a "chain continues" hint when the mission
+// unlocks a follow-up.
+func formatCompleteMission(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		Title          string         `json:"title"`
+		MissionID      string         `json:"mission_id"`
+		Message        string         `json:"message"`
+		CreditsEarned  int            `json:"credits_earned"`
+		ItemsReceived  map[string]int `json:"items_received,omitempty"`
+		SkillXPGained  map[string]int `json:"skill_xp_gained,omitempty"`
+		ChainNext      string         `json:"chain_next,omitempty"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	if resp.Title != "" {
+		fmt.Fprintf(&b, "✓ Completed: %s", resp.Title)
+		if resp.MissionID != "" {
+			fmt.Fprintf(&b, " (%s)", resp.MissionID)
+		}
+		b.WriteString("\n\n")
+	}
+
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "%q\n\n", resp.Message)
+	}
+
+	hasRewards := resp.CreditsEarned > 0 || len(resp.ItemsReceived) > 0 || len(resp.SkillXPGained) > 0
+	if hasRewards {
+		b.WriteString("Rewards:\n")
+		if resp.CreditsEarned > 0 {
+			fmt.Fprintf(&b, "  credits:  %20s +%d cr\n", "", resp.CreditsEarned)
+		}
+		if len(resp.ItemsReceived) > 0 {
+			itemNames := make([]string, 0, len(resp.ItemsReceived))
+			for name := range resp.ItemsReceived {
+				itemNames = append(itemNames, name)
+			}
+			slices.Sort(itemNames)
+			for _, name := range itemNames {
+				fmt.Fprintf(&b, "  items:    %20s %s %5d units\n", "", name, resp.ItemsReceived[name])
+			}
+		}
+		if len(resp.SkillXPGained) > 0 {
+			skillNames := make([]string, 0, len(resp.SkillXPGained))
+			for skill := range resp.SkillXPGained {
+				skillNames = append(skillNames, skill)
+			}
+			slices.Sort(skillNames)
+			for _, skill := range skillNames {
+				fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, resp.SkillXPGained[skill])
+			}
+		}
+	}
+
+	if resp.ChainNext != "" {
+		if hasRewards {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "Chain continues: %s (use accept_mission to pick it up)\n", resp.ChainNext)
 	}
 
 	return b.String()
