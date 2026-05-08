@@ -1848,18 +1848,44 @@ func formatError(err error, command string, format outputFormat) string {
 	return "Error: " + err.Error()
 }
 
-// formatMine formats a mine response as a one-line summary.
+// formatMine formats a mining_yield (or legacy mine action_result) payload
+// as a one-line summary plus per-skill XP. Skips rendering when only the
+// pending-ack shape is present so callers don't see "Mined 0 ( remaining )"
+// before the yield event lands.
 func formatMine(raw []byte) string {
 	raw = unwrapActionResult(raw)
 	var resp struct {
-		Quantity         float64 `json:"quantity"`
-		ResourceName     string  `json:"resource_name"`
-		RemainingDisplay string  `json:"remaining_display"`
+		Quantity         float64        `json:"quantity"`
+		ResourceID       string         `json:"resource_id"`
+		ResourceName     string         `json:"resource_name"`
+		RemainingDisplay string         `json:"remaining_display"`
+		XPGained         map[string]int `json:"xp_gained,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
-	return fmt.Sprintf("Mined %s %s ( %s remaining )", formatFloat(resp.Quantity), resp.ResourceName, resp.RemainingDisplay)
+	if resp.Quantity == 0 && resp.ResourceID == "" && resp.ResourceName == "" {
+		return ""
+	}
+	name := resp.ResourceName
+	if name == "" {
+		name = resp.ResourceID
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Mined %s %s ( %s remaining )", formatFloat(resp.Quantity), name, resp.RemainingDisplay)
+	if len(resp.XPGained) > 0 {
+		skills := make([]string, 0, len(resp.XPGained))
+		for s := range resp.XPGained {
+			skills = append(skills, s)
+		}
+		slices.Sort(skills)
+		b.WriteString("\n")
+		for _, s := range skills {
+			fmt.Fprintf(&b, " +%d xp %s\n", resp.XPGained[s], s)
+		}
+	}
+	return b.String()
 }
 
 // formatCraft formats a craft response showing outputs, inputs used from storage, and XP gained.

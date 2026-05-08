@@ -3875,6 +3875,16 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			storeKey = cmd
 			shouldStore = true
 		}
+	case protocol.TypeMiningYield:
+		// Newer servers terminate `mine` by pushing a mining_yield event
+		// (carrying quantity, resource, depletion, xp_gained) instead of
+		// emitting an action_result with command="mine". Without this case
+		// the only thing in latestRawJSON["mine"] is the pending-ack frame
+		// the server returned synchronously, and formatMine would render
+		// blanks. Storing the yield under "mine" gives the REPL the actual
+		// terminal payload it expects.
+		storeKey = "mine"
+		shouldStore = true
 	case protocol.TypeError:
 		// Don't store error responses in the same keys as success data
 		// Errors are tracked in lastError field instead
