@@ -1993,6 +1993,8 @@ func formatMissions(raw []byte) string {
 			Objectives []struct {
 				Type        string `json:"type"`
 				Description string `json:"description"`
+				ItemID      string `json:"item_id,omitempty"`
+				Quantity    int    `json:"quantity,omitempty"`
 			} `json:"objectives,omitempty"`
 		} `json:"missions"`
 		BaseName string `json:"base_name,omitempty"`
@@ -2012,6 +2014,8 @@ func formatMissions(raw []byte) string {
 	type missionObjective struct {
 		Type        string
 		Description string
+		ItemID      string
+		Quantity    int
 	}
 	type missionRow struct {
 		MissionID      string
@@ -2042,7 +2046,12 @@ func formatMissions(raw []byte) string {
 		}
 		objectives := make([]missionObjective, 0, len(m.Objectives))
 		for _, o := range m.Objectives {
-			objectives = append(objectives, missionObjective{Type: o.Type, Description: o.Description})
+			objectives = append(objectives, missionObjective{
+				Type:        o.Type,
+				Description: o.Description,
+				ItemID:      o.ItemID,
+				Quantity:    o.Quantity,
+			})
 		}
 		missionsByType[m.Type] = append(missionsByType[m.Type], missionRow{
 			MissionID:      m.MissionID,
@@ -2121,11 +2130,18 @@ func formatMissions(raw []byte) string {
 
 			// Objectives — rendered as an unchecked checklist since these are
 			// templates, not yet accepted. formatActiveMissions adds ✓/progress
-			// once a mission has been accepted and tracked.
+			// once a mission has been accepted and tracked. Suffix the line
+			// with "(<qty> x <item_id>)" when the objective carries an item
+			// reference so the player sees the exact item_id needed without
+			// pattern-matching the human description.
 			if len(m.Objectives) > 0 {
 				b.WriteString("Objectives:\n")
 				for _, o := range m.Objectives {
-					fmt.Fprintf(&b, "  ☐ %s\n", o.Description)
+					line := o.Description
+					if o.ItemID != "" && o.Quantity > 0 {
+						line = fmt.Sprintf("%s (%d x %s)", line, o.Quantity, o.ItemID)
+					}
+					fmt.Fprintf(&b, "  ☐ %s\n", line)
 				}
 			}
 
