@@ -2210,6 +2210,7 @@ func formatActiveMissions(raw []byte) string {
 		Difficulty      int               `json:"difficulty"`
 		PercentComplete int               `json:"percent_complete"`
 		ExpiresInTicks  int               `json:"expires_in_ticks"`
+		AcceptedAt      string            `json:"accepted_at"`
 		Objectives      []activeObjective `json:"objectives"`
 		Rewards         *struct {
 			Credits int            `json:"credits"`
@@ -2275,6 +2276,9 @@ func formatActiveMissions(raw []byte) string {
 			fmt.Fprintf(&b, "%s\n", strings.Repeat("-", len(m.Title)+len(displayID)+20))
 			if m.MissionID != "" && m.MissionID != displayID {
 				fmt.Fprintf(&b, "Mission ID:  %s  (use with complete_mission/abandon_mission)\n", m.MissionID)
+			}
+			if m.AcceptedAt != "" {
+				fmt.Fprintf(&b, "Accepted at: %s\n", m.AcceptedAt)
 			}
 
 			desc := m.Description
