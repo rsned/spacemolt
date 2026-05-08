@@ -2278,7 +2278,14 @@ func formatActiveMissions(raw []byte) string {
 				fmt.Fprintf(&b, "Mission ID:  %s  (use with complete_mission/abandon_mission)\n", m.MissionID)
 			}
 			if m.AcceptedAt != "" {
-				fmt.Fprintf(&b, "Accepted at: %s\n", m.AcceptedAt)
+				line := fmt.Sprintf("Accepted at: %s", m.AcceptedAt)
+				if m.ExpiresInTicks > 0 {
+					if t, err := time.Parse(time.RFC3339, m.AcceptedAt); err == nil {
+						expiresAt := t.Add(time.Duration(m.ExpiresInTicks) * 10 * time.Second)
+						line += fmt.Sprintf("   Expires at: %s", expiresAt.UTC().Format(time.RFC3339))
+					}
+				}
+				fmt.Fprintf(&b, "%s\n", line)
 			}
 
 			desc := m.Description
