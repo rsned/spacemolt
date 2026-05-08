@@ -2009,28 +2009,29 @@ func formatMissions(raw []byte) string {
 		return "No missions available"
 	}
 
-	// Group missions by type and sort within each group by template_id
-	type groupKey struct {
-		Type string
+	type missionObjective struct {
+		Type        string
+		Description string
 	}
-	missionsByType := make(map[groupKey][]struct {
-		MissionID         string
-		TemplateID        string
-		Type              string
-		Title             string
-		Description       string
-		Difficulty        int
-		GiverName         string
-		GiverTitle        string
-		ChainNext         string
-		ExpiresInTicks    int
-		Credits           int
-		Items             map[string]int
-		SkillXP           map[string]int
-	})
+	type missionRow struct {
+		MissionID      string
+		TemplateID     string
+		Type           string
+		Title          string
+		Description    string
+		Difficulty     int
+		GiverName      string
+		GiverTitle     string
+		ChainNext      string
+		ExpiresInTicks int
+		Credits        int
+		Items          map[string]int
+		SkillXP        map[string]int
+		Objectives     []missionObjective
+	}
 
+	missionsByType := make(map[string][]missionRow)
 	for _, m := range resp.Missions {
-		key := groupKey{Type: m.Type}
 		credits := 0
 		items := make(map[string]int)
 		skillXP := make(map[string]int)
@@ -2039,21 +2040,11 @@ func formatMissions(raw []byte) string {
 			items = m.Rewards.Items
 			skillXP = m.Rewards.SkillXP
 		}
-		missionsByType[key] = append(missionsByType[key], struct {
-			MissionID       string
-			TemplateID      string
-			Type            string
-			Title           string
-			Description     string
-			Difficulty      int
-			GiverName       string
-			GiverTitle      string
-			ChainNext       string
-			ExpiresInTicks  int
-			Credits         int
-			Items           map[string]int
-			SkillXP         map[string]int
-		}{
+		objectives := make([]missionObjective, 0, len(m.Objectives))
+		for _, o := range m.Objectives {
+			objectives = append(objectives, missionObjective{Type: o.Type, Description: o.Description})
+		}
+		missionsByType[m.Type] = append(missionsByType[m.Type], missionRow{
 			MissionID:      m.MissionID,
 			TemplateID:     m.TemplateID,
 			Type:           m.Type,
@@ -2067,59 +2058,32 @@ func formatMissions(raw []byte) string {
 			Credits:        credits,
 			Items:          items,
 			SkillXP:        skillXP,
+			Objectives:     objectives,
 		})
 	}
 
 	// Sort mission types alphabetically
-	var types []string
-	for key := range missionsByType {
-		types = append(types, key.Type)
+	types := make([]string, 0, len(missionsByType))
+	for t := range missionsByType {
+		types = append(types, t)
 	}
 	slices.Sort(types)
+
+	displayID := func(m missionRow) string {
+		if m.TemplateID != "" {
+			return m.TemplateID
+		}
+		return m.MissionID
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Missions (%d)\n\n", len(resp.Missions))
 
 	for _, missionType := range types {
-		key := groupKey{Type: missionType}
-		missions := missionsByType[key]
+		missions := missionsByType[missionType]
 
-		// Helper function to get display ID (prefer template_id, fallback to mission_id)
-		getDisplayID := func(m struct {
-			MissionID  string
-			TemplateID string
-		}) string {
-			if m.TemplateID != "" {
-				return m.TemplateID
-			}
-			return m.MissionID
-		}
-
-		// Sort missions within type by template_id (or mission_id if template_id is empty)
-		slices.SortFunc(missions, func(a, b struct {
-			MissionID       string
-			TemplateID      string
-			Type            string
-			Title           string
-			Description     string
-			Difficulty      int
-			GiverName       string
-			GiverTitle      string
-			ChainNext       string
-			ExpiresInTicks  int
-			Credits         int
-			Items           map[string]int
-			SkillXP         map[string]int
-		}) int {
-			idA := getDisplayID(struct {
-				MissionID  string
-				TemplateID string
-			}{MissionID: a.MissionID, TemplateID: a.TemplateID})
-			idB := getDisplayID(struct {
-				MissionID  string
-				TemplateID string
-			}{MissionID: b.MissionID, TemplateID: b.TemplateID})
-			return strings.Compare(idA, idB)
+		slices.SortFunc(missions, func(a, b missionRow) int {
+			return strings.Compare(displayID(a), displayID(b))
 		})
 
 		// Type header
@@ -2127,21 +2091,17 @@ func formatMissions(raw []byte) string {
 		fmt.Fprintf(&b, "%s\n%s\n\n", typeUpper, strings.Repeat("-", len(missionType)))
 
 		for _, m := range missions {
-			// Get display ID (prefer template_id, fallback to mission_id)
-			displayID := m.TemplateID
-			if displayID == "" {
-				displayID = m.MissionID
-			}
+			id := displayID(m)
 
 			// Title with display ID
 			if m.ChainNext != "" {
-				fmt.Fprintf(&b, "%s - (%s) - Chain Mission\n", m.Title, displayID)
+				fmt.Fprintf(&b, "%s - (%s) - Chain Mission\n", m.Title, id)
 			} else {
-				fmt.Fprintf(&b, "%s - (%s)\n", m.Title, displayID)
+				fmt.Fprintf(&b, "%s - (%s)\n", m.Title, id)
 			}
-			separator := strings.Repeat("-", len(m.Title)+len(displayID)+20)
+			separator := strings.Repeat("-", len(m.Title)+len(id)+20)
 			if m.ChainNext != "" {
-				separator = strings.Repeat("-", len(m.Title)+len(displayID)+35)
+				separator = strings.Repeat("-", len(m.Title)+len(id)+35)
 			}
 			fmt.Fprintf(&b, "%s\n", separator)
 
@@ -2158,6 +2118,16 @@ func formatMissions(raw []byte) string {
 			stars := strings.Repeat("★", m.Difficulty)
 			emptyStars := strings.Repeat("☆", 10-m.Difficulty)
 			fmt.Fprintf(&b, "Difficulty:  %s%s%s %d/10\n", stars, emptyStars, "", m.Difficulty)
+
+			// Objectives — rendered as an unchecked checklist since these are
+			// templates, not yet accepted. formatActiveMissions adds ✓/progress
+			// once a mission has been accepted and tracked.
+			if len(m.Objectives) > 0 {
+				b.WriteString("Objectives:\n")
+				for _, o := range m.Objectives {
+					fmt.Fprintf(&b, "  ☐ %s\n", o.Description)
+				}
+			}
 
 			// Rewards section
 			fmt.Fprintf(&b, "Rewards:\n")
