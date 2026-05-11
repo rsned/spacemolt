@@ -14,10 +14,10 @@ import (
 )
 
 // explore visits all POIs in the current system in distance-optimized order,
-// running update_poi at each and update_all at stations. Equivalent to
-// exploreSystem(client, ctx, false) — i.e., no refuel on station docking.
+// running update_poi at each and update_all at stations. Refuels at every
+// station dock.
 func explore(client game.GameClient, ctx context.Context, format outputFormat) error {
-	return exploreSystem(client, ctx, false, format)
+	return exploreSystem(client, ctx, true, format)
 }
 
 // exploreSystem runs the explore loop. When refuelAtStations is true, every

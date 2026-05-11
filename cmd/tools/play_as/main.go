@@ -1024,22 +1024,21 @@ func formatStorage(raw []byte) string {
 			return strings.Compare(a.ItemID, b.ItemID)
 		})
 
-		idW, nameW, qtyW, sizeW := len("ID"), len("Name"), len("Qty"), len("Unit Size")
+		nameW, qtyW, sizeW := len("Name (id)"), len("Qty"), len("Unit Size")
 		for _, item := range resp.Items {
-			idW = max(idW, len(item.ItemID))
-			nameW = max(nameW, len(item.Name))
+			nameW = max(nameW, len(item.Name)+len(item.ItemID)+3)
 			qtyW = max(qtyW, len(formatFloat(item.Quantity)))
 			sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
 		}
 
-		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
-		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
-			strings.Repeat("-", idW), strings.Repeat("-", nameW),
+		fmt.Fprintf(&b, "  %-*s | %*s | %*s\n", nameW, "Name (id)", qtyW, "Qty", sizeW, "Unit Size")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s\n",
+			strings.Repeat("-", nameW),
 			strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
 
 		for _, item := range resp.Items {
-			fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d\n",
-				idW, item.ItemID, nameW, item.Name,
+			fmt.Fprintf(&b, "  %-*s | %*s | %*d\n",
+				nameW, fmt.Sprintf("%s (%s)", item.Name, item.ItemID),
 				qtyW, formatFloat(item.Quantity), sizeW, item.Size)
 		}
 		fmt.Fprintf(&b, "  (%d items)\n", len(resp.Items))
@@ -1500,15 +1499,12 @@ func formatMarket(raw []byte) string {
 		})
 	}
 
-	// Calculate max widths for Name and ID columns across all items
-	maxNameWidth := len("Name") // Header is minimum
-	maxIDWidth := len("ID")     // Header is minimum
+	// Calculate max width for combined "Name (id)" column across all items
+	maxNameWidth := len("Name (id)") // Header is minimum
 	for _, item := range resp.Items {
-		if len(item.ItemName) > maxNameWidth {
-			maxNameWidth = len(item.ItemName)
-		}
-		if len(item.ItemID) > maxIDWidth {
-			maxIDWidth = len(item.ItemID)
+		w := len(item.ItemName) + len(item.ItemID) + 3 // " (" + id + ")"
+		if w > maxNameWidth {
+			maxNameWidth = w
 		}
 	}
 
@@ -1530,26 +1526,19 @@ func formatMarket(raw []byte) string {
 		fmt.Fprintf(&buf, "%s\n", strings.Repeat("-", len(cat)))
 
 		// Pad Name header to max width
-		nameHeader := "Name"
+		nameHeader := "Name (id)"
 		for len(nameHeader) < maxNameWidth {
 			nameHeader += " "
 		}
 
-		// Pad ID header to max width
-		idHeader := "ID"
-		for len(idHeader) < maxIDWidth {
-			idHeader += " "
-		}
-
 		// Header row (numeric columns right-aligned with leading tabs)
-		_, _ = fmt.Fprintf(w, "%s\t| %s\t|\tBuy\t|\tQty\t|\tSell\t|\tQty\t|\n",
-			nameHeader, idHeader)
+		_, _ = fmt.Fprintf(w, "%s\t|\tBuy\t|\tQty\t|\tSell\t|\tQty\t|\n",
+			nameHeader)
 
 		// Separator row
 		nameSep := strings.Repeat("-", maxNameWidth)
-		idSep := strings.Repeat("-", maxIDWidth)
-		_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t-----\t|\t---\t|\t-----\t|\t---\t|\n",
-			nameSep, idSep)
+		_, _ = fmt.Fprintf(w, "%s\t|\t-----\t|\t---\t|\t-----\t|\t---\t|\n",
+			nameSep)
 
 		// When the response holds only a single item — the case where the
 		// caller passed a specific item_id to view_market — show up to 25
@@ -1560,7 +1549,6 @@ func formatMarket(raw []byte) string {
 		}
 
 		nameBlank := strings.Repeat(" ", maxNameWidth)
-		idBlank := strings.Repeat(" ", maxIDWidth)
 
 		for _, item := range items {
 			buys := formatBuyOrders(item.BuyOrders)
@@ -1575,18 +1563,14 @@ func formatMarket(raw []byte) string {
 			}
 
 			for r := 0; r < rows; r++ {
-				var name, id string
+				var name string
 				if r == 0 {
-					name = item.ItemName
+					name = fmt.Sprintf("%s (%s)", item.ItemName, item.ItemID)
 					for len(name) < maxNameWidth {
 						name += " "
 					}
-					id = item.ItemID
-					for len(id) < maxIDWidth {
-						id += " "
-					}
 				} else {
-					name, id = nameBlank, idBlank
+					name = nameBlank
 				}
 
 				buyPrice, buyQty := "-", "-"
@@ -1600,8 +1584,8 @@ func formatMarket(raw []byte) string {
 					sellQty = sells[r].qty
 				}
 
-				_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
-					name, id, buyPrice, buyQty, sellPrice, sellQty)
+				_, _ = fmt.Fprintf(w, "%s\t|\t%s\t|\t%s\t|\t%s\t|\t%s\t|\n",
+					name, buyPrice, buyQty, sellPrice, sellQty)
 			}
 
 			if truncated {
@@ -1617,8 +1601,8 @@ func formatMarket(raw []byte) string {
 				}
 				// Single trailer row: leave the side with no extras blank
 				// rather than printing "0 more".
-				_, _ = fmt.Fprintf(w, "%s\t| %s\t|\t%s\t|\t\t|\t%s\t|\t\t|\n",
-					nameBlank, idBlank, buyMore, sellMore)
+				_, _ = fmt.Fprintf(w, "%s\t|\t%s\t|\t\t|\t%s\t|\t\t|\n",
+					nameBlank, buyMore, sellMore)
 			}
 		}
 	}
