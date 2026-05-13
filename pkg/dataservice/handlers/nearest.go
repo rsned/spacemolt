@@ -32,9 +32,9 @@ func (n *Nearest) ShortHelp() string {
 // "nearest tungsten_ore from sol-3" both work without a leading keyword.
 func (n *Nearest) PlaintextUsages() []string {
 	return []string{
-		"nearest poi <poi_type> from <system_id>",
-		"nearest ore <resource_id> from <system_id>",
-		"nearest <poi_type|resource_id> from <system_id>  # shorthand",
+		"nearest poi <poi_type> from|to <system_id>",
+		"nearest ore <resource_id> from|to <system_id>",
+		"nearest <poi_type|resource_id> from|to <system_id>  # shorthand",
 	}
 }
 
@@ -60,13 +60,24 @@ func (n *Nearest) limit() int {
 	return 3
 }
 
-const nearestUsage = `usage: nearest (poi <poi_type>|ore <resource_id>|<poi_type>) from <system_id>`
+const nearestUsage = `usage: nearest (poi <poi_type>|ore <resource_id>|<poi_type>) from|to <system_id>`
+
+// isFromOrTo reports whether tok is the "from" / "to" anchor word that
+// separates the query term from the system_id. Both read naturally in
+// English ("nearest station to xamidumura" vs. "from xamidumura").
+func isFromOrTo(tok string) bool {
+	switch strings.ToLower(tok) {
+	case "from", "to":
+		return true
+	}
+	return false
+}
 
 // HandlePlaintext implements dataservice.Handler. Grammar:
 //
-//	nearest <poi_type> from <system_id>
-//	nearest poi <poi_type> from <system_id>
-//	nearest ore <resource_id> from <system_id>
+//	nearest <poi_type> from|to <system_id>
+//	nearest poi <poi_type> from|to <system_id>
+//	nearest ore <resource_id> from|to <system_id>
 func (n *Nearest) HandlePlaintext(ctx context.Context, deps dataservice.Deps, args []string) (string, error) {
 	kind, key, fromSystem, err := parseNearestArgs(args)
 	if err != nil {
@@ -208,17 +219,17 @@ func parseNearestArgs(args []string) (kind, key, fromSystem string, err error) {
 	head := strings.ToLower(args[0])
 	switch head {
 	case "ore":
-		if len(args) < 4 || strings.ToLower(args[2]) != "from" {
+		if len(args) < 4 || !isFromOrTo(args[2]) {
 			return "", "", "", dataservice.ErrParse(nearestUsage)
 		}
 		return "ore", args[1], args[3], nil
 	case "poi":
-		if len(args) < 4 || strings.ToLower(args[2]) != "from" {
+		if len(args) < 4 || !isFromOrTo(args[2]) {
 			return "", "", "", dataservice.ErrParse(nearestUsage)
 		}
 		return "poi", strings.ToLower(args[1]), args[3], nil
 	default:
-		if strings.ToLower(args[1]) != "from" {
+		if !isFromOrTo(args[1]) {
 			return "", "", "", dataservice.ErrParse(nearestUsage)
 		}
 		return "auto", head, args[2], nil

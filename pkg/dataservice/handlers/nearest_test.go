@@ -96,6 +96,20 @@ func TestNearest_PlaintextHappy(t *testing.T) {
 	}
 }
 
+func TestNearest_PlaintextToAlias(t *testing.T) {
+	deps, cleanup := newTestDeps(t)
+	defer cleanup()
+
+	h := &Nearest{}
+	reply, err := h.HandlePlaintext(context.Background(), deps, []string{"station", "to", "sys-a"})
+	if err != nil {
+		t.Fatalf("HandlePlaintext with 'to' connective: %v", err)
+	}
+	if !strings.Contains(reply, "Beta") {
+		t.Errorf("reply missing destination name: %q", reply)
+	}
+}
+
 func TestNearest_PlaintextMissingFrom(t *testing.T) {
 	deps, cleanup := newTestDeps(t)
 	defer cleanup()
