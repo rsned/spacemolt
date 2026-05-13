@@ -486,6 +486,43 @@ WHERE messages_fts MATCH ?`
 	return msgs, nil
 }
 
+// SearchCount returns the total number of messages matching the FTS query,
+// applying the same filters (Channel, SenderID, UnreadOnly, IncludeDeleted)
+// as Search but ignoring Limit/Offset.
+func (s *Store) SearchCount(text string, q Query) (int, error) {
+	var clauses []string
+	args := []any{text}
+
+	if q.Channel != "" {
+		clauses = append(clauses, "m.channel = ?")
+		args = append(args, q.Channel)
+	}
+	if q.SenderID != "" {
+		clauses = append(clauses, "m.sender_id = ?")
+		args = append(args, q.SenderID)
+	}
+	if q.UnreadOnly {
+		clauses = append(clauses, "m.read_at IS NULL")
+	}
+	if !q.IncludeDeleted {
+		clauses = append(clauses, "m.deleted_at IS NULL")
+	}
+
+	query := `SELECT COUNT(*)
+FROM messages m
+JOIN messages_fts ON m.rowid = messages_fts.rowid
+WHERE messages_fts MATCH ?`
+	if len(clauses) > 0 {
+		query += " AND " + strings.Join(clauses, " AND ")
+	}
+
+	var n int
+	if err := s.db.QueryRow(query, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("mbox: search count: %w", err)
+	}
+	return n, nil
+}
+
 // SourceCounts returns a map of source → message count.
 func (s *Store) SourceCounts() (map[string]int, error) {
 	rows, err := s.db.Query(

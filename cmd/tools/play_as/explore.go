@@ -104,6 +104,10 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 				if format == formatStyled {
 					fmt.Printf("  Travel failed: %v\n", err)
 				}
+				// Back off a full tick before the next attempt — a fast
+				// retry loop here triggers server rate-limit / IP blocking
+				// when Travel returns prematurely on a state-flag desync.
+				time.Sleep(game.SleepTick)
 				continue
 			}
 			if result.Canceled {

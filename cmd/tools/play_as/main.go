@@ -27,6 +27,7 @@ import (
 
 	"cmp"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -2974,15 +2975,16 @@ func writePlayerTable(b *strings.Builder, players []nearbyPlayer) {
 		return strings.Compare(strings.ToLower(a.Username), strings.ToLower(c.Username))
 	})
 
-	nameW, tagW, shipW, combatW := len("Username"), len("Faction"), len("Ship"), len("Combat")
+	nameW, tagW, shipW, combatW := runewidth.StringWidth("Username"), runewidth.StringWidth("Faction"), runewidth.StringWidth("Ship"), runewidth.StringWidth("Combat")
 	for _, p := range players {
-		nameW = max(nameW, len(p.Username))
-		tagW = max(tagW, len(p.FactionTag))
-		shipW = max(shipW, len(p.ShipClass))
+		nameW = max(nameW, runewidth.StringWidth(p.Username))
+		tagW = max(tagW, runewidth.StringWidth(p.FactionTag))
+		shipW = max(shipW, runewidth.StringWidth(p.ShipClass))
 	}
 
-	fmt.Fprintf(b, "%-*s | %-*s | %-*s | %-*s\n",
-		nameW, "Username", tagW, "Faction", shipW, "Ship", combatW, "Combat")
+	fmt.Fprintf(b, "%s | %s | %s | %s\n",
+		padRight("Username", nameW), padRight("Faction", tagW),
+		padRight("Ship", shipW), padRight("Combat", combatW))
 	b.WriteString(strings.Repeat("-", nameW+tagW+shipW+combatW+9) + "\n")
 
 	for _, p := range players {
@@ -2992,14 +2994,24 @@ func writePlayerTable(b *strings.Builder, players []nearbyPlayer) {
 		}
 		// Colorize name at natural length, then pad with spaces for alignment.
 		name := colorizeHex(p.Username, p.PrimaryColor, p.SecondaryColor)
-		pad := nameW - len(p.Username)
+		pad := nameW - runewidth.StringWidth(p.Username)
 		if pad > 0 {
 			name += strings.Repeat(" ", pad)
 		}
-		fmt.Fprintf(b, "%s | %-*s | %-*s | %s |\n",
-			name, tagW, p.FactionTag,
-			shipW, p.ShipClass, combat)
+		fmt.Fprintf(b, "%s | %s | %s | %s |\n",
+			name, padRight(p.FactionTag, tagW),
+			padRight(p.ShipClass, shipW), combat)
 	}
+}
+
+// padRight pads s on the right with spaces so its display width equals w.
+// Uses rune-width so multibyte/double-width characters align correctly.
+func padRight(s string, w int) string {
+	pad := w - runewidth.StringWidth(s)
+	if pad <= 0 {
+		return s
+	}
+	return s + strings.Repeat(" ", pad)
 }
 
 // formatFloat formats a float64 nicely — as integer if whole, otherwise with decimals.
@@ -5595,12 +5607,22 @@ func mboxSearch(store *mbox.Store, args []string) {
 		fmt.Printf("error: %v\n", err)
 		return
 	}
-	if len(msgs) == 0 {
+	total, err := store.SearchCount(text, q)
+	if err != nil {
+		// Non-fatal — fall back to displayed count.
+		total = len(msgs)
+	}
+	if total == 0 {
 		fmt.Println("  (no results)")
 		return
 	}
 	for _, m := range msgs {
 		printMboxMessage(m)
+	}
+	if total > len(msgs) {
+		fmt.Printf("  (%d results, showing first %d)\n", total, len(msgs))
+	} else {
+		fmt.Printf("  (%d results)\n", total)
 	}
 }
 

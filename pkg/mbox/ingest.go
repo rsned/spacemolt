@@ -90,6 +90,15 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 	var before string
 	var oldestSeen time.Time
 
+	// Resume from the saved cursor (oldest message previously ingested) so
+	// successive backfills walk further into history instead of re-requesting
+	// the latest page and immediately stopping on duplicate IDs.
+	if cursor, ok, err := ing.store.Cursor(channel); err != nil {
+		ing.logger.Printf("cursor %s: %v", channel, err)
+	} else if ok {
+		before = cursor.UTC().Format(time.RFC3339Nano)
+	}
+
 	for {
 		if ctx.Err() != nil {
 			return cr, ctx.Err()
