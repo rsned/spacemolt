@@ -545,6 +545,45 @@ func (c *Client) Disconnect() error {
 	return nil
 }
 
+// handleClose runs the close-code policy: replay outstanding mutations
+// on graceful closes, fail-fast otherwise. Called by the listen loop
+// after a close frame is observed.
+func (c *Client) handleClose(closeErr *websocket.CloseError) {
+	policy, known := lookupClosePolicy(closeErr.Code, closeErr.Reason)
+	if !known {
+		log.Printf("WARN: unknown WebSocket close: code=%d reason=%q — please document; default action=%v",
+			int(closeErr.Code), closeErr.Reason, policy.action)
+	} else {
+		c.debugLogger.Printf("close policy: %s (code=%d reason=%q)", policy.note, int(closeErr.Code), closeErr.Reason)
+	}
+
+	switch policy.action {
+	case closeReplay:
+		c.replayPending(closeErr)
+	default: // closeFailFast
+		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+	}
+}
+
+// failPending delivers err to every outstanding id-keyed subscription
+// and unregisters them. Used on fail-fast closes.
+func (c *Client) failPending(err error) {
+	subs := c.router.snapshotByID()
+	for _, sub := range subs {
+		c.router.dispatch(protocol.Response{
+			Type:      protocol.TypeError,
+			RequestID: sub.id,
+			Payload:   map[string]any{"code": "connection_closed", "message": err.Error()},
+		})
+	}
+}
+
+// replayPending is implemented in Task 10. Until then, fall back to
+// fail-fast so the caller doesn't hang.
+func (c *Client) replayPending(closeErr *websocket.CloseError) {
+	c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+}
+
 // Reconnect disconnects and reconnects to the server
 func (c *Client) Reconnect(ctx context.Context) error {
 	c.debugLogger.Printf("Attempting to reconnect...")
@@ -1726,10 +1765,11 @@ func (c *Client) listen(ctx context.Context) {
 			// Enhanced error logging with diagnostics
 			c.debugLogger.Printf("[listen-%d] Connection error: %v", goroutineID, err)
 
-			// Check if this is a server close frame
+			// Check if this is a server close frame and run the close policy.
 			if closeErr, ok := err.(*websocket.CloseError); ok {
 				c.debugLogger.Printf("[listen-%d] Server close frame | Status: %s (%d) | Reason: %q",
 					goroutineID, closeErr.Code, closeErr.Code, closeErr.Reason)
+				c.handleClose(closeErr)
 			}
 
 			c.debugLogger.Printf("[listen-%d] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB", goroutineID)
