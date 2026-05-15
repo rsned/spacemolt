@@ -214,13 +214,11 @@ func TestSubmit_ResultConcurrentCallersAllResolve(t *testing.T) {
 	var results [4]protocol.Response
 	var errs [4]error
 	for i := range 4 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			callCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			results[i], errs[i] = h.Result(callCtx)
-		}()
+		})
 	}
 	wg.Wait()
 
