@@ -57,9 +57,8 @@ func TestStress_ManyDistinctActionsResolveCorrectly(t *testing.T) {
 	failures := atomic.Int64{}
 
 	for i := range totalSubmits {
-		idx := i
 		wg.Go(func() {
-			action := fmt.Sprintf("act_%d", idx%distinctActs)
+			action := fmt.Sprintf("act_%d", i%distinctActs)
 			h, err := c.Submit(ctx, protocol.Message{Type: action})
 			if err != nil {
 				failures.Add(1)
@@ -221,16 +220,12 @@ func TestStress_NoSlotLeakUnderRandomOutcomes(t *testing.T) {
 	// submit drives the cleanup.
 	dispatcherDone := make(chan struct{})
 	rng := rand.New(rand.NewPCG(0xc0ffee, 0xdeadbeef))
-	var rngMu sync.Mutex
 	go func() {
 		defer close(dispatcherDone)
 		for {
 			select {
 			case msg := <-sendCh:
-				rngMu.Lock()
-				outcome := rng.IntN(4)
-				rngMu.Unlock()
-				switch outcome {
+				switch rng.IntN(4) {
 				case 0:
 					c.router.dispatch(protocol.Response{
 						Type:      protocol.TypeActionResult,
@@ -260,9 +255,8 @@ func TestStress_NoSlotLeakUnderRandomOutcomes(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range submits {
-		idx := i
 		wg.Go(func() {
-			action := fmt.Sprintf("rand_act_%d", idx%distinctActs)
+			action := fmt.Sprintf("rand_act_%d", i%distinctActs)
 			h, err := c.Submit(context.Background(),
 				protocol.Message{Type: action},
 				WithTimeout(50*time.Millisecond))
@@ -351,9 +345,8 @@ func TestStress_ReplayMidLoad(t *testing.T) {
 		resolved atomic.Int64
 	)
 	for i := range submits {
-		idx := i
 		wg.Go(func() {
-			action := fmt.Sprintf("replay_act_%d", idx%distinctActs)
+			action := fmt.Sprintf("replay_act_%d", i%distinctActs)
 			h, err := c.Submit(ctx, protocol.Message{Type: action})
 			if err != nil {
 				return
