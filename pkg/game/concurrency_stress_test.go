@@ -116,31 +116,46 @@ func TestStress_SameActionSerializes(t *testing.T) {
 		peak       atomic.Int64
 	)
 
-	// Replier: increments a counter while a send is "on the wire",
-	// sleeps to widen the window, dispatches, then decrements. Because
-	// Submit cannot send until it owns the action lock, and the lock
-	// is held until the reply is dispatched + cleanup runs, this
-	// counter is the true measure of same-action concurrency.
+	// Replier: for every send, spawn a goroutine that increments a
+	// counter, sleeps to widen the window, dispatches the reply, then
+	// decrements. Dispatching in a goroutine (not synchronously) is
+	// critical: if the action lock is broken, multiple same-action
+	// Submits can pass through sendCh and overlap in this window, so
+	// peak will exceed 1. With the lock in place, Submit B cannot Send
+	// until A's reply has dispatched and A's cleanup released the lock,
+	// so peak must stay at 1.
 	replierDone := make(chan struct{})
 	go func() {
 		defer close(replierDone)
+		var workers sync.WaitGroup
+		defer workers.Wait()
 		for {
 			select {
 			case msg := <-sendCh:
-				cur := processing.Add(1)
-				for {
-					p := peak.Load()
-					if cur <= p || peak.CompareAndSwap(p, cur) {
-						break
+				workers.Add(1)
+				go func(m protocol.Message) {
+					defer workers.Done()
+					cur := processing.Add(1)
+					for {
+						p := peak.Load()
+						if cur <= p || peak.CompareAndSwap(p, cur) {
+							break
+						}
 					}
-				}
-				time.Sleep(1 * time.Millisecond)
-				c.router.dispatch(protocol.Response{
-					Type:      protocol.TypeActionResult,
-					RequestID: msg.RequestID,
-					Payload:   map[string]any{"command": msg.Type},
-				})
-				processing.Add(-1)
+					time.Sleep(1 * time.Millisecond)
+					// Decrement BEFORE dispatch: dispatching writes to
+					// respCh, which unblocks runSubmit and triggers the
+					// action-lock release. If we decremented AFTER
+					// dispatch, the next Submit's increment could race
+					// our decrement and we'd see false peak=2 even with
+					// the lock working correctly.
+					processing.Add(-1)
+					c.router.dispatch(protocol.Response{
+						Type:      protocol.TypeActionResult,
+						RequestID: m.RequestID,
+						Payload:   map[string]any{"command": m.Type},
+					})
+				}(msg)
 			case <-time.After(2 * time.Second):
 				return
 			}
