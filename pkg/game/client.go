@@ -907,8 +907,11 @@ func (c *Client) Undock(ctx context.Context) error {
 		Type:      "undock",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	classifier, terminate := dockTransitionMatchers("undock", protocol.TypeUndocked)
-	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepTick*3)
+	_, terminate := dockTransitionMatchers("undock", protocol.TypeUndocked)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -922,8 +925,11 @@ func (c *Client) Dock(ctx context.Context) error {
 		Type:      "dock",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	classifier, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
-	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepTick*3)
+	_, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1166,19 +1172,6 @@ func (c *Client) Mine(ctx context.Context) error {
 	// (carries cargo + xp_gained) rather than an action_result with
 	// command="mine". Accept either as terminal; classic action_error/error
 	// continue to terminate with the server-supplied error.
-	classifier := func(resp protocol.Response) bool {
-		switch resp.Type {
-		case protocol.TypeMiningYield, protocol.TypeActionError, protocol.TypeError:
-			// Errors arrive without a command field (e.g. cargo_full); since
-			// execMutation holds mutationMu, any error during this window
-			// belongs to our mine call. Same pattern as dockTransitionMatchers.
-			return true
-		case protocol.TypeActionResult:
-			cmd, _ := resp.Payload["command"].(string)
-			return cmd == "mine"
-		}
-		return false
-	}
 	terminate := func(resp protocol.Response) (bool, error) {
 		switch resp.Type {
 		case protocol.TypeMiningYield:
@@ -1190,7 +1183,10 @@ func (c *Client) Mine(ctx context.Context) error {
 		}
 		return false, nil
 	}
-	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepActionStartTimeout)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepActionStartTimeout))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("mine", err)
 }
 
@@ -1201,7 +1197,10 @@ func (c *Client) Attack(ctx context.Context, targetID string) error {
 		Payload:   map[string]any{"target_id": targetID, "weapon_idx": 0},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("attack"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1212,7 +1211,10 @@ func (c *Client) Scan(ctx context.Context) error {
 		Payload:   map[string]any{"target_id": "area"},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("scan"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1223,7 +1225,10 @@ func (c *Client) SurveySystem(ctx context.Context) error {
 		Type:      "survey_system",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("survey_system"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1266,8 +1271,10 @@ func (c *Client) GetSystem(ctx context.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 	// get_system returns type=ok with action="get_system"; storeRawJSON stores under "system".
-	match := matchAll(matchType(protocol.TypeOK), matchAction("get_system"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1291,8 +1298,10 @@ func (c *Client) GetMap(ctx context.Context, force ...bool) error {
 	}
 	// get_map returns type=ok with "systems" key; storeRawJSON stores under "systems".
 	// No action field in response.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("systems"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	if err == nil {
 		c.mapFetchedMu.Lock()
 		c.mapFetchedAt = time.Now()
@@ -1311,8 +1320,10 @@ func (c *Client) GetPOI(ctx context.Context) error {
 	// get_poi returns type=ok with no "action" field on the wire (the
 	// storeRawJSON action case is dead code for the current server).
 	// The distinctive payload key is "poi" — the POI object itself.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("poi"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1326,8 +1337,10 @@ func (c *Client) GetStatus(ctx context.Context) error {
 	// get_status returns type=ok with no "action" field on the wire (the
 	// storeRawJSON action case is dead code for the current server).
 	// The distinctive payload key is "player" — the full player snapshot.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("player"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1350,8 +1363,10 @@ func (c *Client) GetListings(ctx context.Context) error {
 		Type:      "view_market",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	match := matchAll(matchType(protocol.TypeOK), matchAction("view_market"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1364,8 +1379,10 @@ func (c *Client) GetShips(ctx context.Context) error {
 	}
 	// get_ships returns type=ok with "ships" array (distinct from browse_ships
 	// which uses "listings"). station_id and station_name are also present.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("ships"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1389,7 +1406,10 @@ func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) erro
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("sell"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1417,7 +1437,10 @@ func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder
 		Payload:   map[string]any{"orders": orders},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_sell_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1569,7 +1592,10 @@ func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1712,29 +1738,35 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 
 // Refuel refills the ship's fuel tank at the current station.
 //
-// Wraps the execMutation error through maybeGoalReached so a
-// tank_full server error becomes a *GoalReachedError sentinel that
-// the play_as loop recognizes as a successful exit condition.
+// Wraps the Submit error through maybeGoalReached so a tank_full server
+// error becomes a *GoalReachedError sentinel that the play_as loop
+// recognizes as a successful exit condition.
 func (c *Client) Refuel(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "refuel",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("refuel"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("refuel", err)
 }
 
 // Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
 // v0.240: optional params for item_id, quantity, and target (remote repair).
 //
-// Wraps the execMutation error through maybeGoalReached so a no_damage
+// Wraps the Submit error through maybeGoalReached so a no_damage
 // server error becomes a *GoalReachedError.
 func (c *Client) Repair(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "repair",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("repair", err)
 }
 
@@ -1745,7 +1777,10 @@ func (c *Client) RepairWith(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("repair", err)
 }
 
@@ -1761,7 +1796,10 @@ func (c *Client) Fleet(ctx context.Context, action string, playerID string) erro
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("fleet"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1777,7 +1815,10 @@ func (c *Client) DistressSignal(ctx context.Context, distressType string) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("distress_signal"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1788,7 +1829,10 @@ func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
