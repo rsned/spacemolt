@@ -74,8 +74,6 @@ func (r *responseRouter) registerByID(id string, ch chan protocol.Response, term
 
 // setAckChannel attaches an ack channel to an existing id-subscription.
 // Must be called before any frames for this id can arrive.
-//
-//nolint:unused // used by Task 8 (Submit + RequestHandle)
 func (r *responseRouter) setAckChannel(sub *subscription, ackCh chan protocol.Response) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -160,8 +158,6 @@ func (r *responseRouter) unregister(sub *subscription) {
 
 // snapshotByID returns all live id-keyed subscriptions. Used by the
 // replay path on close=1000.
-//
-//nolint:unused // used by Task 10 (reconnect-replay path)
 func (r *responseRouter) snapshotByID() []*subscription {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -174,8 +170,6 @@ func (r *responseRouter) snapshotByID() []*subscription {
 
 // rekey changes an id-subscription's request_id. Used by the replay
 // path when re-sending under a fresh UUID.
-//
-//nolint:unused // used by Task 10 (reconnect-replay path)
 func (r *responseRouter) rekey(sub *subscription, newID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

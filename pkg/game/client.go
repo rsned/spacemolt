@@ -109,6 +109,12 @@ type Client struct {
 	actionLocks *actionLockMap
 	mutationMu  sync.Mutex
 
+	// pendingReplay holds messages staged for re-send after a reconnect
+	// triggered by close=1000. Populated by replayPending and drained
+	// by Reconnect after a successful login.
+	pendingReplay   []protocol.Message
+	pendingReplayMu sync.Mutex
+
 	// tickProvider, if set, returns the current game tick. Used by Travel /
 	// Jump to capture an authoritative StartTick — state.CurrentTick only
 	// advances on certain server frames and can lag the real tick by tens of
@@ -579,9 +585,9 @@ func (c *Client) failPending(err error) {
 	}
 }
 
-// replayPending re-sends every outstanding mutation under a fresh
-// UUIDv7. Caller has already torn down the connection; this assumes
-// the existing reconnect machinery will run before send().
+// replayPending stages every outstanding mutation for re-send under a
+// fresh UUIDv7. Caller has already torn down the connection; the
+// staged messages are drained by Reconnect after a successful login.
 //
 // Per spec: server v0.296.1 graceful closes lose all in-flight state,
 // so no double-execution risk. The caller's handle.Result() never
@@ -591,11 +597,11 @@ func (c *Client) replayPending(closeErr *websocket.CloseError) {
 	if len(subs) == 0 {
 		return
 	}
-	c.debugLogger.Printf("replay: %d pending mutation(s) under fresh request_ids (close code=%d reason=%q)",
+	c.debugLogger.Printf("replay: staging %d pending mutation(s) under fresh request_ids (close code=%d reason=%q)",
 		len(subs), int(closeErr.Code), closeErr.Reason)
 
-	ctx, cancel := context.WithTimeout(context.Background(), SleepReconnect)
-	defer cancel()
+	c.pendingReplayMu.Lock()
+	defer c.pendingReplayMu.Unlock()
 
 	for _, sub := range subs {
 		if sub.replayMsg == nil {
@@ -615,12 +621,31 @@ func (c *Client) replayPending(closeErr *websocket.CloseError) {
 		if sub.handle != nil {
 			sub.handle.setID(newID)
 		}
+		c.pendingReplay = append(c.pendingReplay, msg)
+	}
+}
 
+// drainPendingReplay sends every staged replay message. Called by
+// Reconnect after a successful login. Send failures are surfaced as
+// synthetic connection_lost errors so callers see SOMETHING instead
+// of hanging forever.
+func (c *Client) drainPendingReplay(ctx context.Context) {
+	c.pendingReplayMu.Lock()
+	pending := c.pendingReplay
+	c.pendingReplay = nil
+	c.pendingReplayMu.Unlock()
+
+	if len(pending) == 0 {
+		return
+	}
+	c.debugLogger.Printf("replay: draining %d staged message(s)", len(pending))
+
+	for _, msg := range pending {
 		if err := c.send(ctx, msg); err != nil {
-			c.debugLogger.Printf("replay: send failed for new id=%s: %v", newID, err)
+			c.debugLogger.Printf("replay: send failed for new id=%s: %v", msg.RequestID, err)
 			c.router.dispatch(protocol.Response{
 				Type:      protocol.TypeError,
-				RequestID: newID,
+				RequestID: msg.RequestID,
 				Payload:   map[string]any{"code": "connection_lost", "message": err.Error()},
 			})
 		}
@@ -686,6 +711,10 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		}
 
 		c.debugLogger.Printf("Reconnected and logged in successfully")
+
+		// Drain any messages staged by replayPending during the prior close.
+		c.drainPendingReplay(ctx)
+
 		return nil
 	}
 

@@ -260,9 +260,12 @@ func TestReplay_OnNormalClose_FreshUUIDAndDeliver(t *testing.T) {
 	first := <-sendCh
 	origID := first.RequestID
 
-	// Simulate a graceful close: replay should re-send with a new
-	// request_id and update the handle.
+	// Simulate a graceful close: replayPending stages the message but
+	// does not send. drainPendingReplay (normally called by Reconnect
+	// after re-login) is invoked explicitly here to mimic the full
+	// close-then-reconnect cycle.
 	c.replayPending(&websocket.CloseError{Code: websocket.StatusNormalClosure, Reason: "max session age"})
+	c.drainPendingReplay(ctx)
 
 	second := <-sendCh
 	if second.RequestID == "" || second.RequestID == origID {
@@ -295,6 +298,7 @@ func TestReplay_LateOriginalResponseIsOrphan(t *testing.T) {
 	origID := first.RequestID
 
 	c.replayPending(&websocket.CloseError{Code: websocket.StatusNormalClosure, Reason: "rolling restart"})
+	c.drainPendingReplay(ctx)
 	<-sendCh // consume replayed send
 
 	// Late response under the old ID must be orphaned, not delivered.
@@ -310,6 +314,51 @@ func TestReplay_LateOriginalResponseIsOrphan(t *testing.T) {
 	// Cleanup: deliver under the new id so the handle resolves.
 	go c.router.dispatch(protocol.Response{
 		Type: protocol.TypeActionResult, RequestID: h.ID(),
+		Payload: map[string]any{"command": "mine"},
+	})
+	if _, err := h.Result(ctx); err != nil {
+		t.Errorf("Result: %v", err)
+	}
+}
+
+func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background()
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "mine"},
+		WithTerminator(terminateOnAction))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	<-sendCh // consume first send
+	origID := h.ID()
+
+	// replayPending alone must not send. It only stages.
+	c.replayPending(&websocket.CloseError{Code: websocket.StatusNormalClosure, Reason: "max session age"})
+
+	select {
+	case msg := <-sendCh:
+		t.Fatalf("replayPending sent prematurely (id=%s)", msg.RequestID)
+	case <-time.After(50 * time.Millisecond):
+		// expected: nothing sent
+	}
+
+	// Handle should already be rekeyed (so a late response under origID
+	// becomes an orphan).
+	if h.ID() == origID {
+		t.Errorf("handle.ID() not updated after replayPending")
+	}
+
+	// Now drain.
+	c.drainPendingReplay(ctx)
+	second := <-sendCh
+	if second.RequestID != h.ID() {
+		t.Errorf("drained send RequestID = %q, want %q", second.RequestID, h.ID())
+	}
+
+	// Cleanup: resolve handle.
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeActionResult, RequestID: second.RequestID,
 		Payload: map[string]any{"command": "mine"},
 	})
 	if _, err := h.Result(ctx); err != nil {
