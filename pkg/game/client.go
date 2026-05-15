@@ -103,8 +103,10 @@ type Client struct {
 	diagnosticMu      sync.RWMutex
 	goroutineID       int64 // Counter for tracking goroutine instances
 
-	router     *responseRouter
-	mutationMu sync.Mutex
+	router      *responseRouter
+	inflight    *inflight
+	actionLocks *actionLockMap
+	mutationMu  sync.Mutex
 
 	// tickProvider, if set, returns the current game tick. Used by Travel /
 	// Jump to capture an authoritative StartTick — state.CurrentTick only
@@ -319,6 +321,8 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		readyChan:          make(chan struct{}),
 		waiters:            make(map[string]chan protocol.Response),
 		router:             newResponseRouter(),
+		inflight:           newInflight(16),
+		actionLocks:        newActionLockMap(),
 		debugLogger:        debugLogger,
 		debugPayloadMaxLen: 200,
 		latestListings:  make([]MarketListing, 0),
@@ -611,6 +615,14 @@ func (c *Client) SetHandler(handler MessageHandler) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.handler = handler
+}
+
+// send is the private wire primitive used by Submit. Currently a thin
+// wrapper around the (deprecated) public Send so Submit doesn't have
+// to depend on the deprecated method directly. Task 21 will invert
+// this: Send becomes private and this wrapper goes away.
+func (c *Client) send(ctx context.Context, msg protocol.Message) error {
+	return c.Send(ctx, msg)
 }
 
 // Send sends a message to the game server.
