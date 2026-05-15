@@ -28,6 +28,7 @@ func (m *ctxMutex) lockCtx(ctx context.Context) error {
 	}
 }
 
+// unlock releases the mutex. Caller MUST have called lockCtx and received nil first.
 func (m *ctxMutex) unlock() { <-m.ch }
 
 // actionLockMap holds one ctxMutex per action name (msg.Type). Maps

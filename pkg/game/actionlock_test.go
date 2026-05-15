@@ -77,7 +77,6 @@ func TestActionLock_LazyCreationConcurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	for i := range 50 {
-		i := i
 		wg.Go(func() {
 			action := fmt.Sprintf("action-%d", i%26)
 			rel, err := m.lock(context.Background(), action)
