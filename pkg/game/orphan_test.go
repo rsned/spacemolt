@@ -22,12 +22,10 @@ func TestOrphanStats_Record(t *testing.T) {
 func TestOrphanStats_RecordConcurrent(t *testing.T) {
 	o := newOrphanStats()
 	var wg sync.WaitGroup
-	for i := 0; i < 1000; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 1000 {
+		wg.Go(func() {
 			o.record("id", "type")
-		}()
+		})
 	}
 	wg.Wait()
 	if got := o.Count(); got != 1000 {
@@ -46,7 +44,7 @@ func TestOrphanStats_LogRateLimit(t *testing.T) {
 		mu.Unlock()
 	}
 	// 100 events in ~10ms must produce at most 1 log line.
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		o.record("id", "type")
 	}
 	mu.Lock()
