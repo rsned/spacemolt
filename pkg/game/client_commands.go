@@ -32,13 +32,15 @@ func (c *Client) Battle(ctx context.Context, action string, payload map[string]a
 // GetBattleStatus queries the current battle state (free query, no tick cost).
 // Blocks until the server responds.
 func (c *Client) GetBattleStatus(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_battle_status",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepTick))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // Reload reloads a weapon's magazine from ammo in cargo.
