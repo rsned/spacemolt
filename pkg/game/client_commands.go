@@ -22,7 +22,10 @@ func (c *Client) Battle(ctx context.Context, action string, payload map[string]a
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("battle"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -48,7 +51,10 @@ func (c *Client) Reload(ctx context.Context, weaponInstanceID, ammoItemID string
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("reload"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -58,7 +64,10 @@ func (c *Client) SelfDestruct(ctx context.Context) error {
 		Type:      "self_destruct",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("self_destruct"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -69,7 +78,10 @@ func (c *Client) Cloak(ctx context.Context, enable bool) error {
 		Payload:   map[string]any{"enable": enable},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cloak"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -81,7 +93,10 @@ func (c *Client) ScanTarget(ctx context.Context, targetID string) error {
 		Payload:   map[string]any{"target_id": targetID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("scan"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -111,7 +126,10 @@ func (c *Client) BuyListedShip(ctx context.Context, listingID string) error {
 		Payload:   map[string]any{"listing_id": listingID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy_listed_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -122,7 +140,10 @@ func (c *Client) BuyShip(ctx context.Context, shipClass string) error {
 		Payload:   map[string]any{"ship_class": shipClass},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -133,7 +154,10 @@ func (c *Client) CancelCommission(ctx context.Context, commissionID string) erro
 		Payload:   map[string]any{"commission_id": commissionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cancel_commission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -144,7 +168,10 @@ func (c *Client) CancelShipListing(ctx context.Context, listingID string) error 
 		Payload:   map[string]any{"listing_id": listingID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cancel_ship_listing"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -155,7 +182,10 @@ func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error
 		Payload:   map[string]any{"commission_id": commissionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("claim_commission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -178,7 +208,10 @@ func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMa
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("commission_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -205,7 +238,10 @@ func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("list_ship_for_sale"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -216,7 +252,10 @@ func (c *Client) SwitchShip(ctx context.Context, shipID string) error {
 		Payload:   map[string]any{"ship_id": shipID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("switch_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -227,7 +266,10 @@ func (c *Client) SellShip(ctx context.Context, shipID string) error {
 		Payload:   map[string]any{"ship_id": shipID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("sell_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -258,7 +300,10 @@ func (c *Client) UseItem(ctx context.Context, itemID string, quantity int) error
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("use_item"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -269,7 +314,10 @@ func (c *Client) InstallMod(ctx context.Context, moduleID string) error {
 		Payload:   map[string]any{"module_id": moduleID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("install_mod"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -279,7 +327,10 @@ func (c *Client) RefitShip(ctx context.Context) error {
 		Type:      "refit_ship",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("refit_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -290,7 +341,10 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 		Payload:   map[string]any{"module_id": moduleID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("uninstall_mod"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -313,7 +367,10 @@ func (c *Client) CreateBuyOrder(ctx context.Context, payload map[string]any) err
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_buy_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -324,7 +381,10 @@ func (c *Client) CreateSellOrder(ctx context.Context, payload map[string]any) er
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_sell_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -335,7 +395,10 @@ func (c *Client) CancelOrder(ctx context.Context, payload map[string]any) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cancel_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -346,7 +409,10 @@ func (c *Client) ModifyOrder(ctx context.Context, payload map[string]any) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("modify_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -415,7 +481,10 @@ func (c *Client) TradeOffer(ctx context.Context, targetID string, payload map[st
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("trade_offer"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -426,7 +495,10 @@ func (c *Client) TradeAccept(ctx context.Context, tradeID string) error {
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("trade_accept"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -476,7 +548,10 @@ func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("loot_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -487,7 +562,10 @@ func (c *Client) SalvageWreck(ctx context.Context, wreckID string) error {
 		Payload:   map[string]any{"wreck_id": wreckID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("salvage_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -498,7 +576,10 @@ func (c *Client) TowWreck(ctx context.Context, wreckID string) error {
 		Payload:   map[string]any{"wreck_id": wreckID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("tow_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -508,7 +589,10 @@ func (c *Client) ReleaseTow(ctx context.Context) error {
 		Type:      "release_tow",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("release_tow"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -518,7 +602,10 @@ func (c *Client) ScrapWreck(ctx context.Context) error {
 		Type:      "scrap_wreck",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("scrap_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -528,7 +615,10 @@ func (c *Client) SellWreck(ctx context.Context) error {
 		Type:      "sell_wreck",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("sell_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -563,7 +653,10 @@ func (c *Client) Jettison(ctx context.Context, itemID string, quantity float64) 
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("jettison"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -603,7 +696,10 @@ func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity floa
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -621,7 +717,10 @@ func (c *Client) WithdrawItemsPayload(ctx context.Context, payload map[string]an
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -634,7 +733,10 @@ func (c *Client) DepositItemsPayload(ctx context.Context, payload map[string]any
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -645,7 +747,10 @@ func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("send_gift"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -793,7 +898,10 @@ func (c *Client) AcceptMission(ctx context.Context, missionID string) error {
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("accept_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -804,7 +912,10 @@ func (c *Client) CompleteMission(ctx context.Context, missionID string) error {
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("complete_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -837,7 +948,10 @@ func (c *Client) BuyInsurance(ctx context.Context, ticks int) error {
 		Payload:   map[string]any{"ticks": ticks},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy_insurance"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -864,7 +978,10 @@ func (c *Client) SetHomeBase(ctx context.Context, baseID string) error {
 		Payload:   map[string]any{"base_id": baseID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("set_home_base"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -882,7 +999,10 @@ func (c *Client) CreateNote(ctx context.Context, title, content string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_note"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -940,7 +1060,10 @@ func (c *Client) WriteNote(ctx context.Context, noteID, content string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("write_note"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1218,51 +1341,6 @@ func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) er
 // Station Facilities
 // ============================================================================
 
-// facilityMatch recognizes every facility response shape:
-//   - sync query reply (type=ok, no command field; identified by
-//     station_facilities/faction_facilities/player_facilities for list,
-//     or action ∈ {types, upgrades, help, faction_list} for the others)
-//   - async pending ok (command="facility", pending=true)
-//   - terminal action_result/action_error (command="facility")
-//
-// Sub-action coverage isn't exhaustive — extend the action switch as new
-// sync sub-actions are exercised; the cost of missing one is an
-// execMutation timeout instead of a clean reply.
-func facilityMatch(resp protocol.Response) bool {
-	p := resp.Payload
-	if cmd, _ := p["command"].(string); cmd == "facility" {
-		return true
-	}
-	// Server rejects malformed actions with a top-level TypeError that lacks
-	// the command field. execMutation serializes facility calls under
-	// mutationMu, so any error frame arriving while we wait belongs to us —
-	// claim it so the terminator can surface the message instead of letting
-	// the call hang to the SleepTick*3 deadline.
-	if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
-		return true
-	}
-	if resp.Type != protocol.TypeOK {
-		return false
-	}
-	if _, ok := p["station_facilities"]; ok {
-		return true // facility list
-	}
-	if _, ok := p["faction_facilities"]; ok {
-		return true
-	}
-	if _, ok := p["player_facilities"]; ok {
-		return true
-	}
-	if action, _ := p["action"].(string); action != "" {
-		switch action {
-		case "types", "upgrades", "help", "faction_list",
-			"personal_visit", "personal_decorate":
-			return true
-		}
-	}
-	return false
-}
-
 // facilityTerminate handles facility's dual-shape completion: the standard
 // action terminator semantics for action_result/action_error, plus a sync
 // query termination when type=ok lands without pending=true.
@@ -1292,7 +1370,12 @@ func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, facilityMatch, facilityTerminate, SleepTick*3)
+	h, err := c.Submit(ctx, msg,
+		WithTerminator(facilityTerminate),
+		WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1343,7 +1426,10 @@ func (c *Client) CreateFaction(ctx context.Context, payload map[string]any) erro
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_faction"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1354,7 +1440,10 @@ func (c *Client) JoinFaction(ctx context.Context, factionID string) error {
 		Payload:   map[string]any{"faction_id": factionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("join_faction"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1364,7 +1453,10 @@ func (c *Client) LeaveFaction(ctx context.Context) error {
 		Type:      "leave_faction",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("leave_faction"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1375,7 +1467,10 @@ func (c *Client) FactionInvite(ctx context.Context, playerID string) error {
 		Payload:   map[string]any{"player_id": playerID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_invite"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1386,7 +1481,10 @@ func (c *Client) FactionKick(ctx context.Context, playerID string) error {
 		Payload:   map[string]any{"player_id": playerID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_kick"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1400,7 +1498,10 @@ func (c *Client) FactionPromote(ctx context.Context, playerID, roleID string) er
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_promote"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1466,7 +1567,10 @@ func (c *Client) FactionDeclareWar(ctx context.Context, targetFactionID, reason 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_declare_war"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1481,7 +1585,10 @@ func (c *Client) FactionProposePeace(ctx context.Context, targetFactionID, terms
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_propose_peace"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1492,7 +1599,10 @@ func (c *Client) FactionAcceptPeace(ctx context.Context, targetFactionID string)
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_accept_peace"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1503,7 +1613,10 @@ func (c *Client) FactionSetAlly(ctx context.Context, targetFactionID string) err
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_set_ally"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1514,7 +1627,10 @@ func (c *Client) FactionSetEnemy(ctx context.Context, targetFactionID string) er
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_set_enemy"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1529,7 +1645,10 @@ func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]an
 		Payload:   map[string]any{"systems": systems},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_submit_intel"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1557,7 +1676,10 @@ func (c *Client) FactionSubmitTradeIntel(ctx context.Context, stations []map[str
 		Payload:   map[string]any{"stations": stations},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_submit_trade_intel"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1592,7 +1714,10 @@ func (c *Client) FactionDepositItems(ctx context.Context, itemID string, quantit
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1606,7 +1731,10 @@ func (c *Client) FactionWithdrawItems(ctx context.Context, itemID string, quanti
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1619,7 +1747,10 @@ func (c *Client) FactionDepositItemsPayload(ctx context.Context, payload map[str
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1631,7 +1762,10 @@ func (c *Client) FactionWithdrawItemsPayload(ctx context.Context, payload map[st
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1642,7 +1776,10 @@ func (c *Client) FactionDepositCredits(ctx context.Context, amount float64) erro
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_credits"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1653,7 +1790,10 @@ func (c *Client) FactionWithdrawCredits(ctx context.Context, amount float64) err
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_credits"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1668,7 +1808,10 @@ func (c *Client) FactionGift(ctx context.Context, factionID string, payload map[
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_gift"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1691,7 +1834,10 @@ func (c *Client) FactionCreateBuyOrder(ctx context.Context, itemID string, price
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_create_buy_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1706,7 +1852,10 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_create_sell_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1729,7 +1878,10 @@ func (c *Client) FactionPostMission(ctx context.Context, payload map[string]any)
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_post_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1740,7 +1892,10 @@ func (c *Client) FactionCancelMission(ctx context.Context, templateID string) er
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_cancel_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
