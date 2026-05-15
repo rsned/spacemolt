@@ -183,6 +183,13 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 func (r *responseRouter) dispatchByID(resp protocol.Response) {
 	r.mu.Lock()
 	sub, ok := r.byReqID[resp.RequestID]
+	var ackCh, respCh chan protocol.Response
+	var terminate Terminator
+	if ok {
+		ackCh = sub.ackCh
+		respCh = sub.respCh
+		terminate = sub.terminate
+	}
 	r.mu.Unlock()
 
 	if !ok {
@@ -191,13 +198,17 @@ func (r *responseRouter) dispatchByID(resp protocol.Response) {
 	}
 
 	// Terminator gate: intermediate frames go to ackCh, terminals to respCh.
-	if sub.terminate != nil {
-		done, _ := r.safeRunTerminator(sub, resp)
+	// Note: a concurrent unregister between lookup and delivery can turn
+	// what looks like a successful send into a dropped frame; the
+	// subscription pointer remains valid (sub.respCh capacity=1) but the
+	// caller has stopped reading, so the default branch fires. This is
+	// acceptable — caller initiated the cancellation.
+	if terminate != nil {
+		done, _ := r.safeRunTerminatorFn(terminate, resp)
 		if !done {
-			// Intermediate (e.g. pending:true ack). Deliver to ackCh if set.
-			if sub.ackCh != nil {
+			if ackCh != nil {
 				select {
-				case sub.ackCh <- resp:
+				case ackCh <- resp:
 				default:
 					log.Printf("response router: dropped ack (id=%s, full ackCh)", resp.RequestID)
 				}
@@ -206,9 +217,8 @@ func (r *responseRouter) dispatchByID(resp protocol.Response) {
 		}
 	}
 
-	// Terminal: deliver and unregister.
 	select {
-	case sub.respCh <- resp:
+	case respCh <- resp:
 	default:
 		log.Printf("response router: dropped terminal (id=%s, full respCh)", resp.RequestID)
 	}
@@ -279,6 +289,19 @@ func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response
 		}
 	}()
 	s.handler(resp)
+}
+
+// safeRunTerminatorFn invokes a terminator with panic recovery. Identical
+// to safeRunTerminator but takes the Terminator directly so the caller can
+// release the router mutex before invoking it (snapshot pattern).
+func (r *responseRouter) safeRunTerminatorFn(t Terminator, resp protocol.Response) (done bool, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("response router: terminator panic (type=%s): %v", resp.Type, rec)
+			done = false
+		}
+	}()
+	return t(resp)
 }
 
 func (r *responseRouter) safeRunTerminator(s *subscription, resp protocol.Response) (done bool, err error) {
