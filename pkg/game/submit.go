@@ -21,9 +21,10 @@ type Result struct {
 // pending:true ack (multi-tick mutations only) and Result() for the
 // terminal action_result / error. Result is idempotent.
 type RequestHandle struct {
-	ID     string
-	ack    chan protocol.Response
-	result chan Result
+	ID      string
+	msgType string // message type from the original Submit call; used in timeout diagnostics
+	ack     chan protocol.Response
+	result  chan Result
 	// done is closed once the cleanup goroutine has finalized
 	// (released slot + lock). Used by tests.
 	done chan struct{}
@@ -33,7 +34,8 @@ type RequestHandle struct {
 	submitCtx context.Context
 
 	mu     sync.Mutex
-	cached *Result // populated by first successful Result; subsequent calls return this
+	cond   *sync.Cond // broadcast when cached is populated
+	cached *Result    // populated by first successful Result; subsequent calls return this
 }
 
 // Ack waits for the server's pending:true ack. Multi-tick actions
@@ -65,23 +67,67 @@ func (h *RequestHandle) Result(ctx context.Context) (protocol.Response, error) {
 	}
 	h.mu.Unlock()
 
-	// Surface submit-time cancellation in addition to caller ctx.
-	submitDone := h.submitCtx.Done()
-
 	select {
 	case r := <-h.result:
 		h.mu.Lock()
 		if h.cached == nil {
 			h.cached = &r
+			// Refill h.result so any concurrent Result() caller can drain
+			// it too instead of blocking forever on a one-shot channel.
+			select {
+			case h.result <- r:
+			default:
+			}
+			h.cond.Broadcast()
 		}
 		c := h.cached
 		h.mu.Unlock()
 		return c.Response, c.Err
-	case <-submitDone:
-		return protocol.Response{}, h.submitCtx.Err()
-	case <-ctx.Done():
-		return protocol.Response{}, ctx.Err()
+	default:
 	}
+
+	// No result yet — wait on the cond. A context-watcher goroutine
+	// broadcasts on the cond when ctx or submitCtx is cancelled so
+	// that cond.Wait does not block indefinitely.
+	stop := context.AfterFunc(ctx, func() { h.cond.Broadcast() })
+	defer stop()
+	stopSubmit := context.AfterFunc(h.submitCtx, func() { h.cond.Broadcast() })
+	defer stopSubmit()
+
+	h.mu.Lock()
+	for h.cached == nil {
+		// Re-check the channel while holding the lock to avoid the window
+		// between the default-branch drain above and entering Wait.
+		select {
+		case r := <-h.result:
+			if h.cached == nil {
+				h.cached = &r
+				select {
+				case h.result <- r:
+				default:
+				}
+				h.cond.Broadcast()
+			}
+		default:
+		}
+		if h.cached != nil {
+			break
+		}
+		if ctx.Err() != nil || h.submitCtx.Err() != nil {
+			break
+		}
+		h.cond.Wait()
+	}
+	c := h.cached
+	h.mu.Unlock()
+
+	if c != nil {
+		return c.Response, c.Err
+	}
+	if err := h.submitCtx.Err(); err != nil {
+		return protocol.Response{}, err
+	}
+	return protocol.Response{}, ctx.Err()
 }
 
 // SubmitOption customizes Submit. See WithTerminator, WithTimeout,
@@ -118,6 +164,12 @@ func WithAckOnly() SubmitOption {
 // Concurrency: queries (WithAckOnly) acquire only the in-flight slot.
 // Mutations acquire in-flight then per-action lock; release in
 // reverse order on resolution.
+//
+// On send-failure, Submit returns (h, nil) — never (nil, err). The
+// underlying send error is delivered via h.Result() as a *ServerError
+// with Code="send_failed". Callers MUST call h.Result() to observe
+// success or failure; checking the Submit return error alone is not
+// sufficient.
 func (c *Client) Submit(ctx context.Context, msg protocol.Message, opts ...SubmitOption) (*RequestHandle, error) {
 	cfg := submitConfig{
 		terminator: terminateOnAction,
@@ -153,11 +205,13 @@ func (c *Client) Submit(ctx context.Context, msg protocol.Message, opts ...Submi
 
 	h := &RequestHandle{
 		ID:        id,
+		msgType:   msg.Type,
 		ack:       make(chan protocol.Response, 1),
 		result:    make(chan Result, 1),
 		done:      make(chan struct{}),
 		submitCtx: ctx,
 	}
+	h.cond = sync.NewCond(&h.mu)
 	sub := c.router.registerByID(id, make(chan protocol.Response, 1), cfg.terminator)
 	c.router.setAckChannel(sub, h.ack)
 
@@ -210,6 +264,9 @@ func (c *Client) runSubmit(sub *subscription, h *RequestHandle, cfg submitConfig
 		h.result <- Result{Response: resp, Err: err}
 	case <-timer.C:
 		c.router.unregister(sub)
-		h.result <- Result{Err: fmt.Errorf("timeout waiting for %s (request_id=%s)", "submit", h.ID)}
+		h.result <- Result{Err: fmt.Errorf("timeout waiting for %s (request_id=%s)", h.msgType, h.ID)}
 	}
+	// Wake any concurrent Result() callers that are blocked on cond.Wait
+	// so they can drain h.result without waiting for context cancellation.
+	h.cond.Broadcast()
 }

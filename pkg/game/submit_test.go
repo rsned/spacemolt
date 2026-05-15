@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
@@ -192,6 +193,45 @@ func TestSubmit_CtxCancelReleasesResources(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Errorf("inflight slot not released, count=%d", c.inflight.InFlight())
+}
+
+func TestSubmit_ResultConcurrentCallersAllResolve(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background()
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "get_status"}, WithAckOnly())
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"status": "ok"},
+	})
+
+	var wg sync.WaitGroup
+	var results [4]protocol.Response
+	var errs [4]error
+	for i := range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			results[i], errs[i] = h.Result(callCtx)
+		}()
+	}
+	wg.Wait()
+
+	for i := range 4 {
+		if errs[i] != nil {
+			t.Errorf("Result[%d]: %v", i, errs[i])
+		}
+		if results[i].RequestID != sent.RequestID {
+			t.Errorf("Result[%d].RequestID = %q, want %q", i, results[i].RequestID, sent.RequestID)
+		}
+	}
 }
 
 func TestSubmit_UsesUUIDv7(t *testing.T) {
