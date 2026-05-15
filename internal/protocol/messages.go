@@ -69,10 +69,18 @@ type Message struct {
 	Type      string         `json:"type"`
 	Payload   map[string]any `json:"payload,omitempty"`
 	Timestamp int64          `json:"timestamp,omitempty"`
+	// RequestID is set by Client.Submit to correlate responses (server
+	// v0.296.1+). Echoed by the server on the pending:true ack, terminal
+	// action_result, and any error/action_error tied to this request.
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // Response represents a message received from the server
 type Response struct {
 	Type    string         `json:"type"`
 	Payload map[string]any `json:"payload,omitempty"`
+	// RequestID, when non-empty, identifies the client request this
+	// response correlates to. Empty on server-initiated pushes
+	// (welcome, tick, chat_message, pirate_warning, ...).
+	RequestID string `json:"request_id,omitempty"`
 }
