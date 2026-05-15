@@ -150,6 +150,12 @@ func (ms *mockServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// Call handler if exists
 		if handler, ok := ms.handlers[msg.Type]; ok {
 			resp := handler(msg)
+			// Echo request_id so the new Submit-based correlation path
+			// can match the response. Handlers that already set their own
+			// RequestID (e.g., explicit orphan tests) win.
+			if resp.RequestID == "" {
+				resp.RequestID = msg.RequestID
+			}
 			_ = ms.sendResponse(r.Context(), conn, resp)
 		}
 	}

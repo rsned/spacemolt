@@ -832,16 +832,17 @@ func (c *Client) Login(ctx context.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	if err := c.Send(ctx, msg); err != nil {
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(10*time.Second))
+	if err != nil {
 		return fmt.Errorf("failed to send login: %w", err)
 	}
-
-	// Wait for login response (success or error)
-	_, err := c.waitForAuthResponse(ctx, protocol.TypeLoggedIn, 10*time.Second)
+	resp, err := h.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
-
+	if resp.Type != protocol.TypeLoggedIn {
+		return fmt.Errorf("login: unexpected response type %q", resp.Type)
+	}
 	return nil
 }
 
@@ -852,8 +853,6 @@ func (c *Client) Register(ctx context.Context, empire, registrationCode string) 
 		"username": c.username,
 		"empire":   empire,
 	}
-
-	// Add registration code if provided
 	if registrationCode != "" {
 		payload["registration_code"] = registrationCode
 	}
@@ -864,17 +863,17 @@ func (c *Client) Register(ctx context.Context, empire, registrationCode string) 
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	if err := c.Send(ctx, msg); err != nil {
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(10*time.Second))
+	if err != nil {
 		return fmt.Errorf("failed to send register: %w", err)
 	}
-
-	// Wait for register response (success or error)
-	_, err := c.waitForAuthResponse(ctx, protocol.TypeRegistered, 10*time.Second)
+	resp, err := h.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
-
-	// Token is updated by handleResponse() when the response is processed
+	if resp.Type != protocol.TypeRegistered {
+		return fmt.Errorf("register: unexpected response type %q", resp.Type)
+	}
 	return nil
 }
 
@@ -888,8 +887,11 @@ func (c *Client) Claim(ctx context.Context, registrationCode string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("claim"), terminateOnAction, 10*time.Second)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnAction), WithTimeout(10*time.Second))
 	if err != nil {
+		return fmt.Errorf("claim: submit: %w", err)
+	}
+	if _, err := h.Result(ctx); err != nil {
 		return fmt.Errorf("claim failed: %w", err)
 	}
 	return nil
