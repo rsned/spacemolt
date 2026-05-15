@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
@@ -52,8 +53,8 @@ func TestSubmit_AckOnly_QueryReturnsTerminal(t *testing.T) {
 	if sent.RequestID == "" {
 		t.Fatal("sent message missing RequestID")
 	}
-	if h.ID != sent.RequestID {
-		t.Errorf("handle.ID = %q, want %q", h.ID, sent.RequestID)
+	if h.ID() != sent.RequestID {
+		t.Errorf("handle.ID() = %q, want %q", h.ID(), sent.RequestID)
 	}
 
 	go c.router.dispatch(protocol.Response{
@@ -244,5 +245,74 @@ func TestSubmit_UsesUUIDv7(t *testing.T) {
 	// UUIDv7 string is 36 chars with version "7" at position 14.
 	if len(sent.RequestID) != 36 || sent.RequestID[14] != '7' {
 		t.Errorf("RequestID = %q, want UUIDv7 (36 chars, version 7)", sent.RequestID)
+	}
+}
+
+func TestReplay_OnNormalClose_FreshUUIDAndDeliver(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background()
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "mine"},
+		WithTerminator(terminateOnAction))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	first := <-sendCh
+	origID := first.RequestID
+
+	// Simulate a graceful close: replay should re-send with a new
+	// request_id and update the handle.
+	c.replayPending(&websocket.CloseError{Code: websocket.StatusNormalClosure, Reason: "max session age"})
+
+	second := <-sendCh
+	if second.RequestID == "" || second.RequestID == origID {
+		t.Errorf("replayed RequestID = %q, want fresh non-empty (orig=%q)", second.RequestID, origID)
+	}
+	if got := h.ID(); got != second.RequestID {
+		t.Errorf("handle.ID() = %q, want %q (post-replay)", got, second.RequestID)
+	}
+
+	// Deliver terminal under the new ID; Result must succeed.
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeActionResult, RequestID: second.RequestID,
+		Payload: map[string]any{"command": "mine"},
+	})
+	if _, err := h.Result(ctx); err != nil {
+		t.Errorf("Result after replay: %v", err)
+	}
+}
+
+func TestReplay_LateOriginalResponseIsOrphan(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background()
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "mine"},
+		WithTerminator(terminateOnAction))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	first := <-sendCh
+	origID := first.RequestID
+
+	c.replayPending(&websocket.CloseError{Code: websocket.StatusNormalClosure, Reason: "rolling restart"})
+	<-sendCh // consume replayed send
+
+	// Late response under the old ID must be orphaned, not delivered.
+	before := c.router.orphans().Count()
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeActionResult, RequestID: origID,
+		Payload: map[string]any{"command": "mine"},
+	})
+	if got := c.router.orphans().Count(); got != before+1 {
+		t.Errorf("orphan count delta = %d, want 1", got-before)
+	}
+
+	// Cleanup: deliver under the new id so the handle resolves.
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeActionResult, RequestID: h.ID(),
+		Payload: map[string]any{"command": "mine"},
+	})
+	if _, err := h.Result(ctx); err != nil {
+		t.Errorf("Result: %v", err)
 	}
 }

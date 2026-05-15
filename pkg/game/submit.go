@@ -11,6 +11,21 @@ import (
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
+// ID returns the current request_id. May change across reconnect-replay.
+func (h *RequestHandle) ID() string {
+	h.idMu.Lock()
+	defer h.idMu.Unlock()
+	return h.id
+}
+
+// setID is used by the replay path to update the handle's id after
+// the router has been rekeyed under a new UUID.
+func (h *RequestHandle) setID(id string) {
+	h.idMu.Lock()
+	defer h.idMu.Unlock()
+	h.id = id
+}
+
 // Result wraps the terminal response or terminal error from a Submit.
 type Result struct {
 	Response protocol.Response
@@ -21,7 +36,8 @@ type Result struct {
 // pending:true ack (multi-tick mutations only) and Result() for the
 // terminal action_result / error. Result is idempotent.
 type RequestHandle struct {
-	ID      string
+	idMu    sync.Mutex // protects id (rekey can mutate)
+	id      string
 	msgType string // message type from the original Submit call; used in timeout diagnostics
 	ack     chan protocol.Response
 	result  chan Result
@@ -204,7 +220,7 @@ func (c *Client) Submit(ctx context.Context, msg protocol.Message, opts ...Submi
 	msg.RequestID = id
 
 	h := &RequestHandle{
-		ID:        id,
+		id:        id,
 		msgType:   msg.Type,
 		ack:       make(chan protocol.Response, 1),
 		result:    make(chan Result, 1),
@@ -214,6 +230,8 @@ func (c *Client) Submit(ctx context.Context, msg protocol.Message, opts ...Submi
 	h.cond = sync.NewCond(&h.mu)
 	sub := c.router.registerByID(id, make(chan protocol.Response, 1), cfg.terminator)
 	c.router.setAckChannel(sub, h.ack)
+	c.router.setReplayMsg(sub, msg)
+	c.router.setHandle(sub, h)
 
 	// 4. Spawn cleanup goroutine. Owns: resolving result, releasing
 	//    lock + slot, unregistering subscription.
@@ -264,7 +282,7 @@ func (c *Client) runSubmit(sub *subscription, h *RequestHandle, cfg submitConfig
 		h.result <- Result{Response: resp, Err: err}
 	case <-timer.C:
 		c.router.unregister(sub)
-		h.result <- Result{Err: fmt.Errorf("timeout waiting for %s (request_id=%s)", h.msgType, h.ID)}
+		h.result <- Result{Err: fmt.Errorf("timeout waiting for %s (request_id=%s)", h.msgType, h.ID())}
 	}
 	// Wake any concurrent Result() callers that are blocked on cond.Wait
 	// so they can drain h.result without waiting for context cancellation.

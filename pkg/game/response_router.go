@@ -23,6 +23,16 @@ type subscription struct {
 	ackCh      chan protocol.Response // optional: pending ack delivery (id subs only)
 	handler    func(protocol.Response)
 	registered time.Time
+
+	// replayMsg holds the original outgoing Message (without
+	// RequestID) so the replay path can re-send under a fresh UUID.
+	// Set only for id-keyed subscriptions created by Submit.
+	replayMsg *protocol.Message
+
+	// handle back-references the RequestHandle this subscription
+	// belongs to, so replay can update handle.id after rekey. Set
+	// by Submit; nil for non-Submit subscriptions.
+	handle *RequestHandle
 }
 
 // responseRouter dispatches incoming responses to registered subscribers.
@@ -70,6 +80,24 @@ func (r *responseRouter) setAckChannel(sub *subscription, ackCh chan protocol.Re
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	sub.ackCh = ackCh
+}
+
+// setReplayMsg attaches the original outgoing message for replay.
+// The message is stored without its RequestID stamp so the replay
+// path can stamp a fresh one. Used only by Submit.
+func (r *responseRouter) setReplayMsg(sub *subscription, msg protocol.Message) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	msg.RequestID = ""
+	sub.replayMsg = &msg
+}
+
+// setHandle attaches the owning RequestHandle to an id-subscription.
+// Used by Submit so replayPending can update handle.id after rekey.
+func (r *responseRouter) setHandle(sub *subscription, h *RequestHandle) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	sub.handle = h
 }
 
 // registerQuery adds a one-shot classifier-based query subscription.

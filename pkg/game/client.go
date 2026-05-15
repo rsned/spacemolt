@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/google/uuid"
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/calllog"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -578,10 +579,52 @@ func (c *Client) failPending(err error) {
 	}
 }
 
-// replayPending is implemented in Task 10. Until then, fall back to
-// fail-fast so the caller doesn't hang.
+// replayPending re-sends every outstanding mutation under a fresh
+// UUIDv7. Caller has already torn down the connection; this assumes
+// the existing reconnect machinery will run before send().
+//
+// Per spec: server v0.296.1 graceful closes lose all in-flight state,
+// so no double-execution risk. The caller's handle.Result() never
+// observes the close.
 func (c *Client) replayPending(closeErr *websocket.CloseError) {
-	c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+	subs := c.router.snapshotByID()
+	if len(subs) == 0 {
+		return
+	}
+	c.debugLogger.Printf("replay: %d pending mutation(s) under fresh request_ids (close code=%d reason=%q)",
+		len(subs), int(closeErr.Code), closeErr.Reason)
+
+	ctx, cancel := context.WithTimeout(context.Background(), SleepReconnect)
+	defer cancel()
+
+	for _, sub := range subs {
+		if sub.replayMsg == nil {
+			// No retained message (subscription created outside Submit).
+			// Fail it instead.
+			c.router.dispatch(protocol.Response{
+				Type:      protocol.TypeError,
+				RequestID: sub.id,
+				Payload:   map[string]any{"code": "connection_closed", "message": "no replay payload"},
+			})
+			continue
+		}
+		newID := uuid.Must(uuid.NewV7()).String()
+		msg := *sub.replayMsg
+		msg.RequestID = newID
+		c.router.rekey(sub, newID)
+		if sub.handle != nil {
+			sub.handle.setID(newID)
+		}
+
+		if err := c.send(ctx, msg); err != nil {
+			c.debugLogger.Printf("replay: send failed for new id=%s: %v", newID, err)
+			c.router.dispatch(protocol.Response{
+				Type:      protocol.TypeError,
+				RequestID: newID,
+				Payload:   map[string]any{"code": "connection_lost", "message": err.Error()},
+			})
+		}
+	}
 }
 
 // Reconnect disconnects and reconnects to the server
