@@ -575,17 +575,24 @@ type ExchangeOrder struct {
 // channel sets both SystemID and POIID. Older servers and other channels
 // leave these empty — callers should fall back to TargetID for system filtering.
 type ChatMessage struct {
-	ID           string `json:"id"`
-	Channel      string `json:"channel"`
-	SenderID     string `json:"sender_id"`
-	Sender       string `json:"sender"`
-	Content      string `json:"content"`
-	TargetID     string `json:"target_id,omitempty"`
-	TargetName   string `json:"target_name,omitempty"`
-	SystemID     string `json:"system_id,omitempty"`
-	POIID        string `json:"poi_id,omitempty"`
-	TimestampUTC string `json:"timestamp_utc"`
-	Timestamp    string `json:"timestamp,omitempty"`
+	ID         string `json:"id"`
+	Channel    string `json:"channel"`
+	SenderID   string `json:"sender_id"`
+	Sender     string `json:"sender"`
+	Content    string `json:"content"`
+	TargetID   string `json:"target_id,omitempty"`
+	TargetName string `json:"target_name,omitempty"`
+	SystemID   string `json:"system_id,omitempty"`
+	POIID      string `json:"poi_id,omitempty"`
+	// EmpireOfficial is true when the message was delivered through the
+	// verified empire-leadership pipeline or from an empire NPC (police,
+	// customs, jail authority, salvage authority, Sinter). When set,
+	// SenderID is the empire's own ID (solarian / voidborn / crimson /
+	// nebula / outerrim). Use it to detect player impersonation of empire
+	// officials. (server v0.294.0+)
+	EmpireOfficial bool   `json:"empire_official,omitempty"`
+	TimestampUTC   string `json:"timestamp_utc"`
+	Timestamp      string `json:"timestamp,omitempty"`
 }
 
 // CaptainsLogEntry represents an entry in the captain's log.

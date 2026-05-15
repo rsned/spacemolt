@@ -1308,13 +1308,14 @@ func formatSellOrders(orders []marketOrder) []formattedOrder {
 // formatMarket formats a view_market response as a multi-row table grouped by category.
 func formatChatHistory(raw []byte) string {
 	type chatMsg struct {
-		Channel      string `json:"channel"`
-		Sender       string `json:"sender"`
-		SenderID     string `json:"sender_id"`
-		Content      string `json:"content"`
-		TimestampUTC string `json:"timestamp_utc"`
-		Timestamp    string `json:"timestamp"`
-		TargetID     string `json:"target_id,omitempty"`
+		Channel        string `json:"channel"`
+		Sender         string `json:"sender"`
+		SenderID       string `json:"sender_id"`
+		Content        string `json:"content"`
+		TimestampUTC   string `json:"timestamp_utc"`
+		Timestamp      string `json:"timestamp"`
+		TargetID       string `json:"target_id,omitempty"`
+		EmpireOfficial bool   `json:"empire_official,omitempty"`
 	}
 	var resp struct {
 		Messages []chatMsg `json:"messages"`
@@ -1381,10 +1382,11 @@ func formatChatHistory(raw []byte) string {
 
 	// Phase 2: Collapse consecutive duplicate messages (same sender + content).
 	type entry struct {
-		sender    string
-		content   string
-		timestamp string
-		count     int
+		sender         string
+		content        string
+		timestamp      string
+		count          int
+		empireofficial bool
 	}
 	var collapsed []entry
 	for _, msg := range filtered {
@@ -1400,10 +1402,11 @@ func formatChatHistory(raw []byte) string {
 			}
 		}
 		collapsed = append(collapsed, entry{
-			sender:    msg.Sender,
-			content:   msg.Content,
-			timestamp: ts,
-			count:     1,
+			sender:         msg.Sender,
+			content:        msg.Content,
+			timestamp:      ts,
+			count:          1,
+			empireofficial: msg.EmpireOfficial,
 		})
 	}
 
@@ -1427,7 +1430,12 @@ func formatChatHistory(raw []byte) string {
 		if e.count > 1 {
 			repeat = fmt.Sprintf(" (x%d)", e.count)
 		}
-		fmt.Fprintf(&b, "  [%s] %s: %s%s\n", e.timestamp, e.sender, e.content, repeat)
+		// Tag verified empire-official messages so impersonation is obvious.
+		official := ""
+		if e.empireofficial {
+			official = " [OFFICIAL]"
+		}
+		fmt.Fprintf(&b, "  [%s] %s%s: %s%s\n", e.timestamp, e.sender, official, e.content, repeat)
 	}
 
 	// Dump full JSON for debug senders — show ALL messages (including skipped)
@@ -5726,6 +5734,13 @@ func printMboxMessage(m mbox.Message) {
 	if m.ReadAt == nil {
 		unreadMarker = "* "
 		senderFmt = bold + m.Sender + reset
+	}
+
+	// Verified empire-official messages get a prominent tag so player
+	// impersonation of officials is obvious at a glance (server v0.294.0+).
+	if m.EmpireOfficial {
+		cyan := "\033[36m"
+		senderFmt += " " + cyan + "[OFFICIAL]" + reset
 	}
 
 	// Direction indicator: → for messages we sent, ← for received.

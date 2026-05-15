@@ -98,6 +98,7 @@ func (s *Store) migrate() error {
 		END;`,
 		`ALTER TABLE messages ADD COLUMN deleted_at TEXT;
 		CREATE INDEX idx_messages_not_deleted ON messages(channel, timestamp_utc DESC) WHERE deleted_at IS NULL;`,
+		`ALTER TABLE messages ADD COLUMN empire_official INTEGER NOT NULL DEFAULT 0;`,
 	}
 
 	for i, ddl := range migrations {
@@ -129,6 +130,11 @@ type Message struct {
 	ReadAt       *time.Time
 	DeletedAt    *time.Time
 	Source       string
+	// EmpireOfficial is true when the server delivered this message through
+	// the verified empire-leadership pipeline or from an empire NPC. When
+	// set, SenderID is the empire's own ID. Use it to detect player
+	// impersonation of empire officials. (server v0.294.0+)
+	EmpireOfficial bool
 }
 
 // Query holds filter parameters for retrieving messages. By default,
@@ -155,8 +161,8 @@ func (s *Store) Ingest(msg Message) (bool, error) {
 	now := time.Now().UTC().Format(timeFormat)
 	res, err := s.db.Exec(
 		`INSERT OR IGNORE INTO messages
-			(id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, source)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, source, empire_official)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		msg.ID,
 		msg.Channel,
 		msg.SenderID,
@@ -167,6 +173,7 @@ func (s *Store) Ingest(msg Message) (bool, error) {
 		msg.TimestampUTC.UTC().Format(timeFormat),
 		now,
 		msg.Source,
+		boolToInt(msg.EmpireOfficial),
 	)
 	if err != nil {
 		return false, fmt.Errorf("mbox: ingest: %w", err)
@@ -187,7 +194,7 @@ func (s *Store) List(q Query) ([]Message, error) {
 	}
 
 	where, args := buildWhere(q)
-	query := "SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source FROM messages"
+	query := "SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official FROM messages"
 	if where != "" {
 		query += " WHERE " + where
 	}
@@ -212,7 +219,7 @@ func (s *Store) List(q Query) ([]Message, error) {
 // them should check the returned Message.DeletedAt field.
 func (s *Store) Get(id string) (*Message, error) {
 	row := s.db.QueryRow(
-		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source FROM messages WHERE id = ?",
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official FROM messages WHERE id = ?",
 		id,
 	)
 	msg, err := scanRow(row)
@@ -234,7 +241,7 @@ func (s *Store) GetByPrefix(prefix string) (*Message, error) {
 		return nil, fmt.Errorf("mbox: empty prefix")
 	}
 	rows, err := s.db.Query(
-		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source FROM messages WHERE id LIKE ? || '%' LIMIT 2",
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official FROM messages WHERE id LIKE ? || '%' LIMIT 2",
 		prefix,
 	)
 	if err != nil {
@@ -303,13 +310,14 @@ func scanMessages(rows *sql.Rows) ([]Message, error) {
 // scanRow scans a single row (from sql.Row or sql.Rows) into a Message.
 func scanRow(s scanner) (Message, error) {
 	var (
-		msg        Message
-		targetID   sql.NullString
-		targetName sql.NullString
-		readAt     sql.NullString
-		deletedAt  sql.NullString
-		tsStr      string
-		ingestStr  string
+		msg            Message
+		targetID       sql.NullString
+		targetName     sql.NullString
+		readAt         sql.NullString
+		deletedAt      sql.NullString
+		tsStr          string
+		ingestStr      string
+		empireOfficial int
 	)
 
 	if err := s.Scan(
@@ -325,9 +333,11 @@ func scanRow(s scanner) (Message, error) {
 		&readAt,
 		&deletedAt,
 		&msg.Source,
+		&empireOfficial,
 	); err != nil {
 		return Message{}, err
 	}
+	msg.EmpireOfficial = empireOfficial != 0
 
 	if targetID.Valid {
 		msg.TargetID = targetID.String
@@ -463,7 +473,7 @@ func (s *Store) Search(text string, q Query) ([]Message, error) {
 		clauses = append(clauses, "m.deleted_at IS NULL")
 	}
 
-	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.deleted_at, m.source
+	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.deleted_at, m.source, m.empire_official
 FROM messages m
 JOIN messages_fts ON m.rowid = messages_fts.rowid
 WHERE messages_fts MATCH ?`
@@ -588,4 +598,12 @@ ON CONFLICT(channel) DO UPDATE SET oldest_seen_utc=excluded.oldest_seen_utc, las
 // nullableString converts an empty string to a NULL sql value.
 func nullableString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
+}
+
+// boolToInt maps a bool to the 0/1 integer SQLite uses for boolean columns.
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

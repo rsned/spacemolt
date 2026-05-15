@@ -92,6 +92,53 @@ func TestIngestAndDedupe(t *testing.T) {
 	}
 }
 
+func TestIngestEmpireOfficialRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	msgs := []Message{
+		{
+			ID:             "official-1",
+			Channel:        "system",
+			SenderID:       "crimson",
+			Sender:         "Crimson Customs",
+			Content:        "Customs inspection scheduled.",
+			TimestampUTC:   time.Now().UTC().Add(-2 * time.Minute),
+			Source:         "push",
+			EmpireOfficial: true,
+		},
+		{
+			ID:           "player-1",
+			Channel:      "system",
+			SenderID:     "user-9",
+			Sender:       "Crimson Customs",
+			Content:      "Customs inspection scheduled.",
+			TimestampUTC: time.Now().UTC().Add(-time.Minute),
+			Source:       "push",
+		},
+	}
+	for _, m := range msgs {
+		if _, err := s.Ingest(m); err != nil {
+			t.Fatalf("Ingest %s: %v", m.ID, err)
+		}
+	}
+
+	official, err := s.Get("official-1")
+	if err != nil || official == nil {
+		t.Fatalf("Get official-1: %v", err)
+	}
+	if !official.EmpireOfficial {
+		t.Error("official-1: want EmpireOfficial=true, got false")
+	}
+
+	player, err := s.Get("player-1")
+	if err != nil || player == nil {
+		t.Fatalf("Get player-1: %v", err)
+	}
+	if player.EmpireOfficial {
+		t.Error("player-1: want EmpireOfficial=false (impersonator), got true")
+	}
+}
+
 func TestListByChannel(t *testing.T) {
 	s := newTestStore(t)
 

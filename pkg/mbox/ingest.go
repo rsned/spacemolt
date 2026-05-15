@@ -151,15 +151,16 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 			}
 
 			msg := Message{
-				ID:           m.ID,
-				Channel:      m.Channel,
-				SenderID:     m.SenderID,
-				Sender:       m.Sender,
-				Content:      m.Content,
-				TargetID:     m.TargetID,
-				TargetName:   m.TargetName,
-				TimestampUTC: ts,
-				Source:       "backfill",
+				ID:             m.ID,
+				Channel:        m.Channel,
+				SenderID:       m.SenderID,
+				Sender:         m.Sender,
+				Content:        m.Content,
+				TargetID:       m.TargetID,
+				TargetName:     m.TargetName,
+				TimestampUTC:   ts,
+				Source:         "backfill",
+				EmpireOfficial: m.EmpireOfficial,
 			}
 			if msg.Channel == "" {
 				msg.Channel = channel
@@ -225,15 +226,16 @@ func (ing *Ingester) ingestAPI(msg serverapi.ChatMessage, source string) {
 	}
 
 	m := Message{
-		ID:           msg.ID,
-		Channel:      msg.Channel,
-		SenderID:     msg.SenderID,
-		Sender:       msg.Sender,
-		Content:      msg.Content,
-		TargetID:     msg.TargetID,
-		TargetName:   msg.TargetName,
-		TimestampUTC: ts,
-		Source:       effectiveSource,
+		ID:             msg.ID,
+		Channel:        msg.Channel,
+		SenderID:       msg.SenderID,
+		Sender:         msg.Sender,
+		Content:        msg.Content,
+		TargetID:       msg.TargetID,
+		TargetName:     msg.TargetName,
+		TimestampUTC:   ts,
+		Source:         effectiveSource,
+		EmpireOfficial: msg.EmpireOfficial,
 	}
 	if _, err := ing.store.Ingest(m); err != nil {
 		ing.logger.Printf("%s ingest error: %v", effectiveSource, err)
