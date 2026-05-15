@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/coder/websocket"
@@ -18,6 +19,19 @@ const (
 	// double-execution.
 	closeFailFast
 )
+
+// String renders the action name so log lines read "action=replay"
+// instead of "action=0".
+func (a closeAction) String() string {
+	switch a {
+	case closeReplay:
+		return "replay"
+	case closeFailFast:
+		return "fail-fast"
+	default:
+		return fmt.Sprintf("closeAction(%d)", int(a))
+	}
+}
 
 type closeCodePolicy struct {
 	code         websocket.StatusCode
