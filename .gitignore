@@ -113,6 +113,7 @@ typescript
 ##############################
 # Downloaded server docs (versioned externally)
 ##############################
+server_docs/archive/
 server_docs/*.md
 server_docs/*.json
 !server_docs/README.md
