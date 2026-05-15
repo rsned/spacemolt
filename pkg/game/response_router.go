@@ -8,31 +8,72 @@ import (
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
-// subscription is a single registration with the response router. Exactly
-// one of respCh/handler is set: respCh for query/mutation one-shot,
-// handler for push fan-out.
+// subscription is a single registration with the response router.
+// idSub is set for request_id-correlated entries; legacy classifier
+// entries use match/terminate/respCh/handler.
 type subscription struct {
+	// Request-ID correlation (preferred). When id != "", match,
+	// terminate, and registered are unused. The router routes via
+	// byReqID before scanning subs.
+	id string
+
 	match      Classifier
 	terminate  Terminator
-	respCh     chan protocol.Response // one-shot
+	respCh     chan protocol.Response // one-shot result delivery
+	ackCh      chan protocol.Response // optional: pending ack delivery (id subs only)
 	handler    func(protocol.Response)
 	registered time.Time
 }
 
 // responseRouter dispatches incoming responses to registered subscribers.
-// It has no WebSocket awareness — callers feed it responses via Dispatch.
+// It has no WebSocket awareness — callers feed it responses via dispatch.
 type responseRouter struct {
-	mu   sync.Mutex
-	subs []*subscription
+	mu      sync.Mutex
+	byReqID map[string]*subscription
+	subs    []*subscription
+	orphan  *orphanStats
 }
 
-// newResponseRouter constructs an empty router.
 func newResponseRouter() *responseRouter {
-	return &responseRouter{}
+	return &responseRouter{
+		byReqID: make(map[string]*subscription),
+		orphan:  newOrphanStats(),
+	}
 }
 
-// registerQuery adds a one-shot query subscription. Returns the handle
-// the caller must pass to unregister.
+// orphans returns the orphan-stats counter (for diagnostics + tests).
+func (r *responseRouter) orphans() *orphanStats { return r.orphan }
+
+// registerByID registers a subscription keyed by request_id. If
+// terminate is nil the next matching frame is treated as terminal. If
+// terminate is non-nil, the router delivers only when terminate
+// reports done=true; intermediate frames pass through to ackCh (if
+// caller set it via setAckChannel).
+func (r *responseRouter) registerByID(id string, ch chan protocol.Response, terminate Terminator) *subscription {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	sub := &subscription{
+		id:         id,
+		respCh:     ch,
+		terminate:  terminate,
+		registered: time.Now(),
+	}
+	r.byReqID[id] = sub
+	return sub
+}
+
+// setAckChannel attaches an ack channel to an existing id-subscription.
+// Must be called before any frames for this id can arrive.
+//
+//nolint:unused // used by Task 8 (Submit + RequestHandle)
+func (r *responseRouter) setAckChannel(sub *subscription, ackCh chan protocol.Response) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	sub.ackCh = ackCh
+}
+
+// registerQuery adds a one-shot classifier-based query subscription.
+// Used only for untagged frames (fallback path).
 func (r *responseRouter) registerQuery(match Classifier, ch chan protocol.Response) *subscription {
 	return r.register(&subscription{
 		match:      match,
@@ -41,8 +82,8 @@ func (r *responseRouter) registerQuery(match Classifier, ch chan protocol.Respon
 	})
 }
 
-// registerMutation adds a one-shot mutation subscription (respCh delivers
-// the terminal response; terminator decides when that is).
+// registerMutation adds a one-shot classifier-based mutation subscription.
+// Used only for untagged frames (fallback path).
 func (r *responseRouter) registerMutation(match Classifier, term Terminator, ch chan protocol.Response) *subscription {
 	return r.register(&subscription{
 		match:      match,
@@ -52,8 +93,7 @@ func (r *responseRouter) registerMutation(match Classifier, term Terminator, ch 
 	})
 }
 
-// registerPush adds a long-lived push subscription. Caller keeps the
-// returned handle so it can call unregister to cancel.
+// registerPush adds a long-lived push subscription.
 func (r *responseRouter) registerPush(match Classifier, handler func(protocol.Response)) *subscription {
 	return r.register(&subscription{
 		match:      match,
@@ -69,17 +109,19 @@ func (r *responseRouter) register(sub *subscription) *subscription {
 	return sub
 }
 
-// unregister removes sub from the router. No-op if sub was never registered
-// or already removed.
+// unregister removes sub from the router. No-op if sub was never
+// registered or already removed.
 func (r *responseRouter) unregister(sub *subscription) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if sub.id != "" {
+		if r.byReqID[sub.id] == sub {
+			delete(r.byReqID, sub.id)
+		}
+		return
+	}
 	for i, s := range r.subs {
 		if s == sub {
-			// Clear the freed slot so the backing array doesn't retain
-			// the *subscription (and its respCh/handler closure) after
-			// length shrinks — matters once the router is on the hot
-			// read-loop path and unregister churn is high.
 			copy(r.subs[i:], r.subs[i+1:])
 			r.subs[len(r.subs)-1] = nil
 			r.subs = r.subs[:len(r.subs)-1]
@@ -88,45 +130,105 @@ func (r *responseRouter) unregister(sub *subscription) {
 	}
 }
 
-// subCount returns the number of live subscriptions (for tests).
+// snapshotByID returns all live id-keyed subscriptions. Used by the
+// replay path on close=1000.
+//
+//nolint:unused // used by Task 10 (reconnect-replay path)
+func (r *responseRouter) snapshotByID() []*subscription {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*subscription, 0, len(r.byReqID))
+	for _, s := range r.byReqID {
+		out = append(out, s)
+	}
+	return out
+}
+
+// rekey changes an id-subscription's request_id. Used by the replay
+// path when re-sending under a fresh UUID.
+//
+//nolint:unused // used by Task 10 (reconnect-replay path)
+func (r *responseRouter) rekey(sub *subscription, newID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.byReqID[sub.id] == sub {
+		delete(r.byReqID, sub.id)
+	}
+	sub.id = newID
+	r.byReqID[newID] = sub
+}
+
+// subCount returns the number of live subscriptions (for tests). Counts
+// both byReqID and legacy subs.
 func (r *responseRouter) subCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return len(r.subs)
+	return len(r.subs) + len(r.byReqID)
 }
 
-// dispatch routes a single response through the subscriber list. Order:
-//  1. Fan out to every matching push subscriber.
-//  2. Deliver to the active mutation subscriber if classifier matches AND
-//     terminator fires; remove the subscription on delivery.
-//  3. Deliver to the earliest-registered matching query subscriber; remove
-//     the subscription on delivery.
-//
-// Responses that match nothing fall through silently — the caller's legacy
-// _last-slot capture still runs in Client.handleResponse.
-//
-// Snapshot is an intentional race boundary: a subscription unregistered
-// between snapshot and handler invocation will still receive this response.
-// register/unregister cannot race-cancel a dispatch already in flight.
+// dispatch routes a single response. Order:
+//  1. resp.RequestID != "": look up byReqID. Hit = deliver (with
+//     terminator gate for intermediates). Miss = orphan and DROP.
+//     Tagged frames never fall through.
+//  2. resp.RequestID == "": fan out to matching push handlers, then
+//     deliver to the earliest matching classifier subscription.
 func (r *responseRouter) dispatch(resp protocol.Response) {
-	// Snapshot live subs under the lock, then run handlers without holding
-	// it so slow push handlers can't block register/unregister.
+	if resp.RequestID != "" {
+		r.dispatchByID(resp)
+		return
+	}
+	r.dispatchUntagged(resp)
+}
+
+func (r *responseRouter) dispatchByID(resp protocol.Response) {
+	r.mu.Lock()
+	sub, ok := r.byReqID[resp.RequestID]
+	r.mu.Unlock()
+
+	if !ok {
+		r.orphan.record(resp.RequestID, resp.Type)
+		return
+	}
+
+	// Terminator gate: intermediate frames go to ackCh, terminals to respCh.
+	if sub.terminate != nil {
+		done, _ := r.safeRunTerminator(sub, resp)
+		if !done {
+			// Intermediate (e.g. pending:true ack). Deliver to ackCh if set.
+			if sub.ackCh != nil {
+				select {
+				case sub.ackCh <- resp:
+				default:
+					log.Printf("response router: dropped ack (id=%s, full ackCh)", resp.RequestID)
+				}
+			}
+			return
+		}
+	}
+
+	// Terminal: deliver and unregister.
+	select {
+	case sub.respCh <- resp:
+	default:
+		log.Printf("response router: dropped terminal (id=%s, full respCh)", resp.RequestID)
+	}
+	r.unregister(sub)
+}
+
+func (r *responseRouter) dispatchUntagged(resp protocol.Response) {
 	r.mu.Lock()
 	snapshot := make([]*subscription, len(r.subs))
 	copy(snapshot, r.subs)
 	r.mu.Unlock()
 
-	// 1. Push fan-out — handlers run synchronously; document "don't block".
-	//    A panicking handler must not crash the WebSocket read goroutine
-	//    once Task 8 wires this onto it; recover per-handler.
+	// 1. Push fan-out
 	for _, s := range snapshot {
 		if s.handler != nil && s.match(resp) {
 			r.safeFireHandler(s, resp)
 		}
 	}
 
-	// 2. Active mutation: there is at most one; if its classifier matches
-	//    and terminator fires, deliver.
+	// 2. Mutation classifier
 	for _, s := range snapshot {
 		if s.terminate == nil || s.respCh == nil {
 			continue
@@ -134,26 +236,24 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 		if !s.match(resp) {
 			continue
 		}
-		done := r.safeRunTerminator(s, resp)
+		done, _ := r.safeRunTerminator(s, resp)
 		if !done {
-			// Intermediate message for this mutation; do not deliver.
 			return
 		}
-		// Deliver terminal and unregister.
 		select {
 		case s.respCh <- resp:
 		default:
-			log.Printf("response router: dropped mutation terminal (type=%s, full or unbuffered respCh)", resp.Type)
+			log.Printf("response router: dropped mutation terminal (type=%s)", resp.Type)
 		}
 		r.unregister(s)
 		return
 	}
 
-	// 3. Query FIFO: deliver to earliest-registered matching query.
+	// 3. Query FIFO
 	var winner *subscription
 	for _, s := range snapshot {
 		if s.handler != nil || s.terminate != nil || s.respCh == nil {
-			continue // skip pushes and mutations
+			continue
 		}
 		if !s.match(resp) {
 			continue
@@ -166,14 +266,12 @@ func (r *responseRouter) dispatch(resp protocol.Response) {
 		select {
 		case winner.respCh <- resp:
 		default:
-			log.Printf("response router: dropped query reply (type=%s, full or unbuffered respCh)", resp.Type)
+			log.Printf("response router: dropped query reply (type=%s)", resp.Type)
 		}
 		r.unregister(winner)
 	}
 }
 
-// safeFireHandler invokes a push subscriber's handler with panic recovery so
-// a misbehaving handler can't take down the dispatch goroutine.
 func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response) {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -183,25 +281,12 @@ func (r *responseRouter) safeFireHandler(s *subscription, resp protocol.Response
 	s.handler(resp)
 }
 
-// safeRunTerminator invokes a mutation's terminator with panic recovery so
-// a buggy implementation cannot take down the dispatch goroutine. A panic
-// is treated as "not done" — the mutation will time out via execMutation
-// rather than wedge the read loop.
-//
-// Trade-off: a terminator that panics on EVERY input will pin its
-// mutation's c.mutationMu for the full timeout duration and block every
-// subsequent mutation behind it. Phase 0 accepts this; Phase 1 may want
-// either a panic-once circuit-breaker that unregisters after N panics,
-// or to surface the recovered panic as an error on respCh.
-func (r *responseRouter) safeRunTerminator(s *subscription, resp protocol.Response) (done bool) {
-	// Named return so the deferred recover() can flip done back to false
-	// even if s.terminate already assigned via the regular return below.
+func (r *responseRouter) safeRunTerminator(s *subscription, resp protocol.Response) (done bool, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Printf("response router: terminator panic (type=%s): %v", resp.Type, rec)
 			done = false
 		}
 	}()
-	d, _ := s.terminate(resp)
-	return d
+	return s.terminate(resp)
 }
