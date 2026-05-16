@@ -475,13 +475,18 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 		var storagePayload map[string]any
 		if *transport == "ws" {
 			if wsClient, ok := client.(*game.Client); ok {
-				resp, err := wsClient.SendQueued(ctx, protocol.Message{
+				msg := protocol.Message{
 					Type:      "view_storage",
 					Timestamp: time.Now().UnixMilli(),
 					Payload: map[string]any{
 						"station_id": storageStationID,
 					},
-				}, 10*time.Second)
+				}
+				h, err := wsClient.Submit(ctx, msg, game.WithAckOnly(), game.WithTimeout(10*time.Second))
+				var resp protocol.Response
+				if err == nil {
+					resp, err = h.Result(ctx)
+				}
 				if err != nil {
 					logger.Printf("  Warning: Failed to view storage: %v", err)
 				} else if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
