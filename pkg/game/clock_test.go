@@ -111,31 +111,19 @@ func newTestClient() *Client {
 		debugLogger:     log.New(os.Stderr, "", 0),
 		readyChan:       make(chan struct{}),
 		stopCh:          make(chan struct{}),
-		waiters:         make(map[string]chan protocol.Response),
+		router:          newResponseRouter(),
 		goroutineCtx:    ctx,
 		goroutineCancel: cancel,
 	}
 	// Stub Send to simulate an ok response with the current tick.
-	// Waits briefly for waitForActionResponse to register its waiter channel.
+	// Dispatches via the router after a brief delay so subscribers are registered.
 	c.sendOverride = func(_ context.Context, _ protocol.Message) error {
 		go func() {
-			// Poll until the ok waiter is registered (up to 1s).
-			var ch chan protocol.Response
-			for range 100 {
-				c.waiterMu.Lock()
-				ch = c.waiters[protocol.TypeOK]
-				c.waiterMu.Unlock()
-				if ch != nil {
-					break
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
-			if ch != nil {
-				ch <- protocol.Response{
-					Type:    protocol.TypeOK,
-					Payload: map[string]any{"current_tick": float64(c.state.CurrentTick)},
-				}
-			}
+			time.Sleep(20 * time.Millisecond)
+			c.router.dispatch(protocol.Response{
+				Type:    protocol.TypeOK,
+				Payload: map[string]any{"current_tick": float64(c.state.CurrentTick)},
+			})
 		}()
 		return nil
 	}

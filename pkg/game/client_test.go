@@ -115,12 +115,8 @@ func TestClientInitialization(t *testing.T) {
 		t.Fatal("readyChan should be initialized")
 	}
 
-	if client.waiters == nil {
-		t.Fatal("waiters map should be initialized")
-	}
-
-	if len(client.waiters) != 0 {
-		t.Error("waiters map should be empty initially")
+	if client.router == nil {
+		t.Fatal("router should be initialized")
 	}
 
 	if client.stopCh == nil {
@@ -156,18 +152,14 @@ func TestTravel_BlocksUntilArrived(t *testing.T) {
 		client.state.Traveling = true
 		client.mu.Unlock()
 
-		// Deliver the OK to the waiter
-		client.waiterMu.Lock()
-		if ch, ok := client.waiters[protocol.TypeOK]; ok {
-			ch <- protocol.Response{
-				Type: protocol.TypeOK,
-				Payload: map[string]any{
-					"action":       "travel",
-					"arrival_tick": float64(5),
-				},
-			}
-		}
-		client.waiterMu.Unlock()
+		// Deliver the OK via the router.
+		client.router.dispatch(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"action":       "travel",
+				"arrival_tick": float64(5),
+			},
+		})
 
 		// Simulate arrival after a short delay
 		time.Sleep(300 * time.Millisecond)
@@ -213,17 +205,13 @@ func TestTravel_TimeoutReturnsError(t *testing.T) {
 		client.state.Traveling = true
 		client.mu.Unlock()
 
-		client.waiterMu.Lock()
-		if ch, ok := client.waiters[protocol.TypeOK]; ok {
-			ch <- protocol.Response{
-				Type: protocol.TypeOK,
-				Payload: map[string]any{
-					"action":       "travel",
-					"arrival_tick": float64(1),
-				},
-			}
-		}
-		client.waiterMu.Unlock()
+		client.router.dispatch(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"action":       "travel",
+				"arrival_tick": float64(1),
+			},
+		})
 		// Never set Traveling=false — should timeout
 	}()
 
@@ -248,16 +236,12 @@ func TestTravel_AlreadyAtDestination(t *testing.T) {
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		client.waiterMu.Lock()
-		if ch, ok := client.waiters[protocol.TypeError]; ok {
-			ch <- protocol.Response{
-				Type: protocol.TypeError,
-				Payload: map[string]any{
-					"code": "already_there",
-				},
-			}
-		}
-		client.waiterMu.Unlock()
+		client.router.dispatch(protocol.Response{
+			Type: protocol.TypeError,
+			Payload: map[string]any{
+				"code": "already_there",
+			},
+		})
 	}()
 
 	result, err := client.Travel(ctx, "poi_station_1")
@@ -288,17 +272,13 @@ func TestJump_BlocksUntilArrived(t *testing.T) {
 		client.state.Traveling = true
 		client.mu.Unlock()
 
-		client.waiterMu.Lock()
-		if ch, ok := client.waiters[protocol.TypeOK]; ok {
-			ch <- protocol.Response{
-				Type: protocol.TypeOK,
-				Payload: map[string]any{
-					"action":       "jump",
-					"arrival_tick": float64(3),
-				},
-			}
-		}
-		client.waiterMu.Unlock()
+		client.router.dispatch(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"action":       "jump",
+				"arrival_tick": float64(3),
+			},
+		})
 
 		// Simulate jump completion
 		time.Sleep(300 * time.Millisecond)
@@ -342,17 +322,13 @@ func TestJump_TimeoutReturnsError(t *testing.T) {
 		client.state.Traveling = true
 		client.mu.Unlock()
 
-		client.waiterMu.Lock()
-		if ch, ok := client.waiters[protocol.TypeOK]; ok {
-			ch <- protocol.Response{
-				Type: protocol.TypeOK,
-				Payload: map[string]any{
-					"action":       "jump",
-					"arrival_tick": float64(1),
-				},
-			}
-		}
-		client.waiterMu.Unlock()
+		client.router.dispatch(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"action":       "jump",
+				"arrival_tick": float64(1),
+			},
+		})
 	}()
 
 	_, err := client.Jump(ctx, "unknown_system")

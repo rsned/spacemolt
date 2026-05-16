@@ -67,10 +67,6 @@ type Client struct {
 	lastError   map[string]any
 	lastErrorMu sync.RWMutex
 
-	// Response waiting for synchronous operations
-	waiterMu sync.Mutex
-	waiters  map[string]chan protocol.Response
-
 	// Connection health monitoring
 	lastMessageTime time.Time
 	lastMessageMu   sync.RWMutex
@@ -104,7 +100,6 @@ type Client struct {
 	router      *responseRouter
 	inflight    *inflight
 	actionLocks *actionLockMap
-	mutationMu  sync.Mutex
 
 	// pendingReplay holds messages staged for re-send after a reconnect
 	// triggered by close=1000. Populated by replayPending and drained
@@ -323,7 +318,6 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		},
 		stopCh:             make(chan struct{}),
 		readyChan:          make(chan struct{}),
-		waiters:            make(map[string]chan protocol.Response),
 		router:             newResponseRouter(),
 		inflight:           newInflight(16),
 		actionLocks:        newActionLockMap(),
@@ -733,8 +727,8 @@ func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 
 // Send sends a message to the game server.
 //
-// Deprecated: prefer execQuery / execMutation / subscribePush. Send is the
-// low-level fire-and-forget wire primitive; direct callers lose response
+// Deprecated: prefer Submit / subscribePush. Send is the low-level
+// fire-and-forget wire primitive; direct callers lose response
 // correlation. New code must use the response-router primitives.
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
 	if c.sendOverride != nil {
@@ -1946,28 +1940,16 @@ func (c *Client) listen(ctx context.Context) {
 				}
 			}
 
-			// Update state before notifying waiters, so state is current
+			// Update state before notifying subscribers, so state is current
 			// when waitForInitialResponse returns.
 			c.handleResponse(resp)
 
-			// Fan out through the new response router. Runs after state
+			// Fan out through the response router. Runs after state
 			// parsers so callers reading State inside their response
-			// handler see fresh data. Legacy waiters remain below until
-			// the last method finishes migrating.
+			// handler see fresh data.
 			if c.router != nil {
 				c.router.dispatch(resp)
 			}
-
-			// Notify any waiters for this response type (legacy support)
-			c.waiterMu.Lock()
-			if ch, ok := c.waiters[resp.Type]; ok {
-				select {
-				case ch <- resp:
-				default:
-					// Channel full or closed, skip
-				}
-			}
-			c.waiterMu.Unlock()
 
 			// Notify handler for each decoded message
 			// Get handler reference with mutex protection
@@ -4253,72 +4235,71 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 		}
 	}()
 
-	okChan := make(chan protocol.Response, 1)
-	errorChan := make(chan protocol.Response, 1)
-	actionErrorChan := make(chan protocol.Response, 1)
-	actionResultChan := make(chan protocol.Response, 1)
-
-	c.waiterMu.Lock()
-	c.waiters[protocol.TypeOK] = okChan
-	c.waiters[protocol.TypeError] = errorChan
-	c.waiters[protocol.TypeActionError] = actionErrorChan
-	c.waiters[protocol.TypeActionResult] = actionResultChan
-	c.waiterMu.Unlock()
-
-	defer func() {
-		c.waiterMu.Lock()
-		delete(c.waiters, protocol.TypeOK)
-		delete(c.waiters, protocol.TypeError)
-		delete(c.waiters, protocol.TypeActionError)
-		delete(c.waiters, protocol.TypeActionResult)
-		c.waiterMu.Unlock()
-	}()
+	respCh := make(chan protocol.Response, 8)
+	classifier := func(resp protocol.Response) bool {
+		switch resp.Type {
+		case protocol.TypeOK, protocol.TypeError, protocol.TypeActionError, protocol.TypeActionResult:
+			return true
+		}
+		return false
+	}
+	cancel := c.subscribePush(classifier, func(resp protocol.Response) {
+		select {
+		case respCh <- resp:
+		default:
+			// buffer full; drop subsequent matches
+		}
+	})
+	defer cancel()
 
 	deadline := time.After(timeout)
 
 	for {
 		select {
-		case resp := <-okChan:
-			// If pending, keep waiting for the real initial response.
-			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
-				c.debugLogger.Printf("Action queued by server — waiting for next-tick execution")
-				deadline = time.After(timeout)
-				continue
-			}
-			finalResp = &resp
-			return resp, nil
-
-		case resp := <-actionResultChan:
-			// action_result arrives when the server processes a pending action
-			// on the next tick. Treat it as the initial response.
-			c.debugLogger.Printf("Received action_result as initial response")
-			finalResp = &resp
-			return resp, nil
-
-		case resp := <-errorChan:
-			finalResp = &resp
-			if code, ok := resp.Payload["code"].(string); ok {
-				switch code {
-				case "already_there", "already_docked", "not_docked":
-					return resp, nil // Benign — caller handles these
-				case "action_pending":
-					pendingCmd, _ := resp.Payload["pending_command"].(string)
-					return resp, fmt.Errorf("action pending: another action (%s) is in progress", pendingCmd)
+		case resp := <-respCh:
+			switch resp.Type {
+			case protocol.TypeOK:
+				// If pending, keep waiting for the real initial response.
+				if pending, ok := resp.Payload["pending"].(bool); ok && pending {
+					c.debugLogger.Printf("Action queued by server — waiting for next-tick execution")
+					deadline = time.After(timeout)
+					continue
 				}
-			}
-			msg, _ := resp.Payload["message"].(string)
-			if msg == "" {
-				msg = "server error"
-			}
-			return resp, fmt.Errorf("%s", msg)
+				finalResp = &resp
+				return resp, nil
 
-		case resp := <-actionErrorChan:
-			finalResp = &resp
-			msg, _ := resp.Payload["message"].(string)
-			if msg == "" {
-				msg = "action error"
+			case protocol.TypeActionResult:
+				// action_result arrives when the server processes a pending action
+				// on the next tick. Treat it as the initial response.
+				c.debugLogger.Printf("Received action_result as initial response")
+				finalResp = &resp
+				return resp, nil
+
+			case protocol.TypeError:
+				finalResp = &resp
+				if code, ok := resp.Payload["code"].(string); ok {
+					switch code {
+					case "already_there", "already_docked", "not_docked":
+						return resp, nil // Benign — caller handles these
+					case "action_pending":
+						pendingCmd, _ := resp.Payload["pending_command"].(string)
+						return resp, fmt.Errorf("action pending: another action (%s) is in progress", pendingCmd)
+					}
+				}
+				msg, _ := resp.Payload["message"].(string)
+				if msg == "" {
+					msg = "server error"
+				}
+				return resp, fmt.Errorf("%s", msg)
+
+			case protocol.TypeActionError:
+				finalResp = &resp
+				msg, _ := resp.Payload["message"].(string)
+				if msg == "" {
+					msg = "action error"
+				}
+				return resp, fmt.Errorf("%s", msg)
 			}
-			return resp, fmt.Errorf("%s", msg)
 
 		case <-deadline:
 			return protocol.Response{}, fmt.Errorf("timeout waiting for initial response")
