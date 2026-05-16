@@ -71,9 +71,6 @@ type Client struct {
 	waiterMu sync.Mutex
 	waiters  map[string]chan protocol.Response
 
-	// Command queue for sequential execution
-	CmdQueue *CommandQueue
-
 	// Connection health monitoring
 	lastMessageTime time.Time
 	lastMessageMu   sync.RWMutex
@@ -339,11 +336,9 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		pingInterval:    SleepWSHealthCheck,
 		pongTimeout:     SleepWSPongTimeout,
 		stopPing:        make(chan struct{}),
-		CmdQueue:        NewCommandQueue(nil), // Will be set after creation
 		goroutineCtx:    goroutineCtx,
 		goroutineCancel: goroutineCancel,
 	}
-	client.CmdQueue.client = client // Set the client reference
 	return client
 }
 
@@ -1957,15 +1952,10 @@ func (c *Client) listen(ctx context.Context) {
 
 			// Fan out through the new response router. Runs after state
 			// parsers so callers reading State inside their response
-			// handler see fresh data. Legacy CmdQueue/waiters remain
-			// below until the last method finishes migrating.
+			// handler see fresh data. Legacy waiters remain below until
+			// the last method finishes migrating.
 			if c.router != nil {
 				c.router.dispatch(resp)
-			}
-
-			// Route to command queue first
-			if c.CmdQueue != nil {
-				c.CmdQueue.handleResponse(resp)
 			}
 
 			// Notify any waiters for this response type (legacy support)
@@ -4644,234 +4634,6 @@ func (c *Client) EnsureConnected(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-// SendQueued sends a command using the queue system for reliable sequential execution
-// This is the recommended way to send commands for agents that need guaranteed delivery
-// and proper response matching.
-func (c *Client) SendQueued(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
-	if c.CmdQueue == nil {
-		return protocol.Response{}, fmt.Errorf("command queue not initialized")
-	}
-
-	// Start the queue if not already running
-	c.CmdQueue.Start(ctx)
-
-	// Enqueue the command and wait for response
-	return c.CmdQueue.Enqueue(ctx, msg, timeout)
-}
-
-// ===== QUEUED COMMAND METHODS =====
-// These methods use the command queue for reliable sequential execution
-
-// DockQueued docks at a station using the queue
-func (c *Client) DockQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "dock",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// UndockQueued undocks from a station using the queue
-func (c *Client) UndockQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "undock",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// TravelQueued travels to a POI using the queue
-func (c *Client) TravelQueued(ctx context.Context, targetPOI string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "travel",
-		Payload:   map[string]any{"target_poi": targetPOI},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// JumpQueued jumps to another system using the queue
-func (c *Client) JumpQueued(ctx context.Context, targetSystem string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "jump",
-		Payload:   map[string]any{"target_system": targetSystem},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// MineQueued mines resources using the queue
-func (c *Client) MineQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "mine",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// RefuelQueued refuels using the queue
-func (c *Client) RefuelQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "refuel",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// RepairQueued repairs using the queue
-func (c *Client) RepairQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "repair",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// SellQueued sells items using the queue
-func (c *Client) SellQueued(ctx context.Context, itemID string, quantity float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "sell",
-		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// BuyQueued buys items using the queue
-func (c *Client) BuyQueued(ctx context.Context, itemID string, quantity float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "buy",
-		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetSystemQueued gets system info using the queue
-func (c *Client) GetSystemQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_system",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetStatusQueued gets status using the queue
-func (c *Client) GetStatusQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_status",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetPOIQueued gets POI info using the queue
-func (c *Client) GetPOIQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_poi",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetListingsQueued gets market listings using the queue
-func (c *Client) GetListingsQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "view_market",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// CraftQueued crafts an item using the queue
-func (c *Client) CraftQueued(ctx context.Context, recipeID string, quantity int) error {
-	payload := map[string]any{"recipe_id": recipeID}
-	if quantity > 1 {
-		payload["quantity"] = quantity
-	}
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "craft",
-		Payload:   payload,
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetCargoQueued gets cargo contents using the queue
-func (c *Client) GetCargoQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_cargo",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetBaseQueued gets base info using the queue
-func (c *Client) GetBaseQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_base",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetShipQueued gets ship info using the queue
-func (c *Client) GetShipQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_ship",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetNearbyQueued gets nearby players using the queue
-func (c *Client) GetNearbyQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_nearby",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// ViewStorageQueued views station storage using the queue
-func (c *Client) ViewStorageQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "view_storage",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// WithdrawItemsQueued withdraws items from storage using the queue
-func (c *Client) WithdrawItemsQueued(ctx context.Context, itemID string, quantity float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "withdraw_items",
-		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// AcceptMissionQueued accepts a mission using the queue
-func (c *Client) AcceptMissionQueued(ctx context.Context, missionID string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "accept_mission",
-		Payload:   map[string]any{"mission_id": missionID},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// CompleteMissionQueued completes a mission using the queue
-func (c *Client) CompleteMissionQueued(ctx context.Context, missionID string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "complete_mission",
-		Payload:   map[string]any{"mission_id": missionID},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
 }
 
 // fireStorageCallback parses a view_storage response and invokes the storage update callback.
