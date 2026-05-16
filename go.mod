@@ -28,7 +28,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.21
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

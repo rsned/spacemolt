@@ -3,18 +3,31 @@ package game
 import (
 	"encoding/json"
 	"log"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/mattn/go-isatty"
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // apiChangeLogger writes to stderr regardless of debug settings so that
-// server API changes are always visible in logs.
-var apiChangeLogger = log.New(log.Writer(), "[SERVER API CHANGE] ", log.LstdFlags)
+// server API changes are always visible in logs. When stderr is a TTY,
+// the prefix is rendered in bold bright-yellow on red so it stands out
+// against the surrounding agent log noise.
+var apiChangeLogger = log.New(log.Writer(), apiChangePrefix(), log.LstdFlags)
+
+func apiChangePrefix() string {
+	const plain = "[SERVER API CHANGE] "
+	if isatty.IsTerminal(os.Stderr.Fd()) {
+		// Bold (1) + bright yellow fg (93) + red bg (41); reset (0).
+		return "\x1b[1;93;41m[SERVER API CHANGE]\x1b[0m "
+	}
+	return plain
+}
 
 // loggedAPIChanges deduplicates warnings so each unique change is logged
 // only once per process lifetime.
