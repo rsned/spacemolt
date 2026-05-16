@@ -652,6 +652,8 @@ type FacilityTypeInfo struct {
 	UpgradesToName       string      `json:"upgrades_to_name,omitempty"`
 	UpgradesFrom         string      `json:"upgrades_from,omitempty"`
 	UpgradesFromName     string      `json:"upgrades_from_name,omitempty"`
+	RequiresServiceName  string      `json:"requires_service_name,omitempty"`
+	RequiresServiceType  string      `json:"requires_service_type,omitempty"`
 }
 
 type FacilityResponse struct {
@@ -713,6 +715,8 @@ type FacilityTypesResponse struct {
 	UpgradesToName       string             `json:"upgrades_to_name,omitempty"`
 	UpgradesFrom         string             `json:"upgrades_from,omitempty"`
 	UpgradesFromName     string             `json:"upgrades_from_name,omitempty"`
+	RequiresServiceName  string             `json:"requires_service_name,omitempty"`
+	RequiresServiceType  string             `json:"requires_service_type,omitempty"`
 	// Pagination/filter envelope fields (added when action="types" returns
 	// a list — the server now includes a categories index, applied filters,
 	// and a pagination block alongside the page/per_page/total fields above).
