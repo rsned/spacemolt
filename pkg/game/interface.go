@@ -143,6 +143,7 @@ type GameClient interface {
 	FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error
 	FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error
 	ViewFactionStorage(ctx context.Context) error
+	ViewFactionStorageAt(ctx context.Context, stationID string) error
 	FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error
 	FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error
 	FactionCreateRole(ctx context.Context, name string, priority int, permissions map[string]any) error

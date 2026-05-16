@@ -1444,6 +1444,18 @@ func (m *MCPGameClient) ViewFactionStorage(ctx context.Context) error {
 	return m.cacheResultAs(result, "faction_storage")
 }
 
+// ViewFactionStorageAt views your faction's shared storage at a specific station.
+// As of v0.299.0, you can query remotely with station_id as long as you're a faction member.
+func (m *MCPGameClient) ViewFactionStorageAt(ctx context.Context, stationID string) error {
+	result, err := m.callTool(ctx, "view_faction_storage", map[string]any{
+		"station_id": stationID,
+	})
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "faction_storage")
+}
+
 func (m *MCPGameClient) FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error {
 	_, err := m.callTool(ctx, "faction_create_buy_order", map[string]any{
 		"item_id":    itemID,

@@ -114,10 +114,12 @@ func (c *Client) BrowseShips(ctx context.Context, payload map[string]any) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// browse_ships returns type=ok with a "listings" array; storeRawJSON
-	// detects this via content-based "listings" key (no action-field path).
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("listings"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// browse_ships returns type=ok with a "listings" array; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -281,13 +283,12 @@ func (c *Client) ListShips(ctx context.Context) error {
 		Type:      "list_ships",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// list_ships returns type=ok with no "action" field on the wire (despite
-	// storeRawJSON having a case for it — that path is dead for the current
-	// server). The distinctive payload key is "active_ship_id" which uniquely
-	// identifies the response shape. "ships" alone would collide with
-	// view_storage which also carries that key.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("active_ship_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// list_ships returns type=ok; request_id correlation eliminates the need
+	// for a payload-shape classifier.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -430,10 +431,12 @@ func (c *Client) ViewMarket(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// view_market returns type=ok with action="view_market"; storeRawJSON
-	// stores under "market". Use matchAction for precise correlation.
-	match := matchAll(matchType(protocol.TypeOK), matchAction("view_market"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// view_market returns type=ok; request_id correlation makes the
+	// action-field classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -443,12 +446,12 @@ func (c *Client) ViewOrders(ctx context.Context) error {
 		Type:      "view_orders",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// view_orders returns type=ok with required "orders" array and "action" field.
-	// openapi.json ViewOrdersResponse confirms both are always present. The response
-	// also has a "base" field, but "orders" is more distinctive (no collision).
-	// storeRawJSON action-switch overrides "base" with "orders" for this command.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("orders"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// view_orders returns type=ok with "orders" array; request_id correlation
+	// makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -532,10 +535,12 @@ func (c *Client) GetWrecks(ctx context.Context) error {
 		Type:      "get_wrecks",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_wrecks returns type=ok with a "wrecks" key; no "action" field.
-	// storeRawJSON shape-detection (line ~3289) and openapi GetWrecksResponse confirm.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("wrecks"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_wrecks returns type=ok with a "wrecks" key; request_id correlation
+	// makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -634,14 +639,16 @@ func (c *Client) GetCargo(ctx context.Context) error {
 		Type:      "get_cargo",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_cargo returns type=ok with a "cargo" array; no "action" field.
-	// State.Ship.Cargo is populated by parseGetCargoData inside
-	// handleResponse, which runs BEFORE router dispatch (see client.go
-	// read loop). On nil error from execQuery the state write is visible
-	// to subsequent GetState() calls — no wall-clock sleep is needed,
-	// though GetState() still RLock()s as usual.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("cargo"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_cargo returns type=ok with a "cargo" array; request_id correlation
+	// makes the payload-shape classifier redundant. State.Ship.Cargo is
+	// populated by parseGetCargoData inside handleResponse, which runs
+	// BEFORE router dispatch (see client.go read loop). On nil error from
+	// Submit the state write is visible to subsequent GetState() calls — no
+	// wall-clock sleep is needed, though GetState() still RLock()s as usual.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -668,10 +675,12 @@ func (c *Client) ViewStorage(ctx context.Context) error {
 		Type:      "view_storage",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// view_storage returns type=ok with "base_id" as the reliable indicator;
-	// storeRawJSON stores under "storage". Items/ships may be omitted when empty.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// view_storage returns type=ok; request_id correlation makes the
+	// payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -682,9 +691,11 @@ func (c *Client) ViewStorageAt(ctx context.Context, stationID string) error {
 		Payload:   map[string]any{"station_id": stationID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Same response shape as ViewStorage: "base_id" is the reliable indicator.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// Same response shape as ViewStorage; request_id correlation suffices.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -767,10 +778,12 @@ func (c *Client) GetRecipes(ctx context.Context) error {
 		Type:      "get_recipes",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_recipes returns type=ok with a "recipes" key; no "action" field.
-	// storeRawJSON shape-detection (line ~3275) confirms the "recipes" key.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("recipes"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_recipes returns type=ok with a "recipes" key; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -780,22 +793,13 @@ func (c *Client) GetSkills(ctx context.Context) error {
 		Type:      "get_skills",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server response shape has shifted: older builds returned both a
-	// "player_skills" array and a "skills" definitions map; newer builds
-	// trim "skills" (referring callers to catalog?type=skills) and may
-	// emit "player_skills" empty/absent for fresh characters. Accept any
-	// of the historically-valid identifying keys, plus action/command, so
-	// the query terminates regardless of which the current server sends.
-	match := matchAll(
-		matchType(protocol.TypeOK),
-		matchAny(
-			matchPayloadKey("player_skills"),
-			matchPayloadKey("skills"),
-			matchAction("get_skills"),
-			matchCommand("get_skills"),
-		),
-	)
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_skills returns type=ok; request_id correlation eliminates the
+	// historical payload-shape disambiguation that was needed when the
+	// server's response shape was in flux.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -805,9 +809,12 @@ func (c *Client) GetNearby(ctx context.Context) error {
 		Type:      "get_nearby",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_nearby returns type=ok with "nearby" key; storeRawJSON stores under "nearby".
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("nearby"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_nearby returns type=ok with "nearby" key; request_id correlation
+	// makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -817,12 +824,12 @@ func (c *Client) GetBase(ctx context.Context) error {
 		Type:      "get_base",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_base returns type=ok with "base" (object) and "services" keys per
-	// openapi GetBaseResponse schema. Use "services" as classifier: view_orders
-	// also has a "base" field but not "services", so "services" is distinctive.
-	// storeRawJSON stores under the "base" key (action-switch line ~3092).
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("services"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_base returns type=ok with "base" (object) and "services" keys;
+	// request_id correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -832,11 +839,12 @@ func (c *Client) GetShip(ctx context.Context) error {
 		Type:      "get_ship",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_ship returns type=ok with no "action" field on the wire (the
-	// storeRawJSON action case is dead code for the current server).
-	// The distinctive payload key is "ship" — the ship object itself.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("ship"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_ship returns type=ok with a "ship" payload key; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -850,12 +858,13 @@ func (c *Client) GetMissions(ctx context.Context) error {
 		Type:      "get_missions",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_missions returns type=ok with "missions" array and "base_id" field; no
-	// "action" field on the wire per openapi GetMissionsResponse. Use "base_id"
-	// (not "missions" alone) to distinguish from get_active_missions which also
-	// has a "missions" key but lacks "base_id".
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_missions returns type=ok; request_id correlation makes the
+	// payload-shape classifier (previously needed to disambiguate from
+	// get_active_missions) redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -871,10 +880,12 @@ func (c *Client) GetActionLog(ctx context.Context, payload map[string]any) error
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_action_log returns type=ok with "entries" array and "has_more"
-	// boolean. The "entries" key is distinctive enough to identify the reply.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("entries"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_action_log returns type=ok with "entries" array; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -884,12 +895,12 @@ func (c *Client) GetActiveMissions(ctx context.Context) error {
 		Type:      "get_active_missions",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_active_missions returns type=ok with "missions", "total_count", and
-	// "max_missions" fields; no "action" field. "max_missions" is unique to this
-	// response — storeRawJSON shape-detection uses total_count+max_missions pair,
-	// but "max_missions" alone is sufficient and distinctive.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("max_missions"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_active_missions returns type=ok; request_id correlation makes the
+	// payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1014,10 +1025,12 @@ func (c *Client) GetNotes(ctx context.Context) error {
 		Type:      "get_notes",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server returns {notes: [...], total_count: N} synchronously (no pending).
-	// "notes" key is distinctive — no other response carries it.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("notes"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// Server returns {notes: [...], total_count: N} synchronously; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1030,19 +1043,13 @@ func (c *Client) ReadNote(ctx context.Context, noteID string) error {
 	}
 	// read_note response carries note_id + content synchronously when the
 	// server can find the document. If it can't (note_not_found), the
-	// server replies with type=error and no note_id field — match that
-	// too so we surface the rejection cleanly instead of timing out.
-	match := func(resp protocol.Response) bool {
-		if resp.Type == protocol.TypeError {
-			return true
-		}
-		if resp.Type != protocol.TypeOK {
-			return false
-		}
-		_, ok := resp.Payload["note_id"]
-		return ok
+	// server replies with type=error — request_id correlation routes both
+	// outcomes to this caller; surface the error cleanly.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	var resp protocol.Response
+	if err == nil {
+		resp, err = h.Result(ctx)
 	}
-	resp, err := c.execQuery(ctx, msg, match, SleepMedium)
 	if err != nil {
 		return err
 	}
@@ -1084,10 +1091,12 @@ func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// catalog responses have {items, page, page_size, total, total_pages, type}.
-	// total_pages is distinctive — no other response carries it.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("total_pages"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// catalog responses have {items, page, page_size, total, total_pages, type};
+	// request_id correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1178,15 +1187,13 @@ func (c *Client) GetChatHistory(ctx context.Context, channel string, payload map
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server response carries {channel, messages[], has_more, total_count}
-	// with no "action" field; match on type+channel+shape so concurrent
-	// queries on different channels don't collide.
-	match := matchAll(
-		matchType(protocol.TypeOK),
-		matchChannel(channel),
-		matchPayloadKey("messages"),
-	)
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// Server response carries {channel, messages[], has_more, total_count};
+	// request_id correlation routes concurrent queries on different
+	// channels to the correct caller without payload-shape matching.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1397,11 +1404,12 @@ func (c *Client) FactionInfo(ctx context.Context) error {
 		Type:      "faction_info",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// faction_info returns type=ok with "is_member" boolean; no "action" field.
-	// openapi FactionInfoResponse and storeRawJSON (line ~3317) confirm "is_member"
-	// is always present and distinctive — no other command returns this field.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("is_member"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// faction_info returns type=ok with "is_member" boolean; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1823,6 +1831,21 @@ func (c *Client) ViewFactionStorage(ctx context.Context) error {
 		Type:      "view_faction_storage",
 		Timestamp: time.Now().UnixMilli(),
 	})
+}
+
+// ViewFactionStorageAt views your faction's shared storage at a specific station.
+// As of v0.299.0, you can query remotely with station_id as long as you're a faction member.
+func (c *Client) ViewFactionStorageAt(ctx context.Context, stationID string) error {
+	msg := protocol.Message{
+		Type:      "view_faction_storage",
+		Timestamp: time.Now().UnixMilli(),
+		Payload:   map[string]any{"station_id": stationID},
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionCreateBuyOrder creates a buy order on behalf of your faction.
