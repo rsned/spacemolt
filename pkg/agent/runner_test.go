@@ -313,6 +313,10 @@ func (m *mockGameClient) GetNearby(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_nearby")
 	return nil
 }
+func (m *mockGameClient) GetSystemAgents(ctx context.Context) error {
+	m.actionsRecorded = append(m.actionsRecorded, "get_system_agents")
+	return nil
+}
 func (m *mockGameClient) GetVersion(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_version")
 	return nil

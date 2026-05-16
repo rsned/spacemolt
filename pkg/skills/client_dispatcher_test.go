@@ -502,6 +502,7 @@ func (m *mockGameClient) GetPOI(ctx context.Context) error                      
 func (m *mockGameClient) GetBase(ctx context.Context) error                                    { return nil }
 func (m *mockGameClient) GetMap(ctx context.Context, force ...bool) error                      { return nil }
 func (m *mockGameClient) GetNearby(ctx context.Context) error                                  { return nil }
+func (m *mockGameClient) GetSystemAgents(ctx context.Context) error                             { return nil }
 func (m *mockGameClient) GetVersion(ctx context.Context) error                                 { return nil }
 func (m *mockGameClient) GetCommands(ctx context.Context) error                                { return nil }
 func (m *mockGameClient) GetActiveMissions(ctx context.Context) error                          { return nil }

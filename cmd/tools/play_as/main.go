@@ -3870,6 +3870,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "nearby", "get_nearby":
 		return simpleCommand(client, client.GetNearby, ctx, 2*time.Second, cmd, format)
 
+	case "get_system_agents", "system_agents":
+		return simpleCommand(client, client.GetSystemAgents, ctx, 2*time.Second, cmd, format)
+
 	case "version", "get_version":
 		return simpleCommand(client, client.GetVersion, ctx, 2*time.Second, cmd, format)
 

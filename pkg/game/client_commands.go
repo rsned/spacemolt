@@ -818,6 +818,20 @@ func (c *Client) GetNearby(ctx context.Context) error {
 	return err
 }
 
+// GetSystemAgents gets all uncloaked online players in the current system
+// (system-wide version of GetNearby).
+func (c *Client) GetSystemAgents(ctx context.Context) error {
+	msg := protocol.Message{
+		Type:      "get_system_agents",
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
 // GetBase gets docked base details.
 func (c *Client) GetBase(ctx context.Context) error {
 	msg := protocol.Message{

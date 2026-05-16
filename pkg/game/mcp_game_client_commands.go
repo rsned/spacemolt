@@ -746,6 +746,14 @@ func (m *MCPGameClient) GetNearby(ctx context.Context) error {
 	return m.cacheResultAs(result, "nearby")
 }
 
+func (m *MCPGameClient) GetSystemAgents(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_system_agents", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "get_system_agents")
+}
+
 func (m *MCPGameClient) GetVersion(ctx context.Context) error {
 	result, err := m.callTool(ctx, "get_version", nil)
 	if err != nil {

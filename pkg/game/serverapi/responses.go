@@ -1009,6 +1009,7 @@ type TravelResponse struct {
 	OnlinePlayersCount     int            `json:"online_players_count,omitempty"`
 	OnlinePlayersTruncated bool           `json:"online_players_truncated,omitempty"`
 	OnlinePlayers          []NearbyPlayer `json:"online_players,omitempty"`
+	OfflineCollapsed       int            `json:"offline_collapsed,omitempty"`
 	XPGained               map[string]int `json:"xp_gained,omitempty"`
 }
 
