@@ -125,10 +125,13 @@ func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantit
 		Timestamp: time.Now().UnixMilli(),
 	}
 	// Server sends: ok (pending) → action_result with command="craft".
-	// Intermediate events (e.g. skill_level_up) don't carry a "command" field
-	// and won't satisfy the classifier, so they pass through to push
-	// subscribers without disturbing the mutation wait.
-	_, err := c.execMutation(ctx, msg, matchCommand("craft"), terminateOnAction, SleepTick*3)
+	// Submit's exact request_id correlation means intermediate events
+	// (e.g. skill_level_up) carrying different request_ids pass through
+	// to push subscribers without disturbing the mutation wait.
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 

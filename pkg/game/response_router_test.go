@@ -170,3 +170,91 @@ func TestRouter_Dispatch_PanickyTerminatorRecovers(t *testing.T) {
 		t.Errorf("expected mutation sub still live after terminator panic, have %d", r.subCount())
 	}
 }
+
+func TestRouter_Dispatch_ByRequestID_Hit(t *testing.T) {
+	r := newResponseRouter()
+	ch := make(chan protocol.Response, 1)
+	r.registerByID("req-7", ch, nil)
+
+	r.dispatch(protocol.Response{Type: "ok", RequestID: "req-7"})
+
+	select {
+	case resp := <-ch:
+		if resp.RequestID != "req-7" {
+			t.Errorf("got RequestID=%q, want req-7", resp.RequestID)
+		}
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("response not delivered")
+	}
+}
+
+func TestRouter_Dispatch_ByRequestID_OrphanCounted(t *testing.T) {
+	r := newResponseRouter()
+	orphans := r.orphans()
+
+	r.dispatch(protocol.Response{Type: "ok", RequestID: "no-such-id"})
+
+	if got := orphans.Count(); got != 1 {
+		t.Errorf("orphan count = %d, want 1", got)
+	}
+}
+
+func TestRouter_Dispatch_UntaggedFallsThroughToPush(t *testing.T) {
+	r := newResponseRouter()
+	got := make(chan string, 1)
+	r.registerPush(matchType(protocol.TypeChatMessage), func(resp protocol.Response) {
+		got <- "fired"
+	})
+	r.dispatch(protocol.Response{Type: protocol.TypeChatMessage}) // no request_id
+
+	select {
+	case <-got:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("push handler did not fire")
+	}
+}
+
+func TestRouter_Dispatch_TaggedDoesNotFallThrough(t *testing.T) {
+	r := newResponseRouter()
+	got := make(chan string, 1)
+	r.registerPush(matchType(protocol.TypeChatMessage), func(resp protocol.Response) {
+		got <- "fired"
+	})
+	// Tagged + unknown ID -> orphan, must NOT fall through to push.
+	r.dispatch(protocol.Response{Type: protocol.TypeChatMessage, RequestID: "tagged-but-unknown"})
+
+	select {
+	case <-got:
+		t.Fatal("push handler must not fire for tagged-but-unknown frame")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestRouter_Dispatch_ByRequestID_TerminatorIntermediate(t *testing.T) {
+	r := newResponseRouter()
+	ch := make(chan protocol.Response, 1)
+	term := func(resp protocol.Response) (bool, error) {
+		return resp.Type == protocol.TypeActionResult, nil
+	}
+	r.registerByID("req-9", ch, term)
+
+	// Intermediate pending ack: must NOT close out, must NOT deliver to ch.
+	r.dispatch(protocol.Response{Type: protocol.TypeOK, RequestID: "req-9",
+		Payload: map[string]any{"pending": true}})
+	select {
+	case <-ch:
+		t.Fatal("intermediate must not deliver to result chan")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	// Terminal frame: must deliver and unregister.
+	r.dispatch(protocol.Response{Type: protocol.TypeActionResult, RequestID: "req-9"})
+	select {
+	case <-ch:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("terminal not delivered")
+	}
+	if r.subCount() != 0 {
+		t.Errorf("subscription not cleaned up: subCount=%d", r.subCount())
+	}
+}

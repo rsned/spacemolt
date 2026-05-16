@@ -22,20 +22,25 @@ func (c *Client) Battle(ctx context.Context, action string, payload map[string]a
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("battle"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // GetBattleStatus queries the current battle state (free query, no tick cost).
 // Blocks until the server responds.
 func (c *Client) GetBattleStatus(ctx context.Context) error {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_battle_status",
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
-		return err
 	}
-	return c.waitForActionResponse(ctx, SleepTick)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepTick))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // Reload reloads a weapon's magazine from ammo in cargo.
@@ -48,7 +53,10 @@ func (c *Client) Reload(ctx context.Context, weaponInstanceID, ammoItemID string
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("reload"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -58,7 +66,10 @@ func (c *Client) SelfDestruct(ctx context.Context) error {
 		Type:      "self_destruct",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("self_destruct"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -69,7 +80,10 @@ func (c *Client) Cloak(ctx context.Context, enable bool) error {
 		Payload:   map[string]any{"enable": enable},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cloak"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -81,7 +95,10 @@ func (c *Client) ScanTarget(ctx context.Context, targetID string) error {
 		Payload:   map[string]any{"target_id": targetID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("scan"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -97,10 +114,12 @@ func (c *Client) BrowseShips(ctx context.Context, payload map[string]any) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// browse_ships returns type=ok with a "listings" array; storeRawJSON
-	// detects this via content-based "listings" key (no action-field path).
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("listings"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// browse_ships returns type=ok with a "listings" array; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -111,7 +130,10 @@ func (c *Client) BuyListedShip(ctx context.Context, listingID string) error {
 		Payload:   map[string]any{"listing_id": listingID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy_listed_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -122,7 +144,10 @@ func (c *Client) BuyShip(ctx context.Context, shipClass string) error {
 		Payload:   map[string]any{"ship_class": shipClass},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -133,7 +158,10 @@ func (c *Client) CancelCommission(ctx context.Context, commissionID string) erro
 		Payload:   map[string]any{"commission_id": commissionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cancel_commission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -144,7 +172,10 @@ func (c *Client) CancelShipListing(ctx context.Context, listingID string) error 
 		Payload:   map[string]any{"listing_id": listingID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cancel_ship_listing"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -155,13 +186,16 @@ func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error
 		Payload:   map[string]any{"commission_id": commissionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("claim_commission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // CommissionQuote gets a cost estimate for commissioning a ship.
 func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "commission_quote",
 		Payload:   map[string]any{"ship_class": shipClass},
 		Timestamp: time.Now().UnixMilli(),
@@ -178,7 +212,10 @@ func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMa
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("commission_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -188,7 +225,7 @@ func (c *Client) CommissionStatus(ctx context.Context, baseID string) error {
 	if baseID != "" {
 		payload["base_id"] = baseID
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "commission_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -205,7 +242,10 @@ func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("list_ship_for_sale"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -216,7 +256,10 @@ func (c *Client) SwitchShip(ctx context.Context, shipID string) error {
 		Payload:   map[string]any{"ship_id": shipID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("switch_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -227,7 +270,10 @@ func (c *Client) SellShip(ctx context.Context, shipID string) error {
 		Payload:   map[string]any{"ship_id": shipID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("sell_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -237,13 +283,12 @@ func (c *Client) ListShips(ctx context.Context) error {
 		Type:      "list_ships",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// list_ships returns type=ok with no "action" field on the wire (despite
-	// storeRawJSON having a case for it — that path is dead for the current
-	// server). The distinctive payload key is "active_ship_id" which uniquely
-	// identifies the response shape. "ships" alone would collide with
-	// view_storage which also carries that key.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("active_ship_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// list_ships returns type=ok; request_id correlation eliminates the need
+	// for a payload-shape classifier.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -258,7 +303,10 @@ func (c *Client) UseItem(ctx context.Context, itemID string, quantity int) error
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("use_item"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -269,7 +317,10 @@ func (c *Client) InstallMod(ctx context.Context, moduleID string) error {
 		Payload:   map[string]any{"module_id": moduleID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("install_mod"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -279,7 +330,10 @@ func (c *Client) RefitShip(ctx context.Context) error {
 		Type:      "refit_ship",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("refit_ship"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -290,7 +344,10 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 		Payload:   map[string]any{"module_id": moduleID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("uninstall_mod"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -300,7 +357,7 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 
 // AnalyzeMarket gets actionable trading insights at the current station.
 func (c *Client) AnalyzeMarket(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "analyze_market",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -313,7 +370,10 @@ func (c *Client) CreateBuyOrder(ctx context.Context, payload map[string]any) err
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_buy_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -324,7 +384,10 @@ func (c *Client) CreateSellOrder(ctx context.Context, payload map[string]any) er
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_sell_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -335,7 +398,10 @@ func (c *Client) CancelOrder(ctx context.Context, payload map[string]any) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("cancel_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -346,7 +412,10 @@ func (c *Client) ModifyOrder(ctx context.Context, payload map[string]any) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("modify_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -362,10 +431,12 @@ func (c *Client) ViewMarket(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// view_market returns type=ok with action="view_market"; storeRawJSON
-	// stores under "market". Use matchAction for precise correlation.
-	match := matchAll(matchType(protocol.TypeOK), matchAction("view_market"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// view_market returns type=ok; request_id correlation makes the
+	// action-field classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -375,18 +446,18 @@ func (c *Client) ViewOrders(ctx context.Context) error {
 		Type:      "view_orders",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// view_orders returns type=ok with required "orders" array and "action" field.
-	// openapi.json ViewOrdersResponse confirms both are always present. The response
-	// also has a "base" field, but "orders" is more distinctive (no collision).
-	// storeRawJSON action-switch overrides "base" with "orders" for this command.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("orders"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// view_orders returns type=ok with "orders" array; request_id correlation
+	// makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // EstimatePurchase previews what buying would cost without executing.
 func (c *Client) EstimatePurchase(ctx context.Context, itemID string, quantity int) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type: "estimate_purchase",
 		Payload: map[string]any{
 			"item_id":  itemID,
@@ -398,7 +469,7 @@ func (c *Client) EstimatePurchase(ctx context.Context, itemID string, quantity i
 
 // GetTrades views pending trade offers.
 func (c *Client) GetTrades(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_trades",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -415,7 +486,10 @@ func (c *Client) TradeOffer(ctx context.Context, targetID string, payload map[st
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("trade_offer"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -426,13 +500,16 @@ func (c *Client) TradeAccept(ctx context.Context, tradeID string) error {
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("trade_accept"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // TradeCancel cancels your trade offer.
 func (c *Client) TradeCancel(ctx context.Context, tradeID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "trade_cancel",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
@@ -441,7 +518,7 @@ func (c *Client) TradeCancel(ctx context.Context, tradeID string) error {
 
 // TradeDecline declines a trade offer.
 func (c *Client) TradeDecline(ctx context.Context, tradeID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "trade_decline",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
@@ -458,10 +535,12 @@ func (c *Client) GetWrecks(ctx context.Context) error {
 		Type:      "get_wrecks",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_wrecks returns type=ok with a "wrecks" key; no "action" field.
-	// storeRawJSON shape-detection (line ~3289) and openapi GetWrecksResponse confirm.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("wrecks"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_wrecks returns type=ok with a "wrecks" key; request_id correlation
+	// makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -476,7 +555,10 @@ func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("loot_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -487,7 +569,10 @@ func (c *Client) SalvageWreck(ctx context.Context, wreckID string) error {
 		Payload:   map[string]any{"wreck_id": wreckID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("salvage_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -498,7 +583,10 @@ func (c *Client) TowWreck(ctx context.Context, wreckID string) error {
 		Payload:   map[string]any{"wreck_id": wreckID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("tow_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -508,7 +596,10 @@ func (c *Client) ReleaseTow(ctx context.Context) error {
 		Type:      "release_tow",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("release_tow"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -518,7 +609,10 @@ func (c *Client) ScrapWreck(ctx context.Context) error {
 		Type:      "scrap_wreck",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("scrap_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -528,7 +622,10 @@ func (c *Client) SellWreck(ctx context.Context) error {
 		Type:      "sell_wreck",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("sell_wreck"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -542,14 +639,16 @@ func (c *Client) GetCargo(ctx context.Context) error {
 		Type:      "get_cargo",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_cargo returns type=ok with a "cargo" array; no "action" field.
-	// State.Ship.Cargo is populated by parseGetCargoData inside
-	// handleResponse, which runs BEFORE router dispatch (see client.go
-	// read loop). On nil error from execQuery the state write is visible
-	// to subsequent GetState() calls — no wall-clock sleep is needed,
-	// though GetState() still RLock()s as usual.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("cargo"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_cargo returns type=ok with a "cargo" array; request_id correlation
+	// makes the payload-shape classifier redundant. State.Ship.Cargo is
+	// populated by parseGetCargoData inside handleResponse, which runs
+	// BEFORE router dispatch (see client.go read loop). On nil error from
+	// Submit the state write is visible to subsequent GetState() calls — no
+	// wall-clock sleep is needed, though GetState() still RLock()s as usual.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -563,7 +662,10 @@ func (c *Client) Jettison(ctx context.Context, itemID string, quantity float64) 
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("jettison"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -573,10 +675,12 @@ func (c *Client) ViewStorage(ctx context.Context) error {
 		Type:      "view_storage",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// view_storage returns type=ok with "base_id" as the reliable indicator;
-	// storeRawJSON stores under "storage". Items/ships may be omitted when empty.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// view_storage returns type=ok; request_id correlation makes the
+	// payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -587,9 +691,11 @@ func (c *Client) ViewStorageAt(ctx context.Context, stationID string) error {
 		Payload:   map[string]any{"station_id": stationID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Same response shape as ViewStorage: "base_id" is the reliable indicator.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// Same response shape as ViewStorage; request_id correlation suffices.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -603,7 +709,10 @@ func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity floa
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -621,7 +730,10 @@ func (c *Client) WithdrawItemsPayload(ctx context.Context, payload map[string]an
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -634,7 +746,10 @@ func (c *Client) DepositItemsPayload(ctx context.Context, payload map[string]any
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -645,7 +760,10 @@ func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("send_gift"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -660,10 +778,12 @@ func (c *Client) GetRecipes(ctx context.Context) error {
 		Type:      "get_recipes",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_recipes returns type=ok with a "recipes" key; no "action" field.
-	// storeRawJSON shape-detection (line ~3275) confirms the "recipes" key.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("recipes"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_recipes returns type=ok with a "recipes" key; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -673,22 +793,13 @@ func (c *Client) GetSkills(ctx context.Context) error {
 		Type:      "get_skills",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server response shape has shifted: older builds returned both a
-	// "player_skills" array and a "skills" definitions map; newer builds
-	// trim "skills" (referring callers to catalog?type=skills) and may
-	// emit "player_skills" empty/absent for fresh characters. Accept any
-	// of the historically-valid identifying keys, plus action/command, so
-	// the query terminates regardless of which the current server sends.
-	match := matchAll(
-		matchType(protocol.TypeOK),
-		matchAny(
-			matchPayloadKey("player_skills"),
-			matchPayloadKey("skills"),
-			matchAction("get_skills"),
-			matchCommand("get_skills"),
-		),
-	)
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_skills returns type=ok; request_id correlation eliminates the
+	// historical payload-shape disambiguation that was needed when the
+	// server's response shape was in flux.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -698,9 +809,12 @@ func (c *Client) GetNearby(ctx context.Context) error {
 		Type:      "get_nearby",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_nearby returns type=ok with "nearby" key; storeRawJSON stores under "nearby".
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("nearby"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_nearby returns type=ok with "nearby" key; request_id correlation
+	// makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -710,12 +824,12 @@ func (c *Client) GetBase(ctx context.Context) error {
 		Type:      "get_base",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_base returns type=ok with "base" (object) and "services" keys per
-	// openapi GetBaseResponse schema. Use "services" as classifier: view_orders
-	// also has a "base" field but not "services", so "services" is distinctive.
-	// storeRawJSON stores under the "base" key (action-switch line ~3092).
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("services"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_base returns type=ok with "base" (object) and "services" keys;
+	// request_id correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -725,11 +839,12 @@ func (c *Client) GetShip(ctx context.Context) error {
 		Type:      "get_ship",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_ship returns type=ok with no "action" field on the wire (the
-	// storeRawJSON action case is dead code for the current server).
-	// The distinctive payload key is "ship" — the ship object itself.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("ship"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_ship returns type=ok with a "ship" payload key; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -743,12 +858,13 @@ func (c *Client) GetMissions(ctx context.Context) error {
 		Type:      "get_missions",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_missions returns type=ok with "missions" array and "base_id" field; no
-	// "action" field on the wire per openapi GetMissionsResponse. Use "base_id"
-	// (not "missions" alone) to distinguish from get_active_missions which also
-	// has a "missions" key but lacks "base_id".
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("base_id"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_missions returns type=ok; request_id correlation makes the
+	// payload-shape classifier (previously needed to disambiguate from
+	// get_active_missions) redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -764,10 +880,12 @@ func (c *Client) GetActionLog(ctx context.Context, payload map[string]any) error
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_action_log returns type=ok with "entries" array and "has_more"
-	// boolean. The "entries" key is distinctive enough to identify the reply.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("entries"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_action_log returns type=ok with "entries" array; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -777,12 +895,12 @@ func (c *Client) GetActiveMissions(ctx context.Context) error {
 		Type:      "get_active_missions",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// get_active_missions returns type=ok with "missions", "total_count", and
-	// "max_missions" fields; no "action" field. "max_missions" is unique to this
-	// response — storeRawJSON shape-detection uses total_count+max_missions pair,
-	// but "max_missions" alone is sufficient and distinctive.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("max_missions"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// get_active_missions returns type=ok; request_id correlation makes the
+	// payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -793,7 +911,10 @@ func (c *Client) AcceptMission(ctx context.Context, missionID string) error {
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("accept_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -804,13 +925,16 @@ func (c *Client) CompleteMission(ctx context.Context, missionID string) error {
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("complete_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // AbandonMission abandons an active mission.
 func (c *Client) AbandonMission(ctx context.Context, missionID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "abandon_mission",
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
@@ -819,7 +943,7 @@ func (c *Client) AbandonMission(ctx context.Context, missionID string) error {
 
 // DeclineMission declines a mission and hears the NPC's response.
 func (c *Client) DeclineMission(ctx context.Context, templateID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "decline_mission",
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
@@ -837,13 +961,16 @@ func (c *Client) BuyInsurance(ctx context.Context, ticks int) error {
 		Payload:   map[string]any{"ticks": ticks},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy_insurance"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // ClaimInsurance views your active insurance policies.
 func (c *Client) ClaimInsurance(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "claim_insurance",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -851,7 +978,7 @@ func (c *Client) ClaimInsurance(ctx context.Context) error {
 
 // GetInsuranceQuote gets a risk-based insurance quote for the current ship.
 func (c *Client) GetInsuranceQuote(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_insurance_quote",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -864,7 +991,10 @@ func (c *Client) SetHomeBase(ctx context.Context, baseID string) error {
 		Payload:   map[string]any{"base_id": baseID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("set_home_base"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -882,7 +1012,10 @@ func (c *Client) CreateNote(ctx context.Context, title, content string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_note"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -892,10 +1025,12 @@ func (c *Client) GetNotes(ctx context.Context) error {
 		Type:      "get_notes",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server returns {notes: [...], total_count: N} synchronously (no pending).
-	// "notes" key is distinctive — no other response carries it.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("notes"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// Server returns {notes: [...], total_count: N} synchronously; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -908,19 +1043,13 @@ func (c *Client) ReadNote(ctx context.Context, noteID string) error {
 	}
 	// read_note response carries note_id + content synchronously when the
 	// server can find the document. If it can't (note_not_found), the
-	// server replies with type=error and no note_id field — match that
-	// too so we surface the rejection cleanly instead of timing out.
-	match := func(resp protocol.Response) bool {
-		if resp.Type == protocol.TypeError {
-			return true
-		}
-		if resp.Type != protocol.TypeOK {
-			return false
-		}
-		_, ok := resp.Payload["note_id"]
-		return ok
+	// server replies with type=error — request_id correlation routes both
+	// outcomes to this caller; surface the error cleanly.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	var resp protocol.Response
+	if err == nil {
+		resp, err = h.Result(ctx)
 	}
-	resp, err := c.execQuery(ctx, msg, match, SleepMedium)
 	if err != nil {
 		return err
 	}
@@ -940,7 +1069,10 @@ func (c *Client) WriteNote(ctx context.Context, noteID, content string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("write_note"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -959,16 +1091,18 @@ func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// catalog responses have {items, page, page_size, total, total_pages, type}.
-	// total_pages is distinctive — no other response carries it.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("total_pages"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// catalog responses have {items, page, page_size, total, total_pages, type};
+	// request_id correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // GetCommands gets a structured list of all commands.
 func (c *Client) GetCommands(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_commands",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -980,7 +1114,7 @@ func (c *Client) GetGuide(ctx context.Context, guide string) error {
 	if guide != "" {
 		payload["guide"] = guide
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_guide",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -989,7 +1123,7 @@ func (c *Client) GetGuide(ctx context.Context, guide string) error {
 
 // SearchChangelog searches release notes and version history.
 func (c *Client) SearchChangelog(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "search_changelog",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -998,7 +1132,7 @@ func (c *Client) SearchChangelog(ctx context.Context, payload map[string]any) er
 
 // SearchSystems searches for systems by name.
 func (c *Client) SearchSystems(ctx context.Context, query string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "search_systems",
 		Payload:   map[string]any{"query": query},
 		Timestamp: time.Now().UnixMilli(),
@@ -1007,7 +1141,7 @@ func (c *Client) SearchSystems(ctx context.Context, query string) error {
 
 // GetVersion gets game version and release notes.
 func (c *Client) GetVersion(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_version",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1015,7 +1149,7 @@ func (c *Client) GetVersion(ctx context.Context) error {
 
 // Help gets help for commands.
 func (c *Client) Help(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "help",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1035,7 +1169,7 @@ func (c *Client) Chat(ctx context.Context, channel, content string, targetID str
 	if targetID != "" {
 		payload["target_id"] = targetID
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "chat",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1053,15 +1187,13 @@ func (c *Client) GetChatHistory(ctx context.Context, channel string, payload map
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server response carries {channel, messages[], has_more, total_count}
-	// with no "action" field; match on type+channel+shape so concurrent
-	// queries on different channels don't collide.
-	match := matchAll(
-		matchType(protocol.TypeOK),
-		matchChannel(channel),
-		matchPayloadKey("messages"),
-	)
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// Server response carries {channel, messages[], has_more, total_count};
+	// request_id correlation routes concurrent queries on different
+	// channels to the correct caller without payload-shape matching.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1075,7 +1207,7 @@ func (c *Client) ForumList(ctx context.Context, page int) error {
 	if page > 0 {
 		payload["page"] = page
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1091,7 +1223,7 @@ func (c *Client) ForumCreateThread(ctx context.Context, title, content string, c
 	if category != "" {
 		payload["category"] = category
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_create_thread",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1100,7 +1232,7 @@ func (c *Client) ForumCreateThread(ctx context.Context, title, content string, c
 
 // ForumGetThread gets a forum thread and its replies.
 func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_get_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1109,7 +1241,7 @@ func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
 
 // ForumReply replies to a forum thread.
 func (c *Client) ForumReply(ctx context.Context, threadID, content string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type: "forum_reply",
 		Payload: map[string]any{
 			"thread_id": threadID,
@@ -1121,7 +1253,7 @@ func (c *Client) ForumReply(ctx context.Context, threadID, content string) error
 
 // ForumDeleteReply deletes a forum reply.
 func (c *Client) ForumDeleteReply(ctx context.Context, replyID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_delete_reply",
 		Payload:   map[string]any{"reply_id": replyID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1130,7 +1262,7 @@ func (c *Client) ForumDeleteReply(ctx context.Context, replyID string) error {
 
 // ForumDeleteThread deletes a forum thread.
 func (c *Client) ForumDeleteThread(ctx context.Context, threadID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_delete_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1143,7 +1275,7 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 	if replyID != "" {
 		payload["reply_id"] = replyID
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_upvote",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1156,7 +1288,7 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 
 // CaptainsLogAdd adds an entry to your captain's log.
 func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "captains_log_add",
 		Payload:   map[string]any{"entry": entry},
 		Timestamp: time.Now().UnixMilli(),
@@ -1165,7 +1297,7 @@ func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
 
 // CaptainsLogGet gets a specific entry from your captain's log.
 func (c *Client) CaptainsLogGet(ctx context.Context, index int) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "captains_log_get",
 		Payload:   map[string]any{"index": index},
 		Timestamp: time.Now().UnixMilli(),
@@ -1174,7 +1306,7 @@ func (c *Client) CaptainsLogGet(ctx context.Context, index int) error {
 
 // CaptainsLogList lists all entries in your captain's log.
 func (c *Client) CaptainsLogList(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "captains_log_list",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1186,7 +1318,7 @@ func (c *Client) CaptainsLogList(ctx context.Context) error {
 
 // SetAnonymous sets anonymous mode.
 func (c *Client) SetAnonymous(ctx context.Context, anonymous bool) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "set_anonymous",
 		Payload:   map[string]any{"anonymous": anonymous},
 		Timestamp: time.Now().UnixMilli(),
@@ -1195,7 +1327,7 @@ func (c *Client) SetAnonymous(ctx context.Context, anonymous bool) error {
 
 // SetColors sets your ship colors.
 func (c *Client) SetColors(ctx context.Context, primaryColor, secondaryColor string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type: "set_colors",
 		Payload: map[string]any{
 			"primary_color":   primaryColor,
@@ -1207,7 +1339,7 @@ func (c *Client) SetColors(ctx context.Context, primaryColor, secondaryColor str
 
 // SetPlayerStatus sets your status message and clan tag.
 func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "set_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1217,51 +1349,6 @@ func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) er
 // ============================================================================
 // Station Facilities
 // ============================================================================
-
-// facilityMatch recognizes every facility response shape:
-//   - sync query reply (type=ok, no command field; identified by
-//     station_facilities/faction_facilities/player_facilities for list,
-//     or action ∈ {types, upgrades, help, faction_list} for the others)
-//   - async pending ok (command="facility", pending=true)
-//   - terminal action_result/action_error (command="facility")
-//
-// Sub-action coverage isn't exhaustive — extend the action switch as new
-// sync sub-actions are exercised; the cost of missing one is an
-// execMutation timeout instead of a clean reply.
-func facilityMatch(resp protocol.Response) bool {
-	p := resp.Payload
-	if cmd, _ := p["command"].(string); cmd == "facility" {
-		return true
-	}
-	// Server rejects malformed actions with a top-level TypeError that lacks
-	// the command field. execMutation serializes facility calls under
-	// mutationMu, so any error frame arriving while we wait belongs to us —
-	// claim it so the terminator can surface the message instead of letting
-	// the call hang to the SleepTick*3 deadline.
-	if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
-		return true
-	}
-	if resp.Type != protocol.TypeOK {
-		return false
-	}
-	if _, ok := p["station_facilities"]; ok {
-		return true // facility list
-	}
-	if _, ok := p["faction_facilities"]; ok {
-		return true
-	}
-	if _, ok := p["player_facilities"]; ok {
-		return true
-	}
-	if action, _ := p["action"].(string); action != "" {
-		switch action {
-		case "types", "upgrades", "help", "faction_list",
-			"personal_visit", "personal_decorate":
-			return true
-		}
-	}
-	return false
-}
 
 // facilityTerminate handles facility's dual-shape completion: the standard
 // action terminator semantics for action_result/action_error, plus a sync
@@ -1292,7 +1379,12 @@ func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, facilityMatch, facilityTerminate, SleepTick*3)
+	h, err := c.Submit(ctx, msg,
+		WithTerminator(facilityTerminate),
+		WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1312,11 +1404,12 @@ func (c *Client) FactionInfo(ctx context.Context) error {
 		Type:      "faction_info",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// faction_info returns type=ok with "is_member" boolean; no "action" field.
-	// openapi FactionInfoResponse and storeRawJSON (line ~3317) confirm "is_member"
-	// is always present and distinctive — no other command returns this field.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("is_member"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	// faction_info returns type=ok with "is_member" boolean; request_id
+	// correlation makes the payload-shape classifier redundant.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1329,7 +1422,7 @@ func (c *Client) FactionList(ctx context.Context, limit, offset int) error {
 	if offset > 0 {
 		payload["offset"] = offset
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1343,7 +1436,10 @@ func (c *Client) CreateFaction(ctx context.Context, payload map[string]any) erro
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_faction"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1354,7 +1450,10 @@ func (c *Client) JoinFaction(ctx context.Context, factionID string) error {
 		Payload:   map[string]any{"faction_id": factionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("join_faction"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1364,7 +1463,10 @@ func (c *Client) LeaveFaction(ctx context.Context) error {
 		Type:      "leave_faction",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("leave_faction"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1375,7 +1477,10 @@ func (c *Client) FactionInvite(ctx context.Context, playerID string) error {
 		Payload:   map[string]any{"player_id": playerID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_invite"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1386,7 +1491,10 @@ func (c *Client) FactionKick(ctx context.Context, playerID string) error {
 		Payload:   map[string]any{"player_id": playerID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_kick"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1400,13 +1508,16 @@ func (c *Client) FactionPromote(ctx context.Context, playerID, roleID string) er
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_promote"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // FactionEdit updates faction description, charter, and colors.
 func (c *Client) FactionEdit(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_edit",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1422,7 +1533,7 @@ func (c *Client) FactionCreateRole(ctx context.Context, name string, priority in
 	if permissions != nil {
 		payload["permissions"] = permissions
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_create_role",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1435,7 +1546,7 @@ func (c *Client) FactionEditRole(ctx context.Context, roleID string, payload map
 		payload = map[string]any{}
 	}
 	payload["role_id"] = roleID
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_edit_role",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1444,7 +1555,7 @@ func (c *Client) FactionEditRole(ctx context.Context, roleID string, payload map
 
 // FactionDeleteRole deletes a custom faction role.
 func (c *Client) FactionDeleteRole(ctx context.Context, roleID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_delete_role",
 		Payload:   map[string]any{"role_id": roleID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1466,7 +1577,10 @@ func (c *Client) FactionDeclareWar(ctx context.Context, targetFactionID, reason 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_declare_war"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1481,7 +1595,10 @@ func (c *Client) FactionProposePeace(ctx context.Context, targetFactionID, terms
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_propose_peace"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1492,7 +1609,10 @@ func (c *Client) FactionAcceptPeace(ctx context.Context, targetFactionID string)
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_accept_peace"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1503,7 +1623,10 @@ func (c *Client) FactionSetAlly(ctx context.Context, targetFactionID string) err
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_set_ally"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1514,7 +1637,10 @@ func (c *Client) FactionSetEnemy(ctx context.Context, targetFactionID string) er
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_set_enemy"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1529,13 +1655,16 @@ func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]an
 		Payload:   map[string]any{"systems": systems},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_submit_intel"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // FactionQueryIntel queries your faction's intel database.
 func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_query_intel",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1544,7 +1673,7 @@ func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) 
 
 // FactionIntelStatus views faction intel coverage statistics.
 func (c *Client) FactionIntelStatus(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_intel_status",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1557,13 +1686,16 @@ func (c *Client) FactionSubmitTradeIntel(ctx context.Context, stations []map[str
 		Payload:   map[string]any{"stations": stations},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_submit_trade_intel"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // FactionQueryTradeIntel searches your faction's market price database.
 func (c *Client) FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_query_trade_intel",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1572,7 +1704,7 @@ func (c *Client) FactionQueryTradeIntel(ctx context.Context, payload map[string]
 
 // FactionTradeIntelStatus views faction trade intelligence coverage statistics.
 func (c *Client) FactionTradeIntelStatus(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_trade_intel_status",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1592,7 +1724,10 @@ func (c *Client) FactionDepositItems(ctx context.Context, itemID string, quantit
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1606,7 +1741,10 @@ func (c *Client) FactionWithdrawItems(ctx context.Context, itemID string, quanti
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1619,7 +1757,10 @@ func (c *Client) FactionDepositItemsPayload(ctx context.Context, payload map[str
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1631,7 +1772,10 @@ func (c *Client) FactionWithdrawItemsPayload(ctx context.Context, payload map[st
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1642,7 +1786,10 @@ func (c *Client) FactionDepositCredits(ctx context.Context, amount float64) erro
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_deposit_credits"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1653,7 +1800,10 @@ func (c *Client) FactionWithdrawCredits(ctx context.Context, amount float64) err
 		Payload:   map[string]any{"amount": amount},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_withdraw_credits"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1668,16 +1818,34 @@ func (c *Client) FactionGift(ctx context.Context, factionID string, payload map[
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_gift"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // ViewFactionStorage views your faction's shared storage at the current station.
 func (c *Client) ViewFactionStorage(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "view_faction_storage",
 		Timestamp: time.Now().UnixMilli(),
 	})
+}
+
+// ViewFactionStorageAt views your faction's shared storage at a specific station.
+// As of v0.299.0, you can query remotely with station_id as long as you're a faction member.
+func (c *Client) ViewFactionStorageAt(ctx context.Context, stationID string) error {
+	msg := protocol.Message{
+		Type:      "view_faction_storage",
+		Timestamp: time.Now().UnixMilli(),
+		Payload:   map[string]any{"station_id": stationID},
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionCreateBuyOrder creates a buy order on behalf of your faction.
@@ -1691,7 +1859,10 @@ func (c *Client) FactionCreateBuyOrder(ctx context.Context, itemID string, price
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_create_buy_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1706,7 +1877,10 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_create_sell_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1716,7 +1890,7 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 
 // FactionListMissions lists your faction's posted missions at this station.
 func (c *Client) FactionListMissions(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_list_missions",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1729,7 +1903,10 @@ func (c *Client) FactionPostMission(ctx context.Context, payload map[string]any)
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_post_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1740,7 +1917,10 @@ func (c *Client) FactionCancelMission(ctx context.Context, templateID string) er
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("faction_cancel_mission"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1750,7 +1930,7 @@ func (c *Client) FactionCancelMission(ctx context.Context, templateID string) er
 
 // FactionGetInvites views pending faction invitations.
 func (c *Client) FactionGetInvites(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_get_invites",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1758,7 +1938,7 @@ func (c *Client) FactionGetInvites(ctx context.Context) error {
 
 // FactionDeclineInvite declines a faction invitation.
 func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_decline_invite",
 		Payload:   map[string]any{"faction_id": factionID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1771,7 +1951,7 @@ func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) err
 
 // FactionRooms lists rooms in your faction's common space at the current station.
 func (c *Client) FactionRooms(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_rooms",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1779,7 +1959,7 @@ func (c *Client) FactionRooms(ctx context.Context) error {
 
 // FactionVisitRoom visits a room and reads its description.
 func (c *Client) FactionVisitRoom(ctx context.Context, roomID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_visit_room",
 		Payload:   map[string]any{"room_id": roomID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1788,7 +1968,7 @@ func (c *Client) FactionVisitRoom(ctx context.Context, roomID string) error {
 
 // FactionWriteRoom creates or updates a room in your faction's common space.
 func (c *Client) FactionWriteRoom(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_write_room",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1797,7 +1977,7 @@ func (c *Client) FactionWriteRoom(ctx context.Context, payload map[string]any) e
 
 // FactionDeleteRoom deletes a room from your faction's common space.
 func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_delete_room",
 		Payload:   map[string]any{"room_id": roomID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1806,7 +1986,7 @@ func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
 
 // RawCommand sends an arbitrary command to the server.
 func (c *Client) RawCommand(ctx context.Context, command string, args map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      command,
 		Payload:   args,
 		Timestamp: time.Now().UnixMilli(),

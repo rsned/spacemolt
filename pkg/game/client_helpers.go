@@ -256,134 +256,136 @@ func (s *SafeCommandBuilder) GetListings(ctx context.Context) error {
 	return s.exec.ExecuteCommand(ctx, s.client.GetListings)
 }
 
-// ===== QUEUED COMMAND METHODS =====
-// These methods use the command queue for reliable sequential execution
-// They block until the command completes successfully, ensuring commands
-// are executed one at a time in order.
+// ===== QUEUED COMMAND METHODS (LEGACY NAMES) =====
+// These methods preserve the *Queued public names for external callers but
+// now delegate to the non-Queued client methods, which internally use Submit
+// for request_id-based correlation. The underlying CommandQueue is gone.
 
-// DockQueued docks at a station using the queue
+// DockQueued docks at a station.
 func (s *SafeCommandBuilder) DockQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.DockQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.Dock)
 }
 
-// UndockQueued undocks from a station using the queue
+// UndockQueued undocks from a station.
 func (s *SafeCommandBuilder) UndockQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.UndockQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.Undock)
 }
 
-// TravelQueued travels to a POI using the queue
+// TravelQueued travels to a POI.
 func (s *SafeCommandBuilder) TravelQueued(ctx context.Context, targetPOI string) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.TravelQueued(ctx, targetPOI)
+		_, err := s.client.Travel(ctx, targetPOI)
+		return err
 	})
 }
 
-// JumpQueued jumps to another system using the queue
+// JumpQueued jumps to another system.
 func (s *SafeCommandBuilder) JumpQueued(ctx context.Context, targetSystem string) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.JumpQueued(ctx, targetSystem)
+		_, err := s.client.Jump(ctx, targetSystem)
+		return err
 	})
 }
 
-// MineQueued mines resources using the queue
+// MineQueued mines resources.
 func (s *SafeCommandBuilder) MineQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.MineQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.Mine)
 }
 
-// RefuelQueued refuels the ship using the queue
+// RefuelQueued refuels the ship.
 func (s *SafeCommandBuilder) RefuelQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.RefuelQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.Refuel)
 }
 
-// RepairQueued repairs the ship using the queue
+// RepairQueued repairs the ship.
 func (s *SafeCommandBuilder) RepairQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.RepairQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.Repair)
 }
 
-// BuyQueued buys items using the queue
+// BuyQueued buys items.
 func (s *SafeCommandBuilder) BuyQueued(ctx context.Context, itemID string, quantity float64) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.BuyQueued(ctx, itemID, quantity)
+		return s.client.Buy(ctx, itemID, quantity)
 	})
 }
 
-// SellQueued sells items using the queue
+// SellQueued sells items.
 func (s *SafeCommandBuilder) SellQueued(ctx context.Context, itemID string, quantity float64) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.SellQueued(ctx, itemID, quantity)
+		return s.client.Sell(ctx, itemID, quantity)
 	})
 }
 
-// GetSystemQueued gets system info using the queue
+// GetSystemQueued gets system info.
 func (s *SafeCommandBuilder) GetSystemQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetSystemQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetSystem)
 }
 
-// GetStatusQueued gets status using the queue
+// GetStatusQueued gets status.
 func (s *SafeCommandBuilder) GetStatusQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetStatusQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetStatus)
 }
 
-// GetPOIQueued gets POI info using the queue
+// GetPOIQueued gets POI info.
 func (s *SafeCommandBuilder) GetPOIQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetPOIQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetPOI)
 }
 
-// GetListingsQueued gets market listings using the queue
+// GetListingsQueued gets market listings.
 func (s *SafeCommandBuilder) GetListingsQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetListingsQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetListings)
 }
 
-// CraftQueued crafts an item using the queue
+// CraftQueued crafts an item.
 func (s *SafeCommandBuilder) CraftQueued(ctx context.Context, recipeID string, quantity int) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.CraftQueued(ctx, recipeID, quantity)
+		return s.client.CraftWithQuantity(ctx, recipeID, quantity)
 	})
 }
 
-// GetCargoQueued gets cargo contents using the queue
+// GetCargoQueued gets cargo contents.
 func (s *SafeCommandBuilder) GetCargoQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetCargoQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetCargo)
 }
 
-// GetBaseQueued gets base info using the queue
+// GetBaseQueued gets base info.
 func (s *SafeCommandBuilder) GetBaseQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetBaseQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetBase)
 }
 
-// GetShipQueued gets ship info using the queue
+// GetShipQueued gets ship info.
 func (s *SafeCommandBuilder) GetShipQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetShipQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetShip)
 }
 
-// GetNearbyQueued gets nearby players using the queue
+// GetNearbyQueued gets nearby players.
 func (s *SafeCommandBuilder) GetNearbyQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.GetNearbyQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.GetNearby)
 }
 
-// ViewStorageQueued views station storage using the queue
+// ViewStorageQueued views station storage.
 func (s *SafeCommandBuilder) ViewStorageQueued(ctx context.Context) error {
-	return s.exec.ExecuteCommand(ctx, s.client.ViewStorageQueued)
+	return s.exec.ExecuteCommand(ctx, s.client.ViewStorage)
 }
 
-// WithdrawItemsQueued withdraws items from storage using the queue
+// WithdrawItemsQueued withdraws items from storage.
 func (s *SafeCommandBuilder) WithdrawItemsQueued(ctx context.Context, itemID string, quantity float64) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.WithdrawItemsQueued(ctx, itemID, quantity)
+		return s.client.WithdrawItems(ctx, itemID, quantity)
 	})
 }
 
-// AcceptMissionQueued accepts a mission using the queue
+// AcceptMissionQueued accepts a mission.
 func (s *SafeCommandBuilder) AcceptMissionQueued(ctx context.Context, missionID string) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.AcceptMissionQueued(ctx, missionID)
+		return s.client.AcceptMission(ctx, missionID)
 	})
 }
 
-// CompleteMissionQueued completes a mission using the queue
+// CompleteMissionQueued completes a mission.
 func (s *SafeCommandBuilder) CompleteMissionQueued(ctx context.Context, missionID string) error {
 	return s.exec.ExecuteCommand(ctx, func(ctx context.Context) error {
-		return s.client.CompleteMissionQueued(ctx, missionID)
+		return s.client.CompleteMission(ctx, missionID)
 	})
 }
 

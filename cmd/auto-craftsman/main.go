@@ -231,12 +231,17 @@ func (m *clientStorageManager) DepositItems(ctx context.Context, itemID string, 
 }
 
 func (m *clientStorageManager) ViewStorage(ctx context.Context) (map[string]float64, error) {
-	// For WS clients, use SendQueued to get the response directly from the game server
+	// For WS clients, use Submit (ack-only since view_storage is a query)
+	// to get the response directly from the game server.
 	if wsClient, ok := m.client.(*game.Client); ok {
-		resp, err := wsClient.SendQueued(ctx, protocol.Message{
+		h, err := wsClient.Submit(ctx, protocol.Message{
 			Type:      "view_storage",
 			Timestamp: time.Now().UnixMilli(),
-		}, 10*time.Second)
+		}, game.WithAckOnly(), game.WithTimeout(10*time.Second))
+		if err != nil {
+			return nil, fmt.Errorf("failed to submit view_storage: %w", err)
+		}
+		resp, err := h.Result(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to view storage: %w", err)
 		}

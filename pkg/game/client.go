@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/google/uuid"
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/calllog"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -66,13 +67,6 @@ type Client struct {
 	lastError   map[string]any
 	lastErrorMu sync.RWMutex
 
-	// Response waiting for synchronous operations
-	waiterMu sync.Mutex
-	waiters  map[string]chan protocol.Response
-
-	// Command queue for sequential execution
-	CmdQueue *CommandQueue
-
 	// Connection health monitoring
 	lastMessageTime time.Time
 	lastMessageMu   sync.RWMutex
@@ -103,8 +97,15 @@ type Client struct {
 	diagnosticMu      sync.RWMutex
 	goroutineID       int64 // Counter for tracking goroutine instances
 
-	router     *responseRouter
-	mutationMu sync.Mutex
+	router      *responseRouter
+	inflight    *inflight
+	actionLocks *actionLockMap
+
+	// pendingReplay holds messages staged for re-send after a reconnect
+	// triggered by close=1000. Populated by replayPending and drained
+	// by Reconnect after a successful login.
+	pendingReplay   []protocol.Message
+	pendingReplayMu sync.Mutex
 
 	// tickProvider, if set, returns the current game tick. Used by Travel /
 	// Jump to capture an authoritative StartTick — state.CurrentTick only
@@ -317,8 +318,9 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		},
 		stopCh:             make(chan struct{}),
 		readyChan:          make(chan struct{}),
-		waiters:            make(map[string]chan protocol.Response),
 		router:             newResponseRouter(),
+		inflight:           newInflight(16),
+		actionLocks:        newActionLockMap(),
 		debugLogger:        debugLogger,
 		debugPayloadMaxLen: 200,
 		latestListings:  make([]MarketListing, 0),
@@ -328,11 +330,9 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		pingInterval:    SleepWSHealthCheck,
 		pongTimeout:     SleepWSPongTimeout,
 		stopPing:        make(chan struct{}),
-		CmdQueue:        NewCommandQueue(nil), // Will be set after creation
 		goroutineCtx:    goroutineCtx,
 		goroutineCancel: goroutineCancel,
 	}
-	client.CmdQueue.client = client // Set the client reference
 	return client
 }
 
@@ -541,6 +541,106 @@ func (c *Client) Disconnect() error {
 	return nil
 }
 
+// handleClose runs the close-code policy: replay outstanding mutations
+// on graceful closes, fail-fast otherwise. Called by the listen loop
+// after a close frame is observed.
+func (c *Client) handleClose(closeErr *websocket.CloseError) {
+	policy, known := lookupClosePolicy(closeErr.Code, closeErr.Reason)
+	if !known {
+		log.Printf("WARN: unknown WebSocket close: code=%d reason=%q — please document; default action=%v",
+			int(closeErr.Code), closeErr.Reason, policy.action)
+	} else {
+		c.debugLogger.Printf("close policy: %s (code=%d reason=%q)", policy.note, int(closeErr.Code), closeErr.Reason)
+	}
+
+	switch policy.action {
+	case closeReplay:
+		c.replayPending(closeErr)
+	default: // closeFailFast
+		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+	}
+}
+
+// failPending delivers err to every outstanding id-keyed subscription
+// and unregisters them. Used on fail-fast closes.
+func (c *Client) failPending(err error) {
+	subs := c.router.snapshotByID()
+	for _, sub := range subs {
+		c.router.dispatch(protocol.Response{
+			Type:      protocol.TypeError,
+			RequestID: sub.id,
+			Payload:   map[string]any{"code": "connection_closed", "message": err.Error()},
+		})
+	}
+}
+
+// replayPending stages every outstanding mutation for re-send under a
+// fresh UUIDv7. Caller has already torn down the connection; the
+// staged messages are drained by Reconnect after a successful login.
+//
+// Per spec: server v0.296.1 graceful closes lose all in-flight state,
+// so no double-execution risk. The caller's handle.Result() never
+// observes the close.
+func (c *Client) replayPending(closeErr *websocket.CloseError) {
+	subs := c.router.snapshotByID()
+	if len(subs) == 0 {
+		return
+	}
+	c.debugLogger.Printf("replay: staging %d pending mutation(s) under fresh request_ids (close code=%d reason=%q)",
+		len(subs), int(closeErr.Code), closeErr.Reason)
+
+	c.pendingReplayMu.Lock()
+	defer c.pendingReplayMu.Unlock()
+
+	for _, sub := range subs {
+		if sub.replayMsg == nil {
+			// No retained message (subscription created outside Submit).
+			// Fail it instead.
+			c.router.dispatch(protocol.Response{
+				Type:      protocol.TypeError,
+				RequestID: sub.id,
+				Payload:   map[string]any{"code": "connection_closed", "message": "no replay payload"},
+			})
+			continue
+		}
+		newID := uuid.Must(uuid.NewV7()).String()
+		msg := *sub.replayMsg
+		msg.RequestID = newID
+		c.router.rekey(sub, newID)
+		if sub.handle != nil {
+			sub.handle.setID(newID)
+		}
+		c.pendingReplay = append(c.pendingReplay, msg)
+	}
+}
+
+// drainPendingReplay sends every staged replay message. Called by
+// Reconnect after a successful login. Send failures are surfaced as
+// synthetic connection_lost errors so callers see SOMETHING instead
+// of hanging forever.
+func (c *Client) drainPendingReplay(ctx context.Context) {
+	c.pendingReplayMu.Lock()
+	pending := c.pendingReplay
+	c.pendingReplay = nil
+	c.pendingReplayMu.Unlock()
+
+	if len(pending) == 0 {
+		return
+	}
+	c.debugLogger.Printf("replay: draining %d staged message(s)", len(pending))
+
+	for _, msg := range pending {
+		if err := c.send(ctx, msg); err != nil {
+			c.debugLogger.Printf("replay: send failed for new id=%s: %v", msg.RequestID, err)
+			c.router.dispatch(protocol.Response{
+				Type:      protocol.TypeError,
+				RequestID: msg.RequestID,
+				Payload:   map[string]any{"code": "connection_lost", "message": err.Error()},
+			})
+		}
+	}
+}
+
 // Reconnect disconnects and reconnects to the server
 func (c *Client) Reconnect(ctx context.Context) error {
 	c.debugLogger.Printf("Attempting to reconnect...")
@@ -600,6 +700,10 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		}
 
 		c.debugLogger.Printf("Reconnected and logged in successfully")
+
+		// Drain any messages staged by replayPending during the prior close.
+		c.drainPendingReplay(ctx)
+
 		return nil
 	}
 
@@ -613,12 +717,27 @@ func (c *Client) SetHandler(handler MessageHandler) {
 	c.handler = handler
 }
 
-// Send sends a message to the game server.
+// Send is a thin public wrapper around the private send primitive. It
+// exists only for the small set of callers that legitimately need
+// fire-and-forget without response correlation:
 //
-// Deprecated: prefer execQuery / execMutation / subscribePush. Send is the
-// low-level fire-and-forget wire primitive; direct callers lose response
-// correlation. New code must use the response-router primitives.
+//   - pkg/observe/session.go (generic relay: responses are dispatched
+//     to a WS client by message type, not correlated to a specific
+//     command — incompatible with Submit's exclusive subscription).
+//   - cmd/tools/server-cmd and cmd/debug/play-simple (debug REPLs
+//     that manage their own response handlers and intentionally
+//     collect zero-or-many unsolicited responses).
+//
+// All other code MUST use Submit / subscribePush. Direct Send loses
+// response correlation, the per-action lock, and the in-flight cap.
 func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
+	return c.send(ctx, msg)
+}
+
+// send is the private wire primitive used by Submit (and the public
+// Send shim). It performs IP rate-limit gating, marshals, and writes
+// to the websocket. Test hook: sendOverride short-circuits this entirely.
+func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 	if c.sendOverride != nil {
 		return c.sendOverride(ctx, msg)
 	}
@@ -709,16 +828,17 @@ func (c *Client) Login(ctx context.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	if err := c.Send(ctx, msg); err != nil {
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(10*time.Second))
+	if err != nil {
 		return fmt.Errorf("failed to send login: %w", err)
 	}
-
-	// Wait for login response (success or error)
-	_, err := c.waitForAuthResponse(ctx, protocol.TypeLoggedIn, 10*time.Second)
+	resp, err := h.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
-
+	if resp.Type != protocol.TypeLoggedIn {
+		return fmt.Errorf("login: unexpected response type %q", resp.Type)
+	}
 	return nil
 }
 
@@ -729,8 +849,6 @@ func (c *Client) Register(ctx context.Context, empire, registrationCode string) 
 		"username": c.username,
 		"empire":   empire,
 	}
-
-	// Add registration code if provided
 	if registrationCode != "" {
 		payload["registration_code"] = registrationCode
 	}
@@ -741,17 +859,17 @@ func (c *Client) Register(ctx context.Context, empire, registrationCode string) 
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	if err := c.Send(ctx, msg); err != nil {
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(10*time.Second))
+	if err != nil {
 		return fmt.Errorf("failed to send register: %w", err)
 	}
-
-	// Wait for register response (success or error)
-	_, err := c.waitForAuthResponse(ctx, protocol.TypeRegistered, 10*time.Second)
+	resp, err := h.Result(ctx)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
-
-	// Token is updated by handleResponse() when the response is processed
+	if resp.Type != protocol.TypeRegistered {
+		return fmt.Errorf("register: unexpected response type %q", resp.Type)
+	}
 	return nil
 }
 
@@ -765,8 +883,11 @@ func (c *Client) Claim(ctx context.Context, registrationCode string) error {
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("claim"), terminateOnAction, 10*time.Second)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnAction), WithTimeout(10*time.Second))
 	if err != nil {
+		return fmt.Errorf("claim: submit: %w", err)
+	}
+	if _, err := h.Result(ctx); err != nil {
 		return fmt.Errorf("claim failed: %w", err)
 	}
 	return nil
@@ -782,8 +903,11 @@ func (c *Client) Undock(ctx context.Context) error {
 		Type:      "undock",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	classifier, terminate := dockTransitionMatchers("undock", protocol.TypeUndocked)
-	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepTick*3)
+	_, terminate := dockTransitionMatchers("undock", protocol.TypeUndocked)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -797,8 +921,11 @@ func (c *Client) Dock(ctx context.Context) error {
 		Type:      "dock",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	classifier, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
-	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepTick*3)
+	_, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -860,7 +987,7 @@ func dockTransitionMatchers(command, legacyType string) (Classifier, Terminator)
 // instantly with action_pending and burn through the per-session rate-limit
 // budget within a second.
 func (c *Client) sendAwaitingPending(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
-	if err := c.Send(ctx, msg); err != nil {
+	if err := c.send(ctx, msg); err != nil {
 		return protocol.Response{}, err
 	}
 	resp, err := c.waitForInitialResponse(ctx, timeout)
@@ -883,7 +1010,7 @@ func (c *Client) sendAwaitingPending(ctx context.Context, msg protocol.Message, 
 	if waitErr != nil {
 		return resp, err // surface the original action_pending error
 	}
-	if sendErr := c.Send(ctx, msg); sendErr != nil {
+	if sendErr := c.send(ctx, msg); sendErr != nil {
 		return protocol.Response{}, sendErr
 	}
 	return c.waitForInitialResponse(ctx, timeout)
@@ -1041,19 +1168,6 @@ func (c *Client) Mine(ctx context.Context) error {
 	// (carries cargo + xp_gained) rather than an action_result with
 	// command="mine". Accept either as terminal; classic action_error/error
 	// continue to terminate with the server-supplied error.
-	classifier := func(resp protocol.Response) bool {
-		switch resp.Type {
-		case protocol.TypeMiningYield, protocol.TypeActionError, protocol.TypeError:
-			// Errors arrive without a command field (e.g. cargo_full); since
-			// execMutation holds mutationMu, any error during this window
-			// belongs to our mine call. Same pattern as dockTransitionMatchers.
-			return true
-		case protocol.TypeActionResult:
-			cmd, _ := resp.Payload["command"].(string)
-			return cmd == "mine"
-		}
-		return false
-	}
 	terminate := func(resp protocol.Response) (bool, error) {
 		switch resp.Type {
 		case protocol.TypeMiningYield:
@@ -1065,7 +1179,10 @@ func (c *Client) Mine(ctx context.Context) error {
 		}
 		return false, nil
 	}
-	_, err := c.execMutation(ctx, msg, classifier, terminate, SleepActionStartTimeout)
+	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepActionStartTimeout))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("mine", err)
 }
 
@@ -1076,7 +1193,10 @@ func (c *Client) Attack(ctx context.Context, targetID string) error {
 		Payload:   map[string]any{"target_id": targetID, "weapon_idx": 0},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("attack"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1087,7 +1207,10 @@ func (c *Client) Scan(ctx context.Context) error {
 		Payload:   map[string]any{"target_id": "area"},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("scan"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1098,22 +1221,26 @@ func (c *Client) SurveySystem(ctx context.Context) error {
 		Type:      "survey_system",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("survey_system"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
 // FindRoute finds a route to a target system using the server's pathfinding.
 // Returns the route steps (excluding the current system) or an error.
 func (c *Client) FindRoute(ctx context.Context, targetSystem string) ([]RouteStep, error) {
-	if err := c.Send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "find_route",
 		Payload:   map[string]any{"target_system": targetSystem},
 		Timestamp: time.Now().UnixMilli(),
-	}); err != nil {
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepTick))
+	if err != nil {
 		return nil, err
 	}
-
-	resp, err := c.waitForAuthResponse(ctx, protocol.TypeOK, SleepTick)
+	resp, err := h.Result(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("find_route failed: %w", err)
 	}
@@ -1141,8 +1268,10 @@ func (c *Client) GetSystem(ctx context.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 	// get_system returns type=ok with action="get_system"; storeRawJSON stores under "system".
-	match := matchAll(matchType(protocol.TypeOK), matchAction("get_system"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1166,8 +1295,10 @@ func (c *Client) GetMap(ctx context.Context, force ...bool) error {
 	}
 	// get_map returns type=ok with "systems" key; storeRawJSON stores under "systems".
 	// No action field in response.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("systems"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	if err == nil {
 		c.mapFetchedMu.Lock()
 		c.mapFetchedAt = time.Now()
@@ -1186,8 +1317,10 @@ func (c *Client) GetPOI(ctx context.Context) error {
 	// get_poi returns type=ok with no "action" field on the wire (the
 	// storeRawJSON action case is dead code for the current server).
 	// The distinctive payload key is "poi" — the POI object itself.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("poi"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1201,8 +1334,10 @@ func (c *Client) GetStatus(ctx context.Context) error {
 	// get_status returns type=ok with no "action" field on the wire (the
 	// storeRawJSON action case is dead code for the current server).
 	// The distinctive payload key is "player" — the full player snapshot.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("player"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1225,8 +1360,10 @@ func (c *Client) GetListings(ctx context.Context) error {
 		Type:      "view_market",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	match := matchAll(matchType(protocol.TypeOK), matchAction("view_market"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1239,8 +1376,10 @@ func (c *Client) GetShips(ctx context.Context) error {
 	}
 	// get_ships returns type=ok with "ships" array (distinct from browse_ships
 	// which uses "listings"). station_id and station_name are also present.
-	match := matchAll(matchType(protocol.TypeOK), matchPayloadKey("ships"))
-	_, err := c.execQuery(ctx, msg, match, SleepMedium)
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1264,7 +1403,10 @@ func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) erro
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("sell"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1292,7 +1434,10 @@ func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder
 		Payload:   map[string]any{"orders": orders},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("create_sell_order"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1444,7 +1589,10 @@ func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("deposit_items"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1587,29 +1735,35 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 
 // Refuel refills the ship's fuel tank at the current station.
 //
-// Wraps the execMutation error through maybeGoalReached so a
-// tank_full server error becomes a *GoalReachedError sentinel that
-// the play_as loop recognizes as a successful exit condition.
+// Wraps the Submit error through maybeGoalReached so a tank_full server
+// error becomes a *GoalReachedError sentinel that the play_as loop
+// recognizes as a successful exit condition.
 func (c *Client) Refuel(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "refuel",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("refuel"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("refuel", err)
 }
 
 // Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
 // v0.240: optional params for item_id, quantity, and target (remote repair).
 //
-// Wraps the execMutation error through maybeGoalReached so a no_damage
+// Wraps the Submit error through maybeGoalReached so a no_damage
 // server error becomes a *GoalReachedError.
 func (c *Client) Repair(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "repair",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("repair", err)
 }
 
@@ -1620,7 +1774,10 @@ func (c *Client) RepairWith(ctx context.Context, payload map[string]any) error {
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("repair"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return maybeGoalReached("repair", err)
 }
 
@@ -1636,7 +1793,10 @@ func (c *Client) Fleet(ctx context.Context, action string, playerID string) erro
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("fleet"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1652,7 +1812,10 @@ func (c *Client) DistressSignal(ctx context.Context, distressType string) error 
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("distress_signal"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1663,7 +1826,10 @@ func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error
 		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	_, err := c.execMutation(ctx, msg, matchCommand("buy"), terminateOnAction, SleepTick*3)
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
 	return err
 }
 
@@ -1714,10 +1880,11 @@ func (c *Client) listen(ctx context.Context) {
 			// Enhanced error logging with diagnostics
 			c.debugLogger.Printf("[listen-%d] Connection error: %v", goroutineID, err)
 
-			// Check if this is a server close frame
+			// Check if this is a server close frame and run the close policy.
 			if closeErr, ok := err.(*websocket.CloseError); ok {
 				c.debugLogger.Printf("[listen-%d] Server close frame | Status: %s (%d) | Reason: %q",
 					goroutineID, closeErr.Code, closeErr.Code, closeErr.Reason)
+				c.handleClose(closeErr)
 			}
 
 			c.debugLogger.Printf("[listen-%d] Hint: If 'read limited' error, the message exceeded the read limit. Current limit: 10MB", goroutineID)
@@ -1780,33 +1947,16 @@ func (c *Client) listen(ctx context.Context) {
 				}
 			}
 
-			// Update state before notifying waiters, so state is current
-			// when waitForResponse/waitForAuthResponse returns.
+			// Update state before notifying subscribers, so state is current
+			// when waitForInitialResponse returns.
 			c.handleResponse(resp)
 
-			// Fan out through the new response router. Runs after state
+			// Fan out through the response router. Runs after state
 			// parsers so callers reading State inside their response
-			// handler see fresh data. Legacy CmdQueue/waiters remain
-			// below until the last method finishes migrating.
+			// handler see fresh data.
 			if c.router != nil {
 				c.router.dispatch(resp)
 			}
-
-			// Route to command queue first
-			if c.CmdQueue != nil {
-				c.CmdQueue.handleResponse(resp)
-			}
-
-			// Notify any waiters for this response type (legacy support)
-			c.waiterMu.Lock()
-			if ch, ok := c.waiters[resp.Type]; ok {
-				select {
-				case ch <- resp:
-				default:
-					// Channel full or closed, skip
-				}
-			}
-			c.waiterMu.Unlock()
 
 			// Notify handler for each decoded message
 			// Get handler reference with mutex protection
@@ -4080,298 +4230,8 @@ func (c *Client) parseShipsData(payload map[string]any) {
 	}
 }
 
-// waitForResponse waits for a response of a specific type with a timeout.
-//
-// Deprecated: use execQuery with an appropriate Classifier. Type-keyed
-// single-slot waiter; multiple callers collide.
-func (c *Client) waitForResponse(ctx context.Context, messageType string, timeout time.Duration) (protocol.Response, error) {
-	respChan := make(chan protocol.Response, 1)
-
-	c.waiterMu.Lock()
-	c.waiters[messageType] = respChan
-	c.waiterMu.Unlock()
-
-	defer func() {
-		c.waiterMu.Lock()
-		delete(c.waiters, messageType)
-		c.waiterMu.Unlock()
-	}()
-
-	select {
-	case resp := <-respChan:
-		return resp, nil
-	case <-time.After(timeout):
-		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", messageType)
-	case <-ctx.Done():
-		return protocol.Response{}, ctx.Err()
-	}
-}
-
-// waitForAuthResponse waits for either a success response or an error response
-// This is used for authentication operations that can return either success or error
-func (c *Client) waitForAuthResponse(ctx context.Context, successType string, timeout time.Duration) (protocol.Response, error) {
-	successChan := make(chan protocol.Response, 1)
-	errorChan := make(chan protocol.Response, 1)
-
-	c.waiterMu.Lock()
-	c.waiters[successType] = successChan
-	c.waiters[protocol.TypeError] = errorChan
-	c.waiterMu.Unlock()
-
-	defer func() {
-		c.waiterMu.Lock()
-		delete(c.waiters, successType)
-		delete(c.waiters, protocol.TypeError)
-		c.waiterMu.Unlock()
-	}()
-
-	select {
-	case resp := <-successChan:
-		return resp, nil
-	case resp := <-errorChan:
-		if msg, ok := resp.Payload["message"].(string); ok {
-			return resp, fmt.Errorf("%s", msg)
-		}
-		return resp, fmt.Errorf("operation failed")
-	case <-time.After(timeout):
-		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", successType)
-	case <-ctx.Done():
-		return protocol.Response{}, ctx.Err()
-	}
-}
-
-// waitForActionResponse waits for either "ok" or "error" response for game actions.
-//
-// Deprecated: use execMutation with matchCommand + terminateOnAction.
-func (c *Client) waitForActionResponse(ctx context.Context, timeout time.Duration) error {
-	// Log the final response paired with the last sent request
-	var finalResp *protocol.Response
-	defer func() {
-		if finalResp != nil {
-			c.logCallResponse(*finalResp)
-		}
-	}()
-
-	okChan := make(chan protocol.Response, 1)
-	errorChan := make(chan protocol.Response, 1)
-	actionErrorChan := make(chan protocol.Response, 1)
-	actionResultChan := make(chan protocol.Response, 1)
-	miningYieldChan := make(chan protocol.Response, 1)
-	scanResultChan := make(chan protocol.Response, 1)
-	dockedChan := make(chan protocol.Response, 1)
-	undockedChan := make(chan protocol.Response, 1)
-
-	c.waiterMu.Lock()
-	c.waiters[protocol.TypeOK] = okChan
-	c.waiters[protocol.TypeError] = errorChan
-	c.waiters[protocol.TypeActionError] = actionErrorChan
-	c.waiters[protocol.TypeActionResult] = actionResultChan
-	c.waiters[protocol.TypeMiningYield] = miningYieldChan
-	c.waiters[protocol.TypeScanResult] = scanResultChan
-	c.waiters[protocol.TypeDocked] = dockedChan
-	c.waiters[protocol.TypeUndocked] = undockedChan
-	c.waiterMu.Unlock()
-
-	defer func() {
-		c.waiterMu.Lock()
-		delete(c.waiters, protocol.TypeOK)
-		delete(c.waiters, protocol.TypeError)
-		delete(c.waiters, protocol.TypeActionError)
-		delete(c.waiters, protocol.TypeActionResult)
-		delete(c.waiters, protocol.TypeMiningYield)
-		delete(c.waiters, protocol.TypeScanResult)
-		delete(c.waiters, protocol.TypeDocked)
-		delete(c.waiters, protocol.TypeUndocked)
-		c.waiterMu.Unlock()
-	}()
-
-	deadline := time.After(timeout)
-
-	for {
-		select {
-		case resp := <-miningYieldChan:
-			// mining_yield is the completion signal for pending mine actions
-			finalResp = &resp
-
-			return nil
-		case resp := <-scanResultChan:
-			// scan_result is the completion signal for pending scan actions
-			finalResp = &resp
-
-			return nil
-		case resp := <-dockedChan:
-			// docked is the completion signal for pending dock actions
-			finalResp = &resp
-
-			return nil
-		case resp := <-undockedChan:
-			// undocked is the completion signal for pending undock actions
-			finalResp = &resp
-
-			return nil
-		case resp := <-actionResultChan:
-			// action_result is the completion signal for pending actions
-			// (e.g. deposit_items, craft) executed on the next server tick
-			finalResp = &resp
-
-			return nil
-		case resp := <-okChan:
-			// Check if this is a pending action response
-			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
-				pendingCmd, _ := resp.Payload["command"].(string)
-				c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
-				// Reset deadline: pending actions resolve on the server's next
-				// tick (~SleepTick). The caller's timeout may be SleepTick
-				// itself, which leaves ~0 margin for scheduling/network jitter
-				// and intermittently times out just before action_result/
-				// action_error arrives. SleepLong (2×SleepTick) gives ~10s of
-				// slack while still bounding hangs.
-				reset := timeout
-				if reset < SleepLong {
-					reset = SleepLong
-				}
-				deadline = time.After(reset)
-				continue
-			}
-			// Check if this is a jump/travel in-progress response (not yet arrived)
-			if action, _ := resp.Payload["action"].(string); action == "jump" || action == "travel" {
-				if _, hasArrival := resp.Payload["arrival_tick"]; hasArrival {
-					c.debugLogger.Printf("Action in progress (%s) - waiting for arrival", action)
-					deadline = time.After(timeout)
-					continue
-				}
-			}
-			// Not pending, this is the actual completion
-			finalResp = &resp
-
-			return nil
-		case resp := <-actionErrorChan:
-			// action_error is the server's response for pending actions that failed
-			// on the next tick. Handle it the same as error responses.
-			errorChan <- resp
-			continue
-		case resp := <-errorChan:
-			finalResp = &resp
-			// Check error code and categorize response
-			if code, ok := resp.Payload["code"].(string); ok {
-				switch code {
-				// BENIGN: Goal already achieved (treat as success)
-				case "already_there":
-					c.debugLogger.Printf("Already at destination (success)")
-					return nil
-				case "already_docked":
-					c.debugLogger.Printf("Already docked (success)")
-					return nil
-				case "not_docked":
-					// When trying to undock but already undocked
-					c.debugLogger.Printf("Already undocked (success)")
-					return nil
-				// ACTION_PENDING: Another action is in-flight, wait for it to complete
-				case "action_pending":
-					finalResp = nil // not final, keep waiting
-					pendingCmd, _ := resp.Payload["pending_command"].(string)
-					c.debugLogger.Printf("Action pending (%s) - waiting for completion", pendingCmd)
-					// Reset deadline and continue listening for the real response
-					reset := timeout
-					if reset < SleepLong {
-						reset = SleepLong
-					}
-					deadline = time.After(reset)
-					continue
-
-				// INFORMATIONAL: Agent should adapt strategy but not fail
-				case "already_traveling", "already_jumping":
-					// Already in transit - wait for arrival
-					c.debugLogger.Printf("Already in transit: %s", code)
-					return fmt.Errorf("already in transit - wait for arrival")
-
-				case "docked":
-					// Must undock first before this action
-					c.debugLogger.Printf("Must undock before this action")
-					return fmt.Errorf("must undock first - currently docked at station")
-
-				case "no_fuel":
-					c.debugLogger.Printf("Insufficient fuel for action")
-					return fmt.Errorf("insufficient fuel - dock at station to refuel")
-
-				case "no_credits":
-					c.debugLogger.Printf("Insufficient credits")
-					return fmt.Errorf("insufficient credits - need to earn money first")
-
-				case "missing_materials":
-					c.debugLogger.Printf("Missing crafting materials")
-					return fmt.Errorf("missing required materials for crafting")
-
-				case "cannot_craft":
-					msg, _ := resp.Payload["message"].(string)
-					if msg == "" {
-						msg = "cannot craft this recipe"
-					}
-					c.debugLogger.Printf("Cannot craft: %s", msg)
-					return fmt.Errorf("%s", msg)
-
-				case "no_cloak", "no_crafting_service":
-					c.debugLogger.Printf("Missing equipment/service: %s", code)
-					msg := resp.Payload["message"].(string)
-					return fmt.Errorf("%s", msg)
-
-				// ACTUAL ERRORS: Invalid attempts
-				case "rate_limited":
-					// This shouldn't happen with proper timing, but handle it
-					waitTime := "unknown"
-					if wait, ok := resp.Payload["wait_seconds"].(float64); ok {
-						waitTime = fmt.Sprintf("%.1fs", wait)
-					}
-					c.debugLogger.Printf("Rate limited - wait %s", waitTime)
-					return fmt.Errorf("rate limited - wait %s before next action", waitTime)
-
-				default:
-					// All other error codes - log and return as error
-					c.debugLogger.Printf("Action failed with code: %s", code)
-				}
-			}
-
-			// Extract error message and code from the payload and return
-			// a structured *ServerError so callers can classify via
-			// errors.As (see maybeGoalReached in server_errors.go).
-			code, _ := resp.Payload["code"].(string)
-			msg, _ := resp.Payload["message"].(string)
-			if code == "" && msg == "" {
-				return fmt.Errorf("action failed")
-			}
-			return &ServerError{Code: code, Message: msg}
-		case resp := <-actionResultChan:
-			finalResp = &resp
-			// action_result arrives after the server processes a pending action.
-			// parseActionResult already updated state; check for errors in results.
-			if result, ok := resp.Payload["result"].(map[string]any); ok {
-				if results, ok := result["results"].([]any); ok {
-					// Bulk result — check if any items had errors
-					var errors []string
-					for _, r := range results {
-						if entry, ok := r.(map[string]any); ok {
-							if errMsg, ok := entry["error"].(string); ok && errMsg != "" {
-								errors = append(errors, errMsg)
-							}
-						}
-					}
-					if len(errors) > 0 {
-						return fmt.Errorf("%d item(s) failed: %s", len(errors), errors[0])
-					}
-				}
-			}
-			return nil
-		case <-deadline:
-			return fmt.Errorf("timeout waiting for action response")
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-
 // waitForInitialResponse waits for the first OK or error response from the server.
-// Unlike waitForActionResponse, it does NOT loop on pending/in-progress — it returns
+// Unlike Submit's terminator, it does NOT loop on pending/in-progress — it returns
 // the first response and lets the caller decide what to do.
 func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Duration) (protocol.Response, error) {
 	// Log the final response paired with the last sent request
@@ -4382,72 +4242,71 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 		}
 	}()
 
-	okChan := make(chan protocol.Response, 1)
-	errorChan := make(chan protocol.Response, 1)
-	actionErrorChan := make(chan protocol.Response, 1)
-	actionResultChan := make(chan protocol.Response, 1)
-
-	c.waiterMu.Lock()
-	c.waiters[protocol.TypeOK] = okChan
-	c.waiters[protocol.TypeError] = errorChan
-	c.waiters[protocol.TypeActionError] = actionErrorChan
-	c.waiters[protocol.TypeActionResult] = actionResultChan
-	c.waiterMu.Unlock()
-
-	defer func() {
-		c.waiterMu.Lock()
-		delete(c.waiters, protocol.TypeOK)
-		delete(c.waiters, protocol.TypeError)
-		delete(c.waiters, protocol.TypeActionError)
-		delete(c.waiters, protocol.TypeActionResult)
-		c.waiterMu.Unlock()
-	}()
+	respCh := make(chan protocol.Response, 8)
+	classifier := func(resp protocol.Response) bool {
+		switch resp.Type {
+		case protocol.TypeOK, protocol.TypeError, protocol.TypeActionError, protocol.TypeActionResult:
+			return true
+		}
+		return false
+	}
+	cancel := c.subscribePush(classifier, func(resp protocol.Response) {
+		select {
+		case respCh <- resp:
+		default:
+			// buffer full; drop subsequent matches
+		}
+	})
+	defer cancel()
 
 	deadline := time.After(timeout)
 
 	for {
 		select {
-		case resp := <-okChan:
-			// If pending, keep waiting for the real initial response.
-			if pending, ok := resp.Payload["pending"].(bool); ok && pending {
-				c.debugLogger.Printf("Action queued by server — waiting for next-tick execution")
-				deadline = time.After(timeout)
-				continue
-			}
-			finalResp = &resp
-			return resp, nil
-
-		case resp := <-actionResultChan:
-			// action_result arrives when the server processes a pending action
-			// on the next tick. Treat it as the initial response.
-			c.debugLogger.Printf("Received action_result as initial response")
-			finalResp = &resp
-			return resp, nil
-
-		case resp := <-errorChan:
-			finalResp = &resp
-			if code, ok := resp.Payload["code"].(string); ok {
-				switch code {
-				case "already_there", "already_docked", "not_docked":
-					return resp, nil // Benign — caller handles these
-				case "action_pending":
-					pendingCmd, _ := resp.Payload["pending_command"].(string)
-					return resp, fmt.Errorf("action pending: another action (%s) is in progress", pendingCmd)
+		case resp := <-respCh:
+			switch resp.Type {
+			case protocol.TypeOK:
+				// If pending, keep waiting for the real initial response.
+				if pending, ok := resp.Payload["pending"].(bool); ok && pending {
+					c.debugLogger.Printf("Action queued by server — waiting for next-tick execution")
+					deadline = time.After(timeout)
+					continue
 				}
-			}
-			msg, _ := resp.Payload["message"].(string)
-			if msg == "" {
-				msg = "server error"
-			}
-			return resp, fmt.Errorf("%s", msg)
+				finalResp = &resp
+				return resp, nil
 
-		case resp := <-actionErrorChan:
-			finalResp = &resp
-			msg, _ := resp.Payload["message"].(string)
-			if msg == "" {
-				msg = "action error"
+			case protocol.TypeActionResult:
+				// action_result arrives when the server processes a pending action
+				// on the next tick. Treat it as the initial response.
+				c.debugLogger.Printf("Received action_result as initial response")
+				finalResp = &resp
+				return resp, nil
+
+			case protocol.TypeError:
+				finalResp = &resp
+				if code, ok := resp.Payload["code"].(string); ok {
+					switch code {
+					case "already_there", "already_docked", "not_docked":
+						return resp, nil // Benign — caller handles these
+					case "action_pending":
+						pendingCmd, _ := resp.Payload["pending_command"].(string)
+						return resp, fmt.Errorf("action pending: another action (%s) is in progress", pendingCmd)
+					}
+				}
+				msg, _ := resp.Payload["message"].(string)
+				if msg == "" {
+					msg = "server error"
+				}
+				return resp, fmt.Errorf("%s", msg)
+
+			case protocol.TypeActionError:
+				finalResp = &resp
+				msg, _ := resp.Payload["message"].(string)
+				if msg == "" {
+					msg = "action error"
+				}
+				return resp, fmt.Errorf("%s", msg)
 			}
-			return resp, fmt.Errorf("%s", msg)
 
 		case <-deadline:
 			return protocol.Response{}, fmt.Errorf("timeout waiting for initial response")
@@ -4736,234 +4595,6 @@ func (c *Client) EnsureConnected(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-// SendQueued sends a command using the queue system for reliable sequential execution
-// This is the recommended way to send commands for agents that need guaranteed delivery
-// and proper response matching.
-func (c *Client) SendQueued(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
-	if c.CmdQueue == nil {
-		return protocol.Response{}, fmt.Errorf("command queue not initialized")
-	}
-
-	// Start the queue if not already running
-	c.CmdQueue.Start(ctx)
-
-	// Enqueue the command and wait for response
-	return c.CmdQueue.Enqueue(ctx, msg, timeout)
-}
-
-// ===== QUEUED COMMAND METHODS =====
-// These methods use the command queue for reliable sequential execution
-
-// DockQueued docks at a station using the queue
-func (c *Client) DockQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "dock",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// UndockQueued undocks from a station using the queue
-func (c *Client) UndockQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "undock",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// TravelQueued travels to a POI using the queue
-func (c *Client) TravelQueued(ctx context.Context, targetPOI string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "travel",
-		Payload:   map[string]any{"target_poi": targetPOI},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// JumpQueued jumps to another system using the queue
-func (c *Client) JumpQueued(ctx context.Context, targetSystem string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "jump",
-		Payload:   map[string]any{"target_system": targetSystem},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// MineQueued mines resources using the queue
-func (c *Client) MineQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "mine",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// RefuelQueued refuels using the queue
-func (c *Client) RefuelQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "refuel",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// RepairQueued repairs using the queue
-func (c *Client) RepairQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "repair",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// SellQueued sells items using the queue
-func (c *Client) SellQueued(ctx context.Context, itemID string, quantity float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "sell",
-		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// BuyQueued buys items using the queue
-func (c *Client) BuyQueued(ctx context.Context, itemID string, quantity float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "buy",
-		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetSystemQueued gets system info using the queue
-func (c *Client) GetSystemQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_system",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetStatusQueued gets status using the queue
-func (c *Client) GetStatusQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_status",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetPOIQueued gets POI info using the queue
-func (c *Client) GetPOIQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_poi",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetListingsQueued gets market listings using the queue
-func (c *Client) GetListingsQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "view_market",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// CraftQueued crafts an item using the queue
-func (c *Client) CraftQueued(ctx context.Context, recipeID string, quantity int) error {
-	payload := map[string]any{"recipe_id": recipeID}
-	if quantity > 1 {
-		payload["quantity"] = quantity
-	}
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "craft",
-		Payload:   payload,
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetCargoQueued gets cargo contents using the queue
-func (c *Client) GetCargoQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_cargo",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetBaseQueued gets base info using the queue
-func (c *Client) GetBaseQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_base",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetShipQueued gets ship info using the queue
-func (c *Client) GetShipQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_ship",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// GetNearbyQueued gets nearby players using the queue
-func (c *Client) GetNearbyQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "get_nearby",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// ViewStorageQueued views station storage using the queue
-func (c *Client) ViewStorageQueued(ctx context.Context) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "view_storage",
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// WithdrawItemsQueued withdraws items from storage using the queue
-func (c *Client) WithdrawItemsQueued(ctx context.Context, itemID string, quantity float64) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "withdraw_items",
-		Payload:   map[string]any{"item_id": itemID, "quantity": quantity},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// AcceptMissionQueued accepts a mission using the queue
-func (c *Client) AcceptMissionQueued(ctx context.Context, missionID string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "accept_mission",
-		Payload:   map[string]any{"mission_id": missionID},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
-}
-
-// CompleteMissionQueued completes a mission using the queue
-func (c *Client) CompleteMissionQueued(ctx context.Context, missionID string) error {
-	_, err := c.SendQueued(ctx, protocol.Message{
-		Type:      "complete_mission",
-		Payload:   map[string]any{"mission_id": missionID},
-		Timestamp: time.Now().UnixMilli(),
-	}, SleepTick)
-	return err
 }
 
 // fireStorageCallback parses a view_storage response and invokes the storage update callback.
