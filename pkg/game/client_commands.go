@@ -195,7 +195,7 @@ func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error
 
 // CommissionQuote gets a cost estimate for commissioning a ship.
 func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "commission_quote",
 		Payload:   map[string]any{"ship_class": shipClass},
 		Timestamp: time.Now().UnixMilli(),
@@ -225,7 +225,7 @@ func (c *Client) CommissionStatus(ctx context.Context, baseID string) error {
 	if baseID != "" {
 		payload["base_id"] = baseID
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "commission_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -357,7 +357,7 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 
 // AnalyzeMarket gets actionable trading insights at the current station.
 func (c *Client) AnalyzeMarket(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "analyze_market",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -457,7 +457,7 @@ func (c *Client) ViewOrders(ctx context.Context) error {
 
 // EstimatePurchase previews what buying would cost without executing.
 func (c *Client) EstimatePurchase(ctx context.Context, itemID string, quantity int) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type: "estimate_purchase",
 		Payload: map[string]any{
 			"item_id":  itemID,
@@ -469,7 +469,7 @@ func (c *Client) EstimatePurchase(ctx context.Context, itemID string, quantity i
 
 // GetTrades views pending trade offers.
 func (c *Client) GetTrades(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_trades",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -509,7 +509,7 @@ func (c *Client) TradeAccept(ctx context.Context, tradeID string) error {
 
 // TradeCancel cancels your trade offer.
 func (c *Client) TradeCancel(ctx context.Context, tradeID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "trade_cancel",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
@@ -518,7 +518,7 @@ func (c *Client) TradeCancel(ctx context.Context, tradeID string) error {
 
 // TradeDecline declines a trade offer.
 func (c *Client) TradeDecline(ctx context.Context, tradeID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "trade_decline",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
@@ -934,7 +934,7 @@ func (c *Client) CompleteMission(ctx context.Context, missionID string) error {
 
 // AbandonMission abandons an active mission.
 func (c *Client) AbandonMission(ctx context.Context, missionID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "abandon_mission",
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
@@ -943,7 +943,7 @@ func (c *Client) AbandonMission(ctx context.Context, missionID string) error {
 
 // DeclineMission declines a mission and hears the NPC's response.
 func (c *Client) DeclineMission(ctx context.Context, templateID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "decline_mission",
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
@@ -970,7 +970,7 @@ func (c *Client) BuyInsurance(ctx context.Context, ticks int) error {
 
 // ClaimInsurance views your active insurance policies.
 func (c *Client) ClaimInsurance(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "claim_insurance",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -978,7 +978,7 @@ func (c *Client) ClaimInsurance(ctx context.Context) error {
 
 // GetInsuranceQuote gets a risk-based insurance quote for the current ship.
 func (c *Client) GetInsuranceQuote(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_insurance_quote",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1102,7 +1102,7 @@ func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize
 
 // GetCommands gets a structured list of all commands.
 func (c *Client) GetCommands(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_commands",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1114,7 +1114,7 @@ func (c *Client) GetGuide(ctx context.Context, guide string) error {
 	if guide != "" {
 		payload["guide"] = guide
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_guide",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1123,7 +1123,7 @@ func (c *Client) GetGuide(ctx context.Context, guide string) error {
 
 // SearchChangelog searches release notes and version history.
 func (c *Client) SearchChangelog(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "search_changelog",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1132,7 +1132,7 @@ func (c *Client) SearchChangelog(ctx context.Context, payload map[string]any) er
 
 // SearchSystems searches for systems by name.
 func (c *Client) SearchSystems(ctx context.Context, query string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "search_systems",
 		Payload:   map[string]any{"query": query},
 		Timestamp: time.Now().UnixMilli(),
@@ -1141,7 +1141,7 @@ func (c *Client) SearchSystems(ctx context.Context, query string) error {
 
 // GetVersion gets game version and release notes.
 func (c *Client) GetVersion(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "get_version",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1149,7 +1149,7 @@ func (c *Client) GetVersion(ctx context.Context) error {
 
 // Help gets help for commands.
 func (c *Client) Help(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "help",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1169,7 +1169,7 @@ func (c *Client) Chat(ctx context.Context, channel, content string, targetID str
 	if targetID != "" {
 		payload["target_id"] = targetID
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "chat",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1207,7 +1207,7 @@ func (c *Client) ForumList(ctx context.Context, page int) error {
 	if page > 0 {
 		payload["page"] = page
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1223,7 +1223,7 @@ func (c *Client) ForumCreateThread(ctx context.Context, title, content string, c
 	if category != "" {
 		payload["category"] = category
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_create_thread",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1232,7 +1232,7 @@ func (c *Client) ForumCreateThread(ctx context.Context, title, content string, c
 
 // ForumGetThread gets a forum thread and its replies.
 func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_get_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1241,7 +1241,7 @@ func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
 
 // ForumReply replies to a forum thread.
 func (c *Client) ForumReply(ctx context.Context, threadID, content string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type: "forum_reply",
 		Payload: map[string]any{
 			"thread_id": threadID,
@@ -1253,7 +1253,7 @@ func (c *Client) ForumReply(ctx context.Context, threadID, content string) error
 
 // ForumDeleteReply deletes a forum reply.
 func (c *Client) ForumDeleteReply(ctx context.Context, replyID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_delete_reply",
 		Payload:   map[string]any{"reply_id": replyID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1262,7 +1262,7 @@ func (c *Client) ForumDeleteReply(ctx context.Context, replyID string) error {
 
 // ForumDeleteThread deletes a forum thread.
 func (c *Client) ForumDeleteThread(ctx context.Context, threadID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_delete_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1275,7 +1275,7 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 	if replyID != "" {
 		payload["reply_id"] = replyID
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "forum_upvote",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1288,7 +1288,7 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 
 // CaptainsLogAdd adds an entry to your captain's log.
 func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "captains_log_add",
 		Payload:   map[string]any{"entry": entry},
 		Timestamp: time.Now().UnixMilli(),
@@ -1297,7 +1297,7 @@ func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
 
 // CaptainsLogGet gets a specific entry from your captain's log.
 func (c *Client) CaptainsLogGet(ctx context.Context, index int) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "captains_log_get",
 		Payload:   map[string]any{"index": index},
 		Timestamp: time.Now().UnixMilli(),
@@ -1306,7 +1306,7 @@ func (c *Client) CaptainsLogGet(ctx context.Context, index int) error {
 
 // CaptainsLogList lists all entries in your captain's log.
 func (c *Client) CaptainsLogList(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "captains_log_list",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1318,7 +1318,7 @@ func (c *Client) CaptainsLogList(ctx context.Context) error {
 
 // SetAnonymous sets anonymous mode.
 func (c *Client) SetAnonymous(ctx context.Context, anonymous bool) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "set_anonymous",
 		Payload:   map[string]any{"anonymous": anonymous},
 		Timestamp: time.Now().UnixMilli(),
@@ -1327,7 +1327,7 @@ func (c *Client) SetAnonymous(ctx context.Context, anonymous bool) error {
 
 // SetColors sets your ship colors.
 func (c *Client) SetColors(ctx context.Context, primaryColor, secondaryColor string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type: "set_colors",
 		Payload: map[string]any{
 			"primary_color":   primaryColor,
@@ -1339,7 +1339,7 @@ func (c *Client) SetColors(ctx context.Context, primaryColor, secondaryColor str
 
 // SetPlayerStatus sets your status message and clan tag.
 func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "set_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1422,7 +1422,7 @@ func (c *Client) FactionList(ctx context.Context, limit, offset int) error {
 	if offset > 0 {
 		payload["offset"] = offset
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1517,7 +1517,7 @@ func (c *Client) FactionPromote(ctx context.Context, playerID, roleID string) er
 
 // FactionEdit updates faction description, charter, and colors.
 func (c *Client) FactionEdit(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_edit",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1533,7 +1533,7 @@ func (c *Client) FactionCreateRole(ctx context.Context, name string, priority in
 	if permissions != nil {
 		payload["permissions"] = permissions
 	}
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_create_role",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1546,7 +1546,7 @@ func (c *Client) FactionEditRole(ctx context.Context, roleID string, payload map
 		payload = map[string]any{}
 	}
 	payload["role_id"] = roleID
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_edit_role",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1555,7 +1555,7 @@ func (c *Client) FactionEditRole(ctx context.Context, roleID string, payload map
 
 // FactionDeleteRole deletes a custom faction role.
 func (c *Client) FactionDeleteRole(ctx context.Context, roleID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_delete_role",
 		Payload:   map[string]any{"role_id": roleID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1664,7 +1664,7 @@ func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]an
 
 // FactionQueryIntel queries your faction's intel database.
 func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_query_intel",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1673,7 +1673,7 @@ func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) 
 
 // FactionIntelStatus views faction intel coverage statistics.
 func (c *Client) FactionIntelStatus(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_intel_status",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1695,7 +1695,7 @@ func (c *Client) FactionSubmitTradeIntel(ctx context.Context, stations []map[str
 
 // FactionQueryTradeIntel searches your faction's market price database.
 func (c *Client) FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_query_trade_intel",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1704,7 +1704,7 @@ func (c *Client) FactionQueryTradeIntel(ctx context.Context, payload map[string]
 
 // FactionTradeIntelStatus views faction trade intelligence coverage statistics.
 func (c *Client) FactionTradeIntelStatus(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_trade_intel_status",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1827,7 +1827,7 @@ func (c *Client) FactionGift(ctx context.Context, factionID string, payload map[
 
 // ViewFactionStorage views your faction's shared storage at the current station.
 func (c *Client) ViewFactionStorage(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "view_faction_storage",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1890,7 +1890,7 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 
 // FactionListMissions lists your faction's posted missions at this station.
 func (c *Client) FactionListMissions(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_list_missions",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1930,7 +1930,7 @@ func (c *Client) FactionCancelMission(ctx context.Context, templateID string) er
 
 // FactionGetInvites views pending faction invitations.
 func (c *Client) FactionGetInvites(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_get_invites",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1938,7 +1938,7 @@ func (c *Client) FactionGetInvites(ctx context.Context) error {
 
 // FactionDeclineInvite declines a faction invitation.
 func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_decline_invite",
 		Payload:   map[string]any{"faction_id": factionID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1951,7 +1951,7 @@ func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) err
 
 // FactionRooms lists rooms in your faction's common space at the current station.
 func (c *Client) FactionRooms(ctx context.Context) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_rooms",
 		Timestamp: time.Now().UnixMilli(),
 	})
@@ -1959,7 +1959,7 @@ func (c *Client) FactionRooms(ctx context.Context) error {
 
 // FactionVisitRoom visits a room and reads its description.
 func (c *Client) FactionVisitRoom(ctx context.Context, roomID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_visit_room",
 		Payload:   map[string]any{"room_id": roomID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1968,7 +1968,7 @@ func (c *Client) FactionVisitRoom(ctx context.Context, roomID string) error {
 
 // FactionWriteRoom creates or updates a room in your faction's common space.
 func (c *Client) FactionWriteRoom(ctx context.Context, payload map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_write_room",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
@@ -1977,7 +1977,7 @@ func (c *Client) FactionWriteRoom(ctx context.Context, payload map[string]any) e
 
 // FactionDeleteRoom deletes a room from your faction's common space.
 func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      "faction_delete_room",
 		Payload:   map[string]any{"room_id": roomID},
 		Timestamp: time.Now().UnixMilli(),
@@ -1986,7 +1986,7 @@ func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
 
 // RawCommand sends an arbitrary command to the server.
 func (c *Client) RawCommand(ctx context.Context, command string, args map[string]any) error {
-	return c.Send(ctx, protocol.Message{
+	return c.send(ctx, protocol.Message{
 		Type:      command,
 		Payload:   args,
 		Timestamp: time.Now().UnixMilli(),

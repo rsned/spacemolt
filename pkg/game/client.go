@@ -717,20 +717,27 @@ func (c *Client) SetHandler(handler MessageHandler) {
 	c.handler = handler
 }
 
-// send is the private wire primitive used by Submit. Currently a thin
-// wrapper around the (deprecated) public Send so Submit doesn't have
-// to depend on the deprecated method directly. Task 21 will invert
-// this: Send becomes private and this wrapper goes away.
-func (c *Client) send(ctx context.Context, msg protocol.Message) error {
-	return c.Send(ctx, msg)
+// Send is a thin public wrapper around the private send primitive. It
+// exists only for the small set of callers that legitimately need
+// fire-and-forget without response correlation:
+//
+//   - pkg/observe/session.go (generic relay: responses are dispatched
+//     to a WS client by message type, not correlated to a specific
+//     command — incompatible with Submit's exclusive subscription).
+//   - cmd/tools/server-cmd and cmd/debug/play-simple (debug REPLs
+//     that manage their own response handlers and intentionally
+//     collect zero-or-many unsolicited responses).
+//
+// All other code MUST use Submit / subscribePush. Direct Send loses
+// response correlation, the per-action lock, and the in-flight cap.
+func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
+	return c.send(ctx, msg)
 }
 
-// Send sends a message to the game server.
-//
-// Deprecated: prefer Submit / subscribePush. Send is the low-level
-// fire-and-forget wire primitive; direct callers lose response
-// correlation. New code must use the response-router primitives.
-func (c *Client) Send(ctx context.Context, msg protocol.Message) error {
+// send is the private wire primitive used by Submit (and the public
+// Send shim). It performs IP rate-limit gating, marshals, and writes
+// to the websocket. Test hook: sendOverride short-circuits this entirely.
+func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 	if c.sendOverride != nil {
 		return c.sendOverride(ctx, msg)
 	}
@@ -980,7 +987,7 @@ func dockTransitionMatchers(command, legacyType string) (Classifier, Terminator)
 // instantly with action_pending and burn through the per-session rate-limit
 // budget within a second.
 func (c *Client) sendAwaitingPending(ctx context.Context, msg protocol.Message, timeout time.Duration) (protocol.Response, error) {
-	if err := c.Send(ctx, msg); err != nil {
+	if err := c.send(ctx, msg); err != nil {
 		return protocol.Response{}, err
 	}
 	resp, err := c.waitForInitialResponse(ctx, timeout)
@@ -1003,7 +1010,7 @@ func (c *Client) sendAwaitingPending(ctx context.Context, msg protocol.Message, 
 	if waitErr != nil {
 		return resp, err // surface the original action_pending error
 	}
-	if sendErr := c.Send(ctx, msg); sendErr != nil {
+	if sendErr := c.send(ctx, msg); sendErr != nil {
 		return protocol.Response{}, sendErr
 	}
 	return c.waitForInitialResponse(ctx, timeout)
