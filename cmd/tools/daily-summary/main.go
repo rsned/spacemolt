@@ -1381,16 +1381,34 @@ func regenerateAllReports(db *sql.DB, outputPath string, logger *log.Logger) err
 		// Compute diffs
 		diffs := computeDiffs(snaps, prevSnaps)
 
+		// Load faction snapshots for this date and the prior date.
+		todayFactions, err := loadFactionSnapshots(db, date)
+		if err != nil {
+			logger.Printf("Warning: failed to load faction snapshots for %s: %v", date, err)
+			todayFactions = make(map[string]*FactionSnapshot)
+		}
+		var prevFactions map[string]*FactionSnapshot
+		if prevDate != "" {
+			prevFactions, err = loadFactionSnapshots(db, prevDate)
+			if err != nil {
+				logger.Printf("Warning: failed to load previous faction snapshots for %s: %v", date, err)
+				prevFactions = make(map[string]*FactionSnapshot)
+			}
+		} else {
+			prevFactions = make(map[string]*FactionSnapshot)
+		}
+		factionDiffs := computeFactionDiffs(todayFactions, prevFactions)
+
 		// Generate reports
 		dateOutputPath := filepath.Join(outputDir, "daily-summary-"+date)
 
-		if err := writeMarkdownReport(dateOutputPath+".md", date, prevDate, diffs, nil); err != nil {
+		if err := writeMarkdownReport(dateOutputPath+".md", date, prevDate, diffs, factionDiffs); err != nil {
 			logger.Printf("Warning: failed to write markdown report for %s: %v", date, err)
 		} else {
 			logger.Printf("  Markdown: %s.md", dateOutputPath)
 		}
 
-		if err := writeHTMLReport(dateOutputPath+".html", date, prevDate, nextDate, diffs, nil); err != nil {
+		if err := writeHTMLReport(dateOutputPath+".html", date, prevDate, nextDate, diffs, factionDiffs); err != nil {
 			logger.Printf("Warning: failed to write HTML report for %s: %v", date, err)
 		} else {
 			logger.Printf("  HTML: %s.html", dateOutputPath)
@@ -1683,6 +1701,47 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff, factio
 		fmt.Fprintf(&b, "| Items Crafted | %s |\n", formatNumber(float64(totalItemsCrafted)))
 	}
 	b.WriteString("\n")
+
+	// Faction summary
+	if len(factionDiffs) > 0 {
+		b.WriteString("## Faction Summary\n\n")
+		b.WriteString("| Tag | Name | Treasury | Members | Bases | Changes |\n")
+		b.WriteString("|-----|------|----------|---------|-------|---------|\n")
+		for _, fd := range factionDiffs {
+			treasury := "—"
+			members := "—"
+			bases := 0
+			if fd.Current != nil {
+				if prevDate == "" || fd.IsNew {
+					treasury = formatCredits(fd.Current.Treasury)
+				} else {
+					treasury = formatCredits(fd.TreasuryDelta)
+				}
+				if fd.MemberCountDelta != 0 {
+					members = fmt.Sprintf("%+d (now %d)", fd.MemberCountDelta, fd.Current.MemberCount)
+				} else {
+					members = fmt.Sprintf("%d", fd.Current.MemberCount)
+				}
+				bases = fd.Current.OwnedBases
+			}
+			var changes []string
+			changes = append(changes, fd.FacilityChanges...)
+			if fd.OwnedBasesDelta != 0 {
+				changes = append(changes, fmt.Sprintf("Bases: %+d", fd.OwnedBasesDelta))
+			}
+			changes = append(changes, fd.StorageItemChanges...)
+			changeStr := strings.Join(changes, "; ")
+			if len(changeStr) > 100 {
+				changeStr = changeStr[:97] + "..."
+			}
+			if fd.IsNew {
+				changeStr = "NEW; " + changeStr
+			}
+			fmt.Fprintf(&b, "| **%s** | %s | %s | %s | %d | %s |\n",
+				fd.FactionTag, fd.FactionName, treasury, members, bases, changeStr)
+		}
+		b.WriteString("\n")
+	}
 
 	// Errors
 	if errorCount > 0 {
@@ -2101,6 +2160,60 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 		writeStatCard(&b, "Items Crafted", formatNumber(float64(totalItemsCrafted)), "positive")
 	}
 	b.WriteString("</div>\n")
+
+	// Faction Summary
+	if len(factionDiffs) > 0 {
+		b.WriteString("<h2>Faction Summary</h2>\n<table>\n")
+		b.WriteString("<tr><th>Tag</th><th>Name</th><th>Treasury</th><th>Members</th><th>Bases</th><th>Changes</th></tr>\n")
+		for _, fd := range factionDiffs {
+			var treasury, members string
+			bases := 0
+			if fd.Current != nil {
+				if prevDate == "" || fd.IsNew {
+					treasury = fmt.Sprintf(`<span class="neutral">%s</span>`, formatNumber(fd.Current.Treasury))
+				} else {
+					trendCls := "neutral"
+					if fd.TreasuryDelta > 0 {
+						trendCls = "positive"
+					} else if fd.TreasuryDelta < 0 {
+						trendCls = "negative"
+					}
+					treasury = fmt.Sprintf(`<span class="%s">%s</span>`, trendCls, formatNumber(fd.TreasuryDelta))
+				}
+				if fd.MemberCountDelta != 0 {
+					trendCls := "positive"
+					if fd.MemberCountDelta < 0 {
+						trendCls = "negative"
+					}
+					members = fmt.Sprintf(`<span class="%s">%+d</span> (now %d)`, trendCls, fd.MemberCountDelta, fd.Current.MemberCount)
+				} else {
+					members = fmt.Sprintf("%d", fd.Current.MemberCount)
+				}
+				bases = fd.Current.OwnedBases
+			}
+			var changes []string
+			if fd.IsNew {
+				changes = append(changes, `<span class="positive">NEW</span>`)
+			}
+			for _, fc := range fd.FacilityChanges {
+				changes = append(changes, html.EscapeString(fc))
+			}
+			if fd.OwnedBasesDelta != 0 {
+				trendCls := "positive"
+				if fd.OwnedBasesDelta < 0 {
+					trendCls = "negative"
+				}
+				changes = append(changes, fmt.Sprintf(`<span class="%s">Bases: %+d</span>`, trendCls, fd.OwnedBasesDelta))
+			}
+			for _, sc := range fd.StorageItemChanges {
+				changes = append(changes, html.EscapeString(sc))
+			}
+			fmt.Fprintf(&b, `<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`+"\n",
+				html.EscapeString(fd.FactionTag), html.EscapeString(fd.FactionName),
+				treasury, members, bases, strings.Join(changes, "; "))
+		}
+		b.WriteString("</table>\n")
+	}
 
 	// Changes table
 	if changedCount > 0 {
