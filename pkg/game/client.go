@@ -1947,7 +1947,7 @@ func (c *Client) listen(ctx context.Context) {
 			}
 
 			// Update state before notifying waiters, so state is current
-			// when waitForResponse/waitForAuthResponse returns.
+			// when waitForInitialResponse returns.
 			c.handleResponse(resp)
 
 			// Fan out through the new response router. Runs after state
@@ -4238,33 +4238,6 @@ func (c *Client) parseShipsData(payload map[string]any) {
 		c.latestShips = make(map[string]any)
 		c.latestShips["ships"] = ships
 		c.debugLogger.Printf("Parsed ship listings data")
-	}
-}
-
-// waitForResponse waits for a response of a specific type with a timeout.
-//
-// Deprecated: use execQuery with an appropriate Classifier. Type-keyed
-// single-slot waiter; multiple callers collide.
-func (c *Client) waitForResponse(ctx context.Context, messageType string, timeout time.Duration) (protocol.Response, error) {
-	respChan := make(chan protocol.Response, 1)
-
-	c.waiterMu.Lock()
-	c.waiters[messageType] = respChan
-	c.waiterMu.Unlock()
-
-	defer func() {
-		c.waiterMu.Lock()
-		delete(c.waiters, messageType)
-		c.waiterMu.Unlock()
-	}()
-
-	select {
-	case resp := <-respChan:
-		return resp, nil
-	case <-time.After(timeout):
-		return protocol.Response{}, fmt.Errorf("timeout waiting for %s response", messageType)
-	case <-ctx.Done():
-		return protocol.Response{}, ctx.Err()
 	}
 }
 
