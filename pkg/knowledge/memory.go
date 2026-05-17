@@ -1269,3 +1269,10 @@ func (kb *MemoryKB) UpsertMissionTemplate(
 
 	return res, nil
 }
+
+// RecordSightings is a no-op for the in-memory KB — sightings are
+// persistent-only state and the memory backend exists for tests/agents
+// that don't care to retain them.
+func (kb *MemoryKB) RecordSightings(_ []SeenPlayer) error {
+	return nil
+}
