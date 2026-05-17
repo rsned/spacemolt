@@ -24,7 +24,7 @@ type SeenPlayer struct {
 	InCombat       bool
 
 	SystemID string // "" => identity-only, no sightings row
-	POIID    string // "" => system-scope sighting (NULL in DB)
+	POIID    string // "" => system-scope sighting (stored as empty string for PK uniqueness)
 	Source   string // "get_nearby" | "get_system_agents" | "battle_alert" | ...
 	SeenAt   time.Time
 }
@@ -48,7 +48,7 @@ func (kb *SQLiteKB) RecordSightings(obs []SeenPlayer) error {
 			continue
 		}
 		seenStr := o.SeenAt.UTC().Format(time.RFC3339)
-		anon := boolToIntKB(o.Anonymous)
+		anon := boolToInt(o.Anonymous)
 
 		if _, err := tx.Exec(`
 INSERT INTO seen_players
@@ -90,12 +90,6 @@ ON CONFLICT(player_id, ship_class) DO UPDATE SET
 
 		if o.SystemID != "" {
 			bucket := o.SeenAt.UTC().Truncate(time.Hour).Format(time.RFC3339)
-			var poi any
-			if o.POIID != "" {
-				poi = o.POIID
-			} else {
-				poi = nil
-			}
 			if _, err := tx.Exec(`
 INSERT INTO seen_player_sightings
 	(player_id, system_id, poi_id, bucket_hour_utc, ship_class, source,
@@ -105,8 +99,8 @@ ON CONFLICT(player_id, system_id, poi_id, bucket_hour_utc) DO UPDATE SET
 	last_seen_utc     = excluded.last_seen_utc,
 	in_combat         = excluded.in_combat,
 	observation_count = observation_count + 1`,
-				o.PlayerID, o.SystemID, poi, bucket, o.ShipClass, o.Source,
-				boolToIntKB(o.InCombat), seenStr, seenStr,
+				o.PlayerID, o.SystemID, o.POIID, bucket, o.ShipClass, o.Source,
+				boolToInt(o.InCombat), seenStr, seenStr,
 			); err != nil {
 				return fmt.Errorf("knowledge: upsert seen_player_sightings: %w", err)
 			}
@@ -119,7 +113,7 @@ ON CONFLICT(player_id, system_id, poi_id, bucket_hour_utc) DO UPDATE SET
 	return nil
 }
 
-func boolToIntKB(b bool) int {
+func boolToInt(b bool) int {
 	if b {
 		return 1
 	}
@@ -141,17 +135,16 @@ func (kb *SQLiteKB) GetSeenPlayer(playerID string) (*SeenPlayer, error) {
 		scol    sql.NullString
 		status  sql.NullString
 		anonInt int
-		first   string
 		last    string
 	)
 	err := kb.db.QueryRow(`
 SELECT player_id, username, faction_id, faction_tag, clan_tag,
        primary_color, secondary_color, status_message, anonymous,
-       first_seen_utc, last_seen_utc
+       last_seen_utc
 FROM seen_players WHERE player_id = ?`, playerID,
 	).Scan(
 		&out.PlayerID, &out.Username, &factID, &factTag, &clan,
-		&pcol, &scol, &status, &anonInt, &first, &last,
+		&pcol, &scol, &status, &anonInt, &last,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -159,23 +152,15 @@ FROM seen_players WHERE player_id = ?`, playerID,
 		}
 		return nil, fmt.Errorf("knowledge: get seen_player %s: %w", playerID, err)
 	}
-	out.FactionID = nullStringValue(factID)
-	out.FactionTag = nullStringValue(factTag)
-	out.ClanTag = nullStringValue(clan)
-	out.PrimaryColor = nullStringValue(pcol)
-	out.SecondaryColor = nullStringValue(scol)
-	out.StatusMessage = nullStringValue(status)
+	out.FactionID = factID.String
+	out.FactionTag = factTag.String
+	out.ClanTag = clan.String
+	out.PrimaryColor = pcol.String
+	out.SecondaryColor = scol.String
+	out.StatusMessage = status.String
 	out.Anonymous = anonInt != 0
 	if t, perr := time.Parse(time.RFC3339, last); perr == nil {
 		out.SeenAt = t
 	}
-	_ = first
 	return &out, nil
-}
-
-func nullStringValue(n sql.NullString) string {
-	if !n.Valid {
-		return ""
-	}
-	return n.String
 }

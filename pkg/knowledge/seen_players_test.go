@@ -201,7 +201,7 @@ func TestRecordSightings_EmptyFactionPreservesExisting(t *testing.T) {
 	}
 }
 
-func TestRecordSightings_POINullDistinctFromPopulated(t *testing.T) {
+func TestRecordSightings_EmptyPOIDistinctFromPopulated(t *testing.T) {
 	kb := newTestKB(t)
 	now := time.Now().UTC()
 
@@ -214,6 +214,66 @@ func TestRecordSightings_POINullDistinctFromPopulated(t *testing.T) {
 	)
 
 	if got, want := countRows(t, kb, "seen_player_sightings"), 2; got != want {
-		t.Errorf("sightings rows = %d, want %d (NULL POI distinct from populated)", got, want)
+		t.Errorf("sightings rows = %d, want %d (empty POI distinct from populated)", got, want)
+	}
+}
+
+func TestRecordSightings_EmptyPOIDedupes(t *testing.T) {
+	kb := newTestKB(t)
+	now := time.Date(2026, 5, 17, 14, 30, 0, 0, time.UTC)
+	later := time.Date(2026, 5, 17, 14, 55, 0, 0, time.UTC)
+
+	rec := SeenPlayer{
+		PlayerID: "p1", Username: "u",
+		SystemID: "sys-A", POIID: "", Source: "get_system_agents",
+		SeenAt: now,
+	}
+	mustRecord(t, kb, rec)
+	rec.SeenAt = later
+	mustRecord(t, kb, rec)
+
+	if got, want := countRows(t, kb, "seen_player_sightings"), 1; got != want {
+		t.Errorf("sightings rows = %d, want %d (two empty-POI obs in same bucket must dedupe)", got, want)
+	}
+
+	var obs int
+	if err := kb.db.QueryRow(
+		"SELECT observation_count FROM seen_player_sightings WHERE player_id='p1'",
+	).Scan(&obs); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if obs != 2 {
+		t.Errorf("observation_count = %d, want 2", obs)
+	}
+}
+
+func TestRecordSightings_AnonymousFlipsWithLatestObservation(t *testing.T) {
+	kb := newTestKB(t)
+	now := time.Now().UTC()
+
+	mustRecord(t, kb, SeenPlayer{PlayerID: "p1", Username: "u", Anonymous: false, SeenAt: now})
+
+	var a int
+	if err := kb.db.QueryRow("SELECT anonymous FROM seen_players WHERE player_id='p1'").Scan(&a); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if a != 0 {
+		t.Fatalf("initial anonymous = %d, want 0", a)
+	}
+
+	mustRecord(t, kb, SeenPlayer{PlayerID: "p1", Username: "u", Anonymous: true, SeenAt: now.Add(time.Minute)})
+	if err := kb.db.QueryRow("SELECT anonymous FROM seen_players WHERE player_id='p1'").Scan(&a); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if a != 1 {
+		t.Errorf("after flip to true, anonymous = %d, want 1", a)
+	}
+
+	mustRecord(t, kb, SeenPlayer{PlayerID: "p1", Username: "u", Anonymous: false, SeenAt: now.Add(2 * time.Minute)})
+	if err := kb.db.QueryRow("SELECT anonymous FROM seen_players WHERE player_id='p1'").Scan(&a); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if a != 0 {
+		t.Errorf("after flip back to false, anonymous = %d, want 0", a)
 	}
 }

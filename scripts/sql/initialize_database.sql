@@ -571,7 +571,7 @@ CREATE TABLE seen_player_ships (
 CREATE TABLE seen_player_sightings (
 					player_id         TEXT NOT NULL,
 					system_id         TEXT NOT NULL,
-					poi_id            TEXT,
+					poi_id            TEXT NOT NULL DEFAULT '',
 					bucket_hour_utc   TEXT NOT NULL,
 					ship_class        TEXT,
 					source            TEXT NOT NULL,
