@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 3
--- Last Regenerated: 2026-04-19
+-- Migrations applied: 6
+-- Last Regenerated: 2026-05-17
 
 -- ============================================================================
 -- TABLES
@@ -558,6 +558,47 @@ CREATE TABLE schema_migrations (
 		);
 
 
+CREATE TABLE seen_player_ships (
+					player_id       TEXT NOT NULL,
+					ship_class      TEXT NOT NULL,
+					first_seen_utc  TEXT NOT NULL,
+					last_seen_utc   TEXT NOT NULL,
+					sighting_count  INTEGER NOT NULL DEFAULT 1,
+					PRIMARY KEY (player_id, ship_class)
+				);
+
+
+CREATE TABLE seen_player_sightings (
+					player_id         TEXT NOT NULL,
+					system_id         TEXT NOT NULL,
+					poi_id            TEXT,
+					bucket_hour_utc   TEXT NOT NULL,
+					ship_class        TEXT,
+					source            TEXT NOT NULL,
+					in_combat         INTEGER NOT NULL DEFAULT 0,
+					first_seen_utc    TEXT NOT NULL,
+					last_seen_utc     TEXT NOT NULL,
+					observation_count INTEGER NOT NULL DEFAULT 1,
+					PRIMARY KEY (player_id, system_id, poi_id, bucket_hour_utc)
+				);
+
+
+CREATE TABLE seen_players (
+					player_id        TEXT PRIMARY KEY,
+					username         TEXT NOT NULL,
+					faction_id       TEXT,
+					faction_tag      TEXT,
+					clan_tag         TEXT,
+					primary_color    TEXT,
+					secondary_color  TEXT,
+					status_message   TEXT,
+					anonymous        INTEGER NOT NULL DEFAULT 0,
+					first_seen_utc   TEXT NOT NULL,
+					last_seen_utc    TEXT NOT NULL,
+					sighting_count   INTEGER NOT NULL DEFAULT 1
+				);
+
+
 CREATE TABLE "ship_build_materials" (
     ship_class_id TEXT NOT NULL,
     item_id TEXT NOT NULL,
@@ -839,6 +880,18 @@ CREATE INDEX idx_xp_obs_skill ON xp_observations(skill_id);
 
 CREATE INDEX idx_xp_obs_source ON xp_observations(source);
 
+CREATE INDEX seen_player_ships_class ON seen_player_ships(ship_class);
+
+CREATE INDEX seen_players_faction   ON seen_players(faction_id);
+
+CREATE INDEX seen_players_last_seen ON seen_players(last_seen_utc);
+
+CREATE INDEX seen_players_username  ON seen_players(username);
+
+CREATE INDEX seen_sightings_last   ON seen_player_sightings(last_seen_utc);
+
+CREATE INDEX seen_sightings_system ON seen_player_sightings(system_id, bucket_hour_utc);
+
 
 -- ============================================================================
 -- MIGRATION VERSION RECORDS
@@ -846,5 +899,8 @@ CREATE INDEX idx_xp_obs_source ON xp_observations(source);
 
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'));
-INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (31, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (32, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (33, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (34, datetime('now'));
 
