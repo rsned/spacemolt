@@ -32,3 +32,12 @@ type ObservedPlayer struct {
 // client parses incoming server messages. Implementations must not
 // block — the callback is invoked from the response-handling goroutine.
 type PlayerObserver func(obs []ObservedPlayer)
+
+// PlayerObserver returns the currently registered observer (nil if none).
+// Exposed for external callers (notably tests and runtime introspection)
+// to verify wiring without reaching into unexported fields.
+func (c *Client) PlayerObserver() PlayerObserver {
+	c.playerObserverMu.RLock()
+	defer c.playerObserverMu.RUnlock()
+	return c.playerObserver
+}
