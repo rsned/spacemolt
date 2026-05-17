@@ -124,6 +124,12 @@ type Client struct {
 	onChatMessage func(msg serverapi.ChatMessage)
 	onChatMu      sync.RWMutex
 
+	// Player observer callback — fired when handleResponse parses a
+	// payload containing player records (get_nearby, get_system_agents,
+	// battle alerts, chat). See pkg/game/observed_player.go.
+	playerObserver   PlayerObserver
+	playerObserverMu sync.RWMutex
+
 	// Structured call logger for request/response pairs
 	CallLogger      *calllog.Logger
 	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
@@ -352,6 +358,15 @@ func (c *Client) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {
 	c.onChatMu.Lock()
 	defer c.onChatMu.Unlock()
 	c.onChatMessage = fn
+}
+
+// SetPlayerObserver registers a callback that fires when handleResponse
+// parses a payload containing player records. Used by consumers (play_as
+// REPL, agent runners) to persist sightings into a knowledge base.
+func (c *Client) SetPlayerObserver(fn PlayerObserver) {
+	c.playerObserverMu.Lock()
+	defer c.playerObserverMu.Unlock()
+	c.playerObserver = fn
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
