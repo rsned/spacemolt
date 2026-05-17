@@ -124,6 +124,12 @@ type Client struct {
 	onChatMessage func(msg serverapi.ChatMessage)
 	onChatMu      sync.RWMutex
 
+	// Player observer callback — fired when handleResponse parses a
+	// payload containing player records (get_nearby, get_system_agents,
+	// battle alerts, chat). See pkg/game/observed_player.go.
+	playerObserver   PlayerObserver
+	playerObserverMu sync.RWMutex
+
 	// Structured call logger for request/response pairs
 	CallLogger      *calllog.Logger
 	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
@@ -352,6 +358,15 @@ func (c *Client) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {
 	c.onChatMu.Lock()
 	defer c.onChatMu.Unlock()
 	c.onChatMessage = fn
+}
+
+// SetPlayerObserver registers a callback that fires when handleResponse
+// parses a payload containing player records. Used by consumers (play_as
+// REPL, agent runners) to persist sightings into a knowledge base.
+func (c *Client) SetPlayerObserver(fn PlayerObserver) {
+	c.playerObserverMu.Lock()
+	defer c.playerObserverMu.Unlock()
+	c.playerObserver = fn
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
@@ -2319,6 +2334,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.mu.Unlock()
 
+		var parts []serverapi.BattleParticipant
+		if unmarshalPayloadKey(resp.Payload, "participants", &parts) {
+			c.notifyPlayersFromBattle("combat_update", parts)
+		}
+
 	case protocol.TypeBattleAlert:
 		// Informational: someone else's battle is starting in the same
 		// system. We don't mutate our own state — the alert doesn't mean
@@ -2327,6 +2347,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		battleID, _ := resp.Payload["battle_id"].(string)
 		systemID, _ := resp.Payload["system_id"].(string)
 		c.debugLogger.Printf("[BATTLE ALERT] %s (battle=%s system=%s)", msg, battleID, systemID)
+
+		var parts []serverapi.BattleParticipant
+		if unmarshalPayloadKey(resp.Payload, "participants", &parts) {
+			c.notifyPlayersFromBattle("battle_alert", parts)
+		}
 
 	case protocol.TypeChatMessage:
 		var chatMsg serverapi.ChatMessage
@@ -2338,6 +2363,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 				if cb != nil {
 					cb(chatMsg)
 				}
+				c.notifyPlayerFromChat(chatMsg)
 			}
 		}
 		if sender, ok := resp.Payload["sender"].(string); ok {
@@ -3729,6 +3755,14 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			storeKey = "system"
 			shouldStore = true
 		}
+		// Emit player sightings for get_system responses that include an
+		// online_players roster. Additive notifier — no storeKey change.
+		if _, hasOnline := resp.Payload["online_players"]; hasOnline {
+			var players []serverapi.NearbyPlayer
+			if unmarshalPayloadKey(resp.Payload, "online_players", &players) {
+				c.notifyPlayers("get_system", players, "")
+			}
+		}
 		// Store recipes
 		if _, hasRecipes := resp.Payload["recipes"]; hasRecipes {
 			if storeKey == "" {
@@ -3751,6 +3785,11 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					storeKey = "get_system_agents"
 				}
 				shouldStore = true
+
+				var players []serverapi.NearbyPlayer
+				if unmarshalPayloadKey(resp.Payload, "agents", &players) {
+					c.notifyPlayers("get_system_agents", players, "")
+				}
 			}
 		}
 		// Store facility responses. Sync queries (list/types/upgrades/help/
@@ -3872,6 +3911,12 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				storeKey = "nearby"
 			}
 			shouldStore = true
+
+			var players []serverapi.NearbyPlayer
+			if unmarshalPayloadKey(resp.Payload, "nearby", &players) {
+				poiID, _ := resp.Payload["poi_id"].(string)
+				c.notifyPlayers("get_nearby", players, poiID)
+			}
 		}
 		// Store map data (from get_map response)
 		if _, hasSystems := resp.Payload["systems"]; hasSystems {

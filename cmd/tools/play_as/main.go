@@ -29,6 +29,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 	"github.com/peterh/liner"
+	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/respfmt"
@@ -178,6 +179,17 @@ func main() {
 				}
 			} else {
 				logger.Printf("XP observation tracking disabled (--xp-tracking=false)")
+			}
+
+			// Persist every encountered player to the shared KB so REPL
+			// queries and agents can mine sighting history. See spec
+			// docs/superpowers/specs/2026-05-17-player-sightings-design.md.
+			// MCP transport isn't supported because notifyPlayers wiring
+			// lives on *game.Client (the WS client); MCPGameClient routes
+			// responses differently and would need a parallel hook.
+			if c, ok := client.(*game.Client); ok {
+				agent.WirePlayerObserver(c, sqliteKB)
+				logger.Printf("Player-sightings recording enabled")
 			}
 		}
 	}

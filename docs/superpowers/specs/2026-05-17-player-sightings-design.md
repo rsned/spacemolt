@@ -96,14 +96,17 @@ CREATE TABLE seen_player_ships (
 CREATE INDEX seen_player_ships_class ON seen_player_ships(ship_class);
 
 -- One row per (player, system, poi, hour-bucket).
--- poi_id is NULL for system-scope sightings (e.g. get_system_agents without
--- a POI focus). SQLite treats NULL as distinct in PK comparison, so a
--- NULL-poi row and a populated-poi row for the same player/system/hour
--- coexist intentionally.
+-- poi_id is the empty string '' for system-scope sightings (e.g.
+-- get_system_agents without a POI focus). The sentinel — rather than NULL —
+-- ensures system-scope observations dedupe via ON CONFLICT (SQLite treats
+-- NULL as distinct in PK comparisons, which would silently break dedup).
+-- A '' row and a populated 'poi-X' row for the same player/system/hour
+-- coexist as distinct rows, which is intentional: a sighting at a specific
+-- POI is a different observation than a system-scope sighting.
 CREATE TABLE seen_player_sightings (
     player_id         TEXT NOT NULL,
     system_id         TEXT NOT NULL,
-    poi_id            TEXT,
+    poi_id            TEXT NOT NULL DEFAULT '',
     bucket_hour_utc   TEXT NOT NULL,    -- 'YYYY-MM-DDTHH:00:00Z'
     ship_class        TEXT,
     source            TEXT NOT NULL,    -- get_nearby|get_system_agents|battle_alert|...

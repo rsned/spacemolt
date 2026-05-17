@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -1610,6 +1611,9 @@ func main() {
 		}
 		// Wire XP observation tracking into the client
 		knowledge.NewXPTracker(wsClient, kb, explorer, logger)
+		// Persist every encountered player to the shared KB. See spec
+		// docs/superpowers/specs/2026-05-17-player-sightings-design.md.
+		agent.WirePlayerObserver(wsClient, kb)
 		client = wsClient
 	default:
 		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)

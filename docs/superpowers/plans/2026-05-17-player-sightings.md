@@ -53,7 +53,7 @@ import (
 // newTestKB returns an in-memory SQLiteKB for use in seen_players tests.
 func newTestKB(t *testing.T) *SQLiteKB {
 	t.Helper()
-	kb, err := NewSQLiteKB(Config{Path: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}
@@ -1370,7 +1370,7 @@ import (
 )
 
 func TestWirePlayerObserver_RecordsThroughKB(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{Path: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

@@ -112,6 +112,55 @@ func migrations() []Migration {
 				  AND source = 'passive_skill';
 			`,
 		},
+		{
+			version: 34,
+			name:    "add_seen_players_tables",
+			sql: `
+				CREATE TABLE seen_players (
+					player_id        TEXT PRIMARY KEY,
+					username         TEXT NOT NULL,
+					faction_id       TEXT,
+					faction_tag      TEXT,
+					clan_tag         TEXT,
+					primary_color    TEXT,
+					secondary_color  TEXT,
+					status_message   TEXT,
+					anonymous        INTEGER NOT NULL DEFAULT 0,
+					first_seen_utc   TEXT NOT NULL,
+					last_seen_utc    TEXT NOT NULL,
+					sighting_count   INTEGER NOT NULL DEFAULT 1
+				);
+				CREATE INDEX seen_players_username  ON seen_players(username);
+				CREATE INDEX seen_players_faction   ON seen_players(faction_id);
+				CREATE INDEX seen_players_last_seen ON seen_players(last_seen_utc);
+
+				CREATE TABLE seen_player_ships (
+					player_id       TEXT NOT NULL,
+					ship_class      TEXT NOT NULL,
+					first_seen_utc  TEXT NOT NULL,
+					last_seen_utc   TEXT NOT NULL,
+					sighting_count  INTEGER NOT NULL DEFAULT 1,
+					PRIMARY KEY (player_id, ship_class)
+				);
+				CREATE INDEX seen_player_ships_class ON seen_player_ships(ship_class);
+
+				CREATE TABLE seen_player_sightings (
+					player_id         TEXT NOT NULL,
+					system_id         TEXT NOT NULL,
+					poi_id            TEXT NOT NULL DEFAULT '',
+					bucket_hour_utc   TEXT NOT NULL,
+					ship_class        TEXT,
+					source            TEXT NOT NULL,
+					in_combat         INTEGER NOT NULL DEFAULT 0,
+					first_seen_utc    TEXT NOT NULL,
+					last_seen_utc     TEXT NOT NULL,
+					observation_count INTEGER NOT NULL DEFAULT 1,
+					PRIMARY KEY (player_id, system_id, poi_id, bucket_hour_utc)
+				);
+				CREATE INDEX seen_sightings_system ON seen_player_sightings(system_id, bucket_hour_utc);
+				CREATE INDEX seen_sightings_last   ON seen_player_sightings(last_seen_utc);
+			`,
+		},
 	}
 }
 

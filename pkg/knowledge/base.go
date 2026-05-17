@@ -140,6 +140,11 @@ type Base interface {
 		baseID, systemID string,
 		tick int64,
 	) (*MissionUpsertResult, error)
+
+	// RecordSightings persists a batch of player observations. Empty
+	// PlayerIDs are dropped. Implementations may choose to no-op (e.g.
+	// the in-memory KB).
+	RecordSightings(obs []SeenPlayer) error
 }
 
 // MarketListing represents a single market listing
