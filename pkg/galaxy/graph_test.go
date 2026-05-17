@@ -82,6 +82,10 @@ func (m *mockKB) Close() error {
 	return nil
 }
 
+func (m *mockKB) RecordSightings(_ []knowledge.SeenPlayer) error {
+	return nil
+}
+
 func (m *mockKB) GetSystems(ctx context.Context) ([]knowledge.System, error) {
 	return m.systems, nil
 }
