@@ -1,9 +1,13 @@
 package game
 
 import (
+	"encoding/json"
+	"io"
+	"log"
 	"sync"
 	"testing"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
@@ -126,5 +130,83 @@ func TestNotifyPlayerFromChat_NoShipNoPOI(t *testing.T) {
 	}
 	if o.Source != "chat_message" {
 		t.Errorf("Source=%q, want chat_message", o.Source)
+	}
+}
+
+// newHandleResponseTestClient builds a *Client with the minimum state
+// (latestRawJSON map + state) needed for handleResponse to run without
+// panicking on a nil map write.
+func newHandleResponseTestClient(systemID string) *Client {
+	return &Client{
+		state:         &State{CurrentSystem: systemID},
+		latestRawJSON: make(map[string][]byte),
+		debugLogger:   log.New(io.Discard, "", 0),
+	}
+}
+
+// payloadMarshal JSON-roundtrips a value through map[string]any so it
+// matches the shape handleResponse receives from a real server message.
+func payloadMarshal(t *testing.T, v any) map[string]any {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return m
+}
+
+func TestHandleResponse_FiresOnGetNearby(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	got := captureObserver(t, c)
+
+	payload := payloadMarshal(t, map[string]any{
+		"action": "get_nearby",
+		"poi_id": "poi-haven",
+		"nearby": []serverapi.NearbyPlayer{
+			{PlayerID: "p1", Username: "u1", ShipClass: "theoria"},
+		},
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: payload})
+
+	if len(*got) != 1 {
+		t.Fatalf("observer got %d, want 1", len(*got))
+	}
+	if (*got)[0].POIID != "poi-haven" {
+		t.Errorf("POIID=%q, want poi-haven", (*got)[0].POIID)
+	}
+	if (*got)[0].Source != "get_nearby" {
+		t.Errorf("Source=%q, want get_nearby", (*got)[0].Source)
+	}
+	if (*got)[0].SystemID != "sys-A" {
+		t.Errorf("SystemID=%q, want sys-A", (*got)[0].SystemID)
+	}
+}
+
+func TestHandleResponse_FiresOnGetSystemAgents(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	got := captureObserver(t, c)
+
+	payload := payloadMarshal(t, map[string]any{
+		"agents": []serverapi.NearbyPlayer{
+			{PlayerID: "p1", Username: "u1", ShipClass: "viper"},
+			{PlayerID: "p2", Username: "u2", ShipClass: "theoria"},
+		},
+		"system_id": "sys-A",
+		"count":     2,
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: payload})
+
+	if len(*got) != 2 {
+		t.Fatalf("observer got %d, want 2", len(*got))
+	}
+	if (*got)[0].Source != "get_system_agents" {
+		t.Errorf("Source=%q, want get_system_agents", (*got)[0].Source)
+	}
+	if (*got)[0].POIID != "" {
+		t.Errorf("POIID=%q, want empty (system-scope)", (*got)[0].POIID)
 	}
 }

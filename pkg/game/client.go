@@ -3766,6 +3766,11 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					storeKey = "get_system_agents"
 				}
 				shouldStore = true
+
+				var players []serverapi.NearbyPlayer
+				if unmarshalPayloadKey(resp.Payload, "agents", &players) {
+					c.notifyPlayers("get_system_agents", players, "")
+				}
 			}
 		}
 		// Store facility responses. Sync queries (list/types/upgrades/help/
@@ -3887,6 +3892,12 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				storeKey = "nearby"
 			}
 			shouldStore = true
+
+			var players []serverapi.NearbyPlayer
+			if unmarshalPayloadKey(resp.Payload, "nearby", &players) {
+				poiID, _ := resp.Payload["poi_id"].(string)
+				c.notifyPlayers("get_nearby", players, poiID)
+			}
 		}
 		// Store map data (from get_map response)
 		if _, hasSystems := resp.Payload["systems"]; hasSystems {
