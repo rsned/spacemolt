@@ -1,0 +1,181 @@
+package knowledge
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+)
+
+// SeenPlayer is a single player observation. Mirrors the shape of
+// game.ObservedPlayer but lives in pkg/knowledge so this package does not
+// import pkg/game. Callers adapt one to the other.
+type SeenPlayer struct {
+	PlayerID       string
+	Username       string
+	ShipClass      string
+	FactionID      string
+	FactionTag     string
+	ClanTag        string
+	PrimaryColor   string
+	SecondaryColor string
+	StatusMessage  string
+	Anonymous      bool
+	InCombat       bool
+
+	SystemID string // "" => identity-only, no sightings row
+	POIID    string // "" => system-scope sighting (NULL in DB)
+	Source   string // "get_nearby" | "get_system_agents" | "battle_alert" | ...
+	SeenAt   time.Time
+}
+
+// RecordSightings inserts/updates rows in seen_players, seen_player_ships,
+// and seen_player_sightings for each observation. All writes share a single
+// transaction. Records with an empty PlayerID are silently dropped.
+func (kb *SQLiteKB) RecordSightings(obs []SeenPlayer) error {
+	if len(obs) == 0 {
+		return nil
+	}
+
+	tx, err := kb.db.Begin()
+	if err != nil {
+		return fmt.Errorf("knowledge: begin sightings tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, o := range obs {
+		if o.PlayerID == "" {
+			continue
+		}
+		seenStr := o.SeenAt.UTC().Format(time.RFC3339)
+		anon := boolToIntKB(o.Anonymous)
+
+		if _, err := tx.Exec(`
+INSERT INTO seen_players
+	(player_id, username, faction_id, faction_tag, clan_tag,
+	 primary_color, secondary_color, status_message, anonymous,
+	 first_seen_utc, last_seen_utc, sighting_count)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+ON CONFLICT(player_id) DO UPDATE SET
+	username        = excluded.username,
+	faction_id      = COALESCE(NULLIF(excluded.faction_id, ''), faction_id),
+	faction_tag     = COALESCE(NULLIF(excluded.faction_tag, ''), faction_tag),
+	clan_tag        = COALESCE(NULLIF(excluded.clan_tag, ''), clan_tag),
+	primary_color   = COALESCE(NULLIF(excluded.primary_color, ''), primary_color),
+	secondary_color = COALESCE(NULLIF(excluded.secondary_color, ''), secondary_color),
+	status_message  = COALESCE(NULLIF(excluded.status_message, ''), status_message),
+	anonymous       = excluded.anonymous,
+	last_seen_utc   = excluded.last_seen_utc,
+	sighting_count  = sighting_count + 1`,
+			o.PlayerID, o.Username, o.FactionID, o.FactionTag, o.ClanTag,
+			o.PrimaryColor, o.SecondaryColor, o.StatusMessage, anon,
+			seenStr, seenStr,
+		); err != nil {
+			return fmt.Errorf("knowledge: upsert seen_players: %w", err)
+		}
+
+		if o.ShipClass != "" {
+			if _, err := tx.Exec(`
+INSERT INTO seen_player_ships
+	(player_id, ship_class, first_seen_utc, last_seen_utc, sighting_count)
+VALUES (?, ?, ?, ?, 1)
+ON CONFLICT(player_id, ship_class) DO UPDATE SET
+	last_seen_utc  = excluded.last_seen_utc,
+	sighting_count = sighting_count + 1`,
+				o.PlayerID, o.ShipClass, seenStr, seenStr,
+			); err != nil {
+				return fmt.Errorf("knowledge: upsert seen_player_ships: %w", err)
+			}
+		}
+
+		if o.SystemID != "" {
+			bucket := o.SeenAt.UTC().Truncate(time.Hour).Format(time.RFC3339)
+			var poi any
+			if o.POIID != "" {
+				poi = o.POIID
+			} else {
+				poi = nil
+			}
+			if _, err := tx.Exec(`
+INSERT INTO seen_player_sightings
+	(player_id, system_id, poi_id, bucket_hour_utc, ship_class, source,
+	 in_combat, first_seen_utc, last_seen_utc, observation_count)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+ON CONFLICT(player_id, system_id, poi_id, bucket_hour_utc) DO UPDATE SET
+	last_seen_utc     = excluded.last_seen_utc,
+	in_combat         = excluded.in_combat,
+	observation_count = observation_count + 1`,
+				o.PlayerID, o.SystemID, poi, bucket, o.ShipClass, o.Source,
+				boolToIntKB(o.InCombat), seenStr, seenStr,
+			); err != nil {
+				return fmt.Errorf("knowledge: upsert seen_player_sightings: %w", err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("knowledge: commit sightings: %w", err)
+	}
+	return nil
+}
+
+func boolToIntKB(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// GetSeenPlayer returns the stored row for a player_id, or (nil, nil)
+// if no such row exists.
+func (kb *SQLiteKB) GetSeenPlayer(playerID string) (*SeenPlayer, error) {
+	if playerID == "" {
+		return nil, nil
+	}
+	var (
+		out     SeenPlayer
+		factID  sql.NullString
+		factTag sql.NullString
+		clan    sql.NullString
+		pcol    sql.NullString
+		scol    sql.NullString
+		status  sql.NullString
+		anonInt int
+		first   string
+		last    string
+	)
+	err := kb.db.QueryRow(`
+SELECT player_id, username, faction_id, faction_tag, clan_tag,
+       primary_color, secondary_color, status_message, anonymous,
+       first_seen_utc, last_seen_utc
+FROM seen_players WHERE player_id = ?`, playerID,
+	).Scan(
+		&out.PlayerID, &out.Username, &factID, &factTag, &clan,
+		&pcol, &scol, &status, &anonInt, &first, &last,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("knowledge: get seen_player %s: %w", playerID, err)
+	}
+	out.FactionID = nullStringValue(factID)
+	out.FactionTag = nullStringValue(factTag)
+	out.ClanTag = nullStringValue(clan)
+	out.PrimaryColor = nullStringValue(pcol)
+	out.SecondaryColor = nullStringValue(scol)
+	out.StatusMessage = nullStringValue(status)
+	out.Anonymous = anonInt != 0
+	if t, perr := time.Parse(time.RFC3339, last); perr == nil {
+		out.SeenAt = t
+	}
+	_ = first
+	return &out, nil
+}
+
+func nullStringValue(n sql.NullString) string {
+	if !n.Valid {
+		return ""
+	}
+	return n.String
+}
