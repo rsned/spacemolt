@@ -595,6 +595,16 @@ ON CONFLICT(channel) DO UPDATE SET oldest_seen_utc=excluded.oldest_seen_utc, las
 	return nil
 }
 
+// ClearCursor removes the backfill cursor for a channel so the next
+// Backfill starts from the most recent page (i.e. "from now") instead
+// of resuming from the oldest previously-seen message.
+func (s *Store) ClearCursor(channel string) error {
+	if _, err := s.db.Exec("DELETE FROM channel_cursors WHERE channel = ?", channel); err != nil {
+		return fmt.Errorf("mbox: clear cursor %s: %w", channel, err)
+	}
+	return nil
+}
+
 // nullableString converts an empty string to a NULL sql value.
 func nullableString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}

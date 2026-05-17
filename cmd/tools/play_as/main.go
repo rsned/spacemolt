@@ -5395,7 +5395,7 @@ func printHelp() {
 	fmt.Println("  mbox search <query>       - Full-text search messages")
 	fmt.Println("  mbox show <id>            - Show message detail")
 	fmt.Println("  mbox mark-read <id>|--all - Mark messages as read")
-	fmt.Println("  mbox backfill [--channel] - Deep crawl message history")
+	fmt.Println("  mbox backfill [--channel] [-f] - Deep crawl message history (-f resets cursor)")
 	fmt.Println("  mbox sources              - Push/backfill/reconcile counts")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
@@ -5473,7 +5473,7 @@ func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameCl
 		fmt.Println("  mbox mark-read <id>|--all|--channel <ch>  mark as read")
 		fmt.Println("  mbox delete <id>                          soft-delete a message (reversible)")
 		fmt.Println("  mbox restore <id>                         undo a soft-delete")
-		fmt.Println("  mbox backfill [--channel <ch>] [--limit N]")
+		fmt.Println("  mbox backfill [--channel <ch>] [--limit N] [-f|--reset]")
 		fmt.Println("  mbox sources                              source breakdown (push/poll/sent/...)")
 	}
 }
@@ -5691,10 +5691,16 @@ func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Contex
 					opts.MaxPerChannel = n
 				}
 			}
+		case "-f", "--reset":
+			opts.ResetCursor = true
 		}
 	}
 
-	fmt.Printf("  backfilling %v (max %d per channel)...\n", opts.Channels, opts.MaxPerChannel)
+	resetNote := ""
+	if opts.ResetCursor {
+		resetNote = " (cursor reset)"
+	}
+	fmt.Printf("  backfilling %v (max %d per channel)%s...\n", opts.Channels, opts.MaxPerChannel, resetNote)
 	report, err := ing.Backfill(ctx, client, opts)
 	if err != nil {
 		fmt.Printf("  error: %v\n", err)
@@ -5739,11 +5745,12 @@ func printMboxMessage(m mbox.Message) {
 		senderFmt = bold + m.Sender + reset
 	}
 
-	// Verified empire-official messages get a prominent tag so player
-	// impersonation of officials is obvious at a glance (server v0.294.0+).
+	// Verified empire-official messages get a small inline glyph next
+	// to the sender so player impersonation of officials is obvious at
+	// a glance (server v0.294.0+).
 	if m.EmpireOfficial {
 		cyan := "\033[36m"
-		senderFmt += " " + cyan + "[OFFICIAL]" + reset
+		senderFmt = cyan + "✴" + reset + " " + senderFmt
 	}
 
 	// Direction indicator: → for messages we sent, ← for received.
@@ -5756,13 +5763,19 @@ func printMboxMessage(m mbox.Message) {
 	}
 
 	// Short ID prefix for use with `mbox show <id>`. 8 hex chars is
-	// enough disambiguation for any realistic mbox size.
+	// enough disambiguation for any realistic mbox size; pad with
+	// spaces when a message has no ID so columns line up.
 	shortID := m.ID
 	if len(shortID) > 8 {
 		shortID = shortID[:8]
 	}
+	if shortID == "" {
+		shortID = "        "
+	}
 
-	fmt.Printf("%s%s[%-7s]%s %s%s%s %s %6s  %s  %s\n",
+	// Channel label is padded to the width of the longest known channel
+	// name ("emergency" = 9) so the column lines up regardless of channel.
+	fmt.Printf("%s%s[%-9s]%s %s%s%s %s %6s  %s  %s\n",
 		unreadMarker, color, m.Channel, reset,
 		dim, shortID, reset, arrow,
 		mboxRelativeTime(m.TimestampUTC), senderFmt, mboxTruncate(m.Content, 60))

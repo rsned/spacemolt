@@ -53,6 +53,12 @@ type BackfillClient interface {
 type BackfillOptions struct {
 	Channels      []string
 	MaxPerChannel int
+	// ResetCursor clears each channel's saved cursor before crawling so
+	// the run starts from the most recent page (i.e. "from now") rather
+	// than resuming from the oldest message previously ingested. Used to
+	// re-pull current pages after a server-side schema change adds new
+	// fields that older stored messages are missing.
+	ResetCursor bool
 }
 
 // BackfillReport summarises the results of a Backfill run.
@@ -92,8 +98,14 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 
 	// Resume from the saved cursor (oldest message previously ingested) so
 	// successive backfills walk further into history instead of re-requesting
-	// the latest page and immediately stopping on duplicate IDs.
-	if cursor, ok, err := ing.store.Cursor(channel); err != nil {
+	// the latest page and immediately stopping on duplicate IDs. When
+	// ResetCursor is set, drop the saved cursor and start from "now"
+	// instead — used to re-pull recent pages after a schema change.
+	if opts.ResetCursor {
+		if err := ing.store.ClearCursor(channel); err != nil {
+			ing.logger.Printf("clear cursor %s: %v", channel, err)
+		}
+	} else if cursor, ok, err := ing.store.Cursor(channel); err != nil {
 		ing.logger.Printf("cursor %s: %v", channel, err)
 	} else if ok {
 		before = cursor.UTC().Format(time.RFC3339Nano)
