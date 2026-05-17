@@ -2334,6 +2334,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.mu.Unlock()
 
+		var parts []serverapi.BattleParticipant
+		if unmarshalPayloadKey(resp.Payload, "participants", &parts) {
+			c.notifyPlayersFromBattle("combat_update", parts)
+		}
+
 	case protocol.TypeBattleAlert:
 		// Informational: someone else's battle is starting in the same
 		// system. We don't mutate our own state — the alert doesn't mean
@@ -2342,6 +2347,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		battleID, _ := resp.Payload["battle_id"].(string)
 		systemID, _ := resp.Payload["system_id"].(string)
 		c.debugLogger.Printf("[BATTLE ALERT] %s (battle=%s system=%s)", msg, battleID, systemID)
+
+		var parts []serverapi.BattleParticipant
+		if unmarshalPayloadKey(resp.Payload, "participants", &parts) {
+			c.notifyPlayersFromBattle("battle_alert", parts)
+		}
 
 	case protocol.TypeChatMessage:
 		var chatMsg serverapi.ChatMessage
@@ -2353,6 +2363,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 				if cb != nil {
 					cb(chatMsg)
 				}
+				c.notifyPlayerFromChat(chatMsg)
 			}
 		}
 		if sender, ok := resp.Payload["sender"].(string); ok {
@@ -3743,6 +3754,14 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		if _, hasPOIs := resp.Payload["pois"]; hasPOIs && storeKey == "" {
 			storeKey = "system"
 			shouldStore = true
+		}
+		// Emit player sightings for get_system responses that include an
+		// online_players roster. Additive notifier — no storeKey change.
+		if _, hasOnline := resp.Payload["online_players"]; hasOnline {
+			var players []serverapi.NearbyPlayer
+			if unmarshalPayloadKey(resp.Payload, "online_players", &players) {
+				c.notifyPlayers("get_system", players, "")
+			}
 		}
 		// Store recipes
 		if _, hasRecipes := resp.Payload["recipes"]; hasRecipes {

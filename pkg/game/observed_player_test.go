@@ -210,3 +210,77 @@ func TestHandleResponse_FiresOnGetSystemAgents(t *testing.T) {
 		t.Errorf("POIID=%q, want empty (system-scope)", (*got)[0].POIID)
 	}
 }
+
+func TestHandleResponse_FiresOnBattleAlert(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	got := captureObserver(t, c)
+
+	payload := payloadMarshal(t, map[string]any{
+		"battle_id": "b1",
+		"system_id": "sys-A",
+		"participants": []serverapi.BattleParticipant{
+			{PlayerID: "p1", Username: "u1", ShipClass: "viper"},
+		},
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeBattleAlert, Payload: payload})
+
+	if len(*got) != 1 {
+		t.Fatalf("got %d, want 1", len(*got))
+	}
+	if !(*got)[0].InCombat {
+		t.Error("expected InCombat=true")
+	}
+	if (*got)[0].Source != "battle_alert" {
+		t.Errorf("Source=%q, want battle_alert", (*got)[0].Source)
+	}
+}
+
+func TestHandleResponse_FiresOnChatMessage(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	got := captureObserver(t, c)
+
+	payload := payloadMarshal(t, map[string]any{
+		"channel":   "system",
+		"sender":    "Director-General Darya Lim",
+		"sender_id": "p1",
+		"content":   "Federation notice ...",
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeChatMessage, Payload: payload})
+
+	if len(*got) != 1 {
+		t.Fatalf("got %d, want 1", len(*got))
+	}
+	if (*got)[0].ShipClass != "" {
+		t.Errorf("ShipClass=%q, want empty for chat", (*got)[0].ShipClass)
+	}
+	if (*got)[0].SystemID != "" {
+		t.Errorf("SystemID=%q, want empty for identity-only chat", (*got)[0].SystemID)
+	}
+	if (*got)[0].Source != "chat_message" {
+		t.Errorf("Source=%q, want chat_message", (*got)[0].Source)
+	}
+}
+
+func TestHandleResponse_FiresOnGetSystemOnlinePlayers(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	got := captureObserver(t, c)
+
+	payload := payloadMarshal(t, map[string]any{
+		"system_id": "sys-A",
+		"name":      "Treasure Cache",
+		"online_players": []serverapi.NearbyPlayer{
+			{PlayerID: "p1", Username: "u1", ShipClass: "theoria"},
+		},
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: payload})
+
+	if len(*got) != 1 {
+		t.Fatalf("got %d, want 1", len(*got))
+	}
+	if (*got)[0].Source != "get_system" {
+		t.Errorf("Source=%q, want get_system", (*got)[0].Source)
+	}
+	if (*got)[0].POIID != "" {
+		t.Errorf("POIID=%q, want empty (system-scope)", (*got)[0].POIID)
+	}
+}
