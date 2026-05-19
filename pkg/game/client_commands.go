@@ -1841,10 +1841,15 @@ func (c *Client) FactionGift(ctx context.Context, factionID string, payload map[
 
 // ViewFactionStorage views your faction's shared storage at the current station.
 func (c *Client) ViewFactionStorage(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "view_faction_storage",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // ViewFactionStorageAt views your faction's shared storage at a specific station.

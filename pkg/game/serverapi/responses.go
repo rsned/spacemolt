@@ -1039,6 +1039,7 @@ type DockResponse struct {
 	Action              string          `json:"action,omitempty"`
 	Base                *Base           `json:"base,omitempty"`
 	StationCondition    *StationHealth  `json:"station_condition,omitempty"`
+	FuelWarning         string          `json:"fuel_warning,omitempty"`
 	Story               string          `json:"story,omitempty"`
 	OpenOrders          []ExchangeOrder `json:"open_orders,omitempty"`
 	OpenOrdersCount     int             `json:"open_orders_count,omitempty"`

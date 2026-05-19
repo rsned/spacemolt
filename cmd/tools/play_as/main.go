@@ -636,13 +636,15 @@ func formatGetSystemAgents(raw []byte) string {
 	return b.String()
 }
 
-// formatFacility dispatches by the response's "action" field. Only "types"
-// has a styled formatter today; other actions return "" so the caller falls
-// through to pretty-printed JSON.
+// formatFacility dispatches by the response's "action" field (or, for
+// payloads that don't carry one, by the presence of distinctive keys).
+// Actions without a styled formatter return "" so the caller falls through
+// to pretty-printed JSON.
 func formatFacility(raw []byte) string {
 	var probe struct {
-		Action string `json:"action"`
-		TypeID string `json:"type_id"`
+		Action            string          `json:"action"`
+		TypeID            string          `json:"type_id"`
+		FactionFacilities json.RawMessage `json:"faction_facilities"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
 		return ""
@@ -656,6 +658,11 @@ func formatFacility(raw []byte) string {
 			return formatFacilityTypeDetail(raw)
 		}
 		return formatFacilityTypes(raw)
+	}
+	// faction_list omits the action field but is uniquely identified by
+	// the top-level faction_facilities key.
+	if len(probe.FactionFacilities) > 0 {
+		return formatFacilityFactionList(raw)
 	}
 	return ""
 }
@@ -717,6 +724,93 @@ func formatFacilityTypes(raw []byte) string {
 	for _, t := range resp.Types {
 		fmt.Fprintf(&b, "  %-*s | %-*s | %5d | %*s\n",
 			idW, t.ID, nameW, t.Name, t.Level, costW, formatCredits(float64(t.BuildCost)))
+	}
+	return b.String()
+}
+
+// formatFacilityFactionList renders a `facility faction_list` response:
+// a header with the base/faction context, the faction-storage summary,
+// the table of built facilities, and the server's hint if present.
+func formatFacilityFactionList(raw []byte) string {
+	type facility struct {
+		Active         bool   `json:"active"`
+		Capacity       int64  `json:"capacity"`
+		FacilityID     string `json:"facility_id"`
+		FactionService string `json:"faction_service"`
+		Level          int    `json:"level"`
+		Name           string `json:"name"`
+		RentPerCycle   int64  `json:"rent_per_cycle"`
+		Status         string `json:"status"`
+		Type           string `json:"type"`
+	}
+	var resp struct {
+		BaseID            string     `json:"base_id"`
+		FactionID         string     `json:"faction_id"`
+		FactionFacilities []facility `json:"faction_facilities"`
+		FactionStorage    struct {
+			Credits   int64 `json:"credits"`
+			ItemTypes int   `json:"item_types"`
+			Rooms     int   `json:"rooms"`
+		} `json:"faction_storage"`
+		Hint string `json:"hint"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "  Faction Facilities at %s\n", resp.BaseID)
+	if resp.FactionID != "" {
+		fmt.Fprintf(&b, "    Faction:  %s\n", resp.FactionID)
+	}
+	fmt.Fprintf(&b, "    Storage:  %s cr | %d item type(s) | %d room(s)\n\n",
+		formatCredits(float64(resp.FactionStorage.Credits)),
+		resp.FactionStorage.ItemTypes, resp.FactionStorage.Rooms)
+
+	if len(resp.FactionFacilities) == 0 {
+		fmt.Fprintln(&b, "  (no faction facilities built)")
+		if resp.Hint != "" {
+			fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
+		}
+		return b.String()
+	}
+
+	slices.SortFunc(resp.FactionFacilities, func(a, c facility) int {
+		return strings.Compare(a.Name, c.Name)
+	})
+
+	nameW := len("Name")
+	typeW := len("Type")
+	svcW := len("Service")
+	statusW := len("Status")
+	capW := len("Capacity")
+	rentW := len("Rent/cycle")
+	for _, f := range resp.FactionFacilities {
+		nameW = max(nameW, len(f.Name))
+		typeW = max(typeW, len(f.Type))
+		svcW = max(svcW, len(f.FactionService))
+		statusW = max(statusW, len(f.Status))
+		capW = max(capW, len(formatCredits(float64(f.Capacity))))
+		rentW = max(rentW, len(formatCredits(float64(f.RentPerCycle))))
+	}
+
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s\n",
+		nameW, "Name", typeW, "Type", svcW, "Service",
+		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-----+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", nameW), strings.Repeat("-", typeW),
+		strings.Repeat("-", svcW), strings.Repeat("-", statusW),
+		strings.Repeat("-", capW), strings.Repeat("-", rentW))
+	for _, f := range resp.FactionFacilities {
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s\n",
+			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
+			f.Level, statusW, f.Status,
+			capW, formatCredits(float64(f.Capacity)),
+			rentW, formatCredits(float64(f.RentPerCycle)))
+	}
+
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
 	}
 	return b.String()
 }
@@ -4911,9 +5005,12 @@ func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx c
 		if errors.As(err, &goal) {
 			return err
 		}
-		// Even on error, show the server's response for debugging/JSON mode
-		// The response contains: action, code, message, command, tick
-		if raw := lookupRawJSON(client, command); len(raw) > 0 {
+		// Even on error, show the server's actual error frame for
+		// debugging/JSON mode (contains code, message, command, tick).
+		// Prefer the dedicated _last_error slot over the command-keyed
+		// lookup, which would return the prior success payload — stale
+		// and misleading for deferred commands that fail after a tick.
+		if raw := client.GetRawJSON("_last_error"); len(raw) > 0 {
 			printResponse(raw, format, command)
 		}
 		return err

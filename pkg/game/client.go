@@ -4084,6 +4084,18 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// Don't store error responses in the same keys as success data
 		// Errors are tracked in lastError field instead
 		return
+	case protocol.TypeActionError:
+		// Store the full action_error payload under a dedicated slot so
+		// callers can render the actual error frame (code, message, tick)
+		// without falling back to the stale prior success payload stored
+		// under the command's name. Single slot is fine because REPL
+		// commands are serialized.
+		c.rawJSONMu.Lock()
+		if jsonData, err := json.Marshal(resp.Payload); err == nil {
+			c.latestRawJSON["_last_error"] = jsonData
+		}
+		c.rawJSONMu.Unlock()
+		return
 	}
 
 	if shouldStore {
