@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -63,6 +64,7 @@ type AgentSnapshot struct {
 	StorageTotal    float64              `json:"storage_total"`
 	FactionID       string               `json:"faction_id"`
 	FactionRank     string               `json:"faction_rank"`
+	FactionData     *FactionSnapshot     `json:"faction_data,omitempty"`
 	Experience      int64                `json:"experience"`
 	HomeBase        string               `json:"home_base,omitempty"`
 	Fuel            float64              `json:"fuel"`
@@ -132,6 +134,8 @@ type FactionDiff struct {
 	TreasuryDelta      float64
 	MemberCountDelta   int
 	OwnedBasesDelta    int
+	FacilityCount      int
+	FacilityCountDelta int
 	FacilityChanges    []string
 	StorageDeltas      map[string]float64
 	StorageItemChanges []string
@@ -145,6 +149,7 @@ type FactionCollector struct {
 	AgentsByFaction   map[string][]string
 	FounderCandidates map[string]string
 	ExistingFactions  map[string]bool
+	CollectedToday    map[string]bool
 }
 
 // NewFactionCollector creates a new faction collector.
@@ -153,11 +158,25 @@ func NewFactionCollector(existingFactions []string) *FactionCollector {
 		AgentsByFaction:   make(map[string][]string),
 		FounderCandidates: make(map[string]string),
 		ExistingFactions:  make(map[string]bool),
+		CollectedToday:    make(map[string]bool),
 	}
 	for _, fid := range existingFactions {
 		fc.ExistingFactions[fid] = true
 	}
 	return fc
+}
+
+// ShouldCollect reports whether faction data still needs to be gathered for a
+// faction this run. Agents are visited in sorted order, so the lowest-numbered
+// (founder) member is normally the first to attempt collection; if it fails the
+// next member retries until one succeeds and calls MarkCollected.
+func (fc *FactionCollector) ShouldCollect(factionID string) bool {
+	return factionID != "" && !fc.CollectedToday[factionID]
+}
+
+// MarkCollected records that faction data was successfully captured this run.
+func (fc *FactionCollector) MarkCollected(factionID string) {
+	fc.CollectedToday[factionID] = true
 }
 
 // AddAgent adds an agent to the faction map and updates founder candidate.
@@ -204,11 +223,6 @@ func (fc *FactionCollector) IsFounder(agentID, factionID string) bool {
 		return founder == agentID
 	}
 	return false
-}
-
-// IsNewFaction returns true if the faction hasn't been seen before in existing data.
-func (fc *FactionCollector) IsNewFaction(factionID string) bool {
-	return !fc.ExistingFactions[factionID]
 }
 
 // GetExistingFactions returns all faction IDs from the database.
@@ -269,162 +283,6 @@ func loadFactionSnapshots(db *sql.DB, date string) (map[string]*FactionSnapshot,
 	return snaps, rows.Err()
 }
 
-// captureAgentFactionData connects to an agent and captures their faction data.
-// This should only be called for the founder agent of a faction.
-func captureAgentFactionData(agentID, factionID string, logger *log.Logger) *FactionSnapshot {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	fs := &FactionSnapshot{
-		FactionID:      factionID,
-		FounderAgentID: agentID,
-		CapturedAt:     time.Now(),
-	}
-
-	var client game.GameClient
-	var initErr error
-	switch *transport {
-	case "mcp":
-		client, _, initErr = game.InitializeMCPAgent(agentID, logger, ctx, *debug, false)
-	case "ws":
-		client, _, initErr = game.InitializeAgent(agentID, logger, ctx, *debug)
-	default:
-		logger.Printf("  Unknown transport: %s", *transport)
-		return nil
-	}
-	if initErr != nil {
-		logger.Printf("  Warning: Failed to connect to %s for faction data: %v", agentID, initErr)
-		return nil
-	}
-	defer func() {
-		if cerr := client.Close(); cerr != nil {
-			logger.Printf("  Warning: close error for %s: %v", agentID, cerr)
-		}
-	}()
-
-	// 1. Get basic faction info (treasury, member count, etc.)
-	if err := client.FactionInfo(ctx); err != nil {
-		logger.Printf("  Warning: Failed to get faction info: %v", err)
-		return nil
-	}
-	time.Sleep(game.SleepQuick)
-
-	rawInfo := client.GetRawJSON("faction_info")
-	if rawInfo != nil {
-		var info serverapi.FactionInfoResponse
-		if err := json.Unmarshal(rawInfo, &info); err == nil {
-			fs.FactionName = info.Name
-			fs.FactionTag = info.Tag
-			fs.Treasury = float64(info.Treasury)
-			fs.MemberCount = info.MemberCount
-			fs.OwnedBases = info.OwnedBases
-		}
-	}
-
-	// 2. Get faction facilities at current station
-	if err := client.Facility(ctx, map[string]any{"action": "faction_list"}); err != nil {
-		logger.Printf("  Warning: Failed to get faction facilities: %v", err)
-	} else {
-		time.Sleep(game.SleepQuick)
-		rawFacilities := client.GetRawJSON("facility")
-		if rawFacilities != nil {
-			var facilityResp serverapi.FacilityListResponse
-			if err := json.Unmarshal(rawFacilities, &facilityResp); err == nil {
-				for _, f := range facilityResp.FactionFacilities {
-					ff := parseFacility(f)
-					ff.BaseID = facilityResp.BaseID
-					fs.Facilities = append(fs.Facilities, ff)
-				}
-			}
-		}
-	}
-
-	// 3. For each faction facility that is storage, query storage contents
-	storageStations := make(map[string]bool) // base_id -> already_collected
-	for _, fac := range fs.Facilities {
-		if isStorageFacility(fac.FacilityType) {
-			if !storageStations[fac.BaseID] {
-				storageStations[fac.BaseID] = true
-				if storage := captureFactionStorage(ctx, client, fac.BaseID, logger); storage != nil {
-					fs.StorageStations = append(fs.StorageStations, *storage)
-				}
-			}
-		}
-	}
-
-	return fs
-}
-
-// isStorageFacility returns true if the facility type is a storage facility.
-func isStorageFacility(facilityType string) bool {
-	storageTypes := []string{"lockbox", "vault", "warehouse", "depot"}
-	lowerType := strings.ToLower(facilityType)
-	for _, st := range storageTypes {
-		if strings.Contains(lowerType, st) {
-			return true
-		}
-	}
-	return false
-}
-
-// captureFactionStorage captures faction storage at a specific station.
-func captureFactionStorage(ctx context.Context, client game.GameClient, stationID string, logger *log.Logger) *FactionStorage {
-	// Use ViewFactionStorageAt to query remotely
-	if err := client.ViewFactionStorageAt(ctx, stationID); err != nil {
-		logger.Printf("  Warning: Failed to view faction storage at %s: %v", stationID, err)
-		return nil
-	}
-	time.Sleep(game.SleepQuick)
-
-	rawStorage := client.GetRawJSON("faction_storage")
-	if rawStorage == nil {
-		return nil
-	}
-
-	var storageResp serverapi.ViewFactionStorageResponse
-	if err := json.Unmarshal(rawStorage, &storageResp); err != nil {
-		logger.Printf("  Warning: Failed to parse faction storage: %v", err)
-		return nil
-	}
-
-	fs := &FactionStorage{
-		BaseID:  storageResp.BaseID,
-		Credits: float64(storageResp.Credits),
-	}
-
-	for _, item := range storageResp.Items {
-		fs.Items = append(fs.Items, StorageEntry{
-			ItemID:   item.ItemID,
-			Quantity: item.Quantity,
-		})
-		fs.ItemCount++
-	}
-
-	return fs
-}
-
-// parseFacility parses a facility map into a FactionFacility struct.
-func parseFacility(f map[string]any) FactionFacility {
-	ff := FactionFacility{Details: f}
-
-	if id, ok := f["facility_id"].(string); ok {
-		ff.FacilityID = id
-	}
-	if ft, ok := f["facility_type"].(string); ok {
-		ff.FacilityType = ft
-	}
-	if cat, ok := f["category"].(string); ok {
-		ff.Category = cat
-	}
-	if level, ok := f["level"].(float64); ok {
-		ff.Level = int(level)
-	} else if level, ok := f["level"].(int); ok {
-		ff.Level = level
-	}
-
-	return ff
-}
-
 // computeFactionDiffs computes the differences between today's and previous faction snapshots.
 func computeFactionDiffs(today, prev map[string]*FactionSnapshot) []FactionDiff {
 	var diffs []FactionDiff
@@ -444,14 +302,10 @@ func computeFactionDiffs(today, prev map[string]*FactionSnapshot) []FactionDiff 
 		cur, hasCur := today[id]
 		old, hasPrev := prev[id]
 
-		if !hasCur && hasPrev {
-			diff.FactionName = old.FactionName
-			diff.FactionTag = old.FactionTag
-			diff.HasChanges = true
-			diffs = append(diffs, diff)
-			continue
-		}
-
+		// A faction with no snapshot today simply wasn't collected this run
+		// (no member online/docked, or collection failed). We can't detect
+		// actual dissolution from the game, so skip it rather than report a
+		// misleading "dissolved" row.
 		if !hasCur {
 			continue
 		}
@@ -480,6 +334,12 @@ func computeFactionDiffs(today, prev map[string]*FactionSnapshot) []FactionDiff 
 
 		diff.OwnedBasesDelta = cur.OwnedBases - old.OwnedBases
 		if diff.OwnedBasesDelta != 0 {
+			diff.HasChanges = true
+		}
+
+		diff.FacilityCount = len(cur.Facilities)
+		diff.FacilityCountDelta = len(cur.Facilities) - len(old.Facilities)
+		if diff.FacilityCountDelta != 0 {
 			diff.HasChanges = true
 		}
 
@@ -605,6 +465,27 @@ func findItemQuantity(items []StorageEntry, itemID string) float64 {
 	return 0
 }
 
+// factionStorageSummary returns a short description of faction storage contents
+// across all stations, e.g. "27 units / 1 item". Returns "—" when empty.
+func factionStorageSummary(stations []FactionStorage) string {
+	var totalQty float64
+	lines := 0
+	for _, s := range stations {
+		for _, it := range s.Items {
+			totalQty += it.Quantity
+			lines++
+		}
+	}
+	if lines == 0 {
+		return "—"
+	}
+	itemWord := "items"
+	if lines == 1 {
+		itemWord = "item"
+	}
+	return fmt.Sprintf("%s units / %d %s", formatNumber(totalQty), lines, itemWord)
+}
+
 func main() {
 	dbPath := flag.String("db", "data/daily-summary.db", "SQLite database path")
 	kbPath := flag.String("kb", "data/spacemolt-knowledge.db", "Shared knowledge base SQLite path (for storage snapshots)")
@@ -695,7 +576,7 @@ func main() {
 	// Compute diffs
 	diffs := computeDiffs(todaySnaps, prevSnaps)
 
-	// Load and compute faction diffs
+	// Load faction snapshots and compute faction diffs.
 	todayFactions, err := loadFactionSnapshots(db, today)
 	if err != nil {
 		logger.Printf("Warning: failed to load today's faction snapshots: %v", err)
@@ -766,9 +647,18 @@ func main() {
 			}
 			// Compute diffs for the previous day (prevDate vs prevPrevDate)
 			prevDiffs := computeDiffs(prevSnaps, prevPrevSnaps)
+			// Faction diffs for the previous day (best-effort).
+			prevDayFactions, _ := loadFactionSnapshots(db, prevDate)
+			prevPrevFactions := map[string]*FactionSnapshot{}
+			if prevPrevDate != "" {
+				if pf, ferr := loadFactionSnapshots(db, prevPrevDate); ferr == nil {
+					prevPrevFactions = pf
+				}
+			}
+			prevFactionDiffs := computeFactionDiffs(prevDayFactions, prevPrevFactions)
 			// Build the output path for the previous day's report
 			prevOutputPath := filepath.Join(filepath.Dir(*outputPath), "daily-summary-"+prevDate)
-			if err := writeHTMLReport(prevOutputPath+".html", prevDate, prevPrevDate, today, prevDiffs, nil); err != nil {
+			if err := writeHTMLReport(prevOutputPath+".html", prevDate, prevPrevDate, today, prevDiffs, prevFactionDiffs); err != nil {
 				logger.Printf("Warning: failed to update previous day's HTML: %v", err)
 			} else {
 				logger.Printf("Updated previous day's HTML report with Next link to %s", today)
@@ -820,6 +710,7 @@ func openDB(path string) (*sql.DB, error) {
 		);
 		CREATE INDEX IF NOT EXISTS idx_snapshots_agent_date ON snapshots(agent_id, captured_date DESC);
 		CREATE INDEX IF NOT EXISTS idx_snapshots_date ON snapshots(captured_date DESC);
+
 		CREATE TABLE IF NOT EXISTS faction_snapshots (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			faction_id TEXT NOT NULL,
@@ -842,8 +733,10 @@ func openDB(path string) (*sql.DB, error) {
 func collectSnapshots(db *sql.DB, kb knowledge.Base, agentList []string, delaySec int, today string, logger *log.Logger) {
 	var notAtStation []string
 
-	// Initialize faction collector
-	existingFactions, _ := GetExistingFactions(db)
+	existingFactions, err := GetExistingFactions(db)
+	if err != nil {
+		logger.Printf("Warning: failed to load existing factions: %v", err)
+	}
 	fc := NewFactionCollector(existingFactions)
 
 	for i, agentID := range agentList {
@@ -851,36 +744,27 @@ func collectSnapshots(db *sql.DB, kb knowledge.Base, agentList []string, delaySe
 			time.Sleep(time.Duration(delaySec) * time.Second)
 		}
 		logger.Printf("[%d/%d] Collecting %s...", i+1, len(agentList), agentID)
-		snap := captureAgent(agentID, kb, logger)
+		snap := captureAgent(agentID, kb, fc, logger)
 		if err := saveSnapshot(db, snap, today); err != nil {
 			logger.Printf("  Failed to save snapshot: %v", err)
+		}
+
+		// Record faction membership and persist any captured faction data.
+		fc.AddAgent(agentID, snap.FactionID)
+		if snap.FactionData != nil {
+			if err := saveFactionSnapshot(db, snap.FactionData, today); err != nil {
+				logger.Printf("  Failed to save faction snapshot: %v", err)
+			} else {
+				fc.MarkCollected(snap.FactionID)
+				logger.Printf("  Faction %s: Treasury=%.0f, Members=%d, Facilities=%d, Stations=%d",
+					snap.FactionData.FactionTag, snap.FactionData.Treasury, snap.FactionData.MemberCount,
+					len(snap.FactionData.Facilities), len(snap.FactionData.StorageStations))
+			}
 		}
 
 		// Track agents not docked at station or base (incomplete storage data)
 		if snap.Error == "" && snap.POIType != "station" && snap.POIType != "base" {
 			notAtStation = append(notAtStation, agentID)
-		}
-
-		// Collect faction data if agent is in a faction and is the founder or faction is new
-		if snap.Error == "" && snap.FactionID != "" {
-			fc.AddAgent(agentID, snap.FactionID)
-			isFounder := fc.IsFounder(agentID, snap.FactionID)
-			isNewFaction := fc.IsNewFaction(snap.FactionID)
-
-			if isFounder || isNewFaction {
-				logger.Printf("  Collecting faction data for %s...", snap.FactionID)
-				factionSnap := captureAgentFactionData(agentID, snap.FactionID, logger)
-				if factionSnap != nil {
-					factionSnap.FounderAgentID = agentID
-					if err := saveFactionSnapshot(db, factionSnap, today); err != nil {
-						logger.Printf("  Warning: Failed to save faction snapshot: %v", err)
-					} else {
-						logger.Printf("  Faction [%s] %s: Treasury=%.0f, Members=%d, Facilities=%d, Storage Stations=%d",
-							factionSnap.FactionTag, factionSnap.FactionName, factionSnap.Treasury, factionSnap.MemberCount,
-							len(factionSnap.Facilities), len(factionSnap.StorageStations))
-					}
-				}
-			}
 		}
 	}
 
@@ -897,8 +781,10 @@ func collectSnapshots(db *sql.DB, kb knowledge.Base, agentList []string, delaySe
 	}
 }
 
-// captureAgent connects to a single agent and captures its state.
-func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentSnapshot {
+// captureAgent connects to a single agent and captures its state. When fc is
+// non-nil and the agent's faction has not yet been captured this run, it also
+// gathers faction-level data (treasury, facilities, shared storage).
+func captureAgent(agentID string, kb knowledge.Base, fc *FactionCollector, logger *log.Logger) *AgentSnapshot {
 	snap := &AgentSnapshot{
 		AgentID:    agentID,
 		CapturedAt: time.Now(),
@@ -1040,15 +926,47 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 	}
 	if storageStationID != "" {
 		logger.Printf("  Viewing storage at: %s (docked: %v)", storageStationID, state.Doc)
-		if err := client.ViewStorageAt(ctx, storageStationID); err != nil {
-			logger.Printf("  Warning: Failed to view storage: %v", err)
+		var storagePayload map[string]any
+		if *transport == "ws" {
+			if wsClient, ok := client.(*game.Client); ok {
+				h, err := wsClient.Submit(ctx, protocol.Message{
+					Type:      "view_storage",
+					Timestamp: time.Now().UnixMilli(),
+					Payload: map[string]any{
+						"station_id": storageStationID,
+					},
+				}, game.WithAckOnly(), game.WithTimeout(10*time.Second))
+				if err != nil {
+					logger.Printf("  Warning: Failed to view storage: %v", err)
+				} else {
+					resp, err := h.Result(ctx)
+					switch {
+					case err != nil:
+						logger.Printf("  Warning: Failed to view storage: %v", err)
+					case resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError:
+						if msg, ok := resp.Payload["message"].(string); ok {
+							logger.Printf("  Warning: Server error: %s", msg)
+						} else {
+							logger.Printf("  Warning: Server returned error response")
+						}
+					default:
+						storagePayload = resp.Payload
+					}
+				}
+			}
 		} else {
+			// MCP transport: use ViewStorageAt which passes station_id and caches raw JSON
+			if err := client.ViewStorageAt(ctx, storageStationID); err != nil {
+				logger.Printf("  Warning: Failed to view storage: %v", err)
+			}
 			time.Sleep(game.SleepQuick)
 		}
 
-		// Parse storage data from raw JSON
+		// Parse storage data from direct response payload or raw JSON fallback
 		var rawJSON []byte
-		if rj := client.GetRawJSON("storage"); rj != nil {
+		if storagePayload != nil {
+			rawJSON, _ = json.Marshal(storagePayload)
+		} else if rj := client.GetRawJSON("storage"); rj != nil {
 			rawJSON = rj
 		}
 
@@ -1113,7 +1031,162 @@ func captureAgent(agentID string, kb knowledge.Base, logger *log.Logger) *AgentS
 		logger.Printf("  No station POI or home base set, skipping storage check")
 	}
 
+	// Best-effort: capture faction-level data once per faction per run. The
+	// founder agent normally claims this first (sorted visitation order); if a
+	// member lacks permission, captureFactionData returns nil and the next
+	// member retries on a later iteration.
+	if fc != nil && fc.ShouldCollect(snap.FactionID) {
+		founder := agentID
+		if cand := fc.FounderCandidates[snap.FactionID]; cand != "" {
+			founder = cand
+		}
+		snap.FactionData = captureFactionData(ctx, client, snap.FactionID, founder, storageStationID, logger)
+	}
+
 	return snap
+}
+
+// captureFactionData gathers faction info, facilities, and faction storage for
+// the agent's faction. currentStationID is the station the agent is docked at;
+// its faction storage is always queried (facility discovery is unreliable).
+// Returns nil if the basic faction info could not be read (e.g. the agent lacks
+// permission) so the caller can retry with another member.
+func captureFactionData(ctx context.Context, client game.GameClient, factionID, founderAgentID, currentStationID string, logger *log.Logger) *FactionSnapshot {
+	fs := &FactionSnapshot{
+		FactionID:      factionID,
+		FounderAgentID: founderAgentID,
+		CapturedAt:     time.Now(),
+	}
+
+	// 1. Basic faction info (treasury, member count, owned bases).
+	if err := client.FactionInfo(ctx); err != nil {
+		logger.Printf("  Warning: faction_info failed: %v", err)
+		return nil
+	}
+	time.Sleep(game.SleepQuick)
+	rawInfo := client.GetRawJSON("faction_info")
+	if rawInfo == nil {
+		logger.Printf("  Warning: no faction_info response")
+		return nil
+	}
+	var info serverapi.FactionInfoResponse
+	if err := json.Unmarshal(rawInfo, &info); err != nil {
+		logger.Printf("  Warning: failed to parse faction_info: %v", err)
+		return nil
+	}
+	fs.FactionName = info.Name
+	fs.FactionTag = info.Tag
+	fs.Treasury = float64(info.Treasury)
+	fs.MemberCount = info.MemberCount
+	fs.OwnedBases = info.OwnedBases
+
+	// 2. Faction facilities at the agent's current station.
+	if err := client.Facility(ctx, map[string]any{"action": "faction_list"}); err != nil {
+		logger.Printf("  Warning: facility faction_list failed: %v", err)
+	} else {
+		time.Sleep(game.SleepQuick)
+		if rawFac := client.GetRawJSON("facility"); rawFac != nil {
+			var facResp serverapi.FacilityListResponse
+			if err := json.Unmarshal(rawFac, &facResp); err == nil {
+				for _, f := range facResp.FactionFacilities {
+					ff := parseFacility(f)
+					if ff.BaseID == "" {
+						ff.BaseID = facResp.BaseID
+					}
+					fs.Facilities = append(fs.Facilities, ff)
+				}
+			} else {
+				logger.Printf("  Warning: failed to parse facilities: %v", err)
+			}
+		}
+	}
+
+	// 3. Faction storage. Always query the agent's current station (facility
+	// discovery misses it / misclassifies types), then any additional stations
+	// that expose a storage-type faction facility.
+	seenStations := make(map[string]bool)
+	queryStorage := func(stationID string) {
+		if stationID == "" || seenStations[stationID] {
+			return
+		}
+		seenStations[stationID] = true
+		if storage := captureFactionStorage(ctx, client, stationID, logger); storage != nil {
+			fs.StorageStations = append(fs.StorageStations, *storage)
+		}
+	}
+	queryStorage(currentStationID)
+	for _, fac := range fs.Facilities {
+		if isStorageFacility(fac.FacilityType) {
+			queryStorage(fac.BaseID)
+		}
+	}
+
+	return fs
+}
+
+// captureFactionStorage queries faction storage at a specific station.
+func captureFactionStorage(ctx context.Context, client game.GameClient, stationID string, logger *log.Logger) *FactionStorage {
+	if err := client.ViewFactionStorageAt(ctx, stationID); err != nil {
+		logger.Printf("  Warning: faction storage at %s failed: %v", stationID, err)
+		return nil
+	}
+	time.Sleep(game.SleepQuick)
+	raw := client.GetRawJSON("faction_storage")
+	if raw == nil {
+		return nil
+	}
+	var resp serverapi.ViewFactionStorageResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		logger.Printf("  Warning: failed to parse faction storage: %v", err)
+		return nil
+	}
+	storage := &FactionStorage{
+		BaseID:  resp.BaseID,
+		Credits: float64(resp.Credits),
+	}
+	for _, item := range resp.Items {
+		storage.Items = append(storage.Items, StorageEntry{
+			ItemID:   item.ItemID,
+			Quantity: item.Quantity,
+		})
+		storage.ItemCount++
+	}
+	return storage
+}
+
+// parseFacility converts a raw facility map into a FactionFacility.
+func parseFacility(f map[string]any) FactionFacility {
+	ff := FactionFacility{Details: f}
+	if v, ok := f["facility_id"].(string); ok {
+		ff.FacilityID = v
+	}
+	if v, ok := f["facility_type"].(string); ok {
+		ff.FacilityType = v
+	}
+	if v, ok := f["category"].(string); ok {
+		ff.Category = v
+	}
+	if v, ok := f["base_id"].(string); ok {
+		ff.BaseID = v
+	}
+	if v, ok := f["status"].(string); ok {
+		ff.Status = v
+	}
+	if v, ok := f["level"].(float64); ok {
+		ff.Level = int(v)
+	}
+	return ff
+}
+
+// isStorageFacility reports whether a facility type holds shared storage.
+func isStorageFacility(facilityType string) bool {
+	t := strings.ToLower(facilityType)
+	for _, st := range []string{"lockbox", "vault", "warehouse", "depot"} {
+		if strings.Contains(t, st) {
+			return true
+		}
+	}
+	return false
 }
 
 // saveSnapshot persists a snapshot to the database.
@@ -1381,7 +1454,7 @@ func regenerateAllReports(db *sql.DB, outputPath string, logger *log.Logger) err
 		// Compute diffs
 		diffs := computeDiffs(snaps, prevSnaps)
 
-		// Load faction snapshots for this date and the prior date.
+		// Faction snapshots / diffs (best-effort).
 		todayFactions, err := loadFactionSnapshots(db, date)
 		if err != nil {
 			logger.Printf("Warning: failed to load faction snapshots for %s: %v", date, err)
@@ -1563,6 +1636,18 @@ func formatCredits(v float64) string {
 	return sign + formatNumber(v)
 }
 
+// deltaArrow returns a trend arrow for a delta: ↗ up, ↘ down, → unchanged.
+func deltaArrow(delta float64) string {
+	switch {
+	case delta > 0:
+		return "↗"
+	case delta < 0:
+		return "↘"
+	default:
+		return "→"
+	}
+}
+
 func formatNumber(v float64) string {
 	// Format with thousands separator
 	abs := math.Abs(v)
@@ -1702,43 +1787,45 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff, factio
 	}
 	b.WriteString("\n")
 
-	// Faction summary
+	// Faction Summary
 	if len(factionDiffs) > 0 {
 		b.WriteString("## Faction Summary\n\n")
-		b.WriteString("| Tag | Name | Treasury | Members | Bases | Changes |\n")
-		b.WriteString("|-----|------|----------|---------|-------|---------|\n")
+		b.WriteString("| Tag | Name | Treasury | Members | Bases | Facilities | Storage | Changes |\n")
+		b.WriteString("|-----|------|----------|---------|-------|------------|---------|---------|\n")
 		for _, fd := range factionDiffs {
-			treasury := "—"
-			members := "—"
-			bases := 0
-			if fd.Current != nil {
-				if prevDate == "" || fd.IsNew {
-					treasury = formatCredits(fd.Current.Treasury)
-				} else {
-					treasury = formatCredits(fd.TreasuryDelta)
-				}
-				if fd.MemberCountDelta != 0 {
-					members = fmt.Sprintf("%+d (now %d)", fd.MemberCountDelta, fd.Current.MemberCount)
-				} else {
-					members = fmt.Sprintf("%d", fd.Current.MemberCount)
-				}
-				bases = fd.Current.OwnedBases
+			treasury := formatNumber(fd.Current.Treasury)
+			if prevDate != "" && !fd.IsNew {
+				treasury += " " + deltaArrow(fd.TreasuryDelta)
 			}
+
+			members := strconv.Itoa(fd.Current.MemberCount)
+			if !fd.IsNew && fd.MemberCountDelta != 0 {
+				members = fmt.Sprintf("%+d (now %d)", fd.MemberCountDelta, fd.Current.MemberCount)
+			}
+
+			facilities := strconv.Itoa(len(fd.Current.Facilities))
+			if !fd.IsNew && fd.FacilityCountDelta != 0 {
+				facilities = fmt.Sprintf("%+d (now %d)", fd.FacilityCountDelta, len(fd.Current.Facilities))
+			}
+
 			var changes []string
+			if fd.IsNew {
+				changes = append(changes, "new faction")
+			}
 			changes = append(changes, fd.FacilityChanges...)
 			if fd.OwnedBasesDelta != 0 {
-				changes = append(changes, fmt.Sprintf("Bases: %+d", fd.OwnedBasesDelta))
+				changes = append(changes, fmt.Sprintf("bases %+d", fd.OwnedBasesDelta))
 			}
 			changes = append(changes, fd.StorageItemChanges...)
 			changeStr := strings.Join(changes, "; ")
 			if len(changeStr) > 100 {
 				changeStr = changeStr[:97] + "..."
 			}
-			if fd.IsNew {
-				changeStr = "NEW; " + changeStr
-			}
-			fmt.Fprintf(&b, "| **%s** | %s | %s | %s | %d | %s |\n",
-				fd.FactionTag, fd.FactionName, treasury, members, bases, changeStr)
+
+			fmt.Fprintf(&b, "| **%s** | %s | %s | %s | %d | %s | %s | %s |\n",
+				fd.FactionTag, fd.FactionName, treasury, members,
+				fd.Current.OwnedBases, facilities,
+				factionStorageSummary(fd.Current.StorageStations), changeStr)
 		}
 		b.WriteString("\n")
 	}
@@ -2161,56 +2248,52 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 	}
 	b.WriteString("</div>\n")
 
-	// Faction Summary
+	// Faction Summary table
 	if len(factionDiffs) > 0 {
 		b.WriteString("<h2>Faction Summary</h2>\n<table>\n")
-		b.WriteString("<tr><th>Tag</th><th>Name</th><th>Treasury</th><th>Members</th><th>Bases</th><th>Changes</th></tr>\n")
+		b.WriteString("<tr><th>Tag</th><th>Name</th><th>Treasury</th><th>Members</th><th>Bases</th><th>Facilities</th><th>Storage</th><th>Changes</th></tr>\n")
 		for _, fd := range factionDiffs {
-			var treasury, members string
-			bases := 0
-			if fd.Current != nil {
-				if prevDate == "" || fd.IsNew {
-					treasury = fmt.Sprintf(`<span class="neutral">%s</span>`, formatNumber(fd.Current.Treasury))
-				} else {
-					trendCls := "neutral"
-					if fd.TreasuryDelta > 0 {
-						trendCls = "positive"
-					} else if fd.TreasuryDelta < 0 {
-						trendCls = "negative"
-					}
-					treasury = fmt.Sprintf(`<span class="%s">%s</span>`, trendCls, formatNumber(fd.TreasuryDelta))
+			var treasuryHTML string
+			if prevDate == "" || fd.IsNew {
+				treasuryHTML = fmt.Sprintf(`<span class="neutral">%s</span>`, formatNumber(fd.Current.Treasury))
+			} else {
+				cls := "neutral"
+				if fd.TreasuryDelta > 0 {
+					cls = "positive"
+				} else if fd.TreasuryDelta < 0 {
+					cls = "negative"
 				}
-				if fd.MemberCountDelta != 0 {
-					trendCls := "positive"
-					if fd.MemberCountDelta < 0 {
-						trendCls = "negative"
-					}
-					members = fmt.Sprintf(`<span class="%s">%+d</span> (now %d)`, trendCls, fd.MemberCountDelta, fd.Current.MemberCount)
-				} else {
-					members = fmt.Sprintf("%d", fd.Current.MemberCount)
+				treasuryHTML = fmt.Sprintf(`<span class="%s">%s %s</span>`,
+					cls, formatNumber(fd.Current.Treasury), deltaArrow(fd.TreasuryDelta))
+				if fd.TreasuryDelta != 0 {
+					treasuryHTML += fmt.Sprintf(`<br><small class="%s">%s</small>`, cls, formatCredits(fd.TreasuryDelta))
 				}
-				bases = fd.Current.OwnedBases
 			}
+
+			members := strconv.Itoa(fd.Current.MemberCount)
+			if !fd.IsNew && fd.MemberCountDelta != 0 {
+				members = fmt.Sprintf("%+d (now %d)", fd.MemberCountDelta, fd.Current.MemberCount)
+			}
+
+			facilities := strconv.Itoa(len(fd.Current.Facilities))
+			if !fd.IsNew && fd.FacilityCountDelta != 0 {
+				facilities = fmt.Sprintf("%+d (now %d)", fd.FacilityCountDelta, len(fd.Current.Facilities))
+			}
+
 			var changes []string
 			if fd.IsNew {
-				changes = append(changes, `<span class="positive">NEW</span>`)
+				changes = append(changes, "new faction")
 			}
-			for _, fc := range fd.FacilityChanges {
-				changes = append(changes, html.EscapeString(fc))
-			}
+			changes = append(changes, fd.FacilityChanges...)
 			if fd.OwnedBasesDelta != 0 {
-				trendCls := "positive"
-				if fd.OwnedBasesDelta < 0 {
-					trendCls = "negative"
-				}
-				changes = append(changes, fmt.Sprintf(`<span class="%s">Bases: %+d</span>`, trendCls, fd.OwnedBasesDelta))
+				changes = append(changes, fmt.Sprintf("bases %+d", fd.OwnedBasesDelta))
 			}
-			for _, sc := range fd.StorageItemChanges {
-				changes = append(changes, html.EscapeString(sc))
-			}
-			fmt.Fprintf(&b, `<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>`+"\n",
-				html.EscapeString(fd.FactionTag), html.EscapeString(fd.FactionName),
-				treasury, members, bases, strings.Join(changes, "; "))
+			changes = append(changes, fd.StorageItemChanges...)
+
+			fmt.Fprintf(&b, "<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+				html.EscapeString(fd.FactionTag), html.EscapeString(fd.FactionName), treasuryHTML,
+				html.EscapeString(members), fd.Current.OwnedBases, html.EscapeString(facilities),
+				html.EscapeString(factionStorageSummary(fd.Current.StorageStations)), buildListHTML(changes))
 		}
 		b.WriteString("</table>\n")
 	}
