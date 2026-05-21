@@ -4080,16 +4080,15 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// terminal payload it expects.
 		storeKey = "mine"
 		shouldStore = true
-	case protocol.TypeError:
-		// Don't store error responses in the same keys as success data
-		// Errors are tracked in lastError field instead
-		return
-	case protocol.TypeActionError:
-		// Store the full action_error payload under a dedicated slot so
-		// callers can render the actual error frame (code, message, tick)
-		// without falling back to the stale prior success payload stored
-		// under the command's name. Single slot is fine because REPL
-		// commands are serialized.
+	case protocol.TypeError, protocol.TypeActionError:
+		// Store the full error payload under a dedicated slot so callers can
+		// render the actual error frame (code, message, tick) without falling
+		// back to a stale prior payload. Both error types must update this slot:
+		// otherwise a later `error` frame (e.g. a deferred "Resources depleted"
+		// from mine) would leave _last_error holding the previous command's
+		// `action_error`, and the REPL would print that stale error. Don't store
+		// under success keys. Single slot is fine because REPL commands are
+		// serialized.
 		c.rawJSONMu.Lock()
 		if jsonData, err := json.Marshal(resp.Payload); err == nil {
 			c.latestRawJSON["_last_error"] = jsonData
