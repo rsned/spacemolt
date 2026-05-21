@@ -1,0 +1,151 @@
+package faction
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+)
+
+// Store is the subset of *knowledge.SQLiteKB the Collector persists through.
+// Satisfied by *knowledge.SQLiteKB.
+type Store interface {
+	StoreFaction(ctx context.Context, r knowledge.FactionRecord) error
+	ReplaceFactionMembers(ctx context.Context, factionID string, members []knowledge.FactionMember) error
+	ReplaceFactionRelations(ctx context.Context, factionID string, rels []knowledge.FactionRelation) error
+	StoreFactionBase(ctx context.Context, b knowledge.FactionBaseRow) error
+	ReplaceFactionFacilities(ctx context.Context, factionID, baseID string, fs []knowledge.FactionFacilityRow) error
+	ReplaceFactionStorage(ctx context.Context, s knowledge.FactionStorageRow) error
+	ReplaceFactionOrders(ctx context.Context, factionID, baseID string, orders []knowledge.FactionOrderRow) error
+	ReplaceFactionMissions(ctx context.Context, factionID, baseID string, ms []knowledge.FactionMissionRow) error
+	ReplaceFactionRooms(ctx context.Context, factionID, baseID string, rooms []knowledge.FactionRoomRow) error
+}
+
+// Collector gathers faction data from a connected game client and persists it.
+type Collector struct {
+	kb     Store
+	logger *log.Logger
+}
+
+// NewCollector returns a Collector that writes to kb.
+func NewCollector(kb Store, logger *log.Logger) *Collector {
+	if logger == nil {
+		logger = log.Default()
+	}
+	return &Collector{kb: kb, logger: logger}
+}
+
+// Collect gathers faction data from the connected client's vantage point.
+// When includeFactionWide is true, it also collects faction_info-derived data
+// (header, members, relations, intel). Station-scoped data (facilities, storage,
+// orders, missions, rooms, bases) is always collected for the current station
+// and known bases. Best-effort: sub-query failures are logged, not fatal.
+func (c *Collector) Collect(ctx context.Context, client game.GameClient, includeFactionWide bool) error {
+	state := client.GetState()
+	factionID := state.Player.FactionID
+	if factionID == "" {
+		return fmt.Errorf("agent is not in a faction")
+	}
+	wsClient, ok := client.(*game.Client)
+	if !ok {
+		return fmt.Errorf("faction collection requires the WebSocket client (*game.Client)")
+	}
+
+	if includeFactionWide {
+		c.collectFactionInfo(ctx, wsClient, factionID)
+	}
+	c.collectStation(ctx, wsClient, factionID, state)
+	return nil
+}
+
+// submitAndRead sends a command and returns its response payload, mirroring the
+// daily-summary storage-capture pattern. Returns nil payload on server error.
+func submitAndRead(ctx context.Context, c *game.Client, msgType string, payload map[string]any) (map[string]any, error) {
+	h, err := c.Submit(ctx, protocol.Message{
+		Type:      msgType,
+		Timestamp: time.Now().UnixMilli(),
+		Payload:   payload,
+	}, game.WithAckOnly(), game.WithTimeout(10*time.Second))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.Result(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
+		if msg, ok := resp.Payload["message"].(string); ok {
+			return nil, fmt.Errorf("server error: %s", msg)
+		}
+		return nil, fmt.Errorf("server returned error response")
+	}
+	return resp.Payload, nil
+}
+
+// readInto submits a command and unmarshals the payload into out.
+func readInto(ctx context.Context, c *game.Client, msgType string, payload map[string]any, out any) error {
+	p, err := submitAndRead(ctx, c, msgType, payload)
+	if err != nil {
+		return err
+	}
+	raw, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, out)
+}
+
+func (c *Collector) collectFactionInfo(ctx context.Context, client *game.Client, factionID string) {
+	var info serverapi.FactionInfoResponse
+	if err := readInto(ctx, client, "faction_info", map[string]any{"limit": 200}, &info); err != nil {
+		c.logger.Printf("  faction_info failed: %v", err)
+		return
+	}
+	rec, members, rels := parseFactionInfo(info)
+	if rec.FactionID == "" {
+		rec.FactionID = factionID
+	}
+	rec.IntelSystems, rec.IntelTrade = c.collectIntel(ctx, client)
+
+	if err := c.kb.StoreFaction(ctx, rec); err != nil {
+		c.logger.Printf("  StoreFaction failed: %v", err)
+	}
+	if err := c.kb.ReplaceFactionMembers(ctx, rec.FactionID, members); err != nil {
+		c.logger.Printf("  ReplaceFactionMembers failed: %v", err)
+	}
+	if err := c.kb.ReplaceFactionRelations(ctx, rec.FactionID, rels); err != nil {
+		c.logger.Printf("  ReplaceFactionRelations failed: %v", err)
+	}
+	c.logger.Printf("  Faction %s: treasury=%d members=%d relations=%d", rec.Tag, rec.Treasury, len(members), len(rels))
+}
+
+// collectIntel reads intel coverage counts; returns (systems, trade), 0 on error.
+func (c *Collector) collectIntel(ctx context.Context, client *game.Client) (int, int) {
+	var systems, trade int
+	if p, err := submitAndRead(ctx, client, "faction_intel_status", nil); err == nil {
+		systems = intFromAny(p["systems_covered"], p["count"], p["total"])
+	}
+	if p, err := submitAndRead(ctx, client, "faction_trade_intel_status", nil); err == nil {
+		trade = intFromAny(p["stations_covered"], p["count"], p["total"])
+	}
+	return systems, trade
+}
+
+// intFromAny returns the first numeric value found among candidates as an int.
+func intFromAny(candidates ...any) int {
+	for _, v := range candidates {
+		if f, ok := v.(float64); ok {
+			return int(f)
+		}
+	}
+	return 0
+}
+
+// collectStation is implemented in Task 7. Temporary stub for this task.
+func (c *Collector) collectStation(_ context.Context, _ *game.Client, _ string, _ *game.State) {}
