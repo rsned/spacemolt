@@ -161,6 +161,152 @@ func migrations() []Migration {
 				CREATE INDEX seen_sightings_last   ON seen_player_sightings(last_seen_utc);
 			`,
 		},
+		{
+			version: 35,
+			name:    "add_faction_dashboard_tables",
+			sql: `
+				CREATE TABLE factions (
+					faction_id      TEXT PRIMARY KEY,
+					name            TEXT,
+					tag             TEXT,
+					leader_id       TEXT,
+					leader_username TEXT,
+					treasury        INTEGER,
+					member_count    INTEGER,
+					owned_bases     INTEGER,
+					description     TEXT,
+					charter         TEXT,
+					emblem          TEXT,
+					primary_color   TEXT,
+					secondary_color TEXT,
+					founded_utc     TEXT,
+					intel_systems   INTEGER,
+					intel_trade     INTEGER,
+					captured_utc    TEXT NOT NULL
+				);
+
+				CREATE TABLE faction_members (
+					faction_id    TEXT NOT NULL,
+					player_id     TEXT NOT NULL,
+					username      TEXT,
+					role          TEXT,
+					joined_utc    TEXT,
+					last_seen_utc TEXT,
+					is_online     INTEGER NOT NULL DEFAULT 0,
+					captured_utc  TEXT NOT NULL,
+					PRIMARY KEY (faction_id, player_id)
+				);
+
+				CREATE TABLE faction_relations (
+					faction_id        TEXT NOT NULL,
+					target_faction_id TEXT NOT NULL,
+					target_name       TEXT,
+					target_tag        TEXT,
+					kind              TEXT NOT NULL,
+					reason            TEXT,
+					terms             TEXT,
+					our_kills         INTEGER NOT NULL DEFAULT 0,
+					their_kills       INTEGER NOT NULL DEFAULT 0,
+					started_utc       TEXT,
+					captured_utc      TEXT NOT NULL,
+					PRIMARY KEY (faction_id, target_faction_id, kind)
+				);
+
+				CREATE TABLE faction_bases (
+					faction_id    TEXT NOT NULL,
+					base_id       TEXT NOT NULL,
+					base_name     TEXT,
+					system_id     TEXT,
+					system_name   TEXT,
+					poi_id        TEXT,
+					services_json TEXT,
+					captured_utc  TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id)
+				);
+
+				CREATE TABLE faction_facilities (
+					faction_id    TEXT NOT NULL,
+					base_id       TEXT NOT NULL,
+					facility_id   TEXT NOT NULL,
+					facility_type TEXT,
+					category      TEXT,
+					level         INTEGER NOT NULL DEFAULT 0,
+					status        TEXT,
+					recipe_id     TEXT,
+					details_json  TEXT,
+					captured_utc  TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, facility_id)
+				);
+
+				CREATE TABLE faction_storage (
+					faction_id   TEXT NOT NULL,
+					base_id      TEXT NOT NULL,
+					credits      INTEGER NOT NULL DEFAULT 0,
+					item_count   INTEGER NOT NULL DEFAULT 0,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id)
+				);
+
+				CREATE TABLE faction_storage_items (
+					faction_id   TEXT NOT NULL,
+					base_id      TEXT NOT NULL,
+					item_id      TEXT NOT NULL,
+					name         TEXT,
+					quantity     REAL NOT NULL DEFAULT 0,
+					size         INTEGER NOT NULL DEFAULT 0,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, item_id)
+				);
+
+				CREATE TABLE faction_orders (
+					faction_id   TEXT NOT NULL,
+					base_id      TEXT NOT NULL,
+					order_id     TEXT NOT NULL,
+					side         TEXT,
+					item_id      TEXT,
+					item_name    TEXT,
+					price_each   REAL NOT NULL DEFAULT 0,
+					quantity     REAL NOT NULL DEFAULT 0,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, order_id)
+				);
+
+				CREATE TABLE faction_missions (
+					faction_id         TEXT NOT NULL,
+					base_id            TEXT NOT NULL,
+					mission_id         TEXT NOT NULL,
+					title              TEXT,
+					type               TEXT,
+					description        TEXT,
+					giver_name         TEXT,
+					rewards_json       TEXT,
+					objectives_json    TEXT,
+					assigned_player_id TEXT,
+					expiration_utc     TEXT,
+					captured_utc       TEXT NOT NULL,
+					PRIMARY KEY (faction_id, mission_id)
+				);
+
+				CREATE TABLE faction_rooms (
+					faction_id   TEXT NOT NULL,
+					base_id      TEXT NOT NULL,
+					room_id      TEXT NOT NULL,
+					name         TEXT,
+					access       TEXT,
+					description  TEXT,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, room_id)
+				);
+
+				CREATE INDEX faction_members_faction   ON faction_members(faction_id);
+				CREATE INDEX faction_relations_faction  ON faction_relations(faction_id);
+				CREATE INDEX faction_facilities_faction ON faction_facilities(faction_id);
+				CREATE INDEX faction_storage_faction    ON faction_storage(faction_id);
+				CREATE INDEX faction_orders_faction     ON faction_orders(faction_id);
+				CREATE INDEX faction_missions_faction   ON faction_missions(faction_id);
+				CREATE INDEX faction_rooms_faction      ON faction_rooms(faction_id);
+			`,
+		},
 	}
 }
 
