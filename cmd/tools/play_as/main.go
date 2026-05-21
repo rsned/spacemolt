@@ -5490,6 +5490,7 @@ func printHelp() {
 	fmt.Println("  update_facilities         - Save facility details to KB (must be docked)")
 	fmt.Println("  update_missions           - Save mission board templates to KB")
 	fmt.Println("  update_all                - Run all update commands for current location")
+	fmt.Println("  update_faction_data       - Save faction data to KB (must be in a faction)")
 
 	fmt.Println("\n=== OTHER ===")
 	fmt.Println("  log <entry>               - Add captain's log entry")
