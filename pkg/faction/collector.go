@@ -129,10 +129,12 @@ func (c *Collector) collectFactionInfo(ctx context.Context, client *game.Client,
 func (c *Collector) collectIntel(ctx context.Context, client *game.Client) (int, int) {
 	var systems, trade int
 	if p, err := submitAndRead(ctx, client, "faction_intel_status", nil); err == nil {
-		systems = intFromAny(p["systems_covered"], p["count"], p["total"])
+		// Server fields per openapi: unique_systems is the coverage count;
+		// total_reports is a reasonable fallback.
+		systems = intFromAny(p["unique_systems"], p["total_reports"])
 	}
 	if p, err := submitAndRead(ctx, client, "faction_trade_intel_status", nil); err == nil {
-		trade = intFromAny(p["stations_covered"], p["count"], p["total"])
+		trade = intFromAny(p["unique_stations"], p["total_reports"])
 	}
 	return systems, trade
 }
