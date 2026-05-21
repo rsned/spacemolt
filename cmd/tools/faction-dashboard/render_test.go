@@ -25,6 +25,25 @@ func sampleView() *knowledge.FactionView {
 			{BaseID: "b1", Credits: 500, ItemCount: 1, CapturedAt: now,
 				Items: []knowledge.FactionStorageItem{{ItemID: "iron_ore", Name: "Iron Ore", Quantity: 42, Size: 1}}},
 		},
+		Relations: []knowledge.FactionRelation{
+			{TargetTag: "ALLY", TargetName: "Allies Inc", Kind: "ally", CapturedAt: now},
+			{TargetTag: "EVIL", TargetName: "Bad Guys", Kind: "war", OurKills: 3, TheirKills: 1, CapturedAt: now},
+		},
+		Bases: []knowledge.FactionBaseRow{
+			{BaseID: "b1", BaseName: "Forge Station", SystemName: "Sol-3", CapturedAt: now},
+		},
+		Facilities: []knowledge.FactionFacilityRow{
+			{BaseID: "b1", FacilityID: "fac1", FacilityType: "refinery", Category: "production", Level: 2, Status: "active", RecipeID: "refine_iron", CapturedAt: now},
+		},
+		Orders: []knowledge.FactionOrderRow{
+			{BaseID: "b1", OrderID: "o1", Side: "buy", ItemName: "Iron Ore", PriceEach: 10, Quantity: 100, CapturedAt: now},
+		},
+		Missions: []knowledge.FactionMissionRow{
+			{BaseID: "b1", MissionID: "m1", Title: "Haul Ore", Type: "delivery", Description: "Move ore.", CapturedAt: now},
+		},
+		Rooms: []knowledge.FactionRoomRow{
+			{BaseID: "b1", RoomID: "r1", Name: "War Room", Access: "officers", Description: "Strategy here.", CapturedAt: now},
+		},
 	}
 }
 
@@ -33,7 +52,7 @@ func TestRenderFactionHTML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderFactionHTML: %v", err)
 	}
-	for _, want := range []string{"CRFT", "Crafters Union", "Be excellent.", "Iron Ore", "data-tab=\"overview\"", "data-tab=\"storage\""} {
+	for _, want := range []string{"CRFT", "Crafters Union", "Be excellent.", "Iron Ore", "data-tab=\"overview\"", "data-tab=\"storage\"", "Allies Inc", "Forge Station", "refinery", "Haul Ore", "War Room"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered HTML missing %q", want)
 		}

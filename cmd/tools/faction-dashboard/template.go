@@ -112,9 +112,40 @@ var factionTemplate = template.Must(template.New("faction").Funcs(factionFuncs).
   {{else}}<p class="empty">No members collected.</p>{{end}}
 </div>
 
-<div class="panel" data-tab="diplomacy"><p class="empty">Diplomacy — added in Task 11.</p></div>
-<div class="panel" data-tab="bases"><p class="empty">Bases — added in Task 11.</p></div>
-<div class="panel" data-tab="production"><p class="empty">Production — added in Task 11.</p></div>
+<div class="panel" data-tab="diplomacy">
+  {{$rels := .Relations}}
+  {{if $rels}}
+  <table><tr><th>Kind</th><th>Faction</th><th>Detail</th></tr>
+  {{range $rels}}<tr>
+    <td>{{.Kind}}</td><td>{{if .TargetTag}}[{{.TargetTag}}] {{end}}{{.TargetName}}</td>
+    <td>{{if eq .Kind "war"}}kills {{.OurKills}}–{{.TheirKills}}{{if .Reason}} · {{.Reason}}{{end}}{{else if eq .Kind "peace_proposal"}}{{.Terms}}{{else}}—{{end}}</td>
+  </tr>{{end}}</table>
+  {{else}}<p class="empty">No diplomatic relations collected.</p>{{end}}
+</div>
+
+<div class="panel" data-tab="bases">
+  {{if .Bases}}
+  {{range .Bases}}
+  <details><summary>{{if .BaseName}}{{.BaseName}}{{else}}{{.BaseID}}{{end}} {{if .SystemName}}({{.SystemName}}){{end}}</summary>
+    <table>
+      <tr><th>Base ID</th><td>{{.BaseID}}</td></tr>
+      <tr><th>System</th><td>{{.SystemName}} {{.SystemID}}</td></tr>
+      <tr><th>POI</th><td>{{.POIID}}</td></tr>
+    </table>
+  </details>
+  {{end}}
+  {{else}}<p class="empty">No bases collected.</p>{{end}}
+</div>
+
+<div class="panel" data-tab="production">
+  {{if .Facilities}}
+  <table><tr><th>Base</th><th>Facility</th><th>Category</th><th>Level</th><th>Status</th><th>Recipe</th></tr>
+  {{range .Facilities}}<tr>
+    <td>{{.BaseID}}</td><td>{{.FacilityType}}</td><td>{{.Category}}</td><td>{{.Level}}</td>
+    <td>{{if .Status}}{{.Status}}{{else}}—{{end}}</td><td>{{if .RecipeID}}{{.RecipeID}}{{else}}—{{end}}</td>
+  </tr>{{end}}</table>
+  {{else}}<p class="empty">No facilities collected.</p>{{end}}
+</div>
 
 <div class="panel" data-tab="storage">
   {{if .Storage}}
@@ -128,9 +159,41 @@ var factionTemplate = template.Must(template.New("faction").Funcs(factionFuncs).
   {{else}}<p class="empty">No storage collected.</p>{{end}}
 </div>
 
-<div class="panel" data-tab="market"><p class="empty">Market — added in Task 11.</p></div>
-<div class="panel" data-tab="missions"><p class="empty">Missions — added in Task 11.</p></div>
-<div class="panel" data-tab="rooms"><p class="empty">Rooms — added in Task 11.</p></div>
+<div class="panel" data-tab="market">
+  {{if .Orders}}
+  <table><tr><th>Base</th><th>Side</th><th>Item</th><th>Price each</th><th>Qty</th></tr>
+  {{range .Orders}}<tr>
+    <td>{{.BaseID}}</td><td>{{.Side}}</td><td>{{if .ItemName}}{{.ItemName}}{{else}}{{.ItemID}}{{end}}</td>
+    <td>{{.PriceEach}}</td><td>{{.Quantity}}</td>
+  </tr>{{end}}</table>
+  {{else}}<p class="empty">No faction orders collected.</p>{{end}}
+</div>
+
+<div class="panel" data-tab="missions">
+  {{if .Missions}}
+  {{range .Missions}}
+  <details><summary>{{.Title}} {{if .Type}}· {{.Type}}{{end}}</summary>
+    <div class="lore">{{.Description}}</div>
+    <table>
+      <tr><th>Base</th><td>{{.BaseID}}</td></tr>
+      <tr><th>Giver</th><td>{{if .GiverName}}{{.GiverName}}{{else}}—{{end}}</td></tr>
+      <tr><th>Assigned</th><td>{{if .AssignedPlayerID}}{{.AssignedPlayerID}}{{else}}unassigned{{end}}</td></tr>
+      <tr><th>Expires</th><td>{{if .ExpirationUTC}}{{.ExpirationUTC}}{{else}}—{{end}}</td></tr>
+    </table>
+  </details>
+  {{end}}
+  {{else}}<p class="empty">No faction missions collected.</p>{{end}}
+</div>
+
+<div class="panel" data-tab="rooms">
+  {{if .Rooms}}
+  {{range .Rooms}}
+  <details><summary>{{.Name}} {{if .Access}}· {{.Access}}{{end}}</summary>
+    <div class="lore">{{if .Description}}{{.Description}}{{else}}<span class="empty">No description.</span>{{end}}</div>
+  </details>
+  {{end}}
+  {{else}}<p class="empty">No rooms collected.</p>{{end}}
+</div>
 <div class="panel" data-tab="intel">
   <div class="card"><h3>Intel coverage</h3>
     <table>
