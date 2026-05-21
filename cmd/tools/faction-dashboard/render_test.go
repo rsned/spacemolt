@@ -34,6 +34,7 @@ func sampleView() *knowledge.FactionView {
 		},
 		Facilities: []knowledge.FactionFacilityRow{
 			{BaseID: "b1", FacilityID: "fac1", FacilityType: "refinery", Category: "production", Level: 2, Status: "active", RecipeID: "refine_iron", CapturedAt: now},
+			{BaseID: "b1", FacilityID: "fac2", FacilityType: "faction_desk", Category: "faction", Level: 1, Status: "active", CapturedAt: now},
 		},
 		Orders: []knowledge.FactionOrderRow{
 			{BaseID: "b1", OrderID: "o1", Side: "buy", ItemName: "Iron Ore", PriceEach: 10, Quantity: 100, CapturedAt: now},
@@ -52,7 +53,7 @@ func TestRenderFactionHTML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderFactionHTML: %v", err)
 	}
-	for _, want := range []string{"CRFT", "Crafters Union", "Be excellent.", "Iron Ore", "data-tab=\"overview\"", "data-tab=\"storage\"", "Allies Inc", "Forge Station", "refinery", "Haul Ore", "War Room", "href=\"index.html\"", "All factions"} {
+	for _, want := range []string{"CRFT", "Crafters Union", "Be excellent.", "Iron Ore", "data-tab=\"overview\"", "data-tab=\"storage\"", "Allies Inc", "Forge Station", "refinery", "Haul Ore", "War Room", "href=\"index.html\"", "All factions", "data-tab=\"facilities\"", "Production facilities", "Faction facilities", "faction_desk"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered HTML missing %q", want)
 		}
@@ -78,5 +79,26 @@ func TestRenderFactionHTMLEscaping(t *testing.T) {
 	}
 	if !strings.Contains(html, "&lt;script&gt;") {
 		t.Errorf("expected escaped form of user content")
+	}
+}
+
+func TestIsProductionFacility(t *testing.T) {
+	cases := []struct {
+		name string
+		row  knowledge.FactionFacilityRow
+		want bool
+	}{
+		{"category production", knowledge.FactionFacilityRow{FacilityType: "darksteel_forge", Category: "production"}, true},
+		{"category faction", knowledge.FactionFacilityRow{FacilityType: "faction_desk", Category: "faction"}, false},
+		{"category infrastructure", knowledge.FactionFacilityRow{FacilityType: "faction_lockbox", Category: "infrastructure"}, false},
+		{"category service", knowledge.FactionFacilityRow{FacilityType: "repair_bay", Category: "service"}, false},
+		{"no category, has recipe", knowledge.FactionFacilityRow{FacilityType: "mystery", RecipeID: "refine_iron"}, true},
+		{"no category, forge type", knowledge.FactionFacilityRow{FacilityType: "darksteel_forge"}, true},
+		{"no category, desk type", knowledge.FactionFacilityRow{FacilityType: "faction_desk"}, false},
+	}
+	for _, c := range cases {
+		if got := isProductionFacility(c.row); got != c.want {
+			t.Errorf("%s: isProductionFacility=%v, want %v", c.name, got, c.want)
+		}
 	}
 }

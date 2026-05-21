@@ -6,7 +6,9 @@ import (
 )
 
 var factionFuncs = template.FuncMap{
-	"slug": slugifyTag,
+	"slug":                 slugifyTag,
+	"productionFacilities": productionFacilities,
+	"factionFacilities":    factionFacilities,
 	"comma": func(n int) string {
 		s := fmt.Sprintf("%d", n)
 		out := ""
@@ -80,7 +82,7 @@ var factionTemplate = template.Must(template.New("faction").Funcs(factionFuncs).
   <button class="tab" data-tab="members" onclick="showTab(event,'members')">Members</button>
   <button class="tab" data-tab="diplomacy" onclick="showTab(event,'diplomacy')">Diplomacy</button>
   <button class="tab" data-tab="bases" onclick="showTab(event,'bases')">Bases</button>
-  <button class="tab" data-tab="production" onclick="showTab(event,'production')">Production</button>
+  <button class="tab" data-tab="facilities" onclick="showTab(event,'facilities')">Facilities</button>
   <button class="tab" data-tab="storage" onclick="showTab(event,'storage')">Storage</button>
   <button class="tab" data-tab="market" onclick="showTab(event,'market')">Market</button>
   <button class="tab" data-tab="missions" onclick="showTab(event,'missions')">Missions</button>
@@ -144,14 +146,27 @@ var factionTemplate = template.Must(template.New("faction").Funcs(factionFuncs).
   {{else}}<p class="empty">No bases collected.</p>{{end}}
 </div>
 
-<div class="panel" data-tab="production">
-  {{if .Facilities}}
-  <table><tr><th>Base</th><th>Facility</th><th>Category</th><th>Level</th><th>Status</th><th>Recipe</th></tr>
-  {{range .Facilities}}<tr>
-    <td>{{.BaseID}}</td><td>{{.FacilityType}}</td><td>{{.Category}}</td><td>{{.Level}}</td>
-    <td>{{if .Status}}{{.Status}}{{else}}—{{end}}</td><td>{{if .RecipeID}}{{.RecipeID}}{{else}}—{{end}}</td>
-  </tr>{{end}}</table>
-  {{else}}<p class="empty">No facilities collected.</p>{{end}}
+<div class="panel" data-tab="facilities">
+  <div class="card"><h3>Production facilities</h3>
+    {{$prod := productionFacilities .Facilities}}
+    {{if $prod}}
+    <table><tr><th>Base</th><th>Facility</th><th>Category</th><th>Level</th><th>Status</th><th>Recipe</th></tr>
+    {{range $prod}}<tr>
+      <td>{{.BaseID}}</td><td>{{.FacilityType}}</td><td>{{.Category}}</td><td>{{.Level}}</td>
+      <td>{{if .Status}}{{.Status}}{{else}}—{{end}}</td><td>{{if .RecipeID}}{{.RecipeID}}{{else}}—{{end}}</td>
+    </tr>{{end}}</table>
+    {{else}}<p class="empty">No production facilities collected.</p>{{end}}
+  </div>
+  <div class="card"><h3>Faction facilities</h3>
+    {{$fac := factionFacilities .Facilities}}
+    {{if $fac}}
+    <table><tr><th>Base</th><th>Facility</th><th>Category</th><th>Level</th><th>Status</th></tr>
+    {{range $fac}}<tr>
+      <td>{{.BaseID}}</td><td>{{.FacilityType}}</td><td>{{.Category}}</td><td>{{.Level}}</td>
+      <td>{{if .Status}}{{.Status}}{{else}}—{{end}}</td>
+    </tr>{{end}}</table>
+    {{else}}<p class="empty">No faction facilities collected.</p>{{end}}
+  </div>
 </div>
 
 <div class="panel" data-tab="storage">
