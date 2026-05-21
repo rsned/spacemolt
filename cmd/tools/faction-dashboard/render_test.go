@@ -43,3 +43,21 @@ func TestRenderFactionHTML(t *testing.T) {
 		t.Errorf("unexpected unescaped content")
 	}
 }
+
+func TestRenderFactionHTMLEscaping(t *testing.T) {
+	v := &knowledge.FactionView{
+		Faction: knowledge.FactionRecord{
+			Tag: "X", Name: "<script>alert(1)</script>", Charter: "<b>x</b>",
+		},
+	}
+	html, err := renderFactionHTML(v)
+	if err != nil {
+		t.Fatalf("renderFactionHTML: %v", err)
+	}
+	if strings.Contains(html, "<script>alert(1)</script>") {
+		t.Errorf("user content was not escaped")
+	}
+	if !strings.Contains(html, "&lt;script&gt;") {
+		t.Errorf("expected escaped form of user content")
+	}
+}
