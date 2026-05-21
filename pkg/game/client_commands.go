@@ -49,7 +49,7 @@ func (c *Client) Reload(ctx context.Context, weaponInstanceID, ammoItemID string
 		Type: "reload",
 		Payload: map[string]any{
 			"weapon_instance_id": weaponInstanceID,
-			"ammo_item_id":      ammoItemID,
+			"ammo_item_id":       ammoItemID,
 		},
 		Timestamp: time.Now().UnixMilli(),
 	}
@@ -1630,10 +1630,40 @@ func (c *Client) FactionAcceptPeace(ctx context.Context, targetFactionID string)
 	return err
 }
 
-// FactionSetAlly marks another faction as ally.
-func (c *Client) FactionSetAlly(ctx context.Context, targetFactionID string) error {
+// FactionProposeAlly proposes a mutual alliance with another faction. The
+// target's diplomacy-capable members must call FactionAcceptAlly to ratify.
+func (c *Client) FactionProposeAlly(ctx context.Context, targetFactionID string) error {
 	msg := protocol.Message{
-		Type:      "faction_set_ally",
+		Type:      "faction_propose_ally",
+		Payload:   map[string]any{"target_faction_id": targetFactionID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// FactionAcceptAlly accepts a pending alliance proposal, ratifying it on both sides.
+func (c *Client) FactionAcceptAlly(ctx context.Context, targetFactionID string) error {
+	msg := protocol.Message{
+		Type:      "faction_accept_ally",
+		Payload:   map[string]any{"target_faction_id": targetFactionID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// FactionRemoveAlly dissolves an alliance with another faction. Idempotent:
+// succeeds even if no alliance existed.
+func (c *Client) FactionRemoveAlly(ctx context.Context, targetFactionID string) error {
+	msg := protocol.Message{
+		Type:      "faction_remove_ally",
 		Payload:   map[string]any{"target_faction_id": targetFactionID},
 		Timestamp: time.Now().UnixMilli(),
 	}

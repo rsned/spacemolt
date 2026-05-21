@@ -1211,7 +1211,7 @@ func (m *MCPGameClient) Battle(ctx context.Context, action string, payload map[s
 func (m *MCPGameClient) Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error {
 	_, err := m.callTool(ctx, "reload", map[string]any{
 		"weapon_instance_id": weaponInstanceID,
-		"ammo_item_id":      ammoItemID,
+		"ammo_item_id":       ammoItemID,
 	})
 	return err
 }
@@ -1398,8 +1398,18 @@ func (m *MCPGameClient) FactionAcceptPeace(ctx context.Context, targetFactionID 
 	return err
 }
 
-func (m *MCPGameClient) FactionSetAlly(ctx context.Context, targetFactionID string) error {
-	_, err := m.callTool(ctx, "faction_set_ally", map[string]any{"target_faction_id": targetFactionID})
+func (m *MCPGameClient) FactionProposeAlly(ctx context.Context, targetFactionID string) error {
+	_, err := m.callTool(ctx, "faction_propose_ally", map[string]any{"target_faction_id": targetFactionID})
+	return err
+}
+
+func (m *MCPGameClient) FactionAcceptAlly(ctx context.Context, targetFactionID string) error {
+	_, err := m.callTool(ctx, "faction_accept_ally", map[string]any{"target_faction_id": targetFactionID})
+	return err
+}
+
+func (m *MCPGameClient) FactionRemoveAlly(ctx context.Context, targetFactionID string) error {
+	_, err := m.callTool(ctx, "faction_remove_ally", map[string]any{"target_faction_id": targetFactionID})
 	return err
 }
 

@@ -447,136 +447,190 @@ func (m *mockGameClient) GetState() *game.State {
 }
 
 // Implement all other required methods from game.GameClient interface (no-op stubs)
-func (m *mockGameClient) Connect(ctx context.Context) error                                    { return nil }
-func (m *mockGameClient) Close() error                                                         { return nil }
-func (m *mockGameClient) IsConnected() bool                                                    { return true }
-func (m *mockGameClient) Ready() <-chan struct{}                                               { return nil }
-func (m *mockGameClient) Login(ctx context.Context) error                                      { return nil }
-func (m *mockGameClient) Register(ctx context.Context, empire, registrationCode string) error  { return nil }
-func (m *mockGameClient) Undock(ctx context.Context) error                                     { return nil }
-func (m *mockGameClient) Dock(ctx context.Context) error                                       { return nil }
-func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) (*game.TravelResult, error) { return nil, nil }
-func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) (*game.JumpResult, error) { return nil, nil }
-func (m *mockGameClient) Mine(ctx context.Context) error                                       { return nil }
-func (m *mockGameClient) Scan(ctx context.Context) error                                       { return nil }
-	func (m *mockGameClient) ScanTarget(ctx context.Context, targetID string) error { return nil }
-func (m *mockGameClient) Attack(ctx context.Context, targetID string) error                    { return nil }
-func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error                         { return nil }
-func (m *mockGameClient) Sell(ctx context.Context, itemID string, quantity float64) error      { return nil }
-func (m *mockGameClient) SellAllBulk(ctx context.Context, reservedItems []string) error       { return nil }
-func (m *mockGameClient) Buy(ctx context.Context, itemID string, quantity float64) error       { return nil }
-func (m *mockGameClient) GetListings(ctx context.Context) error                                { return nil }
-func (m *mockGameClient) GetTrades(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error { return nil }
-func (m *mockGameClient) GetRecipes(ctx context.Context) error                                 { return nil }
-func (m *mockGameClient) Refuel(ctx context.Context) error                                     { return nil }
-func (m *mockGameClient) Repair(ctx context.Context) error                                     { return nil }
-func (m *mockGameClient) RepairWith(ctx context.Context, payload map[string]any) error         { return nil }
-func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID string) error      { return nil }
-func (m *mockGameClient) DistressSignal(ctx context.Context, distressType string) error        { return nil }
-func (m *mockGameClient) Install(ctx context.Context, itemID string) error                     { return nil }
-func (m *mockGameClient) RefitShip(ctx context.Context) error                                 { return nil }
-func (m *mockGameClient) InstallMod(ctx context.Context, moduleID string) error                { return nil }
-func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error              { return nil }
-func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error                 { return nil }
-func (m *mockGameClient) BrowseShips(ctx context.Context, payload map[string]any) error       { return nil }
-func (m *mockGameClient) BuyInsurance(ctx context.Context, ticks int) error                   { return nil }
-func (m *mockGameClient) ClaimInsurance(ctx context.Context) error                             { return nil }
-func (m *mockGameClient) DepositItems(ctx context.Context, itemID string, quantity float64) error { return nil }
-func (m *mockGameClient) DepositItemsPayload(ctx context.Context, payload map[string]any) error { return nil }
-func (m *mockGameClient) DepositAllItems(ctx context.Context) error                            { return nil }
-func (m *mockGameClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error { return nil }
-func (m *mockGameClient) WithdrawItemsPayload(ctx context.Context, payload map[string]any) error { return nil }
-func (m *mockGameClient) ViewStorage(ctx context.Context) error                                { return nil }
-func (m *mockGameClient) ViewStorageAt(ctx context.Context, stationID string) error            { return nil }
-func (m *mockGameClient) GetWrecks(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error { return nil }
-func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error               { return nil }
-func (m *mockGameClient) GetSystem(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) GetStatus(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) GetNotifications(ctx context.Context) error                           { return nil }
-func (m *mockGameClient) GetShip(ctx context.Context) error                                    { return nil }
-func (m *mockGameClient) GetCargo(ctx context.Context) error                                   { return nil }
-func (m *mockGameClient) GetSkills(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) GetPOI(ctx context.Context) error                                     { return nil }
-func (m *mockGameClient) GetBase(ctx context.Context) error                                    { return nil }
-func (m *mockGameClient) GetMap(ctx context.Context, force ...bool) error                      { return nil }
-func (m *mockGameClient) GetNearby(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) GetSystemAgents(ctx context.Context) error                             { return nil }
-func (m *mockGameClient) GetVersion(ctx context.Context) error                                 { return nil }
-func (m *mockGameClient) GetCommands(ctx context.Context) error                                { return nil }
-func (m *mockGameClient) GetActiveMissions(ctx context.Context) error                          { return nil }
-func (m *mockGameClient) GetInsuranceQuote(ctx context.Context) error                          { return nil }
-func (m *mockGameClient) Help(ctx context.Context, payload map[string]any) error               { return nil }
-func (m *mockGameClient) FactionInfo(ctx context.Context) error                                { return nil }
-func (m *mockGameClient) CaptainsLogList(ctx context.Context) error                            { return nil }
-func (m *mockGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error { return nil }
-func (m *mockGameClient) FindRoute(ctx context.Context, targetSystem string) ([]game.RouteStep, error) { return nil, nil }
-func (m *mockGameClient) CreateFaction(ctx context.Context, payload map[string]any) error      { return nil }
-func (m *mockGameClient) JoinFaction(ctx context.Context, factionID string) error              { return nil }
-func (m *mockGameClient) LeaveFaction(ctx context.Context) error                               { return nil }
-func (m *mockGameClient) FactionInvite(ctx context.Context, playerID string) error             { return nil }
-func (m *mockGameClient) FactionKick(ctx context.Context, playerID string) error               { return nil }
-func (m *mockGameClient) FactionPromote(ctx context.Context, playerID, roleID string) error    { return nil }
-func (m *mockGameClient) Chat(ctx context.Context, channel, content string, targetID string) error { return nil }
-func (m *mockGameClient) GetChatHistory(ctx context.Context, channel string, payload map[string]any) error { return nil }
-func (m *mockGameClient) Jettison(ctx context.Context, itemID string, quantity float64) error  { return nil }
-func (m *mockGameClient) SetPlayerStatus(ctx context.Context, payload map[string]any) error    { return nil }
-func (m *mockGameClient) SetHomeBase(ctx context.Context, baseID string) error                 { return nil }
-func (m *mockGameClient) ForumList(ctx context.Context, page int) error                        { return nil }
-func (m *mockGameClient) ForumCreateThread(ctx context.Context, title, content string, category string) error { return nil }
-func (m *mockGameClient) ForumGetThread(ctx context.Context, threadID string) error            { return nil }
-func (m *mockGameClient) ForumReply(ctx context.Context, threadID, content string) error        { return nil }
-func (m *mockGameClient) ForumUpvote(ctx context.Context, threadID string, replyID string) error { return nil }
-func (m *mockGameClient) ForumDeleteThread(ctx context.Context, threadID string) error         { return nil }
-func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) error           { return nil }
-func (m *mockGameClient) CreateNote(ctx context.Context, title, content string) error          { return nil }
-func (m *mockGameClient) WriteNote(ctx context.Context, noteID, content string) error          { return nil }
-func (m *mockGameClient) GetNotes(ctx context.Context) error                                   { return nil }
-func (m *mockGameClient) GetMarketListings() []game.MarketListing                              { return nil }
-func (m *mockGameClient) GetRawJSON(key string) []byte                                         { return nil }
-func (m *mockGameClient) ListShips(ctx context.Context) error                                  { return nil }
-func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error                  { return nil }
-func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error                    { return nil }
-func (m *mockGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error    { return nil }
-func (m *mockGameClient) CreateBuyOrder(ctx context.Context, payload map[string]any) error     { return nil }
-func (m *mockGameClient) ViewMarket(ctx context.Context, payload map[string]any) error         { return nil }
-func (m *mockGameClient) ViewOrders(ctx context.Context) error                                 { return nil }
-func (m *mockGameClient) GetActionLog(ctx context.Context, payload map[string]any) error       { return nil }
-func (m *mockGameClient) GetMissions(ctx context.Context) error                                { return nil }
-func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) error            { return nil }
-func (m *mockGameClient) CompleteMission(ctx context.Context, missionID string) error          { return nil }
-func (m *mockGameClient) AbandonMission(ctx context.Context, missionID string) error           { return nil }
-func (m *mockGameClient) DeclineMission(ctx context.Context, templateID string) error          { return nil }
-func (m *mockGameClient) SurveySystem(ctx context.Context) error                               { return nil }
-func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error               { return nil }
-func (m *mockGameClient) CaptainsLogGet(ctx context.Context, index int) error                  { return nil }
-func (m *mockGameClient) RawCommand(ctx context.Context, cmd string, args map[string]any) error { return nil }
+func (m *mockGameClient) Connect(ctx context.Context) error { return nil }
+func (m *mockGameClient) Close() error                      { return nil }
+func (m *mockGameClient) IsConnected() bool                 { return true }
+func (m *mockGameClient) Ready() <-chan struct{}            { return nil }
+func (m *mockGameClient) Login(ctx context.Context) error   { return nil }
+func (m *mockGameClient) Register(ctx context.Context, empire, registrationCode string) error {
+	return nil
+}
+func (m *mockGameClient) Undock(ctx context.Context) error { return nil }
+func (m *mockGameClient) Dock(ctx context.Context) error   { return nil }
+func (m *mockGameClient) Travel(ctx context.Context, targetPOI string) (*game.TravelResult, error) {
+	return nil, nil
+}
+func (m *mockGameClient) Jump(ctx context.Context, targetSystem string) (*game.JumpResult, error) {
+	return nil, nil
+}
+func (m *mockGameClient) Mine(ctx context.Context) error                                  { return nil }
+func (m *mockGameClient) Scan(ctx context.Context) error                                  { return nil }
+func (m *mockGameClient) ScanTarget(ctx context.Context, targetID string) error           { return nil }
+func (m *mockGameClient) Attack(ctx context.Context, targetID string) error               { return nil }
+func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error                    { return nil }
+func (m *mockGameClient) Sell(ctx context.Context, itemID string, quantity float64) error { return nil }
+func (m *mockGameClient) SellAllBulk(ctx context.Context, reservedItems []string) error   { return nil }
+func (m *mockGameClient) Buy(ctx context.Context, itemID string, quantity float64) error  { return nil }
+func (m *mockGameClient) GetListings(ctx context.Context) error                           { return nil }
+func (m *mockGameClient) GetTrades(ctx context.Context) error                             { return nil }
+func (m *mockGameClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
+	return nil
+}
+func (m *mockGameClient) GetRecipes(ctx context.Context) error                            { return nil }
+func (m *mockGameClient) Refuel(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) Repair(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) RepairWith(ctx context.Context, payload map[string]any) error    { return nil }
+func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID string) error { return nil }
+func (m *mockGameClient) DistressSignal(ctx context.Context, distressType string) error   { return nil }
+func (m *mockGameClient) Install(ctx context.Context, itemID string) error                { return nil }
+func (m *mockGameClient) RefitShip(ctx context.Context) error                             { return nil }
+func (m *mockGameClient) InstallMod(ctx context.Context, moduleID string) error           { return nil }
+func (m *mockGameClient) UninstallMod(ctx context.Context, moduleID string) error         { return nil }
+func (m *mockGameClient) BuyShip(ctx context.Context, shipClass string) error             { return nil }
+func (m *mockGameClient) BrowseShips(ctx context.Context, payload map[string]any) error   { return nil }
+func (m *mockGameClient) BuyInsurance(ctx context.Context, ticks int) error               { return nil }
+func (m *mockGameClient) ClaimInsurance(ctx context.Context) error                        { return nil }
+func (m *mockGameClient) DepositItems(ctx context.Context, itemID string, quantity float64) error {
+	return nil
+}
+func (m *mockGameClient) DepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) DepositAllItems(ctx context.Context) error { return nil }
+func (m *mockGameClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
+	return nil
+}
+func (m *mockGameClient) WithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) ViewStorage(ctx context.Context) error                     { return nil }
+func (m *mockGameClient) ViewStorageAt(ctx context.Context, stationID string) error { return nil }
+func (m *mockGameClient) GetWrecks(ctx context.Context) error                       { return nil }
+func (m *mockGameClient) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error {
+	return nil
+}
+func (m *mockGameClient) SalvageWreck(ctx context.Context, wreckID string) error { return nil }
+func (m *mockGameClient) GetSystem(ctx context.Context) error                    { return nil }
+func (m *mockGameClient) GetStatus(ctx context.Context) error                    { return nil }
+func (m *mockGameClient) GetNotifications(ctx context.Context) error             { return nil }
+func (m *mockGameClient) GetShip(ctx context.Context) error                      { return nil }
+func (m *mockGameClient) GetCargo(ctx context.Context) error                     { return nil }
+func (m *mockGameClient) GetSkills(ctx context.Context) error                    { return nil }
+func (m *mockGameClient) GetPOI(ctx context.Context) error                       { return nil }
+func (m *mockGameClient) GetBase(ctx context.Context) error                      { return nil }
+func (m *mockGameClient) GetMap(ctx context.Context, force ...bool) error        { return nil }
+func (m *mockGameClient) GetNearby(ctx context.Context) error                    { return nil }
+func (m *mockGameClient) GetSystemAgents(ctx context.Context) error              { return nil }
+func (m *mockGameClient) GetVersion(ctx context.Context) error                   { return nil }
+func (m *mockGameClient) GetCommands(ctx context.Context) error                  { return nil }
+func (m *mockGameClient) GetActiveMissions(ctx context.Context) error            { return nil }
+func (m *mockGameClient) GetInsuranceQuote(ctx context.Context) error            { return nil }
+func (m *mockGameClient) Help(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) FactionInfo(ctx context.Context) error                  { return nil }
+func (m *mockGameClient) CaptainsLogList(ctx context.Context) error              { return nil }
+func (m *mockGameClient) Catalog(ctx context.Context, catalogType string, page, pageSize int) error {
+	return nil
+}
+func (m *mockGameClient) FindRoute(ctx context.Context, targetSystem string) ([]game.RouteStep, error) {
+	return nil, nil
+}
+func (m *mockGameClient) CreateFaction(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) JoinFaction(ctx context.Context, factionID string) error         { return nil }
+func (m *mockGameClient) LeaveFaction(ctx context.Context) error                          { return nil }
+func (m *mockGameClient) FactionInvite(ctx context.Context, playerID string) error        { return nil }
+func (m *mockGameClient) FactionKick(ctx context.Context, playerID string) error          { return nil }
+func (m *mockGameClient) FactionPromote(ctx context.Context, playerID, roleID string) error {
+	return nil
+}
+func (m *mockGameClient) Chat(ctx context.Context, channel, content string, targetID string) error {
+	return nil
+}
+func (m *mockGameClient) GetChatHistory(ctx context.Context, channel string, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) Jettison(ctx context.Context, itemID string, quantity float64) error {
+	return nil
+}
+func (m *mockGameClient) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) SetHomeBase(ctx context.Context, baseID string) error { return nil }
+func (m *mockGameClient) ForumList(ctx context.Context, page int) error        { return nil }
+func (m *mockGameClient) ForumCreateThread(ctx context.Context, title, content string, category string) error {
+	return nil
+}
+func (m *mockGameClient) ForumGetThread(ctx context.Context, threadID string) error      { return nil }
+func (m *mockGameClient) ForumReply(ctx context.Context, threadID, content string) error { return nil }
+func (m *mockGameClient) ForumUpvote(ctx context.Context, threadID string, replyID string) error {
+	return nil
+}
+func (m *mockGameClient) ForumDeleteThread(ctx context.Context, threadID string) error { return nil }
+func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) error   { return nil }
+func (m *mockGameClient) CreateNote(ctx context.Context, title, content string) error  { return nil }
+func (m *mockGameClient) WriteNote(ctx context.Context, noteID, content string) error  { return nil }
+func (m *mockGameClient) GetNotes(ctx context.Context) error                           { return nil }
+func (m *mockGameClient) GetMarketListings() []game.MarketListing                      { return nil }
+func (m *mockGameClient) GetRawJSON(key string) []byte                                 { return nil }
+func (m *mockGameClient) ListShips(ctx context.Context) error                          { return nil }
+func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error          { return nil }
+func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error            { return nil }
+func (m *mockGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) CreateBuyOrder(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) ViewMarket(ctx context.Context, payload map[string]any) error   { return nil }
+func (m *mockGameClient) ViewOrders(ctx context.Context) error                           { return nil }
+func (m *mockGameClient) GetActionLog(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) GetMissions(ctx context.Context) error                          { return nil }
+func (m *mockGameClient) AcceptMission(ctx context.Context, missionID string) error      { return nil }
+func (m *mockGameClient) CompleteMission(ctx context.Context, missionID string) error    { return nil }
+func (m *mockGameClient) AbandonMission(ctx context.Context, missionID string) error     { return nil }
+func (m *mockGameClient) DeclineMission(ctx context.Context, templateID string) error    { return nil }
+func (m *mockGameClient) SurveySystem(ctx context.Context) error                         { return nil }
+func (m *mockGameClient) CaptainsLogAdd(ctx context.Context, entry string) error         { return nil }
+func (m *mockGameClient) CaptainsLogGet(ctx context.Context, index int) error            { return nil }
+func (m *mockGameClient) RawCommand(ctx context.Context, cmd string, args map[string]any) error {
+	return nil
+}
 
 // Combat extras
-func (m *mockGameClient) Battle(ctx context.Context, action string, payload map[string]any) error { return nil }
-func (m *mockGameClient) Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error   { return nil }
+func (m *mockGameClient) Battle(ctx context.Context, action string, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error {
+	return nil
+}
 
 // Commerce extras
-func (m *mockGameClient) EstimatePurchase(ctx context.Context, itemID string, quantity int) error   { return nil }
-func (m *mockGameClient) CancelOrder(ctx context.Context, payload map[string]any) error            { return nil }
-func (m *mockGameClient) ModifyOrder(ctx context.Context, payload map[string]any) error            { return nil }
-func (m *mockGameClient) TradeOffer(ctx context.Context, targetID string, payload map[string]any) error { return nil }
-func (m *mockGameClient) TradeAccept(ctx context.Context, tradeID string) error                    { return nil }
-func (m *mockGameClient) TradeCancel(ctx context.Context, tradeID string) error                    { return nil }
-func (m *mockGameClient) TradeDecline(ctx context.Context, tradeID string) error                   { return nil }
+func (m *mockGameClient) EstimatePurchase(ctx context.Context, itemID string, quantity int) error {
+	return nil
+}
+func (m *mockGameClient) CancelOrder(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) ModifyOrder(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) TradeOffer(ctx context.Context, targetID string, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) TradeAccept(ctx context.Context, tradeID string) error  { return nil }
+func (m *mockGameClient) TradeCancel(ctx context.Context, tradeID string) error  { return nil }
+func (m *mockGameClient) TradeDecline(ctx context.Context, tradeID string) error { return nil }
 
 // Ship Management extras
-func (m *mockGameClient) BuyListedShip(ctx context.Context, listingID string) error              { return nil }
-func (m *mockGameClient) ListShipForSale(ctx context.Context, shipID string, price float64) error { return nil }
-func (m *mockGameClient) CommissionQuote(ctx context.Context, shipClass string) error            { return nil }
-func (m *mockGameClient) CommissionStatus(ctx context.Context, baseID string) error              { return nil }
-func (m *mockGameClient) CancelCommission(ctx context.Context, commissionID string) error        { return nil }
-func (m *mockGameClient) ClaimCommission(ctx context.Context, commissionID string) error         { return nil }
-func (m *mockGameClient) CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error { return nil }
+func (m *mockGameClient) BuyListedShip(ctx context.Context, listingID string) error { return nil }
+func (m *mockGameClient) ListShipForSale(ctx context.Context, shipID string, price float64) error {
+	return nil
+}
+func (m *mockGameClient) CommissionQuote(ctx context.Context, shipClass string) error     { return nil }
+func (m *mockGameClient) CommissionStatus(ctx context.Context, baseID string) error       { return nil }
+func (m *mockGameClient) CancelCommission(ctx context.Context, commissionID string) error { return nil }
+func (m *mockGameClient) ClaimCommission(ctx context.Context, commissionID string) error  { return nil }
+func (m *mockGameClient) CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error {
+	return nil
+}
 
 // Wrecks extras
-func (m *mockGameClient) TowWreck(ctx context.Context, wreckID string) error            { return nil }
+func (m *mockGameClient) TowWreck(ctx context.Context, wreckID string) error             { return nil }
 func (m *mockGameClient) UseItem(ctx context.Context, itemID string, quantity int) error { return nil }
 
 // Data collection extras
@@ -584,43 +638,91 @@ func (m *mockGameClient) SearchSystems(ctx context.Context, query string) error 
 func (m *mockGameClient) GetGuide(ctx context.Context, guide string) error      { return nil }
 
 // Faction extras
-func (m *mockGameClient) FactionList(ctx context.Context, limit, offset int) error         { return nil }
-func (m *mockGameClient) FactionEdit(ctx context.Context, payload map[string]any) error    { return nil }
-func (m *mockGameClient) FactionGetInvites(ctx context.Context) error                      { return nil }
-func (m *mockGameClient) FactionDeclineInvite(ctx context.Context, factionID string) error { return nil }
-func (m *mockGameClient) FactionDeclareWar(ctx context.Context, targetFactionID, reason string) error { return nil }
-func (m *mockGameClient) FactionProposePeace(ctx context.Context, targetFactionID, terms string) error { return nil }
-func (m *mockGameClient) FactionAcceptPeace(ctx context.Context, targetFactionID string) error { return nil }
-func (m *mockGameClient) FactionSetAlly(ctx context.Context, targetFactionID string) error    { return nil }
-func (m *mockGameClient) FactionSetEnemy(ctx context.Context, targetFactionID string) error   { return nil }
-func (m *mockGameClient) FactionDepositCredits(ctx context.Context, amount float64) error     { return nil }
-func (m *mockGameClient) FactionWithdrawCredits(ctx context.Context, amount float64) error    { return nil }
-func (m *mockGameClient) FactionDepositItems(ctx context.Context, itemID string, quantity int) error  { return nil }
-func (m *mockGameClient) FactionDepositItemsPayload(ctx context.Context, payload map[string]any) error { return nil }
-func (m *mockGameClient) FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error { return nil }
-func (m *mockGameClient) FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error { return nil }
-func (m *mockGameClient) ViewFactionStorage(ctx context.Context) error                         { return nil }
-func (m *mockGameClient) ViewFactionStorageAt(ctx context.Context, stationID string) error      { return nil }
-func (m *mockGameClient) FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error { return nil }
-func (m *mockGameClient) FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error { return nil }
-func (m *mockGameClient) FactionCreateRole(ctx context.Context, name string, priority int, permissions map[string]any) error { return nil }
-func (m *mockGameClient) FactionEditRole(ctx context.Context, roleID string, payload map[string]any) error { return nil }
-func (m *mockGameClient) FactionDeleteRole(ctx context.Context, roleID string) error           { return nil }
-func (m *mockGameClient) FactionQueryIntel(ctx context.Context, payload map[string]any) error  { return nil }
-func (m *mockGameClient) FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error { return nil }
-func (m *mockGameClient) FactionIntelStatus(ctx context.Context) error                         { return nil }
-func (m *mockGameClient) FactionTradeIntelStatus(ctx context.Context) error                    { return nil }
-func (m *mockGameClient) FactionRooms(ctx context.Context) error                               { return nil }
-func (m *mockGameClient) FactionVisitRoom(ctx context.Context, roomID string) error            { return nil }
-func (m *mockGameClient) FactionWriteRoom(ctx context.Context, payload map[string]any) error   { return nil }
-func (m *mockGameClient) FactionDeleteRoom(ctx context.Context, roomID string) error           { return nil }
-func (m *mockGameClient) FactionListMissions(ctx context.Context) error                        { return nil }
-func (m *mockGameClient) FactionCancelMission(ctx context.Context, templateID string) error    { return nil }
+func (m *mockGameClient) FactionList(ctx context.Context, limit, offset int) error      { return nil }
+func (m *mockGameClient) FactionEdit(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) FactionGetInvites(ctx context.Context) error                   { return nil }
+func (m *mockGameClient) FactionDeclineInvite(ctx context.Context, factionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionDeclareWar(ctx context.Context, targetFactionID, reason string) error {
+	return nil
+}
+func (m *mockGameClient) FactionProposePeace(ctx context.Context, targetFactionID, terms string) error {
+	return nil
+}
+func (m *mockGameClient) FactionAcceptPeace(ctx context.Context, targetFactionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionProposeAlly(ctx context.Context, targetFactionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionAcceptAlly(ctx context.Context, targetFactionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionRemoveAlly(ctx context.Context, targetFactionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionSetEnemy(ctx context.Context, targetFactionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionDepositCredits(ctx context.Context, amount float64) error { return nil }
+func (m *mockGameClient) FactionWithdrawCredits(ctx context.Context, amount float64) error {
+	return nil
+}
+func (m *mockGameClient) FactionDepositItems(ctx context.Context, itemID string, quantity int) error {
+	return nil
+}
+func (m *mockGameClient) FactionDepositItemsPayload(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error {
+	return nil
+}
+func (m *mockGameClient) FactionWithdrawItemsPayload(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) ViewFactionStorage(ctx context.Context) error { return nil }
+func (m *mockGameClient) ViewFactionStorageAt(ctx context.Context, stationID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionCreateBuyOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error {
+	return nil
+}
+func (m *mockGameClient) FactionCreateSellOrder(ctx context.Context, itemID string, priceEach float64, quantity int) error {
+	return nil
+}
+func (m *mockGameClient) FactionCreateRole(ctx context.Context, name string, priority int, permissions map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) FactionEditRole(ctx context.Context, roleID string, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) FactionDeleteRole(ctx context.Context, roleID string) error { return nil }
+func (m *mockGameClient) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) FactionIntelStatus(ctx context.Context) error              { return nil }
+func (m *mockGameClient) FactionTradeIntelStatus(ctx context.Context) error         { return nil }
+func (m *mockGameClient) FactionRooms(ctx context.Context) error                    { return nil }
+func (m *mockGameClient) FactionVisitRoom(ctx context.Context, roomID string) error { return nil }
+func (m *mockGameClient) FactionWriteRoom(ctx context.Context, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) FactionDeleteRoom(ctx context.Context, roomID string) error { return nil }
+func (m *mockGameClient) FactionListMissions(ctx context.Context) error              { return nil }
+func (m *mockGameClient) FactionCancelMission(ctx context.Context, templateID string) error {
+	return nil
+}
 
 // Communication extras
-func (m *mockGameClient) SendGift(ctx context.Context, payload map[string]any) error               { return nil }
-func (m *mockGameClient) SetAnonymous(ctx context.Context, anonymous bool) error                   { return nil }
-func (m *mockGameClient) SetColors(ctx context.Context, primaryColor, secondaryColor string) error { return nil }
+func (m *mockGameClient) SendGift(ctx context.Context, payload map[string]any) error { return nil }
+func (m *mockGameClient) SetAnonymous(ctx context.Context, anonymous bool) error     { return nil }
+func (m *mockGameClient) SetColors(ctx context.Context, primaryColor, secondaryColor string) error {
+	return nil
+}
 
 // Notes extras
 func (m *mockGameClient) ReadNote(ctx context.Context, noteID string) error { return nil }

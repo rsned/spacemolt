@@ -32,10 +32,10 @@ import (
 	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
-	"github.com/rsned/spacemolt/pkg/respfmt"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/registry"
+	"github.com/rsned/spacemolt/pkg/respfmt"
 )
 
 // Package-level knowledge base, initialized if --db-path is provided.
@@ -671,9 +671,9 @@ func formatFacility(raw []byte) string {
 // table, sorted alphabetically by id.
 func formatFacilityTypes(raw []byte) string {
 	var resp struct {
-		Page       int    `json:"page"`
-		TotalPages int    `json:"total_pages"`
-		Total      int    `json:"total"`
+		Page       int `json:"page"`
+		TotalPages int `json:"total_pages"`
+		Total      int `json:"total"`
 		Types      []struct {
 			ID        string `json:"id"`
 			Name      string `json:"name"`
@@ -1991,9 +1991,9 @@ func formatMine(raw []byte) string {
 func formatCraft(raw []byte) string {
 	raw = unwrapActionResult(raw)
 	var resp struct {
-		Recipe        string `json:"recipe"`
-		Quantity      int    `json:"quantity"`
-		FromStorage   []struct {
+		Recipe      string `json:"recipe"`
+		Quantity    int    `json:"quantity"`
+		FromStorage []struct {
 			ItemID   string `json:"item_id"`
 			Name     string `json:"name"`
 			Quantity int    `json:"quantity"`
@@ -2003,10 +2003,10 @@ func formatCraft(raw []byte) string {
 			Name     string `json:"name"`
 			Quantity int    `json:"quantity"`
 		} `json:"outputs"`
-		XPGained       map[string]int `json:"xp_gained"`
-		LevelUp        bool           `json:"level_up"`
-		LeveledUpSkills []string      `json:"leveled_up_skills"`
-		SkillLevel     int            `json:"skill_level"`
+		XPGained        map[string]int `json:"xp_gained"`
+		LevelUp         bool           `json:"level_up"`
+		LeveledUpSkills []string       `json:"leveled_up_skills"`
+		SkillLevel      int            `json:"skill_level"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -2072,18 +2072,18 @@ var missionsShowFull bool
 func formatMissions(raw []byte) string {
 	var resp struct {
 		Missions []struct {
-			MissionID         string              `json:"mission_id"`
-			TemplateID        string              `json:"template_id,omitempty"`
-			Type              string              `json:"type"`
-			Title             string              `json:"title"`
-			Description       string              `json:"description,omitempty"`
-			Difficulty        int                 `json:"difficulty,omitempty"`
-			Giver             struct {
+			MissionID   string `json:"mission_id"`
+			TemplateID  string `json:"template_id,omitempty"`
+			Type        string `json:"type"`
+			Title       string `json:"title"`
+			Description string `json:"description,omitempty"`
+			Difficulty  int    `json:"difficulty,omitempty"`
+			Giver       struct {
 				Name  string `json:"name,omitempty"`
 				Title string `json:"title,omitempty"`
 			} `json:"giver,omitempty"`
-			ChainNext      string                 `json:"chain_next,omitempty"`
-			ExpiresInTicks int                    `json:"expires_in_ticks,omitempty"`
+			ChainNext      string `json:"chain_next,omitempty"`
+			ExpiresInTicks int    `json:"expires_in_ticks,omitempty"`
 			Rewards        *struct {
 				Credits int            `json:"credits"`
 				Items   map[string]int `json:"items,omitempty"`
@@ -2455,13 +2455,13 @@ func formatActiveMissions(raw []byte) string {
 func formatCompleteMission(raw []byte) string {
 	raw = unwrapActionResult(raw)
 	var resp struct {
-		Title          string         `json:"title"`
-		MissionID      string         `json:"mission_id"`
-		Message        string         `json:"message"`
-		CreditsEarned  int            `json:"credits_earned"`
-		ItemsReceived  map[string]int `json:"items_received,omitempty"`
-		SkillXPGained  map[string]int `json:"skill_xp_gained,omitempty"`
-		ChainNext      string         `json:"chain_next,omitempty"`
+		Title         string         `json:"title"`
+		MissionID     string         `json:"mission_id"`
+		Message       string         `json:"message"`
+		CreditsEarned int            `json:"credits_earned"`
+		ItemsReceived map[string]int `json:"items_received,omitempty"`
+		SkillXPGained map[string]int `json:"skill_xp_gained,omitempty"`
+		ChainNext     string         `json:"chain_next,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -4221,12 +4221,28 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.FactionAcceptPeace(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
-	case "faction_set_ally":
+	case "faction_propose_ally":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: faction_set_ally <target-faction-id>")
+			return fmt.Errorf("usage: faction_propose_ally <target-faction-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.FactionSetAlly(ctx, parts[1])
+			return client.FactionProposeAlly(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_accept_ally":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_accept_ally <target-faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.FactionAcceptAlly(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "faction_remove_ally":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_remove_ally <target-faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.FactionRemoveAlly(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_set_enemy":
@@ -4928,33 +4944,33 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 // by their own name fall through to lookupRawJSON's `client.GetRawJSON(cmd)`
 // default — no entry needed.
 var rawJSONKeyForCommand = map[string]string{
-	"get_ship":            "ship",
-	"get_cargo":           "cargo",
-	"get_status":          "status",
-	"get_system":          "system",
-	"get_poi":             "poi",
-	"storage_at":          "storage",
-	"view_storage":        "storage",
+	"get_ship":             "ship",
+	"get_cargo":            "cargo",
+	"get_status":           "status",
+	"get_system":           "system",
+	"get_poi":              "poi",
+	"storage_at":           "storage",
+	"view_storage":         "storage",
 	"view_faction_storage": "faction_storage",
-	"browse_ships":        "listings",
-	"view_market":         "market",
-	"view_orders":         "orders",
-	"get_missions":        "missions",
-	"get_active_missions": "active_missions",
-	"get_wrecks":          "wrecks",
-	"get_recipes":         "recipes",
-	"get_base":            "base",
-	"get_chat_history":    "chat_history",
-	"survey_system":       "survey",
-	"get_skills":          "skills",
-	"get_nearby":          "nearby",
-	"map":                 "systems",
-	"get_map":             "systems",
-	"list_ships":          "ships",
-	"get_notes":           "notes",
-	"read_note":           "note",
-	"get_action_log":      "action_log",
-	"action_log":          "action_log",
+	"browse_ships":         "listings",
+	"view_market":          "market",
+	"view_orders":          "orders",
+	"get_missions":         "missions",
+	"get_active_missions":  "active_missions",
+	"get_wrecks":           "wrecks",
+	"get_recipes":          "recipes",
+	"get_base":             "base",
+	"get_chat_history":     "chat_history",
+	"survey_system":        "survey",
+	"get_skills":           "skills",
+	"get_nearby":           "nearby",
+	"map":                  "systems",
+	"get_map":              "systems",
+	"list_ships":           "ships",
+	"get_notes":            "notes",
+	"read_note":            "note",
+	"get_action_log":       "action_log",
+	"action_log":           "action_log",
 }
 
 // lookupRawJSON returns the raw JSON payload for command. It first checks
@@ -4989,6 +5005,7 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 //     innermost loop cleanly with a 🎯 line.
 //   - The REPL dispatcher (standalone) recognizes the sentinel and prints
 //     a ✓ line instead of ❌.
+//
 // Previously simpleCommand printed ✓ itself and returned nil, which hid
 // the signal from executeLoop — the loop saw "iteration succeeded" and
 // ran the next one, and so on until the count was exhausted.
@@ -5447,7 +5464,9 @@ func printHelp() {
 	fmt.Println("  faction_declare_war <id> [reason]  - Declare war")
 	fmt.Println("  faction_propose_peace <id> [terms] - Propose peace")
 	fmt.Println("  faction_accept_peace <id>     - Accept peace proposal")
-	fmt.Println("  faction_set_ally <id>         - Mark faction as ally")
+	fmt.Println("  faction_propose_ally <id>     - Propose a mutual alliance")
+	fmt.Println("  faction_accept_ally <id>      - Accept an alliance proposal")
+	fmt.Println("  faction_remove_ally <id>      - Dissolve an alliance")
 	fmt.Println("  faction_set_enemy <id>        - Mark faction as enemy")
 	fmt.Println("  faction_deposit_credits <amt> - Deposit credits to treasury")
 	fmt.Println("  faction_withdraw_credits <amt> - Withdraw from treasury")

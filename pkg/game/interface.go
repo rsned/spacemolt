@@ -135,7 +135,9 @@ type GameClient interface {
 	FactionDeclareWar(ctx context.Context, targetFactionID, reason string) error
 	FactionProposePeace(ctx context.Context, targetFactionID, terms string) error
 	FactionAcceptPeace(ctx context.Context, targetFactionID string) error
-	FactionSetAlly(ctx context.Context, targetFactionID string) error
+	FactionProposeAlly(ctx context.Context, targetFactionID string) error
+	FactionAcceptAlly(ctx context.Context, targetFactionID string) error
+	FactionRemoveAlly(ctx context.Context, targetFactionID string) error
 	FactionSetEnemy(ctx context.Context, targetFactionID string) error
 	FactionDepositCredits(ctx context.Context, amount float64) error
 	FactionWithdrawCredits(ctx context.Context, amount float64) error
