@@ -130,3 +130,4 @@ docs/*.md
 .gemini/
 
 .worktrees/
+.superpowers/
