@@ -255,7 +255,13 @@ func CommandAnnotations() map[string]Annotation {
 		"faction_accept_peace": {
 			Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
 		},
-		"faction_set_ally": {
+		"faction_propose_ally": {
+			Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
+		},
+		"faction_accept_ally": {
+			Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
+		},
+		"faction_remove_ally": {
 			Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
 		},
 		"faction_set_enemy": {

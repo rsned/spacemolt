@@ -390,7 +390,17 @@ var AllActions = []Action{
 		Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
 	},
 	{
-		Name: "faction_set_ally", Summary: "Mark another faction as ally",
+		Name: "faction_propose_ally", Summary: "Propose a mutual alliance with another faction",
+		Category: "faction", IsMutation: true,
+		Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
+	},
+	{
+		Name: "faction_accept_ally", Summary: "Accept a pending alliance proposal",
+		Category: "faction", IsMutation: true,
+		Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
+	},
+	{
+		Name: "faction_remove_ally", Summary: "Dissolve an alliance with another faction",
 		Category: "faction", IsMutation: true,
 		Preconditions: []Precondition{RequiresNotInTransit, RequiresFaction},
 	},
