@@ -3,6 +3,7 @@ package knowledge
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -38,7 +39,7 @@ func (kb *SQLiteKB) LoadFactionView(ctx context.Context, factionID string) (*Fac
 	if err := row.Scan(&r.FactionID, &r.Name, &r.Tag, &r.LeaderID, &r.LeaderUsername,
 		&r.Treasury, &r.MemberCount, &r.OwnedBases, &r.Description, &r.Charter, &r.Emblem,
 		&r.PrimaryColor, &r.SecondaryColor, &r.FoundedUTC, &r.IntelSystems, &r.IntelTrade, &capturedUTC); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("load faction: %w", err)
