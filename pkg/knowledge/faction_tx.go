@@ -31,3 +31,12 @@ func utc(t time.Time) string {
 	}
 	return t.UTC().Format(time.RFC3339)
 }
+
+// parseUTC parses an RFC3339 timestamp, returning the zero time on failure.
+func parseUTC(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
