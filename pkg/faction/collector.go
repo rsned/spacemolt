@@ -229,8 +229,47 @@ func (c *Collector) collectStorage(ctx context.Context, client *game.Client, fac
 	}
 }
 
-// collectOrders, collectMissions, collectRooms are implemented in Task 8.
-// Temporary stubs so this task compiles.
-func (c *Collector) collectOrders(_ context.Context, _ *game.Client, _, _ string)   {}
-func (c *Collector) collectMissions(_ context.Context, _ *game.Client, _, _ string) {}
-func (c *Collector) collectRooms(_ context.Context, _ *game.Client, _, _ string)    {}
+func (c *Collector) collectOrders(ctx context.Context, client *game.Client, factionID, baseID string) {
+	if baseID == "" {
+		return
+	}
+	var resp serverapi.ViewOrdersResponse
+	if err := readInto(ctx, client, "view_orders", nil, &resp); err != nil {
+		c.logger.Printf("  view_orders failed: %v", err)
+		return
+	}
+	rows := parseFactionOrders(factionID, baseID, resp)
+	if err := c.kb.ReplaceFactionOrders(ctx, factionID, baseID, rows); err != nil {
+		c.logger.Printf("  ReplaceFactionOrders failed: %v", err)
+	}
+}
+
+func (c *Collector) collectMissions(ctx context.Context, client *game.Client, factionID, baseID string) {
+	if baseID == "" {
+		return
+	}
+	var resp serverapi.FactionListMissionsResponse
+	if err := readInto(ctx, client, "faction_list_missions", nil, &resp); err != nil {
+		c.logger.Printf("  faction_list_missions failed: %v", err)
+		return
+	}
+	rows := parseFactionMissions(factionID, baseID, resp)
+	if err := c.kb.ReplaceFactionMissions(ctx, factionID, baseID, rows); err != nil {
+		c.logger.Printf("  ReplaceFactionMissions failed: %v", err)
+	}
+}
+
+func (c *Collector) collectRooms(ctx context.Context, client *game.Client, factionID, baseID string) {
+	if baseID == "" {
+		return
+	}
+	var resp serverapi.FactionRoomsResponse
+	if err := readInto(ctx, client, "faction_rooms", nil, &resp); err != nil {
+		c.logger.Printf("  faction_rooms failed: %v", err)
+		return
+	}
+	rows := parseFactionRooms(factionID, baseID, resp)
+	if err := c.kb.ReplaceFactionRooms(ctx, factionID, baseID, rows); err != nil {
+		c.logger.Printf("  ReplaceFactionRooms failed: %v", err)
+	}
+}
