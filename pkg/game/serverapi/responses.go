@@ -1,5 +1,7 @@
 package serverapi
 
+import "encoding/json"
+
 // ============================================================================
 // Server Response Wrappers
 // These wrap the actual data returned by server commands.
@@ -991,6 +993,42 @@ type ViewFactionStorageResponse struct {
 	Credits        int              `json:"credits"`
 	Items          []CargoItem      `json:"items"`
 	RecentActivity []map[string]any `json:"recent_activity,omitempty"`
+}
+
+// FactionRoom is one room in a faction's common space (faction_rooms).
+type FactionRoom struct {
+	RoomID      string `json:"room_id"`
+	Name        string `json:"name"`
+	Access      string `json:"access,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// FactionRoomsResponse wraps the response from faction_rooms.
+type FactionRoomsResponse struct {
+	Action string        `json:"action,omitempty"`
+	BaseID string        `json:"base_id,omitempty"`
+	Rooms  []FactionRoom `json:"rooms"`
+}
+
+// FactionMission is one posted faction mission (faction_list_missions).
+type FactionMission struct {
+	MissionID        string          `json:"mission_id,omitempty"`
+	TemplateID       string          `json:"template_id,omitempty"`
+	Title            string          `json:"title"`
+	Type             string          `json:"type,omitempty"`
+	Description      string          `json:"description,omitempty"`
+	GiverName        string          `json:"giver_name,omitempty"`
+	Rewards          json.RawMessage `json:"rewards,omitempty"`
+	Objectives       json.RawMessage `json:"objectives,omitempty"`
+	AssignedPlayerID string          `json:"assigned_player_id,omitempty"`
+	ExpiresAt        string          `json:"expires_at,omitempty"`
+}
+
+// FactionListMissionsResponse wraps the response from faction_list_missions.
+type FactionListMissionsResponse struct {
+	Action   string           `json:"action,omitempty"`
+	BaseID   string           `json:"base_id,omitempty"`
+	Missions []FactionMission `json:"missions"`
 }
 
 // TravelResponse wraps the response from travel command.
