@@ -243,7 +243,7 @@ CREATE TABLE faction_missions (
 					assigned_player_id TEXT,
 					expiration_utc     TEXT,
 					captured_utc       TEXT NOT NULL,
-					PRIMARY KEY (faction_id, mission_id)
+					PRIMARY KEY (faction_id, base_id, mission_id)
 				);
 
 
@@ -257,7 +257,7 @@ CREATE TABLE faction_orders (
 					price_each   REAL NOT NULL DEFAULT 0,
 					quantity     REAL NOT NULL DEFAULT 0,
 					captured_utc TEXT NOT NULL,
-					PRIMARY KEY (faction_id, order_id)
+					PRIMARY KEY (faction_id, base_id, order_id)
 				);
 
 

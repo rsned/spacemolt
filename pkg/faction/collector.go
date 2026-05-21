@@ -47,14 +47,17 @@ func NewCollector(kb Store, logger *log.Logger) *Collector {
 // orders, missions, rooms, bases) is always collected for the current station
 // and known bases. Best-effort: sub-query failures are logged, not fatal.
 func (c *Collector) Collect(ctx context.Context, client game.GameClient, includeFactionWide bool) error {
-	state := client.GetState()
-	factionID := state.Player.FactionID
-	if factionID == "" {
-		return fmt.Errorf("agent is not in a faction")
-	}
 	wsClient, ok := client.(*game.Client)
 	if !ok {
 		return fmt.Errorf("faction collection requires the WebSocket client (*game.Client)")
+	}
+	state := client.GetState()
+	if state == nil {
+		return fmt.Errorf("game state unavailable")
+	}
+	factionID := state.Player.FactionID
+	if factionID == "" {
+		return fmt.Errorf("agent is not in a faction")
 	}
 
 	if includeFactionWide {

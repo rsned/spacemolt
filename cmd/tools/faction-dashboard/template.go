@@ -6,6 +6,7 @@ import (
 )
 
 var factionFuncs = template.FuncMap{
+	"slug": slugifyTag,
 	"comma": func(n int) string {
 		s := fmt.Sprintf("%d", n)
 		out := ""

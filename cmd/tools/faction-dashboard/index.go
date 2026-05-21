@@ -37,7 +37,7 @@ var indexTemplate = template.Must(template.New("index").Funcs(factionFuncs).Pars
 </style></head><body><div class="container">
 <h1>Faction Dashboards</h1>
 {{range .}}
-<a class="card" href="faction-{{.Tag}}.html">
+<a class="card" href="faction-{{slug .Tag}}.html">
   <span class="tag">{{.Tag}}</span> <span class="name">{{.Name}}</span>
   <div class="meta">💰 {{comma .Treasury}} · 👥 {{.Members}} members · collected {{.CapturedAt}}</div>
 </a>

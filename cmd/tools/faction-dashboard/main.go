@@ -168,7 +168,7 @@ func renderAll(kb *knowledge.SQLiteKB, outputDir string, logger *log.Logger) err
 			logger.Printf("render %s: %v", id, err)
 			continue
 		}
-		path := filepath.Join(outputDir, "faction-"+view.Faction.Tag+".html")
+		path := filepath.Join(outputDir, "faction-"+slugifyTag(view.Faction.Tag)+".html")
 		if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
 			return err
 		}
