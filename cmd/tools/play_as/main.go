@@ -4883,6 +4883,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return kbUpdateMissions(client, ctx)
 	case "update_all":
 		return kbUpdateAll(client, ctx)
+	case "update_faction_data", "update_faction":
+		return kbUpdateFaction(client, ctx)
 
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.

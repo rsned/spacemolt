@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/faction"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -483,6 +485,24 @@ func kbUpdateMissions(client game.GameClient, ctx context.Context) error {
 
 	fmt.Printf("update_missions: %d new, %d unchanged, %d changed, %d procedural skipped\n",
 		inserted, unchanged, changed, skipped)
+	return nil
+}
+
+// kbUpdateFaction collects comprehensive faction data for the current agent's
+// faction and persists it to the knowledge base.
+func kbUpdateFaction(client game.GameClient, ctx context.Context) error {
+	if globalKB == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+	sqlite, ok := globalKB.(*knowledge.SQLiteKB)
+	if !ok {
+		return fmt.Errorf("faction collection requires a SQLite knowledge base")
+	}
+	c := faction.NewCollector(sqlite, log.Default())
+	if err := c.Collect(ctx, client, true); err != nil {
+		return fmt.Errorf("faction collection failed: %w", err)
+	}
+	fmt.Println("Faction data updated.")
 	return nil
 }
 
