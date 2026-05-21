@@ -1875,7 +1875,7 @@ func (c *Client) ViewFactionStorage(ctx context.Context) error {
 		Type:      "view_faction_storage",
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick))
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
 		_, err = h.Result(ctx)
 	}
@@ -1890,7 +1890,7 @@ func (c *Client) ViewFactionStorageAt(ctx context.Context, stationID string) err
 		Timestamp: time.Now().UnixMilli(),
 		Payload:   map[string]any{"station_id": stationID},
 	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick))
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
 		_, err = h.Result(ctx)
 	}
