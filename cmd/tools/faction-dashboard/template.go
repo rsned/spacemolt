@@ -61,8 +61,14 @@ var factionTemplate = template.Must(template.New("faction").Funcs(factionFuncs).
   .online{color:var(--green)} .offline{color:var(--tm)}
   .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid var(--s2);color:var(--tm);font-size:.8rem}
   a{color:var(--blue)}
+  .breadcrumbs{font-size:.85rem;color:var(--tm);margin-bottom:.75rem}
+  .breadcrumbs a{text-decoration:none}
+  .breadcrumbs a:hover{text-decoration:underline}
+  .breadcrumbs .sep{margin:0 .4rem;color:var(--s3)}
 </style></head>
 <body><div class="container">
+
+<nav class="breadcrumbs"><a href="index.html">← All factions</a><span class="sep">/</span>{{.Faction.Tag}}</nav>
 
 <div class="banner">
   <h1>⬢ {{.Faction.Tag}} — {{.Faction.Name}}</h1>

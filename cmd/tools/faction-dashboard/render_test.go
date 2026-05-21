@@ -52,7 +52,7 @@ func TestRenderFactionHTML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderFactionHTML: %v", err)
 	}
-	for _, want := range []string{"CRFT", "Crafters Union", "Be excellent.", "Iron Ore", "data-tab=\"overview\"", "data-tab=\"storage\"", "Allies Inc", "Forge Station", "refinery", "Haul Ore", "War Room"} {
+	for _, want := range []string{"CRFT", "Crafters Union", "Be excellent.", "Iron Ore", "data-tab=\"overview\"", "data-tab=\"storage\"", "Allies Inc", "Forge Station", "refinery", "Haul Ore", "War Room", "href=\"index.html\"", "All factions"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered HTML missing %q", want)
 		}
