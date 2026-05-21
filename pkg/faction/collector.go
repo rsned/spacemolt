@@ -149,5 +149,88 @@ func intFromAny(candidates ...any) int {
 	return 0
 }
 
-// collectStation is implemented in Task 7. Temporary stub for this task.
-func (c *Collector) collectStation(_ context.Context, _ *game.Client, _ string, _ *game.State) {}
+// collectStation collects all station-scoped data from the agent's current
+// vantage: facilities at the current station, faction storage at the current
+// station and every base discovered via facilities, plus orders/missions/rooms
+// (Task 8). Best-effort throughout.
+func (c *Collector) collectStation(ctx context.Context, client *game.Client, factionID string, state *game.State) {
+	currentBase := state.CurrentPOI
+	knownBases := map[string]bool{}
+	if currentBase != "" {
+		knownBases[currentBase] = true
+	}
+
+	// Facilities at the current station.
+	var facResp serverapi.FacilityListResponse
+	if err := readInto(ctx, client, "facility", map[string]any{"action": "faction_list"}, &facResp); err != nil {
+		c.logger.Printf("  facility faction_list failed: %v", err)
+	} else {
+		base := facResp.BaseID
+		if base == "" {
+			base = currentBase
+		}
+		rows := parseFacilities(factionID, base, facResp.FactionFacilities)
+		if base != "" {
+			if err := c.kb.ReplaceFactionFacilities(ctx, factionID, base, rows); err != nil {
+				c.logger.Printf("  ReplaceFactionFacilities failed: %v", err)
+			}
+		}
+		for _, r := range rows {
+			if r.BaseID != "" {
+				knownBases[r.BaseID] = true
+			}
+		}
+	}
+
+	// Persist known bases + collect faction storage at each (remote query supported).
+	for baseID := range knownBases {
+		c.persistBase(ctx, factionID, baseID, currentBase, state)
+		c.collectStorage(ctx, client, factionID, baseID)
+	}
+
+	// Orders / missions / rooms at the current station (Task 8).
+	c.collectOrders(ctx, client, factionID, currentBase)
+	c.collectMissions(ctx, client, factionID, currentBase)
+	c.collectRooms(ctx, client, factionID, currentBase)
+}
+
+// persistBase records a faction base. The current station is enriched with
+// system info from state; remote bases are recorded by ID only (the renderer
+// falls back to the base ID when the name is empty).
+func (c *Collector) persistBase(ctx context.Context, factionID, baseID, currentBase string, state *game.State) {
+	row := knowledge.FactionBaseRow{FactionID: factionID, BaseID: baseID, CapturedAt: time.Now()}
+	if baseID == currentBase {
+		row.SystemID = state.System.ID
+		row.SystemName = state.System.Name
+		row.POIID = currentBase
+	}
+	if err := c.kb.StoreFactionBase(ctx, row); err != nil {
+		c.logger.Printf("  StoreFactionBase failed: %v", err)
+	}
+}
+
+func (c *Collector) collectStorage(ctx context.Context, client *game.Client, factionID, baseID string) {
+	var resp serverapi.ViewFactionStorageResponse
+	if err := readInto(ctx, client, "view_faction_storage", map[string]any{"station_id": baseID}, &resp); err != nil {
+		c.logger.Printf("  faction storage at %s failed: %v", baseID, err)
+		return
+	}
+	row := knowledge.FactionStorageRow{
+		FactionID: factionID, BaseID: baseID, Credits: resp.Credits, CapturedAt: time.Now(),
+	}
+	for _, it := range resp.Items {
+		row.Items = append(row.Items, knowledge.FactionStorageItem{
+			ItemID: it.ItemID, Name: it.Name, Quantity: it.Quantity, Size: it.Size,
+		})
+	}
+	row.ItemCount = len(row.Items)
+	if err := c.kb.ReplaceFactionStorage(ctx, row); err != nil {
+		c.logger.Printf("  ReplaceFactionStorage failed: %v", err)
+	}
+}
+
+// collectOrders, collectMissions, collectRooms are implemented in Task 8.
+// Temporary stubs so this task compiles.
+func (c *Collector) collectOrders(_ context.Context, _ *game.Client, _, _ string)   {}
+func (c *Collector) collectMissions(_ context.Context, _ *game.Client, _, _ string) {}
+func (c *Collector) collectRooms(_ context.Context, _ *game.Client, _, _ string)    {}
