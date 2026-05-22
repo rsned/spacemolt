@@ -423,81 +423,9 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
-		// Handle loop meta-command.
-		// Single form:  loop [-f] <count> <command...>
-		// Block form:   loop [-f] <count> { stmt; stmt; ... }
-		// Block bodies support newline or ';' separators and may nest.
-		if command == "loop" {
-			// Detect block form by looking for a '{' outside of quotes in the
-			// full (possibly multi-line) input.
-			if !hasTopLevelOpenBrace(cmd) {
-				runLoopSingle(client, ctx, parts, format)
-				if sl := renderStatusline(client, cfg, agentID); sl != "" {
-					fmt.Println(sl)
-				}
-				fmt.Println()
-				continue
-			}
-			// Block form. Parse the header against the full input.
-			stmt := Statement{Raw: cmd, Tokens: splitArgs(firstLine)}
-			count, force, body, isBlock, perr := parseLoopHeader(stmt)
-			if perr != nil {
-				fmt.Printf("❌ %v\n\n", perr)
-				continue
-			}
-			if !isBlock {
-				fmt.Printf("❌ loop: expected block body\n\n")
-				continue
-			}
-			stmts, perr := parseStatements(body)
-			if perr != nil {
-				fmt.Printf("❌ %v\n\n", perr)
-				continue
-			}
-			if len(stmts) == 0 {
-				fmt.Println("❌ loop: empty block")
-				fmt.Println()
-				continue
-			}
-			preview := blockPreview(stmts)
-			if force {
-				fmt.Printf("🔁 Repeating { %s } %d time(s) (force mode)...\n", preview, count)
-			} else {
-				fmt.Printf("🔁 Repeating { %s } %d time(s)...\n", preview, count)
-			}
-			runStatement := func(tokens []string) error {
-				return executeCommand(client, ctx, tokens, format)
-			}
-			_ = executeLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
-			if sl := renderStatusline(client, cfg, agentID); sl != "" {
-				fmt.Println(sl)
-			}
-			fmt.Println()
-			continue
-		}
-
-		// Execute command
-		startTime := time.Now()
-		if err := executeCommand(client, ctx, parts, format); err != nil {
-			// *game.GoalReachedError is a success-style exit: the command's
-			// goal is already satisfied. Display it with ✓, not ❌.
-			var goal *game.GoalReachedError
-			if errors.As(err, &goal) {
-				fmt.Printf("✓ goal reached: %s\n", goal.Message)
-			} else {
-				fmt.Printf("❌ %s\n", formatError(err, command, format))
-			}
-		} else {
-			duration := time.Since(startTime)
-			fmt.Printf("✓ Completed in %v\n", duration)
-		}
-
-		// Render statusline before next prompt
-		if sl := renderStatusline(client, cfg, agentID); sl != "" {
-			fmt.Println(sl)
-		}
-
-		fmt.Println()
+		// Game command or loop: dispatch through the shared helper (also used
+		// by `run`).
+		_ = executeLogicalCommand(client, ctx, cmd, format, cfg, agentID)
 	}
 }
 
@@ -5615,6 +5543,82 @@ func printState(client game.GameClient) {
 	// For full JSON, user can use 'raw' command with specific keys
 	fmt.Println("\n💡 Tip: Use 'raw <key>' to see full JSON for specific data")
 	fmt.Println("   Available keys: player, ship, system, poi, etc.")
+}
+
+// executeLogicalCommand dispatches one logical command string — a bare command
+// or a loop (single or block form) — and renders the statusline afterward. It
+// returns a non-nil error only for conditions that should stop a running
+// script: a non-force loop failure, a fatal *tokenError, or a bare-command
+// error. Ordinary per-command errors are printed here; the REPL ignores the
+// return value, while `run` uses it to stop a script.
+func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd string, format outputFormat, cfg PlayAsConfig, agentID string) error {
+	firstLine := cmd
+	if nl := strings.IndexByte(firstLine, '\n'); nl >= 0 {
+		firstLine = firstLine[:nl]
+	}
+	parts := splitArgs(firstLine)
+	if len(parts) == 0 {
+		return nil
+	}
+	command := strings.ToLower(parts[0])
+
+	var resultErr error
+	if command == "loop" {
+		if !hasTopLevelOpenBrace(cmd) {
+			runLoopSingle(client, ctx, parts, format)
+		} else {
+			stmt := Statement{Raw: cmd, Tokens: splitArgs(firstLine)}
+			count, force, body, isBlock, perr := parseLoopHeader(stmt)
+			switch {
+			case perr != nil:
+				fmt.Printf("❌ %v\n", perr)
+				resultErr = perr
+			case !isBlock:
+				resultErr = fmt.Errorf("loop: expected block body")
+				fmt.Printf("❌ %v\n", resultErr)
+			default:
+				stmts, serr := parseStatements(body)
+				switch {
+				case serr != nil:
+					fmt.Printf("❌ %v\n", serr)
+					resultErr = serr
+				case len(stmts) == 0:
+					resultErr = fmt.Errorf("loop: empty block")
+					fmt.Printf("❌ %v\n", resultErr)
+				default:
+					preview := blockPreview(stmts)
+					if force {
+						fmt.Printf("🔁 Repeating { %s } %d time(s) (force mode)...\n", preview, count)
+					} else {
+						fmt.Printf("🔁 Repeating { %s } %d time(s)...\n", preview, count)
+					}
+					runStatement := func(tokens []string) error {
+						return executeCommand(client, ctx, tokens, format)
+					}
+					resultErr = executeLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
+				}
+			}
+		}
+	} else {
+		startTime := time.Now()
+		if err := executeCommand(client, ctx, parts, format); err != nil {
+			var goal *game.GoalReachedError
+			if errors.As(err, &goal) {
+				fmt.Printf("✓ goal reached: %s\n", goal.Message)
+			} else {
+				fmt.Printf("❌ %s\n", formatError(err, command, format))
+				resultErr = err
+			}
+		} else {
+			fmt.Printf("✓ Completed in %v\n", time.Since(startTime))
+		}
+	}
+
+	if sl := renderStatusline(client, cfg, agentID); sl != "" {
+		fmt.Println(sl)
+	}
+	fmt.Println()
+	return resultErr
 }
 
 // runLoopSingle handles the legacy "loop [-f] <count> <command...>" form
