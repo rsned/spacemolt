@@ -5624,7 +5624,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 	var resultErr error
 	if command == "loop" {
 		if !hasTopLevelOpenBrace(cmd) {
-			runLoopSingle(client, ctx, parts, format)
+			resultErr = runLoopSingle(client, ctx, parts, format)
 		} else {
 			stmt := Statement{Raw: cmd, Tokens: splitArgs(firstLine)}
 			count, force, body, isBlock, perr := parseLoopHeader(stmt)
@@ -5681,8 +5681,11 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 }
 
 // runLoopSingle handles the legacy "loop [-f] <count> <command...>" form
-// with a single command. Errors are printed to stdout but not returned.
-func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, format outputFormat) {
+// with a single command. It returns a non-nil stopping error when the loop
+// should abort the enclosing script: a fatal *tokenError or a non-force
+// command failure. Goal-reached exits and validation/usage errors return nil
+// (the script should continue or the bad input has already been reported).
+func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	if len(parts) < 3 {
 		fmt.Println("Usage: loop [-f] <count> <command...>")
 		fmt.Println("       loop [-f] <count> { stmt; stmt; ... }")
@@ -5692,7 +5695,7 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 		fmt.Println("          loop 10 sell iron_ore 5")
 		fmt.Println("          loop 3 { travel sol_belt; mine; mine; dock }")
 		fmt.Println()
-		return
+		return nil
 	}
 	forceLoop := false
 	argIdx := 1
@@ -5702,13 +5705,13 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 		if argIdx >= len(parts)-1 {
 			fmt.Println("Usage: loop [-f] <count> <command...>")
 			fmt.Println()
-			return
+			return nil
 		}
 	}
-	count, err := strconv.Atoi(parts[argIdx])
-	if err != nil || count < 1 {
+	count, countErr := strconv.Atoi(parts[argIdx])
+	if countErr != nil || count < 1 {
 		fmt.Printf("❌ Invalid count: %s (must be a positive integer)\n\n", parts[argIdx])
-		return
+		return nil //nolint:nilerr // validation failure: bad user input is not a script-stopping condition
 	}
 	loopParts := parts[argIdx+1:]
 	loopCmd := strings.Join(loopParts, " ")
@@ -5718,6 +5721,7 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 		fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
 	}
 	errs := 0
+	var stopErr error
 	for i := range count {
 		fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
 		startTime := time.Now()
@@ -5732,12 +5736,14 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 			var tokErr *tokenError
 			if errors.As(cerr, &tokErr) {
 				fmt.Printf("❌ %s → aborting loop\n", tokErr)
+				stopErr = cerr
 				break
 			}
 			errs++
 			fmt.Printf("❌ %s\n", formatError(cerr, loopParts[0], format))
 			if !forceLoop {
 				fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
+				stopErr = cerr
 				break
 			}
 			fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errs)
@@ -5749,6 +5755,7 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 	if forceLoop && errs > 0 {
 		fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errs, count)
 	}
+	return stopErr
 }
 
 func printHelp() {
