@@ -49,6 +49,59 @@ Type `help` in the terminal for a full command list. A few highlights:
 | `help` | Full command list |
 | `exit` | Quit the terminal |
 
+## Variable Tokens
+
+Commands may contain `$TOKEN$` placeholders that resolve from live game state
+right before each command runs. This makes loops portable across systems and
+agents.
+
+**POI-type tokens** resolve to a POI in the current system whose type matches
+the (lowercased) token name. When more than one POI of that type exists, the one
+whose ID sorts first alphabetically is used.
+
+| Token | Resolves to |
+|-------|-------------|
+| `$STATION$` | first `station` POI ID |
+| `$ASTEROID_BELT$` | first `asteroid_belt` POI ID |
+| `$GAS_CLOUD$` | first `gas_cloud` POI ID |
+| `$ICE_FIELD$` | first `ice_field` POI ID |
+| `$<TYPE>$` | first POI of type `<type>` (any known POI type) |
+
+**State tokens:**
+
+| Token | Resolves to |
+|-------|-------------|
+| `$SYSTEM$` | current system ID |
+| `$SHIP$` | active ship ID |
+| `$CREDITS$` | current credit balance (integer) |
+
+If a token can't be resolved (no matching POI, or an unknown name), the command
+fails — and inside a loop the **entire loop aborts immediately**, even under
+`-f`.
+
+Example:
+
+```
+loop 10 { travel $ASTEROID_BELT$; mine; travel $STATION$; sell_all }
+```
+
+## Scripts
+
+Save reusable command scripts and run them later — the same script works for any
+agent because tokens resolve to each agent's own system.
+
+| Command | Description |
+|---------|-------------|
+| `run <name\|path>` | Run a script. A bare name is looked up in the per-agent dir then the shared dir; an argument with a `/` or ending in `.smolt` is loaded as a literal path. |
+| `scripts` | List available scripts (per-agent entries shadow same-named shared ones). |
+| `save <name>` | Save the **last command** to the shared scripts dir as `<name>.smolt`. |
+
+Script files are plain command text — multi-line `loop` blocks, `;`/newline
+separators, `#` comments, and `$TOKEN$` variables all work. Locations:
+
+- Shared: `data/scripts/<name>.smolt`
+- Per-agent override: `data/agents/<id>/scripts/<name>.smolt`
+
 ## Configuration
 
 Config is loaded from `~/.config/spacemolt/play_as.yaml` by default (override with `--config`). All fields are optional -- missing fields use sensible defaults. A missing config file is not an error; the tool works out of the box.
