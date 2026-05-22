@@ -313,6 +313,9 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 
 	format := outputFormat(cfg.OutputFormat)
 
+	// lastCommand holds the most recent game/loop command, for `save <name>`.
+	var lastCommand string
+
 	for {
 		// Read input with history support. A line ending with an
 		// unbalanced '{' causes readLogicalCommand to continue with a
@@ -423,8 +426,64 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
+		// Handle scripts (list saved scripts)
+		if command == "scripts" {
+			perAgent, shared := listScripts(agentID)
+			if len(perAgent) == 0 && len(shared) == 0 {
+				fmt.Println("No scripts found.")
+			} else {
+				overridden := make(map[string]bool, len(perAgent))
+				for _, n := range perAgent {
+					overridden[n] = true
+				}
+				fmt.Println("Scripts:")
+				for _, n := range perAgent {
+					fmt.Printf("  %s (agent)\n", n)
+				}
+				for _, n := range shared {
+					if overridden[n] {
+						fmt.Printf("  %s (shared, overridden)\n", n)
+					} else {
+						fmt.Printf("  %s (shared)\n", n)
+					}
+				}
+			}
+			fmt.Println()
+			continue
+		}
+
+		// Handle save (persist the last command to the shared scripts dir)
+		if command == "save" {
+			switch {
+			case len(parts) < 2:
+				fmt.Println("Usage: save <name>")
+			case lastCommand == "":
+				fmt.Println("❌ save: no previous command to save")
+			default:
+				if err := saveScript(parts[1], lastCommand); err != nil {
+					fmt.Printf("❌ %v\n", err)
+				} else {
+					fmt.Printf("✓ saved script %q\n", parts[1])
+				}
+			}
+			fmt.Println()
+			continue
+		}
+
+		// Handle run (load and execute a script)
+		if command == "run" {
+			if len(parts) < 2 {
+				fmt.Println("Usage: run <name|path>")
+			} else {
+				runScript(client, ctx, parts[1], format, cfg, agentID)
+			}
+			fmt.Println()
+			continue
+		}
+
 		// Game command or loop: dispatch through the shared helper (also used
 		// by `run`).
+		lastCommand = cmd
 		_ = executeLogicalCommand(client, ctx, cmd, format, cfg, agentID)
 	}
 }
@@ -6515,4 +6574,37 @@ func isTankFullError(err error) bool {
 		return true
 	}
 	return strings.Contains(err.Error(), "tank_full")
+}
+
+// runScript loads a script (by name or explicit path) and executes its logical
+// commands in order. Execution stops at the first command that returns a
+// stopping error (non-force loop failure or fatal *tokenError).
+func runScript(client game.GameClient, ctx context.Context, arg string, format outputFormat, cfg PlayAsConfig, agentID string) {
+	path, ok := resolveScriptArg(arg, agentID)
+	if !ok {
+		fmt.Printf("❌ script %q not found (searched %s)\n",
+			arg, strings.Join(scriptSearchPaths(agentID), ", "))
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Printf("❌ run: %v\n", err)
+		return
+	}
+	cmds, err := splitScriptCommands(string(data))
+	if err != nil {
+		fmt.Printf("❌ run %s: %v\n", path, err)
+		return
+	}
+	fmt.Printf("▶ Running script %s (%d command(s))\n", path, len(cmds))
+	for _, c := range cmds {
+		if ctx.Err() != nil {
+			return
+		}
+		if err := executeLogicalCommand(client, ctx, c, format, cfg, agentID); err != nil {
+			fmt.Printf("⏹ script stopped: %v\n", err)
+			return
+		}
+	}
+	fmt.Printf("✓ script %s complete\n", path)
 }
