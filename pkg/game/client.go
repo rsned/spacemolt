@@ -2374,6 +2374,58 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.debugLogger.Printf("[CHAT] %v", resp.Payload)
 		}
 
+	case protocol.TypeSkillLevelUp:
+		// Server-initiated notification that a skill leveled up. Refresh the
+		// cached level so GetState() is accurate before the next full skill
+		// sync. We intentionally do NOT call checkXPChanges() here: the
+		// old->new level transition is surfaced by the subsequent player/skill
+		// data sync, which compares against the baseline snapshot. Firing the
+		// callback here (or advancing that baseline) would either duplicate the
+		// notification or hide the transition.
+		skillID, _ := resp.Payload["skill_id"].(string)
+		skillName, _ := resp.Payload["skill_name"].(string)
+		newLevel, _ := resp.Payload["new_level"].(float64)
+		xpGained, _ := resp.Payload["xp_gained"].(float64)
+		if skillID != "" && newLevel > 0 {
+			c.mu.Lock()
+			if c.state.Player.Skills == nil {
+				c.state.Player.Skills = make(map[string]Skill)
+			}
+			sk := c.state.Player.Skills[skillID]
+			sk.Level = int(newLevel)
+			c.state.Player.Skills[skillID] = sk
+			c.mu.Unlock()
+		}
+		label := skillName
+		if label == "" {
+			label = skillID
+		}
+		c.debugLogger.Printf("[SKILL LEVEL UP] %s reached level %.0f (+%.0f xp)", label, newLevel, xpGained)
+
+	case protocol.TypeFactionPromote:
+		// Server-initiated notification that this player's faction rank changed.
+		// Refresh the cached rank so GetState() reflects it before the next
+		// faction/player sync.
+		factionName, _ := resp.Payload["faction_name"].(string)
+		newRole, _ := resp.Payload["new_role"].(string)
+		oldRole, _ := resp.Payload["old_role"].(string)
+		promotedBy, _ := resp.Payload["promoted_by"].(string)
+		if newRole != "" {
+			c.mu.Lock()
+			c.state.Player.FactionRank = newRole
+			c.mu.Unlock()
+		}
+		c.debugLogger.Printf("[FACTION PROMOTE] %s: %s -> %s (by %s)", factionName, oldRole, newRole, promotedBy)
+
+	case protocol.TypeFactionInvite:
+		// Server-initiated notification that this player was invited to a
+		// faction. This is an offer, not membership — we do not mutate the
+		// player's own faction state until they accept. Log for visibility.
+		factionName, _ := resp.Payload["faction_name"].(string)
+		factionID, _ := resp.Payload["faction_id"].(string)
+		invitedBy, _ := resp.Payload["invited_by"].(string)
+		c.debugLogger.Printf("[FACTION INVITE] %s (%s) invited by %s", factionName, factionID, invitedBy)
+
 	default:
 		logUnhandledResponseType(resp)
 	}
@@ -3202,10 +3254,28 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		c.debugLogger.Printf("Action result: deposited items")
 
 	case "craft":
-		outputID, _ := result["output_id"].(string)
-		outputName, _ := result["output_name"].(string)
-		count, _ := result["quantity"].(float64)
-		recipeID, _ := result["recipe_id"].(string)
+		// v0.240+: outputs is an array of {item_id, name, quantity, bonus_quantity};
+		// recipe is the display name. The top-level "quantity" is the requested batch
+		// count, not the produced amount, so output quantities come from the array.
+		recipeName, _ := result["recipe"].(string)
+		type craftedOutput struct {
+			itemID   string
+			name     string
+			quantity float64
+		}
+		var outputs []craftedOutput
+		if rawOutputs, ok := result["outputs"].([]any); ok {
+			for _, raw := range rawOutputs {
+				o, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				itemID, _ := o["item_id"].(string)
+				name, _ := o["name"].(string)
+				qty, _ := o["quantity"].(float64)
+				outputs = append(outputs, craftedOutput{itemID: itemID, name: name, quantity: qty})
+			}
+		}
 
 		// Remove consumed inputs from cargo
 		if consumed, ok := result["from_storage"].([]any); ok {
@@ -3236,20 +3306,50 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			c.state.Ship.Cargo = filtered
 		}
 
-		// Add crafted output to cargo
-		if outputID != "" && count > 0 {
+		// Some or all outputs may be delivered straight to station or faction
+		// storage rather than ship cargo. Tally the per-item amounts that bypassed
+		// cargo so we only credit the remainder to the ship.
+		toStorage := make(map[string]float64)
+		for _, key := range []string{"to_storage", "to_faction_storage"} {
+			delivered, ok := result[key].([]any)
+			if !ok {
+				continue
+			}
+			for _, raw := range delivered {
+				item, ok := raw.(map[string]any)
+				if !ok {
+					continue
+				}
+				itemID, _ := item["item_id"].(string)
+				qty, _ := item["quantity"].(float64)
+				if itemID == "" || qty <= 0 {
+					continue
+				}
+				toStorage[itemID] += qty
+			}
+		}
+
+		// Add crafted outputs to cargo, minus anything routed to storage.
+		for _, out := range outputs {
+			if out.itemID == "" || out.quantity <= 0 {
+				continue
+			}
+			cargoQty := out.quantity - toStorage[out.itemID]
+			if cargoQty <= 0 {
+				continue
+			}
 			found := false
 			for i := range c.state.Ship.Cargo {
-				if c.state.Ship.Cargo[i].ItemID == outputID {
-					c.state.Ship.Cargo[i].Quantity += count
+				if c.state.Ship.Cargo[i].ItemID == out.itemID {
+					c.state.Ship.Cargo[i].Quantity += cargoQty
 					found = true
 					break
 				}
 			}
 			if !found {
 				c.state.Ship.Cargo = append(c.state.Ship.Cargo, CargoItem{
-					ItemID:   outputID,
-					Quantity: count,
+					ItemID:   out.itemID,
+					Quantity: cargoQty,
 				})
 			}
 		}
@@ -3285,10 +3385,20 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			c.checkXPChanges()
 		}
 
-		if outputName != "" {
-			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputName, recipeID)
-		} else {
-			c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", count, outputID, recipeID)
+		for _, out := range outputs {
+			label := out.name
+			if label == "" {
+				label = out.itemID
+			}
+			stored := toStorage[out.itemID]
+			switch {
+			case stored >= out.quantity:
+				c.debugLogger.Printf("Action result: crafted %.0f x %s -> storage (recipe: %s)", out.quantity, label, recipeName)
+			case stored > 0:
+				c.debugLogger.Printf("Action result: crafted %.0f x %s (%.0f to cargo, %.0f to storage) (recipe: %s)", out.quantity, label, out.quantity-stored, stored, recipeName)
+			default:
+				c.debugLogger.Printf("Action result: crafted %.0f x %s (recipe: %s)", out.quantity, label, recipeName)
+			}
 		}
 
 	case "create_sell_order":
@@ -3510,6 +3620,8 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypePilotlessShip:      {},
 	protocol.TypeReconnected:        {},
 	protocol.TypeSkillLevelUp:       {},
+	protocol.TypeFactionPromote:     {},
+	protocol.TypeFactionInvite:      {},
 }
 
 // storeRawJSON stores raw JSON payloads for key response types
@@ -3867,6 +3979,14 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				storeKey = "faction_info"
 				shouldStore = true
 			}
+		}
+		// Store faction invites list (faction_get_invites). Distinctive
+		// "invites" array; keyed by command name so play_as's lookup finds it.
+		if _, hasInvites := resp.Payload["invites"]; hasInvites {
+			if storeKey == "" {
+				storeKey = "faction_get_invites"
+			}
+			shouldStore = true
 		}
 		// Store captain's log (can be "captains_log" or "entry")
 		if _, hasCaptainsLog := resp.Payload["captains_log"]; hasCaptainsLog {

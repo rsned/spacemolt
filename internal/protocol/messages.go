@@ -62,6 +62,10 @@ const (
 
 	// Gameplay tips and notifications
 	TypeGameplayTip = "gameplay_tip"
+
+	// Faction events
+	TypeFactionPromote = "faction_promote"
+	TypeFactionInvite  = "faction_invite"
 )
 
 // Message represents a message sent to the server

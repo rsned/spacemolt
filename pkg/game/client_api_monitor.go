@@ -376,11 +376,25 @@ var eventExpectedFields = map[string]map[string]bool{
 		"skill_id":   true,
 		"skill_name": true,
 		"new_level":  true,
+		"xp_gained":  true,
 		"message":    true,
 	},
 	protocol.TypeGameplayTip: {
 		"message": true,
 		"tip":     true,
+	},
+	protocol.TypeFactionPromote: {
+		"faction_name": true,
+		"new_role":     true,
+		"old_role":     true,
+		"promoted_by":  true,
+		"message":      true,
+	},
+	protocol.TypeFactionInvite: {
+		"faction_id":   true,
+		"faction_name": true,
+		"invited_by":   true,
+		"message":      true,
 	},
 	protocol.TypeTradeOfferReceived: {
 		"trade_id": true,

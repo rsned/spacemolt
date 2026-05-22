@@ -390,10 +390,18 @@ func (m *MCPGameClient) GetTrades(ctx context.Context) error {
 // --- Crafting ---
 
 func (m *MCPGameClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
-	result, err := m.callTool(ctx, "craft", map[string]any{
+	return m.CraftWithOptions(ctx, recipeID, quantity, "")
+}
+
+func (m *MCPGameClient) CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
+	payload := map[string]any{
 		"recipe_id": recipeID,
 		"quantity":  quantity,
-	})
+	}
+	if deliverTo != "" {
+		payload["deliver_to"] = deliverTo
+	}
+	result, err := m.callTool(ctx, "craft", payload)
 	if err != nil {
 		return err
 	}

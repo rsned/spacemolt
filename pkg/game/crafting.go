@@ -109,6 +109,16 @@ func (c *Client) Craft(ctx context.Context, recipeCommand string) error {
 // The maximum batch size is determined by the player's Crafting skill level
 // (minimum 1 for skill level 0 or 1).
 func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
+	return c.CraftWithOptions(ctx, recipeID, quantity, "")
+}
+
+// CraftWithOptions executes a crafting command with a specific quantity and an
+// optional delivery destination. deliverTo may be "" (server default: cargo),
+// "cargo", "storage" (station storage), or "faction" (faction storage; requires
+// a Faction Workshop facility and treasury permission, and pulls inputs from
+// faction storage). The maximum batch size is determined by the player's
+// Crafting skill level (minimum 1 for skill level 0 or 1).
+func (c *Client) CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
 	maxBatch := MaxCraftBatchSize(c.GetState())
 	if quantity < 1 || quantity > maxBatch {
 		return fmt.Errorf("invalid quantity: %d (must be 1-%d based on crafting skill)", quantity, maxBatch)
@@ -117,6 +127,9 @@ func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantit
 	payload := map[string]any{"recipe_id": recipeID}
 	if quantity > 1 {
 		payload["quantity"] = quantity
+	}
+	if deliverTo != "" {
+		payload["deliver_to"] = deliverTo
 	}
 
 	msg := protocol.Message{

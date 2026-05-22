@@ -593,6 +593,10 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatSkills(raw)
 	case "view_market":
 		return formatMarket(raw)
+	case "view_orders", "orders":
+		return formatViewOrders(raw)
+	case "faction_get_invites":
+		return formatFactionInvites(raw)
 	case "chat_history", "get_chat_history":
 		return formatChatHistory(raw)
 	case "craft":
@@ -641,6 +645,11 @@ func formatGetSystemAgents(raw []byte) string {
 // Actions without a styled formatter return "" so the caller falls through
 // to pretty-printed JSON.
 func formatFacility(raw []byte) string {
+	// Mutations (e.g. faction_build) terminate as action_result frames that
+	// nest the payload under "result"; queries (types, faction_list) carry it
+	// at the top level. Unwrap so the action probe and sub-formatters see the
+	// same shape either way (no-op when there is no "result" key).
+	raw = unwrapActionResult(raw)
 	var probe struct {
 		Action            string          `json:"action"`
 		TypeID            string          `json:"type_id"`
@@ -658,6 +667,8 @@ func formatFacility(raw []byte) string {
 			return formatFacilityTypeDetail(raw)
 		}
 		return formatFacilityTypes(raw)
+	case "faction_build":
+		return formatFacilityFactionBuild(raw)
 	}
 	// faction_list omits the action field but is uniquely identified by
 	// the top-level faction_facilities key.
@@ -665,6 +676,65 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionList(raw)
 	}
 	return ""
+}
+
+// formatFacilityFactionBuild renders a `facility faction_build` action_result:
+// the facility identity, where it was built, its service and rent, construction
+// status, and any XP awarded.
+func formatFacilityFactionBuild(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		BaseID            string         `json:"base_id"`
+		FacilityID        string         `json:"facility_id"`
+		FacilityName      string         `json:"facility_name"`
+		FacilityType      string         `json:"facility_type"`
+		FactionService    string         `json:"faction_service"`
+		Hint              string         `json:"hint"`
+		MembersAwardedXP  int            `json:"members_awarded_xp"`
+		RentPerCycle      int64          `json:"rent_per_cycle"`
+		SkillXP           map[string]int `json:"skill_xp"`
+		UnderConstruction bool           `json:"under_construction"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.FacilityID == "" && resp.FacilityName == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	status := "Active"
+	if resp.UnderConstruction {
+		status = "Under construction"
+	}
+	fmt.Fprintf(&b, "🏗  Built faction facility: %s (%s)\n", resp.FacilityName, resp.FacilityType)
+	fmt.Fprintf(&b, "  Base:        %s\n", resp.BaseID)
+	fmt.Fprintf(&b, "  Facility ID: %s\n", resp.FacilityID)
+	if resp.FactionService != "" {
+		fmt.Fprintf(&b, "  Service:     %s\n", resp.FactionService)
+	}
+	fmt.Fprintf(&b, "  Rent/Cycle:  %s\n", formatCredits(float64(resp.RentPerCycle)))
+	fmt.Fprintf(&b, "  Status:      %s\n", status)
+
+	if len(resp.SkillXP) > 0 {
+		skills := make([]string, 0, len(resp.SkillXP))
+		for skill := range resp.SkillXP {
+			skills = append(skills, skill)
+		}
+		slices.Sort(skills)
+		b.WriteString("\n")
+		for _, skill := range skills {
+			fmt.Fprintf(&b, " +%d xp %s\n", resp.SkillXP[skill], skill)
+		}
+		if resp.MembersAwardedXP > 0 {
+			fmt.Fprintf(&b, " (awarded to %d member(s))\n", resp.MembersAwardedXP)
+		}
+	}
+
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "\nℹ %s\n", resp.Hint)
+	}
+	return b.String()
 }
 
 // formatFacilityTypes renders a `facility types` listing as an aligned
@@ -2069,6 +2139,182 @@ func formatCraft(raw []byte) string {
 var missionsShowFull bool
 
 // formatMissions formats a get_missions response grouped by type.
+// formatViewOrders renders a view_orders response as a table of market orders,
+// preceded by a header summarizing the base/scope/paging and followed by the
+// server's hint. Order rows are shown in server order (sorted by sort_by).
+func formatViewOrders(raw []byte) string {
+	type order struct {
+		ItemName       string  `json:"item_name"`
+		Side           string  `json:"side"`
+		OrderType      string  `json:"order_type"`
+		PriceEach      float64 `json:"price_each"`
+		Quantity       int     `json:"quantity"`
+		FilledQuantity int     `json:"filled_quantity"`
+		Remaining      int     `json:"remaining"`
+		CreatedAt      string  `json:"created_at"`
+		OrderID        string  `json:"order_id"`
+	}
+	var resp struct {
+		Base       string  `json:"base"`
+		Scope      string  `json:"scope"`
+		SortBy     string  `json:"sort_by"`
+		Page       int     `json:"page"`
+		TotalPages int     `json:"total_pages"`
+		Total      int     `json:"total"`
+		Hint       string  `json:"hint"`
+		Orders     []order `json:"orders"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+
+	header := "Orders"
+	if resp.Base != "" {
+		header += " @ " + resp.Base
+	}
+	if resp.Scope != "" {
+		header += fmt.Sprintf(" (%s)", resp.Scope)
+	}
+	var meta []string
+	if resp.Total > 0 {
+		meta = append(meta, fmt.Sprintf("%d total", resp.Total))
+	}
+	if resp.TotalPages > 1 {
+		meta = append(meta, fmt.Sprintf("page %d/%d", resp.Page, resp.TotalPages))
+	}
+	if resp.SortBy != "" {
+		meta = append(meta, "sorted by "+resp.SortBy)
+	}
+	if len(meta) > 0 {
+		header += " — " + strings.Join(meta, ", ")
+	}
+	fmt.Fprintf(&b, "%s\n\n", header)
+
+	if len(resp.Orders) == 0 {
+		b.WriteString("  (no orders)\n")
+		return b.String()
+	}
+
+	type cells struct {
+		side, item, price, qty, filled, remaining, created, id string
+	}
+	rows := make([]cells, 0, len(resp.Orders))
+	for _, o := range resp.Orders {
+		side := o.Side
+		if side == "" {
+			side = o.OrderType
+		}
+		created := o.CreatedAt
+		if t, err := time.Parse(time.RFC3339, o.CreatedAt); err == nil {
+			created = t.Format("2006-01-02 15:04")
+		}
+		rows = append(rows, cells{
+			side:      strings.ToUpper(side),
+			item:      o.ItemName,
+			price:     formatCredits(o.PriceEach),
+			qty:       strconv.Itoa(o.Quantity),
+			filled:    strconv.Itoa(o.FilledQuantity),
+			remaining: strconv.Itoa(o.Remaining),
+			created:   created,
+			id:        o.OrderID,
+		})
+	}
+
+	sideW, itemW, priceW := len("Side"), len("Item"), len("Price")
+	qtyW, filledW, remW := len("Qty"), len("Filled"), len("Remaining")
+	createdW, idW := len("Created"), len("Order ID")
+	for _, r := range rows {
+		sideW = max(sideW, len(r.side))
+		itemW = max(itemW, len(r.item))
+		priceW = max(priceW, len(r.price))
+		qtyW = max(qtyW, len(r.qty))
+		filledW = max(filledW, len(r.filled))
+		remW = max(remW, len(r.remaining))
+		createdW = max(createdW, len(r.created))
+		idW = max(idW, len(r.id))
+	}
+
+	fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s | %*s | %*s | %-*s | %-*s\n",
+		sideW, "Side", itemW, "Item", priceW, "Price", qtyW, "Qty",
+		filledW, "Filled", remW, "Remaining", createdW, "Created", idW, "Order ID")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", sideW), strings.Repeat("-", itemW), strings.Repeat("-", priceW),
+		strings.Repeat("-", qtyW), strings.Repeat("-", filledW), strings.Repeat("-", remW),
+		strings.Repeat("-", createdW), strings.Repeat("-", idW))
+	for _, r := range rows {
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s | %*s | %*s | %-*s | %-*s\n",
+			sideW, r.side, itemW, r.item, priceW, r.price, qtyW, r.qty,
+			filledW, r.filled, remW, r.remaining, createdW, r.created, idW, r.id)
+	}
+
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "\nℹ %s\n", resp.Hint)
+	}
+	return b.String()
+}
+
+// formatFactionInvites renders a faction_get_invites response as a table of
+// pending invitations. The faction_id column is shown because it identifies
+// the invite to accept/decline.
+func formatFactionInvites(raw []byte) string {
+	var resp struct {
+		Invites []struct {
+			FactionID   string `json:"faction_id"`
+			FactionName string `json:"faction_name"`
+			FactionTag  string `json:"faction_tag"`
+			InvitedAt   string `json:"invited_at"`
+			InvitedBy   string `json:"invited_by"`
+		} `json:"invites"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if len(resp.Invites) == 0 {
+		return "  (no pending invitations)\n"
+	}
+
+	type cells struct{ faction, tag, by, at, id string }
+	rows := make([]cells, 0, len(resp.Invites))
+	for _, inv := range resp.Invites {
+		at := inv.InvitedAt
+		if t, err := time.Parse(time.RFC3339, inv.InvitedAt); err == nil {
+			at = t.Format("2006-01-02 15:04")
+		}
+		rows = append(rows, cells{
+			faction: inv.FactionName,
+			tag:     inv.FactionTag,
+			by:      inv.InvitedBy,
+			at:      at,
+			id:      inv.FactionID,
+		})
+	}
+
+	factionW, tagW, byW := len("Faction"), len("Tag"), len("Invited By")
+	atW, idW := len("Invited At"), len("Faction ID")
+	for _, r := range rows {
+		factionW = max(factionW, len(r.faction))
+		tagW = max(tagW, len(r.tag))
+		byW = max(byW, len(r.by))
+		atW = max(atW, len(r.at))
+		idW = max(idW, len(r.id))
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Pending Faction Invitations (%d):\n\n", len(resp.Invites))
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %-*s | %-*s\n",
+		factionW, "Faction", tagW, "Tag", byW, "Invited By", atW, "Invited At", idW, "Faction ID")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", factionW), strings.Repeat("-", tagW), strings.Repeat("-", byW),
+		strings.Repeat("-", atW), strings.Repeat("-", idW))
+	for _, r := range rows {
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %-*s | %-*s\n",
+			factionW, r.faction, tagW, r.tag, byW, r.by, atW, r.at, idW, r.id)
+	}
+	return b.String()
+}
+
 func formatMissions(raw []byte) string {
 	var resp struct {
 		Missions []struct {
@@ -3649,15 +3895,27 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === CRAFTING ===
 	case "craft":
-		if len(parts) < 3 {
-			return fmt.Errorf("usage: craft <recipe-id> <quantity>")
+		craftArgs, flags := partitionFlags(parts[1:])
+		if len(craftArgs) < 1 {
+			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=cargo|storage|faction]")
 		}
-		qty, err := strconv.Atoi(parts[2])
-		if err != nil {
-			return fmt.Errorf("invalid quantity: %w", err)
+		recipeID := craftArgs[0]
+		qty := 1
+		if len(craftArgs) >= 2 {
+			n, err := strconv.Atoi(craftArgs[1])
+			if err != nil {
+				return fmt.Errorf("invalid quantity: %w", err)
+			}
+			qty = n
+		}
+		deliverTo := flags["deliver_to"]
+		switch deliverTo {
+		case "", "cargo", "storage", "faction":
+		default:
+			return fmt.Errorf("invalid deliver_to %q (must be cargo, storage, or faction)", deliverTo)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.CraftWithQuantity(ctx, parts[1], qty)
+			return client.CraftWithOptions(ctx, recipeID, qty, deliverTo)
 		}, ctx, 5*time.Second, cmd, format)
 
 	case "recipes", "get_recipes":
@@ -5286,6 +5544,33 @@ func parseFlagArgs(args []string, keys ...string) map[string]any {
 	return result
 }
 
+// partitionFlags separates positional arguments from "--flag" / "--flag=value"
+// / "--flag value" flags so flags may appear in any position. For the
+// space-separated form, the following token is consumed as the value unless it
+// is itself a flag.
+func partitionFlags(args []string) (positional []string, flags map[string]string) {
+	flags = make(map[string]string)
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "--") {
+			positional = append(positional, arg)
+			continue
+		}
+		trimmed := strings.TrimPrefix(arg, "--")
+		if k, v, ok := strings.Cut(trimmed, "="); ok {
+			flags[k] = v
+			continue
+		}
+		if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+			flags[trimmed] = args[i+1]
+			i++
+			continue
+		}
+		flags[trimmed] = ""
+	}
+	return positional, flags
+}
+
 func parseQuantity(s string) (float64, error) {
 	// Try parsing as float first
 	f, err := strconv.ParseFloat(s, 64)
@@ -5416,7 +5701,7 @@ func printHelp() {
 	fmt.Println("  create_buy_order <item> <qty> <price>   - Create buy order")
 
 	fmt.Println("\n=== CRAFTING ===")
-	fmt.Println("  craft <recipe> <qty>      - Craft items")
+	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
 	fmt.Println("  recipes                   - Get available recipes")
 
 	fmt.Println("\n=== SHIP ===")

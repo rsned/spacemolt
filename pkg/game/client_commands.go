@@ -1436,11 +1436,18 @@ func (c *Client) FactionList(ctx context.Context, limit, offset int) error {
 	if offset > 0 {
 		payload["offset"] = offset
 	}
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately; WithAckOnly
+	// treats that reply as terminal for this request_id.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // CreateFaction creates a new faction.
@@ -1531,11 +1538,17 @@ func (c *Client) FactionPromote(ctx context.Context, playerID, roleID string) er
 
 // FactionEdit updates faction description, charter, and colors.
 func (c *Client) FactionEdit(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_edit",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionCreateRole creates a custom faction role.
@@ -1547,11 +1560,17 @@ func (c *Client) FactionCreateRole(ctx context.Context, name string, priority in
 	if permissions != nil {
 		payload["permissions"] = permissions
 	}
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_create_role",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionEditRole edits a custom faction role.
@@ -1560,20 +1579,32 @@ func (c *Client) FactionEditRole(ctx context.Context, roleID string, payload map
 		payload = map[string]any{}
 	}
 	payload["role_id"] = roleID
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_edit_role",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionDeleteRole deletes a custom faction role.
 func (c *Client) FactionDeleteRole(ctx context.Context, roleID string) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_delete_role",
 		Payload:   map[string]any{"role_id": roleID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // ============================================================================
@@ -1708,19 +1739,31 @@ func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]an
 
 // FactionQueryIntel queries your faction's intel database.
 func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_query_intel",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionIntelStatus views faction intel coverage statistics.
 func (c *Client) FactionIntelStatus(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_intel_status",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionSubmitTradeIntel submits market price observations to your faction's trade ledger.
@@ -1739,19 +1782,31 @@ func (c *Client) FactionSubmitTradeIntel(ctx context.Context, stations []map[str
 
 // FactionQueryTradeIntel searches your faction's market price database.
 func (c *Client) FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_query_trade_intel",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionTradeIntelStatus views faction trade intelligence coverage statistics.
 func (c *Client) FactionTradeIntelStatus(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_trade_intel_status",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // ============================================================================
@@ -1939,10 +1994,16 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 
 // FactionListMissions lists your faction's posted missions at this station.
 func (c *Client) FactionListMissions(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_list_missions",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionPostMission posts a mission on your faction's mission board.
@@ -1979,19 +2040,34 @@ func (c *Client) FactionCancelMission(ctx context.Context, templateID string) er
 
 // FactionGetInvites views pending faction invitations.
 func (c *Client) FactionGetInvites(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_get_invites",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query: returns type=ok with an "invites" array. request_id correlation
+	// lets callers reliably wait for and match this reply (WithAckOnly = no
+	// action_result/tick to wait on).
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionDeclineInvite declines a faction invitation.
 func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_decline_invite",
 		Payload:   map[string]any{"faction_id": factionID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): server returns type=ok immediately,
+	// so WithAckOnly treats that reply as terminal for this request_id.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // ============================================================================
@@ -2000,37 +2076,61 @@ func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) err
 
 // FactionRooms lists rooms in your faction's common space at the current station.
 func (c *Client) FactionRooms(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_rooms",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionVisitRoom visits a room and reads its description.
 func (c *Client) FactionVisitRoom(ctx context.Context, roomID string) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_visit_room",
 		Payload:   map[string]any{"room_id": roomID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Query (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionWriteRoom creates or updates a room in your faction's common space.
 func (c *Client) FactionWriteRoom(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_write_room",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // FactionDeleteRoom deletes a room from your faction's common space.
 func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "faction_delete_room",
 		Payload:   map[string]any{"room_id": roomID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // RawCommand sends an arbitrary command to the server.
