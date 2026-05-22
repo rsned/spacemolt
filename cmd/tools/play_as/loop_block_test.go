@@ -436,3 +436,48 @@ func TestExecuteLoop_GoalReachedIgnoresForceFlag(t *testing.T) {
 		t.Errorf("expected 2 calls (loop exits on goal-reached even with -f), got %d", len(*calls))
 	}
 }
+
+func TestExecuteLoopTokenErrorAbortsUnderForce(t *testing.T) {
+	// runStatement returns a *tokenError on the "travel" command. Even with
+	// force=true, the loop must abort immediately and return that error.
+	calls := 0
+	runStatement := func(tokens []string) error {
+		calls++
+		if len(tokens) > 0 && tokens[0] == "travel" {
+			return &tokenError{"no station POI in system Sol (sys-001)"}
+		}
+		return nil
+	}
+	body := []Statement{
+		{Raw: "mine", Tokens: []string{"mine"}},
+		{Raw: "travel $STATION$", Tokens: []string{"travel", "$STATION$"}},
+		{Raw: "mine", Tokens: []string{"mine"}},
+	}
+	err := executeLoop(context.Background(), io.Discard, 5, true, body, 0, runStatement)
+	var te *tokenError
+	if !errors.As(err, &te) {
+		t.Fatalf("expected *tokenError, got %v", err)
+	}
+	// mine (1) + travel (2) on the first iteration only; must not continue.
+	if calls != 2 {
+		t.Fatalf("expected 2 statement calls before abort, got %d", calls)
+	}
+}
+
+func TestExecuteLoopTokenErrorPropagatesThroughNestedLoop(t *testing.T) {
+	runStatement := func(tokens []string) error {
+		if len(tokens) > 0 && tokens[0] == "travel" {
+			return &tokenError{"unknown token $FOO$"}
+		}
+		return nil
+	}
+	// Outer force loop containing an inner force loop whose body errors.
+	body := []Statement{
+		{Raw: "loop -f 3 { travel $FOO$ }", Tokens: []string{"loop", "-f", "3", "{", "travel", "$FOO$", "}"}},
+	}
+	err := executeLoop(context.Background(), io.Discard, 2, true, body, 0, runStatement)
+	var te *tokenError
+	if !errors.As(err, &te) {
+		t.Fatalf("expected *tokenError to propagate out of nested loop, got %v", err)
+	}
+}

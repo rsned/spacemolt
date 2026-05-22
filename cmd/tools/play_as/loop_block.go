@@ -307,6 +307,14 @@ func executeLoop(
 					fmt.Fprintf(out, "%s🎯 goal reached: %s → exiting loop\n", indent, goal.Message) //nolint:errcheck
 					return nil
 				}
+				// A *tokenError is fatal: an unresolved $TOKEN$ aborts the entire
+				// loop immediately, even under -f (which only tolerates ordinary
+				// errors). Return it so every enclosing loop level aborts too.
+				var tokErr *tokenError
+				if errors.As(err, &tokErr) {
+					fmt.Fprintf(out, "%s❌ %v → aborting loop\n", indent, tokErr) //nolint:errcheck
+					return err
+				}
 				errCount++
 				fmt.Fprintf(out, "%s❌ %v\n", indent, err)               //nolint:errcheck
 				if !force {

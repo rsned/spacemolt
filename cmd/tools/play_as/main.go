@@ -3383,6 +3383,16 @@ func formatFloat(f float64) string {
 }
 
 func executeCommand(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
+	// Resolve $TOKEN$ variables against live state before dispatch. This is the
+	// single chokepoint for all command paths (bare commands, single-form loops
+	// via runLoopSingle, and block loops via the runStatement closure), so token
+	// substitution works uniformly everywhere. An unresolved token returns a
+	// *tokenError, which loops treat as a fatal abort.
+	resolved, rerr := resolveTokens(parts, client.GetState())
+	if rerr != nil {
+		return rerr
+	}
+	parts = resolved
 	cmd := strings.ToLower(parts[0])
 
 	fmt.Printf("▶ Executing: %s %s\n", cmd, strings.Join(parts[1:], " "))
@@ -5654,6 +5664,11 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 			var goal *game.GoalReachedError
 			if errors.As(cerr, &goal) {
 				fmt.Printf("🎯 goal reached: %s → exiting loop\n", goal.Message)
+				break
+			}
+			var tokErr *tokenError
+			if errors.As(cerr, &tokErr) {
+				fmt.Printf("❌ %s → aborting loop\n", tokErr)
 				break
 			}
 			errs++
