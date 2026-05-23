@@ -214,6 +214,9 @@ type ViewOrdersResponse struct {
 	SortBy                 string          `json:"sort_by,omitempty"`
 	Total                  int             `json:"total,omitempty"`
 	TotalPages             int             `json:"total_pages,omitempty"`
+	ItemFilter             string          `json:"item_filter,omitempty"`
+	OrderType              string          `json:"order_type,omitempty"`
+	SearchTerm             string          `json:"search_term,omitempty"`
 }
 
 // AnalyzeMarketResponse wraps the response from analyze_market command.
@@ -234,6 +237,9 @@ type EstimatePurchaseResponse struct {
 	Fills             []OrderFill `json:"fills"`
 	Unfilled          int         `json:"unfilled"`
 	Message           string      `json:"message"`
+	SalesTax          int64       `json:"sales_tax,omitempty"`
+	SalesTaxRateBps   int         `json:"sales_tax_rate_bps,omitempty"`
+	Subtotal          int64       `json:"subtotal,omitempty"`
 }
 
 // BuyResponse wraps the response from buy command.
@@ -255,18 +261,20 @@ type BuyResponse struct {
 
 // SellResponse wraps the response from sell command.
 type SellResponse struct {
-	Action       string           `json:"action"`
-	Item         string           `json:"item"`
-	ItemID       string           `json:"item_id"`
-	QuantitySold int              `json:"quantity_sold"`
-	TotalEarned  int              `json:"total_earned"`
-	Fills        []OrderFill      `json:"fills"`
-	LevelUp      bool             `json:"level_up"`
-	AutoListed   *AutoListedOrder `json:"auto_listed,omitempty"`
-	Message      string           `json:"message,omitempty"`
-	SkillLevel   int              `json:"skill_level,omitempty"`
-	Unsold       int              `json:"unsold,omitempty"`
-	XPGained     int              `json:"xp_gained,omitempty"`
+	Action           string           `json:"action"`
+	Item             string           `json:"item"`
+	ItemID           string           `json:"item_id"`
+	QuantitySold     int              `json:"quantity_sold"`
+	TotalEarned      int              `json:"total_earned"`
+	Fills            []OrderFill      `json:"fills"`
+	LevelUp          bool             `json:"level_up"`
+	AutoListed       *AutoListedOrder `json:"auto_listed,omitempty"`
+	Message          string           `json:"message,omitempty"`
+	SkillLevel       int              `json:"skill_level,omitempty"`
+	Unsold           int              `json:"unsold,omitempty"`
+	XPGained         int              `json:"xp_gained,omitempty"`
+	SmugglingLevelUp bool             `json:"smuggling_level_up,omitempty"`
+	SmugglingXP      int64            `json:"smuggling_xp,omitempty"`
 }
 
 // CreateBuyOrderResponse wraps the response from create_buy_order command.
@@ -381,9 +389,12 @@ type GetActiveMissionsResponse struct {
 
 // AcceptMissionResponse wraps the response from accept_mission command.
 type AcceptMissionResponse struct {
-	Message   string `json:"message"`
-	MissionID string `json:"mission_id"`
-	Title     string `json:"title"`
+	Message    string `json:"message"`
+	MissionID  string `json:"mission_id"`
+	Title      string `json:"title"`
+	ExpiresAt  string `json:"expires_at,omitempty"`
+	TemplateID string `json:"template_id,omitempty"`
+	Type       string `json:"type,omitempty"`
 }
 
 // CompleteMissionResponse is returned by complete_mission. The server sends
@@ -536,6 +547,7 @@ type BuyListedShipResponse struct {
 	ClassID     string `json:"class_id"`
 	Price       int    `json:"price"`
 	CreditsLeft int    `json:"credits_left"`
+	OldShipID   string `json:"old_ship_id,omitempty"`
 }
 
 // ListShipForSaleResponse wraps the response from list_ship_for_sale command.
