@@ -128,12 +128,15 @@ type GetCargoResponse struct {
 
 // GetNearbyResponse wraps the response from get_nearby command.
 type GetNearbyResponse struct {
-	Action      string         `json:"action,omitempty"`
-	Nearby      []NearbyPlayer `json:"nearby"`
-	Pirates     []NearbyPirate `json:"pirates,omitempty"`
-	Count       int            `json:"count"`
-	PirateCount int            `json:"pirate_count,omitempty"`
-	POIID       string         `json:"poi_id,omitempty"`
+	Action           string          `json:"action,omitempty"`
+	Nearby           []NearbyPlayer  `json:"nearby"`
+	Pirates          []NearbyPirate  `json:"pirates,omitempty"`
+	Count            int             `json:"count"`
+	PirateCount      int             `json:"pirate_count,omitempty"`
+	POIID            string          `json:"poi_id,omitempty"`
+	EmpireNPCCount   int             `json:"empire_npc_count,omitempty"`
+	EmpireNPCs       json.RawMessage `json:"empire_npcs,omitempty"`
+	OfflineCollapsed int             `json:"offline_collapsed,omitempty"`
 }
 
 // GetBattleStatusResponse wraps the response from get_battle_status command.
@@ -423,13 +426,16 @@ type CompleteMissionResponse struct {
 
 // CatalogResponse wraps the response from catalog command.
 type CatalogResponse struct {
-	Type       string        `json:"type"`
-	Items      []CatalogItem `json:"items"`
-	Total      int           `json:"total"`
-	Page       int           `json:"page"`
-	PageSize   int           `json:"page_size"`
-	TotalPages int           `json:"total_pages"`
-	Message    string        `json:"message"`
+	Type                 string          `json:"type"`
+	Items                []CatalogItem   `json:"items"`
+	Total                int             `json:"total"`
+	Page                 int             `json:"page"`
+	PageSize             int             `json:"page_size"`
+	TotalPages           int             `json:"total_pages"`
+	Message              string          `json:"message"`
+	Analysis             json.RawMessage `json:"analysis,omitempty"`
+	PassiveRecipeDetails json.RawMessage `json:"passive_recipe_details,omitempty"`
+	Recipes              json.RawMessage `json:"recipes,omitempty"`
 }
 
 // GetInsuranceQuoteResponse wraps the response from get_insurance_quote command.
@@ -654,6 +660,7 @@ type SurveySystemResponse struct {
 	FaintSignatures []FaintSignature `json:"faint_signatures,omitempty"`
 	XPGained        map[string]int   `json:"xp_gained,omitempty"`
 	Message         string           `json:"message,omitempty"`
+	AnomalyHint     string           `json:"anomaly_hint,omitempty"`
 }
 
 // FacilityResponse wraps the response from facility command.
@@ -851,6 +858,7 @@ type ChatHistoryResponse struct {
 type ChatResponse struct {
 	Action  string `json:"action"`
 	Warning string `json:"warning"`
+	Channel string `json:"channel,omitempty"`
 }
 
 // ForumListResponse wraps the response from forum_list command.
@@ -940,6 +948,10 @@ type FactionInfoResponse struct {
 	Enemies          []FactionSummary      `json:"enemies,omitempty"`
 	Wars             []FactionWarDetail    `json:"wars,omitempty"`
 	PeaceProposals   []PeaceProposal       `json:"peace_proposals,omitempty"`
+
+	AllianceProposals json.RawMessage `json:"alliance_proposals,omitempty"`
+	Facilities        json.RawMessage `json:"facilities,omitempty"`
+	Roles             json.RawMessage `json:"roles,omitempty"`
 }
 
 // FactionListResponse wraps the response from faction_list command.
@@ -1307,6 +1319,7 @@ type UninstallModResponse struct {
 	UninstallCount int     `json:"uninstall_count,omitempty"`
 	Wear           float64 `json:"wear,omitempty"`
 	WearStatus     string  `json:"wear_status,omitempty"`
+	Damaged        bool    `json:"damaged,omitempty"`
 }
 
 // ReloadResponse wraps the response from reload command.
@@ -1473,6 +1486,8 @@ type GetVersionResponse struct {
 	Total       int                `json:"total,omitempty"`
 	TotalPages  int                `json:"total_pages,omitempty"`
 	Versions    []ChangelogVersion `json:"versions,omitempty"`
+	HasMore     bool               `json:"has_more,omitempty"`
+	SearchTerm  string             `json:"search_term,omitempty"`
 }
 
 // Notification represents a single notification from the server.
@@ -1531,10 +1546,15 @@ type SetHomeBaseResponse struct {
 
 // GetActionLogResponse wraps the response from get_action_log command.
 type GetActionLogResponse struct {
-	Entries  []ActionLogEntry `json:"entries"`
-	HasMore  bool             `json:"has_more"`
-	Category string           `json:"category,omitempty"`
-	Limit    int              `json:"limit,omitempty"`
+	Entries    []ActionLogEntry `json:"entries"`
+	HasMore    bool             `json:"has_more"`
+	Category   string           `json:"category,omitempty"`
+	Limit      int              `json:"limit,omitempty"`
+	FactionID  string           `json:"faction_id,omitempty"`
+	Page       int              `json:"page,omitempty"`
+	PageSize   int              `json:"page_size,omitempty"`
+	Total      int              `json:"total,omitempty"`
+	TotalPages int              `json:"total_pages,omitempty"`
 }
 
 // ActionLogEntry represents a single entry in the action log.
