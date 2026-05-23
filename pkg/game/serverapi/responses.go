@@ -1575,3 +1575,72 @@ type DistressSignalResponse struct {
 	ExpiresSeconds int    `json:"expires_seconds,omitempty"`
 	Message        string `json:"message"`
 }
+
+// GetDroneResponse is returned by get_drone — details of a single drone.
+//   - get_drone
+type GetDroneResponse struct {
+	ID            string          `json:"id"`
+	Type          string          `json:"type"`
+	Status        string          `json:"status"`
+	Hull          int             `json:"hull"`
+	MaxHull       int             `json:"max_hull"`
+	Cargo         json.RawMessage `json:"cargo,omitempty"`
+	CargoCapacity int             `json:"cargo_capacity"`
+	CargoUsed     int             `json:"cargo_used"`
+	ItemID        string          `json:"item_id,omitempty"`
+	POIID         string          `json:"poi_id,omitempty"`
+	SystemID      string          `json:"system_id,omitempty"`
+	DeployedAt    string          `json:"deployed_at,omitempty"`
+	LoadedAt      string          `json:"loaded_at,omitempty"`
+	Script        string          `json:"script,omitempty"`
+	Memory        json.RawMessage `json:"memory,omitempty"`
+	TravelTo      string          `json:"travel_to,omitempty"`
+	TravelTicks   int             `json:"travel_ticks,omitempty"`
+}
+
+// GetDronesResponse is returned by get_drones — drone bay summary and roster.
+//   - get_drones
+type GetDronesResponse struct {
+	BandwidthTotal int             `json:"bandwidth_total"`
+	BandwidthUsed  int             `json:"bandwidth_used"`
+	BayCapacity    int             `json:"bay_capacity"`
+	BayCount       int             `json:"bay_count"`
+	DeployedCount  int             `json:"deployed_count"`
+	Drones         json.RawMessage `json:"drones,omitempty"`
+}
+
+// LoadDroneResponse is returned by load_drone.
+//   - load_drone
+type LoadDroneResponse struct {
+	BayCapacity int    `json:"bay_capacity"`
+	BayCount    int    `json:"bay_count"`
+	DroneID     string `json:"drone_id"`
+	DroneType   string `json:"drone_type"`
+	Hull        int    `json:"hull"`
+	Message     string `json:"message"`
+	Status      string `json:"status"`
+}
+
+// UnloadDroneResponse is returned by unload_drone.
+//   - unload_drone
+type UnloadDroneResponse struct {
+	DroneID string `json:"drone_id"`
+	ItemID  string `json:"item_id"`
+	Message string `json:"message"`
+}
+
+// RecallDroneResponse is returned by recall_drone.
+//   - recall_drone
+type RecallDroneResponse struct {
+	Message  string `json:"message"`
+	Recalled int    `json:"recalled"`
+	Skipped  int    `json:"skipped"`
+}
+
+// UploadDroneScriptResponse is returned by upload_drone_script.
+//   - upload_drone_script
+type UploadDroneScriptResponse struct {
+	DroneID   string `json:"drone_id"`
+	Message   string `json:"message"`
+	ScriptLen int    `json:"script_len"`
+}

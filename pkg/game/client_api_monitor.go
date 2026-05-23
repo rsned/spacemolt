@@ -208,6 +208,14 @@ var actionResponseTypes = map[string]reflect.Type{
 
 	// Self destruct
 	"self_destruct": reflect.TypeOf(serverapi.MessageResponse{}),
+
+	// Drones
+	"get_drone":           reflect.TypeOf(serverapi.GetDroneResponse{}),
+	"get_drones":          reflect.TypeOf(serverapi.GetDronesResponse{}),
+	"load_drone":          reflect.TypeOf(serverapi.LoadDroneResponse{}),
+	"unload_drone":        reflect.TypeOf(serverapi.UnloadDroneResponse{}),
+	"recall_drone":        reflect.TypeOf(serverapi.RecallDroneResponse{}),
+	"upload_drone_script": reflect.TypeOf(serverapi.UploadDroneScriptResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.

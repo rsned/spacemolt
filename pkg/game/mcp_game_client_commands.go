@@ -1642,3 +1642,64 @@ func (m *MCPGameClient) Facility(ctx context.Context, payload map[string]any) er
 
 // now returns the current time. Declared as a var for testing.
 var now = func() time.Time { return time.Now() }
+
+// GetDrone fetches details for a single drone.
+func (m *MCPGameClient) GetDrone(ctx context.Context, droneID string) error {
+	result, err := m.callTool(ctx, "get_drone", map[string]any{"drone_id": droneID})
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "get_drone")
+}
+
+// GetDrones fetches the drone bay summary and roster.
+func (m *MCPGameClient) GetDrones(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_drones", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "get_drones")
+}
+
+// LoadDrone loads an item from cargo into the drone bay as a drone.
+func (m *MCPGameClient) LoadDrone(ctx context.Context, itemID string) error {
+	result, err := m.callTool(ctx, "load_drone", map[string]any{"item_id": itemID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// UnloadDrone unloads a drone from the bay back into cargo.
+func (m *MCPGameClient) UnloadDrone(ctx context.Context, droneID string) error {
+	result, err := m.callTool(ctx, "unload_drone", map[string]any{"drone_id": droneID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// RecallDrone recalls a deployed drone (or all drones when all is true).
+func (m *MCPGameClient) RecallDrone(ctx context.Context, droneID string, all bool) error {
+	args := map[string]any{"all": all}
+	if droneID != "" {
+		args["drone_id"] = droneID
+	}
+	result, err := m.callTool(ctx, "recall_drone", args)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// UploadDroneScript uploads an automation script to a deployed drone.
+func (m *MCPGameClient) UploadDroneScript(ctx context.Context, droneID, script string) error {
+	result, err := m.callTool(ctx, "upload_drone_script", map[string]any{
+		"drone_id": droneID,
+		"script":   script,
+	})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}

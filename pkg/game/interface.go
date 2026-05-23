@@ -204,6 +204,14 @@ type GameClient interface {
 	SwitchShip(ctx context.Context, shipID string) error
 	SellShip(ctx context.Context, shipID string) error
 
+	// Drones
+	GetDrone(ctx context.Context, droneID string) error
+	GetDrones(ctx context.Context) error
+	LoadDrone(ctx context.Context, itemID string) error
+	UnloadDrone(ctx context.Context, droneID string) error
+	RecallDrone(ctx context.Context, droneID string, all bool) error
+	UploadDroneScript(ctx context.Context, droneID, script string) error
+
 	// Exchange
 	CreateSellOrder(ctx context.Context, payload map[string]any) error
 	CreateBuyOrder(ctx context.Context, payload map[string]any) error

@@ -2141,3 +2141,90 @@ func (c *Client) RawCommand(ctx context.Context, command string, args map[string
 		Timestamp: time.Now().UnixMilli(),
 	})
 }
+
+// GetDrone fetches details for a single drone.
+func (c *Client) GetDrone(ctx context.Context, droneID string) error {
+	msg := protocol.Message{
+		Type:      "get_drone",
+		Payload:   map[string]any{"drone_id": droneID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// GetDrones fetches the drone bay summary and roster.
+func (c *Client) GetDrones(ctx context.Context) error {
+	msg := protocol.Message{
+		Type:      "get_drones",
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// LoadDrone loads an item from cargo into the drone bay as a drone.
+func (c *Client) LoadDrone(ctx context.Context, itemID string) error {
+	msg := protocol.Message{
+		Type:      "load_drone",
+		Payload:   map[string]any{"item_id": itemID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// UnloadDrone unloads a drone from the bay back into cargo.
+func (c *Client) UnloadDrone(ctx context.Context, droneID string) error {
+	msg := protocol.Message{
+		Type:      "unload_drone",
+		Payload:   map[string]any{"drone_id": droneID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// RecallDrone recalls a deployed drone (or all drones when all is true).
+func (c *Client) RecallDrone(ctx context.Context, droneID string, all bool) error {
+	payload := map[string]any{"all": all}
+	if droneID != "" {
+		payload["drone_id"] = droneID
+	}
+	msg := protocol.Message{
+		Type:      "recall_drone",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// UploadDroneScript uploads an automation script to a deployed drone.
+func (c *Client) UploadDroneScript(ctx context.Context, droneID, script string) error {
+	msg := protocol.Message{
+		Type:      "upload_drone_script",
+		Payload:   map[string]any{"drone_id": droneID, "script": script},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
