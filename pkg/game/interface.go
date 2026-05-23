@@ -220,6 +220,11 @@ type GameClient interface {
 	RecallDrone(ctx context.Context, droneID string, all bool) error
 	UploadDroneScript(ctx context.Context, droneID, script string) error
 
+	// Economy & ship management
+	GetTaxEstimate(ctx context.Context) error
+	ViewInsurance(ctx context.Context) error
+	ScrapShip(ctx context.Context, shipID string) error
+
 	// Exchange
 	CreateSellOrder(ctx context.Context, payload map[string]any) error
 	CreateBuyOrder(ctx context.Context, payload map[string]any) error

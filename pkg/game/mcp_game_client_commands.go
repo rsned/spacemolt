@@ -1768,3 +1768,30 @@ func (m *MCPGameClient) Petition(ctx context.Context, empireID, message string) 
 	}
 	return m.cacheResultAs(result, "petition")
 }
+
+// GetTaxEstimate fetches the player's current tax assessment estimate.
+func (m *MCPGameClient) GetTaxEstimate(ctx context.Context) error {
+	result, err := m.callTool(ctx, "get_tax_estimate", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "get_tax_estimate")
+}
+
+// ViewInsurance lists the player's active insurance policies.
+func (m *MCPGameClient) ViewInsurance(ctx context.Context) error {
+	result, err := m.callTool(ctx, "view_insurance", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "view_insurance")
+}
+
+// ScrapShip scraps a ship, moving its cargo and modules to storage.
+func (m *MCPGameClient) ScrapShip(ctx context.Context, shipID string) error {
+	result, err := m.callTool(ctx, "scrap_ship", map[string]any{"ship_id": shipID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}

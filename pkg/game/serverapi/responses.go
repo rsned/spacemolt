@@ -1705,3 +1705,42 @@ type PetitionResponse struct {
 	EmpireName string `json:"empire_name"`
 	Message    string `json:"message"`
 }
+
+// GetTaxEstimateResponse is returned by get_tax_estimate.
+//   - get_tax_estimate
+type GetTaxEstimateResponse struct {
+	Action                      string          `json:"action"`
+	AssessedPropertyByShip      json.RawMessage `json:"assessed_property_by_ship,omitempty"`
+	AssessedPropertyValue       int64           `json:"assessed_property_value"`
+	IncomeTax                   json.RawMessage `json:"income_tax,omitempty"`
+	IncomeTaxTotal              int64           `json:"income_tax_total"`
+	LastAssessedAt              int64           `json:"last_assessed_at,omitempty"`
+	LastPropertyAssessedAt      int64           `json:"last_property_assessed_at,omitempty"`
+	NextAssessmentApproxSeconds int64           `json:"next_assessment_approx_seconds,omitempty"`
+	Note                        string          `json:"note,omitempty"`
+	PropertyTax                 json.RawMessage `json:"property_tax,omitempty"`
+	PropertyTaxTotal            int64           `json:"property_tax_total"`
+	SalesTaxRates               json.RawMessage `json:"sales_tax_rates,omitempty"`
+	TaxCollectionActive         bool            `json:"tax_collection_active"`
+	TaxableIncomeBySource       json.RawMessage `json:"taxable_income_by_source,omitempty"`
+	TaxableIncomeToDate         int64           `json:"taxable_income_to_date"`
+}
+
+// ViewInsuranceResponse is returned by view_insurance.
+//   - view_insurance
+type ViewInsuranceResponse struct {
+	Message  string          `json:"message,omitempty"`
+	Policies json.RawMessage `json:"policies,omitempty"`
+}
+
+// ScrapShipResponse is returned by scrap_ship.
+//   - scrap_ship
+type ScrapShipResponse struct {
+	CargoNote        string          `json:"cargo_note,omitempty"`
+	CargoToStorage   json.RawMessage `json:"cargo_to_storage,omitempty"`
+	Message          string          `json:"message"`
+	ModulesNote      string          `json:"modules_note,omitempty"`
+	ModulesToStorage json.RawMessage `json:"modules_to_storage,omitempty"`
+	ScrappedClass    string          `json:"scrapped_class,omitempty"`
+	ScrappedShipID   string          `json:"scrapped_ship_id"`
+}

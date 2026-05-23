@@ -2324,3 +2324,43 @@ func (c *Client) Petition(ctx context.Context, empireID, message string) error {
 	}
 	return err
 }
+
+// GetTaxEstimate fetches the player's current tax assessment estimate.
+func (c *Client) GetTaxEstimate(ctx context.Context) error {
+	msg := protocol.Message{
+		Type:      "get_tax_estimate",
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// ViewInsurance lists the player's active insurance policies.
+func (c *Client) ViewInsurance(ctx context.Context) error {
+	msg := protocol.Message{
+		Type:      "view_insurance",
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// ScrapShip scraps a ship, moving its cargo and modules to storage.
+func (c *Client) ScrapShip(ctx context.Context, shipID string) error {
+	msg := protocol.Message{
+		Type:      "scrap_ship",
+		Payload:   map[string]any{"ship_id": shipID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}

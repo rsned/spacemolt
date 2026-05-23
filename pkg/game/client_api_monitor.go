@@ -188,6 +188,11 @@ var actionResponseTypes = map[string]reflect.Type{
 	"get_empire_info": reflect.TypeOf(serverapi.GetEmpireInfoResponse{}),
 	"petition":        reflect.TypeOf(serverapi.PetitionResponse{}),
 
+	// Economy & ship management
+	"get_tax_estimate": reflect.TypeOf(serverapi.GetTaxEstimateResponse{}),
+	"view_insurance":   reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
+	"scrap_ship":       reflect.TypeOf(serverapi.ScrapShipResponse{}),
+
 	// Bases
 	"build_base":    reflect.TypeOf(serverapi.BuildBaseResponse{}),
 	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),
