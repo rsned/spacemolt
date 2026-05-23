@@ -386,12 +386,20 @@ type AcceptMissionResponse struct {
 	Title     string `json:"title"`
 }
 
-// CompleteMissionResponse wraps the response from complete_mission command.
+// CompleteMissionResponse is returned by complete_mission. The server sends
+// reward fields at the top level (not nested under "rewards").
+//   - complete_mission
 type CompleteMissionResponse struct {
-	Message   string          `json:"message"`
-	MissionID string          `json:"mission_id"`
-	Title     string          `json:"title"`
-	Rewards   *MissionRewards `json:"rewards,omitempty"`
+	Message              string          `json:"message"`
+	MissionID            string          `json:"mission_id"`
+	Title                string          `json:"title"`
+	ChainNext            string          `json:"chain_next,omitempty"`
+	CreditsEarned        int64           `json:"credits_earned,omitempty"`
+	ItemsReceived        json.RawMessage `json:"items_received,omitempty"`
+	SkillXPGained        json.RawMessage `json:"skill_xp_gained,omitempty"`
+	CommunityContributed json.RawMessage `json:"community_contributed,omitempty"`
+	CommunityProgress    json.RawMessage `json:"community_progress,omitempty"`
+	CommunityPercent     float64         `json:"community_percent,omitempty"`
 }
 
 // CatalogResponse wraps the response from catalog command.
@@ -547,10 +555,18 @@ type GetNotesResponse struct {
 	TotalCount int    `json:"total_count,omitempty"`
 }
 
-// ReadNoteResponse wraps the response from read_note command.
+// ReadNoteResponse is returned by read_note. The server sends note fields at
+// the top level (not nested), so they are flattened here.
+//   - read_note
 type ReadNoteResponse struct {
-	Action string `json:"action,omitempty"`
-	Note   Note   `json:"note"`
+	Action    string `json:"action,omitempty"`
+	NoteID    string `json:"note_id"`
+	Title     string `json:"title"`
+	Content   string `json:"content,omitempty"`
+	CreatedBy string `json:"created_by,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+	Value     int    `json:"value,omitempty"`
 }
 
 // CreateNoteResponse wraps the response from create_note command.
