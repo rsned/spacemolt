@@ -5,6 +5,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/dataservice"
@@ -104,7 +105,7 @@ func (n *Nearest) HandlePlaintext(ctx context.Context, deps dataservice.Deps, ar
 		if r.Hops == 1 {
 			hopWord = "hop"
 		}
-		fmt.Fprintf(&sb, "  %d. %s (%s) — %d %s", i+1, name, r.SystemID, r.Hops, hopWord)
+		fmt.Fprintf(&sb, "  %d. %s (%s) (Sec: %s) — %d %s", i+1, name, r.SystemID, securityText(r), r.Hops, hopWord)
 		if age := ageText(deps, r.LastUpdated); age != "" {
 			sb.WriteString(", updated ")
 			sb.WriteString(age)
@@ -123,6 +124,16 @@ func (n *Nearest) HandlePlaintext(ctx context.Context, deps dataservice.Deps, ar
 		}
 	}
 	return dataservice.TruncateReply(sb.String()), nil
+}
+
+// securityText renders a result's security for the plaintext list: the
+// human-readable status string (e.g. "55 Medium", "0 Lawless") when present,
+// falling back to the numeric police level otherwise.
+func securityText(r galaxy.NearestResult) string {
+	if r.SecurityStatus != "" {
+		return r.SecurityStatus
+	}
+	return strconv.Itoa(r.Security)
 }
 
 // formatRemaining renders a resource quantity with K/M suffixes once the
@@ -175,6 +186,8 @@ func (n *Nearest) HandleJSON(ctx context.Context, deps dataservice.Deps, params 
 			"system_id":         r.SystemID,
 			"system_name":       r.SystemName,
 			"hops":              r.Hops,
+			"security":          r.Security,
+			"security_status":   r.SecurityStatus,
 			"last_updated_tick": r.LastUpdated,
 		}
 		if len(r.POIs) > 0 {

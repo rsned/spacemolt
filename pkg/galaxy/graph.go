@@ -41,13 +41,14 @@ func (g *GalaxyGraph) BuildFromDB(ctx context.Context, kb knowledge.Base) error 
 
 	for _, s := range systems {
 		g.nodes[s.ID] = &SystemNode{
-			ID:           s.ID,
-			Name:         s.Name,
-			Position:     Position{X: s.Position.X, Y: s.Position.Y},
-			Empire:       s.Empire,
-			IsStronghold: s.IsStronghold,
-			PoliceLevel:  s.PoliceLevel,
-			LastUpdated:  s.LastUpdatedTick,
+			ID:             s.ID,
+			Name:           s.Name,
+			Position:       Position{X: s.Position.X, Y: s.Position.Y},
+			Empire:         s.Empire,
+			IsStronghold:   s.IsStronghold,
+			PoliceLevel:    s.PoliceLevel,
+			SecurityStatus: s.SecurityStatus,
+			LastUpdated:    s.LastUpdatedTick,
 		}
 		g.adj[s.ID] = []Edge{} // Initialize adjacency list
 	}
@@ -358,10 +359,12 @@ func (g *GalaxyGraph) FindNearest(from string, targets []string, limit int) ([]N
 		}
 
 		results = append(results, NearestResult{
-			SystemID:    node.ID,
-			SystemName:  node.Name,
-			Hops:        dist[targetID],
-			LastUpdated: node.LastUpdated,
+			SystemID:       node.ID,
+			SystemName:     node.Name,
+			Hops:           dist[targetID],
+			Security:       node.PoliceLevel,
+			SecurityStatus: node.SecurityStatus,
+			LastUpdated:    node.LastUpdated,
 		})
 	}
 

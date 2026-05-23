@@ -19,8 +19,9 @@ type SystemNode struct {
     Position     Position `json:"position"`
     Empire       string  `json:"empire"`
     IsStronghold bool    `json:"is_stronghold"`
-    PoliceLevel  int     `json:"police_level"`
-    LastUpdated  int64   `json:"last_updated"` // game tick
+    PoliceLevel    int     `json:"police_level"`
+    SecurityStatus string  `json:"security_status"`
+    LastUpdated    int64   `json:"last_updated"` // game tick
 }
 
 // Edge represents a connection between two systems.
@@ -45,6 +46,10 @@ type NearestResult struct {
     SystemID     string  `json:"system_id"`
     SystemName   string  `json:"system_name"`
     Hops         int     `json:"hops"`
+    // Security is the numeric police level of the system; SecurityStatus is
+    // the human-readable status string (e.g. "55 Medium", "0 Lawless").
+    Security       int    `json:"security"`
+    SecurityStatus string `json:"security_status"`
     LastUpdated  int64   `json:"last_updated"` // tick
     IsHomeBase   bool    `json:"is_home_base"`
     StaleWarning string  `json:"stale_warning"`

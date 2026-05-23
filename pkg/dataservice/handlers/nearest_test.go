@@ -30,9 +30,11 @@ func newTestDeps(t *testing.T) (dataservice.Deps, func()) {
 		t.Fatalf("remember sys-a: %v", err)
 	}
 	if err := kb.RememberSystem(ctx, knowledge.System{
-		ID:       "sys-b",
-		Name:     "Beta",
-		Position: game.Position{X: 1, Y: 0},
+		ID:             "sys-b",
+		Name:           "Beta",
+		Position:       game.Position{X: 1, Y: 0},
+		PoliceLevel:    55,
+		SecurityStatus: "55 Medium",
 		Connections: []knowledge.SystemConnection{
 			{SystemID: "sys-a", Distance: 1},
 		},
@@ -93,6 +95,20 @@ func TestNearest_PlaintextHappy(t *testing.T) {
 	}
 	if !strings.Contains(reply, "1 hop") {
 		t.Errorf("reply missing hop count: %q", reply)
+	}
+	if !strings.Contains(reply, "(Sec: 55 Medium)") {
+		t.Errorf("reply missing security status: %q", reply)
+	}
+}
+
+func TestSecurityText(t *testing.T) {
+	// Prefer the human-readable status string when present.
+	if got := securityText(galaxy.NearestResult{SecurityStatus: "55 Medium", Security: 55}); got != "55 Medium" {
+		t.Errorf("with status: got %q, want %q", got, "55 Medium")
+	}
+	// Fall back to the numeric police level when no status string is recorded.
+	if got := securityText(galaxy.NearestResult{Security: 42}); got != "42" {
+		t.Errorf("fallback: got %q, want %q", got, "42")
 	}
 }
 
