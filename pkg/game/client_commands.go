@@ -2270,3 +2270,57 @@ func (c *Client) FactionRemoveEnemy(ctx context.Context, targetFactionID string)
 	}
 	return err
 }
+
+// Citizenship performs a citizenship sub-action (e.g. petition, renounce,
+// grant, list). empireID is optional depending on the action.
+func (c *Client) Citizenship(ctx context.Context, action, empireID string) error {
+	payload := map[string]any{"action": action}
+	if empireID != "" {
+		payload["empire_id"] = empireID
+	}
+	msg := protocol.Message{
+		Type:      "citizenship",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// GetEmpireInfo fetches empire information. empireID is optional; when empty
+// the server returns all empires.
+func (c *Client) GetEmpireInfo(ctx context.Context, empireID string) error {
+	payload := map[string]any{}
+	if empireID != "" {
+		payload["empire_id"] = empireID
+	}
+	msg := protocol.Message{
+		Type:      "get_empire_info",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// Petition submits a citizenship petition message to an empire. The server
+// ack-terminates this action (not flagged x-is-mutation), so it uses the
+// query terminator.
+func (c *Client) Petition(ctx context.Context, empireID, message string) error {
+	msg := protocol.Message{
+		Type:      "petition",
+		Payload:   map[string]any{"empire_id": empireID, "message": message},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}

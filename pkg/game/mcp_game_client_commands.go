@@ -1730,3 +1730,41 @@ func (m *MCPGameClient) FactionRemoveEnemy(ctx context.Context, targetFactionID 
 	}
 	return m.updateStateFromResult(result)
 }
+
+// Citizenship performs a citizenship sub-action.
+func (m *MCPGameClient) Citizenship(ctx context.Context, action, empireID string) error {
+	args := map[string]any{"action": action}
+	if empireID != "" {
+		args["empire_id"] = empireID
+	}
+	result, err := m.callTool(ctx, "citizenship", args)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// GetEmpireInfo fetches empire information.
+func (m *MCPGameClient) GetEmpireInfo(ctx context.Context, empireID string) error {
+	args := map[string]any{}
+	if empireID != "" {
+		args["empire_id"] = empireID
+	}
+	result, err := m.callTool(ctx, "get_empire_info", args)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "get_empire_info")
+}
+
+// Petition submits a citizenship petition message to an empire.
+func (m *MCPGameClient) Petition(ctx context.Context, empireID, message string) error {
+	result, err := m.callTool(ctx, "petition", map[string]any{
+		"empire_id": empireID,
+		"message":   message,
+	})
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "petition")
+}

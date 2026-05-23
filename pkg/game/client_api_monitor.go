@@ -183,6 +183,11 @@ var actionResponseTypes = map[string]reflect.Type{
 	"faction_withdraw_invite":  reflect.TypeOf(serverapi.FactionWithdrawInviteResponse{}),
 	"faction_remove_enemy":     reflect.TypeOf(serverapi.FactionRemoveEnemyResponse{}),
 
+	// Empire & citizenship
+	"citizenship":     reflect.TypeOf(serverapi.CitizenshipResponse{}),
+	"get_empire_info": reflect.TypeOf(serverapi.GetEmpireInfoResponse{}),
+	"petition":        reflect.TypeOf(serverapi.PetitionResponse{}),
+
 	// Bases
 	"build_base":    reflect.TypeOf(serverapi.BuildBaseResponse{}),
 	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),

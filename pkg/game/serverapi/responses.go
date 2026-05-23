@@ -1668,3 +1668,40 @@ type FactionRemoveEnemyResponse struct {
 	TargetFactionID string `json:"target_faction_id"`
 	TargetName      string `json:"target_name"`
 }
+
+// CitizenshipResponse is returned by the citizenship action, which handles
+// petitioning for, granting, renouncing, and querying empire citizenship.
+// Field presence varies by the citizenship sub-action requested.
+//   - citizenship
+type CitizenshipResponse struct {
+	Citizenship      json.RawMessage `json:"citizenship,omitempty"`
+	Citizenships     json.RawMessage `json:"citizenships,omitempty"`
+	EmpireID         string          `json:"empire_id,omitempty"`
+	Empires          json.RawMessage `json:"empires,omitempty"`
+	FeePaid          int64           `json:"fee_paid,omitempty"`
+	FeeRefunded      int64           `json:"fee_refunded,omitempty"`
+	Message          string          `json:"message,omitempty"`
+	Origin           string          `json:"origin,omitempty"`
+	PendingPetitions json.RawMessage `json:"pending_petitions,omitempty"`
+	Petition         json.RawMessage `json:"petition,omitempty"`
+	PetitionID       string          `json:"petition_id,omitempty"`
+	RecentDecisions  json.RawMessage `json:"recent_decisions,omitempty"`
+	Renounced        json.RawMessage `json:"renounced,omitempty"`
+	Rules            json.RawMessage `json:"rules,omitempty"`
+	Status           string          `json:"status,omitempty"`
+}
+
+// GetEmpireInfoResponse is returned by get_empire_info.
+//   - get_empire_info
+type GetEmpireInfoResponse struct {
+	Action  string          `json:"action"`
+	Empires json.RawMessage `json:"empires,omitempty"`
+}
+
+// PetitionResponse is returned by petition (submit a citizenship petition).
+//   - petition
+type PetitionResponse struct {
+	EmpireID   string `json:"empire_id"`
+	EmpireName string `json:"empire_name"`
+	Message    string `json:"message"`
+}

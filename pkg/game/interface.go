@@ -167,6 +167,11 @@ type GameClient interface {
 	FactionWithdrawInvite(ctx context.Context, playerID string) error
 	FactionRemoveEnemy(ctx context.Context, targetFactionID string) error
 
+	// Empire & citizenship
+	Citizenship(ctx context.Context, action, empireID string) error
+	GetEmpireInfo(ctx context.Context, empireID string) error
+	Petition(ctx context.Context, empireID, message string) error
+
 	// Fleet (v0.240)
 	Fleet(ctx context.Context, action string, playerID string) error
 
