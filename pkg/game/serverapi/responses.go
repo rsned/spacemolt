@@ -10,47 +10,47 @@ import "encoding/json"
 
 // GetSystemResponse wraps the response from get_system command.
 type GetSystemResponse struct {
-	Action          string     `json:"action"`
-	POI             CurrentPOI `json:"poi,omitempty"`
-	SecurityStatus  string     `json:"security_status"`
-	System          SystemData `json:"system"`
-	FromSystem      string     `json:"from_system,omitempty"`
-	InTransit       bool       `json:"in_transit,omitempty"`
-	TicksRemaining  int        `json:"ticks_remaining,omitempty"`
-	ToSystem        string     `json:"to_system,omitempty"`
-	TransitType     string     `json:"transit_type,omitempty"`
+	Action         string     `json:"action"`
+	POI            CurrentPOI `json:"poi,omitempty"`
+	SecurityStatus string     `json:"security_status"`
+	System         SystemData `json:"system"`
+	FromSystem     string     `json:"from_system,omitempty"`
+	InTransit      bool       `json:"in_transit,omitempty"`
+	TicksRemaining int        `json:"ticks_remaining,omitempty"`
+	ToSystem       string     `json:"to_system,omitempty"`
+	TransitType    string     `json:"transit_type,omitempty"`
 }
 
 // GetPOIResponse wraps the response from get_poi command.
 type GetPOIResponse struct {
-	Action        string          `json:"action,omitempty"`
-	POI           POI             `json:"poi"`
-	Base          *Base           `json:"base,omitempty"`
-	PoliceDrones  int             `json:"police_drones,omitempty"`
-	PoliceWarning string          `json:"police_warning,omitempty"`
+	Action        string            `json:"action,omitempty"`
+	POI           POI               `json:"poi"`
+	Base          *Base             `json:"base,omitempty"`
+	PoliceDrones  int               `json:"police_drones,omitempty"`
+	PoliceWarning string            `json:"police_warning,omitempty"`
 	Resources     []ResourceDisplay `json:"resources,omitempty"`
-	Services      []string        `json:"services,omitempty"`
+	Services      []string          `json:"services,omitempty"`
 }
 
 // GetStatusResponse wraps the response from get_status command.
 type GetStatusResponse struct {
-	Action      string       `json:"action,omitempty"`
-	Player      Player       `json:"player"`
-	Ship        Ship         `json:"ship"`
-	Modules     []ShipModule `json:"modules"`
-	System      SystemData   `json:"system,omitempty"`
-	POI         POI          `json:"poi,omitempty"`
+	Action      string         `json:"action,omitempty"`
+	Player      Player         `json:"player"`
+	Ship        Ship           `json:"ship"`
+	Modules     []ShipModule   `json:"modules"`
+	System      SystemData     `json:"system,omitempty"`
+	POI         POI            `json:"poi,omitempty"`
 	Nearby      []NearbyPlayer `json:"nearby,omitempty"`
-	CurrentTick int64        `json:"current_tick,omitempty"`
+	CurrentTick int64          `json:"current_tick,omitempty"`
 }
 
 // GetShipResponse wraps the response from get_ship command.
 type GetShipResponse struct {
-	Ship     Ship         `json:"ship"`
-	Modules  []ShipModule `json:"modules"`
-	CargoUsed int         `json:"cargo_used"`
-	CargoMax  int         `json:"cargo_max"`
-	Class    *ShipClass   `json:"class,omitempty"`
+	Ship      Ship         `json:"ship"`
+	Modules   []ShipModule `json:"modules"`
+	CargoUsed int          `json:"cargo_used"`
+	CargoMax  int          `json:"cargo_max"`
+	Class     *ShipClass   `json:"class,omitempty"`
 }
 
 // GetMapResponse wraps the response from get_map command.
@@ -238,19 +238,19 @@ type EstimatePurchaseResponse struct {
 
 // BuyResponse wraps the response from buy command.
 type BuyResponse struct {
-	Action            string           `json:"action"`
-	Item              string           `json:"item"`
-	ItemID            string           `json:"item_id"`
-	Quantity          int              `json:"quantity"`
-	TotalCost         int              `json:"total_cost"`
-	Fills             []OrderFill      `json:"fills"`
-	LevelUp           bool             `json:"level_up"`
-	AutoListed        *AutoListedOrder `json:"auto_listed,omitempty"`
-	DeliveredToCargo  int              `json:"delivered_to_cargo,omitempty"`
-	DeliveredToStorage int             `json:"delivered_to_storage,omitempty"`
-	Message           string           `json:"message,omitempty"`
-	Unfilled          int              `json:"unfilled,omitempty"`
-	XPGained          int              `json:"xp_gained,omitempty"`
+	Action             string           `json:"action"`
+	Item               string           `json:"item"`
+	ItemID             string           `json:"item_id"`
+	Quantity           int              `json:"quantity"`
+	TotalCost          int              `json:"total_cost"`
+	Fills              []OrderFill      `json:"fills"`
+	LevelUp            bool             `json:"level_up"`
+	AutoListed         *AutoListedOrder `json:"auto_listed,omitempty"`
+	DeliveredToCargo   int              `json:"delivered_to_cargo,omitempty"`
+	DeliveredToStorage int              `json:"delivered_to_storage,omitempty"`
+	Message            string           `json:"message,omitempty"`
+	Unfilled           int              `json:"unfilled,omitempty"`
+	XPGained           int              `json:"xp_gained,omitempty"`
 }
 
 // SellResponse wraps the response from sell command.
@@ -439,23 +439,23 @@ type CommissionStatusResponse struct {
 
 // CommissionQuoteResponse wraps the response from commission_quote command.
 type CommissionQuoteResponse struct {
-	Message                    string       `json:"message"`
-	ShipClass                  string       `json:"ship_class"`
-	ShipName                   string       `json:"ship_name,omitempty"`
-	CanCommission              bool         `json:"can_commission"`
-	CreditsOnlyTotal           int          `json:"credits_only_total"`
-	ProvideMaterialsTotal      int          `json:"provide_materials_total"`
-	CreditsOnlyAvailable       bool         `json:"credits_only_available"`
-	CanAffordCreditsOnly       bool         `json:"can_afford_credits_only"`
-	CanAffordProvideMaterials  bool         `json:"can_afford_provide_materials"`
-	Blockers                   []string     `json:"blockers,omitempty"`
-	BuildMaterials             []CargoItem  `json:"build_materials,omitempty"`
-	BuildTime                  int          `json:"build_time,omitempty"`
-	LaborCost                  int          `json:"labor_cost,omitempty"`
-	MaterialCost               int          `json:"material_cost,omitempty"`
-	PlayerCredits              int          `json:"player_credits,omitempty"`
-	ShipyardTierHere           int          `json:"shipyard_tier_here,omitempty"`
-	ShipyardTierRequired       int          `json:"shipyard_tier_required,omitempty"`
+	Message                   string      `json:"message"`
+	ShipClass                 string      `json:"ship_class"`
+	ShipName                  string      `json:"ship_name,omitempty"`
+	CanCommission             bool        `json:"can_commission"`
+	CreditsOnlyTotal          int         `json:"credits_only_total"`
+	ProvideMaterialsTotal     int         `json:"provide_materials_total"`
+	CreditsOnlyAvailable      bool        `json:"credits_only_available"`
+	CanAffordCreditsOnly      bool        `json:"can_afford_credits_only"`
+	CanAffordProvideMaterials bool        `json:"can_afford_provide_materials"`
+	Blockers                  []string    `json:"blockers,omitempty"`
+	BuildMaterials            []CargoItem `json:"build_materials,omitempty"`
+	BuildTime                 int         `json:"build_time,omitempty"`
+	LaborCost                 int         `json:"labor_cost,omitempty"`
+	MaterialCost              int         `json:"material_cost,omitempty"`
+	PlayerCredits             int         `json:"player_credits,omitempty"`
+	ShipyardTierHere          int         `json:"shipyard_tier_here,omitempty"`
+	ShipyardTierRequired      int         `json:"shipyard_tier_required,omitempty"`
 }
 
 // CommissionShipResponse wraps the response from commission_ship command.
@@ -512,13 +512,13 @@ type SellShipResponse struct {
 
 // SwitchShipResponse wraps the response from switch_ship command.
 type SwitchShipResponse struct {
-	Message          string      `json:"message"`
-	ActiveShipID     string      `json:"active_ship_id"`
-	ActiveShipClass  string      `json:"active_ship_class"`
-	StoredShipID     string      `json:"stored_ship_id"`
-	StoredShipClass  string      `json:"stored_ship_class"`
-	CargoNote        string      `json:"cargo_note,omitempty"`
-	CargoToStorage   []CargoItem `json:"cargo_to_storage,omitempty"`
+	Message         string      `json:"message"`
+	ActiveShipID    string      `json:"active_ship_id"`
+	ActiveShipClass string      `json:"active_ship_class"`
+	StoredShipID    string      `json:"stored_ship_id"`
+	StoredShipClass string      `json:"stored_ship_class"`
+	CargoNote       string      `json:"cargo_note,omitempty"`
+	CargoToStorage  []CargoItem `json:"cargo_to_storage,omitempty"`
 }
 
 // BuyListedShipResponse wraps the response from buy_listed_ship command.
@@ -681,58 +681,58 @@ type FacilityResponse struct {
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {
-	Action               string             `json:"action"`
-	Hint                 string             `json:"hint,omitempty"`
-	Page                 int                `json:"page,omitempty"`
-	PerPage              int                `json:"per_page,omitempty"`
-	Total                int                `json:"total,omitempty"`
-	TotalPages           int                `json:"total_pages,omitempty"`
-	Types                []FacilityTypeInfo `json:"types,omitempty"`
+	Action     string             `json:"action"`
+	Hint       string             `json:"hint,omitempty"`
+	Page       int                `json:"page,omitempty"`
+	PerPage    int                `json:"per_page,omitempty"`
+	Total      int                `json:"total,omitempty"`
+	TotalPages int                `json:"total_pages,omitempty"`
+	Types      []FacilityTypeInfo `json:"types,omitempty"`
 	// Single type detail fields (returned when querying a specific type)
-	TypeID               string             `json:"type_id,omitempty"`
-	Name                 string             `json:"name,omitempty"`
-	Category             string             `json:"category,omitempty"`
-	Description          string             `json:"description,omitempty"`
-	SatisfiedDescription string             `json:"satisfied_description,omitempty"`
-	DegradedDescription  string             `json:"degraded_description,omitempty"`
-	Level                int                `json:"level,omitempty"`
-	Buildable            bool               `json:"buildable,omitempty"`
-	BuildCost            int                `json:"build_cost,omitempty"`
-	BuildMaterials       []CargoItem        `json:"build_materials,omitempty"`
-	BuildTime            int                `json:"build_time,omitempty"`
-	LaborCost            int                `json:"labor_cost,omitempty"`
-	MaintenancePerCycle  []CargoItem        `json:"maintenance_per_cycle,omitempty"`
-	RentPerCycle         int                `json:"rent_per_cycle,omitempty"`
-	PersonalService      string             `json:"personal_service,omitempty"`
-	Service              string             `json:"service,omitempty"`
-	FactionService       string             `json:"faction_service,omitempty"`
-	FactionCap           int                `json:"faction_cap,omitempty"`
-	BonusType            string             `json:"bonus_type,omitempty"`
-	BonusValue           float64            `json:"bonus_value,omitempty"`
-	Lore                 string             `json:"lore,omitempty"`
-	RecipeID             string             `json:"recipe_id,omitempty"`
-	Recipe               string             `json:"recipe,omitempty"`
-	RecipeMultiplier     float64            `json:"recipe_multiplier,omitempty"`
-	UpgradesTo           string             `json:"upgrades_to,omitempty"`
-	UpgradesToName       string             `json:"upgrades_to_name,omitempty"`
-	UpgradesFrom         string             `json:"upgrades_from,omitempty"`
-	UpgradesFromName     string             `json:"upgrades_from_name,omitempty"`
-	RequiresServiceName  string             `json:"requires_service_name,omitempty"`
-	RequiresServiceType  string             `json:"requires_service_type,omitempty"`
+	TypeID               string      `json:"type_id,omitempty"`
+	Name                 string      `json:"name,omitempty"`
+	Category             string      `json:"category,omitempty"`
+	Description          string      `json:"description,omitempty"`
+	SatisfiedDescription string      `json:"satisfied_description,omitempty"`
+	DegradedDescription  string      `json:"degraded_description,omitempty"`
+	Level                int         `json:"level,omitempty"`
+	Buildable            bool        `json:"buildable,omitempty"`
+	BuildCost            int         `json:"build_cost,omitempty"`
+	BuildMaterials       []CargoItem `json:"build_materials,omitempty"`
+	BuildTime            int         `json:"build_time,omitempty"`
+	LaborCost            int         `json:"labor_cost,omitempty"`
+	MaintenancePerCycle  []CargoItem `json:"maintenance_per_cycle,omitempty"`
+	RentPerCycle         int         `json:"rent_per_cycle,omitempty"`
+	PersonalService      string      `json:"personal_service,omitempty"`
+	Service              string      `json:"service,omitempty"`
+	FactionService       string      `json:"faction_service,omitempty"`
+	FactionCap           int         `json:"faction_cap,omitempty"`
+	BonusType            string      `json:"bonus_type,omitempty"`
+	BonusValue           float64     `json:"bonus_value,omitempty"`
+	Lore                 string      `json:"lore,omitempty"`
+	RecipeID             string      `json:"recipe_id,omitempty"`
+	Recipe               string      `json:"recipe,omitempty"`
+	RecipeMultiplier     float64     `json:"recipe_multiplier,omitempty"`
+	UpgradesTo           string      `json:"upgrades_to,omitempty"`
+	UpgradesToName       string      `json:"upgrades_to_name,omitempty"`
+	UpgradesFrom         string      `json:"upgrades_from,omitempty"`
+	UpgradesFromName     string      `json:"upgrades_from_name,omitempty"`
+	RequiresServiceName  string      `json:"requires_service_name,omitempty"`
+	RequiresServiceType  string      `json:"requires_service_type,omitempty"`
 	// Pagination/filter envelope fields (added when action="types" returns
 	// a list — the server now includes a categories index, applied filters,
 	// and a pagination block alongside the page/per_page/total fields above).
-	Categories  []string       `json:"categories,omitempty"`
-	Filters     map[string]any `json:"filters,omitempty"`
-	Pagination  map[string]any `json:"pagination,omitempty"`
+	Categories []string       `json:"categories,omitempty"`
+	Filters    map[string]any `json:"filters,omitempty"`
+	Pagination map[string]any `json:"pagination,omitempty"`
 }
 
 // FacilityListResponse wraps the response from facility list command.
 type FacilityListResponse struct {
-	BaseID              string           `json:"base_id"`
-	StationFacilities   []map[string]any `json:"station_facilities"`
-	PlayerFacilities    []map[string]any `json:"player_facilities"`
-	FactionFacilities   []map[string]any `json:"faction_facilities"`
+	BaseID            string           `json:"base_id"`
+	StationFacilities []map[string]any `json:"station_facilities"`
+	PlayerFacilities  []map[string]any `json:"player_facilities"`
+	FactionFacilities []map[string]any `json:"faction_facilities"`
 }
 
 // ViewStorageResponse wraps the response from view_storage command.
@@ -780,11 +780,11 @@ type HelpResponse struct {
 
 // GetGuideResponse wraps the response from get_guide command.
 type GetGuideResponse struct {
-	Action  string           `json:"action,omitempty"`
-	Guide   string           `json:"guide,omitempty"`
-	Content string           `json:"content,omitempty"`
-	Guides  []GuideEntry     `json:"guides,omitempty"`
-	Hint    string           `json:"hint,omitempty"`
+	Action  string       `json:"action,omitempty"`
+	Guide   string       `json:"guide,omitempty"`
+	Content string       `json:"content,omitempty"`
+	Guides  []GuideEntry `json:"guides,omitempty"`
+	Hint    string       `json:"hint,omitempty"`
 }
 
 // GuideEntry represents a guide in the guide listing.
@@ -817,14 +817,14 @@ type ChatResponse struct {
 
 // ForumListResponse wraps the response from forum_list command.
 type ForumListResponse struct {
-	Action                string             `json:"action,omitempty"`
-	Threads               []ForumThreadSummary `json:"threads"`
-	Page                  int                `json:"page,omitempty"`
-	Total                 int                `json:"total,omitempty"`
-	PerPage               int                `json:"per_page,omitempty"`
-	HasMore               bool               `json:"has_more,omitempty"`
-	Categories            []string           `json:"categories,omitempty"`
-	CategoryDescriptions  map[string]string  `json:"category_descriptions,omitempty"`
+	Action               string               `json:"action,omitempty"`
+	Threads              []ForumThreadSummary `json:"threads"`
+	Page                 int                  `json:"page,omitempty"`
+	Total                int                  `json:"total,omitempty"`
+	PerPage              int                  `json:"per_page,omitempty"`
+	HasMore              bool                 `json:"has_more,omitempty"`
+	Categories           []string             `json:"categories,omitempty"`
+	CategoryDescriptions map[string]string    `json:"category_descriptions,omitempty"`
 }
 
 // ForumThreadResponse wraps the response from forum_get_thread command.
@@ -875,25 +875,25 @@ type GiftShipResponse struct {
 
 // FactionInfoResponse wraps the response from faction_info command.
 type FactionInfoResponse struct {
-	Action         string                `json:"action,omitempty"`
-	ID             string                `json:"id"`
-	Name           string                `json:"name"`
-	Tag            string                `json:"tag"`
-	LeaderID       string                `json:"leader_id"`
-	LeaderUsername string                `json:"leader_username"`
-	MemberCount    int                   `json:"member_count"`
-	OwnedBases     int                   `json:"owned_bases"`
-	IsMember       bool                  `json:"is_member"`
-	IsAlly         bool                  `json:"is_ally"`
-	IsEnemy        bool                  `json:"is_enemy"`
-	AtWar          bool                  `json:"at_war"`
-	Description    string                `json:"description,omitempty"`
-	Charter        string                `json:"charter,omitempty"`
-	Emblem         string                `json:"emblem,omitempty"`
-	PrimaryColor   string                `json:"primary_color,omitempty"`
-	SecondaryColor string                `json:"secondary_color,omitempty"`
-	Treasury       int                   `json:"treasury,omitempty"`
-	CreatedAt      string                `json:"created_at,omitempty"`
+	Action           string                `json:"action,omitempty"`
+	ID               string                `json:"id"`
+	Name             string                `json:"name"`
+	Tag              string                `json:"tag"`
+	LeaderID         string                `json:"leader_id"`
+	LeaderUsername   string                `json:"leader_username"`
+	MemberCount      int                   `json:"member_count"`
+	OwnedBases       int                   `json:"owned_bases"`
+	IsMember         bool                  `json:"is_member"`
+	IsAlly           bool                  `json:"is_ally"`
+	IsEnemy          bool                  `json:"is_enemy"`
+	AtWar            bool                  `json:"at_war"`
+	Description      string                `json:"description,omitempty"`
+	Charter          string                `json:"charter,omitempty"`
+	Emblem           string                `json:"emblem,omitempty"`
+	PrimaryColor     string                `json:"primary_color,omitempty"`
+	SecondaryColor   string                `json:"secondary_color,omitempty"`
+	Treasury         int                   `json:"treasury,omitempty"`
+	CreatedAt        string                `json:"created_at,omitempty"`
 	Members          []FactionMemberDetail `json:"members,omitempty"`
 	MembersLimit     int                   `json:"members_limit,omitempty"`
 	MembersOffset    int                   `json:"members_offset,omitempty"`
@@ -1102,26 +1102,26 @@ type UndockResponse struct {
 
 // RefuelResponse wraps the response from refuel command.
 type RefuelResponse struct {
-	Action             string `json:"action"`
-	Source             string `json:"source,omitempty"`
-	Fuel               int    `json:"fuel,omitempty"`
-	FuelNow            int    `json:"fuel_now,omitempty"`
-	FuelMax            int    `json:"fuel_max,omitempty"`
-	Cost               int    `json:"cost,omitempty"`
-	CellsUsed          int    `json:"cells_used,omitempty"`
-	ItemID             string `json:"item_id,omitempty"`
-	ItemName           string `json:"item_name,omitempty"`
-	TargetFuelMax      int    `json:"target_fuel_max,omitempty"`
-	TargetFuelNow      int    `json:"target_fuel_now,omitempty"`
-	TargetPlayerID     string `json:"target_player_id,omitempty"`
-	TargetPlayerName   string `json:"target_player_name,omitempty"`
+	Action           string `json:"action"`
+	Source           string `json:"source,omitempty"`
+	Fuel             int    `json:"fuel,omitempty"`
+	FuelNow          int    `json:"fuel_now,omitempty"`
+	FuelMax          int    `json:"fuel_max,omitempty"`
+	Cost             int    `json:"cost,omitempty"`
+	CellsUsed        int    `json:"cells_used,omitempty"`
+	ItemID           string `json:"item_id,omitempty"`
+	ItemName         string `json:"item_name,omitempty"`
+	TargetFuelMax    int    `json:"target_fuel_max,omitempty"`
+	TargetFuelNow    int    `json:"target_fuel_now,omitempty"`
+	TargetPlayerID   string `json:"target_player_id,omitempty"`
+	TargetPlayerName string `json:"target_player_name,omitempty"`
 }
 
 // RepairResponse wraps the response from repair command.
 // Supports station repair (credits), in-space repair (kits), and repairing other ships (repair arm + kits).
 type RepairResponse struct {
 	Action           string              `json:"action"`
-	Source           string              `json:"source,omitempty"`  // "station", "kits", etc.
+	Source           string              `json:"source,omitempty"` // "station", "kits", etc.
 	Repaired         int                 `json:"repaired"`
 	Cost             int                 `json:"cost,omitempty"`
 	ItemID           string              `json:"item_id,omitempty"`
@@ -1213,25 +1213,25 @@ type ScanResponse struct {
 
 // JettisonResponse wraps the response from jettison command.
 type JettisonResponse struct {
-	Action    string `json:"action"`
-	ItemID    string `json:"item_id"`
-	ItemName  string `json:"item_name"`
-	Quantity  int    `json:"quantity"`
-	CargoUsed int    `json:"cargo_used"`
-	CargoSpace int   `json:"cargo_space"`
+	Action     string `json:"action"`
+	ItemID     string `json:"item_id"`
+	ItemName   string `json:"item_name"`
+	Quantity   int    `json:"quantity"`
+	CargoUsed  int    `json:"cargo_used"`
+	CargoSpace int    `json:"cargo_space"`
 }
 
 // InstallModResponse wraps the response from install_mod command.
 type InstallModResponse struct {
-	Message      string `json:"message"`
-	ModuleID     string `json:"module_id"`
+	Message      string  `json:"message"`
+	ModuleID     string  `json:"module_id"`
 	Quality      float64 `json:"quality,omitempty"`
-	QualityGrade string `json:"quality_grade,omitempty"`
-	CPUUsed      int    `json:"cpu_used"`
-	PowerUsed    int    `json:"power_used"`
-	CurrentAmmo  int    `json:"current_ammo,omitempty"`
-	LoadedAmmo   string `json:"loaded_ammo,omitempty"`
-	MagazineSize int    `json:"magazine_size,omitempty"`
+	QualityGrade string  `json:"quality_grade,omitempty"`
+	CPUUsed      int     `json:"cpu_used"`
+	PowerUsed    int     `json:"power_used"`
+	CurrentAmmo  int     `json:"current_ammo,omitempty"`
+	LoadedAmmo   string  `json:"loaded_ammo,omitempty"`
+	MagazineSize int     `json:"magazine_size,omitempty"`
 }
 
 // UninstallModResponse wraps the response from uninstall_mod command.
@@ -1250,15 +1250,15 @@ type UninstallModResponse struct {
 
 // ReloadResponse wraps the response from reload command.
 type ReloadResponse struct {
-	Action         string `json:"action"`
-	WeaponName     string `json:"weapon_name"`
-	WeaponID       string `json:"weapon_id"`
-	AmmoName       string `json:"ammo_name"`
-	AmmoID         string `json:"ammo_id"`
-	CurrentAmmo    int    `json:"current_ammo"`
-	MagazineSize   int    `json:"magazine_size"`
-	PreviousAmmo   string `json:"previous_ammo,omitempty"`
-	RoundsDiscarded int   `json:"rounds_discarded,omitempty"`
+	Action          string `json:"action"`
+	WeaponName      string `json:"weapon_name"`
+	WeaponID        string `json:"weapon_id"`
+	AmmoName        string `json:"ammo_name"`
+	AmmoID          string `json:"ammo_id"`
+	CurrentAmmo     int    `json:"current_ammo"`
+	MagazineSize    int    `json:"magazine_size"`
+	PreviousAmmo    string `json:"previous_ammo,omitempty"`
+	RoundsDiscarded int    `json:"rounds_discarded,omitempty"`
 }
 
 // UseItemResponse wraps the response from use_item command.
@@ -1531,6 +1531,15 @@ type PendingActionResponse struct {
 // MessageResponse is a generic response with just a message field.
 type MessageResponse struct {
 	Message string `json:"message"`
+}
+
+// MobileCapitalTransitResponse is delivered when the Mobile Capital jumps,
+// relocating the player to a new system.
+//   - mobile_capital_transit
+type MobileCapitalTransitResponse struct {
+	Action  string `json:"action"`
+	Message string `json:"message"`
+	System  string `json:"system,omitempty"`
 }
 
 // FleetResponse wraps the response from fleet command.

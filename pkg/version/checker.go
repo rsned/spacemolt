@@ -14,7 +14,7 @@ import (
 // BuiltForAPIVersion is the server API version this client was built against.
 // Update this constant when updating response structs and command signatures
 // to match a new server API version.
-const BuiltForAPIVersion = "v0.296.1"
+const BuiltForAPIVersion = "v0.322.1"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {
