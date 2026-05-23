@@ -1054,6 +1054,8 @@ type TravelResponse struct {
 // JumpResponse wraps the response from jump command.
 type JumpResponse struct {
 	Action      string `json:"action"`
+	Command     string `json:"command,omitempty"`
+	Pending     bool   `json:"pending,omitempty"`
 	ArrivalTick int64  `json:"arrival_tick,omitempty"`
 	Destination string `json:"destination,omitempty"`
 	IsWormhole  bool   `json:"is_wormhole,omitempty"`
@@ -1075,6 +1077,8 @@ type JumpedResponse struct {
 // DockResponse wraps the response from dock command.
 type DockResponse struct {
 	Action              string          `json:"action,omitempty"`
+	Command             string          `json:"command,omitempty"`
+	Pending             bool            `json:"pending,omitempty"`
 	Base                *Base           `json:"base,omitempty"`
 	StationCondition    *StationHealth  `json:"station_condition,omitempty"`
 	FuelWarning         string          `json:"fuel_warning,omitempty"`
@@ -1155,7 +1159,9 @@ type FleetMemberStatus struct {
 
 // MineResponse wraps the response from mine command.
 type MineResponse struct {
-	Action string `json:"action,omitempty"`
+	Action  string `json:"action,omitempty"`
+	Command string `json:"command,omitempty"`
+	Pending bool   `json:"pending,omitempty"`
 }
 
 // CraftResponse wraps the response from craft command.

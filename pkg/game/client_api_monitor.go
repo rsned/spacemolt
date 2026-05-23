@@ -226,7 +226,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"help": reflect.TypeOf(serverapi.HelpResponse{}),
 
 	// Self destruct
-	"self_destruct": reflect.TypeOf(serverapi.MessageResponse{}),
+	"self_destruct": reflect.TypeOf(serverapi.PendingActionResponse{}),
 
 	// Drones
 	"get_drone":           reflect.TypeOf(serverapi.GetDroneResponse{}),
