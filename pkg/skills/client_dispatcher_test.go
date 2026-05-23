@@ -734,3 +734,36 @@ func (m *mockGameClient) ReadNote(ctx context.Context, noteID string) error { re
 func (m *mockGameClient) Facility(ctx context.Context, payload map[string]any) error { return nil }
 
 func (m *mockGameClient) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {}
+
+// Phase 1 API-currentness actions (drones, empire/citizenship, economy, logs)
+func (m *mockGameClient) GetDrone(ctx context.Context, droneID string) error    { return nil }
+func (m *mockGameClient) GetDrones(ctx context.Context) error                   { return nil }
+func (m *mockGameClient) LoadDrone(ctx context.Context, itemID string) error    { return nil }
+func (m *mockGameClient) UnloadDrone(ctx context.Context, droneID string) error { return nil }
+func (m *mockGameClient) RecallDrone(ctx context.Context, droneID string, all bool) error {
+	return nil
+}
+func (m *mockGameClient) UploadDroneScript(ctx context.Context, droneID, script string) error {
+	return nil
+}
+func (m *mockGameClient) FactionAcceptInvite(ctx context.Context, factionID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionWithdrawInvite(ctx context.Context, playerID string) error {
+	return nil
+}
+func (m *mockGameClient) FactionRemoveEnemy(ctx context.Context, targetFactionID string) error {
+	return nil
+}
+func (m *mockGameClient) Citizenship(ctx context.Context, action, empireID string) error { return nil }
+func (m *mockGameClient) GetEmpireInfo(ctx context.Context, empireID string) error       { return nil }
+func (m *mockGameClient) Petition(ctx context.Context, empireID, message string) error   { return nil }
+func (m *mockGameClient) GetTaxEstimate(ctx context.Context) error                       { return nil }
+func (m *mockGameClient) ViewInsurance(ctx context.Context) error                        { return nil }
+func (m *mockGameClient) ScrapShip(ctx context.Context, shipID string) error             { return nil }
+func (m *mockGameClient) CompletedMissions(ctx context.Context) error                    { return nil }
+func (m *mockGameClient) DeleteNote(ctx context.Context, noteID string) error            { return nil }
+func (m *mockGameClient) CaptainsLogDelete(ctx context.Context, index int) error         { return nil }
+func (m *mockGameClient) AgentLogs(ctx context.Context, category, severity, message string, data map[string]any) error {
+	return nil
+}
