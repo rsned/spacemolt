@@ -68,6 +68,10 @@ type GetBaseResponse struct {
 	POI       POI               `json:"poi,omitempty"`
 	Resources []ResourceDisplay `json:"resources,omitempty"`
 	Market    []MarketListing   `json:"market,omitempty"`
+
+	FactionFuelCapacity int   `json:"faction_fuel_capacity,omitempty"`
+	FactionFuelReserve  int   `json:"faction_fuel_reserve,omitempty"`
+	FuelPrice           int64 `json:"fuel_price,omitempty"`
 }
 
 // GetSkillsResponse wraps the response from get_skills command.
@@ -116,6 +120,10 @@ type GetCargoResponse struct {
 	Used      int         `json:"used"`
 	Capacity  int         `json:"capacity"`
 	Available int         `json:"available"`
+
+	BayCapacity  int             `json:"bay_capacity,omitempty"`
+	BayUsed      int             `json:"bay_used,omitempty"`
+	CarriedShips json.RawMessage `json:"carried_ships,omitempty"`
 }
 
 // GetNearbyResponse wraps the response from get_nearby command.
@@ -771,6 +779,8 @@ type ViewStorageResponse struct {
 	Ships   []StorageShip `json:"ships,omitempty"`
 	Gifts   []StorageGift `json:"gifts,omitempty"`
 	Hint    string        `json:"hint,omitempty"`
+
+	Messages json.RawMessage `json:"messages,omitempty"`
 }
 
 // WithdrawItemsResponse wraps the response from withdraw_items command.
@@ -1021,6 +1031,10 @@ type ViewFactionStorageResponse struct {
 	Credits        int              `json:"credits"`
 	Items          []CargoItem      `json:"items"`
 	RecentActivity []map[string]any `json:"recent_activity,omitempty"`
+
+	FactionFuelCapacity int    `json:"faction_fuel_capacity,omitempty"`
+	FactionFuelReserve  int    `json:"faction_fuel_reserve,omitempty"`
+	Hint                string `json:"hint,omitempty"`
 }
 
 // FactionRoom is one room in a faction's common space (faction_rooms).
@@ -1147,6 +1161,17 @@ type RefuelResponse struct {
 	TargetFuelNow    int    `json:"target_fuel_now,omitempty"`
 	TargetPlayerID   string `json:"target_player_id,omitempty"`
 	TargetPlayerName string `json:"target_player_name,omitempty"`
+
+	AllyFactionID   string          `json:"ally_faction_id,omitempty"`
+	AllyFactionTag  string          `json:"ally_faction_tag,omitempty"`
+	AllyFuel        int             `json:"ally_fuel,omitempty"`
+	FactionFuel     int             `json:"faction_fuel,omitempty"`
+	FleetID         string          `json:"fleet_id,omitempty"`
+	HasPump         bool            `json:"has_pump,omitempty"`
+	Members         json.RawMessage `json:"members,omitempty"`
+	RescueCompleted bool            `json:"rescue_completed,omitempty"`
+	RescueReward    int64           `json:"rescue_reward,omitempty"`
+	TaxAmount       int64           `json:"tax_amount,omitempty"`
 }
 
 // RepairResponse wraps the response from repair command.
@@ -1253,6 +1278,8 @@ type JettisonResponse struct {
 	Quantity   int    `json:"quantity"`
 	CargoUsed  int    `json:"cargo_used"`
 	CargoSpace int    `json:"cargo_space"`
+
+	ContainerID string `json:"container_id,omitempty"`
 }
 
 // InstallModResponse wraps the response from install_mod command.
