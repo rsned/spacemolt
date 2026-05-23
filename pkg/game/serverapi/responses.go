@@ -1644,3 +1644,27 @@ type UploadDroneScriptResponse struct {
 	Message   string `json:"message"`
 	ScriptLen int    `json:"script_len"`
 }
+
+// FactionAcceptInviteResponse is returned by faction_accept_invite.
+//   - faction_accept_invite
+type FactionAcceptInviteResponse struct {
+	Faction   string `json:"faction"`
+	FactionID string `json:"faction_id"`
+	Message   string `json:"message"`
+}
+
+// FactionWithdrawInviteResponse is returned by faction_withdraw_invite.
+//   - faction_withdraw_invite
+type FactionWithdrawInviteResponse struct {
+	Message  string `json:"message"`
+	PlayerID string `json:"player_id"`
+}
+
+// FactionRemoveEnemyResponse is returned by faction_remove_enemy.
+//   - faction_remove_enemy
+type FactionRemoveEnemyResponse struct {
+	Message         string `json:"message"`
+	Removed         bool   `json:"removed"`
+	TargetFactionID string `json:"target_faction_id"`
+	TargetName      string `json:"target_name"`
+}

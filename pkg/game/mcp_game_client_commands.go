@@ -1703,3 +1703,30 @@ func (m *MCPGameClient) UploadDroneScript(ctx context.Context, droneID, script s
 	}
 	return m.updateStateFromResult(result)
 }
+
+// FactionAcceptInvite accepts a pending invitation to join a faction.
+func (m *MCPGameClient) FactionAcceptInvite(ctx context.Context, factionID string) error {
+	result, err := m.callTool(ctx, "faction_accept_invite", map[string]any{"faction_id": factionID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// FactionWithdrawInvite withdraws an invitation previously sent to a player.
+func (m *MCPGameClient) FactionWithdrawInvite(ctx context.Context, playerID string) error {
+	result, err := m.callTool(ctx, "faction_withdraw_invite", map[string]any{"player_id": playerID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
+// FactionRemoveEnemy removes a faction from this faction's enemy list.
+func (m *MCPGameClient) FactionRemoveEnemy(ctx context.Context, targetFactionID string) error {
+	result, err := m.callTool(ctx, "faction_remove_enemy", map[string]any{"target_faction_id": targetFactionID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}

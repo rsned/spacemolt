@@ -163,6 +163,9 @@ type GameClient interface {
 	FactionDeleteRoom(ctx context.Context, roomID string) error
 	FactionListMissions(ctx context.Context) error
 	FactionCancelMission(ctx context.Context, templateID string) error
+	FactionAcceptInvite(ctx context.Context, factionID string) error
+	FactionWithdrawInvite(ctx context.Context, playerID string) error
+	FactionRemoveEnemy(ctx context.Context, targetFactionID string) error
 
 	// Fleet (v0.240)
 	Fleet(ctx context.Context, action string, playerID string) error

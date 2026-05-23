@@ -2228,3 +2228,45 @@ func (c *Client) UploadDroneScript(ctx context.Context, droneID, script string) 
 	}
 	return err
 }
+
+// FactionAcceptInvite accepts a pending invitation to join a faction.
+func (c *Client) FactionAcceptInvite(ctx context.Context, factionID string) error {
+	msg := protocol.Message{
+		Type:      "faction_accept_invite",
+		Payload:   map[string]any{"faction_id": factionID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// FactionWithdrawInvite withdraws an invitation previously sent to a player.
+func (c *Client) FactionWithdrawInvite(ctx context.Context, playerID string) error {
+	msg := protocol.Message{
+		Type:      "faction_withdraw_invite",
+		Payload:   map[string]any{"player_id": playerID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// FactionRemoveEnemy removes a faction from this faction's enemy list.
+func (c *Client) FactionRemoveEnemy(ctx context.Context, targetFactionID string) error {
+	msg := protocol.Message{
+		Type:      "faction_remove_enemy",
+		Payload:   map[string]any{"target_faction_id": targetFactionID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
