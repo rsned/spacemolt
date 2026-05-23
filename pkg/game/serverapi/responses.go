@@ -1744,3 +1744,26 @@ type ScrapShipResponse struct {
 	ScrappedClass    string          `json:"scrapped_class,omitempty"`
 	ScrappedShipID   string          `json:"scrapped_ship_id"`
 }
+
+// CompletedMissionsResponse is returned by completed_missions.
+//   - completed_missions
+type CompletedMissionsResponse struct {
+	Missions   json.RawMessage `json:"missions,omitempty"`
+	TotalCount int             `json:"total_count"`
+}
+
+// DeleteNoteResponse is returned by delete_note.
+//   - delete_note
+type DeleteNoteResponse struct {
+	Message string `json:"message"`
+	NoteID  string `json:"note_id"`
+	Title   string `json:"title,omitempty"`
+}
+
+// CaptainsLogDeleteResponse is returned by captains_log_delete.
+//   - captains_log_delete
+type CaptainsLogDeleteResponse struct {
+	Index          int    `json:"index"`
+	Message        string `json:"message"`
+	RemainingCount int    `json:"remaining_count"`
+}

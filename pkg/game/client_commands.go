@@ -2364,3 +2364,70 @@ func (c *Client) ScrapShip(ctx context.Context, shipID string) error {
 	}
 	return err
 }
+
+// CompletedMissions lists the player's completed missions.
+func (c *Client) CompletedMissions(ctx context.Context) error {
+	msg := protocol.Message{
+		Type:      "completed_missions",
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// DeleteNote deletes a saved note by ID. The server ack-terminates this
+// action (not flagged x-is-mutation), so it uses the query terminator.
+func (c *Client) DeleteNote(ctx context.Context, noteID string) error {
+	msg := protocol.Message{
+		Type:      "delete_note",
+		Payload:   map[string]any{"note_id": noteID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// CaptainsLogDelete deletes a captain's-log entry by index. The server
+// ack-terminates this action (not flagged x-is-mutation), so it uses the
+// query terminator.
+func (c *Client) CaptainsLogDelete(ctx context.Context, index int) error {
+	msg := protocol.Message{
+		Type:      "captains_log_delete",
+		Payload:   map[string]any{"index": index},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
+// AgentLogs submits an agent telemetry log entry. data is optional structured
+// context. The action is write-only (no response body) and ack-terminated.
+func (c *Client) AgentLogs(ctx context.Context, category, severity, message string, data map[string]any) error {
+	payload := map[string]any{
+		"category": category,
+		"severity": severity,
+		"message":  message,
+	}
+	if data != nil {
+		payload["data"] = data
+	}
+	msg := protocol.Message{
+		Type:      "agentlogs",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}

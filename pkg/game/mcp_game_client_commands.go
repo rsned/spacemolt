@@ -1795,3 +1795,47 @@ func (m *MCPGameClient) ScrapShip(ctx context.Context, shipID string) error {
 	}
 	return m.updateStateFromResult(result)
 }
+
+// CompletedMissions lists the player's completed missions.
+func (m *MCPGameClient) CompletedMissions(ctx context.Context) error {
+	result, err := m.callTool(ctx, "completed_missions", nil)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "completed_missions")
+}
+
+// DeleteNote deletes a saved note by ID.
+func (m *MCPGameClient) DeleteNote(ctx context.Context, noteID string) error {
+	result, err := m.callTool(ctx, "delete_note", map[string]any{"note_id": noteID})
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "delete_note")
+}
+
+// CaptainsLogDelete deletes a captain's-log entry by index.
+func (m *MCPGameClient) CaptainsLogDelete(ctx context.Context, index int) error {
+	result, err := m.callTool(ctx, "captains_log_delete", map[string]any{"index": index})
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "captains_log_delete")
+}
+
+// AgentLogs submits an agent telemetry log entry.
+func (m *MCPGameClient) AgentLogs(ctx context.Context, category, severity, message string, data map[string]any) error {
+	args := map[string]any{
+		"category": category,
+		"severity": severity,
+		"message":  message,
+	}
+	if data != nil {
+		args["data"] = data
+	}
+	result, err := m.callTool(ctx, "agentlogs", args)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "agentlogs")
+}

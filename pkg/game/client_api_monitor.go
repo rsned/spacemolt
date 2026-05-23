@@ -193,6 +193,12 @@ var actionResponseTypes = map[string]reflect.Type{
 	"view_insurance":   reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
 	"scrap_ship":       reflect.TypeOf(serverapi.ScrapShipResponse{}),
 
+	// Missions, notes & log
+	"completed_missions":  reflect.TypeOf(serverapi.CompletedMissionsResponse{}),
+	"delete_note":         reflect.TypeOf(serverapi.DeleteNoteResponse{}),
+	"captains_log_delete": reflect.TypeOf(serverapi.CaptainsLogDeleteResponse{}),
+	"agentlogs":           reflect.TypeOf(serverapi.MessageResponse{}),
+
 	// Bases
 	"build_base":    reflect.TypeOf(serverapi.BuildBaseResponse{}),
 	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),

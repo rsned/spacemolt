@@ -240,6 +240,10 @@ type GameClient interface {
 	CompleteMission(ctx context.Context, missionID string) error
 	AbandonMission(ctx context.Context, missionID string) error
 	DeclineMission(ctx context.Context, templateID string) error
+	CompletedMissions(ctx context.Context) error
+	DeleteNote(ctx context.Context, noteID string) error
+	CaptainsLogDelete(ctx context.Context, index int) error
+	AgentLogs(ctx context.Context, category, severity, message string, data map[string]any) error
 
 	// Survey
 	SurveySystem(ctx context.Context) error
