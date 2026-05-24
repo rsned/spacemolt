@@ -258,6 +258,13 @@ var actionResponseTypes = map[string]reflect.Type{
 	"captains_log_add":       reflect.TypeOf(serverapi.CaptainsLogAddResponse{}),
 	"captains_log_get":       reflect.TypeOf(serverapi.CaptainsLogGetResponse{}),
 	"captains_log_list":      reflect.TypeOf(serverapi.CaptainsLogListResponse{}),
+	// Ship, combat & wreck
+	"attack":              reflect.TypeOf(serverapi.AttackResponse{}),
+	"name_ship":           reflect.TypeOf(serverapi.NameShipResponse{}),
+	"release_tow":         reflect.TypeOf(serverapi.ReleaseTowResponse{}),
+	"repair_module":       reflect.TypeOf(serverapi.RepairModuleResponse{}),
+	"scrap_wreck":         reflect.TypeOf(serverapi.ScrapWreckResponse{}),
+	"cancel_ship_listing": reflect.TypeOf(serverapi.CancelShipListingResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.

@@ -1903,3 +1903,53 @@ type CaptainsLogListResponse struct {
 	MaxEntries int             `json:"max_entries"`
 	TotalCount int             `json:"total_count"`
 }
+
+// AttackResponse — attack (ack frame)
+type AttackResponse struct {
+	Command string `json:"command,omitempty"`
+	Message string `json:"message"`
+	Pending bool   `json:"pending,omitempty"`
+}
+
+// NameShipResponse — name_ship
+type NameShipResponse struct {
+	Message  string `json:"message"`
+	ShipID   string `json:"ship_id"`
+	ShipName string `json:"ship_name"`
+}
+
+// ReleaseTowResponse — release_tow
+type ReleaseTowResponse struct {
+	Action  string `json:"action,omitempty"`
+	Message string `json:"message"`
+	WreckID string `json:"wreck_id"`
+}
+
+// RepairModuleResponse — repair_module
+type RepairModuleResponse struct {
+	Message      string          `json:"message"`
+	ModuleID     string          `json:"module_id"`
+	RepairAmount float64         `json:"repair_amount,omitempty"`
+	WearAfter    float64         `json:"wear_after,omitempty"`
+	WearBefore   float64         `json:"wear_before,omitempty"`
+	WearStatus   string          `json:"wear_status,omitempty"`
+	XPGained     json.RawMessage `json:"xp_gained,omitempty"`
+}
+
+// ScrapWreckResponse — scrap_wreck
+type ScrapWreckResponse struct {
+	Action     string          `json:"action,omitempty"`
+	Message    string          `json:"message"`
+	Materials  json.RawMessage `json:"materials,omitempty"`
+	ShipClass  string          `json:"ship_class,omitempty"`
+	StoredAt   string          `json:"stored_at,omitempty"`
+	TotalValue int64           `json:"total_value,omitempty"`
+	WreckID    string          `json:"wreck_id"`
+}
+
+// CancelShipListingResponse — cancel_ship_listing
+type CancelShipListingResponse struct {
+	ClassID string `json:"class_id"`
+	Message string `json:"message"`
+	ShipID  string `json:"ship_id"`
+}
