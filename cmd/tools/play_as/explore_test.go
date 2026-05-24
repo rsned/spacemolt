@@ -1,11 +1,57 @@
 package main
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
+
+// TestSurveyResponseParse_ActionResultShape guards the regression where
+// survey_system began terminating with an action_result frame that nests the
+// payload under "result". surveySystem() must unwrap that before binding the
+// flat SurveySystemResponse, otherwise every field reads zero and nothing
+// prints. The frame below is the exact shape observed from the server.
+func TestSurveyResponseParse_ActionResultShape(t *testing.T) {
+	raw := []byte(`{"command":"survey_system","result":{"already_revealed":[],"anomaly_hint":"Spatial anomaly detected — faint readings toward Trader's Rest (4 jumps).","faint_signatures":[],"message":"Survey complete. No hidden deposits detected in this system.","newly_revealed":[],"survey_power":168,"system_id":"haven","system_name":"Haven","xp_gained":{"deep_core_mining":0,"scanning":5}},"tick":908613}`)
+
+	var resp serverapi.SurveySystemResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if resp.SurveyPower != 168 {
+		t.Errorf("SurveyPower = %d, want 168", resp.SurveyPower)
+	}
+	if resp.SystemName != "Haven" {
+		t.Errorf("SystemName = %q, want %q", resp.SystemName, "Haven")
+	}
+	if resp.Message == "" {
+		t.Error("Message is empty, want survey-complete text")
+	}
+	if resp.AnomalyHint == "" {
+		t.Error("AnomalyHint is empty, want spatial-anomaly text")
+	}
+	if resp.XPGained["scanning"] != 5 {
+		t.Errorf("XPGained[scanning] = %d, want 5", resp.XPGained["scanning"])
+	}
+}
+
+// TestSurveyResponseParse_FlatShape confirms the legacy flat OK shape still
+// binds unchanged (unwrapActionResult is a no-op when there is no "result").
+func TestSurveyResponseParse_FlatShape(t *testing.T) {
+	raw := []byte(`{"action":"survey_system","survey_power":42,"system_name":"Sol","message":"done"}`)
+
+	var resp serverapi.SurveySystemResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.SurveyPower != 42 || resp.SystemName != "Sol" || resp.Message != "done" {
+		t.Errorf("flat parse mismatch: power=%d name=%q msg=%q", resp.SurveyPower, resp.SystemName, resp.Message)
+	}
+}
 
 func TestPlanExploreRoute_SinglePOI(t *testing.T) {
 	pois := []game.POI{

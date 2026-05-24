@@ -268,8 +268,14 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			allResponses = append(allResponses, rawJSON)
 		}
 
+		// survey_system now terminates with an action_result frame that nests
+		// the payload under "result" ({"command":...,"result":{...},"tick":N}).
+		// Unwrap it so the flat SurveySystemResponse fields bind; no-op for the
+		// legacy flat OK shape.
+		surveyJSON := unwrapActionResult(rawJSON)
+
 		var resp serverapi.SurveySystemResponse
-		if err := json.Unmarshal(rawJSON, &resp); err != nil {
+		if err := json.Unmarshal(surveyJSON, &resp); err != nil {
 			if format == formatStyled {
 				fmt.Printf("  Failed to parse survey response: %v\n", err)
 			} else {
