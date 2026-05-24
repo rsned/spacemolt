@@ -235,6 +235,22 @@ var actionResponseTypes = map[string]reflect.Type{
 	"unload_drone":        reflect.TypeOf(serverapi.UnloadDroneResponse{}),
 	"recall_drone":        reflect.TypeOf(serverapi.RecallDroneResponse{}),
 	"upload_drone_script": reflect.TypeOf(serverapi.UploadDroneScriptResponse{}),
+
+	// Existing structs, previously unmapped
+	"faction_list_missions": reflect.TypeOf(serverapi.FactionListMissionsResponse{}),
+	"faction_rooms":         reflect.TypeOf(serverapi.FactionRoomsResponse{}),
+	"fleet":                 reflect.TypeOf(serverapi.FleetResponse{}),
+	"login":                 reflect.TypeOf(serverapi.LoginResponse{}),
+	"register":              reflect.TypeOf(serverapi.RegisterResponse{}),
+	// Message-only / empty-result actions reuse MessageResponse
+	"claim":                  reflect.TypeOf(serverapi.MessageResponse{}),
+	"leave_faction":          reflect.TypeOf(serverapi.MessageResponse{}),
+	"logout":                 reflect.TypeOf(serverapi.MessageResponse{}),
+	"trade_cancel":           reflect.TypeOf(serverapi.MessageResponse{}),
+	"trade_decline":          reflect.TypeOf(serverapi.MessageResponse{}),
+	"faction_deposit_items":  reflect.TypeOf(serverapi.MessageResponse{}),
+	"faction_withdraw_items": reflect.TypeOf(serverapi.MessageResponse{}),
+	"session":                reflect.TypeOf(serverapi.MessageResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.
