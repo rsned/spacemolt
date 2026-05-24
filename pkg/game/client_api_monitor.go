@@ -294,6 +294,11 @@ var actionResponseTypes = map[string]reflect.Type{
 	"faction_query_trade_intel":  reflect.TypeOf(serverapi.FactionQueryTradeIntelResponse{}),
 	"faction_submit_trade_intel": reflect.TypeOf(serverapi.FactionSubmitTradeIntelResponse{}),
 	"faction_trade_intel_status": reflect.TypeOf(serverapi.FactionTradeIntelStatusResponse{}),
+	// Faction orders & missions
+	"faction_create_buy_order":  reflect.TypeOf(serverapi.FactionCreateBuyOrderResponse{}),
+	"faction_create_sell_order": reflect.TypeOf(serverapi.FactionCreateSellOrderResponse{}),
+	"faction_post_mission":      reflect.TypeOf(serverapi.FactionPostMissionResponse{}),
+	"faction_cancel_mission":    reflect.TypeOf(serverapi.FactionCancelMissionResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.

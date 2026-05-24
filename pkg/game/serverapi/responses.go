@@ -2165,3 +2165,49 @@ type FactionTradeIntelStatusResponse struct {
 	UniqueItems     int             `json:"unique_items,omitempty"`
 	UniqueStations  int             `json:"unique_stations,omitempty"`
 }
+
+// FactionCreateBuyOrderResponse — faction_create_buy_order
+type FactionCreateBuyOrderResponse struct {
+	Action        string `json:"action,omitempty"`
+	Consolidated  bool   `json:"consolidated,omitempty"`
+	FactionID     string `json:"faction_id,omitempty"`
+	FactionTag    string `json:"faction_tag,omitempty"`
+	Item          string `json:"item,omitempty"`
+	ItemID        string `json:"item_id,omitempty"`
+	ListingFee    int64  `json:"listing_fee,omitempty"`
+	Message       string `json:"message"`
+	OrderID       string `json:"order_id,omitempty"`
+	PriceEach     int64  `json:"price_each,omitempty"`
+	Quantity      int    `json:"quantity,omitempty"`
+	TotalEscrowed int64  `json:"total_escrowed,omitempty"`
+}
+
+// FactionCreateSellOrderResponse — faction_create_sell_order
+type FactionCreateSellOrderResponse struct {
+	Action       string `json:"action,omitempty"`
+	Consolidated bool   `json:"consolidated,omitempty"`
+	FactionID    string `json:"faction_id,omitempty"`
+	FactionTag   string `json:"faction_tag,omitempty"`
+	Item         string `json:"item,omitempty"`
+	ItemID       string `json:"item_id,omitempty"`
+	ListingFee   int64  `json:"listing_fee,omitempty"`
+	Message      string `json:"message"`
+	OrderID      string `json:"order_id,omitempty"`
+	PriceEach    int64  `json:"price_each,omitempty"`
+	Quantity     int    `json:"quantity,omitempty"`
+}
+
+// FactionPostMissionResponse — faction_post_mission
+type FactionPostMissionResponse struct {
+	Escrowed   json.RawMessage `json:"escrowed,omitempty"`
+	Message    string          `json:"message"`
+	Status     string          `json:"status,omitempty"`
+	TemplateID string          `json:"template_id"`
+	Title      string          `json:"title"`
+}
+
+// FactionCancelMissionResponse — faction_cancel_mission
+type FactionCancelMissionResponse struct {
+	Message string `json:"message"`
+	Status  string `json:"status,omitempty"`
+}
