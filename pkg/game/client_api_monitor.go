@@ -457,6 +457,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"sender_id":       true,
 		"target_id":       true,
 		"target_name":     true,
+		"faction_id":      true,
 		"timestamp":       true,
 		"distress_type":   true,
 		"system":          true,
