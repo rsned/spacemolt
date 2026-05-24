@@ -284,6 +284,16 @@ var actionResponseTypes = map[string]reflect.Type{
 	"faction_delete_room":    reflect.TypeOf(serverapi.FactionDeleteRoomResponse{}),
 	"faction_visit_room":     reflect.TypeOf(serverapi.FactionVisitRoomResponse{}),
 	"faction_write_room":     reflect.TypeOf(serverapi.FactionWriteRoomResponse{}),
+	// Faction allies, enemies & intel
+	"faction_accept_ally":        reflect.TypeOf(serverapi.FactionAcceptAllyResponse{}),
+	"faction_propose_ally":       reflect.TypeOf(serverapi.FactionProposeAllyResponse{}),
+	"faction_remove_ally":        reflect.TypeOf(serverapi.FactionRemoveAllyResponse{}),
+	"faction_set_enemy":          reflect.TypeOf(serverapi.FactionSetEnemyResponse{}),
+	"faction_intel_status":       reflect.TypeOf(serverapi.FactionIntelStatusResponse{}),
+	"faction_query_intel":        reflect.TypeOf(serverapi.FactionQueryIntelResponse{}),
+	"faction_query_trade_intel":  reflect.TypeOf(serverapi.FactionQueryTradeIntelResponse{}),
+	"faction_submit_trade_intel": reflect.TypeOf(serverapi.FactionSubmitTradeIntelResponse{}),
+	"faction_trade_intel_status": reflect.TypeOf(serverapi.FactionTradeIntelStatusResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.

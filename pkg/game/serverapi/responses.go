@@ -2088,3 +2088,80 @@ type FactionWriteRoomResponse struct {
 	Name    string `json:"name,omitempty"`
 	RoomID  string `json:"room_id"`
 }
+
+// FactionAcceptAllyResponse — faction_accept_ally
+type FactionAcceptAllyResponse struct {
+	Message         string `json:"message"`
+	TargetFactionID string `json:"target_faction_id"`
+	TargetName      string `json:"target_name"`
+}
+
+// FactionProposeAllyResponse — faction_propose_ally
+type FactionProposeAllyResponse struct {
+	Message         string `json:"message"`
+	TargetFactionID string `json:"target_faction_id"`
+	TargetName      string `json:"target_name"`
+}
+
+// FactionRemoveAllyResponse — faction_remove_ally
+type FactionRemoveAllyResponse struct {
+	Message         string `json:"message"`
+	Removed         bool   `json:"removed,omitempty"`
+	TargetFactionID string `json:"target_faction_id"`
+	TargetName      string `json:"target_name"`
+}
+
+// FactionSetEnemyResponse — faction_set_enemy
+type FactionSetEnemyResponse struct {
+	Message         string `json:"message"`
+	TargetFactionID string `json:"target_faction_id"`
+	TargetName      string `json:"target_name"`
+}
+
+// FactionIntelStatusResponse — faction_intel_status
+type FactionIntelStatusResponse struct {
+	IntelLevel      int             `json:"intel_level,omitempty"`
+	Reports24h      int             `json:"reports_24h,omitempty"`
+	TopContributors json.RawMessage `json:"top_contributors,omitempty"`
+	TotalReports    int             `json:"total_reports,omitempty"`
+	UniquePlayers   int             `json:"unique_players,omitempty"`
+	UniqueSystems   int             `json:"unique_systems,omitempty"`
+}
+
+// FactionQueryIntelResponse — faction_query_intel
+type FactionQueryIntelResponse struct {
+	Message    string          `json:"message,omitempty"`
+	Count      int             `json:"count,omitempty"`
+	Entries    json.RawMessage `json:"entries,omitempty"`
+	IntelLevel int             `json:"intel_level,omitempty"`
+	Limit      int             `json:"limit,omitempty"`
+	Offset     int             `json:"offset,omitempty"`
+	Total      int             `json:"total,omitempty"`
+}
+
+// FactionQueryTradeIntelResponse — faction_query_trade_intel
+type FactionQueryTradeIntelResponse struct {
+	Entries    json.RawMessage `json:"entries,omitempty"`
+	IntelLevel int             `json:"intel_level,omitempty"`
+	Limit      int             `json:"limit,omitempty"`
+	Offset     int             `json:"offset,omitempty"`
+	Showing    int             `json:"showing,omitempty"`
+	Total      int             `json:"total,omitempty"`
+}
+
+// FactionSubmitTradeIntelResponse — faction_submit_trade_intel
+type FactionSubmitTradeIntelResponse struct {
+	Message         string `json:"message"`
+	StationsUpdated int    `json:"stations_updated,omitempty"`
+	Status          string `json:"status,omitempty"`
+}
+
+// FactionTradeIntelStatusResponse — faction_trade_intel_status
+type FactionTradeIntelStatusResponse struct {
+	IntelLevel      int             `json:"intel_level,omitempty"`
+	Reports24h      int             `json:"reports_24h,omitempty"`
+	TopContributors json.RawMessage `json:"top_contributors,omitempty"`
+	TotalReports    int             `json:"total_reports,omitempty"`
+	UniqueItems     int             `json:"unique_items,omitempty"`
+	UniqueStations  int             `json:"unique_stations,omitempty"`
+}
