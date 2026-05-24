@@ -577,6 +577,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatCreateFaction(raw)
 	case "faction_info":
 		return formatFactionInfo(raw)
+	case "faction_intel_status":
+		return formatFactionIntelStatus(raw)
 	case "deposit", "deposit_items":
 		return formatDeposit(raw)
 	case "skills", "get_skills":
@@ -3138,6 +3140,44 @@ func formatFactionInfo(raw []byte) string {
 		}
 	}
 
+	return b.String()
+}
+
+// formatFactionIntelStatus renders a faction_intel_status response. Fields
+// follow the live server payload (which differs from the OpenAPI spec): a
+// coverage summary, contributor stats, and the most-recent submission tick.
+func formatFactionIntelStatus(raw []byte) string {
+	var r struct {
+		IntelLevel       int    `json:"intel_level"`
+		Contributors     int    `json:"contributors"`
+		TopContributor   string `json:"top_contributor"`
+		TopContributions int    `json:"top_contributions"`
+		SystemsKnown     int    `json:"systems_known"`
+		TotalSystems     int    `json:"total_systems"`
+		POIsKnown        int    `json:"pois_known"`
+		CoveragePct      string `json:"coverage_pct"`
+		MostRecentTick   int64  `json:"most_recent_tick"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &r); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "🛰  Faction Intel Status\n")
+	fmt.Fprintf(&b, "  Intel level:     %d\n", r.IntelLevel)
+	coverage := r.CoveragePct
+	if coverage == "" {
+		coverage = "0"
+	}
+	fmt.Fprintf(&b, "  Coverage:        %s%% (%d / %d systems)\n", coverage, r.SystemsKnown, r.TotalSystems)
+	fmt.Fprintf(&b, "  POIs known:      %d\n", r.POIsKnown)
+	fmt.Fprintf(&b, "  Contributors:    %d\n", r.Contributors)
+	if r.TopContributor != "" {
+		fmt.Fprintf(&b, "  Top contributor: %s (%d)\n", r.TopContributor, r.TopContributions)
+	}
+	if r.MostRecentTick > 0 {
+		fmt.Fprintf(&b, "  Most recent:     tick %d\n", r.MostRecentTick)
+	}
 	return b.String()
 }
 

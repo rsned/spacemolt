@@ -3984,6 +3984,16 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Store faction intel status (faction_intel_status). Live payload has
+		// no "action" field; key on the distinctive pois_known stat so the
+		// REPL formatter can find it (faction_trade_intel_status uses
+		// unique_items/unique_stations instead).
+		if storeKey == "" {
+			if _, hasPOIsKnown := resp.Payload["pois_known"]; hasPOIsKnown {
+				storeKey = "faction_intel_status"
+				shouldStore = true
+			}
+		}
 		// Store faction invites list (faction_get_invites). Distinctive
 		// "invites" array; keyed by command name so play_as's lookup finds it.
 		if _, hasInvites := resp.Payload["invites"]; hasInvites {
