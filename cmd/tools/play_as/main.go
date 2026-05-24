@@ -1176,6 +1176,15 @@ func formatStorage(raw []byte) string {
 		return ""
 	}
 
+	// Guard against non-storage frames (e.g. an error like "You must be docked
+	// to view storage" routed here, or a stale/empty slot). A real view_storage
+	// response always carries a base_id; without one and with no items or ships
+	// there is nothing to render — return "" so the caller falls through rather
+	// than printing "Storage at  — 0 types".
+	if resp.BaseID == "" && len(resp.Items) == 0 && len(resp.Ships) == 0 {
+		return ""
+	}
+
 	var totalUnits float64
 	var totalVolume float64
 	for _, item := range resp.Items {
@@ -1303,6 +1312,14 @@ func formatFactionStorage(raw []byte) string {
 		RecentActivity []factionStorageActivity `json:"recent_activity"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	// Guard against non-storage frames (e.g. an error routed here, or a stale/
+	// empty slot). A real view_faction_storage response identifies the faction
+	// and base; without those and with no items or activity there is nothing to
+	// render — return "" so the caller falls through.
+	if resp.FactionID == "" && resp.BaseID == "" && len(resp.Items) == 0 && len(resp.RecentActivity) == 0 {
 		return ""
 	}
 
