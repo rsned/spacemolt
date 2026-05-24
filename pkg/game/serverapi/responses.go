@@ -1953,3 +1953,61 @@ type CancelShipListingResponse struct {
 	Message string `json:"message"`
 	ShipID  string `json:"ship_id"`
 }
+
+// CancelCommissionResponse — cancel_commission
+type CancelCommissionResponse struct {
+	Message           string          `json:"message"`
+	CreditsTotal      int64           `json:"credits_total,omitempty"`
+	MaterialsNote     string          `json:"materials_note,omitempty"`
+	MaterialsReturned json.RawMessage `json:"materials_returned,omitempty"`
+	Refund            int64           `json:"refund,omitempty"`
+}
+
+// ClaimCommissionResponse — claim_commission
+type ClaimCommissionResponse struct {
+	Message     string `json:"message"`
+	CreditsLeft int64  `json:"credits_left,omitempty"`
+	NewShipID   string `json:"new_ship_id,omitempty"`
+	OldShipID   string `json:"old_ship_id,omitempty"`
+	ShipClass   string `json:"ship_class,omitempty"`
+}
+
+// SupplyCommissionResponse — supply_commission
+type SupplyCommissionResponse struct {
+	Message          string          `json:"message"`
+	AllSourced       bool            `json:"all_sourced,omitempty"`
+	CommissionID     string          `json:"commission_id"`
+	CommissionStatus string          `json:"commission_status,omitempty"`
+	Credits          int64           `json:"credits,omitempty"`
+	ItemID           string          `json:"item_id,omitempty"`
+	ItemName         string          `json:"item_name,omitempty"`
+	Materials        json.RawMessage `json:"materials,omitempty"`
+	Supplied         int             `json:"supplied,omitempty"`
+}
+
+// ForumDeleteReplyResponse — forum_delete_reply
+type ForumDeleteReplyResponse struct {
+	Message string `json:"message"`
+	ReplyID string `json:"reply_id"`
+}
+
+// ForumDeleteThreadResponse — forum_delete_thread
+type ForumDeleteThreadResponse struct {
+	Message  string `json:"message"`
+	ThreadID string `json:"thread_id"`
+}
+
+// ForumUpvoteResponse — forum_upvote
+type ForumUpvoteResponse struct {
+	Message  string `json:"message"`
+	ReplyID  string `json:"reply_id,omitempty"`
+	ThreadID string `json:"thread_id,omitempty"`
+}
+
+// GetSystemAgentsResponse — get_system_agents
+type GetSystemAgentsResponse struct {
+	Agents           json.RawMessage `json:"agents,omitempty"`
+	Count            int             `json:"count,omitempty"`
+	OfflineCollapsed int             `json:"offline_collapsed,omitempty"`
+	SystemID         string          `json:"system_id,omitempty"`
+}

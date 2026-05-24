@@ -265,6 +265,14 @@ var actionResponseTypes = map[string]reflect.Type{
 	"repair_module":       reflect.TypeOf(serverapi.RepairModuleResponse{}),
 	"scrap_wreck":         reflect.TypeOf(serverapi.ScrapWreckResponse{}),
 	"cancel_ship_listing": reflect.TypeOf(serverapi.CancelShipListingResponse{}),
+	// Commission, forum & agents
+	"cancel_commission":   reflect.TypeOf(serverapi.CancelCommissionResponse{}),
+	"claim_commission":    reflect.TypeOf(serverapi.ClaimCommissionResponse{}),
+	"supply_commission":   reflect.TypeOf(serverapi.SupplyCommissionResponse{}),
+	"forum_delete_reply":  reflect.TypeOf(serverapi.ForumDeleteReplyResponse{}),
+	"forum_delete_thread": reflect.TypeOf(serverapi.ForumDeleteThreadResponse{}),
+	"forum_upvote":        reflect.TypeOf(serverapi.ForumUpvoteResponse{}),
+	"get_system_agents":   reflect.TypeOf(serverapi.GetSystemAgentsResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.
