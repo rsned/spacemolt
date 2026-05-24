@@ -314,7 +314,17 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			}
 
 			if len(resp.AlreadyRevealed) > 0 && iteration == 1 {
-				fmt.Printf("  Already revealed: %d POIs\n", len(resp.AlreadyRevealed))
+				fmt.Printf("  Already revealed POIs (%d):\n", len(resp.AlreadyRevealed))
+				for _, poi := range resp.AlreadyRevealed {
+					fmt.Printf("    = %s (%s)\n", poi.Name, poi.Type)
+					if poi.Description != "" {
+						fmt.Printf("      %s\n", poi.Description)
+					}
+					for _, r := range poi.Resources {
+						fmt.Printf("      Resource: %s (richness: %.0f, remaining: %.0f/%.0f)\n",
+							r.ResourceID, r.Richness, r.Remaining, r.MaxRemaining)
+					}
+				}
 			}
 
 			if len(resp.FaintSignatures) > 0 {

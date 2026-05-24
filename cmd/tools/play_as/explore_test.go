@@ -39,6 +39,31 @@ func TestSurveyResponseParse_ActionResultShape(t *testing.T) {
 	}
 }
 
+// TestSurveyResponseParse_RevealedLists confirms the already_revealed and
+// newly_revealed lists (with nested resources) bind from the action_result
+// frame, so the formatter can print them.
+func TestSurveyResponseParse_RevealedLists(t *testing.T) {
+	raw := []byte(`{"command":"survey_system","result":{"already_revealed":[{"description":"A shimmering tear in spacetime.","id":"wh_exit_a626d806","name":"Wormhole Exit","type":"wormhole_exit"}],"anomaly_hint":"Strong spatial anomaly detected in this system.","faint_signatures":[],"message":"Survey complete! Revealed 1 new deep core deposit(s).","newly_revealed":[{"description":"Prismatic nebulite deposits.","id":"rainbow_nebulite_vein","name":"Rainbow Nebulite Vein","resources":[{"max_remaining":5500,"name":"Prismatic Nebulite","remaining":5500,"remaining_display":"5500 units","resource_id":"prismatic_nebulite","richness":28}],"type":"gas_cloud"}],"survey_power":168,"system_id":"ross_128","system_name":"Ross 128","xp_gained":{"deep_core_mining":10,"scanning":20}},"tick":909089}`)
+
+	var resp serverapi.SurveySystemResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if len(resp.AlreadyRevealed) != 1 {
+		t.Fatalf("AlreadyRevealed len = %d, want 1", len(resp.AlreadyRevealed))
+	}
+	if resp.AlreadyRevealed[0].Name != "Wormhole Exit" || resp.AlreadyRevealed[0].Type != "wormhole_exit" {
+		t.Errorf("AlreadyRevealed[0] = %+v, want Wormhole Exit/wormhole_exit", resp.AlreadyRevealed[0])
+	}
+	if len(resp.NewlyRevealed) != 1 {
+		t.Fatalf("NewlyRevealed len = %d, want 1", len(resp.NewlyRevealed))
+	}
+	if got := resp.NewlyRevealed[0].Resources; len(got) != 1 || got[0].ResourceID != "prismatic_nebulite" || got[0].Richness != 28 {
+		t.Errorf("NewlyRevealed[0].Resources = %+v, want prismatic_nebulite richness 28", got)
+	}
+}
+
 // TestSurveyResponseParse_FlatShape confirms the legacy flat OK shape still
 // binds unchanged (unwrapActionResult is a no-op when there is no "result").
 func TestSurveyResponseParse_FlatShape(t *testing.T) {
