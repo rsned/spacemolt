@@ -251,6 +251,13 @@ var actionResponseTypes = map[string]reflect.Type{
 	"faction_deposit_items":  reflect.TypeOf(serverapi.MessageResponse{}),
 	"faction_withdraw_items": reflect.TypeOf(serverapi.MessageResponse{}),
 	"session":                reflect.TypeOf(serverapi.MessageResponse{}),
+	// Missions & captain's log
+	"abandon_mission":        reflect.TypeOf(serverapi.AbandonMissionResponse{}),
+	"decline_mission":        reflect.TypeOf(serverapi.DeclineMissionResponse{}),
+	"view_completed_mission": reflect.TypeOf(serverapi.ViewCompletedMissionResponse{}),
+	"captains_log_add":       reflect.TypeOf(serverapi.CaptainsLogAddResponse{}),
+	"captains_log_get":       reflect.TypeOf(serverapi.CaptainsLogGetResponse{}),
+	"captains_log_list":      reflect.TypeOf(serverapi.CaptainsLogListResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.

@@ -1848,3 +1848,58 @@ type CaptainsLogDeleteResponse struct {
 	Message        string `json:"message"`
 	RemainingCount int    `json:"remaining_count"`
 }
+
+// AbandonMissionResponse — abandon_mission
+type AbandonMissionResponse struct {
+	Message   string `json:"message"`
+	MissionID string `json:"mission_id"`
+	Title     string `json:"title"`
+}
+
+// DeclineMissionResponse — decline_mission
+type DeclineMissionResponse struct {
+	Message    string          `json:"message"`
+	Giver      json.RawMessage `json:"giver,omitempty"`
+	TemplateID string          `json:"template_id"`
+	Title      string          `json:"title"`
+}
+
+// ViewCompletedMissionResponse — view_completed_mission
+type ViewCompletedMissionResponse struct {
+	TemplateID     string          `json:"template_id"`
+	Title          string          `json:"title"`
+	Type           string          `json:"type,omitempty"`
+	ChainNext      string          `json:"chain_next,omitempty"`
+	CompletionTime string          `json:"completion_time,omitempty"`
+	Difficulty     int             `json:"difficulty,omitempty"`
+	Objectives     json.RawMessage `json:"objectives,omitempty"`
+	Rewards        json.RawMessage `json:"rewards,omitempty"`
+	Repeatable     bool            `json:"repeatable,omitempty"`
+	Giver          json.RawMessage `json:"giver,omitempty"`
+	Dialog         json.RawMessage `json:"dialog,omitempty"`
+	Description    string          `json:"description,omitempty"`
+}
+
+// CaptainsLogAddResponse — captains_log_add
+type CaptainsLogAddResponse struct {
+	Message   string `json:"message"`
+	CreatedAt string `json:"created_at"`
+	Index     int    `json:"index"`
+}
+
+// CaptainsLogGetResponse — captains_log_get
+type CaptainsLogGetResponse struct {
+	Entry     string `json:"entry"`
+	CreatedAt string `json:"created_at"`
+	Index     int    `json:"index"`
+}
+
+// CaptainsLogListResponse — captains_log_list
+type CaptainsLogListResponse struct {
+	Entry      json.RawMessage `json:"entry,omitempty"`
+	HasNext    bool            `json:"has_next"`
+	HasPrev    bool            `json:"has_prev"`
+	Index      int             `json:"index"`
+	MaxEntries int             `json:"max_entries"`
+	TotalCount int             `json:"total_count"`
+}
