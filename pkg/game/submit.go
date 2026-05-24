@@ -230,6 +230,7 @@ func (c *Client) Submit(ctx context.Context, msg protocol.Message, opts ...Submi
 	h.cond = sync.NewCond(&h.mu)
 	sub := c.router.registerByID(id, make(chan protocol.Response, 1), cfg.terminator)
 	c.router.setAckChannel(sub, h.ack)
+	c.router.setPendingChannel(sub, make(chan struct{}, 1))
 	c.router.setReplayMsg(sub, msg)
 	c.router.setHandle(sub, h)
 
@@ -268,23 +269,42 @@ func (c *Client) runSubmit(sub *subscription, h *RequestHandle, cfg submitConfig
 	timer := time.NewTimer(cfg.timeout)
 	defer timer.Stop()
 
-	select {
-	case resp := <-sub.respCh:
-		var err error
-		if cfg.terminator != nil {
-			// Surface error from terminator (router discards it).
-			if _, e := cfg.terminator(resp); e != nil {
-				err = e
+	for {
+		select {
+		case resp := <-sub.respCh:
+			var err error
+			if cfg.terminator != nil {
+				// Surface error from terminator (router discards it).
+				if _, e := cfg.terminator(resp); e != nil {
+					err = e
+				}
+			} else if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
+				err = serverErrorFromPayload(resp.Payload)
 			}
-		} else if resp.Type == protocol.TypeError || resp.Type == protocol.TypeActionError {
-			err = serverErrorFromPayload(resp.Payload)
+			h.result <- Result{Response: resp, Err: err}
+			// Wake any concurrent Result() callers blocked on cond.Wait.
+			h.cond.Broadcast()
+			return
+		case <-sub.pendingCh:
+			// A pending ack was routed for this request: mutations execute
+			// serially server-side, so a mutation sent while another is in
+			// flight is queued and its terminal frame won't land until the
+			// in-flight action (possibly a multi-tick travel/jump) completes.
+			// The original short timeout assumed an immediate terminal; extend
+			// the deadline to the worst-case multi-tick wait so the terminal
+			// is not orphaned. Coalesced — extra pings only re-extend.
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(SleepJumpMaxWait)
+		case <-timer.C:
+			c.router.unregister(sub)
+			h.result <- Result{Err: fmt.Errorf("timeout waiting for %s (request_id=%s)", h.msgType, h.ID())}
+			h.cond.Broadcast()
+			return
 		}
-		h.result <- Result{Response: resp, Err: err}
-	case <-timer.C:
-		c.router.unregister(sub)
-		h.result <- Result{Err: fmt.Errorf("timeout waiting for %s (request_id=%s)", h.msgType, h.ID())}
 	}
-	// Wake any concurrent Result() callers that are blocked on cond.Wait
-	// so they can drain h.result without waiting for context cancellation.
-	h.cond.Broadcast()
 }

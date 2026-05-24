@@ -113,6 +113,53 @@ func TestSubmit_Mutation_PendingThenTerminal(t *testing.T) {
 	}
 }
 
+func TestSubmit_PendingAckExtendsDeadline(t *testing.T) {
+	// Regression: mutations execute serially server-side, so a mutation sent
+	// while another is in flight (e.g. dock during travel) is queued and its
+	// terminal frame lands many ticks later. The pending ack must extend the
+	// waiter's deadline past the short initial timeout, or the (request_id-
+	// tagged) terminal arrives after the waiter is gone and is orphaned —
+	// the reported "timeout waiting for dock" + "orphan response" symptom.
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background()
+
+	_, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
+	h, err := c.Submit(ctx, protocol.Message{Type: "dock"},
+		WithTerminator(terminate), WithTimeout(60*time.Millisecond))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+
+	// Immediate pending ack: the server queued the dock behind an in-flight
+	// action. This must reset the 60ms initial timeout to the long deferred
+	// budget so the terminal — arriving much later — still resolves.
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"pending": true, "command": "dock"},
+	})
+
+	// Terminal arrives well after the ORIGINAL 60ms timeout would have fired.
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		c.router.dispatch(protocol.Response{
+			Type: protocol.TypeOK, RequestID: sent.RequestID,
+			Payload: map[string]any{"action": "dock", "base": "Grand Exchange Station"},
+		})
+	}()
+
+	resp, err := h.Result(ctx)
+	if err != nil {
+		t.Fatalf("Result: %v (pending ack should have extended the deadline)", err)
+	}
+	if act, _ := resp.Payload["action"].(string); act != "dock" {
+		t.Errorf("Result action = %q, want dock", act)
+	}
+	if got := c.router.orphans().Count(); got != 0 {
+		t.Errorf("orphan count = %d, want 0 (terminal must reach the live waiter)", got)
+	}
+}
+
 func TestSubmit_ServerError(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()

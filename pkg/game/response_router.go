@@ -21,6 +21,7 @@ type subscription struct {
 	terminate  Terminator
 	respCh     chan protocol.Response // one-shot result delivery
 	ackCh      chan protocol.Response // optional: pending ack delivery (id subs only)
+	pendingCh  chan struct{}          // optional: pings runSubmit when a pending ack is routed (id subs only)
 	handler    func(protocol.Response)
 	registered time.Time
 
@@ -78,6 +79,17 @@ func (r *responseRouter) setAckChannel(sub *subscription, ackCh chan protocol.Re
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	sub.ackCh = ackCh
+}
+
+// setPendingChannel attaches the runSubmit deadline-reset signal channel to an
+// existing id-subscription. The router pings it (non-blocking) each time it
+// routes an intermediate (pending) frame, so runSubmit can extend its timeout
+// for a mutation that is queued behind an in-flight one. Must be called before
+// any frames for this id can arrive.
+func (r *responseRouter) setPendingChannel(sub *subscription, pendingCh chan struct{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	sub.pendingCh = pendingCh
 }
 
 // setReplayMsg attaches the original outgoing message for replay.
@@ -206,10 +218,12 @@ func (r *responseRouter) dispatchByID(resp protocol.Response) {
 	r.mu.Lock()
 	sub, ok := r.byReqID[resp.RequestID]
 	var ackCh, respCh chan protocol.Response
+	var pendingCh chan struct{}
 	var terminate Terminator
 	if ok {
 		ackCh = sub.ackCh
 		respCh = sub.respCh
+		pendingCh = sub.pendingCh
 		terminate = sub.terminate
 	}
 	r.mu.Unlock()
@@ -233,6 +247,16 @@ func (r *responseRouter) dispatchByID(resp protocol.Response) {
 				case ackCh <- resp:
 				default:
 					log.Printf("response router: dropped ack (id=%s, full ackCh)", resp.RequestID)
+				}
+			}
+			// Ping runSubmit so it can extend its timeout: an intermediate
+			// (pending) frame means the mutation is queued behind an in-flight
+			// one and its terminal will land many ticks later. Non-blocking;
+			// the channel is buffered (cap 1) and a coalesced signal suffices.
+			if pendingCh != nil {
+				select {
+				case pendingCh <- struct{}{}:
+				default:
 				}
 			}
 			return
