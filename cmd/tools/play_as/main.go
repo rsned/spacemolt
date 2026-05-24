@@ -4646,8 +4646,15 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_submit_intel":
-		// Complex payload — pass remaining args as JSON literal.
-		return fmt.Errorf("faction_submit_intel requires complex payload; use the generic passthrough or MCP directly")
+		// Reads saved get_poi intel file(s) and submits them. --file may point
+		// to a single get_poi JSON file or a directory of them (grouped by
+		// system into one submission).
+		_, flags := partitionFlags(parts[1:])
+		path := flags["file"]
+		if path == "" {
+			return fmt.Errorf("usage: faction_submit_intel --file <path>  (a get_poi JSON file or a system dir, e.g. under %s)", globalIntelDir)
+		}
+		return submitFactionIntel(client, ctx, path, format)
 
 	case "faction_submit_trade_intel":
 		return fmt.Errorf("faction_submit_trade_intel requires complex payload; use the generic passthrough or MCP directly")

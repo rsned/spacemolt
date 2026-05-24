@@ -1523,6 +1523,11 @@ func (m *MCPGameClient) FactionDeleteRole(ctx context.Context, roleID string) er
 	return err
 }
 
+func (m *MCPGameClient) FactionSubmitIntel(ctx context.Context, systems []map[string]any) error {
+	_, err := m.callTool(ctx, "faction_submit_intel", map[string]any{"systems": systems})
+	return err
+}
+
 func (m *MCPGameClient) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
 	result, err := m.callTool(ctx, "faction_query_intel", payload)
 	if err != nil {

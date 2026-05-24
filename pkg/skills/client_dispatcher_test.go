@@ -701,6 +701,9 @@ func (m *mockGameClient) FactionEditRole(ctx context.Context, roleID string, pay
 	return nil
 }
 func (m *mockGameClient) FactionDeleteRole(ctx context.Context, roleID string) error { return nil }
+func (m *mockGameClient) FactionSubmitIntel(ctx context.Context, systems []map[string]any) error {
+	return nil
+}
 func (m *mockGameClient) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
 	return nil
 }
