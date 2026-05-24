@@ -579,6 +579,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatFactionInfo(raw)
 	case "faction_intel_status":
 		return formatFactionIntelStatus(raw)
+	case "faction_query_intel":
+		return formatFactionQueryIntel(raw)
 	case "deposit", "deposit_items":
 		return formatDeposit(raw)
 	case "skills", "get_skills":
@@ -3181,6 +3183,91 @@ func formatFactionIntelStatus(raw []byte) string {
 	return b.String()
 }
 
+// formatFactionQueryIntel renders a faction_query_intel response: one block
+// per matched system with its empire/police, submitter, POIs (and resources),
+// and connections. Fields follow the live server payload.
+func formatFactionQueryIntel(raw []byte) string {
+	var resp struct {
+		Message    string `json:"message"`
+		Count      int    `json:"count"`
+		Total      int    `json:"total"`
+		IntelLevel int    `json:"intel_level"`
+		Entries    []struct {
+			SystemID      string `json:"system_id"`
+			Name          string `json:"name"`
+			Empire        string `json:"empire"`
+			PoliceLevel   int    `json:"police_level"`
+			SubmitterName string `json:"submitter_name"`
+			SubmittedAt   int64  `json:"submitted_at_tick"`
+			Connections   []struct {
+				SystemID string `json:"system_id"`
+				Distance int    `json:"distance"`
+			} `json:"connections"`
+			POIs []struct {
+				Name      string `json:"name"`
+				Type      string `json:"type"`
+				Class     string `json:"class"`
+				Resources []struct {
+					ResourceID string  `json:"resource_id"`
+					Richness   float64 `json:"richness"`
+					Remaining  float64 `json:"remaining"`
+				} `json:"resources"`
+			} `json:"pois"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	header := resp.Message
+	if header == "" {
+		header = fmt.Sprintf("Found %d system(s)", resp.Count)
+	}
+	fmt.Fprintf(&b, "🛰  Faction Intel Query — %s\n", header)
+	fmt.Fprintf(&b, "  Intel level: %d | total: %d\n", resp.IntelLevel, resp.Total)
+
+	for _, e := range resp.Entries {
+		name := e.Name
+		if name == "" {
+			name = e.SystemID
+		}
+		meta := fmt.Sprintf("police %d", e.PoliceLevel)
+		if e.Empire != "" {
+			meta = e.Empire + ", " + meta
+		}
+		fmt.Fprintf(&b, "\n  ● %s (%s) — %s\n", name, e.SystemID, meta)
+		if e.SubmitterName != "" {
+			fmt.Fprintf(&b, "    by %s @ tick %d\n", e.SubmitterName, e.SubmittedAt)
+		}
+		if len(e.POIs) > 0 {
+			fmt.Fprintf(&b, "    POIs (%d):\n", len(e.POIs))
+			for _, p := range e.POIs {
+				typeInfo := p.Type
+				if p.Class != "" {
+					typeInfo = fmt.Sprintf("%s, %s", p.Type, p.Class)
+				}
+				fmt.Fprintf(&b, "      - %s (%s)\n", p.Name, typeInfo)
+				if len(p.Resources) > 0 {
+					parts := make([]string, 0, len(p.Resources))
+					for _, r := range p.Resources {
+						parts = append(parts, fmt.Sprintf("%s r%.0f %.0f", r.ResourceID, r.Richness, r.Remaining))
+					}
+					fmt.Fprintf(&b, "          %s\n", strings.Join(parts, ", "))
+				}
+			}
+		}
+		if len(e.Connections) > 0 {
+			parts := make([]string, 0, len(e.Connections))
+			for _, c := range e.Connections {
+				parts = append(parts, fmt.Sprintf("%s (%d)", c.SystemID, c.Distance))
+			}
+			fmt.Fprintf(&b, "    Connections: %s\n", strings.Join(parts, ", "))
+		}
+	}
+	return b.String()
+}
+
 // formatDeposit formats a deposit_items response as a one-line summary.
 func formatDeposit(raw []byte) string {
 	raw = unwrapActionResult(raw)
@@ -5276,6 +5363,9 @@ var rawJSONKeyForCommand = map[string]string{
 	"read_note":            "note",
 	"get_action_log":       "action_log",
 	"action_log":           "action_log",
+	// MCP caches FactionQueryIntel under "faction_intel"; the WS store keys
+	// it there too (see storeRawJSON). Map the command so lookup finds it.
+	"faction_query_intel": "faction_intel",
 }
 
 // lookupRawJSON returns the raw JSON payload for command. It first checks

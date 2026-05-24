@@ -3994,6 +3994,19 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Store faction intel query results (faction_query_intel). No "action"
+		// field; both query-intel commands carry an "entries" array, so key on
+		// entries + the "count" field that only faction_query_intel returns
+		// (faction_query_trade_intel uses "showing" instead). Stored under
+		// "faction_intel" to match the MCP client's cacheResultAs key.
+		if storeKey == "" {
+			_, hasEntries := resp.Payload["entries"]
+			_, hasCount := resp.Payload["count"]
+			if hasEntries && hasCount {
+				storeKey = "faction_intel"
+				shouldStore = true
+			}
+		}
 		// Store faction invites list (faction_get_invites). Distinctive
 		// "invites" array; keyed by command name so play_as's lookup finds it.
 		if _, hasInvites := resp.Payload["invites"]; hasInvites {
