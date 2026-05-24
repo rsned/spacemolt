@@ -273,6 +273,17 @@ var actionResponseTypes = map[string]reflect.Type{
 	"forum_delete_thread": reflect.TypeOf(serverapi.ForumDeleteThreadResponse{}),
 	"forum_upvote":        reflect.TypeOf(serverapi.ForumUpvoteResponse{}),
 	"get_system_agents":   reflect.TypeOf(serverapi.GetSystemAgentsResponse{}),
+	// Faction roles, rooms & membership
+	"join_faction":           reflect.TypeOf(serverapi.JoinFactionResponse{}),
+	"faction_decline_invite": reflect.TypeOf(serverapi.FactionDeclineInviteResponse{}),
+	"faction_get_invites":    reflect.TypeOf(serverapi.FactionGetInvitesResponse{}),
+	"faction_create_role":    reflect.TypeOf(serverapi.FactionCreateRoleResponse{}),
+	"faction_delete_role":    reflect.TypeOf(serverapi.FactionDeleteRoleResponse{}),
+	"faction_edit_role":      reflect.TypeOf(serverapi.FactionEditRoleResponse{}),
+	"faction_edit":           reflect.TypeOf(serverapi.FactionEditResponse{}),
+	"faction_delete_room":    reflect.TypeOf(serverapi.FactionDeleteRoomResponse{}),
+	"faction_visit_room":     reflect.TypeOf(serverapi.FactionVisitRoomResponse{}),
+	"faction_write_room":     reflect.TypeOf(serverapi.FactionWriteRoomResponse{}),
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.

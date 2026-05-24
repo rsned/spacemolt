@@ -2011,3 +2011,80 @@ type GetSystemAgentsResponse struct {
 	OfflineCollapsed int             `json:"offline_collapsed,omitempty"`
 	SystemID         string          `json:"system_id,omitempty"`
 }
+
+// JoinFactionResponse — join_faction
+type JoinFactionResponse struct {
+	Faction   string `json:"faction"`
+	FactionID string `json:"faction_id"`
+	Message   string `json:"message"`
+}
+
+// FactionDeclineInviteResponse — faction_decline_invite
+type FactionDeclineInviteResponse struct {
+	FactionID string `json:"faction_id"`
+	Message   string `json:"message"`
+}
+
+// FactionGetInvitesResponse — faction_get_invites
+type FactionGetInvitesResponse struct {
+	Invites json.RawMessage `json:"invites,omitempty"`
+}
+
+// FactionCreateRoleResponse — faction_create_role
+type FactionCreateRoleResponse struct {
+	Message  string `json:"message"`
+	Name     string `json:"name"`
+	Priority int    `json:"priority,omitempty"`
+	RoleID   string `json:"role_id"`
+}
+
+// FactionDeleteRoleResponse — faction_delete_role
+type FactionDeleteRoleResponse struct {
+	Message         string `json:"message"`
+	ReassignedCount int    `json:"reassigned_count,omitempty"`
+	RoleID          string `json:"role_id"`
+}
+
+// FactionEditRoleResponse — faction_edit_role
+type FactionEditRoleResponse struct {
+	Message string          `json:"message"`
+	RoleID  string          `json:"role_id"`
+	Updates json.RawMessage `json:"updates,omitempty"`
+}
+
+// FactionEditResponse — faction_edit
+type FactionEditResponse struct {
+	Hint    string          `json:"hint,omitempty"`
+	Message string          `json:"message"`
+	Updates json.RawMessage `json:"updates,omitempty"`
+}
+
+// FactionDeleteRoomResponse — faction_delete_room
+type FactionDeleteRoomResponse struct {
+	Action  string `json:"action,omitempty"`
+	Message string `json:"message"`
+	RoomID  string `json:"room_id"`
+}
+
+// FactionVisitRoomResponse — faction_visit_room
+type FactionVisitRoomResponse struct {
+	Action      string `json:"action,omitempty"`
+	Access      string `json:"access,omitempty"`
+	Author      string `json:"author,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+	Description string `json:"description,omitempty"`
+	Name        string `json:"name,omitempty"`
+	RoomID      string `json:"room_id"`
+	UpdatedAt   string `json:"updated_at,omitempty"`
+}
+
+// FactionWriteRoomResponse — faction_write_room
+type FactionWriteRoomResponse struct {
+	Action  string `json:"action,omitempty"`
+	Access  string `json:"access,omitempty"`
+	Faction string `json:"faction,omitempty"`
+	Hint    string `json:"hint,omitempty"`
+	Message string `json:"message"`
+	Name    string `json:"name,omitempty"`
+	RoomID  string `json:"room_id"`
+}
