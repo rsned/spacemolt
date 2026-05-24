@@ -5279,13 +5279,21 @@ func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx c
 		if errors.As(err, &goal) {
 			return err
 		}
-		// Even on error, show the server's actual error frame for
-		// debugging/JSON mode (contains code, message, command, tick).
-		// Prefer the dedicated _last_error slot over the command-keyed
-		// lookup, which would return the prior success payload — stale
-		// and misleading for deferred commands that fail after a tick.
-		if raw := client.GetRawJSON("_last_error"); len(raw) > 0 {
-			printResponse(raw, format, command)
+		// In raw/JSON modes, surface the server's actual error frame for
+		// debugging (contains code, message, command, tick). Prefer the
+		// dedicated _last_error slot over the command-keyed lookup, which
+		// would return the prior success payload — stale and misleading for
+		// deferred commands that fail after a tick.
+		//
+		// Skip this in styled mode: the REPL dispatcher already prints a
+		// styled "❌ Error: ..." line, and routing an error frame through a
+		// command-specific styled formatter (e.g. formatDock) renders garbage
+		// — the formatter unmarshals the error frame into an empty success
+		// struct and prints blank fields like `Docked at ""`.
+		if format != formatStyled {
+			if raw := client.GetRawJSON("_last_error"); len(raw) > 0 {
+				printResponse(raw, format, command)
+			}
 		}
 		return err
 	}
