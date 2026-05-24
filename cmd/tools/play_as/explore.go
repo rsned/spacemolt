@@ -334,6 +334,10 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			if resp.Message != "" {
 				fmt.Printf("  %s\n", resp.Message)
 			}
+
+			if resp.AnomalyHint != "" {
+				fmt.Printf("  Anomaly: %s\n", resp.AnomalyHint)
+			}
 		} else {
 			// In raw/json mode, still save POIs to KB
 			if len(resp.NewlyRevealed) > 0 && globalKB != nil {

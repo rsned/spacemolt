@@ -3471,6 +3471,10 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		// Some action_result frames omit the "action" field and key off
 		// "command" instead. Dispatch by command before logging "unhandled".
 		switch command {
+		case "survey_system":
+			// survey_system does not mutate ship/player state; the REPL
+			// formatter renders the result. Log cleanly instead of "unhandled".
+			c.debugLogger.Printf("Action result: survey complete (%s)", command)
 		case "buy_listed_ship":
 			if credits, ok := result["credits_left"].(float64); ok {
 				c.state.Player.Credits = credits
