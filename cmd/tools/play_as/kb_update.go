@@ -179,6 +179,14 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 		return fmt.Errorf("failed to parse POI response: %w", err)
 	}
 
+	// Dump the raw get_poi payload to an intel file for the faction intel
+	// terminal. A newer dump overwrites any prior one for the same POI.
+	if path, err := saveIntelPOI(state.System.ID, poiResp.POI.ID, rawJSON); err != nil {
+		fmt.Printf("Warning: failed to write intel file: %v\n", err)
+	} else if path != "" {
+		fmt.Printf("Saved intel: %s\n", path)
+	}
+
 	kbPOI := knowledge.POI{
 		ID:          poiResp.POI.ID,
 		SystemID:    state.System.ID,

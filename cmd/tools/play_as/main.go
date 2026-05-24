@@ -69,9 +69,12 @@ func main() {
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
+	intelDir := flag.String("intel-dir", "data/intel", "Base directory for per-POI get_poi intel dumps (<intel-dir>/<system_id>/<system_id>___<poi_id>.json); empty to disable")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")
 	flag.Parse()
+
+	globalIntelDir = *intelDir
 
 	args := flag.Args()
 	if len(args) < 1 {

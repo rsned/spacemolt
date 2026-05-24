@@ -74,6 +74,7 @@ data/agents/*/play_as_history.txt
 data/crafting/
 data/credentials/
 data/game-api/
+data/intel/
 data/mcp/
 !data/prompts/
 data/reports/
