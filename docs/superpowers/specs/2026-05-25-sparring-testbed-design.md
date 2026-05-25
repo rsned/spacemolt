@@ -158,12 +158,19 @@ Predicate over `SystemData`:
 - **safe-adjacent** = has a `Connection` to a policed system (a place to
   retreat / a nearby station to equip and rebuild).
 
-Auto-discovery prefers a qualifying system that (a) is reachable by all
-combatants (`FindRoute` succeeds), (b) has a rendezvous POI, (c) minimizes total
-jumps across combatants. Data source: KB `get_map` when `--db` is given,
-otherwise one combatant's live `get_map`. If none found, abort and suggest
-`--arena`. `ross_128` (lawless, one jump from `treasure_cache`) is the canonical
-example arena.
+**First-cut reality:** the game client does not cache the full systems list —
+`parseMapData` only refreshes the *current* system's connections — so there is
+no `[]SystemData` to scan for auto-discovery. The first cut therefore **requires
+`--arena <id>`** and validates it on arrival (after travel, the arrived system's
+data is loaded; assert `IsNonEmpireArena`). `ross_128` (lawless, one jump from
+the station system `treasure_cache`) is the canonical example arena.
+
+The pure predicate/selection helpers (`IsNonEmpireArena`, `SelectArena`) are
+still built and unit-tested as the foundation for a later KB-backed auto-finder.
+**Deferred auto-discovery** would prefer a qualifying system that (a) is
+reachable by all combatants (`FindRoute` succeeds), (b) has a rendezvous POI,
+(c) minimizes total jumps — sourced from the KB `GetSystems` when `--db` is
+given.
 
 ## Policy presets (extension point for `.smolt` scripts later)
 
@@ -249,7 +256,25 @@ before committing.
 
 - The smart battle handler in `play_as` (auto-retreat/warnings) — separate,
   follow-on work that builds on the `BattleState` foundation laid here.
+- Arena auto-discovery — deferred (no client-side map cache); `--arena` required.
 - Faction-war-in-empire-space arenas.
 - Custom `.smolt` battle scripts (the `Policy` interface leaves the seam).
 - Multi-side (3+ team) battles — initial presets assume two sides; the data
   model (`SideID`) supports more, but presets target 1v1/2v2.
+
+## Future direction: battle visualization (longer-term goal)
+
+A longer-term goal (raised 2026-05-25) is to **visualize battles** — first
+after-the-fact, eventually live: a top-down "radar" view of ship positions
+(the zones outer→mid→inner→engaged map naturally to concentric rings), stances,
+and per-tick actions/damage. The telemetry in this iteration is the data
+substrate: the per-tick `tick | name | zone | hull% | shield% | stance` stream
+(and the `battle_damage` events already decoded in `pkg/game`) is exactly what a
+replay or live visualizer would consume.
+
+This is **future work, not built here.** The cheap first step when it is picked
+up will be to add a machine-parsable telemetry sink (e.g. JSON-lines of per-tick
+participant snapshots via a `--telemetry-json <path>` flag) — the harness's
+telemetry loop is the single place that already has every per-tick snapshot, so
+that sink slots in without re-instrumenting anything. The visualizer itself
+(frontend, replay format, live SSE feed) is a separate project.
