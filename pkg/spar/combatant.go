@@ -108,19 +108,32 @@ func (c *Combatant) equip(ctx context.Context) error {
 		}
 		time.Sleep(game.SleepQuick)
 	}
-	_ = c.Client.Refuel(ctx)
-	_ = c.Client.Repair(ctx)
+	if err := c.Client.Refuel(ctx); err != nil {
+		c.Logger.Printf("%s: refuel before spar failed (continuing): %v", c.AgentID, err)
+	}
+	if err := c.Client.Repair(ctx); err != nil {
+		c.Logger.Printf("%s: repair before spar failed (continuing): %v", c.AgentID, err)
+	}
 	if err := c.Client.Undock(ctx); err != nil {
 		return fmt.Errorf("undock after equip: %w", err)
 	}
 	return nil
 }
 
-// firstPOIOfType returns the first POI id of the given type, or the first POI of
-// any type if none match (fallback), or "" if the system has no POIs.
+// firstPOIOfType returns the first POI id of the given type. If none match, it
+// falls back to the first non-station POI so combatants rendezvous in open space
+// rather than auto-docking; only if every POI is a station does it return the
+// first one. Returns "" if the system has no POIs.
 func firstPOIOfType(s game.SystemData, poiType string) string {
 	for _, p := range s.POIs {
 		if p.Type == poiType {
+			return p.ID
+		}
+	}
+	// Fallback: prefer a non-station POI so combatants meet in open space
+	// rather than auto-docking.
+	for _, p := range s.POIs {
+		if p.Type != "station" {
 			return p.ID
 		}
 	}
