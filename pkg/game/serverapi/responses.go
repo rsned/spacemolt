@@ -1151,11 +1151,20 @@ type DockResponse struct {
 	TradeFills          []TradeFill     `json:"trade_fills,omitempty"`
 	TradeFillsCount     int             `json:"trade_fills_count,omitempty"`
 	TradeFillsTruncated bool            `json:"trade_fills_truncated,omitempty"`
+	// AutoDocked is set when the dock was performed automatically as a
+	// precursor to another command (a command requiring the docked state was
+	// issued while in space) — see the "Auto-dock/undock" note in the API docs.
+	AutoDocked bool `json:"auto_docked,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.
+//
+// AutoUndocked is set when the undock was performed automatically as a
+// precursor to another command (travel/jump issued while docked) — see the
+// "Auto-dock/undock" note in the API docs.
 type UndockResponse struct {
-	Action string `json:"action"`
+	Action       string `json:"action"`
+	AutoUndocked bool   `json:"auto_undocked,omitempty"`
 }
 
 // RefuelResponse wraps the response from refuel command.

@@ -4436,6 +4436,30 @@ func (c *Client) parseShipsData(payload map[string]any) {
 // waitForInitialResponse waits for the first OK or error response from the server.
 // Unlike Submit's terminator, it does NOT loop on pending/in-progress — it returns
 // the first response and lets the caller decide what to do.
+// isAutoDockTransition reports whether an OK payload is the server's automatic
+// dock/undock side effect, emitted when a command (travel, jump, mine, buy, …)
+// requires a different dock state than the ship is in. Per the API docs the
+// server performs the transition automatically, costing one extra tick, and
+// flags the frame with auto_docked / auto_undocked. Such a frame is a
+// precursor to — not a substitute for — the issuing command's own response,
+// so the travel/jump initial-response waiter must look past it.
+func isAutoDockTransition(payload map[string]any) bool {
+	if v, _ := payload["auto_undocked"].(bool); v {
+		return true
+	}
+	if v, _ := payload["auto_docked"].(bool); v {
+		return true
+	}
+	// Older servers may omit the flag but still report the transition via the
+	// action field. waitForInitialResponse only serves travel/jump, which never
+	// legitimately terminate as a dock/undock, so this is safe to skip past.
+	switch action, _ := payload["action"].(string); action {
+	case "dock", "undock":
+		return true
+	}
+	return false
+}
+
 func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Duration) (protocol.Response, error) {
 	// Log the final response paired with the last sent request
 	var finalResp *protocol.Response
@@ -4469,6 +4493,21 @@ func (c *Client) waitForInitialResponse(ctx context.Context, timeout time.Durati
 		case resp := <-respCh:
 			switch resp.Type {
 			case protocol.TypeOK:
+				// An automatic dock/undock side effect is NOT the issuing
+				// command's own response. When a travel/jump is sent while
+				// docked, the server first auto-undocks (a documented step that
+				// costs one extra tick and carries an auto_undocked flag) and
+				// only then confirms the travel/jump. Returning the auto-undock
+				// frame here would let the caller's waitForStateChange(!Traveling)
+				// observe Traveling still false and report a false-positive
+				// completion while the real multi-tick action is still queued —
+				// the next command then collides with "another action pending".
+				// Skip it and keep waiting for the genuine confirmation.
+				if isAutoDockTransition(resp.Payload) {
+					c.debugLogger.Printf("Auto dock/undock side effect — waiting for the action's own response")
+					deadline = time.After(timeout)
+					continue
+				}
 				// If pending, keep waiting for the real initial response.
 				if pending, ok := resp.Payload["pending"].(bool); ok && pending {
 					c.debugLogger.Printf("Action queued by server — waiting for next-tick execution")

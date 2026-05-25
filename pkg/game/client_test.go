@@ -337,6 +337,111 @@ func TestJump_TimeoutReturnsError(t *testing.T) {
 	}
 }
 
+// recvFrame mimics the WebSocket receive loop: it updates state via
+// handleResponse, then fans the frame out through the router (the same
+// order as the real readLoop at client.go ~1967). Tests that need the
+// state parsers to drive Traveling/Doc/System must use this rather than
+// dispatching to the router alone.
+func (c *Client) recvFrame(resp protocol.Response) {
+	c.handleResponse(resp)
+	c.router.dispatch(resp)
+}
+
+// TestJump_WhileDocked_AutoUndockNotMistakenForArrival reproduces the bug
+// where jumping while docked returned a false-positive success. When docked,
+// the server inserts a documented auto-undock step (costs one extra tick,
+// carries auto_undocked) BEFORE the genuine jump confirmation:
+//
+//	1. OK {pending:true}                          — queued ack (no action)
+//	2. OK {action:"undock", auto_undocked:true}   — auto-undock side effect
+//	3. OK {action:"jump", arrival_tick:N}         — genuine jump confirmation
+//	4. action_result {arrived, system_id:...}     — arrival
+//
+// waitForInitialResponse must NOT treat frame 2 as the jump's initial
+// response: at that point Traveling is still false, so Jump() would call
+// waitForStateChange(!Traveling) and return immediately — reporting success
+// while the real multi-tick jump is still queued (the next command then
+// collides with "another action already pending (jump)").
+func TestJump_WhileDocked_AutoUndockNotMistakenForArrival(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.Doc = true
+	client.state.System.ID = "haven"
+	client.state.System.Name = "Haven"
+
+	client.sendOverride = func(ctx context.Context, msg protocol.Message) error {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+
+		// Frame 1: queued ack — no action field, pending:true.
+		client.recvFrame(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"pending": true,
+				"message": "Jump action pending. Will execute on next tick.",
+			},
+		})
+
+		// Frame 2: auto-undock side effect. Must NOT end the jump wait.
+		time.Sleep(50 * time.Millisecond)
+		client.recvFrame(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"action":        "undock",
+				"auto_undocked": true,
+				"message":       "Automatically undocked (required for jump)",
+			},
+		})
+
+		// Frame 3: genuine jump confirmation — sets Traveling=true. Delayed
+		// well past waitForStateChange's 500ms poll interval so that, if Jump
+		// mistook the auto-undock frame for arrival, its first poll observes
+		// Traveling=false (still in origin) and returns prematurely.
+		time.Sleep(900 * time.Millisecond)
+		client.recvFrame(protocol.Response{
+			Type: protocol.TypeOK,
+			Payload: map[string]any{
+				"action":       "jump",
+				"arrival_tick": float64(3),
+			},
+		})
+
+		// Frame 4: arrival action_result — clears Traveling, sets system.
+		time.Sleep(300 * time.Millisecond)
+		client.recvFrame(protocol.Response{
+			Type: protocol.TypeActionResult,
+			Payload: map[string]any{
+				"command": "jump",
+				"tick":    float64(4),
+				"result": map[string]any{
+					"action":    "arrived",
+					"system_id": "trader_rest",
+					"system":    "Trader's Rest",
+					"poi":       "jump_gate_1",
+				},
+			},
+		})
+	}()
+
+	result, err := client.Jump(ctx, "trader_rest")
+	if err != nil {
+		t.Fatalf("Jump() returned error: %v", err)
+	}
+	// Without the fix, Jump returns after frame 2 while still in the origin
+	// system — SystemID would be "haven" (or empty), never the destination.
+	if result.SystemID != "trader_rest" {
+		t.Errorf("Jump returned before real arrival: SystemID=%q, want %q (auto-undock frame was mistaken for arrival)", result.SystemID, "trader_rest")
+	}
+	if client.GetState().Traveling {
+		t.Error("expected Traveling=false after jump completed")
+	}
+}
+
 // TestJSON_RoundTrip verifies Response JSON marshaling/unmarshaling
 func TestJSON_RoundTrip(t *testing.T) {
 	original := protocol.Response{
