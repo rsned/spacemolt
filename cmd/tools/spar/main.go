@@ -121,7 +121,7 @@ func main() {
 // parsePolicyFlag parses "a=aggressor,b=dummy" into a map.
 func parsePolicyFlag(s string) map[string]string {
 	out := map[string]string{}
-	for _, pair := range strings.Split(s, ",") {
+	for pair := range strings.SplitSeq(s, ",") {
 		pair = strings.TrimSpace(pair)
 		if pair == "" {
 			continue
