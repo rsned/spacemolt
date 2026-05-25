@@ -35,15 +35,23 @@ func TestSelectArena(t *testing.T) {
 	}
 	// Lawless but no safe-adjacent neighbor and no POI: should be rejected.
 	deepVoid := game.SystemData{ID: "deep_void", Empire: "", PoliceLevel: 0}
+	// Lawless, has a POI, but all neighbors are also lawless — no safe adjacency.
+	isolated := game.SystemData{
+		ID: "pirate_pocket", Empire: "", PoliceLevel: 0,
+		POIs:        []game.POI{{ID: "pirate_pocket-wreck", Type: "wreck"}},
+		Connections: []game.ConnectionInfo{{SystemID: "deep_void"}},
+	}
 
-	byID := map[string]game.SystemData{"treasure_cache": treasure, "ross_128": ross, "deep_void": deepVoid}
-	all := []game.SystemData{treasure, ross, deepVoid}
+	byID := map[string]game.SystemData{"treasure_cache": treasure, "ross_128": ross, "deep_void": deepVoid, "pirate_pocket": isolated}
+	all := []game.SystemData{treasure, ross, isolated, deepVoid}
 	reachable := func(string) bool { return true }
 
 	got, err := SelectArena(all, byID, reachable)
 	if err != nil {
 		t.Fatalf("SelectArena error: %v", err)
 	}
+	// pirate_pocket has a POI but no safe-adjacent neighbor, so it must be
+	// rejected; ross_128 (the only fully-qualifying arena) must win.
 	if got != "ross_128" {
 		t.Fatalf("SelectArena = %q, want ross_128", got)
 	}
