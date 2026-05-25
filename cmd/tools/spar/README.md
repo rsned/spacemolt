@@ -5,6 +5,17 @@ and moves them to a non-empire arena (PvP is anything-goes outside empire
 space), and runs scripted or human-partnered battles so the combat mechanics
 are observable and testable.
 
+## Build
+
+Build to `bin/` (not the repo root — a bare `go build ./cmd/tools/spar` drops a
+`spar` binary at the top level, which is gitignored but clutters the tree):
+
+```bash
+go build -o bin/spar ./cmd/tools/spar
+```
+
+Then run `bin/spar ...` (examples below use `spar` for brevity).
+
 ## Usage
 
 ```
