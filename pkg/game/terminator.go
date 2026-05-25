@@ -28,6 +28,26 @@ func terminateOnAction(resp protocol.Response) (bool, error) {
 	return false, nil
 }
 
+// terminateOnActionOrOK extends terminateOnAction to also treat a synchronous,
+// non-pending TypeOK as terminal. Some mutations reply with a plain OK after
+// the pending ack instead of a queued action_result — e.g. battle subactions
+// (retreat/stance/target). A pending:true OK remains intermediate so a
+// multi-tick action still waits for its real completion frame.
+func terminateOnActionOrOK(resp protocol.Response) (bool, error) {
+	switch resp.Type {
+	case protocol.TypeActionResult:
+		return true, nil
+	case protocol.TypeActionError, protocol.TypeError:
+		return true, serverErrorFromPayload(resp.Payload)
+	case protocol.TypeOK:
+		if pending, _ := resp.Payload["pending"].(bool); pending {
+			return false, nil
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 // terminateOnTypes builds a Terminator that returns done=true on any of the
 // named response types. ActionError/Error in the list terminate with an
 // error; others (e.g. POIArrival, Docked) terminate successfully.

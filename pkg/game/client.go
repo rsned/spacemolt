@@ -788,6 +788,9 @@ func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 	// DEBUG: Log the message being sent
 	c.debugLogger.Printf("=== Game Client Send Debug ===")
 	c.debugLogger.Printf("Message Type: '%s'", msg.Type)
+	if msg.RequestID != "" {
+		c.debugLogger.Printf("Message RequestID: '%s'", msg.RequestID)
+	}
 	if len(msg.Payload) > 0 {
 		payloadJSON, _ := json.Marshal(msg.Payload)
 		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
@@ -1946,6 +1949,9 @@ func (c *Client) listen(ctx context.Context) {
 			if resp.Type != "poi_arrival" && resp.Type != "poi_departure" {
 				c.debugLogger.Printf("=== Game Client Receive Debug ===")
 				c.debugLogger.Printf("Response Type: '%s'", resp.Type)
+				if resp.RequestID != "" {
+					c.debugLogger.Printf("Response RequestID: '%s'", resp.RequestID)
+				}
 				if len(resp.Payload) > 0 {
 					payloadJSON, _ := json.Marshal(resp.Payload)
 					payloadStr := string(payloadJSON)

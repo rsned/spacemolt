@@ -443,6 +443,68 @@ func TestJump_WhileDocked_AutoUndockNotMistakenForArrival(t *testing.T) {
 	}
 }
 
+// TestBattle_PlainOKTerminates reproduces the hang where `battle retreat`
+// timed out despite the server replying. Battle subactions (retreat, stance,
+// target) reply with a plain non-pending TypeOK ("Retreating from the
+// enemy.") rather than a TypeActionResult, so the default terminateOnAction
+// never resolved them and the command timed out — blocking further actions.
+func TestBattle_PlainOKTerminates(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.Battle(ctx, "retreat", nil) }()
+
+	sent := <-sendCh
+	if sent.Type != "battle" {
+		t.Fatalf("sent type = %q, want %q", sent.Type, "battle")
+	}
+
+	// Server's synchronous retreat reply: a plain, non-pending OK.
+	c.router.dispatch(protocol.Response{
+		Type:      protocol.TypeOK,
+		RequestID: sent.RequestID,
+		Payload:   map[string]any{"action": "retreat", "message": "Retreating from the enemy."},
+	})
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("Battle returned error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("Battle did not return: plain OK was not treated as terminal")
+	}
+}
+
+// TestBattle_ErrorStillTerminates ensures the battle terminator still surfaces
+// server errors rather than swallowing them.
+func TestBattle_ErrorStillTerminates(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.Battle(ctx, "engage", nil) }()
+
+	sent := <-sendCh
+	c.router.dispatch(protocol.Response{
+		Type:      protocol.TypeActionError,
+		RequestID: sent.RequestID,
+		Payload:   map[string]any{"code": "not_in_battle", "message": "You are not in a battle."},
+	})
+
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Fatal("Battle should have returned the server error")
+		}
+	case <-ctx.Done():
+		t.Fatal("Battle did not return on action_error")
+	}
+}
+
 // TestBattleEventsHandled verifies the battle_started / battle_update /
 // battle_damage push events update combat state and emit player sightings,
 // rather than falling through to the unhandled-type path.

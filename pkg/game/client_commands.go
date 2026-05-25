@@ -22,7 +22,10 @@ func (c *Client) Battle(ctx context.Context, action string, payload map[string]a
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	// Battle subactions (retreat/stance/target) reply with a plain non-pending
+	// OK rather than an action_result, so accept either as terminal — otherwise
+	// the command hangs until timeout and blocks subsequent actions.
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
 	if err == nil {
 		_, err = h.Result(ctx)
 	}
