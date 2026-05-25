@@ -639,3 +639,39 @@ func TestJSON_RoundTrip(t *testing.T) {
 		t.Error("Token not preserved")
 	}
 }
+
+func TestGetBattleStatus_PopulatesBattleState(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.Player.ID = "me-123"
+
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"action":         "get_battle_status",
+			"battle_id":      "b1",
+			"system_id":      "ross_128",
+			"is_participant": true,
+			"participants": []any{
+				map[string]any{"player_id": "me-123", "username": "Me", "ship_class": "axiom", "side_id": "1", "zone": "mid", "stance": "fire", "hull_pct": float64(80), "shield_pct": float64(50), "target_id": "p2"},
+				map[string]any{"player_id": "p2", "username": "Foe", "ship_class": "axiom", "side_id": "2", "zone": "mid", "stance": "brace", "hull_pct": float64(100), "shield_pct": float64(100)},
+			},
+		},
+	})
+
+	st := client.GetState()
+	if st.BattleState == nil {
+		t.Fatal("BattleState nil; want populated")
+	}
+	if st.BattleState.BattleID != "b1" || len(st.BattleState.Participants) != 2 {
+		t.Fatalf("unexpected BattleState: %+v", st.BattleState)
+	}
+	if st.BattleState.Participants[0].HullPct != 80 {
+		t.Errorf("want HullPct 80, got %d", st.BattleState.Participants[0].HullPct)
+	}
+	if st.BattleState.Participants[0].TargetID != "p2" {
+		t.Errorf("want TargetID p2, got %q", st.BattleState.Participants[0].TargetID)
+	}
+	if !st.InBattle {
+		t.Error("want InBattle true")
+	}
+}

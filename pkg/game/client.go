@@ -2152,6 +2152,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if action, ok := resp.Payload["action"].(string); ok && action == "get_chat_history" {
 			c.parseChatHistoryData(resp.Payload)
 		}
+		// get_battle_status returns type "ok" with action "get_battle_status"
+		// and participants/sides/battle_id in payload.
+		if action, ok := resp.Payload["action"].(string); ok && action == "get_battle_status" {
+			c.parseBattleStatusData(resp.Payload)
+		}
 
 	case protocol.TypeActionResult:
 		c.parseActionResult(resp.Payload)
@@ -2696,6 +2701,54 @@ func (c *Client) parseChatHistoryData(payload map[string]any) {
 			TargetID:  m.TargetID,
 			Timestamp: m.TimestampUTC,
 		}
+	}
+}
+
+// parseBattleStatusData populates state.BattleState from a get_battle_status
+// response. The server reports hull/shield as percentages plus zone/stance and
+// per-participant target. This is the structured read the spar harness and the
+// future smart battle handler consume; the raw payload also goes to the monitor
+// store, but that is unstructured.
+func (c *Client) parseBattleStatusData(payload map[string]any) {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	var resp serverapi.GetBattleStatusResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return
+	}
+
+	parts := make([]BattleParticipant, 0, len(resp.Participants))
+	for _, p := range resp.Participants {
+		parts = append(parts, BattleParticipant{
+			PlayerID:  p.PlayerID,
+			Username:  p.Username,
+			ShipClass: p.ShipClass,
+			SideID:    p.SideID,
+			Zone:      p.Zone,
+			Stance:    p.Stance,
+			TargetID:  p.TargetID,
+			HullPct:   p.HullPct,
+			ShieldPct: p.ShieldPct,
+			AutoPilot: p.AutoPilot,
+		})
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if resp.BattleID == "" && len(parts) == 0 {
+		return
+	}
+	c.state.BattleState = &BattleState{
+		BattleID:      resp.BattleID,
+		SystemID:      resp.SystemID,
+		IsParticipant: resp.IsParticipant,
+		Participants:  parts,
+		TickDuration:  resp.TickDuration,
+	}
+	if resp.IsParticipant {
+		c.state.InBattle = true
 	}
 }
 
