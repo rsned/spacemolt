@@ -33,6 +33,63 @@ type PlayerDied struct {
 	WreckID         string           `json:"wreck_id"`
 }
 
+// BattleStarted is broadcast when a tactical battle the player is part of
+// begins. Its participant/side shapes match the battle_alert push: integer
+// side_id and identity-only participants (no live hull/shield).
+// Server event type: battle_started
+type BattleStarted struct {
+	BattleID     string                   `json:"battle_id"`
+	SystemID     string                   `json:"system_id,omitempty"`
+	Message      string                   `json:"message,omitempty"`
+	Participants []BattleAlertParticipant `json:"participants,omitempty"`
+	Sides        []BattleAlertSide        `json:"sides,omitempty"`
+}
+
+// BattleUpdateParticipant is a participant entry in a battle_update push.
+// Unlike BattleParticipant it carries an integer side_id and reports live
+// hull/shield as percentages rather than absolute values.
+type BattleUpdateParticipant struct {
+	PlayerID  string `json:"player_id"`
+	Username  string `json:"username"`
+	ShipClass string `json:"ship_class"`
+	SideID    int    `json:"side_id"`
+	Stance    string `json:"stance,omitempty"`
+	Zone      string `json:"zone,omitempty"`
+	HullPct   int    `json:"hull_pct"`
+	ShieldPct int    `json:"shield_pct"`
+}
+
+// BattleUpdate is a periodic authoritative snapshot of a battle the player is
+// participating in, including the player's own side, stance, target and zone.
+// Server event type: battle_update
+type BattleUpdate struct {
+	BattleID     string                    `json:"battle_id"`
+	Tick         int64                     `json:"tick,omitempty"`
+	AutoPilot    bool                      `json:"auto_pilot,omitempty"`
+	Participants []BattleUpdateParticipant `json:"participants,omitempty"`
+	Sides        []BattleAlertSide         `json:"sides,omitempty"`
+	YourSideID   int                       `json:"your_side_id,omitempty"`
+	YourStance   string                    `json:"your_stance,omitempty"`
+	YourTargetID string                    `json:"your_target_id,omitempty"`
+	YourZone     string                    `json:"your_zone,omitempty"`
+}
+
+// BattleDamage is a single weapon-hit telemetry event during a battle.
+// Server event type: battle_damage
+type BattleDamage struct {
+	Tick         int64    `json:"tick,omitempty"`
+	AttackerID   string   `json:"attacker_id"`
+	AttackerName string   `json:"attacker_name,omitempty"`
+	TargetID     string   `json:"target_id"`
+	TargetName   string   `json:"target_name,omitempty"`
+	DamageType   string   `json:"damage_type,omitempty"`
+	HitSuccess   bool     `json:"hit_success"`
+	HullHit      float64  `json:"hull_hit"`
+	ShieldHit    float64  `json:"shield_hit"`
+	TotalDamage  float64  `json:"total_damage"`
+	WeaponsFired []string `json:"weapons_fired,omitempty"`
+}
+
 // MiningYield represents successful mining action with resource extraction.
 // Server event type: mining_yield
 type MiningYield struct {

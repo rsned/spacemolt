@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 
@@ -439,6 +440,102 @@ func TestJump_WhileDocked_AutoUndockNotMistakenForArrival(t *testing.T) {
 	}
 	if client.GetState().Traveling {
 		t.Error("expected Traveling=false after jump completed")
+	}
+}
+
+// TestBattleEventsHandled verifies the battle_started / battle_update /
+// battle_damage push events update combat state and emit player sightings,
+// rather than falling through to the unhandled-type path.
+func TestBattleEventsHandled(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.Player.ID = "me-123"
+	client.state.System.ID = "moonshadow"
+
+	var mu sync.Mutex
+	var seen []ObservedPlayer
+	client.SetPlayerObserver(func(obs []ObservedPlayer) {
+		mu.Lock()
+		seen = append(seen, obs...)
+		mu.Unlock()
+	})
+	seenCount := func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(seen)
+	}
+
+	// battle_started: player is a participant (side_id is an integer).
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeBattleStarted,
+		Payload: map[string]any{
+			"battle_id": "b1",
+			"system_id": "moonshadow",
+			"participants": []any{
+				map[string]any{"player_id": "p1", "ship_class": "close_enough", "ship_name": "Close Enough", "side_id": float64(1), "stance": "fire", "username": "Apex-Blade", "zone": "outer"},
+				map[string]any{"player_id": "me-123", "ship_class": "surplus", "ship_name": "Surplus", "side_id": float64(2), "stance": "fire", "username": "Me", "zone": "outer"},
+			},
+			"sides": []any{
+				map[string]any{"player_count": float64(1), "side_id": float64(1)},
+				map[string]any{"player_count": float64(1), "side_id": float64(2)},
+			},
+		},
+	})
+
+	if st := client.GetState(); !st.InCombat || !st.InBattle {
+		t.Errorf("battle_started: want InCombat && InBattle, got InCombat=%v InBattle=%v", st.InCombat, st.InBattle)
+	}
+	if got := seenCount(); got != 2 {
+		t.Errorf("battle_started: expected 2 player sightings, got %d", got)
+	}
+
+	// battle_damage targeting us records the damage taken.
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeBattleDamage,
+		Payload: map[string]any{
+			"attacker_id": "p1", "attacker_name": "Apex-Blade",
+			"target_id": "me-123", "target_name": "Me",
+			"damage_type": "kinetic", "hit_success": true,
+			"hull_hit": float64(12), "shield_hit": float64(3),
+			"total_damage": float64(15), "weapons_fired": []any{"Railgun II"},
+			"tick": float64(917152),
+		},
+	})
+	if st := client.GetState(); st.LastDamage != 15 {
+		t.Errorf("battle_damage to self: want LastDamage=15, got %v", st.LastDamage)
+	}
+
+	// battle_damage aimed at someone else must NOT change our LastDamage.
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeBattleDamage,
+		Payload: map[string]any{
+			"attacker_id": "me-123", "target_id": "p1",
+			"total_damage": float64(99), "hit_success": true,
+		},
+	})
+	if st := client.GetState(); st.LastDamage != 15 {
+		t.Errorf("battle_damage to other: LastDamage should stay 15, got %v", st.LastDamage)
+	}
+
+	// battle_update: authoritative snapshot (participants carry hull/shield pct).
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeBattleUpdate,
+		Payload: map[string]any{
+			"auto_pilot": true, "battle_id": "b1", "tick": float64(917153),
+			"participants": []any{
+				map[string]any{"hull_pct": float64(100), "player_id": "p1", "shield_pct": float64(90), "ship_class": "close_enough", "side_id": float64(1), "stance": "fire", "username": "Apex-Blade", "zone": "mid"},
+			},
+			"sides":          []any{map[string]any{"player_count": float64(2), "side_id": float64(1)}},
+			"your_side_id":   float64(2),
+			"your_stance":    "fire",
+			"your_target_id": "p1",
+			"your_zone":      "outer",
+		},
+	})
+	if st := client.GetState(); !st.InCombat || !st.InBattle {
+		t.Error("battle_update: want InCombat && InBattle to remain true")
+	}
+	if got := seenCount(); got != 3 {
+		t.Errorf("battle_update: expected 3 total sightings, got %d", got)
 	}
 }
 

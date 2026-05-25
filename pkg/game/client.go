@@ -2353,6 +2353,51 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.notifyPlayersFromBattle("battle_alert", parts)
 		}
 
+	case protocol.TypeBattleStarted:
+		// A tactical battle this player is participating in has begun. Unlike
+		// battle_alert (someone else's battle), we are a combatant — mark our
+		// combat/battle state. The flags are cleared by the next state_update
+		// carrying in_combat:false.
+		var ev serverapi.BattleStarted
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.mu.Lock()
+		c.state.InCombat = true
+		c.state.InBattle = true
+		c.mu.Unlock()
+		c.notifyPlayersFromBattleStart("battle_started", ev.Participants)
+		c.debugLogger.Printf("[BATTLE STARTED] battle=%s system=%s participants=%d", ev.BattleID, ev.SystemID, len(ev.Participants))
+
+	case protocol.TypeBattleUpdate:
+		// Periodic authoritative snapshot of a battle we are in.
+		var ev serverapi.BattleUpdate
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.mu.Lock()
+		c.state.InCombat = true
+		c.state.InBattle = true
+		c.mu.Unlock()
+		c.notifyPlayersFromBattleUpdate("battle_update", ev.Participants)
+		c.debugLogger.Printf("[BATTLE UPDATE] battle=%s tick=%d your_side=%d stance=%s zone=%s target=%s participants=%d",
+			ev.BattleID, ev.Tick, ev.YourSideID, ev.YourStance, ev.YourZone, ev.YourTargetID, len(ev.Participants))
+
+	case protocol.TypeBattleDamage:
+		// Per-hit combat telemetry. Record damage taken when we are the target.
+		var ev serverapi.BattleDamage
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.mu.Lock()
+		c.state.InCombat = true
+		if ev.TargetID != "" && ev.TargetID == c.state.Player.ID && ev.TotalDamage > 0 {
+			c.state.LastDamage = ev.TotalDamage
+		}
+		c.mu.Unlock()
+		c.debugLogger.Printf("[BATTLE DAMAGE] %s -> %s: %.0f (%s) hit=%v weapons=%v",
+			ev.AttackerName, ev.TargetName, ev.TotalDamage, ev.DamageType, ev.HitSuccess, ev.WeaponsFired)
+
 	case protocol.TypeChatMessage:
 		var chatMsg serverapi.ChatMessage
 		if data, err := json.Marshal(resp.Payload); err == nil {

@@ -46,11 +46,12 @@ func (c *Client) notifyPlayers(source string, players []serverapi.NearbyPlayer, 
 	cb(out)
 }
 
-// notifyPlayersFromBattle adapts BattleParticipant records (which lack
-// some NearbyPlayer fields and always imply InCombat=true). Faction info
-// lives on BattleSide, not the participant, so it is not stamped here.
-func (c *Client) notifyPlayersFromBattle(source string, parts []serverapi.BattleParticipant) {
-	if len(parts) == 0 {
+// notifyCombatSightings emits InCombat=true sightings for the given
+// id/username/ship-class triples, stamping the current system and time. It is
+// the shared core for the per-event battle adapters below. Faction info lives
+// on the side, not the participant, so it is not stamped here.
+func (c *Client) notifyCombatSightings(source string, players []combatSighting) {
+	if len(players) == 0 {
 		return
 	}
 	c.playerObserverMu.RLock()
@@ -63,12 +64,12 @@ func (c *Client) notifyPlayersFromBattle(source string, parts []serverapi.Battle
 	systemID := c.currentSystemID()
 
 	now := time.Now().UTC()
-	out := make([]ObservedPlayer, 0, len(parts))
-	for _, p := range parts {
+	out := make([]ObservedPlayer, 0, len(players))
+	for _, p := range players {
 		out = append(out, ObservedPlayer{
-			PlayerID:  p.PlayerID,
-			Username:  p.Username,
-			ShipClass: p.ShipClass,
+			PlayerID:  p.playerID,
+			Username:  p.username,
+			ShipClass: p.shipClass,
 			InCombat:  true,
 			SystemID:  systemID,
 			Source:    source,
@@ -76,6 +77,44 @@ func (c *Client) notifyPlayersFromBattle(source string, parts []serverapi.Battle
 		})
 	}
 	cb(out)
+}
+
+// combatSighting is the minimal identity carried across all battle participant
+// shapes (combat_update, battle_alert, battle_started, battle_update).
+type combatSighting struct {
+	playerID  string
+	username  string
+	shipClass string
+}
+
+// notifyPlayersFromBattle adapts BattleParticipant records (combat_update /
+// battle_alert) into combat sightings.
+func (c *Client) notifyPlayersFromBattle(source string, parts []serverapi.BattleParticipant) {
+	players := make([]combatSighting, 0, len(parts))
+	for _, p := range parts {
+		players = append(players, combatSighting{p.PlayerID, p.Username, p.ShipClass})
+	}
+	c.notifyCombatSightings(source, players)
+}
+
+// notifyPlayersFromBattleStart adapts battle_started participants (integer
+// side_id, identity-only) into combat sightings.
+func (c *Client) notifyPlayersFromBattleStart(source string, parts []serverapi.BattleAlertParticipant) {
+	players := make([]combatSighting, 0, len(parts))
+	for _, p := range parts {
+		players = append(players, combatSighting{p.PlayerID, p.Username, p.ShipClass})
+	}
+	c.notifyCombatSightings(source, players)
+}
+
+// notifyPlayersFromBattleUpdate adapts battle_update participants (which carry
+// live hull/shield percentages) into combat sightings.
+func (c *Client) notifyPlayersFromBattleUpdate(source string, parts []serverapi.BattleUpdateParticipant) {
+	players := make([]combatSighting, 0, len(parts))
+	for _, p := range parts {
+		players = append(players, combatSighting{p.PlayerID, p.Username, p.ShipClass})
+	}
+	c.notifyCombatSightings(source, players)
 }
 
 // notifyPlayerFromChat emits a single identity-only ObservedPlayer for
