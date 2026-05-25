@@ -165,8 +165,37 @@ func (m *Match) Run(ctx context.Context) error {
 	wg.Wait()
 	cancel()
 
+	// If the parent context was cancelled (Ctrl-C), the bots stopped mid-fight.
+	// Best-effort tell each to flee so it disengages rather than dying idle,
+	// then still print the partial summary. MaxTicks and natural battle-end
+	// cancel only the child loopCtx, leaving the parent error nil.
+	if ctx.Err() != nil {
+		m.Logger.Printf("shutdown requested; telling bots to flee")
+		m.fleeAll()
+	}
+
 	m.printSummary()
 	return nil
+}
+
+// fleeBot issues a best-effort flee stance so a bot disengages on shutdown.
+func fleeBot(ctx context.Context, bc battleClient) error {
+	return bc.Battle(ctx, "stance", map[string]any{"stance": "flee"})
+}
+
+// fleeAll tells every bot combatant to flee, on a fresh short-lived context
+// since the match context is already cancelled by the time this runs.
+func (m *Match) fleeAll() {
+	fctx, cancel := context.WithTimeout(context.Background(), game.SleepShort)
+	defer cancel()
+	for _, c := range m.Combatants {
+		if c.Policy == nil {
+			continue // human partner slot: not bot-driven
+		}
+		if err := fleeBot(fctx, c.Client); err != nil {
+			m.Logger.Printf("%s flee on shutdown: %v", c.Username, err)
+		}
+	}
 }
 
 // setupAll runs Setup for every combatant concurrently, returning the first
@@ -196,7 +225,7 @@ func (m *Match) setupAll(ctx context.Context, arena string) error {
 
 // waitForBattle polls until the given combatant is in a battle (partner mode).
 func (m *Match) waitForBattle(ctx context.Context, c *Combatant) error {
-	deadline := time.Now().Add(5 * time.Minute) // human join window
+	deadline := time.Now().Add(game.SleepPartnerJoinWindow) // human join window
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():

@@ -39,6 +39,15 @@ spar --mode partner --arena ross_128 --policy fighter-2=dummy fighter-2
 | `--weapon` / `--shield` | `pulse_laser_i` / `shield_booster_i` | Cheap gear fitted if missing. |
 | `--debug` | `false` | Debug logging. |
 
+## Stopping a match
+
+Press Ctrl-C to stop early: the harness tells each bot to `flee`, then prints the
+partial telemetry summary before exiting. A match also ends on its own when one
+side is wiped out or `--max-ticks` is reached.
+
+Auto-rebuild of a destroyed ship between matches (`--rebuild`) is not yet
+implemented — re-run the binary to start a fresh match.
+
 ## Policies
 
 - **aggressor** — advance to `engaged`, target nearest, hold `fire`.

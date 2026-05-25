@@ -675,3 +675,24 @@ func TestGetBattleStatus_PopulatesBattleState(t *testing.T) {
 		t.Error("want InBattle true")
 	}
 }
+
+func TestGetBattleStatus_ClearsInBattleWhenNotParticipant(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.InBattle = true
+
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"action":         "get_battle_status",
+			"battle_id":      "b1",
+			"is_participant": false,
+			"participants": []any{
+				map[string]any{"player_id": "p2", "side_id": "2", "hull_pct": float64(100)},
+			},
+		},
+	})
+
+	if client.GetState().InBattle {
+		t.Error("want InBattle false after a non-participant status poll")
+	}
+}

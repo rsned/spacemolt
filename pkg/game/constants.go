@@ -33,6 +33,8 @@ const (
 	SleepChatPoll          = 30 * time.Minute // Chat channel polling interval
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
 
+	SleepPartnerJoinWindow = 5 * time.Minute // Max wait for a human to attack a bot in spar partner mode
+
 	// WebSocket keepalive timing
 	// We actively send protocol-level pings to keep NAT/proxy flows warm and to
 	// detect dead connections promptly. The passive no-message timeout remains as

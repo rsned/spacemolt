@@ -63,7 +63,11 @@ func BuildView(b *game.BattleState, selfID string) (View, bool) {
 		}
 		if p.SideID == self.SideID {
 			allies = append(allies, p)
-		} else {
+			continue
+		}
+		// Only living enemies are targetable, so a destroyed foe in a 2v2 is
+		// not picked as v.Enemies[0]. battleOver handles the all-dead case.
+		if p.HullPct > 0 {
 			enemies = append(enemies, p)
 		}
 	}

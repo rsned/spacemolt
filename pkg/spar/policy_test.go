@@ -14,7 +14,7 @@ func TestBuildView_SplitsAlliesAndEnemies(t *testing.T) {
 	state := bs(
 		game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "mid", HullPct: 90},
 		game.BattleParticipant{PlayerID: "ally", SideID: "1"},
-		game.BattleParticipant{PlayerID: "foe", SideID: "2"},
+		game.BattleParticipant{PlayerID: "foe", SideID: "2", HullPct: 100},
 	)
 	v, ok := BuildView(state, "me")
 	if !ok {
@@ -22,6 +22,21 @@ func TestBuildView_SplitsAlliesAndEnemies(t *testing.T) {
 	}
 	if v.Self.PlayerID != "me" || len(v.Allies) != 1 || len(v.Enemies) != 1 {
 		t.Fatalf("unexpected view: self=%s allies=%d enemies=%d", v.Self.PlayerID, len(v.Allies), len(v.Enemies))
+	}
+}
+
+func TestBuildView_ExcludesDeadEnemies(t *testing.T) {
+	state := bs(
+		game.BattleParticipant{PlayerID: "me", SideID: "1", HullPct: 90},
+		game.BattleParticipant{PlayerID: "deadfoe", SideID: "2", HullPct: 0},
+		game.BattleParticipant{PlayerID: "livefoe", SideID: "2", HullPct: 60},
+	)
+	v, ok := BuildView(state, "me")
+	if !ok {
+		t.Fatal("BuildView returned ok=false; want self found")
+	}
+	if len(v.Enemies) != 1 || v.Enemies[0].PlayerID != "livefoe" {
+		t.Fatalf("enemies = %+v, want only livefoe", v.Enemies)
 	}
 }
 

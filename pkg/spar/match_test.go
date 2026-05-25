@@ -78,6 +78,16 @@ func TestRunPolicyLoop_DispatchesThenStops(t *testing.T) {
 	}
 }
 
+func TestFleeBot(t *testing.T) {
+	f := &fakeBattleClient{}
+	if err := fleeBot(context.Background(), f); err != nil {
+		t.Fatalf("fleeBot error: %v", err)
+	}
+	if len(f.actions) != 1 || f.actions[0] != "stance:flee" {
+		t.Fatalf("actions = %v, want [stance:flee]", f.actions)
+	}
+}
+
 func TestBattleSignature_ChangesOnState(t *testing.T) {
 	a := &game.BattleState{Participants: []game.BattleParticipant{
 		{PlayerID: "me", Zone: "mid", Stance: "fire", HullPct: 100, ShieldPct: 50},

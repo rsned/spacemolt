@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -44,7 +45,10 @@ func main() {
 	}
 
 	logger := log.New(os.Stdout, "[spar] ", log.LstdFlags)
-	ctx := context.Background()
+	// Ctrl-C cancels ctx so Match.Run can flee the bots and print a partial
+	// summary instead of the process dying mid-fight.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	policies := parsePolicyFlag(*policyFlag)
 

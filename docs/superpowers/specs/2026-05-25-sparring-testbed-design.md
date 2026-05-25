@@ -261,6 +261,17 @@ before committing.
 - Custom `.smolt` battle scripts (the `Policy` interface leaves the seam).
 - Multi-side (3+ team) battles — initial presets assume two sides; the data
   model (`SideID`) supports more, but presets target 1v1/2v2.
+- `--rebuild` (auto-commission a cheap replacement for a destroyed ship between
+  matches) — deferred; re-run the binary for a fresh match. The CLI sketch above
+  still lists the flag as the intended shape.
+- Strict co-location pre-flight (lifecycle step 3) — deferred. Setup navigates
+  every combatant to the same `--arena` system and `firstPOIOfType` is
+  deterministic, so they converge on the same rendezvous POI, and `attack` only
+  requires same-system. A divergent POI surfaces as a server attack error rather
+  than a dedicated pre-flight abort.
+
+As implemented, Ctrl-C is handled: the harness issues `flee` for the bots and
+prints a partial summary before exiting (see `Match.Run` / `fleeAll`).
 
 ## Future direction: battle visualization (longer-term goal)
 

@@ -2747,9 +2747,10 @@ func (c *Client) parseBattleStatusData(payload map[string]any) {
 		Participants:  parts,
 		TickDuration:  resp.TickDuration,
 	}
-	if resp.IsParticipant {
-		c.state.InBattle = true
-	}
+	// Keep InBattle in sync with this authoritative poll: a status showing we
+	// are no longer a participant (battle ended) must clear it, not leave it
+	// stale for the next consumer (e.g. the future smart battle handler).
+	c.state.InBattle = resp.IsParticipant
 }
 
 // parseShipData extracts ship information from payload using serverapi types.
