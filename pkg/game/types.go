@@ -291,16 +291,21 @@ type JumpResult struct {
 
 // BattleParticipant represents a participant in a tactical battle.
 type BattleParticipant struct {
-	PlayerID  string `json:"player_id"`
-	Username  string `json:"username"`
-	ShipClass string `json:"ship_class"`
-	SideID    string `json:"side_id"`
-	Zone      string `json:"zone"`
-	Stance    string `json:"stance"`
+	PlayerID  string  `json:"player_id"`
+	Username  string  `json:"username"`
+	ShipClass string  `json:"ship_class"`
+	SideID    string  `json:"side_id"`
+	Zone      string  `json:"zone"`
+	Stance    string  `json:"stance"`
 	Hull      float64 `json:"hull"`
 	MaxHull   float64 `json:"max_hull"`
 	Shield    float64 `json:"shield"`
 	MaxShield float64 `json:"max_shield"`
+	// Percentage + tactical fields as reported by get_battle_status / battle_update.
+	HullPct   int    `json:"hull_pct"`
+	ShieldPct int    `json:"shield_pct"`
+	TargetID  string `json:"target_id,omitempty"`
+	AutoPilot bool   `json:"auto_pilot,omitempty"`
 }
 
 // BattleState represents the current state of a tactical battle.
