@@ -34,6 +34,7 @@ type GameClient interface {
 	Attack(ctx context.Context, targetID string) error
 	Cloak(ctx context.Context, enable bool) error
 	Battle(ctx context.Context, action string, payload map[string]any) error
+	GetBattleStatus(ctx context.Context) error
 	Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error
 
 	// Commerce

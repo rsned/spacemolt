@@ -1216,6 +1216,11 @@ func (m *MCPGameClient) Battle(ctx context.Context, action string, payload map[s
 	return err
 }
 
+func (m *MCPGameClient) GetBattleStatus(ctx context.Context) error {
+	_, err := m.callTool(ctx, "get_battle_status", map[string]any{})
+	return err
+}
+
 func (m *MCPGameClient) Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error {
 	_, err := m.callTool(ctx, "reload", map[string]any{
 		"weapon_instance_id": weaponInstanceID,

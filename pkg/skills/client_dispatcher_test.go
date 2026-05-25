@@ -602,6 +602,7 @@ func (m *mockGameClient) RawCommand(ctx context.Context, cmd string, args map[st
 func (m *mockGameClient) Battle(ctx context.Context, action string, payload map[string]any) error {
 	return nil
 }
+func (m *mockGameClient) GetBattleStatus(_ context.Context) error { return nil }
 func (m *mockGameClient) Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error {
 	return nil
 }
