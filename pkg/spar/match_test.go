@@ -77,3 +77,21 @@ func TestRunPolicyLoop_DispatchesThenStops(t *testing.T) {
 		t.Fatalf("actions = %v, want [stance:flee]", f.actions)
 	}
 }
+
+func TestBattleSignature_ChangesOnState(t *testing.T) {
+	a := &game.BattleState{Participants: []game.BattleParticipant{
+		{PlayerID: "me", Zone: "mid", Stance: "fire", HullPct: 100, ShieldPct: 50},
+	}}
+	aCopy := &game.BattleState{Participants: []game.BattleParticipant{
+		{PlayerID: "me", Zone: "mid", Stance: "fire", HullPct: 100, ShieldPct: 50},
+	}}
+	if battleSignature(a) != battleSignature(aCopy) {
+		t.Fatal("signature must be stable for identical state")
+	}
+	b := &game.BattleState{Participants: []game.BattleParticipant{
+		{PlayerID: "me", Zone: "mid", Stance: "fire", HullPct: 80, ShieldPct: 50},
+	}}
+	if battleSignature(a) == battleSignature(b) {
+		t.Fatal("signature must change when hull changes")
+	}
+}

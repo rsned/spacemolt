@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -211,9 +212,9 @@ func (m *Match) waitForBattle(ctx context.Context, c *Combatant) error {
 	return fmt.Errorf("no battle started within timeout; did the human attack %s?", c.Username)
 }
 
-// telemetryLoop prints a per-tick row for each participant.
+// telemetryLoop prints a per-participant row whenever the battle state changes.
 func (m *Match) telemetryLoop(ctx context.Context, c *Combatant) {
-	var lastTick int64 = -1
+	var lastSig string
 	for {
 		select {
 		case <-ctx.Done():
@@ -222,14 +223,28 @@ func (m *Match) telemetryLoop(ctx context.Context, c *Combatant) {
 		}
 		_ = c.Client.GetBattleStatus(ctx)
 		st := c.Client.GetState()
-		if st.BattleState != nil && st.CurrentTick != lastTick {
-			lastTick = st.CurrentTick
-			for _, p := range st.BattleState.Participants {
-				m.Logger.Print(formatTickRow(st.CurrentTick, p))
+		if st.BattleState != nil {
+			if sig := battleSignature(st.BattleState); sig != lastSig {
+				lastSig = sig
+				for _, p := range st.BattleState.Participants {
+					m.Logger.Print(formatTickRow(st.CurrentTick, p))
+				}
 			}
 		}
 		time.Sleep(game.SleepTick)
 	}
+}
+
+// battleSignature returns a string that changes whenever any participant's
+// tactical state (zone/stance/hull/shield) changes. Used to dedup telemetry
+// rows without relying on CurrentTick, which get_battle_status parsing does not
+// advance.
+func battleSignature(b *game.BattleState) string {
+	var sb strings.Builder
+	for _, p := range b.Participants {
+		fmt.Fprintf(&sb, "%s:%s:%s:%d:%d;", p.PlayerID, p.Zone, p.Stance, p.HullPct, p.ShieldPct)
+	}
+	return sb.String()
 }
 
 // printSummary prints final hull/shield per combatant.
