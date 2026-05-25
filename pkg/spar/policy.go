@@ -14,7 +14,6 @@ type View struct {
 	Self     game.BattleParticipant
 	Enemies  []game.BattleParticipant
 	Allies   []game.BattleParticipant
-	Tick     int64
 	BattleID string
 }
 
@@ -36,7 +35,8 @@ type Policy interface {
 
 func noop() Action { return Action{Kind: "noop"} }
 
-// zoneIndex orders the tactical zones from far (0) to close (3).
+// zoneIndex orders the tactical zones from far (0) to close (3). An
+// unrecognized zone string maps to 0 (outer-equivalent), the safe default.
 var zoneIndex = map[string]int{"outer": 0, "mid": 1, "inner": 2, "engaged": 3}
 
 // BuildView assembles a View for the participant whose PlayerID is selfID.

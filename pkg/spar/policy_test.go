@@ -43,6 +43,7 @@ func TestPolicies_Decide(t *testing.T) {
 		{"skirmisher advances toward mid from outer", NewSkirmisher(40), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "outer", HullPct: 100}, "battle", "advance", ""},
 		{"skirmisher retreats toward mid from inner", NewSkirmisher(40), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "inner", HullPct: 100}, "battle", "retreat", ""},
 		{"skirmisher retreats when hull low", NewSkirmisher(40), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "mid", HullPct: 30}, "battle", "retreat", ""},
+		{"skirmisher hull-low at outer advances (no retreat past outer)", NewSkirmisher(40), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "outer", HullPct: 30}, "battle", "advance", ""},
 		{"retreater flees", NewRetreater(), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "mid", Stance: "fire", HullPct: 100}, "battle", "stance", "flee"},
 		{"dummy braces", NewDummy(), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "mid", Stance: "fire", HullPct: 100}, "battle", "stance", "brace"},
 		{"dummy noop when already bracing", NewDummy(), game.BattleParticipant{PlayerID: "me", SideID: "1", Zone: "mid", Stance: "brace", HullPct: 100}, "noop", "", ""},
