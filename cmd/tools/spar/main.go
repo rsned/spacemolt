@@ -53,7 +53,9 @@ func main() {
 		clients    []game.GameClient
 		aggIdx     int
 	)
-	// Best-effort cleanup of all opened clients when main returns.
+	// Best-effort cleanup of opened clients on normal return. NOTE: log.Fatalf
+	// below calls os.Exit, which skips this defer — acceptable for a dev CLI since
+	// leaked WebSocket connections time out server-side.
 	defer func() {
 		for _, c := range clients {
 			if err := c.Close(); err != nil {
@@ -96,6 +98,10 @@ func main() {
 		if *aggressor != "" && id == *aggressor {
 			aggIdx = i
 		}
+	}
+
+	if *aggressor != "" && agentIDs[aggIdx] != *aggressor {
+		logger.Printf("WARNING: --aggressor %q not found in agent list; %s will initiate", *aggressor, agentIDs[aggIdx])
 	}
 
 	m := &spar.Match{
