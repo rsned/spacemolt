@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -141,7 +142,7 @@ func main() {
 
 	if *skipOpen {
 		connect()
-		openSet, err := fetchOpenBuyOrderItemIDs(ctx, client)
+		openSet, err := fetchOpenBuyOrderItemIDs(ctx, client, wsClient)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error querying open orders: %v\n", err)
 			os.Exit(1)
@@ -537,12 +538,16 @@ func connectClient(ctx context.Context, transport, agentID string, logger *log.L
 
 // fetchOpenBuyOrderItemIDs returns the set of item_ids for which this agent
 // currently has at least one open buy order at the docked station. Pages
-// through view_orders with order_type=buy until has_more is false. Only
-// orders with remaining > 0 are counted — fully filled orders shouldn't
-// appear here, but the guard keeps the set tight if the server's pagination
-// ever lags. Used by --skip-open to suppress double-ordering items that
-// already have an open buy.
-func fetchOpenBuyOrderItemIDs(ctx context.Context, client game.GameClient) (map[string]struct{}, error) {
+// through view_orders with order_type=buy until has_more is false.
+//
+// Transport split: GameClient.RawCommand on the WS client is fire-and-forget
+// (c.send), so the response hasn't been parsed by the time we'd try to read
+// it back via GetRawJSON. For WS we call wsClient.Submit directly with
+// WithAckOnly+Result to wait for the OK, which guarantees storeRawJSON has
+// populated the "orders" cache before we read. The MCP RawCommand is
+// already synchronous (callTool returns the parsed result) and stuffs it
+// into latestRawJSON["_last"], so we read from there.
+func fetchOpenBuyOrderItemIDs(ctx context.Context, client game.GameClient, wsClient *game.Client) (map[string]struct{}, error) {
 	const pageSize = 50
 	open := make(map[string]struct{})
 	for page := 1; ; page++ {
@@ -552,12 +557,33 @@ func fetchOpenBuyOrderItemIDs(ctx context.Context, client game.GameClient) (map[
 			"page_size":  pageSize,
 			"scope":      "personal",
 		}
-		if err := client.RawCommand(ctx, "view_orders", payload); err != nil {
-			return nil, fmt.Errorf("view_orders page %d: %w", page, err)
+
+		var rawKey string
+		if wsClient != nil {
+			msg := protocol.Message{
+				Type:      "view_orders",
+				Payload:   payload,
+				Timestamp: time.Now().UnixMilli(),
+			}
+			h, err := wsClient.Submit(ctx, msg, game.WithAckOnly(), game.WithTimeout(game.SleepMedium))
+			if err != nil {
+				return nil, fmt.Errorf("view_orders page %d: submit: %w", page, err)
+			}
+			if _, err := h.Result(ctx); err != nil {
+				return nil, fmt.Errorf("view_orders page %d: %w", page, err)
+			}
+			rawKey = "orders"
+		} else {
+			if err := client.RawCommand(ctx, "view_orders", payload); err != nil {
+				return nil, fmt.Errorf("view_orders page %d: %w", page, err)
+			}
+			// MCP stuffs the synchronous result under "_last", not "orders".
+			rawKey = "_last"
 		}
-		raw := client.GetRawJSON("orders")
+
+		raw := client.GetRawJSON(rawKey)
 		if len(raw) == 0 {
-			return nil, fmt.Errorf("view_orders page %d: empty response", page)
+			return nil, fmt.Errorf("view_orders page %d: empty response (key=%s)", page, rawKey)
 		}
 		var resp serverapi.ViewOrdersResponse
 		if err := json.Unmarshal(raw, &resp); err != nil {
