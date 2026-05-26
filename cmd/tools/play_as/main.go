@@ -4136,7 +4136,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		flags := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
 		for k, v := range flags {
 			if k == "side_id" {
-				if n, err := strconv.Atoi(v.(string)); err == nil {
+				if n, ok := flagInt(v); ok {
 					payload[k] = n
 				}
 			} else {
@@ -4234,7 +4234,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			// page_size land here as int and the old strconv.Atoi(v.(string))
 			// re-conversion panicked on its very first numeric flag. Drop it.
 			payload := parseFlagArgs(parts[1:], "item_id", "order_type", "page", "page_size", "scope", "search", "sort_by", "station_id")
-			if v, ok := payload["item_id"].(string); ok {
+			if v, ok := flagString(payload["item_id"]); ok {
 				payload["item_id"] = strings.ToLower(v)
 			}
 			return simpleCommand(client, func(ctx context.Context) error {
@@ -4298,7 +4298,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		payload := map[string]any{"order_id": parts[1]}
 		flags := parseFlagArgs(parts[2:], "new_price")
 		if v, ok := flags["new_price"]; ok {
-			if n, err := strconv.Atoi(v.(string)); err == nil {
+			if n, ok := flagInt(v); ok {
 				payload["new_price"] = n
 			}
 		}
@@ -4394,8 +4394,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		// Convert provide_materials to bool
 		if v, ok := payload["provide_materials"]; ok {
-			s, _ := v.(string)
-			payload["provide_materials"] = strings.EqualFold(s, "true") || s == "1"
+			payload["provide_materials"] = flagBool(v)
 		}
 		shipClass, _ := payload["ship_class"].(string)
 		provideMaterials, _ := payload["provide_materials"].(bool)
@@ -4425,7 +4424,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		flags := parseFlagArgs(parts[2:], "offer_credits", "request_credits")
 		for _, k := range []string{"offer_credits", "request_credits"} {
 			if v, ok := flags[k]; ok {
-				if n, err := strconv.Atoi(v.(string)); err == nil {
+				if n, ok := flagInt(v); ok {
 					tradePayload[k] = n
 				}
 			}
@@ -4491,11 +4490,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) > 1 {
 			payload := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
 			if v, ok := payload["quantity"]; ok {
-				if n, err := strconv.Atoi(v.(string)); err == nil {
+				if n, ok := flagInt(v); ok {
 					payload["quantity"] = n
 				}
 			}
-			if v, ok := payload["item_id"].(string); ok {
+			if v, ok := flagString(payload["item_id"]); ok {
 				payload["item_id"] = strings.ToLower(v)
 			}
 			return simpleCommand(client, func(ctx context.Context) error {
@@ -4508,11 +4507,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) > 1 {
 			payload := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
 			if v, ok := payload["quantity"]; ok {
-				if n, err := strconv.Atoi(v.(string)); err == nil {
+				if n, ok := flagInt(v); ok {
 					payload["quantity"] = n
 				}
 			}
-			if v, ok := payload["item_id"].(string); ok {
+			if v, ok := flagString(payload["item_id"]); ok {
 				payload["item_id"] = strings.ToLower(v)
 			}
 			return simpleCommand(client, func(ctx context.Context) error {
@@ -4959,11 +4958,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		for k, v := range flags {
 			switch k {
 			case "page", "page_size", "tier":
-				if n, err := strconv.Atoi(v.(string)); err == nil {
+				if n, ok := flagInt(v); ok {
 					payload[k] = n
 				}
 			case "commissionable":
-				payload[k] = strings.EqualFold(v.(string), "true") || v.(string) == "1"
+				payload[k] = flagBool(v)
 			default:
 				payload[k] = v
 			}
@@ -4998,10 +4997,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "get_notifications":
 		payload := parseFlagArgs(parts[1:], "clear", "limit")
 		if v, ok := payload["clear"]; ok {
-			payload["clear"] = strings.EqualFold(v.(string), "true") || v.(string) == "1"
+			payload["clear"] = flagBool(v)
 		}
 		if v, ok := payload["limit"]; ok {
-			if n, err := strconv.Atoi(v.(string)); err == nil {
+			if n, ok := flagInt(v); ok {
 				payload["limit"] = n
 			}
 		}
@@ -5019,7 +5018,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		playerID := ""
 		fleetFlags := parseFlagArgs(parts[2:], "player_id")
 		if v, ok := fleetFlags["player_id"]; ok {
-			playerID = v.(string)
+			playerID, _ = flagString(v)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Fleet(ctx, parts[1], playerID)
@@ -5079,12 +5078,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		flFlags := parseFlagArgs(parts[1:], "limit", "offset")
 		flistLimit, flistOffset := 0, 0
 		if v, ok := flFlags["limit"]; ok {
-			if n, err := strconv.Atoi(v.(string)); err == nil {
+			if n, ok := flagInt(v); ok {
 				flistLimit = n
 			}
 		}
 		if v, ok := flFlags["offset"]; ok {
-			if n, err := strconv.Atoi(v.(string)); err == nil {
+			if n, ok := flagInt(v); ok {
 				flistOffset = n
 			}
 		}
@@ -5557,7 +5556,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		replyID := ""
 		upvoteFlags := parseFlagArgs(parts[2:], "reply_id")
 		if v, ok := upvoteFlags["reply_id"]; ok {
-			replyID = v.(string)
+			replyID, _ = flagString(v)
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.ForumUpvote(ctx, parts[1], replyID)
@@ -6245,6 +6244,55 @@ func resolveArg(args []string, key string) string {
 		return a
 	}
 	return ""
+}
+
+// flagInt extracts an int from a parseFlagArgs value, which may be int
+// (auto-converted from a numeric token) or string (everything else). Returns
+// ok=false for unparseable strings or unrelated types. Use at call sites
+// that need int payload fields (page, page_size, quantity, side_id, etc.) —
+// the older v.(string) + strconv.Atoi pattern panics when parseFlagArgs hits
+// a numeric token first.
+func flagInt(v any) (int, bool) {
+	switch tv := v.(type) {
+	case int:
+		return tv, true
+	case string:
+		n, err := strconv.Atoi(tv)
+		return n, err == nil
+	default:
+		return 0, false
+	}
+}
+
+// flagString extracts a string from a parseFlagArgs value. ints are
+// stringified — parseFlagArgs auto-converts numeric flags, so an all-digits
+// id like a player_id "12345" lands as int 12345 even though semantically
+// it's text.
+func flagString(v any) (string, bool) {
+	switch tv := v.(type) {
+	case string:
+		return tv, true
+	case int:
+		return strconv.Itoa(tv), true
+	default:
+		return "", false
+	}
+}
+
+// flagBool interprets a parseFlagArgs value as a boolean. Accepts the string
+// forms "true"/"1" (case-insensitive on the word) and the int forms 0/non-0
+// — parseFlagArgs hands us int 1 when the user wrote `--clear 1`.
+func flagBool(v any) bool {
+	switch tv := v.(type) {
+	case bool:
+		return tv
+	case int:
+		return tv != 0
+	case string:
+		return strings.EqualFold(tv, "true") || tv == "1"
+	default:
+		return false
+	}
 }
 
 func parseFlagArgs(args []string, keys ...string) map[string]any {
