@@ -721,23 +721,28 @@ func formatGetDrones(raw []byte) string {
 // formatGetDrone renders the detail view for a single drone (get_drone).
 func formatGetDrone(raw []byte) string {
 	raw = unwrapActionResult(raw)
+	type droneCargoItem struct {
+		ItemID   string  `json:"item_id"`
+		Quantity float64 `json:"quantity"`
+		Size     int     `json:"size"`
+	}
 	var resp struct {
-		ID            string            `json:"id"`
-		Type          string            `json:"type"`
-		Status        string            `json:"status"`
-		Hull          int               `json:"hull"`
-		MaxHull       int               `json:"max_hull"`
-		ItemID        string            `json:"item_id"`
-		POIID         string            `json:"poi_id"`
-		SystemID      string            `json:"system_id"`
-		CargoUsed     int               `json:"cargo_used"`
-		CargoCapacity int               `json:"cargo_capacity"`
-		Cargo         []json.RawMessage `json:"cargo"`
-		Script        string            `json:"script"`
-		LoadedAt      string            `json:"loaded_at"`
-		DeployedAt    string            `json:"deployed_at"`
-		TravelTo      string            `json:"travel_to"`
-		TravelTicks   int               `json:"travel_ticks"`
+		ID            string           `json:"id"`
+		Type          string           `json:"type"`
+		Status        string           `json:"status"`
+		Hull          int              `json:"hull"`
+		MaxHull       int              `json:"max_hull"`
+		ItemID        string           `json:"item_id"`
+		POIID         string           `json:"poi_id"`
+		SystemID      string           `json:"system_id"`
+		CargoUsed     int              `json:"cargo_used"`
+		CargoCapacity int              `json:"cargo_capacity"`
+		Cargo         []droneCargoItem `json:"cargo"`
+		Script        string           `json:"script"`
+		LoadedAt      string           `json:"loaded_at"`
+		DeployedAt    string           `json:"deployed_at"`
+		TravelTo      string           `json:"travel_to"`
+		TravelTicks   int              `json:"travel_ticks"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -755,6 +760,24 @@ func formatGetDrone(raw []byte) string {
 		fmt.Fprintf(&b, " (%d stack(s))", len(resp.Cargo))
 	}
 	b.WriteString("\n")
+	if len(resp.Cargo) > 0 {
+		slices.SortFunc(resp.Cargo, func(a, c droneCargoItem) int {
+			return strings.Compare(a.ItemID, c.ItemID)
+		})
+		idW, qtyW, sizeW := len("ID"), len("Qty"), len("Size")
+		for _, item := range resp.Cargo {
+			idW = max(idW, len(item.ItemID))
+			qtyW = max(qtyW, len(formatFloat(item.Quantity)))
+			sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+		}
+		fmt.Fprintf(&b, "    %-*s | %*s | %*s\n", idW, "ID", qtyW, "Qty", sizeW, "Size")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s\n",
+			strings.Repeat("-", idW), strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+		for _, item := range resp.Cargo {
+			fmt.Fprintf(&b, "    %-*s | %*s | %*d\n",
+				idW, item.ItemID, qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+		}
+	}
 	if resp.POIID != "" {
 		fmt.Fprintf(&b, "  POI:      %s\n", resp.POIID)
 	}
