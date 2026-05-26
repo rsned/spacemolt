@@ -3296,6 +3296,15 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		c.state.CurrentTick = int64(tick)
 	}
 
+	// Some actions auto-undock the ship before executing (e.g. travel/jump
+	// issued while docked); the server reports this with a top-level
+	// auto_undocked flag. Reflect it in dock state so callers don't keep
+	// treating the ship as docked.
+	if auto, ok := payload["auto_undocked"].(bool); ok && auto {
+		c.state.Doc = false
+		c.debugLogger.Printf("Action result: auto-undocked")
+	}
+
 	switch action {
 	case "arrived":
 		c.state.Traveling = false
@@ -3580,6 +3589,11 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			// survey_system does not mutate ship/player state; the REPL
 			// formatter renders the result. Log cleanly instead of "unhandled".
 			c.debugLogger.Printf("Action result: survey complete (%s)", command)
+		case "deploy_drone", "load_drone", "unload_drone", "recall_drone", "upload_drone_script":
+			// Drone bay/bandwidth/roster state isn't cached in State; the REPL
+			// formatter (and get_drones) renders the result. Log cleanly instead
+			// of "unhandled".
+			c.debugLogger.Printf("Action result: %s complete", command)
 		case "buy_listed_ship":
 			if credits, ok := result["credits_left"].(float64); ok {
 				c.state.Player.Credits = credits
