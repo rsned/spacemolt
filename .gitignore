@@ -31,7 +31,7 @@ bridge-mcp-sse-bridge
 skill-tree
 skill-graph
 action-visualizer
-daily-summary
+/daily-summary
 benchmark
 test-agent
 test-agent-manager

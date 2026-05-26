@@ -1538,8 +1538,10 @@ func computeDiffs(today, prev map[string]*AgentSnapshot) []AgentDiff {
 				diff.SkillChanges = append(diff.SkillChanges, fmt.Sprintf("%s: level %d -> %d", skillID, oldSkill.Level, cur.Level))
 				diff.HasChanges = true
 			} else if xpDelta := int(cur.XP) - int(oldSkill.XP); xpDelta != 0 {
-				// Same level, XP changed
-				diff.SkillChanges = append(diff.SkillChanges, fmt.Sprintf("%s: +%d XP (level %d)", skillID, xpDelta, cur.Level))
+				// Same level, XP changed. Use %+d so negative deltas print as
+				// "-1020 XP" rather than "+-1020 XP" — server bugs can roll
+				// XP backward, so the sign must follow the number.
+				diff.SkillChanges = append(diff.SkillChanges, fmt.Sprintf("%s: %+d XP (level %d)", skillID, xpDelta, cur.Level))
 				diff.HasChanges = true
 			}
 		}
@@ -1634,6 +1636,28 @@ func formatCredits(v float64) string {
 		sign = "+"
 	}
 	return sign + formatNumber(v)
+}
+
+// parseLevelArrow extracts the old and new levels from a skill-change details
+// string of the form "level <old> -> <new>" produced at the SkillChanges
+// append site. Returns ok=false if the shape doesn't match or either number
+// fails to parse — callers should fall back to the default (up) arrow.
+func parseLevelArrow(details string) (oldLvl, newLvl int, ok bool) {
+	const prefix = "level "
+	rest, found := strings.CutPrefix(details, prefix)
+	if !found {
+		return 0, 0, false
+	}
+	oldStr, newStr, found := strings.Cut(rest, " -> ")
+	if !found {
+		return 0, 0, false
+	}
+	o, err1 := strconv.Atoi(strings.TrimSpace(oldStr))
+	n, err2 := strconv.Atoi(strings.TrimSpace(newStr))
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return o, n, true
 }
 
 // deltaArrow returns a trend arrow for a delta: ↗ up, ↘ down, → unchanged.
@@ -2386,9 +2410,16 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 							formatted = fmt.Sprintf("%s ✨<br><small>%s</small>",
 								html.EscapeString(skillName), html.EscapeString(details))
 						} else if strings.Contains(details, "level ") && strings.Contains(details, " -> ") {
-							// Level up - green up arrow after name (same as credits positive trend)
-							formatted = fmt.Sprintf("%s <small class=\"positive\">↗</small><br><small>%s</small>",
-								html.EscapeString(skillName), html.EscapeString(details))
+							// Level change - direction matters: server bugs (and
+							// presumably death penalties) can drop a level, so
+							// pick arrow+class from the actual delta instead of
+							// assuming "level X -> Y" is always an increase.
+							arrow, cls := "↗", "positive"
+							if oldLvl, newLvl, ok := parseLevelArrow(details); ok && newLvl < oldLvl {
+								arrow, cls = "↘", "negative"
+							}
+							formatted = fmt.Sprintf("%s <small class=\"%s\">%s</small><br><small>%s</small>",
+								html.EscapeString(skillName), cls, arrow, html.EscapeString(details))
 						} else {
 							// XP gain - no emoji
 							formatted = fmt.Sprintf("%s<br><small>%s</small>",
