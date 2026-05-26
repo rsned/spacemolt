@@ -2232,6 +2232,20 @@ func (c *Client) UploadDroneScript(ctx context.Context, droneID, script string) 
 	return err
 }
 
+// DeployDrone launches a drone from the bay into the current location.
+func (c *Client) DeployDrone(ctx context.Context, droneID string) error {
+	msg := protocol.Message{
+		Type:      "deploy_drone",
+		Payload:   map[string]any{"drone_id": droneID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
 // FactionAcceptInvite accepts a pending invitation to join a faction.
 func (c *Client) FactionAcceptInvite(ctx context.Context, factionID string) error {
 	msg := protocol.Message{

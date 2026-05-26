@@ -609,6 +609,20 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatFacility(raw)
 	case "get_system_agents":
 		return formatGetSystemAgents(raw)
+	case "get_drones", "drones":
+		return formatGetDrones(raw)
+	case "get_drone":
+		return formatGetDrone(raw)
+	case "load_drone":
+		return formatLoadDrone(raw)
+	case "unload_drone":
+		return formatUnloadDrone(raw)
+	case "recall_drone":
+		return formatRecallDrone(raw)
+	case "upload_drone_script":
+		return formatUploadDroneScript(raw)
+	case "deploy_drone":
+		return formatDeployDrone(raw)
 	default:
 		return ""
 	}
@@ -631,6 +645,264 @@ func formatGetSystemAgents(raw []byte) string {
 	fmt.Fprintf(&b, "System: %s\n", resp.SystemID)
 	fmt.Fprintf(&b, "Count: %d\n\n", resp.Count)
 	writePlayerTable(&b, resp.Agents)
+	return b.String()
+}
+
+// formatGetDrones renders a get_drones response: a bay/bandwidth summary line
+// followed by a roster table. Field names match the live payload (id, type,
+// cargo_pct, has_script), which differs from serverapi.Drone — so the row
+// shape is declared inline here, as elsewhere in this file. Full 32-char drone
+// IDs are shown so they can be copy-pasted into deploy_drone/get_drone/recall.
+func formatGetDrones(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	type droneRow struct {
+		ID        string  `json:"id"`
+		Type      string  `json:"type"`
+		Status    string  `json:"status"`
+		Hull      int     `json:"hull"`
+		MaxHull   int     `json:"max_hull"`
+		CargoPct  float64 `json:"cargo_pct"`
+		HasScript bool    `json:"has_script"`
+		POIID     string  `json:"poi_id"`
+	}
+	var resp struct {
+		BandwidthTotal int        `json:"bandwidth_total"`
+		BandwidthUsed  int        `json:"bandwidth_used"`
+		BayCapacity    int        `json:"bay_capacity"`
+		BayCount       int        `json:"bay_count"`
+		DeployedCount  int        `json:"deployed_count"`
+		Drones         []droneRow `json:"drones"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Drones: %d in bay, %d deployed | Bay: %d/%d | Bandwidth: %d/%d\n",
+		resp.BayCount, resp.DeployedCount, resp.BayCount, resp.BayCapacity,
+		resp.BandwidthUsed, resp.BandwidthTotal)
+	if len(resp.Drones) == 0 {
+		b.WriteString("\n  (no drones)\n")
+		return b.String()
+	}
+
+	slices.SortFunc(resp.Drones, func(a, c droneRow) int {
+		if d := strings.Compare(a.Type, c.Type); d != 0 {
+			return d
+		}
+		return strings.Compare(a.Status, c.Status)
+	})
+
+	typeW, statusW, hullW, poiW := len("Type"), len("Status"), len("Hull"), len("POI")
+	for _, d := range resp.Drones {
+		typeW = max(typeW, len(d.Type))
+		statusW = max(statusW, len(d.Status))
+		hullW = max(hullW, len(fmt.Sprintf("%d/%d", d.Hull, d.MaxHull)))
+		poiW = max(poiW, len(d.POIID))
+	}
+
+	fmt.Fprintf(&b, "\n  %-*s | %-*s | %-*s | %5s | %-6s | %-*s | %s\n",
+		typeW, "Type", statusW, "Status", hullW, "Hull", "Cargo", "Script", poiW, "POI", "Drone ID")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", typeW), strings.Repeat("-", statusW), strings.Repeat("-", hullW),
+		strings.Repeat("-", 5), strings.Repeat("-", 6), strings.Repeat("-", poiW), strings.Repeat("-", len("Drone ID")))
+	for _, d := range resp.Drones {
+		script := "no"
+		if d.HasScript {
+			script = "yes"
+		}
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %4.0f%% | %-6s | %-*s | %s\n",
+			typeW, d.Type, statusW, d.Status, hullW, fmt.Sprintf("%d/%d", d.Hull, d.MaxHull),
+			d.CargoPct, script, poiW, d.POIID, d.ID)
+	}
+	return b.String()
+}
+
+// formatGetDrone renders the detail view for a single drone (get_drone).
+func formatGetDrone(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		ID            string            `json:"id"`
+		Type          string            `json:"type"`
+		Status        string            `json:"status"`
+		Hull          int               `json:"hull"`
+		MaxHull       int               `json:"max_hull"`
+		ItemID        string            `json:"item_id"`
+		POIID         string            `json:"poi_id"`
+		SystemID      string            `json:"system_id"`
+		CargoUsed     int               `json:"cargo_used"`
+		CargoCapacity int               `json:"cargo_capacity"`
+		Cargo         []json.RawMessage `json:"cargo"`
+		Script        string            `json:"script"`
+		LoadedAt      string            `json:"loaded_at"`
+		DeployedAt    string            `json:"deployed_at"`
+		TravelTo      string            `json:"travel_to"`
+		TravelTicks   int               `json:"travel_ticks"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.ID == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Drone %s (%s)\n", resp.ID, resp.Type)
+	fmt.Fprintf(&b, "  Status:   %s\n", resp.Status)
+	fmt.Fprintf(&b, "  Hull:     %d/%d\n", resp.Hull, resp.MaxHull)
+	fmt.Fprintf(&b, "  Cargo:    %d/%d", resp.CargoUsed, resp.CargoCapacity)
+	if len(resp.Cargo) > 0 {
+		fmt.Fprintf(&b, " (%d stack(s))", len(resp.Cargo))
+	}
+	b.WriteString("\n")
+	if resp.POIID != "" {
+		fmt.Fprintf(&b, "  POI:      %s\n", resp.POIID)
+	}
+	if resp.SystemID != "" {
+		fmt.Fprintf(&b, "  System:   %s\n", resp.SystemID)
+	}
+	if resp.TravelTo != "" {
+		fmt.Fprintf(&b, "  Travel:   → %s (%d tick(s))\n", resp.TravelTo, resp.TravelTicks)
+	}
+	if resp.ItemID != "" {
+		fmt.Fprintf(&b, "  Item:     %s\n", resp.ItemID)
+	}
+	if resp.Script != "" {
+		fmt.Fprintf(&b, "  Script:   %d char(s)\n", len(resp.Script))
+	} else {
+		b.WriteString("  Script:   (none)\n")
+	}
+	return b.String()
+}
+
+// formatLoadDrone renders a load_drone action_result.
+func formatLoadDrone(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		DroneID     string `json:"drone_id"`
+		DroneType   string `json:"drone_type"`
+		Hull        int    `json:"hull"`
+		Status      string `json:"status"`
+		BayCount    int    `json:"bay_count"`
+		BayCapacity int    `json:"bay_capacity"`
+		Message     string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.DroneID == "" && resp.Message == "" {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Loaded %s drone [%s] | Hull %d | Bay %d/%d\n",
+		resp.DroneType, resp.Status, resp.Hull, resp.BayCount, resp.BayCapacity)
+	if resp.DroneID != "" {
+		fmt.Fprintf(&b, "  Drone ID: %s\n", resp.DroneID)
+	}
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Message)
+	}
+	return b.String()
+}
+
+// formatUnloadDrone renders an unload_drone action_result.
+func formatUnloadDrone(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		DroneID string `json:"drone_id"`
+		ItemID  string `json:"item_id"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.DroneID == "" && resp.Message == "" {
+		return ""
+	}
+	var b strings.Builder
+	if resp.DroneID != "" {
+		fmt.Fprintf(&b, "Unloaded drone %s → %s\n", resp.DroneID, resp.ItemID)
+	}
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Message)
+	}
+	return b.String()
+}
+
+// formatRecallDrone renders a recall_drone action_result.
+func formatRecallDrone(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		Recalled int    `json:"recalled"`
+		Skipped  int    `json:"skipped"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Recalled %d drone(s), skipped %d\n", resp.Recalled, resp.Skipped)
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Message)
+	}
+	return b.String()
+}
+
+// formatUploadDroneScript renders an upload_drone_script action_result.
+func formatUploadDroneScript(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		DroneID   string `json:"drone_id"`
+		ScriptLen int    `json:"script_len"`
+		Message   string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.DroneID == "" && resp.Message == "" {
+		return ""
+	}
+	var b strings.Builder
+	if resp.ScriptLen == 0 {
+		fmt.Fprintf(&b, "Cleared script on drone %s\n", resp.DroneID)
+	} else {
+		fmt.Fprintf(&b, "Uploaded script to drone %s (%d char(s))\n", resp.DroneID, resp.ScriptLen)
+	}
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Message)
+	}
+	return b.String()
+}
+
+// formatDeployDrone renders a deploy_drone action_result.
+func formatDeployDrone(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		DroneID        string `json:"drone_id"`
+		DroneType      string `json:"drone_type"`
+		Hull           int    `json:"hull"`
+		MaxHull        int    `json:"max_hull"`
+		Status         string `json:"status"`
+		BandwidthUsed  int    `json:"bandwidth_used"`
+		BandwidthTotal int    `json:"bandwidth_total"`
+		Message        string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.DroneID == "" && resp.Message == "" {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Deployed %s drone [%s] | Hull %d/%d | Bandwidth %d/%d\n",
+		resp.DroneType, resp.Status, resp.Hull, resp.MaxHull,
+		resp.BandwidthUsed, resp.BandwidthTotal)
+	if resp.DroneID != "" {
+		fmt.Fprintf(&b, "  Drone ID: %s\n", resp.DroneID)
+	}
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Message)
+	}
 	return b.String()
 }
 
@@ -4176,6 +4448,69 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.SellShip(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
+	// === DRONES ===
+	// These dispatch to the real client methods (which Submit and await the
+	// terminal action_result/action_error) instead of the generic passthrough,
+	// so deferred drone mutations are actually waited on rather than returning
+	// on the synchronous "pending" ack.
+	case "get_drones":
+		return simpleCommand(client, client.GetDrones, ctx, 2*time.Second, cmd, format)
+
+	case "get_drone":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: get_drone <drone-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.GetDrone(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "load_drone":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: load_drone <item-id>  (e.g. mining_drone, combat_drone)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.LoadDrone(ctx, strings.ToLower(parts[1]))
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "unload_drone":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: unload_drone <drone-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.UnloadDrone(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "deploy_drone":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: deploy_drone <drone-id>  (see get_drones)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.DeployDrone(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "recall_drone":
+		// No arg or "all" recalls every drone at the current location;
+		// otherwise recall the single drone by ID.
+		droneID, all := "", false
+		if len(parts) < 2 || strings.EqualFold(parts[1], "all") {
+			all = true
+		} else {
+			droneID = parts[1]
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RecallDrone(ctx, droneID, all)
+		}, ctx, 2*time.Second, cmd, format)
+
+	case "upload_drone_script":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: upload_drone_script <drone-id> <script...>  (omit script to clear)")
+		}
+		droneID := parts[1]
+		script := strings.Join(parts[2:], " ")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.UploadDroneScript(ctx, droneID, script)
+		}, ctx, 2*time.Second, cmd, format)
+
 	// === INSURANCE ===
 	case "buy_insurance":
 		ticks := 100
@@ -5367,6 +5702,7 @@ var rawJSONKeyForCommand = map[string]string{
 	"get_missions":         "missions",
 	"get_active_missions":  "active_missions",
 	"get_wrecks":           "wrecks",
+	"get_drones":           "drones",
 	"get_recipes":          "recipes",
 	"get_base":             "base",
 	"get_chat_history":     "chat_history",

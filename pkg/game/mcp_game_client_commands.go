@@ -1714,6 +1714,15 @@ func (m *MCPGameClient) UploadDroneScript(ctx context.Context, droneID, script s
 	return m.updateStateFromResult(result)
 }
 
+// DeployDrone launches a drone from the bay into the current location.
+func (m *MCPGameClient) DeployDrone(ctx context.Context, droneID string) error {
+	result, err := m.callTool(ctx, "deploy_drone", map[string]any{"drone_id": droneID})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 // FactionAcceptInvite accepts a pending invitation to join a faction.
 func (m *MCPGameClient) FactionAcceptInvite(ctx context.Context, factionID string) error {
 	result, err := m.callTool(ctx, "faction_accept_invite", map[string]any{"faction_id": factionID})

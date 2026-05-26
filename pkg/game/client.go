@@ -4066,6 +4066,17 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 			shouldStore = true
 		}
+		// Store single drone details (get_drone). The query reply has no
+		// "drones" array; identify it by the drone-specific "loaded_at" field
+		// paired with "id" so it doesn't collide with other id-bearing payloads.
+		if storeKey == "" {
+			_, hasID := resp.Payload["id"]
+			_, hasLoadedAt := resp.Payload["loaded_at"]
+			if hasID && hasLoadedAt {
+				storeKey = "get_drone"
+				shouldStore = true
+			}
+		}
 		// Store base info
 		if _, hasBase := resp.Payload["base"]; hasBase {
 			if storeKey == "" {
