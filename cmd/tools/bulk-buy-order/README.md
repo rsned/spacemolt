@@ -26,6 +26,9 @@ bulk-buy-order --agent=trader-1 --skip-open
 
 # Top-up preview: connect, query view_orders, print what would be sent.
 bulk-buy-order --agent=trader-1 --skip-open --dry-run
+
+# Skip contraband (needs smuggling skill / pirate station to actually list).
+bulk-buy-order --agent=trader-1 --exclude-categories=contraband
 ```
 
 ## Flags
@@ -36,12 +39,14 @@ bulk-buy-order --agent=trader-1 --skip-open --dry-run
 | `--db` | auto-detect | Path to crafting SQLite DB (env: `CRAFTING_DB`) |
 | `--price` | `1` | Price per unit in credits |
 | `--quantity` | `1` | Quantity per item |
-| `--categories` | *(all)* | Comma-separated item categories to filter |
+| `--categories` | *(all)* | Comma-separated item categories to **include** (whitelist) |
+| `--exclude-categories` | *(none)* | Comma-separated item categories to **exclude** (blacklist; applied after `--categories`). Useful for dropping `contraband` (sellable only at pirate strongholds with smuggling skill) on a normal run. |
 | `--batch-size` | `50` | Orders per API call (max 50) |
 | `--offset` | `0` | Skip the first N items |
 | `--limit` | `0` | Only send orders for N items (0 = all) |
 | `--dry-run` | `false` | Print batches without sending |
 | `--skip-open` | `false` | Query `view_orders` first and drop items that already have an open buy order from this agent at the current station. Top-up mode; forces a connect even with `--dry-run`. |
+| `--include-untradeable` | `false` | Include items with `tradeable=0` (quest items, artifacts). Default filters them out at the SQL layer since `create_buy_order` rejects each one with `quest_item`/`not_tradeable`. Ignored with `--items-file`. |
 | `--debug` | `false` | Enable debug logging |
 
 ## Notes

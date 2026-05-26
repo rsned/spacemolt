@@ -41,9 +41,11 @@ func main() {
 	batchSize := flag.Int("batch-size", 50, "Orders per API call (max 50)")
 	offset := flag.Int("offset", 0, "Skip the first N items (start from item N)")
 	limit := flag.Int("limit", 0, "Only send orders for N items (0 = all)")
-	categories := flag.String("categories", "", "Comma-separated item categories to filter (e.g. defense,weapon,drone)")
+	categories := flag.String("categories", "", "Comma-separated item categories to include (whitelist; e.g. defense,weapon,drone). Empty = all categories.")
+	excludeCategories := flag.String("exclude-categories", "", "Comma-separated item categories to exclude (blacklist; e.g. contraband). Applied after --categories. Use to drop categories like 'contraband' that need smuggling skill / special stations.")
 	dryRun := flag.Bool("dry-run", false, "Print batches without sending")
 	skipOpen := flag.Bool("skip-open", false, "Before submitting, query view_orders and drop items that already have an open buy order from this agent at the current station (top-up mode; re-orders only items that have been filled). Forces a connect even with --dry-run.")
+	includeUntradeable := flag.Bool("include-untradeable", false, "Include items with tradeable=0 in the DB (quest items, artifacts). Default skips them since create_buy_order would reject each one with quest_item/not_tradeable. Ignored when --items-file is set.")
 	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	debugFullPayload := flag.Bool("debug-full-payload", false, "When --debug is on, log full response payloads instead of truncating at 200 chars")
@@ -69,16 +71,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Parse category filter (only consulted for the DB path).
-	var catFilter []string
-	if *categories != "" {
-		for _, c := range strings.Split(*categories, ",") {
+	// Parse category include/exclude filters (only consulted for the DB
+	// path). Items-file mode owns its own list and ignores both.
+	parseCSV := func(s string) []string {
+		var out []string
+		for _, c := range strings.Split(s, ",") {
 			c = strings.TrimSpace(c)
 			if c != "" {
-				catFilter = append(catFilter, c)
+				out = append(out, c)
 			}
 		}
+		return out
 	}
+	catFilter := parseCSV(*categories)
+	catExclude := parseCSV(*excludeCategories)
 
 	// Load item IDs — from explicit file, or from the crafting DB.
 	var (
@@ -86,8 +92,8 @@ func main() {
 		err     error
 	)
 	if *itemsFile != "" {
-		if *categories != "" {
-			fmt.Fprintln(os.Stderr, "Note: --categories is ignored when --items-file is set.")
+		if *categories != "" || *excludeCategories != "" {
+			fmt.Fprintln(os.Stderr, "Note: --categories/--exclude-categories are ignored when --items-file is set.")
 		}
 		itemIDs, err = loadItemIDsFromFile(*itemsFile)
 		if err != nil {
@@ -101,16 +107,26 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: could not find crafting DB. Use --db, set CRAFTING_DB, or pass --items-file.\n")
 			os.Exit(1)
 		}
-		itemIDs, err = loadItemIDs(resolvedDB, catFilter)
+		itemIDs, err = loadItemIDs(resolvedDB, catFilter, catExclude, *includeUntradeable)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading items: %v\n", err)
 			os.Exit(1)
 		}
-		if len(catFilter) > 0 {
-			fmt.Fprintf(os.Stderr, "Loaded %d items from %s (categories: %s)\n", len(itemIDs), resolvedDB, strings.Join(catFilter, ", "))
-		} else {
-			fmt.Fprintf(os.Stderr, "Loaded %d items from %s\n", len(itemIDs), resolvedDB)
+		notes := []string{}
+		if !*includeUntradeable {
+			notes = append(notes, "tradeable only")
 		}
+		if len(catFilter) > 0 {
+			notes = append(notes, "include: "+strings.Join(catFilter, ","))
+		}
+		if len(catExclude) > 0 {
+			notes = append(notes, "exclude: "+strings.Join(catExclude, ","))
+		}
+		note := ""
+		if len(notes) > 0 {
+			note = " (" + strings.Join(notes, "; ") + ")"
+		}
+		fmt.Fprintf(os.Stderr, "Loaded %d items from %s%s\n", len(itemIDs), resolvedDB, note)
 	}
 
 	// --skip-open needs a connected client up front so we can call view_orders
@@ -390,22 +406,45 @@ func resolveDBPath(explicit string) string {
 	return ""
 }
 
-func loadItemIDs(dbPath string, categories []string) ([]string, error) {
+func loadItemIDs(dbPath string, categories, excludeCategories []string, includeUntradeable bool) ([]string, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 	defer func() { _ = db.Close() }()
 
+	// Build WHERE clauses. Quest items, artifacts, and other items with
+	// tradeable=0 are rejected by create_buy_order with quest_item /
+	// not_tradeable errors — wastes a batch slot per item plus log noise.
+	// Filter them out at the SQL layer by default; --include-untradeable
+	// restores the old behavior for callers who specifically want to probe
+	// server-side rules. Categories that are tradeable but conditionally
+	// (e.g. 'contraband' — needs smuggling skill + pirate station) stay
+	// in by default; --exclude-categories lets callers drop them.
 	query := "SELECT id FROM items"
+	var wheres []string
 	var args []any
+	if !includeUntradeable {
+		wheres = append(wheres, "tradeable = 1")
+	}
 	if len(categories) > 0 {
 		placeholders := make([]string, len(categories))
 		for i, c := range categories {
 			placeholders[i] = "?"
 			args = append(args, c)
 		}
-		query += " WHERE category IN (" + strings.Join(placeholders, ",") + ")"
+		wheres = append(wheres, "category IN ("+strings.Join(placeholders, ",")+")")
+	}
+	if len(excludeCategories) > 0 {
+		placeholders := make([]string, len(excludeCategories))
+		for i, c := range excludeCategories {
+			placeholders[i] = "?"
+			args = append(args, c)
+		}
+		wheres = append(wheres, "category NOT IN ("+strings.Join(placeholders, ",")+")")
+	}
+	if len(wheres) > 0 {
+		query += " WHERE " + strings.Join(wheres, " AND ")
 	}
 	query += " ORDER BY id"
 
