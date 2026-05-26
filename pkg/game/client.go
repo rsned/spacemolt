@@ -44,6 +44,15 @@ type Client struct {
 	// log readable for short responses.
 	debugPayloadMaxLen int
 
+	// quietEventTypes are server response types whose receive-side debug
+	// logging is suppressed even when --debug is on. The listen loop already
+	// hardcodes a skip for poi_arrival/poi_departure; this set lets callers
+	// (e.g. play_as via --quiet-events) silence other high-frequency pushes
+	// such as mining_yield emitted by mining drones every tick. Read under
+	// quietEventMu; populated by SetQuietEventTypes.
+	quietEventTypes map[string]struct{}
+	quietEventMu    sync.RWMutex
+
 	// Ready synchronization - closed when first message is received
 	readyChan chan struct{}
 	readyOnce sync.Once
@@ -408,6 +417,41 @@ func (c *Client) SetDebugPayloadMaxLen(n int) {
 		n = 0
 	}
 	c.debugPayloadMaxLen = n
+}
+
+// SetQuietEventTypes replaces the set of server response types whose
+// receive-side debug logging is suppressed. Pass nil or an empty slice to
+// clear. Type names are matched verbatim against protocol.Response.Type
+// (e.g. "mining_yield"). State updates and downstream handlers still run
+// normally; only the "=== Game Client Receive Debug ===" block and the
+// matching "Stored raw JSON for ..." line are silenced.
+func (c *Client) SetQuietEventTypes(types []string) {
+	c.quietEventMu.Lock()
+	defer c.quietEventMu.Unlock()
+	if len(types) == 0 {
+		c.quietEventTypes = nil
+		return
+	}
+	set := make(map[string]struct{}, len(types))
+	for _, t := range types {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			set[t] = struct{}{}
+		}
+	}
+	c.quietEventTypes = set
+}
+
+// isQuietEventType reports whether resp.Type debug logging should be skipped.
+// Safe to call before SetQuietEventTypes; an unconfigured set returns false.
+func (c *Client) isQuietEventType(t string) bool {
+	c.quietEventMu.RLock()
+	defer c.quietEventMu.RUnlock()
+	if c.quietEventTypes == nil {
+		return false
+	}
+	_, ok := c.quietEventTypes[t]
+	return ok
 }
 
 // Connect establishes a WebSocket connection to the game server
@@ -1945,8 +1989,11 @@ func (c *Client) listen(ctx context.Context) {
 			})
 
 			// DEBUG: Log received response with full details
-			// Skip logging for noisy poi_arrival and poi_departure messages
-			if resp.Type != "poi_arrival" && resp.Type != "poi_departure" {
+			// Skip logging for noisy poi_arrival and poi_departure messages,
+			// plus any types installed via SetQuietEventTypes (e.g. mining_yield
+			// when the operator launched mining drones that emit a yield push
+			// every tick).
+			if resp.Type != "poi_arrival" && resp.Type != "poi_departure" && !c.isQuietEventType(resp.Type) {
 				c.debugLogger.Printf("=== Game Client Receive Debug ===")
 				c.debugLogger.Printf("Response Type: '%s'", resp.Type)
 				if resp.RequestID != "" {
@@ -4409,12 +4456,20 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		}
 
 		c.latestRawJSON[storeKey] = jsonData
-		c.debugLogger.Printf("Stored raw JSON for %s (%d bytes)", storeKey, len(jsonData))
+		// Suppress the "Stored raw JSON" line for quieted types so silenced
+		// pushes (e.g. mining_yield from drones) don't leak through this side
+		// channel. Storage itself still happens — only the log line is hidden.
+		quiet := c.isQuietEventType(resp.Type)
+		if !quiet {
+			c.debugLogger.Printf("Stored raw JSON for %s (%d bytes)", storeKey, len(jsonData))
+		}
 
 		// Also store under extra keys for cross-referenced data
 		for _, key := range extraKeys {
 			c.latestRawJSON[key] = jsonData
-			c.debugLogger.Printf("Stored raw JSON for %s (extra key, %d bytes)", key, len(jsonData))
+			if !quiet {
+				c.debugLogger.Printf("Stored raw JSON for %s (extra key, %d bytes)", key, len(jsonData))
+			}
 		}
 	}
 }

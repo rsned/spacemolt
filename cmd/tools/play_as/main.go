@@ -66,6 +66,7 @@ const (
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging (show sent/received JSON)")
 	debugFullPayload := flag.Bool("debug-full-payload", false, "When --debug is on, log full response payloads instead of truncating at 200 chars")
+	quietEvents := flag.String("quiet-events", "", "Comma-separated server event types to suppress from --debug receive logs (e.g. mining_yield to silence drone mining pushes). poi_arrival/poi_departure are always silenced.")
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
@@ -97,6 +98,12 @@ func main() {
 		wsClient, creds, err = game.InitializeAgent(agentID, logger, ctx, *debug)
 		if wsClient != nil && *debugFullPayload {
 			wsClient.SetDebugPayloadMaxLen(0)
+		}
+		if wsClient != nil && strings.TrimSpace(*quietEvents) != "" {
+			// Split and pass the raw list; SetQuietEventTypes trims and
+			// drops empties. Wired only for the WS client because that's
+			// where the noisy "=== Game Client Receive Debug ===" log lives.
+			wsClient.SetQuietEventTypes(strings.Split(*quietEvents, ","))
 		}
 		client = wsClient
 	case "mcp":
@@ -236,6 +243,7 @@ func printUsage() {
 	fmt.Println("\nFlags:")
 	fmt.Println("  --debug                Enable debug logging (show sent/received JSON)")
 	fmt.Println("  --debug-full-payload   Log full response payloads (default truncates at 200 chars)")
+	fmt.Println("  --quiet-events <list>  Comma-separated event types to suppress from --debug receive logs (e.g. mining_yield)")
 	fmt.Println("  --config <path>        Path to config file (default: ~/.config/spacemolt/play_as.yaml)")
 	fmt.Println("  --registry-url <url>   Status registry URL (e.g., http://localhost:8081)")
 	fmt.Println("  --xp-tracking=false    Disable XP observation tracking (default: true)")
