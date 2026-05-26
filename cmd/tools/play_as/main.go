@@ -611,6 +611,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatGetSystemAgents(raw)
 	case "get_drones", "drones":
 		return formatGetDrones(raw)
+	case "get_location", "location":
+		return formatGetLocation(raw)
 	case "get_drone":
 		return formatGetDrone(raw)
 	case "load_drone":
@@ -794,6 +796,126 @@ func formatGetDrone(raw []byte) string {
 		fmt.Fprintf(&b, "  Script:   %d char(s)\n", len(resp.Script))
 	} else {
 		b.WriteString("  Script:   (none)\n")
+	}
+	return b.String()
+}
+
+// formatGetLocation renders a get_location response: a compact header (POI,
+// system, security, connections), nearby counts, and tables for the nearby
+// players / empire NPCs (reusing writePlayerTable for the player table since
+// the nearby_players objects match nearbyPlayer's shape). Field names follow
+// the live payload (poi_id, system_id, nearby_empire_npc_count, …).
+func formatGetLocation(raw []byte) string {
+	type empireNPC struct {
+		Name      string `json:"name"`
+		ShipName  string `json:"ship_name,omitempty"`
+		ShipClass string `json:"ship_class"`
+		Empire    string `json:"empire"`
+		FleetName string `json:"fleet_name,omitempty"`
+		Role      string `json:"role,omitempty"`
+		InCombat  bool   `json:"in_combat"`
+		NPCID     string `json:"npc_id"`
+	}
+	type loc struct {
+		POIID            string            `json:"poi_id"`
+		POIName          string            `json:"poi_name"`
+		POIType          string            `json:"poi_type"`
+		DockedAt         string            `json:"docked_at"`
+		SystemID         string            `json:"system_id"`
+		SystemName       string            `json:"system_name"`
+		Empire           string            `json:"empire"`
+		Security         string            `json:"security_status"`
+		Connections      []string          `json:"connections"`
+		Resources        []json.RawMessage `json:"resources"`
+		PlayerCount      int               `json:"nearby_player_count"`
+		NPCCount         int               `json:"nearby_empire_npc_count"`
+		PirateCount      int               `json:"nearby_pirate_count"`
+		OfflineCollapsed int               `json:"offline_collapsed"`
+		Players          []nearbyPlayer    `json:"nearby_players"`
+		NPCs             []empireNPC       `json:"nearby_empire_npcs"`
+		Pirates          []json.RawMessage `json:"nearby_pirates"`
+	}
+	var resp struct {
+		Location loc    `json:"location"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	l := resp.Location
+	if l.POIID == "" && l.SystemID == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	if l.POIName != "" {
+		fmt.Fprintf(&b, "Location: %s", l.POIName)
+		if l.POIType != "" {
+			fmt.Fprintf(&b, " (%s)", l.POIType)
+		}
+	} else {
+		fmt.Fprintf(&b, "Location: %s", l.POIID)
+	}
+	if l.DockedAt != "" {
+		fmt.Fprintf(&b, "  [docked: %s]", l.DockedAt)
+	}
+	b.WriteString("\n")
+	if l.SystemName != "" || l.SystemID != "" {
+		fmt.Fprintf(&b, "System:   %s (%s)", l.SystemName, l.SystemID)
+		if l.Empire != "" {
+			fmt.Fprintf(&b, " — empire: %s", l.Empire)
+		}
+		b.WriteString("\n")
+	}
+	if l.Security != "" {
+		fmt.Fprintf(&b, "Security: %s\n", l.Security)
+	}
+	if len(l.Connections) > 0 {
+		fmt.Fprintf(&b, "Connect:  %s\n", strings.Join(l.Connections, ", "))
+	}
+	if len(l.Resources) > 0 {
+		fmt.Fprintf(&b, "Resources: %d listed\n", len(l.Resources))
+	}
+
+	fmt.Fprintf(&b, "\nNearby: %d player(s), %d empire NPC(s), %d pirate(s)",
+		l.PlayerCount, l.NPCCount, l.PirateCount)
+	if l.OfflineCollapsed > 0 {
+		fmt.Fprintf(&b, " (%d offline)", l.OfflineCollapsed)
+	}
+	b.WriteString("\n")
+
+	if len(l.Players) > 0 {
+		b.WriteString("\nPlayers:\n")
+		writePlayerTable(&b, l.Players)
+	}
+
+	if len(l.NPCs) > 0 {
+		slices.SortFunc(l.NPCs, func(a, c empireNPC) int {
+			if d := strings.Compare(a.FleetName, c.FleetName); d != 0 {
+				return d
+			}
+			return strings.Compare(a.Name, c.Name)
+		})
+		nameW, classW, fleetW, roleW := len("Name"), len("Class"), len("Fleet"), len("Role")
+		for _, n := range l.NPCs {
+			nameW = max(nameW, len(n.Name))
+			classW = max(classW, len(n.ShipClass))
+			fleetW = max(fleetW, len(n.FleetName))
+			roleW = max(roleW, len(n.Role))
+		}
+		fmt.Fprintf(&b, "\nEmpire NPCs:\n  %-*s | %-*s | %-*s | %-*s\n",
+			nameW, "Name", classW, "Class", fleetW, "Fleet", roleW, "Role")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", nameW), strings.Repeat("-", classW),
+			strings.Repeat("-", fleetW), strings.Repeat("-", roleW))
+		for _, n := range l.NPCs {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %-*s\n",
+				nameW, n.Name, classW, n.ShipClass, fleetW, n.FleetName, roleW, n.Role)
+		}
+	}
+
+	if len(l.Pirates) > 0 {
+		fmt.Fprintf(&b, "\nPirates: %d\n", len(l.Pirates))
 	}
 	return b.String()
 }
@@ -5788,6 +5910,7 @@ var rawJSONKeyForCommand = map[string]string{
 	"get_active_missions":  "active_missions",
 	"get_wrecks":           "wrecks",
 	"get_drones":           "drones",
+	"get_location":         "location",
 	"get_recipes":          "recipes",
 	"get_base":             "base",
 	"get_chat_history":     "chat_history",

@@ -4091,6 +4091,15 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Store get_location response. Payload wraps everything under a single
+		// "location" object alongside a "message" string. Keyed under "location"
+		// so the REPL's rawJSONKeyForCommand["get_location"] mapping finds it.
+		if _, hasLocation := resp.Payload["location"]; hasLocation {
+			if storeKey == "" {
+				storeKey = "location"
+			}
+			shouldStore = true
+		}
 		// Store base info
 		if _, hasBase := resp.Payload["base"]; hasBase {
 			if storeKey == "" {
