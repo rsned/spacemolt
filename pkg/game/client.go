@@ -2089,6 +2089,20 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.parseErrorAction(resp.Payload)
 
 	case protocol.TypeOK:
+		// Side-channel auto-dock/auto-undock notifications. The server emits
+		// these as plain OK frames (carrying the issuing command's request_id
+		// so they're traceable) when an action requires the ship to be in a
+		// different dock state — e.g. `craft` auto-docks at the nearest station.
+		// They are NOT the command's terminal response; the action_result
+		// still arrives separately. Update state.Doc here so callers see the
+		// correct dock status, regardless of whether anyone is listening on
+		// the request handle's ack channel.
+		if t, _ := resp.Payload["type"].(string); t == "auto_dock" || t == "auto_undock" {
+			c.mu.Lock()
+			c.state.Doc = (t == "auto_dock")
+			c.mu.Unlock()
+			c.debugLogger.Printf("State: %s (request_id=%s)", t, resp.RequestID)
+		}
 		// Update tick from response if present (get_system, get_poi, etc. include current tick)
 		if tick, ok := resp.Payload["tick"].(float64); ok {
 			c.mu.Lock()
@@ -4587,6 +4601,12 @@ func isAutoDockTransition(payload map[string]any) bool {
 		return true
 	}
 	if v, _ := payload["auto_docked"].(bool); v {
+		return true
+	}
+	// Newer servers emit auto-dock notifications as their own OK frame, keyed
+	// by a "type" discriminator in the payload (no boolean flag).
+	switch t, _ := payload["type"].(string); t {
+	case "auto_dock", "auto_undock":
 		return true
 	}
 	// Older servers may omit the flag but still report the transition via the

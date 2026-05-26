@@ -242,7 +242,15 @@ func (r *responseRouter) dispatchByID(resp protocol.Response) {
 	if terminate != nil {
 		done, _ := r.safeRunTerminatorFn(terminate, resp)
 		if !done {
-			if ackCh != nil {
+			// Auto-dock/auto-undock OK frames carry the issuing command's
+			// request_id for traceability but are side-channel state
+			// notifications, not the command's response. handleResponse has
+			// already applied the dock state mutation by the time we get here.
+			// Skip ack delivery silently — competing with the real pending ack
+			// for the single ackCh slot would otherwise trigger a noisy
+			// "dropped ack" log on every craft/buy/etc. that auto-docks.
+			autoDock := isAutoDockTransition(resp.Payload)
+			if ackCh != nil && !autoDock {
 				select {
 				case ackCh <- resp:
 				default:
@@ -253,6 +261,7 @@ func (r *responseRouter) dispatchByID(resp protocol.Response) {
 			// (pending) frame means the mutation is queued behind an in-flight
 			// one and its terminal will land many ticks later. Non-blocking;
 			// the channel is buffered (cap 1) and a coalesced signal suffices.
+			// Auto-dock costs one extra tick too, so extend on those as well.
 			if pendingCh != nil {
 				select {
 				case pendingCh <- struct{}{}:
