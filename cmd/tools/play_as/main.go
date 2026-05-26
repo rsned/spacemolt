@@ -4503,10 +4503,42 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "upload_drone_script":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: upload_drone_script <drone-id> <script...>  (omit script to clear)")
+			return fmt.Errorf("usage: upload_drone_script <drone-id> [<script...> | --file <path>]  (omit script to clear)")
 		}
 		droneID := parts[1]
-		script := strings.Join(parts[2:], " ")
+		// --file <path> / --file=<path> loads the DroneLang source from a file,
+		// avoiding shell-quoting headaches with multi-line scripts that contain
+		// quotes. When present it takes precedence over any inline tokens.
+		filePath := ""
+		var inline []string
+		for i := 2; i < len(parts); i++ {
+			if p, ok := strings.CutPrefix(parts[i], "--file="); ok {
+				filePath = p
+				continue
+			}
+			if parts[i] == "--file" {
+				if i+1 >= len(parts) {
+					return fmt.Errorf("upload_drone_script: --file requires a path")
+				}
+				i++
+				filePath = parts[i]
+				continue
+			}
+			inline = append(inline, parts[i])
+		}
+		var script string
+		if filePath != "" {
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				return fmt.Errorf("upload_drone_script: read %s: %w", filePath, err)
+			}
+			script = string(data)
+		} else {
+			script = strings.Join(inline, " ")
+		}
+		if len(script) > 2000 {
+			return fmt.Errorf("upload_drone_script: script is %d chars (max 2000)", len(script))
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.UploadDroneScript(ctx, droneID, script)
 		}, ctx, 2*time.Second, cmd, format)
