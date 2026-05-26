@@ -23,6 +23,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/credentials"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/respfmt"
 
 	_ "modernc.org/sqlite"
@@ -41,6 +42,7 @@ func main() {
 	limit := flag.Int("limit", 0, "Only send orders for N items (0 = all)")
 	categories := flag.String("categories", "", "Comma-separated item categories to filter (e.g. defense,weapon,drone)")
 	dryRun := flag.Bool("dry-run", false, "Print batches without sending")
+	skipOpen := flag.Bool("skip-open", false, "Before submitting, query view_orders and drop items that already have an open buy order from this agent at the current station (top-up mode; re-orders only items that have been filled). Forces a connect even with --dry-run.")
 	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	debugFullPayload := flag.Bool("debug-full-payload", false, "When --debug is on, log full response payloads instead of truncating at 200 chars")
@@ -110,7 +112,48 @@ func main() {
 		}
 	}
 
-	// Apply offset and limit.
+	// --skip-open needs a connected client up front so we can call view_orders
+	// before deciding what to submit. Otherwise we defer the connect until
+	// after the dry-run bail so offline previews keep working.
+	ctx := context.Background()
+	logger := log.New(os.Stderr, fmt.Sprintf("[%s] ", *agentID), log.LstdFlags)
+
+	var (
+		client   game.GameClient
+		wsClient *game.Client // non-nil only for ws transport; used for reconnect
+	)
+	connect := func() {
+		if client != nil {
+			return
+		}
+		c, ws, err := connectClient(ctx, *transport, *agentID, logger, *debug, *debugFullPayload)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		client, wsClient = c, ws
+	}
+	defer func() {
+		if client != nil {
+			_ = client.Close()
+		}
+	}()
+
+	if *skipOpen {
+		connect()
+		openSet, err := fetchOpenBuyOrderItemIDs(ctx, client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error querying open orders: %v\n", err)
+			os.Exit(1)
+		}
+		before := len(itemIDs)
+		itemIDs = filterOutItems(itemIDs, openSet)
+		fmt.Fprintf(os.Stderr, "Skip-open: %d open buy order(s) at this station, dropped %d / %d candidates.\n",
+			len(openSet), before-len(itemIDs), before)
+	}
+
+	// Apply offset and limit (after skip-open so --limit means "new orders to
+	// place", not "candidates to consider").
 	if *offset > 0 {
 		if *offset >= len(itemIDs) {
 			fmt.Fprintf(os.Stderr, "Offset %d exceeds item count %d, nothing to do.\n", *offset, len(itemIDs))
@@ -125,7 +168,7 @@ func main() {
 	}
 
 	if len(itemIDs) == 0 {
-		fmt.Fprintln(os.Stderr, "No items found, nothing to do.")
+		fmt.Fprintln(os.Stderr, "No items to order, nothing to do.")
 		return
 	}
 
@@ -142,9 +185,9 @@ func main() {
 				orders := make([]map[string]any, len(batch))
 				for j, itemID := range batch {
 					orders[j] = map[string]any{
-						"item_id":  itemID,
+						"item_id":    itemID,
 						"price_each": *price,
-						"quantity": *quantity,
+						"quantity":   *quantity,
 					}
 				}
 				payload := map[string]any{"orders": orders}
@@ -156,57 +199,8 @@ func main() {
 		return
 	}
 
-	// Load credentials and connect.
-	ctx := context.Background()
-	logger := log.New(os.Stderr, fmt.Sprintf("[%s] ", *agentID), log.LstdFlags)
-
-	var (
-		client   game.GameClient
-		wsClient *game.Client // non-nil only for ws transport; used for reconnect
-	)
-	switch *transport {
-	case "mcp":
-		logger.Printf("Using MCP transport")
-		mcpClient, _, mcpErr := game.InitializeMCPAgent(*agentID, logger, ctx, *debug, false)
-		if mcpErr != nil {
-			fmt.Fprintf(os.Stderr, "Error initializing MCP agent: %v\n", mcpErr)
-			os.Exit(1)
-		}
-		client = mcpClient
-	case "ws":
-		logger.Printf("Using WebSocket transport")
-		provider := credentials.NewFileProvider("data/agents")
-		creds, err := provider.GetCredentials(ctx, *agentID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading credentials for %q: %v\n", *agentID, err)
-			os.Exit(1)
-		}
-
-		wsClient = game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
-		wsClient.SetDebugLogging(*debug)
-		if *debugFullPayload {
-			wsClient.SetDebugPayloadMaxLen(0)
-		}
-
-		if err := wsClient.Connect(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error connecting: %v\n", err)
-			os.Exit(1)
-		}
-
-		<-wsClient.Ready()
-		time.Sleep(game.SleepRetry)
-
-		if err := wsClient.Login(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Error logging in: %v\n", err)
-			os.Exit(1)
-		}
-		time.Sleep(game.SleepQuick)
-		client = wsClient
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown transport: %s (must be: ws, mcp)\n", *transport)
-		os.Exit(1)
-	}
-	defer func() { _ = client.Close() }()
+	// Connect now if --skip-open didn't already do it.
+	connect()
 
 	// ensureConnected reconnects + re-logs in if the WS connection has dropped.
 	// No-op for non-ws transports.
@@ -495,4 +489,117 @@ func chunk(items []string, size int) [][]string {
 		batches = append(batches, items[i:end])
 	}
 	return batches
+}
+
+// connectClient builds an authenticated GameClient for either transport.
+// Returns the interface plus the concrete *game.Client when ws (used for
+// reconnect/IsConnected checks); nil for mcp. Errors are wrapped with the
+// stage they occurred at so the caller can print them directly.
+func connectClient(ctx context.Context, transport, agentID string, logger *log.Logger, debug, debugFullPayload bool) (game.GameClient, *game.Client, error) {
+	switch transport {
+	case "mcp":
+		logger.Printf("Using MCP transport")
+		mcpClient, _, mcpErr := game.InitializeMCPAgent(agentID, logger, ctx, debug, false)
+		if mcpErr != nil {
+			return nil, nil, fmt.Errorf("initialize MCP agent: %w", mcpErr)
+		}
+		return mcpClient, nil, nil
+	case "ws":
+		logger.Printf("Using WebSocket transport")
+		provider := credentials.NewFileProvider("data/agents")
+		creds, err := provider.GetCredentials(ctx, agentID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load credentials for %q: %w", agentID, err)
+		}
+
+		wsClient := game.NewClient(gameServerURL, creds.Username, creds.Password, logger)
+		wsClient.SetDebugLogging(debug)
+		if debugFullPayload {
+			wsClient.SetDebugPayloadMaxLen(0)
+		}
+
+		if err := wsClient.Connect(ctx); err != nil {
+			return nil, nil, fmt.Errorf("connect: %w", err)
+		}
+
+		<-wsClient.Ready()
+		time.Sleep(game.SleepRetry)
+
+		if err := wsClient.Login(ctx); err != nil {
+			return nil, nil, fmt.Errorf("login: %w", err)
+		}
+		time.Sleep(game.SleepQuick)
+		return wsClient, wsClient, nil
+	default:
+		return nil, nil, fmt.Errorf("unknown transport: %s (must be: ws, mcp)", transport)
+	}
+}
+
+// fetchOpenBuyOrderItemIDs returns the set of item_ids for which this agent
+// currently has at least one open buy order at the docked station. Pages
+// through view_orders with order_type=buy until has_more is false. Only
+// orders with remaining > 0 are counted — fully filled orders shouldn't
+// appear here, but the guard keeps the set tight if the server's pagination
+// ever lags. Used by --skip-open to suppress double-ordering items that
+// already have an open buy.
+func fetchOpenBuyOrderItemIDs(ctx context.Context, client game.GameClient) (map[string]struct{}, error) {
+	const pageSize = 50
+	open := make(map[string]struct{})
+	for page := 1; ; page++ {
+		payload := map[string]any{
+			"order_type": "buy",
+			"page":       page,
+			"page_size":  pageSize,
+			"scope":      "personal",
+		}
+		if err := client.RawCommand(ctx, "view_orders", payload); err != nil {
+			return nil, fmt.Errorf("view_orders page %d: %w", page, err)
+		}
+		raw := client.GetRawJSON("orders")
+		if len(raw) == 0 {
+			return nil, fmt.Errorf("view_orders page %d: empty response", page)
+		}
+		var resp serverapi.ViewOrdersResponse
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return nil, fmt.Errorf("decode view_orders page %d: %w", page, err)
+		}
+		for _, o := range resp.Orders {
+			// Accept either Side or OrderType — older servers populate one,
+			// newer ones may populate both. We already filtered server-side
+			// via order_type=buy, but be defensive against a future scope
+			// where faction sells leak in.
+			isBuy := o.Side == "buy" || o.OrderType == "buy" || (o.Side == "" && o.OrderType == "")
+			if !isBuy {
+				continue
+			}
+			if o.Remaining > 0 || (o.Remaining == 0 && o.FilledQuantity == 0 && o.Quantity > 0) {
+				// Remaining is omitempty so a never-touched order may
+				// report 0 there; the FilledQuantity==0 && Quantity>0
+				// branch catches that.
+				open[o.ItemID] = struct{}{}
+			}
+		}
+		if !resp.HasMore {
+			break
+		}
+		// Brief pause so a long-paged query doesn't hammer the server.
+		time.Sleep(game.SleepQuick)
+	}
+	return open, nil
+}
+
+// filterOutItems returns ids with any entry present in drop removed,
+// preserving order. Allocates a new slice; the input is not mutated.
+func filterOutItems(ids []string, drop map[string]struct{}) []string {
+	if len(drop) == 0 {
+		return ids
+	}
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if _, skip := drop[id]; skip {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
 }
