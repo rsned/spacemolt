@@ -4230,14 +4230,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "view_orders":
 		if len(parts) > 1 {
+			// parseFlagArgs already converts numeric values to int, so page /
+			// page_size land here as int and the old strconv.Atoi(v.(string))
+			// re-conversion panicked on its very first numeric flag. Drop it.
 			payload := parseFlagArgs(parts[1:], "item_id", "order_type", "page", "page_size", "scope", "search", "sort_by", "station_id")
-			for _, k := range []string{"page", "page_size"} {
-				if v, ok := payload[k]; ok {
-					if n, err := strconv.Atoi(v.(string)); err == nil {
-						payload[k] = n
-					}
-				}
-			}
 			if v, ok := payload["item_id"].(string); ok {
 				payload["item_id"] = strings.ToLower(v)
 			}
