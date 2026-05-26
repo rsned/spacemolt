@@ -4457,74 +4457,104 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.GetDrones, ctx, 2*time.Second, cmd, format)
 
 	case "get_drone":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: get_drone <drone-id>")
+		droneID := resolveArg(parts[1:], "drone_id")
+		if droneID == "" {
+			return fmt.Errorf("usage: get_drone <drone-id>  (or --drone_id <id>)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.GetDrone(ctx, parts[1])
+			return client.GetDrone(ctx, droneID)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "load_drone":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: load_drone <item-id>  (e.g. mining_drone, combat_drone)")
+		itemID := resolveArg(parts[1:], "item_id")
+		if itemID == "" {
+			return fmt.Errorf("usage: load_drone <item-id>  (or --item_id <id>; e.g. mining_drone, combat_drone)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.LoadDrone(ctx, strings.ToLower(parts[1]))
+			return client.LoadDrone(ctx, strings.ToLower(itemID))
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "unload_drone":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: unload_drone <drone-id>")
+		droneID := resolveArg(parts[1:], "drone_id")
+		if droneID == "" {
+			return fmt.Errorf("usage: unload_drone <drone-id>  (or --drone_id <id>)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.UnloadDrone(ctx, parts[1])
+			return client.UnloadDrone(ctx, droneID)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "deploy_drone":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: deploy_drone <drone-id>  (see get_drones)")
+		droneID := resolveArg(parts[1:], "drone_id")
+		if droneID == "" {
+			return fmt.Errorf("usage: deploy_drone <drone-id>  (or --drone_id <id>; see get_drones)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.DeployDrone(ctx, parts[1])
+			return client.DeployDrone(ctx, droneID)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "recall_drone":
-		// No arg or "all" recalls every drone at the current location;
-		// otherwise recall the single drone by ID.
-		droneID, all := "", false
-		if len(parts) < 2 || strings.EqualFold(parts[1], "all") {
+		// --all (bool flag) or positional/no-arg "all" recalls every drone at
+		// the current location; --drone_id <id> or a bare ID recalls one.
+		args := parts[1:]
+		all := false
+		for _, a := range args {
+			if a == "--all" {
+				all = true
+			}
+		}
+		droneID := ""
+		if !all {
+			droneID = resolveArg(args, "drone_id")
+			if strings.EqualFold(droneID, "all") {
+				all = true
+				droneID = ""
+			}
+		}
+		if !all && droneID == "" {
 			all = true
-		} else {
-			droneID = parts[1]
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RecallDrone(ctx, droneID, all)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "upload_drone_script":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: upload_drone_script <drone-id> [<script...> | --file <path>]  (omit script to clear)")
-		}
-		droneID := parts[1]
-		// --file <path> / --file=<path> loads the DroneLang source from a file,
-		// avoiding shell-quoting headaches with multi-line scripts that contain
-		// quotes. When present it takes precedence over any inline tokens.
-		filePath := ""
+		// Two flags consumed here: --drone_id <id> / --drone_id=<id> identifies
+		// the target drone (or first positional token); --file <path> /
+		// --file=<path> loads the DroneLang source from a file, avoiding
+		// shell-quoting headaches with multi-line scripts. Anything else is the
+		// inline script body; --file takes precedence over inline tokens.
+		args := parts[1:]
+		droneID, filePath := "", ""
 		var inline []string
-		for i := 2; i < len(parts); i++ {
-			if p, ok := strings.CutPrefix(parts[i], "--file="); ok {
-				filePath = p
-				continue
-			}
-			if parts[i] == "--file" {
-				if i+1 >= len(parts) {
+		for i := 0; i < len(args); i++ {
+			a := args[i]
+			switch {
+			case a == "--drone_id":
+				if i+1 >= len(args) {
+					return fmt.Errorf("upload_drone_script: --drone_id requires a value")
+				}
+				i++
+				droneID = args[i]
+			case strings.HasPrefix(a, "--drone_id="):
+				droneID = strings.TrimPrefix(a, "--drone_id=")
+			case a == "--file":
+				if i+1 >= len(args) {
 					return fmt.Errorf("upload_drone_script: --file requires a path")
 				}
 				i++
-				filePath = parts[i]
-				continue
+				filePath = args[i]
+			case strings.HasPrefix(a, "--file="):
+				filePath = strings.TrimPrefix(a, "--file=")
+			default:
+				inline = append(inline, a)
 			}
-			inline = append(inline, parts[i])
+		}
+		if droneID == "" {
+			if len(inline) == 0 {
+				return fmt.Errorf("usage: upload_drone_script <drone-id> [<script...> | --file <path>]  (omit script to clear)")
+			}
+			droneID = inline[0]
+			inline = inline[1:]
 		}
 		var script string
 		if filePath != "" {
@@ -6033,6 +6063,40 @@ func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) 
 // parseFlagArgs parses --key value and --key=value pairs from args,
 // accepting only the specified keys. Returns a map of key→value for all
 // matched flags. Attempts to convert values to integers when possible.
+// resolveArg returns the value for `key` from args, accepting either:
+//  1. flag form: --key=value or --key value, or
+//  2. the first positional token (one not starting with "--").
+//
+// When walking positional tokens it skips any "--other-flag" plus its value so
+// it doesn't mistake an unrelated flag's value for a positional. Returns "" if
+// neither form yields a value. Used by drone REPL cases that want users to be
+// able to write `load_drone mining_drone` or `load_drone --item_id mining_drone`
+// interchangeably.
+func resolveArg(args []string, key string) string {
+	flag := "--" + key
+	prefix := flag + "="
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if v, ok := strings.CutPrefix(a, prefix); ok {
+			return v
+		}
+		if a == flag && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "--") {
+			if !strings.Contains(a, "=") && i+1 < len(args) {
+				i++
+			}
+			continue
+		}
+		return a
+	}
+	return ""
+}
+
 func parseFlagArgs(args []string, keys ...string) map[string]any {
 	allowed := make(map[string]bool, len(keys))
 	for _, k := range keys {
