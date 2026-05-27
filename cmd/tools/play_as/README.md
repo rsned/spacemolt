@@ -49,6 +49,43 @@ Type `help` in the terminal for a full command list. A few highlights:
 | `help` | Full command list |
 | `exit` | Quit the terminal |
 
+## Crafting Smarts
+
+Two commands help decide what to craft and what's blocking a target build.
+
+### `craftable`
+
+List every recipe you can build right now (cargo + current-station storage,
+skill-gated, station-legal):
+
+```
+craftable                         # immediately buildable, compact table
+craftable --reachable             # also list recipes reachable via intermediate crafts
+craftable --category Refining     # substring filter on category
+craftable --search lance          # substring filter on name and outputs
+craftable --include-faction       # also count faction storage
+craftable --detail                # per-recipe drill-down (no table)
+craftable --recipe <id> --detail  # detail for one specific recipe
+craftable --refresh               # bypass session recipe-catalog cache
+craftable --max 200               # widen the table (default 100)
+```
+
+### `plan <recipe-or-item-id> [qty]`
+
+Gap analysis to a target. If the agent has everything, prints the literal
+`craft …` command. Otherwise shows the shortfall by item:
+
+```
+plan alloy_titanium_ingot 10
+plan titanium_alloy                # accepts item_id; picks lowest-skill alternative
+plan build_emergency_warp_device --reachable   # flat ore/gas shortfall via BOM
+```
+
+`--reachable` needs the crafting DB (`bill_of_materials` table). Set
+`CRAFTING_DB=path/to/crafting.db` or keep the default
+`../../spacemolt-crafting-server/database/crafting.db`. Without the DB the
+command falls back to a friendly "BOM unavailable" message.
+
 ## Variable Tokens
 
 Commands may contain `$TOKEN$` placeholders that resolve from live game state
