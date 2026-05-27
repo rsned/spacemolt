@@ -1073,6 +1073,8 @@ func formatFacility(raw []byte) string {
 		Action            string          `json:"action"`
 		TypeID            string          `json:"type_id"`
 		FactionFacilities json.RawMessage `json:"faction_facilities"`
+		PlayerFacilities  json.RawMessage `json:"player_facilities"`
+		StationFacilities json.RawMessage `json:"station_facilities"`
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
 		return ""
@@ -1088,11 +1090,18 @@ func formatFacility(raw []byte) string {
 		return formatFacilityTypes(raw)
 	case "faction_build":
 		return formatFacilityFactionBuild(raw)
+	case "list":
+		return formatFacilityList(raw)
 	}
 	// faction_list omits the action field but is uniquely identified by
 	// the top-level faction_facilities key.
 	if len(probe.FactionFacilities) > 0 {
 		return formatFacilityFactionList(raw)
+	}
+	// Plain `facility list` may also lack an action field. Recognize it by
+	// either of its distinctive sections.
+	if len(probe.PlayerFacilities) > 0 || len(probe.StationFacilities) > 0 {
+		return formatFacilityList(raw)
 	}
 	return ""
 }
@@ -1298,6 +1307,136 @@ func formatFacilityFactionList(raw []byte) string {
 			rentW, formatCredits(float64(f.RentPerCycle)))
 	}
 
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
+	}
+	return b.String()
+}
+
+// formatFacilityList renders a plain `facility list` response — the three
+// facility groupings visible at the current station: station services,
+// player-owned personal facilities (quarters, etc.), and faction-owned
+// facilities. Each section renders only if non-empty, with column sets
+// tuned to the fields the server actually carries for that scope.
+func formatFacilityList(raw []byte) string {
+	type personalFacility struct {
+		Active               bool   `json:"active"`
+		Category             string `json:"category"`
+		FacilityID           string `json:"facility_id"`
+		MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
+		Name                 string `json:"name"`
+		PersonalService      string `json:"personal_service"`
+		RentPaidUntilTick    int64  `json:"rent_paid_until_tick"`
+		RentPerCycle         int64  `json:"rent_per_cycle"`
+		Type                 string `json:"type"`
+	}
+	type stationFacility struct {
+		Active       bool   `json:"active"`
+		Category     string `json:"category"`
+		FacilityID   string `json:"facility_id"`
+		Name         string `json:"name"`
+		Service      string `json:"service"`
+		Status       string `json:"status"`
+		Type         string `json:"type"`
+		Level        int    `json:"level"`
+		RentPerCycle int64  `json:"rent_per_cycle"`
+	}
+	type factionFacility struct {
+		Active         bool   `json:"active"`
+		FacilityID     string `json:"facility_id"`
+		FactionService string `json:"faction_service"`
+		Level          int    `json:"level"`
+		Name           string `json:"name"`
+		RentPerCycle   int64  `json:"rent_per_cycle"`
+		Status         string `json:"status"`
+		Type           string `json:"type"`
+	}
+	var resp struct {
+		BaseID            string             `json:"base_id"`
+		PlayerFacilities  []personalFacility `json:"player_facilities"`
+		StationFacilities []stationFacility  `json:"station_facilities"`
+		FactionFacilities []factionFacility  `json:"faction_facilities"`
+		Hint              string             `json:"hint"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "  Facilities at %s\n", resp.BaseID)
+
+	totalSections := 0
+	if len(resp.PlayerFacilities) > 0 {
+		totalSections++
+		slices.SortFunc(resp.PlayerFacilities, func(a, c personalFacility) int {
+			return strings.Compare(a.Name, c.Name)
+		})
+		nameW := len("Name")
+		typeW := len("Type")
+		svcW := len("Service")
+		for _, f := range resp.PlayerFacilities {
+			nameW = max(nameW, len(f.Name))
+			typeW = max(typeW, len(f.Type))
+			svcW = max(svcW, len(f.PersonalService))
+		}
+		fmt.Fprintf(&b, "\n  Personal:\n")
+		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | Maint | %10s | Paid until tick\n",
+			nameW, "Name", typeW, "Type", svcW, "Service", "Rent/cycle")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-------+-%s-+----------------\n",
+			strings.Repeat("-", nameW), strings.Repeat("-", typeW),
+			strings.Repeat("-", svcW), strings.Repeat("-", 10))
+		for _, f := range resp.PlayerFacilities {
+			active := "no"
+			if f.Active {
+				active = "yes"
+			}
+			maint := "ok"
+			if !f.MaintenanceSatisfied {
+				maint = "!"
+			}
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-5s | %10s | %d\n",
+				nameW, f.Name, typeW, f.Type, svcW, f.PersonalService,
+				active, maint, formatCredits(float64(f.RentPerCycle)),
+				f.RentPaidUntilTick)
+		}
+	}
+	if len(resp.StationFacilities) > 0 {
+		totalSections++
+		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
+			return strings.Compare(a.Name, c.Name)
+		})
+		fmt.Fprintf(&b, "\n  Station services:\n")
+		for _, f := range resp.StationFacilities {
+			fmt.Fprintf(&b, "    %s (%s)", f.Name, f.Type)
+			if f.Service != "" {
+				fmt.Fprintf(&b, " — %s", f.Service)
+			}
+			if f.Status != "" {
+				fmt.Fprintf(&b, " [%s]", f.Status)
+			}
+			fmt.Fprintln(&b)
+		}
+	}
+	if len(resp.FactionFacilities) > 0 {
+		totalSections++
+		slices.SortFunc(resp.FactionFacilities, func(a, c factionFacility) int {
+			return strings.Compare(a.Name, c.Name)
+		})
+		fmt.Fprintf(&b, "\n  Faction:\n")
+		for _, f := range resp.FactionFacilities {
+			active := "no"
+			if f.Active {
+				active = "yes"
+			}
+			fmt.Fprintf(&b, "    %s (%s, lvl %d, %s) — %s [active=%s, %s cr/cycle]\n",
+				f.Name, f.Type, f.Level, f.FactionService, f.Status, active,
+				formatCredits(float64(f.RentPerCycle)))
+		}
+	}
+
+	if totalSections == 0 {
+		fmt.Fprintln(&b, "  (no facilities)")
+	}
 	if resp.Hint != "" {
 		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
 	}
