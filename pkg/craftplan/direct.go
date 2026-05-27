@@ -2,6 +2,7 @@ package craftplan
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 
@@ -163,4 +164,119 @@ func makeRow(r serverapi.Recipe, canMake, depth int) CraftableRow {
 // reach it.
 func (e *Engine) craftableReachable(ctx context.Context, candidates []serverapi.Recipe, inv Inventory, includeFaction bool) ([]CraftableRow, error) {
 	return nil, nil
+}
+
+// Plan computes the gap between the agent's current inventory and the
+// inputs required to craft opts.ID at opts.Quantity. Reachable mode (in
+// reachable.go) re-uses these gates and replaces the input walk with a
+// BOM walk.
+func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
+	if opts.Quantity == 0 {
+		opts.Quantity = 1
+	}
+	if opts.Quantity < 1 {
+		return nil, fmt.Errorf("qty must be a positive integer (got: %d)", opts.Quantity)
+	}
+
+	recs, err := e.recipes(ctx, opts.Refresh)
+	if err != nil {
+		return nil, err
+	}
+	r, err := e.resolveRecipe(opts.ID, recs)
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := e.src.Inventory(ctx, opts.IncludeFaction)
+	if err != nil {
+		return nil, err
+	}
+	skills, err := e.src.Skills(ctx)
+	if err != nil {
+		return nil, err
+	}
+	stationID, err := e.src.CurrentStationID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	illegal, err := e.src.IllegalAt(ctx, stationID)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &PlanResult{
+		Recipe:         r,
+		Quantity:       opts.Quantity,
+		StationID:      stationID,
+		BlockedSkill:   skillGaps(r, skills),
+		BlockedIllegal: illegal[r.ID],
+	}
+
+	if opts.Reachable {
+		if err := e.planReachable(ctx, res, r, inv, opts); err != nil {
+			return nil, err
+		}
+	} else {
+		res.Inputs = planDirect(r, opts.Quantity, inv, opts.IncludeFaction)
+	}
+
+	res.Ready = len(res.BlockedSkill) == 0 && !res.BlockedIllegal
+	for _, row := range res.Inputs {
+		if row.Short > 0 {
+			res.Ready = false
+			break
+		}
+	}
+	return res, nil
+}
+
+// skillGaps returns the per-skill shortfall preventing the agent from
+// crafting r. Empty map = no skill block.
+func skillGaps(r serverapi.Recipe, have map[string]int) map[string]int {
+	gaps := map[string]int{}
+	for skillID, need := range r.RequiredSkills {
+		if got := have[skillID]; got < need {
+			gaps[skillID] = need - got
+		}
+	}
+	return gaps
+}
+
+// planDirect builds the per-direct-input gap rows.
+func planDirect(r serverapi.Recipe, qty int, inv Inventory, includeFaction bool) []PlanInputRow {
+	rows := make([]PlanInputRow, 0, len(r.Inputs))
+	for _, in := range r.Inputs {
+		need := in.Quantity * qty
+		row := PlanInputRow{
+			ItemID:      in.ItemID,
+			Need:        need,
+			HaveCargo:   inv.Cargo[in.ItemID],
+			HaveStorage: inv.Storage[in.ItemID],
+		}
+		if includeFaction {
+			row.HaveFaction = inv.Faction[in.ItemID]
+		}
+		total := row.HaveCargo + row.HaveStorage + row.HaveFaction
+		if need > total {
+			row.Short = need - total
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// planReachable is a stub replaced by reachable.go in Task 6. Returning an
+// error here means any test that sets opts.Reachable hits this until the
+// real impl lands; the direct-mode tests don't touch this path.
+func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi.Recipe, inv Inventory, opts PlanOpts) error {
+	return fmt.Errorf("reachable mode not yet implemented")
+}
+
+// resolveRecipe is a stub: recipe_id lookup only. Task 5 replaces this with
+// item_id resolution + fuzzy matching in resolve.go.
+func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe) (serverapi.Recipe, error) {
+	if r, ok := recs[id]; ok {
+		return r, nil
+	}
+	return serverapi.Recipe{}, fmt.Errorf("no recipe %q", id)
 }
