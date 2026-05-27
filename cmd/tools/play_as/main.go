@@ -1231,25 +1231,73 @@ func formatFacilityTypes(raw []byte) string {
 	return b.String()
 }
 
+// factionFacilityRow is the shared decode target for the faction-facility
+// table rendered by both formatFacilityFactionList and formatFacilityList.
+// Lifted out of the formatters so the rendering helper can sit beside it
+// without re-declaring the type per call site.
+type factionFacilityRow struct {
+	Active         bool   `json:"active"`
+	Capacity       int64  `json:"capacity"`
+	FacilityID     string `json:"facility_id"`
+	FactionService string `json:"faction_service"`
+	Level          int    `json:"level"`
+	Name           string `json:"name"`
+	RentPerCycle   int64  `json:"rent_per_cycle"`
+	Status         string `json:"status"`
+	Type           string `json:"type"`
+}
+
+// renderFactionFacilityTable writes the standard faction-facility table
+// (Name | Type | Service | Lvl | Status | Capacity | Rent/cycle | Rent/day)
+// into b, prefixed with the given indent on every line. Used by both
+// `facility faction_list` and the Faction section of `facility list` so the
+// two views stay visually consistent.
+func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacilityRow, indent string) {
+	nameW := len("Name")
+	typeW := len("Type")
+	svcW := len("Service")
+	statusW := len("Status")
+	capW := len("Capacity")
+	rentW := len("Rent/cycle")
+	dailyW := len("Rent/day")
+	for _, f := range facilities {
+		nameW = max(nameW, len(f.Name))
+		typeW = max(typeW, len(f.Type))
+		svcW = max(svcW, len(f.FactionService))
+		statusW = max(statusW, len(f.Status))
+		capW = max(capW, len(formatCredits(float64(f.Capacity))))
+		rentW = max(rentW, len(formatCredits(float64(f.RentPerCycle))))
+		dailyW = max(dailyW, len(formatCredits(float64(dailyRent(f.RentPerCycle)))))
+	}
+
+	fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s\n",
+		indent, nameW, "Name", typeW, "Type", svcW, "Service",
+		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day")
+	fmt.Fprintf(b, "%s%s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s\n",
+		indent,
+		strings.Repeat("-", nameW), strings.Repeat("-", typeW),
+		strings.Repeat("-", svcW), strings.Repeat("-", statusW),
+		strings.Repeat("-", capW), strings.Repeat("-", rentW),
+		strings.Repeat("-", dailyW))
+	for _, f := range facilities {
+		fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s\n",
+			indent,
+			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
+			facilityLevelOrDefault(f.Level), statusW, f.Status,
+			capW, formatCredits(float64(f.Capacity)),
+			rentW, formatCredits(float64(f.RentPerCycle)),
+			dailyW, formatCredits(float64(dailyRent(f.RentPerCycle))))
+	}
+}
+
 // formatFacilityFactionList renders a `facility faction_list` response:
 // a header with the base/faction context, the faction-storage summary,
 // the table of built facilities, and the server's hint if present.
 func formatFacilityFactionList(raw []byte) string {
-	type facility struct {
-		Active         bool   `json:"active"`
-		Capacity       int64  `json:"capacity"`
-		FacilityID     string `json:"facility_id"`
-		FactionService string `json:"faction_service"`
-		Level          int    `json:"level"`
-		Name           string `json:"name"`
-		RentPerCycle   int64  `json:"rent_per_cycle"`
-		Status         string `json:"status"`
-		Type           string `json:"type"`
-	}
 	var resp struct {
-		BaseID            string     `json:"base_id"`
-		FactionID         string     `json:"faction_id"`
-		FactionFacilities []facility `json:"faction_facilities"`
+		BaseID            string               `json:"base_id"`
+		FactionID         string               `json:"faction_id"`
+		FactionFacilities []factionFacilityRow `json:"faction_facilities"`
 		FactionStorage    struct {
 			Credits   int64 `json:"credits"`
 			ItemTypes int   `json:"item_types"`
@@ -1278,44 +1326,10 @@ func formatFacilityFactionList(raw []byte) string {
 		return b.String()
 	}
 
-	slices.SortFunc(resp.FactionFacilities, func(a, c facility) int {
+	slices.SortFunc(resp.FactionFacilities, func(a, c factionFacilityRow) int {
 		return strings.Compare(a.Name, c.Name)
 	})
-
-	nameW := len("Name")
-	typeW := len("Type")
-	svcW := len("Service")
-	statusW := len("Status")
-	capW := len("Capacity")
-	rentW := len("Rent/cycle")
-	dailyW := len("Rent/day")
-	for _, f := range resp.FactionFacilities {
-		nameW = max(nameW, len(f.Name))
-		typeW = max(typeW, len(f.Type))
-		svcW = max(svcW, len(f.FactionService))
-		statusW = max(statusW, len(f.Status))
-		capW = max(capW, len(formatCredits(float64(f.Capacity))))
-		rentW = max(rentW, len(formatCredits(float64(f.RentPerCycle))))
-		dailyW = max(dailyW, len(formatCredits(float64(dailyRent(f.RentPerCycle)))))
-	}
-
-	// One rent cycle = 100 ticks ≈ 17 min real time; 86.4 cycles per day.
-	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s\n",
-		nameW, "Name", typeW, "Type", svcW, "Service",
-		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day")
-	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s\n",
-		strings.Repeat("-", nameW), strings.Repeat("-", typeW),
-		strings.Repeat("-", svcW), strings.Repeat("-", statusW),
-		strings.Repeat("-", capW), strings.Repeat("-", rentW),
-		strings.Repeat("-", dailyW))
-	for _, f := range resp.FactionFacilities {
-		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s\n",
-			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
-			facilityLevelOrDefault(f.Level), statusW, f.Status,
-			capW, formatCredits(float64(f.Capacity)),
-			rentW, formatCredits(float64(f.RentPerCycle)),
-			dailyW, formatCredits(float64(dailyRent(f.RentPerCycle))))
-	}
+	renderFactionFacilityTable(&b, resp.FactionFacilities, "  ")
 
 	if resp.Hint != "" {
 		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
@@ -1361,24 +1375,14 @@ func formatFacilityList(raw []byte) string {
 		RentPerCycle         int64  `json:"rent_per_cycle"`
 		Type                 string `json:"type"`
 	}
-	type factionFacility struct {
-		Active         bool   `json:"active"`
-		FacilityID     string `json:"facility_id"`
-		FactionService string `json:"faction_service"`
-		Level          int    `json:"level"`
-		Name           string `json:"name"`
-		RentPerCycle   int64  `json:"rent_per_cycle"`
-		Status         string `json:"status"`
-		Type           string `json:"type"`
-	}
 	var resp struct {
 		BaseID           string             `json:"base_id"`
 		PlayerFacilities []personalFacility `json:"player_facilities"`
 		// StationFacilities is intentionally not parsed/rendered — it describes
 		// what the station itself offers (markets, refuel, etc.), which is
 		// available via other commands and not the player's facility list.
-		FactionFacilities []factionFacility `json:"faction_facilities"`
-		Hint              string            `json:"hint"`
+		FactionFacilities []factionFacilityRow `json:"faction_facilities"`
+		Hint              string               `json:"hint"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -1429,28 +1433,11 @@ func formatFacilityList(raw []byte) string {
 	}
 	if len(resp.FactionFacilities) > 0 {
 		totalSections++
-		slices.SortFunc(resp.FactionFacilities, func(a, c factionFacility) int {
+		slices.SortFunc(resp.FactionFacilities, func(a, c factionFacilityRow) int {
 			return strings.Compare(a.Name, c.Name)
 		})
 		fmt.Fprintf(&b, "\n  Faction:\n")
-		for _, f := range resp.FactionFacilities {
-			active := "inactive"
-			if f.Active {
-				active = "active"
-			}
-			lvl := facilityLevelOrDefault(f.Level)
-			line := fmt.Sprintf("    %s (%s, lvl %d, %s) — %s",
-				f.Name, f.Type, lvl, f.FactionService, active)
-			if f.Status != "" {
-				line += fmt.Sprintf(" [%s]", f.Status)
-			}
-			if f.RentPerCycle > 0 {
-				line += fmt.Sprintf(" [%s cr/cycle, %s cr/day]",
-					formatCredits(float64(f.RentPerCycle)),
-					formatCredits(float64(dailyRent(f.RentPerCycle))))
-			}
-			fmt.Fprintln(&b, line)
-		}
+		renderFactionFacilityTable(&b, resp.FactionFacilities, "    ")
 	}
 
 	if totalSections == 0 {
