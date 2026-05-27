@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
@@ -45,13 +46,16 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 		if illegal[r.ID] {
 			continue
 		}
-		// facility_only=true: recipes that only run at a crafting facility,
-		// not a regular station. They typically have no inputs (the facility
-		// provides them passively) so they all show ∞ can_make and flood the
-		// top of the table. Hide by default; opts.IncludeFacilityOnly opts in.
+		// Facility-only recipes only run at a crafting facility, not a regular
+		// station. They typically have no inputs (the facility provides them
+		// passively) so they show ∞ can_make and flood the top of the table.
+		// The server signals this two ways: a facility_only=true field (not
+		// always emitted), AND the human-facing Category string "Facility Only".
+		// Match either. Hide by default; opts.IncludeFacilityOnly opts in.
 		// opts.OneRecipe overrides — if the operator named this specific
 		// recipe, show it regardless.
-		if r.FacilityOnly && !opts.IncludeFacilityOnly && opts.OneRecipe == "" {
+		if (r.FacilityOnly || strings.EqualFold(r.Category, "Facility Only")) &&
+			!opts.IncludeFacilityOnly && opts.OneRecipe == "" {
 			continue
 		}
 		if r.Hidden && !opts.IncludeHidden && opts.OneRecipe == "" {
