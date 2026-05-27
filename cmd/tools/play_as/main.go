@@ -1307,7 +1307,7 @@ func formatFacilityFactionList(raw []byte) string {
 	for _, f := range resp.FactionFacilities {
 		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s\n",
 			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
-			f.Level, statusW, f.Status,
+			facilityLevelOrDefault(f.Level), statusW, f.Status,
 			capW, formatCredits(float64(f.Capacity)),
 			rentW, formatCredits(float64(f.RentPerCycle)))
 	}
@@ -1316,6 +1316,18 @@ func formatFacilityFactionList(raw []byte) string {
 		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
 	}
 	return b.String()
+}
+
+// facilityLevelOrDefault renders an instance level. The server's facility
+// list response currently omits `level` per-instance (it's in the catalog
+// but not echoed back), defaulting our struct field to 0. Per the catalog,
+// every facility type starts at level 1, so treat 0 as the unset sentinel
+// and display 1. Drop this fallback once the server emits the field.
+func facilityLevelOrDefault(level int) int {
+	if level <= 0 {
+		return 1
+	}
+	return level
 }
 
 // formatFacilityList renders a plain `facility list` response — the three
@@ -1429,13 +1441,20 @@ func formatFacilityList(raw []byte) string {
 		})
 		fmt.Fprintf(&b, "\n  Faction:\n")
 		for _, f := range resp.FactionFacilities {
-			active := "no"
+			active := "inactive"
 			if f.Active {
-				active = "yes"
+				active = "active"
 			}
-			fmt.Fprintf(&b, "    %s (%s, lvl %d, %s) — %s [active=%s, %s cr/cycle]\n",
-				f.Name, f.Type, f.Level, f.FactionService, f.Status, active,
-				formatCredits(float64(f.RentPerCycle)))
+			lvl := facilityLevelOrDefault(f.Level)
+			line := fmt.Sprintf("    %s (%s, lvl %d, %s) — %s",
+				f.Name, f.Type, lvl, f.FactionService, active)
+			if f.Status != "" {
+				line += fmt.Sprintf(" [%s]", f.Status)
+			}
+			if f.RentPerCycle > 0 {
+				line += fmt.Sprintf(" [%s cr/cycle]", formatCredits(float64(f.RentPerCycle)))
+			}
+			fmt.Fprintln(&b, line)
 		}
 	}
 
