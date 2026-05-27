@@ -1,0 +1,7 @@
+2 recipes buildable at market_prime_exchange (cargo + storage; skill-gated; legal)
+
+RECIPE                        OUTPUT                  CATEGORY     CAN_MAKE  TIME
+alloy_titanium_ingot          titanium_alloy x2       Refining     47        6s
+assemble_advanced_repair_kit  advanced_repair_kit x1  Consumables  31        12s
+
+(showing 2 / 2; sort: can_make desc. Pass --max N to widen, --detail to drill in.)

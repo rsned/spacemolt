@@ -1,0 +1,8 @@
+plan: assemble_advanced_repair_kit x5  (Consumables, 12s/batch)
+
+ITEM            NEED  CARGO  STORAGE  SHORT
+circuit_board   5     0      3        2 ✗
+flex_polymer    15    0      20       –
+titanium_alloy  15    2      18       –
+
+summary: ✗ 1 input(s) short (need 2 circuit_board)
