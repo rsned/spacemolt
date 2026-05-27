@@ -31,11 +31,19 @@ func newPlayAsSource(client game.GameClient, craftingDB *sql.DB) *playAsSource {
 }
 
 func (s *playAsSource) Recipes(ctx context.Context, refresh bool) (map[string]serverapi.Recipe, error) {
-	// Server replaced get_recipes with catalog(type="recipes"). The catalog
-	// response paginates (max page_size=50) and stores raw JSON under the
-	// "catalog" key; the recipes field is a RawMessage holding []Recipe
-	// (array, not the old map).
+	// Server replaced get_recipes with catalog(type="recipes"). For type=recipes
+	// the per-entry recipe objects are returned inside the `items` array (the
+	// catalog response stores raw JSON under either "catalog" or "recipes" key
+	// depending on whether `items`/`page` are present — try both). Pagination
+	// caps page_size at 50.
 	const pageSize = 50
+	// catalogRecipesEnvelope mirrors just enough of the catalog response shape
+	// to decode the items array as full recipes (rather than the abbreviated
+	// CatalogItem struct used for type=items/ships/skills).
+	type catalogRecipesEnvelope struct {
+		Items      []serverapi.Recipe `json:"items"`
+		TotalPages int                `json:"total_pages"`
+	}
 	out := map[string]serverapi.Recipe{}
 	for page := 1; ; page++ {
 		if err := s.client.Catalog(ctx, "recipes", page, pageSize); err != nil {
@@ -43,22 +51,21 @@ func (s *playAsSource) Recipes(ctx context.Context, refresh bool) (map[string]se
 		}
 		raw := s.client.GetRawJSON("catalog")
 		if len(raw) == 0 {
+			raw = s.client.GetRawJSON("recipes")
+		}
+		if len(raw) == 0 {
 			return nil, fmt.Errorf("catalog recipes returned empty payload")
 		}
-		var resp serverapi.CatalogResponse
-		if err := json.Unmarshal(raw, &resp); err != nil {
+		var env catalogRecipesEnvelope
+		if err := json.Unmarshal(raw, &env); err != nil {
 			return nil, fmt.Errorf("decode catalog recipes page %d: %w", page, err)
 		}
-		if len(resp.Recipes) > 0 {
-			var recipes []serverapi.Recipe
-			if err := json.Unmarshal(resp.Recipes, &recipes); err != nil {
-				return nil, fmt.Errorf("decode recipes array page %d: %w", page, err)
-			}
-			for _, r := range recipes {
+		for _, r := range env.Items {
+			if r.ID != "" {
 				out[r.ID] = r
 			}
 		}
-		if resp.TotalPages <= 0 || page >= resp.TotalPages {
+		if env.TotalPages <= 0 || page >= env.TotalPages {
 			break
 		}
 	}
