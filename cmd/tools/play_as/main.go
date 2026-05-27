@@ -1347,17 +1347,6 @@ func formatFacilityList(raw []byte) string {
 		RentPerCycle         int64  `json:"rent_per_cycle"`
 		Type                 string `json:"type"`
 	}
-	type stationFacility struct {
-		Active       bool   `json:"active"`
-		Category     string `json:"category"`
-		FacilityID   string `json:"facility_id"`
-		Name         string `json:"name"`
-		Service      string `json:"service"`
-		Status       string `json:"status"`
-		Type         string `json:"type"`
-		Level        int    `json:"level"`
-		RentPerCycle int64  `json:"rent_per_cycle"`
-	}
 	type factionFacility struct {
 		Active         bool   `json:"active"`
 		FacilityID     string `json:"facility_id"`
@@ -1369,11 +1358,13 @@ func formatFacilityList(raw []byte) string {
 		Type           string `json:"type"`
 	}
 	var resp struct {
-		BaseID            string             `json:"base_id"`
-		PlayerFacilities  []personalFacility `json:"player_facilities"`
-		StationFacilities []stationFacility  `json:"station_facilities"`
-		FactionFacilities []factionFacility  `json:"faction_facilities"`
-		Hint              string             `json:"hint"`
+		BaseID           string             `json:"base_id"`
+		PlayerFacilities []personalFacility `json:"player_facilities"`
+		// StationFacilities is intentionally not parsed/rendered — it describes
+		// what the station itself offers (markets, refuel, etc.), which is
+		// available via other commands and not the player's facility list.
+		FactionFacilities []factionFacility `json:"faction_facilities"`
+		Hint              string            `json:"hint"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -1415,23 +1406,6 @@ func formatFacilityList(raw []byte) string {
 				nameW, f.Name, typeW, f.Type, svcW, f.PersonalService,
 				active, maint, formatCredits(float64(f.RentPerCycle)),
 				f.RentPaidUntilTick)
-		}
-	}
-	if len(resp.StationFacilities) > 0 {
-		totalSections++
-		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
-			return strings.Compare(a.Name, c.Name)
-		})
-		fmt.Fprintf(&b, "\n  Station services:\n")
-		for _, f := range resp.StationFacilities {
-			fmt.Fprintf(&b, "    %s (%s)", f.Name, f.Type)
-			if f.Service != "" {
-				fmt.Fprintf(&b, " — %s", f.Service)
-			}
-			if f.Status != "" {
-				fmt.Fprintf(&b, " [%s]", f.Status)
-			}
-			fmt.Fprintln(&b)
 		}
 	}
 	if len(resp.FactionFacilities) > 0 {
