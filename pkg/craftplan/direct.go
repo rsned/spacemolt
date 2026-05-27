@@ -12,27 +12,28 @@ import (
 
 // Craftable returns the list of recipes the agent can build right now (or,
 // with opts.Reachable, can build via intermediate crafts). Sort:
-// can_make DESC, depth ASC, recipe_id ASC.
-func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]CraftableRow, error) {
+// can_make DESC, depth ASC, recipe_id ASC. The second return value is the
+// pre-truncation total so callers can render "showing N / TOTAL" honestly.
+func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]CraftableRow, int, error) {
 	recs, err := e.recipes(ctx, opts.Refresh)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	inv, err := e.src.Inventory(ctx, opts.IncludeFaction)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	skills, err := e.src.Skills(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	stationID, err := e.src.CurrentStationID(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	illegal, err := e.src.IllegalAt(ctx, stationID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// First pass: every recipe that passes skill + legality gates becomes a
@@ -74,7 +75,7 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 	if opts.Reachable {
 		rows, err = e.craftableReachable(ctx, candidates, inv, opts.IncludeFaction)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	} else {
 		rows = craftableDirect(candidates, inv, opts.IncludeFaction)
@@ -92,6 +93,8 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 		return a.Recipe.ID < b.Recipe.ID
 	})
 
+	total := len(rows)
+
 	// --max cap. opts.OneRecipe overrides Max because the caller asked for
 	// a specific recipe.
 	max := opts.Max
@@ -101,7 +104,7 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 	if opts.OneRecipe == "" && len(rows) > max {
 		rows = rows[:max]
 	}
-	return rows, nil
+	return rows, total, nil
 }
 
 func meetsSkills(r serverapi.Recipe, have map[string]int) bool {

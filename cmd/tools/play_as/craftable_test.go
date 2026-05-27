@@ -65,7 +65,7 @@ func (f *fixtureSource) BOM(ctx context.Context, recipeIDs []string) (map[string
 func TestCraftable_FromFixtures(t *testing.T) {
 	src := loadFixtureSource(t)
 	eng := craftplan.New(src)
-	rows, err := eng.Craftable(context.Background(), craftplan.CraftableOpts{})
+	rows, _, err := eng.Craftable(context.Background(), craftplan.CraftableOpts{})
 	if err != nil {
 		t.Fatalf("Craftable: %v", err)
 	}

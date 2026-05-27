@@ -103,7 +103,7 @@ func TestCraftable_Direct_AllGates(t *testing.T) {
 	}
 
 	eng := New(src)
-	rows, err := eng.Craftable(context.Background(), CraftableOpts{})
+	rows, _, err := eng.Craftable(context.Background(), CraftableOpts{})
 	if err != nil {
 		t.Fatalf("Craftable: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestCraftable_Direct_SortStability(t *testing.T) {
 	}
 
 	eng := New(src)
-	rows, _ := eng.Craftable(context.Background(), CraftableOpts{})
+	rows, _, _ := eng.Craftable(context.Background(), CraftableOpts{})
 	ids := make([]string, len(rows))
 	for i, r := range rows {
 		ids[i] = r.Recipe.ID
@@ -172,7 +172,7 @@ func TestCraftable_Direct_FilterCategory(t *testing.T) {
 	}
 
 	eng := New(src)
-	rows, _ := eng.Craftable(context.Background(), CraftableOpts{CategoryFilter: "weap"})
+	rows, _, _ := eng.Craftable(context.Background(), CraftableOpts{CategoryFilter: "weap"})
 	if len(rows) != 1 || rows[0].Recipe.ID != "b" {
 		t.Errorf("CategoryFilter='weap' returned %v, want [b]", rows)
 	}
@@ -188,7 +188,7 @@ func TestCraftable_Direct_MaxCap(t *testing.T) {
 		inventory: Inventory{Cargo: map[string]int{"ore": 100}},
 	}
 	eng := New(src)
-	rows, _ := eng.Craftable(context.Background(), CraftableOpts{Max: 2})
+	rows, _, _ := eng.Craftable(context.Background(), CraftableOpts{Max: 2})
 	if len(rows) != 2 {
 		t.Errorf("Max=2 returned %d rows, want 2", len(rows))
 	}

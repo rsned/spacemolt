@@ -13,6 +13,10 @@ import (
 type FormatCraftableOpts struct {
 	StationID string
 	Reachable bool
+	// Total is the pre-truncation count of matching recipes. If > len(rows)
+	// the footer prints "showing N / TOTAL" so the operator knows to widen
+	// --max. If 0, treated as equal to len(rows).
+	Total int
 }
 
 // FormatCraftableCompact renders the compact table view of craftable rows.
@@ -61,8 +65,9 @@ func FormatCraftableCompact(rows []CraftableRow, opts FormatCraftableOpts) strin
 	}
 	_ = tw.Flush()
 
+	total := max(opts.Total, len(rows))
 	fmt.Fprintf(&b, "\n(showing %d / %d; sort: can_make desc. Pass --max N to widen, --detail to drill in.)\n",
-		len(rows), len(rows))
+		len(rows), total)
 	return b.String()
 }
 

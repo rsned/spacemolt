@@ -65,7 +65,7 @@ func TestCraftable_Reachable_Depth(t *testing.T) {
 	}}
 
 	eng := New(src)
-	rows, err := eng.Craftable(context.Background(), CraftableOpts{Reachable: true})
+	rows, _, err := eng.Craftable(context.Background(), CraftableOpts{Reachable: true})
 	if err != nil {
 		t.Fatalf("Craftable: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestCraftable_Reachable_BOMUnavailable(t *testing.T) {
 	src.bomErr = errors.New("crafting DB not configured")
 
 	eng := New(src)
-	_, err := eng.Craftable(context.Background(), CraftableOpts{Reachable: true})
+	_, _, err := eng.Craftable(context.Background(), CraftableOpts{Reachable: true})
 	if err == nil {
 		t.Fatal("expected BOM unavailable error")
 	}

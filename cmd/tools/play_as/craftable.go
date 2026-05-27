@@ -317,7 +317,7 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 
 	src := newPlayAsSource(client, craftingDB)
 	eng := craftplan.New(src)
-	rows, err := eng.Craftable(ctx, opts)
+	rows, total, err := eng.Craftable(ctx, opts)
 	if err != nil {
 		if errors.Is(err, craftplan.ErrBOMUnavailable) {
 			fmt.Printf("BOM unavailable: %v\n  Install/update the crafting DB or omit --reachable.\n", err)
@@ -331,11 +331,13 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 		fmt.Print(craftplan.FormatCraftableDetail(rows, craftplan.FormatCraftableOpts{
 			StationID: stationID,
 			Reachable: opts.Reachable,
+			Total:     total,
 		}))
 	} else {
 		fmt.Print(craftplan.FormatCraftableCompact(rows, craftplan.FormatCraftableOpts{
 			StationID: stationID,
 			Reachable: opts.Reachable,
+			Total:     total,
 		}))
 	}
 	return nil
