@@ -1288,6 +1288,7 @@ func formatFacilityFactionList(raw []byte) string {
 	statusW := len("Status")
 	capW := len("Capacity")
 	rentW := len("Rent/cycle")
+	dailyW := len("Rent/day")
 	for _, f := range resp.FactionFacilities {
 		nameW = max(nameW, len(f.Name))
 		typeW = max(typeW, len(f.Type))
@@ -1295,21 +1296,25 @@ func formatFacilityFactionList(raw []byte) string {
 		statusW = max(statusW, len(f.Status))
 		capW = max(capW, len(formatCredits(float64(f.Capacity))))
 		rentW = max(rentW, len(formatCredits(float64(f.RentPerCycle))))
+		dailyW = max(dailyW, len(formatCredits(float64(dailyRent(f.RentPerCycle)))))
 	}
 
-	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s\n",
+	// One rent cycle = 100 ticks ≈ 17 min real time; 86.4 cycles per day.
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s\n",
 		nameW, "Name", typeW, "Type", svcW, "Service",
-		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle")
-	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-----+-%s-+-%s-+-%s\n",
+		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s\n",
 		strings.Repeat("-", nameW), strings.Repeat("-", typeW),
 		strings.Repeat("-", svcW), strings.Repeat("-", statusW),
-		strings.Repeat("-", capW), strings.Repeat("-", rentW))
+		strings.Repeat("-", capW), strings.Repeat("-", rentW),
+		strings.Repeat("-", dailyW))
 	for _, f := range resp.FactionFacilities {
-		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s\n",
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s\n",
 			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
 			facilityLevelOrDefault(f.Level), statusW, f.Status,
 			capW, formatCredits(float64(f.Capacity)),
-			rentW, formatCredits(float64(f.RentPerCycle)))
+			rentW, formatCredits(float64(f.RentPerCycle)),
+			dailyW, formatCredits(float64(dailyRent(f.RentPerCycle))))
 	}
 
 	if resp.Hint != "" {
@@ -1328,6 +1333,15 @@ func facilityLevelOrDefault(level int) int {
 		return 1
 	}
 	return level
+}
+
+// dailyRent converts a per-cycle rent value to a per-real-day amount. A
+// rent cycle is 100 game ticks; with SleepTick=10s that's 1000s/cycle,
+// or 86.4 cycles per real-time day. Integer-safe: perCycle * 86400 / 1000.
+func dailyRent(perCycle int64) int64 {
+	const secondsPerCycle = 100 * 10 // 100 ticks × 10s/tick
+	const secondsPerDay = 24 * 60 * 60
+	return perCycle * int64(secondsPerDay) / int64(secondsPerCycle)
 }
 
 // formatFacilityList renders a plain `facility list` response — the three
@@ -1387,12 +1401,15 @@ func formatFacilityList(raw []byte) string {
 			typeW = max(typeW, len(f.Type))
 			svcW = max(svcW, len(f.PersonalService))
 		}
-		fmt.Fprintf(&b, "\n  Personal:\n")
-		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | Maint | %10s | Paid until tick\n",
-			nameW, "Name", typeW, "Type", svcW, "Service", "Rent/cycle")
-		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-------+-%s-+----------------\n",
+		// One rent cycle = 100 ticks ≈ 17 min real time; 86.4 cycles per day.
+		// Show both per-cycle and per-day so the operator can sanity-check
+		// burn rate against credit balance.
+		fmt.Fprintf(&b, "\n  Personal: (1 cycle = 100 ticks ≈ 17 min, 86.4 cycles/day)\n")
+		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | Maint | %10s | %10s | Paid until tick\n",
+			nameW, "Name", typeW, "Type", svcW, "Service", "Rent/cycle", "Rent/day")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-------+-%s-+-%s-+----------------\n",
 			strings.Repeat("-", nameW), strings.Repeat("-", typeW),
-			strings.Repeat("-", svcW), strings.Repeat("-", 10))
+			strings.Repeat("-", svcW), strings.Repeat("-", 10), strings.Repeat("-", 10))
 		for _, f := range resp.PlayerFacilities {
 			active := "no"
 			if f.Active {
@@ -1402,9 +1419,11 @@ func formatFacilityList(raw []byte) string {
 			if !f.MaintenanceSatisfied {
 				maint = "!"
 			}
-			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-5s | %10s | %d\n",
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-5s | %10s | %10s | %d\n",
 				nameW, f.Name, typeW, f.Type, svcW, f.PersonalService,
-				active, maint, formatCredits(float64(f.RentPerCycle)),
+				active, maint,
+				formatCredits(float64(f.RentPerCycle)),
+				formatCredits(float64(dailyRent(f.RentPerCycle))),
 				f.RentPaidUntilTick)
 		}
 	}
@@ -1426,7 +1445,9 @@ func formatFacilityList(raw []byte) string {
 				line += fmt.Sprintf(" [%s]", f.Status)
 			}
 			if f.RentPerCycle > 0 {
-				line += fmt.Sprintf(" [%s cr/cycle]", formatCredits(float64(f.RentPerCycle)))
+				line += fmt.Sprintf(" [%s cr/cycle, %s cr/day]",
+					formatCredits(float64(f.RentPerCycle)),
+					formatCredits(float64(dailyRent(f.RentPerCycle))))
 			}
 			fmt.Fprintln(&b, line)
 		}
