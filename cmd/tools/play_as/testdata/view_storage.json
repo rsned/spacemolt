@@ -1,0 +1,7 @@
+{
+  "action": "view_storage",
+  "items": [
+    {"item_id": "iron_ore", "quantity": 450},
+    {"item_id": "titanium_ore", "quantity": 380}
+  ]
+}

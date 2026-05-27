@@ -1,0 +1,18 @@
+{
+  "action": "get_recipes",
+  "recipes": {
+    "alloy_titanium_ingot": {
+      "id": "alloy_titanium_ingot",
+      "name": "Titanium Alloy Ingot",
+      "category": "Refining",
+      "inputs": [
+        {"item_id": "iron_ore", "quantity": 3},
+        {"item_id": "titanium_ore", "quantity": 2}
+      ],
+      "outputs": [
+        {"item_id": "titanium_alloy", "quantity": 2}
+      ],
+      "crafting_time": 6
+    }
+  }
+}
