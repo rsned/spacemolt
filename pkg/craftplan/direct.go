@@ -272,11 +272,3 @@ func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi
 	return fmt.Errorf("reachable mode not yet implemented")
 }
 
-// resolveRecipe is a stub: recipe_id lookup only. Task 5 replaces this with
-// item_id resolution + fuzzy matching in resolve.go.
-func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe) (serverapi.Recipe, error) {
-	if r, ok := recs[id]; ok {
-		return r, nil
-	}
-	return serverapi.Recipe{}, fmt.Errorf("no recipe %q", id)
-}
