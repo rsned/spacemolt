@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -24,7 +26,7 @@ type playAsSource struct {
 	craftingDB *sql.DB // may be nil → BOM and IllegalAt return empty/errors
 }
 
-func newPlayAsSource(client game.GameClient, craftingDB *sql.DB) *playAsSource { //nolint:unused // wired in Task 9 REPL handlers
+func newPlayAsSource(client game.GameClient, craftingDB *sql.DB) *playAsSource {
 	return &playAsSource{client: client, craftingDB: craftingDB}
 }
 
@@ -189,11 +191,11 @@ func (s *playAsSource) BOM(ctx context.Context, recipeIDs []string) (map[string]
 // handle. Returns nil if the DB can't be located — callers should treat that
 // as "BOM unavailable" and degrade gracefully.
 var (
-	craftingDBMu sync.Mutex //nolint:unused // wired in Task 9 REPL handlers
-	craftingDB   *sql.DB    //nolint:unused // wired in Task 9 REPL handlers
+	craftingDBMu sync.Mutex
+	craftingDB   *sql.DB
 )
 
-func ensureCraftingDB() *sql.DB { //nolint:unused // wired in Task 9 REPL handlers
+func ensureCraftingDB() *sql.DB {
 	craftingDBMu.Lock()
 	defer craftingDBMu.Unlock()
 	if craftingDB != nil {
@@ -219,3 +221,105 @@ func ensureCraftingDB() *sql.DB { //nolint:unused // wired in Task 9 REPL handle
 
 // Compile-time assertion that *playAsSource satisfies craftplan.Source.
 var _ craftplan.Source = (*playAsSource)(nil)
+
+// handleCraftable wires the `craftable` REPL command. parts[0] is the verb,
+// parts[1:] are flags / args.
+func handleCraftable(client game.GameClient, ctx context.Context, parts []string, craftingDB *sql.DB, format outputFormat) error {
+	_ = format
+	flags := parseFlagArgs(parts[1:],
+		"reachable", "category", "search", "include-faction",
+		"detail", "recipe", "refresh", "max",
+	)
+
+	opts := craftplan.CraftableOpts{
+		Reachable:      flagBool(flags["reachable"]),
+		IncludeFaction: flagBool(flags["include-faction"]),
+		Refresh:        flagBool(flags["refresh"]),
+	}
+	if v, ok := flags["category"]; ok {
+		opts.CategoryFilter, _ = flagString(v)
+	}
+	if v, ok := flags["search"]; ok {
+		opts.SearchFilter, _ = flagString(v)
+	}
+	if v, ok := flags["recipe"]; ok {
+		opts.OneRecipe, _ = flagString(v)
+	}
+	if v, ok := flags["max"]; ok {
+		if n, ok := flagInt(v); ok {
+			opts.Max = n
+		}
+	}
+	detail := flagBool(flags["detail"])
+
+	src := newPlayAsSource(client, craftingDB)
+	eng := craftplan.New(src)
+	rows, err := eng.Craftable(ctx, opts)
+	if err != nil {
+		if errors.Is(err, craftplan.ErrBOMUnavailable) {
+			fmt.Printf("BOM unavailable: %v\n  Install/update the crafting DB or omit --reachable.\n", err)
+			return nil
+		}
+		return err
+	}
+
+	stationID, _ := src.CurrentStationID(ctx)
+	if detail {
+		fmt.Print(craftplan.FormatCraftableDetail(rows, craftplan.FormatCraftableOpts{
+			StationID: stationID,
+			Reachable: opts.Reachable,
+		}))
+	} else {
+		fmt.Print(craftplan.FormatCraftableCompact(rows, craftplan.FormatCraftableOpts{
+			StationID: stationID,
+			Reachable: opts.Reachable,
+		}))
+	}
+	return nil
+}
+
+// handlePlan wires the `plan <id> [qty]` REPL command.
+func handlePlan(client game.GameClient, ctx context.Context, parts []string, craftingDB *sql.DB, format outputFormat) error {
+	_ = format
+	positional, flags := partitionFlags(parts[1:])
+	if len(positional) < 1 {
+		return fmt.Errorf("usage: plan <recipe-id-or-item-id> [qty] [--reachable] [--include-faction] [--detail]")
+	}
+
+	opts := craftplan.PlanOpts{
+		ID:       positional[0],
+		Quantity: 1,
+	}
+	if _, has := flags["reachable"]; has {
+		v := flags["reachable"]
+		opts.Reachable = v == "" || strings.EqualFold(v, "true") || v == "1"
+	}
+	if _, has := flags["include-faction"]; has {
+		v := flags["include-faction"]
+		opts.IncludeFaction = v == "" || strings.EqualFold(v, "true") || v == "1"
+	}
+	if _, has := flags["refresh"]; has {
+		v := flags["refresh"]
+		opts.Refresh = v == "" || strings.EqualFold(v, "true") || v == "1"
+	}
+	if len(positional) >= 2 {
+		qty, err := strconv.Atoi(positional[1])
+		if err != nil {
+			return fmt.Errorf("invalid qty %q: %w", positional[1], err)
+		}
+		opts.Quantity = qty
+	}
+
+	src := newPlayAsSource(client, craftingDB)
+	eng := craftplan.New(src)
+	res, err := eng.Plan(ctx, opts)
+	if err != nil {
+		if errors.Is(err, craftplan.ErrBOMUnavailable) {
+			fmt.Printf("BOM unavailable: %v\n  Install/update the crafting DB or omit --reachable.\n", err)
+			return nil
+		}
+		return err
+	}
+	fmt.Print(craftplan.FormatPlan(res))
+	return nil
+}

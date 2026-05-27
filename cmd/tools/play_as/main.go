@@ -4485,6 +4485,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "recipes", "get_recipes":
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
 
+	case "craftable":
+		return handleCraftable(client, ctx, parts, ensureCraftingDB(), format)
+
+	case "plan":
+		return handlePlan(client, ctx, parts, ensureCraftingDB(), format)
+
 	// === SHIP MAINTENANCE ===
 	case "refuel":
 		if len(parts) > 1 {
@@ -6583,6 +6589,8 @@ func printHelp() {
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
 	fmt.Println("  recipes                   - Get available recipes")
+	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] - what you can build now")
+	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
 
 	fmt.Println("\n=== SHIP ===")
 	fmt.Println("  refuel, repair            - Refuel and repair ship")
