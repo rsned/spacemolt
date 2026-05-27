@@ -159,13 +159,6 @@ func makeRow(r serverapi.Recipe, canMake, depth int) CraftableRow {
 	return row
 }
 
-// craftableReachable is implemented in reachable.go (Task 6). Until then a
-// stub keeps the build green; tests that don't pass opts.Reachable never
-// reach it.
-func (e *Engine) craftableReachable(ctx context.Context, candidates []serverapi.Recipe, inv Inventory, includeFaction bool) ([]CraftableRow, error) {
-	return nil, nil
-}
-
 // Plan computes the gap between the agent's current inventory and the
 // inputs required to craft opts.ID at opts.Quantity. Reachable mode (in
 // reachable.go) re-uses these gates and replaces the input walk with a
@@ -265,10 +258,4 @@ func planDirect(r serverapi.Recipe, qty int, inv Inventory, includeFaction bool)
 	return rows
 }
 
-// planReachable is a stub replaced by reachable.go in Task 6. Returning an
-// error here means any test that sets opts.Reachable hits this until the
-// real impl lands; the direct-mode tests don't touch this path.
-func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi.Recipe, inv Inventory, opts PlanOpts) error {
-	return fmt.Errorf("reachable mode not yet implemented")
-}
 
