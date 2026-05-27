@@ -35,7 +35,7 @@ func FormatCraftableCompact(rows []CraftableRow, opts FormatCraftableOpts) strin
 		fmt.Fprintf(&b, "%d recipes reachable at %s (%d direct, %d via 1+ intermediate craft)\n\n",
 			len(rows), station, direct, len(rows)-direct)
 	} else {
-		fmt.Fprintf(&b, "%d recipes buildable at %s (cargo + storage; skill-gated; legal)\n\n",
+		fmt.Fprintf(&b, "%d recipes buildable at %s (cargo + storage; legal)\n\n",
 			len(rows), station)
 	}
 

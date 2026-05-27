@@ -6589,7 +6589,7 @@ func printHelp() {
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
 	fmt.Println("  recipes                   - Get available recipes")
-	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] - what you can build now")
+	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
 
 	fmt.Println("\n=== SHIP ===")

@@ -82,13 +82,15 @@ type PlanResult struct {
 
 // CraftableOpts controls Engine.Craftable.
 type CraftableOpts struct {
-	Reachable      bool
-	IncludeFaction bool
-	CategoryFilter string // substring match, case-insensitive; empty = no filter
-	SearchFilter   string // substring match against name + output item_ids, case-insensitive
-	Refresh        bool   // bypass session recipe-catalog cache
-	Max            int    // hard cap on rows returned; 0 = engine default (100)
-	OneRecipe      string // if non-empty, return only this recipe (still in CraftableRow form); used by --detail --recipe X
+	Reachable           bool
+	IncludeFaction      bool
+	IncludeFacilityOnly bool   // include recipes flagged facility_only (default: hide; their ∞ can_make floods the top)
+	IncludeHidden       bool   // include recipes flagged hidden (default: hide)
+	CategoryFilter      string // substring match, case-insensitive; empty = no filter
+	SearchFilter        string // substring match against name + output item_ids, case-insensitive
+	Refresh             bool   // bypass session recipe-catalog cache
+	Max                 int    // hard cap on rows returned; 0 = engine default (100)
+	OneRecipe           string // if non-empty, return only this recipe (still in CraftableRow form); used by --detail --recipe X
 }
 
 // PlanOpts controls Engine.Plan.

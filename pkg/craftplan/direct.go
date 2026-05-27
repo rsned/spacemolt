@@ -45,6 +45,18 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 		if illegal[r.ID] {
 			continue
 		}
+		// facility_only=true: recipes that only run at a crafting facility,
+		// not a regular station. They typically have no inputs (the facility
+		// provides them passively) so they all show ∞ can_make and flood the
+		// top of the table. Hide by default; opts.IncludeFacilityOnly opts in.
+		// opts.OneRecipe overrides — if the operator named this specific
+		// recipe, show it regardless.
+		if r.FacilityOnly && !opts.IncludeFacilityOnly && opts.OneRecipe == "" {
+			continue
+		}
+		if r.Hidden && !opts.IncludeHidden && opts.OneRecipe == "" {
+			continue
+		}
 		if opts.OneRecipe != "" && r.ID != opts.OneRecipe {
 			continue
 		}

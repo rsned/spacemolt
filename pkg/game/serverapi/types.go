@@ -446,6 +446,9 @@ type Recipe struct {
 	CraftingTime    int            `json:"crafting_time"`
 	BaseQuality     int            `json:"base_quality,omitempty"`
 	SkillQualityMod int            `json:"skill_quality_mod,omitempty"`
+	FacilityOnly    bool           `json:"facility_only,omitempty"`
+	Hidden          bool           `json:"hidden,omitempty"`
+	FuelOutput      int            `json:"fuel_output,omitempty"`
 }
 
 // RecipeItem represents an item requirement or output in a recipe.

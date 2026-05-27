@@ -1,0 +1,731 @@
+[craftsman-1-GAME] 2026/05/25 18:41:50 Stored raw JSON for storage (25979 bytes)
+[craftsman-1-GAME] 2026/05/25 18:41:50 Parsed ship listings data
+
+Storage at grand_exchange_station — 313 types, 129771 units, 198579 volume
+  Name (id)                                                       |   Qty | Unit Size
+  ----------------------------------------------------------------+-------+----------
+  Adamantite Ore (adamantite_ore)                                 |    35 |         2
+  Adaptive Shield I (adaptive_shield_i)                           |    26 |        10
+  Advanced Repair Kit (advanced_repair_kit)                       |    21 |         3
+  Afterburner Fuel (afterburner_fuel)                             |     5 |         1
+  Afterburner I (afterburner_i)                                   |     1 |        10
+  Afterburner II (afterburner_ii)                                 |   207 |        10
+  Afterburner III (afterburner_iii)                               |     1 |        10
+  Aluminum Ore (aluminum_ore)                                     |   203 |         1
+  Aluminum Sheet (aluminum_sheet)                                 |   246 |         1
+  Anomaly Detector (anomaly_detector)                             |    73 |        10
+  Antimatter Containment Cell (antimatter_containment_cell)       |   304 |         3
+  Argon Condenser (argon_condenser)                               |    13 |        10
+  Argon Gas (argon_gas)                                           |   352 |         1
+  Armor Piercing Rounds Box (armor_piercing_rounds_box)           |   305 |         1
+  Armor Plate (armor_plate)                                       |   307 |         2
+  Armor Plate I (armor_plate_i)                                   |   226 |        10
+  Armor Plate II (armor_plate_ii)                                 |   207 |        10
+  Armor Plate III (armor_plate_iii)                               |    11 |        10
+  Autocannon I (autocannon_i)                                     |    71 |        10
+  Autocannon II (autocannon_ii)                                   |   206 |        10
+  Autopilot Module (autopilot_module)                             |    79 |         1
+  Basic Tow Rig (basic_tow_rig)                                   |    74 |        10
+  Berserker Compound (berserker_compound)                         |    13 |         1
+  Bioactive Compound (bioactive_compound)                         |   304 |         1
+  Biofiber Mesh (biofiber_mesh)                                   |    26 |         1
+  Bioluminescent Algae (bioluminescent_algae)                     |   203 |         1
+  Bioluminescent Culture (bioluminescent_culture)                 |   188 |         1
+  Blood Reaver (blood_reaver)                                     |     1 |        10
+  Breacher Torpedoes (breacher_torpedoes)                         |   148 |         1
+  Capital Ship Frame (capital_ship_frame)                         |   278 |        10
+  Carbon Ore (carbon_ore)                                         |   407 |         1
+  Cargo Bay Expansion (cargo_bay_expansion)                       |   203 |         6
+  Cargo Container (cargo_container)                               |   136 |         4
+  Cargo Expander I (cargo_expander_i)                             |   424 |        10
+  Cargo Expander II (cargo_expander_ii)                           |    23 |        10
+  Cargo Expander III (cargo_expander_iii)                         |    82 |        10
+  Cargo Superstructure (cargo_superstructure)                     |   580 |         4
+  Cascade EM Charge Pack (cascade_em_charge_pack)                 |    97 |         1
+  Ceramite Plating (ceramite_plating)                             |   495 |         1
+  Chaff Bundle (chaff_bundle)                                     |   535 |         1
+  Chlorine Compound (chlorine_compound)                           |   505 |         1
+  Chlorine Gas (chlorine_gas)                                     |   209 |         1
+  Circuit Board (circuit_board)                                   |    50 |         1
+  Cloaking Device I (cloaking_device_i)                           |     8 |        10
+  Cloaking Dust (cloaking_dust)                                   |     9 |         1
+  Cobalt Ore (cobalt_ore)                                         |   493 |         1
+  Combat Stim (combat_stim)                                       |    38 |         1
+  Communications Array (communications_array)                     |     6 |         5
+  Condensed Dark Matter (condensed_dark_matter)                   |   505 |         3
+  Contained Enriched Uranium Rod (contained_enriched_uranium_rod) |     3 |         5
+  Contained Low Enriched Uranium (contained_low_enriched_uranium) |     7 |         5
+  Contained Uranium Hexafluoride (contained_uranium_hexafluoride) |    13 |         7
+  Copper Ore (copper_ore)                                         | 12275 |         1
+  Copper Wiring (copper_wiring)                                   |  1868 |         1
+  Corrosive Plasma Cell Pack (corrosive_plasma_cell_pack)         |    81 |         1
+  Crimson Berserker Plating (crimson_berserker_plating)           |     6 |        10
+  Crimson Bloodwine (crimson_bloodwine)                           |   505 |         1
+  Cryo Slug Case (cryo_slug_case)                                 |   505 |         1
+  Cryogenic Storage (cryogenic_storage)                           |   173 |         3
+  Cryogenic Suspension Chamber (cryogenic_suspension_chamber)     |     1 |         3
+  Damage Control System (damage_control_system)                   |   118 |        10
+  Dark Matter Cell (dark_matter_cell)                             |   455 |         2
+  Dark Matter Residue (dark_matter_residue)                       |   203 |         3
+  Dark Matter Thruster (dark_matter_thruster)                     |    11 |         3
+  Darksteel Ore (darksteel_ore)                                   |    50 |         2
+  Darksteel Plating (darksteel_plating)                           |   173 |         2
+  Deuterium (deuterium)                                           |   303 |         1
+  Deuterium Ice (deuterium_ice)                                   |   303 |         2
+  Dispersal Plasma Cell Pack (dispersal_plasma_cell_pack)         |    57 |         1
+  Drone Chassis (drone_chassis)                                   |    92 |         4
+  Drone Command Module (drone_command_module)                     |    36 |         3
+  Durasteel Plate (durasteel_plate)                               |   503 |         2
+  ECM Jammer Pod (ecm_jammer_pod)                                 |    60 |         1
+  Electrum Ingot (electrum_ingot)                                 |   303 |         2
+  EM Charge Pack (em_charge_pack)                                 |   303 |         1
+  EM Disruptor I (em_disruptor_i)                                 |    32 |        10
+  EM Hull Hardener (em_hull_hardener)                             |    20 |        10
+  EM Shield Hardener (em_shield_hardener)                         |     3 |        10
+  EMP Mines (emp_mines)                                           |   303 |         1
+  EMP Pulse II (emp_pulse_ii)                                     |     1 |        10
+  Endurance Booster (endurance_booster)                           |    10 |         1
+  Energy Crystal (energy_crystal)                                 |    77 |         1
+  Engine Core (engine_core)                                       |   295 |         3
+  Enriched Uranium Rod (enriched_uranium_rod)                     |    14 |         2
+  Environmental Control Unit (environmental_control_unit)         |   211 |         3
+  Exotic Crystal (exotic_crystal)                                 |    10 |         3
+  Exotic Matter (exotic_matter)                                   |   160 |         2
+  Expanded Fuel Tank (expanded_fuel_tank)                         |   202 |        10
+  Explosive Hull Hardener (explosive_hull_hardener)               |    30 |        10
+  Fermentation Culture (fermentation_culture)                     |   220 |         1
+  Ferrous Slug Case (ferrous_slug_case)                           |   343 |         1
+  Flak Cannon I (flak_cannon_i)                                   |     1 |        10
+  Flex Polymer (flex_polymer)                                     |   103 |         1
+  Fluorine Etchant (fluorine_etchant)                             |   284 |         1
+  Fluorine Gas (fluorine_gas)                                     |    41 |         1
+  Focus Stim (focus_stim)                                         |    77 |         1
+  Focused Beam I (focused_beam_i)                                 |     3 |        10
+  Focused Beam II (focused_beam_ii)                               |     3 |        10
+  Focused Beam III (focused_beam_iii)                             |     3 |        10
+  Focused Crystal (focused_crystal)                               |    33 |         1
+  Focused EM Charge Pack (focused_em_charge_pack)                 |   266 |         1
+  Focused Plasma Cell Pack (focused_plasma_cell_pack)             |    35 |         1
+  Fragmentation Rounds Box (fragmentation_rounds_box)             |   303 |         1
+  Frontier Rotgut (frontier_rotgut)                               |   303 |         1
+  Frontier Spore Spirits (frontier_spore_spirits)                 |    12 |         1
+  Fuel Cell (fuel_cell)                                           |   848 |         1
+  Fuel Tank (fuel_tank)                                           |   179 |         3
+  Fury Alloy (fury_alloy)                                         |   239 |         2
+  Fury Crystal (fury_crystal)                                     |   303 |         2
+  Fury-Tempered Plating (fury_tempered_plating)                   |   273 |         3
+  Fusion Fuel Rod (fusion_fuel_rod)                               |    14 |         2
+  Galactic Standard Alloy (galactic_standard_alloy)               |     7 |         3
+  Gas Harvester I (gas_harvester_i)                               |    56 |        10
+  Gas Harvester II (gas_harvester_ii)                             |    24 |        10
+  Gas Harvester III (gas_harvester_iii)                           |    96 |        10
+  Gold Ore (gold_ore)                                             |   311 |         1
+  Gold Wiring (gold_wiring)                                       |   287 |         1
+  Graphene Sheet (graphene_sheet)                                 |   259 |         1
+  Graviton Beam I (graviton_beam_i)                               |     1 |        10
+  Hazmat Container (hazmat_container)                             |    78 |         4
+  Heat Sink (heat_sink)                                           |   207 |         1
+  Heavy Torpedo (heavy_torpedo)                                   |    39 |        10
+  Helium-3 (helium_3)                                             |   303 |         1
+  Helium Ice (helium_ice)                                         |   303 |         2
+  Hull Patch (hull_patch)                                         |   303 |         1
+  Hull Plating (hull_plating)                                     |   245 |         2
+  Hull Reinforcement I (hull_reinforcement_i)                     |   111 |        10
+  Hull Reinforcement II (hull_reinforcement_ii)                   |    24 |        10
+  Hydrogen Gas (hydrogen_gas)                                     |   298 |         1
+  Ice Harvester I (ice_harvester_i)                               |   203 |        10
+  Ice Harvester II (ice_harvester_ii)                             |     9 |        10
+  Ice Harvester III (ice_harvester_iii)                           |     5 |        10
+  Ice Harvester IV (ice_harvester_iv)                             |     9 |        10
+  Ion Blaster II (ion_blaster_ii)                                 |     1 |        10
+  Ion Blaster III (ion_blaster_iii)                               |    25 |        10
+  Ion Emitter (ion_emitter)                                       |    27 |         2
+  Ion Gas (ion_gas)                                               |   195 |         1
+  Ion Solution (ion_solution)                                     |    23 |         1
+  Ionized Neon (ionized_neon)                                     |   303 |         1
+  Iridium Ore (iridium_ore)                                       |   259 |         1
+  Iron Ore (iron_ore)                                             | 11212 |         1
+  Kinetic Hull Hardener (kinetic_hull_hardener)                   |    11 |        10
+  Krypton Gas (krypton_gas)                                       |    44 |         1
+  Laser Focus Array (laser_focus_array)                           |    14 |         2
+  Lead Ingot (lead_ingot)                                         |   107 |         1
+  Lead Lined Cargo I (lead_lined_cargo_i)                         |     8 |        10
+  Lead Ore (lead_ore)                                             |   319 |         2
+  Lead Sheet (lead_sheet)                                         |   101 |         1
+  Legacy Ore (legacy_ore)                                         |   242 |         2
+  Life Support Array (life_support_array)                         |   154 |         3
+  Life Support Unit (life_support_unit)                           |   319 |         2
+  Light Drone Bay (light_drone_bay)                               |     2 |        10
+  Liquid Hydrogen (liquid_hydrogen)                               |   143 |         1
+  Liquid Nitrogen (liquid_nitrogen)                               |   303 |         1
+  Liquid Tritium (liquid_tritium)                                 |     1 |         1
+  Lithium Ore (lithium_ore)                                       |   285 |         1
+  Magnetic Ore Separator (magnetic_ore_separator)                 |     7 |        10
+  Micro-Thruster Array (micro_thruster_array)                     |     4 |         1
+  Mining Drone (mining_drone)                                     |     6 |         5
+  Mining Laser I (mining_laser_i)                                 |   211 |        10
+  Mining Laser II (mining_laser_ii)                               |   204 |        10
+  Mining Laser III (mining_laser_iii)                             |   119 |        10
+  Mining Laser IV (mining_laser_iv)                               |    12 |        10
+  Mining Survey Probe (mining_survey_probe)                       |     8 |         1
+  Missile Launcher I (missile_launcher_i)                         |     5 |        10
+  Missile Launcher II (missile_launcher_ii)                       |     1 |        10
+  Missile Warhead (missile_warhead)                               |   303 |         2
+  Nanoplastic Composite (nanoplastic_composite)                   |   303 |         1
+  Navigation Array (navigation_array)                             |    48 |         2
+  Nebula Bio-Regenerator (nebula_bio_regenerator)                 |    31 |        10
+  Nebula Cargo Matrix (nebula_cargo_matrix)                       |   303 |         3
+  Nebula Essence (nebula_essence)                                 |   303 |         1
+  Nebula Gas (nebula_gas)                                         |   303 |         2
+  Nebula Prism Computer (nebula_prism_computer)                   |   122 |         2
+  Nebula Stellar Vintage (nebula_stellar_vintage)                 |    17 |         1
+  Neon Gas (neon_gas)                                             |   315 |         1
+  Neon Signaling Array (neon_signaling_array)                     |   303 |         1
+  Neural Disruption Charge Pack (neural_disruption_charge_pack)   |     7 |         1
+  Neural Extract (neural_extract)                                 |   303 |         1
+  Neural Interface Gel (neural_interface_gel)                     |    89 |         1
+  Neutronium Ingot (neutronium_ingot)                             |     6 |         3
+  Nickel Ore (nickel_ore)                                         | 18047 |         1
+  Nitrogen Ice (nitrogen_ice)                                     |   303 |         1
+  Null Matter (null_matter)                                       |   256 |         2
+  Ore Hopper (ore_hopper)                                         |   202 |         5
+  Palladium Ore (palladium_ore)                                   |   285 |         1
+  Pan-Galactic Matrix (pan_galactic_matrix)                       |     1 |         3
+  Pharmaceutical Culture (pharmaceutical_culture)                 |   154 |         1
+  Phase Array (phase_array)                                       |   303 |         3
+  Phase Cloaking Device (phase_cloaking_device)                   |     2 |        10
+  Phase Crystal (phase_crystal)                                   |   215 |         2
+  Phase Matrix (phase_matrix)                                     |   351 |         2
+  Piercing Railgun I (piercing_railgun_i)                         |     2 |        10
+  Pirate Radio Scanner (pirate_radio_scanner)                     |   102 |        10
+  Plasma Cell Pack (plasma_cell_pack)                             |   136 |         1
+  Plasma Gas (plasma_gas)                                         |   303 |         2
+  Plasma Residue (plasma_residue)                                 |   248 |         2
+  Platinum Ore (platinum_ore)                                     |   411 |         1
+  Power Battery (power_battery)                                   |   309 |         1
+  Power Cell (power_cell)                                         |   205 |         2
+  Power Core (power_core)                                         |     2 |         3
+  Power Distribution Grid (power_distribution_grid)               |   275 |         2
+  Precision Optic (precision_optic)                               |   363 |         1
+  Premium Fuel Cell (premium_fuel_cell)                           |   303 |         2
+  Pressure Seal (pressure_seal)                                   |  6629 |         1
+  Prismatic Lens (prismatic_lens)                                 |   328 |         1
+  Prismatic Nebulite (prismatic_nebulite)                         |   204 |         1
+  Processed Null Matter (processed_null_matter)                   |   197 |         2
+  Processed Thorium (processed_thorium)                           |     6 |         1
+  Processing Core (processing_core)                               |   257 |         1
+  Pulse Laser I (pulse_laser_i)                                   |   202 |        10
+  Pulse Laser II (pulse_laser_ii)                                 |     4 |        10
+  Pulse Laser III (pulse_laser_iii)                               |    33 |        10
+  Purified Argon (purified_argon)                                 |   281 |         1
+  Purified Krypton (purified_krypton)                             |    32 |         1
+  Purified Water (purified_water)                                 |   339 |         1
+  Purified Xenon (purified_xenon)                                 |   238 |         1
+  Quantum Dot Matrix (quantum_dot_matrix)                         |   165 |         1
+  Quantum Fragments (quantum_fragments)                           |   265 |         3
+  Quantum Processor (quantum_processor)                           |    13 |         2
+  Quantum Stabilizer (quantum_stabilizer)                         |   324 |         2
+  Radiation-Hardened Circuit (radiation_hardened_circuit)         |    10 |         1
+  Radium Ore (radium_ore)                                         |    18 |         1
+  Radium Phosphor (radium_phosphor)                               |   202 |         1
+  Railgun Capacitor (railgun_capacitor)                           |     2 |         3
+  Railgun II (railgun_ii)                                         |     7 |        10
+  Rare Salvage (rare_salvage)                                     |    49 |         1
+  Reactive Armor Hardener (reactive_armor_hardener)               |     9 |        10
+  Refined Plasma Core (refined_plasma_core)                       |   303 |         2
+  Refined Quantum Matrix (refined_quantum_matrix)                 |     5 |         2
+  Reflex Enhancer (reflex_enhancer)                               |   303 |         1
+  Refueling Pump (refueling_pump)                                 |    71 |        10
+  Reinforced Bulkhead (reinforced_bulkhead)                       |   251 |         3
+  Reinforced Glass (reinforced_glass)                             |  1553 |         1
+  Repair Kit (repair_kit)                                         |   306 |         2
+  Repair Nanite Container (repair_nanite_container)               |   303 |         2
+  Repair Nanites (repair_nanites)                                 |   134 |         1
+  Salvage Components (salvage_components)                         |     4 |         2
+  Salvage Metal (salvage_metal)                                   |   303 |         1
+  Scrapgun (scrapgun)                                             |    24 |        10
+  Sensor Array (sensor_array)                                     |   219 |         2
+  Sensor Booster (sensor_booster)                                 |   303 |         1
+  Sensor Cluster (sensor_cluster)                                 |    23 |         2
+  Sensor Jammer (sensor_jammer)                                   |     9 |         1
+  Sensor Package (sensor_package)                                 |    98 |         3
+  Shield Array (shield_array)                                     |    84 |         3
+  Shield Booster I (shield_booster_i)                             |   202 |        10
+  Shield Booster II (shield_booster_ii)                           |    65 |        10
+  Shield Booster III (shield_booster_iii)                         |    25 |        10
+  Shield Booster IV (shield_booster_iv)                           |    40 |        10
+  Shield Charge (shield_charge)                                   |   170 |         1
+  Shield Emitter (shield_emitter)                                 |   155 |         2
+  Shield Matrix (shield_matrix)                                   |   327 |         2
+  Shield Overcharge (shield_overcharge)                           |    25 |         1
+  Ship Scanner I (ship_scanner_i)                                 |   202 |        10
+  Ship Scanner II (ship_scanner_ii)                               |     4 |        10
+  Silicate Composite (silicate_composite)                         |  1528 |         1
+  Silicon Ore (silicon_ore)                                       | 12528 |         1
+  Silver Ore (silver_ore)                                         |   299 |         1
+  Silver Wiring (silver_wiring)                                   |   262 |         1
+  Sol Alloy Ore (sol_alloy_ore)                                   |   300 |         2
+  Solarian Biotic (solarian_biotic)                               |   202 |         1
+  Solarian Composite (solarian_composite)                         |   216 |         2
+  Solarian Gourmet Rations (solarian_gourmet_rations)             |   303 |         1
+  Solarian Legacy Alloy (solarian_legacy_alloy)                   |   156 |         2
+  Solarian Logic Matrix (solarian_logic_matrix)                   |    31 |         2
+  Speed Stim (speed_stim)                                         |     3 |         1
+  Stabilized Exotic (stabilized_exotic)                           |    52 |         2
+  Standard Guided Missiles (standard_guided_missiles)             |    69 |         1
+  Standard Rounds Box (standard_rounds_box)                       |   956 |         1
+  Steel Plate (steel_plate)                                       |  1807 |         1
+  Superconductor (superconductor)                                 |   351 |         1
+  Survey Scanner I (survey_scanner_i)                             |   181 |        10
+  Survey Scanner II (survey_scanner_ii)                           |    22 |        10
+  Swarm Controller (swarm_controller)                             |    12 |         2
+  Synthetic Compound (synthetic_compound)                         |    72 |         1
+  Synthetic Diamond (synthetic_diamond)                           |   303 |         1
+  Target Painter I (target_painter_i)                             |     1 |        10
+  Targeting Computer (targeting_computer)                         |    58 |         2
+  Thermal Ceramic (thermal_ceramic)                               |   307 |         1
+  Thermal Flare (thermal_flare)                                   |   111 |         1
+  Thermal Hull Hardener (thermal_hull_hardener)                   |    30 |        10
+  Thermal Sublimator (thermal_sublimator)                         |    10 |        10
+  Thorium Ore (thorium_ore)                                       |   115 |         2
+  Thruster Assembly (thruster_assembly)                           |   303 |         3
+  Thruster Nozzle (thruster_nozzle)                               |   303 |         2
+  Titanium Alloy (titanium_alloy)                                 |   299 |         1
+  Titanium Ingot (titanium_ingot)                                 |   309 |         1
+  Titanium Ore (titanium_ore)                                     |   219 |         1
+  Trace Exotic Element (trace_exotic_element)                     |   303 |         1
+  Trade Authenticator (trade_authenticator)                       |   521 |         1
+  Trade Crystal (trade_crystal)                                   |  5257 |         1
+  Tungsten Ore (tungsten_ore)                                     |   203 |         2
+  Tungsten Rod (tungsten_rod)                                     |   301 |         2
+  Tungsten Slug Case (tungsten_slug_case)                         |   303 |         1
+  Universal Nav Core (universal_nav_core)                         |    22 |         2
+  Uranium Hexafluoride (uranium_hexafluoride)                     |   142 |         2
+  Uranium Ore (uranium_ore)                                       |    92 |         2
+  Vanadium Ore (vanadium_ore)                                     |   472 |         1
+  Void Capacitor (void_capacitor)                                 |    14 |         3
+  Void Core Pack (void_core_pack)                                 |    10 |         1
+  Void Essence (void_essence)                                     |   263 |         2
+  Void Nanite Suspension (void_nanite_suspension)                 |   202 |         1
+  Voidborn Neural Matrix (voidborn_neural_matrix)                 |   303 |         1
+  Voidborn Neural Soma (voidborn_neural_soma)                     |   179 |         1
+  Voidborn Null Matrix (voidborn_null_matrix)                     |    13 |         2
+  Water Ice (water_ice)                                           |   203 |         1
+  Water Recycler (water_recycler)                                 |   293 |         2
+  Weapon Battery (weapon_battery)                                 |   130 |         3
+  Weapon Core (weapon_core)                                       |   303 |         2
+  Weapon Housing (weapon_housing)                                 |   303 |         2
+  Wiring Harness (wiring_harness)                                 |  6606 |         1
+  Xenon Gas (xenon_gas)                                           |   303 |         1
+  (313 items)
+
+  SHIPS
+  ID                               | Ship Name          | Class              | Cargo Used | Modules
+  ---------------------------------+--------------------+--------------------+------------+--------
+  31b97faa7818acd0d3538c563934780b | Prospect           | prospect           |          0 |       2
+  4fe7c543723f57f4cbbcdad3294af86d | Deeprock Harvester | deeprock_harvester |          0 |       7
+  67ef4a3e25dc336829d7d3e25736fe61 | Reclaim            | reclaim            |          0 |       1
+  9c52d6bd795852b673a66c493000cf98 | Drillship          | drillship          |          0 |       1
+  af34282e3f0e0e0443829b969452e6a6 | Excavator          | excavator          |          0 |       2
+  b2a90a6475787282821b422b34658403 | Confluence         | confluence         |          0 |       5
+  (6 ships)
+
+✓ Completed in 2.16884101s
+
+
+[craftsman-1-GAME] 2026/05/25 18:33:39 Action result: deploy_drone (unhandled)
+
+
+[PLAY_AS-craftsman-1] 2026/05/25 18:45:01 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (19)
+  Skill                  | Category    | Level |     Progress to Next
+  -----------------------+-------------+-------+---------------------
+  Gunnery                | Combat      |     0 |      6 /    60 (10%)
+  Leadership             | Combat      |     0 |     56 /    60 (93%)
+  Tactics                | Combat      |     0 |      6 /    60 (10%)
+  Weapons                | Combat      |     0 |      2 /    60 ( 3%)
+  Corporation Management | Commerce    |     6 |    802 /  1740 (46%)
+  Smuggling              | Commerce    |     0 |     50 /    60 (83%)
+  Trading                | Commerce    |    17 |   6147 / 11365 (54%)
+  Nebula Attunement      | Empire      |     0 |     50 /    60 (83%)
+  Drone Control          | Engineering |     3 |    255 /   585 (43%)
+  Engineering            | Engineering |    25 |   5181 / 23685 (21%)
+  Exploration            | Exploration |     2 |    115 /   340 (33%)
+  Wormhole Navigation    | Exploration |     0 |     50 /    60 (83%)
+  Crafting               | Industry    |    22 |  18155 / 18540 (97%)
+  Deep Core Mining       | Industry    |    17 |   6353 / 11365 (55%)
+  Mining                 | Industry    |    17 |  11172 / 11365 (98%)
+  Refining               | Industry    |    12 |   4780 /  5940 (80%)
+  Navigation             | Ships       |    12 |   3080 /  5940 (51%)
+  Piloting               | Ships       |    28 |    629 / 29460 ( 2%)
+  Scanning               | Ships       |    12 |   1772 /  5940 (29%)
+
+✓ Completed in 2.091197675s
+
+
+
+1 AM stats
+
+[craftsman-1-GAME] 2026/05/26 01:41:27 Stored raw JSON for storage (25977 bytes)
+[craftsman-1-GAME] 2026/05/26 01:41:27 Parsed ship listings data
+
+Storage at grand_exchange_station — 313 types, 135548 units, 204396 volume
+  Name (id)                                                       |   Qty | Unit Size
+  ----------------------------------------------------------------+-------+----------
+  Adamantite Ore (adamantite_ore)                                 |    35 |         2
+  Adaptive Shield I (adaptive_shield_i)                           |    26 |        10
+  Advanced Repair Kit (advanced_repair_kit)                       |    21 |         3
+  Afterburner Fuel (afterburner_fuel)                             |     5 |         1
+  Afterburner I (afterburner_i)                                   |     1 |        10
+  Afterburner II (afterburner_ii)                                 |   207 |        10
+  Afterburner III (afterburner_iii)                               |     1 |        10
+  Aluminum Ore (aluminum_ore)                                     |   203 |         1
+  Aluminum Sheet (aluminum_sheet)                                 |   246 |         1
+  Anomaly Detector (anomaly_detector)                             |    73 |        10
+  Antimatter Containment Cell (antimatter_containment_cell)       |   304 |         3
+  Argon Condenser (argon_condenser)                               |    13 |        10
+  Argon Gas (argon_gas)                                           |   453 |         1
+  Armor Piercing Rounds Box (armor_piercing_rounds_box)           |   305 |         1
+  Armor Plate (armor_plate)                                       |   307 |         2
+  Armor Plate I (armor_plate_i)                                   |   226 |        10
+  Armor Plate II (armor_plate_ii)                                 |   207 |        10
+  Armor Plate III (armor_plate_iii)                               |    11 |        10
+  Autocannon I (autocannon_i)                                     |    71 |        10
+  Autocannon II (autocannon_ii)                                   |   206 |        10
+  Autopilot Core (autopilot_core)                                 |    66 |         2
+  Autopilot Module (autopilot_module)                             |   304 |         1
+  Basic Tow Rig (basic_tow_rig)                                   |    74 |        10
+  Berserker Compound (berserker_compound)                         |    13 |         1
+  Bioactive Compound (bioactive_compound)                         |   304 |         1
+  Biofiber Mesh (biofiber_mesh)                                   |    26 |         1
+  Bioluminescent Algae (bioluminescent_algae)                     |   203 |         1
+  Bioluminescent Culture (bioluminescent_culture)                 |   188 |         1
+  Blood Reaver (blood_reaver)                                     |     1 |        10
+  Breacher Torpedoes (breacher_torpedoes)                         |   148 |         1
+  Capital Ship Frame (capital_ship_frame)                         |   278 |        10
+  Carbon Ore (carbon_ore)                                         |   407 |         1
+  Cargo Bay Expansion (cargo_bay_expansion)                       |   203 |         6
+  Cargo Container (cargo_container)                               |   136 |         4
+  Cargo Expander I (cargo_expander_i)                             |   424 |        10
+  Cargo Expander II (cargo_expander_ii)                           |    23 |        10
+  Cargo Expander III (cargo_expander_iii)                         |    83 |        10
+  Cargo Superstructure (cargo_superstructure)                     |   580 |         4
+  Cascade EM Charge Pack (cascade_em_charge_pack)                 |    97 |         1
+  Ceramite Plating (ceramite_plating)                             |   495 |         1
+  Chaff Bundle (chaff_bundle)                                     |   535 |         1
+  Chlorine Compound (chlorine_compound)                           |   505 |         1
+  Chlorine Gas (chlorine_gas)                                     |   209 |         1
+  Circuit Board (circuit_board)                                   |    50 |         1
+  Cloaking Device I (cloaking_device_i)                           |     8 |        10
+  Cloaking Dust (cloaking_dust)                                   |     9 |         1
+  Cobalt Ore (cobalt_ore)                                         |   493 |         1
+  Combat Stim (combat_stim)                                       |    38 |         1
+  Communications Array (communications_array)                     |     6 |         5
+  Condensed Dark Matter (condensed_dark_matter)                   |   505 |         3
+  Contained Enriched Uranium Rod (contained_enriched_uranium_rod) |     3 |         5
+  Contained Low Enriched Uranium (contained_low_enriched_uranium) |     7 |         5
+  Contained Uranium Hexafluoride (contained_uranium_hexafluoride) |    13 |         7
+  Copper Ore (copper_ore)                                         | 12693 |         1
+  Copper Wiring (copper_wiring)                                   |  1868 |         1
+  Corrosive Plasma Cell Pack (corrosive_plasma_cell_pack)         |    81 |         1
+  Crimson Berserker Plating (crimson_berserker_plating)           |     6 |        10
+  Crimson Bloodwine (crimson_bloodwine)                           |   505 |         1
+  Cryo Slug Case (cryo_slug_case)                                 |   505 |         1
+  Cryogenic Storage (cryogenic_storage)                           |   173 |         3
+  Cryogenic Suspension Chamber (cryogenic_suspension_chamber)     |     1 |         3
+  Damage Control System (damage_control_system)                   |   118 |        10
+  Dark Matter Cell (dark_matter_cell)                             |   455 |         2
+  Dark Matter Residue (dark_matter_residue)                       |   203 |         3
+  Dark Matter Thruster (dark_matter_thruster)                     |    11 |         3
+  Darksteel Ore (darksteel_ore)                                   |    50 |         2
+  Darksteel Plating (darksteel_plating)                           |   173 |         2
+  Deuterium (deuterium)                                           |   303 |         1
+  Deuterium Ice (deuterium_ice)                                   |   303 |         2
+  Dispersal Plasma Cell Pack (dispersal_plasma_cell_pack)         |    57 |         1
+  Drone Chassis (drone_chassis)                                   |    92 |         4
+  Drone Command Module (drone_command_module)                     |    36 |         3
+  Durasteel Plate (durasteel_plate)                               |   503 |         2
+  ECM Jammer Pod (ecm_jammer_pod)                                 |    60 |         1
+  Electrum Ingot (electrum_ingot)                                 |   303 |         2
+  EM Charge Pack (em_charge_pack)                                 |   303 |         1
+  EM Disruptor I (em_disruptor_i)                                 |    32 |        10
+  EM Hull Hardener (em_hull_hardener)                             |    20 |        10
+  EM Shield Hardener (em_shield_hardener)                         |     3 |        10
+  EMP Mines (emp_mines)                                           |   303 |         1
+  EMP Pulse II (emp_pulse_ii)                                     |     1 |        10
+  Endurance Booster (endurance_booster)                           |    10 |         1
+  Energy Crystal (energy_crystal)                                 |    77 |         1
+  Engine Core (engine_core)                                       |   295 |         3
+  Enriched Uranium Rod (enriched_uranium_rod)                     |    14 |         2
+  Environmental Control Unit (environmental_control_unit)         |   211 |         3
+  Exotic Crystal (exotic_crystal)                                 |    10 |         3
+  Exotic Matter (exotic_matter)                                   |   160 |         2
+  Expanded Fuel Tank (expanded_fuel_tank)                         |   202 |        10
+  Explosive Hull Hardener (explosive_hull_hardener)               |    30 |        10
+  Fermentation Culture (fermentation_culture)                     |   220 |         1
+  Ferrous Slug Case (ferrous_slug_case)                           |   343 |         1
+  Flak Cannon I (flak_cannon_i)                                   |     1 |        10
+  Flex Polymer (flex_polymer)                                     |    81 |         1
+  Fluorine Etchant (fluorine_etchant)                             |   284 |         1
+  Fluorine Gas (fluorine_gas)                                     |    41 |         1
+  Focus Stim (focus_stim)                                         |    77 |         1
+  Focused Beam I (focused_beam_i)                                 |     3 |        10
+  Focused Beam II (focused_beam_ii)                               |     3 |        10
+  Focused Beam III (focused_beam_iii)                             |     3 |        10
+  Focused Crystal (focused_crystal)                               |    33 |         1
+  Focused EM Charge Pack (focused_em_charge_pack)                 |   266 |         1
+  Focused Plasma Cell Pack (focused_plasma_cell_pack)             |    35 |         1
+  Fragmentation Rounds Box (fragmentation_rounds_box)             |   303 |         1
+  Frontier Rotgut (frontier_rotgut)                               |   303 |         1
+  Frontier Spore Spirits (frontier_spore_spirits)                 |    12 |         1
+  Fuel Cell (fuel_cell)                                           |   848 |         1
+  Fuel Tank (fuel_tank)                                           |   179 |         3
+  Fury Alloy (fury_alloy)                                         |   239 |         2
+  Fury Crystal (fury_crystal)                                     |   303 |         2
+  Fury-Tempered Plating (fury_tempered_plating)                   |   273 |         3
+  Fusion Fuel Rod (fusion_fuel_rod)                               |    14 |         2
+  Galactic Standard Alloy (galactic_standard_alloy)               |     7 |         3
+  Gas Harvester I (gas_harvester_i)                               |    56 |        10
+  Gas Harvester II (gas_harvester_ii)                             |    24 |        10
+  Gas Harvester III (gas_harvester_iii)                           |    96 |        10
+  Gold Ore (gold_ore)                                             |   311 |         1
+  Gold Wiring (gold_wiring)                                       |   287 |         1
+  Graphene Sheet (graphene_sheet)                                 |   259 |         1
+  Graviton Beam I (graviton_beam_i)                               |     1 |        10
+  Hazmat Container (hazmat_container)                             |    78 |         4
+  Heat Sink (heat_sink)                                           |   207 |         1
+  Heavy Torpedo (heavy_torpedo)                                   |    39 |        10
+  Helium-3 (helium_3)                                             |   303 |         1
+  Helium Ice (helium_ice)                                         |   303 |         2
+  Hull Patch (hull_patch)                                         |   303 |         1
+  Hull Plating (hull_plating)                                     |   245 |         2
+  Hull Reinforcement I (hull_reinforcement_i)                     |   111 |        10
+  Hull Reinforcement II (hull_reinforcement_ii)                   |    24 |        10
+  Hydrogen Gas (hydrogen_gas)                                     |   513 |         1
+  Ice Harvester I (ice_harvester_i)                               |   203 |        10
+  Ice Harvester II (ice_harvester_ii)                             |     9 |        10
+  Ice Harvester III (ice_harvester_iii)                           |     5 |        10
+  Ice Harvester IV (ice_harvester_iv)                             |     9 |        10
+  Ion Blaster II (ion_blaster_ii)                                 |     1 |        10
+  Ion Blaster III (ion_blaster_iii)                               |    25 |        10
+  Ion Emitter (ion_emitter)                                       |    27 |         2
+  Ion Gas (ion_gas)                                               |   195 |         1
+  Ion Solution (ion_solution)                                     |    23 |         1
+  Ionized Neon (ionized_neon)                                     |   303 |         1
+  Iridium Ore (iridium_ore)                                       |   259 |         1
+  Iron Ore (iron_ore)                                             | 12060 |         1
+  Kinetic Hull Hardener (kinetic_hull_hardener)                   |    11 |        10
+  Krypton Gas (krypton_gas)                                       |    44 |         1
+  Laser Focus Array (laser_focus_array)                           |    14 |         2
+  Lead Ingot (lead_ingot)                                         |   107 |         1
+  Lead Lined Cargo I (lead_lined_cargo_i)                         |     8 |        10
+  Lead Ore (lead_ore)                                             |   319 |         2
+  Lead Sheet (lead_sheet)                                         |   101 |         1
+  Legacy Ore (legacy_ore)                                         |   242 |         2
+  Life Support Array (life_support_array)                         |   154 |         3
+  Life Support Unit (life_support_unit)                           |   319 |         2
+  Liquid Hydrogen (liquid_hydrogen)                               |   143 |         1
+  Liquid Nitrogen (liquid_nitrogen)                               |   303 |         1
+  Liquid Tritium (liquid_tritium)                                 |     1 |         1
+  Lithium Ore (lithium_ore)                                       |   285 |         1
+  Magnetic Ore Separator (magnetic_ore_separator)                 |     7 |        10
+  Micro-Thruster Array (micro_thruster_array)                     |     4 |         1
+  Mining Drone (mining_drone)                                     |     4 |         5
+  Mining Laser I (mining_laser_i)                                 |   211 |        10
+  Mining Laser II (mining_laser_ii)                               |   204 |        10
+  Mining Laser III (mining_laser_iii)                             |   118 |        10
+  Mining Laser IV (mining_laser_iv)                               |    12 |        10
+  Mining Survey Probe (mining_survey_probe)                       |     8 |         1
+  Missile Launcher I (missile_launcher_i)                         |     5 |        10
+  Missile Launcher II (missile_launcher_ii)                       |     1 |        10
+  Missile Warhead (missile_warhead)                               |   303 |         2
+  Nanoplastic Composite (nanoplastic_composite)                   |   303 |         1
+  Navigation Array (navigation_array)                             |    48 |         2
+  Nebula Bio-Regenerator (nebula_bio_regenerator)                 |    31 |        10
+  Nebula Cargo Matrix (nebula_cargo_matrix)                       |   303 |         3
+  Nebula Essence (nebula_essence)                                 |   303 |         1
+  Nebula Gas (nebula_gas)                                         |   303 |         2
+  Nebula Prism Computer (nebula_prism_computer)                   |   122 |         2
+  Nebula Stellar Vintage (nebula_stellar_vintage)                 |    17 |         1
+  Neon Gas (neon_gas)                                             |   349 |         1
+  Neon Signaling Array (neon_signaling_array)                     |   303 |         1
+  Neural Disruption Charge Pack (neural_disruption_charge_pack)   |     7 |         1
+  Neural Extract (neural_extract)                                 |   303 |         1
+  Neural Interface Gel (neural_interface_gel)                     |    89 |         1
+  Neutronium Ingot (neutronium_ingot)                             |     6 |         3
+  Nickel Ore (nickel_ore)                                         | 18467 |         1
+  Nitrogen Ice (nitrogen_ice)                                     |   398 |         1
+  Null Matter (null_matter)                                       |   256 |         2
+  Ore Hopper (ore_hopper)                                         |   202 |         5
+  Palladium Ore (palladium_ore)                                   |   285 |         1
+  Pan-Galactic Matrix (pan_galactic_matrix)                       |     1 |         3
+  Pharmaceutical Culture (pharmaceutical_culture)                 |   154 |         1
+  Phase Array (phase_array)                                       |   303 |         3
+  Phase Cloaking Device (phase_cloaking_device)                   |     2 |        10
+  Phase Crystal (phase_crystal)                                   |   215 |         2
+  Phase Matrix (phase_matrix)                                     |   351 |         2
+  Piercing Railgun I (piercing_railgun_i)                         |     2 |        10
+  Pirate Radio Scanner (pirate_radio_scanner)                     |   102 |        10
+  Plasma Cell Pack (plasma_cell_pack)                             |   136 |         1
+  Plasma Gas (plasma_gas)                                         |   303 |         2
+  Plasma Residue (plasma_residue)                                 |   248 |         2
+  Platinum Ore (platinum_ore)                                     |   411 |         1
+  Power Battery (power_battery)                                   |   309 |         1
+  Power Cell (power_cell)                                         |   205 |         2
+  Power Core (power_core)                                         |     2 |         3
+  Power Distribution Grid (power_distribution_grid)               |   275 |         2
+  Precision Optic (precision_optic)                               |   363 |         1
+  Premium Fuel Cell (premium_fuel_cell)                           |   303 |         2
+  Pressure Seal (pressure_seal)                                   |  6629 |         1
+  Prismatic Lens (prismatic_lens)                                 |   328 |         1
+  Prismatic Nebulite (prismatic_nebulite)                         |   204 |         1
+  Processed Null Matter (processed_null_matter)                   |   197 |         2
+  Processed Thorium (processed_thorium)                           |     6 |         1
+  Processing Core (processing_core)                               |   257 |         1
+  Pulse Laser I (pulse_laser_i)                                   |   202 |        10
+  Pulse Laser II (pulse_laser_ii)                                 |     4 |        10
+  Pulse Laser III (pulse_laser_iii)                               |    33 |        10
+  Purified Argon (purified_argon)                                 |   281 |         1
+  Purified Krypton (purified_krypton)                             |    32 |         1
+  Purified Water (purified_water)                                 |   339 |         1
+  Purified Xenon (purified_xenon)                                 |   194 |         1
+  Quantum Dot Matrix (quantum_dot_matrix)                         |   165 |         1
+  Quantum Fragments (quantum_fragments)                           |   265 |         3
+  Quantum Processor (quantum_processor)                           |    13 |         2
+  Quantum Stabilizer (quantum_stabilizer)                         |   324 |         2
+  Radiation-Hardened Circuit (radiation_hardened_circuit)         |    10 |         1
+  Radium Ore (radium_ore)                                         |    18 |         1
+  Radium Phosphor (radium_phosphor)                               |   202 |         1
+  Railgun Capacitor (railgun_capacitor)                           |     2 |         3
+  Railgun II (railgun_ii)                                         |     7 |        10
+  Rare Salvage (rare_salvage)                                     |    49 |         1
+  Reactive Armor Hardener (reactive_armor_hardener)               |     9 |        10
+  Refined Plasma Core (refined_plasma_core)                       |   303 |         2
+  Refined Quantum Matrix (refined_quantum_matrix)                 |     5 |         2
+  Reflex Enhancer (reflex_enhancer)                               |   303 |         1
+  Refueling Pump (refueling_pump)                                 |    71 |        10
+  Reinforced Bulkhead (reinforced_bulkhead)                       |   251 |         3
+  Reinforced Glass (reinforced_glass)                             |  1553 |         1
+  Repair Kit (repair_kit)                                         |   306 |         2
+  Repair Nanite Container (repair_nanite_container)               |   303 |         2
+  Repair Nanites (repair_nanites)                                 |   134 |         1
+  Salvage Components (salvage_components)                         |     4 |         2
+  Salvage Metal (salvage_metal)                                   |   303 |         1
+  Scrapgun (scrapgun)                                             |    24 |        10
+  Sensor Array (sensor_array)                                     |   219 |         2
+  Sensor Booster (sensor_booster)                                 |   303 |         1
+  Sensor Cluster (sensor_cluster)                                 |    23 |         2
+  Sensor Jammer (sensor_jammer)                                   |     9 |         1
+  Sensor Package (sensor_package)                                 |    98 |         3
+  Shield Array (shield_array)                                     |    84 |         3
+  Shield Booster I (shield_booster_i)                             |   202 |        10
+  Shield Booster II (shield_booster_ii)                           |    65 |        10
+  Shield Booster III (shield_booster_iii)                         |    25 |        10
+  Shield Booster IV (shield_booster_iv)                           |    40 |        10
+  Shield Charge (shield_charge)                                   |   170 |         1
+  Shield Emitter (shield_emitter)                                 |   155 |         2
+  Shield Matrix (shield_matrix)                                   |   327 |         2
+  Shield Overcharge (shield_overcharge)                           |    25 |         1
+  Ship Scanner I (ship_scanner_i)                                 |   202 |        10
+  Ship Scanner II (ship_scanner_ii)                               |     4 |        10
+  Silicate Composite (silicate_composite)                         |  1528 |         1
+  Silicon Ore (silicon_ore)                                       | 13363 |         1
+  Silver Ore (silver_ore)                                         |   299 |         1
+  Silver Wiring (silver_wiring)                                   |   262 |         1
+  Sol Alloy Ore (sol_alloy_ore)                                   |   300 |         2
+  Solarian Biotic (solarian_biotic)                               |   202 |         1
+  Solarian Composite (solarian_composite)                         |   216 |         2
+  Solarian Gourmet Rations (solarian_gourmet_rations)             |   303 |         1
+  Solarian Legacy Alloy (solarian_legacy_alloy)                   |   156 |         2
+  Solarian Logic Matrix (solarian_logic_matrix)                   |    31 |         2
+  Speed Stim (speed_stim)                                         |     3 |         1
+  Stabilized Exotic (stabilized_exotic)                           |    52 |         2
+  Standard Guided Missiles (standard_guided_missiles)             |    69 |         1
+  Standard Rounds Box (standard_rounds_box)                       |   956 |         1
+  Steel Plate (steel_plate)                                       |  1807 |         1
+  Superconductor (superconductor)                                 |   351 |         1
+  Survey Scanner I (survey_scanner_i)                             |   181 |        10
+  Survey Scanner II (survey_scanner_ii)                           |    22 |        10
+  Swarm Controller (swarm_controller)                             |    12 |         2
+  Synthetic Compound (synthetic_compound)                         |    72 |         1
+  Synthetic Diamond (synthetic_diamond)                           |   303 |         1
+  Target Painter I (target_painter_i)                             |     1 |        10
+  Targeting Computer (targeting_computer)                         |    58 |         2
+  Thermal Ceramic (thermal_ceramic)                               |   307 |         1
+  Thermal Flare (thermal_flare)                                   |   111 |         1
+  Thermal Hull Hardener (thermal_hull_hardener)                   |    30 |        10
+  Thermal Sublimator (thermal_sublimator)                         |    10 |        10
+  Thorium Ore (thorium_ore)                                       |   115 |         2
+  Thruster Assembly (thruster_assembly)                           |   303 |         3
+  Thruster Nozzle (thruster_nozzle)                               |   303 |         2
+  Titanium Alloy (titanium_alloy)                                 |   255 |         1
+  Titanium Ingot (titanium_ingot)                                 |   309 |         1
+  Titanium Ore (titanium_ore)                                     |   219 |         1
+  Trace Exotic Element (trace_exotic_element)                     |   303 |         1
+  Trade Authenticator (trade_authenticator)                       |   521 |         1
+  Trade Crystal (trade_crystal)                                   |  7586 |         1
+  Tungsten Ore (tungsten_ore)                                     |   203 |         2
+  Tungsten Rod (tungsten_rod)                                     |   301 |         2
+  Tungsten Slug Case (tungsten_slug_case)                         |   303 |         1
+  Universal Nav Core (universal_nav_core)                         |    22 |         2
+  Uranium Hexafluoride (uranium_hexafluoride)                     |   142 |         2
+  Uranium Ore (uranium_ore)                                       |    92 |         2
+  Vanadium Ore (vanadium_ore)                                     |   472 |         1
+  Void Capacitor (void_capacitor)                                 |    14 |         3
+  Void Core Pack (void_core_pack)                                 |    10 |         1
+  Void Essence (void_essence)                                     |   263 |         2
+  Void Nanite Suspension (void_nanite_suspension)                 |   202 |         1
+  Voidborn Neural Matrix (voidborn_neural_matrix)                 |   303 |         1
+  Voidborn Neural Soma (voidborn_neural_soma)                     |   179 |         1
+  Voidborn Null Matrix (voidborn_null_matrix)                     |    13 |         2
+  Water Ice (water_ice)                                           |   508 |         1
+  Water Recycler (water_recycler)                                 |   293 |         2
+  Weapon Battery (weapon_battery)                                 |   130 |         3
+  Weapon Core (weapon_core)                                       |   303 |         2
+  Weapon Housing (weapon_housing)                                 |   303 |         2
+  Wiring Harness (wiring_harness)                                 |  6606 |         1
+  Xenon Gas (xenon_gas)                                           |   303 |         1
+  (313 items)
+
+  SHIPS
+  ID                               | Ship Name          | Class              | Cargo Used | Modules
+  ---------------------------------+--------------------+--------------------+------------+--------
+  31b97faa7818acd0d3538c563934780b | Prospect           | prospect           |          0 |       2
+  4fe7c543723f57f4cbbcdad3294af86d | Deeprock Harvester | deeprock_harvester |          0 |       8
+  67ef4a3e25dc336829d7d3e25736fe61 | Reclaim            | reclaim            |          0 |       1
+  9c52d6bd795852b673a66c493000cf98 | Drillship          | drillship          |          0 |       1
+  af34282e3f0e0e0443829b969452e6a6 | Excavator          | excavator          |          0 |       2
+  b2a90a6475787282821b422b34658403 | Conf
+
+
+
+[craftsman-1-GAME] 2026/05/26 01:43:22 Stored raw JSON for skills (2278 bytes)
+[PLAY_AS-craftsman-1] 2026/05/26 01:43:22 XP change: drone_control +2345.0 XP (level 15->16) from get_skills  (qty: 1)
+[PLAY_AS-craftsman-1] 2026/05/26 01:43:22 XP change: crafting +35.0 XP (level 22->23) from get_skills  (qty: 1)
+[PLAY_AS-craftsman-1] 2026/05/26 01:43:22 XP change: engineering +330.0 XP (level 25->25) from get_skills  (qty: 1)
+[PLAY_AS-craftsman-1] 2026/05/26 01:43:22 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (19)
+  Skill                  | Category    | Level |     Progress to Next
+  -----------------------+-------------+-------+---------------------
+  Gunnery                | Combat      |     0 |      6 /    60 (10%)
+  Leadership             | Combat      |     0 |     56 /    60 (93%)
+  Tactics                | Combat      |     0 |      6 /    60 (10%)
+  Weapons                | Combat      |     0 |      2 /    60 ( 3%)
+  Corporation Management | Commerce    |     6 |    817 /  1740 (46%)
+  Smuggling              | Commerce    |     0 |     50 /    60 (83%)
+  Trading                | Commerce    |    17 |   6147 / 11365 (54%)
+  Nebula Attunement      | Empire      |     0 |     50 /    60 (83%)
+  Drone Control          | Engineering |    16 |   8105 / 10140 (79%)
+  Engineering            | Engineering |    25 |   7547 / 23685 (31%)
+  Exploration            | Exploration |     2 |    115 /   340 (33%)
+  Wormhole Navigation    | Exploration |     0 |     50 /    60 (83%)
+  Crafting               | Industry    |    23 |     35 / 20185 ( 0%)
+  Deep Core Mining       | Industry    |    17 |   6353 / 11365 (55%)
+  Mining                 | Industry    |    17 |  11172 / 11365 (98%)
+  Refining               | Industry    |    12 |   4780 /  5940 (80%)
+  Navigation             | Ships       |    12 |   3080 /  5940 (51%)
+  Piloting               | Ships       |    28 |    629 / 29460 ( 2%)
+  Scanning               | Ships       |    12 |   1772 /  5940 (29%)
+

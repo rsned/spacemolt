@@ -56,18 +56,22 @@ Two commands help decide what to craft and what's blocking a target build.
 ### `craftable`
 
 List every recipe you can build right now (cargo + current-station storage,
-skill-gated, station-legal):
+station-legal). Facility-only recipes (the ∞-can_make ones that require a
+crafting facility, not a regular station) are hidden by default — pass
+`--include-facility-only` to opt them back in.
 
 ```
-craftable                         # immediately buildable, compact table
-craftable --reachable             # also list recipes reachable via intermediate crafts
-craftable --category Refining     # substring filter on category
-craftable --search lance          # substring filter on name and outputs
-craftable --include-faction       # also count faction storage
-craftable --detail                # per-recipe drill-down (no table)
-craftable --recipe <id> --detail  # detail for one specific recipe
-craftable --refresh               # bypass session recipe-catalog cache
-craftable --max 200               # widen the table (default 100)
+craftable                          # immediately buildable, compact table
+craftable --reachable              # also list recipes reachable via intermediate crafts
+craftable --category Refining      # substring filter on category
+craftable --search lance           # substring filter on name and outputs
+craftable --include-faction        # also count faction storage
+craftable --include-facility-only  # include facility-only recipes (default: hidden)
+craftable --include-hidden         # include recipes the server flags as hidden
+craftable --detail                 # per-recipe drill-down (no table)
+craftable --recipe <id> --detail   # detail for one specific recipe
+craftable --refresh                # bypass session recipe-catalog cache
+craftable --max 200                # widen the table (default 100)
 ```
 
 ### `plan <recipe-or-item-id> [qty]`

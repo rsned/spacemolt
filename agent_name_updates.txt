@@ -1,0 +1,96 @@
+┌──────────────────────────┬──────────────────────────────────┬──────────────────────────────┐
+│         username         │            server_id             │         new_username         │ 
+├──────────────────────────┼──────────────────────────────────┼──────────────────────────────┤
+│ Arthur 'Artificer' Artis │ a50924913cef881c5e4d14257589d9ba │ Arthur Artisan
+│ Harrison 'Handiwork' Hay │ 86953d253647b9493f8956dd1aff9739 │ Harrison Hayes
+│ Samuel 'Smith' Sterling  │ c5a5c5a2e8263ff146b423000ea7c295 │ Samuel Sterling
+│ Artisan 'Ace' Anderson   │ a81037cd551dae1cc88be584b8da938b │ Art Anderson
+│ Bentley 'Blueprint' Burk │ f733ca2298b16cb2e6b25683c673d1f4 │ Bentley Burke  
+│ Chisel 'Craftsman' Cole  │ 5ab9922aa6acf53257950730fe54c29f │ Cole Chisolm
+│ Dexter 'Design' Davis    │ cd33120e9eb4dc3b1bfed2d56bbfbad5 │ Dexter Davis
+│ Emerson 'Erect' Edwards  │ 8d09df228da85904ba65e4e07e71e02f │ Emerson Edwards
+│ Fabian 'Forge' Fowler    │ 609bf71b99c9d628b1157bfdbcbb5fba │ Fabian Fowler
+│ Garrison 'Gear' Grant    │ 99bc0f2f16677abcfd544e217d1d9965 │ Garrison Grant
+│ Gavin 'GearHead' Garriso │ 387bfad5cbe7dd9ed979a7b80fae70b5 │
+│ Kinetic 'Kernel' King    │ d9379af93bce698bf3c6f3a4f835acbe │
+│ Silas 'Sparky' Sparks    │ 4442d520b83076a8432ee308eecca0b0 │
+│ Circuit 'Current' Carter │ 974845423690dbe1765173df072dbcc3 │
+│ Dynamo 'Drive' Davis     │ 2fd7263907559a5abb8f9c312875590b │
+│ Fission 'Fuse' Fletcher  │ b5c93aa71883dc993fc8063f81fa99d6 │
+│ Generator 'Grid' Graham  │ 5af507bebc9f9e13207a2161d2532d88 │
+│ Hydraulic 'Hose' Hayes   │ 85ee0a5d8dc912f98a21bf136bacb26d │
+│ Ignition 'Spark' Stevens │ 7812dc0ac9d9c977f972ce7f564d78f5 │
+│ Junction 'Joint' Jackson │ a9fc38bd713b8ed9488346b5b5b336dc │
+│ Atlas 'Astro' Anderson   │ 2145b48bc065cefa5f6d4293fb9ef3dc │
+│ Scout 'Space' Sullivan   │ 0f0feb88f0367ae9a665d574f11c38d0 │
+│ Cosmo 'Cosmic' Chandler  │ 99c91f6f5767dd7cfa4603b6b193c03a │
+│ Orion 'Nebula' North     │ 73c1e507730f4dea6b87d372bced04b4 │
+│ Stella 'Starlight' Sterl │ 3493ab94fcdddc6a4b98732675041dfd │
+│ Nova 'Navigator' Nash    │ daf039b680b03d28155d797feaf64837 │
+│ Zenith 'Zone' Zimmer     │ b4795c96c934b5ec967606bf39a51c83 │
+│ Eugene 'Explorer-7' Edwa │ 411f67c8866bfbaa530d0b9c673adc2b │
+│ Stella 'StarStrider' Ste │ aa7f432f0460f97ddeb892f8d0f72e6d │
+│ Diana 'Driftwood' Dawson │ 1f7149d61673160bc33b1909413956a0 │
+│ Isabella 'IronVanguard'  │ d4213b1cfb458608616f3f477bf8fd7f │
+│ Ironclad 'Impact' Ingram │ 1d8c52ebd53c73012ebab039e92e8b1d │
+│ Victoria 'Valkyrie' Vane │ bd7449b91c40f0b8bac4dc6577bc1a27 │
+│ Blade 'Battler' Blackwoo │ ed728caaaf773ba8d7382edc5726d0bd │
+│ Clash 'Combat' Coleman   │ 09b1c5ece4c469c09e38823767e5acb4 │
+│ Defender 'Duel' Dawson   │ 77f2ba7e95bfca0eaadf97a038101581 │
+│ Enforcer 'Edge' Edwards  │ d938c6517afcfb156a442d9c4b055274 │
+│ Fortress 'Fight' Fisher  │ 7949d9876f74b3e381cd288cc514c797 │
+│ Guardian 'Gladiator' Gra │ 176f8d340c58431776a77a3d96d05e9c │
+│ Hunter 'Hit' Hayes       │ 7cb10d18bee97a318e1f1f566fb9db31 │
+│ Preston 'Pickaxe' Porter │ 26c8538ce31a2160a6d48d6ef108ffda │
+│ Victor 'Vein' Vincent    │ 48a912b792a26cc4df451b8652eb85e0 │
+│ Orion 'Orky' Olander     │ 2f7d637704ab17bff8aae09ced409b55 │
+│ Derrick 'DeepCore' Drill │ fc19f39948795d22cf70980a54ad7c73 │
+│ Jacob 'AsteroidJoe' Jack │ 274ee1e930dd7088be332fceb7f8e33c │
+│ Magnus 'Magma' Miller    │ 8232d9e4728fe7e82b9364d9eadbd489 │
+│ Barnaby 'Bedrock' Burke  │ 4fea3a1d64f30e4d7036cd5f871a412d │
+│ Quincy 'Quarry' Quaid    │ 561a7607d24d5079e953c54ccd636de7 │
+│ Oliver 'Ore' Opals       │ 3d40e339c8c97ec748a9842799b973e3 │
+│ Silas 'Strike' Stone     │ f11ae0bbc7887b816fc5477629dcadf5 │
+│ ⚔️ '                      │ 40b84774923612ced73fe958f78db8e7 │
+│ Blade 'Buccaneer' Blackw │ 62da9eefaeb61300974c03afc666d7a2 │
+│ Captain 'Vortex' Vash    │ 16dc9eb325eeac0aa981c83b5368c9a1 │
+│ Navigator 'Drift' Dax    │ f53251ac5881a1ef643c4e06c061ea37 │
+│ Engineer 'Salvage' Soren │ a4cd04b783b948a004102aa8337aea9c │
+│ Tactician 'Vector' Vega  │ 8403413725188f6380926595fa909769 │
+│ Scout 'Wraith' Kara      │ 31db26265205cf0733454307f85e199c │
+│ ☠                        │ 59dc4cefc0202522797f6dcaf53af65c │
+│ ☢                        │ 20a303f2ed4e5732268d446ca8ab8632 │
+│ ☣                        │ 47a72e9d06633802ba014956f987880d │
+│ ⚀ ⚀                      │ 48f2dc2565b4f08a96dabe768d84097f │
+│ Rocco 'Razor' Redgrave   │ 64542a6e10eabb5cd8853e4d94cad503 │
+│ Vinnie 'Void' Vane       │ 9a3cdf67602b9dad6d1ac4efe53d8717 │
+│ Scurvy 'Seadog' Sanders  │ 6cb080f36e2b5348ddc0b5b733a38a52 │
+│ Ransom 'Rogue' Reynolds  │ 08581443fb0093fd641551d4833d4bd9 │
+│ Josephus Miller          │ 8ea82ed211107a3bbb82a38a3b525671 │
+│ Scott 'Scrapper' Sulliva │ 3082531fed59e5b6d2eac16a5fdde728 │
+│ Scott 'Scrapper' Jr.     │ 375a6eb72732da7dd7db5e55626bd754 │
+│ Agent McAgentFace        │ a5009bfe97e4f14c0e33dded1cd3de45 │
+│ Agent McAgentFace        │ a5009bfe97e4f14c0e33dded1cd3de45 │
+│ 🤓                       │ 85b11a6d67bc80a076291ad0e17e5f71 │
+│ 🤘                       │ 7377bc9289bf39cb94bb18ee4e38c14b │
+│ Random-Wanderer          │ 98e6c84987a278dfc6f53ae5cf66bc10 │
+│ Scott 'Salvager' Sullivn │ 1d3d66a82279359aacf3a6d151e109e6 │
+│ Junk 'Jackpot' Jackson   │ 4db53d16236dbc2741c87e001206e322 │
+│ Jaxon 'JunkKing' Jarvis  │ 9739e1586339872ac18d62ceb315c0ca │
+│ Barrel 'Bin' Baxter      │ 3d446c0e8d11b76ef1bd9943a8f48457 │
+│ Cache 'Collect' Collins  │ 2243f11d159709138a98024a5414af24 │
+│ Debris 'Dig' Davis       │ d6806e7c74214ef38a522bc357d90d11 │
+│ Fragment 'Find' Fletcher │ 304500c611485bb9736e6d89125d575c │
+│ Gadget 'Gather' Grant    │ cba9d42cd69ee04a025ba86dbdb29043 │
+│ Heap 'Hunt' Henderson    │ 571911196a596dc9510d92a10a1bdfd6 │
+│ Iron 'Inspect' Ingram    │ 59cdd45d673385be007a18a4e38988de │
+│ Marcus 'Mercury' Mercer  │ e97bc9ace7327e86c6bc6f00f33c979d │
+│ Emerson 'Exchange' Edwar │ 56fa105400b3ee3fd17c53663e3a7c01 │
+│ Felix 'Flipper' Fletcher │ 3a31bb2f8c996b1f7b84393fed698276 │
+│ Bartholomew 'Barter' Ban │ 9a2bc6b4283e6f8f3421fc1a623bd9dd │
+│ Sterling 'Silver' Solomo │ ebc51aa63ede98e5c04aa7143ba736b3 │
+│ Preston 'Profit' Price   │ b3b6380627d256d1809cbb293f2b8ef8 │
+│ Cornelius 'Commerce' Col │ 202a3a1f6690e826bbcb615dda5e85c8 │
+│ Maxwell 'Market' Miller  │ afda46f72f56f216b707b0ab0a2be0c0 │
+│ Victor 'Value' Vanderbil │ ad9f56c3ec0d512577ac05985224c330 │
+│ Reginald 'Revenue' Reyno │ 5fd376ab921694efd021c90a79c019cc │

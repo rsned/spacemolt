@@ -255,13 +255,16 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 	_ = format
 	flags := parseFlagArgs(parts[1:],
 		"reachable", "category", "search", "include-faction",
+		"include-facility-only", "include-hidden",
 		"detail", "recipe", "refresh", "max",
 	)
 
 	opts := craftplan.CraftableOpts{
-		Reachable:      flagBool(flags["reachable"]),
-		IncludeFaction: flagBool(flags["include-faction"]),
-		Refresh:        flagBool(flags["refresh"]),
+		Reachable:           flagBool(flags["reachable"]),
+		IncludeFaction:      flagBool(flags["include-faction"]),
+		IncludeFacilityOnly: flagBool(flags["include-facility-only"]),
+		IncludeHidden:       flagBool(flags["include-hidden"]),
+		Refresh:             flagBool(flags["refresh"]),
 	}
 	if v, ok := flags["category"]; ok {
 		opts.CategoryFilter, _ = flagString(v)

@@ -46,7 +46,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error processing %s: %v\n", d.baseName, err)
 			os.Exit(1)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 	fmt.Println("Documentation updated successfully")

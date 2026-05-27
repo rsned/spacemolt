@@ -1,4 +1,4 @@
-2 recipes buildable at market_prime_exchange (cargo + storage; skill-gated; legal)
+2 recipes buildable at market_prime_exchange (cargo + storage; legal)
 
 RECIPE                        OUTPUT                  CATEGORY     CAN_MAKE  TIME
 alloy_titanium_ingot          titanium_alloy x2       Refining     47        6s
