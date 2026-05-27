@@ -1093,15 +1093,20 @@ func formatFacility(raw []byte) string {
 	case "list":
 		return formatFacilityList(raw)
 	}
-	// faction_list omits the action field but is uniquely identified by
-	// the top-level faction_facilities key.
-	if len(probe.FactionFacilities) > 0 {
-		return formatFacilityFactionList(raw)
-	}
-	// Plain `facility list` may also lack an action field. Recognize it by
-	// either of its distinctive sections.
+	// Plain `facility list` lacks an action field but carries all three
+	// section keys (player_facilities + station_facilities + faction_facilities,
+	// any of which may be empty []). Detect it FIRST so we don't fall through
+	// into formatFacilityFactionList just because faction_facilities happens
+	// to be populated.
+	//
+	// json.RawMessage is nil-length when the JSON key is absent, length>0 when
+	// the key is present (even as `[]`), so this is a key-presence test.
 	if len(probe.PlayerFacilities) > 0 || len(probe.StationFacilities) > 0 {
 		return formatFacilityList(raw)
+	}
+	// faction_list omits the action field and only carries faction_facilities.
+	if len(probe.FactionFacilities) > 0 {
+		return formatFacilityFactionList(raw)
 	}
 	return ""
 }
