@@ -111,6 +111,21 @@ logs/
 ##############################
 notes/
 typescript
+starting_notes.txt
+/agent_name_updates.txt
+/agent_name_updates.txt.new
+/agent_names.txt
+/agent_rename_proposals.txt
+/scripts/propose_agent_renames.py
+/data/scripts/
+/wiki/
+*.backup
+/cmd/tools/daily-summary/FACTION_PLAN.md
+
+##############################
+# Stray top-level built binaries
+##############################
+/bulk-buy-order
 
 ##############################
 # Downloaded server docs (versioned externally)

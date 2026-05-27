@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/craftplan"
 	"github.com/rsned/spacemolt/pkg/game"
@@ -17,6 +18,22 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+// Recipe catalog cache. The server's catalog only changes on restart/patch,
+// so it's safe to cache for the lifetime of the REPL session. --refresh on
+// either `craftable` or `plan` bypasses this cache for one call.
+var (
+	recipesCacheMu sync.Mutex
+	recipesCache   map[string]serverapi.Recipe
+	recipesCacheAt time.Time
+)
+
+// recipesCacheTTL is a defensive upper bound — beyond this we re-fetch even
+// without --refresh, in case a server patch landed mid-session. Tuned long
+// enough that pagination (often 10+ catalog calls) only happens once per
+// long REPL session, short enough that a missed patch is noticed within a
+// shift.
+const recipesCacheTTL = 2 * time.Hour
 
 // playAsSource adapts game.GameClient + the crafting DB to craftplan.Source.
 // One instance is created per `craftable` / `plan` REPL invocation; the
@@ -31,6 +48,17 @@ func newPlayAsSource(client game.GameClient, craftingDB *sql.DB) *playAsSource {
 }
 
 func (s *playAsSource) Recipes(ctx context.Context, refresh bool) (map[string]serverapi.Recipe, error) {
+	// Session-scoped cache: the catalog only changes on server restart/patch,
+	// so re-fetching it on every `craftable` or `plan` call is wasteful (11+
+	// catalog requests per REPL command). --refresh forces a re-fetch.
+	recipesCacheMu.Lock()
+	if !refresh && recipesCache != nil && time.Since(recipesCacheAt) < recipesCacheTTL {
+		out := recipesCache
+		recipesCacheMu.Unlock()
+		return out, nil
+	}
+	recipesCacheMu.Unlock()
+
 	// Server replaced get_recipes with catalog(type="recipes"). For type=recipes
 	// the per-entry recipe objects are returned inside the `items` array (the
 	// catalog response stores raw JSON under either "catalog" or "recipes" key
@@ -69,6 +97,11 @@ func (s *playAsSource) Recipes(ctx context.Context, refresh bool) (map[string]se
 			break
 		}
 	}
+
+	recipesCacheMu.Lock()
+	recipesCache = out
+	recipesCacheAt = time.Now()
+	recipesCacheMu.Unlock()
 	return out, nil
 }
 

@@ -40,20 +40,23 @@ func FormatCraftableCompact(rows []CraftableRow, opts FormatCraftableOpts) strin
 	}
 
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
+	// TIME column dropped: one craft call advances one tick (~10s) regardless
+	// of recipe.crafting_time, and the per-call output already scales with the
+	// agent's crafting skill. The recipe time is still on detail view.
 	if opts.Reachable {
-		_, _ = fmt.Fprintln(tw, "RECIPE\tOUTPUT\tCATEGORY\tCAN_MAKE\tVIA\tTIME")
+		_, _ = fmt.Fprintln(tw, "RECIPE\tOUTPUT\tCATEGORY\tCAN_MAKE\tVIA")
 	} else {
-		_, _ = fmt.Fprintln(tw, "RECIPE\tOUTPUT\tCATEGORY\tCAN_MAKE\tTIME")
+		_, _ = fmt.Fprintln(tw, "RECIPE\tOUTPUT\tCATEGORY\tCAN_MAKE")
 	}
 	for _, r := range rows {
 		output := fmt.Sprintf("%s x%d", r.OutputItemID, r.OutputQuantity)
 		cm := canMakeStr(r.CanMake)
 		if opts.Reachable {
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%ds\n",
-				r.Recipe.ID, output, r.Recipe.Category, cm, depthStr(r.Depth), r.Recipe.CraftingTime)
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+				r.Recipe.ID, output, r.Recipe.Category, cm, depthStr(r.Depth))
 		} else {
-			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%ds\n",
-				r.Recipe.ID, output, r.Recipe.Category, cm, r.Recipe.CraftingTime)
+			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+				r.Recipe.ID, output, r.Recipe.Category, cm)
 		}
 	}
 	_ = tw.Flush()
