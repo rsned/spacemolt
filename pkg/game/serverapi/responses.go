@@ -721,6 +721,36 @@ type FacilityResponse struct {
 	Upgrades     []map[string]any   `json:"upgrades,omitempty"`
 }
 
+// FacilityForSaleListing is one row in a browse_for_sale response. Field set
+// inferred from the request schema (list_for_sale takes price; buy_listing
+// keys off listing_id); other fields are likely-present based on the domain
+// and will be filled in as real (non-empty) responses arrive. Unknown server
+// fields are ignored by encoding/json so this struct can grow defensively.
+type FacilityForSaleListing struct {
+	ListingID      string `json:"listing_id"`
+	FacilityID     string `json:"facility_id,omitempty"`
+	FacilityType   string `json:"facility_type,omitempty"`
+	FacilityName   string `json:"facility_name,omitempty"`
+	Category       string `json:"category,omitempty"`
+	Price          int    `json:"price,omitempty"`
+	SellerID       string `json:"seller_id,omitempty"`
+	SellerName     string `json:"seller_name,omitempty"`
+	OwnedByFaction bool   `json:"owned_by_faction,omitempty"`
+	FactionID      string `json:"faction_id,omitempty"`
+	FactionName    string `json:"faction_name,omitempty"`
+	ListedAt       string `json:"listed_at,omitempty"`
+}
+
+// BrowseForSaleResponse wraps the response from facility(action="browse_for_sale").
+// Returns the facility listings available at the current station.
+type BrowseForSaleResponse struct {
+	Action   string                   `json:"action"`
+	BaseID   string                   `json:"base_id"`
+	BaseName string                   `json:"base_name"`
+	Count    int                      `json:"count"`
+	Listings []FacilityForSaleListing `json:"listings"`
+}
+
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {

@@ -203,9 +203,10 @@ var actionResponseTypes = map[string]reflect.Type{
 	"build_base":    reflect.TypeOf(serverapi.BuildBaseResponse{}),
 	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),
 	"raid_status":   reflect.TypeOf(serverapi.RaidStatusResponse{}),
-	"facility":      reflect.TypeOf(serverapi.FacilityResponse{}),
-	"types":         reflect.TypeOf(serverapi.FacilityTypesResponse{}),
-	"facility_list": reflect.TypeOf(serverapi.FacilityListResponse{}),
+	"facility":        reflect.TypeOf(serverapi.FacilityResponse{}),
+	"types":           reflect.TypeOf(serverapi.FacilityTypesResponse{}),
+	"facility_list":   reflect.TypeOf(serverapi.FacilityListResponse{}),
+	"browse_for_sale": reflect.TypeOf(serverapi.BrowseForSaleResponse{}),
 
 	// Wrecks and salvage
 	"loot_wreck":    reflect.TypeOf(serverapi.LootWreckResponse{}),
