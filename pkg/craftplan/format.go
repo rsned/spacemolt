@@ -17,6 +17,10 @@ type FormatCraftableOpts struct {
 	// the footer prints "showing N / TOTAL" so the operator knows to widen
 	// --max. If 0, treated as equal to len(rows).
 	Total int
+	// SortBy is surfaced in the footer so the operator can see which sort
+	// produced the row order (the engine applies the sort; the formatter
+	// just labels it).
+	SortBy SortMode
 }
 
 // FormatCraftableCompact renders the compact table view of craftable rows.
@@ -66,8 +70,8 @@ func FormatCraftableCompact(rows []CraftableRow, opts FormatCraftableOpts) strin
 	_ = tw.Flush()
 
 	total := max(opts.Total, len(rows))
-	fmt.Fprintf(&b, "\n(showing %d / %d; sort: can_make desc. Pass --max N to widen, --detail to drill in.)\n",
-		len(rows), total)
+	fmt.Fprintf(&b, "\n(showing %d / %d; sort: %s. Pass --max N to widen, --sort=name|category|can_make_asc|id to reorder, --detail to drill in.)\n",
+		len(rows), total, opts.SortBy)
 	return b.String()
 }
 

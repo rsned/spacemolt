@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -81,17 +80,7 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 		rows = craftableDirect(candidates, inv, opts.IncludeFaction)
 	}
 
-	// Sort: can_make DESC, depth ASC (direct first), recipe_id ASC.
-	sort.SliceStable(rows, func(i, j int) bool {
-		a, b := rows[i], rows[j]
-		if a.CanMake != b.CanMake {
-			return a.CanMake > b.CanMake
-		}
-		if a.Depth != b.Depth {
-			return a.Depth < b.Depth
-		}
-		return a.Recipe.ID < b.Recipe.ID
-	})
+	sortRows(rows, opts.SortBy)
 
 	total := len(rows)
 

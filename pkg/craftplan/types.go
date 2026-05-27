@@ -91,6 +91,52 @@ type CraftableOpts struct {
 	Refresh             bool   // bypass session recipe-catalog cache
 	Max                 int    // hard cap on rows returned; 0 = engine default (100)
 	OneRecipe           string // if non-empty, return only this recipe (still in CraftableRow form); used by --detail --recipe X
+	SortBy              SortMode
+}
+
+// SortMode controls Craftable row ordering. Unknown / zero value = default
+// (can_make desc, then depth asc, then recipe_id asc).
+type SortMode int
+
+const (
+	SortDefault    SortMode = iota // can_make desc, depth asc, recipe_id asc
+	SortCanMakeAsc                 // can_make asc (lowest first — what's running out)
+	SortName                       // recipe.Name asc, then can_make desc
+	SortCategory                   // recipe.Category asc, then can_make desc
+	SortRecipeID                   // recipe.ID asc
+)
+
+// String renders a SortMode for the footer.
+func (s SortMode) String() string {
+	switch s {
+	case SortCanMakeAsc:
+		return "can_make asc"
+	case SortName:
+		return "name asc"
+	case SortCategory:
+		return "category asc"
+	case SortRecipeID:
+		return "recipe_id asc"
+	default:
+		return "can_make desc"
+	}
+}
+
+// ParseSortMode maps a user-supplied --sort value to a SortMode. Empty or
+// unknown values map to SortDefault.
+func ParseSortMode(s string) SortMode {
+	switch s {
+	case "can_make_asc", "can_make-asc", "lowest":
+		return SortCanMakeAsc
+	case "name":
+		return SortName
+	case "category":
+		return SortCategory
+	case "id", "recipe", "recipe_id":
+		return SortRecipeID
+	default:
+		return SortDefault
+	}
 }
 
 // PlanOpts controls Engine.Plan.

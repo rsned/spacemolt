@@ -72,6 +72,10 @@ craftable --detail                 # per-recipe drill-down (no table)
 craftable --recipe <id> --detail   # detail for one specific recipe
 craftable --refresh                # bypass session recipe-catalog cache
 craftable --max 200                # widen the table (default 100)
+craftable --sort=name              # alphabetical by recipe name (default: can_make desc)
+craftable --sort=category          # group by category
+craftable --sort=can_make_asc      # lowest can_make first — what's running out
+craftable --sort=id                # alphabetical by recipe_id
 ```
 
 ### `plan <recipe-or-item-id> [qty]`

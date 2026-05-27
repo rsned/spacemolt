@@ -4,4 +4,4 @@ RECIPE                        OUTPUT                  CATEGORY     CAN_MAKE
 alloy_titanium_ingot          titanium_alloy x2       Refining     47
 assemble_advanced_repair_kit  advanced_repair_kit x1  Consumables  31
 
-(showing 2 / 2; sort: can_make desc. Pass --max N to widen, --detail to drill in.)
+(showing 2 / 2; sort: can_make desc. Pass --max N to widen, --sort=name|category|can_make_asc|id to reorder, --detail to drill in.)

@@ -6319,13 +6319,17 @@ func parseFlagArgs(args []string, keys ...string) map[string]any {
 			// --key=value form: value is in the same token.
 			key, value = k, v
 		} else {
-			// --key value form: value is the next token.
+			// --key value form. If there's no next token, or the next token
+			// is itself a flag, treat this as a bare boolean flag ("true").
+			// This makes `... --detail` and `--detail --max 10` both work as
+			// the operator expects.
 			key = trimmed
-			if i+1 >= len(args) {
-				continue
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+				value = "true"
+			} else {
+				i++
+				value = args[i]
 			}
-			i++
-			value = args[i]
 		}
 		if !allowed[key] {
 			continue
@@ -6589,7 +6593,7 @@ func printHelp() {
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
 	fmt.Println("  recipes                   - Get available recipes")
-	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] - what you can build now")
+	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
 
 	fmt.Println("\n=== SHIP ===")

@@ -289,7 +289,7 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 	flags := parseFlagArgs(parts[1:],
 		"reachable", "category", "search", "include-faction",
 		"include-facility-only", "include-hidden",
-		"detail", "recipe", "refresh", "max",
+		"detail", "recipe", "refresh", "max", "sort",
 	)
 
 	opts := craftplan.CraftableOpts{
@@ -298,6 +298,11 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 		IncludeFacilityOnly: flagBool(flags["include-facility-only"]),
 		IncludeHidden:       flagBool(flags["include-hidden"]),
 		Refresh:             flagBool(flags["refresh"]),
+	}
+	if v, ok := flags["sort"]; ok {
+		if s, ok := flagString(v); ok {
+			opts.SortBy = craftplan.ParseSortMode(strings.ToLower(s))
+		}
 	}
 	if v, ok := flags["category"]; ok {
 		opts.CategoryFilter, _ = flagString(v)
@@ -332,12 +337,14 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 			StationID: stationID,
 			Reachable: opts.Reachable,
 			Total:     total,
+			SortBy:    opts.SortBy,
 		}))
 	} else {
 		fmt.Print(craftplan.FormatCraftableCompact(rows, craftplan.FormatCraftableOpts{
 			StationID: stationID,
 			Reachable: opts.Reachable,
 			Total:     total,
+			SortBy:    opts.SortBy,
 		}))
 	}
 	return nil
