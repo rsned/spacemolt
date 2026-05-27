@@ -31,18 +31,38 @@ func newPlayAsSource(client game.GameClient, craftingDB *sql.DB) *playAsSource {
 }
 
 func (s *playAsSource) Recipes(ctx context.Context, refresh bool) (map[string]serverapi.Recipe, error) {
-	if err := s.client.GetRecipes(ctx); err != nil {
-		return nil, fmt.Errorf("get_recipes: %w", err)
+	// Server replaced get_recipes with catalog(type="recipes"). The catalog
+	// response paginates (max page_size=50) and stores raw JSON under the
+	// "catalog" key; the recipes field is a RawMessage holding []Recipe
+	// (array, not the old map).
+	const pageSize = 50
+	out := map[string]serverapi.Recipe{}
+	for page := 1; ; page++ {
+		if err := s.client.Catalog(ctx, "recipes", page, pageSize); err != nil {
+			return nil, fmt.Errorf("catalog recipes page %d: %w", page, err)
+		}
+		raw := s.client.GetRawJSON("catalog")
+		if len(raw) == 0 {
+			return nil, fmt.Errorf("catalog recipes returned empty payload")
+		}
+		var resp serverapi.CatalogResponse
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return nil, fmt.Errorf("decode catalog recipes page %d: %w", page, err)
+		}
+		if len(resp.Recipes) > 0 {
+			var recipes []serverapi.Recipe
+			if err := json.Unmarshal(resp.Recipes, &recipes); err != nil {
+				return nil, fmt.Errorf("decode recipes array page %d: %w", page, err)
+			}
+			for _, r := range recipes {
+				out[r.ID] = r
+			}
+		}
+		if resp.TotalPages <= 0 || page >= resp.TotalPages {
+			break
+		}
 	}
-	raw := s.client.GetRawJSON("recipes")
-	if len(raw) == 0 {
-		return nil, fmt.Errorf("get_recipes returned empty payload")
-	}
-	var resp serverapi.GetRecipesResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return nil, fmt.Errorf("decode get_recipes: %w", err)
-	}
-	return resp.Recipes, nil
+	return out, nil
 }
 
 func (s *playAsSource) Inventory(ctx context.Context, includeFaction bool) (craftplan.Inventory, error) {
