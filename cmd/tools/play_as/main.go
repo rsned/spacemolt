@@ -2650,9 +2650,10 @@ func formatCraft(raw []byte) string {
 			Quantity int    `json:"quantity"`
 		} `json:"from_storage"`
 		Outputs []struct {
-			ItemID   string `json:"item_id"`
-			Name     string `json:"name"`
-			Quantity int    `json:"quantity"`
+			ItemID        string `json:"item_id"`
+			Name          string `json:"name"`
+			Quantity      int    `json:"quantity"`
+			BonusQuantity int    `json:"bonus_quantity"`
 		} `json:"outputs"`
 		XPGained        map[string]int `json:"xp_gained"`
 		LevelUp         bool           `json:"level_up"`
@@ -2665,9 +2666,20 @@ func formatCraft(raw []byte) string {
 
 	var b strings.Builder
 
-	// Output items
+	// Output items. When the server reports a bonus_quantity (skill proc /
+	// "lucky" outcome), spotlight it inline in bold yellow so the operator
+	// notices the extra yield without rereading the server message.
+	const ansiReset = "\033[0m"
+	const ansiBoldYellow = "\033[1;33m"
 	for _, out := range resp.Outputs {
-		fmt.Fprintf(&b, "Crafted %s (%s) x %d\n", out.Name, out.ItemID, out.Quantity)
+		if out.BonusQuantity > 0 {
+			base := out.Quantity - out.BonusQuantity
+			fmt.Fprintf(&b, "Crafted %s (%s) x %d  %s★ %d base + %d bonus — lucky!%s\n",
+				out.Name, out.ItemID, out.Quantity,
+				ansiBoldYellow, base, out.BonusQuantity, ansiReset)
+		} else {
+			fmt.Fprintf(&b, "Crafted %s (%s) x %d\n", out.Name, out.ItemID, out.Quantity)
+		}
 	}
 
 	// Inputs used from storage
