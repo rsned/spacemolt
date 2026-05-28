@@ -415,6 +415,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"remaining_display": true,
 		"resource_name":     true,
 		"xp_gained":         true,
+		"drone_id":          true, // present when the yield came from a deployed drone
 	},
 	protocol.TypePirateWarning: {
 		"pirate_name": true,
