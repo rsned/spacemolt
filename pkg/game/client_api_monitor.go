@@ -215,7 +215,8 @@ var actionResponseTypes = map[string]reflect.Type{
 	"sell_wreck":    reflect.TypeOf(serverapi.SellWreckResponse{}),
 
 	// Drones
-	"deploy_drone": reflect.TypeOf(serverapi.DeployDroneResponse{}),
+	"deploy_drone":   reflect.TypeOf(serverapi.DeployDroneResponse{}),
+	"set_drone_name": reflect.TypeOf(serverapi.SetDroneNameResponse{}),
 
 	// Settings
 	"set_anonymous": reflect.TypeOf(serverapi.SetAnonymousResponse{}),

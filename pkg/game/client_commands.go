@@ -2246,6 +2246,22 @@ func (c *Client) DeployDrone(ctx context.Context, droneID string) error {
 	return err
 }
 
+// SetDroneName assigns a display name to a drone you own (max 32 chars;
+// same character rules as ship names). Pass an empty name to clear.
+// Not a mutation — no tick cost.
+func (c *Client) SetDroneName(ctx context.Context, droneID, name string) error {
+	msg := protocol.Message{
+		Type:      "set_drone_name",
+		Payload:   map[string]any{"drone_id": droneID, "name": name},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
 // FactionAcceptInvite accepts a pending invitation to join a faction.
 func (c *Client) FactionAcceptInvite(ctx context.Context, factionID string) error {
 	msg := protocol.Message{

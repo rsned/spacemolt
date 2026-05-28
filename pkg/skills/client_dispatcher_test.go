@@ -751,6 +751,9 @@ func (m *mockGameClient) UploadDroneScript(ctx context.Context, droneID, script 
 	return nil
 }
 func (m *mockGameClient) DeployDrone(ctx context.Context, droneID string) error { return nil }
+func (m *mockGameClient) SetDroneName(ctx context.Context, droneID, name string) error {
+	return nil
+}
 func (m *mockGameClient) FactionAcceptInvite(ctx context.Context, factionID string) error {
 	return nil
 }

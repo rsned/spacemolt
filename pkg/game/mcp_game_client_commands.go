@@ -1723,6 +1723,15 @@ func (m *MCPGameClient) DeployDrone(ctx context.Context, droneID string) error {
 	return m.updateStateFromResult(result)
 }
 
+// SetDroneName assigns a display name to a drone you own.
+func (m *MCPGameClient) SetDroneName(ctx context.Context, droneID, name string) error {
+	result, err := m.callTool(ctx, "set_drone_name", map[string]any{"drone_id": droneID, "name": name})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 // FactionAcceptInvite accepts a pending invitation to join a faction.
 func (m *MCPGameClient) FactionAcceptInvite(ctx context.Context, factionID string) error {
 	result, err := m.callTool(ctx, "faction_accept_invite", map[string]any{"faction_id": factionID})

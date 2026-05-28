@@ -4814,6 +4814,28 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.DeployDrone(ctx, droneID)
 		}, ctx, 2*time.Second, cmd, format)
 
+	case "set_drone_name", "name_drone":
+		// usage: set_drone_name <drone-id> <name>...   (or pass --drone_id, --name)
+		// Pass an empty name to clear. Names show in get_drones and pair with
+		// drone_id on mining_yield events.
+		positional, flags := partitionFlags(parts[1:])
+		droneID := flags["drone_id"]
+		name := flags["name"]
+		if droneID == "" && len(positional) >= 1 {
+			droneID = positional[0]
+		}
+		if name == "" && len(positional) >= 2 {
+			// Rejoin the remaining positionals so multi-word names work
+			// without quoting (e.g. `set_drone_name abc Lucky Miner`).
+			name = strings.Join(positional[1:], " ")
+		}
+		if droneID == "" {
+			return fmt.Errorf("usage: set_drone_name <drone-id> <name>...  (or --drone_id <id> --name <n>; empty name clears)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.SetDroneName(ctx, droneID, name)
+		}, ctx, 2*time.Second, cmd, format)
+
 	case "recall_drone":
 		// --all (bool flag) or positional/no-arg "all" recalls every drone at
 		// the current location; --drone_id <id> or a bare ID recalls one.
@@ -6773,6 +6795,12 @@ func printHelp() {
 	fmt.Println("  list_ships                - List your ships")
 	fmt.Println("  switch_ship <ship-id>     - Switch to another ship")
 	fmt.Println("  sell_ship <ship-id>       - Sell a ship")
+
+	fmt.Println("\n=== DRONES ===")
+	fmt.Println("  get_drones, drones                  - List your drones")
+	fmt.Println("  deploy_drone <drone-id>             - Launch a drone at current location")
+	fmt.Println("  recall_drone [<id>|--all]           - Recall one drone (or --all at current location)")
+	fmt.Println("  set_drone_name <drone-id> <name>... - Rename a drone (≤32 chars; empty clears)")
 
 	fmt.Println("\n=== CARGO & STORAGE ===")
 	fmt.Println("  cargo                     - View ship cargo")

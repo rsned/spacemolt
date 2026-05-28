@@ -1475,6 +1475,13 @@ type DeployDroneResponse struct {
 	Message        string `json:"message"`
 }
 
+// SetDroneNameResponse wraps the response from set_drone_name command.
+type SetDroneNameResponse struct {
+	DroneID string `json:"drone_id"`
+	Name    string `json:"name"`
+	Message string `json:"message"`
+}
+
 // BuildBaseResponse wraps the response from build_base command.
 type BuildBaseResponse struct {
 	BaseID       string         `json:"base_id"`
