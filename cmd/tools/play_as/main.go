@@ -2401,23 +2401,34 @@ func formatCargo(raw []byte) string {
 		return strings.Compare(a.ItemID, b.ItemID)
 	})
 
-	idW, nameW, qtyW, sizeW := len("ID"), len("Name"), len("Qty"), len("Unit Size")
+	// Per-row total space used = quantity × unit size. Helps the operator
+	// see at a glance which items dominate the hold (e.g. one ore stack
+	// can outweigh dozens of small consumables).
+	rowSpace := func(item storageItem) int {
+		return int(item.Quantity) * item.Size
+	}
+
+	idW, nameW, qtyW, sizeW, totW := len("ID"), len("Name"), len("Qty"), len("Unit Size"), len("Used")
 	for _, item := range resp.Cargo {
 		idW = max(idW, len(item.ItemID))
 		nameW = max(nameW, len(item.Name))
 		qtyW = max(qtyW, len(formatFloat(item.Quantity)))
 		sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+		totW = max(totW, len(strconv.Itoa(rowSpace(item))))
 	}
 
-	fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
-	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
+	fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s | %*s\n",
+		idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size", totW, "Used")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s\n",
 		strings.Repeat("-", idW), strings.Repeat("-", nameW),
-		strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+		strings.Repeat("-", qtyW), strings.Repeat("-", sizeW),
+		strings.Repeat("-", totW))
 
 	for _, item := range resp.Cargo {
-		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d\n",
+		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d | %*d\n",
 			idW, item.ItemID, nameW, item.Name,
-			qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+			qtyW, formatFloat(item.Quantity), sizeW, item.Size,
+			totW, rowSpace(item))
 	}
 	fmt.Fprintf(&b, "  (%d items)\n", len(resp.Cargo))
 	return b.String()
