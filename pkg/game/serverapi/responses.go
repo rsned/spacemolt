@@ -1181,6 +1181,17 @@ type DockResponse struct {
 	TradeFills          []TradeFill     `json:"trade_fills,omitempty"`
 	TradeFillsCount     int             `json:"trade_fills_count,omitempty"`
 	TradeFillsTruncated bool            `json:"trade_fills_truncated,omitempty"`
+	// CommissionsReady lists ships you commissioned at this station that
+	// are ready for pickup; CommissionsNote is the human-readable summary.
+	// Permissive map shape until the per-entry schema is confirmed from a
+	// real (non-empty) dock response.
+	CommissionsNote  string           `json:"commissions_note,omitempty"`
+	CommissionsReady []map[string]any `json:"commissions_ready,omitempty"`
+	// YourFacilities lists the player's personal facilities at this base
+	// (mirrors player_facilities from `facility list`); FacilityNote is the
+	// human-readable summary. Permissive map shape pending confirmation.
+	FacilityNote   string           `json:"facility_note,omitempty"`
+	YourFacilities []map[string]any `json:"your_facilities,omitempty"`
 	// AutoDocked is set when the dock was performed automatically as a
 	// precursor to another command (a command requiring the docked state was
 	// issued while in space) — see the "Auto-dock/undock" note in the API docs.
