@@ -31,3 +31,24 @@ func TestParseDemandRowsFromCompact(t *testing.T) {
 		t.Errorf("copper price: want 8 got %v", byItem["copper"])
 	}
 }
+
+func TestParseDeepOrders(t *testing.T) {
+	now := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+	// Single-item view_market response: items[0].buy_orders carries source.
+	raw := []byte(`{"items":[{"item_id":"iron_ore","item_name":"Iron Ore","buy_orders":[
+		{"price_each":10,"quantity":50,"source":"station"},
+		{"price_each":12,"quantity":20,"source":"player"},
+		{"price_each":0,"quantity":5,"source":"player"}
+	]}]}`)
+
+	rows := parseDeepOrders(raw, "stn1", "sys1", "iron_ore", now)
+	if len(rows) != 2 { // zero-price order skipped
+		t.Fatalf("want 2 deep orders, got %d: %+v", len(rows), rows)
+	}
+	if rows[0].Source != "station" || rows[0].PriceEach != 10 || rows[0].Quantity != 50 {
+		t.Errorf("row0 wrong: %+v", rows[0])
+	}
+	if rows[1].ItemName != "Iron Ore" || rows[1].StationID != "stn1" {
+		t.Errorf("row1 metadata wrong: %+v", rows[1])
+	}
+}
