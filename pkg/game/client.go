@@ -3924,6 +3924,9 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					// Check for XP changes after processing xp_gained
 					c.checkXPChanges()
 				}
+			case "get_tax_estimate":
+				storeKey = "tax_estimate"
+				shouldStore = true
 			case "salvage_wreck":
 				storeKey = "salvage"
 				shouldStore = true

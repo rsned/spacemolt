@@ -633,6 +633,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatUploadDroneScript(raw)
 	case "deploy_drone":
 		return formatDeployDrone(raw)
+	case "get_tax_estimate", "tax_estimate":
+		return formatGetTaxEstimate(raw)
 	default:
 		return ""
 	}
@@ -1087,9 +1089,39 @@ func formatUploadDroneScript(raw []byte) string {
 	return b.String()
 }
 
-// formatDeployDrone renders a deploy_drone action_result.
+// formatDeployDrone renders a deploy_drone action_result. The server uses
+// two distinct payload shapes: single-drone deploys carry drone_id +
+// drone_type + hull/max_hull/status (per-drone fields); the --all bulk
+// deploy carries deployed/skipped counts instead. We detect the bulk shape
+// via the presence of "deployed" and render accordingly.
 func formatDeployDrone(raw []byte) string {
 	raw = unwrapActionResult(raw)
+	var probe struct {
+		Deployed *int `json:"deployed"`
+	}
+	if err := json.Unmarshal(raw, &probe); err == nil && probe.Deployed != nil {
+		var bulk struct {
+			Deployed       int    `json:"deployed"`
+			Skipped        int    `json:"skipped"`
+			BandwidthUsed  int    `json:"bandwidth_used"`
+			BandwidthTotal int    `json:"bandwidth_total"`
+			Message        string `json:"message"`
+		}
+		if err := json.Unmarshal(raw, &bulk); err != nil {
+			return ""
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, "Deployed %d drone(s)", bulk.Deployed)
+		if bulk.Skipped > 0 {
+			fmt.Fprintf(&b, " (%d skipped — would exceed bandwidth)", bulk.Skipped)
+		}
+		fmt.Fprintf(&b, " | Bandwidth %d/%d\n", bulk.BandwidthUsed, bulk.BandwidthTotal)
+		if bulk.Message != "" {
+			fmt.Fprintf(&b, "  %s\n", bulk.Message)
+		}
+		return b.String()
+	}
+
 	var resp struct {
 		DroneID        string `json:"drone_id"`
 		DroneType      string `json:"drone_type"`
@@ -1115,6 +1147,108 @@ func formatDeployDrone(raw []byte) string {
 	}
 	if resp.Message != "" {
 		fmt.Fprintf(&b, "  %s\n", resp.Message)
+	}
+	return b.String()
+}
+
+// formatGetTaxEstimate renders the tax preview: a header noting whether
+// taxes are live or simulated, a totals row, sales-tax rates broken out
+// per empire (citizen rate flagged), taxable income by source, and the
+// per-ship property assessment. Empty sections are elided.
+func formatGetTaxEstimate(raw []byte) string {
+	type incomeRow struct {
+		Amount   int64  `json:"amount"`
+		Category string `json:"category"`
+	}
+	type salesRate struct {
+		Empire string `json:"empire"`
+		RateBP int    `json:"rate_bps"`
+		Reason string `json:"reason"`
+	}
+	type shipValue struct {
+		ShipID string `json:"ship_id"`
+		Value  int64  `json:"value"`
+	}
+	var resp struct {
+		AssessedPropertyByShip      []shipValue `json:"assessed_property_by_ship"`
+		AssessedPropertyValue       int64       `json:"assessed_property_value"`
+		IncomeTaxTotal              int64       `json:"income_tax_total"`
+		LastAssessedAt              int64       `json:"last_assessed_at"`
+		LastPropertyAssessedAt      int64       `json:"last_property_assessed_at"`
+		NextAssessmentApproxSeconds int64       `json:"next_assessment_approx_seconds"`
+		Note                        string      `json:"note"`
+		PropertyTaxTotal            int64       `json:"property_tax_total"`
+		SalesTaxRates               []salesRate `json:"sales_tax_rates"`
+		TaxCollectionActive         bool        `json:"tax_collection_active"`
+		TaxableIncomeBySource       []incomeRow `json:"taxable_income_by_source"`
+		TaxableIncomeToDate         int64       `json:"taxable_income_to_date"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	status := "PREVIEW (simulated, no credits deducted)"
+	if resp.TaxCollectionActive {
+		status = "ACTIVE"
+	}
+	fmt.Fprintf(&b, "=== Tax Estimate (%s) ===\n", status)
+	fmt.Fprintf(&b, "Assessed property:  %d cr (income-to-date: %d cr)\n",
+		resp.AssessedPropertyValue, resp.TaxableIncomeToDate)
+	fmt.Fprintf(&b, "Property tax due:   %d cr   |   Income tax due: %d cr\n",
+		resp.PropertyTaxTotal, resp.IncomeTaxTotal)
+	if resp.NextAssessmentApproxSeconds > 0 {
+		days := resp.NextAssessmentApproxSeconds / 86400
+		hours := (resp.NextAssessmentApproxSeconds % 86400) / 3600
+		fmt.Fprintf(&b, "Next assessment:    ~%dd %dh\n", days, hours)
+	}
+
+	if len(resp.SalesTaxRates) > 0 {
+		fmt.Fprintf(&b, "\nSales tax rates (per empire):\n")
+		fmt.Fprintf(&b, "  %-12s  %-7s  %s\n", "Empire", "Rate", "Reason")
+		fmt.Fprintf(&b, "  %-12s  %-7s  %s\n", "------------", "-------", "------")
+		for _, r := range resp.SalesTaxRates {
+			tag := ""
+			if r.Reason == "citizen" {
+				tag = " *"
+			}
+			fmt.Fprintf(&b, "  %-12s  %5.2f%%  %s%s\n",
+				r.Empire, float64(r.RateBP)/100, r.Reason, tag)
+		}
+	}
+
+	if len(resp.TaxableIncomeBySource) > 0 {
+		any := false
+		for _, r := range resp.TaxableIncomeBySource {
+			if r.Amount != 0 {
+				any = true
+				break
+			}
+		}
+		fmt.Fprintf(&b, "\nTaxable income by source:\n")
+		if !any {
+			fmt.Fprintf(&b, "  (none recorded)\n")
+		} else {
+			for _, r := range resp.TaxableIncomeBySource {
+				if r.Amount == 0 {
+					continue
+				}
+				fmt.Fprintf(&b, "  %-14s  %d cr\n", r.Category, r.Amount)
+			}
+		}
+	}
+
+	if len(resp.AssessedPropertyByShip) > 0 {
+		fmt.Fprintf(&b, "\nAssessed property by ship (%d ships):\n", len(resp.AssessedPropertyByShip))
+		fmt.Fprintf(&b, "  %-34s  %s\n", "Ship ID", "Value (cr)")
+		fmt.Fprintf(&b, "  %-34s  %s\n", strings.Repeat("-", 34), "----------")
+		for _, s := range resp.AssessedPropertyByShip {
+			fmt.Fprintf(&b, "  %-34s  %10d\n", s.ShipID, s.Value)
+		}
+	}
+
+	if resp.Note != "" {
+		fmt.Fprintf(&b, "\nNote: %s\n", resp.Note)
 	}
 	return b.String()
 }
@@ -5271,6 +5405,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Help(ctx, payload)
 		}, ctx, 2*time.Second, "help", format)
 
+	case "get_tax_estimate", "tax_estimate", "taxes":
+		return simpleCommand(client, client.GetTaxEstimate, ctx, 2*time.Second, "get_tax_estimate", format)
+
 	case "get_notifications":
 		payload := parseFlagArgs(parts[1:], "clear", "limit")
 		if v, ok := payload["clear"]; ok {
@@ -6204,6 +6341,8 @@ var rawJSONKeyForCommand = map[string]string{
 	"read_note":            "note",
 	"get_action_log":       "action_log",
 	"action_log":           "action_log",
+	"get_tax_estimate":     "tax_estimate",
+	"tax_estimate":         "tax_estimate",
 	// MCP caches FactionQueryIntel under "faction_intel"; the WS store keys
 	// it there too (see storeRawJSON). Map the command so lookup finds it.
 	"faction_query_intel": "faction_intel",
@@ -6920,6 +7059,7 @@ func printHelp() {
 	fmt.Println("  skills, poi, base         - Get skills/POI/base info")
 	fmt.Println("  map, nearby, version      - Get map/nearby/version")
 	fmt.Println("  state                     - Show state summary")
+	fmt.Println("  get_tax_estimate, taxes   - Show property/income tax assessment + sales rates")
 	fmt.Println("  raw <key>                 - Show raw JSON for key")
 
 	fmt.Println("\n=== FACTIONS ===")
