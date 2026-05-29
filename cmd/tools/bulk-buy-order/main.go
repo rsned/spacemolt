@@ -421,11 +421,18 @@ func loadItemIDs(dbPath string, categories, excludeCategories []string, includeU
 	// server-side rules. Categories that are tradeable but conditionally
 	// (e.g. 'contraband' — needs smuggling skill + pirate station) stay
 	// in by default; --exclude-categories lets callers drop them.
+	//
+	// EXCEPTION: ship-module categories (weapon/defense/mining/utility/drone)
+	// have tradeable=0 in the crafting DB because the server's catalog_items
+	// JSON omits the `tradeable` field for modules (defaults to false on
+	// import). They ARE tradeable on the server — view_orders shows live
+	// listings for them — so allow them through despite the DB flag.
 	query := "SELECT id FROM items"
 	var wheres []string
 	var args []any
 	if !includeUntradeable {
-		wheres = append(wheres, "tradeable = 1")
+		wheres = append(wheres,
+			"(tradeable = 1 OR category IN ('weapon','defense','mining','utility','drone'))")
 	}
 	if len(categories) > 0 {
 		placeholders := make([]string, len(categories))

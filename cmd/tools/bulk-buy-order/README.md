@@ -46,7 +46,7 @@ bulk-buy-order --agent=trader-1 --exclude-categories=contraband
 | `--limit` | `0` | Only send orders for N items (0 = all) |
 | `--dry-run` | `false` | Print batches without sending |
 | `--skip-open` | `false` | Query `view_orders` first and drop items that already have an open buy order from this agent at the current station. Top-up mode; forces a connect even with `--dry-run`. |
-| `--include-untradeable` | `false` | Include items with `tradeable=0` (quest items, artifacts). Default filters them out at the SQL layer since `create_buy_order` rejects each one with `quest_item`/`not_tradeable`. Ignored with `--items-file`. |
+| `--include-untradeable` | `false` | Include items with `tradeable=0` (quest items, artifacts). Default filters them out at the SQL layer since `create_buy_order` rejects each one with `quest_item`/`not_tradeable`. Ship-module categories (`weapon`/`defense`/`mining`/`utility`/`drone`) are always allowed in the default run — the server's catalog omits `tradeable` for modules so the DB stores `0`, but the live market clearly accepts orders for them. Ignored with `--items-file`. |
 | `--debug` | `false` | Enable debug logging |
 
 ## Notes

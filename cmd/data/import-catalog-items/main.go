@@ -184,6 +184,16 @@ func main() {
 
 // convertItem converts a JSON item to a CatalogItem with module/effect detail.
 func convertItem(j CatalogItemJSON) knowledge.CatalogItem {
+	// Modules (anything with type_id set) omit the tradeable field in the
+	// server catalog — the zero-value `false` would mark them
+	// not-tradeable in the DB even though the live market clearly accepts
+	// orders for them (the server only rejects quest_item / artifact
+	// shapes). Assume tradeable for modules unless the catalog explicitly
+	// said otherwise.
+	tradeable := j.Tradeable
+	if j.TypeID != "" {
+		tradeable = true
+	}
 	item := knowledge.CatalogItem{
 		Name:        j.Name,
 		Description: j.Description,
@@ -192,7 +202,7 @@ func convertItem(j CatalogItemJSON) knowledge.CatalogItem {
 		Size:        j.Size,
 		BaseValue:   j.BaseValue,
 		Stackable:   j.Stackable,
-		Tradeable:   j.Tradeable,
+		Tradeable:   tradeable,
 		Hazardous:   j.Hazardous,
 		PowerBonus:  j.PowerBonus,
 	}
