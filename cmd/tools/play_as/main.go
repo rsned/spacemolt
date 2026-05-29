@@ -762,22 +762,24 @@ func formatGetDrone(raw []byte) string {
 		Size     int     `json:"size"`
 	}
 	var resp struct {
-		ID            string           `json:"id"`
-		Type          string           `json:"type"`
-		Status        string           `json:"status"`
-		Hull          int              `json:"hull"`
-		MaxHull       int              `json:"max_hull"`
-		ItemID        string           `json:"item_id"`
-		POIID         string           `json:"poi_id"`
-		SystemID      string           `json:"system_id"`
-		CargoUsed     int              `json:"cargo_used"`
-		CargoCapacity int              `json:"cargo_capacity"`
-		Cargo         []droneCargoItem `json:"cargo"`
-		Script        string           `json:"script"`
-		LoadedAt      string           `json:"loaded_at"`
-		DeployedAt    string           `json:"deployed_at"`
-		TravelTo      string           `json:"travel_to"`
-		TravelTicks   int              `json:"travel_ticks"`
+		ID            string            `json:"id"`
+		Name          string            `json:"name"`
+		Type          string            `json:"type"`
+		Status        string            `json:"status"`
+		Hull          int               `json:"hull"`
+		MaxHull       int               `json:"max_hull"`
+		ItemID        string            `json:"item_id"`
+		POIID         string            `json:"poi_id"`
+		SystemID      string            `json:"system_id"`
+		CargoUsed     int               `json:"cargo_used"`
+		CargoCapacity int               `json:"cargo_capacity"`
+		Cargo         []droneCargoItem  `json:"cargo"`
+		Script        string            `json:"script"`
+		Memory        map[string]string `json:"memory"`
+		LoadedAt      string            `json:"loaded_at"`
+		DeployedAt    string            `json:"deployed_at"`
+		TravelTo      string            `json:"travel_to"`
+		TravelTicks   int               `json:"travel_ticks"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -787,7 +789,11 @@ func formatGetDrone(raw []byte) string {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Drone %s (%s)\n", resp.ID, resp.Type)
+	if resp.Name != "" {
+		fmt.Fprintf(&b, "Drone %s — %s (%s)\n", resp.Name, resp.ID, resp.Type)
+	} else {
+		fmt.Fprintf(&b, "Drone %s (%s)\n", resp.ID, resp.Type)
+	}
 	fmt.Fprintf(&b, "  Status:   %s\n", resp.Status)
 	fmt.Fprintf(&b, "  Hull:     %d/%d\n", resp.Hull, resp.MaxHull)
 	fmt.Fprintf(&b, "  Cargo:    %d/%d", resp.CargoUsed, resp.CargoCapacity)
@@ -826,9 +832,38 @@ func formatGetDrone(raw []byte) string {
 		fmt.Fprintf(&b, "  Item:     %s\n", resp.ItemID)
 	}
 	if resp.Script != "" {
-		fmt.Fprintf(&b, "  Script:   %d char(s)\n", len(resp.Script))
+		lines := strings.Split(resp.Script, "\n")
+		fmt.Fprintf(&b, "  Script:   %d char(s), %d line(s)\n", len(resp.Script), len(lines))
+		// Show the first three lines so the operator can recognise the
+		// script at a glance; truncate the third line with '...' if more
+		// content follows.
+		const previewLines = 3
+		for i := 0; i < previewLines && i < len(lines); i++ {
+			line := lines[i]
+			if i == previewLines-1 && len(lines) > previewLines {
+				// Strip trailing whitespace before appending the ellipsis
+				// so it sits flush with real content.
+				line = strings.TrimRight(line, " \t") + " ..."
+			}
+			fmt.Fprintf(&b, "    %s\n", line)
+		}
 	} else {
 		b.WriteString("  Script:   (none)\n")
+	}
+	if len(resp.Memory) > 0 {
+		keys := make([]string, 0, len(resp.Memory))
+		for k := range resp.Memory {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		keyW := 0
+		for _, k := range keys {
+			keyW = max(keyW, len(k))
+		}
+		fmt.Fprintf(&b, "  Memory:   %d key(s)\n", len(keys))
+		for _, k := range keys {
+			fmt.Fprintf(&b, "    %-*s = %s\n", keyW, k, resp.Memory[k])
+		}
 	}
 	return b.String()
 }
