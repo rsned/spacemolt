@@ -4839,6 +4839,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.DeployDrone(ctx, droneID)
 		}, ctx, 2*time.Second, cmd, format)
 
+	case "bulk_upload_drone_script":
+		return handleBulkUploadDroneScript(client, ctx, parts)
+
 	case "set_drone_name", "name_drone":
 		// usage: set_drone_name <drone-id> <name>...   (or pass --drone_id, --name)
 		// Pass an empty name to clear. Names show in get_drones and pair with
@@ -6826,6 +6829,9 @@ func printHelp() {
 	fmt.Println("  deploy_drone <drone-id>             - Launch a drone at current location")
 	fmt.Println("  recall_drone [<id>|--all]           - Recall one drone (or --all at current location)")
 	fmt.Println("  set_drone_name <drone-id> <name>... - Rename a drone (≤32 chars; empty clears)")
+	fmt.Println("  upload_drone_script <drone-id> <script>  - Upload DroneLang script to a deployed drone")
+	fmt.Println("  bulk_upload_drone_script --file P [--type T] [--status S] [--name N] [--dry_run]")
+	fmt.Println("                                      - Push one script to every matching drone (1 tick each)")
 
 	fmt.Println("\n=== CARGO & STORAGE ===")
 	fmt.Println("  cargo                     - View ship cargo")
