@@ -6554,6 +6554,22 @@ func flagBool(v any) bool {
 	}
 }
 
+// partitionFlagBool reads a boolean flag from a partitionFlags result map.
+// partitionFlags records bare flags (`--dry_run`) as `""`, which is also the
+// zero value for an absent key — so the presence check matters. A bare flag
+// is true; explicit `--dry_run=false`/`=0` is false; anything else falls
+// through flagBool's string rules.
+func partitionFlagBool(flags map[string]string, key string) bool {
+	v, ok := flags[key]
+	if !ok {
+		return false
+	}
+	if v == "" {
+		return true
+	}
+	return strings.EqualFold(v, "true") || v == "1"
+}
+
 func parseFlagArgs(args []string, keys ...string) map[string]any {
 	allowed := make(map[string]bool, len(keys))
 	for _, k := range keys {

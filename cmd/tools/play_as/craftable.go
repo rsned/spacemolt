@@ -359,20 +359,11 @@ func handlePlan(client game.GameClient, ctx context.Context, parts []string, cra
 	}
 
 	opts := craftplan.PlanOpts{
-		ID:       positional[0],
-		Quantity: 1,
-	}
-	if _, has := flags["reachable"]; has {
-		v := flags["reachable"]
-		opts.Reachable = v == "" || strings.EqualFold(v, "true") || v == "1"
-	}
-	if _, has := flags["include-faction"]; has {
-		v := flags["include-faction"]
-		opts.IncludeFaction = v == "" || strings.EqualFold(v, "true") || v == "1"
-	}
-	if _, has := flags["refresh"]; has {
-		v := flags["refresh"]
-		opts.Refresh = v == "" || strings.EqualFold(v, "true") || v == "1"
+		ID:             positional[0],
+		Quantity:       1,
+		Reachable:      partitionFlagBool(flags, "reachable"),
+		IncludeFaction: partitionFlagBool(flags, "include-faction"),
+		Refresh:        partitionFlagBool(flags, "refresh"),
 	}
 	if len(positional) >= 2 {
 		qty, err := strconv.Atoi(positional[1])

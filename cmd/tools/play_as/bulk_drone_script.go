@@ -67,7 +67,10 @@ func handleBulkUploadDroneScript(client game.GameClient, ctx context.Context, pa
 	typeFilter := strings.ToLower(flags["type"])
 	statusFilter := strings.ToLower(flags["status"])
 	nameFilter := strings.ToLower(flags["name"])
-	dryRun := flagBool(flags["dry_run"])
+	// partitionFlags stores bare flags (`--dry_run`) as "", which collides
+	// with map[string]string's zero value for absent keys — use the
+	// presence-aware helper so a missing flag stays false.
+	dryRun := partitionFlagBool(flags, "dry_run")
 
 	matches := make([]droneRow, 0, len(resp.Drones))
 	for _, d := range resp.Drones {
