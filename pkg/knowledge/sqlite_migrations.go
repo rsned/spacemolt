@@ -307,6 +307,36 @@ func migrations() []Migration {
 				CREATE INDEX faction_rooms_faction      ON faction_rooms(faction_id);
 			`,
 		},
+		{
+			version: 36,
+			name:    "market_buy_demand",
+			sql: `
+				CREATE TABLE market_buy_demand (
+					station_id      TEXT NOT NULL,
+					system_id       TEXT,
+					item_id         TEXT NOT NULL,
+					item_name       TEXT,
+					best_buy_price  REAL NOT NULL DEFAULT 0,
+					buy_quantity    REAL NOT NULL DEFAULT 0,
+					captured_utc    TEXT NOT NULL,
+					PRIMARY KEY (station_id, item_id)
+				);
+				CREATE INDEX market_buy_demand_item ON market_buy_demand(item_id);
+
+				CREATE TABLE market_buy_orders (
+					station_id    TEXT NOT NULL,
+					system_id     TEXT,
+					item_id       TEXT NOT NULL,
+					item_name     TEXT,
+					price_each    REAL NOT NULL DEFAULT 0,
+					quantity      REAL NOT NULL DEFAULT 0,
+					source        TEXT,
+					captured_utc  TEXT NOT NULL
+				);
+				CREATE INDEX market_buy_orders_station_item ON market_buy_orders(station_id, item_id);
+				CREATE INDEX market_buy_orders_item ON market_buy_orders(item_id);
+			`,
+		},
 	}
 }
 
