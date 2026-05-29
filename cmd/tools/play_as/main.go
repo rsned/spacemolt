@@ -635,6 +635,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatDeployDrone(raw)
 	case "get_tax_estimate", "tax_estimate":
 		return formatGetTaxEstimate(raw)
+	case "commission_quote":
+		return formatCommissionQuote(raw)
 	default:
 		return ""
 	}
@@ -1249,6 +1251,111 @@ func formatGetTaxEstimate(raw []byte) string {
 
 	if resp.Note != "" {
 		fmt.Fprintf(&b, "\nNote: %s\n", resp.Note)
+	}
+	return b.String()
+}
+
+// formatCommissionQuote renders a commission_quote response: the per-class
+// header (class, name, shipyard tier here vs required), both pricing
+// options (credits-only and provide-materials), and the build-materials
+// table when materials are an option. Build time is shown in ticks +
+// hours since 1 tick ≈ 10 s.
+func formatCommissionQuote(raw []byte) string {
+	type material struct {
+		ItemID   string `json:"item_id"`
+		Name     string `json:"name"`
+		Quantity int    `json:"quantity"`
+		Size     int    `json:"size"`
+	}
+	var resp struct {
+		Message                   string     `json:"message"`
+		ShipClass                 string     `json:"ship_class"`
+		ShipName                  string     `json:"ship_name"`
+		CanCommission             bool       `json:"can_commission"`
+		CreditsOnlyTotal          int        `json:"credits_only_total"`
+		ProvideMaterialsTotal     int        `json:"provide_materials_total"`
+		CreditsOnlyAvailable      bool       `json:"credits_only_available"`
+		CanAffordCreditsOnly      bool       `json:"can_afford_credits_only"`
+		CanAffordProvideMaterials bool       `json:"can_afford_provide_materials"`
+		Blockers                  []string   `json:"blockers"`
+		BuildMaterials            []material `json:"build_materials"`
+		BuildTime                 int        `json:"build_time"`
+		LaborCost                 int        `json:"labor_cost"`
+		MaterialCost              int        `json:"material_cost"`
+		PlayerCredits             int        `json:"player_credits"`
+		ShipyardTierHere          int        `json:"shipyard_tier_here"`
+		ShipyardTierRequired      int        `json:"shipyard_tier_required"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	if resp.ShipClass == "" {
+		return ""
+	}
+
+	check := func(ok bool) string {
+		if ok {
+			return "✓"
+		}
+		return "✗"
+	}
+
+	var b strings.Builder
+	name := resp.ShipName
+	if name == "" {
+		name = resp.ShipClass
+	}
+	fmt.Fprintf(&b, "=== Commission Quote: %s (%s) ===\n", name, resp.ShipClass)
+
+	tierNote := ""
+	if resp.ShipyardTierHere < resp.ShipyardTierRequired {
+		tierNote = "  ✗ insufficient"
+	}
+	fmt.Fprintf(&b, "Shipyard tier:  here=%d  required=%d%s\n",
+		resp.ShipyardTierHere, resp.ShipyardTierRequired, tierNote)
+	if resp.BuildTime > 0 {
+		hours := float64(resp.BuildTime) * 10 / 3600
+		fmt.Fprintf(&b, "Build time:     %d ticks (~%.1f h)\n", resp.BuildTime, hours)
+	}
+	fmt.Fprintf(&b, "Player credits: %d cr\n", resp.PlayerCredits)
+	fmt.Fprintf(&b, "Can commission: %s\n\n", check(resp.CanCommission))
+
+	// Pricing options.
+	fmt.Fprintln(&b, "Options:")
+	if resp.CreditsOnlyAvailable {
+		fmt.Fprintf(&b, "  %s credits-only:       %d cr   (afford: %s)\n",
+			check(resp.CanAffordCreditsOnly), resp.CreditsOnlyTotal,
+			check(resp.CanAffordCreditsOnly))
+	} else {
+		fmt.Fprintln(&b, "  ✗ credits-only:       not offered at this shipyard")
+	}
+	fmt.Fprintf(&b, "  %s provide-materials:  %d cr labor",
+		check(resp.CanAffordProvideMaterials), resp.ProvideMaterialsTotal)
+	if resp.MaterialCost > 0 {
+		fmt.Fprintf(&b, " (materials worth ~%d cr)", resp.MaterialCost)
+	}
+	fmt.Fprintf(&b, "   (afford: %s)\n", check(resp.CanAffordProvideMaterials))
+
+	if len(resp.Blockers) > 0 {
+		fmt.Fprintf(&b, "\nBlockers:\n")
+		for _, blk := range resp.Blockers {
+			fmt.Fprintf(&b, "  - %s\n", blk)
+		}
+	}
+
+	if len(resp.BuildMaterials) > 0 {
+		fmt.Fprintf(&b, "\nBuild materials (provide-materials path, %d items):\n",
+			len(resp.BuildMaterials))
+		tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
+		_, _ = fmt.Fprintln(tw, "  ITEM\tQTY\tNAME")
+		for _, m := range resp.BuildMaterials {
+			_, _ = fmt.Fprintf(tw, "  %s\t%d\t%s\n", m.ItemID, m.Quantity, m.Name)
+		}
+		_ = tw.Flush()
+	}
+
+	if resp.Message != "" {
+		fmt.Fprintf(&b, "\n%s\n", resp.Message)
 	}
 	return b.String()
 }

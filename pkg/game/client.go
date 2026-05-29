@@ -4091,6 +4091,19 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				}
 			}
 		}
+		// Store commission_quote responses. The server's reply carries no
+		// "action" field, so detect by the distinctive can_commission +
+		// ship_class pair (commission_ship responses don't include
+		// can_commission). Stored under "commission_quote" so the
+		// play_as styled formatter can pick it up.
+		if _, hasCanCommission := resp.Payload["can_commission"]; hasCanCommission {
+			if _, hasShipClass := resp.Payload["ship_class"]; hasShipClass {
+				if storeKey == "" {
+					storeKey = "commission_quote"
+				}
+				shouldStore = true
+			}
+		}
 		// Store facility responses. Sync queries (list/types/upgrades/help/
 		// faction_list) come back as type=ok with no command field, so they
 		// fall through here. Async terminals are stored later via the
