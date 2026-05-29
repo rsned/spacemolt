@@ -198,11 +198,21 @@ func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error
 
 // CommissionQuote gets a cost estimate for commissioning a ship.
 func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
-	return c.send(ctx, protocol.Message{
+	// Submit + WithAckOnly so the caller blocks until the type=ok frame
+	// arrives. The previous fire-and-forget `send` returned before
+	// storeRawJSON ran, so any downstream lookup (e.g. play_as's
+	// showLastResponse) read an empty slot and the styled formatter
+	// silently produced nothing.
+	msg := protocol.Message{
 		Type:      "commission_quote",
 		Payload:   map[string]any{"ship_class": shipClass},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // CommissionShip commissions a ship to be built at the current shipyard.
