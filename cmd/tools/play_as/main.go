@@ -667,6 +667,7 @@ func formatGetDrones(raw []byte) string {
 	raw = unwrapActionResult(raw)
 	type droneRow struct {
 		ID        string  `json:"id"`
+		Name      string  `json:"name"`
 		Type      string  `json:"type"`
 		Status    string  `json:"status"`
 		Hull      int     `json:"hull"`
@@ -697,33 +698,57 @@ func formatGetDrones(raw []byte) string {
 	}
 
 	slices.SortFunc(resp.Drones, func(a, c droneRow) int {
-		if d := strings.Compare(a.Type, c.Type); d != 0 {
-			return d
-		}
-		return strings.Compare(a.Status, c.Status)
+		return strings.Compare(a.ID, c.ID)
 	})
 
-	typeW, statusW, hullW, poiW := len("Type"), len("Status"), len("Hull"), len("POI")
+	// Name column appears only if at least one drone has been named
+	// (set_drone_name); otherwise it's wasted whitespace.
+	hasName := false
+	for _, d := range resp.Drones {
+		if d.Name != "" {
+			hasName = true
+			break
+		}
+	}
+
+	typeW, statusW, hullW, poiW, nameW := len("Type"), len("Status"), len("Hull"), len("POI"), len("Name")
 	for _, d := range resp.Drones {
 		typeW = max(typeW, len(d.Type))
 		statusW = max(statusW, len(d.Status))
 		hullW = max(hullW, len(fmt.Sprintf("%d/%d", d.Hull, d.MaxHull)))
 		poiW = max(poiW, len(d.POIID))
+		nameW = max(nameW, len(d.Name))
 	}
 
-	fmt.Fprintf(&b, "\n  %-*s | %-*s | %-*s | %5s | %-6s | %-*s | %s\n",
-		typeW, "Type", statusW, "Status", hullW, "Hull", "Cargo", "Script", poiW, "POI", "Drone ID")
-	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
-		strings.Repeat("-", typeW), strings.Repeat("-", statusW), strings.Repeat("-", hullW),
-		strings.Repeat("-", 5), strings.Repeat("-", 6), strings.Repeat("-", poiW), strings.Repeat("-", len("Drone ID")))
+	if hasName {
+		fmt.Fprintf(&b, "\n  %-*s | %-*s | %-*s | %-*s | %5s | %-6s | %-*s | %s\n",
+			nameW, "Name", typeW, "Type", statusW, "Status", hullW, "Hull", "Cargo", "Script", poiW, "POI", "Drone ID")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", statusW),
+			strings.Repeat("-", hullW), strings.Repeat("-", 5), strings.Repeat("-", 6),
+			strings.Repeat("-", poiW), strings.Repeat("-", len("Drone ID")))
+	} else {
+		fmt.Fprintf(&b, "\n  %-*s | %-*s | %-*s | %5s | %-6s | %-*s | %s\n",
+			typeW, "Type", statusW, "Status", hullW, "Hull", "Cargo", "Script", poiW, "POI", "Drone ID")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", typeW), strings.Repeat("-", statusW), strings.Repeat("-", hullW),
+			strings.Repeat("-", 5), strings.Repeat("-", 6), strings.Repeat("-", poiW), strings.Repeat("-", len("Drone ID")))
+	}
 	for _, d := range resp.Drones {
 		script := "no"
 		if d.HasScript {
 			script = "yes"
 		}
-		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %4.0f%% | %-6s | %-*s | %s\n",
-			typeW, d.Type, statusW, d.Status, hullW, fmt.Sprintf("%d/%d", d.Hull, d.MaxHull),
-			d.CargoPct, script, poiW, d.POIID, d.ID)
+		if hasName {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %-*s | %4.0f%% | %-6s | %-*s | %s\n",
+				nameW, d.Name, typeW, d.Type, statusW, d.Status,
+				hullW, fmt.Sprintf("%d/%d", d.Hull, d.MaxHull),
+				d.CargoPct, script, poiW, d.POIID, d.ID)
+		} else {
+			fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %4.0f%% | %-6s | %-*s | %s\n",
+				typeW, d.Type, statusW, d.Status, hullW, fmt.Sprintf("%d/%d", d.Hull, d.MaxHull),
+				d.CargoPct, script, poiW, d.POIID, d.ID)
+		}
 	}
 	return b.String()
 }
