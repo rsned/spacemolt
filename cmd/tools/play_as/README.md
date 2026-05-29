@@ -58,7 +58,10 @@ Two commands help decide what to craft and what's blocking a target build.
 List every recipe you can build right now (cargo + current-station storage,
 station-legal). Facility-only recipes (the ∞-can_make ones that require a
 crafting facility, not a regular station) are hidden by default — pass
-`--include-facility-only` to opt them back in.
+`--include-facility-only` to opt them back in. "Ship Passive" recipes
+(`onboard_*` — run automatically on ships that have the capability built
+in; the server rejects manual `craft` calls) are also hidden by default;
+pass `--include-ship-passive` to surface them.
 
 ```
 craftable                          # immediately buildable, compact table
@@ -67,6 +70,7 @@ craftable --category Refining      # substring filter on category
 craftable --search lance           # substring filter on name and outputs
 craftable --include-faction        # also count faction storage
 craftable --include-facility-only  # include facility-only recipes (default: hidden)
+craftable --include-ship-passive   # include Ship Passive recipes (onboard_*, default: hidden)
 craftable --include-hidden         # include recipes the server flags as hidden
 craftable --detail                 # per-recipe drill-down (no table)
 craftable --recipe <id> --detail   # detail for one specific recipe

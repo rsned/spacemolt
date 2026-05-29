@@ -77,6 +77,7 @@ type PlanResult struct {
 	Intermediates  []IntermediateCraft // populated only in --reachable mode
 	BlockedSkill   map[string]int      // skill_id → level shortfall; empty if no skill block
 	BlockedIllegal bool                // true if recipe is illegal at this station
+	BlockedPassive bool                // true if recipe is Ship Passive (runs automatically, can't be crafted manually)
 	Ready          bool
 }
 
@@ -85,6 +86,7 @@ type CraftableOpts struct {
 	Reachable           bool
 	IncludeFaction      bool
 	IncludeFacilityOnly bool   // include recipes flagged facility_only (default: hide; their ∞ can_make floods the top)
+	IncludeShipPassive  bool   // include "Ship Passive" recipes (default: hide; they run automatically on capable ships and can't be crafted manually)
 	IncludeHidden       bool   // include recipes flagged hidden (default: hide)
 	CategoryFilter      string // substring match, case-insensitive; empty = no filter
 	SearchFilter        string // substring match against name + output item_ids, case-insensitive

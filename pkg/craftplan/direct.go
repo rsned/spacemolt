@@ -58,6 +58,16 @@ func (e *Engine) Craftable(ctx context.Context, opts CraftableOpts) ([]Craftable
 			!opts.IncludeFacilityOnly && opts.OneRecipe == "" {
 			continue
 		}
+		// "Ship Passive" recipes run automatically on ships that have the
+		// capability built in — they can't be crafted manually (the server
+		// rejects with `invalid_recipe`). Hide by default so the table
+		// (and the plan tool's "ready to craft" prompt) doesn't surface a
+		// recipe the operator can't actually invoke. OneRecipe still
+		// overrides so an explicit `plan onboard_X` shows the breakdown.
+		if strings.EqualFold(r.Category, "Ship Passive") &&
+			!opts.IncludeShipPassive && opts.OneRecipe == "" {
+			continue
+		}
 		if r.Hidden && !opts.IncludeHidden && opts.OneRecipe == "" {
 			continue
 		}
@@ -211,6 +221,7 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 		StationID:      stationID,
 		BlockedSkill:   skillGaps(r, skills),
 		BlockedIllegal: illegal[r.ID],
+		BlockedPassive: strings.EqualFold(r.Category, "Ship Passive"),
 	}
 
 	if opts.Reachable {
@@ -221,7 +232,7 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 		res.Inputs = planDirect(r, opts.Quantity, inv, opts.IncludeFaction)
 	}
 
-	res.Ready = len(res.BlockedSkill) == 0 && !res.BlockedIllegal
+	res.Ready = len(res.BlockedSkill) == 0 && !res.BlockedIllegal && !res.BlockedPassive
 	for _, row := range res.Inputs {
 		if row.Short > 0 {
 			res.Ready = false

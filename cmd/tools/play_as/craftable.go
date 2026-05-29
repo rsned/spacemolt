@@ -288,7 +288,7 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 	_ = format
 	flags := parseFlagArgs(parts[1:],
 		"reachable", "category", "search", "include-faction",
-		"include-facility-only", "include-hidden",
+		"include-facility-only", "include-ship-passive", "include-hidden",
 		"detail", "recipe", "refresh", "max", "sort",
 	)
 
@@ -296,6 +296,7 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 		Reachable:           flagBool(flags["reachable"]),
 		IncludeFaction:      flagBool(flags["include-faction"]),
 		IncludeFacilityOnly: flagBool(flags["include-facility-only"]),
+		IncludeShipPassive:  flagBool(flags["include-ship-passive"]),
 		IncludeHidden:       flagBool(flags["include-hidden"]),
 		Refresh:             flagBool(flags["refresh"]),
 	}

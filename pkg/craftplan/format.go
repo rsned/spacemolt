@@ -113,6 +113,10 @@ func FormatPlan(res *PlanResult) string {
 	if res.BlockedIllegal {
 		fmt.Fprintf(&b, "blocked: recipe is illegal at this station (%s)\n\n", res.StationID)
 	}
+	if res.BlockedPassive {
+		fmt.Fprintln(&b, "blocked: Ship Passive recipe — runs automatically on ships that have this capability built in; it cannot be crafted manually.")
+		fmt.Fprintln(&b)
+	}
 
 	// Inputs table.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
