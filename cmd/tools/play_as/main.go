@@ -4866,12 +4866,30 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "deploy_drone":
-		droneID := resolveArg(parts[1:], "drone_id")
-		if droneID == "" {
-			return fmt.Errorf("usage: deploy_drone <drone-id>  (or --drone_id <id>; see get_drones)")
+		// --all (bool flag) or positional/no-arg "all" deploys every in-bay
+		// drone at the current location in one tick; --drone_id <id> or a
+		// bare ID deploys a single drone. The server's per-drone bandwidth
+		// check still applies, so over-bandwidth drones are silently skipped.
+		args := parts[1:]
+		all := false
+		for _, a := range args {
+			if a == "--all" {
+				all = true
+			}
+		}
+		droneID := ""
+		if !all {
+			droneID = resolveArg(args, "drone_id")
+			if strings.EqualFold(droneID, "all") {
+				all = true
+				droneID = ""
+			}
+		}
+		if !all && droneID == "" {
+			return fmt.Errorf("usage: deploy_drone <drone-id>|--all  (or --drone_id <id>; see get_drones)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.DeployDrone(ctx, droneID)
+			return client.DeployDrone(ctx, droneID, all)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "bulk_upload_drone_script":
@@ -6877,7 +6895,7 @@ func printHelp() {
 
 	fmt.Println("\n=== DRONES ===")
 	fmt.Println("  get_drones, drones                  - List your drones")
-	fmt.Println("  deploy_drone <drone-id>             - Launch a drone at current location")
+	fmt.Println("  deploy_drone [<id>|--all]           - Launch one drone (or --all in-bay drones in one tick)")
 	fmt.Println("  recall_drone [<id>|--all]           - Recall one drone (or --all at current location)")
 	fmt.Println("  set_drone_name <drone-id> <name>... - Rename a drone (≤32 chars; empty clears)")
 	fmt.Println("  upload_drone_script <drone-id> <script>  - Upload DroneLang script to a deployed drone")

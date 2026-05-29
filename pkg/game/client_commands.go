@@ -2232,11 +2232,19 @@ func (c *Client) UploadDroneScript(ctx context.Context, droneID, script string) 
 	return err
 }
 
-// DeployDrone launches a drone from the bay into the current location.
-func (c *Client) DeployDrone(ctx context.Context, droneID string) error {
+// DeployDrone launches a drone from the bay into the current location, or
+// every in-bay drone when all is true (server-side bandwidth check still
+// applies — drones that would exceed remaining bandwidth are silently
+// skipped). Mirrors the RecallDrone signature; pass droneID="" with all=true
+// for the bulk path.
+func (c *Client) DeployDrone(ctx context.Context, droneID string, all bool) error {
+	payload := map[string]any{"all": all}
+	if droneID != "" {
+		payload["drone_id"] = droneID
+	}
 	msg := protocol.Message{
 		Type:      "deploy_drone",
-		Payload:   map[string]any{"drone_id": droneID},
+		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))

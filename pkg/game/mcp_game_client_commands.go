@@ -1714,9 +1714,15 @@ func (m *MCPGameClient) UploadDroneScript(ctx context.Context, droneID, script s
 	return m.updateStateFromResult(result)
 }
 
-// DeployDrone launches a drone from the bay into the current location.
-func (m *MCPGameClient) DeployDrone(ctx context.Context, droneID string) error {
-	result, err := m.callTool(ctx, "deploy_drone", map[string]any{"drone_id": droneID})
+// DeployDrone launches a drone from the bay into the current location, or
+// every in-bay drone when all is true. Server-side bandwidth check still
+// applies — drones that would exceed remaining bandwidth are silently skipped.
+func (m *MCPGameClient) DeployDrone(ctx context.Context, droneID string, all bool) error {
+	payload := map[string]any{"all": all}
+	if droneID != "" {
+		payload["drone_id"] = droneID
+	}
+	result, err := m.callTool(ctx, "deploy_drone", payload)
 	if err != nil {
 		return err
 	}

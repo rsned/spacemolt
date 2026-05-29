@@ -750,7 +750,9 @@ func (m *mockGameClient) RecallDrone(ctx context.Context, droneID string, all bo
 func (m *mockGameClient) UploadDroneScript(ctx context.Context, droneID, script string) error {
 	return nil
 }
-func (m *mockGameClient) DeployDrone(ctx context.Context, droneID string) error { return nil }
+func (m *mockGameClient) DeployDrone(ctx context.Context, droneID string, all bool) error {
+	return nil
+}
 func (m *mockGameClient) SetDroneName(ctx context.Context, droneID, name string) error {
 	return nil
 }
