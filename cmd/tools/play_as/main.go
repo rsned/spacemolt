@@ -4707,7 +4707,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.ViewMarket(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 		// Only the full compact summary (no item_id, no category) feeds the
-		// demand ledger; a per-item view_market here is left to `demand scan`.
+		// demand ledger; per-item or category-scoped calls are not captured.
 		if payload["item_id"] == nil && payload["category"] == nil {
 			captureDemand(client, ctx)
 		}
@@ -6342,9 +6342,6 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return runSellable(client, ctx, opts, format)
 
 	case "demand":
-		if len(parts) > 1 && strings.ToLower(parts[1]) == "scan" {
-			return runDemandScan(client, ctx)
-		}
 		opts, err := parseDemandOptions(parts[1:])
 		if err != nil {
 			return err

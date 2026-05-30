@@ -2,36 +2,16 @@ package knowledge
 
 import "context"
 
-// UpsertMarketDemand inserts or updates the compact best-buy demand for each
-// (station_id, item_id). Empty SystemID/ItemName are stored as "" (never NULL)
-// so loaders can scan into plain strings.
-func (kb *SQLiteKB) UpsertMarketDemand(ctx context.Context, rows []MarketDemandRow) error {
-	return kb.inTx(ctx, func(tx txer) error {
-		for _, r := range rows {
-			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO market_buy_demand
-					(station_id, system_id, item_id, item_name, best_buy_price, buy_quantity, captured_utc)
-				VALUES (?,?,?,?,?,?,?)
-				ON CONFLICT(station_id, item_id) DO UPDATE SET
-					system_id      = excluded.system_id,
-					item_name      = excluded.item_name,
-					best_buy_price = excluded.best_buy_price,
-					buy_quantity   = excluded.buy_quantity,
-					captured_utc   = excluded.captured_utc`,
-				r.StationID, r.SystemID, r.ItemID, r.ItemName, r.BestBuyPrice, r.BuyQuantity, utc(r.CapturedAt)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-// ReplaceMarketBuyOrders replaces all deep-scan buy orders for one
-// (station_id, item_id) with the supplied set.
-func (kb *SQLiteKB) ReplaceMarketBuyOrders(ctx context.Context, stationID, itemID string, orders []MarketBuyOrderRow) error {
+// ReplaceStationBuyOrders replaces ALL buy orders for a station with the
+// supplied set in one transaction. A full compact view_market read covers every
+// item at the station, so replacing by station keeps the snapshot fresh and
+// prunes items whose demand has vanished since the last read. Empty
+// SystemID/ItemName/Source are stored as "" (never NULL) so loaders scan into
+// plain strings.
+func (kb *SQLiteKB) ReplaceStationBuyOrders(ctx context.Context, stationID string, orders []MarketBuyOrderRow) error {
 	return kb.inTx(ctx, func(tx txer) error {
 		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM market_buy_orders WHERE station_id=? AND item_id=?`, stationID, itemID); err != nil {
+			`DELETE FROM market_buy_orders WHERE station_id=?`, stationID); err != nil {
 			return err
 		}
 		for _, o := range orders {

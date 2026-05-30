@@ -10,10 +10,11 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// parseDemandRows turns a compact view_market response (no item_id) into
-// MarketDemandRow values, keeping only items with actual buy demand. Uses
-// best_buy, falling back to buy_price when best_buy is zero.
-func parseDemandRows(raw []byte, stationID, systemID string, now time.Time) []knowledge.MarketDemandRow {
+// parseStationBuyOrders turns a compact view_market response (no item_id) into
+// per-order MarketBuyOrderRow values across all items, carrying Source. The
+// compact response already contains complete, source-tagged buy_orders, so no
+// per-item deep call is needed. Skips orders with non-positive price or qty.
+func parseStationBuyOrders(raw []byte, stationID, systemID string, now time.Time) []knowledge.MarketBuyOrderRow {
 	if len(raw) == 0 || stationID == "" {
 		return nil
 	}
@@ -23,31 +24,30 @@ func parseDemandRows(raw []byte, stationID, systemID string, now time.Time) []kn
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil
 	}
-	var out []knowledge.MarketDemandRow
+	var out []knowledge.MarketBuyOrderRow
 	for _, it := range resp.Items {
-		price := it.BestBuy
-		if price <= 0 {
-			price = float64(it.BuyPrice)
+		for _, o := range it.BuyOrders {
+			if o.PriceEach <= 0 || o.Quantity <= 0 {
+				continue
+			}
+			out = append(out, knowledge.MarketBuyOrderRow{
+				StationID: stationID,
+				SystemID:  systemID,
+				ItemID:    it.ItemID,
+				ItemName:  it.ItemName,
+				PriceEach: o.PriceEach,
+				Quantity:  o.Quantity,
+				Source:    o.Source,
+				CapturedAt: now,
+			})
 		}
-		qty := float64(it.BuyQuantity)
-		if price <= 0 || qty <= 0 {
-			continue
-		}
-		out = append(out, knowledge.MarketDemandRow{
-			StationID:    stationID,
-			SystemID:     systemID,
-			ItemID:       it.ItemID,
-			ItemName:     it.ItemName,
-			BestBuyPrice: price,
-			BuyQuantity:  qty,
-			CapturedAt:   now,
-		})
 	}
 	return out
 }
 
-// captureDemand persists the compact buy-order demand from the client's most
-// recent view_market response. Best-effort: silently no-ops when the KB is
+// captureDemand persists the full source-classified buy-order demand from the
+// client's most recent (full, no-item_id) view_market response, replacing the
+// station's entire order set. Best-effort: silently no-ops when the KB is
 // absent, there is no market data, or the player is not at a station.
 func captureDemand(client game.GameClient, ctx context.Context) {
 	if globalKB == nil {
@@ -61,9 +61,9 @@ func captureDemand(client game.GameClient, ctx context.Context) {
 	if state == nil {
 		return
 	}
-	rows := parseDemandRows(client.GetRawJSON("market"), state.CurrentPOI, state.CurrentSystem, time.Now())
-	if len(rows) == 0 {
+	orders := parseStationBuyOrders(client.GetRawJSON("market"), state.CurrentPOI, state.CurrentSystem, time.Now())
+	if len(orders) == 0 {
 		return
 	}
-	_ = sqlite.UpsertMarketDemand(ctx, rows)
+	_ = sqlite.ReplaceStationBuyOrders(ctx, state.CurrentPOI, orders)
 }
