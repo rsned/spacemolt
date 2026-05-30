@@ -45,6 +45,73 @@ func parseStationBuyOrders(raw []byte, stationID, systemID string, now time.Time
 	return out
 }
 
+// demandHistoryBucket is the time-bucket granularity for demand-history samples.
+// Captures within the same bucket upsert the same row (last observation wins).
+const demandHistoryBucket = time.Hour
+
+// Ensure demandHistoryBucket is referenced so the linter does not flag it as
+// unused before Task 6 wires it into captureDemand.
+var _ = demandHistoryBucket
+
+// aggregateDemandHistory collapses per-order buy demand into one
+// DemandHistorySample per (station, item): best price and total quantity across
+// all orders, plus the Station-Manager split (source=="station"). BucketAt is
+// `now` truncated to the bucket size; CapturedAt is `now`. Output preserves
+// first-seen order for deterministic rendering and tests. Orders with
+// non-positive price or quantity are skipped.
+func aggregateDemandHistory(orders []knowledge.MarketBuyOrderRow, now time.Time, bucket time.Duration) []knowledge.DemandHistorySample {
+	type acc struct {
+		stationID, systemID, itemID, itemName string
+		best, total, smBest, smQty            float64
+		count                                 int
+	}
+	key := func(s, i string) string { return s + "\x00" + i }
+	order := []string{}
+	m := map[string]*acc{}
+	for _, o := range orders {
+		if o.PriceEach <= 0 || o.Quantity <= 0 {
+			continue
+		}
+		k := key(o.StationID, o.ItemID)
+		a, ok := m[k]
+		if !ok {
+			a = &acc{stationID: o.StationID, systemID: o.SystemID, itemID: o.ItemID, itemName: o.ItemName}
+			m[k] = a
+			order = append(order, k)
+		}
+		a.total += o.Quantity
+		a.count++
+		if o.PriceEach > a.best {
+			a.best = o.PriceEach
+		}
+		if o.Source == "station" {
+			a.smQty += o.Quantity
+			if o.PriceEach > a.smBest {
+				a.smBest = o.PriceEach
+			}
+		}
+	}
+	bucketAt := now.UTC().Truncate(bucket)
+	out := make([]knowledge.DemandHistorySample, 0, len(order))
+	for _, k := range order {
+		a := m[k]
+		out = append(out, knowledge.DemandHistorySample{
+			StationID:   a.stationID,
+			SystemID:    a.systemID,
+			ItemID:      a.itemID,
+			ItemName:    a.itemName,
+			BucketAt:    bucketAt,
+			CapturedAt:  now,
+			BestPrice:   a.best,
+			TotalQty:    a.total,
+			SMBestPrice: a.smBest,
+			SMQty:       a.smQty,
+			OrderCount:  a.count,
+		})
+	}
+	return out
+}
+
 // captureDemand persists the full source-classified buy-order demand from the
 // client's most recent (full, no-item_id) view_market response, replacing the
 // station's entire order set. Best-effort: silently no-ops when the KB is

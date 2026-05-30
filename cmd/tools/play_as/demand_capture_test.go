@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 func TestParseStationBuyOrders(t *testing.T) {
@@ -51,5 +53,43 @@ func TestParseStationBuyOrdersEmpty(t *testing.T) {
 	}
 	if got := parseStationBuyOrders([]byte(`{"items":[]}`), "", "sys1", now); got != nil {
 		t.Errorf("empty station: want nil, got %+v", got)
+	}
+}
+
+func TestAggregateDemandHistory(t *testing.T) {
+	now := time.Date(2026, 5, 30, 12, 34, 56, 0, time.UTC)
+	orders := []knowledge.MarketBuyOrderRow{
+		{StationID: "stn1", SystemID: "sys1", ItemID: "iron_ore", ItemName: "Iron Ore", PriceEach: 10, Quantity: 50, Source: "station"},
+		{StationID: "stn1", SystemID: "sys1", ItemID: "iron_ore", ItemName: "Iron Ore", PriceEach: 12, Quantity: 20, Source: ""},
+		{StationID: "stn1", SystemID: "sys1", ItemID: "copper", ItemName: "Copper", PriceEach: 8, Quantity: 100, Source: "station"},
+		{StationID: "stn1", SystemID: "sys1", ItemID: "copper", ItemName: "Copper", PriceEach: 0, Quantity: 5, Source: "station"}, // skipped
+	}
+	got := aggregateDemandHistory(orders, now, time.Hour)
+	if len(got) != 2 {
+		t.Fatalf("want 2 samples (iron, copper), got %d", len(got))
+	}
+	iron := got[0]
+	if iron.ItemID != "iron_ore" {
+		t.Fatalf("expected iron first (insertion order), got %s", iron.ItemID)
+	}
+	if iron.BestPrice != 12 || iron.TotalQty != 70 {
+		t.Errorf("iron aggregate wrong: best=%v total=%v", iron.BestPrice, iron.TotalQty)
+	}
+	if iron.SMBestPrice != 10 || iron.SMQty != 50 {
+		t.Errorf("iron SM split wrong: smBest=%v smQty=%v", iron.SMBestPrice, iron.SMQty)
+	}
+	if iron.OrderCount != 2 {
+		t.Errorf("iron order count: want 2, got %d", iron.OrderCount)
+	}
+	want := time.Date(2026, 5, 30, 12, 0, 0, 0, time.UTC)
+	if !iron.BucketAt.Equal(want) {
+		t.Errorf("bucket not hour-truncated: want %v got %v", want, iron.BucketAt)
+	}
+	if !iron.CapturedAt.Equal(now) {
+		t.Errorf("captured should be now: %v", iron.CapturedAt)
+	}
+	copper := got[1]
+	if copper.OrderCount != 1 || copper.TotalQty != 100 {
+		t.Errorf("copper aggregate wrong (zero-price order must be skipped): %+v", copper)
 	}
 }
