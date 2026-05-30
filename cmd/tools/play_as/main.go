@@ -4706,9 +4706,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.ViewMarket(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
-		// Only the compact (no item_id) summary feeds the demand ledger; a
-		// per-item view_market here is left to `demand scan`.
-		if payload["item_id"] == nil {
+		// Only the full compact summary (no item_id, no category) feeds the
+		// demand ledger; a per-item view_market here is left to `demand scan`.
+		if payload["item_id"] == nil && payload["category"] == nil {
 			captureDemand(client, ctx)
 		}
 		return err
