@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 9
+-- Migrations applied: 10
 -- Last Regenerated: 2026-05-30
 
 -- ============================================================================
@@ -479,6 +479,22 @@ CREATE TABLE market_buy_orders (
 					quantity      REAL NOT NULL DEFAULT 0,
 					source        TEXT,
 					captured_utc  TEXT NOT NULL
+				);
+
+
+CREATE TABLE market_demand_history (
+					station_id     TEXT NOT NULL,
+					system_id      TEXT,
+					item_id        TEXT NOT NULL,
+					item_name      TEXT,
+					bucket_utc     TEXT NOT NULL,
+					captured_utc   TEXT NOT NULL,
+					best_price     REAL NOT NULL DEFAULT 0,
+					total_qty      REAL NOT NULL DEFAULT 0,
+					sm_best_price  REAL NOT NULL DEFAULT 0,
+					sm_qty         REAL NOT NULL DEFAULT 0,
+					order_count    INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (station_id, item_id, bucket_utc)
 				);
 
 
@@ -1053,6 +1069,8 @@ CREATE INDEX market_buy_orders_item ON market_buy_orders(item_id);
 
 CREATE INDEX market_buy_orders_station_item ON market_buy_orders(station_id, item_id);
 
+CREATE INDEX market_demand_history_item ON market_demand_history(item_id, bucket_utc);
+
 CREATE INDEX seen_player_ships_class ON seen_player_ships(ship_class);
 
 CREATE INDEX seen_players_faction   ON seen_players(faction_id);
@@ -1079,4 +1097,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (34, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (35, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (36, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (37, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (38, datetime('now'));
 
