@@ -49,7 +49,7 @@ func parseDemandRows(raw []byte, stationID, systemID string, now time.Time) []kn
 // captureDemand persists the compact buy-order demand from the client's most
 // recent view_market response. Best-effort: silently no-ops when the KB is
 // absent, there is no market data, or the player is not at a station.
-func captureDemand(client game.GameClient, ctx context.Context) { //nolint:unused // wired in Task 10
+func captureDemand(client game.GameClient, ctx context.Context) {
 	if globalKB == nil {
 		return
 	}

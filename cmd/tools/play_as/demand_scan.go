@@ -42,7 +42,7 @@ func parseDeepOrders(raw []byte, stationID, systemID, itemID string, now time.Ti
 // item with buy demand in the compact summary, it fetches the full order book
 // (view_market with item_id) and stores Source-classified rows. This is the
 // only chatty path — one server call per item, paced by SleepQuick.
-func runDemandScan(client game.GameClient, ctx context.Context) error { //nolint:unused // wired in Task 10
+func runDemandScan(client game.GameClient, ctx context.Context) error {
 	if globalKB == nil {
 		return fmt.Errorf("demand scan: no knowledge DB configured (start play_as with --db)")
 	}

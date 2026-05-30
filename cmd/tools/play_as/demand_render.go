@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func renderDemandJSON(rep demandReport) string { //nolint:unused // used by demand_cmd.go (Task 9)
+func renderDemandJSON(rep demandReport) string {
 	b, err := json.MarshalIndent(rep, "", "  ")
 	if err != nil {
 		return fmt.Sprintf("{\"error\":%q}\n", err.Error())
@@ -14,7 +14,7 @@ func renderDemandJSON(rep demandReport) string { //nolint:unused // used by dema
 	return string(b) + "\n"
 }
 
-func renderDemandStyled(rep demandReport) string { //nolint:unused // used by demand_cmd.go (Task 9)
+func renderDemandStyled(rep demandReport) string {
 	var sb strings.Builder
 	if len(rep.Rows) == 0 {
 		sb.WriteString("No captured demand matches. Visit stations and run view_market/sellable to fill the ledger, or `demand scan` for full depth.\n")
