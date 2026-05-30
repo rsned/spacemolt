@@ -26,3 +26,33 @@ func (kb *SQLiteKB) ReplaceStationBuyOrders(ctx context.Context, stationID strin
 		return nil
 	})
 }
+
+// RecordDemandHistory upserts one row per (station, item, bucket) into
+// market_demand_history. Re-reading a station within the same bucket updates that
+// row in place (last observation in the bucket wins); a new bucket appends a new
+// row. Runs in one transaction so a station's samples are all-or-nothing.
+func (kb *SQLiteKB) RecordDemandHistory(ctx context.Context, samples []DemandHistorySample) error {
+	return kb.inTx(ctx, func(tx txer) error {
+		for _, s := range samples {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO market_demand_history
+					(station_id, system_id, item_id, item_name, bucket_utc, captured_utc,
+					 best_price, total_qty, sm_best_price, sm_qty, order_count)
+				VALUES (?,?,?,?,?,?,?,?,?,?,?)
+				ON CONFLICT(station_id, item_id, bucket_utc) DO UPDATE SET
+					system_id     = excluded.system_id,
+					item_name     = excluded.item_name,
+					captured_utc  = excluded.captured_utc,
+					best_price    = excluded.best_price,
+					total_qty     = excluded.total_qty,
+					sm_best_price = excluded.sm_best_price,
+					sm_qty        = excluded.sm_qty,
+					order_count   = excluded.order_count`,
+				s.StationID, s.SystemID, s.ItemID, s.ItemName, utc(s.BucketAt), utc(s.CapturedAt),
+				s.BestPrice, s.TotalQty, s.SMBestPrice, s.SMQty, s.OrderCount); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

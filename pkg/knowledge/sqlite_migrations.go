@@ -342,6 +342,27 @@ func migrations() []Migration {
 			name:    "drop_market_buy_demand",
 			sql:     `DROP TABLE IF EXISTS market_buy_demand;`,
 		},
+		{
+			version: 38,
+			name:    "market_demand_history",
+			sql: `
+				CREATE TABLE market_demand_history (
+					station_id     TEXT NOT NULL,
+					system_id      TEXT,
+					item_id        TEXT NOT NULL,
+					item_name      TEXT,
+					bucket_utc     TEXT NOT NULL,
+					captured_utc   TEXT NOT NULL,
+					best_price     REAL NOT NULL DEFAULT 0,
+					total_qty      REAL NOT NULL DEFAULT 0,
+					sm_best_price  REAL NOT NULL DEFAULT 0,
+					sm_qty         REAL NOT NULL DEFAULT 0,
+					order_count    INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (station_id, item_id, bucket_utc)
+				);
+				CREATE INDEX market_demand_history_item ON market_demand_history(item_id, bucket_utc);
+			`,
+		},
 	}
 }
 

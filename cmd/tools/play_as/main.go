@@ -6342,6 +6342,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return runSellable(client, ctx, opts, format)
 
 	case "demand":
+		if len(parts) >= 2 && parts[1] == "history" {
+			return runDemandHistory(ctx, parts[2:], format)
+		}
 		opts, err := parseDemandOptions(parts[1:])
 		if err != nil {
 			return err
