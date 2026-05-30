@@ -49,9 +49,16 @@ func parseStationBuyOrders(raw []byte, stationID, systemID string, now time.Time
 // Captures within the same bucket upsert the same row (last observation wins).
 const demandHistoryBucket = time.Hour
 
-// Ensure demandHistoryBucket is referenced so the linter does not flag it as
-// unused before Task 6 wires it into captureDemand.
-var _ = demandHistoryBucket
+// demandFreshness is how recently a station's demand must have been captured for
+// a new capture to be skipped. Prevents many agents sharing a station from
+// re-writing the same data minutes apart.
+const demandFreshness = 5 * time.Minute
+
+// isFresh reports whether a capture at `last` is recent enough (strictly within
+// `window` of `now`) that re-capturing should be skipped.
+func isFresh(last, now time.Time, window time.Duration) bool {
+	return now.Sub(last) < window
+}
 
 // aggregateDemandHistory collapses per-order buy demand into one
 // DemandHistorySample per (station, item): best price and total quantity across
@@ -128,9 +135,16 @@ func captureDemand(client game.GameClient, ctx context.Context) {
 	if state == nil {
 		return
 	}
-	orders := parseStationBuyOrders(client.GetRawJSON("market"), state.CurrentPOI, state.CurrentSystem, time.Now())
+	now := time.Now()
+	orders := parseStationBuyOrders(client.GetRawJSON("market"), state.CurrentPOI, state.CurrentSystem, now)
 	if len(orders) == 0 {
 		return
 	}
+	// Skip both writes if this station's demand was captured recently (possibly by
+	// another agent) — avoids redundant work across many agents sharing a station.
+	if last, ok, err := sqlite.LatestDemandCapture(ctx, state.CurrentPOI); err == nil && ok && isFresh(last, now, demandFreshness) {
+		return
+	}
 	_ = sqlite.ReplaceStationBuyOrders(ctx, state.CurrentPOI, orders)
+	_ = sqlite.RecordDemandHistory(ctx, aggregateDemandHistory(orders, now, demandHistoryBucket))
 }

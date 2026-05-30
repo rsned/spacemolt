@@ -93,3 +93,16 @@ func TestAggregateDemandHistory(t *testing.T) {
 		t.Errorf("copper aggregate wrong (zero-price order must be skipped): %+v", copper)
 	}
 }
+
+func TestIsFresh(t *testing.T) {
+	now := time.Date(2026, 5, 30, 12, 0, 0, 0, time.UTC)
+	if !isFresh(now.Add(-2*time.Minute), now, 5*time.Minute) {
+		t.Error("2 min ago should be fresh within a 5 min window")
+	}
+	if isFresh(now.Add(-10*time.Minute), now, 5*time.Minute) {
+		t.Error("10 min ago should be stale within a 5 min window")
+	}
+	if isFresh(now.Add(-5*time.Minute), now, 5*time.Minute) {
+		t.Error("exactly 5 min should be stale (strictly-less window)")
+	}
+}
