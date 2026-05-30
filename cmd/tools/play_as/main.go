@@ -4463,10 +4463,18 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 12*time.Second, cmd, format)
 
 	case "dock":
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			err := client.Dock(ctx)
 			return reconcileDockState(ctx, client, "dock", err)
 		}, ctx, 3*time.Second, cmd, format)
+		if err == nil {
+			// Best-effort: pull the local market so the demand ledger fills as
+			// you travel. Stations without a market simply error and are ignored.
+			if mErr := client.GetListings(ctx); mErr == nil {
+				captureDemand(client, ctx)
+			}
+		}
+		return err
 
 	case "travel":
 		if len(parts) < 2 {
@@ -4671,9 +4679,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "view_market":
 		if len(parts) < 2 {
-			return simpleCommand(client, func(ctx context.Context) error {
+			err := simpleCommand(client, func(ctx context.Context) error {
 				return client.ViewMarket(ctx, nil)
 			}, ctx, 2*time.Second, cmd, format)
+			captureDemand(client, ctx)
+			return err
 		}
 		// First non-flag arg is item_id; also accept --item_id and --category flags
 		payload := make(map[string]any)
@@ -4693,9 +4703,15 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if v, ok := payload["item_id"].(string); ok {
 			payload["item_id"] = strings.ToLower(v)
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.ViewMarket(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
+		// Only the compact (no item_id) summary feeds the demand ledger; a
+		// per-item view_market here is left to `demand scan`.
+		if payload["item_id"] == nil {
+			captureDemand(client, ctx)
+		}
+		return err
 
 	case "view_orders":
 		if len(parts) > 1 {
@@ -6324,6 +6340,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}
 		}
 		return runSellable(client, ctx, opts, format)
+
+	case "demand":
+		if len(parts) > 1 && strings.ToLower(parts[1]) == "scan" {
+			return runDemandScan(client, ctx)
+		}
+		opts, err := parseDemandOptions(parts[1:])
+		if err != nil {
+			return err
+		}
+		return runDemand(client, ctx, opts, format)
 
 	// === APPEARANCE ===
 	case "set_colors":
