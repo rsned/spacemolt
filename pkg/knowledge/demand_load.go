@@ -1,6 +1,10 @@
 package knowledge
 
-import "context"
+import (
+	"context"
+	"database/sql"
+	"time"
+)
 
 // LoadDemandHistory returns demand-history samples for itemID, optionally
 // narrowed to a single stationID (""=all stations). Rows are ordered
@@ -63,6 +67,23 @@ func capPerStation(samples []DemandHistorySample, limit int) []DemandHistorySamp
 		i = j
 	}
 	return out
+}
+
+// LatestDemandCapture returns the most recent captured_utc recorded for a station
+// in the live buy-order ledger (market_buy_orders), and whether any rows exist.
+// It is the shared freshness primitive: callers use it to skip re-capturing a
+// station whose demand was read recently (possibly by another agent). RFC3339
+// timestamps sort lexically in chronological order, so MAX() gives the latest.
+func (kb *SQLiteKB) LatestDemandCapture(ctx context.Context, stationID string) (time.Time, bool, error) {
+	var capStr sql.NullString
+	if err := kb.db.QueryRowContext(ctx,
+		`SELECT MAX(captured_utc) FROM market_buy_orders WHERE station_id=?`, stationID).Scan(&capStr); err != nil {
+		return time.Time{}, false, err
+	}
+	if !capStr.Valid || capStr.String == "" {
+		return time.Time{}, false, nil
+	}
+	return parseUTC(capStr.String), true, nil
 }
 
 // LoadMarketBuyOrders returns every captured buy order across all stations,

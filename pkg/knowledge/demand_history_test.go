@@ -65,6 +65,32 @@ func TestRecordDemandHistoryUpsertWithinBucket(t *testing.T) {
 	}
 }
 
+func TestLatestDemandCapture(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+
+	// No data yet -> (zero, false, nil).
+	if last, ok, err := kb.LatestDemandCapture(ctx, "stn1"); err != nil || ok || !last.IsZero() {
+		t.Fatalf("empty: want (zero, false, nil), got last=%v ok=%v err=%v", last, ok, err)
+	}
+
+	t0 := time.Date(2026, 5, 30, 12, 0, 0, 0, time.UTC)
+	t1 := t0.Add(10 * time.Minute)
+	if err := kb.ReplaceStationBuyOrders(ctx, "stn1", []MarketBuyOrderRow{
+		{StationID: "stn1", ItemID: "iron_ore", PriceEach: 10, Quantity: 50, Source: "station", CapturedAt: t0},
+		{StationID: "stn1", ItemID: "copper", PriceEach: 8, Quantity: 20, Source: "station", CapturedAt: t1},
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	last, ok, err := kb.LatestDemandCapture(ctx, "stn1")
+	if err != nil || !ok {
+		t.Fatalf("want (_, true, nil), got ok=%v err=%v", ok, err)
+	}
+	if !last.Equal(t1) {
+		t.Errorf("want latest %v, got %v", t1, last)
+	}
+}
+
 func TestLoadDemandHistoryFilterAndCap(t *testing.T) {
 	kb := newTestKB(t)
 	ctx := context.Background()
