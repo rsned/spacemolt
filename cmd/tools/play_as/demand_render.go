@@ -17,7 +17,7 @@ func renderDemandJSON(rep demandReport) string {
 func renderDemandStyled(rep demandReport) string {
 	var sb strings.Builder
 	if len(rep.Rows) == 0 {
-		sb.WriteString("No captured demand matches. Visit stations and run view_market/sellable to fill the ledger, or `demand scan` for full depth.\n")
+		sb.WriteString("No captured demand matches. Visit stations and run view_market to fill the ledger.\n")
 		return sb.String()
 	}
 	fmt.Fprintf(&sb, "Demand ledger — %d rows, total fulfillable value %.0f\n", len(rep.Rows), rep.TotalFulfill)

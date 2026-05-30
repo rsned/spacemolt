@@ -14,7 +14,6 @@ const (
 	classStation demandClass = "STN"    // Source == "station" (Station Manager)
 	classAboveSM demandClass = "PLR>SM" // player order priced above the best station order
 	classPlayer  demandClass = "PLR"    // player order, no higher station competitor
-	classUnknown demandClass = "?"      // compact-only, source not known
 )
 
 type demandSort int
@@ -105,11 +104,10 @@ type demandAgg struct {
 	captured                              time.Time
 }
 
-// buildDemandReport merges the compact summary with deep order depth, scores
-// each (station, item) against on-hand inventory and craftability, applies
-// filters, and sorts. Pure: callers pass `now` explicitly for testability.
+// buildDemandReport scores each (station, item) of captured buy orders against
+// on-hand inventory and craftability, applies filters, and sorts. Pure:
+// callers pass `now` explicitly for testability.
 func buildDemandReport(
-	summary []knowledge.MarketDemandRow,
 	deep []knowledge.MarketBuyOrderRow,
 	onHand map[string]float64,
 	canCraft map[string]int,
@@ -119,13 +117,6 @@ func buildDemandReport(
 	key := func(s, i string) string { return s + "\x00" + i }
 	agg := map[string]*demandAgg{}
 
-	for _, s := range summary {
-		agg[key(s.StationID, s.ItemID)] = &demandAgg{
-			stationID: s.StationID, systemID: s.SystemID, itemID: s.ItemID, itemName: s.ItemName,
-			price: s.BestBuyPrice, qty: s.BuyQuantity, class: classUnknown, captured: s.CapturedAt,
-		}
-	}
-
 	deepByKey := map[string][]knowledge.MarketBuyOrderRow{}
 	for _, o := range deep {
 		k := key(o.StationID, o.ItemID)
@@ -133,11 +124,7 @@ func buildDemandReport(
 	}
 	for k, ords := range deepByKey {
 		cls, price, qty := classifyDemand(ords)
-		a := agg[k]
-		if a == nil {
-			a = &demandAgg{stationID: ords[0].StationID, systemID: ords[0].SystemID, itemID: ords[0].ItemID}
-			agg[k] = a
-		}
+		a := &demandAgg{stationID: ords[0].StationID, systemID: ords[0].SystemID, itemID: ords[0].ItemID}
 		a.class, a.price, a.qty = cls, price, qty
 		for _, o := range ords {
 			if o.CapturedAt.After(a.captured) {
@@ -147,6 +134,7 @@ func buildDemandReport(
 				a.itemName = o.ItemName
 			}
 		}
+		agg[k] = a
 	}
 
 	var rows []demandReportRow

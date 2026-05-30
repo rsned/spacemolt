@@ -337,6 +337,11 @@ func migrations() []Migration {
 				CREATE INDEX market_buy_orders_item ON market_buy_orders(item_id);
 			`,
 		},
+		{
+			version: 37,
+			name:    "drop_market_buy_demand",
+			sql:     `DROP TABLE IF EXISTS market_buy_demand;`,
+		},
 	}
 }
 

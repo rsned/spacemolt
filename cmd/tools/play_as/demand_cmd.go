@@ -170,7 +170,7 @@ func runDemand(client game.GameClient, ctx context.Context, opts demandOptions, 
 	if !ok {
 		return fmt.Errorf("demand: knowledge DB is not SQLite-backed")
 	}
-	summary, deep, err := sqlite.LoadMarketDemand(ctx)
+	deep, err := sqlite.LoadMarketBuyOrders(ctx)
 	if err != nil {
 		return fmt.Errorf("demand: load ledger: %w", err)
 	}
@@ -178,7 +178,7 @@ func runDemand(client game.GameClient, ctx context.Context, opts demandOptions, 
 	onHand := liveOnHand(client, ctx)
 	canCraft := liveCanCraft(client, ctx)
 
-	rep := buildDemandReport(summary, deep, onHand, canCraft, time.Now(), opts)
+	rep := buildDemandReport(deep, onHand, canCraft, time.Now(), opts)
 
 	switch format {
 	case formatStyled:
