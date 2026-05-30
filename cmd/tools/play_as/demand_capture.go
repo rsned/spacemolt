@@ -31,13 +31,13 @@ func parseStationBuyOrders(raw []byte, stationID, systemID string, now time.Time
 				continue
 			}
 			out = append(out, knowledge.MarketBuyOrderRow{
-				StationID: stationID,
-				SystemID:  systemID,
-				ItemID:    it.ItemID,
-				ItemName:  it.ItemName,
-				PriceEach: o.PriceEach,
-				Quantity:  o.Quantity,
-				Source:    o.Source,
+				StationID:  stationID,
+				SystemID:   systemID,
+				ItemID:     it.ItemID,
+				ItemName:   it.ItemName,
+				PriceEach:  o.PriceEach,
+				Quantity:   o.Quantity,
+				Source:     o.Source,
 				CapturedAt: now,
 			})
 		}
