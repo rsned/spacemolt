@@ -41,6 +41,7 @@ type demandOptions struct {
 	stationOnly    bool          // STN rows only (drops PLR>SM and PLR)
 	hidePlayerOnly bool          // drops pure-player (PLR) rows; keeps STN + PLR>SM
 	includeMine    bool          // include rows whose demand is entirely the player's own orders
+	showNoneOnHand bool          // include rows with no on-hand inventory and nothing craftable
 	only           onlyFilter
 	sort           demandSort
 	limit          int // 0 = no limit
@@ -175,6 +176,12 @@ func buildDemandReport(
 			fulfill = a.qty
 		}
 		craft := canCraft[a.itemID]
+
+		// Skip rows we can neither fulfill from inventory nor craft — they are
+		// not actionable. --show-none-onhand keeps them.
+		if !opts.showNoneOnHand && onhand <= 0 && craft <= 0 {
+			continue
+		}
 
 		switch opts.only {
 		case onlyFulfillable:

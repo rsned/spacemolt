@@ -78,6 +78,8 @@ func parseDemandOptions(args []string) (demandOptions, error) {
 			opts.hidePlayerOnly = true
 		case "include-mine":
 			opts.includeMine = true
+		case "show-none-onhand":
+			opts.showNoneOnHand = true
 		case "only":
 			v, err := next()
 			if err != nil {

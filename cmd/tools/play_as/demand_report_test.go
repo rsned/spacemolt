@@ -23,7 +23,7 @@ func TestBuildDemandReportClassifiesAndFulfills(t *testing.T) {
 	onHand := map[string]float64{"iron_ore": 30}
 	canCraft := map[string]int{"titanium": 5}
 
-	rep := buildDemandReport(deep, onHand, canCraft, now, demandOptions{sort: sortByPrice})
+	rep := buildDemandReport(deep, onHand, canCraft, now, demandOptions{sort: sortByPrice, showNoneOnHand: true})
 
 	byItem := map[string]demandReportRow{}
 	for _, r := range rep.Rows {
@@ -61,7 +61,7 @@ func TestBuildDemandReportHidePlayerOnly(t *testing.T) {
 		{StationID: "s3", ItemID: "titanium", PriceEach: 30, Quantity: 40, Source: "", CapturedAt: now},
 	}
 
-	rep := buildDemandReport(deep, nil, nil, now, demandOptions{hidePlayerOnly: true})
+	rep := buildDemandReport(deep, nil, nil, now, demandOptions{hidePlayerOnly: true, showNoneOnHand: true})
 	got := map[string]demandClass{}
 	for _, r := range rep.Rows {
 		got[r.ItemID] = r.Class
@@ -86,7 +86,7 @@ func TestBuildDemandReportSkipsWhollyMineByDefault(t *testing.T) {
 		{StationID: "s2", ItemID: "mixed", PriceEach: 15, Quantity: 25, MyQuantity: 10, Source: "", CapturedAt: now},
 	}
 
-	rep := buildDemandReport(deep, nil, nil, now, demandOptions{})
+	rep := buildDemandReport(deep, nil, nil, now, demandOptions{showNoneOnHand: true})
 	got := map[string]demandReportRow{}
 	for _, r := range rep.Rows {
 		got[r.ItemID] = r
@@ -101,7 +101,7 @@ func TestBuildDemandReportSkipsWhollyMineByDefault(t *testing.T) {
 	}
 
 	// --include-mine brings the wholly-mine row back.
-	rep2 := buildDemandReport(deep, nil, nil, now, demandOptions{includeMine: true})
+	rep2 := buildDemandReport(deep, nil, nil, now, demandOptions{includeMine: true, showNoneOnHand: true})
 	var sawMineAll bool
 	for _, r := range rep2.Rows {
 		if r.ItemID == "mine_all" {
@@ -113,13 +113,49 @@ func TestBuildDemandReportSkipsWhollyMineByDefault(t *testing.T) {
 	}
 }
 
+func TestBuildDemandReportSkipsNoneOnHandByDefault(t *testing.T) {
+	now := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+	deep := []knowledge.MarketBuyOrderRow{
+		{StationID: "s1", ItemID: "have_it", PriceEach: 10, Quantity: 50, Source: "station", CapturedAt: now},
+		{StationID: "s2", ItemID: "can_craft", PriceEach: 10, Quantity: 50, Source: "station", CapturedAt: now},
+		{StationID: "s3", ItemID: "neither", PriceEach: 10, Quantity: 50, Source: "station", CapturedAt: now},
+	}
+	onHand := map[string]float64{"have_it": 5}
+	canCraft := map[string]int{"can_craft": 2}
+
+	// Default: the row we can neither fulfill nor craft is hidden.
+	rep := buildDemandReport(deep, onHand, canCraft, now, demandOptions{})
+	got := map[string]bool{}
+	for _, r := range rep.Rows {
+		got[r.ItemID] = true
+	}
+	if got["neither"] {
+		t.Errorf("none-onhand/none-craftable row should be hidden by default, got %+v", rep.Rows)
+	}
+	if !got["have_it"] || !got["can_craft"] {
+		t.Errorf("rows with on-hand or craftable must remain, got %+v", rep.Rows)
+	}
+
+	// --show-none-onhand brings the hidden row back.
+	rep2 := buildDemandReport(deep, onHand, canCraft, now, demandOptions{showNoneOnHand: true})
+	var sawNeither bool
+	for _, r := range rep2.Rows {
+		if r.ItemID == "neither" {
+			sawNeither = true
+		}
+	}
+	if !sawNeither {
+		t.Errorf("--show-none-onhand should include the row, got %+v", rep2.Rows)
+	}
+}
+
 func TestBuildDemandReportTieStationWins(t *testing.T) {
 	now := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
 	deep := []knowledge.MarketBuyOrderRow{
 		{StationID: "s", ItemID: "x", PriceEach: 10, Quantity: 5, Source: "station", CapturedAt: now},
 		{StationID: "s", ItemID: "x", PriceEach: 10, Quantity: 5, Source: "", CapturedAt: now},
 	}
-	rep := buildDemandReport(deep, nil, nil, now, demandOptions{})
+	rep := buildDemandReport(deep, nil, nil, now, demandOptions{showNoneOnHand: true})
 	if len(rep.Rows) != 1 || rep.Rows[0].Class != classStation {
 		t.Fatalf("tie should classify STN (station wins), got %+v", rep.Rows)
 	}
@@ -136,12 +172,12 @@ func TestBuildDemandReportFiltersStalenessAndLimit(t *testing.T) {
 	}
 
 	// minPrice filters out item a (price 5).
-	rep := buildDemandReport(deep, nil, nil, now, demandOptions{minPrice: 10})
+	rep := buildDemandReport(deep, nil, nil, now, demandOptions{minPrice: 10, showNoneOnHand: true})
 	if len(rep.Rows) != 1 || rep.Rows[0].ItemID != "b" {
 		t.Fatalf("minPrice filter: want only b, got %+v", rep.Rows)
 	}
 	// Staleness flag set for the >24h-old row when not filtered out.
-	rep2 := buildDemandReport(deep, nil, nil, now, demandOptions{})
+	rep2 := buildDemandReport(deep, nil, nil, now, demandOptions{showNoneOnHand: true})
 	for _, r := range rep2.Rows {
 		if want := r.ItemID == "a"; r.AgeStale != want {
 			t.Errorf("item %s stale: want %v got %v", r.ItemID, want, r.AgeStale)
