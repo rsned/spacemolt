@@ -4181,17 +4181,64 @@ func formatFactionQueryIntel(raw []byte) string {
 
 // formatDeposit formats a deposit_items response as a one-line summary.
 func formatDeposit(raw []byte) string {
+	return formatItemTransfer(raw, "cargo", "storage")
+}
+
+// formatItemTransfer formats a deposit_items / withdraw_items response. Both
+// commands transfer items between cargo, station storage, and faction storage,
+// so the message reflects the actual source/destination and resulting totals the
+// server reports rather than assuming a fixed direction. The current server shape
+// carries source/destination plus dest_total (total at the destination) and
+// source_remaining (remaining at the source); older responses used
+// direction-specific fields (storage_total/cargo_remaining for deposit,
+// cargo_total/storage_remaining for withdraw), which are honored as fallbacks.
+// defaultSrc/defaultDst label the transfer when the server omits source/destination.
+func formatItemTransfer(raw []byte, defaultSrc, defaultDst string) string {
 	raw = unwrapActionResult(raw)
 	var resp struct {
-		ItemID       string `json:"item_id"`
-		Quantity     int    `json:"quantity"`
-		StorageTotal int    `json:"storage_total"`
+		ItemID           string `json:"item_id"`
+		Quantity         int    `json:"quantity"`
+		Source           string `json:"source"`
+		Destination      string `json:"destination"`
+		DestTotal        *int   `json:"dest_total"`
+		SourceRemaining  *int   `json:"source_remaining"`
+		StorageTotal     *int   `json:"storage_total"`
+		CargoTotal       *int   `json:"cargo_total"`
+		CargoRemaining   *int   `json:"cargo_remaining"`
+		StorageRemaining *int   `json:"storage_remaining"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
-	return fmt.Sprintf("Deposited %d %s from cargo into storage. %d %s now in storage.",
-		resp.Quantity, resp.ItemID, resp.StorageTotal, resp.ItemID)
+	src := resp.Source
+	if src == "" {
+		src = defaultSrc
+	}
+	dst := resp.Destination
+	if dst == "" {
+		dst = defaultDst
+	}
+	destTotal := firstNonNilInt(resp.DestTotal, resp.StorageTotal, resp.CargoTotal)
+	srcRemaining := firstNonNilInt(resp.SourceRemaining, resp.CargoRemaining, resp.StorageRemaining)
+
+	msg := fmt.Sprintf("Transferred %d %s from %s to %s.", resp.Quantity, resp.ItemID, src, dst)
+	if destTotal != nil {
+		msg += fmt.Sprintf(" %d now in %s.", *destTotal, dst)
+	}
+	if srcRemaining != nil {
+		msg += fmt.Sprintf(" %d left in %s.", *srcRemaining, src)
+	}
+	return msg
+}
+
+// firstNonNilInt returns the first non-nil pointer from ps, or nil if all are nil.
+func firstNonNilInt(ps ...*int) *int {
+	for _, p := range ps {
+		if p != nil {
+			return p
+		}
+	}
+	return nil
 }
 
 // formatSkills formats a get_skills response as a table.
@@ -4279,17 +4326,7 @@ func formatSkills(raw []byte) string {
 
 // formatWithdraw formats a withdraw_items response as a one-line summary.
 func formatWithdraw(raw []byte) string {
-	raw = unwrapActionResult(raw)
-	var resp struct {
-		ItemID           string `json:"item_id"`
-		Quantity         int    `json:"quantity"`
-		StorageRemaining int    `json:"storage_remaining"`
-	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return ""
-	}
-	return fmt.Sprintf("Withdraw %d %s from storage into cargo. %d %s remaining in storage.",
-		resp.Quantity, resp.ItemID, resp.StorageRemaining, resp.ItemID)
+	return formatItemTransfer(raw, "storage", "cargo")
 }
 
 // formatRefuel formats a refuel response as a one-line summary.

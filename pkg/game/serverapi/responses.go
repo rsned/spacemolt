@@ -820,24 +820,40 @@ type ViewStorageResponse struct {
 	Messages json.RawMessage `json:"messages,omitempty"`
 }
 
-// WithdrawItemsResponse wraps the response from withdraw_items command.
+// WithdrawItemsResponse wraps the response from withdraw_items command, which
+// transfers items between cargo, station storage, and faction storage. The
+// server returns a generic transfer shape: source/destination plus the resulting
+// totals (dest_total at the destination, source_remaining at the source). Legacy
+// storage->cargo responses also carry storage_remaining / cargo_total / cargo_space.
 type WithdrawItemsResponse struct {
 	Action           string `json:"action"`
 	ItemID           string `json:"item_id"`
 	Quantity         int    `json:"quantity"`
-	StorageRemaining int    `json:"storage_remaining"`
-	CargoTotal       int    `json:"cargo_total"`
-	CargoSpace       int    `json:"cargo_space"`
+	Source           string `json:"source,omitempty"`
+	Destination      string `json:"destination,omitempty"`
+	DestTotal        int    `json:"dest_total,omitempty"`
+	SourceRemaining  int    `json:"source_remaining,omitempty"`
+	StorageRemaining int    `json:"storage_remaining,omitempty"`
+	CargoTotal       int    `json:"cargo_total,omitempty"`
+	CargoSpace       int    `json:"cargo_space,omitempty"`
 }
 
-// DepositItemsResponse wraps the response from deposit_items command.
+// DepositItemsResponse wraps the response from deposit_items command, which
+// transfers items between cargo, station storage, and faction storage. The
+// server returns a generic transfer shape: source/destination plus the resulting
+// totals (dest_total at the destination, source_remaining at the source). Legacy
+// cargo->storage responses also carry storage_total / cargo_remaining / cargo_space.
 type DepositItemsResponse struct {
-	Action         string `json:"action"`
-	ItemID         string `json:"item_id"`
-	Quantity       int    `json:"quantity"`
-	StorageTotal   int    `json:"storage_total"`
-	CargoRemaining int    `json:"cargo_remaining"`
-	CargoSpace     int    `json:"cargo_space"`
+	Action          string `json:"action"`
+	ItemID          string `json:"item_id"`
+	Quantity        int    `json:"quantity"`
+	Source          string `json:"source,omitempty"`
+	Destination     string `json:"destination,omitempty"`
+	DestTotal       int    `json:"dest_total,omitempty"`
+	SourceRemaining int    `json:"source_remaining,omitempty"`
+	StorageTotal    int    `json:"storage_total,omitempty"`
+	CargoRemaining  int    `json:"cargo_remaining,omitempty"`
+	CargoSpace      int    `json:"cargo_space,omitempty"`
 }
 
 // GetCommandsResponse wraps the response from get_commands command.
