@@ -7361,6 +7361,9 @@ func printHelp() {
 	fmt.Println("  view_orders               - View your orders")
 	fmt.Println("  create_sell_order <item> <qty> <price>  - Create sell order")
 	fmt.Println("  create_buy_order <item> <qty> <price>   - Create buy order")
+	fmt.Println("  demand [--station-only] [--hide-player-only] [--include-mine] [--show-none-onhand] [--only fulfillable|craftable|all] [--sort price|proceeds|age] [--item id] [--station id] [--min-price N] [--max-age D] [--limit N] - where can I sell? (captured buy-order demand)")
+	fmt.Println("       (defaults: skip rows that are entirely my own orders, and rows with 0 on-hand & 0 craftable)")
+	fmt.Println("  demand history <item> [--station id] [--limit N]   - demand price/qty trend per station")
 
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
