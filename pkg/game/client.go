@@ -97,14 +97,14 @@ type Client struct {
 	ipBlockedMu    sync.RWMutex
 
 	// Diagnostic tracking
-	connectionID      string    // Unique ID for this connection instance
-	connectTime       time.Time // When this connection was established
-	messagesSent      int64     // Counter for messages sent
-	messagesReceived  int64     // Counter for messages received
-	lastSendTime      time.Time // Time of last send
-	lastReceiveTime   time.Time // Time of last receive
-	diagnosticMu      sync.RWMutex
-	goroutineID       int64 // Counter for tracking goroutine instances
+	connectionID     string    // Unique ID for this connection instance
+	connectTime      time.Time // When this connection was established
+	messagesSent     int64     // Counter for messages sent
+	messagesReceived int64     // Counter for messages received
+	lastSendTime     time.Time // Time of last send
+	lastReceiveTime  time.Time // Time of last receive
+	diagnosticMu     sync.RWMutex
+	goroutineID      int64 // Counter for tracking goroutine instances
 
 	router      *responseRouter
 	inflight    *inflight
@@ -317,9 +317,9 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 	goroutineCtx, goroutineCancel := context.WithCancel(context.Background())
 
 	client := &Client{
-		url:            url,
-		username:       username,
-		password:       password,
+		url:      url,
+		username: username,
+		password: password,
 		state: &State{
 			Doc:         true,
 			MaxCargo:    10,
@@ -338,15 +338,15 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		actionLocks:        newActionLockMap(),
 		debugLogger:        debugLogger,
 		debugPayloadMaxLen: 200,
-		latestListings:  make([]MarketListing, 0),
-		latestShips:     make(map[string]any),
-		latestRawJSON:   make(map[string][]byte),
-		lastError:       make(map[string]any),
-		pingInterval:    SleepWSHealthCheck,
-		pongTimeout:     SleepWSPongTimeout,
-		stopPing:        make(chan struct{}),
-		goroutineCtx:    goroutineCtx,
-		goroutineCancel: goroutineCancel,
+		latestListings:     make([]MarketListing, 0),
+		latestShips:        make(map[string]any),
+		latestRawJSON:      make(map[string][]byte),
+		lastError:          make(map[string]any),
+		pingInterval:       SleepWSHealthCheck,
+		pongTimeout:        SleepWSPongTimeout,
+		stopPing:           make(chan struct{}),
+		goroutineCtx:       goroutineCtx,
+		goroutineCancel:    goroutineCancel,
 	}
 	return client
 }
@@ -4123,6 +4123,17 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				"personal_visit", "personal_decorate":
 				if storeKey == "" {
 					storeKey = "facility"
+				}
+				shouldStore = true
+			case "browse_for_sale", "list_for_sale", "buy_listing", "cancel_listing":
+				// These facility sub-actions can carry a "listings" field, so the
+				// content-shape probe above keys them as "listings". Also store
+				// under "facility" so play_as's facility-command lookup finds the
+				// fresh response instead of a stale `facility list`.
+				if storeKey == "" {
+					storeKey = "facility"
+				} else if storeKey != "facility" {
+					extraKeys = append(extraKeys, "facility")
 				}
 				shouldStore = true
 			}

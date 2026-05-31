@@ -1393,6 +1393,8 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionBuild(raw)
 	case "list":
 		return formatFacilityList(raw)
+	case "browse_for_sale":
+		return formatFacilityForSale(raw)
 	}
 	// Plain `facility list` lacks an action field but carries all three
 	// section keys (player_facilities + station_facilities + faction_facilities,
@@ -1410,6 +1412,50 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionList(raw)
 	}
 	return ""
+}
+
+// formatFacilityForSale renders a `facility browse_for_sale` response — the
+// facilities listed for sale at the current station. The per-listing item schema
+// is not pinned here (the server may add fields), so each listing is rendered
+// generically from whatever keys it carries, with facility_id surfaced first
+// since it is the argument the buy_listing / cancel_listing actions need.
+func formatFacilityForSale(raw []byte) string {
+	raw = unwrapActionResult(raw)
+	var resp struct {
+		BaseID   string           `json:"base_id"`
+		BaseName string           `json:"base_name"`
+		Listings []map[string]any `json:"listings"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+	base := resp.BaseName
+	if base == "" {
+		base = resp.BaseID
+	}
+	var b strings.Builder
+	if len(resp.Listings) == 0 {
+		fmt.Fprintf(&b, "  No facilities listed for sale at %s.\n", base)
+		return b.String()
+	}
+	fmt.Fprintf(&b, "  Facilities for sale at %s (%d)\n", base, len(resp.Listings))
+	for _, l := range resp.Listings {
+		if id, ok := l["facility_id"]; ok {
+			fmt.Fprintf(&b, "\n    facility_id: %v\n", id)
+		}
+		keys := make([]string, 0, len(l))
+		for k := range l {
+			if k == "facility_id" {
+				continue
+			}
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		for _, k := range keys {
+			fmt.Fprintf(&b, "      %s: %v\n", k, l[k])
+		}
+	}
+	return b.String()
 }
 
 // formatFacilityFactionBuild renders a `facility faction_build` action_result:
@@ -1561,6 +1607,7 @@ func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacility
 	capW := len("Capacity")
 	rentW := len("Rent/cycle")
 	dailyW := len("Rent/day")
+	idW := len("Facility ID")
 	for _, f := range facilities {
 		nameW = max(nameW, len(f.Name))
 		typeW = max(typeW, len(f.Type))
@@ -1569,25 +1616,27 @@ func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacility
 		capW = max(capW, len(formatCredits(float64(f.Capacity))))
 		rentW = max(rentW, len(formatCredits(float64(f.RentPerCycle))))
 		dailyW = max(dailyW, len(formatCredits(float64(dailyRent(f.RentPerCycle)))))
+		idW = max(idW, len(f.FacilityID))
 	}
 
-	fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s\n",
+	fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s | %-*s\n",
 		indent, nameW, "Name", typeW, "Type", svcW, "Service",
-		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day")
-	fmt.Fprintf(b, "%s%s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s\n",
+		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day", idW, "Facility ID")
+	fmt.Fprintf(b, "%s%s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s-+-%s\n",
 		indent,
 		strings.Repeat("-", nameW), strings.Repeat("-", typeW),
 		strings.Repeat("-", svcW), strings.Repeat("-", statusW),
 		strings.Repeat("-", capW), strings.Repeat("-", rentW),
-		strings.Repeat("-", dailyW))
+		strings.Repeat("-", dailyW), strings.Repeat("-", idW))
 	for _, f := range facilities {
-		fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s\n",
+		fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s | %-*s\n",
 			indent,
 			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
 			facilityLevelOrDefault(f.Level), statusW, f.Status,
 			capW, formatCredits(float64(f.Capacity)),
 			rentW, formatCredits(float64(f.RentPerCycle)),
-			dailyW, formatCredits(float64(dailyRent(f.RentPerCycle))))
+			dailyW, formatCredits(float64(dailyRent(f.RentPerCycle))),
+			idW, f.FacilityID)
 	}
 }
 
@@ -1701,20 +1750,25 @@ func formatFacilityList(raw []byte) string {
 		nameW := len("Name")
 		typeW := len("Type")
 		svcW := len("Service")
+		tickW := len("Paid until tick")
+		idW := len("Facility ID")
 		for _, f := range resp.PlayerFacilities {
 			nameW = max(nameW, len(f.Name))
 			typeW = max(typeW, len(f.Type))
 			svcW = max(svcW, len(f.PersonalService))
+			tickW = max(tickW, len(strconv.FormatInt(f.RentPaidUntilTick, 10)))
+			idW = max(idW, len(f.FacilityID))
 		}
 		// One rent cycle = 100 ticks ≈ 17 min real time; 86.4 cycles per day.
 		// Show both per-cycle and per-day so the operator can sanity-check
 		// burn rate against credit balance.
 		fmt.Fprintf(&b, "\n  Personal: (1 cycle = 100 ticks ≈ 17 min, 86.4 cycles/day)\n")
-		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | Maint | %10s | %10s | Paid until tick\n",
-			nameW, "Name", typeW, "Type", svcW, "Service", "Rent/cycle", "Rent/day")
-		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-------+-%s-+-%s-+----------------\n",
+		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | Maint | %10s | %10s | %-*s | %-*s\n",
+			nameW, "Name", typeW, "Type", svcW, "Service", "Rent/cycle", "Rent/day", tickW, "Paid until tick", idW, "Facility ID")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-------+-%s-+-%s-+-%s-+-%s\n",
 			strings.Repeat("-", nameW), strings.Repeat("-", typeW),
-			strings.Repeat("-", svcW), strings.Repeat("-", 10), strings.Repeat("-", 10))
+			strings.Repeat("-", svcW), strings.Repeat("-", 10), strings.Repeat("-", 10),
+			strings.Repeat("-", tickW), strings.Repeat("-", idW))
 		for _, f := range resp.PlayerFacilities {
 			active := "no"
 			if f.Active {
@@ -1724,12 +1778,13 @@ func formatFacilityList(raw []byte) string {
 			if !f.MaintenanceSatisfied {
 				maint = "!"
 			}
-			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-5s | %10s | %10s | %d\n",
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-5s | %10s | %10s | %-*d | %-*s\n",
 				nameW, f.Name, typeW, f.Type, svcW, f.PersonalService,
 				active, maint,
 				formatCredits(float64(f.RentPerCycle)),
 				formatCredits(float64(dailyRent(f.RentPerCycle))),
-				f.RentPaidUntilTick)
+				tickW, f.RentPaidUntilTick,
+				idW, f.FacilityID)
 		}
 	}
 	if len(resp.FactionFacilities) > 0 {
