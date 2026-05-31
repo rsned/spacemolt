@@ -344,3 +344,53 @@ func TestIngester_NoSelfID_DoesNotTagSent(t *testing.T) {
 		t.Errorf("Source = %q, want %q (legacy behavior)", m.Source, "push")
 	}
 }
+
+func TestIngesterBlocklistFlagsPushAsSpam(t *testing.T) {
+	s := newTestStore(t)
+	ing := NewIngester(s)
+
+	bl, err := LoadBlocklist(filepath.Join(t.TempDir(), "spam_list.json"))
+	if err != nil {
+		t.Fatalf("LoadBlocklist: %v", err)
+	}
+	if _, err := bl.Add("storgio17"); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	ing.SetBlocklist(bl)
+
+	now := time.Now().UTC()
+	// Blocked by display name.
+	ing.HandlePush(serverapi.ChatMessage{
+		ID:           "blocked-1",
+		Channel:      "local",
+		SenderID:     "noisy-id",
+		Sender:       "storgio17",
+		Content:      "Selling Cargo Expander III",
+		TimestampUTC: now.Format(time.RFC3339Nano),
+	})
+	// Not blocked.
+	ing.HandlePush(serverapi.ChatMessage{
+		ID:           "ok-1",
+		Channel:      "local",
+		SenderID:     "friend-id",
+		Sender:       "Buddy27",
+		Content:      "hi",
+		TimestampUTC: now.Format(time.RFC3339Nano),
+	})
+
+	blocked, err := s.Get("blocked-1")
+	if err != nil || blocked == nil {
+		t.Fatalf("Get blocked-1: %v", err)
+	}
+	if blocked.SpamAt == nil {
+		t.Error("blocked message has nil SpamAt, want flagged as spam")
+	}
+
+	ok, err := s.Get("ok-1")
+	if err != nil || ok == nil {
+		t.Fatalf("Get ok-1: %v", err)
+	}
+	if ok.SpamAt != nil {
+		t.Error("non-blocked message was flagged as spam")
+	}
+}

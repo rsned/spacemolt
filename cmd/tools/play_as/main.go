@@ -282,6 +282,16 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	var mboxStore *mbox.Store
 	var mboxIng *mbox.Ingester
 
+	// Spam blocklist: senders the user has muted. Loaded regardless of mbox
+	// availability so console suppression still works; persisted as a JSON
+	// array of strings at data/agents/<agent>/spam_list.json.
+	spamListPath := filepath.Join("data", "agents", agentID, "spam_list.json")
+	blocklist, err := mbox.LoadBlocklist(spamListPath)
+	if err != nil {
+		log.Printf("[mbox] warning: could not load spam list: %v", err)
+		blocklist, _ = mbox.LoadBlocklist(filepath.Join(os.TempDir(), "spam_list.json"))
+	}
+
 	mboxDBPath := filepath.Join("data", "agents", agentID, "mbox.db")
 	if s, err := mbox.Open(mboxDBPath); err != nil {
 		log.Printf("[mbox] warning: could not open mbox: %v", err)
@@ -289,6 +299,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		mboxStore = s
 		defer func() { _ = mboxStore.Close() }()
 		mboxIng = mbox.NewIngester(mboxStore)
+		mboxIng.SetBlocklist(blocklist)
 		if state := client.GetState(); state != nil && state.Player.ID != "" {
 			mboxIng.SetSelfID(state.Player.ID)
 		}
@@ -305,6 +316,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	// the push-driven terminal output.
 	poller := newChatPoller(client, ctx, username)
 	poller.ingester = mboxIng // nil-safe: chatPoller checks before calling
+	poller.blocklist = blocklist
 	if _, isWS := client.(*game.Client); isWS {
 		poller.interval = game.SleepChatPoll * 5
 		poller.silent = true
@@ -318,6 +330,11 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	client.SetOnChatMessage(func(msg serverapi.ChatMessage) {
 		if mboxIng != nil {
 			mboxIng.HandlePush(msg)
+		}
+		// Blocked senders are still captured (in the spam folder, via the
+		// ingester) but never printed to the console.
+		if blocklist.IsBlocked(msg.SenderID, msg.Sender) {
+			return
 		}
 		poller.displayMessage(msg.Channel, msg)
 	})
@@ -411,7 +428,33 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 				fmt.Println()
 				continue
 			}
-			handleMboxCommand(mboxStore, mboxIng, client, ctx, parts[1:])
+			handleMboxCommand(mboxStore, mboxIng, blocklist, client, ctx, parts[1:])
+			fmt.Println()
+			continue
+		}
+
+		// Top-level spam aliases mirror the mbox subcommands.
+		switch command {
+		case "mark_spam":
+			if mboxStore == nil {
+				fmt.Println("mbox not available (database not initialized)")
+				fmt.Println()
+				continue
+			}
+			mboxMarkSpam(mboxStore, blocklist, parts[1:])
+			fmt.Println()
+			continue
+		case "unmark_spam":
+			if mboxStore == nil {
+				fmt.Println("mbox not available (database not initialized)")
+				fmt.Println()
+				continue
+			}
+			mboxUnmarkSpam(mboxStore, blocklist, parts[1:])
+			fmt.Println()
+			continue
+		case "spam_list":
+			mboxSpamList(blocklist)
 			fmt.Println()
 			continue
 		}
@@ -7500,7 +7543,7 @@ func printHelp() {
 
 // --- Mbox command handlers ---
 
-func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
+func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, bl *mbox.Blocklist, client game.GameClient, ctx context.Context, args []string) {
 	if len(args) == 0 {
 		counts, err := store.UnreadCounts()
 		if err != nil {
@@ -7557,10 +7600,16 @@ func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameCl
 		mboxBackfill(ing, client, ctx, args[1:])
 	case "sources":
 		mboxSources(store)
+	case "mark-spam":
+		mboxMarkSpam(store, bl, args[1:])
+	case "unmark-spam":
+		mboxUnmarkSpam(store, bl, args[1:])
+	case "spam-list":
+		mboxSpamList(bl)
 	default:
-		fmt.Println("mbox commands: list, show, search, mark-read, delete, restore, backfill, sources")
+		fmt.Println("mbox commands: list, show, search, mark-read, delete, restore, backfill, sources, mark-spam, unmark-spam, spam-list")
 		fmt.Println("  mbox                                      show unread counts")
-		fmt.Println("  mbox list [channel] [--unread] [-n N]     list messages (ID prefix shown)")
+		fmt.Println("  mbox list [channel|spam] [--unread] [-n N] list messages (ID prefix shown)")
 		fmt.Println("  mbox show <id>                            show message detail (accepts ID prefix)")
 		fmt.Println("  mbox search <query> [--channel <ch>]      full-text search")
 		fmt.Println("  mbox mark-read <id>|--all|--channel <ch>  mark as read")
@@ -7568,6 +7617,71 @@ func handleMboxCommand(store *mbox.Store, ing *mbox.Ingester, client game.GameCl
 		fmt.Println("  mbox restore <id>                         undo a soft-delete")
 		fmt.Println("  mbox backfill [--channel <ch>] [--limit N] [-f|--reset]")
 		fmt.Println("  mbox sources                              source breakdown (push/poll/sent/...)")
+		fmt.Println("  mbox mark-spam <user>                     block a sender (alias: mark_spam)")
+		fmt.Println("  mbox unmark-spam <user>                   unblock a sender (alias: unmark_spam)")
+		fmt.Println("  mbox spam-list                            list blocked senders (alias: spam_list)")
+	}
+}
+
+// mboxMarkSpam blocks a sender (by sender_id or display name) and moves any of
+// their already-stored messages into the spam folder.
+func mboxMarkSpam(store *mbox.Store, bl *mbox.Blocklist, args []string) {
+	if len(args) == 0 {
+		fmt.Println("usage: mark_spam <user>  (sender id or display name)")
+		return
+	}
+	user := strings.Join(args, " ")
+	added, err := bl.Add(user)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	n, err := store.MarkSpamBySender(user)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	if added {
+		fmt.Printf("blocked %q; moved %d message(s) to spam\n", user, n)
+	} else {
+		fmt.Printf("%q already blocked; moved %d message(s) to spam\n", user, n)
+	}
+}
+
+// mboxUnmarkSpam unblocks a sender and restores their spam-flagged messages.
+func mboxUnmarkSpam(store *mbox.Store, bl *mbox.Blocklist, args []string) {
+	if len(args) == 0 {
+		fmt.Println("usage: unmark_spam <user>  (sender id or display name)")
+		return
+	}
+	user := strings.Join(args, " ")
+	removed, err := bl.Remove(user)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	n, err := store.UnmarkSpamBySender(user)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+		return
+	}
+	if removed {
+		fmt.Printf("unblocked %q; restored %d message(s) from spam\n", user, n)
+	} else {
+		fmt.Printf("%q was not blocked; restored %d message(s) from spam\n", user, n)
+	}
+}
+
+// mboxSpamList prints the blocked senders.
+func mboxSpamList(bl *mbox.Blocklist) {
+	entries := bl.List()
+	if len(entries) == 0 {
+		fmt.Println("  (no blocked senders)")
+		return
+	}
+	fmt.Printf("  %d blocked sender(s):\n", len(entries))
+	for _, e := range entries {
+		fmt.Printf("    %s\n", e)
 	}
 }
 
@@ -7584,6 +7698,9 @@ func mboxList(store *mbox.Store, args []string) {
 					q.Limit = n
 				}
 			}
+		case "spam":
+			// `mbox list spam` shows the spam folder rather than a channel.
+			q.SpamOnly = true
 		default:
 			if q.Channel == "" {
 				q.Channel = strings.ToLower(args[i])
@@ -7927,9 +8044,10 @@ type chatPoller struct {
 	lastSeenTS map[string]string // Per-channel newest timestamp_utc, used as `after` cursor.
 	mu         sync.Mutex
 	username   string         // Our own username, to skip own messages.
-	ingester   *mbox.Ingester // Optional: ingest polled messages into mbox.
-	interval   time.Duration  // Poll interval (defaults to SleepChatPoll).
-	silent     bool           // When true, ingest only; don't print to terminal.
+	ingester   *mbox.Ingester  // Optional: ingest polled messages into mbox.
+	blocklist  *mbox.Blocklist // Optional: blocked senders are not printed.
+	interval   time.Duration   // Poll interval (defaults to SleepChatPoll).
+	silent     bool            // When true, ingest only; don't print to terminal.
 }
 
 // activeChatChannels returns the channels that should be polled based on player state.
@@ -8078,6 +8196,11 @@ func (cp *chatPoller) displayMessage(channel string, m serverapi.ChatMessage) {
 
 	// Skip our own messages.
 	if strings.EqualFold(m.Sender, cp.username) {
+		return
+	}
+
+	// Skip blocked senders — they're captured silently in the spam folder.
+	if cp.blocklist.IsBlocked(m.SenderID, m.Sender) {
 		return
 	}
 

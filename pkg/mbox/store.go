@@ -99,6 +99,8 @@ func (s *Store) migrate() error {
 		`ALTER TABLE messages ADD COLUMN deleted_at TEXT;
 		CREATE INDEX idx_messages_not_deleted ON messages(channel, timestamp_utc DESC) WHERE deleted_at IS NULL;`,
 		`ALTER TABLE messages ADD COLUMN empire_official INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE messages ADD COLUMN spam_at TEXT;
+		CREATE INDEX idx_messages_spam ON messages(timestamp_utc DESC) WHERE spam_at IS NOT NULL;`,
 	}
 
 	for i, ddl := range migrations {
@@ -129,7 +131,12 @@ type Message struct {
 	IngestedAt   time.Time
 	ReadAt       *time.Time
 	DeletedAt    *time.Time
-	Source       string
+	// SpamAt is set when the message is in the spam folder — either because it
+	// was ingested from a blocked sender or flagged via MarkSpamBySender.
+	// Spam messages are excluded from default queries (List, Search,
+	// UnreadCounts), like soft-deleted ones.
+	SpamAt *time.Time
+	Source string
 	// EmpireOfficial is true when the server delivered this message through
 	// the verified empire-leadership pipeline or from an empire NPC. When
 	// set, SenderID is the empire's own ID. Use it to detect player
@@ -144,6 +151,11 @@ type Query struct {
 	SenderID        string
 	UnreadOnly      bool
 	IncludeDeleted  bool
+	// IncludeSpam includes spam-flagged messages in results (they are
+	// excluded by default). SpamOnly restricts results to spam-flagged
+	// messages — the "spam folder" view. SpamOnly takes precedence.
+	IncludeSpam     bool
+	SpamOnly        bool
 	Before          time.Time
 	After           time.Time
 	Limit           int
@@ -161,8 +173,8 @@ func (s *Store) Ingest(msg Message) (bool, error) {
 	now := time.Now().UTC().Format(timeFormat)
 	res, err := s.db.Exec(
 		`INSERT OR IGNORE INTO messages
-			(id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, source, empire_official)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, source, empire_official, spam_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		msg.ID,
 		msg.Channel,
 		msg.SenderID,
@@ -174,6 +186,7 @@ func (s *Store) Ingest(msg Message) (bool, error) {
 		now,
 		msg.Source,
 		boolToInt(msg.EmpireOfficial),
+		nullableTime(msg.SpamAt),
 	)
 	if err != nil {
 		return false, fmt.Errorf("mbox: ingest: %w", err)
@@ -194,7 +207,7 @@ func (s *Store) List(q Query) ([]Message, error) {
 	}
 
 	where, args := buildWhere(q)
-	query := "SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official FROM messages"
+	query := "SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official, spam_at FROM messages"
 	if where != "" {
 		query += " WHERE " + where
 	}
@@ -219,7 +232,7 @@ func (s *Store) List(q Query) ([]Message, error) {
 // them should check the returned Message.DeletedAt field.
 func (s *Store) Get(id string) (*Message, error) {
 	row := s.db.QueryRow(
-		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official FROM messages WHERE id = ?",
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official, spam_at FROM messages WHERE id = ?",
 		id,
 	)
 	msg, err := scanRow(row)
@@ -241,7 +254,7 @@ func (s *Store) GetByPrefix(prefix string) (*Message, error) {
 		return nil, fmt.Errorf("mbox: empty prefix")
 	}
 	rows, err := s.db.Query(
-		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official FROM messages WHERE id LIKE ? || '%' LIMIT 2",
+		"SELECT id, channel, sender_id, sender, content, target_id, target_name, timestamp_utc, ingested_at, read_at, deleted_at, source, empire_official, spam_at FROM messages WHERE id LIKE ? || '%' LIMIT 2",
 		prefix,
 	)
 	if err != nil {
@@ -282,6 +295,12 @@ func buildWhere(q Query) (string, []any) {
 	if !q.IncludeDeleted {
 		clauses = append(clauses, "deleted_at IS NULL")
 	}
+	switch {
+	case q.SpamOnly:
+		clauses = append(clauses, "spam_at IS NOT NULL")
+	case !q.IncludeSpam:
+		clauses = append(clauses, "spam_at IS NULL")
+	}
 	if !q.Before.IsZero() {
 		clauses = append(clauses, "timestamp_utc < ?")
 		args = append(args, q.Before.UTC().Format(timeFormat))
@@ -315,6 +334,7 @@ func scanRow(s scanner) (Message, error) {
 		targetName     sql.NullString
 		readAt         sql.NullString
 		deletedAt      sql.NullString
+		spamAt         sql.NullString
 		tsStr          string
 		ingestStr      string
 		empireOfficial int
@@ -334,6 +354,7 @@ func scanRow(s scanner) (Message, error) {
 		&deletedAt,
 		&msg.Source,
 		&empireOfficial,
+		&spamAt,
 	); err != nil {
 		return Message{}, err
 	}
@@ -369,6 +390,13 @@ func scanRow(s scanner) (Message, error) {
 		}
 		msg.DeletedAt = &t
 	}
+	if spamAt.Valid {
+		t, err := time.Parse(timeFormat, spamAt.String)
+		if err != nil {
+			return Message{}, fmt.Errorf("parse spam_at %q: %w", spamAt.String, err)
+		}
+		msg.SpamAt = &t
+	}
 
 	return msg, nil
 }
@@ -397,6 +425,47 @@ func (s *Store) Restore(id string) error {
 		return fmt.Errorf("mbox: restore %s: %w", id, err)
 	}
 	return nil
+}
+
+// MarkSpamBySender flags every non-spam message whose sender_id or sender
+// display name matches idOrName (case-insensitive) as spam, moving it into the
+// spam folder. It returns the number of messages newly flagged.
+func (s *Store) MarkSpamBySender(idOrName string) (int, error) {
+	now := time.Now().UTC().Format(timeFormat)
+	res, err := s.db.Exec(
+		`UPDATE messages SET spam_at = ?
+			WHERE spam_at IS NULL
+			  AND (LOWER(sender_id) = LOWER(?) OR LOWER(sender) = LOWER(?))`,
+		now, idOrName, idOrName,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("mbox: mark spam %q: %w", idOrName, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("mbox: mark spam rows affected: %w", err)
+	}
+	return int(n), nil
+}
+
+// UnmarkSpamBySender clears the spam flag on every spam message whose sender_id
+// or sender display name matches idOrName (case-insensitive), restoring it to
+// its original folder. It returns the number of messages restored.
+func (s *Store) UnmarkSpamBySender(idOrName string) (int, error) {
+	res, err := s.db.Exec(
+		`UPDATE messages SET spam_at = NULL
+			WHERE spam_at IS NOT NULL
+			  AND (LOWER(sender_id) = LOWER(?) OR LOWER(sender) = LOWER(?))`,
+		idOrName, idOrName,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("mbox: unmark spam %q: %w", idOrName, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("mbox: unmark spam rows affected: %w", err)
+	}
+	return int(n), nil
 }
 
 // MarkRead marks the given message IDs as read if they are currently unread.
@@ -428,7 +497,7 @@ func (s *Store) MarkChannelRead(channel string) error {
 // UnreadCounts returns a map of channel → unread message count.
 func (s *Store) UnreadCounts() (map[string]int, error) {
 	rows, err := s.db.Query(
-		"SELECT channel, COUNT(*) FROM messages WHERE read_at IS NULL GROUP BY channel",
+		"SELECT channel, COUNT(*) FROM messages WHERE read_at IS NULL AND spam_at IS NULL GROUP BY channel",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("mbox: unread counts: %w", err)
@@ -472,8 +541,14 @@ func (s *Store) Search(text string, q Query) ([]Message, error) {
 	if !q.IncludeDeleted {
 		clauses = append(clauses, "m.deleted_at IS NULL")
 	}
+	switch {
+	case q.SpamOnly:
+		clauses = append(clauses, "m.spam_at IS NOT NULL")
+	case !q.IncludeSpam:
+		clauses = append(clauses, "m.spam_at IS NULL")
+	}
 
-	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.deleted_at, m.source, m.empire_official
+	query := `SELECT m.id, m.channel, m.sender_id, m.sender, m.content, m.target_id, m.target_name, m.timestamp_utc, m.ingested_at, m.read_at, m.deleted_at, m.source, m.empire_official, m.spam_at
 FROM messages m
 JOIN messages_fts ON m.rowid = messages_fts.rowid
 WHERE messages_fts MATCH ?`
@@ -516,6 +591,12 @@ func (s *Store) SearchCount(text string, q Query) (int, error) {
 	}
 	if !q.IncludeDeleted {
 		clauses = append(clauses, "m.deleted_at IS NULL")
+	}
+	switch {
+	case q.SpamOnly:
+		clauses = append(clauses, "m.spam_at IS NOT NULL")
+	case !q.IncludeSpam:
+		clauses = append(clauses, "m.spam_at IS NULL")
 	}
 
 	query := `SELECT COUNT(*)
@@ -608,6 +689,15 @@ func (s *Store) ClearCursor(channel string) error {
 // nullableString converts an empty string to a NULL sql value.
 func nullableString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
+}
+
+// nullableTime converts a nil *time.Time to a NULL sql value, otherwise the
+// UTC timestamp formatted with timeFormat.
+func nullableTime(t *time.Time) sql.NullString {
+	if t == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: t.UTC().Format(timeFormat), Valid: true}
 }
 
 // boolToInt maps a bool to the 0/1 integer SQLite uses for boolean columns.

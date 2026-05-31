@@ -18,6 +18,9 @@ type Ingester struct {
 
 	selfMu sync.RWMutex
 	selfID string
+
+	blockMu   sync.RWMutex
+	blocklist *Blocklist
 }
 
 // NewIngester creates an Ingester backed by the given Store.
@@ -35,6 +38,22 @@ func (ing *Ingester) SetSelfID(id string) {
 	ing.selfMu.Lock()
 	ing.selfID = id
 	ing.selfMu.Unlock()
+}
+
+// SetBlocklist attaches a spam blocklist. Incoming messages whose sender_id or
+// sender display name is blocked are stored directly in the spam folder
+// (SpamAt set) regardless of which path ingested them. Pass nil to disable.
+func (ing *Ingester) SetBlocklist(bl *Blocklist) {
+	ing.blockMu.Lock()
+	ing.blocklist = bl
+	ing.blockMu.Unlock()
+}
+
+func (ing *Ingester) isBlocked(senderID, sender string) bool {
+	ing.blockMu.RLock()
+	bl := ing.blocklist
+	ing.blockMu.RUnlock()
+	return bl.IsBlocked(senderID, sender)
 }
 
 func (ing *Ingester) isSelf(id string) bool {
@@ -248,6 +267,11 @@ func (ing *Ingester) ingestAPI(msg serverapi.ChatMessage, source string) {
 		TimestampUTC:   ts,
 		Source:         effectiveSource,
 		EmpireOfficial: msg.EmpireOfficial,
+	}
+	// Messages from blocked senders land directly in the spam folder.
+	if ing.isBlocked(msg.SenderID, msg.Sender) {
+		now := time.Now().UTC()
+		m.SpamAt = &now
 	}
 	if _, err := ing.store.Ingest(m); err != nil {
 		ing.logger.Printf("%s ingest error: %v", effectiveSource, err)
