@@ -30,7 +30,7 @@ const (
 	SleepReconnect = 30 * time.Second // Reconnection recovery wait
 	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles
-	SleepChatPoll          = 30 * time.Minute // Chat channel polling interval
+	SleepChatPoll          = 1 * time.Hour    // Chat channel polling interval (background reconcile/ingest)
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
 
 	SleepPartnerJoinWindow = 5 * time.Minute // Max wait for a human to attack a bot in spar partner mode

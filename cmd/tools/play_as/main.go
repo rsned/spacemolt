@@ -305,20 +305,19 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		}
 	}
 
-	// Start background chat poller.
+	// Start background chat poller — runs hourly (SleepChatPoll) in all modes.
 	//
 	// On MCP: the poller is the primary source of chat — it prints new
-	// messages and ingests them into the mbox at SleepChatPoll interval.
+	// messages and ingests them into the mbox once an hour.
 	//
-	// On WS: chat is delivered via push (SetOnChatMessage). The poller
-	// downgrades to a silent reconciler at 5× the interval, backfilling the
-	// mbox with anything missed during a reconnect window without duplicating
-	// the push-driven terminal output.
+	// On WS: chat is delivered via push (SetOnChatMessage). The poller is a
+	// silent hourly reconciler, backfilling the mbox with anything missed
+	// during a reconnect window without duplicating the push-driven terminal
+	// output.
 	poller := newChatPoller(client, ctx, username)
 	poller.ingester = mboxIng // nil-safe: chatPoller checks before calling
 	poller.blocklist = blocklist
 	if _, isWS := client.(*game.Client); isWS {
-		poller.interval = game.SleepChatPoll * 5
 		poller.silent = true
 	}
 	poller.start()
