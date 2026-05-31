@@ -37,7 +37,10 @@ const (
 func autoExplore(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	maxHops := autoExploreDefaultMaxHops
 	if len(parts) > 1 {
-		flags := parseFlagArgs(parts[1:], "max_hops", "max-hops")
+		flags, err := parseFlagArgs(parts[1:], "max_hops", "max-hops")
+		if err != nil {
+			return err
+		}
 		if v, ok := flags["max_hops"]; ok {
 			if n, ok := v.(int); ok && n > 0 {
 				maxHops = n

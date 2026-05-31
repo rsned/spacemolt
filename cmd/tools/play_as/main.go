@@ -4659,7 +4659,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			target = parts[1]
 		} else {
 			// Flag form: scan --target ThomasEdison or scan --target=ThomasEdison
-			flags := parseFlagArgs(parts[1:], "target")
+			flags, err := parseFlagArgs(parts[1:], "target")
+			if err != nil {
+				return err
+			}
 			if t, ok := flags["target"]; ok {
 				target = t.(string)
 			}
@@ -4702,7 +4705,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: battle <action> [--stance <stance>] [--target_id <id>] [--side_id <id>]")
 		}
 		payload := map[string]any{"action": parts[1]}
-		flags := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
+		flags, err := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
+		if err != nil {
+			return err
+		}
 		for k, v := range flags {
 			if k == "side_id" {
 				if n, ok := flagInt(v); ok {
@@ -4810,7 +4816,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			// parseFlagArgs already converts numeric values to int, so page /
 			// page_size land here as int and the old strconv.Atoi(v.(string))
 			// re-conversion panicked on its very first numeric flag. Drop it.
-			payload := parseFlagArgs(parts[1:], "item_id", "order_type", "page", "page_size", "scope", "search", "sort_by", "station_id")
+			payload, err := parseFlagArgs(parts[1:], "item_id", "order_type", "page", "page_size", "scope", "search", "sort_by", "station_id")
+			if err != nil {
+				return err
+			}
 			if v, ok := flagString(payload["item_id"]); ok {
 				payload["item_id"] = strings.ToLower(v)
 			}
@@ -4873,7 +4882,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: modify_order <order-id> --new_price <price>")
 		}
 		payload := map[string]any{"order_id": parts[1]}
-		flags := parseFlagArgs(parts[2:], "new_price")
+		flags, err := parseFlagArgs(parts[2:], "new_price")
+		if err != nil {
+			return err
+		}
 		if v, ok := flags["new_price"]; ok {
 			if n, ok := flagInt(v); ok {
 				payload["new_price"] = n
@@ -4998,7 +5010,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: trade_offer <target-id> [--offer_credits <n>] [--request_credits <n>]")
 		}
 		tradePayload := map[string]any{}
-		flags := parseFlagArgs(parts[2:], "offer_credits", "request_credits")
+		flags, err := parseFlagArgs(parts[2:], "offer_credits", "request_credits")
+		if err != nil {
+			return err
+		}
 		for _, k := range []string{"offer_credits", "request_credits"} {
 			if v, ok := flags[k]; ok {
 				if n, ok := flagInt(v); ok {
@@ -5071,7 +5086,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// === SHIP MAINTENANCE ===
 	case "refuel":
 		if len(parts) > 1 {
-			payload := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
+			payload, err := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
+			if err != nil {
+				return err
+			}
 			if v, ok := payload["quantity"]; ok {
 				if n, ok := flagInt(v); ok {
 					payload["quantity"] = n
@@ -5088,7 +5106,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "repair":
 		if len(parts) > 1 {
-			payload := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
+			payload, err := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
+			if err != nil {
+				return err
+			}
 			if v, ok := payload["quantity"]; ok {
 				if n, ok := flagInt(v); ok {
 					payload["quantity"] = n
@@ -5376,7 +5397,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		if err != nil {
+			return err
+		}
 		if len(flags) > 0 {
 			payload := map[string]any{
 				"item_id":  strings.ToLower(parts[1]),
@@ -5402,7 +5426,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		if err != nil {
+			return err
+		}
 		if len(flags) > 0 {
 			payload := map[string]any{
 				"item_id":  strings.ToLower(parts[1]),
@@ -5535,7 +5562,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "map", "get_map":
 		// Check for --system_id flag or bare force arg
-		mapFlags := parseFlagArgs(parts[1:], "system_id")
+		mapFlags, err := parseFlagArgs(parts[1:], "system_id")
+		if err != nil {
+			return err
+		}
 		if sysID, ok := mapFlags["system_id"]; ok {
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.RawCommand(ctx, "get_map", map[string]any{"system_id": sysID})
@@ -5580,7 +5610,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: catalog <type> [--page N] [--page_size N] [--search text] [--category cat] [--class cls] [--empire emp] [--id id] [--tier N]")
 		}
 		payload := map[string]any{"type": parts[1]}
-		flags := parseFlagArgs(parts[2:], "page", "page_size", "search", "category", "class", "empire", "id", "tier", "commissionable")
+		flags, err := parseFlagArgs(parts[2:], "page", "page_size", "search", "category", "class", "empire", "id", "tier", "commissionable")
+		if err != nil {
+			return err
+		}
 		for k, v := range flags {
 			switch k {
 			case "page", "page_size", "tier":
@@ -5615,7 +5648,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "server_help":
-		payload := parseFlagArgs(parts[1:], "command", "category")
+		payload, err := parseFlagArgs(parts[1:], "command", "category")
+		if err != nil {
+			return err
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Help(ctx, payload)
 		}, ctx, 2*time.Second, "help", format)
@@ -5624,7 +5660,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.GetTaxEstimate, ctx, 2*time.Second, "get_tax_estimate", format)
 
 	case "get_notifications":
-		payload := parseFlagArgs(parts[1:], "clear", "limit")
+		payload, err := parseFlagArgs(parts[1:], "clear", "limit")
+		if err != nil {
+			return err
+		}
 		if v, ok := payload["clear"]; ok {
 			payload["clear"] = flagBool(v)
 		}
@@ -5645,7 +5684,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: fleet <action> [--player_id <id>]")
 		}
 		playerID := ""
-		fleetFlags := parseFlagArgs(parts[2:], "player_id")
+		fleetFlags, err := parseFlagArgs(parts[2:], "player_id")
+		if err != nil {
+			return err
+		}
 		if v, ok := fleetFlags["player_id"]; ok {
 			playerID, _ = flagString(v)
 		}
@@ -5704,7 +5746,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_list":
-		flFlags := parseFlagArgs(parts[1:], "limit", "offset")
+		flFlags, err := parseFlagArgs(parts[1:], "limit", "offset")
+		if err != nil {
+			return err
+		}
 		flistLimit, flistOffset := 0, 0
 		if v, ok := flFlags["limit"]; ok {
 			if n, ok := flagInt(v); ok {
@@ -5724,8 +5769,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Usage: faction_edit [--description "text"] [--charter "text"]
 		//   [--primary_color "#hex"] [--secondary_color "#hex"]
 		//   [--ally_intel_opt_out true|false] [--ally_fuel_access true|false]
-		payload := parseFlagArgs(parts[1:], "charter", "description", "primary_color", "secondary_color",
+		payload, err := parseFlagArgs(parts[1:], "charter", "description", "primary_color", "secondary_color",
 			"ally_intel_opt_out", "ally_fuel_access")
+		if err != nil {
+			return err
+		}
 		// The two ally toggles are booleans server-side; parseFlagArgs yields a
 		// string/int, so coerce them to real JSON bools.
 		if err := coerceBoolFlags(payload, "ally_intel_opt_out", "ally_fuel_access"); err != nil {
@@ -5869,7 +5917,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		if err != nil {
+			return err
+		}
 		if len(flags) > 0 {
 			payload := map[string]any{
 				"item_id":  strings.ToLower(parts[1]),
@@ -5892,7 +5943,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		if err != nil {
+			return err
+		}
 		if len(flags) > 0 {
 			payload := map[string]any{
 				"item_id":  strings.ToLower(parts[1]),
@@ -5958,7 +6012,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_edit_role <role-id> [--name \"name\"]")
 		}
-		editRolePayload := parseFlagArgs(parts[2:], "name")
+		editRolePayload, err := parseFlagArgs(parts[2:], "name")
+		if err != nil {
+			return err
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.FactionEditRole(ctx, parts[1], editRolePayload)
 		}, ctx, 2*time.Second, cmd, format)
@@ -5986,13 +6043,19 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return fmt.Errorf("faction_submit_trade_intel requires complex payload; use the generic passthrough or MCP directly")
 
 	case "faction_query_intel":
-		payload := parseFlagArgs(parts[1:], "poi_type", "resource_type", "system_id", "system_name")
+		payload, err := parseFlagArgs(parts[1:], "poi_type", "resource_type", "system_id", "system_name")
+		if err != nil {
+			return err
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.FactionQueryIntel(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_query_trade_intel":
-		payload := parseFlagArgs(parts[1:], "base_id", "item_id", "station_name")
+		payload, err := parseFlagArgs(parts[1:], "base_id", "item_id", "station_name")
+		if err != nil {
+			return err
+		}
 		if v, ok := payload["item_id"].(string); ok {
 			payload["item_id"] = strings.ToLower(v)
 		}
@@ -6018,7 +6081,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_write_room":
-		payload := parseFlagArgs(parts[1:], "room_id", "name", "description", "access")
+		payload, err := parseFlagArgs(parts[1:], "room_id", "name", "description", "access")
+		if err != nil {
+			return err
+		}
 		if len(payload) == 0 {
 			return fmt.Errorf("usage: faction_write_room [--room_id id] --name \"name\" --description \"text\" [--access public|faction]")
 		}
@@ -6079,7 +6145,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		channel := parts[1]
 		// Parse optional --target_id flag (required for private channel)
-		flagArgs := parseFlagArgs(parts[2:], "target_id", "before", "after", "limit")
+		flagArgs, err := parseFlagArgs(parts[2:], "target_id", "before", "after", "limit")
+		if err != nil {
+			return err
+		}
 		payload := make(map[string]any)
 		if targetID, ok := flagArgs["target_id"]; ok {
 			payload["target_id"] = targetID
@@ -6127,7 +6196,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			payload["quantity"] = qty
 		}
 		// Parse optional --message flag
-		msgArgs := parseFlagArgs(parts[4:], "message")
+		msgArgs, err := parseFlagArgs(parts[4:], "message")
+		if err != nil {
+			return err
+		}
 		if msg, ok := msgArgs["message"]; ok {
 			payload["message"] = msg
 		}
@@ -6191,7 +6263,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: forum_upvote <thread-id> [--reply_id <id>]")
 		}
 		replyID := ""
-		upvoteFlags := parseFlagArgs(parts[2:], "reply_id")
+		upvoteFlags, err := parseFlagArgs(parts[2:], "reply_id")
+		if err != nil {
+			return err
+		}
 		if v, ok := upvoteFlags["reply_id"]; ok {
 			replyID, _ = flagString(v)
 		}
@@ -6300,7 +6375,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === ACTION LOG ===
 	case "get_action_log", "action_log":
-		payload := parseFlagArgs(parts[1:], "category", "faction_id", "page", "page_size")
+		payload, err := parseFlagArgs(parts[1:], "category", "faction_id", "page", "page_size")
+		if err != nil {
+			return err
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.GetActionLog(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
@@ -6471,7 +6549,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "set_status":
 		// Usage: set_status --status_message "text" [--clan_tag "TAG"]
-		payload := parseFlagArgs(parts[1:], "status_message", "clan_tag")
+		payload, err := parseFlagArgs(parts[1:], "status_message", "clan_tag")
+		if err != nil {
+			return err
+		}
 		if len(payload) == 0 {
 			return fmt.Errorf("usage: set_status --status_message \"text\" [--clan_tag \"TAG\"]")
 		}
@@ -6858,9 +6939,6 @@ func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) 
 	return ""
 }
 
-// parseFlagArgs parses --key value and --key=value pairs from args,
-// accepting only the specified keys. Returns a map of key→value for all
-// matched flags. Attempts to convert values to integers when possible.
 // resolveArg returns the value for `key` from args, accepting either:
 //  1. flag form: --key=value or --key value, or
 //  2. the first positional token (one not starting with "--").
@@ -6982,7 +7060,13 @@ func coerceBoolFlags(payload map[string]any, keys ...string) error {
 	return nil
 }
 
-func parseFlagArgs(args []string, keys ...string) map[string]any {
+// parseFlagArgs parses `--key value`, `--key=value`, and bare `--flag` (→ "true")
+// tokens for the named keys into a payload map, converting integer-looking
+// values to ints. Flags must use two dashes. A single-dash long flag such as
+// `-category` is almost always a typo for `--category` and would otherwise be
+// silently dropped, so it returns an error pointing the operator at the two-dash
+// form. Negative-number values (e.g. `-5`) pass through untouched.
+func parseFlagArgs(args []string, keys ...string) (map[string]any, error) {
 	allowed := make(map[string]bool, len(keys))
 	for _, k := range keys {
 		allowed[k] = true
@@ -6991,6 +7075,13 @@ func parseFlagArgs(args []string, keys ...string) map[string]any {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if !strings.HasPrefix(arg, "--") {
+			// Reject a single-dash long flag (-name, where name starts with a
+			// letter) instead of dropping it silently. Values like -5 are fine.
+			if len(arg) > 1 && arg[0] == '-' {
+				if c := arg[1]; (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+					return nil, fmt.Errorf("flag %q must use two dashes: --%s", arg, strings.TrimPrefix(arg, "-"))
+				}
+			}
 			continue
 		}
 		trimmed := strings.TrimPrefix(arg, "--")
@@ -7024,7 +7115,7 @@ func parseFlagArgs(args []string, keys ...string) map[string]any {
 			result[key] = value
 		}
 	}
-	return result
+	return result, nil
 }
 
 // partitionFlags separates positional arguments from "--flag" / "--flag=value"

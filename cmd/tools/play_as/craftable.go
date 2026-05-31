@@ -286,11 +286,14 @@ var _ craftplan.Source = (*playAsSource)(nil)
 // parts[1:] are flags / args.
 func handleCraftable(client game.GameClient, ctx context.Context, parts []string, craftingDB *sql.DB, format outputFormat) error {
 	_ = format
-	flags := parseFlagArgs(parts[1:],
+	flags, err := parseFlagArgs(parts[1:],
 		"reachable", "category", "search", "include-faction",
 		"include-facility-only", "include-ship-passive", "include-hidden",
 		"detail", "recipe", "refresh", "max", "sort",
 	)
+	if err != nil {
+		return err
+	}
 
 	opts := craftplan.CraftableOpts{
 		Reachable:           flagBool(flags["reachable"]),
