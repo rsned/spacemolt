@@ -74,6 +74,10 @@ func parseDemandOptions(args []string) (demandOptions, error) {
 			opts.limit = n
 		case "station-only":
 			opts.stationOnly = true
+		case "hide-player-only":
+			opts.hidePlayerOnly = true
+		case "include-mine":
+			opts.includeMine = true
 		case "only":
 			v, err := next()
 			if err != nil {

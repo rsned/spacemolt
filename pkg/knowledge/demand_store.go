@@ -17,9 +17,9 @@ func (kb *SQLiteKB) ReplaceStationBuyOrders(ctx context.Context, stationID strin
 		for _, o := range orders {
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO market_buy_orders
-					(station_id, system_id, item_id, item_name, price_each, quantity, source, captured_utc)
-				VALUES (?,?,?,?,?,?,?,?)`,
-				o.StationID, o.SystemID, o.ItemID, o.ItemName, o.PriceEach, o.Quantity, o.Source, utc(o.CapturedAt)); err != nil {
+					(station_id, system_id, item_id, item_name, price_each, quantity, my_quantity, source, captured_utc)
+				VALUES (?,?,?,?,?,?,?,?,?)`,
+				o.StationID, o.SystemID, o.ItemID, o.ItemName, o.PriceEach, o.Quantity, o.MyQuantity, o.Source, utc(o.CapturedAt)); err != nil {
 				return err
 			}
 		}

@@ -363,6 +363,11 @@ func migrations() []Migration {
 				CREATE INDEX market_demand_history_item ON market_demand_history(item_id, bucket_utc);
 			`,
 		},
+		{
+			version: 39,
+			name:    "market_buy_orders_my_quantity",
+			sql:     `ALTER TABLE market_buy_orders ADD COLUMN my_quantity REAL NOT NULL DEFAULT 0;`,
+		},
 	}
 }
 

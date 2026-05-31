@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 10
--- Last Regenerated: 2026-05-30
+-- Migrations applied: 11
+-- Last Regenerated: 2026-05-31
 
 -- ============================================================================
 -- TABLES
@@ -479,7 +479,7 @@ CREATE TABLE market_buy_orders (
 					quantity      REAL NOT NULL DEFAULT 0,
 					source        TEXT,
 					captured_utc  TEXT NOT NULL
-				);
+				, my_quantity REAL NOT NULL DEFAULT 0);
 
 
 CREATE TABLE market_demand_history (
@@ -1098,4 +1098,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (35, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (36, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (37, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (38, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (39, datetime('now'));
 

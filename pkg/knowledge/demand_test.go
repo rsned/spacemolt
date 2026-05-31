@@ -38,6 +38,34 @@ func TestReplaceStationBuyOrdersRoundTrip(t *testing.T) {
 	}
 }
 
+func TestReplaceStationBuyOrdersPersistsMyQuantity(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+	t0 := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+
+	orders := []MarketBuyOrderRow{
+		{StationID: "stn1", ItemID: "iron_ore", PriceEach: 12, Quantity: 20, MyQuantity: 20, Source: "", CapturedAt: t0},
+		{StationID: "stn1", ItemID: "copper", PriceEach: 8, Quantity: 100, Source: "station", CapturedAt: t0},
+	}
+	if err := kb.ReplaceStationBuyOrders(ctx, "stn1", orders); err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+	got, err := kb.LoadMarketBuyOrders(ctx)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	byItem := map[string]MarketBuyOrderRow{}
+	for _, o := range got {
+		byItem[o.ItemID] = o
+	}
+	if byItem["iron_ore"].MyQuantity != 20 {
+		t.Errorf("iron_ore my_quantity: want 20, got %v", byItem["iron_ore"].MyQuantity)
+	}
+	if byItem["copper"].MyQuantity != 0 {
+		t.Errorf("copper my_quantity: want 0 (station order), got %v", byItem["copper"].MyQuantity)
+	}
+}
+
 func TestReplaceStationBuyOrdersPrunesAndIsolates(t *testing.T) {
 	kb := newTestKB(t)
 	ctx := context.Background()

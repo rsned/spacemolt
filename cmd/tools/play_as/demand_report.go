@@ -34,14 +34,16 @@ const (
 
 // demandOptions are the report filters/sort parsed from `demand` flags.
 type demandOptions struct {
-	item        string
-	station     string
-	minPrice    float64
-	maxAge      time.Duration // 0 = no max-age filter
-	stationOnly bool
-	only        onlyFilter
-	sort        demandSort
-	limit       int // 0 = no limit
+	item           string
+	station        string
+	minPrice       float64
+	maxAge         time.Duration // 0 = no max-age filter
+	stationOnly    bool          // STN rows only (drops PLR>SM and PLR)
+	hidePlayerOnly bool          // drops pure-player (PLR) rows; keeps STN + PLR>SM
+	includeMine    bool          // include rows whose demand is entirely the player's own orders
+	only           onlyFilter
+	sort           demandSort
+	limit          int // 0 = no limit
 }
 
 // demandReportRow is one (station, item) demand line in the report.
@@ -53,6 +55,7 @@ type demandReportRow struct {
 	Price        float64     `json:"price"`
 	Quantity     float64     `json:"quantity"`
 	Class        demandClass `json:"class"`
+	MyQuantity   float64     `json:"my_quantity"`
 	OnHand       float64     `json:"on_hand"`
 	FulfillQty   float64     `json:"fulfill_qty"`
 	FulfillValue float64     `json:"fulfill_value"`
@@ -99,7 +102,7 @@ func classifyDemand(orders []knowledge.MarketBuyOrderRow) (demandClass, float64,
 
 type demandAgg struct {
 	stationID, systemID, itemID, itemName string
-	price, qty                            float64
+	price, qty, myQty                     float64
 	class                                 demandClass
 	captured                              time.Time
 }
@@ -127,6 +130,9 @@ func buildDemandReport(
 		a := &demandAgg{stationID: ords[0].StationID, systemID: ords[0].SystemID, itemID: ords[0].ItemID}
 		a.class, a.price, a.qty = cls, price, qty
 		for _, o := range ords {
+			if o.PriceEach > 0 && o.Quantity > 0 {
+				a.myQty += o.MyQuantity
+			}
 			if o.CapturedAt.After(a.captured) {
 				a.captured = o.CapturedAt
 			}
@@ -149,6 +155,14 @@ func buildDemandReport(
 			continue
 		}
 		if opts.stationOnly && a.class != classStation {
+			continue
+		}
+		if opts.hidePlayerOnly && a.class == classPlayer {
+			continue
+		}
+		// Skip rows whose demand is entirely the player's own buy orders — they
+		// are not a selling opportunity. --include-mine keeps them.
+		if !opts.includeMine && a.qty > 0 && a.myQty >= a.qty {
 			continue
 		}
 		if opts.maxAge > 0 && now.Sub(a.captured) > opts.maxAge {
@@ -175,7 +189,7 @@ func buildDemandReport(
 
 		row := demandReportRow{
 			StationID: a.stationID, SystemID: a.systemID, ItemID: a.itemID, ItemName: a.itemName,
-			Price: a.price, Quantity: a.qty, Class: a.class,
+			Price: a.price, Quantity: a.qty, MyQuantity: a.myQty, Class: a.class,
 			OnHand: onhand, FulfillQty: fulfill, FulfillValue: fulfill * a.price,
 			CanCraft: craft, CapturedAt: a.captured,
 			AgeStale: now.Sub(a.captured) > demandStaleAfter,

@@ -5,6 +5,9 @@ import "time"
 // MarketBuyOrderRow is a single buy order captured from a view_market response,
 // carrying Source so the report can distinguish Station Manager ("station")
 // orders from player orders ("" — null source in the compact response).
+// MyQuantity is the slice of Quantity owned by the capturing player (from the
+// compact response's my_quantity), letting the demand report skip rows whose
+// demand is entirely the player's own buy orders.
 type MarketBuyOrderRow struct {
 	StationID  string
 	SystemID   string
@@ -12,6 +15,7 @@ type MarketBuyOrderRow struct {
 	ItemName   string
 	PriceEach  float64
 	Quantity   float64
+	MyQuantity float64
 	Source     string
 	CapturedAt time.Time
 }

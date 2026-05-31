@@ -13,7 +13,7 @@ func TestParseStationBuyOrders(t *testing.T) {
 	raw := []byte(`{"items":[
 		{"item_id":"iron_ore","item_name":"Iron Ore","buy_orders":[
 			{"price_each":10,"quantity":50,"source":"station"},
-			{"price_each":12,"quantity":20,"source":null}
+			{"price_each":12,"quantity":20,"source":null,"my_quantity":20}
 		]},
 		{"item_id":"copper","item_name":"Copper","buy_orders":[
 			{"price_each":8,"quantity":100,"source":"station"},
@@ -31,12 +31,15 @@ func TestParseStationBuyOrders(t *testing.T) {
 			t.Errorf("row metadata wrong: %+v", r)
 		}
 	}
-	// Null source becomes "".
+	// Null source becomes "", and my_quantity carries through.
 	var nullSrc bool
 	for _, r := range rows {
 		if r.ItemID == "iron_ore" && r.PriceEach == 12 {
 			if r.Source != "" {
 				t.Errorf("null source: want empty string, got %q", r.Source)
+			}
+			if r.MyQuantity != 20 {
+				t.Errorf("my_quantity: want 20, got %v", r.MyQuantity)
 			}
 			nullSrc = true
 		}

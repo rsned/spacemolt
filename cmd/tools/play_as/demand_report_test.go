@@ -49,6 +49,70 @@ func TestBuildDemandReportClassifiesAndFulfills(t *testing.T) {
 	}
 }
 
+func TestBuildDemandReportHidePlayerOnly(t *testing.T) {
+	now := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+	deep := []knowledge.MarketBuyOrderRow{
+		// STN
+		{StationID: "s1", ItemID: "copper", PriceEach: 8, Quantity: 100, Source: "station", CapturedAt: now},
+		// PLR>SM (player order above a station order)
+		{StationID: "s2", ItemID: "iron", PriceEach: 10, Quantity: 50, Source: "station", CapturedAt: now},
+		{StationID: "s2", ItemID: "iron", PriceEach: 12, Quantity: 20, Source: "", CapturedAt: now},
+		// PLR (lone player order)
+		{StationID: "s3", ItemID: "titanium", PriceEach: 30, Quantity: 40, Source: "", CapturedAt: now},
+	}
+
+	rep := buildDemandReport(deep, nil, nil, now, demandOptions{hidePlayerOnly: true})
+	got := map[string]demandClass{}
+	for _, r := range rep.Rows {
+		got[r.ItemID] = r.Class
+	}
+	if _, ok := got["titanium"]; ok {
+		t.Errorf("hide-player-only should drop the lone-player (PLR) row, got %+v", rep.Rows)
+	}
+	if got["copper"] != classStation {
+		t.Errorf("hide-player-only must keep STN, got %+v", rep.Rows)
+	}
+	if got["iron"] != classAboveSM {
+		t.Errorf("hide-player-only must keep PLR>SM, got %+v", rep.Rows)
+	}
+}
+
+func TestBuildDemandReportSkipsWhollyMineByDefault(t *testing.T) {
+	now := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
+	deep := []knowledge.MarketBuyOrderRow{
+		// Entirely the player's own order — hidden by default.
+		{StationID: "s1", ItemID: "mine_all", PriceEach: 9, Quantity: 30, MyQuantity: 30, Source: "", CapturedAt: now},
+		// Partly mine (10 of 25) — still shown, with full quantity.
+		{StationID: "s2", ItemID: "mixed", PriceEach: 15, Quantity: 25, MyQuantity: 10, Source: "", CapturedAt: now},
+	}
+
+	rep := buildDemandReport(deep, nil, nil, now, demandOptions{})
+	got := map[string]demandReportRow{}
+	for _, r := range rep.Rows {
+		got[r.ItemID] = r
+	}
+	if _, ok := got["mine_all"]; ok {
+		t.Errorf("wholly-mine row should be hidden by default, got %+v", rep.Rows)
+	}
+	if r, ok := got["mixed"]; !ok {
+		t.Errorf("partly-mine row should still show, got %+v", rep.Rows)
+	} else if r.Quantity != 25 || r.MyQuantity != 10 {
+		t.Errorf("partly-mine row qty/mine: want 25/10, got %v/%v", r.Quantity, r.MyQuantity)
+	}
+
+	// --include-mine brings the wholly-mine row back.
+	rep2 := buildDemandReport(deep, nil, nil, now, demandOptions{includeMine: true})
+	var sawMineAll bool
+	for _, r := range rep2.Rows {
+		if r.ItemID == "mine_all" {
+			sawMineAll = true
+		}
+	}
+	if !sawMineAll {
+		t.Errorf("--include-mine should show the wholly-mine row, got %+v", rep2.Rows)
+	}
+}
+
 func TestBuildDemandReportTieStationWins(t *testing.T) {
 	now := time.Date(2026, 5, 29, 12, 0, 0, 0, time.UTC)
 	deep := []knowledge.MarketBuyOrderRow{

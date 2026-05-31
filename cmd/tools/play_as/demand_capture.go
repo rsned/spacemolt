@@ -37,6 +37,7 @@ func parseStationBuyOrders(raw []byte, stationID, systemID string, now time.Time
 				ItemName:   it.ItemName,
 				PriceEach:  o.PriceEach,
 				Quantity:   o.Quantity,
+				MyQuantity: float64(o.MyQuantity),
 				Source:     o.Source,
 				CapturedAt: now,
 			})
