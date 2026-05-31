@@ -615,3 +615,75 @@ func extractShipListingsFromRaw(serverData map[string]any) []knowledge.ShipListi
 
 	return ships
 }
+
+// cmdSeenFactions lists the distinct factions observed on other agents (from
+// the seen_players table), showing which are already captured in the factions
+// table. With --seed it enqueues them for background faction_info backfill so
+// the factions table fills in. Stale/missing factions are fetched; fresh ones
+// are skipped by the backfiller.
+func cmdSeenFactions(ctx context.Context, args []string) error {
+	if globalKB == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+	sqlite, ok := globalKB.(*knowledge.SQLiteKB)
+	if !ok {
+		return fmt.Errorf("seen_factions requires a SQLite knowledge base")
+	}
+
+	seed := false
+	for _, a := range args {
+		if a == "--seed" || a == "-s" {
+			seed = true
+		}
+	}
+
+	factions, err := sqlite.ListSeenFactions(ctx)
+	if err != nil {
+		return fmt.Errorf("list seen factions: %w", err)
+	}
+	if len(factions) == 0 {
+		fmt.Println("  (no factions observed yet)")
+		return nil
+	}
+
+	fmt.Printf("  %-26s | %-6s | %7s | %9s | %-11s | %s\n",
+		"Faction ID", "Tag", "Players", "Sightings", "Last Seen", "Status")
+	fmt.Printf("  %s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", 26), strings.Repeat("-", 6), strings.Repeat("-", 7),
+		strings.Repeat("-", 9), strings.Repeat("-", 11), strings.Repeat("-", 18))
+
+	var missing int
+	for _, f := range factions {
+		status := "MISSING"
+		if f.Seeded {
+			status = "seeded"
+			if f.Name != "" {
+				status = "seeded (" + f.Name + ")"
+			}
+		} else {
+			missing++
+		}
+		fmt.Printf("  %-26s | %-6s | %7d | %9d | %-11s | %s\n",
+			f.FactionID, f.FactionTag, f.PlayerCount, f.Sightings,
+			f.LastSeen.Format("01-02 15:04"), status)
+	}
+	fmt.Printf("  %d faction(s); %d not yet in the factions table\n", len(factions), missing)
+
+	if !seed {
+		if missing > 0 {
+			fmt.Println("  run 'seen_factions --seed' to backfill the missing ones")
+		}
+		return nil
+	}
+
+	if globalFactionBackfiller == nil {
+		return fmt.Errorf("faction backfill unavailable (requires the WebSocket client + --db-path)")
+	}
+	ids := make([]string, len(factions))
+	for i, f := range factions {
+		ids[i] = f.FactionID
+	}
+	globalFactionBackfiller.Enqueue(ids...)
+	fmt.Printf("  → enqueued %d faction(s) for background backfill (fresh ones are skipped)\n", len(ids))
+	return nil
+}

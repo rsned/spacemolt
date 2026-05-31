@@ -56,6 +56,11 @@ var processStartTime = time.Now()
 // globalClient is set during initialization so formatters can access game state.
 var globalClient game.GameClient
 
+// globalFactionBackfiller is the background faction_info backfiller, set during
+// initialization when a SQLite KB and WS client are available. Nil otherwise.
+// The seen_factions command uses it to seed the factions table on demand.
+var globalFactionBackfiller *faction.FactionBackfiller
+
 // Output format for server responses.
 type outputFormat string
 
@@ -205,6 +210,7 @@ func main() {
 				collector := faction.NewCollector(sqliteKB, logger)
 				backfiller := faction.NewFactionBackfiller(c, collector, sqliteKB, game.FreshnessFaction, logger)
 				backfiller.Start(ctx)
+				globalFactionBackfiller = backfiller
 				agent.WirePlayerObserver(c, sqliteKB, backfiller)
 				logger.Printf("Player-sightings recording + faction backfill enabled")
 			}
@@ -6674,6 +6680,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return kbUpdateAll(client, ctx)
 	case "update_faction_data", "update_faction":
 		return kbUpdateFaction(client, ctx)
+	case "seen_factions":
+		return cmdSeenFactions(ctx, parts[1:])
 
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.
@@ -7563,6 +7571,7 @@ func printHelp() {
 	fmt.Println("  update_missions           - Save mission board templates to KB")
 	fmt.Println("  update_all                - Run all update commands for current location")
 	fmt.Println("  update_faction_data       - Save faction data to KB (must be in a faction)")
+	fmt.Println("  seen_factions [--seed]    - List factions seen on other agents; --seed backfills them into the factions table")
 
 	fmt.Println("\n=== OTHER ===")
 	fmt.Println("  log <entry>               - Add captain's log entry")

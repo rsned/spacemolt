@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -163,4 +164,59 @@ FROM seen_players WHERE player_id = ?`, playerID,
 		out.SeenAt = t
 	}
 	return &out, nil
+}
+
+// SeenFaction is a distinct faction observed across seen_players, enriched with
+// whether it has already been captured into the factions table.
+type SeenFaction struct {
+	FactionID   string
+	FactionTag  string
+	PlayerCount int       // distinct players seen flying this faction
+	Sightings   int       // total sighting_count across those players
+	LastSeen    time.Time // most recent sighting of any of its members
+	Seeded      bool      // a row exists in the factions table
+	Name        string    // faction name, if seeded
+}
+
+// ListSeenFactions returns the distinct non-empty faction_ids observed across
+// seen_players, ordered by player count desc. Each row is left-joined against
+// the factions table so callers can see which still need backfilling.
+func (kb *SQLiteKB) ListSeenFactions(ctx context.Context) ([]SeenFaction, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+SELECT sp.faction_id,
+       MAX(sp.faction_tag),
+       COUNT(*),
+       COALESCE(SUM(sp.sighting_count), 0),
+       MAX(sp.last_seen_utc),
+       f.name,
+       f.captured_utc
+FROM seen_players sp
+LEFT JOIN factions f ON f.faction_id = sp.faction_id
+WHERE sp.faction_id IS NOT NULL AND sp.faction_id <> ''
+GROUP BY sp.faction_id
+ORDER BY COUNT(*) DESC, sp.faction_id`)
+	if err != nil {
+		return nil, fmt.Errorf("knowledge: list seen factions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []SeenFaction
+	for rows.Next() {
+		var (
+			sf       SeenFaction
+			tag      sql.NullString
+			lastSeen sql.NullString
+			name     sql.NullString
+			captured sql.NullString
+		)
+		if err := rows.Scan(&sf.FactionID, &tag, &sf.PlayerCount, &sf.Sightings, &lastSeen, &name, &captured); err != nil {
+			return nil, fmt.Errorf("knowledge: scan seen faction: %w", err)
+		}
+		sf.FactionTag = tag.String
+		sf.LastSeen = parseUTC(lastSeen.String)
+		sf.Seeded = captured.Valid
+		sf.Name = name.String
+		out = append(out, sf)
+	}
+	return out, rows.Err()
 }

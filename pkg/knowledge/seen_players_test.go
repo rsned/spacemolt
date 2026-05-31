@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -275,5 +276,44 @@ func TestRecordSightings_AnonymousFlipsWithLatestObservation(t *testing.T) {
 	}
 	if a != 0 {
 		t.Errorf("after flip back to false, anonymous = %d, want 0", a)
+	}
+}
+
+func TestListSeenFactions(t *testing.T) {
+	kb := newTestKB(t)
+	now := time.Now().UTC()
+	mustRecord(t, kb,
+		SeenPlayer{PlayerID: "p1", Username: "A", FactionID: "fed", FactionTag: "FED", SystemID: "s1", Source: "get_nearby", SeenAt: now.Add(-2 * time.Hour)},
+		SeenPlayer{PlayerID: "p2", Username: "B", FactionID: "fed", FactionTag: "FED", SystemID: "s1", Source: "get_nearby", SeenAt: now.Add(-1 * time.Hour)},
+		SeenPlayer{PlayerID: "p3", Username: "C", FactionID: "pirates", FactionTag: "PIR", SystemID: "s1", Source: "get_nearby", SeenAt: now},
+		SeenPlayer{PlayerID: "p4", Username: "D", FactionID: "", SystemID: "s1", Source: "get_nearby", SeenAt: now}, // no faction -> excluded
+	)
+	// "fed" is already seeded into the factions table; "pirates" is not.
+	if err := kb.StoreFaction(context.Background(), FactionRecord{FactionID: "fed", Name: "Federation", Tag: "FED", CapturedAt: now}); err != nil {
+		t.Fatalf("StoreFaction: %v", err)
+	}
+
+	got, err := kb.ListSeenFactions(context.Background())
+	if err != nil {
+		t.Fatalf("ListSeenFactions: %v", err)
+	}
+
+	byID := map[string]SeenFaction{}
+	for _, f := range got {
+		byID[f.FactionID] = f
+	}
+	if len(byID) != 2 {
+		t.Fatalf("got %d distinct factions, want 2 (empty excluded): %+v", len(byID), got)
+	}
+	fed := byID["fed"]
+	if fed.FactionTag != "FED" || fed.PlayerCount != 2 || !fed.Seeded || fed.Name != "Federation" {
+		t.Errorf("fed = %+v, want tag=FED players=2 seeded=true name=Federation", fed)
+	}
+	pir := byID["pirates"]
+	if pir.PlayerCount != 1 || pir.Seeded {
+		t.Errorf("pirates = %+v, want players=1 seeded=false", pir)
+	}
+	if _, ok := byID[""]; ok {
+		t.Error("empty faction id should be excluded")
 	}
 }
