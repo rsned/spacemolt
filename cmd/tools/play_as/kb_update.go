@@ -646,10 +646,10 @@ func cmdSeenFactions(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("  %-26s | %-6s | %7s | %9s | %-11s | %s\n",
+	fmt.Printf("  %-32s | %-6s | %7s | %9s | %-11s | %s\n",
 		"Faction ID", "Tag", "Players", "Sightings", "Last Seen", "Status")
 	fmt.Printf("  %s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
-		strings.Repeat("-", 26), strings.Repeat("-", 6), strings.Repeat("-", 7),
+		strings.Repeat("-", 32), strings.Repeat("-", 6), strings.Repeat("-", 7),
 		strings.Repeat("-", 9), strings.Repeat("-", 11), strings.Repeat("-", 18))
 
 	var missing int
@@ -663,7 +663,7 @@ func cmdSeenFactions(ctx context.Context, args []string) error {
 		} else {
 			missing++
 		}
-		fmt.Printf("  %-26s | %-6s | %7d | %9d | %-11s | %s\n",
+		fmt.Printf("  %-32s | %-6s | %7d | %9d | %-11s | %s\n",
 			f.FactionID, f.FactionTag, f.PlayerCount, f.Sightings,
 			f.LastSeen.Format("01-02 15:04"), status)
 	}
