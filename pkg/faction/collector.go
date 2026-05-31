@@ -67,6 +67,43 @@ func (c *Collector) Collect(ctx context.Context, client game.GameClient, include
 	return nil
 }
 
+// CollectFaction fetches faction_info for an arbitrary factionID and persists
+// its header, members, and relations (allies/enemies/wars). Unlike Collect it
+// does not gather intel or station-scoped data (facilities/storage/orders/etc.)
+// — those are only available from the agent's own faction/vantage. This is the
+// path used to backfill details for factions we observe on other agents but are
+// not a member of.
+func (c *Collector) CollectFaction(ctx context.Context, client game.GameClient, factionID string) error {
+	wsClient, ok := client.(*game.Client)
+	if !ok {
+		return fmt.Errorf("faction collection requires the WebSocket client (*game.Client)")
+	}
+	if factionID == "" {
+		return fmt.Errorf("empty faction id")
+	}
+
+	var info serverapi.FactionInfoResponse
+	if err := readInto(ctx, wsClient, "faction_info", map[string]any{"faction_id": factionID, "limit": 200}, &info); err != nil {
+		return fmt.Errorf("faction_info %s: %w", factionID, err)
+	}
+
+	rec, members, rels := parseFactionInfo(info)
+	if rec.FactionID == "" {
+		rec.FactionID = factionID
+	}
+	if err := c.kb.StoreFaction(ctx, rec); err != nil {
+		return fmt.Errorf("store faction %s: %w", rec.FactionID, err)
+	}
+	if err := c.kb.ReplaceFactionMembers(ctx, rec.FactionID, members); err != nil {
+		c.logger.Printf("  ReplaceFactionMembers(%s) failed: %v", rec.FactionID, err)
+	}
+	if err := c.kb.ReplaceFactionRelations(ctx, rec.FactionID, rels); err != nil {
+		c.logger.Printf("  ReplaceFactionRelations(%s) failed: %v", rec.FactionID, err)
+	}
+	c.logger.Printf("  backfilled faction %s (%s): members=%d relations=%d", rec.Tag, rec.FactionID, len(members), len(rels))
+	return nil
+}
+
 // submitAndRead sends a command and returns its response payload, mirroring the
 // daily-summary storage-capture pattern. Returns nil payload on server error.
 func submitAndRead(ctx context.Context, c *game.Client, msgType string, payload map[string]any) (map[string]any, error) {

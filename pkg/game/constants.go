@@ -142,6 +142,10 @@ const (
 	FreshnessSystem = 24 * 60 * 60 // 86,400 ticks
 )
 
+// FreshnessFaction is how long a stored faction record is considered current
+// before the faction_info backfill will re-fetch it: 1 day.
+const FreshnessFaction = 24 * time.Hour
+
 // POIFreshnessThreshold returns the appropriate freshness threshold for a given POI type.
 func POIFreshnessThreshold(poiType string) int64 {
 	switch poiType {

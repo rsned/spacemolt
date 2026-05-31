@@ -30,6 +30,7 @@ import (
 	"github.com/mattn/go-runewidth"
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/faction"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -198,8 +199,14 @@ func main() {
 			// lives on *game.Client (the WS client); MCPGameClient routes
 			// responses differently and would need a parallel hook.
 			if c, ok := client.(*game.Client); ok {
-				agent.WirePlayerObserver(c, sqliteKB)
-				logger.Printf("Player-sightings recording enabled")
+				// Backfill full faction details for factions seen on observed
+				// agents: a new/stale faction_id triggers a background
+				// faction_info fetch into the factions tables.
+				collector := faction.NewCollector(sqliteKB, logger)
+				backfiller := faction.NewFactionBackfiller(c, collector, sqliteKB, game.FreshnessFaction, logger)
+				backfiller.Start(ctx)
+				agent.WirePlayerObserver(c, sqliteKB, backfiller)
+				logger.Printf("Player-sightings recording + faction backfill enabled")
 			}
 		}
 	}

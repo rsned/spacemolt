@@ -69,3 +69,26 @@ func TestStoreAndLoadFaction(t *testing.T) {
 		t.Errorf("ListFactionIDs wrong: %v err=%v", ids, err)
 	}
 }
+
+func TestFactionCapturedAt(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+
+	// Missing faction -> exists=false, no error.
+	if _, ok, err := kb.FactionCapturedAt(ctx, "nope"); err != nil || ok {
+		t.Fatalf("missing faction: got ok=%v err=%v, want ok=false err=nil", ok, err)
+	}
+
+	want := time.Date(2026, 5, 30, 12, 0, 0, 0, time.UTC)
+	if err := kb.StoreFaction(ctx, FactionRecord{FactionID: "f1", Name: "Crafters", Tag: "CRFT", CapturedAt: want}); err != nil {
+		t.Fatalf("StoreFaction: %v", err)
+	}
+
+	got, ok, err := kb.FactionCapturedAt(ctx, "f1")
+	if err != nil || !ok {
+		t.Fatalf("stored faction: got ok=%v err=%v, want ok=true", ok, err)
+	}
+	if !got.Equal(want) {
+		t.Errorf("captured_at = %v, want %v", got, want)
+	}
+}

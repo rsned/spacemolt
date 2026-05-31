@@ -1613,7 +1613,7 @@ func main() {
 		knowledge.NewXPTracker(wsClient, kb, explorer, logger)
 		// Persist every encountered player to the shared KB. See spec
 		// docs/superpowers/specs/2026-05-17-player-sightings-design.md.
-		agent.WirePlayerObserver(wsClient, kb)
+		agent.WirePlayerObserver(wsClient, kb, nil)
 		client = wsClient
 	default:
 		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)

@@ -2,8 +2,26 @@ package knowledge
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"time"
 )
+
+// FactionCapturedAt returns the captured_utc of a stored faction header and
+// whether a row exists. A missing faction yields (zero, false, nil) — not an
+// error — so callers can treat "unknown" and "stale" uniformly.
+func (kb *SQLiteKB) FactionCapturedAt(ctx context.Context, factionID string) (time.Time, bool, error) {
+	var capturedAt string
+	err := kb.db.QueryRowContext(ctx,
+		`SELECT captured_utc FROM factions WHERE faction_id = ?`, factionID).Scan(&capturedAt)
+	if err == sql.ErrNoRows {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("faction captured_at: %w", err)
+	}
+	return parseUTC(capturedAt), true, nil
+}
 
 // StoreFaction upserts the faction header row.
 func (kb *SQLiteKB) StoreFaction(ctx context.Context, r FactionRecord) error {
