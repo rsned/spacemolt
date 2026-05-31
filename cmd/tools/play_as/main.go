@@ -5666,10 +5666,18 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_edit":
-		// Usage: faction_edit [--charter "text"] [--description "text"] [--primary_color "#hex"] [--secondary_color "#hex"]
-		payload := parseFlagArgs(parts[1:], "charter", "description", "primary_color", "secondary_color")
+		// Usage: faction_edit [--description "text"] [--charter "text"]
+		//   [--primary_color "#hex"] [--secondary_color "#hex"]
+		//   [--ally_intel_opt_out true|false] [--ally_fuel_access true|false]
+		payload := parseFlagArgs(parts[1:], "charter", "description", "primary_color", "secondary_color",
+			"ally_intel_opt_out", "ally_fuel_access")
+		// The two ally toggles are booleans server-side; parseFlagArgs yields a
+		// string/int, so coerce them to real JSON bools.
+		if err := coerceBoolFlags(payload, "ally_intel_opt_out", "ally_fuel_access"); err != nil {
+			return fmt.Errorf("faction_edit: %w", err)
+		}
 		if len(payload) == 0 {
-			return fmt.Errorf("usage: faction_edit --charter \"text\" --description \"text\" --primary_color \"#hex\" --secondary_color \"#hex\"")
+			return fmt.Errorf("usage: faction_edit [--description \"text\"] [--charter \"text\"] [--primary_color \"#hex\"] [--secondary_color \"#hex\"] [--ally_intel_opt_out true|false] [--ally_fuel_access true|false]")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.FactionEdit(ctx, payload)
@@ -6897,6 +6905,28 @@ func partitionFlagBool(flags map[string]string, key string) bool {
 	return strings.EqualFold(v, "true") || v == "1"
 }
 
+// coerceBoolFlags rewrites the named payload entries from their parsed string/int
+// form (as produced by parseFlagArgs) into real JSON booleans, so commands whose
+// server fields are typed boolean send `true`/`false` rather than "true"/"false".
+// Missing keys are left untouched; a present value that is not a recognizable
+// boolean (per strconv.ParseBool: 1/t/T/TRUE/true, 0/f/F/FALSE/false, …) is an
+// error. The bare-flag form (`--ally_fuel_access`) arrives as "true" and is
+// accepted as true.
+func coerceBoolFlags(payload map[string]any, keys ...string) error {
+	for _, k := range keys {
+		v, ok := payload[k]
+		if !ok {
+			continue
+		}
+		b, err := strconv.ParseBool(fmt.Sprint(v))
+		if err != nil {
+			return fmt.Errorf("--%s must be true or false, got %q", k, fmt.Sprint(v))
+		}
+		payload[k] = b
+	}
+	return nil
+}
+
 func parseFlagArgs(args []string, keys ...string) map[string]any {
 	allowed := make(map[string]bool, len(keys))
 	for _, k := range keys {
@@ -7238,7 +7268,7 @@ func printHelp() {
 	fmt.Println("  leave_faction                - Leave current faction")
 	fmt.Println("  faction_info [faction-id]     - View faction details")
 	fmt.Println("  faction_list                  - List all factions")
-	fmt.Println("  faction_edit --description \"text\" --charter \"text\"")
+	fmt.Println("  faction_edit --description \"text\" --charter \"text\" [--primary_color \"#hex\"] [--secondary_color \"#hex\"] [--ally_intel_opt_out true|false] [--ally_fuel_access true|false]")
 	fmt.Println("  faction_invite <player-id>    - Invite a player")
 	fmt.Println("  faction_kick <player-id>      - Kick a member")
 	fmt.Println("  faction_promote <player> <role> - Promote/demote member")
