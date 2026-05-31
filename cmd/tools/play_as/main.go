@@ -2140,6 +2140,7 @@ func formatStorage(raw []byte) string {
 		BaseID string        `json:"base_id"`
 		Items  []storageItem `json:"items"`
 		Ships  []storageShip `json:"ships"`
+		Hint   string        `json:"hint"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -2224,6 +2225,13 @@ func formatStorage(raw []byte) string {
 				modW, ship.Modules)
 		}
 		fmt.Fprintf(&b, "  (%d ships)\n", len(resp.Ships))
+	}
+
+	// Server hint: where else the agent has items stored (e.g. "6,632 items in
+	// storage at frontier_station"). Surface it so the agent knows to check
+	// other stations.
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "  ↪ %s\n", resp.Hint)
 	}
 
 	return b.String()

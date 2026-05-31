@@ -30,6 +30,16 @@ func TestFormatStorage_EmptyButValidStillRenders(t *testing.T) {
 	}
 }
 
+// TestFormatStorage_HintShown surfaces the server's "hint" field so the agent
+// knows which other station holds items when the current base is empty.
+func TestFormatStorage_HintShown(t *testing.T) {
+	raw := `{"base_id":"unknown_edge_waystation","hint":"6,632 items in storage at frontier_station","items":[],"ships":[]}`
+	out := formatStorage([]byte(raw))
+	if !strings.Contains(out, "6,632 items in storage at frontier_station") {
+		t.Errorf("expected hint to be rendered, got:\n%s", out)
+	}
+}
+
 func TestFormatFactionStorage_ErrorFrameRendersNothing(t *testing.T) {
 	if out := formatFactionStorage([]byte(`{"error":"not_member","message":"You are not in a faction."}`)); out != "" {
 		t.Errorf("expected empty string for error frame, got:\n%s", out)
