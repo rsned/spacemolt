@@ -2483,13 +2483,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 				c.notifyPlayerFromChat(chatMsg)
 			}
 		}
-		if sender, ok := resp.Payload["sender"].(string); ok {
-			if channel, ok := resp.Payload["channel"].(string); ok {
-				c.debugLogger.Printf("[CHAT] %s (%s): %v", sender, channel, resp.Payload["content"])
-			}
-		} else {
-			c.debugLogger.Printf("[CHAT] %v", resp.Payload)
-		}
+		// No per-message chat log here: listen() already dumps the full
+		// Response Payload for every non-quiet frame through debugLogger, and
+		// play_as renders the user-facing chat line itself. A "[CHAT] ..."
+		// line here would just duplicate both.
 
 	case protocol.TypeSkillLevelUp:
 		// Server-initiated notification that a skill leveled up. Refresh the
