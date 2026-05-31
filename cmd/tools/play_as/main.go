@@ -341,6 +341,21 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 
 	format := outputFormat(cfg.OutputFormat)
 
+	// execMu serializes command execution so a background scheduled command
+	// never interleaves with a foreground REPL command (or vice-versa).
+	var execMu sync.Mutex
+
+	// Scheduler: user-registered recurring commands (hourly/daily/weekly).
+	scheduler, err := LoadScheduler(filepath.Join("data", "agents", agentID, "scheduled_commands.json"))
+	if err != nil {
+		log.Printf("[scheduler] warning: could not load schedules: %v", err)
+		scheduler, _ = LoadScheduler(filepath.Join(os.TempDir(), "scheduled_commands.json"))
+	}
+	scheduler.startLoop(ctx, game.SleepLong, &execMu, func(t ScheduledTask) {
+		fmt.Printf("\r⏰ [scheduled %s] %s\n", t.Frequency, t.Command)
+		_ = executeLogicalCommand(client, ctx, t.Command, format, cfg, agentID)
+	}, func() time.Time { return time.Now().UTC() })
+
 	// lastCommand holds the most recent game/loop command, for `save <name>`.
 	var lastCommand string
 
@@ -457,6 +472,22 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			mboxSpamList(blocklist)
 			fmt.Println()
 			continue
+		case "schedule_add":
+			handleScheduleAdd(scheduler, func(cmd string) {
+				execMu.Lock()
+				defer execMu.Unlock()
+				_ = executeLogicalCommand(client, ctx, cmd, format, cfg, agentID)
+			}, time.Now().UTC(), parts[1:])
+			fmt.Println()
+			continue
+		case "schedule_remove":
+			handleScheduleRemove(scheduler, parts[1:])
+			fmt.Println()
+			continue
+		case "view_scheduled":
+			handleViewScheduled(scheduler, time.Now().UTC())
+			fmt.Println()
+			continue
 		}
 
 		// Handle set_format
@@ -536,9 +567,12 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		}
 
 		// Game command or loop: dispatch through the shared helper (also used
-		// by `run`).
+		// by `run`). execMu keeps a background scheduled command from
+		// interleaving with this foreground one.
 		lastCommand = cmd
+		execMu.Lock()
 		_ = executeLogicalCommand(client, ctx, cmd, format, cfg, agentID)
+		execMu.Unlock()
 	}
 }
 
@@ -7541,6 +7575,9 @@ func printHelp() {
 	fmt.Println("  mbox mark-read <id>|--all - Mark messages as read")
 	fmt.Println("  mbox backfill [--channel] [-f] - Deep crawl message history (-f resets cursor)")
 	fmt.Println("  mbox sources              - Push/backfill/reconcile counts")
+	fmt.Println("  schedule_add <hourly|daily|weekly> <command...> - Run a command on a recurring schedule (runs once now)")
+	fmt.Println("  schedule_remove <id>      - Remove a scheduled command")
+	fmt.Println("  view_scheduled            - List scheduled commands")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
