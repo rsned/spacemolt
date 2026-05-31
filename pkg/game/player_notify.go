@@ -142,6 +142,33 @@ func (c *Client) notifyPlayerFromChat(msg serverapi.ChatMessage) {
 	}})
 }
 
+// notifyPlayerFromScan emits a single ObservedPlayer for the target revealed
+// by a scan action_result. scan exposes the target's faction_id, username and
+// ship_class, so unlike the identity-only chat path this carries full sighting
+// context. systemID is passed in by the caller (parseActionResult holds c.mu,
+// so this helper must not call currentSystemID, which would re-lock it).
+func (c *Client) notifyPlayerFromScan(resp serverapi.ScanResponse, systemID string) {
+	if resp.TargetID == "" {
+		return
+	}
+	c.playerObserverMu.RLock()
+	cb := c.playerObserver
+	c.playerObserverMu.RUnlock()
+	if cb == nil {
+		return
+	}
+
+	cb([]ObservedPlayer{{
+		PlayerID:  resp.TargetID,
+		Username:  resp.Username,
+		ShipClass: resp.ShipClass,
+		FactionID: resp.FactionID,
+		SystemID:  systemID,
+		Source:    "scan",
+		SeenAt:    time.Now().UTC(),
+	}})
+}
+
 // currentSystemID returns the current system identifier from c.state,
 // guarded by c.mu. Returns "" if state has not been initialized.
 func (c *Client) currentSystemID() string {

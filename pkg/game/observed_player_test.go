@@ -261,6 +261,56 @@ func TestHandleResponse_FiresOnChatMessage(t *testing.T) {
 	}
 }
 
+func TestHandleResponse_FiresOnScanActionResult(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	got := captureObserver(t, c)
+
+	// scan arrives as an action_result frame with top-level command "scan"
+	// and the revealed target fields nested under "result" (no "action" key).
+	payload := payloadMarshal(t, map[string]any{
+		"command": "scan",
+		"tick":    float64(42),
+		"result": map[string]any{
+			"target_id":     "ea49463f",
+			"username":      "HexBot12",
+			"ship_class":    "rock_eater",
+			"ship_name":     "Rock Eater",
+			"faction_id":    "e3653eac",
+			"hull":          float64(380),
+			"shield":        float64(240),
+			"revealed_info": []string{"username", "ship_class", "hull", "shield", "cloaked", "faction"},
+			"success":       true,
+		},
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeActionResult, Payload: payload})
+
+	if len(*got) != 1 {
+		t.Fatalf("observer got %d, want 1", len(*got))
+	}
+	o := (*got)[0]
+	if o.PlayerID != "ea49463f" {
+		t.Errorf("PlayerID=%q, want ea49463f (target_id)", o.PlayerID)
+	}
+	if o.Username != "HexBot12" {
+		t.Errorf("Username=%q, want HexBot12", o.Username)
+	}
+	if o.ShipClass != "rock_eater" {
+		t.Errorf("ShipClass=%q, want rock_eater", o.ShipClass)
+	}
+	if o.FactionID != "e3653eac" {
+		t.Errorf("FactionID=%q, want e3653eac", o.FactionID)
+	}
+	if o.SystemID != "sys-A" {
+		t.Errorf("SystemID=%q, want sys-A", o.SystemID)
+	}
+	if o.Source != "scan" {
+		t.Errorf("Source=%q, want scan", o.Source)
+	}
+	if o.SeenAt.IsZero() {
+		t.Error("SeenAt is zero")
+	}
+}
+
 func TestHandleResponse_FiresOnGetSystemOnlinePlayers(t *testing.T) {
 	c := newHandleResponseTestClient("sys-A")
 	got := captureObserver(t, c)

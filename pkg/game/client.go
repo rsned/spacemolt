@@ -3652,6 +3652,18 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			// formatter (and get_drones) renders the result. Log cleanly instead
 			// of "unhandled".
 			c.debugLogger.Printf("Action result: %s complete", command)
+		case "scan":
+			// scan reveals a target player's faction_id/username/ship_class.
+			// Nothing in our own State changes, but the sighting feeds the
+			// player observer (seen_players + faction backfill). currentSystemID
+			// would re-lock c.mu (held here), so read CurrentSystem directly.
+			scan := serverapi.ScanResponse{}
+			scan.TargetID, _ = result["target_id"].(string)
+			scan.Username, _ = result["username"].(string)
+			scan.ShipClass, _ = result["ship_class"].(string)
+			scan.FactionID, _ = result["faction_id"].(string)
+			c.notifyPlayerFromScan(scan, c.state.CurrentSystem)
+			c.debugLogger.Printf("Action result: scanned %s (%s)", scan.Username, scan.ShipClass)
 		case "buy_listed_ship":
 			if credits, ok := result["credits_left"].(float64); ok {
 				c.state.Player.Credits = credits
