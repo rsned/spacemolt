@@ -52,6 +52,10 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	// Collect raw responses for non-styled formats
 	var allResponses []json.RawMessage
 
+	// Capture the system-wide agent roster (feeds seen_players via the player
+	// observer) once per system, right after get_system.
+	captureSightings(client, ctx, client.GetSystemAgents, "get_system_agents", format, &allResponses)
+
 	if format == formatStyled {
 		// Print route table.
 		fmt.Printf("\nExploring %d POIs in %s:\n\n", len(route), state.System.Name)
@@ -123,6 +127,10 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 				}
 			}
 		}
+
+		// Now at this POI: capture other players here (POI-scoped sighting,
+		// feeds seen_players via the player observer).
+		captureSightings(client, ctx, client.GetNearby, "get_nearby", format, &allResponses)
 
 		if poi.Type == "station" {
 			// Dock and run full update.
@@ -457,6 +465,26 @@ func saveFaintSignatures(client game.GameClient, ctx context.Context, resp serve
 			fmt.Printf("    Warning: failed to save faint signature: %v\n", err)
 		}
 	}
+}
+
+// captureSightings runs a best-effort player-enumeration query (get_nearby /
+// get_system_agents) whose response feeds the player observer, recording the
+// agents into seen_players. Errors are non-fatal (sighting capture is not
+// required for exploration); in raw/JSON mode the response is appended to
+// responses so it still appears in the output stream.
+func captureSightings(client game.GameClient, ctx context.Context, fn func(context.Context) error, label string, format outputFormat, responses *[]json.RawMessage) {
+	if err := fn(ctx); err != nil {
+		if format == formatStyled {
+			fmt.Printf("  (%s failed: %v)\n", label, err)
+		}
+		return
+	}
+	if format != formatStyled && responses != nil {
+		if raw := client.GetRawJSON("_last"); raw != nil {
+			*responses = append(*responses, raw)
+		}
+	}
+	time.Sleep(game.SleepQuick)
 }
 
 // saveSurveyAnomaly persists a survey spatial-anomaly hint to the knowledge
