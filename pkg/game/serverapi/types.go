@@ -742,7 +742,7 @@ type InsuranceQuote struct {
 	FittedValue int             `json:"fitted_value,omitempty"`
 	RiskScore   float64          `json:"risk_score,omitempty"`
 	Refused     bool             `json:"refused,omitempty"`
-	ExpiresIn   int              `json:"expires_in,omitempty"`
+	ExpiresIn   string           `json:"expires_in,omitempty"` // human string e.g. "7 days", not a tick count
 	Factors     []InsuranceFactor `json:"factors,omitempty"`
 }
 

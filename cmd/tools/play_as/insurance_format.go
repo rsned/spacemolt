@@ -33,26 +33,35 @@ func formatGetInsuranceQuote(raw []byte) string {
 		return b.String()
 	}
 
-	fmt.Fprintf(&b, "Premium:      %d cr   |   Coverage: %d cr\n", q.Premium, q.Coverage)
+	if q.Coverage > 0 {
+		fmt.Fprintf(&b, "Coverage:     %d cr\n", q.Coverage)
+	}
+	if q.Premium > 0 {
+		fmt.Fprintf(&b, "Premium:      %d cr\n", q.Premium)
+	}
 	if q.FittedValue > 0 {
-		fmt.Fprintf(&b, "Fitted value: %d cr", q.FittedValue)
-		if q.RiskScore > 0 {
-			fmt.Fprintf(&b, "   |   Risk score: %.2f", q.RiskScore)
-		}
-		b.WriteString("\n")
-	} else if q.RiskScore > 0 {
+		fmt.Fprintf(&b, "Fitted value: %d cr\n", q.FittedValue)
+	}
+	if q.RiskScore > 0 {
 		fmt.Fprintf(&b, "Risk score:   %.2f\n", q.RiskScore)
 	}
-	if q.ExpiresIn > 0 {
-		fmt.Fprintf(&b, "Quote valid for: %d ticks\n", q.ExpiresIn)
+	if q.ExpiresIn != "" {
+		fmt.Fprintf(&b, "Valid for:    %s\n", q.ExpiresIn)
 	}
 
 	if len(q.Factors) > 0 {
 		b.WriteString("\nRisk factors:\n")
-		fmt.Fprintf(&b, "  %-18s  %-7s  %s\n", "Factor", "Mult", "Detail")
-		fmt.Fprintf(&b, "  %-18s  %-7s  %s\n", "------------------", "-------", "------")
 		for _, f := range q.Factors {
-			fmt.Fprintf(&b, "  %-18s  %5.2fx  %s\n", f.Name, f.Multiplier, f.Detail)
+			// Factors may carry a name, a detail, or both — render whichever
+			// are present rather than a rigid table with blank columns.
+			label := f.Name
+			switch {
+			case f.Name != "" && f.Detail != "":
+				label = f.Name + " — " + f.Detail
+			case f.Name == "":
+				label = f.Detail
+			}
+			fmt.Fprintf(&b, "  %5.2fx  %s\n", f.Multiplier, label)
 		}
 	}
 
