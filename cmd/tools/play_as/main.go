@@ -56,6 +56,10 @@ var processStartTime = time.Now()
 // globalClient is set during initialization so formatters can access game state.
 var globalClient game.GameClient
 
+// globalAgentID is this session's agent id (args[0]), set during init. Used as
+// the detected_by attribution when formatters persist observations to the KB.
+var globalAgentID string
+
 // globalFactionBackfiller is the background faction_info backfiller, set during
 // initialization when a SQLite KB and WS client are available. Nil otherwise.
 // The seen_factions command uses it to seed the factions table on demand.
@@ -90,6 +94,7 @@ func main() {
 	}
 
 	agentID := args[0]
+	globalAgentID = agentID
 	logger := log.New(os.Stdout, fmt.Sprintf("[PLAY_AS-%s] ", agentID), log.LstdFlags)
 
 	ctx := context.Background()

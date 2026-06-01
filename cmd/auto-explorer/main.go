@@ -232,7 +232,7 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 			logger.Printf("⚠️  Survey failed: %v", err)
 		} else {
 			time.Sleep(game.SleepQuick)
-			processSurveyResults(client, ctx, logger, kb, state.System.ID, state.GetTick())
+			processSurveyResults(client, ctx, logger, kb, state.System.ID, agentID, state.GetTick())
 		}
 	}
 
@@ -261,7 +261,7 @@ func hasSurveyScanner(client game.GameClient) bool {
 
 // processSurveyResults parses the survey_system response and stores discovered
 // POIs and faint signatures in the knowledge base.
-func processSurveyResults(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemID string, tick int64) {
+func processSurveyResults(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemID, agentID string, tick int64) {
 	rawJSON := client.GetRawJSON("survey")
 	if rawJSON == nil {
 		logger.Printf("⚠️  No survey response data available")
@@ -323,6 +323,14 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 		} else {
 			logger.Printf("🔮 Faint signature recorded: %s (difficulty: %s)", sig.Type, sig.Difficulty)
 		}
+	}
+
+	// Persist any spatial anomaly hint so it can be reviewed after the session
+	// (directional ones carry a target system + jump count for explicit travel).
+	if recorded, err := knowledge.CaptureSurveyAnomaly(ctx, kb, resp.AnomalyHint, systemID, agentID, tick); err != nil {
+		logger.Printf("⚠️  Failed to record survey anomaly: %v", err)
+	} else if recorded {
+		logger.Printf("🌀 Anomaly recorded: %s", resp.AnomalyHint)
 	}
 
 	total := len(resp.NewlyRevealed) + len(resp.FaintSignatures)

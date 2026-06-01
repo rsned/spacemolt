@@ -347,6 +347,9 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 
 			if resp.AnomalyHint != "" {
 				fmt.Printf("  Anomaly: %s\n", resp.AnomalyHint)
+				if globalKB != nil {
+					saveSurveyAnomaly(client, ctx, resp)
+				}
 			}
 		} else {
 			// In raw/json mode, still save POIs to KB
@@ -355,6 +358,9 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			}
 			if len(resp.FaintSignatures) > 0 && globalKB != nil {
 				saveFaintSignatures(client, ctx, resp)
+			}
+			if resp.AnomalyHint != "" && globalKB != nil {
+				saveSurveyAnomaly(client, ctx, resp)
 			}
 		}
 
@@ -450,6 +456,17 @@ func saveFaintSignatures(client game.GameClient, ctx context.Context, resp serve
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("    Warning: failed to save faint signature: %v\n", err)
 		}
+	}
+}
+
+// saveSurveyAnomaly persists a survey spatial-anomaly hint to the knowledge
+// base so it can be reviewed after the session. Directional hints ("toward X
+// (N jumps)") are parsed so callers can later tell which need explicit travel.
+// Repeat detections of the same anomaly are deduped by CaptureSurveyAnomaly.
+func saveSurveyAnomaly(client game.GameClient, ctx context.Context, resp serverapi.SurveySystemResponse) {
+	state := client.GetState()
+	if _, err := knowledge.CaptureSurveyAnomaly(ctx, globalKB, resp.AnomalyHint, resp.SystemID, globalAgentID, currentTick(state)); err != nil {
+		fmt.Printf("    Warning: failed to record survey anomaly: %v\n", err)
 	}
 }
 
