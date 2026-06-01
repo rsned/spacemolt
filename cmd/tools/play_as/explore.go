@@ -424,6 +424,7 @@ func saveSurveyPOIs(client game.GameClient, ctx context.Context, resp serverapi.
 			// The POI was just revealed by this survey — it is no longer hidden.
 			Hidden:          false,
 			LastUpdatedTick: currentTick(state),
+			DetectedBy:      globalAgentID,
 		}
 		for _, r := range revealed.Resources {
 			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
@@ -460,6 +461,7 @@ func saveFaintSignatures(client game.GameClient, ctx context.Context, resp serve
 			Description:     desc,
 			Hidden:          false,
 			LastUpdatedTick: currentTick(state),
+			DetectedBy:      globalAgentID,
 		}
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("    Warning: failed to save faint signature: %v\n", err)

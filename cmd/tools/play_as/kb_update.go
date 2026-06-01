@@ -143,6 +143,7 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 				Y: poi.Position.Y,
 			},
 			LastUpdatedTick: currentTick(state),
+			DetectedBy:      globalAgentID,
 		}
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("  Warning: failed to save POI %s: %v\n", poi.Name, err)
@@ -202,6 +203,7 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 		Hidden:           poiResp.POI.Hidden,
 		RevealDifficulty: poiResp.POI.RevealDifficulty,
 		LastUpdatedTick:  currentTick(state),
+		DetectedBy:       globalAgentID,
 	}
 
 	// Extract resources if present.

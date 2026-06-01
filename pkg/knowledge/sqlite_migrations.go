@@ -368,6 +368,14 @@ func migrations() []Migration {
 			name:    "market_buy_orders_my_quantity",
 			sql:     `ALTER TABLE market_buy_orders ADD COLUMN my_quantity REAL NOT NULL DEFAULT 0;`,
 		},
+		{
+			version: 40,
+			name:    "add_detected_by_to_pois_and_resources",
+			sql: `
+				ALTER TABLE pois ADD COLUMN detected_by TEXT;
+				ALTER TABLE poi_resources ADD COLUMN detected_by TEXT;
+			`,
+		},
 	}
 }
 
@@ -420,6 +428,28 @@ func runMigrations(db *sql.DB) error {
 			err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info('systems') WHERE name='last_visited_tick'").Scan(&colCount)
 			if err == nil && colCount > 0 {
 				// Column already exists, just record the migration as applied
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 40: the pois/poi_resources tables come from
+		// migration 1 (initial_schema). Some narrow migration-test fixtures fake
+		// "migration 1 applied" without creating those tables, so guard the
+		// ALTERs — if pois is absent there's nothing to alter; record as applied.
+		if m.version == 40 {
+			var tableCount int
+			if err := db.QueryRow(
+				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='pois'`,
+			).Scan(&tableCount); err != nil {
+				return fmt.Errorf("check pois table: %w", err)
+			}
+			if tableCount == 0 {
 				if _, err := db.Exec(
 					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
 					m.version,

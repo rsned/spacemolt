@@ -416,6 +416,10 @@ type POI struct {
 	RevealDifficulty int
 	ExpiresAt        string // ISO-8601 timestamp when POI expires (e.g., wormholes)
 	LastUpdatedTick  int64
+	// DetectedBy is the agent id that produced this observation. Provenance for
+	// the shared KB so a later capability-aware merge can rank quality; today it
+	// is recorded but not used to gate overwrites.
+	DetectedBy string
 }
 
 // SpaceBase represents knowledge about a space station, outpost, base, or fortress

@@ -1005,6 +1005,7 @@ func (m *KBMemory) RememberPOI(ctx context.Context, poi game.POI) error {
 		RevealDifficulty: poi.RevealDifficulty,
 		ExpiresAt:        poi.ExpiresAt,
 		LastUpdatedTick:  m.currentTick,
+		DetectedBy:       m.agentID,
 	}
 
 	return m.kb.RememberPOI(ctx, kbPOI)

@@ -283,6 +283,7 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 			Type:            revealed.Type,
 			Description:     revealed.Description,
 			LastUpdatedTick: tick,
+			DetectedBy:      agentID,
 		}
 		// Copy survey resources to game POI resources. Server now returns
 		// numeric richness/remaining directly (not string tier labels).
@@ -317,6 +318,7 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 			Type:            "faint_signature",
 			Description:     desc,
 			LastUpdatedTick: tick,
+			DetectedBy:      agentID,
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			logger.Printf("⚠️  Failed to save faint signature: %v", err)

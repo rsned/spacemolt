@@ -323,9 +323,11 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 
 	// Insert or update POI. Use COALESCE to preserve existing non-empty values
 	// when the incoming data has empty fields (e.g., server omitting 'class').
+	// hidden / detected_by / last_updated_tick are tick-guarded so an older
+	// (stale or out-of-order) write can't downgrade a fresher one.
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, expires_at, last_updated_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, expires_at, last_updated_tick, detected_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = CASE WHEN excluded.name != '' THEN excluded.name ELSE pois.name END,
@@ -334,38 +336,37 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 			description = CASE WHEN excluded.description != '' THEN excluded.description ELSE pois.description END,
 			position_x = CASE WHEN excluded.position_x != 0 THEN excluded.position_x ELSE pois.position_x END,
 			position_y = CASE WHEN excluded.position_y != 0 THEN excluded.position_y ELSE pois.position_y END,
-			hidden = excluded.hidden,
+			hidden = CASE WHEN excluded.last_updated_tick >= pois.last_updated_tick THEN excluded.hidden ELSE pois.hidden END,
 			reveal_difficulty = CASE WHEN excluded.reveal_difficulty != 0 THEN excluded.reveal_difficulty ELSE pois.reveal_difficulty END,
 			expires_at = CASE WHEN excluded.expires_at IS NOT NULL AND excluded.expires_at != '' THEN excluded.expires_at ELSE pois.expires_at END,
-			last_updated_tick = excluded.last_updated_tick
+			detected_by = CASE WHEN excluded.last_updated_tick >= pois.last_updated_tick AND excluded.detected_by IS NOT NULL AND excluded.detected_by != '' THEN excluded.detected_by ELSE pois.detected_by END,
+			last_updated_tick = MAX(pois.last_updated_tick, excluded.last_updated_tick)
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, sql.NullString{String: poi.Class, Valid: poi.Class != ""}, poi.Description,
-		poi.Position.X, poi.Position.Y, poi.Hidden, poi.RevealDifficulty, sql.NullString{String: poi.ExpiresAt, Valid: poi.ExpiresAt != ""}, poi.LastUpdatedTick)
+		poi.Position.X, poi.Position.Y, poi.Hidden, poi.RevealDifficulty, sql.NullString{String: poi.ExpiresAt, Valid: poi.ExpiresAt != ""}, poi.LastUpdatedTick,
+		sql.NullString{String: poi.DetectedBy, Valid: poi.DetectedBy != ""})
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
 
-	// Only update resources if we have new data — don't wipe existing resources
-	// when the incoming POI has none (e.g., from get_system which omits resources).
-	if len(poi.Resources) > 0 {
-		_, err = tx.ExecContext(ctx, `DELETE FROM poi_resources WHERE poi_id = ?`, poi.ID)
-		if err != nil {
-			return fmt.Errorf("failed to delete old POI resources: %w", err)
-		}
-	}
-
-	// Insert resources
+	// Per-resource upsert. Different agents scan with different power; a weaker
+	// scan that resolves fewer/poorer resources must not wipe a stronger one's
+	// data. So: never DELETE (keep resources this scan didn't mention), keep the
+	// MAX richness ever observed (richness is intrinsic — best detection wins),
+	// and take remaining + provenance from the newest observation (remaining
+	// depletes over time).
+	detectedBy := sql.NullString{String: poi.DetectedBy, Valid: poi.DetectedBy != ""}
 	for _, res := range poi.Resources {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated_tick)
-			VALUES (?, ?, ?, ?, ?)
-		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, poi.LastUpdatedTick)
+			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated_tick, detected_by)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(poi_id, resource_id) DO UPDATE SET
+				richness          = MAX(poi_resources.richness, excluded.richness),
+				remaining         = CASE WHEN excluded.last_updated_tick >= poi_resources.last_updated_tick THEN excluded.remaining ELSE poi_resources.remaining END,
+				detected_by       = CASE WHEN excluded.last_updated_tick >= poi_resources.last_updated_tick AND excluded.detected_by IS NOT NULL AND excluded.detected_by != '' THEN excluded.detected_by ELSE poi_resources.detected_by END,
+				last_updated_tick = MAX(poi_resources.last_updated_tick, excluded.last_updated_tick)
+		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, poi.LastUpdatedTick, detectedBy)
 		if err != nil {
-			return fmt.Errorf("failed to insert POI resource: %w", err)
-		}
-		// Debug logging to verify last_updated_tick is being set
-		if poi.LastUpdatedTick <= 0 {
-			log.Printf("[DEBUG] RememberPOI: POI %s resource %s has last_updated_tick=%d (poi.LastUpdatedTick=%d)",
-				poi.ID, res.ResourceID, poi.LastUpdatedTick, poi.LastUpdatedTick)
+			return fmt.Errorf("failed to upsert POI resource: %w", err)
 		}
 	}
 

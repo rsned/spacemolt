@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 11
--- Last Regenerated: 2026-05-31
+-- Migrations applied: 12
+-- Last Regenerated: 2026-06-01
 
 -- ============================================================================
 -- TABLES
@@ -639,7 +639,7 @@ CREATE TABLE poi_resources (
 	resource_id TEXT NOT NULL,
 	richness REAL NOT NULL,
 	remaining REAL NOT NULL,
-	last_updated_tick INTEGER DEFAULT 0,
+	last_updated_tick INTEGER DEFAULT 0, detected_by TEXT,
 	PRIMARY KEY (poi_id, resource_id),
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
@@ -654,7 +654,7 @@ CREATE TABLE pois (
 	position_x REAL NOT NULL,
 	position_y REAL NOT NULL,
 	base_id TEXT,
-	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT,
+	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT, detected_by TEXT,
 	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
 );
 
@@ -1099,4 +1099,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (36, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (37, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (38, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (39, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (40, datetime('now'));
 
