@@ -25,6 +25,7 @@ const (
 	TypeBattleStarted      = "battle_started"
 	TypeBattleUpdate       = "battle_update"
 	TypeBattleDamage       = "battle_damage"
+	TypeBattleEnded        = "battle_ended"
 	TypePlayerDied         = "player_died"
 	TypeMining             = "mining"
 	TypeMiningYield        = "mining_yield"

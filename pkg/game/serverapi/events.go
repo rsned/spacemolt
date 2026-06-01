@@ -90,6 +90,32 @@ type BattleDamage struct {
 	WeaponsFired []string `json:"weapons_fired,omitempty"`
 }
 
+// BattleEndedParticipant is a participant entry in a battle_ended push,
+// carrying that combatant's per-battle tally. Identity-only otherwise (no
+// ship_class / live hull-shield).
+type BattleEndedParticipant struct {
+	PlayerID    string  `json:"player_id"`
+	Username    string  `json:"username"`
+	SideID      int     `json:"side_id"`
+	DamageDealt float64 `json:"damage_dealt"`
+	DamageTaken float64 `json:"damage_taken"`
+	KillCount   int     `json:"kill_count"`
+	Survived    bool    `json:"survived"`
+}
+
+// BattleEnded is broadcast when a tactical battle the player was part of
+// concludes. WinningSide is -1 for a stalemate.
+// Server event type: battle_ended
+type BattleEnded struct {
+	BattleID       string                   `json:"battle_id"`
+	Duration       int                      `json:"duration,omitempty"`
+	Reason         string                   `json:"reason,omitempty"`
+	WinningSide    int                      `json:"winning_side"`
+	ShipsDestroyed int                      `json:"ships_destroyed,omitempty"`
+	TotalDamage    float64                  `json:"total_damage,omitempty"`
+	Participants   []BattleEndedParticipant `json:"participants,omitempty"`
+}
+
 // MiningYield represents successful mining action with resource extraction.
 // Server event type: mining_yield
 type MiningYield struct {

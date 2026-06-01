@@ -2470,6 +2470,22 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.debugLogger.Printf("[BATTLE DAMAGE] %s -> %s: %.0f (%s) hit=%v weapons=%v",
 			ev.AttackerName, ev.TargetName, ev.TotalDamage, ev.DamageType, ev.HitSuccess, ev.WeaponsFired)
 
+	case protocol.TypeBattleEnded:
+		// A tactical battle we were in has concluded. Clear our combat/battle
+		// flags proactively (don't wait for the next state_update) and record
+		// the combatants as sightings. winning_side is -1 for a stalemate.
+		var ev serverapi.BattleEnded
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.mu.Lock()
+		c.state.InCombat = false
+		c.state.InBattle = false
+		c.mu.Unlock()
+		c.notifyPlayersFromBattleEnd("battle_ended", ev.Participants)
+		c.debugLogger.Printf("[BATTLE ENDED] battle=%s reason=%s winning_side=%d duration=%d ships_destroyed=%d total_damage=%.0f participants=%d",
+			ev.BattleID, ev.Reason, ev.WinningSide, ev.Duration, ev.ShipsDestroyed, ev.TotalDamage, len(ev.Participants))
+
 	case protocol.TypeChatMessage:
 		var chatMsg serverapi.ChatMessage
 		if data, err := json.Marshal(resp.Payload); err == nil {
@@ -3805,6 +3821,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeChatMessage:        {},
 	protocol.TypeCombatUpdate:       {},
 	protocol.TypeBattleAlert:        {},
+	protocol.TypeBattleEnded:        {},
 	protocol.TypePirateWarning:      {},
 	protocol.TypePoliceWarning:      {},
 	protocol.TypePlayerDied:         {},

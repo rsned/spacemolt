@@ -117,6 +117,18 @@ func (c *Client) notifyPlayersFromBattleUpdate(source string, parts []serverapi.
 	c.notifyCombatSightings(source, players)
 }
 
+// notifyPlayersFromBattleEnd adapts battle_ended participants (identity + side
+// + per-battle tally, no ship_class) into combat sightings. The battle has just
+// concluded, but these players were combatants in our system moments ago, so
+// they are recorded as in-combat sightings like the other battle adapters.
+func (c *Client) notifyPlayersFromBattleEnd(source string, parts []serverapi.BattleEndedParticipant) {
+	players := make([]combatSighting, 0, len(parts))
+	for _, p := range parts {
+		players = append(players, combatSighting{p.PlayerID, p.Username, ""})
+	}
+	c.notifyCombatSightings(source, players)
+}
+
 // notifyPlayerFromChat emits a single identity-only ObservedPlayer for
 // the sender of a chat_message push. ShipClass / POIID / SystemID are
 // intentionally left empty so the recorder upserts seen_players only and

@@ -235,6 +235,42 @@ func TestHandleResponse_FiresOnBattleAlert(t *testing.T) {
 	}
 }
 
+func TestHandleResponse_FiresOnBattleEnded(t *testing.T) {
+	c := newHandleResponseTestClient("sys-A")
+	c.state.InCombat = true
+	c.state.InBattle = true
+	got := captureObserver(t, c)
+
+	// Real battle_ended payload shape (stalemate, winning_side -1).
+	payload := payloadMarshal(t, map[string]any{
+		"battle_id":       "b1",
+		"duration":        31,
+		"reason":          "stalemate",
+		"winning_side":    -1,
+		"ships_destroyed": 0,
+		"total_damage":    0,
+		"participants": []serverapi.BattleEndedParticipant{
+			{PlayerID: "p1", Username: "Strike-Force", SideID: 1, Survived: true},
+			{PlayerID: "p2", Username: "Cosmo", SideID: 2, Survived: true},
+		},
+	})
+	c.handleResponse(protocol.Response{Type: protocol.TypeBattleEnded, Payload: payload})
+
+	if len(*got) != 2 {
+		t.Fatalf("observer got %d sightings, want 2", len(*got))
+	}
+	if (*got)[0].Source != "battle_ended" {
+		t.Errorf("Source=%q, want battle_ended", (*got)[0].Source)
+	}
+	// battle_ended must clear our combat/battle flags.
+	c.mu.RLock()
+	inCombat, inBattle := c.state.InCombat, c.state.InBattle
+	c.mu.RUnlock()
+	if inCombat || inBattle {
+		t.Errorf("InCombat=%v InBattle=%v, want both false after battle_ended", inCombat, inBattle)
+	}
+}
+
 func TestHandleResponse_FiresOnChatMessage(t *testing.T) {
 	c := newHandleResponseTestClient("sys-A")
 	got := captureObserver(t, c)
