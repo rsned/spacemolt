@@ -27,6 +27,7 @@ bridge-mcp-bridge-service
 bridge-mcp-ws-bridge
 bridge-mcp-sse-bridge
 /play_as
+cmd/tools/play_as/play_as
 /spar
 skill-tree
 skill-graph
