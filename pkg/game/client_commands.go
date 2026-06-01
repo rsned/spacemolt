@@ -1004,11 +1004,19 @@ func (c *Client) ClaimInsurance(ctx context.Context) error {
 }
 
 // GetInsuranceQuote gets a risk-based insurance quote for the current ship.
+// It blocks until the quote response is received so callers (e.g. the play_as
+// REPL) can read the stored payload immediately — get_insurance_quote returns
+// type=ok with a "quote" key, like get_nearby.
 func (c *Client) GetInsuranceQuote(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "get_insurance_quote",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // SetHomeBase sets the home base for respawning.
