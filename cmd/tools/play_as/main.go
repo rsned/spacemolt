@@ -729,6 +729,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatDeployDrone(raw)
 	case "get_tax_estimate", "tax_estimate":
 		return formatGetTaxEstimate(raw)
+	case "get_insurance_quote", "insurance_quote":
+		return formatGetInsuranceQuote(raw)
 	case "commission_quote":
 		return formatCommissionQuote(raw)
 	default:
@@ -5487,6 +5489,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "claim_insurance":
 		return simpleCommand(client, client.ClaimInsurance, ctx, 3*time.Second, cmd, format)
 
+	case "get_insurance_quote", "insurance_quote":
+		return simpleCommand(client, client.GetInsuranceQuote, ctx, 2*time.Second, "get_insurance_quote", format)
+
 	// === CARGO & STORAGE ===
 	case "cargo", "get_cargo":
 		return simpleCommand(client, client.GetCargo, ctx, 2*time.Second, cmd, format)
@@ -6761,6 +6766,9 @@ var rawJSONKeyForCommand = map[string]string{
 	"action_log":           "action_log",
 	"get_tax_estimate":     "tax_estimate",
 	"tax_estimate":         "tax_estimate",
+	// get_insurance_quote arrives as a TypeOK frame that storeRawJSON keys by
+	// content shape under "insurance_quote", not the command name.
+	"get_insurance_quote": "insurance_quote",
 	// MCP caches FactionQueryIntel under "faction_intel"; the WS store keys
 	// it there too (see storeRawJSON). Map the command so lookup finds it.
 	"faction_query_intel": "faction_intel",
