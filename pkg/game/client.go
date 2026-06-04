@@ -194,15 +194,25 @@ type ReconnectingHandler struct {
 	// whenever a connection survives long enough. See onSessionContention.
 	shortLivedCount     int
 	onSessionContention func(consecutiveShortLived int, lastUptime time.Duration)
+
+	// reconnectFn performs a single reconnection attempt. Defaults to
+	// client.Reconnect; overridable in tests to drive the retry loop without
+	// real network I/O.
+	reconnectFn func(ctx context.Context) error
+	// reconnectBackoffUnit is the base unit of the exponential backoff between
+	// reconnection attempts. Zero means time.Second (production default); tests
+	// set it tiny to keep the retry loop fast.
+	reconnectBackoffUnit time.Duration
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
 func NewReconnectingHandler(client *Client, handler MessageHandler, ctx context.Context, logger *log.Logger) *ReconnectingHandler {
 	return &ReconnectingHandler{
-		client:  client,
-		handler: handler,
-		ctx:     ctx,
-		logger:  logger,
+		client:      client,
+		handler:     handler,
+		ctx:         ctx,
+		logger:      logger,
+		reconnectFn: client.Reconnect,
 	}
 }
 
@@ -264,31 +274,70 @@ func (r *ReconnectingHandler) OnDisconnected(err error) {
 	go r.attemptReconnection()
 }
 
+// reconnectMaxAttempts is how many backoff loops a single reconnection burst
+// makes before going dormant. We deliberately do NOT retry forever in the
+// background: an extended outage would otherwise spin indefinitely. Instead the
+// handler gives up after this many tries and waits to be re-woken — see
+// TriggerReconnect, which the REPL calls on user input. A transient blip is
+// recovered automatically; a long outage is recovered the moment the player
+// next interacts.
+const reconnectMaxAttempts = 3
+
+// TriggerReconnect schedules a fresh reconnection burst if the client is
+// disconnected and no reconnection is already in progress. It is safe to call
+// repeatedly (e.g. from the REPL on every command) — the reconnecting CAS guard
+// means a burst already running, or a live connection, makes this a no-op.
+// Returns true when it actually started a new burst.
+func (r *ReconnectingHandler) TriggerReconnect() bool {
+	if r.client.IsConnected() {
+		return false
+	}
+	if !r.reconnecting.CompareAndSwap(false, true) {
+		return false
+	}
+	r.wg.Add(1)
+	go r.attemptReconnection()
+	return true
+}
+
 func (r *ReconnectingHandler) attemptReconnection() {
 	defer r.wg.Done()
 	defer r.reconnecting.Store(false)
 
-	maxAttempts := 5
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
+	unit := r.reconnectBackoffUnit
+	if unit <= 0 {
+		unit = time.Second
+	}
+
+	for attempt := 1; attempt <= reconnectMaxAttempts; attempt++ {
 		if r.ctx.Err() != nil {
 			r.logger.Printf("Context cancelled, stopping reconnection attempts")
 			return
 		}
 
-		backoff := time.Duration(1<<uint(attempt)) * time.Second
-		r.logger.Printf("Reconnection attempt %d/%d after %v", attempt, maxAttempts, backoff)
-		time.Sleep(backoff)
-
-		if err := r.client.Reconnect(r.ctx); err != nil {
-			r.logger.Printf("Reconnection attempt %d failed: %v", attempt, err)
-			continue
+		// Try immediately on the first attempt so a user-triggered wake is
+		// responsive; back off only between subsequent retries.
+		if err := r.reconnectFn(r.ctx); err == nil {
+			r.logger.Printf("✓ Reconnected successfully")
+			return
+		} else {
+			r.logger.Printf("Reconnection attempt %d/%d failed: %v", attempt, reconnectMaxAttempts, err)
 		}
 
-		r.logger.Printf("✓ Reconnected successfully")
-		return
+		if attempt == reconnectMaxAttempts {
+			break
+		}
+		// Exponential backoff, capped so a burst stays brief.
+		backoff := min(unit<<uint(min(attempt, 5)), SleepReconnect)
+		select {
+		case <-r.ctx.Done():
+			r.logger.Printf("Context cancelled, stopping reconnection attempts")
+			return
+		case <-time.After(backoff):
+		}
 	}
 
-	r.logger.Printf("Failed to reconnect after %d attempts", maxAttempts)
+	r.logger.Printf("Reconnect burst gave up after %d attempts; will retry on next command", reconnectMaxAttempts)
 }
 
 // WaitForShutdown waits for any active reconnection goroutine to complete.
@@ -774,6 +823,21 @@ func (c *Client) SetHandler(handler MessageHandler) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.handler = handler
+}
+
+// RequestReconnect wakes the auto-reconnect handler to start a fresh reconnection
+// burst if the client is disconnected and the handler has gone dormant after
+// exhausting an earlier burst. It is a no-op (returning false) when connected,
+// when a burst is already running, or when no *ReconnectingHandler is installed.
+// Intended to be called from an interactive loop on user input.
+func (c *Client) RequestReconnect() bool {
+	c.mu.Lock()
+	h := c.handler
+	c.mu.Unlock()
+	if rh, ok := h.(*ReconnectingHandler); ok {
+		return rh.TriggerReconnect()
+	}
+	return false
 }
 
 // Send is a thin public wrapper around the private send primitive. It

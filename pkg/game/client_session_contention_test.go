@@ -101,6 +101,72 @@ func TestReconnectingHandler_LongLivedConnectResetsShortCount(t *testing.T) {
 	}
 }
 
+// TestReconnectingHandler_BurstGivesUpThenWakesOnTrigger verifies the
+// dormant-then-wake contract: a reconnection burst stops after
+// reconnectMaxAttempts failures (it does NOT spin forever), and a later
+// TriggerReconnect starts a fresh burst that can succeed.
+func TestReconnectingHandler_BurstGivesUpThenWakesOnTrigger(t *testing.T) {
+	client := newTestClientForContentionTests()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := NewReconnectingHandler(client, nil, ctx, log.New(io.Discard, "", 0))
+	r.reconnectBackoffUnit = time.Millisecond // keep the test fast
+
+	var attempts atomic.Int32
+	var fail atomic.Bool
+	fail.Store(true)
+	r.reconnectFn = func(context.Context) error {
+		attempts.Add(1)
+		if fail.Load() {
+			return fmt.Errorf("simulated dial failure")
+		}
+		return nil
+	}
+
+	// First burst: every attempt fails, so it gives up after reconnectMaxAttempts
+	// and goes dormant (does not loop forever).
+	r.wg.Add(1)
+	r.attemptReconnection()
+	if got := attempts.Load(); got != reconnectMaxAttempts {
+		t.Fatalf("first burst made %d attempts, want %d (bounded give-up)", got, reconnectMaxAttempts)
+	}
+	if r.reconnecting.Load() {
+		t.Fatal("reconnecting flag still set after a burst gave up")
+	}
+
+	// Connectivity returns; a user command triggers a fresh burst that succeeds.
+	fail.Store(false)
+	if !r.TriggerReconnect() {
+		t.Fatal("TriggerReconnect returned false on a dormant, disconnected handler")
+	}
+	r.wg.Wait()
+	if got := attempts.Load(); got != reconnectMaxAttempts+1 {
+		t.Errorf("after wake, total attempts = %d, want %d (one more, succeeding)", got, reconnectMaxAttempts+1)
+	}
+}
+
+// TestReconnectingHandler_TriggerReconnectNoOpWhenConnected verifies the guard:
+// TriggerReconnect does nothing when the client reports connected.
+func TestReconnectingHandler_TriggerReconnectNoOpWhenConnected(t *testing.T) {
+	client := newTestClientForContentionTests()
+	client.mu.Lock()
+	client.connected = true
+	client.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := NewReconnectingHandler(client, nil, ctx, log.New(io.Discard, "", 0))
+
+	called := false
+	r.reconnectFn = func(context.Context) error { called = true; return nil }
+	if r.TriggerReconnect() {
+		t.Error("TriggerReconnect started a burst while connected; want no-op")
+	}
+	r.wg.Wait()
+	if called {
+		t.Error("reconnectFn was called while connected")
+	}
+}
+
 // TestClient_UptimeZeroWhenNeverConnected pins the Client.Uptime() contract:
 // returns zero when connectTime is zero value, otherwise time since connect.
 func TestClient_UptimeZeroWhenNeverConnected(t *testing.T) {

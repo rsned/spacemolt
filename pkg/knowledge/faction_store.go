@@ -47,6 +47,47 @@ func (kb *SQLiteKB) StoreFaction(ctx context.Context, r FactionRecord) error {
 	return nil
 }
 
+// factionListSeedSentinelUTC marks a faction header seeded from faction_list
+// data only — there has been no full faction_info capture yet. It is set far in
+// the past on purpose so the faction backfiller still treats the row as stale
+// and will enrich it with full detail when the faction is next observed, rather
+// than being fooled into thinking a fresh capture exists.
+const factionListSeedSentinelUTC = "1970-01-01T00:00:00Z"
+
+// UpsertFactionListEntry inserts a faction header from the lightweight fields a
+// faction_list response carries. When the faction already exists it refreshes
+// only those columns, leaving the faction_info-sourced columns (treasury,
+// leader_id, description, charter, emblem, founded_utc, intel_*) and the
+// captured_utc full-capture timestamp untouched — so a cheap header refresh
+// never clobbers richer data. Reports whether a new row was inserted.
+func (kb *SQLiteKB) UpsertFactionListEntry(ctx context.Context, e FactionListEntry) (bool, error) {
+	var existed bool
+	if err := kb.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM factions WHERE faction_id = ?)`, e.FactionID).Scan(&existed); err != nil {
+		return false, fmt.Errorf("faction exists check: %w", err)
+	}
+	// On INSERT the columns faction_list doesn't carry get empty/zero defaults
+	// (matching StoreFaction, which never writes NULL — LoadFactionView scans
+	// them as plain strings). On CONFLICT only the faction_list columns are
+	// updated, so an existing full capture's rich columns and captured_utc are
+	// left intact.
+	_, err := kb.db.ExecContext(ctx, `
+		INSERT INTO factions (faction_id, name, tag, leader_id, leader_username, treasury,
+			member_count, owned_bases, description, charter, emblem, primary_color,
+			secondary_color, founded_utc, intel_systems, intel_trade, captured_utc)
+		VALUES (?,?,?,'',?,0,?,?,'','','',?,?,'',0,0,?)
+		ON CONFLICT(faction_id) DO UPDATE SET
+			name=excluded.name, tag=excluded.tag, leader_username=excluded.leader_username,
+			member_count=excluded.member_count, owned_bases=excluded.owned_bases,
+			primary_color=excluded.primary_color, secondary_color=excluded.secondary_color`,
+		e.FactionID, e.Name, e.Tag, e.LeaderUsername, e.MemberCount,
+		e.OwnedBases, e.PrimaryColor, e.SecondaryColor, factionListSeedSentinelUTC)
+	if err != nil {
+		return false, fmt.Errorf("upsert faction list entry: %w", err)
+	}
+	return !existed, nil
+}
+
 // ReplaceFactionMembers replaces all members for a faction.
 func (kb *SQLiteKB) ReplaceFactionMembers(ctx context.Context, factionID string, members []FactionMember) error {
 	return kb.inTx(ctx, func(tx txer) error {

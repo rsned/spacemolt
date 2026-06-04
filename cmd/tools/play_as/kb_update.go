@@ -689,3 +689,135 @@ func cmdSeenFactions(ctx context.Context, args []string) error {
 	fmt.Printf("  → enqueued %d faction(s) for background backfill (fresh ones are skipped)\n", len(ids))
 	return nil
 }
+
+// factionSeedPageSize is the per-request page size for the faction_list seed
+// scan. The server caps faction_list at 50 entries per request.
+const factionSeedPageSize = 50
+
+// factionSeedMaxPages bounds the seed scan. The server returns factions in an
+// unstable order, so offset paging overlaps heavily — a clean 0/50/100 sweep
+// misses many entries. We instead poll repeatedly (rotating the offset to
+// sample different windows) and accumulate distinct ids until coverage reaches
+// total_count, capping the request count so a faction never surfaced can't loop
+// forever.
+const factionSeedMaxPages = 40
+
+// factionSeedDryStreak stops the scan once this many consecutive pages reveal no
+// previously-unseen faction — coverage has plateaued and further polling is
+// unlikely to surface the remainder.
+const factionSeedDryStreak = 6
+
+// seedFactionsFromList polls faction_list until it has seen every faction (or
+// coverage plateaus) and seeds the factions table with the lightweight header
+// fields each entry carries (name, tag, leader, member_count, owned_bases,
+// colors). It accumulates distinct faction ids across pages because the server
+// orders faction_list non-deterministically, so a single offset sweep does not
+// enumerate the full set. New factions are inserted with a stale captured_utc so
+// a later faction_info backfill still enriches them; existing rows have only
+// those columns refreshed, never their richer faction_info-sourced columns.
+func seedFactionsFromList(ctx context.Context, client game.GameClient) error {
+	if globalKB == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+	sqlite, ok := globalKB.(*knowledge.SQLiteKB)
+	if !ok {
+		return fmt.Errorf("faction_list --seed requires a SQLite knowledge base")
+	}
+
+	seen := map[string]bool{}
+	var inserted, refreshed, total int
+	dry := 0
+	offset := 0
+
+	for range factionSeedMaxPages {
+		if err := client.FactionList(ctx, factionSeedPageSize, offset); err != nil {
+			return fmt.Errorf("faction_list (offset %d): %w", offset, err)
+		}
+		raw := client.GetRawJSON("_last")
+		if len(raw) == 0 {
+			return fmt.Errorf("faction_list (offset %d): empty response", offset)
+		}
+		var resp struct {
+			Factions []struct {
+				ID             string `json:"id"`
+				Name           string `json:"name"`
+				Tag            string `json:"tag"`
+				LeaderUsername string `json:"leader_username"`
+				MemberCount    int    `json:"member_count"`
+				OwnedBases     int    `json:"owned_bases"`
+				PrimaryColor   string `json:"primary_color"`
+				SecondaryColor string `json:"secondary_color"`
+			} `json:"factions"`
+			TotalCount int `json:"total_count"`
+		}
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return fmt.Errorf("faction_list (offset %d): decode: %w", offset, err)
+		}
+		if resp.TotalCount > 0 {
+			total = resp.TotalCount
+		}
+
+		newThisPage := 0
+		for _, f := range resp.Factions {
+			if seen[f.ID] {
+				continue
+			}
+			seen[f.ID] = true
+			newThisPage++
+			isNew, err := sqlite.UpsertFactionListEntry(ctx, knowledge.FactionListEntry{
+				FactionID:      f.ID,
+				Name:           f.Name,
+				Tag:            f.Tag,
+				LeaderUsername: f.LeaderUsername,
+				MemberCount:    f.MemberCount,
+				OwnedBases:     f.OwnedBases,
+				PrimaryColor:   f.PrimaryColor,
+				SecondaryColor: f.SecondaryColor,
+			})
+			if err != nil {
+				return fmt.Errorf("seed faction %s: %w", f.ID, err)
+			}
+			if isNew {
+				inserted++
+			} else {
+				refreshed++
+			}
+		}
+
+		// Done once we've covered the whole set.
+		if total > 0 && len(seen) >= total {
+			break
+		}
+		// Stop if coverage has stalled across several consecutive pages.
+		if newThisPage == 0 {
+			dry++
+			if dry >= factionSeedDryStreak {
+				break
+			}
+		} else {
+			dry = 0
+		}
+
+		// Rotate the offset window to sample a different slice next time; wrap
+		// once we've walked past the end of the (unstably ordered) set.
+		offset += factionSeedPageSize
+		if total > 0 && offset >= total {
+			offset = 0
+		}
+
+		// Space out page requests so a full scan doesn't hammer the server.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(game.SleepQuick):
+		}
+	}
+
+	if total > 0 && len(seen) < total {
+		fmt.Printf("  ⚠ seeded %d of %d faction(s) (%d new, %d refreshed) — server did not surface the rest within %d pages; re-run to pick up stragglers\n",
+			len(seen), total, inserted, refreshed, factionSeedMaxPages)
+		return nil
+	}
+	fmt.Printf("  → seeded %d faction(s): %d new, %d refreshed\n", len(seen), inserted, refreshed)
+	return nil
+}

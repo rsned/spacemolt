@@ -4808,7 +4808,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: battle <action> [--stance <stance>] [--target_id <id>] [--side_id <id>]")
 		}
-		payload := map[string]any{"action": parts[1]}
+		action := parts[1]
+		payload := map[string]any{"action": action}
 		flags, err := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
 		if err != nil {
 			return err
@@ -4822,9 +4823,18 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				payload[k] = v
 			}
 		}
+		// advance/retreat/engage are battle moves that resolve over a full
+		// game tick — gate the next command on a full tick so a loop issues
+		// at most one per tick rather than spamming several within one tick.
+		// stance/target are instantaneous configuration; keep them snappy.
+		battleWait := 3 * time.Second
+		switch action {
+		case "advance", "retreat", "engage":
+			battleWait = game.SleepTick
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Battle(ctx, parts[1], payload)
-		}, ctx, 3*time.Second, cmd, format)
+			return client.Battle(ctx, action, payload)
+		}, ctx, battleWait, cmd, format)
 
 	case "reload":
 		if len(parts) < 3 {
@@ -5853,6 +5863,14 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_list":
+		// --seed pages through every faction and seeds the KB factions table
+		// with the lightweight header fields faction_list carries (--limit /
+		// --offset are ignored in this mode).
+		for _, a := range parts[1:] {
+			if a == "--seed" || a == "-s" {
+				return seedFactionsFromList(ctx, client)
+			}
+		}
 		flFlags, err := parseFlagArgs(parts[1:], "limit", "offset")
 		if err != nil {
 			return err
@@ -7310,6 +7328,20 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 	}
 	command := strings.ToLower(parts[0])
 
+	// Wake on input: if the transport dropped and the background reconnector has
+	// gone dormant after exhausting a burst, a user command re-arms it and waits
+	// briefly so a now-restored connection lets this command run instead of
+	// failing. WaitForReady returns immediately once connected.
+	if wsClient, ok := client.(*game.Client); ok && !wsClient.IsConnected() {
+		if wsClient.RequestReconnect() {
+			fmt.Println("⟳ disconnected — reconnecting…")
+		}
+		// Brief wait so a now-restored connection lets this command through;
+		// returns immediately on success, and we fall through to run (and fail
+		// gracefully) if the outage persists rather than blocking the REPL.
+		_ = wsClient.WaitForReady(ctx, game.SleepMedium)
+	}
+
 	var resultErr error
 	if command == "loop" {
 		if !hasTopLevelOpenBrace(cmd) {
@@ -7528,7 +7560,7 @@ func printHelp() {
 	fmt.Println("  join_faction <id>            - Join a faction")
 	fmt.Println("  leave_faction                - Leave current faction")
 	fmt.Println("  faction_info [faction-id]     - View faction details")
-	fmt.Println("  faction_list                  - List all factions")
+	fmt.Println("  faction_list [--seed]         - List all factions (--seed pages all and seeds the KB)")
 	fmt.Println("  faction_edit --description \"text\" --charter \"text\" [--primary_color \"#hex\"] [--secondary_color \"#hex\"] [--ally_intel_opt_out true|false] [--ally_fuel_access true|false]")
 	fmt.Println("  faction_invite <player-id>    - Invite a player")
 	fmt.Println("  faction_kick <player-id>      - Kick a member")

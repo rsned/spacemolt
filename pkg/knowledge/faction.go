@@ -23,6 +23,21 @@ type FactionRecord struct {
 	CapturedAt     time.Time
 }
 
+// FactionListEntry holds the lightweight header fields a faction_list response
+// carries — a strict subset of FactionRecord. It omits the columns only a full
+// faction_info capture provides (treasury, leader_id, description, charter,
+// emblem, founded_utc, intel_*), so seeding from it must not clobber those.
+type FactionListEntry struct {
+	FactionID      string
+	Name           string
+	Tag            string
+	LeaderUsername string
+	MemberCount    int
+	OwnedBases     int
+	PrimaryColor   string
+	SecondaryColor string
+}
+
 // FactionMember is one member of a faction.
 type FactionMember struct {
 	FactionID   string
