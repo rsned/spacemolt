@@ -3551,9 +3551,11 @@ func formatMissions(raw []byte) string {
 			ChainNext      string `json:"chain_next,omitempty"`
 			ExpiresInTicks int    `json:"expires_in_ticks,omitempty"`
 			Rewards        *struct {
-				Credits int            `json:"credits"`
-				Items   map[string]int `json:"items,omitempty"`
-				SkillXP map[string]int `json:"skill_xp,omitempty"`
+				Credits    int            `json:"credits"`
+				Reputation int            `json:"reputation,omitempty"`
+				PirateRep  int            `json:"pirate_rep,omitempty"`
+				Items      map[string]int `json:"items,omitempty"`
+				SkillXP    map[string]int `json:"skill_xp,omitempty"`
 			} `json:"rewards,omitempty"`
 			Objectives []struct {
 				Type        string `json:"type"`
@@ -3594,6 +3596,8 @@ func formatMissions(raw []byte) string {
 		ChainNext      string
 		ExpiresInTicks int
 		Credits        int
+		Reputation     int
+		PirateRep      int
 		Items          map[string]int
 		SkillXP        map[string]int
 		Objectives     []missionObjective
@@ -3602,10 +3606,14 @@ func formatMissions(raw []byte) string {
 	missionsByType := make(map[string][]missionRow)
 	for _, m := range resp.Missions {
 		credits := 0
+		reputation := 0
+		pirateRep := 0
 		items := make(map[string]int)
 		skillXP := make(map[string]int)
 		if m.Rewards != nil {
 			credits = m.Rewards.Credits
+			reputation = m.Rewards.Reputation
+			pirateRep = m.Rewards.PirateRep
 			items = m.Rewards.Items
 			skillXP = m.Rewards.SkillXP
 		}
@@ -3630,6 +3638,8 @@ func formatMissions(raw []byte) string {
 			ChainNext:      m.ChainNext,
 			ExpiresInTicks: m.ExpiresInTicks,
 			Credits:        credits,
+			Reputation:     reputation,
+			PirateRep:      pirateRep,
 			Items:          items,
 			SkillXP:        skillXP,
 			Objectives:     objectives,
@@ -3720,6 +3730,14 @@ func formatMissions(raw []byte) string {
 				fmt.Fprintf(&b, "  credits:  %20s 0 cr\n", "")
 			}
 
+			// Reputation
+			if m.Reputation != 0 {
+				fmt.Fprintf(&b, "  rep:      %20s %+d\n", "", m.Reputation)
+			}
+			if m.PirateRep != 0 {
+				fmt.Fprintf(&b, "  pirate:   %20s %+d rep\n", "", m.PirateRep)
+			}
+
 			// Items
 			if len(m.Items) > 0 {
 				// Sort items by name
@@ -3778,9 +3796,11 @@ func formatActiveMissions(raw []byte) string {
 		AcceptedAt      string            `json:"accepted_at"`
 		Objectives      []activeObjective `json:"objectives"`
 		Rewards         *struct {
-			Credits int            `json:"credits"`
-			Items   map[string]int `json:"items,omitempty"`
-			SkillXP map[string]int `json:"skill_xp,omitempty"`
+			Credits    int            `json:"credits"`
+			Reputation int            `json:"reputation,omitempty"`
+			PirateRep  int            `json:"pirate_rep,omitempty"`
+			Items      map[string]int `json:"items,omitempty"`
+			SkillXP    map[string]int `json:"skill_xp,omitempty"`
 		} `json:"rewards,omitempty"`
 	}
 	var resp struct {
@@ -3884,6 +3904,12 @@ func formatActiveMissions(raw []byte) string {
 				fmt.Fprintf(&b, "Rewards:\n")
 				if m.Rewards.Credits > 0 {
 					fmt.Fprintf(&b, "  credits:  %20s +%d cr\n", "", m.Rewards.Credits)
+				}
+				if m.Rewards.Reputation != 0 {
+					fmt.Fprintf(&b, "  rep:      %20s %+d\n", "", m.Rewards.Reputation)
+				}
+				if m.Rewards.PirateRep != 0 {
+					fmt.Fprintf(&b, "  pirate:   %20s %+d rep\n", "", m.Rewards.PirateRep)
 				}
 				if len(m.Rewards.Items) > 0 {
 					itemNames := make([]string, 0, len(m.Rewards.Items))
