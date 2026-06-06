@@ -2426,7 +2426,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.debugLogger.Printf("⚠️  POLICE WARNING: %v", resp.Payload)
 
 	case protocol.TypeScanDetected:
+		// Always surface scans on stderr (regardless of debug settings) with a
+		// high-contrast banner; loudest in lawless space, where a scan often
+		// precedes an attack. The raw payload still goes to the debug log.
 		c.debugLogger.Printf("👁️  SCAN DETECTED: %v", resp.Payload)
+		scanAlertLogger.Print(formatScanAlert(resp.Payload, c.systemIsLawless()))
 
 	case protocol.TypeReconnected:
 		c.debugLogger.Printf("Reconnected to ship: %v", resp.Payload)
