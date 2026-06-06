@@ -41,6 +41,36 @@ func TestFormatFacilityList_ShowsFacilityID(t *testing.T) {
 	}
 }
 
+// TestFormatFacilityList_StationFacilitiesToggle guards that station-owned
+// facilities are hidden by default and only rendered when the
+// --show_station_facilities flag (showStationFacilities) is set.
+func TestFormatFacilityList_StationFacilitiesToggle(t *testing.T) {
+	raw := []byte(`{"base_id":"voss_redoubt_station","player_facilities":[],"faction_facilities":[],"station_facilities":[` +
+		`{"active":true,"category":"service","facility_id":"a961e393a55e9f58961577940bf0a6ba","level":2,"maintenance_satisfied":false,"name":"Maintenance Deck","service":"repair","type":"maintenance_deck"},` +
+		`{"active":true,"category":"production","facility_id":"77c6d42fa7fcfb7bfad637d26d1a5e7e","idle_reason":"no_inputs","level":1,"maintenance_satisfied":true,"name":"Fuel Reclamation Still","recipe_id":"scavenge_fuel_cells","type":"fuel_reclamation_still"}]}`)
+
+	// Default: station facilities hidden, and with no player/faction facilities
+	// the list reports none.
+	showStationFacilities = false
+	out := formatFacilityList(raw)
+	if strings.Contains(out, "Station (") || strings.Contains(out, "Maintenance Deck") {
+		t.Errorf("station facilities should be hidden by default:\n%s", out)
+	}
+	if !strings.Contains(out, "(no facilities)") {
+		t.Errorf("expected '(no facilities)' when only station facilities exist and toggle off:\n%s", out)
+	}
+
+	// Toggle on: station section renders with status (idle reason) surfaced.
+	showStationFacilities = true
+	defer func() { showStationFacilities = false }()
+	out = formatFacilityList(raw)
+	for _, want := range []string{"Station (2):", "Maintenance Deck", "Fuel Reclamation Still", "idle: no_inputs"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q with toggle on:\n%s", want, out)
+		}
+	}
+}
+
 // TestFormatFacilityForSale_Empty renders the no-listings case for
 // `facility browse_for_sale` rather than falling back to a stale facility list.
 func TestFormatFacilityForSale_Empty(t *testing.T) {

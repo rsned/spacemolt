@@ -1948,6 +1948,15 @@ func dailyRent(perCycle int64) int64 {
 // player-owned personal facilities (quarters, etc.), and faction-owned
 // facilities. Each section renders only if non-empty, with column sets
 // tuned to the fields the server actually carries for that scope.
+// showStationFacilities toggles rendering of the station-owned facility list
+// in `facility list` output. It is off by default (the station's own
+// facilities are noise for the player's facility view) and enabled
+// per-invocation by the `--show_station_facilities` flag. It is set under
+// execMu (foreground and background commands are serialized) and read
+// synchronously while the response is formatted, so a plain package-level
+// flag is sufficient.
+var showStationFacilities bool
+
 func formatFacilityList(raw []byte) string {
 	type personalFacility struct {
 		Active               bool   `json:"active"`
@@ -1960,12 +1969,27 @@ func formatFacilityList(raw []byte) string {
 		RentPerCycle         int64  `json:"rent_per_cycle"`
 		Type                 string `json:"type"`
 	}
+	// stationFacility describes a facility the station itself owns/operates.
+	// Only rendered when --show_station_facilities is set.
+	type stationFacility struct {
+		Active               bool   `json:"active"`
+		Category             string `json:"category"`
+		FacilityID           string `json:"facility_id"`
+		Level                int    `json:"level"`
+		MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
+		Name                 string `json:"name"`
+		Service              string `json:"service"`
+		RecipeID             string `json:"recipe_id"`
+		IdleReason           string `json:"idle_reason"`
+		Type                 string `json:"type"`
+	}
 	var resp struct {
 		BaseID           string             `json:"base_id"`
 		PlayerFacilities []personalFacility `json:"player_facilities"`
-		// StationFacilities is intentionally not parsed/rendered — it describes
-		// what the station itself offers (markets, refuel, etc.), which is
-		// available via other commands and not the player's facility list.
+		// StationFacilities describes what the station itself offers (markets,
+		// refuel, production, etc.). Hidden by default — it's not the player's
+		// own facilities — and only rendered with --show_station_facilities.
+		StationFacilities []stationFacility    `json:"station_facilities"`
 		FactionFacilities []factionFacilityRow `json:"faction_facilities"`
 		// PlayerRent is the aggregate rent bill across all the player's
 		// facilities (gameserver v0.347.0+), surfaced as a station-level total.
@@ -2047,6 +2071,39 @@ func formatFacilityList(raw []byte) string {
 		fmt.Fprintf(&b, "\n  Faction:\n")
 		renderFactionFacilityTable(&b, resp.FactionFacilities, "    ")
 	}
+	if showStationFacilities && len(resp.StationFacilities) > 0 {
+		totalSections++
+		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
+			if a.Category != c.Category {
+				return strings.Compare(a.Category, c.Category)
+			}
+			return strings.Compare(a.Name, c.Name)
+		})
+		nameW, typeW, catW, svcW := len("Name"), len("Type"), len("Category"), len("Service")
+		statusW := len("Status")
+		for _, f := range resp.StationFacilities {
+			nameW = max(nameW, len(f.Name))
+			typeW = max(typeW, len(f.Type))
+			catW = max(catW, len(f.Category))
+			svcW = max(svcW, len(f.Service))
+			statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
+		}
+		fmt.Fprintf(&b, "\n  Station (%d):\n", len(resp.StationFacilities))
+		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Lvl | %-*s | Maint | %-*s\n",
+			nameW, "Name", typeW, "Type", catW, "Category", svcW, "Service", statusW, "Status")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-----+-%s-+-------+-%s\n",
+			strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", catW),
+			strings.Repeat("-", svcW), strings.Repeat("-", statusW))
+		for _, f := range resp.StationFacilities {
+			maint := "ok"
+			if !f.MaintenanceSatisfied {
+				maint = "!"
+			}
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-5s | %-*s\n",
+				nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
+				svcW, f.Service, maint, statusW, stationFacilityStatus(f.Active, f.IdleReason))
+		}
+	}
 
 	if totalSections == 0 {
 		fmt.Fprintln(&b, "  (no facilities)")
@@ -2055,6 +2112,19 @@ func formatFacilityList(raw []byte) string {
 		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
 	}
 	return b.String()
+}
+
+// stationFacilityStatus summarizes a station facility's operating state: an
+// inactive facility reads "inactive"; an active-but-stalled one surfaces its
+// idle_reason (e.g. "idle: no_inputs"); otherwise "active".
+func stationFacilityStatus(active bool, idleReason string) string {
+	if !active {
+		return "inactive"
+	}
+	if idleReason != "" {
+		return "idle: " + idleReason
+	}
+	return "active"
 }
 
 // formatFacilityTypeDetail renders the single-facility detail variant of a
@@ -6827,7 +6897,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: facility <action> [facility_type] [--flag value...]\n" +
 				"  actions: types, build, list, owned, toggle, upgrades, upgrade,\n" +
 				"           faction_build, faction_upgrade, faction_list, faction_owned, faction_toggle,\n" +
-				"           transfer, personal_build, personal_decorate, personal_visit, help")
+				"           transfer, personal_build, personal_decorate, personal_visit, help\n" +
+				"  flags:   --show_station_facilities  (list: also show the station's own facilities)")
 		}
 		// Parse all args uniformly. First bare positional becomes the action,
 		// second bare positional becomes facility_type. --flag value pairs and
@@ -6836,9 +6907,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		payload := map[string]any{}
 		actionSet := false
 		facilityTypeSet := false
+		showStation := false
 		for i := 1; i < len(parts); i++ {
 			arg := parts[i]
 			if key, ok := strings.CutPrefix(arg, "--"); ok {
+				// --show_station_facilities is a client-side display toggle for
+				// `facility list`; it takes no value and is not sent to the server.
+				if key == "show_station_facilities" {
+					showStation = true
+					continue
+				}
 				if i+1 < len(parts) {
 					i++
 					payload[key] = parts[i]
@@ -6867,6 +6945,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				}
 			}
 		}
+		// Toggle station-facility rendering for this invocation only. execMu
+		// serializes foreground/background commands, so this package-level flag
+		// is read safely during the synchronous response formatting below.
+		showStationFacilities = showStation
+		defer func() { showStationFacilities = false }()
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Facility(ctx, payload)
 		}, ctx, 5*time.Second, cmd, format)
