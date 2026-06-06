@@ -3079,12 +3079,12 @@ func formatBrowseShips(raw []byte) string {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Station:  %q\n\nListings:\n", resp.BaseName)
-
 	if len(resp.Listings) == 0 {
+		fmt.Fprintf(&b, "Station:  %q\n\nListings:\n", resp.BaseName)
 		b.WriteString("  (no ships for sale)\n")
 		return b.String()
 	}
+	fmt.Fprintf(&b, "Station:  %q\n\nListings (%d):\n", resp.BaseName, len(resp.Listings))
 
 	slices.SortFunc(resp.Listings, func(a, c shipListing) int {
 		if a.Price != c.Price {
