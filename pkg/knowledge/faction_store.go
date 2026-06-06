@@ -236,3 +236,23 @@ func (kb *SQLiteKB) ReplaceFactionRooms(ctx context.Context, factionID, baseID s
 		return nil
 	})
 }
+
+// ReplaceFactionFuelBunkers replaces the whole galaxy-wide fuel-bunker set for a
+// faction (the faction_info summary is delivered as one list across all bases,
+// not per-base, so the replace is faction-scoped).
+func (kb *SQLiteKB) ReplaceFactionFuelBunkers(ctx context.Context, factionID string, bunkers []FactionFuelBunkerRow) error {
+	return kb.inTx(ctx, func(tx txer) error {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM faction_fuel_bunkers WHERE faction_id=?`, factionID); err != nil {
+			return err
+		}
+		for _, b := range bunkers {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO faction_fuel_bunkers (faction_id, base_id, base_name, fuel_reserve, fuel_capacity, captured_utc)
+				VALUES (?,?,?,?,?,?)`,
+				factionID, b.BaseID, b.BaseName, b.FuelReserve, b.FuelCapacity, utc(b.CapturedAt)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

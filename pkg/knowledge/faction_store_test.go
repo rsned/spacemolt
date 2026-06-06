@@ -70,6 +70,45 @@ func TestStoreAndLoadFaction(t *testing.T) {
 	}
 }
 
+func TestReplaceFactionFuelBunkers(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	if err := kb.StoreFaction(ctx, FactionRecord{FactionID: "f1", Name: "Crafters", Tag: "CRFT", CapturedAt: now}); err != nil {
+		t.Fatalf("StoreFaction: %v", err)
+	}
+	if err := kb.ReplaceFactionFuelBunkers(ctx, "f1", []FactionFuelBunkerRow{
+		{FactionID: "f1", BaseID: "b1", BaseName: "Haven Depot", FuelReserve: 300, FuelCapacity: 1000, CapturedAt: now},
+		{FactionID: "f1", BaseID: "b2", BaseName: "Rim Cache", FuelReserve: 50, FuelCapacity: 200, CapturedAt: now},
+	}); err != nil {
+		t.Fatalf("ReplaceFactionFuelBunkers: %v", err)
+	}
+
+	view, err := kb.LoadFactionView(ctx, "f1")
+	if err != nil || view == nil {
+		t.Fatalf("LoadFactionView: %v (nil=%v)", err, view == nil)
+	}
+	if len(view.FuelBunkers) != 2 {
+		t.Fatalf("want 2 fuel bunkers, got %d", len(view.FuelBunkers))
+	}
+	// Ordered by base_name: "Haven Depot" before "Rim Cache".
+	if view.FuelBunkers[0].BaseName != "Haven Depot" || view.FuelBunkers[0].FuelReserve != 300 || view.FuelBunkers[0].FuelCapacity != 1000 {
+		t.Errorf("bunker[0] wrong: %+v", view.FuelBunkers[0])
+	}
+
+	// Replace is faction-scoped: a smaller set fully supersedes the prior one.
+	if err := kb.ReplaceFactionFuelBunkers(ctx, "f1", []FactionFuelBunkerRow{
+		{FactionID: "f1", BaseID: "b1", BaseName: "Haven Depot", FuelReserve: 900, FuelCapacity: 1000, CapturedAt: now},
+	}); err != nil {
+		t.Fatalf("ReplaceFactionFuelBunkers (2): %v", err)
+	}
+	view, _ = kb.LoadFactionView(ctx, "f1")
+	if len(view.FuelBunkers) != 1 || view.FuelBunkers[0].FuelReserve != 900 {
+		t.Fatalf("replace did not supersede: %+v", view.FuelBunkers)
+	}
+}
+
 func TestFactionCapturedAt(t *testing.T) {
 	kb := newTestKB(t)
 	ctx := context.Background()

@@ -71,6 +71,9 @@ func (kb *SQLiteKB) LoadFactionView(ctx context.Context, factionID string) (*Fac
 	if v.Rooms, err = kb.loadRooms(ctx, factionID); err != nil {
 		return nil, err
 	}
+	if v.FuelBunkers, err = kb.loadFuelBunkers(ctx, factionID); err != nil {
+		return nil, err
+	}
 	return v, nil
 }
 
@@ -131,6 +134,27 @@ func (kb *SQLiteKB) loadBases(ctx context.Context, fid string) ([]FactionBaseRow
 		b := FactionBaseRow{FactionID: fid}
 		var cap string
 		if err := rows.Scan(&b.BaseID, &b.BaseName, &b.SystemID, &b.SystemName, &b.POIID, &b.ServicesJSON, &cap); err != nil {
+			return nil, err
+		}
+		b.CapturedAt = parseUTC(cap)
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+func (kb *SQLiteKB) loadFuelBunkers(ctx context.Context, fid string) ([]FactionFuelBunkerRow, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT base_id, base_name, fuel_reserve, fuel_capacity, captured_utc
+		FROM faction_fuel_bunkers WHERE faction_id=? ORDER BY base_name, base_id`, fid)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []FactionFuelBunkerRow
+	for rows.Next() {
+		b := FactionFuelBunkerRow{FactionID: fid}
+		var cap string
+		if err := rows.Scan(&b.BaseID, &b.BaseName, &b.FuelReserve, &b.FuelCapacity, &cap); err != nil {
 			return nil, err
 		}
 		b.CapturedAt = parseUTC(cap)

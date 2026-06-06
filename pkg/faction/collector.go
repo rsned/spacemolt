@@ -25,6 +25,7 @@ type Store interface {
 	ReplaceFactionOrders(ctx context.Context, factionID, baseID string, orders []knowledge.FactionOrderRow) error
 	ReplaceFactionMissions(ctx context.Context, factionID, baseID string, ms []knowledge.FactionMissionRow) error
 	ReplaceFactionRooms(ctx context.Context, factionID, baseID string, rooms []knowledge.FactionRoomRow) error
+	ReplaceFactionFuelBunkers(ctx context.Context, factionID string, bunkers []knowledge.FactionFuelBunkerRow) error
 }
 
 // Collector gathers faction data from a connected game client and persists it.
@@ -100,6 +101,9 @@ func (c *Collector) CollectFaction(ctx context.Context, client game.GameClient, 
 	if err := c.kb.ReplaceFactionRelations(ctx, rec.FactionID, rels); err != nil {
 		c.logger.Printf("  ReplaceFactionRelations(%s) failed: %v", rec.FactionID, err)
 	}
+	if err := c.kb.ReplaceFactionFuelBunkers(ctx, rec.FactionID, parseFuelBunkers(info)); err != nil {
+		c.logger.Printf("  ReplaceFactionFuelBunkers(%s) failed: %v", rec.FactionID, err)
+	}
 	c.logger.Printf("  backfilled faction %s (%s): members=%d relations=%d", rec.Tag, rec.FactionID, len(members), len(rels))
 	return nil
 }
@@ -162,7 +166,11 @@ func (c *Collector) collectFactionInfo(ctx context.Context, client *game.Client,
 	if err := c.kb.ReplaceFactionRelations(ctx, rec.FactionID, rels); err != nil {
 		c.logger.Printf("  ReplaceFactionRelations failed: %v", err)
 	}
-	c.logger.Printf("  Faction %s: treasury=%d members=%d relations=%d", rec.Tag, rec.Treasury, len(members), len(rels))
+	bunkers := parseFuelBunkers(info)
+	if err := c.kb.ReplaceFactionFuelBunkers(ctx, rec.FactionID, bunkers); err != nil {
+		c.logger.Printf("  ReplaceFactionFuelBunkers failed: %v", err)
+	}
+	c.logger.Printf("  Faction %s: treasury=%d members=%d relations=%d bunkers=%d", rec.Tag, rec.Treasury, len(members), len(rels), len(bunkers))
 }
 
 // collectIntel reads intel coverage counts; returns (systems, trade), 0 on error.

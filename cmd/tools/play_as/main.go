@@ -1489,6 +1489,10 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionBuild(raw)
 	case "list":
 		return formatFacilityList(raw)
+	case "owned":
+		return formatFacilityOwned(raw)
+	case "faction_owned":
+		return formatFacilityFactionOwned(raw)
 	case "browse_for_sale":
 		return formatFacilityForSale(raw)
 	}
@@ -1508,6 +1512,141 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionList(raw)
 	}
 	return ""
+}
+
+// formatFacilityOwned renders a `facility owned` response (gameserver v0.347.0+):
+// every facility the player owns across all stations, with the aggregate rent
+// bill and any rent arrears.
+func formatFacilityOwned(raw []byte) string {
+	var resp struct {
+		Facilities []struct {
+			Name             string `json:"name"`
+			Type             string `json:"type"`
+			BaseName         string `json:"base_name"`
+			SystemID         string `json:"system_id"`
+			RentPerCycle     int    `json:"rent_per_cycle"`
+			LaborPerRun      int    `json:"labor_per_run"`
+			ArrearsOwed      int    `json:"arrears_owed"`
+			MissedRentCycles int    `json:"missed_rent_cycles"`
+			Active           bool   `json:"active"`
+			UnderConstruction bool  `json:"under_construction"`
+		} `json:"facilities"`
+		Rent struct {
+			Facilities        int    `json:"facilities"`
+			TotalRentPerCycle int    `json:"total_rent_per_cycle"`
+			EstRentPerDay     int    `json:"est_rent_per_day"`
+			ArrearsOwed       int    `json:"arrears_owed"`
+			GraceCycles       int    `json:"grace_cycles"`
+			Note              string `json:"note"`
+		} `json:"rent"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "🏭 Your Facilities — %d total | rent %d/cycle, ~%d/day\n",
+		resp.Rent.Facilities, resp.Rent.TotalRentPerCycle, resp.Rent.EstRentPerDay)
+	if resp.Rent.ArrearsOwed > 0 {
+		fmt.Fprintf(&b, "⚠ Arrears owed: %d (grace: %d cycles)\n", resp.Rent.ArrearsOwed, resp.Rent.GraceCycles)
+	}
+	if len(resp.Facilities) == 0 {
+		fmt.Fprintf(&b, "  (none)\n")
+		return b.String()
+	}
+
+	nameW, typeW, baseW := len("Name"), len("Type"), len("Base")
+	for _, f := range resp.Facilities {
+		nameW = max(nameW, len(f.Name))
+		typeW = max(typeW, len(f.Type))
+		baseW = max(baseW, len(f.BaseName))
+	}
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %9s | %5s | Status\n",
+		nameW, "Name", typeW, "Type", baseW, "Base", "Rent/cyc", "Labor")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+--------\n",
+		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", baseW),
+		strings.Repeat("-", 9), strings.Repeat("-", 5))
+	for _, f := range resp.Facilities {
+		status := "active"
+		switch {
+		case f.UnderConstruction:
+			status = "building"
+		case !f.Active:
+			status = "idle"
+		}
+		if f.MissedRentCycles > 0 {
+			status += fmt.Sprintf(" ⚠%d missed", f.MissedRentCycles)
+		}
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %9d | %5d | %s\n",
+			nameW, f.Name, typeW, f.Type, baseW, f.BaseName, f.RentPerCycle, f.LaborPerRun, status)
+	}
+	if resp.Rent.Note != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Rent.Note)
+	}
+	return b.String()
+}
+
+// formatFacilityFactionOwned renders a `facility faction_owned` response
+// (gameserver v0.347.0+): the faction's facilities everywhere, with per-run
+// labor cost and any idle reason.
+func formatFacilityFactionOwned(raw []byte) string {
+	var resp struct {
+		FactionID  string `json:"faction_id"`
+		Note       string `json:"note"`
+		Facilities []struct {
+			Name              string `json:"name"`
+			Type              string `json:"type"`
+			BaseName          string `json:"base_name"`
+			SystemID          string `json:"system_id"`
+			LaborPerRun       int    `json:"labor_per_run"`
+			IdleReason        string `json:"idle_reason"`
+			Active            bool   `json:"active"`
+			UnderConstruction bool   `json:"under_construction"`
+		} `json:"facilities"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	var totalLabor int
+	for _, f := range resp.Facilities {
+		totalLabor += f.LaborPerRun
+	}
+	fmt.Fprintf(&b, "🏭 Faction Facilities — %d total | labor %d/run\n", len(resp.Facilities), totalLabor)
+	if len(resp.Facilities) == 0 {
+		fmt.Fprintf(&b, "  (none)\n")
+		return b.String()
+	}
+
+	nameW, typeW, baseW := len("Name"), len("Type"), len("Base")
+	for _, f := range resp.Facilities {
+		nameW = max(nameW, len(f.Name))
+		typeW = max(typeW, len(f.Type))
+		baseW = max(baseW, len(f.BaseName))
+	}
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %5s | Status\n",
+		nameW, "Name", typeW, "Type", baseW, "Base", "Labor")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+--------\n",
+		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", baseW), strings.Repeat("-", 5))
+	for _, f := range resp.Facilities {
+		status := "active"
+		switch {
+		case f.UnderConstruction:
+			status = "building"
+		case !f.Active:
+			status = "idle"
+			if f.IdleReason != "" {
+				status += " (" + f.IdleReason + ")"
+			}
+		}
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %5d | %s\n",
+			nameW, f.Name, typeW, f.Type, baseW, f.BaseName, f.LaborPerRun, status)
+	}
+	if resp.Note != "" {
+		fmt.Fprintf(&b, "  %s\n", resp.Note)
+	}
+	return b.String()
 }
 
 // formatFacilityForSale renders a `facility browse_for_sale` response — the
@@ -1828,7 +1967,17 @@ func formatFacilityList(raw []byte) string {
 		// what the station itself offers (markets, refuel, etc.), which is
 		// available via other commands and not the player's facility list.
 		FactionFacilities []factionFacilityRow `json:"faction_facilities"`
-		Hint              string               `json:"hint"`
+		// PlayerRent is the aggregate rent bill across all the player's
+		// facilities (gameserver v0.347.0+), surfaced as a station-level total.
+		PlayerRent struct {
+			Facilities        int    `json:"facilities"`
+			TotalRentPerCycle int    `json:"total_rent_per_cycle"`
+			EstRentPerDay     int    `json:"est_rent_per_day"`
+			ArrearsOwed       int    `json:"arrears_owed"`
+			GraceCycles       int    `json:"grace_cycles"`
+			Note              string `json:"note"`
+		} `json:"player_rent"`
+		Hint string `json:"hint"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -1836,6 +1985,13 @@ func formatFacilityList(raw []byte) string {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "  Facilities at %s\n", resp.BaseID)
+	if resp.PlayerRent.Facilities > 0 {
+		fmt.Fprintf(&b, "  Rent (all your facilities): %d/cycle, ~%d/day across %d facilities\n",
+			resp.PlayerRent.TotalRentPerCycle, resp.PlayerRent.EstRentPerDay, resp.PlayerRent.Facilities)
+		if resp.PlayerRent.ArrearsOwed > 0 {
+			fmt.Fprintf(&b, "  ⚠ Arrears owed: %d (grace: %d cycles)\n", resp.PlayerRent.ArrearsOwed, resp.PlayerRent.GraceCycles)
+		}
+	}
 
 	totalSections := 0
 	if len(resp.PlayerFacilities) > 0 {
@@ -3839,7 +3995,18 @@ func formatDock(raw []byte) string {
 			SatisfiedCount    int    `json:"satisfied_count"`
 			TotalServiceInfra int    `json:"total_service_infra"`
 		} `json:"station_condition"`
-		Story string `json:"story"`
+		// YourFacilities + FacilityNote are the dock rent briefing
+		// (gameserver v0.347.0+): per-facility status with missed-rent cycles,
+		// plus an escalating note when rent is overdue.
+		YourFacilities []struct {
+			Name             string `json:"name"`
+			Type             string `json:"type"`
+			Status           string `json:"status"`
+			RentPerCycle     int    `json:"rent_per_cycle"`
+			MissedRentCycles int    `json:"missed_rent_cycles"`
+		} `json:"your_facilities"`
+		FacilityNote string `json:"facility_note"`
+		Story        string `json:"story"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -3851,6 +4018,30 @@ func formatDock(raw []byte) string {
 	sc := resp.StationCondition
 	fmt.Fprintf(&b, "Station is in %q condition.  %s\n\n", sc.Condition, sc.ConditionText)
 	fmt.Fprintf(&b, "Services satisfied: %d / %d (%d%%)\n", sc.SatisfiedCount, sc.TotalServiceInfra, sc.SatisfactionPct)
+
+	// Rent briefing: surface your facilities here and flag any missed rent
+	// loudly so an agent sees a repossession risk before it's too late.
+	if len(resp.YourFacilities) > 0 {
+		var totRent, totMissed int
+		for _, f := range resp.YourFacilities {
+			totRent += f.RentPerCycle
+			totMissed += f.MissedRentCycles
+		}
+		fmt.Fprintf(&b, "\nYour facilities here: %d (rent %d/cycle)\n", len(resp.YourFacilities), totRent)
+		for _, f := range resp.YourFacilities {
+			line := fmt.Sprintf("  - %s (%s): %s, %d/cycle", f.Name, f.Type, f.Status, f.RentPerCycle)
+			if f.MissedRentCycles > 0 {
+				line += fmt.Sprintf("  ⚠ %d cycle(s) of rent missed", f.MissedRentCycles)
+			}
+			fmt.Fprintf(&b, "%s\n", line)
+		}
+		if totMissed > 0 {
+			fmt.Fprintf(&b, "⚠ RENT OVERDUE — pay soon to avoid repossession.\n")
+		}
+	}
+	if resp.FacilityNote != "" {
+		fmt.Fprintf(&b, "⚠ %s\n", resp.FacilityNote)
+	}
 
 	if resp.Story != "" {
 		story := resp.Story
@@ -4131,6 +4322,12 @@ func formatFactionInfo(raw []byte) string {
 			FactionTag  string `json:"faction_tag"`
 			DeclaredBy  string `json:"declared_by"`
 		} `json:"wars"`
+		FuelBunkers []struct {
+			BaseID       string `json:"base_id"`
+			BaseName     string `json:"base_name"`
+			FuelReserve  int    `json:"fuel_reserve"`
+			FuelCapacity int    `json:"fuel_capacity"`
+		} `json:"fuel_bunkers"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -4210,6 +4407,40 @@ func formatFactionInfo(raw []byte) string {
 		for _, w := range resp.Wars {
 			fmt.Fprintf(&b, "  vs %s [%s] (declared by: %s)\n", w.FactionName, w.FactionTag, w.DeclaredBy)
 		}
+	}
+
+	// Fuel bunkers (galaxy-wide summary; shown to members, gameserver v0.346.0+)
+	if len(resp.FuelBunkers) > 0 {
+		var totReserve, totCapacity int
+		nameW := len("Base")
+		for _, fb := range resp.FuelBunkers {
+			label := fb.BaseName
+			if label == "" {
+				label = fb.BaseID
+			}
+			nameW = max(nameW, len(label))
+			totReserve += fb.FuelReserve
+			totCapacity += fb.FuelCapacity
+		}
+		fmt.Fprintf(&b, "\nFuel Bunkers:\n")
+		fmt.Fprintf(&b, "  %-*s | %15s | Fill\n", nameW, "Base", "Reserve / Cap")
+		fmt.Fprintf(&b, "  %s-+-%s-+------\n", strings.Repeat("-", nameW), strings.Repeat("-", 15))
+		for _, fb := range resp.FuelBunkers {
+			label := fb.BaseName
+			if label == "" {
+				label = fb.BaseID
+			}
+			pct := 0.0
+			if fb.FuelCapacity > 0 {
+				pct = 100 * float64(fb.FuelReserve) / float64(fb.FuelCapacity)
+			}
+			fmt.Fprintf(&b, "  %-*s | %6d / %-6d | %3.0f%%\n", nameW, label, fb.FuelReserve, fb.FuelCapacity, pct)
+		}
+		totPct := 0.0
+		if totCapacity > 0 {
+			totPct = 100 * float64(totReserve) / float64(totCapacity)
+		}
+		fmt.Fprintf(&b, "  Total reserve: %d / %d (%.0f%%)\n", totReserve, totCapacity, totPct)
 	}
 
 	return b.String()
@@ -6568,8 +6799,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "facility":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: facility <action> [facility_type] [--flag value...]\n" +
-				"  actions: types, build, list, toggle, upgrades, upgrade,\n" +
-				"           faction_build, faction_upgrade, faction_list, faction_toggle,\n" +
+				"  actions: types, build, list, owned, toggle, upgrades, upgrade,\n" +
+				"           faction_build, faction_upgrade, faction_list, faction_owned, faction_toggle,\n" +
 				"           transfer, personal_build, personal_decorate, personal_visit, help")
 		}
 		// Parse all args uniformly. First bare positional becomes the action,

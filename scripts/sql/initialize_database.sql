@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 12
--- Last Regenerated: 2026-06-01
+-- Migrations applied: 13
+-- Last Regenerated: 2026-06-05
 
 -- ============================================================================
 -- TABLES
@@ -214,6 +214,17 @@ CREATE TABLE faction_facilities (
 					details_json  TEXT,
 					captured_utc  TEXT NOT NULL,
 					PRIMARY KEY (faction_id, base_id, facility_id)
+				);
+
+
+CREATE TABLE faction_fuel_bunkers (
+					faction_id    TEXT NOT NULL,
+					base_id       TEXT NOT NULL,
+					base_name     TEXT,
+					fuel_reserve  INTEGER NOT NULL DEFAULT 0,
+					fuel_capacity INTEGER NOT NULL DEFAULT 0,
+					captured_utc  TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id)
 				);
 
 
@@ -1100,4 +1111,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (37, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (38, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (39, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (40, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (41, datetime('now'));
 

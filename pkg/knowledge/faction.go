@@ -149,16 +149,28 @@ type FactionRoomRow struct {
 	CapturedAt  time.Time
 }
 
+// FactionFuelBunkerRow is one base's fuel-bunker status for a faction
+// (faction_info galaxy-wide fuel summary, gameserver v0.346.0+).
+type FactionFuelBunkerRow struct {
+	FactionID    string
+	BaseID       string
+	BaseName     string
+	FuelReserve  int
+	FuelCapacity int
+	CapturedAt   time.Time
+}
+
 // FactionView is the full assembled current state for one faction, used by the
 // dashboard renderer.
 type FactionView struct {
-	Faction    FactionRecord
-	Members    []FactionMember
-	Relations  []FactionRelation
-	Bases      []FactionBaseRow
-	Facilities []FactionFacilityRow
-	Storage    []FactionStorageRow
-	Orders     []FactionOrderRow
-	Missions   []FactionMissionRow
-	Rooms      []FactionRoomRow
+	Faction     FactionRecord
+	Members     []FactionMember
+	Relations   []FactionRelation
+	Bases       []FactionBaseRow
+	Facilities  []FactionFacilityRow
+	Storage     []FactionStorageRow
+	Orders      []FactionOrderRow
+	Missions    []FactionMissionRow
+	Rooms       []FactionRoomRow
+	FuelBunkers []FactionFuelBunkerRow
 }

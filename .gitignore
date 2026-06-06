@@ -121,6 +121,9 @@ starting_notes.txt
 /data/scripts/
 /wiki/
 *.backup
+# DB snapshots / gzipped knowledge-base backups — never commit
+/data/backups/
+*.db.gz
 /cmd/tools/daily-summary/FACTION_PLAN.md
 
 ##############################

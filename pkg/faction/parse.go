@@ -9,6 +9,28 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
+// parseFuelBunkers converts the faction_info galaxy-wide fuel-bunker summary
+// (gameserver v0.346.0+) into KB rows. Empty when the response carries none
+// (e.g. faction_info for a faction we are not a member of).
+func parseFuelBunkers(info serverapi.FactionInfoResponse) []knowledge.FactionFuelBunkerRow {
+	if len(info.FuelBunkers) == 0 {
+		return nil
+	}
+	now := time.Now()
+	out := make([]knowledge.FactionFuelBunkerRow, 0, len(info.FuelBunkers))
+	for _, b := range info.FuelBunkers {
+		out = append(out, knowledge.FactionFuelBunkerRow{
+			FactionID:    info.ID,
+			BaseID:       b.BaseID,
+			BaseName:     b.BaseName,
+			FuelReserve:  b.FuelReserve,
+			FuelCapacity: b.FuelCapacity,
+			CapturedAt:   now,
+		})
+	}
+	return out
+}
+
 // parseFactionInfo converts a faction_info response into the KB header record,
 // members, and relation edges (allies, enemies, wars, peace proposals).
 func parseFactionInfo(info serverapi.FactionInfoResponse) (knowledge.FactionRecord, []knowledge.FactionMember, []knowledge.FactionRelation) {

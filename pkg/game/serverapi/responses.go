@@ -998,6 +998,21 @@ type FactionInfoResponse struct {
 	AllianceProposals json.RawMessage `json:"alliance_proposals,omitempty"`
 	Facilities        json.RawMessage `json:"facilities,omitempty"`
 	Roles             json.RawMessage `json:"roles,omitempty"`
+
+	// FuelBunkers is the galaxy-wide fuel-bunker summary added in gameserver
+	// v0.346.0: one entry per faction base with a bunker. The faction-wide
+	// total reserve/capacity is the sum across entries (no top-level total in
+	// the response).
+	FuelBunkers []FactionFuelBunker `json:"fuel_bunkers,omitempty"`
+}
+
+// FactionFuelBunker is one base's fuel-bunker status within a faction_info
+// response (gameserver v0.346.0+).
+type FactionFuelBunker struct {
+	BaseID       string `json:"base_id"`
+	BaseName     string `json:"base_name,omitempty"`
+	FuelReserve  int    `json:"fuel_reserve"`
+	FuelCapacity int    `json:"fuel_capacity"`
 }
 
 // FactionListResponse wraps the response from faction_list command.

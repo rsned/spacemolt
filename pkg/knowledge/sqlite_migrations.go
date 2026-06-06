@@ -376,6 +376,21 @@ func migrations() []Migration {
 				ALTER TABLE poi_resources ADD COLUMN detected_by TEXT;
 			`,
 		},
+		{
+			version: 41,
+			name:    "add_faction_fuel_bunkers",
+			sql: `
+				CREATE TABLE faction_fuel_bunkers (
+					faction_id    TEXT NOT NULL,
+					base_id       TEXT NOT NULL,
+					base_name     TEXT,
+					fuel_reserve  INTEGER NOT NULL DEFAULT 0,
+					fuel_capacity INTEGER NOT NULL DEFAULT 0,
+					captured_utc  TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id)
+				);
+			`,
+		},
 	}
 }
 
