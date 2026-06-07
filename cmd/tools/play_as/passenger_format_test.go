@@ -17,12 +17,13 @@ func TestFormatStationPassengers_RealSample(t *testing.T) {
 		t.Fatalf("missing header, got:\n%s", out)
 	}
 
-	// Destinations grouped, with counts.
+	// Destinations grouped, with counts. Headers include the station id (which
+	// load_passenger requires) in the form "Name [id]".
 	for _, want := range []string{
-		"Deep Range Outpost (1)",
-		"Frontier Station (1)",
-		"Market Prime Exchange (3)",
-		"Mera Sanctum Station (1)",
+		"Deep Range Outpost [deep_range_outpost] (1)",
+		"Frontier Station [frontier_station] (1)",
+		"Market Prime Exchange [market_prime_exchange] (3)",
+		"Mera Sanctum Station [mera_sanctum_station] (1)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing destination group %q, got:\n%s", want, out)
@@ -85,12 +86,13 @@ func TestFormatListPassengers_GroupedWithBerthsAndFare(t *testing.T) {
 	if !strings.Contains(out, "Aldebaran Gate (2)") {
 		t.Errorf("missing destination group, got:\n%s", out)
 	}
-	// economy listed before first (class order), and fare/ticks shown.
-	if i, j := strings.Index(out, "economy:"), strings.Index(out, "first:"); i < 0 || i >= j {
-		t.Errorf("class order wrong (economy=%d first=%d):\n%s", i, j, out)
+	// Aboard manifest orders first class before economy.
+	if i, j := strings.Index(out, "first:"), strings.Index(out, "economy:"); i < 0 || i >= j {
+		t.Errorf("class order wrong (first=%d economy=%d):\n%s", i, j, out)
 	}
-	if !strings.Contains(out, "420 cr  180t") || !strings.Contains(out, "3100 cr  90t") {
-		t.Errorf("missing fare/ticks, got:\n%s", out)
+	// Fare/ticks shown, right-aligned to shared widths (fareW=4, ticksW=3).
+	if !strings.Contains(out, " 420 cr  180t") || !strings.Contains(out, "3100 cr   90t") {
+		t.Errorf("missing aligned fare/ticks, got:\n%s", out)
 	}
 }
 

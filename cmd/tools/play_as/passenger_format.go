@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -16,43 +17,84 @@ type paxItem struct {
 	Citizenship string
 	CitizenID   string
 	DestName    string
+	DestID      string
 	Fare        int
 	Ticks       int
 }
 
-// paxClassOrder is the canonical display order for passenger classes. Any class
-// not in this list is appended afterwards in alphabetical order.
-var paxClassOrder = []string{"economy", "business", "first"}
+// paxDestLabel renders a destination group header as "Name [id]". The id is
+// what load_passenger requires, so it must be visible in the listing. Falls
+// back gracefully when either field is missing.
+func paxDestLabel(name, id string) string {
+	switch {
+	case name == "" && id == "":
+		return "(unknown destination)"
+	case name == "":
+		return id
+	case id == "":
+		return name
+	default:
+		return name + " [" + id + "]"
+	}
+}
 
-// renderPaxByDestination renders passengers grouped by destination (alphabetical)
-// and, within each destination, by class (economy → business → first). Passengers
-// are listed by name. When showFare is true each line also shows fare and ticks.
-func renderPaxByDestination(items []paxItem, showFare bool) string {
+// Class display orders. The station roster lists economy first (you scan it to
+// gauge demand); the aboard manifest lists first class first (highest-value
+// cabins on top). Classes not in the chosen order are appended alphabetically.
+var (
+	paxClassOrderStation = []string{"economy", "business", "first"}
+	paxClassOrderAboard  = []string{"first", "business", "economy"}
+)
+
+// paxCols holds the global column widths used to align passenger lines across
+// all destination groups.
+type paxCols struct {
+	name  int
+	cit   int // citizenship text width (without brackets); 0 collapses the column
+	citID int
+	fare  int
+	ticks int
+}
+
+// renderPaxByDestination renders passengers grouped by destination (alphabetical
+// by name) and, within each destination, by class in classOrder. Passengers are
+// listed by name. When showFare is true each line also shows fare and ticks.
+func renderPaxByDestination(items []paxItem, classOrder []string, showFare bool) string {
+	// Group by destination id (canonical/unique); track the display name per id.
 	groups := map[string][]paxItem{}
+	destName := map[string]string{}
 	for _, p := range items {
-		groups[p.DestName] = append(groups[p.DestName], p)
+		groups[p.DestID] = append(groups[p.DestID], p)
+		if _, ok := destName[p.DestID]; !ok {
+			destName[p.DestID] = p.DestName
+		}
 	}
 	dests := make([]string, 0, len(groups))
 	for d := range groups {
 		dests = append(dests, d)
 	}
-	slices.Sort(dests)
+	// Alphabetical by display name, with the id as a stable tiebreaker.
+	slices.SortFunc(dests, func(a, c string) int {
+		if n := strings.Compare(destName[a], destName[c]); n != 0 {
+			return n
+		}
+		return strings.Compare(a, c)
+	})
 
-	// Global column widths so names/citizenship line up across all groups.
-	nameW, citW := 0, 0
+	// Global column widths so columns line up across all groups.
+	var cols paxCols
 	for _, p := range items {
-		nameW = max(nameW, len(p.Name))
-		citW = max(citW, len(p.Citizenship))
+		cols.name = max(cols.name, len(p.Name))
+		cols.cit = max(cols.cit, len(p.Citizenship))
+		cols.citID = max(cols.citID, len(p.CitizenID))
+		cols.fare = max(cols.fare, len(strconv.Itoa(p.Fare)))
+		cols.ticks = max(cols.ticks, len(strconv.Itoa(p.Ticks)))
 	}
 
 	var b strings.Builder
 	for _, d := range dests {
 		grp := groups[d]
-		label := d
-		if label == "" {
-			label = "(unknown destination)"
-		}
-		fmt.Fprintf(&b, "\n%s (%d)\n", label, len(grp))
+		fmt.Fprintf(&b, "\n%s (%d)\n", paxDestLabel(destName[d], d), len(grp))
 
 		byClass := map[string][]paxItem{}
 		for _, p := range grp {
@@ -75,10 +117,10 @@ func renderPaxByDestination(items []paxItem, showFare bool) string {
 			}
 			fmt.Fprintf(&b, "  %s:\n", classLabel)
 			for _, p := range list {
-				renderPaxLine(&b, p, nameW, citW, showFare)
+				renderPaxLine(&b, p, cols, showFare)
 			}
 		}
-		for _, cls := range paxClassOrder {
+		for _, cls := range classOrder {
 			emit(cls)
 		}
 		// Any classes the server introduces beyond the known three.
@@ -96,18 +138,32 @@ func renderPaxByDestination(items []paxItem, showFare bool) string {
 	return b.String()
 }
 
-// renderPaxLine writes a single indented passenger line:
+// renderPaxLine writes a single indented passenger line, padded to the shared
+// column widths so columns align across all groups:
 //
-//	    <name>  [<citizenship>]  <citizen_id>   [<fare> cr  <ticks>t]
-func renderPaxLine(b *strings.Builder, p paxItem, nameW, citW int, showFare bool) {
-	cit := ""
-	if p.Citizenship != "" {
-		cit = "[" + p.Citizenship + "]"
+//	    <name>  [<citizenship>]  <citizen_id>   <fare> cr  <ticks>t
+//
+// The citizenship column is omitted entirely when no passenger has one (the
+// aboard manifest carries no citizenship). Fare/ticks are right-aligned and
+// only shown when showFare is true.
+func renderPaxLine(b *strings.Builder, p paxItem, cols paxCols, showFare bool) {
+	fmt.Fprintf(b, "    %-*s", cols.name, p.Name)
+	if cols.cit > 0 {
+		cit := ""
+		if p.Citizenship != "" {
+			cit = "[" + p.Citizenship + "]"
+		}
+		// cols.cit is the citizenship text width; +2 accounts for the brackets.
+		fmt.Fprintf(b, "  %-*s", cols.cit+2, cit)
 	}
-	// citW is the citizenship text width; +2 accounts for the brackets.
-	fmt.Fprintf(b, "    %-*s  %-*s  %s", nameW, p.Name, citW+2, cit, p.CitizenID)
 	if showFare {
-		fmt.Fprintf(b, "   %d cr  %dt", p.Fare, p.Ticks)
+		// citizen_id is followed by the fare/ticks columns, so pad it; then
+		// append the right-aligned fare/ticks.
+		fmt.Fprintf(b, "  %-*s", cols.citID, p.CitizenID)
+		fmt.Fprintf(b, "   %*s cr  %*st", cols.fare, strconv.Itoa(p.Fare), cols.ticks, strconv.Itoa(p.Ticks))
+	} else {
+		// citizen_id is the final column; don't pad it (avoids trailing space).
+		fmt.Fprintf(b, "  %s", p.CitizenID)
 	}
 	b.WriteString("\n")
 }
@@ -121,6 +177,7 @@ func formatListPassengers(raw []byte) string {
 		Name            string `json:"name"`
 		Citizenship     string `json:"citizenship"`
 		Class           string `json:"class"`
+		Destination     string `json:"destination"`
 		DestinationName string `json:"destination_name"`
 		Fare            int    `json:"fare"`
 		TicksRemaining  int    `json:"ticks_remaining"`
@@ -160,11 +217,11 @@ func formatListPassengers(raw []byte) string {
 	for i, p := range resp.Passengers {
 		items[i] = paxItem{
 			Name: p.Name, Class: p.Class, Citizenship: p.Citizenship,
-			CitizenID: p.CitizenID, DestName: p.DestinationName,
+			CitizenID: p.CitizenID, DestName: p.DestinationName, DestID: p.Destination,
 			Fare: p.Fare, Ticks: p.TicksRemaining,
 		}
 	}
-	b.WriteString(renderPaxByDestination(items, true))
+	b.WriteString(renderPaxByDestination(items, paxClassOrderAboard, true))
 	return b.String()
 }
 
@@ -177,6 +234,7 @@ func formatStationPassengers(raw []byte) string {
 		Name            string `json:"name"`
 		Citizenship     string `json:"citizenship"`
 		Class           string `json:"class"`
+		Destination     string `json:"destination"`
 		DestinationName string `json:"destination_name"`
 	}
 	var resp struct {
@@ -206,10 +264,10 @@ func formatStationPassengers(raw []byte) string {
 	for i, w := range resp.Waiting {
 		items[i] = paxItem{
 			Name: w.Name, Class: w.Class, Citizenship: w.Citizenship,
-			CitizenID: w.CitizenID, DestName: w.DestinationName,
+			CitizenID: w.CitizenID, DestName: w.DestinationName, DestID: w.Destination,
 		}
 	}
-	b.WriteString(renderPaxByDestination(items, false))
+	b.WriteString(renderPaxByDestination(items, paxClassOrderStation, false))
 	return b.String()
 }
 
@@ -219,6 +277,7 @@ func formatLoadPassenger(raw []byte) string {
 	type loadedPax struct {
 		Name            string `json:"name"`
 		Class           string `json:"class"`
+		Destination     string `json:"destination"`
 		DestinationName string `json:"destination_name"`
 		Fare            int    `json:"fare"`
 		TicksRemaining  int    `json:"ticks_remaining"`
@@ -239,11 +298,8 @@ func formatLoadPassenger(raw []byte) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Loaded %d passenger(s) — %d cr total\n", len(resp.Loaded), resp.TotalFare)
 	for _, p := range resp.Loaded {
-		dest := p.DestinationName
-		if dest == "" {
-			dest = "(unknown destination)"
-		}
-		fmt.Fprintf(&b, "  %s [%s] → %s, %d cr (%dt)\n", p.Name, p.Class, dest, p.Fare, p.TicksRemaining)
+		fmt.Fprintf(&b, "  %s [%s] → %s, %d cr (%dt)\n",
+			p.Name, p.Class, paxDestLabel(p.DestinationName, p.Destination), p.Fare, p.TicksRemaining)
 	}
 	if resp.Message != "" {
 		fmt.Fprintf(&b, "  %s\n", resp.Message)
