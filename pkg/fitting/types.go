@@ -93,8 +93,6 @@ func slotCapacity(s Ship, slot string) int {
 }
 
 // slotLabel returns the human label for a slot type used in BindingConstraint.
-//
-//nolint:unused // consumed by later fitting tasks (MaxFit, CanFit)
 func slotLabel(slot string) string {
 	switch slot {
 	case "weapon":
