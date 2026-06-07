@@ -1,0 +1,9 @@
+{
+  "items": [
+    {
+      "id": "engineering", "name": "Engineering",
+      "bonus_per_level": {"cpuEfficiency": 1, "powerEfficiency": 1},
+      "max_level": 100
+    }
+  ]
+}

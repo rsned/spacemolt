@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "id": "advanced_drone_bay", "name": "Advanced Drone Bay",
+      "type": "utility", "slot": "utility",
+      "cpu_usage": 12, "power_usage": 15
+    },
+    {
+      "id": "nuclear_reactor_ii", "name": "Nuclear Reactor II",
+      "type": "utility", "slot": "utility",
+      "cpu_usage": 14, "power_usage": 8, "power_bonus": 30,
+      "required_skills": {"mining": 8}
+    },
+    {
+      "id": "steel_plate", "name": "Steel Plate", "category": "component"
+    }
+  ]
+}

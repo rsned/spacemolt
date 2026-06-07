@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "cobble", "name": "Cobble",
+      "cpu_capacity": 12, "power_capacity": 24,
+      "weapon_slots": 1, "defense_slots": 1, "utility_slots": 2,
+      "tier": 0, "default_modules": ["mining_laser_i", "autocannon_i"]
+    },
+    {
+      "id": "hauler", "name": "Hauler",
+      "cpu_capacity": 200, "power_capacity": 200,
+      "weapon_slots": 0, "defense_slots": 2, "utility_slots": 6,
+      "tier": 2, "default_modules": []
+    }
+  ]
+}
