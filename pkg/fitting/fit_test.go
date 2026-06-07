@@ -160,3 +160,40 @@ func TestCheckFit_MixedSlots(t *testing.T) {
 		t.Errorf("SlotType = %q, want mixed", got.SlotType)
 	}
 }
+
+func TestShipsThatFit(t *testing.T) {
+	small := cobble() // 2 utility slots, power 24
+	big := Ship{ID: "big", Name: "Big", CPUCapacity: 200, PowerCapacity: 200,
+		UtilitySlots: 6, Tier: 2}
+	tiny := Ship{ID: "tiny", Name: "Tiny", CPUCapacity: 5, PowerCapacity: 5,
+		UtilitySlots: 1, Tier: 1}
+	ships := []Ship{big, small, tiny}
+
+	// Want >= 2 drone bays. small: power 24 -> only 1 fits (fails). big: 6 slots,
+	// power 200/15 -> 6 fits (passes). tiny: 1 slot -> 1 (fails).
+	got := ShipsThatFit(ships, droneBay(), 2, DefaultEngineering(0))
+	if len(got) != 1 {
+		t.Fatalf("got %d ships, want 1: %+v", len(got), got)
+	}
+	if got[0].Ship.ID != "big" {
+		t.Errorf("ship = %q, want big", got[0].Ship.ID)
+	}
+	if got[0].Result.MaxCount != 6 {
+		t.Errorf("MaxCount = %d, want 6", got[0].Result.MaxCount)
+	}
+}
+
+func TestShipsThatFit_SortedByTierThenName(t *testing.T) {
+	cheap := Module{ID: "x", Type: "utility", Slot: "utility"} // no cost, slot-limited
+	a := Ship{ID: "a", Name: "Apex", UtilitySlots: 5, Tier: 3}
+	b := Ship{ID: "b", Name: "Borg", UtilitySlots: 5, Tier: 1}
+	c := Ship{ID: "c", Name: "Cstar", UtilitySlots: 5, Tier: 1}
+	got := ShipsThatFit([]Ship{a, b, c}, cheap, 1, DefaultEngineering(0))
+	order := []string{got[0].Ship.ID, got[1].Ship.ID, got[2].Ship.ID}
+	want := []string{"b", "c", "a"} // tier 1 (Borg, Cstar) before tier 3 (Apex)
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("order = %v, want %v", order, want)
+		}
+	}
+}

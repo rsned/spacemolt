@@ -70,6 +70,32 @@ func MaxFit(s Ship, m Module, eng Engineering) FitResult {
 	}
 }
 
+// ShipFit pairs a ship with its MaxFit result for the queried module.
+type ShipFit struct {
+	Ship   Ship
+	Result FitResult
+}
+
+// ShipsThatFit returns every ship that can fit at least `count` copies of module
+// m, sorted by tier ascending then name. Each entry carries the per-ship MaxFit
+// result.
+func ShipsThatFit(ships []Ship, m Module, count int, eng Engineering) []ShipFit {
+	var out []ShipFit
+	for _, s := range ships {
+		r := MaxFit(s, m, eng)
+		if r.MaxCount >= count {
+			out = append(out, ShipFit{Ship: s, Result: r})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Ship.Tier != out[j].Ship.Tier {
+			return out[i].Ship.Tier < out[j].Ship.Tier
+		}
+		return out[i].Ship.Name < out[j].Ship.Name
+	})
+	return out
+}
+
 // CheckFit reports whether an arbitrary loadout fits on ship s at the given
 // Engineering level. It checks slot counts per type plus aggregate CPU and
 // power, accounting for capacity-adding modules. The first violated constraint
