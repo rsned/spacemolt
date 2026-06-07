@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 13
--- Last Regenerated: 2026-06-05
+-- Migrations applied: 14
+-- Last Regenerated: 2026-06-07
 
 -- ============================================================================
 -- TABLES
@@ -346,7 +346,7 @@ CREATE TABLE factions (
 CREATE TABLE item_ammo (
     item_id    TEXT PRIMARY KEY REFERENCES items(id),
     ammo_type  TEXT NOT NULL
-);
+, modifiers TEXT);
 
 
 CREATE TABLE item_consumable_effects (
@@ -391,7 +391,7 @@ CREATE TABLE item_modules (
     power_usage INTEGER NOT NULL DEFAULT 0,
     hidden      BOOLEAN NOT NULL DEFAULT 0,
     special     TEXT
-);
+, slot TEXT);
 
 
 CREATE TABLE item_utilities (
@@ -412,7 +412,7 @@ CREATE TABLE item_utilities (
     survey_range     INTEGER,
     tow_speed_penalty INTEGER,
     cooldown         INTEGER
-);
+, cpu_bonus INTEGER, max_fuel_bonus INTEGER, hull_penalty INTEGER, speed_penalty INTEGER);
 
 
 CREATE TABLE item_weapons (
@@ -424,7 +424,7 @@ CREATE TABLE item_weapons (
     cooldown    INTEGER NOT NULL DEFAULT 0,
     ammo_type   TEXT,
     magazine_size INTEGER
-);
+, armor_bypass_bonus REAL, shield_bypass_bonus REAL);
 
 
 CREATE TABLE items (
@@ -438,7 +438,7 @@ CREATE TABLE items (
     stackable BOOLEAN DEFAULT 0,
     tradeable BOOLEAN DEFAULT 0,
     last_updated_tick INTEGER DEFAULT 0
-, hazardous BOOLEAN DEFAULT 0, power_bonus INTEGER DEFAULT 0);
+, hazardous BOOLEAN DEFAULT 0, power_bonus INTEGER DEFAULT 0, quest_item BOOLEAN NOT NULL DEFAULT 0, extracted_by TEXT, required_skills TEXT, region_lock TEXT, passenger_economy_berths INTEGER NOT NULL DEFAULT 0, passenger_business_berths INTEGER NOT NULL DEFAULT 0, passenger_first_berths INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE knowledge_exports (
@@ -717,7 +717,7 @@ CREATE TABLE recipes (
     skill_quality_mod INTEGER DEFAULT 0,
     required_skills TEXT DEFAULT '{}',
     last_updated_tick INTEGER DEFAULT 0
-, hidden BOOLEAN DEFAULT 0);
+, hidden BOOLEAN DEFAULT 0, facility_only BOOLEAN NOT NULL DEFAULT 0, no_recycle BOOLEAN NOT NULL DEFAULT 0, fuel_output INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE resource_history (
@@ -869,7 +869,7 @@ CREATE TABLE "ships" (
     default_modules TEXT DEFAULT '[]',
     flavor_tags TEXT DEFAULT '[]',
     last_updated_tick INTEGER DEFAULT 0
-, passive_recipes TEXT DEFAULT '[]');
+, passive_recipes TEXT DEFAULT '[]', based_on TEXT, npc_role TEXT, special TEXT, required_reputation INTEGER NOT NULL DEFAULT 0, piloting_required INTEGER NOT NULL DEFAULT 0, inherent_capabilities TEXT);
 
 
 CREATE TABLE skills (
@@ -1112,4 +1112,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (38, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (39, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (40, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (41, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (42, datetime('now'));
 

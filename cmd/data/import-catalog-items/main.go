@@ -34,6 +34,7 @@ type CatalogItemJSON struct {
 	// Module common fields (present when type/type_id are set)
 	Type      string `json:"type"`
 	TypeID    string `json:"type_id"`
+	Slot      string `json:"slot"`
 	CPUUsage  int    `json:"cpu_usage"`
 	PowerUsage int   `json:"power_usage"`
 	Hidden    bool   `json:"hidden"`
@@ -57,6 +58,8 @@ type CatalogItemJSON struct {
 	ResistanceBonus     map[string]float64 `json:"resistance_bonus"`
 	DamageReduction     *float64 `json:"damage_reduction"`
 	CloakStrength       *int     `json:"cloak_strength"`
+	ArmorBypassBonus    *float64 `json:"armor_bypass_bonus"`
+	ShieldBypassBonus   *float64 `json:"shield_bypass_bonus"`
 
 	// Mining fields
 	MiningPower int `json:"mining_power"`
@@ -77,6 +80,10 @@ type CatalogItemJSON struct {
 	SurveyPower     *int     `json:"survey_power"`
 	SurveyRange     *int     `json:"survey_range"`
 	TowSpeedPenalty *int     `json:"tow_speed_penalty"`
+	CPUBonus        *int     `json:"cpu_bonus"`
+	MaxFuelBonus    *int     `json:"max_fuel_bonus"`
+	HullPenalty     *int     `json:"hull_penalty"`
+	SpeedPenalty    *int     `json:"speed_penalty"`
 
 	// Power bonus (e.g. reactors)
 	PowerBonus int `json:"power_bonus"`
@@ -87,17 +94,30 @@ type CatalogItemJSON struct {
 	// Region lock
 	RegionLock []string `json:"region_lock"`
 
+	// Item-level requirements and flags
+	ExtractedBy    string         `json:"extracted_by"`
+	QuestItem      bool           `json:"quest_item"`
+	RequiredSkills map[string]int `json:"required_skills"`
+
+	// Passenger berths (passenger-hauler modules)
+	PassengerEconomyBerths  int `json:"passenger_economy_berths"`
+	PassengerBusinessBerths int `json:"passenger_business_berths"`
+	PassengerFirstBerths    int `json:"passenger_first_berths"`
+
 	// Consumable effect (nested JSON object)
 	Effect *EffectJSON `json:"effect"`
 }
 
-// EffectJSON represents the nested effect object on consumable items.
+// EffectJSON represents the nested effect object on consumable/ammo items.
+// Ammo holds projectile modifiers with mixed numeric/bool values, kept generic
+// so new server-side modifiers survive import without code changes.
 type EffectJSON struct {
-	Type     string `json:"type"`
-	Subtype  string `json:"subtype"`
-	Amount   *int   `json:"amount"`
-	Duration *int   `json:"duration"`
-	Stat     string `json:"stat"`
+	Type     string         `json:"type"`
+	Subtype  string         `json:"subtype"`
+	Amount   *int           `json:"amount"`
+	Duration *int           `json:"duration"`
+	Stat     string         `json:"stat"`
+	Ammo     map[string]any `json:"ammo"`
 }
 
 func main() {
@@ -205,6 +225,14 @@ func convertItem(j CatalogItemJSON) knowledge.CatalogItem {
 		Tradeable:   tradeable,
 		Hazardous:   j.Hazardous,
 		PowerBonus:  j.PowerBonus,
+
+		QuestItem:               j.QuestItem,
+		ExtractedBy:             j.ExtractedBy,
+		RequiredSkills:          j.RequiredSkills,
+		RegionLock:              j.RegionLock,
+		PassengerEconomyBerths:  j.PassengerEconomyBerths,
+		PassengerBusinessBerths: j.PassengerBusinessBerths,
+		PassengerFirstBerths:    j.PassengerFirstBerths,
 	}
 
 	// Modules have type/type_id set; use type_id as the canonical ID.
@@ -219,7 +247,8 @@ func convertItem(j CatalogItemJSON) knowledge.CatalogItem {
 	if j.Effect != nil {
 		if j.Effect.Type == "ammo" {
 			item.Ammo = &knowledge.ItemAmmo{
-				AmmoType: j.Effect.Subtype,
+				AmmoType:  j.Effect.Subtype,
+				Modifiers: j.Effect.Ammo,
 			}
 		} else {
 			item.ConsumableEffect = &knowledge.ItemConsumableEffect{
@@ -239,6 +268,7 @@ func convertModule(j CatalogItemJSON) *knowledge.ItemModule {
 	m := &knowledge.ItemModule{
 		Type:       j.Type,
 		TypeID:     j.TypeID,
+		Slot:       j.Slot,
 		CPUUsage:   j.CPUUsage,
 		PowerUsage: j.PowerUsage,
 		Hidden:     j.Hidden,
@@ -255,6 +285,8 @@ func convertModule(j CatalogItemJSON) *knowledge.ItemModule {
 			Cooldown:     j.Cooldown,
 			AmmoType:     j.AmmoType,
 			MagazineSize: j.MagazineSize,
+			ArmorBypassBonus:  j.ArmorBypassBonus,
+			ShieldBypassBonus: j.ShieldBypassBonus,
 		}
 	case "defense":
 		m.Defense = &knowledge.ItemDefense{
@@ -293,6 +325,10 @@ func convertModule(j CatalogItemJSON) *knowledge.ItemModule {
 			SurveyPower:     j.SurveyPower,
 			SurveyRange:     j.SurveyRange,
 			TowSpeedPenalty: j.TowSpeedPenalty,
+			CPUBonus:        j.CPUBonus,
+			MaxFuelBonus:    j.MaxFuelBonus,
+			HullPenalty:     j.HullPenalty,
+			SpeedPenalty:    j.SpeedPenalty,
 			Cooldown:        intPtrIfNonZero(j.Cooldown),
 		}
 	}

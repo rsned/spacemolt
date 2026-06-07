@@ -25,6 +25,9 @@ type RecipeJSON struct {
 	SkillQualityMod int                   `json:"skill_quality_mod"`
 	RequiredSkills  map[string]int        `json:"required_skills"`
 	Hidden          bool                  `json:"hidden"`
+	FacilityOnly    bool                  `json:"facility_only"`
+	NoRecycle       bool                  `json:"no_recycle"`
+	FuelOutput      int                   `json:"fuel_output"`
 	Inputs          []RecipeIngredientJSON `json:"inputs"`
 	Outputs         []RecipeProductJSON    `json:"outputs"`
 }
@@ -109,6 +112,9 @@ func main() {
 			SkillQualityMod: r.SkillQualityMod,
 			RequiredSkills:  r.RequiredSkills,
 			Hidden:          r.Hidden,
+			FacilityOnly:    r.FacilityOnly,
+			NoRecycle:       r.NoRecycle,
+			FuelOutput:      r.FuelOutput,
 			Inputs:          inputs,
 			Outputs:         outputs,
 			LastUpdatedTick: 0,

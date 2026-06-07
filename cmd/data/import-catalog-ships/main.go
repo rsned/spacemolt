@@ -43,6 +43,12 @@ type ShipClassJSON struct {
 	ShipyardTier       int                 `json:"shipyard_tier"`
 	StarterShip        bool                `json:"starter_ship"`
 	TowSpeedBonus      int                 `json:"tow_speed_bonus"`
+	BasedOn            string              `json:"based_on"`
+	NPCRole            string              `json:"npc_role"`
+	Special            string              `json:"special"`
+	RequiredReputation int                 `json:"required_reputation"`
+	PilotingRequired   int                 `json:"piloting_required"`
+	InherentCapabilities []ShipCapabilityJSON `json:"inherent_capabilities"`
 	RequiredSkills     map[string]int      `json:"required_skills"`
 	DefaultModules     []string            `json:"default_modules"`
 	FlavorTags         []string            `json:"flavor_tags"`
@@ -54,6 +60,13 @@ type ShipClassJSON struct {
 type BuildMaterialJSON struct {
 	ItemID   string `json:"item_id"`
 	Quantity int    `json:"quantity"`
+}
+
+// ShipCapabilityJSON represents a built-in ship capability from JSON
+type ShipCapabilityJSON struct {
+	Type  string `json:"type"`
+	Value int    `json:"value"`
+	Flag  string `json:"flag"`
 }
 
 func main() {
@@ -104,6 +117,15 @@ func main() {
 			}
 		}
 
+		capabilities := make([]knowledge.ShipCapability, len(sc.InherentCapabilities))
+		for j, c := range sc.InherentCapabilities {
+			capabilities[j] = knowledge.ShipCapability{
+				Type:  c.Type,
+				Value: c.Value,
+				Flag:  c.Flag,
+			}
+		}
+
 		classes[i] = knowledge.ShipClassDef{
 			ID:                 sc.ID,
 			Name:               sc.Name,
@@ -131,6 +153,12 @@ func main() {
 			ShipyardTier:       sc.ShipyardTier,
 			StarterShip:        sc.StarterShip,
 			TowSpeedBonus:      sc.TowSpeedBonus,
+			BasedOn:            sc.BasedOn,
+			NPCRole:            sc.NPCRole,
+			Special:            sc.Special,
+			RequiredReputation: sc.RequiredReputation,
+			PilotingRequired:   sc.PilotingRequired,
+			InherentCapabilities: capabilities,
 			RequiredSkills:     sc.RequiredSkills,
 			DefaultModules:     sc.DefaultModules,
 			FlavorTags:         sc.FlavorTags,

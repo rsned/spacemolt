@@ -14,6 +14,17 @@ type CatalogItem struct {
 	Hazardous   bool
 	PowerBonus  int
 
+	// Item-level requirements and flags.
+	QuestItem      bool
+	ExtractedBy    string
+	RequiredSkills map[string]int
+	RegionLock     []string
+
+	// Passenger berths (passenger-hauler modules).
+	PassengerEconomyBerths  int
+	PassengerBusinessBerths int
+	PassengerFirstBerths    int
+
 	// Module detail (non-nil when item is a ship module)
 	Module *ItemModule
 	// Consumable effect detail (non-nil when item has a non-ammo effect)
@@ -26,6 +37,7 @@ type CatalogItem struct {
 type ItemModule struct {
 	Type       string // "weapon", "defense", "mining", "utility"
 	TypeID     string // server-assigned module identifier
+	Slot       string // fitting slot the module occupies
 	CPUUsage   int
 	PowerUsage int
 	Hidden     bool
@@ -47,6 +59,8 @@ type ItemWeapon struct {
 	Cooldown     int
 	AmmoType     string // empty for energy weapons
 	MagazineSize *int   // nil when AmmoType is empty
+	ArmorBypassBonus  *float64 // fraction of armor ignored
+	ShieldBypassBonus *float64 // fraction of shield ignored
 }
 
 // ItemDefense holds defense-module-specific attributes.
@@ -88,6 +102,10 @@ type ItemUtility struct {
 	SurveyPower     *int
 	SurveyRange     *int
 	TowSpeedPenalty *int
+	CPUBonus        *int
+	MaxFuelBonus    *int
+	HullPenalty     *int
+	SpeedPenalty    *int
 	Cooldown        *int
 }
 
@@ -103,6 +121,10 @@ type ItemConsumableEffect struct {
 // ItemAmmo holds ammunition type data.
 type ItemAmmo struct {
 	AmmoType string // "autocannon", "missile", "railgun", "plasma", "em_charge", "torpedo", "mine", "void_core"
+	// Modifiers holds projectile stat modifiers (damage_mod, armor_bypass,
+	// dot_pct, untraceable, ...) as a generic map. Stored as JSON because the
+	// set is sparse and the server adds modifiers over time.
+	Modifiers map[string]any
 }
 
 // ShipClassDef represents a ship class definition stored in the knowledge base.
@@ -133,6 +155,12 @@ type ShipClassDef struct {
 	ShipyardTier       int
 	StarterShip        bool
 	TowSpeedBonus      int
+	BasedOn            string
+	NPCRole            string
+	Special            string
+	RequiredReputation int
+	PilotingRequired   int
+	InherentCapabilities []ShipCapability
 	RequiredSkills     map[string]int
 	DefaultModules     []string
 	FlavorTags         []string
@@ -145,6 +173,14 @@ type ShipClassDef struct {
 type BuildMaterial struct {
 	ItemID   string
 	Quantity int
+}
+
+// ShipCapability is a built-in ability granted by a ship class
+// (e.g. passenger berths, integrated survey scanner, yield bonuses).
+type ShipCapability struct {
+	Type  string
+	Value int
+	Flag  string
 }
 
 // RecipeDef represents a crafting recipe stored in the knowledge base.
@@ -160,6 +196,9 @@ type RecipeDef struct {
 	Inputs          []RecipeIngredient
 	Outputs         []RecipeProduct
 	Hidden          bool
+	FacilityOnly    bool
+	NoRecycle       bool
+	FuelOutput      int
 	LastUpdatedTick int64
 }
 

@@ -391,6 +391,46 @@ func migrations() []Migration {
 				);
 			`,
 		},
+		{
+			// Catalog field refresh: surface module/combat/economy stats the
+			// server added (passenger berths, bypass bonuses, slot, quest/region
+			// flags, ship capabilities, recipe facility/fuel flags). Import tools
+			// decode these; columns let the agent KB persist and query them.
+			version: 42,
+			name:    "add_catalog_stat_fields",
+			sql: `
+				ALTER TABLE items ADD COLUMN quest_item BOOLEAN NOT NULL DEFAULT 0;
+				ALTER TABLE items ADD COLUMN extracted_by TEXT;
+				ALTER TABLE items ADD COLUMN required_skills TEXT;
+				ALTER TABLE items ADD COLUMN region_lock TEXT;
+				ALTER TABLE items ADD COLUMN passenger_economy_berths INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE items ADD COLUMN passenger_business_berths INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE items ADD COLUMN passenger_first_berths INTEGER NOT NULL DEFAULT 0;
+
+				ALTER TABLE item_modules ADD COLUMN slot TEXT;
+
+				ALTER TABLE item_weapons ADD COLUMN armor_bypass_bonus REAL;
+				ALTER TABLE item_weapons ADD COLUMN shield_bypass_bonus REAL;
+
+				ALTER TABLE item_utilities ADD COLUMN cpu_bonus INTEGER;
+				ALTER TABLE item_utilities ADD COLUMN max_fuel_bonus INTEGER;
+				ALTER TABLE item_utilities ADD COLUMN hull_penalty INTEGER;
+				ALTER TABLE item_utilities ADD COLUMN speed_penalty INTEGER;
+
+				ALTER TABLE item_ammo ADD COLUMN modifiers TEXT;
+
+				ALTER TABLE recipes ADD COLUMN facility_only BOOLEAN NOT NULL DEFAULT 0;
+				ALTER TABLE recipes ADD COLUMN no_recycle BOOLEAN NOT NULL DEFAULT 0;
+				ALTER TABLE recipes ADD COLUMN fuel_output INTEGER NOT NULL DEFAULT 0;
+
+				ALTER TABLE ships ADD COLUMN based_on TEXT;
+				ALTER TABLE ships ADD COLUMN npc_role TEXT;
+				ALTER TABLE ships ADD COLUMN special TEXT;
+				ALTER TABLE ships ADD COLUMN required_reputation INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE ships ADD COLUMN piloting_required INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE ships ADD COLUMN inherent_capabilities TEXT;
+			`,
+		},
 	}
 }
 
@@ -463,6 +503,28 @@ func runMigrations(db *sql.DB) error {
 				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='pois'`,
 			).Scan(&tableCount); err != nil {
 				return fmt.Errorf("check pois table: %w", err)
+			}
+			if tableCount == 0 {
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 42: the items/recipes/ships catalog tables
+		// come from migration 1 (initial_schema). Narrow migration-test fixtures
+		// fake "migration 1 applied" without creating them, so guard the ALTERs —
+		// if items is absent there's nothing to alter; record as applied.
+		if m.version == 42 {
+			var tableCount int
+			if err := db.QueryRow(
+				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='items'`,
+			).Scan(&tableCount); err != nil {
+				return fmt.Errorf("check items table: %w", err)
 			}
 			if tableCount == 0 {
 				if _, err := db.Exec(
