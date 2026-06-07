@@ -733,6 +733,14 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatGetInsuranceQuote(raw)
 	case "commission_quote":
 		return formatCommissionQuote(raw)
+	case "list_passengers", "passengers":
+		return formatListPassengers(raw)
+	case "list_station_passengers", "station_passengers":
+		return formatStationPassengers(raw)
+	case "load_passenger":
+		return formatLoadPassenger(raw)
+	case "unload_passenger":
+		return formatUnloadPassenger(raw)
 	default:
 		return ""
 	}
