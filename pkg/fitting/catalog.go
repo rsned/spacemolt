@@ -97,6 +97,8 @@ func (c *Catalog) loadShips(path string) error {
 		if err := json.Unmarshal(raw, &rs); err != nil {
 			return fmt.Errorf("parse ship in %s: %w", path, err)
 		}
+		// Direct conversion relies on rawShip and Ship having identical field
+		// layouts; a divergence is caught at compile time. Keep them in sync.
 		c.ships[rs.ID] = Ship(rs)
 	}
 	return nil
@@ -115,6 +117,7 @@ func (c *Catalog) loadModules(path string) error {
 		if rm.Slot == "" { // not a module
 			continue
 		}
+		// Same identical-layout requirement as rawShip/Ship above.
 		c.modules[rm.ID] = Module(rm)
 	}
 	return nil

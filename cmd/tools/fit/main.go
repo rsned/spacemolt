@@ -48,7 +48,9 @@ func runCheck(args []string) {
 	count := fs.Int("count", 0, "optional target count to pass/fail against")
 	eng := fs.Int("eng_skill_level", 0, "Engineering skill level")
 	dir := fs.String("catalog-dir", "data/game-api/latest", "catalog directory")
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2) // flag.ExitOnError already printed the error
+	}
 
 	if *ship == "" || *module == "" {
 		fmt.Fprintln(os.Stderr, "check: --ship and --module are required")
@@ -84,7 +86,9 @@ func runShips(args []string) {
 	count := fs.Int("count", 1, "minimum count required")
 	eng := fs.Int("eng_skill_level", 0, "Engineering skill level")
 	dir := fs.String("catalog-dir", "data/game-api/latest", "catalog directory")
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2) // flag.ExitOnError already printed the error
+	}
 
 	if *module == "" {
 		fmt.Fprintln(os.Stderr, "ships: --module is required")

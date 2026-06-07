@@ -161,6 +161,20 @@ func TestCheckFit_MixedSlots(t *testing.T) {
 	}
 }
 
+func TestCheckFit_EmptyLoadout(t *testing.T) {
+	// An empty loadout uses nothing, so it always fits with no binding constraint.
+	got := CheckFit(cobble(), nil, DefaultEngineering(0))
+	if !got.Fits {
+		t.Fatalf("Fits = false, want true")
+	}
+	if got.BindingConstraint != "" {
+		t.Errorf("BindingConstraint = %q, want empty", got.BindingConstraint)
+	}
+	if got.CPUUsed != 0 || got.PowerUsed != 0 {
+		t.Errorf("CPUUsed/PowerUsed = %d/%d, want 0/0", got.CPUUsed, got.PowerUsed)
+	}
+}
+
 func TestShipsThatFit(t *testing.T) {
 	small := cobble() // 2 utility slots, power 24
 	big := Ship{ID: "big", Name: "Big", CPUCapacity: 200, PowerCapacity: 200,
