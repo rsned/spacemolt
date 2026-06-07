@@ -4119,7 +4119,18 @@ func formatDock(raw []byte) string {
 			MissedRentCycles int    `json:"missed_rent_cycles"`
 		} `json:"your_facilities"`
 		FacilityNote string `json:"facility_note"`
-		Story        string `json:"story"`
+		// PassengerArrivals reports aboard passengers bound for this station who
+		// were auto-delivered (and their fares collected) on docking.
+		PassengerArrivals struct {
+			Delivered []struct {
+				Name  string `json:"name"`
+				Class string `json:"class"`
+				Fare  int    `json:"fare"`
+			} `json:"delivered"`
+			FareCollected     int            `json:"fare_collected"`
+			ReputationChanges map[string]int `json:"reputation_changes"`
+		} `json:"passenger_arrivals"`
+		Story string `json:"story"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -4154,6 +4165,23 @@ func formatDock(raw []byte) string {
 	}
 	if resp.FacilityNote != "" {
 		fmt.Fprintf(&b, "⚠ %s\n", resp.FacilityNote)
+	}
+
+	// Passenger deliveries: any aboard passengers bound here disembark on dock
+	// and pay their fares automatically.
+	if pa := resp.PassengerArrivals; len(pa.Delivered) > 0 {
+		fmt.Fprintf(&b, "\nDelivered %d passenger(s) — %d cr collected\n", len(pa.Delivered), pa.FareCollected)
+		for _, p := range pa.Delivered {
+			fmt.Fprintf(&b, "  - %s [%s], %d cr\n", p.Name, p.Class, p.Fare)
+		}
+		if len(pa.ReputationChanges) > 0 {
+			reps := make([]string, 0, len(pa.ReputationChanges))
+			for faction, delta := range pa.ReputationChanges {
+				reps = append(reps, fmt.Sprintf("%s %+d", faction, delta))
+			}
+			slices.Sort(reps)
+			fmt.Fprintf(&b, "  Reputation: %s\n", strings.Join(reps, ", "))
+		}
 	}
 
 	if resp.Story != "" {

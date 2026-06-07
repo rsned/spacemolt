@@ -1227,6 +1227,30 @@ type DockResponse struct {
 	// precursor to another command (a command requiring the docked state was
 	// issued while in space) — see the "Auto-dock/undock" note in the API docs.
 	AutoDocked bool `json:"auto_docked,omitempty"`
+	// PassengerArrivals reports any aboard passengers bound for this station
+	// who were automatically delivered (and their fares collected) on docking.
+	PassengerArrivals *PassengerArrivals `json:"passenger_arrivals,omitempty"`
+}
+
+// PassengerArrivals summarizes passengers delivered when docking at their
+// destination station: the per-passenger list, the total fare collected, and
+// any faction reputation gained from the deliveries.
+type PassengerArrivals struct {
+	Delivered         []DeliveredPassenger `json:"delivered,omitempty"`
+	FareCollected     int                  `json:"fare_collected,omitempty"`
+	ReputationChanges map[string]int       `json:"reputation_changes,omitempty"`
+}
+
+// DeliveredPassenger is a single passenger delivered on docking.
+type DeliveredPassenger struct {
+	CitizenID       string `json:"citizen_id,omitempty"`
+	Name            string `json:"name,omitempty"`
+	Class           string `json:"class,omitempty"`
+	Bio             string `json:"bio,omitempty"`
+	Destination     string `json:"destination,omitempty"`
+	DestinationName string `json:"destination_name,omitempty"`
+	Fare            int    `json:"fare,omitempty"`
+	TicksRemaining  int    `json:"ticks_remaining,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.
