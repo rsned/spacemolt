@@ -492,6 +492,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"shield_hit":    true,
 		"total_damage":  true,
 		"weapons_fired": true,
+		"xp_gained":     true,
 	},
 	protocol.TypeChatMessage: {
 		"channel":         true,

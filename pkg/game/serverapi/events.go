@@ -88,6 +88,9 @@ type BattleDamage struct {
 	ShieldHit    float64  `json:"shield_hit"`
 	TotalDamage  float64  `json:"total_damage"`
 	WeaponsFired []string `json:"weapons_fired,omitempty"`
+	// XPGained maps skill_id -> xp earned from this hit (e.g. gunnery).
+	// Consistent with the map[string]int xp_gained shape used elsewhere.
+	XPGained map[string]int `json:"xp_gained,omitempty"`
 }
 
 // BattleEndedParticipant is a participant entry in a battle_ended push,
