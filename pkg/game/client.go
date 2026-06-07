@@ -4198,6 +4198,26 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Store passenger feature responses. None carry an "action" field, so
+		// detect each by a distinctive payload key and store under the command
+		// name so play_as's styled formatters (and other lookups) can find them:
+		//   list_station_passengers → "waiting",  list_passengers → "passengers",
+		//   load_passenger → "total_fare",        unload_passenger → "fare_paid".
+		if storeKey == "" {
+			if _, ok := resp.Payload["waiting"]; ok {
+				storeKey = "list_station_passengers"
+				shouldStore = true
+			} else if _, ok := resp.Payload["passengers"]; ok {
+				storeKey = "list_passengers"
+				shouldStore = true
+			} else if _, ok := resp.Payload["total_fare"]; ok {
+				storeKey = "load_passenger"
+				shouldStore = true
+			} else if _, ok := resp.Payload["fare_paid"]; ok {
+				storeKey = "unload_passenger"
+				shouldStore = true
+			}
+		}
 		// Store facility responses. Sync queries (list/types/upgrades/help/
 		// faction_list) come back as type=ok with no command field, so they
 		// fall through here. Async terminals are stored later via the
