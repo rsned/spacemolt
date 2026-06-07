@@ -112,3 +112,51 @@ func TestMaxFit_SkillWarnings(t *testing.T) {
 		t.Errorf("SkillWarnings = %v, want [requires mining 8]", got.SkillWarnings)
 	}
 }
+
+func TestCheckFit_Passes(t *testing.T) {
+	// 1 drone bay on the cobble: utility 1/2, cpu 12/12, power 15/24 -> fits.
+	got := CheckFit(cobble(), []ModuleCount{{Module: droneBay(), Count: 1}}, DefaultEngineering(0))
+	if !got.Fits {
+		t.Fatalf("Fits = false, want true (binding=%q)", got.BindingConstraint)
+	}
+	if got.CPUUsed != 12 || got.PowerUsed != 15 {
+		t.Errorf("CPUUsed/PowerUsed = %d/%d, want 12/15", got.CPUUsed, got.PowerUsed)
+	}
+}
+
+func TestCheckFit_FailsOnPower(t *testing.T) {
+	// 2 drone bays: utility 2/2 ok, power 30 > 24 -> fails on power.
+	got := CheckFit(cobble(), []ModuleCount{{Module: droneBay(), Count: 2}}, DefaultEngineering(0))
+	if got.Fits {
+		t.Fatalf("Fits = true, want false")
+	}
+	if got.BindingConstraint != "power" && got.BindingConstraint != "CPU" {
+		t.Errorf("BindingConstraint = %q, want power or CPU", got.BindingConstraint)
+	}
+}
+
+func TestCheckFit_FailsOnSlots(t *testing.T) {
+	cheap := Module{ID: "x", Type: "utility", Slot: "utility"}
+	got := CheckFit(cobble(), []ModuleCount{{Module: cheap, Count: 3}}, DefaultEngineering(0))
+	if got.Fits {
+		t.Fatalf("Fits = true, want false")
+	}
+	if got.BindingConstraint != "utility slots" {
+		t.Errorf("BindingConstraint = %q, want utility slots", got.BindingConstraint)
+	}
+}
+
+func TestCheckFit_MixedSlots(t *testing.T) {
+	// Zero-cost weapon so the test exercises the mixed-slot path, not CPU/power.
+	weapon := Module{ID: "w", Type: "weapon", Slot: "weapon", CPUUsage: 0, PowerUsage: 0}
+	got := CheckFit(cobble(), []ModuleCount{
+		{Module: droneBay(), Count: 1},
+		{Module: weapon, Count: 1},
+	}, DefaultEngineering(0))
+	if !got.Fits {
+		t.Fatalf("Fits = false, want true (binding=%q)", got.BindingConstraint)
+	}
+	if got.SlotType != "mixed" {
+		t.Errorf("SlotType = %q, want mixed", got.SlotType)
+	}
+}

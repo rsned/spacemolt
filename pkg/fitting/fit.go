@@ -69,3 +69,73 @@ func MaxFit(s Ship, m Module, eng Engineering) FitResult {
 		SkillWarnings:     skillWarnings(m),
 	}
 }
+
+// CheckFit reports whether an arbitrary loadout fits on ship s at the given
+// Engineering level. It checks slot counts per type plus aggregate CPU and
+// power, accounting for capacity-adding modules. The first violated constraint
+// is reported in BindingConstraint.
+func CheckFit(s Ship, loadout []ModuleCount, eng Engineering) FitResult {
+	slotsUsed := map[string]int{}
+	cpuUsed, powerUsed := 0, 0
+	cpuCap, powerCap := s.CPUCapacity, s.PowerCapacity
+	var warnings []string
+	seenWarning := map[string]bool{}
+
+	for _, mc := range loadout {
+		slotsUsed[mc.Module.Slot] += mc.Count
+		cpuUsed += mc.Count * effUsage(mc.Module.CPUUsage, eng.Level, eng.CPUEffPerLevel)
+		powerUsed += mc.Count * effUsage(mc.Module.PowerUsage, eng.Level, eng.PowerEffPerLevel)
+		cpuCap += mc.Count * mc.Module.CPUBonus
+		powerCap += mc.Count * mc.Module.PowerBonus
+		for _, w := range skillWarnings(mc.Module) {
+			if !seenWarning[w] {
+				seenWarning[w] = true
+				warnings = append(warnings, w)
+			}
+		}
+	}
+
+	binding := ""
+	fits := true
+	// Slots first (deterministic order: weapon, defense, utility).
+	for _, slot := range []string{"weapon", "defense", "utility"} {
+		if slotsUsed[slot] > slotCapacity(s, slot) {
+			binding = slotLabel(slot)
+			fits = false
+			break
+		}
+	}
+	if fits && cpuUsed > cpuCap {
+		binding = "CPU"
+		fits = false
+	}
+	if fits && powerUsed > powerCap {
+		binding = "power"
+		fits = false
+	}
+
+	slotType := "mixed"
+	totalSlots := 0
+	if len(slotsUsed) == 1 {
+		for k := range slotsUsed {
+			slotType = k
+			totalSlots = slotsUsed[k]
+		}
+	}
+
+	res := FitResult{
+		Fits:              fits,
+		SlotType:          slotType,
+		CPUUsed:           cpuUsed,
+		CPUAvail:          cpuCap,
+		PowerUsed:         powerUsed,
+		PowerAvail:        powerCap,
+		BindingConstraint: binding,
+		SkillWarnings:     warnings,
+	}
+	if slotType != "mixed" {
+		res.SlotsUsed = totalSlots
+		res.SlotsAvail = slotCapacity(s, slotType)
+	}
+	return res
+}
