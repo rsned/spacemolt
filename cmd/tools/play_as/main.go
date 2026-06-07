@@ -3853,6 +3853,9 @@ func formatActiveMissions(raw []byte) string {
 		Completed   bool   `json:"completed"`
 		Current     int    `json:"current"`
 		Required    int    `json:"required"`
+		// SystemName is the destination system for travel/dock/deliver
+		// objectives; appended to the line so the operator knows where to go.
+		SystemName string `json:"system_name"`
 	}
 	type activeMission struct {
 		MissionID       string            `json:"mission_id"`
@@ -3963,6 +3966,12 @@ func formatActiveMissions(raw []byte) string {
 						mark = "✓"
 					}
 					line := o.Description
+					// Surface the destination system for travel/dock objectives
+					// (e.g. "Travel to Frontier Station in Unknown Edge"), unless
+					// the description already names it.
+					if o.SystemName != "" && !strings.Contains(line, o.SystemName) {
+						line = fmt.Sprintf("%s in %s", line, o.SystemName)
+					}
 					if o.Required > 0 && !o.Completed {
 						line = fmt.Sprintf("%s [%d/%d]", line, o.Current, o.Required)
 					}

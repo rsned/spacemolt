@@ -187,6 +187,30 @@ func TestFormatMissions(t *testing.T) {
 	}
 }
 
+// TestFormatActiveMissions_ObjectiveSystemName guards that travel/dock
+// objectives surface their destination system (e.g. "Travel to Frontier
+// Station in Unknown Edge") while objectives without a system_name (or whose
+// description already names it) are left unchanged.
+func TestFormatActiveMissions_ObjectiveSystemName(t *testing.T) {
+	rawJSON := []byte(`{"max_missions":5,"total_count":2,"missions":[` +
+		`{"type":"exploration","title":"Nebula: Consulting the Voidborn","template_id":"nebula_consulting_the_voidborn","mission_id":"m1","difficulty":5,"percent_complete":0,` +
+		`"objectives":[{"completed":false,"current":0,"required":1,"description":"Travel to Frontier Station","system_name":"Unknown Edge","target_base_name":"Frontier Station","type":"dock_at_base"}]},` +
+		`{"type":"mining","title":"Silicon for the Markets","template_id":"silicon_for_the_markets","mission_id":"m2","difficulty":2,"percent_complete":0,` +
+		`"objectives":[{"completed":false,"current":0,"required":20,"description":"Mine 20 units of Silicon Ore","type":"mine_resource"}]}` +
+		`]}`)
+
+	out := formatActiveMissions(rawJSON)
+
+	// Travel objective gains the destination system and keeps its progress.
+	if !contains(out, "Travel to Frontier Station in Unknown Edge [0/1]") {
+		t.Errorf("expected travel objective to include system name, got:\n%s", out)
+	}
+	// Mining objective has no system_name and must be unchanged (no " in ").
+	if !contains(out, "Mine 20 units of Silicon Ore [0/20]") {
+		t.Errorf("expected mining objective unchanged, got:\n%s", out)
+	}
+}
+
 func TestFormatMissions_Empty(t *testing.T) {
 	rawJSON := []byte(`{
 		"missions": [],
