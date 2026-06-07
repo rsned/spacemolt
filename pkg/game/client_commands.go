@@ -2154,19 +2154,23 @@ func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
 	return err
 }
 
-// RawCommand sends an arbitrary command to the server and blocks until the
-// type=ok ack arrives. Blocking (via Submit+WithAckOnly, the same pattern the
-// dedicated query methods use) ensures the response has been received and
-// cached by storeRawJSON before the caller reads it back — interactive callers
-// like play_as look the response up by command name immediately after this
-// returns, so a fire-and-forget send would race and show nothing.
+// RawCommand sends an arbitrary command to the server and blocks until its
+// terminal response. terminateOnActionOrOK resolves immediately on a
+// synchronous (non-pending) ok — the shape queries return — but waits through
+// a pending:true ack for the real action_result terminal that deferred
+// mutations deliver on the next tick. Blocking ensures the terminal payload
+// has been received and cached by storeRawJSON before the caller reads it
+// back: interactive callers like play_as look the response up by command name
+// immediately after this returns, so a fire-and-forget send (or an ack-only
+// wait, for a deferred mutation) would race and show nothing or the bare
+// "pending" frame instead of the real result.
 func (c *Client) RawCommand(ctx context.Context, command string, args map[string]any) error {
 	msg := protocol.Message{
 		Type:      command,
 		Payload:   args,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
 	if err != nil {
 		return err
 	}

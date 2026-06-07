@@ -7068,6 +7068,44 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "seen_factions":
 		return cmdSeenFactions(ctx, parts[1:])
 
+	// === PASSENGERS ===
+	// The generic passthrough maps positional args to arg1/arg2, but these
+	// commands take named parameters, so they need explicit handlers. RawCommand
+	// blocks on the terminal response (load/unload are deferred mutations whose
+	// real result arrives on the next tick), so the styled formatters render the
+	// actual outcome rather than the bare "pending" ack.
+	case "list_passengers", "passengers":
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "list_passengers", nil)
+		}, ctx, 0, "list_passengers", format)
+
+	case "list_station_passengers", "station_passengers":
+		payload := map[string]any{}
+		if len(parts) > 1 {
+			payload["station"] = strings.Join(parts[1:], " ")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "list_station_passengers", payload)
+		}, ctx, 0, "list_station_passengers", format)
+
+	case "load_passenger":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: load_passenger <destination-station> (loads all waiting passengers bound for that station)")
+		}
+		dest := strings.Join(parts[1:], " ")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "load_passenger", map[string]any{"destination": dest})
+		}, ctx, 0, "load_passenger", format)
+
+	case "unload_passenger":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: unload_passenger <passenger-name-or-citizen-id>")
+		}
+		name := strings.Join(parts[1:], " ")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "unload_passenger", map[string]any{"name": name})
+		}, ctx, 0, "unload_passenger", format)
+
 	default:
 		// Generic passthrough: send any unrecognized command directly to the server.
 		// Parse --key value, --key=value flags, and bare positional args.
