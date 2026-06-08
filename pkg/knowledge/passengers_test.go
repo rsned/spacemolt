@@ -118,6 +118,44 @@ func TestRecordPassengersCoalesceMerge(t *testing.T) {
 	}
 }
 
+func TestListPassengers(t *testing.T) {
+	kb := newTestKB(t)
+	now := time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC)
+	in := []SeenPassenger{
+		{CitizenID: "a", Name: "Zara", Citizenship: "nebula", Bio: "z", Class: "first", SeenAt: now},
+		{CitizenID: "b", Name: "Abe", Citizenship: "crimson", Bio: "a", Class: "economy", SeenAt: now},
+		{CitizenID: "c", Name: "Mira", Citizenship: "nebula", Bio: "m", Class: "business", SeenAt: now},
+	}
+	if err := kb.RecordPassengers(in); err != nil {
+		t.Fatalf("RecordPassengers: %v", err)
+	}
+
+	all, err := kb.ListPassengers(t.Context(), "")
+	if err != nil {
+		t.Fatalf("ListPassengers: %v", err)
+	}
+	if len(all) != 3 {
+		t.Fatalf("got %d, want 3", len(all))
+	}
+	// Ordered by name: Abe, Mira, Zara.
+	if all[0].Name != "Abe" || all[1].Name != "Mira" || all[2].Name != "Zara" {
+		t.Errorf("not name-ordered: %s, %s, %s", all[0].Name, all[1].Name, all[2].Name)
+	}
+
+	nebula, err := kb.ListPassengers(t.Context(), "nebula")
+	if err != nil {
+		t.Fatalf("ListPassengers(nebula): %v", err)
+	}
+	if len(nebula) != 2 {
+		t.Errorf("empire filter: got %d, want 2", len(nebula))
+	}
+	for _, p := range nebula {
+		if p.Citizenship != "nebula" {
+			t.Errorf("empire filter leaked %q", p.Citizenship)
+		}
+	}
+}
+
 func TestGetPassengerNotFound(t *testing.T) {
 	kb := newTestKB(t)
 	got, err := kb.GetPassenger("nobody")

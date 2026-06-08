@@ -7100,6 +7100,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "seen_factions":
 		return cmdSeenFactions(ctx, parts[1:])
 
+	case "passenger", "passenger_catalog":
+		return cmdPassengerCatalog(ctx, parts[1:])
+
 	// === PASSENGERS ===
 	// The generic passthrough maps positional args to arg1/arg2, but these
 	// commands take named parameters, so they need explicit handlers. RawCommand
@@ -8044,6 +8047,7 @@ func printHelp() {
 	fmt.Println("  update_all                - Run all update commands for current location")
 	fmt.Println("  update_faction_data       - Save faction data to KB (must be in a faction)")
 	fmt.Println("  seen_factions [--seed]    - List factions seen on other agents; --seed backfills them into the factions table")
+	fmt.Println("  passenger [<id>] [--empire X] - Browse the stored passenger catalog (Name (id), Empire, Bio); <id> shows full detail")
 
 	fmt.Println("\n=== OTHER ===")
 	fmt.Println("  log <entry>               - Add captain's log entry")

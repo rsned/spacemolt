@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -101,4 +102,50 @@ FROM passengers WHERE citizen_id = ?`, citizenID,
 		out.SeenAt = t
 	}
 	return &out, nil
+}
+
+// ListPassengers returns every stored passenger, ordered by name. When
+// citizenship is non-empty it filters to that empire (case-sensitive match on
+// the stored value).
+func (kb *SQLiteKB) ListPassengers(ctx context.Context, citizenship string) ([]SeenPassenger, error) {
+	query := `
+SELECT citizen_id, name, citizenship, bio, class, last_seen_utc
+FROM passengers`
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if citizenship != "" {
+		query += " WHERE citizenship = ? ORDER BY name"
+		rows, err = kb.db.QueryContext(ctx, query, citizenship)
+	} else {
+		query += " ORDER BY name"
+		rows, err = kb.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("knowledge: list passengers: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []SeenPassenger
+	for rows.Next() {
+		var (
+			p    SeenPassenger
+			cit  sql.NullString
+			bio  sql.NullString
+			cls  sql.NullString
+			last string
+		)
+		if err := rows.Scan(&p.CitizenID, &p.Name, &cit, &bio, &cls, &last); err != nil {
+			return nil, fmt.Errorf("knowledge: scan passenger: %w", err)
+		}
+		p.Citizenship = cit.String
+		p.Bio = bio.String
+		p.Class = cls.String
+		if t, perr := time.Parse(time.RFC3339, last); perr == nil {
+			p.SeenAt = t
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
