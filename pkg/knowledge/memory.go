@@ -1280,3 +1280,9 @@ func (kb *MemoryKB) UpsertMissionTemplate(
 func (kb *MemoryKB) RecordSightings(_ []SeenPlayer) error {
 	return nil
 }
+
+// RecordPassengers is a no-op for the in-memory KB — the passenger catalog is
+// persistent-only state, mirroring RecordSightings.
+func (kb *MemoryKB) RecordPassengers(_ []SeenPassenger) error {
+	return nil
+}

@@ -1241,6 +1241,19 @@ type PassengerArrivals struct {
 	ReputationChanges map[string]int       `json:"reputation_changes,omitempty"`
 }
 
+// PassengerRecord is the identity subset of a passenger shared across every
+// passenger-bearing response (station waiting list, aboard manifest, load
+// result, dock arrivals). Used to populate the knowledge-base passenger
+// catalog; per-listing fields (destination, fare, ticks) are intentionally
+// omitted. Citizenship/Bio are absent from some sources and unmarshal empty.
+type PassengerRecord struct {
+	CitizenID   string `json:"citizen_id"`
+	Name        string `json:"name"`
+	Citizenship string `json:"citizenship"`
+	Bio         string `json:"bio"`
+	Class       string `json:"class"`
+}
+
 // DeliveredPassenger is a single passenger delivered on docking.
 type DeliveredPassenger struct {
 	CitizenID       string `json:"citizen_id,omitempty"`

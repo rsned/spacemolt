@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 14
--- Last Regenerated: 2026-06-07
+-- Migrations applied: 15
+-- Last Regenerated: 2026-06-08
 
 -- ============================================================================
 -- TABLES
@@ -597,6 +597,18 @@ CREATE TABLE mission_templates (
 );
 
 
+CREATE TABLE passengers (
+					citizen_id     TEXT PRIMARY KEY,
+					name           TEXT NOT NULL,
+					citizenship    TEXT,
+					bio            TEXT,
+					class          TEXT,
+					first_seen_utc TEXT NOT NULL,
+					last_seen_utc  TEXT NOT NULL,
+					sighting_count INTEGER NOT NULL DEFAULT 1
+				);
+
+
 CREATE TABLE player_skills (
     player_id TEXT NOT NULL,
     skill_id TEXT NOT NULL,
@@ -1082,6 +1094,10 @@ CREATE INDEX market_buy_orders_station_item ON market_buy_orders(station_id, ite
 
 CREATE INDEX market_demand_history_item ON market_demand_history(item_id, bucket_utc);
 
+CREATE INDEX passengers_citizenship ON passengers(citizenship);
+
+CREATE INDEX passengers_name ON passengers(name);
+
 CREATE INDEX seen_player_ships_class ON seen_player_ships(ship_class);
 
 CREATE INDEX seen_players_faction   ON seen_players(faction_id);
@@ -1113,4 +1129,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (39, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (40, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (41, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (42, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (43, datetime('now'));
 

@@ -145,6 +145,11 @@ type Base interface {
 	// PlayerIDs are dropped. Implementations may choose to no-op (e.g.
 	// the in-memory KB).
 	RecordSightings(obs []SeenPlayer) error
+
+	// RecordPassengers persists a batch of passenger (citizen) observations
+	// into the identity catalog. Empty CitizenIDs are dropped. Implementations
+	// may choose to no-op (e.g. the in-memory KB).
+	RecordPassengers(obs []SeenPassenger) error
 }
 
 // MarketListing represents a single market listing

@@ -139,6 +139,12 @@ type Client struct {
 	playerObserver   PlayerObserver
 	playerObserverMu sync.RWMutex
 
+	// passengerObserver, if set, is invoked for each parsed response payload
+	// containing passenger records (list_station_passengers, list_passengers,
+	// load_passenger, dock arrivals). See pkg/game/observed_passenger.go.
+	passengerObserver   PassengerObserver
+	passengerObserverMu sync.RWMutex
+
 	// Structured call logger for request/response pairs
 	CallLogger      *calllog.Logger
 	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
@@ -425,6 +431,15 @@ func (c *Client) SetPlayerObserver(fn PlayerObserver) {
 	c.playerObserverMu.Lock()
 	defer c.playerObserverMu.Unlock()
 	c.playerObserver = fn
+}
+
+// SetPassengerObserver registers a callback that fires when handleResponse
+// parses a payload containing passenger records. Used by consumers (play_as
+// REPL, agent runners) to persist the passenger catalog into a knowledge base.
+func (c *Client) SetPassengerObserver(fn PassengerObserver) {
+	c.passengerObserverMu.Lock()
+	defer c.passengerObserverMu.Unlock()
+	c.passengerObserver = fn
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
@@ -4218,6 +4233,10 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Emit passenger sightings into the catalog. Additive — independent of
+		// storeKey. list_station_passengers (waiting) is the richest source
+		// (carries empire + bio); the others fill gaps via COALESCE merge.
+		c.notifyPassengersFromPayload(resp.Payload)
 		// Store facility responses. Sync queries (list/types/upgrades/help/
 		// faction_list) come back as type=ok with no command field, so they
 		// fall through here. Async terminals are stored later via the
@@ -4558,6 +4577,9 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			storeKey = cmd
 			shouldStore = true
 		}
+		// Deferred passenger terminals (load_passenger's "loaded", dock's
+		// "passenger_arrivals") arrive as action_results — capture them too.
+		c.notifyPassengersFromPayload(resp.Payload)
 	case protocol.TypeMiningYield:
 		// Newer servers terminate `mine` by pushing a mining_yield event
 		// (carrying quantity, resource, depletion, xp_gained) instead of

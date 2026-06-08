@@ -217,7 +217,11 @@ func main() {
 				backfiller.Start(ctx)
 				globalFactionBackfiller = backfiller
 				agent.WirePlayerObserver(c, sqliteKB, backfiller)
-				logger.Printf("Player-sightings recording + faction backfill enabled")
+				// Build the galaxy-wide passenger catalog from any
+				// passenger-bearing response (station lists, manifests, dock
+				// arrivals) that flows through the client.
+				agent.WirePassengerObserver(c, sqliteKB)
+				logger.Printf("Player-sightings recording + faction backfill + passenger catalog enabled")
 			}
 		}
 	}

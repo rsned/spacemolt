@@ -429,6 +429,28 @@ func migrations() []Migration {
 				ALTER TABLE ships ADD COLUMN required_reputation INTEGER NOT NULL DEFAULT 0;
 				ALTER TABLE ships ADD COLUMN piloting_required INTEGER NOT NULL DEFAULT 0;
 				ALTER TABLE ships ADD COLUMN inherent_capabilities TEXT;
+				`,
+		},
+		{
+			// Passenger catalog: identity-only record of citizens seen as
+			// ferry passengers across the galaxy (Name, Empire/citizenship,
+			// Bio, travel class). Populated passively from passenger-bearing
+			// responses; no per-sighting fare/destination tracking.
+			version: 43,
+			name:    "add_passengers_table",
+			sql: `
+				CREATE TABLE passengers (
+					citizen_id     TEXT PRIMARY KEY,
+					name           TEXT NOT NULL,
+					citizenship    TEXT,
+					bio            TEXT,
+					class          TEXT,
+					first_seen_utc TEXT NOT NULL,
+					last_seen_utc  TEXT NOT NULL,
+					sighting_count INTEGER NOT NULL DEFAULT 1
+				);
+				CREATE INDEX passengers_citizenship ON passengers(citizenship);
+				CREATE INDEX passengers_name ON passengers(name);
 			`,
 		},
 	}
