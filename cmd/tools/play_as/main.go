@@ -4127,9 +4127,10 @@ func formatDock(raw []byte) string {
 		// were auto-delivered (and their fares collected) on docking.
 		PassengerArrivals struct {
 			Delivered []struct {
-				Name  string `json:"name"`
-				Class string `json:"class"`
-				Fare  int    `json:"fare"`
+				Name       string `json:"name"`
+				Class      string `json:"class"`
+				Fare       int    `json:"fare"`
+				SpeedBonus int    `json:"speed_bonus"`
 			} `json:"delivered"`
 			FareCollected     int            `json:"fare_collected"`
 			ReputationChanges map[string]int `json:"reputation_changes"`
@@ -4176,7 +4177,13 @@ func formatDock(raw []byte) string {
 	if pa := resp.PassengerArrivals; len(pa.Delivered) > 0 {
 		fmt.Fprintf(&b, "\nDelivered %d passenger(s) — %d cr collected\n", len(pa.Delivered), pa.FareCollected)
 		for _, p := range pa.Delivered {
-			fmt.Fprintf(&b, "  - %s [%s], %d cr\n", p.Name, p.Class, p.Fare)
+			// fare_collected bundles the base fare and an on-time speed bonus;
+			// split the bonus out so it's clear where the credits came from.
+			if p.SpeedBonus > 0 {
+				fmt.Fprintf(&b, "  - %s [%s], %d cr +%d speed bonus\n", p.Name, p.Class, p.Fare, p.SpeedBonus)
+			} else {
+				fmt.Fprintf(&b, "  - %s [%s], %d cr\n", p.Name, p.Class, p.Fare)
+			}
 		}
 		if len(pa.ReputationChanges) > 0 {
 			reps := make([]string, 0, len(pa.ReputationChanges))

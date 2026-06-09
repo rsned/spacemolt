@@ -59,6 +59,26 @@ func TestFormatStationPassengers_RealSample(t *testing.T) {
 	}
 }
 
+func TestFormatStationPassengers_SystemAndFare(t *testing.T) {
+	raw := `{"count":3,"station":"Grand Exchange Station","waiting":[` +
+		`{"citizen_id":"mabani_perranda","name":"Mabani Perranda","citizenship":"nebula","class":"first","destination":"central_nexus","destination_name":"Central Nexus","destination_system":"Nexus Prime","estimated_fare":17085},` +
+		`{"citizen_id":"embezzler_pratt","name":"Wendell Pratt","citizenship":"nebula","class":"business","destination":"sable_port_station","destination_name":"Sable Port Station","destination_system":"Barnard 44","estimated_fare":9750},` +
+		`{"citizen_id":"kedan_fossari","name":"Kedan Fossari","citizenship":"nebula","class":"economy","destination":"market_prime_exchange","destination_name":"Market Prime Exchange","destination_system":"Market Prime","estimated_fare":297}]}`
+	out := formatStationPassengers([]byte(raw))
+
+	// Destination system appended to the group header after "Name [id]".
+	if !strings.Contains(out, "Central Nexus [central_nexus] · Nexus Prime") {
+		t.Errorf("missing destination system in header, got:\n%s", out)
+	}
+	// Estimated fares rendered with a ~ marker, right-aligned to a shared width
+	// (max digits = 5, so 297 pads to "  297").
+	for _, want := range []string{"~17085 cr", "~ 9750 cr", "~  297 cr"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing estimated fare %q, got:\n%s", want, out)
+		}
+	}
+}
+
 func TestFormatStationPassengers_Empty(t *testing.T) {
 	out := formatStationPassengers([]byte(`{"station":"Frontier Station","count":0,"waiting":[]}`))
 	if !strings.Contains(out, "No passengers waiting at Frontier Station") {

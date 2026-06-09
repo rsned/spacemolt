@@ -1256,14 +1256,18 @@ type PassengerRecord struct {
 
 // DeliveredPassenger is a single passenger delivered on docking.
 type DeliveredPassenger struct {
-	CitizenID       string `json:"citizen_id,omitempty"`
-	Name            string `json:"name,omitempty"`
-	Class           string `json:"class,omitempty"`
-	Bio             string `json:"bio,omitempty"`
-	Destination     string `json:"destination,omitempty"`
-	DestinationName string `json:"destination_name,omitempty"`
-	Fare            int    `json:"fare,omitempty"`
-	TicksRemaining  int    `json:"ticks_remaining,omitempty"`
+	CitizenID         string `json:"citizen_id,omitempty"`
+	Name              string `json:"name,omitempty"`
+	Class             string `json:"class,omitempty"`
+	Bio               string `json:"bio,omitempty"`
+	Destination       string `json:"destination,omitempty"`
+	DestinationName   string `json:"destination_name,omitempty"`
+	DestinationSystem string `json:"destination_system,omitempty"`
+	Fare              int    `json:"fare,omitempty"`
+	// SpeedBonus is the on-time delivery bonus paid on top of Fare; the two
+	// sum into the response's fare_collected total.
+	SpeedBonus     int `json:"speed_bonus,omitempty"`
+	TicksRemaining int `json:"ticks_remaining,omitempty"`
 }
 
 // UndockResponse wraps the response from undock command.

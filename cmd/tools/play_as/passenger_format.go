@@ -10,7 +10,8 @@ import (
 
 // paxItem is the common shape used to render passengers grouped by destination
 // then class, for both list_passengers (aboard) and list_station_passengers
-// (waiting). Fare/Ticks are only meaningful (and shown) for aboard passengers.
+// (waiting). Fare/Ticks are the booked values (aboard); EstFare is the quoted
+// estimate (station waiting list). Each is only shown in its respective view.
 type paxItem struct {
 	Name        string
 	Class       string
@@ -18,9 +19,20 @@ type paxItem struct {
 	CitizenID   string
 	DestName    string
 	DestID      string
+	DestSystem  string
 	Fare        int
 	Ticks       int
+	EstFare     int
 }
+
+// paxFareMode selects which fare column (if any) a passenger view renders.
+type paxFareMode int
+
+const (
+	paxFareNone     paxFareMode = iota // no fare column
+	paxFareEstimate                    // estimated fare only (station waiting list)
+	paxFareBooked                      // booked fare + ticks remaining (aboard manifest)
+)
 
 // paxDestLabel renders a destination group header as "Name [id]". The id is
 // what load_passenger requires, so it must be visible in the listing. Falls
@@ -58,15 +70,20 @@ type paxCols struct {
 
 // renderPaxByDestination renders passengers grouped by destination (alphabetical
 // by name) and, within each destination, by class in classOrder. Passengers are
-// listed by name. When showFare is true each line also shows fare and ticks.
-func renderPaxByDestination(items []paxItem, classOrder []string, showFare bool) string {
-	// Group by destination id (canonical/unique); track the display name per id.
+// listed by name. fareMode selects which fare column (if any) each line shows.
+func renderPaxByDestination(items []paxItem, classOrder []string, fareMode paxFareMode) string {
+	// Group by destination id (canonical/unique); track the display name and
+	// system per id (the system is shared by all passengers to that destination).
 	groups := map[string][]paxItem{}
 	destName := map[string]string{}
+	destSystem := map[string]string{}
 	for _, p := range items {
 		groups[p.DestID] = append(groups[p.DestID], p)
 		if _, ok := destName[p.DestID]; !ok {
 			destName[p.DestID] = p.DestName
+		}
+		if destSystem[p.DestID] == "" {
+			destSystem[p.DestID] = p.DestSystem
 		}
 	}
 	dests := make([]string, 0, len(groups))
@@ -81,20 +98,31 @@ func renderPaxByDestination(items []paxItem, classOrder []string, showFare bool)
 		return strings.Compare(a, c)
 	})
 
-	// Global column widths so columns line up across all groups.
+	// Global column widths so columns line up across all groups. The fare width
+	// tracks whichever fare value the mode will actually print.
 	var cols paxCols
 	for _, p := range items {
 		cols.name = max(cols.name, len(p.Name))
 		cols.cit = max(cols.cit, len(p.Citizenship))
 		cols.citID = max(cols.citID, len(p.CitizenID))
-		cols.fare = max(cols.fare, len(strconv.Itoa(p.Fare)))
-		cols.ticks = max(cols.ticks, len(strconv.Itoa(p.Ticks)))
+		switch fareMode {
+		case paxFareBooked:
+			cols.fare = max(cols.fare, len(strconv.Itoa(p.Fare)))
+			cols.ticks = max(cols.ticks, len(strconv.Itoa(p.Ticks)))
+		case paxFareEstimate:
+			cols.fare = max(cols.fare, len(strconv.Itoa(p.EstFare)))
+		case paxFareNone:
+		}
 	}
 
 	var b strings.Builder
 	for _, d := range dests {
 		grp := groups[d]
-		fmt.Fprintf(&b, "\n%s (%d)\n", paxDestLabel(destName[d], d), len(grp))
+		label := paxDestLabel(destName[d], d)
+		if sys := destSystem[d]; sys != "" {
+			label += " · " + sys
+		}
+		fmt.Fprintf(&b, "\n%s (%d)\n", label, len(grp))
 
 		byClass := map[string][]paxItem{}
 		for _, p := range grp {
@@ -117,7 +145,7 @@ func renderPaxByDestination(items []paxItem, classOrder []string, showFare bool)
 			}
 			fmt.Fprintf(&b, "  %s:\n", classLabel)
 			for _, p := range list {
-				renderPaxLine(&b, p, cols, showFare)
+				renderPaxLine(&b, p, cols, fareMode)
 			}
 		}
 		for _, cls := range classOrder {
@@ -141,12 +169,12 @@ func renderPaxByDestination(items []paxItem, classOrder []string, showFare bool)
 // renderPaxLine writes a single indented passenger line, padded to the shared
 // column widths so columns align across all groups:
 //
-//	    <name>  [<citizenship>]  <citizen_id>   <fare> cr  <ticks>t
+//	    <name>  [<citizenship>]  <citizen_id>   [~]<fare> cr  [<ticks>t]
 //
 // The citizenship column is omitted entirely when no passenger has one (the
-// aboard manifest carries no citizenship). Fare/ticks are right-aligned and
-// only shown when showFare is true.
-func renderPaxLine(b *strings.Builder, p paxItem, cols paxCols, showFare bool) {
+// aboard manifest carries no citizenship). The fare column depends on fareMode:
+// booked fare + ticks (aboard), a ~estimate (station), or nothing.
+func renderPaxLine(b *strings.Builder, p paxItem, cols paxCols, fareMode paxFareMode) {
 	fmt.Fprintf(b, "    %-*s", cols.name, p.Name)
 	if cols.cit > 0 {
 		cit := ""
@@ -156,12 +184,18 @@ func renderPaxLine(b *strings.Builder, p paxItem, cols paxCols, showFare bool) {
 		// cols.cit is the citizenship text width; +2 accounts for the brackets.
 		fmt.Fprintf(b, "  %-*s", cols.cit+2, cit)
 	}
-	if showFare {
+	switch fareMode {
+	case paxFareBooked:
 		// citizen_id is followed by the fare/ticks columns, so pad it; then
-		// append the right-aligned fare/ticks.
+		// append the right-aligned booked fare and ticks remaining.
 		fmt.Fprintf(b, "  %-*s", cols.citID, p.CitizenID)
 		fmt.Fprintf(b, "   %*s cr  %*st", cols.fare, strconv.Itoa(p.Fare), cols.ticks, strconv.Itoa(p.Ticks))
-	} else {
+	case paxFareEstimate:
+		// citizen_id is followed by the estimated fare, so pad it; the leading
+		// ~ marks the fare as a quote, not a booked amount.
+		fmt.Fprintf(b, "  %-*s", cols.citID, p.CitizenID)
+		fmt.Fprintf(b, "   ~%*s cr", cols.fare, strconv.Itoa(p.EstFare))
+	case paxFareNone:
 		// citizen_id is the final column; don't pad it (avoids trailing space).
 		fmt.Fprintf(b, "  %s", p.CitizenID)
 	}
@@ -221,7 +255,7 @@ func formatListPassengers(raw []byte) string {
 			Fare: p.Fare, Ticks: p.TicksRemaining,
 		}
 	}
-	b.WriteString(renderPaxByDestination(items, paxClassOrderAboard, true))
+	b.WriteString(renderPaxByDestination(items, paxClassOrderAboard, paxFareBooked))
 	return b.String()
 }
 
@@ -230,12 +264,14 @@ func formatListPassengers(raw []byte) string {
 func formatStationPassengers(raw []byte) string {
 	raw = unwrapActionResult(raw)
 	type waitingPax struct {
-		CitizenID       string `json:"citizen_id"`
-		Name            string `json:"name"`
-		Citizenship     string `json:"citizenship"`
-		Class           string `json:"class"`
-		Destination     string `json:"destination"`
-		DestinationName string `json:"destination_name"`
+		CitizenID         string `json:"citizen_id"`
+		Name              string `json:"name"`
+		Citizenship       string `json:"citizenship"`
+		Class             string `json:"class"`
+		Destination       string `json:"destination"`
+		DestinationName   string `json:"destination_name"`
+		DestinationSystem string `json:"destination_system"`
+		EstimatedFare     int    `json:"estimated_fare"`
 	}
 	var resp struct {
 		Station string       `json:"station"`
@@ -261,13 +297,24 @@ func formatStationPassengers(raw []byte) string {
 	fmt.Fprintf(&b, "Passengers waiting at %s — %d total\n", station, len(resp.Waiting))
 
 	items := make([]paxItem, len(resp.Waiting))
+	anyFare := false
 	for i, w := range resp.Waiting {
 		items[i] = paxItem{
 			Name: w.Name, Class: w.Class, Citizenship: w.Citizenship,
 			CitizenID: w.CitizenID, DestName: w.DestinationName, DestID: w.Destination,
+			DestSystem: w.DestinationSystem, EstFare: w.EstimatedFare,
+		}
+		if w.EstimatedFare > 0 {
+			anyFare = true
 		}
 	}
-	b.WriteString(renderPaxByDestination(items, paxClassOrderStation, false))
+	// Older servers omit estimated_fare; only render the fare column when at
+	// least one passenger carries a quote (avoids a column of "~0 cr").
+	mode := paxFareNone
+	if anyFare {
+		mode = paxFareEstimate
+	}
+	b.WriteString(renderPaxByDestination(items, paxClassOrderStation, mode))
 	return b.String()
 }
 
