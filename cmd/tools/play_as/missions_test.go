@@ -211,6 +211,24 @@ func TestFormatActiveMissions_ObjectiveSystemName(t *testing.T) {
 	}
 }
 
+// The server reports percent_complete as a fractional float (e.g. 33.333…). A
+// previous int field made json.Unmarshal fail and the formatter fall back to
+// raw JSON. Guard that it decodes and rounds.
+func TestFormatActiveMissions_FractionalPercent(t *testing.T) {
+	rawJSON := []byte(`{"max_missions":5,"total_count":1,"missions":[` +
+		`{"type":"exploration","title":"Grand Tour","template_id":"grand_tour","mission_id":"m1","difficulty":5,"percent_complete":33.333333333333336,` +
+		`"objectives":[{"completed":true,"current":1,"required":1,"description":"Visit Krynn","system_name":"Krynn","type":"visit_system"}]}` +
+		`]}`)
+
+	out := formatActiveMissions(rawJSON)
+	if out == "" {
+		t.Fatal("formatActiveMissions returned empty (fractional percent broke decode)")
+	}
+	if !contains(out, "33% complete") {
+		t.Errorf("expected rounded '33%% complete', got:\n%s", out)
+	}
+}
+
 func TestFormatMissions_Empty(t *testing.T) {
 	rawJSON := []byte(`{
 		"missions": [],

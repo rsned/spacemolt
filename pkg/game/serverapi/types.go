@@ -1084,11 +1084,13 @@ type ActiveMissionObjective struct {
 
 // ActiveMissionProgress tracks overall mission progress.
 type ActiveMissionProgress struct {
-	PercentComplete int `json:"percent_complete,omitempty"`
-	ItemsDelivered  int `json:"items_delivered,omitempty"`
-	ItemsMined      int `json:"items_mined,omitempty"`
-	KillsAchieved   int `json:"kills_achieved,omitempty"`
-	SystemsVisited  int `json:"systems_visited,omitempty"`
+	// PercentComplete is fractional on the wire (e.g. 33.333…); a float so the
+	// decode doesn't fail.
+	PercentComplete float64 `json:"percent_complete,omitempty"`
+	ItemsDelivered  int     `json:"items_delivered,omitempty"`
+	ItemsMined      int     `json:"items_mined,omitempty"`
+	KillsAchieved   int     `json:"kills_achieved,omitempty"`
+	SystemsVisited  int     `json:"systems_visited,omitempty"`
 }
 
 // FactionSummary represents a faction in lists and references.

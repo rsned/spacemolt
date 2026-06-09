@@ -3876,8 +3876,10 @@ func formatActiveMissions(raw []byte) string {
 		Title           string            `json:"title"`
 		Description     string            `json:"description"`
 		Difficulty      int               `json:"difficulty"`
-		PercentComplete int               `json:"percent_complete"`
-		ExpiresInTicks  int               `json:"expires_in_ticks"`
+		// PercentComplete is fractional on the wire (e.g. 33.333…); keep it a
+		// float so the decode doesn't fail, and round when rendering.
+		PercentComplete float64 `json:"percent_complete"`
+		ExpiresInTicks  int     `json:"expires_in_ticks"`
 		AcceptedAt      string            `json:"accepted_at"`
 		Objectives      []activeObjective `json:"objectives"`
 		Rewards         *struct {
@@ -3942,7 +3944,7 @@ func formatActiveMissions(raw []byte) string {
 			if displayID == "" {
 				displayID = m.MissionID
 			}
-			fmt.Fprintf(&b, "%s - (%s) — %d%% complete\n", m.Title, displayID, m.PercentComplete)
+			fmt.Fprintf(&b, "%s - (%s) — %.0f%% complete\n", m.Title, displayID, m.PercentComplete)
 			fmt.Fprintf(&b, "%s\n", strings.Repeat("-", len(m.Title)+len(displayID)+20))
 			if m.MissionID != "" && m.MissionID != displayID {
 				fmt.Fprintf(&b, "Mission ID:  %s  (use with complete_mission/abandon_mission)\n", m.MissionID)
