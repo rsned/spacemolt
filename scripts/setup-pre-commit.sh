@@ -49,11 +49,12 @@ echo "  ✓ Build passed"
 echo "[2/3] Running tests with race detector..."
 for pkg in $PACKAGES; do
     if [ -d "${pkg#./}" ]; then
-        # pkg/game has a large race-instrumented suite (many WebSocket tests
-        # with multi-second teardown waits) that runs ~2min; give it headroom.
+        # pkg/game and pkg/knowledge have large race-instrumented suites
+        # (WebSocket teardown waits; hundreds of SQLite-backed cases) that run
+        # ~2-3min under -race; give them headroom.
         pkg_timeout=120s
         case "$pkg" in
-            ./pkg/game) pkg_timeout=300s ;;
+            ./pkg/game | ./pkg/knowledge) pkg_timeout=300s ;;
         esac
         echo "  Testing $pkg (timeout ${pkg_timeout})..."
         if ! go test -race -count=1 -timeout="$pkg_timeout" "$pkg" 2>&1; then
