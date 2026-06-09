@@ -453,6 +453,46 @@ func migrations() []Migration {
 				CREATE INDEX passengers_name ON passengers(name);
 			`,
 		},
+		{
+			// Sell-side market capture: mirror of the buy-side demand tables
+			// (market_buy_orders + market_demand_history). market_sell_orders is
+			// the current per-station snapshot (replaced per station each
+			// capture); market_supply_history is the hourly time series. Both
+			// populated alongside demand from the same view_market read.
+			version: 44,
+			name:    "add_market_sell_supply_tables",
+			sql: `
+				CREATE TABLE market_sell_orders (
+					station_id    TEXT NOT NULL,
+					system_id     TEXT,
+					item_id       TEXT NOT NULL,
+					item_name     TEXT,
+					price_each    REAL NOT NULL DEFAULT 0,
+					quantity      REAL NOT NULL DEFAULT 0,
+					my_quantity   REAL NOT NULL DEFAULT 0,
+					source        TEXT,
+					captured_utc  TEXT NOT NULL
+				);
+				CREATE INDEX market_sell_orders_station_item ON market_sell_orders(station_id, item_id);
+				CREATE INDEX market_sell_orders_item ON market_sell_orders(item_id);
+
+				CREATE TABLE market_supply_history (
+					station_id     TEXT NOT NULL,
+					system_id      TEXT,
+					item_id        TEXT NOT NULL,
+					item_name      TEXT,
+					bucket_utc     TEXT NOT NULL,
+					captured_utc   TEXT NOT NULL,
+					best_price     REAL NOT NULL DEFAULT 0,
+					total_qty      REAL NOT NULL DEFAULT 0,
+					sm_best_price  REAL NOT NULL DEFAULT 0,
+					sm_qty         REAL NOT NULL DEFAULT 0,
+					order_count    INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (station_id, item_id, bucket_utc)
+				);
+				CREATE INDEX market_supply_history_item ON market_supply_history(item_id, bucket_utc);
+			`,
+		},
 	}
 }
 

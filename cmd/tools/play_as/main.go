@@ -5052,7 +5052,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			// Best-effort: pull the local market so the demand ledger fills as
 			// you travel. Stations without a market simply error and are ignored.
 			if mErr := client.GetListings(ctx); mErr == nil {
-				captureDemand(client, ctx)
+				captureMarket(client, ctx)
 			}
 		}
 		return err
@@ -5279,7 +5279,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			err := simpleCommand(client, func(ctx context.Context) error {
 				return client.ViewMarket(ctx, nil)
 			}, ctx, 2*time.Second, cmd, format)
-			captureDemand(client, ctx)
+			captureMarket(client, ctx)
 			return err
 		}
 		// First non-flag arg is item_id; also accept --item_id and --category flags
@@ -5306,7 +5306,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Only the full compact summary (no item_id, no category) feeds the
 		// demand ledger; per-item or category-scoped calls are not captured.
 		if payload["item_id"] == nil && payload["category"] == nil {
-			captureDemand(client, ctx)
+			captureMarket(client, ctx)
 		}
 		return err
 

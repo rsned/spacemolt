@@ -40,7 +40,7 @@ func runSellable(client game.GameClient, ctx context.Context, opts sellableOptio
 		}
 	}
 	// The demand ledger is fed opportunistically whenever we read a market.
-	captureDemand(client, ctx)
+	captureMarket(client, ctx)
 
 	// 2. get_cargo — ship cargo.
 	if err := client.GetCargo(ctx); err != nil {

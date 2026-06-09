@@ -46,6 +46,41 @@ func parseStationBuyOrders(raw []byte, stationID, systemID string, now time.Time
 	return out
 }
 
+// parseStationSellOrders turns a compact view_market response into per-order
+// MarketSellOrderRow values across all items — the supply-side mirror of
+// parseStationBuyOrders. Skips orders with non-positive price or qty.
+func parseStationSellOrders(raw []byte, stationID, systemID string, now time.Time) []knowledge.MarketSellOrderRow {
+	if len(raw) == 0 || stationID == "" {
+		return nil
+	}
+	var resp struct {
+		Items []serverapi.ViewMarketItem `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil
+	}
+	var out []knowledge.MarketSellOrderRow
+	for _, it := range resp.Items {
+		for _, o := range it.SellOrders {
+			if o.PriceEach <= 0 || o.Quantity <= 0 {
+				continue
+			}
+			out = append(out, knowledge.MarketSellOrderRow{
+				StationID:  stationID,
+				SystemID:   systemID,
+				ItemID:     it.ItemID,
+				ItemName:   it.ItemName,
+				PriceEach:  o.PriceEach,
+				Quantity:   o.Quantity,
+				MyQuantity: float64(o.MyQuantity),
+				Source:     o.Source,
+				CapturedAt: now,
+			})
+		}
+	}
+	return out
+}
+
 // demandHistoryBucket is the time-bucket granularity for demand-history samples.
 // Captures within the same bucket upsert the same row (last observation wins).
 const demandHistoryBucket = time.Hour
@@ -120,11 +155,74 @@ func aggregateDemandHistory(orders []knowledge.MarketBuyOrderRow, now time.Time,
 	return out
 }
 
-// captureDemand persists the full source-classified buy-order demand from the
-// client's most recent (full, no-item_id) view_market response, replacing the
-// station's entire order set. Best-effort: silently no-ops when the KB is
-// absent, there is no market data, or the player is not at a station.
-func captureDemand(client game.GameClient, ctx context.Context) {
+// aggregateSupplyHistory collapses per-order sell supply into one
+// SupplyHistorySample per (station, item) — the mirror of aggregateDemandHistory.
+// Unlike demand (where "best" is the highest price), supply BestPrice is the
+// LOWEST (cheapest) sell price across all orders, and SMBestPrice is the
+// cheapest Station-Manager (source=="station") price. Orders with non-positive
+// price or quantity are skipped.
+func aggregateSupplyHistory(orders []knowledge.MarketSellOrderRow, now time.Time, bucket time.Duration) []knowledge.SupplyHistorySample {
+	type acc struct {
+		stationID, systemID, itemID, itemName string
+		best, total, smBest, smQty            float64
+		count                                 int
+	}
+	key := func(s, i string) string { return s + "\x00" + i }
+	order := []string{}
+	m := map[string]*acc{}
+	for _, o := range orders {
+		if o.PriceEach <= 0 || o.Quantity <= 0 {
+			continue
+		}
+		k := key(o.StationID, o.ItemID)
+		a, ok := m[k]
+		if !ok {
+			a = &acc{stationID: o.StationID, systemID: o.SystemID, itemID: o.ItemID, itemName: o.ItemName}
+			m[k] = a
+			order = append(order, k)
+		}
+		a.total += o.Quantity
+		a.count++
+		// Cheapest wins for supply; best==0 means unset (prices are positive).
+		if a.best == 0 || o.PriceEach < a.best {
+			a.best = o.PriceEach
+		}
+		if o.Source == "station" {
+			a.smQty += o.Quantity
+			if a.smBest == 0 || o.PriceEach < a.smBest {
+				a.smBest = o.PriceEach
+			}
+		}
+	}
+	bucketAt := now.UTC().Truncate(bucket)
+	out := make([]knowledge.SupplyHistorySample, 0, len(order))
+	for _, k := range order {
+		a := m[k]
+		out = append(out, knowledge.SupplyHistorySample{
+			StationID:   a.stationID,
+			SystemID:    a.systemID,
+			ItemID:      a.itemID,
+			ItemName:    a.itemName,
+			BucketAt:    bucketAt,
+			CapturedAt:  now,
+			BestPrice:   a.best,
+			TotalQty:    a.total,
+			SMBestPrice: a.smBest,
+			SMQty:       a.smQty,
+			OrderCount:  a.count,
+		})
+	}
+	return out
+}
+
+// captureMarket persists the full source-classified market data from the
+// client's most recent (full, no-item_id) view_market response: buy-order demand
+// into the demand tables and sell-order supply into the supply tables, each
+// replacing the station's entire order set. Best-effort: silently no-ops when
+// the KB is absent, there is no market data, or the player is not at a station.
+// A single freshness gate (keyed on the demand ledger) guards both sides, since
+// they come from the same read.
+func captureMarket(client game.GameClient, ctx context.Context) {
 	if globalKB == nil {
 		return
 	}
@@ -137,15 +235,19 @@ func captureDemand(client game.GameClient, ctx context.Context) {
 		return
 	}
 	now := time.Now()
-	orders := parseStationBuyOrders(client.GetRawJSON("market"), state.CurrentPOI, state.CurrentSystem, now)
-	if len(orders) == 0 {
+	raw := client.GetRawJSON("market")
+	buyOrders := parseStationBuyOrders(raw, state.CurrentPOI, state.CurrentSystem, now)
+	sellOrders := parseStationSellOrders(raw, state.CurrentPOI, state.CurrentSystem, now)
+	if len(buyOrders) == 0 && len(sellOrders) == 0 {
 		return
 	}
-	// Skip both writes if this station's demand was captured recently (possibly by
+	// Skip all writes if this station's market was captured recently (possibly by
 	// another agent) — avoids redundant work across many agents sharing a station.
 	if last, ok, err := sqlite.LatestDemandCapture(ctx, state.CurrentPOI); err == nil && ok && isFresh(last, now, demandFreshness) {
 		return
 	}
-	_ = sqlite.ReplaceStationBuyOrders(ctx, state.CurrentPOI, orders)
-	_ = sqlite.RecordDemandHistory(ctx, aggregateDemandHistory(orders, now, demandHistoryBucket))
+	_ = sqlite.ReplaceStationBuyOrders(ctx, state.CurrentPOI, buyOrders)
+	_ = sqlite.RecordDemandHistory(ctx, aggregateDemandHistory(buyOrders, now, demandHistoryBucket))
+	_ = sqlite.ReplaceStationSellOrders(ctx, state.CurrentPOI, sellOrders)
+	_ = sqlite.RecordSupplyHistory(ctx, aggregateSupplyHistory(sellOrders, now, demandHistoryBucket))
 }

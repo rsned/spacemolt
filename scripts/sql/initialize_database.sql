@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 15
--- Last Regenerated: 2026-06-08
+-- Migrations applied: 16
+-- Last Regenerated: 2026-06-09
 
 -- ============================================================================
 -- TABLES
@@ -524,6 +524,19 @@ CREATE TABLE market_listings (
 );
 
 
+CREATE TABLE market_sell_orders (
+					station_id    TEXT NOT NULL,
+					system_id     TEXT,
+					item_id       TEXT NOT NULL,
+					item_name     TEXT,
+					price_each    REAL NOT NULL DEFAULT 0,
+					quantity      REAL NOT NULL DEFAULT 0,
+					my_quantity   REAL NOT NULL DEFAULT 0,
+					source        TEXT,
+					captured_utc  TEXT NOT NULL
+				);
+
+
 CREATE TABLE market_snapshots (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	system_id TEXT NOT NULL,
@@ -536,6 +549,22 @@ CREATE TABLE market_snapshots (
 	last_updated_tick INTEGER DEFAULT 0,
 	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
 );
+
+
+CREATE TABLE market_supply_history (
+					station_id     TEXT NOT NULL,
+					system_id      TEXT,
+					item_id        TEXT NOT NULL,
+					item_name      TEXT,
+					bucket_utc     TEXT NOT NULL,
+					captured_utc   TEXT NOT NULL,
+					best_price     REAL NOT NULL DEFAULT 0,
+					total_qty      REAL NOT NULL DEFAULT 0,
+					sm_best_price  REAL NOT NULL DEFAULT 0,
+					sm_qty         REAL NOT NULL DEFAULT 0,
+					order_count    INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (station_id, item_id, bucket_utc)
+				);
 
 
 CREATE TABLE mission_objectives (
@@ -1094,6 +1123,12 @@ CREATE INDEX market_buy_orders_station_item ON market_buy_orders(station_id, ite
 
 CREATE INDEX market_demand_history_item ON market_demand_history(item_id, bucket_utc);
 
+CREATE INDEX market_sell_orders_item ON market_sell_orders(item_id);
+
+CREATE INDEX market_sell_orders_station_item ON market_sell_orders(station_id, item_id);
+
+CREATE INDEX market_supply_history_item ON market_supply_history(item_id, bucket_utc);
+
 CREATE INDEX passengers_citizenship ON passengers(citizenship);
 
 CREATE INDEX passengers_name ON passengers(name);
@@ -1130,4 +1165,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (40, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (41, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (42, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (43, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (44, datetime('now'));
 

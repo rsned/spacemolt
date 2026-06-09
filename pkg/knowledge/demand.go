@@ -38,3 +38,38 @@ type DemandHistorySample struct {
 	SMQty       float64   `json:"sm_qty"`
 	OrderCount  int       `json:"order_count"`
 }
+
+// MarketSellOrderRow is a single sell order captured from a view_market
+// response — the supply-side mirror of MarketBuyOrderRow. Source distinguishes
+// Station Manager ("station") supply from player listings (""). MyQuantity is
+// the slice of Quantity the capturing player listed themselves.
+type MarketSellOrderRow struct {
+	StationID  string
+	SystemID   string
+	ItemID     string
+	ItemName   string
+	PriceEach  float64
+	Quantity   float64
+	MyQuantity float64
+	Source     string
+	CapturedAt time.Time
+}
+
+// SupplyHistorySample is one (station, item, hourly bucket) aggregate of
+// sell-order supply, persisted to market_supply_history — the mirror of
+// DemandHistorySample. BestPrice is the LOWEST (cheapest, most attractive to a
+// buyer) sell price across all orders; SMBestPrice is likewise the cheapest of
+// the Station-Manager (source=="station") slice, and SMQty its quantity.
+type SupplyHistorySample struct {
+	StationID   string    `json:"station_id"`
+	SystemID    string    `json:"system_id"`
+	ItemID      string    `json:"item_id"`
+	ItemName    string    `json:"item_name"`
+	BucketAt    time.Time `json:"bucket_at"`
+	CapturedAt  time.Time `json:"captured_at"`
+	BestPrice   float64   `json:"best_price"`
+	TotalQty    float64   `json:"total_qty"`
+	SMBestPrice float64   `json:"sm_best_price"`
+	SMQty       float64   `json:"sm_qty"`
+	OrderCount  int       `json:"order_count"`
+}
