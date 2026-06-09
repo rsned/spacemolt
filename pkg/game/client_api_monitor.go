@@ -200,9 +200,9 @@ var actionResponseTypes = map[string]reflect.Type{
 	"agentlogs":           reflect.TypeOf(serverapi.MessageResponse{}),
 
 	// Bases
-	"build_base":    reflect.TypeOf(serverapi.BuildBaseResponse{}),
-	"attack_base":   reflect.TypeOf(serverapi.AttackBaseResponse{}),
-	"raid_status":   reflect.TypeOf(serverapi.RaidStatusResponse{}),
+	"build_base":      reflect.TypeOf(serverapi.BuildBaseResponse{}),
+	"attack_base":     reflect.TypeOf(serverapi.AttackBaseResponse{}),
+	"raid_status":     reflect.TypeOf(serverapi.RaidStatusResponse{}),
 	"facility":        reflect.TypeOf(serverapi.FacilityResponse{}),
 	"types":           reflect.TypeOf(serverapi.FacilityTypesResponse{}),
 	"facility_list":   reflect.TypeOf(serverapi.FacilityListResponse{}),
@@ -441,6 +441,11 @@ var eventExpectedFields = map[string]map[string]bool{
 		"loot":        true,
 		"message":     true,
 		"xp_gained":   true,
+		"pirate_role": true,
+		"is_boss":     true,
+		"killer":      true,
+		"system_id":   true,
+		"system_name": true,
 	},
 	protocol.TypeCombatUpdate: {
 		"damage":      true,
