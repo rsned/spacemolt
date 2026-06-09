@@ -390,6 +390,9 @@ var eventExpectedFields = map[string]map[string]bool{
 		"code":    true,
 		"command": true,
 		"tick":    true,
+		// Structured error breakdown, e.g. commission_ship/craft
+		// missing_materials lists per-item have/need.
+		"details": true,
 	},
 	protocol.TypeReconnected: {
 		"message":         true,
