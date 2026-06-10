@@ -1,33 +1,33 @@
 {
-  "biography": "Orion North was born on a Voidborn nomad vessel that traveled through regions of space where navigation computers failed and sensors detected impossible readings—the 'vanishing points' where the laws of physics seemed to bend or break. Most Voidborn avoided these areas, but Orion's vessel sought them out, believing that the edge of known space held secrets worth any risk. Orion learned exploration as a survival skill, developing techniques for navigating through unstable regions and detecting dangers before they could kill the unwary. The nickname 'Nebula' comes from his fascination with stellar nurseries—the massive clouds of gas and dust where new stars are born—and his belief that the Voidborn's future lies in finding new places to call home among these cosmic wombs. He's mapped more uncharted systems than any other Voidborn explorer, and his charts are invaluable to nomad fleets seeking resources, refuge, or simply new horizons.\n\nNebula speaks with the rapid, efficient accent of the Voidborn, compressing complex observations into concise bursts of information that other explorers need time to unpack. He has a habit of speaking in navigational coordinates and spatial relationships, describing locations in terms of relative positions and vector mathematics rather than names or landmarks. He's friendly and enthusiastic, but his conversation can be difficult to follow for anyone not used to thinking in three dimensions while simultaneously calculating fuel efficiency and escape vectors. When discovering a new system, he sounds like he's solving a complex puzzle: 'Coordinates confirmed, stability within parameters. That's interesting—that gas giant's orbit is decaying, which means we're looking at a system in transition. Give it fifty thousand years and you'll have a new asteroid belt, maybe a planetary collision. See those readings? That's not background radiation—that's residue from something massive passing through recently. We're not the first explorers here, just the first to leave charts. Mark it, log it, let's keep moving—space doesn't stay still, and neither do we.'",
-  "empire": "voidborn",
+  "biography": "Atlas Anderson was born into the Solarian Empire's prestigious naval academy, where his ancestors have served as officers and explorers for five generations. He graduated at the top of his class and was fast-tracked for command, but he shocked everyone by requesting assignment to deep-space exploration rather than the fleet's prestigious core systems postings. Atlas believes the Solarian Empire's future lies in expanding its boundaries, not consolidating its existing territory, and he's made it his mission to discover and claim new resources for the empire before competitors can reach them. The nickname 'Astro' started as a joke about his obsession with stellar navigation, but Atlas embraced it—he finds wonder in the stars that other explorers treat as mere waypoints. His ship is covered in maps and star charts, and he maintains detailed logs of every system he visits, regardless of whether it contains anything valuable.\n\nAstro speaks with the crisp, authoritative accent of a Solarian naval officer, his voice carrying the natural command of someone born to lead and trained to inspire. He has a habit of using naval terminology and formal address even in casual conversation, and he treats every mission like a military operation—planned, executed, and documented with precision. Despite the formality, there's an underlying enthusiasm in his voice whenever he discusses new discoveries, a childlike wonder that breaks through his military bearing. When discovering a new system, he sounds like a proud captain reporting to his emperor: 'All stations, attention. We have achieved orbit around a previously uncharted star system. Sensors indicate four planetary bodies, an asteroid belt of unusual composition, and what appear to be artificial structures on the third planet. This system is now claimed for the glory of the Solarian Empire. Begin detailed survey immediately. History is watching, people—let's make sure we give them something worth remembering.'",
+  "empire": "solarian",
   "id": "explorer-3",
   "motivations": {
     "primary": "explore_unknown",
-    "secondary": "find_sanctuaries",
-    "tertiary": "map_vanishing_points",
+    "secondary": "claim_for_empire",
+    "tertiary": "make_discoveries",
     "weights": {
-      "explore_unknown": 0.9,
-      "find_sanctuaries": 0.75,
-      "map_vanishing_points": 0.8,
-      "survival": 0.7
+      "claim_for_empire": 0.8,
+      "explore_unknown": 0.95,
+      "make_discoveries": 0.75,
+      "survival": 0.6
     }
   },
-  "name": "Orion 'Nebula' North",
+  "name": "Atlas 'Astro' Anderson",
   "role": "Explorer",
   "skills": {
-    "escape": "advanced",
+    "cartography": "expert",
+    "diplomacy": "intermediate",
+    "exploration": "expert",
     "navigation": "expert",
-    "sensor_analysis": "expert",
-    "stealth": "expert",
-    "survival": "expert"
+    "survival": "advanced"
   },
   "traits": {
-    "adaptability": 0.95,
-    "caution": 0.6,
+    "ambition": 0.85,
+    "caution": 0.5,
     "curiosity": 0.9,
-    "independence": 0.9,
-    "risk_tolerance": 0.7,
-    "survival_instinct": 0.85
+    "determination": 0.9,
+    "patriotism": 0.75,
+    "risk_tolerance": 0.65
   }
 }

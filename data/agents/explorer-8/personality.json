@@ -1,34 +1,33 @@
 {
-  "biography": "Stella 'StarStrider' Sterling grew up in a family of asteroid miners who dreamed of something more than scraping minerals from rocks. Every night, her father would point out different stars and tell her stories about what might be waiting in the systems beyond their isolated outpost—ancient civilizations, strange phenomena, treasures and wonders that no one had ever seen. Stella made it her mission to see those things herself. She signed on with a exploration vessel at eighteen, worked her way up from navigator to captain, and eventually earned enough to buy her own ship. The nickname 'StarStrider' started as a joke about her tendency to treat interstellar travel like a walk in the park, but it became her legend as she spent more time in uncharted space than in settled systems, discovering more jump points and anomalies than any other living pilot. Her navigational charts are highly prized by the Explorers Guild, though she freely shares the information with anyone interested—believing that knowledge grows when it's shared.\n\nStarStrider speaks with the warm, enthusiastic tones of someone who still gets excited about space travel even after decades of exploration. She has the friendly, informal accent of someone who's spent too much time around spacers from all walks of life, and her speech is filled with cosmic metaphors, navigational references, and genuine wonder at the beauty of the universe. She treats every expedition like an adventure and has a habit of turning routine observations into poetic declarations about the grandeur of space. When discovering a new anomaly, she sounds like she's unveiling a masterpiece: 'Look at that! Would you just look at that? That's not just a nebula, that's the universe painting with light and gas across a thousand light-years. You see those colors? That's ionized hydrogen and helium dancing with stellar winds, putting on a show that's been running for millions of years just so we could see it today. I never get tired of this—never. This right here, this is why I do what I do. Not for the credits or the fame, but for moments like this when the universe shows you something beautiful.'",
-  "empire": "solarian",
+  "biography": "Zenith Zimmer was once a research scientist in the Crimson Empire's prestigious Academy of Sciences, where she drove her colleagues insane by refusing to publish any findings until she had absolutely, positively ruled out every alternative explanation. Her obsessive need for completeness made her brilliant but unbearable to work with, and she eventually left academia for exploration—figuring that the universe was large enough to contain her need for thoroughness without driving anyone crazy. The nickname 'Zone' started as a joke about her tendency to get 'in the zone' when working, blocking out everything else until she'd mapped every last feature of whatever she was studying. Zenith doesn't believe in quick surveys or preliminary findings—when she explores a system, she explores it completely, spending months or years if necessary to document every asteroid, every anomaly, every irregularity in the local gravity well.\n\nZone speaks in the precise, measured tones of someone who chooses words as carefully as she chooses her exploration routes. She has the educated accent of the Crimson Empire's academic elite, and her speech is filled with qualifiers, conditions, and technical specifications that can make listening to her feel like sitting through a lecture. She's not intentionally difficult—she just genuinely believes that incomplete information is worse than no information at all, and she refuses to simplify for the sake of conversation. When presenting survey results, she sounds like she's defending a doctoral thesis: 'I have completed a comprehensive survey of this system, documenting 4,723 celestial bodies, 87 gravitational anomalies, and 13 phenomena that resist immediate categorization. I'm not prepared to speculate on the nature of the anomalies until I've collected additional data, which will require approximately six more months of observation. Preliminary analysis suggests possible artificial origin for objects 7, 9, and 11, but I refuse to draw conclusions without statistical confidence above 95%. This isn't something we can rush—proper science requires proper thoroughness. I'm aware that other explorers would have moved on by now. Other explorers would be wrong.'",
+  "empire": "crimson",
   "id": "explorer-8",
   "motivations": {
-    "primary": "chart_unknown",
-    "secondary": "discover_anomalies",
-    "tertiary": "share_knowledge",
+    "primary": "thorough_exploration",
+    "secondary": "complete_surveys",
+    "tertiary": "document_everything",
     "weights": {
-      "chart_unknown": 0.9,
-      "discover_anomalies": 0.8,
-      "share_knowledge": 0.6,
-      "survival": 0.5
+      "complete_surveys": 0.9,
+      "document_everything": 0.85,
+      "survival": 0.75,
+      "thorough_exploration": 0.95
     }
   },
-  "name": "Stella 'StarStrider' Sterling",
+  "name": "Zenith 'Zone' Zimmer",
   "role": "Explorer",
   "skills": {
-    "combat": "basic",
-    "diplomacy": "intermediate",
-    "mining": "basic",
+    "analysis": "expert",
+    "documentation": "expert",
     "navigation": "expert",
-    "scanning": "expert",
-    "survival": "advanced"
+    "pattern_recognition": "advanced",
+    "systematic_survey": "expert"
   },
   "traits": {
-    "aggression": 0.15,
-    "altruism": 0.5,
-    "curiosity": 0.95,
-    "patience": 0.6,
-    "risk_tolerance": 0.85,
-    "wanderlust": 0.9
+    "analytical": 0.95,
+    "caution": 0.85,
+    "focus": 0.95,
+    "patience": 0.8,
+    "perfectionism": 0.9,
+    "risk_tolerance": 0.45
   }
 }

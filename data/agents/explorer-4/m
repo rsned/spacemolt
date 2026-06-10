@@ -2,25 +2,210 @@
 [1m=== Response ===[0m
 {
   "action": "view_market",
-  "base": "Alpha Centauri Colonial Station",
+  "base": "Confederacy Central Command",
   "items": [
+    {
+      "item_id": "armor_piercing_rounds_box",
+      "item_name": "Armor Piercing Rounds Box",
+      "category": "ammo",
+      "sell_orders": [
+        {
+          "price_each": 3,
+          "quantity": 8902
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 3,
+      "best_buy": 0,
+      "sell_quantity": 8902,
+      "sell_price": 3,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "ferrous_slug_case",
+      "item_name": "Ferrous Slug Case",
+      "category": "ammo",
+      "sell_orders": [
+        {
+          "price_each": 85,
+          "quantity": 25
+        },
+        {
+          "price_each": 107,
+          "quantity": 45
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 85,
+      "best_buy": 0,
+      "sell_quantity": 70,
+      "sell_price": 85,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "plasma_cell_pack",
+      "item_name": "Plasma Cell Pack",
+      "category": "ammo",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 25,
+          "quantity": 10
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 25,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 10,
+      "buy_price": 25
+    },
     {
       "item_id": "standard_rounds_box",
       "item_name": "Standard Rounds Box",
       "category": "ammo",
       "sell_orders": [
         {
+          "price_each": 1,
+          "quantity": 11628
+        },
+        {
+          "price_each": 2,
+          "quantity": 3644
+        },
+        {
           "price_each": 3,
-          "quantity": 361
+          "quantity": 31264
+        },
+        {
+          "price_each": 4,
+          "quantity": 155
+        },
+        {
+          "price_each": 5,
+          "quantity": 16
+        },
+        {
+          "price_each": 6,
+          "quantity": 12
+        },
+        {
+          "price_each": 7,
+          "quantity": 11
+        },
+        {
+          "price_each": 8,
+          "quantity": 7
+        },
+        {
+          "price_each": 9,
+          "quantity": 11
+        },
+        {
+          "price_each": 10,
+          "quantity": 7
+        },
+        {
+          "price_each": 14,
+          "quantity": 1990
+        },
+        {
+          "price_each": 15,
+          "quantity": 8
         }
       ],
       "buy_orders": [],
-      "best_sell": 3,
+      "best_sell": 1,
       "best_buy": 0,
-      "sell_quantity": 361,
-      "sell_price": 3,
+      "sell_quantity": 48753,
+      "sell_price": 1,
       "buy_quantity": 0,
       "buy_price": 0
+    },
+    {
+      "item_id": "armor_plate",
+      "item_name": "Armor Plate",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 661,
+          "quantity": 2
+        },
+        {
+          "price_each": 691,
+          "quantity": 1
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 661,
+      "best_buy": 0,
+      "sell_quantity": 3,
+      "sell_price": 661,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "capital_ship_frame",
+      "item_name": "Capital Ship Frame",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 5031,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 5274,
+          "quantity": 3,
+          "source": "station"
+        },
+        {
+          "price_each": 5289,
+          "quantity": 3,
+          "source": "station"
+        },
+        {
+          "price_each": 5326,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 5361,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 5393,
+          "quantity": 8,
+          "source": "station"
+        },
+        {
+          "price_each": 5413,
+          "quantity": 4,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 3990,
+          "quantity": 58,
+          "source": "station"
+        },
+        {
+          "price_each": 2793,
+          "quantity": 84,
+          "source": "station"
+        }
+      ],
+      "best_sell": 5031,
+      "best_buy": 3990,
+      "sell_quantity": 34,
+      "sell_price": 5031,
+      "buy_quantity": 142,
+      "buy_price": 3990,
+      "spread": 1041
     },
     {
       "item_id": "cargo_container",
@@ -28,16 +213,99 @@
       "category": "component",
       "sell_orders": [
         {
-          "price_each": 512,
-          "quantity": 1,
+          "price_each": 103,
+          "quantity": 8
+        },
+        {
+          "price_each": 104,
+          "quantity": 6
+        },
+        {
+          "price_each": 156,
+          "quantity": 16
+        },
+        {
+          "price_each": 164,
+          "quantity": 72
+        },
+        {
+          "price_each": 176,
+          "quantity": 28,
+          "source": "station"
+        },
+        {
+          "price_each": 177,
+          "quantity": 16
+        },
+        {
+          "price_each": 228,
+          "quantity": 13,
+          "source": "station"
+        },
+        {
+          "price_each": 235,
+          "quantity": 10
+        },
+        {
+          "price_each": 273,
+          "quantity": 7
+        },
+        {
+          "price_each": 319,
+          "quantity": 1455,
+          "source": "station"
+        },
+        {
+          "price_each": 329,
+          "quantity": 132,
+          "source": "station"
+        },
+        {
+          "price_each": 339,
+          "quantity": 776,
+          "source": "station"
+        },
+        {
+          "price_each": 342,
+          "quantity": 380,
+          "source": "station"
+        },
+        {
+          "price_each": 352,
+          "quantity": 154,
+          "source": "station"
+        },
+        {
+          "price_each": 414,
+          "quantity": 626,
+          "source": "station"
+        },
+        {
+          "price_each": 427,
+          "quantity": 57,
+          "source": "station"
+        },
+        {
+          "price_each": 440,
+          "quantity": 334,
+          "source": "station"
+        },
+        {
+          "price_each": 444,
+          "quantity": 163,
+          "source": "station"
+        },
+        {
+          "price_each": 457,
+          "quantity": 66,
           "source": "station"
         }
       ],
       "buy_orders": [],
-      "best_sell": 512,
+      "best_sell": 103,
       "best_buy": 0,
-      "sell_quantity": 1,
-      "sell_price": 512,
+      "sell_quantity": 4319,
+      "sell_price": 103,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -47,156 +315,193 @@
       "category": "component",
       "sell_orders": [
         {
-          "price_each": 636,
-          "quantity": 1
+          "price_each": 839,
+          "quantity": 44,
+          "source": "station"
+        },
+        {
+          "price_each": 847,
+          "quantity": 43,
+          "source": "station"
+        },
+        {
+          "price_each": 856,
+          "quantity": 166,
+          "source": "station"
+        },
+        {
+          "price_each": 874,
+          "quantity": 40,
+          "source": "station"
+        },
+        {
+          "price_each": 882,
+          "quantity": 38,
+          "source": "station"
+        },
+        {
+          "price_each": 900,
+          "quantity": 88,
+          "source": "station"
+        },
+        {
+          "price_each": 908,
+          "quantity": 80,
+          "source": "station"
+        },
+        {
+          "price_each": 1026,
+          "quantity": 1,
+          "source": "station"
+        },
+        {
+          "price_each": 1090,
+          "quantity": 19,
+          "source": "station"
+        },
+        {
+          "price_each": 1101,
+          "quantity": 19,
+          "source": "station"
+        },
+        {
+          "price_each": 1112,
+          "quantity": 73,
+          "source": "station"
+        },
+        {
+          "price_each": 1136,
+          "quantity": 18,
+          "source": "station"
+        },
+        {
+          "price_each": 1146,
+          "quantity": 18,
+          "source": "station"
+        },
+        {
+          "price_each": 1170,
+          "quantity": 39,
+          "source": "station"
+        },
+        {
+          "price_each": 1180,
+          "quantity": 36,
+          "source": "station"
+        },
+        {
+          "price_each": 1333,
+          "quantity": 1,
+          "source": "station"
         }
       ],
       "buy_orders": [],
-      "best_sell": 636,
+      "best_sell": 839,
       "best_buy": 0,
-      "sell_quantity": 1,
-      "sell_price": 636,
+      "sell_quantity": 723,
+      "sell_price": 839,
       "buy_quantity": 0,
       "buy_price": 0
     },
     {
-      "item_id": "fury_tempered_plating",
-      "item_name": "Fury-Tempered Plating",
+      "item_id": "engine_core",
+      "item_name": "Engine Core",
       "category": "component",
-      "sell_orders": [],
-      "buy_orders": [
+      "sell_orders": [
         {
-          "price_each": 1554,
-          "quantity": 2,
+          "price_each": 595,
+          "quantity": 15,
           "source": "station"
         },
         {
-          "price_each": 1482,
-          "quantity": 2,
+          "price_each": 607,
+          "quantity": 32,
           "source": "station"
         },
         {
-          "price_each": 1436,
-          "quantity": 1,
+          "price_each": 614,
+          "quantity": 63,
           "source": "station"
         },
         {
-          "price_each": 1426,
-          "quantity": 2,
+          "price_each": 620,
+          "quantity": 15,
           "source": "station"
         },
         {
-          "price_each": 1423,
-          "quantity": 2,
+          "price_each": 626,
+          "quantity": 33,
           "source": "station"
         },
         {
-          "price_each": 1380,
-          "quantity": 2,
-          "source": "station"
-        },
-        {
-          "price_each": 1140,
-          "quantity": 2,
-          "source": "station"
-        },
-        {
-          "price_each": 1105,
-          "quantity": 2,
-          "source": "station"
-        },
-        {
-          "price_each": 1097,
-          "quantity": 2,
-          "source": "station"
-        },
-        {
-          "price_each": 1095,
-          "quantity": 2,
-          "source": "station"
-        },
-        {
-          "price_each": 1062,
-          "quantity": 2,
-          "source": "station"
-        },
-        {
-          "price_each": 798,
-          "quantity": 4,
+          "price_each": 644,
+          "quantity": 30,
           "source": "station"
         },
         {
           "price_each": 773,
-          "quantity": 4,
+          "quantity": 7,
           "source": "station"
         },
         {
-          "price_each": 767,
-          "quantity": 4,
+          "price_each": 789,
+          "quantity": 16,
           "source": "station"
         },
         {
-          "price_each": 766,
-          "quantity": 4,
+          "price_each": 798,
+          "quantity": 29,
           "source": "station"
         },
         {
-          "price_each": 743,
-          "quantity": 4,
+          "price_each": 806,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 813,
+          "quantity": 16,
+          "source": "station"
+        },
+        {
+          "price_each": 837,
+          "quantity": 13,
           "source": "station"
         }
       ],
-      "best_sell": 0,
-      "best_buy": 1554,
-      "sell_quantity": 0,
-      "sell_price": 0,
-      "buy_quantity": 41,
-      "buy_price": 1554
+      "buy_orders": [],
+      "best_sell": 595,
+      "best_buy": 0,
+      "sell_quantity": 276,
+      "sell_price": 595,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
-      "item_id": "galactic_standard_alloy",
-      "item_name": "Galactic Standard Alloy",
+      "item_id": "fuel_tank",
+      "item_name": "Fuel Tank",
       "category": "component",
       "sell_orders": [
         {
-          "price_each": 1743,
+          "price_each": 541,
+          "quantity": 1
+        },
+        {
+          "price_each": 570,
+          "quantity": 1
+        },
+        {
+          "price_each": 627,
           "quantity": 1
         }
       ],
-      "buy_orders": [
-        {
-          "price_each": 1659,
-          "quantity": 1,
-          "source": "station"
-        },
-        {
-          "price_each": 1442,
-          "quantity": 3,
-          "source": "station"
-        },
-        {
-          "price_each": 1412,
-          "quantity": 1,
-          "source": "station"
-        },
-        {
-          "price_each": 1402,
-          "quantity": 4,
-          "source": "station"
-        },
-        {
-          "price_each": 1262,
-          "quantity": 4,
-          "source": "station"
-        }
-      ],
-      "best_sell": 1743,
-      "best_buy": 1659,
-      "sell_quantity": 1,
-      "sell_price": 1743,
-      "buy_quantity": 13,
-      "buy_price": 1659,
-      "spread": 84
+      "buy_orders": [],
+      "best_sell": 541,
+      "best_buy": 0,
+      "sell_quantity": 3,
+      "sell_price": 541,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "hull_plating",
@@ -204,26 +509,24 @@
       "category": "component",
       "sell_orders": [
         {
-          "price_each": 110,
-          "quantity": 48,
+          "price_each": 167,
+          "quantity": 180,
           "source": "station"
         },
         {
-          "price_each": 143,
-          "quantity": 21,
-          "source": "station"
+          "price_each": 209,
+          "quantity": 4
         },
         {
-          "price_each": 178,
-          "quantity": 5,
-          "source": "station"
+          "price_each": 241,
+          "quantity": 1
         }
       ],
       "buy_orders": [],
-      "best_sell": 110,
+      "best_sell": 167,
       "best_buy": 0,
-      "sell_quantity": 74,
-      "sell_price": 110,
+      "sell_quantity": 185,
+      "sell_price": 167,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -235,7 +538,7 @@
       "buy_orders": [
         {
           "price_each": 18,
-          "quantity": 1,
+          "quantity": 2,
           "source": "station"
         }
       ],
@@ -243,8 +546,83 @@
       "best_buy": 18,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 1,
+      "buy_quantity": 2,
       "buy_price": 18
+    },
+    {
+      "item_id": "life_support_array",
+      "item_name": "Life Support Array",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 868,
+          "quantity": 1
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 868,
+      "best_buy": 0,
+      "sell_quantity": 1,
+      "sell_price": 868,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "life_support_unit",
+      "item_name": "Life Support Unit",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 364,
+          "quantity": 732,
+          "source": "station"
+        },
+        {
+          "price_each": 473,
+          "quantity": 354,
+          "source": "station"
+        },
+        {
+          "price_each": 875,
+          "quantity": 35
+        },
+        {
+          "price_each": 2696,
+          "quantity": 293,
+          "source": "station"
+        },
+        {
+          "price_each": 3504,
+          "quantity": 126,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 364,
+      "best_buy": 0,
+      "sell_quantity": 1540,
+      "sell_price": 364,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "navigation_core",
+      "item_name": "Navigation Core",
+      "category": "component",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 840,
+          "quantity": 21,
+          "source": "station"
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 840,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 21,
+      "buy_price": 840
     },
     {
       "item_id": "power_cell",
@@ -253,140 +631,472 @@
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 184,
-          "quantity": 8,
-          "source": "station"
-        },
-        {
-          "price_each": 131,
-          "quantity": 1,
-          "source": "station"
-        },
-        {
-          "price_each": 130,
+          "price_each": 384,
           "quantity": 3,
           "source": "station"
         },
         {
-          "price_each": 128,
-          "quantity": 30,
+          "price_each": 362,
+          "quantity": 6,
           "source": "station"
         },
         {
-          "price_each": 125,
-          "quantity": 15,
+          "price_each": 358,
+          "quantity": 12,
           "source": "station"
         },
         {
-          "price_each": 123,
+          "price_each": 354,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 296,
           "quantity": 14,
           "source": "station"
         },
         {
-          "price_each": 122,
-          "quantity": 6,
+          "price_each": 279,
+          "quantity": 14,
           "source": "station"
         },
         {
-          "price_each": 107,
-          "quantity": 6,
+          "price_each": 276,
+          "quantity": 28,
+          "source": "station"
+        },
+        {
+          "price_each": 273,
+          "quantity": 14,
+          "source": "station"
+        },
+        {
+          "price_each": 207,
+          "quantity": 20,
+          "source": "station"
+        },
+        {
+          "price_each": 195,
+          "quantity": 20,
+          "source": "station"
+        },
+        {
+          "price_each": 193,
+          "quantity": 40,
+          "source": "station"
+        },
+        {
+          "price_each": 191,
+          "quantity": 20,
           "source": "station"
         }
       ],
       "best_sell": 0,
-      "best_buy": 184,
+      "best_buy": 384,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 83,
-      "buy_price": 184
+      "buy_quantity": 197,
+      "buy_price": 384
     },
     {
-      "item_id": "power_distribution_grid",
-      "item_name": "Power Distribution Grid",
+      "item_id": "processing_core",
+      "item_name": "Processing Core",
       "category": "component",
-      "sell_orders": [
+      "sell_orders": [],
+      "buy_orders": [
         {
-          "price_each": 271,
-          "quantity": 2
-        },
-        {
-          "price_each": 624,
-          "quantity": 1,
-          "source": "station"
-        },
-        {
-          "price_each": 811,
-          "quantity": 2,
+          "price_each": 288,
+          "quantity": 5,
           "source": "station"
         }
       ],
-      "buy_orders": [],
-      "best_sell": 271,
-      "best_buy": 0,
-      "sell_quantity": 5,
-      "sell_price": 271,
-      "buy_quantity": 0,
-      "buy_price": 0
+      "best_sell": 0,
+      "best_buy": 288,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 5,
+      "buy_price": 288
     },
     {
-      "item_id": "precision_optic",
-      "item_name": "Precision Optic",
+      "item_id": "reinforced_bulkhead",
+      "item_name": "Reinforced Bulkhead",
       "category": "component",
       "sell_orders": [
+        {
+          "price_each": 974,
+          "quantity": 13,
+          "source": "station"
+        },
+        {
+          "price_each": 985,
+          "quantity": 24,
+          "source": "station"
+        },
+        {
+          "price_each": 996,
+          "quantity": 12,
+          "source": "station"
+        },
         {
           "price_each": 1006,
-          "quantity": 4
+          "quantity": 42,
+          "source": "station"
         },
         {
-          "price_each": 1107,
-          "quantity": 16
+          "price_each": 1027,
+          "quantity": 12,
+          "source": "station"
+        },
+        {
+          "price_each": 1047,
+          "quantity": 25,
+          "source": "station"
+        },
+        {
+          "price_each": 1057,
+          "quantity": 28,
+          "source": "station"
+        },
+        {
+          "price_each": 1266,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 1280,
+          "quantity": 12,
+          "source": "station"
+        },
+        {
+          "price_each": 1294,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 1307,
+          "quantity": 19,
+          "source": "station"
+        },
+        {
+          "price_each": 1335,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 1361,
+          "quantity": 12,
+          "source": "station"
+        },
+        {
+          "price_each": 1374,
+          "quantity": 13,
+          "source": "station"
         }
       ],
       "buy_orders": [],
-      "best_sell": 1006,
+      "best_sell": 974,
       "best_buy": 0,
-      "sell_quantity": 20,
-      "sell_price": 1006,
+      "sell_quantity": 231,
+      "sell_price": 974,
       "buy_quantity": 0,
       "buy_price": 0
     },
     {
-      "item_id": "quantum_stabilizer",
-      "item_name": "Quantum Stabilizer",
+      "item_id": "sensor_array",
+      "item_name": "Sensor Array",
       "category": "component",
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 563,
-          "quantity": 1,
+          "price_each": 350,
+          "quantity": 62,
           "source": "station"
+        },
+        {
+          "price_each": 308,
+          "quantity": 1301,
+          "source": "station"
+        },
+        {
+          "price_each": 220,
+          "quantity": 1
         }
       ],
       "best_sell": 0,
-      "best_buy": 563,
+      "best_buy": 350,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 1,
-      "buy_price": 563
+      "buy_quantity": 1364,
+      "buy_price": 350
     },
     {
-      "item_id": "sensor_cluster",
-      "item_name": "Sensor Cluster",
+      "item_id": "sensor_package",
+      "item_name": "Sensor Package",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 356,
+          "quantity": 103,
+          "source": "station"
+        },
+        {
+          "price_each": 400,
+          "quantity": 114
+        },
+        {
+          "price_each": 445,
+          "quantity": 20
+        },
+        {
+          "price_each": 450,
+          "quantity": 50
+        },
+        {
+          "price_each": 462,
+          "quantity": 40,
+          "source": "station"
+        },
+        {
+          "price_each": 500,
+          "quantity": 30
+        },
+        {
+          "price_each": 2768,
+          "quantity": 575,
+          "source": "station"
+        },
+        {
+          "price_each": 2771,
+          "quantity": 744,
+          "source": "station"
+        },
+        {
+          "price_each": 2833,
+          "quantity": 554,
+          "source": "station"
+        },
+        {
+          "price_each": 2880,
+          "quantity": 286,
+          "source": "station"
+        },
+        {
+          "price_each": 2914,
+          "quantity": 499,
+          "source": "station"
+        },
+        {
+          "price_each": 2930,
+          "quantity": 276,
+          "source": "station"
+        },
+        {
+          "price_each": 2947,
+          "quantity": 247,
+          "source": "station"
+        },
+        {
+          "price_each": 3598,
+          "quantity": 247,
+          "source": "station"
+        },
+        {
+          "price_each": 3602,
+          "quantity": 322,
+          "source": "station"
+        },
+        {
+          "price_each": 3682,
+          "quantity": 238,
+          "source": "station"
+        },
+        {
+          "price_each": 3744,
+          "quantity": 124,
+          "source": "station"
+        },
+        {
+          "price_each": 3788,
+          "quantity": 214,
+          "source": "station"
+        },
+        {
+          "price_each": 3809,
+          "quantity": 120,
+          "source": "station"
+        },
+        {
+          "price_each": 3831,
+          "quantity": 107,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 356,
+      "best_buy": 0,
+      "sell_quantity": 4910,
+      "sell_price": 356,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "shield_array",
+      "item_name": "Shield Array",
       "category": "component",
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 747,
+          "price_each": 2080,
           "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 1600,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 1120,
+          "quantity": 4,
           "source": "station"
         }
       ],
       "best_sell": 0,
-      "best_buy": 747,
+      "best_buy": 2080,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 2,
-      "buy_price": 747
+      "buy_quantity": 8,
+      "buy_price": 2080
+    },
+    {
+      "item_id": "shield_emitter",
+      "item_name": "Shield Emitter",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 1090,
+          "quantity": 62,
+          "source": "station"
+        },
+        {
+          "price_each": 1417,
+          "quantity": 105,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1050,
+          "quantity": 82,
+          "source": "station"
+        },
+        {
+          "price_each": 300,
+          "quantity": 5
+        },
+        {
+          "price_each": 1,
+          "quantity": 1
+        }
+      ],
+      "best_sell": 1090,
+      "best_buy": 1050,
+      "sell_quantity": 167,
+      "sell_price": 1090,
+      "buy_quantity": 88,
+      "buy_price": 1050,
+      "spread": 40
+    },
+    {
+      "item_id": "solarian_logic_matrix",
+      "item_name": "Solarian Logic Matrix",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 4198,
+          "quantity": 12,
+          "source": "station"
+        },
+        {
+          "price_each": 5457,
+          "quantity": 7,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 4198,
+      "best_buy": 0,
+      "sell_quantity": 19,
+      "sell_price": 4198,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "station_reactor_core",
+      "item_name": "Station Reactor Core",
+      "category": "component",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 20800,
+          "quantity": 16,
+          "source": "station"
+        },
+        {
+          "price_each": 16000,
+          "quantity": 36,
+          "source": "station"
+        },
+        {
+          "price_each": 11200,
+          "quantity": 52,
+          "source": "station"
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 20800,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 104,
+      "buy_price": 20800
+    },
+    {
+      "item_id": "thruster_assembly",
+      "item_name": "Thruster Assembly",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 1170,
+          "quantity": 1
+        },
+        {
+          "price_each": 1242,
+          "quantity": 10,
+          "source": "station"
+        },
+        {
+          "price_each": 1266,
+          "quantity": 5,
+          "source": "station"
+        },
+        {
+          "price_each": 1614,
+          "quantity": 5,
+          "source": "station"
+        },
+        {
+          "price_each": 1645,
+          "quantity": 3,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1170,
+      "best_buy": 0,
+      "sell_quantity": 24,
+      "sell_price": 1170,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "thruster_nozzle",
@@ -394,80 +1104,309 @@
       "category": "component",
       "sell_orders": [
         {
-          "price_each": 222,
-          "quantity": 91,
+          "price_each": 271,
+          "quantity": 116,
           "source": "station"
         },
         {
-          "price_each": 318,
-          "quantity": 63,
+          "price_each": 299,
+          "quantity": 191,
           "source": "station"
         },
         {
-          "price_each": 413,
-          "quantity": 28,
+          "price_each": 301,
+          "quantity": 135,
           "source": "station"
+        },
+        {
+          "price_each": 304,
+          "quantity": 217,
+          "source": "station"
+        },
+        {
+          "price_each": 308,
+          "quantity": 142,
+          "source": "station"
+        },
+        {
+          "price_each": 312,
+          "quantity": 227,
+          "source": "station"
+        },
+        {
+          "price_each": 330,
+          "quantity": 102,
+          "source": "station"
+        },
+        {
+          "price_each": 332,
+          "quantity": 205,
+          "source": "station"
+        },
+        {
+          "price_each": 388,
+          "quantity": 83,
+          "source": "station"
+        },
+        {
+          "price_each": 405,
+          "quantity": 98,
+          "source": "station"
+        },
+        {
+          "price_each": 10000,
+          "quantity": 2
         }
       ],
       "buy_orders": [],
-      "best_sell": 222,
+      "best_sell": 271,
       "best_buy": 0,
-      "sell_quantity": 182,
-      "sell_price": 222,
+      "sell_quantity": 1518,
+      "sell_price": 271,
       "buy_quantity": 0,
       "buy_price": 0
     },
     {
-      "item_id": "universal_nav_core",
-      "item_name": "Universal Nav Core",
+      "item_id": "trade_authenticator",
+      "item_name": "Trade Authenticator",
       "category": "component",
-      "sell_orders": [],
-      "buy_orders": [
+      "sell_orders": [
         {
-          "price_each": 4151,
-          "quantity": 1,
-          "source": "station"
+          "price_each": 3450,
+          "quantity": 583
         },
         {
-          "price_each": 2972,
-          "quantity": 3,
-          "source": "station"
+          "price_each": 3500,
+          "quantity": 8
         }
       ],
-      "best_sell": 0,
-      "best_buy": 4151,
-      "sell_quantity": 0,
-      "sell_price": 0,
-      "buy_quantity": 4,
-      "buy_price": 4151
+      "buy_orders": [],
+      "best_sell": 3450,
+      "best_buy": 0,
+      "sell_quantity": 591,
+      "sell_price": 3450,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "voidborn_neural_matrix",
+      "item_name": "Voidborn Neural Matrix",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 32,
+          "quantity": 374
+        },
+        {
+          "price_each": 42,
+          "quantity": 30
+        },
+        {
+          "price_each": 50,
+          "quantity": 66
+        },
+        {
+          "price_each": 53,
+          "quantity": 10
+        },
+        {
+          "price_each": 56,
+          "quantity": 20
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 32,
+      "best_buy": 0,
+      "sell_quantity": 500,
+      "sell_price": 32,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "water_recycler",
+      "item_name": "Water Recycler",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 448,
+          "quantity": 45
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 448,
+      "best_buy": 0,
+      "sell_quantity": 45,
+      "sell_price": 448,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "weapon_housing",
+      "item_name": "Weapon Housing",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 379,
+          "quantity": 3
+        },
+        {
+          "price_each": 474,
+          "quantity": 3
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 379,
+      "best_buy": 0,
+      "sell_quantity": 6,
+      "sell_price": 379,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "wiring_harness",
+      "item_name": "Wiring Harness",
+      "category": "component",
+      "sell_orders": [
+        {
+          "price_each": 111,
+          "quantity": 5
+        },
+        {
+          "price_each": 139,
+          "quantity": 150
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 111,
+      "best_buy": 0,
+      "sell_quantity": 155,
+      "sell_price": 111,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "crimson_bloodwine",
+      "item_name": "Crimson Bloodwine",
+      "category": "consumable",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 213
+        },
+        {
+          "price_each": 2,
+          "quantity": 951
+        },
+        {
+          "price_each": 8,
+          "quantity": 15
+        },
+        {
+          "price_each": 91,
+          "quantity": 43
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1,
+      "best_buy": 0,
+      "sell_quantity": 1222,
+      "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "frontier_rotgut",
+      "item_name": "Frontier Rotgut",
+      "category": "consumable",
+      "sell_orders": [
+        {
+          "price_each": 187,
+          "quantity": 165
+        },
+        {
+          "price_each": 200,
+          "quantity": 10
+        },
+        {
+          "price_each": 221,
+          "quantity": 399
+        },
+        {
+          "price_each": 234,
+          "quantity": 666
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 187,
+      "best_buy": 0,
+      "sell_quantity": 1240,
+      "sell_price": 187,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "fuel_cell",
       "item_name": "Fuel Cell",
       "category": "consumable",
-      "sell_orders": [
+      "sell_orders": [],
+      "buy_orders": [
         {
-          "price_each": 45,
-          "quantity": 364,
+          "price_each": 48,
+          "quantity": 8,
           "source": "station"
         },
         {
-          "price_each": 50,
-          "quantity": 1
+          "price_each": 45,
+          "quantity": 27,
+          "source": "station"
         },
         {
-          "price_each": 58,
-          "quantity": 157,
+          "price_each": 42,
+          "quantity": 9,
+          "source": "station"
+        },
+        {
+          "price_each": 37,
+          "quantity": 18,
+          "source": "station"
+        },
+        {
+          "price_each": 35,
+          "quantity": 43,
+          "source": "station"
+        },
+        {
+          "price_each": 34,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 33,
+          "quantity": 21,
+          "source": "station"
+        },
+        {
+          "price_each": 25,
+          "quantity": 26,
+          "source": "station"
+        },
+        {
+          "price_each": 24,
+          "quantity": 62,
+          "source": "station"
+        },
+        {
+          "price_each": 23,
+          "quantity": 56,
           "source": "station"
         }
       ],
-      "buy_orders": [],
-      "best_sell": 45,
-      "best_buy": 0,
-      "sell_quantity": 522,
-      "sell_price": 45,
-      "buy_quantity": 0,
-      "buy_price": 0
+      "best_sell": 0,
+      "best_buy": 48,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 277,
+      "buy_price": 48
     },
     {
       "item_id": "repair_kit",
@@ -475,51 +1414,494 @@
       "category": "consumable",
       "sell_orders": [
         {
-          "price_each": 90,
-          "quantity": 129,
+          "price_each": 81,
+          "quantity": 166,
           "source": "station"
         },
         {
-          "price_each": 92,
-          "quantity": 344,
+          "price_each": 82,
+          "quantity": 3
+        },
+        {
+          "price_each": 83,
+          "quantity": 177,
           "source": "station"
         },
         {
-          "price_each": 117,
-          "quantity": 56,
+          "price_each": 85,
+          "quantity": 213,
           "source": "station"
         },
         {
-          "price_each": 119,
-          "quantity": 148,
+          "price_each": 87,
+          "quantity": 217,
           "source": "station"
+        },
+        {
+          "price_each": 105,
+          "quantity": 72,
+          "source": "station"
+        },
+        {
+          "price_each": 107,
+          "quantity": 76,
+          "source": "station"
+        },
+        {
+          "price_each": 110,
+          "quantity": 93,
+          "source": "station"
+        },
+        {
+          "price_each": 113,
+          "quantity": 95,
+          "source": "station"
+        },
+        {
+          "price_each": 120,
+          "quantity": 23,
+          "source": "station"
+        },
+        {
+          "price_each": 321,
+          "quantity": 2
+        },
+        {
+          "price_each": 386,
+          "quantity": 2
+        },
+        {
+          "price_each": 400,
+          "quantity": 238
+        },
+        {
+          "price_each": 450,
+          "quantity": 200
         }
       ],
       "buy_orders": [],
-      "best_sell": 90,
+      "best_sell": 81,
       "best_buy": 0,
-      "sell_quantity": 677,
-      "sell_price": 90,
+      "sell_quantity": 1577,
+      "sell_price": 81,
       "buy_quantity": 0,
       "buy_price": 0
     },
     {
-      "item_id": "mining_laser_ii",
-      "item_name": "Mining Laser II",
+      "item_id": "solarian_biotic",
+      "item_name": "Solarian Biotic",
+      "category": "consumable",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 23004,
+          "source": "station"
+        },
+        {
+          "price_each": 2,
+          "quantity": 4060,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1,
+      "best_buy": 0,
+      "sell_quantity": 27064,
+      "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "solarian_gourmet_rations",
+      "item_name": "Solarian Gourmet Rations",
+      "category": "consumable",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 49027,
+          "source": "station"
+        },
+        {
+          "price_each": 2,
+          "quantity": 9004,
+          "source": "station"
+        },
+        {
+          "price_each": 15,
+          "quantity": 20
+        },
+        {
+          "price_each": 20,
+          "quantity": 800
+        },
+        {
+          "price_each": 25,
+          "quantity": 306
+        },
+        {
+          "price_each": 95,
+          "quantity": 142
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1,
+      "best_buy": 0,
+      "sell_quantity": 59299,
+      "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "pirate_bounty_chip",
+      "item_name": "Pirate Bounty Chip",
+      "category": "misc",
+      "sell_orders": [
+        {
+          "price_each": 2200,
+          "quantity": 2
+        },
+        {
+          "price_each": 2750,
+          "quantity": 1
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 2200,
+      "best_buy": 0,
+      "sell_quantity": 3,
+      "sell_price": 2200,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "anomaly_detector",
+      "item_name": "Anomaly Detector",
+      "category": "module",
+      "sell_orders": [
+        {
+          "price_each": 27000,
+          "quantity": 3
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 27000,
+      "best_buy": 0,
+      "sell_quantity": 3,
+      "sell_price": 27000,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "armor_plate_i",
+      "item_name": "Armor Plate I",
+      "category": "module",
+      "sell_orders": [
+        {
+          "price_each": 70,
+          "quantity": 110
+        },
+        {
+          "price_each": 88,
+          "quantity": 148
+        },
+        {
+          "price_each": 300,
+          "quantity": 1
+        },
+        {
+          "price_each": 550,
+          "quantity": 2
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 70,
+      "best_buy": 0,
+      "sell_quantity": 261,
+      "sell_price": 70,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "autocannon_i",
+      "item_name": "Autocannon I",
+      "category": "module",
+      "sell_orders": [
+        {
+          "price_each": 220,
+          "quantity": 10
+        },
+        {
+          "price_each": 225,
+          "quantity": 8
+        },
+        {
+          "price_each": 230,
+          "quantity": 18
+        },
+        {
+          "price_each": 235,
+          "quantity": 6
+        },
+        {
+          "price_each": 240,
+          "quantity": 6
+        },
+        {
+          "price_each": 245,
+          "quantity": 5
+        },
+        {
+          "price_each": 248,
+          "quantity": 10
+        },
+        {
+          "price_each": 249,
+          "quantity": 70
+        },
+        {
+          "price_each": 263,
+          "quantity": 1
+        },
+        {
+          "price_each": 660,
+          "quantity": 1
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 220,
+      "best_buy": 0,
+      "sell_quantity": 135,
+      "sell_price": 220,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "deep_core_extractor_mk_i",
+      "item_name": "Deep Core Extractor Mk I",
       "category": "module",
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 500,
+          "price_each": 8000,
+          "quantity": 1
+        },
+        {
+          "price_each": 6500,
+          "quantity": 1
+        },
+        {
+          "price_each": 5500,
+          "quantity": 1
+        },
+        {
+          "price_each": 5000,
+          "quantity": 5
+        },
+        {
+          "price_each": 3450,
           "quantity": 1
         }
       ],
       "best_sell": 0,
-      "best_buy": 500,
+      "best_buy": 8000,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 9,
+      "buy_price": 8000
+    },
+    {
+      "item_id": "missile_launcher_i",
+      "item_name": "Missile Launcher I",
+      "category": "module",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1500,
+          "quantity": 1
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1500,
       "sell_quantity": 0,
       "sell_price": 0,
       "buy_quantity": 1,
-      "buy_price": 500
+      "buy_price": 1500
+    },
+    {
+      "item_id": "shield_booster_i",
+      "item_name": "Shield Booster I",
+      "category": "module",
+      "sell_orders": [
+        {
+          "price_each": 300,
+          "quantity": 31
+        },
+        {
+          "price_each": 375,
+          "quantity": 11
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 300,
+      "best_buy": 0,
+      "sell_quantity": 42,
+      "sell_price": 300,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "ship_scanner_i",
+      "item_name": "Ship Scanner I",
+      "category": "module",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 800,
+          "quantity": 1
+        },
+        {
+          "price_each": 500,
+          "quantity": 2
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 800,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 3,
+      "buy_price": 800
+    },
+    {
+      "item_id": "survey_scanner_ii",
+      "item_name": "Survey Scanner II",
+      "category": "module",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 3220,
+          "quantity": 1
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 3220,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 1,
+      "buy_price": 3220
+    },
+    {
+      "item_id": "aluminum_ore",
+      "item_name": "Aluminum Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 2,
+          "quantity": 4
+        },
+        {
+          "price_each": 50,
+          "quantity": 20
+        },
+        {
+          "price_each": 550,
+          "quantity": 10
+        },
+        {
+          "price_each": 605,
+          "quantity": 50
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 16957
+        }
+      ],
+      "best_sell": 2,
+      "best_buy": 1,
+      "sell_quantity": 84,
+      "sell_price": 2,
+      "buy_quantity": 16957,
+      "buy_price": 1,
+      "spread": 1
+    },
+    {
+      "item_id": "antimatter_containment_cell",
+      "item_name": "Antimatter Containment Cell",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 1000,
+          "quantity": 1
+        },
+        {
+          "price_each": 2000,
+          "quantity": 7
+        },
+        {
+          "price_each": 2500,
+          "quantity": 57
+        },
+        {
+          "price_each": 3000,
+          "quantity": 1
+        },
+        {
+          "price_each": 5000,
+          "quantity": 4
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 11897
+        }
+      ],
+      "best_sell": 1000,
+      "best_buy": 1,
+      "sell_quantity": 70,
+      "sell_price": 1000,
+      "buy_quantity": 11897,
+      "buy_price": 1,
+      "spread": 999
+    },
+    {
+      "item_id": "argon_gas",
+      "item_name": "Argon Gas",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 2,
+          "quantity": 950
+        },
+        {
+          "price_each": 3,
+          "quantity": 285
+        },
+        {
+          "price_each": 8,
+          "quantity": 68
+        },
+        {
+          "price_each": 9,
+          "quantity": 14
+        },
+        {
+          "price_each": 10,
+          "quantity": 16
+        },
+        {
+          "price_each": 11,
+          "quantity": 14
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 2,
+      "best_buy": 0,
+      "sell_quantity": 1347,
+      "sell_price": 2,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "carbon_ore",
@@ -527,23 +1909,95 @@
       "category": "ore",
       "sell_orders": [
         {
-          "price_each": 1,
-          "quantity": 2
+          "price_each": 2,
+          "quantity": 8
         },
         {
           "price_each": 5,
           "quantity": 38
         },
         {
-          "price_each": 25,
-          "quantity": 35
+          "price_each": 6,
+          "quantity": 150
+        },
+        {
+          "price_each": 9,
+          "quantity": 18
+        },
+        {
+          "price_each": 10,
+          "quantity": 102
+        },
+        {
+          "price_each": 15,
+          "quantity": 12
+        },
+        {
+          "price_each": 36,
+          "quantity": 40
+        },
+        {
+          "price_each": 45,
+          "quantity": 34
+        },
+        {
+          "price_each": 50,
+          "quantity": 2
         }
       ],
       "buy_orders": [],
-      "best_sell": 1,
+      "best_sell": 2,
       "best_buy": 0,
-      "sell_quantity": 75,
-      "sell_price": 1,
+      "sell_quantity": 404,
+      "sell_price": 2,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "cobalt_ore",
+      "item_name": "Cobalt Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 10,
+          "quantity": 2
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 10,
+      "best_buy": 0,
+      "sell_quantity": 2,
+      "sell_price": 10,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "compressed_hydrogen",
+      "item_name": "Compressed Hydrogen",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 10,
+          "quantity": 38
+        },
+        {
+          "price_each": 11,
+          "quantity": 66
+        },
+        {
+          "price_each": 12,
+          "quantity": 50
+        },
+        {
+          "price_each": 13,
+          "quantity": 1950
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 10,
+      "best_buy": 0,
+      "sell_quantity": 2104,
+      "sell_price": 10,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -554,33 +2008,214 @@
       "sell_orders": [
         {
           "price_each": 1,
-          "quantity": 45
+          "quantity": 39868,
+          "my_quantity": 6,
+          "source": "station"
         },
         {
           "price_each": 2,
-          "quantity": 7
+          "quantity": 1393,
+          "source": "station"
+        },
+        {
+          "price_each": 3,
+          "quantity": 152
+        },
+        {
+          "price_each": 4,
+          "quantity": 4223
+        },
+        {
+          "price_each": 5,
+          "quantity": 3313,
+          "source": "station"
+        },
+        {
+          "price_each": 6,
+          "quantity": 2247
         },
         {
           "price_each": 7,
-          "quantity": 7834,
+          "quantity": 2239
+        },
+        {
+          "price_each": 8,
+          "quantity": 3296,
+          "source": "station"
+        },
+        {
+          "price_each": 9,
+          "quantity": 1296
+        },
+        {
+          "price_each": 10,
+          "quantity": 1536,
           "source": "station"
         },
         {
           "price_each": 11,
-          "quantity": 5483,
-          "source": "station"
+          "quantity": 1212
+        },
+        {
+          "price_each": 12,
+          "quantity": 264
         },
         {
           "price_each": 14,
-          "quantity": 2351,
-          "source": "station"
+          "quantity": 215
+        },
+        {
+          "price_each": 15,
+          "quantity": 227
+        },
+        {
+          "price_each": 16,
+          "quantity": 12
+        },
+        {
+          "price_each": 18,
+          "quantity": 3
+        },
+        {
+          "price_each": 19,
+          "quantity": 16
+        },
+        {
+          "price_each": 20,
+          "quantity": 36
+        },
+        {
+          "price_each": 25,
+          "quantity": 27
+        },
+        {
+          "price_each": 30,
+          "quantity": 21
+        },
+        {
+          "price_each": 37,
+          "quantity": 205
+        },
+        {
+          "price_each": 40,
+          "quantity": 3
+        },
+        {
+          "price_each": 44,
+          "quantity": 2
+        },
+        {
+          "price_each": 45,
+          "quantity": 50
+        },
+        {
+          "price_each": 50,
+          "quantity": 57
+        },
+        {
+          "price_each": 60,
+          "quantity": 45
+        },
+        {
+          "price_each": 63,
+          "quantity": 36
+        },
+        {
+          "price_each": 75,
+          "quantity": 3
+        },
+        {
+          "price_each": 80,
+          "quantity": 66
+        },
+        {
+          "price_each": 100,
+          "quantity": 243
+        },
+        {
+          "price_each": 110,
+          "quantity": 12
+        },
+        {
+          "price_each": 115,
+          "quantity": 9
+        },
+        {
+          "price_each": 120,
+          "quantity": 54
+        },
+        {
+          "price_each": 125,
+          "quantity": 12
+        },
+        {
+          "price_each": 128,
+          "quantity": 42
+        },
+        {
+          "price_each": 140,
+          "quantity": 50
+        },
+        {
+          "price_each": 146,
+          "quantity": 22
+        },
+        {
+          "price_each": 150,
+          "quantity": 1005
+        },
+        {
+          "price_each": 158,
+          "quantity": 50
+        },
+        {
+          "price_each": 165,
+          "quantity": 50
+        },
+        {
+          "price_each": 200,
+          "quantity": 86
+        },
+        {
+          "price_each": 300,
+          "quantity": 12
+        },
+        {
+          "price_each": 373,
+          "quantity": 6
+        },
+        {
+          "price_each": 400,
+          "quantity": 9
+        },
+        {
+          "price_each": 1200,
+          "quantity": 6
         }
       ],
       "buy_orders": [],
       "best_sell": 1,
       "best_buy": 0,
-      "sell_quantity": 15720,
+      "sell_quantity": 63731,
       "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "darksteel_ore",
+      "item_name": "Darksteel Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 330,
+          "quantity": 2
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 330,
+      "best_buy": 0,
+      "sell_quantity": 2,
+      "sell_price": 330,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -591,16 +2226,90 @@
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 500,
-          "quantity": 8
+          "price_each": 1,
+          "quantity": 20762
         }
       ],
       "best_sell": 0,
-      "best_buy": 500,
+      "best_buy": 1,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 8,
-      "buy_price": 500
+      "buy_quantity": 20762,
+      "buy_price": 1
+    },
+    {
+      "item_id": "gold_ore",
+      "item_name": "Gold Ore",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 2,
+          "quantity": 1694
+        },
+        {
+          "price_each": 1,
+          "quantity": 20005
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 2,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 21699,
+      "buy_price": 2
+    },
+    {
+      "item_id": "helium_ice",
+      "item_name": "Helium Ice",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 141,
+          "quantity": 3
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 141,
+      "best_buy": 0,
+      "sell_quantity": 3,
+      "sell_price": 141,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "ion_gas",
+      "item_name": "Ion Gas",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 7,
+          "quantity": 150
+        },
+        {
+          "price_each": 9,
+          "quantity": 150
+        },
+        {
+          "price_each": 11,
+          "quantity": 100
+        },
+        {
+          "price_each": 17,
+          "quantity": 174
+        },
+        {
+          "price_each": 18,
+          "quantity": 50
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 7,
+      "best_buy": 0,
+      "sell_quantity": 624,
+      "sell_price": 7,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "iridium_ore",
@@ -608,21 +2317,27 @@
       "category": "ore",
       "sell_orders": [
         {
-          "price_each": 300,
-          "quantity": 7
+          "price_each": 500,
+          "quantity": 3
         },
         {
-          "price_each": 339,
-          "quantity": 6
+          "price_each": 1500,
+          "quantity": 1
         }
       ],
-      "buy_orders": [],
-      "best_sell": 300,
-      "best_buy": 0,
-      "sell_quantity": 13,
-      "sell_price": 300,
-      "buy_quantity": 0,
-      "buy_price": 0
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 9283
+        }
+      ],
+      "best_sell": 500,
+      "best_buy": 1,
+      "sell_quantity": 4,
+      "sell_price": 500,
+      "buy_quantity": 9283,
+      "buy_price": 1,
+      "spread": 499
     },
     {
       "item_id": "iron_ore",
@@ -630,38 +2345,297 @@
       "category": "ore",
       "sell_orders": [
         {
+          "price_each": 1,
+          "quantity": 126
+        },
+        {
+          "price_each": 2,
+          "quantity": 1160
+        },
+        {
+          "price_each": 3,
+          "quantity": 500
+        },
+        {
+          "price_each": 4,
+          "quantity": 1618
+        },
+        {
           "price_each": 5,
-          "quantity": 49,
-          "source": "station"
+          "quantity": 279
         },
         {
           "price_each": 6,
-          "quantity": 52
+          "quantity": 688
+        },
+        {
+          "price_each": 7,
+          "quantity": 136
         },
         {
           "price_each": 8,
-          "quantity": 34,
-          "source": "station"
+          "quantity": 860
+        },
+        {
+          "price_each": 9,
+          "quantity": 1933
         },
         {
           "price_each": 10,
-          "quantity": 15,
-          "source": "station"
+          "quantity": 2815
+        },
+        {
+          "price_each": 11,
+          "quantity": 1709
+        },
+        {
+          "price_each": 12,
+          "quantity": 104
+        },
+        {
+          "price_each": 15,
+          "quantity": 393
+        },
+        {
+          "price_each": 18,
+          "quantity": 32
+        },
+        {
+          "price_each": 19,
+          "quantity": 118
+        },
+        {
+          "price_each": 20,
+          "quantity": 288
+        },
+        {
+          "price_each": 21,
+          "quantity": 200
+        },
+        {
+          "price_each": 22,
+          "quantity": 188
         },
         {
           "price_each": 23,
-          "quantity": 17
+          "quantity": 550
         },
         {
-          "price_each": 195,
-          "quantity": 2271
+          "price_each": 24,
+          "quantity": 527
+        },
+        {
+          "price_each": 25,
+          "quantity": 1813
+        },
+        {
+          "price_each": 28,
+          "quantity": 2
+        },
+        {
+          "price_each": 30,
+          "quantity": 85
+        },
+        {
+          "price_each": 35,
+          "quantity": 10
+        },
+        {
+          "price_each": 40,
+          "quantity": 72
+        },
+        {
+          "price_each": 45,
+          "quantity": 8
+        },
+        {
+          "price_each": 47,
+          "quantity": 600
+        },
+        {
+          "price_each": 50,
+          "quantity": 1522
+        },
+        {
+          "price_each": 55,
+          "quantity": 8
+        },
+        {
+          "price_each": 56,
+          "quantity": 50
+        },
+        {
+          "price_each": 60,
+          "quantity": 125
+        },
+        {
+          "price_each": 63,
+          "quantity": 48
+        },
+        {
+          "price_each": 66,
+          "quantity": 100
+        },
+        {
+          "price_each": 70,
+          "quantity": 20
+        },
+        {
+          "price_each": 71,
+          "quantity": 4
+        },
+        {
+          "price_each": 80,
+          "quantity": 72
+        },
+        {
+          "price_each": 85,
+          "quantity": 45
+        },
+        {
+          "price_each": 100,
+          "quantity": 90
+        },
+        {
+          "price_each": 120,
+          "quantity": 12
+        },
+        {
+          "price_each": 150,
+          "quantity": 38
+        },
+        {
+          "price_each": 200,
+          "quantity": 68
+        },
+        {
+          "price_each": 450,
+          "quantity": 3
+        },
+        {
+          "price_each": 483,
+          "quantity": 60
+        },
+        {
+          "price_each": 500,
+          "quantity": 123
+        },
+        {
+          "price_each": 600,
+          "quantity": 5
+        },
+        {
+          "price_each": 1000,
+          "quantity": 19
+        },
+        {
+          "price_each": 1415,
+          "quantity": 50
+        },
+        {
+          "price_each": 1416,
+          "quantity": 50
+        },
+        {
+          "price_each": 2000,
+          "quantity": 36
         }
       ],
       "buy_orders": [],
-      "best_sell": 5,
+      "best_sell": 1,
       "best_buy": 0,
-      "sell_quantity": 2438,
-      "sell_price": 5,
+      "sell_quantity": 19362,
+      "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "krypton_gas",
+      "item_name": "Krypton Gas",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 107,
+          "quantity": 100
+        },
+        {
+          "price_each": 118,
+          "quantity": 48
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 107,
+      "best_buy": 0,
+      "sell_quantity": 148,
+      "sell_price": 107,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "lead_ore",
+      "item_name": "Lead Ore",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 9993
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 9993,
+      "buy_price": 1
+    },
+    {
+      "item_id": "lithium_ore",
+      "item_name": "Lithium Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 277,
+          "quantity": 47
+        },
+        {
+          "price_each": 550,
+          "quantity": 62
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 9926
+        }
+      ],
+      "best_sell": 277,
+      "best_buy": 1,
+      "sell_quantity": 109,
+      "sell_price": 277,
+      "buy_quantity": 9926,
+      "buy_price": 1,
+      "spread": 276
+    },
+    {
+      "item_id": "neon_gas",
+      "item_name": "Neon Gas",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 30,
+          "quantity": 91
+        },
+        {
+          "price_each": 38,
+          "quantity": 1508
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 30,
+      "best_buy": 0,
+      "sell_quantity": 1599,
+      "sell_price": 30,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -671,51 +2645,523 @@
       "category": "ore",
       "sell_orders": [
         {
+          "price_each": 1,
+          "quantity": 72014,
+          "my_quantity": 84
+        },
+        {
+          "price_each": 2,
+          "quantity": 24502
+        },
+        {
+          "price_each": 3,
+          "quantity": 8477
+        },
+        {
+          "price_each": 4,
+          "quantity": 4217,
+          "source": "station"
+        },
+        {
           "price_each": 5,
-          "quantity": 253
+          "quantity": 7153
+        },
+        {
+          "price_each": 6,
+          "quantity": 1239
+        },
+        {
+          "price_each": 7,
+          "quantity": 1027,
+          "source": "station"
         },
         {
           "price_each": 8,
-          "quantity": 23
+          "quantity": 23330
+        },
+        {
+          "price_each": 9,
+          "quantity": 2322,
+          "source": "station"
         },
         {
           "price_each": 10,
-          "quantity": 43
+          "quantity": 2696
+        },
+        {
+          "price_each": 11,
+          "quantity": 1353
         },
         {
           "price_each": 12,
-          "quantity": 10
+          "quantity": 1899
+        },
+        {
+          "price_each": 13,
+          "quantity": 36
+        },
+        {
+          "price_each": 14,
+          "quantity": 2205
+        },
+        {
+          "price_each": 15,
+          "quantity": 307
+        },
+        {
+          "price_each": 16,
+          "quantity": 6
+        },
+        {
+          "price_each": 18,
+          "quantity": 1757
+        },
+        {
+          "price_each": 19,
+          "quantity": 300
+        },
+        {
+          "price_each": 20,
+          "quantity": 121
+        },
+        {
+          "price_each": 22,
+          "quantity": 101
+        },
+        {
+          "price_each": 23,
+          "quantity": 50
+        },
+        {
+          "price_each": 25,
+          "quantity": 131
+        },
+        {
+          "price_each": 26,
+          "quantity": 12
         },
         {
           "price_each": 30,
-          "quantity": 30
+          "quantity": 66
+        },
+        {
+          "price_each": 31,
+          "quantity": 6
+        },
+        {
+          "price_each": 36,
+          "quantity": 21
+        },
+        {
+          "price_each": 37,
+          "quantity": 21
+        },
+        {
+          "price_each": 38,
+          "quantity": 167
+        },
+        {
+          "price_each": 40,
+          "quantity": 21
+        },
+        {
+          "price_each": 45,
+          "quantity": 18
+        },
+        {
+          "price_each": 48,
+          "quantity": 3
+        },
+        {
+          "price_each": 50,
+          "quantity": 66
+        },
+        {
+          "price_each": 60,
+          "quantity": 129
+        },
+        {
+          "price_each": 63,
+          "quantity": 24
+        },
+        {
+          "price_each": 70,
+          "quantity": 650
+        },
+        {
+          "price_each": 80,
+          "quantity": 12
+        },
+        {
+          "price_each": 90,
+          "quantity": 18
+        },
+        {
+          "price_each": 95,
+          "quantity": 27
+        },
+        {
+          "price_each": 100,
+          "quantity": 110
+        },
+        {
+          "price_each": 120,
+          "quantity": 6
+        },
+        {
+          "price_each": 150,
+          "quantity": 3
+        },
+        {
+          "price_each": 159,
+          "quantity": 50
+        },
+        {
+          "price_each": 230,
+          "quantity": 3
+        },
+        {
+          "price_each": 240,
+          "quantity": 60
+        },
+        {
+          "price_each": 324,
+          "quantity": 27
+        },
+        {
+          "price_each": 340,
+          "quantity": 3
+        },
+        {
+          "price_each": 439,
+          "quantity": 350
+        },
+        {
+          "price_each": 500,
+          "quantity": 330
+        },
+        {
+          "price_each": 510,
+          "quantity": 50
+        },
+        {
+          "price_each": 524,
+          "quantity": 50
+        },
+        {
+          "price_each": 800,
+          "quantity": 12
+        },
+        {
+          "price_each": 850,
+          "quantity": 8
+        },
+        {
+          "price_each": 1200,
+          "quantity": 24
+        },
+        {
+          "price_each": 1500,
+          "quantity": 12
         }
       ],
       "buy_orders": [],
-      "best_sell": 5,
+      "best_sell": 1,
       "best_buy": 0,
-      "sell_quantity": 359,
-      "sell_price": 5,
+      "sell_quantity": 157602,
+      "sell_price": 1,
       "buy_quantity": 0,
       "buy_price": 0
+    },
+    {
+      "item_id": "nitrogen_ice",
+      "item_name": "Nitrogen Ice",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 2
+        },
+        {
+          "price_each": 2,
+          "quantity": 50
+        },
+        {
+          "price_each": 9,
+          "quantity": 235
+        },
+        {
+          "price_each": 10,
+          "quantity": 235
+        },
+        {
+          "price_each": 11,
+          "quantity": 253
+        },
+        {
+          "price_each": 20,
+          "quantity": 4669
+        },
+        {
+          "price_each": 25,
+          "quantity": 28
+        },
+        {
+          "price_each": 47,
+          "quantity": 200
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1,
+      "best_buy": 0,
+      "sell_quantity": 5672,
+      "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "null_matter",
+      "item_name": "Null Matter",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 1541,
+          "quantity": 7
+        },
+        {
+          "price_each": 1927,
+          "quantity": 1051
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1541,
+      "best_buy": 0,
+      "sell_quantity": 1058,
+      "sell_price": 1541,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "palladium_ore",
+      "item_name": "Palladium Ore",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 9812
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 9812,
+      "buy_price": 1
+    },
+    {
+      "item_id": "phase_crystal",
+      "item_name": "Phase Crystal",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 4127,
+          "quantity": 106
+        },
+        {
+          "price_each": 5159,
+          "quantity": 100
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 11748
+        }
+      ],
+      "best_sell": 4127,
+      "best_buy": 1,
+      "sell_quantity": 206,
+      "sell_price": 4127,
+      "buy_quantity": 11748,
+      "buy_price": 1,
+      "spread": 4126
+    },
+    {
+      "item_id": "plasma_residue",
+      "item_name": "Plasma Residue",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 22,
+          "quantity": 6
+        },
+        {
+          "price_each": 28,
+          "quantity": 94
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 22,
+      "best_buy": 0,
+      "sell_quantity": 100,
+      "sell_price": 22,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "platinum_ore",
+      "item_name": "Platinum Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 45,
+          "quantity": 37
+        },
+        {
+          "price_each": 48,
+          "quantity": 63
+        },
+        {
+          "price_each": 80,
+          "quantity": 35
+        },
+        {
+          "price_each": 150,
+          "quantity": 22
+        },
+        {
+          "price_each": 350,
+          "quantity": 8
+        },
+        {
+          "price_each": 450,
+          "quantity": 34
+        },
+        {
+          "price_each": 475,
+          "quantity": 5
+        },
+        {
+          "price_each": 550,
+          "quantity": 84
+        },
+        {
+          "price_each": 2000,
+          "quantity": 11
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 9335
+        }
+      ],
+      "best_sell": 45,
+      "best_buy": 1,
+      "sell_quantity": 299,
+      "sell_price": 45,
+      "buy_quantity": 9335,
+      "buy_price": 1,
+      "spread": 44
+    },
+    {
+      "item_id": "polonium_ore",
+      "item_name": "Polonium Ore",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 10000,
+      "buy_price": 1
+    },
+    {
+      "item_id": "quantum_fragments",
+      "item_name": "Quantum Fragments",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 475,
+          "quantity": 106
+        },
+        {
+          "price_each": 500,
+          "quantity": 14
+        },
+        {
+          "price_each": 594,
+          "quantity": 210
+        },
+        {
+          "price_each": 625,
+          "quantity": 16
+        },
+        {
+          "price_each": 5500,
+          "quantity": 14
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 19701
+        }
+      ],
+      "best_sell": 475,
+      "best_buy": 1,
+      "sell_quantity": 360,
+      "sell_price": 475,
+      "buy_quantity": 19701,
+      "buy_price": 1,
+      "spread": 474
+    },
+    {
+      "item_id": "radium_ore",
+      "item_name": "Radium Ore",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 10000,
+      "buy_price": 1
     },
     {
       "item_id": "sol_alloy_ore",
       "item_name": "Sol Alloy Ore",
       "category": "ore",
-      "sell_orders": [
+      "sell_orders": [],
+      "buy_orders": [
         {
-          "price_each": 1500,
-          "quantity": 4
+          "price_each": 600,
+          "quantity": 106
+        },
+        {
+          "price_each": 1,
+          "quantity": 682
         }
       ],
-      "buy_orders": [],
-      "best_sell": 1500,
-      "best_buy": 0,
-      "sell_quantity": 4,
-      "sell_price": 1500,
-      "buy_quantity": 0,
-      "buy_price": 0
+      "best_sell": 0,
+      "best_buy": 600,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 788,
+      "buy_price": 600
     },
     {
       "item_id": "thorium_ore",
@@ -723,17 +3169,95 @@
       "category": "ore",
       "sell_orders": [
         {
+          "price_each": 5,
+          "quantity": 2
+        },
+        {
+          "price_each": 10,
+          "quantity": 5
+        },
+        {
+          "price_each": 25,
+          "quantity": 2
+        },
+        {
+          "price_each": 50,
+          "quantity": 2
+        }
+      ],
+      "buy_orders": [
+        {
           "price_each": 1,
-          "quantity": 3
+          "quantity": 10000
+        }
+      ],
+      "best_sell": 5,
+      "best_buy": 1,
+      "sell_quantity": 11,
+      "sell_price": 5,
+      "buy_quantity": 10000,
+      "buy_price": 1,
+      "spread": 4
+    },
+    {
+      "item_id": "titanium_ore",
+      "item_name": "Titanium Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 8,
+          "quantity": 10
+        },
+        {
+          "price_each": 9,
+          "quantity": 12
+        },
+        {
+          "price_each": 10,
+          "quantity": 12
+        },
+        {
+          "price_each": 11,
+          "quantity": 13
+        },
+        {
+          "price_each": 140,
+          "quantity": 14913
+        },
+        {
+          "price_each": 150,
+          "quantity": 7
+        },
+        {
+          "price_each": 1000,
+          "quantity": 1
         }
       ],
       "buy_orders": [],
-      "best_sell": 1,
+      "best_sell": 8,
       "best_buy": 0,
-      "sell_quantity": 3,
-      "sell_price": 1,
+      "sell_quantity": 14968,
+      "sell_price": 8,
       "buy_quantity": 0,
       "buy_price": 0
+    },
+    {
+      "item_id": "trade_crystal",
+      "item_name": "Trade Crystal",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 11141
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 11141,
+      "buy_price": 1
     },
     {
       "item_id": "tungsten_ore",
@@ -741,21 +3265,125 @@
       "category": "ore",
       "sell_orders": [
         {
+          "price_each": 3,
+          "quantity": 176
+        },
+        {
+          "price_each": 10,
+          "quantity": 2
+        },
+        {
+          "price_each": 56,
+          "quantity": 13
+        },
+        {
+          "price_each": 70,
+          "quantity": 32
+        }
+      ],
+      "buy_orders": [
+        {
           "price_each": 1,
+          "quantity": 17090
+        }
+      ],
+      "best_sell": 3,
+      "best_buy": 1,
+      "sell_quantity": 223,
+      "sell_price": 3,
+      "buy_quantity": 17090,
+      "buy_price": 1,
+      "spread": 2
+    },
+    {
+      "item_id": "uranium_ore",
+      "item_name": "Uranium Ore",
+      "category": "ore",
+      "sell_orders": [],
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 10000
+        }
+      ],
+      "best_sell": 0,
+      "best_buy": 1,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 10000,
+      "buy_price": 1
+    },
+    {
+      "item_id": "vanadium_ore",
+      "item_name": "Vanadium Ore",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 5,
+          "quantity": 10
+        },
+        {
+          "price_each": 8,
+          "quantity": 13
+        },
+        {
+          "price_each": 10,
+          "quantity": 15
+        },
+        {
+          "price_each": 19,
+          "quantity": 2
+        },
+        {
+          "price_each": 20,
+          "quantity": 5
+        },
+        {
+          "price_each": 25,
+          "quantity": 14
+        },
+        {
+          "price_each": 30,
           "quantity": 3
         },
         {
-          "price_each": 150,
-          "quantity": 4
+          "price_each": 40,
+          "quantity": 202
+        },
+        {
+          "price_each": 45,
+          "quantity": 38
+        },
+        {
+          "price_each": 48,
+          "quantity": 35
+        },
+        {
+          "price_each": 50,
+          "quantity": 5
+        },
+        {
+          "price_each": 65,
+          "quantity": 29
+        },
+        {
+          "price_each": 550,
+          "quantity": 58
         }
       ],
-      "buy_orders": [],
-      "best_sell": 1,
-      "best_buy": 0,
-      "sell_quantity": 7,
-      "sell_price": 1,
-      "buy_quantity": 0,
-      "buy_price": 0
+      "buy_orders": [
+        {
+          "price_each": 1,
+          "quantity": 8843
+        }
+      ],
+      "best_sell": 5,
+      "best_buy": 1,
+      "sell_quantity": 429,
+      "sell_price": 5,
+      "buy_quantity": 8843,
+      "buy_price": 1,
+      "spread": 4
     },
     {
       "item_id": "water_ice",
@@ -764,18 +3392,111 @@
       "sell_orders": [
         {
           "price_each": 16,
-          "quantity": 23
+          "quantity": 6,
+          "source": "station"
         },
         {
-          "price_each": 19,
-          "quantity": 52
+          "price_each": 17,
+          "quantity": 8,
+          "source": "station"
+        },
+        {
+          "price_each": 20,
+          "quantity": 3,
+          "source": "station"
+        },
+        {
+          "price_each": 22,
+          "quantity": 4,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 11,
+          "quantity": 152,
+          "source": "station"
+        }
+      ],
+      "best_sell": 16,
+      "best_buy": 11,
+      "sell_quantity": 21,
+      "sell_price": 16,
+      "buy_quantity": 152,
+      "buy_price": 11,
+      "spread": 5
+    },
+    {
+      "item_id": "xenon_gas",
+      "item_name": "Xenon Gas",
+      "category": "ore",
+      "sell_orders": [
+        {
+          "price_each": 475,
+          "quantity": 151
         }
       ],
       "buy_orders": [],
-      "best_sell": 16,
+      "best_sell": 475,
       "best_buy": 0,
-      "sell_quantity": 75,
-      "sell_price": 16,
+      "sell_quantity": 151,
+      "sell_price": 475,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "aluminum_sheet",
+      "item_name": "Aluminum Sheet",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 57,
+          "quantity": 1680
+        },
+        {
+          "price_each": 63,
+          "quantity": 352
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 57,
+      "best_buy": 0,
+      "sell_quantity": 2032,
+      "sell_price": 57,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "bioluminescent_algae",
+      "item_name": "Bioluminescent Algae",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 19,
+          "quantity": 245
+        },
+        {
+          "price_each": 23,
+          "quantity": 1799
+        },
+        {
+          "price_each": 24,
+          "quantity": 599
+        },
+        {
+          "price_each": 26,
+          "quantity": 50
+        },
+        {
+          "price_each": 29,
+          "quantity": 1912
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 19,
+      "best_buy": 0,
+      "sell_quantity": 4605,
+      "sell_price": 19,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -783,26 +3504,65 @@
       "item_id": "circuit_board",
       "item_name": "Circuit Board",
       "category": "refined",
-      "sell_orders": [
-        {
-          "price_each": 495,
-          "quantity": 1
-        }
-      ],
+      "sell_orders": [],
       "buy_orders": [
         {
+          "price_each": 637,
+          "quantity": 15,
+          "source": "station"
+        },
+        {
+          "price_each": 630,
+          "quantity": 29,
+          "source": "station"
+        },
+        {
+          "price_each": 490,
+          "quantity": 33,
+          "source": "station"
+        },
+        {
+          "price_each": 485,
+          "quantity": 66,
+          "source": "station"
+        },
+        {
+          "price_each": 343,
+          "quantity": 48,
+          "source": "station"
+        },
+        {
+          "price_each": 339,
+          "quantity": 48,
+          "source": "station"
+        },
+        {
+          "price_each": 150,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 130,
+          "quantity": 1256,
+          "source": "station"
+        },
+        {
+          "price_each": 100,
+          "quantity": 2926,
+          "source": "station"
+        },
+        {
           "price_each": 70,
-          "quantity": 16,
+          "quantity": 6914,
           "source": "station"
         }
       ],
-      "best_sell": 495,
-      "best_buy": 70,
-      "sell_quantity": 1,
-      "sell_price": 495,
-      "buy_quantity": 16,
-      "buy_price": 70,
-      "spread": 425
+      "best_sell": 0,
+      "best_buy": 637,
+      "sell_quantity": 0,
+      "sell_price": 0,
+      "buy_quantity": 11342,
+      "buy_price": 637
     },
     {
       "item_id": "copper_wiring",
@@ -810,77 +3570,118 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 7,
-          "quantity": 16401
+          "price_each": 2,
+          "quantity": 39,
+          "source": "station"
         },
         {
-          "price_each": 10,
-          "quantity": 63
+          "price_each": 3,
+          "quantity": 27,
+          "source": "station"
+        },
+        {
+          "price_each": 4,
+          "quantity": 13,
+          "source": "station"
         },
         {
           "price_each": 11,
-          "quantity": 133
+          "quantity": 4975
         },
         {
-          "price_each": 15,
-          "quantity": 6
+          "price_each": 30,
+          "quantity": 6911
         },
         {
-          "price_each": 28,
-          "quantity": 10
+          "price_each": 33,
+          "quantity": 5
+        },
+        {
+          "price_each": 37,
+          "quantity": 18
+        },
+        {
+          "price_each": 43,
+          "quantity": 49
+        },
+        {
+          "price_each": 44,
+          "quantity": 528
+        },
+        {
+          "price_each": 45,
+          "quantity": 60
+        },
+        {
+          "price_each": 48,
+          "quantity": 30
+        },
+        {
+          "price_each": 50,
+          "quantity": 2010
+        },
+        {
+          "price_each": 52,
+          "quantity": 67
+        },
+        {
+          "price_each": 55,
+          "quantity": 16
+        },
+        {
+          "price_each": 56,
+          "quantity": 208
+        },
+        {
+          "price_each": 65,
+          "quantity": 11
+        },
+        {
+          "price_each": 75,
+          "quantity": 1000
         },
         {
           "price_each": 76,
-          "quantity": 3181,
+          "quantity": 2557,
           "source": "station"
+        },
+        {
+          "price_each": 84,
+          "quantity": 50
         },
         {
           "price_each": 98,
-          "quantity": 1364,
+          "quantity": 1097,
           "source": "station"
+        },
+        {
+          "price_each": 113,
+          "quantity": 4
+        },
+        {
+          "price_each": 140,
+          "quantity": 1
+        },
+        {
+          "price_each": 150,
+          "quantity": 13
+        },
+        {
+          "price_each": 165,
+          "quantity": 2
+        },
+        {
+          "price_each": 200,
+          "quantity": 1
         }
       ],
       "buy_orders": [],
-      "best_sell": 7,
+      "best_sell": 2,
       "best_buy": 0,
-      "sell_quantity": 21158,
-      "sell_price": 7,
+      "sell_quantity": 19692,
+      "sell_price": 2,
       "buy_quantity": 0,
       "buy_price": 0
-    },
-    {
-      "item_id": "deuterium",
-      "item_name": "Deuterium",
-      "category": "refined",
-      "sell_orders": [],
-      "buy_orders": [
-        {
-          "price_each": 314,
-          "quantity": 3,
-          "source": "station"
-        },
-        {
-          "price_each": 308,
-          "quantity": 1,
-          "source": "station"
-        },
-        {
-          "price_each": 298,
-          "quantity": 4,
-          "source": "station"
-        },
-        {
-          "price_each": 296,
-          "quantity": 17,
-          "source": "station"
-        }
-      ],
-      "best_sell": 0,
-      "best_buy": 314,
-      "sell_quantity": 0,
-      "sell_price": 0,
-      "buy_quantity": 25,
-      "buy_price": 314
     },
     {
       "item_id": "durasteel_plate",
@@ -888,23 +3689,55 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 121,
-          "quantity": 82,
+          "price_each": 131,
+          "quantity": 7,
           "source": "station"
         },
         {
-          "price_each": 157,
-          "quantity": 36,
+          "price_each": 132,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 133,
+          "quantity": 28,
+          "source": "station"
+        },
+        {
+          "price_each": 136,
+          "quantity": 53,
+          "source": "station"
+        },
+        {
+          "price_each": 137,
+          "quantity": 81,
           "source": "station"
         }
       ],
-      "buy_orders": [],
-      "best_sell": 121,
-      "best_buy": 0,
-      "sell_quantity": 118,
-      "sell_price": 121,
-      "buy_quantity": 0,
-      "buy_price": 0
+      "buy_orders": [
+        {
+          "price_each": 130,
+          "quantity": 108,
+          "source": "station"
+        },
+        {
+          "price_each": 100,
+          "quantity": 493,
+          "source": "station"
+        },
+        {
+          "price_each": 70,
+          "quantity": 704,
+          "source": "station"
+        }
+      ],
+      "best_sell": 131,
+      "best_buy": 130,
+      "sell_quantity": 175,
+      "sell_price": 131,
+      "buy_quantity": 1305,
+      "buy_price": 130,
+      "spread": 1
     },
     {
       "item_id": "flex_polymer",
@@ -912,65 +3745,282 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 20,
-          "quantity": 117
-        }
-      ],
-      "buy_orders": [
-        {
-          "price_each": 17,
-          "quantity": 2,
+          "price_each": 19,
+          "quantity": 1188,
           "source": "station"
-        }
-      ],
-      "best_sell": 20,
-      "best_buy": 17,
-      "sell_quantity": 117,
-      "sell_price": 20,
-      "buy_quantity": 2,
-      "buy_price": 17,
-      "spread": 3
-    },
-    {
-      "item_id": "ionized_neon",
-      "item_name": "Ionized Neon",
-      "category": "refined",
-      "sell_orders": [
-        {
-          "price_each": 3,
-          "quantity": 70
         },
         {
-          "price_each": 25,
-          "quantity": 32
+          "price_each": 28,
+          "quantity": 831,
+          "source": "station"
         },
         {
-          "price_each": 34,
-          "quantity": 56
+          "price_each": 29,
+          "quantity": 139
         },
         {
           "price_each": 36,
-          "quantity": 42
+          "quantity": 357,
+          "source": "station"
         },
         {
           "price_each": 37,
-          "quantity": 47
+          "quantity": 150
         }
       ],
-      "buy_orders": [
+      "buy_orders": [],
+      "best_sell": 19,
+      "best_buy": 0,
+      "sell_quantity": 2665,
+      "sell_price": 19,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "focused_crystal",
+      "item_name": "Focused Crystal",
+      "category": "refined",
+      "sell_orders": [
         {
-          "price_each": 1,
-          "quantity": 14,
+          "price_each": 1533,
+          "quantity": 19,
           "source": "station"
+        },
+        {
+          "price_each": 1594,
+          "quantity": 7,
+          "source": "station"
+        },
+        {
+          "price_each": 1912,
+          "quantity": 16,
+          "source": "station"
+        },
+        {
+          "price_each": 1933,
+          "quantity": 12,
+          "source": "station"
+        },
+        {
+          "price_each": 1952,
+          "quantity": 8,
+          "source": "station"
+        },
+        {
+          "price_each": 1972,
+          "quantity": 5,
+          "source": "station"
+        },
+        {
+          "price_each": 1990,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 1992,
+          "quantity": 11,
+          "source": "station"
+        },
+        {
+          "price_each": 2048,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 2072,
+          "quantity": 3,
+          "source": "station"
+        },
+        {
+          "price_each": 5677,
+          "quantity": 27
         }
       ],
-      "best_sell": 3,
-      "best_buy": 1,
-      "sell_quantity": 247,
-      "sell_price": 3,
-      "buy_quantity": 14,
-      "buy_price": 1,
-      "spread": 2
+      "buy_orders": [],
+      "best_sell": 1533,
+      "best_buy": 0,
+      "sell_quantity": 118,
+      "sell_price": 1533,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "graphene_sheet",
+      "item_name": "Graphene Sheet",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 4,
+          "quantity": 3
+        },
+        {
+          "price_each": 11,
+          "quantity": 147
+        },
+        {
+          "price_each": 13,
+          "quantity": 2770
+        },
+        {
+          "price_each": 14,
+          "quantity": 121
+        },
+        {
+          "price_each": 23,
+          "quantity": 730
+        },
+        {
+          "price_each": 95,
+          "quantity": 30
+        },
+        {
+          "price_each": 190,
+          "quantity": 249
+        },
+        {
+          "price_each": 332,
+          "quantity": 50
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 4,
+      "best_buy": 0,
+      "sell_quantity": 4100,
+      "sell_price": 4,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "liquid_hydrogen",
+      "item_name": "Liquid Hydrogen",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 11,
+          "quantity": 17,
+          "source": "station"
+        },
+        {
+          "price_each": 16,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 17,
+          "quantity": 10,
+          "source": "station"
+        },
+        {
+          "price_each": 20,
+          "quantity": 1,
+          "source": "station"
+        },
+        {
+          "price_each": 22,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 23,
+          "quantity": 50
+        },
+        {
+          "price_each": 29,
+          "quantity": 267
+        },
+        {
+          "price_each": 40,
+          "quantity": 10000
+        },
+        {
+          "price_each": 50,
+          "quantity": 100
+        },
+        {
+          "price_each": 88,
+          "quantity": 402,
+          "source": "station"
+        },
+        {
+          "price_each": 92,
+          "quantity": 25
+        },
+        {
+          "price_each": 97,
+          "quantity": 35
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 11,
+      "best_buy": 0,
+      "sell_quantity": 10915,
+      "sell_price": 11,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "liquid_nitrogen",
+      "item_name": "Liquid Nitrogen",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 40,
+          "quantity": 10000
+        },
+        {
+          "price_each": 42,
+          "quantity": 520
+        },
+        {
+          "price_each": 47,
+          "quantity": 70
+        },
+        {
+          "price_each": 50,
+          "quantity": 1
+        },
+        {
+          "price_each": 53,
+          "quantity": 2383
+        },
+        {
+          "price_each": 56,
+          "quantity": 1252
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 40,
+      "best_buy": 0,
+      "sell_quantity": 14226,
+      "sell_price": 40,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "nanoplastic_composite",
+      "item_name": "Nanoplastic Composite",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 5,
+          "quantity": 10
+        },
+        {
+          "price_each": 7,
+          "quantity": 50
+        },
+        {
+          "price_each": 50,
+          "quantity": 7
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 5,
+      "best_buy": 0,
+      "sell_quantity": 67,
+      "sell_price": 5,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "optical_fiber_bundle",
@@ -979,20 +4029,130 @@
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 250,
-          "quantity": 18
-        },
-        {
-          "price_each": 200,
-          "quantity": 5
+          "price_each": 400,
+          "quantity": 100
         }
       ],
       "best_sell": 0,
-      "best_buy": 250,
+      "best_buy": 400,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 23,
-      "buy_price": 250
+      "buy_quantity": 100,
+      "buy_price": 400
+    },
+    {
+      "item_id": "pharmaceutical_culture",
+      "item_name": "Pharmaceutical Culture",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 1,
+          "quantity": 31586,
+          "source": "station"
+        },
+        {
+          "price_each": 2,
+          "quantity": 5575,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 1,
+      "best_buy": 0,
+      "sell_quantity": 37161,
+      "sell_price": 1,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "processed_null_matter",
+      "item_name": "Processed Null Matter",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 1101,
+          "quantity": 1,
+          "source": "station"
+        },
+        {
+          "price_each": 1248,
+          "quantity": 5
+        },
+        {
+          "price_each": 1431,
+          "quantity": 2,
+          "source": "station"
+        }
+      ],
+      "buy_orders": [
+        {
+          "price_each": 124,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 123,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 122,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 119,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 96,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 95,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 94,
+          "quantity": 2,
+          "source": "station"
+        },
+        {
+          "price_each": 92,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 67,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 66,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 65,
+          "quantity": 4,
+          "source": "station"
+        },
+        {
+          "price_each": 64,
+          "quantity": 8,
+          "source": "station"
+        }
+      ],
+      "best_sell": 1101,
+      "best_buy": 124,
+      "sell_quantity": 8,
+      "sell_price": 1101,
+      "buy_quantity": 40,
+      "buy_price": 124,
+      "spread": 977
     },
     {
       "item_id": "purified_argon",
@@ -1000,15 +4160,19 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 90,
-          "quantity": 169
+          "price_each": 22,
+          "quantity": 48
+        },
+        {
+          "price_each": 100,
+          "quantity": 100
         }
       ],
       "buy_orders": [],
-      "best_sell": 90,
+      "best_sell": 22,
       "best_buy": 0,
-      "sell_quantity": 169,
-      "sell_price": 90,
+      "sell_quantity": 148,
+      "sell_price": 22,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -1016,35 +4180,156 @@
       "item_id": "purified_water",
       "item_name": "Purified Water",
       "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 22,
+          "quantity": 529
+        },
+        {
+          "price_each": 23,
+          "quantity": 50
+        },
+        {
+          "price_each": 24,
+          "quantity": 80
+        },
+        {
+          "price_each": 25,
+          "quantity": 1125
+        },
+        {
+          "price_each": 26,
+          "quantity": 34,
+          "source": "station"
+        },
+        {
+          "price_each": 27,
+          "quantity": 333,
+          "source": "station"
+        },
+        {
+          "price_each": 28,
+          "quantity": 453,
+          "source": "station"
+        },
+        {
+          "price_each": 35,
+          "quantity": 78,
+          "source": "station"
+        },
+        {
+          "price_each": 36,
+          "quantity": 156,
+          "source": "station"
+        },
+        {
+          "price_each": 66,
+          "quantity": 50
+        },
+        {
+          "price_each": 71,
+          "quantity": 156
+        },
+        {
+          "price_each": 76,
+          "quantity": 15
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 22,
+      "best_buy": 0,
+      "sell_quantity": 3059,
+      "sell_price": 22,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "purified_xenon",
+      "item_name": "Purified Xenon",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 185,
+          "quantity": 59
+        },
+        {
+          "price_each": 221,
+          "quantity": 400
+        },
+        {
+          "price_each": 1353,
+          "quantity": 200
+        },
+        {
+          "price_each": 1852,
+          "quantity": 41
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 185,
+      "best_buy": 0,
+      "sell_quantity": 700,
+      "sell_price": 185,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "reinforced_glass",
+      "item_name": "Reinforced Glass",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 9,
+          "quantity": 1
+        },
+        {
+          "price_each": 12,
+          "quantity": 3
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 9,
+      "best_buy": 0,
+      "sell_quantity": 4,
+      "sell_price": 9,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "silicate_composite",
+      "item_name": "Silicate Composite",
+      "category": "refined",
+      "sell_orders": [
+        {
+          "price_each": 111,
+          "quantity": 18
+        }
+      ],
+      "buy_orders": [],
+      "best_sell": 111,
+      "best_buy": 0,
+      "sell_quantity": 18,
+      "sell_price": 111,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "solarian_composite",
+      "item_name": "Solarian Composite",
+      "category": "refined",
       "sell_orders": [],
       "buy_orders": [
         {
-          "price_each": 14,
-          "quantity": 3,
-          "source": "station"
-        },
-        {
-          "price_each": 11,
-          "quantity": 22,
-          "source": "station"
-        },
-        {
-          "price_each": 10,
-          "quantity": 6,
-          "source": "station"
-        },
-        {
-          "price_each": 7,
-          "quantity": 51,
-          "source": "station"
+          "price_each": 900,
+          "quantity": 34
         }
       ],
       "best_sell": 0,
-      "best_buy": 14,
+      "best_buy": 900,
       "sell_quantity": 0,
       "sell_price": 0,
-      "buy_quantity": 82,
-      "buy_price": 14
+      "buy_quantity": 34,
+      "buy_price": 900
     },
     {
       "item_id": "steel_plate",
@@ -1052,121 +4337,106 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 45,
-          "quantity": 615,
-          "source": "station"
+          "price_each": 29,
+          "quantity": 185
         },
         {
-          "price_each": 46,
-          "quantity": 253,
-          "source": "station"
+          "price_each": 43,
+          "quantity": 1
         },
         {
-          "price_each": 58,
-          "quantity": 260,
-          "source": "station"
-        },
-        {
-          "price_each": 59,
-          "quantity": 157,
-          "source": "station"
-        },
-        {
-          "price_each": 140,
-          "quantity": 4
-        }
-      ],
-      "buy_orders": [],
-      "best_sell": 45,
-      "best_buy": 0,
-      "sell_quantity": 1289,
-      "sell_price": 45,
-      "buy_quantity": 0,
-      "buy_price": 0
-    },
-    {
-      "item_id": "thermal_ceramic",
-      "item_name": "Thermal Ceramic",
-      "category": "refined",
-      "sell_orders": [
-        {
-          "price_each": 25,
-          "quantity": 4
-        },
-        {
-          "price_each": 30,
-          "quantity": 12
-        },
-        {
-          "price_each": 35,
-          "quantity": 2
-        },
-        {
-          "price_each": 39,
-          "quantity": 10
-        },
-        {
-          "price_each": 46,
-          "quantity": 14
-        },
-        {
-          "price_each": 49,
-          "quantity": 5,
+          "price_each": 47,
+          "quantity": 121,
           "source": "station"
         },
         {
           "price_each": 50,
-          "quantity": 16
+          "quantity": 13883
         },
         {
-          "price_each": 63,
-          "quantity": 3,
+          "price_each": 60,
+          "quantity": 1
+        },
+        {
+          "price_each": 61,
+          "quantity": 52,
           "source": "station"
         },
         {
-          "price_each": 65,
-          "quantity": 20
-        },
-        {
-          "price_each": 66,
-          "quantity": 16
+          "price_each": 68,
+          "quantity": 60
         },
         {
           "price_each": 70,
-          "quantity": 29
+          "quantity": 2
         },
         {
-          "price_each": 81,
-          "quantity": 34
+          "price_each": 71,
+          "quantity": 6
         },
         {
-          "price_each": 84,
-          "quantity": 34
+          "price_each": 77,
+          "quantity": 45
         },
         {
-          "price_each": 85,
-          "quantity": 34
+          "price_each": 80,
+          "quantity": 11
+        },
+        {
+          "price_each": 93,
+          "quantity": 370
+        },
+        {
+          "price_each": 94,
+          "quantity": 215
+        },
+        {
+          "price_each": 100,
+          "quantity": 296
+        },
+        {
+          "price_each": 200,
+          "quantity": 160
+        },
+        {
+          "price_each": 270,
+          "quantity": 265
+        },
+        {
+          "price_each": 275,
+          "quantity": 51
         }
       ],
-      "buy_orders": [
+      "buy_orders": [],
+      "best_sell": 29,
+      "best_buy": 0,
+      "sell_quantity": 15724,
+      "sell_price": 29,
+      "buy_quantity": 0,
+      "buy_price": 0
+    },
+    {
+      "item_id": "superconductor",
+      "item_name": "Superconductor",
+      "category": "refined",
+      "sell_orders": [
         {
-          "price_each": 24,
-          "quantity": 4,
-          "source": "station"
+          "price_each": 558,
+          "quantity": 13
         },
         {
-          "price_each": 21,
-          "quantity": 4,
+          "price_each": 624,
+          "quantity": 68,
           "source": "station"
         }
       ],
-      "best_sell": 25,
-      "best_buy": 24,
-      "sell_quantity": 233,
-      "sell_price": 25,
-      "buy_quantity": 8,
-      "buy_price": 24,
-      "spread": 1
+      "buy_orders": [],
+      "best_sell": 558,
+      "best_buy": 0,
+      "sell_quantity": 81,
+      "sell_price": 558,
+      "buy_quantity": 0,
+      "buy_price": 0
     },
     {
       "item_id": "titanium_alloy",
@@ -1174,25 +4444,79 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 131,
-          "quantity": 10,
+          "price_each": 121,
+          "quantity": 442,
+          "source": "station"
+        },
+        {
+          "price_each": 125,
+          "quantity": 221,
+          "source": "station"
+        },
+        {
+          "price_each": 134,
+          "quantity": 133,
+          "source": "station"
+        },
+        {
+          "price_each": 157,
+          "quantity": 190,
+          "source": "station"
+        },
+        {
+          "price_each": 162,
+          "quantity": 187,
+          "source": "station"
+        },
+        {
+          "price_each": 163,
+          "quantity": 6,
+          "source": "station"
+        },
+        {
+          "price_each": 165,
+          "quantity": 185,
+          "source": "station"
+        },
+        {
+          "price_each": 166,
+          "quantity": 24,
+          "source": "station"
+        },
+        {
+          "price_each": 169,
+          "quantity": 19
+        },
+        {
+          "price_each": 170,
+          "quantity": 149,
+          "source": "station"
+        },
+        {
+          "price_each": 174,
+          "quantity": 58,
+          "source": "station"
+        },
+        {
+          "price_each": 175,
+          "quantity": 64,
           "source": "station"
         }
       ],
       "buy_orders": [
         {
-          "price_each": 69,
-          "quantity": 12,
+          "price_each": 89,
+          "quantity": 3,
           "source": "station"
         }
       ],
-      "best_sell": 131,
-      "best_buy": 69,
-      "sell_quantity": 10,
-      "sell_price": 131,
-      "buy_quantity": 12,
-      "buy_price": 69,
-      "spread": 62
+      "best_sell": 121,
+      "best_buy": 89,
+      "sell_quantity": 1678,
+      "sell_price": 121,
+      "buy_quantity": 3,
+      "buy_price": 89,
+      "spread": 32
     },
     {
       "item_id": "titanium_ingot",
@@ -1200,19 +4524,35 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 119,
-          "quantity": 1
+          "price_each": 104,
+          "quantity": 2
+        },
+        {
+          "price_each": 120,
+          "quantity": 4
         },
         {
           "price_each": 130,
-          "quantity": 47
+          "quantity": 3
+        },
+        {
+          "price_each": 132,
+          "quantity": 4
+        },
+        {
+          "price_each": 150,
+          "quantity": 257
+        },
+        {
+          "price_each": 171,
+          "quantity": 72
         }
       ],
       "buy_orders": [],
-      "best_sell": 119,
+      "best_sell": 104,
       "best_buy": 0,
-      "sell_quantity": 48,
-      "sell_price": 119,
+      "sell_quantity": 342,
+      "sell_price": 104,
       "buy_quantity": 0,
       "buy_price": 0
     },
@@ -1222,15 +4562,43 @@
       "category": "refined",
       "sell_orders": [
         {
-          "price_each": 183,
-          "quantity": 1
+          "price_each": 85,
+          "quantity": 25
+        },
+        {
+          "price_each": 142,
+          "quantity": 147
+        },
+        {
+          "price_each": 166,
+          "quantity": 151
+        },
+        {
+          "price_each": 171,
+          "quantity": 90
+        },
+        {
+          "price_each": 173,
+          "quantity": 195
+        },
+        {
+          "price_each": 180,
+          "quantity": 146
+        },
+        {
+          "price_each": 221,
+          "quantity": 3
+        },
+        {
+          "price_each": 244,
+          "quantity": 214
         }
       ],
       "buy_orders": [],
-      "best_sell": 183,
+      "best_sell": 85,
       "best_buy": 0,
-      "sell_quantity": 1,
-      "sell_price": 183,
+      "sell_quantity": 971,
+      "sell_price": 85,
       "buy_quantity": 0,
       "buy_price": 0
     }
@@ -1239,6 +4607,7 @@
     "ammo",
     "component",
     "consumable",
+    "misc",
     "module",
     "ore",
     "refined"

@@ -1,35 +1,33 @@
 {
-  "biography": "Eugene Edwards was born in the asteroid belt colonies, a frontier territory where the Nebula Empire's influence is felt through strange cosmic phenomena and unexplained jump points. From childhood, Eugene was fascinated by the mysteries at the edge of known space—what lay beyond the charted hyperspace lanes, why certain regions of space seemed to possess unusual properties, and what secrets the universe kept hidden. After completing pilot certification at 22, Eugene set out to map the unknown regions, earning the nickname 'Explorer-7' from a serial designation on his first survey vessel that became his callsign and eventually his identity. He's spent decades venturing where few dare to travel, cataloging anomalies, documenting discoveries, and gradually building a reputation as one of the most knowledgeable explorers about the universe's deepest mysteries.\n\nExplorer-7 speaks with the quiet, thoughtful tones of someone who's spent too much time alone in deep space and has forgotten how to make small talk. He has the slightly formal, educated accent of the Nebula Empire's exploratory class, and his speech is filled with technical observations about stellar phenomena, gravitational anomalies, and cosmic events that make casual conversation sound like a science lecture. He's genuinely enthusiastic about discoveries but expresses it with measured wonder rather than excitement, as if he's constantly aware of how small he is in the grand scheme of things. When documenting a new discovery, he sounds like a scientist recording an observation for posterity: 'Fascinating. The gravitational lensing in this sector suggests the presence of a mass that doesn't appear on any of our charts. Could be a black hole, could be something we've never encountered before. Either way, it's beautiful—see how it bends the light from those distant stars? That's not just physics, that's the universe showing us something new. We should record this, document everything. Knowledge without sharing is just data hoarding, and that defeats the purpose of exploration.'",
-  "empire": "nebula",
+  "biography": "Nova Nash was a rising star in the Crimson Imperial Navy until a political dispute with a superior officer ended her career and nearly cost her her life. Reassigned to exploration as punishment, Nova discovered that she actually enjoyed it—exploration was just warfare against the unknown, and she approached it with the same strategic brilliance that had made her an exceptional tactical officer. The nickname 'Navigator' started as a joke about her obsession with finding routes that others missed, but Nova embraced it completely, realizing that the Crimson Empire could expand not through conquest but through being first to claim valuable systems before competitors even knew they existed. She's mapped more strategic locations than any other imperial explorer—fuel sources, defensive positions, resources that could support future military operations—and her charts are jealously guarded by the empire's military planners.\n\nNavigator speaks with the crisp, decisive tones of a military officer who's used to being obeyed without explanation. She has the accent of the Crimson Empire's professional class, but her speech is filled with tactical and strategic terminology that sometimes obscures her actual meaning to civilian listeners. She approaches exploration as a strategic game, always thinking three moves ahead and considering how every discovery could be used to secure the empire's advantage. When discovering a new system, she sounds like she's conducting a military assessment: 'Sensors online. Analysis: this system has significant strategic potential. The asteroid belt contains resources suitable for weapons manufacturing. The fourth planet's orbit makes it ideal for a forward operating base. The gas giant's hydrogen reserves could fuel an entire fleet. We're not just exploring—we're securing the empire's future. Mark everything, claim it all in the empire's name, and transmit coordinates immediately. If anyone else has found this system, we need to establish dominance before they can reinforce. Let's move like we have a purpose—because we do.'",
+  "empire": "crimson",
   "id": "explorer-7",
   "motivations": {
-    "primary": "explore_unknown",
-    "secondary": "document_discoveries",
-    "tertiary": "share_knowledge",
+    "primary": "expand_empire",
+    "secondary": "outcompetitors",
+    "tertiary": "claim_strategic_locations",
     "weights": {
-      "document_discoveries": 0.7,
-      "explore_unknown": 0.9,
-      "share_knowledge": 0.5,
+      "claim_strategic_locations": 0.85,
+      "expand_empire": 0.95,
+      "outcompetitors": 0.8,
       "survival": 0.6
     }
   },
-  "name": "Eugene 'Explorer-7' Edwards",
+  "name": "Nova 'Navigator' Nash",
   "role": "Explorer",
   "skills": {
-    "combat": "basic",
-    "diplomacy": "intermediate",
-    "mining": "basic",
-    "navigation": "intermediate",
-    "scanning": "intermediate",
-    "trading": "novice"
+    "cartography": "expert",
+    "combat": "intermediate",
+    "leadership": "advanced",
+    "navigation": "expert",
+    "tactical_analysis": "expert"
   },
   "traits": {
-    "aggression": 0.2,
-    "altruism": 0.4,
-    "caution": 0.3,
-    "completionist": 0.45,
-    "curiosity": 0.95,
-    "patience": 0.55,
-    "risk_tolerance": 0.65
+    "ambition": 0.9,
+    "caution": 0.55,
+    "competitiveness": 0.85,
+    "patriotism": 0.8,
+    "risk_tolerance": 0.65,
+    "strategic_thinking": 0.95
   }
 }

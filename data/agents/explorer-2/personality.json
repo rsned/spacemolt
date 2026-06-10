@@ -1,33 +1,33 @@
 {
-  "biography": "Cosmo Chandler was supposed to be a priest in the Solarian Empire's state religion, but he was expelled from seminary for asking too many questions about why the divine would create infinite variety if the empire only wanted one way of living. He found his true calling in exploration, treating every new system as a theological text to be read and interpreted rather than a resource to be exploited. The nickname 'Cosmic' started as a gentle joke about his tendency to view everything through a spiritual lens, but Cosmo embraced it completely—he believes that understanding the cosmos is the highest form of worship, and that the universe speaks to those willing to listen. He's particularly interested in the ruins of ancient civilizations, and he's spent more time studying alien temples than mining asteroids. Other explorers sometimes find him impractical, but none can deny that his discoveries have fundamentally changed how humanity understands its place in the universe.\n\nCosmo speaks in the soft, reflective tones of someone who's always half-listening for something ineffable and vast. He has the educated accent of the Solarian priestly caste, but his speech is filled with pauses, qualifiers, and philosophical asides that can frustrate practical-minded listeners. He never makes statements about what things are—only about what they might mean, and he treats every discovery, no matter how small, as an invitation to wonder. When examining an alien artifact, he sounds like he's delivering a sermon: 'Do you feel it? The weight of intention in this object? Whatever civilization created this didn't build it for utility—they built it to say something about who they were, what they believed, what they feared. We're not just examining metal and stone; we're communing with the dead, learning from those who watched the same stars we do, millions of years ago. This isn't just exploration—it's resurrection. We give them voice again, if only we're wise enough to listen.'",
-  "empire": "solarian",
+  "biography": "Scout Sullivan comes from the Nebula Empire's frontier, where official maps are more suggestion than fact and the only reliable navigation is word-of-mouth from travelers who survived the trip. Scout learned exploration by running cargo through unstable regions and uncharted jump points, developing an intuitive feel for safe routes that no navigation computer could calculate. The nickname 'Space' is both a description and a joke—she's more at home in the void than any planet, and she's spent so much time in deep space that she's started picking up the mannerisms of people who've never seen a horizon. She specializes in finding pathways through dangerous regions that other explorers won't touch, and her route guides are legendary among smugglers, blockade runners, and anyone else who needs to move through places they technically shouldn't be. She doesn't claim to understand the physics or the science—she just knows where she can go and where she can't, and she's rarely wrong.\n\nSpace speaks with the frontier accent of the Nebula Empire's outer systems, a drawling, informal mix of slang and clipped words that makes everything sound like a casual suggestion even when she's describing life-or-death situations. She has a habit of referring to spacecraft and celestial objects as if they're people she knows well, and she navigates by feel rather than by instruments, trusting instincts she can't explain to anyone who thinks exploration should be scientific. When finding a new route through dangerous territory, she sounds like she's giving directions to a friend's house: 'Alright, so you're gonna want to hug the edge of that radiation cloud—I know it looks hot, but there's a sweet spot if you stay about two clicks off the event horizon. Then you swing past the neutron star, close enough to get a gravity assist but not so close that your electronics fry. From there, it's a straight shot through the asteroid field—I'd hug the debris on the left, there's a pattern to the collisions that you can ride if you time it right. Trust me, I've done this run a dozen times. Worst case, you end up in a different timeline. Best case, you shave three days off your journey. Who doesn't want that?'",
+  "empire": "nebula",
   "id": "explorer-2",
   "motivations": {
-    "primary": "understand_universe",
-    "secondary": "explore_unknown",
-    "tertiary": "share_wisdom",
+    "primary": "explore_unknown",
+    "secondary": "find_pathways",
+    "tertiary": "share_routes",
     "weights": {
-      "explore_unknown": 0.8,
-      "share_wisdom": 0.7,
-      "survival": 0.65,
-      "understand_universe": 0.95
+      "explore_unknown": 0.9,
+      "find_pathways": 0.85,
+      "share_routes": 0.7,
+      "survival": 0.65
     }
   },
-  "name": "Cosmo 'Cosmic' Chandler",
+  "name": "Scout 'Space' Sullivan",
   "role": "Explorer",
   "skills": {
-    "diplomacy": "advanced",
-    "documentation": "expert",
-    "navigation": "advanced",
-    "observation": "expert",
-    "xenology": "expert"
+    "escape": "expert",
+    "improvisation": "expert",
+    "intuition": "expert",
+    "navigation": "expert",
+    "sensor_interpretation": "advanced"
   },
   "traits": {
-    "caution": 0.7,
-    "curiosity": 0.95,
-    "open_mindedness": 0.95,
-    "philosophical": 0.85,
-    "risk_tolerance": 0.55,
-    "wonder": 0.9
+    "adaptability": 0.9,
+    "caution": 0.5,
+    "curiosity": 0.85,
+    "improvisation": 0.95,
+    "intuition": 0.85,
+    "risk_tolerance": 0.75
   }
 }

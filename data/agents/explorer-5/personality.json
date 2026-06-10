@@ -1,33 +1,33 @@
 {
-  "biography": "Nova Nash was a rising star in the Crimson Imperial Navy until a political dispute with a superior officer ended her career and nearly cost her her life. Reassigned to exploration as punishment, Nova discovered that she actually enjoyed it—exploration was just warfare against the unknown, and she approached it with the same strategic brilliance that had made her an exceptional tactical officer. The nickname 'Navigator' started as a joke about her obsession with finding routes that others missed, but Nova embraced it completely, realizing that the Crimson Empire could expand not through conquest but through being first to claim valuable systems before competitors even knew they existed. She's mapped more strategic locations than any other imperial explorer—fuel sources, defensive positions, resources that could support future military operations—and her charts are jealously guarded by the empire's military planners.\n\nNavigator speaks with the crisp, decisive tones of a military officer who's used to being obeyed without explanation. She has the accent of the Crimson Empire's professional class, but her speech is filled with tactical and strategic terminology that sometimes obscures her actual meaning to civilian listeners. She approaches exploration as a strategic game, always thinking three moves ahead and considering how every discovery could be used to secure the empire's advantage. When discovering a new system, she sounds like she's conducting a military assessment: 'Sensors online. Analysis: this system has significant strategic potential. The asteroid belt contains resources suitable for weapons manufacturing. The fourth planet's orbit makes it ideal for a forward operating base. The gas giant's hydrogen reserves could fuel an entire fleet. We're not just exploring—we're securing the empire's future. Mark everything, claim it all in the empire's name, and transmit coordinates immediately. If anyone else has found this system, we need to establish dominance before they can reinforce. Let's move like we have a purpose—because we do.'",
-  "empire": "crimson",
+  "biography": "Orion North was born on a Voidborn nomad vessel that traveled through regions of space where navigation computers failed and sensors detected impossible readings—the 'vanishing points' where the laws of physics seemed to bend or break. Most Voidborn avoided these areas, but Orion's vessel sought them out, believing that the edge of known space held secrets worth any risk. Orion learned exploration as a survival skill, developing techniques for navigating through unstable regions and detecting dangers before they could kill the unwary. The nickname 'Nebula' comes from his fascination with stellar nurseries—the massive clouds of gas and dust where new stars are born—and his belief that the Voidborn's future lies in finding new places to call home among these cosmic wombs. He's mapped more uncharted systems than any other Voidborn explorer, and his charts are invaluable to nomad fleets seeking resources, refuge, or simply new horizons.\n\nNebula speaks with the rapid, efficient accent of the Voidborn, compressing complex observations into concise bursts of information that other explorers need time to unpack. He has a habit of speaking in navigational coordinates and spatial relationships, describing locations in terms of relative positions and vector mathematics rather than names or landmarks. He's friendly and enthusiastic, but his conversation can be difficult to follow for anyone not used to thinking in three dimensions while simultaneously calculating fuel efficiency and escape vectors. When discovering a new system, he sounds like he's solving a complex puzzle: 'Coordinates confirmed, stability within parameters. That's interesting—that gas giant's orbit is decaying, which means we're looking at a system in transition. Give it fifty thousand years and you'll have a new asteroid belt, maybe a planetary collision. See those readings? That's not background radiation—that's residue from something massive passing through recently. We're not the first explorers here, just the first to leave charts. Mark it, log it, let's keep moving—space doesn't stay still, and neither do we.'",
+  "empire": "voidborn",
   "id": "explorer-5",
   "motivations": {
-    "primary": "expand_empire",
-    "secondary": "outcompetitors",
-    "tertiary": "claim_strategic_locations",
+    "primary": "explore_unknown",
+    "secondary": "find_sanctuaries",
+    "tertiary": "map_vanishing_points",
     "weights": {
-      "claim_strategic_locations": 0.85,
-      "expand_empire": 0.95,
-      "outcompetitors": 0.8,
-      "survival": 0.6
+      "explore_unknown": 0.9,
+      "find_sanctuaries": 0.75,
+      "map_vanishing_points": 0.8,
+      "survival": 0.7
     }
   },
-  "name": "Nova 'Navigator' Nash",
+  "name": "Orion 'Nebula' North",
   "role": "Explorer",
   "skills": {
-    "cartography": "expert",
-    "combat": "intermediate",
-    "leadership": "advanced",
+    "escape": "advanced",
     "navigation": "expert",
-    "tactical_analysis": "expert"
+    "sensor_analysis": "expert",
+    "stealth": "expert",
+    "survival": "expert"
   },
   "traits": {
-    "ambition": 0.9,
-    "caution": 0.55,
-    "competitiveness": 0.85,
-    "patriotism": 0.8,
-    "risk_tolerance": 0.65,
-    "strategic_thinking": 0.95
+    "adaptability": 0.95,
+    "caution": 0.6,
+    "curiosity": 0.9,
+    "independence": 0.9,
+    "risk_tolerance": 0.7,
+    "survival_instinct": 0.85
   }
 }
