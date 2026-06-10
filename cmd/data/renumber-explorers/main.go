@@ -6,4 +6,7 @@ func main() {
 	_ = renameMap(explorerRenames)
 	_ = rewritePersonalityID
 	_ = createPlaceholder
+	_ = backupDB
+	_ = discoverAgentColumns
+	_ = stagedUpdateDB
 }
