@@ -9,4 +9,6 @@ func main() {
 	_ = backupDB
 	_ = discoverAgentColumns
 	_ = stagedUpdateDB
+	_ = verifyAgents
+	_ = verifyDBProblems
 }
