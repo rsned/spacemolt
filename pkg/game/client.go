@@ -4213,6 +4213,16 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Store commission_status responses. The server's reply carries no
+		// "action" field; detect by the distinctive "commissions" list (the
+		// roster of active/ready commissions). Stored under "commission_status"
+		// so the play_as styled formatter can pick it up.
+		if _, hasCommissions := resp.Payload["commissions"]; hasCommissions {
+			if storeKey == "" {
+				storeKey = "commission_status"
+			}
+			shouldStore = true
+		}
 		// Store passenger feature responses. None carry an "action" field, so
 		// detect each by a distinctive payload key and store under the command
 		// name so play_as's styled formatters (and other lookups) can find them:

@@ -234,15 +234,25 @@ func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMa
 
 // CommissionStatus checks the status of ship commissions.
 func (c *Client) CommissionStatus(ctx context.Context, baseID string) error {
+	// Submit + WithAckOnly so the caller blocks until this command's own
+	// type=ok frame arrives. The previous fire-and-forget `send` unblocked on
+	// any ok frame (e.g. a background poller's), so storeRawJSON hadn't run yet
+	// and play_as's showLastResponse read an empty slot — the styled formatter
+	// silently produced nothing. Mirrors CommissionQuote.
 	payload := map[string]any{}
 	if baseID != "" {
 		payload["base_id"] = baseID
 	}
-	return c.send(ctx, protocol.Message{
+	msg := protocol.Message{
 		Type:      "commission_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
 }
 
 // ListShipForSale lists a stored ship for sale on the exchange.
