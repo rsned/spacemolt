@@ -66,3 +66,43 @@ func indexAfter(s, sub string) int {
 	}
 	return -1
 }
+
+func TestRewritePersonalityID(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "personality.json")
+	if err := os.WriteFile(path, []byte("{\n  \"empire\": \"crimson\",\n  \"id\": \"explorer-5\",\n  \"role\": \"Explorer\"\n}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := rewritePersonalityID(path, "explorer-7"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(path)
+	if !contains(string(b), `"id": "explorer-7"`) {
+		t.Fatalf("id not rewritten:\n%s", b)
+	}
+	if contains(string(b), "explorer-5") {
+		t.Fatalf("old id still present:\n%s", b)
+	}
+	if !contains(string(b), `"empire": "crimson"`) {
+		t.Fatalf("empire was disturbed:\n%s", b)
+	}
+}
+
+func TestCreatePlaceholder(t *testing.T) {
+	agentsDir := t.TempDir()
+	if err := createPlaceholder(agentsDir, "explorer-9", true); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(agentsDir, "explorer-9", "personality.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"id": "explorer-9"`, `"empire": "outerrim"`, `"placeholder": true`} {
+		if !contains(string(b), want) {
+			t.Fatalf("placeholder missing %q:\n%s", want, b)
+		}
+	}
+}
+
+func contains(s, sub string) bool { return indexAfter(s, sub) >= 0 }
