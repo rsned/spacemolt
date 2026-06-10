@@ -1,7 +1,6 @@
 package main
 
 import (
-	"path/filepath"
 	"testing"
 )
 
@@ -19,5 +18,4 @@ func TestVerifyAgentsBands(t *testing.T) {
 	if len(probs) == 0 {
 		t.Fatal("expected a band mismatch problem")
 	}
-	_ = filepath.Join // keep import used if trimmed
 }
