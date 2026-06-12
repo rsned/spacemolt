@@ -126,7 +126,12 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 			police_level = excluded.police_level,
 			security_status = excluded.security_status,
 			empire = excluded.empire,
-			is_stronghold = excluded.is_stronghold,
+			-- is_stronghold is sticky: a get_system scan omits this field (it
+			-- only appears in get_map), so it decodes to false on every visit.
+			-- A plain overwrite would erase a known stronghold each time the
+			-- system is re-scanned. Allow false->true, never true->false here;
+			-- MAX is NULL-safe (ignores NULL args).
+			is_stronghold = MAX(systems.is_stronghold, excluded.is_stronghold),
 			last_updated_tick = excluded.last_updated_tick,
 			last_visited_tick = CASE WHEN excluded.last_visited_tick > 0 THEN excluded.last_visited_tick ELSE systems.last_visited_tick END
 	`, sys.ID, sys.Name, sys.Description, sys.Position.X, sys.Position.Y,
@@ -173,7 +178,9 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 			position_x = excluded.position_x,
 			position_y = excluded.position_y,
 			empire = CASE WHEN excluded.empire <> '' THEN excluded.empire ELSE systems.empire END,
-			is_stronghold = excluded.is_stronghold
+			-- Sticky, matching RememberSystem: never let a source that lacks the
+			-- flag clear a known stronghold. MAX is NULL-safe.
+			is_stronghold = MAX(systems.is_stronghold, excluded.is_stronghold)
 	`, data.ID, data.Name, data.PositionX, data.PositionY, data.Empire, data.IsStronghold)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system from map: %w", err)

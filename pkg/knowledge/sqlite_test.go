@@ -66,6 +66,44 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 	}
 }
 
+// TestSQLiteKB_RememberSystem_StrongholdSticky guards against the regression
+// where re-visiting a stronghold erased its is_stronghold flag. get_system does
+// not carry is_stronghold (only get_map does), so a live scan decodes the field
+// to false; a plain overwrite would clear a known stronghold on every visit.
+// RememberSystem must keep the flag set (false->true allowed, true->false not).
+func TestSQLiteKB_RememberSystem_StrongholdSticky(t *testing.T) {
+	t.Parallel()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	ctx := context.Background()
+
+	// First write: known stronghold (e.g. from a map import).
+	if err := kb.RememberSystem(ctx, System{
+		ID: "SYS-STR", Name: "Pirate Home", IsStronghold: true, LastVisitedTick: 0,
+	}); err != nil {
+		t.Fatalf("RememberSystem (stronghold) failed: %v", err)
+	}
+
+	// Second write: a get_system visit, which omits is_stronghold -> false.
+	if err := kb.RememberSystem(ctx, System{
+		ID: "SYS-STR", Name: "Pirate Home", IsStronghold: false, LastVisitedTick: 100,
+	}); err != nil {
+		t.Fatalf("RememberSystem (visit) failed: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "SYS-STR")
+	if err != nil {
+		t.Fatalf("GetSystem failed: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetSystem returned nil")
+	}
+	if !got.IsStronghold {
+		t.Error("is_stronghold was cleared by a re-visit; expected it to remain true")
+	}
+}
+
 func TestSQLiteKB_GetSystem_NotFound(t *testing.T) {
 	t.Parallel()
 	kb := newTestSQLiteKB(t)
