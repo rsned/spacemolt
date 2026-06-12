@@ -33,7 +33,13 @@ func formatCommissionStatus(raw []byte) string {
 		if name == "" {
 			name = c.ShipClassID
 		}
-		fmt.Fprintf(&b, "\n%d. %s (%s) — %s\n", i+1, name, c.ShipClassID, strings.ToUpper(c.Status))
+		// Header carries the built ship id (the thing you switch_ship to) right
+		// after the name + class, once the build is ready and an id exists.
+		header := fmt.Sprintf("%d. %s (%s)", i+1, name, c.ShipClassID)
+		if c.BuiltShipID != "" {
+			header += " " + c.BuiltShipID
+		}
+		fmt.Fprintf(&b, "\n%s — %s\n", header, strings.ToUpper(c.Status))
 
 		if c.BaseName != "" || c.BaseID != "" {
 			base := c.BaseName
@@ -47,14 +53,8 @@ func formatCommissionStatus(raw []byte) string {
 			fmt.Fprintf(&b, "   Earmarked:   %d cr\n", c.EarmarkedCredits)
 		}
 
-		// readyHint is true when the "Built ship" line already inlines the
-		// commission id (via the claim_commission hint), so the standalone
-		// "Commission" line below would just repeat it.
-		readyHint := c.Status == "ready" && c.BuiltShipID != ""
-		switch {
-		case readyHint:
-			fmt.Fprintf(&b, "   Built ship:  %s (use claim_commission %s)\n", c.BuiltShipID, c.CommissionID)
-		case c.TicksRemaining > 0:
+		ready := c.Status == "ready" && c.BuiltShipID != ""
+		if !ready && c.TicksRemaining > 0 {
 			hours := float64(c.TicksRemaining) * 10 / 3600
 			fmt.Fprintf(&b, "   Remaining:   %d ticks (~%.1f h)\n", c.TicksRemaining, hours)
 		}
@@ -71,7 +71,12 @@ func formatCommissionStatus(raw []byte) string {
 			}
 		}
 
-		if !readyHint {
+		// Bottom line: the actionable command. Ready commissions show the
+		// claim_commission hint; in-progress ones show the bare id (for
+		// cancel_commission / supply_commission).
+		if ready {
+			fmt.Fprintf(&b, "   claim_commission %s\n", c.CommissionID)
+		} else {
 			fmt.Fprintf(&b, "   Commission:  %s\n", c.CommissionID)
 		}
 	}
