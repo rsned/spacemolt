@@ -2427,7 +2427,21 @@ type storageShip struct {
 	Modules   int    `json:"modules"`
 }
 
-// formatStorage formats a view_storage response as sorted tables.
+// storageFmtOptions controls optional formatting behaviour for view_storage.
+// It is set by the dispatch case immediately before the response is formatted
+// and reset afterwards. Foreground and scheduled commands are serialized by
+// execMu, so a plain package var needs no further synchronization.
+type storageFmtOptions struct {
+	group  bool   // group items by catalog category instead of a flat table
+	filter string // case-insensitive substring matched against item_id or name
+}
+
+var storageFmtOpts storageFmtOptions
+
+// formatStorage formats a view_storage response as sorted tables. With
+// storageFmtOpts.filter set, items are limited to those whose item_id or name
+// contains the substring (case-insensitive); with storageFmtOpts.group set,
+// items are grouped into per-category sections (catalog-derived).
 func formatStorage(raw []byte) string {
 	var resp struct {
 		BaseID string        `json:"base_id"`
@@ -2448,6 +2462,22 @@ func formatStorage(raw []byte) string {
 		return ""
 	}
 
+	opts := storageFmtOpts
+
+	// Optional case-insensitive substring filter on item_id or name.
+	totalTypes := len(resp.Items)
+	if opts.filter != "" {
+		needle := strings.ToLower(opts.filter)
+		kept := make([]storageItem, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			if strings.Contains(strings.ToLower(item.ItemID), needle) ||
+				strings.Contains(strings.ToLower(item.Name), needle) {
+				kept = append(kept, item)
+			}
+		}
+		resp.Items = kept
+	}
+
 	var totalUnits float64
 	var totalVolume float64
 	for _, item := range resp.Items {
@@ -2456,35 +2486,27 @@ func formatStorage(raw []byte) string {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "Storage at %s — %d types, %s units, %s volume\n",
-		resp.BaseID, len(resp.Items), formatFloat(totalUnits), formatFloat(totalVolume))
+	if opts.filter != "" {
+		fmt.Fprintf(&b, "Storage at %s — %d/%d types match %q, %s units, %s volume\n",
+			resp.BaseID, len(resp.Items), totalTypes, opts.filter,
+			formatFloat(totalUnits), formatFloat(totalVolume))
+	} else {
+		fmt.Fprintf(&b, "Storage at %s — %d types, %s units, %s volume\n",
+			resp.BaseID, len(resp.Items), formatFloat(totalUnits), formatFloat(totalVolume))
+	}
 
 	// Items table
-	if len(resp.Items) == 0 {
-		b.WriteString("  (no items)\n")
-	} else {
-		slices.SortFunc(resp.Items, func(a, b storageItem) int {
-			return strings.Compare(a.ItemID, b.ItemID)
-		})
-
-		nameW, qtyW, sizeW := len("Name (id)"), len("Qty"), len("Unit Size")
-		for _, item := range resp.Items {
-			nameW = max(nameW, len(item.Name)+len(item.ItemID)+3)
-			qtyW = max(qtyW, len(formatFloat(item.Quantity)))
-			sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+	switch {
+	case len(resp.Items) == 0:
+		if opts.filter != "" {
+			b.WriteString("  (no items match filter)\n")
+		} else {
+			b.WriteString("  (no items)\n")
 		}
-
-		fmt.Fprintf(&b, "  %-*s | %*s | %*s\n", nameW, "Name (id)", qtyW, "Qty", sizeW, "Unit Size")
-		fmt.Fprintf(&b, "  %s-+-%s-+-%s\n",
-			strings.Repeat("-", nameW),
-			strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
-
-		for _, item := range resp.Items {
-			fmt.Fprintf(&b, "  %-*s | %*s | %*d\n",
-				nameW, fmt.Sprintf("%s (%s)", item.Name, item.ItemID),
-				qtyW, formatFloat(item.Quantity), sizeW, item.Size)
-		}
-		fmt.Fprintf(&b, "  (%d items)\n", len(resp.Items))
+	case opts.group:
+		writeStorageGrouped(&b, resp.Items)
+	default:
+		writeStorageFlat(&b, resp.Items)
 	}
 
 	// Ships table
@@ -2528,6 +2550,90 @@ func formatStorage(raw []byte) string {
 	}
 
 	return b.String()
+}
+
+// storageColWidths computes the column widths for the storage items table over
+// the given items, so grouped sections share one consistent layout.
+func storageColWidths(items []storageItem) (nameW, qtyW, sizeW int) {
+	nameW, qtyW, sizeW = len("Name (id)"), len("Qty"), len("Unit Size")
+	for _, item := range items {
+		nameW = max(nameW, len(item.Name)+len(item.ItemID)+3)
+		qtyW = max(qtyW, len(formatFloat(item.Quantity)))
+		sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+	}
+	return nameW, qtyW, sizeW
+}
+
+// writeStorageHeader writes the items table header + separator at the given
+// column widths.
+func writeStorageHeader(b *strings.Builder, nameW, qtyW, sizeW int) {
+	fmt.Fprintf(b, "  %-*s | %*s | %*s\n", nameW, "Name (id)", qtyW, "Qty", sizeW, "Unit Size")
+	fmt.Fprintf(b, "  %s-+-%s-+-%s\n",
+		strings.Repeat("-", nameW), strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+}
+
+// writeStorageRows writes one row per item at the given column widths.
+func writeStorageRows(b *strings.Builder, items []storageItem, nameW, qtyW, sizeW int) {
+	for _, item := range items {
+		fmt.Fprintf(b, "  %-*s | %*s | %*d\n",
+			nameW, fmt.Sprintf("%s (%s)", item.Name, item.ItemID),
+			qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+	}
+}
+
+// writeStorageFlat renders items as a single id-sorted table.
+func writeStorageFlat(b *strings.Builder, items []storageItem) {
+	slices.SortFunc(items, func(a, c storageItem) int {
+		return strings.Compare(a.ItemID, c.ItemID)
+	})
+	nameW, qtyW, sizeW := storageColWidths(items)
+	writeStorageHeader(b, nameW, qtyW, sizeW)
+	writeStorageRows(b, items, nameW, qtyW, sizeW)
+	fmt.Fprintf(b, "  (%d items)\n", len(items))
+}
+
+// writeStorageGrouped renders items in per-category sections (catalog-derived),
+// categories sorted alphabetically with "unknown" last. Column widths are
+// uniform across sections so the tables line up.
+func writeStorageGrouped(b *strings.Builder, items []storageItem) {
+	groups := make(map[string][]storageItem)
+	order := make([]string, 0)
+	for _, item := range items {
+		cat := itemCategory(item.ItemID)
+		if _, ok := groups[cat]; !ok {
+			order = append(order, cat)
+		}
+		groups[cat] = append(groups[cat], item)
+	}
+
+	slices.SortFunc(order, func(a, c string) int {
+		if a == "unknown" && c != "unknown" {
+			return 1
+		}
+		if a != "unknown" && c == "unknown" {
+			return -1
+		}
+		return strings.Compare(a, c)
+	})
+
+	nameW, qtyW, sizeW := storageColWidths(items)
+	for idx, cat := range order {
+		if idx > 0 {
+			b.WriteString("\n")
+		}
+		catItems := groups[cat]
+		slices.SortFunc(catItems, func(a, c storageItem) int {
+			return strings.Compare(a.ItemID, c.ItemID)
+		})
+		var catUnits float64
+		for _, it := range catItems {
+			catUnits += it.Quantity
+		}
+		fmt.Fprintf(b, "  %s (%d types, %s units)\n", cat, len(catItems), formatFloat(catUnits))
+		writeStorageHeader(b, nameW, qtyW, sizeW)
+		writeStorageRows(b, catItems, nameW, qtyW, sizeW)
+	}
+	fmt.Fprintf(b, "  (%d items in %d categories)\n", len(items), len(order))
 }
 
 // formatCommas formats an integer with thousands separators.
@@ -2593,37 +2699,41 @@ func formatFactionStorage(raw []byte) string {
 		return ""
 	}
 
+	opts := storageFmtOpts
+
+	// Optional case-insensitive substring filter on item_id or name.
+	totalTypes := len(resp.Items)
+	if opts.filter != "" {
+		needle := strings.ToLower(opts.filter)
+		kept := make([]storageItem, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			if strings.Contains(strings.ToLower(item.ItemID), needle) ||
+				strings.Contains(strings.ToLower(item.Name), needle) {
+				kept = append(kept, item)
+			}
+		}
+		resp.Items = kept
+	}
+
 	var b strings.Builder
 	fmt.Fprintf(&b, "Faction Storage: %s [%s] at %s\n", resp.FactionName, resp.FactionTag, resp.BaseID)
 	fmt.Fprintf(&b, "  Credits: %s\n", formatCommas(resp.Credits))
+	if opts.filter != "" {
+		fmt.Fprintf(&b, "  Filter: %q — %d/%d types match\n", opts.filter, len(resp.Items), totalTypes)
+	}
 
 	// Items table
-	if len(resp.Items) == 0 {
-		b.WriteString("  (no items)\n")
-	} else {
-		slices.SortFunc(resp.Items, func(a, b storageItem) int {
-			return strings.Compare(a.ItemID, b.ItemID)
-		})
-
-		idW, nameW, qtyW, sizeW := len("ID"), len("Name"), len("Qty"), len("Unit Size")
-		for _, item := range resp.Items {
-			idW = max(idW, len(item.ItemID))
-			nameW = max(nameW, len(item.Name))
-			qtyW = max(qtyW, len(formatFloat(item.Quantity)))
-			sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+	switch {
+	case len(resp.Items) == 0:
+		if opts.filter != "" {
+			b.WriteString("  (no items match filter)\n")
+		} else {
+			b.WriteString("  (no items)\n")
 		}
-
-		fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
-		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s\n",
-			strings.Repeat("-", idW), strings.Repeat("-", nameW),
-			strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
-
-		for _, item := range resp.Items {
-			fmt.Fprintf(&b, "  %-*s | %-*s | %*s | %*d\n",
-				idW, item.ItemID, nameW, item.Name,
-				qtyW, formatFloat(item.Quantity), sizeW, item.Size)
-		}
-		fmt.Fprintf(&b, "  (%d items)\n", len(resp.Items))
+	case opts.group:
+		writeFactionStorageGrouped(&b, resp.Items)
+	default:
+		writeFactionStorageFlat(&b, resp.Items)
 	}
 
 	// Recent activity — sorted newest-first, capped at 10 rows.
@@ -2680,6 +2790,89 @@ func formatFactionStorage(raw []byte) string {
 	}
 
 	return b.String()
+}
+
+// factionStorageColWidths computes column widths for the faction-storage items
+// table over the given items, so grouped sections share one layout.
+func factionStorageColWidths(items []storageItem) (idW, nameW, qtyW, sizeW int) {
+	idW, nameW, qtyW, sizeW = len("ID"), len("Name"), len("Qty"), len("Unit Size")
+	for _, item := range items {
+		idW = max(idW, len(item.ItemID))
+		nameW = max(nameW, len(item.Name))
+		qtyW = max(qtyW, len(formatFloat(item.Quantity)))
+		sizeW = max(sizeW, len(strconv.Itoa(item.Size)))
+	}
+	return idW, nameW, qtyW, sizeW
+}
+
+func writeFactionStorageHeader(b *strings.Builder, idW, nameW, qtyW, sizeW int) {
+	fmt.Fprintf(b, "  %-*s | %-*s | %*s | %*s\n", idW, "ID", nameW, "Name", qtyW, "Qty", sizeW, "Unit Size")
+	fmt.Fprintf(b, "  %s-+-%s-+-%s-+-%s\n",
+		strings.Repeat("-", idW), strings.Repeat("-", nameW),
+		strings.Repeat("-", qtyW), strings.Repeat("-", sizeW))
+}
+
+func writeFactionStorageRows(b *strings.Builder, items []storageItem, idW, nameW, qtyW, sizeW int) {
+	for _, item := range items {
+		fmt.Fprintf(b, "  %-*s | %-*s | %*s | %*d\n",
+			idW, item.ItemID, nameW, item.Name,
+			qtyW, formatFloat(item.Quantity), sizeW, item.Size)
+	}
+}
+
+// writeFactionStorageFlat renders items as a single id-sorted table.
+func writeFactionStorageFlat(b *strings.Builder, items []storageItem) {
+	slices.SortFunc(items, func(a, c storageItem) int {
+		return strings.Compare(a.ItemID, c.ItemID)
+	})
+	idW, nameW, qtyW, sizeW := factionStorageColWidths(items)
+	writeFactionStorageHeader(b, idW, nameW, qtyW, sizeW)
+	writeFactionStorageRows(b, items, idW, nameW, qtyW, sizeW)
+	fmt.Fprintf(b, "  (%d items)\n", len(items))
+}
+
+// writeFactionStorageGrouped renders items in per-category sections
+// (catalog-derived), categories sorted alphabetically with "unknown" last and
+// uniform column widths across sections.
+func writeFactionStorageGrouped(b *strings.Builder, items []storageItem) {
+	groups := make(map[string][]storageItem)
+	order := make([]string, 0)
+	for _, item := range items {
+		cat := itemCategory(item.ItemID)
+		if _, ok := groups[cat]; !ok {
+			order = append(order, cat)
+		}
+		groups[cat] = append(groups[cat], item)
+	}
+
+	slices.SortFunc(order, func(a, c string) int {
+		if a == "unknown" && c != "unknown" {
+			return 1
+		}
+		if a != "unknown" && c == "unknown" {
+			return -1
+		}
+		return strings.Compare(a, c)
+	})
+
+	idW, nameW, qtyW, sizeW := factionStorageColWidths(items)
+	for idx, cat := range order {
+		if idx > 0 {
+			b.WriteString("\n")
+		}
+		catItems := groups[cat]
+		slices.SortFunc(catItems, func(a, c storageItem) int {
+			return strings.Compare(a.ItemID, c.ItemID)
+		})
+		var catUnits float64
+		for _, it := range catItems {
+			catUnits += it.Quantity
+		}
+		fmt.Fprintf(b, "  %s (%d types, %s units)\n", cat, len(catItems), formatFloat(catUnits))
+		writeFactionStorageHeader(b, idW, nameW, qtyW, sizeW)
+		writeFactionStorageRows(b, catItems, idW, nameW, qtyW, sizeW)
+	}
+	fmt.Fprintf(b, "  (%d items in %d categories)\n", len(items), len(order))
 }
 
 // marketOrder is one row from view_market's buy_orders / sell_orders array.
@@ -5952,18 +6145,39 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Optional --station_id <id> (or station_id=<id>) routes to ViewStorageAt
 		// so callers can inspect remote storage without docking. With no flag,
 		// uses the current docked station (must have a storage service).
+		//
+		// Display-only flags: --group (alias --by-category) groups items into
+		// catalog-derived category sections; --filter <substr> (alias --match,
+		// or a bare positional arg) keeps only items whose item_id or name
+		// contains the substring, case-insensitive.
 		var stationID string
+		var opts storageFmtOptions
 		for i := 1; i < len(parts); i++ {
 			arg := parts[i]
-			if v, ok := strings.CutPrefix(arg, "--station_id="); ok {
-				stationID = v
-			} else if arg == "--station_id" && i+1 < len(parts) {
+			switch {
+			case strings.HasPrefix(arg, "--station_id="):
+				stationID = strings.TrimPrefix(arg, "--station_id=")
+			case arg == "--station_id" && i+1 < len(parts):
 				i++
 				stationID = parts[i]
-			} else if v, ok := strings.CutPrefix(arg, "station_id="); ok {
-				stationID = v
+			case strings.HasPrefix(arg, "station_id="):
+				stationID = strings.TrimPrefix(arg, "station_id=")
+			case arg == "--group" || arg == "--by-category" || arg == "-g":
+				opts.group = true
+			case strings.HasPrefix(arg, "--filter="):
+				opts.filter = strings.TrimPrefix(arg, "--filter=")
+			case strings.HasPrefix(arg, "--match="):
+				opts.filter = strings.TrimPrefix(arg, "--match=")
+			case (arg == "--filter" || arg == "--match") && i+1 < len(parts):
+				i++
+				opts.filter = parts[i]
+			case !strings.HasPrefix(arg, "-"):
+				// Bare positional argument is treated as the filter substring.
+				opts.filter = arg
 			}
 		}
+		storageFmtOpts = opts
+		defer func() { storageFmtOpts = storageFmtOptions{} }()
 		if stationID != "" {
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.ViewStorageAt(ctx, stationID)
@@ -6474,6 +6688,29 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "view_faction_storage":
+		// Display-only flags mirror `storage`: --group (alias --by-category)
+		// groups items into catalog-derived category sections; --filter <substr>
+		// (alias --match, or a bare positional) keeps only items whose item_id or
+		// name contains the substring, case-insensitive.
+		var opts storageFmtOptions
+		for i := 1; i < len(parts); i++ {
+			arg := parts[i]
+			switch {
+			case arg == "--group" || arg == "--by-category" || arg == "-g":
+				opts.group = true
+			case strings.HasPrefix(arg, "--filter="):
+				opts.filter = strings.TrimPrefix(arg, "--filter=")
+			case strings.HasPrefix(arg, "--match="):
+				opts.filter = strings.TrimPrefix(arg, "--match=")
+			case (arg == "--filter" || arg == "--match") && i+1 < len(parts):
+				i++
+				opts.filter = parts[i]
+			case !strings.HasPrefix(arg, "-"):
+				opts.filter = arg
+			}
+		}
+		storageFmtOpts = opts
+		defer func() { storageFmtOpts = storageFmtOptions{} }()
 		return simpleCommand(client, client.ViewFactionStorage, ctx, 2*time.Second, cmd, format)
 
 	case "faction_create_buy_order":
@@ -7980,7 +8217,8 @@ func printHelp() {
 	fmt.Println("  deposit <item> <qty> [--source=<s>] [--target=<s>]   - Deposit items (source/target: cargo|storage|faction)")
 	fmt.Println("  deposit_all               - Deposit all items")
 	fmt.Println("  withdraw <item> <qty> [--source=<s>] [--target=<s>]  - Withdraw items (source/target: cargo|storage|faction)")
-	fmt.Println("  storage, storage_at <id>  - View storage")
+	fmt.Println("  storage [filter] [--group] [--station_id <id>]  - View storage (--group: by category; filter: id/name substring)")
+	fmt.Println("  storage_at <id>           - View storage at a remote station")
 	fmt.Println("  jettison <item> <qty>     - Jettison cargo")
 
 	fmt.Println("\n=== WRECKS ===")
@@ -8019,7 +8257,7 @@ func printHelp() {
 	fmt.Println("  faction_withdraw_credits <amt> - Withdraw from treasury")
 	fmt.Println("  faction_deposit_items <item> <qty>  - Deposit to faction storage")
 	fmt.Println("  faction_withdraw_items <item> <qty> - Withdraw from faction storage")
-	fmt.Println("  view_faction_storage          - View faction storage")
+	fmt.Println("  view_faction_storage [filter] [--group]  - View faction storage (--group: by category; filter: id/name substring)")
 	fmt.Println("  faction_create_buy_order <item> <qty> <price>  - Faction buy order")
 	fmt.Println("  faction_create_sell_order <item> <qty> <price> - Faction sell order")
 	fmt.Println("  faction_rooms                 - List faction rooms")
