@@ -70,6 +70,7 @@ spacemolt-client-linux-x64
 *.db
 *.db-shm
 *.db-wal
+*.db.bak-*
 data/agents/*/credentials.json
 data/agents/*/play_as_history.json
 data/agents/*/play_as_history.txt
@@ -153,3 +154,6 @@ docs/*.md
 
 .worktrees/
 .superpowers/
+
+# Local scratch / throwaway working files
+scratch/
