@@ -651,6 +651,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatCloak(raw)
 	case "status", "get_status":
 		return formatGetStatus(raw)
+	case "get_state":
+		return formatGetState(raw)
 	case "storage", "view_storage":
 		return formatStorage(raw)
 	case "view_faction_storage":
@@ -7438,6 +7440,13 @@ var rawJSONKeyForCommand = map[string]string{
 	"get_ship":             "ship",
 	"get_cargo":            "cargo",
 	"get_status":           "status",
+	// get_state is undocumented but the server answers it with a full state
+	// dump. Its frame carries no "action" field, so storeRawJSON files it by
+	// content shape ("player" present) under "status" — the same slot as
+	// get_status. Map it here so the generic passthrough can find and print
+	// the payload (raw mode dumps it; styled mode falls back to pretty JSON
+	// since there is no get_state formatter).
+	"get_state":            "status",
 	"get_system":           "system",
 	"get_poi":              "poi",
 	"storage_at":           "storage",
