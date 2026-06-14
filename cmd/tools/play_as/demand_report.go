@@ -60,6 +60,7 @@ type demandReportRow struct {
 	OnHand       float64     `json:"on_hand"`
 	FulfillQty   float64     `json:"fulfill_qty"`
 	FulfillValue float64     `json:"fulfill_value"`
+	FulfillAvg   float64     `json:"fulfill_avg"`
 	CanCraft     int         `json:"can_craft"`
 	CapturedAt   time.Time   `json:"captured_at"`
 	AgeStale     bool        `json:"age_stale"`
@@ -106,6 +107,10 @@ type demandAgg struct {
 	price, qty, myQty                     float64
 	class                                 demandClass
 	captured                              time.Time
+	// rungs is the order book with the player's own demand removed, used to
+	// walk a realistic sell fill (selling into your own buy orders is not
+	// proceeds).
+	rungs []orderRung
 }
 
 // buildDemandReport scores each (station, item) of captured buy orders against
@@ -133,6 +138,11 @@ func buildDemandReport(
 		for _, o := range ords {
 			if o.PriceEach > 0 && o.Quantity > 0 {
 				a.myQty += o.MyQuantity
+				// The order book rung excludes the player's own quantity at
+				// this price — selling into your own buy order isn't proceeds.
+				if eff := o.Quantity - o.MyQuantity; eff > 0 {
+					a.rungs = append(a.rungs, orderRung{Price: o.PriceEach, Qty: eff})
+				}
 			}
 			if o.CapturedAt.After(a.captured) {
 				a.captured = o.CapturedAt
@@ -171,10 +181,10 @@ func buildDemandReport(
 		}
 
 		onhand := onHand[a.itemID]
-		fulfill := onhand
-		if fulfill > a.qty {
-			fulfill = a.qty
-		}
+		// Walk the (own-orders-excluded) order book to value what selling
+		// on-hand inventory would actually yield, instead of assuming it all
+		// clears at the single top price.
+		fulfill, fulfillVal, fulfillAvg, _ := fillOrderBook(onhand, a.rungs)
 		craft := canCraft[a.itemID]
 
 		// Skip rows we can neither fulfill from inventory nor craft — they are
@@ -197,7 +207,7 @@ func buildDemandReport(
 		row := demandReportRow{
 			StationID: a.stationID, SystemID: a.systemID, ItemID: a.itemID, ItemName: a.itemName,
 			Price: a.price, Quantity: a.qty, MyQuantity: a.myQty, Class: a.class,
-			OnHand: onhand, FulfillQty: fulfill, FulfillValue: fulfill * a.price,
+			OnHand: onhand, FulfillQty: fulfill, FulfillValue: fulfillVal, FulfillAvg: fulfillAvg,
 			CanCraft: craft, CapturedAt: a.captured,
 			AgeStale: now.Sub(a.captured) > demandStaleAfter,
 		}

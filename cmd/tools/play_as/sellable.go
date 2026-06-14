@@ -308,56 +308,18 @@ func formatPrice(p float64) string {
 	return fmt.Sprintf("%.2f", p)
 }
 
-// fillItem walks a sorted-by-price-desc copy of orders, taking
-// min(remaining_cargo, order.quantity) from each, until cargo is exhausted
-// or orders run out. Pure: no I/O, no globals. Tests live in
-// sellable_test.go::TestFillItem.
+// fillItem adapts a station's market buy orders into order-book rungs and walks
+// them via fillOrderBook (price-desc, min(remaining_cargo, order.quantity) from
+// each). Tests live in sellable_test.go::TestFillItem; the walk itself is
+// covered by orderbook_fill_test.go::TestFillOrderBook.
 //
 // Returns: total filled quantity, total proceeds (price*qty summed), the
 // proceeds-weighted average price (0 when nothing filled), and the per-fill
 // breakdown in fill order.
-//
-// Defensive: skips orders whose PriceEach <= 0 or Quantity <= 0 so bad data
-// can't manufacture phantom credits or burn cargo on no-op fills.
 func fillItem(cargo float64, orders []serverapi.MarketOrder) (qty, proceeds, avg float64, fills []sellableFill) {
-	if cargo <= 0 || len(orders) == 0 {
-		return 0, 0, 0, nil
+	rungs := make([]orderRung, 0, len(orders))
+	for _, o := range orders {
+		rungs = append(rungs, orderRung{Price: o.PriceEach, Qty: o.Quantity})
 	}
-	sorted := slices.Clone(orders)
-	slices.SortStableFunc(sorted, func(a, b serverapi.MarketOrder) int {
-		// Higher price first; stable so server order breaks ties.
-		switch {
-		case a.PriceEach > b.PriceEach:
-			return -1
-		case a.PriceEach < b.PriceEach:
-			return 1
-		default:
-			return 0
-		}
-	})
-	remaining := cargo
-	for _, o := range sorted {
-		if remaining <= 0 {
-			break
-		}
-		if o.PriceEach <= 0 || o.Quantity <= 0 {
-			continue
-		}
-		take := o.Quantity
-		if take > remaining {
-			take = remaining
-		}
-		fills = append(fills, sellableFill{
-			Price:    o.PriceEach,
-			Qty:      take,
-			Proceeds: take * o.PriceEach,
-		})
-		qty += take
-		proceeds += take * o.PriceEach
-		remaining -= take
-	}
-	if qty > 0 {
-		avg = proceeds / qty
-	}
-	return qty, proceeds, avg, fills
+	return fillOrderBook(cargo, rungs)
 }

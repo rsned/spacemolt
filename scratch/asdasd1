@@ -1,0 +1,1012 @@
+{
+  "base_id": "grand_exchange_station",
+  "base_name": "Grand Exchange Station",
+  "missions": [
+    {
+      "chain_next": "gas_futures",
+      "description": "Acquire gas harvesting equipment to expand your resource portfolio. Diversification protects margins.",
+      "dialog": {
+        "offer": "Captain, you've been focused on ore — that's fine for starters, but real traders diversify their portfolios. Gas harvesting is an underdeveloped market with strong fundamentals. Acquire a Tier 1 gas harvester using `view_market` and `create_buy_order`, or craft one if you've got the materials and recipes. Either way, get the equipment and come back. The Exchange rewards diversification."
+      },
+      "difficulty": 2,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Equipment Specialist Ryker",
+        "title": "Grand Exchange Station, Diversification and Assets"
+      },
+      "mission_id": "commodity_diversification",
+      "objectives": [
+        {
+          "description": "Acquire a Tier 1 Gas Harvester",
+          "item_id": "gas_harvester_i",
+          "quantity": 1,
+          "type": "have_item"
+        }
+      ],
+      "rewards": {
+        "credits": 2000,
+        "reputation": 1,
+        "skill_xp": {
+          "mining": 15,
+          "nebula_attunement": 15
+        }
+      },
+      "template_id": "commodity_diversification",
+      "title": "Commodity Diversification",
+      "type": "equipment"
+    },
+    {
+      "chain_next": "nebula_impossible_list",
+      "description": "Navigator Tull has information about the Outer Rim's improvised extractor attempt. Targeting drift wrecked every run.",
+      "dialog": {
+        "offer": "You seek understanding of failure. Appropriate. The Voidborn do not approach problems as the conventional empires do. Your Federation drills with resonating metals. The Crimson forges weapons and calls them tools. The Solarians measure and theorize. All failed because they think in three dimensions. We do not. Our extractor tapped dimensional power — energy drawn from the spaces between spaces. No vibration. No heat. No physical stress on the drill assembly. Elegant. We descended into the deep core pocket and initiated extraction. For the first cycle, dimensional power flowed perfectly. The second cycle introduced fluctuations — 3% variance. Third cycle, 11% variance. Fourth cycle, the dimensional tap destabilized completely. The extractor failed because deep core pockets exist partially outside conventional spacetime. Our dimensional power couldn't maintain stable resonance with something that shifts between dimensional states. Even we cannot extract what refuses to remain in one reality. You should speak with the Outer Rim at Frontier Station. They improvise solutions conventional engineers dismiss. Perhaps crude methods succeed where sophistication fails."
+      },
+      "difficulty": 5,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Signal Master Threx",
+        "title": "Nexus Prime Communications Array"
+      },
+      "mission_id": "nebula_consulting_the_outer_rim",
+      "objectives": [
+        {
+          "description": "Travel to Frontier Station",
+          "system_id": "starfall",
+          "system_name": "Starfall",
+          "target_base_id": "frontier_station",
+          "target_base_name": "Frontier Station",
+          "type": "dock_at_base"
+        }
+      ],
+      "rewards": {
+        "credits": 3000,
+        "reputation": 2,
+        "skill_xp": {
+          "deep_core_mining": 15,
+          "nebula_attunement": 15
+        }
+      },
+      "template_id": "nebula_consulting_the_outer_rim",
+      "title": "Nebula: Consulting the Outer Rim",
+      "type": "exploration"
+    },
+    {
+      "description": "The Nebula Trade Federation is commissioning a comprehensive inspection of all Federation stations for a new trade route investment prospectus. Visit every station in Federation space and return with market data.",
+      "dialog": {
+        "offer": "The Federation is preparing an investment prospectus for a new generation of optimized trade routes, and we need current data from every station in our network. Market Prime, Cargo Lanes, Gold Run, Factory Belt, Trader's Rest, Treasure Cache, and the Levy — each one a link in the chain that makes the Federation the economic engine of settled space. Dock at each station, let your ship's sensors log the commercial traffic patterns, and bring the full dataset back here. The commission on this contract is generous, because the data is worth ten times what we're paying you."
+      },
+      "difficulty": 5,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Market Director Kasim",
+        "title": "Commodities Division"
+      },
+      "mission_id": "federation_trade_route_prospectus",
+      "objectives": [
+        {
+          "description": "Dock at Market Prime Exchange",
+          "system_id": "market_prime",
+          "system_name": "Market Prime",
+          "target_base_id": "market_prime_exchange",
+          "target_base_name": "Market Prime Exchange",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Dock at Cargo Lanes Freight Depot",
+          "system_id": "cargo_lanes",
+          "system_name": "Cargo Lanes",
+          "target_base_id": "cargo_lanes_freight_depot",
+          "target_base_name": "Cargo Lanes Freight Depot",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Dock at Gold Run Extraction Hub",
+          "system_id": "gold_run",
+          "system_name": "Gold Run",
+          "target_base_id": "gold_run_extraction_hub",
+          "target_base_name": "Gold Run Extraction Hub",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Dock at Factory Belt Manufacturing Hub",
+          "system_id": "factory_belt",
+          "system_name": "Factory Belt",
+          "target_base_id": "factory_belt_manufacturing_hub",
+          "target_base_name": "Factory Belt Manufacturing Hub",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Dock at Trader's Rest Resort Station",
+          "system_id": "traders_rest",
+          "system_name": "Trader's Rest",
+          "target_base_id": "traders_rest_resort_station",
+          "target_base_name": "Trader's Rest Resort Station",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Dock at Treasure Cache Trading Post",
+          "system_id": "treasure_cache",
+          "system_name": "Treasure Cache",
+          "target_base_id": "treasure_cache_trading_post",
+          "target_base_name": "Treasure Cache Trading Post",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Dock at the Levy Customs Station",
+          "system_id": "the_levy",
+          "system_name": "The Levy",
+          "target_base_id": "the_levy_customs_station",
+          "target_base_name": "The Levy Customs Station",
+          "type": "dock_at_base"
+        },
+        {
+          "description": "Return to Grand Exchange with market data",
+          "system_id": "haven",
+          "system_name": "Haven",
+          "target_base_id": "grand_exchange_station",
+          "target_base_name": "Grand Exchange Station",
+          "type": "dock_at_base"
+        }
+      ],
+      "rewards": {
+        "credits": 20000,
+        "skill_xp": {
+          "exploration": 75,
+          "navigation": 60
+        }
+      },
+      "template_id": "federation_trade_route_prospectus",
+      "title": "Federation Trade Route Prospectus",
+      "type": "exploration"
+    },
+    {
+      "chain_next": "trade_lane_patrol",
+      "description": "Eliminate a pirate threat near Federation trade lanes. Secure shipping means secure profits.",
+      "dialog": {
+        "offer": "Captain, the Exchange has a problem — pirates harassing convoys near our outer trade lanes. Can't have that. Bad for business, bad for margins. I need you to take out one pirate vessel and report back to Haven. Use `attack` to engage hostiles. Federation shipping depends on safe lanes."
+      },
+      "difficulty": 2,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Security Broker Torin",
+        "title": "Grand Exchange Station, Trade Protection Division"
+      },
+      "mission_id": "convoy_defense",
+      "objectives": [
+        {
+          "description": "Eliminate 1 pirate scout",
+          "quantity": 1,
+          "type": "kill_pirate"
+        },
+        {
+          "description": "Return to the Grand Exchange",
+          "system_id": "haven",
+          "system_name": "Haven",
+          "target_base_id": "grand_exchange_station",
+          "target_base_name": "Grand Exchange Station",
+          "type": "dock_at_base"
+        }
+      ],
+      "rewards": {
+        "credits": 2000,
+        "reputation": 1,
+        "skill_xp": {
+          "nebula_attunement": 25,
+          "weapons": 25
+        }
+      },
+      "template_id": "convoy_defense",
+      "title": "Convoy Defense",
+      "type": "combat"
+    },
+    {
+      "description": "Chart nearby star systems to update our navigation databases. Every system you visit helps.",
+      "dialog": {
+        "offer": "Our navigation charts are getting stale. If you visit 3 systems I haven't had recent data from, I'll pay for the navigation data."
+      },
+      "difficulty": 2,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Cartographer Mbeki",
+        "title": "Navigation Database Maintainer"
+      },
+      "mission_id": "local_sector_survey",
+      "objectives": [
+        {
+          "description": "Visit the Sirius system",
+          "system_id": "sirius",
+          "system_name": "Sirius",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit the Node Alpha system",
+          "system_id": "node_alpha",
+          "system_name": "Node Alpha",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit the Horizon system",
+          "system_id": "horizon",
+          "system_name": "Horizon",
+          "type": "visit_system"
+        }
+      ],
+      "rewards": {
+        "credits": 2500,
+        "skill_xp": {
+          "exploration": 30,
+          "navigation": 15
+        }
+      },
+      "template_id": "local_sector_survey",
+      "title": "Local Sector Survey",
+      "type": "exploration"
+    },
+    {
+      "description": "The station needs a steady supply of iron ore to maintain its infrastructure. Mine some and bring it back.",
+      "dialog": {
+        "offer": "We're running low on iron ore again. If you can mine 30 units and bring them back, I'll make it worth your while."
+      },
+      "difficulty": 1,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Quartermaster Osei",
+        "title": "Station Supply Officer"
+      },
+      "mission_id": "iron_supply_run",
+      "objectives": [
+        {
+          "description": "Mine 30 units of Iron Ore",
+          "item_id": "iron_ore",
+          "quantity": 30,
+          "type": "mine_resource"
+        }
+      ],
+      "rewards": {
+        "credits": 1500,
+        "skill_xp": {
+          "mining": 15
+        }
+      },
+      "template_id": "iron_supply_run",
+      "title": "Iron Supply Run",
+      "type": "mining"
+    },
+    {
+      "description": "Hunt down a pirate threatening local shipping lanes. Any pirate will do - the station pays for confirmed kills.",
+      "dialog": {
+        "offer": "We've got pirates disrupting trade in the region and the station is posting bounties. Take one out and bring proof. Use the `attack` command when you find one - pirates tend to spawn in lawless systems with low police presence. Fair warning: they shoot back, so watch your hull."
+      },
+      "difficulty": 2,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Bounty Clerk Frost",
+        "title": "Station Security Office"
+      },
+      "mission_id": "pirate_bounty",
+      "objectives": [
+        {
+          "description": "Kill 1 pirate",
+          "quantity": 1,
+          "type": "kill_pirate"
+        }
+      ],
+      "rewards": {
+        "credits": 2000,
+        "skill_xp": {
+          "weapons": 20
+        }
+      },
+      "template_id": "pirate_bounty",
+      "title": "Pirate Bounty",
+      "type": "combat"
+    },
+    {
+      "description": "Storage Attendant Orwell has a return errand to complete the arrangement — and something for you personally.",
+      "dialog": {
+        "offer": "Two cases logged to the Director's private reserve. That puts the quarterly total at... two above the authorized allotment. But the allotment has grown every quarter for three years without a formal adjustment request, so the ledger just — accommodates. Standard practice. Here — one bottle, uncounted spillage, for the courier. Since you're already heading back toward the Levy: the Director's office has a case of Solarian Gourmet Rations going to Inspector Neva as a courtesy. Would you mind running it? Saves us the courier fee."
+      },
+      "difficulty": 3,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Storage Attendant Orwell",
+        "title": "Grand Exchange Station, Haven Premium Storage"
+      },
+      "mission_id": "a_complimentary_bottle",
+      "objectives": [
+        {
+          "description": "Deliver courtesy rations to Inspector Neva at the Levy",
+          "item_id": "solarian_gourmet_rations",
+          "quantity": 1,
+          "system_id": "the_levy",
+          "system_name": "The Levy",
+          "target_base_id": "the_levy_customs_station",
+          "target_base_name": "The Levy Customs Station",
+          "type": "deliver_item"
+        }
+      ],
+      "provided_items": {
+        "solarian_gourmet_rations": 1
+      },
+      "rewards": {
+        "credits": 600,
+        "items": {
+          "nebula_stellar_vintage": 1
+        },
+        "reputation": 1,
+        "skill_xp": {
+          "trading": 15
+        }
+      },
+      "template_id": "a_complimentary_bottle",
+      "title": "A Complimentary Bottle",
+      "type": "delivery"
+    },
+    {
+      "chain_next": "bid_and_ask",
+      "description": "Learn the Exchange's order book system by listing iron ore for sale. Every portfolio begins with a first position.",
+      "dialog": {
+        "offer": "Welcome to the trading floor, Captain. Every station in the Federation has its own order book where buyers and sellers meet. Use `view_market` to see current prices and open orders, then use `create_sell_order` to list 5 units of iron ore. Your order sits on the book at your price until a buyer matches it — or fills instantly if there's already demand."
+      },
+      "difficulty": 1,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Exchange Analyst Devri",
+        "title": "Grand Exchange Station, Order Book Operations"
+      },
+      "mission_id": "opening_position",
+      "objectives": [
+        {
+          "description": "List 5 Iron Ore for sale on the exchange",
+          "item_id": "iron_ore",
+          "quantity": 5,
+          "type": "sell_item"
+        }
+      ],
+      "rewards": {
+        "credits": 1500,
+        "reputation": 1,
+        "skill_xp": {
+          "nebula_attunement": 15,
+          "trading": 20
+        }
+      },
+      "template_id": "opening_position",
+      "title": "Opening Position",
+      "type": "trading"
+    },
+    {
+      "chain_next": "crossing_borders",
+      "description": "Establish the first links of the Grand Circuit trade route by delivering inaugural shipments to Market Prime and Cargo Lanes.",
+      "dialog": {
+        "offer": "The Commerce Bureau is establishing a galaxy-spanning trade route — the Grand Circuit. Every major market connected by a single optimized shipping lane. But a route on paper is worthless. We need inaugural shipments to prove the lanes are viable. Start here at Grand Exchange: load up Copper Wiring and deliver it to Market Prime, then extend the run to Cargo Lanes with a shipment of nickel ore. Two stops, two deliveries, and the first links in the Circuit are forged."
+      },
+      "difficulty": 3,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Route Planner Maren",
+        "title": "Federation Commerce Bureau"
+      },
+      "mission_id": "first_links",
+      "objectives": [
+        {
+          "description": "Deliver Copper Wiring to Market Prime",
+          "item_id": "copper_wiring",
+          "quantity": 8,
+          "system_id": "market_prime",
+          "system_name": "Market Prime",
+          "target_base_id": "market_prime_exchange",
+          "target_base_name": "Market Prime Exchange",
+          "type": "deliver_item"
+        },
+        {
+          "description": "Deliver nickel ore to Cargo Lanes",
+          "item_id": "nickel_ore",
+          "quantity": 10,
+          "system_id": "cargo_lanes",
+          "system_name": "Cargo Lanes",
+          "target_base_id": "cargo_lanes_freight_depot",
+          "target_base_name": "Cargo Lanes Freight Depot",
+          "type": "deliver_item"
+        }
+      ],
+      "rewards": {
+        "credits": 4000,
+        "reputation": 2,
+        "skill_xp": {
+          "navigation": 15,
+          "trading": 25
+        }
+      },
+      "template_id": "first_links",
+      "title": "First Links",
+      "type": "delivery"
+    },
+    {
+      "chain_next": "the_nebulite_exchange",
+      "description": "Extract Prismatic Nebulite from the deep core gas pockets near Federation space. A new commodity class for the Exchange.",
+      "dialog": {
+        "offer": "The deposits are verified and the Exchange is ready to list prismatic nebulite as a new commodity class. But we need physical inventory first. Mine 10 units from the deep core gas pockets you discovered. You'll need a deep core extractor — standard gas harvesters can't handle the density of these formations."
+      },
+      "difficulty": 6,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Market Director Kasim",
+        "title": "Grand Exchange Station, Commodities Division"
+      },
+      "mission_id": "nebulite_extraction",
+      "objectives": [
+        {
+          "description": "Mine 10 units of Prismatic Nebulite",
+          "item_id": "prismatic_nebulite",
+          "quantity": 10,
+          "type": "mine_resource"
+        }
+      ],
+      "rewards": {
+        "credits": 10000,
+        "reputation": 3,
+        "skill_xp": {
+          "deep_core_mining": 30,
+          "nebula_attunement": 25,
+          "trading": 25
+        }
+      },
+      "template_id": "nebulite_extraction",
+      "title": "Nebulite Extraction",
+      "type": "mining"
+    },
+    {
+      "description": "Visit all five empire capital systems and return to Haven in the longest route through civilized space.",
+      "dialog": {
+        "offer": "The Nebula Trade Federation believes that commerce thrives on connection, and connection requires understanding. I'm commissioning a Grand Tour — one pilot, five empires, every capital visited. Sol, Nexus Prime, Krynn, Haven, and Frontier. You'll carry a Nebula trade charter, which identifies you as a diplomatic observer. It won't stop pirates, but it will open doors at every capital. Visit all five systems and return here. The longest route in civilized space, and one of the most rewarding."
+      },
+      "difficulty": 5,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Trade Ambassador Loring",
+        "title": "Haven Interstellar Relations"
+      },
+      "mission_id": "grand_tour_of_the_five_empires",
+      "objectives": [
+        {
+          "description": "Visit Sol (Solarian capital)",
+          "system_id": "sol",
+          "system_name": "Sol",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit Nexus Prime (Voidborn capital)",
+          "system_id": "nexus_prime",
+          "system_name": "Nexus Prime",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit Krynn (Crimson capital)",
+          "system_id": "krynn",
+          "system_name": "Krynn",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit Haven (Nebula capital)",
+          "system_id": "haven",
+          "system_name": "Haven",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit Frontier (Outer Rim capital)",
+          "system_id": "frontier",
+          "system_name": "Frontier",
+          "type": "visit_system"
+        },
+        {
+          "description": "Return to Haven Grand Exchange",
+          "system_id": "haven",
+          "system_name": "Haven",
+          "target_base_id": "grand_exchange_station",
+          "target_base_name": "Grand Exchange Station",
+          "type": "dock_at_base"
+        }
+      ],
+      "rewards": {
+        "credits": 12000,
+        "skill_xp": {
+          "exploration": 40,
+          "leadership": 25,
+          "navigation": 30
+        }
+      },
+      "template_id": "grand_tour_of_the_five_empires",
+      "title": "Grand Tour of the Five Empires",
+      "type": "exploration"
+    },
+    {
+      "chain_next": "crimson_ledger",
+      "description": "Deliver platinum ore to Procyon Colonial Station as final settlement of an overdue Federation trade account.",
+      "dialog": {
+        "offer": "The Federation Revenue Service has three overdue accounts that have resisted every standard collection method. Polite reminders, escalation notices, frozen trade credentials — nothing. I need someone who can physically travel to each debtor and deliver the settlement terms. First stop: Procyon Colonial Station. The Solarian Confederacy's Procyon colony owes the Federation for a bulk fuel shipment they received six months ago. They claim budget shortfalls, so the Federation is accepting 10 units of platinum ore as payment in kind. Source the platinum and deliver it to Procyon — the Revenue Service will reimburse you plus a generous courier fee."
+      },
+      "difficulty": 5,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Senior Auditor Ghosh",
+        "title": "Federation Revenue Service"
+      },
+      "mission_id": "overdue_accounts",
+      "objectives": [
+        {
+          "description": "Travel to the Procyon system",
+          "system_id": "procyon",
+          "system_name": "Procyon",
+          "type": "visit_system"
+        },
+        {
+          "description": "Deliver 10 Platinum Ore to Procyon Colonial Station",
+          "item_id": "platinum_ore",
+          "quantity": 10,
+          "system_id": "procyon",
+          "system_name": "Procyon",
+          "target_base_id": "procyon_colonial_station",
+          "target_base_name": "Procyon Colonial Station",
+          "type": "deliver_item"
+        }
+      ],
+      "rewards": {
+        "credits": 7000,
+        "reputation": 3,
+        "skill_xp": {
+          "trading": 55
+        }
+      },
+      "template_id": "overdue_accounts",
+      "title": "Overdue Accounts",
+      "type": "exploration"
+    },
+    {
+      "description": "The Exchange maintains standing contracts for bulk nickel ore. Federation infrastructure runs on reliable supply chains.",
+      "dialog": {
+        "offer": "The Federation's infrastructure program needs nickel — alloys, plating, components, you name it. I've got authorization for a bulk purchase: 25 units at premium rates. Standard Exchange contract terms apply."
+      },
+      "difficulty": 3,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Procurement Broker Vasanti",
+        "title": "Grand Exchange Station, Bulk Commodities"
+      },
+      "mission_id": "nickel_supply_contract",
+      "objectives": [
+        {
+          "description": "Mine 25 units of Nickel Ore",
+          "item_id": "nickel_ore",
+          "quantity": 25,
+          "type": "mine_resource"
+        }
+      ],
+      "rewards": {
+        "credits": 4000,
+        "reputation": 2,
+        "skill_xp": {
+          "mining": 45,
+          "nebula_attunement": 35
+        }
+      },
+      "template_id": "nickel_supply_contract",
+      "title": "Nickel Supply Contract",
+      "type": "mining"
+    },
+    {
+      "description": "Chart frontier systems to expand our knowledge of the galaxy's outer reaches.",
+      "dialog": {
+        "offer": "The Institute needs fresh navigation data from frontier space. Visit The Crucible and Horizon systems - both are in regions where our data is sparse."
+      },
+      "difficulty": 4,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Dr. Yun-Seo Park",
+        "title": "Galactic Survey Institute"
+      },
+      "mission_id": "deep_space_cartography",
+      "objectives": [
+        {
+          "description": "Visit The Crucible system",
+          "system_id": "the_crucible",
+          "system_name": "The Crucible",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit the Horizon system",
+          "system_id": "horizon",
+          "system_name": "Horizon",
+          "type": "visit_system"
+        }
+      ],
+      "rewards": {
+        "credits": 4000,
+        "skill_xp": {
+          "exploration": 40,
+          "navigation": 25
+        }
+      },
+      "template_id": "deep_space_cartography",
+      "title": "Deep Space Cartography",
+      "type": "exploration"
+    },
+    {
+      "description": "The salvage yard foreman needs someone to tow in a wreck. A good way to learn the business.",
+      "dialog": {
+        "offer": "New to salvaging? Here's how it works. Wrecks are scattered across the galaxy — left behind after battles, pirate attacks, equipment failures. You need a Basic Tow Rig module first. Use `view_market` to find one on the exchange and `buy` to purchase it, or craft one yourself. Then use `install_mod` to fit it in a utility slot. Once equipped, fly to a wreck, use `tow_wreck` to attach it, then haul it back here. Use `sell_wreck` to cash it in. Simple as that."
+      },
+      "difficulty": 1,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Yard Foreman Dak",
+        "title": "Salvage Yard Supervisor"
+      },
+      "mission_id": "first_haul",
+      "objectives": [
+        {
+          "description": "Sell 1 wreck at a salvage yard",
+          "quantity": 1,
+          "type": "sell_wreck"
+        }
+      ],
+      "rewards": {
+        "credits": 500,
+        "skill_xp": {
+          "salvaging": 25
+        }
+      },
+      "template_id": "first_haul",
+      "title": "First Haul",
+      "type": "equipment"
+    },
+    {
+      "chain_next": "the_gold_standard",
+      "description": "The Exchange is evaluating a new high-value trade corridor. Scout the Cargo Lanes and Gold Run systems to assess commercial viability.",
+      "dialog": {
+        "offer": "Captain, the Exchange board has approved a new initiative - the Gold Run Corridor. If viable, it could be the most profitable trade route since Haven was founded. I need a pilot to scout Cargo Lanes and Gold Run - both Federation-adjacent systems. Assess the routes, log the hazards, and report back."
+      },
+      "difficulty": 3,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Market Director Kasim",
+        "title": "Grand Exchange Station, Commodities Division"
+      },
+      "mission_id": "scouting_the_gold_run",
+      "objectives": [
+        {
+          "description": "Visit the Cargo Lanes system",
+          "system_id": "cargo_lanes",
+          "system_name": "Cargo Lanes",
+          "type": "visit_system"
+        },
+        {
+          "description": "Visit the Gold Run system",
+          "system_id": "gold_run",
+          "system_name": "Gold Run",
+          "type": "visit_system"
+        },
+        {
+          "description": "Return route data to the Grand Exchange",
+          "system_id": "haven",
+          "system_name": "Haven",
+          "target_base_id": "grand_exchange_station",
+          "target_base_name": "Grand Exchange Station",
+          "type": "dock_at_base"
+        }
+      ],
+      "rewards": {
+        "credits": 3500,
+        "reputation": 2,
+        "skill_xp": {
+          "exploration": 30,
+          "navigation": 20,
+          "nebula_attunement": 25,
+          "trading": 15
+        }
+      },
+      "template_id": "scouting_the_gold_run",
+      "title": "Scouting the Gold Run",
+      "type": "exploration"
+    },
+    {
+      "chain_next": "wiring_the_exchange",
+      "description": "Fulfill a custom manufacturing order by mining iron and refining it into ingots. Value-added production beats raw commodity sales every time.",
+      "dialog": {
+        "offer": "Captain, raw commodities are fine for volume traders, but real margins come from value-added manufacturing. I've got a standing order for iron ingots — mine 10 units of iron ore, then use `catalog` with type `recipes` to find the smelting recipe and `craft` to process it. One ingot is worth triple the raw ore. That's how you build profit."
+      },
+      "difficulty": 1,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Production Coordinator Ames",
+        "title": "Grand Exchange Station, Manufacturing Division"
+      },
+      "mission_id": "first_commission",
+      "objectives": [
+        {
+          "description": "Mine 10 units of Iron Ore",
+          "item_id": "iron_ore",
+          "quantity": 10,
+          "type": "mine_resource"
+        },
+        {
+          "description": "Craft 1 Iron Ingot",
+          "quantity": 1,
+          "type": "craft_item"
+        }
+      ],
+      "rewards": {
+        "credits": 1500,
+        "reputation": 1,
+        "skill_xp": {
+          "crafting": 25,
+          "nebula_attunement": 25
+        }
+      },
+      "template_id": "first_commission",
+      "title": "First Commission",
+      "type": "crafting"
+    },
+    {
+      "description": "CRITICAL PHASE 5 OBJECTIVE: Transport all optical_fiber_bundles to Haven Grand Exchange for immediate market deployment at premium prices (1800cr/ea at Haven). Time-sensitive market window. Any member with bundles should deliver immediately. This is the core Phase 5 revenue generator.",
+      "difficulty": 5,
+      "expires_in_ticks": 0,
+      "faction_id": "b4e1f7e5770c036d16c26f8f1c88abd3",
+      "faction_name": "Nova Zoea",
+      "mission_id": "faction_ceb2ad5c80e140c5797e9fe28250170e",
+      "objectives": [
+        {
+          "description": "Consolidate all 80 optical_fiber_bundles to Haven Grand Exchange",
+          "item_id": "optical_fiber_bundle",
+          "quantity": 80,
+          "system_id": "haven",
+          "system_name": "Haven",
+          "target_base_id": "grand_exchange_station",
+          "target_base_name": "Grand Exchange Station",
+          "type": "deliver_item"
+        }
+      ],
+      "rewards": {
+        "credits": 16000
+      },
+      "template_id": "faction_ceb2ad5c80e140c5797e9fe28250170e",
+      "title": "PHASE 5: Optical Fiber Bundle Transport to Haven",
+      "type": "delivery"
+    },
+    {
+      "chain_next": "insurance_policy",
+      "description": "Install cargo expansion modules to increase payload capacity. Bigger holds mean bigger profit per run.",
+      "dialog": {
+        "offer": "Captain, you're leaving money on the table every time you undock with unfilled cargo space. A Tier 1 cargo expander adds 50 units of capacity — that's 50 more units you can haul per trip. More payload per jump means better margins. Use `view_market` to find one on the exchange and `buy` to purchase it, or craft one if you've got the materials. Then use `install_mod` to mount it on your ship."
+      },
+      "difficulty": 1,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Fleet Optimization Advisor Chen",
+        "title": "Grand Exchange Station, Ship Efficiency Division"
+      },
+      "mission_id": "cargo_optimization",
+      "objectives": [
+        {
+          "description": "Acquire a Tier 1 Cargo Expander",
+          "item_id": "cargo_expander_i",
+          "quantity": 1,
+          "type": "have_item"
+        }
+      ],
+      "rewards": {
+        "credits": 1500,
+        "reputation": 1,
+        "skill_xp": {
+          "engineering": 15,
+          "nebula_attunement": 15
+        }
+      },
+      "template_id": "cargo_optimization",
+      "title": "Cargo Optimization",
+      "type": "equipment"
+    },
+    {
+      "description": "List items for sale on the station exchange. Any items count toward the goal.",
+      "dialog": {
+        "offer": "The exchange needs sellers as much as buyers. List some items for sale - at least 10 units of anything. Use the `create_sell_order` command to put items on the market. There's a small listing fee, but the returns are worth it when buyers come knocking."
+      },
+      "difficulty": 1,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Exchange Operator Nkosi",
+        "title": "Market Services"
+      },
+      "mission_id": "market_participation_selling",
+      "objectives": [
+        {
+          "description": "Sell 10 units of any item on the exchange",
+          "quantity": 10,
+          "type": "sell_item"
+        }
+      ],
+      "rewards": {
+        "credits": 1000,
+        "skill_xp": {
+          "trading": 15
+        }
+      },
+      "template_id": "market_participation_selling",
+      "title": "Market Participation: Selling",
+      "type": "trading"
+    },
+    {
+      "description": "Titanium is in high demand for hull plating. Mine a batch from the local asteroid belts.",
+      "dialog": {
+        "offer": "Titanium prices are through the roof and our suppliers can't keep up. Willing to pay premium rates for 20 units of titanium ore."
+      },
+      "difficulty": 3,
+      "expires_in_ticks": 0,
+      "giver": {
+        "name": "Procurement Agent Vasquez",
+        "title": "Materials Acquisition"
+      },
+      "mission_id": "titanium_extraction_contract",
+      "objectives": [
+        {
+          "description": "Mine 20 units of Titanium Ore",
+          "item_id": "titanium_ore",
+          "quantity": 20,
+          "type": "mine_resource"
+        }
+      ],
+      "rewards": {
+        "credits": 3500,
+        "skill_xp": {
+          "mining": 25
+        }
+      },
+      "template_id": "titanium_extraction_contract",
+      "title": "Titanium Extraction Contract",
+      "type": "mining"
+    },
+    {
+      "description": "Certain parties at Grand Exchange Station are willing to pay well for 5 Gutter Flux, no questions asked. Source the goods from pirate space — the Treasure Cache Trading Post or any pirate stronghold should have what you need — and deliver them here. Discretion is expected.",
+      "difficulty": 7,
+      "expires_in_ticks": 512,
+      "giver": {
+        "name": "Cargo Broker Dara Kesh",
+        "title": "Treasure Cache Operations"
+      },
+      "issuing_base": "Grand Exchange Station",
+      "issuing_base_id": "grand_exchange_station",
+      "issuing_system_id": "haven",
+      "issuing_system_name": "Haven",
+      "mission_id": "smuggling_black_grand_exchange_station_gutter_flux",
+      "objectives": [
+        {
+          "description": "Deliver 5 Gutter Flux to Grand Exchange Station",
+          "item_id": "gutter_flux",
+          "quantity": 5,
+          "system_id": "haven",
+          "system_name": "Haven",
+          "target_base_id": "grand_exchange_station",
+          "target_base_name": "Grand Exchange Station",
+          "type": "deliver_item"
+        }
+      ],
+      "rewards": {
+        "credits": 300,
+        "pirate_rep": 1,
+        "skill_xp": {
+          "smuggling": 350
+        }
+      },
+      "title": "Black Market: Gutter Flux",
+      "type": "smuggling"
+    },
+    {
+      "description": "Power Cell is in demand at Korr Fortress Station. Buy 35 units here for approximately 51 credits each, then haul them to Korr Fortress Station (25 jumps) and sell for approximately 1669 credits each. Estimated profit: ~56630 credits.\n\nUse 'create_buy_order' to purchase the goods, then 'travel' and 'jump' to reach the destination. Use 'create_sell_order' at the destination to complete the trade and earn your profit.",
+      "difficulty": 3,
+      "expires_in_ticks": 92,
+      "giver": {
+        "name": "Dock Superintendent Brandt",
+        "title": "Supply Chain Management"
+      },
+      "issuing_base": "Grand Exchange Station",
+      "issuing_base_id": "grand_exchange_station",
+      "issuing_system_id": "haven",
+      "issuing_system_name": "Haven",
+      "mission_id": "trade_grand_exchange_station_korr_fortress_station_power_cell",
+      "objectives": [
+        {
+          "description": "Sell 35 Power Cell at Korr Fortress Station",
+          "item_id": "power_cell",
+          "quantity": 35,
+          "system_id": "gliese_581",
+          "system_name": "Gliese 581",
+          "target_base_id": "korr_fortress_station",
+          "target_base_name": "Korr Fortress Station",
+          "type": "sell_item"
+        }
+      ],
+      "rewards": {
+        "credits": 0,
+        "skill_xp": {
+          "trading": 20
+        }
+      },
+      "title": "Trade Run: Power Cell to Korr Fortress Station",
+      "type": "trading"
+    },
+    {
+      "description": "Power Cell is in demand at Sable Port Station. Buy 35 units here for approximately 51 credits each, then haul them to Sable Port Station (16 jumps) and sell for approximately 1657 credits each. Estimated profit: ~56210 credits.\n\nUse 'create_buy_order' to purchase the goods, then 'travel' and 'jump' to reach the destination. Use 'create_sell_order' at the destination to complete the trade and earn your profit.",
+      "difficulty": 3,
+      "expires_in_ticks": 92,
+      "giver": {
+        "name": "Commerce Officer Lau",
+        "title": "Freight Operations"
+      },
+      "issuing_base": "Grand Exchange Station",
+      "issuing_base_id": "grand_exchange_station",
+      "issuing_system_id": "haven",
+      "issuing_system_name": "Haven",
+      "mission_id": "trade_grand_exchange_station_sable_port_station_power_cell",
+      "objectives": [
+        {
+          "description": "Sell 35 Power Cell at Sable Port Station",
+          "item_id": "power_cell",
+          "quantity": 35,
+          "system_id": "barnard_44",
+          "system_name": "Barnard 44",
+          "target_base_id": "sable_port_station",
+          "target_base_name": "Sable Port Station",
+          "type": "sell_item"
+        }
+      ],
+      "rewards": {
+        "credits": 0,
+        "skill_xp": {
+          "trading": 20
+        }
+      },
+      "title": "Trade Run: Power Cell to Sable Port Station",
+      "type": "trading"
+    }
+  ]
+}
+
+
+
+        | Faction | Ship     | Combat
+----------------------------------------------
+Combat Drone 018 | BUSY    | axiomata | no combat |
+
+
+
+
+
+
+↪ 889,160 items in storage at central_nexus, gold_run_extraction_hub, grand_exchange_station, market_prime_exchange, treasure_cache_trading_post, voss_redoubt_station
+
+
+Storage at grand_exchange_station — 332 types, 227514 units, 312011 volume
+  Name (id)                                                       |   Qty | Unit Size
+  ----------------------------------------------------------------+-------+----------
+  Argon Gas (argon_gas)                                           |  7045 |         1
+  Copper Ore (copper_ore)                                         | 19823 |         1
+  Hydrogen Gas (hydrogen_gas)                                     |  1118 |         1
+  Iron Ore (iron_ore)                                             | 20603 |         1
+  Neon Gas (neon_gas)                                             | 11402 |         1
+  Nickel Ore (nickel_ore)                                         | 25554 |         1
+  Silicon Ore (silicon_ore)                                       | 20470 |         1
+  Trade Crystal (trade_crystal)                                   | 30215 |         1
+
+Storage at grand_exchange_station — 332 types, 247057 units, 331689 volume
+  ore (51 types, 182573 units)
+  Name (id)                                                       |   Qty | Unit Size
+  ----------------------------------------------------------------+-------+----------
+  Argon Gas (argon_gas)                                           |  8463 |         1
+  Copper Ore (copper_ore)                                         | 21309 |         1
+  Hydrogen Gas (hydrogen_gas)                                     |  2552 |         1
+  Iron Ore (iron_ore)                                             | 22821 |         1
+  Neon Gas (neon_gas)                                             | 17150 |         1
+  Nickel Ore (nickel_ore)                                         | 27004 |         1
+  Silicon Ore (silicon_ore)                                       | 21972 |         1
+  Trade Crystal (trade_crystal)                                   | 34259 |         1
+

@@ -1,0 +1,881 @@
+
+● I now have deep canonical grounding — 50+ Voidborn ship lore entries plus the
+  station network. Here's what the source material actually tells us, before we
+  pick directions to render.
+     
+  What the canon says about the Voidborn
+
+  Their ships aren't built — they're grown. The starter Threshold is "cultivated
+  in Nexus Prime's orbital growth bays" over a period called "gestation"; the
+  Apotheosis dreadnought matures over months and is "possibly alive." Hulls are
+  "crystalline-organic composite," self-repairing, with collection membranes
+  engineers call "disturbingly pulmonary." Ships anticipate pilot intent, have
+  opinions about destinations, run "warmer during towing, as though the effort is
+  metabolic," and prefer "familiar rock." → A species that cultivates biology
+  rather than manufacturing it.
+
+  They are a distributed consciousness — "The Collective." The Core (Nexus Prime)
+  is literally "the central consciousness of the Voidborn." Synchrony Hub
+  "coordinates the alignment of distributed consciousness... exists purely for
+  thought." The Nodes are a computational network with failover ("if Nexus Prime
+  goes dark, Node Alpha assumes coordination within three ticks"). Drones "share
+  consciousness with the ship"; the Consensus/Overmind make a fleet "move as one
+  mind — whose mind is unclear." → A networked hive-mind, individuals as partial
+  expressions of one whole.
+
+  They distinguish themselves from "organic visitors." Every station notes
+  organics are "accommodated / permitted but monitored." A citizen is a
+  "fabricator of custom exo-chassis." → They are synthetic or post-organic — 
+  bodies are swappable shells, not flesh.
+
+  They treat dimensions/probability/phase as native physics. Pocket dimensions,
+  dimensional fractures, "null matter," phase-shifting, probability-field
+  navigation, "constructive impossibility," mild temporal déjà vu listed under
+  features. The air "tastes of ozone and mathematics." → Beings partly outside 
+  normal spacetime.
+
+  Their whole naming language is philosophy + epistemology: Apeiron, Qualia,
+  Noumenon, Solipsism, Aporia, Eigenstate, Hysteresis, Plenum. They deliver
+  "philosophical texts to study circles." Failures are blamed on "insufficient
+  philosophical preparation." And they're cold — cabins "always three degrees too
+  cold," "thermal sympathy" — patient, watchful, quiet.
+
+  The existing KB portrait styling already pins individuals as "ethereal, pale, 
+  high-collared, ascetic."
+
+  Synthesis: a post-biological, networked collective intelligence that grows its
+  technology like tissue, wears swappable crystalline-organic bodies, and lives
+  half-anchored in adjacent dimensions. Humanoid in silhouette, wrong in the
+  details. That's our raw material.
+
+  ---
+  One note on method: rather than the brainstorming skill's browser "visual
+  companion," our visual medium is the actual FLUX generator (tools/portrait) —
+  we'll test hypotheses as real renders, which is exactly what you asked for. So
+  I'll skip the mockup browser and go straight to generation once we pick
+  directions.
+
+  Before I start writing prompts, let me get one decision from you:
+─────────────────────────────────────────────────────────────────────────────────
+←  ☒ Species direction  ✔ Submit  →
+
+The canon supports several distinct visual readings of what a Voidborn *is*. 
+Which body/species direction(s) should I turn into image-gen prompts first? (Pick
+any number — testing a spread is the point of this exercise.)
+
+  1. [✔] Post-biological synthetic
+  Once-organic species that uploaded into a distributed mind, now wearing GROWN 
+  crystalline-organic exo-chassis. Pale, smooth, semi-translucent humanoid
+  shells; faces serene and under-detailed; seams/lattice where flesh should be.
+  The 'humanoid but not synthetic alien' reading — closest to your hunch.
+  2. [✔] Crystalline-organic lifeform
+  Not machines at all — a silicon/crystal-based NATIVE organism that cultivates
+  everything biologically. Translucent crystalline skin, visible glowing internal
+  lattice, bioluminescent, ozone-smelling. Clearly alien; humanoid-ish
+  silhouette only.
+  3. [✔] Phase / dimensional entity
+  Beings that exist partly in adjacent dimensions, projecting a humanoid avatar
+  into our space. Ethereal, faintly translucent, edges that don't fully resolve,
+  present-but-not-here. The exo-chassis is just an anchor.
+  4. [✔] Networked hive nodes
+  Individuals are near-identical terminals of one consciousness — serene,
+  synchronized faces, no individuality markers, uncanny sameness. Emphasizes 'The
+  Collective' over any single being.
+  5. [ ] Type something
+❯    Submit
+
+
+
+● All four landed, and they're remarkably on-canon. My read against the source
+  material:
+
+  H1 — Post-biological synthetic ✅ Strong. Grown-ceramic pale skin, hairless
+  serenity, a glowing crystalline lattice up the throat — exactly the "cultivated
+  exo-chassis" reading. Weakness: the eyes are too human/pretty; it doesn't feel
+  wrong enough yet. The "cabin is always three degrees too cold" coldness isn't
+  there.
+
+  H2 — Crystalline-organic lifeform ✅✅ The standout. Faceted translucent
+  crystal skull, violet/teal internal glow, mineral fronds at the shoulders —
+  this is "grown, not built" and "disturbingly pulmonary." Most alien, most
+  beautiful, most distinctly Voidborn.
+
+  H3 — Phase/dimensional entity ⚠️  Partial. Gorgeous ethereal glow and a
+  folded-geometry crown, but it lost the key idea — the "two reference frames
+  overlapping," the doubling/offset, the dissolving edges. Right now it reads as
+  a generic hologram rather than something not quite here. Needs the canon's
+  "looking at yourself from across the room while also being in the room."
+
+  H4 — Networked hive nodes ✅ Nails "The Collective" — uncanny near-identical
+  bald serenity, cold blue, neural filaments (rendered as little antennae). The
+  sameness is genuinely unsettling, which is the point.
+
+  The biggest insight from seeing them side by side: the canon doesn't actually
+  describe four separate species — it describes one species that is all four at 
+  once. The Voidborn are post-biological (H1) and grown crystalline-organic (H2)
+  and half-phased out of spacetime (H3) and a networked collective (H4). The
+  strongest "canonical Voidborn" is probably a fusion of what landed.
+
+  Where do you want to push next?
+
+
+
+
+  For context, I'm open on any of these — whether there's a particular canon
+  detail you want emphasized (the "grown not built" biology, the
+  dimensional/phase weirdness, the collective-consciousness angle, the coldness),
+  a specific station or ship you'd like rendered as a scene, a mood/art-style
+  shift (these came out painterly-cinematic — we could go more
+  clinical/photoreal, or more abstract), or a constraint I'm missing about how
+  this feeds into the KB. What's on your mind?
+
+  file:///home/robert/spacemolt/kb/voidborn-concepts/index.html
+
+  My read on round 2:
+
+  H1 · Synthetic — cold gave a genuinely alien blue with the throat lattice
+  intact; grown is the strongest (gold-glowing throat, growth-bay lighting, that
+  "cultivated" feel); eyes drifted toward a classic "grey alien," which may be
+  too generic for the Voidborn's refined aesthetic.
+
+  H2 · Crystalline — all three are excellent. lung landed the "disturbingly
+  pulmonary" canon perfectly (glowing ribcage membranes). sharp is the most
+  striking and most non-human (faceted violet skull). amber proves the palette is
+  swappable and looks gorgeous backlit. This path is the most visually
+  distinctive — nothing else in the game would look like this.
+
+  H3 · Phase — big improvement. double finally nailed "looking at yourself from
+  across the room while also being in the room" (two overlapping faces, red/cyan
+  split). dissolve and fold both read as "not quite here." This went from the
+  weakest path to a real contender.
+
+  H4 · Hive — rows is chilling (an army of identical bodies into the dark = "The
+  Collective" literalized); cabling makes the neural-link explicit; oddone is the
+  most unsettling single image of the whole set.
+
+  Where to next? Some options: (a) fuse the winners into a definitive canonical
+  Voidborn (e.g. H2-lung's crystalline body + H1-grown's serenity + H3-double's
+  phase-doubling); (b) drill deeper on whichever single path you're drawn to with
+  4–6 more variations; (c) move to context/scenes (growth bays, the Core, a
+  Voidborn among "monitored organic visitors"); or (d) keep all four alive and do
+  another variation pass. What's your instinct?
+
+
+❯ the hive concept is chilling but not really grabbing me.  it's a tough concept 
+  to capture in a single image.  maybe as video where you could see a whole      
+  crowd of them in unison watching an organic passd through a station or         
+  something.    For H1, I like r1 base, cold, and grown the best.  For H2, I     
+  like r1 base, pulmonary, and the amber showing other colors and backlit        
+  options, plus the ore visible elongated head.   For H3, i feel like these      
+  would pop the most as animated loops, watching dissolve breaking in and out of 
+  probablity noise, see two reference frames unifying and chromatically          
+  splitting, maybe even some differeing off-axis-frame changes between the two   
+  pieces.  for H3, i like all of them, but the Non-euclidean folded space is my  
+  favorite, and one I would definitely want to see animated watching the folds   
+  change around as the viewers mind tries to wrap thier head around what they    
+  are seeeing.                 
+
+
+● Gallery updated — 28 images, your favorites outlined in blue, H3 folds starred,
+  H4 parked as a video concept. (Correct path:
+  file:///home/robert/spacemolt/kb/voidborn-concepts/index.html.)
+     
+  Quick read on the new batch:
+  - H1: chassis (closed eyes, gold throat lattice, joint seams) and frost
+  (growth-bay halo) are the strongest "grown, not built" reads. profile is
+  elegant; collar's vertebra-ring is striking but veers skeletal.
+  - H2: ice and pulmonary 2 nail the translucent-body-with-visible-internal-ore
+  look; emerald/rose/sapphire prove the palette is fully swappable — useful
+  canon, suggests Voidborn could present as different "crystal strains."
+  - H3: fold 3 (origami wireframe) is the best animation candidate — clean planes
+  to churn — and two frames 2 is the cleanest doubling.
+
+
+
+
+
+  On the hardware + animation question
+
+  Important technical reality first: multiple GPUs don't pool VRAM for a single 
+  diffusion model — a video model runs on one card. So your best video card stays
+  the 16 GB RTX 2000 Ada. The spares are still useful — as a parallel still-gen 
+  worker or to run a smaller video model independently (the 3070 Ti is
+  newer/bf16-capable but 8 GB; the 2080 Ti has more VRAM at 11 GB but older). The
+  thing that actually unblocks generative video is the added storage (models are
+  5–15 GB each; you only have 17 GB free now).
+
+  There are two genuinely different animation routes, and they're good at
+  different things:
+
+  A · Procedural loop pipeline (no model, buildable right now): I add
+  imageio-ffmpeg to the venv (tiny, no sudo) and write a small Python tool that
+  animates the existing stills — chromatic split↔merge, probability-noise
+  dissolve in/out, displacement-warp "fold churn," off-axis crossfades between
+  two keyframes. This produces exactly the H3 effects you described, with
+  frame-precise control, today, no hardware change. Limitation: it manipulates a
+  still — the fold churns but doesn't invent new geometry, and it can't do the H4
+  crowd scene.
+
+  B · Generative video model (needs the storage add; runs on the 16 GB card):
+  e.g. LTX-Video or Stable Video Diffusion — feed a FLUX keyframe, get true
+  organic motion. Unlocks novel motion and eventually the H4 
+  crowd-watching-an-organic shot. Limitation: less precise control over specific
+  named effects, slower iteration, real setup.
+
+  My recommendation: both, staged — let me build A now (it directly delivers your
+  H3 loops and costs nothing), and in parallel you add storage so we can stand
+  up B for organic motion + the crowd shot.
+
+
+
+● User answered Claude's questions:
+  ⎿  · How do you want to approach animation? → I want to go down 1) eventually. 
+     i want to install a 2 TB additonal drive first.  But I am having a blast 
+     with the still images being generated.  lets save a memory for 1) so we know
+     what needs to be done in the next session. Can we also save the prompt sed 
+     for each one of these with the image on the gallery page.   For t    For the
+     more stills, earlier you mentioned possibly going abstract and also soome 
+     trying out soe context/scenese.  (growth bays, the Core, a
+       Voidborn among "monitored organic visitors") can we try each of these in 
+     these scenese and also maybe an abstract of the starred ones
+
+● This facility lore is far richer than the generic station text — Crystalline 
+  Cradle (ships grown by probability fields), Collective Panopticon ("sees
+  everything. Everything."), Neural Growth Chamber, Null Matter Processor (where
+  "space itself thins"), Pattern Council (missions as floating probabilities),
+  Nexus Soma Dispensary, and the Dimensional Vault. Let me render the fused
+  Voidborn into these authentic settings.
+
+
+● I have everything I need. Generating three sets: fusions (chassis ×
+  amber/sapphire × fold/double, plus a "definitive" blend), fused being in real 
+  station settings (Synchrony Hub, Node Beta, Node Gamma, The Experiment — using
+  their canon descriptions), and three Voidborn citizens in-role (Lissette the
+  exo-chassis fabricator, Liaison Dural the Collective's envoy, Kerys the
+  philosophy courier).
+
+❯ how about what it might look like to combine ( H1 chassis +  H2 amber or H2    
+  sapphire + H3 two frames 2 or H3 fold )    into some variations and then       
+  adding backdrops using some of the station facility descriptions to give more  
+  of a feel for them in actual settings.  and maybe choosing a couple of the     
+  Passenger Bios for voidborn based passengers to see what they might look like  
+  in their roles.                                                                
+
+  Thought for 34s (ctrl+o to expand)
+
+● Great direction — fuse the favorites into a "definitive Voidborn," drop them
+  into real station settings, and bring a couple of the citizen bios to life
+  in-role. Let me first pull richer facility/room descriptions from the DB to use
+  as authentic backdrops, plus the best Voidborn bios.
+
+
+● This is a great spread — each empire has a sharp identity: Solarian =
+  bureaucratic Earth-democracy (paperwork in triplicate, research institutes);
+  Crimson = forge-and-war society (molten metal, railguns, "if it doesn't survive
+  a broadside, start over"); Nebula = corporate luxury & tolls (the Haven
+  Promenade "moves credits"); Outer Rim = the Patchwork, literally three salvaged
+  ships welded together ("it doesn't have to match, it has to fly"). Let me
+  render 4 settings per empire, lore-grounded.
+  The four empires, each with a distinct visual identity
+
+  ☀️  Solarian Confederacy — clean civic Earth-democracy:
+  - sol_nova_terra — a grand domed trade concourse, crowds of suited citizens
+  (the "economic capital that's embarrassed to outperform Sol").
+  - sol_sirius_observatory — gorgeous star-chart dome with scholars debating
+  beneath the constellations.
+  - sol_admin_bureau — endless rows of clerk terminals into the vanishing point
+  ("paperwork in triplicate" made literal).
+
+  🔥 Crimson Pact — forge-and-war society:
+  - crim_blood_forge — a foundry cathedral of molten crucibles and orange heat
+  haze.
+  - crim_rampart — a black gun-fortress bristling with red-lit weapons all
+  pointing outward.
+  - crim_war_forge / crim_anvil_arsenal — warship hulls and railgun rows in
+  blood-red light.
+
+  💰 Nebula Federation — corporate luxury & tolls:
+  - neb_haven_promenade — opulent gold-and-neon entertainment strip (it even
+  rendered "HAVEN" signage).
+  - neb_levy_customs / neb_trade_authority / neb_premium_storage — slick
+  mercantile toll booths, trade-surveillance ops, and concierge display vaults.
+  
+  🔧 Outer Rim Explorers — the Patchwork, scavenger chic:
+  - rim_patchwork — a station of mismatched salvaged hulls bolted together over a
+  planet.
+  - rim_machine_shop — a torpedo-room-turned-workshop, complete with a
+  hand-lettered "you weld it" sign.
+  - rim_salvage_yard / rim_frontier_exchange — ships built from scrap, and a
+  trading floor on a captured destroyer bridge.
+  
+--------------------------------------
+
+
+● Done. Summary of what shipped to main:
+
+  Voidborn procedural animation pipeline ✓
+
+  Built (no ML model, pure CPU):
+  - tools/animate.py — core library + CLI with four loop-seamless effects:
+    - fold-churn — sinusoidal displacement warp (non-euclidean folds breathing)
+    - chromatic-split — RGB channels drift apart off-axis then merge
+    - noise-dissolve — dissolve into palette-tinted probability noise and back
+    - crossfade-drift — two-keyframe off-axis parallax crossfade
+  - tools/animate — shell wrapper (mirrors tools/portrait)
+  - voidborn-concepts/anims.json — 10 reproducible clip recipes, all rendered to
+  looping H.264 MP4
+  - tools/build_voidborn_gallery.py — now renders <video> tiles alongside the 72
+  stills (one page)
+  
+  The seamless-loop guarantee — every effect's time terms are periodic in phase
+  t∈[0,1), and the renderer emits frames 0..n-1 (omitting the duplicate t=1), so
+  each MP4 loops with no seam. Asserted by tests.
+
+  Verification: 15/15 tests pass on merged main; final opus code review returned
+  APPROVED (loop invariant verified empirically, remap/even-dims math sound, no
+  critical/important issues). Two minor review polish items applied.
+
+  Process: brainstorm → spec → plan → 6 grouped implementer subagents (each TDD +
+  reviewed) → final whole-branch review → merged locally, branch deleted.
+
+  Verification: 15/15 tests pass on merged main; final opus code review returned
+  APPROVED (loop invariant verified empirically, remap/even-dims math sound, no
+  critical/important issues). Two minor review polish items applied.
+
+  Process: brainstorm → spec → plan → 6 grouped implementer subagents (each TDD +
+  reviewed) → final whole-branch review → merged locally, branch deleted.
+
+
+
+  To eyeball the results: xdg-open voidborn-concepts/index.html — the four
+  animation sections are at the bottom. If the noise-dissolve static doesn't read
+  strongly enough, bump max_noise/lower grain in anims.json and re-run
+  ./tools/animate --batch voidborn-concepts/anims.json (the harsher white-static
+  variant was deliberately deferred). The generative image-to-video lane (new
+  geometry, H4 crowd) remains staged behind the 2 TB drive / NAS.
+
+
+
+
+
+
+
+❯ the chromatic split works well.  gives nice otherworldy sense to the images    
+  that they are trying to stay focused in our plane but is work for them.   th   
+  crossfade works as described.  fold churn has potential.   it looks  kind of   
+  like a domain warp on a 2d plane. i think what i would envision for those H3   
+  animations is the main character body would stay more 'solid' but the elements 
+  around it, (the hex ring on H3 phase fold churn, the abstrat fold tunnel,      
+  etc) would all be more 'mathematically' feeling.  like watching an animation   
+  of a 4D cube in 3D like a 'rotating tesseract' thats a lot harder to keyframe, 
+  it would probably require actual higher dimensional math to figure out what    
+  it would look like to our reference frame. (all of the "Abstract of the        
+  starred folds" ones woiuld need this)  noise dissolve.  the loops do fade to a 
+  dissolve.  i think for "probablility field (abstract phase dissolve) looks     
+  more like it would be a 'fixed' white curve where the two halves meet but both 
+  of them would look like stars warping towards or away from the curve like in   
+  the movie Stargate where they enter the portal [Image #1] [Image #2] [Image    
+  #3] and the 'curves and loops' behinf the primary curve would be like 2nd and  
+  3rd order smaller references to the main with same star pattern.    and for H3 
+  phase dissolve, it wouldnt be the whole image, it would be the just the shape  
+  of the body like in movies where someone is turned to dust and the wind poofs  
+  them away.                                                                     
+  ⎿  [Image #1]
+
+
+
+● This is great, specific feedback. You're describing a meaningful redesign of
+  the H3/abstract effects — keeping the two that work (chromatic-split,
+  crossfade-drift) and replacing fold-churn + noise-dissolve with something much
+  more ambitious: subject-preserving animation, 4D-rotation-driven warps for the
+  abstracts, Stargate-style star-streak "probability fields," and a body-shaped
+  disintegration. That's real creative design work, so let me brainstorm it
+  properly before touching code.
+
+
+
+  - abstract_phase_c already is the Stargate look frozen: a bright primary curve,
+  self-similar smaller curves behind it, radial star texture. Your vision is
+  essentially animating the streaking that the still implies.
+  - abstract_fold_a is a nested-pentagon tunnel — a natural fit for a true
+  rotating-polytope feel.
+  - h3_phase_fold has a clearly separable bright figure against a dark void with
+  glass geometry around the head — so a subject mask (keep body solid, animate
+  surroundings) is very doable from luminance alone.
+
+  Here's how I've decomposed your feedback into work:
+  1. Subject-preserving warp — body stays solid, only the surrounding "math"
+  geometry moves (for h3_phase_fold's hex ring). 
+  2. 4D / rotating-tesseract warp — for the abstract folds (fold tunnel, starred
+  folds).
+  3. Hyperspace star-streak "probability field" — Stargate-style, fixed curve +
+  self-similar secondary curves, stars warping toward/away (for
+  abstract_phase_c).
+  4. Body disintegration — masked "poof to dust" with wind drift (for
+  h3_phase_dissolve).
+
+  Chromatic-split and crossfade-drift stay as-is.
+
+  First and biggest question — the 4D effect. Applying "actual higher-dimensional
+  math" to a 2D painting has a few honest interpretations:
+
+
+
+
+● Excellent — that gives me a clear picture. Let me also lock two smaller
+  decisions myself (flag if you disagree): the disintegration loops by ping-pong
+  (body intact → fully dusted at the midpoint → reformed), which both loops
+  seamlessly and reads as "phasing out of existence and back" — very Voidborn;
+  and subject-masking becomes a reusable modifier rather than a one-off, so the
+  body-preserving behavior can apply to the warp cleanly.
+
+  Here's the design.
+
+  Design: H3 / abstract animation effects v2
+
+  Shared helper: subject_mask(img, params)
+  
+  Produces a soft 0–1 body mask. Auto: luminance threshold (bright figure vs dark
+  void) → keep largest connected blob → morphological close → Gaussian feather.
+  Override: if <src>.mask.png exists beside the keyframe, load it instead.
+  Params: mask_threshold, mask_feather. Used by hyper-warp (protect mode) and
+  disintegrate.
+
+  New effect: hyper-warp (4D-rotation displacement)
+
+  Normalize (x,y)→[-1,1], embed each pixel into a 4D point (the extra z,w coords
+  seeded from radius so there's real structure in the hidden dims), apply a
+  genuine 4D rotation through the xw / yw / zw planes (the rotations with no 3D
+  analog) by θ(t)=2π·t·turns, perspective-project 4D→2D, and use the resulting
+  offset as a displacement field to remap the keyframe. Integer turns (default 1)
+  ⇒ full rotation ⇒ seamless loop. Param protect_subject: true composites the
+  feathered un-warped body back on top (for h3_phase_fold's figure; the hex glass
+  tumbles in 4D while the body stays solid). Params: amp, turns, w_dist,
+  protect_subject.
+
+  New effect: hyperspace-streak (Stargate probability field)
+
+  Keep the keyframe's bright curve(s) fixed (detected as bright ridge pixels).
+  Build a flow field pointing toward/away from the nearest curve pixel. Streak by
+  accumulating the image sampled along the flow with a decaying motion-blur
+  trail (streak_len). Add boosted synthetic stars (seeded points near the curve)
+  advected along the flow so the streaks read stronger than the faint painted
+  texture. Loop: star parametric positions advance by t mod 1 ⇒ continuous
+  streaming that returns at t=1. Params: streak_len, n_stars, toward (bool),
+  curve_threshold, seed. (This is the effect most likely to need a visual
+  iteration pass after first render — like noise-dissolve did.)
+
+  New effect: disintegrate (body dust)
+
+  subject_mask → for masked pixels, advect outward along a wind vector +
+  turbulence, fading with distance; a per-pixel noise threshold vs alpha(t)
+  drives the dissolve front so the body erodes into drifting dust and reforms.
+  Background untouched. Ping-pong alpha=0.5(1-cos(2πt)) ⇒ intact→dust→intact,
+  seamless. Params: wind_angle, wind_px, turbulence, grain, seed.
+
+  Wiring (anims.json) & keeping old effects
+
+  - h3_phase_fold, h3_v_fold2, h3_v_fold3 → hyper-warp protect_subject:true
+  - abstract_fold_a (+ add abstract_fold_b) → hyper-warp full
+  - abstract_phase_c → hyperspace-streak
+  - h3_phase_dissolve → disintegrate
+  - chromatic-split & crossfade clips unchanged.
+  - Old fold-churn / noise-dissolve stay in the registry (tested, still valid
+  generic tools) but are no longer referenced by default.
+
+  Future enhancements (noted, not built)
+
+  - 4D approach (2) synthetic projected-polytope wireframe overlay, and (3)
+  hybrid warp+overlay.
+
+  Testing
+
+  Per effect: loop-seamlessness (t=0 vs t=1 within tolerance), shape/dtype, and
+  behavior checks (mask non-empty on a synthetic bright blob; disintegrate
+  midpoint differs from endpoints; streak elongates a point source; hyper-warp
+  identity at t=0). Plus a smoke render through render().
+
+  ---
+  Does this match what you're envisioning? Anything to adjust before I write it
+  up as a spec?
+
+
+  docs/superpowers/specs/2026-06-13-voidborn-animation-v2-design.md (on branch
+  feat/voidborn-animation-v2). Please review it and let me know if you want any
+  changes before I write the implementation plan.
+
+  A few specifics worth your eye:
+  - hyper-warp hidden dimensions — I seed the 4th (w) and 3rd (z) coords from
+  each pixel's radius so the 4D rotation actually does something non-trivial (a
+  constant w would make it a boring scale). This is the choice that determines
+  what the "tesseract tumble" actually looks like; it's the most likely knob to
+  revisit after first render. 
+  - hyperspace-streak honesty — I flagged it as the effect most likely to need a
+  visual tuning pass (streak length, star count, flow quality), same as
+  noise-dissolve did. The loop invariant is still unit-tested.
+  - Mask override path — I chose foo.png.mask.png (sits next to the keyframe).
+  Easy to change if you'd prefer foo.mask.png.
+  - abstract_fold_b — I added it as a new clip; if that keyframe doesn't exist at
+  plan time, that row gets dropped.
+
+
+
+
+● All keyframes exist (incl. abstract_fold_b); scipy is not available, so
+  connected-components must be pure-numpy. Let me check the exact structure of
+  animate.py for accurate insertion points in the plan.
+
+  Thought for 3m 13s, read 1 file (ctrl+o to expand)
+
+● All keyframes confirmed, scipy absent (pure-numpy connected components
+  required), and render builds imgs then calls fn(imgs, params, i/n) — so
+  mask-path injection goes in render. One important design consequence I worked
+  out: the subject mask and the streak's painted layer are t-independent but
+  expensive, and effects are called per-frame, so the plan must cache those
+  (cleared per render) or full-res renders take a minute each. I'll bake that in.
+
+  Writing the plan.
+
+● Plan complete and saved to
+  docs/superpowers/plans/2026-06-13-voidborn-animation-v2.md (6 tasks, all TDD
+  with complete code). It ends with the 11-clip batch rendered and the gallery
+  rebuilt — then an expected visual-tuning pass on hyperspace-streak.
+
+
+● Plan complete and saved to
+  docs/superpowers/plans/2026-06-13-voidborn-animation-v2.md (6 tasks, all TDD
+  with complete code). It ends with the 11-clip batch rendered and the gallery
+  rebuilt — then an expected visual-tuning pass on hyperspace-streak.
+
+    "credits": 1420784,
+    "credits": 1422798,
+
+
+
+● I have everything I need. Here's the design.
+     
+  Design: polytope-overlay effect (true rotating 4D wireframe)
+     
+  A new effect that draws a genuine 4D polytope — rotated in 4D, projected
+  4D→3D→2D — as a glowing wireframe composited over the crisp keyframe. New
+  clips; nothing existing is removed.
+
+  Polytope definitions — _polytope(shape) -> (verts Nx4, edges)
+
+  - tesseract (8-cell): 16 verts = all (±1,±1,±1,±1); edges = vertex pairs at
+  Hamming distance 1 → 32 edges.
+  - 16-cell (cross-polytope): 8 verts = (±1,0,0,0) permutations; edges = all
+  non-antipodal pairs → 24 edges.
+  - 5-cell (4-simplex): 5 verts built deterministically by centering the R⁵ basis
+  and projecting onto the sum-zero hyperplane via SVD (regular simplex, no
+  hand-typed magic numbers); edges = all 10 pairs.
+
+  Per-frame render
+
+  1. Normalize verts to unit radius.
+  2. 4D rotate by θ = 2π·t·turns through the xw/yw/zw planes (same rotation
+  family as hyper_warp; integer turns ⇒ identity at t=0 and t=1 ⇒ seamless, exact
+  loop).
+  3. Project 4D→3D (perspective by w: d4/(d4−w)), then 3D→2D (perspective by z:
+  d3/(d3−z)). d4=2.5, d3=3 keep denominators safe since |w|,|z|≤1.
+  4. Map to pixels (center + size·half-image).
+  5. Draw edges into an intensity buffer at 2× supersample (PIL ImageDraw.line,
+  width width), downsample for anti-aliasing; make a Gaussian-blurred copy for
+  glow and combine (glow*0.6 + sharp).
+  6. overlay_rgb = intensity · color (cool blue-white default [0.6,0.8,1.0]);
+  screen-blend over the keyframe: out = 1−(1−base)(1−overlay) — preserves the
+  painting, adds luminous lines.
+
+  No caching needed — it's ~10–32 lines per frame, cheap.
+
+  Params: shape (tesseract|5-cell|16-cell), turns (int, 1), size (0.7), width
+  (2), glow (6), color ([0.6,0.8,1.0]), d4 (2.5), d3 (3.0). 1 input.
+
+  Wiring (new clips, all current kept)
+
+  New gallery group "Animations · 4D polytopes" — 3 clips over crisp abstract
+  bases:
+  - anim_poly_tesseract.mp4 — abstract_fold_a, tesseract
+  - anim_poly_16cell.mp4 — abstract_fold_b, 16-cell
+  - anim_poly_5cell.mp4 — abstract_fold_a, 5-cell
+
+  (11 existing → 14 total.)
+
+  Testing
+
+  _polytope vertex/edge counts (16/32, 8/24, 5/10) and valid edge indices; effect
+  shape/dtype; loop-seamless (frame0≈frameN ≤1); overlay brightens (output >
+  base sum); unknown shape → ValueError; render smoke. Plus the v1 loop-tolerance
+  approach.
+
+  Notes
+
+  Reuses the gallery's existing <video> rendering (no gallery code change). Keeps
+  hyper-warp as-is for the H3 character folds.
+
+  ---
+● Spec written and committed to
+  docs/superpowers/specs/2026-06-13-voidborn-polytope-overlay-design.md (on the
+  feat/voidborn-animation-v2 branch). Please review it and let me know if you
+  want any changes before I write the implementation plan.
+
+  Worth a glance:
+  - 5-cell coordinates — built deterministically via SVD of the centered R⁵ basis
+  rather than hand-typed numbers, so it's a guaranteed-regular simplex.
+  - Anti-aliasing — PIL's ImageDraw.line isn't AA, so I draw at 2× and downsample
+  with LANCZOS. Costs a bit but the lines won't be jaggy.
+  - Screen blend keeps the painting and only adds light (never darkens), so the
+  crisp keyframe stays intact under the wireframe.
+  - Color/size defaults are cool blue-white at 0.7–0.8 of the frame — all tunable
+  per-clip in anims.json after first render.
+
+  Wrote 1 memory (ctrl+o to expand)
+
+● Done. v2 animation effects + 4D polytope overlay shipped to main.
+
+  What landed
+
+  Four new effects in tools/animate.py (plus the reusable subject_mask), all
+  loop-seamless and pure-CPU:
+
+  ┌───────────────────┬──────────────────────────────────┬───────────────────┐
+  │      effect       │              result              │      used on      │
+  ├───────────────────┼──────────────────────────────────┼───────────────────┤
+  │                   │ ✅ nails the "poof to dust" —    │                   │
+  │ disintegrate      │ body erodes into wind-blown      │ h3_phase_dissolve │
+  │                   │ particles, void behind, reforms  │                   │
+  ├───────────────────┼──────────────────────────────────┼───────────────────┤
+  │                   │ ✅ Stargate "probability field"  │                   │
+  │ hyperspace-streak │ — fixed curves + radial          │ abstract_phase_c  │
+  │                   │ star-streaks                     │                   │
+  ├───────────────────┼──────────────────────────────────┼───────────────────┤
+  │                   │ ✅ true rotating 4D wireframe    │                   │
+  │ polytope-overlay  │ (tesseract / 16-cell / 5-cell),  │ 3 new clips       │
+  │                   │ real 4D→3D→2D projection,        │                   │
+  │                   │ glowing over the crisp art       │                   │
+  ├───────────────────┼──────────────────────────────────┼───────────────────┤
+  │                   │ ◑ 4D-rotation displacement;      │                   │
+  │ hyper-warp        │ reads as a soft swirl (which is  │ h3 character      │
+  │                   │ why we built the literal         │ folds             │
+  │                   │ wireframe)                       │                   │
+  └───────────────────┴──────────────────────────────────┴───────────────────┘
+
+  14 clips in the gallery, 35 tests passing. The tesseract/5-cell wireframes got
+  a brightness bump so they pop on the bright pentagon-tunnel base.
+  
+  Process
+
+  Three full brainstorm → spec → plan → subagent-execution → review → merge
+  cycles (procedural pipeline, then v2 effects, then polytope overlay), each
+  landed via subagent-driven development with per-task verification. One real bug
+  caught by an implementer (id() cache collision) and one truncated-encode I
+  caught in verification (re-rendered). Specs/plans are in docs/superpowers/.
+
+  main is 16 commits ahead of origin — tell me if you'd like it pushed. And the
+  generative image-to-video lane is still staged behind the 2 TB drive / NAS
+  whenever you want to pick that up. 
+
+✻ Churned for 30m 56s
+
+❯ H3 phase - disintegrate looks like its going in the right direction.  its only 
+  disintegrate part of the head though, the dge detection seems to be catching   
+  on cheek bones,, eye sockets, and jawline [Image #4]  and it needs to a few    
+  frames longer to complete the fade out. can we check the fade out is going to  
+  transparent and not just black so whateve background will still show.          
+  ⎿  [Image #4]
+
+  Thought for 1m 28s (ctrl+o to expand)
+
+● Good, concrete feedback. Before redesigning I want to actually diagnose why the
+  dissolve is uneven and tied to facial features — let me look at the keyframe,
+  the computed mask, and the dissolve progression at a couple of time points.
+     
+  Read 1 file (ctrl+o to expand)
+
+❯ and hyperspace streak, the streadks are barely visible.  they should be a      
+  little brighter and faster to highlight the approaching the curve              
+
+  Thought for 18s (ctrl+o to expand)
+
+● The keyframe itself already shows dust on the right side — useful context. Now
+  let me compute the mask and sample the dissolve progression, and I'll fold in
+  your second note about hyperspace-streak too.
+     
+  disintegrate — the subject mask is full of holes that follow the facial
+  features. The mask (luminance threshold + largest component) catches the bright
+  rim/hair/halo but drops the mid-tone face interior — eye socket, cheek shadow,
+  jawline, lips fall below threshold → feature-shaped holes. So only the
+  rim/hair dissolves and the face stays "solid" (it was never masked). At t=0.5
+  (alpha=1.0, supposed full dissolve) the face is still completely intact. That's
+  the root cause of "only part of the head" and "catching on cheekbones/eye
+  sockets/jawline." The fix is mask hole-filling, plus making the dust fully
+  clear at peak and revealing background instead of black.
+
+  hyperspace-streak — noted: streaks too faint/slow; need brighter and faster
+  toward the curve.
+
+
+● I now have the full picture for this refinement round — three asks on
+  disintegrate (fill the mask holes so the whole figure dissolves; complete the
+  fade-out + a few frames longer; reveal background not black) and four on
+  hyperspace-streak (brighter, faster toward the curve, match the keyframe's
+  existing thin radial star-streaks, and more of them). That last image (#5) is
+  the original abstract_phase_c — I can see the fine long radial streaks in the
+  corners that the synthetic ones should emulate.
+
+
+
+● I have everything for this refinement (now "v3"). Since you want both
+  background treatments, disintegrate needs an alpha-capable path. Here's the
+  design.
+     
+  Design: animation effects v3 — disintegrate completion + alpha, hyperspace 
+  polish
+
+  1. subject_mask — fill holes (root fix)
+
+  Add _fill_holes (pure-numpy flood-fill of background from the image border on
+  the inverted mask; anything unreached is an interior hole → set to foreground).
+  Apply after largest-component, before feather. The figure becomes a solid 
+  filled silhouette — eye sockets, cheek shadows, jawline, lips included — so the
+  whole figure dissolves uniformly instead of catching on features. Also
+  benefits hyper-warp protect.
+
+  2. _inpaint_background(img, mask) — the void behind her
+
+  Diffusion inpaint (iterative blur-and-reinsert-known-background) fills the
+  masked region with a plausible continuation of the surrounding void/stars.
+  t-independent → cached.
+
+  3. disintegrate — rewritten dissolve model
+
+  Per pixel, an advected presence/alpha A:
+  - presence = clip((noise + band − alpha)/band, 0,1) · mask, with noise
+  normalized to [0, 1−band] so at the peak everything reaches A=0 (fully gone) —
+  fixes "only part dissolves / never completes."
+  - Dust drifts: A and dust color are inverse-remapped along the wind by an
+  offset that grows as each pixel dissolves.
+  - mp4 path: out = inpainted_bg·(1−A) + dust·A → dissolves into the revealed
+  void (not black).
+  - alpha path: the same A becomes the alpha channel.
+  - Ping-pong loop (vanish → reform); duration bumped 5s→7s for a slower,
+  complete fade.
+
+
+  4. Alpha output (the "both")
+
+  - New encode_webm_alpha (VP9 yuva420p via the bundled ffmpeg) writing RGBA
+  frames; PNG-sequence fallback if VP9-alpha is unavailable.
+  - anims.json items gain optional "alpha": true; render/run_batch then also emit
+  <file>.webm (transparent where dissolved) beside the .mp4. Gallery keeps
+  showing the mp4.
+
+  5. hyperspace-streak — brighter, faster, more, matched
+
+  - Brighter: screen-blend the stars and lift intensity/whiten color.
+  - Faster: new speed (travel) multiplier; stars cross more distance per loop.
+  - More: default n_stars up (~300→700).
+  - Match keyframe streaks: draw long, thin radial streaks (like the corner
+  streaks in abstract_phase_c), with brightness ramping up as they approach the 
+  curve so the "arrival" reads.
+
+  6. Wiring & tests
+
+  - anims.json: disintegrate clip → duration 7 + alpha:true; hyperspace clip →
+  brighter/faster/more params.
+  - Tests: _fill_holes closes an interior hole; mask coverage rises after fill;
+  disintegrate fully clears at peak (A≈0, body region ≈ inpainted bg) and
+  reforms; background pixels untouched; alpha-webm (or PNG seq) is produced;
+  hyperspace brighter (higher mean over a dark base) and stars present.
+  Loop-seamless throughout.
+
+  This is one coherent v3 spec. Sound good before I write it up?
+
+
+
+
+
+
+
+
+
+[PLAY_AS-craftsman-1] 2026/06/13 11:00:09 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    20 |     0 /     0 ( 0%)
+  Engineering            | Engineering |    20 |  2479 / 15460 (16%)
+
+
+
+
+
+
+
+
+2026/06/13 12:00:09 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |     8 |   615 /  2860 (21%)
+  Engineering            | Engineering |    20 |     0 / 15460 ( 0%)
+
+2026/06/13 13:00:09 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    15 |  5775 /  8985 (64%)
+  Engineering            | Engineering |    20 |     0 / 15460 ( 0%)
+
+2026/06/13 14:00:09 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |     6 |   120 /  1740 ( 6%)
+  Engineering            | Engineering |    18 |  8735 / 12660 (68%)
+
+
+2026/06/13 19:00:09 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    20 |     0 /     0 ( 0%)
+  Engineering            | Engineering |    18 |  8735 / 12660 (68%)
+
+2026/06/13 20:00:09 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    20 |     0 /     0 ( 0%)
+  Engineering            | Engineering |    18 |  8735 / 12660 (68%)
+
+
+[PLAY_AS-craftsman-1] 2026/06/13 20:30:03 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    20 |     0 /     0 ( 0%)
+  Engineering            | Engineering |    18 |  8735 / 12660 (68%)
+
+[PLAY_AS-craftsman-1] 2026/06/13 21:00:17 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    11 |  1910 /  5065 (37%)
+  Engineering            | Engineering |    20 |     0 / 15460 ( 0%)
+a
+[PLAY_AS-craftsman-1] 2026/06/13 23:00:17 OK: Your skill progress. Use 'catalog' with type='skills' to browse all skill definitions.
+
+Skills (16)
+  Skill                  | Category    | Level |    Progress to Next
+  -----------------------+-------------+-------+--------------------
+  Drone Control          | Engineering |    16 |  6730 / 10140 (66%)
+  Engineering            | Engineering |    14 |  6295 /  7900 (79%)
+
+

@@ -591,16 +591,16 @@ func truncateName(s string, maxLen int) string {
 	return string(runes[:maxLen-3]) + "..."
 }
 
-// checkForSurveyScanner checks if the ship has a survey scanner installed.
-// Results are cached until the ship might change (switch_ship, install_mod, etc.).
-// checkForSurveyScanner checks if the ship has a survey scanner installed.
+// checkForSurveyScanner checks if the ship can survey systems, either via an
+// installed survey scanner module or a survey scanner built into the ship hull
+// (an "integrated_survey_scanner" inherent capability, e.g. the survey_vessel).
 // Results are cached until the ship might change (switch_ship, install_mod, etc.).
 func checkForSurveyScanner(state *game.State) bool {
 	if surveyScannerCached {
 		return hasSurveyScanner
 	}
 
-	// Not cached - check modules
+	// Not cached - check installed modules
 	surveyScanners := []string{
 		"survey_scanner_i",
 		"survey_scanner_ii",
@@ -613,8 +613,32 @@ func checkForSurveyScanner(state *game.State) bool {
 		}
 	}
 
+	// Fall back to the ship hull's inherent capabilities (built-in scanners are
+	// not listed in state.Ship.Modules), looked up from the ship class catalog.
+	if !hasSurveyScanner && shipClassHasIntegratedSurveyScanner(state.Ship.ClassID) {
+		hasSurveyScanner = true
+	}
+
 	surveyScannerCached = true
 	return hasSurveyScanner
+}
+
+// shipClassHasIntegratedSurveyScanner reports whether the given ship class has a
+// built-in survey scanner, per its inherent_capabilities in the ship catalog.
+func shipClassHasIntegratedSurveyScanner(classID string) bool {
+	if globalKB == nil || classID == "" {
+		return false
+	}
+	sc, err := globalKB.GetShipClass(context.Background(), classID)
+	if err != nil || sc == nil {
+		return false
+	}
+	for _, capability := range sc.InherentCapabilities {
+		if capability.Type == "integrated_survey_scanner" {
+			return true
+		}
+	}
+	return false
 }
 
 // invalidateSurveyScannerCache clears the cached scanner check.

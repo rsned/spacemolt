@@ -35,8 +35,14 @@ func TestBuildDemandReportClassifiesAndFulfills(t *testing.T) {
 	if byItem["iron_ore"].Price != 12 || byItem["iron_ore"].Quantity != 70 {
 		t.Errorf("iron price/qty: want 12/70 got %v/%v", byItem["iron_ore"].Price, byItem["iron_ore"].Quantity)
 	}
-	if byItem["iron_ore"].FulfillQty != 30 || byItem["iron_ore"].FulfillValue != 360 {
-		t.Errorf("iron fulfill: want 30/360 got %v/%v", byItem["iron_ore"].FulfillQty, byItem["iron_ore"].FulfillValue)
+	// FulfillValue walks the order book, not top_price * qty: selling 30 units
+	// fills the player order (20 @ 12 = 240) then the station order (10 @ 10 =
+	// 100) = 340, avg 11.333. The headline Price column stays the top price (12).
+	if byItem["iron_ore"].FulfillQty != 30 || byItem["iron_ore"].FulfillValue != 340 {
+		t.Errorf("iron fulfill: want 30/340 got %v/%v", byItem["iron_ore"].FulfillQty, byItem["iron_ore"].FulfillValue)
+	}
+	if got := byItem["iron_ore"].FulfillAvg; abs(got-340.0/30.0) > 1e-6 {
+		t.Errorf("iron fulfill avg: want %v got %v", 340.0/30.0, got)
 	}
 	if byItem["copper"].Class != classStation {
 		t.Errorf("copper class: want %s got %s", classStation, byItem["copper"].Class)
@@ -46,6 +52,63 @@ func TestBuildDemandReportClassifiesAndFulfills(t *testing.T) {
 	}
 	if byItem["titanium"].CanCraft != 5 {
 		t.Errorf("titanium craft: want 5 got %d", byItem["titanium"].CanCraft)
+	}
+}
+
+func TestBuildDemandReportWalksOrderBook(t *testing.T) {
+	now := time.Date(2026, 6, 14, 12, 0, 0, 0, time.UTC)
+	// The real Grand Exchange Pulse Laser III book: one tiny top order over a
+	// deep cheap rung. The old code reported top_price * fulfill_qty
+	// (9978 * 33 = 329,274); the fix walks the ladder for 70,418.
+	deep := []knowledge.MarketBuyOrderRow{
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 9978, Quantity: 1, Source: "station", CapturedAt: now},
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 9854, Quantity: 2, Source: "station", CapturedAt: now},
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 9158, Quantity: 1, Source: "station", CapturedAt: now},
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 5373, Quantity: 1, Source: "station", CapturedAt: now},
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 5306, Quantity: 4, Source: "station", CapturedAt: now},
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 4931, Quantity: 1, Source: "station", CapturedAt: now},
+		{StationID: "grand_exchange", ItemID: "pulse_laser_iii", ItemName: "Pulse Laser III", PriceEach: 2, Quantity: 169, Source: "station", CapturedAt: now},
+	}
+	onHand := map[string]float64{"pulse_laser_iii": 33}
+
+	rep := buildDemandReport(deep, onHand, nil, now, demandOptions{})
+	if len(rep.Rows) != 1 {
+		t.Fatalf("want 1 row, got %+v", rep.Rows)
+	}
+	r := rep.Rows[0]
+	// Headline Price stays the best buy price; Quantity is total demand.
+	if r.Price != 9978 || r.Quantity != 179 {
+		t.Errorf("price/qty: want 9978/179 got %v/%v", r.Price, r.Quantity)
+	}
+	if r.FulfillQty != 33 || r.FulfillValue != 70418 {
+		t.Errorf("fulfill: want 33/70418 got %v/%v", r.FulfillQty, r.FulfillValue)
+	}
+	if abs(r.FulfillAvg-70418.0/33.0) > 1e-6 {
+		t.Errorf("fulfill avg: want %v got %v", 70418.0/33.0, r.FulfillAvg)
+	}
+	if rep.TotalFulfill != 70418 {
+		t.Errorf("total: want 70418 got %v", rep.TotalFulfill)
+	}
+}
+
+func TestBuildDemandReportFillExcludesOwnOrders(t *testing.T) {
+	now := time.Date(2026, 6, 14, 12, 0, 0, 0, time.UTC)
+	// A genuine station order at 50 (qty 5) and a basement player order at 2
+	// (qty 100, all the player's own). Selling 30 units should fill the 5 real
+	// units @ 50 = 250 and stop — the player's own buy orders are not proceeds.
+	deep := []knowledge.MarketBuyOrderRow{
+		{StationID: "s", ItemID: "widget", ItemName: "Widget", PriceEach: 50, Quantity: 5, Source: "station", CapturedAt: now},
+		{StationID: "s", ItemID: "widget", ItemName: "Widget", PriceEach: 2, Quantity: 100, MyQuantity: 100, Source: "", CapturedAt: now},
+	}
+	onHand := map[string]float64{"widget": 30}
+
+	rep := buildDemandReport(deep, onHand, nil, now, demandOptions{})
+	if len(rep.Rows) != 1 {
+		t.Fatalf("want 1 row, got %+v", rep.Rows)
+	}
+	r := rep.Rows[0]
+	if r.FulfillQty != 5 || r.FulfillValue != 250 {
+		t.Errorf("fill should exclude own orders: want 5/250 got %v/%v", r.FulfillQty, r.FulfillValue)
 	}
 }
 

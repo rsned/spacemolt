@@ -21,8 +21,8 @@ func renderDemandStyled(rep demandReport) string {
 		return sb.String()
 	}
 	fmt.Fprintf(&sb, "Demand ledger — %d rows, total fulfillable value %.0f\n", len(rep.Rows), rep.TotalFulfill)
-	fmt.Fprintf(&sb, "%-7s %-16s %8s %8s %8s %8s %6s  %s\n",
-		"CLASS", "ITEM", "PRICE", "DEMAND", "ONHAND", "FILLVAL", "CRAFT", "STATION")
+	fmt.Fprintf(&sb, "%-7s %-16s %8s %8s %8s %8s %8s %6s  %s\n",
+		"CLASS", "ITEM", "PRICE", "DEMAND", "ONHAND", "AVGFILL", "FILLVAL", "CRAFT", "STATION")
 	for _, r := range rep.Rows {
 		station := r.StationID
 		if r.AgeStale {
@@ -36,8 +36,8 @@ func renderDemandStyled(rep demandReport) string {
 		if name == "" {
 			name = r.ItemID
 		}
-		fmt.Fprintf(&sb, "%-7s %-16s %8.0f %8.0f %8.0f %8.0f %6s  %s\n",
-			r.Class, truncateName(name, 16), r.Price, r.Quantity, r.OnHand, r.FulfillValue, craft, station)
+		fmt.Fprintf(&sb, "%-7s %-16s %8.0f %8.0f %8.0f %8.0f %8.0f %6s  %s\n",
+			r.Class, truncateName(name, 16), r.Price, r.Quantity, r.OnHand, r.FulfillAvg, r.FulfillValue, craft, station)
 	}
 	return sb.String()
 }
