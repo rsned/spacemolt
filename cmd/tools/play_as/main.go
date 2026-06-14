@@ -647,6 +647,10 @@ func unwrapActionResult(raw []byte) []byte {
 // formatStyledResponse returns a styled string for the given command, or "" if no formatter exists.
 func formatStyledResponse(raw []byte, command string) string {
 	switch command {
+	case "cloak":
+		return formatCloak(raw)
+	case "status", "get_status":
+		return formatGetStatus(raw)
 	case "storage", "view_storage":
 		return formatStorage(raw)
 	case "view_faction_storage":

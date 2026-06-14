@@ -1,12 +1,48 @@
 package game
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
+
+// TestHandleCompleteMissionEvent verifies the server-initiated complete_mission
+// notification (mission_title + nested rewards, distinct from the command
+// response) is handled rather than logged as an unhandled response type or
+// flagged for unknown fields.
+func TestHandleCompleteMissionEvent(t *testing.T) {
+	loggedAPIChanges.Delete("unknown_type:" + protocol.TypeCompleteMission)
+	loggedAPIChanges.Range(func(key, _ any) bool {
+		if k, ok := key.(string); ok && len(k) >= 20 && k[:20] == "unknown_event_fields" {
+			loggedAPIChanges.Delete(key)
+		}
+		return true
+	})
+
+	// Decode the exact wire payload so number/object types match json.Unmarshal.
+	const wire = `{"mission_id":"4efa4ef3d948474765ac2fcfbd7efbd8","mission_title":"Distress: Peon3 in Haven","rewards":{"credits":0,"skill_xp":{"piloting":25}}}`
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(wire), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+
+	client := NewClient("ws://test", "user", "pass", nil)
+	client.SetDebugLogging(false)
+	client.handleResponse(protocol.Response{Type: protocol.TypeCompleteMission, Payload: payload})
+
+	if _, found := loggedAPIChanges.Load("unknown_type:" + protocol.TypeCompleteMission); found {
+		t.Error("complete_mission was treated as an unhandled response type")
+	}
+	loggedAPIChanges.Range(func(key, _ any) bool {
+		if k, ok := key.(string); ok && len(k) >= 20 && k[:20] == "unknown_event_fields" {
+			t.Errorf("complete_mission flagged for unknown fields: %s", k)
+		}
+		return true
+	})
+}
 
 func TestJsonFieldNames(t *testing.T) {
 	fields := jsonFieldNames(reflect.TypeOf(serverapi.GetSystemResponse{}))

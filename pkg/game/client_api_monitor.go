@@ -547,6 +547,12 @@ var eventExpectedFields = map[string]map[string]bool{
 		"from":     true,
 		"message":  true,
 	},
+	protocol.TypeCompleteMission: {
+		"mission_id":    true,
+		"mission_title": true,
+		"rewards":       true,
+		"message":       true,
+	},
 }
 
 // actionFieldsCache caches the computed expected field sets per action to

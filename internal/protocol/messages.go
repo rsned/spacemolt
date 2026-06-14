@@ -64,6 +64,9 @@ const (
 	// Skill progression events
 	TypeSkillLevelUp = "skill_level_up"
 
+	// Mission events
+	TypeCompleteMission = "complete_mission"
+
 	// Gameplay tips and notifications
 	TypeGameplayTip = "gameplay_tip"
 

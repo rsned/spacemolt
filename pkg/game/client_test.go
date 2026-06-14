@@ -696,3 +696,35 @@ func TestGetBattleStatus_ClearsInBattleWhenNotParticipant(t *testing.T) {
 		t.Error("want InBattle false after a non-participant status poll")
 	}
 }
+
+// TestParseActionResult_CloakTogglesState verifies that a cloak action_result
+// (which omits the "action" field and keys off command + an enabled flag)
+// updates the cached Player.IsCloaked rather than being logged as unhandled.
+func TestParseActionResult_CloakTogglesState(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.SetDebugLogging(false)
+
+	client.parseActionResult(map[string]any{
+		"command": "cloak",
+		"tick":    float64(1085943),
+		"result": map[string]any{
+			"enabled":        true,
+			"cloak_strength": float64(40),
+			"message":        "Cloaking device engaged.",
+		},
+	})
+	if !client.GetState().Player.IsCloaked {
+		t.Fatal("expected IsCloaked=true after cloak engage")
+	}
+
+	client.parseActionResult(map[string]any{
+		"command": "cloak",
+		"result": map[string]any{
+			"enabled": false,
+			"message": "Cloaking device disengaged.",
+		},
+	})
+	if client.GetState().Player.IsCloaked {
+		t.Error("expected IsCloaked=false after cloak disengage")
+	}
+}

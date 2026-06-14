@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -536,6 +537,11 @@ func (c *Client) Connect(ctx context.Context) error {
 			HTTPHeader: http.Header{
 				"User-Agent": []string{UserAgent},
 			},
+			// Enable permessage-deflate to cut bandwidth on the repetitive
+			// JSON game-state stream. ContextTakeover reuses a 32 KB sliding
+			// window for the best ratio; it falls back to NoContextTakeover,
+			// then to disabled, if the server does not advertise support.
+			CompressionMode: websocket.CompressionContextTakeover,
 		})
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
@@ -2639,6 +2645,41 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		invitedBy, _ := resp.Payload["invited_by"].(string)
 		c.debugLogger.Printf("[FACTION INVITE] %s (%s) invited by %s", factionName, factionID, invitedBy)
 
+	case protocol.TypeCompleteMission:
+		// Server-initiated notification that a mission completed without an
+		// explicit complete_mission command — e.g. a distress/escort objective
+		// that resolves on arrival. Distinct shape from the command response
+		// (CompleteMissionResponse): mission_title + a nested rewards object.
+		// We log for visibility and leave credits/XP to the next state sync to
+		// avoid double-counting an optimistic apply.
+		missionID, _ := resp.Payload["mission_id"].(string)
+		title, _ := resp.Payload["mission_title"].(string)
+		rewardCredits := 0.0
+		var rewardParts []string
+		if rewards, ok := resp.Payload["rewards"].(map[string]any); ok {
+			rewardCredits, _ = rewards["credits"].(float64)
+			if rewardCredits > 0 {
+				rewardParts = append(rewardParts, fmt.Sprintf("+%.0f cr", rewardCredits))
+			}
+			if skillXP, ok := rewards["skill_xp"].(map[string]any); ok {
+				skills := make([]string, 0, len(skillXP))
+				for skill := range skillXP {
+					skills = append(skills, skill)
+				}
+				sort.Strings(skills)
+				for _, skill := range skills {
+					if xp, ok := skillXP[skill].(float64); ok {
+						rewardParts = append(rewardParts, fmt.Sprintf("%s +%.0f", skill, xp))
+					}
+				}
+			}
+		}
+		reward := "no rewards"
+		if len(rewardParts) > 0 {
+			reward = strings.Join(rewardParts, ", ")
+		}
+		c.debugLogger.Printf("[MISSION COMPLETE] %s (%s) — %s", title, missionID, reward)
+
 	default:
 		logUnhandledResponseType(resp)
 	}
@@ -3746,6 +3787,21 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			// survey_system does not mutate ship/player state; the REPL
 			// formatter renders the result. Log cleanly instead of "unhandled".
 			c.debugLogger.Printf("Action result: survey complete (%s)", command)
+		case "cloak":
+			// cloak's result omits the "action" field and carries enabled +
+			// cloak_strength. Reflect the toggle in cached player state so
+			// GetState() is accurate before the next full player sync.
+			if enabled, ok := result["enabled"].(bool); ok {
+				c.state.Player.IsCloaked = enabled
+				if enabled {
+					strength, _ := result["cloak_strength"].(float64)
+					c.debugLogger.Printf("Action result: cloak engaged (strength %.0f)", strength)
+				} else {
+					c.debugLogger.Printf("Action result: cloak disengaged")
+				}
+			} else {
+				c.debugLogger.Printf("Action result: cloak (no enabled flag)")
+			}
 		case "deploy_drone", "load_drone", "unload_drone", "recall_drone", "upload_drone_script":
 			// Drone bay/bandwidth/roster state isn't cached in State; the REPL
 			// formatter (and get_drones) renders the result. Log cleanly instead
