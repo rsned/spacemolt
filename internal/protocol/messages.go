@@ -12,11 +12,11 @@ const (
 	TypeError        = "error"
 	TypeActionError  = "action_error"
 	TypeActionResult = "action_result"
-	TypeDocked      = "docked"
-	TypeUndocked    = "undocked"
-	TypeStateUpdate = "state_update"
-	TypeTick        = "tick"
-	TypeListings    = "listings"
+	TypeDocked       = "docked"
+	TypeUndocked     = "undocked"
+	TypeStateUpdate  = "state_update"
+	TypeTick         = "tick"
+	TypeListings     = "listings"
 
 	// Game events
 	TypeChatMessage        = "chat_message"
@@ -60,6 +60,9 @@ const (
 	// Base building and raiding events
 	TypeBaseRaidUpdate = "base_raid_update"
 	TypeBaseDestroyed  = "base_destroyed"
+
+	// Facility events
+	TypeFacilityRentWarning = "facility_rent_warning"
 
 	// Skill progression events
 	TypeSkillLevelUp = "skill_level_up"

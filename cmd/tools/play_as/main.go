@@ -741,6 +741,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatGetTaxEstimate(raw)
 	case "get_insurance_quote", "insurance_quote":
 		return formatGetInsuranceQuote(raw)
+	case "get_achievements", "achievements":
+		return formatGetAchievements(raw)
 	case "commission_quote":
 		return formatCommissionQuote(raw)
 	case "commission_status":
@@ -7475,6 +7477,8 @@ var rawJSONKeyForCommand = map[string]string{
 	"action_log":           "action_log",
 	"get_tax_estimate":     "tax_estimate",
 	"tax_estimate":         "tax_estimate",
+	"get_achievements":     "achievements",
+	"achievements":         "achievements",
 	// get_insurance_quote arrives as a TypeOK frame that storeRawJSON keys by
 	// content shape under "insurance_quote", not the command name.
 	"get_insurance_quote": "insurance_quote",

@@ -464,6 +464,43 @@ type ClaimInsuranceResponse struct {
 	Policies []InsurancePolicy `json:"policies"`
 }
 
+// Achievement is a single entry in a get_achievements response. Locked entries
+// carry a Progress pointer (nil when the achievement has no measurable
+// progress); hidden/secret entries report Name/Description as "???" until
+// earned.
+type Achievement struct {
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	Category    string               `json:"category"`
+	Description string               `json:"description"`
+	Points      int                  `json:"points"`
+	Earned      bool                 `json:"earned"`
+	Hidden      bool                 `json:"hidden"`
+	EarnedAt    string               `json:"earned_at,omitempty"`
+	ShareURL    string               `json:"share_url,omitempty"`
+	Progress    *AchievementProgress `json:"progress,omitempty"`
+}
+
+// AchievementProgress is the current/target counter for an unearned achievement.
+type AchievementProgress struct {
+	Current int `json:"current"`
+	Target  int `json:"target"`
+}
+
+// AchievementSummary is the roll-up at the foot of a get_achievements response.
+type AchievementSummary struct {
+	Earned int `json:"earned"`
+	Points int `json:"points"`
+	Total  int `json:"total"`
+}
+
+// GetAchievementsResponse wraps the response from get_achievements command.
+type GetAchievementsResponse struct {
+	Achievements []Achievement      `json:"achievements"`
+	Summary      AchievementSummary `json:"summary"`
+	Message      string             `json:"message"`
+}
+
 // CommissionStatusResponse wraps the response from commission_status command.
 type CommissionStatusResponse struct {
 	Commissions []CommissionDetail `json:"commissions"`

@@ -2446,6 +2446,16 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	case protocol.TypePoliceWarning:
 		c.debugLogger.Printf("⚠️  POLICE WARNING: %v", resp.Payload)
 
+	case protocol.TypeFacilityRentWarning:
+		// Faction facility rent is overdue. If left unpaid for grace_cycles
+		// consecutive cycles the station repossesses the facilities, so surface
+		// it loudly rather than burying it in the debug log only.
+		if msg, ok := resp.Payload["message"].(string); ok && msg != "" {
+			c.debugLogger.Printf("🏚️  FACILITY RENT WARNING: %s", msg)
+		} else {
+			c.debugLogger.Printf("🏚️  FACILITY RENT WARNING: %v", resp.Payload)
+		}
+
 	case protocol.TypeScanDetected:
 		// Always surface scans on stderr (regardless of debug settings) with a
 		// high-contrast banner; loudest in lawless space, where a scan often
@@ -3955,22 +3965,23 @@ func (c *Client) GetMarketListings() []MarketListing {
 // chat, a combat update, etc.) between the moment their command returns and
 // the moment they read _last.
 var pushOnlyResponseTypes = map[string]struct{}{
-	protocol.TypeTick:               {},
-	protocol.TypeStateUpdate:        {},
-	protocol.TypeChatMessage:        {},
-	protocol.TypeCombatUpdate:       {},
-	protocol.TypeBattleAlert:        {},
-	protocol.TypeBattleEnded:        {},
-	protocol.TypePirateWarning:      {},
-	protocol.TypePoliceWarning:      {},
-	protocol.TypePlayerDied:         {},
-	protocol.TypeScanDetected:       {},
-	protocol.TypeTradeOfferReceived: {},
-	protocol.TypePilotlessShip:      {},
-	protocol.TypeReconnected:        {},
-	protocol.TypeSkillLevelUp:       {},
-	protocol.TypeFactionPromote:     {},
-	protocol.TypeFactionInvite:      {},
+	protocol.TypeTick:                {},
+	protocol.TypeStateUpdate:         {},
+	protocol.TypeChatMessage:         {},
+	protocol.TypeCombatUpdate:        {},
+	protocol.TypeBattleAlert:         {},
+	protocol.TypeBattleEnded:         {},
+	protocol.TypePirateWarning:       {},
+	protocol.TypePoliceWarning:       {},
+	protocol.TypePlayerDied:          {},
+	protocol.TypeScanDetected:        {},
+	protocol.TypeTradeOfferReceived:  {},
+	protocol.TypePilotlessShip:       {},
+	protocol.TypeReconnected:         {},
+	protocol.TypeSkillLevelUp:        {},
+	protocol.TypeFactionPromote:      {},
+	protocol.TypeFactionInvite:       {},
+	protocol.TypeFacilityRentWarning: {},
 }
 
 // storeRawJSON stores raw JSON payloads for key response types
@@ -4565,6 +4576,14 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		if _, hasCommands := resp.Payload["commands"]; hasCommands {
 			if storeKey == "" {
 				storeKey = "commands"
+			}
+			shouldStore = true
+		}
+		// Store achievements data (from get_achievements response)
+		// Content-based detection: has "achievements" array
+		if _, hasAchievements := resp.Payload["achievements"]; hasAchievements {
+			if storeKey == "" {
+				storeKey = "achievements"
 			}
 			shouldStore = true
 		}
