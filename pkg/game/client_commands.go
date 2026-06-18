@@ -380,10 +380,15 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 
 // AnalyzeMarket gets actionable trading insights at the current station.
 func (c *Client) AnalyzeMarket(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "analyze_market",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // CreateBuyOrder places a buy offer on the station exchange.
@@ -480,22 +485,32 @@ func (c *Client) ViewOrders(ctx context.Context) error {
 
 // EstimatePurchase previews what buying would cost without executing.
 func (c *Client) EstimatePurchase(ctx context.Context, itemID string, quantity int) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type: "estimate_purchase",
 		Payload: map[string]any{
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetTrades views pending trade offers.
 func (c *Client) GetTrades(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_trades",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // TradeOffer offers a trade to another player.
@@ -1172,10 +1187,15 @@ func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize
 
 // GetCommands gets a structured list of all commands.
 func (c *Client) GetCommands(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_commands",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetGuide gets a detailed playstyle progression guide.
@@ -1184,46 +1204,71 @@ func (c *Client) GetGuide(ctx context.Context, guide string) error {
 	if guide != "" {
 		payload["guide"] = guide
 	}
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_guide",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SearchChangelog searches release notes and version history.
 func (c *Client) SearchChangelog(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "search_changelog",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SearchSystems searches for systems by name.
 func (c *Client) SearchSystems(ctx context.Context, query string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "search_systems",
 		Payload:   map[string]any{"query": query},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetVersion gets game version and release notes.
 func (c *Client) GetVersion(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_version",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // Help gets help for commands.
 func (c *Client) Help(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "help",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1277,11 +1322,16 @@ func (c *Client) ForumList(ctx context.Context, page int) error {
 	if page > 0 {
 		payload["page"] = page
 	}
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumCreateThread creates a new forum thread.
@@ -1302,11 +1352,16 @@ func (c *Client) ForumCreateThread(ctx context.Context, title, content string, c
 
 // ForumGetThread gets a forum thread and its replies.
 func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_get_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumReply replies to a forum thread.
@@ -1392,19 +1447,29 @@ func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
 
 // CaptainsLogGet gets a specific entry from your captain's log.
 func (c *Client) CaptainsLogGet(ctx context.Context, index int) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "captains_log_get",
 		Payload:   map[string]any{"index": index},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // CaptainsLogList lists all entries in your captain's log.
 func (c *Client) CaptainsLogList(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "captains_log_list",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================

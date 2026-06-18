@@ -476,6 +476,36 @@ func TestConvertedMutation_Correlates(t *testing.T) {
 	}
 }
 
+// TestConvertedQuery_Correlates proves a converted query flows through Submit
+// with WithAckOnly (first response terminal) and fills the sink.
+func TestConvertedQuery_Correlates(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.GetVersion(ctx) }()
+
+	sent := <-sendCh
+	if sent.Type != "get_version" {
+		t.Fatalf("sent.Type = %q, want get_version", sent.Type)
+	}
+	if sent.RequestID == "" {
+		t.Fatal("converted query did not stamp a request_id (still on c.send)")
+	}
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_version", "version": "v0.294.0"},
+	})
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("GetVersion: %v", err)
+	}
+	if v, _ := sink.Payload["version"].(string); v != "v0.294.0" {
+		t.Errorf("sink.Payload[version] = %v, want v0.294.0", sink.Payload["version"])
+	}
+}
+
 func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()
