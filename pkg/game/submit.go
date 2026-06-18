@@ -201,7 +201,10 @@ func resultSinkFrom(ctx context.Context) *protocol.Response {
 // methods, so any caller can capture the correlated frame without changing
 // method signatures. The response is captured even on a terminal *ServerError
 // (the error frame is carried in resp), which is what raw/json error display
-// needs; it is left untouched on ctx-cancel/timeout (resp is the zero value).
+// needs. On ctx-cancel/timeout, h.Result returns a zero protocol.Response
+// (Type==""), so the sink is overwritten with that zero value; consumers that
+// gate on a non-empty sink (Type!="" && len(Payload)>0) treat this as "empty"
+// and fall back to their legacy lookup path.
 func (c *Client) await(ctx context.Context, h *RequestHandle) (protocol.Response, error) {
 	resp, err := h.Result(ctx)
 	if sink := resultSinkFrom(ctx); sink != nil {

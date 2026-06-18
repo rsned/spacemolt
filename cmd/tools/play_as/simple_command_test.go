@@ -86,3 +86,54 @@ type rawStub struct {
 }
 
 func (s rawStub) GetRawJSON(string) []byte { return s.raw }
+
+// keyedRawStub returns canned bytes only for a specific key; all others return nil.
+type keyedRawStub struct {
+	game.GameClient
+	key string
+	raw []byte
+}
+
+func (s keyedRawStub) GetRawJSON(key string) []byte {
+	if key == s.key {
+		return s.raw
+	}
+	return nil
+}
+
+func TestChooseErrorJSON_PrefersSink(t *testing.T) {
+	sink := protocol.Response{
+		Type:      "error",
+		RequestID: "e1",
+		Payload:   map[string]any{"code": "not_docked", "message": "x"},
+	}
+	got := chooseErrorJSON(sink, stubGameClientForSimple{})
+
+	var decoded map[string]any
+	if err := json.Unmarshal(got, &decoded); err != nil {
+		t.Fatalf("result is not valid JSON: %v (%s)", err, got)
+	}
+	if decoded["code"] != "not_docked" {
+		t.Errorf("expected sink payload (code=not_docked), got %s", got)
+	}
+}
+
+func TestChooseErrorJSON_FallsBackWhenSinkEmpty(t *testing.T) {
+	// Zero-value sink (Type == "") → fall back to GetRawJSON("_last_error").
+	client := keyedRawStub{key: "_last_error", raw: []byte(`{"code":"fallback_err"}`)}
+	got := chooseErrorJSON(protocol.Response{}, client)
+	if string(got) != `{"code":"fallback_err"}` {
+		t.Errorf("expected fallback bytes, got %s", got)
+	}
+}
+
+func TestChooseResponseJSON_NilPayloadFallsBack(t *testing.T) {
+	// Filled sink with nil Payload (Type set but no Payload) must not return
+	// "null" — it must fall through to the legacy lookup (Fix 2).
+	client := rawStub{raw: []byte(`{"from":"fallback"}`)}
+	sink := protocol.Response{Type: "ok"} // Payload is nil
+	got := chooseResponseJSON(sink, client, "dock")
+	if string(got) != `{"from":"fallback"}` {
+		t.Errorf("nil-payload sink should fall back, got %s", got)
+	}
+}

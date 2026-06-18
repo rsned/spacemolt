@@ -7529,7 +7529,7 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 // the command-keyed-slot clobber race. Otherwise (MCP transport, or commands
 // not yet on Submit) it falls back to the legacy command-keyed lookup.
 func chooseResponseJSON(sink protocol.Response, client game.GameClient, command string) []byte {
-	if sink.Type != "" {
+	if sink.Type != "" && len(sink.Payload) > 0 {
 		if raw, err := json.Marshal(sink.Payload); err == nil {
 			return raw
 		}
@@ -7541,7 +7541,7 @@ func chooseResponseJSON(sink protocol.Response, client game.GameClient, command 
 // correlated sink (await populates resp even on a terminal *ServerError),
 // otherwise the dedicated _last_error slot.
 func chooseErrorJSON(sink protocol.Response, client game.GameClient) []byte {
-	if sink.Type != "" {
+	if sink.Type != "" && len(sink.Payload) > 0 {
 		if raw, err := json.Marshal(sink.Payload); err == nil {
 			return raw
 		}

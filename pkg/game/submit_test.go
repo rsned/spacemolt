@@ -506,6 +506,42 @@ func TestConvertedQuery_Correlates(t *testing.T) {
 	}
 }
 
+func TestAwait_FillsResultSink_OnServerError(t *testing.T) {
+	// await must populate the sink even when the terminal frame is an error,
+	// so that chooseErrorJSON can display the request_id-correlated error
+	// payload rather than falling back to the racy _last_error slot.
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "buy"}, WithTerminator(terminateOnAction))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+
+	go c.router.dispatch(protocol.Response{
+		Type:      protocol.TypeError,
+		RequestID: sent.RequestID,
+		Payload:   map[string]any{"code": "bad", "message": "nope"},
+	})
+
+	_, awaitErr := c.await(ctx, h)
+	if awaitErr == nil {
+		t.Fatal("await should return non-nil error on server error frame")
+	}
+
+	if sink.Type != protocol.TypeError {
+		t.Errorf("sink.Type = %q, want %q", sink.Type, protocol.TypeError)
+	}
+	if len(sink.Payload) == 0 {
+		t.Error("sink.Payload is empty, want populated error payload")
+	}
+	if code, _ := sink.Payload["code"].(string); code != "bad" {
+		t.Errorf("sink.Payload[code] = %q, want \"bad\"", code)
+	}
+}
+
 func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()
