@@ -979,7 +979,7 @@ func (c *Client) Login(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to send login: %w", err)
 	}
-	resp, err := h.Result(ctx)
+	resp, err := c.await(ctx, h)
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
@@ -1010,7 +1010,7 @@ func (c *Client) Register(ctx context.Context, empire, registrationCode string) 
 	if err != nil {
 		return fmt.Errorf("failed to send register: %w", err)
 	}
-	resp, err := h.Result(ctx)
+	resp, err := c.await(ctx, h)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
@@ -1034,7 +1034,7 @@ func (c *Client) Claim(ctx context.Context, registrationCode string) error {
 	if err != nil {
 		return fmt.Errorf("claim: submit: %w", err)
 	}
-	if _, err := h.Result(ctx); err != nil {
+	if _, err := c.await(ctx, h); err != nil {
 		return fmt.Errorf("claim failed: %w", err)
 	}
 	return nil
@@ -1053,7 +1053,7 @@ func (c *Client) Undock(ctx context.Context) error {
 	_, terminate := dockTransitionMatchers("undock", protocol.TypeUndocked)
 	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1071,7 +1071,7 @@ func (c *Client) Dock(ctx context.Context) error {
 	_, terminate := dockTransitionMatchers("dock", protocol.TypeDocked)
 	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1328,7 +1328,7 @@ func (c *Client) Mine(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTerminator(terminate), WithTimeout(SleepActionStartTimeout))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return maybeGoalReached("mine", err)
 }
@@ -1342,7 +1342,7 @@ func (c *Client) Attack(ctx context.Context, targetID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1356,7 +1356,7 @@ func (c *Client) Scan(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1370,7 +1370,7 @@ func (c *Client) SurveySystem(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1387,7 +1387,7 @@ func (c *Client) FindRoute(ctx context.Context, targetSystem string) ([]RouteSte
 	if err != nil {
 		return nil, err
 	}
-	resp, err := h.Result(ctx)
+	resp, err := c.await(ctx, h)
 	if err != nil {
 		return nil, fmt.Errorf("find_route failed: %w", err)
 	}
@@ -1417,7 +1417,7 @@ func (c *Client) GetSystem(ctx context.Context) error {
 	// get_system returns type=ok with action="get_system"; storeRawJSON stores under "system".
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1444,7 +1444,7 @@ func (c *Client) GetMap(ctx context.Context, force ...bool) error {
 	// No action field in response.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	if err == nil {
 		c.mapFetchedMu.Lock()
@@ -1466,7 +1466,7 @@ func (c *Client) GetPOI(ctx context.Context) error {
 	// The distinctive payload key is "poi" — the POI object itself.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1483,7 +1483,7 @@ func (c *Client) GetStatus(ctx context.Context) error {
 	// The distinctive payload key is "player" — the full player snapshot.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1509,7 +1509,7 @@ func (c *Client) GetListings(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1525,7 +1525,7 @@ func (c *Client) GetShips(ctx context.Context) error {
 	// which uses "listings"). station_id and station_name are also present.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1552,7 +1552,7 @@ func (c *Client) Sell(ctx context.Context, itemID string, quantity float64) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1583,7 +1583,7 @@ func (c *Client) CreateBulkSellOrder(ctx context.Context, orders []BulkSellOrder
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1738,7 +1738,7 @@ func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1892,7 +1892,7 @@ func (c *Client) Refuel(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return maybeGoalReached("refuel", err)
 }
@@ -1909,7 +1909,7 @@ func (c *Client) Repair(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return maybeGoalReached("repair", err)
 }
@@ -1923,7 +1923,7 @@ func (c *Client) RepairWith(ctx context.Context, payload map[string]any) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return maybeGoalReached("repair", err)
 }
@@ -1942,7 +1942,7 @@ func (c *Client) Fleet(ctx context.Context, action string, playerID string) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1961,7 +1961,7 @@ func (c *Client) DistressSignal(ctx context.Context, distressType string) error 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1975,7 +1975,7 @@ func (c *Client) Buy(ctx context.Context, itemID string, quantity float64) error
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }

@@ -417,6 +417,35 @@ func TestAwait_NoSinkIsNoop(t *testing.T) {
 	}
 }
 
+// TestAwait_CommandMethodFillsSink proves the mechanical sweep wired await into
+// a real command method end to end: GetDrones, driven through the Submit test
+// harness, deposits its correlated terminal into the ctx sink.
+func TestAwait_CommandMethodFillsSink(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.GetDrones(ctx) }()
+
+	sent := <-sendCh
+	if sent.Type != "get_drones" {
+		t.Fatalf("sent.Type = %q, want get_drones", sent.Type)
+	}
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_drones", "drones": []any{}},
+	})
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("GetDrones: %v", err)
+	}
+	if sink.RequestID != sent.RequestID {
+		t.Errorf("sink.RequestID = %q, want %q (sweep did not wire await into GetDrones)",
+			sink.RequestID, sent.RequestID)
+	}
+}
+
 func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()
