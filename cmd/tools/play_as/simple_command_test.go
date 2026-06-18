@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -50,3 +52,37 @@ func TestSimpleCommand_PassesThroughRegularErrors(t *testing.T) {
 		t.Errorf("simpleCommand should pass regular errors through, got %v", err)
 	}
 }
+
+func TestChooseResponseJSON_PrefersSink(t *testing.T) {
+	sink := protocol.Response{
+		Type:      "action_result",
+		RequestID: "req-1",
+		Payload:   map[string]any{"command": "dock", "result": map[string]any{"docked": true}},
+	}
+	got := chooseResponseJSON(sink, stubGameClientForSimple{}, "dock")
+
+	var decoded map[string]any
+	if err := json.Unmarshal(got, &decoded); err != nil {
+		t.Fatalf("result is not valid JSON: %v (%s)", err, got)
+	}
+	if decoded["command"] != "dock" {
+		t.Errorf("expected sink payload (command=dock), got %s", got)
+	}
+}
+
+func TestChooseResponseJSON_FallsBackWhenSinkEmpty(t *testing.T) {
+	// Zero-value sink (Type == "") → fall back to the command-keyed lookup.
+	client := rawStub{raw: []byte(`{"from":"fallback"}`)}
+	got := chooseResponseJSON(protocol.Response{}, client, "dock")
+	if string(got) != `{"from":"fallback"}` {
+		t.Errorf("expected fallback bytes, got %s", got)
+	}
+}
+
+// rawStub returns canned bytes from GetRawJSON for the fallback path.
+type rawStub struct {
+	game.GameClient
+	raw []byte
+}
+
+func (s rawStub) GetRawJSON(string) []byte { return s.raw }

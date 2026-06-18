@@ -29,6 +29,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 	"github.com/peterh/liner"
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/faction"
 	"github.com/rsned/spacemolt/pkg/game"
@@ -7522,6 +7523,32 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 	}
 }
 
+// chooseResponseJSON returns the JSON payload bytes to display for a command.
+// When sink was populated by the request_id-correlated await path (Type set),
+// it marshals the sink's payload — the exact frame for THIS command, immune to
+// the command-keyed-slot clobber race. Otherwise (MCP transport, or commands
+// not yet on Submit) it falls back to the legacy command-keyed lookup.
+func chooseResponseJSON(sink protocol.Response, client game.GameClient, command string) []byte {
+	if sink.Type != "" {
+		if raw, err := json.Marshal(sink.Payload); err == nil {
+			return raw
+		}
+	}
+	return lookupRawJSON(client, command)
+}
+
+// chooseErrorJSON mirrors chooseResponseJSON for the error path: prefer the
+// correlated sink (await populates resp even on a terminal *ServerError),
+// otherwise the dedicated _last_error slot.
+func chooseErrorJSON(sink protocol.Response, client game.GameClient) []byte {
+	if sink.Type != "" {
+		if raw, err := json.Marshal(sink.Payload); err == nil {
+			return raw
+		}
+	}
+	return client.GetRawJSON("_last_error")
+}
+
 // simpleCommand executes a command, prints the server response, then waits.
 //
 // On *game.GoalReachedError simpleCommand PROPAGATES the sentinel back to
@@ -7535,39 +7562,33 @@ func showLastResponse(client game.GameClient, format outputFormat, command strin
 // the signal from executeLoop — the loop saw "iteration succeeded" and
 // ran the next one, and so on until the count was exhausted.
 //
-// Note: we intentionally do NOT pre-clear the command-specific raw-JSON
-// slot before calling fn. The shared-waiter race (a concurrent background
-// command's TypeOK response steals this caller's waiter) still exists, and
-// pre-clearing turned that race from "show stale data" into "show nothing"
-// — which was worse UX. The deeper fix (request IDs / per-call response
-// routing) is still pending.
+// The result sink (game.WithResultSink) captures the exact request_id-correlated
+// server frame for THIS command, eliminating the racy command-keyed-slot clobber
+// that a concurrent background command's TypeOK response could trigger.
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
-	if err := fn(ctx); err != nil {
+	var sink protocol.Response
+	cctx := game.WithResultSink(ctx, &sink)
+	if err := fn(cctx); err != nil {
 		// Propagate the goal-reached sentinel unchanged for the loop
 		// executor / REPL dispatcher to display.
 		var goal *game.GoalReachedError
 		if errors.As(err, &goal) {
 			return err
 		}
-		// In raw/JSON modes, surface the server's actual error frame for
-		// debugging (contains code, message, command, tick). Prefer the
-		// dedicated _last_error slot over the command-keyed lookup, which
-		// would return the prior success payload — stale and misleading for
-		// deferred commands that fail after a tick.
-		//
-		// Skip this in styled mode: the REPL dispatcher already prints a
-		// styled "❌ Error: ..." line, and routing an error frame through a
-		// command-specific styled formatter (e.g. formatDock) renders garbage
-		// — the formatter unmarshals the error frame into an empty success
-		// struct and prints blank fields like `Docked at ""`.
+		// In raw/JSON modes, surface the server's actual error frame. Prefer the
+		// correlated sink (await captures error frames too); fall back to the
+		// dedicated _last_error slot when the sink is empty (e.g. send-failure
+		// before any frame, or MCP transport).
 		if format != formatStyled {
-			if raw := client.GetRawJSON("_last_error"); len(raw) > 0 {
+			if raw := chooseErrorJSON(sink, client); len(raw) > 0 {
 				printResponse(raw, format, command)
 			}
 		}
 		return err
 	}
-	showLastResponse(client, format, command)
+	if raw := chooseResponseJSON(sink, client, command); len(raw) > 0 {
+		printResponse(raw, format, command)
+	}
 	if wait > 0 {
 		time.Sleep(wait)
 	}
