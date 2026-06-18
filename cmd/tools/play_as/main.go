@@ -2428,11 +2428,22 @@ type storageItem struct {
 
 // storageShip is a parsed ship from a view_storage response.
 type storageShip struct {
-	ShipID    string `json:"ship_id"`
-	ClassID   string `json:"class_id"`
-	ClassName string `json:"class_name,omitempty"`
-	CargoUsed int    `json:"cargo_used"`
-	Modules   int    `json:"modules"`
+	ShipID     string `json:"ship_id"`
+	ClassID    string `json:"class_id"`
+	ClassName  string `json:"class_name,omitempty"`
+	CustomName string `json:"custom_name,omitempty"`
+	CargoUsed  int    `json:"cargo_used"`
+	Modules    int    `json:"modules"`
+}
+
+// displayName returns the ship's player-assigned custom name when set,
+// otherwise its human-readable class name. Used for the SHIPS "Ship Name"
+// column so a renamed ship shows its custom name rather than its class.
+func (s storageShip) displayName() string {
+	if s.CustomName != "" {
+		return s.CustomName
+	}
+	return s.ClassName
 }
 
 // storageFmtOptions controls optional formatting behaviour for view_storage.
@@ -2528,7 +2539,7 @@ func formatStorage(raw []byte) string {
 		idW, nameW, classW, cargoW, modW := len("ID"), len("Ship Name"), len("Class"), len("Cargo Used"), len("Modules")
 		for _, ship := range resp.Ships {
 			idW = max(idW, len(ship.ShipID))
-			nameW = max(nameW, len(ship.ClassName))
+			nameW = max(nameW, len(ship.displayName()))
 			classW = max(classW, len(ship.ClassID))
 			cargoW = max(cargoW, len(strconv.Itoa(ship.CargoUsed)))
 			modW = max(modW, len(strconv.Itoa(ship.Modules)))
@@ -2543,7 +2554,7 @@ func formatStorage(raw []byte) string {
 
 		for _, ship := range resp.Ships {
 			fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %*d | %*d\n",
-				idW, ship.ShipID, nameW, ship.ClassName,
+				idW, ship.ShipID, nameW, ship.displayName(),
 				classW, ship.ClassID, cargoW, ship.CargoUsed,
 				modW, ship.Modules)
 		}
