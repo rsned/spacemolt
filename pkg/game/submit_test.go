@@ -368,6 +368,55 @@ func TestReplay_LateOriginalResponseIsOrphan(t *testing.T) {
 	}
 }
 
+func TestAwait_FillsResultSink(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "get_status"}, WithAckOnly())
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_status", "credits": 42.0},
+	})
+
+	resp, err := c.await(ctx, h)
+	if err != nil {
+		t.Fatalf("await: %v", err)
+	}
+	if resp.RequestID != sent.RequestID {
+		t.Errorf("returned resp.RequestID = %q, want %q", resp.RequestID, sent.RequestID)
+	}
+	if sink.RequestID != sent.RequestID {
+		t.Errorf("sink.RequestID = %q, want %q", sink.RequestID, sent.RequestID)
+	}
+	if got, _ := sink.Payload["credits"].(float64); got != 42.0 {
+		t.Errorf("sink.Payload[credits] = %v, want 42", sink.Payload["credits"])
+	}
+}
+
+func TestAwait_NoSinkIsNoop(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background() // no sink attached
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "get_status"}, WithAckOnly())
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_status"},
+	})
+
+	if _, err := c.await(ctx, h); err != nil {
+		t.Fatalf("await with no sink must not error: %v", err)
+	}
+}
+
 func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()
