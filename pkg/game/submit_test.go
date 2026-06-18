@@ -446,6 +446,36 @@ func TestAwait_CommandMethodFillsSink(t *testing.T) {
 	}
 }
 
+// TestConvertedMutation_Correlates proves a converted fire-and-forget mutation
+// now flows through Submit (stamps a request_id) and awaits a terminal.
+func TestConvertedMutation_Correlates(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.AbandonMission(ctx, "m-1") }()
+
+	sent := <-sendCh
+	if sent.Type != "abandon_mission" {
+		t.Fatalf("sent.Type = %q, want abandon_mission", sent.Type)
+	}
+	if sent.RequestID == "" {
+		t.Fatal("converted mutation did not stamp a request_id (still on c.send)")
+	}
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeActionResult, RequestID: sent.RequestID,
+		Payload: map[string]any{"command": "abandon_mission", "result": map[string]any{"abandoned": true}},
+	})
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("AbandonMission: %v", err)
+	}
+	if sink.RequestID != sent.RequestID {
+		t.Errorf("sink.RequestID = %q, want %q", sink.RequestID, sent.RequestID)
+	}
+}
+
 func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()

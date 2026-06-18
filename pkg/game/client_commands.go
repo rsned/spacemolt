@@ -532,20 +532,30 @@ func (c *Client) TradeAccept(ctx context.Context, tradeID string) error {
 
 // TradeCancel cancels your trade offer.
 func (c *Client) TradeCancel(ctx context.Context, tradeID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "trade_cancel",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // TradeDecline declines a trade offer.
 func (c *Client) TradeDecline(ctx context.Context, tradeID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "trade_decline",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -971,20 +981,30 @@ func (c *Client) CompleteMission(ctx context.Context, missionID string) error {
 
 // AbandonMission abandons an active mission.
 func (c *Client) AbandonMission(ctx context.Context, missionID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "abandon_mission",
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // DeclineMission declines a mission and hears the NPC's response.
 func (c *Client) DeclineMission(ctx context.Context, templateID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "decline_mission",
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1007,10 +1027,15 @@ func (c *Client) BuyInsurance(ctx context.Context, ticks int) error {
 
 // ClaimInsurance views your active insurance policies.
 func (c *Client) ClaimInsurance(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "claim_insurance",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetInsuranceQuote gets a risk-based insurance quote for the current ship.
@@ -1286,32 +1311,47 @@ func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
 
 // ForumReply replies to a forum thread.
 func (c *Client) ForumReply(ctx context.Context, threadID, content string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type: "forum_reply",
 		Payload: map[string]any{
 			"thread_id": threadID,
 			"content":   content,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumDeleteReply deletes a forum reply.
 func (c *Client) ForumDeleteReply(ctx context.Context, replyID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_delete_reply",
 		Payload:   map[string]any{"reply_id": replyID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumDeleteThread deletes a forum thread.
 func (c *Client) ForumDeleteThread(ctx context.Context, threadID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_delete_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumUpvote upvotes a thread or reply.
@@ -1320,11 +1360,16 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 	if replyID != "" {
 		payload["reply_id"] = replyID
 	}
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_upvote",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1333,11 +1378,16 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 
 // CaptainsLogAdd adds an entry to your captain's log.
 func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "captains_log_add",
 		Payload:   map[string]any{"entry": entry},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // CaptainsLogGet gets a specific entry from your captain's log.
@@ -1363,32 +1413,47 @@ func (c *Client) CaptainsLogList(ctx context.Context) error {
 
 // SetAnonymous sets anonymous mode.
 func (c *Client) SetAnonymous(ctx context.Context, anonymous bool) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "set_anonymous",
 		Payload:   map[string]any{"anonymous": anonymous},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SetColors sets your ship colors.
 func (c *Client) SetColors(ctx context.Context, primaryColor, secondaryColor string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type: "set_colors",
 		Payload: map[string]any{
 			"primary_color":   primaryColor,
 			"secondary_color": secondaryColor,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SetPlayerStatus sets your status message and clan tag.
 func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "set_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
