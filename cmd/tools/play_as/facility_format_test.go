@@ -184,9 +184,12 @@ func TestFormatFacilityActionMessage_NoMessage(t *testing.T) {
 func TestFormatFacilityList_ShowsProductionDetails(t *testing.T) {
 	showStationFacilities = true
 	defer func() { showStationFacilities = false }()
-	raw := []byte(`{"base_id":"grand_exchange_station","station_facilities":[{"active":true,"category":"production","description":"Pressurized containment lab...","facility_id":"42eb7b38","level":1,"maintenance_satisfied":true,"name":"Argon Cell Lab","recipe_id":"synthesize_argon_power_cell","type":"argon_cell_lab","production":{"backlog_ticks":0,"items_per_hour":22,"output_per_run":2,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Synthesize Argon Power Cell","rental_fee_per_run":225,"ticks_per_run":32}}]}`)
+	// ticks_per_run arrives fractional from the live server (e.g. 13.2), so the
+	// production struct must decode it as a float — an int field here makes
+	// json.Unmarshal fail and the whole `facility list` fall back to raw JSON.
+	raw := []byte(`{"base_id":"grand_exchange_station","station_facilities":[{"active":true,"category":"production","description":"Pressurized containment lab...","facility_id":"42eb7b38","level":1,"maintenance_satisfied":true,"name":"Argon Cell Lab","recipe_id":"synthesize_argon_power_cell","type":"argon_cell_lab","production":{"backlog_ticks":0,"items_per_hour":22,"output_per_run":2,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Synthesize Argon Power Cell","rental_fee_per_run":225,"ticks_per_run":13.2}}]}`)
 	out := formatFacilityList(raw)
-	for _, want := range []string{"Argon Cell Lab", "Synthesize Argon Power Cell", "225", "22"} {
+	for _, want := range []string{"Argon Cell Lab", "Synthesize Argon Power Cell", "225", "22", "13.2 ticks/run"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
 		}

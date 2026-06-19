@@ -1598,16 +1598,16 @@ func formatFacilityActionMessage(raw []byte) string {
 func formatFacilityOwned(raw []byte) string {
 	var resp struct {
 		Facilities []struct {
-			Name             string `json:"name"`
-			Type             string `json:"type"`
-			BaseName         string `json:"base_name"`
-			SystemID         string `json:"system_id"`
-			RentPerCycle     int    `json:"rent_per_cycle"`
-			LaborPerRun      int    `json:"labor_per_run"`
-			ArrearsOwed      int    `json:"arrears_owed"`
-			MissedRentCycles int    `json:"missed_rent_cycles"`
-			Active           bool   `json:"active"`
-			UnderConstruction bool  `json:"under_construction"`
+			Name              string `json:"name"`
+			Type              string `json:"type"`
+			BaseName          string `json:"base_name"`
+			SystemID          string `json:"system_id"`
+			RentPerCycle      int    `json:"rent_per_cycle"`
+			LaborPerRun       int    `json:"labor_per_run"`
+			ArrearsOwed       int    `json:"arrears_owed"`
+			MissedRentCycles  int    `json:"missed_rent_cycles"`
+			Active            bool   `json:"active"`
+			UnderConstruction bool   `json:"under_construction"`
 		} `json:"facilities"`
 		Rent struct {
 			Facilities        int    `json:"facilities"`
@@ -2062,16 +2062,19 @@ func formatFacilityList(raw []byte) string {
 		IdleReason           string `json:"idle_reason"`
 		Type                 string `json:"type"`
 		Production           *struct {
-			Recipe          string `json:"recipe"`
-			RecipeID        string `json:"recipe_id"`
-			ItemsPerHour    int    `json:"items_per_hour"`
-			OutputPerRun    int    `json:"output_per_run"`
-			TicksPerRun     int    `json:"ticks_per_run"`
-			QueuedRuns      int    `json:"queued_runs"`
-			QueuedItems     int    `json:"queued_items"`
-			BacklogTicks    int    `json:"backlog_ticks"`
-			RentalFeePerRun int    `json:"rental_fee_per_run"`
-			Public          bool   `json:"public"`
+			Recipe       string `json:"recipe"`
+			RecipeID     string `json:"recipe_id"`
+			ItemsPerHour int    `json:"items_per_hour"`
+			OutputPerRun int    `json:"output_per_run"`
+			// TicksPerRun is fractional on the live server (e.g. 13.2), so it
+			// must decode as a float — an int field makes json.Unmarshal fail
+			// and the whole `facility list` fall back to raw JSON.
+			TicksPerRun     float64 `json:"ticks_per_run"`
+			QueuedRuns      int     `json:"queued_runs"`
+			QueuedItems     int     `json:"queued_items"`
+			BacklogTicks    int     `json:"backlog_ticks"`
+			RentalFeePerRun int     `json:"rental_fee_per_run"`
+			Public          bool    `json:"public"`
 		} `json:"production"`
 	}
 	var resp struct {
@@ -2199,7 +2202,7 @@ func formatFacilityList(raw []byte) string {
 				if p.Public {
 					access = "public"
 				}
-				fmt.Fprintf(&b, "      ⚙ %s — %d/hr, %d/run, %d ticks/run | rent %d/run | queued %d runs (backlog %d ticks) | %s\n",
+				fmt.Fprintf(&b, "      ⚙ %s — %d/hr, %d/run, %g ticks/run | rent %d/run | queued %d runs (backlog %d ticks) | %s\n",
 					p.Recipe, p.ItemsPerHour, p.OutputPerRun, p.TicksPerRun, p.RentalFeePerRun, p.QueuedRuns, p.BacklogTicks, access)
 			}
 		}
@@ -4259,16 +4262,16 @@ func formatActiveMissions(raw []byte) string {
 		SystemName string `json:"system_name"`
 	}
 	type activeMission struct {
-		MissionID       string            `json:"mission_id"`
-		TemplateID      string            `json:"template_id"`
-		Type            string            `json:"type"`
-		Title           string            `json:"title"`
-		Description     string            `json:"description"`
-		Difficulty      int               `json:"difficulty"`
+		MissionID   string `json:"mission_id"`
+		TemplateID  string `json:"template_id"`
+		Type        string `json:"type"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Difficulty  int    `json:"difficulty"`
 		// PercentComplete is fractional on the wire (e.g. 33.333…); keep it a
 		// float so the decode doesn't fail, and round when rendering.
-		PercentComplete float64 `json:"percent_complete"`
-		ExpiresInTicks  int     `json:"expires_in_ticks"`
+		PercentComplete float64           `json:"percent_complete"`
+		ExpiresInTicks  int               `json:"expires_in_ticks"`
 		AcceptedAt      string            `json:"accepted_at"`
 		Objectives      []activeObjective `json:"objectives"`
 		Rewards         *struct {
@@ -7713,9 +7716,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 // by their own name fall through to lookupRawJSON's `client.GetRawJSON(cmd)`
 // default — no entry needed.
 var rawJSONKeyForCommand = map[string]string{
-	"get_ship":             "ship",
-	"get_cargo":            "cargo",
-	"get_status":           "status",
+	"get_ship":   "ship",
+	"get_cargo":  "cargo",
+	"get_status": "status",
 	// get_state is undocumented but the server answers it with a full state
 	// dump. Its frame carries no "action" field, so storeRawJSON files it by
 	// content shape ("player" present) under "status" — the same slot as
@@ -9142,7 +9145,7 @@ type chatPoller struct {
 	seen       map[string]bool   // Message IDs already displayed.
 	lastSeenTS map[string]string // Per-channel newest timestamp_utc, used as `after` cursor.
 	mu         sync.Mutex
-	username   string         // Our own username, to skip own messages.
+	username   string          // Our own username, to skip own messages.
 	ingester   *mbox.Ingester  // Optional: ingest polled messages into mbox.
 	blocklist  *mbox.Blocklist // Optional: blocked senders are not printed.
 	interval   time.Duration   // Poll interval (defaults to SleepChatPoll).
