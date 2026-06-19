@@ -40,6 +40,11 @@ type Client struct {
 	connected   bool
 	debugLogger *log.Logger
 
+	// debugOut is the debug logger's original output writer, captured at
+	// construction so SetDebugLogging(true) can restore it after a prior
+	// SetDebugLogging(false) redirected output to io.Discard.
+	debugOut io.Writer
+
 	// debugPayloadMaxLen caps the "Response Payload:" debug-log line. 0
 	// means no cap (log the whole payload). Default 200, tuned to keep the
 	// log readable for short responses.
@@ -397,6 +402,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		inflight:           newInflight(16),
 		actionLocks:        newActionLockMap(),
 		debugLogger:        debugLogger,
+		debugOut:           debugLogger.Writer(),
 		debugPayloadMaxLen: 200,
 		latestListings:     make([]MarketListing, 0),
 		latestShips:        make(map[string]any),
@@ -457,9 +463,19 @@ func (c *Client) SetPassengerObserver(fn PassengerObserver) {
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
-// When disabled, the debug logger output is discarded.
+// When disabled, the debug logger output is discarded; when enabled, it is
+// restored to the writer the logger was constructed with. Safe to call at
+// runtime to toggle debug logging on and off.
 func (c *Client) SetDebugLogging(enabled bool) {
-	if !enabled {
+	if enabled {
+		out := c.debugOut
+		if out == nil {
+			// Client was constructed without NewClient (e.g. a struct literal
+			// in tests); leave the logger pointed at its current writer.
+			out = c.debugLogger.Writer()
+		}
+		c.debugLogger.SetOutput(out)
+	} else {
 		c.debugLogger.SetOutput(io.Discard)
 	}
 }

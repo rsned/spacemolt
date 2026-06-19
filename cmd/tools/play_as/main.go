@@ -561,6 +561,44 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
+		// Handle set_debug (toggle game client debug logging at runtime).
+		if command == "set_debug" {
+			toggler, ok := client.(interface{ SetDebugLogging(bool) })
+			if !ok {
+				fmt.Println("set_debug: not supported by this client")
+				fmt.Println()
+				continue
+			}
+			if len(parts) < 2 {
+				fmt.Println("Usage: set_debug <true|false|on|off>")
+				fmt.Println()
+				continue
+			}
+			var enabled bool
+			switch strings.ToLower(parts[1]) {
+			case "on":
+				enabled = true
+			case "off":
+				enabled = false
+			default:
+				b, perr := strconv.ParseBool(parts[1])
+				if perr != nil {
+					fmt.Printf("set_debug: unrecognized value %q (use true/false/on/off)\n", parts[1])
+					fmt.Println()
+					continue
+				}
+				enabled = b
+			}
+			toggler.SetDebugLogging(enabled)
+			if enabled {
+				fmt.Println("Debug logging enabled")
+			} else {
+				fmt.Println("Debug logging disabled")
+			}
+			fmt.Println()
+			continue
+		}
+
 		// Handle scripts (list saved scripts)
 		if command == "scripts" {
 			perAgent, shared := listScripts(agentID)
@@ -8835,6 +8873,7 @@ func printHelp() {
 	fmt.Println("  schedule_remove <id>      - Remove a scheduled command")
 	fmt.Println("  view_scheduled            - List scheduled commands")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
+	fmt.Println("  set_debug <true|false>    - Toggle game client debug logging at runtime")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
 	fmt.Println()
