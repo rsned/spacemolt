@@ -1515,6 +1515,83 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>'
 
 ---
 
+## Task 12 — `formatFacilityList`: render the `production` sub-struct (busyness + cost)
+
+**Why:** `facility list --show_station_facilities` lists production-category station facilities but drops their `production` block, so a player can't see how busy a facility is or what it costs to rent. The local `stationFacility` struct in `formatFacilityList` (`cmd/tools/play_as/main.go` ~`:2029`) has no `production` field, so those details are silently discarded. The station render loop is ~`:2129-2160`.
+
+**Goal of the render:** surface BUSYNESS (`queued_runs`/`queued_items`, `backlog_ticks`, throughput from `items_per_hour` & `ticks_per_run`) and COST (`rental_fee_per_run`, `public`) so a player can decide whether to rent a public facility.
+
+**Files**
+- modify `cmd/tools/play_as/main.go` (`formatFacilityList` — `stationFacility` struct + station render loop)
+- modify/create `cmd/tools/play_as/facility_format_test.go` (render test)
+
+**Interfaces** — add to the `stationFacility` struct (inside `formatFacilityList`):
+
+```go
+		Description string `json:"description"`
+		Production  *struct {
+			Recipe          string `json:"recipe"`
+			RecipeID        string `json:"recipe_id"`
+			ItemsPerHour    int    `json:"items_per_hour"`
+			OutputPerRun    int    `json:"output_per_run"`
+			TicksPerRun     int    `json:"ticks_per_run"`
+			QueuedRuns      int    `json:"queued_runs"`
+			QueuedItems     int    `json:"queued_items"`
+			BacklogTicks    int    `json:"backlog_ticks"`
+			RentalFeePerRun int    `json:"rental_fee_per_run"`
+			Public          bool   `json:"public"`
+		} `json:"production"`
+```
+
+(Use a pointer so non-production facilities — which have no `production` key — decode to `nil` and render normally.)
+
+Steps:
+
+- [ ] 1. Write a failing render test in `cmd/tools/play_as/facility_format_test.go` using the REAL observed shape:
+
+```go
+func TestFormatFacilityList_ShowsProductionDetails(t *testing.T) {
+	showStationFacilities = true
+	defer func() { showStationFacilities = false }()
+	raw := []byte(`{"base_id":"grand_exchange_station","station_facilities":[{"active":true,"category":"production","description":"Pressurized containment lab...","facility_id":"42eb7b38","level":1,"maintenance_satisfied":true,"name":"Argon Cell Lab","recipe_id":"synthesize_argon_power_cell","type":"argon_cell_lab","production":{"backlog_ticks":0,"items_per_hour":22,"output_per_run":2,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Synthesize Argon Power Cell","rental_fee_per_run":225,"ticks_per_run":32}}]}`)
+	out := formatFacilityList(raw)
+	for _, want := range []string{"Argon Cell Lab", "Synthesize Argon Power Cell", "225", "22"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
+		}
+	}
+}
+```
+
+- [ ] 2. Run-to-fail: `go test ./cmd/tools/play_as/ -run TestFormatFacilityList_ShowsProductionDetails`. Expect: the rental fee / throughput / recipe substrings are absent (the production block isn't rendered).
+- [ ] 3. Add the `Description` + `Production` fields to the `stationFacility` struct, and in the station render loop emit a detail line for facilities where `f.Production != nil`. Render busyness + cost compactly, e.g. (match the section's existing indentation/style):
+
+```go
+		if f.Production != nil {
+			p := f.Production
+			access := "private"
+			if p.Public {
+				access = "public"
+			}
+			fmt.Fprintf(&b, "      ⚙ %s — %d/hr, %d/run, %d ticks/run | rent %d/run | queued %d runs (backlog %d ticks) | %s\n",
+				p.Recipe, p.ItemsPerHour, p.OutputPerRun, p.TicksPerRun, p.RentalFeePerRun, p.QueuedRuns, p.BacklogTicks, access)
+		}
+```
+
+(Place the detail line so it renders directly under the facility's table row. If the existing loop builds a table with `tabwriter`/aligned columns, emit the detail line after flushing the row, or integrate per the section's actual structure — read the loop first and match its style.)
+
+- [ ] 4. Run-to-pass: `go test ./cmd/tools/play_as/ -run TestFormatFacilityList_ShowsProductionDetails`. Expect `ok`.
+- [ ] 5. `golangci-lint run ./cmd/tools/play_as/...` (no new findings); `go build ./...` and `go test ./...` (ignore `pkg/galaxy` + `pkg/actionspace`).
+- [ ] 6. Commit:
+
+```
+git add -A && git commit -m 'feat(play_as): show production facility busyness + rental cost in facility list
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>'
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage** (every gap-analysis item → task):
