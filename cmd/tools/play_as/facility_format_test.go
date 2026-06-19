@@ -65,7 +65,7 @@ func TestFormatFacilityList_StationFacilitiesToggle(t *testing.T) {
 	showStationFacilities = true
 	defer func() { showStationFacilities = false }()
 	out = formatFacilityList(raw)
-	for _, want := range []string{"Station Services (1):", "Maintenance Deck", "Station Production (1):", "Fuel Reclamation Still", "idle: no_inputs"} {
+	for _, want := range []string{"Station Services (1):", "Maintenance Deck", "Station Production (1):", "Fuel Reclamation Still", "⚙ Scavenge Fuel Cells"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q with toggle on:\n%s", want, out)
 		}
@@ -190,7 +190,9 @@ func TestFormatFacilityList_ShowsProductionDetails(t *testing.T) {
 	// json.Unmarshal fail and the whole `facility list` fall back to raw JSON.
 	raw := []byte(`{"base_id":"grand_exchange_station","station_facilities":[{"active":true,"category":"production","description":"Pressurized containment lab...","facility_id":"42eb7b38","level":1,"maintenance_satisfied":true,"name":"Argon Cell Lab","recipe_id":"synthesize_argon_power_cell","type":"argon_cell_lab","production":{"backlog_ticks":0,"items_per_hour":22,"output_per_run":2,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Synthesize Argon Power Cell","rental_fee_per_run":225,"ticks_per_run":13.2}}]}`)
 	out := formatFacilityList(raw)
-	for _, want := range []string{"Station Production (1):", "Argon Cell Lab", "Synthesize Argon Power Cell", "225", "22", "13.2"} {
+	// Recipe shows in the Type column with the ⚙ prefix; ticks/run renders to
+	// two decimals ("13.20") under the two-line "Cycle / tick/run" header.
+	for _, want := range []string{"Station Production (1):", "tick/run", "Argon Cell Lab", "⚙ Synthesize Argon Power Cell", "225", "22", "13.20"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
 		}

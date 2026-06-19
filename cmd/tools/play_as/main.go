@@ -2215,33 +2215,77 @@ func formatFacilityList(raw []byte) string {
 
 		if len(production) > 0 {
 			totalSections++
-			nameW, recipeW := len("Name"), len("Recipe")
-			statusW := len("Status")
+			// Each production facility becomes one row; the recipe goes in the
+			// Type column (prefixed with ⚙) and the throughput/rent/queue stats
+			// fan out into their own numeric columns under a two-line header.
+			type prodRow struct {
+				name, typ, feehr, outrun, cycle, runcost, queued, backlog, public string
+			}
+			rows := make([]prodRow, 0, len(production))
 			for _, f := range production {
-				nameW = max(nameW, len(f.Name))
-				recipeW = max(recipeW, len(f.Production.Recipe))
-				statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
+				p := f.Production
+				public := "No"
+				if p.Public {
+					public = "Yes"
+				}
+				rows = append(rows, prodRow{
+					name:   f.Name,
+					typ:    "⚙ " + p.Recipe,
+					feehr:  strconv.Itoa(p.ItemsPerHour),
+					outrun: strconv.Itoa(p.OutputPerRun),
+					// Fractional ticks/run (e.g. 0.9259…) is rounded to 2 dp.
+					cycle:   strconv.FormatFloat(p.TicksPerRun, 'f', 2, 64),
+					runcost: strconv.Itoa(p.RentalFeePerRun),
+					queued:  strconv.Itoa(p.QueuedRuns),
+					backlog: strconv.Itoa(p.BacklogTicks),
+					public:  public,
+				})
+			}
+			// Column widths span both header lines and the values. The Type cell
+			// carries a multi-byte ⚙ glyph, so measure it by rune count (display
+			// width) and pad it manually rather than via %-*s (which pads bytes).
+			nameW := len("Name")
+			typeW := len("Type")
+			feeW := max(len("Fee"), len("/hr"))
+			outW := max(len("Output"), len("/run"))
+			cycW := max(len("Cycle"), len("tick/run"))
+			costW := max(len("Run"), len("cost"))
+			queueW := max(len("Queued"), len("runs"))
+			backW := max(len("Backlog"), len("ticks"))
+			pubW := len("Public")
+			for _, r := range rows {
+				nameW = max(nameW, len(r.name))
+				typeW = max(typeW, len([]rune(r.typ)))
+				feeW = max(feeW, len(r.feehr))
+				outW = max(outW, len(r.outrun))
+				cycW = max(cycW, len(r.cycle))
+				costW = max(costW, len(r.runcost))
+				queueW = max(queueW, len(r.queued))
+				backW = max(backW, len(r.backlog))
+				pubW = max(pubW, len(r.public))
+			}
+			padRunes := func(s string, w int) string {
+				if n := len([]rune(s)); n < w {
+					return s + strings.Repeat(" ", w-n)
+				}
+				return s
 			}
 			fmt.Fprintf(&b, "\n  Station Production (%d):\n", len(production))
-			fmt.Fprintf(&b, "    %-*s | Lvl | Maint | %-*s | %7s | %8s | %9s | %8s | %6s | %7s | %-7s | %-*s\n",
-				nameW, "Name", recipeW, "Recipe", "Out/run", "Items/hr", "Ticks/run", "Rent/run", "Queued", "Backlog", "Access", statusW, "Status")
-			fmt.Fprintf(&b, "    %s-+-----+-------+-%s-+---------+----------+-----------+----------+--------+---------+---------+-%s\n",
-				strings.Repeat("-", nameW), strings.Repeat("-", recipeW), strings.Repeat("-", statusW))
-			for _, f := range production {
-				maint := "ok"
-				if !f.MaintenanceSatisfied {
-					maint = "!"
-				}
-				p := f.Production
-				access := "private"
-				if p.Public {
-					access = "public"
-				}
-				fmt.Fprintf(&b, "    %-*s | %3d | %-5s | %-*s | %7d | %8d | %9g | %8d | %6d | %7d | %-7s | %-*s\n",
-					nameW, f.Name, f.Level, maint, recipeW, p.Recipe,
-					p.OutputPerRun, p.ItemsPerHour, p.TicksPerRun, p.RentalFeePerRun,
-					p.QueuedRuns, p.BacklogTicks, access,
-					statusW, stationFacilityStatus(f.Active, f.IdleReason))
+			// Two-line header: units (/hr, /run, tick/run, ...) sit on row two.
+			fmt.Fprintf(&b, "    %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+				nameW, "Name", typeW, "Type", feeW, "Fee", outW, "Output", cycW, "Cycle",
+				costW, "Run", queueW, "Queued", backW, "Backlog", pubW, "Public")
+			fmt.Fprintf(&b, "    %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+				nameW, "", typeW, "", feeW, "/hr", outW, "/run", cycW, "tick/run",
+				costW, "cost", queueW, "runs", backW, "ticks", pubW, "")
+			fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+				strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", feeW),
+				strings.Repeat("-", outW), strings.Repeat("-", cycW), strings.Repeat("-", costW),
+				strings.Repeat("-", queueW), strings.Repeat("-", backW), strings.Repeat("-", pubW))
+			for _, r := range rows {
+				fmt.Fprintf(&b, "    %-*s | %s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+					nameW, r.name, padRunes(r.typ, typeW), feeW, r.feehr, outW, r.outrun,
+					cycW, r.cycle, costW, r.runcost, queueW, r.queued, backW, r.backlog, pubW, r.public)
 			}
 		}
 	}
