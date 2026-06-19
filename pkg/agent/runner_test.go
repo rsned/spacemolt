@@ -183,6 +183,14 @@ func (m *mockGameClient) GetRecipes(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_recipes")
 	return nil
 }
+func (m *mockGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
+	m.actionsRecorded = append(m.actionsRecorded, "recycle:"+recipeID)
+	return nil
+}
+func (m *mockGameClient) RecycleWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "recycle:"+recipeID)
+	return nil
+}
 
 // Ship Maintenance
 func (m *mockGameClient) Refuel(ctx context.Context) error {

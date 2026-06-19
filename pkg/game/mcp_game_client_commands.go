@@ -408,6 +408,25 @@ func (m *MCPGameClient) CraftWithOptions(ctx context.Context, recipeID string, q
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
+	return m.RecycleWithOptions(ctx, recipeID, quantity, "")
+}
+
+func (m *MCPGameClient) RecycleWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
+	payload := map[string]any{
+		"recipe_id": recipeID,
+		"quantity":  quantity,
+	}
+	if deliverTo != "" {
+		payload["deliver_to"] = deliverTo
+	}
+	result, err := m.callTool(ctx, "recycle", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) GetRecipes(ctx context.Context) error {
 	result, err := m.callTool(ctx, "get_skills", nil)
 	if err != nil {
