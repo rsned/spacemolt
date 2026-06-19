@@ -1403,6 +1403,118 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>'
 
 ---
 
+## Task 11 — Register new v0.389 actions in the api-monitor + `FacilityOwnedResponse` struct
+
+**Why:** `pkg/game/client_api_monitor.go`'s `actionResponseTypes` map (`:49`) drives the dev-only `[SERVER API CHANGE]` logger. `CheckOKResponseFields` (`:624`) warns "Unhandled action %q" when an OK frame's `action` is unregistered, and "New fields in %q response" when a registered struct's top-level JSON tags don't cover the payload's top-level keys. v0.389 introduced/changed several action responses that are unregistered or mismapped: `owned` (observed live — unhandled), `recycle` (new), `craft` (still mapped to the OLD `CraftResponse`, but the new job shape's top-level keys differ), and facility `job_list`. Only TOP-LEVEL payload keys are checked, so each struct only needs to cover top-level fields.
+
+**Files**
+- modify `pkg/game/serverapi/responses.go` (add `FacilityOwnedResponse` + `OwnedFacility` + `FacilityRentSummary` near the other facility structs ~`:741`)
+- modify `pkg/game/client_api_monitor.go` (`actionResponseTypes` map `:49` — add/replace entries)
+- modify/create `pkg/game/serverapi/crafting_responses_test.go` (decode test) and `pkg/game/client_api_monitor_test.go` (registration test, if a monitor test file exists; else add to the serverapi test)
+
+**Interfaces** (Produces):
+
+```go
+type OwnedFacility struct {
+	FacilityID        string `json:"facility_id"`
+	Name              string `json:"name"`
+	Type              string `json:"type"`
+	BaseID            string `json:"base_id"`
+	BaseName          string `json:"base_name"`
+	SystemID          string `json:"system_id"`
+	RentPerCycle      int    `json:"rent_per_cycle"`
+	LaborPerRun       int    `json:"labor_per_run,omitempty"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	MissedRentCycles  int    `json:"missed_rent_cycles,omitempty"`
+	Active            bool   `json:"active"`
+	UnderConstruction bool   `json:"under_construction,omitempty"`
+}
+
+type FacilityRentSummary struct {
+	Facilities        int    `json:"facilities"`
+	TotalRentPerCycle int    `json:"total_rent_per_cycle"`
+	EstRentPerDay     int    `json:"est_rent_per_day"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	GraceCycles       int    `json:"grace_cycles,omitempty"`
+	Note              string `json:"note,omitempty"`
+}
+
+// FacilityOwnedResponse models the `facility action=owned` OK frame. Top-level
+// keys (action, facilities, hint, rent) must be covered so the api-monitor does
+// not flag it. Mirrors the local struct in play_as formatFacilityOwned.
+type FacilityOwnedResponse struct {
+	Action     string              `json:"action"`
+	Facilities []OwnedFacility     `json:"facilities"`
+	Hint       string              `json:"hint,omitempty"`
+	Rent       FacilityRentSummary `json:"rent"`
+}
+```
+
+Steps:
+
+- [ ] 1. Write a failing decode test (use the REAL observed payload) — add to `pkg/game/serverapi/crafting_responses_test.go`:
+
+```go
+func TestDecodeFacilityOwnedResponse(t *testing.T) {
+	raw := `{"action":"owned","facilities":[{"active":true,"base_id":"grand_exchange_station","base_name":"Grand Exchange Station","facility_id":"38f50d8a118ff2757ba3aaf0f9119672","name":"Signal Relay","rent_per_cycle":10,"system_id":"haven","type":"signal_relay"}],"hint":"Use action 'list' while docked for full per-facility detail at that station.","rent":{"est_rent_per_day":2580,"facilities":3,"note":"Rent is auto-deducted...","total_rent_per_cycle":30}}`
+	var r FacilityOwnedResponse
+	if err := json.Unmarshal([]byte(raw), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Action != "owned" || len(r.Facilities) != 1 || r.Facilities[0].RentPerCycle != 10 || !r.Facilities[0].Active {
+		t.Fatalf("bad decode: %+v", r)
+	}
+	if r.Rent.TotalRentPerCycle != 30 || r.Rent.EstRentPerDay != 2580 || r.Rent.Facilities != 3 {
+		t.Fatalf("bad rent: %+v", r.Rent)
+	}
+}
+
+func TestActionResponseTypesRegistersV0389Actions(t *testing.T) {
+	// This test lives in package game (not serverapi) — see step 4. Placed here
+	// only as a reminder; implement it in pkg/game where actionResponseTypes is visible.
+}
+```
+
+- [ ] 2. Run-to-fail: `go test ./pkg/game/serverapi/ -run TestDecodeFacilityOwnedResponse`. Expect: `undefined: FacilityOwnedResponse`.
+- [ ] 3. Add the three structs from the Interfaces block to `pkg/game/serverapi/responses.go` near the other facility structs. Run-to-pass the decode test.
+- [ ] 4. Add a registration test in `pkg/game` (where `actionResponseTypes` is package-visible) — append to the existing `pkg/game/client_crafting_update_test.go` (same package `game`):
+
+```go
+func TestActionResponseTypesRegistersV0389Actions(t *testing.T) {
+	for _, action := range []string{"owned", "recycle", "job_list", "craft"} {
+		if _, ok := actionResponseTypes[action]; !ok {
+			t.Errorf("actionResponseTypes missing %q", action)
+		}
+	}
+}
+```
+
+- [ ] 5. Run-to-fail: `go test ./pkg/game/ -run TestActionResponseTypesRegistersV0389Actions`. Expect failure on `owned`/`recycle`/`job_list`.
+- [ ] 6. Update `actionResponseTypes` in `pkg/game/client_api_monitor.go` (`:49`). REPLACE the `"craft"` entry and ADD the others:
+
+```go
+	"craft":           reflect.TypeOf(serverapi.CraftJobQueued{}),   // was CraftResponse (old instant shape)
+	"recycle":         reflect.TypeOf(serverapi.RecycleResponse{}),
+	"owned":           reflect.TypeOf(serverapi.FacilityOwnedResponse{}),
+	"job_list":        reflect.TypeOf(serverapi.CraftQueueListing{}),
+```
+
+(Place `owned`/`job_list` near the other facility entries `:206-208`; `recycle` near `craft`. `RecycleResponse` is an alias of `CraftJobQueued`, so `reflect.TypeOf` yields `CraftJobQueued` — that is fine.)
+
+> Note: the facility mutation sub-actions (`job_add`, `job_cancel`, `job_reorder`, `set_output_price`, `set_access`) are intentionally LEFT UNREGISTERED here — their live OK-frame shapes are not yet confirmed, and registering a guessed struct would itself trigger "new fields" warnings. The monitor's one-time "Unhandled action" hint when one is first seen IS the intended drift-detection behavior; register them in a follow-up once a real payload is captured. Do not guess.
+
+- [ ] 7. Run-to-pass: `go test ./pkg/game/ -run TestActionResponseTypesRegistersV0389Actions` and `go test ./pkg/game/serverapi/ -run TestDecodeFacilityOwnedResponse`. Expect `ok`.
+- [ ] 8. `golangci-lint run ./pkg/game/...` (no new findings); `go build ./...` and `go test ./...` (ignore `pkg/galaxy` + `pkg/actionspace`).
+- [ ] 9. Commit:
+
+```
+git add -A && git commit -m 'feat(crafting): register owned/recycle/craft/job_list in api-monitor + FacilityOwnedResponse
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>'
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage** (every gap-analysis item → task):
