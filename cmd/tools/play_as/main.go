@@ -2029,6 +2029,7 @@ func formatFacilityList(raw []byte) string {
 	type stationFacility struct {
 		Active               bool   `json:"active"`
 		Category             string `json:"category"`
+		Description          string `json:"description"`
 		FacilityID           string `json:"facility_id"`
 		Level                int    `json:"level"`
 		MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
@@ -2037,6 +2038,18 @@ func formatFacilityList(raw []byte) string {
 		RecipeID             string `json:"recipe_id"`
 		IdleReason           string `json:"idle_reason"`
 		Type                 string `json:"type"`
+		Production           *struct {
+			Recipe          string `json:"recipe"`
+			RecipeID        string `json:"recipe_id"`
+			ItemsPerHour    int    `json:"items_per_hour"`
+			OutputPerRun    int    `json:"output_per_run"`
+			TicksPerRun     int    `json:"ticks_per_run"`
+			QueuedRuns      int    `json:"queued_runs"`
+			QueuedItems     int    `json:"queued_items"`
+			BacklogTicks    int    `json:"backlog_ticks"`
+			RentalFeePerRun int    `json:"rental_fee_per_run"`
+			Public          bool   `json:"public"`
+		} `json:"production"`
 	}
 	var resp struct {
 		BaseID           string             `json:"base_id"`
@@ -2157,6 +2170,15 @@ func formatFacilityList(raw []byte) string {
 			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-5s | %-*s\n",
 				nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
 				svcW, f.Service, maint, statusW, stationFacilityStatus(f.Active, f.IdleReason))
+			if f.Production != nil {
+				p := f.Production
+				access := "private"
+				if p.Public {
+					access = "public"
+				}
+				fmt.Fprintf(&b, "      ⚙ %s — %d/hr, %d/run, %d ticks/run | rent %d/run | queued %d runs (backlog %d ticks) | %s\n",
+					p.Recipe, p.ItemsPerHour, p.OutputPerRun, p.TicksPerRun, p.RentalFeePerRun, p.QueuedRuns, p.BacklogTicks, access)
+			}
 		}
 	}
 
