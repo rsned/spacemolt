@@ -105,28 +105,27 @@ func (c *Client) Craft(ctx context.Context, recipeCommand string) error {
 	return c.CraftWithQuantity(ctx, recipeCommand, 1)
 }
 
-// CraftWithQuantity executes a crafting command with a specific quantity.
-// The maximum batch size is determined by the player's Crafting skill level
-// (minimum 1 for skill level 0 or 1).
+// CraftWithQuantity queues a crafting job for the given recipe. quantity is the
+// number of output items wanted; the server rounds it up to whole production
+// runs. Inputs are escrowed from station storage and output is delivered there.
 func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
 	return c.CraftWithOptions(ctx, recipeID, quantity, "")
 }
 
-// CraftWithOptions executes a crafting command with a specific quantity and an
-// optional delivery destination. deliverTo may be "" (server default: cargo),
-// "cargo", "storage" (station storage), or "faction" (faction storage; requires
-// a Faction Workshop facility and treasury permission, and pulls inputs from
-// faction storage). The maximum batch size is determined by the player's
-// Crafting skill level (minimum 1 for skill level 0 or 1).
+// CraftWithOptions queues a crafting job. quantity is the number of output items
+// wanted (server rounds up to whole runs). deliverTo may be "" (server default:
+// station storage) or "faction" (faction storage; requires a Faction Workshop
+// facility and manage-treasury permission, pulling inputs from faction storage).
+// Crafting is async: the server replies with a single ok job frame and delivers
+// output later via crafting_update; this method returns once the job is queued.
 func (c *Client) CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
-	maxBatch := MaxCraftBatchSize(c.GetState())
-	if quantity < 1 || quantity > maxBatch {
-		return fmt.Errorf("invalid quantity: %d (must be 1-%d based on crafting skill)", quantity, maxBatch)
+	if quantity < 1 {
+		return fmt.Errorf("invalid quantity: %d (must be >= 1)", quantity)
 	}
 
-	payload := map[string]any{"recipe_id": recipeID}
-	if quantity > 1 {
-		payload["quantity"] = quantity
+	payload := map[string]any{
+		"recipe_id": recipeID,
+		"quantity":  quantity,
 	}
 	if deliverTo != "" {
 		payload["deliver_to"] = deliverTo
@@ -137,11 +136,10 @@ func (c *Client) CraftWithOptions(ctx context.Context, recipeID string, quantity
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	// Server sends: ok (pending) → action_result with command="craft".
-	// Submit's exact request_id correlation means intermediate events
-	// (e.g. skill_level_up) carrying different request_ids pass through
-	// to push subscribers without disturbing the mutation wait.
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	// v0.389: craft is async-queued. The server replies with a single
+	// non-pending ok carrying the job body; there is no action_result. Treat
+	// that ok as terminal via terminateOnActionOrOK.
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
 	if err == nil {
 		_, err = h.Result(ctx)
 	}
