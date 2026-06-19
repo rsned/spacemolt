@@ -2,12 +2,60 @@ package game
 
 import (
 	"context"
+	"io"
+	"log"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 )
+
+// TestCraftRecipeQueuesOnce proves the new craftRecipe contract:
+// it issues exactly ONE craft command for the given quantity and
+// reports that quantity back. No batch loop, no cargo check.
+func TestCraftRecipeQueuesOnce(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	calls := 0
+	// Replace the send override to count craft messages, then forward
+	// to sendCh so the router can deliver the synthetic ok reply.
+	innerSend := c.sendOverride
+	c.sendOverride = func(fctx context.Context, msg protocol.Message) error {
+		if msg.Type == "craft" {
+			calls++
+		}
+		return innerSend(fctx, msg)
+	}
+
+	// Dispatch a synthetic ok in the background once the message is sent.
+	go func() {
+		var sent protocol.Message
+		select {
+		case sent = <-sendCh:
+		case <-ctx.Done():
+			return
+		}
+		c.router.dispatch(protocol.Response{
+			Type:      protocol.TypeOK,
+			RequestID: sent.RequestID,
+			Payload:   map[string]any{"action": "craft", "job_id": "j1"},
+		})
+	}()
+
+	n, err := craftRecipe(c, log.New(io.Discard, "", 0), ctx, "basic_iron_smelting", 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("craftRecipe issued %d craft commands, want exactly 1", calls)
+	}
+	if n != 200 {
+		t.Fatalf("craftRecipe reported %d items queued, want 200", n)
+	}
+}
 
 func TestXpToLevel(t *testing.T) {
 	client := NewClient("wss://test.example.com", "user", "pass", nil)
@@ -42,8 +90,7 @@ func TestXpToLevel(t *testing.T) {
 }
 
 func TestCraftWithQuantity_Validation(t *testing.T) {
-	// v0.389: CraftWithOptions no longer clamps quantity to MaxCraftBatchSize.
-	// The only validation is quantity >= 1.
+	// v0.389: CraftWithOptions no longer clamps quantity; the only validation is quantity >= 1.
 	c := newSubmitClientSkeleton()
 
 	zeroTests := []struct {
@@ -80,36 +127,6 @@ func TestCraftWithQuantity_Validation(t *testing.T) {
 			// Should NOT be an "invalid quantity" error — the new code only rejects < 1.
 			if err != nil && strings.Contains(err.Error(), "invalid quantity") {
 				t.Errorf("CraftWithOptions(quantity=%d) got unexpected validation error: %v", tt.quantity, err)
-			}
-		})
-	}
-}
-
-func TestMaxCraftBatchSize(t *testing.T) {
-	tests := []struct {
-		name     string
-		skills   map[string]Skill
-		expected int
-	}{
-		{"nil state", nil, 1},
-		{"no skills", map[string]Skill{}, 1},
-		{"crafting level 0", map[string]Skill{"crafting": {Level: 0}}, 1},
-		{"crafting level 1", map[string]Skill{"crafting": {Level: 1}}, 1},
-		{"crafting level 2", map[string]Skill{"crafting": {Level: 2}}, 2},
-		{"crafting level 5", map[string]Skill{"crafting": {Level: 5}}, 5},
-		{"crafting level 10", map[string]Skill{"crafting": {Level: 10}}, 10},
-		{"crafting level 20", map[string]Skill{"crafting": {Level: 20}}, 20},
-		{"only mining skill", map[string]Skill{"mining": {Level: 10}}, 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var state *State
-			if tt.skills != nil {
-				state = &State{Player: Player{Skills: tt.skills}}
-			}
-			if got := MaxCraftBatchSize(state); got != tt.expected {
-				t.Errorf("MaxCraftBatchSize() = %d, want %d", got, tt.expected)
 			}
 		})
 	}

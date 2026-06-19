@@ -5,26 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 )
-
-// MaxCraftBatchSize returns the maximum number of items that can be crafted
-// in a single craft command based on the player's Crafting skill level.
-// The server allows batch size equal to the player's crafting skill level,
-// with a minimum of 1 (for skill level 0 or 1).
-func MaxCraftBatchSize(state *State) int {
-	if state == nil {
-		return 1
-	}
-	if skill, ok := state.Player.Skills["crafting"]; ok && skill.Level > 1 {
-		return skill.Level
-	}
-	return 1
-}
 
 // CraftingConfig configures the crafting integration
 type CraftingConfig struct {
@@ -375,170 +360,79 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// CraftItems crafts items using materials from station storage and ship cargo.
-// It deposits current cargo to storage, queries craftable recipes from the
-// combined pool, withdraws raw materials, crafts, and deposits outputs.
-// Repeats until nothing more can be crafted or the safety cap (10 iterations)
-// is reached. Returns the total number of items crafted.
+// CraftItems queues crafting jobs for everything currently craftable from the
+// station storage at the docked base. v0.389: crafting reads inputs from and
+// delivers output to station storage, and runs asynchronously over ticks — so
+// this deposits any cargo into storage, queries craftable recipes, and queues
+// each one exactly once. It does NOT withdraw to cargo and does NOT re-issue a
+// craft to "make progress" (that would double-spend). Output lands in storage
+// over the following ticks; consumers can observe it via OnCraftingUpdate or
+// `craft action=queue`. Returns the total output quantity queued.
 func (c *Client) CraftItems(ctx context.Context, logger *log.Logger, config *CraftingConfig) (int, error) {
-	const maxIterations = 10
-	totalCrafted := 0
-
-	for iteration := range maxIterations {
-		if err := ctx.Err(); err != nil {
-			return totalCrafted, err
-		}
-
-		logger.Printf("═══ Storage craft iteration %d ═══", iteration+1)
-
-		// Step 1: Deposit all cargo to free workspace
-		state := c.GetState()
-		if len(state.Ship.Cargo) > 0 {
-			logger.Printf("📦 Depositing cargo to free space...")
-			if err := c.DepositAllItems(ctx); err != nil {
-				logger.Printf("⚠️  Deposit failed: %v", err)
-			} else if err := sleepCtx(ctx, SleepTick); err != nil {
-				return totalCrafted, err
-			}
-		}
-
-		// Step 2: View storage to get current contents
-		if err := c.ViewStorage(ctx); err != nil {
-			return totalCrafted, fmt.Errorf("view storage failed: %w", err)
-		}
-		if err := sleepCtx(ctx, SleepQuick); err != nil {
-			return totalCrafted, err
-		}
-
-		storageItems := c.getStorageItems()
-		if len(storageItems) == 0 {
-			logger.Printf("ℹ️  Storage is empty, nothing to craft")
-			break
-		}
-
-		logger.Printf("📦 Storage contains %d item types", len(storageItems))
-
-		// Step 3: Build components from storage and query craftable recipes
-		components := make([]Component, 0, len(storageItems))
-		for itemID, qty := range storageItems {
-			components = append(components, Component{ID: itemID, Quantity: qty})
-		}
-
-		result, err := c.QueryCraftableFromComponents(ctx, components, config)
-		if err != nil {
-			return totalCrafted, fmt.Errorf("craft query failed: %w", err)
-		}
-
-		if len(result.FullyCraftable) == 0 {
-			logger.Printf("ℹ️  No craftable recipes from storage contents")
-			break
-		}
-
-		logger.Printf("🎯 Found %d craftable recipes from storage", len(result.FullyCraftable))
-
-		// Step 4: For each recipe, withdraw materials, craft, deposit outputs
-		iterationCrafted := 0
-		for _, recipe := range result.FullyCraftable {
-			if recipe.CanCraftQuantity <= 0 {
-				continue
-			}
-			if err := ctx.Err(); err != nil {
-				return totalCrafted + iterationCrafted, err
-			}
-
-			logger.Printf("🔨 Crafting %s (can craft %d)...", recipe.RecipeName, recipe.CanCraftQuantity)
-
-			// Withdraw needed components from storage
-			for _, comp := range recipe.Components {
-				if err := ctx.Err(); err != nil {
-					return totalCrafted + iterationCrafted, err
-				}
-
-				needed := comp.Quantity * float64(recipe.CanCraftQuantity)
-				// Cap by what's actually in storage
-				if avail, ok := storageItems[comp.ID]; ok && needed > avail {
-					needed = avail
-				}
-				if needed <= 0 {
-					continue
-				}
-
-				logger.Printf("   📥 Withdrawing %.0f x %s", needed, comp.ID)
-				if err := c.WithdrawItems(ctx, comp.ID, needed); err != nil {
-					logger.Printf("   ⚠️  Withdraw %s failed: %v", comp.ID, err)
-					continue
-				}
-				if err := sleepCtx(ctx, SleepTick); err != nil {
-					return totalCrafted + iterationCrafted, err
-				}
-			}
-
-			// Craft in batches sized by crafting skill level.
-			maxBatch := MaxCraftBatchSize(state)
-			quantity := recipe.CanCraftQuantity
-			for quantity > 0 {
-				if err := ctx.Err(); err != nil {
-					return totalCrafted + iterationCrafted, err
-				}
-
-				batchSize := min(quantity, maxBatch)
-
-				// Check cargo space
-				state = c.GetState()
-				remaining := state.Ship.CargoCapacity - state.Ship.CargoUsed
-				if remaining < float64(batchSize) {
-					// Cargo getting full — deposit and continue
-					logger.Printf("   📦 Cargo full, depositing...")
-					if err := c.DepositAllItems(ctx); err != nil {
-						logger.Printf("   ⚠️  Deposit failed: %v", err)
-						break
-					}
-					if err := sleepCtx(ctx, SleepTick); err != nil {
-						return totalCrafted + iterationCrafted, err
-					}
-				}
-
-				if err := sleepCtx(ctx, SleepShort); err != nil {
-					return totalCrafted + iterationCrafted, err
-				}
-				if err := c.CraftWithQuantity(ctx, recipe.RecipeID, batchSize); err != nil {
-					logger.Printf("   ⚠️  Craft failed: %v", err)
-					if strings.Contains(err.Error(), "action_pending") || strings.Contains(err.Error(), "already pending") {
-						_ = sleepCtx(ctx, SleepShort)
-					}
-					break
-				}
-
-				iterationCrafted += batchSize
-				quantity -= batchSize
-				logger.Printf("   ✅ Crafted %d x %s", batchSize, recipe.RecipeName)
-				if err := sleepCtx(ctx, SleepMedium); err != nil {
-					return totalCrafted + iterationCrafted, err
-				}
-			}
-		}
-
-		// Step 5: Deposit remaining crafted items
-		state = c.GetState()
-		if len(state.Ship.Cargo) > 0 {
-			logger.Printf("📦 Depositing crafted items to storage...")
-			if err := c.DepositAllItems(ctx); err != nil {
-				logger.Printf("⚠️  Final deposit failed: %v", err)
-			}
-			_ = sleepCtx(ctx, SleepTick)
-		}
-
-		totalCrafted += iterationCrafted
-
-		if iterationCrafted == 0 {
-			logger.Printf("ℹ️  No items crafted this iteration, stopping")
-			break
-		}
-
-		logger.Printf("✅ Iteration %d: crafted %d items (total: %d)", iteration+1, iterationCrafted, totalCrafted)
+	if err := ctx.Err(); err != nil {
+		return 0, err
 	}
 
-	logger.Printf("═══ Storage crafting complete: %d items crafted ═══", totalCrafted)
-	return totalCrafted, nil
+	// Deposit any cargo so it counts toward craftable inputs in storage.
+	state := c.GetState()
+	if len(state.Ship.Cargo) > 0 {
+		logger.Printf("📦 Depositing cargo into station storage...")
+		if err := c.DepositAllItems(ctx); err != nil {
+			logger.Printf("⚠️  Deposit failed: %v", err)
+		} else if err := sleepCtx(ctx, SleepTick); err != nil {
+			return 0, err
+		}
+	}
+
+	// Read current storage contents.
+	if err := c.ViewStorage(ctx); err != nil {
+		return 0, fmt.Errorf("view storage failed: %w", err)
+	}
+	if err := sleepCtx(ctx, SleepQuick); err != nil {
+		return 0, err
+	}
+	storageItems := c.getStorageItems()
+	if len(storageItems) == 0 {
+		logger.Printf("ℹ️  Storage is empty, nothing to craft")
+		return 0, nil
+	}
+
+	// Determine what is craftable from storage.
+	components := make([]Component, 0, len(storageItems))
+	for itemID, qty := range storageItems {
+		components = append(components, Component{ID: itemID, Quantity: qty})
+	}
+	result, err := c.QueryCraftableFromComponents(ctx, components, config)
+	if err != nil {
+		return 0, fmt.Errorf("craft query failed: %w", err)
+	}
+	if len(result.FullyCraftable) == 0 {
+		logger.Printf("ℹ️  No craftable recipes from storage contents")
+		return 0, nil
+	}
+
+	// Queue each craftable recipe exactly once for its full available quantity.
+	totalQueued := 0
+	for _, recipe := range result.FullyCraftable {
+		if err := ctx.Err(); err != nil {
+			return totalQueued, err
+		}
+		if recipe.CanCraftQuantity <= 0 {
+			continue
+		}
+		logger.Printf("🔨 Queuing %d x %s...", recipe.CanCraftQuantity, recipe.RecipeName)
+		if err := c.CraftWithQuantity(ctx, recipe.RecipeID, recipe.CanCraftQuantity); err != nil {
+			logger.Printf("   ⚠️  Queue failed: %v", err)
+			continue
+		}
+		totalQueued += recipe.CanCraftQuantity
+		if err := sleepCtx(ctx, SleepShort); err != nil {
+			return totalQueued, err
+		}
+	}
+
+	logger.Printf("═══ Queued %d items across %d recipes (output lands in storage) ═══",
+		totalQueued, len(result.FullyCraftable))
+	return totalQueued, nil
 }
 
