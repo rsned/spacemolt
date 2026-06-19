@@ -2166,44 +2166,82 @@ func formatFacilityList(raw []byte) string {
 		renderFactionFacilityTable(&b, resp.FactionFacilities, "    ")
 	}
 	if showStationFacilities && len(resp.StationFacilities) > 0 {
-		totalSections++
 		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
 			if a.Category != c.Category {
 				return strings.Compare(a.Category, c.Category)
 			}
 			return strings.Compare(a.Name, c.Name)
 		})
-		nameW, typeW, catW, svcW := len("Name"), len("Type"), len("Category"), len("Service")
-		statusW := len("Status")
+		// Production facilities carry extra throughput/rent/queue detail, so
+		// split them into their own heading and a wider table; the rest stay
+		// in the compact services table. Facilities are grouped by whether they
+		// expose a production block (the source of those extra details).
+		var services, production []stationFacility
 		for _, f := range resp.StationFacilities {
-			nameW = max(nameW, len(f.Name))
-			typeW = max(typeW, len(f.Type))
-			catW = max(catW, len(f.Category))
-			svcW = max(svcW, len(f.Service))
-			statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
-		}
-		fmt.Fprintf(&b, "\n  Station (%d):\n", len(resp.StationFacilities))
-		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Lvl | %-*s | Maint | %-*s\n",
-			nameW, "Name", typeW, "Type", catW, "Category", svcW, "Service", statusW, "Status")
-		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-----+-%s-+-------+-%s\n",
-			strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", catW),
-			strings.Repeat("-", svcW), strings.Repeat("-", statusW))
-		for _, f := range resp.StationFacilities {
-			maint := "ok"
-			if !f.MaintenanceSatisfied {
-				maint = "!"
-			}
-			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-5s | %-*s\n",
-				nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
-				svcW, f.Service, maint, statusW, stationFacilityStatus(f.Active, f.IdleReason))
 			if f.Production != nil {
+				production = append(production, f)
+			} else {
+				services = append(services, f)
+			}
+		}
+
+		if len(services) > 0 {
+			totalSections++
+			nameW, typeW, catW, svcW := len("Name"), len("Type"), len("Category"), len("Service")
+			statusW := len("Status")
+			for _, f := range services {
+				nameW = max(nameW, len(f.Name))
+				typeW = max(typeW, len(f.Type))
+				catW = max(catW, len(f.Category))
+				svcW = max(svcW, len(f.Service))
+				statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
+			}
+			fmt.Fprintf(&b, "\n  Station Services (%d):\n", len(services))
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Lvl | %-*s | Maint | %-*s\n",
+				nameW, "Name", typeW, "Type", catW, "Category", svcW, "Service", statusW, "Status")
+			fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-----+-%s-+-------+-%s\n",
+				strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", catW),
+				strings.Repeat("-", svcW), strings.Repeat("-", statusW))
+			for _, f := range services {
+				maint := "ok"
+				if !f.MaintenanceSatisfied {
+					maint = "!"
+				}
+				fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-5s | %-*s\n",
+					nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
+					svcW, f.Service, maint, statusW, stationFacilityStatus(f.Active, f.IdleReason))
+			}
+		}
+
+		if len(production) > 0 {
+			totalSections++
+			nameW, recipeW := len("Name"), len("Recipe")
+			statusW := len("Status")
+			for _, f := range production {
+				nameW = max(nameW, len(f.Name))
+				recipeW = max(recipeW, len(f.Production.Recipe))
+				statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
+			}
+			fmt.Fprintf(&b, "\n  Station Production (%d):\n", len(production))
+			fmt.Fprintf(&b, "    %-*s | Lvl | Maint | %-*s | %7s | %8s | %9s | %8s | %6s | %7s | %-7s | %-*s\n",
+				nameW, "Name", recipeW, "Recipe", "Out/run", "Items/hr", "Ticks/run", "Rent/run", "Queued", "Backlog", "Access", statusW, "Status")
+			fmt.Fprintf(&b, "    %s-+-----+-------+-%s-+---------+----------+-----------+----------+--------+---------+---------+-%s\n",
+				strings.Repeat("-", nameW), strings.Repeat("-", recipeW), strings.Repeat("-", statusW))
+			for _, f := range production {
+				maint := "ok"
+				if !f.MaintenanceSatisfied {
+					maint = "!"
+				}
 				p := f.Production
 				access := "private"
 				if p.Public {
 					access = "public"
 				}
-				fmt.Fprintf(&b, "      ⚙ %s — %d/hr, %d/run, %g ticks/run | rent %d/run | queued %d runs (backlog %d ticks) | %s\n",
-					p.Recipe, p.ItemsPerHour, p.OutputPerRun, p.TicksPerRun, p.RentalFeePerRun, p.QueuedRuns, p.BacklogTicks, access)
+				fmt.Fprintf(&b, "    %-*s | %3d | %-5s | %-*s | %7d | %8d | %9g | %8d | %6d | %7d | %-7s | %-*s\n",
+					nameW, f.Name, f.Level, maint, recipeW, p.Recipe,
+					p.OutputPerRun, p.ItemsPerHour, p.TicksPerRun, p.RentalFeePerRun,
+					p.QueuedRuns, p.BacklogTicks, access,
+					statusW, stationFacilityStatus(f.Active, f.IdleReason))
 			}
 		}
 	}

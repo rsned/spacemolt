@@ -47,24 +47,25 @@ func TestFormatFacilityList_ShowsFacilityID(t *testing.T) {
 func TestFormatFacilityList_StationFacilitiesToggle(t *testing.T) {
 	raw := []byte(`{"base_id":"voss_redoubt_station","player_facilities":[],"faction_facilities":[],"station_facilities":[` +
 		`{"active":true,"category":"service","facility_id":"a961e393a55e9f58961577940bf0a6ba","level":2,"maintenance_satisfied":false,"name":"Maintenance Deck","service":"repair","type":"maintenance_deck"},` +
-		`{"active":true,"category":"production","facility_id":"77c6d42fa7fcfb7bfad637d26d1a5e7e","idle_reason":"no_inputs","level":1,"maintenance_satisfied":true,"name":"Fuel Reclamation Still","recipe_id":"scavenge_fuel_cells","type":"fuel_reclamation_still"}]}`)
+		`{"active":true,"category":"production","facility_id":"77c6d42fa7fcfb7bfad637d26d1a5e7e","idle_reason":"no_inputs","level":1,"maintenance_satisfied":true,"name":"Fuel Reclamation Still","recipe_id":"scavenge_fuel_cells","type":"fuel_reclamation_still","production":{"backlog_ticks":0,"items_per_hour":40,"output_per_run":1,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Scavenge Fuel Cells","rental_fee_per_run":15,"ticks_per_run":9}}]}`)
 
 	// Default: station facilities hidden, and with no player/faction facilities
 	// the list reports none.
 	showStationFacilities = false
 	out := formatFacilityList(raw)
-	if strings.Contains(out, "Station (") || strings.Contains(out, "Maintenance Deck") {
+	if strings.Contains(out, "Station ") || strings.Contains(out, "Maintenance Deck") {
 		t.Errorf("station facilities should be hidden by default:\n%s", out)
 	}
 	if !strings.Contains(out, "(no facilities)") {
 		t.Errorf("expected '(no facilities)' when only station facilities exist and toggle off:\n%s", out)
 	}
 
-	// Toggle on: station section renders with status (idle reason) surfaced.
+	// Toggle on: services and production render under separate headings, with
+	// the production facility's idle reason surfaced in its own block.
 	showStationFacilities = true
 	defer func() { showStationFacilities = false }()
 	out = formatFacilityList(raw)
-	for _, want := range []string{"Station (2):", "Maintenance Deck", "Fuel Reclamation Still", "idle: no_inputs"} {
+	for _, want := range []string{"Station Services (1):", "Maintenance Deck", "Station Production (1):", "Fuel Reclamation Still", "idle: no_inputs"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q with toggle on:\n%s", want, out)
 		}
@@ -189,7 +190,7 @@ func TestFormatFacilityList_ShowsProductionDetails(t *testing.T) {
 	// json.Unmarshal fail and the whole `facility list` fall back to raw JSON.
 	raw := []byte(`{"base_id":"grand_exchange_station","station_facilities":[{"active":true,"category":"production","description":"Pressurized containment lab...","facility_id":"42eb7b38","level":1,"maintenance_satisfied":true,"name":"Argon Cell Lab","recipe_id":"synthesize_argon_power_cell","type":"argon_cell_lab","production":{"backlog_ticks":0,"items_per_hour":22,"output_per_run":2,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Synthesize Argon Power Cell","rental_fee_per_run":225,"ticks_per_run":13.2}}]}`)
 	out := formatFacilityList(raw)
-	for _, want := range []string{"Argon Cell Lab", "Synthesize Argon Power Cell", "225", "22", "13.2 ticks/run"} {
+	for _, want := range []string{"Station Production (1):", "Argon Cell Lab", "Synthesize Argon Power Cell", "225", "22", "13.2"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
 		}
