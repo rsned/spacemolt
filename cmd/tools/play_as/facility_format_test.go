@@ -101,3 +101,94 @@ func TestFormatFacilityForSale_Listings(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatFacilityJobList_RendersQueue guards that facility job_list routes to
+// formatCraftQueue and produces the expected job table. The server returns the
+// same {action, jobs:[...]} shape as craft action=queue.
+func TestFormatFacilityJobList_RendersQueue(t *testing.T) {
+	raw := []byte(`{"action":"job_list","jobs":[` +
+		`{"job_id":"job-abc-123","recipe":"shield_cell","runs_done":1,"runs_remaining":2,"runs_total":3,"progress":0.3333,"eta_ticks":50,"position":1,"status":"running"},` +
+		`{"job_id":"job-def-456","recipe":"power_cell","runs_done":0,"runs_remaining":5,"runs_total":5,"progress":0.0,"eta_ticks":120,"position":2,"status":"queued"}` +
+		`]}`)
+	out := formatFacility(raw)
+	for _, want := range []string{
+		"Crafting queue",
+		"2 jobs",
+		"job-abc-123",
+		"shield_cell",
+		"1/3",
+		"running",
+		"job-def-456",
+		"power_cell",
+		"queued",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("facility job_list: missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// TestFormatFacilityJobList_Empty guards the empty-queue case for facility job_list.
+func TestFormatFacilityJobList_Empty(t *testing.T) {
+	raw := []byte(`{"action":"job_list","jobs":[]}`)
+	out := formatFacility(raw)
+	if !strings.Contains(out, "empty") {
+		t.Errorf("facility job_list empty queue should say 'empty', got:\n%s", out)
+	}
+}
+
+// TestFormatFacilityActionMessage_SetOutputPrice guards that a set_output_price
+// response with a server message is rendered with action and message text.
+func TestFormatFacilityActionMessage_SetOutputPrice(t *testing.T) {
+	raw := []byte(`{"action":"set_output_price","facility_id":"fac-111","message":"Output price updated."}`)
+	out := formatFacilityActionMessage(raw)
+	for _, want := range []string{
+		"facility set_output_price",
+		"Output price updated.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityActionMessage(set_output_price): missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// TestFormatFacilityActionMessage_JobCancelWithID guards that a job_cancel
+// response surfaces both the message and the job_id.
+func TestFormatFacilityActionMessage_JobCancelWithID(t *testing.T) {
+	raw := []byte(`{"action":"job_cancel","facility_id":"fac-111","job_id":"job-abc-123","message":"Job cancelled."}`)
+	out := formatFacilityActionMessage(raw)
+	for _, want := range []string{
+		"facility job_cancel",
+		"Job cancelled.",
+		"job job-abc-123",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityActionMessage(job_cancel): missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// TestFormatFacilityActionMessage_NoMessage guards that an empty message field
+// causes formatFacilityActionMessage to return "" (triggering JSON fallback).
+func TestFormatFacilityActionMessage_NoMessage(t *testing.T) {
+	raw := []byte(`{"action":"job_add","facility_id":"fac-111","job_id":"job-new-999"}`)
+	out := formatFacilityActionMessage(raw)
+	if out != "" {
+		t.Errorf("formatFacilityActionMessage with no message should return empty, got:\n%s", out)
+	}
+}
+
+// TestFormatFacility_MutationActionsRoute guards that the formatFacility
+// dispatcher routes mutation sub-actions to formatFacilityActionMessage.
+func TestFormatFacility_MutationActionsRoute(t *testing.T) {
+	for _, action := range []string{"job_cancel", "job_reorder", "set_output_price", "set_access", "upgrade"} {
+		raw := []byte(`{"action":"` + action + `","message":"Done."}`)
+		out := formatFacility(raw)
+		if !strings.Contains(out, "facility "+action) {
+			t.Errorf("formatFacility(%s): missing action label in:\n%s", action, out)
+		}
+		if !strings.Contains(out, "Done.") {
+			t.Errorf("formatFacility(%s): missing message in:\n%s", action, out)
+		}
+	}
+}

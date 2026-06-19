@@ -1520,6 +1520,10 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionOwned(raw)
 	case "browse_for_sale":
 		return formatFacilityForSale(raw)
+	case "job_list":
+		return formatCraftQueue(unwrapActionResult(raw))
+	case "job_add", "job_cancel", "job_reorder", "set_output_price", "set_access", "upgrade":
+		return formatFacilityActionMessage(raw)
 	}
 	// Plain `facility list` lacks an action field but carries all three
 	// section keys (player_facilities + station_facilities + faction_facilities,
@@ -1537,6 +1541,32 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionList(raw)
 	}
 	return ""
+}
+
+// formatFacilityActionMessage renders the simple {action, message, ...} result
+// of facility job/business mutations (job_add, job_cancel, job_reorder,
+// set_output_price, set_access, upgrade). It shows the action and the server's
+// human message, falling back to "" so the caller prints JSON when absent.
+func formatFacilityActionMessage(raw []byte) string {
+	var r struct {
+		Action     string `json:"action"`
+		Message    string `json:"message"`
+		JobID      string `json:"job_id"`
+		FacilityID string `json:"facility_id"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &r); err != nil {
+		return ""
+	}
+	if r.Message == "" {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🏭 facility %s: %s", r.Action, r.Message)
+	if r.JobID != "" {
+		fmt.Fprintf(&b, " (job %s)", r.JobID)
+	}
+	b.WriteString("\n")
+	return b.String()
 }
 
 // formatFacilityOwned renders a `facility owned` response (gameserver v0.347.0+):
@@ -7386,8 +7416,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: facility <action> [facility_type] [--flag value...]\n" +
 				"  actions: types, build, list, owned, toggle, upgrades, upgrade,\n" +
+				"           job_add, job_list, job_cancel, job_reorder, set_output_price, set_access,\n" +
+				"           list_for_sale, browse_for_sale, buy_listing, cancel_listing,\n" +
 				"           faction_build, faction_upgrade, faction_list, faction_owned, faction_toggle,\n" +
 				"           transfer, personal_build, personal_decorate, personal_visit, help\n" +
+				"  job flags: --facility_id ID --recipe_id ID --quantity N --job_id ID --position N\n" +
+				"  business flags: --item_id ID --price N --access private|public\n" +
 				"  flags:   --show_station_facilities  (list: also show the station's own facilities)")
 		}
 		// Parse all args uniformly. First bare positional becomes the action,
@@ -7428,7 +7462,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("facility: missing action (e.g. `facility build` or `facility action=build`)")
 		}
 		// Convert numeric string fields
-		for _, numKey := range []string{"level", "page", "per_page"} {
+		for _, numKey := range []string{"level", "page", "per_page", "quantity", "position", "price"} {
 			if v, ok := payload[numKey].(string); ok {
 				if n, err := strconv.Atoi(v); err == nil {
 					payload[numKey] = n
