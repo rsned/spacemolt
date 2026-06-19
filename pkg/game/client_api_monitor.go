@@ -102,7 +102,8 @@ var actionResponseTypes = map[string]reflect.Type{
 	"refuel":                 reflect.TypeOf(serverapi.RefuelResponse{}),
 	"repair":                 reflect.TypeOf(serverapi.RepairResponse{}),
 	"mine":                   reflect.TypeOf(serverapi.MineResponse{}),
-	"craft":                  reflect.TypeOf(serverapi.CraftResponse{}),
+	"craft":                  reflect.TypeOf(serverapi.CraftJobQueued{}),   // was CraftResponse (old instant shape)
+	"recycle":                reflect.TypeOf(serverapi.RecycleResponse{}),
 	"survey_system":          reflect.TypeOf(serverapi.SurveySystemResponse{}),
 	"catalog":                reflect.TypeOf(serverapi.CatalogResponse{}),
 
@@ -207,6 +208,8 @@ var actionResponseTypes = map[string]reflect.Type{
 	"types":           reflect.TypeOf(serverapi.FacilityTypesResponse{}),
 	"facility_list":   reflect.TypeOf(serverapi.FacilityListResponse{}),
 	"browse_for_sale": reflect.TypeOf(serverapi.BrowseForSaleResponse{}),
+	"owned":           reflect.TypeOf(serverapi.FacilityOwnedResponse{}),
+	"job_list":        reflect.TypeOf(serverapi.CraftQueueListing{}),
 
 	// Wrecks and salvage
 	"loot_wreck":    reflect.TypeOf(serverapi.LootWreckResponse{}),

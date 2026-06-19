@@ -27,6 +27,14 @@ func TestCraftingUpdateEventInExpectedFields(t *testing.T) {
 	}
 }
 
+func TestActionResponseTypesRegistersV0389Actions(t *testing.T) {
+	for _, action := range []string{"owned", "recycle", "job_list", "craft"} {
+		if _, ok := actionResponseTypes[action]; !ok {
+			t.Errorf("actionResponseTypes missing %q", action)
+		}
+	}
+}
+
 func TestOnCraftingUpdateCallbackFires(t *testing.T) {
 	c := &Client{
 		debugLogger:   log.New(io.Discard, "", 0),

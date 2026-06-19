@@ -788,6 +788,42 @@ type BrowseForSaleResponse struct {
 	Listings []FacilityForSaleListing `json:"listings"`
 }
 
+// OwnedFacility is one entry in a FacilityOwnedResponse.
+type OwnedFacility struct {
+	FacilityID        string `json:"facility_id"`
+	Name              string `json:"name"`
+	Type              string `json:"type"`
+	BaseID            string `json:"base_id"`
+	BaseName          string `json:"base_name"`
+	SystemID          string `json:"system_id"`
+	RentPerCycle      int    `json:"rent_per_cycle"`
+	LaborPerRun       int    `json:"labor_per_run,omitempty"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	MissedRentCycles  int    `json:"missed_rent_cycles,omitempty"`
+	Active            bool   `json:"active"`
+	UnderConstruction bool   `json:"under_construction,omitempty"`
+}
+
+// FacilityRentSummary is the rent summary block in a FacilityOwnedResponse.
+type FacilityRentSummary struct {
+	Facilities        int    `json:"facilities"`
+	TotalRentPerCycle int    `json:"total_rent_per_cycle"`
+	EstRentPerDay     int    `json:"est_rent_per_day"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	GraceCycles       int    `json:"grace_cycles,omitempty"`
+	Note              string `json:"note,omitempty"`
+}
+
+// FacilityOwnedResponse models the `facility action=owned` OK frame. Top-level
+// keys (action, facilities, hint, rent) must be covered so the api-monitor does
+// not flag it. Mirrors the local struct in play_as formatFacilityOwned.
+type FacilityOwnedResponse struct {
+	Action     string              `json:"action"`
+	Facilities []OwnedFacility     `json:"facilities"`
+	Hint       string              `json:"hint,omitempty"`
+	Rent       FacilityRentSummary `json:"rent"`
+}
+
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {

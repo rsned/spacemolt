@@ -73,3 +73,17 @@ func TestRecycleResponseAliasesCraftJobQueued(t *testing.T) {
 		t.Fatal("RecycleResponse is not an alias of CraftJobQueued")
 	}
 }
+
+func TestDecodeFacilityOwnedResponse(t *testing.T) {
+	raw := `{"action":"owned","facilities":[{"active":true,"base_id":"grand_exchange_station","base_name":"Grand Exchange Station","facility_id":"38f50d8a118ff2757ba3aaf0f9119672","name":"Signal Relay","rent_per_cycle":10,"system_id":"haven","type":"signal_relay"}],"hint":"Use action 'list' while docked for full per-facility detail at that station.","rent":{"est_rent_per_day":2580,"facilities":3,"note":"Rent is auto-deducted...","total_rent_per_cycle":30}}`
+	var r FacilityOwnedResponse
+	if err := json.Unmarshal([]byte(raw), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Action != "owned" || len(r.Facilities) != 1 || r.Facilities[0].RentPerCycle != 10 || !r.Facilities[0].Active {
+		t.Fatalf("bad decode: %+v", r)
+	}
+	if r.Rent.TotalRentPerCycle != 30 || r.Rent.EstRentPerDay != 2580 || r.Rent.Facilities != 3 {
+		t.Fatalf("bad rent: %+v", r.Rent)
+	}
+}
