@@ -3562,91 +3562,188 @@ func formatMine(raw []byte) string {
 	return b.String()
 }
 
-// formatCraft formats a craft response showing outputs, inputs used from storage, and XP gained.
+// formatCraft renders the v0.389 craft/recycle job responses. The server returns
+// one of four shapes (single queued job, queue listing, bulk results, dry-run
+// quote); we probe distinguishing keys and render the matching one.
 func formatCraft(raw []byte) string {
 	raw = unwrapActionResult(raw)
-	var resp struct {
-		Recipe      string `json:"recipe"`
-		Quantity    int    `json:"quantity"`
-		FromStorage []struct {
-			ItemID   string `json:"item_id"`
-			Name     string `json:"name"`
-			Quantity int    `json:"quantity"`
-		} `json:"from_storage"`
-		Outputs []struct {
-			ItemID        string `json:"item_id"`
-			Name          string `json:"name"`
-			Quantity      int    `json:"quantity"`
-			BonusQuantity int    `json:"bonus_quantity"`
-		} `json:"outputs"`
-		XPGained        map[string]int `json:"xp_gained"`
-		LevelUp         bool           `json:"level_up"`
-		LeveledUpSkills []string       `json:"leveled_up_skills"`
-		SkillLevel      int            `json:"skill_level"`
+	var probe struct {
+		Action  string          `json:"action"`
+		DryRun  bool            `json:"dry_run"`
+		Jobs    json.RawMessage `json:"jobs"`
+		Results json.RawMessage `json:"results"`
+		JobID   string          `json:"job_id"`
 	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
+	if err := json.Unmarshal(raw, &probe); err != nil {
 		return ""
 	}
+	switch {
+	case probe.DryRun:
+		return formatCraftDryRun(raw)
+	case len(probe.Results) > 0:
+		return formatCraftBulk(raw)
+	case len(probe.Jobs) > 0:
+		return formatCraftQueue(raw)
+	case probe.JobID != "":
+		return formatCraftJobQueued(raw)
+	}
+	return ""
+}
 
+func formatCraftJobQueued(raw []byte) string {
+	var r struct {
+		JobID               string  `json:"job_id"`
+		Recipe              string  `json:"recipe"`
+		Mode                string  `json:"mode"`
+		Venue               string  `json:"venue"`
+		Runs                int     `json:"runs"`
+		EffectiveTimePerRun float64 `json:"effective_time_per_run"`
+		EstCompletionTick   int     `json:"est_completion_tick"`
+		Message             string  `json:"message"`
+		Escrowed            struct {
+			Fee    int `json:"fee"`
+			Labor  int `json:"labor"`
+			Inputs []struct {
+				Name     string `json:"name"`
+				ItemID   string `json:"item_id"`
+				Quantity int    `json:"quantity"`
+			} `json:"inputs"`
+		} `json:"escrowed"`
+		Produces []struct {
+			Name     string `json:"name"`
+			Quantity int    `json:"quantity"`
+		} `json:"produces"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
 	var b strings.Builder
+	fmt.Fprintf(&b, "🛠  Queued %s — job %s @ %s (%d runs, ~%.0fs/run, ETA tick %d)\n",
+		r.Recipe, r.JobID, r.Venue, r.Runs, r.EffectiveTimePerRun, r.EstCompletionTick)
+	for _, p := range r.Produces {
+		fmt.Fprintf(&b, "  → produces %s x %d\n", p.Name, p.Quantity)
+	}
+	if len(r.Escrowed.Inputs) > 0 {
+		b.WriteString("  Escrowed inputs:\n")
+		for _, in := range r.Escrowed.Inputs {
+			fmt.Fprintf(&b, "    %d x %s\n", in.Quantity, in.Name)
+		}
+	}
+	if r.Escrowed.Fee > 0 || r.Escrowed.Labor > 0 {
+		fmt.Fprintf(&b, "  Escrowed credits: labor %d + fee %d\n", r.Escrowed.Labor, r.Escrowed.Fee)
+	}
+	if r.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", r.Message)
+	}
+	return b.String()
+}
 
-	// Output items. When the server reports a bonus_quantity (skill proc /
-	// "lucky" outcome), spotlight it inline in bold yellow so the operator
-	// notices the extra yield without rereading the server message.
-	const ansiReset = "\033[0m"
-	const ansiBoldYellow = "\033[1;33m"
-	for _, out := range resp.Outputs {
-		if out.BonusQuantity > 0 {
-			base := out.Quantity - out.BonusQuantity
-			fmt.Fprintf(&b, "Crafted %s (%s) x %d  %s★ %d base + %d bonus — lucky!%s\n",
-				out.Name, out.ItemID, out.Quantity,
-				ansiBoldYellow, base, out.BonusQuantity, ansiReset)
+func formatCraftQueue(raw []byte) string {
+	var r struct {
+		Jobs []struct {
+			JobID         string  `json:"job_id"`
+			Recipe        string  `json:"recipe"`
+			RunsDone      int     `json:"runs_done"`
+			RunsRemaining int     `json:"runs_remaining"`
+			RunsTotal     int     `json:"runs_total"`
+			Progress      float64 `json:"progress"`
+			ETATicks      int     `json:"eta_ticks"`
+			Position      int     `json:"position"`
+			Status        string  `json:"status"`
+		} `json:"jobs"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	if len(r.Jobs) == 0 {
+		return "🛠  Crafting queue: (empty)\n"
+	}
+	fmt.Fprintf(&b, "🛠  Crafting queue (%d jobs):\n", len(r.Jobs))
+	for _, j := range r.Jobs {
+		fmt.Fprintf(&b, "  #%d %s [%s] %d/%d runs (%.0f%%) ETA %d ticks — %s\n",
+			j.Position, j.Recipe, j.JobID, j.RunsDone, j.RunsTotal, j.Progress*100, j.ETATicks, j.Status)
+	}
+	return b.String()
+}
+
+func formatCraftBulk(raw []byte) string {
+	var r struct {
+		Results []struct {
+			Index     int    `json:"index"`
+			Success   bool   `json:"success"`
+			JobID     string `json:"job_id"`
+			Recipe    string `json:"recipe"`
+			Runs      int    `json:"runs"`
+			Error     string `json:"error"`
+			ErrorCode string `json:"error_code"`
+		} `json:"results"`
+		Summary struct {
+			Total     int `json:"total"`
+			Succeeded int `json:"succeeded"`
+			Failed    int `json:"failed"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🛠  Bulk craft: %d total, %d ok, %d failed\n",
+		r.Summary.Total, r.Summary.Succeeded, r.Summary.Failed)
+	for _, res := range r.Results {
+		if res.Success {
+			fmt.Fprintf(&b, "  ✅ [%d] %s job %s (%d runs)\n", res.Index, res.Recipe, res.JobID, res.Runs)
 		} else {
-			fmt.Fprintf(&b, "Crafted %s (%s) x %d\n", out.Name, out.ItemID, out.Quantity)
+			fmt.Fprintf(&b, "  ❌ [%d] %s — %s (%s)\n", res.Index, res.Recipe, res.Error, res.ErrorCode)
 		}
 	}
+	return b.String()
+}
 
-	// Inputs used from storage
-	if len(resp.FromStorage) > 0 {
-		b.WriteString("Used from storage:\n")
-		// Find max quantity width for alignment
-		qtyW := 0
-		for _, item := range resp.FromStorage {
-			w := len(strconv.Itoa(item.Quantity))
-			if w > qtyW {
-				qtyW = w
-			}
-		}
-		for _, item := range resp.FromStorage {
-			fmt.Fprintf(&b, "  %*d x %s\n", qtyW, item.Quantity, item.ItemID)
+func formatCraftDryRun(raw []byte) string {
+	var r struct {
+		Recipe              string  `json:"recipe"`
+		Quantity            int     `json:"quantity"`
+		Runs                int     `json:"runs"`
+		Venue               string  `json:"venue"`
+		CreditsTotal        int     `json:"credits_total"`
+		HaveInputs          bool    `json:"have_inputs"`
+		HaveCredits         bool    `json:"have_credits"`
+		EffectiveTimePerRun float64 `json:"effective_time_per_run"`
+		EstCompletionTick   int     `json:"est_completion_tick"`
+		Message             string  `json:"message"`
+		Cost                struct {
+			Fee    int `json:"fee"`
+			Labor  int `json:"labor"`
+			Inputs []struct {
+				Name     string `json:"name"`
+				Quantity int    `json:"quantity"`
+			} `json:"inputs"`
+		} `json:"cost"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "📋 Dry run: %s x%d → %d runs @ %s (~%.0fs/run, ETA tick %d)\n",
+		r.Recipe, r.Quantity, r.Runs, r.Venue, r.EffectiveTimePerRun, r.EstCompletionTick)
+	if len(r.Cost.Inputs) > 0 {
+		b.WriteString("  Inputs needed:\n")
+		for _, in := range r.Cost.Inputs {
+			fmt.Fprintf(&b, "    %d x %s\n", in.Quantity, in.Name)
 		}
 	}
-
-	// XP gained
-	if len(resp.XPGained) > 0 {
-		b.WriteString("\n")
-		leveledUp := make(map[string]bool, len(resp.LeveledUpSkills))
-		for _, skill := range resp.LeveledUpSkills {
-			leveledUp[skill] = true
+	fmt.Fprintf(&b, "  Credits: %d (labor %d + fee %d)\n", r.CreditsTotal, r.Cost.Labor, r.Cost.Fee)
+	okMark := func(ok bool) string {
+		if ok {
+			return "✅"
 		}
-
-		// Sort skill names for stable output
-		skills := make([]string, 0, len(resp.XPGained))
-		for skill := range resp.XPGained {
-			skills = append(skills, skill)
-		}
-		slices.Sort(skills)
-
-		for _, skill := range skills {
-			xp := resp.XPGained[skill]
-			if resp.LevelUp && leveledUp[skill] {
-				fmt.Fprintf(&b, " +%d xp %s (Level Up %d -> %d!)\n", xp, skill, resp.SkillLevel-1, resp.SkillLevel)
-			} else {
-				fmt.Fprintf(&b, " +%d xp %s\n", xp, skill)
-			}
-		}
+		return "❌"
 	}
-
+	fmt.Fprintf(&b, "  Have inputs: %s   Have credits: %s\n", okMark(r.HaveInputs), okMark(r.HaveCredits))
+	if r.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", r.Message)
+	}
 	return b.String()
 }
 
