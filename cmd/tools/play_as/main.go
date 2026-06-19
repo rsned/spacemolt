@@ -3899,7 +3899,10 @@ func formatCraftQueue(raw []byte) string {
 	}
 	fmt.Fprintf(&b, "🛠  Crafting queue (%d jobs):\n", len(r.Jobs))
 	for _, j := range r.Jobs {
-		fmt.Fprintf(&b, "  #%d %s [%s] %d/%d runs (%.0f%%) ETA %d ticks — %s\n",
+		// progress is the fraction of the CURRENT run, not the whole job, so
+		// label it distinctly from the runs-done/total count to avoid reading
+		// "0/5 runs (76%)" as 76% of the job.
+		fmt.Fprintf(&b, "  #%d %s [%s] %d/%d runs done, current run %.0f%% · ETA %d ticks · %s\n",
 			j.Position, j.Recipe, j.JobID, j.RunsDone, j.RunsTotal, j.Progress*100, j.ETATicks, j.Status)
 	}
 	return b.String()
