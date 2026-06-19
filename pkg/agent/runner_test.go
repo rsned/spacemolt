@@ -183,6 +183,14 @@ func (m *mockGameClient) GetRecipes(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_recipes")
 	return nil
 }
+func (m *mockGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
+	m.actionsRecorded = append(m.actionsRecorded, "recycle:"+recipeID)
+	return nil
+}
+func (m *mockGameClient) RecycleWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "recycle:"+recipeID)
+	return nil
+}
 
 // Ship Maintenance
 func (m *mockGameClient) Refuel(ctx context.Context) error {
@@ -1041,6 +1049,68 @@ func TestRunner_LearningCallback(t *testing.T) {
 	if lastResult.Error != nil {
 		t.Errorf("Expected no error in result, got %v", lastResult.Error)
 	}
+}
+
+func TestRunner_RecycleDispatch(t *testing.T) {
+	t.Run("dispatches recycle decision", func(t *testing.T) {
+		agent := &mockAgent{
+			id: "test-agent",
+			decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
+				return Decision{
+					Action:     "recycle",
+					Target:     "recipe_iron_plate",
+					Confidence: 0.9,
+				}, nil
+			},
+		}
+
+		client := newMockGameClient()
+		client.state.CurrentTick = 100
+
+		config := DefaultRunnerConfig()
+		runner := NewRunner(agent, client, config)
+
+		ctx := context.Background()
+
+		if err := runner.executeCycle(ctx); err != nil {
+			t.Fatalf("executeCycle failed: %v", err)
+		}
+
+		recorded := filterActions(client.actionsRecorded)
+		if len(recorded) != 1 {
+			t.Fatalf("Expected 1 action recorded, got %d: %v", len(recorded), recorded)
+		}
+		if recorded[0] != "recycle:recipe_iron_plate" {
+			t.Errorf("Expected 'recycle:recipe_iron_plate', got %s", recorded[0])
+		}
+	})
+
+	t.Run("returns error for empty target", func(t *testing.T) {
+		agent := &mockAgent{
+			id: "test-agent",
+			decisionFn: func(ctx context.Context, es EnrichedState) (Decision, error) {
+				return Decision{
+					Action:     "recycle",
+					Target:     "",
+					Confidence: 0.9,
+				}, nil
+			},
+		}
+
+		client := newMockGameClient()
+		config := DefaultRunnerConfig()
+		runner := NewRunner(agent, client, config)
+
+		ctx := context.Background()
+
+		if err := runner.executeCycle(ctx); err == nil {
+			t.Error("Expected error for empty recycle target")
+		}
+
+		if len(client.actionsRecorded) != 0 {
+			t.Errorf("Expected 0 actions recorded for empty target, got %d", len(client.actionsRecorded))
+		}
+	})
 }
 
 func TestIsActionCommand(t *testing.T) {

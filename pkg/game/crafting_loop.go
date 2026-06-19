@@ -344,16 +344,18 @@ func CraftingLoop(client GameClient, logger *log.Logger, ctx context.Context, co
 			continue
 		}
 
-		// Craft the selected recipes
+		// Queue each selected recipe once. The RecipeSelector returns only
+		// recipe IDs (no per-recipe quantities), so we use defaultCraftLoopQuantity.
+		// v0.389: crafting is async-queued from station storage; the server escrows
+		// inputs and delivers output over following ticks — there is no batch loop
+		// and no cargo check here.
 		itemsCrafted := 0
 		for _, recipeID := range recipes {
-			crafted, err := craftRecipe(client, logger, ctx, recipeID)
+			queued, err := craftRecipe(client, logger, ctx, recipeID, defaultCraftLoopQuantity)
 			if err != nil {
-				logger.Printf("Failed to craft %s: %v", recipeID, err)
+				logger.Printf("Failed to queue %s: %v", recipeID, err)
 			} else {
-				itemsCrafted += crafted
-				// Wait for server tick before next craft action
-				time.Sleep(SleepTick)
+				itemsCrafted += queued
 			}
 		}
 
@@ -422,41 +424,25 @@ func CraftingLoop(client GameClient, logger *log.Logger, ctx context.Context, co
 	}
 }
 
-// craftRecipe crafts a specific recipe, returns number of items crafted
-func craftRecipe(client GameClient, logger *log.Logger, ctx context.Context, recipeID string) (int, error) {
-	state := client.GetState()
+// defaultCraftLoopQuantity is the quantity queued per recipe in the CraftingLoop
+// when no per-recipe craftable quantity is available (the RecipeSelector returns
+// only recipe IDs, not quantities). v0.389: crafting is async-queued from station
+// storage; the server escrows inputs and delivers output over ticks, so there is
+// no per-tick batch loop and no cargo involvement. A conservative default prevents
+// over-queuing while still making meaningful progress.
+const defaultCraftLoopQuantity = 20
 
-	// Batch size is determined by the player's Crafting skill level.
-	// Perform enough batches to craft ~200 items total per recipe per loop.
-	batchSize := MaxCraftBatchSize(state)
-	batchesPerLoop := max(1, 200/batchSize)
-	totalItems := 0
-
-	remainingCargo := state.Ship.CargoCapacity - state.Ship.CargoUsed
-	if remainingCargo < float64(batchSize) {
-		return 0, fmt.Errorf("not enough cargo space")
+// craftRecipe queues a single crafting job for the given recipe and quantity.
+// v0.389: crafting is async-queued from station storage; there is no per-tick
+// batch loop and no cargo involvement. Returns the quantity queued.
+func craftRecipe(client GameClient, logger *log.Logger, ctx context.Context, recipeID string, quantity int) (int, error) {
+	if quantity < 1 {
+		return 0, fmt.Errorf("invalid quantity: %d", quantity)
 	}
-
-	logger.Printf("🔨 Crafting %s (%d batches of %d each)...", recipeID, batchesPerLoop, batchSize)
-
-	for i := 0; i < batchesPerLoop; i++ {
-		// Check cargo space before each batch
-		state = client.GetState()
-		remainingCargo = state.Ship.CargoCapacity - state.Ship.CargoUsed
-		if remainingCargo < float64(batchSize) {
-			logger.Printf("⚠️  Cargo full after %d batches", i)
-			break
-		}
-
-		if err := client.CraftWithQuantity(ctx, recipeID, batchSize); err != nil {
-			logger.Printf("Failed batch %d: %v", i+1, err)
-			return totalItems, fmt.Errorf("craft command failed on batch %d: %w", i+1, err)
-		}
-
-		totalItems += batchSize
-		time.Sleep(SleepTick) // Wait for server tick between batches
+	logger.Printf("🔨 Queuing %d x %s...", quantity, recipeID)
+	if err := client.CraftWithQuantity(ctx, recipeID, quantity); err != nil {
+		return 0, fmt.Errorf("craft command failed: %w", err)
 	}
-
-	logger.Printf("✅ Crafted %d total x %s", totalItems, recipeID)
-	return totalItems, nil
+	logger.Printf("✅ Queued %d x %s (output lands in station storage)", quantity, recipeID)
+	return quantity, nil
 }

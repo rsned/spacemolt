@@ -27,7 +27,7 @@ func (c *Client) Battle(ctx context.Context, action string, payload map[string]a
 	// the command hangs until timeout and blocks subsequent actions.
 	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -41,7 +41,7 @@ func (c *Client) GetBattleStatus(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepTick))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -58,7 +58,7 @@ func (c *Client) Reload(ctx context.Context, weaponInstanceID, ammoItemID string
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -71,7 +71,7 @@ func (c *Client) SelfDestruct(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -85,7 +85,7 @@ func (c *Client) Cloak(ctx context.Context, enable bool) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -100,7 +100,7 @@ func (c *Client) ScanTarget(ctx context.Context, targetID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -121,7 +121,7 @@ func (c *Client) BrowseShips(ctx context.Context, payload map[string]any) error 
 	// correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -135,7 +135,7 @@ func (c *Client) BuyListedShip(ctx context.Context, listingID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -149,7 +149,7 @@ func (c *Client) BuyShip(ctx context.Context, shipClass string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -163,7 +163,7 @@ func (c *Client) CancelCommission(ctx context.Context, commissionID string) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -177,7 +177,7 @@ func (c *Client) CancelShipListing(ctx context.Context, listingID string) error 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -191,7 +191,7 @@ func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -210,7 +210,7 @@ func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -227,7 +227,7 @@ func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMa
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -250,7 +250,7 @@ func (c *Client) CommissionStatus(ctx context.Context, baseID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -267,7 +267,7 @@ func (c *Client) ListShipForSale(ctx context.Context, shipID string, price float
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -281,7 +281,7 @@ func (c *Client) SwitchShip(ctx context.Context, shipID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -295,7 +295,7 @@ func (c *Client) SellShip(ctx context.Context, shipID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -310,7 +310,7 @@ func (c *Client) ListShips(ctx context.Context) error {
 	// for a payload-shape classifier.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -328,7 +328,7 @@ func (c *Client) UseItem(ctx context.Context, itemID string, quantity int) error
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -342,7 +342,7 @@ func (c *Client) InstallMod(ctx context.Context, moduleID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -355,7 +355,7 @@ func (c *Client) RefitShip(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -369,7 +369,7 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -380,10 +380,15 @@ func (c *Client) UninstallMod(ctx context.Context, moduleID string) error {
 
 // AnalyzeMarket gets actionable trading insights at the current station.
 func (c *Client) AnalyzeMarket(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "analyze_market",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // CreateBuyOrder places a buy offer on the station exchange.
@@ -395,7 +400,7 @@ func (c *Client) CreateBuyOrder(ctx context.Context, payload map[string]any) err
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -409,7 +414,7 @@ func (c *Client) CreateSellOrder(ctx context.Context, payload map[string]any) er
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -423,7 +428,7 @@ func (c *Client) CancelOrder(ctx context.Context, payload map[string]any) error 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -437,7 +442,7 @@ func (c *Client) ModifyOrder(ctx context.Context, payload map[string]any) error 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -458,7 +463,7 @@ func (c *Client) ViewMarket(ctx context.Context, payload map[string]any) error {
 	// action-field classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -473,29 +478,39 @@ func (c *Client) ViewOrders(ctx context.Context) error {
 	// makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
 
 // EstimatePurchase previews what buying would cost without executing.
 func (c *Client) EstimatePurchase(ctx context.Context, itemID string, quantity int) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type: "estimate_purchase",
 		Payload: map[string]any{
 			"item_id":  itemID,
 			"quantity": quantity,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetTrades views pending trade offers.
 func (c *Client) GetTrades(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_trades",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // TradeOffer offers a trade to another player.
@@ -511,7 +526,7 @@ func (c *Client) TradeOffer(ctx context.Context, targetID string, payload map[st
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -525,27 +540,37 @@ func (c *Client) TradeAccept(ctx context.Context, tradeID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
 
 // TradeCancel cancels your trade offer.
 func (c *Client) TradeCancel(ctx context.Context, tradeID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "trade_cancel",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // TradeDecline declines a trade offer.
 func (c *Client) TradeDecline(ctx context.Context, tradeID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "trade_decline",
 		Payload:   map[string]any{"trade_id": tradeID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -562,7 +587,7 @@ func (c *Client) GetWrecks(ctx context.Context) error {
 	// makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -580,7 +605,7 @@ func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -594,7 +619,7 @@ func (c *Client) SalvageWreck(ctx context.Context, wreckID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -608,7 +633,7 @@ func (c *Client) TowWreck(ctx context.Context, wreckID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -621,7 +646,7 @@ func (c *Client) ReleaseTow(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -634,7 +659,7 @@ func (c *Client) ScrapWreck(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -647,7 +672,7 @@ func (c *Client) SellWreck(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -670,7 +695,7 @@ func (c *Client) GetCargo(ctx context.Context) error {
 	// wall-clock sleep is needed, though GetState() still RLock()s as usual.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -687,7 +712,7 @@ func (c *Client) Jettison(ctx context.Context, itemID string, quantity float64) 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -702,7 +727,7 @@ func (c *Client) ViewStorage(ctx context.Context) error {
 	// payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -717,7 +742,7 @@ func (c *Client) ViewStorageAt(ctx context.Context, stationID string) error {
 	// Same response shape as ViewStorage; request_id correlation suffices.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -734,7 +759,7 @@ func (c *Client) WithdrawItems(ctx context.Context, itemID string, quantity floa
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -755,7 +780,7 @@ func (c *Client) WithdrawItemsPayload(ctx context.Context, payload map[string]an
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -771,7 +796,7 @@ func (c *Client) DepositItemsPayload(ctx context.Context, payload map[string]any
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -785,7 +810,7 @@ func (c *Client) SendGift(ctx context.Context, payload map[string]any) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -805,7 +830,7 @@ func (c *Client) GetRecipes(ctx context.Context) error {
 	// correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -821,7 +846,7 @@ func (c *Client) GetSkills(ctx context.Context) error {
 	// server's response shape was in flux.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -836,7 +861,7 @@ func (c *Client) GetNearby(ctx context.Context) error {
 	// makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -850,7 +875,7 @@ func (c *Client) GetSystemAgents(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -865,7 +890,7 @@ func (c *Client) GetBase(ctx context.Context) error {
 	// request_id correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -880,7 +905,7 @@ func (c *Client) GetShip(ctx context.Context) error {
 	// correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -900,7 +925,7 @@ func (c *Client) GetMissions(ctx context.Context) error {
 	// get_active_missions) redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -921,7 +946,7 @@ func (c *Client) GetActionLog(ctx context.Context, payload map[string]any) error
 	// correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -936,7 +961,7 @@ func (c *Client) GetActiveMissions(ctx context.Context) error {
 	// payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -950,7 +975,7 @@ func (c *Client) AcceptMission(ctx context.Context, missionID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -964,27 +989,37 @@ func (c *Client) CompleteMission(ctx context.Context, missionID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
 
 // AbandonMission abandons an active mission.
 func (c *Client) AbandonMission(ctx context.Context, missionID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "abandon_mission",
 		Payload:   map[string]any{"mission_id": missionID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // DeclineMission declines a mission and hears the NPC's response.
 func (c *Client) DeclineMission(ctx context.Context, templateID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "decline_mission",
 		Payload:   map[string]any{"template_id": templateID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1000,17 +1035,22 @@ func (c *Client) BuyInsurance(ctx context.Context, ticks int) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
 
 // ClaimInsurance views your active insurance policies.
 func (c *Client) ClaimInsurance(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "claim_insurance",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetInsuranceQuote gets a risk-based insurance quote for the current ship.
@@ -1024,7 +1064,7 @@ func (c *Client) GetInsuranceQuote(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1038,7 +1078,7 @@ func (c *Client) SetHomeBase(ctx context.Context, baseID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1059,7 +1099,7 @@ func (c *Client) CreateNote(ctx context.Context, title, content string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1074,7 +1114,7 @@ func (c *Client) GetNotes(ctx context.Context) error {
 	// correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1093,7 +1133,7 @@ func (c *Client) ReadNote(ctx context.Context, noteID string) error {
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	var resp protocol.Response
 	if err == nil {
-		resp, err = h.Result(ctx)
+		resp, err = c.await(ctx, h)
 	}
 	if err != nil {
 		return err
@@ -1116,7 +1156,7 @@ func (c *Client) WriteNote(ctx context.Context, noteID, content string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1140,17 +1180,22 @@ func (c *Client) Catalog(ctx context.Context, catalogType string, page, pageSize
 	// request_id correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
 
 // GetCommands gets a structured list of all commands.
 func (c *Client) GetCommands(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_commands",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetGuide gets a detailed playstyle progression guide.
@@ -1159,46 +1204,71 @@ func (c *Client) GetGuide(ctx context.Context, guide string) error {
 	if guide != "" {
 		payload["guide"] = guide
 	}
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_guide",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SearchChangelog searches release notes and version history.
 func (c *Client) SearchChangelog(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "search_changelog",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SearchSystems searches for systems by name.
 func (c *Client) SearchSystems(ctx context.Context, query string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "search_systems",
 		Payload:   map[string]any{"query": query},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // GetVersion gets game version and release notes.
 func (c *Client) GetVersion(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "get_version",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // Help gets help for commands.
 func (c *Client) Help(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "help",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1237,7 +1307,7 @@ func (c *Client) GetChatHistory(ctx context.Context, channel string, payload map
 	// channels to the correct caller without payload-shape matching.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1252,11 +1322,16 @@ func (c *Client) ForumList(ctx context.Context, page int) error {
 	if page > 0 {
 		payload["page"] = page
 	}
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_list",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumCreateThread creates a new forum thread.
@@ -1277,41 +1352,61 @@ func (c *Client) ForumCreateThread(ctx context.Context, title, content string, c
 
 // ForumGetThread gets a forum thread and its replies.
 func (c *Client) ForumGetThread(ctx context.Context, threadID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_get_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumReply replies to a forum thread.
 func (c *Client) ForumReply(ctx context.Context, threadID, content string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type: "forum_reply",
 		Payload: map[string]any{
 			"thread_id": threadID,
 			"content":   content,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumDeleteReply deletes a forum reply.
 func (c *Client) ForumDeleteReply(ctx context.Context, replyID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_delete_reply",
 		Payload:   map[string]any{"reply_id": replyID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumDeleteThread deletes a forum thread.
 func (c *Client) ForumDeleteThread(ctx context.Context, threadID string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_delete_thread",
 		Payload:   map[string]any{"thread_id": threadID},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ForumUpvote upvotes a thread or reply.
@@ -1320,11 +1415,16 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 	if replyID != "" {
 		payload["reply_id"] = replyID
 	}
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "forum_upvote",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1333,28 +1433,43 @@ func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID strin
 
 // CaptainsLogAdd adds an entry to your captain's log.
 func (c *Client) CaptainsLogAdd(ctx context.Context, entry string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "captains_log_add",
 		Payload:   map[string]any{"entry": entry},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // CaptainsLogGet gets a specific entry from your captain's log.
 func (c *Client) CaptainsLogGet(ctx context.Context, index int) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "captains_log_get",
 		Payload:   map[string]any{"index": index},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // CaptainsLogList lists all entries in your captain's log.
 func (c *Client) CaptainsLogList(ctx context.Context) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "captains_log_list",
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithAckOnly(), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1363,32 +1478,47 @@ func (c *Client) CaptainsLogList(ctx context.Context) error {
 
 // SetAnonymous sets anonymous mode.
 func (c *Client) SetAnonymous(ctx context.Context, anonymous bool) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "set_anonymous",
 		Payload:   map[string]any{"anonymous": anonymous},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SetColors sets your ship colors.
 func (c *Client) SetColors(ctx context.Context, primaryColor, secondaryColor string) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type: "set_colors",
 		Payload: map[string]any{
 			"primary_color":   primaryColor,
 			"secondary_color": secondaryColor,
 		},
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // SetPlayerStatus sets your status message and clan tag.
 func (c *Client) SetPlayerStatus(ctx context.Context, payload map[string]any) error {
-	return c.send(ctx, protocol.Message{
+	h, err := c.Submit(ctx, protocol.Message{
 		Type:      "set_status",
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
-	})
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
 }
 
 // ============================================================================
@@ -1428,7 +1558,7 @@ func (c *Client) Facility(ctx context.Context, payload map[string]any) error {
 		WithTerminator(facilityTerminate),
 		WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1453,7 +1583,7 @@ func (c *Client) FactionInfo(ctx context.Context) error {
 	// correlation makes the payload-shape classifier redundant.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1476,7 +1606,7 @@ func (c *Client) FactionList(ctx context.Context, limit, offset int) error {
 	// treats that reply as terminal for this request_id.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1490,7 +1620,7 @@ func (c *Client) CreateFaction(ctx context.Context, payload map[string]any) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1504,7 +1634,7 @@ func (c *Client) JoinFaction(ctx context.Context, factionID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1517,7 +1647,7 @@ func (c *Client) LeaveFaction(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1531,7 +1661,7 @@ func (c *Client) FactionInvite(ctx context.Context, playerID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1545,7 +1675,7 @@ func (c *Client) FactionKick(ctx context.Context, playerID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1562,7 +1692,7 @@ func (c *Client) FactionPromote(ctx context.Context, playerID, roleID string) er
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1577,7 +1707,7 @@ func (c *Client) FactionEdit(ctx context.Context, payload map[string]any) error 
 	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1599,7 +1729,7 @@ func (c *Client) FactionCreateRole(ctx context.Context, name string, priority in
 	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1618,7 +1748,7 @@ func (c *Client) FactionEditRole(ctx context.Context, roleID string, payload map
 	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1633,7 +1763,7 @@ func (c *Client) FactionDeleteRole(ctx context.Context, roleID string) error {
 	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1655,7 +1785,7 @@ func (c *Client) FactionDeclareWar(ctx context.Context, targetFactionID, reason 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1673,7 +1803,7 @@ func (c *Client) FactionProposePeace(ctx context.Context, targetFactionID, terms
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1687,7 +1817,7 @@ func (c *Client) FactionAcceptPeace(ctx context.Context, targetFactionID string)
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1702,7 +1832,7 @@ func (c *Client) FactionProposeAlly(ctx context.Context, targetFactionID string)
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1716,7 +1846,7 @@ func (c *Client) FactionAcceptAlly(ctx context.Context, targetFactionID string) 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1731,7 +1861,7 @@ func (c *Client) FactionRemoveAlly(ctx context.Context, targetFactionID string) 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1745,7 +1875,7 @@ func (c *Client) FactionSetEnemy(ctx context.Context, targetFactionID string) er
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1763,7 +1893,7 @@ func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]an
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1778,7 +1908,7 @@ func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) 
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1792,7 +1922,7 @@ func (c *Client) FactionIntelStatus(ctx context.Context) error {
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1806,7 +1936,7 @@ func (c *Client) FactionSubmitTradeIntel(ctx context.Context, stations []map[str
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1821,7 +1951,7 @@ func (c *Client) FactionQueryTradeIntel(ctx context.Context, payload map[string]
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1835,7 +1965,7 @@ func (c *Client) FactionTradeIntelStatus(ctx context.Context) error {
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1856,7 +1986,7 @@ func (c *Client) FactionDepositItems(ctx context.Context, itemID string, quantit
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1873,7 +2003,7 @@ func (c *Client) FactionWithdrawItems(ctx context.Context, itemID string, quanti
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1889,7 +2019,7 @@ func (c *Client) FactionDepositItemsPayload(ctx context.Context, payload map[str
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1904,7 +2034,7 @@ func (c *Client) FactionWithdrawItemsPayload(ctx context.Context, payload map[st
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1918,7 +2048,7 @@ func (c *Client) FactionDepositCredits(ctx context.Context, amount float64) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1932,7 +2062,7 @@ func (c *Client) FactionWithdrawCredits(ctx context.Context, amount float64) err
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1950,7 +2080,7 @@ func (c *Client) FactionGift(ctx context.Context, factionID string, payload map[
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1963,7 +2093,7 @@ func (c *Client) ViewFactionStorage(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1978,7 +2108,7 @@ func (c *Client) ViewFactionStorageAt(ctx context.Context, stationID string) err
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -1996,7 +2126,7 @@ func (c *Client) FactionCreateBuyOrder(ctx context.Context, itemID string, price
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2014,7 +2144,7 @@ func (c *Client) FactionCreateSellOrder(ctx context.Context, itemID string, pric
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2032,7 +2162,7 @@ func (c *Client) FactionListMissions(ctx context.Context) error {
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2046,7 +2176,7 @@ func (c *Client) FactionPostMission(ctx context.Context, payload map[string]any)
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2060,7 +2190,7 @@ func (c *Client) FactionCancelMission(ctx context.Context, templateID string) er
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2080,7 +2210,7 @@ func (c *Client) FactionGetInvites(ctx context.Context) error {
 	// action_result/tick to wait on).
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2096,7 +2226,7 @@ func (c *Client) FactionDeclineInvite(ctx context.Context, factionID string) err
 	// so WithAckOnly treats that reply as terminal for this request_id.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2114,7 +2244,7 @@ func (c *Client) FactionRooms(ctx context.Context) error {
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2129,7 +2259,7 @@ func (c *Client) FactionVisitRoom(ctx context.Context, roomID string) error {
 	// Query (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2144,7 +2274,7 @@ func (c *Client) FactionWriteRoom(ctx context.Context, payload map[string]any) e
 	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2159,7 +2289,7 @@ func (c *Client) FactionDeleteRoom(ctx context.Context, roomID string) error {
 	// Not tick-gated (x-is-mutation=false): returns type=ok immediately.
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2184,7 +2314,7 @@ func (c *Client) RawCommand(ctx context.Context, command string, args map[string
 	if err != nil {
 		return err
 	}
-	_, err = h.Result(ctx)
+	_, err = c.await(ctx, h)
 	return err
 }
 
@@ -2197,7 +2327,7 @@ func (c *Client) GetDrone(ctx context.Context, droneID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2210,7 +2340,7 @@ func (c *Client) GetDrones(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2224,7 +2354,7 @@ func (c *Client) LoadDrone(ctx context.Context, itemID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2238,7 +2368,7 @@ func (c *Client) UnloadDrone(ctx context.Context, droneID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2256,7 +2386,7 @@ func (c *Client) RecallDrone(ctx context.Context, droneID string, all bool) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2270,7 +2400,7 @@ func (c *Client) UploadDroneScript(ctx context.Context, droneID, script string) 
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2292,7 +2422,7 @@ func (c *Client) DeployDrone(ctx context.Context, droneID string, all bool) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2308,7 +2438,7 @@ func (c *Client) SetDroneName(ctx context.Context, droneID, name string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2322,7 +2452,7 @@ func (c *Client) FactionAcceptInvite(ctx context.Context, factionID string) erro
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2336,7 +2466,7 @@ func (c *Client) FactionWithdrawInvite(ctx context.Context, playerID string) err
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2350,7 +2480,7 @@ func (c *Client) FactionRemoveEnemy(ctx context.Context, targetFactionID string)
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2369,7 +2499,7 @@ func (c *Client) Citizenship(ctx context.Context, action, empireID string) error
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2388,7 +2518,7 @@ func (c *Client) GetEmpireInfo(ctx context.Context, empireID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2404,7 +2534,7 @@ func (c *Client) Petition(ctx context.Context, empireID, message string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2417,7 +2547,7 @@ func (c *Client) GetTaxEstimate(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2430,7 +2560,7 @@ func (c *Client) ViewInsurance(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2444,7 +2574,7 @@ func (c *Client) ScrapShip(ctx context.Context, shipID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2457,7 +2587,7 @@ func (c *Client) CompletedMissions(ctx context.Context) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2472,7 +2602,7 @@ func (c *Client) DeleteNote(ctx context.Context, noteID string) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2488,7 +2618,7 @@ func (c *Client) CaptainsLogDelete(ctx context.Context, index int) error {
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }
@@ -2511,7 +2641,7 @@ func (c *Client) AgentLogs(ctx context.Context, category, severity, message stri
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
 	if err == nil {
-		_, err = h.Result(ctx)
+		_, err = c.await(ctx, h)
 	}
 	return err
 }

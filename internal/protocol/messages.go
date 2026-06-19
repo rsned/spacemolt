@@ -64,6 +64,9 @@ const (
 	// Facility events
 	TypeFacilityRentWarning = "facility_rent_warning"
 
+	// Crafting events
+	TypeCraftingUpdate = "crafting_update"
+
 	// Skill progression events
 	TypeSkillLevelUp = "skill_level_up"
 

@@ -443,7 +443,7 @@ type Recipe struct {
 	RequiredSkills  map[string]int `json:"required_skills,omitempty"`
 	Inputs          []RecipeItem   `json:"inputs"`
 	Outputs         []RecipeItem   `json:"outputs"`
-	CraftingTime    int            `json:"crafting_time"`
+	CraftingTime    float64        `json:"crafting_time"`
 	BaseQuality     int            `json:"base_quality,omitempty"`
 	SkillQualityMod int            `json:"skill_quality_mod,omitempty"`
 	FacilityOnly    bool           `json:"facility_only,omitempty"`

@@ -1,9 +1,61 @@
 package game
 
 import (
+	"context"
+	"io"
+	"log"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/rsned/spacemolt/internal/protocol"
 )
+
+// TestCraftRecipeQueuesOnce proves the new craftRecipe contract:
+// it issues exactly ONE craft command for the given quantity and
+// reports that quantity back. No batch loop, no cargo check.
+func TestCraftRecipeQueuesOnce(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	calls := 0
+	// Replace the send override to count craft messages, then forward
+	// to sendCh so the router can deliver the synthetic ok reply.
+	innerSend := c.sendOverride
+	c.sendOverride = func(fctx context.Context, msg protocol.Message) error {
+		if msg.Type == "craft" {
+			calls++
+		}
+		return innerSend(fctx, msg)
+	}
+
+	// Dispatch a synthetic ok in the background once the message is sent.
+	go func() {
+		var sent protocol.Message
+		select {
+		case sent = <-sendCh:
+		case <-ctx.Done():
+			return
+		}
+		c.router.dispatch(protocol.Response{
+			Type:      protocol.TypeOK,
+			RequestID: sent.RequestID,
+			Payload:   map[string]any{"action": "craft", "job_id": "j1"},
+		})
+	}()
+
+	n, err := craftRecipe(c, log.New(io.Discard, "", 0), ctx, "basic_iron_smelting", 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("craftRecipe issued %d craft commands, want exactly 1", calls)
+	}
+	if n != 200 {
+		t.Fatalf("craftRecipe reported %d items queued, want 200", n)
+	}
+}
 
 func TestXpToLevel(t *testing.T) {
 	client := NewClient("wss://test.example.com", "user", "pass", nil)
@@ -38,79 +90,43 @@ func TestXpToLevel(t *testing.T) {
 }
 
 func TestCraftWithQuantity_Validation(t *testing.T) {
-	client := NewClient("wss://test.example.com", "user", "pass", nil)
+	// v0.389: CraftWithOptions no longer clamps quantity; the only validation is quantity >= 1.
+	c := newSubmitClientSkeleton()
 
-	// No skills set — max batch is 1
-	tests := []struct {
+	zeroTests := []struct {
 		name     string
 		quantity int
-		wantErr  bool
 	}{
-		{"zero quantity", 0, true},
-		{"negative quantity", -1, true},
-		{"above max (no skill)", 2, true},
-		{"way above max", 100, true},
+		{"zero quantity", 0},
+		{"negative quantity", -1},
 	}
-
-	for _, tt := range tests {
+	for _, tt := range zeroTests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := client.CraftWithQuantity(t.Context(), "test_recipe", tt.quantity)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CraftWithQuantity(quantity=%d) err = %v, wantErr %v", tt.quantity, err, tt.wantErr)
+			err := c.CraftWithQuantity(t.Context(), "test_recipe", tt.quantity)
+			if err == nil || !strings.Contains(err.Error(), "invalid quantity") {
+				t.Errorf("CraftWithQuantity(quantity=%d) should have 'invalid quantity' error, got: %v", tt.quantity, err)
 			}
 		})
 	}
 
-	// Set crafting skill to level 5 — max batch should be 5
-	client.state.Player.Skills = map[string]Skill{
-		"crafting": {Level: 5, XP: 1000},
-	}
-	skillTests := []struct {
+	// Quantities well above the old skill cap (1) are now valid — they reach
+	// Submit and return "not connected" (or time out), NOT "invalid quantity".
+	largeTests := []struct {
 		name     string
 		quantity int
-		wantErr  bool
 	}{
-		{"within skill limit", 5, true},      // still errors because no connection, but validation passes
-		{"above skill limit", 6, true},        // validation error
-		{"negative with skill", -1, true},
+		{"large quantity no skill", 2},
+		{"way above old cap", 100},
+		{"much larger than old cap", 250},
 	}
-	for _, tt := range skillTests {
+	for _, tt := range largeTests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := client.CraftWithQuantity(t.Context(), "test_recipe", tt.quantity)
-			if tt.name == "above skill limit" {
-				if err == nil || !strings.Contains(err.Error(), "invalid quantity") {
-					t.Errorf("CraftWithQuantity(quantity=%d) should have validation error, got: %v", tt.quantity, err)
-				}
-			}
-		})
-	}
-}
-
-func TestMaxCraftBatchSize(t *testing.T) {
-	tests := []struct {
-		name     string
-		skills   map[string]Skill
-		expected int
-	}{
-		{"nil state", nil, 1},
-		{"no skills", map[string]Skill{}, 1},
-		{"crafting level 0", map[string]Skill{"crafting": {Level: 0}}, 1},
-		{"crafting level 1", map[string]Skill{"crafting": {Level: 1}}, 1},
-		{"crafting level 2", map[string]Skill{"crafting": {Level: 2}}, 2},
-		{"crafting level 5", map[string]Skill{"crafting": {Level: 5}}, 5},
-		{"crafting level 10", map[string]Skill{"crafting": {Level: 10}}, 10},
-		{"crafting level 20", map[string]Skill{"crafting": {Level: 20}}, 20},
-		{"only mining skill", map[string]Skill{"mining": {Level: 10}}, 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var state *State
-			if tt.skills != nil {
-				state = &State{Player: Player{Skills: tt.skills}}
-			}
-			if got := MaxCraftBatchSize(state); got != tt.expected {
-				t.Errorf("MaxCraftBatchSize() = %d, want %d", got, tt.expected)
+			ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+			defer cancel()
+			err := c.CraftWithOptions(ctx, "test_recipe", tt.quantity, "")
+			// Should NOT be an "invalid quantity" error — the new code only rejects < 1.
+			if err != nil && strings.Contains(err.Error(), "invalid quantity") {
+				t.Errorf("CraftWithOptions(quantity=%d) got unexpected validation error: %v", tt.quantity, err)
 			}
 		})
 	}
@@ -159,6 +175,71 @@ func TestCraftQueryResult_EmptyInit(t *testing.T) {
 	}
 	if len(result.SkillBlocked) != 0 {
 		t.Errorf("expected empty SkillBlocked, got %d", len(result.SkillBlocked))
+	}
+}
+
+// TestCraftWithOptionsPayload verifies the new async queue-aware semantics:
+// quantity above the old skill-based cap must be accepted, quantity is always
+// in the payload, deliver_to is forwarded when non-empty, and cargo is NOT a
+// valid deliver_to (the new model only allows "" or "faction"/"storage").
+//
+// Uses newSubmitTestClient (from submit_test.go) — mirrors the pattern used by
+// TestBattle_PlainOKTerminates and TestBattle_ErrorStillTerminates.
+func TestCraftWithOptionsPayload(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Start the craft call in background; it blocks waiting for the server reply.
+	errCh := make(chan error, 1)
+	go func() {
+		// quantity 250 is way above the old skill-based cap (max=1 with no skill).
+		errCh <- c.CraftWithOptions(ctx, "basic_iron_smelting", 250, "faction")
+	}()
+
+	// Receive the sent message.
+	var sent protocol.Message
+	select {
+	case sent = <-sendCh:
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for send — CraftWithOptions likely rejected 250 before sending")
+	}
+
+	if sent.Type != "craft" {
+		t.Fatalf("sent.Type = %q, want %q", sent.Type, "craft")
+	}
+	if got := sent.Payload["recipe_id"]; got != "basic_iron_smelting" {
+		t.Fatalf("recipe_id = %v, want %q", got, "basic_iron_smelting")
+	}
+	if got := sent.Payload["quantity"]; got != 250 {
+		t.Fatalf("quantity = %v, want 250 — clamp was NOT removed", got)
+	}
+	if got := sent.Payload["deliver_to"]; got != "faction" {
+		t.Fatalf("deliver_to = %v, want %q", got, "faction")
+	}
+
+	// Simulate the server's single non-pending ok (v0.389 async model).
+	c.router.dispatch(protocol.Response{
+		Type:      protocol.TypeOK,
+		RequestID: sent.RequestID,
+		Payload:   map[string]any{"action": "craft", "job_id": "j1"},
+	})
+
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("CraftWithOptions returned unexpected error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("CraftWithOptions did not return after ok")
+	}
+}
+
+// TestCraftWithOptionsRejectsBadQuantity verifies validation still rejects quantity < 1.
+func TestCraftWithOptionsRejectsBadQuantity(t *testing.T) {
+	c := newSubmitClientSkeleton()
+	if err := c.CraftWithOptions(context.Background(), "r", 0, ""); err == nil {
+		t.Fatal("expected error for quantity 0")
 	}
 }
 

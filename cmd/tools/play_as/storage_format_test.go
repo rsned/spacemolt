@@ -30,6 +30,32 @@ func TestFormatStorage_EmptyButValidStillRenders(t *testing.T) {
 	}
 }
 
+// TestFormatStorage_ShipCustomNameShown verifies the SHIPS table's "Ship Name"
+// column prefers a ship's custom_name when set, and falls back to class_name
+// when it is absent.
+func TestFormatStorage_ShipCustomNameShown(t *testing.T) {
+	raw := `{"base_id":"central_nexus","items":[],"ships":[
+		{"ship_id":"ced4b057","class_id":"arbitrage","class_name":"Arbitrage","custom_name":"Hauling Pass!","cargo_used":0,"modules":4},
+		{"ship_id":"5d8fcb35","class_id":"arbitrage","class_name":"Arbitrage","cargo_used":0,"modules":2}
+	]}`
+	out := formatStorage([]byte(raw))
+	if !strings.Contains(out, "Hauling Pass!") {
+		t.Errorf("expected custom_name 'Hauling Pass!' in Ship Name column, got:\n%s", out)
+	}
+	// The custom-named row must show the custom name.
+	for line := range strings.SplitSeq(out, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "ced4b057") && !strings.Contains(line, "Hauling Pass!") {
+			t.Errorf("ship ced4b057 row should show custom_name, got:\n%s", line)
+		}
+	}
+	// The ship with no custom_name still falls back to its class_name.
+	for line := range strings.SplitSeq(out, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "5d8fcb35") && !strings.Contains(line, "Arbitrage") {
+			t.Errorf("ship 5d8fcb35 row should fall back to class_name 'Arbitrage', got:\n%s", line)
+		}
+	}
+}
+
 // TestFormatStorage_HintShown surfaces the server's "hint" field so the agent
 // knows which other station holds items when the current base is empty.
 func TestFormatStorage_HintShown(t *testing.T) {

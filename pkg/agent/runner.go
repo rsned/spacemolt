@@ -552,6 +552,13 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> CraftWithQuantity('%s', 1)", r.agent.ID(), decision.Target)
 		return r.gameClient.CraftWithQuantity(actionCtx, decision.Target, 1)
 
+	case "recycle":
+		if decision.Target == "" {
+			return fmt.Errorf("recycle requires target recipe ID")
+		}
+		r.logger.Printf("[%s] -> Recycle('%s', 1)", r.agent.ID(), decision.Target)
+		return r.gameClient.Recycle(actionCtx, decision.Target, 1)
+
 	case "get_recipes":
 		r.logger.Printf("[%s] -> GetRecipes()", r.agent.ID())
 		return r.gameClient.GetRecipes(actionCtx)
@@ -907,7 +914,7 @@ func isActionCommand(action string) bool {
 	// buy, sell, list_item, cancel_list, buy_listing, trade_offer,
 	// trade_accept, trade_decline, trade_cancel, loot_wreck, salvage_wreck,
 	// loot_base_wreck, salvage_base_wreck, buy_ship, install_mod, uninstall_mod,
-	// refuel, repair, craft, chat, create_faction, join_faction, leave_faction,
+	// refuel, repair, craft, recycle, chat, create_faction, join_faction, leave_faction,
 	// faction_invite, faction_kick, faction_promote, buy_insurance,
 	// claim_insurance, set_home_base, set_status, set_colors, set_anonymous,
 	// build_base, attack_base, create_map, use_map, create_note, write_note,

@@ -368,6 +368,180 @@ func TestReplay_LateOriginalResponseIsOrphan(t *testing.T) {
 	}
 }
 
+func TestAwait_FillsResultSink(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "get_status"}, WithAckOnly())
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_status", "credits": 42.0},
+	})
+
+	resp, err := c.await(ctx, h)
+	if err != nil {
+		t.Fatalf("await: %v", err)
+	}
+	if resp.RequestID != sent.RequestID {
+		t.Errorf("returned resp.RequestID = %q, want %q", resp.RequestID, sent.RequestID)
+	}
+	if sink.RequestID != sent.RequestID {
+		t.Errorf("sink.RequestID = %q, want %q", sink.RequestID, sent.RequestID)
+	}
+	if got, _ := sink.Payload["credits"].(float64); got != 42.0 {
+		t.Errorf("sink.Payload[credits] = %v, want 42", sink.Payload["credits"])
+	}
+}
+
+func TestAwait_NoSinkIsNoop(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	ctx := context.Background() // no sink attached
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "get_status"}, WithAckOnly())
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+	go c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_status"},
+	})
+
+	if _, err := c.await(ctx, h); err != nil {
+		t.Fatalf("await with no sink must not error: %v", err)
+	}
+}
+
+// TestAwait_CommandMethodFillsSink proves the mechanical sweep wired await into
+// a real command method end to end: GetDrones, driven through the Submit test
+// harness, deposits its correlated terminal into the ctx sink.
+func TestAwait_CommandMethodFillsSink(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.GetDrones(ctx) }()
+
+	sent := <-sendCh
+	if sent.Type != "get_drones" {
+		t.Fatalf("sent.Type = %q, want get_drones", sent.Type)
+	}
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_drones", "drones": []any{}},
+	})
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("GetDrones: %v", err)
+	}
+	if sink.RequestID != sent.RequestID {
+		t.Errorf("sink.RequestID = %q, want %q (sweep did not wire await into GetDrones)",
+			sink.RequestID, sent.RequestID)
+	}
+}
+
+// TestConvertedMutation_Correlates proves a converted fire-and-forget mutation
+// now flows through Submit (stamps a request_id) and awaits a terminal.
+func TestConvertedMutation_Correlates(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.AbandonMission(ctx, "m-1") }()
+
+	sent := <-sendCh
+	if sent.Type != "abandon_mission" {
+		t.Fatalf("sent.Type = %q, want abandon_mission", sent.Type)
+	}
+	if sent.RequestID == "" {
+		t.Fatal("converted mutation did not stamp a request_id (still on c.send)")
+	}
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeActionResult, RequestID: sent.RequestID,
+		Payload: map[string]any{"command": "abandon_mission", "result": map[string]any{"abandoned": true}},
+	})
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("AbandonMission: %v", err)
+	}
+	if sink.RequestID != sent.RequestID {
+		t.Errorf("sink.RequestID = %q, want %q", sink.RequestID, sent.RequestID)
+	}
+}
+
+// TestConvertedQuery_Correlates proves a converted query flows through Submit
+// with WithAckOnly (first response terminal) and fills the sink.
+func TestConvertedQuery_Correlates(t *testing.T) {
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.GetVersion(ctx) }()
+
+	sent := <-sendCh
+	if sent.Type != "get_version" {
+		t.Fatalf("sent.Type = %q, want get_version", sent.Type)
+	}
+	if sent.RequestID == "" {
+		t.Fatal("converted query did not stamp a request_id (still on c.send)")
+	}
+	c.router.dispatch(protocol.Response{
+		Type: protocol.TypeOK, RequestID: sent.RequestID,
+		Payload: map[string]any{"action": "get_version", "version": "v0.294.0"},
+	})
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("GetVersion: %v", err)
+	}
+	if v, _ := sink.Payload["version"].(string); v != "v0.294.0" {
+		t.Errorf("sink.Payload[version] = %v, want v0.294.0", sink.Payload["version"])
+	}
+}
+
+func TestAwait_FillsResultSink_OnServerError(t *testing.T) {
+	// await must populate the sink even when the terminal frame is an error,
+	// so that chooseErrorJSON can display the request_id-correlated error
+	// payload rather than falling back to the racy _last_error slot.
+	c, sendCh := newSubmitTestClient(t)
+	var sink protocol.Response
+	ctx := WithResultSink(context.Background(), &sink)
+
+	h, err := c.Submit(ctx, protocol.Message{Type: "buy"}, WithTerminator(terminateOnAction))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	sent := <-sendCh
+
+	go c.router.dispatch(protocol.Response{
+		Type:      protocol.TypeError,
+		RequestID: sent.RequestID,
+		Payload:   map[string]any{"code": "bad", "message": "nope"},
+	})
+
+	_, awaitErr := c.await(ctx, h)
+	if awaitErr == nil {
+		t.Fatal("await should return non-nil error on server error frame")
+	}
+
+	if sink.Type != protocol.TypeError {
+		t.Errorf("sink.Type = %q, want %q", sink.Type, protocol.TypeError)
+	}
+	if len(sink.Payload) == 0 {
+		t.Error("sink.Payload is empty, want populated error payload")
+	}
+	if code, _ := sink.Payload["code"].(string); code != "bad" {
+		t.Errorf("sink.Payload[code] = %q, want \"bad\"", code)
+	}
+}
+
 func TestReplay_DoesNotSendBeforeReconnect(t *testing.T) {
 	c, sendCh := newSubmitTestClient(t)
 	ctx := context.Background()

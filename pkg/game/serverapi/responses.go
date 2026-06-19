@@ -788,6 +788,42 @@ type BrowseForSaleResponse struct {
 	Listings []FacilityForSaleListing `json:"listings"`
 }
 
+// OwnedFacility is one entry in a FacilityOwnedResponse.
+type OwnedFacility struct {
+	FacilityID        string `json:"facility_id"`
+	Name              string `json:"name"`
+	Type              string `json:"type"`
+	BaseID            string `json:"base_id"`
+	BaseName          string `json:"base_name"`
+	SystemID          string `json:"system_id"`
+	RentPerCycle      int    `json:"rent_per_cycle"`
+	LaborPerRun       int    `json:"labor_per_run,omitempty"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	MissedRentCycles  int    `json:"missed_rent_cycles,omitempty"`
+	Active            bool   `json:"active"`
+	UnderConstruction bool   `json:"under_construction,omitempty"`
+}
+
+// FacilityRentSummary is the rent summary block in a FacilityOwnedResponse.
+type FacilityRentSummary struct {
+	Facilities        int    `json:"facilities"`
+	TotalRentPerCycle int    `json:"total_rent_per_cycle"`
+	EstRentPerDay     int    `json:"est_rent_per_day"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	GraceCycles       int    `json:"grace_cycles,omitempty"`
+	Note              string `json:"note,omitempty"`
+}
+
+// FacilityOwnedResponse models the `facility action=owned` OK frame. Top-level
+// keys (action, facilities, hint, rent) must be covered so the api-monitor does
+// not flag it. Mirrors the local struct in play_as formatFacilityOwned.
+type FacilityOwnedResponse struct {
+	Action     string              `json:"action"`
+	Facilities []OwnedFacility     `json:"facilities"`
+	Hint       string              `json:"hint,omitempty"`
+	Rent       FacilityRentSummary `json:"rent"`
+}
+
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {
@@ -1420,6 +1456,154 @@ type CraftSourceItem struct {
 	Name     string `json:"name"`
 	Quantity int    `json:"quantity"`
 }
+
+// EscrowInput is a single item held in escrow for a craft job.
+type EscrowInput struct {
+	ItemID   string `json:"item_id"`
+	Name     string `json:"name"`
+	Quantity int    `json:"quantity"`
+}
+
+// EscrowCost describes the credits and materials escrowed when a craft job is queued.
+type EscrowCost struct {
+	Fee    int           `json:"fee"`
+	Labor  int           `json:"labor"`
+	Inputs []EscrowInput `json:"inputs"`
+}
+
+// CraftProduces is a single output item listed on a queued or dry-run craft job.
+type CraftProduces struct {
+	ItemID   string `json:"item_id"`
+	Name     string `json:"name"`
+	Quantity int    `json:"quantity"`
+}
+
+// CraftJobQueued is the response when a single craft (or recycle) job is accepted and queued.
+// Corresponds to the first oneOf variant of CraftJobResponse in the openapi spec.
+type CraftJobQueued struct {
+	Action              string          `json:"action"`
+	JobID               string          `json:"job_id"`
+	Recipe              string          `json:"recipe"`
+	Mode                string          `json:"mode"`
+	Venue               string          `json:"venue"`
+	VenueType           string          `json:"venue_type"`
+	FacilityID          string          `json:"facility_id"`
+	Runs                int             `json:"runs"`
+	EffectiveTimePerRun float64         `json:"effective_time_per_run"`
+	EstCompletionTick   int             `json:"est_completion_tick"`
+	Escrowed            EscrowCost      `json:"escrowed"`
+	Message             string          `json:"message"`
+	Produces            []CraftProduces `json:"produces,omitempty"`
+	External            bool            `json:"external,omitempty"`
+}
+
+// CraftJobEntry is a single job returned in a queue listing.
+type CraftJobEntry struct {
+	JobID         string          `json:"job_id"`
+	Recipe        string          `json:"recipe"`
+	Mode          string          `json:"mode"`
+	RunsTotal     int             `json:"runs_total"`
+	RunsDone      int             `json:"runs_done"`
+	RunsRemaining int             `json:"runs_remaining"`
+	Progress      float64         `json:"progress"`
+	ETATicks      int             `json:"eta_ticks"`
+	Position      int             `json:"position"`
+	Orderer       string          `json:"orderer"`
+	Status        string          `json:"status"`
+	FacilityID    string          `json:"facility_id"`
+	External      bool            `json:"external,omitempty"`
+	Venue         string          `json:"venue,omitempty"`
+	Produces      []CraftProduces `json:"produces,omitempty"`
+}
+
+// CraftQueueListing is the response when listing queued craft jobs.
+// Corresponds to the second oneOf variant of CraftJobResponse in the openapi spec.
+type CraftQueueListing struct {
+	Action string          `json:"action"`
+	Jobs   []CraftJobEntry `json:"jobs"`
+}
+
+// CraftBulkResult is the outcome of a single job in a bulk craft request.
+type CraftBulkResult struct {
+	Index     int    `json:"index"`
+	Success   bool   `json:"success"`
+	JobID     string `json:"job_id,omitempty"`
+	Recipe    string `json:"recipe,omitempty"`
+	Runs      int    `json:"runs,omitempty"`
+	Venue     string `json:"venue,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Error     string `json:"error,omitempty"`
+	ErrorCode string `json:"error_code,omitempty"`
+}
+
+// CraftBulkSummary summarises the outcomes of a bulk craft request.
+type CraftBulkSummary struct {
+	Total     int `json:"total"`
+	Succeeded int `json:"succeeded"`
+	Failed    int `json:"failed"`
+}
+
+// CraftBulkResponse is the response when submitting multiple craft jobs in one request.
+// Corresponds to the third oneOf variant of CraftJobResponse in the openapi spec.
+type CraftBulkResponse struct {
+	Action  string            `json:"action"`
+	Mode    string            `json:"mode"`
+	Results []CraftBulkResult `json:"results"`
+	Summary CraftBulkSummary  `json:"summary"`
+}
+
+// CraftDryRunResponse is the response for a dry-run (quote) craft request.
+// Corresponds to the fourth oneOf variant of CraftJobResponse in the openapi spec.
+type CraftDryRunResponse struct {
+	Action              string          `json:"action"`
+	DryRun              bool            `json:"dry_run"`
+	Recipe              string          `json:"recipe"`
+	Mode                string          `json:"mode"`
+	Quantity            int             `json:"quantity"`
+	Runs                int             `json:"runs"`
+	Venue               string          `json:"venue"`
+	VenueType           string          `json:"venue_type"`
+	FacilityID          string          `json:"facility_id"`
+	Cost                EscrowCost      `json:"cost"`
+	CreditsTotal        int             `json:"credits_total"`
+	HaveInputs          bool            `json:"have_inputs"`
+	HaveCredits         bool            `json:"have_credits"`
+	EffectiveTimePerRun float64         `json:"effective_time_per_run"`
+	EstCompletionTick   int             `json:"est_completion_tick"`
+	Message             string          `json:"message"`
+	Produces            []CraftProduces `json:"produces,omitempty"`
+	External            bool            `json:"external,omitempty"`
+}
+
+// CraftingUpdateDeposit is an item deposited to storage when a craft run completes.
+type CraftingUpdateDeposit struct {
+	ItemID   string `json:"item_id"`
+	ItemName string `json:"item_name"`
+	Quantity int    `json:"quantity"`
+}
+
+// CraftingUpdateJob is a single job entry in a crafting_update event.
+type CraftingUpdateJob struct {
+	JobID         string                  `json:"job_id"`
+	Recipe        string                  `json:"recipe"`
+	Mode          string                  `json:"mode"`
+	Venue         string                  `json:"venue"`
+	Storage       string                  `json:"storage"`
+	Deposited     []CraftingUpdateDeposit `json:"deposited"`
+	RunsDone      int                     `json:"runs_done"`
+	RunsRemaining int                     `json:"runs_remaining"`
+	Completed     bool                    `json:"completed"`
+}
+
+// CraftingUpdateEvent is the payload of a crafting_update server push event.
+// Corresponds to Notification_crafting_update in the openapi spec.
+type CraftingUpdateEvent struct {
+	Tick int                 `json:"tick"`
+	Jobs []CraftingUpdateJob `json:"jobs"`
+}
+
+// RecycleResponse reuses the queued-job shape; recycle has no preset and no XP.
+type RecycleResponse = CraftJobQueued
 
 // CloakResponse wraps the response from cloak command.
 type CloakResponse struct {

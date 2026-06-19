@@ -173,6 +173,46 @@ func WithAckOnly() SubmitOption {
 	return func(c *submitConfig) { c.ackOnly = true; c.terminator = nil }
 }
 
+// resultSinkKey is the context key under which a caller stores a
+// *protocol.Response sink. Unexported zero-size struct type keeps the key
+// collision-free.
+type resultSinkKey struct{}
+
+// WithResultSink returns a context that captures the terminal protocol.Response
+// of any Submit awaited via (*Client).await into *sink. Interactive callers
+// (the play_as REPL) use this to obtain the exact request_id-correlated frame
+// for the command they issued, rather than reading the racy command-keyed
+// latestRawJSON slot that a concurrent background command can clobber. The sink
+// belongs to the caller's own context, so unrelated goroutines (background
+// pollers) using their own contexts never write to it.
+func WithResultSink(ctx context.Context, sink *protocol.Response) context.Context {
+	return context.WithValue(ctx, resultSinkKey{}, sink)
+}
+
+// resultSinkFrom returns the sink attached by WithResultSink, or nil.
+func resultSinkFrom(ctx context.Context) *protocol.Response {
+	s, _ := ctx.Value(resultSinkKey{}).(*protocol.Response)
+	return s
+}
+
+// await waits for h's terminal response and, when ctx carries a sink (see
+// WithResultSink), records the response into it before returning. It is the
+// single chokepoint that replaces inline `h.Result(ctx)` across the command
+// methods, so any caller can capture the correlated frame without changing
+// method signatures. The response is captured even on a terminal *ServerError
+// (the error frame is carried in resp), which is what raw/json error display
+// needs. On ctx-cancel/timeout, h.Result returns a zero protocol.Response
+// (Type==""), so the sink is overwritten with that zero value; consumers that
+// gate on a non-empty sink (Type!="" && len(Payload)>0) treat this as "empty"
+// and fall back to their legacy lookup path.
+func (c *Client) await(ctx context.Context, h *RequestHandle) (protocol.Response, error) {
+	resp, err := h.Result(ctx)
+	if sink := resultSinkFrom(ctx); sink != nil {
+		*sink = resp
+	}
+	return resp, err
+}
+
 // Submit sends msg with a fresh request_id and returns a handle for
 // retrieving the ack and terminal response. Blocks while acquiring
 // the in-flight slot and (for mutations) the per-action lock.
