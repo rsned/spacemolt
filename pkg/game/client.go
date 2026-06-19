@@ -134,6 +134,10 @@ type Client struct {
 	onChatMessage func(msg serverapi.ChatMessage)
 	onChatMu      sync.RWMutex
 
+	// Crafting update callback — fired when a crafting_update push event is received
+	onCraftingUpdate func(ev serverapi.CraftingUpdateEvent)
+	onCraftingMu     sync.RWMutex
+
 	// Player observer callback — fired when handleResponse parses a
 	// payload containing player records (get_nearby, get_system_agents,
 	// battle alerts, chat). See pkg/game/observed_player.go.
@@ -423,6 +427,15 @@ func (c *Client) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {
 	c.onChatMu.Lock()
 	defer c.onChatMu.Unlock()
 	c.onChatMessage = fn
+}
+
+// SetOnCraftingUpdate registers a callback that fires when a crafting_update
+// push event is received (server v0.389.0+). This lets consumers track async
+// crafting job progress and storage deposits without polling.
+func (c *Client) SetOnCraftingUpdate(fn func(ev serverapi.CraftingUpdateEvent)) {
+	c.onCraftingMu.Lock()
+	defer c.onCraftingMu.Unlock()
+	c.onCraftingUpdate = fn
 }
 
 // SetPlayerObserver registers a callback that fires when handleResponse
@@ -2400,10 +2413,19 @@ func (c *Client) handleResponse(resp protocol.Response) {
 
 	case protocol.TypeCraftingUpdate:
 		// Async crafting progress push (server v0.389.0+). Output items are
-		// deposited to station/faction storage server-side; we only log here.
-		// The OnCraftingUpdate callback is wired in a later task.
-		if tick, ok := resp.Payload["tick"].(float64); ok {
-			c.debugLogger.Printf("[CRAFTING_UPDATE] tick=%d", int64(tick))
+		// deposited to station/faction storage server-side. Decode and fire the
+		// OnCraftingUpdate callback so consumers can track job progress.
+		var ev serverapi.CraftingUpdateEvent
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			if err := json.Unmarshal(data, &ev); err == nil {
+				c.debugLogger.Printf("[CRAFTING_UPDATE] tick=%d jobs=%d", ev.Tick, len(ev.Jobs))
+				c.onCraftingMu.RLock()
+				cb := c.onCraftingUpdate
+				c.onCraftingMu.RUnlock()
+				if cb != nil {
+					cb(ev)
+				}
+			}
 		}
 
 	case protocol.TypeListings:
