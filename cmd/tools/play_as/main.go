@@ -5942,7 +5942,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		craftArgs, flags := partitionFlags(parts[1:])
 		// `craft queue` (or --action=queue) lists current jobs instead of queuing.
 		if (len(craftArgs) >= 1 && craftArgs[0] == "queue") || flags["action"] == "queue" {
-			return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+			}, ctx, 0, cmd, format)
 		}
 		if len(craftArgs) < 1 {
 			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft queue")
@@ -5991,13 +5993,17 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if dryRun {
 			payload["dry_run"] = true
 		}
-		return client.RawCommand(ctx, "craft", payload)
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "craft", payload)
+		}, ctx, 0, cmd, format)
 
 	case "recycle":
 		recArgs, flags := partitionFlags(parts[1:])
 		if (len(recArgs) >= 1 && recArgs[0] == "queue") || flags["action"] == "queue" {
 			// recycle jobs appear in the shared craft queue.
-			return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+			}, ctx, 0, cmd, format)
 		}
 		if len(recArgs) < 1 {
 			return fmt.Errorf("usage: recycle <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run]")
@@ -6034,7 +6040,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if dryRun {
 			payload["dry_run"] = true
 		}
-		return client.RawCommand(ctx, "recycle", payload)
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "recycle", payload)
+		}, ctx, 0, cmd, format)
 
 	case "recipes", "get_recipes":
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)

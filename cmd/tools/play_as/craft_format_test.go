@@ -153,6 +153,31 @@ func TestFormatCraftQueue_Empty(t *testing.T) {
 	}
 }
 
+// TestFormatCraftQueue_LiveActionResultShape locks in the exact `craft queue`
+// frame the live v0.389 server returns: action="queue" (not "craft_queue")
+// wrapped in an action_result envelope. formatCraft must unwrap the envelope
+// and render the queue — the dispatch bug that bypassed this entirely is what
+// this guards against regressing on the formatter side.
+func TestFormatCraftQueue_LiveActionResultShape(t *testing.T) {
+	raw := []byte(`{"command":"craft","tick":1127360,"result":{"action":"queue","jobs":[{"eta_ticks":11,"external":true,"facility_id":"1041788bcb57d48bade4c683b65bc027","job_id":"be4cd3a20444e358c493116f984b9eaa","mode":"craft","orderer":"self","position":0,"produces":[{"item_id":"trade_cipher","name":"Trade Cipher","quantity":10}],"progress":0.27,"recipe":"Encode Trade Cipher","runs_done":0,"runs_remaining":3,"runs_total":3,"status":"queued","venue":"Haven Cipher Foundry"}]}}`)
+	out := formatCraft(raw)
+	if out == "" {
+		t.Fatal("formatCraft returned empty for the live queue action_result shape")
+	}
+	for _, want := range []string{
+		"Crafting queue",        // header
+		"1 jobs",                // job count
+		"Encode Trade Cipher",   // recipe
+		"0/3 runs",              // progress fraction
+		"ETA 11 ticks",          // eta
+		"queued",                // status
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatCraft(live queue) missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestFormatCraftBulk_KeySubstrings(t *testing.T) {
 	out := formatCraft([]byte(craftBulkSample))
 	for _, want := range []string{
