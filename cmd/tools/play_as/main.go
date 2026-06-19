@@ -6043,8 +6043,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === CRAFTING ===
 	case "craft":
-		craftArgs, flags := partitionFlags(parts[1:])
-		// `craft queue` (or --action=queue) lists current jobs instead of queuing.
+		craftArgs, flags := partitionFlagsKV(parts[1:])
+		// `craft queue` (or action=queue / --action=queue) lists current jobs
+		// instead of queuing.
 		if (len(craftArgs) >= 1 && craftArgs[0] == "queue") || flags["action"] == "queue" {
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
@@ -6102,7 +6103,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 0, cmd, format)
 
 	case "recycle":
-		recArgs, flags := partitionFlags(parts[1:])
+		recArgs, flags := partitionFlagsKV(parts[1:])
 		if (len(recArgs) >= 1 && recArgs[0] == "queue") || flags["action"] == "queue" {
 			// recycle jobs appear in the shared craft queue.
 			return simpleCommand(client, func(ctx context.Context) error {
@@ -8383,6 +8384,23 @@ func partitionFlags(args []string) (positional []string, flags map[string]string
 			continue
 		}
 		flags[trimmed] = ""
+	}
+	return positional, flags
+}
+
+// partitionFlagsKV is partitionFlags plus folding of bare `key=value` tokens
+// (e.g. `action=queue`) into flags. Use it for commands whose positional
+// arguments are identifiers that never contain '=' (recipe ids), so the
+// unprefixed key=value form works alongside --flags. Not used for commands
+// with free-text positionals (e.g. drone names) where '=' may be literal.
+func partitionFlagsKV(args []string) (positional []string, flags map[string]string) {
+	raw, flags := partitionFlags(args)
+	for _, a := range raw {
+		if k, v, ok := strings.Cut(a, "="); ok && k != "" {
+			flags[k] = v
+			continue
+		}
+		positional = append(positional, a)
 	}
 	return positional, flags
 }

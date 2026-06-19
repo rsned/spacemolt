@@ -214,6 +214,28 @@ func TestFormatFacility_MutationActionsRoute(t *testing.T) {
 	}
 }
 
+// TestPartitionFlagsKV guards that bare key=value tokens (e.g. action=queue)
+// fold into flags while plain identifiers stay positional, so `craft
+// action=queue` is recognized as the queue listing rather than a recipe id.
+func TestPartitionFlagsKV(t *testing.T) {
+	pos, flags := partitionFlagsKV([]string{"action=queue"})
+	if len(pos) != 0 {
+		t.Errorf("action=queue should not be positional, got %v", pos)
+	}
+	if flags["action"] != "queue" {
+		t.Errorf("flags[action] = %q, want queue", flags["action"])
+	}
+
+	// Plain recipe id stays positional; --flags and key=value coexist.
+	pos, flags = partitionFlagsKV([]string{"refine_steel", "5", "--deliver_to=faction", "preset=fast"})
+	if len(pos) != 2 || pos[0] != "refine_steel" || pos[1] != "5" {
+		t.Errorf("positional = %v, want [refine_steel 5]", pos)
+	}
+	if flags["deliver_to"] != "faction" || flags["preset"] != "fast" {
+		t.Errorf("flags = %v, want deliver_to=faction preset=fast", flags)
+	}
+}
+
 // TestFacilityPositionalKeys guards that bare positional arguments map to the
 // correct payload keys per action — in particular that `facility set_access
 // public` sends access=public rather than facility_type=public.
