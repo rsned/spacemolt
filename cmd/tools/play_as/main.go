@@ -1504,6 +1504,25 @@ func formatCommissionQuote(raw []byte) string {
 	return b.String()
 }
 
+// facilityPositionalKeys returns the payload keys that bare positional
+// arguments fill for a given facility action, in order. Most actions take a
+// facility_type (build, types, personal_build, …), but a few take different
+// primary arguments — e.g. `facility set_access public` means access=public,
+// not facility_type=public. Anything not listed here falls back to
+// facility_type so the historical `facility build <type>` form keeps working.
+func facilityPositionalKeys(action string) []string {
+	switch action {
+	case "set_access":
+		return []string{"access"}
+	case "set_output_price":
+		return []string{"item_id", "price"}
+	case "buy_listing", "cancel_listing":
+		return []string{"listing_id"}
+	default:
+		return []string{"facility_type"}
+	}
+}
+
 // formatFacility dispatches by the response's "action" field (or, for
 // payloads that don't carry one, by the presence of distinctive keys).
 // Actions without a styled formatter return "" so the caller falls through
@@ -7554,24 +7573,28 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// === STATION FACILITIES ===
 	case "facility":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: facility <action> [facility_type] [--flag value...]\n" +
+			return fmt.Errorf("usage: facility <action> [arg...] [--flag value...]\n" +
 				"  actions: types, build, list, owned, toggle, upgrades, upgrade,\n" +
 				"           job_add, job_list, job_cancel, job_reorder, set_output_price, set_access,\n" +
 				"           list_for_sale, browse_for_sale, buy_listing, cancel_listing,\n" +
 				"           faction_build, faction_upgrade, faction_list, faction_owned, faction_toggle,\n" +
 				"           transfer, personal_build, personal_decorate, personal_visit, help\n" +
+				"  positional args by action:\n" +
+				"           build/types/personal_build/faction_build <facility_type>\n" +
+				"           set_access <public|private>     set_output_price <item_id> <price>\n" +
+				"           buy_listing/cancel_listing <listing_id>\n" +
 				"  job flags: --facility_id ID --recipe_id ID --quantity N --job_id ID --position N\n" +
 				"  business flags: --item_id ID --price N --access private|public\n" +
 				"  flags:   --show_station_facilities  (list: also show the station's own facilities)")
 		}
-		// Parse all args uniformly. First bare positional becomes the action,
-		// second bare positional becomes facility_type. --flag value pairs and
-		// key=value tokens go straight into the payload — including action=...
-		// which is how callers may want to spell it explicitly.
+		// Parse all args uniformly. --flag value pairs and key=value tokens go
+		// straight into the payload (including action=...). Bare tokens are
+		// collected as positionals: the first is the action, and the rest map
+		// to action-specific payload keys (see facilityPositionalKeys) — e.g.
+		// `set_access public` -> access=public, not facility_type=public.
 		payload := map[string]any{}
-		actionSet := false
-		facilityTypeSet := false
 		showStation := false
+		var positionals []string
 		for i := 1; i < len(parts); i++ {
 			arg := parts[i]
 			if key, ok := strings.CutPrefix(arg, "--"); ok {
@@ -7587,19 +7610,32 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				}
 			} else if k, v, ok := strings.Cut(arg, "="); ok {
 				payload[k] = v
-				if k == "action" {
-					actionSet = true
-				}
-			} else if !actionSet {
-				payload["action"] = arg
-				actionSet = true
-			} else if !facilityTypeSet {
-				payload["facility_type"] = arg
-				facilityTypeSet = true
+			} else {
+				positionals = append(positionals, arg)
 			}
 		}
-		if !actionSet {
+		// Resolve the action: an explicit action=... / --action wins, otherwise
+		// the first bare positional is the action.
+		action, _ := payload["action"].(string)
+		if action == "" && len(positionals) > 0 {
+			action = positionals[0]
+			positionals = positionals[1:]
+			payload["action"] = action
+		}
+		if action == "" {
 			return fmt.Errorf("facility: missing action (e.g. `facility build` or `facility action=build`)")
+		}
+		// Map any remaining bare positionals onto this action's argument keys.
+		// Flags already in the payload take precedence; extra positionals beyond
+		// the action's arity are ignored.
+		posKeys := facilityPositionalKeys(action)
+		for idx, val := range positionals {
+			if idx >= len(posKeys) {
+				break
+			}
+			if _, exists := payload[posKeys[idx]]; !exists {
+				payload[posKeys[idx]] = val
+			}
 		}
 		// Convert numeric string fields
 		for _, numKey := range []string{"level", "page", "per_page", "quantity", "position", "price"} {

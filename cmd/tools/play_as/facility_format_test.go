@@ -213,3 +213,30 @@ func TestFormatFacility_MutationActionsRoute(t *testing.T) {
 		}
 	}
 }
+
+// TestFacilityPositionalKeys guards that bare positional arguments map to the
+// correct payload keys per action — in particular that `facility set_access
+// public` sends access=public rather than facility_type=public.
+func TestFacilityPositionalKeys(t *testing.T) {
+	cases := map[string][]string{
+		"set_access":       {"access"},
+		"set_output_price": {"item_id", "price"},
+		"buy_listing":      {"listing_id"},
+		"cancel_listing":   {"listing_id"},
+		"build":            {"facility_type"},
+		"types":            {"facility_type"},
+		"unknown_action":   {"facility_type"},
+	}
+	for action, want := range cases {
+		got := facilityPositionalKeys(action)
+		if len(got) != len(want) {
+			t.Errorf("facilityPositionalKeys(%q) = %v, want %v", action, got, want)
+			continue
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("facilityPositionalKeys(%q)[%d] = %q, want %q", action, i, got[i], want[i])
+			}
+		}
+	}
+}
