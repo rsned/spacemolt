@@ -5766,8 +5766,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// === CRAFTING ===
 	case "craft":
 		craftArgs, flags := partitionFlags(parts[1:])
+		// `craft queue` (or --action=queue) lists current jobs instead of queuing.
+		if (len(craftArgs) >= 1 && craftArgs[0] == "queue") || flags["action"] == "queue" {
+			return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+		}
 		if len(craftArgs) < 1 {
-			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=cargo|storage|faction]")
+			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft queue")
 		}
 		recipeID := craftArgs[0]
 		qty := 1
@@ -5780,13 +5784,40 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		deliverTo := flags["deliver_to"]
 		switch deliverTo {
-		case "", "cargo", "storage", "faction":
+		case "", "storage", "faction":
 		default:
-			return fmt.Errorf("invalid deliver_to %q (must be cargo, storage, or faction)", deliverTo)
+			return fmt.Errorf("invalid deliver_to %q (must be storage or faction)", deliverTo)
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.CraftWithOptions(ctx, recipeID, qty, deliverTo)
-		}, ctx, 5*time.Second, cmd, format)
+		preset := flags["preset"]
+		switch preset {
+		case "", "fast", "cheap", "workshop":
+		default:
+			return fmt.Errorf("invalid preset %q (must be fast, cheap, or workshop)", preset)
+		}
+		_, dryRun := flags["dry_run"]
+		facilityID := flags["facility_id"]
+		// Fast path: plain craft with no advanced flags uses the typed client
+		// method (correct async terminator, validated quantity).
+		if !dryRun && preset == "" && facilityID == "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.CraftWithOptions(ctx, recipeID, qty, deliverTo)
+			}, ctx, 5*time.Second, cmd, format)
+		}
+		// Advanced path: build the full payload and submit generically.
+		payload := map[string]any{"recipe_id": recipeID, "quantity": qty}
+		if deliverTo != "" {
+			payload["deliver_to"] = deliverTo
+		}
+		if facilityID != "" {
+			payload["facility_id"] = facilityID
+		}
+		if preset != "" {
+			payload["preset"] = preset
+		}
+		if dryRun {
+			payload["dry_run"] = true
+		}
+		return client.RawCommand(ctx, "craft", payload)
 
 	case "recipes", "get_recipes":
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
@@ -8237,7 +8268,8 @@ func printHelp() {
 	fmt.Println("  demand history <item> [--station id] [--limit N]   - demand price/qty trend per station")
 
 	fmt.Println("\n=== CRAFTING ===")
-	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
+	fmt.Println("  craft <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] - Queue a crafting job")
+	fmt.Println("  craft queue - List your current crafting jobs")
 	fmt.Println("  recipes                   - Get available recipes")
 	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--include-ship-passive] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
