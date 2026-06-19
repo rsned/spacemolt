@@ -95,7 +95,7 @@ func depthStr(d int) string {
 func FormatPlan(res *PlanResult) string {
 	var b bytes.Buffer
 
-	fmt.Fprintf(&b, "plan: %s x%d  (%s, %ds/batch)\n\n",
+	fmt.Fprintf(&b, "plan: %s x%d  (%s, %gs/batch)\n\n",
 		res.Recipe.ID, res.Quantity, res.Recipe.Category, res.Recipe.CraftingTime)
 
 	if len(res.BlockedSkill) > 0 {
@@ -193,7 +193,7 @@ func FormatCraftableDetail(rows []CraftableRow, opts FormatCraftableOpts) string
 		if i > 0 {
 			fmt.Fprintln(&b, "─────────────────────────────────────────────")
 		}
-		fmt.Fprintf(&b, "\n%s — %s (%s, %ds/batch, can_make=%s)\n",
+		fmt.Fprintf(&b, "\n%s — %s (%s, %gs/batch, can_make=%s)\n",
 			r.Recipe.ID, r.Recipe.Name, r.Recipe.Category, r.Recipe.CraftingTime, canMakeStr(r.CanMake))
 		if len(r.Recipe.Inputs) > 0 {
 			fmt.Fprintln(&b, "  inputs:")
