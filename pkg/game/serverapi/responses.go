@@ -199,12 +199,13 @@ type RetreatResponse struct {
 
 // ViewMarketResponse wraps the response from view_market command.
 type ViewMarketResponse struct {
-	Action     string           `json:"action"`
-	Base       string           `json:"base,omitempty"`
-	BaseID     string           `json:"base_id,omitempty"`
-	Items      []ViewMarketItem `json:"items"`
-	Message    string           `json:"message,omitempty"`
-	Categories []string         `json:"categories,omitempty"`
+	Action      string           `json:"action"`
+	Base        string           `json:"base,omitempty"`
+	BaseID      string           `json:"base_id,omitempty"`
+	Items       []ViewMarketItem `json:"items"`
+	Message     string           `json:"message,omitempty"`
+	Categories  []string         `json:"categories,omitempty"`
+	CurrentTick int64            `json:"current_tick,omitempty"`
 }
 
 // ViewOrdersResponse wraps the response from view_orders command.
