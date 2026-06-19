@@ -202,6 +202,46 @@ func TestExecuteLoop_RepeatsBody(t *testing.T) {
 	}
 }
 
+func TestExecuteLoop_ContextCancelStopsLoop(t *testing.T) {
+	// Simulates Ctrl+C: the interrupter cancels the loop's context mid-run.
+	// The loop must stop well before its count instead of running to the end.
+	body := mustParseStmts(t, "mine")
+	ctx, cancel := context.WithCancel(context.Background())
+	ran := 0
+	dispatch := func(tokens []string) error {
+		ran++
+		if ran == 2 {
+			cancel()
+		}
+		return nil
+	}
+	err := executeLoop(ctx, io.Discard, 100, false, body, 0, dispatch)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if ran >= 100 {
+		t.Fatalf("loop ignored cancellation; ran %d/100 iterations", ran)
+	}
+}
+
+func TestExecuteLoop_CanceledStatementErrIsCleanAbort(t *testing.T) {
+	// A statement failing with context.Canceled (an interrupted in-flight
+	// await) aborts the loop cleanly with the ⛔ notice, not a ❌ error line.
+	body := mustParseStmts(t, "mine")
+	dispatch := func(tokens []string) error { return context.Canceled }
+	var out strings.Builder
+	err := executeLoop(context.Background(), &out, 5, false, body, 0, dispatch)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if s := out.String(); !strings.Contains(s, "⛔ interrupted") {
+		t.Errorf("expected ⛔ interrupted notice, got:\n%s", s)
+	}
+	if s := out.String(); strings.Contains(s, "❌") {
+		t.Errorf("interrupt must not print a ❌ error line, got:\n%s", s)
+	}
+}
+
 func TestExecuteLoop_Nested(t *testing.T) {
 	body := mustParseStmts(t, "travel sol_belt; loop 4 mine; dock")
 	dispatch, calls := recordingDispatcher(nil)

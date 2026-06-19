@@ -17,6 +17,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -282,6 +283,21 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	defer func() { _ = line.Close() }()
 
 	line.SetCtrlCAborts(true)
+
+	// Ctrl+C handling has two regimes. At the idle prompt liner reads in raw
+	// mode (ISIG disabled) and turns Ctrl+C into an aborted Prompt itself
+	// (SetCtrlCAborts above). While a foreground command runs, the terminal is
+	// back in signal-generating mode, so Ctrl+C arrives as SIGINT — without a
+	// handler the Go runtime would kill the whole process. We catch it and
+	// cancel just the running command's context, so a long loop or a blocking
+	// command aborts back to the prompt. The interrupter is only armed around
+	// foreground execution, so an interrupt at the idle prompt is a no-op here
+	// and falls through to liner's own handling.
+	intr := &interrupter{}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+	defer signal.Stop(sigCh)
+	go intr.watch(sigCh, func() { fmt.Print("\n^C — interrupting…\n") })
 
 	completionCommands := loadCompletionCommands(filepath.Join("server_docs", "openapi.json"))
 	line.SetCompleter(makeCompleter(completionCommands, client))
@@ -593,7 +609,14 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		// interleaving with this foreground one.
 		lastCommand = cmd
 		execMu.Lock()
-		_ = executeLogicalCommand(client, ctx, cmd, format, cfg, agentID)
+		// Run under a per-command cancellable context armed on the interrupter,
+		// so a SIGINT (Ctrl+C) during this command cancels it — aborting a loop
+		// or unblocking an in-flight await — instead of killing the process.
+		cmdCtx, cancel := context.WithCancel(ctx)
+		intr.arm(cancel)
+		_ = executeLogicalCommand(client, cmdCtx, cmd, format, cfg, agentID)
+		intr.disarm()
+		cancel()
 		execMu.Unlock()
 	}
 }

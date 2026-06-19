@@ -315,6 +315,13 @@ func executeLoop(
 					fmt.Fprintf(out, "%s❌ %v → aborting loop\n", indent, tokErr) //nolint:errcheck
 					return err
 				}
+				// Context cancellation is a Ctrl+C interrupt from the REPL, not
+				// a command failure: abort the whole loop cleanly (every
+				// enclosing level too) rather than printing a ❌ error line.
+				if errors.Is(err, context.Canceled) {
+					fmt.Fprintf(out, "%s⛔ interrupted after %d/%d iterations\n", indent, i+1, count) //nolint:errcheck
+					return err
+				}
 				errCount++
 				fmt.Fprintf(out, "%s❌ %v\n", indent, err)               //nolint:errcheck
 				if !force {
