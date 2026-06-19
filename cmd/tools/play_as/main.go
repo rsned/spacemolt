@@ -377,6 +377,18 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		poller.displayMessage(msg.Channel, msg)
 	})
 
+	// Crafting progress is delivered via push (WS) as runs complete over the
+	// ticks following a craft command. Surface each job's deposit + remaining
+	// runs instead of leaving it to the debug log only. Push is WS-only, so this
+	// is registered on the concrete *game.Client (no-op under MCP).
+	if wsClient, isWS := client.(*game.Client); isWS {
+		wsClient.SetOnCraftingUpdate(func(ev serverapi.CraftingUpdateEvent) {
+			for _, line := range craftingUpdateLines(ev) {
+				fmt.Printf("\r\033[36m🔨 %s\033[0m\n", line)
+			}
+		})
+	}
+
 	format := outputFormat(cfg.OutputFormat)
 
 	// execMu serializes command execution so a background scheduled command
@@ -3817,6 +3829,51 @@ func formatCraftJobQueued(raw []byte) string {
 		fmt.Fprintf(&b, "  %s\n", r.Message)
 	}
 	return b.String()
+}
+
+// craftStorageLabel renders a crafting_update job's storage destination in
+// human terms. The server reports "station" for the station's own storage and
+// "faction" for faction storage; anything else is shown verbatim.
+func craftStorageLabel(s string) string {
+	switch s {
+	case "station", "":
+		return "storage"
+	case "faction":
+		return "faction storage"
+	default:
+		return s
+	}
+}
+
+// craftingUpdateLines renders a crafting_update push event into one progress
+// line per job, e.g. "Crafted 4 copper_piping to storage. 22 runs remaining".
+// Returns nil when there is nothing to report.
+func craftingUpdateLines(ev serverapi.CraftingUpdateEvent) []string {
+	var lines []string
+	for _, j := range ev.Jobs {
+		var b strings.Builder
+		if len(j.Deposited) > 0 {
+			deps := make([]string, 0, len(j.Deposited))
+			for _, d := range j.Deposited {
+				deps = append(deps, fmt.Sprintf("%d %s", d.Quantity, d.ItemID))
+			}
+			fmt.Fprintf(&b, "Crafted %s to %s.", strings.Join(deps, ", "), craftStorageLabel(j.Storage))
+		} else if j.Recipe != "" {
+			fmt.Fprintf(&b, "%s:", j.Recipe)
+		}
+		if b.Len() > 0 {
+			b.WriteString(" ")
+		}
+		if j.Completed {
+			b.WriteString("Complete")
+		} else {
+			fmt.Fprintf(&b, "%d runs remaining", j.RunsRemaining)
+		}
+		if s := b.String(); s != "" {
+			lines = append(lines, s)
+		}
+	}
+	return lines
 }
 
 func formatCraftQueue(raw []byte) string {

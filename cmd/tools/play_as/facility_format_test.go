@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // TestFormatFacilityFactionList_ShowsFacilityID guards that the facility_id
@@ -211,6 +213,38 @@ func TestFormatFacility_MutationActionsRoute(t *testing.T) {
 		if !strings.Contains(out, "Done.") {
 			t.Errorf("formatFacility(%s): missing message in:\n%s", action, out)
 		}
+	}
+}
+
+// TestCraftingUpdateLines guards the human-readable rendering of a
+// crafting_update push event (deposit + remaining runs).
+func TestCraftingUpdateLines(t *testing.T) {
+	ev := serverapi.CraftingUpdateEvent{
+		Tick: 1133055,
+		Jobs: []serverapi.CraftingUpdateJob{{
+			JobID:         "efecc6bf",
+			Recipe:        "Draw Copper Piping",
+			Storage:       "station",
+			RunsDone:      1,
+			RunsRemaining: 22,
+			Deposited:     []serverapi.CraftingUpdateDeposit{{ItemID: "copper_piping", ItemName: "Copper Piping", Quantity: 4}},
+		}},
+	}
+	lines := craftingUpdateLines(ev)
+	if len(lines) != 1 {
+		t.Fatalf("got %d lines, want 1: %v", len(lines), lines)
+	}
+	want := "Crafted 4 copper_piping to storage. 22 runs remaining"
+	if lines[0] != want {
+		t.Errorf("line = %q, want %q", lines[0], want)
+	}
+
+	// Completed job reads "Complete" instead of a remaining count.
+	ev.Jobs[0].Completed = true
+	ev.Jobs[0].RunsRemaining = 0
+	lines = craftingUpdateLines(ev)
+	if len(lines) != 1 || !strings.Contains(lines[0], "Complete") {
+		t.Errorf("completed job line = %v, want it to contain Complete", lines)
 	}
 }
 
