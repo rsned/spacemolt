@@ -708,6 +708,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatChatHistory(raw)
 	case "craft":
 		return formatCraft(raw)
+	case "recycle":
+		return formatCraft(raw)
 	case "missions", "get_missions":
 		return formatMissions(raw)
 	case "active_missions", "get_active_missions":
@@ -5916,6 +5918,49 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return client.RawCommand(ctx, "craft", payload)
 
+	case "recycle":
+		recArgs, flags := partitionFlags(parts[1:])
+		if (len(recArgs) >= 1 && recArgs[0] == "queue") || flags["action"] == "queue" {
+			// recycle jobs appear in the shared craft queue.
+			return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+		}
+		if len(recArgs) < 1 {
+			return fmt.Errorf("usage: recycle <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run]")
+		}
+		recipeID := recArgs[0]
+		qty := 1
+		if len(recArgs) >= 2 {
+			n, err := strconv.Atoi(recArgs[1])
+			if err != nil {
+				return fmt.Errorf("invalid quantity: %w", err)
+			}
+			qty = n
+		}
+		deliverTo := flags["deliver_to"]
+		switch deliverTo {
+		case "", "storage", "faction":
+		default:
+			return fmt.Errorf("invalid deliver_to %q (must be storage or faction)", deliverTo)
+		}
+		_, dryRun := flags["dry_run"]
+		facilityID := flags["facility_id"]
+		if !dryRun && facilityID == "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RecycleWithOptions(ctx, recipeID, qty, deliverTo)
+			}, ctx, 5*time.Second, cmd, format)
+		}
+		payload := map[string]any{"recipe_id": recipeID, "quantity": qty}
+		if deliverTo != "" {
+			payload["deliver_to"] = deliverTo
+		}
+		if facilityID != "" {
+			payload["facility_id"] = facilityID
+		}
+		if dryRun {
+			payload["dry_run"] = true
+		}
+		return client.RawCommand(ctx, "recycle", payload)
+
 	case "recipes", "get_recipes":
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
 
@@ -8367,6 +8412,7 @@ func printHelp() {
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] - Queue a crafting job")
 	fmt.Println("  craft queue - List your current crafting jobs")
+	fmt.Println("  recycle <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run] - Queue a recycling job (lossy)")
 	fmt.Println("  recipes                   - Get available recipes")
 	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--include-ship-passive] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
