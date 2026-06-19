@@ -75,6 +75,7 @@ data/agents/*/credentials.json
 data/agents/*/play_as_history.json
 data/agents/*/play_as_history.txt
 data/agents/*/scheduled_commands.json
+data/agents/*/action_log*.jsonl
 data/crafting/
 data/credentials/
 data/game-api/
