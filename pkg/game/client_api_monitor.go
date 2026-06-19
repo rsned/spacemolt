@@ -421,6 +421,10 @@ var eventExpectedFields = map[string]map[string]bool{
 		"xp_gained":         true,
 		"drone_id":          true, // present when the yield came from a deployed drone
 	},
+	protocol.TypeCraftingUpdate: {
+		"tick": true,
+		"jobs": true,
+	},
 	protocol.TypePirateWarning: {
 		"pirate_name": true,
 		"pirate_tier": true,

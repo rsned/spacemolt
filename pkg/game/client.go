@@ -2398,6 +2398,14 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.checkXPChanges()
 		}
 
+	case protocol.TypeCraftingUpdate:
+		// Async crafting progress push (server v0.389.0+). Output items are
+		// deposited to station/faction storage server-side; we only log here.
+		// The OnCraftingUpdate callback is wired in a later task.
+		if tick, ok := resp.Payload["tick"].(float64); ok {
+			c.debugLogger.Printf("[CRAFTING_UPDATE] tick=%d", int64(tick))
+		}
+
 	case protocol.TypeListings:
 		c.parseListingsData(resp.Payload)
 
