@@ -2690,6 +2690,20 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.debugLogger.Printf("[MISSION COMPLETE] %s (%s) — %s", title, missionID, reward)
 
+	case protocol.TypeAchievementUnlocked:
+		// Server-initiated notification that one or more achievements were
+		// unlocked (e.g. completing your first jump). Carries an "achievements"
+		// array of fully-formed Achievement entries. We log for visibility and
+		// leave any earned-count/points roll-up to the next get_achievements or
+		// state sync to avoid maintaining a partial cache here.
+		var unlocked []serverapi.Achievement
+		if unmarshalPayloadKey(resp.Payload, "achievements", &unlocked) {
+			for _, a := range unlocked {
+				c.debugLogger.Printf("[ACHIEVEMENT UNLOCKED] %s (%s) — %s [+%d pts]",
+					a.Name, a.ID, a.Description, a.Points)
+			}
+		}
+
 	default:
 		logUnhandledResponseType(resp)
 	}
@@ -3982,6 +3996,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeFactionPromote:      {},
 	protocol.TypeFactionInvite:       {},
 	protocol.TypeFacilityRentWarning: {},
+	protocol.TypeAchievementUnlocked: {},
 }
 
 // storeRawJSON stores raw JSON payloads for key response types

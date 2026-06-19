@@ -76,6 +76,9 @@ const (
 	// Faction events
 	TypeFactionPromote = "faction_promote"
 	TypeFactionInvite  = "faction_invite"
+
+	// Achievement events
+	TypeAchievementUnlocked = "achievement_unlocked"
 )
 
 // Message represents a message sent to the server
