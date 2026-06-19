@@ -7254,7 +7254,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("usage: chat_history <channel> [--target_id <username>] [--before <ts>] [--after <ts>] [--limit <n>]")
 		}
 		channel := parts[1]
-		// Parse optional --target_id flag (required for private channel)
+		// Parse optional --target_id flag. For the private channel, omitting it
+		// returns the whole DM inbox (v0.397.0+); passing it reads a single
+		// conversation.
 		flagArgs, err := parseFlagArgs(parts[2:], "target_id", "before", "after", "limit")
 		if err != nil {
 			return err
@@ -8677,7 +8679,8 @@ func printHelp() {
 	fmt.Println("  chat <channel> <msg>                    - Send chat message")
 	fmt.Println("  chat private <target> <msg>            - Send private message")
 	fmt.Println("  chat_history <channel>                  - Get chat history")
-	fmt.Println("  chat_history private --target_id <name> - Get private messages")
+	fmt.Println("  chat_history private                    - Get whole DM inbox (newest-first)")
+	fmt.Println("  chat_history private --target_id <name> - Get one DM conversation")
 	fmt.Println("  send_gift <recipient> <item_id> <qty>  - Send items")
 	fmt.Println("  send_gift <recipient> credits <amount> - Send credits")
 	fmt.Println("  send_gift <recipient> ship <ship_id>   - Send ship")
@@ -9236,8 +9239,14 @@ type chatPoller struct {
 
 // activeChatChannels returns the channels that should be polled based on player state.
 // Faction channel is only included if the player is in a faction.
+//
+// "private" is polled unconditionally: as of server v0.397.0, get_chat_history
+// on the private channel with no target_id returns the whole DM inbox (every
+// private message across all conversations, newest-first), so a single poll
+// surfaces new direct messages from anyone without knowing the sender ahead of
+// time.
 func activeChatChannels(client game.GameClient) []string {
-	channels := []string{"system", "local"}
+	channels := []string{"system", "local", "private"}
 
 	// Check if player is in a faction
 	state := client.GetState()
