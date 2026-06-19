@@ -22,7 +22,7 @@ Copy these verbatim into every task's working context:
 - **`crafting_update` event (binding):** add `TypeCraftingUpdate = "crafting_update"`; handle in `handleResponse` mirroring `TypeMiningYield` (log + optional state); add an `OnCraftingUpdate(func(CraftingUpdateEvent))` callback mirroring `SetOnChatMessage` (field + setter + fire site). Add to `eventExpectedFields`.
 - **`MaxCraftBatchSize` (binding):** stop using it in the single-craft path (Task 3); remove the function and its remaining two callers when rewriting `CraftItems` / `CraftingLoop` (Task 10). Do NOT delete the function while callers remain.
 - **Agent-loop rewrite (binding):** replace withdraw→craft-to-cargo→deposit with queue-once-then-monitor. Never re-issue an identical craft to "make progress" — that double-spends.
-- **Pre-existing failure to leave alone:** `pkg/galaxy/graph_test.go` mockKB lacks `RecordPassengers` and fails at the branch base. Do NOT try to fix it. When a task's `go test ./...` shows ONLY `pkg/galaxy` failing for that reason, treat the suite as green for that task.
+- **Pre-existing failures to leave alone (TWO packages):** (1) `pkg/galaxy/graph_test.go` mockKB lacks `RecordPassengers`; (2) `pkg/actionspace` `TestLoadFromOpenAPIContainsAllHardcoded` fails with `hardcoded action "claim_commission" missing from OpenAPI registry` (a catalog-sync drift unrelated to crafting — the prior openapi lacked it too). Both fail at the branch base. Do NOT try to fix either. When a task's `go test ./...` shows ONLY these two packages failing for these reasons, treat the suite as green for that task.
 
 ---
 
