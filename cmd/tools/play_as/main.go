@@ -7345,6 +7345,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// === AUTOPILOT & EXPLORE ===
 	case "autopilot", "ap":
 		return autopilot(client, ctx, parts, format)
+	case "plan_route", "plan-route":
+		return planRoute(client, ctx, parts, format)
 	case "explore":
 		return explore(client, ctx, format)
 	case "auto_explore", "auto-explore":
@@ -8215,6 +8217,7 @@ func printHelp() {
 	fmt.Println("  find_route <system>       - Find route to system")
 	fmt.Println("  nearest <poi_type>        - Find nearest POIs by type (e.g., 'nearest station')")
 	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
+	fmt.Println("  plan_route [--return] <systems...>  - Optimal jump order to visit systems; prints autopilot cmds")
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
 	fmt.Println("  auto_explore [--max-hops N]")
 	fmt.Println("                            - Tour multiple systems: explore + jump outward, refuel at stations")
