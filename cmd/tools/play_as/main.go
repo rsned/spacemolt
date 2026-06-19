@@ -708,6 +708,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatChatHistory(raw)
 	case "craft":
 		return formatCraft(raw)
+	case "recycle":
+		return formatCraft(raw)
 	case "missions", "get_missions":
 		return formatMissions(raw)
 	case "active_missions", "get_active_missions":
@@ -1518,6 +1520,10 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionOwned(raw)
 	case "browse_for_sale":
 		return formatFacilityForSale(raw)
+	case "job_list":
+		return formatCraftQueue(unwrapActionResult(raw))
+	case "job_add", "job_cancel", "job_reorder", "set_output_price", "set_access", "upgrade":
+		return formatFacilityActionMessage(raw)
 	}
 	// Plain `facility list` lacks an action field but carries all three
 	// section keys (player_facilities + station_facilities + faction_facilities,
@@ -1535,6 +1541,32 @@ func formatFacility(raw []byte) string {
 		return formatFacilityFactionList(raw)
 	}
 	return ""
+}
+
+// formatFacilityActionMessage renders the simple {action, message, ...} result
+// of facility job/business mutations (job_add, job_cancel, job_reorder,
+// set_output_price, set_access, upgrade). It shows the action and the server's
+// human message, falling back to "" so the caller prints JSON when absent.
+func formatFacilityActionMessage(raw []byte) string {
+	var r struct {
+		Action     string `json:"action"`
+		Message    string `json:"message"`
+		JobID      string `json:"job_id"`
+		FacilityID string `json:"facility_id"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &r); err != nil {
+		return ""
+	}
+	if r.Message == "" {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🏭 facility %s: %s", r.Action, r.Message)
+	if r.JobID != "" {
+		fmt.Fprintf(&b, " (job %s)", r.JobID)
+	}
+	b.WriteString("\n")
+	return b.String()
 }
 
 // formatFacilityOwned renders a `facility owned` response (gameserver v0.347.0+):
@@ -1997,6 +2029,7 @@ func formatFacilityList(raw []byte) string {
 	type stationFacility struct {
 		Active               bool   `json:"active"`
 		Category             string `json:"category"`
+		Description          string `json:"description"`
 		FacilityID           string `json:"facility_id"`
 		Level                int    `json:"level"`
 		MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
@@ -2005,6 +2038,18 @@ func formatFacilityList(raw []byte) string {
 		RecipeID             string `json:"recipe_id"`
 		IdleReason           string `json:"idle_reason"`
 		Type                 string `json:"type"`
+		Production           *struct {
+			Recipe          string `json:"recipe"`
+			RecipeID        string `json:"recipe_id"`
+			ItemsPerHour    int    `json:"items_per_hour"`
+			OutputPerRun    int    `json:"output_per_run"`
+			TicksPerRun     int    `json:"ticks_per_run"`
+			QueuedRuns      int    `json:"queued_runs"`
+			QueuedItems     int    `json:"queued_items"`
+			BacklogTicks    int    `json:"backlog_ticks"`
+			RentalFeePerRun int    `json:"rental_fee_per_run"`
+			Public          bool   `json:"public"`
+		} `json:"production"`
 	}
 	var resp struct {
 		BaseID           string             `json:"base_id"`
@@ -2125,6 +2170,15 @@ func formatFacilityList(raw []byte) string {
 			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-5s | %-*s\n",
 				nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
 				svcW, f.Service, maint, statusW, stationFacilityStatus(f.Active, f.IdleReason))
+			if f.Production != nil {
+				p := f.Production
+				access := "private"
+				if p.Public {
+					access = "public"
+				}
+				fmt.Fprintf(&b, "      ⚙ %s — %d/hr, %d/run, %d ticks/run | rent %d/run | queued %d runs (backlog %d ticks) | %s\n",
+					p.Recipe, p.ItemsPerHour, p.OutputPerRun, p.TicksPerRun, p.RentalFeePerRun, p.QueuedRuns, p.BacklogTicks, access)
+			}
 		}
 	}
 
@@ -3562,91 +3616,188 @@ func formatMine(raw []byte) string {
 	return b.String()
 }
 
-// formatCraft formats a craft response showing outputs, inputs used from storage, and XP gained.
+// formatCraft renders the v0.389 craft/recycle job responses. The server returns
+// one of four shapes (single queued job, queue listing, bulk results, dry-run
+// quote); we probe distinguishing keys and render the matching one.
 func formatCraft(raw []byte) string {
 	raw = unwrapActionResult(raw)
-	var resp struct {
-		Recipe      string `json:"recipe"`
-		Quantity    int    `json:"quantity"`
-		FromStorage []struct {
-			ItemID   string `json:"item_id"`
-			Name     string `json:"name"`
-			Quantity int    `json:"quantity"`
-		} `json:"from_storage"`
-		Outputs []struct {
-			ItemID        string `json:"item_id"`
-			Name          string `json:"name"`
-			Quantity      int    `json:"quantity"`
-			BonusQuantity int    `json:"bonus_quantity"`
-		} `json:"outputs"`
-		XPGained        map[string]int `json:"xp_gained"`
-		LevelUp         bool           `json:"level_up"`
-		LeveledUpSkills []string       `json:"leveled_up_skills"`
-		SkillLevel      int            `json:"skill_level"`
+	var probe struct {
+		Action  string          `json:"action"`
+		DryRun  bool            `json:"dry_run"`
+		Jobs    json.RawMessage `json:"jobs"`
+		Results json.RawMessage `json:"results"`
+		JobID   string          `json:"job_id"`
 	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
+	if err := json.Unmarshal(raw, &probe); err != nil {
 		return ""
 	}
+	switch {
+	case probe.DryRun:
+		return formatCraftDryRun(raw)
+	case len(probe.Results) > 0:
+		return formatCraftBulk(raw)
+	case len(probe.Jobs) > 0:
+		return formatCraftQueue(raw)
+	case probe.JobID != "":
+		return formatCraftJobQueued(raw)
+	}
+	return ""
+}
 
+func formatCraftJobQueued(raw []byte) string {
+	var r struct {
+		JobID               string  `json:"job_id"`
+		Recipe              string  `json:"recipe"`
+		Mode                string  `json:"mode"`
+		Venue               string  `json:"venue"`
+		Runs                int     `json:"runs"`
+		EffectiveTimePerRun float64 `json:"effective_time_per_run"`
+		EstCompletionTick   int     `json:"est_completion_tick"`
+		Message             string  `json:"message"`
+		Escrowed            struct {
+			Fee    int `json:"fee"`
+			Labor  int `json:"labor"`
+			Inputs []struct {
+				Name     string `json:"name"`
+				ItemID   string `json:"item_id"`
+				Quantity int    `json:"quantity"`
+			} `json:"inputs"`
+		} `json:"escrowed"`
+		Produces []struct {
+			Name     string `json:"name"`
+			Quantity int    `json:"quantity"`
+		} `json:"produces"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
 	var b strings.Builder
+	fmt.Fprintf(&b, "🛠  Queued %s — job %s @ %s (%d runs, ~%.0fs/run, ETA tick %d)\n",
+		r.Recipe, r.JobID, r.Venue, r.Runs, r.EffectiveTimePerRun, r.EstCompletionTick)
+	for _, p := range r.Produces {
+		fmt.Fprintf(&b, "  → produces %s x %d\n", p.Name, p.Quantity)
+	}
+	if len(r.Escrowed.Inputs) > 0 {
+		b.WriteString("  Escrowed inputs:\n")
+		for _, in := range r.Escrowed.Inputs {
+			fmt.Fprintf(&b, "    %d x %s\n", in.Quantity, in.Name)
+		}
+	}
+	if r.Escrowed.Fee > 0 || r.Escrowed.Labor > 0 {
+		fmt.Fprintf(&b, "  Escrowed credits: labor %d + fee %d\n", r.Escrowed.Labor, r.Escrowed.Fee)
+	}
+	if r.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", r.Message)
+	}
+	return b.String()
+}
 
-	// Output items. When the server reports a bonus_quantity (skill proc /
-	// "lucky" outcome), spotlight it inline in bold yellow so the operator
-	// notices the extra yield without rereading the server message.
-	const ansiReset = "\033[0m"
-	const ansiBoldYellow = "\033[1;33m"
-	for _, out := range resp.Outputs {
-		if out.BonusQuantity > 0 {
-			base := out.Quantity - out.BonusQuantity
-			fmt.Fprintf(&b, "Crafted %s (%s) x %d  %s★ %d base + %d bonus — lucky!%s\n",
-				out.Name, out.ItemID, out.Quantity,
-				ansiBoldYellow, base, out.BonusQuantity, ansiReset)
+func formatCraftQueue(raw []byte) string {
+	var r struct {
+		Jobs []struct {
+			JobID         string  `json:"job_id"`
+			Recipe        string  `json:"recipe"`
+			RunsDone      int     `json:"runs_done"`
+			RunsRemaining int     `json:"runs_remaining"`
+			RunsTotal     int     `json:"runs_total"`
+			Progress      float64 `json:"progress"`
+			ETATicks      int     `json:"eta_ticks"`
+			Position      int     `json:"position"`
+			Status        string  `json:"status"`
+		} `json:"jobs"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	if len(r.Jobs) == 0 {
+		return "🛠  Crafting queue: (empty)\n"
+	}
+	fmt.Fprintf(&b, "🛠  Crafting queue (%d jobs):\n", len(r.Jobs))
+	for _, j := range r.Jobs {
+		fmt.Fprintf(&b, "  #%d %s [%s] %d/%d runs (%.0f%%) ETA %d ticks — %s\n",
+			j.Position, j.Recipe, j.JobID, j.RunsDone, j.RunsTotal, j.Progress*100, j.ETATicks, j.Status)
+	}
+	return b.String()
+}
+
+func formatCraftBulk(raw []byte) string {
+	var r struct {
+		Results []struct {
+			Index     int    `json:"index"`
+			Success   bool   `json:"success"`
+			JobID     string `json:"job_id"`
+			Recipe    string `json:"recipe"`
+			Runs      int    `json:"runs"`
+			Error     string `json:"error"`
+			ErrorCode string `json:"error_code"`
+		} `json:"results"`
+		Summary struct {
+			Total     int `json:"total"`
+			Succeeded int `json:"succeeded"`
+			Failed    int `json:"failed"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "🛠  Bulk craft: %d total, %d ok, %d failed\n",
+		r.Summary.Total, r.Summary.Succeeded, r.Summary.Failed)
+	for _, res := range r.Results {
+		if res.Success {
+			fmt.Fprintf(&b, "  ✅ [%d] %s job %s (%d runs)\n", res.Index, res.Recipe, res.JobID, res.Runs)
 		} else {
-			fmt.Fprintf(&b, "Crafted %s (%s) x %d\n", out.Name, out.ItemID, out.Quantity)
+			fmt.Fprintf(&b, "  ❌ [%d] %s — %s (%s)\n", res.Index, res.Recipe, res.Error, res.ErrorCode)
 		}
 	}
+	return b.String()
+}
 
-	// Inputs used from storage
-	if len(resp.FromStorage) > 0 {
-		b.WriteString("Used from storage:\n")
-		// Find max quantity width for alignment
-		qtyW := 0
-		for _, item := range resp.FromStorage {
-			w := len(strconv.Itoa(item.Quantity))
-			if w > qtyW {
-				qtyW = w
-			}
-		}
-		for _, item := range resp.FromStorage {
-			fmt.Fprintf(&b, "  %*d x %s\n", qtyW, item.Quantity, item.ItemID)
+func formatCraftDryRun(raw []byte) string {
+	var r struct {
+		Recipe              string  `json:"recipe"`
+		Quantity            int     `json:"quantity"`
+		Runs                int     `json:"runs"`
+		Venue               string  `json:"venue"`
+		CreditsTotal        int     `json:"credits_total"`
+		HaveInputs          bool    `json:"have_inputs"`
+		HaveCredits         bool    `json:"have_credits"`
+		EffectiveTimePerRun float64 `json:"effective_time_per_run"`
+		EstCompletionTick   int     `json:"est_completion_tick"`
+		Message             string  `json:"message"`
+		Cost                struct {
+			Fee    int `json:"fee"`
+			Labor  int `json:"labor"`
+			Inputs []struct {
+				Name     string `json:"name"`
+				Quantity int    `json:"quantity"`
+			} `json:"inputs"`
+		} `json:"cost"`
+	}
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "📋 Dry run: %s x%d → %d runs @ %s (~%.0fs/run, ETA tick %d)\n",
+		r.Recipe, r.Quantity, r.Runs, r.Venue, r.EffectiveTimePerRun, r.EstCompletionTick)
+	if len(r.Cost.Inputs) > 0 {
+		b.WriteString("  Inputs needed:\n")
+		for _, in := range r.Cost.Inputs {
+			fmt.Fprintf(&b, "    %d x %s\n", in.Quantity, in.Name)
 		}
 	}
-
-	// XP gained
-	if len(resp.XPGained) > 0 {
-		b.WriteString("\n")
-		leveledUp := make(map[string]bool, len(resp.LeveledUpSkills))
-		for _, skill := range resp.LeveledUpSkills {
-			leveledUp[skill] = true
+	fmt.Fprintf(&b, "  Credits: %d (labor %d + fee %d)\n", r.CreditsTotal, r.Cost.Labor, r.Cost.Fee)
+	okMark := func(ok bool) string {
+		if ok {
+			return "✅"
 		}
-
-		// Sort skill names for stable output
-		skills := make([]string, 0, len(resp.XPGained))
-		for skill := range resp.XPGained {
-			skills = append(skills, skill)
-		}
-		slices.Sort(skills)
-
-		for _, skill := range skills {
-			xp := resp.XPGained[skill]
-			if resp.LevelUp && leveledUp[skill] {
-				fmt.Fprintf(&b, " +%d xp %s (Level Up %d -> %d!)\n", xp, skill, resp.SkillLevel-1, resp.SkillLevel)
-			} else {
-				fmt.Fprintf(&b, " +%d xp %s\n", xp, skill)
-			}
-		}
+		return "❌"
 	}
-
+	fmt.Fprintf(&b, "  Have inputs: %s   Have credits: %s\n", okMark(r.HaveInputs), okMark(r.HaveCredits))
+	if r.Message != "" {
+		fmt.Fprintf(&b, "  %s\n", r.Message)
+	}
 	return b.String()
 }
 
@@ -5766,8 +5917,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// === CRAFTING ===
 	case "craft":
 		craftArgs, flags := partitionFlags(parts[1:])
+		// `craft queue` (or --action=queue) lists current jobs instead of queuing.
+		if (len(craftArgs) >= 1 && craftArgs[0] == "queue") || flags["action"] == "queue" {
+			return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+		}
 		if len(craftArgs) < 1 {
-			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=cargo|storage|faction]")
+			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft queue")
 		}
 		recipeID := craftArgs[0]
 		qty := 1
@@ -5780,13 +5935,83 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		deliverTo := flags["deliver_to"]
 		switch deliverTo {
-		case "", "cargo", "storage", "faction":
+		case "", "storage", "faction":
 		default:
-			return fmt.Errorf("invalid deliver_to %q (must be cargo, storage, or faction)", deliverTo)
+			return fmt.Errorf("invalid deliver_to %q (must be storage or faction)", deliverTo)
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.CraftWithOptions(ctx, recipeID, qty, deliverTo)
-		}, ctx, 5*time.Second, cmd, format)
+		preset := flags["preset"]
+		switch preset {
+		case "", "fast", "cheap", "workshop":
+		default:
+			return fmt.Errorf("invalid preset %q (must be fast, cheap, or workshop)", preset)
+		}
+		_, dryRun := flags["dry_run"]
+		facilityID := flags["facility_id"]
+		// Fast path: plain craft with no advanced flags uses the typed client
+		// method (correct async terminator, validated quantity).
+		if !dryRun && preset == "" && facilityID == "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.CraftWithOptions(ctx, recipeID, qty, deliverTo)
+			}, ctx, 5*time.Second, cmd, format)
+		}
+		// Advanced path: build the full payload and submit generically.
+		payload := map[string]any{"recipe_id": recipeID, "quantity": qty}
+		if deliverTo != "" {
+			payload["deliver_to"] = deliverTo
+		}
+		if facilityID != "" {
+			payload["facility_id"] = facilityID
+		}
+		if preset != "" {
+			payload["preset"] = preset
+		}
+		if dryRun {
+			payload["dry_run"] = true
+		}
+		return client.RawCommand(ctx, "craft", payload)
+
+	case "recycle":
+		recArgs, flags := partitionFlags(parts[1:])
+		if (len(recArgs) >= 1 && recArgs[0] == "queue") || flags["action"] == "queue" {
+			// recycle jobs appear in the shared craft queue.
+			return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
+		}
+		if len(recArgs) < 1 {
+			return fmt.Errorf("usage: recycle <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run]")
+		}
+		recipeID := recArgs[0]
+		qty := 1
+		if len(recArgs) >= 2 {
+			n, err := strconv.Atoi(recArgs[1])
+			if err != nil {
+				return fmt.Errorf("invalid quantity: %w", err)
+			}
+			qty = n
+		}
+		deliverTo := flags["deliver_to"]
+		switch deliverTo {
+		case "", "storage", "faction":
+		default:
+			return fmt.Errorf("invalid deliver_to %q (must be storage or faction)", deliverTo)
+		}
+		_, dryRun := flags["dry_run"]
+		facilityID := flags["facility_id"]
+		if !dryRun && facilityID == "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RecycleWithOptions(ctx, recipeID, qty, deliverTo)
+			}, ctx, 5*time.Second, cmd, format)
+		}
+		payload := map[string]any{"recipe_id": recipeID, "quantity": qty}
+		if deliverTo != "" {
+			payload["deliver_to"] = deliverTo
+		}
+		if facilityID != "" {
+			payload["facility_id"] = facilityID
+		}
+		if dryRun {
+			payload["dry_run"] = true
+		}
+		return client.RawCommand(ctx, "recycle", payload)
 
 	case "recipes", "get_recipes":
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
@@ -7213,8 +7438,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: facility <action> [facility_type] [--flag value...]\n" +
 				"  actions: types, build, list, owned, toggle, upgrades, upgrade,\n" +
+				"           job_add, job_list, job_cancel, job_reorder, set_output_price, set_access,\n" +
+				"           list_for_sale, browse_for_sale, buy_listing, cancel_listing,\n" +
 				"           faction_build, faction_upgrade, faction_list, faction_owned, faction_toggle,\n" +
 				"           transfer, personal_build, personal_decorate, personal_visit, help\n" +
+				"  job flags: --facility_id ID --recipe_id ID --quantity N --job_id ID --position N\n" +
+				"  business flags: --item_id ID --price N --access private|public\n" +
 				"  flags:   --show_station_facilities  (list: also show the station's own facilities)")
 		}
 		// Parse all args uniformly. First bare positional becomes the action,
@@ -7255,7 +7484,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return fmt.Errorf("facility: missing action (e.g. `facility build` or `facility action=build`)")
 		}
 		// Convert numeric string fields
-		for _, numKey := range []string{"level", "page", "per_page"} {
+		for _, numKey := range []string{"level", "page", "per_page", "quantity", "position", "price"} {
 			if v, ok := payload[numKey].(string); ok {
 				if n, err := strconv.Atoi(v); err == nil {
 					payload[numKey] = n
@@ -8240,7 +8469,9 @@ func printHelp() {
 	fmt.Println("  demand history <item> [--station id] [--limit N]   - demand price/qty trend per station")
 
 	fmt.Println("\n=== CRAFTING ===")
-	fmt.Println("  craft <recipe> [qty] [--deliver_to=cargo|storage|faction] - Craft items")
+	fmt.Println("  craft <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] - Queue a crafting job")
+	fmt.Println("  craft queue - List your current crafting jobs")
+	fmt.Println("  recycle <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run] - Queue a recycling job (lossy)")
 	fmt.Println("  recipes                   - Get available recipes")
 	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--include-ship-passive] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
