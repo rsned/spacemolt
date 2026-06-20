@@ -12,7 +12,7 @@ import (
 // 1 MiB is generous headroom against the 64 KiB bufio.Scanner default.
 const maxLineBytes = 1 << 20
 
-// Encoder writes length-delimited (newline) JSON envelopes. Safe for
+// Encoder writes newline-delimited JSON envelopes. Safe for
 // concurrent use by multiple goroutines.
 type Encoder struct {
 	mu sync.Mutex

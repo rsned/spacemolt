@@ -151,7 +151,7 @@ func main() {
 			Station: *station,
 			PID:     os.Getpid(),
 		}
-		if err := sendEnvelope(enc, control.TypeHello, *agentID, hello, logger); err != nil {
+		if err := sendEnvelope(enc, control.TypeHello, *agentID, hello); err != nil {
 			log.Fatalf("send hello: %v", err)
 		}
 		logger.Printf("sent hello")
@@ -163,7 +163,7 @@ func main() {
 				Detail:    detail,
 				Timestamp: time.Now().Format(time.RFC3339Nano),
 			}
-			if err := sendEnvelope(enc, control.TypeEvent, *agentID, evt, logger); err != nil {
+			if err := sendEnvelope(enc, control.TypeEvent, *agentID, evt); err != nil {
 				logger.Printf("warning: send reconcile_diverged event: %v", err)
 			} else {
 				logger.Printf("reconcile diverged: %s", detail)
@@ -230,7 +230,7 @@ func main() {
 				nowTick := int(nowState.CurrentTick)
 
 				status := buildStatus(nowState, standing, activeTaskID, time.Now())
-				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status, logger); sendErr != nil {
+				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
 				}
 
@@ -301,7 +301,7 @@ func buildKnownState(st *game.State, tick int) checkpoint.KnownState {
 }
 
 // sendEnvelope wraps a payload in a control.Envelope and writes it.
-func sendEnvelope(enc *control.Encoder, t control.Type, agentID string, payload any, logger *log.Logger) error {
+func sendEnvelope(enc *control.Encoder, t control.Type, agentID string, payload any) error {
 	env, err := control.NewEnvelope(t, agentID, payload)
 	if err != nil {
 		return fmt.Errorf("new envelope %s: %w", t, err)
@@ -309,6 +309,5 @@ func sendEnvelope(enc *control.Encoder, t control.Type, agentID string, payload 
 	if err := enc.Encode(env); err != nil {
 		return fmt.Errorf("encode envelope %s: %w", t, err)
 	}
-	_ = logger
 	return nil
 }

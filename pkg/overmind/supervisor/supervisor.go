@@ -34,11 +34,15 @@ func DefaultSpawn(workerBin string) SpawnFunc {
 
 // Supervisor spawns and keeps workers alive.
 type Supervisor struct {
-	server         *Server
-	fleet          *Fleet
-	specs          []WorkerSpec
-	spawn          SpawnFunc
-	logger         *log.Logger
+	server      *Server
+	fleet       *Fleet
+	specs       []WorkerSpec
+	spawn       SpawnFunc
+	logger      *log.Logger
+	// SilenceTimeout MUST exceed worst-case worker cold-start, which includes
+	// per-IP /login rate-limit throttling when many workers boot together; until
+	// the Plan B structural fix lands, a too-small value causes duplicate worker
+	// processes.
 	SilenceTimeout time.Duration
 	MaxRestarts    int
 	restarts       map[string]int
@@ -48,7 +52,7 @@ type Supervisor struct {
 func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn SpawnFunc, logger *log.Logger) *Supervisor {
 	return &Supervisor{
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
-		SilenceTimeout: 3 * game.SleepTick,
+		SilenceTimeout: 5 * game.SleepLong,
 		MaxRestarts:    100,
 		restarts:       make(map[string]int),
 	}
@@ -107,6 +111,10 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 			s.logger.Printf("restarting worker %q (seen=%v)", spec.AgentID, seen)
 			s.fleet.MarkRestart(spec.AgentID)
 			s.launch(ctx, spec)
+		} else {
+			// Worker is connected and healthy — clear its crash-loop counter so
+			// MaxRestarts bounds restarts-per-incident, not lifetime restarts.
+			delete(s.restarts, spec.AgentID)
 		}
 	}
 }

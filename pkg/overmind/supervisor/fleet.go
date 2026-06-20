@@ -2,7 +2,8 @@
 package supervisor
 
 import (
-	"sort"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,7 +76,7 @@ func (f *Fleet) Snapshot() []WorkerInfo {
 	for _, w := range f.workers {
 		out = append(out, *w)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].AgentID < out[j].AgentID })
+	slices.SortFunc(out, func(a, b WorkerInfo) int { return strings.Compare(a.AgentID, b.AgentID) })
 	return out
 }
 
