@@ -154,3 +154,113 @@ func isBusyError(err error) bool {
 		strings.Contains(msg, "database is busy") ||
 		strings.Contains(msg, "SQLITE_BUSY")
 }
+
+// upsertStation adds or updates a station record.
+func (c *Collector) upsertStation(tx *sql.Tx, s Station) error {
+	_, err := tx.Exec(`
+		INSERT INTO stations (station_id, station_name, system_id, system_name, first_seen_utc, last_updated_utc)
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(station_id) DO UPDATE SET
+			station_name = excluded.station_name,
+			system_id = excluded.system_id,
+			system_name = excluded.system_name,
+			last_updated_utc = excluded.last_updated_utc
+	`, s.StationID, s.StationName, s.SystemID, s.SystemName, s.FirstSeenUTC, s.LastUpdatedUTC)
+	return err
+}
+
+// upsertItem adds or updates an item record.
+func (c *Collector) upsertItem(tx *sql.Tx, item Item) error {
+	_, err := tx.Exec(`
+		INSERT INTO items (item_id, item_name, category, first_seen_utc, last_updated_utc)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(item_id) DO UPDATE SET
+			item_name = excluded.item_name,
+			category = excluded.category,
+			last_updated_utc = excluded.last_updated_utc
+	`, item.ItemID, item.ItemName, item.Category, item.FirstSeenUTC, item.LastUpdatedUTC)
+	return err
+}
+
+// insertOrders adds order rows within a transaction.
+func (c *Collector) insertOrders(tx *sql.Tx, orders []Order) error {
+	if len(orders) == 0 {
+		return nil
+	}
+	stmt, err := tx.Prepare(`
+		INSERT INTO market_orders (station_id, item_id, side, price_each, quantity, my_quantity, source, captured_at, bucket_utc)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = stmt.Close() }()
+
+	for _, o := range orders {
+		if _, err := stmt.Exec(o.StationID, o.ItemID, o.Side, o.PriceEach, o.Quantity, o.MyQuantity, o.Source, o.CapturedAt.UTC().Format(time.RFC3339), o.BucketUTC); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WriteSnapshot persists a market snapshot atomically.
+func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	bucketUTC := snapshot.CapturedAt.UTC().Truncate(time.Hour).Format(time.RFC3339)
+
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		// Upsert station
+		if err := c.upsertStation(tx, Station{
+			StationID:      snapshot.StationID,
+			StationName:    snapshot.StationName,
+			SystemID:       snapshot.SystemID,
+			SystemName:     snapshot.SystemName,
+			FirstSeenUTC:   now,
+			LastUpdatedUTC: now,
+		}); err != nil {
+			return fmt.Errorf("upsert station: %w", err)
+		}
+
+		// Group orders by item for upsert (first non-empty ItemName wins)
+		itemMap := make(map[string]Item)
+		for _, o := range snapshot.Orders {
+			existing, ok := itemMap[o.ItemID]
+			if !ok {
+				itemMap[o.ItemID] = Item{
+					ItemID:         o.ItemID,
+					ItemName:       o.ItemName,
+					Category:       "",
+					FirstSeenUTC:   now,
+					LastUpdatedUTC: now,
+				}
+				continue
+			}
+			if existing.ItemName == "" && o.ItemName != "" {
+				existing.ItemName = o.ItemName
+				itemMap[o.ItemID] = existing
+			}
+		}
+
+		// Upsert items
+		for _, item := range itemMap {
+			if err := c.upsertItem(tx, item); err != nil {
+				return fmt.Errorf("upsert item %s: %w", item.ItemID, err)
+			}
+		}
+
+		// Set bucket UTC on all orders
+		ordersWithBucket := make([]Order, len(snapshot.Orders))
+		for i, o := range snapshot.Orders {
+			ordersWithBucket[i] = o
+			ordersWithBucket[i].BucketUTC = bucketUTC
+		}
+
+		// Insert orders
+		if err := c.insertOrders(tx, ordersWithBucket); err != nil {
+			return fmt.Errorf("insert orders: %w", err)
+		}
+
+		return nil
+	})
+}

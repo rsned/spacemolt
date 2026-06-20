@@ -90,6 +90,89 @@ func TestWriteRetry_PropagatesNonBusyError(t *testing.T) {
 	}
 }
 
+func TestWriteSnapshot(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	collector, err := Open(Config{DBPath: dbPath})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if cerr := collector.Close(); cerr != nil {
+			t.Errorf("Close failed: %v", cerr)
+		}
+	})
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	snapshot := MarketSnapshot{
+		StationID:   "station_test",
+		StationName: "Test Station",
+		SystemID:    "system_test",
+		SystemName:  "Test System",
+		CapturedAt:  now,
+		Orders: []Order{
+			{
+				StationID:  "station_test",
+				ItemID:     "iron",
+				ItemName:   "Iron Ore",
+				Side:       "buy",
+				PriceEach:  100.0,
+				Quantity:   500.0,
+				MyQuantity: 0,
+				Source:     "player",
+				CapturedAt: now,
+			},
+			{
+				StationID:  "station_test",
+				ItemID:     "copper",
+				ItemName:   "Copper Ore",
+				Side:       "sell",
+				PriceEach:  200.0,
+				Quantity:   300.0,
+				MyQuantity: 0,
+				Source:     "station",
+				CapturedAt: now,
+			},
+		},
+	}
+
+	if err := collector.WriteSnapshot(ctx, snapshot); err != nil {
+		t.Fatalf("WriteSnapshot failed: %v", err)
+	}
+
+	// Verify station was written
+	var stationName string
+	err = collector.db.QueryRow("SELECT station_name FROM stations WHERE station_id = ?", "station_test").Scan(&stationName)
+	if err != nil {
+		t.Fatalf("Query station failed: %v", err)
+	}
+	if stationName != "Test Station" {
+		t.Errorf("station_name = %q, want %q", stationName, "Test Station")
+	}
+
+	// Verify items were written
+	var itemCount int
+	err = collector.db.QueryRow("SELECT COUNT(*) FROM items").Scan(&itemCount)
+	if err != nil {
+		t.Fatalf("Count items failed: %v", err)
+	}
+	if itemCount != 2 {
+		t.Errorf("item_count = %d, want 2", itemCount)
+	}
+
+	// Verify orders were written
+	var orderCount int
+	err = collector.db.QueryRow("SELECT COUNT(*) FROM market_orders WHERE station_id = ?", "station_test").Scan(&orderCount)
+	if err != nil {
+		t.Fatalf("Count orders failed: %v", err)
+	}
+	if orderCount != 2 {
+		t.Errorf("order_count = %d, want 2", orderCount)
+	}
+}
+
 func TestIsBusyError(t *testing.T) {
 	tests := []struct {
 		name string

@@ -25,6 +25,7 @@ type Station struct {
 type Order struct {
 	StationID  string    `json:"station_id"`
 	ItemID     string    `json:"item_id"`
+	ItemName   string    `json:"item_name"`
 	Side       string    `json:"side"` // "buy" or "sell"
 	PriceEach  float64   `json:"price_each"`
 	Quantity   float64   `json:"quantity"`
@@ -75,10 +76,10 @@ type ArbitrageOpportunity struct {
 
 // MarketSnapshot represents a complete market state at one station.
 type MarketSnapshot struct {
-	StationID   string  `json:"station_id"`
-	StationName string  `json:"station_name"`
-	SystemID    string  `json:"system_id"`
-	SystemName  string  `json:"system_name"`
-	Orders      []Order `json:"orders"`
-	CapturedAt  string  `json:"captured_at"`
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	SystemID    string    `json:"system_id"`
+	SystemName  string    `json:"system_name"`
+	Orders      []Order   `json:"orders"`
+	CapturedAt  time.Time `json:"captured_at"`
 }
