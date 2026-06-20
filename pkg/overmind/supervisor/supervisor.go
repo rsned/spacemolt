@@ -1,0 +1,102 @@
+package supervisor
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os/exec"
+	"time"
+
+	"github.com/rsned/spacemolt/pkg/game"
+)
+
+// SpawnFunc starts a worker process for spec, told to dial socket.
+type SpawnFunc func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error)
+
+// DefaultSpawn returns a SpawnFunc that launches workerBin with flags.
+func DefaultSpawn(workerBin string) SpawnFunc {
+	return func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
+		cmd := exec.CommandContext(ctx,
+			workerBin,
+			"--agent", spec.AgentID,
+			"--role", spec.Role,
+			"--station", spec.Station,
+			"--socket", socket,
+		)
+		cmd.Stdout = log.Writer()
+		cmd.Stderr = log.Writer()
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("supervisor: start worker %q: %w", spec.AgentID, err)
+		}
+		return cmd, nil
+	}
+}
+
+// Supervisor spawns and keeps workers alive.
+type Supervisor struct {
+	server         *Server
+	fleet          *Fleet
+	specs          []WorkerSpec
+	spawn          SpawnFunc
+	logger         *log.Logger
+	SilenceTimeout time.Duration
+	MaxRestarts    int
+}
+
+// NewSupervisor wires a supervisor. server may be nil in tests.
+func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn SpawnFunc, logger *log.Logger) *Supervisor {
+	return &Supervisor{
+		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
+		SilenceTimeout: 3 * game.SleepTick,
+		MaxRestarts:    100,
+	}
+}
+
+func (s *Supervisor) socket() string {
+	if s.server == nil {
+		return ""
+	}
+	return s.server.Addr()
+}
+
+// Run spawns each spec, then periodically restarts silent/dead workers.
+func (s *Supervisor) Run(ctx context.Context) error {
+	for _, spec := range s.specs {
+		s.launch(ctx, spec)
+	}
+	ticker := time.NewTicker(game.SleepMedium)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			s.reapAndRestart(ctx)
+		}
+	}
+}
+
+func (s *Supervisor) launch(ctx context.Context, spec WorkerSpec) {
+	if _, err := s.spawn(ctx, spec, s.socket()); err != nil {
+		s.logger.Printf("spawn %q failed: %v", spec.AgentID, err)
+	}
+}
+
+func (s *Supervisor) reapAndRestart(ctx context.Context) {
+	now := time.Now()
+	healthy := make(map[string]WorkerInfo)
+	for _, w := range s.fleet.Snapshot() {
+		healthy[w.AgentID] = w
+	}
+	for _, spec := range s.specs {
+		w, seen := healthy[spec.AgentID]
+		if !seen || NeedsRestart(w, now, s.SilenceTimeout) {
+			if seen && w.Restarts >= s.MaxRestarts {
+				continue
+			}
+			s.logger.Printf("restarting worker %q (seen=%v)", spec.AgentID, seen)
+			s.fleet.MarkRestart(spec.AgentID)
+			s.launch(ctx, spec)
+		}
+	}
+}
