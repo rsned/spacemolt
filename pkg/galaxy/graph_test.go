@@ -86,6 +86,10 @@ func (m *mockKB) RecordSightings(_ []knowledge.SeenPlayer) error {
 	return nil
 }
 
+func (m *mockKB) RecordPassengers(_ []knowledge.SeenPassenger) error {
+	return nil
+}
+
 func (m *mockKB) GetSystems(ctx context.Context) ([]knowledge.System, error) {
 	return m.systems, nil
 }
