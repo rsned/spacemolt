@@ -602,7 +602,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 
 		// Handle scripts (list saved scripts)
 		if command == "scripts" {
-			perAgent, shared := listScripts(agentID)
+			perAgent, shared := worker.ListScripts(agentID)
 			if len(perAgent) == 0 && len(shared) == 0 {
 				fmt.Println("No scripts found.")
 			} else {
@@ -634,7 +634,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			case lastCommand == "":
 				fmt.Println("❌ save: no previous command to save")
 			default:
-				if err := saveScript(parts[1], lastCommand); err != nil {
+				if err := worker.SaveScript(parts[1], lastCommand); err != nil {
 					fmt.Printf("❌ %v\n", err)
 				} else {
 					fmt.Printf("✓ saved script %q\n", parts[1])
@@ -9628,10 +9628,10 @@ func isTankFullError(err error) bool {
 // commands in order. Execution stops at the first command that returns a
 // stopping error (non-force loop failure or fatal *tokenError).
 func runScript(client game.GameClient, ctx context.Context, arg string, format outputFormat, cfg PlayAsConfig, agentID string) {
-	path, ok := resolveScriptArg(arg, agentID)
+	path, ok := worker.ResolveScriptArg(arg, agentID)
 	if !ok {
 		fmt.Printf("❌ script %q not found (searched %s)\n",
-			arg, strings.Join(scriptSearchPaths(agentID), ", "))
+			arg, strings.Join(worker.ScriptSearchPaths(agentID), ", "))
 		return
 	}
 	data, err := os.ReadFile(path)
@@ -9639,7 +9639,7 @@ func runScript(client game.GameClient, ctx context.Context, arg string, format o
 		fmt.Printf("❌ run: %v\n", err)
 		return
 	}
-	cmds, err := splitScriptCommands(string(data))
+	cmds, err := worker.SplitScriptCommands(string(data))
 	if err != nil {
 		fmt.Printf("❌ run %s: %v\n", path, err)
 		return

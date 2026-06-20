@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"fmt"
@@ -6,17 +6,15 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // scriptExt is the file extension for saved play_as scripts.
 const scriptExt = ".smolt"
 
-// scriptSearchPaths returns the script directories searched by bare-name
+// ScriptSearchPaths returns the script directories searched by bare-name
 // resolution, in precedence order: per-agent first (shadows shared), then the
 // shared library.
-func scriptSearchPaths(agentID string) []string {
+func ScriptSearchPaths(agentID string) []string {
 	return []string{
 		filepath.Join("data", "agents", agentID, "scripts"),
 		filepath.Join("data", "scripts"),
@@ -29,17 +27,17 @@ func isExplicitScriptPath(arg string) bool {
 	return strings.Contains(arg, "/") || strings.HasSuffix(arg, scriptExt)
 }
 
-// resolveScriptArg maps a `run` argument to a file path. An explicit path
+// ResolveScriptArg maps a `run` argument to a file path. An explicit path
 // (see isExplicitScriptPath) is used verbatim if it exists. A bare name is
 // resolved as "<dir>/<name>.smolt" against scriptSearchPaths in order.
-func resolveScriptArg(arg, agentID string) (string, bool) {
+func ResolveScriptArg(arg, agentID string) (string, bool) {
 	if isExplicitScriptPath(arg) {
 		if st, err := os.Stat(arg); err == nil && !st.IsDir() {
 			return arg, true
 		}
 		return "", false
 	}
-	for _, dir := range scriptSearchPaths(agentID) {
+	for _, dir := range ScriptSearchPaths(agentID) {
 		p := filepath.Join(dir, arg+scriptExt)
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
 			return p, true
@@ -48,11 +46,11 @@ func resolveScriptArg(arg, agentID string) (string, bool) {
 	return "", false
 }
 
-// splitScriptCommands splits a script file's content into logical commands.
+// SplitScriptCommands splits a script file's content into logical commands.
 // Top-level blank lines and '#' comment lines are skipped; a multi-line block
 // (e.g. a loop { ... }) is kept together until its braces balance, using the
 // same brace/quote scanning the REPL uses for multi-line prompt input.
-func splitScriptCommands(content string) ([]string, error) {
+func SplitScriptCommands(content string) ([]string, error) {
 	var cmds []string
 	var cur strings.Builder
 	flush := func() {
@@ -73,7 +71,7 @@ func splitScriptCommands(content string) ([]string, error) {
 			cur.WriteByte('\n')
 		}
 		cur.WriteString(ln)
-		depth, inQuote := worker.ScanBraceDepth(cur.String())
+		depth, inQuote := ScanBraceDepth(cur.String())
 		if depth < 0 {
 			return nil, fmt.Errorf("unbalanced braces in script")
 		}
@@ -82,7 +80,7 @@ func splitScriptCommands(content string) ([]string, error) {
 		}
 	}
 	if cur.Len() > 0 {
-		depth, inQuote := worker.ScanBraceDepth(cur.String())
+		depth, inQuote := ScanBraceDepth(cur.String())
 		if depth != 0 || inQuote {
 			return nil, fmt.Errorf("unbalanced braces in script")
 		}
@@ -103,9 +101,9 @@ func validateScriptName(name string) error {
 	return nil
 }
 
-// saveScript writes content to the shared scripts dir as "<name>.smolt",
+// SaveScript writes content to the shared scripts dir as "<name>.smolt",
 // creating the directory if needed. A trailing newline is appended.
-func saveScript(name, content string) error {
+func SaveScript(name, content string) error {
 	if err := validateScriptName(name); err != nil {
 		return err
 	}
@@ -120,9 +118,9 @@ func saveScript(name, content string) error {
 	return nil
 }
 
-// listScripts returns the sorted script names (without extension) in the
+// ListScripts returns the sorted script names (without extension) in the
 // per-agent and shared directories.
-func listScripts(agentID string) (perAgent, shared []string) {
+func ListScripts(agentID string) (perAgent, shared []string) {
 	read := func(dir string) []string {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -138,6 +136,6 @@ func listScripts(agentID string) (perAgent, shared []string) {
 		slices.Sort(names)
 		return names
 	}
-	paths := scriptSearchPaths(agentID)
+	paths := ScriptSearchPaths(agentID)
 	return read(paths[0]), read(paths[1])
 }
