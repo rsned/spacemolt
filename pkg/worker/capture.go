@@ -313,8 +313,9 @@ func aggregateSupplyHistory(orders []knowledge.MarketSellOrderRow, now time.Time
 	return out
 }
 
-// KBUpdateSystem fetches the current system data and saves it to the knowledge base.
-func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
+// KBUpdateSystem fetches the current system data and saves it to the knowledge
+// base. detectedBy records which agent observed the data (POI provenance).
+func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")
 	}
@@ -363,6 +364,7 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 				Y: poi.Position.Y,
 			},
 			LastUpdatedTick: currentTick(state),
+			DetectedBy:      detectedBy,
 		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("  Warning: failed to save POI %s: %v\n", poi.Name, err)
@@ -377,7 +379,8 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 }
 
 // KBUpdatePOI fetches current POI data and saves it to the knowledge base.
-func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
+// detectedBy records which agent observed the data (POI provenance).
+func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")
 	}
@@ -413,6 +416,7 @@ func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base)
 		Hidden:           poiResp.POI.Hidden,
 		RevealDifficulty: poiResp.POI.RevealDifficulty,
 		LastUpdatedTick:  currentTick(state),
+		DetectedBy:       detectedBy,
 	}
 
 	// Extract resources if present.
@@ -622,15 +626,16 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 
 // KBUpdateAll runs update_system, update_poi, and (if docked) update_station and
 // update_facilities. It does NOT run update_missions (that is play_as-specific).
-func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
+// detectedBy records which agent observed the system/POI data (provenance).
+func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")
 	}
 
-	if err := KBUpdateSystem(ctx, client, kb); err != nil {
+	if err := KBUpdateSystem(ctx, client, kb, detectedBy); err != nil {
 		fmt.Printf("Warning: update_system: %v\n", err)
 	}
-	if err := KBUpdatePOI(ctx, client, kb); err != nil {
+	if err := KBUpdatePOI(ctx, client, kb, detectedBy); err != nil {
 		fmt.Printf("Warning: update_poi: %v\n", err)
 	}
 

@@ -98,12 +98,31 @@ func formatObjectivesJSON(jsonStr string) (string, error) {
 
 // kbUpdateSystem fetches the current system data and saves it to the knowledge base.
 func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
-	return worker.KBUpdateSystem(ctx, client, globalKB)
+	return worker.KBUpdateSystem(ctx, client, globalKB, globalAgentID)
 }
 
-// kbUpdatePOI fetches current POI data and saves it to the knowledge base.
+// kbUpdatePOI fetches current POI data and saves it to the knowledge base, then
+// preserves the play_as intel-file side effect (write the raw get_poi payload to
+// an intel file for the faction intel terminal).
 func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
-	return worker.KBUpdatePOI(ctx, client, globalKB)
+	if err := worker.KBUpdatePOI(ctx, client, globalKB, globalAgentID); err != nil {
+		return err
+	}
+	// Preserve the play_as intel-file side effect. The client still holds the raw
+	// "poi" JSON from the GetPOI that worker.KBUpdatePOI performed. This is a
+	// best-effort side effect: a missing/malformed payload is silently skipped
+	// since the KB write (the function's contract) already succeeded.
+	rawJSON := client.GetRawJSON("poi")
+	var poiResp serverapi.GetPOIResponse
+	if rawJSON != nil && json.Unmarshal(rawJSON, &poiResp) == nil {
+		state := client.GetState()
+		if path, err := saveIntelPOI(state.System.ID, poiResp.POI.ID, rawJSON); err != nil {
+			fmt.Printf("Warning: failed to write intel file: %v\n", err)
+		} else if path != "" {
+			fmt.Printf("Saved intel: %s\n", path)
+		}
+	}
+	return nil
 }
 
 // kbUpdateStation fetches base details, market listings, and ship listings at the
@@ -121,7 +140,7 @@ func kbUpdateFacilities(client game.GameClient, ctx context.Context) error {
 // kbUpdateAll runs update_system, update_poi, and (if docked) update_station,
 // update_facilities, and update_missions.
 func kbUpdateAll(client game.GameClient, ctx context.Context) error {
-	if err := worker.KBUpdateAll(ctx, client, globalKB); err != nil {
+	if err := worker.KBUpdateAll(ctx, client, globalKB, globalAgentID); err != nil {
 		return err
 	}
 	state := client.GetState()
