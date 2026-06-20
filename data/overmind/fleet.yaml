@@ -1,0 +1,9 @@
+# Overmind fleet roster. role is a label in Plan A; standing behaviors per
+# role arrive in Plan B (data/overmind/roles.yaml).
+workers:
+  - agent_id: resident-nebula-1
+    role: resident
+    station: STN-NEB-1
+  - agent_id: resident-nebula-2
+    role: resident
+    station: STN-NEB-2
