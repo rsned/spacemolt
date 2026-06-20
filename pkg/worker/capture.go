@@ -438,8 +438,9 @@ func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base,
 }
 
 // KBUpdateStation fetches base details, market listings, and ship listings at the
-// current station and saves them to the knowledge base.
-func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
+// current station and saves them to the knowledge base. source is the tool tag
+// recorded as the origin of the captured data (e.g. "play_as" or "worker").
+func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.Base, source string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")
 	}
@@ -462,7 +463,7 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 
 		rawJSON := client.GetRawJSON("base")
 		if rawJSON != nil {
-			base, err := knowledge.BaseDataFromRawJSON(rawJSON, "worker", currentTick(state))
+			base, err := knowledge.BaseDataFromRawJSON(rawJSON, source, currentTick(state))
 			if err != nil {
 				fmt.Printf("Warning: failed to parse base data: %v\n", err)
 			} else {
@@ -495,7 +496,7 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 
 		listings := client.GetMarketListings()
 		snapshot := convertMarketListings(systemID, systemName, poiID, poiName, currentTick(state), listings)
-		if err := kb.StoreMarketSnapshot(ctx, snapshot, "worker"); err != nil {
+		if err := kb.StoreMarketSnapshot(ctx, snapshot, source); err != nil {
 			fmt.Printf("Warning: failed to save market snapshot: %v\n", err)
 		} else {
 			fmt.Printf("Saved market snapshot: %d listings\n", len(listings))
@@ -521,7 +522,7 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 					GameTick:    currentTick(state),
 					Listings:    ships,
 				}
-				if err := kb.StoreShipListings(ctx, shipListings, "worker"); err != nil {
+				if err := kb.StoreShipListings(ctx, shipListings, source); err != nil {
 					fmt.Printf("Warning: failed to save ship listings: %v\n", err)
 				} else {
 					fmt.Printf("Saved ship listings: %d ships\n", len(ships))
@@ -641,7 +642,7 @@ func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base,
 
 	state := client.GetState()
 	if state.Doc {
-		if err := KBUpdateStation(ctx, client, kb); err != nil {
+		if err := KBUpdateStation(ctx, client, kb, "worker"); err != nil {
 			fmt.Printf("Warning: update_station: %v\n", err)
 		}
 		if err := KBUpdateFacilities(ctx, client, kb); err != nil {

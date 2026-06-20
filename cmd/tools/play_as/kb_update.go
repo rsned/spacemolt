@@ -128,7 +128,7 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 // kbUpdateStation fetches base details, market listings, and ship listings at the
 // current station and saves them to the knowledge base.
 func kbUpdateStation(client game.GameClient, ctx context.Context) error {
-	return worker.KBUpdateStation(ctx, client, globalKB)
+	return worker.KBUpdateStation(ctx, client, globalKB, "play_as")
 }
 
 // kbUpdateFacilities fetches facility details via 'facility list' and saves enriched
@@ -138,16 +138,32 @@ func kbUpdateFacilities(client game.GameClient, ctx context.Context) error {
 }
 
 // kbUpdateAll runs update_system, update_poi, and (if docked) update_station,
-// update_facilities, and update_missions.
+// update_facilities, and update_missions. It calls the local play_as wrappers
+// (not worker.KBUpdateAll) so kbUpdatePOI's intel-file side effect runs and the
+// "play_as" source tag is preserved.
 func kbUpdateAll(client game.GameClient, ctx context.Context) error {
-	if err := worker.KBUpdateAll(ctx, client, globalKB, globalAgentID); err != nil {
-		return err
+	if globalKB == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+	if err := kbUpdateSystem(client, ctx); err != nil {
+		fmt.Printf("Warning: update_system: %v\n", err)
+	}
+	if err := kbUpdatePOI(client, ctx); err != nil {
+		fmt.Printf("Warning: update_poi: %v\n", err)
 	}
 	state := client.GetState()
 	if state.Doc {
+		if err := kbUpdateStation(client, ctx); err != nil {
+			fmt.Printf("Warning: update_station: %v\n", err)
+		}
+		if err := kbUpdateFacilities(client, ctx); err != nil {
+			fmt.Printf("Warning: update_facilities: %v\n", err)
+		}
 		if err := kbUpdateMissions(client, ctx); err != nil {
 			fmt.Printf("Warning: update_missions: %v\n", err)
 		}
+	} else {
+		fmt.Println("(Not docked — skipping station/facilities update)")
 	}
 	return nil
 }
