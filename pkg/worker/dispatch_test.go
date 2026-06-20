@@ -32,19 +32,42 @@ func (f *fakeClient) Travel(ctx context.Context, poi string) (*game.TravelResult
 	f.calls = append(f.calls, "travel:"+poi)
 	return &game.TravelResult{}, nil
 }
+func (f *fakeClient) GetStatus(ctx context.Context) error {
+	f.calls = append(f.calls, "get_status")
+	return nil
+}
+func (f *fakeClient) GetSystem(ctx context.Context) error {
+	f.calls = append(f.calls, "get_system")
+	return nil
+}
+func (f *fakeClient) GetCargo(ctx context.Context) error {
+	f.calls = append(f.calls, "get_cargo")
+	return nil
+}
 func (f *fakeClient) GetState() *game.State { return f.state }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}
 	d := NewWorkerDispatch(f, nil, io.Discard)
-	for _, tc := range [][]string{{"undock"}, {"mine"}, {"dock"}, {"refuel"}, {"deposit_all"}} {
+	for _, tc := range [][]string{
+		{"undock"}, {"mine"}, {"dock"}, {"refuel"}, {"deposit_all"},
+		{"sell_all"}, {"repair"}, {"get_status"}, {"get_system"}, {"get_cargo"},
+	} {
 		if err := d.Run(context.Background(), tc); err != nil {
 			t.Fatalf("Run(%v): %v", tc, err)
 		}
 	}
-	want := []string{"undock", "mine", "dock", "refuel", "deposit_all"}
+	want := []string{
+		"undock", "mine", "dock", "refuel", "deposit_all",
+		"sell_all", "repair", "get_status", "get_system", "get_cargo",
+	}
 	if len(f.calls) != len(want) {
 		t.Fatalf("calls=%v want=%v", f.calls, want)
+	}
+	for i, got := range f.calls {
+		if got != want[i] {
+			t.Errorf("call %d = %q, want %q", i, got, want[i])
+		}
 	}
 }
 
