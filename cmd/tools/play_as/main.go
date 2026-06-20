@@ -6149,8 +6149,19 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
 			}, ctx, 0, cmd, format)
 		}
+		// `craft --file <path>` reads a JSON array of job objects and submits
+		// them as a single bulk request (each job queued independently).
+		if path := flags["file"]; path != "" {
+			jobs, err := loadCraftJobs(path)
+			if err != nil {
+				return err
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.CraftBulk(ctx, jobs)
+			}, ctx, 5*time.Second, cmd, format)
+		}
 		if len(craftArgs) < 1 {
-			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft queue")
+			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft --file <path.json> | craft queue")
 		}
 		recipeID := craftArgs[0]
 		qty := 1

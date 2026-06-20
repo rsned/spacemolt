@@ -131,6 +131,37 @@ func (c *Client) CraftWithOptions(ctx context.Context, recipeID string, quantity
 	return err
 }
 
+// MaxCraftBulkJobs is the server-enforced ceiling on jobs per bulk craft request.
+const MaxCraftBulkJobs = 50
+
+// CraftBulk queues many craft (or recycle) jobs in a single request. Each entry
+// is a job object of the same shape the server documents for craft's "jobs"
+// param: {recipe_id, quantity, facility_id?, preset?, deliver_to?}. Top-level
+// recipe_id/quantity are ignored in bulk mode; each job is queued independently
+// (partial success), so a single bad entry does not fail the others. Bulk mode
+// is not compatible with dry_run. The server caps a request at MaxCraftBulkJobs.
+func (c *Client) CraftBulk(ctx context.Context, jobs []map[string]any) error {
+	if len(jobs) == 0 {
+		return fmt.Errorf("craft bulk requires at least one job")
+	}
+	if len(jobs) > MaxCraftBulkJobs {
+		return fmt.Errorf("too many jobs: %d (max %d per request)", len(jobs), MaxCraftBulkJobs)
+	}
+
+	msg := protocol.Message{
+		Type:      "craft",
+		Payload:   map[string]any{"jobs": jobs},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	// Like single craft (v0.389+), the server replies with a single terminal ok
+	// carrying the bulk result body; terminate on that.
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = h.Result(ctx)
+	}
+	return err
+}
+
 // QueryCraftableRecipes queries the crafting MCP server to find what can be crafted
 // with the current cargo and skills.
 func (c *Client) QueryCraftableRecipes(ctx context.Context, config *CraftingConfig) (*CraftQueryResult, error) {

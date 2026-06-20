@@ -54,6 +54,7 @@ type GameClient interface {
 	// Crafting
 	CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error
 	CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error
+	CraftBulk(ctx context.Context, jobs []map[string]any) error
 	GetRecipes(ctx context.Context) error
 	Recycle(ctx context.Context, recipeID string, quantity int) error
 	RecycleWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error

@@ -408,6 +408,14 @@ func (m *MCPGameClient) CraftWithOptions(ctx context.Context, recipeID string, q
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) CraftBulk(ctx context.Context, jobs []map[string]any) error {
+	result, err := m.callTool(ctx, "craft", map[string]any{"jobs": jobs})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
 	return m.RecycleWithOptions(ctx, recipeID, quantity, "")
 }

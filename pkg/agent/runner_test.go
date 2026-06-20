@@ -179,6 +179,10 @@ func (m *mockGameClient) CraftWithOptions(ctx context.Context, recipeID string, 
 	m.actionsRecorded = append(m.actionsRecorded, "craft:"+recipeID)
 	return nil
 }
+func (m *mockGameClient) CraftBulk(ctx context.Context, jobs []map[string]any) error {
+	m.actionsRecorded = append(m.actionsRecorded, "craft_bulk")
+	return nil
+}
 func (m *mockGameClient) GetRecipes(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_recipes")
 	return nil
