@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"errors"
@@ -43,7 +43,7 @@ func TestResolveTokens(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := resolveTokens(tc.in, st)
+			got, err := ResolveTokens(tc.in, st)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -70,13 +70,13 @@ func TestResolveTokensErrors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := resolveTokens(tc.in, st)
+			_, err := ResolveTokens(tc.in, st)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
-			var te *tokenError
+			var te *TokenError
 			if !errors.As(err, &te) {
-				t.Fatalf("expected *tokenError, got %T: %v", err, err)
+				t.Fatalf("expected *TokenError, got %T: %v", err, err)
 			}
 		})
 	}

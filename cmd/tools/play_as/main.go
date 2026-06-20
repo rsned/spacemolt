@@ -5589,7 +5589,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// via runLoopSingle, and block loops via the runStatement closure), so token
 	// substitution works uniformly everywhere. An unresolved token returns a
 	// *tokenError, which loops treat as a fatal abort.
-	resolved, rerr := resolveTokens(parts, client.GetState())
+	resolved, rerr := worker.ResolveTokens(parts, client.GetState())
 	if rerr != nil {
 		return rerr
 	}
@@ -8583,7 +8583,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 					runStatement := func(tokens []string) error {
 						return executeCommand(client, ctx, tokens, format)
 					}
-					resultErr = executeLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
+					resultErr = worker.ExecuteLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
 				}
 			}
 		}
@@ -8662,7 +8662,7 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 				fmt.Printf("🎯 goal reached: %s → exiting loop\n", goal.Message)
 				break
 			}
-			var tokErr *tokenError
+			var tokErr *worker.TokenError
 			if errors.As(cerr, &tokErr) {
 				fmt.Printf("❌ %s → aborting loop\n", tokErr)
 				stopErr = cerr

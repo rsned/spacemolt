@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"context"
@@ -8,21 +8,20 @@ import (
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/worker"
 )
 
-// executeLoop runs count iterations of body. For each statement whose
-// first token is "loop", worker.ParseLoopHeader + worker.ParseStatements is applied
-// and executeLoop recurses; otherwise runStatement is called. Each loop
+// ExecuteLoop runs count iterations of body. For each statement whose
+// first token is "loop", ParseLoopHeader + ParseStatements is applied
+// and ExecuteLoop recurses; otherwise runStatement is called. Each loop
 // enforces errors according to its own force flag: a loop with force
 // continues past errors and returns nil; a loop without force returns
 // the first error. depth controls indentation of status lines.
-func executeLoop(
+func ExecuteLoop(
 	ctx context.Context,
 	out io.Writer,
 	count int,
 	force bool,
-	body []worker.Statement,
+	body []Statement,
 	depth int,
 	runStatement func(tokens []string) error,
 ) error {
@@ -40,18 +39,18 @@ func executeLoop(
 			var err error
 			isLoop := len(stmt.Tokens) > 0 && strings.ToLower(stmt.Tokens[0]) == "loop"
 			if isLoop {
-				innerCount, innerForce, innerBody, isBlock, perr := worker.ParseLoopHeader(stmt)
+				innerCount, innerForce, innerBody, isBlock, perr := ParseLoopHeader(stmt)
 				if perr != nil {
 					err = perr
 				} else {
-					var innerStmts []worker.Statement
+					var innerStmts []Statement
 					if isBlock {
-						innerStmts, err = worker.ParseStatements(innerBody)
+						innerStmts, err = ParseStatements(innerBody)
 					} else {
-						innerStmts = []worker.Statement{{Raw: innerBody, Tokens: worker.SplitArgs(innerBody)}}
+						innerStmts = []Statement{{Raw: innerBody, Tokens: SplitArgs(innerBody)}}
 					}
 					if err == nil {
-						err = executeLoop(ctx, out, innerCount, innerForce, innerStmts, depth+1, runStatement)
+						err = ExecuteLoop(ctx, out, innerCount, innerForce, innerStmts, depth+1, runStatement)
 					}
 				}
 			} else {
@@ -68,10 +67,10 @@ func executeLoop(
 					fmt.Fprintf(out, "%s🎯 goal reached: %s → exiting loop\n", indent, goal.Message) //nolint:errcheck
 					return nil
 				}
-				// A *tokenError is fatal: an unresolved $TOKEN$ aborts the entire
+				// A *TokenError is fatal: an unresolved $TOKEN$ aborts the entire
 				// loop immediately, even under -f (which only tolerates ordinary
 				// errors). Return it so every enclosing loop level aborts too.
-				var tokErr *tokenError
+				var tokErr *TokenError
 				if errors.As(err, &tokErr) {
 					fmt.Fprintf(out, "%s❌ %v → aborting loop\n", indent, tokErr) //nolint:errcheck
 					return err

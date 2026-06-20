@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // stubClientNilState implements the minimum of game.GameClient needed by
@@ -33,9 +34,9 @@ func TestRunLoopSingle_TokenErrorStopsScript(t *testing.T) {
 	if err == nil {
 		t.Fatal("runLoopSingle: expected non-nil error for *tokenError, got nil")
 	}
-	var tokErr *tokenError
+	var tokErr *worker.TokenError
 	if !errors.As(err, &tokErr) {
-		t.Fatalf("expected *tokenError, got %T: %v", err, err)
+		t.Fatalf("expected *worker.TokenError, got %T: %v", err, err)
 	}
 }
 
