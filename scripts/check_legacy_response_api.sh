@@ -57,6 +57,8 @@ ALLOWLIST=(
     pkg/overmind/supervisor/server_test.go
     # Overmind main — calls srv.Send() which is supervisor.Server.Send (same as above).
     cmd/overmind/main.go
+    # Overmind integration test — calls srv.Send() which is supervisor.Server.Send (same as above).
+    cmd/overmind/integration_test.go
 )
 
 # Build a path filter: search the listed roots, exclude the allowlisted
