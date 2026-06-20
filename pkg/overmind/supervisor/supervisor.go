@@ -41,6 +41,7 @@ type Supervisor struct {
 	logger         *log.Logger
 	SilenceTimeout time.Duration
 	MaxRestarts    int
+	restarts       map[string]int
 }
 
 // NewSupervisor wires a supervisor. server may be nil in tests.
@@ -49,6 +50,7 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
 		SilenceTimeout: 3 * game.SleepTick,
 		MaxRestarts:    100,
+		restarts:       make(map[string]int),
 	}
 }
 
@@ -77,8 +79,15 @@ func (s *Supervisor) Run(ctx context.Context) error {
 }
 
 func (s *Supervisor) launch(ctx context.Context, spec WorkerSpec) {
-	if _, err := s.spawn(ctx, spec, s.socket()); err != nil {
+	cmd, err := s.spawn(ctx, spec, s.socket())
+	if err != nil {
 		s.logger.Printf("spawn %q failed: %v", spec.AgentID, err)
+		return
+	}
+	if cmd != nil {
+		// Reap the child when it exits (or is killed on ctx cancel) so it
+		// does not linger as a zombie across restart cycles.
+		go func() { _ = cmd.Wait() }()
 	}
 }
 
@@ -91,9 +100,10 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 	for _, spec := range s.specs {
 		w, seen := healthy[spec.AgentID]
 		if !seen || NeedsRestart(w, now, s.SilenceTimeout) {
-			if seen && w.Restarts >= s.MaxRestarts {
+			if s.restarts[spec.AgentID] >= s.MaxRestarts {
 				continue
 			}
+			s.restarts[spec.AgentID]++
 			s.logger.Printf("restarting worker %q (seen=%v)", spec.AgentID, seen)
 			s.fleet.MarkRestart(spec.AgentID)
 			s.launch(ctx, spec)
