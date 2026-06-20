@@ -52,7 +52,7 @@ type Supervisor struct {
 func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn SpawnFunc, logger *log.Logger) *Supervisor {
 	return &Supervisor{
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
-		SilenceTimeout: 5 * game.SleepLong,
+		SilenceTimeout: 30 * game.SleepTick, // ~5 min: must exceed worst-case throttled fleet cold-start (per-IP /login limit).
 		MaxRestarts:    100,
 		restarts:       make(map[string]int),
 	}
