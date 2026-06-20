@@ -103,7 +103,7 @@ const baseRetryDelay = 50 * time.Millisecond
 // SQLITE_BUSY / database-locked errors.
 func (c *Collector) writeRetry(ctx context.Context, fn func(tx *sql.Tx) error) error {
 	var lastErr error
-	for attempt := 0; attempt < maxRetryAttempts; attempt++ {
+	for attempt := range maxRetryAttempts {
 		if attempt > 0 {
 			delay := baseRetryDelay * time.Duration(1<<(attempt-1))
 			select {
