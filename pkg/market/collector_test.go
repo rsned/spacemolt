@@ -171,6 +171,56 @@ func TestWriteSnapshot(t *testing.T) {
 	if orderCount != 2 {
 		t.Errorf("order_count = %d, want 2", orderCount)
 	}
+
+	// Verify OHLCV was written (one per (station, item, side) — here 2 rows:
+	// (station_test, iron, buy) and (station_test, copper, sell))
+	var ohlcvCount int
+	err = collector.db.QueryRow("SELECT COUNT(*) FROM market_ohlcv WHERE station_id = ?", "station_test").Scan(&ohlcvCount)
+	if err != nil {
+		t.Fatalf("Count ohlcv failed: %v", err)
+	}
+	if ohlcvCount != 2 {
+		t.Errorf("ohlcv_count = %d, want 2", ohlcvCount)
+	}
+}
+
+func TestComputeOHLCV(t *testing.T) {
+	orders := []Order{
+		{StationID: "stn1", ItemID: "iron", Side: "buy", PriceEach: 100, Quantity: 10},
+		{StationID: "stn1", ItemID: "iron", Side: "buy", PriceEach: 110, Quantity: 5},
+		{StationID: "stn1", ItemID: "iron", Side: "buy", PriceEach: 90, Quantity: 8},
+	}
+
+	result := computeOHLCV(orders, "2026-06-20T12:00:00Z")
+
+	if len(result) != 1 {
+		t.Fatalf("len(result) = %d, want 1", len(result))
+	}
+
+	o := result[0]
+	if o.OpenPrice != 100 {
+		t.Errorf("open = %f, want 100", o.OpenPrice)
+	}
+	if o.HighPrice != 110 {
+		t.Errorf("high = %f, want 110", o.HighPrice)
+	}
+	if o.LowPrice != 90 {
+		t.Errorf("low = %f, want 90", o.LowPrice)
+	}
+	if o.ClosePrice != 90 {
+		t.Errorf("close = %f, want 90", o.ClosePrice)
+	}
+	if o.Volume != 23 {
+		t.Errorf("volume = %f, want 23", o.Volume)
+	}
+	// VWAP = (100*10 + 110*5 + 90*8) / 23 = 2270/23
+	expectedVWAP := float64(100*10+110*5+90*8) / 23
+	if o.VWAP != expectedVWAP {
+		t.Errorf("vwap = %f, want %f", o.VWAP, expectedVWAP)
+	}
+	if o.TradeCount != 3 {
+		t.Errorf("trade_count = %d, want 3", o.TradeCount)
+	}
 }
 
 func TestIsBusyError(t *testing.T) {

@@ -204,6 +204,108 @@ func (c *Collector) insertOrders(tx *sql.Tx, orders []Order) error {
 	return nil
 }
 
+// ohlcvAccumulator tallies OHLCV stats per (station, item, side) group.
+type ohlcvAccumulator struct {
+	stationID, itemID, side string
+	open, high, low, close  float64
+	volume                  float64
+	sumPriceTimesQty        float64 // For VWAP calculation
+	tradeCount              int
+	firstPriceSet           bool
+}
+
+// computeOHLCV calculates OHLCV + VWAP from orders grouped by (station, item, side).
+// Orders with non-positive price or quantity are skipped. Group iteration order is
+// preserved (first-seen) for deterministic output.
+func computeOHLCV(orders []Order, bucketUTC string) []OHLCV {
+	key := func(stationID, itemID, side string) string {
+		return stationID + "\x00" + itemID + "\x00" + side
+	}
+
+	accs := make(map[string]*ohlcvAccumulator)
+	order := []string{} // preserve first-seen order for deterministic output
+
+	for _, o := range orders {
+		if o.PriceEach <= 0 || o.Quantity <= 0 {
+			continue
+		}
+		k := key(o.StationID, o.ItemID, o.Side)
+		acc, ok := accs[k]
+		if !ok {
+			acc = &ohlcvAccumulator{
+				stationID: o.StationID,
+				itemID:    o.ItemID,
+				side:      o.Side,
+			}
+			accs[k] = acc
+			order = append(order, k)
+		}
+
+		acc.volume += o.Quantity
+		acc.sumPriceTimesQty += o.PriceEach * o.Quantity
+		acc.tradeCount++
+
+		if !acc.firstPriceSet {
+			acc.open = o.PriceEach
+			acc.high = o.PriceEach
+			acc.low = o.PriceEach
+			acc.close = o.PriceEach
+			acc.firstPriceSet = true
+		} else {
+			acc.close = o.PriceEach
+			if o.PriceEach > acc.high {
+				acc.high = o.PriceEach
+			}
+			if o.PriceEach < acc.low {
+				acc.low = o.PriceEach
+			}
+		}
+	}
+
+	result := make([]OHLCV, 0, len(order))
+	for _, k := range order {
+		acc := accs[k]
+		vwap := 0.0
+		if acc.volume > 0 {
+			// VWAP = sum(price * quantity) / sum(quantity)
+			vwap = acc.sumPriceTimesQty / acc.volume
+		}
+		result = append(result, OHLCV{
+			StationID:  acc.stationID,
+			ItemID:     acc.itemID,
+			Side:       acc.side,
+			BucketUTC:  bucketUTC,
+			OpenPrice:  acc.open,
+			HighPrice:  acc.high,
+			LowPrice:   acc.low,
+			ClosePrice: acc.close,
+			Volume:     acc.volume,
+			TradeCount: acc.tradeCount,
+			VWAP:       vwap,
+		})
+	}
+	return result
+}
+
+// upsertOHLCV inserts or updates an OHLCV record.
+func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
+	_, err := tx.Exec(`
+		INSERT INTO market_ohlcv (station_id, item_id, side, bucket_utc, open_price, high_price, low_price, close_price, volume, trade_count, vwap)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(station_id, item_id, side, bucket_utc) DO UPDATE SET
+			open_price = excluded.open_price,
+			high_price = excluded.high_price,
+			low_price = excluded.low_price,
+			close_price = excluded.close_price,
+			volume = excluded.volume,
+			trade_count = excluded.trade_count,
+			vwap = excluded.vwap
+	`, ohlcv.StationID, ohlcv.ItemID, ohlcv.Side, ohlcv.BucketUTC,
+		ohlcv.OpenPrice, ohlcv.HighPrice, ohlcv.LowPrice, ohlcv.ClosePrice,
+		ohlcv.Volume, ohlcv.TradeCount, ohlcv.VWAP)
+	return err
+}
+
 // WriteSnapshot persists a market snapshot atomically.
 func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) error {
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -259,6 +361,13 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 		// Insert orders
 		if err := c.insertOrders(tx, ordersWithBucket); err != nil {
 			return fmt.Errorf("insert orders: %w", err)
+		}
+
+		// Compute and upsert OHLCV (hourly aggregates from this snapshot's orders)
+		for _, ohlcv := range computeOHLCV(ordersWithBucket, bucketUTC) {
+			if err := c.upsertOHLCV(tx, ohlcv); err != nil {
+				return fmt.Errorf("upsert OHLCV: %w", err)
+			}
 		}
 
 		return nil
