@@ -9,8 +9,10 @@ import (
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
-// parseViewMarket parses a raw view_market JSON response into Orders.
-func parseViewMarket(raw []byte, stationID, systemID string, capturedAt time.Time) ([]Order, error) {
+// parseViewMarket parses a raw view_market JSON response into Orders. The
+// stationID is stamped on every order; system context is attached by the caller
+// on the MarketSnapshot (systemID is not part of an individual order).
+func parseViewMarket(raw []byte, stationID string, capturedAt time.Time) ([]Order, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -84,7 +86,7 @@ func CaptureFromClient(ctx context.Context, client game.GameClient, collector *C
 	}
 
 	now := time.Now()
-	orders, err := parseViewMarket(raw, state.CurrentPOI, state.CurrentSystem, now)
+	orders, err := parseViewMarket(raw, state.CurrentPOI, now)
 	if err != nil {
 		return err
 	}

@@ -25,7 +25,7 @@ func TestParseViewMarket(t *testing.T) {
 		]
 	}`)
 
-	orders, err := parseViewMarket(raw, "station_test", "system_test", time.Now().UTC())
+	orders, err := parseViewMarket(raw, "station_test", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("parseViewMarket failed: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestParseViewMarket(t *testing.T) {
 }
 
 func TestParseViewMarket_Empty(t *testing.T) {
-	orders, err := parseViewMarket(nil, "stn", "sys", time.Now().UTC())
+	orders, err := parseViewMarket(nil, "stn", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestParseViewMarket_SkipsNonPositive(t *testing.T) {
 		]
 	}`)
 
-	orders, err := parseViewMarket(raw, "stn", "sys", time.Now().UTC())
+	orders, err := parseViewMarket(raw, "stn", time.Now().UTC())
 	if err != nil {
 		t.Fatalf("parseViewMarket failed: %v", err)
 	}
