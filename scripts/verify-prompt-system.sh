@@ -107,13 +107,19 @@ else
     exit 1
 fi
 
-# 6. Build final binary
+# 6. Build final binaries
 echo
-echo "6. Building agent-server..."
-if go build ./cmd/agent-server > /dev/null 2>&1; then
-    echo "   ✓ agent-server builds successfully"
+echo "6. Building overmind and worker..."
+if go build -o bin/overmind ./cmd/overmind > /dev/null 2>&1; then
+    echo "   ✓ overmind builds successfully"
 else
-    echo "   ✗ agent-server build failed"
+    echo "   ✗ overmind build failed"
+    exit 1
+fi
+if go build -o bin/worker ./cmd/worker > /dev/null 2>&1; then
+    echo "   ✓ worker builds successfully"
+else
+    echo "   ✗ worker build failed"
     exit 1
 fi
 
