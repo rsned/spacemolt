@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // scriptExt is the file extension for saved play_as scripts.
@@ -71,7 +73,7 @@ func splitScriptCommands(content string) ([]string, error) {
 			cur.WriteByte('\n')
 		}
 		cur.WriteString(ln)
-		depth, inQuote := scanBraceDepth(cur.String())
+		depth, inQuote := worker.ScanBraceDepth(cur.String())
 		if depth < 0 {
 			return nil, fmt.Errorf("unbalanced braces in script")
 		}
@@ -80,7 +82,7 @@ func splitScriptCommands(content string) ([]string, error) {
 		}
 	}
 	if cur.Len() > 0 {
-		depth, inQuote := scanBraceDepth(cur.String())
+		depth, inQuote := worker.ScanBraceDepth(cur.String())
 		if depth != 0 || inQuote {
 			return nil, fmt.Errorf("unbalanced braces in script")
 		}

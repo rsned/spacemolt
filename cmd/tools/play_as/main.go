@@ -39,6 +39,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/registry"
 	"github.com/rsned/spacemolt/pkg/respfmt"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // Package-level knowledge base, initialized if --db-path is provided.
@@ -447,7 +448,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		if nl := strings.IndexByte(firstLine, '\n'); nl >= 0 {
 			firstLine = firstLine[:nl]
 		}
-		parts := splitArgs(firstLine)
+		parts := worker.SplitArgs(firstLine)
 		if len(parts) == 0 {
 			continue
 		}
@@ -8232,38 +8233,6 @@ func parseHexColor(s string) (r, g, b uint8, ok bool) {
 	return uint8(val >> 16), uint8(val >> 8), uint8(val), true
 }
 
-// splitArgs splits a command string into arguments, respecting double and single quotes.
-// e.g. `create_faction "Covenant of the Eternal Spark" SPRK` → ["create_faction", "Covenant of the Eternal Spark", "SPRK"]
-func splitArgs(s string) []string {
-	var args []string
-	var current strings.Builder
-	var inQuote rune
-
-	for _, r := range s {
-		switch {
-		case inQuote != 0:
-			if r == inQuote {
-				inQuote = 0
-			} else {
-				current.WriteRune(r)
-			}
-		case r == '"' || r == '\'':
-			inQuote = r
-		case r == ' ' || r == '\t':
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(r)
-		}
-	}
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-	return args
-}
-
 // resolveFactionTag looks up a faction tag via faction_list and returns the faction ID, or "" if not found.
 func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) string {
 	tag = strings.ToUpper(tag)
@@ -8561,7 +8530,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 	if nl := strings.IndexByte(firstLine, '\n'); nl >= 0 {
 		firstLine = firstLine[:nl]
 	}
-	parts := splitArgs(firstLine)
+	parts := worker.SplitArgs(firstLine)
 	if len(parts) == 0 {
 		return nil
 	}
@@ -8583,11 +8552,11 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 
 	var resultErr error
 	if command == "loop" {
-		if !hasTopLevelOpenBrace(cmd) {
+		if !worker.HasTopLevelOpenBrace(cmd) {
 			resultErr = runLoopSingle(client, ctx, parts, format)
 		} else {
-			stmt := Statement{Raw: cmd, Tokens: splitArgs(firstLine)}
-			count, force, body, isBlock, perr := parseLoopHeader(stmt)
+			stmt := worker.Statement{Raw: cmd, Tokens: worker.SplitArgs(firstLine)}
+			count, force, body, isBlock, perr := worker.ParseLoopHeader(stmt)
 			switch {
 			case perr != nil:
 				fmt.Printf("❌ %v\n", perr)
@@ -8596,7 +8565,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 				resultErr = fmt.Errorf("loop: expected block body")
 				fmt.Printf("❌ %v\n", resultErr)
 			default:
-				stmts, serr := parseStatements(body)
+				stmts, serr := worker.ParseStatements(body)
 				switch {
 				case serr != nil:
 					fmt.Printf("❌ %v\n", serr)
@@ -8605,7 +8574,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 					resultErr = fmt.Errorf("loop: empty block")
 					fmt.Printf("❌ %v\n", resultErr)
 				default:
-					preview := blockPreview(stmts)
+					preview := worker.BlockPreview(stmts)
 					if force {
 						fmt.Printf("🔁 Repeating { %s } %d time(s) (force mode)...\n", preview, count)
 					} else {
