@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"testing"
@@ -107,5 +107,94 @@ func TestIsFresh(t *testing.T) {
 	}
 	if isFresh(now.Add(-5*time.Minute), now, 5*time.Minute) {
 		t.Error("exactly 5 min should be stale (strictly-less window)")
+	}
+}
+
+func TestParseStationSellOrders(t *testing.T) {
+	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
+	// Same compact response shape, but reading sell_orders.
+	raw := []byte(`{"items":[
+		{"item_id":"iron_ore","item_name":"Iron Ore","sell_orders":[
+			{"price_each":15,"quantity":50,"source":"station"},
+			{"price_each":13,"quantity":20,"source":null,"my_quantity":20}
+		]},
+		{"item_id":"copper","item_name":"Copper","sell_orders":[
+			{"price_each":9,"quantity":100,"source":"station"},
+			{"price_each":0,"quantity":5,"source":"station"}
+		]},
+		{"item_id":"junk","item_name":"Junk","sell_orders":[]}
+	]}`)
+
+	rows := parseStationSellOrders(raw, "stn1", "sys1", now)
+	if len(rows) != 3 { // 2 iron + 1 copper (zero-price + empty junk skipped)
+		t.Fatalf("want 3 orders, got %d: %+v", len(rows), rows)
+	}
+	for _, r := range rows {
+		if r.StationID != "stn1" || r.SystemID != "sys1" || !r.CapturedAt.Equal(now) {
+			t.Errorf("row metadata wrong: %+v", r)
+		}
+	}
+	var nullSrc bool
+	for _, r := range rows {
+		if r.ItemID == "iron_ore" && r.PriceEach == 13 {
+			if r.Source != "" {
+				t.Errorf("null source: want empty string, got %q", r.Source)
+			}
+			if r.MyQuantity != 20 {
+				t.Errorf("my_quantity: want 20, got %v", r.MyQuantity)
+			}
+			nullSrc = true
+		}
+	}
+	if !nullSrc {
+		t.Error("expected the price-13 iron sell order with empty source")
+	}
+}
+
+func TestParseStationSellOrdersEmpty(t *testing.T) {
+	now := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
+	if got := parseStationSellOrders(nil, "stn1", "sys1", now); got != nil {
+		t.Errorf("empty raw: want nil, got %+v", got)
+	}
+	if got := parseStationSellOrders([]byte(`{"items":[]}`), "", "sys1", now); got != nil {
+		t.Errorf("empty station: want nil, got %+v", got)
+	}
+}
+
+// Supply aggregates pick the CHEAPEST price as "best" (mirror of demand, which
+// picks the highest).
+func TestAggregateSupplyHistory(t *testing.T) {
+	now := time.Date(2026, 6, 9, 12, 34, 56, 0, time.UTC)
+	orders := []knowledge.MarketSellOrderRow{
+		{StationID: "stn1", SystemID: "sys1", ItemID: "iron_ore", ItemName: "Iron Ore", PriceEach: 15, Quantity: 50, Source: "station"},
+		{StationID: "stn1", SystemID: "sys1", ItemID: "iron_ore", ItemName: "Iron Ore", PriceEach: 13, Quantity: 20, Source: ""},
+		{StationID: "stn1", SystemID: "sys1", ItemID: "copper", ItemName: "Copper", PriceEach: 9, Quantity: 100, Source: "station"},
+		{StationID: "stn1", SystemID: "sys1", ItemID: "copper", ItemName: "Copper", PriceEach: 0, Quantity: 5, Source: "station"}, // skipped
+	}
+	got := aggregateSupplyHistory(orders, now, time.Hour)
+	if len(got) != 2 {
+		t.Fatalf("want 2 samples (iron, copper), got %d", len(got))
+	}
+	iron := got[0]
+	if iron.ItemID != "iron_ore" {
+		t.Fatalf("expected iron first (insertion order), got %s", iron.ItemID)
+	}
+	// Cheapest overall is 13 (player order); cheapest station-source is 15.
+	if iron.BestPrice != 13 || iron.TotalQty != 70 {
+		t.Errorf("iron aggregate wrong: best=%v total=%v", iron.BestPrice, iron.TotalQty)
+	}
+	if iron.SMBestPrice != 15 || iron.SMQty != 50 {
+		t.Errorf("iron SM split wrong: smBest=%v smQty=%v", iron.SMBestPrice, iron.SMQty)
+	}
+	if iron.OrderCount != 2 {
+		t.Errorf("iron order count: want 2, got %d", iron.OrderCount)
+	}
+	want := time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC)
+	if !iron.BucketAt.Equal(want) {
+		t.Errorf("bucket not hour-truncated: want %v got %v", want, iron.BucketAt)
+	}
+	copper := got[1]
+	if copper.OrderCount != 1 || copper.TotalQty != 100 || copper.BestPrice != 9 {
+		t.Errorf("copper aggregate wrong (zero-price order must be skipped): %+v", copper)
 	}
 }
