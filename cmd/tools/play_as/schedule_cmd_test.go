@@ -1,9 +1,21 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/worker"
 )
+
+func newTestScheduler(t *testing.T) *worker.Scheduler {
+	t.Helper()
+	s, err := worker.LoadScheduler(filepath.Join(t.TempDir(), "scheduled_commands.json"))
+	if err != nil {
+		t.Fatalf("LoadScheduler: %v", err)
+	}
+	return s
+}
 
 func TestHandleScheduleAddRunsImmediatelyAndPersists(t *testing.T) {
 	s := newTestScheduler(t)

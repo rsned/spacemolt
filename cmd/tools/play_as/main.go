@@ -397,12 +397,12 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	var execMu sync.Mutex
 
 	// Scheduler: user-registered recurring commands (hourly/daily/weekly).
-	scheduler, err := LoadScheduler(filepath.Join("data", "agents", agentID, "scheduled_commands.json"))
+	scheduler, err := worker.LoadScheduler(filepath.Join("data", "agents", agentID, "scheduled_commands.json"))
 	if err != nil {
 		log.Printf("[scheduler] warning: could not load schedules: %v", err)
-		scheduler, _ = LoadScheduler(filepath.Join(os.TempDir(), "scheduled_commands.json"))
+		scheduler, _ = worker.LoadScheduler(filepath.Join(os.TempDir(), "scheduled_commands.json"))
 	}
-	scheduler.startLoop(ctx, game.SleepLong, &execMu, func(t ScheduledTask) {
+	scheduler.StartLoop(ctx, game.SleepLong, &execMu, func(t worker.ScheduledTask) {
 		fmt.Printf("\r⏰ [scheduled %s] %s\n", t.Frequency, t.Command)
 		_ = executeLogicalCommand(client, ctx, t.Command, format, cfg, agentID)
 	}, func() time.Time { return time.Now().UTC() })
