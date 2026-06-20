@@ -50,6 +50,11 @@ ALLOWLIST=(
     # through gameClient.Send; the message type is only known at runtime
     # so no static classifier can be registered. Needs design work.
     pkg/observe/session.go
+
+    # Overmind supervisor — srv.Send() is the Server.Send method (routes an
+    # envelope to a worker via a Unix socket), not the game client legacy Send.
+    pkg/overmind/supervisor/server.go
+    pkg/overmind/supervisor/server_test.go
 )
 
 # Build a path filter: search the listed roots, exclude the allowlisted
