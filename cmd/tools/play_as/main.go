@@ -1574,6 +1574,83 @@ func facilityPositionalKeys(action string) []string {
 	}
 }
 
+// buildFacilityPayload parses a `facility ...` command's tokens (parts[0] is
+// "facility") into the server payload, plus the client-side
+// show_station_facilities display toggle. Both --flag=value and --flag value
+// forms are accepted, as are bare key=value tokens; the first bare positional
+// is the action (unless action=... is given), and remaining positionals map to
+// the action's keys via facilityPositionalKeys.
+func buildFacilityPayload(parts []string) (payload map[string]any, showStation bool, err error) {
+	payload = map[string]any{}
+	var positionals []string
+	for i := 1; i < len(parts); i++ {
+		arg := parts[i]
+		if key, ok := strings.CutPrefix(arg, "--"); ok {
+			// Support the --flag=value form first, so e.g. --deliver_to=faction
+			// doesn't fold "=faction" into the key and swallow the next token.
+			if k, v, found := strings.Cut(key, "="); found {
+				key = k
+				if key == "show_station_facilities" {
+					showStation = true
+					continue
+				}
+				payload[key] = v
+				continue
+			}
+			// --show_station_facilities is a client-side display toggle for
+			// `facility list`; it takes no value and is not sent to the server.
+			if key == "show_station_facilities" {
+				showStation = true
+				continue
+			}
+			// --flag value form: consume the next token as the value, but only
+			// when it isn't itself another --flag (a lone flag sends "").
+			if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
+				i++
+				payload[key] = parts[i]
+			} else {
+				payload[key] = ""
+			}
+		} else if k, v, ok := strings.Cut(arg, "="); ok {
+			payload[k] = v
+		} else {
+			positionals = append(positionals, arg)
+		}
+	}
+	// Resolve the action: an explicit action=... / --action wins, otherwise
+	// the first bare positional is the action.
+	action, _ := payload["action"].(string)
+	if action == "" && len(positionals) > 0 {
+		action = positionals[0]
+		positionals = positionals[1:]
+		payload["action"] = action
+	}
+	if action == "" {
+		return nil, false, fmt.Errorf("facility: missing action (e.g. `facility build` or `facility action=build`)")
+	}
+	// Map any remaining bare positionals onto this action's argument keys.
+	// Flags already in the payload take precedence; extra positionals beyond
+	// the action's arity are ignored.
+	posKeys := facilityPositionalKeys(action)
+	for idx, val := range positionals {
+		if idx >= len(posKeys) {
+			break
+		}
+		if _, exists := payload[posKeys[idx]]; !exists {
+			payload[posKeys[idx]] = val
+		}
+	}
+	// Convert numeric string fields.
+	for _, numKey := range []string{"level", "page", "per_page", "quantity", "position", "price"} {
+		if v, ok := payload[numKey].(string); ok {
+			if n, convErr := strconv.Atoi(v); convErr == nil {
+				payload[numKey] = n
+			}
+		}
+	}
+	return payload, showStation, nil
+}
+
 // formatFacility dispatches by the response's "action" field (or, for
 // payloads that don't carry one, by the presence of distinctive keys).
 // Actions without a styled formatter return "" so the caller falls through
@@ -7690,63 +7767,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"  business flags: --item_id ID --price N --access private|public\n" +
 				"  flags:   --show_station_facilities  (list: also show the station's own facilities)")
 		}
-		// Parse all args uniformly. --flag value pairs and key=value tokens go
-		// straight into the payload (including action=...). Bare tokens are
-		// collected as positionals: the first is the action, and the rest map
-		// to action-specific payload keys (see facilityPositionalKeys) — e.g.
-		// `set_access public` -> access=public, not facility_type=public.
-		payload := map[string]any{}
-		showStation := false
-		var positionals []string
-		for i := 1; i < len(parts); i++ {
-			arg := parts[i]
-			if key, ok := strings.CutPrefix(arg, "--"); ok {
-				// --show_station_facilities is a client-side display toggle for
-				// `facility list`; it takes no value and is not sent to the server.
-				if key == "show_station_facilities" {
-					showStation = true
-					continue
-				}
-				if i+1 < len(parts) {
-					i++
-					payload[key] = parts[i]
-				}
-			} else if k, v, ok := strings.Cut(arg, "="); ok {
-				payload[k] = v
-			} else {
-				positionals = append(positionals, arg)
-			}
-		}
-		// Resolve the action: an explicit action=... / --action wins, otherwise
-		// the first bare positional is the action.
-		action, _ := payload["action"].(string)
-		if action == "" && len(positionals) > 0 {
-			action = positionals[0]
-			positionals = positionals[1:]
-			payload["action"] = action
-		}
-		if action == "" {
-			return fmt.Errorf("facility: missing action (e.g. `facility build` or `facility action=build`)")
-		}
-		// Map any remaining bare positionals onto this action's argument keys.
-		// Flags already in the payload take precedence; extra positionals beyond
-		// the action's arity are ignored.
-		posKeys := facilityPositionalKeys(action)
-		for idx, val := range positionals {
-			if idx >= len(posKeys) {
-				break
-			}
-			if _, exists := payload[posKeys[idx]]; !exists {
-				payload[posKeys[idx]] = val
-			}
-		}
-		// Convert numeric string fields
-		for _, numKey := range []string{"level", "page", "per_page", "quantity", "position", "price"} {
-			if v, ok := payload[numKey].(string); ok {
-				if n, err := strconv.Atoi(v); err == nil {
-					payload[numKey] = n
-				}
-			}
+		// Parse all args uniformly via buildFacilityPayload: --flag value pairs,
+		// --flag=value, and bare key=value tokens go straight into the payload
+		// (including action=...); bare positionals map to action-specific keys
+		// (see facilityPositionalKeys) — e.g. `set_access public` -> access=public.
+		payload, showStation, err := buildFacilityPayload(parts)
+		if err != nil {
+			return err
 		}
 		// Toggle station-facility rendering for this invocation only. execMu
 		// serializes foreground/background commands, so this package-level flag

@@ -296,3 +296,72 @@ func TestFacilityPositionalKeys(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildFacilityPayload guards the `facility ...` arg parser, in particular
+// that the --flag=value form is split correctly (regression: --deliver_to=faction
+// was folding "=faction" into the key and swallowing the next token), that the
+// --flag value form coexists with it, that numeric fields are coerced to ints,
+// and that --show_station_facilities is a client-side toggle kept out of the
+// payload.
+func TestBuildFacilityPayload(t *testing.T) {
+	// The reported command: mix of --flag value and --flag=value plus a numeric.
+	parts := []string{
+		"facility", "job_add",
+		"--recipe_id", "manufacture_fuel_basic",
+		"--facility_id", "fb24fd71ecb5590893fa64e8ba9bf3ed",
+		"--deliver_to=faction",
+		"--quantity", "1000",
+	}
+	payload, showStation, err := buildFacilityPayload(parts)
+	if err != nil {
+		t.Fatalf("buildFacilityPayload error: %v", err)
+	}
+	if showStation {
+		t.Errorf("showStation = true, want false")
+	}
+	want := map[string]any{
+		"action":      "job_add",
+		"recipe_id":   "manufacture_fuel_basic",
+		"facility_id": "fb24fd71ecb5590893fa64e8ba9bf3ed",
+		"deliver_to":  "faction",
+		"quantity":    1000, // coerced from "1000"
+	}
+	if len(payload) != len(want) {
+		t.Fatalf("payload = %v, want %v", payload, want)
+	}
+	for k, v := range want {
+		if payload[k] != v {
+			t.Errorf("payload[%q] = %#v, want %#v", k, payload[k], v)
+		}
+	}
+
+	// set_access public -> access=public (positional mapping), not facility_type.
+	payload, _, err = buildFacilityPayload([]string{"facility", "set_access", "public"})
+	if err != nil {
+		t.Fatalf("set_access error: %v", err)
+	}
+	if payload["access"] != "public" || payload["facility_type"] != nil {
+		t.Errorf("set_access payload = %v, want access=public", payload)
+	}
+
+	// --show_station_facilities is a toggle, not a payload field; bare key=value
+	// (action=list) resolves the action.
+	payload, showStation, err = buildFacilityPayload([]string{"facility", "action=list", "--show_station_facilities"})
+	if err != nil {
+		t.Fatalf("show_station error: %v", err)
+	}
+	if !showStation {
+		t.Errorf("showStation = false, want true")
+	}
+	if _, present := payload["show_station_facilities"]; present {
+		t.Errorf("show_station_facilities leaked into payload: %v", payload)
+	}
+	if payload["action"] != "list" {
+		t.Errorf("payload[action] = %v, want list", payload["action"])
+	}
+
+	// Missing action is an error.
+	if _, _, err := buildFacilityPayload([]string{"facility", "--recipe_id", "x"}); err == nil {
+		t.Errorf("expected error for missing action, got nil")
+	}
+}
