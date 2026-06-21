@@ -20,7 +20,7 @@ type RecipeJSON struct {
 	Name            string                `json:"name"`
 	Description     string                `json:"description"`
 	Category        string                `json:"category"`
-	CraftingTime    int                   `json:"crafting_time"`
+	CraftingTime    float64               `json:"crafting_time"`
 	BaseQuality     int                   `json:"base_quality"`
 	SkillQualityMod int                   `json:"skill_quality_mod"`
 	RequiredSkills  map[string]int        `json:"required_skills"`

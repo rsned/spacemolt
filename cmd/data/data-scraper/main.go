@@ -255,11 +255,8 @@ func printUsage() {
 	fmt.Println("  map          - Map Data")
 	fmt.Println("  listings     - Market Listings")
 	fmt.Println("  ships        - Ships for sale (browse_ships)")
-	fmt.Println("  ship_catalog - Ship Catalog (all ship types)")
+	fmt.Println("  catalog      - Full catalog bundle (ships, skills, recipes, items, modules, facilities via catalog.json)")
 	fmt.Println("  nearby       - Nearby Players")
-	fmt.Println("  skill_defs   - Skill Definitions (catalog)")
-	fmt.Println("  recipes      - Recipe Definitions (catalog)")
-	fmt.Println("  items        - Item Definitions (catalog)")
 	fmt.Println("  wrecks       - Wrecks")
 	fmt.Println("  base         - Base Info")
 	fmt.Println("  faction      - Faction Info")
@@ -274,8 +271,6 @@ func printUsage() {
 	fmt.Println("  commands     - Available Commands")
 	fmt.Println("  storage      - Station Storage")
 	fmt.Println("  market       - Market Exchange")
-	fmt.Println("  facilities   - Facility Types (all categories, paginated)")
-	fmt.Println("  facility_details - Facility Details (one file per type, skips existing)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  data-scraper craftsman-1           # Scrape all endpoints")
@@ -301,11 +296,8 @@ func (s *Scraper) scrapeAll() error {
 		{"Map Data", s.scrapeMap},
 		{"Market Listings", s.scrapeListings},
 		{"Ships For Sale", s.scrapeShips},
-		{"Ship Catalog", s.scrapeShipCatalog},
+		{"Catalog Bundle", s.scrapeCatalogBundle},
 		{"Nearby Players", s.scrapeNearby},
-		{"Skill Definitions", s.scrapeSkillDefinitions},
-		{"Recipe Definitions", s.scrapeRecipeDefinitions},
-		{"Item Definitions", s.scrapeItemDefinitions},
 		{"Wrecks", s.scrapeWrecks},
 		{"Base Info", s.scrapeBase},
 		{"Faction Info", s.scrapeFactionInfo},
@@ -320,8 +312,6 @@ func (s *Scraper) scrapeAll() error {
 		{"Available Commands", s.scrapeCommands},
 		{"Station Storage", s.scrapeStorage},
 		{"Market Exchange", s.scrapeMarket},
-		{"Facility Types", s.scrapeFacilities},
-		{"Facility Details", s.scrapeFacilityDetails},
 	}
 
 	for _, cat := range categories {
@@ -357,12 +347,9 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"system":          {"System Data", s.scrapeSystem},
 		"map":             {"Map Data", s.scrapeMap},
 		"listings":        {"Market Listings", s.scrapeListings},
-		"ships":              {"Ships For Sale", s.scrapeShips},
-		"ship_catalog":    {"Ship Catalog", s.scrapeShipCatalog},
+		"ships":           {"Ships For Sale", s.scrapeShips},
+		"catalog":         {"Catalog Bundle", s.scrapeCatalogBundle},
 		"nearby":          {"Nearby Players", s.scrapeNearby},
-		"skill_defs":      {"Skill Definitions", s.scrapeSkillDefinitions},
-		"recipes":         {"Recipe Definitions", s.scrapeRecipeDefinitions},
-		"items":           {"Item Definitions", s.scrapeItemDefinitions},
 		"wrecks":          {"Wrecks", s.scrapeWrecks},
 		"base":            {"Base Info", s.scrapeBase},
 		"faction":         {"Faction Info", s.scrapeFactionInfo},
@@ -377,14 +364,12 @@ func (s *Scraper) scrapeOne(endpoint string) error {
 		"commands":        {"Available Commands", s.scrapeCommands},
 		"storage":         {"Station Storage", s.scrapeStorage},
 		"market":          {"Market Exchange", s.scrapeMarket},
-		"facilities":         {"Facility Types", s.scrapeFacilities},
-		"facility_details":   {"Facility Details", s.scrapeFacilityDetails},
 	}
 
 	// Look up the endpoint
 	ep, ok := endpointMap[endpoint]
 	if !ok {
-		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, ship_catalog, nearby, skill_defs, recipes, items, wrecks, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market, facilities, facility_details", endpoint)
+		return fmt.Errorf("unknown endpoint: %s\n\nAvailable endpoints:\n  status, ship, poi, system, map, listings, ships, catalog, nearby, wrecks, base, faction, log, cargo, missions, active_missions, orders, notes, insurance, version, commands, storage, market", endpoint)
 	}
 
 	// Scrape the single endpoint
@@ -577,380 +562,6 @@ func (s *Scraper) scrapeMap() error {
 	// Save what we have
 	s.logger.Printf("  📚 Got %d/%d systems (pagination not fully supported on this transport)", systemCount, totalCount)
 	return s.saveJSON("get_map.json", rawJSON)
-}
-
-func (s *Scraper) scrapeSkillDefinitions() error {
-	return s.scrapeCatalog("skills", "catalog_skills.json")
-}
-
-func (s *Scraper) scrapeRecipeDefinitions() error {
-	return s.scrapeCatalog("recipes", "catalog_recipes.json")
-}
-
-func (s *Scraper) scrapeShipCatalog() error {
-	return s.scrapeCatalog("ships", "catalog_ships.json")
-}
-
-func (s *Scraper) scrapeItemDefinitions() error {
-	return s.scrapeCatalog("items", "catalog_items.json")
-}
-
-// scrapeCatalog fetches all pages of a catalog type and merges them
-func (s *Scraper) scrapeCatalog(catalogType, filename string) error {
-	ctx := context.Background()
-	s.clearLastError()
-
-	// Request first page from catalog
-	if err := s.client.Catalog(ctx, catalogType, 1, 50); err != nil {
-		return fmt.Errorf("catalog %s page 1 failed: %w", catalogType, err)
-	}
-	time.Sleep(2 * time.Second)
-
-	rawJSON := s.getRawJSON("catalog")
-	if rawJSON == nil {
-		errResp := s.getLastError()
-		return fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s", catalogType), errResp))
-	}
-
-	// Parse the response to get pagination info
-	var firstPage struct {
-		Items      []json.RawMessage `json:"items"`
-		Page       int               `json:"page"`
-		PageSize   int               `json:"page_size"`
-		Total      int               `json:"total"`
-		TotalPages int               `json:"total_pages"`
-		Type       string            `json:"type"`
-		Message    string            `json:"message"`
-	}
-
-	if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
-		return fmt.Errorf("failed to parse catalog response: %w", err)
-	}
-
-	s.logger.Printf("  📖 Page %d/%d: %d items", firstPage.Page, firstPage.TotalPages, len(firstPage.Items))
-
-	// If there's only one page, save and return
-	if firstPage.TotalPages <= 1 {
-		return s.saveJSON(filename, rawJSON)
-	}
-
-	// Fetch remaining pages
-	allItems := make([]json.RawMessage, 0, firstPage.Total)
-	allItems = append(allItems, firstPage.Items...)
-
-	for page := 2; page <= firstPage.TotalPages; page++ {
-		maxRetries := 3
-		var pageErr error
-
-		for retry := range maxRetries {
-			if retry > 0 {
-				s.logger.Printf("  🔄 Retry %d/%d for page %d", retry, maxRetries-1, page)
-				if err := s.ensureConnectionReady(); err != nil {
-					s.logger.Printf("  ⚠️  Failed to restore connection: %v", err)
-					time.Sleep(game.SleepShort)
-					continue
-				}
-			}
-
-			s.clearLastError()
-
-			if err := s.client.Catalog(ctx, catalogType, page, 50); err != nil {
-				pageErr = fmt.Errorf("catalog %s page %d failed: %w", catalogType, page, err)
-				time.Sleep(game.SleepRetry)
-				continue
-			}
-			time.Sleep(2 * time.Second)
-
-			rawJSON := s.getRawJSON("catalog")
-			if rawJSON == nil {
-				errResp := s.getLastError()
-				pageErr = fmt.Errorf("%s", formatErrorMessage(fmt.Sprintf("catalog %s page %d", catalogType, page), errResp))
-				time.Sleep(game.SleepRetry)
-				continue
-			}
-
-			var pageResp struct {
-				Items      []json.RawMessage `json:"items"`
-				Page       int               `json:"page"`
-				TotalPages int               `json:"total_pages"`
-			}
-
-			if err := json.Unmarshal(rawJSON, &pageResp); err != nil {
-				pageErr = fmt.Errorf("failed to parse catalog page %d: %w", page, err)
-				time.Sleep(game.SleepRetry)
-				continue
-			}
-
-			// Success
-			s.logger.Printf("  📖 Page %d/%d: %d items", page, firstPage.TotalPages, len(pageResp.Items))
-			allItems = append(allItems, pageResp.Items...)
-			pageErr = nil
-			break
-		}
-
-		if pageErr != nil {
-			s.logger.Printf("  ⚠️  Error fetching page %d after %d retries: %v", page, maxRetries, pageErr)
-		}
-	}
-
-	// Build combined response
-	combinedResponse := map[string]any{
-		"items":       allItems,
-		"page":        1,
-		"page_size":   len(allItems),
-		"total":       len(allItems),
-		"total_pages": 1,
-		"type":        catalogType,
-		"message":     fmt.Sprintf("%s: showing all %d items", catalogType, len(allItems)),
-	}
-
-	combinedJSON, err := json.MarshalIndent(combinedResponse, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal combined catalog: %w", err)
-	}
-
-	s.logger.Printf("  📚 Total %s: %d items", catalogType, len(allItems))
-	return s.saveJSON(filename, combinedJSON)
-}
-
-// scrapeFacilities fetches facility type definitions for all categories with pagination.
-func (s *Scraper) scrapeFacilities() error {
-	categories := []string{"infrastructure", "service", "production", "faction", "personal"}
-	ctx := context.Background()
-
-	for _, category := range categories {
-		s.logger.Printf("  📦 Fetching facility types: %s...", category)
-
-		// Fetch first page
-		s.clearLastError()
-		if err := s.client.RawCommand(ctx, "facility", map[string]any{
-			"action":   "types",
-			"category": category,
-			"page":     1,
-			"per_page": 50,
-		}); err != nil {
-			s.logger.Printf("  ⚠️  facility types %s failed: %v", category, err)
-			continue
-		}
-		time.Sleep(1 * time.Second)
-
-		rawJSON := s.getRawJSON("_last")
-		if rawJSON == nil {
-			s.logger.Printf("  ⚠️  No data for facility types %s", category)
-			continue
-		}
-
-		var firstPage struct {
-			Types      []json.RawMessage `json:"types"`
-			Page       int               `json:"page"`
-			TotalPages int               `json:"total_pages"`
-			Total      int               `json:"total"`
-			Category   string            `json:"category"`
-		}
-		if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
-			s.logger.Printf("  ⚠️  Failed to parse facility types %s: %v", category, err)
-			// Save raw response as-is
-			if saveErr := s.saveJSON(fmt.Sprintf("facility_%s.json", category), rawJSON); saveErr != nil {
-				s.logger.Printf("  ⚠️  Failed to save: %v", saveErr)
-			}
-			continue
-		}
-
-		s.logger.Printf("  📖 Page %d/%d: %d types", firstPage.Page, firstPage.TotalPages, len(firstPage.Types))
-
-		// Single page — save directly
-		if firstPage.TotalPages <= 1 {
-			if err := s.saveJSON(fmt.Sprintf("facility_%s.json", category), rawJSON); err != nil {
-				s.logger.Printf("  ⚠️  Failed to save: %v", err)
-			}
-			continue
-		}
-
-		// Fetch remaining pages
-		allTypes := make([]json.RawMessage, 0, firstPage.Total)
-		allTypes = append(allTypes, firstPage.Types...)
-
-		for page := 2; page <= firstPage.TotalPages; page++ {
-			s.clearLastError()
-			if err := s.client.RawCommand(ctx, "facility", map[string]any{
-				"action":   "types",
-				"category": category,
-				"page":     page,
-				"per_page": 50,
-			}); err != nil {
-				s.logger.Printf("  ⚠️  facility types %s page %d failed: %v", category, page, err)
-				continue
-			}
-			time.Sleep(1 * time.Second)
-
-			pageJSON := s.getRawJSON("_last")
-			if pageJSON == nil {
-				s.logger.Printf("  ⚠️  No data for facility types %s page %d", category, page)
-				continue
-			}
-
-			var pageResp struct {
-				Types []json.RawMessage `json:"types"`
-				Page  int               `json:"page"`
-			}
-			if err := json.Unmarshal(pageJSON, &pageResp); err != nil {
-				s.logger.Printf("  ⚠️  Failed to parse page %d: %v", page, err)
-				continue
-			}
-
-			s.logger.Printf("  📖 Page %d/%d: %d types", page, firstPage.TotalPages, len(pageResp.Types))
-			allTypes = append(allTypes, pageResp.Types...)
-		}
-
-		// Build combined response
-		combined := map[string]any{
-			"types":       allTypes,
-			"page":        1,
-			"total_pages": 1,
-			"total":       len(allTypes),
-			"category":    category,
-		}
-		combinedJSON, err := json.MarshalIndent(combined, "", "  ")
-		if err != nil {
-			s.logger.Printf("  ⚠️  Failed to marshal combined: %v", err)
-			continue
-		}
-
-		s.logger.Printf("  📚 Total %s facility types: %d", category, len(allTypes))
-		if err := s.saveJSON(fmt.Sprintf("facility_%s.json", category), combinedJSON); err != nil {
-			s.logger.Printf("  ⚠️  Failed to save: %v", err)
-		}
-	}
-
-	return nil
-}
-
-// scrapeFacilityDetails fetches detailed info for every facility type and saves each as a separate file.
-func (s *Scraper) scrapeFacilityDetails() error {
-	ctx := context.Background()
-
-	// First, collect all type IDs from the category listing files (or fetch them).
-	categories := []string{"infrastructure", "service", "production", "faction", "personal"}
-	var allIDs []string
-
-	for _, category := range categories {
-		s.clearLastError()
-		if err := s.client.RawCommand(ctx, "facility", map[string]any{
-			"action":   "types",
-			"category": category,
-			"page":     1,
-			"per_page": 50,
-		}); err != nil {
-			s.logger.Printf("  ⚠️  facility types %s failed: %v", category, err)
-			continue
-		}
-		time.Sleep(500 * time.Millisecond)
-
-		rawJSON := s.getRawJSON("_last")
-		if rawJSON == nil {
-			continue
-		}
-
-		var firstPage struct {
-			Types []struct {
-				ID string `json:"id"`
-			} `json:"types"`
-			TotalPages int `json:"total_pages"`
-		}
-		if err := json.Unmarshal(rawJSON, &firstPage); err != nil {
-			continue
-		}
-		for _, t := range firstPage.Types {
-			allIDs = append(allIDs, t.ID)
-		}
-
-		for page := 2; page <= firstPage.TotalPages; page++ {
-			s.clearLastError()
-			if err := s.client.RawCommand(ctx, "facility", map[string]any{
-				"action":   "types",
-				"category": category,
-				"page":     page,
-				"per_page": 50,
-			}); err != nil {
-				continue
-			}
-			time.Sleep(500 * time.Millisecond)
-
-			pageJSON := s.getRawJSON("_last")
-			if pageJSON == nil {
-				continue
-			}
-			var pageResp struct {
-				Types []struct {
-					ID string `json:"id"`
-				} `json:"types"`
-			}
-			if err := json.Unmarshal(pageJSON, &pageResp); err != nil {
-				continue
-			}
-			for _, t := range pageResp.Types {
-				allIDs = append(allIDs, t.ID)
-			}
-		}
-	}
-
-	s.logger.Printf("  📋 Found %d facility type IDs to fetch details for", len(allIDs))
-
-	// Create subdirectory for detail files
-	detailDir := filepath.Join(s.outputDir, "facility_details")
-	if err := os.MkdirAll(detailDir, 0755); err != nil {
-		return fmt.Errorf("failed to create facility_details directory: %w", err)
-	}
-
-	// Fetch details for each type, skipping ones that already exist on disk
-	fetched, skipped := 0, 0
-	for _, typeID := range allIDs {
-		detailPath := filepath.Join(detailDir, typeID+".json")
-		if _, err := os.Stat(detailPath); err == nil {
-			skipped++
-			continue
-		}
-
-		s.clearLastError()
-		if err := s.client.RawCommand(ctx, "facility", map[string]any{
-			"action":        "types",
-			"facility_type": typeID,
-		}); err != nil {
-			s.logger.Printf("  ⚠️  facility detail %s failed: %v", typeID, err)
-			continue
-		}
-		time.Sleep(500 * time.Millisecond)
-
-		rawJSON := s.getRawJSON("_last")
-		if rawJSON == nil {
-			s.logger.Printf("  ⚠️  No data for facility detail %s", typeID)
-			continue
-		}
-
-		if err := s.saveJSONTo(detailPath, rawJSON); err != nil {
-			s.logger.Printf("  ⚠️  Failed to save %s: %v", typeID, err)
-			continue
-		}
-		fetched++
-		if fetched%50 == 0 {
-			s.logger.Printf("  📖 Fetched %d/%d details...", fetched, len(allIDs)-skipped)
-		}
-	}
-
-	s.logger.Printf("  📚 Facility details: %d fetched, %d skipped (already on disk)", fetched, skipped)
-	return nil
-}
-
-// saveJSONTo writes pretty-printed JSON to an absolute path.
-func (s *Scraper) saveJSONTo(path string, data []byte) error {
-	formatted, err := json.MarshalIndent(json.RawMessage(data), "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to format JSON: %w", err)
-	}
-	if err := os.WriteFile(path, formatted, 0644); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
-	}
-	return nil
 }
 
 func (s *Scraper) saveJSON(filename string, data any) error {

@@ -4,59 +4,61 @@
 bin/*
 /test-*
 
-# Build artifacts in root directory (from running go build directly)
-# Use 'make build' instead to build to bin/
-spacemolt-server
-agent-server
-status-registry
-auto-explorer
-auto-miner
-auto-trader
-auto-fighter
-auto-pirate
-auto-craftsman
-auto-salvager
-auto-prophet
-auto-random
-auto-recall
-auto-llm-miner
-mcp-bridge-service
-mcp-ws-bridge
-mcp-sse-bridge
-bridge-mcp-bridge-service
-bridge-mcp-ws-bridge
-bridge-mcp-sse-bridge
+# Build artifacts in root directory (from running go build directly).
+# Anchored to repo root with a leading slash so these binary names don't also
+# match same-named source directories under cmd/ — an unanchored "data-*" was
+# matching cmd/data/data-scraper/ and silently ignoring new .go files there.
+# Use 'make build' to build into bin/ instead.
+/spacemolt-server
+/agent-server
+/status-registry
+/auto-explorer
+/auto-miner
+/auto-trader
+/auto-fighter
+/auto-pirate
+/auto-craftsman
+/auto-salvager
+/auto-prophet
+/auto-random
+/auto-recall
+/auto-llm-miner
+/mcp-bridge-service
+/mcp-ws-bridge
+/mcp-sse-bridge
+/bridge-mcp-bridge-service
+/bridge-mcp-ws-bridge
+/bridge-mcp-sse-bridge
 /play_as
 cmd/tools/play_as/play_as
 /spar
-skill-tree
-skill-graph
-action-visualizer
+/skill-tree
+/skill-graph
+/action-visualizer
 /daily-summary
-benchmark
-test-agent
-test-agent-manager
-debug-*
-tools-*
-data-*
-convert-*
-import-*
-check-*
-view-*
-generate-*
-update-*
-facility-check
-faction-join
-claim-code
-agent-status
-register-agent
-run-skill
-skill-runner
-test-credentials
-json-diff
-data-diff
-lego
-superroot
+/benchmark
+/test-agent
+/test-agent-manager
+/debug-*
+/tools-*
+/data-*
+/convert-*
+/import-*
+/check-*
+/view-*
+/generate-*
+/update-*
+/facility-check
+/faction-join
+/claim-code
+/agent-status
+/register-agent
+/run-skill
+/skill-runner
+/test-credentials
+/json-diff
+/lego
+/superroot
 
 ##############################
 # official spacemolt client

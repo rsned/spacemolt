@@ -17,6 +17,13 @@ const (
 
 	// DefaultMCPServerURL is the default MCP endpoint for the game
 	DefaultMCPServerURL = "https://game.spacemolt.com/mcp"
+
+	// DefaultCatalogURL is the static game catalog download (no auth required).
+	// It returns the entire catalog (ships, skills, recipes, items, modules,
+	// facilities) as a single JSON document with a top-level version field.
+	// Cached with an ETag (supports If-None-Match -> 304) and rate-limited to
+	// 1/min per IP, so fetch it once per version and grep the local copy.
+	DefaultCatalogURL = "https://game.spacemolt.com/api/catalog.json"
 )
 
 // Credentials holds agent authentication information loaded from credentials.json

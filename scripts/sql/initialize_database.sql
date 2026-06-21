@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 16
--- Last Regenerated: 2026-06-09
+-- Migrations applied: 17
+-- Last Regenerated: 2026-06-21
 
 -- ============================================================================
 -- TABLES
@@ -748,17 +748,21 @@ CREATE TABLE recipe_outputs (
 );
 
 
-CREATE TABLE recipes (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT,
-    category TEXT,
-    crafting_time INTEGER DEFAULT 0,
-    base_quality INTEGER DEFAULT 0,
-    skill_quality_mod INTEGER DEFAULT 0,
-    required_skills TEXT DEFAULT '{}',
-    last_updated_tick INTEGER DEFAULT 0
-, hidden BOOLEAN DEFAULT 0, facility_only BOOLEAN NOT NULL DEFAULT 0, no_recycle BOOLEAN NOT NULL DEFAULT 0, fuel_output INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE "recipes" (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					description TEXT,
+					category TEXT,
+					crafting_time REAL DEFAULT 0,
+					base_quality INTEGER DEFAULT 0,
+					skill_quality_mod INTEGER DEFAULT 0,
+					required_skills TEXT DEFAULT '{}',
+					last_updated_tick INTEGER DEFAULT 0,
+					hidden BOOLEAN DEFAULT 0,
+					facility_only BOOLEAN NOT NULL DEFAULT 0,
+					no_recycle BOOLEAN NOT NULL DEFAULT 0,
+					fuel_output INTEGER NOT NULL DEFAULT 0
+				);
 
 
 CREATE TABLE resource_history (
@@ -1166,4 +1170,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (41, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (42, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (43, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (44, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (45, datetime('now'));
 

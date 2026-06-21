@@ -493,6 +493,43 @@ func migrations() []Migration {
 				CREATE INDEX market_supply_history_item ON market_supply_history(item_id, bucket_utc);
 			`,
 		},
+		{
+			// Server v0.41x switched recipe crafting_time to a fractional value
+			// (e.g. 2.76s); the column was created with INTEGER affinity. Rebuild
+			// the recipes table to give crafting_time REAL affinity. recipes is a
+			// repopulated catalog cache (StoreRecipes DELETEs + re-INSERTs) with no
+			// inbound foreign keys, so the rebuild is safe. Guarded in the runner
+			// for fixtures that lack the table.
+			version: 45,
+			name:    "recipes_crafting_time_real",
+			sql: `
+				CREATE TABLE recipes_new (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					description TEXT,
+					category TEXT,
+					crafting_time REAL DEFAULT 0,
+					base_quality INTEGER DEFAULT 0,
+					skill_quality_mod INTEGER DEFAULT 0,
+					required_skills TEXT DEFAULT '{}',
+					last_updated_tick INTEGER DEFAULT 0,
+					hidden BOOLEAN DEFAULT 0,
+					facility_only BOOLEAN NOT NULL DEFAULT 0,
+					no_recycle BOOLEAN NOT NULL DEFAULT 0,
+					fuel_output INTEGER NOT NULL DEFAULT 0
+				);
+				INSERT INTO recipes_new (id, name, description, category, crafting_time,
+					base_quality, skill_quality_mod, required_skills, last_updated_tick,
+					hidden, facility_only, no_recycle, fuel_output)
+				SELECT id, name, description, category, crafting_time,
+					base_quality, skill_quality_mod, required_skills, last_updated_tick,
+					hidden, facility_only, no_recycle, fuel_output
+				FROM recipes;
+				DROP TABLE recipes;
+				ALTER TABLE recipes_new RENAME TO recipes;
+				CREATE INDEX idx_recipes_category ON recipes(category);
+			`,
+		},
 	}
 }
 
@@ -587,6 +624,27 @@ func runMigrations(db *sql.DB) error {
 				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='items'`,
 			).Scan(&tableCount); err != nil {
 				return fmt.Errorf("check items table: %w", err)
+			}
+			if tableCount == 0 {
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 45: rebuilds the recipes catalog table.
+		// Narrow migration-test fixtures may lack it; if recipes is absent there
+		// is nothing to rebuild, so record as applied and skip.
+		if m.version == 45 {
+			var tableCount int
+			if err := db.QueryRow(
+				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='recipes'`,
+			).Scan(&tableCount); err != nil {
+				return fmt.Errorf("check recipes table: %w", err)
 			}
 			if tableCount == 0 {
 				if _, err := db.Exec(

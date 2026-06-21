@@ -189,7 +189,7 @@ type RecipeDef struct {
 	Name            string
 	Description     string
 	Category        string
-	CraftingTime    int
+	CraftingTime    float64
 	BaseQuality     int
 	SkillQualityMod int
 	RequiredSkills  map[string]int

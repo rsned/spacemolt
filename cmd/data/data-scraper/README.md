@@ -68,12 +68,9 @@ go run cmd/data-scraper/main.go <agent-id> <endpoint>
 | `map` | Map Data |
 | `listings` | Market Listings |
 | `ships` | Shipyard Showroom |
-| `ship_catalog` | Ship Catalog (all ship types) |
+| `catalog` | Full catalog bundle — ships, skills, recipes, items, modules, facilities (single `catalog.json` download) |
 | `nearby` | Nearby Players |
 | `skills` | Player Skills (your levels) |
-| `skill_defs` | Skill Definitions (catalog) |
-| `recipes` | Recipe Definitions (catalog) |
-| `items` | Item Definitions (catalog) |
 | `wrecks` | Wrecks |
 | `drones` | Drones |
 | `base` | Base Info |
@@ -236,19 +233,31 @@ data/game-api/
 
 ## API Changes
 
-The SpaceMolt game server has been updated with a new catalog system:
+### Unified catalog download (server v0.412.0+)
 
-- **get_skills** now returns only your player's current skill levels and XP
-- **Skill definitions** are now retrieved via the `catalog` endpoint with type="skills"
-- **Recipe definitions** are now retrieved via the `catalog` endpoint with type="recipes"
-- **Ship definitions** are retrieved via the `catalog` endpoint with type="ships"
-- The catalog endpoint supports pagination, filtering by category, and text search
+The scraper no longer pages the WebSocket `catalog` command entry-by-entry, nor
+fetches facility types/details one at a time. Instead the `catalog` endpoint
+performs a single HTTPS GET of `https://game.spacemolt.com/api/catalog.json`
+(no login or WebSocket required) and splits it into the legacy per-category
+files that downstream importers and the kb site generator already consume:
 
-The scraper has been updated to work with these changes:
-- `get_skills.json` contains your player's skill progress
-- `catalog_skills.json` contains all skill definitions
-- `catalog_recipes.json` contains all recipe definitions
-- Shipyard showroom still uses `shipyard_showroom` endpoint
+- `catalog_ships.json`, `catalog_skills.json`, `catalog_recipes.json`
+- `catalog_items.json` — items **plus** modules combined (matches the previous
+  combined shape `import-catalog-items` expects)
+- `catalog_modules.json` — modules on their own (new; the unified catalog now
+  reports modules as a distinct top-level section)
+- `catalog_facilities.json` — the entire flat facility list (replaces the old
+  per-category `facility_*.json` files and the `facility_details/` directory)
+
+Each split file keeps the `{"items":[...], "type":..., "total":..., "version":...}`
+envelope. The download is cached locally (`.catalog.json` + `.catalog.etag` in
+the base output dir): the scraper sends `If-None-Match` and reuses the cached
+body on a `304`, on a `429` (the endpoint is rate-limited to 1/min per IP), or
+when the network is unavailable.
+
+The static catalog intentionally omits a few runtime/per-station facility fields
+that the live `facility types` command still returns (`rent_per_cycle`,
+`buildable`, `hint`); the `recipe_multiplier` field was retired server-side.
 
 ## Why WebSocket Instead of HTTP MCP?
 
