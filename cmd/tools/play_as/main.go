@@ -5969,6 +5969,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if v, ok := payload["item_id"].(string); ok {
 			payload["item_id"] = strings.ToLower(v)
 		}
+		// since is a schema integer; coerce so it isn't sent as a JSON string.
+		if v, ok := payload["since"].(string); ok {
+			if n, err := strconv.Atoi(v); err == nil {
+				payload["since"] = n
+			}
+		}
 		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.ViewMarket(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
@@ -6424,6 +6430,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 						payload[key] = parts[i]
 					}
 				}
+			}
+		}
+		// max_price is a schema integer; coerce so it isn't sent as a string.
+		// (Safe when payload is nil: the assertion on a nil map is a no-op.)
+		if v, ok := payload["max_price"].(string); ok {
+			if n, err := strconv.Atoi(v); err == nil {
+				payload["max_price"] = n
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
@@ -7470,8 +7483,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if after, ok := flagArgs["after"]; ok {
 			payload["after"] = after
 		}
-		if limitStr, ok := flagArgs["limit"]; ok {
-			if n, err := strconv.Atoi(limitStr.(string)); err == nil {
+		// parseFlagArgs auto-converts a numeric --limit to int, so the old
+		// limitStr.(string) assertion panicked; use flagInt to handle both.
+		if limitVal, ok := flagArgs["limit"]; ok {
+			if n, ok := flagInt(limitVal); ok {
 				payload["limit"] = n
 			}
 		}
