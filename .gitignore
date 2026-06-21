@@ -121,9 +121,13 @@ starting_notes.txt
 /agent_names.txt
 /agent_rename_proposals.txt
 /scripts/propose_agent_renames.py
-# data/scripts/ contains versioned .smolt scripts; only ignore non-script runtime files
+# data/scripts/ holds the curated shared catalog scripts (tracked) alongside
+# local/experimental scripts (ignored). Ignore all .smolt, then re-include only
+# the catalog files so a blanket `git add -A` can't re-track local scripts.
 !data/scripts/
-!data/scripts/*.smolt
+data/scripts/*.smolt
+!data/scripts/idle_mine.smolt
+!data/scripts/track_station.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit
