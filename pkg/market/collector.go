@@ -293,7 +293,12 @@ func computeOHLCV(orders []Order, bucketUTC string) []OHLCV {
 	return result
 }
 
-// upsertOHLCV inserts or updates an OHLCV record.
+// upsertOHLCV inserts or updates an OHLCV record. The conflict key is
+// (station_id, item_id, side, bucket_utc), so a second capture within the same
+// UTC hour OVERWRITES the existing bucket row rather than merging into it:
+// open/high/low/close/volume/trade_count/vwap are replaced wholesale with values
+// computed from the latest snapshot. To grow the time series by one point, a
+// capture must land in a new UTC hour (see WriteSnapshot).
 func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
 	_, err := tx.Exec(`
 		INSERT INTO market_ohlcv (station_id, item_id, side, bucket_utc, open_price, high_price, low_price, close_price, volume, trade_count, vwap)
@@ -312,7 +317,16 @@ func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
 	return err
 }
 
-// WriteSnapshot persists a market snapshot atomically.
+// WriteSnapshot persists a market snapshot atomically: it upserts the station and
+// items, appends every order to market_orders (raw order rows always accumulate),
+// and upserts the hourly OHLCV bucket for each (station, item, side).
+//
+// OHLCV is computed only from this snapshot's orders and keyed by the truncated
+// UTC hour. A capture that lands in the SAME hour as a previous one therefore
+// overwrites that hour's OHLCV row instead of extending it — it does not merge
+// volumes or widen the high/low range. Distinct OHLCV data points come from
+// captures in distinct UTC hours, so the collection cadence that builds trend
+// depth is "at most one per hour" (the hourly schedule is the intended driver).
 func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	bucketUTC := snapshot.CapturedAt.UTC().Truncate(time.Hour).Format(time.RFC3339)

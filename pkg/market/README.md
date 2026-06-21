@@ -35,7 +35,7 @@ After deploying to station agents:
 
 4. **Item time series (OHLCV):**
    ```bash
-   sqlite3 data/market.db "SELECT bucket_utc, close_price, vwap, volume FROM market_ohlcv WHERE item_id='iron' AND side='buy' ORDER BY bucket_utc DESC LIMIT 24"
+   sqlite3 data/market.db "SELECT bucket_utc, close_price, vwap, volume FROM market_ohlcv WHERE item_id='iron_ore' AND side='buy' ORDER BY bucket_utc DESC LIMIT 24"
    ```
 
 ## Package layout
