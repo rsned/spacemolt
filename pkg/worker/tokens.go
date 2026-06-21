@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"fmt"
@@ -10,11 +10,11 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
-// tokenError indicates a $TOKEN$ in a command could not be resolved from game
+// TokenError indicates a $TOKEN$ in a command could not be resolved from game
 // state. Inside a loop it is fatal: the loop aborts immediately, even under -f.
-type tokenError struct{ msg string }
+type TokenError struct{ msg string }
 
-func (e *tokenError) Error() string { return e.msg }
+func (e *TokenError) Error() string { return e.msg }
 
 // knownPOITypes is the set of POI types a $TYPE$ token may name. It lets the
 // resolver tell an unresolvable-but-valid type ("no station in system") apart
@@ -30,10 +30,10 @@ var knownPOITypes = map[string]bool{
 // tokenRe matches $NAME$ where NAME starts with a letter/underscore.
 var tokenRe = regexp.MustCompile(`\$([A-Za-z_][A-Za-z0-9_]*)\$`)
 
-// resolveTokens replaces every $TOKEN$ occurrence in each argument with a value
+// ResolveTokens replaces every $TOKEN$ occurrence in each argument with a value
 // derived from live game state. It returns the substituted arguments, or a
-// *tokenError if any token cannot be resolved.
-func resolveTokens(args []string, state *game.State) ([]string, error) {
+// *TokenError if any token cannot be resolved.
+func ResolveTokens(args []string, state *game.State) ([]string, error) {
 	out := make([]string, len(args))
 	for i, a := range args {
 		var rerr error
@@ -62,27 +62,27 @@ func resolveOneToken(name string, state *game.State) (string, error) {
 	switch strings.ToUpper(name) {
 	case "SYSTEM":
 		if state == nil || state.System.ID == "" {
-			return "", &tokenError{"$SYSTEM$: no current system in state"}
+			return "", &TokenError{"$SYSTEM$: no current system in state"}
 		}
 		return state.System.ID, nil
 	case "SHIP":
 		if state == nil || state.Ship.ID == "" {
-			return "", &tokenError{"$SHIP$: no active ship in state"}
+			return "", &TokenError{"$SHIP$: no active ship in state"}
 		}
 		return state.Ship.ID, nil
 	case "CREDITS":
 		if state == nil {
-			return "", &tokenError{"$CREDITS$: no state available"}
+			return "", &TokenError{"$CREDITS$: no state available"}
 		}
 		return strconv.FormatInt(int64(state.Credits), 10), nil
 	}
 
 	poiType := strings.ToLower(name)
 	if !knownPOITypes[poiType] {
-		return "", &tokenError{fmt.Sprintf("unknown token $%s$", name)}
+		return "", &TokenError{fmt.Sprintf("unknown token $%s$", name)}
 	}
 	if state == nil {
-		return "", &tokenError{fmt.Sprintf("$%s$: no state available", name)}
+		return "", &TokenError{fmt.Sprintf("$%s$: no state available", name)}
 	}
 	var matches []string
 	for _, p := range state.System.POIs {
@@ -91,7 +91,7 @@ func resolveOneToken(name string, state *game.State) (string, error) {
 		}
 	}
 	if len(matches) == 0 {
-		return "", &tokenError{fmt.Sprintf("no %s POI in system %s (%s)",
+		return "", &TokenError{fmt.Sprintf("no %s POI in system %s (%s)",
 			poiType, state.System.Name, state.System.ID)}
 	}
 	slices.Sort(matches)

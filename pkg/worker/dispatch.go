@@ -1,0 +1,100 @@
+package worker
+
+import (
+	"context"
+	"fmt"
+	"io"
+
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+)
+
+// WorkerDispatch is the lean, headless command dispatch used by cmd/worker. It
+// covers the curated worker-script vocabulary only; each command maps directly
+// to a game.GameClient method, plus shared KB-capture for tracking commands.
+// Unknown commands return an error (never silently ignored). KB may be nil, in
+// which case tracking commands degrade to a no-op capture (movement/mining still
+// work).
+type WorkerDispatch struct {
+	Client game.GameClient
+	KB     knowledge.Base
+	Out    io.Writer
+}
+
+// NewWorkerDispatch builds a dispatch over the given client and KB. out receives
+// human-readable progress lines (worker stdout / logs).
+func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, out io.Writer) *WorkerDispatch {
+	if out == nil {
+		out = io.Discard
+	}
+	return &WorkerDispatch{Client: client, KB: kb, Out: out}
+}
+
+// supported is the curated command set. Keep in sync with data/scripts and
+// data/overmind/roles.yaml; roles_test.go enforces that every command named
+// there is present here.
+var supported = map[string]bool{
+	"undock": true, "dock": true, "travel": true, "mine": true,
+	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
+	"view_market": true, "facilities": true, "kb_update": true,
+	"get_status": true, "get_system": true, "get_cargo": true,
+}
+
+// Supports reports whether cmd is in the curated worker vocabulary.
+func (d *WorkerDispatch) Supports(cmd string) bool { return supported[cmd] }
+
+// Run dispatches one tokenized command. Token resolution ($SYSTEM$, $STATION$,
+// POI-type tokens) is the caller's responsibility (RunStanding resolves before
+// calling) — Run treats tokens as literal.
+func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
+	if len(tokens) == 0 {
+		return nil
+	}
+	cmd := tokens[0]
+	args := tokens[1:]
+	switch cmd {
+	case "undock":
+		return d.Client.Undock(ctx)
+	case "dock":
+		return d.Client.Dock(ctx)
+	case "mine":
+		return d.Client.Mine(ctx)
+	case "refuel":
+		return d.Client.Refuel(ctx)
+	case "repair":
+		return d.Client.Repair(ctx)
+	case "deposit_all":
+		return d.Client.DepositAllItems(ctx)
+	case "sell_all":
+		return d.Client.SellAllBulk(ctx, nil)
+	case "travel":
+		if len(args) < 1 {
+			return fmt.Errorf("travel: missing target POI")
+		}
+		_, err := d.Client.Travel(ctx, args[0])
+		return err
+	case "get_status":
+		return d.Client.GetStatus(ctx)
+	case "get_system":
+		return d.Client.GetSystem(ctx)
+	case "get_cargo":
+		return d.Client.GetCargo(ctx)
+	case "view_market":
+		if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
+			return err
+		}
+		CaptureMarket(ctx, d.Client, d.KB)
+		return nil
+	case "facilities":
+		if err := d.Client.Facility(ctx, map[string]any{}); err != nil {
+			return err
+		}
+		return KBUpdateFacilities(ctx, d.Client, d.KB)
+	case "kb_update":
+		// detectedBy is empty here; Tasks 9/10 will wire the real agent id
+		// once WorkerDispatch gains an agent-id field via standing behavior.
+		return KBUpdateAll(ctx, d.Client, d.KB, "")
+	default:
+		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
+	}
+}

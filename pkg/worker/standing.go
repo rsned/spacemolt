@@ -1,0 +1,195 @@
+package worker
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/rsned/spacemolt/pkg/game"
+)
+
+// StandingDeps are the collaborators RunStanding needs. All are injectable so
+// the driver is testable without a game connection.
+type StandingDeps struct {
+	Runner    CommandRunner                    // executes a tokenized command (WorkerDispatch)
+	Scheduler *Scheduler                       // per-agent recurring tasks
+	Client    interface{ GetState() *game.State } // for token resolution
+	ExecMu    *sync.Mutex                      // serializes scheduled + idle work on the one game conn
+	Paused    func() bool                      // gate from the control reader's paused flag
+	Out       io.Writer                        // worker stdout / logs
+	NowFn     func() time.Time                 // injectable clock
+
+	IdleInterval     time.Duration // between idle passes (0 → game.SleepShort)
+	ScheduleInterval time.Duration // scheduler tick (0 → game.SleepLong)
+	AgentID          string        // for script resolution search paths
+}
+
+// RunStanding drives a worker's default standing behavior until ctx is
+// cancelled: it registers the role's scheduled commands with the Scheduler and
+// runs the role's idle script in a loop, both serialized on deps.ExecMu so they
+// never interleave on the single game connection. It returns when ctx is
+// cancelled, after any in-flight idle pass completes.
+func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
+	if deps.Out == nil {
+		deps.Out = io.Discard
+	}
+	if deps.NowFn == nil {
+		deps.NowFn = func() time.Time { return time.Now().UTC() }
+	}
+	if deps.IdleInterval == 0 {
+		deps.IdleInterval = game.SleepShort
+	}
+	if deps.ScheduleInterval == 0 {
+		deps.ScheduleInterval = game.SleepLong
+	}
+
+	// Register schedule entries (idempotent: skip a command already registered,
+	// so a restart does not duplicate it).
+	if deps.Scheduler != nil {
+		existing := make(map[string]bool)
+		for _, t := range deps.Scheduler.List() {
+			existing[t.Frequency+"|"+t.Command] = true
+		}
+		for _, se := range role.Schedule {
+			if existing[se.Every+"|"+se.Command] {
+				continue
+			}
+			if _, err := deps.Scheduler.Add(se.Every, se.Command, deps.NowFn()); err != nil {
+				fmt.Fprintf(deps.Out, "standing: schedule add %q failed: %v\n", se.Command, err) //nolint:errcheck
+			}
+		}
+		// run executes one scheduled command line under ExecMu.
+		run := func(t ScheduledTask) {
+			fmt.Fprintf(deps.Out, "⏰ [scheduled %s] %s\n", t.Frequency, t.Command) //nolint:errcheck
+			deps.runLine(ctx, t.Command)
+		}
+		deps.Scheduler.StartLoop(ctx, deps.ScheduleInterval, deps.ExecMu, run, deps.NowFn)
+	}
+
+	// Resolve the idle script once into command lines.
+	idleCmds := deps.resolveIdle(role)
+
+	// Idle loop.
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		if deps.Paused != nil && deps.Paused() {
+			if sleepCtx(ctx, game.SleepMedium) {
+				return nil
+			}
+			continue
+		}
+		deps.ExecMu.Lock()
+		for _, line := range idleCmds {
+			select {
+			case <-ctx.Done():
+				deps.ExecMu.Unlock()
+				return nil
+			default:
+			}
+			deps.runLine(ctx, line)
+		}
+		deps.ExecMu.Unlock()
+		if sleepCtx(ctx, deps.IdleInterval) {
+			return nil
+		}
+	}
+}
+
+// resolveIdle loads the role's idle script into command lines, falling back to a
+// single get_status when the script is absent (keeps an unconfigured worker
+// alive and tests hermetic).
+func (deps StandingDeps) resolveIdle(role Role) []string {
+	if role.Idle == "" {
+		return []string{"get_status"}
+	}
+	path, ok := ResolveScriptArg(role.Idle, deps.AgentID)
+	if !ok {
+		fmt.Fprintf(deps.Out, "standing: idle script %q not found; using get_status\n", role.Idle) //nolint:errcheck
+		return []string{"get_status"}
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(deps.Out, "standing: read idle script %q: %v; using get_status\n", role.Idle, err) //nolint:errcheck
+		return []string{"get_status"}
+	}
+	cmds, err := SplitScriptCommands(string(content))
+	if err != nil {
+		fmt.Fprintf(deps.Out, "standing: parse idle script %q: %v; using get_status\n", role.Idle, err) //nolint:errcheck
+		return []string{"get_status"}
+	}
+	return cmds
+}
+
+// runLine resolves tokens against live state and executes a single command line.
+// A loop header is expanded via ExecuteLoop; a plain line goes straight to the
+// runner. Errors are logged (idle work is best-effort, force-like).
+func (deps StandingDeps) runLine(ctx context.Context, line string) {
+	stmts, err := ParseStatements(line)
+	if err != nil {
+		fmt.Fprintf(deps.Out, "standing: parse %q: %v\n", line, err) //nolint:errcheck
+		return
+	}
+	for _, st := range stmts {
+		if ctx.Err() != nil {
+			return
+		}
+		if len(st.Tokens) > 0 && strings.EqualFold(st.Tokens[0], "loop") {
+			count, force, body, isBlock, perr := ParseLoopHeader(st)
+			if perr != nil {
+				fmt.Fprintf(deps.Out, "standing: %v\n", perr) //nolint:errcheck
+				continue
+			}
+			var inner []Statement
+			if isBlock {
+				inner, err = ParseStatements(body)
+			} else {
+				inner = []Statement{{Raw: body, Tokens: SplitArgs(body)}}
+			}
+			if err != nil {
+				fmt.Fprintf(deps.Out, "standing: %v\n", err) //nolint:errcheck
+				continue
+			}
+			rs := func(tokens []string) error { return deps.dispatch(ctx, tokens) }
+			if lerr := ExecuteLoop(ctx, deps.Out, count, force, inner, 0, rs); lerr != nil {
+				fmt.Fprintf(deps.Out, "standing: loop: %v\n", lerr) //nolint:errcheck
+			}
+			continue
+		}
+		if derr := deps.dispatch(ctx, st.Tokens); derr != nil {
+			fmt.Fprintf(deps.Out, "standing: %q: %v\n", st.Raw, derr) //nolint:errcheck
+		}
+	}
+}
+
+// dispatch resolves tokens against live state, then runs them.
+func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
+	var st *game.State
+	if deps.Client != nil {
+		st = deps.Client.GetState()
+	}
+	resolved, err := ResolveTokens(tokens, st)
+	if err != nil {
+		return err
+	}
+	return deps.Runner.Run(ctx, resolved)
+}
+
+// sleepCtx sleeps d or returns true if ctx is cancelled first.
+func sleepCtx(ctx context.Context, d time.Duration) (cancelled bool) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return true
+	case <-t.C:
+		return false
+	}
+}

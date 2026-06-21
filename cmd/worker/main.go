@@ -17,13 +17,16 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/overmind/checkpoint"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 func main() {
@@ -32,6 +35,8 @@ func main() {
 	station := flag.String("station", "", "Home station POI (optional)")
 	socketPath := flag.String("socket", "", "Unix socket path to overmind control channel")
 	dbPath := flag.String("db-path", "", "Path to checkpoint DB (default: data/agents/<agent>/checkpoint.db)")
+	rolesPath := flag.String("roles", filepath.Join("data", "overmind", "roles.yaml"), "Path to roles config")
+	kbPath := flag.String("kb-path", filepath.Join("data", "spacemolt-knowledge.db"), "Path to shared knowledge base")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -213,6 +218,49 @@ func main() {
 				}
 			}
 		}()
+
+		// ── Step 6b: Open shared KB (best-effort) ───────────────────────────
+		var kb knowledge.Base
+		if sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *kbPath, WAL: true}); kbErr != nil {
+			logger.Printf("warning: open KB %s: %v (tracking disabled)", *kbPath, kbErr)
+		} else {
+			kb = sqliteKB
+			defer func() { _ = sqliteKB.Close() }()
+		}
+
+		// ── Step 6c: Standing behavior ───────────────────────────────────────
+		roles, rolesErr := worker.LoadRoles(*rolesPath)
+		if rolesErr != nil {
+			logger.Printf("warning: load roles %s: %v (no standing behavior)", *rolesPath, rolesErr)
+		}
+		roleCfg, haveRole := roles[*role]
+		if haveRole {
+			dispatch := worker.NewWorkerDispatch(client, kb, os.Stdout)
+			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
+			if schedErr != nil {
+				logger.Printf("warning: load scheduler: %v", schedErr)
+			}
+			var execMu sync.Mutex
+			go func() {
+				deps := worker.StandingDeps{
+					Runner:    dispatch,
+					Scheduler: sched,
+					Client:    client,
+					ExecMu:    &execMu,
+					Paused:    paused.Load,
+					Out:       os.Stdout,
+					NowFn:     func() time.Time { return time.Now().UTC() },
+					AgentID:   *agentID,
+				}
+				if rerr := worker.RunStanding(ctx, roleCfg, deps); rerr != nil {
+					logger.Printf("standing behavior ended: %v", rerr)
+				}
+			}()
+			standing = *role
+			logger.Printf("standing behavior started for role %q", *role)
+		} else {
+			logger.Printf("no standing behavior for role %q; idle heartbeat only", *role)
+		}
 
 		// ── Step 7: Heartbeat loop ────────────────────────────────────────────
 		ticker := time.NewTicker(game.SleepTick)

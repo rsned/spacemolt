@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"os"
@@ -19,8 +19,8 @@ func TestCurrentBoundary(t *testing.T) {
 		{"weekly", time.Date(2026, 5, 24, 0, 0, 0, 0, time.UTC)}, // previous Sunday
 	}
 	for _, tc := range cases {
-		if got := currentBoundary(tc.freq, now); !got.Equal(tc.want) {
-			t.Errorf("currentBoundary(%q, %v) = %v, want %v", tc.freq, now, got, tc.want)
+		if got := CurrentBoundary(tc.freq, now); !got.Equal(tc.want) {
+			t.Errorf("CurrentBoundary(%q, %v) = %v, want %v", tc.freq, now, got, tc.want)
 		}
 	}
 }
@@ -28,7 +28,7 @@ func TestCurrentBoundary(t *testing.T) {
 func TestCurrentBoundaryWeeklyOnSunday(t *testing.T) {
 	now := time.Date(2026, 5, 31, 9, 0, 0, 0, time.UTC) // Sunday 09:00
 	want := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
-	if got := currentBoundary("weekly", now); !got.Equal(want) {
+	if got := CurrentBoundary("weekly", now); !got.Equal(want) {
 		t.Errorf("weekly on Sunday = %v, want %v (same-day midnight)", got, want)
 	}
 }

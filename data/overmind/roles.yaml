@@ -1,0 +1,12 @@
+# Per-role standing behaviors for overmind workers (Plan B).
+# `every` uses the Scheduler frequency set: hourly | daily | weekly.
+# Commands and idle scripts may use $TOKEN$s resolved from live game state
+# ($SYSTEM$, $SHIP$, $CREDITS$, and POI-type tokens like $ASTEROID_BELT$, $STATION$).
+roles:
+  resident:
+    schedule:
+      - { every: hourly, command: "kb_update" }
+      - { every: hourly, command: "view_market" }
+    idle: idle_mine
+    idle_params:
+      N: "20"

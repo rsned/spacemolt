@@ -39,6 +39,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/registry"
 	"github.com/rsned/spacemolt/pkg/respfmt"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // Package-level knowledge base, initialized if --db-path is provided.
@@ -396,12 +397,12 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	var execMu sync.Mutex
 
 	// Scheduler: user-registered recurring commands (hourly/daily/weekly).
-	scheduler, err := LoadScheduler(filepath.Join("data", "agents", agentID, "scheduled_commands.json"))
+	scheduler, err := worker.LoadScheduler(filepath.Join("data", "agents", agentID, "scheduled_commands.json"))
 	if err != nil {
 		log.Printf("[scheduler] warning: could not load schedules: %v", err)
-		scheduler, _ = LoadScheduler(filepath.Join(os.TempDir(), "scheduled_commands.json"))
+		scheduler, _ = worker.LoadScheduler(filepath.Join(os.TempDir(), "scheduled_commands.json"))
 	}
-	scheduler.startLoop(ctx, game.SleepLong, &execMu, func(t ScheduledTask) {
+	scheduler.StartLoop(ctx, game.SleepLong, &execMu, func(t worker.ScheduledTask) {
 		fmt.Printf("\r⏰ [scheduled %s] %s\n", t.Frequency, t.Command)
 		_ = executeLogicalCommand(client, ctx, t.Command, format, cfg, agentID)
 	}, func() time.Time { return time.Now().UTC() })
@@ -447,7 +448,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		if nl := strings.IndexByte(firstLine, '\n'); nl >= 0 {
 			firstLine = firstLine[:nl]
 		}
-		parts := splitArgs(firstLine)
+		parts := worker.SplitArgs(firstLine)
 		if len(parts) == 0 {
 			continue
 		}
@@ -601,7 +602,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 
 		// Handle scripts (list saved scripts)
 		if command == "scripts" {
-			perAgent, shared := listScripts(agentID)
+			perAgent, shared := worker.ListScripts(agentID)
 			if len(perAgent) == 0 && len(shared) == 0 {
 				fmt.Println("No scripts found.")
 			} else {
@@ -633,7 +634,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			case lastCommand == "":
 				fmt.Println("❌ save: no previous command to save")
 			default:
-				if err := saveScript(parts[1], lastCommand); err != nil {
+				if err := worker.SaveScript(parts[1], lastCommand); err != nil {
 					fmt.Printf("❌ %v\n", err)
 				} else {
 					fmt.Printf("✓ saved script %q\n", parts[1])
@@ -5588,7 +5589,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// via runLoopSingle, and block loops via the runStatement closure), so token
 	// substitution works uniformly everywhere. An unresolved token returns a
 	// *tokenError, which loops treat as a fatal abort.
-	resolved, rerr := resolveTokens(parts, client.GetState())
+	resolved, rerr := worker.ResolveTokens(parts, client.GetState())
 	if rerr != nil {
 		return rerr
 	}
@@ -8232,38 +8233,6 @@ func parseHexColor(s string) (r, g, b uint8, ok bool) {
 	return uint8(val >> 16), uint8(val >> 8), uint8(val), true
 }
 
-// splitArgs splits a command string into arguments, respecting double and single quotes.
-// e.g. `create_faction "Covenant of the Eternal Spark" SPRK` → ["create_faction", "Covenant of the Eternal Spark", "SPRK"]
-func splitArgs(s string) []string {
-	var args []string
-	var current strings.Builder
-	var inQuote rune
-
-	for _, r := range s {
-		switch {
-		case inQuote != 0:
-			if r == inQuote {
-				inQuote = 0
-			} else {
-				current.WriteRune(r)
-			}
-		case r == '"' || r == '\'':
-			inQuote = r
-		case r == ' ' || r == '\t':
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteRune(r)
-		}
-	}
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-	return args
-}
-
 // resolveFactionTag looks up a faction tag via faction_list and returns the faction ID, or "" if not found.
 func resolveFactionTag(client game.GameClient, ctx context.Context, tag string) string {
 	tag = strings.ToUpper(tag)
@@ -8561,7 +8530,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 	if nl := strings.IndexByte(firstLine, '\n'); nl >= 0 {
 		firstLine = firstLine[:nl]
 	}
-	parts := splitArgs(firstLine)
+	parts := worker.SplitArgs(firstLine)
 	if len(parts) == 0 {
 		return nil
 	}
@@ -8583,11 +8552,11 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 
 	var resultErr error
 	if command == "loop" {
-		if !hasTopLevelOpenBrace(cmd) {
+		if !worker.HasTopLevelOpenBrace(cmd) {
 			resultErr = runLoopSingle(client, ctx, parts, format)
 		} else {
-			stmt := Statement{Raw: cmd, Tokens: splitArgs(firstLine)}
-			count, force, body, isBlock, perr := parseLoopHeader(stmt)
+			stmt := worker.Statement{Raw: cmd, Tokens: worker.SplitArgs(firstLine)}
+			count, force, body, isBlock, perr := worker.ParseLoopHeader(stmt)
 			switch {
 			case perr != nil:
 				fmt.Printf("❌ %v\n", perr)
@@ -8596,7 +8565,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 				resultErr = fmt.Errorf("loop: expected block body")
 				fmt.Printf("❌ %v\n", resultErr)
 			default:
-				stmts, serr := parseStatements(body)
+				stmts, serr := worker.ParseStatements(body)
 				switch {
 				case serr != nil:
 					fmt.Printf("❌ %v\n", serr)
@@ -8605,7 +8574,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 					resultErr = fmt.Errorf("loop: empty block")
 					fmt.Printf("❌ %v\n", resultErr)
 				default:
-					preview := blockPreview(stmts)
+					preview := worker.BlockPreview(stmts)
 					if force {
 						fmt.Printf("🔁 Repeating { %s } %d time(s) (force mode)...\n", preview, count)
 					} else {
@@ -8614,7 +8583,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 					runStatement := func(tokens []string) error {
 						return executeCommand(client, ctx, tokens, format)
 					}
-					resultErr = executeLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
+					resultErr = worker.ExecuteLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
 				}
 			}
 		}
@@ -8693,7 +8662,7 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 				fmt.Printf("🎯 goal reached: %s → exiting loop\n", goal.Message)
 				break
 			}
-			var tokErr *tokenError
+			var tokErr *worker.TokenError
 			if errors.As(cerr, &tokErr) {
 				fmt.Printf("❌ %s → aborting loop\n", tokErr)
 				stopErr = cerr
@@ -9659,10 +9628,10 @@ func isTankFullError(err error) bool {
 // commands in order. Execution stops at the first command that returns a
 // stopping error (non-force loop failure or fatal *tokenError).
 func runScript(client game.GameClient, ctx context.Context, arg string, format outputFormat, cfg PlayAsConfig, agentID string) {
-	path, ok := resolveScriptArg(arg, agentID)
+	path, ok := worker.ResolveScriptArg(arg, agentID)
 	if !ok {
 		fmt.Printf("❌ script %q not found (searched %s)\n",
-			arg, strings.Join(scriptSearchPaths(agentID), ", "))
+			arg, strings.Join(worker.ScriptSearchPaths(agentID), ", "))
 		return
 	}
 	data, err := os.ReadFile(path)
@@ -9670,7 +9639,7 @@ func runScript(client game.GameClient, ctx context.Context, arg string, format o
 		fmt.Printf("❌ run: %v\n", err)
 		return
 	}
-	cmds, err := splitScriptCommands(string(data))
+	cmds, err := worker.SplitScriptCommands(string(data))
 	if err != nil {
 		fmt.Printf("❌ run %s: %v\n", path, err)
 		return

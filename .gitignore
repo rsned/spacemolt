@@ -121,7 +121,9 @@ starting_notes.txt
 /agent_names.txt
 /agent_rename_proposals.txt
 /scripts/propose_agent_renames.py
-/data/scripts/
+# data/scripts/ contains versioned .smolt scripts; only ignore non-script runtime files
+!data/scripts/
+!data/scripts/*.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit

@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"os"
@@ -19,7 +19,7 @@ mine
 # trailing comment
 dock
 `
-	got, err := splitScriptCommands(content)
+	got, err := SplitScriptCommands(content)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -34,18 +34,18 @@ dock
 }
 
 func TestSplitScriptCommandsUnbalanced(t *testing.T) {
-	if _, err := splitScriptCommands("loop 3 { mine\n"); err == nil {
+	if _, err := SplitScriptCommands("loop 3 { mine\n"); err == nil {
 		t.Fatal("expected error for unbalanced braces")
 	}
 }
 
 func TestIsExplicitScriptPath(t *testing.T) {
 	cases := map[string]bool{
-		"mining-loop":   false,
-		"mining.smolt":  true,
-		"./x.smolt":     true,
-		"/tmp/x.smolt":  true,
-		"sub/dir/name":  true,
+		"mining-loop":  false,
+		"mining.smolt": true,
+		"./x.smolt":    true,
+		"/tmp/x.smolt": true,
+		"sub/dir/name": true,
 	}
 	for in, want := range cases {
 		if got := isExplicitScriptPath(in); got != want {
@@ -70,19 +70,19 @@ func TestResolveScriptArgPrecedence(t *testing.T) {
 	mustWrite(t, filepath.Join(sharedDir, "loop.smolt"), "dock")
 	mustWrite(t, filepath.Join(sharedDir, "shared-only.smolt"), "scan")
 
-	if got, ok := resolveScriptArg("loop", agentID); !ok || got != filepath.Join(agentDir, "loop.smolt") {
+	if got, ok := ResolveScriptArg("loop", agentID); !ok || got != filepath.Join(agentDir, "loop.smolt") {
 		t.Errorf("loop resolved to %q (ok=%v); want per-agent path", got, ok)
 	}
-	if got, ok := resolveScriptArg("shared-only", agentID); !ok || got != filepath.Join(sharedDir, "shared-only.smolt") {
+	if got, ok := ResolveScriptArg("shared-only", agentID); !ok || got != filepath.Join(sharedDir, "shared-only.smolt") {
 		t.Errorf("shared-only resolved to %q (ok=%v); want shared path", got, ok)
 	}
-	if _, ok := resolveScriptArg("missing", agentID); ok {
+	if _, ok := ResolveScriptArg("missing", agentID); ok {
 		t.Error("missing script unexpectedly resolved")
 	}
 
 	// Explicit path bypasses name resolution.
 	mustWrite(t, "adhoc.smolt", "refuel")
-	if got, ok := resolveScriptArg("adhoc.smolt", agentID); !ok || got != "adhoc.smolt" {
+	if got, ok := ResolveScriptArg("adhoc.smolt", agentID); !ok || got != "adhoc.smolt" {
 		t.Errorf("explicit path resolved to %q (ok=%v)", got, ok)
 	}
 }
@@ -90,8 +90,8 @@ func TestResolveScriptArgPrecedence(t *testing.T) {
 func TestSaveAndListScripts(t *testing.T) {
 	t.Chdir(t.TempDir())
 	agentID := "miner-1"
-	if err := saveScript("my-loop", "loop 3 { mine }"); err != nil {
-		t.Fatalf("saveScript: %v", err)
+	if err := SaveScript("my-loop", "loop 3 { mine }"); err != nil {
+		t.Fatalf("SaveScript: %v", err)
 	}
 	data, err := os.ReadFile(filepath.Join("data", "scripts", "my-loop.smolt"))
 	if err != nil {
@@ -100,7 +100,7 @@ func TestSaveAndListScripts(t *testing.T) {
 	if string(data) != "loop 3 { mine }\n" {
 		t.Errorf("saved content = %q", string(data))
 	}
-	perAgent, shared := listScripts(agentID)
+	perAgent, shared := ListScripts(agentID)
 	if len(perAgent) != 0 {
 		t.Errorf("perAgent = %v, want empty", perAgent)
 	}
@@ -112,8 +112,8 @@ func TestSaveAndListScripts(t *testing.T) {
 func TestSaveScriptInvalidName(t *testing.T) {
 	t.Chdir(t.TempDir())
 	for _, name := range []string{"", "a/b", "../escape"} {
-		if err := saveScript(name, "mine"); err == nil {
-			t.Errorf("saveScript(%q) expected error", name)
+		if err := SaveScript(name, "mine"); err == nil {
+			t.Errorf("SaveScript(%q) expected error", name)
 		}
 	}
 }

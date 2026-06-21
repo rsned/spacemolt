@@ -1,21 +1,50 @@
-package main
+// Package worker provides shared command-parsing and execution primitives
+// used by the play_as REPL and the headless worker agent.
+package worker
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
-
-	"github.com/peterh/liner"
-	"github.com/rsned/spacemolt/pkg/game"
 )
 
-// scanBraceDepth reports the net brace depth of s and whether the scan
+// SplitArgs splits a command string into arguments, respecting double and
+// single quotes.
+// e.g. `create_faction "Covenant of the Eternal Spark" SPRK` → ["create_faction", "Covenant of the Eternal Spark", "SPRK"]
+func SplitArgs(s string) []string {
+	var args []string
+	var current strings.Builder
+	var inQuote rune
+
+	for _, r := range s {
+		switch {
+		case inQuote != 0:
+			if r == inQuote {
+				inQuote = 0
+			} else {
+				current.WriteRune(r)
+			}
+		case r == '"' || r == '\'':
+			inQuote = r
+		case r == ' ' || r == '\t':
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+	return args
+}
+
+// ScanBraceDepth reports the net brace depth of s and whether the scan
 // ended inside a quoted string. Braces inside '"..."' or "'...'" are
 // ignored. A negative depth indicates more '}' than '{' in s.
-func scanBraceDepth(s string) (depth int, inQuote bool) {
+func ScanBraceDepth(s string) (depth int, inQuote bool) {
 	var quoteRune rune
 	for _, r := range s {
 		if quoteRune != 0 {
@@ -36,9 +65,9 @@ func scanBraceDepth(s string) (depth int, inQuote bool) {
 	return depth, quoteRune != 0
 }
 
-// hasTopLevelOpenBrace reports whether s contains a '{' outside of
+// HasTopLevelOpenBrace reports whether s contains a '{' outside of
 // any '"..."' or "'...'" quoted string.
-func hasTopLevelOpenBrace(s string) bool {
+func HasTopLevelOpenBrace(s string) bool {
 	var quoteRune rune
 	for _, r := range s {
 		if quoteRune != 0 {
@@ -59,18 +88,18 @@ func hasTopLevelOpenBrace(s string) bool {
 
 // Statement is one top-level command inside a loop body. Raw is the
 // original string (with surrounding whitespace trimmed); Tokens is the
-// splitArgs result over Raw.
+// SplitArgs result over Raw.
 type Statement struct {
 	Raw    string
 	Tokens []string
 }
 
-// blockPreview returns a short, single-line summary of a block body
+// BlockPreview returns a short, single-line summary of a block body
 // suitable for inclusion in a "🔁 Repeating {...}" status message.
 // Newlines within a statement's Raw are collapsed to spaces; statements
 // are joined with '; '; the result is truncated to roughly 60 runes
 // with a trailing ellipsis if longer.
-func blockPreview(stmts []Statement) string {
+func BlockPreview(stmts []Statement) string {
 	const maxLen = 60
 	parts := make([]string, len(stmts))
 	for i, s := range stmts {
@@ -84,11 +113,11 @@ func blockPreview(stmts []Statement) string {
 	return string(runes[:maxLen]) + "…"
 }
 
-// parseStatements splits body into top-level statements, separating on
+// ParseStatements splits body into top-level statements, separating on
 // ';' and '\n' at brace-depth 0 outside quotes. '#' begins a line
 // comment (to end-of-line) outside quotes. Nested '{...}' content is
 // preserved verbatim in the enclosing Statement's Raw.
-func parseStatements(body string) ([]Statement, error) {
+func ParseStatements(body string) ([]Statement, error) {
 	var out []Statement
 	var cur strings.Builder
 	var quoteRune rune
@@ -101,7 +130,7 @@ func parseStatements(body string) ([]Statement, error) {
 		if raw == "" {
 			return
 		}
-		out = append(out, Statement{Raw: raw, Tokens: splitArgs(raw)})
+		out = append(out, Statement{Raw: raw, Tokens: SplitArgs(raw)})
 	}
 
 	for _, r := range body {
@@ -158,12 +187,12 @@ func parseStatements(body string) ([]Statement, error) {
 	return out, nil
 }
 
-// parseLoopHeader parses the header of a "loop" statement. It accepts
+// ParseLoopHeader parses the header of a "loop" statement. It accepts
 // the existing single-command form (e.g. "loop 5 mine") and the new
 // block form (e.g. "loop 5 { mine; refuel }"). For the block form the
 // returned body is the content between the outermost matching braces;
 // for the single form it is the concatenation of remaining args.
-func parseLoopHeader(stmt Statement) (count int, force bool, body string, isBlock bool, err error) {
+func ParseLoopHeader(stmt Statement) (count int, force bool, body string, isBlock bool, err error) {
 	tokens := stmt.Tokens
 	if len(tokens) == 0 || strings.ToLower(tokens[0]) != "loop" {
 		return 0, false, "", false, fmt.Errorf("not a loop statement")
@@ -211,7 +240,7 @@ func parseLoopHeader(stmt Statement) (count int, force bool, body string, isBloc
 
 // afterTokens returns the substring of raw that begins after the last
 // character of the final token in tokens. Token boundaries use the same
-// whitespace + quote-pair rules as splitArgs (no backslash escapes).
+// whitespace + quote-pair rules as SplitArgs (no backslash escapes).
 func afterTokens(raw string, tokens []string) (string, error) {
 	pos := 0
 	for _, want := range tokens {
@@ -248,138 +277,6 @@ func afterTokens(raw string, tokens []string) (string, error) {
 		}
 	}
 	return raw[pos:], nil
-}
-
-// executeLoop runs count iterations of body. For each statement whose
-// first token is "loop", parseLoopHeader + parseStatements is applied
-// and executeLoop recurses; otherwise runStatement is called. Each loop
-// enforces errors according to its own force flag: a loop with force
-// continues past errors and returns nil; a loop without force returns
-// the first error. depth controls indentation of status lines.
-func executeLoop(
-	ctx context.Context,
-	out io.Writer,
-	count int,
-	force bool,
-	body []Statement,
-	depth int,
-	runStatement func(tokens []string) error,
-) error {
-	indent := strings.Repeat("  ", depth)
-	var firstErr error
-	errCount := 0
-
-	for i := range count {
-		fmt.Fprintf(out, "%s── [%d/%d]\n", indent, i+1, count) //nolint:errcheck
-		iterFailed := false
-		for _, stmt := range body {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			var err error
-			isLoop := len(stmt.Tokens) > 0 && strings.ToLower(stmt.Tokens[0]) == "loop"
-			if isLoop {
-				innerCount, innerForce, innerBody, isBlock, perr := parseLoopHeader(stmt)
-				if perr != nil {
-					err = perr
-				} else {
-					var innerStmts []Statement
-					if isBlock {
-						innerStmts, err = parseStatements(innerBody)
-					} else {
-						innerStmts = []Statement{{Raw: innerBody, Tokens: splitArgs(innerBody)}}
-					}
-					if err == nil {
-						err = executeLoop(ctx, out, innerCount, innerForce, innerStmts, depth+1, runStatement)
-					}
-				}
-			} else {
-				err = runStatement(stmt.Tokens)
-			}
-			if err != nil {
-				// A *game.GoalReachedError signals "this command's goal is
-				// already achieved." Treat it as a positive exit from the
-				// innermost enclosing loop: print a 🎯 line and return nil.
-				// -f is intentionally ignored — -f tolerates errors, not
-				// successes, and re-running a satisfied command is pointless.
-				var goal *game.GoalReachedError
-				if errors.As(err, &goal) {
-					fmt.Fprintf(out, "%s🎯 goal reached: %s → exiting loop\n", indent, goal.Message) //nolint:errcheck
-					return nil
-				}
-				// A *tokenError is fatal: an unresolved $TOKEN$ aborts the entire
-				// loop immediately, even under -f (which only tolerates ordinary
-				// errors). Return it so every enclosing loop level aborts too.
-				var tokErr *tokenError
-				if errors.As(err, &tokErr) {
-					fmt.Fprintf(out, "%s❌ %v → aborting loop\n", indent, tokErr) //nolint:errcheck
-					return err
-				}
-				// Context cancellation is a Ctrl+C interrupt from the REPL, not
-				// a command failure: abort the whole loop cleanly (every
-				// enclosing level too) rather than printing a ❌ error line.
-				if errors.Is(err, context.Canceled) {
-					fmt.Fprintf(out, "%s⛔ interrupted after %d/%d iterations\n", indent, i+1, count) //nolint:errcheck
-					return err
-				}
-				errCount++
-				fmt.Fprintf(out, "%s❌ %v\n", indent, err)               //nolint:errcheck
-				if !force {
-					fmt.Fprintf(out, "%sStopping loop after %d/%d iterations\n", indent, i+1, count) //nolint:errcheck
-					return err
-				}
-				if firstErr == nil {
-					firstErr = err
-				}
-				// Inner loop failures abort the remaining statements in this
-				// outer iteration; plain statement failures continue to the
-				// next statement within the same iteration.
-				if isLoop {
-					iterFailed = true
-					break
-				}
-			}
-		}
-		if !iterFailed {
-			fmt.Fprintf(out, "%s✓ [%d/%d]\n", indent, i+1, count) //nolint:errcheck
-		}
-	}
-	if force && errCount > 0 {
-		fmt.Fprintf(out, "%s🔁 Loop finished with %d error(s) out of %d iterations\n", indent, errCount, count) //nolint:errcheck
-	}
-	if force {
-		return nil
-	}
-	return firstErr
-}
-
-// readLogicalCommand reads a command from liner. If the first line has
-// unbalanced '{' at top level (outside quotes), it continues reading
-// additional lines with a "... " prompt until brace depth returns to 0,
-// joining lines with '\n'. Returns the assembled script. On Ctrl-C
-// during continuation, returns (combined-so-far, liner.ErrPromptAborted).
-func readLogicalCommand(line *liner.State) (string, error) {
-	first, err := line.Prompt("$ ")
-	if err != nil {
-		return "", err
-	}
-	depth, inQuote := scanBraceDepth(first)
-	if depth <= 0 && !inQuote {
-		return first, nil
-	}
-	combined := first
-	for depth > 0 || inQuote {
-		more, perr := line.Prompt("... ")
-		if perr != nil {
-			return combined, perr
-		}
-		combined += "\n" + more
-		depth, inQuote = scanBraceDepth(combined)
-		if depth < 0 {
-			return combined, fmt.Errorf("unbalanced braces")
-		}
-	}
-	return combined, nil
 }
 
 // extractBracedBody assumes s starts with '{' and returns the content

@@ -151,6 +151,13 @@ separators, `#` comments, and `$TOKEN$` variables all work. Locations:
 - Shared: `data/scripts/<name>.smolt`
 - Per-agent override: `data/agents/<id>/scripts/<name>.smolt`
 
+> **Shared engine.** The loop engine, `$TOKEN$` resolver, script resolution,
+> and the cron-lite scheduler now live in `pkg/worker` and are shared with the
+> headless overmind worker (`cmd/worker`), which runs the same scripts as
+> standing behaviors driven by `data/overmind/roles.yaml`. `play_as` imports
+> these primitives and remains behavior-compatible — the same `.smolt` file
+> runs identically in the REPL and under the worker.
+
 ## Configuration
 
 Config is loaded from `~/.config/spacemolt/play_as.yaml` by default (override with `--config`). All fields are optional -- missing fields use sensible defaults. A missing config file is not an error; the tool works out of the box.

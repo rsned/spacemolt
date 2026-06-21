@@ -1,10 +1,12 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 func TestBuildStatusAndKnownState(t *testing.T) {
@@ -33,5 +35,15 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 	}
 	if !ks.Docked {
 		t.Fatalf("expected ks.Docked=true, got false")
+	}
+}
+
+func TestRolesConfigLoads(t *testing.T) {
+	roles, err := worker.LoadRoles(filepath.Join("..", "..", "data", "overmind", "roles.yaml"))
+	if err != nil {
+		t.Fatalf("LoadRoles: %v", err)
+	}
+	if _, ok := roles["resident"]; !ok {
+		t.Fatal("resident role missing from seeded roles.yaml")
 	}
 }

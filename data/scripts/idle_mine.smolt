@@ -1,0 +1,7 @@
+# Resident idle local-mining cycle. Location POIs resolve from live state.
+undock
+travel $ASTEROID_BELT$
+loop -f 20 mine
+travel $STATION$
+dock
+deposit_all
