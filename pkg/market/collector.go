@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,7 +58,13 @@ func Open(cfg Config) (*Collector, error) {
 		return nil, fmt.Errorf("create dir: %w", err)
 	}
 
-	db, err := sql.Open("sqlite", cfg.DBPath)
+	// Apply PRAGMAs through the DSN rather than db.Exec("PRAGMA ..."): DSN
+	// pragmas run on EVERY connection the pool opens, whereas db.Exec only
+	// affects the one connection it lands on. With ~40 agents sharing this
+	// database and a multi-connection pool, every connection must inherit
+	// busy_timeout (and WAL) for contention to resolve as a clean blocking
+	// wait instead of an immediate SQLITE_BUSY.
+	db, err := sql.Open("sqlite", sqliteDSN(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
@@ -65,24 +72,23 @@ func Open(cfg Config) (*Collector, error) {
 	db.SetMaxOpenConns(cfg.MaxOpenConns)
 	db.SetMaxIdleConns(cfg.MaxIdleConns)
 
-	if _, err := db.Exec(fmt.Sprintf("PRAGMA busy_timeout = %d", int(cfg.BusyTimeout.Milliseconds()))); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("set busy timeout: %w", err)
-	}
-
-	if cfg.WAL {
-		if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("enable WAL: %w", err)
-		}
-	}
-
 	if err := runMigrations(db); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
 	return &Collector{db: db}, nil
+}
+
+// sqliteDSN builds a modernc.org/sqlite DSN that applies per-connection
+// PRAGMAs (busy_timeout, and journal_mode=WAL when enabled) to every pooled
+// connection.
+func sqliteDSN(cfg Config) string {
+	dsn := cfg.DBPath + "?_pragma=busy_timeout(" + strconv.Itoa(int(cfg.BusyTimeout.Milliseconds())) + ")"
+	if cfg.WAL {
+		dsn += "&_pragma=journal_mode(WAL)"
+	}
+	return dsn
 }
 
 // Close closes the database connection.
