@@ -166,7 +166,7 @@ func TestFormatCraftQueue_LiveActionResultShape(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Crafting queue",        // header
-		"1 jobs",                // job count
+		"1 job",                 // job count
 		"Encode Trade Cipher",   // recipe
 		"0/3 runs",              // progress fraction
 		"ETA 11 ticks",          // eta
@@ -174,6 +174,29 @@ func TestFormatCraftQueue_LiveActionResultShape(t *testing.T) {
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatCraft(live queue) missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestFormatCraftQueue_GroupsByFacility verifies that jobs spread across
+// multiple facility queues are grouped under per-facility headers, each with
+// its own position counter, rather than flattened into one ambiguous list
+// where #0 appears more than once.
+func TestFormatCraftQueue_GroupsByFacility(t *testing.T) {
+	raw := []byte(`{"command":"craft","tick":1144309,"result":{"action":"queue","jobs":[` +
+		`{"eta_ticks":28,"facility_id":"workshop:abc:grand_exchange_station","job_id":"j1","mode":"craft","position":0,"produces":[{"item_id":"target_painter_ii","name":"Target Painter II","quantity":1}],"progress":0.39,"recipe":"Build Target Painter II","runs_done":0,"runs_total":1,"status":"queued","venue":"Station Workshop"},` +
+		`{"eta_ticks":33,"facility_id":"workshop:abc:grand_exchange_station","job_id":"j2","mode":"craft","position":1,"produces":[{"item_id":"autocannon_i","name":"Autocannon I","quantity":1}],"progress":0,"recipe":"Build Autocannon I","runs_done":0,"runs_total":1,"status":"queued","venue":"Station Workshop"},` +
+		`{"eta_ticks":9,"facility_id":"f9ef7a19","job_id":"j3","mode":"craft","position":0,"produces":[{"item_id":"steel_plate","name":"Steel Plate","quantity":2}],"progress":0.65,"recipe":"Refine Steel","runs_done":10,"runs_total":100,"status":"active","venue":"Iron Refinery"}]}}`)
+	out := formatCraft(raw)
+	for _, want := range []string{
+		"3 jobs across 2 facilities",                  // grouped header
+		"Station Workshop @ grand_exchange_station — 2 jobs", // structured workshop id → station
+		"Iron Refinery [f9ef7a19] — 1 job",            // opaque faction hash, truncated
+		"2x Steel Plate",                                      // produces rendered
+		"10/100 runs done, current run 65%",                   // active job progress
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatCraft(grouped queue) missing %q:\n%s", want, out)
 		}
 	}
 }

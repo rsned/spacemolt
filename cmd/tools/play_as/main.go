@@ -4054,19 +4054,49 @@ func craftingUpdateLines(ev serverapi.CraftingUpdateEvent) []string {
 	return lines
 }
 
+// craftFacilityHeader renders a friendly label for a craft-queue facility.
+// Station workshops carry a structured "<type>:<owner>:<station>" id whose
+// middle segment is the owner's player id and trailing segment is the station,
+// so we surface the station (which the generic "Station Workshop" venue does
+// not tell you) and drop the noisy id. Faction facilities carry an opaque hash,
+// which we truncate so it still disambiguates without dominating the line.
+func craftFacilityHeader(facilityID, venue string) string {
+	if venue == "" {
+		venue = "Facility"
+	}
+	if parts := strings.Split(facilityID, ":"); len(parts) >= 3 {
+		return fmt.Sprintf("%s @ %s", venue, parts[len(parts)-1])
+	}
+	if facilityID == "" {
+		return venue
+	}
+	short := facilityID
+	if len(short) > 8 {
+		short = short[:8] + "…"
+	}
+	return fmt.Sprintf("%s [%s]", venue, short)
+}
+
 func formatCraftQueue(raw []byte) string {
+	type craftJob struct {
+		JobID         string  `json:"job_id"`
+		FacilityID    string  `json:"facility_id"`
+		Venue         string  `json:"venue"`
+		Recipe        string  `json:"recipe"`
+		RunsDone      int     `json:"runs_done"`
+		RunsRemaining int     `json:"runs_remaining"`
+		RunsTotal     int     `json:"runs_total"`
+		Progress      float64 `json:"progress"`
+		ETATicks      int     `json:"eta_ticks"`
+		Position      int     `json:"position"`
+		Status        string  `json:"status"`
+		Produces      []struct {
+			Name     string `json:"name"`
+			Quantity int    `json:"quantity"`
+		} `json:"produces"`
+	}
 	var r struct {
-		Jobs []struct {
-			JobID         string  `json:"job_id"`
-			Recipe        string  `json:"recipe"`
-			RunsDone      int     `json:"runs_done"`
-			RunsRemaining int     `json:"runs_remaining"`
-			RunsTotal     int     `json:"runs_total"`
-			Progress      float64 `json:"progress"`
-			ETATicks      int     `json:"eta_ticks"`
-			Position      int     `json:"position"`
-			Status        string  `json:"status"`
-		} `json:"jobs"`
+		Jobs []craftJob `json:"jobs"`
 	}
 	if err := json.Unmarshal(raw, &r); err != nil {
 		return ""
@@ -4075,13 +4105,55 @@ func formatCraftQueue(raw []byte) string {
 	if len(r.Jobs) == 0 {
 		return "🛠  Crafting queue: (empty)\n"
 	}
-	fmt.Fprintf(&b, "🛠  Crafting queue (%d jobs):\n", len(r.Jobs))
+
+	// Jobs run in independent per-facility queues, so each facility has its own
+	// position counter (you see #0 more than once across the flat list). Group
+	// by facility_id, preserving first-seen order, so the queues read clearly.
+	order := make([]string, 0)
+	groups := make(map[string][]craftJob)
 	for _, j := range r.Jobs {
-		// progress is the fraction of the CURRENT run, not the whole job, so
-		// label it distinctly from the runs-done/total count to avoid reading
-		// "0/5 runs (76%)" as 76% of the job.
-		fmt.Fprintf(&b, "  #%d %s [%s] %d/%d runs done, current run %.0f%% · ETA %d ticks · %s\n",
-			j.Position, j.Recipe, j.JobID, j.RunsDone, j.RunsTotal, j.Progress*100, j.ETATicks, j.Status)
+		if _, seen := groups[j.FacilityID]; !seen {
+			order = append(order, j.FacilityID)
+		}
+		groups[j.FacilityID] = append(groups[j.FacilityID], j)
+	}
+
+	jobWord := "jobs"
+	if len(r.Jobs) == 1 {
+		jobWord = "job"
+	}
+	if len(order) > 1 {
+		fmt.Fprintf(&b, "🛠  Crafting queue (%d %s across %d facilities):\n", len(r.Jobs), jobWord, len(order))
+	} else {
+		fmt.Fprintf(&b, "🛠  Crafting queue (%d %s):\n", len(r.Jobs), jobWord)
+	}
+
+	for _, fid := range order {
+		jobs := groups[fid]
+		// A facility header is only meaningful when the server tells us which
+		// facility a queue belongs to; older/sparser payloads omit it.
+		if fid != "" || jobs[0].Venue != "" {
+			facWord := "jobs"
+			if len(jobs) == 1 {
+				facWord = "job"
+			}
+			fmt.Fprintf(&b, "  %s — %d %s\n", craftFacilityHeader(fid, jobs[0].Venue), len(jobs), facWord)
+		}
+		for _, j := range jobs {
+			produces := ""
+			if len(j.Produces) > 0 {
+				parts := make([]string, 0, len(j.Produces))
+				for _, p := range j.Produces {
+					parts = append(parts, fmt.Sprintf("%dx %s", p.Quantity, p.Name))
+				}
+				produces = " → " + strings.Join(parts, ", ")
+			}
+			// progress is the fraction of the CURRENT run, not the whole job, so
+			// label it distinctly from the runs-done/total count to avoid reading
+			// "0/5 runs (76%)" as 76% of the job.
+			fmt.Fprintf(&b, "    #%d %s%s [%s] %d/%d runs done, current run %.0f%% · ETA %d ticks · %s\n",
+				j.Position, j.Recipe, produces, j.JobID, j.RunsDone, j.RunsTotal, j.Progress*100, j.ETATicks, j.Status)
+		}
 	}
 	return b.String()
 }
