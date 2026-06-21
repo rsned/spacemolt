@@ -365,3 +365,36 @@ func TestBuildFacilityPayload(t *testing.T) {
 		t.Errorf("expected error for missing action, got nil")
 	}
 }
+
+// TestFormatFacilityFactionList_ProductionSplit guards that faction PRODUCTION
+// facilities render in their own production table (throughput columns) via the
+// shared production formatter — separate from plain faction service facilities —
+// and that an operator-assigned custom_name is shown in place of the generic
+// type name (regression: custom_name was not surfaced at all).
+func TestFormatFacilityFactionList_ProductionSplit(t *testing.T) {
+	raw := []byte(`{"base_id":"grand_exchange_station","faction_id":"e727",` +
+		`"faction_facilities":[` +
+		`{"active":true,"custom_name":"Bob's Iron Smeltery","facility_id":"f9ef7a1940efe4484fefb2e393209a53","level":1,"name":"Iron Refinery","recipe_id":"refine_steel","rent_per_cycle":21,"type":"iron_refinery","production":{"backlog_ticks":0,"items_per_hour":7666,"output_per_run":2,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Refine Steel","ticks_per_run":0.0939}},` +
+		`{"active":true,"facility_id":"57cc8b5caf0bed5c3830a285443c1219","faction_service":"faction_intel","name":"Intel Terminal","status":"active","type":"intel_terminal"}` +
+		`]}`)
+	out := formatFacilityFactionList(raw)
+
+	if !strings.Contains(out, "Faction Production") {
+		t.Errorf("missing 'Faction Production' section:\n%s", out)
+	}
+	// custom_name shown instead of the generic type name "Iron Refinery".
+	if !strings.Contains(out, "Bob's Iron Smeltery") {
+		t.Errorf("custom_name not shown:\n%s", out)
+	}
+	if strings.Contains(out, "Iron Refinery") {
+		t.Errorf("generic type name shown despite custom_name being set:\n%s", out)
+	}
+	// Recipe + throughput appear via the production formatter columns.
+	if !strings.Contains(out, "Refine Steel") || !strings.Contains(out, "7666") {
+		t.Errorf("production detail (recipe/items_per_hour) missing:\n%s", out)
+	}
+	// The plain service facility stays in the normal faction table.
+	if !strings.Contains(out, "Intel Terminal") {
+		t.Errorf("service facility missing from normal faction table:\n%s", out)
+	}
+}

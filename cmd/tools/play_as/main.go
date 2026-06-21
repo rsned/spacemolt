@@ -2038,6 +2038,110 @@ func formatFacilityTypes(raw []byte) string {
 	return b.String()
 }
 
+// facilityProduction is the per-facility production/throughput block the server
+// attaches to production facilities (station- and faction-owned alike). Shared
+// by stationFacility and factionFacilityRow so both render via one helper.
+type facilityProduction struct {
+	Recipe       string `json:"recipe"`
+	RecipeID     string `json:"recipe_id"`
+	ItemsPerHour int    `json:"items_per_hour"`
+	OutputPerRun int    `json:"output_per_run"`
+	// TicksPerRun is fractional on the live server (e.g. 0.0939), so it must
+	// decode as a float — an int field makes json.Unmarshal fail and the whole
+	// `facility list` fall back to raw JSON.
+	TicksPerRun     float64 `json:"ticks_per_run"`
+	QueuedRuns      int     `json:"queued_runs"`
+	QueuedItems     int     `json:"queued_items"`
+	BacklogTicks    int     `json:"backlog_ticks"`
+	RentalFeePerRun int     `json:"rental_fee_per_run"`
+	Public          bool    `json:"public"`
+}
+
+// productionFacility is the minimal shape renderProductionFacilityTable needs:
+// a display name plus the production block. Station and faction production
+// facilities both map onto it so they share one renderer.
+type productionFacility struct {
+	name string
+	prod *facilityProduction
+}
+
+// renderProductionFacilityTable writes the wide production table (recipe +
+// throughput / queue / rent columns under a two-line header) for the given
+// facilities, prefixed with indent and introduced by heading. Shared by the
+// Station Production and Faction Production sections so they stay identical.
+func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility, indent, heading string) {
+	type prodRow struct {
+		name, typ, feehr, outrun, cycle, runcost, queued, backlog, public string
+	}
+	rows := make([]prodRow, 0, len(facs))
+	for _, f := range facs {
+		p := f.prod
+		public := "No"
+		if p.Public {
+			public = "Yes"
+		}
+		rows = append(rows, prodRow{
+			name:   f.name,
+			typ:    "⚙ " + p.Recipe,
+			feehr:  strconv.Itoa(p.ItemsPerHour),
+			outrun: strconv.Itoa(p.OutputPerRun),
+			// Fractional ticks/run (e.g. 0.9259…) is rounded to 2 dp.
+			cycle:   strconv.FormatFloat(p.TicksPerRun, 'f', 2, 64),
+			runcost: strconv.Itoa(p.RentalFeePerRun),
+			queued:  strconv.Itoa(p.QueuedRuns),
+			backlog: strconv.Itoa(p.BacklogTicks),
+			public:  public,
+		})
+	}
+	// Column widths span both header lines and the values. The Type cell carries
+	// a multi-byte ⚙ glyph, so measure it by rune count (display width) and pad
+	// it manually rather than via %-*s (which pads bytes).
+	nameW := len("Name")
+	typeW := len("Type")
+	feeW := max(len("Fee"), len("/hr"))
+	outW := max(len("Output"), len("/run"))
+	cycW := max(len("Cycle"), len("tick/run"))
+	costW := max(len("Run"), len("cost"))
+	queueW := max(len("Queued"), len("runs"))
+	backW := max(len("Backlog"), len("ticks"))
+	pubW := len("Public")
+	for _, r := range rows {
+		nameW = max(nameW, len(r.name))
+		typeW = max(typeW, len([]rune(r.typ)))
+		feeW = max(feeW, len(r.feehr))
+		outW = max(outW, len(r.outrun))
+		cycW = max(cycW, len(r.cycle))
+		costW = max(costW, len(r.runcost))
+		queueW = max(queueW, len(r.queued))
+		backW = max(backW, len(r.backlog))
+		pubW = max(pubW, len(r.public))
+	}
+	padRunes := func(s string, w int) string {
+		if n := len([]rune(s)); n < w {
+			return s + strings.Repeat(" ", w-n)
+		}
+		return s
+	}
+	fmt.Fprintf(b, "\n%s%s:\n", indent, heading)
+	// Two-line header: units (/hr, /run, tick/run, ...) sit on row two.
+	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+		indent, nameW, "Name", typeW, "Type", feeW, "Fee", outW, "Output", cycW, "Cycle",
+		costW, "Run", queueW, "Queued", backW, "Backlog", pubW, "Public")
+	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+		indent, nameW, "", typeW, "", feeW, "/hr", outW, "/run", cycW, "tick/run",
+		costW, "cost", queueW, "runs", backW, "ticks", pubW, "")
+	fmt.Fprintf(b, "%s  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		indent,
+		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", feeW),
+		strings.Repeat("-", outW), strings.Repeat("-", cycW), strings.Repeat("-", costW),
+		strings.Repeat("-", queueW), strings.Repeat("-", backW), strings.Repeat("-", pubW))
+	for _, r := range rows {
+		fmt.Fprintf(b, "%s  %-*s | %s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+			indent, nameW, r.name, padRunes(r.typ, typeW), feeW, r.feehr, outW, r.outrun,
+			cycW, r.cycle, costW, r.runcost, queueW, r.queued, backW, r.backlog, pubW, r.public)
+	}
+}
+
 // factionFacilityRow is the shared decode target for the faction-facility
 // table rendered by both formatFacilityFactionList and formatFacilityList.
 // Lifted out of the formatters so the rendering helper can sit beside it
@@ -2045,6 +2149,7 @@ func formatFacilityTypes(raw []byte) string {
 type factionFacilityRow struct {
 	Active         bool   `json:"active"`
 	Capacity       int64  `json:"capacity"`
+	CustomName     string `json:"custom_name,omitempty"`
 	FacilityID     string `json:"facility_id"`
 	FactionService string `json:"faction_service"`
 	Level          int    `json:"level"`
@@ -2052,6 +2157,44 @@ type factionFacilityRow struct {
 	RentPerCycle   int64  `json:"rent_per_cycle"`
 	Status         string `json:"status"`
 	Type           string `json:"type"`
+	// Production is set for faction production facilities (refineries, etc.);
+	// nil for plain service facilities. Drives the production/service split.
+	Production *facilityProduction `json:"production,omitempty"`
+}
+
+// displayName returns the operator-assigned custom name when set, else the
+// facility's type name — so a renamed facility (e.g. "Bob's Iron Smeltery")
+// shows that rather than the generic "Iron Refinery".
+func (f factionFacilityRow) displayName() string {
+	if f.CustomName != "" {
+		return f.CustomName
+	}
+	return f.Name
+}
+
+// renderFactionFacilities splits faction facilities into service and production
+// groups and renders each with its dedicated table (mirroring the station
+// services/production split): plain services via renderFactionFacilityTable,
+// production facilities via the shared renderProductionFacilityTable.
+func renderFactionFacilities(b *strings.Builder, facilities []factionFacilityRow, indent string) {
+	var services, production []factionFacilityRow
+	for _, f := range facilities {
+		if f.Production != nil {
+			production = append(production, f)
+		} else {
+			services = append(services, f)
+		}
+	}
+	if len(services) > 0 {
+		renderFactionFacilityTable(b, services, indent)
+	}
+	if len(production) > 0 {
+		pf := make([]productionFacility, 0, len(production))
+		for _, f := range production {
+			pf = append(pf, productionFacility{name: f.displayName(), prod: f.Production})
+		}
+		renderProductionFacilityTable(b, pf, indent, fmt.Sprintf("Faction Production (%d)", len(production)))
+	}
 }
 
 // renderFactionFacilityTable writes the standard faction-facility table
@@ -2069,7 +2212,7 @@ func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacility
 	dailyW := len("Rent/day")
 	idW := len("Facility ID")
 	for _, f := range facilities {
-		nameW = max(nameW, len(f.Name))
+		nameW = max(nameW, len(f.displayName()))
 		typeW = max(typeW, len(f.Type))
 		svcW = max(svcW, len(f.FactionService))
 		statusW = max(statusW, len(f.Status))
@@ -2091,7 +2234,7 @@ func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacility
 	for _, f := range facilities {
 		fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s | %-*s\n",
 			indent,
-			nameW, f.Name, typeW, f.Type, svcW, f.FactionService,
+			nameW, f.displayName(), typeW, f.Type, svcW, f.FactionService,
 			facilityLevelOrDefault(f.Level), statusW, f.Status,
 			capW, formatCredits(float64(f.Capacity)),
 			rentW, formatCredits(float64(f.RentPerCycle)),
@@ -2139,7 +2282,7 @@ func formatFacilityFactionList(raw []byte) string {
 	slices.SortFunc(resp.FactionFacilities, func(a, c factionFacilityRow) int {
 		return strings.Compare(a.Name, c.Name)
 	})
-	renderFactionFacilityTable(&b, resp.FactionFacilities, "  ")
+	renderFactionFacilities(&b, resp.FactionFacilities, "  ")
 
 	if resp.Hint != "" {
 		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
@@ -2208,21 +2351,7 @@ func formatFacilityList(raw []byte) string {
 		RecipeID             string `json:"recipe_id"`
 		IdleReason           string `json:"idle_reason"`
 		Type                 string `json:"type"`
-		Production           *struct {
-			Recipe       string `json:"recipe"`
-			RecipeID     string `json:"recipe_id"`
-			ItemsPerHour int    `json:"items_per_hour"`
-			OutputPerRun int    `json:"output_per_run"`
-			// TicksPerRun is fractional on the live server (e.g. 13.2), so it
-			// must decode as a float — an int field makes json.Unmarshal fail
-			// and the whole `facility list` fall back to raw JSON.
-			TicksPerRun     float64 `json:"ticks_per_run"`
-			QueuedRuns      int     `json:"queued_runs"`
-			QueuedItems     int     `json:"queued_items"`
-			BacklogTicks    int     `json:"backlog_ticks"`
-			RentalFeePerRun int     `json:"rental_fee_per_run"`
-			Public          bool    `json:"public"`
-		} `json:"production"`
+		Production           *facilityProduction `json:"production"`
 	}
 	var resp struct {
 		BaseID           string             `json:"base_id"`
@@ -2310,7 +2439,7 @@ func formatFacilityList(raw []byte) string {
 			return strings.Compare(a.Name, c.Name)
 		})
 		fmt.Fprintf(&b, "\n  Faction:\n")
-		renderFactionFacilityTable(&b, resp.FactionFacilities, "    ")
+		renderFactionFacilities(&b, resp.FactionFacilities, "    ")
 	}
 	if showStationFacilities && len(resp.StationFacilities) > 0 {
 		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
@@ -2362,78 +2491,11 @@ func formatFacilityList(raw []byte) string {
 
 		if len(production) > 0 {
 			totalSections++
-			// Each production facility becomes one row; the recipe goes in the
-			// Type column (prefixed with ⚙) and the throughput/rent/queue stats
-			// fan out into their own numeric columns under a two-line header.
-			type prodRow struct {
-				name, typ, feehr, outrun, cycle, runcost, queued, backlog, public string
-			}
-			rows := make([]prodRow, 0, len(production))
+			pf := make([]productionFacility, 0, len(production))
 			for _, f := range production {
-				p := f.Production
-				public := "No"
-				if p.Public {
-					public = "Yes"
-				}
-				rows = append(rows, prodRow{
-					name:   f.Name,
-					typ:    "⚙ " + p.Recipe,
-					feehr:  strconv.Itoa(p.ItemsPerHour),
-					outrun: strconv.Itoa(p.OutputPerRun),
-					// Fractional ticks/run (e.g. 0.9259…) is rounded to 2 dp.
-					cycle:   strconv.FormatFloat(p.TicksPerRun, 'f', 2, 64),
-					runcost: strconv.Itoa(p.RentalFeePerRun),
-					queued:  strconv.Itoa(p.QueuedRuns),
-					backlog: strconv.Itoa(p.BacklogTicks),
-					public:  public,
-				})
+				pf = append(pf, productionFacility{name: f.Name, prod: f.Production})
 			}
-			// Column widths span both header lines and the values. The Type cell
-			// carries a multi-byte ⚙ glyph, so measure it by rune count (display
-			// width) and pad it manually rather than via %-*s (which pads bytes).
-			nameW := len("Name")
-			typeW := len("Type")
-			feeW := max(len("Fee"), len("/hr"))
-			outW := max(len("Output"), len("/run"))
-			cycW := max(len("Cycle"), len("tick/run"))
-			costW := max(len("Run"), len("cost"))
-			queueW := max(len("Queued"), len("runs"))
-			backW := max(len("Backlog"), len("ticks"))
-			pubW := len("Public")
-			for _, r := range rows {
-				nameW = max(nameW, len(r.name))
-				typeW = max(typeW, len([]rune(r.typ)))
-				feeW = max(feeW, len(r.feehr))
-				outW = max(outW, len(r.outrun))
-				cycW = max(cycW, len(r.cycle))
-				costW = max(costW, len(r.runcost))
-				queueW = max(queueW, len(r.queued))
-				backW = max(backW, len(r.backlog))
-				pubW = max(pubW, len(r.public))
-			}
-			padRunes := func(s string, w int) string {
-				if n := len([]rune(s)); n < w {
-					return s + strings.Repeat(" ", w-n)
-				}
-				return s
-			}
-			fmt.Fprintf(&b, "\n  Station Production (%d):\n", len(production))
-			// Two-line header: units (/hr, /run, tick/run, ...) sit on row two.
-			fmt.Fprintf(&b, "    %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
-				nameW, "Name", typeW, "Type", feeW, "Fee", outW, "Output", cycW, "Cycle",
-				costW, "Run", queueW, "Queued", backW, "Backlog", pubW, "Public")
-			fmt.Fprintf(&b, "    %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
-				nameW, "", typeW, "", feeW, "/hr", outW, "/run", cycW, "tick/run",
-				costW, "cost", queueW, "runs", backW, "ticks", pubW, "")
-			fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
-				strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", feeW),
-				strings.Repeat("-", outW), strings.Repeat("-", cycW), strings.Repeat("-", costW),
-				strings.Repeat("-", queueW), strings.Repeat("-", backW), strings.Repeat("-", pubW))
-			for _, r := range rows {
-				fmt.Fprintf(&b, "    %-*s | %s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
-					nameW, r.name, padRunes(r.typ, typeW), feeW, r.feehr, outW, r.outrun,
-					cycW, r.cycle, costW, r.runcost, queueW, r.queued, backW, r.backlog, pubW, r.public)
-			}
+			renderProductionFacilityTable(&b, pf, "  ", fmt.Sprintf("Station Production (%d)", len(production)))
 		}
 	}
 
