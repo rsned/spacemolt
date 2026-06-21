@@ -1327,11 +1327,6 @@ func (m *MCPGameClient) CancelCommission(ctx context.Context, commissionID strin
 	return err
 }
 
-func (m *MCPGameClient) ClaimCommission(ctx context.Context, commissionID string) error {
-	_, err := m.callTool(ctx, "claim_commission", map[string]any{"commission_id": commissionID})
-	return err
-}
-
 func (m *MCPGameClient) CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error {
 	_, err := m.callTool(ctx, "commission_ship", map[string]any{
 		"ship_class":        shipClass,

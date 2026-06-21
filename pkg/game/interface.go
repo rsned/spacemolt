@@ -75,7 +75,6 @@ type GameClient interface {
 	CommissionQuote(ctx context.Context, shipClass string) error
 	CommissionStatus(ctx context.Context, baseID string) error
 	CancelCommission(ctx context.Context, commissionID string) error
-	ClaimCommission(ctx context.Context, commissionID string) error
 	CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error
 
 	// Cargo & Storage

@@ -71,11 +71,12 @@ func formatCommissionStatus(raw []byte) string {
 			}
 		}
 
-		// Bottom line: the actionable command. Ready commissions show the
-		// claim_commission hint; in-progress ones show the bare id (for
+		// Bottom line. Finished commissions auto-deliver the ship into the
+		// fleet (docked at the build station) — there is no claim step; use
+		// switch_ship to fly it. In-progress ones show the bare id (for
 		// cancel_commission / supply_commission).
 		if ready {
-			fmt.Fprintf(&b, "   claim_commission %s\n", c.CommissionID)
+			fmt.Fprintf(&b, "   Ready — ship delivered to fleet (switch_ship to fly)  %s\n", c.CommissionID)
 		} else {
 			fmt.Fprintf(&b, "   Commission:  %s\n", c.CommissionID)
 		}

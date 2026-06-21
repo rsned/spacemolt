@@ -528,7 +528,6 @@ func (m *mockGameClient) ListShipForSale(ctx context.Context, shipID string, pri
 func (m *mockGameClient) CommissionQuote(ctx context.Context, shipClass string) error     { return nil }
 func (m *mockGameClient) CommissionStatus(ctx context.Context, baseID string) error       { return nil }
 func (m *mockGameClient) CancelCommission(ctx context.Context, commissionID string) error { return nil }
-func (m *mockGameClient) ClaimCommission(ctx context.Context, commissionID string) error  { return nil }
 func (m *mockGameClient) CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error {
 	return nil
 }

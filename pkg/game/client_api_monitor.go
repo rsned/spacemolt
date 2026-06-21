@@ -272,7 +272,6 @@ var actionResponseTypes = map[string]reflect.Type{
 	"cancel_ship_listing": reflect.TypeOf(serverapi.CancelShipListingResponse{}),
 	// Commission, forum & agents
 	"cancel_commission":   reflect.TypeOf(serverapi.CancelCommissionResponse{}),
-	"claim_commission":    reflect.TypeOf(serverapi.ClaimCommissionResponse{}),
 	"supply_commission":   reflect.TypeOf(serverapi.SupplyCommissionResponse{}),
 	"forum_delete_reply":  reflect.TypeOf(serverapi.ForumDeleteReplyResponse{}),
 	"forum_delete_thread": reflect.TypeOf(serverapi.ForumDeleteThreadResponse{}),

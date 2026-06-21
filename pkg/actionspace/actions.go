@@ -250,11 +250,6 @@ var AllActions = []Action{
 		Preconditions: []Precondition{RequiresDocked},
 	},
 	{
-		Name: "claim_commission", Summary: "Claim a completed ship from a commission",
-		Category: "ship", IsMutation: true,
-		Preconditions: []Precondition{RequiresDocked},
-	},
-	{
 		Name: "supply_commission", Summary: "Donate materials to a commission",
 		Category: "ship", IsMutation: true,
 		Preconditions: []Precondition{RequiresDocked, RequiresHasCargo},

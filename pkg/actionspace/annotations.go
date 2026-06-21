@@ -166,9 +166,6 @@ func CommandAnnotations() map[string]Annotation {
 		"cancel_commission": {
 			Preconditions: []Precondition{RequiresDocked},
 		},
-		"claim_commission": {
-			Preconditions: []Precondition{RequiresDocked},
-		},
 		"supply_commission": {
 			Preconditions: []Precondition{RequiresDocked, RequiresHasCargo},
 		},

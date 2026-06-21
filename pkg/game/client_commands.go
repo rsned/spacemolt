@@ -182,20 +182,6 @@ func (c *Client) CancelShipListing(ctx context.Context, listingID string) error 
 	return err
 }
 
-// ClaimCommission claims a completed ship from a commission.
-func (c *Client) ClaimCommission(ctx context.Context, commissionID string) error {
-	msg := protocol.Message{
-		Type:      "claim_commission",
-		Payload:   map[string]any{"commission_id": commissionID},
-		Timestamp: time.Now().UnixMilli(),
-	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
-	if err == nil {
-		_, err = c.await(ctx, h)
-	}
-	return err
-}
-
 // CommissionQuote gets a cost estimate for commissioning a ship.
 func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
 	// Submit + WithAckOnly so the caller blocks until the type=ok frame

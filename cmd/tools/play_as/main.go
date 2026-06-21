@@ -6045,14 +6045,6 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.CancelCommission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
-	case "claim_commission":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: claim_commission <commission-id>")
-		}
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.ClaimCommission(ctx, parts[1])
-		}, ctx, 3*time.Second, cmd, format)
-
 	case "commission_ship":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: commission_ship <ship-class> [--provide_materials true|false]")

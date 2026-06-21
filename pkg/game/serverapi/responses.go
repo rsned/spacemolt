@@ -2314,15 +2314,6 @@ type CancelCommissionResponse struct {
 	Refund            int64           `json:"refund,omitempty"`
 }
 
-// ClaimCommissionResponse — claim_commission
-type ClaimCommissionResponse struct {
-	Message     string `json:"message"`
-	CreditsLeft int64  `json:"credits_left,omitempty"`
-	NewShipID   string `json:"new_ship_id,omitempty"`
-	OldShipID   string `json:"old_ship_id,omitempty"`
-	ShipClass   string `json:"ship_class,omitempty"`
-}
-
 // SupplyCommissionResponse — supply_commission
 type SupplyCommissionResponse struct {
 	Message          string          `json:"message"`
