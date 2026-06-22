@@ -194,17 +194,12 @@ go build -o bin/mcp-ws-bridge ./cmd/mcp-ws-bridge
 - `bin/agent-server` - Main server for running autonomous LLM agents
 - `bin/mcp-ws-bridge` - MCP bridge for Claude integration
 
-**Specialized Automated Agents:**
+**Specialized Automated Agents (legacy — migrating to overmind roles):**
 - `bin/auto-explorer` - Automated exploration bot
-- `bin/auto-miner` - Automated mining bot
 - `bin/auto-trader` - Automated trading bot
 - `bin/auto-fighter` - Automated combat bot
-- `bin/auto-pirate` - Automated pirate/raider bot
-- `bin/auto-salvager` - Automated salvage bot
-- `bin/auto-craftsman` - Automated crafting bot
 - `bin/auto-prophet` - Automated prophet bot
 - `bin/auto-random` - Automated random-action bot
-- `bin/auto-llm-miner` - LLM-powered mining bot
 
 ### Quick Start Guides
 
@@ -372,15 +367,10 @@ bin/agent-server --db-backend=memory
 │ Agents         │  │              │                        │
 │                │  │• llama3.2    │                        │
 │• auto-explorer │  │• mistral     │                        │
-│• auto-miner    │  │• other       │                        │
-│• auto-trader   │  │  models      │                        │
-│• auto-fighter  │  │              │                        │
-│• auto-pirate   │  └──────────────┘                        │
-│• auto-salvager │                                           │
-│• auto-craftsman│                                           │
-│• auto-prophet  │                                           │
-│• auto-random   │                                           │
-│• auto-llm-miner│                                           │
+│• auto-trader   │  │• other       │                        │
+│• auto-fighter  │  │  models      │                        │
+│• auto-prophet  │  │              │                        │
+│• auto-random   │  └──────────────┘                        │
 └────────────────┘                                           │
                                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -890,34 +880,30 @@ Pre-built bots for specific tasks (no LLM required):
 ### Available Automated Agents
 
 - **auto-explorer** - Systematically explores and maps systems
-- **auto-miner** - Mines resources and sells for profit
 - **auto-trader** - Trades goods between stations
 - **auto-fighter** - Engages in combat and bounty hunting
-- **auto-pirate** - Raids and plunders (use responsibly!)
-- **auto-salvager** - Salvages wrecks and debris
-- **auto-craftsman** - Crafts items based on available materials
 - **auto-prophet** - Prophet-style agent with strategic foresight
 - **auto-random** - Random-action agent for testing and exploration
-- **auto-recall** - Recall-based agent leveraging past experiences
-- **auto-llm-miner** - LLM-powered mining with intelligent decisions
 
-### Running Automated Agents
+### Running Agents
+
+Standing/recurring agent behaviors are now run under **overmind**, which supervises
+a fleet of `worker` processes driven by per-role config in `data/overmind/roles.yaml`
+(scheduled commands + an idle script per role). This replaces the old one-binary-per-bot
+model (e.g. mining now runs as the resident role's `idle: idle_mine`).
 
 ```bash
-# Build the agent
-go build -o bin/auto-miner ./cmd/auto-miner
+# Build the supervisor and worker runtime
+make build   # produces bin/overmind and bin/worker
 
-# Run with credentials
-bin/auto-miner --username your-username --token your-token
-
-# Or use credential file
-bin/auto-miner --creds-file data/agents/miner-1/credentials.json
-
-# Run in background
-nohup bin/auto-miner --username your-username --token your-token > logs/miner.log 2>&1 &
+# Edit the fleet roster (data/overmind/fleet.yaml) and roles (data/overmind/roles.yaml),
+# then launch the supervised fleet
+bin/overmind
 ```
 
-See individual agent READMEs in `cmd/auto-*/` for detailed documentation.
+The remaining `auto-*` binaries above are legacy specialized bots not yet migrated to
+roles; see `docs/superpowers/specs/2026-06-22-retire-auto-tools-design.md` for the
+migration roadmap.
 
 ## Web Interface
 
@@ -1007,16 +993,10 @@ spacemolt/
 │   ├── generate-mcp-tools/     # Auto-generate MCP tools from OpenAPI
 │   ├── update-server-docs/     # Sync API docs from game server
 │   ├── auto-explorer/          # Automated exploration bot
-│   ├── auto-miner/             # Automated mining bot
 │   ├── auto-trader/            # Automated trading bot
 │   ├── auto-fighter/           # Automated combat bot
-│   ├── auto-pirate/            # Automated pirate/raider bot
-│   ├── auto-salvager/          # Automated salvage bot
-│   ├── auto-craftsman/         # Automated crafting bot
 │   ├── auto-prophet/           # Automated prophet bot
 │   ├── auto-random/            # Automated random-action bot
-│   ├── auto-recall/            # Automated recall-based bot
-│   ├── auto-llm-miner/        # LLM-powered mining bot
 │   ├── benchmark/              # Performance benchmarking
 │   ├── daily-summary/          # Daily activity summaries
 │   ├── skill-tree/             # Skill tree visualization
