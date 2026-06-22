@@ -40,7 +40,8 @@ var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "mine": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
-	"get_status": true, "get_system": true, "get_cargo": true,
+	"update_market": true,
+	"get_status":    true, "get_system": true, "get_cargo": true,
 }
 
 // Supports reports whether cmd is in the curated worker vocabulary.
@@ -97,6 +98,17 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// detectedBy is empty here; Tasks 9/10 will wire the real agent id
 		// once WorkerDispatch gains an agent-id field via standing behavior.
 		return KBUpdateAll(ctx, d.Client, d.KB, d.Market, "")
+	case "update_market":
+		// Lightweight, market-only capture into market.db (mirrors play_as):
+		// prime the raw cache with ViewMarket, then write the snapshot.
+		// CaptureFromClient no-ops gracefully when not at a station.
+		if d.Market == nil {
+			return fmt.Errorf("update_market: market collector not configured (use --market-db-path)")
+		}
+		if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
+			return err
+		}
+		return market.CaptureFromClient(ctx, d.Client, d.Market)
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}

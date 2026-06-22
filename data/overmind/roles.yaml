@@ -7,6 +7,7 @@ roles:
     schedule:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
+      - { every: hourly, command: "update_market" }
     idle: idle_mine
     idle_params:
       N: "20"
