@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 17
--- Last Regenerated: 2026-06-21
+-- Migrations applied: 18
+-- Last Regenerated: 2026-06-22
 
 -- ============================================================================
 -- TABLES
@@ -454,33 +454,6 @@ CREATE TABLE knowledge_exports (
 );
 
 
-CREATE TABLE market_analyses (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	system_id TEXT NOT NULL,
-	system_name TEXT NOT NULL,
-	station_id TEXT NOT NULL,
-	station_name TEXT NOT NULL,
-	game_tick INTEGER NOT NULL,
-	captured_at TEXT NOT NULL,
-	agent_id TEXT NOT NULL,
-	last_updated_tick INTEGER NOT NULL,
-
-	-- Analysis content
-	mode TEXT,
-	skill_level INTEGER,
-	scanning_range TEXT,
-	stations_in_range INTEGER,
-	items_scanned INTEGER,
-	top_insights TEXT, -- JSON array of insights
-	total_items INTEGER,
-	total_pages INTEGER,
-	page INTEGER,
-	hint TEXT,
-	xp_gained TEXT, -- JSON object
-	analysis TEXT -- JSON object
-);
-
-
 CREATE TABLE market_buy_orders (
 					station_id    TEXT NOT NULL,
 					system_id     TEXT,
@@ -509,21 +482,6 @@ CREATE TABLE market_demand_history (
 				);
 
 
-CREATE TABLE market_listings (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	snapshot_id INTEGER NOT NULL,
-	item_id TEXT NOT NULL,
-	item_type TEXT NOT NULL,
-	quantity REAL NOT NULL,
-	price_per_unit REAL NOT NULL,
-	total_price REAL NOT NULL,
-	listing_type TEXT NOT NULL,
-	listed_by TEXT,
-	last_updated_tick INTEGER DEFAULT 0,
-	FOREIGN KEY (snapshot_id) REFERENCES market_snapshots(id) ON DELETE CASCADE
-);
-
-
 CREATE TABLE market_sell_orders (
 					station_id    TEXT NOT NULL,
 					system_id     TEXT,
@@ -535,20 +493,6 @@ CREATE TABLE market_sell_orders (
 					source        TEXT,
 					captured_utc  TEXT NOT NULL
 				);
-
-
-CREATE TABLE market_snapshots (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	system_id TEXT NOT NULL,
-	system_name TEXT NOT NULL,
-	station_id TEXT NOT NULL,
-	station_name TEXT NOT NULL,
-	game_tick INTEGER NOT NULL,
-	captured_at TEXT NOT NULL,
-	agent_id TEXT,
-	last_updated_tick INTEGER DEFAULT 0,
-	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
-);
 
 
 CREATE TABLE market_supply_history (
@@ -708,24 +652,6 @@ CREATE TABLE pois (
 	base_id TEXT,
 	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT, detected_by TEXT,
 	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
-);
-
-
-CREATE TABLE price_trends (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	item_id TEXT NOT NULL,
-	item_type TEXT NOT NULL,
-	station_id TEXT NOT NULL,
-	system_id TEXT NOT NULL,
-	listing_type TEXT NOT NULL, -- 'buy' or 'sell'
-	avg_price REAL NOT NULL,
-	min_price REAL NOT NULL,
-	max_price REAL NOT NULL,
-	sample_count INTEGER NOT NULL,
-	window_start TEXT NOT NULL,
-	window_end TEXT NOT NULL,
-	last_updated_tick INTEGER DEFAULT 0,
-	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
 
@@ -1059,20 +985,6 @@ CREATE INDEX idx_item_weapons_damage_type ON item_weapons(damage_type);
 
 CREATE INDEX idx_items_category ON items(category);
 
-CREATE INDEX idx_market_analyses_captured ON market_analyses(captured_at DESC);
-
-CREATE INDEX idx_market_analyses_system_station ON market_analyses(system_id, station_id, captured_at DESC);
-
-CREATE INDEX idx_market_listings_item_id ON market_listings(item_id);
-
-CREATE INDEX idx_market_listings_item_type ON market_listings(item_type);
-
-CREATE INDEX idx_market_listings_snapshot_id ON market_listings(snapshot_id);
-
-CREATE INDEX idx_market_snapshots_captured_at ON market_snapshots(captured_at DESC);
-
-CREATE INDEX idx_market_snapshots_system_station ON market_snapshots(system_id, station_id, captured_at DESC);
-
 CREATE INDEX idx_mission_locations_base    ON mission_template_locations(base_id);
 
 CREATE INDEX idx_mission_objectives_mission ON mission_objectives(mission_id);
@@ -1086,8 +998,6 @@ CREATE INDEX idx_players_empire ON players(empire);
 CREATE INDEX idx_pois_expires_at ON pois(expires_at);
 
 CREATE INDEX idx_pois_system_id ON pois(system_id);
-
-CREATE INDEX idx_price_trends_item_station ON price_trends(item_id, station_id, window_end DESC);
 
 CREATE INDEX idx_recipes_category ON recipes(category);
 
@@ -1171,4 +1081,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (42, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (43, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (44, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (45, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (46, datetime('now'));
 

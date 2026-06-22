@@ -32,18 +32,6 @@ type Base interface {
 	// GetConnectionMetrics returns connection metrics (for weighted pathfinding)
 	GetConnectionMetrics(ctx context.Context) ([]ConnectionMetric, error)
 
-	// Market data methods
-	StoreMarketSnapshot(ctx context.Context, snapshot MarketSnapshot, agentID string) error
-	GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error)
-	GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*MarketSnapshot, error)
-	GetMarketItems(ctx context.Context, itemType string) ([]string, error)
-	HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error)
-
-	// Market analysis methods
-	StoreMarketAnalysis(ctx context.Context, analysis MarketAnalysis, agentID string) error
-	GetLatestMarketAnalysis(ctx context.Context, systemID, stationID string) (*MarketAnalysis, error)
-	GetMarketAnalysisHistory(ctx context.Context, systemID, stationID string, limit int) ([]MarketAnalysis, error)
-
 	// Ship listings methods
 	StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error
 	GetShipListings(ctx context.Context, systemID, stationID string, limit int) ([]ShipListings, error)
@@ -69,8 +57,6 @@ type Base interface {
 	ResolveAnomaly(ctx context.Context, anomalyID int64, status string) error
 
 	// Market price analytics
-	AnalyzePriceTrends(ctx context.Context, itemID, stationID string, windowHours int) (*PriceTrend, error)
-	FindBestPrices(ctx context.Context, itemID string, listingType string, limit int) ([]BestPrice, error)
 	GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error)
 
 	// Danger zone tracking
@@ -152,50 +138,6 @@ type Base interface {
 	RecordPassengers(obs []SeenPassenger) error
 }
 
-// MarketListing represents a single market listing
-type MarketListing struct {
-	ItemID       string
-	ItemType     string
-	Quantity     float64
-	PricePerUnit float64
-	TotalPrice   float64
-	Type         string // 'buy' or 'sell'
-	ListedBy     string
-}
-
-// MarketSnapshot represents a captured market state
-type MarketSnapshot struct {
-	SystemID    string
-	SystemName  string
-	StationID   string
-	StationName string
-	GameTick    int64
-	Listings    []MarketListing
-	CapturedAt  time.Time
-}
-
-// MarketAnalysis represents AI-generated market insights from analyze_market
-type MarketAnalysis struct {
-	SystemID        string
-	SystemName      string
-	StationID       string
-	StationName     string
-	GameTick        int64
-	CapturedAt      time.Time
-	Mode            string
-	SkillLevel      int
-	ScanningRange   string
-	StationsInRange int
-	ItemsScanned    int
-	TopInsights     []map[string]any
-	TotalItems      int
-	TotalPages      int
-	Page            int
-	Hint            string
-	XPGained        map[string]any
-	AnalysisData    map[string]any
-}
-
 // ShipListing represents a single ship listing at a station
 type ShipListing struct {
 	ShipClass    string
@@ -267,36 +209,6 @@ type Anomaly struct {
 	DetectedBy      string
 	Status          string // 'active', 'resolved', 'obsolete'
 	LastUpdatedTick int64
-}
-
-// PriceTrend represents aggregate price data over a time window
-type PriceTrend struct {
-	ItemID       string
-	ItemType     string
-	StationID    string
-	SystemID     string
-	ListingType  string // 'buy' or 'sell'
-	AvgPrice     float64
-	MinPrice     float64
-	MaxPrice     float64
-	CurrentPrice float64
-	PriceChange  float64 // percentage change
-	SampleCount  int
-	WindowStart  time.Time
-	WindowEnd    time.Time
-}
-
-// BestPrice identifies the best buy/sell opportunity for an item
-type BestPrice struct {
-	ItemID      string
-	StationID   string
-	StationName string
-	SystemID    string
-	SystemName  string
-	Price       float64
-	Quantity    float64
-	ListingType string
-	CapturedAt  time.Time
 }
 
 // PricePoint represents a single price observation
