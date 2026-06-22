@@ -7,6 +7,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // WorkerDispatch is the lean, headless command dispatch used by cmd/worker. It
@@ -18,16 +19,18 @@ import (
 type WorkerDispatch struct {
 	Client game.GameClient
 	KB     knowledge.Base
+	Market *market.Collector
 	Out    io.Writer
 }
 
-// NewWorkerDispatch builds a dispatch over the given client and KB. out receives
-// human-readable progress lines (worker stdout / logs).
-func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, out io.Writer) *WorkerDispatch {
+// NewWorkerDispatch builds a dispatch over the given client, KB, and optional
+// market collector. out receives human-readable progress lines (worker stdout /
+// logs).
+func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Collector, out io.Writer) *WorkerDispatch {
 	if out == nil {
 		out = io.Discard
 	}
-	return &WorkerDispatch{Client: client, KB: kb, Out: out}
+	return &WorkerDispatch{Client: client, KB: kb, Market: mc, Out: out}
 }
 
 // supported is the curated command set. Keep in sync with data/scripts and
@@ -93,7 +96,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "kb_update":
 		// detectedBy is empty here; Tasks 9/10 will wire the real agent id
 		// once WorkerDispatch gains an agent-id field via standing behavior.
-		return KBUpdateAll(ctx, d.Client, d.KB, "")
+		return KBUpdateAll(ctx, d.Client, d.KB, d.Market, "")
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}

@@ -42,7 +42,7 @@ func TestSeededCommandsAreDispatchable(t *testing.T) {
 	// Chdir to the repo root so that ResolveScriptArg can find data/scripts/.
 	t.Chdir(filepath.Join("..", ".."))
 
-	d := NewWorkerDispatch(nil, nil, io.Discard)
+	d := NewWorkerDispatch(nil, nil, nil, io.Discard)
 	roles, err := LoadRoles(filepath.Join("data", "overmind", "roles.yaml"))
 	if err != nil {
 		t.Fatalf("LoadRoles: %v", err)

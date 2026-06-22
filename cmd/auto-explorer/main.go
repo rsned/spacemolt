@@ -16,14 +16,16 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/registry"
 )
 
 // CLI flags
 var (
-	registryURL = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
-	dbBackend   = flag.String("db-backend", "sqlite", "Knowledge base backend: sqlite or memory")
-	dbPath      = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
+	registryURL  = flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
+	dbBackend    = flag.String("db-backend", "sqlite", "Knowledge base backend: sqlite or memory")
+	dbPath       = flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite database")
+	marketDBPath = flag.String("market-db-path", "data/market.db", "Path to market collector database")
 	debug        = flag.Bool("debug", false, "Enable debug logging")
 	forceRescan  = flag.Bool("force", false, "Force rescan of all POIs and systems, ignoring freshness checks")
 )
@@ -347,7 +349,7 @@ func processSurveyResults(client game.GameClient, ctx context.Context, logger *l
 	}
 }
 
-func saveStationData(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, systemName, poiName, poiID string, agentID string) error {
+func saveStationData(client game.GameClient, ctx context.Context, logger *log.Logger, kb knowledge.Base, mc *market.Collector, systemName, poiName, poiID string, agentID string) error {
 	state := client.GetState()
 
 	// Fetch base details from the server and save to knowledge base
@@ -376,10 +378,14 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 		}
 	}
 
-	// Check if market listings were already captured today
-	hasMarketToday, err := kb.HasMarketSnapshotToday(ctx, state.System.ID, poiID)
-	if err != nil {
-		logger.Printf("⚠️  Error checking for today's market snapshot: %v", err)
+	// Check if market listings were already captured today (via market collector).
+	var hasMarketToday bool
+	if mc != nil {
+		var checkErr error
+		hasMarketToday, checkErr = mc.HasSnapshotToday(ctx, poiID)
+		if checkErr != nil {
+			logger.Printf("⚠️  Error checking for today's market snapshot: %v", checkErr)
+		}
 	}
 
 	// Get market listings (only if not captured today)
@@ -391,11 +397,21 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 			time.Sleep(2 * time.Second)
 
 			listings := client.GetMarketListings()
-			marketSnapshot := convertMarketListingsToKnowledge(state.System.ID, systemName, poiID, poiName, state.CurrentTick, listings)
-			if err := kb.StoreMarketSnapshot(ctx, marketSnapshot, agentID); err != nil {
-				logger.Printf("⚠️  Failed to save market snapshot to knowledge base: %v", err)
-			} else {
-				logger.Printf("💾 Saved market snapshot to knowledge base")
+			if mc != nil {
+				now := time.Now().UTC()
+				snap := market.MarketSnapshot{
+					StationID:   poiID,
+					StationName: poiName,
+					SystemID:    state.System.ID,
+					SystemName:  systemName,
+					CapturedAt:  now,
+					Orders:      market.OrdersFromListings(poiID, listings, agentID, now),
+				}
+				if err := mc.WriteSnapshot(ctx, snap); err != nil {
+					logger.Printf("⚠️  Failed to save market snapshot: %v", err)
+				} else {
+					logger.Printf("💾 Saved market snapshot (%d listings)", len(listings))
+				}
 			}
 		}
 	} else {
@@ -439,30 +455,6 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 	}
 
 	return nil
-}
-
-func convertMarketListingsToKnowledge(systemID, systemName, stationID, stationName string, gameTick int64, gameListings []game.MarketListing) knowledge.MarketSnapshot {
-	listings := make([]knowledge.MarketListing, len(gameListings))
-	for i, l := range gameListings {
-		listings[i] = knowledge.MarketListing{
-			ItemID:       l.ItemID,
-			ItemType:     l.ItemType,
-			Quantity:     l.Quantity,
-			PricePerUnit: l.PricePerUnit,
-			TotalPrice:   l.TotalPrice,
-			Type:         l.Type,
-			ListedBy:     l.ListedBy,
-		}
-	}
-
-	return knowledge.MarketSnapshot{
-		SystemID:    systemID,
-		SystemName:  systemName,
-		StationID:   stationID,
-		StationName: stationName,
-		GameTick:    gameTick,
-		Listings:    listings,
-	}
 }
 
 func convertShipListingsToKnowledge(systemID, systemName, stationID, stationName string, gameTick int64, ships []knowledge.ShipListing) knowledge.ShipListings {
@@ -892,7 +884,7 @@ func navigateToHomeBase(client game.GameClient, ctx context.Context, homeSystem 
 // POI EXPLORATION
 // ============================================================================
 
-func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base, forceFullScan bool) error {
+func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Logger, expState *ExplorationState, kb knowledge.Base, mc *market.Collector, forceFullScan bool) error {
 	state := client.GetState()
 
 	if expState.VisitedPOIs == nil {
@@ -983,7 +975,7 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 			time.Sleep(15 * time.Second)
 
 			// Collect station data
-			if err := saveStationData(client, ctx, logger, kb, state.System.Name, poi.Name, poi.ID, expState.AgentID); err != nil {
+			if err := saveStationData(client, ctx, logger, kb, mc, state.System.Name, poi.Name, poi.ID, expState.AgentID); err != nil {
 				logger.Printf("Failed to save station data: %v", err)
 			}
 
@@ -1124,7 +1116,7 @@ func repairShip(client game.GameClient, ctx context.Context, logger *log.Logger,
 // EXPLORATION LOOP
 // ============================================================================
 
-func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Context, kb knowledge.Base, agentID string) error {
+func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Context, kb knowledge.Base, mc *market.Collector, agentID string) error {
 	state := client.GetState()
 
 	logger.Printf("🔍 Initial state check: System.ID=%q, CurrentSystem=%q, Player.CurrentSystem=%q",
@@ -1267,7 +1259,7 @@ func explorationPhase(client game.GameClient, logger *log.Logger, ctx context.Co
 			} else {
 				logger.Printf("🔍 Beginning POI exploration (per-POI freshness)...")
 			}
-			if err := exploreAllPOIs(client, ctx, logger, expState, kb, forceFullScan); err != nil {
+			if err := exploreAllPOIs(client, ctx, logger, expState, kb, mc, forceFullScan); err != nil {
 				logger.Printf("POI exploration failed: %v", err)
 			}
 		}
@@ -1601,6 +1593,16 @@ func main() {
 	}()
 	logger.Printf("✓ Knowledge base initialized (%s)", *dbBackend)
 
+	// Initialize market collector (best-effort).
+	var mc *market.Collector
+	if mktColl, mktErr := market.Open(market.Config{DBPath: *marketDBPath, WAL: true}); mktErr != nil {
+		logger.Printf("⚠ Warning: Failed to open market DB %s: %v (market snapshots disabled)", *marketDBPath, mktErr)
+	} else {
+		mc = mktColl
+		defer func() { _ = mktColl.Close() }()
+		logger.Printf("✓ Market collector initialized (%s)", *marketDBPath)
+	}
+
 	// Initialize game client based on transport selection
 	var client game.GameClient
 	var creds *game.Credentials
@@ -1702,7 +1704,7 @@ func main() {
 	logger.Printf("═══════════════════════════════════════════════")
 	logger.Printf("")
 
-	if err := explorationPhase(client, logger, ctx, kb, explorer); err != nil {
+	if err := explorationPhase(client, logger, ctx, kb, mc, explorer); err != nil {
 		log.Fatalf("Exploration phase error: %v", err)
 	}
 }

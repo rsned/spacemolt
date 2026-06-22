@@ -48,7 +48,7 @@ func (f *fakeClient) GetState() *game.State { return f.state }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}
-	d := NewWorkerDispatch(f, nil, io.Discard)
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
 	for _, tc := range [][]string{
 		{"undock"}, {"mine"}, {"dock"}, {"refuel"}, {"deposit_all"},
 		{"sell_all"}, {"repair"}, {"get_status"}, {"get_system"}, {"get_cargo"},
@@ -73,7 +73,7 @@ func TestDispatchRunsKnownCommands(t *testing.T) {
 
 func TestDispatchTravelArg(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}
-	d := NewWorkerDispatch(f, nil, io.Discard)
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
 	if err := d.Run(context.Background(), []string{"travel", "POI-1"}); err != nil {
 		t.Fatalf("travel: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestDispatchTravelArg(t *testing.T) {
 
 func TestDispatchUnknownCommandErrors(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}
-	d := NewWorkerDispatch(f, nil, io.Discard)
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
 	if err := d.Run(context.Background(), []string{"frobnicate"}); err == nil {
 		t.Fatal("expected error for unknown command")
 	}
