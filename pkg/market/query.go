@@ -3,6 +3,7 @@ package market
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -179,4 +180,51 @@ func (c *Collector) FindBestPrices(ctx context.Context, itemID, side string, lim
 		return nil, fmt.Errorf("iterate best prices: %w", err)
 	}
 	return out, nil
+}
+
+// StoreAnalysis inserts an LLM market-analysis record.
+func (c *Collector) StoreAnalysis(ctx context.Context, a MarketAnalysis) error {
+	insights, _ := json.Marshal(a.TopInsights)
+	xp, _ := json.Marshal(a.XPGained)
+	data, _ := json.Marshal(a.AnalysisData)
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO analyses (station_id, station_name, system_id, system_name,
+				game_tick, captured_at, agent_id, mode, skill_level, scanning_range,
+				stations_in_range, items_scanned, top_insights, total_items, total_pages,
+				page, hint, xp_gained, analysis_data)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			a.StationID, a.StationName, a.SystemID, a.SystemName,
+			a.GameTick, a.CapturedAt.UTC().Format(time.RFC3339), a.AgentID, a.Mode,
+			a.SkillLevel, a.ScanningRange, a.StationsInRange, a.ItemsScanned,
+			string(insights), a.TotalItems, a.TotalPages, a.Page, a.Hint,
+			string(xp), string(data))
+		return err
+	})
+}
+
+// GetLatestAnalysis returns the most recent analysis for a station, or (nil, nil).
+func (c *Collector) GetLatestAnalysis(ctx context.Context, stationID string) (*MarketAnalysis, error) {
+	var a MarketAnalysis
+	var capStr, insights, xp, data string
+	err := c.db.QueryRowContext(ctx, `
+		SELECT station_id, station_name, system_id, system_name, game_tick, captured_at,
+		       agent_id, mode, skill_level, scanning_range, stations_in_range, items_scanned,
+		       top_insights, total_items, total_pages, page, hint, xp_gained, analysis_data
+		FROM analyses WHERE station_id = ?
+		ORDER BY captured_at DESC LIMIT 1`, stationID).
+		Scan(&a.StationID, &a.StationName, &a.SystemID, &a.SystemName, &a.GameTick, &capStr,
+			&a.AgentID, &a.Mode, &a.SkillLevel, &a.ScanningRange, &a.StationsInRange, &a.ItemsScanned,
+			&insights, &a.TotalItems, &a.TotalPages, &a.Page, &a.Hint, &xp, &data)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query latest analysis: %w", err)
+	}
+	a.CapturedAt, _ = time.Parse(time.RFC3339, capStr)
+	_ = json.Unmarshal([]byte(insights), &a.TopInsights)
+	_ = json.Unmarshal([]byte(xp), &a.XPGained)
+	_ = json.Unmarshal([]byte(data), &a.AnalysisData)
+	return &a, nil
 }

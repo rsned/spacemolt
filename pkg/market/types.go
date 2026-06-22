@@ -97,3 +97,26 @@ type BestPrice struct {
 	ListingType string    `json:"listing_type"` // "buy" or "sell"
 	CapturedAt  time.Time `json:"captured_at"`
 }
+
+// MarketAnalysis is LLM-generated market analysis (analyze_market output).
+type MarketAnalysis struct {
+	SystemID        string
+	SystemName      string
+	StationID       string
+	StationName     string
+	GameTick        int64
+	CapturedAt      time.Time
+	AgentID         string
+	Mode            string
+	SkillLevel      int
+	ScanningRange   string
+	StationsInRange int
+	ItemsScanned    int
+	TopInsights     []map[string]any
+	TotalItems      int
+	TotalPages      int
+	Page            int
+	Hint            string
+	XPGained        map[string]any
+	AnalysisData    map[string]any
+}
