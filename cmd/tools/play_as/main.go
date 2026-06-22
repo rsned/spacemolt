@@ -2087,6 +2087,27 @@ type productionFacility struct {
 	owner        string // "" except for public facilities
 }
 
+// factionOwnerDisplay resolves a faction_id to "[TAG]" via the knowledge base,
+// falling back to the raw faction_id when the KB is unavailable (no --db-path)
+// or the tag is unknown. cache memoizes lookups within a single render so each
+// distinct faction is queried at most once. An empty id yields an empty string.
+func factionOwnerDisplay(factionID string, cache map[string]string) string {
+	if factionID == "" {
+		return ""
+	}
+	if v, ok := cache[factionID]; ok {
+		return v
+	}
+	display := factionID
+	if sqlite, ok := globalKB.(*knowledge.SQLiteKB); ok && sqlite != nil {
+		if tag, found, err := sqlite.FactionTag(context.Background(), factionID); err == nil && found && tag != "" {
+			display = "[" + tag + "]"
+		}
+	}
+	cache[factionID] = display
+	return display
+}
+
 // renderProductionFacilityTable writes the wide production table (recipe +
 // throughput / queue / rent columns under a two-line header) for the given
 // facilities, prefixed with indent and introduced by heading. Shared by the

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // TestFormatFacilityFactionList_ShowsFacilityID guards that the facility_id
@@ -406,5 +409,31 @@ func TestFormatFacilityList_ProductionShowsIDAndRent(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
 		}
+	}
+}
+
+func TestFactionOwnerDisplay(t *testing.T) {
+	// nil KB → falls back to the raw faction_id.
+	saved := globalKB
+	defer func() { globalKB = saved }()
+	globalKB = nil
+	if got := factionOwnerDisplay("f1", map[string]string{}); got != "f1" {
+		t.Errorf("nil KB: factionOwnerDisplay(f1) = %q, want \"f1\"", got)
+	}
+	if got := factionOwnerDisplay("", map[string]string{}); got != "" {
+		t.Errorf("empty id: factionOwnerDisplay(\"\") = %q, want \"\"", got)
+	}
+
+	// Seeded KB → resolves to the bracketed tag.
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatalf("NewSQLiteKB: %v", err)
+	}
+	if err := kb.StoreFaction(context.Background(), knowledge.FactionRecord{FactionID: "f1", Tag: "CRFT", CapturedAt: time.Now()}); err != nil {
+		t.Fatalf("StoreFaction: %v", err)
+	}
+	globalKB = kb
+	if got := factionOwnerDisplay("f1", map[string]string{}); got != "[CRFT]" {
+		t.Errorf("seeded KB: factionOwnerDisplay(f1) = %q, want \"[CRFT]\"", got)
 	}
 }
