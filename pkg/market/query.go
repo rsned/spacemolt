@@ -238,8 +238,10 @@ func (c *Collector) GetLatestAnalysis(ctx context.Context, stationID string) (*M
 // GetMatrix returns a paginated items×stations matrix. For each matching item and
 // each station, the cell aggregates the station's latest capture of that item:
 // BestSell = cheapest ask, BestBuy = highest bid, VWAP/Volume over sell orders,
-// OrderCount over both sides. Cells for item×station pairs with no orders are
-// omitted from MatrixItem.Cells (sparse → rendered as "—" by callers).
+// OrderCount over both sides. Cells are dense-packed: every MatrixItem.Cells has
+// one entry per station in Matrix.Stations order, so item×station pairs with no
+// orders are filled with station-only metadata (HasSell/HasBuy both false), which
+// callers render as "—".
 func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, error) {
 	if q.Page < 1 {
 		q.Page = 1
