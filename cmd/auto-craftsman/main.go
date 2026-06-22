@@ -10,7 +10,7 @@ import (
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 func updateCaptainsLog(agentID string, client game.GameClient, craftingRuns int, itemsCrafted int, credits float64, strategy string) {
@@ -57,6 +57,7 @@ func updateCaptainsLog(agentID string, client game.GameClient, craftingRuns int,
 func main() {
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	transport := flag.String("transport", "ws", "Transport: ws (WebSocket) or mcp (MCP HTTP)")
+	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to market database")
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -182,21 +183,19 @@ func main() {
 
 	// Use profit-based recipe selector for craft-profit strategy
 	if strategy == "craft-profit" {
-		// Initialize knowledge base
-		kb, err := knowledge.NewSQLiteKB(knowledge.DefaultConfig())
+		// Initialize market collector
+		mc, err := market.Open(market.Config{DBPath: *marketDBPath})
 		if err != nil {
-			log.Fatalf("Failed to initialize knowledge base: %v", err)
+			log.Fatalf("Failed to initialize market collector: %v", err)
 		}
 		defer func() {
-			if err := kb.Close(); err != nil {
-				logger.Printf("Warning: Failed to close knowledge base: %v", err)
+			if err := mc.Close(); err != nil {
+				logger.Printf("Warning: Failed to close market collector: %v", err)
 			}
 		}()
 
-		// Use the Base interface
-		var baseKB knowledge.Base = kb
-		config.RecipeSelector = ProfitBasedRecipeSelector(baseKB)
-		logger.Printf("📊 Initialized knowledge base for market analysis")
+		config.RecipeSelector = ProfitBasedRecipeSelector(mc)
+		logger.Printf("📊 Initialized market collector for market analysis")
 		logger.Printf("   Market data will be cached for 1 hour")
 		logger.Printf("   Market analysis will be cached for 2 hours")
 	}

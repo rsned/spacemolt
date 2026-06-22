@@ -10,6 +10,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/tot"
 )
 
@@ -17,8 +18,9 @@ import (
 // strategy, or agent decision cycle. It combines live game state, KB-enriched
 // data, and optional agent strategic context.
 type AgentState struct {
-	game *game.State    // live state, updated by handleResponse()
-	kb   knowledge.Base // for enrichment queries
+	game *game.State        // live state, updated by handleResponse()
+	kb   knowledge.Base     // for enrichment queries
+	mc   *market.Collector  // for market data reads/writes
 
 	// Enriched data — rebuilt each Refresh() call.
 	enriched EnrichedState
@@ -51,10 +53,10 @@ type EnrichedState struct {
 	ResourceHistory   []knowledge.ResourceHistory
 
 	// Market intel (populated only when docked).
-	MarketSnapshot  *knowledge.MarketSnapshot
-	MarketAnalysis  *knowledge.MarketAnalysis
-	NearbyBestBuys  []knowledge.BestPrice
-	NearbyBestSells []knowledge.BestPrice
+	MarketSnapshot  *market.MarketSnapshot
+	MarketAnalysis  *market.MarketAnalysis
+	NearbyBestBuys  []market.BestPrice
+	NearbyBestSells []market.BestPrice
 
 	// Route intelligence: systemID → avg fuel cost.
 	FuelToNeighbors map[string]float64
@@ -93,18 +95,20 @@ type AgentContext struct {
 }
 
 // New creates an AgentState for non-agent consumers (tools, visualizer).
-func New(state *game.State, kb knowledge.Base) *AgentState {
+func New(state *game.State, kb knowledge.Base, mc *market.Collector) *AgentState {
 	return &AgentState{
 		game: state,
 		kb:   kb,
+		mc:   mc,
 	}
 }
 
 // NewWithAgent creates an AgentState with agent strategic context attached.
-func NewWithAgent(state *game.State, kb knowledge.Base, agentCtx *AgentContext) *AgentState {
+func NewWithAgent(state *game.State, kb knowledge.Base, mc *market.Collector, agentCtx *AgentContext) *AgentState {
 	return &AgentState{
 		game:  state,
 		kb:    kb,
+		mc:    mc,
 		agent: agentCtx,
 	}
 }

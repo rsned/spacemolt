@@ -63,7 +63,7 @@ func TestNew(t *testing.T) {
 	state := testState()
 	kb := knowledge.NewMemoryKB()
 
-	as := New(state, kb)
+	as := New(state, kb, nil)
 	if as == nil {
 		t.Fatal("New returned nil")
 	}
@@ -80,7 +80,7 @@ func TestNewWithAgent(t *testing.T) {
 		Goal:        &agent.Goal{Type: "wealth", Target: "10000_credits", Progress: 0.5},
 	}
 
-	as := NewWithAgent(state, kb, agentCtx)
+	as := NewWithAgent(state, kb, nil, agentCtx)
 	if as.agent == nil {
 		t.Fatal("NewWithAgent should set agent context")
 	}
@@ -114,7 +114,7 @@ func TestRefresh(t *testing.T) {
 		Type:     "asteroid_belt",
 	})
 
-	as := New(state, kb)
+	as := New(state, kb, nil)
 	as.Refresh(context.Background())
 
 	// Check system security.
@@ -171,7 +171,7 @@ func TestRefreshMiningPOI(t *testing.T) {
 	state.CurrentPOI = "belt-1"
 	kb := knowledge.NewMemoryKB()
 
-	as := New(state, kb)
+	as := New(state, kb, nil)
 	as.Refresh(context.Background())
 
 	if got := as.CurrentPOIType(); got != "asteroid_belt" {
@@ -184,7 +184,7 @@ func TestRefreshMarketOnlyWhenDocked(t *testing.T) {
 	state.Doc = false
 	kb := knowledge.NewMemoryKB()
 
-	as := New(state, kb)
+	as := New(state, kb, nil)
 	as.Refresh(context.Background())
 
 	if as.MarketSnapshot() != nil {
@@ -195,7 +195,7 @@ func TestRefreshMarketOnlyWhenDocked(t *testing.T) {
 func TestLiveAccessors(t *testing.T) {
 	state := testState()
 	kb := knowledge.NewMemoryKB()
-	as := New(state, kb)
+	as := New(state, kb, nil)
 
 	fuel, maxFuel := as.Fuel()
 	if fuel != 80 || maxFuel != 100 {
@@ -242,7 +242,7 @@ func TestLiveAccessors(t *testing.T) {
 func TestAgentContextAccessorsNil(t *testing.T) {
 	state := testState()
 	kb := knowledge.NewMemoryKB()
-	as := New(state, kb)
+	as := New(state, kb, nil)
 
 	if as.Goal() != nil {
 		t.Error("Goal should be nil without agent context")
@@ -274,7 +274,7 @@ func TestAgentContextAccessors(t *testing.T) {
 			{Sequence: 1, Action: "mine", Target: "belt-1"},
 		},
 	}
-	as := NewWithAgent(state, kb, agentCtx)
+	as := NewWithAgent(state, kb, nil, agentCtx)
 
 	if as.Focus() != "mining" {
 		t.Errorf("Focus: got %q, want %q", as.Focus(), "mining")
@@ -298,7 +298,7 @@ func TestSnapshot(t *testing.T) {
 		},
 	}
 
-	as := NewWithAgent(state, kb, agentCtx)
+	as := NewWithAgent(state, kb, nil, agentCtx)
 	as.Refresh(context.Background())
 
 	snap := as.Snapshot()
@@ -338,7 +338,7 @@ func TestSnapshot(t *testing.T) {
 func TestSetAgentContext(t *testing.T) {
 	state := testState()
 	kb := knowledge.NewMemoryKB()
-	as := New(state, kb)
+	as := New(state, kb, nil)
 
 	if as.Goal() != nil {
 		t.Error("Goal should be nil initially")
@@ -391,7 +391,7 @@ func TestResolvePOIType(t *testing.T) {
 func TestFuelCostTo(t *testing.T) {
 	state := testState()
 	kb := knowledge.NewMemoryKB()
-	as := New(state, kb)
+	as := New(state, kb, nil)
 	as.Refresh(context.Background())
 
 	// No route data in MemoryKB — should return false.
@@ -404,7 +404,7 @@ func TestFuelCostTo(t *testing.T) {
 func TestCanDo(t *testing.T) {
 	state := testState()
 	kb := knowledge.NewMemoryKB()
-	as := New(state, kb)
+	as := New(state, kb, nil)
 	as.Refresh(context.Background())
 
 	// When docked, undock should be available.
