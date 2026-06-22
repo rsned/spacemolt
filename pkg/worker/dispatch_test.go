@@ -3,9 +3,11 @@ package worker
 import (
 	"context"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // fakeClient records which command methods were invoked.
@@ -45,6 +47,10 @@ func (f *fakeClient) GetCargo(ctx context.Context) error {
 	return nil
 }
 func (f *fakeClient) GetState() *game.State { return f.state }
+func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) error {
+	f.calls = append(f.calls, "view_market")
+	return nil
+}
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}
@@ -79,6 +85,42 @@ func TestDispatchTravelArg(t *testing.T) {
 	}
 	if len(f.calls) != 1 || f.calls[0] != "travel:POI-1" {
 		t.Fatalf("calls=%v", f.calls)
+	}
+}
+
+func TestDispatchUpdateMarketRequiresCollector(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+	if err := d.Run(context.Background(), []string{"update_market"}); err == nil {
+		t.Fatal("expected error when market collector is nil")
+	}
+	if !d.Supports("update_market") {
+		t.Fatal("update_market should be in the curated vocabulary")
+	}
+}
+
+func TestDispatchUpdateMarketPrimesAndCaptures(t *testing.T) {
+	// CurrentPOI is empty, so CaptureFromClient gracefully no-ops after the
+	// ViewMarket prime — we assert the prime happened and no error surfaced.
+	f := &fakeClient{state: &game.State{}}
+	mc, err := market.Open(market.Config{DBPath: filepath.Join(t.TempDir(), "m.db")})
+	if err != nil {
+		t.Fatalf("market.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = mc.Close() })
+
+	d := NewWorkerDispatch(f, nil, mc, io.Discard)
+	if err := d.Run(context.Background(), []string{"update_market"}); err != nil {
+		t.Fatalf("update_market: %v", err)
+	}
+	found := false
+	for _, c := range f.calls {
+		if c == "view_market" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("update_market must call ViewMarket to prime the cache; calls=%v", f.calls)
 	}
 }
 
