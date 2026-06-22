@@ -2,6 +2,7 @@ package market
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -268,5 +269,95 @@ func TestFindBestPrices_UsesLatestCapturePerStation(t *testing.T) {
 	}
 	if best[0].Price != 8 {
 		t.Errorf("should use latest capture price 8, got %f", best[0].Price)
+	}
+}
+
+func TestGetMatrix(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	write := func(stn, sys string, orders []Order) {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: stn, StationName: stn, SystemID: sys, SystemName: sys,
+			CapturedAt: now, Orders: orders,
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}
+	}
+	write("stnA", "sysA", []Order{
+		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 9, Quantity: 10, CapturedAt: now},
+		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 11, Quantity: 20, CapturedAt: now},
+		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "buy", PriceEach: 3, Quantity: 5, CapturedAt: now},
+	})
+	write("stnB", "sysB", []Order{
+		{StationID: "stnB", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 7, Quantity: 4, CapturedAt: now},
+	})
+	write("stnB", "sysB", []Order{
+		{StationID: "stnB", ItemID: "copper_ore", ItemName: "Copper Ore", Category: "raw", Side: "sell", PriceEach: 2, Quantity: 1, CapturedAt: now},
+	})
+
+	m, err := c.GetMatrix(ctx, MatrixQuery{Page: 1, Limit: 50})
+	if err != nil {
+		t.Fatalf("GetMatrix: %v", err)
+	}
+	if len(m.Stations) != 2 {
+		t.Fatalf("stations = %d, want 2", len(m.Stations))
+	}
+	if m.TotalItems != 2 {
+		t.Fatalf("total items = %d, want 2", m.TotalItems)
+	}
+	byItem := map[string]MatrixItem{}
+	for _, it := range m.Items {
+		byItem[it.ItemID] = it
+	}
+	iron := byItem["iron_ore"]
+	if len(iron.Cells) != 2 {
+		t.Fatalf("iron cells = %d, want 2", len(iron.Cells))
+	}
+	cellOf := map[string]MatrixCell{}
+	for _, cc := range iron.Cells {
+		cellOf[cc.StationID] = cc
+	}
+	a := cellOf["stnA"]
+	if !a.HasSell || a.BestSell != 9 {
+		t.Errorf("stnA best sell = %v (has %v), want 9", a.BestSell, a.HasSell)
+	}
+	if !a.HasBuy || a.BestBuy != 3 {
+		t.Errorf("stnA best buy = %v, want 3", a.BestBuy)
+	}
+	// VWAP over sell = (9*10 + 11*20)/(10+20) = 310/30 ≈ 10.333
+	if math.Abs(a.VWAP-(9*10+11*20)/30.0) > 1e-6 {
+		t.Errorf("stnA vwap = %v, want ~10.333", a.VWAP)
+	}
+	if a.Volume != 30 {
+		t.Errorf("stnA volume = %v, want 30", a.Volume)
+	}
+	if a.OrderCount != 3 {
+		t.Errorf("stnA order count = %v, want 3", a.OrderCount)
+	}
+	b := cellOf["stnB"]
+	if b.BestSell != 7 || b.HasBuy {
+		t.Errorf("stnB cell wrong: %+v", b)
+	}
+
+	// Category filter
+	mf, err := c.GetMatrix(ctx, MatrixQuery{Category: "raw", Page: 1, Limit: 50})
+	if err != nil {
+		t.Fatalf("GetMatrix filtered: %v", err)
+	}
+	if mf.TotalItems != 2 {
+		t.Errorf("filtered total = %d, want 2", mf.TotalItems)
+	}
+	mnone, err := c.GetMatrix(ctx, MatrixQuery{Category: "module", Page: 1, Limit: 50})
+	if err != nil {
+		t.Fatalf("GetMatrix none: %v", err)
+	}
+	if mnone.TotalItems != 0 || len(mnone.Items) != 0 {
+		t.Errorf("expected empty matrix for unknown category, got %+v", mnone)
 	}
 }
