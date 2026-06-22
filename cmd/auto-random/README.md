@@ -401,7 +401,6 @@ To customize action probabilities:
 
 ## Related Tools
 
-- [Auto-Miner](../auto-miner/) - Specialized mining agent
 - [Auto-Trader](../auto-trader/) - Specialized trading agent
 - [Auto-Explorer](../auto-explorer/) - Specialized exploration agent
 - [Auto-Fighter](../auto-fighter/) - Specialized combat agent

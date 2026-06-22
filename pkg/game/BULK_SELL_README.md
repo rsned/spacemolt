@@ -159,12 +159,8 @@ All tests pass with 100% coverage.
 ## 🎮 Use Cases
 
 Perfect for all auto-* tools that sell cargo:
-- ✅ `auto-miner` - Sell mined ores
-- ✅ `auto-salvager` - Sell salvage materials
 - ✅ `auto-explorer` - Sell discovered resources
 - ✅ `auto-trader` - Fast trading operations
-- ✅ `auto-pirate` - Sell looted cargo
-- ✅ `auto-craftsman` - Sell with reserved materials
 
 ## 🤝 Contributing
 

@@ -158,7 +158,7 @@ go run ./cmd/auto-trader trader-1 trade ore_silicon crimson
 
 ## Crafting Integration
 
-The auto-trader integrates with the SpaceMolt Crafting MCP Server for `craft-sell` and `craft-deposit` strategies. See [auto-miner README](../auto-miner/README.md#crafting-integration) for detailed setup instructions.
+The auto-trader integrates with the SpaceMolt Crafting MCP Server for `craft-sell` and `craft-deposit` strategies. See the Quick Crafting Setup section below for setup instructions.
 
 ### Quick Crafting Setup
 
@@ -489,7 +489,6 @@ go run ./cmd/auto-trader trader-1 trade ore_iron dynasty
 
 ## Related Documentation
 
-- [Auto-Miner README](../auto-miner/README.md) - Mining agent with crafting integration
 - [Crafting Server README](../crafting-server/README.md) - Full crafting server documentation
 - [Game Client Documentation](../../pkg/game/) - Game client API reference
 - [Trade Routes](../../pkg/game/trade.go) - Trade route implementation

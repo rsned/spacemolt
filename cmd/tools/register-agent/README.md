@@ -108,7 +108,7 @@ When using `--save-password`:
 
 **Permissions**: `0600` (read/write for owner only)
 
-**Usage**: Other tools like `auto-miner` can read this file for automatic authentication
+**Usage**: Other tools like `auto-explorer` can read this file for automatic authentication
 
 ## Available Empires
 
@@ -152,7 +152,7 @@ After registering an agent:
 
 4. **Run an Agent**:
    ```bash
-   go run ./cmd/auto-miner {username}
+   go run ./cmd/auto-explorer {username}
    ```
 
 ## Error Handling
@@ -170,7 +170,6 @@ After registering an agent:
 
 ## Related Tools
 
-- [auto-miner](../auto-miner/README.md) - Autonomous mining agent
 - [auto-explorer](../auto-explorer/README.md) - Autonomous exploration agent
 - [auto-trader](../auto-trader/README.md) - Autonomous trading agent
 - [agent-server](../agent-server/README.md) - Multi-agent management server
