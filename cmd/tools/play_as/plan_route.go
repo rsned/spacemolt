@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // routeInf is the "unreachable" sentinel for jump distances. It is large enough
@@ -270,6 +271,14 @@ func buildJumpGraph(ctx context.Context) (map[string][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load connections: %w", err)
 	}
+	return jumpGraphFromConnections(conns), nil
+}
+
+// jumpGraphFromConnections builds an undirected adjacency map from a slice of
+// connections, where every edge counts as a single jump. It is the pure core of
+// buildJumpGraph, separated so callers that already hold the connections (or
+// want a graph without touching the global KB) can reuse it.
+func jumpGraphFromConnections(conns []knowledge.Connection) map[string][]string {
 	graph := make(map[string][]string)
 	add := func(a, b string) {
 		if slices.Contains(graph[a], b) {
@@ -284,7 +293,7 @@ func buildJumpGraph(ctx context.Context) (map[string][]string, error) {
 		add(c.FromSystem, c.ToSystem)
 		add(c.ToSystem, c.FromSystem)
 	}
-	return graph, nil
+	return graph
 }
 
 // bfsJumps returns the jump distance from src to each system in targets.

@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // realStationPassengers is a verbatim list_station_passengers response from the
@@ -76,6 +78,73 @@ func TestFormatStationPassengers_SystemAndFare(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing estimated fare %q, got:\n%s", want, out)
 		}
+	}
+}
+
+func TestDestSystemJumps(t *testing.T) {
+	// origin - hub - market   and   origin - sable (chain)
+	systems := []knowledge.System{
+		{ID: "origin_sys", Name: "Origin Prime"},
+		{ID: "hub_sys", Name: "Hub Central"},
+		{ID: "market_sys", Name: "Market Prime"},
+		{ID: "sable_sys", Name: "Barnard 44"},
+		{ID: "island_sys", Name: "Lost Reach"}, // present but unconnected
+	}
+	conns := []knowledge.Connection{
+		{FromSystem: "origin_sys", ToSystem: "hub_sys"},
+		{FromSystem: "hub_sys", ToSystem: "market_sys"},
+		{FromSystem: "origin_sys", ToSystem: "sable_sys"},
+	}
+	dests := []string{
+		"Market Prime", // 2 jumps (by name)
+		"Barnard 44",   // 1 jump
+		"Origin Prime", // 0 jumps (same system)
+		"Lost Reach",   // resolvable but unreachable -> omitted
+		"Nowhere",      // unresolvable -> omitted
+	}
+
+	got := destSystemJumps("origin_sys", systems, conns, dests)
+
+	want := map[string]int{"Market Prime": 2, "Barnard 44": 1, "Origin Prime": 0}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for name, j := range want {
+		if got[name] != j {
+			t.Errorf("jumps to %q = %d, want %d", name, got[name], j)
+		}
+	}
+	for _, omitted := range []string{"Lost Reach", "Nowhere"} {
+		if _, ok := got[omitted]; ok {
+			t.Errorf("%q should be omitted (unreachable/unresolvable), got %d", omitted, got[omitted])
+		}
+	}
+}
+
+func TestRenderPax_JumpsAndPerHop(t *testing.T) {
+	// Two destinations: one 3 jumps away, one same-system. Per-jump = fare/jumps.
+	items := []paxItem{
+		{Name: "Far Traveler", Class: "first", DestName: "Deep Station", DestID: "deep", DestSystem: "Far Reach", EstFare: 9000, Jumps: 3},
+		{Name: "Local Hop", Class: "economy", DestName: "Home Dock", DestID: "home", DestSystem: "Origin Prime", EstFare: 300, Jumps: 0},
+	}
+	out := renderPaxByDestination(items, paxClassOrderStation, paxFareEstimate)
+
+	// Header carries the jump distance for the multi-jump destination and the
+	// same-system marker for the local one.
+	if !strings.Contains(out, "Deep Station [deep] · Far Reach · 3 jumps") {
+		t.Errorf("missing jump distance in header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Home Dock [home] · Origin Prime · same system") {
+		t.Errorf("missing same-system marker, got:\n%s", out)
+	}
+	// Per-jump fare appears for the multi-jump passenger (9000/3 = 3000) but not
+	// for the same-system one (no jumps to divide by).
+	if !strings.Contains(out, "~3000/jump") {
+		t.Errorf("missing per-jump fare, got:\n%s", out)
+	}
+	local := out[strings.Index(out, "Local Hop"):]
+	if strings.Contains(local, "/jump") {
+		t.Errorf("same-system passenger should have no per-jump fare, got:\n%s", local)
 	}
 }
 

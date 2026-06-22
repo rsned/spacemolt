@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // paxItem is the common shape used to render passengers grouped by destination
@@ -23,6 +26,10 @@ type paxItem struct {
 	Fare        int
 	Ticks       int
 	EstFare     int
+	// Jumps is the number of jumps from the player's current system to this
+	// passenger's destination system: -1 when unknown (KB/state unavailable or
+	// the destination is unreachable), 0 for a same-system delivery, >0 otherwise.
+	Jumps int
 }
 
 // paxFareMode selects which fare column (if any) a passenger view renders.
@@ -50,6 +57,17 @@ func paxDestLabel(name, id string) string {
 	}
 }
 
+// paxPerHop returns the estimated fare amortized over the jump distance to the
+// passenger's destination (estimated_fare ÷ jumps), and ok=false when there is
+// no meaningful per-jump value: a missing fare quote, an unknown distance
+// (Jumps < 0), or a same-system delivery (Jumps == 0, no jumps to divide by).
+func paxPerHop(p paxItem) (int, bool) {
+	if p.EstFare <= 0 || p.Jumps <= 0 {
+		return 0, false
+	}
+	return p.EstFare / p.Jumps, true
+}
+
 // Class display orders. The station roster lists economy first (you scan it to
 // gauge demand); the aboard manifest lists first class first (highest-value
 // cabins on top). Classes not in the chosen order are appended alphabetically.
@@ -61,22 +79,24 @@ var (
 // paxCols holds the global column widths used to align passenger lines across
 // all destination groups.
 type paxCols struct {
-	name  int
-	cit   int // citizenship text width (without brackets); 0 collapses the column
-	citID int
-	fare  int
-	ticks int
+	name   int
+	cit    int // citizenship text width (without brackets); 0 collapses the column
+	citID  int
+	fare   int
+	ticks  int
+	perHop int // per-jump fare width; 0 collapses the column (station view only)
 }
 
 // renderPaxByDestination renders passengers grouped by destination (alphabetical
 // by name) and, within each destination, by class in classOrder. Passengers are
 // listed by name. fareMode selects which fare column (if any) each line shows.
 func renderPaxByDestination(items []paxItem, classOrder []string, fareMode paxFareMode) string {
-	// Group by destination id (canonical/unique); track the display name and
-	// system per id (the system is shared by all passengers to that destination).
+	// Group by destination id (canonical/unique); track the display name, system,
+	// and jump distance per id (all shared by passengers to that destination).
 	groups := map[string][]paxItem{}
 	destName := map[string]string{}
 	destSystem := map[string]string{}
+	destJumps := map[string]int{}
 	for _, p := range items {
 		groups[p.DestID] = append(groups[p.DestID], p)
 		if _, ok := destName[p.DestID]; !ok {
@@ -84,6 +104,9 @@ func renderPaxByDestination(items []paxItem, classOrder []string, fareMode paxFa
 		}
 		if destSystem[p.DestID] == "" {
 			destSystem[p.DestID] = p.DestSystem
+		}
+		if _, ok := destJumps[p.DestID]; !ok {
+			destJumps[p.DestID] = p.Jumps
 		}
 	}
 	dests := make([]string, 0, len(groups))
@@ -111,6 +134,9 @@ func renderPaxByDestination(items []paxItem, classOrder []string, fareMode paxFa
 			cols.ticks = max(cols.ticks, len(strconv.Itoa(p.Ticks)))
 		case paxFareEstimate:
 			cols.fare = max(cols.fare, len(strconv.Itoa(p.EstFare)))
+			if ph, ok := paxPerHop(p); ok {
+				cols.perHop = max(cols.perHop, len(strconv.Itoa(ph)))
+			}
 		case paxFareNone:
 		}
 	}
@@ -121,6 +147,13 @@ func renderPaxByDestination(items []paxItem, classOrder []string, fareMode paxFa
 		label := paxDestLabel(destName[d], d)
 		if sys := destSystem[d]; sys != "" {
 			label += " · " + sys
+		}
+		// Append the jump distance from the player's current system when known.
+		switch j := destJumps[d]; {
+		case j > 0:
+			label += fmt.Sprintf(" · %d jump%s", j, plural(j))
+		case j == 0:
+			label += " · same system"
 		}
 		fmt.Fprintf(&b, "\n%s (%d)\n", label, len(grp))
 
@@ -195,6 +228,14 @@ func renderPaxLine(b *strings.Builder, p paxItem, cols paxCols, fareMode paxFare
 		// ~ marks the fare as a quote, not a booked amount.
 		fmt.Fprintf(b, "  %-*s", cols.citID, p.CitizenID)
 		fmt.Fprintf(b, "   ~%*s cr", cols.fare, strconv.Itoa(p.EstFare))
+		// When the jump distance is known, append the fare amortized per jump —
+		// a value-density gauge for comparing destinations. The column is shared
+		// (cols.perHop > 0) so same-system rows leave it blank but still align.
+		if cols.perHop > 0 {
+			if ph, ok := paxPerHop(p); ok {
+				fmt.Fprintf(b, "  ~%*d/jump", cols.perHop, ph)
+			}
+		}
 	case paxFareNone:
 		// citizen_id is the final column; don't pad it (avoids trailing space).
 		fmt.Fprintf(b, "  %s", p.CitizenID)
@@ -253,6 +294,7 @@ func formatListPassengers(raw []byte) string {
 			Name: p.Name, Class: p.Class, Citizenship: p.Citizenship,
 			CitizenID: p.CitizenID, DestName: p.DestinationName, DestID: p.Destination,
 			Fare: p.Fare, Ticks: p.TicksRemaining,
+			Jumps: -1, // aboard manifest carries no origin; jumps are not shown
 		}
 	}
 	b.WriteString(renderPaxByDestination(items, paxClassOrderAboard, paxFareBooked))
@@ -296,13 +338,27 @@ func formatStationPassengers(raw []byte) string {
 	}
 	fmt.Fprintf(&b, "Passengers waiting at %s — %d total\n", station, len(resp.Waiting))
 
+	// Resolve jump distances from the player's current system to each distinct
+	// destination system (best-effort: needs live state + the KB; empty otherwise).
+	destSystems := make([]string, 0, len(resp.Waiting))
+	for _, w := range resp.Waiting {
+		if w.DestinationSystem != "" {
+			destSystems = append(destSystems, w.DestinationSystem)
+		}
+	}
+	jumpsBySystem := stationDestJumps(destSystems)
+
 	items := make([]paxItem, len(resp.Waiting))
 	anyFare := false
 	for i, w := range resp.Waiting {
+		jumps := -1
+		if j, ok := jumpsBySystem[w.DestinationSystem]; ok {
+			jumps = j
+		}
 		items[i] = paxItem{
 			Name: w.Name, Class: w.Class, Citizenship: w.Citizenship,
 			CitizenID: w.CitizenID, DestName: w.DestinationName, DestID: w.Destination,
-			DestSystem: w.DestinationSystem, EstFare: w.EstimatedFare,
+			DestSystem: w.DestinationSystem, EstFare: w.EstimatedFare, Jumps: jumps,
 		}
 		if w.EstimatedFare > 0 {
 			anyFare = true
@@ -316,6 +372,79 @@ func formatStationPassengers(raw []byte) string {
 	}
 	b.WriteString(renderPaxByDestination(items, paxClassOrderStation, mode))
 	return b.String()
+}
+
+// stationDestJumps returns the jump distance from the player's current system to
+// each of the given destination system names, keyed by the name as supplied. It
+// is the globals-backed wrapper around destSystemJumps: it pulls the origin from
+// live game state and the systems/connections from the knowledge base, returning
+// nil (no jumps rendered) whenever any of those is unavailable.
+func stationDestJumps(destSystems []string) map[string]int {
+	if globalClient == nil || globalKB == nil || len(destSystems) == 0 {
+		return nil
+	}
+	state := globalClient.GetState()
+	if state == nil || state.System.ID == "" {
+		return nil
+	}
+	ctx := context.Background()
+	systems, err := globalKB.GetSystems(ctx)
+	if err != nil {
+		return nil
+	}
+	conns, err := globalKB.GetConnections(ctx)
+	if err != nil {
+		return nil
+	}
+	return destSystemJumps(state.System.ID, systems, conns, destSystems)
+}
+
+// destSystemJumps computes the number of jumps from originID to each destination
+// system named in destSystems, resolving names to ids via systems and walking the
+// graph built from conns. The result is keyed by the destination system string
+// exactly as it appeared in destSystems; destinations that cannot be resolved or
+// reached are omitted (callers then render no jump count for them). It is the
+// pure core of stationDestJumps, separated so it can be unit-tested without the
+// globals.
+func destSystemJumps(originID string, systems []knowledge.System, conns []knowledge.Connection, destSystems []string) map[string]int {
+	if originID == "" || len(destSystems) == 0 {
+		return nil
+	}
+	byID := make(map[string]string, len(systems))   // lowercased id -> canonical id
+	byName := make(map[string]string, len(systems)) // lowercased name -> canonical id
+	for _, s := range systems {
+		byID[strings.ToLower(s.ID)] = s.ID
+		if s.Name != "" {
+			byName[strings.ToLower(s.Name)] = s.ID
+		}
+	}
+
+	// Resolve each distinct destination to a canonical id, remembering the
+	// original string so the returned map keys match what the caller passed.
+	nameToID := make(map[string]string, len(destSystems))
+	targets := make([]string, 0, len(destSystems))
+	for _, name := range destSystems {
+		if _, done := nameToID[name]; done {
+			continue
+		}
+		if id, ok := resolveSystemToken(name, byID, byName); ok {
+			nameToID[name] = id
+			targets = append(targets, id)
+		}
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+
+	graph := jumpGraphFromConnections(conns)
+	dists := bfsJumps(graph, originID, targets)
+	out := make(map[string]int, len(nameToID))
+	for name, id := range nameToID {
+		if d := dists[id]; d < routeInf {
+			out[name] = d
+		}
+	}
+	return out
 }
 
 // formatLoadPassenger renders a load_passenger action_result.
