@@ -2263,6 +2263,20 @@ type factionFacilityRow struct {
 	Production *facilityProduction `json:"production,omitempty"`
 }
 
+// publicFacilityRow is the decode target for public_facilities entries in a
+// facility list response. These are faction-owned production facilities open
+// for public rental; they always carry a Production block.
+type publicFacilityRow struct {
+	Category     string              `json:"category"`
+	CustomName   string              `json:"custom_name"`
+	FacilityID   string              `json:"facility_id"`
+	FactionID    string              `json:"faction_id"`
+	Name         string              `json:"name"`
+	RentPerCycle *int64              `json:"rent_per_cycle"`
+	Type         string              `json:"type"`
+	Production   *facilityProduction `json:"production"`
+}
+
 // displayName returns the operator-assigned custom name when set, else the
 // facility's type name — so a renamed facility (e.g. "Bob's Iron Smeltery")
 // shows that rather than the generic "Iron Refinery".
@@ -2468,6 +2482,9 @@ func formatFacilityList(raw []byte) string {
 		// own facilities — and only rendered with --show_station_facilities.
 		StationFacilities []stationFacility    `json:"station_facilities"`
 		FactionFacilities []factionFacilityRow `json:"faction_facilities"`
+		// PublicFacilities are faction-owned production facilities open for
+		// public rental, introduced in gameserver v0.350.0+.
+		PublicFacilities []publicFacilityRow `json:"public_facilities"`
 		// PlayerRent is the aggregate rent bill across all the player's
 		// facilities (gameserver v0.347.0+), surfaced as a station-level total.
 		PlayerRent struct {
@@ -2547,6 +2564,33 @@ func formatFacilityList(raw []byte) string {
 		})
 		fmt.Fprintf(&b, "\n  Faction:\n")
 		renderFactionFacilities(&b, resp.FactionFacilities, "    ")
+	}
+	if len(resp.PublicFacilities) > 0 {
+		slices.SortFunc(resp.PublicFacilities, func(a, c publicFacilityRow) int {
+			return strings.Compare(a.Name, c.Name)
+		})
+		ownerCache := map[string]string{}
+		pf := make([]productionFacility, 0, len(resp.PublicFacilities))
+		for _, f := range resp.PublicFacilities {
+			if f.Production == nil {
+				continue // only production facilities render in this table
+			}
+			name := f.Name
+			if f.CustomName != "" {
+				name = f.CustomName
+			}
+			pf = append(pf, productionFacility{
+				name:         name,
+				prod:         f.Production,
+				facilityID:   f.FacilityID,
+				rentPerCycle: f.RentPerCycle,
+				owner:        factionOwnerDisplay(f.FactionID, ownerCache),
+			})
+		}
+		if len(pf) > 0 {
+			totalSections++
+			renderProductionFacilityTable(&b, pf, "  ", fmt.Sprintf("Public Facilities (%d)", len(pf)))
+		}
 	}
 	if showStationFacilities && len(resp.StationFacilities) > 0 {
 		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {

@@ -412,6 +412,23 @@ func TestFormatFacilityList_ProductionShowsIDAndRent(t *testing.T) {
 	}
 }
 
+// TestFormatFacilityList_PublicFacilities guards that public_facilities (faction-owned
+// production facilities open for public rental) are rendered as a new "Public Facilities"
+// section after the Faction block, via the shared production renderer.
+func TestFormatFacilityList_PublicFacilities(t *testing.T) {
+	saved := globalKB
+	defer func() { globalKB = saved }()
+	globalKB = nil // owner falls back to faction_id
+
+	raw := []byte(`{"base_id":"grand_exchange_station","public_facilities":[{"category":"production","description":"A compact fuel line.","facility_id":"fb24fd71","faction_id":"e727c0e9","level":1,"name":"H2 Fuel Combustor","production":{"backlog_ticks":0,"items_per_hour":78000,"output_per_run":100,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Manufacture Fuel Basic","rental_fee_per_run":50,"ticks_per_run":0.46},"recipe_id":"manufacture_fuel_basic","type":"h2_fuel_combustor"}]}`)
+	out := formatFacilityList(raw)
+	for _, want := range []string{"Public Facilities (1):", "H2 Fuel Combustor", "⚙ Manufacture Fuel Basic", "Facility ID", "fb24fd71", "Owner", "e727c0e9"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
+		}
+	}
+}
+
 func TestFactionOwnerDisplay(t *testing.T) {
 	// nil KB → falls back to the raw faction_id.
 	saved := globalKB

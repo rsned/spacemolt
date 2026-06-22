@@ -880,6 +880,7 @@ type FacilityListResponse struct {
 	StationFacilities []map[string]any `json:"station_facilities"`
 	PlayerFacilities  []map[string]any `json:"player_facilities"`
 	FactionFacilities []map[string]any `json:"faction_facilities"`
+	PublicFacilities  []map[string]any `json:"public_facilities"`
 }
 
 // ViewStorageResponse wraps the response from view_storage command.
