@@ -388,8 +388,14 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 		}
 	}
 
-	// Get market listings (only if not captured today)
-	if !hasMarketToday {
+	// Get market listings (only if a collector is configured and not yet
+	// captured today — skip the fetch entirely when market capture is off).
+	switch {
+	case mc == nil:
+		// Market capture disabled; nothing to do.
+	case hasMarketToday:
+		logger.Printf("✓ Market listings already captured today for %s", poiName)
+	default:
 		logger.Printf("📊 Getting market listings from %s...", poiName)
 		if err := client.GetListings(ctx); err != nil {
 			logger.Printf("Failed to get listings: %v", err)
@@ -397,25 +403,21 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 			time.Sleep(2 * time.Second)
 
 			listings := client.GetMarketListings()
-			if mc != nil {
-				now := time.Now().UTC()
-				snap := market.MarketSnapshot{
-					StationID:   poiID,
-					StationName: poiName,
-					SystemID:    state.System.ID,
-					SystemName:  systemName,
-					CapturedAt:  now,
-					Orders:      market.OrdersFromListings(poiID, listings, agentID, now),
-				}
-				if err := mc.WriteSnapshot(ctx, snap); err != nil {
-					logger.Printf("⚠️  Failed to save market snapshot: %v", err)
-				} else {
-					logger.Printf("💾 Saved market snapshot (%d listings)", len(listings))
-				}
+			now := time.Now().UTC()
+			snap := market.MarketSnapshot{
+				StationID:   poiID,
+				StationName: poiName,
+				SystemID:    state.System.ID,
+				SystemName:  systemName,
+				CapturedAt:  now,
+				Orders:      market.OrdersFromListings(poiID, listings, agentID, now),
+			}
+			if err := mc.WriteSnapshot(ctx, snap); err != nil {
+				logger.Printf("⚠️  Failed to save market snapshot: %v", err)
+			} else {
+				logger.Printf("💾 Saved market snapshot (%d listings)", len(listings))
 			}
 		}
-	} else {
-		logger.Printf("✓ Market listings already captured today for %s", poiName)
 	}
 
 	// Check if ship listings were already captured today

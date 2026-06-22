@@ -2,14 +2,19 @@
 
 ## Overview
 
-The market refresh library provides automatic freshness checking and updating of market data for trading and crafting agents.
+The market refresh library provides automatic freshness checking and updating
+of market data for trading and crafting agents. As of the market-data
+consolidation, all volatile market data lives in the separate `pkg/market`
+database (`data/market.db`) — these helpers take a `*market.Collector`, not a
+`knowledge.Base`.
 
 ## Key Features
 
-- **Automatic Freshness Checking**: Market data is considered fresh for 1 hour (360 game ticks)
-- **Lazy Refresh**: Only fetches new market data when the cached data is stale
-- **Knowledge Base Integration**: Stores market snapshots in SQLite for persistence
-- **Simple API**: One function call to get fresh market data
+- **Automatic Freshness Checking**: Market data is fresh for 1 hour; LLM
+  analysis is fresh for 2 hours.
+- **Lazy Refresh**: Only captures new market data when the cached snapshot is stale.
+- **Single Source**: Reads and writes the `pkg/market` collector (`data/market.db`).
+- **Simple API**: One call to get fresh market data.
 
 ## Usage
 
@@ -18,57 +23,28 @@ The market refresh library provides automatic freshness checking and updating of
 ```go
 import (
     "context"
+
     "github.com/rsned/spacemolt/pkg/agent"
     "github.com/rsned/spacemolt/pkg/game"
-    "github.com/rsned/spacemolt/pkg/knowledge"
+    "github.com/rsned/spacemolt/pkg/market"
 )
 
-func makeTradingDecision(ctx context.Context, client *game.Client, kb knowledge.Base, agentID string) error {
-    // Get fresh market data (automatically refreshes if older than 1 hour)
-    snapshot, err := agent.RefreshMarketData(ctx, client, kb, agentID)
+func makeTradingDecision(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) error {
+    // Get fresh market data (captures a new snapshot if older than 1 hour).
+    snapshot, err := agent.RefreshMarketData(ctx, client, mc, agentID)
     if err != nil {
         return fmt.Errorf("failed to get market data: %w", err)
     }
 
-    // Use the market data to make decisions
-    for _, listing := range snapshot.Listings {
-        if listing.Type == "buy" && listing.ItemID == "ore_iron" {
+    // Use the market data to make decisions.
+    for _, order := range snapshot.Orders {
+        if order.Side == "sell" && order.ItemID == "ore_iron" {
             fmt.Printf("Iron available at %s: %.0f units @ %.0f credits each\n",
-                snapshot.StationName, listing.Quantity, listing.PricePerUnit)
+                snapshot.StationName, order.Quantity, order.PriceEach)
         }
     }
 
     return nil
-}
-```
-
-### Check if Refresh is Needed
-
-```go
-// Check if market data needs refreshing without actually refreshing
-shouldRefresh, err := agent.ShouldRefreshMarket(ctx, kb, "haven", "haven_exchange")
-if err != nil {
-    return fmt.Errorf("failed to check market freshness: %w", err)
-}
-
-if shouldRefresh {
-    fmt.Println("Market data is stale, consider refreshing")
-}
-```
-
-### Get Market Age
-
-```go
-// Get the age of the market data
-age, exists, err := agent.GetMarketAge(ctx, kb, "haven", "haven_exchange")
-if err != nil {
-    return fmt.Errorf("failed to get market age: %w", err)
-}
-
-if exists {
-    fmt.Printf("Market data is %s old\n", age)
-} else {
-    fmt.Println("No market data available")
 }
 ```
 
@@ -77,133 +53,100 @@ if exists {
 ### RefreshMarketData
 
 ```go
-func RefreshMarketData(ctx context.Context, client *game.Client, kb knowledge.Base, agentID string) (*knowledge.MarketSnapshot, error)
+func RefreshMarketData(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) (*market.MarketSnapshot, error)
 ```
 
-Ensures fresh market data for the current station. Returns cached data if less than 1 hour old, otherwise captures fresh data.
+Ensures fresh market data for the current station. Returns the cached snapshot
+if it is less than `MarketFreshnessThreshold` old, otherwise captures fresh data
+via `CaptureMarketData` and reads it back. Internally uses
+`mc.GetLatestSnapshot` for the freshness check.
 
-**Parameters:**
-- `ctx`: Context for the operation
-- `client`: Game client for fetching market data
-- `kb`: Knowledge base for storing/retrieving snapshots
-- `agentID`: Agent identifier for tracking
-
-**Returns:**
-- `*knowledge.MarketSnapshot`: Fresh market snapshot
-- `error`: Any error encountered
-
-### ShouldRefreshMarket
+### CaptureMarketData
 
 ```go
-func ShouldRefreshMarket(ctx context.Context, kb knowledge.Base, systemID, stationID string) (bool, error)
+func CaptureMarketData(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) error
 ```
 
-Checks if market data should be refreshed (doesn't actually refresh).
+Fetches the current station's order book from the game and writes it to the
+collector via `mc.WriteSnapshot` (converting `game.MarketListing` →
+`[]market.Order` with `market.OrdersFromListings`).
 
-**Returns:**
-- `bool`: True if data doesn't exist or is stale
-- `error`: Any error encountered
-
-### GetMarketAge
+### RefreshMarketAnalysis
 
 ```go
-func GetMarketAge(ctx context.Context, kb knowledge.Base, systemID, stationID string) (time.Duration, bool, error)
+func RefreshMarketAnalysis(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) (*market.MarketAnalysis, error)
 ```
 
-Returns the age of the most recent market snapshot.
+Ensures fresh LLM `analyze_market` output, refreshing when older than
+`MarketAnalysisFreshnessThreshold`. Persists via `mc.StoreAnalysis` and reads
+back via `mc.GetLatestAnalysis`.
 
-**Returns:**
-- `time.Duration`: Age of the snapshot
-- `bool`: True if snapshot exists
-- `error`: Any error encountered
+## Freshness Thresholds
 
-## Market Data Freshness
+| Constant | Value | Meaning |
+|---|---|---|
+| `MarketFreshnessThreshold` | `360 * time.Second` (1 hour) | Snapshot freshness |
+| `MarketAnalysisFreshnessThreshold` | `720 * time.Second` (2 hours) | LLM analysis freshness |
 
-Market data is considered fresh for **1 hour** (360 game ticks = 3600 seconds). This threshold is defined in `MarketFreshnessThreshold`.
-
-The freshness check is based on the `CapturedAt` timestamp of the market snapshot stored in the knowledge base.
+Freshness is based on the `CapturedAt` timestamp of the latest snapshot/analysis
+returned by the collector.
 
 ## Market Snapshots
 
-Each market snapshot contains:
+Each snapshot (`market.MarketSnapshot`) carries station/system identity plus the
+captured orders:
 
 ```go
 type MarketSnapshot struct {
-    SystemID    string           // System identifier (e.g., "haven")
-    SystemName  string           // Human-readable system name
-    StationID   string           // Station identifier (e.g., "haven_exchange")
-    StationName string           // Human-readable station name
-    GameTick    int64            // Game tick when captured
-    Listings    []MarketListing  // Market listings
-    CapturedAt  time.Time        // When the snapshot was captured
+    StationID   string
+    StationName string
+    SystemID    string
+    SystemName  string
+    Orders      []Order
+    CapturedAt  time.Time
 }
-```
 
-Each listing contains:
-
-```go
-type MarketListing struct {
-    ItemID       string  // Item identifier (e.g., "ore_iron")
-    ItemType     string  // Item type
-    Quantity     float64 // Available quantity
-    PricePerUnit float64 // Price per unit
-    TotalPrice   float64 // Total price
-    Type         string  // "buy" or "sell"
-    ListedBy     string  // Who listed it
+type Order struct {
+    StationID  string
+    ItemID     string
+    ItemName   string
+    Side       string  // "buy" or "sell"
+    PriceEach  float64
+    Quantity   float64
+    MyQuantity float64
+    Source     string  // provenance, e.g. agent id or "play_as"
+    CapturedAt time.Time
+    BucketUTC  string  // captured_at truncated to the hour
 }
 ```
 
 ## Database Storage
 
-Market snapshots are stored in the `market_snapshots` table with the following schema:
-
-```sql
-CREATE TABLE market_snapshots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    system_id TEXT NOT NULL,
-    system_name TEXT NOT NULL,
-    station_id TEXT NOT NULL,
-    station_name TEXT NOT NULL,
-    game_tick INTEGER NOT NULL,
-    captured_at TEXT NOT NULL,
-    agent_id TEXT NOT NULL,
-    last_updated_tick INTEGER NOT NULL
-);
-```
-
-Listings are stored in the `market_listings` table linked to their snapshot.
-
-## Performance Considerations
-
-- **Caching**: Fresh data is returned immediately without server calls
-- **Batch Queries**: Market data captures all listings at once
-- **Indexed Queries**: Database is indexed on system_id and station_id for fast lookups
+Snapshots are reconstructed from the `market_orders` table in `data/market.db`
+(the set of orders for a station sharing the newest `captured_at`). Station and
+item names are joined from the `stations` and `items` tables. See
+`pkg/market/schema.sql` for the full schema and `pkg/market/query.go` for the
+read API (`GetLatestSnapshot`, `HasSnapshotToday`, `FindBestPrices`,
+`GetLatestAnalysis`).
 
 ## Integration Example
-
-Here's how to integrate market refresh into an auto-trader:
 
 ```go
 func (trader *AutoTrader) Run(ctx context.Context) error {
     for {
-        // Get fresh market data
-        snapshot, err := agent.RefreshMarketData(ctx, trader.client, trader.kb, trader.agentID)
+        snapshot, err := agent.RefreshMarketData(ctx, trader.client, trader.market, trader.agentID)
         if err != nil {
             return fmt.Errorf("market refresh failed: %w", err)
         }
 
-        // Analyze market and make trading decisions
         trades := trader.findProfitableTrades(snapshot)
-
-        // Execute trades
         for _, trade := range trades {
             if err := trader.executeTrade(ctx, trade); err != nil {
                 log.Printf("Trade failed: %v", err)
             }
         }
 
-        // Wait before next iteration
-        time.Sleep(5 * time.Minute)
+        time.Sleep(game.SleepLong)
     }
 }
 ```

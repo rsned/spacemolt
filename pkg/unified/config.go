@@ -55,6 +55,9 @@ type LLMConfig struct {
 type DatabaseConfig struct {
 	Backend string `yaml:"backend"`
 	Path    string `yaml:"path"`
+	// MarketPath is the path to the separate volatile market DB
+	// (pkg/market). Empty falls back to market.DefaultConfig().
+	MarketPath string `yaml:"market_path"`
 }
 
 // CredentialsConfig holds credential storage settings.
@@ -102,8 +105,9 @@ func DefaultConfig() Config {
 			Timeout: 60 * time.Second,
 		},
 		Database: DatabaseConfig{
-			Backend: "sqlite",
-			Path:    "data/spacemolt-knowledge.db",
+			Backend:    "sqlite",
+			Path:       "data/spacemolt-knowledge.db",
+			MarketPath: "data/market.db",
 		},
 		Credentials: CredentialsConfig{
 			Backend: "file",

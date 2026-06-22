@@ -72,12 +72,16 @@ func New(cfg Config) (*Server, error) {
 	logger.Printf("LLM client initialized (%s @ %s)", cfg.LLM.Model, cfg.LLM.URL)
 
 	// Initialize market collector (non-fatal: log warning on error).
-	mc, mcErr := market.Open(market.DefaultConfig())
+	marketCfg := market.DefaultConfig()
+	if cfg.Database.MarketPath != "" {
+		marketCfg.DBPath = cfg.Database.MarketPath
+	}
+	mc, mcErr := market.Open(marketCfg)
 	if mcErr != nil {
 		logger.Printf("warning: market collector unavailable (%v); market enrichment disabled", mcErr)
 		mc = nil
 	} else {
-		logger.Printf("market collector initialized (%s)", market.DefaultConfig().DBPath)
+		logger.Printf("market collector initialized (%s)", marketCfg.DBPath)
 	}
 
 	// Create observer server.
