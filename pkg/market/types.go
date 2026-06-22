@@ -176,3 +176,15 @@ type ItemPricePoint struct {
 	Volume      float64 `json:"volume"`
 	TradeCount  int     `json:"trade_count"`
 }
+
+// StationCaptures summarizes one station's capture history for health checks.
+type StationCaptures struct {
+	StationID    string   `json:"station_id"`
+	StationName  string   `json:"station_name"`
+	SystemID     string   `json:"system_id"`
+	SystemName   string   `json:"system_name"`
+	CaptureTimes []string `json:"capture_times"` // distinct captured_at, newest first
+	Count        int      `json:"count"`
+	Latest       string   `json:"latest"`
+	Earliest     string   `json:"earliest"`
+}

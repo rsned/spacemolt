@@ -480,3 +480,47 @@ func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limi
 	}
 	return out, rows.Err()
 }
+
+// GetCaptureHealth returns per-station capture history: distinct captured_at
+// timestamps (newest first), count, and earliest/latest. Used to spot cadence
+// gaps in collection.
+func (c *Collector) GetCaptureHealth(ctx context.Context) ([]StationCaptures, error) {
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT s.station_id, s.station_name, s.system_id, s.system_name, o.captured_at
+		FROM stations s
+		JOIN market_orders o ON o.station_id = s.station_id
+		GROUP BY s.station_id, o.captured_at
+		ORDER BY s.station_name, o.captured_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("query capture health: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	order := []string{}
+	byStation := map[string]*StationCaptures{}
+	times := map[string][]string{}
+	for rows.Next() {
+		var stID, stName, sysID, sysName, cap string
+		if err := rows.Scan(&stID, &stName, &sysID, &sysName, &cap); err != nil {
+			return nil, fmt.Errorf("scan capture health: %w", err)
+		}
+		sc, ok := byStation[stID]
+		if !ok {
+			sc = &StationCaptures{StationID: stID, StationName: stName, SystemID: sysID, SystemName: sysName, Latest: cap}
+			byStation[stID] = sc
+			order = append(order, stID)
+		}
+		sc.Earliest = cap // rows are DESC per station, so last seen is earliest
+		sc.Count++
+		times[stID] = append(times[stID], cap)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate capture health: %w", err)
+	}
+	out := make([]StationCaptures, 0, len(order))
+	for _, stID := range order {
+		sc := *byStation[stID]
+		sc.CaptureTimes = times[stID]
+		out = append(out, sc)
+	}
+	return out, nil
+}

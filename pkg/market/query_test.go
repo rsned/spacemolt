@@ -447,3 +447,42 @@ func TestGetItemPriceHistory(t *testing.T) {
 		t.Errorf("absent = %d, want 0", len(absent))
 	}
 }
+
+func TestGetCaptureHealth(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	t1 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
+	for _, at := range []time.Time{t1, t2} {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+			CapturedAt: at,
+			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: at}},
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %v: %v", at, err)
+		}
+	}
+
+	health, err := c.GetCaptureHealth(ctx)
+	if err != nil {
+		t.Fatalf("GetCaptureHealth: %v", err)
+	}
+	if len(health) != 1 {
+		t.Fatalf("stations = %d, want 1", len(health))
+	}
+	h := health[0]
+	if h.StationID != "stn1" || h.Count != 2 {
+		t.Errorf("health = %+v, want stn1 count 2", h)
+	}
+	if h.Latest < h.Earliest {
+		t.Errorf("latest %s < earliest %s", h.Latest, h.Earliest)
+	}
+	if len(h.CaptureTimes) != 2 || h.CaptureTimes[0] < h.CaptureTimes[1] {
+		t.Errorf("capture times not newest-first: %v", h.CaptureTimes)
+	}
+}
