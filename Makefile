@@ -54,7 +54,6 @@ build:
 	@echo "Building binaries..."
 	go build -o bin/spacemolt-server ./cmd/spacemolt-server
 	go build -o bin/auto-explorer ./cmd/auto-explorer
-	go build -o bin/auto-miner ./cmd/auto-miner
 	go build -o bin/auto-prophet ./cmd/auto-prophet
 	go build -o bin/overmind ./cmd/overmind
 	go build -o bin/worker ./cmd/worker
