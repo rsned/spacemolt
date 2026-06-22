@@ -163,3 +163,16 @@ type Matrix struct {
 	Limit       int          `json:"limit"`
 	GeneratedAt time.Time    `json:"generated_at"`
 }
+
+// ItemPricePoint is one OHLCV bucket for an item at a station.
+type ItemPricePoint struct {
+	StationID   string  `json:"station_id"`
+	StationName string  `json:"station_name"`
+	Side        string  `json:"side"`
+	BucketUTC   string  `json:"bucket_utc"`
+	VWAP        float64 `json:"vwap"`
+	High        float64 `json:"high"`
+	Low         float64 `json:"low"`
+	Volume      float64 `json:"volume"`
+	TradeCount  int     `json:"trade_count"`
+}

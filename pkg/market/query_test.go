@@ -405,3 +405,45 @@ func TestGetStationOrders(t *testing.T) {
 		t.Errorf("absent = %v, want empty", none)
 	}
 }
+
+func TestGetItemPriceHistory(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	t1 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
+	for _, at := range []time.Time{t1, t2} {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+			CapturedAt: at,
+			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: at}},
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %v: %v", at, err)
+		}
+	}
+
+	pts, err := c.GetItemPriceHistory(ctx, "iron_ore", 50)
+	if err != nil {
+		t.Fatalf("GetItemPriceHistory: %v", err)
+	}
+	if len(pts) != 2 {
+		t.Fatalf("points = %d, want 2", len(pts))
+	}
+	if pts[0].StationName != "One" || pts[0].Side != "sell" {
+		t.Errorf("first point wrong: %+v", pts[0])
+	}
+	if pts[0].BucketUTC < pts[1].BucketUTC {
+		t.Errorf("expected newest-first, got %s before %s", pts[0].BucketUTC, pts[1].BucketUTC)
+	}
+	absent, err := c.GetItemPriceHistory(ctx, "nope", 50)
+	if err != nil {
+		t.Fatalf("GetItemPriceHistory absent: %v", err)
+	}
+	if len(absent) != 0 {
+		t.Errorf("absent = %d, want 0", len(absent))
+	}
+}

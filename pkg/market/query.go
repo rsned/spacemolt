@@ -449,3 +449,34 @@ func (c *Collector) stations(ctx context.Context) ([]Station, error) {
 	}
 	return out, rows.Err()
 }
+
+// GetItemPriceHistory returns an item's OHLCV buckets across stations, newest
+// first. VWAP is the robust series (close is last-order-in-snapshot and can be
+// noisy for thin items). Empty slice when the item has no history.
+func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limit int) ([]ItemPricePoint, error) {
+	if limit < 1 {
+		limit = 50
+	}
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT o.station_id, COALESCE(s.station_name, o.station_id), o.side, o.bucket_utc,
+		       o.vwap, o.high_price, o.low_price, o.volume, o.trade_count
+		FROM market_ohlcv o
+		JOIN stations s ON s.station_id = o.station_id
+		WHERE o.item_id = ?
+		ORDER BY o.bucket_utc DESC
+		LIMIT ?`, itemID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query item price history: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []ItemPricePoint
+	for rows.Next() {
+		var p ItemPricePoint
+		if err := rows.Scan(&p.StationID, &p.StationName, &p.Side, &p.BucketUTC,
+			&p.VWAP, &p.High, &p.Low, &p.Volume, &p.TradeCount); err != nil {
+			return nil, fmt.Errorf("scan price point: %w", err)
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
