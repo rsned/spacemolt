@@ -277,37 +277,6 @@ func (kb *SQLiteKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status 
 	return nil
 }
 
-// GetPriceHistory retrieves historical price points for an item
-func (kb *SQLiteKB) GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error) {
-	rows, err := kb.db.QueryContext(ctx, `
-		SELECT ml.price_per_unit, ml.quantity, ms.game_tick, ms.captured_at
-		FROM market_listings ml
-		JOIN market_snapshots ms ON ml.snapshot_id = ms.id
-		WHERE ml.item_id = ? AND ms.station_id = ?
-		ORDER BY ms.captured_at DESC
-		LIMIT ?
-	`, itemID, stationID, limit)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get price history: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var points []PricePoint
-	for rows.Next() {
-		var p PricePoint
-		var capturedAt string
-		err := rows.Scan(&p.Price, &p.Quantity, &p.GameTick, &capturedAt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan price point: %w", err)
-		}
-		p.CapturedAt, _ = time.Parse("2006-01-02 15:04:05", capturedAt)
-		points = append(points, p)
-	}
-
-	return points, rows.Err()
-}
-
 // RecordHostileEncounter logs a hostile encounter in a system
 func (kb *SQLiteKB) RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error {
 	_, err := kb.db.ExecContext(ctx, `

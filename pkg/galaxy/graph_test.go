@@ -206,10 +206,6 @@ func (m *mockKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status str
 	return nil
 }
 
-func (m *mockKB) GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]knowledge.PricePoint, error) {
-	return nil, nil
-}
-
 func (m *mockKB) RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error {
 	return nil
 }

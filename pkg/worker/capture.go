@@ -417,8 +417,7 @@ func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base,
 // current station and saves them to the knowledge base. source is the tool tag
 // recorded as the origin of the captured data (e.g. "play_as" or "worker").
 // mc is optional: when non-nil, the market snapshot is also written to the
-// market collector DB. The knowledge.StoreMarketSnapshot write is removed once
-// the legacy KB market path is cleaned up in a later task.
+// market collector DB via mc.WriteSnapshot.
 func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.Base, mc *market.Collector, source string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")

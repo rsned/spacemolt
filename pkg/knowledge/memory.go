@@ -628,10 +628,6 @@ func (kb *MemoryKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status 
 	return fmt.Errorf("ResolveAnomaly not implemented for in-memory KB")
 }
 
-func (kb *MemoryKB) GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error) {
-	return nil, fmt.Errorf("GetPriceHistory not implemented for in-memory KB")
-}
-
 func (kb *MemoryKB) RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error {
 	return fmt.Errorf("RecordHostileEncounter not implemented for in-memory KB")
 }

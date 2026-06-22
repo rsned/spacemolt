@@ -56,9 +56,6 @@ type Base interface {
 	GetAnomaliesByType(ctx context.Context, anomalyType, severity string, limit int) ([]Anomaly, error)
 	ResolveAnomaly(ctx context.Context, anomalyID int64, status string) error
 
-	// Market price analytics
-	GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error)
-
 	// Danger zone tracking
 	RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error
 	GetDangerZones(ctx context.Context, minDangerLevel int) ([]DangerZone, error)
@@ -209,14 +206,6 @@ type Anomaly struct {
 	DetectedBy      string
 	Status          string // 'active', 'resolved', 'obsolete'
 	LastUpdatedTick int64
-}
-
-// PricePoint represents a single price observation
-type PricePoint struct {
-	Price      float64
-	Quantity   float64
-	GameTick   int64
-	CapturedAt time.Time
 }
 
 // DangerZone tracks hostile activity in a system
