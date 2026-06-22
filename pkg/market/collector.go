@@ -344,7 +344,7 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 			return fmt.Errorf("upsert station: %w", err)
 		}
 
-		// Group orders by item for upsert (first non-empty ItemName wins)
+		// Group orders by item for upsert (first non-empty ItemName/Category wins)
 		itemMap := make(map[string]Item)
 		for _, o := range snapshot.Orders {
 			existing, ok := itemMap[o.ItemID]
@@ -352,7 +352,7 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 				itemMap[o.ItemID] = Item{
 					ItemID:         o.ItemID,
 					ItemName:       o.ItemName,
-					Category:       "",
+					Category:       o.Category,
 					FirstSeenUTC:   now,
 					LastUpdatedUTC: now,
 				}
@@ -360,8 +360,11 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 			}
 			if existing.ItemName == "" && o.ItemName != "" {
 				existing.ItemName = o.ItemName
-				itemMap[o.ItemID] = existing
 			}
+			if existing.Category == "" && o.Category != "" {
+				existing.Category = o.Category
+			}
+			itemMap[o.ItemID] = existing
 		}
 
 		// Upsert items

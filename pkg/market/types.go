@@ -26,6 +26,7 @@ type Order struct {
 	StationID  string    `json:"station_id"`
 	ItemID     string    `json:"item_id"`
 	ItemName   string    `json:"item_name"`
+	Category   string    `json:"category"`
 	Side       string    `json:"side"` // "buy" or "sell"
 	PriceEach  float64   `json:"price_each"`
 	Quantity   float64   `json:"quantity"`
