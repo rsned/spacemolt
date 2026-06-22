@@ -900,6 +900,12 @@ git commit -m "refactor(market): rewire snapshot/analysis/best-price readers to 
 
 ---
 
+### Task 6.5: Repoint cmd/tools/view-market at market.db (added during execution)
+
+Discovered during execution: `cmd/tools/view-market/main.go` (830 lines, 5 subcommands: latest/history/items/prices/arbitrage) reads the knowledge `market_snapshots`/`market_listings` tables via raw SQL and uses `knowledge.MarketListing`. After Tasks 5–6 nothing writes those tables, and Task 7 drops them + the type. User chose (2026-06-21) to **repoint** it at `market.db` rather than retire it. Must land BEFORE Task 7 so the build stays green. Full brief: `.superpowers/sdd/task-6.5-brief.md`. Self-contained (only this file + a new smoke test).
+
+---
+
 ### Task 7: Knowledge teardown — remove market surface + drop tables
 
 **Files:**
