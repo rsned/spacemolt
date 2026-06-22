@@ -83,3 +83,17 @@ type MarketSnapshot struct {
 	Orders      []Order   `json:"orders"`
 	CapturedAt  time.Time `json:"captured_at"`
 }
+
+// BestPrice is the best available price for an item at a station, used for
+// cross-station comparison.
+type BestPrice struct {
+	ItemID      string    `json:"item_id"`
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	SystemID    string    `json:"system_id"`
+	SystemName  string    `json:"system_name"`
+	Price       float64   `json:"price"`
+	Quantity    float64   `json:"quantity"`
+	ListingType string    `json:"listing_type"` // "buy" or "sell"
+	CapturedAt  time.Time `json:"captured_at"`
+}

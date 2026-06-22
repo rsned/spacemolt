@@ -133,3 +133,50 @@ func (c *Collector) HasSnapshotToday(ctx context.Context, stationID string) (boo
 	}
 	return n > 0, nil
 }
+
+// FindBestPrices returns the best prices for an item on the given side across
+// all stations, using each station's most recent order for that item.
+// side "sell" ranks ascending (cheapest first); "buy" ranks descending.
+func (c *Collector) FindBestPrices(ctx context.Context, itemID, side string, limit int) ([]BestPrice, error) {
+	order := "ASC"
+	if side == "buy" {
+		order = "DESC"
+	}
+	// Latest order per station for this item+side, then rank by price.
+	query := `
+		SELECT mo.station_id, COALESCE(s.station_name, mo.station_id),
+		       COALESCE(s.system_id, ''), COALESCE(s.system_name, ''),
+		       mo.price_each, mo.quantity, mo.side, mo.captured_at
+		FROM market_orders mo
+		JOIN (
+			SELECT station_id, MAX(captured_at) AS mx
+			FROM market_orders
+			WHERE item_id = ? AND side = ?
+			GROUP BY station_id
+		) latest ON latest.station_id = mo.station_id AND latest.mx = mo.captured_at
+		LEFT JOIN stations s ON s.station_id = mo.station_id
+		WHERE mo.item_id = ? AND mo.side = ?
+		ORDER BY mo.price_each ` + order + `
+		LIMIT ?`
+	rows, err := c.db.QueryContext(ctx, query, itemID, side, itemID, side, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query best prices: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []BestPrice
+	for rows.Next() {
+		bp := BestPrice{ItemID: itemID}
+		var capStr string
+		if err := rows.Scan(&bp.StationID, &bp.StationName, &bp.SystemID, &bp.SystemName,
+			&bp.Price, &bp.Quantity, &bp.ListingType, &capStr); err != nil {
+			return nil, fmt.Errorf("scan best price: %w", err)
+		}
+		bp.CapturedAt, _ = time.Parse(time.RFC3339, capStr)
+		out = append(out, bp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate best prices: %w", err)
+	}
+	return out, nil
+}

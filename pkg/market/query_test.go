@@ -158,3 +158,40 @@ func TestHasSnapshotToday(t *testing.T) {
 		t.Error("expected false for station with no orders")
 	}
 }
+
+func TestFindBestPrices(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	write := func(stn string, price float64) {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: stn, StationName: stn, SystemID: "sys", SystemName: "S",
+			CapturedAt: now,
+			Orders:     []Order{{StationID: stn, ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: price, Quantity: 10, CapturedAt: now}},
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}
+	}
+	write("stnA", 9)
+	write("stnB", 4)
+	write("stnC", 7)
+
+	best, err := c.FindBestPrices(ctx, "iron", "sell", 2)
+	if err != nil {
+		t.Fatalf("FindBestPrices failed: %v", err)
+	}
+	if len(best) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(best))
+	}
+	if best[0].StationID != "stnB" || best[0].Price != 4 {
+		t.Errorf("cheapest sell should be stnB@4, got %+v", best[0])
+	}
+	if best[0].ListingType != "sell" || best[0].ItemID != "iron" {
+		t.Errorf("metadata not populated: %+v", best[0])
+	}
+}
