@@ -398,3 +398,13 @@ func TestFormatFacilityFactionList_ProductionSplit(t *testing.T) {
 		t.Errorf("service facility missing from normal faction table:\n%s", out)
 	}
 }
+
+func TestFormatFacilityList_ProductionShowsIDAndRent(t *testing.T) {
+	raw := []byte(`{"base_id":"grand_exchange_station","faction_facilities":[{"active":true,"facility_id":"fac-abc123","name":"Iron Refinery","faction_service":"refining","rent_per_cycle":210,"status":"online","type":"iron_refinery","production":{"backlog_ticks":0,"items_per_hour":12,"output_per_run":3,"public":false,"queued_items":0,"queued_runs":0,"recipe":"Refine Iron","rental_fee_per_run":40,"ticks_per_run":2.50}}]}`)
+	out := formatFacilityList(raw)
+	for _, want := range []string{"Faction Production", "Iron Refinery", "⚙ Refine Iron", "Facility ID", "fac-abc123", "Rent/cycle", "210"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
+		}
+	}
+}
