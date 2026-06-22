@@ -36,6 +36,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/mbox"
 	"github.com/rsned/spacemolt/pkg/registry"
 	"github.com/rsned/spacemolt/pkg/respfmt"
@@ -67,6 +68,12 @@ var globalAgentID string
 // initialization when a SQLite KB and WS client are available. Nil otherwise.
 // The seen_factions command uses it to seed the factions table on demand.
 var globalFactionBackfiller *faction.FactionBackfiller
+
+// globalMarketCollector is the lazily-opened market DB connection used by the
+// update_market command. Opened on first use; reused thereafter. Left open for
+// the process lifetime (the OS reclaims the handle on exit — play_as has no
+// shared cleanup path for similar lazily-opened resources).
+var globalMarketCollector *market.Collector
 
 // Output format for server responses.
 type outputFormat string
@@ -6119,6 +6126,35 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return err
 
+	case "update_market":
+		// Capture the current station's full market into the market DB
+		// (data/market.db). Lazily opens the collector on first use; reused
+		// thereafter. CaptureFromClient no-ops when not docked at a station or
+		// when there is no cached market payload, so it is safe to run anywhere.
+		if globalMarketCollector == nil {
+			c, openErr := market.Open(market.DefaultConfig())
+			if openErr != nil {
+				return fmt.Errorf("update_market: open market db: %w", openErr)
+			}
+			globalMarketCollector = c
+		}
+		// Fetch the full (unfiltered) order book so the client caches the raw
+		// market payload that CaptureFromClient reads back.
+		if err := simpleCommand(client, func(ctx context.Context) error {
+			return client.ViewMarket(ctx, nil)
+		}, ctx, 2*time.Second, cmd, format); err != nil {
+			return err
+		}
+		if err := market.CaptureFromClient(ctx, client, globalMarketCollector); err != nil {
+			return fmt.Errorf("update_market: capture: %w", err)
+		}
+		station := ""
+		if state := client.GetState(); state != nil {
+			station = state.CurrentPOI
+		}
+		fmt.Printf("✓ Captured market data for %s\n", station)
+		return nil
+
 	case "view_orders":
 		if len(parts) > 1 {
 			// parseFlagArgs already converts numeric values to int, so page /
@@ -8879,6 +8915,7 @@ func printHelp() {
 	fmt.Println("  buy <item> <qty>          - Buy items")
 	fmt.Println("  listings, trades          - View market listings/trades")
 	fmt.Println("  view_market <item>        - View market for item")
+	fmt.Println("  update_market             - Capture current station's market into market DB")
 	fmt.Println("  view_orders               - View your orders")
 	fmt.Println("  create_sell_order <item> <qty> <price>  - Create sell order")
 	fmt.Println("  create_buy_order <item> <qty> <price>   - Create buy order")
