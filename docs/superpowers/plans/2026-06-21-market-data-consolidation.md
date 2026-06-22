@@ -677,34 +677,34 @@ git commit -m "fix(market): relative default DB path + injected play_as collecto
 - Consumes: `market.Collector.WriteSnapshot`, `market.Order`, `market.MarketSnapshot`, `market.HasSnapshotToday`.
 - Produces (changed signatures):
   - `func CaptureMarketData(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) error`
-  - worker capture helper `convertToMarketOrders(stationID string, gameListings []game.MarketListing, capturedAt time.Time) []market.Order`
+  - **shared** converter `func market.OrdersFromListings(stationID string, gameListings []game.MarketListing, source string, capturedAt time.Time) []market.Order` (lives in `pkg/market`, used by both `pkg/worker` and `pkg/agent` — `pkg/market` already imports `pkg/game`).
 
-- [ ] **Step 1: Add a game→market order converter (worker) with a test**
+- [ ] **Step 1: Add a shared game→market order converter in `pkg/market` with a test**
 
-Create `pkg/worker/market_convert.go`:
+Create `pkg/market/convert.go`:
 
 ```go
-package worker
+package market
 
 import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/market"
 )
 
-// convertToMarketOrders maps game market listings to market.Order rows.
-func convertToMarketOrders(stationID string, gameListings []game.MarketListing, capturedAt time.Time) []market.Order {
-	orders := make([]market.Order, 0, len(gameListings))
+// OrdersFromListings maps game market listings to market.Order rows.
+// source tags provenance (e.g. "play_as", "agent").
+func OrdersFromListings(stationID string, gameListings []game.MarketListing, source string, capturedAt time.Time) []Order {
+	orders := make([]Order, 0, len(gameListings))
 	for _, l := range gameListings {
-		orders = append(orders, market.Order{
+		orders = append(orders, Order{
 			StationID:  stationID,
 			ItemID:     l.ItemID,
 			ItemName:   l.ItemID,
 			Side:       l.Type, // "buy" or "sell"
 			PriceEach:  l.PricePerUnit,
 			Quantity:   l.Quantity,
-			Source:     "play_as",
+			Source:     source,
 			CapturedAt: capturedAt,
 		})
 	}
@@ -712,10 +712,10 @@ func convertToMarketOrders(stationID string, gameListings []game.MarketListing, 
 }
 ```
 
-Create `pkg/worker/market_convert_test.go`:
+Create `pkg/market/convert_test.go`:
 
 ```go
-package worker
+package market
 
 import (
 	"testing"
@@ -724,23 +724,25 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
-func TestConvertToMarketOrders(t *testing.T) {
+func TestOrdersFromListings(t *testing.T) {
 	now := time.Now().UTC()
 	in := []game.MarketListing{{ItemID: "iron", Type: "sell", PricePerUnit: 5, Quantity: 10}}
-	out := convertToMarketOrders("stn1", in, now)
+	out := OrdersFromListings("stn1", in, "play_as", now)
 	if len(out) != 1 {
 		t.Fatalf("expected 1 order, got %d", len(out))
 	}
 	o := out[0]
-	if o.StationID != "stn1" || o.ItemID != "iron" || o.Side != "sell" || o.PriceEach != 5 || o.Quantity != 10 {
+	if o.StationID != "stn1" || o.ItemID != "iron" || o.Side != "sell" || o.PriceEach != 5 || o.Quantity != 10 || o.Source != "play_as" {
 		t.Errorf("bad conversion: %+v", o)
 	}
 }
 ```
 
+Note: confirm `pkg/market` importing `pkg/game` does not create an import cycle (it should not — `pkg/game` does not import `pkg/market`; `capture.go` already imports `game`).
+
 - [ ] **Step 2: Run test to verify it fails then passes**
 
-Run: `go test ./pkg/worker/ -run TestConvertToMarketOrders -v`
+Run: `go test ./pkg/market/ -run TestOrdersFromListings -v`
 Expected: FAIL (file not yet present) → after creating both files, PASS.
 
 - [ ] **Step 3: Rewire the worker capture write path**
@@ -762,11 +764,12 @@ with:
 ```go
 		listings := client.GetMarketListings()
 		if mc != nil {
+			now := time.Now().UTC()
 			snap := market.MarketSnapshot{
 				StationID: poiID, StationName: poiName,
 				SystemID: systemID, SystemName: systemName,
-				CapturedAt: time.Now().UTC(),
-				Orders:     convertToMarketOrders(poiID, listings, time.Now().UTC()),
+				CapturedAt: now,
+				Orders:     market.OrdersFromListings(poiID, listings, "play_as", now),
 			}
 			if err := mc.WriteSnapshot(ctx, snap); err != nil {
 				fmt.Printf("Warning: failed to save market snapshot: %v\n", err)
@@ -783,34 +786,19 @@ Delete the now-unused `convertMarketListings` function (`capture.go:50-71`) and 
 In `pkg/agent/market_capture.go`, change the signature to take `mc *market.Collector` instead of `kb knowledge.Base`, and build a `market.MarketSnapshot` written via `mc.WriteSnapshot`. Replace the `knowledge.MarketSnapshot{...}` construction (~line 59) and the store call with:
 
 ```go
+	now := time.Now().UTC()
 	snap := market.MarketSnapshot{
 		StationID: state.CurrentPOI, StationName: poiName,
 		SystemID: state.System.ID, SystemName: state.System.Name,
-		CapturedAt: time.Now().UTC(),
-		Orders:     marketOrdersFromGame(state.CurrentPOI, client.GetMarketListings(), time.Now().UTC()),
+		CapturedAt: now,
+		Orders:     market.OrdersFromListings(state.CurrentPOI, client.GetMarketListings(), "agent", now),
 	}
 	if err := mc.WriteSnapshot(ctx, snap); err != nil {
 		return fmt.Errorf("store market snapshot: %w", err)
 	}
 ```
 
-Add a local `marketOrdersFromGame` helper mirroring `convertToMarketOrders` (pkg/agent cannot import pkg/worker), or move the converter to a shared spot. Simplest: duplicate the small helper in `pkg/agent/market_capture.go`:
-
-```go
-func marketOrdersFromGame(stationID string, listings []game.MarketListing, at time.Time) []market.Order {
-	out := make([]market.Order, 0, len(listings))
-	for _, l := range listings {
-		out = append(out, market.Order{
-			StationID: stationID, ItemID: l.ItemID, ItemName: l.ItemID,
-			Side: l.Type, PriceEach: l.PricePerUnit, Quantity: l.Quantity,
-			Source: "agent", CapturedAt: at,
-		})
-	}
-	return out
-}
-```
-
-Update imports (`pkg/market`), drop `knowledge` if no longer used in the file.
+Use the shared `market.OrdersFromListings` converter from Task 5 Step 1 (no per-package duplicate). Update imports (`pkg/market`), drop `knowledge` if no longer used in the file.
 
 - [ ] **Step 5: Rewire auto-explorer writer + `HasSnapshotToday`**
 
