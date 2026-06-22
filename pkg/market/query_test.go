@@ -121,6 +121,9 @@ func TestGetLatestSnapshot_ReturnsNewestCapture(t *testing.T) {
 	if len(snap.Orders) != 1 || snap.Orders[0].PriceEach != 7 {
 		t.Errorf("expected newest order price 7, got %+v", snap.Orders)
 	}
+	if snap.Orders[0].ItemName != "Iron" {
+		t.Errorf("expected ItemName 'Iron', got %q", snap.Orders[0].ItemName)
+	}
 }
 
 func TestHasSnapshotToday(t *testing.T) {

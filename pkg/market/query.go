@@ -95,9 +95,10 @@ func (c *Collector) GetLatestSnapshot(ctx context.Context, stationID string) (*M
 	snap.CapturedAt, _ = time.Parse(time.RFC3339, latest)
 
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT station_id, item_id, side, price_each, quantity, my_quantity, source, captured_at
-		FROM market_orders
-		WHERE station_id = ? AND captured_at = ?
+		SELECT mo.station_id, mo.item_id, COALESCE(i.item_name, ''), mo.side, mo.price_each, mo.quantity, mo.my_quantity, mo.source, mo.captured_at
+		FROM market_orders mo
+		LEFT JOIN items i ON i.item_id = mo.item_id
+		WHERE mo.station_id = ? AND mo.captured_at = ?
 	`, stationID, latest)
 	if err != nil {
 		return nil, fmt.Errorf("query latest orders: %w", err)
@@ -107,7 +108,7 @@ func (c *Collector) GetLatestSnapshot(ctx context.Context, stationID string) (*M
 	for rows.Next() {
 		var o Order
 		var capStr string
-		if err := rows.Scan(&o.StationID, &o.ItemID, &o.Side, &o.PriceEach, &o.Quantity, &o.MyQuantity, &o.Source, &capStr); err != nil {
+		if err := rows.Scan(&o.StationID, &o.ItemID, &o.ItemName, &o.Side, &o.PriceEach, &o.Quantity, &o.MyQuantity, &o.Source, &capStr); err != nil {
 			return nil, fmt.Errorf("scan order: %w", err)
 		}
 		o.CapturedAt, _ = time.Parse(time.RFC3339, capStr)
