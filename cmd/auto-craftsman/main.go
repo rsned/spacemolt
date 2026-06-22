@@ -184,7 +184,7 @@ func main() {
 	// Use profit-based recipe selector for craft-profit strategy
 	if strategy == "craft-profit" {
 		// Initialize market collector
-		mc, err := market.Open(market.Config{DBPath: *marketDBPath})
+		mc, err := market.Open(market.Config{DBPath: *marketDBPath, WAL: true})
 		if err != nil {
 			log.Fatalf("Failed to initialize market collector: %v", err)
 		}

@@ -238,7 +238,7 @@ func main() {
 
 	// Initialize market collector once from --market-db-path flag.
 	if *marketDBPath != "" {
-		mc, err := market.Open(market.Config{DBPath: *marketDBPath})
+		mc, err := market.Open(market.Config{DBPath: *marketDBPath, WAL: true})
 		if err != nil {
 			logger.Printf("Warning: failed to open market db at %s: %v", *marketDBPath, err)
 		} else {
