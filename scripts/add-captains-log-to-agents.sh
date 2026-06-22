@@ -3,7 +3,7 @@
 
 # This script adds the standard captain's log boilerplate to simple monitoring agents
 
-AGENTS=("auto-craftsman" "auto-salvager" "auto-pirate" "auto-random" "auto-fighter")
+AGENTS=("auto-random" "auto-fighter")
 
 for agent in "${AGENTS[@]}"; do
     echo "Processing $agent..."

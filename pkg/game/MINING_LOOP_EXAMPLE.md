@@ -18,7 +18,7 @@ The mining loop handles the complete workflow:
 
 ## Basic Usage
 
-### Continuous Mining (like auto-miner)
+### Continuous Mining (using MiningStrategy)
 
 ```go
 config := &game.MiningLoopConfig{
@@ -161,8 +161,8 @@ type MiningLoopResult struct {
 
 ## Integration Examples
 
-### Auto-Miner
-See `cmd/auto-miner/main.go` for a complete example of continuous mining with upgrades.
+### MiningLoop / MiningStrategy
+See `pkg/strategy/mining.go` for a complete example of continuous mining with upgrades.
 
 ### Auto-Explorer
 The mining loop can be used for Phase 1 (earning credits for exploration equipment):

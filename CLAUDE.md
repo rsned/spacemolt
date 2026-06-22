@@ -27,16 +27,10 @@ spacemolt/
 │   ├── agent-server/                 # Legacy agent management server
 │   ├── status-registry/              # Tool registration & status tracking
 │   ├── auto-explorer/                # Automated explorer agent
-│   ├── auto-miner/                   # Automated miner agent
 │   ├── auto-trader/                  # Automated trader agent
 │   ├── auto-fighter/                 # Automated fighter agent
-│   ├── auto-pirate/                  # Automated pirate agent
-│   ├── auto-craftsman/               # Automated craftsman agent
-│   ├── auto-salvager/                # Automated salvager agent
 │   ├── auto-prophet/                 # Market forecasting agent
 │   ├── auto-random/                  # Random action agent
-│   ├── auto-llm-miner/              # LLM-driven mining agent
-│   ├── auto-recall/                  # Recall agent
 │   ├── bridge/
 │   │   ├── mcp-bridge-service/       # Main MCP bridge for Claude
 │   │   ├── mcp-ws-bridge/            # WebSocket MCP bridge

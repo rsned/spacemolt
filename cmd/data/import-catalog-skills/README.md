@@ -249,7 +249,6 @@ This tool is typically used in conjunction with:
 - **import-catalog-recipes** - Recipes reference skills as requirements
 - **import-catalog-ships** - Ships reference skills as requirements
 - **crafting-server** - Uses skills for crafting eligibility
-- **auto-miner** - Tracks skill progression for crafting decisions
 
 ### Example Workflow
 
@@ -408,7 +407,6 @@ ORDER BY max_level DESC;
 - **import-catalog-recipes** - Import recipes using these skills
 - **import-catalog-ships** - Import ships requiring these skills
 - **crafting-server** - MCP server for crafting decisions
-- **auto-miner** - Uses skill progression for crafting
 
 ## License
 

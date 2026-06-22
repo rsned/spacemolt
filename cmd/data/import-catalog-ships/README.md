@@ -328,7 +328,6 @@ This tool is typically used in conjunction with:
 
 - **import-catalog-items** - Import build materials referenced by ships
 - **import-catalog-skills** - Import skills required by ships
-- **auto-miner** - Uses ship progression for upgrades
 - **ship-trader** - Analyzes ship markets for arbitrage
 
 ### Example Workflow
@@ -449,7 +448,6 @@ ORDER BY price;
 - **import-catalog-items** - Import build materials
 - **import-catalog-skills** - Import required skills
 - **import-catalog-recipes** - Import crafting recipes
-- **auto-miner** - Uses ship progression for upgrades
 - **ship-trader** - Ship market analysis tool
 
 ## License

@@ -4,8 +4,8 @@
 #
 # Usage:
 #   ./start-agents-staggered.sh              # Start all agents with role-based binaries
-#   ./start-agents-staggered.sh --binary miner   # Start all agents with auto-miner
-#   ./start-agents-staggered.sh --strategy craft-sell  # Use craft-sell strategy for miners
+#   ./start-agents-staggered.sh --binary explorer   # Start all agents with auto-explorer
+#   ./start-agents-staggered.sh --strategy craft-sell  # Use craft-sell strategy for explorers
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
@@ -21,24 +21,24 @@ Usage:
   $0 [options]
 
 Options:
-  --binary <name>     Use specific binary for all agents (e.g., miner, trader, fighter)
-  --strategy <str>    Mining strategy for agents running auto-miner (default: sell)
+  --binary <name>     Use specific binary for all agents (e.g., explorer, trader, fighter)
+  --strategy <str>    Strategy for agents running auto-explorer (default: sell)
                       Valid strategies: sell, craft-sell, craft-deposit
 
 Examples:
-  $0                                    # Start all agents with role-based binaries
-  $0 --binary miner                     # Start all agents as miners
-  $0 --strategy craft-sell              # Use craft-sell for all miner agents
-  $0 --binary miner --strategy sell     # Start all as miners with sell strategy
+  $0                                          # Start all agents with role-based binaries
+  $0 --binary explorer                        # Start all agents as explorers
+  $0 --strategy craft-sell                    # Use craft-sell for all explorer agents
+  $0 --binary explorer --strategy sell        # Start all as explorers with sell strategy
 
-Mining Strategies:
+Strategies:
   sell              Sell all cargo immediately (default, fastest)
   craft-sell        Craft items from resources, then sell all
   craft-deposit     Craft items from resources, then deposit to storage
 
 Note:
-  The --strategy flag applies to ANY agent running auto-miner, whether they are
-  originally miner-* agents or started with --binary miner.
+  The --strategy flag applies to ANY agent running auto-explorer, whether they are
+  originally explorer-* agents or started with --binary explorer.
 
 EOF
 }
@@ -163,10 +163,10 @@ for batch in "${BATCHES[@]}"; do
         fi
 
         # Start the agent
-        # Add strategy argument if strategy is specified and using auto-miner binary
+        # Add strategy argument if strategy is specified
         AGENT_ARGS="$agent"
         SHOW_STRATEGY=""
-        if [ -n "$STRATEGY_ARG" ] && [[ "$binary" == "auto-miner" ]]; then
+        if [ -n "$STRATEGY_ARG" ]; then
             AGENT_ARGS="$agent $STRATEGY_ARG"
             SHOW_STRATEGY=" (strategy: $STRATEGY_ARG)"
         fi

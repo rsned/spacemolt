@@ -223,7 +223,7 @@ type MiningLoopResult struct {
 
 // MiningLoop runs the core mining cycle: undock, mine, dock, sell, refuel, repair, upgrade
 //
-// This is the shared mining loop used by auto-miner, auto-explorer, and other autonomous agents.
+// This is the shared mining loop used by auto-explorer, MiningStrategy, and other autonomous agents.
 // It handles the complete mining workflow:
 //  1. Find mining POI and station in current system
 //  2. Undock if docked

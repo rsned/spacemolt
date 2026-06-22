@@ -159,7 +159,6 @@ The tool uses `github.com/mattn/go-runewidth` for proper handling of:
 
 ## Related Tools
 
-- [auto-miner](../auto-miner/README.md) - Autonomous mining agent
 - [auto-explorer](../auto-explorer/README.md) - Autonomous exploration agent
 - [auto-trader](../auto-trader/README.md) - Autonomous trading agent
 - [register-agent](../register-agent/README.md) - Register new agents

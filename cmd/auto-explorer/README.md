@@ -6,7 +6,7 @@ Autonomous galaxy exploration bot for Spacemolt explorer agents.
 
 The auto-explorer bot enables agents to autonomously explore the galaxy using depth-first search (DFS), documenting all systems, stations, and POIs they encounter.
 
-**Note:** This tool focuses solely on exploration. For mining and ship upgrades, use the `auto-miner` tool.
+**Note:** This tool focuses solely on exploration. For mining, use the resident `idle_mine` role via the overmind.
 
 ## Features
 

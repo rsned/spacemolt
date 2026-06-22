@@ -337,7 +337,7 @@ func loadProgression(logger, ctx, creds, client) *agentState {
 
 **Solution:**
 1. Move to a different system with asteroid belts
-2. Use `auto-recall` to return to home system
+2. Travel back to home system manually
 3. Check game map for systems with combat POIs
 
 ### Issue: "No station found in current system"
@@ -346,7 +346,7 @@ func loadProgression(logger, ctx, creds, client) *agentState {
 
 **Solution:**
 1. Move to a different system with stations
-2. Use `auto-recall` to return to home system
+2. Travel back to home system manually
 3. Check game map for systems with stations
 
 ### Issue: "Could not open knowledge DB"
@@ -378,10 +378,7 @@ func loadProgression(logger, ctx, creds, client) *agentState {
 
 ## Related Tools
 
-- [Auto-Miner](../auto-miner/) - Mining agent with similar upgrade system
-- [Auto-Pirate](../auto-pirate/) - Pirate agent (currently simplified)
 - [Auto-Trader](../auto-trader/) - Trading agent with cargo management
-- [Auto-Recall](../auto-recall/) - Utility to return agents to home system
 
 ## License
 

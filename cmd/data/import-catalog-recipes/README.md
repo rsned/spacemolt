@@ -288,7 +288,6 @@ This tool is typically used in conjunction with:
 - **import-catalog-items** - Import items referenced in recipes
 - **import-catalog-skills** - Import skills referenced in requirements
 - **crafting-server** - MCP server for crafting decisions
-- **auto-miner** - Autonomous mining with crafting integration
 
 ### Example Workflow
 
@@ -384,7 +383,6 @@ Higher quality items may have:
 - **import-catalog-skills** - Import skills required by recipes
 - **import-catalog-ships** - Import ship catalog
 - **crafting-server** - MCP server for crafting decisions
-- **auto-miner** - Autonomous mining agent with crafting support
 
 ## License
 

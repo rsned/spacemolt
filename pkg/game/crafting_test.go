@@ -2,60 +2,12 @@ package game
 
 import (
 	"context"
-	"io"
-	"log"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 )
-
-// TestCraftRecipeQueuesOnce proves the new craftRecipe contract:
-// it issues exactly ONE craft command for the given quantity and
-// reports that quantity back. No batch loop, no cargo check.
-func TestCraftRecipeQueuesOnce(t *testing.T) {
-	c, sendCh := newSubmitTestClient(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	calls := 0
-	// Replace the send override to count craft messages, then forward
-	// to sendCh so the router can deliver the synthetic ok reply.
-	innerSend := c.sendOverride
-	c.sendOverride = func(fctx context.Context, msg protocol.Message) error {
-		if msg.Type == "craft" {
-			calls++
-		}
-		return innerSend(fctx, msg)
-	}
-
-	// Dispatch a synthetic ok in the background once the message is sent.
-	go func() {
-		var sent protocol.Message
-		select {
-		case sent = <-sendCh:
-		case <-ctx.Done():
-			return
-		}
-		c.router.dispatch(protocol.Response{
-			Type:      protocol.TypeOK,
-			RequestID: sent.RequestID,
-			Payload:   map[string]any{"action": "craft", "job_id": "j1"},
-		})
-	}()
-
-	n, err := craftRecipe(c, log.New(io.Discard, "", 0), ctx, "basic_iron_smelting", 200)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if calls != 1 {
-		t.Fatalf("craftRecipe issued %d craft commands, want exactly 1", calls)
-	}
-	if n != 200 {
-		t.Fatalf("craftRecipe reported %d items queued, want 200", n)
-	}
-}
 
 func TestXpToLevel(t *testing.T) {
 	client := NewClient("wss://test.example.com", "user", "pass", nil)
@@ -129,34 +81,6 @@ func TestCraftWithQuantity_Validation(t *testing.T) {
 				t.Errorf("CraftWithOptions(quantity=%d) got unexpected validation error: %v", tt.quantity, err)
 			}
 		})
-	}
-}
-
-
-func TestCraftingLoopConfig_Defaults(t *testing.T) {
-	// Verify that a nil config gets sensible defaults applied in CraftingLoop's validation
-	config := &CraftingLoopConfig{}
-
-	if config.Strategy != "" {
-		t.Errorf("default Strategy should be empty, got %q", config.Strategy)
-	}
-	if config.CaptainsLogInterval != 0 {
-		t.Errorf("default CaptainsLogInterval should be 0, got %v", config.CaptainsLogInterval)
-	}
-}
-
-func TestCraftingLoopConfig_InvalidStrategy(t *testing.T) {
-	// We can test the strategy validation without a real client
-	// by checking CraftingLoop returns an error for invalid strategies
-	client := NewClient("wss://test.example.com", "user", "pass", nil)
-
-	config := &CraftingLoopConfig{
-		Strategy: "invalid-strategy",
-	}
-
-	_, err := CraftingLoop(client, nil, t.Context(), config)
-	if err == nil {
-		t.Error("expected error for invalid strategy")
 	}
 }
 

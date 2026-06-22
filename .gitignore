@@ -13,16 +13,10 @@ bin/*
 /agent-server
 /status-registry
 /auto-explorer
-/auto-miner
 /auto-trader
 /auto-fighter
-/auto-pirate
-/auto-craftsman
-/auto-salvager
 /auto-prophet
 /auto-random
-/auto-recall
-/auto-llm-miner
 /mcp-bridge-service
 /mcp-ws-bridge
 /mcp-sse-bridge
