@@ -49,4 +49,15 @@ func TestStoreAndGetLatestAnalysis(t *testing.T) {
 	if got.SkillLevel != 2 || len(got.TopInsights) != 1 || got.AnalysisData["k"] != "v" {
 		t.Errorf("fields not round-tripped: %+v", got)
 	}
+	// JSON round-trip turns numbers into float64; assert the nested slice/map
+	// contents survive, not just their lengths.
+	if got.TopInsights[0]["item"] != "iron" {
+		t.Errorf("TopInsights[0][item] = %v, want iron", got.TopInsights[0]["item"])
+	}
+	if score, ok := got.TopInsights[0]["score"].(float64); !ok || score != 1.0 {
+		t.Errorf("TopInsights[0][score] = %v, want 1.0", got.TopInsights[0]["score"])
+	}
+	if xp, ok := got.XPGained["trading"].(float64); !ok || xp != 5 {
+		t.Errorf("XPGained[trading] = %v, want 5", got.XPGained["trading"])
+	}
 }

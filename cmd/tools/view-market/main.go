@@ -508,10 +508,8 @@ func outputHistoryTable(entries []historyEntry) {
 		fmt.Printf("  Orders: %d", e.OrderCount)
 		fmt.Println()
 
-		fmt.Printf("  %s%s%s\n",
-			dimStyle.Render("→ run 'view-market latest "+e.SystemID+" "+e.StationID+"' for details"),
-			"",
-			"")
+		fmt.Printf("  %s\n",
+			dimStyle.Render("→ run 'view-market latest "+e.SystemID+" "+e.StationID+"' for details"))
 
 		if len(entries) > 1 {
 			fmt.Println(dimStyle.Render(strings.Repeat("─", 40)))

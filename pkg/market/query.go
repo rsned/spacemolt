@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -82,7 +83,7 @@ func (c *Collector) GetLatestSnapshot(ctx context.Context, stationID string) (*M
 	var latest string
 	err := c.db.QueryRowContext(ctx,
 		`SELECT MAX(captured_at) FROM market_orders WHERE station_id = ?`, stationID).Scan(&latest)
-	if err == sql.ErrNoRows || latest == "" {
+	if errors.Is(err, sql.ErrNoRows) || latest == "" {
 		return nil, nil
 	}
 	if err != nil {
@@ -90,9 +91,13 @@ func (c *Collector) GetLatestSnapshot(ctx context.Context, stationID string) (*M
 	}
 
 	snap := &MarketSnapshot{StationID: stationID}
-	_ = c.db.QueryRowContext(ctx,
+	// Station metadata is best-effort: a missing stations row (ErrNoRows) is
+	// fine, but a real query error should surface.
+	if metaErr := c.db.QueryRowContext(ctx,
 		`SELECT station_name, system_id, system_name FROM stations WHERE station_id = ?`, stationID).
-		Scan(&snap.StationName, &snap.SystemID, &snap.SystemName)
+		Scan(&snap.StationName, &snap.SystemID, &snap.SystemName); metaErr != nil && !errors.Is(metaErr, sql.ErrNoRows) {
+		return nil, fmt.Errorf("query station metadata: %w", metaErr)
+	}
 	snap.CapturedAt, _ = time.Parse(time.RFC3339, latest)
 
 	rows, err := c.db.QueryContext(ctx, `
@@ -216,7 +221,7 @@ func (c *Collector) GetLatestAnalysis(ctx context.Context, stationID string) (*M
 		Scan(&a.StationID, &a.StationName, &a.SystemID, &a.SystemName, &a.GameTick, &capStr,
 			&a.AgentID, &a.Mode, &a.SkillLevel, &a.ScanningRange, &a.StationsInRange, &a.ItemsScanned,
 			&insights, &a.TotalItems, &a.TotalPages, &a.Page, &a.Hint, &xp, &data)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
