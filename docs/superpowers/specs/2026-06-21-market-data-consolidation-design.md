@@ -15,6 +15,7 @@ This is **Step 1** of the larger market plan. Roles.yaml wiring of `update_marke
 **Move to `pkg/market`:**
 - `market_snapshots` + `market_listings` — raw captured market state from `view_market` / `update_market`.
 - `market_analyses` — LLM `analyze_market` insights.
+- `FindBestPrices` + the `BestPrice` type — cross-station best buy/sell price query (reads `market_listings`; feeds `agentstate` `NearbyBestBuys`/`NearbyBestSells`). Discovered during planning; it consumes the moved tables so it must move too or `agentstate` breaks after cutover.
 
 **Retire as dead code (no live readers — only a test mock implements it):**
 - `AnalyzePriceTrends`, `knowledge.PriceTrend`, and the `price_trends` table.
@@ -35,19 +36,21 @@ This is **Step 1** of the larger market plan. Roles.yaml wiring of `update_marke
 `pkg/market` already has the write side (`WriteSnapshot`, `CaptureFromClient`) and a read helper (`GetLatestOrders`). Add the read/write methods needed to replace the knowledge surface:
 
 Snapshots/listings (on `*Collector`):
-- `GetLatestSnapshot(ctx, stationID) (*MarketSnapshot, error)` — reconstruct from latest orders; replaces `GetLatestMarketSnapshot`.
-- `GetSnapshots(ctx, stationID, limit) ([]MarketSnapshot, error)` — replaces `GetMarketSnapshots`.
-- `HasSnapshotToday(ctx, stationID) (bool, error)` — replaces `HasMarketSnapshotToday`.
-- `GetMarketItems(ctx, itemType) ([]string, error)` — distinct items; replaces `GetMarketItems`.
+- `GetLatestSnapshot(ctx, stationID) (*MarketSnapshot, error)` — reconstruct from latest orders; replaces `GetLatestMarketSnapshot` (5 callers).
+- `HasSnapshotToday(ctx, stationID) (bool, error)` — replaces `HasMarketSnapshotToday` (1 caller).
+
+Caller audit (during planning) found `GetMarketSnapshots`, `GetMarketItems`, and `GetMarketAnalysisHistory` have **zero live callers** — they are deleted, not ported. Likewise the unused agent-layer helpers `ShouldRefreshMarket`, `GetMarketAge`, `ShouldRefreshMarketAnalysis`, `GetMarketAnalysisAge` (0 callers) are deleted.
 
 `pkg/market.MarketSnapshot` already carries `StationID/StationName/SystemID/SystemName/Orders/CapturedAt`, so the `(systemID, stationID)` consumers are satisfied by `stationID` lookups (the snapshot returns the system fields).
 
 Analysis (new `analyses` table + `MarketAnalysis` type on `*Collector`):
-- `StoreAnalysis(ctx, analysis MarketAnalysis) error`
-- `GetLatestAnalysis(ctx, stationID) (*MarketAnalysis, error)`
-- `GetAnalysisHistory(ctx, stationID, limit) ([]MarketAnalysis, error)`
+- `StoreAnalysis(ctx, analysis MarketAnalysis) error` (1 caller)
+- `GetLatestAnalysis(ctx, stationID) (*MarketAnalysis, error)` (5 callers)
 
 The `analyses` schema mirrors the moved `market_analyses` columns. `pkg/market.MarketAnalysis` is a straight copy of the fields from `knowledge.MarketAnalysis`.
+
+Best prices (new `BestPrice` type on `*Collector`):
+- `FindBestPrices(ctx, itemID, side, limit) ([]BestPrice, error)` — best buy/sell prices for an item across stations, computed over the latest `market_orders`.
 
 ### Consumer rewiring (inject `*market.Collector`)
 
@@ -64,7 +67,8 @@ The `analyses` schema mirrors the moved `market_analyses` columns. `pkg/market.M
 
 ### Knowledge teardown
 
-- Remove from `knowledge.Base` interface: `StoreMarketSnapshot`, `GetMarketSnapshots`, `GetLatestMarketSnapshot`, `GetMarketItems`, `HasMarketSnapshotToday`, `StoreMarketAnalysis`, `GetLatestMarketAnalysis`, `GetMarketAnalysisHistory`, `AnalyzePriceTrends`.
+- Remove from `knowledge.Base` interface: `StoreMarketSnapshot`, `GetMarketSnapshots`, `GetLatestMarketSnapshot`, `GetMarketItems`, `HasMarketSnapshotToday`, `StoreMarketAnalysis`, `GetLatestMarketAnalysis`, `GetMarketAnalysisHistory`, `AnalyzePriceTrends`, `FindBestPrices`.
+- Delete unused agent-layer helpers `ShouldRefreshMarket`, `GetMarketAge`, `ShouldRefreshMarketAnalysis`, `GetMarketAnalysisAge` (0 callers; they reference the removed methods so must go for compilation).
 - Remove `knowledge.MarketSnapshot`, `knowledge.MarketListing`, `knowledge.MarketAnalysis`, `knowledge.PriceTrend` types (after consumers move to `pkg/market` types).
 - Drop implementations from `SQLiteKB` (`sqlite.go`, `analytics.go`) and `MemoryKB` (`memory.go`).
 - Update test mocks: `pkg/galaxy/graph_test.go` `mockKB`, `pkg/knowledge/memory_catalog_test.go`, and any other `knowledge.Base` mocks.
