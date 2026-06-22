@@ -16,7 +16,6 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // Output format constants
@@ -39,42 +38,58 @@ type Command struct {
 	Handler     func(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 }
 
-// historyEntry represents a market snapshot history entry
+// historyEntry represents a distinct capture timestamp for a station.
 type historyEntry struct {
-	ID          int
-	SystemID    string
-	SystemName  string
 	StationID   string
 	StationName string
-	GameTick    int64
+	SystemID    string
+	SystemName  string
 	CapturedAt  string
-	AgentID     sql.NullString
+	OrderCount  int
 }
 
 // itemInfo represents an item seen in the market
 type itemInfo struct {
 	ItemID   string
-	ItemType string
+	ItemName string
+	Category string
 }
 
-// priceEntry represents a price record for an item
-type priceEntry struct {
-	SystemName   string
-	StationName  string
-	CapturedAt   string
-	ListingType  string
-	PricePerUnit float64
-	Quantity     float64
+// ohlcvEntry represents a price OHLCV record for an item
+type ohlcvEntry struct {
+	StationID  string  `json:"station_id"`
+	StationName string `json:"station_name"`
+	ItemID     string  `json:"item_id"`
+	Side       string  `json:"side"`
+	BucketUTC  string  `json:"bucket_utc"`
+	OpenPrice  float64 `json:"open_price"`
+	HighPrice  float64 `json:"high_price"`
+	LowPrice   float64 `json:"low_price"`
+	ClosePrice float64 `json:"close_price"`
+	Volume     float64 `json:"volume"`
+	TradeCount int     `json:"trade_count"`
+	VWAP       float64 `json:"vwap"`
 }
 
 // arbitrageOpportunity represents a potential arbitrage opportunity
 type arbitrageOpportunity struct {
-	ItemID       string
-	ItemType     string
-	MinSellPrice float64
-	MaxBuyPrice  float64
-	Profit       float64
-	ProfitMargin float64
+	ItemID       string  `json:"item_id"`
+	ItemName     string  `json:"item_name"`
+	MinSellPrice float64 `json:"min_sell_price"`
+	MaxBuyPrice  float64 `json:"max_buy_price"`
+	Profit       float64 `json:"profit"`
+	ProfitMargin float64 `json:"profit_margin"`
+}
+
+// listing is a local buy/sell order for display purposes.
+type listing struct {
+	ItemID   string
+	ItemName string
+	Category string
+	Side     string
+	Quantity float64
+	PriceEach float64
+	Source   string
 }
 
 // NOTE: Commands must be sorted alphabetically for BinarySearchFunc to work
@@ -86,7 +101,7 @@ var commands = []Command{
 	},
 	{
 		Name:        "history",
-		Description: "Show historical market snapshots",
+		Description: "Show historical market capture timestamps",
 		Handler:     cmdHistory,
 	},
 	{
@@ -101,7 +116,7 @@ var commands = []Command{
 	},
 	{
 		Name:        "prices",
-		Description: "Show price history for an item across systems",
+		Description: "Show OHLCV price history for an item",
 		Handler:     cmdPrices,
 	},
 }
@@ -145,12 +160,12 @@ var (
 func main() {
 	// Define global flags
 	cfg := Config{
-		DBPath: "spacemolt-knowledge.db",
+		DBPath: "data/market.db",
 		Limit:  20,
 		Format: formatTable,
 	}
 
-	flag.StringVar(&cfg.DBPath, "db-path", cfg.DBPath, "Path to SQLite database file")
+	flag.StringVar(&cfg.DBPath, "db-path", cfg.DBPath, "Path to market SQLite database file (default: data/market.db)")
 	flag.IntVar(&cfg.Limit, "limit", cfg.Limit, "Limit number of records to show")
 	flag.StringVar(&cfg.Format, "format", cfg.Format, "Output format: table, json")
 
@@ -235,7 +250,10 @@ func openDatabase(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-// cmdLatest shows the most recent market snapshot
+// cmdLatest shows the most recent market snapshot for a station.
+// Args: <system-id> [station-id]
+// If station-id is omitted, picks the station with the newest captured_at in
+// the given system (via stations JOIN market_orders).
 func cmdLatest(ctx context.Context, db *sql.DB, cfg Config, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: view-market latest <system-id> [station-id]")
@@ -247,13 +265,14 @@ func cmdLatest(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 		stationID = args[1]
 	}
 
-	// If station ID not provided, try to find one
+	// Resolve stationID from system when not provided.
 	if stationID == "" {
 		query := `
-			SELECT station_id
-			FROM market_snapshots
-			WHERE system_id = ?
-			ORDER BY captured_at DESC
+			SELECT mo.station_id
+			FROM market_orders mo
+			JOIN stations s ON s.station_id = mo.station_id
+			WHERE s.system_id = ?
+			ORDER BY mo.captured_at DESC
 			LIMIT 1
 		`
 		err := db.QueryRowContext(ctx, query, systemID).Scan(&stationID)
@@ -265,58 +284,49 @@ func cmdLatest(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 		}
 	}
 
-	// Query latest snapshot
-	query := `
-		SELECT ms.id, ms.system_id, ms.system_name, ms.station_id, ms.station_name,
-		       ms.game_tick, ms.captured_at, ms.agent_id,
-		       ml.item_id, ml.item_type, ml.quantity, ml.price_per_unit,
-		       ml.total_price, ml.listing_type, ml.listed_by
-		FROM market_snapshots ms
-		LEFT JOIN market_listings ml ON ms.id = ml.snapshot_id
-		WHERE ms.system_id = ? AND ms.station_id = ?
-		ORDER BY ms.captured_at DESC, ml.item_type, ml.item_id
-		LIMIT 1
-	`
+	// Find the latest capture timestamp for this station.
+	var latestCapturedAt string
+	err := db.QueryRowContext(ctx,
+		`SELECT MAX(captured_at) FROM market_orders WHERE station_id = ?`, stationID).
+		Scan(&latestCapturedAt)
+	if err == sql.ErrNoRows || latestCapturedAt == "" {
+		return fmt.Errorf("no market data found for station: %s", stationID)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to query latest captured_at: %w", err)
+	}
 
-	rows, err := db.QueryContext(ctx, query, systemID, stationID)
+	// Fetch station metadata.
+	var stationName, sysID, sysName string
+	_ = db.QueryRowContext(ctx,
+		`SELECT COALESCE(station_name,''), COALESCE(system_id,''), COALESCE(system_name,'') FROM stations WHERE station_id = ?`,
+		stationID).Scan(&stationName, &sysID, &sysName)
+	if stationName == "" {
+		stationName = stationID
+	}
+
+	// Query all orders for this station at the latest capture time.
+	rows, err := db.QueryContext(ctx, `
+		SELECT mo.item_id, COALESCE(i.item_name, mo.item_id), COALESCE(i.category, ''),
+		       mo.side, mo.quantity, mo.price_each, COALESCE(mo.source, '')
+		FROM market_orders mo
+		LEFT JOIN items i ON i.item_id = mo.item_id
+		WHERE mo.station_id = ? AND mo.captured_at = ?
+		ORDER BY mo.side, i.category, mo.item_id
+	`, stationID, latestCapturedAt)
 	if err != nil {
 		return fmt.Errorf("failed to query latest snapshot: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var systemName, stationName, capturedAt string
-	var gameTick int64
-	var agentID sql.NullString
-	listings := make([]knowledge.MarketListing, 0)
-
+	var listings []listing
 	for rows.Next() {
-		var snapshotID int
-		var itemID, itemType, listingType sql.NullString
-		var listedBy sql.NullString
-		var quantity, pricePerUnit, totalPrice sql.NullFloat64
-
-		err := rows.Scan(
-			&snapshotID, &systemID, &systemName, &stationID, &stationName,
-			&gameTick, &capturedAt, &agentID,
-			&itemID, &itemType, &quantity, &pricePerUnit, &totalPrice, &listingType, &listedBy,
-		)
-		if err != nil {
+		var l listing
+		if err := rows.Scan(&l.ItemID, &l.ItemName, &l.Category, &l.Side, &l.Quantity, &l.PriceEach, &l.Source); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-
-		if itemID.Valid {
-			listings = append(listings, knowledge.MarketListing{
-				ItemID:       itemID.String,
-				ItemType:     itemType.String,
-				Quantity:     quantity.Float64,
-				PricePerUnit: pricePerUnit.Float64,
-				TotalPrice:   totalPrice.Float64,
-				Type:         listingType.String,
-				ListedBy:     listedBy.String,
-			})
-		}
+		listings = append(listings, l)
 	}
-
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("error iterating rows: %w", err)
 	}
@@ -325,88 +335,71 @@ func cmdLatest(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 		return fmt.Errorf("no market data found")
 	}
 
-	// Output based on format
 	switch cfg.Format {
 	case formatJSON:
 		result := map[string]any{
-			"system_name":  systemName,
+			"system_name":  sysName,
 			"station_name": stationName,
-			"captured_at":  capturedAt,
-			"game_tick":    gameTick,
-			"agent_id":     agentID.String,
+			"captured_at":  latestCapturedAt,
 			"listings":     listings,
 		}
 		return outputJSON(result)
 	default:
-		outputLatestTable(systemName, stationName, capturedAt, gameTick, agentID, listings)
+		outputLatestTable(sysName, stationName, latestCapturedAt, listings)
 		return nil
 	}
 }
 
 // outputLatestTable displays latest snapshot in table format
-func outputLatestTable(systemName, stationName, capturedAt string, gameTick int64, agentID sql.NullString, listings []knowledge.MarketListing) {
+func outputLatestTable(systemName, stationName, capturedAt string, listings []listing) {
 	fmt.Println(headerStyle.Render(fmt.Sprintf("Market: %s / %s", systemName, stationName)))
 	fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
 
-	// Metadata
 	fmt.Printf("\n  %s %s\n", labelStyle.Render("Captured:"), dimStyle.Render(formatTimestamp(capturedAt)))
-	fmt.Printf("  %s %s\n", labelStyle.Render("Game Tick:"), valueStyle.Render(fmt.Sprintf("%d", gameTick)))
-	if agentID.Valid {
-		fmt.Printf("  %s %s\n", labelStyle.Render("Agent:"), valueStyle.Render(agentID.String))
-	}
 
-	// Group listings by type and by buy/sell
-	buyOrders := make(map[string][]knowledge.MarketListing)
-	sellOrders := make(map[string][]knowledge.MarketListing)
+	buyOrders := make(map[string][]listing)
+	sellOrders := make(map[string][]listing)
 
-	for _, listing := range listings {
-		if listing.Type == "buy" {
-			buyOrders[listing.ItemType] = append(buyOrders[listing.ItemType], listing)
+	for _, l := range listings {
+		cat := l.Category
+		if cat == "" {
+			cat = "(uncategorized)"
+		}
+		if l.Side == "buy" {
+			buyOrders[cat] = append(buyOrders[cat], l)
 		} else {
-			sellOrders[listing.ItemType] = append(sellOrders[listing.ItemType], listing)
+			sellOrders[cat] = append(sellOrders[cat], l)
 		}
 	}
 
-	// Display sell orders (what's available)
 	if len(sellOrders) > 0 {
 		fmt.Println("\n" + subHeaderStyle.Render("Sell Orders (Available)"))
 		fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
 
-		types := make([]string, 0, len(sellOrders))
-		for t := range sellOrders {
-			types = append(types, t)
-		}
-		sort.Strings(types)
-
-		for _, itemType := range types {
-			fmt.Printf("\n%s\n", successStyle.Render(itemType))
-			for _, listing := range sellOrders[itemType] {
+		cats := sortedKeys(sellOrders)
+		for _, cat := range cats {
+			fmt.Printf("\n%s\n", successStyle.Render(cat))
+			for _, l := range sellOrders[cat] {
 				fmt.Printf("  %s x %.2f @ %s\n",
-					valueStyle.Render(listing.ItemID),
-					listing.Quantity,
-					successStyle.Render(fmt.Sprintf("%.2f credits", listing.PricePerUnit)))
+					valueStyle.Render(l.ItemName),
+					l.Quantity,
+					successStyle.Render(fmt.Sprintf("%.2f credits", l.PriceEach)))
 			}
 		}
 	}
 
-	// Display buy orders (what players want)
 	if len(buyOrders) > 0 {
 		fmt.Println("\n" + subHeaderStyle.Render("Buy Orders (Wanted)"))
 		fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
 
-		types := make([]string, 0, len(buyOrders))
-		for t := range buyOrders {
-			types = append(types, t)
-		}
-		sort.Strings(types)
-
-		for _, itemType := range types {
-			fmt.Printf("\n%s\n", warningStyle.Render(itemType))
-			for _, listing := range buyOrders[itemType] {
+		cats := sortedKeys(buyOrders)
+		for _, cat := range cats {
+			fmt.Printf("\n%s\n", warningStyle.Render(cat))
+			for _, l := range buyOrders[cat] {
 				fmt.Printf("  %s x %.2f @ %s\n",
-					valueStyle.Render(listing.ItemID),
-					listing.Quantity,
-					warningStyle.Render(fmt.Sprintf("%.2f credits", listing.PricePerUnit)))
+					valueStyle.Render(l.ItemName),
+					l.Quantity,
+					warningStyle.Render(fmt.Sprintf("%.2f credits", l.PriceEach)))
 			}
 		}
 	}
@@ -416,7 +409,8 @@ func outputLatestTable(systemName, stationName, capturedAt string, gameTick int6
 		valueStyle.Render(fmt.Sprintf("%d", len(listings))))
 }
 
-// cmdHistory shows historical market snapshots
+// cmdHistory lists distinct capture timestamps for a station with per-capture
+// order counts.
 func cmdHistory(ctx context.Context, db *sql.DB, cfg Config, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: view-market history <system-id> [station-id]")
@@ -428,13 +422,14 @@ func cmdHistory(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 		stationID = args[1]
 	}
 
-	// If station ID not provided, use latest
+	// Resolve stationID from system when not provided.
 	if stationID == "" {
 		query := `
-			SELECT station_id
-			FROM market_snapshots
-			WHERE system_id = ?
-			ORDER BY captured_at DESC
+			SELECT mo.station_id
+			FROM market_orders mo
+			JOIN stations s ON s.station_id = mo.station_id
+			WHERE s.system_id = ?
+			ORDER BY mo.captured_at DESC
 			LIMIT 1
 		`
 		err := db.QueryRowContext(ctx, query, systemID).Scan(&stationID)
@@ -446,92 +441,97 @@ func cmdHistory(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 		}
 	}
 
-	// Query snapshots
-	query := `
-		SELECT id, system_id, system_name, station_id, station_name,
-		       game_tick, captured_at, agent_id
-		FROM market_snapshots
-		WHERE system_id = ? AND station_id = ?
+	// Fetch station metadata once.
+	var stationName, sysID, sysName string
+	_ = db.QueryRowContext(ctx,
+		`SELECT COALESCE(station_name,''), COALESCE(system_id,''), COALESCE(system_name,'') FROM stations WHERE station_id = ?`,
+		stationID).Scan(&stationName, &sysID, &sysName)
+	if stationName == "" {
+		stationName = stationID
+	}
+
+	// List distinct capture timestamps with order counts.
+	rows, err := db.QueryContext(ctx, `
+		SELECT captured_at, COUNT(*) as order_count
+		FROM market_orders
+		WHERE station_id = ?
+		GROUP BY captured_at
 		ORDER BY captured_at DESC
 		LIMIT ?
-	`
-
-	rows, err := db.QueryContext(ctx, query, systemID, stationID, cfg.Limit)
+	`, stationID, cfg.Limit)
 	if err != nil {
 		return fmt.Errorf("failed to query history: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var snapshots []historyEntry
+	var entries []historyEntry
 	for rows.Next() {
-		var s historyEntry
-		if err := rows.Scan(&s.ID, &s.SystemID, &s.SystemName, &s.StationID, &s.StationName,
-			&s.GameTick, &s.CapturedAt, &s.AgentID); err != nil {
+		e := historyEntry{
+			StationID:   stationID,
+			StationName: stationName,
+			SystemID:    sysID,
+			SystemName:  sysName,
+		}
+		if err := rows.Scan(&e.CapturedAt, &e.OrderCount); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-		snapshots = append(snapshots, s)
+		entries = append(entries, e)
 	}
-
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	// Output based on format
 	switch cfg.Format {
 	case formatJSON:
-		return outputJSON(snapshots)
+		return outputJSON(entries)
 	default:
-		outputHistoryTable(snapshots)
+		outputHistoryTable(entries)
 		return nil
 	}
 }
 
 // outputHistoryTable displays history in table format
-func outputHistoryTable(snapshots []historyEntry) {
+func outputHistoryTable(entries []historyEntry) {
 	fmt.Println(headerStyle.Render("Market History"))
 	fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
 
-	if len(snapshots) == 0 {
+	if len(entries) == 0 {
 		fmt.Println(dimStyle.Render("  No history found."))
 		return
 	}
 
-	for _, s := range snapshots {
+	for _, e := range entries {
 		fmt.Printf("\n%s %s / %s\n",
-			dimStyle.Render("["+s.CapturedAt+"]"),
-			subHeaderStyle.Render(s.SystemName),
-			valueStyle.Render(s.StationName))
-		fmt.Printf("  Tick: %d", s.GameTick)
-		if s.AgentID.Valid {
-			fmt.Printf(" | Agent: %s", s.AgentID.String)
-		}
+			dimStyle.Render("["+e.CapturedAt+"]"),
+			subHeaderStyle.Render(e.SystemName),
+			valueStyle.Render(e.StationName))
+		fmt.Printf("  Orders: %d", e.OrderCount)
 		fmt.Println()
 
-		fmt.Printf("  %sSnapshot ID: %s%s\n",
-			dimStyle.Render("→"),
-			valueStyle.Render(fmt.Sprintf("%d", s.ID)),
-			dimStyle.Render(" (run 'view-market latest "+s.SystemID+" "+s.StationID+"' for details)"))
+		fmt.Printf("  %s%s%s\n",
+			dimStyle.Render("→ run 'view-market latest "+e.SystemID+" "+e.StationID+"' for details"),
+			"",
+			"")
 
-		if len(snapshots) > 1 {
+		if len(entries) > 1 {
 			fmt.Println(dimStyle.Render(strings.Repeat("─", 40)))
 		}
 	}
 
-	fmt.Printf("\n%s %s snapshot(s)\n",
+	fmt.Printf("\n%s %s capture(s)\n",
 		labelStyle.Render("Total:"),
-		valueStyle.Render(fmt.Sprintf("%d", len(snapshots))))
+		valueStyle.Render(fmt.Sprintf("%d", len(entries))))
 }
 
-// cmdItems lists all unique items seen across markets
-func cmdItems(ctx context.Context, db *sql.DB, cfg Config, args []string) error {
-	query := `
-		SELECT DISTINCT item_id, item_type
-		FROM market_listings
-		ORDER BY item_type, item_id
+// cmdItems lists distinct items from the items catalog, falling back to
+// distinct item_ids from market_orders when the items table is empty.
+func cmdItems(ctx context.Context, db *sql.DB, cfg Config, _ []string) error {
+	rows, err := db.QueryContext(ctx, `
+		SELECT item_id, COALESCE(item_name, item_id), COALESCE(category, '')
+		FROM items
+		ORDER BY category, item_id
 		LIMIT ?
-	`
-
-	rows, err := db.QueryContext(ctx, query, cfg.Limit*10) // Higher limit for items
+	`, cfg.Limit*10)
 	if err != nil {
 		return fmt.Errorf("failed to query items: %w", err)
 	}
@@ -540,17 +540,39 @@ func cmdItems(ctx context.Context, db *sql.DB, cfg Config, args []string) error 
 	var items []itemInfo
 	for rows.Next() {
 		var item itemInfo
-		if err := rows.Scan(&item.ItemID, &item.ItemType); err != nil {
+		if err := rows.Scan(&item.ItemID, &item.ItemName, &item.Category); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 		items = append(items, item)
 	}
-
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	// Output based on format
+	// Fallback: derive distinct items from market_orders if catalog is empty.
+	if len(items) == 0 {
+		rows2, err2 := db.QueryContext(ctx, `
+			SELECT DISTINCT item_id, item_id, ''
+			FROM market_orders
+			ORDER BY item_id
+			LIMIT ?
+		`, cfg.Limit*10)
+		if err2 != nil {
+			return fmt.Errorf("failed to query items from orders: %w", err2)
+		}
+		defer func() { _ = rows2.Close() }()
+		for rows2.Next() {
+			var item itemInfo
+			if err := rows2.Scan(&item.ItemID, &item.ItemName, &item.Category); err != nil {
+				return fmt.Errorf("failed to scan row: %w", err)
+			}
+			items = append(items, item)
+		}
+		if err := rows2.Err(); err != nil {
+			return fmt.Errorf("error iterating rows: %w", err)
+		}
+	}
+
 	switch cfg.Format {
 	case formatJSON:
 		return outputJSON(items)
@@ -570,25 +592,25 @@ func outputItemsTable(items []itemInfo) {
 		return
 	}
 
-	// Group by type
-	byType := make(map[string][]string)
+	// Group by category
+	byCategory := make(map[string][]itemInfo)
 	for _, item := range items {
-		byType[item.ItemType] = append(byType[item.ItemType], item.ItemID)
+		cat := item.Category
+		if cat == "" {
+			cat = "(uncategorized)"
+		}
+		byCategory[cat] = append(byCategory[cat], item)
 	}
 
-	// Sort types
-	types := make([]string, 0, len(byType))
-	for t := range byType {
-		types = append(types, t)
-	}
-	sort.Strings(types)
-
-	for _, itemType := range types {
-		fmt.Printf("\n%s\n", subHeaderStyle.Render(itemType))
-		itemIDs := byType[itemType]
-		sort.Strings(itemIDs)
-		for _, itemID := range itemIDs {
-			fmt.Printf("  • %s\n", valueStyle.Render(itemID))
+	cats := sortedKeys(byCategory)
+	for _, cat := range cats {
+		fmt.Printf("\n%s\n", subHeaderStyle.Render(cat))
+		for _, item := range byCategory[cat] {
+			fmt.Printf("  • %s", valueStyle.Render(item.ItemName))
+			if item.ItemName != item.ItemID {
+				fmt.Printf(" %s", dimStyle.Render("("+item.ItemID+")"))
+			}
+			fmt.Println()
 		}
 	}
 
@@ -597,7 +619,7 @@ func outputItemsTable(items []itemInfo) {
 		valueStyle.Render(fmt.Sprintf("%d", len(items))))
 }
 
-// cmdPrices shows price history for an item across systems
+// cmdPrices shows OHLCV price history for an item from market_ohlcv.
 func cmdPrices(ctx context.Context, db *sql.DB, cfg Config, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("usage: view-market prices <item-id>")
@@ -605,103 +627,111 @@ func cmdPrices(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 
 	itemID := args[0]
 
-	// Query prices for this item across all systems
-	query := `
-		SELECT ms.system_name, ms.station_name, ms.captured_at,
-		       ml.listing_type, ml.price_per_unit, ml.quantity
-		FROM market_listings ml
-		JOIN market_snapshots ms ON ml.snapshot_id = ms.id
-		WHERE ml.item_id = ?
-		ORDER BY ms.captured_at DESC
+	rows, err := db.QueryContext(ctx, `
+		SELECT mo.station_id, COALESCE(s.station_name, mo.station_id),
+		       mo.item_id, mo.side, mo.bucket_utc,
+		       mo.open_price, mo.high_price, mo.low_price, mo.close_price,
+		       mo.volume, mo.trade_count, mo.vwap
+		FROM market_ohlcv mo
+		LEFT JOIN stations s ON s.station_id = mo.station_id
+		WHERE mo.item_id = ?
+		ORDER BY mo.bucket_utc DESC
 		LIMIT ?
-	`
-
-	rows, err := db.QueryContext(ctx, query, itemID, cfg.Limit)
+	`, itemID, cfg.Limit)
 	if err != nil {
 		return fmt.Errorf("failed to query prices: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var prices []priceEntry
+	var entries []ohlcvEntry
 	for rows.Next() {
-		var p priceEntry
-		if err := rows.Scan(&p.SystemName, &p.StationName, &p.CapturedAt,
-			&p.ListingType, &p.PricePerUnit, &p.Quantity); err != nil {
+		var e ohlcvEntry
+		if err := rows.Scan(&e.StationID, &e.StationName, &e.ItemID, &e.Side, &e.BucketUTC,
+			&e.OpenPrice, &e.HighPrice, &e.LowPrice, &e.ClosePrice,
+			&e.Volume, &e.TradeCount, &e.VWAP); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
-		prices = append(prices, p)
+		entries = append(entries, e)
 	}
-
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	// Output based on format
 	switch cfg.Format {
 	case formatJSON:
-		return outputJSON(prices)
+		return outputJSON(entries)
 	default:
-		outputPricesTable(itemID, prices)
+		outputPricesTable(itemID, entries)
 		return nil
 	}
 }
 
-// outputPricesTable displays prices in table format
-func outputPricesTable(itemID string, prices []priceEntry) {
-	fmt.Println(headerStyle.Render(fmt.Sprintf("Price History: %s", itemID)))
+// outputPricesTable displays OHLCV price history in table format
+func outputPricesTable(itemID string, entries []ohlcvEntry) {
+	fmt.Println(headerStyle.Render(fmt.Sprintf("Price History (OHLCV): %s", itemID)))
 	fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
 
-	if len(prices) == 0 {
-		fmt.Println(dimStyle.Render("  No price data found for this item."))
+	if len(entries) == 0 {
+		fmt.Println(dimStyle.Render("  No OHLCV price data found for this item."))
 		return
 	}
 
-	for _, p := range prices {
-		style := successStyle
-		if p.ListingType == "buy" {
-			style = warningStyle
+	fmt.Printf("\n%s  %s  %s  %s  %s  %s  %s  %s\n",
+		tableHeaderStyle.Render(padRight("Bucket (UTC)", 20)),
+		tableHeaderStyle.Render(padRight("Station", 20)),
+		tableHeaderStyle.Render(padRight("Side", 5)),
+		tableHeaderStyle.Render(padRight("Open", 10)),
+		tableHeaderStyle.Render(padRight("High", 10)),
+		tableHeaderStyle.Render(padRight("Low", 10)),
+		tableHeaderStyle.Render(padRight("Close", 10)),
+		tableHeaderStyle.Render("VWAP"))
+	fmt.Println(borderStyle.Render(strings.Repeat("─", 80)))
+
+	for _, e := range entries {
+		sideStyle := successStyle
+		if e.Side == "buy" {
+			sideStyle = warningStyle
 		}
-
-		fmt.Printf("\n%s %s / %s\n",
-			dimStyle.Render("["+p.CapturedAt+"]"),
-			subHeaderStyle.Render(p.SystemName),
-			valueStyle.Render(p.StationName))
-
-		fmt.Printf("  %s x %.2f @ %s\n",
-			style.Render(p.ListingType),
-			p.Quantity,
-			style.Render(fmt.Sprintf("%.2f credits", p.PricePerUnit)))
+		fmt.Printf("%s  %s  %s  %s  %s  %s  %s  %s\n",
+			dimStyle.Render(padRight(e.BucketUTC, 20)),
+			valueStyle.Render(padRight(e.StationName, 20)),
+			sideStyle.Render(padRight(e.Side, 5)),
+			valueStyle.Render(padRight(fmt.Sprintf("%.2f", e.OpenPrice), 10)),
+			successStyle.Render(padRight(fmt.Sprintf("%.2f", e.HighPrice), 10)),
+			errorStyle.Render(padRight(fmt.Sprintf("%.2f", e.LowPrice), 10)),
+			valueStyle.Render(padRight(fmt.Sprintf("%.2f", e.ClosePrice), 10)),
+			valueStyle.Render(fmt.Sprintf("%.2f", e.VWAP)))
 	}
 
-	fmt.Printf("\n%s %s price record(s)\n",
+	fmt.Printf("\n%s %s OHLCV record(s)\n",
 		labelStyle.Render("Total:"),
-		valueStyle.Render(fmt.Sprintf("%d", len(prices))))
+		valueStyle.Render(fmt.Sprintf("%d", len(entries))))
 }
 
-// cmdArbitrage shows arbitrage opportunities
-func cmdArbitrage(ctx context.Context, db *sql.DB, cfg Config, args []string) error {
-	// Find arbitrage opportunities by comparing sell prices across systems
-	// For each item, find the lowest sell price and highest buy price
+// cmdArbitrage shows arbitrage opportunities computed on the fly from
+// market_orders using each station's latest capture per item.
+func cmdArbitrage(ctx context.Context, db *sql.DB, cfg Config, _ []string) error {
+	// For each item, find min sell price and max buy price across stations,
+	// using only the latest captured_at per station.
 	query := `
-		WITH LatestSnapshots AS (
-			SELECT DISTINCT system_id, station_id, MAX(captured_at) as latest_captured
-			FROM market_snapshots
-			GROUP BY system_id, station_id
+		WITH latest_per_station AS (
+			SELECT station_id, MAX(captured_at) AS latest_captured
+			FROM market_orders
+			GROUP BY station_id
 		),
-		LatestListings AS (
-			SELECT ml.item_id, ml.item_type, ml.listing_type, ml.price_per_unit,
-			       ms.system_id, ms.system_name, ms.station_id, ms.station_name
-			FROM market_listings ml
-			JOIN market_snapshots ms ON ml.snapshot_id = ms.id
-			JOIN LatestSnapshots ls ON ms.system_id = ls.system_id AND ms.station_id = ls.station_id
-				AND ms.captured_at = ls.latest_captured
+		latest_orders AS (
+			SELECT mo.item_id, mo.side, mo.price_each
+			FROM market_orders mo
+			JOIN latest_per_station lps
+				ON mo.station_id = lps.station_id AND mo.captured_at = lps.latest_captured
 		)
-		SELECT item_id, item_type,
-		       MIN(CASE WHEN listing_type = 'sell' THEN price_per_unit END) as min_sell_price,
-		       MAX(CASE WHEN listing_type = 'buy' THEN price_per_unit END) as max_buy_price
-		FROM LatestListings
-		WHERE listing_type IN ('sell', 'buy')
-		GROUP BY item_id, item_type
+		SELECT lo.item_id, COALESCE(i.item_name, lo.item_id),
+		       MIN(CASE WHEN lo.side = 'sell' THEN lo.price_each END) AS min_sell_price,
+		       MAX(CASE WHEN lo.side = 'buy'  THEN lo.price_each END) AS max_buy_price
+		FROM latest_orders lo
+		LEFT JOIN items i ON i.item_id = lo.item_id
+		WHERE lo.side IN ('sell', 'buy')
+		GROUP BY lo.item_id
 		HAVING min_sell_price IS NOT NULL AND max_buy_price IS NOT NULL
 		  AND max_buy_price > min_sell_price
 		ORDER BY (max_buy_price - min_sell_price) DESC
@@ -717,19 +747,17 @@ func cmdArbitrage(ctx context.Context, db *sql.DB, cfg Config, args []string) er
 	var opportunities []arbitrageOpportunity
 	for rows.Next() {
 		var opp arbitrageOpportunity
-		if err := rows.Scan(&opp.ItemID, &opp.ItemType, &opp.MinSellPrice, &opp.MaxBuyPrice); err != nil {
+		if err := rows.Scan(&opp.ItemID, &opp.ItemName, &opp.MinSellPrice, &opp.MaxBuyPrice); err != nil {
 			return fmt.Errorf("failed to scan row: %w", err)
 		}
 		opp.Profit = opp.MaxBuyPrice - opp.MinSellPrice
 		opp.ProfitMargin = (opp.Profit / opp.MinSellPrice) * 100
 		opportunities = append(opportunities, opp)
 	}
-
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("error iterating rows: %w", err)
 	}
 
-	// Output based on format
 	switch cfg.Format {
 	case formatJSON:
 		return outputJSON(opportunities)
@@ -767,7 +795,7 @@ func outputArbitrageTable(opportunities []arbitrageOpportunity) {
 		}
 
 		fmt.Printf("%s  %s  %s  %s  %s\n",
-			valueStyle.Render(padRight(opp.ItemID, 25)),
+			valueStyle.Render(padRight(opp.ItemName, 25)),
 			successStyle.Render(padRight(fmt.Sprintf("%.2f", opp.MinSellPrice), 12)),
 			warningStyle.Render(padRight(fmt.Sprintf("%.2f", opp.MaxBuyPrice), 12)),
 			profitStyle.Render(padRight(fmt.Sprintf("%.2f", opp.Profit), 12)),
@@ -791,17 +819,14 @@ func outputJSON(data any) error {
 
 // formatTimestamp formats a timestamp string for display
 func formatTimestamp(ts string) string {
-	// Parse the timestamp
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
-		// Try parsing as SQLite datetime format
 		t, err = time.Parse("2006-01-02 15:04:05", ts)
 		if err != nil {
 			return ts
 		}
 	}
 
-	// Format as relative time if recent, otherwise as short date
 	now := time.Now()
 	diff := now.Sub(t)
 
@@ -827,4 +852,14 @@ func padRight(s string, width int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", width-len(s))
+}
+
+// sortedKeys returns the sorted keys of any string-keyed map.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
