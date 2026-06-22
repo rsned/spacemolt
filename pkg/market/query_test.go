@@ -361,3 +361,47 @@ func TestGetMatrix(t *testing.T) {
 		t.Errorf("expected empty matrix for unknown category, got %+v", mnone)
 	}
 }
+
+func TestGetStationOrders(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+		CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: now},
+			{StationID: "stn1", ItemID: "iron_ore", Side: "buy", PriceEach: 2, Quantity: 1, CapturedAt: now},
+			{StationID: "stn1", ItemID: "copper_ore", Side: "sell", PriceEach: 9, Quantity: 1, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot: %v", err)
+	}
+
+	all, err := c.GetStationOrders(ctx, "stn1", "")
+	if err != nil {
+		t.Fatalf("GetStationOrders all: %v", err)
+	}
+	if len(all) != 3 {
+		t.Errorf("all orders = %d, want 3", len(all))
+	}
+	iron, err := c.GetStationOrders(ctx, "stn1", "iron_ore")
+	if err != nil {
+		t.Fatalf("GetStationOrders iron: %v", err)
+	}
+	if len(iron) != 2 {
+		t.Fatalf("iron orders = %d, want 2", len(iron))
+	}
+	none, err := c.GetStationOrders(ctx, "stn-absent", "")
+	if err != nil {
+		t.Fatalf("GetStationOrders absent: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("absent = %v, want empty", none)
+	}
+}

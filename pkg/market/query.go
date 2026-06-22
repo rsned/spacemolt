@@ -389,6 +389,48 @@ func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, erro
 	return m, nil
 }
 
+// GetStationOrders returns the orders from a station's latest capture, optionally
+// filtered to itemID, ordered by side then price. Returns an empty slice when the
+// station has no orders.
+func (c *Collector) GetStationOrders(ctx context.Context, stationID, itemID string) ([]Order, error) {
+	query := `
+		SELECT station_id, item_id, side, price_each, quantity, my_quantity, source, captured_at
+		FROM market_orders
+		WHERE station_id = ? AND captured_at = (
+				SELECT MAX(captured_at) FROM market_orders WHERE station_id = ?
+			)` + itemFilter(itemID) + `
+		ORDER BY side, price_each`
+	args := []any{stationID, stationID}
+	if itemID != "" {
+		args = append(args, itemID)
+	}
+	rows, err := c.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query station orders: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Order
+	for rows.Next() {
+		var o Order
+		var capStr string
+		if err := rows.Scan(&o.StationID, &o.ItemID, &o.Side, &o.PriceEach, &o.Quantity, &o.MyQuantity, &o.Source, &capStr); err != nil {
+			return nil, fmt.Errorf("scan station order: %w", err)
+		}
+		o.CapturedAt, _ = time.Parse(time.RFC3339, capStr)
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// itemFilter returns the SQL fragment narrowing to itemID when non-empty.
+// The caller binds itemID as the next parameter in both branches.
+func itemFilter(itemID string) string {
+	if itemID == "" {
+		return ""
+	}
+	return ` AND item_id = ?`
+}
+
 // stations returns all stations ordered by name.
 func (c *Collector) stations(ctx context.Context) ([]Station, error) {
 	rows, err := c.db.QueryContext(ctx,
