@@ -195,3 +195,78 @@ func TestFindBestPrices(t *testing.T) {
 		t.Errorf("metadata not populated: %+v", best[0])
 	}
 }
+
+func TestFindBestPrices_BuySideRanksDescending(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	write := func(stn string, price float64) {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: stn, StationName: stn, SystemID: "sys", SystemName: "S",
+			CapturedAt: now,
+			Orders:     []Order{{StationID: stn, ItemID: "iron", ItemName: "Iron", Side: "buy", PriceEach: price, Quantity: 10, CapturedAt: now}},
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}
+	}
+	write("stnA", 9)
+	write("stnB", 4)
+	write("stnC", 7)
+
+	best, err := c.FindBestPrices(ctx, "iron", "buy", 2)
+	if err != nil {
+		t.Fatalf("FindBestPrices failed: %v", err)
+	}
+	if len(best) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(best))
+	}
+	if best[0].StationID != "stnA" || best[0].Price != 9 {
+		t.Errorf("highest buy should be stnA@9, got %+v", best[0])
+	}
+	if best[0].ListingType != "buy" || best[0].ItemID != "iron" {
+		t.Errorf("metadata not populated: %+v", best[0])
+	}
+}
+
+func TestFindBestPrices_UsesLatestCapturePerStation(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx := context.Background()
+	older := time.Date(2026, 6, 20, 10, 0, 0, 0, time.UTC)
+	newer := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnX", StationName: "X", SystemID: "sys", SystemName: "S",
+		CapturedAt: older,
+		Orders:     []Order{{StationID: "stnX", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 3, Quantity: 10, CapturedAt: older}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot older: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnX", StationName: "X", SystemID: "sys", SystemName: "S",
+		CapturedAt: newer,
+		Orders:     []Order{{StationID: "stnX", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 8, Quantity: 10, CapturedAt: newer}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot newer: %v", err)
+	}
+
+	best, err := c.FindBestPrices(ctx, "iron", "sell", 5)
+	if err != nil {
+		t.Fatalf("FindBestPrices failed: %v", err)
+	}
+	if len(best) != 1 {
+		t.Fatalf("expected 1 result (dedup by latest capture), got %d", len(best))
+	}
+	if best[0].Price != 8 {
+		t.Errorf("should use latest capture price 8, got %f", best[0].Price)
+	}
+}
