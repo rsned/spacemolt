@@ -159,16 +159,18 @@ func (s *AgentState) buildFuelMap(ctx context.Context, state *game.State) map[st
 
 // refreshMarket populates market enrichment data for the current station.
 func (s *AgentState) refreshMarket(ctx context.Context, state *game.State) {
-	systemID := state.CurrentSystem
+	if s.mc == nil {
+		return
+	}
 	stationID := state.CurrentPOI
 
-	s.enriched.MarketSnapshot, _ = s.kb.GetLatestMarketSnapshot(ctx, systemID, stationID)
-	s.enriched.MarketAnalysis, _ = s.kb.GetLatestMarketAnalysis(ctx, systemID, stationID)
+	s.enriched.MarketSnapshot, _ = s.mc.GetLatestSnapshot(ctx, stationID)
+	s.enriched.MarketAnalysis, _ = s.mc.GetLatestAnalysis(ctx, stationID)
 
 	// Find best sell prices for items currently in cargo.
 	s.enriched.NearbyBestSells = nil
 	for _, item := range state.Ship.Cargo {
-		if prices, err := s.kb.FindBestPrices(ctx, item.ItemID, "buy", 3); err == nil {
+		if prices, err := s.mc.FindBestPrices(ctx, item.ItemID, "buy", 3); err == nil {
 			s.enriched.NearbyBestSells = append(s.enriched.NearbyBestSells, prices...)
 		}
 	}
@@ -176,9 +178,9 @@ func (s *AgentState) refreshMarket(ctx context.Context, state *game.State) {
 	// Find best buy opportunities (items available cheaply).
 	s.enriched.NearbyBestBuys = nil
 	if s.enriched.MarketSnapshot != nil {
-		for _, listing := range s.enriched.MarketSnapshot.Listings {
-			if listing.Type == "sell" {
-				if prices, err := s.kb.FindBestPrices(ctx, listing.ItemID, "sell", 1); err == nil {
+		for _, order := range s.enriched.MarketSnapshot.Orders {
+			if order.Side == "sell" {
+				if prices, err := s.mc.FindBestPrices(ctx, order.ItemID, "sell", 1); err == nil {
 					s.enriched.NearbyBestBuys = append(s.enriched.NearbyBestBuys, prices...)
 				}
 			}

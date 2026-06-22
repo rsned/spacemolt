@@ -667,17 +667,25 @@ git commit -m "fix(market): relative default DB path + injected play_as collecto
 
 ### Task 5: Rewire market writers to `*market.Collector`
 
+**Re-slice note (from execution discovery):** the only snapshot writer in `pkg/worker` is `KBUpdateStation` (`capture.go:499`), reached via `KBUpdateAll` ← `pkg/worker/dispatch.go` + play_as wrappers. `CaptureMarket` (`capture.go:665`) is the **demand ledger** (deferred, leave alone). The agent writer `CaptureMarketData` is called by `RefreshMarketData` (a Task-6 reader), so the whole agent chain moves in **Task 6**, not here. **Task 5 scope = worker path + auto-explorer only.**
+
 **Files:**
-- Modify: `pkg/worker/capture.go:50-71,490-503`
-- Modify: `pkg/agent/market_capture.go:25-70`
-- Modify: `cmd/auto-explorer/main.go:380,444-470` (writer + `HasSnapshotToday`)
-- Modify the worker/agent call sites that pass these a collector (see Interfaces).
+- Modify: `pkg/worker/capture.go` (delete `convertMarketListings`; rewrite the snapshot-write block in `KBUpdateStation` ~490-503; add `mc *market.Collector` param to `KBUpdateStation` and `KBUpdateAll`)
+- Modify: `pkg/worker/dispatch.go` (add `Market *market.Collector` field to `WorkerDispatch`; pass `d.Market` to `KBUpdateAll`)
+- Modify: `cmd/worker/main.go` (construct + set `WorkerDispatch.Market` from `--market-db-path`, default `data/market.db`)
+- Modify: play_as `kbUpdateAll`/`kbUpdateStation` wrapper(s) (pass `globalMarketCollector`)
+- Modify: `cmd/auto-explorer/main.go:380,444-470` (inline writer → `mc.WriteSnapshot`; `HasMarketSnapshotToday` → `mc.HasSnapshotToday`; construct `mc` from a new `--market-db-path` flag)
+- **NOT** `pkg/agent/market_capture.go` — moved to Task 6.
 
 **Interfaces:**
 - Consumes: `market.Collector.WriteSnapshot`, `market.Order`, `market.MarketSnapshot`, `market.HasSnapshotToday`.
 - Produces (changed signatures):
-  - `func CaptureMarketData(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) error`
-  - **shared** converter `func market.OrdersFromListings(stationID string, gameListings []game.MarketListing, source string, capturedAt time.Time) []market.Order` (lives in `pkg/market`, used by both `pkg/worker` and `pkg/agent` — `pkg/market` already imports `pkg/game`).
+  - `func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.Base, mc *market.Collector, source string) error`
+  - `func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base, mc *market.Collector, detectedBy string) error`
+  - `WorkerDispatch` gains field `Market *market.Collector`.
+  - **shared** converter `func market.OrdersFromListings(stationID string, gameListings []game.MarketListing, source string, capturedAt time.Time) []market.Order` (lives in `pkg/market`, used by `pkg/worker` here and `pkg/agent` in Task 6 — `pkg/market` already imports `pkg/game`).
+
+Success bar for this task: `go build ./...` and `go test ./...` both green. The knowledge `StoreMarketSnapshot`/`HasMarketSnapshotToday` methods still EXIST (removed in Task 7), so the untouched agent path keeps compiling.
 
 - [ ] **Step 1: Add a shared game→market order converter in `pkg/market` with a test**
 
@@ -781,24 +789,11 @@ with:
 
 Delete the now-unused `convertMarketListings` function (`capture.go:50-71`) and add `"github.com/rsned/spacemolt/pkg/market"` to imports.
 
-- [ ] **Step 4: Rewire `CaptureMarketData` (pkg/agent)**
+- [ ] **Step 4: Thread `mc` through the worker dispatch + callers**
 
-In `pkg/agent/market_capture.go`, change the signature to take `mc *market.Collector` instead of `kb knowledge.Base`, and build a `market.MarketSnapshot` written via `mc.WriteSnapshot`. Replace the `knowledge.MarketSnapshot{...}` construction (~line 59) and the store call with:
+Add a `Market *market.Collector` field to `WorkerDispatch` (`pkg/worker/dispatch.go`). In its `update_all`/`update_station` cases pass `d.Market` to `KBUpdateAll`/`KBUpdateStation`. In `cmd/worker/main.go`, open a `*market.Collector` from a `--market-db-path` flag (default `data/market.db`) and set it on the `WorkerDispatch`. In play_as, update the `kbUpdateAll`/`kbUpdateStation` wrapper(s) to pass `globalMarketCollector`.
 
-```go
-	now := time.Now().UTC()
-	snap := market.MarketSnapshot{
-		StationID: state.CurrentPOI, StationName: poiName,
-		SystemID: state.System.ID, SystemName: state.System.Name,
-		CapturedAt: now,
-		Orders:     market.OrdersFromListings(state.CurrentPOI, client.GetMarketListings(), "agent", now),
-	}
-	if err := mc.WriteSnapshot(ctx, snap); err != nil {
-		return fmt.Errorf("store market snapshot: %w", err)
-	}
-```
-
-Use the shared `market.OrdersFromListings` converter from Task 5 Step 1 (no per-package duplicate). Update imports (`pkg/market`), drop `knowledge` if no longer used in the file.
+(The agent writer `CaptureMarketData` is intentionally NOT changed here — it moves to Task 6 with the rest of the agent read+write chain, since its caller `RefreshMarketData` is a Task-6 reader. It keeps using `kb.StoreMarketSnapshot`, which still exists until Task 7, so the build stays green.)
 
 - [ ] **Step 5: Rewire auto-explorer writer + `HasSnapshotToday`**
 
@@ -822,8 +817,11 @@ git commit -m "refactor(market): rewire snapshot writers to market.Collector"
 **Files:**
 - Modify: `pkg/agentstate/agentstate.go` (struct + `New`/`NewWithAgent`), `pkg/agentstate/refresh.go:165-183`, `pkg/agentstate/accessors.go:186-192`
 - Modify: `pkg/agent/market_refresh.go:33-70`, `pkg/agent/market_analysis.go:39-189`
+- Modify: `pkg/agent/market_capture.go` (`CaptureMarketData` — moved here from Task 5; take `mc *market.Collector`, write the snapshot via `mc.WriteSnapshot` using `market.OrdersFromListings`, drop `kb.StoreMarketSnapshot`)
 - Modify: `cmd/auto-craftsman/profit_selector.go:33`, `cmd/auto-craftsman/main.go` (collector construction)
 - Modify: `pkg/unified/server.go:84` (pass collector to `agentstate.New`)
+
+**Whole agent chain moves together:** `RefreshMarketData` (reader) calls `CaptureMarketData` (writer) and is called by `profit_selector`. Rewire all three plus `market_analysis` and `agentstate` to `*market.Collector` in this task so the build stays green. The `CaptureMarketData` write uses the shared `market.OrdersFromListings` converter from Task 5.
 
 **Interfaces:**
 - Consumes: `market.GetLatestSnapshot`, `market.GetLatestAnalysis`, `market.FindBestPrices`, `market.StoreAnalysis`.
@@ -899,6 +897,12 @@ golangci-lint run ./pkg/agentstate/... ./pkg/agent/... ./pkg/unified/... ./cmd/a
 git add -A
 git commit -m "refactor(market): rewire snapshot/analysis/best-price readers to market.Collector"
 ```
+
+---
+
+### Task 6.5: Repoint cmd/tools/view-market at market.db (added during execution)
+
+Discovered during execution: `cmd/tools/view-market/main.go` (830 lines, 5 subcommands: latest/history/items/prices/arbitrage) reads the knowledge `market_snapshots`/`market_listings` tables via raw SQL and uses `knowledge.MarketListing`. After Tasks 5–6 nothing writes those tables, and Task 7 drops them + the type. User chose (2026-06-21) to **repoint** it at `market.db` rather than retire it. Must land BEFORE Task 7 so the build stays green. Full brief: `.superpowers/sdd/task-6.5-brief.md`. Self-contained (only this file + a new smoke test).
 
 ---
 

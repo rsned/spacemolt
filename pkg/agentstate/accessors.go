@@ -7,6 +7,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // --- Live game state accessors ---
@@ -183,12 +184,12 @@ func (s *AgentState) ResourceDepletion() []knowledge.DepletingResource {
 }
 
 // MarketSnapshot returns the latest market snapshot at the current station.
-func (s *AgentState) MarketSnapshot() *knowledge.MarketSnapshot {
+func (s *AgentState) MarketSnapshot() *market.MarketSnapshot {
 	return s.enriched.MarketSnapshot
 }
 
 // BestSellsForCargo returns the best sell opportunities for items in cargo.
-func (s *AgentState) BestSellsForCargo() []knowledge.BestPrice {
+func (s *AgentState) BestSellsForCargo() []market.BestPrice {
 	return s.enriched.NearbyBestSells
 }
 

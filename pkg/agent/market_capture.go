@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // ShouldCaptureMarket determines if market should be captured based on agent state
@@ -21,8 +21,8 @@ func ShouldCaptureMarket(state *game.State, agentStatus Status) bool {
 	return false
 }
 
-// CaptureMarketData fetches and stores market data
-func CaptureMarketData(ctx context.Context, client *game.Client, kb knowledge.Base, agentID string) error {
+// CaptureMarketData fetches and stores market data via the market collector.
+func CaptureMarketData(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) error {
 	// 1. Get listings from game
 	if err := client.GetListings(ctx); err != nil {
 		return fmt.Errorf("failed to get listings: %w", err)
@@ -34,7 +34,7 @@ func CaptureMarketData(ctx context.Context, client *game.Client, kb knowledge.Ba
 	// 3. Get the current state
 	state := client.GetState()
 
-	// 4. Create snapshot
+	// 4. Get listings
 	listings := client.GetMarketListings()
 	if len(listings) == 0 {
 		return fmt.Errorf("no listings received")
@@ -56,31 +56,18 @@ func CaptureMarketData(ctx context.Context, client *game.Client, kb knowledge.Ba
 		stationName = state.CurrentPOI
 	}
 
-	snapshot := knowledge.MarketSnapshot{
-		SystemID:    state.System.ID,
-		SystemName:  state.System.Name,
+	now := time.Now()
+	snapshot := market.MarketSnapshot{
 		StationID:   stationID,
 		StationName: stationName,
-		GameTick:    state.CurrentTick,
-		Listings:    make([]knowledge.MarketListing, len(listings)),
-		CapturedAt:  time.Now(),
+		SystemID:    state.System.ID,
+		SystemName:  state.System.Name,
+		CapturedAt:  now,
+		Orders:      market.OrdersFromListings(stationID, listings, "agent", now),
 	}
 
-	// Copy listings (convert from game.MarketListing to knowledge.MarketListing)
-	for i, l := range listings {
-		snapshot.Listings[i] = knowledge.MarketListing{
-			ItemID:       l.ItemID,
-			ItemType:     l.ItemType,
-			Quantity:     l.Quantity,
-			PricePerUnit: l.PricePerUnit,
-			TotalPrice:   l.TotalPrice,
-			Type:         l.Type,
-			ListedBy:     l.ListedBy,
-		}
-	}
-
-	// 5. Store in knowledge base
-	if err := kb.StoreMarketSnapshot(ctx, snapshot, agentID); err != nil {
+	// 5. Store via market collector
+	if err := mc.WriteSnapshot(ctx, snapshot); err != nil {
 		return fmt.Errorf("failed to store market snapshot: %w", err)
 	}
 

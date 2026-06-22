@@ -150,38 +150,6 @@ func (m *mockKB) RegisterAgent(ctx context.Context, agentID, name, role, faction
 	return nil
 }
 
-func (m *mockKB) StoreMarketSnapshot(ctx context.Context, snapshot knowledge.MarketSnapshot, agentID string) error {
-	return nil
-}
-
-func (m *mockKB) GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]knowledge.MarketSnapshot, error) {
-	return nil, nil
-}
-
-func (m *mockKB) GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*knowledge.MarketSnapshot, error) {
-	return nil, nil
-}
-
-func (m *mockKB) GetMarketItems(ctx context.Context, itemType string) ([]string, error) {
-	return nil, nil
-}
-
-func (m *mockKB) HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error) {
-	return false, nil
-}
-
-func (m *mockKB) StoreMarketAnalysis(ctx context.Context, analysis knowledge.MarketAnalysis, agentID string) error {
-	return nil
-}
-
-func (m *mockKB) GetLatestMarketAnalysis(ctx context.Context, systemID, stationID string) (*knowledge.MarketAnalysis, error) {
-	return nil, nil
-}
-
-func (m *mockKB) GetMarketAnalysisHistory(ctx context.Context, systemID, stationID string, limit int) ([]knowledge.MarketAnalysis, error) {
-	return nil, nil
-}
-
 func (m *mockKB) StoreShipListings(ctx context.Context, listings knowledge.ShipListings, agentID string) error {
 	return nil
 }
@@ -236,18 +204,6 @@ func (m *mockKB) GetAnomaliesByType(ctx context.Context, anomalyType, severity s
 
 func (m *mockKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status string) error {
 	return nil
-}
-
-func (m *mockKB) AnalyzePriceTrends(ctx context.Context, itemID, stationID string, windowHours int) (*knowledge.PriceTrend, error) {
-	return nil, nil
-}
-
-func (m *mockKB) FindBestPrices(ctx context.Context, itemID string, listingType string, limit int) ([]knowledge.BestPrice, error) {
-	return nil, nil
-}
-
-func (m *mockKB) GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]knowledge.PricePoint, error) {
-	return nil, nil
 }
 
 func (m *mockKB) RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error {

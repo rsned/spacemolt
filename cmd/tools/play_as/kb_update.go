@@ -128,7 +128,7 @@ func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
 // kbUpdateStation fetches base details, market listings, and ship listings at the
 // current station and saves them to the knowledge base.
 func kbUpdateStation(client game.GameClient, ctx context.Context) error {
-	return worker.KBUpdateStation(ctx, client, globalKB, "play_as")
+	return worker.KBUpdateStation(ctx, client, globalKB, globalMarketCollector, "play_as")
 }
 
 // kbUpdateFacilities fetches facility details via 'facility list' and saves enriched

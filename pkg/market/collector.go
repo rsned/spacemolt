@@ -25,7 +25,7 @@ type Config struct {
 // DefaultConfig returns sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		DBPath:       filepath.Join(os.Getenv("HOME"), "spacemolt", "spacemolt", "data", "market.db"),
+		DBPath:       filepath.Join("data", "market.db"),
 		WAL:          true,
 		MaxOpenConns: 25,
 		MaxIdleConns: 5,

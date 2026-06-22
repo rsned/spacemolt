@@ -84,3 +84,29 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
 
 CREATE INDEX IF NOT EXISTS idx_arbitrage_status ON arbitrage_opportunities(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_arbitrage_item ON arbitrage_opportunities(item_id, status);
+
+-- LLM market analysis (analyze_market output)
+CREATE TABLE IF NOT EXISTS analyses (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    station_id        TEXT NOT NULL,
+    station_name      TEXT,
+    system_id         TEXT,
+    system_name       TEXT,
+    game_tick         INTEGER NOT NULL,
+    captured_at       TEXT NOT NULL,
+    agent_id          TEXT,
+    mode              TEXT,
+    skill_level       INTEGER,
+    scanning_range    TEXT,
+    stations_in_range INTEGER,
+    items_scanned     INTEGER,
+    top_insights      TEXT,
+    total_items       INTEGER,
+    total_pages       INTEGER,
+    page              INTEGER,
+    hint              TEXT,
+    xp_gained         TEXT,
+    analysis_data     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_analyses_station_time ON analyses(station_id, captured_at);

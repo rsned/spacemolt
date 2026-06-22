@@ -19,9 +19,7 @@ type MemoryKB struct {
 	connections     map[string][]SystemConnection // from_system -> []to_system
 	experiences     map[string][]Experience       // agent_id -> experiences
 	agents          map[string]*AgentInfo
-	marketSnapshots []MarketSnapshot
-	marketItems     map[string]struct{} // set of unique item IDs
-	shipListings    []ShipListings
+	shipListings []ShipListings
 
 	// Catalog data
 	items       map[string]CatalogItem
@@ -66,9 +64,7 @@ func NewMemoryKB() *MemoryKB {
 		connections:      make(map[string][]SystemConnection),
 		experiences:      make(map[string][]Experience),
 		agents:           make(map[string]*AgentInfo),
-		marketSnapshots:  make([]MarketSnapshot, 0),
-		marketItems:      make(map[string]struct{}),
-		shipListings:     make([]ShipListings, 0),
+		shipListings: make([]ShipListings, 0),
 		items:            make(map[string]CatalogItem),
 		shipClasses:      make(map[string]ShipClassDef),
 		skills:           make(map[string]Skill),
@@ -589,161 +585,6 @@ type AgentInfo struct {
 	Status string
 }
 
-// StoreMarketSnapshot stores a market snapshot with its listings
-func (kb *MemoryKB) StoreMarketSnapshot(ctx context.Context, snapshot MarketSnapshot, agentID string) error {
-	kb.mu.Lock()
-	defer kb.mu.Unlock()
-
-	// Set capture time if not set
-	if snapshot.CapturedAt.IsZero() {
-		snapshot.CapturedAt = time.Now()
-	}
-
-	// Add snapshot to storage (keep most recent 1000)
-	kb.marketSnapshots = append(kb.marketSnapshots, snapshot)
-	if len(kb.marketSnapshots) > 1000 {
-		kb.marketSnapshots = kb.marketSnapshots[1:]
-	}
-
-	// Track unique items
-	for _, listing := range snapshot.Listings {
-		kb.marketItems[listing.ItemID] = struct{}{}
-	}
-
-	return nil
-}
-
-// GetMarketSnapshots retrieves historical market snapshots
-func (kb *MemoryKB) GetMarketSnapshots(ctx context.Context, systemID, stationID string, limit int) ([]MarketSnapshot, error) {
-	kb.mu.RLock()
-	defer kb.mu.RUnlock()
-
-	var result []MarketSnapshot
-	count := 0
-
-	// Iterate in reverse order (most recent first)
-	for i := len(kb.marketSnapshots) - 1; i >= 0; i-- {
-		snap := kb.marketSnapshots[i]
-		if snap.SystemID == systemID && snap.StationID == stationID {
-			result = append(result, snap)
-			count++
-			if count >= limit {
-				break
-			}
-		}
-	}
-
-	return result, nil
-}
-
-// GetLatestMarketSnapshot retrieves the most recent market snapshot
-func (kb *MemoryKB) GetLatestMarketSnapshot(ctx context.Context, systemID, stationID string) (*MarketSnapshot, error) {
-	kb.mu.RLock()
-	defer kb.mu.RUnlock()
-
-	// Search in reverse order (most recent first)
-	for i := len(kb.marketSnapshots) - 1; i >= 0; i-- {
-		snap := kb.marketSnapshots[i]
-		if snap.SystemID == systemID && snap.StationID == stationID {
-			return &snap, nil
-		}
-	}
-
-	return nil, nil // Not found
-}
-
-// GetMarketItems retrieves unique item IDs optionally filtered by type
-func (kb *MemoryKB) GetMarketItems(ctx context.Context, itemType string) ([]string, error) {
-	kb.mu.RLock()
-	defer kb.mu.RUnlock()
-
-	if itemType == "" {
-		// Return all unique items
-		items := make([]string, 0, len(kb.marketItems))
-		for itemID := range kb.marketItems {
-			items = append(items, itemID)
-		}
-		return items, nil
-	}
-
-	// Filter by type - need to scan snapshots
-	seen := make(map[string]struct{})
-	for _, snap := range kb.marketSnapshots {
-		for _, listing := range snap.Listings {
-			if listing.ItemType == itemType {
-				seen[listing.ItemID] = struct{}{}
-			}
-		}
-	}
-
-	items := make([]string, 0, len(seen))
-	for itemID := range seen {
-		items = append(items, itemID)
-	}
-	return items, nil
-}
-
-// Market analysis methods for in-memory KB
-var (
-	memMarketAnalyses []MarketAnalysis
-	memAnalysesMu     sync.RWMutex
-)
-
-func (kb *MemoryKB) StoreMarketAnalysis(ctx context.Context, analysis MarketAnalysis, agentID string) error {
-	memAnalysesMu.Lock()
-	defer memAnalysesMu.Unlock()
-
-	// Set capture time if not set
-	if analysis.CapturedAt.IsZero() {
-		analysis.CapturedAt = time.Now()
-	}
-
-	// Add to storage (keep most recent 100)
-	memMarketAnalyses = append(memMarketAnalyses, analysis)
-	if len(memMarketAnalyses) > 100 {
-		memMarketAnalyses = memMarketAnalyses[1:]
-	}
-
-	return nil
-}
-
-func (kb *MemoryKB) GetLatestMarketAnalysis(ctx context.Context, systemID, stationID string) (*MarketAnalysis, error) {
-	memAnalysesMu.RLock()
-	defer memAnalysesMu.RUnlock()
-
-	// Search in reverse order (most recent first)
-	for i := len(memMarketAnalyses) - 1; i >= 0; i-- {
-		analysis := memMarketAnalyses[i]
-		if analysis.SystemID == systemID && analysis.StationID == stationID {
-			return &analysis, nil
-		}
-	}
-
-	return nil, nil // Not found
-}
-
-func (kb *MemoryKB) GetMarketAnalysisHistory(ctx context.Context, systemID, stationID string, limit int) ([]MarketAnalysis, error) {
-	memAnalysesMu.RLock()
-	defer memAnalysesMu.RUnlock()
-
-	var result []MarketAnalysis
-	count := 0
-
-	// Iterate in reverse order (most recent first)
-	for i := len(memMarketAnalyses) - 1; i >= 0; i-- {
-		analysis := memMarketAnalyses[i]
-		if analysis.SystemID == systemID && analysis.StationID == stationID {
-			result = append(result, analysis)
-			count++
-			if count >= limit {
-				break
-			}
-		}
-	}
-
-	return result, nil
-}
-
 // Enhanced analytics methods - stub implementations for in-memory KB
 // These return "not implemented" errors as the in-memory KB is for testing only
 
@@ -787,18 +628,6 @@ func (kb *MemoryKB) ResolveAnomaly(ctx context.Context, anomalyID int64, status 
 	return fmt.Errorf("ResolveAnomaly not implemented for in-memory KB")
 }
 
-func (kb *MemoryKB) AnalyzePriceTrends(ctx context.Context, itemID, stationID string, windowHours int) (*PriceTrend, error) {
-	return nil, fmt.Errorf("AnalyzePriceTrends not implemented for in-memory KB")
-}
-
-func (kb *MemoryKB) FindBestPrices(ctx context.Context, itemID string, listingType string, limit int) ([]BestPrice, error) {
-	return nil, fmt.Errorf("FindBestPrices not implemented for in-memory KB")
-}
-
-func (kb *MemoryKB) GetPriceHistory(ctx context.Context, itemID, stationID string, limit int) ([]PricePoint, error) {
-	return nil, fmt.Errorf("GetPriceHistory not implemented for in-memory KB")
-}
-
 func (kb *MemoryKB) RecordHostileEncounter(ctx context.Context, systemID string, encounterType string, details string) error {
 	return fmt.Errorf("RecordHostileEncounter not implemented for in-memory KB")
 }
@@ -821,20 +650,6 @@ func (kb *MemoryKB) ImportKnowledge(ctx context.Context, exportData string) erro
 
 func (kb *MemoryKB) ListExports(ctx context.Context) ([]KnowledgeExportMeta, error) {
 	return nil, fmt.Errorf("ListExports not implemented for in-memory KB")
-}
-
-// HasMarketSnapshotToday checks if a market snapshot was captured today for a station
-func (kb *MemoryKB) HasMarketSnapshotToday(ctx context.Context, systemID, stationID string) (bool, error) {
-	kb.mu.RLock()
-	defer kb.mu.RUnlock()
-
-	today := time.Now().Format("2006-01-02")
-	for _, snap := range kb.marketSnapshots {
-		if snap.SystemID == systemID && snap.StationID == stationID && snap.CapturedAt.Format("2006-01-02") == today {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // StoreShipListings stores ship listings at a station

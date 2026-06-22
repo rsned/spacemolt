@@ -244,6 +244,13 @@ func TestIsBusyError(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigPathIsRelative(t *testing.T) {
+	got := DefaultConfig().DBPath
+	if got != "data/market.db" {
+		t.Errorf("DefaultConfig().DBPath = %q, want \"data/market.db\"", got)
+	}
+}
+
 // newTestCollector opens a Collector against an isolated temp-dir database.
 func newTestCollector(t *testing.T) *Collector {
 	t.Helper()

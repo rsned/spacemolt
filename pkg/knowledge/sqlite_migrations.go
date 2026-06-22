@@ -530,6 +530,16 @@ func migrations() []Migration {
 				CREATE INDEX idx_recipes_category ON recipes(category);
 			`,
 		},
+		{
+			version: 46,
+			name:    "drop_market_snapshot_tables",
+			sql: `
+				DROP TABLE IF EXISTS market_listings;
+				DROP TABLE IF EXISTS market_snapshots;
+				DROP TABLE IF EXISTS market_analyses;
+				DROP TABLE IF EXISTS price_trends;
+			`,
+		},
 	}
 }
 

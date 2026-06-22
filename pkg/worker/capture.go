@@ -9,6 +9,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // currentTick returns the best available game tick from the client state.
@@ -44,31 +45,6 @@ func extractConnections(conns []game.ConnectionInfo) []knowledge.SystemConnectio
 		}
 	}
 	return result
-}
-
-// convertMarketListings converts game market listings to a knowledge snapshot.
-func convertMarketListings(systemID, systemName, stationID, stationName string, gameTick int64, gameListings []game.MarketListing) knowledge.MarketSnapshot {
-	listings := make([]knowledge.MarketListing, len(gameListings))
-	for i, l := range gameListings {
-		listings[i] = knowledge.MarketListing{
-			ItemID:       l.ItemID,
-			ItemType:     l.ItemType,
-			Quantity:     l.Quantity,
-			PricePerUnit: l.PricePerUnit,
-			TotalPrice:   l.TotalPrice,
-			Type:         l.Type,
-			ListedBy:     l.ListedBy,
-		}
-	}
-
-	return knowledge.MarketSnapshot{
-		SystemID:    systemID,
-		SystemName:  systemName,
-		StationID:   stationID,
-		StationName: stationName,
-		GameTick:    gameTick,
-		Listings:    listings,
-	}
 }
 
 // extractShipListingsFromRaw parses a raw JSON response into ship listings.
@@ -440,7 +416,9 @@ func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base,
 // KBUpdateStation fetches base details, market listings, and ship listings at the
 // current station and saves them to the knowledge base. source is the tool tag
 // recorded as the origin of the captured data (e.g. "play_as" or "worker").
-func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.Base, source string) error {
+// mc is optional: when non-nil, the market snapshot is also written to the
+// market collector DB via mc.WriteSnapshot.
+func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.Base, mc *market.Collector, source string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")
 	}
@@ -495,11 +473,21 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 		time.Sleep(game.SleepQuick)
 
 		listings := client.GetMarketListings()
-		snapshot := convertMarketListings(systemID, systemName, poiID, poiName, currentTick(state), listings)
-		if err := kb.StoreMarketSnapshot(ctx, snapshot, source); err != nil {
-			fmt.Printf("Warning: failed to save market snapshot: %v\n", err)
-		} else {
-			fmt.Printf("Saved market snapshot: %d listings\n", len(listings))
+		if mc != nil {
+			now := time.Now().UTC()
+			snap := market.MarketSnapshot{
+				StationID:   poiID,
+				StationName: poiName,
+				SystemID:    systemID,
+				SystemName:  systemName,
+				CapturedAt:  now,
+				Orders:      market.OrdersFromListings(poiID, listings, source, now),
+			}
+			if err := mc.WriteSnapshot(ctx, snap); err != nil {
+				fmt.Printf("Warning: failed to save market snapshot: %v\n", err)
+			} else {
+				fmt.Printf("Saved market snapshot: %d listings\n", len(listings))
+			}
 		}
 	}
 
@@ -628,7 +616,8 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 // KBUpdateAll runs update_system, update_poi, and (if docked) update_station and
 // update_facilities. It does NOT run update_missions (that is play_as-specific).
 // detectedBy records which agent observed the system/POI data (provenance).
-func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
+// mc is optional: when non-nil, the market snapshot is written via the collector.
+func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base, mc *market.Collector, detectedBy string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")
 	}
@@ -642,7 +631,7 @@ func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base,
 
 	state := client.GetState()
 	if state.Doc {
-		if err := KBUpdateStation(ctx, client, kb, "worker"); err != nil {
+		if err := KBUpdateStation(ctx, client, kb, mc, "worker"); err != nil {
 			fmt.Printf("Warning: update_station: %v\n", err)
 		}
 		if err := KBUpdateFacilities(ctx, client, kb); err != nil {

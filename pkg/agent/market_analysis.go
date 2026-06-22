@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 const (
@@ -29,14 +29,14 @@ const (
 //
 // Usage example:
 //
-//	analysis, err := agent.RefreshMarketAnalysis(ctx, client, kb, "trader-1")
+//	analysis, err := agent.RefreshMarketAnalysis(ctx, client, mc, "trader-1")
 //	if err != nil {
 //	    return fmt.Errorf("failed to refresh market analysis: %w", err)
 //	}
 //	for _, insight := range analysis.TopInsights {
 //	    fmt.Printf("Insight: %v\n", insight)
 //	}
-func RefreshMarketAnalysis(ctx context.Context, client *game.Client, kb knowledge.Base, agentID string) (*knowledge.MarketAnalysis, error) {
+func RefreshMarketAnalysis(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) (*market.MarketAnalysis, error) {
 	state := client.GetState()
 
 	// Get current station info
@@ -45,8 +45,8 @@ func RefreshMarketAnalysis(ctx context.Context, client *game.Client, kb knowledg
 		return nil, fmt.Errorf("not at a station")
 	}
 
-	// Try to get latest analysis from knowledge base
-	analysis, err := kb.GetLatestMarketAnalysis(ctx, state.System.ID, stationID)
+	// Try to get latest analysis from market collector
+	analysis, err := mc.GetLatestAnalysis(ctx, stationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query market analysis: %w", err)
 	}
@@ -58,12 +58,12 @@ func RefreshMarketAnalysis(ctx context.Context, client *game.Client, kb knowledg
 	}
 
 	// Data is stale or doesn't exist, capture fresh analysis
-	if err := CaptureMarketAnalysis(ctx, client, kb, agentID); err != nil {
+	if err := CaptureMarketAnalysis(ctx, client, mc, agentID); err != nil {
 		return nil, fmt.Errorf("failed to capture market analysis: %w", err)
 	}
 
 	// Retrieve the freshly captured analysis
-	analysis, err = kb.GetLatestMarketAnalysis(ctx, state.System.ID, stationID)
+	analysis, err = mc.GetLatestAnalysis(ctx, stationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve fresh market analysis: %w", err)
 	}
@@ -75,8 +75,8 @@ func RefreshMarketAnalysis(ctx context.Context, client *game.Client, kb knowledg
 	return analysis, nil
 }
 
-// CaptureMarketAnalysis fetches and stores market analysis data
-func CaptureMarketAnalysis(ctx context.Context, client *game.Client, kb knowledge.Base, agentID string) error {
+// CaptureMarketAnalysis fetches and stores market analysis data via the market collector.
+func CaptureMarketAnalysis(ctx context.Context, client *game.Client, mc *market.Collector, agentID string) error {
 	// 1. Request market analysis from game
 	if err := client.AnalyzeMarket(ctx); err != nil {
 		return fmt.Errorf("failed to analyze market: %w", err)
@@ -157,18 +157,19 @@ func CaptureMarketAnalysis(ctx context.Context, client *game.Client, kb knowledg
 		return nil
 	}
 
-	// 6. Create analysis snapshot
-	analysis := knowledge.MarketAnalysis{
+	// 6. Create analysis record
+	analysis := market.MarketAnalysis{
 		SystemID:        state.System.ID,
 		SystemName:      state.System.Name,
 		StationID:       stationID,
 		StationName:     stationName,
 		GameTick:        state.CurrentTick,
 		CapturedAt:      time.Now(),
+		AgentID:         agentID,
 		Mode:            getString("mode"),
 		SkillLevel:      getInt("skill_level"),
 		ScanningRange:   getString("scanning_range"),
-		StationsInRange:  getInt("stations_in_range"),
+		StationsInRange: getInt("stations_in_range"),
 		ItemsScanned:    getInt("items_scanned"),
 		TopInsights:     getSlice("top_insights"),
 		TotalItems:      getInt("total_items"),
@@ -179,8 +180,8 @@ func CaptureMarketAnalysis(ctx context.Context, client *game.Client, kb knowledg
 		AnalysisData:    getMap("analysis"),
 	}
 
-	// 7. Store in knowledge base
-	if err := kb.StoreMarketAnalysis(ctx, analysis, agentID); err != nil {
+	// 7. Store via market collector
+	if err := mc.StoreAnalysis(ctx, analysis); err != nil {
 		return fmt.Errorf("failed to store market analysis: %w", err)
 	}
 
@@ -190,32 +191,4 @@ func CaptureMarketAnalysis(ctx context.Context, client *game.Client, kb knowledg
 // isMarketAnalysisFresh checks if market analysis is within the freshness threshold
 func isMarketAnalysisFresh(capturedAt time.Time) bool {
 	return time.Since(capturedAt) < MarketAnalysisFreshnessThreshold
-}
-
-// ShouldRefreshMarketAnalysis determines if market analysis should be refreshed based on age
-func ShouldRefreshMarketAnalysis(ctx context.Context, kb knowledge.Base, systemID, stationID string) (bool, error) {
-	analysis, err := kb.GetLatestMarketAnalysis(ctx, systemID, stationID)
-	if err != nil {
-		return false, fmt.Errorf("failed to query market analysis: %w", err)
-	}
-
-	if analysis == nil {
-		return true, nil // Doesn't exist, should refresh
-	}
-
-	return time.Since(analysis.CapturedAt) >= MarketAnalysisFreshnessThreshold, nil
-}
-
-// GetMarketAnalysisAge returns the age of the most recent market analysis
-func GetMarketAnalysisAge(ctx context.Context, kb knowledge.Base, systemID, stationID string) (time.Duration, bool, error) {
-	analysis, err := kb.GetLatestMarketAnalysis(ctx, systemID, stationID)
-	if err != nil {
-		return 0, false, fmt.Errorf("failed to query market analysis: %w", err)
-	}
-
-	if analysis == nil {
-		return 0, false, nil
-	}
-
-	return time.Since(analysis.CapturedAt), true, nil
 }

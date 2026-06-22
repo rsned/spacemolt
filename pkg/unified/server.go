@@ -15,6 +15,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/llm"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/monitor"
 	"github.com/rsned/spacemolt/pkg/observe"
 	"github.com/rsned/spacemolt/pkg/registry"
@@ -26,20 +27,21 @@ import (
 // Server is the unified spacemolt server that combines agent management,
 // the observer/frontend server, and shared resources.
 type Server struct {
-	config          Config
-	observer        *observe.ObserverServer
-	manager         *agent.Manager
-	strategies      *strategy.Registry
-	monitor         *monitor.Collector
-	teamCoordinator *team.TeamCoordinator
-	streams         *api.StreamManager
-	registry        *registry.Client
-	kb              knowledge.Base
-	llm             *llm.Client
-	creds           credentials.Provider
-	mux             *http.ServeMux
-	http            *http.Server
-	logger          *log.Logger
+	config            Config
+	observer          *observe.ObserverServer
+	manager           *agent.Manager
+	strategies        *strategy.Registry
+	monitor           *monitor.Collector
+	teamCoordinator   *team.TeamCoordinator
+	streams           *api.StreamManager
+	registry          *registry.Client
+	kb                knowledge.Base
+	marketCollector   *market.Collector
+	llm               *llm.Client
+	creds             credentials.Provider
+	mux               *http.ServeMux
+	http              *http.Server
+	logger            *log.Logger
 }
 
 // New creates a new unified server from the given config.
@@ -69,6 +71,15 @@ func New(cfg Config) (*Server, error) {
 	}
 	logger.Printf("LLM client initialized (%s @ %s)", cfg.LLM.Model, cfg.LLM.URL)
 
+	// Initialize market collector (non-fatal: log warning on error).
+	mc, mcErr := market.Open(market.DefaultConfig())
+	if mcErr != nil {
+		logger.Printf("warning: market collector unavailable (%v); market enrichment disabled", mcErr)
+		mc = nil
+	} else {
+		logger.Printf("market collector initialized (%s)", market.DefaultConfig().DBPath)
+	}
+
 	// Create observer server.
 	obs := observe.NewObserverServer(creds, kb, cfg.Game.ServerURL, logger)
 
@@ -81,7 +92,7 @@ func New(cfg Config) (*Server, error) {
 	managerCfg.Transport = cfg.Game.Transport
 	managerCfg.DebugLogger = logger
 	managerCfg.EnrichedStateFactory = func(state *game.State, kb knowledge.Base) agent.EnrichedState {
-		return agentstate.New(state, kb)
+		return agentstate.New(state, kb, mc)
 	}
 
 	mgr := agent.NewManager(kb, llmClient, creds, managerCfg)
@@ -170,6 +181,7 @@ func New(cfg Config) (*Server, error) {
 		teamCoordinator: tc,
 		streams:         api.NewStreamManager(),
 		kb:              kb,
+		marketCollector: mc,
 		llm:             llmClient,
 		creds:           creds,
 		mux:             mux,
@@ -291,6 +303,13 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Close knowledge base.
 	if err := s.kb.Close(); err != nil {
 		s.logger.Printf("knowledge base close error: %v", err)
+	}
+
+	// Close market collector.
+	if s.marketCollector != nil {
+		if err := s.marketCollector.Close(); err != nil {
+			s.logger.Printf("market collector close error: %v", err)
+		}
 	}
 
 	s.logger.Println("unified server stopped")

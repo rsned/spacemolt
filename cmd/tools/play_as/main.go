@@ -69,10 +69,9 @@ var globalAgentID string
 // The seen_factions command uses it to seed the factions table on demand.
 var globalFactionBackfiller *faction.FactionBackfiller
 
-// globalMarketCollector is the lazily-opened market DB connection used by the
-// update_market command. Opened on first use; reused thereafter. Left open for
-// the process lifetime (the OS reclaims the handle on exit — play_as has no
-// shared cleanup path for similar lazily-opened resources).
+// globalMarketCollector is the market DB connection used by the update_market
+// command. Constructed once at startup from the --market-db-path flag; nil if
+// the flag was empty or the open failed.
 var globalMarketCollector *market.Collector
 
 // Output format for server responses.
@@ -90,6 +89,7 @@ func main() {
 	configPath := flag.String("config", defaultConfigPath(), "Path to config file")
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
+	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to the separate market database")
 	intelDir := flag.String("intel-dir", "data/intel", "Base directory for per-POI get_poi intel dumps (<intel-dir>/<system_id>/<system_id>___<poi_id>.json); empty to disable")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")
@@ -233,6 +233,17 @@ func main() {
 				agent.WirePassengerObserver(c, sqliteKB)
 				logger.Printf("Player-sightings recording + faction backfill + passenger catalog enabled")
 			}
+		}
+	}
+
+	// Initialize market collector once from --market-db-path flag.
+	if *marketDBPath != "" {
+		mc, err := market.Open(market.Config{DBPath: *marketDBPath, WAL: true})
+		if err != nil {
+			logger.Printf("Warning: failed to open market db at %s: %v", *marketDBPath, err)
+		} else {
+			globalMarketCollector = mc
+			logger.Printf("Market database loaded: %s", *marketDBPath)
 		}
 	}
 
@@ -6127,19 +6138,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return err
 
 	case "update_market":
-		// Capture the current station's full market into the market DB
-		// (data/market.db). Lazily opens the collector on first use; reused
-		// thereafter. CaptureFromClient no-ops when not docked at a station or
-		// when there is no cached market payload, so it is safe to run anywhere.
 		if globalMarketCollector == nil {
-			c, openErr := market.Open(market.DefaultConfig())
-			if openErr != nil {
-				return fmt.Errorf("update_market: open market db: %w", openErr)
-			}
-			globalMarketCollector = c
+			return fmt.Errorf("update_market: market db not configured (set --market-db-path)")
 		}
-		// Fetch the full (unfiltered) order book so the client caches the raw
-		// market payload that CaptureFromClient reads back.
 		if err := simpleCommand(client, func(ctx context.Context) error {
 			return client.ViewMarket(ctx, nil)
 		}, ctx, 2*time.Second, cmd, format); err != nil {

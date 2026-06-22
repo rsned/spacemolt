@@ -8,14 +8,14 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/agent"
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // ProfitBasedRecipeSelector selects recipes based on market profitability
 // It analyzes current market buy listings to determine which crafted items
 // will generate the most profit when sold, prioritizing high-margin items.
 // Falls back to DefaultRecipeSelector if market data is unavailable.
-func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
+func ProfitBasedRecipeSelector(mc *market.Collector) game.RecipeSelector {
 	return func(client game.GameClient, logger *log.Logger, ctx context.Context, storage game.StorageManager) ([]string, error) {
 		state := client.GetState()
 
@@ -26,11 +26,11 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			logger.Printf("Warning: ProfitBasedRecipeSelector requires WS client for market refresh, falling back to default")
 			return game.DefaultRecipeSelector(client, logger, ctx, storage)
 		}
-		snapshot, err := agent.RefreshMarketData(ctx, wsClient, kb, state.Player.Username)
+		snapshot, err := agent.RefreshMarketData(ctx, wsClient, mc, state.Player.Username)
 		if err != nil {
 			logger.Printf("Warning: Failed to refresh market data: %v (trying cached data)", err)
 			// Try to get cached data anyway
-			snapshot, err = kb.GetLatestMarketSnapshot(ctx, state.System.ID, state.CurrentPOI)
+			snapshot, err = mc.GetLatestSnapshot(ctx, state.CurrentPOI)
 			if err != nil || snapshot == nil {
 				logger.Printf("Warning: No market data available, falling back to default recipe selection")
 				// Fall back to default recipe selector
@@ -43,10 +43,10 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			return game.DefaultRecipeSelector(client, logger, ctx, storage)
 		}
 
-		// Get current market listings
-		listings := snapshot.Listings
-		if len(listings) == 0 {
-			return nil, fmt.Errorf("no market listings available")
+		// Get current market orders
+		orders := snapshot.Orders
+		if len(orders) == 0 {
+			return nil, fmt.Errorf("no market orders available")
 		}
 
 		// Build a map of available resources (cargo + storage)
@@ -72,11 +72,11 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 
 		// Score each recipe based on profitability
 		type recipeScore struct {
-			recipeID    string
-			profit      float64
-			marginPct   float64
+			recipeID     string
+			profit       float64
+			marginPct    float64
 			materialCost float64
-			sellPrice   float64
+			sellPrice    float64
 		}
 
 		var scoredRecipes []recipeScore
@@ -108,7 +108,7 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 					break
 				}
 				// We'll buy materials at the lowest buy price
-				cost := getBuyPrice(listings, material.itemID, material.quantity)
+				cost := getBuyPrice(orders, material.itemID, material.quantity)
 				materialCost += cost
 			}
 
@@ -117,7 +117,7 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			}
 
 			// Get sell price for crafted item
-			sellPrice := getSellPrice(listings, recipe.outputItemID, recipe.outputQuantity)
+			sellPrice := getSellPrice(orders, recipe.outputItemID, recipe.outputQuantity)
 			if sellPrice == 0 {
 				logger.Printf("   ✗ %s: no market data for output %s", recipe.recipeID, recipe.outputItemID)
 				continue // No market data for this item
@@ -132,11 +132,11 @@ func ProfitBasedRecipeSelector(kb knowledge.Base) game.RecipeSelector {
 			// Only consider profitable recipes with decent margin (> 5%)
 			if profit > 0 && marginPct > 5 {
 				scoredRecipes = append(scoredRecipes, recipeScore{
-					recipeID:    recipe.recipeID,
-					profit:      profit,
-					marginPct:   marginPct,
+					recipeID:     recipe.recipeID,
+					profit:       profit,
+					marginPct:    marginPct,
 					materialCost: materialCost,
-					sellPrice:   sellPrice,
+					sellPrice:    sellPrice,
 				})
 			}
 		}
@@ -250,15 +250,15 @@ func getProfitableRecipes() []profitableRecipe {
 }
 
 // getBuyPrice finds the lowest buy price for an item (what we pay to buy materials)
-func getBuyPrice(listings []knowledge.MarketListing, itemID string, quantity float64) float64 {
+func getBuyPrice(orders []market.Order, itemID string, quantity float64) float64 {
 	var bestPrice float64
 	found := false
 
-	for _, listing := range listings {
-		// We buy from sell listings (others selling to us)
-		if listing.Type == "sell" && listing.ItemID == itemID {
-			if !found || listing.PricePerUnit < bestPrice {
-				bestPrice = listing.PricePerUnit
+	for _, o := range orders {
+		// We buy from sell orders (others selling to us)
+		if o.Side == "sell" && o.ItemID == itemID {
+			if !found || o.PriceEach < bestPrice {
+				bestPrice = o.PriceEach
 				found = true
 			}
 		}
@@ -272,15 +272,15 @@ func getBuyPrice(listings []knowledge.MarketListing, itemID string, quantity flo
 }
 
 // getSellPrice finds the highest buy price for an item (what we earn when selling)
-func getSellPrice(listings []knowledge.MarketListing, itemID string, quantity float64) float64 {
+func getSellPrice(orders []market.Order, itemID string, quantity float64) float64 {
 	var bestPrice float64
 	found := false
 
-	for _, listing := range listings {
-		// We sell to buy listings (others buying from us)
-		if listing.Type == "buy" && listing.ItemID == itemID {
-			if !found || listing.PricePerUnit > bestPrice {
-				bestPrice = listing.PricePerUnit
+	for _, o := range orders {
+		// We sell to buy orders (others buying from us)
+		if o.Side == "buy" && o.ItemID == itemID {
+			if !found || o.PriceEach > bestPrice {
+				bestPrice = o.PriceEach
 				found = true
 			}
 		}

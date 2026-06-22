@@ -24,6 +24,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/overmind/checkpoint"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
 	"github.com/rsned/spacemolt/pkg/worker"
@@ -37,6 +38,7 @@ func main() {
 	dbPath := flag.String("db-path", "", "Path to checkpoint DB (default: data/agents/<agent>/checkpoint.db)")
 	rolesPath := flag.String("roles", filepath.Join("data", "overmind", "roles.yaml"), "Path to roles config")
 	kbPath := flag.String("kb-path", filepath.Join("data", "spacemolt-knowledge.db"), "Path to shared knowledge base")
+	marketDBPath := flag.String("market-db-path", filepath.Join("data", "market.db"), "Path to market collector database")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -228,6 +230,15 @@ func main() {
 			defer func() { _ = sqliteKB.Close() }()
 		}
 
+		// ── Step 6b2: Open market collector (best-effort) ───────────────────
+		var mc *market.Collector
+		if mktColl, mktErr := market.Open(market.Config{DBPath: *marketDBPath, WAL: true}); mktErr != nil {
+			logger.Printf("warning: open market DB %s: %v (market snapshots disabled)", *marketDBPath, mktErr)
+		} else {
+			mc = mktColl
+			defer func() { _ = mktColl.Close() }()
+		}
+
 		// ── Step 6c: Standing behavior ───────────────────────────────────────
 		roles, rolesErr := worker.LoadRoles(*rolesPath)
 		if rolesErr != nil {
@@ -235,7 +246,7 @@ func main() {
 		}
 		roleCfg, haveRole := roles[*role]
 		if haveRole {
-			dispatch := worker.NewWorkerDispatch(client, kb, os.Stdout)
+			dispatch := worker.NewWorkerDispatch(client, kb, mc, os.Stdout)
 			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)
