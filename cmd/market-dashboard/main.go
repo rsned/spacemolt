@@ -37,6 +37,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/stats", srv.statsHandler)
 	mux.HandleFunc("GET /api/matrix", srv.matrixHandler)
+	mux.HandleFunc("GET /api/station/{id}/orders", srv.stationOrdersHandler)
+	mux.HandleFunc("GET /api/item/{id}/history", srv.itemHistoryHandler)
+	mux.HandleFunc("GET /api/captures", srv.capturesHandler)
 	mux.Handle("GET /", http.FileServer(http.FS(sub)))
 
 	log.Printf("market-dashboard: serving %s on %s", *dbPath, *addr)

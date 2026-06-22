@@ -54,3 +54,56 @@ func TestMatrixHandlerEmpty(t *testing.T) {
 		t.Errorf("expected empty matrix, got %+v", m)
 	}
 }
+
+func TestStationOrdersHandler_Absent(t *testing.T) {
+	srv, _ := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/station/nope/orders", nil)
+	req.SetPathValue("id", "nope")
+	rec := httptest.NewRecorder()
+	srv.stationOrdersHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var orders []market.Order
+	if err := json.Unmarshal(rec.Body.Bytes(), &orders); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(orders) != 0 {
+		t.Errorf("orders = %d, want 0", len(orders))
+	}
+}
+
+func TestItemHistoryHandler_Absent(t *testing.T) {
+	srv, _ := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/item/nope/history", nil)
+	req.SetPathValue("id", "nope")
+	rec := httptest.NewRecorder()
+	srv.itemHistoryHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var pts []market.ItemPricePoint
+	if err := json.Unmarshal(rec.Body.Bytes(), &pts); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(pts) != 0 {
+		t.Errorf("points = %d, want 0", len(pts))
+	}
+}
+
+func TestCapturesHandlerEmpty(t *testing.T) {
+	srv, _ := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/captures", nil)
+	rec := httptest.NewRecorder()
+	srv.capturesHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var health []market.StationCaptures
+	if err := json.Unmarshal(rec.Body.Bytes(), &health); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(health) != 0 {
+		t.Errorf("health = %d, want 0", len(health))
+	}
+}
