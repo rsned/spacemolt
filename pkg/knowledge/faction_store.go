@@ -3,9 +3,28 @@ package knowledge
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
+
+// FactionTag returns the tag recorded for a faction and ok=true, or
+// ("", false, nil) when the faction is unknown or has no tag stored. Used for
+// cheap id→tag display lookups without loading the full faction view.
+func (kb *SQLiteKB) FactionTag(ctx context.Context, factionID string) (string, bool, error) {
+	var tag sql.NullString
+	err := kb.db.QueryRowContext(ctx, `SELECT tag FROM factions WHERE faction_id = ?`, factionID).Scan(&tag)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("faction tag: %w", err)
+	}
+	if !tag.Valid || tag.String == "" {
+		return "", false, nil
+	}
+	return tag.String, true, nil
+}
 
 // FactionCapturedAt returns the captured_utc of a stored faction header and
 // whether a row exists. A missing faction yields (zero, false, nil) — not an

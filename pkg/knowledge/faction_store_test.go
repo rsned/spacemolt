@@ -132,6 +132,24 @@ func TestFactionCapturedAt(t *testing.T) {
 	}
 }
 
+func TestFactionTag(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+	if err := kb.StoreFaction(ctx, FactionRecord{FactionID: "f1", Name: "Crafters Union", Tag: "CRFT", CapturedAt: time.Now()}); err != nil {
+		t.Fatalf("StoreFaction: %v", err)
+	}
+
+	tag, ok, err := kb.FactionTag(ctx, "f1")
+	if err != nil || !ok || tag != "CRFT" {
+		t.Fatalf("FactionTag(f1) = %q, %v, %v; want \"CRFT\", true, nil", tag, ok, err)
+	}
+
+	tag, ok, err = kb.FactionTag(ctx, "unknown")
+	if err != nil || ok || tag != "" {
+		t.Fatalf("FactionTag(unknown) = %q, %v, %v; want \"\", false, nil", tag, ok, err)
+	}
+}
+
 func TestUpsertFactionListEntry(t *testing.T) {
 	kb := newTestKB(t)
 	ctx := context.Background()
