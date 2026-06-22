@@ -15,7 +15,6 @@ type ToolType string
 const (
 	ToolTypeAgentServer  ToolType = "agent-server"
 	ToolTypeAutoExplorer ToolType = "auto-explorer"
-	ToolTypeAutoMiner    ToolType = "auto-miner"
 	ToolTypePlayAs       ToolType = "play-as"
 )
 
