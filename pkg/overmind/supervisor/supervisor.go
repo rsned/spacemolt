@@ -173,20 +173,56 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 		healthy[w.AgentID] = w
 	}
 	for _, spec := range s.specs {
-		w, seen := healthy[spec.AgentID]
-		if !seen || NeedsRestart(w, now, s.SilenceTimeout) {
-			if s.restarts[spec.AgentID] >= s.MaxRestarts {
-				continue
-			}
-			s.restarts[spec.AgentID]++
-			s.logger.Printf("restarting worker %q (seen=%v)", spec.AgentID, seen)
-			s.fleet.MarkRestart(spec.AgentID)
-			s.launch(ctx, spec)
-		} else {
-			// Worker is connected and healthy — clear its crash-loop counter so
-			// MaxRestarts bounds restarts-per-incident, not lifetime restarts.
-			delete(s.restarts, spec.AgentID)
+		proc := procSnapshot(s, spec.AgentID)
+
+		// No process tracked: never launched, or fully reaped earlier.
+		if proc == nil {
+			s.tryRestart(ctx, spec, false)
+			continue
 		}
+
+		if proc.alive() {
+			w, seen := healthy[spec.AgentID]
+			switch {
+			case seen && NeedsRestart(w, now, s.SilenceTimeout):
+				// Established worker whose heartbeat went silent: hung.
+				s.kill(proc)
+				s.tryRestart(ctx, spec, true)
+			case !seen && now.Sub(proc.launchedAt) > s.BootTimeout:
+				// Alive but never sent Hello within the boot window: wedged.
+				s.kill(proc)
+				s.tryRestart(ctx, spec, true)
+			case seen && w.Healthy:
+				// Healthy: clear the crash-loop counter so MaxRestarts bounds
+				// restarts-per-incident, not lifetime restarts.
+				delete(s.restarts, spec.AgentID)
+			default:
+				// Still booting (alive, no Hello yet, within BootTimeout): leave it.
+			}
+			continue
+		}
+
+		// Process has exited: respawn (subject to the crash-loop cap).
+		s.tryRestart(ctx, spec, false)
 	}
+}
+
+// procSnapshot returns the tracked proc for an agent under the registry lock.
+func procSnapshot(s *Supervisor, agentID string) *workerProc {
+	s.procMu.Lock()
+	defer s.procMu.Unlock()
+	return s.procs[agentID]
+}
+
+// tryRestart relaunches spec unless the crash-loop cap is reached. killed marks
+// whether a live process was just terminated (for the log line).
+func (s *Supervisor) tryRestart(ctx context.Context, spec WorkerSpec, killed bool) {
+	if s.restarts[spec.AgentID] >= s.MaxRestarts {
+		return
+	}
+	s.restarts[spec.AgentID]++
+	s.fleet.MarkRestart(spec.AgentID)
+	s.logger.Printf("restarting worker %q (killed=%v, restart #%d)", spec.AgentID, killed, s.restarts[spec.AgentID])
+	s.launch(ctx, spec)
 }
 
