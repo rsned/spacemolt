@@ -101,6 +101,11 @@ func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, err
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	for _, t := range s.tasks {
+		if t.Frequency == freq && t.Command == command {
+			return ScheduledTask{}, fmt.Errorf("duplicate of scheduled task #%d (%s): %s", t.ID, freq, command)
+		}
+	}
 	task := ScheduledTask{
 		ID:        s.nextIDLocked(),
 		Frequency: freq,

@@ -132,6 +132,39 @@ func TestSchedulerAddValidatesFrequency(t *testing.T) {
 	}
 }
 
+func TestSchedulerAddRejectsDuplicates(t *testing.T) {
+	s := newTestScheduler(t)
+	now := time.Date(2026, 5, 28, 14, 0, 0, 0, time.UTC)
+
+	if _, err := s.Add("hourly", "update_market", now); err != nil {
+		t.Fatalf("first Add: %v", err)
+	}
+
+	// Same freq + same command is a complete duplicate -> rejected.
+	if _, err := s.Add("hourly", "update_market", now); err == nil {
+		t.Fatal("duplicate Add should error")
+	}
+	// Normalization: surrounding whitespace and frequency case don't matter.
+	if _, err := s.Add("HOURLY", "  update_market  ", now); err == nil {
+		t.Fatal("duplicate Add (after normalization) should error")
+	}
+	if len(s.List()) != 1 {
+		t.Fatalf("duplicates should not be stored, got %d tasks", len(s.List()))
+	}
+
+	// Same command at a different frequency is NOT a duplicate.
+	if _, err := s.Add("daily", "update_market", now); err != nil {
+		t.Fatalf("same command different freq should be allowed: %v", err)
+	}
+	// Different command at the same frequency is NOT a duplicate.
+	if _, err := s.Add("hourly", "get_nearby", now); err != nil {
+		t.Fatalf("different command same freq should be allowed: %v", err)
+	}
+	if len(s.List()) != 3 {
+		t.Fatalf("want 3 distinct tasks, got %d", len(s.List()))
+	}
+}
+
 func newTestScheduler(t *testing.T) *Scheduler {
 	t.Helper()
 	s, err := LoadScheduler(filepath.Join(t.TempDir(), "scheduled_commands.json"))
