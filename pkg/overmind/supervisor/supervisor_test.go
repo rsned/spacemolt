@@ -108,6 +108,62 @@ func TestLaunchTracksLiveProcess(t *testing.T) {
 	}
 }
 
+func TestKillGracefulOnSigterm(t *testing.T) {
+	// A plain `sleep` dies on SIGTERM, so kill should return well before grace.
+	spawn := func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
+		cmd := exec.CommandContext(ctx, "sleep", "60")
+		return cmd, cmd.Start()
+	}
+	sup := NewSupervisor(nil, NewFleet(), []WorkerSpec{{AgentID: "g"}}, spawn, log.New(io.Discard, "", 0))
+	sup.KillGrace = 5 * time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sup.launch(ctx, WorkerSpec{AgentID: "g"})
+
+	sup.procMu.Lock()
+	p := sup.procs["g"]
+	sup.procMu.Unlock()
+
+	start := time.Now()
+	sup.kill(p)
+	if p.alive() {
+		t.Fatal("process should be dead after kill")
+	}
+	if elapsed := time.Since(start); elapsed >= sup.KillGrace {
+		t.Fatalf("SIGTERM-respecting process should die before grace, took %v", elapsed)
+	}
+}
+
+func TestKillEscalatesToSigkill(t *testing.T) {
+	// This child ignores SIGTERM, so kill must escalate to SIGKILL after grace.
+	spawn := func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
+		cmd := exec.CommandContext(ctx, "sh", "-c", `trap "" TERM; sleep 60`)
+		return cmd, cmd.Start()
+	}
+	sup := NewSupervisor(nil, NewFleet(), []WorkerSpec{{AgentID: "k"}}, spawn, log.New(io.Discard, "", 0))
+	sup.KillGrace = 200 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sup.launch(ctx, WorkerSpec{AgentID: "k"})
+	// Allow the shell process a moment to install the SIGTERM trap before we
+	// send SIGTERM; without this the signal may arrive before 'trap "" TERM'
+	// runs and the shell would exit immediately, making the test racy.
+	time.Sleep(20 * time.Millisecond)
+
+	sup.procMu.Lock()
+	p := sup.procs["k"]
+	sup.procMu.Unlock()
+
+	start := time.Now()
+	sup.kill(p)
+	if p.alive() {
+		t.Fatal("process should be dead after SIGKILL escalation")
+	}
+	if elapsed := time.Since(start); elapsed < sup.KillGrace {
+		t.Fatalf("escalation should wait at least KillGrace, took %v", elapsed)
+	}
+}
+
 func TestSupervisorSpawnsEachSpecOnce(t *testing.T) {
 	specs := []WorkerSpec{{AgentID: "a"}, {AgentID: "b"}}
 	var spawned atomic.Int32

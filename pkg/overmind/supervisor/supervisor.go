@@ -6,6 +6,7 @@ import (
 	"log"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -146,6 +147,23 @@ func (s *Supervisor) launch(ctx context.Context, spec WorkerSpec) {
 		proc.cancel()
 		close(proc.exited)
 	}()
+}
+
+// kill terminates a live worker: SIGTERM first (the worker checkpoints and
+// exits on it), escalating to SIGKILL via ctx cancel if it does not exit
+// within KillGrace. Returns only once the process has actually exited, so the
+// caller can safely respawn without two processes for one agent.
+func (s *Supervisor) kill(p *workerProc) {
+	if p.cmd.Process != nil {
+		_ = p.cmd.Process.Signal(syscall.SIGTERM)
+	}
+	select {
+	case <-p.exited:
+		// Exited cleanly within the grace window.
+	case <-time.After(s.KillGrace):
+		p.cancel() // ctx cancel -> SIGKILL via exec.CommandContext
+		<-p.exited
+	}
 }
 
 func (s *Supervisor) reapAndRestart(ctx context.Context) {
