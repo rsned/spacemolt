@@ -11,6 +11,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // explore visits all POIs in the current system in distance-optimized order,
@@ -85,7 +86,7 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 		}
 		fmt.Printf("  %s\n", strings.Repeat("-", 71))
 		fmt.Printf("  %-48s %9.1f %9d\n", "Total", totalDist, totalTicks)
-		fmt.Printf("\n  Est. time: ~%s (* = station, will dock for full update)\n\n", formatDuration(totalTicks*10))
+		fmt.Printf("\n  Est. time: ~%s (* = station, will dock for full update)\n\n", worker.FormatDuration(totalTicks*10))
 	}
 
 	// Execute the route.
@@ -211,7 +212,7 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	elapsed := time.Since(startTime)
 	if format == formatStyled {
 		fmt.Printf("\nExploration of %s complete: %d POIs in %s\n",
-			state.System.Name, len(route), formatDuration(int(elapsed.Seconds())))
+			state.System.Name, len(route), worker.FormatDuration(int(elapsed.Seconds())))
 	} else {
 		// Print all collected raw responses
 		for i, raw := range allResponses {
