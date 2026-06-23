@@ -1,6 +1,7 @@
 const app = document.getElementById('app');
 const statsEl = document.getElementById('stats');
 let view = 'matrix';
+let page = 1; // current matrix page (1-based); reset to 1 on category/search change
 
 const fmt = (n) => (n == null || Number.isNaN(n)) ? '—' : Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 function relTime(ts) {
@@ -41,7 +42,7 @@ async function loadCategories() {
 async function renderMatrix() {
   const cat = document.getElementById('category').value;
   const q = document.getElementById('search').value;
-  const params = new URLSearchParams({ category: cat, q, page: '1', limit: '50' });
+  const params = new URLSearchParams({ category: cat, q, page: String(page), limit: '50' });
   try {
     const m = await getJSON('/api/matrix?' + params);
     if (!m.items.length) { app.innerHTML = '<p>No items match.</p>'; renderPager(0, 0, 50); return; }
@@ -61,9 +62,24 @@ async function renderMatrix() {
   } catch (e) { showError(e); }
 }
 
-function renderPager(page, total, limit) {
+function renderPager(currentPage, total, limit) {
   const pages = Math.ceil(total / limit);
-  document.getElementById('pager').textContent = pages > 1 ? `page ${page}/${pages} · ${total} items` : `${total} items`;
+  const pager = document.getElementById('pager');
+  if (pages <= 1) { pager.textContent = `${total} items`; return; }
+  pager.innerHTML = '';
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.textContent = '‹ Prev';
+  prev.disabled = currentPage <= 1;
+  const info = document.createElement('span');
+  info.textContent = ` page ${currentPage}/${pages} · ${total} items `;
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.textContent = 'Next ›';
+  next.disabled = currentPage >= pages;
+  prev.addEventListener('click', () => { if (page > 1) { page--; renderMatrix(); } });
+  next.addEventListener('click', () => { if (page < pages) { page++; renderMatrix(); } });
+  pager.append(prev, info, next);
 }
 
 async function openCell(item, station) {
@@ -116,8 +132,8 @@ function showView(v) {
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
 document.getElementById('refresh').addEventListener('click', () => { loadStats(); showView(view); });
-document.getElementById('category').addEventListener('change', renderMatrix);
-document.getElementById('search').addEventListener('input', debounce(renderMatrix, 300));
+document.getElementById('category').addEventListener('change', () => { page = 1; renderMatrix(); });
+document.getElementById('search').addEventListener('input', debounce(() => { page = 1; renderMatrix(); }, 300));
 document.getElementById('price-go').addEventListener('click', renderPrice);
 document.getElementById('price-item').addEventListener('keydown', e => { if (e.key === 'Enter') renderPrice(); });
 document.getElementById('cell-close').addEventListener('click', () => document.getElementById('cell-dialog').close());
