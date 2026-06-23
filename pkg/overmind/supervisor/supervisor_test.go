@@ -74,6 +74,40 @@ func TestReapAndRestartCounterResetsOnHealthy(t *testing.T) {
 	}
 }
 
+func TestLaunchTracksLiveProcess(t *testing.T) {
+	specs := []WorkerSpec{{AgentID: "w1"}}
+	spawn := func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
+		cmd := exec.CommandContext(ctx, "sleep", "60")
+		return cmd, cmd.Start()
+	}
+	sup := NewSupervisor(nil, NewFleet(), specs, spawn, log.New(io.Discard, "", 0))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+
+	sup.procMu.Lock()
+	p := sup.procs["w1"]
+	sup.procMu.Unlock()
+	if p == nil {
+		t.Fatal("launch did not register a workerProc")
+	}
+	if !p.alive() {
+		t.Fatal("freshly launched process should be alive")
+	}
+
+	// Killing the process must close exited and flip alive().
+	_ = p.cmd.Process.Kill()
+	select {
+	case <-p.exited:
+	case <-time.After(2 * time.Second):
+		t.Fatal("exited channel not closed after process death")
+	}
+	if p.alive() {
+		t.Fatal("alive() should be false after process exit")
+	}
+}
+
 func TestSupervisorSpawnsEachSpecOnce(t *testing.T) {
 	specs := []WorkerSpec{{AgentID: "a"}, {AgentID: "b"}}
 	var spawned atomic.Int32
