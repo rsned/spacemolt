@@ -132,7 +132,7 @@ Read-only end to end. No writes, no game connection.
 ## Error Handling
 
 - `pkg/market` read methods return empty slices / `(*Matrix=nil, nil)` when no data exists (matches existing `GetLatestSnapshot` semantics).
-- Handlers return `200` with an empty `items: []` for no-match filters; `404` for an unknown `station_id` / `item_id` on the detail endpoints.
+- Handlers return `200` with an empty array (`items: []`, `[]`, …) for no-match filters **and** for an unknown `station_id` / `item_id` on the detail endpoints — the client treats both cases uniformly (render the empty state), so a 404 distinction adds no value.
 - Collector open failure at startup is fatal (fail fast, like `market-stats`).
 - UI renders explicit empty states ("no captures yet", "no items match").
 
@@ -140,7 +140,7 @@ Read-only end to end. No writes, no game connection.
 
 - TDD per slice. `pkg/market`: unit tests for `GetMatrix`, `GetItemPriceHistory`, `GetCaptureHealth`, `GetStationOrders` (temp DB per test, existing `pkg/market` test patterns), including category-filter, sparse-cell, and item-filter cases.
 - A test for the **category-capture fix**: write a snapshot whose orders carry `Category`, assert `items.category` is populated (and that the pre-fix path left it empty — the regression guard).
-- `cmd/market-dashboard`: `httptest` handler tests asserting JSON shapes + the empty/404 cases. The UI is thin glue, not unit-tested.
+- `cmd/market-dashboard`: `httptest` handler tests asserting JSON shapes + the empty-array cases. The UI is thin glue, not unit-tested.
 - After each series of changes: `go build ./...`, `go test ./...`, `golangci-lint run ./...` (per project rules — interface/struct changes break things the build alone misses).
 
 ## Sequencing / Coordination
