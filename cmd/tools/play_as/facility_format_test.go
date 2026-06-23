@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // TestFormatFacilityFactionList_ShowsFacilityID guards that the facility_id
@@ -396,5 +399,58 @@ func TestFormatFacilityFactionList_ProductionSplit(t *testing.T) {
 	// The plain service facility stays in the normal faction table.
 	if !strings.Contains(out, "Intel Terminal") {
 		t.Errorf("service facility missing from normal faction table:\n%s", out)
+	}
+}
+
+func TestFormatFacilityList_ProductionShowsIDAndRent(t *testing.T) {
+	raw := []byte(`{"base_id":"grand_exchange_station","faction_facilities":[{"active":true,"facility_id":"fac-abc123","name":"Iron Refinery","faction_service":"refining","rent_per_cycle":210,"status":"online","type":"iron_refinery","production":{"backlog_ticks":0,"items_per_hour":12,"output_per_run":3,"public":false,"queued_items":0,"queued_runs":0,"recipe":"Refine Iron","rental_fee_per_run":40,"ticks_per_run":2.50}}]}`)
+	out := formatFacilityList(raw)
+	for _, want := range []string{"Faction Production", "Iron Refinery", "⚙ Refine Iron", "Facility ID", "fac-abc123", "Rent/cycle", "210"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
+		}
+	}
+}
+
+// TestFormatFacilityList_PublicFacilities guards that public_facilities (faction-owned
+// production facilities open for public rental) are rendered as a new "Public Facilities"
+// section after the Faction block, via the shared production renderer.
+func TestFormatFacilityList_PublicFacilities(t *testing.T) {
+	saved := globalKB
+	defer func() { globalKB = saved }()
+	globalKB = nil // owner falls back to faction_id
+
+	raw := []byte(`{"base_id":"grand_exchange_station","public_facilities":[{"category":"production","description":"A compact fuel line.","facility_id":"fb24fd71","faction_id":"e727c0e9","level":1,"name":"H2 Fuel Combustor","production":{"backlog_ticks":0,"items_per_hour":78000,"output_per_run":100,"public":true,"queued_items":0,"queued_runs":0,"recipe":"Manufacture Fuel Basic","rental_fee_per_run":50,"ticks_per_run":0.46},"recipe_id":"manufacture_fuel_basic","type":"h2_fuel_combustor"}]}`)
+	out := formatFacilityList(raw)
+	for _, want := range []string{"Public Facilities (1):", "H2 Fuel Combustor", "⚙ Manufacture Fuel Basic", "Facility ID", "fb24fd71", "Owner", "e727c0e9"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatFacilityList output missing %q\n%s", want, out)
+		}
+	}
+}
+
+func TestFactionOwnerDisplay(t *testing.T) {
+	// nil KB → falls back to the raw faction_id.
+	saved := globalKB
+	defer func() { globalKB = saved }()
+	globalKB = nil
+	if got := factionOwnerDisplay("f1", map[string]string{}); got != "f1" {
+		t.Errorf("nil KB: factionOwnerDisplay(f1) = %q, want \"f1\"", got)
+	}
+	if got := factionOwnerDisplay("", map[string]string{}); got != "" {
+		t.Errorf("empty id: factionOwnerDisplay(\"\") = %q, want \"\"", got)
+	}
+
+	// Seeded KB → resolves to the bracketed tag.
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatalf("NewSQLiteKB: %v", err)
+	}
+	if err := kb.StoreFaction(context.Background(), knowledge.FactionRecord{FactionID: "f1", Tag: "CRFT", CapturedAt: time.Now()}); err != nil {
+		t.Fatalf("StoreFaction: %v", err)
+	}
+	globalKB = kb
+	if got := factionOwnerDisplay("f1", map[string]string{}); got != "[CRFT]" {
+		t.Errorf("seeded KB: factionOwnerDisplay(f1) = %q, want \"[CRFT]\"", got)
 	}
 }

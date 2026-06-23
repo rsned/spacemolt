@@ -2075,12 +2075,37 @@ type facilityProduction struct {
 	Public          bool    `json:"public"`
 }
 
-// productionFacility is the minimal shape renderProductionFacilityTable needs:
-// a display name plus the production block. Station and faction production
-// facilities both map onto it so they share one renderer.
+// productionFacility is the shape renderProductionFacilityTable needs: a display
+// name, the production block, and optional facility_id / per-cycle rent / owner
+// that render as extra columns when present. Station, faction, and public
+// production facilities all map onto it so they share one renderer.
 type productionFacility struct {
-	name string
-	prod *facilityProduction
+	name         string
+	prod         *facilityProduction
+	facilityID   string // "" when unknown
+	rentPerCycle *int64 // nil when the facility carries no per-cycle rent
+	owner        string // "" except for public facilities
+}
+
+// factionOwnerDisplay resolves a faction_id to "[TAG]" via the knowledge base,
+// falling back to the raw faction_id when the KB is unavailable (no --db-path)
+// or the tag is unknown. cache memoizes lookups within a single render so each
+// distinct faction is queried at most once. An empty id yields an empty string.
+func factionOwnerDisplay(factionID string, cache map[string]string) string {
+	if factionID == "" {
+		return ""
+	}
+	if v, ok := cache[factionID]; ok {
+		return v
+	}
+	display := factionID
+	if sqlite, ok := globalKB.(*knowledge.SQLiteKB); ok && sqlite != nil {
+		if tag, found, err := sqlite.FactionTag(context.Background(), factionID); err == nil && found && tag != "" {
+			display = "[" + tag + "]"
+		}
+	}
+	cache[factionID] = display
+	return display
 }
 
 // renderProductionFacilityTable writes the wide production table (recipe +
@@ -2090,13 +2115,26 @@ type productionFacility struct {
 func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility, indent, heading string) {
 	type prodRow struct {
 		name, typ, feehr, outrun, cycle, runcost, queued, backlog, public string
+		facID, rent, owner                                                 string
 	}
 	rows := make([]prodRow, 0, len(facs))
+	showID, showRent, showOwner := false, false, false
 	for _, f := range facs {
 		p := f.prod
 		public := "No"
 		if p.Public {
 			public = "Yes"
+		}
+		rent := ""
+		if f.rentPerCycle != nil {
+			rent = formatCredits(float64(*f.rentPerCycle))
+			showRent = true
+		}
+		if f.facilityID != "" {
+			showID = true
+		}
+		if f.owner != "" {
+			showOwner = true
 		}
 		rows = append(rows, prodRow{
 			name:   f.name,
@@ -2109,6 +2147,9 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 			queued:  strconv.Itoa(p.QueuedRuns),
 			backlog: strconv.Itoa(p.BacklogTicks),
 			public:  public,
+			facID:   f.facilityID,
+			rent:    rent,
+			owner:   f.owner,
 		})
 	}
 	// Column widths span both header lines and the values. The Type cell carries
@@ -2123,6 +2164,9 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	queueW := max(len("Queued"), len("runs"))
 	backW := max(len("Backlog"), len("ticks"))
 	pubW := len("Public")
+	idW := len("Facility ID")
+	rentW := len("Rent/cycle")
+	ownerW := len("Owner")
 	for _, r := range rows {
 		nameW = max(nameW, len(r.name))
 		typeW = max(typeW, len([]rune(r.typ)))
@@ -2133,6 +2177,9 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 		queueW = max(queueW, len(r.queued))
 		backW = max(backW, len(r.backlog))
 		pubW = max(pubW, len(r.public))
+		idW = max(idW, len(r.facID))
+		rentW = max(rentW, len(r.rent))
+		ownerW = max(ownerW, len(r.owner))
 	}
 	padRunes := func(s string, w int) string {
 		if n := len([]rune(s)); n < w {
@@ -2140,23 +2187,59 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 		}
 		return s
 	}
+	// Optional trailing columns, emitted only when some row populates them.
+	type optCol struct {
+		show   bool
+		header string
+		width  int
+		value  func(prodRow) string
+	}
+	opts := []optCol{
+		{showID, "Facility ID", idW, func(r prodRow) string { return r.facID }},
+		{showRent, "Rent/cycle", rentW, func(r prodRow) string { return r.rent }},
+		{showOwner, "Owner", ownerW, func(r prodRow) string { return r.owner }},
+	}
 	fmt.Fprintf(b, "\n%s%s:\n", indent, heading)
 	// Two-line header: units (/hr, /run, tick/run, ...) sit on row two.
-	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s",
 		indent, nameW, "Name", typeW, "Type", feeW, "Fee", outW, "Output", cycW, "Cycle",
 		costW, "Run", queueW, "Queued", backW, "Backlog", pubW, "Public")
-	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+	for _, o := range opts {
+		if o.show {
+			fmt.Fprintf(b, " | %-*s", o.width, o.header)
+		}
+	}
+	b.WriteString("\n")
+	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s",
 		indent, nameW, "", typeW, "", feeW, "/hr", outW, "/run", cycW, "tick/run",
 		costW, "cost", queueW, "runs", backW, "ticks", pubW, "")
-	fmt.Fprintf(b, "%s  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+	for _, o := range opts {
+		if o.show {
+			fmt.Fprintf(b, " | %-*s", o.width, "")
+		}
+	}
+	b.WriteString("\n")
+	fmt.Fprintf(b, "%s  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s",
 		indent,
 		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", feeW),
 		strings.Repeat("-", outW), strings.Repeat("-", cycW), strings.Repeat("-", costW),
 		strings.Repeat("-", queueW), strings.Repeat("-", backW), strings.Repeat("-", pubW))
+	for _, o := range opts {
+		if o.show {
+			fmt.Fprintf(b, "-+-%s", strings.Repeat("-", o.width))
+		}
+	}
+	b.WriteString("\n")
 	for _, r := range rows {
-		fmt.Fprintf(b, "%s  %-*s | %s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s\n",
+		fmt.Fprintf(b, "%s  %-*s | %s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s",
 			indent, nameW, r.name, padRunes(r.typ, typeW), feeW, r.feehr, outW, r.outrun,
 			cycW, r.cycle, costW, r.runcost, queueW, r.queued, backW, r.backlog, pubW, r.public)
+		for _, o := range opts {
+			if o.show {
+				fmt.Fprintf(b, " | %-*s", o.width, o.value(r))
+			}
+		}
+		b.WriteString("\n")
 	}
 }
 
@@ -2178,6 +2261,20 @@ type factionFacilityRow struct {
 	// Production is set for faction production facilities (refineries, etc.);
 	// nil for plain service facilities. Drives the production/service split.
 	Production *facilityProduction `json:"production,omitempty"`
+}
+
+// publicFacilityRow is the decode target for public_facilities entries in a
+// facility list response. These are faction-owned production facilities open
+// for public rental; they always carry a Production block.
+type publicFacilityRow struct {
+	Category     string              `json:"category"`
+	CustomName   string              `json:"custom_name"`
+	FacilityID   string              `json:"facility_id"`
+	FactionID    string              `json:"faction_id"`
+	Name         string              `json:"name"`
+	RentPerCycle *int64              `json:"rent_per_cycle"`
+	Type         string              `json:"type"`
+	Production   *facilityProduction `json:"production"`
 }
 
 // displayName returns the operator-assigned custom name when set, else the
@@ -2209,7 +2306,13 @@ func renderFactionFacilities(b *strings.Builder, facilities []factionFacilityRow
 	if len(production) > 0 {
 		pf := make([]productionFacility, 0, len(production))
 		for _, f := range production {
-			pf = append(pf, productionFacility{name: f.displayName(), prod: f.Production})
+			rent := f.RentPerCycle
+			pf = append(pf, productionFacility{
+				name:         f.displayName(),
+				prod:         f.Production,
+				facilityID:   f.FacilityID,
+				rentPerCycle: &rent,
+			})
 		}
 		renderProductionFacilityTable(b, pf, indent, fmt.Sprintf("Faction Production (%d)", len(production)))
 	}
@@ -2379,6 +2482,9 @@ func formatFacilityList(raw []byte) string {
 		// own facilities — and only rendered with --show_station_facilities.
 		StationFacilities []stationFacility    `json:"station_facilities"`
 		FactionFacilities []factionFacilityRow `json:"faction_facilities"`
+		// PublicFacilities are faction-owned production facilities open for
+		// public rental, introduced in gameserver v0.350.0+.
+		PublicFacilities []publicFacilityRow `json:"public_facilities"`
 		// PlayerRent is the aggregate rent bill across all the player's
 		// facilities (gameserver v0.347.0+), surfaced as a station-level total.
 		PlayerRent struct {
@@ -2459,6 +2565,33 @@ func formatFacilityList(raw []byte) string {
 		fmt.Fprintf(&b, "\n  Faction:\n")
 		renderFactionFacilities(&b, resp.FactionFacilities, "    ")
 	}
+	if len(resp.PublicFacilities) > 0 {
+		slices.SortFunc(resp.PublicFacilities, func(a, c publicFacilityRow) int {
+			return strings.Compare(a.Name, c.Name)
+		})
+		ownerCache := map[string]string{}
+		pf := make([]productionFacility, 0, len(resp.PublicFacilities))
+		for _, f := range resp.PublicFacilities {
+			if f.Production == nil {
+				continue // only production facilities render in this table
+			}
+			name := f.Name
+			if f.CustomName != "" {
+				name = f.CustomName
+			}
+			pf = append(pf, productionFacility{
+				name:         name,
+				prod:         f.Production,
+				facilityID:   f.FacilityID,
+				rentPerCycle: f.RentPerCycle,
+				owner:        factionOwnerDisplay(f.FactionID, ownerCache),
+			})
+		}
+		if len(pf) > 0 {
+			totalSections++
+			renderProductionFacilityTable(&b, pf, "  ", fmt.Sprintf("Public Facilities (%d)", len(pf)))
+		}
+	}
 	if showStationFacilities && len(resp.StationFacilities) > 0 {
 		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
 			if a.Category != c.Category {
@@ -2511,7 +2644,7 @@ func formatFacilityList(raw []byte) string {
 			totalSections++
 			pf := make([]productionFacility, 0, len(production))
 			for _, f := range production {
-				pf = append(pf, productionFacility{name: f.Name, prod: f.Production})
+				pf = append(pf, productionFacility{name: f.Name, prod: f.Production, facilityID: f.FacilityID})
 			}
 			renderProductionFacilityTable(&b, pf, "  ", fmt.Sprintf("Station Production (%d)", len(production)))
 		}
