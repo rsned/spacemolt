@@ -25,6 +25,7 @@ func main() {
 	socketPath := flag.String("socket", "data/overmind/overmind.sock", "Unix socket path for worker control channel")
 	workerBin := flag.String("worker-bin", "bin/worker", "Path to the worker binary")
 	fleetPath := flag.String("fleet", "data/overmind/fleet.yaml", "Path to fleet roster YAML")
+	stagger := flag.Duration("stagger", game.SleepMedium, "Delay between initial worker launches (per-IP /login pacing)")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
@@ -45,6 +46,7 @@ func main() {
 	}
 
 	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin), logger)
+	sup.StaggerInterval = *stagger
 
 	// ── Step 3: Signal-cancellable root context ──────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
