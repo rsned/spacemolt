@@ -15,6 +15,8 @@ type fakeClient struct {
 	game.GameClient // embedded; unimplemented methods panic if called
 	calls           []string
 	state           *game.State
+	route           []game.RouteStep // returned by FindRoute
+	jumpCanceled    bool             // Jump returns Canceled=true when set
 }
 
 func (f *fakeClient) Undock(ctx context.Context) error { f.calls = append(f.calls, "undock"); return nil }
@@ -51,6 +53,15 @@ func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) erro
 	f.calls = append(f.calls, "view_market")
 	return nil
 }
+func (f *fakeClient) FindRoute(ctx context.Context, target string) ([]game.RouteStep, error) {
+	f.calls = append(f.calls, "find_route:"+target)
+	return f.route, nil
+}
+func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, error) {
+	f.calls = append(f.calls, "jump:"+sys)
+	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
+}
+func (f *fakeClient) GetRawJSON(key string) []byte { return nil }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}
