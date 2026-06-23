@@ -1196,6 +1196,33 @@ func (c *Client) sendAwaitingPending(ctx context.Context, msg protocol.Message, 
 // Travel travels to a POI within the current system.
 // It blocks until the ship arrives at the destination or an error occurs.
 // The returned TravelResult contains the final POI the ship ended up at.
+// arrivalWaitTimeout returns how long to wait for a travel or jump to complete,
+// given the server-reported arrival tick and our best guess at the current tick.
+//
+// This is a SAFETY bound, not a precise deadline: waitForStateChange returns the
+// instant the ship stops traveling, so the timeout only matters when the ship
+// never arrives. The start reference comes from the free-running GameClock,
+// whose periodic sync only ever moves the tick FORWARD (never back), so it can
+// drift ahead of the true server tick. When it does, arrivalTick-startTick
+// under-estimates — and can collapse to <=0 — which previously produced a
+// 1*SleepTick+30s = 40s wait that timed out mid-journey. We therefore floor the
+// result so a bad estimate can't shorten the wait below a realistic journey, and
+// cap it so a far-behind clock can't inflate it.
+func arrivalWaitTimeout(arrivalTick, startTick int64, floor, maxWait time.Duration) time.Duration {
+	ticksRemaining := arrivalTick - startTick
+	if ticksRemaining < 1 {
+		ticksRemaining = 1
+	}
+	timeout := time.Duration(ticksRemaining)*SleepTick + 30*time.Second
+	if timeout < floor {
+		timeout = floor
+	}
+	if timeout > maxWait {
+		timeout = maxWait
+	}
+	return timeout
+}
+
 func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, error) {
 	msg := protocol.Message{
 		Type:      "travel",
@@ -1229,25 +1256,15 @@ func (c *Client) Travel(ctx context.Context, targetPOI string) (*TravelResult, e
 	// sessions it can lag the real tick by tens of ticks.
 	startTick := c.currentTick()
 
-	// Compute timeout from arrival_tick if available, else use generous default.
-	timeout := 90 * time.Second
+	// Compute the arrival-wait safety bound from arrival_tick. The travel ACK
+	// carries no current-tick field, so startTick comes from the free-running
+	// GameClock, which can drift AHEAD of the server (its sync only moves
+	// forward) — see arrivalWaitTimeout for why we floor the result.
 	var arrivalTick int64
 	if at, ok := resp.Payload["arrival_tick"].(float64); ok {
 		arrivalTick = int64(at)
-		ticksRemaining := arrivalTick - startTick
-		if ticksRemaining < 1 {
-			ticksRemaining = 1
-		}
-		// Each tick ~10s, plus 30s buffer for safety.
-		timeout = time.Duration(ticksRemaining)*SleepTick + 30*time.Second
 	}
-	// Cap the wait so a stale local CurrentTick (the lag between server
-	// truth and our last received tick frame) can't inflate the timeout
-	// past anything reasonable for within-system travel. waitForStateChange
-	// returns immediately on arrival anyway — this is purely a safety bound.
-	if timeout > SleepTravelMaxWait {
-		timeout = SleepTravelMaxWait
-	}
+	timeout := arrivalWaitTimeout(arrivalTick, startTick, 9*SleepTick, SleepTravelMaxWait)
 
 	c.debugLogger.Printf("Travel to %s: waiting up to %v for arrival", targetPOI, timeout)
 
@@ -1297,20 +1314,14 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 		c.mu.Unlock()
 	}
 
-	// Compute timeout from arrival_tick if available.
-	timeout := 90 * time.Second
-	if arrivalTick, ok := resp.Payload["arrival_tick"].(float64); ok {
-		currentTick := c.currentTick()
-		ticksRemaining := int64(arrivalTick) - currentTick
-		if ticksRemaining < 1 {
-			ticksRemaining = 1
-		}
-		timeout = time.Duration(ticksRemaining)*SleepTick + 30*time.Second
+	// Compute the arrival-wait safety bound from arrival_tick. As with Travel,
+	// the start reference is the free-running GameClock (which can drift ahead),
+	// so arrivalWaitTimeout floors the result to avoid a too-short wait.
+	var arrivalTick int64
+	if at, ok := resp.Payload["arrival_tick"].(float64); ok {
+		arrivalTick = int64(at)
 	}
-	// Cap so a stale local CurrentTick can't inflate the wait window.
-	if timeout > SleepJumpMaxWait {
-		timeout = SleepJumpMaxWait
-	}
+	timeout := arrivalWaitTimeout(arrivalTick, c.currentTick(), 9*SleepTick, SleepJumpMaxWait)
 
 	c.debugLogger.Printf("Jump to %s: waiting up to %v for arrival", targetSystem, timeout)
 
