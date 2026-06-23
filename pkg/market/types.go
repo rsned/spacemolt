@@ -26,6 +26,7 @@ type Order struct {
 	StationID  string    `json:"station_id"`
 	ItemID     string    `json:"item_id"`
 	ItemName   string    `json:"item_name"`
+	Category   string    `json:"category"`
 	Side       string    `json:"side"` // "buy" or "sell"
 	PriceEach  float64   `json:"price_each"`
 	Quantity   float64   `json:"quantity"`
@@ -119,4 +120,71 @@ type MarketAnalysis struct {
 	Hint            string
 	XPGained        map[string]any
 	AnalysisData    map[string]any
+}
+
+// MatrixQuery parameterizes an items×stations matrix request.
+type MatrixQuery struct {
+	Category string `json:"category"` // "" = all
+	Search   string `json:"search"`   // case-insensitive substring on item_id / item_name
+	Page     int    `json:"page"`     // 1-based
+	Limit    int    `json:"limit"`    // default 50
+}
+
+// MatrixCell is one item×station cell: aggregates over the station's latest capture.
+type MatrixCell struct {
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	SystemID    string    `json:"system_id"`
+	SystemName  string    `json:"system_name"`
+	BestSell    float64   `json:"best_sell"`
+	BestBuy     float64   `json:"best_buy"`
+	VWAP        float64   `json:"vwap"`       // volume-weighted avg over sell orders
+	Volume      float64   `json:"volume"`     // sum of sell quantities
+	OrderCount  int       `json:"order_count"`
+	CapturedAt  time.Time `json:"captured_at"`
+	HasSell     bool      `json:"has_sell"`
+	HasBuy      bool      `json:"has_buy"`
+}
+
+// MatrixItem is one matrix row: an item across all stations.
+type MatrixItem struct {
+	ItemID   string       `json:"item_id"`
+	ItemName string       `json:"item_name"`
+	Category string       `json:"category"`
+	Cells    []MatrixCell `json:"cells"` // aligned to Matrix.Stations order
+}
+
+// Matrix is a paginated items×stations snapshot.
+type Matrix struct {
+	Stations    []Station    `json:"stations"`
+	Items       []MatrixItem `json:"items"`
+	TotalItems  int          `json:"total_items"`
+	Page        int          `json:"page"`
+	Limit       int          `json:"limit"`
+	GeneratedAt time.Time    `json:"generated_at"`
+}
+
+// ItemPricePoint is one OHLCV bucket for an item at a station.
+type ItemPricePoint struct {
+	StationID   string  `json:"station_id"`
+	StationName string  `json:"station_name"`
+	Side        string  `json:"side"`
+	BucketUTC   string  `json:"bucket_utc"`
+	VWAP        float64 `json:"vwap"`
+	High        float64 `json:"high"`
+	Low         float64 `json:"low"`
+	Volume      float64 `json:"volume"`
+	TradeCount  int     `json:"trade_count"`
+}
+
+// StationCaptures summarizes one station's capture history for health checks.
+type StationCaptures struct {
+	StationID    string   `json:"station_id"`
+	StationName  string   `json:"station_name"`
+	SystemID     string   `json:"system_id"`
+	SystemName   string   `json:"system_name"`
+	CaptureTimes []string `json:"capture_times"` // distinct captured_at, newest first
+	Count        int      `json:"count"`
+	Latest       string   `json:"latest"`
+	Earliest     string   `json:"earliest"`
 }

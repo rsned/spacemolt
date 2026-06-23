@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Dashboard</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>Market Dashboard</h1>
+  <div id="stats" class="stats"></div>
+  <button id="refresh" type="button">Refresh</button>
+</header>
+<nav class="tabs">
+  <button data-view="matrix" class="tab active" type="button">Matrix</button>
+  <button data-view="price" class="tab" type="button">Price over time</button>
+  <button data-view="health" class="tab" type="button">Capture health</button>
+</nav>
+<div id="matrix-controls" class="controls">
+  <select id="category"><option value="">All categories</option></select>
+  <input id="search" type="search" placeholder="search item id / name">
+  <span id="pager"></span>
+</div>
+<div id="price-controls" class="controls hidden">
+  <input id="price-item" type="search" placeholder="item id, e.g. iron_ore">
+  <button id="price-go" type="button">Show</button>
+</div>
+<main id="app"></main>
+<dialog id="cell-dialog"><button id="cell-close" type="button">close</button><div id="cell-body"></div></dialog>
+<script src="/app.js"></script>
+</body>
+</html>

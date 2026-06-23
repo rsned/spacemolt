@@ -2,6 +2,7 @@ package market
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -268,5 +269,220 @@ func TestFindBestPrices_UsesLatestCapturePerStation(t *testing.T) {
 	}
 	if best[0].Price != 8 {
 		t.Errorf("should use latest capture price 8, got %f", best[0].Price)
+	}
+}
+
+func TestGetMatrix(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	write := func(stn, sys string, orders []Order) {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: stn, StationName: stn, SystemID: sys, SystemName: sys,
+			CapturedAt: now, Orders: orders,
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}
+	}
+	write("stnA", "sysA", []Order{
+		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 9, Quantity: 10, CapturedAt: now},
+		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 11, Quantity: 20, CapturedAt: now},
+		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "buy", PriceEach: 3, Quantity: 5, CapturedAt: now},
+	})
+	write("stnB", "sysB", []Order{
+		{StationID: "stnB", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 7, Quantity: 4, CapturedAt: now},
+	})
+	write("stnB", "sysB", []Order{
+		{StationID: "stnB", ItemID: "copper_ore", ItemName: "Copper Ore", Category: "raw", Side: "sell", PriceEach: 2, Quantity: 1, CapturedAt: now},
+	})
+
+	m, err := c.GetMatrix(ctx, MatrixQuery{Page: 1, Limit: 50})
+	if err != nil {
+		t.Fatalf("GetMatrix: %v", err)
+	}
+	if len(m.Stations) != 2 {
+		t.Fatalf("stations = %d, want 2", len(m.Stations))
+	}
+	if m.TotalItems != 2 {
+		t.Fatalf("total items = %d, want 2", m.TotalItems)
+	}
+	byItem := map[string]MatrixItem{}
+	for _, it := range m.Items {
+		byItem[it.ItemID] = it
+	}
+	iron := byItem["iron_ore"]
+	if len(iron.Cells) != 2 {
+		t.Fatalf("iron cells = %d, want 2", len(iron.Cells))
+	}
+	cellOf := map[string]MatrixCell{}
+	for _, cc := range iron.Cells {
+		cellOf[cc.StationID] = cc
+	}
+	a := cellOf["stnA"]
+	if !a.HasSell || a.BestSell != 9 {
+		t.Errorf("stnA best sell = %v (has %v), want 9", a.BestSell, a.HasSell)
+	}
+	if !a.HasBuy || a.BestBuy != 3 {
+		t.Errorf("stnA best buy = %v, want 3", a.BestBuy)
+	}
+	// VWAP over sell = (9*10 + 11*20)/(10+20) = 310/30 ≈ 10.333
+	if math.Abs(a.VWAP-(9*10+11*20)/30.0) > 1e-6 {
+		t.Errorf("stnA vwap = %v, want ~10.333", a.VWAP)
+	}
+	if a.Volume != 30 {
+		t.Errorf("stnA volume = %v, want 30", a.Volume)
+	}
+	if a.OrderCount != 3 {
+		t.Errorf("stnA order count = %v, want 3", a.OrderCount)
+	}
+	b := cellOf["stnB"]
+	if b.BestSell != 7 || b.HasBuy {
+		t.Errorf("stnB cell wrong: %+v", b)
+	}
+
+	// Category filter
+	mf, err := c.GetMatrix(ctx, MatrixQuery{Category: "raw", Page: 1, Limit: 50})
+	if err != nil {
+		t.Fatalf("GetMatrix filtered: %v", err)
+	}
+	if mf.TotalItems != 2 {
+		t.Errorf("filtered total = %d, want 2", mf.TotalItems)
+	}
+	mnone, err := c.GetMatrix(ctx, MatrixQuery{Category: "module", Page: 1, Limit: 50})
+	if err != nil {
+		t.Fatalf("GetMatrix none: %v", err)
+	}
+	if mnone.TotalItems != 0 || len(mnone.Items) != 0 {
+		t.Errorf("expected empty matrix for unknown category, got %+v", mnone)
+	}
+}
+
+func TestGetStationOrders(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+		CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: now},
+			{StationID: "stn1", ItemID: "iron_ore", Side: "buy", PriceEach: 2, Quantity: 1, CapturedAt: now},
+			{StationID: "stn1", ItemID: "copper_ore", Side: "sell", PriceEach: 9, Quantity: 1, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot: %v", err)
+	}
+
+	all, err := c.GetStationOrders(ctx, "stn1", "")
+	if err != nil {
+		t.Fatalf("GetStationOrders all: %v", err)
+	}
+	if len(all) != 3 {
+		t.Errorf("all orders = %d, want 3", len(all))
+	}
+	iron, err := c.GetStationOrders(ctx, "stn1", "iron_ore")
+	if err != nil {
+		t.Fatalf("GetStationOrders iron: %v", err)
+	}
+	if len(iron) != 2 {
+		t.Fatalf("iron orders = %d, want 2", len(iron))
+	}
+	none, err := c.GetStationOrders(ctx, "stn-absent", "")
+	if err != nil {
+		t.Fatalf("GetStationOrders absent: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("absent = %v, want empty", none)
+	}
+}
+
+func TestGetItemPriceHistory(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	t1 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
+	for _, at := range []time.Time{t1, t2} {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+			CapturedAt: at,
+			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: at}},
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %v: %v", at, err)
+		}
+	}
+
+	pts, err := c.GetItemPriceHistory(ctx, "iron_ore", 50)
+	if err != nil {
+		t.Fatalf("GetItemPriceHistory: %v", err)
+	}
+	if len(pts) != 2 {
+		t.Fatalf("points = %d, want 2", len(pts))
+	}
+	if pts[0].StationName != "One" || pts[0].Side != "sell" {
+		t.Errorf("first point wrong: %+v", pts[0])
+	}
+	if pts[0].BucketUTC < pts[1].BucketUTC {
+		t.Errorf("expected newest-first, got %s before %s", pts[0].BucketUTC, pts[1].BucketUTC)
+	}
+	absent, err := c.GetItemPriceHistory(ctx, "nope", 50)
+	if err != nil {
+		t.Fatalf("GetItemPriceHistory absent: %v", err)
+	}
+	if len(absent) != 0 {
+		t.Errorf("absent = %d, want 0", len(absent))
+	}
+}
+
+func TestGetCaptureHealth(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	t1 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
+	for _, at := range []time.Time{t1, t2} {
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+			CapturedAt: at,
+			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: at}},
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %v: %v", at, err)
+		}
+	}
+
+	health, err := c.GetCaptureHealth(ctx)
+	if err != nil {
+		t.Fatalf("GetCaptureHealth: %v", err)
+	}
+	if len(health) != 1 {
+		t.Fatalf("stations = %d, want 1", len(health))
+	}
+	h := health[0]
+	if h.StationID != "stn1" || h.Count != 2 {
+		t.Errorf("health = %+v, want stn1 count 2", h)
+	}
+	if h.Latest < h.Earliest {
+		t.Errorf("latest %s < earliest %s", h.Latest, h.Earliest)
+	}
+	if len(h.CaptureTimes) != 2 || h.CaptureTimes[0] < h.CaptureTimes[1] {
+		t.Errorf("capture times not newest-first: %v", h.CaptureTimes)
 	}
 }

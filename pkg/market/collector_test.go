@@ -251,6 +251,36 @@ func TestDefaultConfigPathIsRelative(t *testing.T) {
 	}
 }
 
+func TestWriteSnapshotPersistsItemCategory(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+		CapturedAt: now,
+		Orders: []Order{{
+			StationID: "stn1", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw",
+			Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now,
+		}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot: %v", err)
+	}
+
+	var category string
+	if err := c.db.QueryRowContext(ctx,
+		`SELECT category FROM items WHERE item_id = ?`, "iron_ore").Scan(&category); err != nil {
+		t.Fatalf("query item: %v", err)
+	}
+	if category != "raw" {
+		t.Errorf("items.category = %q, want %q", category, "raw")
+	}
+}
+
 // newTestCollector opens a Collector against an isolated temp-dir database.
 func newTestCollector(t *testing.T) *Collector {
 	t.Helper()
