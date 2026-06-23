@@ -233,8 +233,8 @@ func TestSupervisorSpawnsEachSpecOnce(t *testing.T) {
 	}
 	fleet := NewFleet()
 	sup := NewSupervisor(nil, fleet, specs, spawn, log.New(io.Discard, "", 0))
-	sup.SilenceTimeout = time.Hour  // disable restart churn for this test
-	sup.StaggerInterval = 0         // launch back-to-back for this test
+	sup.SilenceTimeout = time.Hour // disable restart churn for this test
+	sup.StaggerInterval = 0        // launch back-to-back for this test
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()

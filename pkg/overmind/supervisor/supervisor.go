@@ -56,11 +56,11 @@ func (p *workerProc) alive() bool {
 
 // Supervisor spawns and keeps workers alive.
 type Supervisor struct {
-	server  *Server
-	fleet   *Fleet
-	specs   []WorkerSpec
-	spawn   SpawnFunc
-	logger  *log.Logger
+	server *Server
+	fleet  *Fleet
+	specs  []WorkerSpec
+	spawn  SpawnFunc
+	logger *log.Logger
 	// SilenceTimeout is the heartbeat-gap tolerance for an established worker
 	// (one that has already sent Hello). Cold-start is covered by BootTimeout.
 	SilenceTimeout time.Duration
@@ -232,4 +232,3 @@ func (s *Supervisor) tryRestart(ctx context.Context, spec WorkerSpec, killed boo
 	s.logger.Printf("restarting worker %q (killed=%v, restart #%d)", spec.AgentID, killed, s.restarts[spec.AgentID])
 	s.launch(ctx, spec)
 }
-
