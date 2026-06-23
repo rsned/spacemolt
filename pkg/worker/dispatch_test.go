@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -146,5 +147,33 @@ func TestDispatchUnknownCommandErrors(t *testing.T) {
 	}
 	if !d.Supports("mine") {
 		t.Fatal("Supports should be true for mine")
+	}
+}
+
+func TestDispatchJump(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+	if !d.Supports("jump") {
+		t.Fatal("jump should be supported")
+	}
+	if err := d.Run(context.Background(), []string{"jump", "sys_z"}); err != nil {
+		t.Fatalf("Run jump: %v", err)
+	}
+	if !slices.Contains(f.calls, "jump:sys_z") {
+		t.Errorf("expected jump:sys_z, got %v", f.calls)
+	}
+}
+
+func TestDispatchAutopilot(t *testing.T) {
+	f := autopilotFake()
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+	if !d.Supports("autopilot") {
+		t.Fatal("autopilot should be supported")
+	}
+	if err := d.Run(context.Background(), []string{"autopilot", "sys_c"}); err != nil {
+		t.Fatalf("Run autopilot: %v", err)
+	}
+	if !slices.Contains(f.calls, "find_route:sys_c") || !slices.Contains(f.calls, "jump:sys_c") {
+		t.Errorf("expected find_route + jumps, got %v", f.calls)
 	}
 }
