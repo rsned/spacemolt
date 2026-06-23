@@ -63,6 +63,10 @@ func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, er
 	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
 }
 func (f *fakeClient) GetRawJSON(key string) []byte { return nil }
+func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
+	f.calls = append(f.calls, "raw:"+command)
+	return nil
+}
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}

@@ -74,6 +74,32 @@ func TestAutopilotCaptureErrorIsNonFatal(t *testing.T) {
 	}
 }
 
+func TestAutopilotUsesFuelCellsWhenLow(t *testing.T) {
+	f := &fakeClient{
+		// Fuel at 5% — below the 10% threshold in autopilotRefuelIfNeeded.
+		state: &game.State{
+			Fuel:    5,
+			MaxFuel: 100,
+			Ship: game.Ship{
+				Cargo: []game.CargoItem{
+					{ItemID: "fuel_cell", Quantity: 3},
+				},
+			},
+		},
+		route: []game.RouteStep{
+			{SystemID: "sys_a", Name: "Alpha"}, // current system, skipped
+			{SystemID: "sys_b", Name: "Bravo"},
+		},
+	}
+	err := Autopilot(context.Background(), AutopilotDeps{Client: f, Out: io.Discard}, "sys_b", "")
+	if err != nil {
+		t.Fatalf("Autopilot: %v", err)
+	}
+	if !slices.Contains(f.calls, "raw:use_item") {
+		t.Errorf("expected raw:use_item call when fuel is low, got %v", f.calls)
+	}
+}
+
 func TestFormatDuration(t *testing.T) {
 	cases := map[int]string{5: "5s", 60: "1m", 90: "1m 30s", 125: "2m 5s"}
 	for secs, want := range cases {
