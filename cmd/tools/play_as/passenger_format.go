@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 // paxItem is the common shape used to render passengers grouped by destination
@@ -436,11 +437,11 @@ func destSystemJumps(originID string, systems []knowledge.System, conns []knowle
 		return nil
 	}
 
-	graph := jumpGraphFromConnections(conns)
-	dists := bfsJumps(graph, originID, targets)
+	graph := navigation.JumpGraphFromConnections(conns)
+	dists := navigation.BFSJumps(graph, originID, targets)
 	out := make(map[string]int, len(nameToID))
 	for name, id := range nameToID {
-		if d := dists[id]; d < routeInf {
+		if d := dists[id]; d < navigation.RouteInf {
 			out[name] = d
 		}
 	}

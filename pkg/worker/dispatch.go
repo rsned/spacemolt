@@ -37,7 +37,8 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 // data/overmind/roles.yaml; roles_test.go enforces that every command named
 // there is present here.
 var supported = map[string]bool{
-	"undock": true, "dock": true, "travel": true, "mine": true,
+	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
+	"mine": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true,
@@ -77,6 +78,33 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		_, err := d.Client.Travel(ctx, args[0])
 		return err
+	case "jump":
+		if len(args) < 1 {
+			return fmt.Errorf("jump: missing target system")
+		}
+		_, err := d.Client.Jump(ctx, args[0])
+		return err
+	case "autopilot":
+		if len(args) < 1 {
+			return fmt.Errorf("autopilot: missing target system")
+		}
+		poi := ""
+		if len(args) >= 2 {
+			poi = args[1]
+		}
+		return Autopilot(ctx, AutopilotDeps{
+			Client: d.Client,
+			Out:    d.Out,
+			OnWaypoint: func(ctx context.Context) error {
+				if d.KB == nil {
+					return nil
+				}
+				if err := KBUpdateSystem(ctx, d.Client, d.KB, ""); err != nil {
+					return err
+				}
+				return KBUpdatePOI(ctx, d.Client, d.KB, "")
+			},
+		}, args[0], poi)
 	case "get_status":
 		return d.Client.GetStatus(ctx)
 	case "get_system":

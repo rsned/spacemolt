@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -15,6 +16,8 @@ type fakeClient struct {
 	game.GameClient // embedded; unimplemented methods panic if called
 	calls           []string
 	state           *game.State
+	route           []game.RouteStep // returned by FindRoute
+	jumpCanceled    bool             // Jump returns Canceled=true when set
 }
 
 func (f *fakeClient) Undock(ctx context.Context) error { f.calls = append(f.calls, "undock"); return nil }
@@ -49,6 +52,19 @@ func (f *fakeClient) GetCargo(ctx context.Context) error {
 func (f *fakeClient) GetState() *game.State { return f.state }
 func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) error {
 	f.calls = append(f.calls, "view_market")
+	return nil
+}
+func (f *fakeClient) FindRoute(ctx context.Context, target string) ([]game.RouteStep, error) {
+	f.calls = append(f.calls, "find_route:"+target)
+	return f.route, nil
+}
+func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, error) {
+	f.calls = append(f.calls, "jump:"+sys)
+	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
+}
+func (f *fakeClient) GetRawJSON(key string) []byte { return nil }
+func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
+	f.calls = append(f.calls, "raw:"+command)
 	return nil
 }
 
@@ -135,5 +151,33 @@ func TestDispatchUnknownCommandErrors(t *testing.T) {
 	}
 	if !d.Supports("mine") {
 		t.Fatal("Supports should be true for mine")
+	}
+}
+
+func TestDispatchJump(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+	if !d.Supports("jump") {
+		t.Fatal("jump should be supported")
+	}
+	if err := d.Run(context.Background(), []string{"jump", "sys_z"}); err != nil {
+		t.Fatalf("Run jump: %v", err)
+	}
+	if !slices.Contains(f.calls, "jump:sys_z") {
+		t.Errorf("expected jump:sys_z, got %v", f.calls)
+	}
+}
+
+func TestDispatchAutopilot(t *testing.T) {
+	f := autopilotFake()
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+	if !d.Supports("autopilot") {
+		t.Fatal("autopilot should be supported")
+	}
+	if err := d.Run(context.Background(), []string{"autopilot", "sys_c"}); err != nil {
+		t.Fatalf("Run autopilot: %v", err)
+	}
+	if !slices.Contains(f.calls, "find_route:sys_c") || !slices.Contains(f.calls, "jump:sys_c") {
+		t.Errorf("expected find_route + jumps, got %v", f.calls)
 	}
 }
