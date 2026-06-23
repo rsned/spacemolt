@@ -233,7 +233,8 @@ func TestSupervisorSpawnsEachSpecOnce(t *testing.T) {
 	}
 	fleet := NewFleet()
 	sup := NewSupervisor(nil, fleet, specs, spawn, log.New(io.Discard, "", 0))
-	sup.SilenceTimeout = time.Hour // disable restart churn for this test
+	sup.SilenceTimeout = time.Hour  // disable restart churn for this test
+	sup.StaggerInterval = 0         // launch back-to-back for this test
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
@@ -241,5 +242,23 @@ func TestSupervisorSpawnsEachSpecOnce(t *testing.T) {
 
 	if spawned.Load() < 2 {
 		t.Fatalf("expected >=2 spawns, got %d", spawned.Load())
+	}
+}
+
+func TestRunStaggersInitialLaunches(t *testing.T) {
+	specs := []WorkerSpec{{AgentID: "a"}, {AgentID: "b"}, {AgentID: "c"}}
+	var spawned atomic.Int32
+	sup := NewSupervisor(nil, NewFleet(), specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.SilenceTimeout = time.Hour
+	sup.StaggerInterval = 100 * time.Millisecond
+
+	// Cancel after only enough time for the first launch (plus margin), well
+	// before the second stagger interval elapses.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_ = sup.Run(ctx)
+
+	if got := spawned.Load(); got != 1 {
+		t.Fatalf("with a 100ms stagger and 50ms budget, expected 1 launch, got %d", got)
 	}
 }

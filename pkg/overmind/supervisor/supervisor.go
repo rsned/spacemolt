@@ -103,7 +103,14 @@ func (s *Supervisor) socket() string {
 
 // Run spawns each spec, then periodically restarts silent/dead workers.
 func (s *Supervisor) Run(ctx context.Context) error {
-	for _, spec := range s.specs {
+	for i, spec := range s.specs {
+		if i > 0 && s.StaggerInterval > 0 {
+			select {
+			case <-time.After(s.StaggerInterval):
+			case <-ctx.Done():
+				return nil
+			}
+		}
 		s.launch(ctx, spec)
 	}
 	ticker := time.NewTicker(game.SleepMedium)
