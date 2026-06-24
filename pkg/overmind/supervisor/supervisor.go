@@ -78,6 +78,15 @@ type Supervisor struct {
 	StaggerInterval time.Duration
 	BootTimeout     time.Duration
 	KillGrace       time.Duration
+
+	// RestartBatch caps how many workers reapAndRestart may (re)launch in a
+	// single reap tick, so a mass restart (many workers dying at once) does not
+	// burst the per-IP /login limit. The reap loop runs every game.SleepMedium,
+	// so the default of 1 paces relaunches at the same ~12/min as the initial
+	// stagger. Empirically the per-IP connect throttle engages around ~25/min
+	// (see cmd/debug/login-probe), so 1-per-5s-tick keeps ~2x headroom. A
+	// non-positive value disables pacing (relaunch everything eligible at once).
+	RestartBatch int
 }
 
 // NewSupervisor wires a supervisor. server may be nil in tests.
@@ -88,6 +97,7 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		BootTimeout:     30 * game.SleepTick, // 5min: max alive-but-no-Hello before a boot is "wedged"
 		StaggerInterval: game.SleepMedium,    // 5s between initial spawns (per-IP /login pacing)
 		KillGrace:       game.SleepMedium,    // 5s SIGTERM->SIGKILL window
+		RestartBatch:    1,                   // 1 relaunch per reap tick (~12/min, mirrors stagger)
 		MaxRestarts:     100,
 		restarts:        make(map[string]int),
 		procs:           make(map[string]*workerProc),
@@ -179,12 +189,18 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 	for _, w := range s.fleet.Snapshot() {
 		healthy[w.AgentID] = w
 	}
+	// budget caps relaunches this tick so a mass restart does not burst the
+	// per-IP /login limit; a non-positive RestartBatch disables the cap.
+	budget := s.RestartBatch
+	if budget <= 0 {
+		budget = len(s.specs)
+	}
 	for _, spec := range s.specs {
 		proc := procSnapshot(s, spec.AgentID)
 
 		// No process tracked: never launched, or fully reaped earlier.
 		if proc == nil {
-			s.tryRestart(ctx, spec, false)
+			s.tryRestart(ctx, spec, false, &budget)
 			continue
 		}
 
@@ -192,13 +208,15 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 			w, seen := healthy[spec.AgentID]
 			switch {
 			case seen && NeedsRestart(w, now, s.SilenceTimeout):
-				// Established worker whose heartbeat went silent: hung.
+				// Established worker whose heartbeat went silent: hung. Kill it
+				// now regardless of budget (stop the bleeding); the relaunch is
+				// budget-gated and retried next tick if deferred.
 				s.kill(proc)
-				s.tryRestart(ctx, spec, true)
+				s.tryRestart(ctx, spec, true, &budget)
 			case !seen && now.Sub(proc.launchedAt) > s.BootTimeout:
 				// Alive but never sent Hello within the boot window: wedged.
 				s.kill(proc)
-				s.tryRestart(ctx, spec, true)
+				s.tryRestart(ctx, spec, true, &budget)
 			case seen && w.Healthy:
 				// Healthy: clear the crash-loop counter so MaxRestarts bounds
 				// restarts-per-incident, not lifetime restarts.
@@ -210,7 +228,7 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 		}
 
 		// Process has exited: respawn (subject to the crash-loop cap).
-		s.tryRestart(ctx, spec, false)
+		s.tryRestart(ctx, spec, false, &budget)
 	}
 }
 
@@ -221,12 +239,19 @@ func procSnapshot(s *Supervisor, agentID string) *workerProc {
 	return s.procs[agentID]
 }
 
-// tryRestart relaunches spec unless the crash-loop cap is reached. killed marks
-// whether a live process was just terminated (for the log line).
-func (s *Supervisor) tryRestart(ctx context.Context, spec WorkerSpec, killed bool) {
+// tryRestart relaunches spec unless the crash-loop cap is reached or this
+// tick's relaunch budget is exhausted. killed marks whether a live process was
+// just terminated (for the log line). budget is decremented only when a launch
+// actually happens; a budget-deferred spec is retried on the next reap tick.
+func (s *Supervisor) tryRestart(ctx context.Context, spec WorkerSpec, killed bool, budget *int) {
 	if s.restarts[spec.AgentID] >= s.MaxRestarts {
 		return
 	}
+	if *budget <= 0 {
+		// This tick's per-IP /login pacing budget is spent; defer to next tick.
+		return
+	}
+	*budget--
 	s.restarts[spec.AgentID]++
 	s.fleet.MarkRestart(spec.AgentID)
 	s.logger.Printf("restarting worker %q (killed=%v, restart #%d)", spec.AgentID, killed, s.restarts[spec.AgentID])

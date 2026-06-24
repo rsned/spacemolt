@@ -132,6 +132,46 @@ func TestReapDeadWorkerRespawnedUpToCap(t *testing.T) {
 	}
 }
 
+func TestReapRestartBatchPacesRelaunches(t *testing.T) {
+	specs := []WorkerSpec{{AgentID: "a"}, {AgentID: "b"}, {AgentID: "c"}}
+	var spawned atomic.Int32
+	sup := NewSupervisor(nil, NewFleet(), specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.RestartBatch = 1
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// All three procs are nil (never launched). Each reap tick may relaunch at
+	// most RestartBatch=1, so it takes three ticks to bring the fleet up — this
+	// is what keeps a mass restart under the per-IP /login limit. The long-lived
+	// workers launched on earlier ticks are "booting" and left alone after.
+	sup.reapAndRestart(ctx)
+	if got := spawned.Load(); got != 1 {
+		t.Fatalf("tick 1: expected 1 paced relaunch, got %d", got)
+	}
+	sup.reapAndRestart(ctx)
+	if got := spawned.Load(); got != 2 {
+		t.Fatalf("tick 2: expected 2 total relaunches, got %d", got)
+	}
+	sup.reapAndRestart(ctx)
+	if got := spawned.Load(); got != 3 {
+		t.Fatalf("tick 3: expected 3 total relaunches, got %d", got)
+	}
+}
+
+func TestReapRestartBatchUnlimitedWhenZero(t *testing.T) {
+	specs := []WorkerSpec{{AgentID: "a"}, {AgentID: "b"}, {AgentID: "c"}}
+	var spawned atomic.Int32
+	sup := NewSupervisor(nil, NewFleet(), specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.RestartBatch = 0 // opt out of pacing: relaunch all in one pass
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.reapAndRestart(ctx)
+	if got := spawned.Load(); got != 3 {
+		t.Fatalf("RestartBatch=0 should relaunch all three in one tick, got %d", got)
+	}
+}
+
 func TestLaunchTracksLiveProcess(t *testing.T) {
 	specs := []WorkerSpec{{AgentID: "w1"}}
 	spawn := func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
