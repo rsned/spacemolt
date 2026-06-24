@@ -11,3 +11,7 @@ roles:
     idle: idle_mine
     idle_params:
       N: "20"
+  explorer:
+    schedule:
+      - { every: hourly, command: "update_market" }
+    idle: explore

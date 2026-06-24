@@ -7,3 +7,15 @@ workers:
   - agent_id: resident-nebula-2
     role: resident
     station: STN-NEB-2
+  - { agent_id: explorer-1, role: explorer, station: "" }
+  - { agent_id: explorer-2, role: explorer, station: "" }
+  - { agent_id: explorer-3, role: explorer, station: "" }
+  - { agent_id: explorer-4, role: explorer, station: "" }
+  - { agent_id: explorer-5, role: explorer, station: "" }
+  - { agent_id: explorer-6, role: explorer, station: "" }
+  - { agent_id: explorer-7, role: explorer, station: "" }
+  - { agent_id: explorer-8, role: explorer, station: "" }
+  - { agent_id: explorer-9, role: explorer, station: "" }
+  - { agent_id: explorer-10, role: explorer, station: "" }
+  - { agent_id: explorer-11, role: explorer, station: "" }
+  - { agent_id: explorer-12, role: explorer, station: "" }

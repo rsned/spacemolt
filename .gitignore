@@ -124,6 +124,7 @@ starting_notes.txt
 data/scripts/*.smolt
 !data/scripts/idle_mine.smolt
 !data/scripts/track_station.smolt
+!data/scripts/explore.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit
