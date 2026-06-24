@@ -99,3 +99,188 @@ func TestGetItemStationPricesLatestCaptureWins(t *testing.T) {
 		t.Errorf("expected latest-capture best ask 4, got %+v", prices)
 	}
 }
+
+// insertRawOpp inserts a minimal opportunity row directly (white-box) for
+// lifecycle tests. status may be any allowed value.
+func insertRawOpp(t *testing.T, c *Collector, status string) {
+	t.Helper()
+	_, err := c.db.Exec(`INSERT INTO arbitrage_opportunities
+		(from_station_id, to_station_id, item_id, action_type, buy_price, sell_price,
+		 quantity, gross_profit, fuel_cost, travel_ticks, cargo_required, status,
+		 expires_at, discovered_at, discovered_by)
+		VALUES ('stnA','stnB','iron_ore','buy_then_sell',1,2,1,1,0,0,1,?,
+		 '2030-01-01T00:00:00Z','2026-06-24T00:00:00Z','test')`, status)
+	if err != nil {
+		t.Fatalf("insertRawOpp: %v", err)
+	}
+}
+
+func countStatus(t *testing.T, c *Collector, status string) int {
+	t.Helper()
+	var n int
+	if err := c.db.QueryRow(`SELECT COUNT(*) FROM arbitrage_opportunities WHERE status = ?`, status).Scan(&n); err != nil {
+		t.Fatalf("count %s: %v", status, err)
+	}
+	return n
+}
+
+func TestScanArbitrageHappyPath(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnA: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", ItemName: "Iron Ore", Side: "buy", PriceEach: 8, Quantity: 5, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnB: %v", err)
+	}
+
+	// buy at stnA ask 5, sell at stnB bid 8, qty min(10,5)=5, gross (8-5)*5=15.
+	res, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1, MinQuantity: 1, ExpiresIn: time.Hour})
+	if err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+	if res.Inserted != 1 {
+		t.Fatalf("inserted = %d, want 1", res.Inserted)
+	}
+	var buyPrice, sellPrice, qty, gross float64
+	var actionType, notes, status string
+	if err := c.db.QueryRow(`SELECT buy_price, sell_price, quantity, gross_profit, action_type, notes, status
+		FROM arbitrage_opportunities WHERE item_id = ?`, "iron_ore").
+		Scan(&buyPrice, &sellPrice, &qty, &gross, &actionType, &notes, &status); err != nil {
+		t.Fatalf("query opp: %v", err)
+	}
+	if buyPrice != 5 || sellPrice != 8 || qty != 5 || gross != 15 {
+		t.Errorf("row = buy %v sell %v qty %v gross %v, want 5/8/5/15", buyPrice, sellPrice, qty, gross)
+	}
+	if actionType != "buy_then_sell" || notes != "logistics:deferred" || status != "available" {
+		t.Errorf("meta = action %q notes %q status %q", actionType, notes, status)
+	}
+}
+
+func TestScanArbitrageSameStationExcluded(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	// One station with both a cheap ask and a high bid — no cross-station pair possible.
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stnA", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now},
+			{StationID: "stnA", ItemID: "iron_ore", Side: "buy", PriceEach: 8, Quantity: 5, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot: %v", err)
+	}
+	res, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1})
+	if err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+	if res.Inserted != 0 {
+		t.Errorf("same-station pairs must be excluded; inserted %d", res.Inserted)
+	}
+}
+
+func TestScanArbitrageFiltersBasementByMinPrice(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", Side: "sell", PriceEach: 1, Quantity: 10, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnA: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", Side: "buy", PriceEach: 200, Quantity: 10, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnB: %v", err)
+	}
+	// Default MinPrice 10 filters the 1cr ask (gross (200-1)*10=1990 would otherwise clear).
+	def, err := c.ScanArbitrage(ctx, ScanOptions{})
+	if err != nil {
+		t.Fatalf("ScanArbitrage default: %v", err)
+	}
+	if def.Inserted != 0 {
+		t.Errorf("default MinPrice=10 should filter 1cr ask; inserted %d", def.Inserted)
+	}
+	// Lowering the floor to 1 lets it through.
+	loose, err := c.ScanArbitrage(ctx, ScanOptions{MinPrice: 1})
+	if err != nil {
+		t.Fatalf("ScanArbitrage loose: %v", err)
+	}
+	if loose.Inserted != 1 {
+		t.Errorf("MinPrice=1 should let the spread through; inserted %d", loose.Inserted)
+	}
+}
+
+func TestScanArbitrageExpiresAvailablePreservesClaimed(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	insertRawOpp(t, c, "available") // prior available → should be expired by the scan
+	insertRawOpp(t, c, "claimed")   // claimed → preserved
+
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnA: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", Side: "buy", PriceEach: 8, Quantity: 5, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnB: %v", err)
+	}
+
+	res, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1})
+	if err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+	if res.Expired != 1 {
+		t.Errorf("expired = %d, want 1 (prior available)", res.Expired)
+	}
+	if got := countStatus(t, c, "available"); got != 1 {
+		t.Errorf("available = %d, want 1 (the fresh insert)", got)
+	}
+	if got := countStatus(t, c, "claimed"); got != 1 {
+		t.Errorf("claimed = %d, want 1 (preserved)", got)
+	}
+	if got := countStatus(t, c, "expired"); got != 1 {
+		t.Errorf("expired rows = %d, want 1", got)
+	}
+}
+
+func TestScanArbitrageLimitCap(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	// Two items each yielding a spread across stnA/stnB → 2 candidates; cap at 1.
+	write := func(item string) {
+		_ = c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+			Orders: []Order{{StationID: "stnA", ItemID: item, Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now}},
+		})
+		_ = c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+			Orders: []Order{{StationID: "stnB", ItemID: item, Side: "buy", PriceEach: 8, Quantity: 5, CapturedAt: now}},
+		})
+	}
+	write("iron_ore")
+	write("copper_ore")
+	res, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1, Limit: 1})
+	if err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+	if res.Inserted != 1 {
+		t.Errorf("inserted = %d, want 1 (Limit cap)", res.Inserted)
+	}
+}

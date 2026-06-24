@@ -2,7 +2,9 @@ package market
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -75,4 +77,147 @@ func (c *Collector) GetItemStationPrices(ctx context.Context, itemID string) ([]
 		out = append(out, *byStation[stID])
 	}
 	return out, nil
+}
+
+// arbCandidate is an in-memory opportunity before persistence.
+type arbCandidate struct {
+	fromStation, toStation, itemID        string
+	buyPrice, sellPrice, qty, gross       float64
+}
+
+// ScanArbitrage detects cross-station buy-low/sell-high spreads from the latest
+// market captures and persists them to arbitrage_opportunities, expiring any
+// previously-available rows first (claimed/completed rows persist). Logistics
+// (fuel/distance/ticks) are deferred to Phase 4b: fuel_cost=0, travel_ticks=0,
+// cargo_required=quantity, notes='logistics:deferred'. Reads happen outside the
+// write transaction so the write lock is held only briefly (important with ~40
+// capturing agents); a capture landing mid-scan is harmless since opportunities
+// are advisory.
+func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanResult, error) {
+	if opts.MinProfit == 0 {
+		opts.MinProfit = 1000
+	}
+	if opts.MinPrice == 0 {
+		opts.MinPrice = 10
+	}
+	if opts.MinQuantity == 0 {
+		opts.MinQuantity = 1
+	}
+	if opts.ExpiresIn == 0 {
+		opts.ExpiresIn = 6 * time.Hour
+	}
+	if opts.Limit == 0 {
+		opts.Limit = 500
+	}
+
+	itemIDs, err := c.scanItemSet(ctx, opts.Items)
+	if err != nil {
+		return ScanResult{}, err
+	}
+
+	now := time.Now().UTC()
+	var candidates []arbCandidate
+	for _, itemID := range itemIDs {
+		prices, err := c.GetItemStationPrices(ctx, itemID)
+		if err != nil {
+			return ScanResult{}, fmt.Errorf("scan item %s: %w", itemID, err)
+		}
+		for _, src := range prices { // src = where you BUY (a sell/ask)
+			if !src.HasSell || src.BestAsk < opts.MinPrice || src.AskQty < opts.MinQuantity {
+				continue
+			}
+			for _, dst := range prices { // dst = where you SELL (a buy/bid)
+				if dst.StationID == src.StationID {
+					continue
+				}
+				if !dst.HasBuy || dst.BestBid < opts.MinPrice || dst.BidQty < opts.MinQuantity {
+					continue
+				}
+				if dst.BestBid <= src.BestAsk {
+					continue
+				}
+				qty := min(src.AskQty, dst.BidQty)
+				gross := (dst.BestBid - src.BestAsk) * qty
+				if gross < opts.MinProfit {
+					continue
+				}
+				candidates = append(candidates, arbCandidate{
+					fromStation: src.StationID,
+					toStation:   dst.StationID,
+					itemID:      itemID,
+					buyPrice:    src.BestAsk,
+					sellPrice:   dst.BestBid,
+					qty:         qty,
+					gross:       gross,
+				})
+			}
+		}
+	}
+
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].gross > candidates[j].gross })
+	if len(candidates) > opts.Limit {
+		candidates = candidates[:opts.Limit]
+	}
+
+	expiresAt := now.Add(opts.ExpiresIn).Format(time.RFC3339)
+	discoveredAt := now.Format(time.RFC3339)
+
+	var res ScanResult
+	err = c.writeRetry(ctx, func(tx *sql.Tx) error {
+		exp, err := tx.ExecContext(ctx, `UPDATE arbitrage_opportunities SET status='expired' WHERE status='available'`)
+		if err != nil {
+			return fmt.Errorf("expire opportunities: %w", err)
+		}
+		expired := 0
+		if n, err := exp.RowsAffected(); err == nil {
+			expired = int(n)
+		}
+		inserted := 0
+		for _, cand := range candidates {
+			_, err := tx.ExecContext(ctx, `
+				INSERT INTO arbitrage_opportunities
+				  (from_station_id, to_station_id, item_id, action_type, buy_price, sell_price,
+				   quantity, gross_profit, fuel_cost, travel_ticks, cargo_required, status,
+				   expires_at, discovered_at, discovered_by, notes)
+				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				cand.fromStation, cand.toStation, cand.itemID, "buy_then_sell",
+				cand.buyPrice, cand.sellPrice, cand.qty, cand.gross,
+				0.0, 0, cand.qty, "available", expiresAt, discoveredAt, "arbitrage_scanner", "logistics:deferred")
+			if err != nil {
+				return fmt.Errorf("insert opportunity: %w", err)
+			}
+			inserted++
+		}
+		res.Expired = expired
+		res.Inserted = inserted
+		return nil
+	})
+	if err != nil {
+		return ScanResult{}, err
+	}
+	res.GeneratedAt = now
+	return res, nil
+}
+
+// scanItemSet returns the items to scan: the allowlist when non-empty, otherwise
+// every distinct item_id present in market_orders (only traded items can yield a
+// spread).
+func (c *Collector) scanItemSet(ctx context.Context, allow []string) ([]string, error) {
+	if len(allow) > 0 {
+		return allow, nil
+	}
+	rows, err := c.db.QueryContext(ctx, `SELECT DISTINCT item_id FROM market_orders`)
+	if err != nil {
+		return nil, fmt.Errorf("query traded items: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan traded item: %w", err)
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }

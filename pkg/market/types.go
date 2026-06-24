@@ -206,3 +206,21 @@ type StationCaptures struct {
 	Latest       string   `json:"latest"`
 	Earliest     string   `json:"earliest"`
 }
+
+// ScanOptions parameterizes an arbitrage scan. Zero-valued fields take the
+// documented defaults when ScanArbitrage runs.
+type ScanOptions struct {
+	MinProfit   float64       `json:"min_profit"`   // gross_profit floor (default 1000)
+	MinPrice    float64       `json:"min_price"`    // per-order price floor, filters basement orders (default 10)
+	MinQuantity float64       `json:"min_quantity"` // per-order depth floor (default 1)
+	ExpiresIn   time.Duration `json:"expires_in"`   // opportunity TTL (default 6h)
+	Items       []string      `json:"items"`        // allowlist; empty = all traded items
+	Limit       int           `json:"limit"`        // cap rows inserted (default 500)
+}
+
+// ScanResult reports what a ScanArbitrage run did.
+type ScanResult struct {
+	Expired     int       `json:"expired"`
+	Inserted    int       `json:"inserted"`
+	GeneratedAt time.Time `json:"generated_at"`
+}
