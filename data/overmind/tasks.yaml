@@ -1,0 +1,8 @@
+# Seed tasks assigned at overmind startup. Empty list = no tasks (fleet still
+# runs standing behaviors). Add mining runs here, e.g.:
+# tasks:
+#   - id: mine-bunda-iron
+#     script: mining_run
+#     role_required: miner
+#     params: { TARGET_SYSTEM: bunda, COUNT: "20" }
+tasks: []

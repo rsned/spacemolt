@@ -1,0 +1,6 @@
+autopilot $TARGET_SYSTEM$
+travel $ASTEROID_BELT$
+loop -f $COUNT$ mine
+travel $STATION$
+dock
+deposit_all

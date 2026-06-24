@@ -19,12 +19,14 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
+	"github.com/rsned/spacemolt/pkg/overmind/tasks"
 )
 
 func main() {
 	socketPath := flag.String("socket", "data/overmind/overmind.sock", "Unix socket path for worker control channel")
 	workerBin := flag.String("worker-bin", "bin/worker", "Path to the worker binary")
 	fleetPath := flag.String("fleet", "data/overmind/fleet.yaml", "Path to fleet roster YAML")
+	tasksPath := flag.String("tasks", "data/overmind/tasks.yaml", "Path to the assigned-task seed file")
 	stagger := flag.Duration("stagger", game.SleepMedium, "Delay between initial worker launches (per-IP /login pacing)")
 	restartBatch := flag.Int("restart-batch", 1, "Max worker relaunches per reap tick (per-IP /login pacing for mass restarts; <=0 disables)")
 	flag.Parse()
@@ -49,6 +51,19 @@ func main() {
 	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin), logger)
 	sup.StaggerInterval = *stagger
 	sup.RestartBatch = *restartBatch
+
+	// ── Step 2b: Load task store and wire event hook ──────────────────────────
+	var taskStore *tasks.Store
+	if loaded, terr := tasks.LoadTasks(*tasksPath); terr != nil {
+		logger.Printf("tasks: %v (continuing with no tasks)", terr)
+		taskStore = tasks.NewStore(nil, logger)
+	} else {
+		logger.Printf("loaded %d task(s) from %s", len(loaded), *tasksPath)
+		taskStore = tasks.NewStore(loaded, logger)
+	}
+	srv.SetEventHook(func(agentID string, ev control.Event) {
+		taskStore.HandleEvent(agentID, ev)
+	})
 
 	// ── Step 3: Signal-cancellable root context ──────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
@@ -104,7 +119,9 @@ func main() {
 			return
 
 		case <-ticker.C:
-			logFleetSnapshot(logger, fleet.Snapshot())
+			snap := fleet.Snapshot()
+			taskStore.AssignPending(snap, srv)
+			logFleetSnapshot(logger, snap)
 		}
 	}
 }
