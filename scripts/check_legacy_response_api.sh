@@ -59,6 +59,10 @@ ALLOWLIST=(
     cmd/overmind/main.go
     # Overmind integration test — calls srv.Send() which is supervisor.Server.Send (same as above).
     cmd/overmind/integration_test.go
+    # Overmind task store — sender.Send() is the tasks.Sender interface (routes a
+    # control envelope to a worker), not the game client legacy Send.
+    pkg/overmind/tasks/store.go
+    pkg/overmind/tasks/store_test.go
 )
 
 # Build a path filter: search the listed roots, exclude the allowlisted
