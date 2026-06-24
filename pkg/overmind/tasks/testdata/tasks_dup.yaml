@@ -1,0 +1,7 @@
+tasks:
+  - id: dupe
+    script: mining_run
+    role_required: miner
+  - id: dupe
+    script: mining_run
+    role_required: miner

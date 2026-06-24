@@ -1,0 +1,10 @@
+tasks:
+  - id: mine-bunda-iron
+    script: mining_run
+    role_required: miner
+    params: { TARGET_SYSTEM: bunda, COUNT: "20" }
+  - id: mine-dustfall
+    script: mining_run
+    agent_id: miner-3
+    role_required: miner
+    params: { TARGET_SYSTEM: dustfall, COUNT: "15" }
