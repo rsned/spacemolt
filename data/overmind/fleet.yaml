@@ -19,3 +19,15 @@ workers:
   - { agent_id: explorer-10, role: explorer, station: "" }
   - { agent_id: explorer-11, role: explorer, station: "" }
   - { agent_id: explorer-12, role: explorer, station: "" }
+  # Miners — already positioned in asteroid-belt systems; station label unused
+  # for mobile roles (mine_local resolves $ASTEROID_BELT$/$STATION$ in-system).
+  - { agent_id: miner-1, role: miner, station: "" }
+  - { agent_id: miner-2, role: miner, station: "" }
+  - { agent_id: miner-3, role: miner, station: "" }
+  - { agent_id: miner-4, role: miner, station: "" }
+  - { agent_id: miner-5, role: miner, station: "" }
+  - { agent_id: miner-6, role: miner, station: "" }
+  - { agent_id: miner-7, role: miner, station: "" }
+  - { agent_id: miner-8, role: miner, station: "" }
+  - { agent_id: miner-9, role: miner, station: "" }
+  - { agent_id: miner-10, role: miner, station: "" }
