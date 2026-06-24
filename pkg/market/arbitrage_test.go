@@ -330,3 +330,55 @@ func TestCompleteOpportunity(t *testing.T) {
 		t.Errorf("complete by non-owner should return false")
 	}
 }
+
+func TestGetOpportunities(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	_ = c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now}},
+	})
+	_ = c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", ItemName: "Iron Ore", Side: "buy", PriceEach: 8, Quantity: 5, CapturedAt: now}},
+	})
+	if _, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1}); err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+
+	opps, err := c.GetOpportunities(ctx, "available", 50)
+	if err != nil {
+		t.Fatalf("GetOpportunities: %v", err)
+	}
+	if len(opps) != 1 {
+		t.Fatalf("opps = %d, want 1", len(opps))
+	}
+	o := opps[0]
+	if o.FromStationName != "Alpha" || o.ToStationName != "Beta" {
+		t.Errorf("names = %q → %q, want Alpha → Beta", o.FromStationName, o.ToStationName)
+	}
+	if o.FromSystemName != "Sol" || o.ToSystemName != "Sirius" {
+		t.Errorf("systems = %q → %q, want Sol → Sirius", o.FromSystemName, o.ToSystemName)
+	}
+	if o.ItemName != "Iron Ore" {
+		t.Errorf("item_name = %q, want Iron Ore", o.ItemName)
+	}
+	if o.GrossProfit != 15 {
+		t.Errorf("gross = %v, want 15", o.GrossProfit)
+	}
+
+	// status filter excludes when mismatched.
+	none, err := c.GetOpportunities(ctx, "claimed", 50)
+	if err != nil {
+		t.Fatalf("GetOpportunities claimed: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("claimed filter = %d, want 0", len(none))
+	}
+	// "" returns all.
+	all, _ := c.GetOpportunities(ctx, "", 50)
+	if len(all) != 1 {
+		t.Errorf("all = %d, want 1", len(all))
+	}
+}

@@ -73,6 +73,11 @@ type ArbitrageOpportunity struct {
 	DiscoveredAt  string  `json:"discovered_at"`
 	DiscoveredBy  string  `json:"discovered_by"`
 	Notes         string  `json:"notes"`
+	FromStationName string `json:"from_station_name"` // joined on read
+	FromSystemName  string `json:"from_system_name"`  // joined on read
+	ToStationName   string `json:"to_station_name"`   // joined on read
+	ToSystemName    string `json:"to_system_name"`    // joined on read
+	ItemName        string `json:"item_name"`         // joined on read
 }
 
 // MarketSnapshot represents a complete market state at one station.

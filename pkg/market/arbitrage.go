@@ -260,3 +260,48 @@ func (c *Collector) CompleteOpportunity(ctx context.Context, id int, agentID str
 	})
 	return completed, err
 }
+
+// GetOpportunities returns opportunities ordered by gross_profit DESC, optionally
+// filtered to a status ("" = all). Station/system/item names are joined for
+// display. Returns an empty slice when none match.
+func (c *Collector) GetOpportunities(ctx context.Context, status string, limit int) ([]ArbitrageOpportunity, error) {
+	if limit < 1 {
+		limit = 50
+	}
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT ao.id, ao.from_station_id, COALESCE(fs.station_name, ''), COALESCE(fs.system_name, ''),
+		       ao.to_station_id, COALESCE(ts.station_name, ''), COALESCE(ts.system_name, ''),
+		       ao.item_id, COALESCE(i.item_name, ''), ao.action_type, ao.status,
+		       ao.buy_price, ao.sell_price, ao.quantity, ao.gross_profit,
+		       ao.fuel_cost, ao.travel_ticks, ao.cargo_required,
+		       ao.claimed_by, ao.claimed_at, ao.expires_at, ao.discovered_at, ao.notes
+		FROM arbitrage_opportunities ao
+		LEFT JOIN stations fs ON fs.station_id = ao.from_station_id
+		LEFT JOIN stations ts ON ts.station_id = ao.to_station_id
+		LEFT JOIN items i ON i.item_id = ao.item_id
+		WHERE (? = '' OR ao.status = ?)
+		ORDER BY ao.gross_profit DESC
+		LIMIT ?`, status, status, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query opportunities: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []ArbitrageOpportunity
+	for rows.Next() {
+		var o ArbitrageOpportunity
+		var claimedBy, claimedAt, notes sql.NullString
+		if err := rows.Scan(&o.ID, &o.FromStationID, &o.FromStationName, &o.FromSystemName,
+			&o.ToStationID, &o.ToStationName, &o.ToSystemName,
+			&o.ItemID, &o.ItemName, &o.ActionType, &o.Status,
+			&o.BuyPrice, &o.SellPrice, &o.Quantity, &o.GrossProfit,
+			&o.FuelCost, &o.TravelTicks, &o.CargoRequired,
+			&claimedBy, &claimedAt, &o.ExpiresAt, &o.DiscoveredAt, &notes); err != nil {
+			return nil, fmt.Errorf("scan opportunity: %w", err)
+		}
+		o.ClaimedBy = claimedBy.String
+		o.ClaimedAt = claimedAt.String
+		o.Notes = notes.String
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
