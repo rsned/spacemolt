@@ -284,3 +284,49 @@ func TestScanArbitrageLimitCap(t *testing.T) {
 		t.Errorf("inserted = %d, want 1 (Limit cap)", res.Inserted)
 	}
 }
+
+func TestClaimOpportunity(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOpp(t, c, "available") // id=1
+
+	ok, err := c.ClaimOpportunity(ctx, 1, "agent1")
+	if err != nil || !ok {
+		t.Fatalf("first claim: ok=%v err=%v", ok, err)
+	}
+	// Double-claim by another agent fails.
+	ok2, _ := c.ClaimOpportunity(ctx, 1, "agent2")
+	if ok2 {
+		t.Errorf("double-claim should return false")
+	}
+	// Claiming an already-expired row fails.
+	insertRawOpp(t, c, "expired") // id=2
+	ok3, _ := c.ClaimOpportunity(ctx, 2, "agent1")
+	if ok3 {
+		t.Errorf("claim on expired should return false")
+	}
+}
+
+func TestCompleteOpportunity(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOpp(t, c, "available") // id=1
+	if ok, _ := c.ClaimOpportunity(ctx, 1, "agent1"); !ok {
+		t.Fatalf("setup claim failed")
+	}
+
+	ok, err := c.CompleteOpportunity(ctx, 1, "agent1")
+	if err != nil || !ok {
+		t.Errorf("complete by owner: ok=%v err=%v", ok, err)
+	}
+
+	// Wrong agent cannot complete.
+	insertRawOpp(t, c, "available") // id=2
+	if ok, _ := c.ClaimOpportunity(ctx, 2, "agent1"); !ok {
+		t.Fatalf("setup claim failed")
+	}
+	ok2, _ := c.CompleteOpportunity(ctx, 2, "agent2")
+	if ok2 {
+		t.Errorf("complete by non-owner should return false")
+	}
+}

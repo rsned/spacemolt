@@ -221,3 +221,42 @@ func (c *Collector) scanItemSet(ctx context.Context, allow []string) ([]string, 
 	}
 	return out, rows.Err()
 }
+
+// ClaimOpportunity atomically claims an available opportunity for agentID.
+// Returns true if claimed, false if it was already claimed/expired/gone.
+func (c *Collector) ClaimOpportunity(ctx context.Context, id int, agentID string) (bool, error) {
+	claimed := false
+	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx,
+			`UPDATE arbitrage_opportunities SET status='claimed', claimed_by=?, claimed_at=?
+			 WHERE id=? AND status='available'`,
+			agentID, time.Now().UTC().Format(time.RFC3339), id)
+		if err != nil {
+			return fmt.Errorf("claim opportunity: %w", err)
+		}
+		if n, err := res.RowsAffected(); err == nil {
+			claimed = n > 0
+		}
+		return nil
+	})
+	return claimed, err
+}
+
+// CompleteOpportunity atomically marks a claimed opportunity completed, but only
+// if agentID owns the claim. Returns false (no error) if not owned/claimed.
+func (c *Collector) CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error) {
+	completed := false
+	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx,
+			`UPDATE arbitrage_opportunities SET status='completed'
+			 WHERE id=? AND claimed_by=? AND status='claimed'`, id, agentID)
+		if err != nil {
+			return fmt.Errorf("complete opportunity: %w", err)
+		}
+		if n, err := res.RowsAffected(); err == nil {
+			completed = n > 0
+		}
+		return nil
+	})
+	return completed, err
+}
