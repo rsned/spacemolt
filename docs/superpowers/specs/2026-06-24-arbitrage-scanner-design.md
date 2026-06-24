@@ -83,24 +83,11 @@ type ScanResult struct {
     GeneratedAt time.Time
 }
 
-// Opportunity is the readable form of an arbitrage_opportunities row.
-// IDs are persisted; station/system names are joined on read.
-type Opportunity struct {
-    ID                                       int
-    FromStationID, FromStationName           string
-    FromSystemName                           string
-    ToStationID, ToStationName               string
-    ToSystemName                             string
-    ItemID, ItemName                         string
-    ActionType, Status                       string
-    BuyPrice, SellPrice, Quantity, GrossProfit float64
-    FuelCost                                 float64
-    TravelTicks                              int
-    CargoRequired                            float64
-    ClaimedBy                                string
-    ClaimedAt, ExpiresAt, DiscoveredAt       time.Time
-    Notes                                    string
-}
+// (Reuses the existing ArbitrageOpportunity type in types.go — extend it rather
+// than introduce a parallel type. Additive string fields, populated by
+// GetOpportunities via joins; persisted rows store IDs only):
+//   FromStationName, FromSystemName, ToStationName, ToSystemName, ItemName
+// Timestamps stay string (RFC3339) as in the existing type.
 ```
 
 **Methods** (on `*Collector`):
@@ -109,7 +96,7 @@ type Opportunity struct {
 - `ScanArbitrage(ctx, opts ScanOptions) (ScanResult, error)` — detect + persist (algorithm below).
 - `ClaimOpportunity(ctx, id int, agentID string) (claimed bool, err error)` — atomic `UPDATE … SET status='claimed', claimed_by=?, claimed_at=? WHERE id=? AND status='available'`; returns whether the claim succeeded (false = already gone/expired).
 - `CompleteOpportunity(ctx, id int, agentID string) (completed bool, err error)` — atomic `UPDATE … SET status='completed' WHERE id=? AND claimed_by=?`; zero rows → `false`, no error.
-- `GetOpportunities(ctx, status string, limit int) ([]Opportunity, error)` — for the dashboard; joins `stations` for names, `ORDER BY gross_profit DESC`. `status == ""` → all statuses.
+- `GetOpportunities(ctx, status string, limit int) ([]ArbitrageOpportunity, error)` — for the dashboard; joins `stations`/`items` for names, `ORDER BY gross_profit DESC`. `status == ""` → all statuses.
 
 ### Detection algorithm (`ScanArbitrage`)
 
