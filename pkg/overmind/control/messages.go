@@ -16,6 +16,7 @@ const (
 	TypeAbort  Type = "abort"
 	TypePause  Type = "pause"
 	TypeResume Type = "resume"
+	TypeAssign Type = "assign"
 )
 
 // Envelope is the framed wire unit; one Envelope is one NDJSON line.
@@ -59,6 +60,16 @@ type Event struct {
 type Abort struct {
 	Reason string `json:"reason"`
 	Flee   bool   `json:"flee"`
+}
+
+// Assign tells a worker to run a one-shot task: resolve Script via the worker's
+// script search path, substitute Params ($KEY$) into it, then run it once in
+// place of the idle behavior. Completion is reported back via an Event
+// (Kind "task_done" / "task_failed").
+type Assign struct {
+	TaskID string            `json:"task_id"`
+	Script string            `json:"script"`
+	Params map[string]string `json:"params,omitempty"`
 }
 
 // NewEnvelope marshals payload and wraps it with the given type and agent id.

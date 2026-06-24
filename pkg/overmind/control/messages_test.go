@@ -30,3 +30,25 @@ func TestIntoWrongShapeStillDecodesKnownFields(t *testing.T) {
 		t.Fatalf("payload lost: %+v", got)
 	}
 }
+
+func TestAssignRoundTrip(t *testing.T) {
+	in := Assign{
+		TaskID: "mine-bunda-iron",
+		Script: "mining_run",
+		Params: map[string]string{"TARGET_SYSTEM": "bunda", "COUNT": "20"},
+	}
+	env, err := NewEnvelope(TypeAssign, "miner-1", in)
+	if err != nil {
+		t.Fatalf("NewEnvelope: %v", err)
+	}
+	if env.Type != TypeAssign {
+		t.Fatalf("type = %q, want %q", env.Type, TypeAssign)
+	}
+	var out Assign
+	if err := env.Into(&out); err != nil {
+		t.Fatalf("Into: %v", err)
+	}
+	if out.TaskID != in.TaskID || out.Script != in.Script || out.Params["TARGET_SYSTEM"] != "bunda" || out.Params["COUNT"] != "20" {
+		t.Fatalf("round-trip mismatch: got %+v want %+v", out, in)
+	}
+}
