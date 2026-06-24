@@ -38,7 +38,8 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 // there is present here.
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
-	"mine": true,
+	"explore": true, "scan": true,
+	"mine":   true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true,
@@ -105,6 +106,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 				return KBUpdatePOI(ctx, d.Client, d.KB, "")
 			},
 		}, args[0], poi)
+	case "explore":
+		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out})
+	case "scan":
+		return d.Client.Scan(ctx)
 	case "get_status":
 		return d.Client.GetStatus(ctx)
 	case "get_system":

@@ -3,7 +3,9 @@ package worker
 import (
 	"context"
 	"fmt"
+	"io"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
@@ -104,4 +106,56 @@ func outranks(class exploreClass, d int, id string, bClass exploreClass, bDist i
 		return d < bDist
 	}
 	return id < bID
+}
+
+// ExploreDeps are the injected collaborators for one Explore step.
+type ExploreDeps struct {
+	Client     game.GameClient
+	KB         knowledge.Base
+	Out        io.Writer // progress; nil -> io.Discard
+	StaleTicks int64     // 0 -> DefaultExploreStaleTicks
+}
+
+// Explore performs one exploration step: resolve the current system, choose the
+// next target via NextExploreTarget, and autopilot to it (capturing each hop
+// via the worker's plain KB capture). When there is no KB, no current system,
+// or no reachable frontier, it logs and returns nil so the worker idles and
+// retries on the next pass.
+func Explore(ctx context.Context, deps ExploreDeps) error {
+	out := deps.Out
+	if out == nil {
+		out = io.Discard
+	}
+	if deps.KB == nil {
+		fmt.Fprintln(out, "explore: no knowledge base; skipping") //nolint:errcheck
+		return nil
+	}
+	stale := deps.StaleTicks
+	if stale <= 0 {
+		stale = DefaultExploreStaleTicks
+	}
+	state := deps.Client.GetState()
+	if state == nil || state.CurrentSystem == "" {
+		fmt.Fprintln(out, "explore: current system unknown; skipping") //nolint:errcheck
+		return nil
+	}
+	target, ok, err := NextExploreTarget(ctx, deps.KB, state.CurrentSystem, stale, state.CurrentTick)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		fmt.Fprintf(out, "explore: no frontier reachable from %s; idling\n", state.CurrentSystem) //nolint:errcheck
+		return nil
+	}
+	fmt.Fprintf(out, "explore: heading to %s\n", target) //nolint:errcheck
+	return Autopilot(ctx, AutopilotDeps{
+		Client: deps.Client,
+		Out:    out,
+		OnWaypoint: func(ctx context.Context) error {
+			if uerr := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); uerr != nil {
+				return uerr
+			}
+			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
+		},
+	}, target, "")
 }

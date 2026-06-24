@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 )
 
@@ -179,5 +180,62 @@ func TestDispatchAutopilot(t *testing.T) {
 	}
 	if !slices.Contains(f.calls, "find_route:sys_c") || !slices.Contains(f.calls, "jump:sys_c") {
 		t.Errorf("expected find_route + jumps, got %v", f.calls)
+	}
+}
+
+func (f *fakeClient) Scan(ctx context.Context) error {
+	f.calls = append(f.calls, "scan")
+	return nil
+}
+
+func TestDispatchScan(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+	if !d.Supports("scan") {
+		t.Fatal("scan should be supported")
+	}
+	if err := d.Run(context.Background(), []string{"scan"}); err != nil {
+		t.Fatalf("Run scan: %v", err)
+	}
+	if !slices.Contains(f.calls, "scan") {
+		t.Errorf("expected scan call, got %v", f.calls)
+	}
+}
+
+func TestDispatchExploreAutopilotsToFrontier(t *testing.T) {
+	// Current system "a" with a frontier neighbour "b". explore should pick b
+	// and autopilot there (find_route + jump).
+	f := &fakeClient{
+		state: &game.State{CurrentSystem: "a", Fuel: 100, MaxFuel: 100},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}, {SystemID: "b", Name: "B"}},
+	}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a", LastVisitedTick: 5, LastUpdatedTick: 1}},
+		conns:   undirected([2]string{"a", "b"}),
+	}
+	d := NewWorkerDispatch(f, kb, nil, io.Discard)
+	if !d.Supports("explore") {
+		t.Fatal("explore should be supported")
+	}
+	if err := d.Run(context.Background(), []string{"explore"}); err != nil {
+		t.Fatalf("Run explore: %v", err)
+	}
+	if !slices.Contains(f.calls, "find_route:b") || !slices.Contains(f.calls, "jump:b") {
+		t.Errorf("expected autopilot to frontier b, got %v", f.calls)
+	}
+}
+
+func TestDispatchExploreNoTargetNoOp(t *testing.T) {
+	// No connections -> nothing reachable -> explore no-ops without navigating.
+	f := &fakeClient{state: &game.State{CurrentSystem: "a"}}
+	kb := &fakeKB{systems: []knowledge.System{{ID: "a", LastVisitedTick: 5}}}
+	d := NewWorkerDispatch(f, kb, nil, io.Discard)
+	if err := d.Run(context.Background(), []string{"explore"}); err != nil {
+		t.Fatalf("Run explore (no target): %v", err)
+	}
+	for _, c := range f.calls {
+		if len(c) >= 11 && c[:11] == "find_route:" {
+			t.Errorf("explore with no target must not navigate, got %v", f.calls)
+		}
 	}
 }
