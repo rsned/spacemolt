@@ -107,3 +107,20 @@ func TestCapturesHandlerEmpty(t *testing.T) {
 		t.Errorf("health = %d, want 0", len(health))
 	}
 }
+
+func TestOpportunitiesHandlerEmpty(t *testing.T) {
+	srv, _ := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/opportunities", nil)
+	rec := httptest.NewRecorder()
+	srv.opportunitiesHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var opps []market.ArbitrageOpportunity
+	if err := json.Unmarshal(rec.Body.Bytes(), &opps); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(opps) != 0 {
+		t.Errorf("opps = %d, want 0", len(opps))
+	}
+}

@@ -73,6 +73,11 @@ type ArbitrageOpportunity struct {
 	DiscoveredAt  string  `json:"discovered_at"`
 	DiscoveredBy  string  `json:"discovered_by"`
 	Notes         string  `json:"notes"`
+	FromStationName string `json:"from_station_name"` // joined on read
+	FromSystemName  string `json:"from_system_name"`  // joined on read
+	ToStationName   string `json:"to_station_name"`   // joined on read
+	ToSystemName    string `json:"to_system_name"`    // joined on read
+	ItemName        string `json:"item_name"`         // joined on read
 }
 
 // MarketSnapshot represents a complete market state at one station.
@@ -96,6 +101,24 @@ type BestPrice struct {
 	Price       float64   `json:"price"`
 	Quantity    float64   `json:"quantity"`
 	ListingType string    `json:"listing_type"` // "buy" or "sell"
+	CapturedAt  time.Time `json:"captured_at"`
+}
+
+// ItemStationPrice is one item's best ask/bid per station, from the latest capture.
+// BestAsk is the cheapest sell order (where you BUY); BestBid is the highest buy
+// order (where you SELL). AskQty/BidQty total the quantity of orders tying at that
+// best price. The arbitrage scanner pairs these across stations.
+type ItemStationPrice struct {
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	SystemID    string    `json:"system_id"`
+	SystemName  string    `json:"system_name"`
+	BestAsk     float64   `json:"best_ask"`
+	AskQty      float64   `json:"ask_qty"`
+	BestBid     float64   `json:"best_bid"`
+	BidQty      float64   `json:"bid_qty"`
+	HasSell     bool      `json:"has_sell"`
+	HasBuy      bool      `json:"has_buy"`
 	CapturedAt  time.Time `json:"captured_at"`
 }
 
@@ -187,4 +210,22 @@ type StationCaptures struct {
 	Count        int      `json:"count"`
 	Latest       string   `json:"latest"`
 	Earliest     string   `json:"earliest"`
+}
+
+// ScanOptions parameterizes an arbitrage scan. Zero-valued fields take the
+// documented defaults when ScanArbitrage runs.
+type ScanOptions struct {
+	MinProfit   float64       `json:"min_profit"`   // gross_profit floor (default 1000)
+	MinPrice    float64       `json:"min_price"`    // per-order price floor, filters basement orders (default 10)
+	MinQuantity float64       `json:"min_quantity"` // per-order depth floor (default 1)
+	ExpiresIn   time.Duration `json:"expires_in"`   // opportunity TTL (default 6h)
+	Items       []string      `json:"items"`        // allowlist; empty = all traded items
+	Limit       int           `json:"limit"`        // cap rows inserted (default 500)
+}
+
+// ScanResult reports what a ScanArbitrage run did.
+type ScanResult struct {
+	Expired     int       `json:"expired"`
+	Inserted    int       `json:"inserted"`
+	GeneratedAt time.Time `json:"generated_at"`
 }
