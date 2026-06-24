@@ -125,3 +125,34 @@ func TestNextExploreTargetUnreachableExcluded(t *testing.T) {
 		t.Fatal("unreachable frontier d must not be selected")
 	}
 }
+
+func TestNextExploreTargetExpandsOverCalls(t *testing.T) {
+	// Chain a-b-c. From "a", the nearest frontier is "b". After the explorer
+	// visits "b" (KB now records it as visited+fresh), a second call from "b"
+	// must advance to the next frontier "c" — not oscillate back to "a".
+	kb := &fakeKB{
+		systems: []knowledge.System{
+			{ID: "a", LastVisitedTick: 50, LastUpdatedTick: 100},
+		},
+		conns: undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
+	}
+
+	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100)
+	if err != nil {
+		t.Fatalf("call 1 err: %v", err)
+	}
+	if !ok || target != "b" {
+		t.Fatalf("call 1: want frontier b, got target=%q ok=%v", target, ok)
+	}
+
+	// Simulate visiting b: it becomes a known, freshly-updated system.
+	kb.systems = append(kb.systems, knowledge.System{ID: "b", LastVisitedTick: 100, LastUpdatedTick: 100})
+
+	target, ok, err = NextExploreTarget(context.Background(), kb, "b", DefaultExploreStaleTicks, 100)
+	if err != nil {
+		t.Fatalf("call 2 err: %v", err)
+	}
+	if !ok || target != "c" {
+		t.Fatalf("call 2: want next frontier c (no oscillation back to a), got target=%q ok=%v", target, ok)
+	}
+}
