@@ -15,3 +15,4 @@ roles:
     schedule:
       - { every: hourly, command: "update_market" }
     idle: explore
+  miner: {}
