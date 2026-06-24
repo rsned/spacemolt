@@ -154,7 +154,7 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 		}
 	}
 
-	sort.Slice(candidates, func(i, j int) bool { return candidates[i].gross > candidates[j].gross })
+	sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].gross > candidates[j].gross })
 	if len(candidates) > opts.Limit {
 		candidates = candidates[:opts.Limit]
 	}
