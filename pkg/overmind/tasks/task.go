@@ -5,6 +5,7 @@ package tasks
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,6 +55,8 @@ func LoadTasks(path string) ([]Task, error) {
 		switch {
 		case t.ID == "":
 			return nil, fmt.Errorf("tasks: task #%d has empty id", i)
+		case strings.Contains(t.ID, ":"):
+			return nil, fmt.Errorf("tasks: task id %q must not contain ':'", t.ID)
 		case seen[t.ID]:
 			return nil, fmt.Errorf("tasks: duplicate id %q", t.ID)
 		case t.Script == "":

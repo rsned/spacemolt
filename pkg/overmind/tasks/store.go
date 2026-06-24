@@ -40,12 +40,16 @@ func (s *Store) AssignPending(workers []supervisor.WorkerInfo, sender Sender) {
 		present[w.AgentID] = w
 	}
 
-	// Reconcile: revert tasks whose assigned worker is gone (died/unregistered).
+	// Reconcile: revert tasks whose assigned worker is gone (died/unregistered)
+	// OR whose worker is present but unhealthy (died and Fleet kept the entry).
+	// Fleet is ADD-ONLY: MarkRestart sets Healthy=false but never removes the
+	// entry, so absent-only was never true in production.
 	for i := range s.tasks {
 		t := &s.tasks[i]
 		if t.Status == StatusAssigned || t.Status == StatusRunning {
-			if _, ok := present[t.AssignedTo]; !ok {
-				s.logger.Printf("task %q: worker %q gone, returning to pending", t.ID, t.AssignedTo)
+			w, ok := present[t.AssignedTo]
+			if !ok || !w.Healthy {
+				s.logger.Printf("task %q: worker %q gone or unhealthy, returning to pending", t.ID, t.AssignedTo)
 				t.Status = StatusPending
 				t.AssignedTo = ""
 			}

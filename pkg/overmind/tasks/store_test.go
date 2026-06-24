@@ -89,3 +89,26 @@ func TestReassignsOnWorkerDeath(t *testing.T) {
 		t.Fatalf("expected reassignment to miner-9 after death, sent=%v", fs.sent)
 	}
 }
+
+// TestReassignsOnWorkerUnhealthy covers the production case: Fleet is ADD-ONLY
+// so a dead worker stays in the snapshot with Healthy=false. The absent-only
+// check would never fire; we must also gate on !Healthy.
+func TestReassignsOnWorkerUnhealthy(t *testing.T) {
+	s := newStore(Task{ID: "t1", Script: "mining_run", RoleRequired: "miner", Status: StatusAssigned, AssignedTo: "miner-2"})
+	fs := &fakeSender{}
+	// miner-2 is present but unhealthy (died; Fleet kept the entry via MarkRestart).
+	dead := supervisor.WorkerInfo{AgentID: "miner-2", Role: "miner", Healthy: false}
+	healthy := idleWorker("miner-9", "miner")
+	s.AssignPending([]supervisor.WorkerInfo{dead, healthy}, fs)
+	// Task must be reassigned to the healthy worker, not the dead one.
+	a, ok := fs.sent["miner-9"]
+	if !ok {
+		t.Fatalf("expected reassignment to miner-9, sent=%v", fs.sent)
+	}
+	if a.TaskID != "t1" {
+		t.Fatalf("wrong task reassigned: %q", a.TaskID)
+	}
+	if _, bad := fs.sent["miner-2"]; bad {
+		t.Fatalf("unhealthy worker miner-2 must not receive assignment")
+	}
+}

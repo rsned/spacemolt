@@ -3,6 +3,7 @@ package tasks
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,5 +41,21 @@ func TestLoadTasksRejectsMissingFields(t *testing.T) {
 	}
 	if _, err := LoadTasks(p); err == nil {
 		t.Fatal("expected error on missing script, got nil")
+	}
+}
+
+func TestLoadTasksRejectsColonInID(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "colon.yaml")
+	content := "tasks:\n  - id: \"mine:bunda\"\n    script: mining_run\n    role_required: miner\n"
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadTasks(p)
+	if err == nil {
+		t.Fatal("expected error for task id containing ':', got nil")
+	}
+	if !strings.Contains(err.Error(), ":") {
+		t.Fatalf("error message should name the offending id, got: %v", err)
 	}
 }

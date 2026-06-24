@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/overmind/tasks"
 )
 
 func TestLoadRolesParsesResident(t *testing.T) {
@@ -78,6 +80,35 @@ func TestSeededCommandsAreDispatchable(t *testing.T) {
 			for _, c := range cmds {
 				check(c)
 			}
+		}
+	}
+
+	// Also validate scripts referenced by tasks.yaml so task-only scripts
+	// (e.g. mining_run.smolt) are covered even when no role references them.
+	taskList, err := tasks.LoadTasks(filepath.Join("data", "overmind", "tasks.yaml"))
+	if err != nil {
+		t.Fatalf("LoadTasks: %v", err)
+	}
+	seen := make(map[string]bool)
+	for _, task := range taskList {
+		if seen[task.Script] {
+			continue
+		}
+		seen[task.Script] = true
+		path, ok := ResolveScriptArg(task.Script, "")
+		if !ok {
+			t.Fatalf("task %q script %q not found in data/scripts/", task.ID, task.Script)
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		cmds, err := SplitScriptCommands(string(content))
+		if err != nil {
+			t.Fatalf("split task script %s: %v", path, err)
+		}
+		for _, c := range cmds {
+			check(c)
 		}
 	}
 }
