@@ -8005,7 +8005,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === ACTION LOG ===
 	case "get_action_log", "action_log":
-		payload, err := parseFlagArgs(parts[1:], "category", "faction_id", "page", "page_size")
+		payload, err := parseFlagArgs(parts[1:], "category", "event_type", "faction_id", "page", "page_size")
 		if err != nil {
 			return err
 		}

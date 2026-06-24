@@ -917,8 +917,8 @@ func (c *Client) GetMissions(ctx context.Context) error {
 }
 
 // GetActionLog fetches recent server-side action log entries. The payload
-// accepts server-supported filters (category, faction_id, page, page_size);
-// pass nil for defaults.
+// accepts server-supported filters (category, event_type, faction_id, page,
+// page_size); pass nil for defaults.
 func (c *Client) GetActionLog(ctx context.Context, payload map[string]any) error {
 	if payload == nil {
 		payload = map[string]any{}
