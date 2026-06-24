@@ -99,6 +99,24 @@ type BestPrice struct {
 	CapturedAt  time.Time `json:"captured_at"`
 }
 
+// ItemStationPrice is one item's best ask/bid per station, from the latest capture.
+// BestAsk is the cheapest sell order (where you BUY); BestBid is the highest buy
+// order (where you SELL). AskQty/BidQty total the quantity of orders tying at that
+// best price. The arbitrage scanner pairs these across stations.
+type ItemStationPrice struct {
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	SystemID    string    `json:"system_id"`
+	SystemName  string    `json:"system_name"`
+	BestAsk     float64   `json:"best_ask"`
+	AskQty      float64   `json:"ask_qty"`
+	BestBid     float64   `json:"best_bid"`
+	BidQty      float64   `json:"bid_qty"`
+	HasSell     bool      `json:"has_sell"`
+	HasBuy      bool      `json:"has_buy"`
+	CapturedAt  time.Time `json:"captured_at"`
+}
+
 // MarketAnalysis is LLM-generated market analysis (analyze_market output).
 type MarketAnalysis struct {
 	SystemID        string
