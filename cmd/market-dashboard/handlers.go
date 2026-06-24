@@ -80,3 +80,16 @@ func (s *server) capturesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, health)
 }
+
+func (s *server) opportunitiesHandler(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	opps, err := s.col.GetOpportunities(r.Context(), r.URL.Query().Get("status"), limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	if opps == nil {
+		opps = []market.ArbitrageOpportunity{}
+	}
+	writeJSON(w, http.StatusOK, opps)
+}

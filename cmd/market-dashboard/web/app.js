@@ -120,6 +120,20 @@ async function renderHealth() {
   } catch (e) { showError(e); }
 }
 
+async function renderOpps() {
+  try {
+    const opps = await getJSON('/api/opportunities?limit=100');
+    if (!opps.length) { app.innerHTML = '<p>No opportunities. Run <code>arbitrage-scanner scan</code>.</p>'; return; }
+    const rows = opps.map(o =>
+      `<tr><td class="item">${o.item_id}<br><small>${o.item_name || ''}</small></td>
+       <td>${o.from_station_name || o.from_station_id} → ${o.to_station_name || o.to_station_id}<br><small>${o.from_system_name || ''} → ${o.to_system_name || ''}</small></td>
+       <td>${fmt(o.buy_price)}</td><td>${fmt(o.sell_price)}</td><td>${fmt(o.quantity)}</td>
+       <td class="sell">${fmt(o.gross_profit)}</td><td>${o.status}</td><td>${relTime(o.expires_at)}</td></tr>`).join('');
+    app.innerHTML = `<h3>Arbitrage opportunities</h3>
+      <table><thead><tr><th>item</th><th>from → to</th><th>buy</th><th>sell</th><th>qty</th><th>gross</th><th>status</th><th>expires</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { showError(e); }
+}
+
 function showView(v) {
   view = v;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
@@ -128,6 +142,7 @@ function showView(v) {
   if (v === 'matrix') renderMatrix();
   else if (v === 'price') renderPrice();
   else if (v === 'health') renderHealth();
+  else if (v === 'opps') renderOpps();
 }
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
