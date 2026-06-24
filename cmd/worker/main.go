@@ -74,10 +74,14 @@ func main() {
 		log.Fatalf("load intent: %v", err)
 	}
 	standing := "idle"
-	activeTaskID := ""
+	var pendingTask atomic.Pointer[worker.AssignedTask]
+	var activeTaskID atomic.Pointer[string]
 	if hasIntent {
 		standing = savedIntent.StandingBehavior
-		activeTaskID = savedIntent.ActiveTaskID
+		if savedIntent.ActiveTaskID != "" {
+			id := savedIntent.ActiveTaskID
+			activeTaskID.Store(&id)
+		}
 	}
 
 	// ── Step 2: Signal handling & root context ───────────────────────────────
@@ -209,6 +213,14 @@ func main() {
 					}
 					logger.Printf("checkpoint saved; exiting on abort")
 					os.Exit(0)
+				case control.TypeAssign:
+					var as control.Assign
+					if intoErr := env.Into(&as); intoErr != nil {
+						logger.Printf("warning: decode assign payload: %v", intoErr)
+						break
+					}
+					logger.Printf("received task %q (script=%s)", as.TaskID, as.Script)
+					pendingTask.Store(&worker.AssignedTask{ID: as.TaskID, Script: as.Script, Params: as.Params})
 				case control.TypePause:
 					paused.Store(true)
 					logger.Printf("paused")
@@ -262,6 +274,29 @@ func main() {
 					Out:       os.Stdout,
 					NowFn:     func() time.Time { return time.Now().UTC() },
 					AgentID:   *agentID,
+					NextTask: func() *worker.AssignedTask {
+						t := pendingTask.Swap(nil)
+						if t != nil {
+							id := t.ID
+							activeTaskID.Store(&id)
+						}
+						return t
+					},
+					OnTaskResult: func(taskID string, err error) {
+						kind := "task_done"
+						detail := taskID
+						if err != nil {
+							kind = "task_failed"
+							detail = taskID + ": " + err.Error()
+						}
+						if sendErr := sendEnvelope(enc, control.TypeEvent, *agentID, control.Event{
+							Kind: kind, Detail: detail, Timestamp: time.Now().Format(time.RFC3339Nano),
+						}); sendErr != nil {
+							logger.Printf("warning: send task event: %v", sendErr)
+						}
+						activeTaskID.Store(nil)
+						logger.Printf("task %s finished: %s", taskID, kind)
+					},
 				}
 				if rerr := worker.RunStanding(ctx, roleCfg, deps); rerr != nil {
 					logger.Printf("standing behavior ended: %v", rerr)
@@ -288,7 +323,11 @@ func main() {
 				nowState := client.GetState()
 				nowTick := int(nowState.CurrentTick)
 
-				status := buildStatus(nowState, standing, activeTaskID, time.Now())
+				tid := ""
+				if p := activeTaskID.Load(); p != nil {
+					tid = *p
+				}
+				status := buildStatus(nowState, standing, tid, time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
 				}
