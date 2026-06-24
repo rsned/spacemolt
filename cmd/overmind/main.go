@@ -26,6 +26,7 @@ func main() {
 	workerBin := flag.String("worker-bin", "bin/worker", "Path to the worker binary")
 	fleetPath := flag.String("fleet", "data/overmind/fleet.yaml", "Path to fleet roster YAML")
 	stagger := flag.Duration("stagger", game.SleepMedium, "Delay between initial worker launches (per-IP /login pacing)")
+	restartBatch := flag.Int("restart-batch", 1, "Max worker relaunches per reap tick (per-IP /login pacing for mass restarts; <=0 disables)")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
@@ -47,6 +48,7 @@ func main() {
 
 	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin), logger)
 	sup.StaggerInterval = *stagger
+	sup.RestartBatch = *restartBatch
 
 	// ── Step 3: Signal-cancellable root context ──────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
