@@ -22,6 +22,11 @@ func (f *fakeKB) GetConnections(context.Context) ([]knowledge.Connection, error)
 	return f.conns, nil
 }
 
+// No-op write stubs so the autopilot OnWaypoint capture path (KBUpdateSystem /
+// KBUpdatePOI) is harmless in tests instead of panicking on the embedded nil Base.
+func (f *fakeKB) RememberSystem(context.Context, knowledge.System) error { return nil }
+func (f *fakeKB) RememberPOI(context.Context, knowledge.POI) error       { return nil }
+
 func undirected(pairs ...[2]string) []knowledge.Connection {
 	out := make([]knowledge.Connection, 0, len(pairs)*2)
 	for _, p := range pairs {

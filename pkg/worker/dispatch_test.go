@@ -50,6 +50,10 @@ func (f *fakeClient) GetCargo(ctx context.Context) error {
 	f.calls = append(f.calls, "get_cargo")
 	return nil
 }
+func (f *fakeClient) GetPOI(ctx context.Context) error {
+	f.calls = append(f.calls, "get_poi")
+	return nil
+}
 func (f *fakeClient) GetState() *game.State { return f.state }
 func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) error {
 	f.calls = append(f.calls, "view_market")
@@ -203,10 +207,16 @@ func TestDispatchScan(t *testing.T) {
 }
 
 func TestDispatchExploreAutopilotsToFrontier(t *testing.T) {
-	// Current system "a" with a frontier neighbour "b". explore should pick b
-	// and autopilot there (find_route + jump).
+	// Current system id "a" with a frontier neighbour "b". explore should pick b
+	// and autopilot there (find_route + jump). Selection must key on the system
+	// ID (state.System.ID), NOT the display name: CurrentSystem is deliberately
+	// "A" (≠ id "a") here — the KB graph uses ids, so a name would reach no node.
 	f := &fakeClient{
-		state: &game.State{CurrentSystem: "a", Fuel: 100, MaxFuel: 100},
+		state: &game.State{
+			CurrentSystem: "A",
+			System:        game.SystemData{ID: "a", Name: "A"},
+			Fuel:          100, MaxFuel: 100,
+		},
 		route: []game.RouteStep{{SystemID: "a", Name: "A"}, {SystemID: "b", Name: "B"}},
 	}
 	kb := &fakeKB{
@@ -227,7 +237,7 @@ func TestDispatchExploreAutopilotsToFrontier(t *testing.T) {
 
 func TestDispatchExploreNoTargetNoOp(t *testing.T) {
 	// No connections -> nothing reachable -> explore no-ops without navigating.
-	f := &fakeClient{state: &game.State{CurrentSystem: "a"}}
+	f := &fakeClient{state: &game.State{CurrentSystem: "A", System: game.SystemData{ID: "a", Name: "A"}}}
 	kb := &fakeKB{systems: []knowledge.System{{ID: "a", LastVisitedTick: 5}}}
 	d := NewWorkerDispatch(f, kb, nil, io.Discard)
 	if err := d.Run(context.Background(), []string{"explore"}); err != nil {

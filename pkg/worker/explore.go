@@ -135,16 +135,24 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 		stale = DefaultExploreStaleTicks
 	}
 	state := deps.Client.GetState()
-	if state == nil || state.CurrentSystem == "" {
+	// The KB jump graph and systems table key on system IDs (e.g. "haven"),
+	// not display names (e.g. "Haven"); state.CurrentSystem is the name, so
+	// select on state.System.ID. The name is kept only for human-readable logs.
+	if state == nil || state.System.ID == "" {
 		fmt.Fprintln(out, "explore: current system unknown; skipping") //nolint:errcheck
 		return nil
 	}
-	target, ok, err := NextExploreTarget(ctx, deps.KB, state.CurrentSystem, stale, state.CurrentTick)
+	currentID := state.System.ID
+	label := state.System.Name
+	if label == "" {
+		label = currentID
+	}
+	target, ok, err := NextExploreTarget(ctx, deps.KB, currentID, stale, state.CurrentTick)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		fmt.Fprintf(out, "explore: no frontier reachable from %s; idling\n", state.CurrentSystem) //nolint:errcheck
+		fmt.Fprintf(out, "explore: nothing to survey reachable from %s; idling\n", label) //nolint:errcheck
 		return nil
 	}
 	fmt.Fprintf(out, "explore: heading to %s\n", target) //nolint:errcheck
