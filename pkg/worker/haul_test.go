@@ -2,12 +2,58 @@ package worker
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
+
+// TestHaulGate covers the pre-buy profitability gate: it re-prices both legs from
+// fresh station prices, sizes on the live ask, and requires the live spread to clear
+// BOTH the margin and the net-profit floor.
+func TestHaulGate(t *testing.T) {
+	opp := func(qty float64) market.ArbitrageOpportunity {
+		return market.ArbitrageOpportunity{FromStationID: "buyst", ToStationID: "sellst", ItemID: "x", Quantity: qty}
+	}
+	prices := func(ask, bid float64, hasAsk, hasBid bool) []market.ItemStationPrice {
+		return []market.ItemStationPrice{
+			{StationID: "buyst", BestAsk: ask, HasSell: hasAsk},
+			{StationID: "sellst", BestBid: bid, HasBuy: hasBid},
+		}
+	}
+	const bigCredits = 1e9
+	tests := []struct {
+		name              string
+		opp               market.ArbitrageOpportunity
+		prices            []market.ItemStationPrice
+		cargoFree, credit float64
+		wantOK            bool
+		wantReason        string
+	}{
+		{"fat spread passes", opp(100), prices(100, 111, true, true), 100, bigCredits, true, ""},
+		{"inverted spread (trader-3) fails", opp(21), prices(2654, 2631, true, true), 200, bigCredits, false, "spread too thin"},
+		{"margin ok but net below floor fails", opp(5), prices(100, 104, true, true), 5, bigCredits, false, "spread too thin"},
+		{"no live ask at buy station fails", opp(100), prices(0, 111, false, true), 100, bigCredits, false, "no live ask"},
+		{"no live bid at sell station fails", opp(100), prices(100, 0, true, false), 100, bigCredits, false, "no live bid"},
+		{"unaffordable fails before margin", opp(100), prices(100, 200, true, true), 100, 50, false, "unaffordable"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.credit)
+			if ok != tc.wantOK {
+				t.Fatalf("ok=%v (reason %q), want %v", ok, reason, tc.wantOK)
+			}
+			if tc.wantOK && qty < 1 {
+				t.Errorf("passing gate returned qty=%.0f, want >=1", qty)
+			}
+			if !tc.wantOK && !strings.Contains(reason, tc.wantReason) {
+				t.Errorf("reason=%q, want contains %q", reason, tc.wantReason)
+			}
+		})
+	}
+}
 
 // TestBuildNameToIDResolvesNameAndID covers the live-validated case: market.db
 // stores some system_name values as the display name and others as the id form,
@@ -164,6 +210,7 @@ type fakeStore struct {
 	scanned      int
 	claims       map[int]bool // id -> claim succeeds
 	completed    []int
+	prices       []market.ItemStationPrice
 }
 
 func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([]market.ArbitrageOpportunity, error) {
@@ -183,6 +230,10 @@ func (f *fakeStore) ScanArbitrage(_ context.Context, _ market.ScanOptions) (mark
 	f.scanned++
 	f.available = f.scanPopulate
 	return market.ScanResult{}, nil
+}
+
+func (f *fakeStore) GetItemStationPrices(_ context.Context, _ string) ([]market.ItemStationPrice, error) {
+	return f.prices, nil
 }
 
 func TestLoadAvailableNonEmptyNoScan(t *testing.T) {

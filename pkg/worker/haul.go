@@ -20,6 +20,48 @@ const DefaultHaulPoolLimit = 50
 // are reordered by proximity/chaining rather than raw profit.
 const haulNearTieFraction = 0.10
 
+// Pre-buy profit gate (see docs/superpowers/specs/2026-06-25-hauler-prebuy-profit-gate.md).
+// At buy time the live spread must clear BOTH thresholds or the buy is skipped and the
+// row is left claimed. Guards against acting on a stale/collapsed spread (the trader-3
+// loss, 2026-06-24: bought 2654, sold 2631).
+const (
+	haulMinMargin    = 0.03   // (sellBid-liveAsk)/liveAsk
+	haulMinNetProfit = 1000.0 // (sellBid-liveAsk)*qty
+)
+
+// haulGate decides whether to execute a claimed haul given freshly-read station
+// prices. It takes the live ask at the buy station and the latest bid at the sell
+// station, sizes the buy on the live ask, and requires the live spread to clear BOTH
+// haulMinMargin and haulMinNetProfit. ok is false (with a human-readable reason) when
+// a price is missing, the buy is unaffordable, or the spread is too thin.
+func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, credits float64) (qty, liveAsk, sellBid float64, ok bool, reason string) {
+	var haveAsk, haveBid bool
+	for _, p := range prices {
+		if p.StationID == opp.FromStationID && p.HasSell {
+			liveAsk, haveAsk = p.BestAsk, true
+		}
+		if p.StationID == opp.ToStationID && p.HasBuy {
+			sellBid, haveBid = p.BestBid, true
+		}
+	}
+	if !haveAsk || liveAsk <= 0 {
+		return 0, liveAsk, sellBid, false, "no live ask at buy station"
+	}
+	if !haveBid {
+		return 0, liveAsk, sellBid, false, "no live bid at sell station"
+	}
+	qty = sizeBuy(opp, cargoFree, credits, liveAsk)
+	if qty < 1 {
+		return qty, liveAsk, sellBid, false, fmt.Sprintf("unaffordable/no cargo (qty=%.0f)", qty)
+	}
+	margin := (sellBid - liveAsk) / liveAsk
+	net := (sellBid - liveAsk) * qty
+	if margin < haulMinMargin || net < haulMinNetProfit {
+		return qty, liveAsk, sellBid, false, fmt.Sprintf("spread too thin (margin=%.1f%%, net=%.0f)", margin*100, net)
+	}
+	return qty, liveAsk, sellBid, true, ""
+}
+
 // buildNameToID maps a system reference (as carried by arbitrage rows) to a system
 // id from the KB; the jump graph keys on ids. market.db's stations.system_name is
 // inconsistent — some rows store the display name ("Sol"), others the id form
@@ -186,6 +228,7 @@ type OpportunityStore interface {
 	ClaimOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
+	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
 }
 
 // loadAvailable returns available opportunities, running one ScanArbitrage to
@@ -238,6 +281,10 @@ type HaulDeps struct {
 	Out       io.Writer // nil -> io.Discard
 	AgentID   string    // claim owner
 	PoolLimit int       // 0 -> DefaultHaulPoolLimit
+	// RecaptureBuyMarket refreshes the current (buy) station's market into the store
+	// so the pre-buy gate prices against a real-time ask. nil skips the live capture
+	// (tests seed prices directly via the store).
+	RecaptureBuyMarket func(ctx context.Context) error
 }
 
 // Haul performs one hauling step: load available opportunities (scanning if the
@@ -309,9 +356,10 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 
 // runClaimedHaul executes a claimed opportunity end to end. Any error is logged and
 // swallowed (returns nil) so the worker stays alive; the row is left claimed.
-// Buy sizing uses the snapshot opp.BuyPrice as the per-unit ask (the server enforces
-// the real price; an over-ask buy fails and leaves the row claimed). Live re-pricing
-// is a deferred refinement.
+// Before buying, it re-prices both legs against fresh data (a live recapture of the
+// buy station + the latest sell-station bid) and applies haulGate: the buy is skipped
+// unless the live spread clears both the margin and net-profit thresholds. This guards
+// against acting on a stale/collapsed opportunity.
 func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string) error {
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := nameToID[opp.ToSystemName]
@@ -329,15 +377,37 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		fmt.Fprintf(out, "haul: opp %d transit to buy failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}
+	// Autopilot leaves the ship at the station POI but undocked. Dock explicitly so the
+	// live recapture (view_market) can run — unlike buy/sell, view_market does not
+	// auto-dock, so without this the recapture fails and the gate falls back to stale
+	// prices. A station whose POI has no dockable base leaves the row claimed.
+	if err := deps.Client.Dock(ctx); err != nil {
+		fmt.Fprintf(out, "haul: opp %d cannot dock at buy station %s: %v; leaving claimed\n", opp.ID, opp.FromStationName, err) //nolint:errcheck
+		return nil
+	}
 	state := deps.Client.GetState()
 	if state == nil {
 		fmt.Fprintf(out, "haul: opp %d no state at buy station; leaving claimed\n", opp.ID) //nolint:errcheck
 		return nil
 	}
 	cargoFree := state.Ship.CargoCapacity - state.Ship.CargoUsed
-	qty := sizeBuy(opp, cargoFree, state.GetCredits(), opp.BuyPrice)
-	if qty < 1 {
-		fmt.Fprintf(out, "haul: opp %d unaffordable/no cargo (qty=%.0f); leaving claimed\n", opp.ID, qty) //nolint:errcheck
+
+	// Re-price against fresh data before committing: refresh the buy station market
+	// live (best-effort — the hauler is standing here, so this is real-time and does
+	// not depend on marketbot cadence), then gate on the live spread.
+	if deps.RecaptureBuyMarket != nil {
+		if rerr := deps.RecaptureBuyMarket(ctx); rerr != nil {
+			fmt.Fprintf(out, "haul: opp %d buy-market recapture failed: %v; pricing on last capture\n", opp.ID, rerr) //nolint:errcheck
+		}
+	}
+	prices, perr := deps.Market.GetItemStationPrices(ctx, opp.ItemID)
+	if perr != nil {
+		fmt.Fprintf(out, "haul: opp %d price check failed: %v; leaving claimed\n", opp.ID, perr) //nolint:errcheck
+		return nil
+	}
+	qty, _, _, pass, reason := haulGate(opp, prices, cargoFree, state.GetCredits())
+	if !pass {
+		fmt.Fprintf(out, "haul: opp %d %s; leaving claimed\n", opp.ID, reason) //nolint:errcheck
 		return nil
 	}
 	if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {

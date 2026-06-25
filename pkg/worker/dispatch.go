@@ -114,7 +114,15 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			fmt.Fprintln(d.Out, "haul: market collector not configured (use --market-db-path)") //nolint:errcheck
 			return nil
 		}
-		return Haul(ctx, HaulDeps{Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID})
+		return Haul(ctx, HaulDeps{
+			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
+			RecaptureBuyMarket: func(ctx context.Context) error {
+				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
+					return err
+				}
+				return market.CaptureFromClient(ctx, d.Client, d.Market)
+			},
+		})
 	case "scan":
 		return d.Client.Scan(ctx)
 	case "get_status":
