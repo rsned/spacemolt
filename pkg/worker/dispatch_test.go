@@ -19,10 +19,14 @@ type fakeClient struct {
 	state           *game.State
 	route           []game.RouteStep // returned by FindRoute
 	jumpCanceled    bool             // Jump returns Canceled=true when set
+	dockErr         error            // when set, Dock returns it (ship not at a station)
 }
 
 func (f *fakeClient) Undock(ctx context.Context) error { f.calls = append(f.calls, "undock"); return nil }
-func (f *fakeClient) Dock(ctx context.Context) error   { f.calls = append(f.calls, "dock"); return nil }
+func (f *fakeClient) Dock(ctx context.Context) error {
+	f.calls = append(f.calls, "dock")
+	return f.dockErr
+}
 func (f *fakeClient) Mine(ctx context.Context) error   { f.calls = append(f.calls, "mine"); return nil }
 func (f *fakeClient) Refuel(ctx context.Context) error { f.calls = append(f.calls, "refuel"); return nil }
 func (f *fakeClient) Repair(ctx context.Context) error { f.calls = append(f.calls, "repair"); return nil }
