@@ -20,12 +20,18 @@ const DefaultHaulPoolLimit = 50
 // are reordered by proximity/chaining rather than raw profit.
 const haulNearTieFraction = 0.10
 
-// buildNameToID maps system display names to system ids from the KB. The arbitrage
-// rows carry system *names*; the jump graph keys on *ids*. Last write wins on the
-// (rare) duplicate name. Used by later tasks in the hauler implementation.
+// buildNameToID maps a system reference (as carried by arbitrage rows) to a system
+// id from the KB; the jump graph keys on ids. market.db's stations.system_name is
+// inconsistent — some rows store the display name ("Sol"), others the id form
+// ("alpha_centauri") — so every system is indexed under BOTH its display name and
+// its id (id→id is identity), letting an opportunity resolve either way. Last write
+// wins on the (rare) duplicate key.
 func buildNameToID(systems []knowledge.System) map[string]string {
-	m := make(map[string]string, len(systems))
+	m := make(map[string]string, len(systems)*2)
 	for _, s := range systems {
+		if s.ID != "" {
+			m[s.ID] = s.ID
+		}
 		if s.Name != "" {
 			m[s.Name] = s.ID
 		}

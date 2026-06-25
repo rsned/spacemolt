@@ -4,9 +4,32 @@ import (
 	"context"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
+
+// TestBuildNameToIDResolvesNameAndID covers the live-validated case: market.db
+// stores some system_name values as the display name and others as the id form,
+// so both must resolve to the system id.
+func TestBuildNameToIDResolvesNameAndID(t *testing.T) {
+	m := buildNameToID([]knowledge.System{
+		{ID: "alpha_centauri", Name: "Alpha Centauri"},
+		{ID: "sol", Name: "Sol"},
+	})
+	if got := m["Alpha Centauri"]; got != "alpha_centauri" {
+		t.Errorf("display name: got %q, want alpha_centauri", got)
+	}
+	if got := m["alpha_centauri"]; got != "alpha_centauri" {
+		t.Errorf("id form: got %q, want alpha_centauri", got)
+	}
+	if got := m["Sol"]; got != "sol" {
+		t.Errorf("display name Sol: got %q, want sol", got)
+	}
+	if got := m["sol"]; got != "sol" {
+		t.Errorf("id form sol: got %q, want sol", got)
+	}
+}
 
 // graphFor builds a jump graph + name->id map from undirected system-id pairs,
 // treating each id as also its display name capitalized-irrelevant (name==id here).
