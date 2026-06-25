@@ -16,3 +16,5 @@ roles:
       - { every: hourly, command: "update_market" }
     idle: explore
   miner: {}
+  hauler:
+    idle: haul
