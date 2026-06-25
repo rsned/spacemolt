@@ -377,6 +377,14 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		fmt.Fprintf(out, "haul: opp %d transit to buy failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}
+	// Autopilot leaves the ship at the station POI but undocked. Dock explicitly so the
+	// live recapture (view_market) can run — unlike buy/sell, view_market does not
+	// auto-dock, so without this the recapture fails and the gate falls back to stale
+	// prices. A station whose POI has no dockable base leaves the row claimed.
+	if err := deps.Client.Dock(ctx); err != nil {
+		fmt.Fprintf(out, "haul: opp %d cannot dock at buy station %s: %v; leaving claimed\n", opp.ID, opp.FromStationName, err) //nolint:errcheck
+		return nil
+	}
 	state := deps.Client.GetState()
 	if state == nil {
 		fmt.Fprintf(out, "haul: opp %d no state at buy station; leaving claimed\n", opp.ID) //nolint:errcheck

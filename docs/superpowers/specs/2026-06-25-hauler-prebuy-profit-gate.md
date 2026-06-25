@@ -24,10 +24,15 @@ an opportunity the scanner rated profitable. Root causes:
 Add a **pre-buy profitability gate** in `runClaimedHaul`, executed after the hauler
 arrives at the buy station and before it buys:
 
-1. **Live buy-side recapture (cadence-independent).** The hauler is physically at the
-   buy station, so it does a `view_market` + `CaptureFromClient` to write a real-time
-   snapshot for that station — independent of marketbot cadence. Injected as a
-   nil-safe `HaulDeps.RecaptureBuyMarket` func (tests pass nil and seed prices).
+1. **Dock, then live buy-side recapture (cadence-independent).** Autopilot leaves the
+   ship at the station POI but *undocked*; `view_market` — unlike buy/sell — does not
+   auto-dock, so the hauler `Dock()`s first (a station whose POI has no base leaves the
+   row claimed). Docked, it does `view_market` + `CaptureFromClient` to write a
+   real-time snapshot for that station — independent of marketbot cadence. The recapture
+   is injected as a nil-safe `HaulDeps.RecaptureBuyMarket` func (tests pass nil and seed
+   prices). Without the explicit dock the recapture silently fails and the gate falls
+   back to stale prices (observed live 2026-06-25: passed phantom opportunities for
+   items no longer sold, then the real buy failed `item_not_available`).
 2. **Re-price both legs from freshest data.** Read `GetItemStationPrices(itemID)` and
    take the buy station's live `BestAsk` and the sell station's latest `BestBid`.
    (Sell side still relies on the latest capture — the hauler isn't there yet — which
