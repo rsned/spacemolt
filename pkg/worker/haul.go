@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"math"
 	"sort"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -145,4 +146,25 @@ func sellChains(r rankedOpp, all []rankedOpp, graph navigation.JumpGraph) bool {
 		}
 	}
 	return false
+}
+
+// sizeBuy returns how many units to buy: the opportunity quantity, capped by free
+// cargo space and by what credits afford at askEach. Returns 0 when nothing is
+// affordable or askEach is non-positive.
+//nolint:unused
+func sizeBuy(opp market.ArbitrageOpportunity, cargoFree, credits, askEach float64) float64 {
+	if askEach <= 0 {
+		return 0
+	}
+	qty := opp.Quantity
+	if cargoFree < qty {
+		qty = cargoFree
+	}
+	if affordable := math.Floor(credits / askEach); affordable < qty {
+		qty = affordable
+	}
+	if qty < 0 {
+		qty = 0
+	}
+	return qty
 }

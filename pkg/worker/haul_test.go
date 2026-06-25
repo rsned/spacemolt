@@ -103,3 +103,33 @@ func TestRankDeterministicByID(t *testing.T) {
 		t.Fatalf("want lower id 2 first, got %v", ids(got))
 	}
 }
+
+func TestSizeBuyQuantityLimited(t *testing.T) {
+	o := market.ArbitrageOpportunity{Quantity: 10}
+	// Plenty of cargo and credits -> capped by opp quantity.
+	if got := sizeBuy(o, 100, 100000, 5); got != 10 {
+		t.Fatalf("want 10, got %v", got)
+	}
+}
+
+func TestSizeBuyCargoLimited(t *testing.T) {
+	o := market.ArbitrageOpportunity{Quantity: 10}
+	if got := sizeBuy(o, 4, 100000, 5); got != 4 {
+		t.Fatalf("want 4 (cargo), got %v", got)
+	}
+}
+
+func TestSizeBuyCreditLimited(t *testing.T) {
+	o := market.ArbitrageOpportunity{Quantity: 10}
+	// 23 credits / 5 each = floor 4.
+	if got := sizeBuy(o, 100, 23, 5); got != 4 {
+		t.Fatalf("want 4 (credits), got %v", got)
+	}
+}
+
+func TestSizeBuyZeroAsk(t *testing.T) {
+	o := market.ArbitrageOpportunity{Quantity: 10}
+	if got := sizeBuy(o, 100, 100, 0); got != 0 {
+		t.Fatalf("want 0 on non-positive ask, got %v", got)
+	}
+}
