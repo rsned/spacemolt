@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"context"
+	"fmt"
 	"math"
 	"sort"
 
@@ -167,4 +169,52 @@ func sizeBuy(opp market.ArbitrageOpportunity, cargoFree, credits, askEach float6
 		qty = 0
 	}
 	return qty
+}
+
+// OpportunityStore is the subset of *market.Collector the hauler needs. Defining it
+// here keeps the engine testable with a fake and leaves pkg/market unmodified.
+type OpportunityStore interface {
+	GetOpportunities(ctx context.Context, status string, limit int) ([]market.ArbitrageOpportunity, error)
+	ClaimOpportunity(ctx context.Context, id int, agentID string) (bool, error)
+	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
+	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
+}
+
+// loadAvailable returns available opportunities, running one ScanArbitrage to
+// refresh the pool when it is empty (haulers are the periodic scan trigger). Scan
+// uses default options; it is idempotent under the write lock, so a redundant scan
+// from concurrent haulers is harmless.
+//nolint:unused
+func loadAvailable(ctx context.Context, store OpportunityStore, limit int) ([]market.ArbitrageOpportunity, error) {
+	opps, err := store.GetOpportunities(ctx, "available", limit)
+	if err != nil {
+		return nil, fmt.Errorf("haul: get opportunities: %w", err)
+	}
+	if len(opps) > 0 {
+		return opps, nil
+	}
+	if _, err := store.ScanArbitrage(ctx, market.ScanOptions{}); err != nil {
+		return nil, fmt.Errorf("haul: scan arbitrage: %w", err)
+	}
+	opps, err = store.GetOpportunities(ctx, "available", limit)
+	if err != nil {
+		return nil, fmt.Errorf("haul: get opportunities (post-scan): %w", err)
+	}
+	return opps, nil
+}
+
+// claimBest claims the first opportunity in ranked order still available. ok=false
+// means every candidate was taken by another hauler first.
+//nolint:unused
+func claimBest(ctx context.Context, store OpportunityStore, ranked []market.ArbitrageOpportunity, agentID string) (market.ArbitrageOpportunity, bool, error) {
+	for _, o := range ranked {
+		ok, err := store.ClaimOpportunity(ctx, o.ID, agentID)
+		if err != nil {
+			return market.ArbitrageOpportunity{}, false, fmt.Errorf("haul: claim %d: %w", o.ID, err)
+		}
+		if ok {
+			return o, true, nil
+		}
+	}
+	return market.ArbitrageOpportunity{}, false, nil
 }

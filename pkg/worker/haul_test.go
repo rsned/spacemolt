@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/market"
@@ -131,5 +132,85 @@ func TestSizeBuyZeroAsk(t *testing.T) {
 	o := market.ArbitrageOpportunity{Quantity: 10}
 	if got := sizeBuy(o, 100, 100, 0); got != 0 {
 		t.Fatalf("want 0 on non-positive ask, got %v", got)
+	}
+}
+
+type fakeStore struct {
+	available    []market.ArbitrageOpportunity
+	scanPopulate []market.ArbitrageOpportunity
+	scanned      int
+	claims       map[int]bool // id -> claim succeeds
+	completed    []int
+}
+
+func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([]market.ArbitrageOpportunity, error) {
+	if status != "available" {
+		return nil, nil
+	}
+	return f.available, nil
+}
+func (f *fakeStore) ClaimOpportunity(_ context.Context, id int, _ string) (bool, error) {
+	return f.claims[id], nil
+}
+func (f *fakeStore) CompleteOpportunity(_ context.Context, id int, _ string) (bool, error) {
+	f.completed = append(f.completed, id)
+	return true, nil
+}
+func (f *fakeStore) ScanArbitrage(_ context.Context, _ market.ScanOptions) (market.ScanResult, error) {
+	f.scanned++
+	f.available = f.scanPopulate
+	return market.ScanResult{}, nil
+}
+
+func TestLoadAvailableNonEmptyNoScan(t *testing.T) {
+	f := &fakeStore{available: []market.ArbitrageOpportunity{opp(1, "b", "c", 100)}}
+	got, err := loadAvailable(context.Background(), f, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || f.scanned != 0 {
+		t.Fatalf("want 1 opp and no scan, got %d opps scanned=%d", len(got), f.scanned)
+	}
+}
+
+func TestLoadAvailableEmptyTriggersScan(t *testing.T) {
+	f := &fakeStore{
+		available:    nil,
+		scanPopulate: []market.ArbitrageOpportunity{opp(7, "b", "c", 100)},
+	}
+	got, err := loadAvailable(context.Background(), f, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.scanned != 1 || len(got) != 1 || got[0].ID != 7 {
+		t.Fatalf("want 1 scan + opp 7, got scanned=%d opps=%v", f.scanned, ids(got))
+	}
+}
+
+func TestClaimBestFirstWins(t *testing.T) {
+	f := &fakeStore{claims: map[int]bool{1: true, 2: true}}
+	ranked := []market.ArbitrageOpportunity{opp(1, "b", "c", 100), opp(2, "b", "c", 90)}
+	got, ok, err := claimBest(context.Background(), f, ranked, "hauler-1")
+	if err != nil || !ok || got.ID != 1 {
+		t.Fatalf("want claim id 1, got id=%d ok=%v err=%v", got.ID, ok, err)
+	}
+}
+
+func TestClaimBestRaceFallthrough(t *testing.T) {
+	// id 1 already taken (false), id 2 succeeds.
+	f := &fakeStore{claims: map[int]bool{1: false, 2: true}}
+	ranked := []market.ArbitrageOpportunity{opp(1, "b", "c", 100), opp(2, "b", "c", 90)}
+	got, ok, err := claimBest(context.Background(), f, ranked, "hauler-1")
+	if err != nil || !ok || got.ID != 2 {
+		t.Fatalf("want fallthrough to id 2, got id=%d ok=%v err=%v", got.ID, ok, err)
+	}
+}
+
+func TestClaimBestAllTaken(t *testing.T) {
+	f := &fakeStore{claims: map[int]bool{1: false, 2: false}}
+	ranked := []market.ArbitrageOpportunity{opp(1, "b", "c", 100), opp(2, "b", "c", 90)}
+	_, ok, err := claimBest(context.Background(), f, ranked, "hauler-1")
+	if err != nil || ok {
+		t.Fatalf("want ok=false when all taken, got ok=%v err=%v", ok, err)
 	}
 }
