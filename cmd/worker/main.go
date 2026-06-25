@@ -259,6 +259,7 @@ func main() {
 		roleCfg, haveRole := roles[*role]
 		if haveRole {
 			dispatch := worker.NewWorkerDispatch(client, kb, mc, os.Stdout)
+			dispatch.AgentID = *agentID
 			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)

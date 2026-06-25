@@ -249,3 +249,18 @@ func TestDispatchExploreNoTargetNoOp(t *testing.T) {
 		}
 	}
 }
+
+func TestHaulIsSupported(t *testing.T) {
+	d := NewWorkerDispatch(nil, nil, nil, nil)
+	if !d.Supports("haul") {
+		t.Fatal("haul should be in the supported command set")
+	}
+}
+
+func TestHaulNilMarketIsSafeNoop(t *testing.T) {
+	// No market collector configured -> haul logs and returns nil, never panics.
+	d := NewWorkerDispatch(nil, nil, nil, nil)
+	if err := d.Run(context.Background(), []string{"haul"}); err != nil {
+		t.Fatalf("haul with nil market should no-op, got %v", err)
+	}
+}
