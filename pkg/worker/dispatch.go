@@ -17,10 +17,11 @@ import (
 // which case tracking commands degrade to a no-op capture (movement/mining still
 // work).
 type WorkerDispatch struct {
-	Client game.GameClient
-	KB     knowledge.Base
-	Market *market.Collector
-	Out    io.Writer
+	Client  game.GameClient
+	KB      knowledge.Base
+	Market  *market.Collector
+	Out     io.Writer
+	AgentID string // claim owner for opportunity-claiming roles (e.g. hauler)
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -38,7 +39,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 // there is present here.
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
-	"explore": true, "scan": true,
+	"explore": true, "scan": true, "haul": true,
 	"mine":   true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -108,6 +109,12 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}, args[0], poi)
 	case "explore":
 		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out})
+	case "haul":
+		if d.Market == nil {
+			fmt.Fprintln(d.Out, "haul: market collector not configured (use --market-db-path)") //nolint:errcheck
+			return nil
+		}
+		return Haul(ctx, HaulDeps{Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID})
 	case "scan":
 		return d.Client.Scan(ctx)
 	case "get_status":

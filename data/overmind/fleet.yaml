@@ -31,3 +31,8 @@ workers:
   - { agent_id: miner-8, role: miner, station: "" }
   - { agent_id: miner-9, role: miner, station: "" }
   - { agent_id: miner-10, role: miner, station: "" }
+  # Haulers — mobile arbitrage runners; station label unused (position emerges
+  # from where the opportunities are).
+  - { agent_id: hauler-1, role: hauler, station: "" }
+  - { agent_id: hauler-2, role: hauler, station: "" }
+  - { agent_id: hauler-3, role: hauler, station: "" }
