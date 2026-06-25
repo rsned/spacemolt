@@ -57,6 +57,7 @@ func TestNeedsRefuelForRoute(t *testing.T) {
 	}{
 		{"route needs more than available", 50, 10, 80, 100, 0.5, true},
 		{"route within available", 10, 50, 80, 100, 0.5, false},
+		{"jumps fine but tank below threshold", 10, 50, 20, 100, 0.5, true},
 		{"no estimate, below threshold", 0, 0, 20, 100, 0.5, true},
 		{"no estimate, above threshold", 0, 0, 80, 100, 0.5, false},
 		{"unknown capacity", 50, 0, 0, 0, 0.5, false},

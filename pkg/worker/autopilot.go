@@ -20,16 +20,18 @@ type CaptureFunc func(ctx context.Context) error
 // pre-route station refuel triggers if current fuel is below this fraction of capacity.
 const AutopilotRefuelThreshold = 0.5
 
-// needsRefuelForRoute reports whether to station-refuel before starting a route. With a
-// route fuel estimate it refuels when the route needs more fuel than is available;
-// without one it falls back to a fuel-fraction threshold. Returns false if capacity is
-// unknown (maxFuel <= 0).
+// needsRefuelForRoute reports whether to station-refuel before starting a route. It
+// refuels when the route's jump estimate needs more fuel than is available, OR whenever
+// the tank is below a fuel-fraction threshold. The threshold check matters because the
+// jump estimate ignores in-system POI travel, which also burns fuel — a tank that
+// clears the jumps can still strand on the final travel to the station. Returns false if
+// capacity is unknown (maxFuel <= 0).
 func needsRefuelForRoute(estimatedFuel, fuelAvailable int, fuel, maxFuel, threshold float64) bool {
 	if maxFuel <= 0 {
 		return false
 	}
-	if estimatedFuel > 0 {
-		return estimatedFuel > fuelAvailable
+	if estimatedFuel > 0 && estimatedFuel > fuelAvailable {
+		return true
 	}
 	return fuel/maxFuel < threshold
 }
