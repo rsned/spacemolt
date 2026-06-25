@@ -154,6 +154,8 @@ func sellChains(r rankedOpp, all []rankedOpp, graph navigation.JumpGraph) bool {
 // sizeBuy returns how many units to buy: the opportunity quantity, capped by free
 // cargo space and by what credits afford at askEach. Returns 0 when nothing is
 // affordable or askEach is non-positive.
+// TODO(logistics): cargoFree is treated as a unit count; per-unit item volume
+// is not modeled (deferred with the spec's logistics-realism phase).
 func sizeBuy(opp market.ArbitrageOpportunity, cargoFree, credits, askEach float64) float64 {
 	if askEach <= 0 {
 		return 0
@@ -192,6 +194,8 @@ func loadAvailable(ctx context.Context, store OpportunityStore, limit int) ([]ma
 	if len(opps) > 0 {
 		return opps, nil
 	}
+	// Zero-value options inherit the scanner's defaults (MinProfit/MinPrice/Limit);
+	// hauler thresholds track whatever the scanner team sets.
 	if _, err := store.ScanArbitrage(ctx, market.ScanOptions{}); err != nil {
 		return nil, fmt.Errorf("haul: scan arbitrage: %w", err)
 	}
@@ -349,6 +353,8 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		return nil
 	}
 
+	// Goods are already sold here; a CompleteOpportunity failure only leaves the
+	// row 'claimed' (no success log). Harmless — the Phase-5b sweeper reclaims it.
 	if _, err := deps.Market.CompleteOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
 		fmt.Fprintf(out, "haul: opp %d complete failed: %v\n", opp.ID, err) //nolint:errcheck
 		return nil

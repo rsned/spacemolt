@@ -43,7 +43,7 @@ func TestRankProfitDominant(t *testing.T) {
 		opp(1, "b", "c", 100),
 		opp(2, "b", "c", 200),
 	}, "a", n2id, g)
-	if len(got) != 2 || got[0].ID != 2 {
+	if len(got) != 2 || got[0].ID != 2 || got[1].ID != 1 {
 		t.Fatalf("want [2 1] by gross, got %v", ids(got))
 	}
 }
