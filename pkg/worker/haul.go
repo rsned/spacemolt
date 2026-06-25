@@ -305,6 +305,10 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string) error {
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := nameToID[opp.ToSystemName]
+	if buySys == "" {
+		fmt.Fprintf(out, "haul: opp %d buy system %q unresolved; leaving claimed\n", opp.ID, opp.FromSystemName) //nolint:errcheck
+		return nil
+	}
 	if sellSys == "" {
 		fmt.Fprintf(out, "haul: opp %d sell system %q unresolved; leaving claimed\n", opp.ID, opp.ToSystemName) //nolint:errcheck
 		return nil
