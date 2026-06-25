@@ -16,6 +16,59 @@ import (
 // to the autopilot's writer and never aborts the route. nil means no capture.
 type CaptureFunc func(ctx context.Context) error
 
+// AutopilotRefuelThreshold: when find_route fuel estimates are unavailable, the
+// pre-route station refuel triggers if current fuel is below this fraction of capacity.
+const AutopilotRefuelThreshold = 0.5
+
+// needsRefuelForRoute reports whether to station-refuel before starting a route. It
+// refuels when the route's jump estimate needs more fuel than is available, OR whenever
+// the tank is below a fuel-fraction threshold. The threshold check matters because the
+// jump estimate ignores in-system POI travel, which also burns fuel — a tank that
+// clears the jumps can still strand on the final travel to the station. Returns false if
+// capacity is unknown (maxFuel <= 0).
+func needsRefuelForRoute(estimatedFuel, fuelAvailable int, fuel, maxFuel, threshold float64) bool {
+	if maxFuel <= 0 {
+		return false
+	}
+	if estimatedFuel > 0 && estimatedFuel > fuelAvailable {
+		return true
+	}
+	return fuel/maxFuel < threshold
+}
+
+// ensureRouteFuel station-refuels before departing when fuel is short for the route: it
+// docks if needed and pays for a full tank (Refuel has no amount). Best-effort — if the
+// ship is not at a dockable station the dock fails, so it logs and returns, leaving
+// autopilot to fall back to burning cargo fuel cells. Returns the (possibly increased)
+// available fuel for display. Shared by every mobile role via Autopilot.
+func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer, estimatedFuel, fuelAvailable int) int {
+	state := client.GetState()
+	if state == nil {
+		return fuelAvailable
+	}
+	fuel, maxFuel := state.GetFuel()
+	if !needsRefuelForRoute(estimatedFuel, fuelAvailable, fuel, maxFuel, AutopilotRefuelThreshold) {
+		return fuelAvailable
+	}
+	if !state.IsDocked() {
+		if err := client.Dock(ctx); err != nil {
+			fmt.Fprintf(out, "  Fuel low and not at a station to refuel (%v); continuing\n", err) //nolint:errcheck
+			return fuelAvailable
+		}
+	}
+	if err := client.Refuel(ctx); err != nil {
+		fmt.Fprintf(out, "  Station refuel failed: %v\n", err) //nolint:errcheck
+		return fuelAvailable
+	}
+	_ = client.GetStatus(ctx)
+	if s := client.GetState(); s != nil {
+		f2, m2 := s.GetFuel()
+		fmt.Fprintf(out, "  Refueled at station: %.0f/%.0f\n", f2, m2) //nolint:errcheck
+		return int(f2)
+	}
+	return fuelAvailable
+}
+
 // AutopilotDeps are the injected dependencies for Autopilot.
 type AutopilotDeps struct {
 	Client     game.GameClient
@@ -53,6 +106,9 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	route = route[1:]
 
 	fuelPerJump, estimatedFuel, fuelAvailable := parseFuelEstimates(client)
+	// Top up at the origin station if the route needs more fuel than we have. Without
+	// this, a mobile worker carrying no fuel cells (e.g. a hauler) strands on jump 1.
+	fuelAvailable = ensureRouteFuel(ctx, client, out, estimatedFuel, fuelAvailable)
 	totalJumps := len(route)
 	fmt.Fprintf(out, "\n Route: %d jump(s) to %s\n", totalJumps, targetSystem) //nolint:errcheck
 	for i, step := range route {

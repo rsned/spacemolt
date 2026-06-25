@@ -48,6 +48,74 @@ func TestAutopilotJumpsEachHopAndCaptures(t *testing.T) {
 	}
 }
 
+func TestNeedsRefuelForRoute(t *testing.T) {
+	tests := []struct {
+		name                         string
+		estimatedFuel, fuelAvailable int
+		fuel, maxFuel, threshold     float64
+		want                         bool
+	}{
+		{"route needs more than available", 50, 10, 80, 100, 0.5, true},
+		{"route within available", 10, 50, 80, 100, 0.5, false},
+		{"jumps fine but tank below threshold", 10, 50, 20, 100, 0.5, true},
+		{"no estimate, below threshold", 0, 0, 20, 100, 0.5, true},
+		{"no estimate, above threshold", 0, 0, 80, 100, 0.5, false},
+		{"unknown capacity", 50, 0, 0, 0, 0.5, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := needsRefuelForRoute(tc.estimatedFuel, tc.fuelAvailable, tc.fuel, tc.maxFuel, tc.threshold); got != tc.want {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestEnsureRouteFuel(t *testing.T) {
+	t.Run("full tank: no dock/refuel", func(t *testing.T) {
+		f := &fakeClient{state: &game.State{Fuel: 100, MaxFuel: 100}}
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		if slices.Contains(f.calls, "refuel") || slices.Contains(f.calls, "dock") {
+			t.Errorf("unexpected dock/refuel with full tank: %v", f.calls)
+		}
+	})
+	t.Run("low fuel, undocked: docks then refuels", func(t *testing.T) {
+		f := &fakeClient{state: &game.State{Fuel: 5, MaxFuel: 100}}
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		d, r := slices.Index(f.calls, "dock"), slices.Index(f.calls, "refuel")
+		if d < 0 || r < 0 || d > r {
+			t.Errorf("want dock before refuel, got %v", f.calls)
+		}
+	})
+	t.Run("low fuel, docked: refuels without docking", func(t *testing.T) {
+		f := &fakeClient{state: &game.State{Fuel: 5, MaxFuel: 100, Doc: true}}
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		if slices.Contains(f.calls, "dock") {
+			t.Errorf("should not dock when already docked: %v", f.calls)
+		}
+		if !slices.Contains(f.calls, "refuel") {
+			t.Errorf("want refuel, got %v", f.calls)
+		}
+	})
+	t.Run("route shortfall refuels even with full tank reading", func(t *testing.T) {
+		f := &fakeClient{state: &game.State{Fuel: 100, MaxFuel: 100, Doc: true}}
+		ensureRouteFuel(context.Background(), f, io.Discard, 50, 10)
+		if !slices.Contains(f.calls, "refuel") {
+			t.Errorf("want refuel on route shortfall, got %v", f.calls)
+		}
+	})
+	t.Run("not at a station: dock fails, no refuel", func(t *testing.T) {
+		f := &fakeClient{state: &game.State{Fuel: 5, MaxFuel: 100}, dockErr: errors.New("must be docked at a base")}
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		if !slices.Contains(f.calls, "dock") {
+			t.Errorf("want dock attempt, got %v", f.calls)
+		}
+		if slices.Contains(f.calls, "refuel") {
+			t.Errorf("must not refuel when not at a station, got %v", f.calls)
+		}
+	})
+}
+
 func TestAutopilotTravelsToPOIAfterJumps(t *testing.T) {
 	f := autopilotFake()
 	err := Autopilot(context.Background(), AutopilotDeps{Client: f, Out: io.Discard}, "sys_c", "trade_hub")
