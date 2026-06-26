@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
     claimed_by          TEXT,
     claimed_at          TEXT,
     completed_at        TEXT,
+    cycles_seen         INTEGER DEFAULT 1,
     status              TEXT DEFAULT 'available' CHECK (status IN ('available', 'claimed', 'completed', 'expired')),
     expires_at          TEXT NOT NULL,
     discovered_at       TEXT NOT NULL,
@@ -111,3 +112,46 @@ CREATE TABLE IF NOT EXISTS analyses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_analyses_station_time ON analyses(station_id, captured_at);
+
+-- Per-haul real outcomes + per-leg timing (dashboard Component A).
+CREATE TABLE IF NOT EXISTS haul_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    opp_id          INTEGER NOT NULL,
+    agent_id        TEXT NOT NULL,
+    item_id         TEXT NOT NULL,
+    qty             REAL NOT NULL,
+    buy_price_paid  REAL NOT NULL,
+    sell_price_got  REAL NOT NULL,
+    realized_profit REAL NOT NULL,
+    jumps_traveled  INTEGER NOT NULL,
+    claimed_at      TEXT NOT NULL,
+    arrived_src_at  TEXT NOT NULL,
+    bought_at       TEXT NOT NULL,
+    arrived_dst_at  TEXT NOT NULL,
+    sold_at         TEXT NOT NULL,
+    claimed_tick    INTEGER NOT NULL,
+    arrived_src_tick INTEGER NOT NULL,
+    bought_tick     INTEGER NOT NULL,
+    arrived_dst_tick INTEGER NOT NULL,
+    sold_tick       INTEGER NOT NULL,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_haul_results_agent_time ON haul_results(agent_id, sold_at);
+
+-- Periodic per-hauler balance/fuel/cargo snapshots (dashboard Component B).
+CREATE TABLE IF NOT EXISTS fleet_timeseries (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts             TEXT NOT NULL,
+    agent_id       TEXT NOT NULL,
+    role           TEXT,
+    system         TEXT,
+    docked         INTEGER,
+    credits        REAL,
+    fuel           REAL,
+    max_fuel       REAL,
+    cargo_used     REAL,
+    cargo_capacity REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fleet_timeseries_agent_time ON fleet_timeseries(agent_id, ts);

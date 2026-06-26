@@ -53,32 +53,33 @@ type OHLCV struct {
 
 // ArbitrageOpportunity represents a profitable trading opportunity.
 type ArbitrageOpportunity struct {
-	ID            int     `json:"id"`
-	FromStationID string  `json:"from_station_id"`
-	ToStationID   string  `json:"to_station_id"`
-	ItemID        string  `json:"item_id"`
-	ActionType    string  `json:"action_type"` // "buy_then_sell" or "sell_then_buy"
-	BuyPrice      float64 `json:"buy_price"`
-	SellPrice     float64 `json:"sell_price"`
-	Quantity      float64 `json:"quantity"`
-	GrossProfit   float64 `json:"gross_profit"`
-	FuelCost      float64 `json:"fuel_cost"`
-	TravelTicks   int     `json:"travel_ticks"`
-	CargoRequired float64 `json:"cargo_required"`
-	RiskScore     float64 `json:"risk_score"`
-	ClaimedBy     string  `json:"claimed_by"`
-	ClaimedAt     string  `json:"claimed_at"`
-	CompletedAt   string  `json:"completed_at"` // set when status transitions to "completed"
-	Status        string  `json:"status"`       // "available", "claimed", "completed", "expired"
-	ExpiresAt     string  `json:"expires_at"`
-	DiscoveredAt  string  `json:"discovered_at"`
-	DiscoveredBy  string  `json:"discovered_by"`
-	Notes         string  `json:"notes"`
-	FromStationName string `json:"from_station_name"` // joined on read
-	FromSystemName  string `json:"from_system_name"`  // joined on read
-	ToStationName   string `json:"to_station_name"`   // joined on read
-	ToSystemName    string `json:"to_system_name"`    // joined on read
-	ItemName        string `json:"item_name"`         // joined on read
+	ID              int     `json:"id"`
+	FromStationID   string  `json:"from_station_id"`
+	ToStationID     string  `json:"to_station_id"`
+	ItemID          string  `json:"item_id"`
+	ActionType      string  `json:"action_type"` // "buy_then_sell" or "sell_then_buy"
+	BuyPrice        float64 `json:"buy_price"`
+	SellPrice       float64 `json:"sell_price"`
+	Quantity        float64 `json:"quantity"`
+	GrossProfit     float64 `json:"gross_profit"`
+	FuelCost        float64 `json:"fuel_cost"`
+	TravelTicks     int     `json:"travel_ticks"`
+	CargoRequired   float64 `json:"cargo_required"`
+	RiskScore       float64 `json:"risk_score"`
+	ClaimedBy       string  `json:"claimed_by"`
+	ClaimedAt       string  `json:"claimed_at"`
+	CompletedAt     string  `json:"completed_at"` // set when status transitions to "completed"
+	CyclesSeen      int     `json:"cycles_seen"`  // consecutive scan cycles this route has appeared in (1=new)
+	Status          string  `json:"status"`       // "available", "claimed", "completed", "expired"
+	ExpiresAt       string  `json:"expires_at"`
+	DiscoveredAt    string  `json:"discovered_at"`
+	DiscoveredBy    string  `json:"discovered_by"`
+	Notes           string  `json:"notes"`
+	FromStationName string  `json:"from_station_name"` // joined on read
+	FromSystemName  string  `json:"from_system_name"`  // joined on read
+	ToStationName   string  `json:"to_station_name"`   // joined on read
+	ToSystemName    string  `json:"to_system_name"`    // joined on read
+	ItemName        string  `json:"item_name"`         // joined on read
 }
 
 // MarketSnapshot represents a complete market state at one station.
@@ -162,8 +163,8 @@ type MatrixCell struct {
 	SystemName  string    `json:"system_name"`
 	BestSell    float64   `json:"best_sell"`
 	BestBuy     float64   `json:"best_buy"`
-	VWAP        float64   `json:"vwap"`       // volume-weighted avg over sell orders
-	Volume      float64   `json:"volume"`     // sum of sell quantities
+	VWAP        float64   `json:"vwap"`   // volume-weighted avg over sell orders
+	Volume      float64   `json:"volume"` // sum of sell quantities
 	OrderCount  int       `json:"order_count"`
 	CapturedAt  time.Time `json:"captured_at"`
 	HasSell     bool      `json:"has_sell"`
@@ -229,4 +230,45 @@ type ScanResult struct {
 	Expired     int       `json:"expired"`
 	Inserted    int       `json:"inserted"`
 	GeneratedAt time.Time `json:"generated_at"`
+}
+
+// HaulResult is the real, cargo-capped outcome of one completed haul, with per-leg
+// timing in wall-time (RFC3339) and game ticks. Drives the dashboard's response-time
+// and credits/jump charts and the true realized-profit column.
+type HaulResult struct {
+	ID             int64   `json:"id"`
+	OppID          int     `json:"opp_id"`
+	AgentID        string  `json:"agent_id"`
+	ItemID         string  `json:"item_id"`
+	Qty            float64 `json:"qty"`
+	BuyPricePaid   float64 `json:"buy_price_paid"`
+	SellPriceGot   float64 `json:"sell_price_got"`
+	RealizedProfit float64 `json:"realized_profit"`
+	JumpsTraveled  int     `json:"jumps_traveled"`
+	ClaimedAt      string  `json:"claimed_at"`
+	ArrivedSrcAt   string  `json:"arrived_src_at"`
+	BoughtAt       string  `json:"bought_at"`
+	ArrivedDstAt   string  `json:"arrived_dst_at"`
+	SoldAt         string  `json:"sold_at"`
+	ClaimedTick    int64   `json:"claimed_tick"`
+	ArrivedSrcTick int64   `json:"arrived_src_tick"`
+	BoughtTick     int64   `json:"bought_tick"`
+	ArrivedDstTick int64   `json:"arrived_dst_tick"`
+	SoldTick       int64   `json:"sold_tick"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+// FleetSnapshot is one hauler's balance/fuel/cargo at a point in time (quarter-hourly).
+type FleetSnapshot struct {
+	ID            int64   `json:"id"`
+	TS            string  `json:"ts"`
+	AgentID       string  `json:"agent_id"`
+	Role          string  `json:"role"`
+	System        string  `json:"system"`
+	Docked        bool    `json:"docked"`
+	Credits       float64 `json:"credits"`
+	Fuel          float64 `json:"fuel"`
+	MaxFuel       float64 `json:"max_fuel"`
+	CargoUsed     float64 `json:"cargo_used"`
+	CargoCapacity float64 `json:"cargo_capacity"`
 }
