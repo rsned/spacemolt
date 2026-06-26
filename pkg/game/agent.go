@@ -136,6 +136,10 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 		Logger: logger,
 	}
 	reconnectingHandler := NewReconnectingHandler(client, handler, ctx, logger)
+	// Coordinate reconnects across every agent on this host/IP so a mass
+	// disconnect (e.g. a game-server restart) does not stampede the login
+	// endpoint into an escalating per-IP rate-limit block.
+	reconnectingHandler.SetReconnectGate(NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown))
 	client.SetHandler(reconnectingHandler)
 
 	// Step 4: Connect to game server

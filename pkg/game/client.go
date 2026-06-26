@@ -219,6 +219,27 @@ type ReconnectingHandler struct {
 	// reconnection attempts. Zero means time.Second (production default); tests
 	// set it tiny to keep the retry loop fast.
 	reconnectBackoffUnit time.Duration
+
+	// gate, when set, coordinates reconnect dials across every client sharing
+	// the host IP: it spaces dials apart so a mass disconnect (e.g. a server
+	// restart) does not stampede the login endpoint, and propagates a per-IP
+	// rate-limit block to the whole fleet so it expires instead of escalating.
+	// Nil disables coordination (the default for direct/test construction).
+	gate *ReconnectGate
+}
+
+// reconnectGateCooldown is the minimum spacing between reconnect dials across
+// all clients on one host (~12/min, ~2x under the observed per-IP throttle).
+const reconnectGateCooldown = 5 * time.Second
+
+// reconnectBlockDefault is how long the fleet holds off on a bare per-IP block
+// (HTTP 429 with no stated duration).
+const reconnectBlockDefault = 60 * time.Second
+
+// SetReconnectGate attaches a host-wide reconnect coordinator. Call it on the
+// production agent path; leaving it unset keeps reconnects uncoordinated.
+func (r *ReconnectingHandler) SetReconnectGate(g *ReconnectGate) {
+	r.gate = g
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -331,6 +352,14 @@ func (r *ReconnectingHandler) attemptReconnection() {
 			return
 		}
 
+		// Wait for the host-wide gate before dialing: this serializes reconnects
+		// across all clients on the IP and waits out any fleet-wide rate-limit
+		// block. Nil gate (tests/direct construction) is a no-op.
+		if err := r.gate.Acquire(r.ctx); err != nil {
+			r.logger.Printf("Context cancelled while waiting for reconnect gate")
+			return
+		}
+
 		// Try immediately on the first attempt so a user-triggered wake is
 		// responsive; back off only between subsequent retries.
 		if err := r.reconnectFn(r.ctx); err == nil {
@@ -338,6 +367,11 @@ func (r *ReconnectingHandler) attemptReconnection() {
 			return
 		} else {
 			r.logger.Printf("Reconnection attempt %d/%d failed: %v", attempt, reconnectMaxAttempts, err)
+			// Propagate a per-IP block to the whole fleet so every client holds
+			// off and the block can expire instead of being re-triggered.
+			if d, ok := rateLimitBlock(err.Error(), reconnectBlockDefault); ok {
+				_ = r.gate.RecordBlock(d)
+			}
 		}
 
 		if attempt == reconnectMaxAttempts {
