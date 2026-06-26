@@ -21,12 +21,12 @@ func TestEnvelopeRoundTrip(t *testing.T) {
 }
 
 func TestIntoWrongShapeStillDecodesKnownFields(t *testing.T) {
-	env, _ := NewEnvelope(TypeStatus, "a", Status{System: "SOL", Credits: 100})
+	env, _ := NewEnvelope(TypeStatus, "a", Status{System: "SOL", Credits: 100, CargoCapacity: 80, CargoUsed: 12})
 	var got Status
 	if err := env.Into(&got); err != nil {
 		t.Fatalf("Into: %v", err)
 	}
-	if got.System != "SOL" || got.Credits != 100 {
+	if got.System != "SOL" || got.Credits != 100 || got.CargoCapacity != 80 || got.CargoUsed != 12 {
 		t.Fatalf("payload lost: %+v", got)
 	}
 }

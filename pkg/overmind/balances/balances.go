@@ -35,6 +35,8 @@ type LiveRecord struct {
 	MaxHull          float64 `json:"max_hull"`
 	Fuel             float64 `json:"fuel"`
 	MaxFuel          float64 `json:"max_fuel"`
+	CargoUsed        float64 `json:"cargo_used"`
+	CargoCapacity    float64 `json:"cargo_capacity"`
 	StandingBehavior string  `json:"standing_behavior"`
 	ActiveTaskID     string  `json:"active_task_id"`
 	Healthy          bool    `json:"healthy"`

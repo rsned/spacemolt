@@ -382,6 +382,8 @@ func buildStatus(st *game.State, standing, taskID string, now time.Time) control
 		Fuel:             st.Fuel,
 		MaxFuel:          st.MaxFuel,
 		Credits:          st.Credits,
+		CargoUsed:        st.Ship.CargoUsed,
+		CargoCapacity:    st.Ship.CargoCapacity,
 		StandingBehavior: standing,
 		ActiveTaskID:     taskID,
 		Timestamp:        now.Format(time.RFC3339Nano),

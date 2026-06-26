@@ -150,8 +150,10 @@ func recordBalances(logger *log.Logger, recorder *balances.Recorder, snap []supe
 		live = append(live, balances.LiveRecord{
 			AgentID: w.AgentID, Role: w.Role, System: st.System, POI: st.POI,
 			Docked: st.Docked, Credits: st.Credits, Hull: st.Hull, MaxHull: st.MaxHull,
-			Fuel: st.Fuel, MaxFuel: st.MaxFuel, StandingBehavior: st.StandingBehavior,
-			ActiveTaskID: st.ActiveTaskID, Healthy: w.Healthy, Restarts: w.Restarts,
+			Fuel: st.Fuel, MaxFuel: st.MaxFuel,
+			CargoUsed: st.CargoUsed, CargoCapacity: st.CargoCapacity,
+			StandingBehavior: st.StandingBehavior,
+			ActiveTaskID:     st.ActiveTaskID, Healthy: w.Healthy, Restarts: w.Restarts,
 			// Seen requires a real status heartbeat (Timestamp is always set on
 			// one), not merely a Hello — otherwise credits read as a bogus 0
 			// before the first heartbeat, poisoning the starting balance.
