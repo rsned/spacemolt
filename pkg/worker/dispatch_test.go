@@ -28,6 +28,14 @@ func (f *fakeClient) Dock(ctx context.Context) error {
 	return f.dockErr
 }
 func (f *fakeClient) Mine(ctx context.Context) error   { f.calls = append(f.calls, "mine"); return nil }
+func (f *fakeClient) Buy(ctx context.Context, itemID string, qty float64) error {
+	f.calls = append(f.calls, "buy:"+itemID)
+	return nil
+}
+func (f *fakeClient) Sell(ctx context.Context, itemID string, qty float64) error {
+	f.calls = append(f.calls, "sell:"+itemID)
+	return nil
+}
 func (f *fakeClient) Refuel(ctx context.Context) error { f.calls = append(f.calls, "refuel"); return nil }
 func (f *fakeClient) Repair(ctx context.Context) error { f.calls = append(f.calls, "repair"); return nil }
 func (f *fakeClient) DepositAllItems(ctx context.Context) error {

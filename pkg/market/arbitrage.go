@@ -268,7 +268,22 @@ func (c *Collector) GetOpportunities(ctx context.Context, status string, limit i
 	if limit < 1 {
 		limit = 50
 	}
-	rows, err := c.db.QueryContext(ctx, `
+	rows, err := c.db.QueryContext(ctx,
+		arbitrageSelectJoin+`
+		WHERE (? = '' OR ao.status = ?)
+		ORDER BY ao.gross_profit DESC
+		LIMIT ?`, status, status, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query opportunities: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	return scanOpportunityRows(rows)
+}
+
+// arbitrageSelectJoin is the SELECT column list + station/item joins shared by every
+// multi-row opportunity read, so the column order stays in lockstep with
+// scanOpportunityRows. Callers append their own WHERE/ORDER/LIMIT.
+const arbitrageSelectJoin = `
 		SELECT ao.id, ao.from_station_id, COALESCE(fs.station_name, ''), COALESCE(fs.system_name, ''),
 		       ao.to_station_id, COALESCE(ts.station_name, ''), COALESCE(ts.system_name, ''),
 		       ao.item_id, COALESCE(i.item_name, ''), ao.action_type, ao.status,
@@ -278,14 +293,11 @@ func (c *Collector) GetOpportunities(ctx context.Context, status string, limit i
 		FROM arbitrage_opportunities ao
 		LEFT JOIN stations fs ON fs.station_id = ao.from_station_id
 		LEFT JOIN stations ts ON ts.station_id = ao.to_station_id
-		LEFT JOIN items i ON i.item_id = ao.item_id
-		WHERE (? = '' OR ao.status = ?)
-		ORDER BY ao.gross_profit DESC
-		LIMIT ?`, status, status, limit)
-	if err != nil {
-		return nil, fmt.Errorf("query opportunities: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
+		LEFT JOIN items i ON i.item_id = ao.item_id`
+
+// scanOpportunityRows scans rows from a SELECT of arbitrageSelectJoin's columns
+// (id, joined station/system/item names, prices, and claim + lifecycle fields).
+func scanOpportunityRows(rows *sql.Rows) ([]ArbitrageOpportunity, error) {
 	var out []ArbitrageOpportunity
 	for rows.Next() {
 		var o ArbitrageOpportunity
@@ -304,4 +316,42 @@ func (c *Collector) GetOpportunities(ctx context.Context, status string, limit i
 		out = append(out, o)
 	}
 	return out, rows.Err()
+}
+
+// ReleaseOpportunity returns a claimed opportunity to the available pool: status back
+// to 'available' and the claim cleared. Only the claiming agent can release its own
+// claim. Returns true if a row was released. Haulers call this when they abandon an
+// opportunity *before buying*, so an abandoned haul does not leak its claim out of the
+// pool (the historical cause of hundreds of stuck 'claimed' rows).
+func (c *Collector) ReleaseOpportunity(ctx context.Context, id int, agentID string) (bool, error) {
+	released := false
+	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx,
+			`UPDATE arbitrage_opportunities SET status='available', claimed_by=NULL, claimed_at=NULL
+			 WHERE id=? AND claimed_by=? AND status='claimed'`, id, agentID)
+		if err != nil {
+			return fmt.Errorf("release opportunity: %w", err)
+		}
+		if n, err := res.RowsAffected(); err == nil {
+			released = n > 0
+		}
+		return nil
+	})
+	return released, err
+}
+
+// GetClaimedByAgent returns opportunities currently claimed by agentID, most-recently
+// claimed first. A hauler calls this on startup to resume a haul it was mid-run on when
+// its process restarted: the in-memory active opportunity does not survive a restart,
+// but the claim row does.
+func (c *Collector) GetClaimedByAgent(ctx context.Context, agentID string) ([]ArbitrageOpportunity, error) {
+	rows, err := c.db.QueryContext(ctx,
+		arbitrageSelectJoin+`
+		WHERE ao.status='claimed' AND ao.claimed_by=?
+		ORDER BY ao.claimed_at DESC`, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("query claimed opportunities: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	return scanOpportunityRows(rows)
 }

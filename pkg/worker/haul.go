@@ -14,7 +14,18 @@ import (
 )
 
 // DefaultHaulPoolLimit caps how many available opportunities a hauler considers.
-const DefaultHaulPoolLimit = 50
+// GetOpportunities orders by gross_profit DESC, so a small limit returns only the
+// highest-gross (and typically most distant) opportunities. With a reposition-distance
+// cap (DefaultHaulMaxJumps), nearby-but-lower-gross opportunities must be in the pool or
+// the cap would drop the whole pool and the hauler would idle — so the pool is generous.
+const DefaultHaulPoolLimit = 500
+
+// DefaultHaulMaxJumps caps how far (in jumps from the hauler's current system) a buy
+// station may be for its opportunity to be considered. Repositioning halfway across the
+// galaxy for one large payday wastes more time and fuel than several nearby hauls of
+// comparable margin, so the fleet nets more from many short hops. 0 in a request means
+// "use this default"; the pure ranker treats maxJumps<=0 as no cap (for tests).
+const DefaultHaulMaxJumps = 5
 
 // haulNearTieFraction: opportunities within this fraction of the top gross profit
 // are reordered by proximity/chaining rather than raw profit.
@@ -95,8 +106,10 @@ type rankedOpp struct {
 // haulNearTieFraction of the top gross are instead ordered by reposition cost
 // (jumps current->buy), then a chaining bonus (sell at/adjacent to another opp's
 // buy), then id. Opportunities whose buy-system name does not resolve to a known
-// system id, or whose buy-system is unreachable, are dropped.
-func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID string, nameToID map[string]string, graph navigation.JumpGraph) []market.ArbitrageOpportunity {
+// system id, or whose buy-system is unreachable, are dropped. When maxJumps > 0, any
+// opportunity whose buy-system is more than maxJumps from currentSystemID is also
+// dropped (maxJumps <= 0 disables the cap).
+func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID string, nameToID map[string]string, graph navigation.JumpGraph, maxJumps int) []market.ArbitrageOpportunity {
 	resolved := make([]rankedOpp, 0, len(opps))
 	buyTargets := make([]string, 0, len(opps))
 	for _, o := range opps {
@@ -118,6 +131,9 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 		d, ok := dist[r.buySysID]
 		if !ok || d >= navigation.RouteInf {
 			continue
+		}
+		if maxJumps > 0 && d > maxJumps {
+			continue // too far to reposition for
 		}
 		r.jumps = d
 		reach = append(reach, r)
@@ -225,7 +241,9 @@ func sizeBuy(opp market.ArbitrageOpportunity, cargoFree, credits, askEach float6
 // here keeps the engine testable with a fake and leaves pkg/market unmodified.
 type OpportunityStore interface {
 	GetOpportunities(ctx context.Context, status string, limit int) ([]market.ArbitrageOpportunity, error)
+	GetClaimedByAgent(ctx context.Context, agentID string) ([]market.ArbitrageOpportunity, error)
 	ClaimOpportunity(ctx context.Context, id int, agentID string) (bool, error)
+	ReleaseOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
@@ -281,6 +299,7 @@ type HaulDeps struct {
 	Out       io.Writer // nil -> io.Discard
 	AgentID   string    // claim owner
 	PoolLimit int       // 0 -> DefaultHaulPoolLimit
+	MaxJumps  int       // 0 -> DefaultHaulMaxJumps; reposition-distance cap (jumps) to a buy station
 	// RecaptureBuyMarket refreshes the current (buy) station's market into the store
 	// so the pre-buy gate prices against a real-time ask. nil skips the live capture
 	// (tests seed prices directly via the store).
@@ -309,21 +328,16 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if limit <= 0 {
 		limit = DefaultHaulPoolLimit
 	}
+	maxJumps := deps.MaxJumps
+	if maxJumps <= 0 {
+		maxJumps = DefaultHaulMaxJumps
+	}
 	state := deps.Client.GetState()
 	if state == nil || state.System.ID == "" {
 		fmt.Fprintln(out, "haul: current system unknown; skipping") //nolint:errcheck
 		return nil
 	}
 	current := state.System.ID
-
-	opps, err := loadAvailable(ctx, deps.Market, limit)
-	if err != nil {
-		return err
-	}
-	if len(opps) == 0 {
-		fmt.Fprintln(out, "haul: no opportunities available; idling") //nolint:errcheck
-		return nil
-	}
 
 	systems, err := deps.KB.GetSystems(ctx)
 	if err != nil {
@@ -336,9 +350,33 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	nameToID := buildNameToID(systems)
 	graph := navigation.JumpGraphFromConnections(conns)
 
-	ranked := RankHaulOpportunities(opps, current, nameToID, graph)
+	// Resume before claiming anything new: if this agent already holds a claim (its
+	// process restarted mid-haul, leaving the in-memory active opp behind but the claim
+	// row intact), finish that haul first. runClaimedHaul skips the buy leg when the
+	// goods are already aboard, so a resumed haul continues to its sell leg. The
+	// distance cap does not apply here — once claimed (and possibly bought) the haul is
+	// committed regardless of how far the legs are.
+	held, err := deps.Market.GetClaimedByAgent(ctx, deps.AgentID)
+	if err != nil {
+		return fmt.Errorf("haul: get claimed: %w", err)
+	}
+	if len(held) > 0 {
+		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
+		return runClaimedHaul(ctx, deps, out, held[0], nameToID)
+	}
+
+	opps, err := loadAvailable(ctx, deps.Market, limit)
+	if err != nil {
+		return err
+	}
+	if len(opps) == 0 {
+		fmt.Fprintln(out, "haul: no opportunities available; idling") //nolint:errcheck
+		return nil
+	}
+
+	ranked := RankHaulOpportunities(opps, current, nameToID, graph, maxJumps)
 	if len(ranked) == 0 {
-		fmt.Fprintln(out, "haul: no reachable opportunities; idling") //nolint:errcheck
+		fmt.Fprintf(out, "haul: no opportunities within %d jumps; idling\n", maxJumps) //nolint:errcheck
 		return nil
 	}
 
@@ -354,41 +392,58 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	return runClaimedHaul(ctx, deps, out, opp, nameToID)
 }
 
-// runClaimedHaul executes a claimed opportunity end to end. Any error is logged and
-// swallowed (returns nil) so the worker stays alive; the row is left claimed.
-// Before buying, it re-prices both legs against fresh data (a live recapture of the
-// buy station + the latest sell-station bid) and applies haulGate: the buy is skipped
-// unless the live spread clears both the margin and net-profit thresholds. This guards
-// against acting on a stale/collapsed opportunity.
+// abandonClaim releases opp's claim back to the available pool and logs reason. Used on
+// PRE-buy abandons so an opportunity the hauler decides not to act on (unroutable, gate
+// rejected, dock failed, …) does not leak its claim out of the pool. Post-buy abandons
+// instead KEEP the claim (see haulSellLeg) so the goods-bearing haul can be resumed.
+func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, reason string) error {
+	if _, err := deps.Market.ReleaseOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
+		fmt.Fprintf(out, "haul: opp %d %s; release failed: %v\n", opp.ID, reason, err) //nolint:errcheck
+		return nil
+	}
+	fmt.Fprintf(out, "haul: opp %d %s; released\n", opp.ID, reason) //nolint:errcheck
+	return nil
+}
+
+// runClaimedHaul executes a claimed opportunity. Any error is logged and swallowed
+// (returns nil) so the worker stays alive. If the goods are already aboard (a haul
+// resumed after its process restarted post-buy), it skips the buy leg and goes straight
+// to selling. Otherwise it transits to the buy station, re-prices both legs against
+// fresh data and applies haulGate (skipping unless the live spread clears both the
+// margin and net-profit thresholds), buys, then sells. PRE-buy abandons release the
+// claim back to the pool; POST-buy abandons keep it claimed for resumption.
 func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string) error {
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := nameToID[opp.ToSystemName]
 	if buySys == "" {
-		fmt.Fprintf(out, "haul: opp %d buy system %q unresolved; leaving claimed\n", opp.ID, opp.FromSystemName) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("buy system %q unresolved", opp.FromSystemName))
 	}
 	if sellSys == "" {
-		fmt.Fprintf(out, "haul: opp %d sell system %q unresolved; leaving claimed\n", opp.ID, opp.ToSystemName) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("sell system %q unresolved", opp.ToSystemName))
 	}
+
+	// Resume: goods already aboard (interrupted after a successful buy) -> skip the buy
+	// leg and go straight to delivery, instead of buying a second load.
+	if aboard := cargoQty(deps.Client.GetState(), opp.ItemID); aboard > 0 {
+		fmt.Fprintf(out, "haul: opp %d %s: resuming with %.0f aboard -> sell @%s\n", opp.ID, opp.ItemID, aboard, opp.ToStationName) //nolint:errcheck
+		return haulSellLeg(ctx, deps, out, opp, sellSys)
+	}
+
 	fmt.Fprintf(out, "haul: opp %d %s: buy %.0f @%s -> sell @%s\n", opp.ID, opp.ItemID, opp.Quantity, opp.FromStationName, opp.ToStationName) //nolint:errcheck
 
 	if err := haulAutopilot(ctx, deps, out, buySys, opp.FromStationID); err != nil {
-		fmt.Fprintf(out, "haul: opp %d transit to buy failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("transit to buy failed: %v", err))
 	}
 	// Autopilot leaves the ship at the station POI but undocked. Dock explicitly so the
 	// live recapture (view_market) can run — unlike buy/sell, view_market does not
 	// auto-dock, so without this the recapture fails and the gate falls back to stale
-	// prices. A station whose POI has no dockable base leaves the row claimed.
+	// prices. A station whose POI has no dockable base releases the claim.
 	if err := deps.Client.Dock(ctx); err != nil {
-		fmt.Fprintf(out, "haul: opp %d cannot dock at buy station %s: %v; leaving claimed\n", opp.ID, opp.FromStationName, err) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("cannot dock at buy station %s: %v", opp.FromStationName, err))
 	}
 	state := deps.Client.GetState()
 	if state == nil {
-		fmt.Fprintf(out, "haul: opp %d no state at buy station; leaving claimed\n", opp.ID) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, "no state at buy station")
 	}
 	cargoFree := state.Ship.CargoCapacity - state.Ship.CargoUsed
 
@@ -402,19 +457,24 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	}
 	prices, perr := deps.Market.GetItemStationPrices(ctx, opp.ItemID)
 	if perr != nil {
-		fmt.Fprintf(out, "haul: opp %d price check failed: %v; leaving claimed\n", opp.ID, perr) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("price check failed: %v", perr))
 	}
 	qty, _, _, pass, reason := haulGate(opp, prices, cargoFree, state.GetCredits())
 	if !pass {
-		fmt.Fprintf(out, "haul: opp %d %s; leaving claimed\n", opp.ID, reason) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, reason)
 	}
 	if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
-		fmt.Fprintf(out, "haul: opp %d buy failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
-		return nil
+		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("buy failed: %v", err))
 	}
 
+	return haulSellLeg(ctx, deps, out, opp, sellSys)
+}
+
+// haulSellLeg transits to the sell station and sells the goods, completing the
+// opportunity. The buy has already happened, so on any failure here the claim is KEPT
+// (logged "leaving claimed") — the goods are aboard and the haul can be resumed to retry
+// the sell leg on a later pass or after a restart.
+func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, sellSys string) error {
 	if err := haulAutopilot(ctx, deps, out, sellSys, opp.ToStationID); err != nil {
 		fmt.Fprintf(out, "haul: opp %d transit to sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil

@@ -124,6 +124,48 @@ func countStatus(t *testing.T, c *Collector, status string) int {
 	return n
 }
 
+// TestReleaseAndGetClaimedByAgent covers the claim-lifecycle additions: an agent can see
+// its own claims (resume), only the owning agent can release a claim, and a release
+// returns the row to the available pool.
+func TestReleaseAndGetClaimedByAgent(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOpp(t, c, "available")
+	var id int
+	if err := c.db.QueryRow(`SELECT id FROM arbitrage_opportunities LIMIT 1`).Scan(&id); err != nil {
+		t.Fatalf("get id: %v", err)
+	}
+
+	if ok, err := c.ClaimOpportunity(ctx, id, "trader-9"); err != nil || !ok {
+		t.Fatalf("claim: ok=%v err=%v", ok, err)
+	}
+
+	mine, err := c.GetClaimedByAgent(ctx, "trader-9")
+	if err != nil {
+		t.Fatalf("GetClaimedByAgent: %v", err)
+	}
+	if len(mine) != 1 || mine[0].ID != id {
+		t.Fatalf("want [%d] claimed by trader-9, got %v", id, mine)
+	}
+	if other, _ := c.GetClaimedByAgent(ctx, "trader-1"); len(other) != 0 {
+		t.Fatalf("trader-1 should hold no claims, got %v", other)
+	}
+
+	// Only the owner can release.
+	if ok, _ := c.ReleaseOpportunity(ctx, id, "trader-1"); ok {
+		t.Fatal("non-owner must not release the claim")
+	}
+	if ok, err := c.ReleaseOpportunity(ctx, id, "trader-9"); err != nil || !ok {
+		t.Fatalf("release by owner: ok=%v err=%v", ok, err)
+	}
+	if got := countStatus(t, c, "available"); got != 1 {
+		t.Fatalf("after release want 1 available, got %d", got)
+	}
+	if mine, _ := c.GetClaimedByAgent(ctx, "trader-9"); len(mine) != 0 {
+		t.Fatalf("after release trader-9 should hold no claims, got %v", mine)
+	}
+}
+
 func TestScanArbitrageHappyPath(t *testing.T) {
 	c := openArbDB(t)
 	ctx := context.Background()

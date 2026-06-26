@@ -2,9 +2,12 @@ package worker
 
 import (
 	"context"
+	"io"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -111,7 +114,7 @@ func TestRankProfitDominant(t *testing.T) {
 	got := RankHaulOpportunities([]market.ArbitrageOpportunity{
 		opp(1, "b", "c", 100),
 		opp(2, "b", "c", 200),
-	}, "a", n2id, g)
+	}, "a", n2id, g, 0)
 	if len(got) != 2 || got[0].ID != 2 || got[1].ID != 1 {
 		t.Fatalf("want [2 1] by gross, got %v", ids(got))
 	}
@@ -125,7 +128,7 @@ func TestRankNearTieProximityTiebreak(t *testing.T) {
 	got := RankHaulOpportunities([]market.ArbitrageOpportunity{
 		opp(2, "c", "d", 200),
 		opp(1, "b", "d", 195),
-	}, "a", n2id, g)
+	}, "a", n2id, g, 0)
 	if got[0].ID != 1 {
 		t.Fatalf("want closer buy (id 1) first, got %v", ids(got))
 	}
@@ -140,7 +143,7 @@ func TestRankChainingTiebreak(t *testing.T) {
 		opp(2, "b", "z", 200),
 		opp(1, "b", "c", 198),
 		opp(3, "c", "z", 50), // the chain target (buys at c)
-	}, "a", n2id, g)
+	}, "a", n2id, g, 0)
 	// opp 1 and 2 are in the band (>=180); opp 3 (50) is not. opp 1 chains -> first.
 	if got[0].ID != 1 {
 		t.Fatalf("want chaining opp (id 1) first, got %v", ids(got))
@@ -156,7 +159,7 @@ func TestRankSkipsUnresolvedAndUnreachable(t *testing.T) {
 		opp(1, "ghost", "b", 999),
 		opp(2, "island", "b", 999),
 		opp(3, "b", "a", 100),
-	}, "a", n2id, g)
+	}, "a", n2id, g, 0)
 	if len(got) != 1 || got[0].ID != 3 {
 		t.Fatalf("want only reachable+resolved id 3, got %v", ids(got))
 	}
@@ -168,9 +171,30 @@ func TestRankDeterministicByID(t *testing.T) {
 	got := RankHaulOpportunities([]market.ArbitrageOpportunity{
 		opp(5, "b", "z", 100),
 		opp(2, "b", "z", 100),
-	}, "a", n2id, g)
+	}, "a", n2id, g, 0)
 	if got[0].ID != 2 {
 		t.Fatalf("want lower id 2 first, got %v", ids(got))
+	}
+}
+
+func TestRankDistanceCapDropsFarOpps(t *testing.T) {
+	// Line a-b-c-d-e. current=a. opp 1 buys at b (1 jump, low gross), opp 2 buys at e
+	// (4 jumps, huge gross). With maxJumps=2 the distant high-gross opp is dropped
+	// despite its profit; only the nearby one survives. With no cap (0) the far opp
+	// is kept (and, being far higher gross, sorts first).
+	g, n2id := graphFor([]string{"a", "b", "c", "d", "e"},
+		[2]string{"a", "b"}, [2]string{"b", "c"}, [2]string{"c", "d"}, [2]string{"d", "e"})
+	opps := []market.ArbitrageOpportunity{
+		opp(1, "b", "c", 100),
+		opp(2, "e", "d", 999999),
+	}
+	capped := RankHaulOpportunities(opps, "a", n2id, g, 2)
+	if len(capped) != 1 || capped[0].ID != 1 {
+		t.Fatalf("maxJumps=2 should keep only the nearby opp 1, got %v", ids(capped))
+	}
+	uncapped := RankHaulOpportunities(opps, "a", n2id, g, 0)
+	if len(uncapped) != 2 || uncapped[0].ID != 2 {
+		t.Fatalf("no cap should keep both with high-gross id 2 first, got %v", ids(uncapped))
 	}
 }
 
@@ -208,8 +232,10 @@ type fakeStore struct {
 	available    []market.ArbitrageOpportunity
 	scanPopulate []market.ArbitrageOpportunity
 	scanned      int
-	claims       map[int]bool // id -> claim succeeds
+	claims       map[int]bool                  // id -> claim succeeds
+	claimedByAgent []market.ArbitrageOpportunity // returned by GetClaimedByAgent (resume)
 	completed    []int
+	released     []int
 	prices       []market.ItemStationPrice
 }
 
@@ -219,8 +245,15 @@ func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([
 	}
 	return f.available, nil
 }
+func (f *fakeStore) GetClaimedByAgent(_ context.Context, _ string) ([]market.ArbitrageOpportunity, error) {
+	return f.claimedByAgent, nil
+}
 func (f *fakeStore) ClaimOpportunity(_ context.Context, id int, _ string) (bool, error) {
 	return f.claims[id], nil
+}
+func (f *fakeStore) ReleaseOpportunity(_ context.Context, id int, _ string) (bool, error) {
+	f.released = append(f.released, id)
+	return true, nil
 }
 func (f *fakeStore) CompleteOpportunity(_ context.Context, id int, _ string) (bool, error) {
 	f.completed = append(f.completed, id)
@@ -286,5 +319,62 @@ func TestClaimBestAllTaken(t *testing.T) {
 	_, ok, err := claimBest(context.Background(), f, ranked, "hauler-1")
 	if err != nil || ok {
 		t.Fatalf("want ok=false when all taken, got ok=%v err=%v", ok, err)
+	}
+}
+
+// TestHaulResumesHeldClaimBeforeClaiming covers the resume path: when the agent already
+// holds a claim, Haul finishes that one and never reaches loadAvailable/claim. The held
+// opp here has an unresolvable buy system, so it is released (proving resume ran it) —
+// the distance cap and the available pool are not consulted.
+func TestHaulResumesHeldClaimBeforeClaiming(t *testing.T) {
+	f := &fakeStore{
+		claimedByAgent: []market.ArbitrageOpportunity{opp(99, "ghost", "x", 500)},
+		available:      []market.ArbitrageOpportunity{opp(1, "b", "c", 100)},
+		claims:         map[int]bool{1: true},
+	}
+	fc := &fakeClient{state: &game.State{System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100}}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		conns:   undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
+	}
+	if err := Haul(context.Background(), HaulDeps{Client: fc, KB: kb, Market: f, AgentID: "trader-x", Out: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.released) != 1 || f.released[0] != 99 {
+		t.Fatalf("want released [99] (resumed held claim), got %v", f.released)
+	}
+	if f.scanned != 0 || len(f.completed) != 0 {
+		t.Fatalf("resume must short-circuit before loadAvailable/claim: scanned=%d completed=%v", f.scanned, f.completed)
+	}
+}
+
+// TestRunClaimedHaulResumesWithGoodsAboard covers a haul resumed after the buy: goods are
+// already in the hold, so the buy leg is skipped and it goes straight to sell + complete.
+func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
+	o := opp(7, "b", "a", 100) // ItemID iron_ore, sell at "a" (== current system)
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Ship:    game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}}, // current only -> no jumps
+	}
+	f := &fakeStore{}
+	_, n2id := graphFor([]string{"a", "b"}, [2]string{"a", "b"})
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.completed) != 1 || f.completed[0] != 7 {
+		t.Fatalf("want completed [7] after resume->sell, got %v", f.completed)
+	}
+	if !slices.Contains(fc.calls, "sell:iron_ore") {
+		t.Fatalf("want sell:iron_ore, got %v", fc.calls)
+	}
+	for _, c := range fc.calls {
+		if strings.HasPrefix(c, "buy:") {
+			t.Fatalf("resume must NOT buy a second load, got %v", fc.calls)
+		}
 	}
 }
