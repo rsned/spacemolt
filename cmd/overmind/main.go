@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/overmind/balances"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
@@ -32,6 +33,7 @@ func main() {
 	restartBatch := flag.Int("restart-batch", 1, "Max worker relaunches per reap tick (per-IP /login pacing for mass restarts; <=0 disables)")
 	statusPath := flag.String("status-file", "data/overmind/fleet-status.json", "Live fleet status snapshot file (rewritten each tick)")
 	historyPath := flag.String("history-file", "data/overmind/fleet-history.jsonl", "Append-only daily balance history (one row per agent per UTC day)")
+	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to market.db for quarter-hourly fleet_timeseries snapshots")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
@@ -72,6 +74,16 @@ func main() {
 	recorder, err := balances.NewRecorder(*statusPath, *historyPath)
 	if err != nil {
 		logger.Printf("balances: %v (continuing without balance tracking)", err)
+	}
+
+	// ── Step 2d: Market collector for quarter-hourly fleet_timeseries snapshots.
+	// A failure here disables snapshots only — the fleet must still run.
+	var marketCol *market.Collector
+	if col, mErr := market.Open(market.Config{DBPath: *marketDBPath, WAL: true}); mErr != nil {
+		logger.Printf("market: %v (continuing without fleet_timeseries snapshots)", mErr)
+	} else {
+		marketCol = col
+		defer marketCol.Close() //nolint:errcheck
 	}
 
 	// ── Step 3: Signal-cancellable root context ──────────────────────────────
@@ -131,15 +143,30 @@ func main() {
 			snap := fleet.Snapshot()
 			taskStore.AssignPending(snap, srv)
 			logFleetSnapshot(logger, snap)
-			recordBalances(logger, recorder, snap)
+			recordBalances(ctx, logger, recorder, marketCol, snap)
 		}
 	}
 }
 
+// lastFleetSnapshot is the time of the most recent fleet_timeseries write. It is read and
+// written only from the single status-ticker goroutine, so it needs no synchronization.
+var lastFleetSnapshot time.Time
+
+// crossedQuarterBoundary reports whether now is in a later 15-minute bucket than last (a
+// zero last always returns true, so the overmind snapshots once on startup).
+func crossedQuarterBoundary(last, now time.Time) bool {
+	if last.IsZero() {
+		return true
+	}
+	bucket := func(t time.Time) int64 { return t.UTC().Unix() / 900 }
+	return bucket(now) > bucket(last)
+}
+
 // recordBalances writes the live status file and, at the first tick past a UTC
-// midnight, appends a daily balance snapshot. Errors are logged, never fatal —
-// reporting must not take down the fleet supervisor.
-func recordBalances(logger *log.Logger, recorder *balances.Recorder, snap []supervisor.WorkerInfo) {
+// midnight, appends a daily balance snapshot. On quarter-hour boundaries it also writes a
+// per-hauler fleet_timeseries row to marketCol (nil disables it). Errors are logged, never
+// fatal — reporting must not take down the fleet supervisor.
+func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.Recorder, marketCol *market.Collector, snap []supervisor.WorkerInfo) {
 	if recorder == nil {
 		return
 	}
@@ -167,6 +194,27 @@ func recordBalances(logger *log.Logger, recorder *balances.Recorder, snap []supe
 		logger.Printf("balances: daily snapshot: %v", err)
 	} else if n > 0 {
 		logger.Printf("balances: captured daily balance snapshot for %s (%d agent(s))", now.UTC().Format("2006-01-02"), n)
+	}
+
+	// Quarter-hourly time-series snapshot of haulers (dashboard credit-balance line).
+	if marketCol != nil && crossedQuarterBoundary(lastFleetSnapshot, now) {
+		rows := make([]market.FleetSnapshot, 0, len(live))
+		for _, lr := range live {
+			if lr.Role != "hauler" || !lr.Seen {
+				continue
+			}
+			rows = append(rows, market.FleetSnapshot{
+				TS: now.UTC().Format(time.RFC3339), AgentID: lr.AgentID, Role: lr.Role,
+				System: lr.System, Docked: lr.Docked, Credits: lr.Credits, Fuel: lr.Fuel,
+				MaxFuel: lr.MaxFuel, CargoUsed: lr.CargoUsed, CargoCapacity: lr.CargoCapacity,
+			})
+		}
+		if err := marketCol.RecordFleetSnapshot(ctx, rows); err != nil {
+			logger.Printf("balances: fleet_timeseries snapshot: %v", err)
+		} else {
+			lastFleetSnapshot = now
+			logger.Printf("balances: captured fleet_timeseries snapshot (%d hauler(s))", len(rows))
+		}
 	}
 }
 
