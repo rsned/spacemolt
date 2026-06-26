@@ -68,7 +68,8 @@ type ArbitrageOpportunity struct {
 	RiskScore     float64 `json:"risk_score"`
 	ClaimedBy     string  `json:"claimed_by"`
 	ClaimedAt     string  `json:"claimed_at"`
-	Status        string  `json:"status"` // "available", "claimed", "completed", "expired"
+	CompletedAt   string  `json:"completed_at"` // set when status transitions to "completed"
+	Status        string  `json:"status"`       // "available", "claimed", "completed", "expired"
 	ExpiresAt     string  `json:"expires_at"`
 	DiscoveredAt  string  `json:"discovered_at"`
 	DiscoveredBy  string  `json:"discovered_by"`

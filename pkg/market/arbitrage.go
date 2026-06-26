@@ -248,8 +248,9 @@ func (c *Collector) CompleteOpportunity(ctx context.Context, id int, agentID str
 	completed := false
 	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx,
-			`UPDATE arbitrage_opportunities SET status='completed'
-			 WHERE id=? AND claimed_by=? AND status='claimed'`, id, agentID)
+			`UPDATE arbitrage_opportunities SET status='completed', completed_at=?
+			 WHERE id=? AND claimed_by=? AND status='claimed'`,
+			time.Now().UTC().Format(time.RFC3339), id, agentID)
 		if err != nil {
 			return fmt.Errorf("complete opportunity: %w", err)
 		}
@@ -289,7 +290,7 @@ const arbitrageSelectJoin = `
 		       ao.item_id, COALESCE(i.item_name, ''), ao.action_type, ao.status,
 		       ao.buy_price, ao.sell_price, ao.quantity, ao.gross_profit,
 		       ao.fuel_cost, ao.travel_ticks, ao.cargo_required,
-		       ao.claimed_by, ao.claimed_at, ao.expires_at, ao.discovered_at, ao.notes
+		       ao.claimed_by, ao.claimed_at, ao.completed_at, ao.expires_at, ao.discovered_at, ao.notes
 		FROM arbitrage_opportunities ao
 		LEFT JOIN stations fs ON fs.station_id = ao.from_station_id
 		LEFT JOIN stations ts ON ts.station_id = ao.to_station_id
@@ -301,17 +302,18 @@ func scanOpportunityRows(rows *sql.Rows) ([]ArbitrageOpportunity, error) {
 	var out []ArbitrageOpportunity
 	for rows.Next() {
 		var o ArbitrageOpportunity
-		var claimedBy, claimedAt, notes sql.NullString
+		var claimedBy, claimedAt, completedAt, notes sql.NullString
 		if err := rows.Scan(&o.ID, &o.FromStationID, &o.FromStationName, &o.FromSystemName,
 			&o.ToStationID, &o.ToStationName, &o.ToSystemName,
 			&o.ItemID, &o.ItemName, &o.ActionType, &o.Status,
 			&o.BuyPrice, &o.SellPrice, &o.Quantity, &o.GrossProfit,
 			&o.FuelCost, &o.TravelTicks, &o.CargoRequired,
-			&claimedBy, &claimedAt, &o.ExpiresAt, &o.DiscoveredAt, &notes); err != nil {
+			&claimedBy, &claimedAt, &completedAt, &o.ExpiresAt, &o.DiscoveredAt, &notes); err != nil {
 			return nil, fmt.Errorf("scan opportunity: %w", err)
 		}
 		o.ClaimedBy = claimedBy.String
 		o.ClaimedAt = claimedAt.String
+		o.CompletedAt = completedAt.String
 		o.Notes = notes.String
 		out = append(out, o)
 	}

@@ -124,6 +124,40 @@ func countStatus(t *testing.T, c *Collector, status string) int {
 	return n
 }
 
+// TestCompleteStampsCompletedAt covers the completed_at instrumentation: a
+// claimed opp has no completion time, and CompleteOpportunity stamps an
+// RFC3339 timestamp the SELECT/scan path then surfaces.
+func TestCompleteStampsCompletedAt(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOpp(t, c, "available")
+	var id int
+	if err := c.db.QueryRow(`SELECT id FROM arbitrage_opportunities LIMIT 1`).Scan(&id); err != nil {
+		t.Fatalf("get id: %v", err)
+	}
+	if ok, err := c.ClaimOpportunity(ctx, id, "trader-9"); err != nil || !ok {
+		t.Fatalf("claim: ok=%v err=%v", ok, err)
+	}
+	// A claimed-but-not-completed opp carries no completion time yet.
+	pre, _ := c.GetClaimedByAgent(ctx, "trader-9")
+	if len(pre) != 1 || pre[0].CompletedAt != "" {
+		t.Fatalf("claimed opp should have empty completed_at, got %+v", pre)
+	}
+	if ok, err := c.CompleteOpportunity(ctx, id, "trader-9"); err != nil || !ok {
+		t.Fatalf("complete: ok=%v err=%v", ok, err)
+	}
+	done, err := c.GetOpportunities(ctx, "completed", 10)
+	if err != nil || len(done) != 1 {
+		t.Fatalf("get completed: n=%d err=%v", len(done), err)
+	}
+	if done[0].CompletedAt == "" {
+		t.Fatal("completed_at must be stamped on completion")
+	}
+	if _, err := time.Parse(time.RFC3339, done[0].CompletedAt); err != nil {
+		t.Fatalf("completed_at not RFC3339: %q (%v)", done[0].CompletedAt, err)
+	}
+}
+
 // TestReleaseAndGetClaimedByAgent covers the claim-lifecycle additions: an agent can see
 // its own claims (resume), only the owning agent can release a claim, and a release
 // returns the row to the available pool.

@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
     risk_score          REAL DEFAULT 0,
     claimed_by          TEXT,
     claimed_at          TEXT,
+    completed_at        TEXT,
     status              TEXT DEFAULT 'available' CHECK (status IN ('available', 'claimed', 'completed', 'expired')),
     expires_at          TEXT NOT NULL,
     discovered_at       TEXT NOT NULL,
