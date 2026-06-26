@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -29,23 +30,29 @@ func TestHaulGate(t *testing.T) {
 	}
 	const bigCredits = 1e9
 	tests := []struct {
-		name              string
-		opp               market.ArbitrageOpportunity
-		prices            []market.ItemStationPrice
-		cargoFree, credit float64
-		wantOK            bool
-		wantReason        string
+		name                string
+		opp                 market.ArbitrageOpportunity
+		prices              []market.ItemStationPrice
+		cargoFree, cargoCap float64
+		credit              float64
+		wantOK              bool
+		wantReason          string
 	}{
-		{"fat spread passes", opp(100), prices(100, 111, true, true), 100, bigCredits, true, ""},
-		{"inverted spread (trader-3) fails", opp(21), prices(2654, 2631, true, true), 200, bigCredits, false, "spread too thin"},
-		{"margin ok but net below floor fails", opp(5), prices(100, 104, true, true), 5, bigCredits, false, "spread too thin"},
-		{"no live ask at buy station fails", opp(100), prices(0, 111, false, true), 100, bigCredits, false, "no live ask"},
-		{"no live bid at sell station fails", opp(100), prices(100, 0, true, false), 100, bigCredits, false, "no live bid"},
-		{"unaffordable fails before margin", opp(100), prices(100, 200, true, true), 100, 50, false, "unaffordable"},
+		{"fat spread passes", opp(100), prices(100, 111, true, true), 100, 200, bigCredits, true, ""},
+		{"inverted spread (trader-3) fails", opp(21), prices(2654, 2631, true, true), 200, 200, bigCredits, false, "spread too thin"},
+		{"margin ok but net below floor fails", opp(5), prices(100, 104, true, true), 5, 200, bigCredits, false, "spread too thin"},
+		{"no live ask at buy station fails", opp(100), prices(0, 111, false, true), 100, 200, bigCredits, false, "no live ask"},
+		{"no live bid at sell station fails", opp(100), prices(100, 0, true, false), 100, 200, bigCredits, false, "no live bid"},
+		{"unaffordable fails before margin", opp(100), prices(100, 200, true, true), 100, 200, 50, false, "unaffordable"},
+		// Small holds (capacity < haulSmallHoldCap) clear a reduced net floor so they can
+		// close fat-margin trades too small to make 1000cr (the interim pre-cargo-expander fix).
+		{"small hold passes reduced net floor", opp(80), prices(100, 105, true, true), 80, 80, bigCredits, true, ""},
+		{"small hold still fails below reduced floor", opp(40), prices(100, 105, true, true), 40, 40, bigCredits, false, "spread too thin"},
+		{"large hold same trade fails full floor", opp(80), prices(100, 105, true, true), 80, 200, bigCredits, false, "spread too thin"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.credit)
+			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.cargoCap, tc.credit)
 			if ok != tc.wantOK {
 				t.Fatalf("ok=%v (reason %q), want %v", ok, reason, tc.wantOK)
 			}
@@ -118,6 +125,37 @@ func TestRankProfitDominant(t *testing.T) {
 	}, "a", n2id, g, 0)
 	if len(got) != 2 || got[0].ID != 2 || got[1].ID != 1 {
 		t.Fatalf("want [2 1] by gross, got %v", ids(got))
+	}
+}
+
+func TestRankStabilityBoostPrefersDurable(t *testing.T) {
+	// a-b-c-d line. A fresh opp (1 cycle, gross 100) buys 1 jump away; a durable opp
+	// (6 cycles → +50% boost, raw gross 96) buys 2 jumps away. Raw gross + proximity
+	// would rank the fresh one first; the stability boost (effective 96*1.5=144 vs 100)
+	// lifts the durable route above the near-tie band and ranks it first instead.
+	g, n2id := graphFor([]string{"a", "b", "c", "d"},
+		[2]string{"a", "b"}, [2]string{"b", "c"}, [2]string{"c", "d"})
+	fresh := opp(1, "b", "c", 100)
+	fresh.CyclesSeen = 1
+	durable := opp(2, "c", "d", 96)
+	durable.CyclesSeen = 6
+	got := RankHaulOpportunities([]market.ArbitrageOpportunity{fresh, durable}, "a", n2id, g, 0)
+	if got[0].ID != 2 {
+		t.Fatalf("want durable opp 2 first (stability boost), got %v", ids(got))
+	}
+}
+
+func TestStabilityBoostBoundsAndShape(t *testing.T) {
+	cases := []struct {
+		cycles int
+		want   float64
+	}{
+		{0, 1.0}, {1, 1.0}, {2, 1.1}, {3, 1.2}, {6, 1.5}, {20, 1.5},
+	}
+	for _, tc := range cases {
+		if got := stabilityBoost(tc.cycles); got != tc.want {
+			t.Errorf("stabilityBoost(%d) = %.2f, want %.2f", tc.cycles, got, tc.want)
+		}
 	}
 }
 
@@ -230,14 +268,15 @@ func TestSizeBuyZeroAsk(t *testing.T) {
 }
 
 type fakeStore struct {
-	available    []market.ArbitrageOpportunity
-	scanPopulate []market.ArbitrageOpportunity
-	scanned      int
-	claims       map[int]bool                  // id -> claim succeeds
+	available      []market.ArbitrageOpportunity
+	scanPopulate   []market.ArbitrageOpportunity
+	scanned        int
+	claims         map[int]bool                  // id -> claim succeeds
 	claimedByAgent []market.ArbitrageOpportunity // returned by GetClaimedByAgent (resume)
-	completed    []int
-	released     []int
-	prices       []market.ItemStationPrice
+	completed      []int
+	released       []int
+	prices         []market.ItemStationPrice
+	recorded       []market.HaulResult
 }
 
 func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([]market.ArbitrageOpportunity, error) {
@@ -268,6 +307,10 @@ func (f *fakeStore) ScanArbitrage(_ context.Context, _ market.ScanOptions) (mark
 
 func (f *fakeStore) GetItemStationPrices(_ context.Context, _ string) ([]market.ItemStationPrice, error) {
 	return f.prices, nil
+}
+func (f *fakeStore) RecordHaulResult(_ context.Context, r market.HaulResult) error {
+	f.recorded = append(f.recorded, r)
+	return nil
 }
 
 func TestLoadAvailableNonEmptyNoScan(t *testing.T) {
@@ -463,7 +506,7 @@ func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
 	}
 	f := &fakeStore{}
 	_, n2id := graphFor([]string{"a", "b"}, [2]string{"a", "b"})
-	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id); err != nil {
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.completed) != 1 || f.completed[0] != 7 {
@@ -476,5 +519,75 @@ func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
 		if strings.HasPrefix(c, "buy:") {
 			t.Fatalf("resume must NOT buy a second load, got %v", fc.calls)
 		}
+	}
+}
+
+// TestHaulSellLegRecordsResult covers the haul_results write on completion: with a
+// populated *haulMetrics, a completed sell records one row carrying the real cargo-capped
+// realized profit (sellPrice-buyPrice)*soldQty, the jump count, and the leg stamps.
+func TestHaulSellLegRecordsResult(t *testing.T) {
+	o := opp(7, "b", "a", 100) // ItemID iron_ore, sell station "a-stn" in system "a" (== current)
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Ship:    game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}}, // current only -> autopilot no-op
+	}
+	f := &fakeStore{}
+	fixed := time.Date(2026, 6, 26, 12, 0, 0, 0, time.UTC)
+	m := &haulMetrics{
+		jumps: 3, buyPrice: 100, sellPrice: 130, qty: 10,
+		claimedAt:    fixed.Add(-3 * time.Minute),
+		arrivedSrcAt: fixed.Add(-2 * time.Minute),
+		boughtAt:     fixed.Add(-90 * time.Second),
+		claimedTick:  1000, arrivedSrcTick: 1006, boughtTick: 1007,
+	}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "trader-z", Now: func() time.Time { return fixed }}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.completed) != 1 || f.completed[0] != 7 {
+		t.Fatalf("want completed [7], got %v", f.completed)
+	}
+	if len(f.recorded) != 1 {
+		t.Fatalf("want 1 recorded haul result, got %d", len(f.recorded))
+	}
+	r := f.recorded[0]
+	if r.OppID != 7 || r.AgentID != "trader-z" || r.ItemID != "iron_ore" {
+		t.Fatalf("identity mismatch: %+v", r)
+	}
+	if r.RealizedProfit != (130-100)*10 || r.Qty != 10 || r.JumpsTraveled != 3 {
+		t.Fatalf("want realized 300 qty 10 jumps 3, got %+v", r)
+	}
+	if r.ClaimedAt != "2026-06-26T11:57:00Z" || r.SoldAt != "2026-06-26T12:00:00Z" || r.SoldTick != 0 {
+		t.Fatalf("leg-stamp mismatch: claimed=%s sold=%s soldTick=%d", r.ClaimedAt, r.SoldAt, r.SoldTick)
+	}
+}
+
+// TestHaulSellLegNilMetricsRecordsNothing covers the resume path: a nil *haulMetrics
+// completes the opp but writes no haul_results row (the legs were not measured this run).
+func TestHaulSellLegNilMetricsRecordsNothing(t *testing.T) {
+	o := opp(7, "b", "a", 100)
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Ship:    game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}},
+	}
+	f := &fakeStore{}
+	if err := haulSellLeg(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, "a", nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.completed) != 1 {
+		t.Fatalf("want completed [7], got %v", f.completed)
+	}
+	if len(f.recorded) != 0 {
+		t.Fatalf("nil metrics must record nothing, got %d", len(f.recorded))
 	}
 }

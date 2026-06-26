@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -31,6 +32,36 @@ const DefaultHaulMaxJumps = 5
 // are reordered by proximity/chaining rather than raw profit.
 const haulNearTieFraction = 0.10
 
+// Stability boost: a route that has appeared in several consecutive scan cycles is
+// durable supply/demand and far likelier to still be there on arrival, so it gets a
+// bounded boost to its ranking gross. This is a BOOST, not a filter — a one-shot
+// spread still competes, just from behind. Each consecutive cycle adds
+// haulStabilityPerCycle, capped at haulStabilityCap cycles (so a streak can lift
+// ranking gross by at most +50%, never dwarfing a much larger fresh spread).
+const (
+	haulStabilityPerCycle = 0.10
+	haulStabilityCap      = 5
+)
+
+// stabilityBoost maps a cycles_seen streak to a ranking-gross multiplier (1.0 for a
+// first sighting, up to 1.5 for a streak at or beyond the cap).
+func stabilityBoost(cyclesSeen int) float64 {
+	n := cyclesSeen - 1
+	if n < 0 {
+		n = 0
+	}
+	if n > haulStabilityCap {
+		n = haulStabilityCap
+	}
+	return 1 + float64(n)*haulStabilityPerCycle
+}
+
+// effectiveGross is the gross profit used for ranking: raw gross lifted by the route's
+// stability streak. Selection-time only — it never changes the credits actually earned.
+func effectiveGross(o market.ArbitrageOpportunity) float64 {
+	return o.GrossProfit * stabilityBoost(o.CyclesSeen)
+}
+
 // Pre-buy profit gate (see docs/superpowers/specs/2026-06-25-hauler-prebuy-profit-gate.md).
 // At buy time the live spread must clear BOTH thresholds or the buy is skipped and the
 // row is left claimed. Guards against acting on a stale/collapsed spread (the trader-3
@@ -38,14 +69,29 @@ const haulNearTieFraction = 0.10
 const (
 	haulMinMargin    = 0.03   // (sellBid-liveAsk)/liveAsk
 	haulMinNetProfit = 1000.0 // (sellBid-liveAsk)*qty
+	// Small-hold ships (CargoCapacity below haulSmallHoldCap) can't move enough units to
+	// clear haulMinNetProfit even on fat margins, so they idle on otherwise-good deals
+	// (full-log gate analysis 2026-06-26: ~343 rejects were fat margin / net<1000). Until
+	// cargo expanders raise their holds, they clear a reduced floor so they close trades.
+	haulSmallHoldCap       = 100.0
+	haulSmallHoldNetProfit = 250.0
 )
+
+// netProfitFloor returns the minimum net profit a haul must clear, reduced for
+// small-hold ships that cannot physically move enough units to make haulMinNetProfit.
+func netProfitFloor(cargoCap float64) float64 {
+	if cargoCap > 0 && cargoCap < haulSmallHoldCap {
+		return haulSmallHoldNetProfit
+	}
+	return haulMinNetProfit
+}
 
 // haulGate decides whether to execute a claimed haul given freshly-read station
 // prices. It takes the live ask at the buy station and the latest bid at the sell
 // station, sizes the buy on the live ask, and requires the live spread to clear BOTH
 // haulMinMargin and haulMinNetProfit. ok is false (with a human-readable reason) when
 // a price is missing, the buy is unaffordable, or the spread is too thin.
-func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, credits float64) (qty, liveAsk, sellBid float64, ok bool, reason string) {
+func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, cargoCap, credits float64) (qty, liveAsk, sellBid float64, ok bool, reason string) {
 	var haveAsk, haveBid bool
 	for _, p := range prices {
 		if p.StationID == opp.FromStationID && p.HasSell {
@@ -67,8 +113,9 @@ func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice,
 	}
 	margin := (sellBid - liveAsk) / liveAsk
 	net := (sellBid - liveAsk) * qty
-	if margin < haulMinMargin || net < haulMinNetProfit {
-		return qty, liveAsk, sellBid, false, fmt.Sprintf("spread too thin (margin=%.1f%%, net=%.0f)", margin*100, net)
+	floor := netProfitFloor(cargoCap)
+	if margin < haulMinMargin || net < floor {
+		return qty, liveAsk, sellBid, false, fmt.Sprintf("spread too thin (margin=%.1f%%, net=%.0f, floor=%.0f)", margin*100, net, floor)
 	}
 	return qty, liveAsk, sellBid, true, ""
 }
@@ -148,8 +195,8 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 
 	maxGross := 0.0
 	for _, r := range reach {
-		if r.opp.GrossProfit > maxGross {
-			maxGross = r.opp.GrossProfit
+		if g := effectiveGross(r.opp); g > maxGross {
+			maxGross = g
 		}
 	}
 	threshold := maxGross * (1 - haulNearTieFraction)
@@ -157,7 +204,7 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 	band := make([]rankedOpp, 0, len(reach))
 	rest := make([]rankedOpp, 0, len(reach))
 	for _, r := range reach {
-		if r.opp.GrossProfit >= threshold {
+		if effectiveGross(r.opp) >= threshold {
 			band = append(band, r)
 		} else {
 			rest = append(rest, r)
@@ -171,11 +218,14 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 		if band[i].chain != band[j].chain {
 			return band[i].chain // chaining opp sorts first
 		}
+		if band[i].opp.CyclesSeen != band[j].opp.CyclesSeen {
+			return band[i].opp.CyclesSeen > band[j].opp.CyclesSeen // durable route first
+		}
 		return band[i].opp.ID < band[j].opp.ID
 	})
 	sort.SliceStable(rest, func(i, j int) bool {
-		if rest[i].opp.GrossProfit != rest[j].opp.GrossProfit {
-			return rest[i].opp.GrossProfit > rest[j].opp.GrossProfit
+		if gi, gj := effectiveGross(rest[i].opp), effectiveGross(rest[j].opp); gi != gj {
+			return gi > gj
 		}
 		if rest[i].jumps != rest[j].jumps {
 			return rest[i].jumps < rest[j].jumps
@@ -247,6 +297,7 @@ type OpportunityStore interface {
 	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
+	RecordHaulResult(ctx context.Context, r market.HaulResult) error
 }
 
 // loadAvailable returns available opportunities, running one ScanArbitrage to
@@ -304,7 +355,38 @@ type HaulDeps struct {
 	// so the pre-buy gate prices against a real-time ask. nil skips the live capture
 	// (tests seed prices directly via the store).
 	RecaptureBuyMarket func(ctx context.Context) error
+	// Now returns the current wall-clock time (nil -> time.Now). Injected for deterministic tests.
+	Now func() time.Time
 }
+
+// haulMetrics accumulates per-leg stamps (wall + game tick) and pricing across one fresh
+// haul, for a haul_results row written on completion. A nil *haulMetrics (resumed hauls,
+// where earlier legs happened in a prior process) disables recording.
+type haulMetrics struct {
+	jumps                                   int
+	buyPrice, sellPrice, qty                float64
+	claimedAt, arrivedSrcAt, boughtAt       time.Time
+	arrivedDstAt, soldAt                    time.Time
+	claimedTick, arrivedSrcTick, boughtTick int64
+	arrivedDstTick, soldTick                int64
+}
+
+func haulNow(deps HaulDeps) time.Time {
+	if deps.Now != nil {
+		return deps.Now()
+	}
+	return time.Now()
+}
+
+func haulTick(deps HaulDeps) int64 {
+	if st := deps.Client.GetState(); st != nil {
+		return st.GetTick()
+	}
+	return 0
+}
+
+// rfc formats t as a UTC RFC3339 string for a haul_results leg stamp.
+func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // Haul performs one hauling step: load available opportunities (scanning if the
 // pool is empty), rank them for the current system, claim the best reachable one,
@@ -362,7 +444,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	}
 	if len(held) > 0 {
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
-		return runClaimedHaul(ctx, deps, out, held[0], nameToID)
+		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil)
 	}
 
 	// With no active haul, any cargo in the hold is leftover (a prior run's goods) and
@@ -396,7 +478,15 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return nil
 	}
 
-	return runClaimedHaul(ctx, deps, out, opp, nameToID)
+	m := &haulMetrics{claimedAt: haulNow(deps), claimedTick: haulTick(deps)}
+	if buySys := nameToID[opp.FromSystemName]; buySys != "" {
+		if sellSys := nameToID[opp.ToSystemName]; sellSys != "" {
+			toBuy := navigation.BFSJumps(graph, current, []string{buySys})
+			toSell := navigation.BFSJumps(graph, buySys, []string{sellSys})
+			m.jumps = toBuy[buySys] + toSell[sellSys]
+		}
+	}
+	return runClaimedHaul(ctx, deps, out, opp, nameToID, m)
 }
 
 // abandonClaim releases opp's claim back to the available pool and logs reason. Used on
@@ -419,7 +509,7 @@ func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.
 // fresh data and applies haulGate (skipping unless the live spread clears both the
 // margin and net-profit thresholds), buys, then sells. PRE-buy abandons release the
 // claim back to the pool; POST-buy abandons keep it claimed for resumption.
-func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string) error {
+func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string, m *haulMetrics) error {
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := nameToID[opp.ToSystemName]
 	if buySys == "" {
@@ -433,7 +523,7 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	// leg and go straight to delivery, instead of buying a second load.
 	if aboard := cargoQty(deps.Client.GetState(), opp.ItemID); aboard > 0 {
 		fmt.Fprintf(out, "haul: opp %d %s: resuming with %.0f aboard -> sell @%s\n", opp.ID, opp.ItemID, aboard, opp.ToStationName) //nolint:errcheck
-		return haulSellLeg(ctx, deps, out, opp, sellSys)
+		return haulSellLeg(ctx, deps, out, opp, sellSys, nil)
 	}
 
 	fmt.Fprintf(out, "haul: opp %d %s: buy %.0f @%s -> sell @%s\n", opp.ID, opp.ItemID, opp.Quantity, opp.FromStationName, opp.ToStationName) //nolint:errcheck
@@ -452,6 +542,9 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	if state == nil {
 		return abandonClaim(ctx, deps, out, opp, "no state at buy station")
 	}
+	if m != nil {
+		m.arrivedSrcAt, m.arrivedSrcTick = haulNow(deps), haulTick(deps)
+	}
 	cargoFree := state.Ship.CargoCapacity - state.Ship.CargoUsed
 
 	// Re-price against fresh data before committing: refresh the buy station market
@@ -466,25 +559,32 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	if perr != nil {
 		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("price check failed: %v", perr))
 	}
-	qty, _, _, pass, reason := haulGate(opp, prices, cargoFree, state.GetCredits())
+	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits())
 	if !pass {
 		return abandonClaim(ctx, deps, out, opp, reason)
 	}
 	if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
 		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("buy failed: %v", err))
 	}
+	if m != nil {
+		m.boughtAt, m.boughtTick = haulNow(deps), haulTick(deps)
+		m.buyPrice, m.sellPrice, m.qty = liveAsk, sellBid, qty
+	}
 
-	return haulSellLeg(ctx, deps, out, opp, sellSys)
+	return haulSellLeg(ctx, deps, out, opp, sellSys, m)
 }
 
 // haulSellLeg transits to the sell station and sells the goods, completing the
 // opportunity. The buy has already happened, so on any failure here the claim is KEPT
 // (logged "leaving claimed") — the goods are aboard and the haul can be resumed to retry
 // the sell leg on a later pass or after a restart.
-func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, sellSys string) error {
+func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, sellSys string, m *haulMetrics) error {
 	if err := haulAutopilot(ctx, deps, out, sellSys, opp.ToStationID); err != nil {
 		fmt.Fprintf(out, "haul: opp %d transit to sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
+	}
+	if m != nil {
+		m.arrivedDstAt, m.arrivedDstTick = haulNow(deps), haulTick(deps)
 	}
 	held := cargoQty(deps.Client.GetState(), opp.ItemID)
 	if held <= 0 {
@@ -495,6 +595,9 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 		fmt.Fprintf(out, "haul: opp %d sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}
+	if m != nil {
+		m.soldAt, m.soldTick = haulNow(deps), haulTick(deps)
+	}
 
 	// Goods are already sold here; a CompleteOpportunity failure only leaves the
 	// row 'claimed' (no success log). Harmless — the Phase-5b sweeper reclaims it.
@@ -502,8 +605,35 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 		fmt.Fprintf(out, "haul: opp %d complete failed: %v\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}
+	recordHaulResult(ctx, deps, out, opp, held, m)
 	fmt.Fprintf(out, "haul: opp %d complete (sold %.0f %s)\n", opp.ID, held, opp.ItemID) //nolint:errcheck
 	return nil
+}
+
+// recordHaulResult writes the real, cargo-capped outcome of a just-completed haul (with
+// per-leg timing) to the store. A nil *haulMetrics (resumed haul) records nothing. soldQty
+// is the quantity actually delivered; it falls back to the gate-sized qty when the metrics
+// captured a different figure. A write failure is logged, not fatal — the haul is done.
+func recordHaulResult(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, soldQty float64, m *haulMetrics) {
+	if m == nil {
+		return
+	}
+	qty := soldQty
+	if qty <= 0 {
+		qty = m.qty
+	}
+	rec := market.HaulResult{
+		OppID: opp.ID, AgentID: deps.AgentID, ItemID: opp.ItemID, Qty: qty,
+		BuyPricePaid: m.buyPrice, SellPriceGot: m.sellPrice,
+		RealizedProfit: (m.sellPrice - m.buyPrice) * qty, JumpsTraveled: m.jumps,
+		ClaimedAt: rfc(m.claimedAt), ArrivedSrcAt: rfc(m.arrivedSrcAt), BoughtAt: rfc(m.boughtAt),
+		ArrivedDstAt: rfc(m.arrivedDstAt), SoldAt: rfc(m.soldAt),
+		ClaimedTick: m.claimedTick, ArrivedSrcTick: m.arrivedSrcTick, BoughtTick: m.boughtTick,
+		ArrivedDstTick: m.arrivedDstTick, SoldTick: m.soldTick, CreatedAt: rfc(haulNow(deps)),
+	}
+	if err := deps.Market.RecordHaulResult(ctx, rec); err != nil {
+		fmt.Fprintf(out, "haul: opp %d record result failed: %v\n", opp.ID, err) //nolint:errcheck
+	}
 }
 
 // haulAutopilot routes to a station POI within a system, capturing each hop to the KB.
