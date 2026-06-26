@@ -21,6 +21,7 @@ const usage = `arbitrage-scanner — detect and manage cross-station arbitrage o
 
 Usage:
   arbitrage-scanner scan     [flags]   detect spreads and write opportunities (default)
+  arbitrage-scanner watch    [flags]   scan on a recurring, boundary-aligned schedule
   arbitrage-scanner list     [flags]   list opportunities
   arbitrage-scanner claim    --id N --agent X
   arbitrage-scanner complete --id N --agent X
@@ -33,7 +34,11 @@ Scan flags:
   --expires DURATION       opportunity TTL (default 6h)
   --items a,b,c            item allowlist (default: all traded items)
   --limit N                cap on inserted rows (default 500)
-  --json                   machine-readable output
+  --json                   machine-readable output (scan only)
+
+Watch flags (in addition to the scan flags above):
+  --interval DURATION      scan cadence, aligned to UTC boundaries (default 30m → :00/:30)
+  --offset DURATION        delay past each boundary for the capture to settle (default 5m)
 `
 
 func main() {
@@ -54,6 +59,8 @@ func run(args []string) error {
 			return err
 		}
 		return runScan(cfg)
+	case "watch":
+		return runWatch(args[1:])
 	case "list":
 		return runList(args[1:])
 	case "claim":
@@ -71,8 +78,19 @@ func run(args []string) error {
 			}
 			return runScan(cfg)
 		}
-		return fmt.Errorf("unknown subcommand %q (want scan|list|claim|complete)", args[0])
+		return fmt.Errorf("unknown subcommand %q (want scan|watch|list|claim|complete)", args[0])
 	}
+}
+
+// splitItems parses a comma-separated item allowlist, dropping blanks.
+func splitItems(items string) []string {
+	var out []string
+	for s := range strings.SplitSeq(items, ",") {
+		if t := strings.TrimSpace(s); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // scanConfig holds parsed scan flags.
@@ -107,11 +125,7 @@ func parseScanArgs(args []string) (scanConfig, error) {
 	if err := fs.Parse(args); err != nil {
 		return cfg, err
 	}
-	for _, s := range strings.Split(items, ",") {
-		if t := strings.TrimSpace(s); t != "" {
-			cfg.opts.Items = append(cfg.opts.Items, t)
-		}
-	}
+	cfg.opts.Items = splitItems(items)
 	return cfg, nil
 }
 

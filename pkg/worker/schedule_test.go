@@ -14,6 +14,7 @@ func TestCurrentBoundary(t *testing.T) {
 		freq string
 		want time.Time
 	}{
+		{"half_hourly", time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)}, // 14:37 → 14:30
 		{"hourly", time.Date(2026, 5, 28, 14, 0, 0, 0, time.UTC)},
 		{"daily", time.Date(2026, 5, 28, 0, 0, 0, 0, time.UTC)},
 		{"weekly", time.Date(2026, 5, 24, 0, 0, 0, 0, time.UTC)}, // previous Sunday
@@ -22,6 +23,25 @@ func TestCurrentBoundary(t *testing.T) {
 		if got := CurrentBoundary(tc.freq, now); !got.Equal(tc.want) {
 			t.Errorf("CurrentBoundary(%q, %v) = %v, want %v", tc.freq, now, got, tc.want)
 		}
+	}
+}
+
+func TestHalfHourlyBoundaries(t *testing.T) {
+	// Before the half-hour: floor to :00, next is :30.
+	early := time.Date(2026, 5, 28, 14, 12, 0, 0, time.UTC)
+	if got := CurrentBoundary("half_hourly", early); !got.Equal(time.Date(2026, 5, 28, 14, 0, 0, 0, time.UTC)) {
+		t.Errorf("14:12 current = %v, want 14:00", got)
+	}
+	if got := NextBoundary("half_hourly", early); !got.Equal(time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)) {
+		t.Errorf("14:12 next = %v, want 14:30", got)
+	}
+	// After the half-hour: floor to :30, next rolls to the next hour's :00.
+	late := time.Date(2026, 5, 28, 14, 45, 0, 0, time.UTC)
+	if got := CurrentBoundary("half_hourly", late); !got.Equal(time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)) {
+		t.Errorf("14:45 current = %v, want 14:30", got)
+	}
+	if got := NextBoundary("half_hourly", late); !got.Equal(time.Date(2026, 5, 28, 15, 0, 0, 0, time.UTC)) {
+		t.Errorf("14:45 next = %v, want 15:00", got)
 	}
 }
 
