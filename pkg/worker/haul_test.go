@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"io"
 	"slices"
 	"strings"
@@ -346,6 +347,105 @@ func TestHaulResumesHeldClaimBeforeClaiming(t *testing.T) {
 	if f.scanned != 0 || len(f.completed) != 0 {
 		t.Fatalf("resume must short-circuit before loadAvailable/claim: scanned=%d completed=%v", f.scanned, f.completed)
 	}
+}
+
+// TestLiquidateCargo covers clearing leftover cargo: sell into a local buy order when one
+// exists, else post a sell order 10% under the best ask; fuel_cells are reserved.
+func TestLiquidateCargo(t *testing.T) {
+	station := "stn-x"
+	mkClient := func(cargo ...game.CargoItem) *fakeClient {
+		return &fakeClient{state: &game.State{
+			CurrentPOI: station,
+			Ship:       game.Ship{Cargo: cargo},
+		}}
+	}
+
+	t.Run("sells into a local buy order", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "iron_ore", Quantity: 10})
+		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: station, HasBuy: true, BestBid: 42}}}
+		if !liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("expected liquidation to act")
+		}
+		if !slices.Contains(fc.calls, "dock") || !slices.Contains(fc.calls, "sell:iron_ore") {
+			t.Fatalf("want dock + sell:iron_ore, got %v", fc.calls)
+		}
+	})
+
+	t.Run("already docked: proceeds without re-docking", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "iron_ore", Quantity: 10})
+		fc.state.Doc = true
+		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: station, HasBuy: true, BestBid: 42}}}
+		if !liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("expected liquidation to act when already docked")
+		}
+		if slices.Contains(fc.calls, "dock") {
+			t.Fatalf("must not re-dock when already docked, got %v", fc.calls)
+		}
+		if !slices.Contains(fc.calls, "sell:iron_ore") {
+			t.Fatalf("want sell:iron_ore, got %v", fc.calls)
+		}
+	})
+
+	t.Run("posts a sell order 10% under best ask when no buyer", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "iron_ore", Quantity: 10})
+		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: station, HasSell: true, BestAsk: 100}}}
+		if !liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("expected liquidation to act")
+		}
+		// 100 * 0.9 = 90.
+		if !slices.Contains(fc.calls, "sell_order:iron_ore@90") {
+			t.Fatalf("want sell_order:iron_ore@90, got %v", fc.calls)
+		}
+	})
+
+	t.Run("posts sell order off the best ask at another station", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "silver_ore", Quantity: 50})
+		fc.state.Doc = true
+		// No price entry for the current station; another station lists an ask.
+		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: "other-stn", HasSell: true, BestAsk: 60}}}
+		if !liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("expected liquidation via global best ask")
+		}
+		// 60 * 0.9 = 54.
+		if !slices.Contains(fc.calls, "sell_order:silver_ore@54") {
+			t.Fatalf("want sell_order:silver_ore@54 (10%% under global ask 60), got %v", fc.calls)
+		}
+	})
+
+	t.Run("no market price anywhere leaves cargo in hold", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "mystery_widget", Quantity: 5})
+		fc.state.Doc = true
+		f := &fakeStore{prices: nil}
+		if liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("no price reference -> must not act")
+		}
+		if slices.Contains(fc.calls, "sell:mystery_widget") {
+			t.Fatalf("must not sell without a price reference, got %v", fc.calls)
+		}
+	})
+
+	t.Run("reserves fuel_cell and no-ops empty holds", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "fuel_cell", Quantity: 3})
+		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: station, HasBuy: true, BestBid: 5}}}
+		if liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("fuel_cell must not be liquidated")
+		}
+		if slices.Contains(fc.calls, "dock") {
+			t.Fatalf("reserved-only hold should not even dock, got %v", fc.calls)
+		}
+	})
+
+	t.Run("not at a dockable station leaves cargo", func(t *testing.T) {
+		fc := mkClient(game.CargoItem{ItemID: "iron_ore", Quantity: 10})
+		fc.dockErr = errors.New("No base at this location")
+		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: station, HasBuy: true, BestBid: 42}}}
+		if liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("should not act when undockable")
+		}
+		if slices.Contains(fc.calls, "sell:iron_ore") {
+			t.Fatalf("must not sell when dock failed, got %v", fc.calls)
+		}
+	})
 }
 
 // TestRunClaimedHaulResumesWithGoodsAboard covers a haul resumed after the buy: goods are

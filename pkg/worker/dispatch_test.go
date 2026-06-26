@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"slices"
@@ -34,6 +35,10 @@ func (f *fakeClient) Buy(ctx context.Context, itemID string, qty float64) error 
 }
 func (f *fakeClient) Sell(ctx context.Context, itemID string, qty float64) error {
 	f.calls = append(f.calls, "sell:"+itemID)
+	return nil
+}
+func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
+	f.calls = append(f.calls, fmt.Sprintf("sell_order:%v@%v", payload["item_id"], payload["price_each"]))
 	return nil
 }
 func (f *fakeClient) Refuel(ctx context.Context) error { f.calls = append(f.calls, "refuel"); return nil }

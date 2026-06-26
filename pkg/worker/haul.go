@@ -365,6 +365,13 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return runClaimedHaul(ctx, deps, out, held[0], nameToID)
 	}
 
+	// With no active haul, any cargo in the hold is leftover (a prior run's goods) and
+	// blocks every buy. Liquidate it first; if it acted this pass, idle and re-evaluate
+	// next pass with a freer hold.
+	if liquidateCargo(ctx, deps, out) {
+		return nil
+	}
+
 	opps, err := loadAvailable(ctx, deps.Market, limit)
 	if err != nil {
 		return err
@@ -514,6 +521,111 @@ func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, po
 			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
 		},
 	}, system, poi)
+}
+
+// haulSellUndercut is the fraction of the best ask at which a hauler lists leftover
+// cargo when no buyer exists at the station — a 10% undercut to move stale inventory.
+const haulSellUndercut = 0.90
+
+// haulReservedCargo are item ids a hauler never liquidates (operational, not trade goods).
+var haulReservedCargo = map[string]bool{"fuel_cell": true}
+
+// stationPrice returns the price entry for stationID, or nil if the station is absent.
+func stationPrice(prices []market.ItemStationPrice, stationID string) *market.ItemStationPrice {
+	for i := range prices {
+		if prices[i].StationID == stationID {
+			return &prices[i]
+		}
+	}
+	return nil
+}
+
+// bestAskAnywhere returns the lowest sell-order price (best ask) for an item across all
+// stations that list it, used to price a leftover-cargo sell order even when the item is
+// not traded at the station the hauler happens to be sitting at. ok is false when no
+// station anywhere has a sell order to reference.
+func bestAskAnywhere(prices []market.ItemStationPrice) (best float64, ok bool) {
+	for _, p := range prices {
+		if p.HasSell && (!ok || p.BestAsk < best) {
+			best, ok = p.BestAsk, true
+		}
+	}
+	return best, ok
+}
+
+// liquidateCargo clears leftover (non-haul) cargo from the hold so it stops blocking
+// buys. It docks at the current station, re-prices live, and for each non-reserved cargo
+// item either sells into an existing buy order at the station (a ready market) or, if
+// none, posts a sell order 10% below the station's best ask. Best-effort: not at a
+// dockable station, or an item with no local price reference, is logged and left in the
+// hold. Returns true if it took any sell / sell-order action this pass.
+func liquidateCargo(ctx context.Context, deps HaulDeps, out io.Writer) bool {
+	state := deps.Client.GetState()
+	if state == nil {
+		return false
+	}
+	var items []game.CargoItem
+	for _, c := range state.Ship.Cargo {
+		if c.Quantity > 0 && !haulReservedCargo[c.ItemID] {
+			items = append(items, c)
+		}
+	}
+	if len(items) == 0 {
+		return false
+	}
+	// Dock only if not already docked — a ship sitting at its station returns
+	// "Already docked" from Dock(), which must not abort the liquidation.
+	if !state.IsDocked() {
+		if err := deps.Client.Dock(ctx); err != nil {
+			fmt.Fprintf(out, "haul: cannot dock to liquidate %d stale cargo item(s): %v\n", len(items), err) //nolint:errcheck
+			return false
+		}
+	}
+	if deps.RecaptureBuyMarket != nil {
+		if err := deps.RecaptureBuyMarket(ctx); err != nil {
+			fmt.Fprintf(out, "haul: liquidate recapture failed: %v; pricing on last capture\n", err) //nolint:errcheck
+		}
+	}
+	station := ""
+	if s := deps.Client.GetState(); s != nil {
+		station = s.CurrentPOI
+	}
+	acted := false
+	for _, item := range items {
+		prices, err := deps.Market.GetItemStationPrices(ctx, item.ItemID)
+		if err != nil {
+			fmt.Fprintf(out, "haul: liquidate price check %s failed: %v\n", item.ItemID, err) //nolint:errcheck
+			continue
+		}
+		// Prefer selling into a buyer at the current station (a ready market); otherwise
+		// post a sell order here, priced 10% below the best ask anywhere for the item.
+		if here := stationPrice(prices, station); here != nil && here.HasBuy {
+			if err := deps.Client.Sell(ctx, item.ItemID, item.Quantity); err != nil {
+				fmt.Fprintf(out, "haul: liquidate sell %.0f %s failed: %v\n", item.Quantity, item.ItemID, err) //nolint:errcheck
+				continue
+			}
+			fmt.Fprintf(out, "haul: liquidated %.0f %s into local buy order @%.0f\n", item.Quantity, item.ItemID, here.BestBid) //nolint:errcheck
+			acted = true
+			continue
+		}
+		ask, ok := bestAskAnywhere(prices)
+		if !ok {
+			fmt.Fprintf(out, "haul: no market price for %.0f %s; leaving in hold\n", item.Quantity, item.ItemID) //nolint:errcheck
+			continue
+		}
+		price := math.Round(ask * haulSellUndercut)
+		if err := deps.Client.CreateSellOrder(ctx, map[string]any{
+			"item_id":    item.ItemID,
+			"quantity":   int(item.Quantity),
+			"price_each": int(price),
+		}); err != nil {
+			fmt.Fprintf(out, "haul: liquidate sell-order %.0f %s failed: %v\n", item.Quantity, item.ItemID, err) //nolint:errcheck
+			continue
+		}
+		fmt.Fprintf(out, "haul: posted sell order %.0f %s @%.0f (10%% under best ask %.0f)\n", item.Quantity, item.ItemID, price, ask) //nolint:errcheck
+		acted = true
+	}
+	return acted
 }
 
 // cargoQty returns how many units of itemID are in the ship's cargo (0 if none).
