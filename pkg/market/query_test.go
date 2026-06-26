@@ -67,6 +67,49 @@ func TestGetStats_AfterWrite(t *testing.T) {
 	}
 }
 
+// TestGetStats_MultiWriteCount pins the cheap GetStats path: OrderCount tracks total
+// orders captured across multiple snapshots (via the AUTOINCREMENT high-water mark, not a
+// COUNT(*) scan), and LatestCapture reflects the most recent capture.
+func TestGetStats_MultiWriteCount(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	ctx := context.Background()
+
+	older := time.Now().UTC().Add(-2 * time.Hour)
+	newer := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stn1", SystemID: "sys1", CapturedAt: older,
+		Orders: []Order{
+			{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "buy", PriceEach: 5, Quantity: 10, CapturedAt: older},
+			{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 7, Quantity: 10, CapturedAt: older},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot older: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stn1", SystemID: "sys1", CapturedAt: newer,
+		Orders: []Order{
+			{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 9, Quantity: 12, CapturedAt: newer},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot newer: %v", err)
+	}
+
+	stats, err := c.GetStats(ctx)
+	if err != nil {
+		t.Fatalf("GetStats: %v", err)
+	}
+	if stats.OrderCount != 3 {
+		t.Errorf("OrderCount = %d, want 3 (total captured across both writes)", stats.OrderCount)
+	}
+	if stats.LatestCapture == "" {
+		t.Errorf("LatestCapture empty, want the newer bucket")
+	}
+}
+
 func TestGetLatestSnapshot_Empty(t *testing.T) {
 	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
 	if err != nil {

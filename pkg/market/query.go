@@ -29,16 +29,23 @@ func (c *Collector) GetStats(ctx context.Context) (*Stats, error) {
 	if err := c.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM items").Scan(&stats.ItemCount); err != nil {
 		return nil, fmt.Errorf("count items: %w", err)
 	}
-	if err := c.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM market_orders").Scan(&stats.OrderCount); err != nil {
+	// market_orders can hold tens of millions of rows, so COUNT(*) is a full-table scan
+	// that takes minutes and stalls the dashboard. Read the AUTOINCREMENT high-water mark
+	// (sqlite_sequence) instead — O(1), and equal to the live row count until rows are
+	// pruned. COALESCE handles the never-inserted case (no sqlite_sequence row).
+	if err := c.db.QueryRowContext(ctx,
+		"SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='market_orders'), 0)").Scan(&stats.OrderCount); err != nil {
 		return nil, fmt.Errorf("count orders: %w", err)
 	}
 	if err := c.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM market_ohlcv").Scan(&stats.OHLCVCount); err != nil {
 		return nil, fmt.Errorf("count ohlcv: %w", err)
 	}
 
-	// MAX(captured_at) returns NULL when the table is empty — scan into a nullable.
+	// Latest capture via MAX over the indexed bucket column (idx_orders_bucket) is O(1);
+	// MAX(captured_at) has no leading index and would scan the whole table. NULL (empty
+	// table) scans into a nullable -> "".
 	var latest sql.NullString
-	if err := c.db.QueryRowContext(ctx, "SELECT MAX(captured_at) FROM market_orders").Scan(&latest); err != nil {
+	if err := c.db.QueryRowContext(ctx, "SELECT MAX(bucket_utc) FROM market_orders").Scan(&latest); err != nil {
 		return nil, fmt.Errorf("latest capture: %w", err)
 	}
 	stats.LatestCapture = latest.String // "" when NULL/empty
