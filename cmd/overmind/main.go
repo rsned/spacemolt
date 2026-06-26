@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/overmind/balances"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
 	"github.com/rsned/spacemolt/pkg/overmind/tasks"
@@ -29,6 +30,8 @@ func main() {
 	tasksPath := flag.String("tasks", "data/overmind/tasks.yaml", "Path to the assigned-task seed file")
 	stagger := flag.Duration("stagger", game.SleepMedium, "Delay between initial worker launches (per-IP /login pacing)")
 	restartBatch := flag.Int("restart-batch", 1, "Max worker relaunches per reap tick (per-IP /login pacing for mass restarts; <=0 disables)")
+	statusPath := flag.String("status-file", "data/overmind/fleet-status.json", "Live fleet status snapshot file (rewritten each tick)")
+	historyPath := flag.String("history-file", "data/overmind/fleet-history.jsonl", "Append-only daily balance history (one row per agent per UTC day)")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
@@ -64,6 +67,12 @@ func main() {
 	srv.SetEventHook(func(agentID string, ev control.Event) {
 		taskStore.HandleEvent(agentID, ev)
 	})
+
+	// ── Step 2c: Balance recorder (live status file + daily history) ──────────
+	recorder, err := balances.NewRecorder(*statusPath, *historyPath)
+	if err != nil {
+		logger.Printf("balances: %v (continuing without balance tracking)", err)
+	}
 
 	// ── Step 3: Signal-cancellable root context ──────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
@@ -122,7 +131,40 @@ func main() {
 			snap := fleet.Snapshot()
 			taskStore.AssignPending(snap, srv)
 			logFleetSnapshot(logger, snap)
+			recordBalances(logger, recorder, snap)
 		}
+	}
+}
+
+// recordBalances writes the live status file and, at the first tick past a UTC
+// midnight, appends a daily balance snapshot. Errors are logged, never fatal —
+// reporting must not take down the fleet supervisor.
+func recordBalances(logger *log.Logger, recorder *balances.Recorder, snap []supervisor.WorkerInfo) {
+	if recorder == nil {
+		return
+	}
+	now := time.Now()
+	live := make([]balances.LiveRecord, 0, len(snap))
+	for _, w := range snap {
+		st := w.LastStatus
+		live = append(live, balances.LiveRecord{
+			AgentID: w.AgentID, Role: w.Role, System: st.System, POI: st.POI,
+			Docked: st.Docked, Credits: st.Credits, Hull: st.Hull, MaxHull: st.MaxHull,
+			Fuel: st.Fuel, MaxFuel: st.MaxFuel, StandingBehavior: st.StandingBehavior,
+			ActiveTaskID: st.ActiveTaskID, Healthy: w.Healthy, Restarts: w.Restarts,
+			// Seen requires a real status heartbeat (Timestamp is always set on
+			// one), not merely a Hello — otherwise credits read as a bogus 0
+			// before the first heartbeat, poisoning the starting balance.
+			Seen: st.Timestamp != "", LastSeen: w.LastSeen.UTC().Format(time.RFC3339),
+		})
+	}
+	if err := recorder.WriteStatus(live, now); err != nil {
+		logger.Printf("balances: write status: %v", err)
+	}
+	if n, err := recorder.MaybeSnapshotDaily(live, now); err != nil {
+		logger.Printf("balances: daily snapshot: %v", err)
+	} else if n > 0 {
+		logger.Printf("balances: captured daily balance snapshot for %s (%d agent(s))", now.UTC().Format("2006-01-02"), n)
 	}
 }
 
