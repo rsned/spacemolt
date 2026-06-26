@@ -53,6 +53,17 @@ func (c *Collector) GetStats(ctx context.Context) (*Stats, error) {
 	return &stats, nil
 }
 
+// latestOrderBucket returns the most recent capture bucket (via idx_orders_bucket, O(1)),
+// or "" when there are no orders. Dashboard reads anchor on it so they touch only the
+// latest period's rows instead of scanning the full (tens-of-millions-row) history.
+func (c *Collector) latestOrderBucket(ctx context.Context) (string, error) {
+	var b sql.NullString
+	if err := c.db.QueryRowContext(ctx, "SELECT MAX(bucket_utc) FROM market_orders").Scan(&b); err != nil {
+		return "", fmt.Errorf("latest order bucket: %w", err)
+	}
+	return b.String, nil
+}
+
 // GetLatestOrders returns the most recent orders for a station, newest first.
 func (c *Collector) GetLatestOrders(ctx context.Context, stationID string, limit int) ([]Order, error) {
 	rows, err := c.db.QueryContext(ctx, `
@@ -323,7 +334,15 @@ func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, erro
 	}
 	placeholders := strings.Repeat("?,", len(ids))
 	placeholders = placeholders[:len(placeholders)-1]
-	args := append([]any{}, ids...)
+
+	// Anchor on the latest capture bucket so the join touches only the current period's
+	// rows (idx_orders_bucket), not every order ever captured for these items.
+	bucket, err := c.latestOrderBucket(ctx)
+	if err != nil {
+		return nil, err
+	}
+	args := []any{bucket}
+	args = append(args, ids...)
 
 	query := `
 		SELECT o.station_id, COALESCE(s.station_name, o.station_id),
@@ -340,11 +359,12 @@ func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, erro
 		JOIN (
 			SELECT station_id, item_id, MAX(captured_at) AS mx
 			FROM market_orders
-			WHERE item_id IN (` + placeholders + `)
+			WHERE bucket_utc = ? AND item_id IN (` + placeholders + `)
 			GROUP BY station_id, item_id
 		) latest ON latest.station_id = o.station_id AND latest.item_id = o.item_id AND latest.mx = o.captured_at
-		WHERE o.item_id IN (` + placeholders + `)
+		WHERE o.bucket_utc = ? AND o.item_id IN (` + placeholders + `)
 		GROUP BY o.station_id, o.item_id`
+	args = append(args, bucket)
 	args = append(args, ids...)
 	rows, err := c.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -400,14 +420,20 @@ func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, erro
 // filtered to itemID, ordered by side then price. Returns an empty slice when the
 // station has no orders.
 func (c *Collector) GetStationOrders(ctx context.Context, stationID, itemID string) ([]Order, error) {
+	// Anchor on the latest capture bucket so the station's latest-capture lookup touches
+	// only the current period's rows, not the station's entire (multi-million-row) history.
+	bucket, err := c.latestOrderBucket(ctx)
+	if err != nil {
+		return nil, err
+	}
 	query := `
 		SELECT station_id, item_id, side, price_each, quantity, my_quantity, source, captured_at
 		FROM market_orders
-		WHERE station_id = ? AND captured_at = (
-				SELECT MAX(captured_at) FROM market_orders WHERE station_id = ?
+		WHERE station_id = ? AND bucket_utc = ? AND captured_at = (
+				SELECT MAX(captured_at) FROM market_orders WHERE station_id = ? AND bucket_utc = ?
 			)` + itemFilter(itemID) + `
 		ORDER BY side, price_each`
-	args := []any{stationID, stationID}
+	args := []any{stationID, bucket, stationID, bucket}
 	if itemID != "" {
 		args = append(args, itemID)
 	}
@@ -492,12 +518,19 @@ func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limi
 // timestamps (newest first), count, and earliest/latest. Used to spot cadence
 // gaps in collection.
 func (c *Collector) GetCaptureHealth(ctx context.Context) ([]StationCaptures, error) {
+	// Bound to the latest capture bucket: grouping (station, captured_at) over the whole
+	// market_orders table (tens of millions of rows) is a multi-minute scan. The current
+	// period's captures are what reveal whether collection is live.
+	bucket, err := c.latestOrderBucket(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT s.station_id, s.station_name, s.system_id, s.system_name, o.captured_at
 		FROM stations s
-		JOIN market_orders o ON o.station_id = s.station_id
+		JOIN market_orders o ON o.station_id = s.station_id AND o.bucket_utc = ?
 		GROUP BY s.station_id, o.captured_at
-		ORDER BY s.station_name, o.captured_at DESC`)
+		ORDER BY s.station_name, o.captured_at DESC`, bucket)
 	if err != nil {
 		return nil, fmt.Errorf("query capture health: %w", err)
 	}

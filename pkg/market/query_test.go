@@ -499,9 +499,14 @@ func TestGetCaptureHealth(t *testing.T) {
 	defer func() { _ = c.Close() }()
 
 	ctx := context.Background()
-	t1 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
-	t2 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
-	for _, at := range []time.Time{t1, t2} {
+	// GetCaptureHealth reports the current capture period only (latest hourly bucket), so
+	// the dashboard never scans the full order history. Seed an older bucket (10:00) that
+	// must be EXCLUDED, plus two captures in the latest bucket (11:00, 11:30) that the
+	// report must return newest-first.
+	older := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
+	t1 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 6, 21, 11, 30, 0, 0, time.UTC)
+	for _, at := range []time.Time{older, t1, t2} {
 		if err := c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 			CapturedAt: at,
@@ -519,13 +524,19 @@ func TestGetCaptureHealth(t *testing.T) {
 		t.Fatalf("stations = %d, want 1", len(health))
 	}
 	h := health[0]
+	// Only the latest bucket's two captures count; the 10:00 capture is excluded.
 	if h.StationID != "stn1" || h.Count != 2 {
-		t.Errorf("health = %+v, want stn1 count 2", h)
+		t.Errorf("health = %+v, want stn1 count 2 (latest bucket only)", h)
 	}
 	if h.Latest < h.Earliest {
 		t.Errorf("latest %s < earliest %s", h.Latest, h.Earliest)
 	}
 	if len(h.CaptureTimes) != 2 || h.CaptureTimes[0] < h.CaptureTimes[1] {
 		t.Errorf("capture times not newest-first: %v", h.CaptureTimes)
+	}
+	for _, ct := range h.CaptureTimes {
+		if ct == older.Format(time.RFC3339) {
+			t.Errorf("older-bucket capture %s must be excluded, got %v", ct, h.CaptureTimes)
+		}
 	}
 }
