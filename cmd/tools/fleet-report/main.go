@@ -100,10 +100,10 @@ func printReport(w io.Writer, sf balances.StatusFile, reports []balances.AgentRe
 	}
 	out.printf("\nHauler Fleet Report — status captured %s%s\n\n", sf.CapturedAt, age)
 	out.printf("%-10s %-9s %-26s %12s %12s %12s %12s %6s %12s\n",
-		"AGENT", "ROLE", "LOCATION", "CREDITS", "START BAL", "TOTAL Δ", "SINCE 00:00", "HAULS", "REALIZED P")
+		"AGENT", "ROLE", "LOCATION", "START BAL", "CREDITS", "TOTAL Δ", "SINCE 00:00", "HAULS", "REALIZED P")
 	out.printf("%s\n", strings.Repeat("-", 122))
 
-	var totCredits, totDelta, totRealized float64
+	var totStart, totCredits, totDelta, totRealized float64
 	var totHauls int
 	for _, r := range reports {
 		loc := r.System
@@ -120,16 +120,20 @@ func printReport(w io.Writer, sf balances.StatusFile, reports []balances.AgentRe
 			since = signed(r.SinceSnapshot)
 		}
 		out.printf("%-10s %-9s %-26s %12s %12s %12s %12s %6d %12s\n",
-			r.AgentID, trunc(r.Role, 9), trunc(loc, 26), comma(r.Credits),
-			start, total, since, r.Hauls, comma(r.RealizedProfit))
+			r.AgentID, trunc(r.Role, 9), trunc(loc, 26), start,
+			comma(r.Credits), total, since, r.Hauls, comma(r.RealizedProfit))
+		if r.DaysTracked > 0 {
+			totStart += r.StartingBalance
+		}
 		totCredits += r.Credits
 		totDelta += r.TotalDelta
 		totRealized += r.RealizedProfit
 		totHauls += r.Hauls
 	}
 	out.printf("%s\n", strings.Repeat("-", 122))
-	out.printf("%-10s %-9s %-26s %12s %12s %12s\n",
-		"TOTALS", "", fmt.Sprintf("%d agents", len(reports)), comma(totCredits), "", signed(totDelta))
+	out.printf("%-10s %-9s %-26s %12s %12s %12s %12s %6d %12s\n",
+		"TOTALS", "", fmt.Sprintf("%d agents", len(reports)),
+		comma(totStart), comma(totCredits), signed(totDelta), "", totHauls, comma(totRealized))
 	out.printf("\nFleet realized profit: %s credits over %d completed hauls.\n", comma(totRealized), totHauls)
 	if days := maxDays(reports); days > 0 {
 		out.printf("Balance history: %d day(s) tracked. START BAL is each agent's first recorded balance; TOTAL Δ is vs. that; SINCE 00:00 is vs. the latest midnight snapshot.\n", days)
