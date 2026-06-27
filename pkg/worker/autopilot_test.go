@@ -78,6 +78,45 @@ func TestAutopilotJumpsEachHopAndCaptures(t *testing.T) {
 	}
 }
 
+func TestAutopilotWaypointCheckStopsEarly(t *testing.T) {
+	f := autopilotFake() // route: current -> sys_b -> sys_c (2 jumps)
+	calls := 0
+	err := Autopilot(context.Background(), AutopilotDeps{
+		Client: f,
+		Out:    io.Discard,
+		WaypointCheck: func(_ context.Context) (bool, error) {
+			calls++
+			return true, nil // stop after the first arrival (sys_b)
+		},
+	}, "sys_c", "")
+	if !errors.Is(err, errAutopilotStopped) {
+		t.Fatalf("want errAutopilotStopped, got %v", err)
+	}
+	if !slices.Contains(f.calls, "jump:sys_b") {
+		t.Fatalf("want the first jump to sys_b, got %v", f.calls)
+	}
+	if slices.Contains(f.calls, "jump:sys_c") {
+		t.Fatalf("must stop before jumping to sys_c, got %v", f.calls)
+	}
+	if calls != 1 {
+		t.Errorf("WaypointCheck called %d times, want 1 (stopped after first arrival)", calls)
+	}
+}
+
+func TestAutopilotWaypointCheckErrorIsNonFatal(t *testing.T) {
+	f := autopilotFake()
+	err := Autopilot(context.Background(), AutopilotDeps{
+		Client: f, Out: io.Discard,
+		WaypointCheck: func(_ context.Context) (bool, error) { return false, errors.New("boom") },
+	}, "sys_c", "")
+	if err != nil {
+		t.Fatalf("a WaypointCheck error must not abort the route, got %v", err)
+	}
+	if !slices.Contains(f.calls, "jump:sys_c") {
+		t.Fatalf("route should complete despite check errors, got %v", f.calls)
+	}
+}
+
 func TestNeedsRefuelForRoute(t *testing.T) {
 	tests := []struct {
 		name                         string

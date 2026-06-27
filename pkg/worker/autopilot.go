@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -15,6 +16,17 @@ import (
 // once after each jump arrival; it is best-effort — a returned error is logged
 // to the autopilot's writer and never aborts the route. nil means no capture.
 type CaptureFunc func(ctx context.Context) error
+
+// WaypointCheckFunc is an optional per-arrival decision hook (distinct from the
+// capture-only CaptureFunc). Autopilot calls it after each jump arrival; returning
+// stop=true makes Autopilot halt at the current system and return errAutopilotStopped
+// so the caller can re-plan. A returned error is logged and treated as "do not stop"
+// (best-effort — the watchdog never aborts a route on its own failure). nil means no check.
+type WaypointCheckFunc func(ctx context.Context) (stop bool, err error)
+
+// errAutopilotStopped is returned when a WaypointCheckFunc requests an early stop.
+// Callers detect it with errors.Is to distinguish a deliberate re-plan from a failure.
+var errAutopilotStopped = errors.New("autopilot stopped early by waypoint check")
 
 // AutopilotRefuelThreshold: when find_route fuel estimates are unavailable, the
 // pre-route station refuel triggers if current fuel is below this fraction of capacity.
@@ -72,8 +84,11 @@ func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer,
 // AutopilotDeps are the injected dependencies for Autopilot.
 type AutopilotDeps struct {
 	Client     game.GameClient
-	Out        io.Writer   // progress lines; nil -> io.Discard
-	OnWaypoint CaptureFunc // per-arrival capture; nil -> no-op
+	Out        io.Writer         // progress lines; nil -> io.Discard
+	OnWaypoint CaptureFunc       // per-arrival capture; nil -> no-op
+	// WaypointCheck is an optional per-arrival early-stop decision (re-route hook);
+	// nil -> never stops. It runs after OnWaypoint on each jump arrival.
+	WaypointCheck WaypointCheckFunc
 }
 
 // Autopilot executes a multi-jump route to targetSystem, then travels to
@@ -163,6 +178,17 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 		if deps.OnWaypoint != nil {
 			if err := deps.OnWaypoint(ctx); err != nil {
 				fmt.Fprintf(out, "  (waypoint capture failed: %v)\n", err) //nolint:errcheck
+			}
+		}
+
+		// Optional per-arrival early-stop: lets a re-route watchdog halt the route at
+		// this system so the caller can re-plan. Check errors are non-fatal (do not stop).
+		if deps.WaypointCheck != nil {
+			if stop, err := deps.WaypointCheck(ctx); err != nil {
+				fmt.Fprintf(out, "  (waypoint check failed: %v)\n", err) //nolint:errcheck
+			} else if stop {
+				fmt.Fprintf(out, "  Waypoint check requested early stop at %s\n", step.Name) //nolint:errcheck
+				return errAutopilotStopped
 			}
 		}
 	}
