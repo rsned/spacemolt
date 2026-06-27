@@ -597,6 +597,22 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 		fmt.Fprintf(out, "haul: opp %d nothing in cargo to sell; leaving claimed\n", opp.ID) //nolint:errcheck
 		return nil
 	}
+
+	// On-arrival demand watchdog: if the destination's live buy book can no longer
+	// absorb this cargo near break-even, list it at cost instead of dumping into a
+	// market that evaporated mid-transit. Absent order data (nil) is not evidence of
+	// dead demand — fall through to the normal sell (spec freshness rule).
+	unitBuy := opp.BuyPrice
+	if m != nil && m.buyPrice > 0 {
+		unitBuy = m.buyPrice
+	}
+	if orders, oerr := deps.Market.GetStationOrders(ctx, opp.ToStationID, opp.ItemID); oerr != nil {
+		fmt.Fprintf(out, "haul: opp %d demand check failed (%v); selling normally\n", opp.ID, oerr) //nolint:errcheck
+	} else if orders != nil && arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder {
+		fmt.Fprintf(out, "haul: opp %d demand too thin at %s; listing %.0f %s @cost %.0f\n", opp.ID, opp.ToStationID, held, opp.ItemID, unitBuy) //nolint:errcheck
+		return haulPostCostOrder(ctx, deps, out, opp, held, unitBuy)
+	}
+
 	if err := deps.Client.Sell(ctx, opp.ItemID, held); err != nil {
 		fmt.Fprintf(out, "haul: opp %d sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
@@ -619,6 +635,27 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	}
 	recordHaulResult(ctx, deps, out, opp, held, m)
 	fmt.Fprintf(out, "haul: opp %d complete (sold %.0f %s)\n", opp.ID, held, opp.ItemID) //nolint:errcheck
+	return nil
+}
+
+// haulPostCostOrder lists held cargo at the buy price instead of dumping it into thin
+// demand (watchdog Tier 3), then completes the claim so it is not re-hauled. The eventual
+// fill is captured by the server action log; no haul_result is recorded here (no sale yet).
+// A CreateSellOrder failure leaves the claim in place (best-effort, never strands cargo).
+func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, held, unitBuy float64) error {
+	payload := map[string]any{
+		"item_id":    opp.ItemID,
+		"quantity":   int(held),
+		"price_each": int(math.Round(unitBuy)),
+	}
+	if err := deps.Client.CreateSellOrder(ctx, payload); err != nil {
+		fmt.Fprintf(out, "haul: opp %d cost-order failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
+		return nil
+	}
+	if _, err := deps.Market.CompleteOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
+		fmt.Fprintf(out, "haul: opp %d complete-after-cost-order failed: %v\n", opp.ID, err) //nolint:errcheck
+	}
+	fmt.Fprintf(out, "haul: opp %d listed %.0f %s @cost %.0f (thin demand)\n", opp.ID, held, opp.ItemID, unitBuy) //nolint:errcheck
 	return nil
 }
 

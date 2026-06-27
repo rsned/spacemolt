@@ -325,6 +325,50 @@ func TestFakeStoreServesStationOrders(t *testing.T) {
 	}
 }
 
+func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {
+	o := opp(7, "b", "a", 100) // iron_ore, sell station a-stn in current system "a"
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}}}
+	// bought 10 @100 = 1000; dest demand only 2 units @50 -> proceeds 100 << floor 900.
+	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 50, Quantity: 2}}}
+	m := &haulMetrics{buyPrice: 100, qty: 10}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
+		t.Fatalf("thin demand must NOT market-sell, got %v", fc.calls)
+	}
+	if !slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:iron_ore") }) {
+		t.Fatalf("want a cost-price sell_order, got %v", fc.calls)
+	}
+	if len(f.completed) != 1 || f.completed[0] != 7 {
+		t.Fatalf("cost-order path must complete the claim, got %v", f.completed)
+	}
+}
+
+func TestHaulSellLegSellsOnHealthyDemand(t *testing.T) {
+	o := opp(7, "b", "a", 100)
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}}}
+	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 130, Quantity: 50}}}
+	m := &haulMetrics{buyPrice: 100, qty: 10}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(fc.calls, "sell:iron_ore") {
+		t.Fatalf("healthy demand must market-sell, got %v", fc.calls)
+	}
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:iron_ore") }) {
+		t.Fatalf("healthy demand must NOT post a cost order, got %v", fc.calls)
+	}
+}
+
 func TestLoadAvailableNonEmptyNoScan(t *testing.T) {
 	f := &fakeStore{available: []market.ArbitrageOpportunity{opp(1, "b", "c", 100)}}
 	got, err := loadAvailable(context.Background(), f, 50)
