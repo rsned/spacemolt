@@ -3,8 +3,8 @@
 // deltas, and realized arbitrage profit.
 //
 // It reads the live status file and the daily balance history written by the
-// overmind (see pkg/overmind/balances) and joins realized profit from the
-// market database's completed arbitrage opportunities. It is read-only and
+// overmind (see pkg/overmind/balances) and joins real realized profit + haul
+// counts from the market database's recorded haul_results. It is read-only and
 // safe to run on a schedule or on demand while the fleet is live.
 package main
 
@@ -66,9 +66,10 @@ func run(statusPath, historyPath, marketDB string, out io.Writer) error {
 	return printReport(out, sf, reports)
 }
 
-// loadProfit aggregates realized gross profit per agent from completed
-// arbitrage opportunities. A market-db failure degrades to no profit data
-// rather than failing the whole report.
+// loadProfit aggregates real realized profit + haul count per agent from the
+// recorded haul_results (written by the actual-fill recorder), the truthful
+// source — not the old arbitrage-opportunity gross estimate. A market-db failure
+// degrades to no profit data rather than failing the whole report.
 func loadProfit(marketDB string, out io.Writer) map[string]balances.ProfitAgg {
 	coll, err := market.Open(market.Config{DBPath: marketDB})
 	if err != nil {
@@ -79,17 +80,14 @@ func loadProfit(marketDB string, out io.Writer) map[string]balances.ProfitAgg {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	opps, err := coll.GetOpportunities(ctx, "completed", 100000)
+	totals, err := coll.HaulResultTotals(ctx)
 	if err != nil {
 		fmt.Fprintf(out, "(realized profit unavailable: %v)\n", err) //nolint:errcheck // diagnostic line
 		return nil
 	}
-	agg := make(map[string]balances.ProfitAgg)
-	for _, o := range opps {
-		p := agg[o.ClaimedBy]
-		p.Hauls++
-		p.Gross += o.GrossProfit
-		agg[o.ClaimedBy] = p
+	agg := make(map[string]balances.ProfitAgg, len(totals))
+	for agent, t := range totals {
+		agg[agent] = balances.ProfitAgg{Hauls: t.Hauls, Gross: t.RealizedProfit}
 	}
 	return agg
 }

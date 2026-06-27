@@ -113,6 +113,38 @@ func (c *Collector) GetFleetSnapshots(ctx context.Context, agentID string, limit
 	return out, rows.Err()
 }
 
+// HaulTotals is an agent's recorded-haul roll-up: how many completed hauls and
+// the summed real realized profit across them (losses included).
+type HaulTotals struct {
+	Hauls          int
+	RealizedProfit float64
+}
+
+// HaulResultTotals aggregates haul_results per agent — count and summed
+// realized_profit — in a single grouped query. This is the truthful basis for
+// fleet-report's realized-profit + haul-count columns (the actual-fill recorder
+// writes haul_results), replacing the old arbitrage-opportunity gross estimate.
+func (c *Collector) HaulResultTotals(ctx context.Context) (map[string]HaulTotals, error) {
+	rows, err := c.db.QueryContext(ctx,
+		`SELECT agent_id, COUNT(*), COALESCE(SUM(realized_profit), 0)
+		   FROM haul_results GROUP BY agent_id`)
+	if err != nil {
+		return nil, fmt.Errorf("query haul_result totals: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+
+	out := map[string]HaulTotals{}
+	for rows.Next() {
+		var agent string
+		var t HaulTotals
+		if err := rows.Scan(&agent, &t.Hauls, &t.RealizedProfit); err != nil {
+			return nil, fmt.Errorf("scan haul_result totals: %w", err)
+		}
+		out[agent] = t
+	}
+	return out, rows.Err()
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1

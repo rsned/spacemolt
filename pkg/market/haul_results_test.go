@@ -88,6 +88,37 @@ func TestRecordAndGetFleetSnapshot(t *testing.T) {
 	}
 }
 
+// TestHaulResultTotals covers the per-agent roll-up that fleet-report uses for
+// its realized-profit + haul-count columns: count and summed realized_profit
+// grouped by agent, from the (now truthful) haul_results rows.
+func TestHaulResultTotals(t *testing.T) {
+	c := newHaulTestCollector(t)
+	ctx := context.Background()
+	rows := []HaulResult{
+		{OppID: 1, AgentID: "trader-1", ItemID: "iron", Qty: 10, RealizedProfit: 1500},
+		{OppID: 2, AgentID: "trader-1", ItemID: "iron", Qty: 10, RealizedProfit: -300}, // a loss counts too
+		{OppID: 3, AgentID: "trader-2", ItemID: "gold", Qty: 5, RealizedProfit: 800},
+	}
+	for _, r := range rows {
+		if err := c.RecordHaulResult(ctx, r); err != nil {
+			t.Fatalf("RecordHaulResult: %v", err)
+		}
+	}
+	totals, err := c.HaulResultTotals(ctx)
+	if err != nil {
+		t.Fatalf("HaulResultTotals: %v", err)
+	}
+	if got := totals["trader-1"]; got.Hauls != 2 || got.RealizedProfit != 1200 {
+		t.Errorf("trader-1: got %+v, want {Hauls:2 RealizedProfit:1200}", got)
+	}
+	if got := totals["trader-2"]; got.Hauls != 1 || got.RealizedProfit != 800 {
+		t.Errorf("trader-2: got %+v, want {Hauls:1 RealizedProfit:800}", got)
+	}
+	if _, ok := totals["trader-9"]; ok {
+		t.Errorf("trader-9 has no hauls; must be absent, got %+v", totals["trader-9"])
+	}
+}
+
 // RecordFleetSnapshot on an empty batch is a no-op that must not error.
 func TestRecordFleetSnapshotEmpty(t *testing.T) {
 	c := newHaulTestCollector(t)
