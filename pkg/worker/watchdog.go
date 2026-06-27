@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/rsned/spacemolt/pkg/market"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 // watchdogAction is the chosen reaction when a haul reaches its sell stop.
@@ -68,4 +69,64 @@ func arrivalDecision(orders []market.Order, heldQty, buyCostPaid float64, cfg wa
 		return postCostOrder
 	}
 	return sellAtMarket
+}
+
+// rerouteConfig tunes the find-a-market re-route decision. The zero value uses defaults.
+type rerouteConfig struct {
+	// MaxExtraJumps caps how far (in jumps from the current system) a re-route
+	// destination may be. 0 -> default of 5.
+	MaxExtraJumps int
+	// FuelPerJumpCost is an approximate credit cost charged per extra jump to the
+	// candidate, penalizing distant re-routes. 0 -> no fuel penalty (the margin guards).
+	FuelPerJumpCost float64
+	// MarginFrac and MarginFloor set how much a re-route must beat continuing by: at
+	// least max(MarginFrac*buyCost, MarginFloor). MarginFrac 0 -> default 0.15.
+	MarginFrac  float64
+	MarginFloor float64
+}
+
+func (c rerouteConfig) defaulted() rerouteConfig {
+	if c.MaxExtraJumps <= 0 {
+		c.MaxExtraJumps = 5
+	}
+	if c.MarginFrac <= 0 {
+		c.MarginFrac = 0.15
+	}
+	return c
+}
+
+// bestReroute picks the best alternative buyer for held units (bought at unitBuy each)
+// among live buy-side prices, given precomputed jump distances from the current system.
+// A candidate qualifies only when it is reachable within the jump budget and its projected
+// net — proceeds (qty-capped) minus buy cost minus extra-fuel penalty — beats continuing to
+// the original destination (continueNet) by at least max(MarginFrac*buyCost, MarginFloor).
+// Returns the highest-net qualifying candidate, or ok=false when none clears the bar. Pure;
+// also reusable for stale-cargo "find-a-market" liquidation.
+func bestReroute(held, unitBuy float64, prices []market.BestPrice, jumps map[string]int, continueNet float64, cfg rerouteConfig) (market.BestPrice, bool) {
+	cfg = cfg.defaulted()
+	buyCost := unitBuy * held
+	margin := cfg.MarginFrac * buyCost
+	if cfg.MarginFloor > margin {
+		margin = cfg.MarginFloor
+	}
+	threshold := continueNet + margin
+
+	var best market.BestPrice
+	bestNet := threshold // a candidate must strictly beat the threshold
+	found := false
+	for _, p := range prices {
+		if p.ListingType != "buy" || p.Price <= 0 || p.Quantity <= 0 {
+			continue
+		}
+		j, ok := jumps[p.SystemID]
+		if !ok || j >= navigation.RouteInf || j > cfg.MaxExtraJumps {
+			continue
+		}
+		proceeds := p.Price * min(held, p.Quantity)
+		net := proceeds - buyCost - float64(j)*cfg.FuelPerJumpCost
+		if net > bestNet {
+			best, bestNet, found = p, net, true
+		}
+	}
+	return best, found
 }
