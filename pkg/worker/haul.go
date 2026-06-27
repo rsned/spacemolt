@@ -298,6 +298,7 @@ type OpportunityStore interface {
 	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
+	GetStationOrders(ctx context.Context, stationID, itemID string) ([]market.Order, error)
 	RecordHaulResult(ctx context.Context, r market.HaulResult) error
 }
 

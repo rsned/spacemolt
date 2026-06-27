@@ -276,6 +276,7 @@ type fakeStore struct {
 	completed      []int
 	released       []int
 	prices         []market.ItemStationPrice
+	orders         []market.Order
 	recorded       []market.HaulResult
 }
 
@@ -308,9 +309,20 @@ func (f *fakeStore) ScanArbitrage(_ context.Context, _ market.ScanOptions) (mark
 func (f *fakeStore) GetItemStationPrices(_ context.Context, _ string) ([]market.ItemStationPrice, error) {
 	return f.prices, nil
 }
+func (f *fakeStore) GetStationOrders(_ context.Context, _, _ string) ([]market.Order, error) {
+	return f.orders, nil
+}
 func (f *fakeStore) RecordHaulResult(_ context.Context, r market.HaulResult) error {
 	f.recorded = append(f.recorded, r)
 	return nil
+}
+
+func TestFakeStoreServesStationOrders(t *testing.T) {
+	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 50, Quantity: 4}}}
+	got, err := f.GetStationOrders(context.Background(), "stn", "iron_ore")
+	if err != nil || len(got) != 1 || got[0].PriceEach != 50 {
+		t.Fatalf("want 1 order @50, got %v err=%v", got, err)
+	}
 }
 
 func TestLoadAvailableNonEmptyNoScan(t *testing.T) {
