@@ -277,6 +277,7 @@ type fakeStore struct {
 	released       []int
 	prices         []market.ItemStationPrice
 	orders         []market.Order
+	bestPrices     []market.BestPrice
 	recorded       []market.HaulResult
 }
 
@@ -312,6 +313,9 @@ func (f *fakeStore) GetItemStationPrices(_ context.Context, _ string) ([]market.
 func (f *fakeStore) GetStationOrders(_ context.Context, _, _ string) ([]market.Order, error) {
 	return f.orders, nil
 }
+func (f *fakeStore) FindBestPrices(_ context.Context, _, _ string, _ int) ([]market.BestPrice, error) {
+	return f.bestPrices, nil
+}
 func (f *fakeStore) RecordHaulResult(_ context.Context, r market.HaulResult) error {
 	f.recorded = append(f.recorded, r)
 	return nil
@@ -323,6 +327,49 @@ func TestFakeStoreServesStationOrders(t *testing.T) {
 	if err != nil || len(got) != 1 || got[0].PriceEach != 50 {
 		t.Fatalf("want 1 order @50, got %v err=%v", got, err)
 	}
+}
+
+func TestHaulFindRerouteChoosesBetterMarket(t *testing.T) {
+	// Cargo: 10 iron_ore bought @100 (buyCost 1000) in current system "a". Original dest
+	// "x-stn" is thin (1 unit @50 -> continueNet 50-1000 = -950). Candidate buyer g-stn in
+	// system "g" (2 jumps): bid 130 x50 -> net 300 >> threshold (-950 + 150 margin = -800).
+	fc := &fakeClient{state: &game.State{System: game.SystemData{ID: "a"},
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}}}}
+	f := &fakeStore{
+		orders:     []market.Order{{Side: "buy", PriceEach: 50, Quantity: 1}}, // orig dest demand (thin)
+		bestPrices: []market.BestPrice{{ListingType: "buy", ItemID: "iron_ore", SystemID: "g", StationID: "g-stn", Price: 130, Quantity: 50}},
+	}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a"}, {ID: "b"}, {ID: "g"}},
+		conns:   undirected([2]string{"a", "b"}, [2]string{"b", "g"}), // a -> g in 2 jumps
+	}
+	o := opp(7, "src", "x", 100) // ToStationID "x-stn"
+	m := &haulMetrics{buyPrice: 100}
+	deps := HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
+	sys, stn, ok := haulFindReroute(context.Background(), deps, o, m)
+	if !ok || sys != "g" || stn != "g-stn" {
+		t.Fatalf("want reroute to g/g-stn, got sys=%q stn=%q ok=%v", sys, stn, ok)
+	}
+}
+
+func TestHaulFindRerouteNoneWhenNotBetter(t *testing.T) {
+	// Original dest is healthy (130 x50 -> continueNet 300); the only candidate (120 x50 ->
+	// net 200) does not beat continue + margin (300 + 150 = 450), so stay the course.
+	fc := &fakeClient{state: &game.State{System: game.SystemData{ID: "a"},
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}}}}
+	f := &fakeStore{
+		orders:     []market.Order{{Side: "buy", PriceEach: 130, Quantity: 50}},
+		bestPrices: []market.BestPrice{{ListingType: "buy", ItemID: "iron_ore", SystemID: "g", StationID: "g-stn", Price: 120, Quantity: 50}},
+	}
+	kb := &fakeKB{systems: []knowledge.System{{ID: "a"}, {ID: "g"}}, conns: undirected([2]string{"a", "g"})}
+	o := opp(7, "src", "x", 100)
+	if _, _, ok := haulFindReroute(context.Background(), deps2(fc, f, kb), o, &haulMetrics{buyPrice: 100}); ok {
+		t.Fatalf("candidate does not beat continue+margin; want ok=false")
+	}
+}
+
+func deps2(fc *fakeClient, f *fakeStore, kb *fakeKB) HaulDeps {
+	return HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
 }
 
 func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {

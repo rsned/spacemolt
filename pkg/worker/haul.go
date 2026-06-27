@@ -299,6 +299,7 @@ type OpportunityStore interface {
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
 	GetStationOrders(ctx context.Context, stationID, itemID string) ([]market.Order, error)
+	FindBestPrices(ctx context.Context, itemID, side string, limit int) ([]market.BestPrice, error)
 	RecordHaulResult(ctx context.Context, r market.HaulResult) error
 }
 
@@ -657,6 +658,56 @@ func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp ma
 	}
 	fmt.Fprintf(out, "haul: opp %d listed %.0f %s @cost %.0f (thin demand)\n", opp.ID, held, opp.ItemID, unitBuy) //nolint:errcheck
 	return nil
+}
+
+// haulRerouteCandidates caps how many alternative buyer stations the re-route finder
+// considers (FindBestPrices limit).
+const haulRerouteCandidates = 10
+
+// haulFindReroute looks for a better live destination for the cargo aboard when the claimed
+// sell market has gone thin mid-transit. It compares candidate buyers (reachable within the
+// jump budget) against continuing to the original destination, returning the new (system,
+// station) when one clearly wins. ok=false means stay the course. Best-effort: any missing
+// input (no KB, no state, empty cargo, no candidates) returns ok=false and never errors.
+func haulFindReroute(ctx context.Context, deps HaulDeps, opp market.ArbitrageOpportunity, m *haulMetrics) (sysID, stationID string, ok bool) {
+	if deps.KB == nil {
+		return "", "", false
+	}
+	state := deps.Client.GetState()
+	if state == nil || state.System.ID == "" {
+		return "", "", false
+	}
+	held := cargoQty(state, opp.ItemID)
+	if held <= 0 {
+		return "", "", false
+	}
+	unitBuy := opp.BuyPrice
+	if m != nil && m.buyPrice > 0 {
+		unitBuy = m.buyPrice
+	}
+	// What continuing to the original destination would net at its current demand.
+	origOrders, _ := deps.Market.GetStationOrders(ctx, opp.ToStationID, opp.ItemID)
+	continueNet := absorbableProceeds(origOrders, held) - unitBuy*held
+
+	prices, err := deps.Market.FindBestPrices(ctx, opp.ItemID, "buy", haulRerouteCandidates)
+	if err != nil || len(prices) == 0 {
+		return "", "", false
+	}
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		return "", "", false
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+	targets := make([]string, 0, len(prices))
+	for _, p := range prices {
+		targets = append(targets, p.SystemID)
+	}
+	jumps := navigation.BFSJumps(graph, state.System.ID, targets)
+	target, found := bestReroute(held, unitBuy, prices, jumps, continueNet, rerouteConfig{})
+	if !found || target.StationID == opp.ToStationID {
+		return "", "", false
+	}
+	return target.SystemID, target.StationID, true
 }
 
 // actualUnitPrice extracts the true per-unit fill from a cached buy/sell response: the total
