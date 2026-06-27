@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -569,6 +570,10 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	if m != nil {
 		m.boughtAt, m.boughtTick = haulNow(deps), haulTick(deps)
 		m.buyPrice, m.sellPrice, m.qty = liveAsk, sellBid, qty
+		// Prefer the ACTUAL buy fill over the gate's quoted ask when the response carries it.
+		if px, ok := actualUnitPrice(deps.Client.GetRawJSON("buy"), "total_cost", "quantity"); ok {
+			m.buyPrice = px
+		}
 	}
 
 	return haulSellLeg(ctx, deps, out, opp, sellSys, m)
@@ -597,6 +602,12 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	}
 	if m != nil {
 		m.soldAt, m.soldTick = haulNow(deps), haulTick(deps)
+		// Record the ACTUAL sell fill, not the pre-trade quote: the market may have moved
+		// between the gate's price check and this sell, turning a quoted gain into a real
+		// loss. Falls back to the quoted sellPrice when the fill is unavailable.
+		if px, ok := actualUnitPrice(deps.Client.GetRawJSON("sell"), "total_earned", "quantity_sold"); ok {
+			m.sellPrice = px
+		}
 	}
 
 	// Goods are already sold here; a CompleteOpportunity failure only leaves the
@@ -608,6 +619,27 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	recordHaulResult(ctx, deps, out, opp, held, m)
 	fmt.Fprintf(out, "haul: opp %d complete (sold %.0f %s)\n", opp.ID, held, opp.ItemID) //nolint:errcheck
 	return nil
+}
+
+// actualUnitPrice extracts the true per-unit fill from a cached buy/sell response: the total
+// credits moved (totalKey) divided by the quantity transacted (qtyKey). Returns ok=false when
+// the response is absent or unparseable, so callers keep their pre-trade quote. This is what
+// makes recorded prices — and therefore realized profit — reflect real fills instead of the
+// gate's quote, letting a haul that the market moved against record as the loss it was.
+func actualUnitPrice(raw []byte, totalKey, qtyKey string) (float64, bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return 0, false
+	}
+	total, ok1 := resp[totalKey].(float64)
+	qty, ok2 := resp[qtyKey].(float64)
+	if !ok1 || !ok2 || qty <= 0 {
+		return 0, false
+	}
+	return total / qty, true
 }
 
 // recordHaulResult writes the real, cargo-capped outcome of a just-completed haul (with

@@ -178,10 +178,18 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	return nil
 }
 
-// autopilotTravelToPOI travels to a named POI in the current system.
+// autopilotTravelToPOI travels to a named POI in the current system. If the server rejects
+// the hop for insufficient fuel, it tops up in place (station refuel, then cargo fuel cells)
+// and retries once. Without this, a hauler that arrives in the sell system low on fuel loops
+// forever on the in-system sell hop — the multi-jump path refuels via ensureRouteFuel, but
+// this intra-system path previously went straight to Travel with whatever fuel was left.
 func autopilotTravelToPOI(ctx context.Context, client game.GameClient, out io.Writer, targetPOI string) error {
 	fmt.Fprintf(out, "Traveling to POI: %s...\n", targetPOI) //nolint:errcheck
 	result, err := client.Travel(ctx, targetPOI)
+	if err != nil && isInsufficientFuelErr(err) && refuelInPlace(ctx, client, out) {
+		fmt.Fprintf(out, "  Refueled; retrying travel to %s...\n", targetPOI) //nolint:errcheck
+		result, err = client.Travel(ctx, targetPOI)
+	}
 	if err != nil {
 		return fmt.Errorf("travel to %s failed: %w", targetPOI, err)
 	}
@@ -190,6 +198,41 @@ func autopilotTravelToPOI(ctx context.Context, client game.GameClient, out io.Wr
 	}
 	fmt.Fprintf(out, "  Arrived at %s\n", result.POI) //nolint:errcheck
 	return nil
+}
+
+// isInsufficientFuelErr reports whether a travel/jump error is the server's out-of-fuel
+// rejection. Matches the same substrings the jump path keys on.
+func isInsufficientFuelErr(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "no_fuel") || strings.Contains(s, "nsufficient fuel")
+}
+
+// refuelInPlace forces a fuel top-up for an in-system hop the server rejected for insufficient
+// fuel: it docks at the current station if needed, station-refuels, and falls back to burning
+// cargo fuel cells when no station refuel is available. Returns true if a refuel action
+// succeeded, so the caller should retry the hop.
+func refuelInPlace(ctx context.Context, client game.GameClient, out io.Writer) bool {
+	if state := client.GetState(); state != nil {
+		if !state.IsDocked() {
+			if err := client.Dock(ctx); err != nil {
+				fmt.Fprintf(out, "  Fuel low and cannot dock to refuel (%v)\n", err) //nolint:errcheck
+			}
+		}
+		if s := client.GetState(); s != nil && s.IsDocked() {
+			if err := client.Refuel(ctx); err != nil {
+				fmt.Fprintf(out, "  Station refuel failed: %v\n", err) //nolint:errcheck
+			} else {
+				_ = client.GetStatus(ctx)
+				if s2 := client.GetState(); s2 != nil {
+					fNow, mNow := s2.GetFuel()
+					fmt.Fprintf(out, "  Refueled at station: %.0f/%.0f\n", fNow, mNow) //nolint:errcheck
+				}
+				return true
+			}
+		}
+	}
+	// Station refuel unavailable or failed — fall back to cargo fuel cells.
+	return autopilotUseFuelCells(ctx, client, out)
 }
 
 // parseFuelEstimates extracts fuel info from the cached find_route response.

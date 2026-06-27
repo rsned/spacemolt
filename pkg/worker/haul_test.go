@@ -567,6 +567,43 @@ func TestHaulSellLegRecordsResult(t *testing.T) {
 	}
 }
 
+// TestHaulSellLegRecordsActualSellFill covers the realized-profit accuracy fix: the recorder
+// must use the ACTUAL sell fill (from the cached sell response) for SellPriceGot, not the
+// pre-trade quote in haulMetrics. Here the gate quoted a sell of 7878 but the market filled
+// at 6060 — below the 6330 buy — so the recorded haul is a real loss, which the old
+// quote-based recorder could never show.
+func TestHaulSellLegRecordsActualSellFill(t *testing.T) {
+	o := opp(7, "b", "a", 100) // ItemID iron_ore, sell system "a" (== current)
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Ship:    game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 31}}},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}},
+		// Real fill: sold 31 @ 6060 = 187860, well below the quoted 7878.
+		raw: map[string][]byte{"sell": []byte(`{"action":"sell","quantity_sold":31,"total_earned":187860}`)},
+	}
+	f := &fakeStore{}
+	fixed := time.Date(2026, 6, 27, 14, 43, 0, 0, time.UTC)
+	m := &haulMetrics{jumps: 1, buyPrice: 6330, sellPrice: 7878, qty: 31}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "salvager-6", Now: func() time.Time { return fixed }}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.recorded) != 1 {
+		t.Fatalf("want 1 recorded haul result, got %d", len(f.recorded))
+	}
+	r := f.recorded[0]
+	if r.SellPriceGot != 6060 {
+		t.Errorf("want actual sell fill 6060 (187860/31), got %v", r.SellPriceGot)
+	}
+	if r.RealizedProfit != (6060-6330)*31 {
+		t.Errorf("want realized -8370 from the real fill (a loss), got %v", r.RealizedProfit)
+	}
+}
+
 // TestHaulSellLegNilMetricsRecordsNothing covers the resume path: a nil *haulMetrics
 // completes the opp but writes no haul_results row (the legs were not measured this run).
 func TestHaulSellLegNilMetricsRecordsNothing(t *testing.T) {

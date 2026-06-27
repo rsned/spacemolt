@@ -5,10 +5,40 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
+
+// TestAutopilotTravelToPOIRefuelsAndRetriesOnInsufficientFuel covers the in-system sell-leg
+// fuel bug: when the ship is already in the target system and the server rejects the POI hop
+// for insufficient fuel, autopilot must station-refuel and retry the hop once — instead of
+// failing out (which stranded haulers in a "leaving claimed" loop). The multi-jump path
+// already refuels via ensureRouteFuel; the intra-system path previously did not.
+func TestAutopilotTravelToPOIRefuelsAndRetriesOnInsufficientFuel(t *testing.T) {
+	f := &fakeClient{
+		state:   &game.State{Fuel: 5, MaxFuel: 100, Doc: true}, // docked at a station, low fuel
+		route:   []game.RouteStep{{SystemID: "a", Name: "A"}},  // already in target system -> intra-system hop
+		fuelLow: true,                                          // Travel fails until a refuel clears it
+	}
+	err := Autopilot(context.Background(), AutopilotDeps{Client: f, Out: io.Discard}, "a", "a-stn")
+	if err != nil {
+		t.Fatalf("Autopilot should recover via refuel+retry on an in-system hop, got: %v", err)
+	}
+	travels := 0
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, "travel:") {
+			travels++
+		}
+	}
+	if travels != 2 {
+		t.Errorf("want 2 travel attempts (fail -> refuel -> retry), got %d in %v", travels, f.calls)
+	}
+	if !slices.Contains(f.calls, "refuel") {
+		t.Errorf("want a refuel between the two travel attempts, got %v", f.calls)
+	}
+}
 
 func autopilotFake() *fakeClient {
 	return &fakeClient{

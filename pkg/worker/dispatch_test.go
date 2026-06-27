@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -18,9 +19,11 @@ type fakeClient struct {
 	game.GameClient // embedded; unimplemented methods panic if called
 	calls           []string
 	state           *game.State
-	route           []game.RouteStep // returned by FindRoute
-	jumpCanceled    bool             // Jump returns Canceled=true when set
-	dockErr         error            // when set, Dock returns it (ship not at a station)
+	route           []game.RouteStep  // returned by FindRoute
+	jumpCanceled    bool              // Jump returns Canceled=true when set
+	dockErr         error             // when set, Dock returns it (ship not at a station)
+	fuelLow         bool              // when set, Travel fails with insufficient fuel until Refuel clears it
+	raw             map[string][]byte // GetRawJSON responses keyed by store key (e.g. "sell", "buy")
 }
 
 func (f *fakeClient) Undock(ctx context.Context) error { f.calls = append(f.calls, "undock"); return nil }
@@ -41,7 +44,11 @@ func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any
 	f.calls = append(f.calls, fmt.Sprintf("sell_order:%v@%v", payload["item_id"], payload["price_each"]))
 	return nil
 }
-func (f *fakeClient) Refuel(ctx context.Context) error { f.calls = append(f.calls, "refuel"); return nil }
+func (f *fakeClient) Refuel(ctx context.Context) error {
+	f.calls = append(f.calls, "refuel")
+	f.fuelLow = false // a successful refuel clears the fuel shortage
+	return nil
+}
 func (f *fakeClient) Repair(ctx context.Context) error { f.calls = append(f.calls, "repair"); return nil }
 func (f *fakeClient) DepositAllItems(ctx context.Context) error {
 	f.calls = append(f.calls, "deposit_all")
@@ -53,6 +60,9 @@ func (f *fakeClient) SellAllBulk(ctx context.Context, reserved []string) error {
 }
 func (f *fakeClient) Travel(ctx context.Context, poi string) (*game.TravelResult, error) {
 	f.calls = append(f.calls, "travel:"+poi)
+	if f.fuelLow {
+		return nil, errors.New("Insufficient fuel for travel")
+	}
 	return &game.TravelResult{}, nil
 }
 func (f *fakeClient) GetStatus(ctx context.Context) error {
@@ -84,7 +94,12 @@ func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, er
 	f.calls = append(f.calls, "jump:"+sys)
 	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
 }
-func (f *fakeClient) GetRawJSON(key string) []byte { return nil }
+func (f *fakeClient) GetRawJSON(key string) []byte {
+	if f.raw != nil {
+		return f.raw[key]
+	}
+	return nil
+}
 func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
 	f.calls = append(f.calls, "raw:"+command)
 	return nil
