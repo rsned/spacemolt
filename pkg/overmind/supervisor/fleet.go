@@ -84,3 +84,25 @@ func (f *Fleet) Snapshot() []WorkerInfo {
 func NeedsRestart(info WorkerInfo, now time.Time, silence time.Duration) bool {
 	return now.Sub(info.LastSeen) > silence
 }
+
+// DrainProgress reports drain quiescence across currently-healthy workers:
+// total healthy, how many last reported Drained, and the sorted ids of those
+// still busy. A worker that is healthy but has not yet reported a heartbeat
+// counts as busy (not drained).
+func (f *Fleet) DrainProgress() (idle, total int, busy []string) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	for _, w := range f.workers {
+		if !w.Healthy {
+			continue
+		}
+		total++
+		if w.LastStatus.Drained {
+			idle++
+		} else {
+			busy = append(busy, w.AgentID)
+		}
+	}
+	slices.Sort(busy)
+	return idle, total, busy
+}
