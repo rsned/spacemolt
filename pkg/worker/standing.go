@@ -27,8 +27,10 @@ type StandingDeps struct {
 	Scheduler *Scheduler                          // per-agent recurring tasks
 	Client    interface{ GetState() *game.State } // for token resolution
 	ExecMu    *sync.Mutex                         // serializes scheduled + idle work on the one game conn
-	Paused    func() bool                         // gate from the control reader's paused flag
-	Out       io.Writer                           // worker stdout / logs
+	Paused     func() bool                         // gate from the control reader's paused flag
+	Draining   func() bool                         // second gate (drain): finish current pass, take no new work
+	SetDrained func(bool)                          // publishes whether the worker is held idle due to drain
+	Out        io.Writer                           // worker stdout / logs
 	NowFn     func() time.Time                    // injectable clock
 
 	IdleInterval     time.Duration // between idle passes (0 → game.SleepShort)
@@ -59,6 +61,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 	}
 	if deps.ScheduleInterval == 0 {
 		deps.ScheduleInterval = game.SleepLong
+	}
+	if deps.SetDrained == nil {
+		deps.SetDrained = func(bool) {}
 	}
 
 	// Register schedule entries (idempotent: skip a command already registered,
@@ -94,12 +99,16 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 			return nil
 		default:
 		}
-		if deps.Paused != nil && deps.Paused() {
-			if sleepCtx(ctx, game.SleepMedium) {
+		paused := deps.Paused != nil && deps.Paused()
+		draining := deps.Draining != nil && deps.Draining()
+		if paused || draining {
+			deps.SetDrained(draining) // drained only when held *because* of drain
+			if sleepCtx(ctx, deps.IdleInterval) {
 				return nil
 			}
 			continue
 		}
+		deps.SetDrained(false)
 		deps.ExecMu.Lock()
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)

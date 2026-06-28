@@ -192,3 +192,57 @@ func TestRunStandingRunsAssignedTaskThenResumesIdle(t *testing.T) {
 		t.Fatalf("expected idle get_status to resume; recorded=%v", rec.snapshot())
 	}
 }
+
+func TestRunStandingDrainingHoldsAndReportsDrained(t *testing.T) {
+	r := &recordRunner{}
+	var mu sync.Mutex
+	var draining atomic.Bool
+	draining.Store(true)
+	var drained atomic.Bool
+	sched, _ := LoadScheduler(t.TempDir() + "/sched.json")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	role := Role{Idle: "noop_idle"}
+	deps := StandingDeps{
+		Runner: r, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false },
+		Draining: draining.Load, SetDrained: drained.Store, Out: io.Discard,
+		NowFn: func() time.Time { return time.Unix(0, 0).UTC() }, IdleInterval: time.Millisecond, AgentID: "test",
+	}
+	go func() { _ = RunStanding(ctx, role, deps) }()
+	time.Sleep(20 * time.Millisecond)
+	if n := len(r.snapshot()); n != 0 {
+		t.Fatalf("draining worker ran %d commands, want 0", n)
+	}
+	if !drained.Load() {
+		t.Fatal("expected SetDrained(true) while held by drain")
+	}
+}
+
+func TestRunStandingResumeAfterDrainRunsIdleAndClearsDrained(t *testing.T) {
+	r := &recordRunner{}
+	var mu sync.Mutex
+	var draining atomic.Bool
+	draining.Store(true)
+	var drained atomic.Bool
+	sched, _ := LoadScheduler(t.TempDir() + "/sched.json")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	role := Role{Idle: "noop_idle"}
+	deps := StandingDeps{
+		Runner: r, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false },
+		Draining: draining.Load, SetDrained: drained.Store, Out: io.Discard,
+		NowFn: func() time.Time { return time.Unix(0, 0).UTC() }, IdleInterval: time.Millisecond, AgentID: "test",
+	}
+	go func() { _ = RunStanding(ctx, role, deps) }()
+	time.Sleep(20 * time.Millisecond)
+	draining.Store(false) // resume
+	time.Sleep(20 * time.Millisecond)
+	if len(r.snapshot()) == 0 {
+		t.Fatal("resumed worker never ran an idle command")
+	}
+	if drained.Load() {
+		t.Fatal("expected drained cleared once passes resumed")
+	}
+}
