@@ -874,13 +874,19 @@ type FacilityTypesResponse struct {
 	Pagination map[string]any `json:"pagination,omitempty"`
 }
 
-// FacilityListResponse wraps the response from facility list command.
+// FacilityListResponse wraps the response from the `facility action=list`
+// command, which the server returns with action="list". Alongside the
+// per-section facility lists it carries a station-wide construction queue and
+// a power-grid summary block.
 type FacilityListResponse struct {
+	Action            string           `json:"action,omitempty"`
 	BaseID            string           `json:"base_id"`
 	StationFacilities []map[string]any `json:"station_facilities"`
 	PlayerFacilities  []map[string]any `json:"player_facilities"`
 	FactionFacilities []map[string]any `json:"faction_facilities"`
 	PublicFacilities  []map[string]any `json:"public_facilities"`
+	Construction      map[string]any   `json:"construction,omitempty"`
+	Power             map[string]any   `json:"power,omitempty"`
 }
 
 // ViewStorageResponse wraps the response from view_storage command.

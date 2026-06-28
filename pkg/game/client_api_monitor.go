@@ -207,6 +207,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"facility":        reflect.TypeOf(serverapi.FacilityResponse{}),
 	"types":           reflect.TypeOf(serverapi.FacilityTypesResponse{}),
 	"facility_list":   reflect.TypeOf(serverapi.FacilityListResponse{}),
+	"list":            reflect.TypeOf(serverapi.FacilityListResponse{}),
 	"browse_for_sale": reflect.TypeOf(serverapi.BrowseForSaleResponse{}),
 	"owned":           reflect.TypeOf(serverapi.FacilityOwnedResponse{}),
 	"job_list":        reflect.TypeOf(serverapi.CraftQueueListing{}),
