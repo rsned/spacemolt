@@ -17,6 +17,7 @@ const (
 	TypePause  Type = "pause"
 	TypeResume Type = "resume"
 	TypeAssign Type = "assign"
+	TypeDrain  Type = "drain"
 )
 
 // Envelope is the framed wire unit; one Envelope is one NDJSON line.
@@ -48,6 +49,7 @@ type Status struct {
 	CargoCapacity    float64 `json:"cargo_capacity"`
 	StandingBehavior string  `json:"standing_behavior"`
 	ActiveTaskID     string  `json:"active_task_id"`
+	Drained          bool    `json:"drained,omitempty"`
 	Timestamp        string  `json:"timestamp"`
 }
 
