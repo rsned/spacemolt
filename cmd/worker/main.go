@@ -371,10 +371,27 @@ done:
 	logger.Printf("shutdown complete")
 }
 
+// displaySystem returns a stable, human-facing label for the current system.
+// State.CurrentSystem is overloaded: player-data responses write the system id while
+// system-data responses write the display name, so the same system can surface either
+// way depending on which command last refreshed state. Prefer SystemData.Name when it
+// describes the current system; fall back to CurrentSystem so a stale SystemData (e.g.
+// mid-travel) never mislabels the location.
+func displaySystem(st *game.State) string {
+	if st == nil {
+		return ""
+	}
+	cur := st.CurrentSystem
+	if name := st.System.Name; name != "" && (cur == "" || st.System.ID == cur || name == cur) {
+		return name
+	}
+	return cur
+}
+
 // buildStatus constructs a control.Status heartbeat snapshot from game state.
 func buildStatus(st *game.State, standing, taskID string, now time.Time) control.Status {
 	return control.Status{
-		System:           st.CurrentSystem,
+		System:           displaySystem(st),
 		POI:              st.CurrentPOI,
 		Docked:           st.CurrentPOI != "" && !st.Traveling,
 		Hull:             st.Hull,
