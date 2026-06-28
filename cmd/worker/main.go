@@ -183,6 +183,8 @@ func main() {
 
 		// ── Step 6: Reader goroutine ─────────────────────────────────────────
 		var paused atomic.Bool
+		var draining atomic.Bool
+		var drained atomic.Bool
 		readerDone := make(chan struct{})
 
 		go func() {
@@ -226,7 +228,11 @@ func main() {
 					logger.Printf("paused")
 				case control.TypeResume:
 					paused.Store(false)
+					draining.Store(false)
 					logger.Printf("resumed")
+				case control.TypeDrain:
+					draining.Store(true)
+					logger.Printf("draining: will finish current pass then idle")
 				default:
 					logger.Printf("unhandled control message type: %s", env.Type)
 				}
@@ -271,8 +277,10 @@ func main() {
 					Scheduler: sched,
 					Client:    client,
 					ExecMu:    &execMu,
-					Paused:    paused.Load,
-					Out:       os.Stdout,
+					Paused:     paused.Load,
+					Draining:   draining.Load,
+					SetDrained: drained.Store,
+					Out:        os.Stdout,
 					NowFn:     func() time.Time { return time.Now().UTC() },
 					AgentID:   *agentID,
 					NextTask: func() *worker.AssignedTask {
@@ -328,7 +336,7 @@ func main() {
 				if p := activeTaskID.Load(); p != nil {
 					tid = *p
 				}
-				status := buildStatus(nowState, standing, tid, time.Now())
+				status := buildStatus(nowState, standing, tid, drained.Load(), time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
 				}
@@ -389,7 +397,7 @@ func displaySystem(st *game.State) string {
 }
 
 // buildStatus constructs a control.Status heartbeat snapshot from game state.
-func buildStatus(st *game.State, standing, taskID string, now time.Time) control.Status {
+func buildStatus(st *game.State, standing, taskID string, drained bool, now time.Time) control.Status {
 	return control.Status{
 		System:           displaySystem(st),
 		POI:              st.CurrentPOI,
@@ -403,6 +411,7 @@ func buildStatus(st *game.State, standing, taskID string, now time.Time) control
 		CargoCapacity:    st.Ship.CargoCapacity,
 		StandingBehavior: standing,
 		ActiveTaskID:     taskID,
+		Drained:          drained,
 		Timestamp:        now.Format(time.RFC3339Nano),
 	}
 }

@@ -15,7 +15,7 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 		Credits: 5000, Hull: 80, MaxHull: 100, Fuel: 30, MaxFuel: 50,
 	}
 	now := time.Unix(1000, 0)
-	got := buildStatus(st, "track_station", "t-1", now)
+	got := buildStatus(st, "track_station", "t-1", false, now)
 	if got.System != "SOL" || got.POI != "ST-9" || got.Credits != 5000 {
 		t.Fatalf("buildStatus wrong: %+v", got)
 	}
@@ -44,7 +44,7 @@ func TestBuildStatusPrefersSystemDisplayName(t *testing.T) {
 	// name so the fleet report is consistent rather than half ids / half names.
 	st := &game.State{CurrentSystem: "the_crucible", CurrentPOI: "the_crucible_complex"}
 	st.System = game.SystemData{ID: "the_crucible", Name: "The Crucible"}
-	got := buildStatus(st, "hauler", "", time.Unix(1000, 0))
+	got := buildStatus(st, "hauler", "", false, time.Unix(1000, 0))
 	if got.System != "The Crucible" {
 		t.Fatalf("System = %q, want display name %q", got.System, "The Crucible")
 	}
@@ -55,9 +55,19 @@ func TestBuildStatusFallsBackWhenSystemDataStale(t *testing.T) {
 	// fall back to CurrentSystem rather than mislabel the worker's location.
 	st := &game.State{CurrentSystem: "krynn"}
 	st.System = game.SystemData{ID: "sol", Name: "Sol"}
-	got := buildStatus(st, "hauler", "", time.Unix(1000, 0))
+	got := buildStatus(st, "hauler", "", false, time.Unix(1000, 0))
 	if got.System != "krynn" {
 		t.Fatalf("System = %q, want fallback %q", got.System, "krynn")
+	}
+}
+
+func TestBuildStatusCarriesDrained(t *testing.T) {
+	st := &game.State{CurrentSystem: "sol"}
+	if got := buildStatus(st, "hauler", "", true, time.Unix(1000, 0)); !got.Drained {
+		t.Fatalf("Drained = false, want true")
+	}
+	if got := buildStatus(st, "hauler", "", false, time.Unix(1000, 0)); got.Drained {
+		t.Fatalf("Drained = true, want false")
 	}
 }
 
