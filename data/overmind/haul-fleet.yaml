@@ -1,0 +1,26 @@
+# Haul fleet roster (21): hauler-0 + salvager-1..10 + trader-1..10, all role=hauler.
+# Traders re-added 2026-06-27 after cargo-hold upgrades (cargo_expander_iii);
+# salvagers refit + refueled. Baseline reset to current credits on this launch.
+# hauler-0 added 2026-06-28.
+workers:
+  - { agent_id: hauler-0, role: hauler, station: "" }
+  - { agent_id: salvager-1, role: hauler, station: "" }
+  - { agent_id: salvager-2, role: hauler, station: "" }
+  - { agent_id: salvager-3, role: hauler, station: "" }
+  - { agent_id: salvager-4, role: hauler, station: "" }
+  - { agent_id: salvager-5, role: hauler, station: "" }
+  - { agent_id: salvager-6, role: hauler, station: "" }
+  - { agent_id: salvager-7, role: hauler, station: "" }
+  - { agent_id: salvager-8, role: hauler, station: "" }
+  - { agent_id: salvager-9, role: hauler, station: "" }  # recovered + refueled 2026-06-27 (cargo sold manually elsewhere)
+  - { agent_id: salvager-10, role: hauler, station: "" }
+  - { agent_id: trader-1, role: hauler, station: "" }
+  - { agent_id: trader-2, role: hauler, station: "" }
+  - { agent_id: trader-3, role: hauler, station: "" }
+  - { agent_id: trader-4, role: hauler, station: "" }
+  - { agent_id: trader-5, role: hauler, station: "" }
+  - { agent_id: trader-6, role: hauler, station: "" }
+  - { agent_id: trader-7, role: hauler, station: "" }
+  - { agent_id: trader-8, role: hauler, station: "" }
+  - { agent_id: trader-9, role: hauler, station: "" }  # recovered + refueled 2026-06-27 (cargo sold manually elsewhere)
+  - { agent_id: trader-10, role: hauler, station: "" }

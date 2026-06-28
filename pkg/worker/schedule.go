@@ -24,7 +24,7 @@ type ScheduledTask struct {
 }
 
 // ValidFrequencies is the closed set of supported frequencies.
-var ValidFrequencies = map[string]bool{"half_hourly": true, "hourly": true, "daily": true, "weekly": true}
+var ValidFrequencies = map[string]bool{"quarter_hourly": true, "half_hourly": true, "hourly": true, "daily": true, "weekly": true}
 
 // CurrentBoundary returns the most recent wall-clock boundary (UTC) for freq at
 // or before now: the most recent half hour (:00 or :30), the top of the hour,
@@ -33,6 +33,8 @@ var ValidFrequencies = map[string]bool{"half_hourly": true, "hourly": true, "dai
 func CurrentBoundary(freq string, now time.Time) time.Time {
 	now = now.UTC()
 	switch freq {
+	case "quarter_hourly":
+		return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), (now.Minute()/15)*15, 0, 0, time.UTC)
 	case "half_hourly":
 		return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), (now.Minute()/30)*30, 0, 0, time.UTC)
 	case "hourly":
@@ -52,6 +54,8 @@ func CurrentBoundary(freq string, now time.Time) time.Time {
 func NextBoundary(freq string, now time.Time) time.Time {
 	cur := CurrentBoundary(freq, now)
 	switch freq {
+	case "quarter_hourly":
+		return cur.Add(15 * time.Minute)
 	case "half_hourly":
 		return cur.Add(30 * time.Minute)
 	case "hourly":
@@ -98,7 +102,7 @@ func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, err
 	freq = strings.ToLower(strings.TrimSpace(freq))
 	command = strings.TrimSpace(command)
 	if !ValidFrequencies[freq] {
-		return ScheduledTask{}, fmt.Errorf("unknown frequency %q (want half_hourly, hourly, daily, or weekly)", freq)
+		return ScheduledTask{}, fmt.Errorf("unknown frequency %q (want quarter_hourly, half_hourly, hourly, daily, or weekly)", freq)
 	}
 	if command == "" {
 		return ScheduledTask{}, fmt.Errorf("empty command")

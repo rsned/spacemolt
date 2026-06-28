@@ -139,7 +139,7 @@ func randomLoop(agentID string, client game.GameClient, logger *log.Logger, ctx 
 // pickRandomAction selects a random game action based on current state
 func (a *RandomAgent) pickRandomAction() string {
 	actions := []string{
-		"get_status", "get_system", "get_poi", "scan", "travel", "dock", "undock",
+		"get_status", "get_system", "get_location", "scan", "travel", "dock", "undock",
 		"jump", "mine", "refuel", "repair",
 	}
 
@@ -162,9 +162,9 @@ func (a *RandomAgent) performAction(client game.GameClient, logger *log.Logger, 
 		_ = client.GetSystem(ctx)
 		logger.Printf("System data retrieved")
 
-	case "get_poi":
-		_ = client.GetPOI(ctx)
-		logger.Printf("POI data retrieved")
+	case "get_location":
+		_ = client.RawCommand(ctx, "get_location", nil)
+		logger.Printf("Location data retrieved")
 
 	case "scan":
 		_ = client.Scan(ctx)

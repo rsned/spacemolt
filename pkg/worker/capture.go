@@ -354,63 +354,137 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 	return nil
 }
 
-// KBUpdatePOI fetches current POI data and saves it to the knowledge base.
-// detectedBy records which agent observed the data (POI provenance).
-func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
-	if kb == nil {
-		return fmt.Errorf("knowledge base not configured (use --db-path)")
-	}
-
-	if err := client.GetPOI(ctx); err != nil {
-		return fmt.Errorf("get_poi failed: %w", err)
+// GetLocationPOI fetches the current POI via the get_location command and
+// returns it as a fully-populated game.POI.
+//
+// The server retired get_poi (2026-06-24); resource richness/remaining is now
+// only available from get_location, while structural fields (class, description,
+// position, base linkage) come from get_system. This helper reads the live
+// resources from get_location and enriches the static structural fields from the
+// cached system data in client state (populated by a prior get_system, which the
+// capture flows always run first). Fields absent from both commands — per-POI
+// description (when not already cached), hidden, reveal_difficulty — are left
+// zero and preserved across updates by the knowledge base's merge-UPSERT.
+func GetLocationPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
+	if err := client.RawCommand(ctx, "get_location", nil); err != nil {
+		return game.POI{}, fmt.Errorf("get_location failed: %w", err)
 	}
 	time.Sleep(game.SleepQuick)
 
-	state := client.GetState()
-
-	rawJSON := client.GetRawJSON("poi")
+	rawJSON := client.GetRawJSON("location")
 	if rawJSON == nil {
-		return fmt.Errorf("no POI data in response")
-	}
-	var poiResp serverapi.GetPOIResponse
-	if err := json.Unmarshal(rawJSON, &poiResp); err != nil {
-		return fmt.Errorf("failed to parse POI response: %w", err)
+		return game.POI{}, fmt.Errorf("no location data in response")
 	}
 
-	kbPOI := knowledge.POI{
-		ID:          poiResp.POI.ID,
-		SystemID:    state.System.ID,
-		Name:        poiResp.POI.Name,
-		Type:        poiResp.POI.Type,
-		Class:       poiResp.POI.Class,
-		Description: poiResp.POI.Description,
-		Position: game.Position{
-			X: poiResp.POI.Position.X,
-			Y: poiResp.POI.Position.Y,
-		},
-		Services:         poiResp.Services,
-		Hidden:           poiResp.POI.Hidden,
-		RevealDifficulty: poiResp.POI.RevealDifficulty,
-		LastUpdatedTick:  currentTick(state),
-		DetectedBy:       detectedBy,
+	var resp struct {
+		Location struct {
+			POIID     string `json:"poi_id"`
+			POIName   string `json:"poi_name"`
+			POIType   string `json:"poi_type"`
+			SystemID  string `json:"system_id"`
+			Resources []struct {
+				ItemID    string  `json:"item_id"`
+				Richness  float64 `json:"richness"`
+				Remaining float64 `json:"remaining"`
+			} `json:"resources"`
+		} `json:"location"`
+	}
+	if err := json.Unmarshal(rawJSON, &resp); err != nil {
+		return game.POI{}, fmt.Errorf("failed to parse location response: %w", err)
+	}
+	l := resp.Location
+	if l.POIID == "" {
+		return game.POI{}, fmt.Errorf("location response has no current POI")
 	}
 
-	// Extract resources if present.
-	for _, r := range poiResp.Resources {
-		kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
-			ResourceID: r.ResourceID,
+	poi := game.POI{
+		ID:       l.POIID,
+		SystemID: l.SystemID,
+		Name:     l.POIName,
+		Type:     l.POIType,
+	}
+	for _, r := range l.Resources {
+		poi.Resources = append(poi.Resources, game.POIResource{
+			ResourceID: r.ItemID,
 			Richness:   r.Richness,
 			Remaining:  r.Remaining,
 		})
 	}
 
+	// Enrich structural fields from the cached system data (get_system carries
+	// class/description/position/base but no resources).
+	state := client.GetState()
+	if poi.SystemID == "" {
+		poi.SystemID = state.System.ID
+	}
+	for i := range state.System.POIs {
+		sp := state.System.POIs[i]
+		if sp.ID != poi.ID {
+			continue
+		}
+		poi.Class = sp.Class
+		poi.Description = sp.Description
+		poi.Position = sp.Position
+		poi.BaseID = sp.BaseID
+		poi.HasBase = sp.HasBase
+		poi.BaseName = sp.BaseName
+		poi.Hidden = sp.Hidden
+		poi.RevealDifficulty = sp.RevealDifficulty
+		poi.ExpiresAt = sp.ExpiresAt
+		break
+	}
+	return poi, nil
+}
+
+// KBUpdatePOI fetches current POI data and saves it to the knowledge base.
+// detectedBy records which agent observed the data (POI provenance).
+func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
+	_, err := KBUpdatePOIData(ctx, client, kb, detectedBy)
+	return err
+}
+
+// KBUpdatePOIData is like KBUpdatePOI but also returns the captured POI so
+// callers can reuse it (e.g. play_as's faction-intel file side effect) without
+// issuing a second get_location query.
+func KBUpdatePOIData(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) (game.POI, error) {
+	if kb == nil {
+		return game.POI{}, fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+
+	poi, err := GetLocationPOI(ctx, client)
+	if err != nil {
+		return game.POI{}, err
+	}
+	state := client.GetState()
+
+	kbPOI := knowledge.POI{
+		ID:          poi.ID,
+		SystemID:    poi.SystemID,
+		Name:        poi.Name,
+		Type:        poi.Type,
+		Class:       poi.Class,
+		Description: poi.Description,
+		Position: game.Position{
+			X: poi.Position.X,
+			Y: poi.Position.Y,
+		},
+		Hidden:           poi.Hidden,
+		RevealDifficulty: poi.RevealDifficulty,
+		Resources:        poi.Resources,
+		LastUpdatedTick:  currentTick(state),
+		DetectedBy:       detectedBy,
+	}
+	if kbPOI.SystemID == "" {
+		kbPOI.SystemID = state.System.ID
+	}
+
 	if err := kb.RememberPOI(ctx, kbPOI); err != nil {
-		return fmt.Errorf("failed to save POI: %w", err)
+		return game.POI{}, fmt.Errorf("failed to save POI: %w", err)
 	}
 
 	fmt.Printf("Saved POI: %s (%s, %d resources, tick %d)\n",
 		kbPOI.Name, kbPOI.Type, len(kbPOI.Resources), kbPOI.LastUpdatedTick)
-	return nil
+	return poi, nil
 }
 
 // KBUpdateStation fetches base details, market listings, and ship listings at the

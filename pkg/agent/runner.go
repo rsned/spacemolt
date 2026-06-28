@@ -667,9 +667,11 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> GetSkills()", r.agent.ID())
 		return r.gameClient.GetSkills(actionCtx)
 
-	case "get_poi":
-		r.logger.Printf("[%s] -> GetPOI()", r.agent.ID())
-		return r.gameClient.GetPOI(actionCtx)
+	case "get_poi", "get_location":
+		// get_poi was retired (2026-06-24); get_location is its replacement for
+		// current-POI data. Accept the old action name for back-compat.
+		r.logger.Printf("[%s] -> GetLocation()", r.agent.ID())
+		return r.gameClient.RawCommand(actionCtx, "get_location", nil)
 
 	case "get_base":
 		r.logger.Printf("[%s] -> GetBase()", r.agent.ID())
@@ -877,7 +879,8 @@ func isActionCommand(action string) bool {
 		"get_skills": true,
 		// World Info
 		"get_system":    true,
-		"get_poi":       true,
+		"get_poi":       true, // retired server-side; kept so stale plans classify as a no-tick query
+		"get_location":  true,
 		"get_base":      true,
 		"get_map":       true,
 		"get_version":   true,

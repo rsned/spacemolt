@@ -603,6 +603,14 @@ func (m *mockGameClient) RawCommand(ctx context.Context, cmd string, args map[st
 	return nil
 }
 
+func (m *mockGameClient) ListStationPassengers(_ context.Context, _ string) (*serverapi.ListStationPassengersResponse, error) {
+	return &serverapi.ListStationPassengersResponse{}, nil
+}
+
+func (m *mockGameClient) LoadPassenger(_ context.Context, _ string) (*serverapi.LoadPassengerResponse, error) {
+	return &serverapi.LoadPassengerResponse{}, nil
+}
+
 // Combat extras
 func (m *mockGameClient) Battle(ctx context.Context, action string, payload map[string]any) error {
 	return nil

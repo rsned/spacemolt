@@ -18,3 +18,5 @@ roles:
   miner: {}
   hauler:
     idle: haul
+  shuttle:
+    idle: shuttle

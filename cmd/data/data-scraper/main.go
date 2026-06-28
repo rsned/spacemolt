@@ -408,7 +408,11 @@ func (s *Scraper) scrapeShip() error {
 }
 
 func (s *Scraper) scrapePOI() error {
-	return s.scrapeSimple(s.client.GetPOI, "poi", "get_poi.json", "get_poi", 1*time.Second)
+	// get_poi was retired server-side (2026-06-24); get_location is its
+	// replacement for current-POI data (including live resources).
+	return s.scrapeSimple(func(ctx context.Context) error {
+		return s.client.RawCommand(ctx, "get_location", nil)
+	}, "location", "get_location.json", "get_location", 1*time.Second)
 }
 
 func (s *Scraper) scrapeSystem() error {

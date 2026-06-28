@@ -1338,11 +1338,67 @@ type DeliveredPassenger struct {
 	Destination       string `json:"destination,omitempty"`
 	DestinationName   string `json:"destination_name,omitempty"`
 	DestinationSystem string `json:"destination_system,omitempty"`
-	Fare              int    `json:"fare,omitempty"`
-	// SpeedBonus is the on-time delivery bonus paid on top of Fare; the two
+	// BaseFare (server field "base_fare", renamed from "fare") is the
+	// passenger's base fare on delivery.
+	BaseFare int `json:"base_fare,omitempty"`
+	// SpeedBonus is the on-time delivery bonus paid on top of BaseFare; the two
 	// sum into the response's fare_collected total.
 	SpeedBonus     int `json:"speed_bonus,omitempty"`
 	TicksRemaining int `json:"ticks_remaining,omitempty"`
+}
+
+// StationPassenger is one NPC waiting at a station for transport, as returned in
+// the list_station_passengers "waiting" array. Fare is a per-passenger estimate
+// that scales with distance/hops; DestinationSystem is the system that contains
+// the Destination station POI.
+type StationPassenger struct {
+	CitizenID         string `json:"citizen_id"`
+	Name              string `json:"name"`
+	Citizenship       string `json:"citizenship"`
+	Class             string `json:"class"`
+	Destination       string `json:"destination"`
+	DestinationName   string `json:"destination_name"`
+	DestinationSystem string `json:"destination_system"`
+	EstimatedFare     int    `json:"estimated_fare"`
+}
+
+// ListStationPassengersResponse wraps the list_station_passengers response: the
+// queried station and the passengers waiting there. Station is empty when the
+// query defaulted to the currently docked station.
+type ListStationPassengersResponse struct {
+	Action  string             `json:"action"`
+	Station string             `json:"station"`
+	Count   int                `json:"count"`
+	Waiting []StationPassenger `json:"waiting"`
+}
+
+// LoadedPassenger is a single passenger actually boarded by load_passenger.
+type LoadedPassenger struct {
+	Name            string `json:"name"`
+	Class           string `json:"class"`
+	Destination     string `json:"destination"`
+	DestinationName string `json:"destination_name"`
+	Fare            int    `json:"fare"`
+	TicksRemaining  int    `json:"ticks_remaining"`
+}
+
+// LoadPassengerResponse wraps the load_passenger response. Fewer passengers may
+// board than were waiting for the destination: berth class and capacity limit who
+// fits (a free upgrade is allowed, but first-class is never downgraded to fit), so
+// Loaded/Count/TotalFare — not the waiting list — are the source of truth for who
+// is actually aboard and the booked fare.
+type LoadPassengerResponse struct {
+	Action    string            `json:"action"`
+	Message   string            `json:"message"`
+	Loaded    []LoadedPassenger `json:"loaded"`
+	Count     int               `json:"count"`
+	TotalFare int               `json:"total_fare"`
+	// Berth occupancy after the load, each formatted "occupied/capacity". A
+	// Count of 0 with free capacity here means the passengers were taken by
+	// another ship, not that they failed to fit.
+	EconomyBerths  string `json:"economy_berths"`
+	BusinessBerths string `json:"business_berths"`
+	FirstBerths    string `json:"first_berths"`
 }
 
 // UndockResponse wraps the response from undock command.

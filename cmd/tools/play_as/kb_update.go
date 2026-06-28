@@ -105,19 +105,20 @@ func kbUpdateSystem(client game.GameClient, ctx context.Context) error {
 // preserves the play_as intel-file side effect (write the raw get_poi payload to
 // an intel file for the faction intel terminal).
 func kbUpdatePOI(client game.GameClient, ctx context.Context) error {
-	if err := worker.KBUpdatePOI(ctx, client, globalKB, globalAgentID); err != nil {
+	poi, err := worker.KBUpdatePOIData(ctx, client, globalKB, globalAgentID)
+	if err != nil {
 		return err
 	}
-	// Preserve the play_as intel-file side effect. The client still holds the raw
-	// "poi" JSON from the GetPOI that worker.KBUpdatePOI performed. This is a
-	// best-effort side effect: a missing/malformed payload is silently skipped
-	// since the KB write (the function's contract) already succeeded.
-	rawJSON := client.GetRawJSON("poi")
-	var poiResp serverapi.GetPOIResponse
-	if rawJSON != nil && json.Unmarshal(rawJSON, &poiResp) == nil {
-		state := client.GetState()
-		if path, err := saveIntelPOI(state.System.ID, poiResp.POI.ID, rawJSON); err != nil {
-			fmt.Printf("Warning: failed to write intel file: %v\n", err)
+	// Preserve the play_as intel-file side effect. get_poi was retired, so we
+	// reconstruct its {"poi":{...}} shape from the POI captured via get_location
+	// (faction_intel.go reads it back as a serverapi.GetPOIResponse). This is a
+	// best-effort side effect: a marshal/write failure is reported but does not
+	// fail the command, since the KB write (the contract) already succeeded.
+	if poi.ID != "" {
+		if blob, merr := json.Marshal(map[string]any{"poi": poi}); merr != nil {
+			fmt.Printf("Warning: failed to encode intel payload: %v\n", merr)
+		} else if path, werr := saveIntelPOI(poi.SystemID, poi.ID, blob); werr != nil {
+			fmt.Printf("Warning: failed to write intel file: %v\n", werr)
 		} else if path != "" {
 			fmt.Printf("Saved intel: %s\n", path)
 		}

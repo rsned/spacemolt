@@ -1,0 +1,5 @@
+# Shuttle (passenger taxi) fleet — canary johnny_cab.
+# Runs under its own overmind/socket so it can be launched without restarting the
+# haul fleet (no dynamic fleet-join yet). Added 2026-06-28.
+workers:
+  - { agent_id: johnny_cab, role: shuttle, station: "" }

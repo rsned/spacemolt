@@ -240,6 +240,44 @@ func TestScanArbitrageHappyPath(t *testing.T) {
 	}
 }
 
+func TestScanArbitrageCyclesSeenCarryForward(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	// Same route present every scan: buy iron_ore @stnA, sell @stnB. The orders persist
+	// as the latest capture, so each scan re-discovers the route and its streak grows.
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnA: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", ItemName: "Iron Ore", Side: "buy", PriceEach: 8, Quantity: 5, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnB: %v", err)
+	}
+
+	opts := ScanOptions{MinProfit: 1, MinPrice: 1, MinQuantity: 1, ExpiresIn: time.Hour}
+	cyclesNow := func() int {
+		var cs int
+		if err := c.db.QueryRow(`SELECT cycles_seen FROM arbitrage_opportunities
+			WHERE item_id='iron_ore' AND status='available'`).Scan(&cs); err != nil {
+			t.Fatalf("query cycles_seen: %v", err)
+		}
+		return cs
+	}
+	for want := 1; want <= 3; want++ {
+		if _, err := c.ScanArbitrage(ctx, opts); err != nil {
+			t.Fatalf("ScanArbitrage cycle %d: %v", want, err)
+		}
+		if got := cyclesNow(); got != want {
+			t.Fatalf("after scan %d, cycles_seen = %d, want %d", want, got, want)
+		}
+	}
+}
+
 func TestScanArbitrageSameStationExcluded(t *testing.T) {
 	c := openArbDB(t)
 	ctx := context.Background()

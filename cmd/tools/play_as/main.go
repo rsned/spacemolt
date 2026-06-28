@@ -5085,8 +5085,11 @@ func formatDock(raw []byte) string {
 			Delivered []struct {
 				Name       string `json:"name"`
 				Class      string `json:"class"`
-				Fare       int    `json:"fare"`
-				SpeedBonus int    `json:"speed_bonus"`
+				// base_fare (renamed from "fare"): the passenger's base fare,
+				// shown per-passenger; speed_bonus is added on top and the two
+				// sum into fare_collected.
+				BaseFare   int `json:"base_fare"`
+				SpeedBonus int `json:"speed_bonus"`
 			} `json:"delivered"`
 			FareCollected     int            `json:"fare_collected"`
 			ReputationChanges map[string]int `json:"reputation_changes"`
@@ -5136,9 +5139,9 @@ func formatDock(raw []byte) string {
 			// fare_collected bundles the base fare and an on-time speed bonus;
 			// split the bonus out so it's clear where the credits came from.
 			if p.SpeedBonus > 0 {
-				fmt.Fprintf(&b, "  - %s [%s], %d cr +%d speed bonus\n", p.Name, p.Class, p.Fare, p.SpeedBonus)
+				fmt.Fprintf(&b, "  - %s [%s], %d cr +%d speed bonus\n", p.Name, p.Class, p.BaseFare, p.SpeedBonus)
 			} else {
-				fmt.Fprintf(&b, "  - %s [%s], %d cr\n", p.Name, p.Class, p.Fare)
+				fmt.Fprintf(&b, "  - %s [%s], %d cr\n", p.Name, p.Class, p.BaseFare)
 			}
 		}
 		if len(pa.ReputationChanges) > 0 {
@@ -7150,7 +7153,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.GetSkills, ctx, 2*time.Second, cmd, format)
 
 	case "poi", "get_poi":
-		return simpleCommand(client, client.GetPOI, ctx, 2*time.Second, cmd, format)
+		// get_poi was retired server-side (2026-06-24). Transparently run
+		// get_location, which returns the current POI plus its live resources,
+		// and format it through the get_location renderer.
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "get_location", nil)
+		}, ctx, 2*time.Second, "get_location", format)
 
 	case "base", "get_base":
 		return simpleCommand(client, client.GetBase, ctx, 2*time.Second, cmd, format)

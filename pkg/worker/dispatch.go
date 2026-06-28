@@ -22,6 +22,13 @@ type WorkerDispatch struct {
 	Market  *market.Collector
 	Out     io.Writer
 	AgentID string // claim owner for opportunity-claiming roles (e.g. hauler)
+
+	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
+	// Held here (not per Run call) so the cooldown survives between command passes.
+	treasury *treasuryRescue
+	// shuttle carries cross-pass shuttle memory (dry-pass streak + reposition
+	// cursor) so the idle→idle→reposition cadence survives between passes.
+	shuttle *shuttleState
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -31,7 +38,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 	if out == nil {
 		out = io.Discard
 	}
-	return &WorkerDispatch{Client: client, KB: kb, Market: mc, Out: out}
+	return &WorkerDispatch{Client: client, KB: kb, Market: mc, Out: out, treasury: &treasuryRescue{}, shuttle: &shuttleState{}}
 }
 
 // supported is the curated command set. Keep in sync with data/scripts and
@@ -39,7 +46,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 // there is present here.
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
-	"explore": true, "scan": true, "haul": true,
+	"explore": true, "scan": true, "haul": true, "shuttle": true,
 	"mine":   true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -116,12 +123,17 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return Haul(ctx, HaulDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
+			Treasury: d.treasury,
 			RecaptureBuyMarket: func(ctx context.Context) error {
 				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 					return err
 				}
 				return market.CaptureFromClient(ctx, d.Client, d.Market)
 			},
+		})
+	case "shuttle":
+		return Shuttle(ctx, ShuttleDeps{
+			Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Treasury: d.treasury, State: d.shuttle,
 		})
 	case "scan":
 		return d.Client.Scan(ctx)

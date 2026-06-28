@@ -361,6 +361,9 @@ type HaulDeps struct {
 	RecaptureBuyMarket func(ctx context.Context) error
 	// Now returns the current wall-clock time (nil -> time.Now). Injected for deterministic tests.
 	Now func() time.Time
+	// Treasury rate-limits faction-treasury rescue withdrawals across haul passes
+	// (held per worker process). nil disables the rescue path.
+	Treasury *treasuryRescue
 }
 
 // haulMetrics accumulates per-leg stamps (wall + game tick) and pricing across one fresh
@@ -457,6 +460,11 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if liquidateCargo(ctx, deps, out) {
 		return nil
 	}
+
+	// Idle with an empty hold: a low wallet now is genuine fumes (not capital tied
+	// up in cargo), so this is the safe point to pull a treasury rescue before the
+	// next buy leg.
+	deps.Treasury.maybe(ctx, deps.Client, out, haulNow(deps))
 
 	opps, err := loadAvailable(ctx, deps.Market, limit)
 	if err != nil {
@@ -813,6 +821,8 @@ func recordHaulResult(ctx context.Context, deps HaulDeps, out io.Writer, opp mar
 	if err := deps.Market.RecordHaulResult(ctx, rec); err != nil {
 		fmt.Fprintf(out, "haul: opp %d record result failed: %v\n", opp.ID, err) //nolint:errcheck
 	}
+	// Contribute the treasury's cut of this haul's realized profit to the shared fund.
+	depositProfitShare(ctx, deps.Client, out, rec.RealizedProfit)
 }
 
 // haulAutopilot routes to a station POI within a system, capturing each hop to the KB.

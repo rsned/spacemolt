@@ -329,6 +329,11 @@ func main() {
 			case <-readerDone:
 				break heartbeat
 			case <-ticker.C:
+				// Re-arm reconnection if the game connection dropped — a standing
+				// worker issues no command to wake the dormant handler on its own.
+				if nudgeReconnect(client) {
+					logger.Printf("game connection down; requested reconnect")
+				}
 				nowState := client.GetState()
 				nowTick := int(nowState.CurrentTick)
 
@@ -364,6 +369,9 @@ func main() {
 			case <-ctx.Done():
 				goto done
 			case <-ticker.C:
+				if nudgeReconnect(client) {
+					logger.Printf("game connection down; requested reconnect")
+				}
 				nowState := client.GetState()
 				ks := buildKnownState(nowState, int(nowState.CurrentTick))
 				if saveErr := store.SaveKnownState(ks); saveErr != nil {
@@ -394,6 +402,28 @@ func displaySystem(st *game.State) string {
 		return name
 	}
 	return cur
+}
+
+// reconnectable is the subset of *game.Client the heartbeat loop needs to keep
+// an idle worker's game connection alive.
+type reconnectable interface {
+	IsConnected() bool
+	RequestReconnect() bool
+}
+
+// nudgeReconnect re-arms a dormant reconnection burst when the game connection
+// is down. The auto-reconnect handler gives up after a short burst and then
+// waits to be re-woken (originally by REPL input); a standing/idle worker never
+// issues such a command, so without this it stays game-disconnected after a
+// transient outage (e.g. the nightly router/DNS restart) while still
+// heartbeating to the overmind. Called every heartbeat tick, it is a no-op when
+// connected or when a burst is already in flight. Returns true when it actually
+// started a fresh burst (so the caller can log the recovery attempt).
+func nudgeReconnect(c reconnectable) bool {
+	if c.IsConnected() {
+		return false
+	}
+	return c.RequestReconnect()
 }
 
 // buildStatus constructs a control.Status heartbeat snapshot from game state.

@@ -80,3 +80,47 @@ func TestRolesConfigLoads(t *testing.T) {
 		t.Fatal("resident role missing from seeded roles.yaml")
 	}
 }
+
+// fakeReconnectable records whether nudgeReconnect probed the connection and
+// whether it asked for a reconnect.
+type fakeReconnectable struct {
+	connected      bool
+	requestReturns bool
+	requested      int
+}
+
+func (f *fakeReconnectable) IsConnected() bool { return f.connected }
+func (f *fakeReconnectable) RequestReconnect() bool {
+	f.requested++
+	return f.requestReturns
+}
+
+func TestNudgeReconnect(t *testing.T) {
+	// Connected: must NOT request a reconnect — a live worker is left alone.
+	connected := &fakeReconnectable{connected: true}
+	if nudgeReconnect(connected) {
+		t.Fatal("connected client should not request reconnect")
+	}
+	if connected.requested != 0 {
+		t.Fatalf("connected client requested reconnect %d times, want 0", connected.requested)
+	}
+
+	// Disconnected + dormant: re-arm a fresh burst (RequestReconnect -> true).
+	dormant := &fakeReconnectable{connected: false, requestReturns: true}
+	if !nudgeReconnect(dormant) {
+		t.Fatal("disconnected dormant client should report it started a reconnect")
+	}
+	if dormant.requested != 1 {
+		t.Fatalf("disconnected client requested reconnect %d times, want 1", dormant.requested)
+	}
+
+	// Disconnected but a burst is already running: still safe to call, reports
+	// false (no new burst), so the heartbeat loop stays quiet.
+	busy := &fakeReconnectable{connected: false, requestReturns: false}
+	if nudgeReconnect(busy) {
+		t.Fatal("client with an in-flight burst should report no new reconnect")
+	}
+	if busy.requested != 1 {
+		t.Fatalf("client requested reconnect %d times, want 1", busy.requested)
+	}
+}

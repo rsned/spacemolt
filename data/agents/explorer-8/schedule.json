@@ -1,0 +1,9 @@
+[
+  {
+    "id": 1,
+    "frequency": "hourly",
+    "command": "update_market",
+    "created_at": "2026-06-24T06:29:38.270472263Z",
+    "last_run": "2026-06-24T09:00:04.918313871Z"
+  }
+]

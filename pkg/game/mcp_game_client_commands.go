@@ -1232,6 +1232,36 @@ func (m *MCPGameClient) RawCommand(ctx context.Context, command string, args map
 	return m.updateStateFromResult(result)
 }
 
+// ListStationPassengers returns passengers waiting at a station via the MCP bridge.
+func (m *MCPGameClient) ListStationPassengers(ctx context.Context, station string) (*serverapi.ListStationPassengersResponse, error) {
+	args := map[string]any{}
+	if station != "" {
+		args["station"] = station
+	}
+	raw, err := m.callTool(ctx, "list_station_passengers", args)
+	if err != nil {
+		return nil, err
+	}
+	var out serverapi.ListStationPassengersResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("list_station_passengers: decode: %w", err)
+	}
+	return &out, nil
+}
+
+// LoadPassenger boards passengers bound for destination via the MCP bridge.
+func (m *MCPGameClient) LoadPassenger(ctx context.Context, destination string) (*serverapi.LoadPassengerResponse, error) {
+	raw, err := m.callTool(ctx, "load_passenger", map[string]any{"destination": destination})
+	if err != nil {
+		return nil, err
+	}
+	var out serverapi.LoadPassengerResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("load_passenger: decode: %w", err)
+	}
+	return &out, nil
+}
+
 // --- Batch 4.5 additions: methods added to GameClient interface for REPL migration ---
 
 func (m *MCPGameClient) Battle(ctx context.Context, action string, payload map[string]any) error {

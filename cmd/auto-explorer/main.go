@@ -18,6 +18,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/registry"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 // CLI flags
@@ -942,24 +943,19 @@ func exploreAllPOIs(client game.GameClient, ctx context.Context, logger *log.Log
 			logger.Printf("→ Arrived at %s", poi.Name)
 		}
 
-		// Get POI details — this updates the POI in state with full data (resources, etc.)
+		// Get POI details. get_poi was retired (2026-06-24); get_location is now
+		// the only source of live resource data for the current POI. It also
+		// enriches structural fields (class/position) from cached system data.
 		logger.Printf("🔍 Getting POI details at %s...", poi.Name)
-		if err := client.GetPOI(ctx); err != nil {
-			logger.Printf("Get POI failed: %v", err)
+		if locPOI, err := worker.GetLocationPOI(ctx, client); err != nil {
+			logger.Printf("Get location failed: %v", err)
 		} else {
+			poi = locPOI
 			logger.Printf("✅ POI details retrieved at %s", poi.Name)
 		}
-		time.Sleep(3 * time.Second)
 
-		// Refresh state to pick up the detailed POI data from get_poi response
+		// Refresh state so downstream docking/refuel logic sees current data.
 		state = client.GetState()
-		// Find the updated POI in the refreshed state
-		for _, updated := range state.System.POIs {
-			if updated.ID == poi.ID {
-				poi = updated
-				break
-			}
-		}
 
 		// Handle station-specific actions
 		if poi.Type == "station" {

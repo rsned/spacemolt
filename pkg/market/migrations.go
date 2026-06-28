@@ -20,6 +20,12 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureColumn(db, "arbitrage_opportunities", "completed_at", "TEXT"); err != nil {
 		return err
 	}
+	// cycles_seen: consecutive scan cycles a route (item, from, to) has appeared in.
+	// 1 = first sighting (fragile); higher = durable supply/demand. Carried forward by
+	// ScanArbitrage and used as a ranking boost by the hauler.
+	if err := ensureColumn(db, "arbitrage_opportunities", "cycles_seen", "INTEGER DEFAULT 1"); err != nil {
+		return err
+	}
 	return nil
 }
 
