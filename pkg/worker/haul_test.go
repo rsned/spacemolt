@@ -276,7 +276,8 @@ type fakeStore struct {
 	completed      []int
 	released       []int
 	prices         []market.ItemStationPrice
-	orders         []market.Order
+	orders         []market.Order // item-specific buy/sell book (itemID != "")
+	stationOrders  []market.Order // station-wide book (itemID == ""); presence = station captured
 	bestPrices     []market.BestPrice
 	recorded       []market.HaulResult
 }
@@ -310,7 +311,10 @@ func (f *fakeStore) ScanArbitrage(_ context.Context, _ market.ScanOptions) (mark
 func (f *fakeStore) GetItemStationPrices(_ context.Context, _ string) ([]market.ItemStationPrice, error) {
 	return f.prices, nil
 }
-func (f *fakeStore) GetStationOrders(_ context.Context, _, _ string) ([]market.Order, error) {
+func (f *fakeStore) GetStationOrders(_ context.Context, _, itemID string) ([]market.Order, error) {
+	if itemID == "" {
+		return f.stationOrders, nil
+	}
 	return f.orders, nil
 }
 func (f *fakeStore) FindBestPrices(_ context.Context, _, _ string, _ int) ([]market.BestPrice, error) {
@@ -422,6 +426,53 @@ func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {
 	}
 	if len(f.completed) != 1 || f.completed[0] != 7 {
 		t.Fatalf("cost-order path must complete the claim, got %v", f.completed)
+	}
+}
+
+func TestHaulSellLegPostsCostOrderOnEmptyButCapturedBook(t *testing.T) {
+	// The item has zero buyers, but the destination station IS in recent capture (it shows
+	// other orders) -> genuine dead demand -> cost-order instead of looping a market sell.
+	o := opp(7, "b", "a", 100)
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}}}
+	f := &fakeStore{
+		orders:        nil,                                                         // no buy orders for iron_ore here
+		stationOrders: []market.Order{{Side: "sell", PriceEach: 200, Quantity: 5}}, // station captured (has data)
+	}
+	m := &haulMetrics{buyPrice: 100, qty: 10}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
+		t.Fatalf("dead market must NOT loop a market-sell, got %v", fc.calls)
+	}
+	if !slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:iron_ore") }) {
+		t.Fatalf("empty-but-captured book must post a cost order, got %v", fc.calls)
+	}
+}
+
+func TestHaulSellLegSellsWhenNoCaptureData(t *testing.T) {
+	// No item buyers AND no station data at all -> freshness rule -> sell normally; do not
+	// cost-order merely because we lack a recent capture.
+	o := opp(7, "b", "a", 100)
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}}}
+	f := &fakeStore{orders: nil, stationOrders: nil} // no data at all
+	m := &haulMetrics{buyPrice: 100, qty: 10}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(fc.calls, "sell:iron_ore") {
+		t.Fatalf("no capture data -> must sell normally, got %v", fc.calls)
+	}
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:iron_ore") }) {
+		t.Fatalf("must not cost-order on mere absence of data, got %v", fc.calls)
 	}
 }
 

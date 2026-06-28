@@ -634,7 +634,7 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	}
 	if orders, oerr := deps.Market.GetStationOrders(ctx, opp.ToStationID, opp.ItemID); oerr != nil {
 		fmt.Fprintf(out, "haul: opp %d demand check failed (%v); selling normally\n", opp.ID, oerr) //nolint:errcheck
-	} else if orders != nil && arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder {
+	} else if haulDestCaptured(ctx, deps, opp.ToStationID, orders) && arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder {
 		fmt.Fprintf(out, "haul: opp %d demand too thin at %s; listing %.0f %s @cost %.0f\n", opp.ID, opp.ToStationID, held, opp.ItemID, unitBuy) //nolint:errcheck
 		return haulPostCostOrder(ctx, deps, out, opp, held, unitBuy)
 	}
@@ -699,7 +699,7 @@ func haulSellWatchdog(ctx context.Context, deps HaulDeps, opp market.ArbitrageOp
 		return false
 	}
 	orders, err := deps.Market.GetStationOrders(ctx, opp.ToStationID, opp.ItemID)
-	if err != nil || orders == nil {
+	if err != nil || !haulDestCaptured(ctx, deps, opp.ToStationID, orders) {
 		return false
 	}
 	unitBuy := opp.BuyPrice
@@ -707,6 +707,19 @@ func haulSellWatchdog(ctx context.Context, deps HaulDeps, opp market.ArbitrageOp
 		unitBuy = m.buyPrice
 	}
 	return arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder
+}
+
+// haulDestCaptured reports whether we have recent market data for stationID: directly (the
+// item's book came back non-empty) or, when the item book is empty, by checking the station
+// appears in the latest capture at all (a station-wide read). This distinguishes a captured
+// station with zero buyers — genuine dead demand, so the watchdog acts — from a station we
+// simply have no recent capture for, where the freshness rule says keep selling normally.
+func haulDestCaptured(ctx context.Context, deps HaulDeps, stationID string, itemOrders []market.Order) bool {
+	if len(itemOrders) > 0 {
+		return true
+	}
+	all, err := deps.Market.GetStationOrders(ctx, stationID, "")
+	return err == nil && len(all) > 0
 }
 
 // haulFindReroute looks for a better live destination for the cargo aboard when the claimed
