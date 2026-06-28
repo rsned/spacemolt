@@ -97,9 +97,11 @@ harmlessly. No corruption, no last-writer hazard.
 ## Components
 
 1. **Config knob** (`collector.go` `Config`): add `RetainCaptures int`.
-   `DefaultConfig()` sets it to `3`. `Open()` treats `0` as "disabled"
-   (preserve today's append behavior) for an explicit escape hatch, though that
-   is not the supported production mode.
+   `DefaultConfig()` sets it to `3`. `Open()` defaults `RetainCaptures` to `3`
+   when `≤ 0` (matching the existing `MaxOpenConns`/`BusyTimeout` defaulting), so
+   every production caller that omits it — `worker`, `overmind`, `auto-explorer`,
+   `play_as` — gets rolling-window retention with **no call-site changes**. There
+   is no "disabled" mode (YAGNI).
 2. **Per-station count-prune** (`collector.go`, new helper called from
    `WriteSnapshot`'s tx):
    ```sql
@@ -166,8 +168,9 @@ view); no code change required.
   distinct `captured_at` remain; the oldest is gone and the newest intact.
 - Cross-station isolation: capturing station S never prunes station T's rows.
 - OHLCV still accumulates one point per distinct UTC hour across repeated
-  captures (regression guard for the untouched OHLCV path).
-- `RetainCaptures = 0` preserves append behavior (no prune) — escape-hatch test.
+  captures (regression guard for the untouched OHLCV path), even when the older
+  `market_orders` capture has been pruned by the window.
+- Configurable N (e.g. `RetainCaptures: 1` in a test) prunes aggressively.
 - Existing query/round-trip tests pass unchanged against rolling-window data;
   update any capture test that asserts monotonically growing row counts.
 - Concurrency: two simulated same-station captures (distinct stamps) both
