@@ -164,3 +164,4 @@ docs/*.md
 
 # Local scratch / throwaway working files
 scratch/
+/worker
