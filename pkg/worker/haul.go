@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -139,6 +140,57 @@ func buildNameToID(systems []knowledge.System) map[string]string {
 		}
 	}
 	return m
+}
+
+// buildStrongholdRefs returns the set of system references (both display name and
+// id, mirroring buildNameToID's dual keying) that are pirate strongholds. A hauler
+// with no pirate standing is destroyed at a stronghold, so a lucrative standing buy
+// order there — Crix Stronghold posts fat fuel_cell/salvage_metal orders — must never
+// be claimed as a haul destination. shuttle.go excludes strongholds the same way.
+func buildStrongholdRefs(systems []knowledge.System) map[string]bool {
+	m := make(map[string]bool, len(systems))
+	for _, s := range systems {
+		if !s.IsStronghold {
+			continue
+		}
+		if s.ID != "" {
+			m[s.ID] = true
+		}
+		if s.Name != "" {
+			m[s.Name] = true
+		}
+	}
+	return m
+}
+
+// dropStrongholdOpps removes opportunities whose buy- or sell-system is a pirate
+// stronghold, returning the survivors and the distinct stronghold system references
+// that were dropped (for logging). An empty stronghold set is a no-op. Both legs are
+// checked: a hauler must travel to the buy system to load and the sell system to
+// unload, so either being a stronghold is fatal.
+func dropStrongholdOpps(opps []market.ArbitrageOpportunity, strongholds map[string]bool) (kept []market.ArbitrageOpportunity, dropped []string) {
+	if len(strongholds) == 0 {
+		return opps, nil
+	}
+	kept = make([]market.ArbitrageOpportunity, 0, len(opps))
+	seen := make(map[string]bool)
+	for _, o := range opps {
+		switch {
+		case strongholds[o.ToSystemName]:
+			if !seen[o.ToSystemName] {
+				seen[o.ToSystemName] = true
+				dropped = append(dropped, o.ToSystemName)
+			}
+		case strongholds[o.FromSystemName]:
+			if !seen[o.FromSystemName] {
+				seen[o.FromSystemName] = true
+				dropped = append(dropped, o.FromSystemName)
+			}
+		default:
+			kept = append(kept, o)
+		}
+	}
+	return kept, dropped
 }
 
 // rankedOpp pairs an opportunity with its resolved routing facts.
@@ -437,6 +489,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return fmt.Errorf("haul: get connections: %w", err)
 	}
 	nameToID := buildNameToID(systems)
+	strongholds := buildStrongholdRefs(systems)
 	graph := navigation.JumpGraphFromConnections(conns)
 
 	// Resume before claiming anything new: if this agent already holds a claim (its
@@ -450,6 +503,12 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return fmt.Errorf("haul: get claimed: %w", err)
 	}
 	if len(held) > 0 {
+		// A claim made before the stronghold guard (or carried across a restart) must
+		// not be resumed into a stronghold — abandon it and fall through to liquidate
+		// any cargo aboard and re-evaluate against safe opportunities.
+		if strongholds[held[0].ToSystemName] || strongholds[held[0].FromSystemName] {
+			return abandonClaim(ctx, deps, out, held[0], "stronghold destination")
+		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
 		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil)
 	}
@@ -472,6 +531,18 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	}
 	if len(opps) == 0 {
 		fmt.Fprintln(out, "haul: no opportunities available; idling") //nolint:errcheck
+		return nil
+	}
+
+	// Never route a no-standing hauler into a pirate stronghold, however juicy the
+	// standing buy orders posted there look. Drop stronghold-endpoint opportunities
+	// before ranking/claiming.
+	opps, droppedStrongholds := dropStrongholdOpps(opps, strongholds)
+	if len(droppedStrongholds) > 0 {
+		fmt.Fprintf(out, "haul: skipped stronghold destination(s) %s\n", strings.Join(droppedStrongholds, ", ")) //nolint:errcheck
+	}
+	if len(opps) == 0 {
+		fmt.Fprintln(out, "haul: only stronghold opportunities available; idling") //nolint:errcheck
 		return nil
 	}
 

@@ -88,6 +88,50 @@ func TestBuildNameToIDResolvesNameAndID(t *testing.T) {
 	}
 }
 
+// TestBuildStrongholdRefsDualKeyed verifies stronghold systems are indexed under
+// both their id and display name (so an arbitrage row referencing either form
+// matches), and non-strongholds are absent.
+func TestBuildStrongholdRefsDualKeyed(t *testing.T) {
+	refs := buildStrongholdRefs([]knowledge.System{
+		{ID: "bellatrix", Name: "Bellatrix", IsStronghold: true},
+		{ID: "sol", Name: "Sol", IsStronghold: false},
+	})
+	if !refs["bellatrix"] || !refs["Bellatrix"] {
+		t.Errorf("stronghold not dual-keyed: %v", refs)
+	}
+	if refs["sol"] || refs["Sol"] {
+		t.Errorf("non-stronghold Sol should be absent: %v", refs)
+	}
+}
+
+// TestDropStrongholdOpps covers the Crix incident: an opportunity whose sell- or
+// buy-system is a stronghold is dropped (by either name or id reference), safe
+// routes survive, and an empty stronghold set is a no-op.
+func TestDropStrongholdOpps(t *testing.T) {
+	refs := buildStrongholdRefs([]knowledge.System{
+		{ID: "bellatrix", Name: "Bellatrix", IsStronghold: true},
+	})
+	opps := []market.ArbitrageOpportunity{
+		opp(1, "sol", "alpha_centauri", 100), // safe
+		opp(2, "sol", "Bellatrix", 999),      // stronghold SELL by name (the trap)
+		opp(3, "bellatrix", "sol", 500),      // stronghold BUY by id
+		opp(4, "alpha_centauri", "sol", 80),  // safe
+	}
+	kept, dropped := dropStrongholdOpps(opps, refs)
+	if got := ids(kept); len(got) != 2 || got[0] != 1 || got[1] != 4 {
+		t.Errorf("kept = %v, want [1 4]", got)
+	}
+	if len(dropped) != 2 {
+		t.Errorf("dropped = %v, want 2 stronghold refs", dropped)
+	}
+
+	// Empty stronghold set returns the input untouched.
+	kept2, dropped2 := dropStrongholdOpps(opps, nil)
+	if len(kept2) != len(opps) || dropped2 != nil {
+		t.Errorf("empty set should be no-op: kept=%d dropped=%v", len(kept2), dropped2)
+	}
+}
+
 // graphFor builds a jump graph + name->id map from undirected system-id pairs,
 // treating each id as also its display name capitalized-irrelevant (name==id here).
 func graphFor(systems []string, pairs ...[2]string) (navigation.JumpGraph, map[string]string) {
