@@ -57,6 +57,9 @@ ALLOWLIST=(
     pkg/overmind/supervisor/server_test.go
     # Overmind main — calls srv.Send() which is supervisor.Server.Send (same as above).
     cmd/overmind/main.go
+    # Overmind drain helper — s.Send() is the controlSender interface (routes a
+    # control envelope to a worker), not the game client legacy Send.
+    cmd/overmind/drain.go
     # Overmind integration test — calls srv.Send() which is supervisor.Server.Send (same as above).
     cmd/overmind/integration_test.go
     # Overmind task store — sender.Send() is the tasks.Sender interface (routes a

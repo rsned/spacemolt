@@ -91,11 +91,23 @@ func main() {
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
 	go func() {
-		sig := <-sigCh
-		logger.Printf("received signal %v, shutting down", sig)
-		cancel()
+		for sig := range sigCh {
+			switch sig {
+			case syscall.SIGINT, syscall.SIGTERM:
+				logger.Printf("received signal %v, shutting down", sig)
+				cancel()
+				return
+			case syscall.SIGUSR1:
+				logger.Printf("received SIGUSR1: draining fleet")
+				go drainFleet(srv, fleet, logger)
+			case syscall.SIGUSR2:
+				logger.Printf("received SIGUSR2: resuming fleet")
+				n := broadcast(srv, fleet.Snapshot(), control.TypeResume, nil, func(m string) { logger.Print(m) })
+				logger.Printf("resume sent to %d workers", n)
+			}
+		}
 	}()
 
 	// ── Step 4: Start server (Canceled is expected on clean shutdown) ─────────
@@ -146,6 +158,27 @@ func main() {
 			recordBalances(ctx, logger, recorder, marketCol, snap)
 		}
 	}
+}
+
+// drainFleet broadcasts a drain to all workers, then polls drain quiescence,
+// logging progress until the fleet is drained or a bounded number of polls
+// elapses (stragglers that cannot reach idle are surfaced, never force-aborted).
+func drainFleet(srv *supervisor.Server, fleet *supervisor.Fleet, logger *log.Logger) {
+	logf := func(m string) { logger.Print(m) }
+	n := broadcast(srv, fleet.Snapshot(), control.TypeDrain, nil, logf)
+	logger.Printf("drain sent to %d workers", n)
+	const maxPolls = 60 // ~ maxPolls * game.SleepShort upper bound
+	for i := 0; i < maxPolls; i++ {
+		idle, total, busy := fleet.DrainProgress()
+		if drainComplete(idle, total) {
+			logger.Printf("fleet drained — safe to stop (%d/%d idle)", idle, total)
+			return
+		}
+		logger.Printf("drain: %d/%d idle — still busy: %v", idle, total, busy)
+		time.Sleep(game.SleepShort)
+	}
+	idle, total, busy := fleet.DrainProgress()
+	logger.Printf("drain poll ended: %d/%d idle — still busy: %v (force-stop with SIGTERM if needed)", idle, total, busy)
 }
 
 // lastFleetSnapshot is the time of the most recent fleet_timeseries write. It is read and
