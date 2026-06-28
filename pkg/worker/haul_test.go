@@ -372,6 +372,35 @@ func deps2(fc *fakeClient, f *fakeStore, kb *fakeKB) HaulDeps {
 	return HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
 }
 
+// TestHaulSellLegReroutesOnThinDemandMidRoute covers the Step-2 reaction: while transiting
+// to the claimed sell station, the per-jump watchdog sees the destination demand has gone
+// thin, autopilot stops early, and the leg re-routes once to a better live market — so the
+// final in-system hop targets the re-route station, not the abandoned original.
+func TestHaulSellLegReroutesOnThinDemandMidRoute(t *testing.T) {
+	fc := autopilotFake() // route: current -> sys_b -> sys_c (2 jumps); FindRoute ignores target
+	fc.state.System = game.SystemData{ID: "a", Name: "A"}
+	fc.state.Ship.Cargo = []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}
+	f := &fakeStore{
+		orders:     []market.Order{{Side: "buy", PriceEach: 50, Quantity: 1}}, // claimed dest thin -> stop fires
+		bestPrices: []market.BestPrice{{ListingType: "buy", ItemID: "iron_ore", SystemID: "g", StationID: "g-stn", Price: 130, Quantity: 50}},
+	}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a"}, {ID: "b"}, {ID: "g"}},
+		conns:   undirected([2]string{"a", "b"}, [2]string{"b", "g"}),
+	}
+	o := opp(7, "src", "x", 100) // original sell station x-stn in system x
+	deps := HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "x", &haulMetrics{buyPrice: 100, qty: 10}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(fc.calls, "travel:g-stn") {
+		t.Fatalf("expected re-route travel to g-stn, got %v", fc.calls)
+	}
+	if slices.Contains(fc.calls, "travel:x-stn") {
+		t.Fatalf("must not complete to the thinned original dest x-stn, got %v", fc.calls)
+	}
+}
+
 func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {
 	o := opp(7, "b", "a", 100) // iron_ore, sell station a-stn in current system "a"
 	fc := &fakeClient{state: &game.State{

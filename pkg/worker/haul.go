@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -531,7 +532,7 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 
 	fmt.Fprintf(out, "haul: opp %d %s: buy %.0f @%s -> sell @%s\n", opp.ID, opp.ItemID, opp.Quantity, opp.FromStationName, opp.ToStationName) //nolint:errcheck
 
-	if err := haulAutopilot(ctx, deps, out, buySys, opp.FromStationID); err != nil {
+	if err := haulAutopilot(ctx, deps, out, buySys, opp.FromStationID, nil); err != nil {
 		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("transit to buy failed: %v", err))
 	}
 	// Autopilot leaves the ship at the station POI but undocked. Dock explicitly so the
@@ -586,9 +587,33 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 // (logged "leaving claimed") — the goods are aboard and the haul can be resumed to retry
 // the sell leg on a later pass or after a restart.
 func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, sellSys string, m *haulMetrics) error {
-	if err := haulAutopilot(ctx, deps, out, sellSys, opp.ToStationID); err != nil {
-		fmt.Fprintf(out, "haul: opp %d transit to sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
-		return nil
+	// Transit to the sell station. A per-jump watchdog checks the claimed destination's live
+	// demand en route; if it has thinned below break-even, autopilot stops early and we
+	// re-route once to a better live market before riding the rest out (Step 2 reaction).
+	rerouted := false
+	for {
+		var check WaypointCheckFunc
+		if !rerouted {
+			check = func(ctx context.Context) (bool, error) {
+				return haulSellWatchdog(ctx, deps, opp, m), nil
+			}
+		}
+		err := haulAutopilot(ctx, deps, out, sellSys, opp.ToStationID, check)
+		if errors.Is(err, errAutopilotStopped) {
+			rerouted = true // one re-route attempt max, then ride it out to avoid thrashing
+			if newSys, newStn, ok := haulFindReroute(ctx, deps, opp, m); ok {
+				fmt.Fprintf(out, "haul: opp %d demand thinned mid-route; re-routing to %s @%s\n", opp.ID, newSys, newStn) //nolint:errcheck
+				sellSys, opp.ToStationID = newSys, newStn
+			} else {
+				fmt.Fprintf(out, "haul: opp %d demand thinned mid-route; no better market, continuing to %s\n", opp.ID, opp.ToStationID) //nolint:errcheck
+			}
+			continue
+		}
+		if err != nil {
+			fmt.Fprintf(out, "haul: opp %d transit to sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
+			return nil
+		}
+		break
 	}
 	if m != nil {
 		m.arrivedDstAt, m.arrivedDstTick = haulNow(deps), haulTick(deps)
@@ -663,6 +688,26 @@ func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp ma
 // haulRerouteCandidates caps how many alternative buyer stations the re-route finder
 // considers (FindBestPrices limit).
 const haulRerouteCandidates = 10
+
+// haulSellWatchdog reports whether the sell-leg autopilot should stop early because the
+// claimed destination's live demand can no longer absorb the cargo aboard near break-even.
+// Best-effort: missing cargo or order data returns false (do not stop) — matching the
+// on-arrival watchdog's freshness rule.
+func haulSellWatchdog(ctx context.Context, deps HaulDeps, opp market.ArbitrageOpportunity, m *haulMetrics) bool {
+	held := cargoQty(deps.Client.GetState(), opp.ItemID)
+	if held <= 0 {
+		return false
+	}
+	orders, err := deps.Market.GetStationOrders(ctx, opp.ToStationID, opp.ItemID)
+	if err != nil || orders == nil {
+		return false
+	}
+	unitBuy := opp.BuyPrice
+	if m != nil && m.buyPrice > 0 {
+		unitBuy = m.buyPrice
+	}
+	return arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder
+}
 
 // haulFindReroute looks for a better live destination for the cargo aboard when the claimed
 // sell market has gone thin mid-transit. It compares candidate buyers (reachable within the
@@ -758,7 +803,9 @@ func recordHaulResult(ctx context.Context, deps HaulDeps, out io.Writer, opp mar
 }
 
 // haulAutopilot routes to a station POI within a system, capturing each hop to the KB.
-func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, poi string) error {
+// An optional check (sell leg only) can request an early stop for mid-route re-routing;
+// nil disables it.
+func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, poi string, check WaypointCheckFunc) error {
 	return Autopilot(ctx, AutopilotDeps{
 		Client: deps.Client,
 		Out:    out,
@@ -771,6 +818,7 @@ func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, po
 			}
 			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
 		},
+		WaypointCheck: check,
 	}, system, poi)
 }
 
