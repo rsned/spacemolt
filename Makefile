@@ -57,6 +57,7 @@ build:
 	go build -o bin/auto-prophet ./cmd/auto-prophet
 	go build -o bin/overmind ./cmd/overmind
 	go build -o bin/worker ./cmd/worker
+	go build -o bin/overmind-status ./cmd/tools/overmind-status
 	@echo "Binaries built in ./bin/"
 
 # Build with race detector (for development/testing)
