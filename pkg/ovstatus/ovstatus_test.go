@@ -118,6 +118,10 @@ func TestNameText(t *testing.T) {
 	if got := nameText(balances.LiveRecord{AgentID: "alpha", FactionTag: "YSMT"}); got != "alpha (YSMT)" {
 		t.Errorf("nameText with tag = %q, want %q", got, "alpha (YSMT)")
 	}
+	// Server pads tags to a fixed width; the suffix must render trimmed.
+	if got := nameText(balances.LiveRecord{AgentID: "alpha", FactionTag: " DB "}); got != "alpha (DB)" {
+		t.Errorf("nameText with padded tag = %q, want %q", got, "alpha (DB)")
+	}
 }
 
 func TestFormatCredits(t *testing.T) {

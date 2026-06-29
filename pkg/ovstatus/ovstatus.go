@@ -169,8 +169,10 @@ func renderRow(b *strings.Builder, w balances.LiveRecord, now time.Time) {
 // nameText is the worker's agent id, suffixed with its faction tag as
 // "agent (TAG)" once the tag is known so the table shows faction membership.
 func nameText(w balances.LiveRecord) string {
-	if w.FactionTag != "" {
-		return fmt.Sprintf("%s (%s)", w.AgentID, w.FactionTag)
+	// Server pads faction tags to a fixed width (e.g. " DB "); trim so it renders
+	// as "agent (DB)" rather than "agent ( DB )".
+	if tag := strings.TrimSpace(w.FactionTag); tag != "" {
+		return fmt.Sprintf("%s (%s)", w.AgentID, tag)
 	}
 	return w.AgentID
 }
