@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
@@ -492,6 +493,15 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	strongholds := buildStrongholdRefs(systems)
 	graph := navigation.JumpGraphFromConnections(conns)
 
+	// Danger-aware galaxy graph for stranded-worker recovery + route-safety checks.
+	// Best-effort: on a build failure, fall back to the legacy (danger-blind) path so
+	// hauling is never blocked by a graph hiccup.
+	galGraph := &galaxy.GalaxyGraph{}
+	if gerr := galGraph.BuildFromDB(ctx, deps.KB); gerr != nil {
+		fmt.Fprintf(out, "haul: galaxy graph build failed: %v; recovery + route-safety disabled this pass\n", gerr) //nolint:errcheck
+		galGraph = nil
+	}
+
 	// Resume before claiming anything new: if this agent already holds a claim (its
 	// process restarted mid-haul, leaving the in-memory active opp behind but the claim
 	// row intact), finish that haul first. runClaimedHaul skips the buy leg when the
@@ -511,6 +521,20 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
 		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil)
+	}
+
+	// Recovery: a claimless hauler stranded in a system with no accessible station of
+	// its own cannot trade, refuel, or deposit there — it just idles and burns
+	// restarts (e.g. salvager-5 in Struve 1321, a station-less Lawless dead-end).
+	// Route it out to the nearest stronghold-free station before evaluating any
+	// opportunities. Runs after the claim-resume above so a committed haul is never
+	// interrupted.
+	if galGraph != nil {
+		if rescued, rerr := haulRecoverIfStranded(ctx, deps, out, galGraph, current); rerr != nil {
+			fmt.Fprintf(out, "haul: recovery check error: %v\n", rerr) //nolint:errcheck
+		} else if rescued {
+			return nil
+		}
 	}
 
 	// With no active haul, any cargo in the hold is leftover (a prior run's goods) and
@@ -552,6 +576,24 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return nil
 	}
 
+	// Route-safety: drop opportunities whose shortest path — the reposition leg
+	// (current->buy) or the haul leg (buy->sell) — crosses a pirate stronghold.
+	// dropStrongholdOpps above removed stronghold ENDPOINTS; this removes stronghold
+	// WAYPOINTS, the deep-Lawless detours that have stranded and destroyed haulers
+	// (the Crix-stronghold route). A stronghold anywhere on the path is a
+	// ship-destruction risk no spread justifies.
+	if galGraph != nil {
+		safe, dropped := filterStrongholdRoutes(ranked, current, nameToID, galGraph.FindPath, strongholds)
+		if len(dropped) > 0 {
+			fmt.Fprintf(out, "haul: skipped %d opportunity(ies) routing through strongholds: %s\n", len(dropped), strings.Join(dropped, ", ")) //nolint:errcheck
+		}
+		ranked = safe
+		if len(ranked) == 0 {
+			fmt.Fprintln(out, "haul: all reachable opportunities route through strongholds; idling") //nolint:errcheck
+			return nil
+		}
+	}
+
 	opp, ok, err := claimBest(ctx, deps.Market, ranked, deps.AgentID)
 	if err != nil {
 		return err
@@ -570,6 +612,77 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		}
 	}
 	return runClaimedHaul(ctx, deps, out, opp, nameToID, m)
+}
+
+// haulRecoverIfStranded routes the worker to the nearest stronghold-free station when
+// it is stranded in a system that has no accessible station of its own — where it
+// cannot trade, refuel, or deposit and would otherwise idle and burn restarts (e.g.
+// salvager-5 in Struve 1321, a station-less Lawless dead-end). It uses the same
+// nearest-accessible-station query as databot (FindNearestByPOIType, which excludes
+// strongholds and non-public stations). Returns rescued=true when it issued a
+// relocation, so the caller ends the pass and re-evaluates next pass.
+func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, galGraph *galaxy.GalaxyGraph, current string) (bool, error) {
+	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, "station", 1)
+	if err != nil {
+		return false, fmt.Errorf("nearest station: %w", err)
+	}
+	// current already has its own accessible station (Hops 0) — not stranded.
+	if len(near) == 0 || near[0].Hops == 0 || near[0].SystemID == current {
+		return false, nil
+	}
+	dest := near[0]
+	name := dest.SystemName
+	if name == "" {
+		name = dest.SystemID
+	}
+	var station string
+	if len(dest.POIs) > 0 {
+		station = dest.POIs[0].ID
+	}
+	fmt.Fprintf(out, "haul: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", current, name, dest.SystemID, dest.Hops) //nolint:errcheck
+	if aerr := haulAutopilot(ctx, deps, out, dest.SystemID, station, nil); aerr != nil {
+		fmt.Fprintf(out, "haul: relocation transit failed: %v; will retry next pass\n", aerr) //nolint:errcheck
+		return true, nil
+	}
+	if derr := deps.Client.Dock(ctx); derr != nil {
+		fmt.Fprintf(out, "haul: relocation dock at %s failed: %v\n", station, derr) //nolint:errcheck
+	}
+	return true, nil
+}
+
+// filterStrongholdRoutes returns the opportunities whose shortest route avoids every
+// pirate stronghold on BOTH legs (current->buy reposition and buy->sell haul), plus
+// the ids of those dropped. pathOf is GalaxyGraph.FindPath, injected so the check is
+// unit-testable without a populated graph. A lookup error or unknown endpoint is
+// treated as "clear" so a graph gap never blocks hauling — the endpoint guard
+// (dropStrongholdOpps) remains the backstop. strongholds is keyed by both system id
+// and name, so the id-keyed FindPath.Path matches.
+func filterStrongholdRoutes(ranked []market.ArbitrageOpportunity, current string, nameToID map[string]string, pathOf func(from, to string, weighted bool) (galaxy.Route, error), strongholds map[string]bool) (safe []market.ArbitrageOpportunity, dropped []string) {
+	clear := func(from, to string) bool {
+		if from == "" || to == "" || from == to {
+			return true
+		}
+		route, err := pathOf(from, to, false)
+		if err != nil {
+			return true // no path / unknown system — do not drop on a lookup failure
+		}
+		for _, sys := range route.Path {
+			if strongholds[sys] {
+				return false
+			}
+		}
+		return true
+	}
+	for _, o := range ranked {
+		buy := nameToID[o.FromSystemName]
+		sell := nameToID[o.ToSystemName]
+		if clear(current, buy) && clear(buy, sell) {
+			safe = append(safe, o)
+			continue
+		}
+		dropped = append(dropped, fmt.Sprintf("%d:%s", o.ID, o.ItemID))
+	}
+	return safe, dropped
 }
 
 // abandonClaim releases opp's claim back to the available pool and logs reason. Used on

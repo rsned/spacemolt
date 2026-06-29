@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
@@ -853,5 +854,46 @@ func TestHaulSellLegNilMetricsRecordsNothing(t *testing.T) {
 	}
 	if len(f.recorded) != 0 {
 		t.Fatalf("nil metrics must record nothing, got %d", len(f.recorded))
+	}
+}
+
+// filterStrongholdRoutes must drop an opportunity when EITHER its reposition leg
+// (current->buy) or its haul leg (buy->sell) routes through a stronghold waypoint,
+// keep clean-route opportunities, and never drop on a path-lookup failure (the
+// endpoint guard remains the backstop).
+func TestFilterStrongholdRoutes(t *testing.T) {
+	// den is the stronghold waypoint.
+	paths := map[[2]string][]string{
+		{"sol", "ac"}:      {"sol", "ac"},
+		{"ac", "procyon"}:  {"ac", "procyon"},
+		{"sol", "faraway"}: {"sol", "den", "faraway"}, // reposition leg crosses den
+		{"ac", "beyond"}:   {"ac", "den", "beyond"},   // haul leg crosses den
+		{"faraway", "ac"}:  {"faraway", "ac"},
+	}
+	pathOf := func(from, to string, _ bool) (galaxy.Route, error) {
+		if p, ok := paths[[2]string{from, to}]; ok {
+			return galaxy.Route{Path: p, Hops: len(p) - 1}, nil
+		}
+		return galaxy.Route{}, errors.New("no path")
+	}
+	nameToID := map[string]string{
+		"Alpha Centauri": "ac", "Procyon": "procyon",
+		"Faraway": "faraway", "Beyond": "beyond", "Unknown": "unknown",
+	}
+	strongholds := map[string]bool{"den": true}
+	ranked := []market.ArbitrageOpportunity{
+		{ID: 1, ItemID: "iron", FromSystemName: "Alpha Centauri", ToSystemName: "Procyon"}, // clean -> keep
+		{ID: 2, ItemID: "gold", FromSystemName: "Faraway", ToSystemName: "Alpha Centauri"}, // reposition crosses den -> drop
+		{ID: 3, ItemID: "copper", FromSystemName: "Unknown", ToSystemName: "Procyon"},      // lookup fails -> keep
+		{ID: 4, ItemID: "plat", FromSystemName: "Alpha Centauri", ToSystemName: "Beyond"},  // haul leg crosses den -> drop
+	}
+
+	safe, dropped := filterStrongholdRoutes(ranked, "sol", nameToID, pathOf, strongholds)
+
+	if got := ids(safe); !slices.Equal(got, []int{1, 3}) {
+		t.Fatalf("safe opp ids = %v, want [1 3]", got)
+	}
+	if !slices.Equal(dropped, []string{"2:gold", "4:plat"}) {
+		t.Fatalf("dropped = %v, want [2:gold 4:plat]", dropped)
 	}
 }

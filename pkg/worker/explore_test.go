@@ -27,6 +27,13 @@ func (f *fakeKB) GetConnections(context.Context) ([]knowledge.Connection, error)
 func (f *fakeKB) RememberSystem(context.Context, knowledge.System) error { return nil }
 func (f *fakeKB) RememberPOI(context.Context, knowledge.POI) error       { return nil }
 
+// GetConnectionMetrics lets the galaxy graph's BuildFromDB (used by the haul
+// route-safety + stranded-recovery checks) run on the fake KB; topology comes from
+// GetConnections, so an empty metrics set is fine.
+func (f *fakeKB) GetConnectionMetrics(context.Context) ([]knowledge.ConnectionMetric, error) {
+	return nil, nil
+}
+
 func undirected(pairs ...[2]string) []knowledge.Connection {
 	out := make([]knowledge.Connection, 0, len(pairs)*2)
 	for _, p := range pairs {
