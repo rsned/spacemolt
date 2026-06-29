@@ -21,18 +21,14 @@ import (
 // reachable, non-stronghold destination" for this galaxy — not a turnover throttle.
 const DefaultShuttleMaxJumps = 40
 
-// shuttleLoadAttempts bounds how many candidate destinations a shuttle tries to
-// board per pass. The biggest-fare (first-class long-haul) destinations are the
-// most contested, so the top pick is often out-competed before this tick-deferred
-// load lands; falling through several candidates lets the shuttle pick up cheaper
-// economy/business fares (which auto-fill any free berth, including the first-class
-// suite) rather than idling whenever the premium runs are taken.
-const shuttleLoadAttempts = 6
-
 // shuttleRepositionThreshold is how many consecutive passes a shuttle may board
 // nobody — station barren, or every fare out-competed — before it relocates to a
-// neighboring system to hunt fresh passengers instead of idling in place.
-const shuttleRepositionThreshold = 2
+// neighboring system to hunt fresh passengers instead of idling in place. Kept
+// high so the shuttle CAMPS at a populated hub: passenger demand is bursty and
+// every fare is contested, so presence over many passes wins more fares than
+// wandering off after a couple of dry passes (which historically left the shuttle
+// hunting low-demand systems while the hub refilled behind it).
+const shuttleRepositionThreshold = 10
 
 // shuttleState carries cross-pass shuttle memory so a single worker's
 // idle→idle→reposition cadence survives between standing-loop passes: how many
@@ -192,33 +188,44 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 		return shuttleIdle(ctx, deps, out, current, fmt.Sprintf("no reachable, safe destinations within %d jumps", maxJumps))
 	}
 
-	// Board the best-paying destination that actually accepts passengers (berth
-	// class limits may board fewer than are waiting, or none), falling through to
-	// the next candidate a bounded number of times.
-	for i, c := range ranked {
-		if i >= shuttleLoadAttempts {
-			break
-		}
+	// Board the best destination that accepts passengers. Try EVERY ranked
+	// destination, not a fixed top-N: the biggest-fare long-hauls are the most
+	// contested and usually out-competed before this tick-deferred load lands, so
+	// the shuttle must fall through to winnable cheaper fares rather than give up.
+	c, loadResp, ok := boardBestDestination(ctx, deps, ranked, out)
+	if !ok {
+		return shuttleIdle(ctx, deps, out, current, "no loadable passengers this pass")
+	}
+	fmt.Fprintf(out, "shuttle: boarded %d for %s (%s, %d jumps) — %d cr booked\n", //nolint:errcheck
+		loadResp.Count, c.sysName, c.station, c.jumpDist, loadResp.TotalFare)
+	deps.State.boarded()
+	return shuttleDeliver(ctx, deps, out, c, loadResp.TotalFare)
+}
+
+// boardBestDestination tries each ranked destination in order and boards the first
+// that accepts at least one passenger, returning that candidate and the load
+// response. It tries ALL ranked destinations (not a fixed top-N) so that when the
+// premium long-hauls are out-competed for the tick-deferred load, the shuttle
+// still falls through to winnable cheaper fares instead of idling. Returns
+// ok=false when no destination boarded anyone this pass.
+func boardBestDestination(ctx context.Context, deps ShuttleDeps, ranked []shuttleCandidate, out io.Writer) (shuttleCandidate, *serverapi.LoadPassengerResponse, bool) {
+	for _, c := range ranked {
 		loadResp, lerr := deps.Client.LoadPassenger(ctx, c.station)
 		if lerr != nil {
 			fmt.Fprintf(out, "shuttle: load for %s failed: %v; trying next\n", c.station, lerr) //nolint:errcheck
 			continue
 		}
 		if loadResp.Count == 0 {
-			// 0 boarded can mean the fares were taken by another ship between the
-			// listing and this tick-deferred load, OR no free berth of a matching
-			// class. The returned berth occupancy disambiguates (free capacity =>
-			// taken by another), so report it rather than assuming a fit problem.
+			// 0 boarded means the fares were taken by another ship between the
+			// listing and this tick-deferred load, or no free berth of a matching
+			// class. Either way, fall through to the next candidate.
 			fmt.Fprintf(out, "shuttle: 0 boarded for %s (taken by another, or no matching free berth); ship berths economy=%q business=%q first=%q; trying next\n", //nolint:errcheck
 				c.station, loadResp.EconomyBerths, loadResp.BusinessBerths, loadResp.FirstBerths)
 			continue
 		}
-		fmt.Fprintf(out, "shuttle: boarded %d for %s (%s, %d jumps) — %d cr booked\n", //nolint:errcheck
-			loadResp.Count, c.sysName, c.station, c.jumpDist, loadResp.TotalFare)
-		deps.State.boarded()
-		return shuttleDeliver(ctx, deps, out, c, loadResp.TotalFare)
+		return c, loadResp, true
 	}
-	return shuttleIdle(ctx, deps, out, current, "no loadable passengers this pass")
+	return shuttleCandidate{}, nil, false
 }
 
 // shuttleIdle logs a boardless-pass reason and, once the consecutive dry streak

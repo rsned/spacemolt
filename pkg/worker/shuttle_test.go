@@ -1,12 +1,90 @@
 package worker
 
 import (
+	"context"
 	"io"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
+
+// fakeShuttleClient is a minimal game.GameClient for boardBestDestination tests:
+// it embeds the interface (unimplemented methods panic) and records LoadPassenger
+// calls, returning a per-destination canned response (default: 0 boarded).
+type fakeShuttleClient struct {
+	game.GameClient
+	loadResults map[string]*serverapi.LoadPassengerResponse
+	loadCalls   []string
+}
+
+func (f *fakeShuttleClient) LoadPassenger(_ context.Context, destination string) (*serverapi.LoadPassengerResponse, error) {
+	f.loadCalls = append(f.loadCalls, destination)
+	if r, ok := f.loadResults[destination]; ok {
+		return r, nil
+	}
+	return &serverapi.LoadPassengerResponse{Count: 0}, nil
+}
+
+// boardBestDestination must try EVERY ranked destination, not a fixed top-N: when
+// the high-fare destinations are out-competed (0 boarded), it falls through to a
+// winnable cheaper fare deep in the list rather than giving up.
+func TestBoardBestDestinationTriesAllRanked(t *testing.T) {
+	ranked := make([]shuttleCandidate, 0, 9)
+	for i := range 8 {
+		ranked = append(ranked, shuttleCandidate{station: "contested" + string(rune('A'+i))})
+	}
+	ranked = append(ranked, shuttleCandidate{station: "winnable", sysName: "Cheap", jumpDist: 2})
+
+	fc := &fakeShuttleClient{loadResults: map[string]*serverapi.LoadPassengerResponse{
+		"winnable": {Count: 1, TotalFare: 900},
+	}}
+	c, resp, ok := boardBestDestination(context.Background(), ShuttleDeps{Client: fc}, ranked, io.Discard)
+	if !ok {
+		t.Fatalf("expected a board on the 9th (winnable) destination, got ok=false")
+	}
+	if c.station != "winnable" || resp.Count != 1 || resp.TotalFare != 900 {
+		t.Fatalf("boarded wrong candidate: station=%q count=%d fare=%d", c.station, resp.Count, resp.TotalFare)
+	}
+	if len(fc.loadCalls) != 9 {
+		t.Fatalf("expected all 9 destinations tried (old top-6 cap removed), got %d: %v", len(fc.loadCalls), fc.loadCalls)
+	}
+}
+
+// boardBestDestination stops at the first destination that boards anyone; it does
+// not keep trying (and tick-spending) once a fare is secured.
+func TestBoardBestDestinationStopsAtFirstBoard(t *testing.T) {
+	ranked := []shuttleCandidate{
+		{station: "first"},
+		{station: "second"},
+		{station: "third"},
+	}
+	fc := &fakeShuttleClient{loadResults: map[string]*serverapi.LoadPassengerResponse{
+		"first":  {Count: 2, TotalFare: 5000},
+		"second": {Count: 1, TotalFare: 1000},
+	}}
+	c, resp, ok := boardBestDestination(context.Background(), ShuttleDeps{Client: fc}, ranked, io.Discard)
+	if !ok || c.station != "first" || resp.Count != 2 {
+		t.Fatalf("expected to board 'first' and stop: ok=%v station=%q count=%d", ok, c.station, resp.Count)
+	}
+	if len(fc.loadCalls) != 1 {
+		t.Fatalf("expected to stop after first board, but tried %d: %v", len(fc.loadCalls), fc.loadCalls)
+	}
+}
+
+// With no destination accepting anyone, boardBestDestination reports no board.
+func TestBoardBestDestinationAllContested(t *testing.T) {
+	ranked := []shuttleCandidate{{station: "a"}, {station: "b"}}
+	fc := &fakeShuttleClient{} // every LoadPassenger returns Count 0
+	_, _, ok := boardBestDestination(context.Background(), ShuttleDeps{Client: fc}, ranked, io.Discard)
+	if ok {
+		t.Fatalf("expected ok=false when nothing boards")
+	}
+	if len(fc.loadCalls) != 2 {
+		t.Fatalf("expected both contested destinations tried, got %d", len(fc.loadCalls))
+	}
+}
 
 func TestRankShuttleDestinations(t *testing.T) {
 	// sol --- ac --- procyon
