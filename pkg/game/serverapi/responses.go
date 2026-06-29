@@ -1378,6 +1378,37 @@ type ListStationPassengersResponse struct {
 	Waiting []StationPassenger `json:"waiting"`
 }
 
+// AboardPassenger is one passenger currently aboard the ship, as returned in the
+// list_passengers "passengers" array. Unlike StationPassenger (a fare still
+// waiting at a station) it carries the live fare-guarantee countdown: Fare is the
+// base fare due on delivery, SpeedBonus the extra paid for prompt delivery (it
+// decays toward 0 as TicksRemaining runs down), and TicksRemaining the ticks left
+// before the guarantee expires. Destination/DestinationSystem locate the drop-off.
+type AboardPassenger struct {
+	CitizenID         string `json:"citizen_id"`
+	Name              string `json:"name"`
+	Bio               string `json:"bio"`
+	Class             string `json:"class"`
+	Destination       string `json:"destination"`
+	DestinationName   string `json:"destination_name"`
+	DestinationSystem string `json:"destination_system"`
+	Fare              int    `json:"fare"`
+	SpeedBonus        int    `json:"speed_bonus"`
+	TicksRemaining    int    `json:"ticks_remaining"`
+}
+
+// ListPassengersResponse wraps the list_passengers response: the passengers
+// currently aboard plus the ship's total passenger berths by class, reported as
+// gauge strings (e.g. "2/3"). Returned by GameClient.ListPassengers.
+type ListPassengersResponse struct {
+	Action         string            `json:"action,omitempty"`
+	Count          int               `json:"count"`
+	EconomyBerths  string            `json:"economy_berths"`
+	BusinessBerths string            `json:"business_berths"`
+	FirstBerths    string            `json:"first_berths"`
+	Passengers     []AboardPassenger `json:"passengers"`
+}
+
 // LoadedPassenger is a single passenger actually boarded by load_passenger.
 type LoadedPassenger struct {
 	Name            string `json:"name"`

@@ -1262,6 +1262,26 @@ func (m *MCPGameClient) LoadPassenger(ctx context.Context, destination string) (
 	return &out, nil
 }
 
+// ListPassengers returns the passengers currently aboard via the MCP bridge.
+func (m *MCPGameClient) ListPassengers(ctx context.Context) (*serverapi.ListPassengersResponse, error) {
+	raw, err := m.callTool(ctx, "list_passengers", map[string]any{})
+	if err != nil {
+		return nil, err
+	}
+	var out serverapi.ListPassengersResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("list_passengers: decode: %w", err)
+	}
+	return &out, nil
+}
+
+// UnloadPassenger puts a passenger (or "all") off at the current station via the
+// MCP bridge.
+func (m *MCPGameClient) UnloadPassenger(ctx context.Context, nameOrID string) error {
+	_, err := m.callTool(ctx, "unload_passenger", map[string]any{"name": nameOrID})
+	return err
+}
+
 // --- Batch 4.5 additions: methods added to GameClient interface for REPL migration ---
 
 func (m *MCPGameClient) Battle(ctx context.Context, action string, payload map[string]any) error {

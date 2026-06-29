@@ -506,6 +506,14 @@ func (m *mockGameClient) LoadPassenger(_ context.Context, _ string) (*serverapi.
 	return &serverapi.LoadPassengerResponse{}, nil
 }
 
+func (m *mockGameClient) ListPassengers(_ context.Context) (*serverapi.ListPassengersResponse, error) {
+	return &serverapi.ListPassengersResponse{}, nil
+}
+
+func (m *mockGameClient) UnloadPassenger(_ context.Context, _ string) error {
+	return nil
+}
+
 // Combat
 func (m *mockGameClient) Battle(ctx context.Context, action string, payload map[string]any) error {
 	return nil

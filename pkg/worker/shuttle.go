@@ -157,6 +157,21 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 	// the safe point to pull a treasury rescue before earning the next fares.
 	deps.Treasury.maybe(ctx, deps.Client, out, shuttleNow(deps))
 
+	// Deliver anyone already aboard BEFORE hunting new fares. A prior pass may have
+	// boarded passengers whose delivery never completed (a worker restart caught it
+	// mid-run, or a transit/dock failure), and the manifest lives server-side — so a
+	// fresh worker that skips straight to boarding finds its berths full, gets 0 on
+	// every load_passenger, and never collects a fare: a silent deadlock. This clears
+	// it by finishing the delivery first. Returns delivered=true when it flew/docked
+	// this pass, so we re-enter next pass to handle any remaining aboard passengers
+	// or resume boarding.
+	if delivered, derr := deliverAboardPassengers(ctx, deps, out, current, maxJumps); derr != nil {
+		fmt.Fprintf(out, "shuttle: aboard-delivery error: %v; idling\n", derr) //nolint:errcheck
+		return nil
+	} else if delivered {
+		return nil
+	}
+
 	resp, err := deps.Client.ListStationPassengers(ctx, "")
 	if err != nil {
 		fmt.Fprintf(out, "shuttle: list passengers failed: %v; idling\n", err) //nolint:errcheck
@@ -200,6 +215,132 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 		loadResp.Count, c.sysName, c.station, c.jumpDist, loadResp.TotalFare)
 	deps.State.boarded()
 	return shuttleDeliver(ctx, deps, out, c, loadResp.TotalFare)
+}
+
+// deliverAboardPassengers checks the ship's manifest and, if anyone is aboard,
+// finishes delivering them before the worker boards new fares. It is the fix for
+// the berth deadlock: a prior pass's incomplete delivery (a restart caught mid-run,
+// or a transit/dock failure) would otherwise leave the berths full forever — every
+// load_passenger returns 0 and no fare is ever collected. It delivers ONE
+// destination per call (the soonest-to-expire fare) and returns delivered=true so
+// the caller re-enters and clears the rest next pass. Aboard passengers whose
+// destination is unroutable (unknown/over-budget system, or a stronghold the
+// shuttle must not enter) are stranded via unload to free the berths, rather than
+// holding them hostage indefinitely. Returns delivered=false (cheaply, no graph
+// build) when nobody is aboard.
+func deliverAboardPassengers(ctx context.Context, deps ShuttleDeps, out io.Writer, current string, maxJumps int) (bool, error) {
+	resp, err := deps.Client.ListPassengers(ctx)
+	if err != nil {
+		return false, fmt.Errorf("list aboard passengers: %w", err)
+	}
+	if resp == nil || len(resp.Passengers) == 0 {
+		return false, nil // nobody aboard — proceed to boarding
+	}
+
+	systems, err := deps.KB.GetSystems(ctx)
+	if err != nil {
+		return false, fmt.Errorf("get systems: %w", err)
+	}
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		return false, fmt.Errorf("get connections: %w", err)
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+	nameToID := buildNameToID(systems)
+	strongholdByID := make(map[string]bool, len(systems))
+	for _, s := range systems {
+		if s.IsStronghold {
+			strongholdByID[s.ID] = true
+		}
+	}
+
+	target, urgentTicks, routable := mostUrgentAboardDestination(resp.Passengers, current, graph, nameToID, strongholdByID, maxJumps)
+	if !routable {
+		// Nothing aboard can be routed (unknown/over-budget systems, or
+		// stronghold-only destinations the shuttle must not enter). Strand them to
+		// free the berths so the shuttle can earn again — holding undeliverable
+		// passengers forever is the worse outcome.
+		fmt.Fprintf(out, "shuttle: %d aboard but no routable destination; unloading all to free berths\n", len(resp.Passengers)) //nolint:errcheck
+		if uerr := deps.Client.UnloadPassenger(ctx, "all"); uerr != nil {
+			fmt.Fprintf(out, "shuttle: unload all failed: %v\n", uerr) //nolint:errcheck
+		}
+		return false, nil
+	}
+
+	fmt.Fprintf(out, "shuttle: %d aboard; delivering %d to %s (%s, %d jumps, soonest expires in %d ticks) before boarding\n", //nolint:errcheck
+		len(resp.Passengers), target.pax, target.sysName, target.station, target.jumpDist, urgentTicks)
+	// bookedFare 0: these fares were booked on an earlier pass, so there is no new
+	// treasury cut to take here; the server still collects the passenger's fare on
+	// the delivering dock.
+	if derr := shuttleDeliver(ctx, deps, out, target, 0); derr != nil {
+		return false, derr
+	}
+	return true, nil
+}
+
+// mostUrgentAboardDestination groups the aboard passengers by destination station,
+// drops any whose system is unknown, beyond maxJumps, or a stronghold (the shuttle
+// must never fly into one), and returns the routable destination whose most-urgent
+// passenger has the fewest ticks remaining — soonest-to-expire fare delivered
+// first. routable is false when no aboard passenger has a deliverable destination.
+func mostUrgentAboardDestination(aboard []serverapi.AboardPassenger, current string, graph navigation.JumpGraph, nameToID map[string]string, strongholdByID map[string]bool, maxJumps int) (cand shuttleCandidate, urgentTicks int, routable bool) {
+	type group struct {
+		cand     shuttleCandidate
+		minTicks int
+	}
+	groups := make(map[string]*group)
+	for _, p := range aboard {
+		if p.Destination == "" {
+			continue
+		}
+		sysID := resolveShuttleSystemID(p.DestinationSystem, graph, nameToID)
+		if sysID == "" || strongholdByID[sysID] {
+			continue // unknown system or stronghold — not a place the shuttle delivers
+		}
+		g := groups[p.Destination]
+		if g == nil {
+			name := p.DestinationName
+			if name == "" {
+				name = p.DestinationSystem
+			}
+			g = &group{cand: shuttleCandidate{station: p.Destination, system: sysID, sysName: name}, minTicks: p.TicksRemaining}
+			groups[p.Destination] = g
+		}
+		g.cand.pax++
+		g.cand.fare += p.Fare
+		if p.TicksRemaining < g.minTicks {
+			g.minTicks = p.TicksRemaining
+		}
+	}
+	if len(groups) == 0 {
+		return shuttleCandidate{}, 0, false
+	}
+
+	sysSet := make(map[string]bool, len(groups))
+	for _, g := range groups {
+		sysSet[g.cand.system] = true
+	}
+	targets := make([]string, 0, len(sysSet))
+	for s := range sysSet {
+		targets = append(targets, s)
+	}
+	jumps := navigation.BFSJumps(graph, current, targets)
+
+	var best *group
+	for _, g := range groups {
+		j, ok := jumps[g.cand.system]
+		if !ok || j > maxJumps {
+			continue // unreachable or beyond the jump budget
+		}
+		g.cand.jumpDist = j
+		if best == nil || g.minTicks < best.minTicks {
+			best = g
+		}
+	}
+	if best == nil {
+		return shuttleCandidate{}, 0, false
+	}
+	return best.cand, best.minTicks, true
 }
 
 // boardBestDestination tries each ranked destination in order and boards the first

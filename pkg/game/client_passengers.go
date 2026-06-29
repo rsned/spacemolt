@@ -78,3 +78,54 @@ func (c *Client) LoadPassenger(ctx context.Context, destination string) (*server
 	}
 	return &out, nil
 }
+
+// ListPassengers returns the passengers currently aboard the ship — each with its
+// destination station and system, accommodation class, fare due on delivery, and
+// fare-guarantee countdown — plus the ship's total passenger berths by class. This
+// is a query (no tick cost). It is the basis for delivering already-boarded
+// passengers across worker restarts: the ship's manifest is server-side, so a
+// fresh worker can recover and finish a delivery instead of deadlocking on full
+// berths.
+func (c *Client) ListPassengers(ctx context.Context) (*serverapi.ListPassengersResponse, error) {
+	msg := protocol.Message{
+		Type:      "list_passengers",
+		Payload:   map[string]any{},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.await(ctx, h)
+	if err != nil {
+		return nil, err
+	}
+	var out serverapi.ListPassengersResponse
+	if err := decodePassengerPayload(resp.Payload, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// UnloadPassenger puts a passenger off at the current station (it must be docked).
+// If the station is the passenger's destination they are delivered and pay; other-
+// wise they are stranded here for no fare and a small reputation hit. Pass "all" to
+// unload every aboard passenger at once. Used as the deadlock safety valve: when an
+// aboard passenger's destination is unroutable, stranding frees the berths rather
+// than holding them hostage forever.
+func (c *Client) UnloadPassenger(ctx context.Context, nameOrID string) error {
+	if nameOrID == "" {
+		return fmt.Errorf("unload_passenger: missing passenger name or id")
+	}
+	msg := protocol.Message{
+		Type:      "unload_passenger",
+		Payload:   map[string]any{"name": nameOrID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+	return err
+}

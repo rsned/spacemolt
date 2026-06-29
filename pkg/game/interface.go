@@ -263,6 +263,8 @@ type GameClient interface {
 	// Passengers
 	ListStationPassengers(ctx context.Context, station string) (*serverapi.ListStationPassengersResponse, error)
 	LoadPassenger(ctx context.Context, destination string) (*serverapi.LoadPassengerResponse, error)
+	ListPassengers(ctx context.Context) (*serverapi.ListPassengersResponse, error)
+	UnloadPassenger(ctx context.Context, nameOrID string) error
 
 	// Generic passthrough for commands without explicit methods.
 	RawCommand(ctx context.Context, command string, args map[string]any) error

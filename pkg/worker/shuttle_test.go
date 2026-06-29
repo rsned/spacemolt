@@ -17,6 +17,7 @@ type fakeShuttleClient struct {
 	game.GameClient
 	loadResults map[string]*serverapi.LoadPassengerResponse
 	loadCalls   []string
+	aboard      *serverapi.ListPassengersResponse
 }
 
 func (f *fakeShuttleClient) LoadPassenger(_ context.Context, destination string) (*serverapi.LoadPassengerResponse, error) {
@@ -25,6 +26,72 @@ func (f *fakeShuttleClient) LoadPassenger(_ context.Context, destination string)
 		return r, nil
 	}
 	return &serverapi.LoadPassengerResponse{Count: 0}, nil
+}
+
+func (f *fakeShuttleClient) ListPassengers(_ context.Context) (*serverapi.ListPassengersResponse, error) {
+	if f.aboard != nil {
+		return f.aboard, nil
+	}
+	return &serverapi.ListPassengersResponse{}, nil
+}
+
+// With an empty manifest, deliverAboardPassengers must report nothing delivered
+// (and not touch the KB), so the caller falls through to boarding new fares.
+func TestDeliverAboardNobodyAboard(t *testing.T) {
+	fc := &fakeShuttleClient{} // ListPassengers -> empty
+	delivered, err := deliverAboardPassengers(context.Background(), ShuttleDeps{Client: fc}, io.Discard, "sol", DefaultShuttleMaxJumps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if delivered {
+		t.Fatalf("expected delivered=false with no one aboard")
+	}
+}
+
+// mostUrgentAboardDestination delivers the soonest-to-expire fare first, and never
+// routes to a stronghold, an unknown system, or one beyond the jump budget — even
+// when those carry the lowest ticks-remaining.
+func TestMostUrgentAboardDestination(t *testing.T) {
+	// sol --- ac --- procyon
+	//  | \
+	//  |  den (stronghold)
+	//  f1 --- f2 --- f3
+	graph := navigation.JumpGraph{
+		"sol":     {"ac", "den", "f1"},
+		"ac":      {"sol", "procyon"},
+		"procyon": {"ac"},
+		"den":     {"sol"},
+		"f1":      {"sol", "f2"},
+		"f2":      {"f1", "f3"},
+		"f3":      {"f2"},
+	}
+	strongholds := map[string]bool{"den": true}
+	aboard := []serverapi.AboardPassenger{
+		{Destination: "ac_station", DestinationSystem: "ac", DestinationName: "Alpha Centauri", TicksRemaining: 500, Fare: 400},
+		{Destination: "ac_station", DestinationSystem: "ac", TicksRemaining: 300, Fare: 400},
+		{Destination: "proc_station", DestinationSystem: "procyon", DestinationName: "Procyon", TicksRemaining: 100, Fare: 1000},
+		{Destination: "den_station", DestinationSystem: "den", TicksRemaining: 50, Fare: 9000},  // stronghold: excluded
+		{Destination: "far_station", DestinationSystem: "f3", TicksRemaining: 80, Fare: 2000},   // 3 jumps: over budget
+		{Destination: "ghost_station", DestinationSystem: "nowhere", TicksRemaining: 10, Fare: 1}, // unknown: excluded
+	}
+
+	// maxJumps=2 keeps ac (1) and procyon (2); procyon's 100 ticks is the most urgent.
+	cand, ticks, routable := mostUrgentAboardDestination(aboard, "sol", graph, map[string]string{}, strongholds, 2)
+	if !routable {
+		t.Fatal("expected routable=true")
+	}
+	if cand.station != "proc_station" || ticks != 100 || cand.jumpDist != 2 {
+		t.Fatalf("got %+v ticks=%d, want proc_station @2 jumps, 100 ticks", cand, ticks)
+	}
+
+	// Only a stronghold and an unknown system aboard => nothing routable.
+	stuck := []serverapi.AboardPassenger{
+		{Destination: "den_station", DestinationSystem: "den", TicksRemaining: 50},
+		{Destination: "ghost_station", DestinationSystem: "nowhere", TicksRemaining: 10},
+	}
+	if _, _, ok := mostUrgentAboardDestination(stuck, "sol", graph, map[string]string{}, strongholds, 8); ok {
+		t.Fatal("expected routable=false when only stronghold/unknown destinations are aboard")
+	}
 }
 
 // boardBestDestination must try EVERY ranked destination, not a fixed top-N: when
