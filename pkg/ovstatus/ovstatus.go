@@ -157,13 +157,22 @@ func renderRow(b *strings.Builder, w balances.LiveRecord, now time.Time) {
 		cls = " class=\"warn\""
 	}
 	fmt.Fprintf(b, "<tr%s>", cls)
-	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(w.AgentID))
+	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(nameText(w)))
 	fmt.Fprintf(b, "<td class=\"num\">%s</td>", html.EscapeString(formatCredits(w.Credits)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(roleText(w)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(statusText(w, stale)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(positionText(w)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(lastSeenText(w.LastSeen, now)))
 	b.WriteString("</tr>\n")
+}
+
+// nameText is the worker's agent id, suffixed with its faction tag as
+// "agent (TAG)" once the tag is known so the table shows faction membership.
+func nameText(w balances.LiveRecord) string {
+	if w.FactionTag != "" {
+		return fmt.Sprintf("%s (%s)", w.AgentID, w.FactionTag)
+	}
+	return w.AgentID
 }
 
 // roleText is the fleet role: the assigned role, noting the standing behavior

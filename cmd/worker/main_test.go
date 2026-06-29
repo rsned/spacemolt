@@ -14,6 +14,8 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 		CurrentSystem: "SOL", CurrentPOI: "ST-9", Doc: true,
 		Credits: 5000, Hull: 80, MaxHull: 100, Fuel: 30, MaxFuel: 50,
 	}
+	st.Player.FactionID = "fac-hash-123"
+	st.Player.FactionTag = "YSMT"
 	now := time.Unix(1000, 0)
 	got := buildStatus(st, "track_station", "t-1", false, now)
 	if got.System != "SOL" || got.POI != "ST-9" || got.Credits != 5000 {
@@ -21,6 +23,9 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 	}
 	if got.StandingBehavior != "track_station" || got.ActiveTaskID != "t-1" {
 		t.Fatalf("buildStatus labels wrong: %+v", got)
+	}
+	if got.FactionID != "fac-hash-123" || got.FactionTag != "YSMT" {
+		t.Fatalf("buildStatus faction fields wrong: id=%q tag=%q", got.FactionID, got.FactionTag)
 	}
 	if got.Timestamp == "" {
 		t.Fatalf("timestamp missing")

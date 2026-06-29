@@ -337,6 +337,17 @@ func main() {
 				nowState := client.GetState()
 				nowTick := int(nowState.CurrentTick)
 
+				// Self-heal the faction tag for a worker that joined a faction
+				// mid-run: the tag is only carried by faction_info, not any
+				// player payload, so fetch it once when we have a faction id but
+				// no tag yet. The response populates state asynchronously via the
+				// client handler, so this naturally stops once the tag lands.
+				if nowState.Player.FactionID != "" && nowState.Player.FactionTag == "" {
+					if fiErr := client.FactionInfo(ctx); fiErr != nil {
+						logger.Printf("warning: faction_info (tag refresh): %v", fiErr)
+					}
+				}
+
 				tid := ""
 				if p := activeTaskID.Load(); p != nil {
 					tid = *p
@@ -445,6 +456,8 @@ func buildStatus(st *game.State, standing, taskID string, drained bool, now time
 		CargoCapacity:    st.Ship.CargoCapacity,
 		StandingBehavior: standing,
 		ActiveTaskID:     taskID,
+		FactionID:        st.Player.FactionID,
+		FactionTag:       st.Player.FactionTag,
 		Drained:          drained,
 		Timestamp:        now.Format(time.RFC3339Nano),
 	}

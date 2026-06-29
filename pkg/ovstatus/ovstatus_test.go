@@ -111,6 +111,15 @@ func TestRenderMissingFileAndStale(t *testing.T) {
 	}
 }
 
+func TestNameText(t *testing.T) {
+	if got := nameText(balances.LiveRecord{AgentID: "alpha"}); got != "alpha" {
+		t.Errorf("nameText without tag = %q, want %q", got, "alpha")
+	}
+	if got := nameText(balances.LiveRecord{AgentID: "alpha", FactionTag: "YSMT"}); got != "alpha (YSMT)" {
+		t.Errorf("nameText with tag = %q, want %q", got, "alpha (YSMT)")
+	}
+}
+
 func TestFormatCredits(t *testing.T) {
 	cases := map[float64]string{0: "0", 999: "999", 1000: "1,000", 1234567: "1,234,567", -2500: "-2,500"}
 	for in, want := range cases {

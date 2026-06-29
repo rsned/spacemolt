@@ -39,6 +39,8 @@ type LiveRecord struct {
 	CargoCapacity    float64 `json:"cargo_capacity"`
 	StandingBehavior string  `json:"standing_behavior"`
 	ActiveTaskID     string  `json:"active_task_id"`
+	FactionID        string  `json:"faction_id,omitempty"`
+	FactionTag       string  `json:"faction_tag,omitempty"`
 	Healthy          bool    `json:"healthy"`
 	Restarts         int     `json:"restarts"`
 	// Seen is true once the worker has sent at least one heartbeat, so its

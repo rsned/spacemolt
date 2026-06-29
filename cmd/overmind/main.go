@@ -213,7 +213,8 @@ func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.
 			Fuel: st.Fuel, MaxFuel: st.MaxFuel,
 			CargoUsed: st.CargoUsed, CargoCapacity: st.CargoCapacity,
 			StandingBehavior: st.StandingBehavior,
-			ActiveTaskID:     st.ActiveTaskID, Healthy: w.Healthy, Restarts: w.Restarts,
+			ActiveTaskID:     st.ActiveTaskID, FactionID: st.FactionID, FactionTag: st.FactionTag,
+			Healthy: w.Healthy, Restarts: w.Restarts,
 			// Seen requires a real status heartbeat (Timestamp is always set on
 			// one), not merely a Hello — otherwise credits read as a bogus 0
 			// before the first heartbeat, poisoning the starting balance.

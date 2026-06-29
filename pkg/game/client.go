@@ -4527,6 +4527,25 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// When a faction_info payload describes the worker's OWN membership,
+		// capture the readable tag into player state. The tag is not present in
+		// any player payload (only the faction_id hash is), so this is the sole
+		// source workers have for rendering "agent (TAG)" on the status page.
+		if storeKey == "faction_info" {
+			isMember, _ := resp.Payload["is_member"].(bool)
+			tag, _ := resp.Payload["tag"].(string)
+			if isMember || tag != "" {
+				id, _ := resp.Payload["id"].(string)
+				c.mu.Lock()
+				if tag != "" {
+					c.state.Player.FactionTag = tag
+				}
+				if id != "" && c.state.Player.FactionID == "" {
+					c.state.Player.FactionID = id
+				}
+				c.mu.Unlock()
+			}
+		}
 		// Store faction intel status (faction_intel_status). Live payload has
 		// no "action" field; key on the distinctive pois_known stat so the
 		// REPL formatter can find it (faction_trade_intel_status uses

@@ -39,6 +39,7 @@ type Player struct {
 	DockedAtBase      string                 `json:"docked_at_base"`
 	FactionID         string                 `json:"faction_id,omitempty"`
 	FactionRank       string                 `json:"faction_rank,omitempty"`
+	FactionTag        string                 `json:"faction_tag,omitempty"` // readable faction tag (e.g. "YSMT"); not in player payload, captured from faction_info
 	StatusMessage     string                 `json:"status_message,omitempty"`
 	ClanTag           string                 `json:"clan_tag,omitempty"`
 	PrimaryColor      string                 `json:"primary_color,omitempty"`

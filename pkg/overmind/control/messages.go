@@ -49,6 +49,8 @@ type Status struct {
 	CargoCapacity    float64 `json:"cargo_capacity"`
 	StandingBehavior string  `json:"standing_behavior"`
 	ActiveTaskID     string  `json:"active_task_id"`
+	FactionID        string  `json:"faction_id,omitempty"`
+	FactionTag       string  `json:"faction_tag,omitempty"`
 	Drained          bool    `json:"drained,omitempty"`
 	Timestamp        string  `json:"timestamp"`
 }
