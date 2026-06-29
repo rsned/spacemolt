@@ -273,16 +273,16 @@ func main() {
 			var execMu sync.Mutex
 			go func() {
 				deps := worker.StandingDeps{
-					Runner:    dispatch,
-					Scheduler: sched,
-					Client:    client,
-					ExecMu:    &execMu,
+					Runner:     dispatch,
+					Scheduler:  sched,
+					Client:     client,
+					ExecMu:     &execMu,
 					Paused:     paused.Load,
 					Draining:   draining.Load,
 					SetDrained: drained.Store,
 					Out:        os.Stdout,
-					NowFn:     func() time.Time { return time.Now().UTC() },
-					AgentID:   *agentID,
+					NowFn:      func() time.Time { return time.Now().UTC() },
+					AgentID:    *agentID,
 					NextTask: func() *worker.AssignedTask {
 						t := pendingTask.Swap(nil)
 						if t != nil {
@@ -429,9 +429,13 @@ func nudgeReconnect(c reconnectable) bool {
 // buildStatus constructs a control.Status heartbeat snapshot from game state.
 func buildStatus(st *game.State, standing, taskID string, drained bool, now time.Time) control.Status {
 	return control.Status{
-		System:           displaySystem(st),
-		POI:              st.CurrentPOI,
-		Docked:           st.CurrentPOI != "" && !st.Traveling,
+		System: displaySystem(st),
+		POI:    st.CurrentPOI,
+		// Docked must reflect a real station/outpost dock, not merely "parked at
+		// some POI": st.Doc is the server flag (true only at station/outpost,
+		// false at gas clouds/suns/planets and during transit), so a hauler
+		// passing through a station-less system no longer reports a phantom dock.
+		Docked:           st.Doc && !st.Traveling,
 		Hull:             st.Hull,
 		MaxHull:          st.MaxHull,
 		Fuel:             st.Fuel,
@@ -451,7 +455,7 @@ func buildKnownState(st *game.State, tick int) checkpoint.KnownState {
 	return checkpoint.KnownState{
 		System:  st.CurrentSystem,
 		POI:     st.CurrentPOI,
-		Docked:  st.CurrentPOI != "" && !st.Traveling,
+		Docked:  st.Doc && !st.Traveling, // authoritative server flag; see buildStatus
 		Credits: st.Credits,
 		Tick:    tick,
 	}

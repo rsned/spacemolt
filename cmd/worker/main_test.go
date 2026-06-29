@@ -11,7 +11,7 @@ import (
 
 func TestBuildStatusAndKnownState(t *testing.T) {
 	st := &game.State{
-		CurrentSystem: "SOL", CurrentPOI: "ST-9",
+		CurrentSystem: "SOL", CurrentPOI: "ST-9", Doc: true,
 		Credits: 5000, Hull: 80, MaxHull: 100, Fuel: 30, MaxFuel: 50,
 	}
 	now := time.Unix(1000, 0)
@@ -25,9 +25,10 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 	if got.Timestamp == "" {
 		t.Fatalf("timestamp missing")
 	}
-	// Docked derived as CurrentPOI != "" && !Traveling; Traveling defaults to false.
+	// Docked reflects the authoritative st.Doc (set true at a real station) and
+	// !Traveling; Traveling defaults to false here.
 	if !got.Docked {
-		t.Fatalf("expected docked=true when POI set and not traveling, got false")
+		t.Fatalf("expected docked=true when docked at a station and not traveling, got false")
 	}
 	ks := buildKnownState(st, 7)
 	if ks.System != "SOL" || ks.Credits != 5000 || ks.Tick != 7 {
@@ -35,6 +36,27 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 	}
 	if !ks.Docked {
 		t.Fatalf("expected ks.Docked=true, got false")
+	}
+}
+
+// buildStatus must NOT report docked when the worker is merely parked at a
+// non-station POI (a gas cloud passed through mid-route) or is in transit — the
+// stale-docked phantom that made haulers/shuttles look docked in station-less
+// systems like Scheat and HR 8832.
+func TestBuildStatusDockedOnlyAtStation(t *testing.T) {
+	now := time.Unix(1000, 0)
+	// Parked at a gas cloud: has a POI, but the server flag is false.
+	parked := &game.State{CurrentSystem: "scheat", CurrentPOI: "scheat_haze", Doc: false}
+	if buildStatus(parked, "shuttle", "", false, now).Docked {
+		t.Fatal("parked at a non-station POI must report Docked=false")
+	}
+	// In transit: Doc may linger from the last dock, but Traveling is set.
+	transit := &game.State{CurrentSystem: "sol", CurrentPOI: "sol_station", Doc: true, Traveling: true}
+	if buildStatus(transit, "hauler", "", false, now).Docked {
+		t.Fatal("in transit must report Docked=false even with a lingering Doc")
+	}
+	if buildKnownState(transit, 1).Docked {
+		t.Fatal("buildKnownState in transit must report Docked=false")
 	}
 }
 
