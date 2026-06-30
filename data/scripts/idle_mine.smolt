@@ -1,7 +1,11 @@
 # Resident idle local-mining cycle. Location POIs resolve from live state.
+# refuel FIRST, while still docked from the prior cycle: it tops the tank up
+# before each trip AND recovers a bot that has run itself to empty. A trailing
+# refuel can't do that — an empty bot can't undock to reach it.
+refuel
 undock
 travel $ASTEROID_BELT$
-loop -f 20 mine
+loop -f 25 mine
 travel $STATION$
 dock
 deposit_all
