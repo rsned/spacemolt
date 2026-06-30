@@ -1,0 +1,10 @@
+# Resident idle ice-harvesting cycle (needs an ice_harvester fitted; the home
+# system has an ice_field but no asteroid belt). Mirrors idle_mine.
+# refuel FIRST, while docked: tops the tank each cycle AND recovers an empty bot.
+refuel
+undock
+travel $ICE_FIELD$
+loop -f 25 mine
+travel $STATION$
+dock
+deposit_all

@@ -128,6 +128,8 @@ data/scripts/*.smolt
 !data/scripts/mining_run.smolt
 !data/scripts/mine_local.smolt
 !data/scripts/haul.smolt
+!data/scripts/idle_gas.smolt
+!data/scripts/idle_ice.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit

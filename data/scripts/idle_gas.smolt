@@ -1,0 +1,10 @@
+# Resident idle gas-harvesting cycle (needs a gas_harvester fitted; the home
+# system has a gas_cloud but no asteroid belt). Mirrors idle_mine.
+# refuel FIRST, while docked: tops the tank each cycle AND recovers an empty bot.
+refuel
+undock
+travel $GAS_CLOUD$
+loop -f 25 mine
+travel $STATION$
+dock
+deposit_all

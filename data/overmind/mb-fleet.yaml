@@ -3,11 +3,11 @@
 # tasked for stations they can't reach yet): algol, alhena, barnard_44, bellatrix,
 # gliese_581, gsc_0008, sheratan, xamidimura, zaniah.
 workers:
-  - { agent_id: marketbot_alpha_centauri, role: resident, station: "" }
+  - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
   - { agent_id: marketbot_blood_forge, role: resident, station: "" }
-  - { agent_id: marketbot_cargo_lanes, role: resident, station: "" }
-  - { agent_id: marketbot_deep_range, role: resident, station: "" }
-  - { agent_id: marketbot_factory_belt, role: resident, station: "" }
+  - { agent_id: marketbot_cargo_lanes, role: resident_gas, station: "" }
+  - { agent_id: marketbot_deep_range, role: resident_gas, station: "" }  # belt+gas+ice available; user fit gas
+  - { agent_id: marketbot_factory_belt, role: resident_gas, station: "" }
   - { agent_id: marketbot_first_step, role: resident, station: "" }
   - { agent_id: marketbot_frontier, role: resident, station: "" }
   - { agent_id: marketbot_gold_run, role: resident, station: "" }
@@ -21,16 +21,16 @@ workers:
   - { agent_id: marketbot_node_beta, role: resident, station: "" }
   - { agent_id: marketbot_node_gamma, role: resident, station: "" }
   - { agent_id: marketbot_nova_terra, role: resident, station: "" }
-  - { agent_id: marketbot_procyon, role: resident, station: "" }
+  - { agent_id: marketbot_procyon, role: resident_gas, station: "" }  # has gas+ice; defaulted to gas — flip to resident_ice if you fit an ice_harvester
   - { agent_id: marketbot_ramens_rest, role: resident, station: "" }
-  - { agent_id: marketbot_sirius, role: resident, station: "" }
+  - { agent_id: marketbot_sirius, role: resident_gas, station: "" }
   - { agent_id: marketbot_sol, role: resident, station: "" }
   - { agent_id: marketbot_starfall, role: resident, station: "" }
   - { agent_id: marketbot_synchrony, role: resident, station: "" }
   - { agent_id: marketbot_the_anvil, role: resident, station: "" }
-  - { agent_id: marketbot_the_crucible, role: resident, station: "" }
+  - { agent_id: marketbot_the_crucible, role: resident_gas, station: "" }
   - { agent_id: marketbot_the_experiment, role: resident, station: "" }
-  - { agent_id: marketbot_the_levy, role: resident, station: "" }
+  - { agent_id: marketbot_the_levy, role: resident_ice, station: "" }
   - { agent_id: marketbot_the_rampart, role: resident, station: "" }
   - { agent_id: marketbot_the_telescope, role: resident, station: "" }
   - { agent_id: marketbot_traders_rest, role: resident, station: "" }
