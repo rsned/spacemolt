@@ -1,0 +1,8 @@
+# Market-only idle: NO mining, so NO fuel/credit need. A docked bot captures
+# markets for free (station read). This just parks the bot docked at its home
+# station; the scheduled kb_update/view_market/update_market do the actual work.
+# dock  — re-docks a bot left undocked at a station POI (free, no fuel/travel).
+#         Harmless "already docked" if already docked; fails harmlessly at a belt.
+# refuel — tops the tank IF the bot has credits (no-op when broke; harmless).
+dock
+refuel

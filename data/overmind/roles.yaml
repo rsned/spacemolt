@@ -3,12 +3,16 @@
 # Commands and idle scripts may use $TOKEN$s resolved from live game state
 # ($SYSTEM$, $SHIP$, $CREDITS$, and POI-type tokens like $ASTEROID_BELT$, $STATION$).
 roles:
+  # PAUSED 2026-06-30: idle was idle_mine, but the mine/harvest round-trip
+  # stranded broke bots at 0 fuel (no credits to refuel — they store resources
+  # rather than sell, raw sells for ~0). Market-only until a funded-mining model
+  # exists. Flip idle back to idle_mine (+ a fuel/credit guard) to re-enable.
   resident:
     schedule:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: hourly, command: "update_market" }
-    idle: idle_mine
+    idle: idle_market
     idle_params:
       N: "20"
   # Resident marketbots whose home system has no asteroid belt but does have a
@@ -19,13 +23,13 @@ roles:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: hourly, command: "update_market" }
-    idle: idle_gas
+    idle: idle_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: hourly, command: "update_market" }
-    idle: idle_ice
+    idle: idle_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
       - { every: hourly, command: "update_market" }
