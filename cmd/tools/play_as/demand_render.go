@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 func renderDemandJSON(rep demandReport) string {
@@ -25,7 +27,17 @@ func renderDemandStyled(rep demandReport) string {
 		"CLASS", "ITEM", "PRICE", "DEMAND", "ONHAND", "AVGFILL", "FILLVAL", "CRAFT", "STATION")
 	for _, r := range rep.Rows {
 		station := r.StationID
-		if r.AgeStale {
+		if !r.CapturedAt.IsZero() {
+			ticks := int(rep.Generated.Sub(r.CapturedAt) / game.SleepTick)
+			if ticks < 0 {
+				ticks = 0
+			}
+			if r.AgeStale {
+				station += fmt.Sprintf(" (%dt ago, STALE)", ticks)
+			} else {
+				station += fmt.Sprintf(" (%dt ago)", ticks)
+			}
+		} else if r.AgeStale {
 			station += " (STALE)"
 		}
 		craft := ""
