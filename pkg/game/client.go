@@ -2746,6 +2746,27 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		invitedBy, _ := resp.Payload["invited_by"].(string)
 		c.debugLogger.Printf("[FACTION INVITE] %s (%s) invited by %s", factionName, factionID, invitedBy)
 
+	case protocol.TypeFactionAllianceProposal:
+		// Server-initiated notification that another faction proposed an alliance
+		// with ours. An offer, not a formed alliance — ratify out-of-band with
+		// faction_accept_ally. Log for visibility; tags arrive space-padded (see
+		// the faction_info handler), so trim before display.
+		fromFactionName, _ := resp.Payload["from_faction_name"].(string)
+		fromFactionID, _ := resp.Payload["from_faction_id"].(string)
+		fromFactionTag, _ := resp.Payload["from_faction_tag"].(string)
+		fromFactionTag = strings.TrimSpace(fromFactionTag)
+		c.debugLogger.Printf("[FACTION ALLIANCE PROPOSAL] %s [%s] (%s) proposes an alliance", fromFactionName, fromFactionTag, fromFactionID)
+
+	case protocol.TypeFactionAllianceFormed:
+		// Server-initiated notification that an alliance was ratified (a faction
+		// accepted our proposal). Log for visibility; alliance relations are not
+		// tracked in State. Tags arrive space-padded, so trim before display.
+		withFactionName, _ := resp.Payload["with_faction_name"].(string)
+		withFactionID, _ := resp.Payload["with_faction_id"].(string)
+		withFactionTag, _ := resp.Payload["with_faction_tag"].(string)
+		withFactionTag = strings.TrimSpace(withFactionTag)
+		c.debugLogger.Printf("[FACTION ALLIANCE FORMED] alliance formed with %s [%s] (%s)", withFactionName, withFactionTag, withFactionID)
+
 	case protocol.TypeCompleteMission:
 		// Server-initiated notification that a mission completed without an
 		// explicit complete_mission command — e.g. a distress/escort objective
@@ -4070,24 +4091,26 @@ func (c *Client) GetMarketListings() []MarketListing {
 // chat, a combat update, etc.) between the moment their command returns and
 // the moment they read _last.
 var pushOnlyResponseTypes = map[string]struct{}{
-	protocol.TypeTick:                {},
-	protocol.TypeStateUpdate:         {},
-	protocol.TypeChatMessage:         {},
-	protocol.TypeCombatUpdate:        {},
-	protocol.TypeBattleAlert:         {},
-	protocol.TypeBattleEnded:         {},
-	protocol.TypePirateWarning:       {},
-	protocol.TypePoliceWarning:       {},
-	protocol.TypePlayerDied:          {},
-	protocol.TypeScanDetected:        {},
-	protocol.TypeTradeOfferReceived:  {},
-	protocol.TypePilotlessShip:       {},
-	protocol.TypeReconnected:         {},
-	protocol.TypeSkillLevelUp:        {},
-	protocol.TypeFactionPromote:      {},
-	protocol.TypeFactionInvite:       {},
-	protocol.TypeFacilityRentWarning: {},
-	protocol.TypeAchievementUnlocked: {},
+	protocol.TypeTick:                    {},
+	protocol.TypeStateUpdate:             {},
+	protocol.TypeChatMessage:             {},
+	protocol.TypeCombatUpdate:            {},
+	protocol.TypeBattleAlert:             {},
+	protocol.TypeBattleEnded:             {},
+	protocol.TypePirateWarning:           {},
+	protocol.TypePoliceWarning:           {},
+	protocol.TypePlayerDied:              {},
+	protocol.TypeScanDetected:            {},
+	protocol.TypeTradeOfferReceived:      {},
+	protocol.TypePilotlessShip:           {},
+	protocol.TypeReconnected:             {},
+	protocol.TypeSkillLevelUp:            {},
+	protocol.TypeFactionPromote:          {},
+	protocol.TypeFactionInvite:           {},
+	protocol.TypeFactionAllianceProposal: {},
+	protocol.TypeFactionAllianceFormed:   {},
+	protocol.TypeFacilityRentWarning:     {},
+	protocol.TypeAchievementUnlocked:     {},
 }
 
 // storeRawJSON stores raw JSON payloads for key response types

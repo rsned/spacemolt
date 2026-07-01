@@ -77,8 +77,10 @@ const (
 	TypeGameplayTip = "gameplay_tip"
 
 	// Faction events
-	TypeFactionPromote = "faction_promote"
-	TypeFactionInvite  = "faction_invite"
+	TypeFactionPromote          = "faction_promote"
+	TypeFactionInvite           = "faction_invite"
+	TypeFactionAllianceProposal = "faction_alliance_proposal"
+	TypeFactionAllianceFormed   = "faction_alliance_formed"
 
 	// Achievement events
 	TypeAchievementUnlocked = "achievement_unlocked"
