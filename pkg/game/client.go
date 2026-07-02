@@ -2557,6 +2557,18 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	case protocol.TypeReconnected:
 		c.debugLogger.Printf("Reconnected to ship: %v", resp.Payload)
 
+	case protocol.TypePilotlessShip:
+		// Server-initiated notification that a player's ship went pilotless
+		// (they disconnected, often mid-combat) and sits adrift at a POI until
+		// it expires — a potential salvage/loot target. Informational: another
+		// player's ship, not ours, so we don't mutate State. Log for visibility.
+		var ev serverapi.PilotlessShip
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("[PILOTLESS SHIP] %s (%s) %s adrift at %s/%s — %d ticks until expire (tick %d)",
+			ev.PlayerUsername, ev.PlayerID, ev.ShipClass, ev.SystemID, ev.POIID, ev.TicksRemaining, ev.ExpireTick)
+
 	case protocol.TypePoliceSpawn:
 		c.debugLogger.Printf("🚔 POLICE SPAWN: %v", resp.Payload)
 
