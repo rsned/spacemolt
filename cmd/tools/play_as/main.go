@@ -8151,6 +8151,33 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return runDemand(client, ctx, opts, format)
 
+	case "unload":
+		opts := unloadOptions{topN: unloadDefaultTopN}
+		for i := 1; i < len(parts); i++ {
+			arg := parts[i]
+			switch {
+			case arg == "--all":
+				opts.topN = 0
+			case arg == "--no-storage":
+				opts.noStorage = true
+			case strings.HasPrefix(arg, "--top="):
+				n, err := strconv.Atoi(strings.TrimPrefix(arg, "--top="))
+				if err != nil {
+					return fmt.Errorf("unload: --top: %w", err)
+				}
+				opts.topN = n
+			case strings.HasPrefix(arg, "--min-proceeds="):
+				n, err := strconv.ParseInt(strings.TrimPrefix(arg, "--min-proceeds="), 10, 64)
+				if err != nil {
+					return fmt.Errorf("unload: --min-proceeds: %w", err)
+				}
+				opts.minProceeds = n
+			default:
+				return fmt.Errorf("unload: unknown flag %q", arg)
+			}
+		}
+		return runUnload(client, ctx, opts, format)
+
 	// === APPEARANCE ===
 	case "set_colors":
 		if len(parts) < 3 {
@@ -9187,6 +9214,7 @@ func printHelp() {
 	fmt.Println("  loop [-f] <count> <command>        - Repeat a command N times (-f continues on errors)")
 	fmt.Println("  loop [-f] <count> { stmt; stmt }   - Repeat a block; stmts may nest and use newlines or ';'")
 	fmt.Println("  sellable [-d] [--min-proceeds N]   - What can I sell here? (cargo+storage @ this station's market)")
+	fmt.Println("  unload [--top N|--all] [--no-storage] [--min-proceeds N] - Where to sell what I hold, ranked per item (market.db, all stations)")
 	fmt.Println("  sleep <secs> | wait <duration>     - Pause N seconds (or 30s, 1m, 500ms); Ctrl-C interrupts")
 	fmt.Println("  history                   - Show last 25 commands (persisted across sessions)")
 	fmt.Println("  mbox                      - Show unread message counts")
