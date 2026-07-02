@@ -5407,6 +5407,7 @@ func formatFactionInfo(raw []byte) string {
 		Charter        string `json:"charter"`
 		LeaderUsername string `json:"leader_username"`
 		MemberCount    int    `json:"member_count"`
+		MembersLimit   int    `json:"members_limit"`
 		OwnedBases     int    `json:"owned_bases"`
 		Treasury       int    `json:"treasury"`
 		PrimaryColor   string `json:"primary_color"`
@@ -5420,9 +5421,22 @@ func formatFactionInfo(raw []byte) string {
 			Role     string `json:"role"`
 			IsOnline bool   `json:"is_online"`
 		} `json:"members"`
+		Roles []struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			Priority    int    `json:"priority"`
+			Permissions struct {
+				ManageBases      bool `json:"manage_bases"`
+				ManageFacilities bool `json:"manage_facilities"`
+				ManageRoles      bool `json:"manage_roles"`
+				ManageTreasury   bool `json:"manage_treasury"`
+			} `json:"permissions"`
+		} `json:"roles"`
 		Allies []struct {
-			Name string `json:"name"`
-			Tag  string `json:"tag"`
+			Name           string `json:"name"`
+			Tag            string `json:"tag"`
+			PrimaryColor   string `json:"primary_color"`
+			SecondaryColor string `json:"secondary_color"`
 		} `json:"allies"`
 		Enemies []struct {
 			Name string `json:"name"`
@@ -5449,7 +5463,11 @@ func formatFactionInfo(raw []byte) string {
 	colorTag := colorizeHex("["+resp.Tag+"]", resp.PrimaryColor, resp.SecondaryColor)
 	fmt.Fprintf(&b, "%s %s\n", colorName, colorTag)
 	fmt.Fprintf(&b, "ID: %s\n", resp.ID)
-	fmt.Fprintf(&b, "Leader: %s | Members: %d | Bases: %d\n", resp.LeaderUsername, resp.MemberCount, resp.OwnedBases)
+	memberStr := fmt.Sprintf("%d", resp.MemberCount)
+	if resp.MembersLimit > 0 {
+		memberStr = fmt.Sprintf("%d/%d", resp.MemberCount, resp.MembersLimit)
+	}
+	fmt.Fprintf(&b, "Leader: %s | Members: %s | Bases: %d\n", resp.LeaderUsername, memberStr, resp.OwnedBases)
 
 	if resp.IsMember && resp.Treasury > 0 {
 		fmt.Fprintf(&b, "Treasury: %d credits\n", resp.Treasury)
@@ -5472,35 +5490,113 @@ func formatFactionInfo(raw []byte) string {
 		fmt.Fprintf(&b, "\nThis faction is an enemy.\n")
 	}
 
-	// Members (only shown for own faction)
+	// Members (only shown for own faction), grouped by role. Role groups are
+	// ordered by descending role priority (from the roles list); members are
+	// ordered alphabetically by username within each group.
 	if len(resp.Members) > 0 {
-		fmt.Fprintf(&b, "\nMembers:\n")
-		nameW, roleW := len("Username"), len("Role")
-		for _, m := range resp.Members {
-			nameW = max(nameW, len(m.Username))
-			roleW = max(roleW, len(m.Role))
+		type memRow struct {
+			username string
+			online   bool
 		}
-		fmt.Fprintf(&b, "  %-*s | %-*s | Status\n", nameW, "Username", roleW, "Role")
-		fmt.Fprintf(&b, "  %s-+-%s-+--------\n", strings.Repeat("-", nameW), strings.Repeat("-", roleW))
+		rolePriority := make(map[string]int, len(resp.Roles))
+		for _, r := range resp.Roles {
+			rolePriority[r.Name] = r.Priority
+		}
+		byRole := map[string][]memRow{}
+		nameW := 0
 		for _, m := range resp.Members {
-			status := "offline"
-			if m.IsOnline {
-				status = "online"
+			byRole[m.Role] = append(byRole[m.Role], memRow{m.Username, m.IsOnline})
+			nameW = max(nameW, len(m.Username))
+		}
+		roleOrder := make([]string, 0, len(byRole))
+		for r := range byRole {
+			roleOrder = append(roleOrder, r)
+		}
+		slices.SortStableFunc(roleOrder, func(a, c string) int {
+			if pa, pc := rolePriority[a], rolePriority[c]; pa != pc {
+				return pc - pa // higher priority first
 			}
-			name := colorizeHex(m.Username, resp.PrimaryColor, resp.SecondaryColor)
-			pad := nameW - len(m.Username)
-			if pad > 0 {
-				name += strings.Repeat(" ", pad)
+			return strings.Compare(a, c)
+		})
+
+		memberHdr := fmt.Sprintf("%d", resp.MemberCount)
+		if resp.MembersLimit > 0 {
+			memberHdr = fmt.Sprintf("%d/%d", resp.MemberCount, resp.MembersLimit)
+		}
+		fmt.Fprintf(&b, "\nMembers (%s):\n", memberHdr)
+		for _, role := range roleOrder {
+			rows := byRole[role]
+			slices.SortStableFunc(rows, func(a, c memRow) int { return strings.Compare(a.username, c.username) })
+			fmt.Fprintf(&b, "  %s:\n", role)
+			for _, mr := range rows {
+				status := "offline"
+				if mr.online {
+					status = "online"
+				}
+				name := colorizeHex(mr.username, resp.PrimaryColor, resp.SecondaryColor)
+				pad := nameW - len(mr.username)
+				if pad > 0 {
+					name += strings.Repeat(" ", pad)
+				}
+				fmt.Fprintf(&b, "    %s  %s\n", name, status)
 			}
-			fmt.Fprintf(&b, "  %s | %-*s | %s\n", name, roleW, m.Role, status)
 		}
 	}
 
-	// Allies
+	// Roles table: defined roles ordered by descending priority, with a
+	// checkbox grid for the manage_* permissions.
+	if len(resp.Roles) > 0 {
+		type roleRow struct {
+			name                       string
+			prio                       int
+			bases, facil, roles, treas bool
+		}
+		rr := make([]roleRow, 0, len(resp.Roles))
+		roleNameW := len("Role")
+		for _, r := range resp.Roles {
+			rr = append(rr, roleRow{r.Name, r.Priority,
+				r.Permissions.ManageBases, r.Permissions.ManageFacilities,
+				r.Permissions.ManageRoles, r.Permissions.ManageTreasury})
+			roleNameW = max(roleNameW, len(r.Name))
+		}
+		slices.SortStableFunc(rr, func(a, c roleRow) int { return c.prio - a.prio })
+
+		cb := func(v bool) string {
+			if v {
+				return "[x]"
+			}
+			return "[ ]"
+		}
+		center := func(s string, w int) string {
+			if len(s) >= w {
+				return s
+			}
+			l := (w - len(s)) / 2
+			return strings.Repeat(" ", l) + s + strings.Repeat(" ", w-len(s)-l)
+		}
+		const wBase, wFac, wRol, wTre = 5, 10, 5, 8
+		fmt.Fprintf(&b, "\nRoles:\n")
+		fmt.Fprintf(&b, "  %-*s | %4s | %s | %s | %s | %s\n",
+			roleNameW, "Role", "Prio", "Bases", "Facilities", "Roles", "Treasury")
+		fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
+			strings.Repeat("-", roleNameW), strings.Repeat("-", 4),
+			strings.Repeat("-", wBase), strings.Repeat("-", wFac),
+			strings.Repeat("-", wRol), strings.Repeat("-", wTre))
+		for _, r := range rr {
+			fmt.Fprintf(&b, "  %-*s | %4d | %s | %s | %s | %s\n",
+				roleNameW, r.name, r.prio,
+				center(cb(r.bases), wBase), center(cb(r.facil), wFac),
+				center(cb(r.roles), wRol), center(cb(r.treas), wTre))
+		}
+	}
+
+	// Allies (color-coded with each ally's own primary/secondary colors)
 	if len(resp.Allies) > 0 {
 		fmt.Fprintf(&b, "\nAllies:\n")
 		for _, a := range resp.Allies {
-			fmt.Fprintf(&b, "  %s [%s]\n", a.Name, a.Tag)
+			name := colorizeHex(a.Name, a.PrimaryColor, a.SecondaryColor)
+			tag := colorizeHex("["+a.Tag+"]", a.PrimaryColor, a.SecondaryColor)
+			fmt.Fprintf(&b, "  %s %s\n", name, tag)
 		}
 	}
 
