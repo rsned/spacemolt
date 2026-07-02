@@ -1097,12 +1097,47 @@ type FactionFuelBunker struct {
 	FuelCapacity int    `json:"fuel_capacity"`
 }
 
+// FactionFacility is one facility in a faction's holdings, as listed in the
+// faction_list response's faction_facilities array. Populated when the caller
+// is docked at a station where their faction has built facilities. capacity,
+// custom_name, and rental_fee_per_run appear only on facility types that use
+// them (storage/quarters/market for capacity; refineries for per-run fees).
+type FactionFacility struct {
+	FacilityID      string `json:"facility_id"`
+	Type            string `json:"type"`
+	Name            string `json:"name"`
+	CustomName      string `json:"custom_name,omitempty"`
+	FactionService  string `json:"faction_service,omitempty"`
+	Level           int    `json:"level"`
+	Status          string `json:"status"`
+	RentPerCycle    int    `json:"rent_per_cycle,omitempty"`
+	RentalFeePerRun int    `json:"rental_fee_per_run,omitempty"`
+	Capacity        int    `json:"capacity,omitempty"`
+}
+
+// FactionStorageSummary is the compact faction-storage snapshot carried by the
+// faction_list response. Full contents come from view_faction_storage
+// (ViewFactionStorageResponse); this is just the headline totals.
+type FactionStorageSummary struct {
+	Credits   int `json:"credits"`
+	ItemTypes int `json:"item_types"`
+	Rooms     int `json:"rooms"`
+}
+
 // FactionListResponse wraps the response from faction_list command.
 type FactionListResponse struct {
 	Factions   []FactionSummary `json:"factions"`
 	TotalCount int              `json:"total_count"`
 	Offset     int              `json:"offset,omitempty"`
 	Limit      int              `json:"limit,omitempty"`
+
+	// Faction-context fields, present when the caller is docked at a station
+	// where their faction has built facilities. Absent otherwise.
+	BaseID            string                 `json:"base_id,omitempty"`
+	FactionID         string                 `json:"faction_id,omitempty"`
+	FactionFacilities []FactionFacility      `json:"faction_facilities,omitempty"`
+	FactionStorage    *FactionStorageSummary `json:"faction_storage,omitempty"`
+	Hint              string                 `json:"hint,omitempty"`
 }
 
 // CreateFactionResponse wraps the response from create_faction command.
