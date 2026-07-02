@@ -11,7 +11,7 @@ A hauler's productivity is gated by **working capital**: `sizeBuy` (`pkg/worker/
 The existing treasury rescue (`pkg/worker/treasury.go`) does **not** cover this:
 
 - `treasuryRescueFloor = 1000`, `treasuryRescueAmount = 5000` — it only fires when a worker is essentially broke (< 1k), and 5k is nowhere near a viable fill. A worker sitting at 6k–90k is above the floor (no rescue) yet far below viable (can't trade). It churns buy→travel→buy indefinitely without completing a haul.
-- Withdrawals require the `manage_treasury` permission **and** presence at a `faction_storage` facility. **We currently own no faction facility**, so the treasury deposit/withdraw path is entirely non-functional. The 5% profit cut (`TreasuryProfitCut`, `depositProfitShare` at `haul.go:1009`) also silently no-ops.
+- Withdrawals require the `manage_treasury` permission, a `faction_storage` facility, **and the worker being docked at that facility's station**. Only one of our factions has built faction storage so far — the stronghold-access ("pirate friends") faction, whose Faction Warehouse (level 2, capacity 200k) holds ~329k credits — and it is **not in an overmind pool**. The factions the overmind haul pools run under have no faction storage, so for them the deposit/withdraw path is non-functional today and the 5% profit cut (`TreasuryProfitCut`, `depositProfitShare` at `haul.go:1009`) silently no-ops. Even where storage exists, withdrawal is **location-bound**: a stranded or broke hauler far from the warehouse (possibly out of fuel) cannot reach it to pull a rescue.
 
 **Observed instance (trader-8, 2026-07-01):** a ship-loss wiped its capital to 6,838 — above the 1k floor, so no rescue. It completed **2 hauls in 5 days** (last 06-27), churning otherwise. A manual `send_gift` of 100k restored it; within <1 day it completed **6 hauls / +161k profit**, filling its full 325 hold on bulk runs and affording high-margin loads. The 100k was the entire difference between dead and productive.
 
@@ -65,8 +65,8 @@ topUp = clamp(workingCapitalFloor - credits, minTopUp, maxTopUpPerEvent)
 
 ### Funding sources (priority order)
 
-1. **Faction treasury** — `FactionWithdrawCredits(topUp)` when a `faction_storage` facility exists and the worker holds `manage_treasury`. Currently always fails; kept as the preferred path for when facilities land.
-2. **Peer transfer (new, overmind-orchestrated)** — the overmind picks a **donor**: a same-faction fleet member whose `credits - topUp >= donorSafetyBuffer` (default 300_000, so donors keep their own working capital plus margin), preferring the richest. It assigns the donor a one-shot task `send_gift <recipient> credits <topUp>`. This is the working path today.
+1. **Faction treasury** — `FactionWithdrawCredits(topUp)` when the worker's faction has built `faction_storage`, the worker holds `manage_treasury`, **and the worker is docked at the warehouse station**. Viable today only for a faction that has storage (currently the non-pooled stronghold-access faction, ~329k); the overmind pools' factions must build storage first. It is **location-bound** — good when a worker is already at/adjacent to its faction warehouse, useless for a broke hauler stranded elsewhere. Prefer it in that narrow case; otherwise fall through.
+2. **Peer transfer (new, overmind-orchestrated)** — **location-independent** (`send_gift` reaches any player from anywhere, no facility and no travel), so this is the **primary path for mobile/stranded recovery** and the working path today. The overmind picks a **donor**: a same-faction fleet member whose `credits - topUp >= donorSafetyBuffer` (default 300_000, so donors keep their own working capital plus margin), preferring the richest. It assigns the donor a one-shot task `send_gift <recipient> credits <topUp>`.
 
 If neither source is available (no facility, no eligible donor), the worker stays flagged and the overmind logs an escalation for the operator.
 
@@ -126,3 +126,4 @@ recap:
 - **Donor selection fairness**: always-richest concentrates giving on one hauler. Round-robin among eligible donors, or is richest-first fine? (Lean: richest-first; simple, and the safety buffer prevents harm.)
 - **Escalation channel**: operator escalation via log only, or also an mbox/notification? (Lean: log + fleet-status flag for v1.)
 - Should the same coordinator eventually **replace** the treasury profit-cut entirely, given the facility path may never materialize? (Defer.)
+- **Pool-faction storage**: should the overmind pools' factions build a `faction_storage` warehouse (the stronghold-access faction already has one, ~329k) so treasury-withdraw becomes a real fallback for workers near it — or is the location constraint enough to keep peer-transfer as the sole mechanism? (Lean: peer-transfer sole for v1; revisit if a warehouse sits on a high-traffic hub the fleet routes through anyway.)
