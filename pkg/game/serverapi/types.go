@@ -708,6 +708,34 @@ type BattleSide struct {
 	PlayerCount int    `json:"player_count"`
 }
 
+// ActiveBattle is the compact in-progress-battle summary carried by the
+// get_system response's active_battle field. It is distinct from the richer
+// per-command battle types (BattleParticipant/BattleSide): here side_id is an
+// integer and the field set is a lightweight overview of who is fighting in the
+// system, not full combat telemetry.
+type ActiveBattle struct {
+	BattleID     string                    `json:"battle_id"`
+	Sides        []ActiveBattleSide        `json:"sides"`
+	Participants []ActiveBattleParticipant `json:"participants"`
+}
+
+// ActiveBattleSide is one team in an ActiveBattle.
+type ActiveBattleSide struct {
+	SideID      int    `json:"side_id"`
+	PlayerCount int    `json:"player_count"`
+	FactionID   string `json:"faction_id,omitempty"`
+}
+
+// ActiveBattleParticipant is one combatant in an ActiveBattle.
+type ActiveBattleParticipant struct {
+	PlayerID  string `json:"player_id"`
+	Username  string `json:"username"`
+	SideID    int    `json:"side_id"`
+	FactionID string `json:"faction_id,omitempty"`
+	IsNPC     bool   `json:"is_npc,omitempty"`
+	ShipClass string `json:"ship_class,omitempty"`
+}
+
 // MarketInsight represents a market analysis insight.
 type MarketInsight struct {
 	Category string `json:"category"`

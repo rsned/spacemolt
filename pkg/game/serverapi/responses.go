@@ -10,15 +10,16 @@ import "encoding/json"
 
 // GetSystemResponse wraps the response from get_system command.
 type GetSystemResponse struct {
-	Action         string     `json:"action"`
-	POI            CurrentPOI `json:"poi,omitempty"`
-	SecurityStatus string     `json:"security_status"`
-	System         SystemData `json:"system"`
-	FromSystem     string     `json:"from_system,omitempty"`
-	InTransit      bool       `json:"in_transit,omitempty"`
-	TicksRemaining int        `json:"ticks_remaining,omitempty"`
-	ToSystem       string     `json:"to_system,omitempty"`
-	TransitType    string     `json:"transit_type,omitempty"`
+	Action         string        `json:"action"`
+	POI            CurrentPOI    `json:"poi,omitempty"`
+	SecurityStatus string        `json:"security_status"`
+	System         SystemData    `json:"system"`
+	ActiveBattle   *ActiveBattle `json:"active_battle,omitempty"`
+	FromSystem     string        `json:"from_system,omitempty"`
+	InTransit      bool          `json:"in_transit,omitempty"`
+	TicksRemaining int           `json:"ticks_remaining,omitempty"`
+	ToSystem       string        `json:"to_system,omitempty"`
+	TransitType    string        `json:"transit_type,omitempty"`
 }
 
 // GetPOIResponse wraps the response from get_poi command.
