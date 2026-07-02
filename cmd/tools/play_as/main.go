@@ -5432,6 +5432,13 @@ func formatFactionInfo(raw []byte) string {
 				ManageTreasury   bool `json:"manage_treasury"`
 			} `json:"permissions"`
 		} `json:"roles"`
+		Facilities []struct {
+			Name           string `json:"name"`
+			Type           string `json:"type"`
+			FactionService string `json:"faction_service"`
+			BaseID         string `json:"base_id"`
+			Active         bool   `json:"active"`
+		} `json:"facilities"`
 		Allies []struct {
 			Name           string `json:"name"`
 			Tag            string `json:"tag"`
@@ -5587,6 +5594,59 @@ func formatFactionInfo(raw []byte) string {
 				roleNameW, r.name, r.prio,
 				center(cb(r.bases), wBase), center(cb(r.facil), wFac),
 				center(cb(r.roles), wRol), center(cb(r.treas), wTre))
+		}
+	}
+
+	// Facilities: the faction's built facilities, grouped by base and listed
+	// alphabetically. faction_info carries only name/type/service/active per
+	// facility (no level/rent — that detail lives in faction_list).
+	if len(resp.Facilities) > 0 {
+		type facRow struct {
+			name, ftype, service string
+			active               bool
+		}
+		byBase := map[string][]facRow{}
+		var bases []string
+		for _, f := range resp.Facilities {
+			if _, ok := byBase[f.BaseID]; !ok {
+				bases = append(bases, f.BaseID)
+			}
+			byBase[f.BaseID] = append(byBase[f.BaseID], facRow{
+				name: f.Name, ftype: f.Type, service: f.FactionService, active: f.Active,
+			})
+		}
+		slices.Sort(bases)
+		fmt.Fprintf(&b, "\nFacilities (%d):\n", len(resp.Facilities))
+		for _, base := range bases {
+			rows := byBase[base]
+			slices.SortFunc(rows, func(a, c facRow) int { return strings.Compare(a.name, c.name) })
+			nameW, typeW, svcW := len("Name"), len("Type"), len("Service")
+			for _, r := range rows {
+				svc := r.service
+				if svc == "" {
+					svc = "-"
+				}
+				nameW = max(nameW, len(r.name))
+				typeW = max(typeW, len(r.ftype))
+				svcW = max(svcW, len(svc))
+			}
+			fmt.Fprintf(&b, "  %s:\n", base)
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Status\n",
+				nameW, "Name", typeW, "Type", svcW, "Service")
+			fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-------\n",
+				strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", svcW))
+			for _, r := range rows {
+				svc := r.service
+				if svc == "" {
+					svc = "-"
+				}
+				status := "inactive"
+				if r.active {
+					status = "active"
+				}
+				fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %s\n",
+					nameW, r.name, typeW, r.ftype, svcW, svc, status)
+			}
 		}
 	}
 
