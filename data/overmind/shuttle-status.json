@@ -1,25 +1,27 @@
 {
-  "captured_at": "2026-06-28T21:12:53Z",
+  "captured_at": "2026-07-03T00:13:42Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "Market Prime",
-      "poi": "market_prime_exchange",
-      "docked": true,
-      "credits": 75054,
+      "system": "Maplevale",
+      "poi": "maplevale_vapor_fields",
+      "docked": false,
+      "credits": 1374712,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 118,
+      "fuel": 100,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
       "standing_behavior": "shuttle",
       "active_task_id": "",
+      "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
+      "faction_tag": " DB ",
       "healthy": true,
-      "restarts": 3,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-06-28T21:12:44Z"
+      "last_seen": "2026-07-03T00:13:38Z"
     }
   ]
 }
