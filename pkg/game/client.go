@@ -896,6 +896,24 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		// Drain any messages staged by replayPending during the prior close.
 		c.drainPendingReplay(ctx)
 
+		// Resync authoritative state after the reconnect. A mid-run drop — the
+		// daily server-restart is the common cause — leaves our cached State stale,
+		// in particular Traveling and CurrentPOI, which the standing behaviors gate
+		// on. The login payload does not refresh them, so a worker that was dropped
+		// mid-jump would come back and act on a stale location (the path that
+		// stranded the shuttle). Reconnect is only ever the "already running"
+		// reconnect path, so this is the natural place to pull a fresh get_system
+		// (location/traveling) and get_status (wallet/hull/fuel) before handing
+		// control back, letting the next standing pass run its stranded-recovery
+		// against reality. Best-effort: a resync failure must not fail an otherwise
+		// good reconnect — the next standing pass refreshes state anyway.
+		if err := c.GetSystem(ctx); err != nil {
+			c.debugLogger.Printf("post-reconnect get_system resync failed: %v", err)
+		}
+		if err := c.GetStatus(ctx); err != nil {
+			c.debugLogger.Printf("post-reconnect get_status resync failed: %v", err)
+		}
+
 		return nil
 	}
 
