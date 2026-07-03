@@ -35,6 +35,66 @@ func TestNeedsRestart(t *testing.T) {
 	}
 }
 
+// Stalled fires only for a worker that is heartbeating but frozen: undocked, with
+// no progress for longer than the timeout. Docked/drained idle postures and healthy
+// mobile workers are exempt.
+func TestStalled(t *testing.T) {
+	now := time.Unix(100000, 0)
+	stall := 15 * time.Minute
+	base := func(mod func(*WorkerInfo)) WorkerInfo {
+		w := WorkerInfo{
+			LastProgress: now.Add(-20 * time.Minute), // 20min since last progress
+			LastStatus:   control.Status{System: "maplevale", Docked: false},
+		}
+		mod(&w)
+		return w
+	}
+
+	if !Stalled(base(func(*WorkerInfo) {}), now, stall) {
+		t.Error("undocked worker frozen 20min should be stalled")
+	}
+	if Stalled(base(func(w *WorkerInfo) { w.LastStatus.Docked = true }), now, stall) {
+		t.Error("docked idle worker must be exempt (resident/camping shuttle)")
+	}
+	if Stalled(base(func(w *WorkerInfo) { w.LastStatus.Drained = true }), now, stall) {
+		t.Error("drained worker must be exempt")
+	}
+	if Stalled(base(func(w *WorkerInfo) { w.LastProgress = now.Add(-2 * time.Minute) }), now, stall) {
+		t.Error("worker that progressed 2min ago is within the window, not stalled")
+	}
+	if Stalled(base(func(w *WorkerInfo) { w.LastProgress = time.Time{} }), now, stall) {
+		t.Error("never-seen worker (zero LastProgress) must not be stalled")
+	}
+	if Stalled(base(func(*WorkerInfo) {}), now, 0) {
+		t.Error("non-positive timeout must disable the watchdog")
+	}
+}
+
+// ApplyStatus advances LastProgress only when the status shows forward motion, so a
+// worker that heartbeats forever from a frozen state stops advancing its progress
+// clock — which is what lets Stalled catch it.
+func TestApplyStatusTracksProgress(t *testing.T) {
+	f := NewFleet()
+	t0 := time.Unix(1000, 0)
+	f.ApplyHello(control.Hello{AgentID: "a", Role: "shuttle"}, 1, t0)
+
+	// First status: system set (progress from the Hello baseline).
+	f.ApplyStatus("a", control.Status{System: "maplevale", Credits: 1374712}, t0.Add(time.Minute))
+	lp := f.Snapshot()[0].LastProgress
+
+	// Identical status 10min later: no progress -> LastProgress unchanged.
+	f.ApplyStatus("a", control.Status{System: "maplevale", Credits: 1374712}, t0.Add(11*time.Minute))
+	if got := f.Snapshot()[0].LastProgress; !got.Equal(lp) {
+		t.Fatalf("frozen status advanced LastProgress: was %v, now %v", lp, got)
+	}
+	// Credits change: progress -> LastProgress advances.
+	adv := t0.Add(12 * time.Minute)
+	f.ApplyStatus("a", control.Status{System: "maplevale", Credits: 1400000}, adv)
+	if got := f.Snapshot()[0].LastProgress; !got.Equal(adv) {
+		t.Fatalf("credit change did not advance LastProgress: want %v, got %v", adv, got)
+	}
+}
+
 func TestMarkRestartIncrements(t *testing.T) {
 	f := NewFleet()
 	t0 := time.Unix(1000, 0)

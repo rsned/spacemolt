@@ -18,8 +18,14 @@ type WorkerInfo struct {
 	PID        int
 	LastStatus control.Status
 	LastSeen   time.Time
-	Healthy    bool
-	Restarts   int
+	// LastProgress is the last time the worker's status showed forward motion
+	// (its system, POI, credits, or docked flag changed). LastSeen tracks that a
+	// heartbeat arrived at all; LastProgress tracks that the worker is actually
+	// doing something. A worker can heartbeat forever while frozen — this is how
+	// the stall watchdog tells "alive" from "making progress".
+	LastProgress time.Time
+	Healthy      bool
+	Restarts     int
 }
 
 // Fleet is the thread-safe in-memory registry of all workers.
@@ -42,21 +48,38 @@ func (f *Fleet) get(agentID string) *WorkerInfo {
 	return w
 }
 
-// ApplyHello records a worker's identity on connect.
+// ApplyHello records a worker's identity on connect. A fresh (re)connect resets
+// the progress clock: the worker just started, so it has not yet had a chance to
+// stall.
 func (f *Fleet) ApplyHello(h control.Hello, pid int, now time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	w := f.get(h.AgentID)
 	w.Role, w.Station, w.PID = h.Role, h.Station, pid
-	w.LastSeen, w.Healthy = now, true
+	w.LastSeen, w.LastProgress, w.Healthy = now, now, true
 }
 
-// ApplyStatus records a heartbeat.
+// ApplyStatus records a heartbeat, advancing the progress clock whenever the new
+// status shows forward motion relative to the last one.
 func (f *Fleet) ApplyStatus(agentID string, st control.Status, now time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	w := f.get(agentID)
+	if w.LastProgress.IsZero() || statusProgressed(w.LastStatus, st) {
+		w.LastProgress = now
+	}
 	w.LastStatus, w.LastSeen, w.Healthy = st, now, true
+}
+
+// statusProgressed reports whether new shows forward motion relative to old:
+// the worker changed system, moved to a different POI, gained/spent credits, or
+// docked/undocked. Any of these means it is doing something; none changing over a
+// long window (while undocked) is the stall signature.
+func statusProgressed(old, new control.Status) bool {
+	return old.System != new.System ||
+		old.POI != new.POI ||
+		old.Credits != new.Credits ||
+		old.Docked != new.Docked
 }
 
 // MarkRestart increments the restart counter and marks the worker unhealthy.
@@ -83,6 +106,31 @@ func (f *Fleet) Snapshot() []WorkerInfo {
 // NeedsRestart reports whether a worker has been silent past the timeout.
 func NeedsRestart(info WorkerInfo, now time.Time, silence time.Duration) bool {
 	return now.Sub(info.LastSeen) > silence
+}
+
+// Stalled reports whether a worker is heartbeating but frozen: undocked with no
+// forward progress (system/POI/credits/docked unchanged) for longer than
+// stallTimeout. This is the "healthy but stuck" state a heartbeat-only check
+// cannot see — e.g. a shuttle stranded undocked in a station-less system, retrying
+// dock forever (johnny_cab: 2.5 days). The guards keep it from firing on legitimate
+// idle postures:
+//   - Docked workers are exempt: a resident marketbot parked at its home station
+//     between scheduled captures, or a shuttle camping a hub for passengers, is
+//     docked and idle by design, not stuck.
+//   - Drained workers are exempt: a drain (SIGUSR1) intentionally quiesces them.
+//   - A zero LastProgress (never seen) or non-positive stallTimeout disables it.
+//
+// stallTimeout is deliberately generous so a healthy mobile worker — which moves
+// (system/POI change) or trades (credits change) well within the window — is never
+// flagged; only a genuinely wedged worker trips it.
+func Stalled(info WorkerInfo, now time.Time, stallTimeout time.Duration) bool {
+	if stallTimeout <= 0 || info.LastProgress.IsZero() {
+		return false
+	}
+	if info.LastStatus.Docked || info.LastStatus.Drained {
+		return false
+	}
+	return now.Sub(info.LastProgress) > stallTimeout
 }
 
 // DrainProgress reports drain quiescence across currently-healthy workers:

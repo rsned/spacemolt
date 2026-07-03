@@ -64,8 +64,14 @@ type Supervisor struct {
 	// SilenceTimeout is the heartbeat-gap tolerance for an established worker
 	// (one that has already sent Hello). Cold-start is covered by BootTimeout.
 	SilenceTimeout time.Duration
-	MaxRestarts    int
-	restarts       map[string]int
+	// StallTimeout bounds how long a worker may heartbeat while frozen (undocked,
+	// no system/POI/credit progress) before the stall watchdog restarts it — the
+	// safety net for a "healthy but stuck" worker that SilenceTimeout cannot see
+	// (e.g. a shuttle wedged undocked in a station-less system). A non-positive
+	// value disables the watchdog.
+	StallTimeout time.Duration
+	MaxRestarts  int
+	restarts     map[string]int
 
 	// procs tracks the live process per agent id; procMu guards it.
 	procMu sync.Mutex
@@ -94,6 +100,7 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 	return &Supervisor{
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
 		SilenceTimeout:  9 * game.SleepTick,  // 90s: heartbeat-gap tolerance for established workers
+		StallTimeout:    90 * game.SleepTick, // 15min: undocked-and-frozen tolerance (stall watchdog)
 		BootTimeout:     30 * game.SleepTick, // 5min: max alive-but-no-Hello before a boot is "wedged"
 		StaggerInterval: game.SleepMedium,    // 5s between initial spawns (per-IP /login pacing)
 		KillGrace:       game.SleepMedium,    // 5s SIGTERM->SIGKILL window
@@ -211,6 +218,17 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// Established worker whose heartbeat went silent: hung. Kill it
 				// now regardless of budget (stop the bleeding); the relaunch is
 				// budget-gated and retried next tick if deferred.
+				s.kill(proc)
+				s.tryRestart(ctx, spec, true, &budget)
+			case seen && Stalled(w, now, s.StallTimeout):
+				// Heartbeating but frozen: undocked with no progress for a long
+				// window (the station-less-pocket trap). A plain restart forces a
+				// fresh login + reconcile, which re-runs the role's stranded-recovery
+				// (e.g. the shuttle escape hatch), so the respawn actually recovers.
+				if s.logger != nil {
+					s.logger.Printf("stall watchdog: %s frozen undocked in %q for >%s (last progress %s); restarting",
+						spec.AgentID, w.LastStatus.System, s.StallTimeout, w.LastProgress.Format(time.RFC3339))
+				}
 				s.kill(proc)
 				s.tryRestart(ctx, spec, true, &budget)
 			case !seen && now.Sub(proc.launchedAt) > s.BootTimeout:
