@@ -140,26 +140,33 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 	}
 	current := state.System.ID
 
-	// Boarding requires being docked. After a delivery the worker is already
-	// docked at the drop-off; on a cold start it may be in space — try once to dock.
-	// A dock that cannot succeed here means we are stranded undocked in a system
-	// with no station of its own (a server-restart dropped us mid-run and left us
-	// parked at a star/resource POI). Route out to the nearest safe station instead
-	// of looping on dock forever — the deadlock that stranded johnny_cab for days.
-	if state.CurrentPOI == "" || state.Traveling {
+	// Boarding requires being DOCKED AT A STATION. Gate on the docked flag, not on
+	// CurrentPOI: a shuttle can sit undocked while CurrentPOI names a non-station POI
+	// (a haze/star/resource field a delivery or reposition left it at), which is still
+	// un-boardable — ListStationPassengers rejects it with "dock at a station". After
+	// a delivery the worker is already docked at the drop-off; otherwise try to dock.
+	// A dock that cannot succeed here means we are stranded in a system with no station
+	// of its own (a server-restart dropped us mid-run). Route out to the nearest safe
+	// station instead of looping forever — the deadlock that stranded johnny_cab.
+	if !state.Doc || state.Traveling {
+		currentPOI := state.CurrentPOI
 		if err := deps.Client.Dock(ctx); err != nil {
-			if shuttleRecoverIfStranded(ctx, deps, out, current) {
+			if shuttleRecoverIfStranded(ctx, deps, out, current, currentPOI) {
 				return nil
 			}
 			fmt.Fprintf(out, "shuttle: not docked and dock failed: %v; idling\n", err) //nolint:errcheck
 			return nil
 		}
 		state = deps.Client.GetState()
-		if state == nil || state.CurrentPOI == "" {
+		if state != nil {
+			currentPOI = state.CurrentPOI
+		}
+		if state == nil || !state.Doc {
 			// Dock was accepted but has not landed us at a station (it executes on
-			// the next tick). If this system has no station at all, escape; otherwise
-			// idle and let the pending dock complete next pass.
-			if shuttleRecoverIfStranded(ctx, deps, out, current) {
+			// the next tick). If we are at a non-station POI — a station-less system,
+			// or the wrong POI in a station-having system — reposition to a station;
+			// otherwise idle and let the pending dock complete next pass.
+			if shuttleRecoverIfStranded(ctx, deps, out, current, currentPOI) {
 				return nil
 			}
 			fmt.Fprintln(out, "shuttle: still not docked; idling") //nolint:errcheck
@@ -480,36 +487,35 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 	fmt.Fprintf(out, "shuttle: repositioned to %s; will hunt passengers next pass\n", name) //nolint:errcheck
 }
 
-// shuttleRecoverIfStranded routes the shuttle out of a station-less system to the
-// nearest accessible, non-stronghold station. It is the shuttle's escape hatch from
-// the deadlock a server-restart mid-run disconnect leaves it in: parked undocked at a
-// system that has no station of its own (a star or resource POI), where Dock() fails
-// forever with "No base at this location" and the standing loop can never reach its
-// own reposition or aboard-delivery logic. It uses the same nearest-accessible-station
-// query as the hauler recovery and databot (galaxy.FindNearestByPOIType, which excludes
-// strongholds and non-public stations). Returns true when it issued a relocation (so the
-// caller ends the pass), false when the current system already has a station (not the
-// station-less trap) or recovery could not run — in which case the caller falls back to
-// idling. Best-effort throughout: any failure logs and the shuttle retries next pass.
-// Aboard passengers are left in place; once docked at the destination station the normal
-// deliverAboardPassengers path clears the berths (delivering the routable, unloading the
-// rest), so recovery stays focused on escaping the pocket.
-// shuttleStrandedTarget decides, from a nearest-accessible-station lookup, whether the
-// shuttle is stranded in a station-less system and, if so, which system to escape to.
-// stranded is false when the current system already has its own accessible station
-// (near[0].Hops == 0) or when no station is known at all — in both cases the caller must
-// NOT relocate (a Hops==0 result means the current system has a station and the pending
-// dock should be allowed to complete; an empty result means the graph can't help). It is
-// true only when the nearest station lies in a different system some jumps away, i.e. the
-// current system genuinely has no station of its own.
-func shuttleStrandedTarget(near []galaxy.NearestResult, current string) (galaxy.NearestResult, bool) {
-	if len(near) == 0 || near[0].Hops == 0 || near[0].SystemID == current {
-		return galaxy.NearestResult{}, false
-	}
-	return near[0], true
+// shuttleAlreadyAtStation reports whether the shuttle is already sitting at the
+// target station POI, so its undocked state is merely a pending dock (it just
+// arrived) rather than a strand. In that case recovery must NOT re-issue travel —
+// let the pending dock complete. Any other undocked position (a non-station POI in
+// this system, or a different system) is a real strand to recover from.
+func shuttleAlreadyAtStation(destSystem, stationPOI, current, currentPOI string) bool {
+	return destSystem == current && stationPOI != "" && stationPOI == currentPOI
 }
 
-func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writer, current string) bool {
+// shuttleRecoverIfStranded routes the shuttle to the nearest accessible, non-stronghold
+// station when it is undocked somewhere it cannot board. It is the shuttle's escape hatch
+// from the deadlock a server-restart mid-run disconnect leaves it in: parked undocked at
+// a POI that is not a station — either a system with no station at all (Maplevale, where
+// Dock() fails with "No base at this location") or a non-station POI in a system that DOES
+// have a station elsewhere (Frontier's drifters_haze gas cloud, where the loop instead
+// spins on ListStationPassengers' "dock at a station"). Both leave the standing loop
+// unable to reach boarding. It uses the same nearest-accessible-station query as the
+// hauler recovery and databot (galaxy.FindNearestByPOIType, which excludes strongholds and
+// non-public stations), then autopilots to that station POI — which may be a different POI
+// in the CURRENT system (intra-system reposition) or another system entirely.
+//
+// currentPOI is the shuttle's present POI: when it already equals the target station POI
+// the dock is merely pending (recovery is a no-op, returns false so the caller idles and
+// lets it complete). Returns true when it issued a relocation (so the caller ends the
+// pass), false when no station is reachable at all or recovery could not run. Best-effort
+// throughout: any failure logs and the shuttle retries next pass. Aboard passengers are
+// left in place; once docked at the destination station the normal deliverAboardPassengers
+// path clears the berths, so recovery stays focused on reaching a station.
+func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writer, current, currentPOI string) bool {
 	galGraph := &galaxy.GalaxyGraph{}
 	if err := galGraph.BuildFromDB(ctx, deps.KB); err != nil {
 		fmt.Fprintf(out, "shuttle: recovery graph build failed: %v\n", err) //nolint:errcheck
@@ -520,10 +526,10 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 		fmt.Fprintf(out, "shuttle: nearest-station lookup failed: %v\n", err) //nolint:errcheck
 		return false
 	}
-	dest, stranded := shuttleStrandedTarget(near, current)
-	if !stranded {
-		return false
+	if len(near) == 0 {
+		return false // no station known anywhere reachable — nothing to do but idle
 	}
+	dest := near[0]
 	name := dest.SystemName
 	if name == "" {
 		name = dest.SystemID
@@ -541,8 +547,18 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 		}
 	}
 
-	fmt.Fprintf(out, "shuttle: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", //nolint:errcheck
-		current, name, dest.SystemID, dest.Hops)
+	// Already at the target station POI: the dock is just pending, not a strand.
+	if shuttleAlreadyAtStation(dest.SystemID, station, current, currentPOI) {
+		return false
+	}
+
+	if dest.SystemID == current {
+		fmt.Fprintf(out, "shuttle: undocked at non-station POI %q in %s; repositioning to its station %s\n", //nolint:errcheck
+			currentPOI, current, station)
+	} else {
+		fmt.Fprintf(out, "shuttle: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", //nolint:errcheck
+			current, name, dest.SystemID, dest.Hops)
+	}
 	err = Autopilot(ctx, AutopilotDeps{
 		Client: deps.Client,
 		Out:    out,

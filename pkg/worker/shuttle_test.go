@@ -5,7 +5,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -226,52 +225,47 @@ func TestResolveShuttleSystemID(t *testing.T) {
 	}
 }
 
-// shuttleStrandedTarget is the escape-hatch decision: relocate only when the current
-// system has no station of its own (the deadlock a server-restart mid-run disconnect
-// leaves the shuttle in). It must NOT relocate when the current system has a station
-// (Hops 0 — the pending dock should complete) or when the graph knows no station.
-func TestShuttleStrandedTarget(t *testing.T) {
+// shuttleAlreadyAtStation is the escape-hatch's no-op guard: recovery must relocate
+// for every undocked position EXCEPT when the shuttle is already sitting at the target
+// station POI (a pending dock, not a strand). This covers both trap variants — a
+// station-less pocket AND a non-station POI in a station-having system — because in
+// both the shuttle is at a POI that is not the target station.
+func TestShuttleAlreadyAtStation(t *testing.T) {
 	tests := []struct {
-		name       string
-		near       []galaxy.NearestResult
-		current    string
-		wantEscape bool
-		wantSystem string
+		name                                    string
+		destSystem, stationPOI, current, curPOI string
+		wantAtStation                           bool
 	}{
 		{
-			name:       "no result: cannot help, do not relocate",
-			near:       nil,
-			current:    "maplevale",
-			wantEscape: false,
+			name:       "pending dock: already at the target station POI",
+			destSystem: "sol", stationPOI: "sol_station", current: "sol", curPOI: "sol_station",
+			wantAtStation: true,
 		},
 		{
-			name:       "current has its own station (Hops 0): let pending dock complete",
-			near:       []galaxy.NearestResult{{SystemID: "sol", Hops: 0}},
-			current:    "sol",
-			wantEscape: false,
+			name:       "wrong POI in a station-having system (drifters_haze in Frontier): relocate",
+			destSystem: "frontier", stationPOI: "expedition_launch", current: "frontier", curPOI: "drifters_haze",
+			wantAtStation: false,
 		},
 		{
-			name:       "nearest station is current system by id: not stranded",
-			near:       []galaxy.NearestResult{{SystemID: "sol", Hops: 2}},
-			current:    "sol",
-			wantEscape: false,
+			name:       "station-less pocket: nearest station is another system: relocate",
+			destSystem: "alpha_centauri", stationPOI: "alpha_centauri_colonial_station", current: "maplevale", curPOI: "maplevale_vapor_fields",
+			wantAtStation: false,
 		},
 		{
-			name:       "station-less pocket: escape to the nearest station system",
-			near:       []galaxy.NearestResult{{SystemID: "alpha_centauri", SystemName: "Alpha Centauri", Hops: 4}},
-			current:    "maplevale",
-			wantEscape: true,
-			wantSystem: "alpha_centauri",
+			name:       "undocked at a station-having system with empty POI (cold start): relocate",
+			destSystem: "sol", stationPOI: "sol_station", current: "sol", curPOI: "",
+			wantAtStation: false,
+		},
+		{
+			name:       "no station POI resolved: never counts as at-station",
+			destSystem: "sol", stationPOI: "", current: "sol", curPOI: "",
+			wantAtStation: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dest, escape := shuttleStrandedTarget(tt.near, tt.current)
-			if escape != tt.wantEscape {
-				t.Fatalf("escape: got %v, want %v", escape, tt.wantEscape)
-			}
-			if escape && dest.SystemID != tt.wantSystem {
-				t.Fatalf("dest system: got %q, want %q", dest.SystemID, tt.wantSystem)
+			if got := shuttleAlreadyAtStation(tt.destSystem, tt.stationPOI, tt.current, tt.curPOI); got != tt.wantAtStation {
+				t.Fatalf("shuttleAlreadyAtStation = %v, want %v", got, tt.wantAtStation)
 			}
 		})
 	}
