@@ -1,39 +1,40 @@
 {
-  "captured_at": "2026-07-03T00:13:43Z",
+  "captured_at": "2026-07-03T01:54:43Z",
   "workers": [
     {
       "agent_id": "hauler-0",
       "role": "hauler",
-      "system": "The Anvil",
-      "poi": "the_anvil_arsenal",
-      "docked": true,
-      "credits": 1276273,
+      "system": "Treasure Cache",
+      "poi": "treasure_cache_trading_post",
+      "docked": false,
+      "credits": 1282968,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 120,
+      "fuel": 118,
       "max_fuel": 120,
-      "cargo_used": 0,
+      "cargo_used": 75,
       "cargo_capacity": 75,
       "standing_behavior": "hauler",
       "active_task_id": "",
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
+      "faction_tag": "YSMT",
       "healthy": true,
       "restarts": 3,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "salvager-1",
       "role": "hauler",
-      "system": "Sirius",
-      "poi": "sirius_a",
+      "system": "Scheat",
+      "poi": "scheat_haze",
       "docked": false,
-      "credits": 1226838,
+      "credits": 1260860,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 114,
+      "fuel": 83,
       "max_fuel": 130,
-      "cargo_used": 100,
+      "cargo_used": 99,
       "cargo_capacity": 100,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -42,7 +43,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:35Z"
+      "last_seen": "2026-07-03T01:54:35Z"
     },
     {
       "agent_id": "salvager-10",
@@ -64,18 +65,18 @@
       "healthy": true,
       "restarts": 3,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:36Z"
+      "last_seen": "2026-07-03T01:54:36Z"
     },
     {
       "agent_id": "salvager-2",
       "role": "hauler",
-      "system": "Blood Forge",
-      "poi": "blood_forge_smelting_works",
+      "system": "The Crucible",
+      "poi": "the_crucible_garrison",
       "docked": false,
-      "credits": 1463979,
+      "credits": 1462989,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 90,
+      "fuel": 125,
       "max_fuel": 130,
       "cargo_used": 100,
       "cargo_capacity": 100,
@@ -86,7 +87,7 @@
       "healthy": true,
       "restarts": 3,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:35Z"
+      "last_seen": "2026-07-03T01:54:35Z"
     },
     {
       "agent_id": "salvager-3",
@@ -108,18 +109,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "salvager-4",
       "role": "hauler",
-      "system": "Nova Terra",
-      "poi": "nova_terra_central",
+      "system": "Sol",
+      "poi": "sol_central",
       "docked": false,
-      "credits": 1908902,
+      "credits": 1908110,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 100,
+      "fuel": 98,
       "max_fuel": 100,
       "cargo_used": 70,
       "cargo_capacity": 70,
@@ -130,18 +131,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "salvager-5",
       "role": "hauler",
-      "system": "Factory Belt",
-      "poi": "factory_belt_manufacturing_hub",
+      "system": "The Anvil",
+      "poi": "the_anvil_arsenal",
       "docked": false,
-      "credits": 784468,
+      "credits": 815127,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 63,
+      "fuel": 56,
       "max_fuel": 95,
       "cargo_used": 0,
       "cargo_capacity": 65,
@@ -152,18 +153,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "salvager-6",
       "role": "hauler",
       "system": "Synchrony",
       "poi": "synchrony_hub",
-      "docked": false,
-      "credits": 1455488,
+      "docked": true,
+      "credits": 1455108,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 93,
+      "fuel": 95,
       "max_fuel": 95,
       "cargo_used": 0,
       "cargo_capacity": 65,
@@ -174,18 +175,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "salvager-7",
       "role": "hauler",
-      "system": "Blood Forge",
-      "poi": "blood_forge_smelting_works",
+      "system": "Synchrony",
+      "poi": "synchrony_hub",
       "docked": false,
-      "credits": 1118873,
+      "credits": 1046937,
       "hull": 110,
       "max_hull": 110,
-      "fuel": 58,
+      "fuel": 89,
       "max_fuel": 90,
       "cargo_used": 0,
       "cargo_capacity": 60,
@@ -196,20 +197,20 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "salvager-8",
       "role": "hauler",
-      "system": "Wasat",
-      "poi": "wasat_cryobelt",
-      "docked": false,
-      "credits": 1897523,
+      "system": "Synchrony",
+      "poi": "synchrony_hub",
+      "docked": true,
+      "credits": 1876215,
       "hull": 240,
       "max_hull": 240,
-      "fuel": 127,
+      "fuel": 140,
       "max_fuel": 140,
-      "cargo_used": 28,
+      "cargo_used": 0,
       "cargo_capacity": 400,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -218,7 +219,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "salvager-9",
@@ -238,7 +239,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "trader-1",
@@ -260,20 +261,20 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "trader-10",
       "role": "hauler",
-      "system": "Gold Run",
-      "poi": "aurelia",
+      "system": "Thabit",
+      "poi": "thabit_ii",
       "docked": false,
-      "credits": 911450,
+      "credits": 1009239,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 75,
+      "fuel": 67,
       "max_fuel": 120,
-      "cargo_used": 74,
+      "cargo_used": 20,
       "cargo_capacity": 75,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -282,18 +283,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "trader-2",
       "role": "hauler",
-      "system": "Valor",
-      "poi": "valor_star",
+      "system": "The Anvil",
+      "poi": "the_anvil_arsenal",
       "docked": false,
-      "credits": 1572928,
+      "credits": 1572832,
       "hull": 55,
       "max_hull": 55,
-      "fuel": 65,
+      "fuel": 114,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 450,
@@ -304,20 +305,20 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "trader-3",
       "role": "hauler",
-      "system": "Krynn",
-      "poi": "war_citadel",
+      "system": "The Crucible",
+      "poi": "the_crucible_garrison",
       "docked": false,
-      "credits": 794134,
+      "credits": 785221,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 97,
+      "fuel": 98,
       "max_fuel": 100,
-      "cargo_used": 70,
+      "cargo_used": 0,
       "cargo_capacity": 70,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -326,7 +327,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "trader-4",
@@ -334,10 +335,10 @@
       "system": "Synchrony",
       "poi": "synchrony_hub",
       "docked": true,
-      "credits": 614639,
+      "credits": 613959,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 95,
+      "fuel": 170,
       "max_fuel": 170,
       "cargo_used": 0,
       "cargo_capacity": 130,
@@ -348,7 +349,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "trader-5",
@@ -370,7 +371,7 @@
       "healthy": true,
       "restarts": 2,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "trader-6",
@@ -392,18 +393,18 @@
       "healthy": true,
       "restarts": 2,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "trader-7",
       "role": "hauler",
-      "system": "Blood Forge",
-      "poi": "blood_forge_smelting_works",
-      "docked": false,
-      "credits": 1293591,
+      "system": "The Anvil",
+      "poi": "the_anvil_arsenal",
+      "docked": true,
+      "credits": 1265799,
       "hull": 110,
       "max_hull": 110,
-      "fuel": 45,
+      "fuel": 73,
       "max_fuel": 90,
       "cargo_used": 0,
       "cargo_capacity": 60,
@@ -414,7 +415,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:39Z"
+      "last_seen": "2026-07-03T01:54:39Z"
     },
     {
       "agent_id": "trader-8",
@@ -436,7 +437,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:34Z"
+      "last_seen": "2026-07-03T01:54:34Z"
     },
     {
       "agent_id": "trader-9",
@@ -458,7 +459,7 @@
       "healthy": true,
       "restarts": 4,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:36Z"
+      "last_seen": "2026-07-03T01:54:36Z"
     }
   ]
 }

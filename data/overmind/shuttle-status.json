@@ -1,16 +1,16 @@
 {
-  "captured_at": "2026-07-03T00:13:42Z",
+  "captured_at": "2026-07-03T01:54:42Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "Maplevale",
-      "poi": "maplevale_vapor_fields",
+      "system": "Frontier",
+      "poi": "drifters_haze",
       "docked": false,
-      "credits": 1374712,
+      "credits": 1427438,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 100,
+      "fuel": 118,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
@@ -19,9 +19,9 @@
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
       "faction_tag": " DB ",
       "healthy": true,
-      "restarts": 0,
+      "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T00:13:38Z"
+      "last_seen": "2026-07-03T01:54:40Z"
     }
   ]
 }
