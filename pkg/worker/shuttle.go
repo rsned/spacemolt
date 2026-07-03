@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -137,21 +138,34 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 		fmt.Fprintln(out, "shuttle: current system unknown; idling") //nolint:errcheck
 		return nil
 	}
+	current := state.System.ID
 
 	// Boarding requires being docked. After a delivery the worker is already
 	// docked at the drop-off; on a cold start it may be in space — try once to dock.
+	// A dock that cannot succeed here means we are stranded undocked in a system
+	// with no station of its own (a server-restart dropped us mid-run and left us
+	// parked at a star/resource POI). Route out to the nearest safe station instead
+	// of looping on dock forever — the deadlock that stranded johnny_cab for days.
 	if state.CurrentPOI == "" || state.Traveling {
 		if err := deps.Client.Dock(ctx); err != nil {
+			if shuttleRecoverIfStranded(ctx, deps, out, current) {
+				return nil
+			}
 			fmt.Fprintf(out, "shuttle: not docked and dock failed: %v; idling\n", err) //nolint:errcheck
 			return nil
 		}
 		state = deps.Client.GetState()
 		if state == nil || state.CurrentPOI == "" {
+			// Dock was accepted but has not landed us at a station (it executes on
+			// the next tick). If this system has no station at all, escape; otherwise
+			// idle and let the pending dock complete next pass.
+			if shuttleRecoverIfStranded(ctx, deps, out, current) {
+				return nil
+			}
 			fmt.Fprintln(out, "shuttle: still not docked; idling") //nolint:errcheck
 			return nil
 		}
 	}
-	current := state.System.ID
 
 	// Docked with no committed run: a low wallet now is genuine fumes, so this is
 	// the safe point to pull a treasury rescue before earning the next fares.
@@ -464,6 +478,92 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 		return
 	}
 	fmt.Fprintf(out, "shuttle: repositioned to %s; will hunt passengers next pass\n", name) //nolint:errcheck
+}
+
+// shuttleRecoverIfStranded routes the shuttle out of a station-less system to the
+// nearest accessible, non-stronghold station. It is the shuttle's escape hatch from
+// the deadlock a server-restart mid-run disconnect leaves it in: parked undocked at a
+// system that has no station of its own (a star or resource POI), where Dock() fails
+// forever with "No base at this location" and the standing loop can never reach its
+// own reposition or aboard-delivery logic. It uses the same nearest-accessible-station
+// query as the hauler recovery and databot (galaxy.FindNearestByPOIType, which excludes
+// strongholds and non-public stations). Returns true when it issued a relocation (so the
+// caller ends the pass), false when the current system already has a station (not the
+// station-less trap) or recovery could not run — in which case the caller falls back to
+// idling. Best-effort throughout: any failure logs and the shuttle retries next pass.
+// Aboard passengers are left in place; once docked at the destination station the normal
+// deliverAboardPassengers path clears the berths (delivering the routable, unloading the
+// rest), so recovery stays focused on escaping the pocket.
+// shuttleStrandedTarget decides, from a nearest-accessible-station lookup, whether the
+// shuttle is stranded in a station-less system and, if so, which system to escape to.
+// stranded is false when the current system already has its own accessible station
+// (near[0].Hops == 0) or when no station is known at all — in both cases the caller must
+// NOT relocate (a Hops==0 result means the current system has a station and the pending
+// dock should be allowed to complete; an empty result means the graph can't help). It is
+// true only when the nearest station lies in a different system some jumps away, i.e. the
+// current system genuinely has no station of its own.
+func shuttleStrandedTarget(near []galaxy.NearestResult, current string) (galaxy.NearestResult, bool) {
+	if len(near) == 0 || near[0].Hops == 0 || near[0].SystemID == current {
+		return galaxy.NearestResult{}, false
+	}
+	return near[0], true
+}
+
+func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writer, current string) bool {
+	galGraph := &galaxy.GalaxyGraph{}
+	if err := galGraph.BuildFromDB(ctx, deps.KB); err != nil {
+		fmt.Fprintf(out, "shuttle: recovery graph build failed: %v\n", err) //nolint:errcheck
+		return false
+	}
+	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, "station", 1)
+	if err != nil {
+		fmt.Fprintf(out, "shuttle: nearest-station lookup failed: %v\n", err) //nolint:errcheck
+		return false
+	}
+	dest, stranded := shuttleStrandedTarget(near, current)
+	if !stranded {
+		return false
+	}
+	name := dest.SystemName
+	if name == "" {
+		name = dest.SystemID
+	}
+
+	// Resolve the destination station POI. FindNearestByPOIType leaves POIs nil for
+	// POI-type lookups, so query the KB directly (as repositionShuttle does).
+	station := ""
+	if pois, perr := deps.KB.GetPOIs(ctx, dest.SystemID); perr == nil {
+		for _, p := range pois {
+			if p.Type == "station" {
+				station = p.ID
+				break
+			}
+		}
+	}
+
+	fmt.Fprintf(out, "shuttle: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", //nolint:errcheck
+		current, name, dest.SystemID, dest.Hops)
+	err = Autopilot(ctx, AutopilotDeps{
+		Client: deps.Client,
+		Out:    out,
+		OnWaypoint: func(ctx context.Context) error {
+			if deps.KB == nil {
+				return nil
+			}
+			if err := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); err != nil {
+				return err
+			}
+			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
+		},
+	}, dest.SystemID, station)
+	if err != nil {
+		fmt.Fprintf(out, "shuttle: relocation transit to %s failed: %v; will retry next pass\n", name, err) //nolint:errcheck
+		return true
+	}
+	if derr := deps.Client.Dock(ctx); derr != nil {
+		fmt.Fprintf(out, "shuttle: relocation dock at %s failed: %v\n", name, derr) //nolint:errcheck
+	}
+	return true
 }
 
 // rankShuttleDestinations groups the waiting passengers by destination station,

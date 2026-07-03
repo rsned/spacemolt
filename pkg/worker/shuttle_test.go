@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -70,8 +71,8 @@ func TestMostUrgentAboardDestination(t *testing.T) {
 		{Destination: "ac_station", DestinationSystem: "ac", DestinationName: "Alpha Centauri", TicksRemaining: 500, Fare: 400},
 		{Destination: "ac_station", DestinationSystem: "ac", TicksRemaining: 300, Fare: 400},
 		{Destination: "proc_station", DestinationSystem: "procyon", DestinationName: "Procyon", TicksRemaining: 100, Fare: 1000},
-		{Destination: "den_station", DestinationSystem: "den", TicksRemaining: 50, Fare: 9000},  // stronghold: excluded
-		{Destination: "far_station", DestinationSystem: "f3", TicksRemaining: 80, Fare: 2000},   // 3 jumps: over budget
+		{Destination: "den_station", DestinationSystem: "den", TicksRemaining: 50, Fare: 9000},    // stronghold: excluded
+		{Destination: "far_station", DestinationSystem: "f3", TicksRemaining: 80, Fare: 2000},     // 3 jumps: over budget
 		{Destination: "ghost_station", DestinationSystem: "nowhere", TicksRemaining: 10, Fare: 1}, // unknown: excluded
 	}
 
@@ -222,5 +223,56 @@ func TestResolveShuttleSystemID(t *testing.T) {
 	}
 	if got := resolveShuttleSystemID("nowhere", graph, nameToID); got != "" {
 		t.Fatalf("unknown: got %q, want empty", got)
+	}
+}
+
+// shuttleStrandedTarget is the escape-hatch decision: relocate only when the current
+// system has no station of its own (the deadlock a server-restart mid-run disconnect
+// leaves the shuttle in). It must NOT relocate when the current system has a station
+// (Hops 0 — the pending dock should complete) or when the graph knows no station.
+func TestShuttleStrandedTarget(t *testing.T) {
+	tests := []struct {
+		name       string
+		near       []galaxy.NearestResult
+		current    string
+		wantEscape bool
+		wantSystem string
+	}{
+		{
+			name:       "no result: cannot help, do not relocate",
+			near:       nil,
+			current:    "maplevale",
+			wantEscape: false,
+		},
+		{
+			name:       "current has its own station (Hops 0): let pending dock complete",
+			near:       []galaxy.NearestResult{{SystemID: "sol", Hops: 0}},
+			current:    "sol",
+			wantEscape: false,
+		},
+		{
+			name:       "nearest station is current system by id: not stranded",
+			near:       []galaxy.NearestResult{{SystemID: "sol", Hops: 2}},
+			current:    "sol",
+			wantEscape: false,
+		},
+		{
+			name:       "station-less pocket: escape to the nearest station system",
+			near:       []galaxy.NearestResult{{SystemID: "alpha_centauri", SystemName: "Alpha Centauri", Hops: 4}},
+			current:    "maplevale",
+			wantEscape: true,
+			wantSystem: "alpha_centauri",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest, escape := shuttleStrandedTarget(tt.near, tt.current)
+			if escape != tt.wantEscape {
+				t.Fatalf("escape: got %v, want %v", escape, tt.wantEscape)
+			}
+			if escape && dest.SystemID != tt.wantSystem {
+				t.Fatalf("dest system: got %q, want %q", dest.SystemID, tt.wantSystem)
+			}
+		})
 	}
 }
