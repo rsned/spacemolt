@@ -19,7 +19,9 @@ func TestLoadRolesParsesResident(t *testing.T) {
 	if !ok {
 		t.Fatal("resident role missing")
 	}
-	if r.Idle != "idle_mine" {
+	// resident switched from idle_mine to idle_market in 570d148 (marketbot mining
+	// paused — beltless/idle mining was stranding bots at 0 fuel).
+	if r.Idle != "idle_market" {
 		t.Fatalf("idle=%q", r.Idle)
 	}
 	if len(r.Schedule) == 0 {
