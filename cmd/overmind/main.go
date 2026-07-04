@@ -13,15 +13,19 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/overmind/balances"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
 	"github.com/rsned/spacemolt/pkg/overmind/tasks"
+	"github.com/rsned/spacemolt/pkg/rescue"
 )
 
 func main() {
@@ -34,9 +38,25 @@ func main() {
 	statusPath := flag.String("status-file", "data/overmind/fleet-status.json", "Live fleet status snapshot file (rewritten each tick)")
 	historyPath := flag.String("history-file", "data/overmind/fleet-history.jsonl", "Append-only daily balance history (one row per agent per UTC day)")
 	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to market.db for quarter-hourly fleet_timeseries snapshots")
+	rescueQueuePath := flag.String("rescue-queue", "data/overmind/rescue-queue.json", "Shared stranded-worker rescue queue file")
+	rescueHistPath := flag.String("rescue-history", "data/overmind/rescue-history.jsonl", "Archive of completed rescue records")
+	fleetName := flag.String("fleet-name", "", "Fleet name stamped on rescue records (default: socket basename)")
+	kbPath := flag.String("kb-path", "data/spacemolt-knowledge.db", "Knowledge base for rescue-fuel routing")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
+
+	// ── Step 0b: Rescue-queue setup (fleet name default, KB handle, queue) ────
+	if *fleetName == "" {
+		*fleetName = strings.TrimSuffix(filepath.Base(*socketPath), ".sock")
+	}
+	var kb knowledge.Base
+	if sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *kbPath, WAL: true}); kbErr != nil {
+		logger.Printf("warning: open KB %s: %v (rescue fuel falls back to %d)", *kbPath, kbErr, rescue.FuelFallback)
+	} else {
+		kb = sqliteKB
+	}
+	queue := rescue.NewQueue(*rescueQueuePath)
 
 	// ── Step 1: Load fleet roster ────────────────────────────────────────────
 	specs, err := supervisor.LoadFleet(*fleetPath)
@@ -89,6 +109,11 @@ func main() {
 	// ── Step 3: Signal-cancellable root context ──────────────────────────────
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// ── Step 3a: Rescue-queue wiring (must precede sup.Run so restored
+	// quarantines take effect before the supervisor launches anyone) ─────────
+	sup.OnQuarantine = makeOnQuarantine(ctx, logger, queue, kb, *fleetName)
+	restoreQuarantine(logger, fleet, queue, *rescueHistPath, *fleetName)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
@@ -156,6 +181,7 @@ func main() {
 			taskStore.AssignPending(snap, srv)
 			logFleetSnapshot(logger, snap)
 			recordBalances(ctx, logger, recorder, marketCol, snap)
+			pollRescues(logger, sup, queue, *rescueHistPath, *fleetName, snap)
 		}
 	}
 }
