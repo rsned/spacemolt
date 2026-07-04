@@ -52,7 +52,7 @@ Status surfacing: the balances Recorder adds `"quarantined": bool` and `"quarant
 
 ### 3. Rescue queue — `data/overmind/rescue-queue.json`
 
-Shared, flock-guarded (lock the file itself via `syscall.Flock`; writers rewrite atomically: temp file + rename while holding the lock). Writers: the 3 fleet overminds (enqueue, rejoin-archive), the assist overmind (claim/done/failed), the operator (manual edits). A JSON array of records:
+Shared, flock-guarded (exclusive `syscall.Flock` on a sidecar `.lock` file — never the queue file itself, since the atomic temp+rename swaps the queue's inode and would let a blocked locker read stale content through its pre-rename fd; writers rewrite atomically: temp file + rename while holding the lock). Writers: the 3 fleet overminds (enqueue, rejoin-archive), the assist overmind (claim/done/failed), the operator (manual edits). A JSON array of records:
 
 ```json
 {
