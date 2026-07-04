@@ -1,7 +1,9 @@
 package balances
 
 import (
+	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -200,5 +202,23 @@ func TestBuildReportDeltasAndProfitJoin(t *testing.T) {
 	}
 	if t2.TotalDelta != 30000 { // 130000 - 100000
 		t.Fatalf("t2 total delta = %v, want 30000", t2.TotalDelta)
+	}
+}
+
+func TestLiveRecordQuarantineFields(t *testing.T) {
+	rec := LiveRecord{AgentID: "trader-8", Quarantined: true, QuarantineReason: "fuel-dead"}
+	data, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"quarantined":true`, `"quarantine_reason":"fuel-dead"`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("marshal missing %s: %s", want, data)
+		}
+	}
+	// omitted when healthy — keeps the existing status files byte-compatible
+	data, _ = json.Marshal(LiveRecord{AgentID: "ok"})
+	if strings.Contains(string(data), "quarantine") {
+		t.Errorf("quarantine fields must be omitempty: %s", data)
 	}
 }

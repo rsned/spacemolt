@@ -43,6 +43,10 @@ type LiveRecord struct {
 	FactionTag       string  `json:"faction_tag,omitempty"`
 	Healthy          bool    `json:"healthy"`
 	Restarts         int     `json:"restarts"`
+	// Quarantined mirrors the supervisor's pulled-from-fleet state; the reason
+	// says why (e.g. "fuel-dead: ..."). Omitted for healthy workers.
+	Quarantined      bool   `json:"quarantined,omitempty"`
+	QuarantineReason string `json:"quarantine_reason,omitempty"`
 	// Seen is true once the worker has sent at least one heartbeat, so its
 	// Credits reflect a real balance rather than the zero value. Only seen
 	// workers are eligible for a daily snapshot.
