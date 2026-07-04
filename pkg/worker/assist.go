@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -12,17 +13,61 @@ import (
 	"github.com/rsned/spacemolt/pkg/rescue"
 )
 
-// assistHomes maps each assist agent to its home capital's system id. The set
-// is fixed (one agent per empire capital); the claim election in assistElect
-// relies on every agent being able to compute all five distances locally.
-// IDs verified 2026-07-03 against data/spacemolt-knowledge.db:
-// SELECT id, name FROM systems WHERE name IN ('Haven','Sol','Krynn','Frontier','Nexus Prime');
+// assistHomes maps each fixed-capital assist agent to its home system id.
+// The claim election in assistElect relies on every agent being able to
+// compute all five home distances locally (these four plus the mobile homes
+// below). IDs verified 2026-07-03 against data/spacemolt-knowledge.db:
+// SELECT id, name FROM systems WHERE name IN ('Haven','Sol','Krynn','Nexus Prime');
 var assistHomes = map[string]string{
-	"assist-haven":    "haven",
-	"assist-sol":      "sol",
-	"assist-krynn":    "krynn",
-	"assist-frontier": "frontier",
-	"assist-nexus":    "nexus_prime",
+	"assist-haven": "haven",
+	"assist-sol":   "sol",
+	"assist-krynn": "krynn",
+	"assist-nexus": "nexus_prime",
+}
+
+// assistMobileHomes maps assist agents whose home capital is a moving POI to
+// that POI id. Outerrim's mobile_capital hyperspace-jumps to another of its
+// empire's systems once a day, so its system is resolved per pass via the
+// server's find_route (which always knows the POI's current location) instead
+// of being hardcoded.
+var assistMobileHomes = map[string]string{
+	"assist-frontier": "mobile_capital",
+}
+
+// resolveAssistHomes returns this pass's agent->home-system map: the static
+// capitals plus each mobile home resolved via find_route. A mobile home that
+// fails to resolve is dropped for the pass (logged); the resulting brief
+// cross-agent disagreement over who is nearest is covered by the queue's CAS
+// claim, like any other election race.
+func resolveAssistHomes(ctx context.Context, deps AssistDeps) map[string]string {
+	homes := make(map[string]string, len(assistHomes)+len(assistMobileHomes))
+	maps.Copy(homes, assistHomes)
+	for id, poi := range assistMobileHomes {
+		sys, err := assistResolveMobile(ctx, deps, poi)
+		if err != nil {
+			fmt.Fprintf(deps.Out, "assist: resolve %s: %v\n", poi, err) //nolint:errcheck
+			continue
+		}
+		homes[id] = sys
+	}
+	return homes
+}
+
+// assistResolveMobile finds the system a moving POI is currently in: the last
+// step of the server's route to it, or our own system when the route is empty
+// (we are already there).
+func assistResolveMobile(ctx context.Context, deps AssistDeps, poi string) (string, error) {
+	route, err := deps.Client.FindRoute(ctx, poi)
+	if err != nil {
+		return "", err
+	}
+	if len(route) > 0 {
+		return route[len(route)-1].SystemID, nil
+	}
+	if st := deps.Client.GetState(); st != nil && st.System.ID != "" {
+		return st.System.ID, nil
+	}
+	return "", fmt.Errorf("empty route to %s and current system unknown", poi)
 }
 
 // RescueQueue is the slice of rescue.Queue the assist behavior consumes.
@@ -73,6 +118,7 @@ func Assist(ctx context.Context, deps AssistDeps) error {
 
 func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Record) (rescue.Record, bool) {
 	var graph navigation.JumpGraph
+	var homes map[string]string
 	for _, r := range recs {
 		if r.Status != rescue.StatusPending {
 			continue
@@ -94,8 +140,9 @@ func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Rec
 				return rescue.Record{}, false
 			}
 			graph = navigation.JumpGraphFromConnections(conns)
+			homes = resolveAssistHomes(ctx, deps)
 		}
-		if !assistElect(deps.AgentID, assistHomes, r.SystemID, graph) {
+		if !assistElect(deps.AgentID, homes, r.SystemID, graph) {
 			continue
 		}
 		ok, err := deps.Queue.Transition(r.AgentID, rescue.StatusPending, rescue.StatusClaimed,
@@ -170,6 +217,17 @@ func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
 // nil so the standing loop retries next pass.
 func assistEnsureHome(ctx context.Context, deps AssistDeps) error {
 	home, ok := assistHomes[deps.AgentID]
+	if !ok {
+		if poi, mobile := assistMobileHomes[deps.AgentID]; mobile {
+			var err error
+			if home, err = assistResolveMobile(ctx, deps, poi); err != nil {
+				// Transient: stay put and retry next pass.
+				fmt.Fprintf(deps.Out, "assist: resolve home %s: %v\n", poi, err) //nolint:errcheck
+				return nil
+			}
+			ok = true
+		}
+	}
 	if !ok || deps.HomeStation == "" {
 		fmt.Fprintf(deps.Out, "assist: no home configured for %s\n", deps.AgentID) //nolint:errcheck
 		return nil

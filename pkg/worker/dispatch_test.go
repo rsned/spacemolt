@@ -20,6 +20,7 @@ type fakeClient struct {
 	calls           []string
 	state           *game.State
 	route           []game.RouteStep  // returned by FindRoute
+	routeErr        error             // when set, FindRoute returns it instead of route
 	jumpCanceled    bool              // Jump returns Canceled=true when set
 	dockErr         error             // when set, Dock returns it (ship not at a station)
 	fuelLow         bool              // when set, Travel fails with insufficient fuel until Refuel clears it
@@ -103,6 +104,9 @@ func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) erro
 }
 func (f *fakeClient) FindRoute(ctx context.Context, target string) ([]game.RouteStep, error) {
 	f.calls = append(f.calls, "find_route:"+target)
+	if f.routeErr != nil {
+		return nil, f.routeErr
+	}
 	return f.route, nil
 }
 func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, error) {

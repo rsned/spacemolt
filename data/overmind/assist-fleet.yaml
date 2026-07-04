@@ -7,5 +7,7 @@ workers:
   - { agent_id: assist-haven, role: assist, station: grand_exchange }
   - { agent_id: assist-sol, role: assist, station: sol_central }
   - { agent_id: assist-krynn, role: assist, station: war_citadel }
-  - { agent_id: assist-frontier, role: assist, station: expedition_launch }
+# assist-frontier's home is Outerrim's mobile_capital, which hyperspace-jumps
+# systems daily; its system is resolved live via find_route (assistMobileHomes).
+  - { agent_id: assist-frontier, role: assist, station: mobile_capital }
   - { agent_id: assist-nexus, role: assist, station: the_core }

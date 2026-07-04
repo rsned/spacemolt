@@ -135,11 +135,36 @@ Live validation: phase 1 deploys against the 7 currently stranded haulers (they 
 Station picks for `data/overmind/assist-fleet.yaml` were confirmed against
 `data/spacemolt-knowledge.db` (`pois` table, `type='station'`) for Haven, Sol,
 Krynn, and Nexus Prime — all matched the known-good marketbot/fleet-status
-docks (`grand_exchange`, `sol_central`, `war_citadel`, `the_core`). **Frontier
-has no `bases` row for any of its three stations** (`mobile_capital`,
-`expedition_launch`, `scout_docks`) — the known KB public-access gap noted
-above — so `expedition_launch` is a best guess, not a verified public dock;
-confirm live before trusting the assist-frontier agent's first dock.
+docks (`grand_exchange`, `sol_central`, `war_citadel`, `the_core`).
+
+### assist-frontier: mobile home (amended 2026-07-04)
+
+assist-frontier does **not** work out of a fixed Frontier station: its home is
+`mobile_capital`, the Outerrim empire's capital base, which hyperspace-jumps to
+another of its empire's systems once a day (fixed, learnable rotation; the
+server sends a push announcement before each jump). The original
+`expedition_launch` pick was wrong and has been replaced.
+
+Mechanism (user-directed): the in-game routing tool always knows where
+`mobile_capital` is, so the worker resolves its current system with
+`find_route mobile_capital` (a no-tick-cost query) instead of learning the
+schedule or parsing announcements.
+
+- `pkg/worker/assist.go` splits homes into the static `assistHomes` map (four
+  fixed capitals) and `assistMobileHomes` (`assist-frontier` →
+  `mobile_capital`). `resolveAssistHomes` overlays the mobile entries via
+  `FindRoute`, taking the last route step's system (empty route = we are
+  already in that system).
+- **Election:** all five agents resolve the mobile home the same way, so the
+  deterministic nearest-home election still agrees. A transient `find_route`
+  failure drops the mobile home from that agent's candidate set for the pass
+  (logged); the queue's CAS claim backstops the brief disagreement.
+- **Ensure-home:** assist-frontier re-resolves on every return, so a capital
+  jump mid-rescue retargets the return leg to the new system. Resolution
+  failure logs and stays put; the standing loop retries next pass.
+- Future options (not built): subscribe to the jump-announcement push event;
+  learn the fixed daily rotation. Per-pass `find_route` makes both unnecessary
+  for correctness.
 
 All five `data/agents/assist-*/credentials.json` files are present. Fitted
 `refuel_rig` per agent is a live-game check this task cannot perform —

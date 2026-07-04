@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/navigation"
 	"github.com/rsned/spacemolt/pkg/rescue"
 )
@@ -97,6 +98,114 @@ func TestAssistRunsClaimedRescue(t *testing.T) {
 	}
 	if len(visited) == 0 || visited[0] != "strand/strand_star" {
 		t.Fatalf("first hop must be the strandee, got %v", visited)
+	}
+}
+
+func TestResolveAssistHomesMobile(t *testing.T) {
+	ctx := context.Background()
+
+	// The mobile capital's current system is the last route step; static
+	// entries pass through untouched.
+	client := &fakeClient{route: []game.RouteStep{{SystemID: "m2"}, {SystemID: "altais"}}}
+	homes := resolveAssistHomes(ctx, AssistDeps{Client: client, Out: io.Discard})
+	if homes["assist-frontier"] != "altais" {
+		t.Errorf("assist-frontier home = %q, want altais", homes["assist-frontier"])
+	}
+	if homes["assist-sol"] != "sol" {
+		t.Errorf("static home assist-sol = %q, want sol", homes["assist-sol"])
+	}
+
+	// Empty route means we are already in the capital's system.
+	client = &fakeClient{state: &game.State{}}
+	client.state.System.ID = "altais"
+	homes = resolveAssistHomes(ctx, AssistDeps{Client: client, Out: io.Discard})
+	if homes["assist-frontier"] != "altais" {
+		t.Errorf("empty-route home = %q, want current system altais", homes["assist-frontier"])
+	}
+
+	// find_route failure drops the mobile home for this pass; the four
+	// static capitals still elect.
+	client = &fakeClient{routeErr: errors.New("route service down")}
+	homes = resolveAssistHomes(ctx, AssistDeps{Client: client, Out: io.Discard})
+	if _, ok := homes["assist-frontier"]; ok {
+		t.Error("unresolvable mobile home must be dropped for the pass")
+	}
+	if len(homes) != len(assistHomes) {
+		t.Errorf("static homes = %d entries, want %d", len(homes), len(assistHomes))
+	}
+}
+
+// TestAssistClaimsPendingNearMobileCapital drives the full claim path for
+// assist-frontier: its home comes from find_route (altais), which is 1 jump
+// from the strandee while every static capital is unreachable in the graph,
+// so it must win the election, rescue, and head home to the resolved system.
+func TestAssistClaimsPendingNearMobileCapital(t *testing.T) {
+	ctx := context.Background()
+	// MemoryKB's GetConnections reads systems[].Connections, so seed via
+	// RememberSystem rather than RememberConnection.
+	kb := knowledge.NewMemoryKB()
+	if err := kb.RememberSystem(ctx, knowledge.System{
+		ID:          "altais",
+		Connections: []knowledge.SystemConnection{{SystemID: "strand"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 15, Status: rescue.StatusPending,
+	}}}
+	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{}}
+	var visited []string
+	deps := AssistDeps{
+		Client: client, KB: kb, Queue: q, Out: io.Discard,
+		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		Navigate: func(ctx context.Context, system, poi string) error {
+			visited = append(visited, system+"/"+poi)
+			return nil
+		},
+	}
+	if err := Assist(ctx, deps); err != nil {
+		t.Fatal(err)
+	}
+	if q.recs[0].Status != rescue.StatusDone || q.recs[0].ClaimedBy != "assist-frontier" {
+		t.Fatalf("record = %+v, want done claimed by assist-frontier", q.recs[0])
+	}
+	if len(visited) != 2 || visited[0] != "strand/strand_star" || visited[1] != "altais/mobile_capital" {
+		t.Fatalf("visited = %v, want strandee then resolved mobile home", visited)
+	}
+}
+
+// TestAssistEnsureHomeMobileRetarget: the capital jumped while the rescuer was
+// out — ensure-home must navigate to the freshly resolved system, not the one
+// the rescuer last saw.
+func TestAssistEnsureHomeMobileRetarget(t *testing.T) {
+	client := &fakeClient{route: []game.RouteStep{{SystemID: "vega"}}, state: &game.State{}}
+	client.state.System.ID = "altais" // where the capital used to be
+	var visited []string
+	deps := AssistDeps{
+		Client: client, Out: io.Discard,
+		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		Navigate: func(ctx context.Context, system, poi string) error {
+			visited = append(visited, system+"/"+poi)
+			return nil
+		},
+	}
+	if err := assistEnsureHome(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	if len(visited) != 1 || visited[0] != "vega/mobile_capital" {
+		t.Fatalf("visited = %v, want vega/mobile_capital", visited)
+	}
+
+	// Resolution failure: log, stay put, retry next pass.
+	client = &fakeClient{routeErr: errors.New("route service down"), state: &game.State{}}
+	visited = nil
+	deps.Client = client
+	if err := assistEnsureHome(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	if len(visited) != 0 {
+		t.Fatalf("unresolved home must not navigate, visited %v", visited)
 	}
 }
 
