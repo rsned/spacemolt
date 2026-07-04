@@ -26,6 +26,10 @@ type WorkerInfo struct {
 	LastProgress time.Time
 	Healthy      bool
 	Restarts     int
+	// StallRestarts counts consecutive stall-watchdog restarts with no forward
+	// progress in between. Progress (ApplyStatus with a changed status) resets
+	// it. Reaching StallRestartLimit is the escalation signal for quarantine.
+	StallRestarts int
 }
 
 // Fleet is the thread-safe in-memory registry of all workers.
@@ -65,8 +69,12 @@ func (f *Fleet) ApplyStatus(agentID string, st control.Status, now time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	w := f.get(agentID)
-	if w.LastProgress.IsZero() || statusProgressed(w.LastStatus, st) {
+	progressed := statusProgressed(w.LastStatus, st)
+	if w.LastProgress.IsZero() || progressed {
 		w.LastProgress = now
+	}
+	if progressed {
+		w.StallRestarts = 0
 	}
 	w.LastStatus, w.LastSeen, w.Healthy = st, now, true
 }
@@ -83,12 +91,23 @@ func statusProgressed(old, new control.Status) bool {
 }
 
 // MarkRestart increments the restart counter and marks the worker unhealthy.
+// It also zeroes LastProgress so the stall watchdog cannot re-fire on the
+// fresh process before it reports in (Stalled is disabled on a zero
+// LastProgress; ApplyHello restarts the clock).
 func (f *Fleet) MarkRestart(agentID string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	w := f.get(agentID)
 	w.Restarts++
 	w.Healthy = false
+	w.LastProgress = time.Time{}
+}
+
+// MarkStallRestart records that the stall watchdog is restarting this worker.
+func (f *Fleet) MarkStallRestart(agentID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.get(agentID).StallRestarts++
 }
 
 // Snapshot returns a copy of all worker infos, sorted by AgentID.

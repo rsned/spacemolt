@@ -126,3 +126,56 @@ func TestDrainProgressCountsHealthyDrained(t *testing.T) {
 		t.Fatalf("busy = %v, want [b c]", busy)
 	}
 }
+
+func TestMarkRestartResetsProgressClock(t *testing.T) {
+	f := NewFleet()
+	now := time.Now()
+	f.ApplyHello(control.Hello{AgentID: "a"}, 1, now)
+	f.ApplyStatus("a", control.Status{System: "x"}, now)
+
+	f.MarkRestart("a")
+
+	w := f.Snapshot()[0]
+	if !w.LastProgress.IsZero() {
+		t.Fatalf("MarkRestart must zero LastProgress, got %v", w.LastProgress)
+	}
+	// A zero LastProgress disables Stalled until the new process reports in —
+	// this is the double-fire regression guard.
+	if Stalled(w, now.Add(time.Hour), time.Minute) {
+		t.Fatal("freshly restarted worker must not be Stalled")
+	}
+}
+
+func TestStallRestartCounter(t *testing.T) {
+	f := NewFleet()
+	now := time.Now()
+	f.ApplyHello(control.Hello{AgentID: "a"}, 1, now)
+
+	f.MarkStallRestart("a")
+	f.MarkStallRestart("a")
+	if got := f.Snapshot()[0].StallRestarts; got != 2 {
+		t.Fatalf("StallRestarts = %d, want 2", got)
+	}
+
+	// Forward progress resets the counter.
+	f.ApplyStatus("a", control.Status{System: "x"}, now)
+	if got := f.Snapshot()[0].StallRestarts; got != 0 {
+		t.Fatalf("progress must reset StallRestarts, got %d", got)
+	}
+}
+
+func TestStallRestartCounterSurvivesIdenticalHeartbeat(t *testing.T) {
+	f := NewFleet()
+	now := time.Now()
+	st := control.Status{System: "x", POI: "p", Fuel: 0, MaxFuel: 100}
+	f.ApplyHello(control.Hello{AgentID: "a"}, 1, now)
+	f.ApplyStatus("a", st, now)
+	f.MarkStallRestart("a")
+	f.MarkRestart("a")
+	// worker relaunches: Hello then an identical (still-stranded) heartbeat
+	f.ApplyHello(control.Hello{AgentID: "a"}, 2, now.Add(time.Second))
+	f.ApplyStatus("a", st, now.Add(2*time.Second))
+	if got := f.Snapshot()[0].StallRestarts; got != 1 {
+		t.Fatalf("identical post-restart heartbeat must not reset counter, got %d", got)
+	}
+}
