@@ -4332,6 +4332,20 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				extraKeys = append(extraKeys, "poi")
 			}
 		}
+		// browse_ships: {base_id, base_name, count, listings} with NO action
+		// field (facility sub-actions carry the same shape but always include
+		// "action"). Dedicated key so ship listings never collide with
+		// market/facility "listings" payloads — the old "ships"-key drift
+		// silently killed ship-listing capture from 2026-02-18 to 2026-07-04.
+		if action, _ := resp.Payload["action"].(string); action == "" || action == "browse_ships" {
+			_, hasBaseID := resp.Payload["base_id"]
+			_, hasShipListings := resp.Payload["listings"]
+			_, hasCount := resp.Payload["count"]
+			if hasBaseID && hasShipListings && hasCount && storeKey == "" {
+				storeKey = "ship_listings"
+				shouldStore = true
+			}
+		}
 		if _, hasListings := resp.Payload["listings"]; hasListings {
 			if storeKey == "" {
 				storeKey = "listings"
