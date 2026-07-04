@@ -131,6 +131,7 @@ data/scripts/*.smolt
 !data/scripts/idle_gas.smolt
 !data/scripts/idle_ice.smolt
 !data/scripts/idle_market.smolt
+!data/scripts/assist.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit

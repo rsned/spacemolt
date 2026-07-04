@@ -24,14 +24,26 @@ type fakeClient struct {
 	dockErr         error             // when set, Dock returns it (ship not at a station)
 	fuelLow         bool              // when set, Travel fails with insufficient fuel until Refuel clears it
 	raw             map[string][]byte // GetRawJSON responses keyed by store key (e.g. "sell", "buy")
+
+	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
+	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
 }
 
-func (f *fakeClient) Undock(ctx context.Context) error { f.calls = append(f.calls, "undock"); return nil }
+// refuelShipCall records one RefuelShip(ctx, target, quantity) invocation.
+type refuelShipCall struct {
+	target   string
+	quantity int
+}
+
+func (f *fakeClient) Undock(ctx context.Context) error {
+	f.calls = append(f.calls, "undock")
+	return nil
+}
 func (f *fakeClient) Dock(ctx context.Context) error {
 	f.calls = append(f.calls, "dock")
 	return f.dockErr
 }
-func (f *fakeClient) Mine(ctx context.Context) error   { f.calls = append(f.calls, "mine"); return nil }
+func (f *fakeClient) Mine(ctx context.Context) error { f.calls = append(f.calls, "mine"); return nil }
 func (f *fakeClient) Buy(ctx context.Context, itemID string, qty float64) error {
 	f.calls = append(f.calls, "buy:"+itemID)
 	return nil
@@ -49,7 +61,10 @@ func (f *fakeClient) Refuel(ctx context.Context) error {
 	f.fuelLow = false // a successful refuel clears the fuel shortage
 	return nil
 }
-func (f *fakeClient) Repair(ctx context.Context) error { f.calls = append(f.calls, "repair"); return nil }
+func (f *fakeClient) Repair(ctx context.Context) error {
+	f.calls = append(f.calls, "repair")
+	return nil
+}
 func (f *fakeClient) DepositAllItems(ctx context.Context) error {
 	f.calls = append(f.calls, "deposit_all")
 	return nil
@@ -103,6 +118,10 @@ func (f *fakeClient) GetRawJSON(key string) []byte {
 func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
 	f.calls = append(f.calls, "raw:"+command)
 	return nil
+}
+func (f *fakeClient) RefuelShip(ctx context.Context, target string, quantity int) error {
+	f.refuelShipCalls = append(f.refuelShipCalls, refuelShipCall{target: target, quantity: quantity})
+	return f.refuelShipErr
 }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {

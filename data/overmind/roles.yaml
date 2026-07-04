@@ -39,3 +39,5 @@ roles:
     idle: haul
   shuttle:
     idle: shuttle
+  assist:
+    idle: assist

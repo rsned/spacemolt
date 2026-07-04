@@ -27,6 +27,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/overmind/checkpoint"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
+	"github.com/rsned/spacemolt/pkg/rescue"
 	"github.com/rsned/spacemolt/pkg/worker"
 )
 
@@ -39,6 +40,7 @@ func main() {
 	rolesPath := flag.String("roles", filepath.Join("data", "overmind", "roles.yaml"), "Path to roles config")
 	kbPath := flag.String("kb-path", filepath.Join("data", "spacemolt-knowledge.db"), "Path to shared knowledge base")
 	marketDBPath := flag.String("market-db-path", filepath.Join("data", "market.db"), "Path to market collector database")
+	rescueQueuePath := flag.String("rescue-queue", filepath.Join("data", "overmind", "rescue-queue.json"), "Shared stranded-worker rescue queue file")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -266,6 +268,8 @@ func main() {
 		if haveRole {
 			dispatch := worker.NewWorkerDispatch(client, kb, mc, os.Stdout)
 			dispatch.AgentID = *agentID
+			dispatch.Station = *station
+			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)
 			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)
