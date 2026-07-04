@@ -462,6 +462,18 @@ func (m *MCPGameClient) Refuel(ctx context.Context) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) RefuelShip(ctx context.Context, target string, quantity int) error {
+	payload := map[string]any{"target": target}
+	if quantity > 0 {
+		payload["quantity"] = quantity
+	}
+	result, err := m.callTool(ctx, "refuel", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) Repair(ctx context.Context) error {
 	result, err := m.callTool(ctx, "repair", nil)
 	if err != nil {

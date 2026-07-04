@@ -61,6 +61,9 @@ type GameClient interface {
 
 	// Ship Maintenance
 	Refuel(ctx context.Context) error
+	// RefuelShip transfers fuel to another player's ship (requires a fitted
+	// refuel_rig; target is the in-game username, not the on-disk alias).
+	RefuelShip(ctx context.Context, target string, quantity int) error
 	Repair(ctx context.Context) error
 	RepairWith(ctx context.Context, payload map[string]any) error
 	RefitShip(ctx context.Context) error

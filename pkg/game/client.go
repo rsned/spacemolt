@@ -1989,6 +1989,25 @@ func (c *Client) Refuel(ctx context.Context) error {
 	return maybeGoalReached("refuel", err)
 }
 
+// RefuelShip transfers fuel from this ship to target's ship (ship-to-ship,
+// needs a refuel_rig fitted). quantity <= 0 lets the server pick its default.
+func (c *Client) RefuelShip(ctx context.Context, target string, quantity int) error {
+	payload := map[string]any{"target": target}
+	if quantity > 0 {
+		payload["quantity"] = quantity
+	}
+	msg := protocol.Message{
+		Type:      "refuel",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return maybeGoalReached("refuel", err)
+}
+
 // Repair repairs the ship's hull. At station uses credits; in space uses repair kits.
 // v0.240: optional params for item_id, quantity, and target (remote repair).
 //

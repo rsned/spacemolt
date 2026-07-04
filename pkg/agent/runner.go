@@ -568,6 +568,10 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> Refuel()", r.agent.ID())
 		return r.gameClient.Refuel(actionCtx)
 
+	case "refuel_ship":
+		r.logger.Printf("[%s] -> RefuelShip(%s)", r.agent.ID(), decision.Target)
+		return r.gameClient.RefuelShip(actionCtx, decision.Target, 0)
+
 	case "repair":
 		r.logger.Printf("[%s] -> Repair()", r.agent.ID())
 		return r.gameClient.Repair(actionCtx)
@@ -876,7 +880,7 @@ func isActionCommand(action string) bool {
 		"get_status":        true,
 		"get_notifications": true,
 		"get_ship":          true,
-		"get_skills": true,
+		"get_skills":        true,
 		// World Info
 		"get_system":    true,
 		"get_poi":       true, // retired server-side; kept so stale plans classify as a no-tick query
@@ -917,7 +921,7 @@ func isActionCommand(action string) bool {
 	// buy, sell, list_item, cancel_list, buy_listing, trade_offer,
 	// trade_accept, trade_decline, trade_cancel, loot_wreck, salvage_wreck,
 	// loot_base_wreck, salvage_base_wreck, buy_ship, install_mod, uninstall_mod,
-	// refuel, repair, craft, recycle, chat, create_faction, join_faction, leave_faction,
+	// refuel, refuel_ship, repair, craft, recycle, chat, create_faction, join_faction, leave_faction,
 	// faction_invite, faction_kick, faction_promote, buy_insurance,
 	// claim_insurance, set_home_base, set_status, set_colors, set_anonymous,
 	// build_base, attack_base, create_map, use_map, create_note, write_note,

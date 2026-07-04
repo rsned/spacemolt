@@ -480,12 +480,17 @@ func (m *mockGameClient) CraftWithOptions(ctx context.Context, recipeID string, 
 	return nil
 }
 func (m *mockGameClient) CraftBulk(ctx context.Context, jobs []map[string]any) error { return nil }
-func (m *mockGameClient) GetRecipes(ctx context.Context) error                            { return nil }
-func (m *mockGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error { return nil }
+func (m *mockGameClient) GetRecipes(ctx context.Context) error                       { return nil }
+func (m *mockGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
+	return nil
+}
 func (m *mockGameClient) RecycleWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
 	return nil
 }
-func (m *mockGameClient) Refuel(ctx context.Context) error                                { return nil }
+func (m *mockGameClient) Refuel(ctx context.Context) error { return nil }
+func (m *mockGameClient) RefuelShip(ctx context.Context, target string, quantity int) error {
+	return nil
+}
 func (m *mockGameClient) Repair(ctx context.Context) error                                { return nil }
 func (m *mockGameClient) RepairWith(ctx context.Context, payload map[string]any) error    { return nil }
 func (m *mockGameClient) Fleet(ctx context.Context, action string, playerID string) error { return nil }
