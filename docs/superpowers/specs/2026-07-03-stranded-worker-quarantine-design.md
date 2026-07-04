@@ -157,4 +157,6 @@ setsid nohup ./bin/overmind --socket data/overmind/assist.sock \
 
 Fleet overminds pick up quarantine on their next binary restart (drain first:
 kill -USR1 <pid>). Manual rescue: refuel by hand, then mark the record done —
-jq '(.[] | select(.agent_id=="X") | .status) = "done"' data/overmind/rescue-queue.json > /tmp/rq && mv /tmp/rq data/overmind/rescue-queue.json
+flock data/overmind/rescue-queue.json.lock -c \
+  'jq '\''(.[] | select(.agent_id=="X") | .status) = "done"'\'' data/overmind/rescue-queue.json > /tmp/rq && mv /tmp/rq data/overmind/rescue-queue.json'
+(the flock on the .lock sidecar is the same lock the overminds take — without it a manual edit can race a concurrent claim/enqueue and silently drop it)
