@@ -127,6 +127,19 @@ func (f *fakeClient) RefuelShip(ctx context.Context, target string, quantity int
 	f.refuelShipCalls = append(f.refuelShipCalls, refuelShipCall{target: target, quantity: quantity})
 	return f.refuelShipErr
 }
+func (f *fakeClient) GetBase(ctx context.Context) error {
+	f.calls = append(f.calls, "get_base")
+	return nil
+}
+func (f *fakeClient) GetListings(ctx context.Context) error {
+	f.calls = append(f.calls, "get_listings")
+	return nil
+}
+func (f *fakeClient) GetMarketListings() []game.MarketListing { return nil }
+func (f *fakeClient) BrowseShips(ctx context.Context, payload map[string]any) error {
+	f.calls = append(f.calls, "browse_ships")
+	return nil
+}
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
 	f := &fakeClient{state: &game.State{}}

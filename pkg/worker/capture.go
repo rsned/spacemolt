@@ -47,59 +47,6 @@ func extractConnections(conns []game.ConnectionInfo) []knowledge.SystemConnectio
 	return result
 }
 
-// extractShipListingsFromRaw parses a raw JSON response into ship listings.
-func extractShipListingsFromRaw(serverData map[string]any) []knowledge.ShipListing {
-	var ships []knowledge.ShipListing
-
-	shipsData, ok := serverData["ships"]
-	if !ok {
-		return ships
-	}
-
-	shipsArray, ok := shipsData.([]any)
-	if !ok {
-		return ships
-	}
-
-	for _, shipData := range shipsArray {
-		shipMap, ok := shipData.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		ship := knowledge.ShipListing{}
-
-		if id, ok := shipMap["id"].(string); ok {
-			ship.ShipClass = id
-		}
-		if name, ok := shipMap["name"].(string); ok {
-			ship.ShipName = name
-		}
-		if price, ok := shipMap["price"].(float64); ok {
-			ship.BasePrice = price
-		}
-		if desc, ok := shipMap["description"].(string); ok {
-			ship.Description = desc
-		}
-		if cargo, ok := shipMap["cargo_space"].(float64); ok {
-			ship.CargoSpace = int(cargo)
-		}
-		if modules, ok := shipMap["module_slots"].(float64); ok {
-			ship.ModuleSlots = int(modules)
-		}
-		if utility, ok := shipMap["utility_slots"].(float64); ok {
-			ship.UtilitySlots = int(utility)
-		}
-		if weapons, ok := shipMap["weapon_slots"].(float64); ok {
-			ship.WeaponSlots = int(weapons)
-		}
-
-		ships = append(ships, ship)
-	}
-
-	return ships
-}
-
 // parseStationBuyOrders turns a compact view_market response into per-order
 // MarketBuyOrderRow values across all items, carrying Source. Skips orders with
 // non-positive price or qty.
@@ -571,24 +518,27 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 	} else {
 		time.Sleep(game.SleepQuick)
 
-		rawJSON := client.GetRawJSON("ships")
-		if rawJSON != nil {
-			var serverData map[string]any
-			if err := json.Unmarshal(rawJSON, &serverData); err == nil {
-				ships := extractShipListingsFromRaw(serverData)
-				shipListings := knowledge.ShipListings{
-					SystemID:    systemID,
-					SystemName:  systemName,
-					StationID:   poiID,
-					StationName: poiName,
-					GameTick:    currentTick(state),
-					Listings:    ships,
-				}
-				if err := kb.StoreShipListings(ctx, shipListings, source); err != nil {
-					fmt.Printf("Warning: failed to save ship listings: %v\n", err)
-				} else {
-					fmt.Printf("Saved ship listings: %d ships\n", len(ships))
-				}
+		rawJSON := client.GetRawJSON("ship_listings")
+		if rawJSON == nil {
+			// Never skip silently: the old "ships" raw-key drift no-opped this
+			// block from 2026-02-18 to 2026-07-04 without a single log line.
+			fmt.Println("Warning: browse_ships succeeded but no ship_listings payload was stored (response-shape drift?)")
+		} else if _, ships, err := knowledge.ShipListingsFromBrowseJSON(rawJSON); err != nil {
+			fmt.Printf("Warning: failed to parse ship listings: %v\n", err)
+		} else {
+			shipListings := knowledge.ShipListings{
+				SystemID:    systemID,
+				SystemName:  systemName,
+				StationID:   poiID,
+				StationName: poiName,
+				GameTick:    currentTick(state),
+				CapturedAt:  time.Now().UTC(),
+				Listings:    ships,
+			}
+			if err := kb.StoreShipListings(ctx, shipListings, source); err != nil {
+				fmt.Printf("Warning: failed to save ship listings: %v\n", err)
+			} else {
+				fmt.Printf("Saved ship listings: %d ships\n", len(ships))
 			}
 		}
 	}
