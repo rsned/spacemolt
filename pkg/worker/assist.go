@@ -74,7 +74,14 @@ func Assist(ctx context.Context, deps AssistDeps) error {
 func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Record) (rescue.Record, bool) {
 	var graph navigation.JumpGraph
 	for _, r := range recs {
-		if r.Status != rescue.StatusPending || r.SystemID == "" {
+		if r.Status != rescue.StatusPending {
+			continue
+		}
+		if r.SystemID == "" {
+			// Silent-forever otherwise: the operator must fill in system_id by
+			// hand (enqueue-time resolution failed). Log once per pass so it is
+			// visible without auto-failing the record.
+			fmt.Fprintf(deps.Out, "assist: pending rescue for %s has no system_id; operator must fill it\n", r.AgentID) //nolint:errcheck
 			continue
 		}
 		if graph == nil {

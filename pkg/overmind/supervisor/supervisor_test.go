@@ -315,6 +315,13 @@ func TestStrandedWorkerQuarantinedAndReleased(t *testing.T) {
 		if w.AgentID != "dead" || reason == "" {
 			t.Errorf("bad quarantine callback: %q %q", w.AgentID, reason)
 		}
+		// Ordering pin: the callback (which lands the rescue record) must run
+		// before the Quarantined flag is visible, so a concurrent rejoin poll
+		// can never observe "quarantined with no record" while the enqueue is
+		// still in flight.
+		if fleet.IsQuarantined("dead") {
+			t.Error("quarantine flag must not be visible yet inside OnQuarantine")
+		}
 		quarantines.Add(1)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

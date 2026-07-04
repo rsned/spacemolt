@@ -43,6 +43,8 @@ func makeOnQuarantine(ctx context.Context, logger *log.Logger, queue *rescue.Que
 			} else {
 				logger.Printf("rescue: GetSystems: %v", err)
 			}
+		} else {
+			logger.Printf("rescue: no KB available; cannot resolve system_id for %s — record will need operator attention", w.AgentID)
 		}
 		if ok, err := queue.Enqueue(rec); err != nil {
 			logger.Printf("rescue: enqueue %s: %v", w.AgentID, err)

@@ -136,6 +136,15 @@ func (s *Supervisor) ReleaseQuarantine(agentID string) {
 	s.releases = append(s.releases, agentID)
 }
 
+// Tick runs one reap-and-restart pass: drains pending releases, restarts
+// silent/dead/stalled workers, and quarantines newly-stranded ones. Run calls
+// this on its own ticker; it is exported separately so callers outside this
+// package (e.g. the cmd/overmind rejoin-glue tests) can drive a deterministic
+// tick instead of waiting on Run's game.SleepMedium ticker.
+func (s *Supervisor) Tick(ctx context.Context) {
+	s.reapAndRestart(ctx)
+}
+
 func (s *Supervisor) drainReleases() []string {
 	s.releaseMu.Lock()
 	defer s.releaseMu.Unlock()
@@ -272,10 +281,16 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 						s.logger.Printf("QUARANTINED %s: %s; rescue queued — no further restarts", spec.AgentID, reason)
 					}
 					s.kill(proc)
-					s.fleet.Quarantine(spec.AgentID, reason)
+					// Ordering constraint: the rescue record must land (OnQuarantine
+					// can take seconds — KB enrichment, disk I/O) before the
+					// Quarantined flag becomes visible to the rejoin poll. The host's
+					// pollRescues treats "quarantined with no record" as a manual
+					// release signal, so flipping the flag first would race a
+					// legitimate enqueue-in-flight into an immediate, wrong release.
 					if s.OnQuarantine != nil {
 						s.OnQuarantine(w, reason)
 					}
+					s.fleet.Quarantine(spec.AgentID, reason)
 					continue
 				}
 				// Heartbeating but frozen: undocked with no progress for a long

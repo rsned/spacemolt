@@ -30,7 +30,7 @@ Non-goals: preventing strands in the first place (fuel-guard / lawless routing i
 New predicate `Stranded(info WorkerInfo, now time.Time, cfg …) (bool, reason string)`, evaluated in `reapAndRestart` before the existing stall-restart case. True when either:
 
 - **Fuel-dead signature (immediate):** `Stalled()` is true AND undocked AND `Fuel < max(FuelStrandFraction × MaxFuel, FuelStrandFloor)` with `FuelStrandFraction = 0.10`, `FuelStrandFloor = 10`. The worker cannot move; restarting is futile. All 7 observed strands match; healthy workers (lowest observed non-stranded: 57/90 = 63%) do not.
-- **Futile-restart escalation (general):** the stall watchdog has restarted this worker `StallRestartLimit = 3` consecutive times with no progress between restarts. New `WorkerInfo.StallRestarts` counter: incremented when a stall-restart fires, reset to 0 whenever `LastProgress` advances. Catches unknown strand modes at ~45 min (3 × 15 min) instead of thrashing forever.
+- **Futile-restart escalation (general):** the stall watchdog has restarted this worker `StallRestartLimit = 3` consecutive times with no progress between restarts. New `WorkerInfo.StallRestarts` counter: incremented when a stall-restart fires, reset to 0 whenever `LastProgress` advances. Catches unknown strand modes at ~60 min (the 3 futile restarts each consume a 15-min stall window, and detection happens in the following window) instead of thrashing forever.
 
 Constants live with the existing supervisor config fields (StallTimeout et al.) and are overridable the same way.
 
