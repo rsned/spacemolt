@@ -179,3 +179,86 @@ func TestStallRestartCounterSurvivesIdenticalHeartbeat(t *testing.T) {
 		t.Fatalf("identical post-restart heartbeat must not reset counter, got %d", got)
 	}
 }
+
+func TestStranded(t *testing.T) {
+	now := time.Now()
+	base := func(mut func(*WorkerInfo)) WorkerInfo {
+		w := WorkerInfo{
+			AgentID:      "a",
+			Role:         "hauler",
+			LastProgress: now.Add(-time.Hour),
+			LastStatus:   control.Status{Docked: false, Fuel: 2, MaxFuel: 420},
+		}
+		if mut != nil {
+			mut(&w)
+		}
+		return w
+	}
+	timeout := 15 * time.Minute
+	cases := []struct {
+		name string
+		w    WorkerInfo
+		want bool
+	}{
+		{"fuel dead big tank", base(nil), true},                    // 2 < max(42, 10)
+		{"fuel below floor small tank", base(func(w *WorkerInfo) { // 8 < max(5, 10)
+			w.LastStatus.MaxFuel, w.LastStatus.Fuel = 50, 8
+		}), true},
+		{"fuel healthy", base(func(w *WorkerInfo) { w.LastStatus.Fuel = 60 }), false},
+		{"not stalled yet", base(func(w *WorkerInfo) { w.LastProgress = now }), false},
+		{"docked exempt", base(func(w *WorkerInfo) { w.LastStatus.Docked = true }), false},
+		{"drained exempt", base(func(w *WorkerInfo) { w.LastStatus.Drained = true }), false},
+		{"never seen exempt", base(func(w *WorkerInfo) { w.LastProgress = time.Time{} }), false},
+		{"assist role exempt from fuel check", base(func(w *WorkerInfo) { w.Role = "assist" }), false},
+		{"escalation trips regardless of fuel", base(func(w *WorkerInfo) {
+			w.LastStatus.Fuel, w.StallRestarts = 400, 3
+		}), true},
+		{"escalation below limit", base(func(w *WorkerInfo) {
+			w.LastStatus.Fuel, w.StallRestarts = 400, 2
+		}), false},
+		{"assist escalation still trips", base(func(w *WorkerInfo) {
+			w.Role, w.StallRestarts = "assist", 3
+		}), true},
+	}
+	for _, tc := range cases {
+		got, reason := Stranded(tc.w, now, timeout, 0.10, 10, 3)
+		if got != tc.want {
+			t.Errorf("%s: Stranded = %v (reason %q), want %v", tc.name, got, reason, tc.want)
+		}
+		if got && reason == "" {
+			t.Errorf("%s: stranded must carry a reason", tc.name)
+		}
+	}
+}
+
+func TestQuarantineLifecycle(t *testing.T) {
+	f := NewFleet()
+	now := time.Now()
+	f.ApplyHello(control.Hello{AgentID: "a"}, 1, now)
+	f.ApplyStatus("a", control.Status{System: "x"}, now)
+	f.MarkStallRestart("a")
+
+	f.Quarantine("a", "fuel-dead")
+	w := f.Snapshot()[0]
+	if !w.Quarantined || w.QuarantineReason != "fuel-dead" || w.Healthy {
+		t.Fatalf("quarantine not recorded: %+v", w)
+	}
+	if !f.IsQuarantined("a") {
+		t.Fatal("IsQuarantined false after Quarantine")
+	}
+
+	f.ClearQuarantine("a")
+	w = f.Snapshot()[0]
+	if w.Quarantined || w.QuarantineReason != "" {
+		t.Fatalf("quarantine not cleared: %+v", w)
+	}
+	if w.StallRestarts != 0 || !w.LastProgress.IsZero() {
+		t.Fatalf("ClearQuarantine must reset stall state, got restarts=%d progress=%v",
+			w.StallRestarts, w.LastProgress)
+	}
+	// Quarantine on an unknown agent creates the entry (boot-restore path).
+	f.Quarantine("newcomer", "restored from queue")
+	if !f.IsQuarantined("newcomer") {
+		t.Fatal("Quarantine must create missing entries for boot restore")
+	}
+}

@@ -2,6 +2,7 @@
 package supervisor
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -30,6 +31,12 @@ type WorkerInfo struct {
 	// progress in between. Progress (ApplyStatus with a changed status) resets
 	// it. Reaching StallRestartLimit is the escalation signal for quarantine.
 	StallRestarts int
+	// Quarantined means the supervisor has pulled this worker from the fleet
+	// (stranded — a restart cannot fix it) pending rescue. A quarantined
+	// worker's process is stopped and it is never relaunched until
+	// ClearQuarantine.
+	Quarantined      bool
+	QuarantineReason string
 }
 
 // Fleet is the thread-safe in-memory registry of all workers.
@@ -172,4 +179,60 @@ func (f *Fleet) DrainProgress() (idle, total int, busy []string) {
 	}
 	slices.Sort(busy)
 	return idle, total, busy
+}
+
+// Quarantine flags a worker as pulled-from-fleet. Creates the entry if absent
+// (the boot-time restore path runs before any Hello).
+func (f *Fleet) Quarantine(agentID, reason string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w := f.get(agentID)
+	w.Quarantined, w.QuarantineReason, w.Healthy = true, reason, false
+}
+
+// ClearQuarantine releases a worker for relaunch. Stall state is reset so the
+// watchdog gives the rescued worker a fresh window before re-evaluating.
+func (f *Fleet) ClearQuarantine(agentID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w := f.get(agentID)
+	w.Quarantined, w.QuarantineReason = false, ""
+	w.StallRestarts = 0
+	w.LastProgress = time.Time{}
+}
+
+// IsQuarantined reports whether the worker is currently pulled from the fleet.
+func (f *Fleet) IsQuarantined(agentID string) bool {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	w, ok := f.workers[agentID]
+	return ok && w.Quarantined
+}
+
+// Stranded reports whether a stalled worker is beyond what a restart can fix,
+// and why. Two signals (spec 2026-07-03-stranded-worker-quarantine):
+//   - fuel-dead: undocked + stalled + fuel below max(fuelFraction×MaxFuel,
+//     fuelFloor) — it cannot move, so respawning is futile. Assist-role
+//     workers are exempt (they legitimately run their tank down mid-rescue).
+//   - escalation: stallRestartLimit consecutive stall-restarts produced no
+//     progress — whatever is wrong, restarting is not fixing it.
+func Stranded(info WorkerInfo, now time.Time, stallTimeout time.Duration, fuelFraction, fuelFloor float64, stallRestartLimit int) (bool, string) {
+	if !Stalled(info, now, stallTimeout) {
+		return false, ""
+	}
+	if stallRestartLimit > 0 && info.StallRestarts >= stallRestartLimit {
+		return true, fmt.Sprintf("stalled: %d futile stall-restarts without progress", info.StallRestarts)
+	}
+	if info.Role == "assist" {
+		return false, ""
+	}
+	st := info.LastStatus
+	threshold := fuelFloor
+	if frac := fuelFraction * st.MaxFuel; frac > threshold {
+		threshold = frac
+	}
+	if st.Fuel < threshold {
+		return true, fmt.Sprintf("fuel-dead: stalled >%s undocked, fuel %.0f/%.0f", stallTimeout, st.Fuel, st.MaxFuel)
+	}
+	return false, ""
 }
