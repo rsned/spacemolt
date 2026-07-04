@@ -1,27 +1,27 @@
 {
-  "captured_at": "2026-07-03T01:54:42Z",
+  "captured_at": "2026-07-04T20:49:37Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "Frontier",
-      "poi": "drifters_haze",
+      "system": "Intercrus",
+      "poi": "intercrus_belt",
       "docked": false,
-      "credits": 1427438,
+      "credits": 3591210,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 118,
+      "fuel": 109,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
       "standing_behavior": "shuttle",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
-      "restarts": 1,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:40Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     }
   ]
 }

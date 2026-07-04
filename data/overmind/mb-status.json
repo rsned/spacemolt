@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-07-03T01:54:42Z",
+  "captured_at": "2026-07-04T20:49:35Z",
   "workers": [
     {
       "agent_id": "marketbot_alpha_centauri",
@@ -17,11 +17,11 @@
       "standing_behavior": "resident_ice",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:31Z"
     },
     {
       "agent_id": "marketbot_blood_forge",
@@ -39,11 +39,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:33Z"
     },
     {
       "agent_id": "marketbot_cargo_lanes",
@@ -61,11 +61,11 @@
       "standing_behavior": "resident_gas",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_deep_range",
@@ -83,11 +83,11 @@
       "standing_behavior": "resident_gas",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_factory_belt",
@@ -105,11 +105,11 @@
       "standing_behavior": "resident_gas",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_first_step",
@@ -127,11 +127,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:31Z"
     },
     {
       "agent_id": "marketbot_frontier",
@@ -149,11 +149,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:26Z"
     },
     {
       "agent_id": "marketbot_gold_run",
@@ -171,11 +171,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:34Z"
     },
     {
       "agent_id": "marketbot_haven",
@@ -193,11 +193,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:33Z"
     },
     {
       "agent_id": "marketbot_iron_reach",
@@ -215,11 +215,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:39Z"
+      "last_seen": "2026-07-04T20:49:30Z"
     },
     {
       "agent_id": "marketbot_krynn",
@@ -237,11 +237,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
-      "restarts": 0,
+      "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:26Z"
     },
     {
       "agent_id": "marketbot_last_light",
@@ -259,11 +259,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:28Z"
     },
     {
       "agent_id": "marketbot_market_prime",
@@ -281,11 +281,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:35Z"
     },
     {
       "agent_id": "marketbot_nexus_prime",
@@ -303,11 +303,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:27Z"
     },
     {
       "agent_id": "marketbot_node_alpha",
@@ -325,11 +325,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:26Z"
     },
     {
       "agent_id": "marketbot_node_beta",
@@ -347,11 +347,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:27Z"
     },
     {
       "agent_id": "marketbot_node_gamma",
@@ -369,11 +369,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:26Z"
     },
     {
       "agent_id": "marketbot_nova_terra",
@@ -391,11 +391,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_procyon",
@@ -413,11 +413,11 @@
       "standing_behavior": "resident_gas",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:32Z"
     },
     {
       "agent_id": "marketbot_ramens_rest",
@@ -435,11 +435,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
-      "restarts": 2,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:27Z"
     },
     {
       "agent_id": "marketbot_sirius",
@@ -457,11 +457,11 @@
       "standing_behavior": "resident_gas",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:34Z"
     },
     {
       "agent_id": "marketbot_sol",
@@ -479,11 +479,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_starfall",
@@ -501,11 +501,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:31Z"
     },
     {
       "agent_id": "marketbot_synchrony",
@@ -523,11 +523,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_the_anvil",
@@ -545,11 +545,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:32Z"
     },
     {
       "agent_id": "marketbot_the_crucible",
@@ -567,11 +567,11 @@
       "standing_behavior": "resident_gas",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:39Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_the_experiment",
@@ -589,11 +589,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:33Z"
     },
     {
       "agent_id": "marketbot_the_levy",
@@ -611,11 +611,11 @@
       "standing_behavior": "resident_ice",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_the_rampart",
@@ -633,11 +633,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:35Z"
     },
     {
       "agent_id": "marketbot_the_telescope",
@@ -655,11 +655,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:27Z"
     },
     {
       "agent_id": "marketbot_traders_rest",
@@ -677,11 +677,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:34Z"
+      "last_seen": "2026-07-04T20:49:33Z"
     },
     {
       "agent_id": "marketbot_treasure_cache",
@@ -699,11 +699,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:38Z"
+      "last_seen": "2026-07-04T20:49:29Z"
     },
     {
       "agent_id": "marketbot_unknown_edge",
@@ -721,11 +721,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:33Z"
+      "last_seen": "2026-07-04T20:49:35Z"
     },
     {
       "agent_id": "marketbot_void_gate",
@@ -743,11 +743,11 @@
       "standing_behavior": "resident",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
-      "faction_tag": " DB ",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-03T01:54:39Z"
+      "last_seen": "2026-07-04T20:49:27Z"
     }
   ]
 }
