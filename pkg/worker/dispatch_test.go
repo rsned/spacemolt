@@ -97,6 +97,10 @@ func (f *fakeClient) GetPOI(ctx context.Context) error {
 	f.calls = append(f.calls, "get_poi")
 	return nil
 }
+func (f *fakeClient) GetMissions(ctx context.Context) error {
+	f.calls = append(f.calls, "get_missions")
+	return nil
+}
 func (f *fakeClient) GetState() *game.State { return f.state }
 func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) error {
 	f.calls = append(f.calls, "view_market")

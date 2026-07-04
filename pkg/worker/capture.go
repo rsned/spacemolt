@@ -637,9 +637,75 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 	return nil
 }
 
-// KBUpdateAll runs update_system, update_poi, and (if docked) update_station and
-// update_facilities. It does NOT run update_missions (that is play_as-specific).
-// detectedBy records which agent observed the system/POI data (provenance).
+// KBUpdateMissions fetches the mission board at the current station and
+// upserts each hand-authored entry into the KB mission catalog. Procedural
+// missions (empty template_id) are skipped. Ported from play_as so the
+// worker fleet's hourly kb_update captures mission boards fleet-wide.
+func KBUpdateMissions(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
+	if kb == nil {
+		return fmt.Errorf("knowledge base not configured (use --db-path)")
+	}
+
+	state := client.GetState()
+	if !state.Doc {
+		return fmt.Errorf("must be docked at a station")
+	}
+
+	if err := client.GetMissions(ctx); err != nil {
+		return fmt.Errorf("get_missions: %w", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	raw := client.GetRawJSON("missions")
+	if len(raw) == 0 {
+		return fmt.Errorf("get_missions returned no data")
+	}
+
+	var resp serverapi.GetMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return fmt.Errorf("parse get_missions response: %w", err)
+	}
+
+	baseID := resp.BaseID
+	if baseID == "" {
+		baseID = state.CurrentPOI
+	}
+	systemID := state.System.ID
+	tick := currentTick(state)
+
+	var inserted, unchanged, changed, skipped int
+	for _, entry := range resp.Missions {
+		if entry.TemplateID == "" {
+			skipped++
+			continue
+		}
+		res, err := kb.UpsertMissionTemplate(ctx, entry, baseID, systemID, tick)
+		if err != nil {
+			fmt.Printf("Warning: upsert %s: %v\n", entry.MissionID, err)
+			continue
+		}
+		switch {
+		case res.Inserted:
+			inserted++
+		case len(res.Diffs) > 0:
+			changed++
+			for _, d := range res.Diffs {
+				fmt.Printf("mission template %s changed at %s: %s: %q -> %q\n",
+					entry.TemplateID, baseID, d.Field, d.OldValue, d.NewValue)
+			}
+		default:
+			unchanged++
+		}
+	}
+
+	fmt.Printf("update_missions: %d new, %d unchanged, %d changed, %d procedural skipped\n",
+		inserted, unchanged, changed, skipped)
+	return nil
+}
+
+// KBUpdateAll runs update_system, update_poi, and (if docked) update_station,
+// update_facilities, and update_missions. detectedBy records which agent
+// observed the system/POI data (provenance).
 // mc is optional: when non-nil, the market snapshot is written via the collector.
 func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base, mc *market.Collector, detectedBy string) error {
 	if kb == nil {
@@ -660,6 +726,9 @@ func KBUpdateAll(ctx context.Context, client game.GameClient, kb knowledge.Base,
 		}
 		if err := KBUpdateFacilities(ctx, client, kb); err != nil {
 			fmt.Printf("Warning: update_facilities: %v\n", err)
+		}
+		if err := KBUpdateMissions(ctx, client, kb); err != nil {
+			fmt.Printf("Warning: update_missions: %v\n", err)
 		}
 	} else {
 		fmt.Println("(Not docked — skipping station/facilities update)")

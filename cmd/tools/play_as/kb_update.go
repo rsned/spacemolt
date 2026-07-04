@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/faction"
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/worker"
 )
@@ -26,72 +24,6 @@ func currentTick(state *game.State) int64 {
 		return 0
 	}
 	return state.GetTick()
-}
-
-// formatMissionDiffValue formats a mission diff value for human-readable output.
-// For JSON fields like "objectives", it parses and pretty-prints the JSON.
-// For other fields, it returns the value with simple quoting.
-func formatMissionDiffValue(field, oldValue, newValue string) (string, string) {
-	// For objectives field, try to parse and format as JSON
-	if field == "objectives" {
-		return formatObjectivesDiff(oldValue, newValue)
-	}
-
-	// For other fields, use simple quoting
-	return fmt.Sprintf("%q", oldValue), fmt.Sprintf("%q", newValue)
-}
-
-// formatObjectivesDiff formats mission objectives JSON arrays for human-readable output.
-// It parses the JSON arrays and shows them in a condensed format, or returns an error
-// marker if parsing fails.
-func formatObjectivesDiff(oldJSON, newJSON string) (string, string) {
-	oldFormatted, err := formatObjectivesJSON(oldJSON)
-	if err != nil {
-		oldFormatted = fmt.Sprintf("[invalid JSON: %v]", err)
-	}
-
-	newFormatted, err := formatObjectivesJSON(newJSON)
-	if err != nil {
-		newFormatted = fmt.Sprintf("[invalid JSON: %v]", err)
-	}
-
-	return oldFormatted, newFormatted
-}
-
-// formatObjectivesJSON parses a mission objectives JSON array and returns a
-// human-readable string showing the count and type of objectives.
-func formatObjectivesJSON(jsonStr string) (string, error) {
-	var objectives []map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &objectives); err != nil {
-		return "", err
-	}
-
-	if len(objectives) == 0 {
-		return "[]", nil
-	}
-
-	// Count objectives by type
-	typeCounts := make(map[string]int)
-	for _, obj := range objectives {
-		if objType, ok := obj["type"].(string); ok {
-			typeCounts[objType]++
-		}
-	}
-
-	// Build a concise description
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "[%d objectives: ", len(objectives))
-	first := true
-	for objType, count := range typeCounts {
-		if !first {
-			sb.WriteString(", ")
-		}
-		fmt.Fprintf(&sb, "%d %s", count, objType)
-		first = false
-	}
-	sb.WriteString("]")
-
-	return sb.String(), nil
 }
 
 // --- Thin wrappers delegating to pkg/worker ---
@@ -171,71 +103,13 @@ func kbUpdateAll(client game.GameClient, ctx context.Context) error {
 
 // kbUpdateMissions fetches the mission board at the current station and upserts
 // each hand-authored (non-procedural) entry into the knowledge-base mission
-// catalog. Procedural missions (empty template_id) are counted and skipped.
+// catalog. Delegates to the shared worker implementation.
 func kbUpdateMissions(client game.GameClient, ctx context.Context) error {
-	if globalKB == nil {
-		return fmt.Errorf("knowledge base not configured (use --db-path)")
-	}
-
-	state := client.GetState()
-	if !state.Doc {
+	if state := client.GetState(); state != nil && !state.Doc {
 		fmt.Println("(Not docked — skipping missions update)")
 		return nil
 	}
-
-	if err := client.GetMissions(ctx); err != nil {
-		return fmt.Errorf("get_missions: %w", err)
-	}
-	time.Sleep(game.SleepQuick)
-
-	raw := client.GetRawJSON("missions")
-	if len(raw) == 0 {
-		return fmt.Errorf("get_missions returned no data")
-	}
-
-	var resp serverapi.GetMissionsResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return fmt.Errorf("parse get_missions response: %w", err)
-	}
-
-	baseID := resp.BaseID
-	if baseID == "" {
-		baseID = state.CurrentPOI
-	}
-	systemID := state.System.ID
-	tick := currentTick(state)
-
-	var inserted, unchanged, changed, skipped int
-	for _, entry := range resp.Missions {
-		if entry.TemplateID == "" {
-			skipped++
-			continue
-		}
-		res, err := globalKB.UpsertMissionTemplate(ctx, entry, baseID, systemID, tick)
-		if err != nil {
-			fmt.Printf("Warning: upsert %s: %v\n", entry.MissionID, err)
-			continue
-		}
-		switch {
-		case res.Inserted:
-			inserted++
-		case len(res.Diffs) > 0:
-			changed++
-			fmt.Printf("Mission template %q changed at %s:\n", entry.TemplateID, baseID)
-			for _, d := range res.Diffs {
-				oldFormatted, newFormatted := formatMissionDiffValue(d.Field, d.OldValue, d.NewValue)
-				fmt.Printf("  %s: %s -> %s\n", d.Field, oldFormatted, newFormatted)
-				fmt.Fprintf(os.Stderr, "mission template %s changed at base %s: field=%s old=%q new=%q\n",
-					entry.TemplateID, baseID, d.Field, d.OldValue, d.NewValue)
-			}
-		default:
-			unchanged++
-		}
-	}
-
-	fmt.Printf("update_missions: %d new, %d unchanged, %d changed, %d procedural skipped\n",
-		inserted, unchanged, changed, skipped)
-	return nil
+	return worker.KBUpdateMissions(ctx, client, globalKB)
 }
 
 // kbUpdateFaction collects comprehensive faction data for the current agent's
