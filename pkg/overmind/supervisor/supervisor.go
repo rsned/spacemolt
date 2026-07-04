@@ -73,6 +73,19 @@ type Supervisor struct {
 	MaxRestarts  int
 	restarts     map[string]int
 
+	// Stranded-quarantine tuning (see Stranded in fleet.go). OnQuarantine is
+	// invoked (from the reap goroutine) after a worker is quarantined so the
+	// host can enqueue a rescue; nil-safe.
+	FuelStrandFraction float64
+	FuelStrandFloor    float64
+	StallRestartLimit  int
+	OnQuarantine       func(w WorkerInfo, reason string)
+
+	// releases holds ReleaseQuarantine requests until the next reap tick, so
+	// the restarts map stays single-goroutine.
+	releaseMu sync.Mutex
+	releases  []string
+
 	// procs tracks the live process per agent id; procMu guards it.
 	procMu sync.Mutex
 	procs  map[string]*workerProc
@@ -108,7 +121,27 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		MaxRestarts:     100,
 		restarts:        make(map[string]int),
 		procs:           make(map[string]*workerProc),
+
+		FuelStrandFraction: 0.10, // fuel-dead when fuel < max(10% of tank, floor)
+		FuelStrandFloor:    10,
+		StallRestartLimit:  3, // quarantine after 3 futile stall-restarts
 	}
+}
+
+// ReleaseQuarantine schedules a quarantined worker for relaunch on the next
+// reap tick (after its rescue record is done). Safe from any goroutine.
+func (s *Supervisor) ReleaseQuarantine(agentID string) {
+	s.releaseMu.Lock()
+	defer s.releaseMu.Unlock()
+	s.releases = append(s.releases, agentID)
+}
+
+func (s *Supervisor) drainReleases() []string {
+	s.releaseMu.Lock()
+	defer s.releaseMu.Unlock()
+	out := s.releases
+	s.releases = nil
+	return out
 }
 
 func (s *Supervisor) socket() string {
@@ -121,6 +154,9 @@ func (s *Supervisor) socket() string {
 // Run spawns each spec, then periodically restarts silent/dead workers.
 func (s *Supervisor) Run(ctx context.Context) error {
 	for i, spec := range s.specs {
+		if s.fleet.IsQuarantined(spec.AgentID) {
+			continue // restored-from-queue quarantine: do not launch stranded
+		}
 		if i > 0 && s.StaggerInterval > 0 {
 			select {
 			case <-time.After(s.StaggerInterval):
@@ -191,6 +227,11 @@ func (s *Supervisor) kill(p *workerProc) {
 }
 
 func (s *Supervisor) reapAndRestart(ctx context.Context) {
+	for _, id := range s.drainReleases() {
+		s.fleet.ClearQuarantine(id)
+		delete(s.restarts, id)
+		s.logger.Printf("quarantine released for %q; relaunching", id)
+	}
 	now := time.Now()
 	healthy := make(map[string]WorkerInfo)
 	for _, w := range s.fleet.Snapshot() {
@@ -203,6 +244,9 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 		budget = len(s.specs)
 	}
 	for _, spec := range s.specs {
+		if s.fleet.IsQuarantined(spec.AgentID) {
+			continue // pulled from fleet; waiting on rescue
+		}
 		proc := procSnapshot(s, spec.AgentID)
 
 		// No process tracked: never launched, or fully reaped earlier.
@@ -221,6 +265,19 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				s.kill(proc)
 				s.tryRestart(ctx, spec, true, &budget)
 			case seen && Stalled(w, now, s.StallTimeout):
+				if stranded, reason := Stranded(w, now, s.StallTimeout, s.FuelStrandFraction, s.FuelStrandFloor, s.StallRestartLimit); stranded {
+					// Beyond what a restart can fix: pull it from the fleet. The
+					// kill frees the game session for the rescuer/operator.
+					if s.logger != nil {
+						s.logger.Printf("QUARANTINED %s: %s; rescue queued — no further restarts", spec.AgentID, reason)
+					}
+					s.kill(proc)
+					s.fleet.Quarantine(spec.AgentID, reason)
+					if s.OnQuarantine != nil {
+						s.OnQuarantine(w, reason)
+					}
+					continue
+				}
 				// Heartbeating but frozen: undocked with no progress for a long
 				// window (the station-less-pocket trap). A plain restart forces a
 				// fresh login + reconcile, which re-runs the role's stranded-recovery
@@ -229,6 +286,7 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 					s.logger.Printf("stall watchdog: %s frozen undocked in %q for >%s (last progress %s); restarting",
 						spec.AgentID, w.LastStatus.System, s.StallTimeout, w.LastProgress.Format(time.RFC3339))
 				}
+				s.fleet.MarkStallRestart(spec.AgentID)
 				s.kill(proc)
 				s.tryRestart(ctx, spec, true, &budget)
 			case !seen && now.Sub(proc.launchedAt) > s.BootTimeout:

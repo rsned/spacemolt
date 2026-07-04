@@ -302,3 +302,75 @@ func TestRunStaggersInitialLaunches(t *testing.T) {
 		t.Fatalf("with a 100ms stagger and 50ms budget, expected 1 launch, got %d", got)
 	}
 }
+
+func TestStrandedWorkerQuarantinedAndReleased(t *testing.T) {
+	var spawned atomic.Int32
+	specs := []WorkerSpec{{AgentID: "dead"}}
+	fleet := NewFleet()
+	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.StallTimeout = time.Nanosecond
+	sup.KillGrace = time.Second
+	var quarantines atomic.Int32
+	sup.OnQuarantine = func(w WorkerInfo, reason string) {
+		if w.AgentID != "dead" || reason == "" {
+			t.Errorf("bad quarantine callback: %q %q", w.AgentID, reason)
+		}
+		quarantines.Add(1)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+	now := time.Now()
+	fleet.ApplyHello(control.Hello{AgentID: "dead", Role: "hauler"}, 1, now)
+	fleet.ApplyStatus("dead", control.Status{Fuel: 0, MaxFuel: 420}, now)
+
+	sup.reapAndRestart(ctx) // fuel-dead + stalled(1ns) → quarantine, not restart
+	if quarantines.Load() != 1 {
+		t.Fatalf("want 1 quarantine callback, got %d", quarantines.Load())
+	}
+	if !fleet.IsQuarantined("dead") {
+		t.Fatal("worker not marked quarantined")
+	}
+	if spawned.Load() != 1 {
+		t.Fatalf("quarantined worker must not respawn, got %d spawns", spawned.Load())
+	}
+
+	sup.reapAndRestart(ctx) // still held
+	if spawned.Load() != 1 || quarantines.Load() != 1 {
+		t.Fatalf("quarantine must hold: spawns=%d quarantines=%d", spawned.Load(), quarantines.Load())
+	}
+
+	sup.ReleaseQuarantine("dead")
+	sup.reapAndRestart(ctx) // released → relaunch
+	if spawned.Load() != 2 {
+		t.Fatalf("released worker should relaunch, got %d spawns", spawned.Load())
+	}
+	if fleet.IsQuarantined("dead") {
+		t.Fatal("release must clear the quarantine flag")
+	}
+}
+
+func TestStallRestartStillFiresWhenFueled(t *testing.T) {
+	var spawned atomic.Int32
+	specs := []WorkerSpec{{AgentID: "stuck"}}
+	fleet := NewFleet()
+	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.StallTimeout = time.Nanosecond
+	sup.KillGrace = time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+	now := time.Now()
+	fleet.ApplyHello(control.Hello{AgentID: "stuck", Role: "hauler"}, 1, now)
+	fleet.ApplyStatus("stuck", control.Status{Fuel: 300, MaxFuel: 420}, now)
+
+	sup.reapAndRestart(ctx) // fueled → plain stall restart, counter increments
+	if spawned.Load() != 2 {
+		t.Fatalf("fueled stalled worker should restart, got %d spawns", spawned.Load())
+	}
+	if got := fleet.Snapshot()[0].StallRestarts; got != 1 {
+		t.Fatalf("stall restart must increment counter, got %d", got)
+	}
+}
