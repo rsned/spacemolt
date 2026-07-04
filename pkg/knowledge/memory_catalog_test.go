@@ -289,7 +289,7 @@ func TestMemoryKB_ShipListings(t *testing.T) {
 		StationName: "Station One",
 		GameTick:    100,
 		Listings: []ShipListing{
-			{ShipClass: "shuttle", ShipName: "Shuttle", BasePrice: 1000},
+			{ClassID: "shuttle", ShipName: "Shuttle", Price: 1000},
 		},
 	}
 	if err := kb.StoreShipListings(ctx, listings, "agent-1"); err != nil {

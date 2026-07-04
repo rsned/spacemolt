@@ -961,24 +961,38 @@ func (kb *SQLiteKB) GetConnectionMetrics(ctx context.Context) ([]ConnectionMetri
 	return metrics, nil
 }
 
-// StoreShipListings stores ship listings at a station
+// StoreShipListings stores the latest ship-listing snapshot for a station,
+// replacing any prior snapshot for that station (no history is kept — an
+// hourly append across the fleet would grow ~120k rows/day of near-identical
+// data).
 func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error {
+	if listings.CapturedAt.IsZero() {
+		listings.CapturedAt = time.Now().UTC()
+	}
+
 	tx, err := kb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM ship_listings WHERE station_id = ?`, listings.StationID); err != nil {
+		return fmt.Errorf("failed to clear prior snapshot: %w", err)
+	}
+
 	for _, ship := range listings.Listings {
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO ship_listings (system_id, system_name, station_id, station_name,
-				ship_class, ship_name, base_price, description, cargo_space, module_slots,
-				utility_slots, weapon_slots, game_tick, captured_at, agent_id, last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				listing_id, ship_id, class_id, ship_name, category, tier, scale,
+				hull, max_hull, shield, modules_count, price, seller, listed_at,
+				game_tick, captured_at, agent_id)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, listings.SystemID, listings.SystemName, listings.StationID, listings.StationName,
-			ship.ShipClass, ship.ShipName, ship.BasePrice, ship.Description, ship.CargoSpace,
-			ship.ModuleSlots, ship.UtilitySlots, ship.WeaponSlots, listings.GameTick,
-			listings.CapturedAt.Format(time.RFC3339), agentID, listings.GameTick)
+			ship.ListingID, ship.ShipID, ship.ClassID, ship.ShipName, ship.Category,
+			ship.Tier, ship.Scale, ship.Hull, ship.MaxHull, ship.Shield, ship.ModulesCount,
+			ship.Price, ship.Seller, ship.ListedAt,
+			listings.GameTick, listings.CapturedAt.Format(time.RFC3339), agentID)
 		if err != nil {
 			return fmt.Errorf("failed to insert ship listing: %w", err)
 		}
@@ -987,7 +1001,9 @@ func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings
 	return tx.Commit()
 }
 
-// GetShipListings retrieves historical ship listings
+// GetShipListings retrieves historical ship listings. Only the latest
+// snapshot per station is retained (StoreShipListings replaces on write), so
+// this returns at most one snapshot per station regardless of limit.
 func (kb *SQLiteKB) GetShipListings(ctx context.Context, systemID, stationID string, limit int) ([]ShipListings, error) {
 	query := `
 		SELECT DISTINCT system_id, system_name, station_id, station_name, game_tick, captured_at
@@ -1090,10 +1106,11 @@ func (kb *SQLiteKB) HasShipListingsToday(ctx context.Context, systemID, stationI
 // getShipListingsForSnapshot retrieves all ships for a specific snapshot time
 func (kb *SQLiteKB) getShipListingsForSnapshot(ctx context.Context, systemID, stationID string, capturedAt time.Time) ([]ShipListing, error) {
 	query := `
-		SELECT ship_class, ship_name, base_price, description, cargo_space, module_slots, utility_slots, weapon_slots
+		SELECT listing_id, ship_id, class_id, ship_name, category, tier, scale,
+			hull, max_hull, shield, modules_count, price, seller, listed_at
 		FROM ship_listings
 		WHERE system_id = ? AND station_id = ? AND captured_at = ?
-		ORDER BY ship_class
+		ORDER BY class_id, price
 	`
 
 	rows, err := kb.db.QueryContext(ctx, query, systemID, stationID, capturedAt.Format(time.RFC3339))
@@ -1105,18 +1122,11 @@ func (kb *SQLiteKB) getShipListingsForSnapshot(ctx context.Context, systemID, st
 	var listings []ShipListing
 	for rows.Next() {
 		var ship ShipListing
-		var description sql.NullString
-
-		err := rows.Scan(&ship.ShipClass, &ship.ShipName, &ship.BasePrice, &description,
-			&ship.CargoSpace, &ship.ModuleSlots, &ship.UtilitySlots, &ship.WeaponSlots)
-		if err != nil {
+		if err := rows.Scan(&ship.ListingID, &ship.ShipID, &ship.ClassID, &ship.ShipName,
+			&ship.Category, &ship.Tier, &ship.Scale, &ship.Hull, &ship.MaxHull,
+			&ship.Shield, &ship.ModulesCount, &ship.Price, &ship.Seller, &ship.ListedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan ship listing: %w", err)
 		}
-
-		if description.Valid {
-			ship.Description = description.String
-		}
-
 		listings = append(listings, ship)
 	}
 

@@ -135,16 +135,24 @@ type Base interface {
 	RecordPassengers(obs []SeenPassenger) error
 }
 
-// ShipListing represents a single ship listing at a station
+// ShipListing is one hull for sale at a station, matching the browse_ships
+// listing shape (server response since ~2026-02-18). Static class stats
+// (cargo space, slots) are NOT here — join ship_classes on ClassID.
 type ShipListing struct {
-	ShipClass    string
+	ListingID    string
+	ShipID       string
+	ClassID      string
 	ShipName     string
-	BasePrice    float64
-	Description  string
-	CargoSpace   int
-	ModuleSlots  int
-	UtilitySlots int
-	WeaponSlots  int
+	Category     string
+	Tier         int
+	Scale        int
+	Hull         int // current hull; -1 = not reported by the server
+	MaxHull      int
+	Shield       int
+	ModulesCount int
+	Price        int
+	Seller       string
+	ListedAt     string
 }
 
 // ShipListings represents captured ship listings at a station

@@ -652,7 +652,8 @@ func (kb *MemoryKB) ListExports(ctx context.Context) ([]KnowledgeExportMeta, err
 	return nil, fmt.Errorf("ListExports not implemented for in-memory KB")
 }
 
-// StoreShipListings stores ship listings at a station
+// StoreShipListings stores the latest ship-listing snapshot for a station,
+// replacing any prior snapshot for that station (mirrors SQLiteKB).
 func (kb *MemoryKB) StoreShipListings(ctx context.Context, listings ShipListings, agentID string) error {
 	kb.mu.Lock()
 	defer kb.mu.Unlock()
@@ -661,7 +662,13 @@ func (kb *MemoryKB) StoreShipListings(ctx context.Context, listings ShipListings
 		listings.CapturedAt = time.Now()
 	}
 
-	kb.shipListings = append(kb.shipListings, listings)
+	kept := kb.shipListings[:0]
+	for _, l := range kb.shipListings {
+		if l.StationID != listings.StationID {
+			kept = append(kept, l)
+		}
+	}
+	kb.shipListings = append(kept, listings)
 	return nil
 }
 

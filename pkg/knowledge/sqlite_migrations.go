@@ -540,6 +540,40 @@ func migrations() []Migration {
 				DROP TABLE IF EXISTS price_trends;
 			`,
 		},
+		{
+			version: 47,
+			name:    "ship_listings_v2",
+			sql: `
+				DROP TABLE IF EXISTS ship_listings;
+				CREATE TABLE ship_listings (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					system_id TEXT NOT NULL,
+					system_name TEXT NOT NULL,
+					station_id TEXT NOT NULL,
+					station_name TEXT NOT NULL,
+					listing_id TEXT NOT NULL,
+					ship_id TEXT NOT NULL,
+					class_id TEXT NOT NULL,
+					ship_name TEXT,
+					category TEXT,
+					tier INTEGER,
+					scale INTEGER,
+					hull INTEGER,
+					max_hull INTEGER,
+					shield INTEGER,
+					modules_count INTEGER,
+					price INTEGER NOT NULL,
+					seller TEXT,
+					listed_at TEXT,
+					game_tick INTEGER NOT NULL,
+					captured_at TEXT NOT NULL,
+					agent_id TEXT,
+					FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
+				);
+				CREATE INDEX idx_ship_listings_station ON ship_listings(station_id, captured_at DESC);
+				CREATE INDEX idx_ship_listings_class ON ship_listings(class_id, captured_at DESC);
+			`,
+		},
 	}
 }
 

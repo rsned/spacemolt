@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 18
--- Last Regenerated: 2026-06-22
+-- Migrations applied: 19
+-- Last Regenerated: 2026-07-04
 
 -- ============================================================================
 -- TABLES
@@ -771,25 +771,30 @@ CREATE TABLE ship_cargo (
 
 
 CREATE TABLE ship_listings (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	system_id TEXT NOT NULL,
-	system_name TEXT NOT NULL,
-	station_id TEXT NOT NULL,
-	station_name TEXT NOT NULL,
-	ship_class TEXT NOT NULL,
-	ship_name TEXT NOT NULL,
-	base_price REAL NOT NULL,
-	description TEXT,
-	cargo_space INTEGER,
-	module_slots INTEGER,
-	utility_slots INTEGER,
-	weapon_slots INTEGER,
-	game_tick INTEGER NOT NULL,
-	captured_at TEXT NOT NULL,
-	agent_id TEXT,
-	last_updated_tick INTEGER DEFAULT 0,
-	FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
-);
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					system_id TEXT NOT NULL,
+					system_name TEXT NOT NULL,
+					station_id TEXT NOT NULL,
+					station_name TEXT NOT NULL,
+					listing_id TEXT NOT NULL,
+					ship_id TEXT NOT NULL,
+					class_id TEXT NOT NULL,
+					ship_name TEXT,
+					category TEXT,
+					tier INTEGER,
+					scale INTEGER,
+					hull INTEGER,
+					max_hull INTEGER,
+					shield INTEGER,
+					modules_count INTEGER,
+					price INTEGER NOT NULL,
+					seller TEXT,
+					listed_at TEXT,
+					game_tick INTEGER NOT NULL,
+					captured_at TEXT NOT NULL,
+					agent_id TEXT,
+					FOREIGN KEY (station_id) REFERENCES pois(id) ON DELETE CASCADE
+				);
 
 
 CREATE TABLE ship_modules (
@@ -1005,9 +1010,9 @@ CREATE INDEX idx_resource_history_poi_resource ON resource_history(poi_id, resou
 
 CREATE INDEX idx_resource_history_tick ON resource_history(game_tick DESC);
 
-CREATE INDEX idx_ship_listings_captured_at ON ship_listings(captured_at DESC);
+CREATE INDEX idx_ship_listings_class ON ship_listings(class_id, captured_at DESC);
 
-CREATE INDEX idx_ship_listings_system_station ON ship_listings(system_id, station_id, captured_at DESC);
+CREATE INDEX idx_ship_listings_station ON ship_listings(station_id, captured_at DESC);
 
 CREATE INDEX idx_ship_modules_ship ON ship_modules(ship_id);
 
@@ -1082,4 +1087,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (43, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (44, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (45, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (46, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (47, datetime('now'));
 
