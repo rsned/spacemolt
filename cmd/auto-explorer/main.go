@@ -436,17 +436,25 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 			if err := wsClient.BrowseShips(ctx, nil); err != nil {
 				logger.Printf("Failed to get ship listings: %v", err)
 			} else {
-				rawJSON := client.GetRawJSON("listings")
-				if rawJSON != nil {
-					var serverData map[string]any
-					if err := json.Unmarshal(rawJSON, &serverData); err == nil {
-						ships := extractShipListings(serverData)
-						shipListings := convertShipListingsToKnowledge(state.System.ID, systemName, poiID, poiName, state.CurrentTick, ships)
-						if err := kb.StoreShipListings(ctx, shipListings, agentID); err != nil {
-							logger.Printf("⚠️  Failed to save ship listings to knowledge base: %v", err)
-						} else {
-							logger.Printf("💾 Saved ship listings to knowledge base")
-						}
+				rawJSON := client.GetRawJSON("ship_listings")
+				if rawJSON == nil {
+					logger.Printf("⚠️  browse_ships succeeded but no ship_listings payload was stored")
+				} else if _, ships, err := knowledge.ShipListingsFromBrowseJSON(rawJSON); err != nil {
+					logger.Printf("⚠️  Failed to parse ship listings: %v", err)
+				} else {
+					shipListings := knowledge.ShipListings{
+						SystemID:    state.System.ID,
+						SystemName:  systemName,
+						StationID:   poiID,
+						StationName: poiName,
+						GameTick:    state.CurrentTick,
+						CapturedAt:  time.Now().UTC(),
+						Listings:    ships,
+					}
+					if err := kb.StoreShipListings(ctx, shipListings, agentID); err != nil {
+						logger.Printf("⚠️  Failed to save ship listings to knowledge base: %v", err)
+					} else {
+						logger.Printf("💾 Saved ship listings to knowledge base (%d ships)", len(ships))
 					}
 				}
 			}
@@ -458,61 +466,6 @@ func saveStationData(client game.GameClient, ctx context.Context, logger *log.Lo
 	}
 
 	return nil
-}
-
-func convertShipListingsToKnowledge(systemID, systemName, stationID, stationName string, gameTick int64, ships []knowledge.ShipListing) knowledge.ShipListings {
-	return knowledge.ShipListings{
-		SystemID:    systemID,
-		SystemName:  systemName,
-		StationID:   stationID,
-		StationName: stationName,
-		GameTick:    gameTick,
-		Listings:    ships,
-	}
-}
-
-func extractShipListings(serverData map[string]any) []knowledge.ShipListing {
-	var ships []knowledge.ShipListing
-
-	// browse_ships response has a "listings" array (the old shipyard_showroom
-	// returned "ships"); per-listing fields are also slimmer — there's no
-	// description/cargo_space/utility_slots/weapon_slots at this level. Map
-	// what's available; downstream consumers tolerate zero defaults.
-	listingsData, ok := serverData["listings"]
-	if !ok {
-		return ships
-	}
-
-	listingsArray, ok := listingsData.([]any)
-	if !ok {
-		return ships
-	}
-
-	for _, listingData := range listingsArray {
-		listingMap, ok := listingData.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		ship := knowledge.ShipListing{}
-
-		if classID, ok := listingMap["class_id"].(string); ok {
-			ship.ShipClass = classID
-		}
-		if name, ok := listingMap["ship_name"].(string); ok {
-			ship.ShipName = name
-		}
-		if price, ok := listingMap["price"].(float64); ok {
-			ship.BasePrice = price
-		}
-		if modules, ok := listingMap["modules_count"].(float64); ok {
-			ship.ModuleSlots = int(modules)
-		}
-
-		ships = append(ships, ship)
-	}
-
-	return ships
 }
 
 // ============================================================================
