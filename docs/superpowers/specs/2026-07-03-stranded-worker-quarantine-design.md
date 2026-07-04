@@ -41,8 +41,8 @@ Constants live with the existing supervisor config fields (StallTimeout et al.) 
 When `Stranded` fires, the supervisor:
 
 1. Kills the worker process (existing `kill` path — frees the game session; no session_replaced tug-of-war during manual play_as).
-2. Sets `WorkerInfo.Quarantined = true`, `QuarantineReason = <reason>`, `Healthy = false`.
-3. Appends a rescue request to the queue file (§3).
+2. Appends a rescue request to the queue file (§3). This happens BEFORE the flag is set: the rejoin poll treats quarantined-with-no-record as "operator resolved → release", so the record must land first or a slow enrichment races into a spurious relaunch.
+3. Sets `WorkerInfo.Quarantined = true`, `QuarantineReason = <reason>`, `Healthy = false`.
 4. Logs one loud line: `QUARANTINED <agent>: <reason>; rescue queued — no further restarts`.
 5. Skips the agent in every subsequent `reapAndRestart` pass (checked before all restart cases) until rejoin (§5).
 

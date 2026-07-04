@@ -140,7 +140,9 @@ func (s *Supervisor) ReleaseQuarantine(agentID string) {
 // silent/dead/stalled workers, and quarantines newly-stranded ones. Run calls
 // this on its own ticker; it is exported separately so callers outside this
 // package (e.g. the cmd/overmind rejoin-glue tests) can drive a deterministic
-// tick instead of waiting on Run's game.SleepMedium ticker.
+// tick instead of waiting on Run's game.SleepMedium ticker. Not safe to call
+// concurrently with Run or with itself: the pass mutates the unsynchronized
+// restarts map, which Run's ticker goroutine owns.
 func (s *Supervisor) Tick(ctx context.Context) {
 	s.reapAndRestart(ctx)
 }
