@@ -129,3 +129,32 @@ Live validation: phase 1 deploys against the 7 currently stranded haulers (they 
 - Assist agents live in a **dedicated 4th overmind**; cross-overmind communication is the **shared queue file**, not sockets.
 - Rejoin is **automatic on `done`**, one path for auto and manual rescues.
 - Rescue fuel is **distance-sized** (5/jump + buffer), not a full tank; user-specified.
+
+## Deployment
+
+Station picks for `data/overmind/assist-fleet.yaml` were confirmed against
+`data/spacemolt-knowledge.db` (`pois` table, `type='station'`) for Haven, Sol,
+Krynn, and Nexus Prime — all matched the known-good marketbot/fleet-status
+docks (`grand_exchange`, `sol_central`, `war_citadel`, `the_core`). **Frontier
+has no `bases` row for any of its three stations** (`mobile_capital`,
+`expedition_launch`, `scout_docks`) — the known KB public-access gap noted
+above — so `expedition_launch` is a best guess, not a verified public dock;
+confirm live before trusting the assist-frontier agent's first dock.
+
+All five `data/agents/assist-*/credentials.json` files are present. Fitted
+`refuel_rig` per agent is a live-game check this task cannot perform —
+**operator TODO:** verify each assist agent's ship actually carries a
+`refuel_rig` before the first live rescue.
+
+Rebuild: `go build -o bin/overmind ./cmd/overmind && go build -o bin/worker ./cmd/worker`
+
+Assist overmind (4th fleet):
+setsid nohup ./bin/overmind --socket data/overmind/assist.sock \
+  --fleet data/overmind/assist-fleet.yaml --worker-bin bin/worker \
+  --status-file data/overmind/assist-status.json \
+  --history-file data/overmind/assist-history.jsonl \
+  --stagger 10s >> data/overmind/assist-overmind.log 2>&1 &
+
+Fleet overminds pick up quarantine on their next binary restart (drain first:
+kill -USR1 <pid>). Manual rescue: refuel by hand, then mark the record done —
+jq '(.[] | select(.agent_id=="X") | .status) = "done"' data/overmind/rescue-queue.json > /tmp/rq && mv /tmp/rq data/overmind/rescue-queue.json

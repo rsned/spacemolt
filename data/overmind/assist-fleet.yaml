@@ -1,0 +1,11 @@
+# Assist fleet: 5 fuel-rescue agents, one per empire capital. Standing behavior
+# `assist` (pkg/worker/assist.go) idles docked at home station, claims pending
+# records from data/overmind/rescue-queue.json when nearest, autopilots to the
+# strandee, refuels it, and returns home. See
+# docs/superpowers/specs/2026-07-03-stranded-worker-quarantine-design.md.
+workers:
+  - { agent_id: assist-haven, role: assist, station: grand_exchange }
+  - { agent_id: assist-sol, role: assist, station: sol_central }
+  - { agent_id: assist-krynn, role: assist, station: war_citadel }
+  - { agent_id: assist-frontier, role: assist, station: expedition_launch }
+  - { agent_id: assist-nexus, role: assist, station: the_core }
