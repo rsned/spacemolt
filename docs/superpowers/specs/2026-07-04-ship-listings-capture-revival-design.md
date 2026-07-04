@@ -168,7 +168,38 @@ selects — no MAX(captured_at) windowing. `GetShipListings`/
 `GetLatestShipListings` keep their signatures but effectively return the
 single retained snapshot; their godoc is updated to say so.
 
-### 5. Out of scope (next steps, separate plan)
+### 5. Mission-board capture in worker kb_update (folded in 2026-07-04)
+
+The worker's `kb_update` deliberately skipped missions ("play_as-specific").
+Consequence: mission_templates coverage is incidental — 96 templates total,
+only the station where a play_as session happens to sit gets refreshed (1
+station fresh on 2026-07-04). Fold it in: fleet-wide hourly mission boards at
+all 29 marketbot stations, riding the same restart.
+
+Port `kbUpdateMissions` (`cmd/tools/play_as/kb_update.go:175`) to
+`pkg/worker/capture.go` as:
+
+```go
+func KBUpdateMissions(ctx context.Context, client game.GameClient, kb knowledge.Base) error
+```
+
+Same logic: require docked; `client.GetMissions(ctx)` (free query) →
+`GetRawJSON("missions")` → `serverapi.GetMissionsResponse` →
+`kb.UpsertMissionTemplate(ctx, entry, baseID, systemID, tick)` per
+hand-authored entry (empty `template_id` = procedural, skipped), summary line
+`update_missions: N new, N unchanged, N changed, N procedural skipped`.
+Changed-field diffs log plainly (`field: old -> new`); the play_as-only
+pretty formatter (`formatMissionDiffValue`) is not ported.
+
+Call it from `KBUpdateAll`'s docked branch after `KBUpdateFacilities`,
+warn-and-continue like its siblings. play_as's `kbUpdateMissions` delegates
+to the worker version (same pattern as its other kb wrappers);
+`formatMissionDiffValue` becomes unused and is deleted.
+
+The intel-file side effect stays play_as-only by design (faction workflow;
+marketbots are factionless and cannot submit intel).
+
+### 6. Out of scope (next steps, separate plan)
 
 - Rebase `feat/haul-ship-replacement` onto main; rework its task-4
   `GetAllLatestShipListings` and task-2 `SelectHaulerHull` against the v2
@@ -190,6 +221,9 @@ single retained snapshot; their godoc is updated to say so.
 - `StoreShipListings` replace semantics: two stores for the same station keep
   only the second; different stations coexist.
 - Migration 47 applies on a DB at version 46 and on a fresh DB.
+- `KBUpdateMissions`: docked + missions raw JSON → upserts hand-authored
+  entries, skips procedural (empty template_id); not-docked errors; missing
+  raw data errors.
 
 ## Deployment
 
@@ -199,5 +233,9 @@ single retained snapshot; their godoc is updated to say so.
    [reference_overmind_launch_commands]) — same restart window as the
    quarantine+rescue deploy.
 4. Verify within an hour: `SELECT station_id, COUNT(*), MAX(captured_at) FROM
-   ship_listings GROUP BY station_id` shows ~34 stations with current
-   timestamps, and mb-overmind.log shows "Saved ship listings: N ships".
+   ship_listings GROUP BY station_id` shows ~29 stations with current
+   timestamps, mb-overmind.log shows "Saved ship listings: N ships" and
+   "update_missions:" summaries, and `SELECT COUNT(*) FROM mission_templates
+   WHERE last_seen_at > <deploy time>` jumps well past the pre-deploy single
+   digits (the table is a global template catalog keyed by template_id, so
+   the signal is many templates re-seen, not per-station rows).
