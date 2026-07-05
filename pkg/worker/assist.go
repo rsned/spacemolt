@@ -225,6 +225,15 @@ func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
 	}
 	fmt.Fprintf(deps.Out, "assist: rescuing %s at %s/%s (%d fuel)\n", rec.AgentID, rec.SystemID, rec.POI, rec.RescueFuel) //nolint:errcheck
 	if err := deps.navigate(ctx, rec.SystemID, rec.POI); err != nil {
+		// Mid-hyperspace-jump the server answers find_route with "You are
+		// not in a system" — a worker restarted in transit hits this on its
+		// first resumed pass (live incident 2026-07-04: assist-haven
+		// restarted mid-jump, rescue wrongly marked failed). The claim is
+		// still ours; retry on the next standing-loop pass instead.
+		if strings.Contains(err.Error(), "not in a system") {
+			fmt.Fprintf(deps.Out, "assist: rescue %s: in transit (%v); retrying next pass\n", rec.AgentID, err) //nolint:errcheck
+			return nil
+		}
 		return fail("travel", err)
 	}
 	if err := deps.Client.RefuelShip(ctx, rec.TargetUsername, rec.RescueFuel); err != nil {

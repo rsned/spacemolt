@@ -6,8 +6,7 @@
 workers:
   - { agent_id: assist-haven, role: assist, station: grand_exchange }
   - { agent_id: assist-sol, role: assist, station: sol_central }
-# assist-krynn EJECTED 2026-07-04 (operator): no refuel_rig fitted; Krynn-area
-# rescues are handled manually until it's refitted and re-added here.
+  - { agent_id: assist-krynn, role: assist, station: war_citadel }
 # assist-frontier's home is Outerrim's mobile_capital, which hyperspace-jumps
 # systems daily; its system is resolved live via find_route (assistMobileHomes).
   - { agent_id: assist-frontier, role: assist, station: mobile_capital }

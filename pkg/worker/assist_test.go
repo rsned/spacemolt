@@ -70,6 +70,30 @@ func TestAssistElectGhostHomeTakeover(t *testing.T) {
 	}
 }
 
+// TestAssistRetriesWhenInTransit: a worker restarted mid-hyperspace-jump gets
+// "You are not in a system" from find_route on its first resumed pass. The
+// record must stay claimed (retry next pass), not flip to failed.
+func TestAssistRetriesWhenInTransit(t *testing.T) {
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "salvager-10", TargetUsername: "Junk Jackson", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 10,
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-a",
+	}}}
+	deps := AssistDeps{
+		Client: &fakeClient{state: &game.State{}}, Queue: q, Out: io.Discard,
+		AgentID: "assist-a", HomeStation: "h1_station",
+		Navigate: func(ctx context.Context, system, poi string) error {
+			return errors.New("find_route failed: You are not in a system")
+		},
+	}
+	if err := Assist(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	if q.recs[0].Status != rescue.StatusClaimed {
+		t.Fatalf("in-transit navigate error must keep the claim, got status %s", q.recs[0].Status)
+	}
+}
+
 func TestAssistPendingAge(t *testing.T) {
 	now := time.Date(2026, 7, 4, 20, 0, 0, 0, time.UTC)
 	rec := rescue.Record{RequestedAt: "2026-07-04T19:50:00Z"}
