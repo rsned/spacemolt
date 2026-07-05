@@ -7732,8 +7732,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Display-only flags mirror `storage`: --group (alias --by-category)
 		// groups items into catalog-derived category sections; --filter <substr>
 		// (alias --match, or a bare positional) keeps only items whose item_id or
-		// name contains the substring, case-insensitive.
+		// name contains the substring, case-insensitive. --station_id (alias
+		// --station) views a remote station's faction storage without docking.
 		var opts storageFmtOptions
+		stationID := ""
 		for i := 1; i < len(parts); i++ {
 			arg := parts[i]
 			switch {
@@ -7746,12 +7748,24 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			case (arg == "--filter" || arg == "--match") && i+1 < len(parts):
 				i++
 				opts.filter = parts[i]
+			case strings.HasPrefix(arg, "--station_id="):
+				stationID = strings.TrimPrefix(arg, "--station_id=")
+			case strings.HasPrefix(arg, "--station="):
+				stationID = strings.TrimPrefix(arg, "--station=")
+			case (arg == "--station_id" || arg == "--station") && i+1 < len(parts):
+				i++
+				stationID = parts[i]
 			case !strings.HasPrefix(arg, "-"):
 				opts.filter = arg
 			}
 		}
 		storageFmtOpts = opts
 		defer func() { storageFmtOpts = storageFmtOptions{} }()
+		if stationID != "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ViewFactionStorageAt(ctx, stationID)
+			}, ctx, 2*time.Second, cmd, format)
+		}
 		return simpleCommand(client, client.ViewFactionStorage, ctx, 2*time.Second, cmd, format)
 
 	case "faction_create_buy_order":
@@ -9324,7 +9338,7 @@ func printHelp() {
 	fmt.Println("  faction_withdraw_credits <amt> - Withdraw from treasury")
 	fmt.Println("  faction_deposit_items <item> <qty>  - Deposit to faction storage")
 	fmt.Println("  faction_withdraw_items <item> <qty> - Withdraw from faction storage")
-	fmt.Println("  view_faction_storage [filter] [--group]  - View faction storage (--group: by category; filter: id/name substring)")
+	fmt.Println("  view_faction_storage [filter] [--group] [--station_id ID]  - View faction storage (--group: by category; filter: id/name substring; --station_id: view a remote station without docking)")
 	fmt.Println("  faction_create_buy_order <item> <qty> <price>  - Faction buy order")
 	fmt.Println("  faction_create_sell_order <item> <qty> <price> - Faction sell order")
 	fmt.Println("  faction_rooms                 - List faction rooms")
