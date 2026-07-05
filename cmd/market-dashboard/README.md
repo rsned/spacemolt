@@ -24,6 +24,7 @@ Then open <http://localhost:8090>.
 |------|---------|-------------|
 | `--addr` | `:8090` | HTTP listen address. |
 | `--market-db-path` | `data/market.db` | Path to the market SQLite database. |
+| `--kb-path` | `data/spacemolt-knowledge.db` | Path to the knowledge SQLite database (opened read-only; feeds the Ships tab). |
 
 Example against a specific DB on a custom port:
 
@@ -49,6 +50,11 @@ whole app.
   reveal thin-item noise. Enter an item id (e.g. `iron_ore`) and click **Show**.
 - **Capture health** — per-station capture timestamps (newest first), count, and
   earliest/latest, to spot cadence gaps in collection.
+- **Ships** — fleet-captured ship inventory from the knowledge DB's
+  `ship_listings` table (hourly marketbot `browse_ships` snapshots). One row per
+  hull class with listing count, price range, cheapest station, and station
+  count; click a row for the per-listing drill-down sorted by price. Hull `—`
+  means the server did not report current hull (undamaged).
 
 ## HTTP API
 
@@ -63,6 +69,8 @@ both cases.
 | `GET /api/station/{id}/orders` | Latest-capture order book for a station. Query: `item` (optional filter). |
 | `GET /api/item/{id}/history` | OHLCV buckets for an item. Query: `limit`. |
 | `GET /api/captures` | Per-station capture cadence. |
+| `GET /api/ships` | Ship classes for sale, aggregated across stations (knowledge DB). |
+| `GET /api/ships/{id}` | Per-listing drill-down for one hull class, sorted by price. |
 
 Example:
 

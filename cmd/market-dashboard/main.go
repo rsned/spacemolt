@@ -3,6 +3,7 @@
 package main
 
 import (
+	"database/sql"
 	"embed"
 	"encoding/json"
 	"flag"
@@ -11,6 +12,8 @@ import (
 	"net/http"
 
 	"github.com/rsned/spacemolt/pkg/market"
+
+	_ "modernc.org/sqlite"
 )
 
 //go:embed all:web
@@ -19,6 +22,7 @@ var webFS embed.FS
 func main() {
 	addr := flag.String("addr", ":8090", "HTTP listen address")
 	dbPath := flag.String("market-db-path", "data/market.db", "Path to the market SQLite database")
+	kbPath := flag.String("kb-path", "data/spacemolt-knowledge.db", "Path to the knowledge SQLite database (ship listings)")
 	flag.Parse()
 
 	collector, err := market.Open(market.Config{DBPath: *dbPath})
@@ -27,7 +31,15 @@ func main() {
 	}
 	defer func() { _ = collector.Close() }()
 
-	srv := &server{col: collector}
+	// Read-only handle: the dashboard must never write to (or migrate) the
+	// fleet's live knowledge base, so bypass knowledge.NewSQLiteKB.
+	kb, err := sql.Open("sqlite", "file:"+*kbPath+"?mode=ro")
+	if err != nil {
+		log.Fatalf("market-dashboard: open %s: %v", *kbPath, err)
+	}
+	defer func() { _ = kb.Close() }()
+
+	srv := &server{col: collector, kb: kb}
 
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
@@ -41,6 +53,8 @@ func main() {
 	mux.HandleFunc("GET /api/item/{id}/history", srv.itemHistoryHandler)
 	mux.HandleFunc("GET /api/captures", srv.capturesHandler)
 	mux.HandleFunc("GET /api/opportunities", srv.opportunitiesHandler)
+	mux.HandleFunc("GET /api/ships", srv.shipsHandler)
+	mux.HandleFunc("GET /api/ships/{id}", srv.shipClassHandler)
 	mux.Handle("GET /", http.FileServer(http.FS(sub)))
 
 	log.Printf("market-dashboard: serving %s on %s", *dbPath, *addr)
@@ -52,6 +66,7 @@ func main() {
 // server holds shared dependencies for HTTP handlers.
 type server struct {
 	col *market.Collector
+	kb  *sql.DB // read-only knowledge.db handle (ship listings)
 }
 
 // writeJSON encodes v as JSON with the given status.

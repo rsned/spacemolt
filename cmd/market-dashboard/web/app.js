@@ -134,6 +134,43 @@ async function renderOpps() {
   } catch (e) { showError(e); }
 }
 
+async function renderShips() {
+  try {
+    const ships = await getJSON('/api/ships');
+    if (!ships.length) { app.innerHTML = '<p>No ship listings captured yet.</p>'; return; }
+    const rows = ships.map(s =>
+      `<tr class="cell" data-class="${s.class_id}">
+       <td class="item">${s.ship_name || s.class_id}<br><small>${s.class_id} · ${s.category || ''}</small></td>
+       <td>${s.tier || '—'}</td><td>${fmt(s.listing_count)}</td>
+       <td class="sell">${fmt(s.min_price)}${s.max_price !== s.min_price ? ' – ' + fmt(s.max_price) : ''}</td>
+       <td>${s.cheapest_station_name || s.cheapest_station_id || '—'}</td>
+       <td>${fmt(s.station_count)}</td><td>${relTime(s.captured_at)}</td></tr>`).join('');
+    app.innerHTML = `<h3>Ships for sale <small>(${ships.length} hull classes)</small></h3>
+      <table><thead><tr><th>ship</th><th>tier</th><th>listings</th><th>price</th><th>cheapest at</th><th>stations</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
+    app.querySelectorAll('tr.cell').forEach(tr => {
+      tr.addEventListener('click', () => openShipClass(tr.dataset.class));
+    });
+  } catch (e) { showError(e); }
+}
+
+async function openShipClass(classID) {
+  const body = document.getElementById('cell-body');
+  body.textContent = 'Loading…';
+  document.getElementById('cell-dialog').showModal();
+  try {
+    const listings = await getJSON(`/api/ships/${encodeURIComponent(classID)}`);
+    if (!listings.length) { body.innerHTML = '<p>No listings.</p>'; return; }
+    const rows = listings.map(l =>
+      `<tr><td>${l.station_name || l.station_id}<br><small>${l.system_name || l.system_id || ''}</small></td>
+       <td class="sell">${fmt(l.price)}</td>
+       <td>${l.hull < 0 ? '—' : fmt(l.hull) + '/' + fmt(l.max_hull)}</td>
+       <td>${fmt(l.shield)}</td><td>${fmt(l.modules_count)}</td>
+       <td>${l.seller || '—'}</td><td>${relTime(l.captured_at)}</td></tr>`).join('');
+    body.innerHTML = `<h3>${classID} — ${listings.length} listings</h3>
+      <table><thead><tr><th>station</th><th>price</th><th>hull</th><th>shield</th><th>mods</th><th>seller</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } catch (e) { body.innerHTML = '<p id="error">' + (e.message || e) + '</p>'; }
+}
+
 function showView(v) {
   view = v;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
@@ -143,6 +180,7 @@ function showView(v) {
   else if (v === 'price') renderPrice();
   else if (v === 'health') renderHealth();
   else if (v === 'opps') renderOpps();
+  else if (v === 'ships') renderShips();
 }
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
