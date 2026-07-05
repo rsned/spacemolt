@@ -6,12 +6,22 @@ import (
 	"io"
 	"maps"
 	"strings"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/navigation"
 	"github.com/rsned/spacemolt/pkg/rescue"
 )
+
+// assistTakeoverInterval staggers claim takeover for non-nearest agents: a
+// pending rescue unclaimed for rank×interval unlocks the rank-th nearest
+// home. Without it, a benched or dead assist slot whose home is nearest to
+// the strandee is a claim black hole — every live agent defers to a ghost
+// that will never claim (live incident 2026-07-04: three rescues nearest to
+// the never-launched assist-krynn sat pending for 40+ minutes while four
+// full-tank assists idled at home).
+const assistTakeoverInterval = 5 * time.Minute
 
 // assistHomes maps each fixed-capital assist agent to its home system id.
 // The claim election in assistElect relies on every agent being able to
@@ -142,7 +152,7 @@ func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Rec
 			graph = navigation.JumpGraphFromConnections(conns)
 			homes = resolveAssistHomes(ctx, deps)
 		}
-		if !assistElect(deps.AgentID, homes, r.SystemID, graph) {
+		if !assistElect(deps.AgentID, homes, r.SystemID, graph, assistPendingAge(r, time.Now())) {
 			continue
 		}
 		ok, err := deps.Queue.Transition(r.AgentID, rescue.StatusPending, rescue.StatusClaimed,
@@ -156,11 +166,14 @@ func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Rec
 	return rescue.Record{}, false
 }
 
-// assistElect reports whether agentID should claim a rescue in strandSystemID:
-// its home is (one of) the nearest homes, ties broken by lexicographically
-// smaller agent id. Deterministic per record, so all five agents agree without
-// talking; the queue's CAS claim covers any leftover race.
-func assistElect(agentID string, homes map[string]string, strandSystemID string, graph navigation.JumpGraph) bool {
+// assistElect reports whether agentID should claim a rescue in strandSystemID
+// that has been pending for age: the nearest home (ties broken by
+// lexicographically smaller agent id) claims immediately, and each
+// assistTakeoverInterval of age unlocks the next-nearest rank, so an absent
+// agent's home only delays the claim rather than sinking it. Deterministic
+// per (record, time), so all agents agree without talking; the queue's CAS
+// claim covers any leftover race.
+func assistElect(agentID string, homes map[string]string, strandSystemID string, graph navigation.JumpGraph, age time.Duration) bool {
 	mySys, ok := homes[agentID]
 	if !ok {
 		return false
@@ -174,6 +187,7 @@ func assistElect(agentID string, homes map[string]string, strandSystemID string,
 	if !ok || my >= navigation.RouteInf {
 		return false
 	}
+	rank := 0
 	for id, sys := range homes {
 		if id == agentID {
 			continue
@@ -183,10 +197,21 @@ func assistElect(agentID string, homes map[string]string, strandSystemID string,
 			continue
 		}
 		if d < my || (d == my && id < agentID) {
-			return false
+			rank++
 		}
 	}
-	return true
+	return age >= time.Duration(rank)*assistTakeoverInterval
+}
+
+// assistPendingAge is how long the record has been waiting since it was
+// filed. An unparsable timestamp counts as infinitely old — a suboptimal
+// claimant beats a silent stall on a hand-edited record.
+func assistPendingAge(rec rescue.Record, now time.Time) time.Duration {
+	t, err := time.Parse(time.RFC3339, rec.RequestedAt)
+	if err != nil {
+		return 1 << 62
+	}
+	return now.Sub(t)
 }
 
 func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {

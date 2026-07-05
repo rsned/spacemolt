@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -30,19 +31,53 @@ func TestAssistElect(t *testing.T) {
 		name   string
 		agent  string
 		strand string
+		age    time.Duration
 		want   bool
 	}{
-		{"equidistant tie goes to lexicographic smaller", "assist-a", "strand", true},
-		{"equidistant tie loser", "assist-b", "strand", false},
-		{"strictly closer wins", "assist-b", "m2", true},
-		{"strictly farther loses", "assist-a", "m2", false},
-		{"unknown agent never claims", "assist-x", "strand", false},
-		{"unreachable system never claims", "assist-a", "nowhere", false},
+		{"equidistant tie goes to lexicographic smaller", "assist-a", "strand", 0, true},
+		{"equidistant tie loser", "assist-b", "strand", 0, false},
+		{"strictly closer wins", "assist-b", "m2", 0, true},
+		{"strictly farther loses", "assist-a", "m2", 0, false},
+		{"unknown agent never claims", "assist-x", "strand", 0, false},
+		{"unreachable system never claims", "assist-a", "nowhere", 0, false},
+		// Takeover: rank×interval of pending age unlocks the next rank.
+		{"tie loser takes over after one interval", "assist-b", "strand", assistTakeoverInterval, true},
+		{"farther agent takes over after one interval", "assist-a", "m2", assistTakeoverInterval, true},
+		{"farther agent still waits just under the interval", "assist-a", "m2", assistTakeoverInterval - time.Second, false},
+		{"unreachable never claims regardless of age", "assist-a", "nowhere", 10 * assistTakeoverInterval, false},
 	}
 	for _, tc := range cases {
-		if got := assistElect(tc.agent, homes, tc.strand, graph); got != tc.want {
+		if got := assistElect(tc.agent, homes, tc.strand, graph, tc.age); got != tc.want {
 			t.Errorf("%s: assistElect = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// TestAssistElectGhostHomeTakeover reproduces the 2026-07-04 incident: the
+// nearest home belongs to a benched agent that never claims. The live agents
+// must take the rescue over after their rank's interval instead of deferring
+// forever.
+func TestAssistElectGhostHomeTakeover(t *testing.T) {
+	graph := assistTestGraph()
+	// ghost's home h1 is 2 jumps from m1; live agent's home h2 is 3 jumps.
+	homes := map[string]string{"assist-ghost": "h1", "assist-live": "h2"}
+
+	if assistElect("assist-live", homes, "m1", graph, 0) {
+		t.Error("fresh record: live agent must defer to the nearer (ghost) home")
+	}
+	if !assistElect("assist-live", homes, "m1", graph, assistTakeoverInterval) {
+		t.Error("aged record: live agent (rank 1) must take over after one interval")
+	}
+}
+
+func TestAssistPendingAge(t *testing.T) {
+	now := time.Date(2026, 7, 4, 20, 0, 0, 0, time.UTC)
+	rec := rescue.Record{RequestedAt: "2026-07-04T19:50:00Z"}
+	if got := assistPendingAge(rec, now); got != 10*time.Minute {
+		t.Errorf("age = %v, want 10m", got)
+	}
+	if got := assistPendingAge(rescue.Record{RequestedAt: "garbage"}, now); got < 100*24*time.Hour {
+		t.Errorf("unparsable timestamp must count as very old, got %v", got)
 	}
 }
 
