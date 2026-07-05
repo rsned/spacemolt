@@ -106,6 +106,20 @@ type BestPrice struct {
 	CapturedAt  time.Time `json:"captured_at"`
 }
 
+// ItemSeller summarizes one station's sell-side availability of an item,
+// aggregated over that station's latest capture.
+type ItemSeller struct {
+	ItemID      string    `json:"item_id"`
+	StationID   string    `json:"station_id"`
+	StationName string    `json:"station_name"`
+	SystemID    string    `json:"system_id"`
+	SystemName  string    `json:"system_name"`
+	BestPrice   float64   `json:"best_price"`
+	TotalQty    float64   `json:"total_quantity"`
+	Orders      int       `json:"orders"`
+	CapturedAt  time.Time `json:"captured_at"`
+}
+
 // ItemStationPrice is one item's best ask/bid per station, from the latest capture.
 // BestAsk is the cheapest sell order (where you BUY); BestBid is the highest buy
 // order (where you SELL). AskQty/BidQty total the quantity of orders tying at that

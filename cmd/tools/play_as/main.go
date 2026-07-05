@@ -8297,6 +8297,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 		return runSellable(client, ctx, opts, format)
 
+	case "find_item":
+		return runFindItem(client, ctx, parts[1:])
+
 	case "demand":
 		if len(parts) >= 2 && parts[1] == "history" {
 			return runDemandHistory(ctx, parts[2:], format)
@@ -9247,6 +9250,7 @@ func printHelp() {
 	fmt.Println("  demand [--station-only] [--hide-player-only] [--include-mine] [--show-none-onhand] [--only fulfillable|craftable|all] [--sort price|proceeds|age] [--item id] [--station id] [--min-price N] [--max-age D] [--limit N] - where can I sell? (captured buy-order demand)")
 	fmt.Println("       (defaults: skip rows that are entirely my own orders, and rows with 0 on-hand & 0 craftable)")
 	fmt.Println("  demand history <item> [--station id] [--limit N]   - demand price/qty trend per station")
+	fmt.Println("  find_item <item> [qty] [--limit=N]  - where can I buy? stations selling the item, ranked by jump hops (default 5 closest)")
 
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] - Queue a crafting job")

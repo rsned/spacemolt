@@ -167,7 +167,7 @@ async function openShipClass(classID) {
        <td>${fmt(l.shield)}</td><td>${fmt(l.modules_count)}</td>
        <td>${l.seller || '—'}</td><td>${relTime(l.captured_at)}</td></tr>`).join('');
     body.innerHTML = `<h3>${classID} — ${listings.length} listings</h3>
-      <table><thead><tr><th>station</th><th>price</th><th>hull</th><th>shield</th><th>mods</th><th>seller</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table><thead><tr><th>station</th><th>price</th><th>hull</th><th>shield</th><th>modules fitted</th><th>seller</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
   } catch (e) { body.innerHTML = '<p id="error">' + (e.message || e) + '</p>'; }
 }
 

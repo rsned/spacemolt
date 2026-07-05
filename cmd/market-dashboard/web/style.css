@@ -17,5 +17,6 @@ td.sparse { color: #bbb; }
 .sell { color: #047857; }
 .buy { color: #b45309; }
 main { padding: 0 1rem 2rem; }
-dialog { width: min(640px, 90vw); }
+dialog { width: min(1000px, 94vw); }
+dialog table { width: 100%; }
 #error { color: #b91c1c; padding: 1rem; }

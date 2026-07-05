@@ -405,6 +405,102 @@ func TestGetMatrix(t *testing.T) {
 	}
 }
 
+func TestFindItemSellers(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	write := func(stn, sys string, orders []Order) {
+		for i := range orders {
+			orders[i].StationID = stn
+			orders[i].CapturedAt = now
+		}
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: stn, StationName: stn + " Station", SystemID: sys, SystemName: sys,
+			CapturedAt: now, Orders: orders,
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}
+	}
+	// stnA: two sell orders (depth 30, best 5) + a buy order that must be ignored.
+	write("stnA", "sysA", []Order{
+		{ItemID: "iron", Side: "sell", PriceEach: 5, Quantity: 10},
+		{ItemID: "iron", Side: "sell", PriceEach: 8, Quantity: 20},
+		{ItemID: "iron", Side: "buy", PriceEach: 3, Quantity: 100},
+	})
+	// stnB: cheap but shallow (depth 4).
+	write("stnB", "sysB", []Order{{ItemID: "iron", Side: "sell", PriceEach: 2, Quantity: 4}})
+	// stnC: sells a different item only.
+	write("stnC", "sysC", []Order{{ItemID: "gold", Side: "sell", PriceEach: 50, Quantity: 5}})
+
+	sellers, err := c.FindItemSellers(ctx, "iron", 0)
+	if err != nil {
+		t.Fatalf("FindItemSellers: %v", err)
+	}
+	if len(sellers) != 2 {
+		t.Fatalf("expected 2 selling stations, got %d: %+v", len(sellers), sellers)
+	}
+	if sellers[0].StationID != "stnB" || sellers[0].BestPrice != 2 {
+		t.Errorf("cheapest first: want stnB@2, got %+v", sellers[0])
+	}
+	a := sellers[1]
+	if a.StationID != "stnA" || a.BestPrice != 5 || a.TotalQty != 30 || a.Orders != 2 {
+		t.Errorf("stnA aggregate wrong (want best=5 depth=30 orders=2): %+v", a)
+	}
+	if a.SystemID != "sysA" || a.StationName != "stnA Station" {
+		t.Errorf("station metadata not joined: %+v", a)
+	}
+
+	// Quantity floor excludes the shallow station.
+	deep, err := c.FindItemSellers(ctx, "iron", 10)
+	if err != nil {
+		t.Fatalf("FindItemSellers(minQty=10): %v", err)
+	}
+	if len(deep) != 1 || deep[0].StationID != "stnA" {
+		t.Errorf("minQty=10 must leave only stnA, got %+v", deep)
+	}
+}
+
+func TestFindItemSellers_UsesLatestCapturePerStation(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx := context.Background()
+	old := time.Now().UTC().Add(-2 * time.Hour)
+	now := time.Now().UTC()
+	snap := func(ts time.Time, price, qty float64) MarketSnapshot {
+		return MarketSnapshot{
+			StationID: "stn", StationName: "Stn", SystemID: "sys", SystemName: "Sys",
+			CapturedAt: ts,
+			Orders:     []Order{{StationID: "stn", ItemID: "iron", Side: "sell", PriceEach: price, Quantity: qty, CapturedAt: ts}},
+		}
+	}
+	if err := c.WriteSnapshot(ctx, snap(old, 1, 999)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.WriteSnapshot(ctx, snap(now, 7, 12)); err != nil {
+		t.Fatal(err)
+	}
+
+	sellers, err := c.FindItemSellers(ctx, "iron", 0)
+	if err != nil {
+		t.Fatalf("FindItemSellers: %v", err)
+	}
+	if len(sellers) != 1 {
+		t.Fatalf("one station must yield one row, got %d", len(sellers))
+	}
+	if sellers[0].BestPrice != 7 || sellers[0].TotalQty != 12 {
+		t.Errorf("must use latest capture only (7@12), got %+v", sellers[0])
+	}
+}
+
 func TestGetStationOrders(t *testing.T) {
 	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
 	if err != nil {

@@ -206,6 +206,51 @@ func (c *Collector) FindBestPrices(ctx context.Context, itemID, side string, lim
 	return out, nil
 }
 
+// FindItemSellers returns every station currently selling the item, one row
+// per station aggregated over its latest capture: cheapest ask, total sell
+// depth, and order count. Stations whose total depth is below minQty are
+// excluded (pass 0 for no floor). Rows are ordered cheapest-first; callers
+// that want distance ranking compose this with pkg/finditem.
+func (c *Collector) FindItemSellers(ctx context.Context, itemID string, minQty float64) ([]ItemSeller, error) {
+	query := `
+		SELECT mo.station_id, COALESCE(s.station_name, mo.station_id),
+		       COALESCE(s.system_id, ''), COALESCE(s.system_name, ''),
+		       MIN(mo.price_each), SUM(mo.quantity), COUNT(*), MAX(mo.captured_at)
+		FROM market_orders mo
+		JOIN (
+			SELECT station_id, MAX(captured_at) AS mx
+			FROM market_orders
+			WHERE item_id = ? AND side = 'sell'
+			GROUP BY station_id
+		) latest ON latest.station_id = mo.station_id AND latest.mx = mo.captured_at
+		LEFT JOIN stations s ON s.station_id = mo.station_id
+		WHERE mo.item_id = ? AND mo.side = 'sell'
+		GROUP BY mo.station_id
+		HAVING SUM(mo.quantity) >= ?
+		ORDER BY MIN(mo.price_each) ASC, mo.station_id ASC`
+	rows, err := c.db.QueryContext(ctx, query, itemID, itemID, minQty)
+	if err != nil {
+		return nil, fmt.Errorf("query item sellers: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []ItemSeller
+	for rows.Next() {
+		is := ItemSeller{ItemID: itemID}
+		var capStr string
+		if err := rows.Scan(&is.StationID, &is.StationName, &is.SystemID, &is.SystemName,
+			&is.BestPrice, &is.TotalQty, &is.Orders, &capStr); err != nil {
+			return nil, fmt.Errorf("scan item seller: %w", err)
+		}
+		is.CapturedAt, _ = time.Parse(time.RFC3339, capStr)
+		out = append(out, is)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate item sellers: %w", err)
+	}
+	return out, nil
+}
+
 // StoreAnalysis inserts an LLM market-analysis record.
 func (c *Collector) StoreAnalysis(ctx context.Context, a MarketAnalysis) error {
 	insights, _ := json.Marshal(a.TopInsights)
