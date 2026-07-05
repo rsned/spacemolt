@@ -28,6 +28,27 @@ func fuelForHops(hops int) int {
 	return f
 }
 
+// TransferQuantity sizes a rescue fuel transfer at refuel time: fill the
+// strandee's remaining tank capacity, but never give away more than the
+// rescuer can spare after reserving fuel to fly home (hopsHome jumps at
+// FuelPerJump each, plus FuelBuffer). Both terms clamp at zero, so a rescuer
+// that cannot cover its own trip home returns 0 — the caller then declines the
+// transfer rather than stranding itself.
+func TransferQuantity(strandeeMaxFuel, strandeeFuel, rescuerFuel, hopsHome int) int {
+	need := strandeeMaxFuel - strandeeFuel
+	if need < 0 {
+		need = 0
+	}
+	spare := rescuerFuel - (FuelPerJump*hopsHome + FuelBuffer)
+	if spare < 0 {
+		spare = 0
+	}
+	if need < spare {
+		return need
+	}
+	return spare
+}
+
 // ResolveUsername reads the agent's in-game username from
 // <agentsDir>/<agentID>/credentials.json. In-game usernames differ from the
 // on-disk agent aliases; refuel --target needs the in-game one.

@@ -63,3 +63,32 @@ func TestResolveSystemID(t *testing.T) {
 		}
 	}
 }
+
+func TestTransferQuantity(t *testing.T) {
+	cases := []struct {
+		name                                        string
+		strandeeMax, strandeeFuel, rescuerFuel, hops int
+		want                                        int
+	}{
+		// Big-tank strandee, healthy near rescuer: capped by rescuer spare.
+		// spare = 130 - (5*1 + 5) = 120; need = 420 - 0 = 420 -> 120.
+		{"capped by rescuer spare", 420, 0, 130, 1, 120},
+		// Small strandee, healthy rescuer: capped by need.
+		// need = 75 - 5 = 70; spare = 130 - (5*1+5) = 120 -> 70.
+		{"capped by strandee need", 75, 5, 130, 1, 70},
+		// Far / low-fuel rescuer: spare clamps to 0 -> caller declines.
+		// spare = 20 - (5*3 + 5) = 0; need = 420 -> 0.
+		{"rescuer cannot spare", 420, 0, 20, 3, 0},
+		// Strandee already full: need 0 -> 0.
+		{"strandee already full", 120, 120, 130, 0, 0},
+		// hops 0 (station in-system): reserve is just the buffer.
+		// spare = 100 - (0 + 5) = 95; need = 100 -> 95.
+		{"zero hops home reserves buffer only", 100, 0, 100, 0, 95},
+	}
+	for _, tc := range cases {
+		if got := TransferQuantity(tc.strandeeMax, tc.strandeeFuel, tc.rescuerFuel, tc.hops); got != tc.want {
+			t.Errorf("%s: TransferQuantity(%d,%d,%d,%d) = %d, want %d",
+				tc.name, tc.strandeeMax, tc.strandeeFuel, tc.rescuerFuel, tc.hops, got, tc.want)
+		}
+	}
+}
