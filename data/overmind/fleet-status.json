@@ -1,16 +1,16 @@
 {
-  "captured_at": "2026-07-04T20:49:39Z",
+  "captured_at": "2026-07-05T01:36:39Z",
   "workers": [
     {
       "agent_id": "hauler-0",
       "role": "hauler",
-      "system": "Krynn",
-      "poi": "war_citadel",
-      "docked": true,
-      "credits": 1879375,
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
+      "docked": false,
+      "credits": 1987685,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 72,
+      "fuel": 115,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 75,
@@ -21,18 +21,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:31Z"
+      "last_seen": "2026-07-05T01:36:31Z"
     },
     {
       "agent_id": "salvager-1",
       "role": "hauler",
-      "system": "Blood Forge",
-      "poi": "blood_forge_smelting_works",
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
       "docked": false,
-      "credits": 1599425,
+      "credits": 1564866,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 81,
+      "fuel": 130,
       "max_fuel": 130,
       "cargo_used": 0,
       "cargo_capacity": 100,
@@ -43,7 +43,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:34Z"
+      "last_seen": "2026-07-05T01:36:34Z"
     },
     {
       "agent_id": "salvager-10",
@@ -51,7 +51,7 @@
       "system": "The Rampart",
       "poi": "the_sentinel",
       "docked": false,
-      "credits": 503353,
+      "credits": 550553,
       "hull": 160,
       "max_hull": 160,
       "fuel": 6,
@@ -63,22 +63,22 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 243,
+      "restarts": 270,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:29Z"
     },
     {
       "agent_id": "salvager-2",
       "role": "hauler",
-      "system": "Blood Forge",
-      "poi": "blood_forge_smelting_works",
-      "docked": true,
-      "credits": 1439874,
+      "system": "The Rampart",
+      "poi": "the_rampart_checkpoint",
+      "docked": false,
+      "credits": 1436930,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 130,
+      "fuel": 58,
       "max_fuel": 130,
-      "cargo_used": 100,
+      "cargo_used": 99,
       "cargo_capacity": 100,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -87,7 +87,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:30Z"
+      "last_seen": "2026-07-05T01:36:30Z"
     },
     {
       "agent_id": "salvager-3",
@@ -107,20 +107,20 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 312,
+      "restarts": 348,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:35Z"
+      "last_seen": "2026-07-05T01:36:35Z"
     },
     {
       "agent_id": "salvager-4",
       "role": "hauler",
-      "system": "Nova Terra",
-      "poi": "nova_terra_central",
-      "docked": true,
-      "credits": 1879536,
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
+      "docked": false,
+      "credits": 1876424,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 100,
+      "fuel": 79,
       "max_fuel": 100,
       "cargo_used": 70,
       "cargo_capacity": 70,
@@ -131,40 +131,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:30Z"
+      "last_seen": "2026-07-05T01:36:30Z"
     },
     {
       "agent_id": "salvager-5",
       "role": "hauler",
-      "system": "Miaplacidus",
-      "poi": "miaplacidus_frost_ring",
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
       "docked": false,
-      "credits": 1244564,
+      "credits": 1343058,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 95,
-      "max_fuel": 95,
-      "cargo_used": 64,
-      "cargo_capacity": 65,
-      "standing_behavior": "hauler",
-      "active_task_id": "",
-      "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
-      "faction_tag": "YSMT",
-      "healthy": true,
-      "restarts": 0,
-      "seen": true,
-      "last_seen": "2026-07-04T20:49:35Z"
-    },
-    {
-      "agent_id": "salvager-6",
-      "role": "hauler",
-      "system": "The Experiment",
-      "poi": "the_experiment_research_station",
-      "docked": false,
-      "credits": 2054018,
-      "hull": 75,
-      "max_hull": 75,
-      "fuel": 95,
+      "fuel": 47,
       "max_fuel": 95,
       "cargo_used": 0,
       "cargo_capacity": 65,
@@ -175,18 +153,40 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:30Z"
+      "last_seen": "2026-07-05T01:36:35Z"
+    },
+    {
+      "agent_id": "salvager-6",
+      "role": "hauler",
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
+      "docked": false,
+      "credits": 2172329,
+      "hull": 75,
+      "max_hull": 75,
+      "fuel": 53,
+      "max_fuel": 95,
+      "cargo_used": 0,
+      "cargo_capacity": 65,
+      "standing_behavior": "hauler",
+      "active_task_id": "",
+      "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
+      "faction_tag": "YSMT",
+      "healthy": true,
+      "restarts": 0,
+      "seen": true,
+      "last_seen": "2026-07-05T01:36:30Z"
     },
     {
       "agent_id": "salvager-7",
       "role": "hauler",
-      "system": "Factory Belt",
-      "poi": "factory_belt_manufacturing_hub",
-      "docked": true,
-      "credits": 1678857,
+      "system": "Cargo Lanes",
+      "poi": "cargo_lanes_freight_depot",
+      "docked": false,
+      "credits": 1676827,
       "hull": 110,
       "max_hull": 110,
-      "fuel": 90,
+      "fuel": 71,
       "max_fuel": 90,
       "cargo_used": 60,
       "cargo_capacity": 60,
@@ -197,20 +197,20 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:34Z"
+      "last_seen": "2026-07-05T01:36:34Z"
     },
     {
       "agent_id": "salvager-8",
       "role": "hauler",
-      "system": "Factory Belt",
-      "poi": "factory_belt_manufacturing_hub",
-      "docked": true,
-      "credits": 2402516,
+      "system": "Mebsuta",
+      "poi": "crystalline_field_mebsuta",
+      "docked": false,
+      "credits": 2324652,
       "hull": 240,
       "max_hull": 240,
-      "fuel": 140,
+      "fuel": 97,
       "max_fuel": 140,
-      "cargo_used": 0,
+      "cargo_used": 180,
       "cargo_capacity": 400,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -219,7 +219,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:29Z"
     },
     {
       "agent_id": "salvager-9",
@@ -237,9 +237,9 @@
       "standing_behavior": "hauler",
       "active_task_id": "",
       "healthy": true,
-      "restarts": 311,
+      "restarts": 345,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:35Z"
+      "last_seen": "2026-07-05T01:36:35Z"
     },
     {
       "agent_id": "trader-1",
@@ -259,20 +259,20 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 223,
+      "restarts": 253,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:29Z"
     },
     {
       "agent_id": "trader-10",
       "role": "hauler",
-      "system": "The Experiment",
-      "poi": "the_experiment_research_station",
-      "docked": true,
-      "credits": 1673965,
+      "system": "Haven",
+      "poi": "trade_winds",
+      "docked": false,
+      "credits": 1690937,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 114,
+      "fuel": 62,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 75,
@@ -283,7 +283,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:30Z"
+      "last_seen": "2026-07-05T01:36:30Z"
     },
     {
       "agent_id": "trader-2",
@@ -303,17 +303,17 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 58,
+      "restarts": 95,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:34Z"
     },
     {
       "agent_id": "trader-3",
       "role": "hauler",
-      "system": "The Experiment",
-      "poi": "the_experiment_research_station",
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
       "docked": true,
-      "credits": 1227361,
+      "credits": 1256530,
       "hull": 100,
       "max_hull": 100,
       "fuel": 100,
@@ -327,18 +327,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:34Z"
+      "last_seen": "2026-07-05T01:36:34Z"
     },
     {
       "agent_id": "trader-4",
       "role": "hauler",
-      "system": "The Experiment",
-      "poi": "the_experiment_research_station",
-      "docked": true,
-      "credits": 1177702,
+      "system": "Cargo Lanes",
+      "poi": "cargo_lanes_freight_depot",
+      "docked": false,
+      "credits": 1225521,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 170,
+      "fuel": 158,
       "max_fuel": 170,
       "cargo_used": 0,
       "cargo_capacity": 130,
@@ -349,7 +349,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:31Z"
+      "last_seen": "2026-07-05T01:36:31Z"
     },
     {
       "agent_id": "trader-5",
@@ -369,9 +369,9 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 248,
+      "restarts": 281,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:34Z"
+      "last_seen": "2026-07-05T01:36:29Z"
     },
     {
       "agent_id": "trader-6",
@@ -391,17 +391,17 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 62,
+      "restarts": 100,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:31Z"
     },
     {
       "agent_id": "trader-7",
       "role": "hauler",
-      "system": "The Experiment",
-      "poi": "the_experiment_research_station",
+      "system": "Alpha Centauri",
+      "poi": "alpha_centauri_colonial_station",
       "docked": false,
-      "credits": 1515592,
+      "credits": 1485880,
       "hull": 110,
       "max_hull": 110,
       "fuel": 90,
@@ -415,7 +415,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:36Z"
+      "last_seen": "2026-07-05T01:36:36Z"
     },
     {
       "agent_id": "trader-8",
@@ -435,9 +435,9 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 202,
+      "restarts": 234,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:34Z"
     },
     {
       "agent_id": "trader-9",
@@ -457,9 +457,9 @@
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
       "faction_tag": "YSMT",
       "healthy": true,
-      "restarts": 157,
+      "restarts": 176,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:34Z"
+      "last_seen": "2026-07-05T01:36:29Z"
     }
   ]
 }

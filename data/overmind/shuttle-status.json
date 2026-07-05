@@ -1,16 +1,16 @@
 {
-  "captured_at": "2026-07-04T20:49:37Z",
+  "captured_at": "2026-07-05T01:36:37Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "Intercrus",
-      "poi": "intercrus_belt",
+      "system": "Trader's Rest",
+      "poi": "traders_rest_resort_station",
       "docked": false,
-      "credits": 3591210,
+      "credits": 3747696,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 109,
+      "fuel": 115,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
@@ -21,7 +21,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-04T20:49:29Z"
+      "last_seen": "2026-07-05T01:36:29Z"
     }
   ]
 }

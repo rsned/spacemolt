@@ -169,3 +169,6 @@ docs/*.md
 # Local scratch / throwaway working files
 scratch/
 /worker
+
+# Runtime lock files (flock guards, never versioned)
+data/overmind/*.lock
