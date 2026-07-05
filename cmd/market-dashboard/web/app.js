@@ -134,19 +134,53 @@ async function renderOpps() {
   } catch (e) { showError(e); }
 }
 
+// Ships-view sort state: column key + direction, applied client-side.
+const shipCols = [
+  { key: 'ship_name', label: 'ship', str: true, val: s => (s.ship_name || s.class_id).toLowerCase() },
+  { key: 'tier', label: 'tier', val: s => s.tier || 0 },
+  { key: 'listing_count', label: 'listings', val: s => s.listing_count },
+  { key: 'min_price', label: 'price', val: s => s.min_price },
+  { key: 'cheapest_station_name', label: 'cheapest at', str: true, val: s => (s.cheapest_station_name || s.cheapest_station_id || '').toLowerCase() },
+  { key: 'station_count', label: 'stations', val: s => s.station_count },
+  { key: 'captured_at', label: 'captured', val: s => s.captured_at || '' }, // no str flag: first click = newest first
+];
+let shipSort = { key: 'listing_count', asc: false }; // matches the API's default order
+
+function sortShips(ships) {
+  const col = shipCols.find(c => c.key === shipSort.key) || shipCols[2];
+  const dir = shipSort.asc ? 1 : -1;
+  return ships.slice().sort((a, b) => {
+    const av = col.val(a), bv = col.val(b);
+    if (av < bv) return -dir;
+    if (av > bv) return dir;
+    return a.class_id < b.class_id ? -1 : 1; // stable tie-break
+  });
+}
+
 async function renderShips() {
   try {
     const ships = await getJSON('/api/ships');
     if (!ships.length) { app.innerHTML = '<p>No ship listings captured yet.</p>'; return; }
-    const rows = ships.map(s =>
+    const rows = sortShips(ships).map(s =>
       `<tr class="cell" data-class="${s.class_id}">
        <td class="item">${s.ship_name || s.class_id}<br><small>${s.class_id} · ${s.category || ''}</small></td>
        <td>${s.tier || '—'}</td><td>${fmt(s.listing_count)}</td>
        <td class="sell">${fmt(s.min_price)}${s.max_price !== s.min_price ? ' – ' + fmt(s.max_price) : ''}</td>
        <td>${s.cheapest_station_name || s.cheapest_station_id || '—'}</td>
        <td>${fmt(s.station_count)}</td><td>${relTime(s.captured_at)}</td></tr>`).join('');
-    app.innerHTML = `<h3>Ships for sale <small>(${ships.length} hull classes)</small></h3>
-      <table><thead><tr><th>ship</th><th>tier</th><th>listings</th><th>price</th><th>cheapest at</th><th>stations</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const heads = shipCols.map(c =>
+      `<th class="sortable" data-key="${c.key}">${c.label}${c.key === shipSort.key ? (shipSort.asc ? ' ▲' : ' ▼') : ''}</th>`).join('');
+    app.innerHTML = `<h3>Ships for sale <small>(${ships.length} hull classes — click a column to sort)</small></h3>
+      <table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
+    app.querySelectorAll('th.sortable').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (shipSort.key === key) shipSort.asc = !shipSort.asc;
+        // New column: strings read best ascending, numbers biggest-first.
+        else shipSort = { key, asc: !!shipCols.find(c => c.key === key)?.str };
+        renderShips();
+      });
+    });
     app.querySelectorAll('tr.cell').forEach(tr => {
       tr.addEventListener('click', () => openShipClass(tr.dataset.class));
     });
