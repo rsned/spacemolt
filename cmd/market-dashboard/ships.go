@@ -21,20 +21,21 @@ type shipClassSummary struct {
 	CapturedAt          string `json:"captured_at"`
 }
 
-// shipListingRow is one for-sale hull in the per-class drill-down.
+// shipListingRow is one (station, price, config, seller) group in the
+// per-class drill-down; Qty is how many identical hulls are for sale.
 type shipListingRow struct {
 	StationID    string `json:"station_id"`
 	StationName  string `json:"station_name"`
 	SystemID     string `json:"system_id"`
 	SystemName   string `json:"system_name"`
 	Price        int    `json:"price"`
+	Qty          int    `json:"qty"`
 	Hull         int    `json:"hull"` // -1 = not reported
 	MaxHull      int    `json:"max_hull"`
 	Shield       int    `json:"shield"`
 	ModulesCount int    `json:"modules_count"`
 	Tier         int    `json:"tier"`
 	Seller       string `json:"seller"`
-	ListedAt     string `json:"listed_at"`
 	CapturedAt   string `json:"captured_at"`
 }
 
@@ -92,11 +93,15 @@ func (s *server) shipClassHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.kb.QueryContext(r.Context(), `
 		SELECT station_id, station_name, system_id, system_name, price,
-			COALESCE(hull, -1), COALESCE(max_hull, 0), COALESCE(shield, 0),
-			COALESCE(modules_count, 0), COALESCE(tier, 0),
-			COALESCE(seller, ''), COALESCE(listed_at, ''), captured_at
+			COUNT(*) AS qty,
+			COALESCE(hull, -1) AS hull, COALESCE(max_hull, 0) AS max_hull,
+			COALESCE(shield, 0) AS shield,
+			COALESCE(modules_count, 0) AS modules_count, COALESCE(tier, 0) AS tier,
+			COALESCE(seller, '') AS seller, MAX(captured_at)
 		FROM ship_listings
 		WHERE class_id = ?
+		GROUP BY station_id, station_name, system_id, system_name, price,
+			hull, max_hull, shield, modules_count, tier, seller
 		ORDER BY price, station_id
 	`, classID)
 	if err != nil {
@@ -109,8 +114,8 @@ func (s *server) shipClassHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var l shipListingRow
 		if err := rows.Scan(&l.StationID, &l.StationName, &l.SystemID, &l.SystemName,
-			&l.Price, &l.Hull, &l.MaxHull, &l.Shield, &l.ModulesCount, &l.Tier,
-			&l.Seller, &l.ListedAt, &l.CapturedAt); err != nil {
+			&l.Price, &l.Qty, &l.Hull, &l.MaxHull, &l.Shield, &l.ModulesCount, &l.Tier,
+			&l.Seller, &l.CapturedAt); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}

@@ -30,7 +30,9 @@ func newShipsTestServer(t *testing.T) *http.ServeMux {
 		SystemID: "nyx", SystemName: "Nyx", StationID: "station_a", StationName: "Alpha Port",
 		GameTick: 100, CapturedAt: captured,
 		Listings: []knowledge.ShipListing{
+			// Two identical NPC listings — must collapse into one qty=2 row.
 			{ListingID: "a1", ShipID: "s1", ClassID: "archimedes", ShipName: "Archimedes", Category: "hauler", Tier: 1, Hull: -1, MaxHull: 200, Shield: 50, ModulesCount: 3, Price: 12000, Seller: "npc"},
+			{ListingID: "a1b", ShipID: "s1b", ClassID: "archimedes", ShipName: "Archimedes", Category: "hauler", Tier: 1, Hull: -1, MaxHull: 200, Shield: 50, ModulesCount: 3, Price: 12000, Seller: "npc"},
 			{ListingID: "a2", ShipID: "s2", ClassID: "archimedes", ShipName: "Archimedes", Category: "hauler", Tier: 1, Hull: 150, MaxHull: 200, Shield: 50, ModulesCount: 3, Price: 10834, Seller: "player_x"},
 			{ListingID: "a3", ShipID: "s3", ClassID: "gas_raider", ShipName: "Gas Raider", Category: "combat", Tier: 2, Hull: -1, MaxHull: 400, Shield: 120, ModulesCount: 5, Price: 212000},
 		},
@@ -79,10 +81,10 @@ func TestShipsHandlerAggregates(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("want 2 classes, got %d: %+v", len(got), got)
 	}
-	// Sorted by listing_count desc: archimedes (3) before gas_raider (1).
+	// Sorted by listing_count desc: archimedes (4) before gas_raider (1).
 	arch := got[0]
-	if arch.ClassID != "archimedes" || arch.ListingCount != 3 {
-		t.Fatalf("first row must be archimedes with 3 listings, got %+v", arch)
+	if arch.ClassID != "archimedes" || arch.ListingCount != 4 {
+		t.Fatalf("first row must be archimedes with 4 listings, got %+v", arch)
 	}
 	if arch.MinPrice != 10834 || arch.MaxPrice != 12000 {
 		t.Errorf("archimedes price range = %d–%d, want 10834–12000", arch.MinPrice, arch.MaxPrice)
@@ -110,21 +112,22 @@ func TestShipClassHandlerDrillDown(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
+	// 4 listings collapse to 3 price/config groups, sorted by price asc.
 	if len(got) != 3 {
-		t.Fatalf("want 3 archimedes listings, got %d", len(got))
+		t.Fatalf("want 3 price/config groups, got %d", len(got))
 	}
-	// Sorted by price asc.
 	if got[0].Price != 10834 || got[1].Price != 11500 || got[2].Price != 12000 {
 		t.Errorf("prices not ascending: %d, %d, %d", got[0].Price, got[1].Price, got[2].Price)
 	}
-	if got[0].Hull != 150 || got[0].Seller != "player_x" {
-		t.Errorf("cheapest listing detail wrong: %+v", got[0])
+	if got[0].Hull != 150 || got[0].Seller != "player_x" || got[0].Qty != 1 {
+		t.Errorf("cheapest group detail wrong: %+v", got[0])
 	}
-	if got[1].StationID != "station_b" || got[1].SystemName != "Vega" {
+	if got[1].StationID != "station_b" || got[1].SystemName != "Vega" || got[1].Qty != 1 {
 		t.Errorf("station/system columns wrong: %+v", got[1])
 	}
-	if got[2].Hull != -1 {
-		t.Errorf("unreported hull must stay -1, got %d", got[2].Hull)
+	// The two identical NPC listings must collapse into one qty=2 row.
+	if got[2].Qty != 2 || got[2].Hull != -1 {
+		t.Errorf("identical listings must group (qty=2, hull -1), got %+v", got[2])
 	}
 }
 

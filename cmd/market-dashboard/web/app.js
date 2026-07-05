@@ -160,14 +160,15 @@ async function openShipClass(classID) {
   try {
     const listings = await getJSON(`/api/ships/${encodeURIComponent(classID)}`);
     if (!listings.length) { body.innerHTML = '<p>No listings.</p>'; return; }
+    const total = listings.reduce((n, l) => n + (l.qty || 1), 0);
     const rows = listings.map(l =>
       `<tr><td>${l.station_name || l.station_id}<br><small>${l.system_name || l.system_id || ''}</small></td>
-       <td class="sell">${fmt(l.price)}</td>
+       <td class="sell">${fmt(l.price)}</td><td>${fmt(l.qty)}</td>
        <td>${l.hull < 0 ? '—' : fmt(l.hull) + '/' + fmt(l.max_hull)}</td>
        <td>${fmt(l.shield)}</td><td>${fmt(l.modules_count)}</td>
        <td>${l.seller || '—'}</td><td>${relTime(l.captured_at)}</td></tr>`).join('');
-    body.innerHTML = `<h3>${classID} — ${listings.length} listings</h3>
-      <table><thead><tr><th>station</th><th>price</th><th>hull</th><th>shield</th><th>modules fitted</th><th>seller</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
+    body.innerHTML = `<h3>${classID} — ${total} for sale (${listings.length} price/config groups)</h3>
+      <table><thead><tr><th>station</th><th>price</th><th>qty</th><th>hull</th><th>shield</th><th>modules fitted</th><th>seller</th><th>captured</th></tr></thead><tbody>${rows}</tbody></table>`;
   } catch (e) { body.innerHTML = '<p id="error">' + (e.message || e) + '</p>'; }
 }
 

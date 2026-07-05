@@ -53,8 +53,10 @@ whole app.
 - **Ships** — fleet-captured ship inventory from the knowledge DB's
   `ship_listings` table (hourly marketbot `browse_ships` snapshots). One row per
   hull class with listing count, price range, cheapest station, and station
-  count; click a row for the per-listing drill-down sorted by price. Hull `—`
-  means the server did not report current hull (undamaged).
+  count; click a row for the drill-down, where identical listings (same
+  station, price, hull/shield/module config, and seller) are grouped with a
+  qty column, sorted by price. Hull `—` means the server did not report
+  current hull (undamaged).
 
 ## HTTP API
 
@@ -70,7 +72,7 @@ both cases.
 | `GET /api/item/{id}/history` | OHLCV buckets for an item. Query: `limit`. |
 | `GET /api/captures` | Per-station capture cadence. |
 | `GET /api/ships` | Ship classes for sale, aggregated across stations (knowledge DB). |
-| `GET /api/ships/{id}` | Per-listing drill-down for one hull class, sorted by price. |
+| `GET /api/ships/{id}` | Drill-down for one hull class: listings grouped by station/price/config/seller with `qty`, sorted by price. |
 
 Example:
 
