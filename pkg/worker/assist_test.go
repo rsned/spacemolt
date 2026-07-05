@@ -211,9 +211,9 @@ func TestAssistClaimsPendingNearMobileCapital(t *testing.T) {
 	}
 	q := &fakeRescueQueue{recs: []rescue.Record{{
 		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
-		POI: "strand_star", RescueFuel: 15, Status: rescue.StatusPending,
+		POI: "strand_star", RescueFuel: 15, Fuel: 0, MaxFuel: 200, Status: rescue.StatusPending,
 	}}}
-	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{}}
+	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{Fuel: 120, MaxFuel: 120}}
 	var visited []string
 	deps := AssistDeps{
 		Client: client, KB: kb, Queue: q, Out: io.Discard,
@@ -265,6 +265,76 @@ func TestAssistEnsureHomeMobileRetarget(t *testing.T) {
 	}
 	if len(visited) != 0 {
 		t.Fatalf("unresolved home must not navigate, visited %v", visited)
+	}
+}
+
+// TestAssistDynamicFuelSizing: with live rescuer fuel and a KB graph, the
+// transfer is sized by rescue.TransferQuantity, not the record's flat estimate.
+// strand-altais is 1 jump; rescuer has 120 fuel; strandee tank 200 empty.
+// spare = 120 - (5*1 + 5) = 110; need = 200 -> transfer 110.
+func TestAssistDynamicFuelSizing(t *testing.T) {
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	if err := kb.RememberSystem(ctx, knowledge.System{
+		ID:          "altais",
+		Connections: []knowledge.SystemConnection{{SystemID: "strand"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 10, Fuel: 0, MaxFuel: 200,
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-frontier",
+	}}}
+	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{Fuel: 120, MaxFuel: 120}}
+	deps := AssistDeps{
+		Client: client, KB: kb, Queue: q, Out: io.Discard,
+		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		Navigate: func(ctx context.Context, system, poi string) error { return nil },
+	}
+	if err := Assist(ctx, deps); err != nil {
+		t.Fatal(err)
+	}
+	if got := client.refuelShipCalls; len(got) != 1 || got[0].quantity != 110 {
+		t.Fatalf("RefuelShip calls = %+v, want one call of quantity 110", got)
+	}
+	if q.recs[0].Status != rescue.StatusDone || q.recs[0].RescueFuel != 110 {
+		t.Fatalf("record = %+v, want done with RescueFuel recorded as 110", q.recs[0])
+	}
+}
+
+// TestAssistReleasesWhenCannotSpare: a low-fuel rescuer that cannot give any
+// fuel without eating its trip home refuses the transfer and returns the claim
+// to pending (ClaimedBy cleared) instead of stranding itself.
+func TestAssistReleasesWhenCannotSpare(t *testing.T) {
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	if err := kb.RememberSystem(ctx, knowledge.System{
+		ID:          "altais",
+		Connections: []knowledge.SystemConnection{{SystemID: "strand"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 10, Fuel: 0, MaxFuel: 200,
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-frontier",
+	}}}
+	// spare = 8 - (5*1 + 5) -> clamps to 0, so no transfer.
+	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{Fuel: 8, MaxFuel: 120}}
+	deps := AssistDeps{
+		Client: client, KB: kb, Queue: q, Out: io.Discard,
+		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		Navigate: func(ctx context.Context, system, poi string) error { return nil },
+	}
+	if err := Assist(ctx, deps); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.refuelShipCalls) != 0 {
+		t.Fatalf("rescuer that cannot spare must not refuel, got %+v", client.refuelShipCalls)
+	}
+	if q.recs[0].Status != rescue.StatusPending || q.recs[0].ClaimedBy != "" {
+		t.Fatalf("record = %+v, want pending with ClaimedBy cleared", q.recs[0])
 	}
 }
 

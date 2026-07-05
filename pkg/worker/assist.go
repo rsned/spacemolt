@@ -236,14 +236,69 @@ func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
 		}
 		return fail("travel", err)
 	}
-	if err := deps.Client.RefuelShip(ctx, rec.TargetUsername, rec.RescueFuel); err != nil {
+	qty := rescueFuelQty(ctx, deps, rec)
+	if qty <= 0 {
+		// The rescuer cannot spare fuel without risking its own trip home (or
+		// the strandee is already full). Release the claim so a fuller or
+		// nearer rescuer takes it, and head home to re-tank.
+		fmt.Fprintf(deps.Out, "assist: rescue %s: nothing to spare after home reserve; releasing claim\n", rec.AgentID) //nolint:errcheck
+		if _, err := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, rescue.StatusPending,
+			func(r *rescue.Record) { r.ClaimedBy = "" }); err != nil {
+			fmt.Fprintf(deps.Out, "assist: release %s: %v\n", rec.AgentID, err) //nolint:errcheck
+		}
+		return assistEnsureHome(ctx, deps)
+	}
+	if err := deps.Client.RefuelShip(ctx, rec.TargetUsername, qty); err != nil {
 		return fail("refuel", err)
 	}
-	if ok, err := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, rescue.StatusDone, nil); err != nil || !ok {
+	if ok, err := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, rescue.StatusDone,
+		func(r *rescue.Record) { r.RescueFuel = qty }); err != nil || !ok {
 		fmt.Fprintf(deps.Out, "assist: mark done %s: ok=%v err=%v\n", rec.AgentID, ok, err) //nolint:errcheck
 	}
-	fmt.Fprintf(deps.Out, "assist: rescued %s (+%d fuel to %s)\n", rec.AgentID, rec.RescueFuel, rec.TargetUsername) //nolint:errcheck
+	fmt.Fprintf(deps.Out, "assist: rescued %s (+%d fuel to %s)\n", rec.AgentID, qty, rec.TargetUsername) //nolint:errcheck
 	return assistEnsureHome(ctx, deps)
+}
+
+// rescuerHome returns this assist agent's home system id: the static capital,
+// or the current location of its mobile capital. ok is false when neither is
+// configured or the mobile home cannot be resolved this pass.
+func rescuerHome(ctx context.Context, deps AssistDeps) (string, bool) {
+	if home, ok := assistHomes[deps.AgentID]; ok {
+		return home, true
+	}
+	if poi, mobile := assistMobileHomes[deps.AgentID]; mobile {
+		if home, err := assistResolveMobile(ctx, deps, poi); err == nil {
+			return home, true
+		}
+	}
+	return "", false
+}
+
+// rescueFuelQty computes how much fuel to transfer to the strandee: fill its
+// tank, capped by what the rescuer can spare after reserving its trip home
+// (rescue.TransferQuantity). Falls back to the record's enqueue-time
+// RescueFuel estimate when live state, the KB, or the home route is
+// unavailable, so a transfer is never blocked on missing data.
+func rescueFuelQty(ctx context.Context, deps AssistDeps, rec rescue.Record) int {
+	st := deps.Client.GetState()
+	if st == nil || deps.KB == nil {
+		return rec.RescueFuel
+	}
+	home, ok := rescuerHome(ctx, deps)
+	if !ok {
+		return rec.RescueFuel
+	}
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		return rec.RescueFuel
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+	dist := navigation.BFSJumps(graph, rec.SystemID, []string{home})
+	hops, ok := dist[home]
+	if !ok || hops >= navigation.RouteInf {
+		return rec.RescueFuel
+	}
+	return rescue.TransferQuantity(int(rec.MaxFuel), int(rec.Fuel), int(st.Fuel), hops)
 }
 
 // assistEnsureHome parks the rescuer docked at its home capital with a full
