@@ -368,3 +368,53 @@ func TestPollRescuesNoDebtForTowOrManual(t *testing.T) {
 		t.Fatalf("no-rescuer record must owe no fee, got %+v", debts)
 	}
 }
+
+// TestPollRescuesNoDebtWhenArchiveFails: if archiveRescue cannot remove the
+// record (a queue write failure), the fee debt must NOT be written — otherwise
+// the clean retry on the next tick would double-charge the hauler. The debt is
+// written only after the record is provably gone from the queue.
+func TestPollRescuesNoDebtWhenArchiveFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("chmod-based write-failure injection is a no-op as root")
+	}
+	dir := t.TempDir()
+	queueDir := filepath.Join(dir, "queue")
+	if err := os.MkdirAll(queueDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	queuePath := filepath.Join(queueDir, "q.json")
+	queue := rescue.NewQueue(queuePath)
+	histPath := filepath.Join(dir, "history.jsonl")
+	agentsDir := filepath.Join(dir, "agents") // separate dir, stays writable
+	writeTestCredentials(t, agentsDir, "assist-haven", "shipside_assist_haven")
+	writeQueueRecords(t, queuePath, []rescue.Record{
+		{AgentID: "salvager-10", Fleet: "haul", Status: rescue.StatusDone, RescueFuel: 110, ClaimedBy: "assist-haven"},
+	})
+	// Prime the sidecar .lock while the dir is still writable, so pollRescues'
+	// read path (List, no write-back) works even after we lock the dir down —
+	// only Remove()'s atomic tmp-write then fails, forcing archive failure.
+	if _, err := queue.List(); err != nil {
+		t.Fatalf("prime lock: %v", err)
+	}
+	if err := os.Chmod(queueDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(queueDir, 0o755) })
+
+	fleet := supervisor.NewFleet()
+	now := time.Now()
+	fleet.ApplyHello(control.Hello{AgentID: "salvager-10", Role: "hauler"}, 1, now)
+	fleet.ApplyStatus("salvager-10", control.Status{}, now)
+	fleet.Quarantine("salvager-10", "fuel-dead: stalled")
+
+	var spawned atomic.Int32
+	specs := []supervisor.WorkerSpec{{AgentID: "salvager-10"}}
+	sup := supervisor.NewSupervisor(nil, fleet, specs, rescueTestSpawn(&spawned), log.New(io.Discard, "", 0))
+	logger := log.New(io.Discard, "", 0)
+
+	pollRescues(logger, sup, queue, histPath, "haul", agentsDir, 1000, fleet.Snapshot())
+
+	if debts, _ := rescue.LoadDebts(agentsDir, "salvager-10"); len(debts) != 0 {
+		t.Fatalf("archive failure must not write a fee debt (double-charge guard), got %+v", debts)
+	}
+}

@@ -16,9 +16,10 @@ type GiftClient interface {
 }
 
 // PayRescueDebt pays the head outstanding rescue debt for agentID when the
-// worker is docked (send_gift credits requires a base with storage). One debt
-// per call respects the 1-gift-per-tick rate limit; the rest wait for the next
-// docked pass. Best-effort: every failure logs and leaves the debt in place.
+// worker is docked (send_gift credits requires a base with storage) and can
+// afford it. One debt per call respects the 1-gift-per-tick rate limit; the
+// rest wait for the next docked pass. Best-effort: every failure logs and
+// leaves the debt in place.
 func PayRescueDebt(ctx context.Context, c GiftClient, out io.Writer, agentsDir, agentID string) {
 	debts, err := rescue.LoadDebts(agentsDir, agentID)
 	if err != nil {
@@ -33,6 +34,12 @@ func PayRescueDebt(ctx context.Context, c GiftClient, out io.Writer, agentsDir, 
 		return // pay on a later pass once docked
 	}
 	d := debts[0]
+	// Solvency gate: an insolvent debtor (notably a broke assister rescued by
+	// another assister) would otherwise fail send_gift and retry the same debt
+	// every docked pass forever. Skip silently until it can afford the fee.
+	if st.Credits < float64(d.Credits) {
+		return
+	}
 	payload := map[string]any{
 		"recipient": d.Recipient,
 		"credits":   d.Credits,

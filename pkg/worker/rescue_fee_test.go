@@ -34,7 +34,7 @@ func TestPayRescueDebt(t *testing.T) {
 		if err := rescue.AppendDebt(dir, "salvager-10", rescue.Debt{Recipient: "shipside_assist_haven", Credits: 1000}); err != nil {
 			t.Fatal(err)
 		}
-		c := &fakeGiftClient{state: &game.State{Doc: true}}
+		c := &fakeGiftClient{state: &game.State{Doc: true, Credits: 5000}}
 		PayRescueDebt(ctx, c, io.Discard, dir, "salvager-10")
 		if len(c.gifts) != 1 || c.gifts[0]["recipient"] != "shipside_assist_haven" || c.gifts[0]["credits"] != 1000 {
 			t.Fatalf("gifts = %+v, want one gift of 1000 to shipside_assist_haven", c.gifts)
@@ -72,10 +72,28 @@ func TestPayRescueDebt(t *testing.T) {
 	t.Run("gift error retains debt", func(t *testing.T) {
 		dir := t.TempDir()
 		_ = rescue.AppendDebt(dir, "salvager-10", rescue.Debt{Recipient: "shipside_assist_haven", Credits: 1000})
-		c := &fakeGiftClient{state: &game.State{Doc: true}, err: errors.New("not docked at storage")}
+		c := &fakeGiftClient{state: &game.State{Doc: true, Credits: 5000}, err: errors.New("not docked at storage")}
 		PayRescueDebt(ctx, c, io.Discard, dir, "salvager-10")
+		if len(c.gifts) != 0 {
+			t.Fatalf("failed gift must not record a sent gift, got %+v", c.gifts)
+		}
 		if debts, _ := rescue.LoadDebts(dir, "salvager-10"); len(debts) != 1 {
 			t.Fatalf("failed gift must retain debt, got %+v", debts)
+		}
+	})
+
+	// Insolvent (credits < debt) -> no gift attempt, debt retained until the
+	// worker can afford it. Guards the broke-assister infinite-retry loop.
+	t.Run("insolvent skips and retains", func(t *testing.T) {
+		dir := t.TempDir()
+		_ = rescue.AppendDebt(dir, "salvager-10", rescue.Debt{Recipient: "shipside_assist_haven", Credits: 1000})
+		c := &fakeGiftClient{state: &game.State{Doc: true, Credits: 300}}
+		PayRescueDebt(ctx, c, io.Discard, dir, "salvager-10")
+		if len(c.gifts) != 0 {
+			t.Fatalf("insolvent worker must not attempt a gift, got %+v", c.gifts)
+		}
+		if debts, _ := rescue.LoadDebts(dir, "salvager-10"); len(debts) != 1 {
+			t.Fatalf("insolvent worker must retain debt, got %+v", debts)
 		}
 	})
 }

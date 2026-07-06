@@ -110,6 +110,14 @@ func pollRescues(logger *log.Logger, sup *supervisor.Supervisor, queue *rescue.Q
 			continue
 		}
 		if rec.Fleet == fleetName && rec.Status == rescue.StatusDone {
+			// Archive first, and only write the fee debt once the record is
+			// provably removed from the queue. If archiveRescue fails (e.g. a
+			// queue write error), the record stays StatusDone and quarantined
+			// and we retry cleanly next tick — writing the debt before archive
+			// would double-charge the hauler on such a retry.
+			if !archiveRescue(logger, queue, histPath, w.AgentID) {
+				continue
+			}
 			// Reimburse the rescuer, but only when an assister actually spent
 			// fuel: tows, operator-manual done-flips, and skip-and-release
 			// (RescueFuel 0 / no ClaimedBy) owe nothing.
@@ -122,32 +130,37 @@ func pollRescues(logger *log.Logger, sup *supervisor.Supervisor, queue *rescue.Q
 					logger.Printf("rescue: %s owes %d cr fee to %s (%s)", w.AgentID, fee, recipient, rec.ClaimedBy)
 				}
 			}
-			archiveRescue(logger, queue, histPath, w.AgentID)
 			sup.ReleaseQuarantine(w.AgentID)
 			logger.Printf("rescue: %s rescued (+%d fuel by %s); rejoining fleet", w.AgentID, rec.RescueFuel, rec.ClaimedBy)
 		}
 	}
 }
 
-// archiveRescue moves a record out of the queue into the history jsonl.
-func archiveRescue(logger *log.Logger, queue *rescue.Queue, histPath, agentID string) {
+// archiveRescue moves a record out of the queue into the history jsonl. It
+// returns true only when the record was actually removed from the queue;
+// callers gate follow-up side effects (fee debt, quarantine release) on that
+// so a queue-write failure retries cleanly instead of double-applying them.
+// A history-append failure after a successful removal still returns true — the
+// record is already gone from the queue, so the follow-ups are correct.
+func archiveRescue(logger *log.Logger, queue *rescue.Queue, histPath, agentID string) bool {
 	rec, err := queue.Remove(agentID)
 	if err != nil || rec == nil {
 		logger.Printf("rescue: archive %s: rec=%v err=%v", agentID, rec, err)
-		return
+		return false
 	}
 	line, err := json.Marshal(rec)
 	if err != nil {
 		logger.Printf("rescue: marshal history %s: %v", agentID, err)
-		return
+		return true
 	}
 	f, err := os.OpenFile(histPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		logger.Printf("rescue: open history: %v", err)
-		return
+		return true
 	}
 	defer f.Close() //nolint:errcheck
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		logger.Printf("rescue: append history: %v", err)
 	}
+	return true
 }
