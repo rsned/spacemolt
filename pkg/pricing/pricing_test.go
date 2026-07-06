@@ -92,3 +92,21 @@ func TestAskStatsEmpty(t *testing.T) {
 		t.Fatalf("empty should yield nothing: %v %v %v %v", nu, nf, mu, mf)
 	}
 }
+
+func TestClassify(t *testing.T) {
+	cases := []struct {
+		ask, sug float64
+		want     string
+	}{
+		{450, 130, ClassUnder}, // 3.46× -> underpriced
+		{100, 130, ClassOver},  // 0.77× -> overpriced (market below cost+margin)
+		{130, 130, ClassFair},  // 1.0×
+		{0, 130, ""},           // no market ask
+		{130, 0, ""},           // no suggestion
+	}
+	for _, c := range cases {
+		if got := classify(c.ask, c.sug); got != c.want {
+			t.Fatalf("classify(%v,%v)=%q want %q", c.ask, c.sug, got, c.want)
+		}
+	}
+}

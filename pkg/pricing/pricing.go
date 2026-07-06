@@ -95,3 +95,30 @@ func askStats(results []finditem.Result, hops int) (nearbyUnit float64, nearbyFo
 	}
 	return nearbyUnit, nearbyFound, mktUnit, mktFound
 }
+
+// Verdicts comparing the finished good's current market ask to the
+// cost-plus-margin suggestion.
+const (
+	ClassUnder = "UNDERPRICED"
+	ClassOver  = "OVERPRICED"
+	ClassFair  = "FAIRLY PRICED"
+)
+
+// classify compares the finished good's current market ask to the suggested
+// price. Thresholds are cosmetic: ask >= 1.3× suggested is underpriced (parts
+// cheap vs sale), ask <= 0.9× is overpriced (you'd list above the market).
+// Returns "" when either figure is missing.
+func classify(marketAsk, suggested float64) string {
+	if marketAsk <= 0 || suggested <= 0 {
+		return ""
+	}
+	ratio := marketAsk / suggested
+	switch {
+	case ratio >= 1.3:
+		return ClassUnder
+	case ratio <= 0.9:
+		return ClassOver
+	default:
+		return ClassFair
+	}
+}
