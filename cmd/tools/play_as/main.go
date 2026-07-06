@@ -6688,6 +6688,18 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
 			}, ctx, 0, cmd, format)
 		}
+		// `craft cancel <job_id>` (or --job_id=ID / --job_ids=ID1,ID2 /
+		// action=cancel) cancels a queued craft (or recycle) job and refunds
+		// its escrow. The server also implies cancel from a bare job_id.
+		if (len(craftArgs) >= 1 && craftArgs[0] == "cancel") || flags["action"] == "cancel" {
+			payload, err := craftCancelPayload(craftArgs, flags)
+			if err != nil {
+				return err
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "craft", payload)
+			}, ctx, 0, cmd, format)
+		}
 		// `craft --file <path>` reads a JSON array of job objects and submits
 		// them as a single bulk request (each job queued independently).
 		if path := flags["file"]; path != "" {
@@ -6700,7 +6712,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}, ctx, 5*time.Second, cmd, format)
 		}
 		if len(craftArgs) < 1 {
-			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft --file <path.json> | craft queue")
+			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft --file <path.json> | craft queue | craft cancel <job_id>")
 		}
 		recipeID := craftArgs[0]
 		qty := 1
@@ -9030,6 +9042,37 @@ func partitionFlagsKV(args []string) (positional []string, flags map[string]stri
 		positional = append(positional, a)
 	}
 	return positional, flags
+}
+
+// craftCancelPayload builds the payload for a craft-cancel request from the
+// parsed craft args. It accepts `cancel <job_id>`, `--job_id=ID`,
+// `--job_ids=ID1,ID2`, and the `action=cancel` forms. --job_ids takes
+// precedence over a single job_id; an empty/whitespace list or a missing job
+// id is a usage error.
+func craftCancelPayload(craftArgs []string, flags map[string]string) (map[string]any, error) {
+	payload := map[string]any{"action": "cancel"}
+	if raw := flags["job_ids"]; raw != "" {
+		var ids []string
+		for id := range strings.SplitSeq(raw, ",") {
+			if s := strings.TrimSpace(id); s != "" {
+				ids = append(ids, s)
+			}
+		}
+		if len(ids) == 0 {
+			return nil, fmt.Errorf("craft cancel: --job_ids was empty")
+		}
+		payload["job_ids"] = ids
+		return payload, nil
+	}
+	jobID := flags["job_id"]
+	if jobID == "" && len(craftArgs) >= 2 && craftArgs[0] == "cancel" {
+		jobID = craftArgs[1]
+	}
+	if jobID == "" {
+		return nil, fmt.Errorf("usage: craft cancel <job_id> | craft cancel --job_id=ID | craft cancel --job_ids=ID1,ID2")
+	}
+	payload["job_id"] = jobID
+	return payload, nil
 }
 
 func parseQuantity(s string) (float64, error) {
