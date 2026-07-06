@@ -33,7 +33,7 @@ func TestRecipeComponents(t *testing.T) {
 		Inputs:  []serverapi.RecipeItem{{ItemID: "iron_ore", Quantity: 20}, {ItemID: "copper_ore", Quantity: 8}},
 		Outputs: []serverapi.RecipeItem{{ItemID: "widget", Quantity: 5}},
 	}
-	comps, units := recipeComponents(r)
+	comps, units := recipeComponents("widget", r)
 	if units != 5 {
 		t.Fatalf("outputUnits want 5 got %d", units)
 	}
@@ -42,8 +42,19 @@ func TestRecipeComponents(t *testing.T) {
 	}
 	// no declared output quantity -> defaults to 1
 	r2 := serverapi.Recipe{Outputs: []serverapi.RecipeItem{{ItemID: "x"}}}
-	if _, u := recipeComponents(r2); u != 1 {
+	if _, u := recipeComponents("x", r2); u != 1 {
 		t.Fatalf("default outputUnits want 1 got %d", u)
+	}
+	// multi-output recipe: divisor must match the item actually being priced.
+	r3 := serverapi.Recipe{
+		ID:      "r_electrolyze_water",
+		Outputs: []serverapi.RecipeItem{{ItemID: "a", Quantity: 4}, {ItemID: "b", Quantity: 2}},
+	}
+	if _, u := recipeComponents("b", r3); u != 2 {
+		t.Fatalf("multi-output outputUnits for b want 2 got %d", u)
+	}
+	if _, u := recipeComponents("a", r3); u != 4 {
+		t.Fatalf("multi-output outputUnits for a want 4 got %d", u)
 	}
 }
 
@@ -65,6 +76,50 @@ func TestPickBestRecipeSingle(t *testing.T) {
 	best, alt := pickBestRecipe([]*pricing.PriceReport{{RecipeName: "only"}})
 	if best != 0 || alt != -1 {
 		t.Fatalf("single: best=%d alt=%d", best, alt)
+	}
+}
+
+func TestPickBestRecipeIgnoresIncompleteBasis(t *testing.T) {
+	reports := []*pricing.PriceReport{
+		{ // A: fully priced on both bases
+			RecipeName: "A",
+			Nearby:     pricing.Basis{Suggested: 200, Covered: 2, Total: 2},
+			Mkt:        pricing.Basis{Suggested: 150, Covered: 2, Total: 2},
+		},
+		{ // B: incomplete on both bases — artificially cheap because missing
+			// components contribute 0 cost, must not win.
+			RecipeName: "B",
+			Nearby:     pricing.Basis{Suggested: 50, Covered: 1, Total: 2},
+			Mkt:        pricing.Basis{Suggested: 40, Covered: 1, Total: 2},
+		},
+	}
+	best, alt := pickBestRecipe(reports)
+	if best != 0 {
+		t.Fatalf("best want 0 (A) got %d — incomplete report B must not win", best)
+	}
+	if alt != -1 {
+		t.Fatalf("altMkt want -1 (B's Mkt basis is incomplete) got %d", alt)
+	}
+}
+
+func TestPriceFlagFloat(t *testing.T) {
+	const def = 20.0
+	tests := []struct {
+		name string
+		v    any
+		want float64
+	}{
+		{"int value", 17, 17},
+		{"numeric string", "17.5", 17.5},
+		{"missing flag (nil)", nil, def},
+		{"non-numeric string falls back to default", "abc", def},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := priceFlagFloat(tc.v, def); got != tc.want {
+				t.Fatalf("priceFlagFloat(%v, %v) = %v, want %v", tc.v, def, got, tc.want)
+			}
+		})
 	}
 }
 

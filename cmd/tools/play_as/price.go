@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,13 +33,19 @@ func resolveRecipesForOutput(recipes map[string]serverapi.Recipe, itemID string)
 }
 
 // recipeComponents converts a recipe's per-run inputs into pricing components
-// and returns the output-units-per-run used to normalize the roll-up to a
-// per-unit cost (defaults to 1 when no output quantity is declared).
-func recipeComponents(r serverapi.Recipe) (comps []pricing.Component, outputUnits int) {
+// and returns the output-units-per-run for itemID, used to normalize the
+// roll-up to a per-unit cost. It selects the output matching itemID (a recipe
+// may yield several distinct outputs); falls back to the first output, then 1.
+func recipeComponents(itemID string, r serverapi.Recipe) (comps []pricing.Component, outputUnits int) {
 	for _, in := range r.Inputs {
 		comps = append(comps, pricing.Component{ItemID: in.ItemID, Qty: float64(in.Quantity)})
 	}
 	outputUnits = 1
+	for _, o := range r.Outputs {
+		if o.ItemID == itemID && o.Quantity > 0 {
+			return comps, o.Quantity
+		}
+	}
 	if len(r.Outputs) > 0 && r.Outputs[0].Quantity > 0 {
 		outputUnits = r.Outputs[0].Quantity
 	}
@@ -46,17 +53,26 @@ func recipeComponents(r serverapi.Recipe) (comps []pricing.Component, outputUnit
 }
 
 // suggestedFor returns the report's headline suggested price: the Nearby basis
-// when it priced every component, else the Market-wide basis.
+// when it priced every component, else the Market-wide basis when IT is
+// complete. A report with no fully-priced basis returns +Inf so it never wins
+// a cheapest-recipe comparison on the strength of missing (zero-cost) data.
 func suggestedFor(r *pricing.PriceReport) float64 {
-	if r.Nearby.Complete() {
+	switch {
+	case r.Nearby.Complete():
 		return r.Nearby.Suggested
+	case r.Mkt.Complete():
+		return r.Mkt.Suggested
+	default:
+		return math.Inf(1)
 	}
-	return r.Mkt.Suggested
 }
 
-// pickBestRecipe chooses the cheapest recipe by headline suggested price and,
-// when a *different* recipe is cheaper on the market-wide basis, returns its
-// index as altMkt so the caller can surface it; altMkt is -1 otherwise.
+// pickBestRecipe chooses the cheapest recipe by headline suggested price
+// (suggestedFor treats an incomplete report as non-comparable). When a
+// *different* recipe with a fully-priced market-wide basis is cheaper on that
+// basis than the chosen best (which must itself have a complete market basis),
+// its index is returned as altMkt so the caller can surface it; altMkt is -1
+// otherwise.
 func pickBestRecipe(reports []*pricing.PriceReport) (best, altMkt int) {
 	best, altMkt = 0, -1
 	for i, r := range reports {
@@ -64,9 +80,12 @@ func pickBestRecipe(reports []*pricing.PriceReport) (best, altMkt int) {
 			best = i
 		}
 	}
+	if !reports[best].Mkt.Complete() {
+		return best, -1
+	}
 	bestMkt := best
 	for i, r := range reports {
-		if r.Mkt.Suggested < reports[bestMkt].Mkt.Suggested {
+		if r.Mkt.Complete() && r.Mkt.Suggested < reports[bestMkt].Mkt.Suggested {
 			bestMkt = i
 		}
 	}
@@ -176,6 +195,11 @@ func handlePrice(client game.GameClient, ctx context.Context, parts []string, cr
 	if s, ok := flagString(flags["mode"]); ok && s != "" {
 		mode = s
 	}
+	switch mode {
+	case "both", "recipe", "bom":
+	default:
+		return fmt.Errorf("price: --mode must be one of both|recipe|bom, got %q", mode)
+	}
 	asJSON := flagBool(flags["json"])
 
 	fromSystem := ""
@@ -199,7 +223,7 @@ func handlePrice(client game.GameClient, ctx context.Context, parts []string, cr
 		} else {
 			reports := make([]*pricing.PriceReport, 0, len(candidates))
 			for _, r := range candidates {
-				comps, units := recipeComponents(r)
+				comps, units := recipeComponents(itemID, r)
 				rep, rerr := pricing.Report(ctx, globalMarketCollector, globalKB, fromSystem, hops, itemID, r.ID, units, comps, margin)
 				if rerr != nil {
 					return rerr
