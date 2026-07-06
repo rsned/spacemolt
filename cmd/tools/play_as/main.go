@@ -6806,6 +6806,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "plan":
 		return handlePlan(client, ctx, parts, ensureCraftingDB(), format)
 
+	case "price":
+		return handlePrice(client, ctx, parts, ensureCraftingDB(), format)
+
 	// === SHIP MAINTENANCE ===
 	case "refuel":
 		if len(parts) > 1 {
@@ -9265,6 +9268,7 @@ func printHelp() {
 	fmt.Println("       (defaults: skip rows that are entirely my own orders, and rows with 0 on-hand & 0 craftable)")
 	fmt.Println("  demand history <item> [--station id] [--limit N]   - demand price/qty trend per station")
 	fmt.Println("  find_item <item> [qty] [--limit=N]  - where can I buy? stations selling the item, ranked by jump hops (default 5 closest)")
+	fmt.Println("  price <item> [--margin=20] [--hops=2] [--mode=both|recipe|bom] [--json]  - suggested create_sell_order price from part/ore market cost + margin")
 
 	fmt.Println("\n=== CRAFTING ===")
 	fmt.Println("  craft <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] - Queue a crafting job")

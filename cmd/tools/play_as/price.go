@@ -153,7 +153,7 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 }
 
 // handlePrice implements: price <item_id> [--margin=20] [--hops=2] [--mode=both|recipe|bom] [--json]
-func handlePrice(client game.GameClient, ctx context.Context, parts []string, craftingDB *sql.DB, format outputFormat) error { //nolint:unused // wired into the dispatch switch in Task 7
+func handlePrice(client game.GameClient, ctx context.Context, parts []string, craftingDB *sql.DB, format outputFormat) error {
 	_ = format
 	if globalMarketCollector == nil {
 		return fmt.Errorf("price: market DB not available (run with --market-db-path)")
@@ -259,7 +259,7 @@ func handlePrice(client game.GameClient, ctx context.Context, parts []string, cr
 // parseFlagArgs stores whole numbers as int and everything else as string
 // (so `--margin=20` arrives as int 20 and `--margin=17.5` as "17.5"). The
 // existing flagInt/flagString/flagBool helpers cover the other flag types.
-func priceFlagFloat(v any, def float64) float64 { //nolint:unused // used by handlePrice, wired into the dispatch switch in Task 7
+func priceFlagFloat(v any, def float64) float64 {
 	switch tv := v.(type) {
 	case int:
 		return float64(tv)
