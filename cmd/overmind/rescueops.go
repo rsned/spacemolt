@@ -78,7 +78,7 @@ func restoreQuarantine(logger *log.Logger, fleet *supervisor.Fleet, queue *rescu
 
 // pollRescues runs each status tick: any of our quarantined workers whose
 // record went done is archived and released for relaunch.
-func pollRescues(logger *log.Logger, sup *supervisor.Supervisor, queue *rescue.Queue, histPath, fleetName string, snap []supervisor.WorkerInfo) {
+func pollRescues(logger *log.Logger, sup *supervisor.Supervisor, queue *rescue.Queue, histPath, fleetName, agentsDir string, fee int, snap []supervisor.WorkerInfo) {
 	quarantined := false
 	for _, w := range snap {
 		if w.Quarantined {
@@ -110,6 +110,18 @@ func pollRescues(logger *log.Logger, sup *supervisor.Supervisor, queue *rescue.Q
 			continue
 		}
 		if rec.Fleet == fleetName && rec.Status == rescue.StatusDone {
+			// Reimburse the rescuer, but only when an assister actually spent
+			// fuel: tows, operator-manual done-flips, and skip-and-release
+			// (RescueFuel 0 / no ClaimedBy) owe nothing.
+			if fee > 0 && rec.ClaimedBy != "" && rec.RescueFuel > 0 {
+				if recipient, err := rescue.ResolveUsername(agentsDir, rec.ClaimedBy); err != nil {
+					logger.Printf("rescue: fee recipient for %s (rescuer %s): %v; skipping fee", w.AgentID, rec.ClaimedBy, err)
+				} else if err := rescue.AppendDebt(agentsDir, w.AgentID, rescue.Debt{Recipient: recipient, Credits: fee}); err != nil {
+					logger.Printf("rescue: record fee debt for %s: %v", w.AgentID, err)
+				} else {
+					logger.Printf("rescue: %s owes %d cr fee to %s (%s)", w.AgentID, fee, recipient, rec.ClaimedBy)
+				}
+			}
 			archiveRescue(logger, queue, histPath, w.AgentID)
 			sup.ReleaseQuarantine(w.AgentID)
 			logger.Printf("rescue: %s rescued (+%d fuel by %s); rejoining fleet", w.AgentID, rec.RescueFuel, rec.ClaimedBy)

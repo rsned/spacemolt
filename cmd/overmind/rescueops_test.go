@@ -143,7 +143,7 @@ func TestPollRescuesArchivesDoneAndReleases(t *testing.T) {
 	sup := supervisor.NewSupervisor(nil, fleet, specs, rescueTestSpawn(&spawned), log.New(io.Discard, "", 0))
 	logger := log.New(io.Discard, "", 0)
 
-	pollRescues(logger, sup, queue, histPath, "haul", fleet.Snapshot())
+	pollRescues(logger, sup, queue, histPath, "haul", t.TempDir(), 0, fleet.Snapshot())
 
 	recs, err := queue.List()
 	if err != nil {
@@ -194,7 +194,7 @@ func TestPollRescuesHoldsOnOpenRecord(t *testing.T) {
 	sup := supervisor.NewSupervisor(nil, fleet, specs, rescueTestSpawn(&spawned), log.New(io.Discard, "", 0))
 	logger := log.New(io.Discard, "", 0)
 
-	pollRescues(logger, sup, queue, histPath, "haul", fleet.Snapshot())
+	pollRescues(logger, sup, queue, histPath, "haul", t.TempDir(), 0, fleet.Snapshot())
 
 	recs, err := queue.List()
 	if err != nil {
@@ -237,7 +237,7 @@ func TestPollRescuesReleasesWithNoRecord(t *testing.T) {
 	sup := supervisor.NewSupervisor(nil, fleet, specs, rescueTestSpawn(&spawned), log.New(io.Discard, "", 0))
 	logger := log.New(io.Discard, "", 0)
 
-	pollRescues(logger, sup, queue, histPath, "haul", fleet.Snapshot())
+	pollRescues(logger, sup, queue, histPath, "haul", t.TempDir(), 0, fleet.Snapshot())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -275,7 +275,7 @@ func TestPollRescuesFastPathSkipsCorruptQueue(t *testing.T) {
 	var logBuf bytes.Buffer
 	logger := log.New(&logBuf, "", 0)
 
-	pollRescues(logger, sup, queue, histPath, "haul", fleet.Snapshot())
+	pollRescues(logger, sup, queue, histPath, "haul", t.TempDir(), 0, fleet.Snapshot())
 
 	if strings.Contains(logBuf.String(), "queue read") {
 		t.Fatalf("fast path must not read the queue when nothing is quarantined; log = %q", logBuf.String())
@@ -288,5 +288,83 @@ func TestPollRescuesFastPathSkipsCorruptQueue(t *testing.T) {
 	}
 	if !bytes.Equal(after, corrupt) {
 		t.Fatalf("corrupt queue file must be untouched, got %q", after)
+	}
+}
+
+// writeTestCredentials writes the credentials.json ResolveUsername reads.
+// game.LoadCredentials requires username, password, and empire to all be
+// non-empty, so all three must be present even though only username matters
+// here.
+func writeTestCredentials(t *testing.T, agentsDir, agentID, username string) {
+	t.Helper()
+	d := filepath.Join(agentsDir, agentID)
+	if err := os.MkdirAll(d, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(d, "credentials.json"),
+		[]byte(`{"username":"`+username+`","password":"x","empire":"nebula"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestPollRescuesWritesDebtOnRealRescue: a done record that actually spent an
+// assister's fuel records a fee debt naming the rescuer's in-game username.
+func TestPollRescuesWritesDebtOnRealRescue(t *testing.T) {
+	dir := t.TempDir()
+	queuePath := filepath.Join(dir, "q.json")
+	queue := rescue.NewQueue(queuePath)
+	histPath := filepath.Join(dir, "history.jsonl")
+	agentsDir := filepath.Join(dir, "agents")
+	writeTestCredentials(t, agentsDir, "assist-haven", "shipside_assist_haven")
+	writeQueueRecords(t, queuePath, []rescue.Record{
+		{AgentID: "salvager-10", Fleet: "haul", Status: rescue.StatusDone, RescueFuel: 110, ClaimedBy: "assist-haven"},
+	})
+
+	fleet := supervisor.NewFleet()
+	now := time.Now()
+	fleet.ApplyHello(control.Hello{AgentID: "salvager-10", Role: "hauler"}, 1, now)
+	fleet.ApplyStatus("salvager-10", control.Status{}, now)
+	fleet.Quarantine("salvager-10", "fuel-dead: stalled")
+
+	var spawned atomic.Int32
+	specs := []supervisor.WorkerSpec{{AgentID: "salvager-10"}}
+	sup := supervisor.NewSupervisor(nil, fleet, specs, rescueTestSpawn(&spawned), log.New(io.Discard, "", 0))
+	logger := log.New(io.Discard, "", 0)
+
+	pollRescues(logger, sup, queue, histPath, "haul", agentsDir, 1000, fleet.Snapshot())
+
+	debts, err := rescue.LoadDebts(agentsDir, "salvager-10")
+	if err != nil || len(debts) != 1 || debts[0].Recipient != "shipside_assist_haven" || debts[0].Credits != 1000 {
+		t.Fatalf("debts = %+v (err %v), want one 1000cr debt to shipside_assist_haven", debts, err)
+	}
+}
+
+// TestPollRescuesNoDebtForTowOrManual: a done record with no rescuer (server
+// tow / operator flip) or zero fuel owes no fee.
+func TestPollRescuesNoDebtForTowOrManual(t *testing.T) {
+	dir := t.TempDir()
+	queuePath := filepath.Join(dir, "q.json")
+	queue := rescue.NewQueue(queuePath)
+	histPath := filepath.Join(dir, "history.jsonl")
+	agentsDir := filepath.Join(dir, "agents")
+	writeQueueRecords(t, queuePath, []rescue.Record{
+		{AgentID: "trader-1", Fleet: "haul", Status: rescue.StatusDone, ClaimedBy: "", RescueFuel: 0},
+	})
+
+	fleet := supervisor.NewFleet()
+	now := time.Now()
+	fleet.ApplyHello(control.Hello{AgentID: "trader-1", Role: "hauler"}, 1, now)
+	fleet.ApplyStatus("trader-1", control.Status{}, now)
+	fleet.Quarantine("trader-1", "fuel-dead: stalled")
+
+	var spawned atomic.Int32
+	specs := []supervisor.WorkerSpec{{AgentID: "trader-1"}}
+	sup := supervisor.NewSupervisor(nil, fleet, specs, rescueTestSpawn(&spawned), log.New(io.Discard, "", 0))
+	logger := log.New(io.Discard, "", 0)
+
+	pollRescues(logger, sup, queue, histPath, "haul", agentsDir, 1000, fleet.Snapshot())
+
+	if debts, _ := rescue.LoadDebts(agentsDir, "trader-1"); len(debts) != 0 {
+		t.Fatalf("no-rescuer record must owe no fee, got %+v", debts)
 	}
 }

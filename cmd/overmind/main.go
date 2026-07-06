@@ -40,6 +40,7 @@ func main() {
 	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to market.db for quarter-hourly fleet_timeseries snapshots")
 	rescueQueuePath := flag.String("rescue-queue", "data/overmind/rescue-queue.json", "Shared stranded-worker rescue queue file")
 	rescueHistPath := flag.String("rescue-history", "data/overmind/rescue-history.jsonl", "Archive of completed rescue records")
+	rescueFee := flag.Int("rescue-fee", 1000, "Flat credit fee a rescued worker gifts its rescuer on its next dock (0 disables)")
 	fleetName := flag.String("fleet-name", "", "Fleet name stamped on rescue records (default: socket basename)")
 	kbPath := flag.String("kb-path", "data/spacemolt-knowledge.db", "Knowledge base for rescue-fuel routing")
 	flag.Parse()
@@ -181,7 +182,7 @@ func main() {
 			taskStore.AssignPending(snap, srv)
 			logFleetSnapshot(logger, snap)
 			recordBalances(ctx, logger, recorder, marketCol, snap)
-			pollRescues(logger, sup, queue, *rescueHistPath, *fleetName, snap)
+			pollRescues(logger, sup, queue, *rescueHistPath, *fleetName, "data/agents", *rescueFee, snap)
 		}
 	}
 }
