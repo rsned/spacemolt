@@ -8,7 +8,11 @@
 package pricing
 
 import (
+	"context"
+
 	"github.com/rsned/spacemolt/pkg/finditem"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // Component is one input to price: a recipe input or a BoM base ore.
@@ -121,4 +125,79 @@ func classify(marketAsk, suggested float64) string {
 	default:
 		return ClassFair
 	}
+}
+
+// findLimit is passed to finditem.Find so no station is truncated away before
+// we compute the market-wide mean (there are only a few dozen stations).
+const findLimit = 1000
+
+// PriceReport is the full pricing result for one decomposition of one item.
+type PriceReport struct {
+	ItemID      string            `json:"item_id"`
+	RecipeName  string            `json:"recipe_name,omitempty"`
+	OutputUnits int               `json:"output_units"`
+	MarginPct   float64           `json:"margin_pct"`
+	Components  []PricedComponent `json:"components"`
+	Nearby      Basis             `json:"nearby"`
+	Mkt         Basis             `json:"market"`
+
+	CurAskNearby float64 `json:"cur_ask_nearby,omitempty"`
+	HasAskNearby bool    `json:"has_ask_nearby"`
+	CurAskMkt    float64 `json:"cur_ask_mkt,omitempty"`
+	HasAskMkt    bool    `json:"has_ask_mkt"`
+	CurBid       float64 `json:"cur_bid,omitempty"`
+	HasBid       bool    `json:"has_bid"`
+	Class        string  `json:"class,omitempty"`
+}
+
+// Report prices every component of one decomposition (comps) on both bases,
+// rolls them up per output unit, prices the finished good, and classifies.
+// recipeName is surfaced in the header ("" for BoM / no-recipe). outputUnits
+// is the recipe's output-per-run for recipe mode, or 1 for BoM mode (its
+// quantities are already per unit).
+func Report(ctx context.Context, col *market.Collector, kb knowledge.Base, fromSystem string, hops int, itemID, recipeName string, outputUnits int, comps []Component, marginPct float64) (*PriceReport, error) {
+	rep := &PriceReport{ItemID: itemID, RecipeName: recipeName, OutputUnits: outputUnits, MarginPct: marginPct}
+
+	priced := make([]PricedComponent, 0, len(comps))
+	for _, c := range comps {
+		results, err := finditem.Find(ctx, col, kb, c.ItemID, 0, fromSystem, findLimit)
+		if err != nil {
+			return nil, err
+		}
+		nu, nf, mu, mf := askStats(results, hops)
+		priced = append(priced, PricedComponent{Component: c, NearbyUnit: nu, MktUnit: mu, NearbyFound: nf, MktFound: mf})
+	}
+	rep.Components = priced
+	rep.Nearby, rep.Mkt = rollUp(priced, outputUnits, marginPct)
+
+	// Finished good's own asks (nearby cheapest + market-wide mean).
+	goodAsks, err := finditem.Find(ctx, col, kb, itemID, 0, fromSystem, findLimit)
+	if err != nil {
+		return nil, err
+	}
+	rep.CurAskNearby, rep.HasAskNearby, rep.CurAskMkt, rep.HasAskMkt = askStats(goodAsks, hops)
+
+	// Finished good's best bid anywhere (instant-sell reference).
+	stationPrices, err := col.GetItemStationPrices(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	for _, sp := range stationPrices {
+		if sp.HasBuy && sp.BestBid > rep.CurBid {
+			rep.CurBid, rep.HasBid = sp.BestBid, true
+		}
+	}
+
+	ref := rep.CurAskMkt
+	if rep.HasAskNearby {
+		ref = rep.CurAskNearby
+	}
+	sug := rep.Mkt.Suggested
+	if rep.Nearby.Complete() {
+		sug = rep.Nearby.Suggested
+	} else if !rep.Mkt.Complete() {
+		sug = 0 // no complete basis -> no verdict
+	}
+	rep.Class = classify(ref, sug)
+	return rep, nil
 }
