@@ -7,6 +7,10 @@
 // finished good's own current market price.
 package pricing
 
+import (
+	"github.com/rsned/spacemolt/pkg/finditem"
+)
+
 // Component is one input to price: a recipe input or a BoM base ore.
 type Component struct {
 	ItemID string
@@ -64,4 +68,30 @@ func rollUp(comps []PricedComponent, outputUnits int, marginPct float64) (nearby
 	finish(&nearby)
 	finish(&mkt)
 	return nearby, mkt
+}
+
+// askStats reduces one item's per-station sell asks (as returned by
+// finditem.Find) to a Nearby unit price (cheapest ask reachable within hops)
+// and a Market-wide unit price (mean ask across every station). A result with
+// Jumps == finditem.JumpsUnknown or Jumps >= navigation.RouteInf is outside
+// "nearby" but still counts toward the market-wide mean. Asks of 0 are ignored.
+func askStats(results []finditem.Result, hops int) (nearbyUnit float64, nearbyFound bool, mktUnit float64, mktFound bool) {
+	var sum float64
+	var n int
+	for _, r := range results {
+		if r.BestPrice <= 0 {
+			continue
+		}
+		sum += r.BestPrice
+		n++
+		if r.Jumps >= 0 && r.Jumps <= hops {
+			if !nearbyFound || r.BestPrice < nearbyUnit {
+				nearbyUnit, nearbyFound = r.BestPrice, true
+			}
+		}
+	}
+	if n > 0 {
+		mktUnit, mktFound = sum/float64(n), true
+	}
+	return nearbyUnit, nearbyFound, mktUnit, mktFound
 }

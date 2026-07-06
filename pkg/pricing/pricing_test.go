@@ -3,6 +3,10 @@ package pricing
 import (
 	"math"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/finditem"
+	"github.com/rsned/spacemolt/pkg/market"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 func approx(a, b float64) bool { return math.Abs(a-b) < 1e-6 }
@@ -48,5 +52,43 @@ func TestRollUpOutputUnitsFloorsAtOne(t *testing.T) {
 	nearby, _ := rollUp(comps, 0, 0) // outputUnits 0 must be treated as 1
 	if !approx(nearby.PerUnit, 30) {
 		t.Fatalf("perUnit with outputUnits<=0 should divide by 1: %+v", nearby)
+	}
+}
+
+func res(price float64, jumps int) finditem.Result {
+	return finditem.Result{ItemSeller: market.ItemSeller{BestPrice: price}, Jumps: jumps}
+}
+
+func TestAskStatsNearbyMinWithinHopsAndMktMean(t *testing.T) {
+	rs := []finditem.Result{
+		res(100, 0), // local
+		res(80, 2),  // within 2 hops, cheaper
+		res(10, 5),  // far — cheapest overall but outside 2 hops
+	}
+	nu, nf, mu, mf := askStats(rs, 2)
+	if !nf || !approx(nu, 80) { // cheapest within <=2 hops
+		t.Fatalf("nearby wrong: found=%v unit=%v", nf, nu)
+	}
+	// mkt mean over all three asks = (100+80+10)/3
+	if !mf || !approx(mu, (100+80+10)/3.0) {
+		t.Fatalf("mkt wrong: found=%v unit=%v", mf, mu)
+	}
+}
+
+func TestAskStatsNoNearbyWhenAllTooFarOrUnknown(t *testing.T) {
+	rs := []finditem.Result{res(50, finditem.JumpsUnknown), res(60, navigation.RouteInf), res(70, 4)}
+	nu, nf, _, mf := askStats(rs, 2)
+	if nf || nu != 0 {
+		t.Fatalf("expected no nearby, got found=%v unit=%v", nf, nu)
+	}
+	if !mf {
+		t.Fatalf("mkt should still be found from all asks")
+	}
+}
+
+func TestAskStatsEmpty(t *testing.T) {
+	nu, nf, mu, mf := askStats(nil, 2)
+	if nf || mf || nu != 0 || mu != 0 {
+		t.Fatalf("empty should yield nothing: %v %v %v %v", nu, nf, mu, mf)
 	}
 }
