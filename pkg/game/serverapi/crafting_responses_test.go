@@ -20,13 +20,26 @@ func TestDecodeCraftJobQueued(t *testing.T) {
 }
 
 func TestDecodeCraftQueueListing(t *testing.T) {
-	raw := `{"action":"queue","jobs":[{"job_id":"j1","recipe":"r","mode":"craft","runs_total":10,"runs_done":3,"runs_remaining":7,"progress":0.3,"eta_ticks":40,"position":1,"orderer":"me","status":"running","facility_id":"f1"}]}`
+	// Verbatim live `craft queue` payload (2026-07-06): carries venue + a
+	// produces[] entry whose quantity is the per-run output (4 copper_piping ×
+	// 225 runs). Guards the CraftQueueListing/CraftJobEntry shape against drift.
+	raw := `{"action":"queue","jobs":[{"eta_ticks":144,"facility_id":"workshop:abc:grand_exchange_station","job_id":"340c12","mode":"craft","orderer":"self","position":0,"produces":[{"item_id":"copper_piping","name":"Copper Piping","quantity":4}],"progress":0.2066,"recipe":"Draw Copper Piping","runs_done":39,"runs_remaining":186,"runs_total":225,"status":"active","venue":"Station Workshop"}]}`
 	var r CraftQueueListing
 	if err := json.Unmarshal([]byte(raw), &r); err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Jobs) != 1 || r.Jobs[0].RunsRemaining != 7 || r.Jobs[0].Progress != 0.3 {
+	if r.Action != "queue" || len(r.Jobs) != 1 {
 		t.Fatalf("bad decode: %+v", r)
+	}
+	j := r.Jobs[0]
+	if j.RunsTotal != 225 || j.RunsDone != 39 || j.RunsRemaining != 186 {
+		t.Fatalf("runs mismatch: %+v", j)
+	}
+	if j.Venue != "Station Workshop" || j.Status != "active" || j.ETATicks != 144 {
+		t.Fatalf("field mismatch: %+v", j)
+	}
+	if len(j.Produces) != 1 || j.Produces[0].ItemID != "copper_piping" || j.Produces[0].Quantity != 4 {
+		t.Fatalf("produces mismatch: %+v", j.Produces)
 	}
 }
 
