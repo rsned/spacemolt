@@ -4,27 +4,27 @@
     "frequency": "hourly",
     "command": "kb_update",
     "created_at": "2026-06-24T06:39:41.813232285Z",
-    "last_run": "2026-07-05T03:00:09.581906322Z"
+    "last_run": "2026-07-06T17:00:09.581025254Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "view_market",
     "created_at": "2026-06-24T06:39:41.813348148Z",
-    "last_run": "2026-07-05T03:00:09.581906322Z"
+    "last_run": "2026-07-06T17:00:09.581025254Z"
   },
   {
     "id": 3,
     "frequency": "quarter_hourly",
     "command": "update_market",
     "created_at": "2026-06-24T06:39:41.813447187Z",
-    "last_run": "2026-07-05T03:45:09.581891548Z"
+    "last_run": "2026-07-06T17:30:09.580951479Z"
   },
   {
     "id": 4,
     "frequency": "hourly",
     "command": "update_market",
     "created_at": "2026-06-26T06:54:35.191481072Z",
-    "last_run": "2026-07-05T03:00:09.581906322Z"
+    "last_run": "2026-07-06T17:00:09.581025254Z"
   }
 ]
