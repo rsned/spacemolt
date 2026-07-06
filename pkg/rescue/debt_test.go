@@ -1,6 +1,8 @@
 package rescue
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -33,6 +35,9 @@ func TestDebtRoundTrip(t *testing.T) {
 	// RemoveHead on the last entry removes the file (LoadDebts -> empty).
 	if err := RemoveHead(dir, "salvager-10"); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "salvager-10", "rescue-debts.json")); !os.IsNotExist(err) {
+		t.Fatalf("draining the last debt must delete the file, os.Stat err = %v", err)
 	}
 	if got, _ = LoadDebts(dir, "salvager-10"); len(got) != 0 {
 		t.Fatalf("after draining = %+v, want empty", got)
