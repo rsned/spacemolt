@@ -6770,8 +6770,20 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.RawCommand(ctx, "craft", map[string]any{"action": "queue"})
 			}, ctx, 0, cmd, format)
 		}
+		// `recycle cancel <job_id>` cancels a queued recycle job. Recycle jobs
+		// live in the shared craft queue, so cancellation routes through the
+		// craft command (same as the queue listing above).
+		if (len(recArgs) >= 1 && recArgs[0] == "cancel") || flags["action"] == "cancel" {
+			payload, err := craftCancelPayload(recArgs, flags)
+			if err != nil {
+				return err
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "craft", payload)
+			}, ctx, 0, cmd, format)
+		}
 		if len(recArgs) < 1 {
-			return fmt.Errorf("usage: recycle <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run]")
+			return fmt.Errorf("usage: recycle <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run] | recycle queue | recycle cancel <job_id>")
 		}
 		recipeID := recArgs[0]
 		qty := 1
