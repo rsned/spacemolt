@@ -91,6 +91,80 @@ func TestPlan_Direct_Short(t *testing.T) {
 	}
 }
 
+// TestPlan_Direct_UnitsAreOutputUnits pins the post-restructure semantic: the
+// requested quantity is a count of OUTPUT UNITS, not crafting runs. A recipe
+// that yields 2 units per run needs materials for only ceil(units/2) runs.
+// Regression: `plan barrel_assembly 100` used to compute materials for 100 runs
+// (2× the real cost) because the recipe yields 2 barrel_assembly per run.
+func TestPlan_Direct_UnitsAreOutputUnits(t *testing.T) {
+	src := &fakeSource{
+		recipes: map[string]serverapi.Recipe{
+			"machine_barrel_assembly": recipe(
+				"machine_barrel_assembly", "Barrel Assembly", "Components",
+				[]serverapi.RecipeItem{
+					item("tungsten_rod", 3),
+					item("steel_plate", 2),
+					item("titanium_alloy", 1),
+				},
+				[]serverapi.RecipeItem{item("barrel_assembly", 2)}, // 2 units per run
+				nil,
+			),
+		},
+		inventory: Inventory{}, // empty → Short == Need
+	}
+	eng := New(src)
+	res, err := eng.Plan(context.Background(), PlanOpts{ID: "machine_barrel_assembly", Quantity: 100})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	// 100 output units ÷ 2 per run = 50 runs.
+	if res.Runs != 50 {
+		t.Errorf("Runs = %d, want 50 (100 units ÷ 2 per run)", res.Runs)
+	}
+	if res.Quantity != 100 {
+		t.Errorf("Quantity = %d, want 100 (requested output units)", res.Quantity)
+	}
+	want := map[string]int{
+		"tungsten_rod":   150, // 3 × 50 runs
+		"steel_plate":    100, // 2 × 50 runs
+		"titanium_alloy": 50,  // 1 × 50 runs
+	}
+	byID := map[string]PlanInputRow{}
+	for _, r := range res.Inputs {
+		byID[r.ItemID] = r
+	}
+	for id, wantNeed := range want {
+		if byID[id].Need != wantNeed {
+			t.Errorf("%s: Need = %d, want %d", id, byID[id].Need, wantNeed)
+		}
+	}
+}
+
+// TestPlan_Direct_UnitsRoundUp verifies the units→runs conversion rounds up:
+// a partial run is a whole run's worth of materials.
+func TestPlan_Direct_UnitsRoundUp(t *testing.T) {
+	src := &fakeSource{
+		recipes: map[string]serverapi.Recipe{
+			"r": recipe("r", "R", "X",
+				[]serverapi.RecipeItem{item("a", 5)},
+				[]serverapi.RecipeItem{item("r_out", 2)}, nil),
+		},
+		inventory: Inventory{},
+	}
+	eng := New(src)
+	res, err := eng.Plan(context.Background(), PlanOpts{ID: "r", Quantity: 101})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	// 101 units ÷ 2 per run = 50.5 → 51 runs.
+	if res.Runs != 51 {
+		t.Errorf("Runs = %d, want 51 (ceil(101/2))", res.Runs)
+	}
+	if res.Inputs[0].Need != 255 { // 5 × 51
+		t.Errorf("Need = %d, want 255 (5 × 51 runs)", res.Inputs[0].Need)
+	}
+}
+
 func TestPlan_DefaultQuantity(t *testing.T) {
 	src := &fakeSource{
 		recipes: map[string]serverapi.Recipe{

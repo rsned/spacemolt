@@ -46,7 +46,8 @@ func TestFormatPlanDirectShort(t *testing.T) {
 			[]serverapi.RecipeItem{item("circuit_board", 1), item("flex_polymer", 3), item("titanium_alloy", 3)},
 			[]serverapi.RecipeItem{item("advanced_repair_kit", 1)},
 			nil),
-		Quantity:  5,
+		Quantity:  5, // 1 unit/run → 5 runs
+		Runs:      5,
 		StationID: "market_prime",
 		Inputs: []PlanInputRow{
 			{ItemID: "circuit_board", Need: 5, HaveCargo: 0, HaveStorage: 3, Short: 2},
@@ -66,10 +67,11 @@ func TestFormatPlanDirectReady(t *testing.T) {
 		Recipe: recipe("alloy_titanium_ingot", "Titanium Alloy Ingot", "Refining",
 			[]serverapi.RecipeItem{item("iron_ore", 3), item("titanium_ore", 2)},
 			[]serverapi.RecipeItem{item("titanium_alloy", 2)}, nil),
-		Quantity: 10,
+		Quantity: 10, // 2 units/run → 5 runs
+		Runs:     5,
 		Inputs: []PlanInputRow{
-			{ItemID: "iron_ore", Need: 30, HaveCargo: 12, HaveStorage: 450},
-			{ItemID: "titanium_ore", Need: 20, HaveStorage: 380},
+			{ItemID: "iron_ore", Need: 15, HaveCargo: 12, HaveStorage: 450},
+			{ItemID: "titanium_ore", Need: 10, HaveStorage: 380},
 		},
 		Ready: true,
 	}

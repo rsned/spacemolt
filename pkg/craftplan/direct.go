@@ -215,9 +215,17 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 		return nil, err
 	}
 
+	// The requested quantity is a count of output UNITS. A single crafting
+	// run yields outputPerRun(r) of them, so the materials scale with the
+	// number of RUNS, not the unit count. (Server craft restructure, 2026-07:
+	// recipes now yield N>1 units per run — e.g. barrel_assembly yields 2,
+	// h2_fuel_combustor yields 100.)
+	runs := runsFor(r, opts.Quantity)
+
 	res := &PlanResult{
 		Recipe:         r,
 		Quantity:       opts.Quantity,
+		Runs:           runs,
 		StationID:      stationID,
 		BlockedSkill:   skillGaps(r, skills),
 		BlockedIllegal: illegal[r.ID],
@@ -225,11 +233,11 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 	}
 
 	if opts.Reachable {
-		if err := e.planReachable(ctx, res, r, inv, opts); err != nil {
+		if err := e.planReachable(ctx, res, r, inv, runs, opts); err != nil {
 			return nil, err
 		}
 	} else {
-		res.Inputs = planDirect(r, opts.Quantity, inv, opts.IncludeFaction)
+		res.Inputs = planDirect(r, runs, inv, opts.IncludeFaction)
 	}
 
 	res.Ready = len(res.BlockedSkill) == 0 && !res.BlockedIllegal && !res.BlockedPassive
@@ -254,11 +262,31 @@ func skillGaps(r serverapi.Recipe, have map[string]int) map[string]int {
 	return gaps
 }
 
-// planDirect builds the per-direct-input gap rows.
-func planDirect(r serverapi.Recipe, qty int, inv Inventory, includeFaction bool) []PlanInputRow {
+// outputPerRun returns how many primary-output units one crafting run of r
+// yields. Defaults to 1 for recipes with no declared output quantity so the
+// units→runs conversion degrades to identity.
+func outputPerRun(r serverapi.Recipe) int {
+	if len(r.Outputs) > 0 && r.Outputs[0].Quantity > 0 {
+		return r.Outputs[0].Quantity
+	}
+	return 1
+}
+
+// runsFor converts a requested count of output units into the number of
+// crafting runs needed, rounding up (a partial run costs a full run's
+// materials). Always returns ≥ 1.
+func runsFor(r serverapi.Recipe, units int) int {
+	per := outputPerRun(r)
+	runs := (units + per - 1) / per // ceil(units / per)
+	return max(runs, 1)
+}
+
+// planDirect builds the per-direct-input gap rows. runs is the number of
+// crafting runs (already converted from output units by runsFor).
+func planDirect(r serverapi.Recipe, runs int, inv Inventory, includeFaction bool) []PlanInputRow {
 	rows := make([]PlanInputRow, 0, len(r.Inputs))
 	for _, in := range r.Inputs {
-		need := in.Quantity * qty
+		need := in.Quantity * runs
 		row := PlanInputRow{
 			ItemID:      in.ItemID,
 			Need:        need,

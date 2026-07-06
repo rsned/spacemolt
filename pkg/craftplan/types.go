@@ -71,7 +71,8 @@ type IntermediateCraft struct {
 // gates.
 type PlanResult struct {
 	Recipe         serverapi.Recipe
-	Quantity       int
+	Quantity       int // requested output units (what the user asked for)
+	Runs           int // crafting runs needed = ceil(Quantity / output-units-per-run)
 	StationID      string
 	Inputs         []PlanInputRow
 	Intermediates  []IntermediateCraft // populated only in --reachable mode
@@ -144,7 +145,7 @@ func ParseSortMode(s string) SortMode {
 // PlanOpts controls Engine.Plan.
 type PlanOpts struct {
 	ID             string // recipe_id OR item_id; recipe wins on tie
-	Quantity       int    // batches to plan for; must be ≥ 1
+	Quantity       int    // number of OUTPUT UNITS to plan for; must be ≥ 1 (converted to runs via the recipe's output-per-run)
 	Reachable      bool
 	IncludeFaction bool
 	Refresh        bool

@@ -95,8 +95,8 @@ func depthStr(d int) string {
 func FormatPlan(res *PlanResult) string {
 	var b bytes.Buffer
 
-	fmt.Fprintf(&b, "plan: %s x%d  (%s, %gs/batch)\n\n",
-		res.Recipe.ID, res.Quantity, res.Recipe.Category, res.Recipe.CraftingTime)
+	fmt.Fprintf(&b, "plan: %s x%d units → %d run(s)  (%s, %gs/batch, %d/run)\n\n",
+		res.Recipe.ID, res.Quantity, res.Runs, res.Recipe.Category, res.Recipe.CraftingTime, outputPerRun(res.Recipe))
 
 	if len(res.BlockedSkill) > 0 {
 		keys := make([]string, 0, len(res.BlockedSkill))

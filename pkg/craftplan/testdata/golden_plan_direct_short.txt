@@ -1,4 +1,4 @@
-plan: assemble_advanced_repair_kit x5  (Consumables, 12s/batch)
+plan: assemble_advanced_repair_kit x5 units → 5 run(s)  (Consumables, 12s/batch, 1/run)
 
 ITEM            NEED  CARGO  STORAGE  SHORT
 circuit_board   5     0      3        2 ✗

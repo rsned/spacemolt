@@ -1,8 +1,8 @@
-plan: alloy_titanium_ingot x10  (Refining, 6s/batch)
+plan: alloy_titanium_ingot x10 units → 5 run(s)  (Refining, 6s/batch, 2/run)
 
 ITEM          NEED  CARGO  STORAGE  SHORT
-iron_ore      30    12     450      –
-titanium_ore  20    0      380      –
+iron_ore      15    12     450      –
+titanium_ore  10    0      380      –
 
 summary: ✓ ready to craft
 → craft alloy_titanium_ingot 10

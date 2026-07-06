@@ -81,7 +81,10 @@ func uniqueLen(strs []string) int {
 
 // planReachable populates res.Inputs (base-material shortfall) and
 // res.Intermediates from BOM rows. Replaces the stub in direct.go.
-func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi.Recipe, inv Inventory, opts PlanOpts) error {
+// runs is the number of crafting runs of the target recipe (converted from
+// output units by runsFor); BOM base quantities are per-run, so material need
+// scales with runs.
+func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi.Recipe, inv Inventory, runs int, opts PlanOpts) error {
 	bomMap, err := e.src.BOM(ctx, []string{r.ID})
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrBOMUnavailable, err)
@@ -92,13 +95,13 @@ func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi
 		// the "BOM doesn't know about this recipe — showing direct inputs"
 		// message. The PlanResult shape already supports this implicitly:
 		// Intermediates stays empty.
-		res.Inputs = planDirect(r, opts.Quantity, inv, opts.IncludeFaction)
+		res.Inputs = planDirect(r, runs, inv, opts.IncludeFaction)
 		return nil
 	}
 
 	res.Inputs = make([]PlanInputRow, 0, len(rows))
 	for _, row := range rows {
-		need := row.Quantity * opts.Quantity
+		need := row.Quantity * runs
 		pir := PlanInputRow{
 			ItemID:      row.BaseItemID,
 			Need:        need,
@@ -115,7 +118,7 @@ func (e *Engine) planReachable(ctx context.Context, res *PlanResult, r serverapi
 		res.Inputs = append(res.Inputs, pir)
 	}
 
-	res.Intermediates = collectIntermediates(rows, r.ID, opts.Quantity, e.catalog)
+	res.Intermediates = collectIntermediates(rows, r.ID, runs, e.catalog)
 	return nil
 }
 
