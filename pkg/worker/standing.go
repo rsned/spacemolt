@@ -42,6 +42,10 @@ type StandingDeps struct {
 	// finished task's id and error (nil = success).
 	NextTask     func() *AssignedTask
 	OnTaskResult func(taskID string, err error)
+
+	// PayDebts, when set, runs once per non-drained idle pass under ExecMu to
+	// pay any outstanding rescue-fee debt. nil for workers with no fee wiring.
+	PayDebts func(context.Context)
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -110,6 +114,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		deps.SetDrained(false)
 		deps.ExecMu.Lock()
+		if deps.PayDebts != nil {
+			deps.PayDebts(ctx)
+		}
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)
 		} else {

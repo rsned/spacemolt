@@ -295,6 +295,9 @@ func main() {
 						}
 						return t
 					},
+					PayDebts: func(c context.Context) {
+						worker.PayRescueDebt(c, client, os.Stdout, filepath.Join("data", "agents"), *agentID)
+					},
 					OnTaskResult: func(taskID string, err error) {
 						kind := "task_done"
 						detail := taskID
