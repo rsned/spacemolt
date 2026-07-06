@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -64,5 +65,32 @@ func TestPickBestRecipeSingle(t *testing.T) {
 	best, alt := pickBestRecipe([]*pricing.PriceReport{{RecipeName: "only"}})
 	if best != 0 || alt != -1 {
 		t.Fatalf("single: best=%d alt=%d", best, alt)
+	}
+}
+
+func TestRenderPriceTextUnderpriced(t *testing.T) {
+	rep := &pricing.PriceReport{
+		ItemID: "widget", RecipeName: "recipe_widget", OutputUnits: 5, MarginPct: 20,
+		Components: []pricing.PricedComponent{
+			{Component: pricing.Component{ItemID: "iron_ore", Qty: 20}, NearbyUnit: 8, MktUnit: 14, NearbyFound: true, MktFound: true},
+			{Component: pricing.Component{ItemID: "rare_ore", Qty: 2}, MktUnit: 100, MktFound: true}, // no nearby
+		},
+		Nearby: pricing.Basis{BuildCost: 160, PerUnit: 32, Margin: 6.4, Suggested: 38.4, Covered: 1, Total: 2},
+		Mkt:    pricing.Basis{BuildCost: 480, PerUnit: 96, Margin: 19.2, Suggested: 115.2, Covered: 2, Total: 2},
+		CurAskNearby: 500, HasAskNearby: true, CurAskMkt: 520, HasAskMkt: true, CurBid: 400, HasBid: true,
+		Class: pricing.ClassUnder,
+	}
+	out := renderPriceText("widget", "sol", 2, 20, []modeReport{{Label: "RECIPE", R: rep}}, "")
+
+	for _, want := range []string{
+		"widget", "RECIPE", "recipe_widget", "5 units/run",
+		"iron_ore", "rare_ore", "—", // rare_ore has no nearby price -> dash
+		"+ 20% margin", "SUGGESTED", "115.20",
+		"1/2 priced nearby", "rare_ore", // feasibility line names the gap
+		"CURRENT MARKET", "500", "400", "UNDERPRICED",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("render missing %q in:\n%s", want, out)
+		}
 	}
 }
