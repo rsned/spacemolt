@@ -321,12 +321,23 @@ func assistEnsureHome(ctx context.Context, deps AssistDeps) error {
 		fmt.Fprintf(deps.Out, "assist: no home configured for %s\n", deps.AgentID) //nolint:errcheck
 		return nil
 	}
-	if st := deps.Client.GetState(); st != nil && st.System.ID == home && st.Doc {
+	st := deps.Client.GetState()
+	// Already parked and docked at the home POI: nothing to do.
+	if st != nil && st.CurrentPOI == deps.HomeStation && st.Doc {
 		return nil
 	}
-	if err := deps.navigate(ctx, home, deps.HomeStation); err != nil {
-		fmt.Fprintf(deps.Out, "assist: return home: %v\n", err) //nolint:errcheck
-		return nil
+	// Travel only when we are not already sitting at the home POI. Autopilot
+	// always issues a travel to the target POI, which auto-undocks the ship;
+	// re-traveling to a POI we already occupy would undock us every pass,
+	// thrashing undock<->dock forever so the dock never sticks (and the ship
+	// never re-tanks). Critical for mobile_capital, which must be boarded
+	// (docked) to ride its once-a-day hyperspace jump — an undocked rescuer is
+	// left behind when the capital jumps.
+	if st == nil || st.CurrentPOI != deps.HomeStation {
+		if err := deps.navigate(ctx, home, deps.HomeStation); err != nil {
+			fmt.Fprintf(deps.Out, "assist: return home: %v\n", err) //nolint:errcheck
+			return nil
+		}
 	}
 	if err := deps.Client.Dock(ctx); err != nil && !strings.Contains(err.Error(), "Already docked") {
 		fmt.Fprintf(deps.Out, "assist: dock home: %v\n", err) //nolint:errcheck

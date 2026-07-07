@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"testing"
 	"time"
 
@@ -265,6 +266,41 @@ func TestAssistEnsureHomeMobileRetarget(t *testing.T) {
 	}
 	if len(visited) != 0 {
 		t.Fatalf("unresolved home must not navigate, visited %v", visited)
+	}
+}
+
+// TestAssistEnsureHomeAtMobileCapitalDocksInPlace: when the rescuer is already
+// sitting at its mobile home POI but undocked, ensure-home must dock in place
+// rather than re-travel. Autopilot's travel auto-undocks, so re-navigating to a
+// POI we already occupy thrashes undock<->dock forever and the ship is never
+// aboard (docked) for the capital's daily jump. Regression for the 2026-07-07
+// assist-frontier stuck-at-mobile_capital, fuel-pinned incident.
+func TestAssistEnsureHomeAtMobileCapitalDocksInPlace(t *testing.T) {
+	client := &fakeClient{
+		route: []game.RouteStep{{SystemID: "altais"}},
+		state: &game.State{CurrentSystem: "altais", CurrentPOI: "mobile_capital"},
+	}
+	client.state.System.ID = "altais"
+	var visited []string
+	deps := AssistDeps{
+		Client: client, Out: io.Discard,
+		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		Navigate: func(ctx context.Context, system, poi string) error {
+			visited = append(visited, system+"/"+poi)
+			return nil
+		},
+	}
+	if err := assistEnsureHome(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	if len(visited) != 0 {
+		t.Fatalf("already at mobile home POI must not re-travel (auto-undocks), visited %v", visited)
+	}
+	if !slices.Contains(client.calls, "dock") {
+		t.Fatalf("must dock in place, calls = %v", client.calls)
+	}
+	if slices.Contains(client.calls, "undock") {
+		t.Fatalf("must not undock when already at home POI, calls = %v", client.calls)
 	}
 }
 
