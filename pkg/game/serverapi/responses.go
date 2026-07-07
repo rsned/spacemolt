@@ -888,6 +888,11 @@ type FacilityListResponse struct {
 	PublicFacilities  []map[string]any `json:"public_facilities"`
 	Construction      map[string]any   `json:"construction,omitempty"`
 	Power             map[string]any   `json:"power,omitempty"`
+	// FactionRent summarizes rent for the faction's facilities at this station
+	// (est_rent_per_day, facilities, grace_cycles, total_rent_per_cycle, note),
+	// deducted from the faction treasury each cycle. Present only when the
+	// viewer's faction owns facilities here.
+	FactionRent map[string]any `json:"faction_rent,omitempty"`
 }
 
 // ViewStorageResponse wraps the response from view_storage command.
