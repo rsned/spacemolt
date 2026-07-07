@@ -132,13 +132,18 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 		}
 		b.WriteString("\n")
 		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "COMPONENT", "QTY", "NEARBY", "MKT-AVG")
-		var missing []string
+		// Track which components lack a price on each basis so coverage can be
+		// reported (and the SUGGESTED total flagged as partial) per basis.
+		var nearbyMissing, mktMissing []string
 		for _, c := range r.Components {
 			fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", c.ItemID,
 				strconv.FormatFloat(c.Qty, 'f', -1, 64),
 				money(c.NearbyUnit, c.NearbyFound), money(c.MktUnit, c.MktFound))
 			if !c.NearbyFound {
-				missing = append(missing, c.ItemID)
+				nearbyMissing = append(nearbyMissing, c.ItemID)
+			}
+			if !c.MktFound {
+				mktMissing = append(mktMissing, c.ItemID)
 			}
 		}
 		costLabel := "build cost/run"
@@ -148,12 +153,22 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "---- "+costLabel, "", money(r.Nearby.BuildCost, r.Nearby.Covered > 0), money(r.Mkt.BuildCost, r.Mkt.Covered > 0))
 		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "---- per unit", "", money(r.Nearby.PerUnit, r.Nearby.Covered > 0), money(r.Mkt.PerUnit, r.Mkt.Covered > 0))
 		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", fmt.Sprintf("---- + %.0f%% margin", marginPct), "", money(r.Nearby.Margin, r.Nearby.Covered > 0), money(r.Mkt.Margin, r.Mkt.Covered > 0))
-		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "= SUGGESTED", "", money(r.Nearby.Suggested, r.Nearby.Complete()), money(r.Mkt.Suggested, r.Mkt.Complete()))
-		fmt.Fprintf(&b, "  feasibility (nearby): %d/%d priced nearby", r.Nearby.Covered, r.Nearby.Total)
-		if len(missing) > 0 {
-			fmt.Fprintf(&b, " — missing: %s", strings.Join(missing, ", "))
+		// SUGGESTED renders whenever a basis priced at least one component,
+		// consistent with the cost rows above. A basis that priced some but not
+		// all components yields a partial floor, flagged below.
+		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "= SUGGESTED", "", money(r.Nearby.Suggested, r.Nearby.Covered > 0), money(r.Mkt.Suggested, r.Mkt.Covered > 0))
+		fmt.Fprintf(&b, "  coverage: nearby %d/%d", r.Nearby.Covered, r.Nearby.Total)
+		if len(nearbyMissing) > 0 {
+			fmt.Fprintf(&b, " (missing: %s)", strings.Join(nearbyMissing, ", "))
+		}
+		fmt.Fprintf(&b, "; mkt-avg %d/%d", r.Mkt.Covered, r.Mkt.Total)
+		if len(mktMissing) > 0 {
+			fmt.Fprintf(&b, " (missing: %s)", strings.Join(mktMissing, ", "))
 		}
 		b.WriteString("\n")
+		if (r.Nearby.Covered > 0 && !r.Nearby.Complete()) || (r.Mkt.Covered > 0 && !r.Mkt.Complete()) {
+			b.WriteString("  ⚠ a partial SUGGESTED (coverage < full) excludes unpriced components — the true price is higher\n")
+		}
 	}
 
 	if len(modes) > 0 {

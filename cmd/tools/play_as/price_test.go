@@ -140,12 +140,49 @@ func TestRenderPriceTextUnderpriced(t *testing.T) {
 	for _, want := range []string{
 		"widget", "RECIPE", "recipe_widget", "5 units/run",
 		"iron_ore", "rare_ore", "—", // rare_ore has no nearby price -> dash
-		"+ 20% margin", "SUGGESTED", "115.20",
-		"1/2 priced nearby", "rare_ore", // feasibility line names the gap
+		"+ 20% margin", "SUGGESTED", "115.20", // mkt basis complete -> full suggested
+		"38.40",                          // nearby basis partial -> floor still shown (was blank before)
+		"nearby 1/2 (missing: rare_ore)", // coverage names the gap per basis
+		"mkt-avg 2/2",
+		"⚠",                                                // partial-basis warning
 		"CURRENT MARKET", "500", "400", "UNDERPRICED",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("render missing %q in:\n%s", want, out)
 		}
+	}
+}
+
+// TestRenderPriceTextPartialMktBasisShowsFloor locks the reported bug: when one
+// component has no market price at all (like ghost_rounds' hot_cell), the market
+// basis is incomplete but the SUGGESTED total must still render (as a flagged
+// partial floor), not blank out. The nearby basis here priced nothing, so it
+// stays a dash.
+func TestRenderPriceTextPartialMktBasisShowsFloor(t *testing.T) {
+	rep := &pricing.PriceReport{
+		ItemID: "ghost_rounds", RecipeName: "forge_ghost_rounds", OutputUnits: 2, MarginPct: 20,
+		Components: []pricing.PricedComponent{
+			{Component: pricing.Component{ItemID: "hot_cell", Qty: 2}},                                            // no price anywhere
+			{Component: pricing.Component{ItemID: "titanium_ingot", Qty: 3}, MktUnit: 823.5, MktFound: true},      // mkt only
+		},
+		// mkt: only titanium_ingot priced -> 3*823.5=2470.5 /2 units =1235.25 +20% =1482.30 (partial)
+		Nearby: pricing.Basis{Covered: 0, Total: 2},
+		Mkt:    pricing.Basis{BuildCost: 2470.5, PerUnit: 1235.25, Margin: 247.05, Suggested: 1482.30, Covered: 1, Total: 2},
+	}
+	out := renderPriceText("ghost_rounds", "alhena", 2, 20, []modeReport{{Label: "RECIPE", R: rep}}, "")
+
+	for _, want := range []string{
+		"1482.30",                          // partial mkt SUGGESTED is shown, not blank
+		"mkt-avg 1/2 (missing: hot_cell)",  // coverage explains the gap
+		"nearby 0/2",                       // nearby priced nothing
+		"⚠",                                // partial-basis warning present
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("render missing %q in:\n%s", want, out)
+		}
+	}
+	// The nearby SUGGESTED (0 components priced) must NOT fabricate a number.
+	if strings.Contains(out, "= SUGGESTED") && !strings.Contains(out, "—") {
+		t.Fatalf("expected a dash for the empty nearby basis:\n%s", out)
 	}
 }
