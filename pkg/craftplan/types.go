@@ -79,7 +79,12 @@ type PlanResult struct {
 	BlockedSkill   map[string]int      // skill_id → level shortfall; empty if no skill block
 	BlockedIllegal bool                // true if recipe is illegal at this station
 	BlockedPassive bool                // true if recipe is Ship Passive (runs automatically, can't be crafted manually)
-	Ready          bool
+	// FacilityOnlyNoAlt is true when the chosen recipe is facility_only AND no
+	// other recipe producing the same primary output can be hand-crafted (every
+	// recipe for that output is facility_only) — i.e. this item cannot be built
+	// at a Station Workshop at all; a facility is required.
+	FacilityOnlyNoAlt bool
+	Ready             bool
 }
 
 // CraftableOpts controls Engine.Craftable.

@@ -228,8 +228,9 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 		Runs:           runs,
 		StationID:      stationID,
 		BlockedSkill:   skillGaps(r, skills),
-		BlockedIllegal: illegal[r.ID],
-		BlockedPassive: strings.EqualFold(r.Category, "Ship Passive"),
+		BlockedIllegal:    illegal[r.ID],
+		BlockedPassive:    strings.EqualFold(r.Category, "Ship Passive"),
+		FacilityOnlyNoAlt: facilityOnlyNoAlternative(r, recs),
 	}
 
 	if opts.Reachable {

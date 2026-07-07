@@ -55,6 +55,29 @@ func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe) (ser
 	return serverapi.Recipe{}, fmt.Errorf("no recipe %q. Did you mean: %s", id, strings.Join(suggest, ", "))
 }
 
+// facilityOnlyNoAlternative reports whether r is facility_only and no other
+// recipe producing r's primary output can be hand-crafted (every recipe for
+// that output is facility_only). In that case the item cannot be made at a
+// Station Workshop at all — a facility is required. Returns false when r is
+// not facility_only, has no outputs, or a non-facility_only alternative exists.
+func facilityOnlyNoAlternative(r serverapi.Recipe, recs map[string]serverapi.Recipe) bool {
+	if !r.FacilityOnly || len(r.Outputs) == 0 {
+		return false
+	}
+	target := r.Outputs[0].ItemID
+	for _, cand := range recs {
+		if cand.FacilityOnly {
+			continue
+		}
+		for _, out := range cand.Outputs {
+			if out.ItemID == target {
+				return false // a hand-craftable alternative exists
+			}
+		}
+	}
+	return true
+}
+
 // skillCeiling returns the highest required_skills value for r, or 0 if r
 // has no skill prereqs.
 func skillCeiling(r serverapi.Recipe) int {

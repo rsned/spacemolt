@@ -117,6 +117,10 @@ func FormatPlan(res *PlanResult) string {
 		fmt.Fprintln(&b, "blocked: Ship Passive recipe — runs automatically on ships that have this capability built in; it cannot be crafted manually.")
 		fmt.Fprintln(&b)
 	}
+	if res.FacilityOnlyNoAlt {
+		fmt.Fprintln(&b, "note: facility-only recipe — must be built at a facility; no hand-craftable alternative recipe exists for this output.")
+		fmt.Fprintln(&b)
+	}
 
 	// Inputs table.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
