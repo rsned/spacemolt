@@ -130,8 +130,14 @@ func planRoute(client game.GameClient, ctx context.Context, parts []string, form
 		return fmt.Errorf("could not find a complete route through all systems (knowledge base may be incomplete)")
 	}
 
-	// Estimate fuel from the current ship's class scale/speed (best-effort).
-	fuelPerJump, haveFuel := currentJumpFuel(client, ctx)
+	// Fuel per jump: prefer the server's authoritative figure (what autopilot /
+	// find_route report), probed via any reachable waypoint; fall back to a
+	// client-side estimate. This keeps plan_route consistent with autopilot.
+	probe := startID
+	if len(order) > 0 {
+		probe = order[0]
+	}
+	fuelPerJump, haveFuel := currentJumpFuel(client, ctx, probe)
 
 	// Emit the plan summary (styled only) followed by the autopilot commands.
 	if format == formatStyled {
@@ -189,12 +195,28 @@ func isReturnFlag(s string) bool {
 	return s == "--return" || s == "-return"
 }
 
-// currentJumpFuel returns the estimated fuel consumed per jump by the current
-// ship, derived from its class scale and base speed. This mirrors the formula
-// used by the `jump` command: ceil(scale^1.5 × speed × 10.0 × 0.10).
+// currentJumpFuel returns the fuel consumed per jump by the current ship.
 //
-// It returns ok=false when the ship class data (scale/speed) is unavailable.
-func currentJumpFuel(client game.GameClient, ctx context.Context) (int, bool) {
+// It prefers the server's authoritative figure — the same fuel_per_jump that
+// autopilot and find_route report — obtained via a single find_route probe to
+// probeTarget (any reachable system; fuel_per_jump is ship-constant across a
+// route). If the probe is unavailable it falls back to a client-side estimate
+// derived from the ship class scale and base speed:
+// ceil(scale^1.5 × speed × 10.0 × 0.10). The client formula can drift when the
+// server changes its fuel model, so the server value always wins when present.
+//
+// It returns ok=false only when neither source yields a value.
+func currentJumpFuel(client game.GameClient, ctx context.Context, probeTarget string) (int, bool) {
+	// Server-authoritative path: a find_route query is tick-free and caches its
+	// response under "_last" (mirrors worker.parseFuelEstimates).
+	if probeTarget != "" {
+		if _, err := client.FindRoute(ctx, probeTarget); err == nil {
+			if fuel, ok := parseFuelPerJump(client.GetRawJSON("_last")); ok {
+				return fuel, true
+			}
+		}
+	}
+
 	parse := func() (int, bool) {
 		raw := client.GetRawJSON("ship")
 		if len(raw) == 0 {
@@ -225,6 +247,22 @@ func currentJumpFuel(client game.GameClient, ctx context.Context) (int, bool) {
 		return 0, false
 	}
 	return parse()
+}
+
+// parseFuelPerJump extracts the server-authoritative fuel_per_jump from a
+// find_route response body. Returns ok=false when the body is empty, malformed,
+// or reports a non-positive fuel_per_jump.
+func parseFuelPerJump(raw []byte) (int, bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	var routeResp struct {
+		FuelPerJump int `json:"fuel_per_jump"`
+	}
+	if json.Unmarshal(raw, &routeResp) != nil || routeResp.FuelPerJump <= 0 {
+		return 0, false
+	}
+	return routeResp.FuelPerJump, true
 }
 
 // plural returns "s" unless n == 1.
