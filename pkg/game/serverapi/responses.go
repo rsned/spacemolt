@@ -1479,6 +1479,15 @@ type LoadPassengerResponse struct {
 	FirstBerths    string `json:"first_berths"`
 }
 
+// UnloadPassengerResponse wraps the unload_passenger response. The server reply
+// carries no "action" field; it is detected by the distinctive "fare_paid" key
+// (see client.go's storeKey detection for passenger responses). FarePaid is 0
+// when the passenger is stranded off-destination (no fare, small reputation hit).
+type UnloadPassengerResponse struct {
+	Action   string `json:"action"`
+	FarePaid int    `json:"fare_paid,omitempty"`
+}
+
 // UndockResponse wraps the response from undock command.
 //
 // AutoUndocked is set when the undock was performed automatically as a
