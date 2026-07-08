@@ -14,6 +14,13 @@ import (
 // BuiltForAPIVersion is the server API version this client was built against.
 // Update this constant when updating response structs and command signatures
 // to match a new server API version.
+//
+// Verification status (see docs/superpowers/specs/2026-07-08-api-drift-audit-findings.md):
+// command coverage is verified and guarded against drift by
+// pkg/game.TestServerCommandsCoveredByClient. Response-struct verification is
+// partial — fields the client reads are verified for every response with a live
+// sample in data/game-api/latest/, but structs lacking a live sample (openapi is
+// an incomplete superset) remain unverified and are itemized in the findings doc.
 const BuiltForAPIVersion = "v0.473.0"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
