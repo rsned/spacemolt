@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -61,7 +62,7 @@ func TestRenderSystemVisited(t *testing.T) {
 	}
 	names := map[string]string{"sol": "Sol", "procyon": "Procyon"}
 
-	got := renderSystem(sys, pois, names, 1360) // 360 ticks after visit
+	got := renderSystem(sys, pois, nil, names, 1360) // 360 ticks after visit
 
 	for _, want := range []string{
 		"Nexus Prime (nexus_prime)", "Solarian",
@@ -81,7 +82,7 @@ func TestRenderSystemUnexplored(t *testing.T) {
 		ID: "unknown_edge", Name: "Unknown Edge", PoliceLevel: 1,
 		SecurityStatus: "low_sec", LastVisitedTick: 0,
 	}
-	got := renderSystem(sys, nil, nil, 500)
+	got := renderSystem(sys, nil, nil, nil, 500)
 	if !strings.Contains(got, "Unexplored (map-import only)") {
 		t.Errorf("expected unexplored marker, got:\n%s", got)
 	}
@@ -93,13 +94,35 @@ func TestRenderSystemUnexplored(t *testing.T) {
 	}
 }
 
+func TestRenderSystemPOIsUnavailable(t *testing.T) {
+	sys := &knowledge.System{
+		ID: "nexus_prime", Name: "Nexus Prime", PoliceLevel: 3,
+		SecurityStatus: "high_sec", LastVisitedTick: 1000,
+	}
+	got := renderSystem(sys, nil, errors.New("db error"), nil, 1000)
+	if !strings.Contains(got, "(unavailable: db error)") {
+		t.Errorf("expected unavailable marker, got:\n%s", got)
+	}
+
+	// Confine the "(none)" check to the POIs section so a stray match
+	// elsewhere in the output (e.g. Connections) doesn't mask a bug.
+	idx := strings.Index(got, "POIs:")
+	if idx < 0 {
+		t.Fatalf("expected POIs section, got:\n%s", got)
+	}
+	poisSection := got[idx:]
+	if strings.Contains(poisSection, "(none)") {
+		t.Errorf("expected no (none) in POIs section, got:\n%s", poisSection)
+	}
+}
+
 func TestRenderSystemHiddenPOIAndConnFallback(t *testing.T) {
 	sys := &knowledge.System{
 		ID: "s1", Name: "S1", LastVisitedTick: 10,
 		Connections: []knowledge.SystemConnection{{SystemID: "ghost", Distance: 2}},
 	}
 	pois := []knowledge.POI{{ID: "wh1", Name: "Wormhole", Type: "wormhole", Hidden: true}}
-	got := renderSystem(sys, pois, map[string]string{}, 20) // ghost not in map
+	got := renderSystem(sys, pois, nil, map[string]string{}, 20) // ghost not in map
 	if !strings.Contains(got, "Wormhole (hidden)") {
 		t.Errorf("expected hidden marker, got:\n%s", got)
 	}

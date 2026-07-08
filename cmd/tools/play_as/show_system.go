@@ -89,7 +89,7 @@ func levenshtein(a, b string) int {
 // It is pure: all inputs are passed in, so it is directly testable. nameByID
 // resolves connection ids to display names (id shown when absent). nowTick is
 // the current game tick for the age suffix (0 omits the age).
-func renderSystem(sys *knowledge.System, pois []knowledge.POI, nameByID map[string]string, nowTick int64) string {
+func renderSystem(sys *knowledge.System, pois []knowledge.POI, poisErr error, nameByID map[string]string, nowTick int64) string {
 	var b strings.Builder
 
 	// Header: Name (id) | Empire
@@ -139,6 +139,10 @@ func renderSystem(sys *knowledge.System, pois []knowledge.POI, nameByID map[stri
 
 	// POIs.
 	b.WriteString("\nPOIs:\n")
+	if poisErr != nil {
+		fmt.Fprintf(&b, "  (unavailable: %v)\n", poisErr)
+		return b.String()
+	}
 	if len(pois) == 0 {
 		b.WriteString("  (none)\n")
 		return b.String()
@@ -161,7 +165,7 @@ func renderSystem(sys *knowledge.System, pois []knowledge.POI, nameByID map[stri
 	}
 	fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | Resources / Services\n",
 		nameW, "Name", idW, "ID", typeW, "Type", classW, "Class")
-	b.WriteString(strings.Repeat("-", nameW+idW+typeW+classW+30) + "\n")
+	b.WriteString(strings.Repeat("-", nameW+idW+typeW+classW+32) + "\n")
 	for _, r := range rows {
 		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %s\n",
 			nameW, r.name, idW, r.id, typeW, r.typ, classW, r.class, r.detail)
@@ -223,9 +227,6 @@ func runShowSystem(ctx context.Context, args []string) error {
 		nowTick = globalClock.Tick()
 	}
 
-	fmt.Print(renderSystem(sys, pois, nameByID, nowTick))
-	if perr != nil {
-		fmt.Printf("(POIs unavailable: %v)\n", perr)
-	}
+	fmt.Print(renderSystem(sys, pois, perr, nameByID, nowTick))
 	return nil
 }
