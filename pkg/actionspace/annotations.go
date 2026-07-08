@@ -113,9 +113,6 @@ func CommandAnnotations() map[string]Annotation {
 		"loot_wreck": {
 			Preconditions: []Precondition{RequiresUndocked, RequiresWrecks, RequiresCargoSpace},
 		},
-		"salvage_wreck": {
-			Preconditions: []Precondition{RequiresUndocked, RequiresWrecks, RequiresCargoSpace},
-		},
 		"tow_wreck": {
 			Preconditions: []Precondition{RequiresUndocked, RequiresWrecks},
 		},

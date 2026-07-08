@@ -163,11 +163,6 @@ var AllActions = []Action{
 		Preconditions: []Precondition{RequiresUndocked, RequiresWrecks, RequiresCargoSpace},
 	},
 	{
-		Name: "salvage_wreck", Summary: "Salvage a wreck for raw materials",
-		Category: "salvage", IsMutation: true,
-		Preconditions: []Precondition{RequiresUndocked, RequiresWrecks, RequiresCargoSpace},
-	},
-	{
 		Name: "tow_wreck", Summary: "Attach a tow line to a wreck for hauling",
 		Category: "salvage", IsMutation: true,
 		Preconditions: []Precondition{RequiresUndocked, RequiresWrecks},
