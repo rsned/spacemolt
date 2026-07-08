@@ -455,13 +455,26 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Modify (as triage dictates): `pkg/game/serverapi/responses.go`
 - Consumes: Layer 3 section of `scratchpad/drift-findings.md` + `data/game-api/latest/*.json`
 
-- [ ] **Step 1: Resolve each struct's authority**
+**SCOPE (refined after Task 1, user decision): fix BREAKS only, document the rest.**
+openapi is a *superset* — `schema-only` fields are mostly data the client intentionally
+does not model, and `encoding/json` silently ignores unknown server fields, so they are
+NOT breaks. Do **not** enrich structs with schema-only fields. The systematic
+`go-only=[action]` and `go-only=[command,pending]` entries are false positives (the
+client's `action` echo + synthetic mutation-tracking fields).
 
-For each Layer 3 finding (`go-only` / `schema-only` field deltas), resolve the authority in priority order: live sample JSON in `data/game-api/latest/` first, else the openapi schema. Classify each field delta:
-- **`schema-only` field present in the live sample too** → real added field → mechanical: add it to the struct.
-- **`go-only` field absent from BOTH sample and schema** → removed/renamed field → mechanical: remove, or rename if a matching `schema-only` field is the obvious counterpart.
-- **`go-only` field present in a live sample but not openapi** → openapi generator omission (false positive) → keep, note in report.
+- [ ] **Step 1: Classify each Layer 3 finding**
+
+For each finding, focus on `go-only` fields the client actually reads. Resolve authority
+live-sample-first, then openapi. Classify:
+- **`go-only` field the client reads, absent from BOTH live sample and schema, with an obvious `schema-only` counterpart** → real rename → mechanical: rename the json tag.
+- **`go-only` field the client reads, absent from BOTH, no counterpart** → removed field → mechanical: remove it (+ fix consumers).
+- **`go-only` = `action` / `command` / `pending`** → false positive → skip, no change.
+- **`go-only` field present in a live sample** → server still sends it → keep, no change.
+- **`schema-only` fields (server sends more than client models)** → NOT a break → **document only** in the findings report ("server emits additional fields X; client models what it uses"), do not add.
 - **UNVERIFIED (no sample, no schema)** → leave as-is, list in report.
+
+Net effect: Task 4's code changes are the narrow set of genuine renames/removals of
+client-read fields. Everything else is documented, not touched.
 
 - [ ] **Step 2: Apply the mechanical fixes**
 
