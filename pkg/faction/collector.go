@@ -281,8 +281,12 @@ func (c *Collector) collectOrders(ctx context.Context, client *game.Client, fact
 	if baseID == "" {
 		return
 	}
+	// The server scopes view_orders to either "personal" (default) or
+	// "faction" orders in the single `orders` field of the response — there
+	// is no separate faction_orders array on the wire (v0.473.0). Request
+	// scope=faction explicitly so `resp.Orders` holds faction orders.
 	var resp serverapi.ViewOrdersResponse
-	if err := readInto(ctx, client, "view_orders", nil, &resp); err != nil {
+	if err := readInto(ctx, client, "view_orders", map[string]any{"scope": "faction"}, &resp); err != nil {
 		c.logger.Printf("  view_orders failed: %v", err)
 		return
 	}

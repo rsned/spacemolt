@@ -9,7 +9,7 @@ import (
 func TestParseFactionOrders(t *testing.T) {
 	resp := serverapi.ViewOrdersResponse{
 		Base: "b1",
-		FactionOrders: []serverapi.ExchangeOrder{
+		Orders: []serverapi.ExchangeOrder{
 			{OrderID: "o1", Side: "buy", ItemID: "iron_ore", ItemName: "Iron Ore", PriceEach: 10, Quantity: 100},
 			{OrderID: "o2", OrderType: "sell", ItemID: "alloy", ItemName: "Alloy", PriceEach: 50, Quantity: 5},
 		},

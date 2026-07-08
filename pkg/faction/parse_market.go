@@ -7,16 +7,19 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// parseFactionOrders converts the faction_orders of a view_orders response into
-// KB rows. Side falls back to order_type when side is empty.
+// parseFactionOrders converts the orders of a view_orders response (called
+// with scope=faction by the collector) into KB rows. There is no separate
+// faction_orders array on the wire — a single scoped `orders` field carries
+// either personal or faction orders depending on the request's scope param.
+// Side falls back to order_type when side is empty.
 func parseFactionOrders(factionID, baseID string, resp serverapi.ViewOrdersResponse) []knowledge.FactionOrderRow {
 	now := time.Now()
 	base := resp.Base
 	if base == "" {
 		base = baseID
 	}
-	out := make([]knowledge.FactionOrderRow, 0, len(resp.FactionOrders))
-	for _, o := range resp.FactionOrders {
+	out := make([]knowledge.FactionOrderRow, 0, len(resp.Orders))
+	for _, o := range resp.Orders {
 		side := o.Side
 		if side == "" {
 			side = o.OrderType
