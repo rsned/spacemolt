@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -179,4 +180,52 @@ func poiDetail(p knowledge.POI) string {
 		return strings.Join(parts, ", ")
 	}
 	return strings.Join(p.Services, ", ")
+}
+
+// runShowSystem implements the show_system REPL command:
+//
+//	show_system <id>
+//
+// It prints what the knowledge base knows about a remote system, enriched
+// beyond the live get_system output. Pure KB read: no server call, no tick cost.
+func runShowSystem(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: show_system <id>")
+	}
+	if globalKB == nil {
+		return fmt.Errorf("show_system: knowledge base not available (run with --db-path)")
+	}
+	id := args[0]
+
+	sys, err := globalKB.GetSystem(ctx, id)
+	if err != nil || sys == nil {
+		fmt.Printf("System %q not found in knowledge base.\n", id)
+		if systems, serr := globalKB.GetSystems(ctx); serr == nil {
+			if s := suggestSystems(id, systems); len(s) > 0 {
+				fmt.Printf("Did you mean: %s?\n", strings.Join(s, ", "))
+			}
+		}
+		return nil
+	}
+
+	// id -> name map for connection labels (also powers not-found suggestions).
+	nameByID := map[string]string{}
+	if systems, serr := globalKB.GetSystems(ctx); serr == nil {
+		for _, s := range systems {
+			nameByID[s.ID] = s.Name
+		}
+	}
+
+	pois, perr := globalKB.GetPOIs(ctx, id)
+
+	var nowTick int64
+	if globalClock != nil {
+		nowTick = globalClock.Tick()
+	}
+
+	fmt.Print(renderSystem(sys, pois, nameByID, nowTick))
+	if perr != nil {
+		fmt.Printf("(POIs unavailable: %v)\n", perr)
+	}
+	return nil
 }

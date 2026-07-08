@@ -12,7 +12,7 @@ import (
 // metaCommands are REPL-only commands not present in the OpenAPI spec.
 var metaCommands = []string{
 	"help", "exit", "quit", "set_format", "set_debug", "loop", "mbox", "nearest",
-	"update_market", "find_item",
+	"update_market", "find_item", "show_system",
 }
 
 // loadCompletionCommands returns a sorted, deduplicated list of command

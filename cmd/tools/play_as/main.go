@@ -8341,6 +8341,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "find_item":
 		return runFindItem(client, ctx, parts[1:])
 
+	case "show_system", "show-system":
+		return runShowSystem(ctx, parts[1:])
+
 	case "demand":
 		if len(parts) >= 2 && parts[1] == "history" {
 			return runDemandHistory(ctx, parts[2:], format)

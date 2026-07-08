@@ -103,7 +103,29 @@ func TestRenderSystemHiddenPOIAndConnFallback(t *testing.T) {
 	if !strings.Contains(got, "Wormhole (hidden)") {
 		t.Errorf("expected hidden marker, got:\n%s", got)
 	}
-	if !strings.Contains(got, "ghost") { // falls back to id in name slot
-		t.Errorf("expected connection id fallback, got:\n%s", got)
+	// Assert the fallback lands in the NAME column specifically (not just
+	// somewhere in the output) — the ID column always prints "ghost"
+	// regardless of whether the name-slot fallback works, so a plain
+	// strings.Contains(got, "ghost") would pass even if the fallback were
+	// broken. Locate the connection row and check its first "|"-delimited
+	// field (the name column).
+	var connLine string
+	inConns := false
+	for _, line := range strings.Split(got, "\n") {
+		switch {
+		case strings.HasPrefix(line, "Connections:"):
+			inConns = true
+		case inConns && strings.HasPrefix(line, "POIs:"):
+			inConns = false
+		case inConns && strings.TrimSpace(line) != "":
+			connLine = line
+		}
+		if connLine != "" {
+			break
+		}
+	}
+	name, _, ok := strings.Cut(connLine, "|")
+	if !ok || strings.TrimSpace(name) != "ghost" {
+		t.Errorf("expected connection name-slot fallback to id %q, got line %q (full output:\n%s)", "ghost", connLine, got)
 	}
 }
