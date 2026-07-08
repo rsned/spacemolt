@@ -216,14 +216,14 @@ func TestFormatLoadPassenger(t *testing.T) {
 }
 
 func TestFormatUnloadPassenger_Delivered(t *testing.T) {
-	out := formatUnloadPassenger([]byte(`{"name":"Zed Aulin","delivered":true,"fare_paid":420,"message":"Arrived."}`))
+	out := formatUnloadPassenger([]byte(`{"name":"Zed Aulin","delivered":true,"fare_collected":420,"message":"Arrived."}`))
 	if !strings.Contains(out, "Delivered Zed Aulin — 420 cr") {
 		t.Errorf("expected delivered line, got:\n%s", out)
 	}
 }
 
 func TestFormatUnloadPassenger_Stranded(t *testing.T) {
-	out := formatUnloadPassenger([]byte(`{"name":"Mara Vex","delivered":false,"fare_paid":0,"message":"Wrong station."}`))
+	out := formatUnloadPassenger([]byte(`{"name":"Mara Vex","delivered":false,"fare_collected":0,"message":"Wrong station."}`))
 	if !strings.Contains(out, "Mara Vex disembarked — stranded (no fare)") {
 		t.Errorf("expected stranded line, got:\n%s", out)
 	}

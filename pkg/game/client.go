@@ -4486,7 +4486,7 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// detect each by a distinctive payload key and store under the command
 		// name so play_as's styled formatters (and other lookups) can find them:
 		//   list_station_passengers → "waiting",  list_passengers → "passengers",
-		//   load_passenger → "total_fare",        unload_passenger → "fare_paid".
+		//   load_passenger → "total_fare",        unload_passenger → "fare_collected".
 		if storeKey == "" {
 			if _, ok := resp.Payload["waiting"]; ok {
 				storeKey = "list_station_passengers"
@@ -4497,7 +4497,7 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			} else if _, ok := resp.Payload["total_fare"]; ok {
 				storeKey = "load_passenger"
 				shouldStore = true
-			} else if _, ok := resp.Payload["fare_paid"]; ok {
+			} else if _, ok := resp.Payload["fare_collected"]; ok {
 				storeKey = "unload_passenger"
 				shouldStore = true
 			}

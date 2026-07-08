@@ -59,9 +59,9 @@ func TestStoreRawJSON_PassengerCommands(t *testing.T) {
 			name: "unload_passenger",
 			key:  "unload_passenger",
 			payload: map[string]any{
-				"name":      "Zed Aulin",
-				"delivered": true,
-				"fare_paid": 420,
+				"name":           "Zed Aulin",
+				"delivered":      true,
+				"fare_collected": 420,
 			},
 			marker: "Zed Aulin",
 		},

@@ -488,10 +488,10 @@ func formatLoadPassenger(raw []byte) string {
 func formatUnloadPassenger(raw []byte) string {
 	raw = unwrapActionResult(raw)
 	var resp struct {
-		Message   string `json:"message"`
-		Name      string `json:"name"`
-		Delivered bool   `json:"delivered"`
-		FarePaid  int    `json:"fare_paid"`
+		Message       string `json:"message"`
+		Name          string `json:"name"`
+		Delivered     bool   `json:"delivered"`
+		FareCollected int    `json:"fare_collected"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -503,7 +503,7 @@ func formatUnloadPassenger(raw []byte) string {
 	var b strings.Builder
 	if resp.Name != "" {
 		if resp.Delivered {
-			fmt.Fprintf(&b, "Delivered %s — %d cr\n", resp.Name, resp.FarePaid)
+			fmt.Fprintf(&b, "Delivered %s — %d cr\n", resp.Name, resp.FareCollected)
 		} else {
 			fmt.Fprintf(&b, "%s disembarked — stranded (no fare)\n", resp.Name)
 		}
