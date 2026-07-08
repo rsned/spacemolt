@@ -67,6 +67,67 @@ func TestGetStats_AfterWrite(t *testing.T) {
 	}
 }
 
+// TestGetReferenceAsk verifies the live-floor price signal: best ask excludes the
+// not-for-sale sentinel, depth/stations aggregate tradeable rungs across stations'
+// latest captures, and a sentinel-only item reports no reference.
+func TestGetReferenceAsk(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	// Two stations sell iron; one ladder includes a sentinel rung that must be
+	// ignored. Station A floor = 2 (qty 50), station B floor = 3 (qty 20).
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", SystemID: "sys1", CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stnA", ItemID: "iron", Side: "sell", PriceEach: 2, Quantity: 50, CapturedAt: now},
+			{StationID: "stnA", ItemID: "iron", Side: "sell", PriceEach: NotForSalePrice, Quantity: 9999, CapturedAt: now},
+			{StationID: "stnA", ItemID: "junk", Side: "sell", PriceEach: NotForSalePrice, Quantity: 100, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnA: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", SystemID: "sys1", CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stnB", ItemID: "iron", Side: "sell", PriceEach: 3, Quantity: 20, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnB: %v", err)
+	}
+
+	ra, ok, err := c.GetReferenceAsk(ctx, "iron")
+	if err != nil {
+		t.Fatalf("GetReferenceAsk iron: %v", err)
+	}
+	if !ok {
+		t.Fatal("GetReferenceAsk iron: ok=false, want a reference")
+	}
+	if ra.BestAsk != 2 {
+		t.Errorf("BestAsk = %g, want 2 (sentinel excluded)", ra.BestAsk)
+	}
+	if ra.Depth != 70 {
+		t.Errorf("Depth = %g, want 70 (50+20, sentinel excluded)", ra.Depth)
+	}
+	if ra.Stations != 2 {
+		t.Errorf("Stations = %d, want 2", ra.Stations)
+	}
+	if ra.AtAsk != 50 {
+		t.Errorf("AtAsk = %g, want 50 (qty at best ask 2)", ra.AtAsk)
+	}
+
+	// junk is listed only at the sentinel → no tradeable reference.
+	if _, ok, err := c.GetReferenceAsk(ctx, "junk"); err != nil {
+		t.Fatalf("GetReferenceAsk junk: %v", err)
+	} else if ok {
+		t.Error("GetReferenceAsk junk: ok=true, want false (sentinel-only item)")
+	}
+}
+
 // TestGetStats_MultiWriteCount pins the cheap GetStats path: OrderCount tracks total
 // orders captured across multiple snapshots (via the AUTOINCREMENT high-water mark, not a
 // COUNT(*) scan), and LatestCapture reflects the most recent capture.

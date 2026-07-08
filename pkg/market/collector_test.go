@@ -223,6 +223,53 @@ func TestComputeOHLCV(t *testing.T) {
 	}
 }
 
+// TestComputeOHLCVExcludesSentinel verifies that the game's "not for sale"
+// sentinel price (999999) is dropped from every aggregate. view_market exposes
+// only resting orders, so a sentinel ask that never trades must not inflate
+// vwap/volume/high/close (the iron_ore 382-vs-51 bug).
+func TestComputeOHLCVExcludesSentinel(t *testing.T) {
+	orders := []Order{
+		{StationID: "stn1", ItemID: "iron", Side: "sell", PriceEach: 5, Quantity: 10},
+		{StationID: "stn1", ItemID: "iron", Side: "sell", PriceEach: 8, Quantity: 4},
+		{StationID: "stn1", ItemID: "iron", Side: "sell", PriceEach: NotForSalePrice, Quantity: 1000},
+	}
+
+	result := computeOHLCV(orders, "2026-07-07T12:00:00Z")
+	if len(result) != 1 {
+		t.Fatalf("len(result) = %d, want 1", len(result))
+	}
+	o := result[0]
+	if o.HighPrice != 8 {
+		t.Errorf("high = %f, want 8 (sentinel excluded)", o.HighPrice)
+	}
+	if o.ClosePrice != 8 {
+		t.Errorf("close = %f, want 8 (sentinel excluded)", o.ClosePrice)
+	}
+	if o.Volume != 14 {
+		t.Errorf("volume = %f, want 14 (sentinel qty excluded)", o.Volume)
+	}
+	if o.TradeCount != 2 {
+		t.Errorf("trade_count = %d, want 2 (sentinel excluded)", o.TradeCount)
+	}
+	// VWAP = (5*10 + 8*4) / 14 = 82/14, NOT dragged toward 999999.
+	wantVWAP := float64(5*10+8*4) / 14
+	if o.VWAP != wantVWAP {
+		t.Errorf("vwap = %f, want %f (sentinel excluded)", o.VWAP, wantVWAP)
+	}
+}
+
+// TestComputeOHLCVAllSentinelDropsRow verifies that an item listed ONLY at the
+// sentinel produces no OHLCV row (so it falls back to a real reference rather
+// than reporting a ~1M price).
+func TestComputeOHLCVAllSentinelDropsRow(t *testing.T) {
+	orders := []Order{
+		{StationID: "stn1", ItemID: "junk", Side: "sell", PriceEach: NotForSalePrice, Quantity: 500},
+	}
+	if result := computeOHLCV(orders, "2026-07-07T12:00:00Z"); len(result) != 0 {
+		t.Fatalf("len(result) = %d, want 0 (sentinel-only item has no clean row)", len(result))
+	}
+}
+
 func TestIsBusyError(t *testing.T) {
 	tests := []struct {
 		name string

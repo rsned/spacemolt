@@ -225,6 +225,7 @@ func (c *Collector) FindItemSellers(ctx context.Context, itemID string, minQty f
 		) latest ON latest.station_id = mo.station_id AND latest.mx = mo.captured_at
 		LEFT JOIN stations s ON s.station_id = mo.station_id
 		WHERE mo.item_id = ? AND mo.side = 'sell'
+		  AND mo.price_each < ` + notForSaleSQL + `
 		GROUP BY mo.station_id
 		HAVING SUM(mo.quantity) >= ?
 		ORDER BY MIN(mo.price_each) ASC, mo.station_id ASC`
@@ -249,6 +250,46 @@ func (c *Collector) FindItemSellers(ctx context.Context, itemID string, minQty f
 		return nil, fmt.Errorf("iterate item sellers: %w", err)
 	}
 	return out, nil
+}
+
+// GetReferenceAsk returns an item's live tradeable floor: the cheapest current
+// sentinel-filtered sell across every station's latest capture, plus the total
+// tradeable depth, the number of stations offering, and the quantity available
+// at exactly that best ask. The bool is false when no station currently lists a
+// tradeable ask (so callers fall back rather than reporting a zero price).
+//
+// This is the honest "what does it cost" signal — the strict minimum ask. Depth
+// and Stations let callers spot a troll floor (one 1cr listing, no other demand)
+// without changing the estimator here.
+func (c *Collector) GetReferenceAsk(ctx context.Context, itemID string) (ReferenceAsk, bool, error) {
+	const query = `
+WITH latest AS (
+  SELECT station_id, MAX(captured_at) AS mx
+  FROM market_orders
+  WHERE item_id = ? AND side = 'sell'
+  GROUP BY station_id
+), cur AS (
+  SELECT mo.station_id, mo.price_each, mo.quantity
+  FROM market_orders mo
+  JOIN latest l ON l.station_id = mo.station_id AND l.mx = mo.captured_at
+  WHERE mo.item_id = ? AND mo.side = 'sell'
+    AND mo.price_each > 0 AND mo.price_each < ` + notForSaleSQL + ` AND mo.quantity > 0
+)
+SELECT
+  COALESCE(MIN(price_each), 0),
+  COALESCE(SUM(quantity), 0),
+  COUNT(DISTINCT station_id),
+  COALESCE(SUM(CASE WHEN price_each = (SELECT MIN(price_each) FROM cur) THEN quantity ELSE 0 END), 0)
+FROM cur`
+	ra := ReferenceAsk{ItemID: itemID}
+	err := c.db.QueryRowContext(ctx, query, itemID, itemID).Scan(&ra.BestAsk, &ra.Depth, &ra.Stations, &ra.AtAsk)
+	if err != nil {
+		return ReferenceAsk{}, false, fmt.Errorf("query reference ask: %w", err)
+	}
+	if ra.Stations == 0 || ra.BestAsk <= 0 {
+		return ReferenceAsk{ItemID: itemID}, false, nil
+	}
+	return ra, true, nil
 }
 
 // StoreAnalysis inserts an LLM market-analysis record.
@@ -408,6 +449,7 @@ func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, erro
 			GROUP BY station_id, item_id
 		) latest ON latest.station_id = o.station_id AND latest.item_id = o.item_id AND latest.mx = o.captured_at
 		WHERE o.bucket_utc = ? AND o.item_id IN (` + placeholders + `)
+		  AND o.price_each < ` + notForSaleSQL + `
 		GROUP BY o.station_id, o.item_id`
 	args = append(args, bucket)
 	args = append(args, ids...)
@@ -541,6 +583,7 @@ func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limi
 		FROM market_ohlcv o
 		JOIN stations s ON s.station_id = o.station_id
 		WHERE o.item_id = ?
+		  AND o.high_price < ` + notForSaleSQL + `
 		ORDER BY o.bucket_utc DESC
 		LIMIT ?`, itemID, limit)
 	if err != nil {

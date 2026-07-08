@@ -216,6 +216,21 @@ type ItemPricePoint struct {
 	TradeCount  int     `json:"trade_count"`
 }
 
+// ReferenceAsk is an item's best current tradeable ask across the market: the
+// live floor a buyer would actually pay. It is the honest price signal, distinct
+// from a book-VWAP (which averages the whole resting ladder).
+//
+// Depth and Stations exist to expose thin-book / troll conditions: a BestAsk set
+// by a lone 1cr listing with Stations==1 and tiny Depth is a red flag that the
+// floor is not real demand, the low-side mirror of the not-for-sale sentinel.
+type ReferenceAsk struct {
+	ItemID   string  `json:"item_id"`
+	BestAsk  float64 `json:"best_ask"`        // cheapest sentinel-filtered current ask
+	Depth    float64 `json:"depth"`           // total tradeable sell quantity at latest capture
+	Stations int     `json:"stations"`        // number of stations currently offering
+	AtAsk    float64 `json:"at_ask"`          // quantity available at exactly BestAsk
+}
+
 // StationCaptures summarizes one station's capture history for health checks.
 type StationCaptures struct {
 	StationID    string   `json:"station_id"`

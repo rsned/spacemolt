@@ -232,7 +232,9 @@ func computeOHLCV(orders []Order, bucketUTC string) []OHLCV {
 	order := []string{} // preserve first-seen order for deterministic output
 
 	for _, o := range orders {
-		if o.PriceEach <= 0 || o.Quantity <= 0 {
+		// Skip non-positive quantities and any rung at/above the not-for-sale
+		// sentinel: those never trade and must not pollute vwap/volume/high.
+		if o.Quantity <= 0 || !tradeablePrice(o.PriceEach) {
 			continue
 		}
 		k := key(o.StationID, o.ItemID, o.Side)

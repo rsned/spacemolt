@@ -16,6 +16,8 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // Output format constants
@@ -633,9 +635,10 @@ func cmdPrices(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 		FROM market_ohlcv mo
 		LEFT JOIN stations s ON s.station_id = mo.station_id
 		WHERE mo.item_id = ?
+		  AND mo.high_price < ?
 		ORDER BY mo.bucket_utc DESC
 		LIMIT ?
-	`, itemID, cfg.Limit)
+	`, itemID, market.NotForSalePrice, cfg.Limit)
 	if err != nil {
 		return fmt.Errorf("failed to query prices: %w", err)
 	}
@@ -660,8 +663,44 @@ func cmdPrices(ctx context.Context, db *sql.DB, cfg Config, args []string) error
 		return outputJSON(entries)
 	default:
 		outputPricesTable(itemID, entries)
+		printReferenceAsk(ctx, cfg, itemID)
 		return nil
 	}
+}
+
+// printReferenceAsk prints the item's live tradeable floor (best current ask,
+// sentinel-filtered) beneath the OHLCV history. It is the honest "what does it
+// cost" number, distinct from the book VWAP; Depth/Stations flag a thin or
+// troll floor. Best-effort: any error is silently skipped so the price table
+// still renders.
+func printReferenceAsk(ctx context.Context, cfg Config, itemID string) {
+	collector, err := market.Open(market.Config{DBPath: cfg.DBPath})
+	if err != nil {
+		return
+	}
+	defer func() { _ = collector.Close() }()
+
+	ra, ok, err := collector.GetReferenceAsk(ctx, itemID)
+	if err != nil || !ok {
+		return
+	}
+	fmt.Printf("\n%s %s  (depth %s across %d station%s, %s at floor)\n",
+		headerStyle.Render("Live floor ask:"),
+		successStyle.Render(fmt.Sprintf("%.2f", ra.BestAsk)),
+		fmt.Sprintf("%.0f", ra.Depth),
+		ra.Stations, plural(ra.Stations),
+		fmt.Sprintf("%.0f", ra.AtAsk))
+	if ra.Stations == 1 {
+		fmt.Println(dimStyle.Render("  ⚠ single station — floor may be a lone/troll listing, not real demand"))
+	}
+}
+
+// plural returns "s" unless n == 1.
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 // outputPricesTable displays OHLCV price history in table format
