@@ -762,7 +762,57 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureCollapseMissingTables(db); err != nil {
 		return fmt.Errorf("ensure collapse-missing tables: %w", err)
 	}
+	if err := ensurePublicFacilitiesRentalCol(db); err != nil {
+		return fmt.Errorf("ensure public_facilities rental_fee_per_run column: %w", err)
+	}
 
+	return nil
+}
+
+// ensurePublicFacilitiesRentalCol reconciles DBs that applied the original
+// migration 48, which created public_facilities with a provisional `labor_cost`
+// column. Migration 48 was later corrected in place to `rental_fee_per_run`
+// (the real server field production.rental_fee_per_run), but an in-place edit
+// never re-runs on a DB that already recorded version 48 — so those DBs keep
+// the old column while the code inserts the new one. This idempotent fixup
+// renames the column when needed. Fresh DBs (new migration 48) already have
+// rental_fee_per_run and are a no-op.
+func ensurePublicFacilitiesRentalCol(db *sql.DB) error {
+	var tableCount int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='public_facilities'`,
+	).Scan(&tableCount); err != nil {
+		return fmt.Errorf("check public_facilities table: %w", err)
+	}
+	if tableCount == 0 {
+		return nil // table not created yet; nothing to reconcile
+	}
+
+	var newCol int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM pragma_table_info('public_facilities') WHERE name='rental_fee_per_run'`,
+	).Scan(&newCol); err != nil {
+		return fmt.Errorf("check rental_fee_per_run column: %w", err)
+	}
+	if newCol > 0 {
+		return nil // already correct
+	}
+
+	var oldCol int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM pragma_table_info('public_facilities') WHERE name='labor_cost'`,
+	).Scan(&oldCol); err != nil {
+		return fmt.Errorf("check labor_cost column: %w", err)
+	}
+	if oldCol == 0 {
+		return nil // neither column present; leave alone (unexpected shape)
+	}
+
+	if _, err := db.Exec(
+		`ALTER TABLE public_facilities RENAME COLUMN labor_cost TO rental_fee_per_run`,
+	); err != nil {
+		return fmt.Errorf("rename labor_cost to rental_fee_per_run: %w", err)
+	}
 	return nil
 }
 
