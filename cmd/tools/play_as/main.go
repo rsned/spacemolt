@@ -8354,6 +8354,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "find_item":
 		return runFindItem(client, ctx, parts[1:])
 
+	case "where_facility", "where-facility":
+		return runWhereFacility(client, ctx, parts[1:])
+
 	case "show_system", "show-system":
 		return runShowSystem(ctx, parts[1:])
 
