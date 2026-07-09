@@ -12,6 +12,7 @@ roles:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "facilities" }
     idle: idle_market
     idle_params:
       N: "20"
@@ -23,12 +24,14 @@ roles:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "facilities" }
     idle: idle_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "facilities" }
     idle: idle_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
