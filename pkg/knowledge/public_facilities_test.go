@@ -10,11 +10,11 @@ func TestUpsertAndQueryPublicFacilities(t *testing.T) {
 	ctx := context.Background()
 	rows := []PublicFacility{
 		{StationID: "grand_exchange", FacilityID: "f1", RecipeID: "ceramite_plating",
-			Category: "production", Level: 2, LaborCost: 40, OwnerFaction: "CRFT", LastSeenTick: 100},
+			Category: "production", Level: 2, RentalFeePerRun: 40, OwnerFaction: "CRFT", LastSeenTick: 100},
 		{StationID: "war_citadel", FacilityID: "f2", RecipeID: "ceramite_plating",
-			Category: "production", Level: 1, LaborCost: 60, OwnerFaction: "WAR", LastSeenTick: 100},
+			Category: "production", Level: 1, RentalFeePerRun: 60, OwnerFaction: "WAR", LastSeenTick: 100},
 		{StationID: "war_citadel", FacilityID: "f9", RecipeID: "reactor_core",
-			Category: "production", Level: 3, LaborCost: 200, OwnerFaction: "WAR", LastSeenTick: 100},
+			Category: "production", Level: 3, RentalFeePerRun: 200, OwnerFaction: "WAR", LastSeenTick: 100},
 	}
 	if err := kb.UpsertPublicFacilities(ctx, rows); err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestUpsertAndQueryPublicFacilities(t *testing.T) {
 
 	// Upsert refresh: same PK, new level/fee overwrites.
 	rows[0].Level = 4
-	rows[0].LaborCost = 35
+	rows[0].RentalFeePerRun = 35
 	if err := kb.UpsertPublicFacilities(ctx, rows[:1]); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestUpsertAndQueryPublicFacilities(t *testing.T) {
 			f1 = &got[i]
 		}
 	}
-	if f1 == nil || f1.Level != 4 || f1.LaborCost != 35 {
+	if f1 == nil || f1.Level != 4 || f1.RentalFeePerRun != 35 {
 		t.Fatalf("upsert did not refresh f1: %+v", f1)
 	}
 }

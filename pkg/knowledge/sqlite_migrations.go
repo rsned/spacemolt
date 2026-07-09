@@ -585,7 +585,7 @@ func migrations() []Migration {
 					facility_name  TEXT DEFAULT '',
 					category       TEXT DEFAULT '',
 					level          INTEGER DEFAULT 1,
-					labor_cost     INTEGER DEFAULT 0,
+					rental_fee_per_run INTEGER DEFAULT 0,
 					owner_faction  TEXT DEFAULT '',
 					public         INTEGER DEFAULT 1,
 					details_json   TEXT DEFAULT '',
