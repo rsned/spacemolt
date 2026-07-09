@@ -2989,6 +2989,30 @@ func (s storageShip) displayName() string {
 type storageFmtOptions struct {
 	group  bool   // group items by catalog category instead of a flat table
 	filter string // case-insensitive substring matched against item_id or name
+	sort   string // "count"/"qty"/"quantity" = by quantity desc; else item_id asc
+}
+
+// sortStorageItems orders items in place by the given key. "count"/"qty"/
+// "quantity" sorts by quantity descending (largest holdings first), with
+// item_id ascending as a tie-break; any other value (including "" and "id")
+// sorts by item_id ascending — the historical default.
+func sortStorageItems(items []storageItem, key string) {
+	switch key {
+	case "count", "qty", "quantity":
+		slices.SortFunc(items, func(a, c storageItem) int {
+			if a.Quantity != c.Quantity {
+				if a.Quantity > c.Quantity {
+					return -1
+				}
+				return 1
+			}
+			return strings.Compare(a.ItemID, c.ItemID)
+		})
+	default:
+		slices.SortFunc(items, func(a, c storageItem) int {
+			return strings.Compare(a.ItemID, c.ItemID)
+		})
+	}
 }
 
 var storageFmtOpts storageFmtOptions
@@ -3059,9 +3083,9 @@ func formatStorage(raw []byte) string {
 			b.WriteString("  (no items)\n")
 		}
 	case opts.group:
-		writeStorageGrouped(&b, resp.Items)
+		writeStorageGrouped(&b, resp.Items, opts.sort)
 	default:
-		writeStorageFlat(&b, resp.Items)
+		writeStorageFlat(&b, resp.Items, opts.sort)
 	}
 
 	// Ships table
@@ -3136,11 +3160,10 @@ func writeStorageRows(b *strings.Builder, items []storageItem, nameW, qtyW, size
 	}
 }
 
-// writeStorageFlat renders items as a single id-sorted table.
-func writeStorageFlat(b *strings.Builder, items []storageItem) {
-	slices.SortFunc(items, func(a, c storageItem) int {
-		return strings.Compare(a.ItemID, c.ItemID)
-	})
+// writeStorageFlat renders items as a single table sorted by sortKey (see
+// sortStorageItems; "" = id-sorted, the default).
+func writeStorageFlat(b *strings.Builder, items []storageItem, sortKey string) {
+	sortStorageItems(items, sortKey)
 	nameW, qtyW, sizeW := storageColWidths(items)
 	writeStorageHeader(b, nameW, qtyW, sizeW)
 	writeStorageRows(b, items, nameW, qtyW, sizeW)
@@ -3148,9 +3171,10 @@ func writeStorageFlat(b *strings.Builder, items []storageItem) {
 }
 
 // writeStorageGrouped renders items in per-category sections (catalog-derived),
-// categories sorted alphabetically with "unknown" last. Column widths are
+// categories sorted alphabetically with "unknown" last. Within each section
+// items are ordered by sortKey (see sortStorageItems). Column widths are
 // uniform across sections so the tables line up.
-func writeStorageGrouped(b *strings.Builder, items []storageItem) {
+func writeStorageGrouped(b *strings.Builder, items []storageItem, sortKey string) {
 	groups := make(map[string][]storageItem)
 	order := make([]string, 0)
 	for _, item := range items {
@@ -3177,9 +3201,7 @@ func writeStorageGrouped(b *strings.Builder, items []storageItem) {
 			b.WriteString("\n")
 		}
 		catItems := groups[cat]
-		slices.SortFunc(catItems, func(a, c storageItem) int {
-			return strings.Compare(a.ItemID, c.ItemID)
-		})
+		sortStorageItems(catItems, sortKey)
 		var catUnits float64
 		for _, it := range catItems {
 			catUnits += it.Quantity
@@ -7225,7 +7247,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Display-only flags: --group (alias --by-category) groups items into
 		// catalog-derived category sections; --filter <substr> (alias --match,
 		// or a bare positional arg) keeps only items whose item_id or name
-		// contains the substring, case-insensitive.
+		// contains the substring, case-insensitive; --sort <key> orders items
+		// by count/qty/quantity (largest holdings first) instead of the default
+		// item_id ascending — applied within each category under --group.
 		var stationID string
 		var opts storageFmtOptions
 		for i := 1; i < len(parts); i++ {
@@ -7247,6 +7271,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			case (arg == "--filter" || arg == "--match") && i+1 < len(parts):
 				i++
 				opts.filter = parts[i]
+			case strings.HasPrefix(arg, "--sort="):
+				opts.sort = strings.ToLower(strings.TrimPrefix(arg, "--sort="))
+			case arg == "--sort" && i+1 < len(parts):
+				i++
+				opts.sort = strings.ToLower(parts[i])
 			case !strings.HasPrefix(arg, "-"):
 				// Bare positional argument is treated as the filter substring.
 				opts.filter = arg
