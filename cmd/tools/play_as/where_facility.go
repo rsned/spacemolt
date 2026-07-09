@@ -45,21 +45,26 @@ func formatWhereFacility(recipeID string, rows []knowledge.PublicFacility, curre
 	fmt.Fprintf(&b, "Public facilities crafting %s (%d):\n", recipeID, len(rows))
 	fmt.Fprintf(&b, "  %-24s  %-4s  %-9s  %-8s  %s\n", "STATION", "TIER", "FEE/RUN", "OWNER", "AGE(ticks)")
 	for _, f := range rows {
+		// Guard against a missing/zero level (server should always send ≥1);
+		// treat it as tier 1 so the display never shows T0 / ×1 nonsense.
+		level := max(f.Level, 1)
 		// Output-rate multiplier from level: output × 3^(level-1).
 		mult := 1
-		for i := 1; i < f.Level; i++ {
+		for i := 1; i < level; i++ {
 			mult *= 3
 		}
 		owner := f.OwnerFaction
 		if owner == "" {
 			owner = "—"
 		}
+		// Age in ticks since last seen. "?" when the clock is unknown or the
+		// row was somehow written ahead of the current tick (clock drift).
 		age := "?"
-		if currentTick > 0 {
+		if currentTick > 0 && currentTick >= int64(f.LastSeenTick) {
 			age = fmt.Sprintf("%d", currentTick-int64(f.LastSeenTick))
 		}
 		fmt.Fprintf(&b, "  %-24s  T%-3d  %-9d  %-8s  %s  (×%d)\n",
-			f.StationID, f.Level, f.RentalFeePerRun, owner, age, mult)
+			f.StationID, level, f.RentalFeePerRun, owner, age, mult)
 	}
 	return b.String()
 }
