@@ -574,6 +574,28 @@ func migrations() []Migration {
 				CREATE INDEX idx_ship_listings_class ON ship_listings(class_id, captured_at DESC);
 			`,
 		},
+		{
+			version: 48,
+			name:    "public_facilities",
+			sql: `
+				CREATE TABLE IF NOT EXISTS public_facilities (
+					station_id     TEXT NOT NULL,
+					facility_id    TEXT NOT NULL,
+					recipe_id      TEXT NOT NULL DEFAULT '',
+					facility_name  TEXT DEFAULT '',
+					category       TEXT DEFAULT '',
+					level          INTEGER DEFAULT 1,
+					labor_cost     INTEGER DEFAULT 0,
+					owner_faction  TEXT DEFAULT '',
+					public         INTEGER DEFAULT 1,
+					details_json   TEXT DEFAULT '',
+					last_seen_tick INTEGER DEFAULT 0,
+					last_seen_utc  TEXT DEFAULT '',
+					PRIMARY KEY (station_id, facility_id)
+				);
+				CREATE INDEX IF NOT EXISTS idx_public_facilities_recipe ON public_facilities(recipe_id);
+			`,
+		},
 	}
 }
 
