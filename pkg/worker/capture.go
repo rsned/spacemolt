@@ -546,6 +546,98 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 	return nil
 }
 
+// publicFacilityUpserter is the subset of the KB that stores the public
+// facility catalog; SQLiteKB implements it, in-memory/mocks may not.
+type publicFacilityUpserter interface {
+	UpsertPublicFacilities(ctx context.Context, rows []knowledge.PublicFacility) error
+}
+
+// facStr reads a string field from a decoded JSON object, returning "" if the
+// key is missing or not a string.
+func facStr(m map[string]any, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// facInt reads a numeric field from a decoded JSON object. JSON numbers
+// decode to float64 when unmarshaled into map[string]any/any, so this
+// converts rather than type-asserting directly to int.
+func facInt(m map[string]any, key string) int {
+	switch v := m[key].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	default:
+		return 0
+	}
+}
+
+// upsertPublicFromFacilityList parses the public_facilities section of a raw
+// `facility list` response and upserts PUBLIC PRODUCTION facilities into the
+// catalog. Best-effort: unknown/renamed fields are preserved in DetailsJSON.
+func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityUpserter, raw []byte, tick int) (int, error) {
+	var resp struct {
+		BaseID           string           `json:"base_id"`
+		PublicFacilities []map[string]any `json:"public_facilities"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return 0, err
+	}
+	if resp.BaseID == "" || len(resp.PublicFacilities) == 0 {
+		return 0, nil
+	}
+	var rows []knowledge.PublicFacility
+	for _, m := range resp.PublicFacilities {
+		prod, _ := m["production"].(map[string]any)
+		// Keep only production-category facilities that are public (a facility
+		// listed here is public unless production.public is explicitly false).
+		if facStr(m, "category") != "production" {
+			continue
+		}
+		if prod != nil {
+			if pub, ok := prod["public"].(bool); ok && !pub {
+				continue
+			}
+		}
+		name := facStr(m, "custom_name")
+		if name == "" {
+			name = facStr(m, "name")
+		}
+		recipe := facStr(m, "recipe_id")
+		if recipe == "" && prod != nil {
+			recipe = facStr(prod, "recipe")
+		}
+		owner := facStr(m, "faction_id")
+		if owner == "" {
+			owner = facStr(m, "owner_id")
+		}
+		fee := 0
+		if prod != nil {
+			fee = facInt(prod, "rental_fee_per_run")
+		}
+		details, _ := json.Marshal(m)
+		rows = append(rows, knowledge.PublicFacility{
+			StationID:       resp.BaseID,
+			FacilityID:      facStr(m, "facility_id"),
+			RecipeID:        recipe,
+			FacilityName:    name,
+			Category:        facStr(m, "category"),
+			OwnerFaction:    owner,
+			Level:           facInt(m, "level"),
+			RentalFeePerRun: fee,
+			LastSeenTick:    tick,
+			DetailsJSON:     string(details),
+		})
+	}
+	if len(rows) == 0 {
+		return 0, nil
+	}
+	return len(rows), kb.UpsertPublicFacilities(ctx, rows)
+}
+
 // facilityDetail matches the structure returned by the facility list command.
 type facilityDetail struct {
 	FacilityID           string `json:"facility_id"`
@@ -580,6 +672,14 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 	rawJSON := client.GetRawJSON("_last")
 	if rawJSON == nil {
 		return fmt.Errorf("no facility list data in response")
+	}
+
+	if up, ok := kb.(publicFacilityUpserter); ok {
+		if n, perr := upsertPublicFromFacilityList(ctx, up, rawJSON, int(currentTick(state))); perr != nil {
+			fmt.Printf("public facility capture failed: %v\n", perr)
+		} else if n > 0 {
+			fmt.Printf("Captured %d public facilities\n", n)
+		}
 	}
 
 	var resp struct {

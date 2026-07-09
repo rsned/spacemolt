@@ -1,0 +1,28 @@
+{
+  "action": "list",
+  "base_id": "grand_exchange_station",
+  "public_facilities": [
+    {
+      "facility_id": "pf-ceramite-1",
+      "type": "ceramite_forge",
+      "name": "Ceramite Forge",
+      "description": "Bonds ceramite plating.",
+      "category": "production",
+      "level": 2,
+      "recipe_id": "ceramite_plating",
+      "faction_id": "CRFT",
+      "production": {"recipe": "ceramite_plating", "output_per_run": 4, "output_price_per_unit": 12.5, "rental_fee_per_run": 50, "items_per_hour": 120, "public": true, "queued_runs": 0, "queued_items": 0, "backlog_ticks": 0}
+    },
+    {
+      "facility_id": "pf-private-1",
+      "type": "reactor_lab",
+      "name": "Reactor Lab",
+      "description": "Private lab.",
+      "category": "production",
+      "level": 1,
+      "recipe_id": "reactor_core",
+      "faction_id": "WAR",
+      "production": {"recipe": "reactor_core", "rental_fee_per_run": 200, "public": false, "queued_runs": 0, "queued_items": 0, "backlog_ticks": 0}
+    }
+  ]
+}
