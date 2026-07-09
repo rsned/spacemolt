@@ -158,6 +158,43 @@ func TestFormatFacilityActionMessage_SetOutputPrice(t *testing.T) {
 	}
 }
 
+// TestBuildFacilityPayload_SetOutputPrice guards that `facility set_output_price
+// <price> --facility_id ID` maps the lone positional to price (not item_id) and
+// sends no item_id — the facility's bound recipe output is implied.
+func TestBuildFacilityPayload_SetOutputPrice(t *testing.T) {
+	payload, _, err := buildFacilityPayload(
+		[]string{"facility", "set_output_price", "50", "--facility_id", "abc123"})
+	if err != nil {
+		t.Fatalf("buildFacilityPayload: %v", err)
+	}
+	if payload["action"] != "set_output_price" {
+		t.Errorf("action = %v, want set_output_price", payload["action"])
+	}
+	if payload["facility_id"] != "abc123" {
+		t.Errorf("facility_id = %v, want abc123", payload["facility_id"])
+	}
+	if got := payload["price"]; got != 50 {
+		t.Errorf("price = %v (%T), want int 50", got, got)
+	}
+	if _, ok := payload["item_id"]; ok {
+		t.Errorf("item_id should not be set, got %v", payload["item_id"])
+	}
+}
+
+// TestBuildFacilityPayload_FractionalPrice guards that a fractional output
+// price (allowed by the server, e.g. 0.25) is parsed as a float, not dropped by
+// integer-only conversion.
+func TestBuildFacilityPayload_FractionalPrice(t *testing.T) {
+	payload, _, err := buildFacilityPayload(
+		[]string{"facility", "set_output_price", "0.25", "--facility_id", "abc123"})
+	if err != nil {
+		t.Fatalf("buildFacilityPayload: %v", err)
+	}
+	if got := payload["price"]; got != 0.25 {
+		t.Errorf("price = %v (%T), want float64 0.25", got, got)
+	}
+}
+
 // TestFormatFacilityActionMessage_JobCancelWithID guards that a job_cancel
 // response surfaces both the message and the job_id.
 func TestFormatFacilityActionMessage_JobCancelWithID(t *testing.T) {
@@ -279,7 +316,7 @@ func TestPartitionFlagsKV(t *testing.T) {
 func TestFacilityPositionalKeys(t *testing.T) {
 	cases := map[string][]string{
 		"set_access":       {"access"},
-		"set_output_price": {"item_id", "price"},
+		"set_output_price": {"price"},
 		"buy_listing":      {"listing_id"},
 		"cancel_listing":   {"listing_id"},
 		"build":            {"facility_type"},

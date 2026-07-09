@@ -1584,7 +1584,10 @@ func facilityPositionalKeys(action string) []string {
 	case "set_access":
 		return []string{"access"}
 	case "set_output_price":
-		return []string{"item_id", "price"}
+		// Per-produced-unit rental price; the item is implied by the
+		// facility's bound recipe output, so price is the only positional
+		// (facility_id is required but passed as a flag).
+		return []string{"price"}
 	case "buy_listing", "cancel_listing":
 		return []string{"listing_id"}
 	default:
@@ -1658,12 +1661,22 @@ func buildFacilityPayload(parts []string) (payload map[string]any, showStation b
 			payload[posKeys[idx]] = val
 		}
 	}
-	// Convert numeric string fields.
-	for _, numKey := range []string{"level", "page", "per_page", "quantity", "position", "price"} {
+	// Convert integer string fields.
+	for _, numKey := range []string{"level", "page", "per_page", "quantity", "position"} {
 		if v, ok := payload[numKey].(string); ok {
 			if n, convErr := strconv.Atoi(v); convErr == nil {
 				payload[numKey] = n
 			}
+		}
+	}
+	// price may be fractional (e.g. 0.25 for set_output_price); parse whole
+	// numbers as int and decimals as float64 so the server receives a JSON
+	// number either way.
+	if v, ok := payload["price"].(string); ok {
+		if n, convErr := strconv.Atoi(v); convErr == nil {
+			payload["price"] = n
+		} else if f, convErr := strconv.ParseFloat(v, 64); convErr == nil {
+			payload["price"] = f
 		}
 	}
 	return payload, showStation, nil
@@ -8285,7 +8298,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"           transfer, personal_build, personal_decorate, personal_visit, help\n" +
 				"  positional args by action:\n" +
 				"           build/types/personal_build/faction_build <facility_type>\n" +
-				"           set_access <public|private>     set_output_price <item_id> <price>\n" +
+				"           set_access <public|private>     set_output_price <price> --facility_id ID\n" +
 				"           buy_listing/cancel_listing <listing_id>\n" +
 				"  job flags: --facility_id ID --recipe_id ID --quantity N --job_id ID --position N\n" +
 				"  business flags: --item_id ID --price N --access private|public\n" +
