@@ -98,6 +98,124 @@ func TestTickBudgetParksAndPauses(t *testing.T) {
 	}
 }
 
+// TestTickBudgetGateAccountsForInFlightSpend pins the fix for a budget-gate
+// bug: two spending nodes ready in the same tick, each individually under
+// cap but over cap combined. The gate must count the first node's FeeTotal
+// as committed (in-flight) the moment it dispatches — even though pr.Spent
+// only increments on completion — so the second node parks instead of
+// overshooting BudgetCap.
+func TestTickBudgetGateAccountsForInFlightSpend(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p6", BudgetCap: 50},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-a", Kind: craftbrain.KindCraft, ItemID: "a", Qty: 1, RecipeID: "make_a",
+				StationID: "hub_a", FeeTotal: 30},
+			{ID: "craft-b", Kind: craftbrain.KindCraft, ItemID: "b", Qty: 1, RecipeID: "make_b",
+				StationID: "hub_a", FeeTotal: 30},
+		}}})
+	r.Tick()
+
+	runs, _ := LoadAllRuns(r.StateDir)
+	a := runs[0].NodeByID("craft-a")
+	b := runs[0].NodeByID("craft-b")
+
+	if a.State != NodeDispatched {
+		t.Errorf("craft-a = %+v, want dispatched", a)
+	}
+	if b.State != NodeParked || b.Park != ParkOverBudget {
+		t.Errorf("craft-b = %+v, want parked/over_budget", b)
+	}
+	if !runs[0].Control.Pause {
+		t.Error("Control.Pause = false, want true")
+	}
+	if _, ok := r.Store.Get("p6/craft-a/r0"); !ok {
+		t.Error("craft-a task not in store")
+	}
+	if _, ok := r.Store.Get("p6/craft-b/r0"); ok {
+		t.Error("craft-b task should not be in store: combined with craft-a's in-flight fee it overshoots BudgetCap")
+	}
+}
+
+// TestTickDoneNodeMovesInFlightFeeToSpentOnce extends the budget in-flight
+// accounting: once a dispatched spending node completes, its fee must land
+// in pr.Spent exactly once — not double-counted between the in-flight sum
+// and Spent. A third node sized to fit only if craft-a's fee is counted
+// exactly once proves it.
+func TestTickDoneNodeMovesInFlightFeeToSpentOnce(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p6b", BudgetCap: 50},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-a", Kind: craftbrain.KindCraft, ItemID: "a", Qty: 1, RecipeID: "make_a",
+				StationID: "hub_a", FeeTotal: 30},
+		}}})
+	r.Tick() // dispatch craft-a; in-flight = 30, Spent = 0
+	r.Store.HandleEvent("craftsman-2", controlEvent("task_done", "p6b/craft-a/r0"))
+	r.Tick() // collect craft-a done; Spent must become 30, in-flight must drop to 0
+
+	runs, _ := LoadAllRuns(r.StateDir)
+	pr := runs[0]
+	if pr.Spent != 30 {
+		t.Fatalf("Spent = %d, want 30 (counted exactly once)", pr.Spent)
+	}
+	a := pr.NodeByID("craft-a")
+	if a.State != NodeDone {
+		t.Fatalf("craft-a = %+v, want done", a)
+	}
+
+	// Now a second node with FeeTotal 20 must be admitted: Spent(30) +
+	// in-flight(0, craft-a is done not dispatched) + 20 = 50, exactly at cap.
+	// If craft-a's fee were still being double-counted as in-flight, this
+	// would wrongly park.
+	pr.Nodes = append(pr.Nodes, &NodeRun{
+		Node:  craftbrain.Node{ID: "craft-c", Kind: craftbrain.KindCraft, ItemID: "c", Qty: 1, RecipeID: "make_c", StationID: "hub_a", FeeTotal: 20},
+		State: NodeWaiting,
+		Agent: "craftsman-2",
+	})
+	if err := SaveRun(r.StateDir, pr); err != nil {
+		t.Fatal(err)
+	}
+	r.runs["p6b"] = pr
+	r.Tick()
+
+	runs, _ = LoadAllRuns(r.StateDir)
+	c := runs[0].NodeByID("craft-c")
+	if c.State != NodeDispatched {
+		t.Fatalf("craft-c = %+v, want dispatched (30 spent + 20 fits exactly at cap 50)", c)
+	}
+}
+
+// TestControlRetryResetsRetryCount pins the fix for applyControl's
+// RetryNodes handling: an operator retry of a parked(failed) node must grant
+// a fresh MaxNodeRetries budget, not resume the exhausted one.
+func TestControlRetryResetsRetryCount(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p7", BudgetCap: 100},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "mine-1", Kind: craftbrain.KindMine, ItemID: "ore", Qty: 5},
+		}}})
+	r.Tick()
+	for i := range MaxNodeRetries + 1 {
+		id := taskIDFor("p7", "mine-1", i)
+		r.Store.HandleEvent("craftsman-2", controlEvent("task_failed", id+": belt empty"))
+		r.Tick()
+	}
+	runs, _ := LoadAllRuns(r.StateDir)
+	n := runs[0].NodeByID("mine-1")
+	if n.State != NodeParked || n.Park != ParkFailed || n.Retries != MaxNodeRetries+1 {
+		t.Fatalf("mine-1 = %+v, want parked/failed with retries = %d", n, MaxNodeRetries+1)
+	}
+
+	// Operator retries the parked node directly on the runner's live state.
+	r.runs["p7"].Control.RetryNodes = []string{"mine-1"}
+	r.Tick()
+
+	runs, _ = LoadAllRuns(r.StateDir)
+	n = runs[0].NodeByID("mine-1")
+	if n.State != NodeDispatched || n.Park != "" || n.Retries != 0 {
+		t.Fatalf("mine-1 after retry = %+v, want dispatched/no-park/retries=0", n)
+	}
+}
+
 func TestTickManagedHolderGetsHandoffBeforeDispatch(t *testing.T) {
 	r := newRunner(t)
 	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p4", BudgetCap: 100},

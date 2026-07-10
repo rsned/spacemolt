@@ -1,6 +1,7 @@
 package plans
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/rsned/spacemolt/pkg/craftbrain"
@@ -97,10 +98,8 @@ func mineDeliveryStation(pr *PlanRun, n *NodeRun) string {
 		if consumer.Node.Kind != craftbrain.KindCraft {
 			continue
 		}
-		for _, dep := range consumer.Node.DependsOn {
-			if dep == n.Node.ID {
-				return consumer.Node.StationID
-			}
+		if slices.Contains(consumer.Node.DependsOn, n.Node.ID) {
+			return consumer.Node.StationID
 		}
 	}
 	return pr.Manifest.Assembly

@@ -146,6 +146,7 @@ func (r *Runner) applyControl(pr *PlanRun) {
 			n.State = NodeWaiting
 			n.Park = ""
 			n.ParkDetail = ""
+			n.Retries = 0 // an explicit operator retry grants a fresh MaxNodeRetries budget
 		}
 	}
 	pr.Control.RetryNodes = nil
@@ -316,11 +317,33 @@ func hasSpend(n *NodeRun) bool {
 	return n.Node.FeeTotal > 0 || n.Node.Kind == craftbrain.KindBuy
 }
 
+// inFlightSpend sums FeeTotal over every node currently NodeDispatched: fees
+// already committed by a dispatch but not yet rolled into pr.Spent (that
+// only happens when the node completes — see syncTasks). The budget gate
+// must count these alongside pr.Spent, or two spending nodes dispatched
+// while both are still in flight can jointly overshoot BudgetCap even though
+// neither alone would.
+func inFlightSpend(pr *PlanRun) int {
+	total := 0
+	for _, n := range pr.Nodes {
+		if n.State == NodeDispatched && n.Node.FeeTotal > 0 {
+			total += n.Node.FeeTotal
+		}
+	}
+	return total
+}
+
 // dispatchReady walks the plan's ready nodes (deps satisfied, plan running)
 // and, for each: gates handoffs, budget-gates spend, and dispatches to the
 // task store. Once a node parks (budget or handoff) it may pause the whole
 // run, so remaining ready nodes are left for a later tick.
 func (r *Runner) dispatchReady(pr *PlanRun) {
+	// inFlight starts from nodes already dispatched in a prior tick and
+	// accumulates further as this loop dispatches more nodes, so a node
+	// dispatched earlier in this same tick counts as in-flight for the
+	// budget check on the next candidate.
+	inFlight := inFlightSpend(pr)
+
 	for _, n := range pr.ReadyNodes() {
 		if pr.Control.Pause || pr.Control.Cancel {
 			return
@@ -336,7 +359,7 @@ func (r *Runner) dispatchReady(pr *PlanRun) {
 		}
 
 		if hasSpend(n) {
-			projected := pr.Spent + n.Node.FeeTotal
+			projected := pr.Spent + inFlight + n.Node.FeeTotal
 			if pr.Manifest.BudgetCap > 0 && projected > pr.Manifest.BudgetCap {
 				n.State = NodeParked
 				n.Park = ParkOverBudget
@@ -352,5 +375,8 @@ func (r *Runner) dispatchReady(pr *PlanRun) {
 			continue
 		}
 		n.State = NodeDispatched
+		if n.Node.FeeTotal > 0 {
+			inFlight += n.Node.FeeTotal
+		}
 	}
 }
