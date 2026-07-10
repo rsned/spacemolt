@@ -144,35 +144,50 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 		carrying := cargoCount(d.Client.GetState(), itemID)
 		short := false
 		if carrying < remaining {
-			carrying, short, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from)
+			var cargoFull bool
+			carrying, short, cargoFull, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from)
 			if err != nil {
 				return err
 			}
 			if carrying == 0 {
-				fmt.Fprintf(d.Out, "deliver: %s exhausted at %s — delivered %d of %d requested\n", //nolint:errcheck
-					itemID, from, qty-remaining, qty)
+				if cargoFull {
+					fmt.Fprintf(d.Out, "deliver: %s cargo full — no room to withdraw at %s, delivered %d of %d requested\n", //nolint:errcheck
+						itemID, from, qty-remaining, qty)
+				} else {
+					fmt.Fprintf(d.Out, "deliver: %s exhausted at %s — delivered %d of %d requested\n", //nolint:errcheck
+						itemID, from, qty-remaining, qty)
+				}
 				return nil
 			}
+		}
+
+		// Cap at remaining: carrying can exceed remaining when the ship
+		// walked in already holding leftover cargo from a prior run (the
+		// withdraw block above is skipped in that case). Any pre-existing
+		// surplus above qty must stay in cargo, not get gifted/deposited.
+		deliverQty := carrying
+		if deliverQty > remaining {
+			deliverQty = remaining
 		}
 
 		if err := d.autopilotAndDock(ctx, toSys, toPOI); err != nil {
 			return fmt.Errorf("deliver: travel to destination %q: %w", to, err)
 		}
 		if selfDelivery {
-			if err := d.Client.DepositItems(ctx, itemID, float64(carrying)); err != nil {
+			if err := d.Client.DepositItems(ctx, itemID, float64(deliverQty)); err != nil {
 				return fmt.Errorf("deliver: deposit %s at %s: %w", itemID, to, err)
 			}
 		} else {
 			if err := d.Client.SendGift(ctx, map[string]any{
 				"recipient": recipientUsername,
 				"item_id":   itemID,
-				"quantity":  float64(carrying),
+				"quantity":  float64(deliverQty),
 			}); err != nil {
 				return fmt.Errorf("deliver: gift %s to %s: %w", itemID, recipient, err)
 			}
 		}
 		time.Sleep(game.SleepQuick)
-		remaining -= carrying
+		remaining -= deliverQty
 
 		if short && remaining > 0 {
 			// The withdraw pass that fed this delivery came up short of what
@@ -188,11 +203,14 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 // deliverWithdraw travels to (system, poi), docks, and withdraws up to want
 // units of itemID (capped by free cargo space) into cargo. A short-supply
 // withdraw error is not fatal: it re-reads cargo to learn the actual amount
-// received. Returns the total now carried and whether the pass came up short
-// of want (the caller's progress guard for the round-trip loop).
-func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, want int, system, poi, baseLabel string) (carrying int, short bool, err error) {
+// received. Returns the total now carried, whether the pass came up short of
+// want (the caller's progress guard for the round-trip loop), and — when
+// nothing at all was withdrawn — whether that was because the cargo hold had
+// zero free space (cargoFull) rather than the source being out of stock, so
+// the caller can log an accurate reason.
+func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, want int, system, poi, baseLabel string) (carrying int, short bool, cargoFull bool, err error) {
 	if err := d.autopilotAndDock(ctx, system, poi); err != nil {
-		return 0, false, fmt.Errorf("deliver: travel to source %q: %w", baseLabel, err)
+		return 0, false, false, fmt.Errorf("deliver: travel to source %q: %w", baseLabel, err)
 	}
 	before := cargoCount(d.Client.GetState(), itemID)
 	free := cargoFreeSpace(d.Client.GetState())
@@ -200,11 +218,11 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 		want = free
 	}
 	if want <= 0 {
-		return before, false, nil
+		return before, false, true, nil
 	}
 	werr := d.Client.WithdrawItems(ctx, itemID, float64(want))
 	if werr != nil && !isShortSupplyErr(werr) {
-		return 0, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
+		return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
 	}
 	// The live client's parseActionResult has no case for "withdraw_items"
 	// (unlike "deposit_items"), so a successful or short-supply withdraw does
@@ -212,7 +230,7 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	// before re-reading cargo below, or the short-source progress guard
 	// under-counts what was actually withdrawn.
 	if cerr := d.Client.GetCargo(ctx); cerr != nil {
-		return 0, false, fmt.Errorf("deliver: refresh cargo after withdraw %s at %s: %w", itemID, baseLabel, cerr)
+		return 0, false, false, fmt.Errorf("deliver: refresh cargo after withdraw %s at %s: %w", itemID, baseLabel, cerr)
 	}
 	time.Sleep(game.SleepQuick)
 	carrying = cargoCount(d.Client.GetState(), itemID)
@@ -220,7 +238,7 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	if werr != nil {
 		fmt.Fprintf(d.Out, "deliver: withdraw %s at %s came up short: %v\n", itemID, baseLabel, werr) //nolint:errcheck
 	}
-	return carrying, short, nil
+	return carrying, short, false, nil
 }
 
 // autopilotAndDock routes to (system, poi) via Autopilot and docks — the

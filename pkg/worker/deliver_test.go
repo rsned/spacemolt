@@ -1,12 +1,14 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -237,6 +239,144 @@ func TestDeliverSourceShortGiftsWhatExists(t *testing.T) {
 	}
 	if got := client.giftCalls[0]["quantity"]; got != float64(3) {
 		t.Fatalf("gift quantity = %v, want 3", got)
+	}
+}
+
+// TestDeliverCapsDeliveryWhenCargoPreloaded is the regression test for the
+// over-delivery bug: when the ship walks in already carrying MORE than qty
+// (e.g. leftover cargo from a prior run), Deliver's loop skips the withdraw
+// block entirely (carrying >= remaining) and must gift/deposit only
+// min(carrying, remaining) — not the full pre-loaded amount. Surplus stays
+// in cargo untouched. Covers both the SendGift and DepositItems branches.
+func TestDeliverCapsDeliveryWhenCargoPreloaded(t *testing.T) {
+	tests := []struct {
+		name      string
+		recipient string
+		wantGift  bool
+	}{
+		{name: "gift recipient", recipient: "craftsman-3", wantGift: true},
+		{name: "self deposit", recipient: "self", wantGift: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			kb := newDeliverTestKB(t)
+			agentsDir := t.TempDir()
+			writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+			client := &deliverFakeClient{
+				fakeClient: &fakeClient{state: &game.State{Ship: game.Ship{
+					CargoCapacity: 100,
+					Cargo:         []game.CargoItem{{ItemID: "pressure_seal", Quantity: 20}},
+				}}},
+				// Source has nothing — proves the surplus already in cargo is
+				// what would get over-delivered, not a fresh withdraw.
+				storageStock: map[string]float64{"pressure_seal": 0},
+			}
+			d := NewWorkerDispatch(client, kb, nil, io.Discard)
+			d.AgentID = "craftsman-2"
+			d.AgentsDir = agentsDir
+
+			if err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", tc.recipient); err != nil {
+				t.Fatalf("Deliver: %v", err)
+			}
+
+			for _, c := range client.calls {
+				if strings.HasPrefix(c, "withdraw:") {
+					t.Fatalf("Deliver must not withdraw when pre-loaded cargo already covers qty, got call %q", c)
+				}
+			}
+
+			if tc.wantGift {
+				if len(client.giftCalls) != 1 {
+					t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+				}
+				if got := client.giftCalls[0]["quantity"]; got != float64(5) {
+					t.Fatalf("gift quantity = %v, want 5 (over-delivery: full pre-loaded cargo was sent instead of qty)", got)
+				}
+				if len(client.depositCalls) != 0 {
+					t.Fatalf("DepositItems must not be called for a non-self recipient, got %+v", client.depositCalls)
+				}
+			} else {
+				if len(client.depositCalls) != 1 {
+					t.Fatalf("DepositItems calls = %d, want 1 (%+v)", len(client.depositCalls), client.depositCalls)
+				}
+				if got := client.depositCalls[0].quantity; got != 5 {
+					t.Fatalf("deposit quantity = %v, want 5 (over-delivery: full pre-loaded cargo was sent instead of qty)", got)
+				}
+				if len(client.giftCalls) != 0 {
+					t.Fatalf("SendGift must not be called for self, got %+v", client.giftCalls)
+				}
+			}
+
+			// The 15-unit surplus above qty must remain in cargo, untouched.
+			if got := cargoCount(client.state, "pressure_seal"); got != 15 {
+				t.Fatalf("cargo pressure_seal after Deliver = %d, want 15 (surplus left untouched)", got)
+			}
+		})
+	}
+}
+
+// TestDeliverExhaustedLogDistinguishesCargoFullFromSourceExhausted covers the
+// "exhausted" log message Deliver emits when a withdraw pass yields nothing.
+// That can happen for two very different reasons — the source truly had
+// nothing left, or the ship's cargo hold had zero free space for an
+// unrelated reason — and the wording must say which. Loop semantics (return
+// nil either way) are unchanged; only the message differs.
+func TestDeliverExhaustedLogDistinguishesCargoFullFromSourceExhausted(t *testing.T) {
+	cases := []struct {
+		name          string
+		cargoCapacity float64
+		cargoUsed     float64
+		storageStock  float64
+		wantSubstr    string
+		wantNotSubstr string
+	}{
+		{
+			name:          "cargo full leaves no room to withdraw",
+			cargoCapacity: 10,
+			cargoUsed:     10, // fully occupied by unrelated cargo; free space = 0
+			storageStock:  5,  // source has plenty — that's not the problem
+			wantSubstr:    "cargo full",
+			wantNotSubstr: "exhausted",
+		},
+		{
+			name:          "source truly has nothing",
+			cargoCapacity: 100,
+			cargoUsed:     0,
+			storageStock:  0,
+			wantSubstr:    "exhausted at from_base",
+			wantNotSubstr: "cargo full",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			kb := newDeliverTestKB(t)
+			agentsDir := t.TempDir()
+			writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+			var out bytes.Buffer
+			client := &deliverFakeClient{
+				fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: tc.cargoCapacity, CargoUsed: tc.cargoUsed}}},
+				storageStock: map[string]float64{"pressure_seal": tc.storageStock},
+			}
+			d := NewWorkerDispatch(client, kb, nil, &out)
+			d.AgentID = "craftsman-2"
+			d.AgentsDir = agentsDir
+
+			if err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", "craftsman-3"); err != nil {
+				t.Fatalf("Deliver: %v", err)
+			}
+			if len(client.giftCalls) != 0 {
+				t.Fatalf("SendGift must not be called when nothing could be withdrawn, got %+v", client.giftCalls)
+			}
+			logged := out.String()
+			if !strings.Contains(logged, tc.wantSubstr) {
+				t.Fatalf("log output = %q, want substring %q", logged, tc.wantSubstr)
+			}
+			if strings.Contains(logged, tc.wantNotSubstr) {
+				t.Fatalf("log output = %q, must not contain %q", logged, tc.wantNotSubstr)
+			}
+		})
 	}
 }
 
