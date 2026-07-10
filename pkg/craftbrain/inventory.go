@@ -1,9 +1,10 @@
 package craftbrain
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
@@ -76,12 +77,20 @@ func (e *Engine) consumeOnHand(ctx context.Context, itemID string, need int, des
 		}
 		cands = append(cands, cand{h: h, jumps: j})
 	}
-	// Nearest first; ties broken by base id for determinism.
-	sort.Slice(cands, func(i, j int) bool {
-		if cands[i].jumps != cands[j].jumps {
-			return cands[i].jumps < cands[j].jumps
+	// Nearest first; ties broken by base id, then holder, then qty, for a
+	// total order (two holdings can share a BaseID — e.g. an agent and
+	// faction storage ("") both at the same station).
+	slices.SortFunc(cands, func(a, b cand) int {
+		if c := cmp.Compare(a.jumps, b.jumps); c != 0 {
+			return c
 		}
-		return cands[i].h.BaseID < cands[j].h.BaseID
+		if c := cmp.Compare(a.h.BaseID, b.h.BaseID); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.h.Holder, b.h.Holder); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.h.Qty, b.h.Qty)
 	})
 
 	now := opts.now()

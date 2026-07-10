@@ -80,6 +80,46 @@ func TestConsumeOnHand_PartialLeavesRemainder(t *testing.T) {
 	}
 }
 
+// Two holdings can legitimately share a BaseID (an agent and faction storage
+// ("") both sitting at the same remote station), which ties both the jumps
+// and BaseID sort keys. The comparator must fall through to Holder so the
+// draw order is deterministic rather than left to sort.Slice's instability.
+func TestConsumeOnHand_SameBaseTiesBrokenByHolder(t *testing.T) {
+	f := newFakeSource()
+	f.onHand["ore"] = []Holding{
+		{Holder: "trader-1", BaseID: "hub", Qty: 5, CapturedAt: fresh()},
+		{Holder: "", BaseID: "hub", Qty: 3, CapturedAt: fresh()},
+	}
+	f.systems["dest"], f.systems["hub"] = "sol", "alpha"
+	f.jumps["alpha"] = 2
+	e := New(f)
+	opts := DefaultOptions()
+	opts.Now = testNow()
+
+	rem, nodes, err := e.consumeOnHand(context.Background(), "ore", 6, "dest", opts, &idGen{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rem != 0 {
+		t.Errorf("remaining = %d, want 0", rem)
+	}
+	if len(nodes) != 2 {
+		t.Fatalf("want 2 haul nodes, got %d", len(nodes))
+	}
+	// Holder "" sorts before "trader-1", so faction storage drains first.
+	if nodes[0].Holder != "" || nodes[0].FromBase != "hub" || nodes[0].Qty != 3 {
+		t.Errorf("first haul = holder %q, base %s, qty %d; want holder \"\", base hub, qty 3",
+			nodes[0].Holder, nodes[0].FromBase, nodes[0].Qty)
+	}
+	if nodes[1].Holder != "trader-1" || nodes[1].FromBase != "hub" || nodes[1].Qty != 3 {
+		t.Errorf("second haul = holder %q, base %s, qty %d; want holder trader-1, base hub, qty 3",
+			nodes[1].Holder, nodes[1].FromBase, nodes[1].Qty)
+	}
+	if nodes[0].ID != "haul-1" || nodes[1].ID != "haul-2" {
+		t.Errorf("haul ids = %s, %s; want haul-1, haul-2", nodes[0].ID, nodes[1].ID)
+	}
+}
+
 // Stale stock is still subtracted, but the haul node says so.
 func TestConsumeOnHand_StaleHoldingFlagged(t *testing.T) {
 	f := newFakeSource()
