@@ -160,3 +160,11 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{MaxHandTicks: 360, MaxStockAge: 24 * time.Hour}
 }
+
+// now returns the injected clock, or time.Now() when Options.Now is unset.
+func (o Options) now() time.Time {
+	if o.Now.IsZero() {
+		return time.Now().UTC()
+	}
+	return o.Now
+}

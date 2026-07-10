@@ -78,13 +78,9 @@ func (f *fakeSource) Jumps(_ context.Context, _ string, toSystems []string) (map
 func (f *fakeSource) Coverage(context.Context) (Coverage, error) { return f.coverage, nil }
 
 // fresh returns a CapturedAt inside the default MaxStockAge window.
-//
-//nolint:unused // scaffolding consumed by Task 4's DAG-expansion tests
 func fresh() time.Time { return time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC) }
 
 // testNow is the deterministic clock all tests pass via Options.Now.
-//
-//nolint:unused // scaffolding consumed by Task 4's DAG-expansion tests
 func testNow() time.Time { return time.Date(2026, 7, 9, 13, 0, 0, 0, time.UTC) }
 
 var _ Source = (*fakeSource)(nil)
