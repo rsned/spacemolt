@@ -8,8 +8,8 @@ captured responses.
 
 1. **send_gift payload:** `{"recipient": "<in-game USERNAME>", "item_id": "...",
    "quantity": N}`. Recipient is the username (`Artisan 'Ace' Anderson`), NOT
-   an agent id → the plan runner (Task 5) and handoff records (Tasks 1/10)
-   matter: params and `handoff.Record.Recipient` carry AGENT IDS (or `self`);
+   an agent id. Resolution split: `$RECIPIENT$` params and
+   `handoff.Record.Recipient` carry AGENT IDS (or `self`);
    the worker-side gift verbs resolve `agent_id → username` via
    `data/agents/<id>/credentials.json` at gift time (controller decision,
    post-Task-4; keeps the plan runner free of credential reads).
