@@ -89,6 +89,34 @@ func TestFormat_HaulStaleCraftSlowAndBuyNodes(t *testing.T) {
 	}
 }
 
+// TestFormat_UnknownRouteHaulHidesJumpCount pins the StatusUnknownRoute branch:
+// a haul drawn from a base with no known system must read "distance unknown"
+// rather than printing a jump count, which would otherwise be the RouteInf
+// sentinel or a bare 0 that reads as "already here". The resolvable leg in the
+// same plan proves Format still prints real distances.
+func TestFormat_UnknownRouteHaulHidesJumpCount(t *testing.T) {
+	p := &Plan{
+		Target: "widget", Quantity: 1,
+		Nodes: []Node{
+			{ID: "haul-1", Kind: KindHaul, ItemID: "ore", Qty: 5, FromBase: "ghost_base",
+				ToBase: "hub", Holder: "trader-1", Status: StatusUnknownRoute,
+				Reason: "distance unknown: base ghost_base has no known system"},
+			{ID: "haul-2", Kind: KindHaul, ItemID: "ore", Qty: 3, FromBase: "far_base",
+				ToBase: "hub", Holder: "", Jumps: 2, Status: StatusOK},
+		},
+	}
+	out := Format(p)
+	if !strings.Contains(out, "distance unknown") {
+		t.Errorf("unknown-route haul must say 'distance unknown'\n---\n%s", out)
+	}
+	if strings.Contains(out, "1073741824") {
+		t.Errorf("RouteInf sentinel leaked into rendered output\n---\n%s", out)
+	}
+	if !strings.Contains(out, "2 jumps") {
+		t.Errorf("a resolvable haul must still print its real jump count\n---\n%s", out)
+	}
+}
+
 // TestFormat_CoverageCaveatAbsentWhenFullyCovered is the negative twin of the
 // caveat assertion in TestFormat_ShowsFootersAndStatuses: when the plan's
 // facility_only coverage is complete (Covered == Total), the "not swept yet"
