@@ -1,6 +1,7 @@
 package plans
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/craftbrain"
@@ -76,5 +77,65 @@ func TestNewRunPinsCraftsAndRecipients(t *testing.T) {
 	}
 	if !found {
 		t.Error("craft-1 does not depend on the xfer node")
+	}
+}
+
+// TestNewRunDoesNotMutateInput pins the "never mutate the input QueueFile"
+// invariant. It mirrors TestNewRunPinsCraftsAndRecipients's fixture (a
+// cross-station craft->craft edge) so rule 6's in-place DependsOn rewrite is
+// actually exercised, then deep-snapshots every input node's DependsOn (and
+// the Manifest's MineItems) before calling NewRun and asserts none of it
+// changed afterward.
+func TestNewRunDoesNotMutateInput(t *testing.T) {
+	qf := QueueFile{
+		Manifest: Manifest{PlanID: "p3", MineItems: []string{"ore", "gas"}},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "widget", Qty: 2, StationID: "hub_a",
+				DependsOn: []string{"haul-2", "craft-3"}},
+			{ID: "haul-2", Kind: craftbrain.KindHaul, ItemID: "ore", Qty: 10, FromBase: "far", ToBase: "hub_a"},
+			{ID: "craft-3", Kind: craftbrain.KindCraft, ItemID: "part", Qty: 4, StationID: "hub_b"},
+		}},
+	}
+
+	// Deep-snapshot before NewRun runs; append([]string(nil), ...) copies the
+	// string headers into a fresh backing array so later in-place edits to
+	// qf.Plan.Nodes[i].DependsOn (were the clone-fix reverted) can't leak
+	// into these snapshots too.
+	wantDependsOn := make([][]string, len(qf.Plan.Nodes))
+	for i, n := range qf.Plan.Nodes {
+		wantDependsOn[i] = append([]string(nil), n.DependsOn...)
+	}
+	wantMineItems := append([]string(nil), qf.Manifest.MineItems...)
+
+	pr := NewRun(qf, roster2())
+
+	// Sanity: confirm rule 6 actually fired on this fixture, otherwise this
+	// test can't distinguish "no mutation" from "no rewrite happened at all".
+	syntheticFound := false
+	for _, n := range pr.Nodes {
+		if n.Synthetic {
+			syntheticFound = true
+		}
+	}
+	if !syntheticFound {
+		t.Fatal("expected a rule-6 synthetic xfer on this fixture (see TestNewRunPinsCraftsAndRecipients); fixture drifted")
+	}
+
+	for i, n := range qf.Plan.Nodes {
+		if !slices.Equal(n.DependsOn, wantDependsOn[i]) {
+			t.Errorf("input node %s DependsOn mutated by NewRun: got %v, want %v", n.ID, n.DependsOn, wantDependsOn[i])
+		}
+	}
+	if !slices.Equal(qf.Manifest.MineItems, wantMineItems) {
+		t.Errorf("input Manifest.MineItems mutated by NewRun: got %v, want %v", qf.Manifest.MineItems, wantMineItems)
+	}
+
+	// pr.Manifest.MineItems must not share a backing array with the input's.
+	if len(pr.Manifest.MineItems) == 0 {
+		t.Fatal("pr.Manifest.MineItems is empty; fixture drifted")
+	}
+	pr.Manifest.MineItems[0] = "MUTATED"
+	if qf.Manifest.MineItems[0] == "MUTATED" {
+		t.Error("pr.Manifest.MineItems shares a backing array with input qf.Manifest.MineItems")
 	}
 }

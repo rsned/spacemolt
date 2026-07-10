@@ -6,6 +6,7 @@ package plans
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/rsned/spacemolt/pkg/craftbrain"
 )
@@ -104,6 +105,9 @@ func NewRun(qf QueueFile, roster []RosterAgent) *PlanRun {
 		Status:      "running",
 		Diagnostics: append([]string(nil), qf.Plan.Diagnostics...),
 	}
+	// Manifest is a value copy, but MineItems is a slice: it still shares
+	// the caller's backing array until explicitly cloned.
+	pr.Manifest.MineItems = slices.Clone(qf.Manifest.MineItems)
 
 	// Rule 1: copy nodes in plan order into NodeRuns. DependsOn is cloned
 	// (not just the struct) so rule 6's in-place edge rewrite never leaks
