@@ -137,8 +137,15 @@ func (e *Engine) Plan(ctx context.Context, target string, qty int, opts Options)
 		p.TotalTicks += s.ticks
 
 		// Bank rounding surplus and any secondary outputs; later items in the
-		// topological order draw on them before crafting more.
+		// topological order draw on them before crafting more. A facility-sited
+		// craft's runs were sized off the facility's own output_per_run
+		// (site.go), so surplus must be computed the same way — using the
+		// recipe's catalog output here would disagree with runs whenever the
+		// two differ.
 		perRun := outputPerRun(s.recipe, item)
+		if s.facility != nil {
+			perRun = s.facility.OutputPerRun
+		}
 		if made := s.runs * perRun; made > rem {
 			p.Surplus[item] += made - rem
 		}
