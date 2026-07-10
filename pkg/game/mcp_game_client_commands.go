@@ -416,6 +416,27 @@ func (m *MCPGameClient) CraftBulk(ctx context.Context, jobs []map[string]any) er
 	return m.updateStateFromResult(result)
 }
 
+// CraftDryRun quotes a craft job without queuing it, via the MCP bridge.
+func (m *MCPGameClient) CraftDryRun(ctx context.Context, recipeID string, quantity int, facilityID string) (*serverapi.CraftDryRunResponse, error) {
+	args := map[string]any{
+		"recipe_id": recipeID,
+		"quantity":  quantity,
+		"dry_run":   true,
+	}
+	if facilityID != "" {
+		args["facility_id"] = facilityID
+	}
+	raw, err := m.callTool(ctx, "craft", args)
+	if err != nil {
+		return nil, err
+	}
+	var out serverapi.CraftDryRunResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("craft dry_run: decode: %w", err)
+	}
+	return &out, nil
+}
+
 func (m *MCPGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
 	return m.RecycleWithOptions(ctx, recipeID, quantity, "")
 }

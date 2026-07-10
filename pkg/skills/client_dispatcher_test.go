@@ -480,7 +480,10 @@ func (m *mockGameClient) CraftWithOptions(ctx context.Context, recipeID string, 
 	return nil
 }
 func (m *mockGameClient) CraftBulk(ctx context.Context, jobs []map[string]any) error { return nil }
-func (m *mockGameClient) GetRecipes(ctx context.Context) error                       { return nil }
+func (m *mockGameClient) CraftDryRun(ctx context.Context, recipeID string, quantity int, facilityID string) (*serverapi.CraftDryRunResponse, error) {
+	return &serverapi.CraftDryRunResponse{}, nil
+}
+func (m *mockGameClient) GetRecipes(ctx context.Context) error { return nil }
 func (m *mockGameClient) Recycle(ctx context.Context, recipeID string, quantity int) error {
 	return nil
 }

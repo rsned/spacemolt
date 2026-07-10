@@ -50,6 +50,11 @@ func nodeTask(pr *PlanRun, n *NodeRun) tasks.Task {
 			"NUM_OUTPUTS": strconv.Itoa(n.Node.Qty),
 			"STATION":     n.Node.StationID,
 			"FACILITY":    facility,
+			// EST_FEE feeds the craft_node verb's 2x-replan gate: a live
+			// dry-run credits_total more than double this planner estimate
+			// means the catalog is stale and the node should be replanned
+			// rather than blindly queued.
+			"EST_FEE": strconv.FormatFloat(float64(n.Node.FeeTotal), 'f', -1, 64),
 		}
 
 	case craftbrain.KindHaul:

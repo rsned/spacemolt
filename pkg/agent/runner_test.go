@@ -183,6 +183,10 @@ func (m *mockGameClient) CraftBulk(ctx context.Context, jobs []map[string]any) e
 	m.actionsRecorded = append(m.actionsRecorded, "craft_bulk")
 	return nil
 }
+func (m *mockGameClient) CraftDryRun(ctx context.Context, recipeID string, quantity int, facilityID string) (*serverapi.CraftDryRunResponse, error) {
+	m.actionsRecorded = append(m.actionsRecorded, "craft_dry_run:"+recipeID)
+	return &serverapi.CraftDryRunResponse{}, nil
+}
 func (m *mockGameClient) GetRecipes(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "get_recipes")
 	return nil

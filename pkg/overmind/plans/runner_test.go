@@ -56,6 +56,42 @@ func TestTickIntakesAndDispatchesReady(t *testing.T) {
 	}
 }
 
+// TestTickDispatchesCraftNodeParams pins the craft_node task's Params shape
+// (nodeTask, pkg/overmind/plans/params.go): RECIPE/NUM_OUTPUTS/STATION/
+// FACILITY plus EST_FEE — the node's FeeTotal, formatted as a plain decimal
+// string — which the craft_node worker verb's 2x-replan budget gate reads
+// (its own FeeTotal is not otherwise visible to the worker-side script).
+// FacilityID empty means hand-craft, so FACILITY must come through as the
+// literal "hand" sentinel.
+func TestTickDispatchesCraftNodeParams(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p1", BudgetCap: 1000},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "widget", Qty: 5,
+				RecipeID: "make_widget", StationID: "hub_a", FeeTotal: 40},
+		}}})
+	r.Tick()
+	task, ok := r.Store.Get("p1/craft-1/r0")
+	if !ok {
+		t.Fatalf("task not dispatched")
+	}
+	if task.Script != "craft_node" || task.RoleRequired != "craftsman" {
+		t.Fatalf("task = %+v", task)
+	}
+	want := map[string]string{
+		"RECIPE":      "make_widget",
+		"NUM_OUTPUTS": "5",
+		"STATION":     "hub_a",
+		"FACILITY":    "hand",
+		"EST_FEE":     "40",
+	}
+	for k, v := range want {
+		if got := task.Params[k]; got != v {
+			t.Errorf("Params[%q] = %q, want %q", k, got, v)
+		}
+	}
+}
+
 func TestTickCollectsDoneAndReleasesDependent(t *testing.T) {
 	r := newRunner(t)
 	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p2", BudgetCap: 1000},

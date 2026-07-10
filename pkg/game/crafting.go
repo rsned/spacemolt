@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // CraftingConfig configures the crafting integration
@@ -160,6 +161,55 @@ func (c *Client) CraftBulk(ctx context.Context, jobs []map[string]any) error {
 		_, err = h.Result(ctx)
 	}
 	return err
+}
+
+// CraftDryRun quotes a craft job without queuing it: the server's authoritative
+// fee (credits_total), duration, and have_inputs/have_credits preflight for
+// crafting quantity output units of recipeID. facilityID may be "" to let the
+// server auto-route to the local facility/workshop (the hand-craft path — Task
+// 0 findings 2026-07-10 confirmed hand/workshop dry-run IS supported live and
+// its facility_id in the response is the auto-resolved workshop instance id),
+// or an explicit facility instance id (crafting requires being docked at that
+// facility's station — a remote facility_id errors no_facility). Bulk mode is
+// not compatible with dry_run (CraftBulk's doc comment), so this always
+// submits a single-job payload, mirroring CraftWithOptions/CraftBulk's
+// Submit/terminator pattern.
+func (c *Client) CraftDryRun(ctx context.Context, recipeID string, quantity int, facilityID string) (*serverapi.CraftDryRunResponse, error) {
+	if quantity < 1 {
+		return nil, fmt.Errorf("invalid quantity: %d (must be >= 1)", quantity)
+	}
+
+	payload := map[string]any{
+		"recipe_id": recipeID,
+		"quantity":  quantity,
+		"dry_run":   true,
+	}
+	if facilityID != "" {
+		payload["facility_id"] = facilityID
+	}
+
+	msg := protocol.Message{
+		Type:      "craft",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.await(ctx, h)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(resp.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("craft dry run: marshal payload: %w", err)
+	}
+	var out serverapi.CraftDryRunResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("craft dry run: decode payload: %w", err)
+	}
+	return &out, nil
 }
 
 // QueryCraftableRecipes queries the crafting MCP server to find what can be crafted

@@ -54,7 +54,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true,
-	"mine": true, "deliver": true, "buy_directed": true,
+	"mine": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true,
@@ -172,6 +172,22 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return fmt.Errorf("buy_directed: bad max unit price %q", args[3])
 		}
 		return d.BuyDirected(ctx, args[0], qty, args[2], maxUnit, args[4])
+	case "craft_node":
+		if len(args) < 4 {
+			return fmt.Errorf("craft_node: want RECIPE NUM_OUTPUTS STATION FACILITY [EST_FEE], got %v", args)
+		}
+		numOutputs, err := strconv.Atoi(args[1])
+		if err != nil || numOutputs < 1 {
+			return fmt.Errorf("craft_node: bad num_outputs %q", args[1])
+		}
+		var estFee float64
+		if len(args) >= 5 && args[4] != "" {
+			estFee, err = strconv.ParseFloat(args[4], 64)
+			if err != nil {
+				return fmt.Errorf("craft_node: bad est_fee %q", args[4])
+			}
+		}
+		return d.CraftOutputs(ctx, args[0], numOutputs, args[2], args[3], estFee)
 	case "scan":
 		return d.Client.Scan(ctx)
 	case "get_status":
