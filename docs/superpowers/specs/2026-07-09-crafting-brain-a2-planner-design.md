@@ -172,11 +172,22 @@ Files, one job each:
 | `plan.go` | Types: `Plan`, `Node`, `Edge`, `Holding`, `Options` |
 | `format.go` | Human rendering |
 
-`cmd/tools/play_as/source_sql.go` wires the three real databases:
+`cmd/tools/play_as/source_sql.go` wires **two** real databases:
 
-- `crafting.db` — `recipes`, `recipe_inputs`, `recipe_outputs`, `crafting_time`, `facility_only`
-- `spacemolt-knowledge.db` — `public_facilities`, `storage_snapshots(_items)`, `faction_storage_items`, connections
+- `spacemolt-knowledge.db` — the recipe graph (`recipes`, `recipe_inputs`, `recipe_outputs`,
+  carrying `crafting_time` + `facility_only`), plus `public_facilities`,
+  `storage_snapshots(_items)`, `faction_storage_items`, `bases`, `pois`, `connections`
 - `market.db` (via `pkg/market.Collector`) — behind `pkg/finditem` and `pkg/pricing`
+
+`crafting.db` is **not** needed: `knowledge.GetRecipes` already returns fully-hydrated
+`RecipeDef` values (bulk-loading inputs and outputs) with `CraftingTime` and `FacilityOnly`.
+Reuse it rather than opening a second copy of the same catalog.
+
+**Station IDs are base IDs, not POI IDs.** `public_facilities.station_id` holds the
+`facility list` payload's `base_id` (e.g. `confederacy_central_command`), while jump
+routing keys on `pois.system_id` via `pois.id` (e.g. `sol_central`). `Source.SystemOf`
+must resolve `bases.id → bases.poi_id → pois.system_id`. Four of the fleet's stations
+differ between the two spellings.
 
 Reused, not reimplemented: `pkg/finditem` (where to buy), `pkg/pricing` (what it costs),
 `pkg/navigation` (`BFSJumps` over a graph from KB connections).
