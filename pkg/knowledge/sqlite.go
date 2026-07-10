@@ -94,6 +94,10 @@ func (kb *SQLiteKB) Close() error {
 	return nil
 }
 
+// DB exposes the underlying handle for callers that need ad-hoc queries the
+// Base interface does not cover (e.g. craftbrain's station->system resolution).
+func (kb *SQLiteKB) DB() *sql.DB { return kb.db }
+
 // RememberSystem stores or updates system knowledge.
 //
 // The last_visited_tick column uses a preserve-on-zero semantic: passing
