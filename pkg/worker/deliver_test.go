@@ -14,13 +14,18 @@ import (
 )
 
 // deliverFakeClient wraps the package's fakeClient (dispatch_test.go) with
-// withdraw/deposit/gift simulation: WithdrawItems draws from a simulated
-// storage pool and lands items in the shared *game.State's cargo (mirroring
-// what a live GetCargo refresh would show); DepositItems and SendGift remove
-// the delivered quantity from cargo and record the call for assertions.
+// withdraw/deposit/gift simulation. It mirrors the LIVE client's real
+// behavior (verified against pkg/game/client.go's parseActionResult, which
+// has no "withdraw_items" case): WithdrawItems draws from a simulated
+// storage pool but does NOT update the shared *game.State's cargo — the
+// withdrawn amount sits in pendingWithdraw until GetCargo is explicitly
+// called, exactly like the real client only learns cargo contents via a
+// get_cargo round trip. DepositItems and SendGift remove the delivered
+// quantity from cargo and record the call for assertions.
 type deliverFakeClient struct {
 	*fakeClient
-	storageStock map[string]float64 // item_id -> qty available at the source station
+	storageStock    map[string]float64 // item_id -> qty available at the source station
+	pendingWithdraw map[string]float64 // item_id -> withdrawn qty not yet visible in cargo
 
 	depositCalls []depositCall
 	giftCalls    []map[string]any
@@ -39,21 +44,43 @@ func (f *deliverFakeClient) WithdrawItems(ctx context.Context, itemID string, qu
 		got = avail
 	}
 	f.storageStock[itemID] = avail - got
-	if f.state != nil {
-		found := false
-		for i := range f.state.Ship.Cargo {
-			if f.state.Ship.Cargo[i].ItemID == itemID {
-				f.state.Ship.Cargo[i].Quantity += got
-				found = true
-			}
+	if got > 0 {
+		if f.pendingWithdraw == nil {
+			f.pendingWithdraw = map[string]float64{}
 		}
-		if !found && got > 0 {
-			f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: itemID, Quantity: got})
-		}
+		f.pendingWithdraw[itemID] += got
 	}
 	if got < quantity {
 		return fmt.Errorf("insufficient_cargo: not enough %s in storage (wanted %.0f, had %.0f)", itemID, quantity, got)
 	}
+	return nil
+}
+
+// GetCargo overrides the embedded fakeClient's no-op stub: it applies any
+// pending withdrawals to the shared *game.State's cargo, mirroring how the
+// live client's get_cargo round trip is the only thing that makes a withdraw
+// visible in state.Ship.Cargo.
+func (f *deliverFakeClient) GetCargo(ctx context.Context) error {
+	f.calls = append(f.calls, "get_cargo")
+	if f.state == nil {
+		return nil
+	}
+	for itemID, qty := range f.pendingWithdraw {
+		if qty <= 0 {
+			continue
+		}
+		found := false
+		for i := range f.state.Ship.Cargo {
+			if f.state.Ship.Cargo[i].ItemID == itemID {
+				f.state.Ship.Cargo[i].Quantity += qty
+				found = true
+			}
+		}
+		if !found {
+			f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: itemID, Quantity: qty})
+		}
+	}
+	f.pendingWithdraw = map[string]float64{}
 	return nil
 }
 

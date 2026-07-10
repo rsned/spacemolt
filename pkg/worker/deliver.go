@@ -206,6 +206,14 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	if werr != nil && !isShortSupplyErr(werr) {
 		return 0, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
 	}
+	// The live client's parseActionResult has no case for "withdraw_items"
+	// (unlike "deposit_items"), so a successful or short-supply withdraw does
+	// NOT update state.Ship.Cargo on its own — an explicit refresh is required
+	// before re-reading cargo below, or the short-source progress guard
+	// under-counts what was actually withdrawn.
+	if cerr := d.Client.GetCargo(ctx); cerr != nil {
+		return 0, false, fmt.Errorf("deliver: refresh cargo after withdraw %s at %s: %w", itemID, baseLabel, cerr)
+	}
 	time.Sleep(game.SleepQuick)
 	carrying = cargoCount(d.Client.GetState(), itemID)
 	short = carrying-before < want
