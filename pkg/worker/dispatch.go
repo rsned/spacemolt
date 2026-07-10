@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -24,6 +25,10 @@ type WorkerDispatch struct {
 	AgentID string      // claim owner for opportunity-claiming roles (e.g. hauler)
 	Station string      // home station POI id, used by the assist role
 	Rescue  RescueQueue // shared stranded-worker rescue queue, used by the assist role
+	// AgentsDir is where agent credential files live (<AgentsDir>/<agent-id>/
+	// credentials.json), used by Deliver to resolve a gift recipient's agent
+	// id to its in-game username. Empty -> DefaultAgentsDir ("data/agents").
+	AgentsDir string
 
 	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
 	// Held here (not per Run call) so the cooldown survives between command passes.
@@ -49,7 +54,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true,
-	"mine":   true,
+	"mine": true, "deliver": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true,
@@ -145,6 +150,15 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			Client: d.Client, KB: d.KB, Queue: d.Rescue, Out: d.Out,
 			AgentID: d.AgentID, HomeStation: d.Station,
 		})
+	case "deliver":
+		if len(args) < 5 {
+			return fmt.Errorf("deliver: want ITEM QTY FROM TO RECIPIENT, got %v", args)
+		}
+		qty, err := strconv.Atoi(args[1])
+		if err != nil || qty < 1 {
+			return fmt.Errorf("deliver: bad qty %q", args[1])
+		}
+		return d.Deliver(ctx, args[0], qty, args[2], args[3], args[4])
 	case "scan":
 		return d.Client.Scan(ctx)
 	case "get_status":

@@ -1,0 +1,235 @@
+package worker
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+)
+
+// DefaultAgentsDir is WorkerDispatch's default location for agent credential
+// files (data/agents/<agent-id>/credentials.json), used by Deliver to resolve
+// a gift recipient's agent id to the in-game username send_gift requires.
+const DefaultAgentsDir = "data/agents"
+
+// UsernameFor resolves agentID to its in-game username by reading
+// <agentsDir>/<agentID>/credentials.json (the same file every worker/agent
+// process already carries its own login credentials in). agentsDir defaults
+// to DefaultAgentsDir when empty.
+func UsernameFor(agentsDir, agentID string) (string, error) {
+	if agentsDir == "" {
+		agentsDir = DefaultAgentsDir
+	}
+	path := filepath.Join(agentsDir, agentID, "credentials.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("UsernameFor(%s): %w", agentID, err)
+	}
+	var creds struct {
+		Username string `json:"username"`
+	}
+	if err := json.Unmarshal(raw, &creds); err != nil {
+		return "", fmt.Errorf("UsernameFor(%s): parse %s: %w", agentID, path, err)
+	}
+	if creds.Username == "" {
+		return "", fmt.Errorf("UsernameFor(%s): %s has no username field", agentID, path)
+	}
+	return creds.Username, nil
+}
+
+// resolveBase returns (systemID, poiID) for a base id, mirroring the two-step
+// lookup in cmd/tools/play_as/source_sql.go SystemOf: bases.poi_id -> pois,
+// falling back to treating stationID as a poi id directly (some callers pass
+// one). Requires *knowledge.SQLiteKB; other Base implementations error, since
+// there is no SQL to run against them.
+func resolveBase(ctx context.Context, kb knowledge.Base, stationID string) (string, string, error) {
+	if stationID == "" {
+		return "", "", errors.New("resolveBase: empty station id")
+	}
+	sqliteKB, ok := kb.(*knowledge.SQLiteKB)
+	if !ok || sqliteKB == nil {
+		return "", "", fmt.Errorf("resolveBase(%s): requires *knowledge.SQLiteKB, got %T", stationID, kb)
+	}
+	var poiID, sys string
+	err := sqliteKB.DB().QueryRowContext(ctx, `
+		SELECT b.poi_id, p.system_id FROM bases b JOIN pois p ON p.id = b.poi_id WHERE b.id = ?`, stationID).Scan(&poiID, &sys)
+	if errors.Is(err, sql.ErrNoRows) {
+		poiID = stationID
+		err = sqliteKB.DB().QueryRowContext(ctx, `SELECT system_id FROM pois WHERE id = ?`, stationID).Scan(&sys)
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("resolveBase(%s): %w", stationID, err)
+	}
+	return sys, poiID, nil
+}
+
+// cargoCount returns the quantity of itemID currently in ship cargo, 0 if the
+// state is nil or the item isn't carried.
+func cargoCount(state *game.State, itemID string) int {
+	if state == nil {
+		return 0
+	}
+	for _, item := range state.Ship.Cargo {
+		if item.ItemID == itemID {
+			return int(item.Quantity)
+		}
+	}
+	return 0
+}
+
+// cargoFreeSpace returns the ship's remaining cargo capacity as a unit count
+// (matching the rest of the package's cargoFree convention — see haul.go).
+func cargoFreeSpace(state *game.State) int {
+	if state == nil {
+		return 0
+	}
+	free := int(state.Ship.CargoCapacity - state.Ship.CargoUsed)
+	if free < 0 {
+		return 0
+	}
+	return free
+}
+
+// isShortSupplyErr reports whether a withdraw error is the server telling us
+// the source didn't have enough of the item (not a real failure) — these are
+// non-fatal: the caller re-reads cargo to learn what it actually got.
+func isShortSupplyErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "not enough") || strings.Contains(s, "no such item") || strings.Contains(s, "insufficient")
+}
+
+// Deliver moves ITEM xQTY from the worker's own storage at FROM to RECIPIENT
+// at TO. recipient "self" (or the worker's own agent id) means deposit into
+// own storage at TO instead of gifting. Gifts are cargo-only (live-verified,
+// 2026-07-10): the verb withdraws into cargo at FROM, then travels to TO and
+// gifts/deposits from cargo, repeating in cargo-capacity-sized batches until
+// qty is satisfied. If FROM held less than qty, it delivers what existed and
+// returns nil with a short-delivery note written to d.Out instead of looping
+// forever.
+func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, from, to, recipient string) error {
+	if qty < 1 {
+		return fmt.Errorf("deliver: qty must be >= 1, got %d", qty)
+	}
+	fromSys, fromPOI, err := resolveBase(ctx, d.KB, from)
+	if err != nil {
+		return fmt.Errorf("deliver: resolve source %q: %w", from, err)
+	}
+	toSys, toPOI, err := resolveBase(ctx, d.KB, to)
+	if err != nil {
+		return fmt.Errorf("deliver: resolve destination %q: %w", to, err)
+	}
+
+	selfDelivery := recipient == "self" || recipient == d.AgentID
+	var recipientUsername string
+	if !selfDelivery {
+		recipientUsername, err = UsernameFor(d.agentsDir(), recipient)
+		if err != nil {
+			return fmt.Errorf("deliver: resolve recipient %q: %w", recipient, err)
+		}
+	}
+
+	remaining := qty
+	for remaining > 0 {
+		carrying := cargoCount(d.Client.GetState(), itemID)
+		short := false
+		if carrying < remaining {
+			carrying, short, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from)
+			if err != nil {
+				return err
+			}
+			if carrying == 0 {
+				fmt.Fprintf(d.Out, "deliver: %s exhausted at %s — delivered %d of %d requested\n", //nolint:errcheck
+					itemID, from, qty-remaining, qty)
+				return nil
+			}
+		}
+
+		if err := d.autopilotAndDock(ctx, toSys, toPOI); err != nil {
+			return fmt.Errorf("deliver: travel to destination %q: %w", to, err)
+		}
+		if selfDelivery {
+			if err := d.Client.DepositItems(ctx, itemID, float64(carrying)); err != nil {
+				return fmt.Errorf("deliver: deposit %s at %s: %w", itemID, to, err)
+			}
+		} else {
+			if err := d.Client.SendGift(ctx, map[string]any{
+				"recipient": recipientUsername,
+				"item_id":   itemID,
+				"quantity":  float64(carrying),
+			}); err != nil {
+				return fmt.Errorf("deliver: gift %s to %s: %w", itemID, recipient, err)
+			}
+		}
+		time.Sleep(game.SleepQuick)
+		remaining -= carrying
+
+		if short && remaining > 0 {
+			// The withdraw pass that fed this delivery came up short of what
+			// we asked for — another round trip to FROM would make no
+			// progress, so stop here instead of looping forever.
+			fmt.Fprintf(d.Out, "deliver: %s short — delivered %d of %d, source exhausted\n", itemID, qty-remaining, qty) //nolint:errcheck
+			return nil
+		}
+	}
+	return nil
+}
+
+// deliverWithdraw travels to (system, poi), docks, and withdraws up to want
+// units of itemID (capped by free cargo space) into cargo. A short-supply
+// withdraw error is not fatal: it re-reads cargo to learn the actual amount
+// received. Returns the total now carried and whether the pass came up short
+// of want (the caller's progress guard for the round-trip loop).
+func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, want int, system, poi, baseLabel string) (carrying int, short bool, err error) {
+	if err := d.autopilotAndDock(ctx, system, poi); err != nil {
+		return 0, false, fmt.Errorf("deliver: travel to source %q: %w", baseLabel, err)
+	}
+	before := cargoCount(d.Client.GetState(), itemID)
+	free := cargoFreeSpace(d.Client.GetState())
+	if want > free {
+		want = free
+	}
+	if want <= 0 {
+		return before, false, nil
+	}
+	werr := d.Client.WithdrawItems(ctx, itemID, float64(want))
+	if werr != nil && !isShortSupplyErr(werr) {
+		return 0, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
+	}
+	time.Sleep(game.SleepQuick)
+	carrying = cargoCount(d.Client.GetState(), itemID)
+	short = carrying-before < want
+	if werr != nil {
+		fmt.Fprintf(d.Out, "deliver: withdraw %s at %s came up short: %v\n", itemID, baseLabel, werr) //nolint:errcheck
+	}
+	return carrying, short, nil
+}
+
+// autopilotAndDock routes to (system, poi) via Autopilot and docks — the
+// shared "get to a base and dock" step both the source and destination hops
+// of Deliver use.
+func (d *WorkerDispatch) autopilotAndDock(ctx context.Context, system, poi string) error {
+	if err := Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out}, system, poi); err != nil {
+		return err
+	}
+	return d.Client.Dock(ctx)
+}
+
+// agentsDir returns the configured agent-credentials directory, defaulting to
+// DefaultAgentsDir when unset.
+func (d *WorkerDispatch) agentsDir() string {
+	if d.AgentsDir != "" {
+		return d.AgentsDir
+	}
+	return DefaultAgentsDir
+}
