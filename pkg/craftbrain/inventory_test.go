@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 func TestConsumeOnHand_LocalStockEmitsNoHaul(t *testing.T) {
@@ -140,5 +142,60 @@ func TestConsumeOnHand_StaleHoldingFlagged(t *testing.T) {
 	}
 	if nodes[0].Status != StatusStale {
 		t.Errorf("status = %q, want %q", nodes[0].Status, StatusStale)
+	}
+}
+
+// A holding at a base whose system does not resolve (SystemOf returns "",
+// mirroring sql.ErrNoRows against the real KB for an uncatalogued base) is
+// still drawn — the stock is real — but its haul node must not leak the
+// navigation.RouteInf sentinel into Jumps, and must say why the distance is
+// unknown instead. Nearer stock ("near") is insufficient on its own, forcing
+// the draw to reach the unresolvable holding.
+func TestConsumeOnHand_UnresolvableSystemDrawnButNotSentinel(t *testing.T) {
+	f := newFakeSource()
+	f.onHand["ore"] = []Holding{
+		{Holder: "trader-2", BaseID: "near", Qty: 3, CapturedAt: fresh()},
+		{Holder: "trader-9", BaseID: "unmapped", Qty: 5, CapturedAt: fresh()},
+	}
+	// "unmapped" is deliberately absent from f.systems, so SystemOf resolves
+	// it to "".
+	f.systems["dest"], f.systems["near"] = "sol", "alpha"
+	f.jumps["alpha"] = 1
+	// The real Source (navigation.BFSJumps) marks an unreachable/unresolved
+	// system RouteInf but still returns the map key for it; mirror that.
+	f.jumps[""] = navigation.RouteInf
+	e := New(f)
+	opts := DefaultOptions()
+	opts.Now = testNow()
+
+	rem, nodes, err := e.consumeOnHand(context.Background(), "ore", 8, "dest", opts, &idGen{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rem != 0 {
+		t.Errorf("remaining = %d, want 0 (quantity conservation: both holdings drawn)", rem)
+	}
+	if len(nodes) != 2 {
+		t.Fatalf("want 2 haul nodes, got %d", len(nodes))
+	}
+	// Nearest first: "near" (1 jump) drains before the unresolvable one.
+	if nodes[0].FromBase != "near" || nodes[0].Qty != 3 {
+		t.Errorf("first haul = %s x%d, want near x3", nodes[0].FromBase, nodes[0].Qty)
+	}
+	unresolved := nodes[1]
+	if unresolved.FromBase != "unmapped" || unresolved.Qty != 5 {
+		t.Errorf("second haul = %s x%d, want unmapped x5", unresolved.FromBase, unresolved.Qty)
+	}
+	if unresolved.Jumps == navigation.RouteInf {
+		t.Errorf("Jumps leaked the RouteInf sentinel: %d", unresolved.Jumps)
+	}
+	if unresolved.Jumps != 0 {
+		t.Errorf("Jumps = %d, want 0 for an unknown distance", unresolved.Jumps)
+	}
+	if unresolved.Status != StatusUnknownRoute {
+		t.Errorf("status = %q, want %q", unresolved.Status, StatusUnknownRoute)
+	}
+	if unresolved.Reason == "" {
+		t.Error("want a reason explaining the unknown distance")
 	}
 }

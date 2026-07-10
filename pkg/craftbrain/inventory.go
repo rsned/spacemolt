@@ -109,7 +109,16 @@ func (e *Engine) consumeOnHand(ctx context.Context, itemID string, need int, des
 		}
 		status := StatusOK
 		reason := ""
-		if now.Sub(c.h.CapturedAt) > opts.MaxStockAge {
+		jumps := c.jumps
+		switch {
+		case c.jumps >= navigation.RouteInf:
+			// The sentinel must never cross the JSON boundary as a literal
+			// distance — Executor B would read a billion-jump haul as real.
+			// Zero it out and say why instead.
+			status = StatusUnknownRoute
+			reason = fmt.Sprintf("distance unknown: base %s has no known system", c.h.BaseID)
+			jumps = 0
+		case now.Sub(c.h.CapturedAt) > opts.MaxStockAge:
 			status = StatusStale
 			reason = fmt.Sprintf("stock last seen %s", c.h.CapturedAt.Format("2006-01-02T15:04Z"))
 		}
@@ -121,7 +130,7 @@ func (e *Engine) consumeOnHand(ctx context.Context, itemID string, need int, des
 			Holder:   c.h.Holder,
 			FromBase: c.h.BaseID,
 			ToBase:   destBase,
-			Jumps:    c.jumps,
+			Jumps:    jumps,
 			Status:   status,
 			Reason:   reason,
 		})

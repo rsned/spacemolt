@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/finditem"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 func planFor(t *testing.T, f *fakeSource, target string, qty int, opts Options) *Plan {
@@ -242,6 +243,56 @@ func TestPlan_FacilityCraftNodePopulatesStationAndFacilityID(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("no craft node found for plate")
+	}
+}
+
+// The RouteInf sentinel must never accumulate into the plan's honesty
+// footer: a holding at an unresolvable base is still drawn, but its unknown
+// distance must not inflate TotalHaulJumps by a billion.
+func TestPlan_UnresolvableSystemHaulExcludedFromTotalHaulJumps(t *testing.T) {
+	f := newFakeSource()
+	f.addRecipe("make_widget", "widget", 1, 1, false, map[string]int{"ore": 1})
+	f.onHand["widget"] = []Holding{
+		{Holder: "trader-2", BaseID: "near", Qty: 3, CapturedAt: fresh()},
+		{Holder: "trader-9", BaseID: "unmapped", Qty: 5, CapturedAt: fresh()},
+	}
+	f.systems[defaultCraftBase], f.systems["near"] = "sol", "alpha"
+	f.jumps["alpha"] = 1
+	f.jumps[""] = navigation.RouteInf
+
+	p := planFor(t, f, "widget", 8, DefaultOptions())
+
+	if p.TotalHaulJumps != 1 {
+		t.Errorf("TotalHaulJumps = %d, want 1 (only the resolvable near leg; the unresolvable one must not count)",
+			p.TotalHaulJumps)
+	}
+	var sawUnknown bool
+	for _, n := range p.Nodes {
+		if n.Kind == KindHaul && n.FromBase == "unmapped" {
+			sawUnknown = true
+			if n.Status != StatusUnknownRoute {
+				t.Errorf("status = %q, want %q", n.Status, StatusUnknownRoute)
+			}
+		}
+	}
+	if !sawUnknown {
+		t.Fatal("want a haul node for the unresolvable base")
+	}
+}
+
+// Guard against over-correcting: a normal, resolvable haul leg must still
+// contribute its real jump count to TotalHaulJumps.
+func TestPlan_ResolvableHaulStillCountsTowardTotalHaulJumps(t *testing.T) {
+	f := newFakeSource()
+	f.addRecipe("make_widget", "widget", 1, 1, false, map[string]int{"ore": 1})
+	f.onHand["widget"] = []Holding{{Holder: "trader-1", BaseID: "far", Qty: 4, CapturedAt: fresh()}}
+	f.systems[defaultCraftBase], f.systems["far"] = "sol", "beta"
+	f.jumps["beta"] = 5
+
+	p := planFor(t, f, "widget", 4, DefaultOptions())
+
+	if p.TotalHaulJumps != 5 {
+		t.Errorf("TotalHaulJumps = %d, want 5", p.TotalHaulJumps)
 	}
 }
 

@@ -34,6 +34,13 @@ const (
 	StatusStale Status = "stale"
 	// StatusSlow blew the MaxHandTicks budget but had no facility to escape to.
 	StatusSlow Status = "slow"
+	// StatusUnknownRoute is a haul node drawn from a base whose system could
+	// not be resolved (Source.SystemOf returned ""), so Source.Jumps came back
+	// navigation.RouteInf. The stock is still real and still drawn — only the
+	// distance is unknown — so this is a distinct status rather than
+	// StatusBlocked (which means no supply was found at all) or StatusStale
+	// (which means the data is old, not that the route is unmeasurable).
+	StatusUnknownRoute Status = "unknown_route"
 )
 
 // Holding is stock the fleet already has, attributed to whoever holds it.

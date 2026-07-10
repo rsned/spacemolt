@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 // defaultCraftBase is where hand-crafts are sited. Any docked station will do,
@@ -69,7 +71,14 @@ func (e *Engine) Plan(ctx context.Context, target string, qty int, opts Options)
 		}
 		p.Nodes = append(p.Nodes, hauls...)
 		for _, h := range hauls {
-			p.TotalHaulJumps += h.Jumps
+			// inventory.go already zeroes Jumps (and sets StatusUnknownRoute)
+			// for a leg whose distance it could not resolve, so this sum is
+			// safe as written; the RouteInf guard below is a second line of
+			// defense so a future regression there can't silently inflate
+			// this footer to a billion jumps again.
+			if h.Jumps < navigation.RouteInf {
+				p.TotalHaulJumps += h.Jumps
+			}
 			producedBy[item] = append(producedBy[item], h.ID)
 		}
 		if rem == 0 {

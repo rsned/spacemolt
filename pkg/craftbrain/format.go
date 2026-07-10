@@ -22,8 +22,13 @@ func Format(p *Plan) string {
 		case KindBuy:
 			fmt.Fprintf(&b, "  [%s] buy    %-24s x%d  @ %s\n", n.ID, n.ItemID, n.Qty, orDash(n.StationID))
 		case KindHaul:
-			fmt.Fprintf(&b, "  [%s] haul   %-24s x%d  %s -> %s (%d jumps, holder %s)%s\n",
-				n.ID, n.ItemID, n.Qty, n.FromBase, n.ToBase, n.Jumps, orDash(n.Holder), tag(n.Status))
+			if n.Status == StatusUnknownRoute {
+				fmt.Fprintf(&b, "  [%s] haul   %-24s x%d  %s -> %s (distance unknown, holder %s)%s\n",
+					n.ID, n.ItemID, n.Qty, n.FromBase, n.ToBase, orDash(n.Holder), tag(n.Status))
+			} else {
+				fmt.Fprintf(&b, "  [%s] haul   %-24s x%d  %s -> %s (%d jumps, holder %s)%s\n",
+					n.ID, n.ItemID, n.Qty, n.FromBase, n.ToBase, n.Jumps, orDash(n.Holder), tag(n.Status))
+			}
 		case KindCraft:
 			site := n.StationID
 			if n.FacilityID != "" {
