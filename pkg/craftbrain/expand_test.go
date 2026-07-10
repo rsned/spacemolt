@@ -256,7 +256,7 @@ func TestPlan_UnresolvableSystemHaulExcludedFromTotalHaulJumps(t *testing.T) {
 		{Holder: "trader-2", BaseID: "near", Qty: 3, CapturedAt: fresh()},
 		{Holder: "trader-9", BaseID: "unmapped", Qty: 5, CapturedAt: fresh()},
 	}
-	f.systems[defaultCraftBase], f.systems["near"] = "sol", "alpha"
+	f.systems[DefaultCraftBase], f.systems["near"] = "sol", "alpha"
 	f.jumps["alpha"] = 1
 	f.jumps[""] = navigation.RouteInf
 
@@ -286,7 +286,7 @@ func TestPlan_ResolvableHaulStillCountsTowardTotalHaulJumps(t *testing.T) {
 	f := newFakeSource()
 	f.addRecipe("make_widget", "widget", 1, 1, false, map[string]int{"ore": 1})
 	f.onHand["widget"] = []Holding{{Holder: "trader-1", BaseID: "far", Qty: 4, CapturedAt: fresh()}}
-	f.systems[defaultCraftBase], f.systems["far"] = "sol", "beta"
+	f.systems[DefaultCraftBase], f.systems["far"] = "sol", "beta"
 	f.jumps["beta"] = 5
 
 	p := planFor(t, f, "widget", 4, DefaultOptions())

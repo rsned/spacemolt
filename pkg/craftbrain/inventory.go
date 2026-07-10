@@ -116,7 +116,15 @@ func (e *Engine) consumeOnHand(ctx context.Context, itemID string, need int, des
 			// distance — Executor B would read a billion-jump haul as real.
 			// Zero it out and say why instead.
 			status = StatusUnknownRoute
-			reason = fmt.Sprintf("distance unknown: base %s has no known system", c.h.BaseID)
+			// Blame the end that actually failed to resolve: with an
+			// unresolved destination every holding rides this branch, and
+			// naming the (healthy) source base sends the operator hunting
+			// the wrong row.
+			if destSys == "" {
+				reason = fmt.Sprintf("distance unknown: destination %s has no known system", destBase)
+			} else {
+				reason = fmt.Sprintf("distance unknown: base %s has no known system", c.h.BaseID)
+			}
 			jumps = 0
 		case now.Sub(c.h.CapturedAt) > opts.MaxStockAge:
 			status = StatusStale

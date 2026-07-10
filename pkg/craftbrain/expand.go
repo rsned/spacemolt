@@ -9,9 +9,12 @@ import (
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
-// defaultCraftBase is where hand-crafts are sited. Any docked station will do,
+// DefaultCraftBase is where hand-crafts are sited. Any docked station will do,
 // so the plan names the target's own hub rather than inventing a location.
-const defaultCraftBase = "any_docked_station"
+// It is not a real base id: a Source that can pick a concrete stand-in (e.g.
+// the operator's current system) should resolve it in SystemOf, otherwise
+// every haul into a hand-craft site degrades to StatusUnknownRoute.
+const DefaultCraftBase = "any_docked_station"
 
 // Plan computes the full recursive work to build qty of target.
 //
@@ -65,7 +68,7 @@ func (e *Engine) Plan(ctx context.Context, target string, qty int, opts Options)
 		}
 
 		// Subtract stock we already hold, hauling it in if it sits elsewhere.
-		rem, hauls, err := e.consumeOnHand(ctx, item, need, defaultCraftBase, opts, ids)
+		rem, hauls, err := e.consumeOnHand(ctx, item, need, DefaultCraftBase, opts, ids)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +137,7 @@ func (e *Engine) Plan(ctx context.Context, target string, qty int, opts Options)
 			ID: ids.next("craft"), Kind: KindCraft, ItemID: item, Qty: rem,
 			Runs: s.runs, RecipeID: s.recipe.ID, FeeTotal: s.feeTotal,
 			TicksEst: s.ticks, Status: s.status, Reason: s.reason,
-			StationID: defaultCraftBase,
+			StationID: DefaultCraftBase,
 		}
 		if s.facility != nil {
 			node.StationID = s.facility.StationID

@@ -186,6 +186,13 @@ func (s *craftbrainSource) SystemOf(ctx context.Context, stationID string) (stri
 	if stationID == "" {
 		return "", nil
 	}
+	// The hand-craft sentinel is not a real base and can never resolve via
+	// SQL. It means "wherever the operator is docked", so answer with the
+	// origin system — otherwise destSys is "" and every haul leg of a
+	// hand-craft plan degrades to unknown_route.
+	if stationID == craftbrain.DefaultCraftBase {
+		return s.originSystem, nil
+	}
 	if v, ok := s.sysCache[stationID]; ok {
 		return v, nil
 	}

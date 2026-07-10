@@ -199,3 +199,36 @@ func TestConsumeOnHand_UnresolvableSystemDrawnButNotSentinel(t *testing.T) {
 		t.Error("want a reason explaining the unknown distance")
 	}
 }
+
+// When the DESTINATION system is what failed to resolve, the reason must say
+// so instead of blaming each holding's base. On the first live smoke run every
+// haul read "base grand_exchange_station has no known system" while
+// grand_exchange_station resolved fine — the unresolvable end was the
+// destination, and the wrong message sends the operator hunting a healthy
+// base row.
+func TestConsumeOnHand_UnresolvableDestinationBlamedInReason(t *testing.T) {
+	f := newFakeSource()
+	f.onHand["ore"] = []Holding{{Holder: "a", BaseID: "hub", Qty: 5, CapturedAt: fresh()}}
+	// "nowhere" is deliberately absent from f.systems; "hub" resolves.
+	f.systems["hub"] = "alpha"
+	// BFS from an unresolved ("") origin reaches nothing.
+	f.jumps["alpha"] = navigation.RouteInf
+	e := New(f)
+	opts := DefaultOptions()
+	opts.Now = testNow()
+
+	_, nodes, err := e.consumeOnHand(context.Background(), "ore", 5, "nowhere", opts, &idGen{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("want 1 node, got %d", len(nodes))
+	}
+	if nodes[0].Status != StatusUnknownRoute {
+		t.Errorf("status = %q, want %q", nodes[0].Status, StatusUnknownRoute)
+	}
+	want := `distance unknown: destination nowhere has no known system`
+	if nodes[0].Reason != want {
+		t.Errorf("reason = %q, want %q (must blame the destination, not base hub)", nodes[0].Reason, want)
+	}
+}

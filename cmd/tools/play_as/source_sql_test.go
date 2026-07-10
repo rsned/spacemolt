@@ -62,6 +62,28 @@ func TestCraftbrainSource_SystemOfFallsBackToPOIID(t *testing.T) {
 	}
 }
 
+// The planner sites hand-crafts at the "any_docked_station" sentinel; it is
+// not a real base, so the SQL lookups can never resolve it. Left unresolved,
+// destSys is "" and EVERY haul leg in a hand-craft plan degrades to
+// unknown_route (observed on the first live smoke run, 2026-07-10). The
+// sentinel means "wherever the operator is docked", so resolve it to the
+// origin system the source was constructed with. The literal string is the
+// wire value craftbrain emits in plan JSON — pin it, not a shared const.
+func TestCraftbrainSource_SystemOfResolvesCraftSentinelToOrigin(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := newCraftbrainSource(kb, nil, "haven")
+	got, err := src.SystemOf(context.Background(), "any_docked_station")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "haven" {
+		t.Errorf("SystemOf(any_docked_station) = %q, want origin system %q", got, "haven")
+	}
+}
+
 // Hard requirement 1: Facilities() must call ParseProduction on every row it
 // returns. site.go trusts OutputPerRun/TicksPerRun to already be parsed and
 // reads them directly off the Facility; skipping ParseProduction would leave
