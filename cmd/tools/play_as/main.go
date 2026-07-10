@@ -8386,6 +8386,9 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "where_facility", "where-facility":
 		return runWhereFacility(client, ctx, parts[1:])
 
+	case "build":
+		return runBuild(client, ctx, parts[1:])
+
 	case "show_system", "show-system":
 		return runShowSystem(ctx, parts[1:])
 
@@ -9380,6 +9383,7 @@ func printHelp() {
 	fmt.Println("  recipes                   - Get available recipes")
 	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--include-ship-passive] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
+	fmt.Println("  build <target> [qty] [--json] [--max-hand-ticks=N]  - full recursive build plan (mine/buy/haul/craft DAG); qty = output units")
 
 	fmt.Println("\n=== SHIP ===")
 	fmt.Println("  refuel, repair            - Refuel and repair ship")
