@@ -70,12 +70,22 @@ capture needs no new write path.
 
 ### Facility coverage is sparse and lopsided
 
+> **Stale as written — measured before the capture bug was fixed (`8df24f8`).**
+> The catalog read only the `public_facilities[]` section of a `facility list`
+> payload, so station-owned and own-faction public production lines were never
+> ingested (all 247 rows were faction-owned; zero station-owned; voss_redoubt
+> captured 0 of its ~13 public lines). The figures below are therefore a floor,
+> not a measurement. **Re-measure after a full sweep on the fixed binary and
+> update this section.** True coverage is expected to be materially higher.
+
 247 rows across **6 stations**; `confederacy_central_command` alone holds 219 of them
 (145 distinct recipes). Only **81 of 317** `facility_only` recipes have a known public
 facility (26%). Fees span 1 … 2,000,000 per run.
 
 **Consequence:** a missing facility means *unknown*, not *impossible*. Blocked nodes
-say so, and the plan reports catalog coverage.
+say so, and the plan reports catalog coverage. This conclusion does not depend on the
+exact coverage figure and survives the re-measure; what may change is how often the
+buy-fallback path is exercised versus a sited craft.
 
 ### Facility speed is per-instance, not derivable
 
@@ -241,10 +251,11 @@ visible annotation.
 the footer counts them. `public_facilities.last_seen_tick` is treated the same way: an
 unswept facility is sited but flagged, since fee, level, and backlog may all have moved.
 
-**BLOCKED means unknown, not impossible.** With 6 stations swept and 81/317 `facility_only`
-recipes covered, absence of a facility is overwhelmingly absence of evidence. Blocked nodes
-say so, and the footer prints the coverage fraction so the operator can distinguish "run a
-facilities sweep" from "this genuinely cannot be built."
+**BLOCKED means unknown, not impossible.** Absence of a facility is overwhelmingly absence
+of evidence — the catalog is swept opportunistically, and a capture bug (`8df24f8`) hid an
+entire class of public facility until 2026-07-09. Blocked nodes say so, and the footer
+prints the live coverage fraction (stations swept, `facility_only` recipes covered) so the
+operator can distinguish "run a facilities sweep" from "this genuinely cannot be built."
 
 **Abort vs. annotate.** Abort with a clear message on: unresolvable target, target with no
 recipe, `qty < 1`. Annotate everything else: a broken cycle, an unseen facility, an empty
