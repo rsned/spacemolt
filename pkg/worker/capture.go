@@ -575,49 +575,61 @@ func facInt(m map[string]any, key string) int {
 	}
 }
 
-// upsertPublicFromFacilityList parses the public_facilities section of a raw
-// `facility list` response and upserts PUBLIC PRODUCTION facilities into the
-// catalog. Best-effort: unknown/renamed fields are preserved in DetailsJSON.
+// upsertPublicFromFacilityList parses a raw `facility list` response and upserts
+// PUBLIC PRODUCTION facilities into the catalog. Best-effort: unknown/renamed
+// fields are preserved in DetailsJSON.
+//
+// Public production lines are spread across three sections, and many stations
+// return no public_facilities section at all: station_facilities holds NPC
+// station-owned lines, faction_facilities our own faction's, and
+// public_facilities other factions'. All three must be scanned.
+//
+// Those first two sections mix public and private lines, and a private line
+// signals that by OMITTING production.public rather than setting it false (e.g.
+// voss_redoubt's "The Red Room"). So public requires an explicit true.
 func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityUpserter, raw []byte, tick int) (int, error) {
 	var resp struct {
-		BaseID           string           `json:"base_id"`
-		PublicFacilities []map[string]any `json:"public_facilities"`
+		BaseID            string           `json:"base_id"`
+		StationFacilities []map[string]any `json:"station_facilities"`
+		FactionFacilities []map[string]any `json:"faction_facilities"`
+		PublicFacilities  []map[string]any `json:"public_facilities"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return 0, err
 	}
-	if resp.BaseID == "" || len(resp.PublicFacilities) == 0 {
+	all := make([]map[string]any, 0, len(resp.StationFacilities)+len(resp.FactionFacilities)+len(resp.PublicFacilities))
+	all = append(all, resp.StationFacilities...)
+	all = append(all, resp.FactionFacilities...)
+	all = append(all, resp.PublicFacilities...)
+	if resp.BaseID == "" || len(all) == 0 {
 		return 0, nil
 	}
 	var rows []knowledge.PublicFacility
-	for _, m := range resp.PublicFacilities {
+	for _, m := range all {
 		prod, _ := m["production"].(map[string]any)
-		// Keep only production-category facilities that are public (a facility
-		// listed here is public unless production.public is explicitly false).
 		if facStr(m, "category") != "production" {
 			continue
 		}
-		if prod != nil {
-			if pub, ok := prod["public"].(bool); ok && !pub {
-				continue
-			}
+		if prod == nil {
+			continue
+		}
+		if pub, ok := prod["public"].(bool); !ok || !pub {
+			continue
 		}
 		name := facStr(m, "custom_name")
 		if name == "" {
 			name = facStr(m, "name")
 		}
 		recipe := facStr(m, "recipe_id")
-		if recipe == "" && prod != nil {
+		if recipe == "" {
 			recipe = facStr(prod, "recipe")
 		}
 		owner := facStr(m, "faction_id")
 		if owner == "" {
 			owner = facStr(m, "owner_id")
 		}
-		fee := 0
-		if prod != nil {
-			fee = facInt(prod, "rental_fee_per_run")
-		}
+		// Station-owned lines carry no faction_id; owner stays empty by design.
+		fee := facInt(prod, "rental_fee_per_run")
 		details, _ := json.Marshal(m)
 		rows = append(rows, knowledge.PublicFacility{
 			StationID:       resp.BaseID,

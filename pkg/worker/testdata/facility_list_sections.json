@@ -1,0 +1,48 @@
+{
+  "action": "list",
+  "base_id": "voss_redoubt_station",
+  "station_facilities": [
+    {
+      "facility_id": "sf-steel-1",
+      "type": "iron_refinery",
+      "name": "Iron Refinery",
+      "description": "Station-owned refinery, open for hire.",
+      "category": "production",
+      "level": 2,
+      "recipe_id": "refine_steel",
+      "production": {"recipe": "Refine Steel", "output_per_run": 2, "rental_fee_per_run": 35, "items_per_hour": 180, "public": true, "queued_runs": 0, "queued_items": 0, "backlog_ticks": 0, "ticks_per_run": 4.0}
+    },
+    {
+      "facility_id": "sf-redroom-1",
+      "type": "the_red_room",
+      "name": "The Red Room",
+      "description": "Voss keeps his combat stim production close to the armory.",
+      "category": "production",
+      "level": 1,
+      "recipe_id": "load_red_mist",
+      "production": {"recipe": "Load Red Mist", "output_per_run": 2, "items_per_hour": 400, "queued_runs": 0, "queued_items": 0, "backlog_ticks": 0, "ticks_per_run": 1.8}
+    },
+    {
+      "facility_id": "sf-commerce-1",
+      "type": "commerce_hub",
+      "name": "Commerce Hub",
+      "description": "Not a production facility.",
+      "category": "service",
+      "level": 3,
+      "service": "market"
+    }
+  ],
+  "faction_facilities": [
+    {
+      "facility_id": "ff-cells-1",
+      "type": "bootleg_cell_shop",
+      "name": "Bootleg Cell Shop",
+      "description": "Our own line, rented out.",
+      "category": "production",
+      "level": 1,
+      "recipe_id": "crack_hot_cells",
+      "faction_id": "VOSS",
+      "production": {"recipe": "Crack Hot Cells", "output_per_run": 1, "rental_fee_per_run": 90, "items_per_hour": 60, "public": true, "queued_runs": 0, "queued_items": 0, "backlog_ticks": 0, "ticks_per_run": 6.0}
+    }
+  ]
+}
