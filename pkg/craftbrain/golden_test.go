@@ -10,8 +10,17 @@ import (
 )
 
 // goldenPlan pins the end-to-end DAG for a multi-level target that exercises
-// every stage: ceil-per-run, a shared intermediate, a facility siting, a
-// stale remote holding with a haul leg, and a facility_only dead end.
+// every stage: ceil-per-run, a facility siting whose output_per_run differs
+// from its recipe's catalog output (and doesn't divide the demand evenly, so
+// a facility-sited surplus actually lands), a stale remote holding with a
+// haul leg, and a facility_only dead end.
+//
+// Every item here has exactly one consumer edge (matrix/optics <- sensor_array,
+// wire <- optics, copper_ore <- wire); there is no shared intermediate.
+// Aggregate-demand-before-rounding is covered separately and more rigorously
+// by TestPlan_SharedIntermediateAggregatesBeforeRounding and
+// TestPlan_CrossDepthSharedIntermediateAggregatesBeforeRounding in
+// expand_test.go.
 //
 // Regenerate with: go test ./pkg/craftbrain/ -run TestGoldenPlan -update
 func TestGoldenPlan(t *testing.T) {
@@ -19,14 +28,19 @@ func TestGoldenPlan(t *testing.T) {
 	// sensor_array <- 2 optics + 1 matrix (facility_only, unbuyable -> BLOCKED)
 	f.addRecipe("build_sensor_array", "sensor_array", 1, 4.0, false,
 		map[string]int{"optics": 2, "matrix": 1})
-	// optics <- 3 wire ; wire is 2-per-run so 6 wire needs 3 runs exactly
+	// optics <- 3 wire; qty=2 sensor_array demands 4 optics -> 12 wire. wire's
+	// facility runs at 5-per-run (not the recipe's catalog output of 2), so 12
+	// wire costs ceil(12/5)=3 runs and yields 15 -> surplus 3.
 	f.addRecipe("build_optics", "optics", 1, 1.0, false, map[string]int{"wire": 3})
 	f.addRecipe("draw_wire", "wire", 2, 0.5, true, map[string]int{"copper_ore": 1})
 	f.addRecipe("grow_matrix", "matrix", 1, 21.0, true, map[string]int{"neon_gas": 1})
 
-	// wire has a facility; matrix has none and is unbuyable.
+	// wire has a facility; matrix has none and is unbuyable. cheap's
+	// output_per_run (5) deliberately differs from draw_wire's catalog output
+	// (2) and doesn't divide 12 evenly, so surplus is only correct when it's
+	// computed from the facility's own output_per_run.
 	f.facilities["draw_wire"] = []Facility{
-		{StationID: "confederacy_central_command", FacilityID: "cheap", RentalFeePerRun: 4, TicksPerRun: 0.05, OutputPerRun: 2},
+		{StationID: "confederacy_central_command", FacilityID: "cheap", RentalFeePerRun: 4, TicksPerRun: 0.05, OutputPerRun: 5},
 		{StationID: "grand_exchange_station", FacilityID: "pricey", RentalFeePerRun: 90, TicksPerRun: 0.01, OutputPerRun: 2},
 	}
 	// A stale remote holding of copper_ore, two jumps out.
@@ -83,7 +97,7 @@ func TestGoldenPlan_Invariants(t *testing.T) {
 	f.addRecipe("draw_wire", "wire", 2, 0.5, true, map[string]int{"copper_ore": 1})
 	f.addRecipe("grow_matrix", "matrix", 1, 21.0, true, map[string]int{"neon_gas": 1})
 	f.facilities["draw_wire"] = []Facility{
-		{StationID: "confederacy_central_command", FacilityID: "cheap", RentalFeePerRun: 4, TicksPerRun: 0.05, OutputPerRun: 2},
+		{StationID: "confederacy_central_command", FacilityID: "cheap", RentalFeePerRun: 4, TicksPerRun: 0.05, OutputPerRun: 5},
 		{StationID: "grand_exchange_station", FacilityID: "pricey", RentalFeePerRun: 90, TicksPerRun: 0.01, OutputPerRun: 2},
 	}
 	f.systems["any_docked_station"] = "sol"
@@ -94,7 +108,8 @@ func TestGoldenPlan_Invariants(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 2 sensor arrays -> 4 optics -> 12 wire -> ceil(12/2)=6 runs of draw_wire.
+	// 2 sensor arrays -> 4 optics -> 12 wire -> ceil(12/5)=3 runs of draw_wire
+	// (cheap's output_per_run is 5, not the recipe's catalog output of 2).
 	var wireRuns int
 	var wireFacility string
 	var matrixBlocked bool
@@ -106,8 +121,8 @@ func TestGoldenPlan_Invariants(t *testing.T) {
 			matrixBlocked = true
 		}
 	}
-	if wireRuns != 6 {
-		t.Errorf("wire runs = %d, want 6", wireRuns)
+	if wireRuns != 3 {
+		t.Errorf("wire runs = %d, want 3", wireRuns)
 	}
 	if wireFacility != "cheap" {
 		t.Errorf("wire sited at %q, want cheap (lowest fee x runs)", wireFacility)

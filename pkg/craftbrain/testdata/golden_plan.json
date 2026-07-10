@@ -44,12 +44,12 @@
       "kind": "craft",
       "item_id": "wire",
       "qty": 12,
-      "runs": 6,
+      "runs": 3,
       "recipe_id": "draw_wire",
       "station_id": "confederacy_central_command",
       "facility_id": "cheap",
-      "fee_total": 24,
-      "ticks_est": 0.30000000000000004,
+      "fee_total": 12,
+      "ticks_est": 0.15000000000000002,
       "status": "ok",
       "depends_on": [
         "haul-5",
@@ -72,7 +72,7 @@
       "id": "mine-6",
       "kind": "mine",
       "item_id": "copper_ore",
-      "qty": 4,
+      "qty": 1,
       "status": "ok"
     }
   ],
@@ -81,8 +81,11 @@
       "mineable": true
     }
   },
-  "total_fee": 24,
-  "total_ticks": 12.3,
+  "surplus": {
+    "wire": 3
+  },
+  "total_fee": 12,
+  "total_ticks": 12.15,
   "total_haul_jumps": 2,
   "coverage": {
     "stations": 30,
