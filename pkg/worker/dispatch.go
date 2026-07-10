@@ -54,7 +54,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true,
-	"mine": true, "deliver": true,
+	"mine": true, "deliver": true, "buy_directed": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true,
@@ -159,6 +159,19 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return fmt.Errorf("deliver: bad qty %q", args[1])
 		}
 		return d.Deliver(ctx, args[0], qty, args[2], args[3], args[4])
+	case "buy_directed":
+		if len(args) < 5 {
+			return fmt.Errorf("buy_directed: want ITEM QTY STATION MAX_UNIT_PRICE RECIPIENT, got %v", args)
+		}
+		qty, err := strconv.Atoi(args[1])
+		if err != nil || qty < 1 {
+			return fmt.Errorf("buy_directed: bad qty %q", args[1])
+		}
+		maxUnit, err := strconv.ParseFloat(args[3], 64)
+		if err != nil {
+			return fmt.Errorf("buy_directed: bad max unit price %q", args[3])
+		}
+		return d.BuyDirected(ctx, args[0], qty, args[2], maxUnit, args[4])
 	case "scan":
 		return d.Client.Scan(ctx)
 	case "get_status":

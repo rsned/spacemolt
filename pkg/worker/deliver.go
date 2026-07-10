@@ -130,15 +130,6 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 		return fmt.Errorf("deliver: resolve destination %q: %w", to, err)
 	}
 
-	selfDelivery := recipient == "self" || recipient == d.AgentID
-	var recipientUsername string
-	if !selfDelivery {
-		recipientUsername, err = UsernameFor(d.agentsDir(), recipient)
-		if err != nil {
-			return fmt.Errorf("deliver: resolve recipient %q: %w", recipient, err)
-		}
-	}
-
 	remaining := qty
 	for remaining > 0 {
 		carrying := cargoCount(d.Client.GetState(), itemID)
@@ -165,26 +156,13 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 		// walked in already holding leftover cargo from a prior run (the
 		// withdraw block above is skipped in that case). Any pre-existing
 		// surplus above qty must stay in cargo, not get gifted/deposited.
-		deliverQty := carrying
-		if deliverQty > remaining {
-			deliverQty = remaining
-		}
+		deliverQty := min(carrying, remaining)
 
 		if err := d.autopilotAndDock(ctx, toSys, toPOI); err != nil {
 			return fmt.Errorf("deliver: travel to destination %q: %w", to, err)
 		}
-		if selfDelivery {
-			if err := d.Client.DepositItems(ctx, itemID, float64(deliverQty)); err != nil {
-				return fmt.Errorf("deliver: deposit %s at %s: %w", itemID, to, err)
-			}
-		} else {
-			if err := d.Client.SendGift(ctx, map[string]any{
-				"recipient": recipientUsername,
-				"item_id":   itemID,
-				"quantity":  float64(deliverQty),
-			}); err != nil {
-				return fmt.Errorf("deliver: gift %s to %s: %w", itemID, recipient, err)
-			}
+		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient); err != nil {
+			return fmt.Errorf("deliver: %w", err)
 		}
 		time.Sleep(game.SleepQuick)
 		remaining -= deliverQty
@@ -239,6 +217,34 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 		fmt.Fprintf(d.Out, "deliver: withdraw %s at %s came up short: %v\n", itemID, baseLabel, werr) //nolint:errcheck
 	}
 	return carrying, short, false, nil
+}
+
+// giftOrDeposit hands qty of itemID to recipient from the ship's current
+// cargo. recipient "self" (or d's own agent id) deposits into the dispatch's
+// own storage at the current (already-docked) location; any other recipient
+// resolves to an in-game username via UsernameFor and is sent a gift instead.
+// Cargo-only — the caller must already be docked at the handoff location
+// before calling this. Shared by Deliver and BuyDirected, the two verbs that
+// hand cargo off to a recipient.
+func giftOrDeposit(ctx context.Context, d *WorkerDispatch, itemID string, qty int, recipient string) error {
+	if recipient == "self" || recipient == d.AgentID {
+		if err := d.Client.DepositItems(ctx, itemID, float64(qty)); err != nil {
+			return fmt.Errorf("deposit %s: %w", itemID, err)
+		}
+		return nil
+	}
+	username, err := UsernameFor(d.agentsDir(), recipient)
+	if err != nil {
+		return fmt.Errorf("resolve recipient %q: %w", recipient, err)
+	}
+	if err := d.Client.SendGift(ctx, map[string]any{
+		"recipient": username,
+		"item_id":   itemID,
+		"quantity":  float64(qty),
+	}); err != nil {
+		return fmt.Errorf("gift %s to %s: %w", itemID, recipient, err)
+	}
+	return nil
 }
 
 // autopilotAndDock routes to (system, poi) via Autopilot and docks — the
