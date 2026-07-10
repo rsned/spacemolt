@@ -68,24 +68,32 @@ withdraw 400 iron_ore at grand_exchange". A scheduled `view_storage` standing co
 keeps it fresh, mirroring exactly how A1 scheduled `facilities`; the existing passive
 capture needs no new write path.
 
-### Facility coverage is sparse and lopsided
+### Facility coverage is sparse even after the capture fix
 
-> **Stale as written — measured before the capture bug was fixed (`8df24f8`).**
-> The catalog read only the `public_facilities[]` section of a `facility list`
-> payload, so station-owned and own-faction public production lines were never
-> ingested (all 247 rows were faction-owned; zero station-owned; voss_redoubt
-> captured 0 of its ~13 public lines). The figures below are therefore a floor,
-> not a measurement. **Re-measure after a full sweep on the fixed binary and
-> update this section.** True coverage is expected to be materially higher.
+Measured 2026-07-09 after a full fleet sweep on the fixed binary (`8df24f8`). The old
+capture read only the `public_facilities[]` section, so station-owned and own-faction
+public lines were never ingested — all 247 pre-fix rows were faction-owned, zero
+station-owned, and voss_redoubt captured 0 of its 12 public lines.
 
-247 rows across **6 stations**; `confederacy_central_command` alone holds 219 of them
-(145 distinct recipes). Only **81 of 317** `facility_only` recipes have a known public
-facility (26%). Fees span 1 … 2,000,000 per run.
+| | pre-fix | post-fix |
+|---|---|---|
+| rows | 247 | 844 |
+| stations | 6 | 30 (of 34 fleet stations) |
+| station-owned rows | 0 | 586 |
+| distinct recipes | 149 | 196 |
+| **`facility_only` coverage** | **81/317 (25.6%)** | **101/317 (31.9%)** |
 
-**Consequence:** a missing facility means *unknown*, not *impossible*. Blocked nodes
-say so, and the plan reports catalog coverage. This conclusion does not depend on the
-exact coverage figure and survives the re-measure; what may change is how often the
-buy-fallback path is exercised versus a sited craft.
+The fix recovered 586 previously-invisible facilities, but coverage of `facility_only`
+recipes rose only ~6 points: most station-owned lines produce recipes already covered.
+Fees span 1 … 2,000,000 per run. `confederacy_central_command` remains a mega-hub (263
+rows). The 4 fleet stations absent from the catalog have re-swept and evidently host no
+public production facilities.
+
+**Consequence:** **68% of `facility_only` recipes have no known public facility.** A
+missing facility means *unknown*, not *impossible* — the catalog is swept opportunistically
+and a capture bug hid an entire class until today. Blocked nodes say so, and the plan
+reports coverage. Critically, the **buy-fallback is the common path, not an edge case**;
+it must be first-class, not an afterthought.
 
 ### Facility speed is per-instance, not derivable
 
@@ -251,11 +259,16 @@ visible annotation.
 the footer counts them. `public_facilities.last_seen_tick` is treated the same way: an
 unswept facility is sited but flagged, since fee, level, and backlog may all have moved.
 
-**BLOCKED means unknown, not impossible.** Absence of a facility is overwhelmingly absence
-of evidence — the catalog is swept opportunistically, and a capture bug (`8df24f8`) hid an
+**BLOCKED means unknown, not impossible.** Absence of a facility is often absence of
+evidence — the catalog is swept opportunistically, and a capture bug (`8df24f8`) hid an
 entire class of public facility until 2026-07-09. Blocked nodes say so, and the footer
 prints the live coverage fraction (stations swept, `facility_only` recipes covered) so the
 operator can distinguish "run a facilities sweep" from "this genuinely cannot be built."
+
+**Facility staleness reads `last_seen_utc`, not `last_seen_tick`.** The column was dead
+until `21e60dc` (declared in migration 48, never written). Tick deltas understate real age
+because the GameClock only syncs forward. Rows written by a `bin/worker` predating
+`21e60dc` still carry `''` — treat empty as "unknown age", not "fresh".
 
 **Abort vs. annotate.** Abort with a clear message on: unresolvable target, target with no
 recipe, `qty < 1`. Annotate everything else: a broken cycle, an unseen facility, an empty
