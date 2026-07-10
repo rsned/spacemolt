@@ -1678,7 +1678,11 @@ func (e *Engine) Plan(ctx context.Context, target string, qty int, opts Options)
 	for _, d := range dropped {
 		p.Diagnostics = append(p.Diagnostics, fmt.Sprintf("cycle broken: dropped recipe edge %s", d))
 	}
-	if cov, err := e.src.Coverage(ctx); err == nil {
+	// A coverage failure degrades the footer but must not kill an otherwise
+	// good plan — and it says so out loud rather than implying an empty catalog.
+	if cov, err := e.src.Coverage(ctx); err != nil {
+		p.Diagnostics = append(p.Diagnostics, fmt.Sprintf("catalog coverage unavailable: %v", err))
+	} else {
 		p.Coverage = cov
 	}
 
@@ -2282,15 +2286,28 @@ func (s *craftbrainSource) Jumps(ctx context.Context, fromSystem string, toSyste
 	return navigation.BFSJumps(s.graph, fromSystem, toSystems), nil
 }
 
+// Coverage measures catalog breadth. Errors propagate: this footer is what
+// tells the operator whether a BLOCKED node means "not swept yet" or "truly
+// impossible". Silently reporting "0 stations, 0/0 recipes" on a failed query
+// would read as "the catalog is empty" — a lie at exactly the moment the
+// operator is deciding whether to trust a BLOCKED node.
 func (s *craftbrainSource) Coverage(ctx context.Context) (craftbrain.Coverage, error) {
 	var c craftbrain.Coverage
 	db := s.kb.DB()
-	_ = db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT station_id) FROM public_facilities`).Scan(&c.Stations)
-	_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM recipes WHERE facility_only = 1`).Scan(&c.FacilityOnlyTotal)
-	_ = db.QueryRowContext(ctx, `
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT station_id) FROM public_facilities`).Scan(&c.Stations); err != nil {
+		return c, fmt.Errorf("coverage stations: %w", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM recipes WHERE facility_only = 1`).Scan(&c.FacilityOnlyTotal); err != nil {
+		return c, fmt.Errorf("coverage facility_only total: %w", err)
+	}
+	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT r.id) FROM recipes r
 		JOIN public_facilities f ON f.recipe_id = r.id
-		WHERE r.facility_only = 1`).Scan(&c.FacilityOnlyCovered)
+		WHERE r.facility_only = 1`).Scan(&c.FacilityOnlyCovered); err != nil {
+		return c, fmt.Errorf("coverage facility_only covered: %w", err)
+	}
 	return c, nil
 }
 
@@ -2614,6 +2631,13 @@ func TestGoldenPlan(t *testing.T) {
 
 // Independent assertions on the same fixture, so a careless golden
 // regeneration cannot silently bless a wrong plan.
+//
+// INTENTIONAL DUPLICATION — do not extract a shared fixture helper. A golden
+// test asserts only "unchanged", never "correct": run UPDATE_GOLDEN=1 once
+// against a broken engine and the wrong DAG is blessed forever. These
+// assertions are the safety net, and a net woven from the same thread as the
+// thing it catches is no net at all. If both tests shared a fixture builder, a
+// bug in that builder would make them agree and the check would evaporate.
 func TestGoldenPlan_Invariants(t *testing.T) {
 	f := newFakeSource()
 	f.addRecipe("build_sensor_array", "sensor_array", 1, 4.0, false,
