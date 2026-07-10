@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/craftbrain"
@@ -32,7 +33,7 @@ func newCraftbrainSource(kb *knowledge.SQLiteKB, col *market.Collector, originSy
 
 func (s *craftbrainSource) Recipes(ctx context.Context) (map[string]knowledge.RecipeDef, error) {
 	if s.recipeCache != nil {
-		return s.recipeCache, nil
+		return maps.Clone(s.recipeCache), nil
 	}
 	defs, err := s.kb.GetRecipes(ctx) // hydrates Inputs + Outputs in bulk
 	if err != nil {
@@ -43,14 +44,23 @@ func (s *craftbrainSource) Recipes(ctx context.Context) (map[string]knowledge.Re
 		out[d.ID] = d
 	}
 	s.recipeCache = out
-	return out, nil
+	// Return a copy: Source's contract is that callers own what they get
+	// back, and the cache is kept purely to save the DB round-trip on repeat
+	// calls within one plan, not to be aliased out to callers.
+	return maps.Clone(out), nil
 }
 
 // Facilities returns known public production sites for recipeID. Every row is
 // run through ParseProduction: site.go trusts OutputPerRun/TicksPerRun to
-// already be populated and ParseProduction is what guarantees OutputPerRun
-// >= 1, so skipping it would silently degrade per-instance throughput instead
-// of failing loudly.
+// already be populated. A row whose details_json fails to parse is skipped
+// rather than kept with ParseProduction's safe defaults: those defaults
+// (TicksPerRun=0, BacklogTicks=0) are not "safe" from site.go's perspective —
+// site.go ranks candidates by runs*TicksPerRun+BacklogTicks, so a corrupt row
+// would look like a zero-cost, instant facility and win over every valid one,
+// causing the planner to under-estimate TotalTicks. Excluding the row instead
+// degrades to "no known facility for this recipe", which the planner already
+// handles (buy-fallback, or BLOCKED). One bad row must not kill the whole
+// query, so we skip-and-continue rather than fail the call.
 func (s *craftbrainSource) Facilities(ctx context.Context, recipeID string) ([]craftbrain.Facility, error) {
 	rows, err := s.kb.FacilitiesForRecipe(ctx, recipeID)
 	if err != nil {
@@ -65,9 +75,9 @@ func (s *craftbrainSource) Facilities(ctx context.Context, recipeID string) ([]c
 			RentalFeePerRun: r.RentalFeePerRun,
 			LastSeenUTC:     r.LastSeenUTC,
 		}
-		// A malformed payload must not kill the plan; ParseProduction leaves
-		// safe defaults (OutputPerRun=1) on parse failure.
-		_ = f.ParseProduction(r.DetailsJSON)
+		if err := f.ParseProduction(r.DetailsJSON); err != nil {
+			continue
+		}
 		out = append(out, f)
 	}
 	return out, nil
@@ -215,8 +225,16 @@ func (s *craftbrainSource) Jumps(ctx context.Context, fromSystem string, toSyste
 func (s *craftbrainSource) Coverage(ctx context.Context) (craftbrain.Coverage, error) {
 	var c craftbrain.Coverage
 	db := s.kb.DB()
+	// Both counts below apply the same predicate as FacilitiesForRecipe
+	// (public = 1 AND category = 'production') so Coverage() reports exactly
+	// what Facilities() can actually return. Otherwise a facility_only recipe
+	// whose only row is non-production (or private) would count as "covered"
+	// here while Facilities() returns nothing and the node comes out BLOCKED
+	// -- overstating coverage in the one place meant to keep the operator
+	// honest about it.
 	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(DISTINCT station_id) FROM public_facilities`).Scan(&c.Stations); err != nil {
+		`SELECT COUNT(DISTINCT station_id) FROM public_facilities WHERE public = 1 AND category = 'production'`).
+		Scan(&c.Stations); err != nil {
 		return c, fmt.Errorf("coverage stations: %w", err)
 	}
 	if err := db.QueryRowContext(ctx,
@@ -226,7 +244,8 @@ func (s *craftbrainSource) Coverage(ctx context.Context) (craftbrain.Coverage, e
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT r.id) FROM recipes r
 		JOIN public_facilities f ON f.recipe_id = r.id
-		WHERE r.facility_only = 1`).Scan(&c.FacilityOnlyCovered); err != nil {
+		WHERE r.facility_only = 1 AND f.public = 1 AND f.category = 'production'`).
+		Scan(&c.FacilityOnlyCovered); err != nil {
 		return c, fmt.Errorf("coverage facility_only covered: %w", err)
 	}
 	return c, nil

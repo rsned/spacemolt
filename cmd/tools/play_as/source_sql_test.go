@@ -270,6 +270,139 @@ func TestCraftbrainSource_OnHand_DeterministicOrder(t *testing.T) {
 	}
 }
 
+// Finding A: a malformed details_json must not produce a "phantom" facility
+// that wins every ranking. ParseProduction returns an error on unparseable
+// JSON, leaving TicksPerRun=0 and BacklogTicks=0 -- not a safe default from
+// site.go's perspective, since it ranks candidates by
+// runs*TicksPerRun+BacklogTicks: a corrupt row would look like a zero-cost,
+// instant facility and beat every valid one. The row must be excluded
+// entirely, not returned with those defaults, while a well-formed sibling
+// row for the same recipe still comes back.
+func TestCraftbrainSource_Facilities_SkipsMalformedDetailsJSON(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+		{StationID: "corrupt_station", FacilityID: "bad-1", RecipeID: "refine_steel",
+			Category: "production", Level: 1, RentalFeePerRun: 10, LastSeenTick: 100,
+			DetailsJSON: "{not json"},
+		{StationID: "good_station", FacilityID: "good-1", RecipeID: "refine_steel",
+			Category: "production", Level: 2, RentalFeePerRun: 35, LastSeenTick: 100,
+			DetailsJSON: `{"production":{"ticks_per_run":4.0,"output_per_run":2,"backlog_ticks":1.5,"rental_fee_per_run":35}}`},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	src := newCraftbrainSource(kb, nil, "sol")
+	got, err := src.Facilities(ctx, "refine_steel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 facility (malformed row excluded), got %d: %+v", len(got), got)
+	}
+	if got[0].StationID != "good_station" {
+		t.Errorf("StationID = %q, want good_station (the well-formed sibling survives)", got[0].StationID)
+	}
+}
+
+// Finding B: Coverage()'s facility_only-covered count (and its Stations
+// count) must apply the exact predicate FacilitiesForRecipe uses (public = 1
+// AND category = 'production'), or the honesty footer overstates coverage: a
+// facility_only recipe whose only public_facilities row is a non-production
+// category would count as "covered" here while Facilities() returns nothing
+// for it and the node comes out BLOCKED.
+func TestCraftbrainSource_Coverage_ExcludesNonProductionFacilities(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := kb.StoreRecipes(ctx, []knowledge.RecipeDef{
+		{ID: "reactor_core", Name: "Reactor Core", FacilityOnly: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+		{StationID: "service_station", FacilityID: "svc-1", RecipeID: "reactor_core",
+			Category: "service", Level: 1, RentalFeePerRun: 10, LastSeenTick: 100},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	src := newCraftbrainSource(kb, nil, "sol")
+	cov, err := src.Coverage(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cov.FacilityOnlyTotal != 1 {
+		t.Fatalf("FacilityOnlyTotal = %d, want 1", cov.FacilityOnlyTotal)
+	}
+	if cov.FacilityOnlyCovered != 0 {
+		t.Errorf("FacilityOnlyCovered = %d, want 0 (only row is category=service, not production)", cov.FacilityOnlyCovered)
+	}
+	if cov.Stations != 0 {
+		t.Errorf("Stations = %d, want 0 (service_station's only row is non-production)", cov.Stations)
+	}
+
+	// Sanity: a sibling production row at a different station does count,
+	// proving the predicate isn't just excluding everything.
+	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+		{StationID: "production_station", FacilityID: "prod-1", RecipeID: "reactor_core",
+			Category: "production", Level: 1, RentalFeePerRun: 20, LastSeenTick: 100},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cov, err = src.Coverage(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cov.FacilityOnlyCovered != 1 {
+		t.Errorf("FacilityOnlyCovered = %d, want 1 after adding a production row", cov.FacilityOnlyCovered)
+	}
+	if cov.Stations != 1 {
+		t.Errorf("Stations = %d, want 1 (only the production station counts)", cov.Stations)
+	}
+}
+
+// Finding C: Recipes() must not hand back its cache by reference. The Source
+// contract is that callers own what they get back; the cache exists purely to
+// save the DB round-trip within one plan, not to be aliased out.
+func TestCraftbrainSource_Recipes_ReturnsIndependentCopy(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := kb.StoreRecipes(ctx, []knowledge.RecipeDef{
+		{ID: "refine_steel", Name: "Refine Steel"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	src := newCraftbrainSource(kb, nil, "sol")
+	first, err := src.Recipes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Mutate the caller's copy; this must not reach the cache or a later call.
+	delete(first, "refine_steel")
+	first["bogus"] = knowledge.RecipeDef{ID: "bogus"}
+
+	second, err := src.Recipes(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := second["refine_steel"]; !ok {
+		t.Error("second Recipes() call missing refine_steel; first caller's mutation leaked into the cache")
+	}
+	if _, ok := second["bogus"]; ok {
+		t.Error("second Recipes() call has 'bogus'; first caller's mutation leaked into the cache")
+	}
+}
+
 // craftbrainHolding is a comparable projection of craftbrain.Holding used to
 // diff ordering across repeated OnHand calls without importing the
 // craftbrain package's non-comparable time.Time-bearing struct by value
