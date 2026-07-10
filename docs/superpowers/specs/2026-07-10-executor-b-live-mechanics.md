@@ -9,8 +9,10 @@ captured responses.
 1. **send_gift payload:** `{"recipient": "<in-game USERNAME>", "item_id": "...",
    "quantity": N}`. Recipient is the username (`Artisan 'Ace' Anderson`), NOT
    an agent id → the plan runner (Task 5) and handoff records (Tasks 1/10)
-   must resolve `agent_id → username` via `data/agents/<id>/credentials.json`
-   when building `$RECIPIENT$` params and `handoff.Record.Recipient`.
+   matter: params and `handoff.Record.Recipient` carry AGENT IDS (or `self`);
+   the worker-side gift verbs resolve `agent_id → username` via
+   `data/agents/<id>/credentials.json` at gift time (controller decision,
+   post-Task-4; keeps the plan runner free of credential reads).
 2. **Gifts are CARGO-only.** Gifting from storage fails
    (`insufficient_cargo: You only have 0 x pressure_seal in cargo.`).
    `--source=storage` is NOT live as of 0.486.4 — keep the batched
