@@ -106,6 +106,44 @@ today it is boot-static YAML only) and flow through the existing
 Progress is quantity-aware: nodes accumulate `done_qty` from task events, so
 the dashboard can say `17,511 / 34,000 steel_plate`, not just "node running".
 
+## Recipient pinning and synthetic transport (spec amendment, 2026-07-10)
+
+Two facts discovered while planning:
+
+1. **Storage is siloed per agent even inside the craft fleet.** A courier
+   that deposits materials at station S leaves them in the *courier's*
+   storage; a different craftsman running the craft node there cannot
+   withdraw them.
+2. **A2 plans have no haul nodes between craft nodes.** A craft at
+   factory_belt feeding a craft at confederacy_central_command assumes
+   transport that no node represents.
+
+Resolution:
+
+- **Pin craft nodes to agents at plan-accept.** The plan store assigns each
+  craft node to a specific craftsman (load-balanced round-robin over the
+  roster) before any dispatch. Task pinning already exists
+  (`tasks.Task.AgentID`, honored by `pickWorker`).
+- **Every node feeding a craft node carries `$RECIPIENT$`** = the pinned
+  agent of its consumer. deliver/buy/mine verbs end with `send_gift` to the
+  recipient at the consumer's station (goods land in the recipient's
+  storage there) instead of deposit-and-leave. When the executing agent IS
+  the recipient, gift degrades to a plain storage deposit. When a haul's
+  `from_base == to_base`, the whole node collapses to a same-station gift —
+  no flight (common: the live smoke showed most stock already sits at the
+  assembly hub).
+- **Synthetic transport nodes:** for each dependency edge between craft
+  nodes at different stations, plan-accept inserts a synthetic deliver node
+  (id `xfer-N`, flagged `synthetic`) pinned to the producer's agent, so the
+  DAG on the dashboard shows the real work.
+- **`any_docked_station` resolves at dispatch** to the plan's assembly base
+  (`--assembly=<base_id>`, default: the first craft-fleet roster entry's
+  station), so every node has a concrete station before the overmind sees
+  it.
+- Task 0 addition: the craft command's documented `deliver_to` job param
+  may make the server deliver craft output cross-station; if so, synthetic
+  transport nodes can be skipped where it applies. Verify live.
+
 ## Worker verbs
 
 Nodes map to tasks via four tiny shared `.smolt` scripts using existing
@@ -250,6 +288,9 @@ Auto-refresh + refresh-now button, as overmind-status does.
    facility instance (A2 sites by instance for fee optimization) and what
    `--dry_run` reports for foreign-faction facilities.
 3. `send_gift --source=storage` availability (expected server patch).
+4. `craft` `deliver_to` job param semantics: does the server deliver craft
+   output to another station/player? If yes, synthetic transport nodes can
+   be skipped where it applies.
 
 ## Deferred (v2+)
 
