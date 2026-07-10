@@ -2,10 +2,12 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -24,6 +26,22 @@ type craftFakeClient struct {
 
 	craftQuantityCalls []craftQuantityCall
 	craftBulkCalls     [][]map[string]any
+
+	// queueJobID is the job_id carried in the queued-craft response cached
+	// under "_last" right after CraftWithQuantity/CraftBulk. Defaults to
+	// "job-1" so tests that don't care about polling still get a decodable
+	// queue response.
+	queueJobID string
+
+	// pollResponses is a FIFO of raw `craft action=queue` listing JSON
+	// bodies: RawCommand("craft", {"action":"queue"}) returns
+	// pollResponses[pollCallCount] each call (repeating the last entry once
+	// exhausted). Left unset, RawCommand returns an empty jobs listing —
+	// the queued job is immediately "not found" == done, so tests that don't
+	// exercise polling never sleep.
+	pollResponses [][]byte
+	pollCallCount int
+	pollErr       error
 }
 
 type craftQuantityCall struct {
@@ -36,15 +54,42 @@ func (f *craftFakeClient) ViewStorage(ctx context.Context) error {
 	return nil
 }
 
+// setQueuedRaw caches a decodable queued-craft response under "_last",
+// mirroring what the real client does after a craft/craft-bulk call returns —
+// craft_node.go reads it back immediately to learn the job_id.
+func (f *craftFakeClient) setQueuedRaw(bulk bool) {
+	jobID := f.queueJobID
+	if jobID == "" {
+		jobID = "job-1"
+	}
+	var body []byte
+	if bulk {
+		body, _ = json.Marshal(serverapi.CraftBulkResponse{ //nolint:errcheck
+			Action:  "craft",
+			Mode:    "bulk",
+			Results: []serverapi.CraftBulkResult{{Index: 0, Success: true, JobID: jobID}},
+			Summary: serverapi.CraftBulkSummary{Total: 1, Succeeded: 1},
+		})
+	} else {
+		body, _ = json.Marshal(serverapi.CraftJobQueued{Action: "craft", JobID: jobID}) //nolint:errcheck
+	}
+	if f.raw == nil {
+		f.raw = map[string][]byte{}
+	}
+	f.raw["_last"] = body
+}
+
 func (f *craftFakeClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
 	f.calls = append(f.calls, fmt.Sprintf("craft:%s:%d", recipeID, quantity))
 	f.craftQuantityCalls = append(f.craftQuantityCalls, craftQuantityCall{recipeID: recipeID, quantity: quantity})
+	f.setQueuedRaw(false)
 	return nil
 }
 
 func (f *craftFakeClient) CraftBulk(ctx context.Context, jobs []map[string]any) error {
 	f.calls = append(f.calls, "craft_bulk")
 	f.craftBulkCalls = append(f.craftBulkCalls, jobs)
+	f.setQueuedRaw(true)
 	return nil
 }
 
@@ -56,7 +101,35 @@ func (f *craftFakeClient) CraftDryRun(ctx context.Context, recipeID string, quan
 	if f.dryRunResult != nil {
 		return f.dryRunResult, nil
 	}
-	return &serverapi.CraftDryRunResponse{}, nil
+	return &serverapi.CraftDryRunResponse{HaveInputs: true, HaveCredits: true}, nil
+}
+
+// RawCommand intercepts `craft action=queue` polling (from
+// WorkerDispatch.waitForCraftJob) and serves pollResponses in order; every
+// other command falls through to the embedded fakeClient.
+func (f *craftFakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
+	if command == "craft" && args["action"] == "queue" {
+		f.calls = append(f.calls, "raw:craft:queue")
+		if f.pollErr != nil {
+			return f.pollErr
+		}
+		var body []byte
+		switch {
+		case f.pollCallCount < len(f.pollResponses):
+			body = f.pollResponses[f.pollCallCount]
+		case len(f.pollResponses) > 0:
+			body = f.pollResponses[len(f.pollResponses)-1]
+		default:
+			body = []byte(`{"action":"queue","jobs":[]}`)
+		}
+		f.pollCallCount++
+		if f.raw == nil {
+			f.raw = map[string][]byte{}
+		}
+		f.raw["_last"] = body
+		return nil
+	}
+	return f.fakeClient.RawCommand(ctx, command, args)
 }
 
 // newCraftTestKB builds an in-memory SQLiteKB with a "hub_a" base and a
@@ -268,6 +341,141 @@ func TestCraftOutputsUnknownRecipeErrors(t *testing.T) {
 	}
 	if len(client.craftQuantityCalls) != 0 || len(client.craftBulkCalls) != 0 {
 		t.Fatalf("craft must not be called for an unresolvable recipe, calls = %v", client.calls)
+	}
+}
+
+// TestCraftOutputsPreflightFailsOnMissingInputs is the regression test for
+// finding #2: the dry-run's HaveInputs/HaveCredits preflight was previously
+// ignored entirely — only CreditsTotal was read. have_inputs=false must fail
+// CraftOutputs immediately, surfacing the server's Message verbatim (Task 0
+// findings #6: the message names the nearest facility that CAN make the
+// recipe — operators need that text in park details) — without ever queuing
+// a craft.
+func TestCraftOutputsPreflightFailsOnMissingInputs(t *testing.T) {
+	kb := newCraftTestKB(t)
+	const wantMsg = "'Assemble Widget' is made in a Widget Assembler, and no facility here can make it. Nearest public one: Hub B (3 jump(s) away)."
+	client := &craftFakeClient{
+		fakeClient: &fakeClient{state: &game.State{}},
+		dryRunResult: &serverapi.CraftDryRunResponse{
+			CreditsTotal: 5, HaveInputs: false, HaveCredits: true, Message: wantMsg,
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+
+	err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", "hand", 0)
+	if err == nil {
+		t.Fatal("expected an error when the dry-run reports have_inputs=false")
+	}
+	if !strings.Contains(err.Error(), wantMsg) {
+		t.Fatalf("err = %q, want it to contain the server message %q", err.Error(), wantMsg)
+	}
+	if !strings.Contains(err.Error(), "have_inputs=false") {
+		t.Fatalf("err = %q, want it to name have_inputs=false", err.Error())
+	}
+	if len(client.craftQuantityCalls) != 0 || len(client.craftBulkCalls) != 0 {
+		t.Fatalf("craft must not be called after a failed preflight, calls = %v", client.calls)
+	}
+}
+
+// TestCraftOutputsPreflightFailsOnMissingCredits mirrors the have_inputs
+// case for have_credits=false.
+func TestCraftOutputsPreflightFailsOnMissingCredits(t *testing.T) {
+	kb := newCraftTestKB(t)
+	client := &craftFakeClient{
+		fakeClient: &fakeClient{state: &game.State{}},
+		dryRunResult: &serverapi.CraftDryRunResponse{
+			CreditsTotal: 5, HaveInputs: true, HaveCredits: false, Message: "not enough credits",
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+
+	err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", "hand", 0)
+	if err == nil {
+		t.Fatal("expected an error when the dry-run reports have_credits=false")
+	}
+	if !strings.Contains(err.Error(), "have_credits=false") || !strings.Contains(err.Error(), "not enough credits") {
+		t.Fatalf("err = %q, want it to name have_credits=false and the server message", err.Error())
+	}
+	if len(client.craftQuantityCalls) != 0 || len(client.craftBulkCalls) != 0 {
+		t.Fatalf("craft must not be called after a failed preflight, calls = %v", client.calls)
+	}
+}
+
+// TestCraftOutputsWaitsForJobCompletion is the regression test for finding
+// #1: CraftOutputs must not return the instant CraftWithQuantity/CraftBulk
+// accepts the job — it must poll `craft action=queue` until the job is no
+// longer running. The fake reports the job still running (runs_remaining=1)
+// on the first poll and gone (completed) on the second, so a premature
+// return would be caught by asserting both polls happened.
+func TestCraftOutputsWaitsForJobCompletion(t *testing.T) {
+	kb := newCraftTestKB(t)
+	client := &craftFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{CurrentTick: 50}},
+		dryRunResult: &serverapi.CraftDryRunResponse{HaveInputs: true, HaveCredits: true, EstCompletionTick: 100},
+		pollResponses: [][]byte{
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":1,"status":"running"}]}`),
+			[]byte(`{"action":"queue","jobs":[]}`),
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.craftPollSleep = func(ctx context.Context, dur time.Duration) error { return nil } // no real wall-clock wait
+
+	if err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", "hand", 0); err != nil {
+		t.Fatalf("CraftOutputs: %v", err)
+	}
+	if client.pollCallCount != 2 {
+		t.Fatalf("poll calls = %d, want 2 (verb must not return before the job reports complete)", client.pollCallCount)
+	}
+}
+
+// TestCraftOutputsWaitTimesOut is the regression test for the bounded-wait
+// half of finding #1: if the job never reports complete before
+// est_completion_tick + margin, CraftOutputs must fail (never a silent
+// success) so the runner can retry/park the node. CurrentTick is set well
+// past the deadline up front so this asserts without ever needing to sleep.
+func TestCraftOutputsWaitTimesOut(t *testing.T) {
+	kb := newCraftTestKB(t)
+	client := &craftFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{CurrentTick: 100000}},
+		dryRunResult: &serverapi.CraftDryRunResponse{HaveInputs: true, HaveCredits: true, EstCompletionTick: 100},
+		pollResponses: [][]byte{
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":1,"status":"running"}]}`),
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.craftPollSleep = func(ctx context.Context, dur time.Duration) error { return nil } // no real wall-clock wait
+
+	err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", "hand", 0)
+	if err == nil {
+		t.Fatal("expected a timeout error when the job never completes before the deadline")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("err = %q, want it to mention a timeout", err.Error())
+	}
+}
+
+// TestCraftOutputsFacilityWaitsForJobCompletion mirrors
+// TestCraftOutputsWaitsForJobCompletion for the facility (CraftBulk) path,
+// confirming the wait applies to BOTH facility and hand paths.
+func TestCraftOutputsFacilityWaitsForJobCompletion(t *testing.T) {
+	kb := newCraftTestKB(t)
+	client := &craftFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{CurrentTick: 10}},
+		dryRunResult: &serverapi.CraftDryRunResponse{HaveInputs: true, HaveCredits: true, EstCompletionTick: 50},
+		pollResponses: [][]byte{
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":2,"status":"running"}]}`),
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":0,"status":"completed"}]}`),
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.craftPollSleep = func(ctx context.Context, dur time.Duration) error { return nil }
+
+	facilityID := "workshop:abc123:hub_a"
+	if err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", facilityID, 0); err != nil {
+		t.Fatalf("CraftOutputs: %v", err)
+	}
+	if client.pollCallCount != 2 {
+		t.Fatalf("poll calls = %d, want 2", client.pollCallCount)
 	}
 }
 

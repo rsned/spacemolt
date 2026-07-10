@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -36,6 +37,12 @@ type WorkerDispatch struct {
 	// shuttle carries cross-pass shuttle memory (dry-pass streak + reposition
 	// cursor) so the idle→idle→reposition cadence survives between passes.
 	shuttle *shuttleState
+
+	// craftPollSleep is the sleep-with-cancellation used between craft_node's
+	// completion-poll retries (waitForCraftJob). Defaults to a real ctx-aware
+	// time.Sleep (craftPollSleepFunc); tests override it with a zero-delay
+	// stand-in so polling loops don't add real wall-clock time to the suite.
+	craftPollSleep func(ctx context.Context, d time.Duration) error
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -45,7 +52,12 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 	if out == nil {
 		out = io.Discard
 	}
-	return &WorkerDispatch{Client: client, KB: kb, Market: mc, Out: out, treasury: &treasuryRescue{}, shuttle: &shuttleState{}}
+	return &WorkerDispatch{
+		Client: client, KB: kb, Market: mc, Out: out,
+		treasury:       &treasuryRescue{},
+		shuttle:        &shuttleState{},
+		craftPollSleep: craftPollSleepFunc,
+	}
 }
 
 // supported is the curated command set. Keep in sync with data/scripts and
