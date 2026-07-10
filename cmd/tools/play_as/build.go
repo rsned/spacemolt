@@ -24,8 +24,14 @@ func parseBuildArgs(args []string) (string, int, bool, error) {
 		switch {
 		case a == "--json":
 			jsonOut = true
+		case strings.HasPrefix(a, "--max-hand-ticks="):
+			// Consumed by runBuild, but must be accepted here so a correct
+			// spelling never falls through to the unknown-flag error below.
 		case strings.HasPrefix(a, "--"):
-			// flags handled by the caller; ignore here
+			// Reject rather than ignore: a typo like --max-hand-tick=50 would
+			// otherwise be silently dropped and the plan would quietly use the
+			// default time budget, with nothing telling the operator.
+			return "", 0, false, fmt.Errorf("unknown flag %q (supported: --json, --max-hand-ticks=N)", a)
 		default:
 			n, err := strconv.Atoi(a)
 			if err != nil {
