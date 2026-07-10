@@ -1,0 +1,92 @@
+{
+  "target": "sensor_array",
+  "quantity": 2,
+  "nodes": [
+    {
+      "id": "craft-1",
+      "kind": "craft",
+      "item_id": "sensor_array",
+      "qty": 2,
+      "runs": 2,
+      "recipe_id": "build_sensor_array",
+      "station_id": "any_docked_station",
+      "ticks_est": 8,
+      "status": "ok",
+      "depends_on": [
+        "blocked-2",
+        "craft-3"
+      ]
+    },
+    {
+      "id": "blocked-2",
+      "kind": "blocked",
+      "item_id": "matrix",
+      "qty": 2,
+      "status": "blocked",
+      "reason": "facility_only, no public facility known and no market seller"
+    },
+    {
+      "id": "craft-3",
+      "kind": "craft",
+      "item_id": "optics",
+      "qty": 4,
+      "runs": 4,
+      "recipe_id": "build_optics",
+      "station_id": "any_docked_station",
+      "ticks_est": 4,
+      "status": "ok",
+      "depends_on": [
+        "craft-4"
+      ]
+    },
+    {
+      "id": "craft-4",
+      "kind": "craft",
+      "item_id": "wire",
+      "qty": 12,
+      "runs": 6,
+      "recipe_id": "draw_wire",
+      "station_id": "confederacy_central_command",
+      "facility_id": "cheap",
+      "fee_total": 24,
+      "ticks_est": 0.30000000000000004,
+      "status": "ok",
+      "depends_on": [
+        "haul-5",
+        "mine-6"
+      ]
+    },
+    {
+      "id": "haul-5",
+      "kind": "haul",
+      "item_id": "copper_ore",
+      "qty": 2,
+      "holder": "hauler-3",
+      "from_base": "far_base",
+      "to_base": "any_docked_station",
+      "jumps": 2,
+      "status": "stale",
+      "reason": "stock last seen 2026-07-06T13:00Z"
+    },
+    {
+      "id": "mine-6",
+      "kind": "mine",
+      "item_id": "copper_ore",
+      "qty": 4,
+      "status": "ok"
+    }
+  ],
+  "leaves": {
+    "copper_ore": {
+      "mineable": true
+    }
+  },
+  "total_fee": 24,
+  "total_ticks": 12.3,
+  "total_haul_jumps": 2,
+  "coverage": {
+    "stations": 30,
+    "facility_only_covered": 101,
+    "facility_only_total": 317
+  }
+}
