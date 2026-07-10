@@ -43,3 +43,12 @@ func TestFacilityParseProduction_EmptyDefaultsOutputToOne(t *testing.T) {
 		t.Errorf("OutputPerRun = %d, want 1", f.OutputPerRun)
 	}
 }
+
+func TestNewEngineRequiresSource(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("New(nil) must panic")
+		}
+	}()
+	_ = New(nil)
+}
