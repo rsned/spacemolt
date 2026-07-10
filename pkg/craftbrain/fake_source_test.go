@@ -20,7 +20,6 @@ type fakeSource struct {
 	coverage   Coverage
 }
 
-//nolint:unused // scaffolding consumed by Task 4's DAG-expansion tests
 func newFakeSource() *fakeSource {
 	return &fakeSource{
 		recipes:    map[string]knowledge.RecipeDef{},
@@ -33,8 +32,6 @@ func newFakeSource() *fakeSource {
 }
 
 // addRecipe registers a recipe producing outQty of outItem per run from ins.
-//
-//nolint:unused // scaffolding consumed by Task 4's DAG-expansion tests
 func (f *fakeSource) addRecipe(id, outItem string, outQty int, craftTime float64, facilityOnly bool, ins map[string]int) {
 	inputs := make([]knowledge.RecipeIngredient, 0, len(ins))
 	for item, q := range ins {
