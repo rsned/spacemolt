@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -151,4 +152,56 @@ func (s *Store) Snapshot() []Task {
 	out := make([]Task, len(s.tasks))
 	copy(out, s.tasks)
 	return out
+}
+
+// Add inserts a runtime task (plan-runner injection path). Same validation as
+// LoadTasks; Status is forced to pending regardless of input.
+func (s *Store) Add(t Task) error {
+	switch {
+	case t.ID == "":
+		return fmt.Errorf("tasks: empty id")
+	case strings.Contains(t.ID, ":"):
+		return fmt.Errorf("tasks: id %q must not contain ':'", t.ID)
+	case t.Script == "":
+		return fmt.Errorf("tasks: task %q has empty script", t.ID)
+	case t.RoleRequired == "":
+		return fmt.Errorf("tasks: task %q has empty role_required", t.ID)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.tasks {
+		if s.tasks[i].ID == t.ID {
+			return fmt.Errorf("tasks: duplicate id %q", t.ID)
+		}
+	}
+	t.Status = StatusPending
+	t.AssignedTo = ""
+	s.tasks = append(s.tasks, t)
+	return nil
+}
+
+// Remove deletes the task with the given id. It reports whether a task was
+// found and removed.
+func (s *Store) Remove(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.tasks {
+		if s.tasks[i].ID == id {
+			s.tasks = append(s.tasks[:i], s.tasks[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// Get returns a copy of the task with the given id, if present.
+func (s *Store) Get(id string) (Task, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.tasks {
+		if s.tasks[i].ID == id {
+			return s.tasks[i], true
+		}
+	}
+	return Task{}, false
 }
