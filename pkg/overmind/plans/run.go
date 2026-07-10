@@ -105,9 +105,13 @@ func NewRun(qf QueueFile, roster []RosterAgent) *PlanRun {
 		Diagnostics: append([]string(nil), qf.Plan.Diagnostics...),
 	}
 
-	// Rule 1: copy nodes in plan order into NodeRuns.
+	// Rule 1: copy nodes in plan order into NodeRuns. DependsOn is cloned
+	// (not just the struct) so rule 6's in-place edge rewrite never leaks
+	// back into the caller's qf.Plan — Go struct copy shares slice backing
+	// arrays by default.
 	pr.Nodes = make([]*NodeRun, 0, len(qf.Plan.Nodes))
 	for _, n := range qf.Plan.Nodes {
+		n.DependsOn = append([]string(nil), n.DependsOn...)
 		pr.Nodes = append(pr.Nodes, &NodeRun{Node: n, State: NodeWaiting})
 	}
 
