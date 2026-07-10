@@ -121,6 +121,15 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 	if qty < 1 {
 		return fmt.Errorf("deliver: qty must be >= 1, got %d", qty)
 	}
+	// Resolve the recipient before any travel or withdraw so a bad recipient
+	// (e.g. missing credentials.json) fails immediately instead of after
+	// goods have already been pulled out of storage. The resolved username is
+	// reused for every chunk below instead of re-reading credentials.json
+	// each time.
+	username, err := resolveRecipientUsername(d, recipient)
+	if err != nil {
+		return fmt.Errorf("deliver: %w", err)
+	}
 	fromSys, fromPOI, err := resolveBase(ctx, d.KB, from)
 	if err != nil {
 		return fmt.Errorf("deliver: resolve source %q: %w", from, err)
@@ -161,7 +170,7 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 		if err := d.autopilotAndDock(ctx, toSys, toPOI); err != nil {
 			return fmt.Errorf("deliver: travel to destination %q: %w", to, err)
 		}
-		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient); err != nil {
+		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient, username); err != nil {
 			return fmt.Errorf("deliver: %w", err)
 		}
 		time.Sleep(game.SleepQuick)
@@ -219,30 +228,55 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	return carrying, short, false, nil
 }
 
+// resolveRecipientUsername resolves recipient to the in-game username
+// SendGift requires, up front — before any travel, withdraw, or buy — so a
+// bad recipient (e.g. a missing/broken credentials.json) fails fast instead
+// of after goods have already been moved or credits already spent. recipient
+// "self" (or d's own agent id) needs no resolution and returns "". The
+// returned username is reused for every chunk of the caller's delivery loop
+// instead of re-resolving credentials.json on each iteration.
+func resolveRecipientUsername(d *WorkerDispatch, recipient string) (string, error) {
+	if recipient == "self" || recipient == d.AgentID {
+		return "", nil
+	}
+	username, err := UsernameFor(d.agentsDir(), recipient)
+	if err != nil {
+		return "", fmt.Errorf("resolve recipient %q: %w", recipient, err)
+	}
+	return username, nil
+}
+
 // giftOrDeposit hands qty of itemID to recipient from the ship's current
 // cargo. recipient "self" (or d's own agent id) deposits into the dispatch's
 // own storage at the current (already-docked) location; any other recipient
-// resolves to an in-game username via UsernameFor and is sent a gift instead.
-// Cargo-only — the caller must already be docked at the handoff location
-// before calling this. Shared by Deliver and BuyDirected, the two verbs that
-// hand cargo off to a recipient.
-func giftOrDeposit(ctx context.Context, d *WorkerDispatch, itemID string, qty int, recipient string) error {
+// is sent a gift instead, addressed to username (resolved once up front by
+// the caller via resolveRecipientUsername — ignored when recipient is
+// self/own agent id). Cargo-only — the caller must already be docked at the
+// handoff location before calling this. Shared by Deliver and BuyDirected,
+// the two verbs that hand cargo off to a recipient.
+func giftOrDeposit(ctx context.Context, d *WorkerDispatch, itemID string, qty int, recipient, username string) error {
 	if recipient == "self" || recipient == d.AgentID {
 		if err := d.Client.DepositItems(ctx, itemID, float64(qty)); err != nil {
 			return fmt.Errorf("deposit %s: %w", itemID, err)
 		}
-		return nil
+	} else {
+		if err := d.Client.SendGift(ctx, map[string]any{
+			"recipient": username,
+			"item_id":   itemID,
+			"quantity":  float64(qty),
+		}); err != nil {
+			return fmt.Errorf("gift %s to %s: %w", itemID, recipient, err)
+		}
 	}
-	username, err := UsernameFor(d.agentsDir(), recipient)
-	if err != nil {
-		return fmt.Errorf("resolve recipient %q: %w", recipient, err)
-	}
-	if err := d.Client.SendGift(ctx, map[string]any{
-		"recipient": username,
-		"item_id":   itemID,
-		"quantity":  float64(qty),
-	}); err != nil {
-		return fmt.Errorf("gift %s to %s: %w", itemID, recipient, err)
+	// The live client's parseActionResult has no "send_gift" case at all, and
+	// its "deposit_items" case only updates CargoCapacity (not the cargo item
+	// list), so a successful hand-off does NOT remove the delivered/gifted
+	// units from state.Ship.Cargo on its own — an explicit refresh is
+	// required before the caller's chunk loop re-reads cargo, or the next
+	// iteration sees phantom stock that is no longer actually aboard (same
+	// remedy already applied to withdraw and buy).
+	if err := d.Client.GetCargo(ctx); err != nil {
+		return fmt.Errorf("refresh cargo after handoff of %s: %w", itemID, err)
 	}
 	return nil
 }

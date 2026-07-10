@@ -250,6 +250,43 @@ func TestBuyDirectedSelfDepositsInstead(t *testing.T) {
 	}
 }
 
+// TestBuyDirectedBadRecipientFailsBeforeBuy is the regression test for the
+// recipient fail-fast requirement: a recipient whose credentials.json is
+// missing must fail BuyDirected before any credits are spent — resolving
+// UsernameFor up front, not lazily inside the chunk loop.
+func TestBuyDirectedBadRecipientFailsBeforeBuy(t *testing.T) {
+	kb := newBuyDirectedTestKB(t)
+	agentsDir := t.TempDir() // no credentials.json for "craftsman-missing"
+
+	client := &buyDirectedFakeClient{
+		deliverFakeClient: &deliverFakeClient{
+			fakeClient: &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		},
+		listings: []game.MarketListing{
+			{ItemID: "pressure_seal", Type: "sell", PricePerUnit: 10},
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	err := d.BuyDirected(context.Background(), "pressure_seal", 5, "station_base", 0, "craftsman-missing")
+	if err == nil {
+		t.Fatal("expected error for a recipient with no resolvable credentials")
+	}
+	if !strings.Contains(err.Error(), "craftsman-missing") {
+		t.Fatalf("error = %q, want it to mention the recipient %q", err.Error(), "craftsman-missing")
+	}
+	if len(client.buyCalls) != 0 {
+		t.Fatalf("Buy must not be called before the recipient resolves, got %+v", client.buyCalls)
+	}
+	for _, c := range client.calls {
+		if c == "dock" {
+			t.Fatalf("BuyDirected must not travel before the recipient resolves, got call %q", c)
+		}
+	}
+}
+
 // TestBuyDirectedNoLiveAskFails: the market has no sell listing for the item
 // at all — BuyDirected must fail cleanly instead of buying at an unknown price.
 func TestBuyDirectedNoLiveAskFails(t *testing.T) {

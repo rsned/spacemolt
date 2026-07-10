@@ -28,6 +28,7 @@ type deliverFakeClient struct {
 	*fakeClient
 	storageStock    map[string]float64 // item_id -> qty available at the source station
 	pendingWithdraw map[string]float64 // item_id -> withdrawn qty not yet visible in cargo
+	pendingDrain    map[string]float64 // item_id -> gifted/deposited qty not yet removed from cargo
 
 	depositCalls []depositCall
 	giftCalls    []map[string]any
@@ -61,7 +62,12 @@ func (f *deliverFakeClient) WithdrawItems(ctx context.Context, itemID string, qu
 // GetCargo overrides the embedded fakeClient's no-op stub: it applies any
 // pending withdrawals to the shared *game.State's cargo, mirroring how the
 // live client's get_cargo round trip is the only thing that makes a withdraw
-// visible in state.Ship.Cargo.
+// visible in state.Ship.Cargo. It also applies any pending gift/deposit
+// drains staged by SendGift/DepositItems — the live client's
+// parseActionResult has no "send_gift" case at all, and its "deposit_items"
+// case only updates CargoCapacity (not the cargo item list), so a successful
+// hand-off does NOT remove the delivered/gifted units from state.Ship.Cargo
+// until an explicit get_cargo round trip, exactly like withdraw.
 func (f *deliverFakeClient) GetCargo(ctx context.Context) error {
 	f.calls = append(f.calls, "get_cargo")
 	if f.state == nil {
@@ -83,13 +89,20 @@ func (f *deliverFakeClient) GetCargo(ctx context.Context) error {
 		}
 	}
 	f.pendingWithdraw = map[string]float64{}
+	for itemID, qty := range f.pendingDrain {
+		if qty <= 0 {
+			continue
+		}
+		f.drainCargo(itemID, qty)
+	}
+	f.pendingDrain = map[string]float64{}
 	return nil
 }
 
 func (f *deliverFakeClient) DepositItems(ctx context.Context, itemID string, quantity float64) error {
 	f.calls = append(f.calls, fmt.Sprintf("deposit:%s:%.0f", itemID, quantity))
 	f.depositCalls = append(f.depositCalls, depositCall{itemID: itemID, quantity: quantity})
-	f.drainCargo(itemID, quantity)
+	f.stageDrain(itemID, quantity)
 	return nil
 }
 
@@ -98,8 +111,19 @@ func (f *deliverFakeClient) SendGift(ctx context.Context, payload map[string]any
 	f.giftCalls = append(f.giftCalls, payload)
 	itemID, _ := payload["item_id"].(string)
 	qty, _ := payload["quantity"].(float64)
-	f.drainCargo(itemID, qty)
+	f.stageDrain(itemID, qty)
 	return nil
+}
+
+// stageDrain records qty of itemID as gifted/deposited but not yet removed
+// from cargo — mirroring the live client, which only reflects a
+// send_gift/deposit_items hand-off in state.Ship.Cargo after an explicit
+// get_cargo call.
+func (f *deliverFakeClient) stageDrain(itemID string, quantity float64) {
+	if f.pendingDrain == nil {
+		f.pendingDrain = map[string]float64{}
+	}
+	f.pendingDrain[itemID] += quantity
 }
 
 func (f *deliverFakeClient) drainCargo(itemID string, quantity float64) {
@@ -239,6 +263,93 @@ func TestDeliverSourceShortGiftsWhatExists(t *testing.T) {
 	}
 	if got := client.giftCalls[0]["quantity"]; got != float64(3) {
 		t.Fatalf("gift quantity = %v, want 3", got)
+	}
+}
+
+// TestDeliverLoopsOverCargoSizedChunks is the regression test for the stale
+// cargo bug: qty (8) exceeds the ship's cargo capacity (5) while the source
+// has plenty of stock, so Deliver must round-trip source->destination twice —
+// two WithdrawItems calls and two SendGift calls, consuming the full 8 units
+// from source storage. If a gift's delivered units aren't reflected in
+// state.Ship.Cargo (no GetCargo refresh after the hand-off), the second
+// iteration reads the stale, still-full cargo count, skips its withdraw, and
+// gifts phantom stock that isn't actually aboard — leaving source storage
+// under-consumed.
+func TestDeliverLoopsOverCargoSizedChunks(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 5}}},
+		storageStock: map[string]float64{"pressure_seal": 100},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "pressure_seal", 8, "from_base", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+
+	withdrawCalls := 0
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "withdraw:") {
+			withdrawCalls++
+		}
+	}
+	if withdrawCalls != 2 {
+		t.Fatalf("WithdrawItems calls = %d, want 2 (cargo-sized round trips)", withdrawCalls)
+	}
+	if len(client.giftCalls) != 2 {
+		t.Fatalf("SendGift calls = %d, want 2 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	// The full 8 units must have actually come out of source storage — not
+	// just been claimed as gifted while stale cargo state let the second
+	// withdraw get skipped.
+	if got, want := client.storageStock["pressure_seal"], float64(100-8); got != want {
+		t.Fatalf("source storage left = %v, want %v (all 8 units actually withdrawn)", got, want)
+	}
+	var totalGifted float64
+	for _, gc := range client.giftCalls {
+		q, _ := gc["quantity"].(float64)
+		totalGifted += q
+	}
+	if totalGifted != 8 {
+		t.Fatalf("total gifted = %v, want 8", totalGifted)
+	}
+}
+
+// TestDeliverBadRecipientFailsBeforeWithdraw is the regression test for the
+// recipient fail-fast requirement: a recipient whose credentials.json is
+// missing must fail Deliver before any goods are withdrawn from the source —
+// resolving UsernameFor up front, not lazily inside the chunk loop.
+func TestDeliverBadRecipientFailsBeforeWithdraw(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir() // no credentials.json for "craftsman-missing"
+
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		storageStock: map[string]float64{"pressure_seal": 10},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", "craftsman-missing")
+	if err == nil {
+		t.Fatal("expected error for a recipient with no resolvable credentials")
+	}
+	if !strings.Contains(err.Error(), "craftsman-missing") {
+		t.Fatalf("error = %q, want it to mention the recipient %q", err.Error(), "craftsman-missing")
+	}
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "withdraw:") {
+			t.Fatalf("Deliver must not withdraw before the recipient resolves, got call %q", c)
+		}
+		if c == "dock" {
+			t.Fatalf("Deliver must not travel before the recipient resolves, got call %q", c)
+		}
 	}
 }
 

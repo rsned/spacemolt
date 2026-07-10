@@ -19,6 +19,15 @@ func (d *WorkerDispatch) BuyDirected(ctx context.Context, itemID string, qty int
 	if qty < 1 {
 		return fmt.Errorf("buy_directed: qty must be >= 1, got %d", qty)
 	}
+	// Resolve the recipient before any travel or spend so a bad recipient
+	// (e.g. missing credentials.json) fails immediately instead of after
+	// credits have already been spent on the buy. The resolved username is
+	// reused for every chunk below instead of re-reading credentials.json
+	// each time.
+	username, err := resolveRecipientUsername(d, recipient)
+	if err != nil {
+		return fmt.Errorf("buy_directed: %w", err)
+	}
 	sys, poi, err := resolveBase(ctx, d.KB, station)
 	if err != nil {
 		return fmt.Errorf("buy_directed: resolve station %q: %w", station, err)
@@ -52,7 +61,7 @@ func (d *WorkerDispatch) BuyDirected(ctx context.Context, itemID string, qty int
 		// when the ship walked in already holding recipient-bound goods from
 		// a prior interrupted run — the buy above is skipped in that case.
 		deliverQty := min(carrying, remaining)
-		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient); err != nil {
+		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient, username); err != nil {
 			return fmt.Errorf("buy_directed: %w", err)
 		}
 		time.Sleep(game.SleepQuick)
