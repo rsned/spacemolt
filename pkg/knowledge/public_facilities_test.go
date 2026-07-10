@@ -106,3 +106,28 @@ func TestFacilitiesForRecipeUnknownReturnsEmpty(t *testing.T) {
 		t.Fatalf("want empty, got %d", len(got))
 	}
 }
+
+// A2's planner reads ticks_per_run / output_per_run out of details_json to
+// decide hand-craft vs facility, so the query must return it.
+func TestFacilitiesForRecipe_ReturnsDetailsJSON(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+	const details = `{"production":{"ticks_per_run":4.0,"output_per_run":2,"backlog_ticks":0}}`
+	if err := kb.UpsertPublicFacilities(ctx, []PublicFacility{
+		{StationID: "voss_redoubt_station", FacilityID: "sf-steel-1", RecipeID: "refine_steel",
+			Category: "production", Level: 2, RentalFeePerRun: 35, LastSeenTick: 100,
+			DetailsJSON: details},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := kb.FacilitiesForRecipe(ctx, "refine_steel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 facility, got %d", len(got))
+	}
+	if got[0].DetailsJSON != details {
+		t.Errorf("DetailsJSON = %q, want %q", got[0].DetailsJSON, details)
+	}
+}

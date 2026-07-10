@@ -24,7 +24,7 @@ type PublicFacility struct {
 	// LastSeenTick for staleness: the GameClock only ever syncs forward, so
 	// tick deltas understate real age. Stamped by the upsert when left empty.
 	LastSeenUTC string
-	DetailsJSON string // raw captured payload, forward-compat (write-only; not populated by queries)
+	DetailsJSON string // raw captured payload, forward-compat; holds production.ticks_per_run etc.
 }
 
 // UpsertPublicFacilities inserts or refreshes public_facilities rows, keyed on
@@ -66,7 +66,7 @@ func (kb *SQLiteKB) UpsertPublicFacilities(ctx context.Context, rows []PublicFac
 // recipeID, most-recently-seen first.
 func (kb *SQLiteKB) FacilitiesForRecipe(ctx context.Context, recipeID string) ([]PublicFacility, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT station_id, facility_id, recipe_id, facility_name, category, owner_faction, level, rental_fee_per_run, last_seen_tick, last_seen_utc
+		SELECT station_id, facility_id, recipe_id, facility_name, category, owner_faction, level, rental_fee_per_run, last_seen_tick, last_seen_utc, details_json
 		FROM public_facilities
 		WHERE recipe_id = ? AND public = 1 AND category = 'production'
 		ORDER BY last_seen_tick DESC`, recipeID)
@@ -79,7 +79,7 @@ func (kb *SQLiteKB) FacilitiesForRecipe(ctx context.Context, recipeID string) ([
 	for rows.Next() {
 		var f PublicFacility
 		if err := rows.Scan(&f.StationID, &f.FacilityID, &f.RecipeID, &f.FacilityName, &f.Category,
-			&f.OwnerFaction, &f.Level, &f.RentalFeePerRun, &f.LastSeenTick, &f.LastSeenUTC); err != nil {
+			&f.OwnerFaction, &f.Level, &f.RentalFeePerRun, &f.LastSeenTick, &f.LastSeenUTC, &f.DetailsJSON); err != nil {
 			return nil, err
 		}
 		out = append(out, f)
