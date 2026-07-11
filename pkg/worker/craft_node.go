@@ -204,15 +204,22 @@ const craftPollTimeoutMarginTicks = 30
 // *game.Client, not the GameClient interface this package depends on) until
 // jobID is no longer running, staying docked the whole time so a hand-craft
 // (Station Workshop) job keeps advancing. estCompletionTick is the dry-run's
-// estimate; <= 0 means the server gave no estimate, and only the flat
-// craftPollTimeoutMarginTicks bounds the wait. Returns an error — never a
-// silent success — if the job is still running once the deadline passes.
+// estimate. CurrentTick is an absolute, ever-increasing counter (hundreds of
+// thousands to millions), NOT a duration — so when estCompletionTick <= 0
+// (the server gave no estimate), the deadline cannot be est + margin (that
+// would be ~30, far below any real CurrentTick, and time out on the very
+// first poll). Instead the deadline anchors to the tick observed when the
+// wait started plus the flat margin. Returns an error — never a silent
+// success — if the job is still running once the deadline passes.
 func (d *WorkerDispatch) waitForCraftJob(ctx context.Context, jobID string, estCompletionTick int) error {
 	sleep := d.craftPollSleep
 	if sleep == nil {
 		sleep = craftPollSleepFunc
 	}
 	deadlineTick := int64(estCompletionTick + craftPollTimeoutMarginTicks)
+	if estCompletionTick <= 0 {
+		deadlineTick = d.Client.GetState().CurrentTick + craftPollTimeoutMarginTicks
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -242,9 +249,24 @@ func (d *WorkerDispatch) waitForCraftJob(ctx context.Context, jobID string, estC
 // in-flight jobs, and CraftOutputs never cancels its own job, so absence
 // means completion, not loss. found reports whether jobID was present in this
 // listing (for diagnostics on timeout).
+//
+// Discriminator (defense-in-depth against a "_last" clobber): a
+// crafting_update push (serverapi.CraftingUpdateEvent: {"tick","jobs":[...]})
+// shares the job_id/runs_remaining JSON tags with a genuine queue listing's
+// job entries, so it decodes without error and — worse — the absence
+// heuristic above would read a polled job's absence from that push as
+// "finished" when its real status is simply unknown. serverapi.CraftJobQueued
+// and CraftQueueListing both always carry a top-level "action" field (live
+// fixture: `action":"queue"` — see serverapi/crafting_responses_test.go
+// TestDecodeCraftQueueListing); CraftingUpdateEvent has no such field at all.
+// A payload whose decoded Action isn't "queue" is therefore not a genuine
+// queue listing and is treated as inconclusive — never as done.
 func craftJobDone(raw []byte, jobID string) (done bool, runsRemaining int, found bool) {
 	var listing serverapi.CraftQueueListing
 	if err := json.Unmarshal(raw, &listing); err != nil {
+		return false, 0, false
+	}
+	if listing.Action != "queue" {
 		return false, 0, false
 	}
 	for _, j := range listing.Jobs {

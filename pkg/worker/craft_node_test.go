@@ -454,6 +454,40 @@ func TestCraftOutputsWaitTimesOut(t *testing.T) {
 	}
 }
 
+// TestCraftOutputsWaitSucceedsWhenEstCompletionTickIsZero is the regression
+// test for the deadline degeneration bug: deadlineTick was computed as
+// estCompletionTick + craftPollTimeoutMarginTicks with NO reference to the
+// absolute current tick. When the dry-run gives no estimate (est_completion_tick
+// <= 0 — the server's documented "no estimate" sentinel), that produced a
+// deadline of ~30, while CurrentTick is an absolute counter in the hundreds of
+// thousands to millions (memory: current tick ~1.3M as of this writing) — so
+// the very first poll always finds currentTick > deadlineTick and times out
+// immediately, failing a perfectly good craft. The fix must anchor the
+// fallback deadline to the tick observed when the wait started, not to zero.
+// CurrentTick is set high (1,300,000-ish) up front to prove the fallback
+// isn't accidentally working only because CurrentTick happens to be small.
+func TestCraftOutputsWaitSucceedsWhenEstCompletionTickIsZero(t *testing.T) {
+	kb := newCraftTestKB(t)
+	client := &craftFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{CurrentTick: 1_300_000}},
+		dryRunResult: &serverapi.CraftDryRunResponse{HaveInputs: true, HaveCredits: true, EstCompletionTick: 0},
+		pollResponses: [][]byte{
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":2,"status":"running"}]}`),
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":1,"status":"running"}]}`),
+			[]byte(`{"action":"queue","jobs":[]}`), // poll 3: job gone, done
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.craftPollSleep = func(ctx context.Context, dur time.Duration) error { return nil }
+
+	if err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", "hand", 0); err != nil {
+		t.Fatalf("CraftOutputs: %v, want success (est_completion_tick=0 must not degenerate to an instant timeout)", err)
+	}
+	if client.pollCallCount != 3 {
+		t.Fatalf("poll calls = %d, want 3", client.pollCallCount)
+	}
+}
+
 // TestCraftOutputsFacilityWaitsForJobCompletion mirrors
 // TestCraftOutputsWaitsForJobCompletion for the facility (CraftBulk) path,
 // confirming the wait applies to BOTH facility and hand paths.
@@ -476,6 +510,63 @@ func TestCraftOutputsFacilityWaitsForJobCompletion(t *testing.T) {
 	}
 	if client.pollCallCount != 2 {
 		t.Fatalf("poll calls = %d, want 2", client.pollCallCount)
+	}
+}
+
+// TestCraftJobDone_CraftingUpdateShapeIsInconclusive is the regression test
+// for the craft_node half of the "_last" clobber bug (pkg/game/client.go
+// storeRawJSON now excludes crafting_update from ever landing in "_last", but
+// this is defense-in-depth in case a clobber slips through some other path).
+// A crafting_update push (serverapi.CraftingUpdateEvent: {"tick","jobs":[...]})
+// has no top-level "action" field, but its per-job entries share the
+// job_id/runs_remaining tags with serverapi.CraftQueueListing's CraftJobEntry,
+// so it decodes cleanly as a (bogus) queue listing. If jobID being polled
+// isn't one of the jobs named in that push (the common case — a crafting_update
+// tick for some OTHER job clobbering the read), the old absence-means-done
+// heuristic reported done=true for a job whose real status is completely
+// unknown. craftJobDone must instead recognize the payload isn't a genuine
+// queue listing (Action != "queue") and report inconclusive (done=false,
+// found=false) so the caller polls again instead of declaring silent success.
+func TestCraftJobDone_CraftingUpdateShapeIsInconclusive(t *testing.T) {
+	// Verbatim crafting_update shape (serverapi.CraftingUpdateEvent) for a
+	// DIFFERENT job than the one being polled.
+	raw := []byte(`{"tick":1300000,"jobs":[{"job_id":"job-other-999","recipe":"r","mode":"craft","venue":"v","storage":"station","deposited":[],"runs_done":1,"runs_remaining":3,"completed":false}]}`)
+
+	done, runsRemaining, found := craftJobDone(raw, "job-1")
+	if done {
+		t.Fatalf("craftJobDone must not report done for a crafting_update-shaped payload naming a different job; got done=true runsRemaining=%d found=%v", runsRemaining, found)
+	}
+	if found {
+		t.Errorf("found = true, want false (job-1 was never actually looked up in a genuine queue listing)")
+	}
+}
+
+// TestCraftOutputsWaitSurvivesCraftingUpdateShapedPoll is the integration
+// counterpart: waitForCraftJob must keep polling (not falsely conclude done)
+// when a poll response is crafting_update-shaped, and only conclude success
+// once a genuine `action=queue` listing shows the job gone.
+func TestCraftOutputsWaitSurvivesCraftingUpdateShapedPoll(t *testing.T) {
+	kb := newCraftTestKB(t)
+	client := &craftFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{CurrentTick: 10}},
+		dryRunResult: &serverapi.CraftDryRunResponse{HaveInputs: true, HaveCredits: true, EstCompletionTick: 100},
+		pollResponses: [][]byte{
+			// Poll 1: a crafting_update push clobbered "_last" for a different job.
+			[]byte(`{"tick":11,"jobs":[{"job_id":"job-other-999","recipe":"r","mode":"craft","venue":"v","storage":"station","deposited":[],"runs_done":1,"runs_remaining":3,"completed":false}]}`),
+			// Poll 2: genuine queue listing, job still running.
+			[]byte(`{"action":"queue","jobs":[{"job_id":"job-1","runs_remaining":1,"status":"running"}]}`),
+			// Poll 3: genuine queue listing, job gone (done).
+			[]byte(`{"action":"queue","jobs":[]}`),
+		},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.craftPollSleep = func(ctx context.Context, dur time.Duration) error { return nil }
+
+	if err := d.CraftOutputs(context.Background(), "make_widget", 5, "hub_a", "hand", 0); err != nil {
+		t.Fatalf("CraftOutputs: %v", err)
+	}
+	if client.pollCallCount != 3 {
+		t.Fatalf("poll calls = %d, want 3 (must not conclude done on the crafting_update-shaped poll)", client.pollCallCount)
 	}
 }
 

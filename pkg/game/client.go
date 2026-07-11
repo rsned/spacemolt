@@ -4160,6 +4160,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeFactionAllianceFormed:   {},
 	protocol.TypeFacilityRentWarning:     {},
 	protocol.TypeAchievementUnlocked:     {},
+	protocol.TypeCraftingUpdate:          {},
 }
 
 // storeRawJSON stores raw JSON payloads for key response types
