@@ -150,6 +150,8 @@ func dispatchTransform(ctx context.Context, planJSON []byte, args dispatchArgs, 
 		n.FeeTotal = int(math.Ceil(best.BestPrice * float64(n.Qty)))
 	}
 
+	priceNativeBuys(ctx, &plan, lookup)
+
 	budget := args.budget
 	switch budget {
 	case 0:
@@ -188,6 +190,60 @@ func dispatchTransform(ctx context.Context, planJSON []byte, args dispatchArgs, 
 	}
 
 	return qf, verify, nil
+}
+
+// priceNativeBuys stamps FeeTotal on planner-native KindBuy nodes that arrived
+// unpriced (FeeTotal==0). Without a fee, a buy node's MAX_UNIT_PRICE is 0 (no
+// ceiling) and it contributes nothing to the budget gate — so a native buy
+// could drain a wallet uncontrolled. It looks up a seller (preferring one at
+// the node's existing planner StationID so the site is kept when possible),
+// stamps FeeTotal = ceil(ask * qty), and notes any item with no seller in the
+// plan diagnostics rather than silently leaving it uncontrolled.
+func priceNativeBuys(ctx context.Context, plan *craftbrain.Plan, lookup sellerLookup) {
+	for i := range plan.Nodes {
+		n := &plan.Nodes[i]
+		if n.Kind != craftbrain.KindBuy || n.FeeTotal != 0 || n.Qty <= 0 {
+			continue
+		}
+		results, err := lookup(ctx, n.ItemID, n.Qty)
+		if err != nil {
+			plan.Diagnostics = append(plan.Diagnostics,
+				fmt.Sprintf("dispatch: seller lookup for native buy %s failed: %v (left unpriced, no budget ceiling)", n.ItemID, err))
+			continue
+		}
+		if len(results) == 0 {
+			plan.Diagnostics = append(plan.Diagnostics,
+				fmt.Sprintf("dispatch: no seller found for native buy %s (qty %d) — left unpriced, no budget ceiling", n.ItemID, n.Qty))
+			continue
+		}
+		best := results[0] // finditem's ranking: nearest, then cheapest
+		for _, r := range results {
+			if r.StationID == n.StationID { // prefer re-pricing at the node's existing station
+				best = r
+				break
+			}
+		}
+		n.StationID = best.StationID
+		n.FeeTotal = int(math.Ceil(best.BestPrice * float64(n.Qty)))
+	}
+}
+
+// filterDryRunNodes splits craft-node dry-run candidates by whether the
+// operator can actually quote them from where they sit. CraftDryRun with an
+// explicit facility_id is a no_facility error unless the caller is docked at
+// that facility's station (live-verified 2026-07-10), so only nodes whose
+// StationID equals the operator's current docked station can be verified here;
+// the rest are returned separately to be warned-and-skipped (their planner fee
+// is trusted). An empty dockedStation (operator not docked) verifies nothing.
+func filterDryRunNodes(candidates []craftbrain.Node, dockedStation string) (verify, skipped []craftbrain.Node) {
+	for _, n := range candidates {
+		if dockedStation != "" && n.StationID == dockedStation {
+			verify = append(verify, n)
+		} else {
+			skipped = append(skipped, n)
+		}
+	}
+	return verify, skipped
 }
 
 // resolveAssembly rewrites every craftbrain.DefaultCraftBase
@@ -290,7 +346,21 @@ func runDispatch(client game.GameClient, ctx context.Context, args []string) err
 	}
 
 	if !da.skipVerify {
-		for _, n := range verify {
+		// CraftDryRun with an explicit facility_id requires being docked at
+		// that facility's station, so only nodes at the operator's current
+		// docked station can be quoted from here; the rest are trusted at their
+		// planner fee (verify them by dispatching from their own station, or
+		// re-run build).
+		dockedStation := ""
+		if st := client.GetState(); st != nil {
+			dockedStation = st.Player.DockedAtBase
+		}
+		toVerify, skipped := filterDryRunNodes(verify, dockedStation)
+		if len(skipped) > 0 {
+			fmt.Printf("dispatch: skipping live dry-run verify for %d craft node(s) whose facility isn't at the operator's docked station %q (CraftDryRun requires docking there) — trusting their planner fees\n",
+				len(skipped), dockedStation)
+		}
+		for _, n := range toVerify {
 			resp, err := client.CraftDryRun(ctx, n.RecipeID, n.Qty, n.FacilityID)
 			if err != nil {
 				return fmt.Errorf("dispatch: dry-run verify node %s (%s): %w", n.ID, n.RecipeID, err)

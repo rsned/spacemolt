@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -279,6 +280,94 @@ func TestDispatchTransform_BudgetDefault(t *testing.T) {
 			t.Errorf("BudgetCap = %d, want 0 (unbounded)", qf.Manifest.BudgetCap)
 		}
 	})
+}
+
+// TestDispatchTransform_PricesNativeBuyNodes (I3): planner-native KindBuy nodes
+// arriving with FeeTotal==0 escaped the budget controls entirely (MAX_UNIT_PRICE
+// 0 = no ceiling, +0 to the gate). dispatchTransform must price them via the
+// seller lookup — preferring a seller at their existing station — and stamp
+// FeeTotal, so the default budget includes them. A buy with no seller anywhere
+// is left unpriced with a diagnostic.
+func TestDispatchTransform_PricesNativeBuyNodes(t *testing.T) {
+	plan := craftbrain.Plan{
+		Target: "widget",
+		Nodes: []craftbrain.Node{
+			{ID: "buy-1", Kind: craftbrain.KindBuy, ItemID: "gizmo", Qty: 4, FeeTotal: 0, StationID: "existing_stn"},
+			{ID: "buy-nostock", Kind: craftbrain.KindBuy, ItemID: "rare", Qty: 2, FeeTotal: 0},
+		},
+	}
+	raw, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lookup := fakeSeller(map[string][]finditem.Result{
+		"gizmo": {
+			{ItemSeller: market.ItemSeller{StationID: "cheap_stn", BestPrice: 3.0}},
+			{ItemSeller: market.ItemSeller{StationID: "existing_stn", BestPrice: 5.0}},
+		},
+		// rare: no seller
+	})
+
+	qf, _, err := dispatchTransform(context.Background(), raw, dispatchArgs{}, "base", lookup, time.Now())
+	if err != nil {
+		t.Fatalf("dispatchTransform: %v", err)
+	}
+
+	byID := map[string]craftbrain.Node{}
+	for _, n := range qf.Plan.Nodes {
+		byID[n.ID] = n
+	}
+
+	b1 := byID["buy-1"]
+	if b1.StationID != "existing_stn" {
+		t.Errorf("buy-1 StationID = %q, want existing_stn (a seller exists there — prefer re-pricing in place)", b1.StationID)
+	}
+	if b1.FeeTotal != 20 { // ceil(5.0 * 4)
+		t.Errorf("buy-1 FeeTotal = %d, want 20 (priced at the existing-station seller)", b1.FeeTotal)
+	}
+	if bn := byID["buy-nostock"]; bn.FeeTotal != 0 {
+		t.Errorf("buy-nostock FeeTotal = %d, want 0 (no seller — left unpriced)", bn.FeeTotal)
+	}
+	// Budget default now includes the priced buy: ceil(1.25 * 20) = 25.
+	if qf.Manifest.BudgetCap != 25 {
+		t.Errorf("BudgetCap = %d, want 25 (priced native buy must count toward the default)", qf.Manifest.BudgetCap)
+	}
+	// The no-seller buy must be surfaced in diagnostics.
+	foundNote := false
+	for _, d := range qf.Plan.Diagnostics {
+		if strings.Contains(d, "rare") {
+			foundNote = true
+		}
+	}
+	if !foundNote {
+		t.Errorf("diagnostics = %v, want a note about the unpriced native buy 'rare'", qf.Plan.Diagnostics)
+	}
+}
+
+// TestFilterDryRunNodes (I4): CraftDryRun with an explicit facility_id needs
+// the operator docked at that facility's station, so only craft nodes whose
+// StationID matches the operator's current docked station can be verified from
+// where the operator sits; the rest are warned-and-skipped. Pure filtering.
+func TestFilterDryRunNodes(t *testing.T) {
+	candidates := []craftbrain.Node{
+		{ID: "here", StationID: "dock_stn"},
+		{ID: "remote", StationID: "far_stn"},
+		{ID: "here2", StationID: "dock_stn"},
+	}
+
+	verify, skipped := filterDryRunNodes(candidates, "dock_stn")
+	if len(verify) != 2 || verify[0].ID != "here" || verify[1].ID != "here2" {
+		t.Errorf("verify = %+v, want [here here2]", verify)
+	}
+	if len(skipped) != 1 || skipped[0].ID != "remote" {
+		t.Errorf("skipped = %+v, want [remote]", skipped)
+	}
+
+	// Operator not docked anywhere: nothing can be verified locally.
+	v2, s2 := filterDryRunNodes(candidates, "")
+	if len(v2) != 0 || len(s2) != 3 {
+		t.Errorf("empty docked station: verify=%d skipped=%d, want 0/3", len(v2), len(s2))
+	}
 }
 
 func TestDispatchTransform_NoAssembly(t *testing.T) {
