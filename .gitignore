@@ -136,6 +136,7 @@ data/scripts/*.smolt
 !data/scripts/deliver_node.smolt
 !data/scripts/mine_node.smolt
 !data/scripts/assist.smolt
+!data/scripts/shuttle.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit
