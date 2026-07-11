@@ -300,3 +300,149 @@ Auto-refresh + refresh-now button, as overmind-status does.
 - Cooperation with LLM-subsystem holders.
 - Dashboard live-push (websocket) instead of refresh polling.
 - Cross-fleet dispatch (e.g. offering big hauls to the haul fleet).
+
+## Rollout
+
+Operator runbook, in order. Commands are copy-pasteable from the repo root
+unless noted.
+
+### 1. Rebuild binaries
+
+Nothing below runs against a stale binary. Rebuild all three; binaries live
+in `bin/`, never the repo root:
+
+```bash
+go build -o bin/overmind ./cmd/overmind
+go build -o bin/worker ./cmd/worker
+go build -o bin/craft-dashboard ./cmd/tools/craft-dashboard
+```
+
+### 2. Redeploy the mb fleet (required for the handoff hook)
+
+The marketbot fleet's `bin/worker` predates this branch and cannot run
+`HandoffPass` until it's relaunched on the new binary. Drain, stop, relaunch:
+
+```bash
+kill -USR1 <mb-overmind-pid>     # graceful drain — see project_overmind_graceful_drain
+# wait for drain quiescence, then:
+kill -TERM <mb-overmind-pid>
+```
+
+The exact historical relaunch line isn't in shell history — reconstruct it
+from `data/overmind/*-overmind.log` (the process logs its own flags on
+startup) or from `reference_overmind_launch_commands` in ops memory. Relaunch
+with the *rebuilt* `bin/overmind`.
+
+**Rollout fact:** `--handoff-queue` defaults to
+`data/overmind/handoff-queue.json` and is forwarded to *every* spawned
+worker whenever it's non-empty (see `cmd/overmind/main.go`) — there is no
+opt-out flag. That means any fleet restarted on the new binary, mb or
+otherwise, gets handoff passes enabled by default. This is intended: the
+holders that matter live in the mb fleet (the only fleet with resident
+stock), and the pass is inert everywhere else — handoff records are
+holder-addressed, so a worker that's never named in a record does nothing,
+and a missing/empty queue file is a safe no-op. No special handling is
+needed for the haul/shuttle/assist/rescue fleets picking up the new binary
+on their own next restart.
+
+### 3. First launch of the craft fleet
+
+One-time setup, in order:
+
+1. **Confirm stations.** `data/overmind/craft-fleet.yaml` marks its
+   craftsman-2..10 station assignments **PROVISIONAL** — last-seen from the
+   2026-07-02 KB sweep, now 8 days stale. Verify each still resolves to a
+   real station (or `play_as` a live check) before funding wallets there.
+2. **Fund wallets.** Craftsmen pay their own fees and buy costs — no
+   funding, no dispatch. Fit cargo capacity on each; add mining fits only
+   for craftsmen whose plans will use `--mine`.
+3. **Launch with `--plan-queue` and `--stagger 10s`:**
+
+   ```bash
+   bin/overmind --fleet data/overmind/craft-fleet.yaml \
+     --socket data/overmind/craft.sock \
+     --plan-queue data/overmind/craft-queue \
+     --plan-state-dir data/overmind/craft-plans \
+     --status-file data/overmind/craft-status.json \
+     --history-file data/overmind/craft-history.jsonl \
+     --holders-roster data/overmind/mb-fleet.yaml \
+     --stagger 10s
+   ```
+
+   Fresh logins are unmetered (only reconnects are rate-limited — see
+   `reference_login_vs_reconnect_gating`), but keep `--stagger` conservative
+   anyway; this is the fleet's first-ever boot.
+4. **`craftsman-1` is excluded.** It's the operator's own interactive
+   `play_as` session, not a fleet member — never add it to
+   `craft-fleet.yaml`.
+
+This is also the overmind that runs plan execution — the *only* one that
+needs `--plan-queue`. It additionally requires `--holders-roster` (default
+`data/overmind/mb-fleet.yaml`; **startup-fatal if unreadable** — verify the
+path before launch, not after), and it `MkdirAll`s both
+`--plan-queue`/`--plan-state-dir` itself, so those directories don't need to
+pre-exist.
+
+### 4. Live smoke test
+
+```bash
+play_as build air_recycler 2 --json > /tmp/plan.json
+play_as dispatch /tmp/plan.json --budget 5000
+```
+
+Then watch `bin/craft-dashboard` (`:8091`, reads
+`data/overmind/craft-plans/*.state.json`) until the plan completes or parks.
+Verify, in order:
+
+1. **Gift handoffs land.** Any `deliver` node sourced from an mb-fleet
+   holder should show its handoff record transition `pending → done` and
+   the courier's storage should actually hold the goods — this is
+   `HandoffPass` fulfilling a real record end-to-end, unproven live before
+   this smoke.
+2. **Final goods reach the assembly base.** The plan's terminal craft
+   output should land in storage at the assembly station
+   (`--assembly=<base_id>` at dispatch, default: the first craft-fleet
+   roster entry's station).
+
+Additional points worth eyeballing while the plan runs, since none of these
+were provable outside a live server:
+
+- **`deliver`'s `GetCargo` round-trip vs tick pacing** — confirm the verb's
+  read-after-write of cargo state isn't racing the server's own tick
+  cadence and mis-reporting progress.
+- **`craft`'s queue-absence-means-complete heuristic and its 30-tick
+  timeout margin** — both are inferred behavior, not server-documented;
+  watch at least one craft node finish cleanly and one that's slow enough
+  to approach the timeout.
+- **The dashboard renders in a real browser.** Its mermaid output was only
+  string-tested (golden HTML/text fixtures); load `:8091` in an actual
+  browser and confirm the DAG paints, colors, and refreshes.
+
+### CLI control quick reference
+
+- `plan_resume` is the **only** unpause. Neither `plan_retry` nor raising
+  the budget cap alone resumes a paused plan — a budget breach always
+  requires an explicit `plan_resume [--raise-cap=N]`.
+- `plan_cancel` is terminal — there is no un-cancel; dispatch a new plan.
+- `--budget`: `N > 0` sets the cap, `-1` means unbounded (no cap), `0` is
+  rejected outright (use `-1` for "no cap", not `0`).
+
+### Known issues
+
+- **Pre-commit hook timeout vs `pkg/worker` runtime.** `scripts/setup-pre-commit.sh`
+  gives most packages a 120s `-race` budget (300s only for `pkg/game` and
+  `pkg/knowledge`); `pkg/worker`'s full `-race` suite now runs ~200s. Commits
+  touching `pkg/worker` currently need `--no-verify` until the hook's
+  per-package timeout table is updated to include `pkg/worker` at 300s.
+- **Two pre-existing red tests**, neither caused by this branch:
+  `pkg/game TestServerCommandsCoveredByClient` (server drift — a new
+  `espionage` command the client doesn't yet cover; skips locally if
+  `data/game-api/latest/get_commands.json` isn't present, fails if it is)
+  and `pkg/worker TestSeededCommandsAreDispatchable` (roles.yaml's
+  `shuttle`/`assist` idle scripts resolve to no `<name>.smolt` file).
+- **Stranded-cargo edge in `HandoffPass`.** If a holder's withdraw succeeds
+  but the follow-up `send_gift` fails, the withdrawn stock is stranded in
+  the holder's cargo (not storage) until the next pass retries. The pass
+  never *over*-gifts — failure is always short, never double-sent — but the
+  stranded state isn't yet surfaced anywhere; a schema follow-up to track
+  it explicitly is open.
