@@ -8389,6 +8389,24 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "build":
 		return runBuild(client, ctx, parts[1:])
 
+	case "dispatch":
+		return runDispatch(client, ctx, parts[1:])
+
+	case "plan_status", "plan-status":
+		return runPlanStatus(parts[1:])
+
+	case "plan_pause", "plan-pause":
+		return runPlanPause(parts[1:])
+
+	case "plan_resume", "plan-resume":
+		return runPlanResume(parts[1:])
+
+	case "plan_cancel", "plan-cancel":
+		return runPlanCancel(parts[1:])
+
+	case "plan_retry", "plan-retry":
+		return runPlanRetry(parts[1:])
+
 	case "show_system", "show-system":
 		return runShowSystem(ctx, parts[1:])
 
@@ -9384,6 +9402,16 @@ func printHelp() {
 	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--include-ship-passive] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
 	fmt.Println("  build <target> [qty] [--json] [--max-hand-ticks=N]  - full recursive build plan (mine/buy/haul/craft DAG); qty = output units")
+	fmt.Println("  dispatch <plan.json> [--budget=N] [--mine=item1,item2] [--assembly=BASE] [--skip-verify]")
+	fmt.Println("       - dispatch a `build --json` plan for fleet execution: resolves any_docked_station to --assembly")
+	fmt.Println("         (default: first entry of data/overmind/craft-fleet.yaml), converts --mine-excluded mine leaves to")
+	fmt.Println("         buy via live sellers, verifies facility craft nodes with a dry-run quote (skip with --skip-verify),")
+	fmt.Println("         and drops the queue file into data/overmind/craft-queue for the overmind Runner")
+	fmt.Println("  plan_status [plan-id]     - list dispatched plans (id/status/spent/cap/node counts), or one plan's detail + parked reasons")
+	fmt.Println("  plan_pause <plan-id>      - pause a running plan")
+	fmt.Println("  plan_resume <plan-id> [--raise-cap=N]  - resume a paused plan; this clears the pause (raise-cap alone won't)")
+	fmt.Println("  plan_cancel <plan-id>     - cancel a plan (terminal: cannot be un-cancelled)")
+	fmt.Println("  plan_retry <plan-id> <node-id>  - reset a parked node for another attempt (if the plan is paused, also run plan_resume)")
 
 	fmt.Println("\n=== SHIP ===")
 	fmt.Println("  refuel, repair            - Refuel and repair ship")

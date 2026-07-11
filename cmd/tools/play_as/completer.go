@@ -13,6 +13,7 @@ import (
 var metaCommands = []string{
 	"help", "exit", "quit", "set_format", "set_debug", "loop", "mbox", "nearest",
 	"update_market", "find_item", "show_system", "where_facility", "build",
+	"dispatch", "plan_status", "plan_pause", "plan_resume", "plan_cancel", "plan_retry",
 }
 
 // loadCompletionCommands returns a sorted, deduplicated list of command
