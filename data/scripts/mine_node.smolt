@@ -1,0 +1,2 @@
+# mine_node.smolt — mine QTY of ITEM then deliver to RECIPIENT at TO
+mine_qty $ITEM$ $QTY$ $TO$ $RECIPIENT$

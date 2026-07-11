@@ -1,0 +1,2 @@
+# buy_node.smolt — buy ITEM xQTY at STATION under MAX_UNIT_PRICE, hand to RECIPIENT
+buy_directed $ITEM$ $QTY$ $STATION$ $MAX_UNIT_PRICE$ $RECIPIENT$

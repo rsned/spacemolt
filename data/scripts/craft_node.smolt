@@ -1,0 +1,2 @@
+# craft_node.smolt — craft NUM_OUTPUTS units of RECIPE at STATION (facility or hand)
+craft_node $RECIPE$ $NUM_OUTPUTS$ $STATION$ $FACILITY$

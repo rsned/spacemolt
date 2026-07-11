@@ -44,3 +44,9 @@ roles:
     idle: shuttle
   assist:
     idle: assist
+  craftsman:
+    schedule:
+      - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "facilities" }
+      - { every: daily, command: "kb_update" }
+    idle: idle_market
