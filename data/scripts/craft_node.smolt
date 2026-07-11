@@ -1,2 +1,3 @@
-# craft_node.smolt — craft NUM_OUTPUTS units of RECIPE at STATION (facility or hand)
-craft_node $RECIPE$ $NUM_OUTPUTS$ $STATION$ $FACILITY$
+# craft_node.smolt — craft NUM_OUTPUTS units of RECIPE at STATION (facility or hand),
+# EST_FEE = planner fee estimate feeding the 2x dry-run replan gate (0 disables)
+craft_node $RECIPE$ $NUM_OUTPUTS$ $STATION$ $FACILITY$ $EST_FEE$
