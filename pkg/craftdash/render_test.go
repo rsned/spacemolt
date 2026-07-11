@@ -129,6 +129,76 @@ func TestNodeLabel_EscapesMermaidInjectionChars(t *testing.T) {
 	}
 }
 
+func TestNodeLabel_EscapesNewlinesAndBackticks(t *testing.T) {
+	pr := &plans.PlanRun{
+		Manifest: plans.Manifest{PlanID: "plan-newline"},
+		Nodes: []*plans.NodeRun{
+			{
+				Node:       craftbrain.Node{ID: "blocked-1", Kind: craftbrain.KindBlocked, ItemID: "ore", Qty: 5},
+				State:      plans.NodeParked,
+				Park:       plans.ParkBlocked,
+				ParkDetail: "server error:\nconnection refused`critical",
+			},
+		},
+	}
+	got := MermaidForPlan(pr)
+	// The label should have the backtick converted to a single quote
+	// and the newline converted to a space
+	wantLabel := `blocked-1["blocked ore x5<br/>PARKED (blocked): server error: connection refused'critical"]:::parked`
+	if !strings.Contains(got, wantLabel) {
+		t.Errorf("expected properly escaped label in output.\nWant substring: %s\nGot:\n%s", wantLabel, got)
+	}
+	// Explicitly verify no backticks appear in the mermaid source
+	lines := strings.Split(got, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "`") {
+			t.Errorf("backtick found in line: %s", line)
+		}
+	}
+}
+
+func TestNodeLabel_EscapesCarriageReturns(t *testing.T) {
+	pr := &plans.PlanRun{
+		Manifest: plans.Manifest{PlanID: "plan-cr"},
+		Nodes: []*plans.NodeRun{
+			{
+				Node:       craftbrain.Node{ID: "blocked-2", Kind: craftbrain.KindBlocked, ItemID: "rare_ore", Qty: 3},
+				State:      plans.NodeParked,
+				Park:       plans.ParkBlocked,
+				ParkDetail: "error line 1\rline 2",
+			},
+		},
+	}
+	got := MermaidForPlan(pr)
+	// Carriage returns must not appear in output
+	if strings.Contains(got, "\r") {
+		t.Errorf("carriage return leaked into mermaid output:\n%s", got)
+	}
+}
+
+func TestNodeLabel_DoesNotBreakOnDoubleQuoteInParkDetail(t *testing.T) {
+	pr := &plans.PlanRun{
+		Manifest: plans.Manifest{PlanID: "plan-quote-detail"},
+		Nodes: []*plans.NodeRun{
+			{
+				Node:       craftbrain.Node{ID: "blocked-3", Kind: craftbrain.KindBlocked, ItemID: "ore", Qty: 5},
+				State:      plans.NodeParked,
+				Park:       plans.ParkBlocked,
+				ParkDetail: `no facility "type X" available`,
+			},
+		},
+	}
+	got := MermaidForPlan(pr)
+	// The label must not contain unescaped quotes
+	if strings.Contains(got, `"type X"`) {
+		t.Errorf("double quotes in ParkDetail leaked into mermaid output:\n%s", got)
+	}
+	// Should render with quotes escaped to single quotes
+	if !strings.Contains(got, `'type X'`) {
+		t.Errorf("expected escaped quotes in output, got:\n%s", got)
+	}
+}
+
 func TestSyntheticXferRendersAsXferKind(t *testing.T) {
 	pr := &plans.PlanRun{
 		Manifest: plans.Manifest{PlanID: "plan-xfer"},

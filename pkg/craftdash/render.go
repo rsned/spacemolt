@@ -136,15 +136,20 @@ func parkDetail(n *plans.NodeRun) string {
 
 // mermaidLabelReplacer strips/replaces characters that would break out of a
 // mermaid quoted node label or inject markup: double quotes end the quoted
-// label early, [ ] are mermaid node-shape delimiters, and < > could open
+// label early, [ ] are mermaid node-shape delimiters, < > could open
 // arbitrary HTML inside the label (mermaid labels otherwise allow raw HTML
-// such as the <br/> this package inserts deliberately).
+// such as the <br/> this package inserts deliberately), and newlines/carriage
+// returns would split the node definition across multiple lines, breaking
+// mermaid syntax. Backticks could inject code or cause parsing issues.
 var mermaidLabelReplacer = strings.NewReplacer(
 	`"`, "'",
 	"[", "(",
 	"]", ")",
 	"<", "",
 	">", "",
+	"\n", " ",
+	"\r", " ",
+	"`", "'",
 )
 
 func escapeLabel(s string) string {
