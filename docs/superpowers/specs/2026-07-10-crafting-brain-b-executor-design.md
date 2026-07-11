@@ -430,10 +430,13 @@ were provable outside a live server:
 ### Known issues
 
 - **Pre-commit hook timeout vs `pkg/worker` runtime.** `scripts/setup-pre-commit.sh`
-  gives most packages a 120s `-race` budget (300s only for `pkg/game` and
-  `pkg/knowledge`); `pkg/worker`'s full `-race` suite now runs ~200s. Commits
-  touching `pkg/worker` currently need `--no-verify` until the hook's
-  per-package timeout table is updated to include `pkg/worker` at 300s.
+  gives most packages a 120s `-race` budget; `pkg/worker`'s full `-race` suite
+  now runs ~200s. The tracked script's per-package table now grants `pkg/worker`
+  300s alongside `pkg/game`/`pkg/knowledge` — but a hook already installed into
+  `.git/hooks/pre-commit` from an older copy of the script still carries 120s
+  until it is re-installed (`./scripts/setup-pre-commit.sh`). Until then, commits
+  touching `pkg/worker` still need `--no-verify` (the worker suite is verified
+  green out-of-band).
 - **Two pre-existing red tests**, neither caused by this branch:
   `pkg/game TestServerCommandsCoveredByClient` (server drift — a new
   `espionage` command the client doesn't yet cover; skips locally if
@@ -446,3 +449,29 @@ were provable outside a live server:
   never *over*-gifts — failure is always short, never double-sent — but the
   stranded state isn't yet surfaced anywhere; a schema follow-up to track
   it explicitly is open.
+
+### Deviations
+
+Honest gaps in the executor as shipped, so nobody reads more precision into
+the state file than is there:
+
+- **`DoneQty`/`Spent` are planner ESTIMATES, not measured actuals.** Task
+  events (`task_done`) carry no per-node quantity or credits payload yet, so on
+  completion the runner stamps `DoneQty = node.Qty` and `Spent += node.FeeTotal`
+  from the plan, not from what the worker actually mined/bought/paid. The
+  dashboard's `17,511 / 34,000` therefore reads plan intent at node granularity,
+  not live server truth. Wiring real amounts through the task-event channel is
+  the post-merge follow-up.
+- **Progress is per-node binary.** A node is `waiting`→`dispatched`→`done`; its
+  `DoneQty` jumps 0→full at completion. Mid-node partials (a haul on its third
+  cargo-sized trip, a craft on batch 4 of 9) are invisible to the runner between
+  ticks — the verb reports them to `d.Out`, not into the plan state.
+- **A crash between task-remove and state-save can double-count one node's fee.**
+  `syncTasks` removes the done task from the store and rolls its fee into
+  `pr.Spent` in the same tick, then `SaveRun` persists. A process death after the
+  store removal (which isn't itself persisted transactionally with the state
+  file) but before/around `SaveRun` can, on reload, re-observe the node as still
+  dispatched and re-collect its fee. The direction is deliberately conservative
+  (over-count spend, never under-count), so the budget gate errs toward parking,
+  never toward overspending. A single atomic task-outcome+state commit is the
+  post-merge follow-up.
