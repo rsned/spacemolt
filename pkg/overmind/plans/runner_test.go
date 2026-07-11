@@ -241,14 +241,134 @@ func TestControlRetryResetsRetryCount(t *testing.T) {
 		t.Fatalf("mine-1 = %+v, want parked/failed with retries = %d", n, MaxNodeRetries+1)
 	}
 
-	// Operator retries the parked node directly on the runner's live state.
-	r.runs["p7"].Control.RetryNodes = []string{"mine-1"}
+	// Operator retries the parked node. Since C1, the Runner adopts Control
+	// from disk each tick, so the retry must be written through the disk seam
+	// (as the CLI does) — a direct r.runs mutation would be clobbered. This
+	// case is now largely subsumed by TestTickAdoptsDiskRetryBetweenTicks; it
+	// stays for its retry-count-reset assertion.
+	cliMutate(t, r, "p7", func(pr *PlanRun) { pr.Control.RetryNodes = []string{"mine-1"} })
 	r.Tick()
 
 	runs, _ = LoadAllRuns(r.StateDir)
 	n = runs[0].NodeByID("mine-1")
 	if n.State != NodeDispatched || n.Park != "" || n.Retries != 0 {
 		t.Fatalf("mine-1 after retry = %+v, want dispatched/no-park/retries=0", n)
+	}
+}
+
+// cliMutate mirrors the play_as plan_* mutators' LoadRun -> mutate Control ->
+// SaveRun contract: it loads the on-disk state file into a FRESH PlanRun (a
+// separate handle from the Runner's own r.runs[planID]), mutates only its
+// Control, and saves it back under the flock — exactly what the operator CLI
+// does between Runner ticks. This is the real seam C1 must survive: the Runner
+// must adopt this disk-written Control on its next tick instead of clobbering
+// it with its own stale in-memory copy.
+func cliMutate(t *testing.T, r *Runner, planID string, f func(*PlanRun)) {
+	t.Helper()
+	pr, err := LoadRun(statePath(r.StateDir, planID))
+	if err != nil {
+		t.Fatalf("cliMutate load %s: %v", planID, err)
+	}
+	f(pr)
+	if err := SaveRun(r.StateDir, pr); err != nil {
+		t.Fatalf("cliMutate save %s: %v", planID, err)
+	}
+}
+
+// TestTickAdoptsDiskCancelBetweenTicks (C1 case a): an operator plan_cancel
+// written to disk between two Runner ticks must stick — the Runner's end-of-
+// tick SaveRun must not overwrite it with its own stale in-memory Control.
+func TestTickAdoptsDiskCancelBetweenTicks(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "pc", BudgetCap: 100},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "mine-1", Kind: craftbrain.KindMine, ItemID: "ore", Qty: 5},
+		}}})
+	r.Tick()
+	cliMutate(t, r, "pc", func(pr *PlanRun) { pr.Control.Cancel = true })
+	r.Tick()
+
+	runs, _ := LoadAllRuns(r.StateDir)
+	if !runs[0].Control.Cancel {
+		t.Fatal("Control.Cancel was clobbered by the Runner's stale in-memory Control")
+	}
+	if runs[0].Status != "cancelled" {
+		t.Errorf("status = %q, want cancelled", runs[0].Status)
+	}
+}
+
+// TestTickAdoptsDiskResumeOfBudgetPausedPlan (C1 case b): a plan that
+// budget-parked and paused (Pause=true saved to disk by the Runner) is
+// resumed by the operator via a disk write (Pause=false, cap raised, node
+// retried). The Runner must adopt that disk Control on its next tick so Pause
+// stays false — not revert to the paused state its in-memory copy still holds.
+func TestTickAdoptsDiskResumeOfBudgetPausedPlan(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "pr", BudgetCap: 10},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "w", Qty: 1, RecipeID: "make_w",
+				StationID: "hub_a", FeeTotal: 40},
+		}}})
+	r.Tick() // parks craft-1 over_budget, pauses the plan
+	runs, _ := LoadAllRuns(r.StateDir)
+	if runs[0].Status != "paused" {
+		t.Fatalf("precondition: status = %q, want paused", runs[0].Status)
+	}
+
+	// Operator resumes with a raised cap and retries the parked node, via the
+	// disk handle (as plan_resume + plan_retry do).
+	cliMutate(t, r, "pr", func(pr *PlanRun) {
+		pr.Control.Pause = false
+		pr.Control.RaiseCap = 1000
+		pr.Control.RetryNodes = []string{"craft-1"}
+	})
+	r.Tick()
+
+	runs, _ = LoadAllRuns(r.StateDir)
+	if runs[0].Control.Pause {
+		t.Fatal("resume reverted: Control.Pause re-set true by the Runner's stale in-memory copy")
+	}
+	if runs[0].Status == "paused" {
+		t.Errorf("status = %q, want the plan un-paused", runs[0].Status)
+	}
+	if n := runs[0].NodeByID("craft-1"); n.State != NodeDispatched {
+		t.Errorf("craft-1 = %+v, want dispatched after resume+raise-cap+retry", n)
+	}
+}
+
+// TestTickAdoptsDiskRetryBetweenTicks (C1 case c): a plan_retry written to
+// disk between ticks must be adopted and consumed — the parked node resets and
+// the RetryNodes entry is cleared.
+func TestTickAdoptsDiskRetryBetweenTicks(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "prt", BudgetCap: 100},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "mine-1", Kind: craftbrain.KindMine, ItemID: "ore", Qty: 5},
+		}}})
+	r.Tick()
+	for i := range MaxNodeRetries + 1 {
+		id := taskIDFor("prt", "mine-1", i)
+		r.Store.HandleEvent("craftsman-2", controlEvent("task_failed", id+": belt empty"))
+		r.Tick()
+	}
+	runs, _ := LoadAllRuns(r.StateDir)
+	if n := runs[0].NodeByID("mine-1"); n.State != NodeParked {
+		t.Fatalf("precondition: mine-1 = %+v, want parked", n)
+	}
+
+	// Operator retries the parked node via the disk handle (as plan_retry does).
+	cliMutate(t, r, "prt", func(pr *PlanRun) {
+		pr.Control.RetryNodes = []string{"mine-1"}
+	})
+	r.Tick()
+
+	runs, _ = LoadAllRuns(r.StateDir)
+	n := runs[0].NodeByID("mine-1")
+	if n.State != NodeDispatched || n.Park != "" || n.Retries != 0 {
+		t.Fatalf("mine-1 after disk retry = %+v, want dispatched/no-park/retries=0", n)
+	}
+	if len(runs[0].Control.RetryNodes) != 0 {
+		t.Errorf("RetryNodes = %v, want consumed", runs[0].Control.RetryNodes)
 	}
 }
 

@@ -116,6 +116,7 @@ func (r *Runner) intake() {
 // tickRun advances one plan run: apply Control, sync task-store outcomes
 // into node state, gate/budget/dispatch ready nodes, recompute status, save.
 func (r *Runner) tickRun(pr *PlanRun) {
+	r.adoptDiskControl(pr)
 	r.applyControl(pr)
 	r.syncTasks(pr)
 	r.dispatchReady(pr)
@@ -124,6 +125,28 @@ func (r *Runner) tickRun(pr *PlanRun) {
 	if err := SaveRun(r.StateDir, pr); err != nil {
 		r.Logger.Printf("plans: save run %q: %v", pr.Manifest.PlanID, err)
 	}
+}
+
+// adoptDiskControl re-reads the on-disk state file's Control block — written
+// by the play_as plan_* mutators under flock since the last tick — and adopts
+// it into the in-memory PlanRun before applyControl runs. The Runner stays
+// authoritative for every other field (node states, Spent, Status); only
+// Control is operator-owned. Without this re-read, the Runner's own end-of-tick
+// SaveRun would clobber any plan_pause/cancel/resume/retry the operator issued
+// between ticks (the C1 operator-facing hole). A freshly intaken plan whose
+// state file matches the in-memory copy re-reads its own (empty) Control — a
+// harmless no-op.
+func (r *Runner) adoptDiskControl(pr *PlanRun) {
+	path := statePath(r.StateDir, pr.Manifest.PlanID)
+	if _, err := os.Stat(path); err != nil {
+		return // no on-disk file yet: in-memory Control stands
+	}
+	disk, err := LoadRun(path)
+	if err != nil {
+		r.Logger.Printf("plans: adopt control %q: %v (keeping in-memory Control)", pr.Manifest.PlanID, err)
+		return
+	}
+	pr.Control = disk.Control
 }
 
 // applyControl consumes one-shot operator directives. Pause/Cancel are left
