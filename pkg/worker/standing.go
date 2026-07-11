@@ -46,6 +46,11 @@ type StandingDeps struct {
 	// PayDebts, when set, runs once per non-drained idle pass under ExecMu to
 	// pay any outstanding rescue-fee debt. nil for workers with no fee wiring.
 	PayDebts func(context.Context)
+
+	// Handoffs, when set, runs once per non-drained idle pass under ExecMu to
+	// fulfill pending stock-handoff records for this agent. nil when the worker
+	// has no handoff queue configured.
+	Handoffs func(context.Context)
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -116,6 +121,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		deps.ExecMu.Lock()
 		if deps.PayDebts != nil {
 			deps.PayDebts(ctx)
+		}
+		if deps.Handoffs != nil {
+			deps.Handoffs(ctx)
 		}
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)

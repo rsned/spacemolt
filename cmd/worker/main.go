@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/overmind/checkpoint"
@@ -41,6 +42,7 @@ func main() {
 	kbPath := flag.String("kb-path", filepath.Join("data", "spacemolt-knowledge.db"), "Path to shared knowledge base")
 	marketDBPath := flag.String("market-db-path", filepath.Join("data", "market.db"), "Path to market collector database")
 	rescueQueuePath := flag.String("rescue-queue", filepath.Join("data", "overmind", "rescue-queue.json"), "Shared stranded-worker rescue queue file")
+	handoffQueuePath := flag.String("handoff-queue", "", "Shared crafting-brain stock handoff queue file (empty disables handoff fulfillment)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -270,6 +272,10 @@ func main() {
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
 			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)
+			var handoffQueue *handoff.Queue
+			if *handoffQueuePath != "" {
+				handoffQueue = handoff.NewQueue(*handoffQueuePath)
+			}
 			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)
@@ -313,6 +319,9 @@ func main() {
 						activeTaskID.Store(nil)
 						logger.Printf("task %s finished: %s", taskID, kind)
 					},
+				}
+				if handoffQueue != nil {
+					deps.Handoffs = func(c context.Context) { _ = dispatch.HandoffPass(c, handoffQueue) }
 				}
 				if rerr := worker.RunStanding(ctx, roleCfg, deps); rerr != nil {
 					logger.Printf("standing behavior ended: %v", rerr)
