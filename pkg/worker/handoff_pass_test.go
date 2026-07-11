@@ -201,6 +201,45 @@ func TestHandoffPassShortStorageMarksDoneWithPartialMovedQty(t *testing.T) {
 	}
 }
 
+// TestHandoffPassEmptyStorageFailsRecordForReplan (I2a): a record whose holder
+// storage is empty moves NOTHING. That must not be reported as a done handoff
+// with MovedQty=0 (which would let a downstream craft proceed blaming the wrong
+// node) — the record transitions to failed with a replan-flavored error so the
+// runner parks the node needs-operator.
+func TestHandoffPassEmptyStorageFailsRecordForReplan(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "hauler-9", "Hauler Nine")
+
+	client := newHandoffTestClient(100, true, "station-a", map[string]float64{"copper_piping": 0})
+	d := NewWorkerDispatch(client, nil, nil, nil)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	q := newHandoffTestQueue(t)
+	rec := handoff.Record{
+		ID: "plan1/node1", Holder: "craftsman-2", Station: "station-a",
+		ItemID: "copper_piping", Qty: 8, Recipient: "hauler-9",
+	}
+	if _, err := q.Enqueue(rec); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass: %v", err)
+	}
+
+	if len(client.giftCalls) != 0 {
+		t.Fatalf("SendGift must not be called when storage is empty, got %+v", client.giftCalls)
+	}
+	got := findHandoffRecord(t, q, "plan1/node1")
+	if got.Status != handoff.StatusFailed {
+		t.Fatalf("record status = %q, want failed (nothing moved must not fake-done)", got.Status)
+	}
+	if !strings.Contains(strings.ToLower(got.Error), "replan") {
+		t.Fatalf("record Error = %q, want a replan-flavored message", got.Error)
+	}
+}
+
 // TestHandoffPassRecipientIsHolderFailsRecord covers controller decision 2:
 // Recipient == the holder's own agent id is an invalid plan state — the
 // record must transition to failed with a clear error, never fake-done, and

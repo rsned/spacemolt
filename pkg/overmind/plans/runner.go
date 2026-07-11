@@ -188,6 +188,21 @@ func (r *Runner) syncTasks(pr *PlanRun) {
 		task, ok := r.Store.Get(taskID)
 		switch {
 		case !ok:
+			// A missing task (never a task_failed event) means the store lost
+			// it — most commonly across an overmind restart. For buy nodes this
+			// is dangerous: BuyDirected's recompute only counts cargo, so a buy
+			// that actually completed but wasn't recorded would re-purchase
+			// everything on retry. Park it for the operator to verify instead
+			// of auto-retrying. Non-buy verbs recompute convergently, so they
+			// retry as before.
+			if n.Node.Kind == craftbrain.KindBuy {
+				r.Logger.Printf("plans: node %s/%s: buy task %s missing from store, parking needs_operator (no safe auto-retry)",
+					pr.Manifest.PlanID, n.Node.ID, taskID)
+				n.State = NodeParked
+				n.Park = ParkNeedsOperator
+				n.ParkDetail = "task lost across restart — verify whether the buy completed before retrying"
+				continue
+			}
 			r.Logger.Printf("plans: node %s/%s: task %s missing from store, treating as failed",
 				pr.Manifest.PlanID, n.Node.ID, taskID)
 			r.failNode(n)

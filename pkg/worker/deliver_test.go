@@ -452,12 +452,44 @@ func TestDeliverCapsDeliveryWhenCargoPreloaded(t *testing.T) {
 	}
 }
 
+// TestDeliverZeroDeliveredErrorsForReplan (I2b): when a withdraw pass yields
+// nothing and NOTHING has been delivered yet, Deliver must return a
+// replan-flavored error — not nil — so the plan runner (task_failed) retries
+// or parks instead of marking the node done with DoneQty=0 and letting a
+// downstream craft fail blaming the wrong node. A partial delivery (>0) still
+// returns nil.
+func TestDeliverZeroDeliveredErrorsForReplan(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		storageStock: map[string]float64{"pressure_seal": 0}, // source empty
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", "craftsman-3")
+	if err == nil {
+		t.Fatal("expected an error when nothing could be delivered")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "replan") {
+		t.Fatalf("error = %q, want a replan-flavored message", err.Error())
+	}
+	if len(client.giftCalls) != 0 {
+		t.Fatalf("SendGift must not be called when nothing was delivered, got %+v", client.giftCalls)
+	}
+}
+
 // TestDeliverExhaustedLogDistinguishesCargoFullFromSourceExhausted covers the
 // "exhausted" log message Deliver emits when a withdraw pass yields nothing.
 // That can happen for two very different reasons — the source truly had
 // nothing left, or the ship's cargo hold had zero free space for an
-// unrelated reason — and the wording must say which. Loop semantics (return
-// nil either way) are unchanged; only the message differs.
+// unrelated reason — and the wording must say which. Since I2b, a zero-delivery
+// pass returns a replan error (not nil), but the distinguishing log line is
+// still emitted first.
 func TestDeliverExhaustedLogDistinguishesCargoFullFromSourceExhausted(t *testing.T) {
 	cases := []struct {
 		name          string
@@ -499,8 +531,10 @@ func TestDeliverExhaustedLogDistinguishesCargoFullFromSourceExhausted(t *testing
 			d.AgentID = "craftsman-2"
 			d.AgentsDir = agentsDir
 
-			if err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", "craftsman-3"); err != nil {
-				t.Fatalf("Deliver: %v", err)
+			// Since I2b a zero-delivery pass returns a replan error; the log
+			// line under test is still written before the return.
+			if err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", "craftsman-3"); err == nil {
+				t.Fatal("expected a replan error when nothing could be delivered")
 			}
 			if len(client.giftCalls) != 0 {
 				t.Fatalf("SendGift must not be called when nothing could be withdrawn, got %+v", client.giftCalls)
@@ -585,10 +619,12 @@ func TestDeliverEmptyFromShortDeliversWhatsAboard(t *testing.T) {
 	}
 }
 
-// TestDeliverEmptyFromNothingAboardIsANoop covers the degenerate case: from
-// == "" and cargo has none of the item at all — Deliver must not travel to
-// TO or gift/deposit anything, just log and return nil.
-func TestDeliverEmptyFromNothingAboardIsANoop(t *testing.T) {
+// TestDeliverEmptyFromNothingAboardErrorsForReplan covers the degenerate case:
+// from == "" and cargo has none of the item at all — Deliver must not travel to
+// TO or gift/deposit anything. Since I2b, delivering zero of a positive qty is
+// a replan error, not a silent no-op (a mine that yielded nothing needs a
+// re-plan, not a fake-done).
+func TestDeliverEmptyFromNothingAboardErrorsForReplan(t *testing.T) {
 	kb := newDeliverTestKB(t)
 	agentsDir := t.TempDir()
 	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
@@ -601,8 +637,12 @@ func TestDeliverEmptyFromNothingAboardIsANoop(t *testing.T) {
 	d.AgentID = "craftsman-2"
 	d.AgentsDir = agentsDir
 
-	if err := d.Deliver(context.Background(), "raw_ore", 6, "", "to_base", "craftsman-3"); err != nil {
-		t.Fatalf("Deliver: %v", err)
+	err := d.Deliver(context.Background(), "raw_ore", 6, "", "to_base", "craftsman-3")
+	if err == nil {
+		t.Fatal("expected a replan error when nothing is aboard to deliver")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "replan") {
+		t.Fatalf("error = %q, want a replan-flavored message", err.Error())
 	}
 	if len(client.giftCalls) != 0 {
 		t.Fatalf("SendGift must not be called when nothing is aboard, got %+v", client.giftCalls)

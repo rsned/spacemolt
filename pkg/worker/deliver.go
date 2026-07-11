@@ -177,6 +177,14 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 					fmt.Fprintf(d.Out, "deliver: %s exhausted at %s — delivered %d of %d requested\n", //nolint:errcheck
 						itemID, from, qty-remaining, qty)
 				}
+				// Nothing at all was delivered: don't report success. A
+				// zero-delivery node marked done (DoneQty=0) would let a
+				// downstream craft proceed and fail blaming the wrong node.
+				// Surface a replan-flavored error so the plan runner retries or
+				// parks. A partial delivery (remaining < qty) still returns nil.
+				if qty-remaining == 0 {
+					return fmt.Errorf("deliver: nothing delivered of %d %s — source has none (replan)", qty, itemID)
+				}
 				return nil
 			}
 		}

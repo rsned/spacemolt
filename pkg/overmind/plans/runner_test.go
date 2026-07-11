@@ -396,6 +396,39 @@ func TestTickManagedHolderGetsHandoffBeforeDispatch(t *testing.T) {
 	}
 }
 
+// TestTickBuyNodeLostTaskParksNeedsOperator (I1): a dispatched buy node whose
+// task vanishes from the store (e.g. lost across an overmind restart) must NOT
+// auto-retry — BuyDirected's recompute only counts cargo, so a
+// completed-but-unrecorded buy would re-purchase everything. The defensive
+// missing-task path parks buy nodes needs-operator instead. Genuine
+// task_failed events still retry (covered by TestTickRetriesThenParksFailed).
+func TestTickBuyNodeLostTaskParksNeedsOperator(t *testing.T) {
+	r := newRunner(t)
+	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "pb", BudgetCap: 1000},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "buy-1", Kind: craftbrain.KindBuy, ItemID: "ore", Qty: 10,
+				StationID: "seller_x", FeeTotal: 30},
+		}}})
+	r.Tick() // dispatch buy-1
+	if _, ok := r.Store.Get("pb/buy-1/r0"); !ok {
+		t.Fatal("precondition: buy-1 not dispatched")
+	}
+
+	// The task disappears from the store (overmind restart lost it) without a
+	// task_failed event ever arriving.
+	r.Store.Remove("pb/buy-1/r0")
+	r.Tick()
+
+	runs, _ := LoadAllRuns(r.StateDir)
+	n := runs[0].NodeByID("buy-1")
+	if n.State != NodeParked || n.Park != ParkNeedsOperator {
+		t.Fatalf("buy-1 = %+v, want parked/needs_operator (a lost buy must not auto-retry)", n)
+	}
+	if _, ok := r.Store.Get("pb/buy-1/r1"); ok {
+		t.Error("buy-1 was re-dispatched — a lost buy must not re-purchase on retry")
+	}
+}
+
 func TestTickRetriesThenParksFailed(t *testing.T) {
 	r := newRunner(t)
 	dropPlan(t, r, QueueFile{Manifest: Manifest{PlanID: "p5", BudgetCap: 100},

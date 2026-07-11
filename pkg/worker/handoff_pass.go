@@ -140,6 +140,18 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		return
 	}
 
+	// A definitive pass that moved NOTHING across the whole record (nothing
+	// now, nothing from a prior pass) means the holder's storage is empty of
+	// this item — the queue's belief is stale. Don't fake-done a zero handoff
+	// (a downstream craft would proceed and fail blaming the wrong node): fail
+	// the record with a replan-flavored error so the runner parks the node
+	// needs-operator. A partial move (rec.MovedQty+movedThisPass > 0) still
+	// completes as done below.
+	if rec.MovedQty+movedThisPass == 0 {
+		fail(fmt.Sprintf("nothing moved for %s at %s — holder storage empty, replan needed", rec.ItemID, rec.Station))
+		return
+	}
+
 	// The per-batch persists inside moveHandoffStock already brought the
 	// live record's MovedQty to baseline + everything moved this pass (each
 	// batch persisted its own delta against the live record under lock) —
