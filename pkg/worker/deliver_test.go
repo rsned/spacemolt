@@ -491,6 +491,104 @@ func TestDeliverExhaustedLogDistinguishesCargoFullFromSourceExhausted(t *testing
 	}
 }
 
+// TestDeliverEmptyFromSkipsWithdrawAndTravelsStraightToDestination is the
+// regression test for MineQty's hand-off mode: from == "" means the goods
+// are already in cargo (just mined), so Deliver must skip BOTH the withdraw
+// leg and the FROM travel leg entirely — no WithdrawItems call, no "dock" at
+// a source — and go straight to TO.
+func TestDeliverEmptyFromSkipsWithdrawAndTravelsStraightToDestination(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient: &fakeClient{state: &game.State{Ship: game.Ship{
+			CargoCapacity: 100,
+			Cargo:         []game.CargoItem{{ItemID: "raw_ore", Quantity: 6}},
+		}}},
+		// Source storage empty/unused — proves the withdraw leg never runs.
+		storageStock: map[string]float64{},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "raw_ore", 6, "", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "withdraw:") {
+			t.Fatalf("Deliver must not withdraw when from is empty, got call %q", c)
+		}
+	}
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[0]["quantity"]; got != float64(6) {
+		t.Fatalf("gift quantity = %v, want 6", got)
+	}
+}
+
+// TestDeliverEmptyFromShortDeliversWhatsAboard covers the shortfall path: with
+// from == "", cargo holds less than qty and there is no source to make a
+// second withdraw pass against, so Deliver must deliver what's on hand and
+// return nil (never loop forever waiting for cargo that will never arrive).
+func TestDeliverEmptyFromShortDeliversWhatsAboard(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient: &fakeClient{state: &game.State{Ship: game.Ship{
+			CargoCapacity: 100,
+			Cargo:         []game.CargoItem{{ItemID: "raw_ore", Quantity: 3}},
+		}}},
+		storageStock: map[string]float64{},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "raw_ore", 6, "", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[0]["quantity"]; got != float64(3) {
+		t.Fatalf("gift quantity = %v, want 3 (what was aboard)", got)
+	}
+}
+
+// TestDeliverEmptyFromNothingAboardIsANoop covers the degenerate case: from
+// == "" and cargo has none of the item at all — Deliver must not travel to
+// TO or gift/deposit anything, just log and return nil.
+func TestDeliverEmptyFromNothingAboardIsANoop(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		storageStock: map[string]float64{},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "raw_ore", 6, "", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(client.giftCalls) != 0 {
+		t.Fatalf("SendGift must not be called when nothing is aboard, got %+v", client.giftCalls)
+	}
+	for _, c := range client.calls {
+		if c == "dock" {
+			t.Fatalf("Deliver must not travel to destination when nothing is aboard to deliver, got call %q", c)
+		}
+	}
+}
+
 func TestUsernameForReadsCredentials(t *testing.T) {
 	dir := t.TempDir()
 	writeDeliverCreds(t, dir, "craftsman-3", "Artisan 'Ace' Anderson")

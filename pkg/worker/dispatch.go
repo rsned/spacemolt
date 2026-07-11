@@ -43,6 +43,10 @@ type WorkerDispatch struct {
 	// time.Sleep (craftPollSleepFunc); tests override it with a zero-delay
 	// stand-in so polling loops don't add real wall-clock time to the suite.
 	craftPollSleep func(ctx context.Context, d time.Duration) error
+	// minePollSleep is the sleep-with-cancellation used between MineQty's
+	// Mine() passes (game.SleepTick cadence). Same default/override pattern
+	// as craftPollSleep.
+	minePollSleep func(ctx context.Context, d time.Duration) error
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -57,6 +61,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 		treasury:       &treasuryRescue{},
 		shuttle:        &shuttleState{},
 		craftPollSleep: craftPollSleepFunc,
+		minePollSleep:  craftPollSleepFunc,
 	}
 }
 
@@ -66,7 +71,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true,
-	"mine": true, "deliver": true, "buy_directed": true, "craft_node": true,
+	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true,
@@ -184,6 +189,15 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return fmt.Errorf("buy_directed: bad max unit price %q", args[3])
 		}
 		return d.BuyDirected(ctx, args[0], qty, args[2], maxUnit, args[4])
+	case "mine_qty":
+		if len(args) < 4 {
+			return fmt.Errorf("mine_qty: want ITEM QTY TO RECIPIENT, got %v", args)
+		}
+		qty, err := strconv.Atoi(args[1])
+		if err != nil || qty < 1 {
+			return fmt.Errorf("mine_qty: bad qty %q", args[1])
+		}
+		return d.MineQty(ctx, args[0], qty, args[2], args[3])
 	case "craft_node":
 		if len(args) < 4 {
 			return fmt.Errorf("craft_node: want RECIPE NUM_OUTPUTS STATION FACILITY [EST_FEE], got %v", args)

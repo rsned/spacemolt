@@ -117,6 +117,13 @@ func isShortSupplyErr(err error) bool {
 // qty is satisfied. If FROM held less than qty, it delivers what existed and
 // returns nil with a short-delivery note written to d.Out instead of looping
 // forever.
+//
+// from == "" means the goods are already in cargo (e.g. just-mined ore
+// handed off by MineQty): the withdraw leg AND the FROM travel leg are both
+// skipped entirely — Deliver goes straight to TO with whatever is aboard. If
+// cargo holds less than qty in this mode, that is a shortfall (mirroring the
+// "source exhausted" case below, since there is no source to make a second
+// withdraw pass against): Deliver delivers what's on hand and returns nil.
 func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, from, to, recipient string) error {
 	if qty < 1 {
 		return fmt.Errorf("deliver: qty must be >= 1, got %d", qty)
@@ -130,9 +137,12 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 	if err != nil {
 		return fmt.Errorf("deliver: %w", err)
 	}
-	fromSys, fromPOI, err := resolveBase(ctx, d.KB, from)
-	if err != nil {
-		return fmt.Errorf("deliver: resolve source %q: %w", from, err)
+	var fromSys, fromPOI string
+	if from != "" {
+		fromSys, fromPOI, err = resolveBase(ctx, d.KB, from)
+		if err != nil {
+			return fmt.Errorf("deliver: resolve source %q: %w", from, err)
+		}
 	}
 	toSys, toPOI, err := resolveBase(ctx, d.KB, to)
 	if err != nil {
@@ -145,15 +155,25 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 		short := false
 		if carrying < remaining {
 			var cargoFull bool
-			carrying, short, cargoFull, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from)
-			if err != nil {
-				return err
+			if from == "" {
+				// Nothing to withdraw from — cargo is already everything
+				// there is. Deliver it and stop; another pass would make no
+				// progress.
+				short = true
+			} else {
+				carrying, short, cargoFull, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from)
+				if err != nil {
+					return err
+				}
 			}
 			if carrying == 0 {
-				if cargoFull {
+				switch {
+				case from == "":
+					fmt.Fprintf(d.Out, "deliver: %s not in cargo — nothing to deliver (requested %d)\n", itemID, qty) //nolint:errcheck
+				case cargoFull:
 					fmt.Fprintf(d.Out, "deliver: %s cargo full — no room to withdraw at %s, delivered %d of %d requested\n", //nolint:errcheck
 						itemID, from, qty-remaining, qty)
-				} else {
+				default:
 					fmt.Fprintf(d.Out, "deliver: %s exhausted at %s — delivered %d of %d requested\n", //nolint:errcheck
 						itemID, from, qty-remaining, qty)
 				}
