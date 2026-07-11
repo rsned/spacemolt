@@ -42,7 +42,9 @@ func TestParseDispatchArgs(t *testing.T) {
 		},
 		{name: "no args", args: nil, wantErr: true},
 		{name: "bad budget", args: []string{"plan.json", "--budget=abc"}, wantErr: true},
-		{name: "negative budget", args: []string{"plan.json", "--budget=-5"}, wantErr: true},
+		{name: "budget=0 rejected", args: []string{"plan.json", "--budget=0"}, wantErr: true},
+		{name: "budget=-1 unbounded", args: []string{"plan.json", "--budget=-1"}, want: dispatchArgs{planPath: "plan.json", budget: -1}},
+		{name: "budget=-5 rejected", args: []string{"plan.json", "--budget=-5"}, wantErr: true},
 		{name: "unknown flag rejected", args: []string{"plan.json", "--jsonn"}, wantErr: true},
 		{name: "unexpected positional", args: []string{"plan.json", "extra"}, wantErr: true},
 	}
@@ -81,10 +83,20 @@ func TestSanitizeID(t *testing.T) {
 		{"already-lower-case", "already-lower-case"},
 		{"weird:chars/here", "weird-chars-here"},
 		{"UPPER123", "upper123"},
+		{"Café Crate", "caf--crate"},      // accented characters and spaces become dashes
+		{"日本語テキスト", "-------"},           // CJK characters become dashes
+		{"café-123", "caf--123"},           // mix of accented and valid chars
 	}
 	for _, tt := range tests {
-		if got := sanitizeID(tt.in); got != tt.want {
+		got := sanitizeID(tt.in)
+		if got != tt.want {
 			t.Errorf("sanitizeID(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+		// Verify output stays within [a-z0-9-]
+		for _, r := range got {
+			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '-' {
+				t.Errorf("sanitizeID(%q) = %q contains invalid rune %q (must be [a-z0-9-])", tt.in, got, r)
+			}
 		}
 	}
 }
@@ -255,6 +267,16 @@ func TestDispatchTransform_BudgetDefault(t *testing.T) {
 		// craft fee 100 + buy fee ceil(2.0*10)=20 -> sum 120 -> ceil(1.25*120) = 150
 		if qf.Manifest.BudgetCap != 150 {
 			t.Errorf("BudgetCap = %d, want 150 (buy-converted leaf must count toward the sum)", qf.Manifest.BudgetCap)
+		}
+	})
+
+	t.Run("budget=-1 expresses unbounded (cap=0)", func(t *testing.T) {
+		qf, _, err := dispatchTransform(context.Background(), raw, dispatchArgs{budget: -1}, "base", fakeSeller(nil), time.Now())
+		if err != nil {
+			t.Fatalf("dispatchTransform: %v", err)
+		}
+		if qf.Manifest.BudgetCap != 0 {
+			t.Errorf("BudgetCap = %d, want 0 (unbounded)", qf.Manifest.BudgetCap)
 		}
 	})
 }

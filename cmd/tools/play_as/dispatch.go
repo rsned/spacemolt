@@ -49,7 +49,7 @@ var craftStateDir = "data/overmind/craft-plans"
 // [--mine=item1,item2] [--assembly=BASE] [--skip-verify]`.
 type dispatchArgs struct {
 	planPath   string
-	budget     int // 0 = compute the default
+	budget     int // 0 = compute the default; -1 = unbounded (no budget cap)
 	mineItems  []string
 	assembly   string // "" = resolve from craftFleetPath
 	skipVerify bool
@@ -59,7 +59,7 @@ type dispatchArgs struct {
 // rather than ignored, matching build's parseBuildArgs: a typo'd flag would
 // otherwise silently fall back to a default the operator didn't ask for.
 func parseDispatchArgs(args []string) (dispatchArgs, error) {
-	const usage = "usage: dispatch <plan.json> [--budget=N] [--mine=item1,item2] [--assembly=BASE] [--skip-verify]"
+	const usage = "usage: dispatch <plan.json> [--budget=N] [--mine=item1,item2] [--assembly=BASE] [--skip-verify]\nbudget: N > 0 = cap, N = -1 = unbounded (no cap), omit = computed default"
 	if len(args) == 0 {
 		return dispatchArgs{}, fmt.Errorf("%s", usage)
 	}
@@ -71,8 +71,14 @@ func parseDispatchArgs(args []string) (dispatchArgs, error) {
 		case strings.HasPrefix(a, "--budget="):
 			v := strings.TrimPrefix(a, "--budget=")
 			n, err := strconv.Atoi(v)
-			if err != nil || n < 0 {
-				return dispatchArgs{}, fmt.Errorf("dispatch: --budget must be a non-negative integer, got %q", v)
+			if err != nil {
+				return dispatchArgs{}, fmt.Errorf("dispatch: --budget must be an integer, got %q", v)
+			}
+			if n == 0 {
+				return dispatchArgs{}, fmt.Errorf("dispatch: --budget=0 is invalid; use --budget=-1 for unbounded (no cap) or omit for computed default")
+			}
+			if n < -1 {
+				return dispatchArgs{}, fmt.Errorf("dispatch: --budget must be >= -1, got %d", n)
 			}
 			da.budget = n
 		case strings.HasPrefix(a, "--mine="):
@@ -145,13 +151,19 @@ func dispatchTransform(ctx context.Context, planJSON []byte, args dispatchArgs, 
 	}
 
 	budget := args.budget
-	if budget <= 0 {
+	switch budget {
+	case 0:
+		// Compute default: ceiling of slack factor times total fees
 		sum := 0
 		for _, n := range plan.Nodes {
 			sum += n.FeeTotal
 		}
 		budget = int(math.Ceil(budgetSlackFactor * float64(sum)))
+	case -1:
+		// Unbounded: no budget cap
+		budget = 0
 	}
+	// else: positive budget is used as-is (explicit cap)
 
 	qf := &plans.QueueFile{
 		Manifest: plans.Manifest{
