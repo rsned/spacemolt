@@ -80,6 +80,139 @@ func TestNewRunPinsCraftsAndRecipients(t *testing.T) {
 	}
 }
 
+// TestNewRunInsertsXferForCrossStationBuy (C2): a buy node at seller_x feeding
+// a craft at hub_a strands its goods at seller_x — BuyDirected gifts them to
+// the consumer craft's pinned agent AT the seller station. A synthetic xfer
+// must move them to the craft station, couriered by that same agent (the buy's
+// recipient) and self-deposited.
+func TestNewRunInsertsXferForCrossStationBuy(t *testing.T) {
+	qf := QueueFile{
+		Manifest: Manifest{PlanID: "pbuy"},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "widget", Qty: 2, StationID: "hub_a",
+				DependsOn: []string{"buy-2"}},
+			{ID: "buy-2", Kind: craftbrain.KindBuy, ItemID: "ore", Qty: 10, StationID: "seller_x"},
+		}},
+	}
+	pr := NewRun(qf, roster2())
+	c1 := pr.NodeByID("craft-1")
+
+	var xfer *NodeRun
+	for _, n := range pr.Nodes {
+		if n.Synthetic {
+			xfer = n
+		}
+	}
+	if xfer == nil {
+		t.Fatal("no synthetic xfer inserted for a cross-station buy->craft edge")
+	}
+	if xfer.Node.Kind != craftbrain.KindHaul || xfer.Node.FromBase != "seller_x" || xfer.Node.ToBase != "hub_a" {
+		t.Errorf("xfer = %+v, want haul seller_x->hub_a", xfer.Node)
+	}
+	if xfer.Node.ItemID != "ore" || xfer.Node.Qty != 10 {
+		t.Errorf("xfer item/qty = %s/%d, want ore/10", xfer.Node.ItemID, xfer.Node.Qty)
+	}
+	if xfer.Agent != c1.Agent {
+		t.Errorf("xfer courier = %q, want the consumer craft's agent %q (the buy's recipient holds the goods)", xfer.Agent, c1.Agent)
+	}
+	if xfer.Recipient != "" {
+		t.Errorf("xfer recipient = %q, want self (empty) — courier self-deposits at the craft station", xfer.Recipient)
+	}
+	if slices.Contains(c1.Node.DependsOn, "buy-2") {
+		t.Error("craft-1 still depends directly on buy-2")
+	}
+	if !slices.Contains(c1.Node.DependsOn, xfer.Node.ID) {
+		t.Error("craft-1 does not depend on the xfer node")
+	}
+}
+
+// TestNewRunNoXferForSameStationBuy (C2 negative): a buy at the SAME station as
+// its consumer craft needs no xfer — the buy already gifts to the consumer
+// agent there.
+func TestNewRunNoXferForSameStationBuy(t *testing.T) {
+	qf := QueueFile{
+		Manifest: Manifest{PlanID: "pbuy2"},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "widget", Qty: 2, StationID: "hub_a",
+				DependsOn: []string{"buy-2"}},
+			{ID: "buy-2", Kind: craftbrain.KindBuy, ItemID: "ore", Qty: 10, StationID: "hub_a"},
+		}},
+	}
+	pr := NewRun(qf, roster2())
+	for _, n := range pr.Nodes {
+		if n.Synthetic {
+			t.Fatalf("unexpected synthetic xfer for a same-station buy->craft edge: %+v", n.Node)
+		}
+	}
+}
+
+// TestNewRunInsertsXferForSameStationDifferentAgentCrafts (C3): two crafts at
+// the same station pinned to DIFFERENT agents (round-robin) still strand the
+// intermediate — the producer deposits into its own storage; the consumer
+// (different agent) can't withdraw it. A same-station xfer (gift) must bridge
+// them: courier = producer's agent, recipient = consumer's agent.
+func TestNewRunInsertsXferForSameStationDifferentAgentCrafts(t *testing.T) {
+	qf := QueueFile{
+		Manifest: Manifest{PlanID: "pc3"},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "widget", Qty: 2, StationID: "hub_a",
+				DependsOn: []string{"craft-2"}},
+			{ID: "craft-2", Kind: craftbrain.KindCraft, ItemID: "part", Qty: 4, StationID: "hub_a"},
+		}},
+	}
+	pr := NewRun(qf, roster2())
+	c1, c2 := pr.NodeByID("craft-1"), pr.NodeByID("craft-2")
+	if c1.Agent == c2.Agent {
+		t.Fatalf("precondition: round-robin must pin the two crafts to different agents, got both %q", c1.Agent)
+	}
+
+	var xfer *NodeRun
+	for _, n := range pr.Nodes {
+		if n.Synthetic {
+			xfer = n
+		}
+	}
+	if xfer == nil {
+		t.Fatal("no synthetic xfer for same-station different-agent craft->craft edge")
+	}
+	if xfer.Node.FromBase != "hub_a" || xfer.Node.ToBase != "hub_a" {
+		t.Errorf("xfer = %+v, want a same-station (hub_a->hub_a) gift", xfer.Node)
+	}
+	if xfer.Agent != c2.Agent {
+		t.Errorf("xfer courier = %q, want producer craft-2's agent %q", xfer.Agent, c2.Agent)
+	}
+	if xfer.Recipient != c1.Agent {
+		t.Errorf("xfer recipient = %q, want consumer craft-1's agent %q", xfer.Recipient, c1.Agent)
+	}
+	if !slices.Contains(c1.Node.DependsOn, xfer.Node.ID) {
+		t.Error("craft-1 does not depend on the xfer node")
+	}
+}
+
+// TestNewRunNoXferForSameStationSameAgentCrafts (C3 negative): two crafts at
+// the same station pinned to the SAME agent (roster of 1) need no xfer — the
+// producer's outputs and the consumer's inputs share one storage.
+func TestNewRunNoXferForSameStationSameAgentCrafts(t *testing.T) {
+	qf := QueueFile{
+		Manifest: Manifest{PlanID: "pc3b"},
+		Plan: craftbrain.Plan{Nodes: []craftbrain.Node{
+			{ID: "craft-1", Kind: craftbrain.KindCraft, ItemID: "widget", Qty: 2, StationID: "hub_a",
+				DependsOn: []string{"craft-2"}},
+			{ID: "craft-2", Kind: craftbrain.KindCraft, ItemID: "part", Qty: 4, StationID: "hub_a"},
+		}},
+	}
+	pr := NewRun(qf, []RosterAgent{{AgentID: "craftsman-2", Station: "hub_a"}})
+	c1, c2 := pr.NodeByID("craft-1"), pr.NodeByID("craft-2")
+	if c1.Agent != c2.Agent {
+		t.Fatalf("precondition: roster of 1 must pin both crafts to the same agent, got %q and %q", c1.Agent, c2.Agent)
+	}
+	for _, n := range pr.Nodes {
+		if n.Synthetic {
+			t.Fatalf("unexpected synthetic xfer for a same-station same-agent craft->craft edge: %+v", n.Node)
+		}
+	}
+}
+
 // TestNewRunDoesNotMutateInput pins the "never mutate the input QueueFile"
 // invariant. It mirrors TestNewRunPinsCraftsAndRecipients's fixture (a
 // cross-station craft->craft edge) so rule 6's in-place DependsOn rewrite is

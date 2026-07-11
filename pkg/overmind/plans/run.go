@@ -254,12 +254,27 @@ func detectCycleMembers(nodes []*NodeRun) map[string]bool {
 	return members
 }
 
-// insertSyntheticXfers walks craft->craft dependency edges (consumer's
-// DependsOn contains producer); wherever producer.StationID differs from
-// consumer.StationID it inserts a synthetic haul NodeRun carrying the
-// producer's output to the consumer's station, then rewrites the consumer's
-// DependsOn to point at the xfer instead of the producer directly. Consumers
-// are walked in plan order so xfer ids are stable across runs.
+// insertSyntheticXfers walks the DependsOn edges into every craft consumer and
+// inserts a synthetic haul NodeRun wherever the producer's output would
+// otherwise be stranded out of the consumer's reach, then rewrites the
+// consumer's DependsOn to point at the xfer instead of the producer directly.
+// Consumers are walked in plan order so xfer ids are stable across runs.
+//
+// Three stranding cases are bridged:
+//
+//   - craft->craft, different stations: producer deposits at its station; the
+//     xfer carries the output to the consumer's station. Courier = producer's
+//     agent (holds the output), recipient = consumer's agent.
+//   - craft->craft, SAME station but different pinned agents (round-robin
+//     gives adjacent crafts different agents): the producer deposits into its
+//     OWN storage; the consumer (a different agent) can't withdraw it. A
+//     same-station xfer gifts it across — Deliver handles FROM==TO as a
+//     no-flight gift. Courier = producer's agent, recipient = consumer's agent.
+//   - buy->craft, different stations: BuyDirected gifts the bought goods to the
+//     consumer craft's pinned agent AT the seller station (rule 5 set the buy's
+//     Recipient to that agent). The xfer carries them to the craft station,
+//     couriered by that same agent and self-deposited. Courier = the buy's
+//     recipient, recipient = self.
 func insertSyntheticXfers(pr *PlanRun) {
 	n := 0
 	// Snapshot the pre-xfer node list; new synthetic nodes are appended to
@@ -273,31 +288,70 @@ func insertSyntheticXfers(pr *PlanRun) {
 		deps := consumer.Node.DependsOn
 		for i, depID := range deps {
 			producer := pr.NodeByID(depID)
-			if producer == nil || producer.Node.Kind != craftbrain.KindCraft {
+			if producer == nil {
 				continue
 			}
-			if producer.Node.StationID == "" || producer.Node.StationID == consumer.Node.StationID {
+			xfer := buildXfer(producer, consumer, &n)
+			if xfer == nil {
 				continue
-			}
-			xferID := fmt.Sprintf("xfer-%d", n)
-			n++
-			xfer := &NodeRun{
-				Node: craftbrain.Node{
-					ID:        xferID,
-					Kind:      craftbrain.KindHaul,
-					ItemID:    producer.Node.ItemID,
-					Qty:       producer.Node.Qty,
-					FromBase:  producer.Node.StationID,
-					ToBase:    consumer.Node.StationID,
-					DependsOn: []string{producer.Node.ID},
-				},
-				State:     NodeWaiting,
-				Agent:     producer.Agent,
-				Recipient: consumer.Agent,
-				Synthetic: true,
 			}
 			pr.Nodes = append(pr.Nodes, xfer)
-			deps[i] = xferID
+			deps[i] = xfer.Node.ID
 		}
+	}
+}
+
+// buildXfer returns the synthetic haul NodeRun bridging a producer->consumer
+// edge, or nil when the producer's output already sits where the consumer can
+// reach it (same station AND same agent for crafts; same station for buys).
+// idx is the shared xfer-id counter, advanced only when an xfer is built.
+func buildXfer(producer, consumer *NodeRun, idx *int) *NodeRun {
+	switch producer.Node.Kind {
+	case craftbrain.KindCraft:
+		if producer.Node.StationID == "" {
+			return nil
+		}
+		sameStation := producer.Node.StationID == consumer.Node.StationID
+		sameAgent := producer.Agent == consumer.Agent
+		if sameStation && sameAgent {
+			return nil
+		}
+		return newXfer(idx, producer.Node.ItemID, producer.Node.Qty,
+			producer.Node.StationID, consumer.Node.StationID,
+			producer.Node.ID, producer.Agent, consumer.Agent)
+
+	case craftbrain.KindBuy:
+		// BuyDirected already gifted to the consumer's agent at the seller
+		// station; only a cross-station buy needs carrying onward.
+		if producer.Node.StationID == "" || producer.Node.StationID == consumer.Node.StationID {
+			return nil
+		}
+		return newXfer(idx, producer.Node.ItemID, producer.Node.Qty,
+			producer.Node.StationID, consumer.Node.StationID,
+			producer.Node.ID, producer.Recipient, "")
+
+	default:
+		return nil
+	}
+}
+
+// newXfer constructs one synthetic haul NodeRun and advances the id counter.
+func newXfer(idx *int, itemID string, qty int, from, to, dep, courier, recipient string) *NodeRun {
+	xferID := fmt.Sprintf("xfer-%d", *idx)
+	*idx++
+	return &NodeRun{
+		Node: craftbrain.Node{
+			ID:        xferID,
+			Kind:      craftbrain.KindHaul,
+			ItemID:    itemID,
+			Qty:       qty,
+			FromBase:  from,
+			ToBase:    to,
+			DependsOn: []string{dep},
+		},
+		State:     NodeWaiting,
+		Agent:     courier,
+		Recipient: recipient,
+		Synthetic: true,
 	}
 }
