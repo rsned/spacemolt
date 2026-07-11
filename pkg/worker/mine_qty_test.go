@@ -17,11 +17,15 @@ import (
 // (pkg/game/client.go: mining_yield pushes update state.Ship.Cargo directly,
 // no get_cargo round trip required — verified 2026-07-10), adds it straight
 // to state.Ship.Cargo/CargoUsed with no separate refresh call needed.
+// If yieldItemID is set, yields go to that item instead of mineItemID
+// (used to test cross-item isolation: the belt yields something OTHER than
+// what we're mining for).
 type mineFakeClient struct {
 	*deliverFakeClient
-	mineItemID string
-	mineYields []float64
-	mineCalls  int
+	mineItemID  string
+	yieldItemID string // if non-empty, yield to this item instead of mineItemID
+	mineYields  []float64
+	mineCalls   int
 }
 
 func (f *mineFakeClient) Mine(ctx context.Context) error {
@@ -34,15 +38,19 @@ func (f *mineFakeClient) Mine(ctx context.Context) error {
 	if yield <= 0 || f.state == nil {
 		return nil
 	}
+	yieldTo := f.mineItemID
+	if f.yieldItemID != "" {
+		yieldTo = f.yieldItemID
+	}
 	found := false
 	for i := range f.state.Ship.Cargo {
-		if f.state.Ship.Cargo[i].ItemID == f.mineItemID {
+		if f.state.Ship.Cargo[i].ItemID == yieldTo {
 			f.state.Ship.Cargo[i].Quantity += yield
 			found = true
 		}
 	}
 	if !found {
-		f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: f.mineItemID, Quantity: yield})
+		f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: yieldTo, Quantity: yield})
 	}
 	f.state.Ship.CargoUsed += yield
 	return nil
@@ -175,6 +183,68 @@ func TestMineQtyDryBeltStopsAndDeliversPartial(t *testing.T) {
 	}
 }
 
+// TestMineQtyDryCounterIgnoresOtherItemYields: the dry-pass counter in mineLoop
+// tracks the TARGET item's cargo count, not total cargo. This test verifies that
+// when the belt yields a DIFFERENT item on every pass (while the target item
+// never grows), the verb still stops after MineQtyMaxDryPasses passes and
+// delivers whatever target quantity it had (e.g., 0 for a clean no-op). This
+// guards against a mutation that tracks total cargo instead of per-item count.
+func TestMineQtyDryCounterIgnoresOtherItemYields(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineTestKB(t, "raw_ore")
+
+	// Start with 1 unit of raw_ore in cargo. Belt yields DIFFERENT item (other_ore)
+	// on every pass — raw_ore never grows. Counter must stop at MineQtyMaxDryPasses.
+	yields := make([]float64, 0, MineQtyMaxDryPasses+2)
+	for range MineQtyMaxDryPasses + 2 {
+		yields = append(yields, 5) // yields 5 units each pass, but to "other_ore", not "raw_ore"
+	}
+	client := &mineFakeClient{
+		deliverFakeClient: &deliverFakeClient{
+			fakeClient: &fakeClient{state: &game.State{
+				System: game.SystemData{ID: "mine_sys"},
+				Ship: game.Ship{
+					CargoCapacity: 100,
+					Cargo:         []game.CargoItem{{ItemID: "raw_ore", Quantity: 1}},
+					CargoUsed:     1,
+				},
+			}},
+			storageStock: map[string]float64{},
+		},
+		mineItemID:  "raw_ore", // mining for this
+		yieldItemID: "other_ore", // but belt yields this instead
+		mineYields:  yields,
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+
+	if err := d.MineQty(context.Background(), "raw_ore", 100, "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQty: %v", err)
+	}
+
+	mineCalls := 0
+	for _, c := range client.calls {
+		if c == "mine" {
+			mineCalls++
+		}
+	}
+	if want := MineQtyMaxDryPasses; mineCalls != want {
+		t.Fatalf("mine calls = %d, want %d (must stop after %d dry passes with target item not growing)",
+			mineCalls, want, MineQtyMaxDryPasses)
+	}
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1", len(client.giftCalls))
+	}
+	// Should deliver 1 unit of raw_ore (what it started with; didn't grow due to belt yielding other_ore)
+	if got := client.giftCalls[0]["quantity"]; got != float64(1) {
+		t.Fatalf("gift quantity = %v, want 1 (target item didn't grow despite belt yielding other_ore)",
+			got)
+	}
+	if got := client.giftCalls[0]["item_id"]; got != "raw_ore" {
+		t.Fatalf("gift item_id = %v, want raw_ore", got)
+	}
+}
+
 // TestMineQtyStopsWhenCargoFull: the belt keeps yielding, but the hold has no
 // room after the first pass — MineQty must stop mining (not spin forever
 // trying to mine into a full hold) and deliver what's aboard.
@@ -258,16 +328,12 @@ func TestMineQtyUndocksBeforeMining(t *testing.T) {
 	}
 }
 
-// TestMineQtyBadRecipientFailsBeforeTravelOrMining is the fail-fast
-// regression: a recipient whose credentials.json is missing must fail before
-// any travel or mining happens — Deliver's up-front recipient resolution
-// (Task 6) must still run first even though MineQty calls Deliver only at
-// the very end of the mine loop, so this exercises the ordering via a
-// resource lookup failure path instead: since MineQty itself resolves the
-// mining site first, this only checks the final Deliver leg surfaces the
-// error (mining/traveling already happened by then, which is expected — the
-// ore is real regardless of a bad recipient).
-func TestMineQtyBadRecipientFailsBeforeMining(t *testing.T) {
+// TestMineQtyBadRecipientSurfacesViaFinalDeliver verifies that a recipient
+// whose credentials.json is missing causes MineQty to fail. Mining and travel
+// to the resource POI happen first (which is expected — the ore is real
+// regardless of a bad recipient), but the error surfaces via the trailing
+// Deliver call at the end of MineQty when it tries to resolve the recipient.
+func TestMineQtyBadRecipientSurfacesViaFinalDeliver(t *testing.T) {
 	agentsDir := t.TempDir() // no credentials.json for "craftsman-missing"
 	kb := newMineTestKB(t, "raw_ore")
 
