@@ -40,6 +40,15 @@ type deliverFakeClient struct {
 	giftErrOnAttempt int
 	giftErr          error
 	giftAttempts     int
+
+	// hookOnAttempt, when > 0, runs hook synchronously at the start of the
+	// Nth SendGift call (1-indexed, same counting as giftErrOnAttempt),
+	// before that call's own gift/error handling — for injecting a side
+	// effect (e.g. a concurrent writer mutating the handoff queue via a
+	// second *handoff.Queue handle on the same file) at a precise point
+	// between a record's pickup and its progress persist.
+	hookOnAttempt int
+	hook          func()
 }
 
 type depositCall struct {
@@ -116,6 +125,9 @@ func (f *deliverFakeClient) DepositItems(ctx context.Context, itemID string, qua
 
 func (f *deliverFakeClient) SendGift(ctx context.Context, payload map[string]any) error {
 	f.giftAttempts++
+	if f.hookOnAttempt > 0 && f.giftAttempts == f.hookOnAttempt && f.hook != nil {
+		f.hook()
+	}
 	if f.giftErrOnAttempt > 0 && f.giftAttempts == f.giftErrOnAttempt {
 		f.calls = append(f.calls, fmt.Sprintf("send_gift_err:%v", payload))
 		return f.giftErr

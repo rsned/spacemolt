@@ -47,6 +47,14 @@ type WorkerDispatch struct {
 	// Mine() passes (game.SleepTick cadence). Same default/override pattern
 	// as craftPollSleep.
 	minePollSleep func(ctx context.Context, d time.Duration) error
+
+	// handoffPersist is the CAS-transition primitive HandoffPass/moveHandoffStock
+	// use for every write to the handoff queue (progress persist, done, failed).
+	// Defaults to a direct pass-through to Queue.Transition; tests override it
+	// to inject a persist error (as opposed to a plain CAS-mismatch, which is
+	// already reachable by racing a second *handoff.Queue handle against the
+	// same file) at an exact call, mirroring the craftPollSleep override pattern.
+	handoffPersist handoffTransition
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -62,6 +70,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 		shuttle:        &shuttleState{},
 		craftPollSleep: craftPollSleepFunc,
 		minePollSleep:  craftPollSleepFunc,
+		handoffPersist: defaultHandoffPersist,
 	}
 }
 

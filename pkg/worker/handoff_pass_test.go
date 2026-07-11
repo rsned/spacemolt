@@ -437,3 +437,233 @@ func TestHandoffPassTransientMidPassFailurePersistsProgressThenResumes(t *testin
 		t.Fatalf("final record MovedQty = %d, want 8 (cumulative across both passes)", final.MovedQty)
 	}
 }
+
+// TestHandoffPassPreservesConcurrentMovedQtyUpdateAsDelta is the regression
+// test for the stale-snapshot bug: moveHandoffStock must persist progress as
+// a DELTA against the live record under lock (r.MovedQty += this batch's
+// qty), never a precomputed cumulative (baseline-at-pickup + moved). A
+// second writer bumps MovedQty on the same on-disk record — via a second
+// *handoff.Queue handle on the same file, triggered from inside the fake
+// client's SendGift hook, i.e. strictly between this pass's pickup (List in
+// HandoffPass) and its own progress persist — while this pass is gifting a
+// single batch. If the fix uses a delta, the concurrent writer's +2 and this
+// pass's own +8 both land: final MovedQty == 10. The old cumulative-assign
+// code would clobber the concurrent +2, leaving MovedQty == 8.
+func TestHandoffPassPreservesConcurrentMovedQtyUpdateAsDelta(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "hauler-9", "Hauler Nine")
+
+	queuePath := filepath.Join(t.TempDir(), "handoff.json")
+	q := handoff.NewQueue(queuePath)
+
+	client := newHandoffTestClient(100, true, "station-a", map[string]float64{"copper_piping": 20})
+	client.hookOnAttempt = 1
+	client.hook = func() {
+		q2 := handoff.NewQueue(queuePath)
+		ok, err := q2.Transition("plan1/node1", handoff.StatusPending, handoff.StatusPending, func(r *handoff.Record) {
+			r.MovedQty += 2
+		})
+		if err != nil || !ok {
+			t.Fatalf("concurrent writer transition: ok=%v err=%v", ok, err)
+		}
+	}
+
+	d := NewWorkerDispatch(client, nil, nil, nil)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	rec := handoff.Record{
+		ID: "plan1/node1", Holder: "craftsman-2", Station: "station-a",
+		ItemID: "copper_piping", Qty: 8, Recipient: "hauler-9",
+	}
+	if _, err := q.Enqueue(rec); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass: %v", err)
+	}
+
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[0]["quantity"]; got != float64(8) {
+		t.Fatalf("gift quantity = %v, want 8", got)
+	}
+
+	got := findHandoffRecord(t, q, "plan1/node1")
+	if got.Status != handoff.StatusDone {
+		t.Fatalf("record status = %q, want done", got.Status)
+	}
+	if got.MovedQty != 10 {
+		t.Fatalf("record MovedQty = %d, want 10 (concurrent +2 plus this pass's +8, delta semantics)", got.MovedQty)
+	}
+}
+
+// TestHandoffPassStopsGiftingWhenRecordLeavesPendingMidPass is the
+// regression test for the ignored-CAS-result bug: if the record leaves
+// pending (e.g. another actor marks it failed) between two batches of the
+// same pass, the pass must stop — it must not withdraw or gift a further
+// batch for a record that may already be done or failed elsewhere. Cargo
+// capacity 3 against Qty 8 forces three batches (3, 3, 2); a hook fires at
+// the start of the SECOND SendGift call and marks the record failed via a
+// second *handoff.Queue handle. That batch's own gift still lands (it was
+// already in flight), but its progress-persist CAS then fails (ok=false)
+// because the record is no longer pending — so the third batch must never
+// be attempted.
+func TestHandoffPassStopsGiftingWhenRecordLeavesPendingMidPass(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "hauler-9", "Hauler Nine")
+
+	queuePath := filepath.Join(t.TempDir(), "handoff.json")
+	q := handoff.NewQueue(queuePath)
+
+	client := newHandoffTestClient(3, true, "station-a", map[string]float64{"copper_piping": 20})
+	client.hookOnAttempt = 2
+	client.hook = func() {
+		q2 := handoff.NewQueue(queuePath)
+		ok, err := q2.Transition("plan1/node1", handoff.StatusPending, handoff.StatusFailed, func(r *handoff.Record) {
+			r.Error = "concurrently failed by another actor"
+		})
+		if err != nil || !ok {
+			t.Fatalf("concurrent writer transition: ok=%v err=%v", ok, err)
+		}
+	}
+
+	d := NewWorkerDispatch(client, nil, nil, nil)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	rec := handoff.Record{
+		ID: "plan1/node1", Holder: "craftsman-2", Station: "station-a",
+		ItemID: "copper_piping", Qty: 8, Recipient: "hauler-9",
+	}
+	if _, err := q.Enqueue(rec); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass: %v", err)
+	}
+
+	if len(client.giftCalls) != 2 {
+		t.Fatalf("SendGift calls = %d, want 2 (batch 3 must never be attempted once the record left pending) (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	var totalGifted float64
+	for _, gc := range client.giftCalls {
+		qty, _ := gc["quantity"].(float64)
+		totalGifted += qty
+	}
+	if totalGifted != 6 {
+		t.Fatalf("total gifted = %v, want 6 (two 3-unit batches, no third)", totalGifted)
+	}
+
+	got := findHandoffRecord(t, q, "plan1/node1")
+	if got.Status != handoff.StatusFailed {
+		t.Fatalf("record status = %q, want failed (set by the concurrent actor, untouched by the stopped pass)", got.Status)
+	}
+}
+
+// TestHandoffPassEscalatesToFailedWhenPersistErrorsAfterSuccessfulGift is
+// the regression test for the persist-failure-after-gift bug: a real (not
+// CAS-mismatch) error from the progress-persist call, occurring AFTER the
+// gift already landed, must not be treated like a plain transient gift
+// failure (which would leave the record pending with a stale, too-low
+// MovedQty and cause a re-gift next pass). It must escalate to failed,
+// naming the gifted-but-unpersisted quantity, and must not attempt any
+// further batches. Cargo capacity 3 against Qty 8 would normally need three
+// batches (3, 3, 2); the injected persist error on the very first
+// progress-persist call must prevent batches 2 and 3 from ever being
+// attempted.
+func TestHandoffPassEscalatesToFailedWhenPersistErrorsAfterSuccessfulGift(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "hauler-9", "Hauler Nine")
+
+	client := newHandoffTestClient(3, true, "station-a", map[string]float64{"copper_piping": 20})
+	d := NewWorkerDispatch(client, nil, nil, nil)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	persistCalls := 0
+	injectedErr := errors.New("disk write failed")
+	d.handoffPersist = func(q *handoff.Queue, id string, from, to handoff.Status, mutate func(*handoff.Record)) (bool, error) {
+		persistCalls++
+		if persistCalls == 1 {
+			// The very first progress-persist call (the batch-1 pending->pending
+			// CAS) fails with a real error, after batch 1's gift already landed.
+			return false, injectedErr
+		}
+		return q.Transition(id, from, to, mutate)
+	}
+
+	q := newHandoffTestQueue(t)
+	rec := handoff.Record{
+		ID: "plan1/node1", Holder: "craftsman-2", Station: "station-a",
+		ItemID: "copper_piping", Qty: 8, Recipient: "hauler-9",
+	}
+	if _, err := q.Enqueue(rec); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass: %v", err)
+	}
+
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (no further batches after the persist error) (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[0]["quantity"]; got != float64(3) {
+		t.Fatalf("gift quantity = %v, want 3", got)
+	}
+
+	got := findHandoffRecord(t, q, "plan1/node1")
+	if got.Status != handoff.StatusFailed {
+		t.Fatalf("record status = %q, want failed", got.Status)
+	}
+	if !strings.Contains(got.Error, "3") {
+		t.Fatalf("record Error = %q, want it to name the gifted-but-unpersisted quantity (3)", got.Error)
+	}
+	if got.MovedQty != 3 {
+		t.Fatalf("record MovedQty = %d, want 3 (the gifted batch, recorded via the failed-transition's own mutate)", got.MovedQty)
+	}
+}
+
+// TestHandoffPassLogsCriticalWhenEscalationAlsoFails covers the last-resort
+// branch: if even the escalate-to-failed transition errors after a
+// persist-after-gift failure, HandoffPass must not panic or silently drop
+// the problem — it logs loudly via d.Out so an operator can find it.
+func TestHandoffPassLogsCriticalWhenEscalationAlsoFails(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "hauler-9", "Hauler Nine")
+
+	client := newHandoffTestClient(100, true, "station-a", map[string]float64{"copper_piping": 20})
+	var out strings.Builder
+	d := NewWorkerDispatch(client, nil, nil, &out)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	injectedErr := errors.New("disk write failed")
+	d.handoffPersist = func(q *handoff.Queue, id string, from, to handoff.Status, mutate func(*handoff.Record)) (bool, error) {
+		return false, injectedErr
+	}
+
+	q := newHandoffTestQueue(t)
+	rec := handoff.Record{
+		ID: "plan1/node1", Holder: "craftsman-2", Station: "station-a",
+		ItemID: "copper_piping", Qty: 8, Recipient: "hauler-9",
+	}
+	if _, err := q.Enqueue(rec); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass: %v", err)
+	}
+
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if !strings.Contains(out.String(), "CRITICAL") {
+		t.Fatalf("d.Out = %q, want it to contain a CRITICAL log line when the escalation itself also fails", out.String())
+	}
+}
