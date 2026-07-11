@@ -43,6 +43,10 @@ func main() {
 	rescueFee := flag.Int("rescue-fee", 1000, "Flat credit fee a rescued worker gifts its rescuer on its next dock (0 disables)")
 	fleetName := flag.String("fleet-name", "", "Fleet name stamped on rescue records (default: socket basename)")
 	kbPath := flag.String("kb-path", "data/spacemolt-knowledge.db", "Knowledge base for rescue-fuel routing")
+	planQueuePath := flag.String("plan-queue", "", "Path to the craft-plan dispatch queue dir (empty disables the plan runner)")
+	planStateDir := flag.String("plan-state-dir", "data/overmind/craft-plans", "Directory for persisted craft-plan run state")
+	handoffQueuePath := flag.String("handoff-queue", "data/overmind/handoff-queue.json", "Shared crafting-brain stock handoff queue file (forwarded to every spawned worker when non-empty; consumed by the plan runner only when --plan-queue is set)")
+	holdersRosterPath := flag.String("holders-roster", "data/overmind/mb-fleet.yaml", "Fleet roster YAML for marketbot stock holders (the plan runner's Managed set; required when --plan-queue is set)")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
@@ -74,7 +78,7 @@ func main() {
 		logger.Fatalf("new server: %v", err)
 	}
 
-	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin), logger)
+	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin, *handoffQueuePath), logger)
 	sup.StaggerInterval = *stagger
 	sup.RestartBatch = *restartBatch
 
@@ -91,13 +95,16 @@ func main() {
 		taskStore.HandleEvent(agentID, ev)
 	})
 
-	// ── Step 2c: Balance recorder (live status file + daily history) ──────────
+	// ── Step 2c: Plan runner (optional craft-plan execution) ──────────────────
+	planRunner := buildPlanRunner(logger, taskStore, specs, *planQueuePath, *planStateDir, *handoffQueuePath, *holdersRosterPath)
+
+	// ── Step 2d: Balance recorder (live status file + daily history) ──────────
 	recorder, err := balances.NewRecorder(*statusPath, *historyPath)
 	if err != nil {
 		logger.Printf("balances: %v (continuing without balance tracking)", err)
 	}
 
-	// ── Step 2d: Market collector for quarter-hourly fleet_timeseries snapshots.
+	// ── Step 2e: Market collector for quarter-hourly fleet_timeseries snapshots.
 	// A failure here disables snapshots only — the fleet must still run.
 	var marketCol *market.Collector
 	if col, mErr := market.Open(market.Config{DBPath: *marketDBPath, WAL: true}); mErr != nil {
@@ -180,6 +187,9 @@ func main() {
 		case <-ticker.C:
 			snap := fleet.Snapshot()
 			taskStore.AssignPending(snap, srv)
+			if planRunner != nil {
+				planRunner.Tick()
+			}
 			logFleetSnapshot(logger, snap)
 			recordBalances(ctx, logger, recorder, marketCol, snap)
 			pollRescues(logger, sup, queue, *rescueHistPath, *fleetName, "data/agents", *rescueFee, snap)

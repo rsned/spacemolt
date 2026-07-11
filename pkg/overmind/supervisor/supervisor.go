@@ -16,15 +16,23 @@ import (
 type SpawnFunc func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error)
 
 // DefaultSpawn returns a SpawnFunc that launches workerBin with flags.
-func DefaultSpawn(workerBin string) SpawnFunc {
+// handoffQueuePath, when non-empty, is forwarded to every spawned worker as
+// --handoff-queue so marketbot/craftsman workers share the same crafting-brain
+// stock handoff queue file the overmind itself uses. An empty path forwards
+// nothing, leaving the worker's own --handoff-queue default (disabled) in
+// effect.
+func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
 	return func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
-		cmd := exec.CommandContext(ctx,
-			workerBin,
+		args := []string{
 			"--agent", spec.AgentID,
 			"--role", spec.Role,
 			"--station", spec.Station,
 			"--socket", socket,
-		)
+		}
+		if handoffQueuePath != "" {
+			args = append(args, "--handoff-queue", handoffQueuePath)
+		}
+		cmd := exec.CommandContext(ctx, workerBin, args...)
 		cmd.Stdout = log.Writer()
 		cmd.Stderr = log.Writer()
 		if err := cmd.Start(); err != nil {
