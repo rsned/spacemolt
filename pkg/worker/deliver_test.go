@@ -32,6 +32,14 @@ type deliverFakeClient struct {
 
 	depositCalls []depositCall
 	giftCalls    []map[string]any
+
+	// giftErrOnAttempt, when > 0, makes the Nth SendGift call (1-indexed,
+	// counting every attempt including earlier failures) return giftErr
+	// instead of succeeding — for simulating a transient failure partway
+	// through a multi-batch pass. All other attempts succeed normally.
+	giftErrOnAttempt int
+	giftErr          error
+	giftAttempts     int
 }
 
 type depositCall struct {
@@ -107,6 +115,11 @@ func (f *deliverFakeClient) DepositItems(ctx context.Context, itemID string, qua
 }
 
 func (f *deliverFakeClient) SendGift(ctx context.Context, payload map[string]any) error {
+	f.giftAttempts++
+	if f.giftErrOnAttempt > 0 && f.giftAttempts == f.giftErrOnAttempt {
+		f.calls = append(f.calls, fmt.Sprintf("send_gift_err:%v", payload))
+		return f.giftErr
+	}
 	f.calls = append(f.calls, fmt.Sprintf("send_gift:%v", payload))
 	f.giftCalls = append(f.giftCalls, payload)
 	itemID, _ := payload["item_id"].(string)

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -356,5 +357,83 @@ func TestHandoffPassProcessesAllMatchingRecordsInOnePass(t *testing.T) {
 	failed := findHandoffRecord(t, q, "plan1/node2")
 	if failed.Status != handoff.StatusFailed {
 		t.Fatalf("plan1/node2 status = %q, want failed", failed.Status)
+	}
+}
+
+// TestHandoffPassTransientMidPassFailurePersistsProgressThenResumes is the
+// regression test for the over-gift/lost-progress gap: a multi-batch record
+// (cargo capacity 5, Qty 8) whose first batch gifts fine but whose second
+// batch hits a transient SendGift error must leave the record pending with
+// MovedQty == the first batch's size — not 0 (lost progress) — and a second
+// pass must move only the remainder, never re-attempting the full Qty. Across
+// both passes the total gifted must equal Qty exactly, and the record must
+// end up done with the cumulative MovedQty.
+func TestHandoffPassTransientMidPassFailurePersistsProgressThenResumes(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "hauler-9", "Hauler Nine")
+
+	client := newHandoffTestClient(5, true, "station-a", map[string]float64{"copper_piping": 20})
+	client.giftErrOnAttempt = 2 // the second SendGift call across the test fails once
+	client.giftErr = errors.New("transient: connection reset")
+	d := NewWorkerDispatch(client, nil, nil, nil)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	q := newHandoffTestQueue(t)
+	rec := handoff.Record{
+		ID: "plan1/node1", Holder: "craftsman-2", Station: "station-a",
+		ItemID: "copper_piping", Qty: 8, Recipient: "hauler-9",
+	}
+	if _, err := q.Enqueue(rec); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	// Pass 1: first batch (cargo-capacity-sized, 5 units) gifts fine; the
+	// second batch's gift hits the injected transient error.
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass (pass 1): %v", err)
+	}
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("pass 1 SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[0]["quantity"]; got != float64(5) {
+		t.Fatalf("pass 1 gift quantity = %v, want 5", got)
+	}
+	mid := findHandoffRecord(t, q, "plan1/node1")
+	if mid.Status != handoff.StatusPending {
+		t.Fatalf("record status after pass 1 = %q, want still pending", mid.Status)
+	}
+	if mid.MovedQty != 5 {
+		t.Fatalf("record MovedQty after pass 1 = %d, want 5 (first batch's progress must be persisted, not lost)", mid.MovedQty)
+	}
+
+	// Pass 2: the transient error is gone — only the remaining 3 units
+	// (Qty 8 - MovedQty 5), not the full 8, must be moved.
+	client.giftErrOnAttempt = 0
+	if err := d.HandoffPass(context.Background(), q); err != nil {
+		t.Fatalf("HandoffPass (pass 2): %v", err)
+	}
+	if len(client.giftCalls) != 2 {
+		t.Fatalf("total SendGift calls across both passes = %d, want 2 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[1]["quantity"]; got != float64(3) {
+		t.Fatalf("pass 2 gift quantity = %v, want 3 (remaining only — must not re-gift the full Qty)", got)
+	}
+
+	var totalGifted float64
+	for _, gc := range client.giftCalls {
+		qty, _ := gc["quantity"].(float64)
+		totalGifted += qty
+	}
+	if totalGifted != 8 {
+		t.Fatalf("total gifted across both passes = %v, want 8 (must not over-gift)", totalGifted)
+	}
+
+	final := findHandoffRecord(t, q, "plan1/node1")
+	if final.Status != handoff.StatusDone {
+		t.Fatalf("final record status = %q, want done", final.Status)
+	}
+	if final.MovedQty != 8 {
+		t.Fatalf("final record MovedQty = %d, want 8 (cumulative across both passes)", final.MovedQty)
 	}
 }

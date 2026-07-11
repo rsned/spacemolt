@@ -69,13 +69,31 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		return
 	}
 
+	// rec.MovedQty carries progress persisted by an earlier, partially
+	// completed pass (see moveHandoffStock's per-batch CAS updates below).
+	// Only the remainder still needs to move; if a prior pass already moved
+	// everything (or more, which shouldn't happen but is handled the same
+	// way), there's nothing left to withdraw or gift — just finalize.
+	remaining := rec.Qty - rec.MovedQty
+	if remaining <= 0 {
+		if _, terr := q.Transition(rec.ID, handoff.StatusPending, handoff.StatusDone, func(r *handoff.Record) {
+			r.MovedQty = rec.MovedQty
+		}); terr != nil {
+			fmt.Fprintf(d.Out, "handoff: transition %s to done: %v\n", rec.ID, terr) //nolint:errcheck
+			return
+		}
+		fmt.Fprintf(d.Out, "handoff %s: done, moved %d/%d %s to %s (already complete from a prior pass)\n", //nolint:errcheck
+			rec.ID, rec.MovedQty, rec.Qty, rec.ItemID, rec.Recipient)
+		return
+	}
+
 	username, err := UsernameFor(d.agentsDir(), rec.Recipient)
 	if err != nil {
 		fail(fmt.Sprintf("resolve recipient %s: %v", rec.Recipient, err))
 		return
 	}
 
-	moved, definitive, err := d.moveHandoffStock(ctx, rec, username)
+	movedThisPass, definitive, err := d.moveHandoffStock(ctx, q, rec, username, remaining)
 	if err != nil {
 		fmt.Fprintf(d.Out, "handoff %s: %v (leaving pending)\n", rec.ID, err) //nolint:errcheck
 		return
@@ -85,42 +103,49 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		// present (e.g. cargo hold full) — leave pending, retry next pass.
 		return
 	}
+	cumulative := rec.MovedQty + movedThisPass
 	if _, terr := q.Transition(rec.ID, handoff.StatusPending, handoff.StatusDone, func(r *handoff.Record) {
-		r.MovedQty = moved
+		r.MovedQty = cumulative
 	}); terr != nil {
 		fmt.Fprintf(d.Out, "handoff: transition %s to done: %v\n", rec.ID, terr) //nolint:errcheck
 		return
 	}
-	fmt.Fprintf(d.Out, "handoff %s: done, moved %d/%d %s to %s\n", rec.ID, moved, rec.Qty, rec.ItemID, rec.Recipient) //nolint:errcheck
+	fmt.Fprintf(d.Out, "handoff %s: done, moved %d/%d %s to %s\n", rec.ID, cumulative, rec.Qty, rec.ItemID, rec.Recipient) //nolint:errcheck
 }
 
-// moveHandoffStock withdraws and gifts up to rec.Qty units of rec.ItemID in
-// cargo-hold-sized batches, mirroring Deliver's cargo-refresh discipline:
-// the live client does not update state.Ship.Cargo on WithdrawItems or
-// SendGift, so GetCargo is called after each. It returns the total actually
-// moved and whether the outcome is definitive:
+// moveHandoffStock withdraws and gifts up to remaining units of rec.ItemID
+// (the still-outstanding balance — rec.Qty minus whatever a prior pass
+// already moved) in cargo-hold-sized batches, mirroring Deliver's
+// cargo-refresh discipline: the live client does not update state.Ship.Cargo
+// on WithdrawItems or SendGift, so GetCargo is called after each. After every
+// batch that successfully gifts at least one unit, it persists progress by
+// CAS-updating the still-pending record's MovedQty (rec.MovedQty, the
+// pre-pass baseline, plus everything moved so far this pass) — so a
+// transient failure partway through a multi-batch pass does not lose the
+// batches that already landed, and the next pass resumes from the remainder
+// instead of re-gifting the full quantity. It returns the total actually
+// moved this pass and whether the outcome is definitive:
 //
-//   - definitive=true, err=nil: either the full quantity moved, or a
-//     withdraw came back with fewer units than requested for a definitive
+//   - definitive=true, err=nil: either the full remaining quantity moved, or
+//     a withdraw came back with fewer units than requested for a definitive
 //     reason (isShortSupplyErr — the source really doesn't have any more).
-//     The caller marks the record done either way, MovedQty = moved.
+//     The caller marks the record done either way, with MovedQty =
+//     rec.MovedQty + moved.
 //   - definitive=false, err=nil: the pass made no progress for a transient,
 //     non-error reason (the cargo hold has no free space this pass). The
 //     caller leaves the record pending.
 //   - err != nil: a real (non-short-supply) client error — transient by
 //     assumption (e.g. a disconnect). The caller leaves the record pending
-//     and logs it; nothing already gifted in this pass is undone.
-func (d *WorkerDispatch) moveHandoffStock(ctx context.Context, rec handoff.Record, username string) (moved int, definitive bool, err error) {
-	remaining := rec.Qty
+//     and logs it; whatever was already gifted (and persisted) in this pass
+//     stands, and is not re-attempted next pass.
+func (d *WorkerDispatch) moveHandoffStock(ctx context.Context, q *handoff.Queue, rec handoff.Record, username string, remaining int) (moved int, definitive bool, err error) {
+	baseline := rec.MovedQty
 	for remaining > 0 {
 		free := cargoFreeSpace(d.Client.GetState())
 		if free <= 0 {
 			return moved, moved > 0, nil
 		}
-		want := remaining
-		if want > free {
-			want = free
-		}
+		want := min(remaining, free)
 
 		before := cargoCount(d.Client.GetState(), rec.ItemID)
 		werr := d.Client.WithdrawItems(ctx, rec.ItemID, float64(want))
@@ -146,6 +171,16 @@ func (d *WorkerDispatch) moveHandoffStock(ctx context.Context, rec handoff.Recor
 			}
 			moved += got
 			remaining -= got
+
+			// Persist progress immediately so a later transient failure
+			// within this same pass (or a crash) never loses a batch that
+			// already landed in the recipient's cargo.
+			cumulative := baseline + moved
+			if _, terr := q.Transition(rec.ID, handoff.StatusPending, handoff.StatusPending, func(r *handoff.Record) {
+				r.MovedQty = cumulative
+			}); terr != nil {
+				return moved, moved > 0, fmt.Errorf("persist progress for %s: %w", rec.ID, terr)
+			}
 		}
 
 		if short {
