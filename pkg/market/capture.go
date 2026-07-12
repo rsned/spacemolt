@@ -93,14 +93,49 @@ func CaptureFromClient(ctx context.Context, client game.GameClient, collector *C
 		return err
 	}
 
-	snapshot := MarketSnapshot{
+	return collector.WriteSnapshot(ctx, snapshotFromState(state, orders, now))
+}
+
+// snapshotFromState builds a MarketSnapshot's identity fields from the
+// reliable parts of game state. state.CurrentSystem cannot be trusted as a
+// system id: get_system/logged_in merges overwrite it with the display name
+// ("Krynn", "Alpha Centauri"), which is how display names ended up in
+// market.db stations.system_id. Likewise state.CurrentPOI is a slug — or an
+// opaque hash for player-owned stations — never a display name, so it must
+// not be stored as station_name. Station names resolve through the current
+// system's POI list (BaseName, the station's proper name, over the POI's own
+// Name), matching what the KBUpdateStation capture path writes so the two
+// writers converge on the same row values.
+func snapshotFromState(state *game.State, orders []Order, now time.Time) MarketSnapshot {
+	systemID := state.System.ID
+	if systemID == "" {
+		systemID = state.CurrentSystem
+	}
+	systemName := state.System.Name
+	if systemName == "" {
+		systemName = systemID
+	}
+
+	stationName := state.CurrentPOI
+	for _, poi := range state.System.POIs {
+		if poi.ID != state.CurrentPOI {
+			continue
+		}
+		switch {
+		case poi.BaseName != "":
+			stationName = poi.BaseName
+		case poi.Name != "":
+			stationName = poi.Name
+		}
+		break
+	}
+
+	return MarketSnapshot{
 		StationID:   state.CurrentPOI,
-		StationName: state.CurrentPOI,
-		SystemID:    state.CurrentSystem,
-		SystemName:  state.CurrentSystem,
+		StationName: stationName,
+		SystemID:    systemID,
+		SystemName:  systemName,
 		Orders:      orders,
 		CapturedAt:  now,
 	}
-
-	return collector.WriteSnapshot(ctx, snapshot)
 }
