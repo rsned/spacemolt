@@ -1,25 +1,25 @@
 {
-  "captured_at": "2026-07-06T17:44:55Z",
+  "captured_at": "2026-07-12T02:38:04Z",
   "workers": [
     {
       "agent_id": "assist-frontier",
       "role": "assist",
-      "system": "Distant Light",
+      "system": "Horizon",
       "poi": "mobile_capital",
       "docked": true,
-      "credits": 1505,
+      "credits": 8697,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 1,
+      "fuel": 120,
       "max_fuel": 120,
-      "cargo_used": 12,
+      "cargo_used": 0,
       "cargo_capacity": 75,
       "standing_behavior": "assist",
       "active_task_id": "",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:51Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "assist-haven",
@@ -27,10 +27,10 @@
       "system": "Haven",
       "poi": "grand_exchange",
       "docked": true,
-      "credits": 3474,
+      "credits": 9239,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 123,
+      "fuel": 130,
       "max_fuel": 130,
       "cargo_used": 0,
       "cargo_capacity": 100,
@@ -39,7 +39,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:51Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "assist-krynn",
@@ -47,10 +47,10 @@
       "system": "Krynn",
       "poi": "war_citadel",
       "docked": true,
-      "credits": 21737,
+      "credits": 31329,
       "hull": 90,
       "max_hull": 90,
-      "fuel": 131,
+      "fuel": 140,
       "max_fuel": 140,
       "cargo_used": 0,
       "cargo_capacity": 80,
@@ -59,7 +59,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:51Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "assist-nexus",
@@ -67,12 +67,12 @@
       "system": "Nexus Prime",
       "poi": "the_core",
       "docked": true,
-      "credits": 3,
+      "credits": 2007,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 23,
+      "fuel": 95,
       "max_fuel": 95,
-      "cargo_used": 18,
+      "cargo_used": 17,
       "cargo_capacity": 65,
       "standing_behavior": "assist",
       "active_task_id": "",
@@ -81,7 +81,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:51Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "assist-sol",
@@ -89,19 +89,19 @@
       "system": "Sol",
       "poi": "sol_central",
       "docked": true,
-      "credits": 1325,
+      "credits": 2445,
       "hull": 100,
       "max_hull": 100,
       "fuel": 100,
       "max_fuel": 100,
-      "cargo_used": 7,
+      "cargo_used": 6,
       "cargo_capacity": 70,
       "standing_behavior": "assist",
       "active_task_id": "",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:51Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     }
   ]
 }

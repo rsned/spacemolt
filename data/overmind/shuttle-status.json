@@ -1,16 +1,16 @@
 {
-  "captured_at": "2026-07-06T17:44:57Z",
+  "captured_at": "2026-07-12T02:38:05Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "The Rampart",
-      "poi": "the_sentinel",
-      "docked": false,
-      "credits": 4624069,
+      "system": "Nexus Prime",
+      "poi": "the_core",
+      "docked": true,
+      "credits": 5837225,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 37,
+      "fuel": 100,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
@@ -21,7 +21,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:37:56Z"
     }
   ]
 }

@@ -1,6 +1,28 @@
 {
-  "captured_at": "2026-07-06T17:44:58Z",
+  "captured_at": "2026-07-12T02:38:05Z",
   "workers": [
+    {
+      "agent_id": "marketbot_001",
+      "role": "resident",
+      "system": "Dheneb",
+      "poi": "98eba8b1a7ad0520d6a7c8ea44b2d6aa",
+      "docked": true,
+      "credits": 604,
+      "hull": 100,
+      "max_hull": 100,
+      "fuel": 6,
+      "max_fuel": 100,
+      "cargo_used": 0,
+      "cargo_capacity": 70,
+      "standing_behavior": "resident",
+      "active_task_id": "",
+      "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
+      "faction_tag": "DB",
+      "healthy": true,
+      "restarts": 0,
+      "seen": true,
+      "last_seen": "2026-07-12T02:38:00Z"
+    },
     {
       "agent_id": "marketbot_alpha_centauri",
       "role": "resident_ice",
@@ -21,7 +43,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_blood_forge",
@@ -43,7 +65,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_cargo_lanes",
@@ -65,7 +87,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_deep_range",
@@ -87,7 +109,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_factory_belt",
@@ -109,7 +131,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_first_step",
@@ -131,7 +153,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_frontier",
@@ -153,7 +175,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_gold_run",
@@ -175,7 +197,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:54Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_haven",
@@ -197,7 +219,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_iron_reach",
@@ -219,7 +241,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_krynn",
@@ -241,7 +263,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_last_light",
@@ -263,7 +285,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_market_prime",
@@ -285,7 +307,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_nexus_prime",
@@ -307,7 +329,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_node_alpha",
@@ -329,7 +351,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_node_beta",
@@ -351,7 +373,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_node_gamma",
@@ -373,7 +395,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_nova_terra",
@@ -395,7 +417,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_procyon",
@@ -417,7 +439,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_ramens_rest",
@@ -439,7 +461,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_sirius",
@@ -461,7 +483,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_sol",
@@ -483,7 +505,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_starfall",
@@ -505,7 +527,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_synchrony",
@@ -527,7 +549,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_the_anvil",
@@ -549,7 +571,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:48Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_the_crucible",
@@ -571,7 +593,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_the_experiment",
@@ -593,7 +615,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_the_levy",
@@ -615,7 +637,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_the_rampart",
@@ -637,7 +659,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_the_telescope",
@@ -659,7 +681,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_traders_rest",
@@ -681,7 +703,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_treasure_cache",
@@ -703,7 +725,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_unknown_edge",
@@ -725,7 +747,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:00Z"
     },
     {
       "agent_id": "marketbot_void_gate",
@@ -747,7 +769,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-06T17:44:49Z"
+      "last_seen": "2026-07-12T02:38:01Z"
     }
   ]
 }

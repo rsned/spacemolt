@@ -3,6 +3,7 @@
 # tasked for stations they can't reach yet): algol, alhena, barnard_44, bellatrix,
 # gliese_581, gsc_0008, sheratan, xamidimura, zaniah.
 workers:
+  - { agent_id: marketbot_001, role: resident, station: "" }  # added 2026-07-11: resident at Hex Star (dheneb, player station); dheneb has a belt
   - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
   - { agent_id: marketbot_blood_forge, role: resident, station: "" }
   - { agent_id: marketbot_cargo_lanes, role: resident_gas, station: "" }
