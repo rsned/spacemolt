@@ -1,0 +1,161 @@
+{
+  "manifest": {
+    "plan_id": "air-recycler-20260713-013500",
+    "budget_cap": 2000,
+    "assembly": "grand_exchange",
+    "dispatched_at": "2026-07-13T01:35:00Z"
+  },
+  "nodes": [
+    {
+      "node": {
+        "id": "buy-1",
+        "kind": "buy",
+        "item_id": "copper_piping",
+        "qty": 4,
+        "station_id": "mobile_capital",
+        "fee_total": 180,
+        "status": "ok"
+      },
+      "state": "done",
+      "recipient": "craftsman-2",
+      "done_qty": 4,
+      "retries": 0,
+      "spent_actual": 180
+    },
+    {
+      "node": {
+        "id": "buy-2",
+        "kind": "buy",
+        "item_id": "flex_polymer",
+        "qty": 2,
+        "station_id": "alpha_centauri_colonial_station",
+        "fee_total": 82,
+        "status": "ok"
+      },
+      "state": "done",
+      "recipient": "craftsman-2",
+      "done_qty": 2,
+      "retries": 0,
+      "spent_actual": 82
+    },
+    {
+      "node": {
+        "id": "buy-3",
+        "kind": "buy",
+        "item_id": "ionized_neon",
+        "qty": 4,
+        "station_id": "the_experiment_research_station",
+        "fee_total": 24,
+        "status": "ok"
+      },
+      "state": "done",
+      "recipient": "craftsman-2",
+      "done_qty": 4,
+      "retries": 0,
+      "spent_actual": 24
+    },
+    {
+      "node": {
+        "id": "buy-4",
+        "kind": "buy",
+        "item_id": "purified_argon",
+        "qty": 8,
+        "station_id": "grand_exchange",
+        "fee_total": 216,
+        "status": "ok"
+      },
+      "state": "done",
+      "recipient": "craftsman-2",
+      "done_qty": 8,
+      "retries": 0,
+      "spent_actual": 216
+    },
+    {
+      "node": {
+        "id": "craft-1",
+        "kind": "craft",
+        "item_id": "air_recycler",
+        "qty": 2,
+        "runs": 2,
+        "recipe_id": "assemble_air_recycler",
+        "station_id": "grand_exchange",
+        "ticks_est": 7.5,
+        "status": "ok",
+        "depends_on": [
+          "xfer-0",
+          "xfer-1",
+          "xfer-2",
+          "buy-4"
+        ]
+      },
+      "state": "waiting",
+      "agent": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "xfer-0",
+        "kind": "haul",
+        "item_id": "copper_piping",
+        "qty": 4,
+        "from_base": "mobile_capital",
+        "to_base": "grand_exchange",
+        "status": "",
+        "depends_on": [
+          "buy-1"
+        ]
+      },
+      "state": "done",
+      "agent": "craftsman-2",
+      "done_qty": 4,
+      "retries": 0,
+      "synthetic": true,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "xfer-1",
+        "kind": "haul",
+        "item_id": "flex_polymer",
+        "qty": 2,
+        "from_base": "alpha_centauri_colonial_station",
+        "to_base": "grand_exchange",
+        "status": "",
+        "depends_on": [
+          "buy-2"
+        ]
+      },
+      "state": "done",
+      "agent": "craftsman-2",
+      "done_qty": 2,
+      "retries": 0,
+      "synthetic": true,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "xfer-2",
+        "kind": "haul",
+        "item_id": "ionized_neon",
+        "qty": 4,
+        "from_base": "the_experiment_research_station",
+        "to_base": "grand_exchange",
+        "status": "",
+        "depends_on": [
+          "buy-3"
+        ]
+      },
+      "state": "dispatched",
+      "agent": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "synthetic": true,
+      "spent_actual": 0
+    }
+  ],
+  "spent": 502,
+  "status": "running",
+  "control": {}
+}

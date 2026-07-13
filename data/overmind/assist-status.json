@@ -1,13 +1,13 @@
 {
-  "captured_at": "2026-07-12T02:38:04Z",
+  "captured_at": "2026-07-13T01:57:53Z",
   "workers": [
     {
       "agent_id": "assist-frontier",
       "role": "assist",
-      "system": "Horizon",
+      "system": "Deep Range",
       "poi": "mobile_capital",
       "docked": true,
-      "credits": 8697,
+      "credits": 8619,
       "hull": 80,
       "max_hull": 80,
       "fuel": 120,
@@ -19,7 +19,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-12T02:38:00Z"
+      "last_seen": "2026-07-13T01:57:44Z"
     },
     {
       "agent_id": "assist-haven",
@@ -27,7 +27,7 @@
       "system": "Haven",
       "poi": "grand_exchange",
       "docked": true,
-      "credits": 9239,
+      "credits": 10660,
       "hull": 95,
       "max_hull": 95,
       "fuel": 130,
@@ -39,7 +39,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-12T02:38:00Z"
+      "last_seen": "2026-07-13T01:57:49Z"
     },
     {
       "agent_id": "assist-krynn",
@@ -59,7 +59,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-12T02:38:00Z"
+      "last_seen": "2026-07-13T01:57:49Z"
     },
     {
       "agent_id": "assist-nexus",
@@ -67,7 +67,7 @@
       "system": "Nexus Prime",
       "poi": "the_core",
       "docked": true,
-      "credits": 2007,
+      "credits": 2911,
       "hull": 75,
       "max_hull": 75,
       "fuel": 95,
@@ -81,7 +81,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-12T02:38:00Z"
+      "last_seen": "2026-07-13T01:57:49Z"
     },
     {
       "agent_id": "assist-sol",
@@ -89,7 +89,7 @@
       "system": "Sol",
       "poi": "sol_central",
       "docked": true,
-      "credits": 2445,
+      "credits": 2245,
       "hull": 100,
       "max_hull": 100,
       "fuel": 100,
@@ -101,7 +101,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-12T02:38:00Z"
+      "last_seen": "2026-07-13T01:57:44Z"
     }
   ]
 }

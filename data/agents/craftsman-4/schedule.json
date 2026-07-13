@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "frequency": "hourly",
+    "command": "update_market",
+    "created_at": "2026-07-12T15:24:07.671718108Z",
+    "last_run": "2026-07-13T01:00:17.847602901Z"
+  },
+  {
+    "id": 2,
+    "frequency": "hourly",
+    "command": "facilities",
+    "created_at": "2026-07-12T15:24:07.671846692Z",
+    "last_run": "2026-07-13T01:00:17.847602901Z"
+  },
+  {
+    "id": 3,
+    "frequency": "daily",
+    "command": "kb_update",
+    "created_at": "2026-07-12T15:24:07.671967909Z",
+    "last_run": "2026-07-13T00:00:17.847577993Z"
+  }
+]

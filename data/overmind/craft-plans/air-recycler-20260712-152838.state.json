@@ -1,0 +1,159 @@
+{
+  "manifest": {
+    "plan_id": "air-recycler-20260712-152838",
+    "budget_cap": 5000,
+    "assembly": "grand_exchange",
+    "dispatched_at": "2026-07-12T15:28:38Z"
+  },
+  "nodes": [
+    {
+      "node": {
+        "id": "craft-1",
+        "kind": "craft",
+        "item_id": "air_recycler",
+        "qty": 2,
+        "runs": 2,
+        "recipe_id": "assemble_air_recycler",
+        "station_id": "grand_exchange",
+        "ticks_est": 7.5,
+        "status": "ok",
+        "depends_on": [
+          "xfer-0",
+          "haul-3",
+          "haul-4",
+          "haul-5"
+        ]
+      },
+      "state": "waiting",
+      "agent": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "craft-2",
+        "kind": "craft",
+        "item_id": "copper_piping",
+        "qty": 4,
+        "runs": 2,
+        "recipe_id": "verdigris_smelting",
+        "station_id": "grand_exchange",
+        "ticks_est": 0.8,
+        "status": "ok",
+        "depends_on": [
+          "mine-6"
+        ]
+      },
+      "state": "waiting",
+      "agent": "craftsman-3",
+      "recipient": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "haul-3",
+        "kind": "haul",
+        "item_id": "flex_polymer",
+        "qty": 2,
+        "holder": "assist-haven",
+        "from_base": "grand_exchange_station",
+        "to_base": "grand_exchange",
+        "status": "stale",
+        "reason": "stock last seen 2026-07-02T17:03Z"
+      },
+      "state": "parked",
+      "park": "needs_operator",
+      "park_detail": "holder assist-haven at grand_exchange_station: move 2 flex_polymer to craftsman-2",
+      "recipient": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "haul-4",
+        "kind": "haul",
+        "item_id": "ionized_neon",
+        "qty": 4,
+        "holder": "craftsman-1",
+        "from_base": "grand_exchange_station",
+        "to_base": "grand_exchange",
+        "status": "stale",
+        "reason": "stock last seen 2026-06-27T10:16Z"
+      },
+      "state": "parked",
+      "park": "needs_operator",
+      "park_detail": "holder craftsman-1 at grand_exchange_station: move 4 ionized_neon to craftsman-2",
+      "recipient": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "haul-5",
+        "kind": "haul",
+        "item_id": "purified_argon",
+        "qty": 8,
+        "holder": "craftsman-1",
+        "from_base": "grand_exchange_station",
+        "to_base": "grand_exchange",
+        "status": "stale",
+        "reason": "stock last seen 2026-06-27T10:16Z"
+      },
+      "state": "parked",
+      "park": "needs_operator",
+      "park_detail": "holder craftsman-1 at grand_exchange_station: move 8 purified_argon to craftsman-2",
+      "recipient": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "mine-6",
+        "kind": "mine",
+        "item_id": "verdigris_curd",
+        "qty": 8,
+        "status": "ok"
+      },
+      "state": "parked",
+      "park": "failed",
+      "park_detail": "failed after 3 attempts",
+      "recipient": "craftsman-3",
+      "done_qty": 0,
+      "retries": 3,
+      "spent_actual": 0
+    },
+    {
+      "node": {
+        "id": "xfer-0",
+        "kind": "haul",
+        "item_id": "copper_piping",
+        "qty": 4,
+        "from_base": "grand_exchange",
+        "to_base": "grand_exchange",
+        "status": "",
+        "depends_on": [
+          "craft-2"
+        ]
+      },
+      "state": "waiting",
+      "agent": "craftsman-3",
+      "recipient": "craftsman-2",
+      "done_qty": 0,
+      "retries": 0,
+      "synthetic": true,
+      "spent_actual": 0
+    }
+  ],
+  "spent": 0,
+  "status": "cancelled",
+  "control": {
+    "pause": true,
+    "cancel": true
+  }
+}

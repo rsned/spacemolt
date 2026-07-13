@@ -177,3 +177,4 @@ scratch/
 
 # Runtime lock files (flock guards, never versioned)
 data/overmind/*.lock
+data/overmind/**/*.lock

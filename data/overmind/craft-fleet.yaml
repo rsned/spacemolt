@@ -1,14 +1,15 @@
 # Craft fleet roster (9): craftsman-2..10, all role=craftsman.
-# Stations are LAST-SEEN values from 2026-07-02 KB sweep — PROVISIONAL.
-# Operator MUST confirm/correct actual docked locations before first fleet launch.
+# Stations CONFIRMED 2026-07-12 via live play_as get_status sweep — these are
+# the actual docked POI ids, which must match the planner's StationID values
+# (market.db stations.station_id) for the plans Runner roster to assign work.
 # craftsman-1 is reserved for the operator's own interactive play_as session.
 workers:
-  - { agent_id: craftsman-2, role: craftsman, station: grand_exchange_station }
-  - { agent_id: craftsman-3, role: craftsman, station: confederacy_central_command }
-  - { agent_id: craftsman-4, role: craftsman, station: alpha_centauri_colonial_station }
-  - { agent_id: craftsman-5, role: craftsman, station: central_nexus }
-  - { agent_id: craftsman-6, role: craftsman, station: central_nexus }
-  - { agent_id: craftsman-7, role: craftsman, station: crimson_war_citadel }
-  - { agent_id: craftsman-8, role: craftsman, station: crimson_war_citadel }
-  - { agent_id: craftsman-9, role: craftsman, station: unknown_edge_waystation }
-  - { agent_id: craftsman-10, role: craftsman, station: unknown_edge_waystation }
+  - { agent_id: craftsman-2, role: craftsman, station: grand_exchange }             # haven
+  - { agent_id: craftsman-3, role: craftsman, station: sol_central }                # sol
+  - { agent_id: craftsman-4, role: craftsman, station: alpha_centauri_colonial_station }  # alpha_centauri
+  - { agent_id: craftsman-5, role: craftsman, station: the_core }                   # nexus_prime
+  - { agent_id: craftsman-6, role: craftsman, station: the_core }                   # nexus_prime
+  - { agent_id: craftsman-7, role: craftsman, station: war_citadel }                # krynn
+  - { agent_id: craftsman-8, role: craftsman, station: war_citadel }                # krynn
+  - { agent_id: craftsman-9, role: craftsman, station: mobile_capital }             # deep_range — outerrim
+  - { agent_id: craftsman-10, role: craftsman, station: mobile_capital }            # deep_range — outerrim
