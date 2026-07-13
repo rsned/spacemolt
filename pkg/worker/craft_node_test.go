@@ -604,3 +604,84 @@ func TestDispatchCraftNodeMissingArgs(t *testing.T) {
 		t.Fatalf("no client calls expected before validation, got %v", client.calls)
 	}
 }
+
+// --- action_result unwrapping -------------------------------------------
+//
+// Live (server v0.485) craft is a next-tick action: the immediate reply is a
+// pending ok, and the job body arrives in an action_result frame. The client
+// caches that frame's PAYLOAD under "_last" (client.go storeRawJSON), and an
+// action_result payload is {"command","tick","result":{...}} — the job body is
+// nested under "result", not at the top level. The decoders below must unwrap
+// it. Fixtures mirror cmd/tools/play_as/craft_format_test.go, whose samples are
+// live captures.
+
+const wrappedQueuedFrame = `{"command":"craft","tick":42,"result":` +
+	`{"action":"craft","job_id":"job-abc-123","recipe":"assemble_air_recycler","runs":2,"est_completion_tick":9000}}`
+
+const wrappedBulkFrame = `{"command":"craft","tick":42,"result":` +
+	`{"action":"craft","mode":"bulk","results":[{"index":0,"success":true,"job_id":"job-bulk-9","runs":2}]}}`
+
+const wrappedQueueListing = `{"command":"craft","tick":1127360,"result":` +
+	`{"action":"queue","jobs":[{"job_id":"job-abc-123","runs_remaining":2,"status":"running"}]}}`
+
+const wrappedEmptyQueueListing = `{"command":"craft","tick":1127400,"result":{"action":"queue","jobs":[]}}`
+
+func TestCraftQueuedJobIDUnwrapsActionResult(t *testing.T) {
+	got, err := craftQueuedJobID([]byte(wrappedQueuedFrame))
+	if err != nil {
+		t.Fatalf("craftQueuedJobID on wrapped action_result frame: %v", err)
+	}
+	if got != "job-abc-123" {
+		t.Fatalf("job_id = %q, want job-abc-123", got)
+	}
+}
+
+func TestCraftBulkJobIDUnwrapsActionResult(t *testing.T) {
+	got, err := craftBulkJobID([]byte(wrappedBulkFrame))
+	if err != nil {
+		t.Fatalf("craftBulkJobID on wrapped action_result frame: %v", err)
+	}
+	if got != "job-bulk-9" {
+		t.Fatalf("job_id = %q, want job-bulk-9", got)
+	}
+}
+
+// A wrapped listing that still carries the job must read as NOT done —
+// without unwrapping, Action decodes as "" and craftJobDone bails out
+// inconclusive, which the caller cannot distinguish from "still running".
+func TestCraftJobDoneUnwrapsActionResultStillRunning(t *testing.T) {
+	done, runsRemaining, found := craftJobDone([]byte(wrappedQueueListing), "job-abc-123")
+	if done {
+		t.Fatal("job with runs_remaining=2 reported done")
+	}
+	if !found {
+		t.Fatal("job present in wrapped listing was not found")
+	}
+	if runsRemaining != 2 {
+		t.Fatalf("runs_remaining = %d, want 2", runsRemaining)
+	}
+}
+
+// The job dropping off a wrapped listing means it finished.
+func TestCraftJobDoneUnwrapsActionResultCompleted(t *testing.T) {
+	done, _, found := craftJobDone([]byte(wrappedEmptyQueueListing), "job-abc-123")
+	if !done {
+		t.Fatal("job absent from wrapped queue listing should read as done")
+	}
+	if found {
+		t.Fatal("job should not be reported found in an empty listing")
+	}
+}
+
+// Bare (unwrapped) bodies must keep working — not every craft reply arrives
+// inside an action_result frame, and the unwrap must be a no-op for those.
+func TestCraftDecodersStillAcceptBareBodies(t *testing.T) {
+	got, err := craftQueuedJobID([]byte(`{"action":"craft","job_id":"bare-1"}`))
+	if err != nil || got != "bare-1" {
+		t.Fatalf("bare queued body: got %q, err %v", got, err)
+	}
+	done, _, found := craftJobDone([]byte(`{"action":"queue","jobs":[]}`), "bare-1")
+	if !done || found {
+		t.Fatalf("bare empty listing: done=%v found=%v, want true/false", done, found)
+	}
+}

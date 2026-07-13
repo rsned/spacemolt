@@ -1,26 +1,27 @@
 {
-  "captured_at": "2026-07-13T01:57:53Z",
+  "captured_at": "2026-07-13T02:24:48Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "Sol",
-      "poi": "saturn",
+      "system": "Synchrony",
+      "poi": "synchrony_hub",
       "docked": false,
-      "credits": 5919543,
+      "credits": 5931551,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 118,
+      "fuel": 103,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
       "standing_behavior": "shuttle",
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
+      "faction_tag": "DB",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     }
   ]
 }

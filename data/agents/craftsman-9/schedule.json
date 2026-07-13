@@ -4,14 +4,14 @@
     "frequency": "hourly",
     "command": "update_market",
     "created_at": "2026-07-12T15:24:57.736904411Z",
-    "last_run": "2026-07-13T01:00:19.575628828Z"
+    "last_run": "2026-07-13T02:00:19.576883628Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "facilities",
     "created_at": "2026-07-12T15:24:57.737061656Z",
-    "last_run": "2026-07-13T01:00:19.575628828Z"
+    "last_run": "2026-07-13T02:00:19.576883628Z"
   },
   {
     "id": 3,

@@ -1,13 +1,13 @@
 {
-  "captured_at": "2026-07-13T01:57:53Z",
+  "captured_at": "2026-07-13T02:24:48Z",
   "workers": [
     {
       "agent_id": "hauler-0",
       "role": "hauler",
-      "system": "Gold Run",
-      "poi": "gold_run_extraction_hub",
-      "docked": false,
-      "credits": 4345389,
+      "system": "Trader's Rest",
+      "poi": "traders_rest_resort_station",
+      "docked": true,
+      "credits": 4344961,
       "hull": 80,
       "max_hull": 80,
       "fuel": 120,
@@ -17,22 +17,21 @@
       "standing_behavior": "hauler",
       "active_task_id": "",
       "faction_id": "10f7b3f724fc29a7981dfb1dfdbf02f5",
-      "faction_tag": "YSMT",
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "salvager-1",
       "role": "hauler",
-      "system": "Gold Run",
-      "poi": "gold_run_extraction_hub",
+      "system": "Trader's Rest",
+      "poi": "garden_world",
       "docked": false,
-      "credits": 3215386,
+      "credits": 3215066,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 88,
+      "fuel": 129,
       "max_fuel": 130,
       "cargo_used": 0,
       "cargo_capacity": 100,
@@ -43,7 +42,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "salvager-10",
@@ -65,18 +64,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "salvager-2",
       "role": "hauler",
-      "system": "Factory Belt",
-      "poi": "factory_belt_manufacturing_hub",
-      "docked": false,
+      "system": "Haven",
+      "poi": "grand_exchange",
+      "docked": true,
       "credits": 3309712,
       "hull": 95,
       "max_hull": 95,
-      "fuel": 124,
+      "fuel": 48,
       "max_fuel": 130,
       "cargo_used": 0,
       "cargo_capacity": 100,
@@ -87,18 +86,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "salvager-3",
       "role": "hauler",
-      "system": "Alpha Centauri",
-      "poi": "alpha_centauri_colonial_station",
+      "system": "Node Alpha",
+      "poi": "node_alpha_processing_station",
       "docked": false,
-      "credits": 4020532,
+      "credits": 4015767,
       "hull": 155,
       "max_hull": 155,
-      "fuel": 270,
+      "fuel": 196,
       "max_fuel": 270,
       "cargo_used": 0,
       "cargo_capacity": 475,
@@ -109,7 +108,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "salvager-4",
@@ -117,10 +116,10 @@
       "system": "Factory Belt",
       "poi": "factory_belt_manufacturing_hub",
       "docked": false,
-      "credits": 4408833,
+      "credits": 4408533,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 84,
+      "fuel": 100,
       "max_fuel": 100,
       "cargo_used": 0,
       "cargo_capacity": 70,
@@ -131,18 +130,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "salvager-5",
       "role": "hauler",
-      "system": "Node Gamma",
-      "poi": "node_gamma_relay_station",
-      "docked": false,
-      "credits": 4110483,
+      "system": "Synchrony",
+      "poi": "synchrony_hub",
+      "docked": true,
+      "credits": 3824466,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 95,
+      "fuel": 84,
       "max_fuel": 95,
       "cargo_used": 0,
       "cargo_capacity": 65,
@@ -153,18 +152,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "salvager-6",
       "role": "hauler",
-      "system": "Haven",
-      "poi": "grand_exchange",
-      "docked": true,
-      "credits": 4016899,
+      "system": "Gold Run",
+      "poi": "gold_run_extraction_hub",
+      "docked": false,
+      "credits": 4016329,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 59,
+      "fuel": 75,
       "max_fuel": 95,
       "cargo_used": 0,
       "cargo_capacity": 65,
@@ -175,18 +174,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "salvager-7",
       "role": "hauler",
-      "system": "Nexus Prime",
-      "poi": "the_core",
+      "system": "Node Alpha",
+      "poi": "node_alpha_processing_station",
       "docked": false,
       "credits": 3303480,
       "hull": 110,
       "max_hull": 110,
-      "fuel": 79,
+      "fuel": 76,
       "max_fuel": 90,
       "cargo_used": 0,
       "cargo_capacity": 60,
@@ -197,18 +196,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "salvager-8",
       "role": "hauler",
-      "system": "Node Alpha",
-      "poi": "node_alpha_processing_station",
+      "system": "Nexus Prime",
+      "poi": "the_core",
       "docked": false,
-      "credits": 2860467,
+      "credits": 2860083,
       "hull": 240,
       "max_hull": 240,
-      "fuel": 138,
+      "fuel": 135,
       "max_fuel": 140,
       "cargo_used": 0,
       "cargo_capacity": 400,
@@ -219,7 +218,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "salvager-9",
@@ -227,7 +226,7 @@
       "system": "Node Gamma",
       "poi": "node_gamma_relay_station",
       "docked": false,
-      "credits": 3591316,
+      "credits": 3590836,
       "hull": 80,
       "max_hull": 80,
       "fuel": 120,
@@ -239,7 +238,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "trader-1",
@@ -261,18 +260,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "trader-10",
       "role": "hauler",
-      "system": "Nexus Prime",
-      "poi": "the_core",
-      "docked": false,
+      "system": "Node Gamma",
+      "poi": "node_gamma_relay_station",
+      "docked": true,
       "credits": 3516657,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 117,
+      "fuel": 64,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 75,
@@ -283,18 +282,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:46Z"
+      "last_seen": "2026-07-13T02:24:46Z"
     },
     {
       "agent_id": "trader-2",
       "role": "hauler",
       "system": "Haven",
       "poi": "grand_exchange",
-      "docked": true,
-      "credits": 5469825,
+      "docked": false,
+      "credits": 5469380,
       "hull": 55,
       "max_hull": 55,
-      "fuel": 108,
+      "fuel": 112,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 450,
@@ -305,7 +304,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "trader-3",
@@ -313,7 +312,7 @@
       "system": "Haven",
       "poi": "grand_exchange",
       "docked": false,
-      "credits": 2879874,
+      "credits": 2879274,
       "hull": 100,
       "max_hull": 100,
       "fuel": 100,
@@ -327,18 +326,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "trader-4",
       "role": "hauler",
-      "system": "Gold Run",
-      "poi": "gold_run_extraction_hub",
+      "system": "Haven",
+      "poi": "grand_exchange",
       "docked": false,
-      "credits": 4156661,
+      "credits": 4155981,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 81,
+      "fuel": 155,
       "max_fuel": 170,
       "cargo_used": 0,
       "cargo_capacity": 130,
@@ -349,18 +348,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "trader-5",
       "role": "hauler",
-      "system": "Trader's Rest",
-      "poi": "traders_rest_resort_station",
-      "docked": true,
+      "system": "Haven",
+      "poi": "grand_exchange",
+      "docked": false,
       "credits": 2617871,
       "hull": 145,
       "max_hull": 145,
-      "fuel": 142,
+      "fuel": 77,
       "max_fuel": 160,
       "cargo_used": 0,
       "cargo_capacity": 275,
@@ -371,20 +370,20 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "trader-6",
       "role": "hauler",
-      "system": "Alpha Centauri",
-      "poi": "alpha_centauri_colonial_station",
+      "system": "Pherkad",
+      "poi": "pherkad_iii",
       "docked": false,
-      "credits": 4498356,
+      "credits": 4497006,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 72,
+      "fuel": 150,
       "max_fuel": 150,
-      "cargo_used": 0,
+      "cargo_used": 148,
       "cargo_capacity": 180,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -393,20 +392,20 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "trader-7",
       "role": "hauler",
-      "system": "Alpha Centauri",
-      "poi": "alpha_centauri_colonial_station",
-      "docked": true,
+      "system": "Pherkad",
+      "poi": "pherkad_iii",
+      "docked": false,
       "credits": 3274156,
       "hull": 110,
       "max_hull": 110,
       "fuel": 90,
       "max_fuel": 90,
-      "cargo_used": 0,
+      "cargo_used": 60,
       "cargo_capacity": 60,
       "standing_behavior": "hauler",
       "active_task_id": "",
@@ -415,18 +414,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     },
     {
       "agent_id": "trader-8",
       "role": "hauler",
-      "system": "Node Gamma",
-      "poi": "node_gamma_relay_station",
-      "docked": false,
-      "credits": 3292884,
+      "system": "Nexus Prime",
+      "poi": "the_core",
+      "docked": true,
+      "credits": 3291679,
       "hull": 160,
       "max_hull": 160,
-      "fuel": 333,
+      "fuel": 404,
       "max_fuel": 420,
       "cargo_used": 0,
       "cargo_capacity": 325,
@@ -437,7 +436,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:44Z"
+      "last_seen": "2026-07-13T02:24:44Z"
     },
     {
       "agent_id": "trader-9",
@@ -459,7 +458,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:49Z"
+      "last_seen": "2026-07-13T02:24:39Z"
     }
   ]
 }

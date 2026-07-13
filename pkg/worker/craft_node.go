@@ -143,6 +143,34 @@ func (d *WorkerDispatch) CraftOutputs(ctx context.Context, recipeID string, numO
 	return nil
 }
 
+// unwrapActionResult returns the inner "result" body of an action_result
+// frame, or raw unchanged when there is no such wrapper.
+//
+// Craft is a next-tick action on the live server: the immediate reply to a
+// craft command is a pending ok, and the job body lands later in an
+// action_result whose payload is {"command","tick","result":{...}}. The client
+// caches that payload under "_last" (game.Client.storeRawJSON), so every craft
+// decoder here sees the wrapper, not the job body — job_id/jobs/results all sit
+// one level down under "result". Decoding the wrapper directly still succeeds
+// (the fields are simply absent), which is why this failed as an empty job_id
+// rather than a decode error.
+//
+// Mirrors unwrapActionResult in cmd/tools/play_as, which learned this when
+// crafting was overhauled. Not every craft reply is wrapped, so this is a no-op
+// passthrough when "result" is absent.
+func unwrapActionResult(raw []byte) []byte {
+	var probe struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return raw
+	}
+	if len(probe.Result) == 0 {
+		return raw
+	}
+	return probe.Result
+}
+
 // craftQueuedJobID decodes job_id from the raw JSON of a single (hand-craft)
 // CraftWithQuantity queue response — the same shape as
 // serverapi.CraftJobQueued, cached by the client under the "_last" raw-JSON
@@ -151,6 +179,7 @@ func craftQueuedJobID(raw []byte) (string, error) {
 	if raw == nil {
 		return "", fmt.Errorf("no queue response captured (job_id unknown)")
 	}
+	raw = unwrapActionResult(raw)
 	var resp serverapi.CraftJobQueued
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return "", fmt.Errorf("decode queue response: %w", err)
@@ -168,6 +197,7 @@ func craftBulkJobID(raw []byte) (string, error) {
 	if raw == nil {
 		return "", fmt.Errorf("no queue response captured (job_id unknown)")
 	}
+	raw = unwrapActionResult(raw)
 	var resp serverapi.CraftBulkResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return "", fmt.Errorf("decode bulk queue response: %w", err)
@@ -262,6 +292,7 @@ func (d *WorkerDispatch) waitForCraftJob(ctx context.Context, jobID string, estC
 // A payload whose decoded Action isn't "queue" is therefore not a genuine
 // queue listing and is treated as inconclusive — never as done.
 func craftJobDone(raw []byte, jobID string) (done bool, runsRemaining int, found bool) {
+	raw = unwrapActionResult(raw)
 	var listing serverapi.CraftQueueListing
 	if err := json.Unmarshal(raw, &listing); err != nil {
 		return false, 0, false

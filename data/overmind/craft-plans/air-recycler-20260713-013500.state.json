@@ -88,10 +88,10 @@
           "buy-4"
         ]
       },
-      "state": "waiting",
+      "state": "done",
       "agent": "craftsman-2",
-      "done_qty": 0,
-      "retries": 0,
+      "done_qty": 2,
+      "retries": 2,
       "spent_actual": 0
     },
     {
@@ -147,15 +147,15 @@
           "buy-3"
         ]
       },
-      "state": "dispatched",
+      "state": "done",
       "agent": "craftsman-2",
-      "done_qty": 0,
+      "done_qty": 4,
       "retries": 0,
       "synthetic": true,
       "spent_actual": 0
     }
   ],
   "spent": 502,
-  "status": "running",
+  "status": "done",
   "control": {}
 }

@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-07-13T01:57:52Z",
+  "captured_at": "2026-07-13T02:24:52Z",
   "workers": [
     {
       "agent_id": "craftsman-10",
@@ -7,10 +7,10 @@
       "system": "Deep Range",
       "poi": "mobile_capital",
       "docked": true,
-      "credits": 212255,
+      "credits": 211095,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 1,
+      "fuel": 100,
       "max_fuel": 100,
       "cargo_used": 0,
       "cargo_capacity": 150,
@@ -19,31 +19,31 @@
       "faction_id": "e727c0e918d994c72db2978fe5b18edc",
       "faction_tag": "CRFT",
       "healthy": true,
-      "restarts": 1,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:48Z"
+      "last_seen": "2026-07-13T02:24:48Z"
     },
     {
       "agent_id": "craftsman-2",
       "role": "craftsman",
-      "system": "GSC-0009",
-      "poi": "gsc_0009_ii",
-      "docked": false,
-      "credits": 648432,
+      "system": "Haven",
+      "poi": "grand_exchange",
+      "docked": true,
+      "credits": 642626,
       "hull": 150,
       "max_hull": 150,
-      "fuel": 294,
+      "fuel": 550,
       "max_fuel": 550,
       "cargo_used": 0,
       "cargo_capacity": 345,
       "standing_behavior": "craftsman",
-      "active_task_id": "air-recycler-20260713-013500/xfer-2/r0",
+      "active_task_id": "",
       "faction_id": "e727c0e918d994c72db2978fe5b18edc",
       "faction_tag": "CRFT",
       "healthy": true,
-      "restarts": 2,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:47Z"
+      "last_seen": "2026-07-13T02:24:48Z"
     },
     {
       "agent_id": "craftsman-3",
@@ -51,10 +51,10 @@
       "system": "The Experiment",
       "poi": "the_experiment_research_station",
       "docked": true,
-      "credits": 51246,
+      "credits": 51166,
       "hull": 140,
       "max_hull": 140,
-      "fuel": 17,
+      "fuel": 130,
       "max_fuel": 130,
       "cargo_used": 0,
       "cargo_capacity": 100,
@@ -63,9 +63,9 @@
       "faction_id": "e727c0e918d994c72db2978fe5b18edc",
       "faction_tag": "CRFT",
       "healthy": true,
-      "restarts": 1,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:48Z"
+      "last_seen": "2026-07-13T02:24:43Z"
     },
     {
       "agent_id": "craftsman-4",
@@ -73,10 +73,10 @@
       "system": "Haven",
       "poi": "grand_exchange",
       "docked": true,
-      "credits": 121163,
+      "credits": 120617,
       "hull": 350,
       "max_hull": 350,
-      "fuel": 67,
+      "fuel": 200,
       "max_fuel": 200,
       "cargo_used": 0,
       "cargo_capacity": 400,
@@ -85,7 +85,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:47Z"
+      "last_seen": "2026-07-13T02:24:48Z"
     },
     {
       "agent_id": "craftsman-5",
@@ -105,7 +105,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:42Z"
+      "last_seen": "2026-07-13T02:24:43Z"
     },
     {
       "agent_id": "craftsman-6",
@@ -125,7 +125,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:47Z"
+      "last_seen": "2026-07-13T02:24:48Z"
     },
     {
       "agent_id": "craftsman-7",
@@ -147,7 +147,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:42Z"
+      "last_seen": "2026-07-13T02:24:43Z"
     },
     {
       "agent_id": "craftsman-8",
@@ -167,9 +167,9 @@
       "faction_id": "e727c0e918d994c72db2978fe5b18edc",
       "faction_tag": "CRFT",
       "healthy": true,
-      "restarts": 5,
+      "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:47Z"
+      "last_seen": "2026-07-13T02:24:48Z"
     },
     {
       "agent_id": "craftsman-9",
@@ -191,7 +191,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T01:57:43Z"
+      "last_seen": "2026-07-13T02:24:43Z"
     }
   ]
 }
