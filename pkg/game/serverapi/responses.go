@@ -950,6 +950,20 @@ type FacilityListResponse struct {
 	// deducted from the faction treasury each cycle. Present only when the
 	// viewer's faction owns facilities here.
 	FactionRent map[string]any `json:"faction_rent,omitempty"`
+	// PlayerRent is the same summary for the viewer's OWN facilities at this
+	// station, billed to the player rather than the faction treasury. Note that
+	// both rent blocks are scoped to this station only — the server's own note
+	// points at `facility owned` for the bill across all stations.
+	PlayerRent map[string]any `json:"player_rent,omitempty"`
+	// LifeSupport is the station's life-support standing: supply vs demand, the
+	// consumables burned per maintenance cycle, and what it is starved of.
+	// Confirmed identical to GetBaseResponse.LifeSupport against a live payload,
+	// so it shares that type rather than being another raw blob.
+	//
+	// openapi is no help for anything in this struct: it declares
+	// FacilityResponse with no properties at all, so every field here is driven
+	// by live payloads.
+	LifeSupport *LifeSupport `json:"life_support,omitempty"`
 }
 
 // ViewStorageResponse wraps the response from view_storage command.

@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-07-14T10:15:53Z",
+  "captured_at": "2026-07-14T10:25:58Z",
   "workers": [
     {
       "agent_id": "hauler-0",
@@ -50,7 +50,7 @@
       "role": "hauler",
       "system": "The Rampart",
       "poi": "the_rampart_checkpoint",
-      "docked": true,
+      "docked": false,
       "credits": 2909238,
       "hull": 160,
       "max_hull": 160,
@@ -65,7 +65,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "salvager-2",
@@ -87,18 +87,18 @@
       "healthy": true,
       "restarts": 81,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "salvager-3",
       "role": "hauler",
-      "system": "Nexus Prime",
-      "poi": "the_core",
+      "system": "Synchrony",
+      "poi": "phase_lock",
       "docked": false,
-      "credits": 4020706,
+      "credits": 4020098,
       "hull": 155,
       "max_hull": 155,
-      "fuel": 134,
+      "fuel": 246,
       "max_fuel": 270,
       "cargo_used": 0,
       "cargo_capacity": 475,
@@ -109,18 +109,18 @@
       "healthy": true,
       "restarts": 4,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "salvager-4",
       "role": "hauler",
       "system": "Nexus Prime",
       "poi": "the_core",
-      "docked": true,
+      "docked": false,
       "credits": 4412623,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 99,
+      "fuel": 79,
       "max_fuel": 100,
       "cargo_used": 0,
       "cargo_capacity": 70,
@@ -131,14 +131,14 @@
       "healthy": true,
       "restarts": 4,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "salvager-5",
       "role": "hauler",
       "system": "Sol",
       "poi": "sol_central",
-      "docked": true,
+      "docked": false,
       "credits": 4241590,
       "hull": 75,
       "max_hull": 75,
@@ -153,18 +153,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "salvager-6",
       "role": "hauler",
-      "system": "Node Alpha",
-      "poi": "node_alpha_processing_station",
+      "system": "Nexus Prime",
+      "poi": "the_core",
       "docked": false,
       "credits": 3925138,
       "hull": 75,
       "max_hull": 75,
-      "fuel": 94,
+      "fuel": 69,
       "max_fuel": 95,
       "cargo_used": 0,
       "cargo_capacity": 65,
@@ -175,7 +175,7 @@
       "healthy": true,
       "restarts": 2,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "salvager-7",
@@ -197,18 +197,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "salvager-8",
       "role": "hauler",
-      "system": "The Rampart",
-      "poi": "the_rampart_checkpoint",
-      "docked": true,
-      "credits": 3227307,
+      "system": "The Crucible",
+      "poi": "fury_minor",
+      "docked": false,
+      "credits": 3226665,
       "hull": 240,
       "max_hull": 240,
-      "fuel": 64,
+      "fuel": 140,
       "max_fuel": 140,
       "cargo_used": 0,
       "cargo_capacity": 400,
@@ -219,18 +219,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "salvager-9",
       "role": "hauler",
-      "system": "The Experiment",
-      "poi": "the_experiment_research_station",
+      "system": "Nexus Prime",
+      "poi": "the_core",
       "docked": false,
       "credits": 3578941,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 102,
+      "fuel": 93,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 75,
@@ -239,7 +239,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "trader-1",
@@ -250,7 +250,7 @@
       "credits": 5470589,
       "hull": 160,
       "max_hull": 160,
-      "fuel": 192,
+      "fuel": 148,
       "max_fuel": 240,
       "cargo_used": 0,
       "cargo_capacity": 480,
@@ -261,18 +261,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "trader-10",
       "role": "hauler",
       "system": "The Crucible",
-      "poi": "fury_minor",
+      "poi": "crucible_vents",
       "docked": false,
       "credits": 3421844,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 120,
+      "fuel": 114,
       "max_fuel": 120,
       "cargo_used": 0,
       "cargo_capacity": 75,
@@ -283,7 +283,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:46Z"
+      "last_seen": "2026-07-14T10:25:56Z"
     },
     {
       "agent_id": "trader-2",
@@ -305,18 +305,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "trader-3",
       "role": "hauler",
-      "system": "Nexus Prime",
-      "poi": "the_core",
+      "system": "Node Gamma",
+      "poi": "node_gamma_relay_station",
       "docked": false,
       "credits": 2863749,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 95,
+      "fuel": 68,
       "max_fuel": 100,
       "cargo_used": 0,
       "cargo_capacity": 70,
@@ -327,7 +327,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "trader-4",
@@ -349,7 +349,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "trader-5",
@@ -371,18 +371,18 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "trader-6",
       "role": "hauler",
-      "system": "Nexus Prime",
-      "poi": "the_core",
+      "system": "Node Alpha",
+      "poi": "saiph_8327_star",
       "docked": false,
-      "credits": 4539567,
+      "credits": 4538967,
       "hull": 100,
       "max_hull": 100,
-      "fuel": 146,
+      "fuel": 150,
       "max_fuel": 150,
       "cargo_used": 0,
       "cargo_capacity": 180,
@@ -393,7 +393,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "trader-7",
@@ -415,18 +415,18 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     },
     {
       "agent_id": "trader-8",
       "role": "hauler",
-      "system": "Node Gamma",
-      "poi": "node_gamma_relay_station",
+      "system": "Node Alpha",
+      "poi": "node_alpha_processing_station",
       "docked": false,
       "credits": 3249189,
       "hull": 160,
       "max_hull": 160,
-      "fuel": 310,
+      "fuel": 289,
       "max_fuel": 420,
       "cargo_used": 0,
       "cargo_capacity": 325,
@@ -437,14 +437,14 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:44Z"
+      "last_seen": "2026-07-14T10:25:54Z"
     },
     {
       "agent_id": "trader-9",
       "role": "hauler",
       "system": "Sol",
       "poi": "sol_central",
-      "docked": true,
+      "docked": false,
       "credits": 3645538,
       "hull": 100,
       "max_hull": 100,
@@ -459,7 +459,7 @@
       "healthy": true,
       "restarts": 1,
       "seen": true,
-      "last_seen": "2026-07-14T10:15:49Z"
+      "last_seen": "2026-07-14T10:25:49Z"
     }
   ]
 }
