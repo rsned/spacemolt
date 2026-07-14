@@ -18,7 +18,7 @@
     "frequency": "quarter_hourly",
     "command": "update_market",
     "created_at": "2026-06-24T06:39:06.772963495Z",
-    "last_run": "2026-07-14T10:00:12.538931697Z"
+    "last_run": "2026-07-14T10:15:12.537459209Z"
   },
   {
     "id": 4,

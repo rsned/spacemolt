@@ -203,8 +203,28 @@ var actionResponseTypes = map[string]reflect.Type{
 	// Economy & ship management
 	"get_tax_estimate":         reflect.TypeOf(serverapi.GetTaxEstimateResponse{}),
 	"get_faction_tax_estimate": reflect.TypeOf(serverapi.FactionTaxEstimateResponse{}),
-	"view_insurance":           reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
-	"scrap_ship":               reflect.TypeOf(serverapi.ScrapShipResponse{}),
+
+	// Commands with no dedicated client method, but reachable via play_as's raw
+	// passthrough — so responses do arrive and must be typed for drift detection.
+	// See serverapi/responses_passthrough.go.
+	"faction_garages":           reflect.TypeOf(serverapi.FactionGaragesResponse{}),
+	"hunt":                      reflect.TypeOf(serverapi.HuntResponse{}),
+	"build_outpost":             reflect.TypeOf(serverapi.BuildBaseResponse{}),
+	"buy_ship_license":          reflect.TypeOf(serverapi.ShipLicenseResponse{}),
+	"place_ship_buy_order":      reflect.TypeOf(serverapi.PlaceShipBuyOrderResponse{}),
+	"cancel_ship_buy_order":     reflect.TypeOf(serverapi.CancelShipBuyOrderResponse{}),
+	"view_ship_buy_orders":      reflect.TypeOf(serverapi.ViewShipBuyOrdersResponse{}),
+	"sell_ship_to_order":        reflect.TypeOf(serverapi.SellShipToOrderResponse{}),
+	"prepay_tax":                reflect.TypeOf(serverapi.PrepayTaxResponse{}),
+	"faction_prepay_tax":        reflect.TypeOf(serverapi.FactionPrepayTaxResponse{}),
+	"faction_scan_poi":          reflect.TypeOf(serverapi.FactionScanPOIResponse{}),
+	"get_faction_achievements":  reflect.TypeOf(serverapi.GetFactionAchievementsResponse{}),
+	"get_notification_settings": reflect.TypeOf(serverapi.NotificationSettingsResponse{}),
+	"mute_notifications":        reflect.TypeOf(serverapi.NotificationSettingsResponse{}),
+	"unmute_notifications":      reflect.TypeOf(serverapi.NotificationSettingsResponse{}),
+	"station":                   reflect.TypeOf(serverapi.StationConfigResponse{}),
+	"view_insurance":            reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
+	"scrap_ship":                reflect.TypeOf(serverapi.ScrapShipResponse{}),
 
 	// Missions, notes & log
 	"completed_missions":  reflect.TypeOf(serverapi.CompletedMissionsResponse{}),

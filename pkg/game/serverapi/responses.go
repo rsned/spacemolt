@@ -2022,16 +2022,32 @@ type SetDroneNameResponse struct {
 }
 
 // BuildBaseResponse wraps the response from build_base command.
+// Shared by build_base (found a faction station) and build_outpost (deploy a
+// members-only outpost) — both return this same shape.
+//
+// NOTE: openapi declares only base_id/name/poi_id/system_id/fee_paid/
+// public_access/hint (additionalProperties:false), i.e. it does NOT list
+// Type/CreditsSpent/ItemsUsed/DefenseLevel/Message. Those predate the spec entry
+// and there is no live sample in data/game-api/latest/ to adjudicate, so they
+// are kept rather than deleted: an extra field that never arrives is merely
+// zero, whereas deleting one the server still sends loses data silently. (The
+// spec has been wrong before — see ShipClass.build_materials.) Confirm against a
+// live build_base/build_outpost response and prune whichever set is dead.
 type BuildBaseResponse struct {
 	BaseID       string         `json:"base_id"`
 	Name         string         `json:"name"`
-	Type         string         `json:"type"`
+	Type         string         `json:"type,omitempty"`
 	POIID        string         `json:"poi_id"`
 	SystemID     string         `json:"system_id"`
-	CreditsSpent int            `json:"credits_spent"`
-	ItemsUsed    map[string]int `json:"items_used"`
-	DefenseLevel int            `json:"defense_level"`
-	Message      string         `json:"message"`
+	CreditsSpent int            `json:"credits_spent,omitempty"`
+	ItemsUsed    map[string]int `json:"items_used,omitempty"`
+	DefenseLevel int            `json:"defense_level,omitempty"`
+	Message      string         `json:"message,omitempty"`
+
+	// Documented by openapi but previously unmodelled.
+	FeePaid      int    `json:"fee_paid"`
+	PublicAccess bool   `json:"public_access"`
+	Hint         string `json:"hint,omitempty"`
 }
 
 // AttackBaseResponse wraps the response from attack_base command.

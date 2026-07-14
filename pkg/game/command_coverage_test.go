@@ -27,23 +27,16 @@ var ignoredCommands = map[string]string{
 	"subscribe_observation":   "streaming subscription; no client consumer",
 	"unsubscribe_observation": "streaming subscription; no client consumer",
 
-	// Not implemented.
-	"faction_garages":           "not implemented",
-	"hunt":                      "not implemented",
-	"build_outpost":             "not implemented",
-	"buy_ship_license":          "not implemented",
-	"place_ship_buy_order":      "not implemented",
-	"cancel_ship_buy_order":     "not implemented",
-	"view_ship_buy_orders":      "not implemented",
-	"sell_ship_to_order":        "not implemented",
-	"prepay_tax":                "not implemented",
-	"faction_prepay_tax":        "not implemented",
-	"faction_scan_poi":          "not implemented",
-	"get_faction_achievements":  "not implemented",
-	"get_notification_settings": "not implemented",
-	"mute_notifications":        "not implemented",
-	"unmute_notifications":      "not implemented",
-	"station":                   "not implemented (faction station admin)",
+	// NOTE: the block that used to sit here listed 16 commands as "not
+	// implemented". That was misleading — every one of them IS implemented
+	// server-side and returns a fully-specified payload, and all are reachable
+	// via play_as's raw passthrough. They now have response structs
+	// (serverapi/responses_passthrough.go) and entries in actionResponseTypes,
+	// so drift in them is detected instead of silently ignored. They still have
+	// no dedicated client method; that is a separate question from coverage.
+	//
+	// Only add an entry here for a command the client genuinely cannot receive a
+	// response for (a different API version, or a subscription we never open).
 }
 
 func TestServerCommandsCoveredByClient(t *testing.T) {
